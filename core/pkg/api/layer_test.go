@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
+	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
@@ -360,7 +361,7 @@ var _ = Describe("Layer", func() {
 		"Should set a status and its labels in one transaction",
 		func(ctx SpecContext) {
 			u := newUser(ctx, resource.TypeStatus, resource.TypeLabel)
-			l := label.Label{Name: "batched"}
+			l := label.Label{Name: "batched", Color: labelColor}
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.Label.NewWriter(tx).Create(ctx, &l)
 			})).To(Succeed())
@@ -413,3 +414,6 @@ var _ = Describe("NewLayer", func() {
 		Expect(l.Errors()).To(BeIdenticalTo(codec))
 	})
 })
+
+// labelColor is the color of the labels that the specs create.
+var labelColor = servicecolor.Ref{Variant: servicecolor.FixedRef{}}

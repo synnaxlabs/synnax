@@ -15,6 +15,11 @@ import { type ReactElement } from "react";
 
 export interface HaulPreviewProps {
   range: ranger.Payload;
+  /**
+   * The color of the range, resolved by the caller: the preview renders outside the
+   * Synnax provider.
+   */
+  color?: color.Crude;
   /** How many items the drag carries. */
   count?: number;
 }
@@ -23,7 +28,11 @@ export interface HaulPreviewProps {
  * The drag preview of a range: its color, name, start, and length. A planned range has
  * no start, so it shows "Planned".
  */
-export const HaulPreview = ({ range, count }: HaulPreviewProps): ReactElement => {
+export const HaulPreview = ({
+  range,
+  color: rangeColor,
+  count,
+}: HaulPreviewProps): ReactElement => {
   const tr = new TimeRange(range.timeRange).makeValid();
   const facts: string[] = [];
   if (tr.start.equals(TimeStamp.MAX)) facts.push("Planned");
@@ -34,7 +43,7 @@ export const HaulPreview = ({ range, count }: HaulPreviewProps): ReactElement =>
   return (
     <Haul.Preview
       icon={<Icon.Range />}
-      swatch={color.cssString(range.color)}
+      swatch={color.cssString(rangeColor)}
       name={range.name}
       facts={facts}
       count={count}

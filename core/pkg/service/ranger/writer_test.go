@@ -21,10 +21,13 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	xcolor "github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -180,7 +183,7 @@ var _ = Describe("Writer", func() {
 		Context("Labels", func() {
 			createLabel := func(ctx SpecContext, name string) label.Key {
 				GinkgoHelper()
-				l := &label.Label{Name: name}
+				l := &label.Label{Name: name, Color: labelColor}
 				Expect(labelSvc.NewWriter(tx).Create(ctx, l)).To(Succeed())
 				return l.Key
 			}
@@ -426,7 +429,7 @@ var _ = Describe("Writer broadcasts", func() {
 		openTx()
 		parent := newRange()
 		Expect(w.Create(ctx, parent)).To(Succeed())
-		l := label.Label{Key: uuid.New(), Name: "Label"}
+		l := label.Label{Key: uuid.New(), Name: "Label", Color: labelColor}
 		Expect(labelSvc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
 		rec := &Recorder[ranger.Key, ranger.Action]{}
 		DeferCleanup(svc.OnAction(rec.Record))
@@ -458,7 +461,7 @@ var _ = Describe("Writer broadcasts", func() {
 
 	It("Should broadcast a label edit as a set of the labels", func(ctx SpecContext) {
 		openTx()
-		l := label.Label{Key: uuid.New(), Name: "Label"}
+		l := label.Label{Key: uuid.New(), Name: "Label", Color: labelColor}
 		Expect(labelSvc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
 		r := newRange()
 		Expect(w.Create(ctx, r)).To(Succeed())
@@ -481,8 +484,8 @@ var _ = Describe("Writer broadcasts", func() {
 		"Should broadcast the labels a range keeps when a label delete detaches one",
 		func(ctx SpecContext) {
 			openTx()
-			deleted := label.Label{Key: uuid.New(), Name: "Deleted"}
-			kept := label.Label{Key: uuid.New(), Name: "Kept"}
+			deleted := label.Label{Key: uuid.New(), Name: "Deleted", Color: labelColor}
+			kept := label.Label{Key: uuid.New(), Name: "Kept", Color: labelColor}
 			Expect(labelSvc.NewWriter(tx).Create(ctx, &deleted)).To(Succeed())
 			Expect(labelSvc.NewWriter(tx).Create(ctx, &kept)).To(Succeed())
 			r := newRange()
@@ -510,6 +513,47 @@ var _ = Describe("Writer broadcasts", func() {
 		},
 	)
 
+	It(
+		"Should broadcast the color a range keeps when a named color delete inlines it",
+		func(ctx SpecContext) {
+			gone := color.Named{
+				Name:  "Fault",
+				Light: MustSucceed(xcolor.Parse("#ff0000")),
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return colorSvc.NewWriter(tx).Create(ctx, &gone)
+			})).To(Succeed())
+			openTx()
+			r := newRange()
+			r.Color = &color.Ref{Variant: color.NamedRef{Key: gone.Key}}
+			Expect(w.Create(ctx, r)).To(Succeed())
+			commit(ctx, r.Key)
+			rec := &Recorder[ranger.Key, ranger.Action]{}
+			DeferCleanup(svc.OnAction(rec.Record))
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return colorSvc.NewWriter(tx).Delete(ctx, gone.Key)
+			})).To(Succeed())
+			var res ranger.Range
+			Expect(svc.NewRetrieve().
+				Where(ranger.MatchKeys(r.Key)).
+				Entry(&res).
+				Exec(ctx, db)).To(Succeed())
+			Expect(res.Color).To(Equal(fixed("#ff0000")))
+			frames := framesOf(rec, r.Key)
+			Expect(frames).To(HaveLen(1))
+			Expect(frames[0].Actions).To(Equal([]ranger.Action{
+				ranger.NewSetAction(ranger.SetPayload{
+					Path:  []string{"labels"},
+					Value: r.Labels,
+				}),
+				ranger.NewSetAction(ranger.SetPayload{
+					Path:  []string{"color"},
+					Value: fixed("#ff0000"),
+				}),
+			}))
+		},
+	)
+
 	It("Should not broadcast a create that never commits", func(ctx SpecContext) {
 		rec := &Recorder[ranger.Key, ranger.Action]{}
 		DeferCleanup(svc.OnAction(rec.Record))
@@ -526,7 +570,10 @@ var _ = Describe("Writer in concurrent transactions", func() {
 		func(ctx SpecContext) {
 			labels := make([]label.Key, 20)
 			for i := range labels {
-				l := label.Label{Name: fmt.Sprintf("Concurrent %d", i)}
+				l := label.Label{
+					Name:  fmt.Sprintf("Concurrent %d", i),
+					Color: labelColor,
+				}
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return labelSvc.NewWriter(tx).Create(ctx, &l)
 				})).To(Succeed())

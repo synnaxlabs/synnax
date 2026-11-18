@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/x/color"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/validate"
@@ -37,7 +36,7 @@ var _ = Describe("Resources", func() {
 	})
 
 	It("Should name each label by its name", func(ctx SpecContext) {
-		l := label.Label{Name: "Nominal", Color: MustSucceed(color.Parse("#00FF00"))}
+		l := label.Label{Name: "Nominal", Color: fixed("#00FF00")}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.NewWriter(tx).Create(ctx, &l)
 		})).To(Succeed())
@@ -57,7 +56,7 @@ var _ = Describe("Resources", func() {
 	})
 
 	It("Should leave out an ID that names no label", func(ctx SpecContext) {
-		l := label.Label{Name: "Nominal", Color: MustSucceed(color.Parse("#00FF00"))}
+		l := label.Label{Name: "Nominal", Color: fixed("#00FF00")}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.NewWriter(tx).Create(ctx, &l)
 		})).To(Succeed())
@@ -70,7 +69,7 @@ var _ = Describe("Resources", func() {
 	})
 
 	It("Should list each label by its name", func(ctx SpecContext) {
-		l := label.Label{Name: "Nominal", Color: MustSucceed(color.Parse("#00FF00"))}
+		l := label.Label{Name: "Nominal", Color: fixed("#00FF00")}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.NewWriter(tx).Create(ctx, &l)
 		})).To(Succeed())

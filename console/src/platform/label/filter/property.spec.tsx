@@ -74,7 +74,7 @@ const createLabels = async (count: number): Promise<label.Label[]> =>
       async (_, i) =>
         await client.labels.create({
           name: uniqueName(`label-${i}`),
-          color: "#F00000",
+          color: { type: "fixed", value: "#F00000" },
         }),
     ),
   );

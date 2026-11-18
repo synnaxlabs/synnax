@@ -13,7 +13,7 @@ import pydantic
 import pytest
 
 import synnax as sy
-from synnax import label
+from synnax import color, label
 from x.strings import random_name
 from x.testutil import untyped
 
@@ -39,7 +39,14 @@ class TestLabelClient:
         name = str(uuid4())
         lbl = client.labels.create(name=name, color="#FF0000")
         assert lbl.name == name
-        assert lbl.color == sy.Color("#FF0000")
+        assert lbl.color == color.FixedRef(value=sy.Color("#FF0000"))
+
+    def test_create_with_named_color(self, client: sy.Synnax) -> None:
+        """Should keep a named color reference."""
+        named = client.colors.create(name=random_name(), light="#00FF00")
+        ref = color.NamedRef(key=named.key)
+        lbl = client.labels.create(name=random_name(), color=ref)
+        assert client.labels.retrieve(key=lbl.key).color == ref
 
     @pytest.mark.parametrize("kwargs", [{"name": "Nominal"}, {"color": "#FF0000"}, {}])
     def test_create_requires_name_and_color(
@@ -51,13 +58,13 @@ class TestLabelClient:
 
     def test_create_one(self, client: sy.Synnax) -> None:
         """Should create a single label and return it."""
-        lbl = sy.Label(name=str(uuid4()), color=sy.Color("#00FF00"))
+        lbl = sy.Label(name=str(uuid4()), color=color.to_ref("#00FF00"))
         assert client.labels.create(lbl) == lbl
 
     def test_create_many(self, client: sy.Synnax) -> None:
         """Should create a list of labels and return a list."""
         labels = [
-            sy.Label(name=str(uuid4()), color=sy.Color("#0000FF")) for _ in range(2)
+            sy.Label(name=str(uuid4()), color=color.to_ref("#0000FF")) for _ in range(2)
         ]
         created = client.labels.create(labels)
         assert [lbl.key for lbl in created] == [lbl.key for lbl in labels]

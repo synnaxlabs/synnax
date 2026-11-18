@@ -44,8 +44,8 @@ describe("queries", () => {
   describe("list", () => {
     it("should list the matching labels in name order", async () => {
       const [b, a] = await client.labels.create([
-        { name: "b", color: "#FF0000" },
-        { name: "a", color: "#00FF00" },
+        { name: "b", color: { type: "fixed", value: "#FF0000" } },
+        { name: "a", color: { type: "fixed", value: "#00FF00" } },
       ]);
       const { result } = renderHook(
         () =>
@@ -65,7 +65,10 @@ describe("queries", () => {
 
     it("should list the labels that match a search term", async () => {
       const name = `special-${id.create()}`;
-      const match = await client.labels.create({ name, color: "#00FF00" });
+      const match = await client.labels.create({
+        name,
+        color: { type: "fixed", value: "#00FF00" },
+      });
       const { result } = renderHook(
         () => Flux.useList((c) => c.labels, { name: "labels", searchDebounce: 0 }),
         { wrapper },
@@ -79,8 +82,8 @@ describe("queries", () => {
     describe("useDirect", () => {
       it("should retrieve multiple labels", async () => {
         const labels = await client.labels.create([
-          { name: "label1", color: "#FF0000" },
-          { name: "label2", color: "#00FF00" },
+          { name: "label1", color: { type: "fixed", value: "#FF0000" } },
+          { name: "label2", color: { type: "fixed", value: "#00FF00" } },
         ]);
         const { result } = await renderHookSuspended(
           () => Label.useMultiple({ keys: labels.map((l) => l.key) }),
@@ -101,8 +104,8 @@ describe("queries", () => {
       });
       it("should update when a label changes", async () => {
         const labels = await client.labels.create([
-          { name: "label1", color: "#FF0000" },
-          { name: "label2", color: "#00FF00" },
+          { name: "label1", color: { type: "fixed", value: "#FF0000" } },
+          { name: "label2", color: { type: "fixed", value: "#00FF00" } },
         ]);
         const { result } = await renderHookSuspended(
           () => Label.useMultiple({ keys: labels.map((l) => l.key) }),
@@ -129,7 +132,10 @@ describe("queries", () => {
       });
       act(() => {
         result.current.form.set(path.name, "newFormLabel");
-        result.current.form.set(path.color, color.construct("#FF00FF"));
+        result.current.form.set(path.color, {
+          type: "fixed",
+          value: color.construct("#FF00FF"),
+        });
         result.current.save();
       });
       await waitFor(() => expect(result.current.form.value().key).toBeDefined());
@@ -137,7 +143,10 @@ describe("queries", () => {
       assert(key != null);
       const stored = await client.labels.retrieve(key);
       expect(stored.name).toEqual("newFormLabel");
-      expect(stored.color).toEqual(color.construct("#FF00FF"));
+      expect(stored.color).toEqual({
+        type: "fixed",
+        value: color.construct("#FF00FF"),
+      });
     });
 
     it("should start from a blank name and a black color", () => {
@@ -146,7 +155,7 @@ describe("queries", () => {
       });
       expect(result.current.form.value()).toEqual({
         name: "",
-        color: color.construct("#000000"),
+        color: { type: "fixed", value: color.construct("#000000") },
       });
     });
   });
@@ -154,9 +163,9 @@ describe("queries", () => {
   describe("useEditFor", () => {
     const createLabels = async () =>
       await client.labels.create([
-        { name: "kept", color: "#FF0000" },
-        { name: "removed", color: "#00FF00" },
-        { name: "added", color: "#0000FF" },
+        { name: "kept", color: { type: "fixed", value: "#FF0000" } },
+        { name: "removed", color: { type: "fixed", value: "#00FF00" } },
+        { name: "added", color: { type: "fixed", value: "#0000FF" } },
       ]);
 
     it("should edit the labels of a status and keep the ones it does not name", async () => {
@@ -227,7 +236,7 @@ describe("queries", () => {
     it("should delete a label", async () => {
       const labelToDelete = await client.labels.create({
         name: "deleteMe",
-        color: "#FF0000",
+        color: { type: "fixed", value: "#FF0000" },
       });
 
       const { result } = renderHook(Label.useDelete, { wrapper });
@@ -246,7 +255,7 @@ describe("queries", () => {
     it("should run afterOptimistic before the delete commits", async () => {
       const lbl = await client.labels.create({
         name: "optimisticDelete",
-        color: "#FF0000",
+        color: { type: "fixed", value: "#FF0000" },
       });
       const order: string[] = [];
       const { result } = renderHook(
@@ -272,11 +281,11 @@ describe("queries", () => {
     it("should handle delete operations in sequence", async () => {
       const label1 = await client.labels.create({
         name: "delete1",
-        color: "#FF0000",
+        color: { type: "fixed", value: "#FF0000" },
       });
       const label2 = await client.labels.create({
         name: "delete2",
-        color: "#00FF00",
+        color: { type: "fixed", value: "#00FF00" },
       });
 
       const { result: result1 } = renderHook(Label.useDelete, { wrapper });
@@ -314,7 +323,10 @@ describe("useForm", () => {
   });
 
   const createLabel = async (): Promise<label.Label> =>
-    await client.labels.create({ name: "Nominal", color: "#00FF00" });
+    await client.labels.create({
+      name: "Nominal",
+      color: { type: "fixed", value: "#00FF00" },
+    });
 
   const renderForm = async (key: label.Key) =>
     await renderHookSuspended(() => Label.useForm({ query: { key } }), { wrapper });
@@ -324,7 +336,7 @@ describe("useForm", () => {
     const { result } = await renderForm(lbl.key);
     expect(result.current.form.value()).toEqual({
       name: "Nominal",
-      color: color.construct("#00FF00"),
+      color: { type: "fixed", value: color.construct("#00FF00") },
     });
   });
 
@@ -341,10 +353,15 @@ describe("useForm", () => {
   it("should send an edit to the color", async () => {
     const lbl = await createLabel();
     const { result } = await renderForm(lbl.key);
-    act(() => result.current.form.set(path.color, color.construct("#FF0000")));
+    act(() =>
+      result.current.form.set(path.color, {
+        type: "fixed",
+        value: color.construct("#FF0000"),
+      }),
+    );
     await act(async () => expect(await result.current.flush()).toBe(true));
     const stored = await createTestClient().labels.retrieve(lbl.key);
-    expect(stored.color).toEqual(color.construct("#FF0000"));
+    expect(stored.color).toEqual({ type: "fixed", value: color.construct("#FF0000") });
   });
 
   it("should hold an empty name without sending it", async () => {

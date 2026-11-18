@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ranger } from "@synnaxlabs/client";
+import { type color as clientColor, type ranger } from "@synnaxlabs/client";
 import { theme } from "@synnaxlabs/lyra/theme";
 import { type bounds, box, color, location, xy } from "@synnaxlabs/x";
 
+import { color as aetherColor } from "@/color/aether";
 import { type Draw2D } from "@/vis/draw2d";
 
 /** @returns the color with its OKLCH lightness set, keeping its chroma and hue. */
@@ -108,19 +109,21 @@ export interface Layout {
  * Places each range in the first lane that is free at its start and below every range
  * that holds it, so a parent sits above its children. Lanes pack in time, so a zoom
  * never moves a range to another lane. Ranges past the last thin lane share it. Ranges
- * with no color get no bar.
+ * with no color, or a named color not in named, get no bar.
  * @param position - Maps a timestamp in nanoseconds to a canvas x position.
+ * @param named - The named colors by key.
  */
 export const layout = (
   ranges: ranger.Range[],
   region: box.Box,
   position: (value: number) => number,
   t: theme.Theme,
+  named: Map<clientColor.Key, clientColor.Named>,
 ): Layout => {
   const bars = ranges.flatMap((range): Bar[] => {
-    const parsed = color.colorZ.safeParse(range.color);
-    if (!parsed.success) return [];
-    const c = parsed.data;
+    if (range.color == null) return [];
+    const c = aetherColor.resolve(range.color, named, t);
+    if (c == null) return [];
     const start = position(Number(range.timeRange.start.valueOf()));
     const end = position(Number(range.timeRange.end.valueOf()));
     const [x0, x1] = widen(

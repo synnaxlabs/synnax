@@ -74,7 +74,7 @@ const createRanges = async (start: TimeStamp, spans: [number, number][]) =>
         start.add(TimeSpan.seconds(from)),
         start.add(TimeSpan.seconds(to)),
       ),
-      color: "#7C3AED",
+      color: { type: "fixed" as const, value: "#7C3AED" },
     })),
   );
 
@@ -93,7 +93,7 @@ describe("Provider", () => {
         Array.from({ length: count }, () => ({
           name: `annotation-${id.create()}`,
           timeRange,
-          color: "#7C3AED",
+          color: { type: "fixed" as const, value: "#7C3AED" },
         })),
       );
     await create(5);
@@ -116,7 +116,7 @@ describe("Provider", () => {
     const range = await client.ranges.create({
       name: `open-${id.create()}`,
       timeRange: new TimeRange(start, TimeStamp.MAX),
-      color: "#7C3AED",
+      color: { type: "fixed" as const, value: "#7C3AED" },
     });
     try {
       // A fresh provider per viewport, since a requery keeps the previous answer until
@@ -218,6 +218,33 @@ describe("Provider", () => {
       expect(provider.state.hovered).toBeNull();
     } finally {
       await client.ranges.delete([colored.key, uncolored.key]);
+    }
+  });
+
+  it("draws a bar for a range with a named color", async () => {
+    const client = createTestClient();
+    const start = TimeStamp.now().add(TimeSpan.days(18250));
+    const named = await client.colors.create({
+      name: `strip-${id.create()}`,
+      light: "#7C3AED",
+    });
+    const rng = await client.ranges.create({
+      name: `named-${id.create()}`,
+      timeRange: new TimeRange(start, start.add(TimeSpan.seconds(4))),
+      color: { type: "named", key: named.key },
+    });
+    try {
+      const provider = mount();
+      const props = renderProps(new TimeRange(start, start.add(TimeSpan.seconds(10))));
+      await expect
+        .poll(() => {
+          provider.render(props);
+          return provider.state.count;
+        })
+        .toEqual(1);
+    } finally {
+      await client.ranges.delete(rng.key);
+      await client.colors.delete(named.key);
     }
   });
 

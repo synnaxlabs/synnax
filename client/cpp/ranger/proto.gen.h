@@ -15,9 +15,10 @@
 #include <unordered_map>
 #include <utility>
 
+#include "client/cpp/color/json.gen.h"
+#include "client/cpp/color/proto.gen.h"
 #include "client/cpp/ranger/json.gen.h"
 #include "client/cpp/ranger/types.gen.h"
-#include "x/cpp/color/json.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/filter/json.gen.h"
 #include "x/cpp/filter/proto.gen.h"
@@ -131,15 +132,15 @@ Range::to_proto() const {
         *pb.mutable_time_range() = v;
     }
     if (this->color.has_value()) {
-        auto [v, err] = this->color->to_proto();
+        auto [v, err] = ::synnax::color::to_proto(*this->color);
         if (err) return {{}, err};
         *pb.mutable_color() = v;
     }
+    pb.set_has_children(this->has_children);
     for (const auto &item: this->labels) {
         pb.add_labels(item.to_string());
     }
     if (this->parent.has_value()) pb.set_parent(this->parent->to_string());
-    pb.set_has_children(this->has_children);
     return {pb, x::errors::NIL};
 }
 
@@ -158,10 +159,11 @@ Range::from_proto(const ::service::ranger::pb::Range &pb) {
         cpp.time_range = v;
     }
     if (pb.has_color()) {
-        auto [v, err] = ::x::color::Color::from_proto(pb.color());
+        auto [v, err] = ::synnax::color::ref_from_proto(pb.color());
         if (err) return {{}, err};
         cpp.color = v;
     }
+    cpp.has_children = pb.has_children();
     for (const auto &item: pb.labels()) {
         auto [v, err] = x::uuid::UUID::parse(item);
         if (err) return {{}, err};
@@ -172,7 +174,6 @@ Range::from_proto(const ::service::ranger::pb::Range &pb) {
         if (err) return {{}, err};
         cpp.parent = v;
     }
-    cpp.has_children = pb.has_children();
     return {cpp, x::errors::NIL};
 }
 

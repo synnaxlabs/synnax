@@ -15,7 +15,7 @@ import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
-import { Flux, Label } from "@synnaxlabs/pluto";
+import { Color, Flux, Label } from "@synnaxlabs/pluto";
 import { array, record } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
@@ -181,12 +181,13 @@ const Operator = ({
 
 const Value = ({ value }: View.Filter.ConditionProps<Condition>): ReactElement => {
   const { data: labels = [] } = Label.useResultMultiple({ keys: value.keys });
+  const resolve = Color.useResolve();
   if (value.match === "empty") return <>No labels</>;
   return (
     <>
       <Flex.Box x empty className={CSS.BE("label-filter", "dots")}>
         {labels.map(({ key, color }) => (
-          <Icon.Circle key={key} color={color} />
+          <Icon.Circle key={key} color={resolve(color)} />
         ))}
       </Flex.Box>
       {summarize(labels.map(({ name }) => name))}

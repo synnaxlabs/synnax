@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/color"
 import "schemas/synnax/label"
-import "schemas/x/color"
 import "schemas/x/filter"
 import "schemas/x/patch"
 import "schemas/x/telem"
@@ -44,12 +44,19 @@ Range struct {
         @patch
         @ts type      telem.TimeRangeBounded
     }
-    color        color.Color?    {
+    color        color.Ref?      {
         @doc value """
             is an optional display color for visual identification of the range in user
-            interfaces.
+            interfaces, a named color or a fixed color.
         """
         @patch
+    }
+    has_children bool = false {
+        @doc value  """
+            is true when a range is nested in the range, derived on read and not
+            persisted.
+        """
+        @go marshal omit
     }
     labels       label.Key[] = [] {
         @doc value     "are the keys of the labels attached to the range."
@@ -65,13 +72,6 @@ Range struct {
         @ref acyclic
         @ref kind      place
         @ref on_delete cascade
-    }
-    has_children bool = false {
-        @doc value  """
-            is true when a range is nested in the range, derived on read and not
-            persisted.
-        """
-        @go marshal omit
     }
 
     action Create {

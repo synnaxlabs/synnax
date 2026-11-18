@@ -135,7 +135,7 @@ describe("range/toolbar/Card", () => {
     const rng = await createAgo(uniqueRangeName("labeled"), TimeSpan.minutes(1), null);
     const lbl = await client.labels.create({
       name: uniqueRangeName("label"),
-      color: "#FF0000",
+      color: { type: "fixed", value: "#FF0000" },
     });
     await client.labels.label(rng.resourceID, [lbl.key]);
     await renderCard(rng);

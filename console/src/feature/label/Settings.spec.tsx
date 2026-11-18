@@ -40,7 +40,7 @@ import {
 const client = createTestClient();
 
 const createLabel = async (name = uniqueName("label")): Promise<label.Label> =>
-  await client.labels.create({ name, color: "#0000FF" });
+  await client.labels.create({ name, color: { type: "fixed", value: "#0000FF" } });
 
 const renderLabels = async (as: Synnax = client): Promise<void> => {
   const { wrapper: Console } = await createConsoleWrapper({ client: as });
@@ -151,8 +151,28 @@ describe("Label.Settings", () => {
       fireEvent.keyDown(screen.getByLabelText("Hex"), { code: "Escape" });
     });
     await expect
-      .poll(async () => color.hex((await client.labels.retrieve(l.key)).color))
-      .toBe("#123456");
+      .poll(async () => (await client.labels.retrieve(l.key)).color)
+      .toEqual({ type: "fixed", value: color.construct("#123456") });
+  });
+
+  it("should recolor a label with a named color from its swatch", async () => {
+    const l = await createLabel();
+    const named = await client.colors.create({
+      name: uniqueName("named"),
+      light: "#123456",
+    });
+    await renderLabels();
+    await search(l.name);
+    const line = screen.getByRole("option", { name: l.name });
+    fireEvent.click(within(line).getByRole("button", { name: "Color" }));
+    fireEvent.click(await screen.findByText("Library"));
+    fireEvent.change(screen.getByPlaceholderText("Search colors"), {
+      target: { value: named.name },
+    });
+    fireEvent.click(await screen.findByRole("button", { name: named.name }));
+    await expect
+      .poll(async () => (await client.labels.retrieve(l.key)).color)
+      .toEqual({ type: "named", key: named.key });
   });
 
   it("should delete every selected label at once after confirming", async () => {

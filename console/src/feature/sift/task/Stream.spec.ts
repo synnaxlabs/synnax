@@ -221,7 +221,7 @@ describe("Sift stream form", () => {
     const [, data] = await newIndexedPair(client);
     const hotfire = await client.labels.create({
       name: uniqueName("hotfire"),
-      color: "#FF0000",
+      color: { type: "fixed", value: "#FF0000" },
     });
     const t = await client.tasks.create(
       {

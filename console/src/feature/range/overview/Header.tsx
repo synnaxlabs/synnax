@@ -9,7 +9,6 @@
 
 import { type label, lineplot, ranger } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
-import { Color } from "@synnaxlabs/lyra/color";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -18,7 +17,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { Access, Label as PLabel, Ranger } from "@synnaxlabs/pluto";
+import { Access, Color, Label as PLabel, Ranger } from "@synnaxlabs/pluto";
 import { color } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement } from "react";
 
@@ -38,7 +37,9 @@ interface RangeKeyProps {
 const Crumbs = ({ rangeKey }: RangeKeyProps): ReactElement | null => {
   const range = Ranger.useResult({ key: rangeKey }).data;
   const open = Range.useOpen();
+  const resolve = Color.useResolve();
   if (range == null) return null;
+  const crumb = resolve(range.color);
   return (
     <>
       {range.parent != null && (
@@ -58,9 +59,9 @@ const Crumbs = ({ rangeKey }: RangeKeyProps): ReactElement | null => {
         <span
           className={CSS.BE("range-overview", "crumb-color")}
           style={
-            range.color == null
+            crumb == null
               ? undefined
-              : ({ "--console-range-color": color.hex(range.color) } as CSSProperties)
+              : ({ "--console-range-color": color.hex(crumb) } as CSSProperties)
           }
         />
         <Text.Text el="span" overflow="fade" weight={500}>

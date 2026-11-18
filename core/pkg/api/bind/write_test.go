@@ -212,7 +212,7 @@ func denied(u user.User, action access.Action, object resource.ID) types.GomegaM
 
 func createLabel(ctx context.Context) label.Label {
 	GinkgoHelper()
-	l := label.Label{Name: "label"}
+	l := label.Label{Name: "label", Color: labelColor}
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 		return svc.Label.NewWriter(tx).Create(ctx, &l)
 	})).To(Succeed())
@@ -306,7 +306,7 @@ var _ = Describe("Write", func() {
 			key := uuid.New()
 			return rule{
 				write: func(ctx context.Context, tx gorp.Tx) error {
-					l := label.Label{Key: key, Name: "new"}
+					l := label.Label{Key: key, Name: "new", Color: labelColor}
 					return svc.Label.NewWriter(tx).Create(ctx, &l)
 				},
 				needed: need{access.ActionCreate, label.ResourceID(key)},
@@ -417,7 +417,7 @@ var _ = Describe("Write", func() {
 			key := uuid.New()
 			return rule{
 				write: func(ctx context.Context, tx gorp.Tx) error {
-					l := label.Label{Key: key, Name: source.Name}
+					l := label.Label{Key: key, Name: source.Name, Color: labelColor}
 					return svc.Label.NewWriter(tx).Create(ctx, &l)
 				},
 				sources: []resource.ID{source.ResourceID()},
@@ -705,7 +705,7 @@ var _ = Describe("Write", func() {
 			}
 		}),
 		Entry("a use target created", func(context.Context) (apply, []need) {
-			l := label.Label{Key: uuid.New(), Name: "new"}
+			l := label.Label{Key: uuid.New(), Name: "new", Color: labelColor}
 			r := newRange(nil, l.Key)
 			return func(ctx context.Context, tx gorp.Tx) error {
 				if err := svc.Label.NewWriter(tx).Create(ctx, &l); err != nil {
@@ -784,8 +784,8 @@ var _ = Describe("Write", func() {
 
 	It("Should roll back every write when access is denied", func(ctx SpecContext) {
 		u := newUser(ctx)
-		allowed := label.Label{Key: uuid.New(), Name: "allowed"}
-		refused := label.Label{Key: uuid.New(), Name: "refused"}
+		allowed := label.Label{Key: uuid.New(), Name: "allowed", Color: labelColor}
+		refused := label.Label{Key: uuid.New(), Name: "refused", Color: labelColor}
 		grant(ctx, u, access.ActionCreate, allowed.ResourceID())
 		Expect(write(ctx, u, func(ctx context.Context, tx gorp.Tx) error {
 			return svc.Label.NewWriter(tx).
@@ -861,7 +861,7 @@ var _ = Describe("Write", func() {
 				if err := stage(ctx, tx, u); err != nil {
 					return err
 				}
-				l := label.Label{Name: "staged"}
+				l := label.Label{Name: "staged", Color: labelColor}
 				return svc.Label.NewWriter(tx).Create(ctx, &l)
 			}
 			Expect(write(ctx, u, f)).To(MatchError(access.ErrDenied))
@@ -912,7 +912,7 @@ var _ = Describe("Write", func() {
 		"Should require only create on a returned record that the write created",
 		func(ctx SpecContext) {
 			u := newUser(ctx)
-			l := label.Label{Key: uuid.New(), Name: "returned"}
+			l := label.Label{Key: uuid.New(), Name: "returned", Color: labelColor}
 			grant(ctx, u, access.ActionCreate, l.ResourceID())
 			Expect(writeReturning(ctx, u, func(ctx context.Context, tx gorp.Tx) error {
 				return svc.Label.NewWriter(tx).Create(ctx, &l)
@@ -934,7 +934,7 @@ var _ = Describe("Write", func() {
 		"Should return a zero response and roll back when apply fails",
 		func(ctx SpecContext) {
 			u := newUser(ctx)
-			l := label.Label{Key: uuid.New(), Name: "failed"}
+			l := label.Label{Key: uuid.New(), Name: "failed", Color: labelColor}
 			grant(ctx, u, access.ActionCreate, l.ResourceID())
 			failed := errors.New("failed")
 			Expect(bind.Write(

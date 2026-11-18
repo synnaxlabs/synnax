@@ -74,7 +74,7 @@ describe("range/overview", () => {
       const rng = await createTestRange(client);
       const lbl = await client.labels.create({
         name: uniqueName("label"),
-        color: "#FF0000",
+        color: { type: "fixed", value: "#FF0000" },
       });
       await renderOverview(rng.key);
       fireEvent.click(await screen.findByRole("button", { name: "Labels" }));
@@ -90,8 +90,8 @@ describe("range/overview", () => {
     it("should remove a label when its tag closes", async () => {
       const rng = await createTestRange(client);
       const [removed, kept] = await client.labels.create([
-        { name: uniqueName("removed"), color: "#FF0000" },
-        { name: uniqueName("kept"), color: "#00FF00" },
+        { name: uniqueName("removed"), color: { type: "fixed", value: "#FF0000" } },
+        { name: uniqueName("kept"), color: { type: "fixed", value: "#00FF00" } },
       ]);
       await client.labels.label(rng.resourceID, [removed.key, kept.key]);
       await renderOverview(rng.key);
@@ -201,13 +201,18 @@ describe("range/overview", () => {
     it("should set the color of the range from its swatch", async () => {
       const rng = await createTestRange(client);
       await renderOverview(rng.key);
-      fireEvent.click(await screen.findByRole("button", { name: "Color" }));
+      // The swatch opens a picker only once the edit grant loads.
+      fireEvent.click(
+        await screen.findByRole("button", { name: "Color", expanded: false }),
+      );
+      // A range with no color opens the picker on its palettes.
+      fireEvent.click(await screen.findByText("Custom"));
       const hex = await screen.findByLabelText("Hex");
       fireEvent.change(hex, { target: { value: "123456" } });
       fireEvent.keyDown(hex, { code: "Escape" });
       await waitFor(async () => {
         const { color: stored } = await client.ranges.retrieve(rng.key);
-        expect(stored == null ? null : color.hex(stored)).toBe("#123456");
+        expect(stored).toEqual({ type: "fixed", value: color.construct("#123456") });
       });
     });
   });

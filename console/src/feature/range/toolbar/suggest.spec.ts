@@ -29,7 +29,7 @@ const createAt = async (
   await client.ranges.create({
     name,
     parent,
-    color: c == null ? undefined : color.construct(c),
+    color: c == null ? undefined : { type: "fixed", value: color.construct(c) },
     timeRange: new TimeRange(
       T0.add(TimeSpan.minutes(minutes)),
       T0.add(TimeSpan.minutes(minutes + 1)),

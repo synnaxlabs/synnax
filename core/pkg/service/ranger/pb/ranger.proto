@@ -13,7 +13,7 @@ syntax = "proto3";
 
 package service.ranger.pb;
 
-import "x/go/color/pb/color.proto";
+import "core/pkg/service/color/pb/color.proto";
 import "x/go/filter/pb/filter.proto";
 import "x/go/telem/pb/telem.proto";
 
@@ -37,16 +37,16 @@ message Range {
   // timestamps.
   .x.telem.pb.TimeRange time_range = 3;
   // color is an optional display color for visual identification of the range in user
-  // interfaces.
-  optional .x.color.pb.Color color = 4;
-  // labels are the keys of the labels attached to the range.
-  repeated string labels = 5;
-  // parent is the key of the range this range is nested in. Empty for a top-level
-  // range.
-  optional string parent = 6;
+  // interfaces, a named color or a fixed color.
+  optional .service.color.pb.Ref color = 4;
   // has_children is true when a range is nested in the range, derived on read and not
   // persisted.
-  bool has_children = 7;
+  bool has_children = 5;
+  // labels are the keys of the labels attached to the range.
+  repeated string labels = 6;
+  // parent is the key of the range this range is nested in. Empty for a top-level
+  // range.
+  optional string parent = 7;
 }
 message WhereList {
   repeated Where values = 1;

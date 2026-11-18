@@ -18,7 +18,7 @@
 package pb
 
 import (
-	pb1 "github.com/synnaxlabs/x/color/pb"
+	pb1 "github.com/synnaxlabs/synnax/pkg/service/color/pb"
 	pb2 "github.com/synnaxlabs/x/filter/pb"
 	pb "github.com/synnaxlabs/x/telem/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -97,16 +97,16 @@ type Range struct {
 	// timestamps.
 	TimeRange *pb.TimeRange `protobuf:"bytes,3,opt,name=time_range,json=timeRange,proto3" json:"time_range,omitempty"`
 	// color is an optional display color for visual identification of the range in user
-	// interfaces.
-	Color *pb1.Color `protobuf:"bytes,4,opt,name=color,proto3,oneof" json:"color,omitempty"`
-	// labels are the keys of the labels attached to the range.
-	Labels []string `protobuf:"bytes,5,rep,name=labels,proto3" json:"labels,omitempty"`
-	// parent is the key of the range this range is nested in. Empty for a top-level
-	// range.
-	Parent *string `protobuf:"bytes,6,opt,name=parent,proto3,oneof" json:"parent,omitempty"`
+	// interfaces, a named color or a fixed color.
+	Color *pb1.Ref `protobuf:"bytes,4,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// has_children is true when a range is nested in the range, derived on read and not
 	// persisted.
-	HasChildren   bool `protobuf:"varint,7,opt,name=has_children,json=hasChildren,proto3" json:"has_children,omitempty"`
+	HasChildren bool `protobuf:"varint,5,opt,name=has_children,json=hasChildren,proto3" json:"has_children,omitempty"`
+	// labels are the keys of the labels attached to the range.
+	Labels []string `protobuf:"bytes,6,rep,name=labels,proto3" json:"labels,omitempty"`
+	// parent is the key of the range this range is nested in. Empty for a top-level
+	// range.
+	Parent        *string `protobuf:"bytes,7,opt,name=parent,proto3,oneof" json:"parent,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -162,11 +162,18 @@ func (x *Range) GetTimeRange() *pb.TimeRange {
 	return nil
 }
 
-func (x *Range) GetColor() *pb1.Color {
+func (x *Range) GetColor() *pb1.Ref {
 	if x != nil {
 		return x.Color
 	}
 	return nil
+}
+
+func (x *Range) GetHasChildren() bool {
+	if x != nil {
+		return x.HasChildren
+	}
+	return false
 }
 
 func (x *Range) GetLabels() []string {
@@ -181,13 +188,6 @@ func (x *Range) GetParent() string {
 		return *x.Parent
 	}
 	return ""
-}
-
-func (x *Range) GetHasChildren() bool {
-	if x != nil {
-		return x.HasChildren
-	}
-	return false
 }
 
 type WhereList struct {
@@ -616,16 +616,16 @@ var File_core_pkg_service_ranger_pb_ranger_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_ranger_pb_ranger_proto_rawDesc = "" +
 	"\n" +
-	"'core/pkg/service/ranger/pb/ranger.proto\x12\x11service.ranger.pb\x1a\x19x/go/color/pb/color.proto\x1a\x1bx/go/filter/pb/filter.proto\x1a\x19x/go/telem/pb/telem.proto\"\xfe\x01\n" +
+	"'core/pkg/service/ranger/pb/ranger.proto\x12\x11service.ranger.pb\x1a%core/pkg/service/color/pb/color.proto\x1a\x1bx/go/filter/pb/filter.proto\x1a\x19x/go/telem/pb/telem.proto\"\x82\x02\n" +
 	"\x05Range\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x124\n" +
 	"\n" +
-	"time_range\x18\x03 \x01(\v2\x15.x.telem.pb.TimeRangeR\ttimeRange\x12,\n" +
-	"\x05color\x18\x04 \x01(\v2\x11.x.color.pb.ColorH\x00R\x05color\x88\x01\x01\x12\x16\n" +
-	"\x06labels\x18\x05 \x03(\tR\x06labels\x12\x1b\n" +
-	"\x06parent\x18\x06 \x01(\tH\x01R\x06parent\x88\x01\x01\x12!\n" +
-	"\fhas_children\x18\a \x01(\bR\vhasChildrenB\b\n" +
+	"time_range\x18\x03 \x01(\v2\x15.x.telem.pb.TimeRangeR\ttimeRange\x120\n" +
+	"\x05color\x18\x04 \x01(\v2\x15.service.color.pb.RefH\x00R\x05color\x88\x01\x01\x12!\n" +
+	"\fhas_children\x18\x05 \x01(\bR\vhasChildren\x12\x16\n" +
+	"\x06labels\x18\x06 \x03(\tR\x06labels\x12\x1b\n" +
+	"\x06parent\x18\a \x01(\tH\x01R\x06parent\x88\x01\x01B\b\n" +
 	"\x06_colorB\t\n" +
 	"\a_parent\"=\n" +
 	"\tWhereList\x120\n" +
@@ -695,12 +695,12 @@ var file_core_pkg_service_ranger_pb_ranger_proto_goTypes = []any{
 	(*StageList)(nil),    // 7: service.ranger.pb.StageList
 	(*Where)(nil),        // 8: service.ranger.pb.Where
 	(*pb.TimeRange)(nil), // 9: x.telem.pb.TimeRange
-	(*pb1.Color)(nil),    // 10: x.color.pb.Color
+	(*pb1.Ref)(nil),      // 10: service.color.pb.Ref
 	(*pb2.String)(nil),   // 11: x.filter.pb.String
 }
 var file_core_pkg_service_ranger_pb_ranger_proto_depIdxs = []int32{
 	9,  // 0: service.ranger.pb.Range.time_range:type_name -> x.telem.pb.TimeRange
-	10, // 1: service.ranger.pb.Range.color:type_name -> x.color.pb.Color
+	10, // 1: service.ranger.pb.Range.color:type_name -> service.color.pb.Ref
 	8,  // 2: service.ranger.pb.WhereList.values:type_name -> service.ranger.pb.Where
 	3,  // 3: service.ranger.pb.UuidSet.in:type_name -> service.ranger.pb.UuidList
 	0,  // 4: service.ranger.pb.StageList.values:type_name -> service.ranger.pb.Stage

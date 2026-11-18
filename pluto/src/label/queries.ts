@@ -61,7 +61,7 @@ export const createFormPath = deep.path<z.infer<typeof createFormSchema>>();
 
 const ZERO_CREATE_FORM_VALUES: z.infer<typeof createFormSchema> = {
   name: "",
-  color: color.construct("#000000"),
+  color: { type: "fixed", value: color.construct("#000000") },
 };
 
 /** A form that creates a label when the caller saves it. */

@@ -10,7 +10,6 @@
 import { type UnaryClient } from "@synnaxlabs/freighter";
 import {
   array,
-  type color,
   type CrudeTimeRange,
   deep,
   type destructor,
@@ -21,6 +20,7 @@ import {
 import { z } from "zod";
 
 import { actions } from "@/actions";
+import { type color } from "@/color";
 import { type framer } from "@/framer";
 import { type label } from "@/label";
 import { query } from "@/query";
@@ -113,7 +113,7 @@ export class Range {
   name: string;
   readonly kv: KVClient;
   readonly timeRange: TimeRange;
-  readonly color?: color.Color;
+  readonly color?: color.Ref;
   /** The key of the range this range is nested in. */
   readonly parent?: Key;
   /** The keys of the labels attached to the range. */

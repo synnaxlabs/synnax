@@ -16,7 +16,7 @@ import pydantic
 import pytest
 
 import synnax as sy
-from synnax import label, ranger
+from synnax import color as color_, label, ranger
 from synnax.state import Latest, State
 from tests.channel import RetrieveCounter
 from x.strings import random_name
@@ -58,7 +58,7 @@ class TestRangeColor:
             time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
             color="#00ff00",
         )
-        assert rng.color == sy.Color(r=0, g=255, b=0)
+        assert rng.color == color_.FixedRef(value=sy.Color(r=0, g=255, b=0))
 
 
 class TestRangeNotCreated:
@@ -179,7 +179,7 @@ class TestRangeClient:
         )
         assert rng.name == "test"
         assert rng.key != ""
-        assert rng.color == sy.Color(r=255, g=0, b=0)
+        assert rng.color == color_.FixedRef(value=sy.Color(r=255, g=0, b=0))
 
     def test_create_retrieve_without_color(self, client: sy.Synnax) -> None:
         """Should keep a missing color as None instead of coercing it to black."""
@@ -223,7 +223,8 @@ class TestRangeClient:
             client.ranges.create(
                 key=rng.key, name=rng.name, time_range=tr, color="#0000FF"
             )
-        assert client.ranges.retrieve(key=rng.key).color == sy.Color(r=255, g=0, b=0)
+        red = color_.FixedRef(value=sy.Color(r=255, g=0, b=0))
+        assert client.ranges.retrieve(key=rng.key).color == red
 
     def test_create_multiple(self, two_ranges: list[sy.Range]) -> None:
         """Should create multiple valid ranges"""
@@ -412,7 +413,7 @@ class TestRangeClient:
         )
         color = sy.Color(r=0, g=255, b=0, a=128)
         client.ranges.set_color(rng.key, color)
-        assert client.ranges.retrieve(key=rng.key).color == color
+        assert client.ranges.retrieve(key=rng.key).color == color_.FixedRef(value=color)
 
     def test_clear_color(self, client: sy.Synnax) -> None:
         """Should clear the color of a range when the color is None."""

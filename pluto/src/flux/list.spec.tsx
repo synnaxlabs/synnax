@@ -51,7 +51,7 @@ describe("useList", () => {
   beforeEach(async () => {
     lbl = await client.labels.create({
       name: uuid.create(),
-      color: color.construct("#000000"),
+      color: { type: "fixed", value: color.construct("#000000") },
     });
   });
 

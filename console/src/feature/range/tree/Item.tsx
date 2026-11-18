@@ -11,7 +11,6 @@ import "@/feature/range/tree/Item.css";
 
 import { type label, ranger } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
-import { Color } from "@synnaxlabs/lyra/color";
 import { context } from "@synnaxlabs/lyra/context";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -23,7 +22,7 @@ import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
-import { Access, Label as PLabel, Ranger } from "@synnaxlabs/pluto";
+import { Access, Color, Label as PLabel, Ranger } from "@synnaxlabs/pluto";
 import { type TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import {
   type CSSProperties,

@@ -15,7 +15,11 @@ import { label } from "@/label";
 const KEY = "5a7d3e1c-2f4b-4c6d-8e9f-0a1b2c3d4e5f";
 
 const createLabel = (): label.Label =>
-  label.labelZ.parse({ key: KEY, name: "Nominal", color: "#00ff00" });
+  label.labelZ.parse({
+    key: KEY,
+    name: "Nominal",
+    color: { type: "fixed", value: "#00ff00" },
+  });
 
 describe("label.reduceAll", () => {
   describe("set", () => {
@@ -28,17 +32,25 @@ describe("label.reduceAll", () => {
       expect(next.color).toBe(prev.color);
     });
 
-    it("should set the color from a hex string", () => {
+    it("should set a fixed color", () => {
       const { next } = label.reduceAll(createLabel(), [
-        label.set({ path: ["color"], value: "#ff0000" }),
+        label.set({ path: ["color"], value: { type: "fixed", value: "#ff0000" } }),
       ]);
-      expect(next.color).toEqual(color.construct("#ff0000"));
+      expect(next.color).toEqual({ type: "fixed", value: color.construct("#ff0000") });
+    });
+
+    it("should set a named color", () => {
+      const named = { type: "named", key: "0b6e2c4a-1d3f-4e5a-9b7c-8d6e5f4a3b2c" };
+      const { next } = label.reduceAll(createLabel(), [
+        label.set({ path: ["color"], value: named }),
+      ]);
+      expect(next.color).toEqual(named);
     });
 
     it("should return an inverse that restores the label", () => {
       const prev = createLabel();
       const { next, inverse, targets } = label.reduceAll(prev, [
-        label.set({ path: ["color"], value: "#ff0000" }),
+        label.set({ path: ["color"], value: { type: "fixed", value: "#ff0000" } }),
       ]);
       expect(targets).toEqual(["color"]);
       expect(label.reduceAll(next, inverse).next).toEqual(prev);

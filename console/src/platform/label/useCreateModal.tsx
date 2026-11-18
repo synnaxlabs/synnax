@@ -9,14 +9,13 @@
 
 import { type label, status, UnexpectedError } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
-import { Color } from "@synnaxlabs/lyra/color";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
-import { Label, Synnax } from "@synnaxlabs/pluto";
+import { Color, Label, Synnax } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Modals } from "@/platform/modals";

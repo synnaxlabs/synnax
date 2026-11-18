@@ -13,13 +13,24 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp/migrate"
+	color "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v2"
+	xcolor "github.com/synnaxlabs/x/color/versions/v2"
 )
 
-// MigrateRange lifts a v2 range to v3, which stores every color alpha as a 0-255
-// byte.
+// MigrateRange lifts a v2 range to v3. Its color becomes a fixed color with a 0-255
+// alpha, and no color stays absent.
 func MigrateRange(ctx context.Context, old v2.Range) (Range, error) {
-	return autoMigrateRange(ctx, old)
+	r, err := autoMigrateRange(ctx, old)
+	if err != nil || old.Color == nil {
+		return r, err
+	}
+	c, err := xcolor.MigrateColor(ctx, *old.Color)
+	if err != nil {
+		return Range{}, err
+	}
+	r.Color = &color.Ref{Variant: color.FixedRef{Value: c}}
+	return r, nil
 }
 
 // Migration lifts stored ranges from v2 to v3.

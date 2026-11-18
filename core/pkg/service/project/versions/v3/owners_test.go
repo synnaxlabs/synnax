@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
 	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions"
@@ -132,9 +133,11 @@ var _ = Describe("OwnersMigration", func() {
 			Exec(ctx, db)).To(Succeed())
 		Expect(gorp.NewCreate[ranger.Key, ranger.Range]().
 			Entry(&ranger.Range{
-				Key:   current,
-				Name:  "Current Range",
-				Color: &color.Color{R: 1, A: 128},
+				Key:  current,
+				Name: "Current Range",
+				Color: &servicecolor.Ref{
+					Variant: servicecolor.FixedRef{Value: color.Color{R: 1, A: 128}},
+				},
 			}).
 			Exec(ctx, db)).To(Succeed())
 		var core zapcore.Core

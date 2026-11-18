@@ -16,6 +16,7 @@ import { Tag } from "@synnaxlabs/lyra/tag";
 import { state } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
+import { Color } from "@/color";
 import { Flux } from "@/flux";
 import { useResultMultiple } from "@/label/queries";
 import { HAUL_TYPE } from "@/label/types";
@@ -26,11 +27,12 @@ export const ListItem = ({
   ...rest
 }: List.ItemRenderProps<label.Key>): ReactElement | null => {
   const item = List.useItem<label.Key, label.Label>(itemKey);
+  const resolve = Color.useResolve();
   if (item == null) return null;
   return (
     <Select.Item itemKey={itemKey} {...rest}>
-      <Icon.Circle color={item?.color} size="2.5em" />
-      {item?.name}
+      <Icon.Circle color={resolve(item.color)} size="2.5em" />
+      {item.name}
     </Select.Item>
   );
 };
@@ -51,9 +53,15 @@ const MultipleTag = (
   const { itemKey, onClick } = props;
   const item = List.useItem<label.Key, label.Label>(itemKey);
   const { onSelect } = Select.useItemState<label.Key>(itemKey);
+  const resolve = Color.useResolve();
   if (item == null) return null;
   return (
-    <Tag.Tag color={item.color} onClose={onSelect} onClick={onClick} size="small">
+    <Tag.Tag
+      color={resolve(item.color)}
+      onClose={onSelect}
+      onClick={onClick}
+      size="small"
+    >
       {item.name}
     </Tag.Tag>
   );
@@ -61,9 +69,10 @@ const MultipleTag = (
 
 const labelRenderTag = Component.renderProp(MultipleTag);
 
-const SELECT_MULTIPLE_TRIGGER_PROPS: Select.MultipleTriggerProps<label.Key> = {
-  variant: "text",
-};
+const SELECT_MULTIPLE_TRIGGER_PROPS: Select.MultipleTriggerProps<
+  label.Key,
+  label.Label | undefined
+> = { variant: "text" };
 
 interface BaseProps extends Omit<
   Select.MultipleProps<label.Key, label.Label | undefined>,

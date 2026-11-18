@@ -23,7 +23,7 @@ describe("Label", () => {
     it("should create a label", async () => {
       const v = await client.labels.create({
         name: "Label",
-        color: "#E774D0",
+        color: { type: "fixed", value: "#E774D0" },
       });
       expect(v.key).not.toHaveLength(0);
     });
@@ -33,7 +33,7 @@ describe("Label", () => {
     it("should retrieve a label by its key", async () => {
       const v = await client.labels.create({
         name: "Label",
-        color: "#E774D0",
+        color: { type: "fixed", value: "#E774D0" },
       });
       const retrieved = await client.labels.retrieve(v.key);
       expect(retrieved).toEqual(v);
@@ -41,15 +41,15 @@ describe("Label", () => {
     it("should retrieve a label by its name", async () => {
       const v = await client.labels.create({
         name: `named-label-${id.create()}`,
-        color: "#E774D0",
+        color: { type: "fixed", value: "#E774D0" },
       });
       expect(await client.labels.retrieve(v.name)).toEqual(v);
     });
     it("should retrieve labels by a list of names", async () => {
       const prefix = `named-labels-${id.create()}`;
       const created = await client.labels.create([
-        { name: `${prefix}-1`, color: "#E774D0" },
-        { name: `${prefix}-2`, color: "#E774D0" },
+        { name: `${prefix}-1`, color: { type: "fixed", value: "#E774D0" } },
+        { name: `${prefix}-2`, color: { type: "fixed", value: "#E774D0" } },
       ]);
       const retrieved = await client.labels.retrieve(created.map((l) => l.name));
       expect(retrieved.map((l) => l.name).sort()).toEqual([
@@ -66,7 +66,12 @@ describe("Label", () => {
     it("should retrieve labels by search term", async () => {
       const prefix = `searchable-label-${id.create()}`;
       const names = [`${prefix}-1`, `${prefix}-2`];
-      await client.labels.create(names.map((name) => ({ name, color: "#E774D0" })));
+      await client.labels.create(
+        names.map((name) => ({
+          name,
+          color: { type: "fixed" as const, value: "#E774D0" },
+        })),
+      );
       await expect
         .poll(async () => {
           const results = await client.labels.retrieve({ searchTerm: prefix });
@@ -77,8 +82,8 @@ describe("Label", () => {
     it("should retrieve labels by where", async () => {
       const prefix = `where-label-${id.create()}`;
       const [item, attached] = await client.labels.create([
-        { name: `${prefix}-item`, color: "#E774D0" },
-        { name: `${prefix}-attached`, color: "#E774D0" },
+        { name: `${prefix}-item`, color: { type: "fixed", value: "#E774D0" } },
+        { name: `${prefix}-attached`, color: { type: "fixed", value: "#E774D0" } },
       ]);
       const labels = await client.labels.retrieve({
         where: {
@@ -91,8 +96,8 @@ describe("Label", () => {
     it("should retrieve labels by a flat filter", async () => {
       const prefix = `flat-label-${id.create()}`;
       const [item, attached] = await client.labels.create([
-        { name: `${prefix}-item`, color: "#E774D0" },
-        { name: `${prefix}-attached`, color: "#E774D0" },
+        { name: `${prefix}-item`, color: { type: "fixed", value: "#E774D0" } },
+        { name: `${prefix}-attached`, color: { type: "fixed", value: "#E774D0" } },
       ]);
       const params: label.RetrieveMultipleParams = {
         name: { regex: `^${prefix}` },
@@ -102,15 +107,18 @@ describe("Label", () => {
       expect(labels.map((l) => l.key)).toEqual([item.key]);
     });
     it("should drop the keys that do not exist from a flat key list", async () => {
-      const lbl = await client.labels.create({ name: "Label", color: "#E774D0" });
+      const lbl = await client.labels.create({
+        name: "Label",
+        color: { type: "fixed", value: "#E774D0" },
+      });
       const labels = await client.labels.retrieve({ key: [lbl.key, uuid.create()] });
       expect(labels.map((l) => l.key)).toEqual([lbl.key]);
     });
     it("should return one label for a plain name beside other fields", async () => {
       const prefix = `one-label-${id.create()}`;
       const [item, attached] = await client.labels.create([
-        { name: `${prefix}-item`, color: "#E774D0" },
-        { name: `${prefix}-attached`, color: "#E774D0" },
+        { name: `${prefix}-item`, color: { type: "fixed", value: "#E774D0" } },
+        { name: `${prefix}-attached`, color: { type: "fixed", value: "#E774D0" } },
       ]);
       const retrieved: label.Label = await client.labels.retrieve({
         name: attached.name,
@@ -120,7 +128,10 @@ describe("Label", () => {
     });
     it("should return one label for a filter that sets one", async () => {
       const prefix = `one-option-${id.create()}`;
-      const lbl = await client.labels.create({ name: `${prefix}-a`, color: "#E774D0" });
+      const lbl = await client.labels.create({
+        name: `${prefix}-a`,
+        color: { type: "fixed", value: "#E774D0" },
+      });
       const retrieved: label.Label = await client.labels.retrieve({
         name: { startsWith: prefix },
         one: true,
@@ -130,8 +141,8 @@ describe("Label", () => {
     it("should throw a MultipleFoundError when a filter that sets one matches two labels", async () => {
       const prefix = `one-option-${id.create()}`;
       await client.labels.create([
-        { name: `${prefix}-a`, color: "#E774D0" },
-        { name: `${prefix}-b`, color: "#E774D0" },
+        { name: `${prefix}-a`, color: { type: "fixed", value: "#E774D0" } },
+        { name: `${prefix}-b`, color: { type: "fixed", value: "#E774D0" } },
       ]);
       await expect(
         client.labels.retrieve({ name: { startsWith: prefix }, one: true }),
@@ -169,7 +180,10 @@ describe("Label", () => {
       await expect(client.labels.retrieve(params)).rejects.toThrow(NotFoundError);
     });
     it("should throw a NotFoundError when a plain key and name match nothing", async () => {
-      const lbl = await client.labels.create({ name: "Label", color: "#E774D0" });
+      const lbl = await client.labels.create({
+        name: "Label",
+        color: { type: "fixed", value: "#E774D0" },
+      });
       const name = `other-${id.create()}`;
       await expect(client.labels.retrieve({ key: lbl.key, name })).rejects.toThrow(
         new NotFoundError(
@@ -178,14 +192,20 @@ describe("Label", () => {
       );
     });
     it("should throw a NotFoundError for a missing key in a key list", async () => {
-      const lbl = await client.labels.create({ name: "Label", color: "#E774D0" });
+      const lbl = await client.labels.create({
+        name: "Label",
+        color: { type: "fixed", value: "#E774D0" },
+      });
       const missing = uuid.create();
       await expect(client.labels.retrieve([lbl.key, missing])).rejects.toThrow(
         new NotFoundError(`label with key ${missing} not found`),
       );
     });
     it("should drop the keys that do not exist from a filter on keys", async () => {
-      const lbl = await client.labels.create({ name: "Label", color: "#E774D0" });
+      const lbl = await client.labels.create({
+        name: "Label",
+        color: { type: "fixed", value: "#E774D0" },
+      });
       const labels = await client.labels.retrieve({ key: [lbl.key, uuid.create()] });
       expect(labels.map((l) => l.key)).toEqual([lbl.key]);
     });
@@ -195,7 +215,7 @@ describe("Label", () => {
     it("should delete a label by its key", async () => {
       const v = await client.labels.create({
         name: "Label",
-        color: "#E774D0",
+        color: { type: "fixed", value: "#E774D0" },
       });
       await client.labels.delete(v.key);
       await expect(async () => await client.labels.retrieve(v.key)).rejects.toThrow();
@@ -210,8 +230,8 @@ describe("Label", () => {
 
     it("should add labels to a status and keep the ones it holds", async () => {
       const [l1, l2] = await client.labels.create([
-        { name: "Label One", color: "#E774D0" },
-        { name: "Label Two", color: "#E774D0" },
+        { name: "Label One", color: { type: "fixed", value: "#E774D0" } },
+        { name: "Label Two", color: { type: "fixed", value: "#E774D0" } },
       ]);
       const st = await createStatus();
       await client.labels.label(status.resourceID(st.key), [l1.key]);
@@ -221,8 +241,8 @@ describe("Label", () => {
 
     it("should replace the labels on a status", async () => {
       const [l1, l2] = await client.labels.create([
-        { name: "Label One", color: "#E774D0" },
-        { name: "Label Two", color: "#E774D0" },
+        { name: "Label One", color: { type: "fixed", value: "#E774D0" } },
+        { name: "Label Two", color: { type: "fixed", value: "#E774D0" } },
       ]);
       const st = await createStatus();
       await client.labels.label(status.resourceID(st.key), [l1.key]);
@@ -232,8 +252,8 @@ describe("Label", () => {
 
     it("should remove labels from a status", async () => {
       const [l1, l2] = await client.labels.create([
-        { name: "Label One", color: "#E774D0" },
-        { name: "Label Two", color: "#E774D0" },
+        { name: "Label One", color: { type: "fixed", value: "#E774D0" } },
+        { name: "Label Two", color: { type: "fixed", value: "#E774D0" } },
       ]);
       const st = await createStatus();
       await client.labels.label(status.resourceID(st.key), [l1.key, l2.key]);
@@ -243,8 +263,8 @@ describe("Label", () => {
 
     it("should reject a resource that is not a range or a status", async () => {
       const [l1, l2] = await client.labels.create([
-        { name: "Label One", color: "#E774D0" },
-        { name: "Label Two", color: "#E774D0" },
+        { name: "Label One", color: { type: "fixed", value: "#E774D0" } },
+        { name: "Label Two", color: { type: "fixed", value: "#E774D0" } },
       ]);
       await expect(
         client.labels.label(label.resourceID(l1.key), [l2.key]),
@@ -253,8 +273,8 @@ describe("Label", () => {
 
     it("should detach a deleted label from the statuses that hold it", async () => {
       const [kept, deleted] = await client.labels.create([
-        { name: "Kept", color: "#E774D0" },
-        { name: "Deleted", color: "#E774D0" },
+        { name: "Kept", color: { type: "fixed", value: "#E774D0" } },
+        { name: "Deleted", color: { type: "fixed", value: "#E774D0" } },
       ]);
       const st = await createStatus();
       await client.labels.label(status.resourceID(st.key), [kept.key, deleted.key]);
@@ -277,7 +297,7 @@ describe("cached reads", () => {
   it("serves a key query straight from the record written by create", async () => {
     const lbl = await client.labels.create({
       name: `qry-${id.create()}`,
-      color: "#E774D0",
+      color: { type: "fixed", value: "#E774D0" },
     });
     const cached = expectLive(client.labels.watch(lbl.key).getCached());
     expect(cached.name).toEqual(lbl.name);
@@ -286,7 +306,7 @@ describe("cached reads", () => {
   it("delivers a remote delete as a deleted result carrying the corpse", async () => {
     const lbl = await client.labels.create({
       name: `qry-${id.create()}`,
-      color: "#E774D0",
+      color: { type: "fixed", value: "#E774D0" },
     });
     const off = client.labels.watch(lbl.key).onChange(vi.fn());
     try {
@@ -310,7 +330,7 @@ describe("cached reads", () => {
     });
     const lbl = await remote.labels.create({
       name: `qry-attached-${id.create()}`,
-      color: "#E774D0",
+      color: { type: "fixed", value: "#E774D0" },
     });
     const off = client.statuses.watch(st.key).onChange(vi.fn());
     try {
@@ -340,7 +360,7 @@ describe("store", () => {
     await client.connect();
     const created = await client.labels.create({
       name: `label-${id.create()}`,
-      color: "#12E774",
+      color: { type: "fixed", value: "#12E774" },
     });
     await expect
       .poll(() => {
@@ -363,7 +383,10 @@ describe("dispatch", () => {
     await remote.connect();
   });
   const createLabel = async (c = client) =>
-    await c.labels.create({ name: `dispatch-${id.create()}`, color: "#00ff00" });
+    await c.labels.create({
+      name: `dispatch-${id.create()}`,
+      color: { type: "fixed", value: "#00ff00" },
+    });
   const rename = (value: string) => label.set({ path: ["name"], value });
 
   it("should store the actions and keep them in the cached label", async () => {
@@ -371,15 +394,15 @@ describe("dispatch", () => {
     expect(
       await client.labels.dispatch(lbl.key, [
         rename("Anomaly"),
-        label.set({ path: ["color"], value: "#ff0000" }),
+        label.set({ path: ["color"], value: { type: "fixed", value: "#ff0000" } }),
       ]),
     ).toBe(true);
     const stored = await createTestClient().labels.retrieve(lbl.key);
     expect(stored.name).toBe("Anomaly");
-    expect(stored.color).toEqual(color.construct("#ff0000"));
+    expect(stored.color).toEqual({ type: "fixed", value: color.construct("#ff0000") });
     const cached = expectLive(client.labels.watch(lbl.key).getCached());
     expect(cached.name).toBe("Anomaly");
-    expect(cached.color).toEqual(color.construct("#ff0000"));
+    expect(cached.color).toEqual({ type: "fixed", value: color.construct("#ff0000") });
   });
 
   it("should return false without a send when the label is not cached", async () => {
@@ -403,7 +426,7 @@ describe("dispatch", () => {
     const send = spyOnSend(client);
     const tx = client.labels.beginTransaction(lbl.key);
     tx.add(rename("Anomaly"));
-    tx.add(label.set({ path: ["color"], value: "#ff0000" }));
+    tx.add(label.set({ path: ["color"], value: { type: "fixed", value: "#ff0000" } }));
     expect(expectLive(client.labels.watch(lbl.key).getCached()).name).toBe("Anomaly");
     expect(await tx.commit()).toBe(true);
     expect(
@@ -411,7 +434,7 @@ describe("dispatch", () => {
     ).toHaveLength(1);
     const stored = await createTestClient().labels.retrieve(lbl.key);
     expect(stored.name).toBe("Anomaly");
-    expect(stored.color).toEqual(color.construct("#ff0000"));
+    expect(stored.color).toEqual({ type: "fixed", value: color.construct("#ff0000") });
   });
 
   it("applies another client's dispatch to a cached label", async () => {

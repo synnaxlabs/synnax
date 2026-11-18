@@ -845,7 +845,7 @@ describe("useForm", () => {
     it("should correctly update the form data when the listener receives changes", async () => {
       const lbl = await client.labels.create({
         name: "Initial Name",
-        color: color.construct("#000000"),
+        color: { type: "fixed", value: color.construct("#000000") },
       });
 
       const initialValues = {
@@ -899,7 +899,7 @@ describe("useForm", () => {
     it("should not mark form fields as touched when setting them view the listener", async () => {
       const lbl = await client.labels.create({
         name: "Initial Name",
-        color: color.construct("#000000"),
+        color: { type: "fixed", value: color.construct("#000000") },
       });
 
       const initialValues = {

@@ -26,7 +26,10 @@ const createGroup = async (name: string): Promise<resource.ID> =>
   group.resourceID((await client.groups.create({ scope: "channel", name })).key);
 
 const createLabel = async (name: string): Promise<resource.ID> =>
-  label.resourceID((await client.labels.create({ name, color: "#E87E04" })).key);
+  label.resourceID(
+    (await client.labels.create({ name, color: { type: "fixed", value: "#E87E04" } }))
+      .key,
+  );
 
 describe("Resource Queries", () => {
   describe("useList", () => {

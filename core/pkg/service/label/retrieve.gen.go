@@ -15,6 +15,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/x/compare"
 	"github.com/synnaxlabs/x/set"
 )
@@ -28,8 +29,9 @@ const tableName = "label"
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
-	name   *gorp.SortedIndex[Key, Label, string]
-	search *gorp.SearchIndex[Key, Label]
+	name     *gorp.SortedIndex[Key, Label, string]
+	colorKey *gorp.KeyReference[Key, Label, color.Key]
+	search   *gorp.SearchIndex[Key, Label]
 }
 
 // newIndexes constructs a fresh indexes value, allocating one instance of each
@@ -41,6 +43,38 @@ func newIndexes() indexes {
 			"name",
 			func(e *Label) string { return compare.TextKey(string(e.Name)) },
 		),
+		colorKey: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Label, color.Key]{
+			Name:     "color.key",
+			Table:    "color",
+			OnDelete: gorp.Inline,
+			Kind:     gorp.Use,
+			Targets: func(e *Label) []color.Key {
+				var targets []color.Key
+				switch v1 := e.Color.Variant.(type) {
+				case color.NamedRef:
+					targets = append(targets, v1.Key)
+				}
+				return targets
+			},
+			Inline: func(
+				ctx context.Context,
+				tx gorp.Tx,
+				e *Label,
+				t color.Key,
+			) error {
+				var target color.Named
+				if err := gorp.NewRetrieve[color.Key, color.Named]().
+					Where(gorp.MatchKeys[color.Key, color.Named](t)).
+					Entry(&target).
+					Exec(ctx, tx); err != nil {
+					return err
+				}
+				if v2, ok := e.Color.Variant.(color.NamedRef); ok && v2.Key == t {
+					e.Color.Variant = target.Inline()
+				}
+				return nil
+			},
+		}),
 		search: gorp.NewSearchIndex[Key, Label](
 			"search",
 			func(e *Label) []string {
@@ -56,6 +90,14 @@ func (i indexes) all() []gorp.Index[Key, Label] {
 	return []gorp.Index[Key, Label]{
 		i.name,
 		i.search,
+	}
+}
+
+// references returns the references packaged for registration via
+// gorp.TableConfig.References when opening the underlying table.
+func (i indexes) references() []gorp.Reference[Key, Label] {
+	return []gorp.Reference[Key, Label]{
+		i.colorKey,
 	}
 }
 

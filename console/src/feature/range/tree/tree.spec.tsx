@@ -79,7 +79,10 @@ const createRanges = async (): Promise<{
   label: label.Key;
   ranges: ranger.Range[];
 }> => {
-  const { key } = await client.labels.create({ name: "tree", color: "#000000" });
+  const { key } = await client.labels.create({
+    name: "tree",
+    color: { type: "fixed", value: "#000000" },
+  });
   const end = TimeStamp.now().sub(TimeSpan.days(1));
   const ranges = await client.ranges.create(
     ["a", "b", "c"].map((name) => ({
@@ -108,7 +111,10 @@ const renderTree = async (
 
 describe("range tree", () => {
   it("should show a short start for a narrow list", async () => {
-    const { key } = await client.labels.create({ name: "short", color: "#000000" });
+    const { key } = await client.labels.create({
+      name: "short",
+      color: { type: "fixed", value: "#000000" },
+    });
     const now = TimeStamp.now();
     const old = now.sub(TimeSpan.days(400));
     const ranges = await client.ranges.create(

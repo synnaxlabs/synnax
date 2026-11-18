@@ -60,7 +60,7 @@ describe("status explorer", () => {
   it("should show a chip for each field of a view saved by 0.61", async () => {
     const saved = await client.labels.create({
       name: uniqueName("label"),
-      color: "#F00000",
+      color: { type: "fixed", value: "#F00000" },
     });
     const stored = await client.views.create({
       name: uniqueName("view"),

@@ -7,19 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  caseconv,
-  color,
-  patch,
-  record,
-  TimeRange,
-  TimeStamp,
-  zod,
-} from "@synnaxlabs/x";
+import { caseconv, patch, record, TimeRange, TimeStamp, zod } from "@synnaxlabs/x";
 import { type Draft } from "immer";
 import { z } from "zod";
 
 import { actions } from "@/actions";
+import { color } from "@/color";
 import {
   type Action,
   createReduceAll,
@@ -34,7 +27,7 @@ const documentZ = z
   .object({
     name: z.string(),
     timeRange: TimeRange.z,
-    color: color.colorZ.nullish(),
+    color: color.refZ.nullish(),
     labels: z.string().array(),
     parent: z.string().nullish(),
   })
@@ -44,11 +37,11 @@ const documentZ = z
 // Immer cannot draft the cached range's TimeRange, so each action applies to the wire
 // form of the range, which then decodes back.
 const applyPath = (state: Draft<Payload>, action: patch.Action): HandlerResult => {
-  const { name, timeRange, color, parent } = state;
-  // The copy of the labels keeps draft proxies out of the inverse. A field the range
-  // lacks stays out of the document, so the inverse of its set is a remove.
+  const { name, timeRange, parent } = state;
+  // The copies of the labels and color keep draft proxies out of the inverse. A field
+  // the range lacks stays out of the document, so the inverse of its set is a remove.
   const fields: record.Unknown = { name, timeRange, labels: [...state.labels] };
-  if (color != null) fields.color = color;
+  if (state.color != null) fields.color = actions.snapshotDraft(state.color);
   if (parent != null) fields.parent = parent;
   const doc: record.Unknown = caseconv.camelToSnake(fields, { schema: documentZ });
   const inverse = patch.apply(doc, action);

@@ -19,7 +19,10 @@ func (l *Label) Patch(c patch.Cursor) error {
 	case "name":
 		return patch.Value(&l.Name, c.Next())
 	case "color":
-		return patch.Value(&l.Color, c.Next())
+		if c = c.Next(); c.Done() {
+			return patch.Value(&l.Color, c)
+		}
+		return l.Color.Patch(c)
 	default:
 		return c.UnknownField()
 	}

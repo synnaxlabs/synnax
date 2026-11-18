@@ -17,8 +17,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	color "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v3"
-	color "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
 	filter "github.com/synnaxlabs/x/filter/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
@@ -41,14 +41,9 @@ var _ = Describe("Codec", func() {
 				Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Name:      "test_2",
 				TimeRange: telem.TimeRange{Start: telem.TimeStamp(5), End: telem.TimeStamp(6)},
-				Color: new(color.Color{
-					R: 8,
-					G: 9,
-					B: 10,
-					A: 11,
-				}),
-				Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b")},
-				Parent: new(v3.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"))),
+				Color:     new(color.Ref{Variant: color.NamedRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807")}}),
+				Labels:    []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808")},
+				Parent:    new(v3.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"))),
 			}),
 			Entry("zero values", v3.Range{
 				Key:       uuid.Nil(),
@@ -62,14 +57,9 @@ var _ = Describe("Codec", func() {
 				Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Name:      "test_2",
 				TimeRange: telem.TimeRange{Start: telem.TimeStamp(5), End: telem.TimeStamp(6)},
-				Color: new(color.Color{
-					R: 8,
-					G: 9,
-					B: 10,
-					A: 11,
-				}),
-				Labels: []uuid.UUID{},
-				Parent: new(v3.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"))),
+				Color:     new(color.Ref{Variant: color.NamedRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807")}}),
+				Labels:    []uuid.UUID{},
+				Parent:    new(v3.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"))),
 			}),
 		)
 	})
@@ -251,14 +241,9 @@ func BenchmarkEncodeDecodeRange(b *testing.B) {
 		Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 		Name:      "test_2",
 		TimeRange: telem.TimeRange{Start: telem.TimeStamp(5), End: telem.TimeStamp(6)},
-		Color: new(color.Color{
-			R: 8,
-			G: 9,
-			B: 10,
-			A: 11,
-		}),
-		Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b")},
-		Parent: new(v3.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"))),
+		Color:     new(color.Ref{Variant: color.NamedRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807")}}),
+		Labels:    []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808")},
+		Parent:    new(v3.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"))),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -394,14 +379,9 @@ func FuzzDecodeRange(f *testing.F) {
 			Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			Name:      "test_2",
 			TimeRange: telem.TimeRange{Start: telem.TimeStamp(5), End: telem.TimeStamp(6)},
-			Color: new(color.Color{
-				R: 8,
-				G: 9,
-				B: 10,
-				A: 11,
-			}),
-			Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b")},
-			Parent: new(v3.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"))),
+			Color:     new(color.Ref{Variant: color.NamedRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807")}}),
+			Labels:    []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808")},
+			Parent:    new(v3.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"))),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -429,14 +409,9 @@ func FuzzDecodeRange(f *testing.F) {
 			Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			Name:      "test_2",
 			TimeRange: telem.TimeRange{Start: telem.TimeStamp(5), End: telem.TimeStamp(6)},
-			Color: new(color.Color{
-				R: 8,
-				G: 9,
-				B: 10,
-				A: 11,
-			}),
-			Labels: []uuid.UUID{},
-			Parent: new(v3.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"))),
+			Color:     new(color.Ref{Variant: color.NamedRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807")}}),
+			Labels:    []uuid.UUID{},
+			Parent:    new(v3.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"))),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

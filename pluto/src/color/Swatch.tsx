@@ -9,50 +9,80 @@
 
 import { type color } from "@synnaxlabs/client";
 import { Color } from "@synnaxlabs/lyra/color";
-import { type color as xcolor } from "@synnaxlabs/x";
+import { color as xcolor } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { usePalettes, useResolve } from "@/color/library";
 
-export interface SwatchProps extends Omit<
+interface BaseProps extends Omit<
   Color.SwatchProps,
   "value" | "onChange" | "fallback" | "library"
-> {
+> {}
+
+interface RequiredValueProps extends BaseProps {
+  /** The stored color reference. */
+  value: color.Ref;
+  /**
+   * Called with a named reference for a pick from a palette and a fixed reference for a
+   * custom color. Without it, the swatch only shows the color.
+   */
+  onChange?: (value: color.Ref) => void;
+  fallback?: undefined;
+}
+
+interface OptionalValueProps extends BaseProps {
   /** The stored color reference. Absent when the theme picks the color. */
   value?: color.Ref;
   /**
    * Called with a named reference for a pick from a palette, a fixed reference for a
-   * custom color, and undefined for Auto.
+   * custom color, and undefined for Auto. Without it, the swatch only shows the color.
    */
-  onChange: (value?: color.Ref) => void;
-  /** The color that the theme paints while the value is absent. */
+  onChange?: (value?: color.Ref) => void;
+  /**
+   * The color that the theme paints while the value is absent. Setting it makes the
+   * value optional and offers Auto.
+   */
   fallback: xcolor.Crude;
 }
 
+export type SwatchProps = RequiredValueProps | OptionalValueProps;
+
 /** A swatch that picks a named color from a palette or a fixed color. */
-export const Swatch = ({
-  value,
-  onChange,
-  fallback,
-  ...rest
-}: SwatchProps): ReactElement => {
+export const Swatch = (props: SwatchProps): ReactElement => {
+  const { value, onChange, fallback: _, ...rest } = props;
   const palettes = usePalettes();
   const resolve = useResolve();
+  const library: Color.Library | undefined =
+    palettes.length === 0 || onChange == null
+      ? undefined
+      : {
+          palettes,
+          named: value?.type === "named" ? value.key : undefined,
+          onNamedChange: (key) => onChange({ type: "named", key }),
+        };
+  const resolved = resolve(value);
+  if (props.fallback == null) {
+    const { onChange: required } = props;
+    return (
+      <Color.Swatch
+        {...rest}
+        value={resolved ?? xcolor.TRANSPARENT}
+        onChange={required && ((c) => required({ type: "fixed", value: c }))}
+        library={library}
+      />
+    );
+  }
+  const { onChange: optional, fallback } = props;
   return (
     <Color.Swatch
-      value={value == null ? undefined : resolve(value)}
-      fallback={fallback}
-      onChange={(c) => onChange(c == null ? undefined : { type: "fixed", value: c })}
-      library={
-        palettes.length === 0
-          ? undefined
-          : {
-              palettes,
-              named: value?.type === "named" ? value.key : undefined,
-              onNamedChange: (key) => onChange({ type: "named", key }),
-            }
-      }
       {...rest}
+      value={resolved}
+      fallback={fallback}
+      onChange={
+        optional &&
+        ((c) => optional(c == null ? undefined : { type: "fixed", value: c }))
+      }
+      library={library}
     />
   );
 };

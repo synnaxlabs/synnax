@@ -126,7 +126,7 @@ describe("Range.useCreateModal", () => {
     const parent = await createTestRange(client);
     const label = await client.labels.create({
       name: uniqueRangeName("label"),
-      color: "#E774D0",
+      color: { type: "fixed", value: "#E774D0" },
     });
     const childName = uniqueRangeName("child");
     await openModal(
