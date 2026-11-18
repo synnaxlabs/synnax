@@ -135,13 +135,24 @@ func (b browser) execType(
 	args msgpack.EncodedJSON,
 ) task.Status {
 	GinkgoHelper()
+	return b.send(ctx, ctx, cmdType, args)
+}
+
+// send runs a command on b with the time limit of cmdCtx, and returns the status that
+// answers it.
+func (b browser) send(
+	ctx, cmdCtx context.Context,
+	cmdType string,
+	args msgpack.EncodedJSON,
+) task.Status {
+	GinkgoHelper()
 	cmd := task.Command{
 		Task: b.stored.Key,
 		Type: cmdType,
 		Key:  uuid.New().String(),
 		Args: args,
 	}
-	Expect(b.instance.Exec(ctx, cmd)).To(Succeed())
+	Expect(b.instance.Exec(cmdCtx, cmd)).To(Succeed())
 	var stat task.Status
 	Eventually(func(g Gomega) {
 		stat = taskStatus(ctx, b.stored)
