@@ -66,12 +66,19 @@ describe("enumeration.reduceAll", () => {
       expect(enumeration.reduceAll(next, inverse).next).toEqual(prev);
     });
 
+    it("should hold an empty name for the Core to refuse", () => {
+      const { next } = enumeration.reduceAll(createValve(), [
+        enumeration.set({ path: ["name"], value: "" }),
+      ]);
+      expect(next.name).toBe("");
+    });
+
     it("should throw for a path outside the editable fields", () => {
       expect(() =>
         enumeration.reduceAll(createValve(), [
           enumeration.set({ path: ["key"], value: KEY }),
         ]),
-      ).toThrow("key is not an editable field");
+      ).toThrow('no editable field at "key"');
     });
   });
 

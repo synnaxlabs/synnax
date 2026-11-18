@@ -9,6 +9,7 @@
 
 import { patch } from "@synnaxlabs/x";
 import { type Draft } from "immer";
+import { z } from "zod";
 
 import { actions } from "@/actions";
 import {
@@ -17,22 +18,19 @@ import {
   type HandlerResult,
   type Handlers,
 } from "@/enumeration/actions.gen";
-import { type Enumeration, enumerationZ } from "@/enumeration/types.gen";
+import { entryZ, type Enumeration } from "@/enumeration/types.gen";
 
-const EDITABLE_FIELDS: readonly string[] = ["name", "entries"];
+// The fields that path actions edit, checked for shape only. The Core validates them.
+const documentZ = z.object({
+  name: z.string(),
+  entries: entryZ.extend({ key: z.string() }).array(),
+});
 
-const applyPath = (state: Draft<Enumeration>, action: patch.Action): HandlerResult => {
-  const [field] = patch.pathOf(action);
-  if (!EDITABLE_FIELDS.includes(field))
-    throw new Error(`[Enumeration] - ${field} is not an editable field`);
-  return actions.applyPath(state, action, enumerationZ);
-};
+const applyPath = (state: Draft<Enumeration>, action: patch.Action): HandlerResult =>
+  actions.applyField(state, action, documentZ);
 
 const handlers: Handlers = {
-  create: (state, { enumeration }) => {
-    Object.assign(state, enumeration);
-    return { inverse: [], targets: [enumeration.key] };
-  },
+  create: (state, { enumeration }) => actions.replace(state, enumeration),
   ...actions.createPathHandlers(applyPath),
 };
 
@@ -50,7 +48,7 @@ export const reduceAll = createReduceAll(handlers);
 export const encode = (state: Enumeration, action: Action): Action =>
   action.type === "create"
     ? action
-    : patch.camelToSnake(action, { schema: enumerationZ, data: state });
+    : patch.camelToSnake(action, { schema: documentZ, data: state });
 
 /** @returns the enumeration that a create action carries, or undefined for others. */
 export const createOf = (action: Action): Enumeration | undefined =>

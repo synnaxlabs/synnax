@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -53,11 +54,11 @@ func check(e Enumeration) error {
 	if err := e.Validate(); err != nil {
 		return err
 	}
-	keys := make(map[string]struct{}, len(e.Entries))
-	values := make(map[float64]struct{}, len(e.Entries))
+	keys := make(set.Set[string], len(e.Entries))
+	values := make(set.Set[float64], len(e.Entries))
 	for i, entry := range e.Entries {
 		path := []string{"entries", strconv.Itoa(i)}
-		if _, ok := keys[entry.Key]; ok {
+		if keys.Contains(entry.Key) {
 			return validate.PathedError(errors.Wrapf(
 				validate.ErrValidation,
 				"another entry has the key %q",
@@ -71,15 +72,15 @@ func check(e Enumeration) error {
 				entry.Value,
 			), append(path, "value")...)
 		}
-		if _, ok := values[entry.Value]; ok {
+		if values.Contains(entry.Value) {
 			return validate.PathedError(errors.Wrapf(
 				validate.ErrValidation,
 				"another entry has the value %v",
 				entry.Value,
 			), append(path, "value")...)
 		}
-		keys[entry.Key] = struct{}{}
-		values[entry.Value] = struct{}{}
+		keys.Add(entry.Key)
+		values.Add(entry.Value)
 	}
 	return nil
 }
