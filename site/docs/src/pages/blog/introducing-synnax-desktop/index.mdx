@@ -2,7 +2,7 @@
 layout: "@/layouts/Blog.astro"
 title: "Introducing Synnax Desktop"
 description: "The best of Synnax on a single bench, free for commercial use."
-published: "2026-11-02"
+published: "2026-11-18"
 author: "Emiliano Bonilla"
 authorImage: "https://synnax.nyc3.cdn.digitaloceanspaces.com/eb_headshot.png"
 authorLink: "https://www.linkedin.com/in/emiliano-bonilla-8a0a95187/"
@@ -10,9 +10,9 @@ authorLink: "https://www.linkedin.com/in/emiliano-bonilla-8a0a95187/"
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Desktop } from "@/components/desktop";
 import { Diagram } from "@/components/diagram";
 import { Hero } from "@/components/hero";
+import { Video } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Rule } from "@/components/rule";
 
@@ -25,8 +25,8 @@ export const components = mdxOverrides;
   palette="blue-violet"
 />
 
-A week ago we launched Synnax Desktop. It's our Core, Console, and device drivers
-bundled together, built for the bench, and free for commercial use.
+A few weeks ago we launched Synnax Desktop. It's the Synnax Core, Synnax Console, and
+Synnax Driver bundled together, built for the bench, and free for commercial use.
 
 It's also a big change in how we sell Synnax. For years, the only way to get your hands
 on it was to talk to us first. Desktop flips that around. In this post, I'll walk you
@@ -52,7 +52,7 @@ There's a common joke on industrial automation subreddits that goes like this:
 
 <figure className="article-portrait">
   <img
-    src="https://i.redd.it/g6van9ug3xbc1.jpeg"
+    src="https://synnax.nyc3.cdn.digitaloceanspaces.com/docs/blog/introducing-synnax-desktop/r-plc-meme.jpeg"
     loading="lazy"
     decoding="async"
     alt="A man at a urinal next to a Keyence rep, who says he saw you downloaded a manual"
@@ -80,14 +80,13 @@ experience and technical excellence. It's a risk, but it's one we're happy to ta
 because it's the way we'd like to evaluate Synnax if we were engineers at our customers'
 companies.
 
-Here's what trying out Desktop looks like, uncut and in real time.
+Here's what trying out Desktop looks like.
 
-<Diagram.Diagram>
-  **To record (V2):** download, install, open the sample project, and watch the live
-  plot. About 90 seconds, real time, clock in the corner.
-</Diagram.Diagram>
+<Video id="blog/introducing-synnax-desktop/download" themed={false} />
 
 That's the whole sales process.
+
+<Divider.Divider x />
 
 ## So what is Synnax Desktop?
 
@@ -156,6 +155,8 @@ in one.
   ]}
 />
 
+<Divider.Divider x />
+
 ## What you can do with it
 
 Once it's open, you can:
@@ -166,7 +167,7 @@ Once it's open, you can:
 [NI devices](/reference/hardware/ni/configure-device) (on Windows),
 [LabJacks](/reference/hardware/labjack/configure-device),
 [Modbus](/reference/hardware/modbus/connect-server) and
-[OPC UA](/reference/hardware/opc-ua/connect-server) PLCs,
+[OPC UA](/reference/hardware/opc-ua/connect-server) servers,
 [EtherCAT](/reference/hardware/ethercat/configure-device) I/O, and
 [HTTP](/reference/hardware/http/connect-server) APIs, all on the same bench at the same
 time.
@@ -199,11 +200,7 @@ plot.
 </Rule.Item>
 </Rule.List>
 
-<Diagram.Diagram>
-  **To record (V14):** a notebook beside Desktop. One cell reads the last test into
-  pandas and plots it. Another streams values, and the live plot draws them as they
-  arrive.
-</Diagram.Diagram>
+<Video id="blog/introducing-synnax-desktop/notebook" themed={false} />
 
 No hardware on hand? Open the [sample project](/reference/get-started/sample-project).
 It's a simulated tank test that takes about five minutes.
@@ -264,10 +261,10 @@ servers it's hard to beat.
 
 But neither tool was built for hardware. Nothing in the stack talks to a DAQ card, so
 someone has to write and maintain a script to get data in. Grafana can't control
-anything, so opening a valve is another script. Dashboards also refresh every 5 seconds
-by default, which is fine for CPU usage but not for watching a pressure spike. By the
-time it all works, you've built a custom tool out of five different pieces, and someone
-has to own it.
+anything, so opening a valve is another script. By default, dashboards also can't
+refresh faster than every 5 seconds, which is fine for CPU usage but not for watching a
+pressure spike. By the time it all works, you've built a custom tool out of five
+different pieces, and someone has to own it.
 
 Desktop is the whole stack in one tool, with no bolting together a DAQ, a Python script,
 Telegraf, InfluxDB, and Grafana. And the database underneath was built for sensor data:
@@ -291,11 +288,6 @@ version as is, most people wouldn't have found a fast enough path to value.
 That's no longer true. Synnax now works on a bench straight out of the box: plug in a
 LabJack, and you're plotting data in minutes.
 
-<Diagram.Diagram>
-  **To film (V3):** a LabJack on a desk with a thermocouple. A hand warms the sensor,
-  and the plot climbs. Phone on a stand, cut beside the screen recording.
-</Diagram.Diagram>
-
 And deep down, all of us at Synnax are engineers. We want Synnax to be built by
 engineers, for engineers. Instead of being fed a problem and solution pair by a sales
 team, you should be able to discern for yourself where our product seriously unlocks
@@ -304,6 +296,8 @@ productivity for your team, and where it doesn't.
 Synnax Desktop is a renewed, focused commitment to that ethos. We build tools for
 hardcore engineers, and we're putting our product center stage as the evidence for how
 and why we build.
+
+<Divider.Divider x />
 
 ## When should you talk to us?
 
@@ -331,5 +325,3 @@ Download it, plug in your hardware, and see where it really works and where it d
 
 If something breaks, [open an issue](https://github.com/synnaxlabs/synnax/issues) and
 tell us.
-
-<Desktop.DownloadButton />
