@@ -90,6 +90,8 @@ THREADS = """query($o: String!, $r: String!, $p: Int!, $endCursor: String) {
 }"""
 
 _SERVER_ERROR = re.compile(r"\bHTTP 5\d\d\b")
+_GONE = re.compile(r"\bHTTP 404\b|no valid artifacts found")
+"""A record that expired or was deleted after its run listed it."""
 _FIXED = re.compile(r"^fixed\b", re.I | re.M)
 """A reply line that says a finding is fixed, such as "Fixed in 1a2b3c"."""
 _BLOCK = re.compile(r"<!-- greptile_comment -->(.*?)<!-- /greptile_comment -->", re.S)
@@ -348,47 +350,61 @@ class Records:
 
     def get(self, run: int) -> dict[str, Any] | None:
         """Returns the record of a run, or None when the run kept none, as a run that
-        carried an earlier review does not, or when the download failed. It tries a
-        download that fails with an HTTP 5xx error again after each delay in BACKOFF,
-        and never tries a skipped run again.
+        carried an earlier review does not, or when the run is skipped. It tries a call
+        to GitHub that fails with an HTTP 5xx error again after each delay in BACKOFF.
+        It skips the run when every try fails or the record is gone, and never tries a
+        skipped run again.
+
+        :raises subprocess.CalledProcessError: When a call to GitHub fails for any
+            other reason.
         """
         with self._lock:
             if run in self._skipped:
                 return None
         path = self._cache / f"{run}.json"
         if not path.exists():
-            kept = self._gh(
-                "api",
-                f"repos/{self._repo}/actions/runs/{run}/artifacts?name={ARTIFACT}",
-                "--jq",
-                ".artifacts[] | select(.expired | not) | .id",
+            kept = self._try(
+                run,
+                lambda: self._gh(
+                    "api",
+                    f"repos/{self._repo}/actions/runs/{run}/artifacts?name={ARTIFACT}",
+                    "--jq",
+                    ".artifacts[] | select(.expired | not) | .id",
+                ),
             )
-            if not kept.strip() or not self._download(run, path):
+            if not kept or not kept.strip():
+                return None
+            if self._try(run, lambda: self._download(run, path)) is None:
                 return None
         rec: dict[str, Any] = json.loads(path.read_text())
         return rec
 
-    def _download(self, run: int, path: Path) -> bool:
+    def _download(self, run: int, path: Path) -> str:
+        with tempfile.TemporaryDirectory() as tmp:
+            self._gh(
+                *("run", "download", str(run), "--repo", self._repo),
+                *("--name", ARTIFACT, "--dir", tmp),
+            )
+            (Path(tmp) / "review.json").replace(path)
+        return str(path)
+
+    def _try(self, run: int, call: Callable[[], str]) -> str | None:
         delays = iter(BACKOFF)
         while True:
             try:
-                with tempfile.TemporaryDirectory() as tmp:
-                    self._gh(
-                        *("run", "download", str(run), "--repo", self._repo),
-                        *("--name", ARTIFACT, "--dir", tmp),
-                    )
-                    (Path(tmp) / "review.json").replace(path)
-                return True
+                return call()
             except subprocess.CalledProcessError as e:
                 stderr = e.stderr or ""
-                delay = next(delays, None)
-                if delay is None or not _SERVER_ERROR.search(stderr):
-                    lines = stderr.strip().splitlines()
-                    why = lines[-1] if lines else f"exit status {e.returncode}"
-                    with self._lock:
-                        self._skipped[run] = why
-                    return False
-                self._sleep(delay)
+                server = _SERVER_ERROR.search(stderr) is not None
+                delay = next(delays, None) if server else None
+                if delay is not None:
+                    self._sleep(delay)
+                    continue
+                if not server and not _GONE.search(stderr):
+                    raise
+                with self._lock:
+                    self._skipped[run] = stderr.strip().splitlines()[-1]
+                return None
 
 
 def limits(

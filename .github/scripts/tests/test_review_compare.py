@@ -257,6 +257,8 @@ class FakeGH:
         self.downloads: list[int] = []
         self.failures: dict[int, list[str]] = {}
         """The stderr of each failed try to download a run's record, in order."""
+        self.lookup_failures: dict[int, list[str]] = {}
+        """The stderr of each failed try to look up a run's record, in order."""
 
     def review(self, run: int, rec: dict[str, Any]) -> None:
         """Adds a Sedosaur review run, newer than every other, and its record."""
@@ -301,6 +303,9 @@ class FakeGH:
             args[1],
         ):
             run = int(m[1])
+            if self.lookup_failures.get(run):
+                stderr = self.lookup_failures[run].pop(0)
+                raise subprocess.CalledProcessError(1, ["gh", *args], "", stderr)
             return f"{run}\n" if self.kept.get(run, run in self.records) else ""
         raise AssertionError(f"unexpected gh call: {args}")
 
@@ -537,9 +542,29 @@ class TestRecords:
         assert gh.downloads == [1] * 4
         assert records.skipped == [(1, UNAVAILABLE)]
 
-    def test_should_skip_a_record_at_once_on_another_error(
+    def test_should_retry_and_skip_a_lookup_that_fails_with_a_server_error(
         self, tmp_path: Path
     ) -> None:
+        gh = FakeGH()
+        gh.records[1] = record(HEAD)
+        gh.lookup_failures[1] = [UNAVAILABLE] * 4
+        records, slept = self.records(gh, tmp_path)
+        assert records.get(1) is None
+        assert slept == [2, 4, 8]
+        assert gh.downloads == []
+        assert records.skipped == [(1, UNAVAILABLE)]
+
+    def test_should_raise_on_an_error_that_is_not_known(self, tmp_path: Path) -> None:
+        gh = FakeGH()
+        gh.records[1] = record(HEAD)
+        gh.failures[1] = ["HTTP 401: Bad credentials"]
+        records, slept = self.records(gh, tmp_path)
+        with pytest.raises(subprocess.CalledProcessError):
+            records.get(1)
+        assert slept == []
+        assert records.skipped == []
+
+    def test_should_skip_a_record_that_is_gone_at_once(self, tmp_path: Path) -> None:
         gh = FakeGH()
         gh.records[1] = record(HEAD)
         gh.failures[1] = [NOT_FOUND]
