@@ -60,13 +60,8 @@ protected:
     /// or from no folder when secrets_dir is false.
     [[nodiscard]] Reader
     reader(const synnax::rack::Rack &r, const bool secrets_dir = true) const {
-        const auto key = ASSERT_NIL_P(
-            this->client->api_keys.create("reader", {"rack", std::to_string(r.key)})
-        );
-        auto cfg = test_client_config();
-        cfg.api_key = key.token;
         return Reader(
-            std::make_shared<synnax::Synnax>(cfg),
+            std::make_shared<synnax::Synnax>(rack_client_config(*this->client, r.key)),
             Config{
                 .secrets_dir = secrets_dir ? this->secrets : std::filesystem::path{},
                 .rack = r.key,
@@ -184,6 +179,32 @@ TEST_F(ReaderTest, ReadsFileCertificate) {
         this->sha256(key),
         "7b42752d0bb377f9c35ac660d491fa8fa46e5b8885fd41a2650f19f8bd52309e"
     );
+}
+
+/// @brief it should read each certificate of a PEM chain in order, and drop text and
+/// key blocks.
+TEST_F(ReaderTest, ReadsFileCertificateChain) {
+    const auto key = this->create_file_certificate(
+        this->rack,
+        "Bag Attributes\n" + x::x509::testutil::KEY + x::x509::testutil::CERTIFICATE +
+            x::x509::testutil::OTHER_CERTIFICATE
+    );
+    const auto c = ASSERT_NIL_P(this->reader(this->rack).read_certificate(key));
+    ASSERT_EQ(
+        c.pem,
+        x::x509::testutil::CERTIFICATE + x::x509::testutil::OTHER_CERTIFICATE
+    );
+}
+
+/// @brief it should read a DER certificate file as PEM.
+TEST_F(ReaderTest, ReadsDerFileCertificate) {
+    const auto der = ASSERT_NIL_P(
+                         x::x509::Certificate::parse(x::x509::testutil::CERTIFICATE)
+    )
+                         .der();
+    const auto key = this->create_file_certificate(this->rack, der);
+    const auto c = ASSERT_NIL_P(this->reader(this->rack).read_certificate(key));
+    ASSERT_EQ(c.pem, x::x509::testutil::CERTIFICATE);
 }
 
 /// @brief it should read a stored certificate, and its private key from a grant.

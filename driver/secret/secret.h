@@ -31,7 +31,7 @@ struct Config {
 
 /// @brief a certificate chain and its private key, as a Reader read them.
 struct Certificate {
-    /// @brief the certificate chain as PEM, leaf first.
+    /// @brief the certificate chain as PEM, leaf first, with no other blocks or text.
     std::string pem;
     /// @brief the private key as PEM, or empty when the certificate has none.
     std::string private_key;
@@ -61,6 +61,7 @@ public:
     /// secrets folder. After it reads both, it saves new details in the Core when the
     /// SHA-256 fingerprint of the certificate differs from the saved one.
     /// @param granted the values of a spent grant, as for read.
+    /// @returns VALIDATION for a file certificate of another rack, before any read.
     [[nodiscard]] std::pair<Certificate, x::errors::Error> read_certificate(
         const synnax::certificate::Key &key,
         const std::optional<synnax::secret::Values> &granted = std::nullopt

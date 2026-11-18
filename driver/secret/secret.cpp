@@ -158,7 +158,10 @@ std::pair<Certificate, x::errors::Error> Reader::read_certificate(
                 "Failed to read certificate \"" + file.name + "\": " + parse_err.data
             )
         };
-    out.pem = x::x509::Certificate::is_pem(data) ? std::move(data) : cert.pem();
+    const auto blocks = x::x509::Certificate::pem_blocks(data);
+    if (blocks.empty()) out.pem = cert.pem();
+    for (const auto &block: blocks)
+        out.pem.append(block).push_back('\n');
     if (file.details.has_value() && file.details->sha256 == cert.sha256())
         return {std::move(out), x::errors::NIL};
     const synnax::certificate::Details details{
