@@ -363,7 +363,7 @@ export const TopicPicker = ({
             message={
               trimmed === "" ? NOTHING_PUBLISHED : `No topic matches “${trimmed}”.`
             }
-            className={CSS.BE("icd-picker", "notice")}
+            className={CSS.BE("mqtt-discover", "notice")}
           />
         }
       />
@@ -399,7 +399,7 @@ export const TopicPicker = ({
     pane = (
       <Empty.Action
         message="Select a topic to see what it sends."
-        className={CSS.BE("icd-picker", "notice")}
+        className={CSS.BE("mqtt-discover", "notice")}
       />
     );
 
@@ -420,7 +420,7 @@ export const TopicPicker = ({
           startContent={<Icon.Search />}
           className={CSS.BE("mqtt-discover", "search")}
         />
-        <Flex.Box y empty className={CSS.BE("icd-picker", "tree")}>
+        <Flex.Box y empty className={CSS.BE("mqtt-discover", "tree")}>
           {tree}
         </Flex.Box>
         {(listing?.truncated === true || scope !== "") && (
@@ -449,7 +449,7 @@ export const TopicPicker = ({
         <Button.Button
           variant="text"
           size="small"
-          className={CSS.BE("icd-picker", "add")}
+          className={CSS.BE("mqtt-discover", "add")}
           onClick={() => onAddByName(trimmed)}
         >
           <Icon.Add />

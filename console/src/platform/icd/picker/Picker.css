@@ -47,11 +47,6 @@
         border-right: var(--console-divider);
     }
 
-    .console-icd-picker__tree {
-        flex: 1 1 0;
-        min-height: 0;
-    }
-
     .console-icd-picker__meta {
         flex: none;
         margin-left: auto;
@@ -70,12 +65,6 @@
     .console-icd-picker__skeleton-item {
         height: var(--console-item-height);
         padding-left: calc(var(--console-depth, 0) * 3rem + 1.5rem);
-    }
-
-    .console-icd-picker__add {
-        flex-shrink: 0;
-        align-self: flex-start;
-        margin: 0.5rem 1rem 1.5rem;
     }
 
     .console-icd-picker__pane {
@@ -141,10 +130,5 @@
     /* The table head already draws the line above the first section. */
     .console-icd-picker__values-head + .console-icd-picker__section {
         border-top: none;
-    }
-
-    .console-icd-picker__notice {
-        padding: 4rem;
-        text-wrap: balance;
     }
 }

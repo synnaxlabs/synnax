@@ -248,7 +248,7 @@ export const TagPicker = ({
         emptyContent={
           <Empty.Action
             message="No Sparkplug B edge node published while Synnax listened."
-            className={CSS.BE("icd-picker", "notice")}
+            className={CSS.BE("mqtt-discover", "notice")}
           />
         }
       />
@@ -264,7 +264,7 @@ export const TagPicker = ({
       ) : (
         <Empty.Action
           message="Select an edge node to see its tags."
-          className={CSS.BE("icd-picker", "notice")}
+          className={CSS.BE("mqtt-discover", "notice")}
         />
       );
   else if (activeTags == null || activeTags.loading)
@@ -341,13 +341,13 @@ export const TagPicker = ({
         onListen={listen}
       />
       <ICD.Picker.Side>
-        <Flex.Box y empty className={CSS.BE("icd-picker", "tree")}>
+        <Flex.Box y empty className={CSS.BE("mqtt-discover", "tree")}>
           {tree}
         </Flex.Box>
         <Button.Button
           variant="text"
           size="small"
-          className={CSS.BE("icd-picker", "add")}
+          className={CSS.BE("mqtt-discover", "add")}
           onClick={onAddByName}
         >
           <Icon.Add />

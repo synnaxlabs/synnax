@@ -20,7 +20,7 @@ import { Fragment } from "react";
 import { CSS } from "@/platform/css";
 import { CheckSkeleton } from "@/platform/icd/picker/Picker";
 
-/** A value the pane offers: a field of a JSON topic or a Sparkplug B tag. */
+/** A value the pane offers, such as one field of a message. */
 export interface Value {
   key: string;
   name: string;
