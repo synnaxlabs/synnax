@@ -20,7 +20,8 @@ is done.
    stable minor. Dispatch that minor with `prerelease` off. No release candidate ships
    from `main` between the merge and this release.
 3. Cherry-pick the same change onto the newest `release/desktop-X.Y` branch. Release a
-   stable Desktop patch from it with `prerelease` off.
+   stable Desktop patch from it with `prerelease` off. It must be the highest stable
+   Desktop, so that every Desktop install updates to it.
 4. After both releases publish, set `TAURI_PRIVATE_KEY` and `TAURI_KEY_PASSWORD` to the
    new key.
 5. In a later release, remove the old key from the Core's `PublicKeys`.
@@ -31,8 +32,10 @@ is done.
   channel. A stable release signed with the old key after a candidate that trusts only
   the new key is rejected.
 - A release from a branch without the bridge, after step 4, cannot reach the installs of
-  that branch. The older Console and Desktop trains get no bridge, so their users
-  reinstall from the download page to get updates.
+  that branch. The older Console trains get no bridge, so their users reinstall from the
+  download page to get updates. Desktop needs no bridge per train: every Desktop install
+  updates to the highest stable Desktop on any train, so it reaches the bridge of
+  step 3.
 - A Console from before step 2 trusts only the old key, however it was installed. After
   step 4 it cannot update itself, so its user reinstalls from the download page.
 - A Console offers the Console of an older Core's minor as a downgrade when it connects
