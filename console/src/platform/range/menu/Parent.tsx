@@ -131,7 +131,7 @@ export const Parent = ({ ranges }: ParentProps): ReactElement => {
           <Select.Body<ranger.Key>
             resourceName="range"
             onSearch={search}
-            status={nested.variant === "error" ? nested.status : status}
+            status={nested.variant === "success" ? status : nested.status}
             fixedItems={current != null && <Current parent={current} />}
             footer={
               <>
