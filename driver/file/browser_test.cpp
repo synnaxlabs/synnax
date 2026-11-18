@@ -38,6 +38,19 @@ const x::json::json CERTIFICATE_DETAILS = {
     {"sha256", "7b42752d0bb377f9c35ac660d491fa8fa46e5b8885fd41a2650f19f8bd52309e"},
 };
 
+/// @brief a certificate that mbedTLS refuses, because its subject holds a
+/// NumericString.
+const std::string NUMERIC_CERTIFICATE = R"(-----BEGIN CERTIFICATE-----
+MIIBSjCB8aADAgECAgEIMAoGCCqGSM49BAMCMC8xEDAOBgNVBAMTB251bWVyaWMx
+DTALBgNVBAUSBDQyIDcxDDAKBgMqAwgSAzEyMzAeFw0yNjAxMDEwMDAwMDBaFw0y
+NzAxMDEwMDAwMDBaMC8xEDAOBgNVBAMTB251bWVyaWMxDTALBgNVBAUSBDQyIDcx
+DDAKBgMqAwgSAzEyMzBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABLw4lkTtJ/T4
+PO71liCaQg46+tafvX0aW2cviMj+52AwyzDyCnTygLgGh5Q76IMApJk/WSpERDYA
+lsmhwz1QY9kwCgYIKoZIzj0EAwIDSAAwRQIgCEN+/A/qTvEOW1/LsgB3i1rmb2BJ
+hhkSnCbERKf/xM8CIQDFBenaYI7T9bTTfwDAo6a/4katmokiJn5czkoG/d7M6Q==
+-----END CERTIFICATE-----
+)";
+
 /// @returns the entry named name in a reply, or null.
 x::json::json entry(const x::json::json &data, const std::string &name) {
     for (const auto &e: data["entries"])
@@ -152,12 +165,22 @@ TEST_F(BrowserTest, CertificateDetails) {
     std::filesystem::create_directories(folder);
     write(folder / "server.pem", x::x509::testutil::CERTIFICATE);
     write(folder / "upper.CRT", x::x509::testutil::CERTIFICATE);
+    write(
+        folder / "bundle.pem",
+        "-----BEGIN PRIVATE KEY-----\nAAAA\n-----END PRIVATE KEY-----\n" +
+            x::x509::testutil::CERTIFICATE
+    );
     write(folder / "broken.cer", "not a certificate");
+    write(folder / "numeric.pem", NUMERIC_CERTIFICATE);
     write(folder / "server.txt", x::x509::testutil::CERTIFICATE);
     const auto data = ASSERT_NIL_P(this->browser().list(folder.string()));
     ASSERT_EQ(entry(data, "server.pem")["certificate"], CERTIFICATE_DETAILS);
     ASSERT_EQ(entry(data, "upper.CRT")["certificate"], CERTIFICATE_DETAILS);
+    ASSERT_EQ(entry(data, "bundle.pem")["certificate"], CERTIFICATE_DETAILS);
     ASSERT_FALSE(entry(data, "broken.cer").contains("certificate"));
+    const auto numeric = entry(data, "numeric.pem");
+    ASSERT_EQ(numeric["size"], NUMERIC_CERTIFICATE.size());
+    ASSERT_FALSE(numeric.contains("certificate"));
     ASSERT_FALSE(entry(data, "server.txt").contains("certificate"));
 }
 
@@ -199,6 +222,42 @@ TEST_F(BrowserTest, SecretsFolderNamesOnly) {
         this->browser().list((this->secrets / "nested").string())
     );
     ASSERT_EQ(nested["secret"], true);
+}
+
+/// @brief it should match the secrets folder by file identity, so another case of its
+/// name matches on a file system that ignores case.
+TEST_F(BrowserTest, SecretsFolderOtherCase) {
+    write(this->secrets / "password", "hunter2");
+    const auto upper = this->dir / "SECRETS";
+    if (!std::filesystem::exists(upper))
+        GTEST_SKIP() << "the file system is case-sensitive";
+    const auto data = ASSERT_NIL_P(this->browser().list(upper.string()));
+    ASSERT_EQ(data["secret"], true);
+    ASSERT_EQ(entry(data, "password").size(), 3);
+}
+
+/// @brief it should treat a folder link to the secrets folder as the folder, and give
+/// only the name of a link to a folder in it.
+TEST_F(BrowserTest, FolderLinkToSecrets) {
+    write(this->secrets / "password", "hunter2");
+    std::filesystem::create_directories(this->secrets / "nested");
+    std::error_code ec;
+    std::filesystem::create_directory_symlink(this->secrets, this->dir / "alias", ec);
+    if (ec) GTEST_SKIP() << "cannot create a link: " << ec.message();
+    std::filesystem::create_directory_symlink(
+        this->secrets / "nested",
+        this->dir / "inner",
+        ec
+    );
+    if (ec) GTEST_SKIP() << "cannot create a link: " << ec.message();
+    const auto alias = ASSERT_NIL_P(
+        this->browser().list((this->dir / "alias").string())
+    );
+    ASSERT_EQ(alias["secret"], true);
+    ASSERT_EQ(entry(alias, "password").size(), 3);
+    const auto data = ASSERT_NIL_P(this->browser().list(this->dir.string()));
+    ASSERT_EQ(data["secret"], false);
+    ASSERT_EQ(entry(data, "inner").size(), 3);
 }
 
 /// @brief it should give only the name of the secrets folder and of a link into it.

@@ -33,7 +33,6 @@ import (
 	authv0 "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/file"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	groupv0 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v0"
@@ -898,12 +897,27 @@ var _ = Describe("LayerConfig", func() {
 		Expect(layer.Task.NewRetrieve().
 			Where(task.And(
 				task.MatchRacks(coreRack.Key),
-				task.MatchTypes(file.BrowserTaskType),
+				task.MatchTypes("file_browser"),
 			)).
 			Entry(&browser).
 			Exec(ctx, node.DB)).To(Succeed())
 		Expect(browser.Name).To(Equal("File Browser"))
 		Expect(browser.Internal).To(BeTrue())
+	})
+
+	It("Should leave out a disabled integration", func(ctx SpecContext) {
+		node := testutil.NewNode(ctx)
+		layer := MustOpen(svctestutil.OpenLayer(
+			ctx,
+			node,
+			service.LayerConfig{DisabledIntegrations: []string{"file"}},
+		))
+		Expect(layer.Rack.NewRetrieve().
+			Where(rack.MatchIntegration("file")).
+			Exists(ctx, node.DB)).To(BeFalse())
+		Expect(layer.Task.NewRetrieve().
+			Where(task.MatchTypes("file_browser")).
+			Exists(ctx, node.DB)).To(BeFalse())
 	})
 
 	It("Should refuse a secrets folder that does not exist", func(ctx SpecContext) {

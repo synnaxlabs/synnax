@@ -24,6 +24,11 @@ import { Secret } from "@/platform/secret";
 
 const nextMinute = (now: TimeStamp): TimeStamp => now.add(TimeSpan.MINUTE);
 
+const OTHER_RACK: Picker.Description = {
+  text: "File on another rack",
+  status: "error",
+};
+
 const STORED: certificate.Where = { source: { eq: "stored" } };
 
 // The device cannot read a file certificate of another rack.
@@ -43,7 +48,9 @@ const Control = ({ value, defaultName, rack, ...rest }: ControlProps): ReactElem
   const openCreate = useCreateModal();
   const now = useNow(nextMinute);
   const describe = (c: certificate.Certificate): Picker.Description =>
-    Secret.Validity.describeCertificate(c, now);
+    c.source === "file" && c.rack !== rack
+      ? OTHER_RACK
+      : Secret.Validity.describeCertificate(c, now);
   return (
     <Flex.Box y gap="small" grow>
       <Picker.Select<certificate.Key, certificate.Certificate>

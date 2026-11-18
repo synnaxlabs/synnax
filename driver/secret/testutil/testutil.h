@@ -9,28 +9,15 @@
 
 #pragma once
 
-#include <memory>
 #include <string>
 #include <variant>
 
 #include "client/cpp/synnax.h"
-#include "client/cpp/testutil/testutil.h"
 #include "x/cpp/testutil/testutil.h"
 #include "x/cpp/uuid/uuid.h"
 #include "x/cpp/x509/testutil/testutil.h"
 
 namespace driver::secret::testutil {
-/// @returns a client that signs in as rack r, as the Driver of r does.
-[[nodiscard]] inline std::shared_ptr<synnax::Synnax>
-rack_client(synnax::Synnax &client, const synnax::rack::Rack &r) {
-    const auto key = ASSERT_NIL_P(
-        client.api_keys.create("rack", {"rack", std::to_string(r.key)})
-    );
-    auto cfg = test_client_config();
-    cfg.api_key = key.token;
-    return std::make_shared<synnax::Synnax>(cfg);
-}
-
 /// @returns a stored certificate of x::x509::testutil::CERTIFICATE, whose private key
 /// secret holds x::x509::testutil::KEY.
 [[nodiscard]] inline synnax::certificate::StoredCertificate

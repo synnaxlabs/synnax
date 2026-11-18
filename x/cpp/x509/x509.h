@@ -13,6 +13,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"
@@ -28,13 +29,18 @@ class Certificate {
 public:
     Certificate() = default;
 
-    /// @brief parses a PEM or DER encoded certificate. Of a certificate chain, only
-    /// the first certificate is kept.
+    /// @brief parses a PEM or DER encoded certificate. For PEM, the first
+    /// CERTIFICATE block is the certificate, and other blocks and text are skipped.
     /// @returns INVALID if the data holds no certificate.
     static std::pair<Certificate, errors::Error> parse(std::string_view data);
 
-    /// @returns true if the data starts with a PEM certificate header.
+    /// @returns true if a PEM certificate block is anywhere in the data.
     [[nodiscard]] static bool is_pem(std::string_view data);
+
+    /// @returns each PEM certificate block in the data, in order, from its header
+    /// through its footer. Text and blocks of other types are skipped.
+    [[nodiscard]] static std::vector<std::string_view>
+    pem_blocks(std::string_view data);
 
     /// @returns the DER encoded certificate.
     [[nodiscard]] const std::string &der() const { return this->der_bytes; }

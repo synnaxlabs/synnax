@@ -72,6 +72,6 @@ var _ = Describe("Resolve", func() {
 	It("Should reject a secret key that is not a UUID", func(ctx SpecContext) {
 		Expect(client.Exec(ctx, &grpcsecret.ResolveRequest{
 			Secrets: []string{"nope"},
-		})).Error().To(HaveOccurred())
+		})).Error().To(MatchError(ContainSubstring("invalid uuid")))
 	})
 })

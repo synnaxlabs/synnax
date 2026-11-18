@@ -42,7 +42,7 @@ func ResourceIDsFromRacks(racks []Rack) []resource.ID {
 }
 
 // Dependents returns the ID of every record in snap that references the rack with
-// key: the devices and tasks on it, and the file items it reads.
+// key: its status, the devices and tasks on it, and the file items it reads.
 func (s *Service) Dependents(
 	ctx context.Context,
 	snap gorp.Snapshot,

@@ -23,6 +23,25 @@ namespace {
 std::string unique(const std::string &name) {
     return name + " " + x::uuid::create().to_string();
 }
+
+/// @returns a new rack.
+rack::Rack create_rack(const Synnax &client) {
+    auto r = rack::Rack{.name = unique("certificate rack")};
+    EXPECT_NIL(client.racks.create(r));
+    return r;
+}
+
+/// @returns a new file certificate that the rack with key reads.
+FileCertificate create_file(const Synnax &client, const rack::Key rack) {
+    Certificate c = FileCertificate{};
+    auto &file = std::get<FileCertificate>(c);
+    file.name = unique("file");
+    file.certificate_path = "/etc/pki/server.pem";
+    file.private_key_file = "server-key.pem";
+    file.rack = rack;
+    EXPECT_NIL(client.certificates.set(c));
+    return std::get<FileCertificate>(c);
+}
 }
 
 /// @brief it should save a stored certificate with its private key, and read it back.
@@ -50,16 +69,8 @@ TEST(CertificateTest, SetStored) {
 /// @brief it should save a file certificate, and read it back.
 TEST(CertificateTest, SetFile) {
     const auto client = new_test_client();
-    auto r = rack::Rack{.name = unique("certificate rack")};
-    ASSERT_NIL(client.racks.create(r));
-    Certificate c = FileCertificate{};
-    auto &file = std::get<FileCertificate>(c);
-    file.name = unique("file");
-    file.certificate_path = "/etc/pki/server.pem";
-    file.private_key_file = "server-key.pem";
-    file.rack = r.key;
-    ASSERT_NIL(client.certificates.set(c));
-    const auto key = std::get<FileCertificate>(c).key;
+    const auto r = create_rack(client);
+    const auto key = create_file(client, r.key).key;
     const auto got = std::get<FileCertificate>(
         ASSERT_NIL_P(client.certificates.retrieve(key))
     );
@@ -67,6 +78,49 @@ TEST(CertificateTest, SetFile) {
     ASSERT_EQ(got.private_key_file, "server-key.pem");
     ASSERT_EQ(got.rack, r.key);
     ASSERT_FALSE(got.details.has_value());
+}
+
+/// @brief it should save the details that the rack of a file certificate read.
+TEST(CertificateTest, Refresh) {
+    const auto client = new_test_client();
+    const auto r = create_rack(client);
+    const auto key = create_file(client, r.key).key;
+    const Synnax as_rack(rack_client_config(client, r.key));
+    const Details details{
+        .subject = "CN=Test Client,O=Synnax",
+        .issuer = "CN=Test Client,O=Synnax",
+        .sha1 = "aa",
+        .sha256 = "bb",
+    };
+    ASSERT_NIL(as_rack.certificates.refresh(key, details));
+    const auto got = std::get<FileCertificate>(
+        ASSERT_NIL_P(client.certificates.retrieve(key))
+    );
+    ASSERT_TRUE(got.details.has_value());
+    ASSERT_EQ(got.details.value().subject, "CN=Test Client,O=Synnax");
+    ASSERT_EQ(got.details.value().sha256, "bb");
+}
+
+/// @brief it should refuse a refresh from a client that is not the certificate's rack.
+TEST(CertificateTest, RefreshRefusesOtherCaller) {
+    const auto client = new_test_client();
+    const auto r = create_rack(client);
+    const auto file = create_file(client, r.key);
+    const auto other = create_rack(client);
+    const Synnax as_other(rack_client_config(client, other.key));
+    const auto other_err = as_other.certificates.refresh(file.key, Details{});
+    ASSERT_OCCURRED_AS(other_err, auth::ERR_ACCESS_DENIED);
+    ASSERT_EQ(
+        other_err.data,
+        "certificate \"" + file.name + "\" is read by rack:" + std::to_string(r.key) +
+            ", not rack:" + std::to_string(other.key) + ": access denied: auth error"
+    );
+    const auto user_err = client.certificates.refresh(file.key, Details{});
+    ASSERT_OCCURRED_AS(user_err, auth::ERR_ACCESS_DENIED);
+    ASSERT_EQ(
+        user_err.data,
+        "only a rack can refresh a certificate: access denied: auth error"
+    );
 }
 
 /// @brief it should return NOT_FOUND for a key that no certificate has.

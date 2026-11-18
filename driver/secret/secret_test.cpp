@@ -62,7 +62,7 @@ protected:
     [[nodiscard]] Reader
     reader(const synnax::rack::Rack &r, const bool secrets_dir = true) const {
         return Reader(
-            testutil::rack_client(*this->client, r),
+            std::make_shared<synnax::Synnax>(rack_client_config(*this->client, r.key)),
             Config{
                 .secrets_dir = secrets_dir ? this->secrets : std::filesystem::path{},
                 .rack = r.key,
@@ -81,16 +81,22 @@ protected:
     }
 
     /// @returns a file certificate of r whose certificate file holds pem, and whose
-    /// key file in the secrets folder holds x::x509::testutil::KEY.
-    [[nodiscard]] synnax::certificate::Key
-    create_file_certificate(const synnax::rack::Rack &r, const std::string &pem) const {
+    /// key file in the secrets folder holds x::x509::testutil::KEY. It has no key file
+    /// when key_file is false.
+    [[nodiscard]] synnax::certificate::Key create_file_certificate(
+        const synnax::rack::Rack &r,
+        const std::string &pem,
+        const bool key_file = true
+    ) const {
         write(this->dir / "server.pem", pem);
-        write(this->secrets / "server-key.pem", x::x509::testutil::KEY);
         synnax::certificate::Certificate c = synnax::certificate::FileCertificate{};
         auto &file = std::get<synnax::certificate::FileCertificate>(c);
         file.name = "server";
         file.certificate_path = (this->dir / "server.pem").string();
-        file.private_key_file = "server-key.pem";
+        if (key_file) {
+            write(this->secrets / "server-key.pem", x::x509::testutil::KEY);
+            file.private_key_file = "server-key.pem";
+        }
         file.rack = r.key;
         EXPECT_NIL(this->client->certificates.set(c));
         return std::get<synnax::certificate::FileCertificate>(c).key;
@@ -156,6 +162,32 @@ TEST_F(ReaderTest, ReadsFileCertificate) {
         this->sha256(key),
         "7b42752d0bb377f9c35ac660d491fa8fa46e5b8885fd41a2650f19f8bd52309e"
     );
+}
+
+/// @brief it should read each certificate of a PEM chain in order, and drop text and
+/// key blocks.
+TEST_F(ReaderTest, ReadsFileCertificateChain) {
+    const auto key = this->create_file_certificate(
+        this->rack,
+        "Bag Attributes\n" + x::x509::testutil::KEY + x::x509::testutil::CERTIFICATE +
+            x::x509::testutil::OTHER_CERTIFICATE
+    );
+    const auto c = ASSERT_NIL_P(this->reader(this->rack).read_certificate(key));
+    ASSERT_EQ(
+        c.pem,
+        x::x509::testutil::CERTIFICATE + x::x509::testutil::OTHER_CERTIFICATE
+    );
+}
+
+/// @brief it should read a DER certificate file as PEM.
+TEST_F(ReaderTest, ReadsDerFileCertificate) {
+    const auto der = ASSERT_NIL_P(
+                         x::x509::Certificate::parse(x::x509::testutil::CERTIFICATE)
+    )
+                         .der();
+    const auto key = this->create_file_certificate(this->rack, der);
+    const auto c = ASSERT_NIL_P(this->reader(this->rack).read_certificate(key));
+    ASSERT_EQ(c.pem, x::x509::testutil::CERTIFICATE);
 }
 
 /// @brief it should read a stored certificate, and its private key from a grant.
@@ -224,20 +256,24 @@ TEST_F(ReaderTest, FailsWithNoSecretsFolder) {
     ASSERT_EQ(this->sha256(key), "");
 }
 
-/// @brief it should refuse to read a key file of another rack.
+/// @brief it should refuse a file certificate of another rack, with or without a key
+/// file, before it reads a file.
 TEST_F(ReaderTest, RefusesFileOfAnotherRack) {
-    const auto key = this->create_file_certificate(
-        this->rack,
-        x::x509::testutil::CERTIFICATE
-    );
     const auto other = this->create_rack();
-    const auto [c, err] = this->reader(other).read_certificate(key);
-    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    ASSERT_EQ(
-        err.data,
-        "Cannot read the private key of certificate \"server\": it is a file of rack " +
-            std::to_string(this->rack.key) + ", and this Driver runs rack " +
-            std::to_string(other.key) + "."
-    );
+    for (const bool key_file: {true, false}) {
+        const auto key = this->create_file_certificate(
+            this->rack,
+            x::x509::testutil::CERTIFICATE,
+            key_file
+        );
+        const auto [c, err] = this->reader(other).read_certificate(key);
+        ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+        ASSERT_EQ(
+            err.data,
+            "Cannot read certificate \"server\": it is a file of rack " +
+                std::to_string(this->rack.key) + ", and this Driver runs rack " +
+                std::to_string(other.key) + "."
+        );
+    }
 }
 }}

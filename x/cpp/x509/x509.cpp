@@ -309,19 +309,31 @@ std::optional<std::string> format_name(const mbedtls_x509_buf &raw) {
 }
 }
 
+std::vector<std::string_view> Certificate::pem_blocks(const std::string_view data) {
+    std::vector<std::string_view> blocks;
+    for (auto start = data.find(PEM_HEADER); start != std::string_view::npos;
+         start = data.find(PEM_HEADER, start)) {
+        const auto footer = data.find(PEM_FOOTER, start);
+        if (footer == std::string_view::npos) break;
+        const auto end = footer + PEM_FOOTER.size();
+        blocks.push_back(data.substr(start, end - start));
+        start = end;
+    }
+    return blocks;
+}
+
 bool Certificate::is_pem(const std::string_view data) {
-    const auto start = data.find_first_not_of(" \t\r\n");
-    return start != std::string_view::npos &&
-           data.substr(start).starts_with(PEM_HEADER);
+    return !pem_blocks(data).empty();
 }
 
 std::pair<Certificate, errors::Error> Certificate::parse(const std::string_view data) {
     mbedtls_x509_crt crt;
     mbedtls_x509_crt_init(&crt);
     const defer::defer free_crt([&] { mbedtls_x509_crt_free(&crt); });
+    const auto blocks = pem_blocks(data);
+    const std::string buf(blocks.empty() ? data : blocks.front());
     // mbedTLS reads PEM only with its terminating null byte in the length.
-    const std::string buf(data);
-    const auto len = is_pem(data) ? buf.size() + 1 : buf.size();
+    const auto len = blocks.empty() ? buf.size() : buf.size() + 1;
     if (const int ret = mbedtls_x509_crt_parse(
             &crt,
             reinterpret_cast<const unsigned char *>(buf.c_str()),

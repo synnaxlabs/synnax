@@ -194,12 +194,53 @@ TEST(CertificateTest, IsPemAfterWhitespace) {
     ASSERT_FALSE(Certificate::is_pem("not a certificate"));
 }
 
-/// @brief it should keep only the first certificate of a chain.
+/// @brief it should parse a PEM certificate block after other text or blocks, such as
+/// the Bag Attributes that openssl pkcs12 writes, a UTF-8 byte order mark, or a key.
+TEST(CertificateTest, ParsePemAfterOtherContent) {
+    const auto expected = ASSERT_NIL_P(Certificate::parse(testutil::CERTIFICATE));
+    for (const auto &data: {
+             "Bag Attributes\n    localKeyID: 01 00 00 00 \nsubject=/CN=Test Client\n" +
+                 testutil::CERTIFICATE,
+             "\xEF\xBB\xBF" + testutil::CERTIFICATE,
+             testutil::KEY + testutil::CERTIFICATE,
+         }) {
+        ASSERT_TRUE(Certificate::is_pem(data));
+        ASSERT_EQ(ASSERT_NIL_P(Certificate::parse(data)), expected);
+    }
+}
+
+/// @brief it should find each certificate block in order, and skip other blocks, text,
+/// and a block with no footer.
+TEST(CertificateTest, PemBlocks) {
+    const auto data = "text\n" + testutil::KEY + testutil::CERTIFICATE +
+                      testutil::OTHER_CERTIFICATE +
+                      "-----BEGIN CERTIFICATE-----\nAAAA\n";
+    const auto blocks = Certificate::pem_blocks(data);
+    ASSERT_EQ(blocks.size(), 2);
+    ASSERT_EQ(std::string(blocks[0]) + "\n", testutil::CERTIFICATE);
+    ASSERT_EQ(std::string(blocks[1]) + "\n", testutil::OTHER_CERTIFICATE);
+    ASSERT_TRUE(Certificate::pem_blocks(testutil::KEY).empty());
+}
+
+/// @brief it should keep only the first certificate of a chain, and skip a later block
+/// that is not valid.
 TEST(CertificateTest, ParseChainKeepsFirst) {
-    const auto cert = ASSERT_NIL_P(
-        Certificate::parse(testutil::CERTIFICATE + testutil::OTHER_CERTIFICATE)
+    const auto expected = ASSERT_NIL_P(Certificate::parse(testutil::CERTIFICATE));
+    ASSERT_EQ(
+        ASSERT_NIL_P(
+            Certificate::parse(testutil::CERTIFICATE + testutil::OTHER_CERTIFICATE)
+        ),
+        expected
     );
-    ASSERT_EQ(cert, ASSERT_NIL_P(Certificate::parse(testutil::CERTIFICATE)));
+    ASSERT_EQ(
+        ASSERT_NIL_P(
+            Certificate::parse(
+                testutil::CERTIFICATE +
+                "-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n"
+            )
+        ),
+        expected
+    );
 }
 
 /// @brief it should reject data that holds no certificate.

@@ -235,6 +235,31 @@ var _ = Describe("Grants", func() {
 			))
 		})
 	})
+	Describe("RevealTo", func() {
+		It("Should read a stored secret for any reader", func(ctx SpecContext) {
+			Expect(e.svc.RevealTo(ctx, e.db, rk2, key)).
+				To(Equal(map[secret.Key][]byte{key: []byte("hunter2")}))
+		})
+		It("Should read a file secret for the Core's rack", func(ctx SpecContext) {
+			s := e.createFile(ctx, "Client key", "k.pem", coreRack)
+			Expect(e.svc.RevealTo(ctx, e.db, rk, s.Base().Key)).To(Equal(
+				map[secret.Key][]byte{s.Base().Key: []byte("client key")},
+			))
+		})
+		It("Should refuse a file secret for a reader that is not the Core's rack", func(
+			ctx SpecContext,
+		) {
+			s := e.createFile(ctx, "Client key", "k.pem", coreRack)
+			Expect(e.svc.RevealTo(ctx, e.db, rk2, s.Base().Key)).Error().To(MatchError(
+				`secret "Client key" is a file, so rack 1 reads it from its own ` +
+					"secrets folder: validation error",
+			))
+		})
+		It("Should return not found for a missing secret", func(ctx SpecContext) {
+			Expect(e.svc.RevealTo(ctx, e.db, rk, uuid.New())).Error().
+				To(MatchError(query.ErrNotFound))
+		})
+	})
 })
 
 // storedGrants returns every grant in the DB of e.
