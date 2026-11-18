@@ -22,6 +22,8 @@ import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it, onTestFinished } from "vitest";
 import { z } from "zod";
 
+import { Analytics } from "@/platform/analytics";
+import { wrapWithSink } from "@/platform/analytics/testutil";
 import { Modals } from "@/platform/modals";
 import { type Tree } from "@/platform/tree";
 import { createResource } from "@/platform/tree/testutil";
@@ -154,6 +156,8 @@ export const createDeviceResource = (
 export interface RenderMenuItemOptions {
   /** Client backing the console wrapper; null (default) for Core-free specs. */
   client?: Synnax | null;
+  /** Receives every event the item reports; discards them by default. */
+  analytics?: Analytics.Sink;
 }
 
 export interface MenuItemHandle extends RenderResult {
@@ -170,9 +174,10 @@ export interface MenuItemHandle extends RenderResult {
  */
 export const renderMenuItem = async (
   node: ReactElement,
-  { client = null }: RenderMenuItemOptions = {},
+  { client = null, analytics = Analytics.NOOP }: RenderMenuItemOptions = {},
 ): Promise<MenuItemHandle> => {
-  const { wrapper, store } = await createConsoleWrapper({ client });
+  const { wrapper: Console, store } = await createConsoleWrapper({ client });
+  const wrapper = wrapWithSink(Console, analytics);
   const captured: { modals?: Session.Modals.Store } = {};
   const ModalStoreProbe = (): null => {
     captured.modals = Session.Modals.useStore("renderMenuItem");
