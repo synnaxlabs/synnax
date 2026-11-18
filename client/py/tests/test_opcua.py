@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from typing import Any
 from uuid import uuid4
 
 import pytest
@@ -86,13 +87,14 @@ class TestOPCDevice:
 
     def test_plain_text_password(self) -> None:
         """Should refuse a password that is not the key of a secret."""
+        plain: Any = "hunter2"
         with pytest.raises(TypeError, match="password must be the key of a secret"):
             sy.opcua.Device(
                 name="Test Device",
                 location="Test Location",
                 rack=1,
                 endpoint="opc.tcp://localhost:4840",
-                password="hunter2",  # type: ignore[arg-type]
+                password=plain,
             )
 
 
