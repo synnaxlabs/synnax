@@ -121,6 +121,11 @@ func (c CoreConfig) Validate() error {
 	v.NonZero("task_poll_interval", c.taskPollInterval)
 	v.NonZero("task_shutdown_timeout", c.taskShutdownTimeout)
 	v.NonZero("task_worker_count", c.taskWorkerCount)
+	v.Ternary(
+		"enable_integrations",
+		len(c.enabledIntegrations) > 0 && len(c.disabledIntegrations) > 0,
+		"cannot be used with disable_integrations",
+	)
 	v.NotNil("validate_channel_names", c.validateChannelNames)
 	v.Exec(c.certFactoryConfig.Validate)
 	return v.Error()
@@ -342,8 +347,9 @@ func BootupCore(
 			Version:  version.Get(),
 			Loopback: new(cfg.listeners.Loopback()),
 		},
-		ValidateChannelNames: cfg.validateChannelNames,
-		SecretsKey:           secretsKey,
+		ValidateChannelNames:   cfg.validateChannelNames,
+		SecretsKey:             secretsKey,
+		EmbeddedDriverDisabled: !cfg.driverEnabled() || !driver.Bundled(),
 	})
 	if !ok(err, serviceLayer) {
 		return err
@@ -524,7 +530,7 @@ func openWorkDir(cacheDir string) (string, io.Closer, error) {
 
 func parseIntegrations(enabled, disabled []string) []string {
 	if len(enabled) > 0 {
-		return enabled
+		return lo.Uniq(enabled)
 	}
 	return lo.Filter(driver.AllIntegrations, func(integration string, _ int) bool {
 		return !lo.Contains(disabled, integration)

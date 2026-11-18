@@ -408,15 +408,15 @@ describe("Streamer", () => {
           channels: ch.key,
         });
         try {
-          const startTime = Date.now();
+          const start = TimeStamp.now();
           for (let i = 0; i < 10; i++) {
             await writer.write(ch.key, new Float64Array([i]));
             await sleep.sleep(TimeSpan.milliseconds(5));
           }
 
           const receivedFrames: framer.Frame[] = [];
-          const timeout = Date.now() + 500;
-          while (Date.now() < timeout)
+          const deadline = TimeStamp.now().add(TimeSpan.milliseconds(500));
+          while (TimeStamp.now().before(deadline))
             try {
               const frame = await Promise.race([
                 streamer.read(),
@@ -429,9 +429,8 @@ describe("Streamer", () => {
             }
 
           expect(receivedFrames.length).toBeGreaterThan(0);
-          const elapsed = Date.now() - startTime;
           // Should take at least the throttle period
-          expect(elapsed).toBeGreaterThanOrEqual(16); // ~1/60Hz
+          expect(TimeStamp.since(start).milliseconds).toBeGreaterThanOrEqual(16); // ~1/60Hz
         } finally {
           await writer.close();
           streamer.close();

@@ -903,7 +903,8 @@ jobs:
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
-  # A merge group that changes only unit tests skips integration.
+  # A merge group that changes only unit tests skips integration. A merge group tests on
+  # Ubuntu alone, as Windows runners cost about twice as much. A full run adds Windows.
   integration:
     needs: changes
     if:
@@ -917,7 +918,8 @@ jobs:
       packages: write
     uses: ./.github/workflows/test.integration.yaml
     with:
-      ubuntu: *full
+      ubuntu: true
+      windows: *full
     secrets:
       APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
       APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}

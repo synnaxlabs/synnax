@@ -78,7 +78,7 @@ var _ = Describe("Scan task", func() {
 		ch := createVirtual(ctx, telem.Float64T)
 		return configure(ctx, factory, newTask(
 			ctx, rackKey, mqtt.ReadTaskType,
-			readConfig(dev, plainEntry("plant/edit", field("v", ch, ""))),
+			readConfig(ctx, dev, plainEntry("plant/edit", field("v", ch, ""))),
 		))
 	}
 	startRead := func(ctx context.Context, read driver.Task) {
@@ -178,8 +178,14 @@ var _ = Describe("Scan task", func() {
 				dev := createBrokerDevice(ctx, rackKey, broker.port, properties)
 				_, data := createIndexed(ctx, telem.Float64T)
 				read := configure(ctx, factory, newTask(
-					ctx, rackKey, mqtt.ReadTaskType,
-					readConfig(dev, plainEntry("plant/tls", field("v", data[0], ""))),
+					ctx,
+					rackKey,
+					mqtt.ReadTaskType,
+					readConfig(
+						ctx,
+						dev,
+						plainEntry("plant/tls", field("v", data[0], "")),
+					),
 				))
 				Expect(read.Exec(ctx, task.Command{Type: "start", Key: "start"})).
 					To(Succeed())
@@ -201,8 +207,14 @@ var _ = Describe("Scan task", func() {
 				dev := createBrokerDevice(ctx, rackKey, broker.port, nil)
 				_, data := createIndexed(ctx, telem.Float64T)
 				read := configure(ctx, factory, newTask(
-					ctx, rackKey, mqtt.ReadTaskType,
-					readConfig(dev, plainEntry("plant/scan", field("v", data[0], ""))),
+					ctx,
+					rackKey,
+					mqtt.ReadTaskType,
+					readConfig(
+						ctx,
+						dev,
+						plainEntry("plant/scan", field("v", data[0], "")),
+					),
 				))
 				Expect(read.Exec(ctx, task.Command{Type: "start", Key: "start"})).
 					To(Succeed())
@@ -252,7 +264,7 @@ var _ = Describe("Scan task", func() {
 				dev := createBrokerDevice(ctx, rackKey, broker.port, nil)
 				ch := createVirtual(ctx, telem.Float64T)
 				t := newTask(ctx, rackKey, mqtt.ReadTaskType, readConfig(
-					dev,
+					ctx, dev,
 					plainEntry("plant/edit", field("v", ch, "")),
 				))
 				read := configure(ctx, factory, t)

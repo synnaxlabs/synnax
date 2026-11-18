@@ -20,8 +20,7 @@
               "start_bit": 0,
               "bit_length": 4,
               "byte_order": "little_endian",
-              "signed": false,
-              "float": false
+              "kind": "unsigned"
             },
             {
               "key": "00000000-0000-4000-8000-00000000000b",
@@ -33,8 +32,7 @@
               "start_bit": 4,
               "bit_length": 4,
               "byte_order": "little_endian",
-              "signed": false,
-              "float": false,
+              "kind": "unsigned",
               "multiplexor": "00000000-0000-4000-8000-00000000000a"
             },
             {
@@ -47,8 +45,7 @@
               "start_bit": 8,
               "bit_length": 16,
               "byte_order": "little_endian",
-              "signed": false,
-              "float": false,
+              "kind": "unsigned",
               "multiplexor": "00000000-0000-4000-8000-00000000000b"
             },
             {
@@ -61,8 +58,7 @@
               "start_bit": 24,
               "bit_length": 8,
               "byte_order": "little_endian",
-              "signed": true,
-              "float": false,
+              "kind": "integer",
               "multiplexor": "00000000-0000-4000-8000-00000000000a"
             }
           ],

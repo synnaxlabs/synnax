@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { unique } from "@/unique";
+
 // The match weights rank an exact word far above a prefix, and a prefix above a word
 // within one edit.
 const EXACT_WEIGHT = 100;
@@ -108,7 +110,7 @@ export class Index<K> {
 
   /** Indexes key under the words of every text, replacing any text it had. */
   set(key: K, ...text: string[]): void {
-    this.entries.set(key, [...new Set(text.flatMap(tokenize))]);
+    this.entries.set(key, unique.unique(text.flatMap(tokenize)));
   }
 
   /** Removes key from the index. */
