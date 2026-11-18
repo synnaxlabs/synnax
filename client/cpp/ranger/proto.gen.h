@@ -227,6 +227,12 @@ Where::to_proto() const {
             wrapper->add_values(item.to_string());
         }
     }
+    if (this->ancestors.has_value()) {
+        auto *wrapper = pb.mutable_ancestors();
+        for (const auto &item: *this->ancestors) {
+            wrapper->add_values(item.to_string());
+        }
+    }
     if (this->nested.has_value()) pb.set_nested(*this->nested);
     if (this->labeled.has_value()) pb.set_labeled(*this->labeled);
     if (this->stages.has_value()) {
@@ -288,6 +294,14 @@ Where::from_proto(const ::service::ranger::pb::Where &pb) {
             auto [v, err] = x::uuid::UUID::parse(item);
             if (err) return {{}, err};
             cpp.parents->push_back(v);
+        }
+    }
+    if (pb.has_ancestors()) {
+        cpp.ancestors.emplace();
+        for (const auto &item: pb.ancestors().values()) {
+            auto [v, err] = x::uuid::UUID::parse(item);
+            if (err) return {{}, err};
+            cpp.ancestors->push_back(v);
         }
     }
     if (pb.has_nested()) cpp.nested = pb.nested();

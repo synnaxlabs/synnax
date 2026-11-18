@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/x/patch"
+	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -99,7 +100,7 @@ var _ = Describe("Apply", func() {
 		key := binaryFieldOf(bus.Messages[i], j).Key.String()
 		return append(messagePath(i, "payload", "fields", key), segments...)
 	}
-	formatGuard := func(i int, format icd.PayloadType) patch.Guard {
+	formatGuard := func(i int, format payload.Format) patch.Guard {
 		return patch.Guard{
 			Path:  messagePath(i, "payload", "format"),
 			Value: string(format),
@@ -143,7 +144,7 @@ var _ = Describe("Apply", func() {
 		Expect(dispatch(ctx, set(
 			fieldPath(0, 1, "scale"),
 			0.5,
-			formatGuard(0, icd.BinaryPayloadType),
+			formatGuard(0, payload.FormatBinary),
 		))).To(Succeed())
 		Expect(retrieve(ctx)).To(Equal(withScale(0, 1, 0.5)))
 	})
@@ -173,7 +174,7 @@ var _ = Describe("Apply", func() {
 		Expect(dispatch(ctx, set(
 			fieldPath(0, 1, "scale"),
 			0.5,
-			formatGuard(0, icd.TextPayloadType),
+			formatGuard(0, payload.FormatText),
 		))).To(Succeed())
 		Expect(retrieve(ctx)).To(Equal(bus))
 	})
@@ -276,7 +277,7 @@ var _ = Describe("Apply", func() {
 			Expect(editDB.WithTx(ctx, func(tx gorp.Tx) (err error) {
 				res, err = editSvc.NewWriter(tx).
 					WithDispatchKey("dk-import").
-					Import(ctx, bus.Key, icd.FormatDBC, []byte(importDBC))
+					Import(ctx, bus.Key, icd.ImportFormatDBC, []byte(importDBC))
 				return err
 			})).To(Succeed())
 			frames := rec.Snapshot()
