@@ -489,6 +489,33 @@ describe("MQTT read form", () => {
     );
   });
 
+  it("should number a picked field whose name a field of its message holds", async () => {
+    const rate = icd.jsonFieldZ.parse({
+      name: "flow",
+      pointer: "/rate",
+      type: "float",
+    });
+    const kiln = await createEntry({ topic: "plant/kiln", fields: [rate] });
+    const { dev } = await renderRead({
+      fields: [createField("temperature", "float")],
+      entries: [kiln],
+    });
+    await screen.findByRole("treeitem", { name: /^temperature/ });
+    await addField(dev.rack, "plant/kiln", "flow");
+    await waitFor(async () =>
+      expect((await client.icds.retrieve(kiln.icd)).messages).toMatchObject([
+        {
+          payload: {
+            fields: [
+              { name: "flow", pointer: "/rate" },
+              { name: "flow_2", pointer: "/flow" },
+            ],
+          },
+        },
+      ]),
+    );
+  });
+
   it("should reuse a channel stored under another message of a topic it adds", async () => {
     const time = await createTimeChannel();
     const flow = await client.channels.create({
