@@ -28,6 +28,13 @@ describe("ICD.fieldNames", () => {
     expect(ICD.fieldNames(["/a/b", "/a_b", "/a_b"])).toEqual(["a_b", "a_b_2", "a_b_3"]);
   });
 
+  it("should number a name whose channel name another name takes", () => {
+    expect(ICD.fieldNames(["/a~1b", "/a_b"])).toEqual(["a/b", "a_b_2"]);
+    expect(ICD.fieldNames(["/motor_speed"], ["motor-speed"])).toEqual([
+      "motor_speed_2",
+    ]);
+  });
+
   it("should number a name that a field already holds", () => {
     expect(ICD.fieldNames(["/speed"], ["speed", "speed_2"])).toEqual(["speed_3"]);
   });
