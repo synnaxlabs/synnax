@@ -139,7 +139,7 @@ const x::errors::Error
     REFERENCE_CLOCK_FRAME_FAILED(errors::CYCLIC_ERROR, "reference clock frame failed");
 const x::errors::Error PROCESS_DATA_HELD(
     errors::WORKING_COUNTER_ERROR,
-    "no process data passes the slaves until they reach SAFE-OP"
+    "no process data passes the modules until they reach SAFE-OP"
 );
 /// How recently a frame must have come back for a failed receive on a USB adapter to
 /// blame a late frame. A dead link gets the plain reason after it.
@@ -187,22 +187,17 @@ errors::SDOFailure pop_sdo_failure(API &api) {
 /// the replies, else errors::NO_SLAVES_FOUND. The message calls the adapter name.
 x::errors::Error
 no_slaves_error(API &api, const std::string &iface, const std::string &name) {
-    const auto found = "No EtherCAT slaves found on " + name + ". ";
+    const auto found = "No EtherCAT modules found on " + name + ". ";
     if (!api.dewesoft_filter_bound(iface.c_str()))
         return x::errors::Error(
             errors::NO_SLAVES_FOUND,
-            found + "Check the cable and the power of the first device."
+            found + "Check the cable and the power of the first module."
         );
     return x::errors::Error(
         errors::REPLIES_BLOCKED,
-        found + std::format(
-                    "The DewesoftX \"EthercatDAQ Filter\" on this adapter blocks "
-                    "EtherCAT replies. Clear it in the properties of \"{}\" "
-                    "(Settings > Network & internet > Advanced network settings > "
-                    "More network adapter options, then right-click the adapter > "
-                    "Properties).",
-                    name
-                )
+        found + "The DewesoftX network filter on this adapter blocks EtherCAT "
+                "replies, even with DewesoftX closed. To turn it off, click Turn off "
+                "DewesoftX filter under Connect device > EtherCAT network."
     );
 }
 }
@@ -370,7 +365,7 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
         std::string msg;
         for (const auto &[pos, refusal]: unidentified)
             msg += std::format(
-                "{}slave {} ({}) {}",
+                "{}module {} ({}) {}",
                 msg.empty() ? "" : "; ",
                 pos,
                 this->slave_name(pos),
@@ -438,7 +433,7 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
     // One failure with no abort code is enough for a retry to help.
     auto type = errors::STARTUP_PARAMETER_REJECTED;
     for (const auto &[pos, failure]: session.startup_failures) {
-        failures += (failures.empty() ? "" : "; ") + std::string("slave ") +
+        failures += (failures.empty() ? "" : "; ") + std::string("module ") +
                     std::to_string(pos) + " (" + this->slave_name(pos) + ") " +
                     failure.data;
         if (!failure.matches(errors::STARTUP_PARAMETER_REJECTED))
@@ -497,7 +492,7 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
         return {
             .err = x::errors::Error(
                 errors::STATE_CHANGE_ERROR,
-                "failed to reach OP: no process data passed the slaves in SAFE-OP"
+                "failed to reach OP: no process data passed the modules in SAFE-OP"
             )
         };
     return this->request_state(EC_STATE_OPERATIONAL, timeout);
@@ -688,7 +683,7 @@ x::errors::Error Master::write(
     if (const auto err = this->write_parameters(pos, parameters))
         return x::errors::Error(
             err,
-            "Slave " + std::to_string(pos) + " (" + this->slave_name(pos) + ") " +
+            "Module " + std::to_string(pos) + " (" + this->slave_name(pos) + ") " +
                 err.data + "."
         );
     if (this->session)
@@ -890,7 +885,7 @@ master::Image Master::image() {
             const auto err = x::errors::Error(
                 errors::PDO_MAPPING_ERROR,
                 std::format(
-                    "Slave {} ({}) maps {} input and {} output bits, but its "
+                    "Module {} ({}) maps {} input and {} output bits, but its "
                     "discovered PDO entries hold {} and {}.",
                     props.position,
                     props.name,
@@ -1025,8 +1020,9 @@ void Master::discover_slave_pdos(
             props.input_pdos.clear();
             props.output_pdos.clear();
             slave.status.pdo_discovery_error = std::format(
-                "SOEM cannot map this slave because sync manager {} has fixed PDOs and "
-                "the other sync managers have assigned PDOs. Use IgH for this slave",
+                "SOEM cannot map this module because sync manager {} has fixed PDOs "
+                "and the other sync managers have assigned PDOs. Use IgH for this "
+                "module",
                 fixed->index
             );
             // No esi::fill: SOEM would still leave the fixed sync manager unmapped.
@@ -1168,7 +1164,7 @@ Master::write_dc_register(const uint16_t pos, const uint16_t address, const T va
     return x::errors::Error(
         errors::ACTIVATION_ERROR,
         std::format(
-            "slave {} ({}) {} a write to DC register 0x{:04X}",
+            "module {} ({}) {} a write to DC register 0x{:04X}",
             pos,
             this->slave_name(pos),
             response(wkc),
@@ -1188,7 +1184,7 @@ Master::read_dc_register(const uint16_t pos, const uint16_t address) {
         x::errors::Error(
             errors::ACTIVATION_ERROR,
             std::format(
-                "slave {} ({}) {} a read of DC register 0x{:04X}",
+                "module {} ({}) {} a read of DC register 0x{:04X}",
                 pos,
                 this->slave_name(pos),
                 response(wkc),
@@ -1235,7 +1231,7 @@ x::errors::Error Master::wait_for_dc_settle(
         if (stopped()) return stop_err;
         return x::errors::Error(
             errors::ACTIVATION_ERROR,
-            "no frame carried the reference clock to the slaves within " +
+            "no frame carried the reference clock to the modules within " +
                 this->cfg.dc_settle_timeout.to_string()
         );
     }
@@ -1261,7 +1257,7 @@ x::errors::Error Master::wait_for_dc_settle(
             return x::errors::Error(
                 errors::ACTIVATION_ERROR,
                 std::format(
-                    "the clock of slave {} ({}) is {} off the reference clock after "
+                    "the clock of module {} ({}) is {} off the reference clock after "
                     "{}. It must be within {} before SYNC0 starts.",
                     worst_pos,
                     this->slave_name(worst_pos),
@@ -1338,7 +1334,7 @@ x::errors::Error Master::align_clock(const uint16_t pos) {
     if (latched == 0)
         return x::errors::Error(
             errors::ACTIVATION_ERROR,
-            "no slave latched its receive time"
+            "no module latched its receive time"
         );
     const auto [local, local_err] = this->read_dc_register<int64_t>(pos, ECT_REG_DCSOF);
     if (local_err) return local_err;
@@ -1469,7 +1465,7 @@ Master::state_error(const std::vector<uint16_t> &failed, const uint16_t state) {
     std::map<uint16_t, slave::Refusal> refusing;
     for (const auto pos: failed) {
         if (!msg.empty()) msg += "; ";
-        msg += "slave " + std::to_string(pos) + " (" + this->slave_name(pos) +
+        msg += "module " + std::to_string(pos) + " (" + this->slave_name(pos) +
                ") is in " +
                slave::to_string(slave::from_al_state(this->record(pos).state));
         if (!this->al_error(pos)) continue;
