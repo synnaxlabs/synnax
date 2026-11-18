@@ -494,4 +494,42 @@ TEST(ConnectionTest, securedWithoutIdentity) {
         opcua::errors::ENCRYPTION_CONFIG_FAILED
     );
 }
+
+/// @brief it should parse the password as the key of the secret that holds it.
+TEST(ConnectionTest, parsesPasswordSecret) {
+    const auto key = x::uuid::create();
+    auto p = x::json::Parser(
+        x::json::json{
+            {"endpoint", "opc.tcp://localhost:4848"},
+            {"password", key.to_string()}
+        }
+    );
+    const Config cfg(p);
+    ASSERT_NIL(p.error());
+    ASSERT_EQ(cfg.password_secret, key);
+    ASSERT_TRUE(cfg.password.empty());
+}
+
+/// @brief it should parse an empty password as no secret.
+TEST(ConnectionTest, parsesEmptyPassword) {
+    auto p = x::json::Parser(
+        x::json::json{{"endpoint", "opc.tcp://localhost:4848"}, {"password", ""}}
+    );
+    const Config cfg(p);
+    ASSERT_NIL(p.error());
+    ASSERT_TRUE(cfg.password_secret.is_nil());
+}
+
+/// @brief it should refuse a password that is not the key of a secret.
+TEST(ConnectionTest, refusesPlainPassword) {
+    auto p = x::json::Parser(
+        x::json::json{{"endpoint", "opc.tcp://localhost:4848"}, {"password", "hunter2"}}
+    );
+    const Config cfg(p);
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
+    const auto errs = p.error_json()["errors"];
+    ASSERT_EQ(errs.size(), 1);
+    EXPECT_EQ(errs[0]["path"], "password");
+    EXPECT_EQ(errs[0]["message"], "must be the key of a secret");
+}
 }

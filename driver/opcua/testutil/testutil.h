@@ -42,7 +42,8 @@ inline x::json::json connection_json(const connection::Config &cfg) {
     x::json::json j = {
         {"endpoint", cfg.endpoint},
         {"username", cfg.username},
-        {"password", cfg.password},
+        {"password",
+         cfg.password_secret.is_nil() ? "" : cfg.password_secret.to_string()},
         {"security_mode", cfg.security_mode},
         {"security_policy", cfg.security_policy},
         {"client_certificate", cfg.client_cert},

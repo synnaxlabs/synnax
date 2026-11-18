@@ -21,6 +21,7 @@
 #include "x/cpp/x509/x509.h"
 
 #include "driver/secret/secret.h"
+#include "driver/secret/testutil/testutil.h"
 
 namespace driver::secret { namespace {
 void write(const std::filesystem::path &path, const std::string &data) {
@@ -60,36 +61,13 @@ protected:
     /// or from no folder when secrets_dir is false.
     [[nodiscard]] Reader
     reader(const synnax::rack::Rack &r, const bool secrets_dir = true) const {
-        const auto key = ASSERT_NIL_P(
-            this->client->api_keys.create("reader", {"rack", std::to_string(r.key)})
-        );
-        auto cfg = test_client_config();
-        cfg.api_key = key.token;
         return Reader(
-            std::make_shared<synnax::Synnax>(cfg),
+            testutil::rack_client(*this->client, r),
             Config{
                 .secrets_dir = secrets_dir ? this->secrets : std::filesystem::path{},
                 .rack = r.key,
             }
         );
-    }
-
-    /// @returns a stored certificate of x::x509::testutil::CERTIFICATE, whose private
-    /// key secret holds x::x509::testutil::KEY.
-    [[nodiscard]] synnax::certificate::StoredCertificate
-    create_stored_certificate() const {
-        synnax::certificate::Certificate c = synnax::certificate::StoredCertificate{};
-        auto &stored = std::get<synnax::certificate::StoredCertificate>(c);
-        stored.name = unique("reader");
-        stored.pem = x::x509::testutil::CERTIFICATE;
-        EXPECT_NIL(this->client->certificates.set(c, x::x509::testutil::KEY));
-        return std::get<synnax::certificate::StoredCertificate>(c);
-    }
-
-    /// @returns a stored secret that holds x::x509::testutil::KEY. The C++ client
-    /// writes secrets only as the private keys of stored certificates.
-    [[nodiscard]] synnax::secret::Key create_secret() const {
-        return this->create_stored_certificate().private_key.value();
     }
 
     /// @brief creates a task on r that uses the secret with key.
@@ -127,7 +105,7 @@ protected:
 
 /// @brief it should read a stored secret that a task on the rack uses.
 TEST_F(ReaderTest, ReadsSecretThatTaskUses) {
-    const auto key = this->create_secret();
+    const auto key = testutil::create_secret(*this->client);
     this->use(this->rack, key);
     const auto values = ASSERT_NIL_P(this->reader(this->rack).read({key}));
     ASSERT_EQ(values.at(key), x::x509::testutil::KEY);
@@ -135,7 +113,7 @@ TEST_F(ReaderTest, ReadsSecretThatTaskUses) {
 
 /// @brief it should refuse a stored secret that only a task on another rack uses.
 TEST_F(ReaderTest, RefusesSecretOfAnotherRack) {
-    const auto key = this->create_secret();
+    const auto key = testutil::create_secret(*this->client);
     this->use(this->rack, key);
     ASSERT_OCCURRED_AS_P(
         this->reader(this->create_rack()).read({key}),
@@ -146,7 +124,7 @@ TEST_F(ReaderTest, RefusesSecretOfAnotherRack) {
 /// @brief it should read a stored secret from a grant, and refuse one the grant does
 /// not hold.
 TEST_F(ReaderTest, ReadsSecretFromGrant) {
-    const auto key = this->create_secret();
+    const auto key = testutil::create_secret(*this->client);
     const auto r = this->reader(this->rack);
     const auto values = ASSERT_NIL_P(r.read({key}, synnax::secret::Values{{key, "v"}}));
     ASSERT_EQ(values.at(key), "v");
@@ -182,7 +160,7 @@ TEST_F(ReaderTest, ReadsFileCertificate) {
 
 /// @brief it should read a stored certificate, and its private key from a grant.
 TEST_F(ReaderTest, ReadsStoredCertificateFromGrant) {
-    const auto stored = this->create_stored_certificate();
+    const auto stored = testutil::create_stored_certificate(*this->client);
     const auto private_key = stored.private_key.value();
     const auto c = ASSERT_NIL_P(
         this->reader(this->rack)
