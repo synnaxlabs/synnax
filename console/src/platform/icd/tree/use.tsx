@@ -29,10 +29,12 @@ import { createMatch } from "@/platform/icd/Match";
 import {
   fieldsPath,
   isReadable,
+  jsonFields,
   type ReadBinding,
   type ReadSource,
   type TreeField,
   treeFieldOf,
+  variableAmongFixed,
 } from "@/platform/icd/read";
 import {
   fieldKey,
@@ -216,6 +218,12 @@ export interface UseReturn {
    * pointer of the source's other matches, so the messages tell payloads apart.
    */
   addMessage: (source: string) => void;
+  /**
+   * Makes a source that reads one message read a message of any ICD, and each field of
+   * it that can share one index. The message that the source read leaves its ICD when
+   * it has no fields and no other source reads it.
+   */
+  setMessage: (source: string, icdKey: icd.Key, message: icd.Message) => void;
 }
 
 /**
@@ -284,6 +292,32 @@ export const use = <S extends Source>({
       ]),
     );
     onSelect([messageKey(sourceKey, message.key)]);
+  };
+
+  const setMessage = (sourceKey: string, icdKey: icd.Key, message: icd.Message) => {
+    const path = pathOf(sourceKey);
+    const source = ctx.get(path).value;
+    const [prior] = source.messages;
+    if (source.icd === icdKey && prior.message === message.key) return;
+    const form = formatOf(formats, source.icd);
+    const left = form.value().messages.find(({ key }) => key === prior.message);
+    const shared = ctx.get(sources).value.some((s) => {
+      const other = s.key === sourceKey ? null : sourceOf(s);
+      return (
+        other?.icd === source.icd &&
+        other.messages.some((m) => m.message === prior.message)
+      );
+    });
+    if (left != null && left.payload.fields.length === 0 && !shared)
+      form.remove(PICD.formPath.messages[prior.message]);
+    const readable = jsonFields(message).filter(isReadable);
+    const mixed = new Set(variableAmongFixed(readable));
+    ctx.batch(() => {
+      ctx.set(path.icd, icdKey);
+      ctx.set(path.messages, [{ message: message.key, bindings: [] }]);
+      for (const field of readable)
+        if (!mixed.has(field)) read(sourceKey, 0, treeFieldOf(field), true);
+    });
   };
 
   /** Whether the ICD holds the message of a read of a source, as JSON. */
@@ -462,5 +496,6 @@ export const use = <S extends Source>({
     current,
     addField,
     addMessage,
+    setMessage,
   };
 };
