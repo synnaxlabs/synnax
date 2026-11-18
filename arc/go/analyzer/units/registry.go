@@ -77,6 +77,7 @@ var registry = map[string]types.Unit{
 	"MHz": {Dimensions: types.DimFrequency, Scale: 1e6, Name: "MHz"},
 	"mhz": {Dimensions: types.DimFrequency, Scale: 1e6, Name: "mhz"},
 	"GHz": {Dimensions: types.DimFrequency, Scale: 1e9, Name: "GHz"},
+	"ghz": {Dimensions: types.DimFrequency, Scale: 1e9, Name: "ghz"},
 
 	// Voltage units (base: Volts)
 	"fV": {Dimensions: types.DimVoltage, Scale: 1e-15, Name: "fV"},

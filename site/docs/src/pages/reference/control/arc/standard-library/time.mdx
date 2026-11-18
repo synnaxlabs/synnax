@@ -167,11 +167,20 @@ The time between two fires.
   than `period`, the timer fires once and does not make up the fires that it missed. At
   the top level, it fires when the automation starts.
 
-```arc channels="heartbeat"
+The `period` also takes a rate, as a literal, a variable, or an expression, in any
+frequency unit. A rate variable that the automation writes changes the period.
+
+```arc channels="heartbeat, fast_heartbeat"
 import time
 
 time.interval(period=1s) -> heartbeat
+time.interval(period=10hz) -> fast_heartbeat
 ```
+
+A rate rounds to the nearest nanosecond, so `60hz` fires each 16.666667 ms.
+
+The `period` must be more than `0ns`. A rate must be more than `0hz` and less than
+`2GHz`, because the period of a higher rate rounds to `0ns`.
 
 <Divider.Divider x />
 

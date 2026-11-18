@@ -63,6 +63,8 @@ var _ = Describe("Registry", func() {
 			),
 			Entry("kHz", "kHz", validEntry{"kHz", 1e3, false, types.DimFrequency}),
 			Entry("MHz", "MHz", validEntry{"MHz", 1e6, false, types.DimFrequency}),
+			Entry("GHz", "GHz", validEntry{"GHz", 1e9, false, types.DimFrequency}),
+			Entry("ghz", "ghz", validEntry{"ghz", 1e9, false, types.DimFrequency}),
 			// Length units
 			Entry("m (meters)", "m", validEntry{"m", 1.0, false, types.DimLength}),
 			Entry("km", "km", validEntry{"km", 1e3, false, types.DimLength}),

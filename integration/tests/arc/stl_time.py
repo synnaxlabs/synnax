@@ -96,6 +96,27 @@ func count_intervals_ns() {
     interval_count_ns = interval_count_ns + 1
 }
 time.interval(period=period_ns) -> count_intervals_ns()
+// A rate as the period, standalone.
+func count_intervals_rate() {
+    interval_count_rate = interval_count_rate + 1
+}
+interval(period=10hz) -> count_intervals_rate()
+// A rate as the period, module-qualified.
+func count_intervals_rate_mod() {
+    interval_count_rate_mod = interval_count_rate_mod + 1
+}
+time.interval(period=10hz) -> count_intervals_rate_mod()
+// A rate held in a variable, in hertz and in kilohertz. A float rate takes a cast.
+rate_hz := 10hz
+func count_intervals_hz() {
+    interval_count_hz = interval_count_hz + 1
+}
+time.interval(period=rate_hz) -> count_intervals_hz()
+rate_khz := 0.01khz
+func count_intervals_khz() {
+    interval_count_khz = interval_count_khz + 1
+}
+time.interval(period=i64 ns(rate_khz)) -> count_intervals_khz()
 // ──────────────────────────── time.wait ─────────────────────────────
 // Regression test: wait{3s} previously took 5-7s due to a runtime bug.
 // 3 seconds was chosen because it's long enough to measure accurately
@@ -425,6 +446,10 @@ INTERVAL_CHANNELS = (
     ("interval_count_mod", "module"),
     ("interval_count_ms", "ms variable"),
     ("interval_count_ns", "ns variable"),
+    ("interval_count_rate", "standalone rate"),
+    ("interval_count_rate_mod", "module rate"),
+    ("interval_count_hz", "hz variable"),
+    ("interval_count_khz", "khz variable"),
 )
 
 # (start_cmd, toggle, label, seconds) for the concurrent waits, shortest first.
@@ -474,6 +499,10 @@ class StlTime(ArcCase):
         "interval_count_mod",
         "interval_count_ms",
         "interval_count_ns",
+        "interval_count_rate",
+        "interval_count_rate_mod",
+        "interval_count_hz",
+        "interval_count_khz",
         "toggle_cmd",
         "toggle_cmd_mod",
         "toggle_cmd_var_s",
@@ -518,6 +547,10 @@ class StlTime(ArcCase):
                 ("interval_count_mod", sy.DataType.INT64),
                 ("interval_count_ms", sy.DataType.INT64),
                 ("interval_count_ns", sy.DataType.INT64),
+                ("interval_count_rate", sy.DataType.INT64),
+                ("interval_count_rate_mod", sy.DataType.INT64),
+                ("interval_count_hz", sy.DataType.INT64),
+                ("interval_count_khz", sy.DataType.INT64),
                 *((start_cmd, sy.DataType.UINT8) for start_cmd, _, _, _ in WAIT_CASES),
             ],
         )
