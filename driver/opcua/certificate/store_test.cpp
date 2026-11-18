@@ -51,7 +51,7 @@ protected:
 TEST_F(StoreTest, CurrentCreatesOnFirstUse) {
     Store store(StoreConfig{.dir = this->dir, .host = "test-host"});
     const auto id = ASSERT_NIL_P(store.current());
-    ASSERT_TRUE(id.certificate.application_uri().starts_with("urn:synnax:driver:"));
+    ASSERT_TRUE(id.certificate.uri().starts_with("urn:synnax:driver:"));
     ASSERT_TRUE(id.certificate.subject().starts_with("CN=Synnax Driver "));
     ASSERT_EQ(this->cert_count(), 1);
     ASSERT_EQ(this->key_count(), 1);
@@ -106,10 +106,7 @@ TEST_F(StoreTest, RenewInsideWindow) {
     const auto next = ASSERT_NIL_P(store.next());
     ASSERT_TRUE(next.has_value());
     ASSERT_NE(next.value().certificate, current.certificate);
-    ASSERT_EQ(
-        next.value().certificate.application_uri(),
-        current.certificate.application_uri()
-    );
+    ASSERT_EQ(next.value().certificate.uri(), current.certificate.uri());
     const auto still = ASSERT_NIL_P(store.current());
     ASSERT_EQ(still.certificate, current.certificate);
     ASSERT_NIL(store.renew());
@@ -168,10 +165,7 @@ TEST_F(StoreTest, ReplaceExpired) {
     now = old.certificate.not_after() + x::telem::DAY;
     const auto replaced = ASSERT_NIL_P(store.current());
     ASSERT_NE(replaced.certificate, old.certificate);
-    ASSERT_EQ(
-        replaced.certificate.application_uri(),
-        old.certificate.application_uri()
-    );
+    ASSERT_EQ(replaced.certificate.uri(), old.certificate.uri());
     ASSERT_EQ(this->cert_count(), 1);
 }
 
@@ -186,7 +180,7 @@ TEST_F(StoreTest, Regenerate) {
     const auto fresh = ASSERT_NIL_P(store.regenerate());
     ASSERT_NE(fresh.certificate, old.certificate);
     ASSERT_NE(fresh.certificate, next.value().certificate);
-    ASSERT_EQ(fresh.certificate.application_uri(), old.certificate.application_uri());
+    ASSERT_EQ(fresh.certificate.uri(), old.certificate.uri());
     const auto current = ASSERT_NIL_P(store.current());
     ASSERT_EQ(current.certificate, fresh.certificate);
     const auto none = ASSERT_NIL_P(store.next());
