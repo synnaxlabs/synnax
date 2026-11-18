@@ -23,6 +23,8 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -55,7 +57,8 @@ type listing struct {
 	SecretsDir string `json:"secrets_dir"`
 	// Secret is true when Path is in the secrets folder.
 	Secret bool `json:"secret"`
-	// Truncated is true when the listing kept only the first maxEntries entries.
+	// Truncated is true when the listing left out entries, past the first maxEntries
+	// or past the size of an answer.
 	Truncated bool    `json:"truncated"`
 	Entries   []entry `json:"entries"`
 }
@@ -97,6 +100,27 @@ func readFailure(err error, dir string) driver.Failure {
 	return failure("Failed to read %s: %s.", dir, err)
 }
 
+// exec answers a list command with its listing.
+func (b browser) exec(
+	ctx context.Context,
+	cmd task.Command,
+) (msgpack.EncodedJSON, error) {
+	if cmd.Type != listCommand {
+		return nil, driver.ErrUnsupportedCommand
+	}
+	var args struct {
+		Path string `json:"path"`
+	}
+	if err := cmd.Args.Unmarshal(&args); err != nil {
+		return nil, failure("The path must be a string.")
+	}
+	l, err := b.list(ctx, args.Path)
+	if err != nil {
+		return nil, err
+	}
+	return msgpack.NewEncodedJSON(l)
+}
+
 // list lists the folder at path, or the roots, the home folder, and the secrets folder
 // when path is empty. It returns a driver.Failure that names the path when path is
 // relative, is not a folder, or cannot be read.
@@ -133,8 +157,11 @@ func (b browser) list(ctx context.Context, path string) (listing, error) {
 	secrets := b.secrets()
 	l.Secret = secrets.holds(dir)
 	for _, e := range found[:min(len(found), maxEntries)] {
-		if err := ctx.Err(); err != nil {
-			return listing{}, err
+		if ctx.Err() != nil {
+			return listing{}, failure(
+				"The Core did not finish the list of %s in time.",
+				dir,
+			)
 		}
 		// The check and the reads use one resolved path, so a link that changes
 		// between them cannot lead the reads into the secrets folder.
@@ -147,6 +174,13 @@ func (b browser) list(ctx context.Context, path string) (listing, error) {
 			l.Entries = append(l.Entries, e)
 		}
 	}
+	entries := l.Entries
+	l.Entries = []entry{}
+	kept, truncated, err := driver.Fit(l, [][]entry{entries})
+	if err != nil {
+		return listing{}, err
+	}
+	l.Entries, l.Truncated = kept[0], l.Truncated || truncated
 	return l, nil
 }
 

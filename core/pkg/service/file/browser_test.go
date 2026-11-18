@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -182,6 +183,27 @@ var _ = Describe("List", func() {
 			Expect(l.Entries[0].Name).To(Equal("zz"))
 			Expect(l.Entries[999].Name).To(Equal("f0998"))
 		})
+	})
+
+	Describe("Answer size", func() {
+		It("Should leave out the entries past the size of an answer",
+			func(ctx SpecContext) {
+				deep := filepath.Join(
+					dir,
+					strings.Repeat("a", 200),
+					strings.Repeat("b", 200),
+					strings.Repeat("c", 200),
+				)
+				Expect(os.MkdirAll(deep, 0o700)).To(Succeed())
+				for i := range 1000 {
+					name := fmt.Sprintf("%04d%s", i, strings.Repeat("f", 236))
+					write(filepath.Join(deep, name), nil)
+				}
+				l := b.list(ctx, deep)
+				Expect(l.Truncated).To(BeTrue())
+				Expect(len(l.Entries)).To(BeNumerically("<", 1000))
+				Expect(l.Entries[0].Name).To(HavePrefix("0000"))
+			})
 	})
 
 	Describe("Links", func() {

@@ -21,11 +21,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/validate"
-	"go.uber.org/zap"
 )
 
 const (
@@ -42,7 +39,7 @@ type FactoryConfig struct {
 	// DB is the database that the task statuses are stored in.
 	// [REQUIRED]
 	DB *gorp.DB
-	// Status stores the replies of the task.
+	// Status stores the answers of the task.
 	// [REQUIRED]
 	Status *status.Service
 	// SecretsDir is the secrets folder of the Core's rack. A listing never reads the
@@ -118,100 +115,18 @@ func (f *Factory) ConfigureTask(
 	if t.Type != BrowserTaskType {
 		return nil, driver.ErrTaskNotHandled
 	}
-	bt := &browserTask{
-		Instrumentation: f.cfg.Instrumentation,
-		browser:         f.browser,
-		status:          driver.NewStatusHandler(f.cfg.DB, f.cfg.Status, t),
-	}
-	if err := bt.status.Ack(ctx, cmdKey, true); err != nil {
+	h := driver.NewStatusHandler(f.cfg.DB, f.cfg.Status, t)
+	if err := h.Ack(ctx, cmdKey, true); err != nil {
 		return nil, err
 	}
-	bt.lists, bt.cancel = signal.Isolated(
-		signal.WithInstrumentation(f.cfg.Instrumentation),
-	)
-	return bt, nil
-}
-
-type browserTask struct {
-	alamos.Instrumentation
-	status  *driver.StatusHandler
-	lists   signal.Context
-	cancel  context.CancelFunc
-	browser browser
-}
-
-var _ driver.Task = (*browserTask)(nil)
-
-// Exec implements driver.Task. A list runs in the background and Exec returns at once,
-// so a slow folder does not hold up the commands of other tasks. The listing answers
-// the command as the data of the task status, within the time limit of ctx.
-func (t *browserTask) Exec(ctx context.Context, cmd task.Command) error {
-	if cmd.Type != listCommand {
-		return driver.ErrUnsupportedCommand
+	c, err := driver.NewCommander(driver.CommanderConfig{
+		Instrumentation: f.cfg.Instrumentation,
+		Status:          h,
+		Exec:            f.browser.exec,
+		Message:         "Listed files",
+	})
+	if err != nil {
+		return nil, err
 	}
-	deadline, limited := ctx.Deadline()
-	t.lists.Go(func(ctx context.Context) error {
-		if limited {
-			var cancel context.CancelFunc
-			ctx, cancel = context.WithDeadline(ctx, deadline)
-			defer cancel()
-		}
-		t.answer(ctx, cmd)
-		return nil
-	}, signal.RecoverWithErrOnPanic())
-	return nil
-}
-
-// answer lists for cmd and answers it. A list that Stop cancels gets no answer, since
-// the successor of the task owns its status.
-func (t *browserTask) answer(ctx context.Context, cmd task.Command) {
-	l, err := t.list(ctx, cmd.Args)
-	if errors.Is(ctx.Err(), context.Canceled) {
-		return
-	}
-	var data msgpack.EncodedJSON
-	if err == nil {
-		data, err = msgpack.NewEncodedJSON(l)
-	}
-	var (
-		variant     = status.VariantSuccess
-		message     = "Listed files"
-		description string
-		f           driver.Failure
-	)
-	switch {
-	case errors.As(err, &f):
-		variant, message, description = status.VariantError, f.Message, f.Description
-	case err != nil:
-		variant, message = status.VariantError, "Failed to list files"
-		description = err.Error()
-	}
-	if err = t.status.Reply(
-		context.WithoutCancel(ctx), cmd.Key, variant, message, description, data,
-	); err != nil {
-		t.L.Error(
-			"failed to answer command",
-			zap.Stringer("command", cmd),
-			zap.Error(err),
-		)
-	}
-}
-
-func (t *browserTask) list(
-	ctx context.Context,
-	args msgpack.EncodedJSON,
-) (listing, error) {
-	var parsed struct {
-		Path string `json:"path"`
-	}
-	if err := args.Unmarshal(&parsed); err != nil {
-		return listing{}, failure("The path must be a string.")
-	}
-	return t.browser.list(ctx, parsed.Path)
-}
-
-// Stop implements driver.Task. It cancels the lists that run and writes no status.
-func (t *browserTask) Stop(bool) error {
-	t.cancel()
-	return errors.Skip(t.lists.Wait(), context.Canceled)
+	return c, nil
 }

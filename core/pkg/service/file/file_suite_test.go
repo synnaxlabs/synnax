@@ -124,9 +124,20 @@ func taskStatus(ctx context.Context, t task.Task) task.Status {
 // exec runs a list command with args on b and returns the status that answers it.
 func (b browser) exec(ctx context.Context, args msgpack.EncodedJSON) task.Status {
 	GinkgoHelper()
+	return b.execType(ctx, "list", args)
+}
+
+// execType runs a command of type cmdType with args on b and returns the status that
+// answers it.
+func (b browser) execType(
+	ctx context.Context,
+	cmdType string,
+	args msgpack.EncodedJSON,
+) task.Status {
+	GinkgoHelper()
 	cmd := task.Command{
 		Task: b.stored.Key,
-		Type: "list",
+		Type: cmdType,
 		Key:  uuid.New().String(),
 		Args: args,
 	}
