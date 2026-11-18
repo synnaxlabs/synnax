@@ -261,6 +261,30 @@ describe("Enumeration.Settings", () => {
       .toContainEqual([9, "Tripped"]);
   });
 
+  it("should suggest a value above every entry after one fills a gap", async () => {
+    const e = await createEnumeration([
+      { key: "a", value: 0, name: uniqueName("a"), abnormal: false },
+      { key: "b", value: 1, name: uniqueName("b"), abnormal: false },
+      { key: "c", value: 5, name: uniqueName("c"), abnormal: false },
+    ]);
+    await renderEnumerations();
+    const add = await screen.findByRole("button", {
+      name: `Add an entry to ${e.name}`,
+    });
+    await act(async () => {
+      fireEvent.click(add);
+    });
+    const value = await screen.findByLabelText<HTMLInputElement>("Entry value");
+    fireEvent.change(value, { target: { value: "2" } });
+    fireEvent.keyDown(value, { key: "Enter", code: "Enter" });
+    const name = screen.getByLabelText("Entry name");
+    fireEvent.change(name, { target: { value: "Ajar" } });
+    await act(async () => {
+      fireEvent.keyDown(name, { key: "Enter" });
+    });
+    await waitFor(() => expect(value.value).toBe("6"));
+  });
+
   it("should store a picked entry color and clear it with Auto", async () => {
     const e = await createEnumeration();
     await renderEnumerations();
