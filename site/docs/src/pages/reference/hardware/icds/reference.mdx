@@ -31,7 +31,13 @@ These properties are the same for each message format.
   task.
 </Field.Item>
 
-<Field.Item label="Messages" field="messages" type="list of messages" default="[]">
+<Field.Item
+  id="icd-messages"
+  label="Messages"
+  field="messages"
+  type="list of messages"
+  default="[]"
+>
   The messages that the ICD holds.
 </Field.Item>
 
@@ -82,6 +88,18 @@ These properties are the same for each message format.
   The engineering unit of the value, such as `°C`.
 </Field.Item>
 
+<Field.Item label="Min" field="min" type="number">
+  The smallest value that a write task accepts. Empty leaves the limit to the bits or
+  the type of the field. Only a number field can have a min. The Console does not show
+  it.
+</Field.Item>
+
+<Field.Item label="Max" field="max" type="number">
+  The largest value that a write task accepts. It cannot be less than the min. Empty
+  leaves the limit to the bits or the type of the field. Only a number field can have a
+  max. The Console does not show it.
+</Field.Item>
+
 </Field.List>
 
 <Divider.Divider x />
@@ -100,7 +118,13 @@ A JSON message reads one JSON document. An
   [match rules](#match-rules).
 </Field.Item>
 
-<Field.Item label="Fields" field="fields" type="list of JSON fields" default="[]">
+<Field.Item
+  id="json-message-fields"
+  label="Fields"
+  field="fields"
+  type="list of JSON fields"
+  default="[]"
+>
   The values that the document carries.
 </Field.Item>
 
@@ -253,7 +277,13 @@ A text message reads one line of text.
   The text that splits a line into items. It cannot be empty.
 </Field.Item>
 
-<Field.Item label="Fields" field="fields" type="list of text fields" default="[]">
+<Field.Item
+  id="text-message-fields"
+  label="Fields"
+  field="fields"
+  type="list of text fields"
+  default="[]"
+>
   The values that the line carries.
 </Field.Item>
 
@@ -299,7 +329,13 @@ A binary message reads the bytes of one frame, such as a CAN frame.
   value**. **None** sets no identifier, and each frame belongs to the message.
 </Field.Item>
 
-<Field.Item label="Fields" field="fields" type="list of binary fields" default="[]">
+<Field.Item
+  id="binary-message-fields"
+  label="Fields"
+  field="fields"
+  type="list of binary fields"
+  default="[]"
+>
   The values that the frame carries.
 </Field.Item>
 
@@ -417,9 +453,10 @@ same frame.
 
 ## Problems
 
-A check of an ICD finds these problems. A problem never stops a save. The ICD editor
-marks each problem on its property shortly after an edit. In code, `client.icds.check`
-returns the problems of an ICD.
+A check of an ICD finds these problems. A problem under [Properties](#properties) breaks
+a rule of the ICD's schema, and Synnax does not save the ICD. The other problems do not
+stop a save. The ICD editor marks each problem on its property shortly after an edit. In
+code, `client.icds.check` returns the problems of an ICD.
 
 ### Properties
 
@@ -442,6 +479,20 @@ returns the problems of an ICD.
   <Problem.Fix>Change the value to one in the range.</Problem.Fix>
 </Problem.Item>
 
+<Problem.Item message={["byte order is not valid", "time format is not valid"]}>
+  <Problem.Cause>
+    A property holds a value that this page does not list for it. Only code can set such
+    a value.
+  </Problem.Cause>
+  <Problem.Fix>Set one of the values that this page lists.</Problem.Fix>
+</Problem.Item>
+
+</Problem.List>
+
+### Names and keys
+
+<Problem.List>
+
 <Problem.Item
   message={['duplicate message name "<name>"', 'duplicate field name "<name>"']}
 >
@@ -451,6 +502,16 @@ returns the problems of an ICD.
   <Problem.Fix>Rename one of them.</Problem.Fix>
 </Problem.Item>
 
+<Problem.Item message={["duplicate message key <key>", "duplicate field key <key>"]}>
+  <Problem.Cause>
+    Code gave two messages of the ICD, or two fields of a message, the same key.
+  </Problem.Cause>
+  <Problem.Fix>
+    Give each its own key. A new message or field with no key gets one when Synnax saves
+    it.
+  </Problem.Fix>
+</Problem.Item>
+
 </Problem.List>
 
 ### Numbers
@@ -458,20 +519,40 @@ returns the problems of an ICD.
 <Problem.List>
 
 <Problem.Item
-  message={["only a number field can scale", "only a number field can have an offset"]}
+  message={[
+    "only a number field can scale",
+    "only a number field can have an offset",
+    "only a number field can have a min",
+    "only a number field can have a max",
+  ]}
 >
   <Problem.Cause>
-    A JSON field that does not hold a number has a scale other than 1, or an offset
-    other than 0.
+    A JSON field that does not hold a number has a scale other than 1, an offset other
+    than 0, a min, or a max.
   </Problem.Cause>
-  <Problem.Fix>Set the scale to 1 and the offset to 0, or change the type.</Problem.Fix>
+  <Problem.Fix>
+    Set the scale to 1 and the offset to 0, and clear the min and the max. Or change the
+    type.
+  </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={["scale must be finite and non-zero", "offset must be finite"]}>
+<Problem.Item
+  message={[
+    "scale must be finite and non-zero",
+    "offset must be finite",
+    "min must be finite",
+    "max must be finite",
+  ]}
+>
   <Problem.Cause>
-    The scale is 0, or the scale or offset is not a finite number.
+    The scale is 0, or the scale, offset, min, or max is not a finite number.
   </Problem.Cause>
   <Problem.Fix>Enter a finite number. A scale cannot be 0.</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"max must be greater than or equal to min"}>
+  <Problem.Cause>The max of a field is less than its min.</Problem.Cause>
+  <Problem.Fix>Change the min or the max.</Problem.Fix>
 </Problem.Item>
 
 </Problem.List>
@@ -575,8 +656,8 @@ returns the problems of an ICD.
   ]}
 >
   <Problem.Cause>
-    A field with a multiplexor has no multiplex values, or a value is too large for the
-    bits of the multiplexor.
+    A field with a multiplexor has no multiplex values, or a value is out of the range
+    of the multiplexor, such as a negative value for an unsigned field.
   </Problem.Cause>
   <Problem.Fix>Enter values that the multiplexor can hold.</Problem.Fix>
 </Problem.Item>
@@ -616,7 +697,8 @@ returns the problems of an ICD.
 >
   <Problem.Cause>
     The field of a **Field value** identifier is not an integer field of the message, or
-    the value is too large for its bits.
+    the value is out of the range of the field, such as a negative value for an unsigned
+    field.
   </Problem.Cause>
   <Problem.Fix>
     Select an integer field of the message, and a value that it can hold.
@@ -645,7 +727,7 @@ last one while it runs, and it skips the document.
   <Problem.Fix>Give each rule of the topic the same pointer.</Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"messages <a> and <b> match the same value"}>
+<Problem.Item message={"messages <a> and <b> match the same value <value>"}>
   <Problem.Cause>The rules of two messages test for the same value.</Problem.Cause>
   <Problem.Fix>Change the value of one rule.</Problem.Fix>
 </Problem.Item>
