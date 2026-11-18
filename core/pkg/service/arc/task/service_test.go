@@ -35,6 +35,7 @@ var _ = Describe("Service", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
 		a := arc.Arc{
 			Variant: arc.AutomationArc{Base: arc.Base{
@@ -65,9 +66,10 @@ var _ = Describe("Service", func() {
 
 	Describe("Stores", func() {
 		It("Should expose the Arc task store", func() {
-			types := []string{}
-			for _, s := range svc.Stores() {
-				types = append(types, s.Type())
+			stores := svc.Stores()
+			types := make([]string, len(stores))
+			for i, s := range stores {
+				types[i] = s.Type()
 			}
 			Expect(types).To(ConsistOf("arc"))
 		})

@@ -22,7 +22,7 @@ import {
   deployAndAwaitTask,
   renderTaskFormTab,
 } from "@/platform/task/testutil";
-import { findDialogTriggerByText, uniqueName } from "@/testutil";
+import { assertDefined, findDialogTriggerByText, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -1437,5 +1437,30 @@ describe("MQTT read form", () => {
       const created = await deploy(rendered.container, second.key);
       expect(sparkplugOf(created.config.entries[0]).channel).toBe(stored.channel);
     });
+  });
+});
+
+describe("plotChannels", () => {
+  it("should find the bound channels of enabled plain entries and enabled Sparkplug tags", () => {
+    const plotChannels = MQTT.Task.INTEGRATION.plotChannels?.[MQTT.Task.READ_TYPE];
+    assertDefined(plotChannels, "read tasks have no channels to plot");
+    const plain = (disabled: boolean, ...channels: number[][]) => ({
+      type: "plain",
+      disabled,
+      icd: uuid.create(),
+      messages: channels.map((keys) => ({
+        message: uuid.create(),
+        bindings: keys.map((channel) => ({ field: uuid.create(), channel })),
+      })),
+    });
+    const config = {
+      entries: [
+        plain(false, [1, 0], [2]),
+        plain(true, [3]),
+        { type: "sparkplug", channel: 4 },
+        { type: "sparkplug", channel: 5, disabled: true },
+      ],
+    };
+    expect(plotChannels(config)).toEqual([1, 2, 4]);
   });
 });

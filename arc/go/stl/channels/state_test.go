@@ -132,7 +132,9 @@ func writeValue(s *channels.ProgramState, key uint32, value telem.Series) {
 			fn, arg = "write_f32", stltest.F32(value.ValueAt[float32](i))
 		case telem.Float64T:
 			fn, arg = "write_f64", stltest.F64(value.ValueAt[float64](i))
-		default:
+		case telem.UnknownT, telem.Uint8T, telem.Uint16T, telem.Uint32T,
+			telem.Uint64T, telem.Int8T, telem.Int16T, telem.Int64T, telem.TimestampT,
+			telem.UUIDT, telem.StringT, telem.BytesT, telem.JSONT, telem.BooleanT:
 			Fail("unsupported data type " + string(value.DataType))
 		}
 		rt.CallVoid(ctx, channels.Name, fn, stltest.U32(key), arg)
@@ -615,8 +617,8 @@ var _ = Describe("ProgramState", func() {
 				}
 				const now telem.TimeStamp = 1000
 				var (
-					written       []sample
-					synthesized   []bool
+					written       = make([]sample, 0, len(order))
+					synthesized   = make([]bool, 0, len(order))
 					behind, ahead = now - 100, now + 100
 				)
 				for i, op := range order {
@@ -648,10 +650,8 @@ var _ = Describe("ProgramState", func() {
 				slices.SortStableFunc(positions, func(a, b int) int {
 					return cmp.Compare(written[a].stamp, written[b].stamp)
 				})
-				var (
-					expected []sample
-					highest  telem.TimeStamp
-				)
+				expected := make([]sample, 0, len(positions))
+				var highest telem.TimeStamp
 				for i, p := range positions {
 					want := written[p]
 					if i > 0 && want.stamp <= expected[i-1].stamp {
@@ -935,11 +935,11 @@ var _ = Describe("ProgramState", func() {
 // body write (b) or a supplied write stamped behind now (l), at now (n), or ahead (a).
 func writeOrders() []TableEntry {
 	var (
-		entries []TableEntry
+		entries = make([]TableEntry, 0, 4+16+64+256)
 		orders  = []string{""}
 	)
 	for range 4 {
-		var next []string
+		next := make([]string, 0, 4*len(orders))
 		for _, order := range orders {
 			for _, op := range "blna" {
 				next = append(next, order+string(op))

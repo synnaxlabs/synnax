@@ -63,6 +63,12 @@ export const useStart = (): ((range: ranger.Range) => void) => {
     });
 };
 
+/** The icon for Next: stop a running range and start the one after it. */
+export const NextIcon = Icon.createFromPath(
+  "next",
+  "M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z",
+);
+
 export const useStop = (): ((range: ranger.Range) => void) => {
   const { update } = Ranger.useSetTimeRange();
   return (range) =>

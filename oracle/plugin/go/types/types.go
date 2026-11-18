@@ -369,63 +369,73 @@ func StructurallyEqual(
 // extends, type arguments, alias targets, distinct bases, and union variants. Types
 // outside the closure never reach a table's wire format.
 func PersistedClosure(table *resolution.Table) set.Set[string] {
-	closure := make(set.Set[string])
-	var walkType func(t resolution.Type)
-	var walkRef func(ref resolution.TypeRef)
-	walkRef = func(ref resolution.TypeRef) {
-		for _, arg := range ref.TypeArgs {
-			walkRef(arg)
-		}
-		if resolved, ok := ref.Resolve(table); ok {
-			walkType(resolved)
-		}
-	}
-	walkType = func(t resolution.Type) {
-		if closure.Contains(t.QualifiedName) {
-			return
-		}
-		closure.Add(t.QualifiedName)
-		switch form := t.Form.(type) {
-		case resolution.StructForm:
-			for _, ext := range form.Extends {
-				walkRef(ext)
-			}
-			for _, tp := range form.TypeParams {
-				if tp.Constraint != nil {
-					walkRef(*tp.Constraint)
-				}
-				if tp.Default != nil {
-					walkRef(*tp.Default)
-				}
-			}
-			persisted := schemadiff.PersistedFields(resolution.UnifiedFields(t, table))
-			for _, f := range persisted {
-				walkRef(f.Type)
-			}
-		case resolution.EnumForm:
-			for _, ext := range form.Extends {
-				walkRef(ext)
-			}
-		case resolution.AliasForm:
-			walkRef(form.Target)
-		case resolution.DistinctForm:
-			walkRef(form.Base)
-		case resolution.UnionForm:
-			for _, ext := range form.Extends {
-				walkRef(ext)
-			}
-			for _, v := range form.Variants {
-				walkRef(v.Type)
-			}
-		}
-	}
+	w := closureWalker{table: table, closure: make(set.Set[string])}
 	for _, t := range table.Types {
 		if domain.HasExprFromType(t, "go", "marshal") ||
 			domain.HasExprFromType(t, "go", "migrate") {
-			walkType(t)
+			w.walkType(t)
 		}
 	}
-	return closure
+	return w.closure
+}
+
+// closureWalker adds each type it walks, and each type that type stores, to closure.
+type closureWalker struct {
+	table   *resolution.Table
+	closure set.Set[string]
+}
+
+func (w closureWalker) walkRef(ref resolution.TypeRef) {
+	for _, arg := range ref.TypeArgs {
+		w.walkRef(arg)
+	}
+	if resolved, ok := ref.Resolve(w.table); ok {
+		w.walkType(resolved)
+	}
+}
+
+func (w closureWalker) walkRefs(refs []resolution.TypeRef) {
+	for _, ref := range refs {
+		w.walkRef(ref)
+	}
+}
+
+func (w closureWalker) walkType(t resolution.Type) {
+	if w.closure.Contains(t.QualifiedName) {
+		return
+	}
+	w.closure.Add(t.QualifiedName)
+	switch form := t.Form.(type) {
+	case resolution.StructForm:
+		w.walkStruct(t, form)
+	case resolution.EnumForm:
+		w.walkRefs(form.Extends)
+	case resolution.AliasForm:
+		w.walkRef(form.Target)
+	case resolution.DistinctForm:
+		w.walkRef(form.Base)
+	case resolution.UnionForm:
+		w.walkRefs(form.Extends)
+		for _, v := range form.Variants {
+			w.walkRef(v.Type)
+		}
+	}
+}
+
+func (w closureWalker) walkStruct(t resolution.Type, form resolution.StructForm) {
+	w.walkRefs(form.Extends)
+	for _, tp := range form.TypeParams {
+		if tp.Constraint != nil {
+			w.walkRef(*tp.Constraint)
+		}
+		if tp.Default != nil {
+			w.walkRef(*tp.Default)
+		}
+	}
+	persisted := schemadiff.PersistedFields(resolution.UnifiedFields(t, w.table))
+	for _, f := range persisted {
+		w.walkRef(f.Type)
+	}
 }
 
 // generateGoFile generates a Go types file for the given structs, enums, and
@@ -500,13 +510,14 @@ func renderGoFile(
 	aliasOverrides map[string]string,
 ) ([]byte, map[string][]string, error) {
 	namespace := ""
-	if len(structs) > 0 {
+	switch {
+	case len(structs) > 0:
 		namespace = structs[0].Namespace
-	} else if len(unions) > 0 {
+	case len(unions) > 0:
 		namespace = unions[0].Namespace
-	} else if len(typeDefs) > 0 {
+	case len(typeDefs) > 0:
 		namespace = typeDefs[0].Namespace
-	} else if len(enums) > 0 {
+	case len(enums) > 0:
 		namespace = enums[0].Namespace
 	}
 
@@ -797,17 +808,7 @@ func processStruct(entry resolution.Type, data *templateData) (structData, error
 	var embeds []embeddedType
 	if len(form.Extends) > 0 && !flatten {
 		sd.HasExtends = true
-		for _, extendsRef := range form.Extends {
-			parent, ok := extendsRef.Resolve(data.table)
-			if ok {
-				rendered := resolveExtendsType(extendsRef, parent, data)
-				sd.ExtendsTypes = append(sd.ExtendsTypes, rendered)
-				embeds = append(
-					embeds,
-					embeddedType{ref: extendsRef, rendered: rendered},
-				)
-			}
-		}
+		embeds = embedExtends(&sd, form, data)
 		fields = form.Fields
 		defaultOnly = resolver.DefaultOnlyOverrides(
 			form.Extends, form.Fields, data.table,
@@ -843,29 +844,8 @@ func processStruct(entry resolution.Type, data *templateData) (structData, error
 		if !defaultOnly.Contains(field.Name) {
 			sd.Fields = append(sd.Fields, processField(field, data))
 		}
-		if !genMethods {
-			continue
-		}
-		fd := data.forField(field)
-		if defaultGroupName(field) == "" {
-			fills := goDefaultFills(field, fd)
-			if defaultOnly.Contains(field.Name) {
-				fills = overrideFills(field, fd)
-			}
-			sd.SetFills = append(sd.SetFills, fills...)
-		}
-		if validateSkip(field, fd) {
-			continue
-		}
-		if chk, ok := goEnumCheck(field, fd); ok {
-			sd.EnumChecks = append(sd.EnumChecks, chk)
-		}
-		sd.ConstraintChecks = append(
-			sd.ConstraintChecks,
-			goConstraintChecks(field, defaultOnly.Contains(field.Name), fd)...,
-		)
-		if step, ok := goRecurseStep(field, fd, validateRule); ok {
-			sd.ValidateRecurse = append(sd.ValidateRecurse, step)
+		if genMethods {
+			addFieldMethods(&sd, field, defaultOnly.Contains(field.Name), data)
 		}
 	}
 	if genMethods {
@@ -874,20 +854,7 @@ func processStruct(entry resolution.Type, data *templateData) (structData, error
 	}
 	sd.DecodeHooks = sd.SetDefaultsView().Sets() &&
 		!data.embedded.Contains(embedKey(data.OutputPath, naming.GetGoName(entry)))
-	if sd.DecodeHooks {
-		data.AddExternal("encoding/json/v2")
-		data.AddExternal("encoding/json/jsontext")
-		data.AddExternal("reflect")
-		// The alias keeps clear of x's msgpack package and of a v5 version package.
-		data.AddInternal("vmsgpack", msgpackImportPath)
-	}
-	if len(sd.EnumChecks) > 0 || len(sd.ConstraintChecks) > 0 ||
-		len(sd.ValidateRecurse) > 0 {
-		data.AddExternal(validateImportPath)
-	}
-	if hasSliceRecurse(sd.ValidateRecurse) {
-		data.AddExternal(strconvImportPath)
-	}
+	addMethodImports(&sd, data)
 	if len(sd.Name) > 0 {
 		sd.Receiver = receiverName(sd.Name, hasSliceRecurse(sd.ValidateRecurse))
 	}
@@ -905,6 +872,73 @@ func processStruct(entry resolution.Type, data *templateData) (structData, error
 		}
 	}
 	return sd, nil
+}
+
+// embedExtends renders each resolved parent of form as an embedded type.
+func embedExtends(
+	sd *structData,
+	form resolution.StructForm,
+	data *templateData,
+) []embeddedType {
+	var embeds []embeddedType
+	for _, extendsRef := range form.Extends {
+		parent, ok := extendsRef.Resolve(data.table)
+		if ok {
+			rendered := resolveExtendsType(extendsRef, parent, data)
+			sd.ExtendsTypes = append(sd.ExtendsTypes, rendered)
+			embeds = append(embeds, embeddedType{ref: extendsRef, rendered: rendered})
+		}
+	}
+	return embeds
+}
+
+// addFieldMethods adds the default fills and validation checks of field. defaultOnly
+// marks a field that only restates an inherited default.
+func addFieldMethods(
+	sd *structData,
+	field resolution.Field,
+	defaultOnly bool,
+	data *templateData,
+) {
+	fd := data.forField(field)
+	if defaultGroupName(field) == "" {
+		fills := goDefaultFills(field, fd)
+		if defaultOnly {
+			fills = overrideFills(field, fd)
+		}
+		sd.SetFills = append(sd.SetFills, fills...)
+	}
+	if validateSkip(field, fd) {
+		return
+	}
+	if chk, ok := goEnumCheck(field, fd); ok {
+		sd.EnumChecks = append(sd.EnumChecks, chk)
+	}
+	sd.ConstraintChecks = append(
+		sd.ConstraintChecks,
+		goConstraintChecks(field, defaultOnly, fd)...,
+	)
+	if step, ok := goRecurseStep(field, fd, validateRule); ok {
+		sd.ValidateRecurse = append(sd.ValidateRecurse, step)
+	}
+}
+
+// addMethodImports adds the imports that the struct's decode hooks and validation need.
+func addMethodImports(sd *structData, data *templateData) {
+	if sd.DecodeHooks {
+		data.AddExternal("encoding/json/v2")
+		data.AddExternal("encoding/json/jsontext")
+		data.AddExternal("reflect")
+		// The alias keeps clear of x's msgpack package and of a v5 version package.
+		data.AddInternal("vmsgpack", msgpackImportPath)
+	}
+	if len(sd.EnumChecks) > 0 || len(sd.ConstraintChecks) > 0 ||
+		len(sd.ValidateRecurse) > 0 {
+		data.AddExternal(validateImportPath)
+	}
+	if hasSliceRecurse(sd.ValidateRecurse) {
+		data.AddExternal(strconvImportPath)
+	}
 }
 
 // validateToAny errors when @go to_any marks a struct that its ToAny method cannot
@@ -1540,7 +1574,11 @@ func ({{$s.Receiver}} *{{$s.Name}}) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 func ({{$s.Receiver}} {{$s.Name}}) Validate() error {
 	v := validate.New("{{$s.Name}}")
 {{- range $s.EnumChecks}}
-{{- if .Optional}}
+{{- if .MapKey}}
+	for key := range {{$s.Receiver}}.{{.GoName}} {
+		v.Ternaryf("{{.FieldName}}", !key.IsValid(), "invalid {{.FieldName}} key: %v", key)
+	}
+{{- else if .Optional}}
 	if {{$s.Receiver}}.{{.GoName}} != nil {
 		v.Ternaryf("{{.FieldName}}", !{{$s.Receiver}}.{{.GoName}}.IsValid(), "invalid {{.FieldName}}: %v", *{{$s.Receiver}}.{{.GoName}})
 	}
@@ -1670,7 +1708,11 @@ func ({{.TypeName}}) {{$u.Marker}}() {}
 func ({{$vt.Receiver}} {{$vt.TypeName}}) Validate() error {
 	v := validate.New("{{$vt.TypeName}}")
 {{- range $vt.EnumChecks}}
-{{- if .Optional}}
+{{- if .MapKey}}
+	for key := range {{$vt.Receiver}}.{{.GoName}} {
+		v.Ternaryf("{{.FieldName}}", !key.IsValid(), "invalid {{.FieldName}} key: %v", key)
+	}
+{{- else if .Optional}}
 	if {{$vt.Receiver}}.{{.GoName}} != nil {
 		v.Ternaryf("{{.FieldName}}", !{{$vt.Receiver}}.{{.GoName}}.IsValid(), "invalid {{.FieldName}}: %v", *{{$vt.Receiver}}.{{.GoName}})
 	}

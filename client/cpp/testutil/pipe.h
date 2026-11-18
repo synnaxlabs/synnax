@@ -9,29 +9,78 @@
 
 #pragma once
 
-#ifndef _WIN32
 #include <array>
 #include <atomic>
-#include <csignal>
+#include <cstdint>
 #include <mutex>
 #include <thread>
 #include <vector>
 
 #include "gtest/gtest.h"
+
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#else
+#include <csignal>
+
 #include <netinet/in.h>
 #include <poll.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#endif
 
 /// @brief forwards local TCP connections to the Core. cut drops every open
 /// connection, as a short Core outage does. Later connections still go through.
 class CorePipe {
-    int listener = -1;
+#ifdef _WIN32
+    using Socket = SOCKET;
+    static constexpr Socket INVALID = INVALID_SOCKET;
+    static constexpr int SHUT_BOTH = SD_BOTH;
+    static void close_socket(const Socket s) { closesocket(s); }
+#else
+    using Socket = int;
+    static constexpr Socket INVALID = -1;
+    static constexpr int SHUT_BOTH = SHUT_RDWR;
+    static void close_socket(const Socket s) { close(s); }
+#endif
+    static constexpr int BUFFER_SIZE = 16384;
+
+    /// @brief readies the socket library for the life of the pipe.
+    struct Startup {
+        Startup() {
+#ifdef _WIN32
+            WSADATA wsa;
+            EXPECT_EQ(WSAStartup(MAKEWORD(2, 2), &wsa), 0);
+#else
+            // A pump writes to a socket that the other side closed.
+            signal(SIGPIPE, SIG_IGN);
+#endif
+        }
+
+        ~Startup() {
+#ifdef _WIN32
+            WSACleanup();
+#endif
+        }
+
+        Startup(const Startup &) = delete;
+        Startup &operator=(const Startup &) = delete;
+    };
+
+    Startup startup;
+    Socket listener;
     sockaddr_in core{};
     std::atomic<bool> open{true};
     std::atomic<bool> paused{false};
     std::mutex mu;
-    std::vector<int> sockets;
+    std::vector<Socket> sockets;
     std::vector<std::thread> pumps;
     std::thread acceptor;
 
@@ -43,29 +92,42 @@ class CorePipe {
         return addr;
     }
 
-    static void pump(const int from, const int to) {
-        std::array<char, 16384> buf{};
-        ssize_t n = 0;
-        while ((n = recv(from, buf.data(), buf.size(), 0)) > 0)
+    static void pump(const Socket from, const Socket to) {
+        std::array<char, BUFFER_SIZE> buf{};
+        while (true) {
+            const auto n = recv(from, buf.data(), BUFFER_SIZE, 0);
+            if (n <= 0) break;
             if (send(to, buf.data(), n, 0) != n) break;
-        shutdown(to, SHUT_RDWR);
+        }
+        shutdown(to, SHUT_BOTH);
+    }
+
+    /// @brief waits up to 50 ms for a connection on the listener.
+    [[nodiscard]] bool readable() const {
+        pollfd fd{};
+        fd.fd = this->listener;
+        fd.events = POLLIN;
+#ifdef _WIN32
+        return WSAPoll(&fd, 1, 50) > 0;
+#else
+        return poll(&fd, 1, 50) > 0;
+#endif
     }
 
     void accept_loop() {
         while (this->open) {
-            pollfd fd{.fd = this->listener, .events = POLLIN, .revents = 0};
-            if (poll(&fd, 1, 50) <= 0) continue;
-            const int client = accept(this->listener, nullptr, nullptr);
-            if (client < 0) continue;
+            if (!this->readable()) continue;
+            const Socket client = accept(this->listener, nullptr, nullptr);
+            if (client == INVALID) continue;
             if (this->paused) {
-                close(client);
+                close_socket(client);
                 continue;
             }
-            const int upstream = socket(AF_INET, SOCK_STREAM, 0);
-            const auto *addr = reinterpret_cast<sockaddr *>(&this->core);
+            const Socket upstream = socket(AF_INET, SOCK_STREAM, 0);
+            const auto *addr = reinterpret_cast<const sockaddr *>(&this->core);
             if (connect(upstream, addr, sizeof(this->core)) != 0) {
-                close(client);
-                close(upstream);
+                close_socket(client);
+                close_socket(upstream);
                 continue;
             }
             std::lock_guard lock{this->mu};
@@ -80,8 +142,6 @@ public:
 
     explicit CorePipe(const uint16_t core_port):
         listener(socket(AF_INET, SOCK_STREAM, 0)), core(loopback(core_port)) {
-        // A pump writes to a socket that the other side closed.
-        signal(SIGPIPE, SIG_IGN);
         auto addr = loopback(0);
         socklen_t len = sizeof(addr);
         auto *sock_addr = reinterpret_cast<sockaddr *>(&addr);
@@ -97,8 +157,8 @@ public:
 
     void cut() {
         std::lock_guard lock{this->mu};
-        for (const int s: this->sockets)
-            shutdown(s, SHUT_RDWR);
+        for (const auto s: this->sockets)
+            shutdown(s, SHUT_BOTH);
     }
 
     /// @brief cuts every connection and refuses new ones until resume.
@@ -115,9 +175,8 @@ public:
         this->cut();
         for (auto &t: this->pumps)
             t.join();
-        for (const int s: this->sockets)
-            close(s);
-        close(this->listener);
+        for (const auto s: this->sockets)
+            close_socket(s);
+        close_socket(this->listener);
     }
 };
-#endif

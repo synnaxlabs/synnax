@@ -119,6 +119,12 @@ func fuzzImport(f *testing.F, format icd.Format) func(*testing.T, []byte) {
 	}
 	db := gorp.Wrap(memkv.New())
 	closeOnCleanup(db)
+	stopDB := GoRun(f.Context(), db.Run)
+	f.Cleanup(func() {
+		if err := stopDB(); err != nil {
+			f.Error(err)
+		}
+	})
 	s, err := icd.OpenService(f.Context(), icd.ServiceConfig{
 		DB:   db,
 		ImEx: imex.NewService(),

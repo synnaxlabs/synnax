@@ -11,111 +11,98 @@ import { describe, expect, it } from "vitest";
 
 import { Range } from "@/session/range";
 
-const STATIC: Range.StaticState = {
-  variant: "static",
-  key: "static-1",
-  name: "Static 1",
-  timeRange: { start: 0, end: 1000 },
-};
-
 const PERSISTED: Range.PersistedState = { variant: "persisted", key: "persisted-1" };
 
-const DYNAMIC: Range.DynamicState = {
-  variant: "dynamic",
-  key: "dynamic-1",
-  name: "Dynamic 1",
-  span: 1000,
-};
+const OTHER: Range.PersistedState = { variant: "persisted", key: "persisted-2" };
 
-const emptyState = (): Range.SliceState => Range.sliceStateZ.parse({ ranges: [] });
+const emptyState = (): Range.SliceState => Range.sliceStateZ.parse({});
 
-const stateWith = (ranges: Range.State[], selected?: string): Range.SliceState => ({
+const stateWith = (ranges: Range.PersistedState[]): Range.SliceState => ({
   ...emptyState(),
   ranges,
-  selected,
 });
 
 describe("range slice", () => {
   describe("default state", () => {
-    it("should store no ranges of its own", () => {
-      const state = Range.reducer(undefined, { type: "@@INIT" });
+    it("should store no ranges and open every toolbar group", () => {
+      expect(Range.reducer(undefined, { type: "@@INIT" })).toEqual({
+        version: 1,
+        ranges: [],
+        toolbar: { collapsed: [] },
+        staticWindows: {},
+      });
+    });
+  });
+
+  describe("version 0", () => {
+    it("should drop the ranges kept only in the Console and the selection", () => {
+      const state = Range.sliceStateZ.parse({
+        version: 0,
+        selected: PERSISTED.key,
+        ranges: [
+          PERSISTED,
+          {
+            variant: "static",
+            key: "local-1",
+            name: "Local 1",
+            timeRange: { start: 0, end: 1000 },
+          },
+        ],
+        staticKeysRewritten: true,
+      });
+      expect(state).toEqual({ ...Range.ZERO_SLICE_STATE, ranges: [PERSISTED] });
+    });
+
+    it("should keep the times of those ranges while line plots may hold their keys", () => {
+      const state = Range.sliceStateZ.parse({
+        version: 0,
+        ranges: [
+          {
+            variant: "static",
+            key: "local-1",
+            name: "Local 1",
+            timeRange: { start: 0, end: 1000 },
+          },
+        ],
+        staticKeysRewritten: false,
+      });
       expect(state.ranges).toEqual([]);
-      expect(state.selected).toBeUndefined();
+      expect(state.staticWindows).toEqual({ "local-1": { start: 0, end: 1000 } });
     });
   });
 
   describe("add", () => {
-    it("should add a range and select it by default", () => {
-      const next = Range.reducer(emptyState(), Range.add(STATIC));
-      expect(next.ranges).toEqual([STATIC]);
-      expect(next.selected).toEqual(STATIC.key);
+    it("should add a range", () => {
+      const next = Range.reducer(emptyState(), Range.add(PERSISTED));
+      expect(next.ranges).toEqual([PERSISTED]);
     });
 
-    it("should replace an existing range with the same key", () => {
-      const renamed: Range.StaticState = { ...STATIC, name: "Replaced" };
-      const next = Range.reducer(stateWith([STATIC]), Range.add(renamed));
-      expect(next.ranges).toEqual([renamed]);
+    it("should not add a second entry for the same key", () => {
+      const next = Range.reducer(stateWith([PERSISTED]), Range.add(PERSISTED));
+      expect(next.ranges).toEqual([PERSISTED]);
     });
   });
 
   describe("remove", () => {
     it("should remove the matching ranges", () => {
       const next = Range.reducer(
-        stateWith([STATIC, DYNAMIC]),
-        Range.remove({ keys: [STATIC.key] }),
+        stateWith([PERSISTED, OTHER]),
+        Range.remove({ keys: [PERSISTED.key] }),
       );
-      expect(next.ranges).toEqual([DYNAMIC]);
-    });
-
-    it("should clear the selection when the selected range is removed", () => {
-      const next = Range.reducer(
-        stateWith([STATIC], STATIC.key),
-        Range.remove({ keys: [STATIC.key] }),
-      );
-      expect(next.selected).toBeUndefined();
-    });
-
-    it("should keep the selection when a different range is removed", () => {
-      const next = Range.reducer(
-        stateWith([STATIC, DYNAMIC], DYNAMIC.key),
-        Range.remove({ keys: [STATIC.key] }),
-      );
-      expect(next.selected).toEqual(DYNAMIC.key);
+      expect(next.ranges).toEqual([OTHER]);
     });
   });
 
-  describe("select", () => {
-    it("should set the selected key", () => {
-      const next = Range.reducer(emptyState(), Range.select(STATIC.key));
-      expect(next.selected).toEqual(STATIC.key);
-    });
-  });
-
-  describe("rename", () => {
-    it("should rename the matching range", () => {
-      const next = Range.reducer(
-        stateWith([STATIC]),
-        Range.rename({ key: STATIC.key, name: "Renamed" }),
+  describe("setGroupCollapsed", () => {
+    it("should collapse a group once and open it again", () => {
+      const collapse = Range.setGroupCollapsed({ group: "recent", collapsed: true });
+      const collapsed = Range.reducer(Range.reducer(emptyState(), collapse), collapse);
+      expect(collapsed.toolbar.collapsed).toEqual(["recent"]);
+      const opened = Range.reducer(
+        collapsed,
+        Range.setGroupCollapsed({ group: "recent", collapsed: false }),
       );
-      expect(next.ranges[0]).toEqual({ ...STATIC, name: "Renamed" });
-    });
-
-    it("should be a no-op when the key does not match", () => {
-      const next = Range.reducer(
-        stateWith([STATIC]),
-        Range.rename({ key: "missing", name: "Renamed" }),
-      );
-      expect(next.ranges).toEqual([STATIC]);
-    });
-
-    // The Core owns a persisted range's name, so renaming one here would only invent
-    // a second answer for it.
-    it("should be a no-op for a range the Core holds", () => {
-      const next = Range.reducer(
-        stateWith([PERSISTED]),
-        Range.rename({ key: PERSISTED.key, name: "Renamed" }),
-      );
-      expect(next.ranges).toEqual([PERSISTED]);
+      expect(opened.toolbar.collapsed).toEqual([]);
     });
   });
 });

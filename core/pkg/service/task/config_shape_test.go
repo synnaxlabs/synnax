@@ -149,11 +149,11 @@ var _ = Describe("Config record shapes", func() {
 	It("holds no map-typed fields in any generated config type", func() {
 		dirs := configVersionDirs("..")
 		Expect(dirs).ToNot(BeEmpty())
-		var found []string
-		for _, dir := range dirs {
+		found := make([][]string, len(dirs))
+		for i, dir := range dirs {
 			Expect(MustSucceed(filepath.Glob(dir))).ToNot(BeEmpty(), dir)
-			found = append(found, mapFields(dir)...)
+			found[i] = mapFields(dir)
 		}
-		Expect(found).To(BeEmpty())
+		Expect(slices.Concat(found...)).To(BeEmpty())
 	})
 })

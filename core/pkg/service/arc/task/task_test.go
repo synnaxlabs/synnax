@@ -17,11 +17,13 @@ import (
 	"math"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"time"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
@@ -61,6 +63,8 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/hookkv"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 // graphNodeSpec describes a graph node along with its function type and configuration
@@ -105,9 +109,12 @@ var _ = Describe("Task", Ordered, func() {
 
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		st := DeferClose(storagetestutil.OpenLayer(ctx))
+		st := DeferClose(storagetestutil.OpenLayer(GinkgoT().Context()))
+		hookedKV := hookkv.Wrap(st.KV)
+		hookedDB := gorp.Wrap(hookedKV)
+		StartRun(hookedDB.Run)
 		node := testutil.NewNode(ctx, distribution.LayerConfig{
-			Storage: &storage.Layer{KV: hookkv.Wrap(st.KV), TS: st.TS},
+			Storage: &storage.Layer{KV: hookedKV, TS: st.TS, Gorp: hookedDB},
 		})
 		db = node.DB
 		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
@@ -3812,7 +3819,7 @@ var _ = Describe("Task", Ordered, func() {
 					g.Expect(stat.Description).
 						To(HavePrefix("The divide_test node failed: "))
 					g.Expect(stat.Description).
-						To(ContainSubstring("integer divide by zero"))
+						To(HaveSuffix(": integer divide by zero"))
 					g.Expect(stat.Details.Running).To(BeTrue())
 				}).Should(Succeed())
 			},
@@ -3977,6 +3984,149 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(
 				foundValid,
 			).To(BeTrue(), "Expected to receive valid output (5) after error")
+		})
+
+		Describe("Error log", func() {
+			const message = "runtime error in arc node"
+
+			var now atomic.Int64
+			BeforeEach(func() { now.Store(int64(telem.Now())) })
+
+			// run starts one divide node for each name. settle waits for each frame.
+			run := func(ctx SpecContext, names ...string) (
+				logs *observer.ObservedLogs,
+				write func(samples ...int32),
+				settle func(),
+			) {
+				GinkgoHelper()
+				inputCh := createVirtualCh(ctx, "log_input", telem.Int32T)
+				var raw strings.Builder
+				outputs := make(channel.Keys, 0, len(names))
+				for _, name := range names {
+					outputCh := createVirtualCh(ctx, "log_output", telem.Int32T)
+					outputs = append(outputs, outputCh.Key())
+					fmt.Fprintf(&raw, `
+						func %s(out chan i32) {d i32} {
+							out = 100 / d
+						}
+						%s -> %s(out=%s)
+					`, name, inputCh.Name, name, outputCh.Name)
+				}
+				core, logs := observer.New(zap.WarnLevel)
+				logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
+					ZapLogger: zap.New(core),
+				}))
+				svcTask := task.Task{
+					Key:    uuid.New(),
+					Name:   "test-error-log",
+					Type:   arctask.Type,
+					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+				}
+				createTask(ctx, svcTask)
+				t := MustSucceed(newTextFactory(
+					ctx,
+					arc.Text{Raw: raw.String()},
+					arctask.FactoryConfig{
+						Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
+						Now: func() telem.TimeStamp {
+							return telem.TimeStamp(now.Load())
+						},
+					},
+				).ConfigureTask(ctx, svcTask, "cmd-1"))
+				responses, closeStreamer := openTestStreamer(ctx, outputs, 100)
+				DeferCleanup(closeStreamer)
+				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+				DeferCleanup(func() { Expect(t.Stop(true)).To(Succeed()) })
+				time.Sleep(20 * time.Millisecond)
+				w := MustOpen(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+					Keys:  []channel.Key{inputCh.Key()},
+					Start: telem.Now(),
+				}))
+				write = func(samples ...int32) {
+					GinkgoHelper()
+					Expect(w.Write(
+						frame.NewUnary(inputCh.Key(), telem.NewSeriesV(samples...)),
+					)).To(BeTrue())
+				}
+				settle = func() {
+					GinkgoHelper()
+					write(2)
+					for settled := 0; settled < len(outputs); {
+						var fr framer.StreamerResponse
+						Eventually(responses).Should(Receive(&fr))
+						for _, key := range outputs {
+							if fr.Frame.Get(key).Len() > 0 {
+								settled++
+							}
+						}
+					}
+				}
+				return logs, write, settle
+			}
+
+			It("Should log one line for a node that fails with one error on each cycle",
+				func(ctx SpecContext) {
+					logs, write, settle := run(ctx, "divide")
+					for range 20 {
+						write(0)
+					}
+					settle()
+					Expect(logs.FilterMessage(message).Len()).To(Equal(1))
+				},
+			)
+
+			It(
+				"Should log an error again after 5 s, with the count of failures not logged",
+				func(ctx SpecContext) {
+					logs, write, settle := run(ctx, "divide")
+					for range 20 {
+						write(0)
+					}
+					settle()
+					now.Add(int64(6 * telem.Second))
+					write(0)
+					settle()
+					entries := logs.FilterMessage(message).All()
+					Expect(entries).To(HaveLen(2))
+					Expect(entries[1].ContextMap()).
+						To(HaveKeyWithValue("skipped", int64(19)))
+				},
+			)
+
+			It("Should log each different error of one node", func(ctx SpecContext) {
+				logs, write, settle := run(ctx, "divide")
+				for range 10 {
+					write(0)
+					write(0, 0)
+				}
+				settle()
+				Expect(logs.FilterMessage(message).Len()).To(Equal(2))
+			})
+
+			It("Should log at most 10 different errors of one node inside 5 s",
+				func(ctx SpecContext) {
+					logs, write, settle := run(ctx, "divide")
+					for count := 1; count <= 12; count++ {
+						write(make([]int32, count)...)
+					}
+					settle()
+					Expect(logs.FilterMessage(message).Len()).To(Equal(10))
+				},
+			)
+
+			It("Should limit the lines of each node apart from the other nodes",
+				func(ctx SpecContext) {
+					logs, write, settle := run(ctx, "divide_a", "divide_b")
+					for range 20 {
+						write(0)
+					}
+					settle()
+					entries := logs.FilterMessage(message).All()
+					Expect(entries).To(HaveLen(2))
+					Expect(entries[0].ContextMap()["node"]).
+						ToNot(Equal(entries[1].ContextMap()["node"]))
+				},
+			)
 		})
 	})
 

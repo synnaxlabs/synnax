@@ -95,16 +95,20 @@ func readConfig(
 // one message of a new ICD. A disabled field gets no binding.
 func messageEntry(ctx context.Context, entry map[string]any) map[string]any {
 	GinkgoHelper()
+	specs, ok := entry["fields"].([]any)
+	Expect(ok).To(BeTrue())
 	var (
-		specs    = entry["fields"].([]any)
 		fields   = make([]icd.JSONField, len(specs))
 		keys     = make(map[string]icd.FieldKey, len(specs))
 		bindings = make([]any, 0, len(specs))
 	)
 	for i, s := range specs {
-		spec := s.(map[string]any)
+		spec, ok := s.(map[string]any)
+		Expect(ok).To(BeTrue())
+		specKey, ok := spec["key"].(string)
+		Expect(ok).To(BeTrue())
 		key := uuid.New()
-		keys[spec["key"].(string)] = key
+		keys[specKey] = key
 		f := map[string]any{"key": key, "scale": 1}
 		for _, option := range []string{
 			"type", "name", "pointer", "enum_values", "time_format",
@@ -124,8 +128,10 @@ func messageEntry(ctx context.Context, entry map[string]any) map[string]any {
 			)
 		}
 	}
+	topic, ok := entry["topic"].(string)
+	Expect(ok).To(BeTrue())
 	m := jsonMessage(
-		lo.CoalesceOrEmpty(entry["topic"].(string), "Untitled"),
+		lo.CoalesceOrEmpty(topic, "Untitled"),
 		nil,
 		fields...,
 	)

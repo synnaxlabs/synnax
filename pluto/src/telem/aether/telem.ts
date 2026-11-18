@@ -12,7 +12,7 @@ import {
   type Aggregation,
   type bounds,
   type color,
-  type destructor,
+  destructor,
   type MultiSeries,
   observe,
   TimeStamp,
@@ -90,6 +90,11 @@ export interface Result<V> {
   aggregation?: Aggregation;
   /** True when the samples of each series in data ascend. */
   sorted?: boolean;
+  /**
+   * True when the bounds in data end at the newest sample and span a window that moves
+   * as samples arrive.
+   */
+  rolling?: boolean;
   /** The time of the newest sample. */
   time?: TimeStamp;
   /**
@@ -284,7 +289,7 @@ export abstract class MultiSourceTransformer<I, O, P extends z.ZodType>
         if (this.shouldNotify()) handler();
       }),
     );
-    return () => destructors.forEach((d) => d());
+    return () => destructor.unwind(...destructors);
   }
 
   setSources(sources: Record<string, Source<I>>): void {

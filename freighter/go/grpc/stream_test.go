@@ -62,6 +62,7 @@ func startPair() (
 			RequestTranslator:  requestBackwardTranslator{},
 			ResponseTranslator: responseForwardTranslator{},
 			ServiceDesc:        &v1.TestStreamService_ServiceDesc,
+			Errors:             errorCodec(),
 			Internal:           true,
 		}
 		sServer.BindTo(reg)
@@ -75,6 +76,7 @@ func startPair() (
 			ResponseTranslator: responseTranslator{},
 			Pool:               pool,
 			ServiceDesc:        &v1.TestStreamService_ServiceDesc,
+			Errors:             errorCodec(),
 			ClientFunc: func(
 				ctx context.Context,
 				conn grpc.ClientConnInterface,

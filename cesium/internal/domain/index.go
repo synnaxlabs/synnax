@@ -193,11 +193,12 @@ func (idx *index) insert(
 	}
 
 	appended := insertAt == len(idx.mu.pointers)
-	if insertAt == 0 {
+	switch {
+	case insertAt == 0:
 		idx.mu.pointers = append([]pointer{p}, idx.mu.pointers...)
-	} else if insertAt == len(idx.mu.pointers) {
+	case insertAt == len(idx.mu.pointers):
 		idx.mu.pointers = append(idx.mu.pointers, p)
-	} else {
+	default:
 		idx.mu.pointers = slices.Insert(idx.mu.pointers, insertAt, p)
 	}
 

@@ -12,6 +12,7 @@ package analyzer
 import (
 	"fmt"
 
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/constraints"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/ir"
@@ -109,7 +110,7 @@ func ResolveNodeTypes(
 			if p.Value != nil {
 				continue
 			}
-			diag.Add(diagnostics.Errorf(
+			diag.Add(codes.FlowConnection.Atf(
 				nil,
 				"node '%s' (%s) missing required input '%s'",
 				nodes[ni].Key,
@@ -135,7 +136,7 @@ func checkStableInputs(nodes ir.Nodes, diag *diagnostics.Diagnostics) bool {
 			continue
 		}
 		if t := p.Type.Unwrap(); !t.IsNumeric() && !t.IsBool() {
-			diag.Add(diagnostics.Errorf(
+			diag.Add(codes.TypeMismatch.Atf(
 				nil,
 				"stable.for input must be a numeric or bool type, got %s",
 				t,

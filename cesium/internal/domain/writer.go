@@ -71,10 +71,6 @@ var (
 	ErrStartAfterWrite = errors.New(
 		"cannot set the start of a domain writer after it writes",
 	)
-	defaultWriterConfig = WriterConfig{
-		EnableAutoCommit:         new(true),
-		AutoIndexPersistInterval: 1 * telem.Second,
-	}
 )
 
 // domain returns the time range of the domain the configuration forms. If End is not
@@ -172,7 +168,10 @@ func (db *DB) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error)
 		return nil, ErrDBClosed
 	}
 
-	cfg, err := config.New(defaultWriterConfig, cfg)
+	cfg, err := config.New(WriterConfig{
+		EnableAutoCommit:         new(true),
+		AutoIndexPersistInterval: 1 * telem.Second,
+	}, cfg)
 	if err != nil {
 		return nil, err
 	}

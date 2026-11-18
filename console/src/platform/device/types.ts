@@ -74,6 +74,17 @@ export const identifierZ = z
     "Identifier must start with a letter and contain only letters, numbers, and underscores",
   );
 
+/** @returns the prefix that the identifier of a device gives channel names, or null. */
+export const channelPrefix = ({
+  properties,
+}: {
+  properties?: { identifier?: unknown };
+}): string | null => {
+  const identifier = properties?.identifier;
+  if (typeof identifier !== "string" || identifier === "") return null;
+  return channel.escapeInvalidName(identifier);
+};
+
 export const commandStatePairZ = z.object({
   command: channel.keyZ,
   state: channel.keyZ,

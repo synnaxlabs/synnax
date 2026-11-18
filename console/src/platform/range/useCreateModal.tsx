@@ -18,7 +18,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Ranger, Synnax } from "@synnaxlabs/pluto";
-import { primitive, TimeRange, uuid } from "@synnaxlabs/x";
+import { primitive, uuid } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 import { type z } from "zod";
 
@@ -87,23 +87,6 @@ const Create = ({ close, ...params }: Modals.ContentProps<CreateModalParams, voi
     },
   });
 
-  const saveLocal = () => {
-    if (!form.validate()) return;
-    const { name, key, timeRange } = form.value();
-    if (key == null) return;
-    dispatch(
-      Session.Range.add({
-        variant: "static",
-        key,
-        name,
-        timeRange: new TimeRange(timeRange.start, timeRange.end).numeric,
-      }),
-    );
-    close();
-  };
-
-  const saveName = "Save to Core";
-
   return (
     <Modal.Frame className={CSS.B("range-create-layout")}>
       <Modal.Header icon={<Icon.Range />}>Range.Create</Modal.Header>
@@ -153,9 +136,6 @@ const Create = ({ close, ...params }: Modals.ContentProps<CreateModalParams, voi
       </Modal.Body>
       <Modal.Footer>
         <Nav.Bar.End>
-          <Button.Button onClick={() => saveLocal()} disabled={variant === "loading"}>
-            Save locally
-          </Button.Button>
           <Button.Button
             variant="filled"
             onClick={() => save()}
@@ -164,7 +144,7 @@ const Create = ({ close, ...params }: Modals.ContentProps<CreateModalParams, voi
             trigger={Triggers.SAVE}
             triggerIndicator
           >
-            {saveName}
+            Create
           </Button.Button>
         </Nav.Bar.End>
       </Modal.Footer>

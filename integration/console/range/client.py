@@ -32,7 +32,6 @@ class Client(Surface):
         self,
         name: str,
         *,
-        persisted: bool = True,
         parent: str | None = None,
         labels: list[str] | None = None,
         stage: str | None = None,
@@ -40,8 +39,6 @@ class Client(Surface):
         """Create a new range via the command palette.
 
         :param name: The name for the new range.
-        :param persisted: If True, saves to the Core. If False, saves locally
-            only.
         :param parent: Optional parent range name to set.
         :param labels: Optional list of label names to add.
         :param stage: Optional stage to set ("To do", "In progress",
@@ -50,16 +47,7 @@ class Client(Surface):
         self.layout.command_palette("Create range")
         modal = self.layout.page.locator(CREATE_MODAL_SELECTOR)
         modal.wait_for(state="visible", timeout=5000)
-        self.fill_create_modal(
-            name, persisted=persisted, parent=parent, labels=labels, stage=stage
-        )
-
-    def set_active(self, name: str) -> None:
-        """Set a range as the active range (from toolbar)."""
-        self.toolbar.show()
-        item = self.toolbar.get_item(name)
-        item.wait_for(state="visible", timeout=5000)
-        item.click()
+        self.fill_create_modal(name, parent=parent, labels=labels, stage=stage)
 
     def favorite(self, name: str) -> None:
         """Favorite a range from the explorer (idempotent).

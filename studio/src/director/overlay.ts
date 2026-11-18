@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { bounds } from "@synnaxlabs/x";
+
 import {
   CALLOUT_OUT_S,
   CALLOUT_S,
@@ -60,10 +62,8 @@ export interface OverlayPlan {
   frames: OverlayFrame[];
 }
 
-const clamp = (t: number): number => Math.min(1, Math.max(0, t));
-
 const smoothstep = (t: number): number => {
-  const c = clamp(t);
+  const c = bounds.clamp({ lower: 0, upper: 1 }, t);
   return c * c * (3 - 2 * c);
 };
 

@@ -38,6 +38,10 @@ const x::telem::Rate MIN_CYCLE_RATE(100);
 const x::telem::Rate MAX_CYCLE_RATE(10000);
 /// @brief how often the supervisor reads slave states.
 const auto SUPERVISOR_INTERVAL = x::telem::MILLISECOND * 100;
+/// @brief the longest wait for the frames in flight when the bus stops.
+const auto LAST_FRAME_TIMEOUT = x::telem::MILLISECOND * 10;
+/// @brief the wait between receives of a frame in flight when the bus stops.
+const auto LAST_FRAME_POLL = x::telem::MICROSECOND * 100;
 /// @brief how often a call that needs the stopped bus tries mu again.
 const auto LOCK_POLL_INTERVAL = x::telem::MILLISECOND * 10;
 /// @brief how long each step of a start may run before the task warns.
@@ -403,7 +407,14 @@ void Engine::run() {
     // The cycle_err that this thread stored last.
     x::errors::Error stored_err;
     uint64_t send_failures = 0;
-    x::telem::TimeStamp sent_at{};
+    // The send time of each frame in flight, oldest first.
+    std::vector<x::telem::TimeStamp> in_flight;
+    in_flight.reserve(master::MAX_FRAMES_IN_FLIGHT + 1);
+    // Whether a frame is left to take before the next wait.
+    bool taking = false;
+    // The newest DC time of the frames taken since the last wait. The timer shifts
+    // once a wait, since an older frame measured a phase that this shift corrects too.
+    std::optional<x::telem::TimeStamp> wake_dc;
     Clock clock;
     // The working counter falls short until the slaves reach OP.
     const auto shortfall = [this](const x::errors::Error &err) {
@@ -412,7 +423,7 @@ void Engine::run() {
     };
 
     const auto send = [&] {
-        sent_at = this->config.host_clock.now();
+        in_flight.push_back(this->config.host_clock.now());
         if (auto err = this->master->send(); err) {
             if (send_failures++ == 0)
                 LOG(WARNING) << "[ethercat] send failed on " << this->iface << ": "
@@ -460,6 +471,7 @@ void Engine::run() {
                     phase.reset();
                 else
                     phase.emplace(sched->rate, syncs);
+                wake_dc.reset();
                 // Moves each reader's next sample to the first cycle at or after the
                 // time it was due.
                 if (prev > x::telem::Rate(0))
@@ -471,12 +483,32 @@ void Engine::run() {
                     }
             }
         }
-        timer.wait();
-        if (!this->bus.running()) break;
-
-        // The slaves latched these inputs when the previous cycle's frame passed.
-        auto latched_at = sent_at;
-        const auto err = this->master->receive();
+        if (!taking) {
+            if (wake_dc && phase) {
+                timer.shift(phase->update(*wake_dc));
+                if (!this->starting.load(std::memory_order_acquire) && phase->lost() &&
+                    late_frames++ == 0)
+                    LOG(WARNING) << "[ethercat] cycles on " << this->iface
+                                 << " run late: a frame passed the reference clock "
+                                    "near a SYNC0 event";
+            }
+            wake_dc.reset();
+            timer.wait();
+            if (!this->bus.running()) break;
+        }
+        // Takes each frame that came back, oldest first, as the data of its own cycle.
+        const auto &err = this->master->receive();
+        if (err.matches(errors::FRAME_IN_FLIGHT)) {
+            taking = false;
+            this->write_outputs(false);
+            send();
+            continue;
+        }
+        const auto frame_sent_at = in_flight.front();
+        in_flight.erase(in_flight.begin());
+        taking = !in_flight.empty();
+        // The slaves latched these inputs when the frame passed them.
+        auto latched_at = frame_sent_at;
         const bool starting = this->starting.load(std::memory_order_acquire);
         // A full cycle drops the inputs of the slaves that give none, since a slave
         // below SAFE-OP can keep its share of the working counter. A cycle short by
@@ -499,7 +531,7 @@ void Engine::run() {
                 *missed >= outage.least_shortfall && *missed <= outage.shortfall
             ) {
                 dropped = &outage.positions;
-                latched_at = sent_at + lead;
+                latched_at = frame_sent_at + lead;
                 host_timed = true;
             }
             if (const auto inputless = this->master->inputless();
@@ -520,23 +552,17 @@ void Engine::run() {
                            (dropped != nullptr && ref &&
                             std::ranges::find(*dropped, *ref) == dropped->end());
         const auto dc = timed ? this->master->dc_time() : std::nullopt;
-        if (dc && phase) {
-            timer.shift(phase->update(*dc));
-            if (!starting && phase->lost() && late_frames++ == 0)
-                LOG(WARNING) << "[ethercat] cycles on " << this->iface
-                             << " run late: a frame passed the reference clock near "
-                                "a SYNC0 event";
-        }
+        if (dc) wake_dc = dc;
         if (!err) {
             if (dc && host_timed) {
                 // The distributed clock can drift from the host times of the short
                 // cycles, so its times go on from where those left off.
                 clock = Clock();
-                latched_at = clock.map(*dc, sent_at + lead);
+                latched_at = clock.map(*dc, frame_sent_at + lead);
             } else if (dc)
-                latched_at = clock.map(*dc, sent_at);
+                latched_at = clock.map(*dc, frame_sent_at);
             host_timed = false;
-            lead = latched_at - sent_at;
+            lead = latched_at - frame_sent_at;
             if (receive_failures > 0) {
                 LOG(INFO) << "[ethercat] cycles recovered on " << this->iface
                           << " after " << receive_failures << " failures";
@@ -567,15 +593,34 @@ void Engine::run() {
                 input->push(inputs, latched_at);
         }
 
+        if (taking) continue;
         this->write_outputs(false);
         send();
     }
+    const auto take_in_flight = [&] {
+        const auto deadline = this->config.host_clock.now() + LAST_FRAME_TIMEOUT;
+        x::errors::Error err;
+        while (!in_flight.empty()) {
+            err = this->master->receive();
+            if (!err.matches(errors::FRAME_IN_FLIGHT))
+                in_flight.erase(in_flight.begin());
+            else if (this->config.host_clock.now() < deadline)
+                this->config.host_clock.sleep(LAST_FRAME_POLL);
+            else
+                break;
+        }
+        return err;
+    };
+    // A master that keeps no frames in flight takes the frames of all its sends at
+    // once.
+    take_in_flight();
     // Sends the stop values of the last writer to close before the slaves leave OP.
     this->write_outputs(true);
     send();
-    if (const auto err = this->master->receive(); err && !shortfall(err))
+    const auto last_err = take_in_flight();
+    if (last_err && !shortfall(last_err))
         LOG(WARNING) << "[ethercat] last cycle failed on " << this->iface << ": "
-                     << err.message();
+                     << last_err.message();
     if (late_frames > 0)
         LOG(WARNING) << "[ethercat] " << late_frames << " frames on " << this->iface
                      << " passed the reference clock near a SYNC0 event";

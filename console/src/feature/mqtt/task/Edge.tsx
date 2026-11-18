@@ -146,7 +146,11 @@ const isWritable = ({ commandChannel, commandChannelName }: EdgeTag): boolean =>
 const deriveCommandChannelName = ({ name }: EdgeTag): string =>
   channel.escapeInvalidName(`${name}_cmd`);
 
-const ContextMenuItem = ({ channels, keys }: Task.ContextMenuItemProps<EdgeTag>) => {
+const ContextMenuItem = ({
+  channels,
+  keys,
+  target,
+}: Task.ContextMenuItemProps<EdgeTag>) => {
   const handleError = Status.useErrorHandler();
   const { set } = PForm.useContext();
   const canCreate = Access.useCreateGranted(channel.TYPE_RESOURCE_ID);
@@ -173,7 +177,7 @@ const ContextMenuItem = ({ channels, keys }: Task.ContextMenuItemProps<EdgeTag>)
       set(tag.commandChannelName, undefined);
     });
 
-  const handleRename = () => Text.edit(Task.getChannelNameID(keys[0], "cmd"));
+  const handleRename = () => Text.edit(Task.getChannelNameID(keys[0], "cmd"), target);
 
   return (
     <>

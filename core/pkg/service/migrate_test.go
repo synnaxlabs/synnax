@@ -288,15 +288,16 @@ var _ = Describe("Metrics upgrade", func() {
 			DataType: telem.TimestampT,
 			IsIndex:  true,
 		}}))[0]
-		var data []distchannel.Channel
-		for _, name := range []string{
+		dataNames := []string{
 			"cpu_percentage", "mem_percentage", "ts_size_gb", "kv_size_gb",
-		} {
-			data = append(data, distchannel.Channel{
+		}
+		data := make([]distchannel.Channel, len(dataNames))
+		for i, name := range dataNames {
+			data[i] = distchannel.Channel{
 				Name:       prefix + name,
 				DataType:   telem.Float32T,
 				LocalIndex: idx.LocalKey,
-			})
+			}
 		}
 		stored := append(
 			[]distchannel.Channel{idx},
@@ -322,12 +323,16 @@ var _ = Describe("Metrics upgrade", func() {
 			metrics   = groupv0.Group{Key: uuid.New(), Name: "Metrics"}
 			rootID    = resource.ID{Type: resource.TypeGroup, Key: root.Key.String()}
 			metricsID = resource.ID{Type: resource.TypeGroup, Key: metrics.Key.String()}
-			resources = []ontology.Resource{{ID: rootID}, {ID: metricsID}}
-			edges     = []ontology.Relationship{
+			resources = append(
+				make([]ontology.Resource, 0, 4+len(stored)),
+				ontology.Resource{ID: rootID},
+				ontology.Resource{ID: metricsID},
+			)
+			edges = []ontology.Relationship{
 				parentOf(ontology.RootID, rootID),
 				parentOf(rootID, metricsID),
 			}
-			records []channelv0.Channel
+			records = make([]channelv0.Channel, 0, len(stored)+2)
 		)
 		for _, ch := range append(stored, calcIdx, calc) {
 			rec := channelv0.Channel{
@@ -441,8 +446,13 @@ var _ = Describe("Group drop report", func() {
 					compressors,
 					mixed,
 				}
-				res  = []ontology.Resource{{ID: oil}, {ID: water}, {ID: flow}}
-				recs []channelv0.Channel
+				res = append(
+					make([]ontology.Resource, 0, 3+len(groups)),
+					ontology.Resource{ID: oil},
+					ontology.Resource{ID: water},
+					ontology.Resource{ID: flow},
+				)
+				recs = make([]channelv0.Channel, 0, len(chs))
 			)
 			for _, ch := range chs {
 				recs = append(recs, channelv0.Channel{

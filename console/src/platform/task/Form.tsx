@@ -68,6 +68,8 @@ export const useFlushFirst = (flush: Flush): void => {
 export interface getInitialValuesParams {
   client: Synnax;
   deviceKey?: device.Key;
+  /** The devices the task starts on, deviceKey included. */
+  deviceKeys: device.Key[];
   config?: unknown;
 }
 

@@ -27,6 +27,7 @@ var _ = Describe("Service", func() {
 
 	It("Should own the config stores of the Sift task types", func(ctx SpecContext) {
 		svcDB := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(svcDB.Run)
 		svc := MustOpen(sift.OpenService(ctx, sift.ServiceConfig{DB: svcDB}))
 		Expect(svc.Stores()).To(HaveExactElements(
 			WithTransform(config.Store.Type, Equal(sift.ScanTaskType)),

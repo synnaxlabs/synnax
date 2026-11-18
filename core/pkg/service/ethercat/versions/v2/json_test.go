@@ -67,7 +67,8 @@ var _ = Describe("JSON", func() {
 					MatchError(validate.ErrValidation),
 					MatchError(ContainSubstring("ReadChannel: unknown type")),
 				))
-				Expect(errors.Encode(err, false).Type).To(Equal("sy.validation"))
+				codec := errors.NewCodec(validate.ErrorProvider())
+				Expect(codec.Encode(err, false).Type).To(Equal("sy.validation"))
 			},
 			Entry("unknown", `{"type": "manual"}`),
 			Entry("missing", `{"key": "a"}`),
