@@ -60,6 +60,9 @@ struct FakeStore final : Store<Resource> {
     x::errors::Error update_err;
     /// @brief runs inside update_identity, as a signal that arrives during a scan.
     std::function<void()> during_update;
+    /// @brief runs inside retrieve, as a signal that arrives while a scan reads the
+    /// rack.
+    std::function<void()> during_retrieve;
     /// @brief runs inside find, as a second scan that starts during a scan.
     std::function<void()> during_find;
 
@@ -77,6 +80,7 @@ struct FakeStore final : Store<Resource> {
 
     std::pair<std::vector<Resource>, x::errors::Error>
     retrieve(const synnax::rack::Key rack) override {
+        if (const auto hook = std::exchange(this->during_retrieve, nullptr)) hook();
         if (this->retrieve_err) return {{}, this->retrieve_err};
         std::vector<Resource> res;
         for (const auto &r: this->stored)
@@ -140,7 +144,6 @@ new_sync(std::vector<Resource> stored = {}) {
 /// @brief it should create found hardware that no stored resource matches.
 TEST(Sync, CreatesNewHardware) {
     auto [sync, store] = new_sync();
-    ASSERT_NIL(sync->init());
     ASSERT_NIL(sync->sync({found("01A")}));
     ASSERT_EQ(store->stored.size(), 1);
     ASSERT_EQ(sync->get("01A").value().key, "key-01A");
@@ -155,7 +158,6 @@ TEST(Sync, UpdatesIdentityAndKeepsConfiguration) {
     stored.name = "Thermocouples";
     stored.identifier = "tc";
     auto [sync, store] = new_sync({stored});
-    ASSERT_NIL(sync->init());
     ASSERT_NIL(sync->sync({found("01A", "9211")}));
     ASSERT_EQ(store->creates, 0);
     ASSERT_EQ(store->identity_updates.size(), 1);
@@ -170,7 +172,6 @@ TEST(Sync, SkipsUnchangedIdentity) {
     auto stored = found("01A");
     stored.key = "key-01A";
     auto [sync, store] = new_sync({stored});
-    ASSERT_NIL(sync->init());
     ASSERT_NIL(sync->sync({found("01A")}));
     ASSERT_TRUE(store->identity_updates.empty());
 }
@@ -181,7 +182,6 @@ TEST(Sync, MarksMissingHardwareDisconnected) {
     auto stored = found("01A");
     stored.key = "key-01A";
     auto [sync, store] = new_sync({stored});
-    ASSERT_NIL(sync->init());
     ASSERT_NIL(sync->sync({}));
     ASSERT_EQ(store->stored.size(), 1);
     ASSERT_EQ(store->statuses.size(), 1);
@@ -230,14 +230,16 @@ TEST(Sync, RetriesFailedCreate) {
     ASSERT_TRUE(sync->get("01A").has_value());
 }
 
-/// @brief it should keep the configuration that a set signal reports.
-TEST(Sync, KeepsConfigurationFromSetSignal) {
+/// @brief it should keep the configuration that a set signal reports while a scan
+/// reads the rack.
+TEST(Sync, KeepsConfigurationSetDuringRetrieve) {
     auto stored = found("01A");
     stored.key = "key-01A";
     auto [sync, store] = new_sync({stored});
-    ASSERT_NIL(sync->init());
-    stored.name = "Renamed";
-    sync->on_set(stored);
+    auto renamed = stored;
+    renamed.name = "Renamed";
+    auto *s = sync.get();
+    store->during_retrieve = [s, renamed] { s->on_set(renamed); };
     ASSERT_NIL(sync->sync({found("01A", "9211")}));
     ASSERT_EQ(store->identity_updates.at(0).name, "Renamed");
 }
@@ -247,7 +249,7 @@ TEST(Sync, ForgetsDeletedResource) {
     auto stored = found("01A");
     stored.key = "key-01A";
     auto [sync, store] = new_sync({stored});
-    ASSERT_NIL(sync->init());
+    ASSERT_NIL(sync->sync({}));
     sync->on_delete(std::string("key-01A"));
     ASSERT_FALSE(sync->get("01A").has_value());
 }
@@ -259,7 +261,6 @@ TEST(Sync, KeepsLastSeenTimeOfMissingHardware) {
     const auto last_seen = x::telem::TimeStamp::now() - x::telem::SECOND * 60;
     stored.status = synnax::status::Status<>{.time = last_seen};
     auto [sync, store] = new_sync({stored});
-    ASSERT_NIL(sync->init());
     ASSERT_NIL(sync->sync({}));
     ASSERT_EQ(store->statuses.at(0).status.value().time, last_seen);
 }
@@ -286,7 +287,6 @@ TEST(Sync, KeepsStoredIdentityWhenUpdateFails) {
     auto stored = found("01A");
     stored.key = "key-01A";
     auto [sync, store] = new_sync({stored});
-    ASSERT_NIL(sync->init());
     store->update_err = x::errors::Error(x::errors::INTERNAL, "timeout");
     ASSERT_OCCURRED_AS(sync->sync({found("01A", "9211")}), x::errors::INTERNAL);
     ASSERT_EQ(sync->get("01A").value().model, "9205");
@@ -334,7 +334,7 @@ TEST(Sync, DropsResourceSetOnAnotherRack) {
     auto stored = found("01A");
     stored.key = "key-01A";
     auto [sync, store] = new_sync({stored});
-    ASSERT_NIL(sync->init());
+    ASSERT_NIL(sync->sync({}));
     stored.rack = 2;
     sync->on_set(stored);
     ASSERT_FALSE(sync->get("01A").has_value());
@@ -346,7 +346,7 @@ TEST(Sync, KeepsTrackedStatusOnSet) {
     stored.key = "key-01A";
     stored.status = synnax::status::Status<>{.message = "Device present"};
     auto [sync, store] = new_sync({stored});
-    ASSERT_NIL(sync->init());
+    ASSERT_NIL(sync->sync({found("01A")}));
     stored.status.reset();
     stored.name = "Renamed";
     sync->on_set(stored);
@@ -360,7 +360,6 @@ TEST(Sync, KeepsConfigurationSetDuringScan) {
     auto stored = found("01A");
     stored.key = "key-01A";
     auto [sync, store] = new_sync({stored});
-    ASSERT_NIL(sync->init());
     auto renamed = stored;
     renamed.name = "Renamed";
     auto *s = sync.get();
@@ -377,7 +376,6 @@ TEST(Sync, SkipsResourceDeletedDuringScan) {
     auto stored = found("01A");
     stored.key = "key-01A";
     auto [sync, store] = new_sync({stored});
-    ASSERT_NIL(sync->init());
     auto *s = sync.get();
     store->during_update = [s] { s->on_delete(std::string("key-01A")); };
     ASSERT_NIL(sync->sync({found("01A", "9211")}));
@@ -387,7 +385,6 @@ TEST(Sync, SkipsResourceDeletedDuringScan) {
 /// @brief it should create new hardware once when a second scan starts during a scan.
 TEST(Sync, CreatesOnceForConcurrentScans) {
     auto [sync, store] = new_sync();
-    ASSERT_NIL(sync->init());
     auto *s = sync.get();
     std::thread second;
     store->during_find = [&] {
@@ -406,7 +403,7 @@ TEST(Sync, RecreatesResourceMissingFromCore) {
     auto stored = found("01A");
     stored.key = "key-01A";
     auto [sync, store] = new_sync({stored});
-    ASSERT_NIL(sync->init());
+    ASSERT_NIL(sync->sync({found("01A")}));
     store->stored.clear();
     ASSERT_NIL(sync->sync({found("01A")}));
     ASSERT_EQ(store->creates, 1);
@@ -414,24 +411,24 @@ TEST(Sync, RecreatesResourceMissingFromCore) {
     ASSERT_TRUE(store->identity_updates.empty());
 }
 
-/// @brief it should mark a resource that the Core holds but the Sync never tracked as
-/// disconnected when a scan does not find it.
-TEST(Sync, MarksUntrackedHeldResourceDisconnected) {
-    auto [sync, store] = new_sync();
-    ASSERT_NIL(sync->init());
+/// @brief it should not track again a resource that a delete signal drops while a
+/// scan reads the rack.
+TEST(Sync, SkipsResourceDeletedDuringRetrieve) {
     auto stored = found("01A");
     stored.key = "key-01A";
-    store->stored.push_back(stored);
+    auto [sync, store] = new_sync({stored});
     ASSERT_NIL(sync->sync({}));
-    ASSERT_EQ(store->statuses.size(), 1);
-    ASSERT_EQ(store->statuses.at(0).key, "key-01A");
-    ASSERT_EQ(store->statuses.at(0).status.value().message, "Device disconnected");
+    auto *s = sync.get();
+    store->statuses.clear();
+    store->during_retrieve = [s] { s->on_delete(std::string("key-01A")); };
+    ASSERT_NIL(sync->sync({}));
+    ASSERT_FALSE(sync->get("01A").has_value());
+    ASSERT_TRUE(store->statuses.empty());
 }
 
 /// @brief it should end a scan whose rack retrieve fails before it changes anything.
 TEST(Sync, StopsWhenRetrieveFails) {
     auto [sync, store] = new_sync();
-    ASSERT_NIL(sync->init());
     store->retrieve_err = x::errors::VALIDATION;
     ASSERT_OCCURRED_AS(sync->sync({found("01A")}), x::errors::VALIDATION);
     ASSERT_EQ(store->creates, 0);

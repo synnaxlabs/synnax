@@ -84,9 +84,11 @@ class Sync {
     std::mutex mu;
     /// @brief the tracked resources by match key.
     std::unordered_map<std::string, D> tracked;
-    /// @brief counts the set and delete signals for each match key, so that a scan
-    /// keeps a change that a signal made while the scan called the store.
+    /// @brief the epoch of the last set or delete signal for each match key, so that
+    /// a scan keeps a change that a signal made while the scan called the store.
     std::unordered_map<std::string, std::uint64_t> versions;
+    /// @brief counts every set and delete signal.
+    std::uint64_t epoch = 0;
 
     /// @brief a found resource and what the scan decided for it.
     struct Result {
@@ -153,19 +155,9 @@ public:
     ):
         store(std::move(store)), rack(rack), log_prefix(std::move(log_prefix)) {}
 
-    /// @brief loads the stored resources on the rack, so that the first scan does not
-    /// look them up again.
-    x::errors::Error init() {
-        auto [resources, err] = this->store->retrieve(this->rack);
-        if (err) return err;
-        std::lock_guard lock(this->mu);
-        for (auto &resource: resources)
-            this->tracked[this->store->match_key(resource)] = std::move(resource);
-        return x::errors::NIL;
-    }
-
     /// @brief saves the hardware that a scan found, and the status of every tracked
-    /// resource. It first tracks exactly the resources that the Core holds on the rack.
+    /// resource. It first tracks the resources that the Core holds on the rack, except
+    /// those that a signal changed while it read them.
     /// @param found the hardware that the scan found, with both field groups set to
     /// what a new resource holds, and the status the scanner reports, if any.
     /// @returns the error of the rack retrieve, which ends the scan before it changes
@@ -176,21 +168,30 @@ public:
         const auto keep = [&](const x::errors::Error &err) {
             if (err && !first_err) first_err = err;
         };
+        std::uint64_t start = 0;
+        {
+            std::lock_guard lock(this->mu);
+            start = this->epoch;
+        }
         auto [held, held_err] = this->store->retrieve(this->rack);
         if (held_err) return held_err;
         std::vector<Result> results;
         std::vector<std::optional<D>> snapshot;
         {
             std::lock_guard lock(this->mu);
+            const auto signaled = [&](const std::string &match) {
+                const auto it = this->versions.find(match);
+                return it != this->versions.end() && it->second > start;
+            };
             // The Core can lose or gain a row without a signal, such as on a restart.
             std::unordered_set<std::string> stored;
             for (auto &res: held) {
                 auto match = this->store->match_key(res);
                 stored.insert(match);
-                this->tracked.try_emplace(std::move(match), std::move(res));
+                if (!signaled(match)) this->tracked[match] = std::move(res);
             }
             std::erase_if(this->tracked, [&](const auto &entry) {
-                return !stored.contains(entry.first);
+                return !stored.contains(entry.first) && !signaled(entry.first);
             });
             // The last report wins, as hardware that moves can show up in two places
             // for one scan.
@@ -296,7 +297,7 @@ public:
     void on_set(const D &resource) {
         const auto match = this->store->match_key(resource);
         std::lock_guard lock(this->mu);
-        this->versions[match]++;
+        this->versions[match] = ++this->epoch;
         if (resource.rack != this->rack) {
             this->tracked.erase(match);
             return;
@@ -313,7 +314,7 @@ public:
         std::lock_guard lock(this->mu);
         for (auto it = this->tracked.begin(); it != this->tracked.end(); ++it) {
             if (it->second.key != key) continue;
-            this->versions[it->first]++;
+            this->versions[it->first] = ++this->epoch;
             this->tracked.erase(it);
             return;
         }
