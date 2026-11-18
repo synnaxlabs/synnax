@@ -4580,12 +4580,13 @@ var _ = Describe("Compiler", func() {
 			sinks ...symbol.Symbol,
 		) (ir.IR, int) {
 			GinkgoHelper()
-			writes := "other -> d\n"
+			var writes strings.Builder
+			writes.WriteString("other -> d\n")
 			for _, sink := range sinks {
-				writes += "d -> " + sink.Name + "\n"
+				writes.WriteString("d -> " + sink.Name + "\n")
 			}
 			prog := MustSucceed(text.Parse(text.Text{Raw: "sequence main {\n" +
-				declarations + "\nstage s1 {\n" + writes + "}\n}"}))
+				declarations + "\nstage s1 {\n" + writes.String() + "}\n}"}))
 			inter, diag := text.Analyze(ctx, prog, NewRoot(nil, sinks...))
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 			for i, f := range inter.Functions {
