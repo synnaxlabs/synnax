@@ -65,10 +65,13 @@ class Harness:
         ]
         self.gh.serve("api */actions/*", {"workflow_runs": runs})
 
-    def codeql(self, *lines: int) -> None:
+    def codeql(
+        self, *lines: int, severity: str = "error", security: str | None = "high"
+    ) -> None:
+        rule = {"id": "go/x", "severity": severity, "security_severity_level": security}
         alerts = [
             {
-                "rule": {"id": "go/x"},
+                "rule": rule,
                 "most_recent_instance": {
                     "location": {"path": "a.go", "start_line": line},
                     "message": {"text": "Bad\n  cast."},
@@ -178,6 +181,23 @@ class TestShepherdWork:
         assert gh.run() == ["queue 9"]
         span = "created=2026-01-01T12:00:00Z..2026-01-01T13:00:00Z"
         assert any(span in call[1] for call in gh.gh.calls())
+
+    @pytest.mark.parametrize(
+        ("severity", "security", "blocks"),
+        [
+            ("warning", "medium", True),
+            ("warning", "critical", True),
+            ("error", "low", False),
+            ("error", None, True),
+            ("warning", None, False),
+        ],
+    )
+    def test_should_report_only_alerts_the_ruleset_blocks(
+        self, gh: Harness, severity: str, security: str | None, blocks: bool
+    ) -> None:
+        gh.runs("success")
+        gh.codeql(3, severity=severity, security=security)
+        assert gh.run() == (["codeql a.go:3 go/x Bad cast."] if blocks else [])
 
     def test_should_wait_for_the_codeql_scan_of_the_head(self, gh: Harness) -> None:
         gh.runs(None, status="in_progress")

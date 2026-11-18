@@ -31,8 +31,8 @@ When CI failed on the head:
 
 ## 3. Fix CodeQL alerts
 
-Each `codeql` line in the work is an open CodeQL alert that the pull request adds, with
-its file, line, rule, and message.
+Each `codeql` line in the work is an open CodeQL alert that the pull request adds and
+that blocks the merge, with its file, line, rule, and message.
 
 1. Fix the code at each alert so that the analysis can see the code is safe. CodeQL does
    not take a bound in a `switch` case as a guard. Use an `if`.

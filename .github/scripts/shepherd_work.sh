@@ -12,10 +12,10 @@
 # Prints the work a pull request needs before it is done, one item per line, and
 # nothing when it is done. Usage: shepherd_work.sh <pr>. The items are "conflict", "ci
 # <run id>" for a failed CI run on the head, "codeql <path>:<line> <rule> <message>"
-# for each open CodeQL alert the pull request adds, "queue [<run id>]" for a merge
-# queue removal after the head commit, with the failed merge group run when found,
-# "threads <count>" for review threads that need action, and "outside-diff" for open
-# Sedosaur findings outside the diff.
+# for each open CodeQL alert the pull request adds that blocks a merge, "queue [<run
+# id>]" for a merge queue removal after the head commit, with the failed merge group
+# run when found, "threads <count>" for review threads that need action, and
+# "outside-diff" for open Sedosaur findings outside the diff.
 
 set -euo pipefail
 
@@ -52,8 +52,12 @@ fi
 SCANS="repos/${REPO}/actions/workflows/codeql.yaml/runs?${QUERY}"
 if [ "$(gh api "$SCANS" --jq '.workflow_runs[0].status')" = completed ]; then
     ALERTS="code-scanning/alerts?ref=refs/pull/${PR}/merge&state=open&per_page=100"
+    # The main ruleset blocks security alerts of medium or higher and other errors.
     # shellcheck disable=SC2016 # The jq program uses jq variables.
     gh api "repos/${REPO}/${ALERTS}" --paginate --jq '.[]
+        | select(.rule | if .security_severity_level != null
+            then .security_severity_level | IN("medium", "high", "critical")
+            else .severity == "error" end)
         | .most_recent_instance as $at
         | "codeql \($at.location.path):\($at.location.start_line) \(.rule.id)"
             + " \($at.message.text | gsub("\\s+"; " "))"'
