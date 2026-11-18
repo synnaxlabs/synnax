@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/platform/icd/picker/Picker.css";
+
 import { Button } from "@synnaxlabs/lyra/button";
 import { context } from "@synnaxlabs/lyra/context";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -16,12 +18,10 @@ import { Nav } from "@synnaxlabs/lyra/nav";
 import { Portal } from "@synnaxlabs/lyra/portal";
 import { Progress } from "@synnaxlabs/lyra/progress";
 import { Text } from "@synnaxlabs/lyra/text";
+import { type CrudeTimeSpan } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement, useState } from "react";
 
-import { BROWSE_DURATION } from "@/feature/mqtt/device/browse";
 import { CSS } from "@/platform/css";
-
-export const LISTENING = `Listening for ${BROWSE_DURATION.seconds} seconds`;
 
 const [ActiveContext, useActiveContext] = context.create<string>({
   displayName: "Picker.ActiveContext",
@@ -47,12 +47,7 @@ export const Root = ({ value, children }: RootProps): ReactElement => (
 
 /** The bar above the frames: its children, then the status of the frame that shows. */
 export const Bar = ({ children }: PropsWithChildren): ReactElement => (
-  <Nav.Bar
-    location="top"
-    size="8rem"
-    bordered
-    className={CSS.BE("mqtt-discover", "bar")}
-  >
+  <Nav.Bar location="top" size="8rem" bordered className={CSS.BE("icd-picker", "bar")}>
     <Nav.Bar.Start>{children}</Nav.Bar.Start>
     <Nav.Bar.End align="center">
       <Portal.Out itemKey={useActiveContext("Picker.Bar")} />
@@ -79,10 +74,7 @@ export const Frame = ({ itemKey, children }: FrameProps): ReactElement | null =>
         x
         grow
         empty
-        className={CSS.cls(
-          CSS.BE("mqtt-discover", "frame"),
-          !active && CSS.M("hidden"),
-        )}
+        className={CSS.cls(CSS.BE("icd-picker", "frame"), !active && CSS.M("hidden"))}
       >
         {children}
       </Flex.Box>
@@ -93,11 +85,18 @@ export const Frame = ({ itemKey, children }: FrameProps): ReactElement | null =>
 export interface StatusProps {
   status: string;
   loading: boolean;
+  /** How long a listen takes. The progress bar fills over it. */
+  duration?: CrudeTimeSpan;
   onListen: () => void;
 }
 
 /** The state of the listen of its {@link Frame}, shown in the {@link Bar}. */
-export const Status = ({ status, loading, onListen }: StatusProps): ReactElement => (
+export const Status = ({
+  status,
+  loading,
+  duration,
+  onListen,
+}: StatusProps): ReactElement => (
   <Portal.In itemKey={useFrameContext("Picker.Status")}>
     <Flex.Box x align="center" gap="small">
       <Text.Text level="small" color={9}>
@@ -116,8 +115,8 @@ export const Status = ({ status, loading, onListen }: StatusProps): ReactElement
       {loading && (
         <Progress.Progress
           thin
-          duration={BROWSE_DURATION}
-          className={CSS.BE("mqtt-discover", "progress")}
+          duration={duration}
+          className={CSS.BE("icd-picker", "progress")}
         />
       )}
     </Flex.Box>
@@ -126,14 +125,14 @@ export const Status = ({ status, loading, onListen }: StatusProps): ReactElement
 
 /** The column that lists what the broker publishes. */
 export const Side = ({ children }: PropsWithChildren): ReactElement => (
-  <Flex.Box y empty className={CSS.BE("mqtt-discover", "side")}>
+  <Flex.Box y empty className={CSS.BE("icd-picker", "side")}>
     {children}
   </Flex.Box>
 );
 
 /** The area that shows the values of what the side selects. */
 export const Pane = ({ children }: PropsWithChildren): ReactElement => (
-  <Flex.Box y grow empty className={CSS.BE("mqtt-discover", "pane")}>
+  <Flex.Box y grow empty className={CSS.BE("icd-picker", "pane")}>
     {children}
   </Flex.Box>
 );

@@ -19,11 +19,11 @@ import pluralize from "pluralize";
 import { useState } from "react";
 
 import { type Device } from "@/feature/mqtt/device/types";
-import { Picker } from "@/feature/mqtt/task/discover/picker";
 import { TagPicker, type TagPicks } from "@/feature/mqtt/task/discover/Tags";
 import { TopicPicker, type TopicPicks } from "@/feature/mqtt/task/discover/Topics";
 import { type HeldEntry } from "@/feature/mqtt/task/types";
 import { CSS } from "@/platform/css";
+import { ICD } from "@/platform/icd";
 import { Modals } from "@/platform/modals";
 
 type Mode = "topics" | "sparkplug";
@@ -102,20 +102,20 @@ const Discover = <E extends HeldEntry>({
   const summary = parts.length === 0 ? kind.hint : `${parts.join(" and ")} selected`;
 
   return (
-    <Picker.Root value={mode}>
-      <Modal.Frame className={CSS.B("mqtt-discover")}>
+    <ICD.Picker.Root value={mode}>
+      <Modal.Frame className={CSS.B("icd-picker")}>
         <Modal.Header icon={<Icon.Logo.MQTT />}>
           {[kind.title, device.name]}
         </Modal.Header>
-        <Picker.Bar>
+        <ICD.Picker.Bar>
           {createTag != null && (
             <Select.Buttons<Mode> value={mode} onChange={setMode}>
               <Select.Item<Mode> itemKey="topics">JSON topics</Select.Item>
               <Select.Item<Mode> itemKey="sparkplug">Sparkplug B</Select.Item>
             </Select.Buttons>
           )}
-        </Picker.Bar>
-        <Picker.Frame itemKey="topics">
+        </ICD.Picker.Bar>
+        <ICD.Picker.Frame itemKey="topics">
           <TopicPicker
             device={device}
             entries={entries}
@@ -124,9 +124,9 @@ const Discover = <E extends HeldEntry>({
             onChange={setTopicPicks}
             onAddByName={(topic) => close([...picked(), kind.createTopic(topic)])}
           />
-        </Picker.Frame>
+        </ICD.Picker.Frame>
         {createTag != null && (
-          <Picker.Frame itemKey="sparkplug">
+          <ICD.Picker.Frame itemKey="sparkplug">
             <TagPicker
               device={device}
               entries={entries}
@@ -134,7 +134,7 @@ const Discover = <E extends HeldEntry>({
               onChange={setTagPicks}
               onAddByName={() => close([...picked(), createTag()])}
             />
-          </Picker.Frame>
+          </ICD.Picker.Frame>
         )}
         <Modal.Footer>
           <Nav.Bar.Start>
@@ -162,7 +162,7 @@ const Discover = <E extends HeldEntry>({
           </Nav.Bar.End>
         </Modal.Footer>
       </Modal.Frame>
-    </Picker.Root>
+    </ICD.Picker.Root>
   );
 };
 

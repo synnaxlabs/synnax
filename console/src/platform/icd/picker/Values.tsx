@@ -17,8 +17,8 @@ import { Skeleton } from "@synnaxlabs/lyra/skeleton";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Fragment } from "react";
 
-import { Picker } from "@/feature/mqtt/task/discover/picker";
 import { CSS } from "@/platform/css";
+import { CheckSkeleton } from "@/platform/icd/picker/Picker";
 
 /** A value the pane offers: a field of a JSON topic or a Sparkplug B tag. */
 export interface Value {
@@ -54,7 +54,7 @@ export const PaneHeader = ({
   onPickAll,
   onClear,
 }: PaneHeaderProps) => (
-  <Header.Header bordered={false} className={CSS.BE("mqtt-discover", "pane-header")}>
+  <Header.Header bordered={false} className={CSS.BE("icd-picker", "pane-header")}>
     <Header.Title weight={500} color={10} variant="code">
       {title}
       {note != null && (
@@ -89,7 +89,7 @@ interface HeadProps {
 }
 
 const Head = ({ noun }: HeadProps) => (
-  <div className={CSS.BE("mqtt-discover", "values-head")}>
+  <div className={CSS.BE("icd-picker", "values-head")}>
     <span />
     {[noun, "Last value", "Type"].map((label) => (
       <Text.Text key={label} level="small" weight={500} color={9}>
@@ -111,7 +111,7 @@ const Item = (props: List.ItemRenderProps<string>) => {
     <Select.Item<string>
       {...props}
       disabled={locked}
-      className={CSS.BE("mqtt-discover", "value")}
+      className={CSS.BE("icd-picker", "value")}
     >
       <Input.Checkbox
         value={value.taken || selected}
@@ -149,7 +149,7 @@ const GroupList = ({ values, value, onChange }: GroupListProps) => {
       value={value}
       onChange={onChange}
     >
-      <List.Scroll className={CSS.BE("mqtt-discover", "value-list")}>
+      <List.Scroll className={CSS.BE("icd-picker", "value-list")}>
         <List.Items<string, Value>>{item}</List.Items>
       </List.Scroll>
     </Select.Frame>
@@ -164,7 +164,7 @@ export interface ValuesProps {
 }
 
 export const Values = ({ noun, groups, value, onChange }: ValuesProps) => (
-  <div className={CSS.BE("mqtt-discover", "values")}>
+  <div className={CSS.BE("icd-picker", "values")}>
     <Head noun={noun} />
     {groups.map(({ title, values }) => (
       <Fragment key={title ?? ""}>
@@ -173,7 +173,7 @@ export const Values = ({ noun, groups, value, onChange }: ValuesProps) => (
             level="small"
             weight={500}
             color={9}
-            className={CSS.BE("mqtt-discover", "section")}
+            className={CSS.BE("icd-picker", "section")}
           >
             {title}
           </Text.Text>
@@ -197,7 +197,7 @@ export interface PaneSkeletonProps extends HeadProps {
 
 export const PaneSkeleton = ({ noun, title }: PaneSkeletonProps) => (
   <>
-    <Header.Header bordered={false} className={CSS.BE("mqtt-discover", "pane-header")}>
+    <Header.Header bordered={false} className={CSS.BE("icd-picker", "pane-header")}>
       {title == null ? (
         <Header.Title weight={500}>
           <Skeleton.Skeleton style={{ width: "24rem" }} />
@@ -208,12 +208,12 @@ export const PaneSkeleton = ({ noun, title }: PaneSkeletonProps) => (
         </Header.Title>
       )}
     </Header.Header>
-    <div aria-hidden className={CSS.BE("mqtt-discover", "values")}>
+    <div aria-hidden className={CSS.BE("icd-picker", "values")}>
       <Head noun={noun} />
-      <div className={CSS.BE("mqtt-discover", "value-list")}>
+      <div className={CSS.BE("icd-picker", "value-list")}>
         {SKELETON_WIDTHS.map((widths, i) => (
-          <div key={i} className={CSS.BE("mqtt-discover", "value-skeleton")}>
-            <Picker.CheckSkeleton />
+          <div key={i} className={CSS.BE("icd-picker", "value-skeleton")}>
+            <CheckSkeleton />
             {widths.map((width, j) => (
               <Text.Text key={j} level="small">
                 <Skeleton.Skeleton style={{ width }} />
