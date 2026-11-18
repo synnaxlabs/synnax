@@ -46,11 +46,11 @@
     padding-inline: 1.5rem;
 
     & .lyra-caret-animated {
-        color: var(--pluto-gray-l7);
         opacity: 0;
     }
 
-    &:is(:hover, :focus-visible, [aria-expanded="true"]) .lyra-caret-animated {
+    &:is(:hover, :focus-visible, [aria-expanded="true"]):not(.lyra--disabled)
+        .lyra-caret-animated {
         opacity: 1;
     }
 }
