@@ -168,18 +168,15 @@ const createChannelOn = (port: AOPort | DOPort): WriteChannel => ({
 });
 
 /**
- * Creates a copy of the channel with the key, or of the last channel without one, on
- * the lowest free port of its type, then of the other type. Null when the channel to
- * copy is gone or every port is taken.
+ * Creates a copy of the channel with the key, else of the last channel, on the lowest
+ * free port of its type, then of the other type. Null when every port is taken.
  */
 const createNextChannel = (
   channels: WriteChannel[],
   model: Model,
   copy?: string,
 ): WriteChannel | null => {
-  const template =
-    copy == null ? channels.at(-1) : channels.find(({ key }) => key === copy);
-  if (copy != null && template == null) return null;
+  const template = Task.channelToCopy(channels, copy);
   const preferred =
     template == null ? DO_PORT_TYPE : convertWriteChannelTypeToPortType(template.type);
   const backup = preferred === DO_PORT_TYPE ? AO_PORT_TYPE : DO_PORT_TYPE;

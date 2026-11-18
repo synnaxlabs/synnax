@@ -39,7 +39,7 @@ import { Task } from "@/platform/task";
 
 /** Where a new channel goes. Each field it leaves out takes a default. */
 export interface Placement {
-  /** The channel to copy. Defaults to the first channel. */
+  /** The channel to copy. Defaults to the last channel. */
   copy?: string;
   /** Defaults to the copied channel's device. */
   device?: string;
@@ -47,14 +47,8 @@ export interface Placement {
   port?: number;
 }
 
-const template = <C extends { key: string }>(
-  channels: C[],
-  zero: C,
-  copy?: string,
-): C => {
-  if (copy == null) return deep.copy(channels[0] ?? zero);
-  return deep.copy(channels.find(({ key }) => key === copy) ?? zero);
-};
+const template = <C extends Task.Channel>(channels: C[], zero: C, copy?: string): C =>
+  deep.copy(Task.channelToCopy(channels, copy) ?? zero);
 
 const hardwareOf = (devices: Device[], key: string): ni.Hardware | undefined =>
   devices.find((d) => d.key === key)?.properties.hardware;

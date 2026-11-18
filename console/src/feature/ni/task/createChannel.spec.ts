@@ -131,6 +131,13 @@ describe("createChannel", () => {
       expect(result.channel).not.toBe(3);
     });
 
+    it("should copy the last channel when no channel to copy is given", () => {
+      const channels = [aiChannel("1", 0, "ai_accel"), aiChannel("2", 1, "ai_bridge")];
+      const result = createNextAIChannel(channels);
+      expect(result.type).toBe("ai_bridge");
+      expect(portOf(result)).toBe(2);
+    });
+
     it("should correctly increment port when duplicating with multiple existing channels", () => {
       const channels = [
         aiChannel("1", 0),
