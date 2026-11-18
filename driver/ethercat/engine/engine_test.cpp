@@ -2877,7 +2877,7 @@ TEST_F(EngineTest, OpenBehindAStartWaitsWhileTheSlavesReachOP) {
         std::this_thread::sleep_for(std::chrono::milliseconds(300));
         this->master->release_activate();
     });
-    const auto second = this->engine->open_reader(
+    auto second = this->engine->open_reader(
         {IN_I16},
         x::telem::Rate(100),
         1,
@@ -2886,7 +2886,7 @@ TEST_F(EngineTest, OpenBehindAStartWaitsWhileTheSlavesReachOP) {
     releaser.join();
     opener.join();
     ASSERT_NIL(first.second);
-    ASSERT_NIL(second.second);
+    ASSERT_NIL_P(std::move(second));
 }
 
 /// @brief it should end the wait of an open for the start of another task when its
