@@ -242,8 +242,8 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("Read config", func() {
-		// createChannel creates a channel of dt, an index channel when dt is a
-		// timestamp, on the index channel idx otherwise.
+		// createChannel creates a channel of dt on the index channel idx, or an index
+		// channel when idx is the zero channel.
 		createChannel := func(
 			ctx context.Context,
 			dt telem.DataType,
@@ -254,7 +254,7 @@ var _ = Describe("Service", func() {
 				Name:        UniqueChannelName(),
 				DataType:    dt,
 				Leaseholder: node.Identity.HostKey,
-				IsIndex:     dt == telem.TimestampT,
+				IsIndex:     idx.LocalKey == 0,
 				LocalIndex:  idx.LocalKey,
 			}
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -264,12 +264,12 @@ var _ = Describe("Service", func() {
 		}
 
 		// format is an ICD with a Status message of a timestamp, a float, a string, and
-		// a bytes field at the root, a Stamped message of a timestamp with a default,
-		// and channels on one index to bind them to.
+		// a bytes field at the root, a Stamped message of a timestamp with a default, a
+		// binary Frame message, and channels on one index to bind them to.
 		type format struct {
-			ic         icd.ICD
-			m, stamped icd.Message
-			idx, value channel.Channel
+			ic                icd.ICD
+			m, stamped, frame icd.Message
+			idx, value, stamp channel.Channel
 		}
 
 		createFormat := func(ctx context.Context) format {
@@ -289,7 +289,12 @@ var _ = Describe("Service", func() {
 					Default:    &stamp,
 				},
 			))
-			ic := icd.ICD{Name: "Plant", Messages: []icd.Message{m, stamped}}
+			frame := icd.Message{
+				Key:     uuid.New(),
+				Name:    "Frame",
+				Payload: icd.Payload{Variant: icd.BinaryPayload{}},
+			}
+			ic := icd.ICD{Name: "Plant", Messages: []icd.Message{m, stamped, frame}}
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return icds.NewWriter(tx).Create(ctx, &ic)
 			})).To(Succeed())
@@ -298,8 +303,10 @@ var _ = Describe("Service", func() {
 				ic:      ic,
 				m:       m,
 				stamped: stamped,
+				frame:   frame,
 				idx:     idx,
 				value:   createChannel(ctx, telem.Float64T, idx),
+				stamp:   createChannel(ctx, telem.TimestampT, idx),
 			}
 		}
 
@@ -355,6 +362,10 @@ var _ = Describe("Service", func() {
 				read := readMessage(other, binding(other, 0, f.value))
 				return []map[string]any{icdRecord("", f.ic, read)}
 			}, "records.0.messages.0.message", "does not exist in ICD Plant"),
+			Entry("a message that is not JSON", func(f format) []map[string]any {
+				read := readMessage(f.frame, map[string]any{"field": uuid.New()})
+				return []map[string]any{icdRecord("", f.ic, read)}
+			}, "records.0.messages.0.message", "message Frame is not a JSON message"),
 			Entry("a field that the message lacks", func(f format) []map[string]any {
 				read := readMessage(f.m, map[string]any{
 					"field": uuid.New(), "channel": f.value.Key(),
@@ -403,6 +414,17 @@ var _ = Describe("Service", func() {
 				read["index"] = fieldKey(f.m, 0)
 				return []map[string]any{icdRecord("", f.ic, read)}
 			}, "records.0.messages.0.index", "the index field ts has no binding"),
+			Entry("an index that names no field", func(f format) []map[string]any {
+				read := readMessage(f.m, binding(f.m, 1, f.value))
+				read["index"] = uuid.New()
+				return []map[string]any{icdRecord("", f.ic, read)}
+			}, "records.0.messages.0.index", "does not exist in message Status"),
+			Entry("an index field on a data channel", func(f format) []map[string]any {
+				read := readMessage(f.m, binding(f.m, 0, f.stamp))
+				read["index"] = fieldKey(f.m, 0)
+				return []map[string]any{icdRecord("", f.ic, read)}
+			}, "records.0.messages.0.bindings.0.channel",
+				"the index field ts must write to an index channel"),
 			Entry("a data field on an index channel", func(f format) []map[string]any {
 				read := readMessage(f.m, binding(f.m, 0, f.idx))
 				return []map[string]any{icdRecord("", f.ic, read)}

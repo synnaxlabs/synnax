@@ -330,10 +330,16 @@ func migrateStored(
 		return ReadConfig{}, err
 	}
 	ic, ok, err := ResolveReadConfig(ctx, tx, channels, name, &cfg, note)
-	if err != nil || !ok {
-		return cfg, err
+	if err != nil {
+		return ReadConfig{}, err
 	}
-	return cfg, create(ctx, tx, ic)
+	if !ok {
+		return cfg, nil
+	}
+	if err = create(ctx, tx, ic); err != nil {
+		return ReadConfig{}, err
+	}
+	return cfg, nil
 }
 
 // retrieveTasks returns the task of each config of cfgs by key, read through tx.
