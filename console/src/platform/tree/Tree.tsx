@@ -136,7 +136,7 @@ const ResourceItem = ({ onDrop: _, ...rest }: Base.ItemProps<string>) => {
     <Item
       {...rest}
       draggingOver={draggingOver}
-      onDragStart={() => onDragStart(itemKey)}
+      onDragStart={(e) => onDragStart(itemKey, e)}
       draggable={canMove}
       {...onDropDrops}
       onDragLeave={() => setDraggingOver(false)}

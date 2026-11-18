@@ -32,9 +32,15 @@ export interface UseDragTabReturn {
 export const useDragTab = (): UseDragTabReturn => {
   const { startDrag, onDragEnd } = Haul.useDrag({ type: "Mosaic" });
   const handleStart = (
-    e: DragEvent<HTMLElement>,
+    event: DragEvent<HTMLElement>,
     tabKey: string,
     data?: record.Unknown,
-  ) => startDrag([createTabDropHaulItem(tabKey, e.currentTarget.id, data)]);
+  ) =>
+    startDrag({
+      event,
+      items: [createTabDropHaulItem(tabKey, event.currentTarget.id, data)],
+      preview: <Haul.Copy of={event.currentTarget} />,
+      anchor: "grab",
+    });
   return { startDrag: handleStart, onDragEnd };
 };
