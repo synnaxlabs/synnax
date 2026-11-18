@@ -138,6 +138,49 @@ TEST_F(TareTests, BasicTare) {
     ASSERT_EQ(new_frame.at<float>(2, 1), 5.0f); // 35 - 30
 }
 
+/// @brief it should tare all channels without taring the index of the frame.
+TEST_F(TareTests, TareAllSkipsIndex) {
+    Tare tare(channels);
+    x::json::json::object_t tare_args;
+    ASSERT_NIL(tare.tare(tare_args));
+    frame.emplace(3, x::telem::Series(x::telem::TimeStamp(100)));
+    ASSERT_NIL(tare.transform(frame));
+    ASSERT_EQ(frame.at<double>(1, 0), -5.0);
+    ASSERT_EQ(frame.at<float>(2, 0), -5.0f);
+    ASSERT_EQ(frame.at<x::telem::TimeStamp>(3, 0), x::telem::TimeStamp(100));
+}
+
+/// @brief it should tare all channels without taring a non-numeric channel.
+TEST_F(TareTests, TareAllSkipsNonNumeric) {
+    synnax::channel::Channel str_ch;
+    str_ch.key = 4;
+    str_ch.data_type = x::telem::STRING_T;
+    synnax::channel::Channel ts_ch;
+    ts_ch.key = 5;
+    ts_ch.data_type = x::telem::TIMESTAMP_T;
+    channels.push_back(str_ch);
+    channels.push_back(ts_ch);
+    Tare tare(channels);
+    x::json::json::object_t tare_args;
+    ASSERT_NIL(tare.tare(tare_args));
+    frame.emplace(4, x::telem::Series(std::vector<std::string>{"a", "b"}));
+    frame.emplace(5, x::telem::Series(x::telem::TimeStamp(100)));
+    ASSERT_NIL(tare.transform(frame));
+    ASSERT_EQ(frame.at<double>(1, 0), -5.0);
+    ASSERT_EQ(frame.at<x::telem::TimeStamp>(5, 0), x::telem::TimeStamp(100));
+}
+
+/// @brief it should reject a tare of a non-numeric channel.
+TEST_F(TareTests, TareNonNumericChannel) {
+    synnax::channel::Channel str_ch;
+    str_ch.key = 4;
+    str_ch.data_type = x::telem::STRING_T;
+    channels.push_back(str_ch);
+    Tare tare(channels);
+    x::json::json::object_t tare_args = {{"keys", {4}}};
+    ASSERT_OCCURRED_AS(tare.tare(tare_args), x::errors::VALIDATION);
+}
+
 /// @brief it should tare only specific channels.
 TEST_F(TareTests, TareSpecificChannels) {
     Tare tare(channels);
