@@ -13,6 +13,8 @@
 #include <chrono>
 #include <cstring>
 #include <format>
+#include <map>
+#include <numeric>
 #include <optional>
 #include <string_view>
 #include <system_error>
@@ -27,6 +29,8 @@
 #include "driver/ethercat/esi/known_devices.h"
 #include "driver/ethercat/esi/settings.h"
 #include "driver/ethercat/igh/master.h"
+#include "driver/ethercat/master/dc.h"
+#include "driver/ethercat/sii/sii.h"
 #include "driver/ethercat/telem/telem.h"
 
 namespace driver::ethercat::igh {
@@ -107,27 +111,100 @@ uint16_t ring_position(const uint16_t position) {
     return position - 1;
 }
 
-/// @brief returns errors::SLAVE_CONFIG_ERROR when config enables slave in a mode that
-/// the IgH master cannot run.
+/// @brief reads the DC modes from the SII of the slave at ring position.
+/// @returns the modes and 0, or the negative error code of a failed read.
+std::pair<std::vector<dc::OpMode>, int> read_op_modes(
+    const API &api,
+    const unsigned int master_index,
+    const uint16_t position
+) {
+    std::map<uint16_t, std::vector<uint8_t>> categories;
+    const auto read = [&](const uint32_t offset, std::span<uint16_t> words) {
+        // IgH rejects a read of no words.
+        if (words.empty()) return 0;
+        // A read past the last word that an offset can address ends the SII, as a read
+        // past the end of the SII does.
+        if (offset + words.size() > UINT16_MAX) return -EINVAL;
+        return api.sii_read(master_index, position, offset, words);
+    };
+    for (uint32_t offset = sii::CATEGORIES;;) {
+        std::array<uint16_t, 2> header{};
+        int ret = read(offset, header);
+        const auto [type, size] = header;
+        if (ret == 0 && type == sii::END) break;
+        std::vector<uint16_t> words;
+        if (ret == 0 && (type == sii::STRINGS || type == sii::DC)) {
+            words.resize(size);
+            ret = read(offset + 2, words);
+        }
+        // IgH rejects a read past the end of the SII with EINVAL, so a SII with no end
+        // marker ends at its last whole category.
+        if (ret == -EINVAL) break;
+        if (ret != 0) return {{}, ret};
+        for (const auto word: words) {
+            categories[type].push_back(static_cast<uint8_t>(word & 0xFF));
+            categories[type].push_back(static_cast<uint8_t>(word >> 8));
+        }
+        offset += 2 + size;
+    }
+    return {
+        sii::parse_op_modes(
+            categories[sii::DC],
+            sii::parse_strings(categories[sii::STRINGS])
+        ),
+        0
+    };
+}
+
+/// @brief returns errors::SLAVE_CONFIG_ERROR when IgH would start the SYNC0 events of
+/// slave off the whole SYNC0 cycles after master::DC_EPOCH that the engine expects. IgH
+/// starts SYNC0 on whole spans of the SYNC0 cycle plus the SYNC1 register.
 x::errors::Error
-check_op_mode(const slave::Properties &slave, const slave::Config &config) {
-    if (!config.enabled || !config.op_mode) return x::errors::NIL;
-    const auto err = config.op_mode->assign_activate != 0
-                       ? x::errors::Error(
-                             errors::SLAVE_CONFIG_ERROR,
-                             "the IgH master does not run DC sync"
-                         )
-                       : dc::check_cycles({}, config.op_mode->cycles);
-    if (!err) return x::errors::NIL;
+check_sync1(const slave::Properties &slave, const dc::Registers &regs) {
+    if (!regs.marks_data() || regs.sync1_cycle % regs.sync0_cycle == 0)
+        return x::errors::NIL;
     return x::errors::Error(
         errors::SLAVE_CONFIG_ERROR,
         std::format(
-            "module {} ({}) cannot use its chosen mode: {}",
+            "module {} ({}) cannot run its DC mode on the IgH master: SYNC1 comes {} "
+            "after SYNC0, which is not a whole number of SYNC0 cycles of {}",
             slave.position,
             slave.name,
-            err.data
+            x::telem::TimeSpan(regs.sync1_cycle).to_string(),
+            x::telem::TimeSpan(regs.sync0_cycle).to_string()
         )
     );
+}
+
+/// @brief returns the latest application time at or before now that is a whole number
+/// of SYNC0 cycles of each slave in dc_sync whose SYNC0 events mark data.
+/// @returns errors::SLAVE_CONFIG_ERROR when the cycles have no common multiple at or
+/// before now.
+std::pair<uint64_t, x::errors::Error>
+first_app_time(const uint64_t now, const std::vector<dc::Registers> &dc_sync) {
+    uint64_t multiple = 1;
+    for (const auto &regs: dc_sync) {
+        if (!regs.marks_data()) continue;
+        const uint64_t cycle = regs.sync0_cycle;
+        const auto factor = multiple / std::gcd(multiple, cycle);
+        if (factor > now / cycle)
+            return {
+                0,
+                x::errors::Error(
+                    errors::SLAVE_CONFIG_ERROR,
+                    "the SYNC0 cycles of the slaves have no common multiple that the "
+                    "IgH master can start them on"
+                )
+            };
+        multiple = factor * cycle;
+    }
+    return {now / multiple * multiple, x::errors::NIL};
+}
+
+/// @brief returns t in nanoseconds since the steady clock epoch.
+int64_t nanoseconds(const hs_clock::time_point t) {
+    return std::chrono::duration_cast<std::chrono::nanoseconds>(t.time_since_epoch())
+        .count();
 }
 
 /// @brief returns s as a decimal number, or nullopt when s holds anything else.
@@ -178,6 +255,7 @@ x::errors::Error Master::initialize() {
 
     this->cached_slaves.clear();
     this->cached_slaves.reserve(master_info.slave_count);
+    this->reference_clock.reset();
 
     for (unsigned int i = 0; i < master_info.slave_count; ++i) {
         ec_slave_info_t slave_info;
@@ -196,6 +274,10 @@ x::errors::Error Master::initialize() {
         result.properties.serial = slave_info.serial_number;
         result.properties.name = slave_info.name;
         result.status.state = slave::State::INIT;
+        // IgH reads DC receive times only from slaves with a distributed clock, and it
+        // makes the first of them the reference clock.
+        if (!this->reference_clock && slave_info.ports[0].receive_time != 0)
+            this->reference_clock = result.properties.position;
         for (uint8_t sm = 0; sm < slave_info.sync_count; ++sm)
             if (const auto err = this->append_scanned_pdos(result.properties, sm)) {
                 result.properties.input_pdos.clear();
@@ -205,6 +287,20 @@ x::errors::Error Master::initialize() {
                 break;
             }
         esi::fill(result);
+        auto [modes, ret] = read_op_modes(
+            *this->api,
+            this->master_index,
+            static_cast<uint16_t>(i)
+        );
+        if (ret != 0)
+            return fail(
+                std::format(
+                    "failed to read the SII of slave {}: {}",
+                    i + 1,
+                    reason(ret)
+                )
+            );
+        result.properties.op_modes = std::move(modes);
         auto [settings, settings_err] = esi::read_settings(
             slave_info.vendor_id,
             slave_info.product_code,
@@ -221,6 +317,12 @@ x::errors::Error Master::initialize() {
     VLOG(1) << "[ethercat.igh] master " << this->master_index << " initialized with "
             << this->cached_slaves.size() << " slaves";
     return x::errors::NIL;
+}
+
+uint64_t Master::app_time() const {
+    return static_cast<uint64_t>(
+        nanoseconds(this->cfg.clock.steady()) + this->app_offset
+    );
 }
 
 std::pair<master::Change, x::errors::Error> Master::changed() {
@@ -379,13 +481,19 @@ master::Activation Master::activate(
         const auto it = plan.slaves.find(pos);
         return it == plan.slaves.end() ? slave::Config{} : it->second;
     };
-    for (const auto &slave: this->cached_slaves)
-        if (auto err = check_op_mode(
-                slave.properties,
-                config_of(slave.properties.position)
-            ))
-            return {.err = err};
+    auto [dc_setups, dc_err] = master::resolve_dc(this->cached_slaves, plan);
+    if (dc_err) return {.err = dc_err};
     master::Image image;
+    for (const auto &[pos, regs]: dc_setups) {
+        if (auto err = check_sync1(this->cached_slaves[pos - 1].properties, regs))
+            return {.err = err};
+        if (regs.sync0_cycle > 0 && (regs.assign_activate & dc::PDI_SYNC_UNIT) == 0)
+            image.dc_sync.push_back(regs);
+    }
+    this->app_offset = (this->cfg.clock.now() - master::DC_EPOCH).nanoseconds() -
+                       nanoseconds(this->cfg.clock.steady());
+    auto [first_app, app_err] = first_app_time(this->app_time(), image.dc_sync);
+    if (app_err) return {.err = app_err};
     for (const auto &slave: this->cached_slaves) {
         const auto pos = slave.properties.position;
         const auto config = config_of(pos);
@@ -413,6 +521,47 @@ master::Activation Master::activate(
             if (auto err = this->configure_assigned_pdos(pos, sc)) return {.err = err};
         if (auto err = this->register_pdo_entries(slave.properties, sc, image))
             return {.err = err};
+        const auto setup = std::ranges::find(
+            dc_setups,
+            pos,
+            &master::DCSetup::position
+        );
+        if (setup == dc_setups.end()) continue;
+        const auto &regs = setup->registers;
+        if (const int ret = this->api->slave_config_dc(
+                sc,
+                regs.assign_activate,
+                regs.sync0_cycle,
+                regs.sync0_shift,
+                regs.sync1_cycle,
+                0
+            );
+            ret != 0)
+            return {
+                .err = x::errors::Error(
+                    errors::ACTIVATION_ERROR,
+                    std::format(
+                        "failed to set up the DC sync of slave {} ({}): {}",
+                        pos,
+                        slave.properties.name,
+                        reason(ret)
+                    )
+                )
+            };
+    }
+    this->dc_setups = std::move(dc_setups);
+    // The first application time sets where IgH starts the SYNC0 events of each slave.
+    if (!this->dc_setups.empty()) {
+        if (const int ret = this->api
+                                ->master_application_time(this->ec_master, first_app);
+            ret != 0)
+            return {
+                .err = x::errors::Error(
+                    errors::ACTIVATION_ERROR,
+                    "failed to give the application time: " + reason(ret)
+                )
+            };
+        image.reference_clock = this->reference_clock;
     }
 
     const size_t size = this->domains.empty() ? 0 : this->domains.back().end();
@@ -561,6 +710,10 @@ void Master::deactivate() {
     this->faulted = false;
     this->resets = 0;
     this->next_reset = {};
+    this->reference_clock.reset();
+    this->dc_setups.clear();
+    this->clocks_aligned = false;
+    this->latest_dc.reset();
 }
 
 const x::errors::Error &Master::receive() {
@@ -603,6 +756,30 @@ const x::errors::Error &Master::receive() {
         silent++;
         this->latest_inputless.push_back(domain.position);
     }
+    // IgH aligns the slave clocks to the application time before any slave reaches
+    // SAFE-OP and gives a working counter.
+    if (working_counter > 0) this->clocks_aligned = true;
+    if (!this->dc_setups.empty() && this->clocks_aligned) {
+        uint32_t dc = 0;
+        const int ret = this->api->master_reference_clock_time(this->ec_master, &dc);
+        if (ret == 0)
+            this->latest_dc = master::DC_EPOCH +
+                              x::telem::TimeSpan(
+                                  static_cast<int64_t>(this->sent_at) +
+                                  static_cast<int32_t>(
+                                      dc - static_cast<uint32_t>(this->sent_at)
+                                  )
+                              );
+        // A frame that did not reach the reference clock carries no time (EIO), and IgH
+        // has no reference clock while it scans the bus (ENXIO).
+        else if (ret == -EIO || ret == -ENXIO)
+            this->latest_dc.reset();
+        else
+            return this->received = x::errors::Error(
+                       errors::CYCLIC_ERROR,
+                       "failed to read the reference clock: " + reason(ret)
+                   );
+    }
     if (working_counter == expected) return x::errors::NIL;
     this->latest_shortfall = expected - working_counter;
     if (silent == this->domains.size()) {
@@ -625,6 +802,27 @@ const x::errors::Error &Master::receive() {
 x::errors::Error Master::send() {
     if (!this->activated)
         return x::errors::Error(errors::CYCLIC_ERROR, "not activated");
+    if (!this->dc_setups.empty()) {
+        this->sent_at = this->app_time();
+        if (const int ret = this->api->master_application_time(
+                this->ec_master,
+                this->sent_at
+            );
+            ret != 0)
+            return x::errors::Error(
+                errors::CYCLIC_ERROR,
+                "failed to give the application time: " + reason(ret)
+            );
+        // IgH has no reference clock while it scans the bus.
+        for (const int ret:
+             {this->api->master_sync_reference_clock_to(this->ec_master, this->sent_at),
+              this->api->master_sync_slave_clocks(this->ec_master)})
+            if (ret != 0 && ret != -ENXIO)
+                return x::errors::Error(
+                    errors::CYCLIC_ERROR,
+                    "failed to sync the distributed clocks: " + reason(ret)
+                );
+    }
 
     for (const auto &domain: this->domains) {
         std::memcpy(domain.data, this->outputs.data() + domain.offset, domain.size);

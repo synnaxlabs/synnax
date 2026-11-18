@@ -21,9 +21,11 @@
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/mem/indirect.h"
 #include "x/cpp/testutil/testutil.h"
+#include "x/cpp/thread/rt/rt.h"
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/errors/errors.h"
+#include "arc/cpp/runtime/loop/loop.h"
 #include "arc/cpp/runtime/node/factory.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/runtime/testutil/compile.h"
@@ -1615,6 +1617,168 @@ sequence main {
         }
     ),
     [](const testing::TestParamInfo<ShortestCase> &info) { return info.param.name; }
+);
+
+/// @brief the loop rate that AUTO selects from the shortest timer span of a program.
+enum class Rate { HIGH, MEDIUM, LOW };
+
+/// @brief returns the mode that AUTO selects for rate on this machine.
+runtime::loop::ExecutionMode auto_mode(const Rate rate) {
+    const bool rt = x::thread::rt::has_support();
+    switch (rate) {
+        case Rate::HIGH:
+            return rt ? runtime::loop::ExecutionMode::RT_EVENT
+                      : runtime::loop::ExecutionMode::HIGH_RATE;
+        case Rate::MEDIUM:
+            return rt ? runtime::loop::ExecutionMode::RT_EVENT
+                      : runtime::loop::ExecutionMode::AUTO;
+        case Rate::LOW:
+            return runtime::loop::ExecutionMode::AUTO;
+    }
+    return runtime::loop::ExecutionMode::AUTO;
+}
+
+struct UnitCase {
+    std::string name;
+    /// @brief the literal that declares the timer variable.
+    std::string declared;
+    /// @brief the literal that a later stage assigns to the timer variable.
+    std::string reassigned;
+    x::telem::TimeSpan expected;
+    Rate rate;
+};
+
+class ShortestSpanUnitTest : public testing::TestWithParam<UnitCase> {};
+
+/// @brief Test that a timer variable in a unit gives the shortest span and loop rate.
+TEST_P(ShortestSpanUnitTest, IsTheShortestSpanOfAVariableInAUnit) {
+    const auto &c = GetParam();
+    const auto client = new_test_client();
+    const auto shortest = compile_shortest(
+        client,
+        "sequence main {\n    p := " + c.declared +
+            R"(
+    stage run {
+        time.interval(period=p) -> %a%
+        time.wait(duration=p) -> %b%
+        1 => faster
+    }
+    stage faster {
+        p = )" +
+            c.reassigned + "\n    }\n}\n"
+    );
+    EXPECT_EQ(shortest, c.expected);
+    EXPECT_EQ(runtime::loop::Config().apply_defaults(shortest).mode, auto_mode(c.rate));
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    Units,
+    ShortestSpanUnitTest,
+    testing::Values(
+        UnitCase{
+            "ns_high",
+            "5000000ns",
+            "500000ns",
+            500 * x::telem::MICROSECOND,
+            Rate::HIGH
+        },
+        UnitCase{
+            "ns_medium",
+            "5000000ns",
+            "2000000ns",
+            2 * x::telem::MILLISECOND,
+            Rate::MEDIUM
+        },
+        UnitCase{
+            "ns_low",
+            "50000000ns",
+            "5000000ns",
+            5 * x::telem::MILLISECOND,
+            Rate::LOW
+        },
+        UnitCase{"us_high", "5000us", "500us", 500 * x::telem::MICROSECOND, Rate::HIGH},
+        UnitCase{
+            "us_medium",
+            "5000us",
+            "2000us",
+            2 * x::telem::MILLISECOND,
+            Rate::MEDIUM
+        },
+        UnitCase{"us_low", "50000us", "5000us", 5 * x::telem::MILLISECOND, Rate::LOW},
+        UnitCase{
+            "us_reassigned_to_a_longer_span",
+            "500us",
+            "5000us",
+            500 * x::telem::MICROSECOND,
+            Rate::HIGH
+        },
+        UnitCase{
+            "us_reassigned_with_a_literal_in_ms",
+            "5000us",
+            "2ms",
+            2 * x::telem::MILLISECOND,
+            Rate::MEDIUM
+        },
+        UnitCase{
+            "ms_medium_at_the_high_rate_threshold",
+            "10ms",
+            "1ms",
+            x::telem::MILLISECOND,
+            Rate::MEDIUM
+        },
+        UnitCase{"ms_medium", "10ms", "2ms", 2 * x::telem::MILLISECOND, Rate::MEDIUM},
+        UnitCase{
+            "ms_low_at_the_rt_event_threshold",
+            "10ms",
+            "3ms",
+            3 * x::telem::MILLISECOND,
+            Rate::LOW
+        },
+        UnitCase{"ms_low", "500ms", "250ms", 250 * x::telem::MILLISECOND, Rate::LOW},
+        UnitCase{
+            "ms_reassigned_to_a_longer_span",
+            "2ms",
+            "500ms",
+            2 * x::telem::MILLISECOND,
+            Rate::MEDIUM
+        },
+        UnitCase{
+            "ms_reassigned_with_a_literal_in_s",
+            "5000ms",
+            "2s",
+            2 * x::telem::SECOND,
+            Rate::LOW
+        },
+        UnitCase{"s_low", "5s", "1s", x::telem::SECOND, Rate::LOW},
+        UnitCase{"s_low_long", "60s", "30s", 30 * x::telem::SECOND, Rate::LOW},
+        UnitCase{
+            "s_reassigned_to_a_longer_span",
+            "1s",
+            "5s",
+            x::telem::SECOND,
+            Rate::LOW
+        },
+        UnitCase{
+            "s_reassigned_with_a_literal_in_min",
+            "600s",
+            "2min",
+            2 * x::telem::MINUTE,
+            Rate::LOW
+        },
+        UnitCase{"min_low", "5min", "1min", x::telem::MINUTE, Rate::LOW},
+        UnitCase{"min_low_long", "30min", "10min", 10 * x::telem::MINUTE, Rate::LOW},
+        UnitCase{
+            "min_reassigned_to_a_longer_span",
+            "1min",
+            "5min",
+            x::telem::MINUTE,
+            Rate::LOW
+        },
+        UnitCase{"h_low", "2h", "1h", x::telem::HOUR, Rate::LOW},
+        UnitCase{"h_low_long", "24h", "12h", 12 * x::telem::HOUR, Rate::LOW},
+        UnitCase{"h_reassigned_to_a_longer_span", "1h", "2h", x::telem::HOUR, Rate::LOW}
+    ),
+    [](const testing::TestParamInfo<UnitCase> &info) { return info.param.name; }
 );
 
 const std::string_view FORMAT_WAT = R"wat(

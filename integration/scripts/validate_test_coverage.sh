@@ -17,8 +17,6 @@
 #
 # Outputs (GitHub Actions):
 #   TEST_MATRIX — JSON object consumable by strategy.matrix via fromJSON()
-#   BOT_MATRIX — the same suites for a run with no hosted runners. A hosted entry is
-#   one job there with no args, as its shards and args fit a hosted runner.
 
 set -euo pipefail
 
@@ -99,14 +97,8 @@ job() {
 }
 
 test_jobs=()
-bot_jobs=()
 for entry in "${MATRIX_ENTRIES[@]}"; do
     IFS=: read -r name target hosted shards args <<< "$entry"
-    if [ "$hosted" = true ]; then
-        bot_jobs+=("$(job "$name" "$target" "$hosted" "")")
-    else
-        bot_jobs+=("$(job "$name" "$target" "$hosted" "$args")")
-    fi
     if [ "$shards" -eq 1 ]; then
         test_jobs+=("$(job "$name" "$target" "$hosted" "$args")")
         continue
@@ -122,12 +114,9 @@ matrix() {
     echo "{\"include\":[$*]}"
 }
 test_matrix=$(matrix "${test_jobs[@]}")
-bot_matrix=$(matrix "${bot_jobs[@]}")
 
 echo "Matrix: $test_matrix"
-echo "Bot matrix: $bot_matrix"
 
 if [ -n "${GITHUB_OUTPUT:-}" ]; then
     echo "TEST_MATRIX=$test_matrix" >> "$GITHUB_OUTPUT"
-    echo "BOT_MATRIX=$bot_matrix" >> "$GITHUB_OUTPUT"
 fi
