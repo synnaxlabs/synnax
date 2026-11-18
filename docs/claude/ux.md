@@ -542,6 +542,52 @@ bound, a log precision, or the line plot X channel.
   collapses the box to its bar. An action in the header opens the box again.
 - An empty section shows no box, only one muted "+ Noun" line that adds its first item.
 
+### Group headings
+
+- A list that groups its items, such as the palettes on the Colors page or the groups of
+  the Ranges toolbar, heads each group with `Header.Group`: one full-width bar that
+  opens and closes the group.
+- The bar is l2 with the item radius. Its height is the Lyra size nearest the item
+  height: `large` above a 40 px item. Hover and press fill the whole bar.
+- The title is a plain string or a span at the button label weight. The count follows in
+  tiny l9 text, then an optional badge. The caret at the end points down when open.
+- Actions, such as a "+" that creates an item in the group, sit before the caret and do
+  not open or close it. Rename edits the title in place.
+
+### Ranges toolbar
+
+- The toolbar is one list in three groups: Running, Favorites, and Recent. Never call
+  the middle group "Pinned". Each heading has an icon: the in-progress stage icon in
+  amber, a filled star in goldenrod, and the completed stage icon in blue.
+- The heading icon sits over the item carets, and the title over the color marks.
+  Collapsed headings are 3 px apart, and the first is 6 px below the header. A collapsed
+  group stays collapsed across sessions.
+- A line is the caret, the color mark, the name, the muted parent, the time, then Stop
+  or the star. The time is the elapsed time in Running, the start in Favorites, and
+  "ago" in Recent. The caret's hover box never touches the color mark.
+- Running nests each range under its running parent. Favorites keeps star order; with
+  none, it shows "Star a range to add it here". Recent sorts by end, newest first. A
+  finished child of a running range shows in Recent with its muted parent, and nests
+  under the parent when the parent ends.
+- The header holds the explorer, then + (the create form set to the last hour), then
+  Start. + and Start are outlined `Toolbar.CreateAction` buttons. The toolbar has no
+  active range, and new plots open on Rolling 30s.
+- Next shows beside Stop on a running range with a parent. It stops the range, and each
+  running range below it, at the click time, and opens a draft below the range. Enter
+  starts the new range at that same time; Escape cancels both. Start child shows on
+  hover on each running range, opens a draft as the last child, and stops nothing.
+- A draft suggests a name from the order of the children of the parent's previous
+  sibling, or else adds one to a trailing number. It suggests the color of the matched
+  range, and its swatch changes the color.
+- The hover card (0.7 s, to the right) shows the name, color, stage, path, start, end,
+  duration, a strip of the children in time, the first 6 children, and the labels. It
+  has no buttons.
+- The menu is the explorer's menu. In the toolbar, Start child and Next work in place. A
+  line drags onto a line plot's Ranges field.
+- At 46rem the parents hide, and Start child and Next move to a hover cover over the
+  time. At 38rem finished times hide. At 34rem live times and the explorer button hide.
+  A line without Next keeps its slot, so the times line up.
+
 ### Record tables
 
 - A task's channel list is a record table: one item per channel, built from

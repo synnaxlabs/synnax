@@ -15,7 +15,6 @@ import (
 	"fmt"
 	"slices"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/synnaxlabs/alamos"
@@ -27,7 +26,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/icd/codec"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/sparkplug"
-	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
@@ -333,16 +331,8 @@ func (b *batch) result() driver.Batch {
 
 // readSource is the driver.Source of an MQTT read task.
 type readSource struct {
-	pool *pool
-	// mu guards what a change of an ICD that the task reads configures again.
-	mu struct {
-		// topics holds the reader of each plain topic.
-		topics map[string]*readTopic
-		// err is the error of the last configure after an ICD change. No run opens
-		// while it is set.
-		err error
-		sync.Mutex
-	}
+	pool   *pool
+	topics map[string]*readTopic
 	// tags holds the Sparkplug B tags of the task.
 	tags map[tagID]readTag
 	// lastStamp is the last timestamp of each index channel, stored or written by any
@@ -364,69 +354,9 @@ type readSource struct {
 
 var _ driver.Source = (*readSource)(nil)
 
-// readTask is a configured MQTT read task. Its factory configures it again when an ICD
-// that it reads changes, until the driver stops it.
-type readTask struct {
-	*driver.ReadTask
-	t   task.Task
-	src *readSource
-	// icds holds the ICDs that the enabled plain entries of the task read.
-	icds set.Set[icd.Key]
-	// mu holds off a stop while the factory configures the task again.
-	mu struct {
-		stopped bool
-		sync.Mutex
-	}
-	forget func(*readTask)
-}
-
-// Stop implements driver.Task.
-func (t *readTask) Stop(sendStatus bool) error {
-	t.mu.Lock()
-	t.mu.stopped = true
-	t.mu.Unlock()
-	t.forget(t)
-	return t.ReadTask.Stop(sendStatus)
-}
-
-// configure points the source at topics, or at err when the task no longer configures.
-// An open run reads its next message with topics.
-func (s *readSource) configure(topics map[string]*readTopic, err error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.mu.topics, s.mu.err = topics, err
-}
-
-// topic returns the reader of the plain topic name.
-func (s *readSource) topic(name string) (*readTopic, bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	t, ok := s.mu.topics[name]
-	return t, ok
-}
-
-// subscriptions returns the plain topics of the source, or the error of its last
-// configure.
-func (s *readSource) subscriptions() ([]topicSubscription, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.mu.err != nil {
-		return nil, s.mu.err
-	}
-	subs := make([]topicSubscription, 0, len(s.mu.topics))
-	for _, t := range s.mu.topics {
-		subs = append(subs, t.topicSubscription)
-	}
-	return subs, nil
-}
-
 // Open implements driver.Source.
 func (s *readSource) Open(ctx context.Context) (driver.Reader, error) {
-	subs, err := s.subscriptions()
-	if err != nil {
-		return nil, err
-	}
-	if err = s.seed(ctx); err != nil {
+	if err := s.seed(ctx); err != nil {
 		return nil, err
 	}
 	a, err := s.pool.attach(ctx, s.broker, s.queueSize)
@@ -440,7 +370,7 @@ func (s *readSource) Open(ctx context.Context) (driver.Reader, error) {
 		awaited:    make(map[tagScope]time.Time),
 		offline:    make(set.Set[tagScope]),
 	}
-	if err = r.subscribe(ctx, subs); err != nil {
+	if err = r.subscribe(ctx); err != nil {
 		s.pool.release(s.broker, a)
 		return nil, err
 	}
@@ -512,11 +442,12 @@ type reader struct {
 
 var _ driver.Reader = (*reader)(nil)
 
-func (r *reader) subscribe(ctx context.Context, subs []topicSubscription) error {
+func (r *reader) subscribe(ctx context.Context) error {
 	if err := r.attachment.settle(ctx); err != nil {
 		return err
 	}
-	for _, sub := range subs {
+	for _, t := range r.topics {
+		sub := t.topicSubscription
 		if err := r.attachment.subscribe(ctx, sub.topic, sub.qos); err != nil {
 			return err
 		}
@@ -711,7 +642,7 @@ func (r *reader) degrade(now time.Time, err error) {
 // convert adds the samples of msg to b. A message that carries nothing to write adds
 // none.
 func (r *reader) convert(now time.Time, msg message, b *batch) {
-	t, ok := r.topic(msg.topic)
+	t, ok := r.topics[msg.topic]
 	if !ok {
 		return
 	}

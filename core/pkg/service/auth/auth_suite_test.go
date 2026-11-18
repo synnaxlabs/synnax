@@ -42,6 +42,7 @@ var _ = BeforeSuite(func() { ShouldNotLeakGoroutines() })
 // Every spec gets its own db so sweeps and clocks never cross.
 var _ = BeforeEach(func(ctx SpecContext) {
 	db = DeferClose(gorp.Wrap(memkv.New()))
+	StartRun(db.Run)
 	users = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[user.Key, user.User]{
 		DB:   db,
 		Name: string(resource.TypeUser),

@@ -63,6 +63,7 @@ var (
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	db = DeferClose(gorp.Wrap(memkv.New()))
+	StartRun(db.Run)
 	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB: db,
 	}))

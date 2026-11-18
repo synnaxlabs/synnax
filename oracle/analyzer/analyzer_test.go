@@ -1103,6 +1103,109 @@ Node union on variant {
 		)
 	})
 
+	Describe("Rule ranges", func() {
+		DescribeTable(
+			"Should reject rules that no value can satisfy",
+			func(source, want string) {
+				_, diag := Analyze(source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(want))
+			},
+			Entry("a field min above its type's max", `
+				Decimal = float64 { @validate max 1 }
+				Entry struct {
+					value Decimal { @validate min 2 }
+				}
+			`, "test.Entry.value has rules that no value can satisfy"),
+			Entry("a field gt equal to its type's max", `
+				Decimal = float64 { @validate max 1 }
+				Entry struct {
+					value Decimal { @validate gt 1 }
+				}
+			`, "test.Entry.value has rules that no value can satisfy"),
+			Entry("a field min_length above its type's max_length", `
+				Name = string { @validate max_length 4 }
+				Entry struct {
+					value Name { @validate min_length 5 }
+				}
+			`, "test.Entry.value has rules that no value can satisfy"),
+			Entry("a type min above its target's max", `
+				Decimal = float64 { @validate max 1 }
+				Big = Decimal { @validate min 2 }
+			`, "test.Big has rules that no value can satisfy"),
+			Entry("an integer min above an integer max past float precision", `
+				Entry struct {
+					value int64 {
+						@validate min 9007199254740993
+						@validate max 9007199254740992
+					}
+				}
+			`, "test.Entry.value has rules that no value can satisfy"),
+		)
+
+		It("Should report an unsatisfiable type only once", func() {
+			_, diag := Analyze(`
+				Decimal = float64 { @validate max 1 }
+				Big = Decimal { @validate min 2 }
+				Bigger = Big
+				Entry struct {
+					value Big
+					other Big { @validate max 0.5 }
+				}
+			`, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring("test.Big has rules"))
+			Expect(diag.String()).ToNot(ContainSubstring("test.Bigger"))
+			Expect(diag.String()).ToNot(ContainSubstring("test.Entry"))
+		})
+
+		DescribeTable(
+			"Should reject a length rule on a type that is not a string",
+			func(source, want string) {
+				_, diag := Analyze(source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(want))
+			},
+			Entry("an alias of uuid", `
+				Key = uuid { @validate max_length 5 }
+			`, "test.Key has a length rule, but its type is not a string"),
+			Entry("a distinct number", `
+				Count int32 { @validate min_length 1 }
+			`, "test.Count has a length rule, but its type is not a string"),
+		)
+
+		DescribeTable(
+			"Should accept rules that a value can satisfy",
+			func(source string) {
+				_, diag := Analyze(source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+			},
+			Entry("a field min equal to its type's max", `
+				Decimal = float64 { @validate max 1 }
+				Entry struct {
+					value Decimal { @validate min 1 }
+				}
+			`),
+			Entry("a field min_length equal to its type's max_length", `
+				Name = string { @validate max_length 4 }
+				Entry struct {
+					value Name { @validate min_length 4 }
+				}
+			`),
+			Entry("a length rule on a string alias", `
+				Name = string { @validate max_length 4 }
+			`),
+			Entry("an integer gt below an integer max past float precision", `
+				Entry struct {
+					value int64 {
+						@validate gt 9223372036854775806
+						@validate max 9223372036854775807
+					}
+				}
+			`),
+		)
+	})
+
 	Describe("Pattern rules", func() {
 		DescribeTable(
 			"Should reject a second pattern on a value",
@@ -1509,9 +1612,9 @@ Node union on variant {
 				Expect(form.Extends).To(HaveLen(2))
 				Expect(form.IsIntEnum).To(BeFalse())
 				Expect(form.Values).To(HaveLen(4))
-				var names []string
-				for _, v := range form.Values {
-					names = append(names, v.Name)
+				names := make([]string, len(form.Values))
+				for i, v := range form.Values {
+					names[i] = v.Name
 				}
 				Expect(names).To(Equal([]string{"x1", "x2", "y1", "y2"}))
 				Expect(form.Values[2].StringValue()).To(Equal("y1"))
@@ -1634,9 +1737,9 @@ Node union on variant {
 				Expect(diag.Ok()).To(BeTrue())
 				form, ok := table.MustGet("x.Diamond").Form.(resolution.EnumForm)
 				Expect(ok).To(BeTrue())
-				var names []string
-				for _, v := range form.Values {
-					names = append(names, v.Name)
+				names := make([]string, len(form.Values))
+				for i, v := range form.Values {
+					names[i] = v.Name
 				}
 				// Base contributed once through each branch but is de-duplicated.
 				Expect(names).To(Equal([]string{"b", "l", "r"}))
@@ -1653,9 +1756,9 @@ Node union on variant {
 			Expect(diag.Ok()).To(BeTrue())
 			form, ok := table.MustGet("x.A").Form.(resolution.EnumForm)
 			Expect(ok).To(BeTrue())
-			var names []string
-			for _, v := range form.Values {
-				names = append(names, v.Name)
+			names := make([]string, len(form.Values))
+			for i, v := range form.Values {
+				names[i] = v.Name
 			}
 			Expect(names).To(Equal([]string{"c", "b", "a"}))
 		})
@@ -2585,7 +2688,8 @@ Node union on variant {
 			`
 			table, diag := Analyze(source, "test", loader)
 			Expect(table).To(BeNil())
-			Expect(diag.Flat().Errors()).To(HaveExactElements(
+			flat := diag.Flat()
+			Expect(flat.Errors()).To(HaveExactElements(
 				HaveField("Message", "struct Self cannot extend itself"),
 			))
 		})
@@ -3750,9 +3854,10 @@ Node union on variant {
 				Expect(diag.Ok()).To(BeTrue(), diag.String())
 				form, ok := table.MustGet("test.Wrapper").Form.(resolution.StructForm)
 				Expect(ok).To(BeTrue())
-				var got []string
-				for _, arg := range findField(form.Fields, "value").Type.TypeArgs {
-					got = append(got, arg.Name)
+				typeArgs := findField(form.Fields, "value").Type.TypeArgs
+				got := make([]string, len(typeArgs))
+				for i, arg := range typeArgs {
+					got[i] = arg.Name
 				}
 				Expect(got).To(Equal(want))
 			},
@@ -5540,9 +5645,10 @@ var _ = Describe("Union enum discriminator", func() {
 			Expect(form.BorrowsEnum()).To(BeTrue())
 			Expect(form.Enum.Name).To(Equal("payload.Kind"))
 			float := MustBeOk(form.Variant("float"))
-			names := make([]string, 0)
-			for _, f := range resolution.UnifiedVariantFields(field, float, table) {
-				names = append(names, f.Name)
+			fields := resolution.UnifiedVariantFields(field, float, table)
+			names := make([]string, len(fields))
+			for i, f := range fields {
+				names[i] = f.Name
 			}
 			Expect(names).To(Equal([]string{"key", "fill"}))
 		})

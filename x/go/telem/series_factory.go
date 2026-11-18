@@ -303,6 +303,8 @@ func NewSeriesFromAny(value any, dt DataType) Series {
 		return NewSeriesV(castToBytes(value))
 	case JSONT:
 		return lo.Must(NewJSONSeriesV(value))
+	case UnknownT:
+		fallthrough
 	default:
 		panic(fmt.Sprintf("unsupported data type %s", dt))
 	}

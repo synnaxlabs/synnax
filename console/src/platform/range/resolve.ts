@@ -23,8 +23,7 @@ export interface ResolvedPersisted extends Session.Range.PersistedState {
  * A session range every consumer can render. `variant` still says where the range
  * lives, so a caller that only cares about the Core's own ranges can still tell.
  */
-export type Resolved =
-  ResolvedPersisted | Session.Range.StaticState | Session.Range.DynamicState;
+export type Resolved = ResolvedPersisted | Session.Range.DynamicState;
 
 const fold = (
   state: Session.Range.State,
@@ -68,9 +67,9 @@ export const useResolveMultiple = (keys?: string[]): Resolved[] => {
 
 /**
  * Resolves one of the session's ranges.
- * @param key - The range to resolve. Defaults to the selected one.
+ * @param key - The range to resolve.
  */
-export const useResolve = (key?: string): Resolved | undefined => {
+export const useResolve = (key: string): Resolved | undefined => {
   const entry = Session.Range.useSelectState(key);
   const { data } = Ranger.useResult(
     entry?.variant === "persisted" ? { key: entry.key } : null,

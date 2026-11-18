@@ -29,6 +29,7 @@ import { ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
 import {
   DataType,
   deep,
+  errors,
   type payload,
   primitive,
   type record,
@@ -282,11 +283,21 @@ const appendFields = (
   return appended;
 };
 
-const createMessage = (topic: string, fields: icd.JSONField[]): icd.Message => ({
-  key: uuid.create(),
-  name: topic === "" ? "Untitled" : topic,
-  payload: { format: "json", fields },
-});
+/**
+ * @returns a message for the fields of a topic, named after the topic. A name that a
+ * message in taken holds gets a number, such as `plant/oven 2`.
+ */
+const createMessage = (
+  topic: string,
+  fields: icd.JSONField[],
+  taken: icd.Message[],
+): icd.Message => {
+  const names = new Set(taken.map(({ name }) => name));
+  const base = topic === "" ? "Untitled" : topic;
+  let name = base;
+  for (let n = 2; names.has(name); n++) name = `${base} ${n}`;
+  return { key: uuid.create(), name, payload: { format: "json", fields } };
+};
 
 const entryOf = (
   icdKey: icd.Key,
@@ -322,7 +333,9 @@ const createICD = async (
   drafts: Draft[],
   bind: Bind,
 ): Promise<AddTopicsResult> => {
-  const messages = drafts.map(({ topic, fields }) => createMessage(topic, fields));
+  const messages: icd.Message[] = [];
+  for (const { topic, fields } of drafts)
+    messages.push(createMessage(topic, fields, messages));
   const { key } = await client.icds.create({ name, messages });
   const added = drafts.map((d, i) =>
     entryOf(key, d.topic, {
@@ -381,7 +394,7 @@ const addTopics = async ({
         continue;
       }
       const prior = messages.get(key) ?? [];
-      const created = createMessage(draft.topic, draft.fields);
+      const created = createMessage(draft.topic, draft.fields, prior);
       inserterOf(key).insert(PICD.formPath.messages, created, prior.at(-1)?.key);
       messages.set(key, [...prior, created]);
       const bindings = bind(draft, draft.fields, created.key);
@@ -692,7 +705,11 @@ const TopicDetails: FC<TopicDetailsProps> = ({
   onAddMessage,
 }) => {
   const isPreview = Task.useIsPreview();
-  const reads = PForm.useFieldValue(path.messages).length;
+  const reads = PForm.useFieldValue(path.messages);
+  const encoding = PForm.useFieldValue(
+    PICD.formPath.messages[reads.length === 1 ? reads[0].message : ""].payload.format,
+    { optional: true, ctx: format },
+  );
   return (
     <Flex.Box y grow empty className={CSS.BE("details", "form")}>
       <PForm.Sections>
@@ -701,7 +718,7 @@ const TopicDetails: FC<TopicDetailsProps> = ({
           actions={
             !isPreview && (
               <>
-                {reads === 1 && <ICD.AddField onClick={onAddField} />}
+                {encoding === "json" && <ICD.AddField onClick={onAddField} />}
                 <Button.Button variant="text" size="small" onClick={onAddMessage}>
                   <Icon.Add />
                   Add message
@@ -723,7 +740,7 @@ const TopicDetails: FC<TopicDetailsProps> = ({
             padHelpText={false}
           />
         </PForm.Section>
-        {reads === 1 && (
+        {reads.length === 1 && (
           <MessageSections path={path} read={0} format={format} device={device} />
         )}
       </PForm.Sections>
@@ -882,9 +899,13 @@ const Entries: FC<EntriesProps> = ({
     handleError(async () => {
       if (adding.current) return;
       adding.current = true;
-      await add().finally(() => {
+      try {
+        await add();
+      } catch (e) {
         adding.current = false;
-      });
+        throw errors.fromUnknown(e);
+      }
+      adding.current = false;
     }, "Failed to add data");
 
   /**
@@ -923,6 +944,18 @@ const Entries: FC<EntriesProps> = ({
       ]),
     );
     onSelect([messageNodeKey(entryKey, message.key)]);
+  };
+
+  /** Whether the ICD holds the message of a read of a topic, as JSON. */
+  const holdsJSON = (entryKey: string, read: number): boolean => {
+    const { icd: icdKey, messages } = ctx.get(plainPath(entryKey)).value;
+    const message = messages[read].message;
+    return (
+      formats
+        .get(icdKey)
+        ?.value()
+        .messages.find(({ key }) => key === message)?.payload.format === "json"
+    );
   };
 
   /** Adds a field to a message of a topic and to its ICD, reads it, and selects it. */
@@ -1026,9 +1059,17 @@ const Entries: FC<EntriesProps> = ({
         ? only.entry
         : undefined;
     let addField: (() => void) | undefined;
-    if (chosen.length === 1 && only.kind === "message")
+    if (
+      chosen.length === 1 &&
+      only.kind === "message" &&
+      holdsJSON(only.entry, only.read)
+    )
       addField = () => handleAddField(only.entry, only.read);
-    else if (topic != null && ctx.get(plainPath(topic).messages).value.length === 1)
+    else if (
+      topic != null &&
+      ctx.get(plainPath(topic).messages).value.length === 1 &&
+      holdsJSON(topic, 0)
+    )
       addField = () => handleAddField(topic, 0);
     const fields = chosen.filter((n): n is FieldNode => n.kind === "field");
     let onRemove: (() => void) | undefined;

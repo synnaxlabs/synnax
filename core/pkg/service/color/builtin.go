@@ -10,8 +10,11 @@
 package color
 
 import (
+	"cmp"
 	"context"
 	"fmt"
+	"slices"
+	"strings"
 	"uuid"
 
 	"github.com/samber/lo"
@@ -53,12 +56,41 @@ var series = [...]shipped{
 	{uuid.MustParse("7e10b078-93f1-4369-b1ba-daaa126301a6"), 0x7C5F06FF, 0xB99A51FF},
 }
 
+// Series returns the keys of the named colors in the "Series" palette, sorted by
+// position and then by key. A color with no position comes last.
+func (s *Service) Series(ctx context.Context, snap gorp.Snapshot) ([]Key, error) {
+	var named []Named
+	if err := s.NewRetrieve().
+		Where(MatchGroups(seriesPalette)).
+		Entries(&named).
+		Exec(ctx, snap); err != nil {
+		return nil, err
+	}
+	slices.SortFunc(named, func(a, b Named) int {
+		return cmp.Or(comparePositions(a.Position, b.Position), a.Key.Compare(b.Key))
+	})
+	return lo.Map(named, func(n Named, _ int) Key { return n.Key }), nil
+}
+
+func comparePositions(a, b *string) int {
+	switch {
+	case a == nil && b == nil:
+		return 0
+	case a == nil:
+		return 1
+	case b == nil:
+		return -1
+	}
+	return strings.Compare(*a, *b)
+}
+
 func isBuiltin(key Key) bool {
 	return lo.ContainsBy(series[:], func(s shipped) bool { return s.key == key })
 }
 
-// builtins returns the named colors that the Core ships, with their shipped values.
-func builtins() []Named {
+// Builtins returns the named colors that the Core ships, with their shipped values. A
+// stored built-in can differ from its shipped values, because users can edit it.
+func Builtins() []Named {
 	named := make([]Named, len(series))
 	for i, s := range series {
 		dark := xcolor.FromUint32(s.dark)
@@ -96,7 +128,7 @@ func (s *Service) createBuiltins(
 		stored := set.New(
 			lo.Map(existing, func(n Named, _ int) Key { return n.Key })...,
 		)
-		missing := lo.Reject(builtins(), func(n Named, _ int) bool {
+		missing := lo.Reject(Builtins(), func(n Named, _ int) bool {
 			return stored.Contains(n.Key)
 		})
 		if len(missing) == 0 {

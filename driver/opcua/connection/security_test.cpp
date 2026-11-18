@@ -41,8 +41,8 @@ bool activated(UA_Client *client) {
 }
 
 std::string mismatch_message(
-    const certificate::Certificate &received,
-    const certificate::Certificate &trusted
+    const x::x509::Certificate &received,
+    const x::x509::Certificate &trusted
 ) {
     return "The server presented the certificate " + received.thumbprint() +
            " instead of the trusted certificate " + trusted.thumbprint() +
@@ -108,7 +108,7 @@ protected:
 
     void start_server(
         const certificate::Identity &id,
-        std::vector<certificate::Certificate> trusted_clients = {},
+        std::vector<x::x509::Certificate> trusted_clients = {},
         const std::uint16_t max_sessions = 0,
         std::vector<std::pair<std::string, std::string>> users = {}
     ) {

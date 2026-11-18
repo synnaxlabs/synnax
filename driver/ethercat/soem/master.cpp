@@ -27,9 +27,10 @@
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/esi/known_devices.h"
 #include "driver/ethercat/esi/settings.h"
+#include "driver/ethercat/master/dc.h"
+#include "driver/ethercat/sii/sii.h"
 #include "driver/ethercat/slave/slave.h"
 #include "driver/ethercat/soem/master.h"
-#include "driver/ethercat/soem/sii.h"
 #include "driver/ethercat/soem/util.h"
 #include "driver/ethercat/telem/telem.h"
 
@@ -129,6 +130,17 @@ static_assert(DISABLED_GROUP < EC_MAXGROUP);
 constexpr size_t DEFAULT_IOMAP_SIZE = 131072;
 /// What receive() says when no frame comes back.
 constexpr auto NO_FRAME = "process data receive failed";
+// receive() returns these by reference, so a cycle builds no error.
+const x::errors::Error NOT_ACTIVATED(errors::CYCLIC_ERROR, "master not activated");
+const x::errors::Error NO_FRAME_ERROR(errors::CYCLIC_ERROR, NO_FRAME);
+const x::errors::Error
+    FRAME_NOT_BACK(errors::FRAME_IN_FLIGHT, "process data frame has not come back");
+const x::errors::Error
+    REFERENCE_CLOCK_FRAME_FAILED(errors::CYCLIC_ERROR, "reference clock frame failed");
+const x::errors::Error PROCESS_DATA_HELD(
+    errors::WORKING_COUNTER_ERROR,
+    "no process data passes the slaves until they reach SAFE-OP"
+);
 /// How recently a frame must have come back for a failed receive on a USB adapter to
 /// blame a late frame. A dead link gets the plain reason after it.
 constexpr auto LATE_FRAME_WINDOW = std::chrono::seconds(1);
@@ -369,7 +381,7 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
             .refusals = std::move(unidentified),
         };
     };
-    auto [dc_setups, dc_err] = this->resolve_dc();
+    auto [dc_setups, dc_err] = master::resolve_dc(this->slave_list, session.plan);
     if (dc_err) return {.err = dc_err};
     session.dc_setups = std::move(dc_setups);
 
@@ -462,6 +474,7 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
         if (const auto pos = static_cast<uint16_t>(i);
             this->config(pos).enabled && this->record(pos).Ibits > 0)
             session.state_reads.push_back(pos);
+    session.cycles.reserve(master::MAX_FRAMES_IN_FLIGHT + 1);
     session.inputless.reserve(session.state_reads.size());
     // A slave can stop its process data task for good when the master reads its inputs
     // while it moves to SAFE-OP.
@@ -492,6 +505,9 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
 
 void Master::deactivate() {
     if (this->session) {
+        auto &session = *this->session;
+        for (const auto &cycle: session.cycles)
+            if (cycle.frames > 0) this->api->drop_processdata();
         this->request_state(EC_STATE_INIT, micros(this->cfg.init_timeout));
         // INIT leaves the DC activation as it is.
         if (const auto err = this->clear_dc_activation())
@@ -505,23 +521,38 @@ void Master::deactivate() {
     }
 }
 
-x::errors::Error Master::receive() {
-    if (!this->session)
-        return x::errors::Error(errors::CYCLIC_ERROR, "master not activated");
+const x::errors::Error &Master::receive() {
+    if (!this->session) return NOT_ACTIVATED;
     auto &session = *this->session;
 
     session.shortfall.reset();
     session.inputless.clear();
-    if (session.held_err) return session.held_err;
-    const int wkc = this->api->receive_processdata(ENABLED_GROUP, PROCESSDATA_TIMEOUT);
+    if (session.cycles.empty()) return NO_FRAME_ERROR;
+    int wkc = EC_NOFRAME;
+    if (session.cycles.front().frames > 0) {
+        // A frame that is not back yet can come back in a later cycle.
+        wkc = this->api->receive_processdata(ENABLED_GROUP, 0);
+        if (wkc < 0) {
+            const auto in_flight = session.cycles.size();
+            const auto age = this->cfg.clock.steady() - session.cycles.front().sent_at;
+            if (in_flight < master::MAX_FRAMES_IN_FLIGHT &&
+                (in_flight < master::MIN_FRAMES_IN_FLIGHT ||
+                 age < master::MAX_FRAME_AGE.chrono()))
+                return FRAME_NOT_BACK;
+            this->api->drop_processdata();
+        }
+    }
+    const Cycle cycle = session.cycles.front();
+    session.cycles.erase(session.cycles.begin());
+    if (cycle.held_err != nullptr) return *cycle.held_err;
 
     if (wkc < 0) {
         if (session.late_frame_err && session.frame_sent_at &&
             this->cfg.clock.steady() - *session.frame_sent_at < LATE_FRAME_WINDOW)
             return session.late_frame_err;
-        return x::errors::Error(errors::CYCLIC_ERROR, NO_FRAME);
+        return NO_FRAME_ERROR;
     }
-    session.frame_sent_at = session.sent_at;
+    session.frame_sent_at = cycle.sent_at;
     this->frames.fetch_add(1, std::memory_order_release);
     for (const auto pos: session.state_reads)
         if (const auto state = this->api->al_status(pos) & 0x0F;
@@ -549,7 +580,7 @@ x::errors::Error Master::receive() {
     if (const int64_t dc = this->api->context.DCtime;
         session.has_dc && dc > session.last_dc_time) {
         session.last_dc_time = dc;
-        const x::telem::TimeSpan sent_at(session.sent_at.time_since_epoch());
+        const x::telem::TimeSpan sent_at(cycle.sent_at.time_since_epoch());
         session.host_dc_offset.store(
             dc - sent_at.nanoseconds(),
             std::memory_order_relaxed
@@ -563,29 +594,34 @@ x::errors::Error Master::send() {
         return x::errors::Error(errors::CYCLIC_ERROR, "master not activated");
     auto &session = *this->session;
 
-    session.held_err = x::errors::NIL;
+    auto &cycle = session.cycles.emplace_back();
     if (session.process_data_held.load(std::memory_order_acquire)) {
         if (session.has_dc &&
             this->api->sync_dc(ENABLED_GROUP, PROCESSDATA_TIMEOUT) <= 0) {
-            session.held_err = x::errors::Error(
-                errors::CYCLIC_ERROR,
-                "reference clock frame failed"
-            );
-            return session.held_err;
+            cycle.held_err = &REFERENCE_CLOCK_FRAME_FAILED;
+            return REFERENCE_CLOCK_FRAME_FAILED;
         }
         if (session.has_dc) this->frames.fetch_add(1, std::memory_order_release);
-        session.held_err = x::errors::Error(
-            errors::WORKING_COUNTER_ERROR,
-            "no process data passes the slaves until they reach SAFE-OP"
-        );
+        cycle.held_err = &PROCESS_DATA_HELD;
         return x::errors::NIL;
     }
-    const auto sent_at = this->cfg.clock.steady();
-    const int result = this->api->send_processdata(ENABLED_GROUP);
-
-    if (result <= 0)
+    cycle.sent_at = this->cfg.clock.steady();
+    // Drops the oldest sends until this send finds a buffer for each of its frames.
+    size_t in_flight = session.send_frames;
+    for (const auto &c: session.cycles)
+        in_flight += c.frames;
+    for (auto &oldest: session.cycles) {
+        if (in_flight <= PROCESS_DATA_BUFFERS) break;
+        if (oldest.frames == 0) continue;
+        this->api->drop_processdata();
+        in_flight -= oldest.frames;
+        oldest.frames = 0;
+    }
+    const int frames = this->api->send_processdata(ENABLED_GROUP);
+    if (frames <= 0)
         return x::errors::Error(errors::CYCLIC_ERROR, "process data send failed");
-    session.sent_at = sent_at;
+    cycle.frames = static_cast<size_t>(frames);
+    session.send_frames = cycle.frames;
     return x::errors::NIL;
 }
 
@@ -1063,15 +1099,12 @@ void Master::discover_pdos_sii(slave::DiscoveryResult &slave) {
         slave.status.pdo_discovery_error = "no PDOs found";
 }
 
-/// SII category that lists the synchronization modes of a slave.
-constexpr uint16_t SII_DC_CATEGORY = 60;
-
 std::vector<dc::OpMode>
 Master::read_op_modes(const uint16_t pos, Description &description) {
     auto &known = description.op_modes;
     if (!known.empty()) return known;
     auto modes = sii::parse_op_modes(
-        this->read_sii_category(pos, SII_DC_CATEGORY),
+        this->read_sii_category(pos, sii::DC),
         this->sii_strings(pos)
     );
     this->api->eeprom2pdi(pos);
@@ -1186,81 +1219,6 @@ x::errors::Error Master::clear_dc_activation() {
     return x::errors::Error(errors::ACTIVATION_ERROR, failed);
 }
 
-std::pair<std::vector<Master::DCSetup>, x::errors::Error> Master::resolve_dc() const {
-    const auto period = this->session.value().plan.period;
-    std::vector<DCSetup> setups;
-    std::vector<x::telem::TimeSpan> cycles;
-    std::string events;
-    for (const auto &slave: this->slave_list) {
-        const auto &props = slave.properties;
-        const auto config = this->config(props.position);
-        if (!config.enabled) continue;
-        const auto choice = config.op_mode ? config.op_mode : props.catalog_op_mode();
-        const auto [mode, select_err] = dc::select(props.op_modes, choice);
-        if (select_err)
-            return {
-                {},
-                x::errors::Error(
-                    errors::SLAVE_CONFIG_ERROR,
-                    std::format(
-                        "slave {} ({}) cannot use its chosen mode: {}",
-                        props.position,
-                        props.name,
-                        select_err.data
-                    )
-                )
-            };
-        if (!mode) continue;
-        auto [regs, err] = dc::resolve(
-            *mode,
-            period,
-            choice ? choice->cycles : dc::Cycles{}
-        );
-        if (err)
-            return {
-                {},
-                x::errors::Error(
-                    errors::SLAVE_CONFIG_ERROR,
-                    std::format(
-                        "slave {} ({}) cannot run its DC mode at a bus cycle of {}: {}",
-                        props.position,
-                        props.name,
-                        period.to_string(),
-                        err.data
-                    )
-                )
-            };
-        setups.push_back({.position = props.position, .registers = regs});
-        if (!regs.marks_data() || (regs.assign_activate & dc::PDI_SYNC_UNIT) != 0)
-            continue;
-        cycles.emplace_back(regs.sync0_cycle);
-        if (!events.empty()) events += ", ";
-        events += std::format(
-            "slave {} ({}) every {}",
-            props.position,
-            props.name,
-            cycles.back().to_string()
-        );
-    }
-    if (!cycles.empty() && dc::grid(period, cycles) <
-                               static_cast<double>(dc::MIN_EVENT_CYCLE.nanoseconds()))
-        return {
-            {},
-            x::errors::Error(
-                errors::SLAVE_CONFIG_ERROR,
-                std::format(
-                    "SYNC0 events do not line up with the bus cycle of {}: {}. Change "
-                    "the bus rate or the SYNC0 cycles so that a span of {} or more "
-                    "divides the bus cycle and each SYNC0 cycle.",
-                    period.to_string(),
-                    events,
-                    dc::MIN_EVENT_CYCLE.to_string()
-                )
-            )
-        };
-    return {setups, x::errors::NIL};
-}
-
 x::errors::Error Master::wait_for_dc_settle(
     const std::vector<uint16_t> &positions,
     const std::function<bool()> &stopped
@@ -1330,7 +1288,7 @@ x::errors::Error Master::start_dc() {
     return x::errors::NIL;
 }
 
-x::errors::Error Master::start_sync(const DCSetup &setup) {
+x::errors::Error Master::start_sync(const master::DCSetup &setup) {
     const auto &[pos, regs] = setup;
     const auto cuc = static_cast<uint8_t>(regs.assign_activate & 0xFF);
     const auto act = static_cast<uint8_t>(regs.assign_activate >> 8);
@@ -1439,7 +1397,7 @@ Master::restore_dc(const uint16_t pos, const x::breaker::Breaker &breaker) {
         }))
         return err;
     const auto &setups = this->session.value().dc_setups;
-    const auto setup = std::ranges::find(setups, pos, &DCSetup::position);
+    const auto setup = std::ranges::find(setups, pos, &master::DCSetup::position);
     if (setup == setups.end()) return x::errors::NIL;
     return this->start_sync(*setup);
 }
@@ -1484,7 +1442,7 @@ bool Master::restore_failed(const uint16_t pos) const {
 bool Master::restores_clock(const uint16_t pos) const {
     if (this->record(0).hasdc && this->record(0).DCnext == pos) return true;
     const auto &setups = this->session.value().dc_setups;
-    return std::ranges::find(setups, pos, &DCSetup::position) != setups.end();
+    return std::ranges::find(setups, pos, &master::DCSetup::position) != setups.end();
 }
 
 bool Master::wait_for_frame(

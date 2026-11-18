@@ -12,7 +12,6 @@ package mqtt_test
 import (
 	"context"
 	"fmt"
-	"time"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -63,21 +62,17 @@ func createICD(ctx context.Context, messages ...icd.Message) icd.ICD {
 	return ic
 }
 
-// editICD saves acts to the ICD key in one transaction.
-func editICD(ctx context.Context, key icd.Key, acts ...icd.Action) {
+// jsonFields returns the fields of m, which must have a JSON payload.
+func jsonFields(m icd.Message) []icd.JSONField {
 	GinkgoHelper()
-	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-		return icdSvc.NewWriter(tx).Apply(ctx, key, acts...)
-	})).To(Succeed())
-}
-
-// fieldsPath returns the path of the fields of m in its ICD.
-func fieldsPath(m icd.Message) []string {
-	return []string{"messages", m.Key.String(), "payload", "fields"}
+	p, ok := m.Payload.Variant.(icd.JSONPayload)
+	Expect(ok).To(BeTrue())
+	return p.Fields
 }
 
 func fieldKey(m icd.Message, i int) icd.FieldKey {
-	return m.Payload.Variant.(icd.JSONPayload).Fields[i].Base().Key
+	GinkgoHelper()
+	return jsonFields(m)[i].Base().Key
 }
 
 // binding returns the config that writes field i of m to ch.
@@ -520,201 +515,5 @@ var _ = Describe("Read task ICD messages", func() {
 				MatchError(ContainSubstring("message Frame is not a JSON message")),
 			))
 		})
-	})
-
-	Describe("ICD changes", func() {
-		var (
-			m    icd.Message
-			ic   icd.ICD
-			data channel.Channel
-		)
-
-		BeforeEach(func(ctx SpecContext) {
-			m = jsonMessage(
-				"Status",
-				nil,
-				jsonField("temp", "/temp", icd.FloatJSONField{}),
-			)
-			ic = createICD(ctx, m)
-			_, chs := createIndexed(ctx, telem.Float64T)
-			data = chs[0]
-		})
-
-		// readTemp returns the config that reads the temp field of m in ic on topic
-		// into ch.
-		readTemp := func(
-			ctx context.Context,
-			topic string,
-			ic icd.ICD,
-			m icd.Message,
-			ch channel.Channel,
-		) msgpack.EncodedJSON {
-			return readConfig(
-				ctx, dev, icdEntry(topic, ic, readMessage(m, binding(m, 0, ch))),
-			)
-		}
-
-		// latest publishes a temp of 2 on topic and returns the last value stored in
-		// ch.
-		latest := func(ctx context.Context, topic string, ch channel.Channel) func() float64 {
-			return func() float64 {
-				broker.publish(topic, `{"temp":2}`, false)
-				s := stored(ctx, ch)
-				if s.Len() == 0 {
-					return 0
-				}
-				return s.ValueAt[float64](-1)
-			}
-		}
-
-		// setScale saves an edit of the scale of the temp field of m in ic.
-		setScale := func(ctx context.Context, scale float64) {
-			GinkgoHelper()
-			editICD(ctx, ic.Key, icd.NewSetAction(icd.SetPayload{
-				Path:  append(fieldsPath(m), fieldKey(m, 0).String(), "scale"),
-				Value: scale,
-			}))
-		}
-
-		// removeTemp saves the removal of the temp field of m from ic.
-		removeTemp := func(ctx context.Context) {
-			GinkgoHelper()
-			editICD(ctx, ic.Key, icd.NewRemoveAction(icd.RemovePayload{
-				Path: fieldsPath(m),
-				Key:  fieldKey(m, 0).String(),
-			}))
-		}
-
-		It("Should read with the new definition of the ICD after a save",
-			func(ctx SpecContext) {
-				start(ctx, readTemp(ctx, "plant/status", ic, m, data))
-				Eventually(latest(ctx, "plant/status", data)).Should(Equal(2.0))
-				setScale(ctx, 10)
-				Eventually(latest(ctx, "plant/status", data)).Should(Equal(20.0))
-			},
-		)
-
-		It("Should apply the last of several rapid saves", func(ctx SpecContext) {
-			start(ctx, readTemp(ctx, "plant/status", ic, m, data))
-			Eventually(latest(ctx, "plant/status", data)).Should(Equal(2.0))
-			for _, scale := range []float64{3, 5, 7} {
-				setScale(ctx, scale)
-			}
-			Eventually(latest(ctx, "plant/status", data)).Should(Equal(14.0))
-			Consistently(latest(ctx, "plant/status", data)).
-				WithTimeout(250 * time.Millisecond).
-				Should(Equal(14.0))
-		})
-
-		It("Should stop with the status of a failed configure when a save breaks "+
-			"the task", func(ctx SpecContext) {
-			t := newTask(ctx, rackKey, mqtt.ReadTaskType,
-				readTemp(ctx, "plant/status", ic, m, data),
-			)
-			configured := configure(ctx, factory, t)
-			Expect(configured.Exec(ctx, task.Command{Type: "start", Key: "start"})).
-				To(Succeed())
-			Eventually(latest(ctx, "plant/status", data)).Should(Equal(2.0))
-			removeTemp(ctx)
-			Eventually(func() string { return taskStatus(ctx, t).Message }).
-				Should(Equal("Failed to configure task"))
-			stat := taskStatus(ctx, t)
-			Expect(stat.Variant).To(Equal(status.VariantError))
-			Expect(stat.Details.Running).To(BeFalse())
-			Expect(configured.Exec(ctx, task.Command{Type: "stop", Key: "stop"})).
-				To(Succeed())
-			Expect(taskStatus(ctx, t).Message).To(Equal("Failed to configure task"))
-			Expect(factory.ConfigureTask(ctx, t, "again")).Error().
-				To(MatchError(stat.Description))
-			count := stored(ctx, data).Len()
-			broker.publish("plant/status", `{"temp":2}`, false)
-			Consistently(func() int64 { return stored(ctx, data).Len() }).
-				WithTimeout(250 * time.Millisecond).
-				Should(Equal(count))
-			Expect(configured.Exec(ctx, task.Command{Type: "start", Key: "again"})).
-				To(Succeed())
-			again := taskStatus(ctx, t)
-			Expect(again.Message).To(Equal("Failed to start task"))
-			Expect(again.Description).To(Equal(stat.Description))
-		})
-
-		It(
-			"Should read again after a later save fixes the task",
-			func(ctx SpecContext) {
-				t := newTask(ctx, rackKey, mqtt.ReadTaskType,
-					readTemp(ctx, "plant/status", ic, m, data),
-				)
-				configured := configure(ctx, factory, t)
-				Expect(configured.Exec(ctx, task.Command{Type: "start", Key: "start"})).
-					To(Succeed())
-				Eventually(latest(ctx, "plant/status", data)).Should(Equal(2.0))
-				removeTemp(ctx)
-				Eventually(func() string { return taskStatus(ctx, t).Message }).
-					Should(Equal("Failed to configure task"))
-				temp := m.Payload.Variant.(icd.JSONPayload).Fields[0]
-				base := temp.Base()
-				base.Scale = 3
-				temp.SetBase(base)
-				editICD(ctx, ic.Key, icd.NewInsertAction(icd.InsertPayload{
-					Path:  fieldsPath(m),
-					Value: temp,
-				}))
-				Eventually(func(g Gomega) {
-					g.Expect(configured.Exec(
-						ctx, task.Command{Type: "start", Key: "again"},
-					)).To(Succeed())
-					g.Expect(taskStatus(ctx, t).Details.Running).To(BeTrue())
-				}).Should(Succeed())
-				Eventually(latest(ctx, "plant/status", data)).Should(Equal(6.0))
-			},
-		)
-
-		It("Should not configure again a task whose auto start failed",
-			func(ctx SpecContext) {
-				port := broker.port
-				broker.stop()
-				broker = startBrokerWith(brokerOptions{
-					port:    port,
-					refused: []string{"plant/denied"},
-				})
-				cfg := readTemp(ctx, "plant/denied", ic, m, data)
-				cfg["auto_start"] = true
-				t := newTask(ctx, rackKey, mqtt.ReadTaskType, cfg)
-				Expect(factory.ConfigureTask(ctx, t, driver.NoCommand)).Error().
-					To(MatchError(ContainSubstring(
-						"the broker refused the subscription to plant/denied",
-					)))
-				Expect(taskStatus(ctx, t).Message).To(Equal("Failed to start task"))
-				removeTemp(ctx)
-				Consistently(func() string { return taskStatus(ctx, t).Message }).
-					WithTimeout(250 * time.Millisecond).
-					Should(Equal("Failed to start task"))
-			},
-		)
-
-		It("Should leave a task that reads another ICD untouched",
-			func(ctx SpecContext) {
-				otherMsg := jsonMessage(
-					"Status", nil, jsonField("temp", "/temp", icd.FloatJSONField{}),
-				)
-				other := createICD(ctx, otherMsg)
-				_, otherData := createIndexed(ctx, telem.Float64T)
-				t := start(ctx, readTemp(ctx, "plant/status", ic, m, data))
-				o := start(
-					ctx, readTemp(ctx, "plant/other", other, otherMsg, otherData[0]),
-				)
-				Eventually(latest(ctx, "plant/other", otherData[0])).Should(Equal(2.0))
-				before := taskStatus(ctx, o)
-				removeTemp(ctx)
-				Eventually(func() string { return taskStatus(ctx, t).Message }).
-					Should(Equal("Failed to configure task"))
-				Expect(taskStatus(ctx, o)).To(Equal(before))
-				count := stored(ctx, otherData[0]).Len()
-				Eventually(func() int64 {
-					broker.publish("plant/other", `{"temp":2}`, false)
-					return stored(ctx, otherData[0]).Len()
-				}).Should(BeNumerically(">", count))
-			},
-		)
 	})
 })

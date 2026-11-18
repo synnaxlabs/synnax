@@ -24,10 +24,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -92,9 +92,10 @@ var _ = Describe("Service", func() {
 
 	Describe("Stores", func() {
 		It("Should expose one store per MQTT task type", func() {
-			types := []string{}
-			for _, s := range svc.Stores() {
-				types = append(types, s.Type())
+			stores := svc.Stores()
+			types := make([]string, len(stores))
+			for i, s := range stores {
+				types[i] = s.Type()
 			}
 			Expect(types).To(ConsistOf(
 				mqtt.ReadTaskType,
@@ -313,24 +314,6 @@ var _ = Describe("Service", func() {
 			},
 		)
 
-		It(
-			"Should refuse to delete an ICD that a read task reads",
-			func(ctx SpecContext) {
-				f := createFormat(ctx)
-				MustSucceed(tasks.Create(ctx, svc.Read, readConfigOf(icdEntry(
-					"plant/status", f.ic, readMessage(f.m, binding(f.m, 1, f.value)),
-				))))
-				err := db.WithTx(ctx, func(tx gorp.Tx) error {
-					return icds.NewWriter(tx).Delete(ctx, f.ic.Key)
-				})
-				var restrict gorp.RestrictError
-				Expect(errors.As(err, &restrict)).To(BeTrue())
-				Expect(restrict.Target).
-					To(Equal(gorp.Target{Table: "icd", Key: f.ic.Key.String()}))
-				Expect(restrict.Reference).To(Equal("entries.icd"))
-			},
-		)
-
 		It("Should skip the checks of a disabled entry", func(ctx SpecContext) {
 			f := createFormat(ctx)
 			entry := icdEntry(
@@ -520,8 +503,9 @@ var _ = Describe("Service", func() {
 					Expect(ic.Messages).To(HaveLen(1))
 					m := ic.Messages[0]
 					Expect(m.Name).To(Equal("plant/level"))
-					fields := m.Payload.Variant.(icd.JSONPayload).Fields
-					names, kinds := []string{}, []payload.Kind{}
+					fields := jsonFields(m)
+					names := make([]string, 0, len(fields))
+					kinds := make([]payload.Kind, 0, len(fields))
 					for _, f := range fields {
 						names = append(names, f.Base().Name)
 						kinds = append(kinds, f.Type())
@@ -562,6 +546,92 @@ var _ = Describe("Service", func() {
 					Expect(found).To(BeEmpty())
 				},
 			)
+		})
+
+		Describe("Config hash", func() {
+			var (
+				f   format
+				key task.Key
+			)
+			hash := func(ctx context.Context) string {
+				GinkgoHelper()
+				var t task.Task
+				Expect(tasks.NewRetrieve().
+					Where(task.MatchKeys(key)).
+					Entry(&t).
+					Exec(ctx, db)).To(Succeed())
+				return t.ConfigHash
+			}
+			set := func(ctx context.Context, path []string, value any) {
+				GinkgoHelper()
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return icds.NewWriter(tx).Apply(ctx, f.ic.Key, icd.NewSetAction(
+						icd.SetPayload{Path: path, Value: value},
+					))
+				})).To(Succeed())
+			}
+			// pointerPath is the path of the pointer of field i of m.
+			pointerPath := func(m icd.Message, i int) []string {
+				return []string{
+					"messages", m.Key.String(),
+					"payload", "fields", fieldKey(m, i).String(),
+					"pointer",
+				}
+			}
+			BeforeEach(func(ctx SpecContext) {
+				f = createFormat(ctx)
+				key = MustSucceed(tasks.Create(ctx, svc.Read, readConfigOf(icdEntry(
+					"plant/status",
+					f.ic,
+					readMessage(f.m, binding(f.m, 1, f.value)),
+				))))
+			})
+
+			It("Should change when the format of a message the task reads changes",
+				func(ctx SpecContext) {
+					before := hash(ctx)
+					set(ctx, pointerPath(f.m, 1), "/temperature")
+					Expect(hash(ctx)).ToNot(Equal(before))
+				},
+			)
+
+			It("Should return to its value when an edit is undone", func(
+				ctx SpecContext,
+			) {
+				before := hash(ctx)
+				set(ctx, pointerPath(f.m, 1), "/temperature")
+				set(ctx, pointerPath(f.m, 1), "/temp")
+				Expect(hash(ctx)).To(Equal(before))
+			})
+
+			It("Should not change when the name of the ICD changes", func(
+				ctx SpecContext,
+			) {
+				before := hash(ctx)
+				set(ctx, []string{"name"}, "Line")
+				Expect(hash(ctx)).To(Equal(before))
+			})
+
+			It("Should not change when a message the task does not read changes",
+				func(ctx SpecContext) {
+					before := hash(ctx)
+					other := jsonMessage(
+						"Other",
+						nil,
+						jsonField("ts", "/ts", icd.TimestampJSONField{
+							TimeFormat: payload.TimeFormatUnixSec,
+						}),
+					)
+					set(ctx, []string{"messages"}, []icd.Message{f.m, other})
+					set(ctx, pointerPath(other, 0), "/time")
+					Expect(hash(ctx)).To(Equal(before))
+				},
+			)
+
+			It("Should match the hash of the stored config", func(ctx SpecContext) {
+				set(ctx, pointerPath(f.m, 1), "/temperature")
+				Expect(hash(ctx)).To(Equal(MustSucceed(svc.Read.Hash(ctx, db, key))))
+			})
 		})
 	})
 

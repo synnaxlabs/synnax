@@ -64,11 +64,15 @@ func openLicensed(ctx SpecContext, creds auth.Credentials) *fiber.App {
 		License:         license.ServiceConfig{Anchors: signer.Anchors},
 		SecretsKey:      secret.NewEncryptionKey(),
 	}))
+	errs := api.NewErrorCodec()
 	layer := MustSucceed(api.NewLayer(api.LayerConfig{
 		Service:      svc,
 		Distribution: node.Layer,
+		Errors:       errs,
 	}))
-	router := MustSucceed(fhttp.NewRouter(context.Background()))
+	router := MustSucceed(
+		fhttp.NewRouter(context.Background(), fhttp.RouterConfig{Errors: errs}),
+	)
 	thttp.Bind(layer, router)
 	app := fiber.New()
 	router.BindTo(app)
@@ -117,7 +121,10 @@ var _ = Describe("HTTP", func() {
 	Describe("Bind", func() {
 		var app *fiber.App
 		BeforeEach(func() {
-			router := MustSucceed(fhttp.NewRouter(context.Background()))
+			errs := api.NewErrorCodec()
+			router := MustSucceed(
+				fhttp.NewRouter(context.Background(), fhttp.RouterConfig{Errors: errs}),
+			)
 			thttp.Bind(apiLayer, router)
 			app = fiber.New()
 			router.BindTo(app)
@@ -251,11 +258,15 @@ var _ = Describe("HTTP", func() {
 				License:         license.ServiceConfig{Anchors: signer.Anchors},
 				SecretsKey:      secret.NewEncryptionKey(),
 			}))
+			errs := api.NewErrorCodec()
 			layer := MustSucceed(api.NewLayer(api.LayerConfig{
 				Service:      svc,
 				Distribution: node.Layer,
+				Errors:       errs,
 			}))
-			router := MustSucceed(fhttp.NewRouter(context.Background()))
+			router := MustSucceed(
+				fhttp.NewRouter(context.Background(), fhttp.RouterConfig{Errors: errs}),
+			)
 			thttp.Bind(layer, router)
 			app = fiber.New()
 			router.BindTo(app)
@@ -349,7 +360,7 @@ var _ = Describe("HTTP", func() {
 			Expect(status).To(Equal(http.StatusBadRequest))
 			var pld errors.Payload
 			Expect(json.Unmarshal(body, &pld)).To(Succeed())
-			Expect(errors.Decode(pld)).To(MatchError(license.ErrMissing))
+			Expect(api.NewErrorCodec().Decode(pld)).To(MatchError(license.ErrMissing))
 		})
 
 		It("Should keep a cookie's token out of a refused response", func() {

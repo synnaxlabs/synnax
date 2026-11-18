@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -123,9 +124,10 @@ var _ = Describe("Service", func() {
 
 	Describe("Stores", func() {
 		It("Should expose one store per Kafka task type", func() {
-			types := []string{}
-			for _, s := range svc.Stores() {
-				types = append(types, s.Type())
+			stores := svc.Stores()
+			types := make([]string, len(stores))
+			for i, s := range stores {
+				types[i] = s.Type()
 			}
 			Expect(types).To(ConsistOf(
 				kafka.ReadTaskType,
@@ -415,6 +417,68 @@ var _ = Describe("Service", func() {
 				"records.0.messages.0.bindings.0.channel"),
 		)
 
+		Describe("Config hash", func() {
+			var (
+				f   format
+				key task.Key
+			)
+			hash := func(ctx context.Context) string {
+				GinkgoHelper()
+				var t task.Task
+				Expect(tasks.NewRetrieve().
+					Where(task.MatchKeys(key)).
+					Entry(&t).
+					Exec(ctx, db)).To(Succeed())
+				return t.ConfigHash
+			}
+			set := func(ctx context.Context, path []string, value any) {
+				GinkgoHelper()
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return icds.NewWriter(tx).Apply(ctx, f.ic.Key, icd.NewSetAction(
+						icd.SetPayload{Path: path, Value: value},
+					))
+				})).To(Succeed())
+			}
+			// pointerPath is the path of the pointer of field i of m.
+			pointerPath := func(m icd.Message, i int) []string {
+				return []string{
+					"messages", m.Key.String(),
+					"payload", "fields", fieldKey(m, i).String(),
+					"pointer",
+				}
+			}
+			BeforeEach(func(ctx SpecContext) {
+				f = createFormat(ctx)
+				key = MustSucceed(tasks.Create(ctx, svc.Read, readConfigOf(icdRecord(
+					"", f.ic, readMessage(f.m, binding(f.m, 1, f.value)),
+				))))
+			})
+
+			It("Should change when the format of a message the task reads changes",
+				func(ctx SpecContext) {
+					before := hash(ctx)
+					set(ctx, pointerPath(f.m, 1), "/temperature")
+					Expect(hash(ctx)).ToNot(Equal(before))
+				},
+			)
+
+			It("Should not change when the name of the ICD changes", func(
+				ctx SpecContext,
+			) {
+				before := hash(ctx)
+				set(ctx, []string{"name"}, "Line")
+				Expect(hash(ctx)).To(Equal(before))
+			})
+
+			It("Should not change when a message the task does not read changes",
+				func(ctx SpecContext) {
+					before := hash(ctx)
+					set(ctx, pointerPath(f.stamped, 0), "/time")
+					Expect(hash(ctx)).To(Equal(before))
+				},
+			)
+		})
+
 		Describe("Import", func() {
 			// v0 is a v0 read config with one record that reads an index field and a
 			// field into channels, and holds a disabled field.
@@ -478,8 +542,9 @@ var _ = Describe("Service", func() {
 					Expect(ic.Messages).To(HaveLen(1))
 					m := ic.Messages[0]
 					Expect(m.Name).To(Equal("pump"))
-					fields := m.Payload.Variant.(icd.JSONPayload).Fields
-					names, kinds := []string{}, []payload.Kind{}
+					fields := jsonFields(m)
+					names := make([]string, 0, len(fields))
+					kinds := make([]payload.Kind, 0, len(fields))
 					for _, f := range fields {
 						names = append(names, f.Base().Name)
 						kinds = append(kinds, f.Type())

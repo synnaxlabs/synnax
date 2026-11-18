@@ -1367,8 +1367,9 @@ var _ = Describe("Writer", func() {
 					tsDB := DeferClose(
 						MustSucceed(cesium.Open(ctx, "", cesium.WithFS(fsys))),
 					)
+					StartRun(tsDB.Run)
 					slow := testutil.NewNode(ctx, distribution.LayerConfig{
-						Storage: &storage.Layer{KV: base.KV, TS: tsDB},
+						Storage: &storage.Layer{KV: base.KV, TS: tsDB, Gorp: base.Gorp},
 					})
 					slowSvc := openService(ctx, slow)
 					ch := channel.Channel{

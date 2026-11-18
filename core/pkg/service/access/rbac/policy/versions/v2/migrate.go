@@ -63,28 +63,55 @@ func migrateRoles(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) err
 	if len(policies) == 0 && len(edges) == 0 {
 		return nil
 	}
+	byPolicy, err := rolesByPolicy(ctx, tx, edges)
+	if err != nil {
+		return err
+	}
+	set, deleted := assignRoles(policies, byPolicy)
+	if err = gorp.WrapWriter[Key, Policy](tx).Set(ctx, set...); err != nil {
+		return err
+	}
+	if err = gorp.WrapWriter[Key, Policy](tx).Delete(ctx, deleted...); err != nil {
+		return err
+	}
+	return ontology.DeleteRelationships(ctx, tx, edges...)
+}
+
+// rolesByPolicy maps each policy key to the keys of the roles that edges name as its
+// parents. An edge from a role that no longer exists is skipped.
+func rolesByPolicy(
+	ctx context.Context,
+	tx gorp.Tx,
+	edges []ontology.Relationship,
+) (map[Key][]role.Key, error) {
 	roles := gorp.WrapReader[role.Key, role.Role](tx)
-	byPolicy := make(map[Key][]role.Key, len(policies))
+	byPolicy := make(map[Key][]role.Key, len(edges))
 	for _, e := range edges {
 		p, err := uuid.Parse(e.To.Key)
 		if err != nil {
-			return errors.Wrapf(err, "policy of edge %s", e.GorpKey())
+			return nil, errors.Wrapf(err, "policy of edge %s", e.GorpKey())
 		}
 		r, err := uuid.Parse(e.From.Key)
 		if err != nil {
-			return errors.Wrapf(err, "role of edge %s", e.GorpKey())
+			return nil, errors.Wrapf(err, "role of edge %s", e.GorpKey())
 		}
 		if _, err = roles.Get(ctx, r); errors.Is(err, query.ErrNotFound) {
 			continue
 		} else if err != nil {
-			return err
+			return nil, err
 		}
 		byPolicy[p] = append(byPolicy[p], r)
 	}
-	var (
-		set     []Policy
-		deleted []Key
-	)
+	return byPolicy, nil
+}
+
+// assignRoles returns one policy per distinct role in byPolicy, keeping the original
+// key for the first role and deriving a copy key for the rest. It also returns the keys
+// of the policies that have no role.
+func assignRoles(
+	policies []Policy,
+	byPolicy map[Key][]role.Key,
+) (set []Policy, deleted []Key) {
 	for _, p := range policies {
 		held := byPolicy[p.Key]
 		if len(held) == 0 {
@@ -104,11 +131,5 @@ func migrateRoles(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) err
 			set = append(set, c)
 		}
 	}
-	if err = gorp.WrapWriter[Key, Policy](tx).Set(ctx, set...); err != nil {
-		return err
-	}
-	if err = gorp.WrapWriter[Key, Policy](tx).Delete(ctx, deleted...); err != nil {
-		return err
-	}
-	return ontology.DeleteRelationships(ctx, tx, edges...)
+	return set, deleted
 }

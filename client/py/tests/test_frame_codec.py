@@ -14,6 +14,7 @@ import numpy as np
 import pytest
 
 import synnax as sy
+from freighter import ExceptionPayload
 from freighter.websocket import Message
 from synnax.channel.payload import Key
 from synnax.framer.codec import (
@@ -31,6 +32,7 @@ from synnax.framer.iterator import (
     _ResponseVariant,
     _WSIteratorCodec,
 )
+from synnax.framer.writer import WriterCommand, WriterResponse, _WSWriterCodec
 
 
 @pytest.mark.framer
@@ -579,3 +581,37 @@ class TestCodec:
         assert len(decoded2.keys) == 1
         assert decoded2.keys[0] == 2
         assert list(decoded2.series[0]) == [1, 2, 3]
+
+    def test_writer_ws_codec_response(self) -> None:
+        """Should JSON-decode a writer response prefixed with the low-perf char"""
+        codec = _WSWriterCodec(Codec(keys=[1], data_types=[sy.DataType.INT32]))
+        res = Message[WriterResponse](
+            type="data",
+            payload=WriterResponse(
+                command=WriterCommand.COMMIT,
+                end=sy.TimeStamp(5),
+                err=ExceptionPayload(type=None, data=None),
+                authorized=True,
+            ),
+        )
+        body = json_lib.dumps(res.model_dump(mode="json", by_alias=True)).encode()
+        decoded = codec.decode(
+            bytes([LOW_PERF_SPECIAL_CHAR]) + body, Message[WriterResponse]
+        )
+        assert decoded.payload is not None
+        assert decoded.payload.command == WriterCommand.COMMIT
+        assert decoded.payload.end == sy.TimeStamp(5)
+
+    def test_writer_ws_codec_rejects_data_frame(self) -> None:
+        """Should fail on a high-performance data frame, which the Core never sends
+        on the writer response stream"""
+        base = Codec(keys=[1], data_types=[sy.DataType.INT32])
+        codec = _WSWriterCodec(base)
+        frame = sy.Frame(
+            channels=[1],
+            series=[sy.Series(data=np.array([1, 2, 3], dtype=np.int32))],
+        )
+        encoded = bytearray(base.encode(frame, start_offset=1))
+        encoded[0] = 0xFF
+        with pytest.raises(ValueError, match="writer response stream"):
+            codec.decode(bytes(encoded), Message[WriterResponse])

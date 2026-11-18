@@ -139,6 +139,8 @@ func liftRead(
 		return icd.JSONField{Variant: icd.UuidJSONField{JSONBaseField: base}}
 	case payload.KindBytes:
 		return icd.JSONField{Variant: icd.BytesJSONField{JSONBaseField: base}}
+	case payload.KindFloat, payload.KindInteger, payload.KindUnsigned,
+		payload.KindBoolean:
 	}
 	panic("unknown read field kind " + string(kind))
 }
@@ -172,6 +174,8 @@ func liftEnumRead(
 			JSONBaseField: base,
 			EnumValues:    liftEntries(old.EnumValues, f, kind, booleanEntry),
 		}}, true
+	case payload.KindString, payload.KindTimestamp, payload.KindJSON,
+		payload.KindUUID, payload.KindBytes:
 	}
 	return icd.JSONField{}, false
 }

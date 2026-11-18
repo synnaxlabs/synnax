@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type errors } from "@synnaxlabs/x";
+import { type errors, sleep, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
 import {
@@ -253,7 +253,7 @@ describe("errorHandler", () => {
       const handler = createAsyncErrorHandler(mockAdder, quiet);
       let resolved = false;
       const func = async () => {
-        await new Promise((resolve) => setTimeout(resolve, 10));
+        await sleep.sleep(TimeSpan.milliseconds(10));
         resolved = true;
       };
 

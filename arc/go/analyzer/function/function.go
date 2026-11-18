@@ -26,6 +26,7 @@ import (
 	"slices"
 
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/statement"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
@@ -97,20 +98,15 @@ func collectInputs[T antlr.ParserRuleContext](
 		if lit := cfg.Literal(); lit != nil {
 			value, err := literal.Parse(ctx.Child(lit).AST, inputType)
 			if err != nil {
-				ctx.Diagnostics.Add(diagnostics.Error(
-					errors.Wrapf(
-						err,
-						"invalid default value for input parameter %s",
-						inputName,
-					),
-					lit,
-				))
+				ctx.Diagnostics.Add(
+					invalidDefault(err, "input parameter", inputName, lit),
+				)
 				continue
 			}
 			defaultValue = value.Value
 			seenOptional = true
 		} else if seenOptional {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.Diagnostics.Add(codes.ParamOrder.Atf(
 				cfg,
 				"required input parameter %s cannot follow optional input parameters",
 				inputName,
@@ -158,20 +154,13 @@ func collectTriggers(
 		if lit := trigger.Literal(); lit != nil {
 			value, err := literal.Parse(ctx.Child(lit).AST, triggerType)
 			if err != nil {
-				ctx.Diagnostics.Add(diagnostics.Error(
-					errors.Wrapf(
-						err,
-						"invalid default value for parameter %s",
-						triggerName,
-					),
-					lit,
-				))
+				ctx.Diagnostics.Add(invalidDefault(err, "parameter", triggerName, lit))
 				continue
 			}
 			defaultValue = value.Value
 			seenOptional = true
 		} else if seenOptional {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.Diagnostics.Add(codes.ParamOrder.Atf(
 				trigger,
 				"required parameter %s cannot follow optional parameters",
 				triggerName,
@@ -255,7 +244,7 @@ func Analyze(ctx acontext.Context[parser.IFunctionDeclarationContext]) {
 		statement.AnalyzeBlock(ctx.Child(block).WithScope(fn))
 		oParam, hasOutput := fn.Type.Outputs.Get(ir.DefaultOutputParam)
 		if hasOutput && !BlockAlwaysReturns(block) {
-			ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+			ctx.Diagnostics.Add(codes.ReturnValue.Atf(ctx.AST,
 				"function '%s' must return a value of type %s on all paths",
 				name,
 				oParam.Type,
@@ -264,7 +253,7 @@ func Analyze(ctx acontext.Context[parser.IFunctionDeclarationContext]) {
 		for _, output := range fn.Type.Outputs {
 			if output.Name != ir.DefaultOutputParam &&
 				!checkOutputAssignedInBlock(block, output.Name) {
-				ctx.Diagnostics.Add(diagnostics.Warningf(ctx.AST,
+				ctx.Diagnostics.Add(codes.OutputNeverAssigned.Atf(ctx.AST,
 					"output '%s' is never assigned in function '%s'",
 					output.Name,
 					name,
@@ -382,14 +371,7 @@ func addTriggersToScope(
 		if lit := trigger.Literal(); lit != nil {
 			value, err := literal.Parse(ctx.Child(lit).AST, triggerType)
 			if err != nil {
-				ctx.Diagnostics.Add(diagnostics.Error(
-					errors.Wrapf(
-						err,
-						"invalid default value for parameter %s",
-						triggerName,
-					),
-					lit,
-				))
+				ctx.Diagnostics.Add(invalidDefault(err, "parameter", triggerName, lit))
 			} else {
 				defaultValue = value.Value
 			}
@@ -457,14 +439,9 @@ func addInputsToScope[T antlr.ParserRuleContext](
 		if lit := cfg.Literal(); lit != nil {
 			value, err := literal.Parse(ctx.Child(lit).AST, inputType)
 			if err != nil {
-				ctx.Diagnostics.Add(diagnostics.Error(
-					errors.Wrapf(
-						err,
-						"invalid default value for input parameter %s",
-						inputName,
-					),
-					lit,
-				))
+				ctx.Diagnostics.Add(
+					invalidDefault(err, "input parameter", inputName, lit),
+				)
 			} else {
 				defaultValue = value.Value
 			}
@@ -480,4 +457,25 @@ func addInputsToScope[T antlr.ParserRuleContext](
 			ctx.Diagnostics.Add(diagnostics.Error(err, cfg))
 		}
 	}
+}
+
+// invalidDefault reports a default value of a parameter that does not parse. param
+// names the kind of parameter.
+func invalidDefault(
+	err error,
+	param, name string,
+	lit antlr.ParserRuleContext,
+) diagnostics.Diagnostic {
+	if errors.Is(err, literal.ErrTruncated) {
+		return codes.InvalidLiteral.Atf(
+			lit,
+			"default value of %s %s would be truncated",
+			param,
+			name,
+		)
+	}
+	return diagnostics.Error(
+		errors.Wrapf(err, "invalid default value for %s %s", param, name),
+		lit,
+	)
 }
