@@ -199,6 +199,52 @@ describe("queries", () => {
     });
   });
 
+  describe("useAppend", () => {
+    const order = async (palette: group.Group): Promise<color.Named[]> =>
+      (
+        await createTestClient().colors.retrieve({ where: { groups: [palette.key] } })
+      ).sort(color.compare);
+
+    const append = async (palette: group.Group): Promise<color.Key> => {
+      const { result } = renderHook(Color.useAppend, { wrapper });
+      const key = uuid.create();
+      await act(async () => {
+        await result.current.updateAsync({
+          key,
+          name: `appended-${id.create()}`,
+          light: "#FF0000",
+          group: palette.key,
+        });
+      });
+      expect(result.current.variant).toEqual("success");
+      return key;
+    };
+
+    it("should create a named color after the last one of its palette", async () => {
+      const palette = await createPalette();
+      const last = await remote.colors.create({
+        name: `color-${id.create()}`,
+        light: "#00FF00",
+        group: palette.key,
+        position: "a5",
+      });
+      const key = await append(palette);
+      const stored = await order(palette);
+      expect(stored.map((c) => c.key)).toEqual([last.key, key]);
+      expect(stored[0].position).toBe("a5");
+    });
+
+    it("should first place the colors with no position, in their order", async () => {
+      const palette = await createPalette();
+      await Promise.all([createInPalette(palette), createInPalette(palette)]);
+      const before = (await order(palette)).map((c) => c.key);
+      const key = await append(palette);
+      const stored = await order(palette);
+      expect(stored.map((c) => c.key)).toEqual([...before, key]);
+      expect(stored.every((c) => c.position != null)).toBe(true);
+    });
+  });
+
   describe("useRename", () => {
     it("should rename a named color", async () => {
       const named = await createNamed();

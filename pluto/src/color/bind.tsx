@@ -47,9 +47,7 @@ export const useBinding = (
             palettes,
             named: value?.type === "named" ? value.key : undefined,
             onNamedChange: (key) => onChange({ type: "named", key }),
-            paletteEnd: canCreate ? (
-              <CreateSwatch onCreated={(key) => onChange({ type: "named", key })} />
-            ) : undefined,
+            paletteEnd: canCreate ? <CreateSwatch /> : undefined,
             swatchActions: <EditAction />,
             footer: canCreate && canCreatePalette ? <CreatePalette /> : undefined,
           },

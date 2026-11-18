@@ -14,6 +14,7 @@ import {
   waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
 import { Form } from "@synnaxlabs/lyra/form";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { color as xcolor, deep, id } from "@synnaxlabs/x";
 import {
   fireEvent,
@@ -78,6 +79,19 @@ describe("Color.Field", () => {
     fireEvent.click(swatch);
   };
 
+  const openCreate = async (palette: group.Group): Promise<void> => {
+    fireEvent.click(
+      await screen.findByRole("button", { name: `Create a color in ${palette.name}` }),
+    );
+  };
+
+  const createdColor = async (values: () => z.infer<typeof schema>) => {
+    await waitFor(() => expect(values().fill?.type).toBe("named"));
+    const fill = values().fill;
+    if (fill?.type !== "named") throw new Error("the field is not linked");
+    return await other.colors.retrieve(fill.key);
+  };
+
   const enterName = (placeholder: string, name: string): void => {
     const input = screen.getByPlaceholderText(placeholder);
     fireEvent.change(input, { target: { value: name } });
@@ -114,13 +128,68 @@ describe("Color.Field", () => {
       );
       const name = `created-${id.create()}`;
       enterName("Color name", name);
-      await waitFor(() => expect(values().fill?.type).toBe("named"));
-      const fill = values().fill;
-      if (fill?.type !== "named") throw new Error("the field is not linked");
-      const created = await other.colors.retrieve(fill.key);
+      const created = await createdColor(values);
       expect(created.name).toBe(name);
       expect(created.group).toBe(palette.key);
       expect(xcolor.hex(created.light)).toBe("#000000");
+      expect(created.dark).toBeUndefined();
+      expect(screen.queryByPlaceholderText("Color name")).toBeNull();
+    });
+
+    it("should create one color for a second Enter while the first saves", async () => {
+      const { palette } = await createInPalette();
+      const { result, values } = renderField();
+      openPicker(result);
+      await openCreate(palette);
+      const name = `created-${id.create()}`;
+      enterName("Color name", name);
+      fireEvent.keyDown(screen.getByPlaceholderText("Color name"), { key: "Enter" });
+      await createdColor(values);
+      const stored = await other.colors.retrieve({ where: { name: { eq: name } } });
+      expect(stored).toHaveLength(1);
+    });
+
+    it("should copy both values of the linked color", async () => {
+      const { palette } = await createInPalette();
+      const linked = await client.colors.create({
+        name: `color-${id.create()}`,
+        light: "#00FF00",
+        dark: "#112233",
+        group: palette.key,
+      });
+      const { result, values } = renderField({ type: "named", key: linked.key });
+      openPicker(result);
+      await openCreate(palette);
+      enterName("Color name", `created-${id.create()}`);
+      await waitFor(() =>
+        expect(values().fill).not.toEqual({ type: "named", key: linked.key }),
+      );
+      const created = await createdColor(values);
+      expect(xcolor.hex(created.light)).toBe("#00ff00");
+      expect(created.dark == null ? undefined : xcolor.hex(created.dark)).toBe(
+        "#112233",
+      );
+    });
+
+    it("should keep the shown color in the dark theme", async () => {
+      const { palette } = await createInPalette();
+      const Outer = wrapper;
+      const dark = ({ children }: PropsWithChildren): ReactElement => (
+        <Outer>
+          <Theming.Provider theme={{ key: "synnaxDark" }} applyCSSVars={false}>
+            {children}
+          </Theming.Provider>
+        </Outer>
+      );
+      const { result, values } = renderField(undefined, dark);
+      openPicker(result);
+      await openCreate(palette);
+      enterName("Color name", `created-${id.create()}`);
+      const created = await createdColor(values);
+      expect(xcolor.hex(created.light)).toBe("#000000");
+      expect(created.dark == null ? undefined : xcolor.hex(created.dark)).toBe(
+        "#000000",
+      );
     });
 
     it("should cancel the create on a blank name", async () => {

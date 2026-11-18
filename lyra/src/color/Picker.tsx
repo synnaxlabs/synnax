@@ -57,6 +57,10 @@ export interface PickerProps
 export interface PickerContextValue {
   /** The color that the picker shows: its value, else its fallback. */
   value: color.Color;
+  /** The named color that the value links to. */
+  linked?: Named;
+  /** Links the value to the named color with the key, as a click on its swatch does. */
+  onNamedChange: (key: string) => void;
   /**
    * Shows the view in place of the tabs, under a back button and the title. Back
    * returns to the tabs as they were, with the focus on the element that opened the
@@ -177,6 +181,8 @@ const Tabbed = ({
   const autoSelected = value == null && linked == null;
   const ctx: PickerContextValue = {
     value: color.construct(value ?? fallback ?? color.TRANSPARENT),
+    linked,
+    onNamedChange,
     openView: (title, content) => {
       opener.current =
         document.activeElement instanceof HTMLElement ? document.activeElement : null;

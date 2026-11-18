@@ -15,11 +15,17 @@ import { Color } from "@synnaxlabs/lyra/color";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { uuid } from "@synnaxlabs/x";
-import { generateKeyBetween } from "fractional-indexing";
-import { type KeyboardEvent, type ReactElement, type ReactNode, useState } from "react";
+import {
+  type KeyboardEvent,
+  type ReactElement,
+  type ReactNode,
+  useRef,
+  useState,
+} from "react";
 
-import { useCreate, useResultList } from "@/color/queries";
+import { useAppend } from "@/color/queries";
 import { CSS } from "@/css";
 import { Group } from "@/group";
 
@@ -40,12 +46,18 @@ const NameEntry = ({
 }: NameEntryProps): ReactElement => {
   const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
+  // A ref, so that two key presses in one render cannot both save.
+  const savingRef = useRef(false);
   const save = (): void => {
+    if (savingRef.current) return;
     const trimmed = name.trim();
     if (trimmed === "") return onCancel();
+    savingRef.current = true;
     setSaving(true);
     void onSave(trimmed).then((ok) => {
-      if (!ok) setSaving(false);
+      if (ok) return;
+      savingRef.current = false;
+      setSaving(false);
     });
   };
   const handleKeyDown = (e: KeyboardEvent): void => {
@@ -96,22 +108,18 @@ const NameEntry = ({
   );
 };
 
-export interface CreateSwatchProps {
-  /** Called with the key of the new named color once the Core holds it. */
-  onCreated: (key: color.Key) => void;
-}
-
 /**
- * Ends a palette of a color picker. It creates a named color in the palette from the
- * color that the picker shows, after asking for its name in place. The Series palette
+ * Ends a palette of a color picker. It asks for a name in place, creates a named color
+ * at the end of the palette, and links the value to it. The new color copies the linked
+ * one, else the color that the picker shows in the current theme. The Series palette
  * gets none, because a copy of a series color would repeat it.
  */
-export const CreateSwatch = ({ onCreated }: CreateSwatchProps): ReactElement | null => {
+export const CreateSwatch = (): ReactElement | null => {
   const { palette } = Color.usePalette();
-  const { value } = Color.usePicker();
+  const { value, linked, onNamedChange } = Color.usePicker();
+  const { dark } = Theming.use();
   const [naming, setNaming] = useState(false);
-  const { updateAsync: create } = useCreate();
-  const list = useResultList({});
+  const { updateAsync: append } = useAppend();
   if (palette.key === color.SERIES_PALETTE) return null;
   const add = (
     <Button.Button
@@ -128,19 +136,18 @@ export const CreateSwatch = ({ onCreated }: CreateSwatchProps): ReactElement | n
   );
   if (!naming) return add;
   const handleSave = async (name: string): Promise<boolean> => {
-    const members = (list.data ?? [])
-      .filter((c) => (c.group ?? "") === palette.key && c.position != null)
-      .sort(color.compare);
     const key = uuid.create();
-    const created = await create({
+    const created = await append({
       key,
       name,
-      light: value,
-      position: generateKeyBetween(members.at(-1)?.position ?? null, null),
+      light: linked?.light ?? value,
+      dark: linked == null ? (dark ? value : undefined) : linked.dark,
       ...(palette.key === "" ? {} : { group: palette.key }),
     });
-    if (created) onCreated(key);
-    return created;
+    if (!created) return false;
+    setNaming(false);
+    onNamedChange(key);
+    return true;
   };
   return (
     <>

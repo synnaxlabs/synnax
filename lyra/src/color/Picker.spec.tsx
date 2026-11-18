@@ -649,6 +649,22 @@ describe("Picker", () => {
         expect(document.activeElement).toBe(c.getByText("edit Alarm"));
       });
 
+      it("should give a slot the linked color and link the value through the library", () => {
+        const onNamedChange = vi.fn();
+        const Linker = (): ReactElement => {
+          const { linked, onNamedChange: link } = Color.usePicker();
+          return (
+            <button onClick={() => link("moss")}>{`linked ${linked?.name}`}</button>
+          );
+        };
+        const c = renderSlots(
+          { named: "ocean", onNamedChange, footer: <Linker /> },
+          { value: "#3e8bff" },
+        );
+        fireEvent.click(c.getByText("linked Ocean"));
+        expect(onNamedChange).toHaveBeenCalledExactlyOnceWith("moss");
+      });
+
       it("should focus the picker after Back when the opener is gone", () => {
         const RemovableOpener = (): ReactElement | null => {
           const [present, setPresent] = useState(true);
