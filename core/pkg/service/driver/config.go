@@ -26,8 +26,7 @@ import (
 )
 
 type Config struct {
-	// Factories are the factories for creating tasks. With none, the driver runs no
-	// task, as when a site disables every integration of the Core.
+	// Factories are the factories for creating tasks.
 	Factories []Factory
 	// HostKey is the key of the host node.
 	HostKey node.Key
@@ -86,6 +85,7 @@ func (c Config) Validate() error {
 	v.NotNil("framer", c.Framer)
 	v.NotNil("channel", c.Channel)
 	v.NotNil("status", c.Status)
+	v.NotEmptySlice("factories", c.Factories)
 	v.NonZero("host_key", c.HostKey)
 	return v.Error()
 }
