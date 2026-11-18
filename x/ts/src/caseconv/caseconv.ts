@@ -462,7 +462,7 @@ export interface PathOptions {
   data?: unknown;
   /**
    * Values that select the option of a union ahead of data. Each path is in the case of
-   * the converted path.
+   * the input path, not the converted one.
    */
   discriminators?: Discriminator[];
 }

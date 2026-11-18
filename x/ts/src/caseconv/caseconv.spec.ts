@@ -528,6 +528,16 @@ describe("caseconv", () => {
         expect(convert(ref)).toEqual(ref);
       });
 
+      it("Should match a discriminator path in the case of the input path", () => {
+        const nestedZ = z.object({ nodeConfig: docZ.shape.config });
+        const { convert } = caseconv.snakeToCamelPath(["node_config", "fill_color"], {
+          schema: nestedZ,
+          data: { nodeConfig: { variant: "plain" } },
+          discriminators: [{ path: ["node_config", "variant"], value: "ref" }],
+        });
+        expect(convert(ref)).toEqual(ref);
+      });
+
       it("Should select an option by a boolean discriminator", () => {
         const flagZ = z.object({
           config: z.discriminatedUnion("plain", [
