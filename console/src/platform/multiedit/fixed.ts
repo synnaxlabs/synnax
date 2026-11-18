@@ -10,9 +10,6 @@
 import { type color } from "@synnaxlabs/client";
 import { color as xcolor } from "@synnaxlabs/x";
 
-// A field that stores color values carries fixed references through the multi-edit
-// controls, which hide the palettes for it.
-
 /** @returns the fixed reference to the color. */
 export const fixedRef = (value: xcolor.Crude): color.Ref => ({
   type: "fixed",

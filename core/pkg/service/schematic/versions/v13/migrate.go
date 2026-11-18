@@ -34,11 +34,10 @@ import (
 // byte, and a zero color in a field that v12 read as "the theme picks the color"
 // becomes absent. Each stroke, fill, text, level, and axis color of an edge, shape, or
 // readout becomes a fixed color. Each entry of the configs map moves onto the node or
-// edge it
-// configures, and each member of a group box gets the group box as its parent. A node
-// with no node config draws nothing, so it is dropped, and so is an edge whose source
-// or target is dropped. An edge with no edge config gets the default pipe, which the
-// Console drew for it before v0.55. Stroke widths become whole pixels as in
+// edge it configures, and each member of a group box gets the group box as its parent.
+// A node with no node config draws nothing, so it is dropped, and so is an edge whose
+// source or target is dropped. An edge with no edge config gets the default pipe, which
+// the Console drew for it before v0.55. Stroke widths become whole pixels as in
 // MigrateNodeConfig and MigrateSegmentedEdgeConfig. A NaN or infinite number in a
 // config becomes the schema default of its field, and a color with such an alpha
 // becomes opaque.
@@ -381,9 +380,9 @@ func MigrateNodeConfig(ctx context.Context, old v12.NodeConfig) (NodeConfig, err
 		if err = migrateColors(ctx,
 			fixed(&n.StrokeColor, o.StrokeColor),
 			fixed(&n.FillColor, o.FillColor),
-			fixed(&n.LevelColor, o.LevelColor, true),
-			fixed(&n.AxisColor, o.AxisColor, true),
-			fixed(&n.TextColor, o.TextColor, true),
+			themed(&n.LevelColor, o.LevelColor),
+			themed(&n.AxisColor, o.AxisColor),
+			themed(&n.TextColor, o.TextColor),
 		); err != nil {
 			return NodeConfig{}, err
 		}
@@ -401,7 +400,7 @@ func MigrateNodeConfig(ctx context.Context, old v12.NodeConfig) (NodeConfig, err
 		n.Position = valueOr(o.Position, spatial.XY{})
 		n.BarWidth = migrateSize(o.BarWidth, 10)
 		if err = migrateColors(ctx,
-			fixed(&n.StrokeColor, o.StrokeColor, true),
+			themed(&n.StrokeColor, o.StrokeColor),
 		); err != nil {
 			return NodeConfig{}, err
 		}
@@ -451,7 +450,7 @@ func MigrateNodeConfig(ctx context.Context, old v12.NodeConfig) (NodeConfig, err
 		n.InlineSize = migrateSize(o.InlineSize, 70)
 		if err = migrateColors(ctx,
 			fixed(&n.StrokeColor, o.StrokeColor),
-			fixed(&n.TextColor, o.TextColor, true),
+			themed(&n.TextColor, o.TextColor),
 			fixed(&n.FillColor, o.FillColor),
 		); err != nil {
 			return NodeConfig{}, err
@@ -654,9 +653,9 @@ func MigrateScaleIndicatorConfig(
 		return ScaleIndicatorConfig{}, err
 	}
 	if err = migrateColors(ctx,
-		fixed(&cfg.LevelColor, old.LevelColor, true),
-		fixed(&cfg.AxisColor, old.AxisColor, true),
-		fixed(&cfg.TextColor, old.TextColor, true),
+		themed(&cfg.LevelColor, old.LevelColor),
+		themed(&cfg.AxisColor, old.AxisColor),
+		themed(&cfg.TextColor, old.TextColor),
 	); err != nil {
 		return ScaleIndicatorConfig{}, err
 	}
@@ -758,10 +757,15 @@ type colorField struct {
 	themed bool
 }
 
-// fixed pairs dst with src. A themed field whose color migrates to the zero color,
-// which v12 read as "the theme picks the color", becomes absent.
-func fixed(dst **servicecolor.Ref, src *colorv1.Color, themed ...bool) colorField {
-	return colorField{dst: dst, src: src, themed: len(themed) > 0 && themed[0]}
+// fixed pairs dst with src.
+func fixed(dst **servicecolor.Ref, src *colorv1.Color) colorField {
+	return colorField{dst: dst, src: src}
+}
+
+// themed pairs dst with a src that v12 read as "the theme picks the color" when zero.
+// A zero src becomes absent.
+func themed(dst **servicecolor.Ref, src *colorv1.Color) colorField {
+	return colorField{dst: dst, src: src, themed: true}
 }
 
 // migrateColors sets each field to a fixed color with a 0-255 alpha byte. An absent
