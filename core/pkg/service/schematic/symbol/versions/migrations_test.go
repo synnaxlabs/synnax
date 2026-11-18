@@ -23,7 +23,7 @@ var _ = Describe("Migrations", func() {
 	// verbatim; extend it for a new version, never edit shipped entries.
 	It("Should pin the migration chain keys in order", func() {
 		Expect(lo.Map(
-			versions.Migrations,
+			versions.Migrations(nil, nil),
 			func(m gorp.Migration, _ int) string { return m.Key() },
 		)).To(Equal([]string{
 			"normalize_keys",
@@ -31,6 +31,7 @@ var _ = Describe("Migrations", func() {
 			"v61_add_group",
 			"v61_schematic_symbol_group_membership",
 			"v62_color_alpha_byte",
+			"v62_symbol_model",
 		}))
 	})
 })

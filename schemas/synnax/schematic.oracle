@@ -963,10 +963,10 @@ NodeConfig union on variant {
     }
     t_junction                         StaticSymbolConfig
     custom_actuator extends ToggleConfig {
-        spec_key        string         {
+        spec_key        string                 {
             @doc value "is the key of the custom symbol spec this instance renders."
         }
-        state_overrides symbol.State[] = [] {
+        state_overrides symbol.StateOverride[] = [] {
             @doc value """
                 contains per-instance overrides of the spec's visual states, matched to
                 the spec's states by key.
@@ -976,10 +976,10 @@ NodeConfig union on variant {
         @doc value "is the configuration for user-defined actuator symbols."
     }
     custom_static extends LabeledConfig, ScaledConfig {
-        spec_key        string         {
+        spec_key        string                 {
             @doc value "is the key of the custom symbol spec this instance renders."
         }
-        state_overrides symbol.State[] = [] {
+        state_overrides symbol.StateOverride[] = [] {
             @doc value """
                 contains per-instance overrides of the spec's visual states, matched to
                 the spec's states by key.

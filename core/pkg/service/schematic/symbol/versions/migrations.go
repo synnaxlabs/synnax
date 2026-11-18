@@ -15,13 +15,21 @@ import (
 	v2 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v3"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v4"
+	v5 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v5"
 )
 
-// Migrations is the ordered migration chain for stored symbols.
-var Migrations = []gorp.Migration{
-	v0.NormalizeKeys,
-	v2.Migration,
-	v3.Migration,
-	v3.MembersMigration,
-	v4.Migration,
+// Migrations returns the ordered migration chain for stored symbols. newCreate and
+// actuators are the inputs of v5.NewMigration.
+func Migrations(
+	newCreate func(gorp.Tx) v5.Create,
+	actuators v5.Actuators,
+) []gorp.Migration {
+	return []gorp.Migration{
+		v0.NormalizeKeys,
+		v2.Migration,
+		v3.Migration,
+		v3.MembersMigration,
+		v4.Migration,
+		v5.NewMigration(newCreate, actuators),
+	}
 }

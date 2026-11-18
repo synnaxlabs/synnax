@@ -11,14 +11,14 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal, TypeAlias, TypedDict, override as _override
+from typing import Annotated, Any, Literal, TypeAlias, TypedDict, override as _override
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from synnax import group as group_
+from synnax import color as color_, enumeration as enumeration_, group as group_
 from synnax.resource import ID
-from x import color, filter, spatial
+from x import color, filter, spatial, telem
 from x.filter import shorthand
 
 ORDER_FIELD_NAME: Literal["name"] = "name"
@@ -62,6 +62,60 @@ class Handle(BaseModel):
     orientation: spatial.OuterLocation
 
 
+class Part(BaseModel):
+    """Is a named set of shapes in the drawing that looks can change.
+
+    Attributes:
+        key: Is the part identifier.
+        name: Is a human-readable name for the part.
+        selectors: Selects the shapes of the part by #id, .class, or [data-region-id].
+        pivot: Is the point that the part turns around, as fractions of the symbol box.
+    """
+
+    key: str
+    name: str
+    selectors: list[str] = Field(default_factory=list)
+    pivot: spatial.XY | None = None
+
+
+class BaseState(BaseModel):
+    """Carries the fields that every state shares.
+
+    Attributes:
+        key: Is the state identifier.
+        name: Is a human-readable name for the state.
+    """
+
+    key: str
+    name: str
+
+
+class Blink(BaseModel):
+    """Makes a part flash.
+
+    Attributes:
+        period: Is the time of one flash.
+    """
+
+    period: telem.TimeSpan = Field(
+        default=telem.TimeSpan(1000000000),
+        ge=-9223372036854775808,
+        le=9223372036854775807,
+    )
+
+
+class BaseInteraction(BaseModel):
+    """Carries the fields that every interaction shares.
+
+    Attributes:
+        key: Is the interaction identifier.
+        part: Is the key of the part that takes the gesture, or the whole drawing.
+    """
+
+    key: str
+    part: str | None = None
+
+
 class Order(BaseModel):
     """Is a sort of symbols.
 
@@ -72,6 +126,153 @@ class Order(BaseModel):
 
     field: OrderField
     descending: bool = False
+
+
+class SvgDrawing(BaseModel):
+    """Is a drawing stored as SVG markup."""
+
+    type: Literal["svg"] = "svg"
+    markup: str = Field(min_length=1)
+
+
+# Is the picture of a symbol.
+Drawing = Annotated[
+    SvgDrawing,
+    Field(discriminator="type"),
+]
+
+
+class ExactMatcher(BaseModel):
+    """Reads each value as it is."""
+
+    type: Literal["exact"] = "exact"
+
+
+class WithinMatcher(BaseModel):
+    """Reads a value from lower up to, but not including, upper as 1, and each other
+    value as 0.
+    """
+
+    type: Literal["within"] = "within"
+    bounds: spatial.Bounds
+
+
+# Is how a state reads a value before it finds an entry.
+Matcher = Annotated[
+    ExactMatcher | WithinMatcher,
+    Field(discriminator="type"),
+]
+
+
+class FixedCommandValue(BaseModel):
+    """Writes one value."""
+
+    type: Literal["fixed"] = "fixed"
+    value: float
+
+
+class AskCommandValue(BaseModel):
+    """Asks the user for the value to write."""
+
+    type: Literal["ask"] = "ask"
+
+
+# Is the value that a command writes.
+CommandValue = Annotated[
+    FixedCommandValue | AskCommandValue,
+    Field(discriminator="type"),
+]
+
+
+class EqualsCondition(BaseModel):
+    """Holds while a state has one of the values."""
+
+    type: Literal["equals"] = "equals"
+    state: str
+    values: list[float] = Field(default_factory=list)
+
+
+# Is when a look applies.
+Condition = Annotated[
+    EqualsCondition,
+    Field(discriminator="type"),
+]
+
+
+class EntryPaint(BaseModel):
+    """Is the color of the current entry of a state."""
+
+    type: Literal["entry"] = "entry"
+    state: str
+
+
+class NodePaint(BaseModel):
+    """Is the color that the node sets."""
+
+    type: Literal["node"] = "node"
+
+
+class ColorPaint(BaseModel):
+    """Is one color."""
+
+    type: Literal["color"] = "color"
+    value: color_.Ref
+
+
+# Is the color of a fill or stroke.
+Paint = Annotated[
+    EntryPaint | NodePaint | ColorPaint,
+    Field(discriminator="type"),
+]
+
+
+class SpinMotion(BaseModel):
+    """Turns a part around its pivot."""
+
+    type: Literal["spin"] = "spin"
+    rate: telem.Rate = Field(default=telem.Rate(0.500000), ge=0, allow_inf_nan=False)
+    state: str | None = None
+
+
+class FlowMotion(BaseModel):
+    """Moves the dashes of a stroke along it."""
+
+    type: Literal["flow"] = "flow"
+    rate: telem.Rate = Field(default=telem.Rate(0.500000), ge=0, allow_inf_nan=False)
+    state: str | None = None
+
+
+class LevelMotion(BaseModel):
+    """Fills a part to a level."""
+
+    type: Literal["level"] = "level"
+    state: str
+    side: spatial.OuterLocation = "bottom"
+
+
+class RotateMotion(BaseModel):
+    """Turns a part to an angle."""
+
+    type: Literal["rotate"] = "rotate"
+    state: str
+    from_: float = Field(alias="from")
+    to: float
+
+
+class MoveMotion(BaseModel):
+    """Moves a part between two offsets."""
+
+    type: Literal["move"] = "move"
+    state: str
+    from_: spatial.XY = Field(alias="from")
+    to: spatial.XY
+
+
+# Is motion on a part.
+Motion = Annotated[
+    SpinMotion | FlowMotion | LevelMotion | RotateMotion | MoveMotion,
+    Field(discriminator="type"),
+]
 
 
 class Where(BaseModel):
@@ -129,18 +330,107 @@ class Cursor(BaseModel):
     name: str | None = None
 
 
-class State(BaseModel):
-    """Is a named visual state of a symbol with regional styling configurations.
+class StateOverride(BaseModel):
+    """Is a node's replacement for the region colors of one of its symbol's states.
 
     Attributes:
-        key: Is the state identifier.
-        name: Is a human-readable name for this state.
-        regions: Contains style regions defining visual appearance for this state.
+        key: Is the key of the state that the override replaces.
+        name: Is a human-readable name for the state.
+        regions: Contains the regions that the override colors.
     """
 
     key: str
     name: str
     regions: list[Region] = Field(default_factory=list)
+
+
+class FireInteraction(BaseInteraction):
+    """Sends one command on a click."""
+
+    type: Literal["fire"] = "fire"
+    command: str
+
+
+class NextInteraction(BaseInteraction):
+    """Sends the command whose value differs from the state, or opens a menu of the
+    commands.
+    """
+
+    type: Literal["next"] = "next"
+    commands: list[str] = Field(default_factory=list)
+
+
+# Is what a pointer gesture on a part does.
+Interaction = Annotated[
+    FireInteraction | NextInteraction,
+    Field(discriminator="type"),
+]
+
+
+class EnumerationState(BaseState):
+    """Is a state that shows the entries of an enumeration."""
+
+    type: Literal["enumeration"] = "enumeration"
+    enumeration: enumeration_.Key | None = None
+    match: Matcher = Field(default_factory=lambda: ExactMatcher(type="exact"))
+    default: float = 0
+
+
+class NumberState(BaseState):
+    """Is a state that shows a number."""
+
+    type: Literal["number"] = "number"
+    bounds: spatial.Bounds = Field(
+        default_factory=lambda: spatial.Bounds(lower=0, upper=100)
+    )
+
+
+# Is what a symbol shows.
+State = Annotated[
+    EnumerationState | NumberState,
+    Field(discriminator="type"),
+]
+
+
+class Command(BaseModel):
+    """Is a named request that writes one value to one channel.
+
+    Attributes:
+        key: Is the command identifier.
+        name: Is a human-readable name for the command.
+        state: Is the key of the state whose channel the command writes to.
+        value: Is the value that the command writes.
+    """
+
+    key: str
+    name: str
+    state: str | None = None
+    value: CommandValue
+
+
+class Look(BaseModel):
+    """Is paint, visibility, or motion on a part. A later look wins on each field that
+    it sets.
+
+    Attributes:
+        key: Is the look identifier.
+        part: Is the key of the part that the look changes, or the whole drawing.
+        when: Is the condition under which the look applies, or always.
+        fill: Is the fill that the look sets.
+        stroke: Is the stroke that the look sets.
+        hidden: Is whether the look hides the part.
+        motion: Is the motion that the look sets.
+        blink: Is the blink that the look sets.
+    """
+
+    key: str
+    part: str | None = None
+    when: Condition | None = None
+    fill: Paint | None = None
+    stroke: Paint | None = None
+    hidden: bool | None = None
+    motion: Motion | None = None
+    blink: Blink | None = None
 
 
 class RetrieveRequest(BaseModel):
@@ -164,24 +454,32 @@ class RetrieveRequest(BaseModel):
 
 
 class Spec(BaseModel):
-    """Is the complete symbol definition including geometry, states, handles, and
-    rendering properties.
+    """Is the complete symbol definition: its drawing, parts, states, commands, looks,
+    interactions, and handles.
 
     Attributes:
-        svg: Is the SVG markup defining the symbol's visual geometry.
-        states: Contains available visual states with regional styling configurations.
-        variant: Is the symbol variant: 'static' or 'actuator'.
+        drawing: Is the picture of the symbol.
+        parts: Are the named sets of shapes that looks change.
         handles: Contains connection points for linking to other diagram elements.
+        states: Are what the symbol shows.
+        commands: Are the requests that the symbol sends.
+        looks: Change the parts, in order.
+        interactions: Are what pointer gestures on the parts do.
+        variant: Is the node variant that a placement makes: 'static' or 'actuator'.
         scale: Is the symbol scale factor.
         stroke_scaled: Is true when stroke width scales with the symbol size.
         preview_viewport: Is an optional viewport configuration for symbol preview
             rendering.
     """
 
-    svg: str = Field(min_length=1)
-    states: list[State] = Field(default_factory=list)
-    variant: str = Field(min_length=1)
+    drawing: Drawing
+    parts: list[Part] = Field(default_factory=list)
     handles: list[Handle] = Field(default_factory=list)
+    states: list[State] = Field(default_factory=list)
+    commands: list[Command] = Field(default_factory=list)
+    looks: list[Look] = Field(default_factory=list)
+    interactions: list[Interaction] = Field(default_factory=list)
+    variant: str = Field(min_length=1)
     scale: float = 1
     stroke_scaled: bool = False
     preview_viewport: spatial.Viewport | None = None

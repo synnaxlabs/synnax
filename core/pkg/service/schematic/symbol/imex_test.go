@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions"
-	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -51,7 +50,7 @@ var _ = Describe("ImEx", func() {
 		It("Should export a symbol as a versioned envelope", func(ctx SpecContext) {
 			sym := defaults.Fill(symbol.Symbol{
 				Name: "exported",
-				Data: symbol.Spec{SVG: "<svg/>", Variant: "valve"},
+				Data: symbol.Spec{Drawing: svg("<svg/>"), Variant: "valve"},
 			})
 			// Export reads committed data, so the symbol must be deleted to keep the
 			// shared DB's counts intact.
@@ -71,7 +70,7 @@ var _ = Describe("ImEx", func() {
 			wire := WireRoundTrip(env)
 			decoded := MustSucceed(wire.Decode[symbol.Symbol]())
 			Expect(decoded.Name).To(Equal("exported"))
-			Expect(decoded.Data.SVG).To(Equal("<svg/>"))
+			Expect(decoded.Data.Drawing).To(Equal(svg("<svg/>")))
 		})
 
 		It("Should return not found for a missing key", func(ctx SpecContext) {
@@ -130,17 +129,20 @@ var _ = Describe("ImEx", func() {
 					createImportGroup(ctx, tx),
 				)
 				Expect(res.Name).To(Equal("Server Symbol"))
-				Expect(res.Data.SVG).To(Equal("<svg><rect/></svg>"))
+				Expect(res.Data.Drawing).To(Equal(svg("<svg><rect/></svg>")))
 				Expect(res.Data.Variant).To(Equal("valve"))
 				Expect(res.Data.StrokeScaled).To(BeTrue())
 				Expect(res.Data.States).To(HaveLen(1))
-				region := res.Data.States[0].Regions[0]
+				state, ok := res.Data.States[0].Variant.(symbol.EnumerationState)
+				Expect(ok).To(BeTrue())
+				Expect(state.Enumeration).To(BeNil())
+				Expect(res.Data.Looks).To(HaveLen(1))
 				Expect(
-					region.StrokeColor,
-				).To(HaveValue(Equal(MustSucceed(color.Parse("#ff0000")))))
+					res.Data.Looks[0].Stroke,
+				).To(HaveValue(Equal(colorPaint("#ff0000"))))
 				Expect(
-					region.FillColor,
-				).To(HaveValue(Equal(MustSucceed(color.Parse("#00ff00")))))
+					res.Data.Looks[0].Fill,
+				).To(HaveValue(Equal(colorPaint("#00ff00"))))
 				Expect(res.Data.Handles).To(HaveLen(1))
 				Expect(res.Data.PreviewViewport).ToNot(BeNil())
 				Expect(res.Data.PreviewViewport.Zoom).To(Equal(3.0))
@@ -159,14 +161,13 @@ var _ = Describe("ImEx", func() {
 				Expect(res.Data.Variant).To(Equal("sensor"))
 				Expect(res.Data.Scale).To(Equal(2.0))
 				Expect(res.Data.StrokeScaled).To(BeTrue())
-				Expect(res.Data.States).To(HaveLen(1))
-				region := res.Data.States[0].Regions[0]
+				Expect(res.Data.Looks).To(HaveLen(1))
 				Expect(
-					region.StrokeColor,
-				).To(HaveValue(Equal(MustSucceed(color.Parse("#123456")))))
+					res.Data.Looks[0].Stroke,
+				).To(HaveValue(Equal(colorPaint("#123456"))))
 				Expect(
-					region.FillColor,
-				).To(HaveValue(Equal(MustSucceed(color.Parse("#654321")))))
+					res.Data.Looks[0].Fill,
+				).To(HaveValue(Equal(colorPaint("#654321"))))
 				Expect(res.Data.Handles).To(HaveLen(1))
 				Expect(res.Data.PreviewViewport).ToNot(BeNil())
 				Expect(res.Data.PreviewViewport.Zoom).To(Equal(6.0))
@@ -228,7 +229,7 @@ var _ = Describe("ImEx", func() {
 				original := defaults.Fill(symbol.Symbol{
 					Name: "round-trip",
 					Data: symbol.Spec{
-						SVG:          "<svg/>",
+						Drawing:      svg("<svg/>"),
 						Variant:      "valve",
 						StrokeScaled: true,
 					},
@@ -258,14 +259,18 @@ var _ = Describe("ImEx", func() {
 					Entry(&res).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(res.Name).To(Equal("round-trip"))
-				// A required collection always serializes, so states and handles come
-				// back allocated and empty rather than nil.
+				// A required collection always serializes, so each list comes back
+				// allocated and empty rather than nil.
 				Expect(res.Data).To(Equal(symbol.Spec{
-					SVG:          "<svg/>",
+					Drawing:      svg("<svg/>"),
+					Parts:        []symbol.Part{},
+					Handles:      []symbol.Handle{},
+					States:       []symbol.State{},
+					Commands:     []symbol.Command{},
+					Looks:        []symbol.Look{},
+					Interactions: []symbol.Interaction{},
 					Variant:      "valve",
 					StrokeScaled: true,
-					States:       []symbol.State{},
-					Handles:      []symbol.Handle{},
 					Scale:        original.Data.Scale,
 				}))
 			},

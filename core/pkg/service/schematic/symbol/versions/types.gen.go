@@ -11,25 +11,231 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v4"
+import "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v5"
 
 // Key is a unique identifier for a schematic symbol.
-type Key = v4.Key
+type Key = v5.Key
 
 // Region is a visual styling area within a symbol state, targeting specific SVG
 // elements for dynamic coloring.
-type Region = v4.Region
+type Region = v5.Region
 
-// State is a named visual state of a symbol with regional styling configurations.
-type State = v4.State
+// StateOverride is a node's replacement for the region colors of one of its symbol's
+// states.
+type StateOverride = v5.StateOverride
 
 // Handle is a connection point on a symbol for linking to other diagram elements.
-type Handle = v4.Handle
+type Handle = v5.Handle
 
-// Spec is the complete symbol definition including geometry, states, handles, and
-// rendering properties.
-type Spec = v4.Spec
+// Drawing is the picture of a symbol.
+type Drawing = v5.Drawing
+
+// DrawingVariant is implemented by every Drawing variant.
+type DrawingVariant = v5.DrawingVariant
+
+// DrawingType is the "type" value that selects a variant of Drawing.
+type DrawingType = v5.DrawingType
+
+// SvgDrawingType is a drawing stored as SVG markup.
+const SvgDrawingType DrawingType = v5.SvgDrawingType
+
+// SvgDrawing is a drawing stored as SVG markup.
+type SvgDrawing = v5.SvgDrawing
+
+// Part is a named set of shapes in the drawing that looks can change.
+type Part = v5.Part
+
+// BaseState carries the fields that every state shares.
+type BaseState = v5.BaseState
+
+// State is what a symbol shows.
+type State = v5.State
+
+// StateVariant is implemented by every State variant.
+type StateVariant = v5.StateVariant
+
+// StateType is the "type" value that selects a variant of State.
+type StateType = v5.StateType
+
+const (
+	// EnumerationStateType is a state that shows the entries of an enumeration.
+	EnumerationStateType StateType = v5.EnumerationStateType
+	// NumberStateType is a state that shows a number.
+	NumberStateType StateType = v5.NumberStateType
+)
+
+// EnumerationState is a state that shows the entries of an enumeration.
+type EnumerationState = v5.EnumerationState
+
+// NumberState is a state that shows a number.
+type NumberState = v5.NumberState
+
+// Matcher is how a state reads a value before it finds an entry.
+type Matcher = v5.Matcher
+
+// MatcherVariant is implemented by every Matcher variant.
+type MatcherVariant = v5.MatcherVariant
+
+// MatcherType is the "type" value that selects a variant of Matcher.
+type MatcherType = v5.MatcherType
+
+const (
+	// ExactMatcherType reads each value as it is.
+	ExactMatcherType MatcherType = v5.ExactMatcherType
+	// WithinMatcherType reads a value from lower up to, but not including, upper as 1,
+	// and each other value as 0.
+	WithinMatcherType MatcherType = v5.WithinMatcherType
+)
+
+// ExactMatcher reads each value as it is.
+type ExactMatcher = v5.ExactMatcher
+
+// WithinMatcher reads a value from lower up to, but not including, upper as 1, and each
+// other value as 0.
+type WithinMatcher = v5.WithinMatcher
+
+// Command is a named request that writes one value to one channel.
+type Command = v5.Command
+
+// CommandValue is the value that a command writes.
+type CommandValue = v5.CommandValue
+
+// CommandValueVariant is implemented by every CommandValue variant.
+type CommandValueVariant = v5.CommandValueVariant
+
+// CommandValueType is the "type" value that selects a variant of CommandValue.
+type CommandValueType = v5.CommandValueType
+
+const (
+	// FixedCommandValueType writes one value.
+	FixedCommandValueType CommandValueType = v5.FixedCommandValueType
+	// AskCommandValueType asks the user for the value to write.
+	AskCommandValueType CommandValueType = v5.AskCommandValueType
+)
+
+// FixedCommandValue writes one value.
+type FixedCommandValue = v5.FixedCommandValue
+
+// AskCommandValue asks the user for the value to write.
+type AskCommandValue = v5.AskCommandValue
+
+// Look is paint, visibility, or motion on a part. A later look wins on each field that
+// it sets.
+type Look = v5.Look
+
+// Blink makes a part flash.
+type Blink = v5.Blink
+
+// Condition is when a look applies.
+type Condition = v5.Condition
+
+// ConditionVariant is implemented by every Condition variant.
+type ConditionVariant = v5.ConditionVariant
+
+// ConditionType is the "type" value that selects a variant of Condition.
+type ConditionType = v5.ConditionType
+
+// EqualsConditionType holds while a state has one of the values.
+const EqualsConditionType ConditionType = v5.EqualsConditionType
+
+// EqualsCondition holds while a state has one of the values.
+type EqualsCondition = v5.EqualsCondition
+
+// Paint is the color of a fill or stroke.
+type Paint = v5.Paint
+
+// PaintVariant is implemented by every Paint variant.
+type PaintVariant = v5.PaintVariant
+
+// PaintType is the "type" value that selects a variant of Paint.
+type PaintType = v5.PaintType
+
+const (
+	// EntryPaintType is the color of the current entry of a state.
+	EntryPaintType PaintType = v5.EntryPaintType
+	// NodePaintType is the color that the node sets.
+	NodePaintType PaintType = v5.NodePaintType
+	// ColorPaintType is one color.
+	ColorPaintType PaintType = v5.ColorPaintType
+)
+
+// EntryPaint is the color of the current entry of a state.
+type EntryPaint = v5.EntryPaint
+
+// NodePaint is the color that the node sets.
+type NodePaint = v5.NodePaint
+
+// ColorPaint is one color.
+type ColorPaint = v5.ColorPaint
+
+// Motion is motion on a part.
+type Motion = v5.Motion
+
+// MotionVariant is implemented by every Motion variant.
+type MotionVariant = v5.MotionVariant
+
+// MotionType is the "type" value that selects a variant of Motion.
+type MotionType = v5.MotionType
+
+const (
+	// SpinMotionType turns a part around its pivot.
+	SpinMotionType MotionType = v5.SpinMotionType
+	// FlowMotionType moves the dashes of a stroke along it.
+	FlowMotionType MotionType = v5.FlowMotionType
+	// LevelMotionType fills a part to a level.
+	LevelMotionType MotionType = v5.LevelMotionType
+	// RotateMotionType turns a part to an angle.
+	RotateMotionType MotionType = v5.RotateMotionType
+	// MoveMotionType moves a part between two offsets.
+	MoveMotionType MotionType = v5.MoveMotionType
+)
+
+// SpinMotion turns a part around its pivot.
+type SpinMotion = v5.SpinMotion
+
+// FlowMotion moves the dashes of a stroke along it.
+type FlowMotion = v5.FlowMotion
+
+// LevelMotion fills a part to a level.
+type LevelMotion = v5.LevelMotion
+
+// RotateMotion turns a part to an angle.
+type RotateMotion = v5.RotateMotion
+
+// MoveMotion moves a part between two offsets.
+type MoveMotion = v5.MoveMotion
+
+// BaseInteraction carries the fields that every interaction shares.
+type BaseInteraction = v5.BaseInteraction
+
+// Interaction is what a pointer gesture on a part does.
+type Interaction = v5.Interaction
+
+// InteractionVariant is implemented by every Interaction variant.
+type InteractionVariant = v5.InteractionVariant
+
+// InteractionType is the "type" value that selects a variant of Interaction.
+type InteractionType = v5.InteractionType
+
+const (
+	// FireInteractionType sends one command on a click.
+	FireInteractionType InteractionType = v5.FireInteractionType
+	// NextInteractionType sends the command whose value differs from the state, or
+	// opens a menu of the commands.
+	NextInteractionType InteractionType = v5.NextInteractionType
+)
+
+// FireInteraction sends one command on a click.
+type FireInteraction = v5.FireInteraction
+
+// NextInteraction sends the command whose value differs from the state, or opens a menu
+// of the commands.
+type NextInteraction = v5.NextInteraction
+
+// Spec is the complete symbol definition: its drawing, parts, states, commands, looks,
+// interactions, and handles.
+type Spec = v5.Spec
 
 // Symbol is a persisted schematic symbol defining reusable visual components for
 // diagrams.
-type Symbol = v4.Symbol
+type Symbol = v5.Symbol

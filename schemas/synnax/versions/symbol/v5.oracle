@@ -1,0 +1,395 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/color/v0"
+import "schemas/synnax/versions/enumeration/v0"
+import "schemas/synnax/versions/group/v1"
+import "schemas/x/versions/spatial/v0"
+import "schemas/x/versions/telem/v0"
+
+Key = v0.Key
+
+Region = v4.Region
+
+StateOverride struct {
+    key     string   {
+        @doc value "is the key of the state that the override replaces."
+    }
+    name    string   {
+        @doc value "is a human-readable name for the state."
+    }
+    regions Region[] {
+        @doc value "contains the regions that the override colors."
+    }
+
+    @doc value  """
+        is a node's replacement for the region colors of one of its symbol's states.
+    """
+    @go marshal
+}
+
+Handle = v2.Handle
+
+Drawing union on type {
+    svg {
+        markup string {
+            @doc value           "is the SVG markup of the drawing."
+            @validate min_length 1
+        }
+
+        @doc value "is a drawing stored as SVG markup."
+    }
+
+    @doc value  "is the picture of a symbol."
+    @go marshal
+}
+
+Part struct {
+    key       string      {
+        @doc value "is the part identifier."
+    }
+    name      string      {
+        @doc value "is a human-readable name for the part."
+    }
+    selectors string[]    {
+        @doc value """
+            selects the shapes of the part by #id, .class, or [data-region-id].
+        """
+    }
+    pivot     spatial.XY? {
+        @doc value """
+            is the point that the part turns around, as fractions of the symbol box.
+        """
+    }
+
+    @doc value  "is a named set of shapes in the drawing that looks can change."
+    @go marshal
+}
+
+BaseState struct {
+    key  string {
+        @doc value "is the state identifier."
+    }
+    name string {
+        @doc value "is a human-readable name for the state."
+    }
+
+    @doc value  "carries the fields that every state shares."
+    @go marshal
+}
+
+State union on type extends BaseState {
+    enumeration {
+        enumeration enumeration.Key? {
+            @doc value """
+                is the default enumeration of the state, which a node can replace.
+            """
+        }
+        match       Matcher = exact {
+            @doc value "is how the state reads a value before it finds an entry."
+        }
+        default     float64 = 0 {
+            @doc value """
+                is the value of the entry that the state draws while it has no entry.
+            """
+        }
+
+        @doc value "is a state that shows the entries of an enumeration."
+    }
+    number {
+        bounds spatial.Bounds = { lower = 0, upper = 100 } {
+            @doc value "is the range of values that motion reads as 0 to 1."
+        }
+
+        @doc value "is a state that shows a number."
+    }
+
+    @doc value  "is what a symbol shows."
+    @go marshal
+}
+
+Matcher union on type {
+    exact {
+        @doc value "reads each value as it is."
+    }
+    within {
+        bounds spatial.Bounds {
+            @doc value "is the range of values that read as 1."
+        }
+
+        @doc value """
+            reads a value from lower up to, but not including, upper as 1, and each
+            other value as 0.
+        """
+    }
+
+    @doc value  "is how a state reads a value before it finds an entry."
+    @go marshal
+}
+
+Command struct {
+    key   string       {
+        @doc value "is the command identifier."
+    }
+    name  string       {
+        @doc value "is a human-readable name for the command."
+    }
+    state string?      {
+        @doc value "is the key of the state whose channel the command writes to."
+    }
+    value CommandValue {
+        @doc value "is the value that the command writes."
+    }
+
+    @doc value  "is a named request that writes one value to one channel."
+    @go marshal
+}
+
+CommandValue union on type {
+    fixed {
+        value float64 {
+            @doc value "is the value that the command writes."
+        }
+
+        @doc value "writes one value."
+    }
+    ask {
+        @doc value "asks the user for the value to write."
+    }
+
+    @doc value  "is the value that a command writes."
+    @go marshal
+}
+
+Look struct {
+    key    string     {
+        @doc value "is the look identifier."
+    }
+    part   string?    {
+        @doc value "is the key of the part that the look changes, or the whole drawing."
+    }
+    when   Condition? {
+        @doc value "is the condition under which the look applies, or always."
+    }
+    fill   Paint?     {
+        @doc value "is the fill that the look sets."
+    }
+    stroke Paint?     {
+        @doc value "is the stroke that the look sets."
+    }
+    hidden bool?      {
+        @doc value "is whether the look hides the part."
+    }
+    motion Motion?    {
+        @doc value "is the motion that the look sets."
+    }
+    blink  Blink?     {
+        @doc value "is the blink that the look sets."
+    }
+
+    @doc value  """
+        is paint, visibility, or motion on a part. A later look wins on each field that
+        it sets.
+    """
+    @go marshal
+}
+
+Blink struct {
+    period telem.TimeSpan = 1000000000 {
+        @doc value "is the time of one flash."
+    }
+
+    @doc value  "makes a part flash."
+    @go marshal
+}
+
+Condition union on type {
+    equals {
+        state  string    {
+            @doc value "is the key of the state that the condition reads."
+        }
+        values float64[] {
+            @doc value "are the values for which the condition holds."
+        }
+
+        @doc value "holds while a state has one of the values."
+    }
+
+    @doc value  "is when a look applies."
+    @go marshal
+}
+
+Paint union on type {
+    entry {
+        state string {
+            @doc value "is the key of the state whose current entry sets the color."
+        }
+
+        @doc value "is the color of the current entry of a state."
+    }
+    node {
+        @doc value "is the color that the node sets."
+    }
+    color {
+        value color.Ref {
+            @doc value "is the color."
+        }
+
+        @doc value "is one color."
+    }
+
+    @doc value  "is the color of a fill or stroke."
+    @go marshal
+}
+
+Motion union on type {
+    spin {
+        rate  telem.Rate = 0.5 {
+            @doc value "is the turns each second at the upper bound of the state."
+        }
+        state string?    {
+            @doc value "is the key of the number state that sets the speed."
+        }
+
+        @doc value "turns a part around its pivot."
+    }
+    flow {
+        rate  telem.Rate = 0.5 {
+            @doc value "is the cycles each second at the upper bound of the state."
+        }
+        state string?    {
+            @doc value "is the key of the number state that sets the speed."
+        }
+
+        @doc value "moves the dashes of a stroke along it."
+    }
+    level {
+        state string                {
+            @doc value "is the key of the number state that sets the level."
+        }
+        side  spatial.OuterLocation = spatial.OuterLocationBottom {
+            @doc value "is the side that the level fills from."
+        }
+
+        @doc value "fills a part to a level."
+    }
+    rotate {
+        state string  {
+            @doc value "is the key of the number state that sets the angle."
+        }
+        from  float64 {
+            @doc value "is the angle at the lower bound, in degrees."
+        }
+        to    float64 {
+            @doc value "is the angle at the upper bound, in degrees."
+        }
+
+        @doc value "turns a part to an angle."
+    }
+    move {
+        state string     {
+            @doc value "is the key of the number state that sets the position."
+        }
+        from  spatial.XY {
+            @doc value "is the offset at the lower bound, as fractions of the box."
+        }
+        to    spatial.XY {
+            @doc value "is the offset at the upper bound, as fractions of the box."
+        }
+
+        @doc value "moves a part between two offsets."
+    }
+
+    @doc value  "is motion on a part."
+    @go marshal
+}
+
+BaseInteraction struct {
+    key  string  {
+        @doc value "is the interaction identifier."
+    }
+    part string? {
+        @doc value """
+            is the key of the part that takes the gesture, or the whole drawing.
+        """
+    }
+
+    @doc value  "carries the fields that every interaction shares."
+    @go marshal
+}
+
+Interaction union on type extends BaseInteraction {
+    fire {
+        command string {
+            @doc value "is the key of the command that a click sends."
+        }
+
+        @doc value "sends one command on a click."
+    }
+    next {
+        commands string[] {
+            @doc value "are the keys of the two commands that a click picks between."
+        }
+
+        @doc value """
+            sends the command whose value differs from the state, or opens a menu of the
+            commands.
+        """
+    }
+
+    @doc value  "is what a pointer gesture on a part does."
+    @go marshal
+}
+
+Spec struct {
+    drawing          Drawing           {
+        @doc value "is the picture of the symbol."
+    }
+    parts            Part[] = [] {
+        @doc value "are the named sets of shapes that looks change."
+    }
+    handles          Handle[] = [] {
+        @doc value "contains connection points for linking to other diagram elements."
+    }
+    states           State[] = [] {
+        @doc value "are what the symbol shows."
+    }
+    commands         Command[] = [] {
+        @doc value "are the requests that the symbol sends."
+    }
+    looks            Look[] = [] {
+        @doc value "change the parts, in order."
+    }
+    interactions     Interaction[] = [] {
+        @doc value "are what pointer gestures on the parts do."
+    }
+    variant          string            {
+        @doc value           """
+            is the node variant that a placement makes: 'static' or 'actuator'.
+        """
+        @validate min_length 1
+    }
+    scale            float64 = 1 {
+        @doc value "is the symbol scale factor."
+    }
+    stroke_scaled    bool = false {
+        @doc value "is true when stroke width scales with the symbol size."
+    }
+    preview_viewport spatial.Viewport? {
+        @doc value "is an optional viewport configuration for symbol preview rendering."
+    }
+
+    @doc value  """
+        is the complete symbol definition: its drawing, parts, states, commands, looks,
+        interactions, and handles.
+    """
+    @go marshal
+}
+
+Symbol struct extends v4.Symbol {}

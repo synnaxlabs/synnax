@@ -53,14 +53,16 @@ var _ = Describe("Dispatch", func() {
 		StartRun(db.Run)
 		groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
 		svc = MustOpen(symbol.OpenService(ctx, symbol.ServiceConfig{
-			DB:    db,
-			Group: groupSvc,
-			ImEx:  imex.NewService(),
+			DB:          db,
+			Group:       groupSvc,
+			ImEx:        imex.NewService(),
+			Enumeration: openEnumerations(ctx, db),
+			Actuators:   noActuators,
 		}))
 		g = createGroup(ctx, resource.TypeSchematicSymbol)
 		sym = symbol.Symbol{
 			Name: "Before",
-			Data: symbol.Spec{SVG: "<svg/>", Variant: "static", Scale: 1},
+			Data: symbol.Spec{Drawing: svg("<svg/>"), Variant: "static", Scale: 1},
 		}
 		Expect(write(ctx, func(w symbol.Writer) error { return w.Create(ctx, &sym) })).
 			To(Succeed())
@@ -92,11 +94,15 @@ var _ = Describe("Dispatch", func() {
 
 	It("Should store the edited name, data, and group", func(ctx SpecContext) {
 		data := symbol.Spec{
-			SVG:     "<svg></svg>",
-			States:  []symbol.State{},
-			Variant: "actuator",
-			Handles: []symbol.Handle{},
-			Scale:   2,
+			Drawing:      svg("<svg></svg>"),
+			Parts:        []symbol.Part{},
+			Handles:      []symbol.Handle{},
+			States:       []symbol.State{},
+			Commands:     []symbol.Command{},
+			Looks:        []symbol.Look{},
+			Interactions: []symbol.Interaction{},
+			Variant:      "actuator",
+			Scale:        2,
 		}
 		Expect(apply(
 			ctx,
@@ -133,7 +139,12 @@ var _ = Describe("Dispatch", func() {
 	)
 
 	It("Should refuse an edit that sets a zero scale", func(ctx SpecContext) {
-		Expect(apply(ctx, set("data", symbol.Spec{SVG: "<svg/>", Variant: "static"}))).
+		Expect(
+			apply(
+				ctx,
+				set("data", symbol.Spec{Drawing: svg("<svg/>"), Variant: "static"}),
+			),
+		).
 			To(MatchError(ContainSubstring("data.scale: must be positive, got 0")))
 		Expect(retrieve(ctx)).To(Equal(sym))
 	})
@@ -152,7 +163,7 @@ var _ = Describe("Dispatch", func() {
 	It("Should refuse an invalid data", func(ctx SpecContext) {
 		// Generated validators return errors that do not wrap validate.ErrValidation.
 		Expect(apply(ctx, set("data", symbol.Spec{Variant: "static"}))).
-			To(MatchError(ContainSubstring("data.svg: required")))
+			To(MatchError(ContainSubstring("data.drawing.type: required")))
 		Expect(retrieve(ctx)).To(Equal(sym))
 	})
 
@@ -160,7 +171,7 @@ var _ = Describe("Dispatch", func() {
 		rec := record()
 		created := symbol.Symbol{
 			Name: "Created",
-			Data: symbol.Spec{SVG: "<svg/>", Variant: "static", Scale: 1},
+			Data: symbol.Spec{Drawing: svg("<svg/>"), Variant: "static", Scale: 1},
 		}
 		Expect(write(ctx, func(w symbol.Writer) error {
 			return w.Create(ctx, &created)
@@ -210,7 +221,7 @@ var _ = Describe("Dispatch", func() {
 	) {
 		other := symbol.Symbol{
 			Name: "Other",
-			Data: symbol.Spec{SVG: "<svg/>", Variant: "static", Scale: 1},
+			Data: symbol.Spec{Drawing: svg("<svg/>"), Variant: "static", Scale: 1},
 		}
 		Expect(write(ctx, func(w symbol.Writer) error {
 			return w.Create(ctx, &other)

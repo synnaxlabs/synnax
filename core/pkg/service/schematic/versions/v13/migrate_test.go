@@ -21,7 +21,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	symbolv2 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
-	symbolv4 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v4"
+	symbolv5 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v5"
 	v12 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v12"
 	v13 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v13"
 	border "github.com/synnaxlabs/x/border/versions/v0"
@@ -141,9 +141,9 @@ var _ = Describe("Migration", func() {
 			).To(Equal([]colorv2.Band{{Key: "b", Color: *n(6)}}))
 			custom, ok := configOf(got, "custom").(v13.CustomStaticNodeConfig)
 			Expect(ok).To(BeTrue())
-			Expect(custom.StateOverrides).To(Equal([]symbolv4.State{{
+			Expect(custom.StateOverrides).To(Equal([]symbolv5.StateOverride{{
 				Key: "on",
-				Regions: []symbolv4.Region{
+				Regions: []symbolv5.Region{
 					{Key: "r", Selectors: []string{}, FillColor: n(7)},
 				},
 			}}))

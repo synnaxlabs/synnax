@@ -1382,7 +1382,7 @@ export const customActuatorNodeConfigZ = toggleConfigZ.extend({
    * stateOverrides contains per-instance overrides of the spec's visual states, matched
    * to the spec's states by key.
    */
-  stateOverrides: symbol.stateZ.array().default(() => []),
+  stateOverrides: symbol.stateOverrideZ.array().default(() => []),
 });
 export interface CustomActuatorNodeConfig extends z.infer<
   typeof customActuatorNodeConfigZ
@@ -1399,7 +1399,7 @@ export const customStaticNodeConfigZ = labeledConfigZ
      * stateOverrides contains per-instance overrides of the spec's visual states, matched
      * to the spec's states by key.
      */
-    stateOverrides: symbol.stateZ.array().default(() => []),
+    stateOverrides: symbol.stateOverrideZ.array().default(() => []),
   });
 export interface CustomStaticNodeConfig extends z.infer<
   typeof customStaticNodeConfigZ
