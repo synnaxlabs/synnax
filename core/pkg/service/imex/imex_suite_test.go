@@ -29,6 +29,7 @@ var db *gorp.DB
 var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
 	db = DeferClose(gorp.Wrap(memkv.New()))
+	StartRun(db.Run)
 })
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

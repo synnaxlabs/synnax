@@ -126,7 +126,7 @@ class ChannelEntry(BaseModel):
             line times.
     """
 
-    channel: channel_.Key = Field(ge=0, le=4294967295)
+    channel: channel_.Key = Field(gt=0, le=4294967295)
     color: color_.Color | None = None
     notation: notation_.Notation = "standard"
     precision: int | None = Field(default=None, ge=0, le=17)
@@ -173,7 +173,7 @@ class Log(BaseModel):
     """
 
     key: Key = Field(default_factory=uuid4)
-    name: str
+    name: str = Field(min_length=1)
     channels: list[ChannelEntry] = Field(default_factory=list)
     timestamp_precision: int = Field(default=0, ge=0, le=3)
     channel_names_hidden: bool = False

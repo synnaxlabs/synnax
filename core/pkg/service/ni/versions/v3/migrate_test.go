@@ -37,6 +37,7 @@ var _ = Describe("ScanMigration", func() {
 				IgnoredModels: []string{"^cRIO.*", "^nown.*"},
 			}
 			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
 			MustSucceed(gorp.OpenTable(
 				ctx,
 				gorp.TableConfig[uuid.UUID, v2.ScanConfig]{DB: db},
@@ -310,6 +311,7 @@ var _ = Describe("DigitalReadMigration", func() {
 				},
 			}
 			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
 			MustSucceed(gorp.OpenTable(
 				ctx,
 				gorp.TableConfig[uuid.UUID, v2.DigitalReadConfig]{DB: db},
@@ -360,6 +362,7 @@ var _ = Describe("CounterReadMigration", func() {
 			}}},
 		}
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		MustSucceed(gorp.OpenTable(
 			ctx,
 			gorp.TableConfig[uuid.UUID, v2.CounterReadConfig]{DB: db},
@@ -424,6 +427,7 @@ var _ = Describe("AnalogReadMigration", func() {
 			}}},
 		}
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		MustSucceed(gorp.OpenTable(
 			ctx,
 			gorp.TableConfig[uuid.UUID, v2.AnalogReadConfig]{DB: db},
@@ -477,6 +481,7 @@ func runStored[I, O gorp.Entry[uuid.UUID]](
 ) (O, []any) {
 	GinkgoHelper()
 	db := DeferClose(gorp.Wrap(memkv.New()))
+	StartRun(db.Run)
 	MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, I]{DB: db}))
 	Expect(gorp.NewCreate[uuid.UUID, I]().Entry(&old).Exec(ctx, db)).To(Succeed())
 	core, logs := observer.New(zapcore.WarnLevel)

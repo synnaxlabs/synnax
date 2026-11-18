@@ -1620,7 +1620,7 @@ var _ = Describe("Iterator Behavior", func() {
 				It(
 					"Should release its channels when it flows in a canceled context",
 					func(ctx SpecContext) {
-						subDB := mustOpenDBOnFS(ctx, openFS())
+						subDB := openDBOnFS(ctx, openFS())
 						key := GenerateChannelKey()
 						Expect(subDB.CreateChannel(ctx, cesium.Channel{
 							Key:      key,
@@ -1647,7 +1647,7 @@ var _ = Describe("Iterator Behavior", func() {
 				It(
 					"Should exit on cancel when nothing reads its responses",
 					func(ctx SpecContext) {
-						subDB := mustOpenDBOnFS(ctx, openFS())
+						subDB := openDBOnFS(ctx, openFS())
 						key := GenerateChannelKey()
 						Expect(subDB.CreateChannel(ctx, cesium.Channel{
 							Key:      key,
@@ -1686,7 +1686,7 @@ var _ = Describe("Iterator Behavior", func() {
 				DescribeTable(
 					"Should not acknowledge a read whose data it failed to send",
 					func(ctx SpecContext, span telem.TimeSpan) {
-						subDB := mustOpenDBOnFS(ctx, openFS())
+						subDB := openDBOnFS(ctx, openFS())
 						key := GenerateChannelKey()
 						Expect(subDB.CreateChannel(ctx, cesium.Channel{
 							Key:      key,

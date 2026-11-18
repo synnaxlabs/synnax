@@ -183,8 +183,8 @@ public:
     /// in send order. Once the oldest frame is MAX_FRAME_AGE old and
     /// MIN_FRAMES_IN_FLIGHT frames are in flight, or once MAX_FRAMES_IN_FLIGHT frames
     /// are in flight, the master drops it and returns an error in place of
-    /// FRAME_IN_FLIGHT.
-    [[nodiscard]] virtual x::errors::Error receive() = 0;
+    /// FRAME_IN_FLIGHT. The error stays valid until the next receive() or deactivate().
+    [[nodiscard]] virtual const x::errors::Error &receive() = 0;
 
     /// @brief queues output data and sends to the EtherCAT network.
     [[nodiscard]] virtual x::errors::Error send() = 0;

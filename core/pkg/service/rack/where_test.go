@@ -40,6 +40,7 @@ var _ = Describe("Where", Ordered, func() {
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		svc = DeferClose(openStack(ctx, db, rack.ServiceConfig{})).rack
 		for _, r := range v.Records {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
