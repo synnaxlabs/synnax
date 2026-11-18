@@ -119,6 +119,28 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 		)
 	})
 
+	Describe("Receive after the stream ends", func() {
+		It("Should return the same error on every call", func(ctx SpecContext) {
+			router := MustSucceed(fhttp.NewRouter(fhttp.RouterConfig{
+				StreamWriteDeadline: testutil.WriteDeadline,
+			}))
+			ownServer := router.NewStreamServer[testutil.Request, testutil.Response](
+				"/",
+			)
+			ownServer.BindHandler(func(
+				context.Context,
+				freighter.ServerStream[testutil.Request, testutil.Response],
+			) error {
+				return nil
+			})
+			ownApp, ownAddr := serveRouter(router)
+			DeferCleanup(func() { Expect(ownApp.Shutdown()).To(Succeed()) })
+			stream := MustSucceed(client.Stream(ctx, ownAddr))
+			Expect(stream.Receive()).Error().To(MatchError(freighter.EOF))
+			Expect(stream.Receive()).Error().To(MatchError(freighter.EOF))
+		})
+	})
+
 	Describe("Message size limit", func() {
 		It("Should fail a stream whose peer sends a message past the limit", func(
 			ctx SpecContext,
