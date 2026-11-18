@@ -73,7 +73,7 @@ export type TimeSpanStringFormat = "full" | "semantic";
 
 const DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const TIME_OF_DAY_RE = /^(\d{1,2}):(\d{2})(?::(\d{2})(?:\.(\d{1,9}))?)?\s*(am|pm)?$/i;
-const ISO_ZONE_RE = /^\d{4}-\d{2}-\d{2}T.*(Z|[+-]\d{2}:?\d{2})$/;
+const ISO_ZONE_RE = /^\d{4}-\d{2}-\d{2}[T ].*(Z|[+-]\d{2}:?\d{2})$/;
 // toPreciseString separates the fraction's digit groups with spaces.
 const FRACTION_GROUP_GAP_RE = /(?<=\.\d{3}(?: \d{3})?) (?=\d{3})/g;
 const LONG_FRACTION_RE = /\.(\d{4,9})/;
@@ -564,18 +564,20 @@ export class TimeStamp
   /**
    * Parses a date (`2026-08-23`), a date-time with a `T` or a space, a 24-hour or
    * `am`/`pm` time, and a fraction of up to nine digits (`2026-08-23 14:05:00.250
-   * 137`), or an ISO string with a zone. Reads every {@link toPreciseString} back.
-   * @param timeZone - the zone of a string that names none. Ignored for an ISO string
-   * with a zone.
+   * 137`), or a date-time with a zone (`Z`, `+02:00`). Reads every
+   * {@link toPreciseString} back.
+   * @param timeZone - the zone of a string that names none. Ignored for a string with a
+   * zone.
    * @returns the timestamp, or null when the text is not an instant that exists.
    */
   static parse(text: string, timeZone: TimeZone = "UTC"): TimeStamp | null {
     const trimmed = text.trim().replace(FRACTION_GROUP_GAP_RE, "");
     if (ISO_ZONE_RE.test(trimmed)) {
-      // Date reads a fraction to the millisecond only.
+      // Date reads a fraction to the millisecond only, and only a T before the time.
       const fraction = LONG_FRACTION_RE.exec(trimmed)?.[1];
+      const iso = `${trimmed.slice(0, 10)}T${trimmed.slice(11)}`;
       const ms = Date.parse(
-        trimmed.replace(LONG_FRACTION_RE, (_, f: string) => `.${f.slice(0, 3)}`),
+        iso.replace(LONG_FRACTION_RE, (_, f: string) => `.${f.slice(0, 3)}`),
       );
       if (Number.isNaN(ms)) return null;
       const sub = fractionToNanoseconds(fraction) % TimeSpan.MILLISECOND.valueOf();

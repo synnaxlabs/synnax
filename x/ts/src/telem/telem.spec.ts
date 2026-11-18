@@ -1112,6 +1112,13 @@ describe("TimeStamp", () => {
       );
     });
 
+    it("should parse a date-time with a space and a zone", () => {
+      const expected = new TimeStamp(new Date(Date.UTC(2026, 7, 23, 14, 5)));
+      expect(TimeStamp.parse("2026-08-23 14:05:00Z")?.equals(expected)).toBe(true);
+      expect(TimeStamp.parse("2026-08-23 16:05:00+02:00")?.equals(expected)).toBe(true);
+      expect(new TimeStamp("2026-08-23 14:05:00Z").equals(expected)).toBe(true);
+    });
+
     it("should return null for text that is not an instant", () => {
       const invalid = [
         "",
