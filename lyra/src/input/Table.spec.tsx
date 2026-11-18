@@ -9,9 +9,10 @@
 
 import { type xy } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { type ReactElement, useState } from "react";
+import { type ReactElement, type ReactNode, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
+import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { Input } from "@/input";
 import { type Status } from "@/status";
@@ -798,20 +799,36 @@ describe("Input.Table", () => {
       return tr;
     };
 
-    // Holds the value and applies each move, as a form would.
-    const Movable = ({ initial }: { initial: Input.TableCell[][] }): ReactElement => {
+    interface MovableProps {
+      initial: Input.TableCell[][];
+      /** Ignores each move, as a caller that keeps a row in place would. */
+      refused?: boolean;
+      preview?: boolean;
+      renderHaulPreview?: (index: number) => ReactNode;
+    }
+
+    // Holds the value and applies each edit and move, as a form would.
+    const Movable = ({
+      initial,
+      refused = false,
+      ...rest
+    }: MovableProps): ReactElement => {
       const [value, setValue] = useState(initial);
-      const handleMove = (from: number, to: number) =>
+      const handleMove = (from: number, to: number) => {
+        if (refused) return;
         setValue((prev) => {
           const next = [...prev];
           const [row] = next.splice(from, 1);
           next.splice(to, 0, row);
           return next;
         });
+      };
       return (
-        <Input.Table value={value} onChange={setValue} onMove={handleMove}>
-          {COLUMNS}
-        </Input.Table>
+        <Haul.Provider>
+          <Input.Table value={value} onChange={setValue} onMove={handleMove} {...rest}>
+            {COLUMNS}
+          </Input.Table>
+        </Haul.Provider>
       );
     };
 
@@ -896,6 +913,89 @@ describe("Input.Table", () => {
       renderTable({ value: ROWS, onMove: vi.fn(), preview: true });
       expect(screen.queryByRole("button", { name: "Move row 1" })).toBeNull();
       expect(screen.queryByRole("rowheader", { name: "1" })).toBeNull();
+    });
+
+    it("should keep focus in the cell being edited after a refused move", () => {
+      render(<Movable initial={ROWS} refused />);
+      fireEvent.keyDown(handle("1"), { key: "ArrowDown" });
+      const input = cell("Raw", "3");
+      input.focus();
+      paste(input, "4\t40");
+      expect(cell("Scaled", "3").value).toBe("40");
+      expect(document.activeElement).toBe(input);
+    });
+
+    it("should keep a mark on its row after a refused move", () => {
+      render(<Movable initial={ROWS} refused />);
+      paste(cell("Raw", "1"), "x\t11");
+      fireEvent.keyDown(handle("1"), { key: "ArrowDown" });
+      commit(cell("Scaled", "3"), "31");
+      expect(marked(cell("Raw", "1"))).toBe(true);
+      expect(marked(cell("Raw", "2"))).toBe(false);
+    });
+
+    it("should move a mark with its row on a drop", () => {
+      render(<Movable initial={ROWS} />);
+      paste(cell("Raw", "1"), "x\t11");
+      fireEvent.dragStart(handle("1"));
+      fireEvent.drop(rowOf("3"));
+      expect(marked(cell("Raw", "3"))).toBe(true);
+      expect(marked(cell("Raw", "1"))).toBe(false);
+    });
+
+    it("should draw the drop line on the side the row lands on", () => {
+      renderDraggable(vi.fn());
+      fireEvent.dragStart(handle("1"));
+      fireEvent.dragOver(rowOf("3"));
+      expect(rowOf("3").classList).toContain(CSS.BEM("input", "table-row", "below"));
+      fireEvent.dragLeave(rowOf("3"));
+      expect(rowOf("3").classList).not.toContain(
+        CSS.BEM("input", "table-row", "below"),
+      );
+      fireEvent.dragEnd(handle("1"));
+      fireEvent.dragStart(handle("3"));
+      fireEvent.dragOver(rowOf("1"));
+      expect(rowOf("1").classList).toContain(CSS.BEM("input", "table-row", "above"));
+      fireEvent.drop(rowOf("1"));
+      expect(rowOf("1").classList).not.toContain(
+        CSS.BEM("input", "table-row", "above"),
+      );
+    });
+
+    it("should picture a dragged row with its name by default", () => {
+      renderDraggable(vi.fn());
+      fireEvent.dragStart(handle("2"));
+      expect(screen.getByText("Row 2")).toBeTruthy();
+    });
+
+    it("should picture a dragged row with the caller's preview", () => {
+      render(
+        <Movable initial={ROWS} renderHaulPreview={(i) => <span>Pump {i}</span>} />,
+      );
+      fireEvent.dragStart(handle("2"));
+      expect(screen.getByText("Pump 1")).toBeTruthy();
+    });
+
+    it("should take no drop in preview", () => {
+      const onMove = vi.fn();
+      const { rerender } = render(
+        <Haul.Provider>
+          <Input.Table value={ROWS} onChange={vi.fn()} onMove={onMove}>
+            {COLUMNS}
+          </Input.Table>
+        </Haul.Provider>,
+      );
+      fireEvent.dragStart(handle("1"));
+      const target = rowOf("3");
+      rerender(
+        <Haul.Provider>
+          <Input.Table value={ROWS} onChange={vi.fn()} onMove={onMove} preview>
+            {COLUMNS}
+          </Input.Table>
+        </Haul.Provider>,
+      );
+      fireEvent.drop(target);
+      expect(onMove).not.toHaveBeenCalled();
     });
   });
 });

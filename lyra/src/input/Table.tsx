@@ -9,7 +9,7 @@
 
 import "@/input/Table.css";
 
-import { caseconv, csv, type dimensions, grid, xy } from "@synnaxlabs/x";
+import { caseconv, csv, deep, type dimensions, grid, xy } from "@synnaxlabs/x";
 import {
   type ClipboardEvent,
   type ComponentPropsWithRef,
@@ -284,6 +284,17 @@ interface Initial {
   text: string;
 }
 
+/** A move the table sent to its caller, with the row that moves. */
+interface PendingMove {
+  from: number;
+  to: number;
+  row: TableCell[] | undefined;
+  /** The table's value when the move went out. */
+  value: TableCell[][];
+  /** Whether the moved row's handle takes focus, as after a keyboard move. */
+  focus: boolean;
+}
+
 /** Pasted text that a cell could not read. */
 interface Rejection {
   at: xy.XY;
@@ -329,14 +340,29 @@ export const Table = ({
   const restored = useRef(false);
   // The row that takes focus once an add or a remove renders.
   const pendingFocus = useRef<number | null>(null);
-  // The row whose handle takes focus once a keyboard move renders.
-  const pendingHandle = useRef<number | null>(null);
   const haulType = `${CSS.BE("input", "table-row")}-${useId()}`;
   const table = useRef<HTMLTableElement>(null);
+  const [pendingMove, setPendingMove] = useState<PendingMove | null>(null);
+  // A new object for each keyboard move that lands, so a row can take focus again.
+  const [movedHandle, setMovedHandle] = useState<{ y: number } | null>(null);
   const [rejections, setRejections] = useState<Rejection[]>([]);
+  // The caller can refuse a move, so the marks move only when the next value shows it.
+  let current = rejections;
+  if (pendingMove != null && pendingMove.value !== value) {
+    const { from, to, row, focus } = pendingMove;
+    setPendingMove(null);
+    if (deep.equal(value[to], row)) {
+      current = rejections.map((mark) => ({
+        ...mark,
+        at: { x: mark.at.x, y: movedIndex(mark.at.y, from, to) },
+      }));
+      if (focus) setMovedHandle({ y: to });
+    }
+  }
   // A cell that the caller gives another value drops its mark for good.
-  const marks = rejections.filter(({ at, kept }) => value[at.y]?.[at.x] === kept);
-  if (marks.length !== rejections.length) setRejections(marks);
+  const marks = current.filter(({ at, kept }) => value[at.y]?.[at.x] === kept);
+  if (current !== rejections || marks.length !== rejections.length)
+    setRejections(marks);
   const columns = reactElementToArray<TableColumnProps>(children).map(
     ({ props }) => props,
   );
@@ -434,32 +460,24 @@ export const Table = ({
     else onChange(value.filter((_, i) => i !== index));
   };
 
-  const handleMove = (from: number, to: number) => {
-    setRejections(
-      marks.map((mark) => ({
-        ...mark,
-        at: { x: mark.at.x, y: movedIndex(mark.at.y, from, to) },
-      })),
-    );
+  const handleMove = (from: number, to: number, focus = false) => {
+    setPendingMove({ from, to, row: value[from], value, focus });
     onMove?.(from, to);
   };
 
   useEffect(() => {
-    if (pendingHandle.current == null) return;
-    const y = pendingHandle.current;
-    pendingHandle.current = null;
-    table.current?.tBodies[0]?.rows[y]
+    if (movedHandle == null) return;
+    table.current?.tBodies[0]?.rows[movedHandle.y]
       ?.querySelector<HTMLElement>(`.${HANDLE_CLASS}`)
       ?.focus();
-  }, [value]);
+  }, [movedHandle]);
 
   const handleHandleKeyDown = (e: KeyboardEvent, index: number) => {
     const step = e.key === "ArrowUp" ? -1 : e.key === "ArrowDown" ? 1 : 0;
     const to = index + step;
     if (step === 0 || to < 0 || to >= value.length) return;
     e.preventDefault();
-    pendingHandle.current = to;
-    handleMove(index, to);
+    handleMove(index, to, true);
   };
 
   const haulPreview = (index: number): ReactNode =>
@@ -565,6 +583,7 @@ export const Table = ({
                       draggable
                       className={HANDLE_CLASS}
                       aria-label={`Move ${resourceName} ${rowName(i)}`}
+                      tooltip={`Move ${resourceName} ${rowName(i)}`}
                       onKeyDown={(e) => handleHandleKeyDown(e, i)}
                     >
                       <Icon.Drag />
