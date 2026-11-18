@@ -460,6 +460,7 @@ describe("Certificate.Field", () => {
     expect(onChange).not.toHaveBeenCalled();
     await findDialogTriggerByText(c.name);
   });
+
   it("offers no file to a field with no rack", async () => {
     await renderField();
     await openCreate();

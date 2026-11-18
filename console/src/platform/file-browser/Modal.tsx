@@ -123,7 +123,6 @@ const Content = ({
   const entries: KeyedEntry[] =
     listing?.entries.map((e) => ({ ...e, key: e.path })) ?? [];
   const { data, getItem } = List.useStaticData<string, KeyedEntry>({ data: entries });
-  const pick = (entry: Entry) => close(entry);
   const handleChange = (key: string | null) => {
     if (key == null) return setPicked(null);
     const entry = getItem(key);
@@ -176,7 +175,7 @@ const Content = ({
               <List.Scroll>
                 <List.Items<string>>
                   {({ key, ...p }) => (
-                    <EntryItem key={key} {...p} now={now} onPick={pick} />
+                    <EntryItem key={key} {...p} now={now} onPick={close} />
                   )}
                 </List.Items>
               </List.Scroll>
@@ -202,7 +201,7 @@ const Content = ({
             variant="filled"
             disabled={pickedEntry == null}
             onClick={() => {
-              if (pickedEntry != null) pick(pickedEntry);
+              if (pickedEntry != null) close(pickedEntry);
             }}
           >
             Select

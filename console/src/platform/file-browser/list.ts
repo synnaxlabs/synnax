@@ -17,10 +17,8 @@ import {
 } from "@synnaxlabs/client";
 import { z } from "zod";
 
-/** The type of the task on each rack that lists its files. */
 const TASK_TYPE = "file_browser";
 
-/** The command that lists a folder. */
 const LIST_COMMAND_TYPE = "list";
 
 const LIST_TIMEOUT = TimeSpan.seconds(10);
@@ -33,7 +31,7 @@ const entryZ = z.object({
   /** Unset for an entry at the top or in the secrets folder. */
   size: z.number().optional(),
   modified: TimeStamp.z.optional(),
-  /** The details of a certificate file. */
+  /** Set only for a certificate file. */
   certificate: certificate.detailsZ.optional(),
 });
 

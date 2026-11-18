@@ -25,7 +25,7 @@ const describe = (s: secret.Secret): Picker.Description => ({
 
 const STORED: secret.Where = { source: { eq: "stored" } };
 
-// The device cannot read a file secret of another rack, so the list leaves it out.
+// The device cannot read a file secret of another rack.
 const whereOnRack = (rack: rack.Key): secret.Where =>
   primitive.isZero(rack) ? STORED : { or: [STORED, { racks: [rack] }] };
 

@@ -250,6 +250,7 @@ describe("Secret.Field", () => {
     expect(onChange).not.toHaveBeenCalled();
     await findDialogTriggerByText(s.name);
   });
+
   it("offers no file to a field with no rack", async () => {
     await renderField();
     await openCreate("Select a secret");
