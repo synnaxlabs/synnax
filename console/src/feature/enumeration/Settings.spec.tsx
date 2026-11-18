@@ -378,7 +378,14 @@ describe("Enumeration.Settings", () => {
     const e = await createEnumeration();
     await renderEnumerations();
     await openContextMenu(e.name);
-    await clickAndSettle("Delete");
+    const item = await screen.findByText("Delete");
+    // A synchronous act renders the dialog before the Core can say what uses it.
+    act(() => {
+      fireEvent.click(item);
+    });
+    expect(screen.getByText(/This action cannot be undone/)).toBeTruthy();
+    expect(screen.queryByText(/Nothing uses it/)).toBeNull();
+    expect(await screen.findByText(/Nothing uses it/)).toBeTruthy();
     await clickWhenEnabled("Delete");
     await expect
       .poll(async () => {

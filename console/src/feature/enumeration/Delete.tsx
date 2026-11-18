@@ -14,6 +14,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers as PTriggers } from "@synnaxlabs/lyra/triggers";
 import { Enumeration, Resource } from "@synnaxlabs/pluto";
@@ -80,9 +81,14 @@ const Delete = ({
         <Text.Text level="h3" weight={450}>
           Are you sure you want to delete {e.name}?
         </Text.Text>
-        <Text.Text weight={450}>
-          {inUse ? IN_USE : NOT_IN_USE} This action cannot be undone.
-        </Text.Text>
+        {dependents.variant === "error" ? (
+          <Status.Summary level="small" status={dependents.status} />
+        ) : (
+          <Text.Text weight={450}>
+            {dependents.variant === "success" && (inUse ? IN_USE : NOT_IN_USE)} This
+            action cannot be undone.
+          </Text.Text>
+        )}
         {inUse && (
           <Suspense>
             <Users ids={users} />
