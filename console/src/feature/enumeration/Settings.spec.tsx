@@ -222,10 +222,11 @@ describe("Enumeration.Settings", () => {
   it("should add an entry with the value typed into the add form", async () => {
     const e = await createEnumeration();
     await renderEnumerations();
+    const add = await screen.findByRole("button", {
+      name: `Add an entry to ${e.name}`,
+    });
     await act(async () => {
-      fireEvent.click(
-        await screen.findByRole("button", { name: `Add an entry to ${e.name}` }),
-      );
+      fireEvent.click(add);
     });
     const value = await screen.findByLabelText("Entry value");
     fireEvent.change(value, { target: { value: "9" } });
