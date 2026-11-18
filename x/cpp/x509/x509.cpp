@@ -38,6 +38,15 @@ namespace x::x509 {
 namespace {
 constexpr std::string_view PEM_HEADER = "-----BEGIN CERTIFICATE-----";
 constexpr std::string_view PEM_FOOTER = "-----END CERTIFICATE-----";
+
+/// @returns true if data starts as a DER certificate: a SEQUENCE tag, then a long-form
+/// length. Text cannot start this way, since 0x81 to 0x84 never follow an ASCII byte in
+/// UTF-8.
+bool is_der(const std::string_view data) {
+    if (data.size() < 2 || static_cast<unsigned char>(data[0]) != 0x30) return false;
+    const auto length = static_cast<unsigned char>(data[1]);
+    return length >= 0x81 && length <= 0x84;
+}
 // A URI in the subject alternative name uses tag [6].
 constexpr int SAN_URI_TAG = MBEDTLS_ASN1_CONTEXT_SPECIFIC | 6;
 
@@ -311,6 +320,7 @@ std::optional<std::string> format_name(const mbedtls_x509_buf &raw) {
 
 std::vector<std::string_view> Certificate::pem_blocks(const std::string_view data) {
     std::vector<std::string_view> blocks;
+    if (is_der(data)) return blocks;
     for (auto start = data.find(PEM_HEADER); start != std::string_view::npos;
          start = data.find(PEM_HEADER, start)) {
         const auto footer = data.find(PEM_FOOTER, start);
@@ -323,7 +333,7 @@ std::vector<std::string_view> Certificate::pem_blocks(const std::string_view dat
 }
 
 bool Certificate::is_pem(const std::string_view data) {
-    return data.contains(PEM_HEADER);
+    return !is_der(data) && data.contains(PEM_HEADER);
 }
 
 std::pair<Certificate, errors::Error> Certificate::parse(const std::string_view data) {

@@ -12,6 +12,15 @@
 #include <string>
 
 namespace x::x509::testutil {
+/// @returns a self-signed DER certificate of key, with uri in its alternative name,
+/// that holds pem as the value of a non-critical extension, as a forged certificate
+/// would. The usages fit an OPC UA application.
+[[nodiscard]] std::string create_der_holding(
+    const std::string &key,
+    const std::string &uri,
+    const std::string &pem
+);
+
 /// @brief a self-signed P-256 certificate for "CN=Test Client,O=Synnax", valid from
 /// 2026-01-01 to 2125-12-31, with a URI and a DNS name in its alternative name.
 const std::string CERTIFICATE = R"(-----BEGIN CERTIFICATE-----
