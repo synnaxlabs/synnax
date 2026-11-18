@@ -34,6 +34,8 @@ type Config struct {
 	DB *gorp.DB
 	// Rack is the rack service for creating/managing racks.
 	Rack *rack.Service
+	// RackKey is the key of the Core's rack, which runs the tasks of the driver.
+	RackKey rack.Key
 	// Task is the task service for managing tasks.
 	Task *task.Service
 	// Framer is the framer service for streaming commands.
@@ -61,6 +63,7 @@ func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Rack = override.Nil(c.Rack, other.Rack)
+	c.RackKey = override.Numeric(c.RackKey, other.RackKey)
 	c.Task = override.Nil(c.Task, other.Task)
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Channel = override.Nil(c.Channel, other.Channel)
@@ -77,6 +80,7 @@ func (c Config) Validate() error {
 	v := validate.New("service.driver")
 	v.NotNil("db", c.DB)
 	v.NotNil("rack", c.Rack)
+	v.NonZero("rack_key", c.RackKey)
 	v.NotNil("task", c.Task)
 	v.NotNil("framer", c.Framer)
 	v.NotNil("channel", c.Channel)

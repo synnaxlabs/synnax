@@ -226,7 +226,7 @@ var _ = Describe("Factory", func() {
 			testConnection := func(ctx context.Context, conn sift.Properties) task.Status {
 				GinkgoHelper()
 				return exec(ctx, "test_connection", map[string]any{
-					"grant": grantConnectionTest(ctx, t.Key, conn),
+					"grant": grantConnectionTest(ctx, t.Key, conn, conn.APIKey),
 				})
 			}
 
@@ -246,25 +246,42 @@ var _ = Describe("Factory", func() {
 					stored := sift.Properties{URI: server.Address(), APIKey: key}
 					stat := exec(ctx, "test_connection", map[string]any{
 						"connection": sift.Properties{URI: "127.0.0.1:1", APIKey: key},
-						"grant":      grantConnectionTest(ctx, t.Key, stored),
+						"grant":      grantConnectionTest(ctx, t.Key, stored, key),
 					})
 					Expect(stat.Variant).To(Equal(status.VariantSuccess))
 				},
 			)
 
 			It("Should fail for a grant to another task", func(ctx SpecContext) {
-				other := uuid.New()
+				key := createAPIKey(ctx, fakeKey)
+				conn := sift.Properties{URI: server.Address(), APIKey: key}
 				stat := exec(ctx, "test_connection", map[string]any{
-					"grant": grantConnectionTest(ctx, other, sift.Properties{
-						URI:    server.Address(),
-						APIKey: createAPIKey(ctx, fakeKey),
-					}),
+					"grant": grantConnectionTest(ctx, uuid.New(), conn, key),
 				})
 				Expect(stat.Variant).To(Equal(status.VariantError))
 				Expect(stat.Message).To(ContainSubstring(
 					"grant is not for task " + t.Key.String(),
 				))
 			})
+
+			It("Should fail for an API key that the grant does not hold",
+				func(ctx SpecContext) {
+					key := createAPIKey(ctx, fakeKey)
+					conn := sift.Properties{URI: server.Address(), APIKey: key}
+					stat := exec(ctx, "test_connection", map[string]any{
+						"grant": grantConnectionTest(
+							ctx,
+							t.Key,
+							conn,
+							createAPIKey(ctx, fakeKey),
+						),
+					})
+					Expect(stat.Variant).To(Equal(status.VariantError))
+					Expect(stat.Message).To(Equal(
+						"grant does not hold API key " + key.String() + ": access denied: " +
+							"auth error",
+					))
+				})
 
 			It("Should fail for an API key that Sift rejects", func(ctx SpecContext) {
 				stat := testConnection(ctx, sift.Properties{

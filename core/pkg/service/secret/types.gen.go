@@ -12,6 +12,7 @@
 package secret
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/secret/versions"
 	"github.com/synnaxlabs/x/filter"
 )
@@ -56,4 +57,8 @@ type Where struct {
 	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
 	// Name selects by name.
 	Name *filter.String `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Source selects by source.
+	Source *filter.Set[Source] `json:"source,omitzero" msgpack:"source,omitempty"`
+	// Racks matches the file secrets on any of the given racks.
+	Racks []rack.Key `json:"racks,omitzero" msgpack:"racks,omitempty"`
 }

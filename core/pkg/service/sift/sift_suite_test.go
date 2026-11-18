@@ -161,11 +161,12 @@ func createAPIKey(ctx context.Context, value string) secret.Key {
 }
 
 // grantConnectionTest lets the embedded rack test conn once on the task with taskKey,
-// reading the API key of conn.
+// reading the secrets with keys.
 func grantConnectionTest(
 	ctx context.Context,
 	taskKey task.Key,
 	conn sift.Properties,
+	keys ...secret.Key,
 ) grant.Key {
 	GinkgoHelper()
 	cmd := task.Command{
@@ -181,7 +182,7 @@ func grantConnectionTest(
 			tx,
 			rackSvc.EmbeddedKey.ResourceID(),
 			cmd,
-			conn.APIKey,
+			keys...,
 		)
 		return err
 	})).To(Succeed())
