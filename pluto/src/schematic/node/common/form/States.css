@@ -10,15 +10,8 @@
  */
 
 /* The picker spans the custom options under it, and is never narrower than a select. */
-.pluto-states .lyra-dialog__frame:has(> .lyra-dialog__trigger) {
+.pluto-states__enumeration {
     --pluto-control-width: 100%;
 
     min-width: 48rem;
-}
-
-/* An empty list holds only its add button, so the label centers on the button. */
-.pluto-states
-    .lyra-input__item:has(.pluto-state-mapping-list):not(:has(.lyra-list__item))
-    > .lyra-input-label {
-    height: var(--pluto-height-small);
 }

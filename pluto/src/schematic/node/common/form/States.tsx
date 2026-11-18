@@ -41,9 +41,14 @@ export const States = ({
   };
   return (
     <Form.Sections x>
-      <Form.Section title="Options" className={CSS.B("states")}>
+      <Form.Section className={CSS.B("states")}>
         <Input.Item label="Enumeration" padHelpText={false}>
-          <Enumeration.SelectSingle value={key} onChange={handleChange} allowNone />
+          <Enumeration.SelectSingle
+            value={key}
+            onChange={handleChange}
+            allowNone
+            className={CSS.BE("states", "enumeration")}
+          />
         </Input.Item>
         {key == null && (
           <Input.Item label="Custom options" padHelpText={false}>

@@ -53,6 +53,7 @@ const StateMappingListItem = ({
       align="center"
       gap="small"
       preventClick
+      className={CSS.BE("state-mapping-list", "item")}
     >
       <Form.TextField
         showLabel={false}
@@ -104,26 +105,37 @@ export const StateMappingForm = ({
   );
 
   return (
-    <Flex.Box y empty align="stretch" className={CSS.B("state-mapping-list")}>
-      <List.Frame data={data}>
-        <List.Scroll grow>
-          <List.Items<string>>
-            {({ itemKey, index }) => {
-              if (index >= options.length) return null;
-              return (
-                <StateMappingListItem
-                  itemKey={itemKey}
-                  index={index}
-                  path={path}
-                  showColor={showColor}
-                  duplicateValue={duplicateValues.has(options[index].value)}
-                  onRemove={remove}
-                />
-              );
-            }}
-          </List.Items>
-        </List.Scroll>
-      </List.Frame>
+    <Flex.Box
+      y
+      empty
+      align="stretch"
+      justify={options.length === 0 ? "center" : undefined}
+      className={CSS.cls(
+        CSS.B("state-mapping-list"),
+        options.length === 0 && CSS.BM("state-mapping-list", "empty"),
+      )}
+    >
+      {options.length > 0 && (
+        <List.Frame data={data}>
+          <List.Scroll grow className={CSS.BE("state-mapping-list", "scroll")}>
+            <List.Items<string>>
+              {({ itemKey, index }) => {
+                if (index >= options.length) return null;
+                return (
+                  <StateMappingListItem
+                    itemKey={itemKey}
+                    index={index}
+                    path={path}
+                    showColor={showColor}
+                    duplicateValue={duplicateValues.has(options[index].value)}
+                    onRemove={remove}
+                  />
+                );
+              }}
+            </List.Items>
+          </List.Scroll>
+        </List.Frame>
+      )}
       <Button.Button
         onClick={handleAddOption}
         variant="text"
