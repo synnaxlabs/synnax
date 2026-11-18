@@ -2,10 +2,11 @@
 name: pr-status
 description:
   Report where the session's PRs stand as one short board. Use when the user invokes
-  /pr-status, asks for the status of the PRs, asks what is blocking them, or asks if a
-  stack is backmerged. Gives each PR's link, a one-sentence description, CI, Sedosaur
-  and human review, and merge conflicts, in categories, with stack order and backmerge
-  health.
+  /pr-status, asks for the status of the PRs, asks what is blocking them, asks which are
+  queued, merged, or drafts, or asks if a stack is backmerged. Gives each PR's link,
+  state (open, draft, auto-merge, queued, merged, or closed), a one-sentence
+  description, CI, Sedosaur and human review, and merge conflicts, in categories, with
+  stack order and backmerge health.
 ---
 
 # PR status
