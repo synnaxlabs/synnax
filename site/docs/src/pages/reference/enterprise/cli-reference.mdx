@@ -224,16 +224,18 @@ a service, because a service has no standard input.
 
 <Field.Item name="--disable-integrations" type="list" env="SYNNAX_DISABLE_INTEGRATIONS">
 
-The device integrations to disable. All integrations are enabled by default. The options
-are `arc`, `ethercat`, `http`, `labjack`, `modbus`, `ni`, and `opc`.
+The integrations to disable on the Core and its embedded Driver. All integrations are
+enabled by default. The embedded Driver runs `arc`, `ethercat`, `http`, `labjack`,
+`modbus`, `ni`, and `opc`. The Core runs `arc`, `file`, `kafka`, `mqtt`, `pagerduty`,
+and `sift`. A name such as `arc` that both run turns off both.
 
 </Field.Item>
 
 <Field.Item name="--enable-integrations" type="list" env="SYNNAX_ENABLE_INTEGRATIONS">
 
-The device integrations to enable, when you want only some of them. All integrations are
-enabled by default. The options are `arc`, `ethercat`, `http`, `labjack`, `modbus`,
-`ni`, and `opc`.
+The integrations of the embedded Driver to enable, when you want only some of them. All
+integrations are enabled by default. The options are `arc`, `ethercat`, `http`,
+`labjack`, `modbus`, `ni`, and `opc`.
 
 </Field.Item>
 

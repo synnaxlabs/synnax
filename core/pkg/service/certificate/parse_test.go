@@ -45,16 +45,32 @@ var _ = Describe("ParseDetails", func() {
 		Expect(MustSucceed(certificate.ParseDetails(data)).Subject).To(Equal("CN=Leaf"))
 	})
 
-	It("Should read PEM only when it starts with a certificate", func() {
+	It("Should read a certificate after a block of another type", func() {
 		data := append(encodeKey(newKey()), leaf...)
-		Expect(certificate.ParseDetails(data)).Error().
-			To(MatchError("x509: malformed certificate"))
+		Expect(MustSucceed(certificate.ParseDetails(data)).Subject).To(Equal("CN=Leaf"))
 	})
 
-	It("Should fail for a certificate block that does not decode", func() {
-		data := []byte("-----BEGIN CERTIFICATE-----\nnot base64")
+	It("Should read a certificate after text", func() {
+		data := "Bag Attributes\n    localKeyID: 01\nsubject=CN=Leaf\n" + leaf
+		Expect(
+			MustSucceed(certificate.ParseDetails([]byte(data))).Subject,
+		).To(Equal("CN=Leaf"))
+	})
+
+	It("Should read a certificate after a byte order mark", func() {
+		data := "\uFEFF" + leaf
+		Expect(
+			MustSucceed(certificate.ParseDetails([]byte(data))).Subject,
+		).To(Equal("CN=Leaf"))
+	})
+
+	It("Should fail for a certificate block that does not parse", func() {
+		data := append(
+			[]byte(leaf),
+			pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: []byte("x")})...,
+		)
 		Expect(certificate.ParseDetails(data)).Error().
-			To(MatchError("holds no certificate"))
+			To(MatchError("x509: malformed certificate"))
 	})
 
 	It("Should fail for data that holds no certificate", func() {
