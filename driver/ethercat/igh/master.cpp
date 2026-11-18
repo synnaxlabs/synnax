@@ -921,12 +921,13 @@ master::Activation Master::activate(
     // The IgH master moves the slaves to OP on its own while the caller cycles.
     start_cycle(image);
     if (!unidentified.empty()) return refuse_unidentified();
-    return this->wait_for_op(plan.cancel);
+    return this->wait_for_op(plan);
 }
 
-master::Activation Master::wait_for_op(const x::breaker::Breaker *cancel) {
+master::Activation Master::wait_for_op(const master::Plan &plan) {
     auto deadline = this->cfg.clock.steady() + this->cfg.op_timeout.chrono();
-    size_t waiting = this->slave_configs.size();
+    const size_t total = this->slave_configs.size();
+    size_t waiting = total;
     std::optional<std::chrono::steady_clock::time_point> reset_at;
     while (true) {
         std::vector<uint16_t> pending;
@@ -937,7 +938,7 @@ master::Activation Master::wait_for_op(const x::breaker::Breaker *cancel) {
                 pending.push_back(pos);
         }
         if (pending.empty()) return {};
-        if (cancel != nullptr && !cancel->running())
+        if (plan.cancel != nullptr && !plan.cancel->running())
             return {
                 .err = x::errors::Error(
                     x::errors::CANCELLED,
@@ -948,6 +949,7 @@ master::Activation Master::wait_for_op(const x::breaker::Breaker *cancel) {
         if (pending.size() < waiting) {
             waiting = pending.size();
             deadline = now + this->cfg.op_timeout.chrono();
+            if (plan.progress) plan.progress(total - waiting, total);
         }
         if (now >= deadline) return this->op_error(pending, true);
         if (this->refusing(pending)) {

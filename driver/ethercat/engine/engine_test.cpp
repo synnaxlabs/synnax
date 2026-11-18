@@ -3235,6 +3235,29 @@ TEST_F(EngineTest, RetryStepOfAnErrorWithNoTextGivesOnlyTheWait) {
     );
 }
 
+/// @brief it should report each slave that reaches OP as a step of the start, so the
+/// step limit counts from the latest slave.
+TEST_F(EngineTest, StartReportsEachSlaveThatReachesOP) {
+    this->master->add_slave(io_slave(1));
+    this->master->report_op_progress();
+    StepLog log;
+    ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel, log.report())
+    ));
+    const auto steps = log.snapshot();
+    ASSERT_EQ(steps.size(), 3);
+    EXPECT_EQ(steps[0].description, "Bringing 2 modules to OP.");
+    for (size_t i = 1; i < steps.size(); ++i) {
+        EXPECT_EQ(steps[i].message, "Starting eth0");
+        EXPECT_EQ(steps[i].limit, x::telem::SECOND * 30);
+    }
+    EXPECT_EQ(steps[1].description, "1 of 2 modules in OP.");
+    EXPECT_EQ(steps[2].description, "2 of 2 modules in OP.");
+}
+
 /// @brief it should report the wait of a start behind the start of another task.
 TEST_F(EngineTest, StartBehindAnotherStartReportsTheWait) {
     this->master->hold_activate();

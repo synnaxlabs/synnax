@@ -142,6 +142,8 @@ class Master final : public master::Master {
     std::function<void()> scan_hook;
     x::loop::HostClock clock;
     x::telem::TimeSpan activate_duration{0};
+    /// @brief whether activate() reports each slave that reaches OP to its plan.
+    bool op_progress{false};
     /// @brief how many more frames record_dc() asked for.
     size_t frames_to_record{0};
     std::vector<x::telem::TimeStamp> recorded;
@@ -307,6 +309,12 @@ public:
     written() const {
         std::lock_guard lock(this->mu);
         return this->writes;
+    }
+
+    /// @brief makes activate() report each slave that reaches OP, one at a time.
+    void report_op_progress() {
+        std::lock_guard lock(this->mu);
+        this->op_progress = true;
     }
 
     /// @brief makes each call to activate() take span on the clock of the master.
@@ -727,6 +735,11 @@ public:
                                    ? slave::State::SAFE_OP
                                    : slave::State::OP;
         }
+        const auto total = this->op_progress ? this->slave_list.size() : 0;
+        lock.unlock();
+        if (plan.progress)
+            for (size_t operational = 1; operational <= total; ++operational)
+                plan.progress(operational, total);
         return {};
     }
 

@@ -752,6 +752,20 @@ x::errors::Error Engine::start_locked(
     master::Plan plan{
         .period = x::telem::Rate(static_cast<double>(mhz) / 1000).period(),
         .cancel = &start.cancel,
+        .progress = [this, &start](const size_t operational, const size_t total) {
+            report(
+                start,
+                {
+                    .message = "Starting " + this->network_name,
+                    .description = std::format(
+                        "{} of {} modules in OP.",
+                        operational,
+                        total
+                    ),
+                    .limit = ACTIVATE_STEP_LIMIT,
+                }
+            );
+        },
     };
     this->left_out.clear();
     // The activation brings a restarted slave up, so changed() misses it afterwards.
