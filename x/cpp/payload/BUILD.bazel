@@ -16,12 +16,16 @@ cc_library(
     hdrs = [
         "json.gen.h",
         "number.h",
+        "proto.gen.h",
         "types.gen.h",
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//x/cpp/errors",
         "//x/cpp/json",
+        "//x/cpp/pb",
         "//x/cpp/telem",
+        "//x/go/payload:payload_grpc",
     ],
 )
 
