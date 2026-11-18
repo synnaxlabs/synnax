@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { http, type Synnax, type task } from "@synnaxlabs/client";
+import { channel, http, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { DataType } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -140,6 +140,26 @@ describe("Read", () => {
     await waitFor(() =>
       expect(within(screen.getByRole("tree")).getAllByText("/a")).toHaveLength(2),
     );
+  });
+
+  it("should preview a numbered name for the new channel of a field whose name is taken", async () => {
+    const dev = await createHTTPDevice(client);
+    const name = channel.escapeInvalidName(`${dev.name}/data/value`);
+    await client.channels.create({ name, dataType: DataType.FLOAT64, virtual: true });
+    const draft = await createDraft(
+      client,
+      createReadConfig(dev.key, [
+        {
+          ...http.readEndpointZ.parse({}),
+          key: "ep1",
+          path: "/data",
+          fields: [createReadField("f1", "/value")],
+        },
+      ]),
+    );
+    await renderRead({ client, taskKey: draft.key });
+    fireEvent.click(await screen.findByRole("treeitem", { name: /\/value/ }));
+    await screen.findByPlaceholderText(`${name}_2`);
   });
 
   describe("folding an endpoint from its caret", () => {

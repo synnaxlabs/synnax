@@ -65,10 +65,31 @@ const isTimingField = (f: ReadField): boolean => f.timeFormat != null;
 const defaultChannelName = (devName: string, epPath: string, pointer: string): string =>
   channel.escapeInvalidName(devName) + channel.escapeInvalidName(epPath + pointer);
 
-const useDefaultChannelName = (endpoint: deep.Path<ReadEndpoint>, pointer: string) => {
-  const epPath = PForm.useFieldValue(endpoint.path);
+/** @returns how deploying names and indexes the channels of an endpoint. */
+const endpointChannels = (deviceName: string, ep: ReadEndpoint) => ({
+  fields: ep.fields,
+  namePrefix: `${channel.escapeInvalidName(deviceName)}${channel.escapeInvalidName(ep.path)}`,
+  indexKey: ep.index,
+  indexed: (f: ReadField) => !isTimingField(f) && !new DataType(f.dataType).isVariable,
+});
+
+/** @returns the name that deploying gives a new channel of a field. */
+const useDefaultChannelName = (endpoint: deep.Path<ReadEndpoint>, field: ReadField) => {
+  const ep = PForm.useFieldValue(endpoint);
   const dev = useFromConfig();
-  return dev == null ? "" : defaultChannelName(dev.name, epPath, pointer);
+  const props = dev?.properties.read[ep.path];
+  const plan = Task.useChannelPlan({ ep, name: dev?.name, props }, async (client) =>
+    dev == null
+      ? undefined
+      : await Task.planReadChannels({
+          client,
+          props,
+          ...endpointChannels(dev.name, ep),
+        }),
+  );
+  const planned = plan == null ? undefined : Task.newChannelName(plan, field.key);
+  if (planned != null) return planned;
+  return dev == null ? "" : defaultChannelName(dev.name, ep.path, field.pointer);
 };
 
 const POINTER_INPUT_PROPS = { placeholder: "/temperature" } as const;
@@ -260,15 +281,9 @@ interface FieldPaneProps {
 }
 
 const FieldPane: FC<FieldPaneProps> = ({ endpoint, path }) => {
-  const {
-    channel: fieldChannel,
-    pointer,
-    disabled,
-    optional,
-    fillValue,
-    dataType,
-  } = PForm.useFieldValue(path);
-  const defaultName = useDefaultChannelName(endpoint, pointer);
+  const field = PForm.useFieldValue(path);
+  const { channel: fieldChannel, disabled, optional, fillValue, dataType } = field;
+  const defaultName = useDefaultChannelName(endpoint, field);
   return (
     <Flex.Box y grow empty className={CSS.B("endpoint-details")}>
       <PForm.Sections className={CSS.cls(CSS.B("endpoint-form"), CSS.B("field-form"))}>
@@ -387,17 +402,13 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
     key: config.device,
     schemas: SCHEMAS,
   });
-  const safeDevName = channel.escapeInvalidName(dev.name);
   const before = deep.copy(dev.properties);
   try {
     for (const ep of config.endpoints)
       await Task.configureReadChannels({
         client,
         stored: { read: dev.properties.read, key: ep.path },
-        fields: ep.fields,
-        namePrefix: `${safeDevName}${channel.escapeInvalidName(ep.path)}`,
-        indexKey: ep.index,
-        indexed: (f) => !isTimingField(f) && !new DataType(f.dataType).isVariable,
+        ...endpointChannels(dev.name, ep),
       });
   } finally {
     await Device.setProperties(client, dev, before, SCHEMAS);
