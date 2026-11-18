@@ -41,6 +41,7 @@ const Create = ({ close }: Modals.ContentProps<Record<never, never>, void>) => {
       else close();
     },
   });
+  Modals.useBusy(variant === "loading");
   const isIndex = Form.useFieldValue(path.isIndex, { ctx: form });
   const isVirtual = Form.useFieldValue(path.virtual, { ctx: form });
   const kind: Kind = isIndex ? "index" : isVirtual ? "virtual" : "data";
