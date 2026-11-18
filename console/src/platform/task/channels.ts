@@ -95,9 +95,9 @@ const isFixed = (field: ReadChannelField): boolean =>
 /**
  * Gives every enabled field of a read source a channel: the one it has, the one the
  * device stores for its pointer, or a new one, which it adds to stored. The index field
- * or a new indexed channel gets the stored index. When that is gone, it gets the index
- * of a live channel of the source, or a new one. A source that needs no new channel
- * gets no entry in stored.
+ * or a new indexed channel gets the stored index. When that is gone, it gets the
+ * channel of the index field, the index of a live channel of the source, or a new one.
+ * A source that needs no new channel gets no entry in stored.
  */
 export const configureReadChannels = async <F extends ReadChannelField>({
   client,
@@ -130,7 +130,7 @@ export const configureReadChannels = async <F extends ReadChannelField>({
   const needsIndex =
     enabled.some(indexed) && (indexField != null || unbound.some(indexed));
   if (needsIndex && !(await channelExists(client, props.index))) {
-    props.index = await recoverIndex(client, live, props);
+    props.index = await recoverIndex(client, indexField?.channel ?? 0, live, props);
     if (!primitive.isNonZero(props.index)) {
       const indexCh = await client.channels.create({
         name: `${namePrefix}_time`,
@@ -160,14 +160,17 @@ export const configureReadChannels = async <F extends ReadChannelField>({
 };
 
 /**
- * @returns the first index among those of the live channels, then those of the stored
- * channels that still exist, or 0.
+ * @returns own, the channel of the index field, when it exists. Else the first index
+ * among those of the live channels, then those of the stored channels that still exist,
+ * or 0.
  */
 const recoverIndex = async (
   client: Client,
+  own: channel.Key,
   live: channel.Channel[],
   props: ReadChannelProps,
 ): Promise<channel.Key> => {
+  if (await channelExists(client, own)) return own;
   for (const ch of live) if (primitive.isNonZero(ch.index)) return ch.index;
   for (const stored of Object.values(props.channels)) {
     const ch = await retrieveChannel(client, stored);

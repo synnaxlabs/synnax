@@ -73,8 +73,9 @@ export const boundMessage = <S extends ReadSource>(
 
 /**
  * Gives each field that a message reads a channel: the one it has, the one stored for
- * its pointer, or a new one of the binding's data type. A channel that no longer suits
- * its field is replaced, and leaves stored. Rewrites the read of the source in place.
+ * its pointer, or a new one of the binding's data type. A channel that is gone or no
+ * longer suits its field is replaced, and leaves stored. Rewrites the read of the
+ * source in place.
  *
  * @param prefix - The prefix of the names of the channels it creates.
  * @returns the channels that the message binds.
@@ -104,12 +105,14 @@ export const configureMessage = async (
     const suited = binding.dataType !== "" && converts(f.type, binding.dataType);
     const dataType = suited ? binding.dataType : "";
     const ch = live.get(reused[i]);
-    // An edit of the field's kind or index role since the last deploy needs a new
-    // channel.
+    // A deleted channel, or an edit of the field's kind or index role since the last
+    // deploy, needs a new channel.
     const stale =
-      ch != null &&
-      (!converts(f.type, ch.dataType.toString()) || ch.isIndex !== isIndex);
-    if (stale && held[f.pointer] === ch.key) delete held[f.pointer];
+      reused[i] !== 0 &&
+      (ch == null ||
+        !converts(f.type, ch.dataType.toString()) ||
+        ch.isIndex !== isIndex);
+    if (stale && held[f.pointer] === reused[i]) delete held[f.pointer];
     return {
       key: f.key,
       pointer: f.pointer,
