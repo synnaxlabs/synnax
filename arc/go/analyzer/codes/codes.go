@@ -679,7 +679,8 @@ sensor -> split() -> {
 		Code:     "E5016",
 		Severity: protocol.DiagnosticSeverityError,
 		Message:  "invalid stage or sequence declaration",
-		Problem:  "Only a named top-level stage or sequence can have parameters.",
+		Problem: "Only a named top-level stage or sequence can have parameters. " +
+			"A parameter list cannot be empty.",
 		Example: `sequence main {
     stage hold(limit f64) {
     }

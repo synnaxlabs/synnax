@@ -1037,6 +1037,71 @@ var _ = Describe("Parameters", func() {
 				0.0 -> valve_cmd
 			}
 		`, "invalid stage or sequence declaration: a stage with parameters needs a name"),
+		Entry("an empty parameter list on a sequence", `
+			sequence main() {
+				stage press {
+				}
+			}
+		`, "invalid stage or sequence declaration: a parameter list cannot be empty"),
+		Entry("an empty parameter list on a stage", `
+			stage hold() {
+			}
+		`, "invalid stage or sequence declaration: a parameter list cannot be empty"),
+		Entry("an empty parameter list on a stage in a sequence", `
+			sequence main {
+				stage press() {
+				}
+			}
+		`, "invalid stage or sequence declaration: a parameter list cannot be empty"),
+		Entry("an empty parameter list on a sequence in a sequence", `
+			sequence main {
+				sequence inner() {
+					0.0 -> valve_cmd
+				}
+			}
+		`, "invalid stage or sequence declaration: a parameter list cannot be empty"),
+		Entry("an empty parameter list on an inline stage", `
+			start_cmd => stage() {
+				0.0 -> valve_cmd
+			}
+		`, "invalid stage or sequence declaration: a parameter list cannot be empty"),
+		Entry("an empty parameter list on a sequence with no name", `
+			sequence() {
+				0.0 -> valve_cmd
+			}
+		`, "invalid stage or sequence declaration: a parameter list cannot be empty"),
+		Entry("spaces in the parentheses of a sequence", `
+			sequence main(    ) {
+				stage press {
+				}
+			}
+		`, "invalid stage or sequence declaration: a parameter list cannot be empty"),
+		Entry("spaces in the parentheses of a stage", `
+			stage hold(    ) {
+			}
+		`, "invalid stage or sequence declaration: a parameter list cannot be empty"),
+		Entry("a new line in the parentheses of a sequence", `
+			sequence main(
+			) {
+				stage press {
+				}
+			}
+		`, "invalid stage or sequence declaration: a parameter list cannot be empty"),
+		Entry("a new line in the parentheses of a stage", `
+			stage hold(
+			) {
+			}
+		`, "invalid stage or sequence declaration: a parameter list cannot be empty"),
+		Entry("a space before the empty parentheses of a sequence", `
+			sequence main () {
+				stage press {
+				}
+			}
+		`, "invalid stage or sequence declaration: a parameter list cannot be empty"),
+		Entry("a space before the empty parentheses of a stage", `
+			stage hold () {
+			}
+		`, "invalid stage or sequence declaration: a parameter list cannot be empty"),
 		Entry("a default of the wrong type", `
 			sequence main(limit f64 = "high") {
 				stage press {

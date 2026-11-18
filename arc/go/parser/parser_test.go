@@ -2154,21 +2154,12 @@ stage hold { }`)
 				).To(HaveLen(2))
 			})
 
-			DescribeTable("Should reject an empty parameter list",
-				func(code, message string) {
-					Expect(parser.Parse(code)).Error().
-						To(MatchError(ContainSubstring(message)))
+			DescribeTable("Should parse an empty parameter list",
+				func(code string) {
+					Expect(mustParseProgram(code).AllTopLevelItem()).To(HaveLen(1))
 				},
-				Entry(
-					"on a sequence",
-					"sequence main() { stage press { } }",
-					"1:14 error [E1000]: syntax error: no viable alternative at input 'sequence main()'",
-				),
-				Entry(
-					"on a stage",
-					"stage hold() { }",
-					"1:11 error [E1000]: syntax error: no viable alternative at input 'stage hold()'",
-				),
+				Entry("on a sequence", "sequence main() { stage press { } }"),
+				Entry("on a stage", "stage hold() { }"),
 			)
 		})
 

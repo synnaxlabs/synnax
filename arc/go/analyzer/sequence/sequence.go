@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
+	"go.lsp.dev/protocol"
 )
 
 // RejectReactiveAssignment reports that '=' cannot write to name in a reactive scope.
@@ -203,15 +204,15 @@ func registerInlineBody(
 	var (
 		id     antlr.TerminalNode
 		kind   string
-		inputs parser.IInputListContext
+		params parameterList
 	)
 	switch d := decl.(type) {
 	case parser.IStageDeclarationContext:
-		id, kind, inputs = d.IDENTIFIER(), "stages", d.InputList()
+		id, kind, params = d.IDENTIFIER(), "stages", d
 	case parser.ISequenceDeclarationContext:
-		id, kind, inputs = d.IDENTIFIER(), "sequences", d.InputList()
+		id, kind, params = d.IDENTIFIER(), "sequences", d
 	}
-	collectParameters(ctx, inputs, kind, "", false)
+	collectParameters(ctx, params, kind, "", false)
 	if id != nil {
 		ctx.Diagnostics.Add(codes.NamedInlineBody.At(decl))
 		return nil
@@ -269,14 +270,57 @@ func AnalyzeSynthInlines(ctx context.Context[parser.IProgramContext]) {
 	walk(ctx.Scope)
 }
 
+// parameterList is the part of a sequence or stage declaration that holds parameters.
+type parameterList interface {
+	antlr.ParserRuleContext
+	LPAREN() antlr.TerminalNode
+	RPAREN() antlr.TerminalNode
+	InputList() parser.IInputListContext
+}
+
+// emptyParameters returns the diagnostic for the empty parentheses of decl.
+func emptyParameters(decl parameterList) diagnostics.Diagnostic {
+	open, closed := decl.LPAREN().GetSymbol(), decl.RPAREN().GetSymbol()
+	start := protocol.Position{
+		Line:      uint32(open.GetLine() - 1),
+		Character: uint32(open.GetColumn()),
+	}
+	end := protocol.Position{
+		Line:      uint32(closed.GetLine() - 1),
+		Character: uint32(closed.GetColumn() + 1),
+	}
+	// The fix also removes the blanks between the name and the parentheses.
+	from := start
+	for input, i := open.GetInputStream(), open.GetStart()-1; i >= 0; i-- {
+		if c := input.GetText(i, i); c != " " && c != "\t" {
+			break
+		}
+		from.Character--
+	}
+	return codes.BodyDeclaration.Atf(decl, "a parameter list cannot be empty").
+		WithRange(start, end).
+		WithNote("add a parameter or remove the parentheses").
+		WithEdits(
+			"Remove the empty parentheses",
+			protocol.TextEdit{Range: protocol.Range{Start: from, End: end}},
+		)
+}
+
 // collectParameters returns the parameters of a named top-level sequence or stage.
 func collectParameters[T antlr.ParserRuleContext](
 	ctx context.Context[T],
-	inputList parser.IInputListContext,
+	decl parameterList,
 	kind, name string,
 	topLevel bool,
 ) types.Params {
+	if decl == nil {
+		return nil
+	}
+	inputList := decl.InputList()
 	if inputList == nil {
+		if decl.LPAREN() != nil {
+			ctx.Diagnostics.Add(emptyParameters(decl))
+		}
 		return nil
 	}
 	if !topLevel {
@@ -318,7 +362,7 @@ func collectSequenceDecl(
 	}
 	t := types.Sequence()
 	t.Inputs = collectParameters(
-		ctx, ctx.AST.InputList(), "sequence", name, parentScope == ctx.Scope,
+		ctx, ctx.AST, "sequence", name, parentScope == ctx.Scope,
 	)
 	seqScope, err := parentScope.Add(ctx, symbol.Symbol{
 		Name: name,
@@ -353,7 +397,7 @@ func collectStageDecl(
 	if id := ctx.AST.IDENTIFIER(); id != nil {
 		stageName = id.GetText()
 	}
-	collectParameters(ctx, ctx.AST.InputList(), "stage", stageName, false)
+	collectParameters(ctx, ctx.AST, "stage", stageName, false)
 	stageScope, err := seqScope.Add(ctx, symbol.Symbol{
 		Name: stageName,
 		Kind: symbol.KindStage,
@@ -458,7 +502,7 @@ func collectTopLevelStage(
 		name = id.GetText()
 	}
 	t := types.Sequence()
-	t.Inputs = collectParameters(ctx, ctx.AST.InputList(), "stage", name, true)
+	t.Inputs = collectParameters(ctx, ctx.AST, "stage", name, true)
 	stageScope, err := parentScope.Add(ctx, symbol.Symbol{
 		Name: name,
 		Kind: symbol.KindSequence,

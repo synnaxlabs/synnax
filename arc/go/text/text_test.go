@@ -10,6 +10,7 @@
 package text_test
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 
@@ -10781,6 +10782,49 @@ var _ = Describe("Sequences and stages with parameters", func() {
 			return n.Key
 		})
 	}
+
+	DescribeTable("Should fix an empty parameter list",
+		func(ctx SpecContext, parens string) {
+			for _, body := range []string{
+				"sequence main%s {\nstage press {\n1.0 -> valve\n}\n}\nstart => main",
+				"stage main%s {\n1.0 -> valve\n}\nstart => main",
+				"sequence outer {\nstage main%s {\n1.0 -> valve\n}\n}\nstart => outer",
+			} {
+				source, fixed := fmt.Sprintf(body, parens), fmt.Sprintf(body, "")
+				parsed := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diagnostics := text.Analyze(ctx, parsed, NewRoot(nil, resolver...))
+				found := lo.Filter(
+					*diagnostics,
+					func(d xdiagnostics.Diagnostic, _ int) bool {
+						return d.Code == codes.BodyDeclaration.Code
+					},
+				)
+				Expect(found).To(HaveLen(1), source)
+				Expect(found[0].Message).To(Equal(
+					"invalid stage or sequence declaration: " +
+						"a parameter list cannot be empty",
+				))
+				Expect(found[0].Notes).To(HaveLen(1))
+				Expect(found[0].Notes[0].Message).
+					To(Equal("add a parameter or remove the parentheses"))
+				Expect(found[0].Fixes).To(HaveLen(1))
+				Expect(
+					found[0].Fixes[0].Title,
+				).To(Equal("Remove the empty parentheses"))
+				Expect(applyFix(source, found[0].Fixes[0])).To(Equal(fixed))
+				analyze(ctx, fixed)
+			}
+		},
+		Entry("with nothing in the parentheses", "()"),
+		Entry("with a space in the parentheses", "( )"),
+		Entry("with spaces in the parentheses", "(    )"),
+		Entry("with tabs in the parentheses", "(\t\t)"),
+		Entry("with a new line in the parentheses", "(\n)"),
+		Entry("with spaces and a new line in the parentheses", "(    \n  )"),
+		Entry("with a space before the parentheses", " ()"),
+		Entry("with spaces before and in the parentheses", "   (    )"),
+		Entry("with a tab before the parentheses", "\t()"),
+	)
 
 	It("Should lower nothing at the declaration", func(ctx SpecContext) {
 		parsed := MustSucceed(text.Parse(text.Text{Raw: `

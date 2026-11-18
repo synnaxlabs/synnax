@@ -326,7 +326,7 @@
   "E5016": {
     "severity": "error",
     "message": "invalid stage or sequence declaration",
-    "problem": "Only a named top-level stage or sequence can have parameters.",
+    "problem": "Only a named top-level stage or sequence can have parameters. A parameter list cannot be empty.",
     "example": "sequence main {\n    stage hold(limit f64) {\n    }\n}"
   },
   "W2000": {
