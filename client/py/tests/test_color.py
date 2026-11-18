@@ -38,8 +38,8 @@ class TestToRef:
         assert color.to_ref(ref) is ref
 
     def test_invalid(self) -> None:
-        """Should raise a ValueError for a value that is not a color."""
-        with pytest.raises(ValueError):
+        """Should raise a validation error for a value that is not a color."""
+        with pytest.raises(pydantic.ValidationError, match="Invalid color"):
             color.to_ref("not a color")
 
 
