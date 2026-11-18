@@ -167,27 +167,39 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 2
+
+      # A merge group diffs against its target branch, not the entry ahead of it. Its
+      # run then covers every pull request ahead of it in the queue. The first parent of
+      # a pull request's merge checkout is its current base.
+      - name: Find the base
+        id: base
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GROUP_HEAD: ${{ github.event.merge_group.head_sha }}
+          GROUP_TARGET: ${{ github.event.merge_group.base_ref }}
+        run: |
+          base=
+          if [ "$GITHUB_EVENT_NAME" = merge_group ]; then
+            compare="${GROUP_TARGET#refs/heads/}...$GROUP_HEAD"
+            base=$(.github/scripts/gh_api.sh \
+              "repos/$GITHUB_REPOSITORY/compare/$compare" --jq .merge_base_commit.sha)
+          elif [ "$GITHUB_EVENT_NAME" = pull_request ]; then
+            base=$(git rev-parse HEAD^1)
+          fi
+          echo "sha=$base" >> "$GITHUB_OUTPUT"
+
+      # A pull request lists its changes through the API and ignores base.
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4
         id: filter
         with:
+          base:
+            ${{ github.event_name == 'merge_group' && steps.base.outputs.sha || '' }}
           filters: .github/filters.yaml
 
       - name: Install uv
         uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version: latest-known
-
-      # The first parent of a pull request's merge checkout is its current base.
-      - name: Find the base
-        id: base
-        env:
-          GROUP_BASE: ${{ github.event.merge_group.base_sha }}
-        run: |
-          base=$GROUP_BASE
-          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
-            base=$(git rev-parse HEAD^1)
-          fi
-          echo "sha=$base" >> "$GITHUB_OUTPUT"
 
       - name: Find the jobs a CI edit selects
         id: ci
