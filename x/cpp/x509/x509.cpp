@@ -310,9 +310,7 @@ std::optional<std::string> format_name(const mbedtls_x509_buf &raw) {
 }
 
 bool Certificate::is_pem(const std::string_view data) {
-    const auto start = data.find_first_not_of(" \t\r\n");
-    return start != std::string_view::npos &&
-           data.substr(start).starts_with(PEM_HEADER);
+    return data.contains(PEM_HEADER);
 }
 
 std::pair<Certificate, errors::Error> Certificate::parse(const std::string_view data) {
