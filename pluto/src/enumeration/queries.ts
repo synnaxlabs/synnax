@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { enumeration, type resource } from "@synnaxlabs/client";
-import { verbs } from "@synnaxlabs/x";
+import { deep, verbs } from "@synnaxlabs/x";
+import type z from "zod";
 
 import { Flux } from "@/flux";
 import { flux } from "@/flux/aether";
@@ -44,6 +45,15 @@ export const { use: useRetrieveMultiple, useResult: useResultMultiple } =
     getCached: ({ client, query: { keys } }) =>
       client.enumerations.watch(keys).getCached(),
   });
+
+const { useEnsure } = Flux.createRetrieve<RetrieveQuery, enumeration.Enumeration>({
+  name: RESOURCE_NAME,
+  retrieve: async ({ client, query: { key } }) =>
+    await client.enumerations.retrieve(key),
+  onChange: ({ client, query: { key } }, handler) =>
+    client.enumerations.watch(key).onChange(handler),
+  getCached: ({ client, query: { key } }) => client.enumerations.watch(key).getCached(),
+});
 
 export type ListQuery = enumeration.RetrieveMultipleParams;
 
@@ -82,6 +92,38 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
   name: RESOURCE_NAME,
   verbs: verbs.CREATE,
   update: async ({ client, data }) => await client.enumerations.create(data),
+});
+
+export const formSchema = enumeration.enumerationZ.pick({ name: true, entries: true });
+
+export const formPath = deep.path<z.infer<typeof formSchema>>();
+
+/** A form over the name and entries of a cached enumeration. */
+export const useForm = Flux.createDocumentForm<
+  enumeration.Key,
+  enumeration.Enumeration,
+  typeof formSchema
+>({
+  name: RESOURCE_NAME,
+  schema: formSchema,
+  domain: (client) => client.enumerations,
+  useEnsure,
+  toValues: ({ name, entries }) => ({ name, entries }),
+});
+
+/** Writes the shipped name and entries back onto a built-in enumeration. */
+export const { useUpdate: useRestore } = Flux.createUpdate<enumeration.Enumeration>({
+  name: RESOURCE_NAME,
+  verbs: verbs.UPDATE,
+  update: async ({ client, data }) => {
+    const { key, name, entries } = data;
+    await client.enumerations.retrieve(key);
+    await client.enumerations.dispatch(key, [
+      enumeration.set({ path: ["name"], value: name }),
+      enumeration.set({ path: ["entries"], value: entries }),
+    ]);
+    return data;
+  },
 });
 
 export interface RenameParams extends Pick<enumeration.Enumeration, "key" | "name"> {}

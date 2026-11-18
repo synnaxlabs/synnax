@@ -1,0 +1,146 @@
+#  Copyright 2026 Synnax Labs, Inc.
+#
+#  Use of this software is governed by the Business Source License included in the file
+#  licenses/BSL.txt.
+#
+#  As of the Change Date specified in that file, in accordance with the Business Source
+#  License, use of this software will be governed by the Apache License, Version 2.0,
+#  included in the file licenses/APL.txt.
+
+from playwright.sync_api import expect
+
+from console.case import ConsoleCase
+from x import random_name
+
+# A built-in that no other test edits.
+_BUILTIN = "Switch"
+_BUILTIN_ENTRIES = [("off", "Off", 0.0), ("on", "On", 1.0)]
+
+
+class EnumerationLifecycle(ConsoleCase):
+    """Test creating, editing, restoring, and deleting enumerations in Settings."""
+
+    name: str
+    entries: list[str]
+
+    def setup(self) -> None:
+        super().setup()
+        self.name = random_name()
+        self.entries = [random_name() for _ in range(3)]
+
+    def teardown(self) -> None:
+        stale = self.client.enumerations.retrieve(names=[self.name])
+        if stale:
+            self.client.enumerations.delete([e.key for e in stale])
+        # A run that fails after editing the built-in leaves it edited for the retry.
+        enums = self.console.enumerations
+        enums.search(_BUILTIN)
+        if enums.menu_options(_BUILTIN, ["Restore default"]):
+            enums.restore(_BUILTIN)
+        super().teardown()
+
+    def run(self) -> None:
+        self.test_create()
+        self.test_edit_entries()
+        self.test_refuse_taken_value()
+        self.test_add_and_remove_entry()
+        self.test_rename()
+        self.test_restore_builtin()
+        self.test_delete()
+
+    def test_create(self) -> None:
+        """Test that a new enumeration counts up the values of its entries."""
+        self.log("Testing: Create enumeration")
+        created = self.console.enumerations.create(self.name, entries=self.entries)
+        assert [e.name for e in created.entries] == self.entries
+        assert [e.value for e in created.entries] == [0, 1, 2]
+
+    def test_edit_entries(self) -> None:
+        """Test that each edit in place reaches the Core."""
+        self.log("Testing: Edit entries in place")
+        enums = self.console.enumerations
+        first, second, third = self.entries
+        renamed = random_name()
+        enums.rename_entry(self.name, old_name=second, new_name=renamed)
+        enums.set_value(third, 5)
+        enums.toggle_abnormal(first)
+        enums.set_color(first, "#FF0000")
+        self.entries = [first, renamed, third]
+        stored = enums.wait_for(
+            self.name,
+            lambda e: (
+                [x.name for x in e.entries] == self.entries
+                and e.entries[2].value == 5
+                and e.entries[0].abnormal
+                and e.entries[0].color is not None
+            ),
+            f"The Core did not store the edits to {self.name}",
+        )
+        color = stored.entries[0].color
+        assert color is not None and color.type == "fixed"
+        assert color.value == "#FF0000"
+
+    def test_refuse_taken_value(self) -> None:
+        """Test that a value another entry holds is refused with a status."""
+        self.log("Testing: Refuse a taken value")
+        enums = self.console.enumerations
+        enums.set_value(self.entries[1], 5)
+        assert self.console.notifications.wait_for(
+            "Value in use",
+            description=f"{self.entries[2]} has the value 5.",
+        ), "Expected a Value in use status"
+        stored = self.client.enumerations.retrieve(names=[self.name])[0]
+        assert [e.value for e in stored.entries] == [0, 1, 5]
+
+    def test_add_and_remove_entry(self) -> None:
+        """Test the add button on the heading and Remove in the entry menu."""
+        self.log("Testing: Add and remove an entry")
+        enums = self.console.enumerations
+        added = random_name()
+        enums.add_entry(self.name, added)
+        stored = enums.wait_for(
+            self.name,
+            lambda e: len(e.entries) == 4,
+            f"The Core did not add {added}",
+        )
+        assert stored.entries[3].name == added
+        assert stored.entries[3].value == 6
+        enums.remove_entry(added)
+        enums.wait_for(
+            self.name,
+            lambda e: [x.name for x in e.entries] == self.entries,
+            f"The Core did not remove {added}",
+        )
+
+    def test_rename(self) -> None:
+        """Test renaming an enumeration from the menu of its heading."""
+        self.log("Testing: Rename enumeration")
+        new_name = random_name()
+        self.console.enumerations.rename(old_name=self.name, new_name=new_name)
+        self.name = new_name
+
+    def test_restore_builtin(self) -> None:
+        """Test that an edited built-in shows Edited and restores what Synnax ships."""
+        self.log("Testing: Restore a built-in")
+        enums = self.console.enumerations
+        enums.search(_BUILTIN)
+        heading = enums.heading(_BUILTIN)
+        expect(heading.get_by_text("Built-in", exact=True)).to_be_visible()
+        enums.rename_entry(_BUILTIN, old_name="Off", new_name=random_name())
+        expect(heading.get_by_text("Edited", exact=True)).to_be_visible(timeout=5000)
+        assert enums.menu_options(_BUILTIN, ["Restore default", "Delete"]) == [
+            "Restore default"
+        ]
+        enums.restore(_BUILTIN)
+        enums.wait_for(
+            _BUILTIN,
+            lambda e: [(x.key, x.name, x.value) for x in e.entries] == _BUILTIN_ENTRIES,
+            f"The Core did not restore {_BUILTIN}",
+        )
+        expect(heading.get_by_text("Edited", exact=True)).to_have_count(0)
+
+    def test_delete(self) -> None:
+        """Test deleting an enumeration from the menu of its heading."""
+        self.log("Testing: Delete enumeration")
+        self.console.enumerations.search(self.name)
+        self.console.enumerations.delete(self.name)

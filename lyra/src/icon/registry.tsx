@@ -263,6 +263,7 @@ import {
   VscSplitHorizontal,
   VscSplitVertical,
   VscSymbolConstant,
+  VscSymbolEnum,
   VscSymbolString,
 } from "react-icons/vsc";
 
@@ -597,6 +598,7 @@ export const InProgress = wrapSVGIcon(RiProgress4Line, "in-progress");
 export const Completed = wrapSVGIcon(RiProgress8Line, "completed");
 export const ToDo = wrapSVGIcon(RiProgress1Line, "to-do");
 export const Constant = wrapSVGIcon(VscSymbolConstant, "constant");
+export const Enumeration = wrapSVGIcon(VscSymbolEnum, "enumeration");
 export const Boolean = wrapSVGIcon(RxComponentBoolean, "boolean");
 export const True = wrapSVGIcon(FaCheck, "true");
 export const False = wrapSVGIcon(FaXmark, "false");
@@ -783,6 +785,7 @@ const icons = {
   None,
   New,
   Constant,
+  Enumeration,
   Terminal,
   TerminalOutline,
   Arc,
