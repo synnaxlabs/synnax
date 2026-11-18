@@ -88,6 +88,13 @@ const createRunning = async (
     parent,
   );
 
+const endRange = async (r: ranger.Range, end: TimeStamp): Promise<void> => {
+  const value = { start: r.timeRange.start.valueOf(), end: end.valueOf() };
+  expect(
+    await client.ranges.dispatch(r.key, ranger.set({ path: ["timeRange"], value })),
+  ).toBe(true);
+};
+
 /** Reads the one range with this name from the Core. */
 const readRange = async (name: string): Promise<ranger.Range> => {
   const found = await reader.ranges.retrieve([name]);
@@ -144,18 +151,14 @@ describe("range/Toolbar", () => {
     });
 
     it("should move ranges from Running to Recent as they end, newest end first", async () => {
-      const start = TimeStamp.now().sub(TimeSpan.SECOND);
-      const first = await createRange(
-        uniqueRangeName("first"),
-        new TimeRange(start, TimeStamp.now().add(TimeSpan.milliseconds(1500))),
-      );
-      const second = await createRange(
-        uniqueRangeName("second"),
-        new TimeRange(start, TimeStamp.now().add(TimeSpan.seconds(2))),
-      );
+      const first = await createRunning(uniqueRangeName("first"));
+      const second = await createRunning(uniqueRangeName("second"));
       await renderToolbar();
       await findLine("Running", first.name);
       await findLine("Running", second.name);
+      // An end set at creation can pass before the toolbar's first fetch lands.
+      await endRange(first, TimeStamp.now().add(TimeSpan.milliseconds(500)));
+      await endRange(second, TimeStamp.now().add(TimeSpan.SECOND));
       const [firstLine, secondLine] = await waitFor(
         () => [
           within(groupOf("Recent")).getByRole("listitem", { name: first.name }),

@@ -10,7 +10,7 @@
 import { color, type group, NotFoundError } from "@synnaxlabs/client";
 import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { color as xcolor, id, uuid } from "@synnaxlabs/x";
+import { color as xcolor, compare, id, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -78,7 +78,7 @@ describe("queries", () => {
         expect(last?.colors.map((c) => c.key)).toContain(loose.key);
       });
       const names = result.current.slice(0, -1).map((p) => p.name);
-      expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b)));
+      expect(names).toEqual([...names].sort(compare.text));
     });
   });
 

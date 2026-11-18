@@ -16,7 +16,7 @@ import {
   UnexpectedError,
   type user,
 } from "@synnaxlabs/client";
-import { array, compare, deep, type optional, verbs } from "@synnaxlabs/x";
+import { array, deep, type optional, verbs } from "@synnaxlabs/x";
 
 import { Access } from "@/access";
 import { Flux } from "@/flux";
@@ -77,7 +77,7 @@ export const { use: useKeysByProject } = Flux.createRetrieve<
       .getCached();
     return window == null ? undefined : keysOf(window.records);
   },
-  equal: (prev, next) => compare.primitiveArrays(prev, next) === compare.EQUAL,
+  equal: array.equal,
 });
 
 export interface KeyParams {
@@ -201,7 +201,7 @@ const tabKeysOf = (root: panel.Node): string[] => {
 export const useTabKeys = Scope.bindHook(
   createSelector<string[]>(
     ({ root }) => tabKeysOf(root),
-    (a, b) => compare.arraysEqual(a, b),
+    (a, b) => array.equal(a, b),
   ),
 );
 

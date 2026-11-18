@@ -183,9 +183,7 @@ jobs:
     if: inputs.migration_audit
     uses: ./.github/workflows/audit.migration.yaml
     secrets:
-      CLAUDE_CODE_APP_ID: ${{ secrets.CLAUDE_CODE_APP_ID }}
       CLAUDE_CODE_APP_PRIVATE_KEY: ${{ secrets.CLAUDE_CODE_APP_PRIVATE_KEY }}
-      CODEX_APP_ID: ${{ secrets.CODEX_APP_ID }}
       CODEX_APP_PRIVATE_KEY: ${{ secrets.CODEX_APP_PRIVATE_KEY }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
@@ -831,16 +829,41 @@ jobs:
         run:
           gh api "repos/$GH_REPO/git/refs" -f ref="refs/tags/$TAG" -f sha="$GITHUB_SHA"
 
+      # The provenance check reads the list made before the prune, so it also checks
+      # files that an earlier attempt published.
       - name: Prune already-published distributions
-        run: uv run --no-project python .github/scripts/prune_published.py
-
-      - name: Publish
+        id: prune
         run: |
-          if compgen -G "dist/*.whl" > /dev/null || compgen -G "dist/*.tar.gz" > /dev/null; then
-            uv publish --check-url https://pypi.org/simple/
-          else
-            echo "All distributions already published; nothing to upload."
+          ls dist > "$RUNNER_TEMP/distributions"
+          uv run --no-project python .github/scripts/prune_published.py
+          if compgen -G "dist/*" > /dev/null; then
+            echo "pending=true" >> "$GITHUB_OUTPUT"
           fi
+
+      # `uv publish` uploads attestations but cannot sign them, so this action signs
+      # and uploads each distribution.
+      - name: Publish
+        if: steps.prune.outputs.pending == 'true'
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
+        with:
+          attestations: true
+
+      - name: Check provenance
+        env:
+          VERSION: ${{ needs.resolve.outputs.py_version }}
+        run: |
+          missing=false
+          while read -r file; do
+            name=${file%%-"$VERSION"*}
+            url="https://pypi.org/integrity/$name/$VERSION/$file/provenance"
+            code=$(curl -s --retry 5 --max-time 30 -o /dev/null -w '%{http_code}' \
+              "$url")
+            if [ "$code" != 200 ]; then
+              echo "::error::PyPI answered $code for the provenance of $file."
+              missing=true
+            fi
+          done < "$RUNNER_TEMP/distributions"
+          [ "$missing" = false ]
 
   draft-core:
     name: Draft Core
