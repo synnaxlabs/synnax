@@ -37,7 +37,7 @@ type JSONEncoder struct {
 type encodeSlots struct {
 	// fields holds the field of each binding.
 	fields []encodeField
-	// bindings holds the binding of each slot of the template, or -1 for a literal.
+	// bindings holds the binding of each field of the template, or -1 for a literal.
 	bindings []int
 	samples  [][]byte
 }
@@ -63,6 +63,7 @@ type encodeField struct {
 //   - a field has no binding and no default
 //   - a binding names no field of m, or a field has two bindings
 //   - a binding's data type does not write to its field's kind
+//   - a scaled field's channel is not a float
 //   - two pointers are equal, or one holds the other
 //   - a pointer holds an array index, which a document cannot place
 func NewJSONEncoder(m JSONMessage) (*JSONEncoder, error) {
@@ -124,7 +125,7 @@ func newJSONEncoder(m JSONMessage) (*JSONEncoder, error) {
 }
 
 // templateField returns the template field of f and its binding in m, or -1 when f
-// takes its default.
+// takes its default. It stores the encode field of a bound f in e.
 func (e *JSONEncoder) templateField(
 	m JSONMessage,
 	f icd.JSONField,
@@ -151,9 +152,9 @@ func (e *JSONEncoder) templateField(
 	return tf, binding, nil
 }
 
-// memberPointer parses text as a pointer that names object members. A decoder reads a
-// token that is an array index as an element, which a template cannot write, so
-// memberPointer returns an error wrapping validate.ErrValidation for one.
+// memberPointer parses text as a pointer that names object members. It returns an error
+// wrapping validate.ErrValidation for an array index, since a decoder reads one as an
+// element.
 func memberPointer(text string) (xjson.Pointer, error) {
 	pointer, err := xjson.ParsePointer(text)
 	if err != nil {
@@ -352,6 +353,7 @@ func defaultLiteral(jf icd.JSONField) ([]byte, error) {
 			}
 			return xjson.AppendTimeStamp(nil, *v.Default, format), nil
 		}
+	case icd.JSONJSONField, icd.UuidJSONField, icd.BytesJSONField:
 	case nil:
 		return nil, errors.Wrap(validate.ErrValidation, "type is required")
 	}
@@ -368,8 +370,8 @@ func quote(s string) ([]byte, error) {
 
 // Encode appends the document of samples to dst. samples holds one sample for each
 // binding, in binding order. A variable-density sample is its data alone, without a
-// length. Encode returns an error wrapping validate.ErrValidation when a sample has no
-// value in its field.
+// length. Encode returns an error wrapping validate.ErrValidation when a field cannot
+// hold its sample.
 func (e *JSONEncoder) Encode(dst []byte, samples [][]byte) ([]byte, error) {
 	e.slots.samples = samples
 	out, err := e.template.Append(dst, &e.slots)
@@ -384,14 +386,14 @@ func (e *JSONEncoder) Encode(dst []byte, samples [][]byte) ([]byte, error) {
 func (s *encodeSlots) AppendSlot(dst []byte, field int) ([]byte, error) {
 	binding := s.bindings[field]
 	f := &s.fields[binding]
-	out, err := f.append(dst, s.samples[binding])
+	out, err := f.encode(dst, s.samples[binding])
 	if err != nil {
 		return nil, errors.Wrapf(err, "field %s", f.name)
 	}
 	return out, nil
 }
 
-func (f *encodeField) append(dst, sample []byte) ([]byte, error) {
+func (f *encodeField) encode(dst, sample []byte) ([]byte, error) {
 	if f.kind == payload.KindJSON {
 		if !jsontext.Value(sample).IsValid() {
 			return nil, errors.Wrap(validate.ErrValidation, "invalid JSON")
@@ -425,7 +427,7 @@ func (f *encodeField) append(dst, sample []byte) ([]byte, error) {
 	panic(fmt.Sprintf("codec: %s fields are never converted", f.kind))
 }
 
-// appendBoolean appends v, which must be 0 or 1, to dst as a JSON boolean.
+// appendBoolean appends v to dst as a JSON boolean when v is 0 or 1.
 func appendBoolean(dst []byte, v float64) ([]byte, error) {
 	switch v {
 	case 0:

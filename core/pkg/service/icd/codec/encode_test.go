@@ -85,10 +85,10 @@ var _ = Describe("JSONEncoder", func() {
 				By("message " + m.Name)
 				enc := MustSucceed(codec.NewJSONEncoder(m))
 				for k, c := range f.Cases {
-					By("case " + strconv.Itoa(k))
 					if c.Error != "" || c.Unmatched || c.Message != m.Name {
 						continue
 					}
+					By("case " + strconv.Itoa(k))
 					doc := []byte(c.Document)
 					if c.Text != nil {
 						doc = []byte(*c.Text)
@@ -101,9 +101,9 @@ var _ = Describe("JSONEncoder", func() {
 					}
 					encoded := MustSucceed(enc.Encode(nil, samples))
 					again := newSamples(messages)
-					message, ok := MustSucceed2(dec.Decode(encoded, again))
+					routed, ok := MustSucceed2(dec.Decode(encoded, again))
 					Expect(ok).To(BeTrue(), string(encoded))
-					Expect(message).To(Equal(i), string(encoded))
+					Expect(routed).To(Equal(i), string(encoded))
 					Expect(again[i]).To(Equal(decoded[i]), string(encoded))
 				}
 			}
@@ -145,6 +145,60 @@ var _ = Describe("JSONEncoder", func() {
 			MatchJSON(`{"type":"set","target":{"temp":21.5,"mode":"auto"},"count":3}`),
 		)
 	})
+
+	DescribeTable("Should write the default of a field with no channel",
+		func(field icd.JSONField, expected string) {
+			enc := MustSucceed(codec.NewJSONEncoder(message([]icd.JSONField{field})))
+			Expect(enc.Encode(nil, nil)).To(MatchJSON(expected))
+		},
+		Entry("a float, without its scale",
+			icd.JSONField{Variant: icd.FloatJSONField{
+				Key:     uuid.New(),
+				Name:    "v",
+				Scale:   2,
+				Pointer: "/v",
+				Default: new(payload.Float(1.5)),
+			}},
+			`{"v":1.5}`,
+		),
+		Entry("an integer",
+			icd.JSONField{Variant: icd.IntegerJSONField{
+				Key:     uuid.New(),
+				Name:    "v",
+				Scale:   1,
+				Pointer: "/v",
+				Default: new(payload.Integer(-3)),
+			}},
+			`{"v":-3}`,
+		),
+		Entry("an unsigned integer",
+			icd.JSONField{Variant: icd.UnsignedJSONField{
+				Key:     uuid.New(),
+				Name:    "v",
+				Scale:   1,
+				Pointer: "/v",
+				Default: new(payload.Unsigned(7)),
+			}},
+			`{"v":7}`,
+		),
+		Entry("a boolean",
+			icd.JSONField{Variant: icd.BooleanJSONField{
+				Key: uuid.New(), Name: "v", Scale: 1, Pointer: "/v", Default: new(true),
+			}},
+			`{"v":true}`,
+		),
+		Entry("a timestamp in its time format",
+			icd.JSONField{Variant: icd.TimestampJSONField{
+				Key:        uuid.New(),
+				Name:       "v",
+				Scale:      1,
+				Pointer:    "/v",
+				TimeFormat: payload.TimeFormatUnixNs,
+				Default:    new(telem.TimeStamp(1700000000000000000)),
+			}},
+			`{"v":1700000000000000000}`,
+		),
+	)
 
 	It("Should write a float before its scale and offset", func() {
 		key := uuid.New()
@@ -260,6 +314,14 @@ var _ = Describe("JSONEncoder", func() {
 				MatchError(expected),
 			))
 		},
+		Entry("an integer past an int64",
+			icd.JSONField{Variant: icd.IntegerJSONField{
+				Key: uuid.New(), Name: "v", Scale: 1, Pointer: "/v",
+			}},
+			telem.Float64T, float64Sample(1e19),
+			"message command: field v: 1e+19 is out of range for integer values: "+
+				"validation error",
+		),
 		Entry("a negative unsigned integer",
 			icd.JSONField{Variant: icd.UnsignedJSONField{
 				Key: uuid.New(), Name: "v", Scale: 1, Pointer: "/v",
@@ -327,6 +389,13 @@ var _ = Describe("JSONEncoder", func() {
 			),
 			`message command: field v: pointer "/values/0" holds an array index, `+
 				"which a document cannot place: validation error",
+		),
+		Entry("a match rule with no type",
+			codec.JSONMessage{
+				Name:    "command",
+				Payload: icd.JSONPayload{Match: &icd.JSONMatch{}},
+			},
+			"message command: match: type is required: validation error",
 		),
 		Entry("a match pointer with an array index",
 			codec.JSONMessage{
