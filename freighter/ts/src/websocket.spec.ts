@@ -389,5 +389,19 @@ describe("local server", () => {
       expect(req.headers.authorization).toBeUndefined();
       expect(req.url).toContain(`freighterctxAuthorization=${encodeURI(TOKEN)}`);
     });
+
+    describe("DOM WebSocket", () => {
+      beforeEach(() => vi.stubGlobal("document", {}));
+      afterEach(() => vi.unstubAllGlobals());
+
+      test("should send the token in a subprotocol and not in the URL", async () => {
+        const req = await authorize();
+        expect(req.headers["sec-websocket-protocol"]).toEqual(
+          "synnax.v1, synnax.token.test-token",
+        );
+        expect(req.headers.authorization).toBeUndefined();
+        expect(req.url).not.toContain("test-token");
+      });
+    });
   });
 });

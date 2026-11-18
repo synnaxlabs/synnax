@@ -9,7 +9,7 @@
 
 import { NotFoundError, status } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { id, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
+import { id, sleep, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { expectAlways } from "@synnaxlabs/x/testutil";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
@@ -69,7 +69,7 @@ describe("Status queries", () => {
     });
 
     it("should add a status whose variant changes to match the filter", async () => {
-      const prefix = `variant-listen-${Date.now()}`;
+      const prefix = `variant-listen-${id.create()}`;
       const keys = [`${prefix}-error`, `${prefix}-warning`];
       await client.statuses.set([
         {
@@ -474,7 +474,7 @@ describe("Status queries", () => {
         result.current.form.set(path.name, "Time Test");
         result.current.form.set(path.variant, "info");
       });
-      await new Promise((r) => setTimeout(r, 10));
+      await sleep.sleep(TimeSpan.milliseconds(10));
       act(() => {
         result.current.save();
       });

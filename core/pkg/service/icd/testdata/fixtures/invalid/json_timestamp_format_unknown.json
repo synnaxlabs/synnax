@@ -3,8 +3,8 @@
   "codec_rejects": true,
   "problems": [
     {
-      "path": "messages.0.payload.fields.0.format",
-      "message": "format is not valid"
+      "path": "messages.0.payload.fields.0.time_format",
+      "message": "time format is not valid"
     }
   ],
   "icd": {
@@ -25,7 +25,7 @@
               "units": "",
               "pointer": "/t",
               "type": "timestamp",
-              "format": "unix_days"
+              "time_format": "unix_days"
             }
           ]
         }
