@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sleep } from "@/sleep";
-import { TimeSpan, TimeStamp } from "@/telem";
+import { TimeSpan } from "@/telem";
 
 export const toString = (value: unknown): string =>
   JSON.stringify(value, (_, value) => {
@@ -21,8 +21,8 @@ export const expectAlways = async (
   duration: number = 200,
   interval: number = 20,
 ) => {
-  const end = TimeStamp.now().add(TimeSpan.milliseconds(duration));
-  while (TimeStamp.now().before(end)) {
+  const start = Date.now();
+  while (Date.now() - start < duration) {
     await fn();
     await sleep.sleep(TimeSpan.milliseconds(interval));
   }
