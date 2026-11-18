@@ -10,9 +10,17 @@
 import argparse
 
 import pytest
+import synnax as sy
 from botocore.exceptions import ClientError
 
-from common import Channels, add_connection_args, instance_for, instance_prefix, secret
+from common import (
+    ChannelCreateError,
+    Channels,
+    add_connection_args,
+    instance_for,
+    instance_prefix,
+    secret,
+)
 from conftest import Client
 
 
@@ -39,6 +47,20 @@ class TestChannels:
         channels.calculated("cost", expression="return a")
         assert len(client.channels.created) == 2
         assert client.channels.stored["cost"].expression == "return a"
+
+    def test_should_raise_when_the_core_refuses_the_expression(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        client = Client()
+        channels = Channels(client=client, enabled=True)
+        channels.calculated("cost", expression="return a")
+
+        def refuse(key: int, expression: str) -> None:
+            raise sy.ValidationError("bad expression")
+
+        monkeypatch.setattr(client.channels, "set_expression", refuse)
+        with pytest.raises(ChannelCreateError, match="calculated cost"):
+            channels.calculated("cost", expression="return a + b")
 
 
 class TestConnectionArgs:

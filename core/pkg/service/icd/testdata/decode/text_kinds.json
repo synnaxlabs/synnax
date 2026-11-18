@@ -107,7 +107,7 @@
         "id": "nope",
         "blob": ""
       },
-      "error": "message reading: field id: invalid UUID \"nope\": validation error"
+      "error": "field id: invalid UUID \"nope\": validation error"
     }
   ]
 }

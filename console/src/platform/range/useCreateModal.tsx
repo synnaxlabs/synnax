@@ -27,7 +27,6 @@ import { CSS } from "@/platform/css";
 import { Label } from "@/platform/label";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
-import { Session } from "@/session";
 
 const path = Ranger.createFormPath;
 
@@ -60,7 +59,6 @@ const Create = ({
   ...params
 }: Modals.ContentProps<CreateModalParams, ranger.Key>) => {
   const [now] = useState(() => Number(TimeStamp.now().valueOf()));
-  const dispatch = Session.useDispatch();
   const { capture } = Analytics.use();
 
   const client = Synnax.use();
@@ -78,12 +76,10 @@ const Create = ({
     },
     afterSave: (form) => {
       capture("range_created", {});
-      const { key } = form.value();
-      close(key);
-      if (key == null) return;
-      dispatch(Session.Range.add({ variant: "persisted", key }));
+      close(form.value().key);
     },
   });
+  Modals.useBusy(variant === "loading");
 
   return (
     <Modal.Frame className={CSS.B("range-create-layout")}>

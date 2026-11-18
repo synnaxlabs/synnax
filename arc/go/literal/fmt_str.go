@@ -109,45 +109,13 @@ func unescape(body string, multi bool) (string, []int, error) {
 			i++
 			continue
 		}
-		if i+1 >= len(body) {
-			return "", nil, errors.New("trailing backslash in string literal")
+		value, width, known, err := decodeEscape(body, i, multi)
+		if err != nil {
+			return "", nil, err
 		}
-		next := body[i+1]
-		width := 2
-		switch {
-		case next == 'b':
-			b.WriteByte('\b')
-		case next == 't':
-			b.WriteByte('\t')
-		case next == 'n':
-			b.WriteByte('\n')
-		case next == 'f':
-			b.WriteByte('\f')
-		case next == 'r':
-			b.WriteByte('\r')
-		case next == '"' && !multi:
-			b.WriteByte('"')
-		case next == '`' && multi:
-			b.WriteByte('`')
-		case next == '\\':
-			b.WriteByte('\\')
-		case next == 'u':
-			if i+6 > len(body) {
-				return "", nil, errors.New(`incomplete \u escape in string literal`)
-			}
-			cp, err := strconv.ParseUint(body[i+2:i+6], 16, 16)
-			if err != nil {
-				return "", nil, errors.Newf(
-					`invalid \u escape %q in string literal`,
-					body[i:i+6],
-				)
-			}
-			b.WriteRune(rune(cp))
-			width = 6
-		default:
+		b.WriteString(value)
+		if !known {
 			// The escape passes through, so each byte keeps its own offset.
-			b.WriteByte('\\')
-			b.WriteByte(next)
 			offsets = append(offsets, i, i+1)
 		}
 		for len(offsets) < b.Len() {
@@ -156,6 +124,46 @@ func unescape(body string, multi bool) (string, []int, error) {
 		i += width
 	}
 	return b.String(), append(offsets, len(body)), nil
+}
+
+// decodeEscape returns the text of the escape that starts at body[i] and its width in
+// body. It returns false when the escape is unknown and passes through verbatim.
+func decodeEscape(body string, i int, multi bool) (string, int, bool, error) {
+	if i+1 >= len(body) {
+		return "", 0, false, errors.New("trailing backslash in string literal")
+	}
+	switch next := body[i+1]; {
+	case next == 'b':
+		return "\b", 2, true, nil
+	case next == 't':
+		return "\t", 2, true, nil
+	case next == 'n':
+		return "\n", 2, true, nil
+	case next == 'f':
+		return "\f", 2, true, nil
+	case next == 'r':
+		return "\r", 2, true, nil
+	case next == '"' && !multi:
+		return `"`, 2, true, nil
+	case next == '`' && multi:
+		return "`", 2, true, nil
+	case next == '\\':
+		return `\`, 2, true, nil
+	case next == 'u':
+		if i+6 > len(body) {
+			return "", 0, false, errors.New(`incomplete \u escape in string literal`)
+		}
+		cp, err := strconv.ParseUint(body[i+2:i+6], 16, 16)
+		if err != nil {
+			return "", 0, false, errors.Newf(
+				`invalid \u escape %q in string literal`,
+				body[i:i+6],
+			)
+		}
+		return string(rune(cp)), 6, true, nil
+	default:
+		return body[i : i+2], 2, false, nil
+	}
 }
 
 // FmtStrSplit applies the escapes in body, unless flags.Raw, and then splits the

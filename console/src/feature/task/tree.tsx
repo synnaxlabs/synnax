@@ -14,6 +14,7 @@ import { Tree } from "@/platform/tree";
 
 const TreeItem = Tree.createItem({
   icon: <Icon.Task />,
+  typeName: "Task",
   useOnSelect: Panel.useOpenResource,
 });
 
