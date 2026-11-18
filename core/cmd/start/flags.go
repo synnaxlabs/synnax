@@ -56,9 +56,8 @@ func AddFlags(cmd *cobra.Command) {
 	cmd.Flags().StringSlice(
 		FlagDisableIntegrations,
 		nil,
-		"Integrations to disable on this Core and its embedded Driver (arc, "+
-			"ethercat, file, http, kafka, labjack, modbus, mqtt, ni, opc, pagerduty, "+
-			"sift)",
+		"Integrations to disable on the embedded Driver (arc, ethercat, http, "+
+			"labjack, modbus, ni, opc)",
 	)
 	AddDataFlag(cmd)
 	cmd.Flags().BoolP(FlagMem, "m", false, "Use in-memory storage")
