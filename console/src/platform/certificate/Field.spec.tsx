@@ -23,16 +23,7 @@ import {
   within,
 } from "@testing-library/react";
 import { type ReactElement } from "react";
-import {
-  afterEach,
-  assert,
-  describe,
-  expect,
-  it,
-  type Mock,
-  onTestFinished,
-  vi,
-} from "vitest";
+import { afterEach, assert, describe, expect, it, type Mock, vi } from "vitest";
 import { z } from "zod";
 
 import { Certificate } from "@/platform/certificate";
@@ -301,13 +292,15 @@ describe("Certificate.Field", () => {
   });
 
   it("shows the path of a file certificate and offers no download", async () => {
+    const r = await client.racks.create({ name: uniqueName("rack") });
     const c = await client.certificates.set({
       name: uniqueName("file"),
       source: "file",
       certificatePath: "/etc/synnax/client.crt",
+      rack: r.key,
     });
     created.push(c.key);
-    await renderField(c.key);
+    await renderField(c.key, { rack: r.key });
     await screen.findByRole("term");
     expect(readDetails()).toEqual({ Path: "/etc/synnax/client.crt" });
     expect(queryIconButton(document.body, "download")).toBeNull();
@@ -553,7 +546,6 @@ describe("Certificate.Field", () => {
       client.racks.create({ name: uniqueName("rack") }),
       client.racks.create({ name: uniqueName("rack") }),
     ]);
-    onTestFinished(async () => await client.racks.delete([own.key, other.key]));
     const prefix = uniqueName("rack certificate");
     const createFile = async (
       r: rack.Rack,

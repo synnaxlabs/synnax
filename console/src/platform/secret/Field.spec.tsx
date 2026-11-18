@@ -21,7 +21,7 @@ import {
   within,
 } from "@testing-library/react";
 import { type ReactElement } from "react";
-import { afterEach, describe, expect, it, type Mock, onTestFinished, vi } from "vitest";
+import { afterEach, describe, expect, it, type Mock, vi } from "vitest";
 import { z } from "zod";
 
 import {
@@ -295,7 +295,6 @@ describe("Secret.Field", () => {
       client.racks.create({ name: uniqueName("rack") }),
       client.racks.create({ name: uniqueName("rack") }),
     ]);
-    onTestFinished(async () => await client.racks.delete([own.key, other.key]));
     const prefix = uniqueName("rack secret");
     const createFile = async (r: rack.Rack, name: string): Promise<secret.Secret> => {
       const s = await client.secrets.set({
