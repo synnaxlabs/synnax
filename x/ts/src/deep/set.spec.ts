@@ -21,6 +21,20 @@ interface TestRecord {
 }
 
 describe("set", () => {
+  it("should skip null entries after the first in a keyed array", () => {
+    const a = { a: [{ key: "x", v: 1 }, null, { key: "y", v: 2 }] };
+    deep.set(a, "a.y", { key: "y", v: 3 });
+    expect(a).toEqual({ a: [{ key: "x", v: 1 }, null, { key: "y", v: 3 }] });
+  });
+
+  it("should throw for a key into an array whose first entry is null", () => {
+    const a = { a: [null] };
+    expect(() => deep.set(a, "a.x", 1)).toThrow(
+      "Cannot set a.x: the list holds no entry with the key x",
+    );
+    expect(a).toEqual({ a: [null] });
+  });
+
   it("should set a key", () => {
     const a: TestRecord = {
       a: 1,

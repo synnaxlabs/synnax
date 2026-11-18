@@ -176,19 +176,25 @@ export class TauriRuntime<
       actionEvent,
       (event: TauriEvent<string>) => lis(decode(event.payload)),
     );
-    const propsHandlers = newWindowPropsHandlers();
-    for (const { key, handler, debounce } of propsHandlers)
-      this.unsubscribe[key] = await this.win.listen(
-        key,
-        scheduler.debounce(() => {
-          this.applyPropChange(handler).catch((err: unknown) =>
-            console.error(
-              `failed to handle window prop change "${key}" for ${this.win.label}`,
-              err,
-            ),
-          );
-        }, debounce),
-      );
+    for (const entry of newWindowPropsHandlers()) await this.listenPropChange(entry);
+  }
+
+  private async listenPropChange({
+    key,
+    handler,
+    debounce,
+  }: HandlerEntry): Promise<void> {
+    this.unsubscribe[key] = await this.win.listen(
+      key,
+      scheduler.debounce(() => {
+        this.applyPropChange(handler).catch((err: unknown) =>
+          console.error(
+            `failed to handle window prop change "${key}" for ${this.win.label}`,
+            err,
+          ),
+        );
+      }, debounce),
+    );
   }
 
   private async applyPropChange(handler: HandlerEntry["handler"]): Promise<void> {
@@ -330,7 +336,10 @@ export class TauriRuntime<
 
       delete this.unsubscribe[TauriEventKey.WINDOW_RESIZED];
     }
-    return await this.win.setResizable(value);
+    await this.win.setResizable(value);
+    const resized = TauriEventKey.WINDOW_RESIZED;
+    if (value && actionEvent in this.unsubscribe && !(resized in this.unsubscribe))
+      await this.listenPropChange(RESIZED_HANDLER);
   }
 
   async setSkipTaskbar(value: boolean): Promise<void> {
@@ -369,27 +378,29 @@ interface HandlerEntry {
   handler: (win: WebviewWindow) => Promise<UnknownAction | null>;
 }
 
-const newWindowPropsHandlers = (): HandlerEntry[] => [
-  {
-    key: TauriEventKey.WINDOW_RESIZED,
-    debounce: 200,
-    // A window resizes as it enters and leaves fullscreen, which is the only signal
-    // Tauri gives for either.
-    handler: async (window) => {
-      const scaleFactor = await window.scaleFactor();
-      const visible = await window.isVisible();
-      const nextProps: RuntimeSetWindowProsPayload = {
-        label: window.label,
-        maximized: await window.isMaximized(),
-        fullscreen: await window.isFullscreen(),
-        visible,
-        minimized: !visible,
-        position: parsePosition(await window.innerPosition(), scaleFactor),
-        size: parseSize(await window.innerSize(), scaleFactor),
-      };
-      return runtimeSetWindowProps(nextProps);
-    },
+const RESIZED_HANDLER: HandlerEntry = {
+  key: TauriEventKey.WINDOW_RESIZED,
+  debounce: 200,
+  // A window resizes as it enters and leaves fullscreen, which is the only signal
+  // Tauri gives for either.
+  handler: async (window) => {
+    const scaleFactor = await window.scaleFactor();
+    const visible = await window.isVisible();
+    const nextProps: RuntimeSetWindowProsPayload = {
+      label: window.label,
+      maximized: await window.isMaximized(),
+      fullscreen: await window.isFullscreen(),
+      visible,
+      minimized: !visible,
+      position: parsePosition(await window.innerPosition(), scaleFactor),
+      size: parseSize(await window.innerSize(), scaleFactor),
+    };
+    return runtimeSetWindowProps(nextProps);
   },
+};
+
+const newWindowPropsHandlers = (): HandlerEntry[] => [
+  RESIZED_HANDLER,
   {
     key: TauriEventKey.WINDOW_MOVED,
     debounce: 200,

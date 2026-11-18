@@ -1140,6 +1140,34 @@ describe("TimeStamp", () => {
       ];
       for (const text of invalid) expect(TimeStamp.parse(text), text).toBeNull();
     });
+
+    describe("in a time zone with daylight saving time", () => {
+      let originalTZ: string | undefined;
+      beforeEach(() => {
+        originalTZ = process.env.TZ;
+        process.env.TZ = "America/New_York";
+      });
+      afterEach(() => {
+        process.env.TZ = originalTZ;
+      });
+
+      it("should return null for a local time skipped by the clock change", () => {
+        expect(TimeStamp.parse("2026-03-08 02:30", "local")).toBeNull();
+      });
+
+      it("should parse a local time next to the clock change", () => {
+        const expected = new TimeStamp(new Date(Date.UTC(2026, 2, 8, 7, 30)));
+        expect(TimeStamp.parse("2026-03-08 03:30", "local")?.equals(expected)).toBe(
+          true,
+        );
+      });
+
+      it("should parse a date whose midnight is skipped by the clock change", () => {
+        process.env.TZ = "America/Santiago";
+        const expected = new TimeStamp(new Date(Date.UTC(2026, 8, 6, 4)));
+        expect(TimeStamp.parse("2026-09-06", "local")?.equals(expected)).toBe(true);
+      });
+    });
   });
 
   describe("toPreciseString", () => {
