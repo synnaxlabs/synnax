@@ -48,11 +48,26 @@ const renderFind = async (
 
 describe("EtherCAT scan action", () => {
   it("should turn off the DewesoftX filter once the user confirms", async () => {
-    const { scanner } = await renderFind({ filtered: ["\\Device\\NPF_{0}"] });
-    const driver = await answerNextCommand(client, scanner);
-    fireEvent.click(findButton("Turn off the filter"));
+    const { scanner, statuses } = await renderFind({ filtered: ["\\Device\\NPF_{0}"] });
+    const next = "If Windows asks for administrator access, click Yes.";
+    const driver = await answerNextCommand(client, scanner, {
+      variant: "success",
+      message: "Started to turn off the DewesoftX filter",
+      description: next,
+    });
+    fireEvent.click(findButton("Turn off DewesoftX filter"));
     fireEvent.click(await screen.findByRole("button", { name: "Turn off" }));
     expect((await driver.answered).type).toBe("disable_dewesoft_filter");
+    await waitFor(() =>
+      expect(
+        statuses().find(
+          (s) =>
+            s.variant === "success" &&
+            s.message === "Started to turn off the DewesoftX filter" &&
+            s.description === next,
+        ),
+      ).toBeDefined(),
+    );
   });
 
   it("should show why the Driver could not turn off the filter", async () => {
@@ -63,7 +78,7 @@ describe("EtherCAT scan action", () => {
       message: "Failed to turn off the DewesoftX filter",
       description: reason,
     });
-    fireEvent.click(findButton("Turn off the filter"));
+    fireEvent.click(findButton("Turn off DewesoftX filter"));
     fireEvent.click(await screen.findByRole("button", { name: "Turn off" }));
     await driver.answered;
     await waitFor(() =>
@@ -79,15 +94,17 @@ describe("EtherCAT scan action", () => {
 
   it("should send no command when the user cancels", async () => {
     await renderFind({ filtered: ["\\Device\\NPF_{0}"] });
-    fireEvent.click(findButton("Turn off the filter"));
+    fireEvent.click(findButton("Turn off DewesoftX filter"));
     fireEvent.click(await screen.findByRole("button", { name: "Cancel" }));
     await act(async () => {});
     // A sent command holds the button in its loading state, since no Driver answers.
-    expect(findButton("Turn off the filter").getAttribute("aria-disabled")).toBeNull();
+    expect(
+      findButton("Turn off DewesoftX filter").getAttribute("aria-disabled"),
+    ).toBeNull();
   });
 
   it("should not offer to turn off the filter when it blocks no adapter", async () => {
     await renderFind(undefined);
-    expect(screen.queryByText("Turn off the filter")).toBeNull();
+    expect(screen.queryByText("Turn off DewesoftX filter")).toBeNull();
   });
 });

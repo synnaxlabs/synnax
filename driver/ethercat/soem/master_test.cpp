@@ -408,7 +408,7 @@ TEST_F(SOEMMasterTest, ScanReportsAnInterfaceWithNoSlaves) {
     EXPECT_EQ(
         err.data,
         "No EtherCAT modules found on eth0. Check the cable and the power of the first "
-        "device."
+        "module."
     );
     EXPECT_TRUE(this->mock->close_called);
 }
@@ -424,10 +424,9 @@ TEST_F(SOEMMasterTest, ScanNamesTheDewesoftFilterOnAnInterfaceWithNoSlaves) {
     ASSERT_OCCURRED_AS(err, errors::REPLIES_BLOCKED);
     EXPECT_EQ(
         err.data,
-        "No EtherCAT modules found on Ethernet 2. The DewesoftX \"EthercatDAQ Filter\" "
-        "on this adapter blocks EtherCAT replies. Clear it in the properties of "
-        "\"Ethernet 2\" (Settings > Network & internet > Advanced network settings > "
-        "More network adapter options, then right-click the adapter > Properties)."
+        "No EtherCAT modules found on Ethernet 2. The DewesoftX network filter on this "
+        "adapter blocks EtherCAT replies, even with DewesoftX closed. To turn it off, "
+        "click Turn off DewesoftX filter under Connect device > EtherCAT network."
     );
     EXPECT_TRUE(this->mock->close_called);
 }
@@ -441,10 +440,9 @@ TEST_F(SOEMMasterTest, ScanNamesTheInterfaceWhenTheFilteredAdapterHasNoName) {
     ASSERT_OCCURRED_AS(err, errors::REPLIES_BLOCKED);
     EXPECT_EQ(
         err.data,
-        "No EtherCAT modules found on eth0. The DewesoftX \"EthercatDAQ Filter\" on "
-        "this adapter blocks EtherCAT replies. Clear it in the properties of \"eth0\" "
-        "(Settings > Network & internet > Advanced network settings > More network "
-        "adapter options, then right-click the adapter > Properties)."
+        "No EtherCAT modules found on eth0. The DewesoftX network filter on this "
+        "adapter blocks EtherCAT replies, even with DewesoftX closed. To turn it off, "
+        "click Turn off DewesoftX filter under Connect device > EtherCAT network."
     );
 }
 

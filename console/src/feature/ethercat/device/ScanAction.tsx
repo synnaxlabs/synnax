@@ -30,7 +30,17 @@ export const ScanAction = ({
 }: Device.ScanActionProps): ReactElement | null => {
   const confirm = Modals.useConfirm();
   const handleError = Status.useErrorHandler();
-  const { update, variant } = useDisableFilter();
+  const addStatus = Status.useAdder();
+  const { update, variant } = useDisableFilter({
+    // The find view shows only a warning or an error from the scanner.
+    afterSuccess: ({ data }) =>
+      addStatus({
+        variant: data.variant,
+        name: scanner.name,
+        message: data.message,
+        description: data.description,
+      }),
+  });
   const filtered = scanStatusDataZ.parse(scanner.status?.details.data)?.filtered ?? [];
   if (filtered.length === 0) return null;
   const handleClick = () =>
@@ -51,7 +61,7 @@ export const ScanAction = ({
       status={status.keepVariants(variant, "loading")}
       onClick={handleClick}
     >
-      Turn off the filter
+      Turn off DewesoftX filter
     </Button.Button>
   );
 };

@@ -27,8 +27,9 @@
 namespace driver::ethercat::soem {
 namespace {
 const std::string
-    MANUAL_FIX = "To turn it off by hand, clear \"EthercatDAQ Filter\" in "
-                 "the properties of the adapter.";
+    MANUAL_FIX = "To turn it off by hand, press Windows + R and enter ncpa.cpl. "
+                 "Right-click the adapter of the modules, select Properties, and "
+                 "clear EthercatDAQ Filter.";
 
 bool elevated() {
     HANDLE token = nullptr;

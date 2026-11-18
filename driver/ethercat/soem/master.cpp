@@ -190,18 +190,13 @@ no_slaves_error(API &api, const std::string &iface, const std::string &name) {
     if (!api.dewesoft_filter_bound(iface.c_str()))
         return x::errors::Error(
             errors::NO_SLAVES_FOUND,
-            found + "Check the cable and the power of the first device."
+            found + "Check the cable and the power of the first module."
         );
     return x::errors::Error(
         errors::REPLIES_BLOCKED,
-        found + std::format(
-                    "The DewesoftX \"EthercatDAQ Filter\" on this adapter blocks "
-                    "EtherCAT replies. Clear it in the properties of \"{}\" "
-                    "(Settings > Network & internet > Advanced network settings > "
-                    "More network adapter options, then right-click the adapter > "
-                    "Properties).",
-                    name
-                )
+        found + "The DewesoftX network filter on this adapter blocks EtherCAT "
+                "replies, even with DewesoftX closed. To turn it off, click Turn off "
+                "DewesoftX filter under Connect device > EtherCAT network."
     );
 }
 }
