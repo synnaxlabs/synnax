@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, type runtime } from "@synnaxlabs/x";
+import { box, type runtime, xy } from "@synnaxlabs/x";
 import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { aetherTest } from "@/aether/testutil";
 import { buildStack } from "@/testutil/providers";
 import { canvas } from "@/vis/canvas/aether";
+import { type render } from "@/vis/render";
 import { canvasTest } from "@/vis/render/testutil";
 
 const { GL_ENUMS } = canvasTest;
@@ -83,6 +84,37 @@ const mount = (os: runtime.OS = "macOS") => {
   return { renderCtx, recorder, calls, returns, statuses, count, lose, restore };
 };
 
+const mountBitmap = () => {
+  const { gl, calls } = canvasTest.createGL();
+  const recorder = canvasTest.record();
+  canvasTest.stubHandoff([gl, recorder.lower2d, recorder.upper2d]);
+  const { port1, port2 } = new MessageChannel();
+  const frames: render.Frame[] = [];
+  port1.onmessage = ({ data }: MessageEvent<render.Frame>) => frames.push(data);
+  const stack = buildStack({ registry: canvas.REGISTRY });
+  teardowns.push(() => stack.driver.delete([aetherTest.ROOT_KEY]));
+  const path = [...stack.basePath, "canvas"];
+  stack.driver.update(path, canvas.Canvas.TYPE, {
+    bootstrap: true,
+    framePort: port2,
+    region: box.construct(0, 0, 100, 100),
+    dpr: 1,
+    os: "macOS",
+  });
+  const { renderCtx } = stack.driver.find<canvas.Canvas>(path);
+  assert(renderCtx != null);
+  const posted = () => {
+    vi.advanceTimersToNextFrame();
+    return frames.map((f) => Object.keys(f).sort());
+  };
+  const glCanvas = renderCtx.glCanvas;
+  const lose = () => glCanvas.dispatchEvent(new Event("webglcontextlost"));
+  const restore = () => glCanvas.dispatchEvent(new Event("webglcontextrestored"));
+  return { renderCtx, calls, frames, posted, lose, restore };
+};
+
+const ALL = ["gl", "lower2d", "upper2d"];
+
 const glRequest = () => ({
   key: "plot",
   priority: "high" as const,
@@ -115,6 +147,65 @@ describe("render.Context", () => {
       const child = [...path, "child"];
       stack.driver.update(child, aetherTest.Leaf.TYPE, { value: 1 });
       expect(stack.driver.find<aetherTest.Leaf>(child).state).toEqual({ value: 1 });
+    });
+  });
+
+  describe("when it hands frames off as bitmaps", () => {
+    it("should post a bitmap of every canvas on the first frame", () => {
+      const { frames, posted } = mountBitmap();
+      expect(posted()).toEqual([ALL]);
+      expect(frames[0].gl).toEqual({ width: 100, height: 100 });
+    });
+
+    it("should post nothing when nothing changed", () => {
+      const { posted } = mountBitmap();
+      posted();
+      expect(posted()).toHaveLength(1);
+    });
+
+    it("should post only the canvases that a render drew on", () => {
+      const { renderCtx, posted } = mountBitmap();
+      posted();
+      renderCtx.loop.set({ ...glRequest(), canvases: ["upper2d"] });
+      expect(posted().at(-1)).toEqual(["upper2d"]);
+    });
+
+    it("should post the canvases that an erase cleared", () => {
+      const { renderCtx, posted } = mountBitmap();
+      posted();
+      renderCtx.erase(box.construct(0, 0, 10, 10), xy.ZERO, "lower2d");
+      expect(posted().at(-1)).toEqual(["lower2d"]);
+    });
+
+    it("should post every canvas at the new size after a resize", () => {
+      const { renderCtx, frames, posted } = mountBitmap();
+      posted();
+      renderCtx.resize(box.construct(0, 0, 200, 100), 1);
+      expect(posted().at(-1)).toEqual(ALL);
+      expect(frames.at(-1)?.lower2d).toEqual({ width: 200, height: 100 });
+    });
+
+    it("should resolve the back buffer into the GL canvas before posting it", () => {
+      const { calls, posted } = mountBitmap();
+      posted();
+      expect(calls.map((c) => c.op)).toContain("blitFramebuffer");
+    });
+
+    it("should hold back the GL canvas while the context is lost", () => {
+      const { renderCtx, posted, lose } = mountBitmap();
+      posted();
+      lose();
+      renderCtx.resize(box.construct(0, 0, 200, 100), 1);
+      expect(posted().at(-1)).toEqual(["lower2d", "upper2d"]);
+    });
+
+    it("should post every canvas from a new back buffer after a restore", () => {
+      const { calls, posted, lose, restore } = mountBitmap();
+      posted();
+      lose();
+      restore();
+      expect(posted().at(-1)).toEqual(ALL);
+      expect(calls.filter((c) => c.op === "createFramebuffer")).toHaveLength(2);
     });
   });
 

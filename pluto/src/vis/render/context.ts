@@ -33,6 +33,13 @@ export type Canvas2DVariant = "upper2d" | "lower2d";
 export type CanvasGLVariant = "gl";
 export type CanvasVariant = Canvas2DVariant | CanvasGLVariant;
 
+/** A frame of bitmaps, holding only the canvases that changed since the last frame. */
+export type Frame = Partial<Record<CanvasVariant, ImageBitmap>>;
+
+const CANVAS_VARIANTS: CanvasVariant[] = ["lower2d", "gl", "upper2d"];
+const CANVAS_2D_VARIANTS: Canvas2DVariant[] = ["lower2d", "upper2d"];
+const MAX_MSAA_SAMPLES = 4;
+
 const applyDefaultCanvasOpts = <T extends OffscreenCanvasRenderingContext2D>(
   canvas: T,
 ): T => {
@@ -47,6 +54,28 @@ const WEBGL_OPTS: WebGLContextAttributes = {
   stencil: false,
   depth: false,
 };
+
+// A transfer to a bitmap clears the drawing buffer, so the GL draws go to a back buffer
+// that keeps its pixels and resolves the multisampling.
+const BITMAP_WEBGL_OPTS: WebGLContextAttributes = {
+  ...WEBGL_OPTS,
+  preserveDrawingBuffer: false,
+  antialias: false,
+};
+
+interface BackBuffer {
+  framebuffer: WebGLFramebuffer;
+  renderbuffer: WebGLRenderbuffer;
+}
+
+interface Frames {
+  port: MessagePort;
+  backBuffer: BackBuffer;
+  /** A transfer also clears a 2D canvas, so frames copy each one here to transfer. */
+  copy: OffscreenCanvasRenderingContext2D;
+  /** The canvases that changed since the last frame. */
+  dirty: Set<CanvasVariant>;
+}
 
 /**
  * A hybrid rendering context containing both 2D and WebGL canvases and contexts.
@@ -84,9 +113,12 @@ export class Context {
   private readonly restoreHandlers = new Set<() => void>();
   private readonly restore2DHandlers = new Set<() => void>();
   private readonly atlases = new text.AtlasRegistry();
+  private readonly frames?: Frames;
 
   /**
    * Creates a render context and sets it on ctx.
+   * @param framePort - When set, the context posts each frame to it as a
+   * {@link Frame} instead of drawing on canvases shown on the page.
    * @returns null when the canvas gives no WebGL2 context.
    */
   static create(
@@ -95,8 +127,10 @@ export class Context {
     lower2dCanvas: OffscreenCanvas,
     upper2dCanvas: OffscreenCanvas,
     os: runtime.OS,
+    framePort?: MessagePort,
   ): Context | null {
-    const gl = glCanvas.getContext("webgl2", WEBGL_OPTS);
+    const opts = framePort == null ? WEBGL_OPTS : BITMAP_WEBGL_OPTS;
+    const gl = glCanvas.getContext("webgl2", opts);
     if (gl == null) return null;
     const instrumentation = alamos.useInstrumentation(ctx, "render_context");
     const render = new Context(
@@ -108,6 +142,7 @@ export class Context {
       instrumentation,
       status.useAdder(ctx),
       status.useErrorHandler(ctx),
+      framePort,
     );
     ctx.set(Context.CONTEXT_KEY, render);
     return render;
@@ -122,6 +157,7 @@ export class Context {
     instrumentation: Instrumentation,
     addStatus: status.Adder,
     handleError: status.ErrorHandler,
+    framePort?: MessagePort,
   ) {
     this.upper2dCanvas = upper2dCanvas;
     this.lower2dCanvas = lower2dCanvas;
@@ -145,14 +181,22 @@ export class Context {
 
     this.gl = gl;
     this.configureGL();
+    if (framePort != null) {
+      const copy = new OffscreenCanvas(0, 0).getContext("2d");
+      if (copy == null) throw new Error("Could not get 2D context");
+      const backBuffer = this.createBackBuffer();
+      this.frames = { port: framePort, backBuffer, copy, dirty: new Set() };
+    }
 
     this.glCanvas.addEventListener("webglcontextlost", (e) => this.lose(e));
     this.glCanvas.addEventListener("webglcontextrestored", () =>
       handleError(() => this.restore(), "Failed to restore WebGL context"),
     );
 
+    const { frames } = this;
     this.loop = new Loop({
       afterRender: () => this.gl.flush(),
+      present: frames == null ? undefined : (drawn) => this.present(frames, drawn),
       instrumentation: this.instrumentation,
       handleError,
     });
@@ -230,6 +274,8 @@ export class Context {
     this.restore2D();
     this._generation++;
     this.configureGL();
+    if (this.frames != null) this.frames.backBuffer = this.createBackBuffer();
+    this.markDirty(["gl"]);
     if (this.os === "Windows") this.clearProgram = new clear.Program(this);
     this.restoreHandlers.forEach((f) => f());
     this.loop.glLost = false;
@@ -247,7 +293,9 @@ export class Context {
     this.atlases.clear();
     this.upper2dCanvas.width = 0;
     this.lower2dCanvas.width = 0;
+    if (this.frames != null) this.frames.copy.canvas.width = 0;
     this.reset2D();
+    this.markDirty(CANVAS_2D_VARIANTS);
     this.restore2DHandlers.forEach((f) => f());
   }
 
@@ -272,6 +320,84 @@ export class Context {
     this.resizeCanvas(this.glCanvas);
     this.reset2D();
     this.gl.viewport(0, 0, box.width(region) * dpr, box.height(region) * dpr);
+    if (this.frames != null) this.sizeBackBuffer(this.frames.backBuffer);
+    this.markDirty(CANVAS_VARIANTS);
+  }
+
+  private markDirty(canvases: CanvasVariant[]): void {
+    canvases.forEach((c) => this.frames?.dirty.add(c));
+  }
+
+  private createBackBuffer(): BackBuffer {
+    const { gl } = this;
+    const backBuffer = {
+      framebuffer: gl.createFramebuffer(),
+      renderbuffer: gl.createRenderbuffer(),
+    };
+    gl.bindFramebuffer(gl.FRAMEBUFFER, backBuffer.framebuffer);
+    this.sizeBackBuffer(backBuffer);
+    gl.framebufferRenderbuffer(
+      gl.FRAMEBUFFER,
+      gl.COLOR_ATTACHMENT0,
+      gl.RENDERBUFFER,
+      backBuffer.renderbuffer,
+    );
+    return backBuffer;
+  }
+
+  /** Sizes the back buffer to the GL canvas, which clears it. */
+  private sizeBackBuffer({ renderbuffer }: BackBuffer): void {
+    const { gl, glCanvas } = this;
+    gl.bindRenderbuffer(gl.RENDERBUFFER, renderbuffer);
+    gl.renderbufferStorageMultisample(
+      gl.RENDERBUFFER,
+      Math.min(MAX_MSAA_SAMPLES, gl.getParameter(gl.MAX_SAMPLES)),
+      gl.RGBA8,
+      Math.max(glCanvas.width, 1),
+      Math.max(glCanvas.height, 1),
+    );
+  }
+
+  /** Posts a bitmap of each changed canvas. The page keeps showing the others. */
+  private present(frames: Frames, drawn: Set<CanvasVariant>): void {
+    const { gl, glCanvas } = this;
+    const { dirty, copy, backBuffer } = frames;
+    drawn.forEach((c) => dirty.add(c));
+    const { width, height } = glCanvas;
+    if (dirty.size === 0 || width === 0 || height === 0) return;
+    const frame: Frame = {};
+    if (dirty.has("gl") && !this.loop.glLost) {
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, backBuffer.framebuffer);
+      gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+      gl.blitFramebuffer(
+        0,
+        0,
+        width,
+        height,
+        0,
+        0,
+        width,
+        height,
+        gl.COLOR_BUFFER_BIT,
+        gl.NEAREST,
+      );
+      gl.bindFramebuffer(gl.FRAMEBUFFER, backBuffer.framebuffer);
+      frame.gl = glCanvas.transferToImageBitmap();
+      dirty.delete("gl");
+    }
+    if (copy.canvas.width !== width || copy.canvas.height !== height) {
+      copy.canvas.width = width;
+      copy.canvas.height = height;
+    }
+    copy.globalCompositeOperation = "copy";
+    CANVAS_2D_VARIANTS.forEach((c) => {
+      if (!dirty.has(c)) return;
+      copy.drawImage(c === "lower2d" ? this.lower2dCanvas : this.upper2dCanvas, 0, 0);
+      frame[c] = copy.canvas.transferToImageBitmap();
+      dirty.delete(c);
+    });
+    const bitmaps = Object.values(frame);
+    if (bitmaps.length > 0) frames.port.postMessage(frame, bitmaps);
   }
 
   private resizeCanvas(canvas: OffscreenCanvas): void {
@@ -344,6 +470,7 @@ export class Context {
     if (canvases.includes("upper2d")) this.eraseCanvas(this.upper2d, region, overscan);
     if (canvases.includes("lower2d")) this.eraseCanvas(this.lower2d, region, overscan);
     if (canvases.includes("gl")) this.eraseGL(region, overscan);
+    this.markDirty(canvases);
   }
 
   private eraseGL(box: box.Box, overscan: xy.XY = xy.ZERO): void {

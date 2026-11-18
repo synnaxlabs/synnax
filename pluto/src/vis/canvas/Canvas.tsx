@@ -31,6 +31,7 @@ import { type z } from "zod";
 import { Aether } from "@/aether";
 import { CSS } from "@/css";
 import { canvas } from "@/vis/canvas/aether";
+import { type render } from "@/vis/render";
 
 type State = z.infer<typeof canvas.canvasStateZ>;
 
@@ -46,6 +47,7 @@ interface Canvases {
   lower2d: HTMLCanvasElement | null;
   upper2d: HTMLCanvasElement | null;
   bootstrapped: boolean;
+  framePort: MessagePort | null;
 }
 
 const ZERO_CANVASES: Canvases = {
@@ -53,6 +55,36 @@ const ZERO_CANVASES: Canvases = {
   lower2d: null,
   upper2d: null,
   bootstrapped: false,
+  framePort: null,
+};
+
+/**
+ * How the worker hands its frames to the page. In "canvas", the worker draws on the
+ * page's canvases. In "bitmap", it posts each frame as bitmaps, for browsers that crash
+ * when a worker draws on a page's canvas.
+ */
+export type Handoff = "canvas" | "bitmap";
+
+const VARIANTS: render.CanvasVariant[] = ["gl", "lower2d", "upper2d"];
+
+const receiveFrames = (
+  els: Record<render.CanvasVariant, HTMLCanvasElement>,
+  port: MessagePort,
+): void => {
+  const targets = VARIANTS.map((variant) => {
+    const el = els[variant];
+    const ctx = el.getContext("bitmaprenderer");
+    if (ctx == null) throw new Error("Could not get bitmap renderer context");
+    return { variant, el, ctx };
+  });
+  port.onmessage = ({ data }: MessageEvent<render.Frame>) =>
+    targets.forEach(({ variant, el, ctx }) => {
+      const bitmap = data[variant];
+      if (bitmap == null) return;
+      if (el.width !== bitmap.width) el.width = bitmap.width;
+      if (el.height !== bitmap.height) el.height = bitmap.height;
+      ctx.transferFromImageBitmap(bitmap);
+    });
 };
 
 const Context = createContext(false);
@@ -76,11 +108,14 @@ const DEFAULT_RESIZE_DEBOUNCE = TimeSpan.milliseconds(100);
 
 export interface CanvasProps extends Omit<HTMLDivProps, "ref"> {
   resizeDebounce?: CrudeTimeSpan;
+  /** Read once, when the canvas mounts. Defaults to "canvas". */
+  handoff?: Handoff;
 }
 
 export const Canvas = ({
   children,
   resizeDebounce: debounce = DEFAULT_RESIZE_DEBOUNCE,
+  handoff = "canvas",
   className,
   ...rest
 }: CanvasProps): ReactElement => {
@@ -143,6 +178,11 @@ export const Canvas = ({
     };
   }, [setState]);
 
+  useEffect(() => {
+    const current = canvases.current;
+    return () => current.framePort?.close();
+  }, []);
+
   const refCallback = (el: HTMLCanvasElement | null) => {
     if (el == null) return;
 
@@ -154,22 +194,28 @@ export const Canvas = ({
     if (gl == null || lower2d == null || upper2d == null || bootstrapped) return;
 
     canvases.current.bootstrapped = true;
+    const base = {
+      bootstrap: true,
+      bootstrapped: false,
+      region: box.construct(gl),
+      dpr: window.devicePixelRatio,
+      os: runtime.getOS({ default: "Windows" }),
+    };
+    if (handoff === "bitmap") {
+      const { port1, port2 } = new MessageChannel();
+      receiveFrames({ gl, lower2d, upper2d }, port1);
+      canvases.current.framePort = port1;
+      setState({ ...base, framePort: port2 }, [port2]);
+      return;
+    }
     const glCanvas = gl.transferControlToOffscreen();
     const upper2dCanvas = upper2d.transferControlToOffscreen();
     const lower2dCanvas = lower2d.transferControlToOffscreen();
-    setState(
-      {
-        glCanvas,
-        upper2dCanvas,
-        lower2dCanvas,
-        bootstrap: true,
-        bootstrapped: false,
-        region: box.construct(gl),
-        dpr: window.devicePixelRatio,
-        os: runtime.getOS({ default: "Windows" }),
-      },
-      [glCanvas, upper2dCanvas, lower2dCanvas],
-    );
+    setState({ ...base, glCanvas, upper2dCanvas, lower2dCanvas }, [
+      glCanvas,
+      upper2dCanvas,
+      lower2dCanvas,
+    ]);
   };
 
   return (

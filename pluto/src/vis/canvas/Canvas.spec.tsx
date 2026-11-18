@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { act, renderHook, screen } from "@testing-library/react";
+import { act, renderHook, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { render } from "@/testutil";
@@ -27,9 +27,9 @@ const installOffscreen = (contexts: unknown[]) =>
     value: () => offscreen(contexts.shift()),
   });
 
-const renderCanvas = () =>
+const renderCanvas = (handoff?: Canvas.Handoff) =>
   render(
-    <Canvas.Canvas resizeDebounce={0}>
+    <Canvas.Canvas resizeDebounce={0} handoff={handoff}>
       <Probe />
     </Canvas.Canvas>,
     { registry: canvas.REGISTRY },
@@ -58,6 +58,80 @@ describe("Canvas", () => {
     vi.stubGlobal("ResizeObserver", BaseResizeObserver);
     vi.restoreAllMocks();
     Reflect.deleteProperty(HTMLCanvasElement.prototype, "transferControlToOffscreen");
+  });
+
+  describe("bitmap handoff", () => {
+    const renderer = { transferFromImageBitmap: vi.fn() };
+    const transfer = vi.fn();
+    const baseGetContext = Object.getOwnPropertyDescriptor(
+      HTMLCanvasElement.prototype,
+      "getContext",
+    );
+
+    // The setup file stubs globals that the canvas needs, so only these are undone.
+    const STUBBED = ["MessageChannel", "OffscreenCanvas"];
+    const stubbed: unknown[] = [];
+
+    beforeEach(() => {
+      STUBBED.forEach((name, i) => (stubbed[i] = Reflect.get(globalThis, name)));
+      renderer.transferFromImageBitmap.mockClear();
+      transfer.mockClear();
+      Object.defineProperty(HTMLCanvasElement.prototype, "getContext", {
+        configurable: true,
+        value: () => renderer,
+      });
+      Object.defineProperty(HTMLCanvasElement.prototype, "transferControlToOffscreen", {
+        configurable: true,
+        value: transfer,
+      });
+    });
+
+    afterEach(() => {
+      STUBBED.forEach((name, i) => vi.stubGlobal(name, stubbed[i]));
+      if (baseGetContext != null)
+        Object.defineProperty(
+          HTMLCanvasElement.prototype,
+          "getContext",
+          baseGetContext,
+        );
+    });
+
+    it("should show each frame that the worker posts on its canvas", async () => {
+      const recorder = canvasTest.record();
+      canvasTest.stubHandoff([
+        canvasTest.createGL().gl,
+        recorder.lower2d,
+        recorder.upper2d,
+      ]);
+      vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue(
+        new DOMRect(0, 0, 200, 100),
+      );
+      const { container } = renderCanvas("bitmap");
+      await waitFor(() =>
+        expect(renderer.transferFromImageBitmap).toHaveBeenCalledTimes(3),
+      );
+      container.querySelectorAll("canvas").forEach((el) => {
+        expect(el.width).toBe(200);
+        expect(el.height).toBe(100);
+      });
+      expect(transfer).not.toHaveBeenCalled();
+    });
+
+    it("should report a missing GPU when the worker has no WebGL", async () => {
+      canvasTest.stubHandoff([null]);
+      renderCanvas("bitmap");
+      expect(await screen.findByText("missing")).toBeDefined();
+      expect(renderer.transferFromImageBitmap).not.toHaveBeenCalled();
+    });
+
+    it("should close the frame port on unmount", async () => {
+      const ports = canvasTest.stubHandoff([null]);
+      const { unmount } = renderCanvas("bitmap");
+      await screen.findByText("missing");
+      expect(ports.map((p) => p.closed)).toEqual([false]);
+      unmount();
+      expect(ports.map((p) => p.closed)).toEqual([true]);
+    });
   });
 
   describe("useGPUMissing", () => {
