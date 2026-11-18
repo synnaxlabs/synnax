@@ -65,6 +65,11 @@ func newIndexes() indexes {
 				return []group.Key{*e.Group}
 			},
 			Detach: func(e *Panel, _ group.Key) { e.Group = nil },
+			Retarget: func(e *Panel, from, to group.Key) {
+				if e.Group != nil && *e.Group == from {
+					*e.Group = to
+				}
+			},
 		}),
 		project: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Panel, project.Key]{
 			Name:     "project",
@@ -77,6 +82,11 @@ func newIndexes() indexes {
 				}
 				return []project.Key{*e.Project}
 			},
+			Retarget: func(e *Panel, from, to project.Key) {
+				if e.Project != nil && *e.Project == from {
+					*e.Project = to
+				}
+			},
 		}),
 		owner: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Panel, user.Key]{
 			Name:     "owner",
@@ -88,6 +98,11 @@ func newIndexes() indexes {
 					return nil
 				}
 				return []user.Key{*e.Owner}
+			},
+			Retarget: func(e *Panel, from, to user.Key) {
+				if e.Owner != nil && *e.Owner == from {
+					*e.Owner = to
+				}
 			},
 		}),
 		search: gorp.NewSearchIndex[Key, Panel](

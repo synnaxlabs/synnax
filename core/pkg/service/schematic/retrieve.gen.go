@@ -15,6 +15,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/x/compare"
@@ -36,10 +37,11 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
-	name    *gorp.SortedIndex[Key, Schematic, string]
-	group   *gorp.KeyReference[Key, Schematic, group.Key]
-	project *gorp.KeyReference[Key, Schematic, project.Key]
-	search  *gorp.SearchIndex[Key, Schematic]
+	name                   *gorp.SortedIndex[Key, Schematic, string]
+	group                  *gorp.KeyReference[Key, Schematic, group.Key]
+	project                *gorp.KeyReference[Key, Schematic, project.Key]
+	nodesConfigEnumeration *gorp.KeyReference[Key, Schematic, enumeration.Key]
+	search                 *gorp.SearchIndex[Key, Schematic]
 }
 
 // newIndexes constructs a fresh indexes value, allocating one instance of each
@@ -63,6 +65,11 @@ func newIndexes() indexes {
 				return []group.Key{*e.Group}
 			},
 			Detach: func(e *Schematic, _ group.Key) { e.Group = nil },
+			Retarget: func(e *Schematic, from, to group.Key) {
+				if e.Group != nil && *e.Group == from {
+					*e.Group = to
+				}
+			},
 		}),
 		project: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Schematic, project.Key]{
 			Name:     "project",
@@ -74,6 +81,65 @@ func newIndexes() indexes {
 					return nil
 				}
 				return []project.Key{*e.Project}
+			},
+			Retarget: func(e *Schematic, from, to project.Key) {
+				if e.Project != nil && *e.Project == from {
+					*e.Project = to
+				}
+			},
+		}),
+		nodesConfigEnumeration: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Schematic, enumeration.Key]{
+			Name:     "nodes.config.enumeration",
+			Table:    "enumeration",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Targets: func(e *Schematic) []enumeration.Key {
+				var targets []enumeration.Key
+				for _, v1 := range e.Nodes {
+					switch v2 := v1.Config.Variant.(type) {
+					case SelectNodeConfig:
+						if v2.Enumeration != nil {
+							targets = append(targets, *v2.Enumeration)
+						}
+					case StateIndicatorNodeConfig:
+						if v2.Enumeration != nil {
+							targets = append(targets, *v2.Enumeration)
+						}
+					}
+				}
+				return targets
+			},
+			Detach: func(e *Schematic, t enumeration.Key) {
+				for i3 := range e.Nodes {
+					switch v4 := e.Nodes[i3].Config.Variant.(type) {
+					case SelectNodeConfig:
+						if v4.Enumeration != nil && *v4.Enumeration == t {
+							v4.Enumeration = nil
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case StateIndicatorNodeConfig:
+						if v4.Enumeration != nil && *v4.Enumeration == t {
+							v4.Enumeration = nil
+						}
+						e.Nodes[i3].Config.Variant = v4
+					}
+				}
+			},
+			Retarget: func(e *Schematic, from, to enumeration.Key) {
+				for i5 := range e.Nodes {
+					switch v6 := e.Nodes[i5].Config.Variant.(type) {
+					case SelectNodeConfig:
+						if v6.Enumeration != nil && *v6.Enumeration == from {
+							*v6.Enumeration = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case StateIndicatorNodeConfig:
+						if v6.Enumeration != nil && *v6.Enumeration == from {
+							*v6.Enumeration = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					}
+				}
 			},
 		}),
 		search: gorp.NewSearchIndex[Key, Schematic](
@@ -100,6 +166,7 @@ func (i indexes) references() []gorp.Reference[Key, Schematic] {
 	return []gorp.Reference[Key, Schematic]{
 		i.group,
 		i.project,
+		i.nodesConfigEnumeration,
 	}
 }
 

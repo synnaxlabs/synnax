@@ -93,6 +93,12 @@
         padding-left: 1.5rem;
     }
 
+    /* A read-only cell keeps the inset of an editable one, so its text stays under its
+       heading. */
+    & tbody .lyra-input.lyra-btn--preview .lyra-input__preview-value {
+        padding: 0 1.5rem;
+    }
+
     & .lyra-input__table-gutter {
         width: var(--pluto-input-table-gutter-width);
         padding-right: 1rem;

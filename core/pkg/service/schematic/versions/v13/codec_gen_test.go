@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	enumeration "github.com/synnaxlabs/synnax/pkg/service/enumeration/versions/v0"
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
 	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v4"
@@ -639,13 +640,14 @@ var _ = Describe("Codec", func() {
 						}),
 					},
 				},
-				Disabled:     true,
-				OnClickDelay: telem.TimeSpan(21),
+				Enumeration:  new(enumeration.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567813"))),
+				Disabled:     false,
+				OnClickDelay: telem.TimeSpan(22),
 				Control: v13.ControlStateConfig{
-					Authority:       new(uint8(23)),
-					Hidden:          true,
-					ChipHidden:      false,
-					IndicatorHidden: true,
+					Authority:       new(uint8(24)),
+					Hidden:          false,
+					ChipHidden:      true,
+					IndicatorHidden: false,
 					Orientation:     spatial.Location("top"),
 				},
 			}}),
@@ -704,7 +706,8 @@ var _ = Describe("Codec", func() {
 						}),
 					},
 				},
-				Size: v13.ComponentSize("tiny"),
+				Enumeration: new(enumeration.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567811"))),
+				Size:        v13.ComponentSize("tiny"),
 			}}),
 			Entry("string_display variant", v13.NodeConfig{Variant: v13.StringDisplayNodeConfig{
 				LabeledConfig:   fullyPopulatedLabeledConfig,
@@ -2481,13 +2484,14 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 					}),
 				},
 			},
-			Disabled:     true,
-			OnClickDelay: telem.TimeSpan(21),
+			Enumeration:  new(enumeration.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567813"))),
+			Disabled:     false,
+			OnClickDelay: telem.TimeSpan(22),
 			Control: v13.ControlStateConfig{
-				Authority:       new(uint8(23)),
-				Hidden:          true,
-				ChipHidden:      false,
-				IndicatorHidden: true,
+				Authority:       new(uint8(24)),
+				Hidden:          false,
+				ChipHidden:      true,
+				IndicatorHidden: false,
 				Orientation:     spatial.Location("top"),
 			},
 		}}
@@ -2567,7 +2571,8 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 					}),
 				},
 			},
-			Size: v13.ComponentSize("tiny"),
+			Enumeration: new(enumeration.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567811"))),
+			Size:        v13.ComponentSize("tiny"),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

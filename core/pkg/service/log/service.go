@@ -104,9 +104,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			slices.Clone(versions.Migrations),
 			gorp.DanglingMigration("v61_dangling_references"),
 		),
-		// A channel delete detaches the channel from the log, which no log write does,
+		// A delete or retarget of a target rewrites the log, which no log write does,
 		// so the service sends the log as a create.
-		OnDetach: func(_ context.Context, tx gorp.Tx, l Log) error {
+		OnRewrite: func(_ context.Context, tx gorp.Tx, l Log) error {
 			s.state.Dispatcher().
 				Attach(tx, l.Key, NewCreateAction(CreatePayload{Log: l}))
 			return nil
