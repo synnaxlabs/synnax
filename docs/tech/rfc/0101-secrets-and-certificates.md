@@ -157,7 +157,10 @@ A user who saves a device or task that names a secret must be able to retrieve t
 secret, or the save fails. Otherwise a user could make a rack or a Core integration use
 a secret the user cannot see. A secret reference is a use link, so the write binder
 makes this check on every save (`core/pkg/api/bind/write.go:51`). Phase 15 adds the
-first rule, with the Driver's reader.
+first rule, with the Driver's reader. A rack's own write also cannot give a record a use
+of a secret, or of a certificate with a private key, or move such a record onto a rack
+(`checkVouched`, `core/pkg/api/bind/write.go`). A stored certificate saved without a key
+never gets one (`core/pkg/service/certificate/writer.go`).
 
 A grant covers commands that run before a device is saved: a connect dialog's test and
 browse. A test reads secrets only with a grant, even for a saved device. The Console
@@ -385,10 +388,10 @@ start at any time.
    rack would protect nothing more. The default needs no setup, as in n8n and Grafana.
    The trade is real: a copy of the data folder with its key reads every secret.
 7. **A rack reads what its devices and tasks use**: A rack needs no grant for its own
-   saved work. The trade is real: the Driver role can save any device and retrieve any
-   secret (`core/pkg/service/access/rbac/builtin/builtin.go:136-155`), so a stolen rack
-   key can name any secret in a device on its rack and then read it. SY-5597 limits each
-   rack to its own devices and tasks.
+   saved work. A rack's write cannot add a use of a secret or of a certificate with a
+   key, or move a record that uses one onto a rack, and a stored certificate saved
+   without a key never gets one. So a stolen rack key cannot name a secret in a device
+   on its rack and then read it. SY-5597 limits each rack to its own devices and tasks.
 8. **One-time grants, not save then test**: Grafana saves before it tests. Synnax keeps
    the test before save (RFC 0079 §4.2). A grant works once, as an AWS KMS grant retires
    when its work is done, and holds its command, so a copied key can only rerun the
