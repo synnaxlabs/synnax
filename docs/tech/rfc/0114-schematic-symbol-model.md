@@ -441,32 +441,33 @@ whole drawing.
 ## 6 Implementation phases
 
 The renderer parity work (SY-6054) is done: every built-in except `light` and `switch`
-draws through `Custom.Drawing` from a built-in spec, and phase 1 adds specs for those
-two. The named color record (RFC 0112 phase 3) is merged. Phase 1 waits on RFC 0112
-phases 13 to 15, the enumeration record, its API and built-ins, and its clients and
-Pluto queries, because its migration writes enumerations and its editor shows entry
-names. Phase 1 stores the `Spec` fields of §4.1 and adds the symbol checks of §4.4. It
-adds the function that turns a state list into an enumeration (RFC 0112 §4.6), and its
-migration writes the default enumeration of each custom symbol with it. A symbol import
-of an old file keeps each region color as a `color` look on its value and makes no
-enumeration. The generated `Export` (`core/pkg/service/schematic/symbol/imex.gen.go`)
-keeps the enumeration key of each state, and an import keeps a key that the Core has and
-clears one that it lacks. Pluto draws `entry` paint from the start, so no migrated
-symbol changes its look. It moves the symbol editor and the clients to the new shape,
-and phase 3 redesigns the editor. Until phase 2 deletes them, it keeps `variant`, which
-picks the node variant on placement, and today's state shape, under its own name, for
-`state_overrides`. Phase 2 ships in one release with RFC 0112 phase 21, after the RFC
-0112 enumeration editor and picker merge, and needs RFC 0112 phase 22, so the schematic
-multi-edit panel can edit the `color` of a `symbol` node. Each family is redesigned
-after phase 5 in its own PR.
+draws through `Custom.Drawing` from a built-in spec. The named color record (RFC 0112
+phase 3) is merged. Phase 1 waits on RFC 0112 phases 13 to 15, the enumeration record,
+its API and built-ins, and its clients and Pluto queries, because its migration writes
+enumerations and its editor shows entry names. Phase 1 stores the `Spec` fields of §4.1
+and adds the symbol checks of §4.4. It adds the function that turns a state list into an
+enumeration (RFC 0112 §4.6), and its migration writes the default enumeration of each
+custom symbol with it. A symbol import of an old file keeps each region color as a
+`color` look on its value and makes no enumeration. The generated `Export`
+(`core/pkg/service/schematic/symbol/imex.gen.go`) keeps the enumeration key of each
+state, and an import keeps a key that the Core has and clears one that it lacks. Pluto
+draws `entry` paint from the start, so no migrated symbol changes its look. It moves the
+symbol editor and the clients to the new shape, and phase 3 redesigns the editor. Until
+phase 2 deletes them, it keeps `variant`, which picks the node variant on placement, and
+today's state shape, under its own name, for `state_overrides`. Phase 2 ships in one
+release with RFC 0112 phase 21, after the RFC 0112 enumeration editor and picker merge,
+and needs RFC 0112 phase 22, so the schematic multi-edit panel can edit the `color` of a
+`symbol` node. Each family is redesigned after phase 5 in its own PR.
 
 Phase 2 is one cutover of the stored node shape: a node variant with channel references,
 its checks with the Core list of built-ins and its route, the removal of the bindings
 and overrides that a symbol save orphans, a Core migration, a schematic export that
 bundles the schematic's custom symbols with their keys, an import that keeps those keys
-by §4.4, a renderer with its indicators, a form with the enumeration picker, and the
-deletion of 86 variants. It is larger than a usual PR because no smaller step leaves one
-node shape in `main`. Phase 3 adds the save confirm, and phase 4 lists the removed
+by §4.4, a renderer with its indicators, built-in specs for `light` and `switch` that
+draw from their `active` state, entry looks, and the Light and Switch enumerations, with
+the switch drawn as the Lyra switch draws it, a form with the enumeration picker, and
+the deletion of 86 variants. It is larger than a usual PR because no smaller step leaves
+one node shape in `main`. Phase 3 adds the save confirm, and phase 4 lists the removed
 bindings and overrides in it. Phase 5 starts with the WebKit benchmark, and no built-in
 moves until it passes at 1,000 moving parts.
 
