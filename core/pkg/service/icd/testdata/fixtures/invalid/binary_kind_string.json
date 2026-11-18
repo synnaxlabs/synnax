@@ -1,10 +1,10 @@
 {
-  "description": "A float field is also signed.",
-  "codec_rejects": false,
+  "description": "A binary field has a kind that is not a number.",
+  "codec_rejects": true,
   "problems": [
     {
-      "path": "messages.0.payload.fields.0.signed",
-      "message": "a float field cannot also be signed"
+      "path": "messages.0.payload.fields.0.kind",
+      "message": "a binary field must be a float, an integer, or an unsigned integer"
     }
   ],
   "icd": {
@@ -25,10 +25,9 @@
               "units": "",
               "multiplex_values": [],
               "start_bit": 0,
-              "bit_length": 32,
+              "bit_length": 8,
               "byte_order": "little_endian",
-              "signed": true,
-              "float": true
+              "kind": "string"
             }
           ],
           "length": 8,

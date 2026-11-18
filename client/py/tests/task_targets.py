@@ -19,9 +19,12 @@ class TaskTargets:
     """Creates the channels, devices, and statuses that a task config names, since
     the Core refuses a config that names one it does not hold."""
 
+    rack: sy.rack.Key
+    """The rack that holds the devices, for the tasks that name them."""
+
     def __init__(self, client: sy.Synnax) -> None:
         self._client = client
-        self._rack = client.racks.create(name=random_name()).key
+        self.rack = client.racks.create(name=random_name()).key
         self._channels: dict[sy.channel.Key, sy.channel.Key] = {}
         self._devices: dict[sy.device.Key, sy.device.Key] = {}
 
@@ -58,7 +61,7 @@ class TaskTargets:
                 sy.Device(
                     key=f"{key}-{random_name()}",
                     name=key,
-                    rack=self._rack,
+                    rack=self.rack,
                     location="test",
                     make="test",
                     model="test",

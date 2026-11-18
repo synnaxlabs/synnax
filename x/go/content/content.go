@@ -52,9 +52,6 @@ func (h *Hash) Uint(v uint64) {
 	check(h.d.Write(b[:]))
 }
 
-// Int writes v.
-func (h *Hash) Int(v int64) { h.Uint(uint64(v)) }
-
 // Float writes v.
 func (h *Hash) Float(v float64) { h.Uint(math.Float64bits(v)) }
 

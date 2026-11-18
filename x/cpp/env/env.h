@@ -9,9 +9,13 @@
 
 #pragma once
 
+#include <algorithm>
+#include <cctype>
 #include <charconv>
+#include <concepts>
 #include <cstdlib>
 #include <filesystem>
+#include <optional>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -78,6 +82,30 @@ public:
             );
             return default_value;
         }
+    }
+
+    /// @brief parses an optional field, so a caller can tell an unset variable from one
+    /// set to the default. A bool must be true, false, 1, or 0 in any case; any other
+    /// value binds a field error.
+    /// @returns default_value when the variable is unset or its value is invalid.
+    template<typename O>
+        requires std::same_as<O, std::optional<typename O::value_type>>
+    O field(const std::string &name, const O &default_value) {
+        const auto screaming_name = caseconv::snake_to_scream(this->prefix + name);
+        const char *value = std::getenv(screaming_name.c_str());
+        if (value == nullptr) return default_value;
+        using T = O::value_type;
+        if constexpr (std::is_same_v<T, bool>) {
+            std::string lower(value);
+            std::ranges::transform(lower, lower.begin(), [](const unsigned char c) {
+                return static_cast<char>(std::tolower(c));
+            });
+            if (lower == "true" || lower == "1") return true;
+            if (lower == "false" || lower == "0") return false;
+            this->field_err(name, screaming_name + " must be true, false, 1, or 0");
+            return default_value;
+        } else
+            return this->field<T>(name, T{});
     }
 
     /// @brief binds an error to the given field name.

@@ -86,6 +86,7 @@ const Create = ({ close, ...params }: Modals.ContentProps<CreateModalParams, voi
       dispatch(Session.Range.add({ variant: "persisted", key }));
     },
   });
+  Modals.useBusy(variant === "loading");
 
   return (
     <Modal.Frame className={CSS.B("range-create-layout")}>
@@ -128,7 +129,7 @@ const Create = ({ close, ...params }: Modals.ContentProps<CreateModalParams, voi
                 )}
               </Form.Field>
               <Form.Field path={path.labels} showLabel={false} showHelpText={false}>
-                {(p) => <Label.SelectMultiple zIndex={100} {...p} />}
+                {(p) => <Label.SelectMultiple {...p} />}
               </Form.Field>
             </Flex.Box>
           </Flex.Box>

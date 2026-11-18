@@ -16,8 +16,8 @@ export const integrations = ["modbus"];
 
 /**
  * Docs `reference/hardware/mqtt/read-task` (Create an MQTT read task): open Add data,
- * select a topic of the simulated broker and two of its fields, add them as channels,
- * change the data type of one field, and start the task.
+ * select a topic of the simulated broker and two of its fields, add them, change the
+ * data type of one field, and start the task.
  */
 export default serverTaskScript(MQTT, {
   item: "Create read task",
@@ -28,12 +28,15 @@ export default serverTaskScript(MQTT, {
     await session.hold(1200);
     await session.click(topic, { text: true });
     await pickValues(session, dialog, ["temperature", "pressure"]);
-    await submitDiscover(session, dialog, form, "Add 2 channels");
+    await submitDiscover(session, dialog, form, "Add 2 fields");
 
-    await session.click(
-      form.getByRole("treeitem").getByText("/temperature", { exact: true }),
-      { text: true },
-    );
+    const temperature = form.getByRole("treeitem").filter({
+      has: form.page().getByRole("checkbox", { name: "Read temperature", exact: true }),
+    });
+    await session.waitFor(temperature);
+    await session.click(temperature.getByText("temperature", { exact: true }), {
+      text: true,
+    });
     await session.hold(800);
     await choose(session, form, "Data type", "float32", { search: true });
   },

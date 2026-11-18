@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/x/versions/payload/v0"
+import "schemas/x/versions/telem/v0"
 
 Key = uuid {
     @doc value "is a unique identifier for an ICD."
@@ -113,15 +114,13 @@ BinaryField struct extends BaseField {
     byte_order       ByteOrder = little_endian {
         @doc value "is the byte order of the field."
     }
-    signed           bool = false {
-        @doc value "is true when the raw value is two's complement."
-    }
-    float            bool = false {
+    kind             payload.Kind = unsigned {
         @doc value """
-            is true when the raw bits are an IEEE 754 float of 32 or 64 bits.
+            is the kind of the raw bits: an IEEE 754 float of 32 or 64 bits, a two's
+            complement integer, or an unsigned integer. No other kind is valid.
         """
     }
-    multiplexor      FieldKey? {
+    multiplexor      FieldKey?    {
         @doc value """
             is the key of the field that selects whether this field is present. When
             absent the field is always present.
@@ -169,25 +168,128 @@ JSONBaseField struct extends BaseField {
     @go marshal
 }
 
-JSONField union on type extends JSONBaseField {
-    number {
-        @doc value "is a JSON number."
+JSONField union on type payload.Kind extends JSONBaseField {
+    float {
+        enum_values payload.FloatEntry[] {
+            @doc value "maps text labels in the document to values."
+        }
+        default     payload.Float?       {
+            @doc value "is the value when the document has none. Absent requires one."
+        }
+
+        @doc value "is a JSON number read as a float."
+    }
+    integer {
+        enum_values payload.IntegerEntry[] {
+            @doc value "maps text labels in the document to values."
+        }
+        default     payload.Integer?       {
+            @doc value "is the value when the document has none. Absent requires one."
+        }
+
+        @doc value "is a JSON number read as a signed integer."
+    }
+    unsigned {
+        enum_values payload.UnsignedEntry[] {
+            @doc value "maps text labels in the document to values."
+        }
+        default     payload.Unsigned?       {
+            @doc value "is the value when the document has none. Absent requires one."
+        }
+
+        @doc value "is a JSON number read as an unsigned integer."
     }
     string {
+        enum_values payload.StringEntry[] {
+            @doc value "maps text labels in the document to values."
+        }
+        default     string?               {
+            @doc value "is the value when the document has none. Absent requires one."
+        }
+
         @doc value "is a JSON string."
     }
     boolean {
+        enum_values payload.BooleanEntry[] {
+            @doc value "maps text labels in the document to values."
+        }
+        default     bool?                  {
+            @doc value "is the value when the document has none. Absent requires one."
+        }
+
         @doc value "is a JSON boolean."
     }
     timestamp {
-        format payload.TimeFormat {
+        time_format payload.TimeFormat {
             @doc value "is the encoding of the timestamp."
+        }
+        default     telem.TimeStamp?   {
+            @doc value "is the value when the document has none. Absent requires one."
         }
 
         @doc value "is a timestamp held in a JSON number or string."
     }
+    json {
+        @doc value "is any JSON value."
+    }
+    uuid {
+        @doc value "is a UUID held in a JSON string."
+    }
+    bytes {
+        @doc value "is base64 text held in a JSON string."
+    }
 
     @doc value  "is a field read from a JSON document."
+    @go marshal
+}
+
+JSONBaseMatch struct {
+    pointer string = "" {
+        @doc value "is the JSON Pointer to the value the rule tests."
+    }
+
+    @doc value  "carries the parts every JSON match rule shares."
+    @go marshal
+}
+
+JSONMatch union on type extends JSONBaseMatch {
+    float {
+        value payload.Float {
+            @doc value "is the float the value must equal."
+        }
+
+        @doc value "matches a JSON number equal to a float."
+    }
+    integer {
+        value payload.Integer {
+            @doc value "is the signed integer the value must equal."
+        }
+
+        @doc value "matches a JSON number equal to a signed integer."
+    }
+    unsigned {
+        value payload.Unsigned {
+            @doc value "is the unsigned integer the value must equal."
+        }
+
+        @doc value "matches a JSON number equal to an unsigned integer."
+    }
+    string {
+        value string {
+            @doc value "is the string the value must equal."
+        }
+
+        @doc value "matches an equal JSON string."
+    }
+    boolean {
+        value bool {
+            @doc value "is the boolean the value must equal."
+        }
+
+        @doc value "matches an equal JSON boolean."
+    }
+
+    @doc value  "selects the JSON documents that belong to a message."
     @go marshal
 }
 
@@ -227,6 +329,12 @@ Payload union on format {
         @doc value "is a payload of one text line."
     }
     json {
+        match  JSONMatch?  {
+            @doc value """
+                selects the documents that belong to the message. When absent every
+                document belongs to it.
+            """
+        }
         fields JSONField[] = [] {
             @doc value "are the values the document carries."
         }
