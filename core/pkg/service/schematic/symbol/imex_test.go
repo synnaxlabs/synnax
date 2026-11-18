@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
@@ -218,6 +219,85 @@ var _ = Describe("ImEx", func() {
 					imex.ImportOptions{Group: createImportGroup(ctx, tx)},
 				))
 				Expect(id.Key).ToNot(Equal("11111111-2222-3333-4444-555555555555"))
+			},
+		)
+	})
+
+	Describe("Enumerations", func() {
+		var used enumeration.Enumeration
+		BeforeEach(func(ctx SpecContext) {
+			created := []enumeration.Enumeration{{
+				Name:    "Valve",
+				Entries: []enumeration.Entry{{Key: "off", Value: 0, Name: "Off"}},
+			}}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return enumSvc.NewWriter(tx).CreateMany(ctx, created)
+			})).To(Succeed())
+			used = created[0]
+		})
+		// export returns the envelope of a symbol whose state shows used, and deletes
+		// the symbol so that used can be deleted.
+		export := func(ctx SpecContext) imex.Envelope {
+			GinkgoHelper()
+			sym := defaults.Fill(symbol.Symbol{Name: "valve", Data: symbol.Spec{
+				Drawing: svg("<svg/>"),
+				Variant: "static",
+				States: []symbol.State{{Variant: symbol.EnumerationState{
+					Key:         "active",
+					Name:        "Active",
+					Enumeration: &used.Key,
+					Match:       symbol.Matcher{Variant: symbol.ExactMatcher{}},
+				}}},
+			}})
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &sym)
+			})).To(Succeed())
+			env := MustSucceed(svc.Export(ctx, db, symbol.ResourceID(sym.Key)))
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Delete(ctx, sym.Key)
+			})).To(Succeed())
+			return env
+		}
+		deleteUsed := func(ctx SpecContext) {
+			GinkgoHelper()
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return enumSvc.NewWriter(tx).Delete(ctx, used.Key)
+			})).To(Succeed())
+		}
+		importState := func(
+			ctx SpecContext,
+			env imex.Envelope,
+		) symbol.EnumerationState {
+			GinkgoHelper()
+			tx := DeferClose(db.OpenTx())
+			id := MustSucceed(imexSvc.Import(
+				ctx,
+				tx,
+				WireRoundTrip(env),
+				imex.ImportOptions{Group: createImportGroup(ctx, tx)},
+			))
+			var res symbol.Symbol
+			Expect(svc.NewRetrieve().
+				Where(symbol.MatchKeys(MustSucceed(uuid.Parse(id.Key)))).
+				Entry(&res).
+				Exec(ctx, tx)).To(Succeed())
+			state, ok := res.Data.States[0].Variant.(symbol.EnumerationState)
+			Expect(ok).To(BeTrue())
+			return state
+		}
+
+		It("Should keep a state enumeration that the Core has", func(ctx SpecContext) {
+			DeferCleanup(deleteUsed)
+			env := export(ctx)
+			Expect(importState(ctx, env).Enumeration).To(HaveValue(Equal(used.Key)))
+		})
+
+		It(
+			"Should clear a state enumeration that the Core lacks",
+			func(ctx SpecContext) {
+				env := export(ctx)
+				deleteUsed(ctx)
+				Expect(importState(ctx, env).Enumeration).To(BeNil())
 			},
 		)
 	})
