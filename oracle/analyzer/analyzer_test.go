@@ -3054,6 +3054,21 @@ Node union on variant {
 		})
 
 		It(
+			"Should accept a diamond over a struct that extends another",
+			func(ctx SpecContext) {
+				source := `
+				Root struct {}
+				Mid struct extends Root {}
+				Left struct extends Mid { l string }
+				Right struct extends Mid { r string }
+				Diamond struct extends Left, Right {}
+			`
+				_, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+			},
+		)
+
+		It(
 			"Should detect circular inheritance with multiple parents",
 			func() {
 				source := `
