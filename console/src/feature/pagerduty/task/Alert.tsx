@@ -256,7 +256,11 @@ const Form: FC = () => {
             </Select.Frame>
           </PMenu.ContextMenu>
           {!isPreview && (
-            <Button.CreateListItem size="small" onClick={handleAdd}>
+            <Button.CreateListItem
+              size="small"
+              onClick={handleAdd}
+              className={CSS.BE("panes", "create")}
+            >
               Add alert
             </Button.CreateListItem>
           )}
