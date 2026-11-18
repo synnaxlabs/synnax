@@ -143,11 +143,6 @@ type LayerConfig struct {
 	//
 	// [OPTIONAL] - Defaults to false.
 	EmbeddedDriverDisabled bool
-	// DisabledIntegrations are the names of the integrations, such as "file" or
-	// "kafka", that do not run on the Core's rack.
-	//
-	// [OPTIONAL]
-	DisabledIntegrations []string
 	// Instrumentation is for logging, tracing, metrics, etc.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -189,10 +184,6 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 		other.SecretsKey != secret.EncryptionKey{},
 	)
 	c.SecretsDir = override.String(c.SecretsDir, other.SecretsDir)
-	c.DisabledIntegrations = override.Slice(
-		c.DisabledIntegrations,
-		other.DisabledIntegrations,
-	)
 	return c
 }
 
@@ -1183,16 +1174,14 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Framer:          l.Framer,
 		Channel:         l.Channel,
 		Status:          l.Status,
-		Factories: slices.DeleteFunc([]driver.Factory{
+		Factories: []driver.Factory{
 			arcFactory,
 			pdFactory,
 			kafkaFactory,
 			mqttFactory,
 			siftFactory,
 			fileFactory,
-		}, func(f driver.Factory) bool {
-			return slices.Contains(cfg.DisabledIntegrations, f.Name())
-		}),
+		},
 		HostKey: cfg.Distribution.Identity.HostKey,
 	}); !ok(err, l.Driver) {
 		return nil, err
