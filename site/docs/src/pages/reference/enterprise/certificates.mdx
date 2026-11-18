@@ -81,8 +81,7 @@ sudo security add-trusted-cert -d -r trustRoot \
 ```
 
 The Console and browsers use the Keychain. The Driver does not. Run
-`sudo synnax-driver login` and give the path of the file at `CA certificate file`, then
-restart the service.
+`sudo synnax-driver login --ca-cert /path/to/synnax-ca.crt`, then restart the service.
 
 </Fragment>
 

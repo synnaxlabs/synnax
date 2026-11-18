@@ -74,7 +74,6 @@ sudo synnax-driver login
 ```
 Host [localhost]: 10.0.0.45
 Port [9090]:
-CA certificate file [none]:
 Secure (Y/N) [N]:
 Username: driver
 Password:
@@ -85,9 +84,14 @@ macOS while the service is installed, `login` also reads the
 [environment file](/reference/enterprise/driver/configuration#environment-file), which
 only root can read. Restart a running Driver to use the new key.
 
-| Flag           | Default                                                                 | Description                 |
-| -------------- | ----------------------------------------------------------------------- | --------------------------- |
-| `--state-file` | see [State file](/reference/enterprise/driver/configuration#state-file) | The path of the state file. |
+For a Core with a certificate from your own authority, give the CA certificate with
+`--ca-cert`. `login` then uses TLS, trusts only the certificates in that file, and does
+not ask for `Secure`.
+
+| Flag           | Default                                                                 | Description                          |
+| -------------- | ----------------------------------------------------------------------- | ------------------------------------ |
+| `--state-file` | see [State file](/reference/enterprise/driver/configuration#state-file) | The path of the state file.          |
+| `--ca-cert`    | none                                                                    | The path of the CA certificate file. |
 
 <Divider.Divider x />
 

@@ -28,7 +28,7 @@ int login(x::args::Parser &args) {
     config.host = x::cli::prompt("Host", "localhost");
     config.port = x::cli::prompt<uint16_t>("Port", static_cast<uint16_t>(9090));
     // The service runs in another directory, so a relative path must not be saved.
-    if (const auto ca = x::cli::prompt("CA certificate file", ""); !ca.empty())
+    if (const auto ca = args.field("ca_cert", std::string()); !ca.empty())
         config.ca_cert = x::path::resolve_relative(ca);
     else
         config.secure = x::cli::confirm("Secure", false);
