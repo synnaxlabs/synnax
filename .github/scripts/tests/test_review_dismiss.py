@@ -257,7 +257,7 @@ class TestDismissed:
 
 
 class TestDismiss:
-    """Tests answering a reply that mentions the bot on a thread of its finding."""
+    """Tests answering a reply on a thread of a finding of the bot."""
 
     def test_should_resolve_the_thread_of_a_dismissed_finding(self, gh: FakeGH) -> None:
         gh.threads = [thread("T1", comment(2, "@sedosaur dismiss, it is meant"))]
@@ -403,6 +403,42 @@ class TestDismiss:
         [(_, body)] = gh.replies
         assert body.startswith("To dismiss this finding, reply `@sedosaur dismiss`")
         assert gh.resolved == []
+
+    def test_should_answer_a_reply_with_no_mention_with_the_usage(
+        self, gh: FakeGH
+    ) -> None:
+        gh.threads = [thread("T1", comment(2, "Fixed in abc123."))]
+        gh.runs = [check_run([["a.go", "Samples"]])]
+        dismiss(TARGET, gh, comment=2, key=KEY)
+        [(_, body)] = gh.replies
+        assert body.startswith("To dismiss this finding, reply `@sedosaur dismiss`")
+        assert gh.resolved == []
+        assert gh.checks() == []
+
+    def test_should_answer_each_thread_with_the_usage_once(self, gh: FakeGH) -> None:
+        gh.threads = [thread("T1", comment(2, "Fixed in abc123."))]
+        dismiss(TARGET, gh, comment=2, key=KEY)
+        gh.threads[0]["comments"].append(comment(3, "See the test."))
+        dismiss(TARGET, gh, comment=3, key=KEY)
+        assert len(gh.replies) == 1
+
+    def test_should_answer_a_thread_whose_run_never_answered_with_the_usage(
+        self, gh: FakeGH
+    ) -> None:
+        gh.threads = [
+            thread("T1", comment(2, "Fixed in abc123.")),
+            thread("T2", comment(3, "See the test."), path="b.go", title="Nit"),
+        ]
+        dismiss(TARGET, gh, comment=3, key=KEY)
+        assert [t for t, _ in gh.replies] == ["T1", "T2"]
+
+    def test_should_not_answer_a_resolved_thread_with_the_usage(
+        self, gh: FakeGH
+    ) -> None:
+        gh.threads = [thread("T1", comment(2, "Thanks."))]
+        gh.threads[0]["resolved"] = True
+        dismiss(TARGET, gh, comment=2, key=KEY)
+        assert gh.replies == []
 
     def test_should_fail_on_a_comment_of_another_pull_request(self, gh: FakeGH) -> None:
         gh.comments = [issue_comment(9, "@sedosaur dismiss Old", pr=8)]
