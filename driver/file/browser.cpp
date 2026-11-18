@@ -58,14 +58,6 @@ std::filesystem::path normal(const std::filesystem::path &path) {
     return out;
 }
 
-/// @returns true if every segment of prefix starts path.
-bool starts_with(
-    const std::filesystem::path &path,
-    const std::filesystem::path &prefix
-) {
-    return std::ranges::mismatch(prefix, path).in1 == prefix.end();
-}
-
 bool certificate_extension(const std::filesystem::path &path) {
     auto ext = to_utf8(path.extension()).value_or("");
     std::ranges::transform(ext, ext.begin(), [](const unsigned char c) {
@@ -108,30 +100,32 @@ struct Entry {
     std::filesystem::path path;
     std::string path_utf8;
     bool directory = false;
+    bool link = false;
 };
 
-/// @brief the secrets folder by its name, and with its links resolved at the start of
-/// a list.
+/// @brief the secrets folder, which it compares by file identity, so that another
+/// spelling of the folder, such as one in another case or through a link, matches.
 class Secrets {
     std::filesystem::path dir;
-    std::optional<std::filesystem::path> resolved;
 
 public:
-    explicit Secrets(std::filesystem::path dir): dir(std::move(dir)) {
-        if (this->dir.empty()) return;
+    explicit Secrets(std::filesystem::path dir): dir(std::move(dir)) {}
+
+    /// @returns true if path is the folder, or when the comparison fails.
+    [[nodiscard]] bool is(const std::filesystem::path &path) const {
+        if (this->dir.empty()) return false;
         std::error_code ec;
-        auto path = std::filesystem::weakly_canonical(this->dir, ec);
-        if (!ec) this->resolved = std::move(path);
+        return std::filesystem::equivalent(path, this->dir, ec) || ec;
     }
 
-    /// @returns true if the path is in the folder, by its name or with its links
-    /// resolved. When the folder or the path does not resolve, it returns true.
+    /// @returns true if path or one of its parents is the folder, or when a comparison
+    /// fails.
     [[nodiscard]] bool contains(const std::filesystem::path &path) const {
         if (this->dir.empty()) return false;
-        if (!this->resolved || starts_with(path, this->dir)) return true;
-        std::error_code ec;
-        const auto resolved_path = std::filesystem::weakly_canonical(path, ec);
-        return ec || starts_with(resolved_path, *this->resolved);
+        for (auto p = path;; p = p.parent_path()) {
+            if (this->is(p)) return true;
+            if (p == p.parent_path()) return false;
+        }
     }
 };
 
@@ -210,11 +204,15 @@ Browser::list(const std::string &path) const {
         if (entry_ec) continue;
         const bool directory = std::filesystem::is_directory(entry_status);
         if (!directory && !std::filesystem::is_regular_file(entry_status)) continue;
+        const bool link = it->is_symlink(entry_ec);
+        if (entry_ec) continue;
         const auto path = dir / it->path().filename();
         auto name = to_utf8(path.filename());
         auto path_utf8 = to_utf8(path);
         if (!name || !path_utf8) continue;
-        found.push_back({std::move(*name), path, std::move(*path_utf8), directory});
+        found.push_back(
+            {std::move(*name), path, std::move(*path_utf8), directory, link}
+        );
     }
     if (ec) return {{}, read_error(ec, dir_name)};
     std::ranges::sort(found, [](const Entry &a, const Entry &b) {
@@ -234,10 +232,12 @@ Browser::list(const std::string &path) const {
             {"kind", e.directory ? "directory" : "file"},
         };
         // The check and the reads use one resolved path, so a link that changes
-        // between them cannot lead the reads into the secrets folder.
+        // between them cannot lead the reads into the secrets folder. The parents of
+        // an entry that is not a link are the listed folder's.
         std::error_code resolve_ec;
         const auto target = std::filesystem::canonical(e.path, resolve_ec);
-        if (listed_secret || resolve_ec || secrets.contains(target)) {
+        if (listed_secret || resolve_ec ||
+            (e.link ? secrets.contains(target) : secrets.is(target))) {
             entries.push_back(std::move(entry));
             continue;
         }
