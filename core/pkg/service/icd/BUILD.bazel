@@ -24,3 +24,9 @@ cpp_grpc_library(
     visibility = ["//visibility:public"],
     deps = ["//x/go/payload:payload_grpc"],
 )
+
+filegroup(
+    name = "decode_fixtures",
+    srcs = glob(["testdata/decode/*.json"]),
+    visibility = ["//driver/codec:__pkg__"],
+)
