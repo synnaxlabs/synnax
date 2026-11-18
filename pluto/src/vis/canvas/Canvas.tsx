@@ -77,7 +77,7 @@ const receiveFrames = (
     if (ctx == null) throw new Error("Could not get bitmap renderer context");
     return { variant, el, ctx };
   });
-  port.onmessage = ({ data }: MessageEvent<render.Frame>) =>
+  port.onmessage = ({ data }: MessageEvent<render.Frame>) => {
     targets.forEach(({ variant, el, ctx }) => {
       const bitmap = data[variant];
       if (bitmap == null) return;
@@ -85,6 +85,9 @@ const receiveFrames = (
       if (el.height !== bitmap.height) el.height = bitmap.height;
       ctx.transferFromImageBitmap(bitmap);
     });
+    // The worker posts no other frame until it gets this acknowledgement.
+    port.postMessage(null);
+  };
 };
 
 const Context = createContext(false);

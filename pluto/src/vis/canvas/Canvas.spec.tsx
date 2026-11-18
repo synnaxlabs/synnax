@@ -117,6 +117,27 @@ describe("Canvas", () => {
       expect(transfer).not.toHaveBeenCalled();
     });
 
+    it("should acknowledge each frame so that the worker posts the next", async () => {
+      const recorder = canvasTest.record();
+      canvasTest.stubHandoff([
+        canvasTest.createGL().gl,
+        recorder.lower2d,
+        recorder.upper2d,
+      ]);
+      const rect = vi
+        .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+        .mockReturnValue(new DOMRect(0, 0, 200, 100));
+      renderCanvas("bitmap");
+      await waitFor(() =>
+        expect(renderer.transferFromImageBitmap).toHaveBeenCalledTimes(3),
+      );
+      rect.mockReturnValue(new DOMRect(0, 0, 300, 100));
+      await act(async () => resizes.forEach((resize) => resize()));
+      await waitFor(() =>
+        expect(renderer.transferFromImageBitmap).toHaveBeenCalledTimes(6),
+      );
+    });
+
     it("should report a missing GPU when the worker has no WebGL", async () => {
       canvasTest.stubHandoff([null]);
       renderCanvas("bitmap");

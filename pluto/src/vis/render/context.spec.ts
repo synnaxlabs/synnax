@@ -90,7 +90,15 @@ const mountBitmap = () => {
   canvasTest.stubHandoff([gl, recorder.lower2d, recorder.upper2d]);
   const { port1, port2 } = new MessageChannel();
   const frames: render.Frame[] = [];
-  port1.onmessage = ({ data }: MessageEvent<render.Frame>) => frames.push(data);
+  let acking = true;
+  const ack = () => port1.postMessage(null);
+  port1.onmessage = ({ data }: MessageEvent<render.Frame>) => {
+    frames.push(data);
+    if (acking) ack();
+  };
+  const stall = () => {
+    acking = false;
+  };
   const stack = buildStack({ registry: canvas.REGISTRY });
   teardowns.push(() => stack.driver.delete([aetherTest.ROOT_KEY]));
   const path = [...stack.basePath, "canvas"];
@@ -110,7 +118,7 @@ const mountBitmap = () => {
   const glCanvas = renderCtx.glCanvas;
   const lose = () => glCanvas.dispatchEvent(new Event("webglcontextlost"));
   const restore = () => glCanvas.dispatchEvent(new Event("webglcontextrestored"));
-  return { renderCtx, calls, frames, posted, lose, restore };
+  return { renderCtx, calls, frames, posted, lose, restore, stall, ack };
 };
 
 const ALL = ["gl", "lower2d", "upper2d"];
@@ -168,6 +176,37 @@ describe("render.Context", () => {
       posted();
       renderCtx.loop.set({ ...glRequest(), canvases: ["upper2d"] });
       expect(posted().at(-1)).toEqual(["upper2d"]);
+    });
+
+    it("should post no frame until the page acknowledges the last one", () => {
+      const { renderCtx, posted, stall } = mountBitmap();
+      stall();
+      posted();
+      renderCtx.loop.set({ ...glRequest(), canvases: ["upper2d"] });
+      expect(posted()).toHaveLength(1);
+    });
+
+    it("should post the canvases that changed while waiting after the ack", () => {
+      const { renderCtx, posted, stall, ack } = mountBitmap();
+      stall();
+      posted();
+      renderCtx.loop.set({ ...glRequest(), canvases: ["upper2d"] });
+      posted();
+      ack();
+      expect(posted()).toEqual([ALL, ["upper2d"]]);
+    });
+
+    it("should post one frame for every change made during a stall", () => {
+      const { renderCtx, posted, stall, ack } = mountBitmap();
+      stall();
+      posted();
+      renderCtx.loop.set({ ...glRequest(), canvases: ["upper2d"] });
+      posted();
+      renderCtx.erase(box.construct(0, 0, 10, 10), xy.ZERO, "lower2d");
+      posted();
+      ack();
+      posted();
+      expect(posted()).toEqual([ALL, ["lower2d", "upper2d"]]);
     });
 
     it("should post the canvases that an erase cleared", () => {

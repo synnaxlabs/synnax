@@ -75,6 +75,8 @@ interface Frames {
   copy: OffscreenCanvasRenderingContext2D;
   /** The canvases that changed since the last frame. */
   dirty: Set<CanvasVariant>;
+  /** True from a post until the page acknowledges it, so frames never queue. */
+  inFlight: boolean;
 }
 
 /**
@@ -185,7 +187,17 @@ export class Context {
       const copy = new OffscreenCanvas(0, 0).getContext("2d");
       if (copy == null) throw new Error("Could not get 2D context");
       const backBuffer = this.createBackBuffer();
-      this.frames = { port: framePort, backBuffer, copy, dirty: new Set() };
+      const frames: Frames = {
+        port: framePort,
+        backBuffer,
+        copy,
+        dirty: new Set(),
+        inFlight: false,
+      };
+      framePort.onmessage = () => {
+        frames.inFlight = false;
+      };
+      this.frames = frames;
     }
 
     this.glCanvas.addEventListener("webglcontextlost", (e) => this.lose(e));
@@ -364,7 +376,7 @@ export class Context {
     const { dirty, copy, backBuffer } = frames;
     drawn.forEach((c) => dirty.add(c));
     const { width, height } = glCanvas;
-    if (dirty.size === 0 || width === 0 || height === 0) return;
+    if (frames.inFlight || dirty.size === 0 || width === 0 || height === 0) return;
     const frame: Frame = {};
     if (dirty.has("gl") && !this.loop.glLost) {
       gl.bindFramebuffer(gl.READ_FRAMEBUFFER, backBuffer.framebuffer);
@@ -397,7 +409,9 @@ export class Context {
       dirty.delete(c);
     });
     const bitmaps = Object.values(frame);
-    if (bitmaps.length > 0) frames.port.postMessage(frame, bitmaps);
+    if (bitmaps.length === 0) return;
+    frames.inFlight = true;
+    frames.port.postMessage(frame, bitmaps);
   }
 
   private resizeCanvas(canvas: OffscreenCanvas): void {
