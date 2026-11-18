@@ -10,13 +10,19 @@
 import { Icon } from "@synnaxlabs/lyra/icon";
 
 import { ReadSelectable } from "@/feature/http/task/Read";
-import { PREFIX } from "@/feature/http/task/types";
+import { PREFIX, READ_SCHEMAS, READ_TYPE } from "@/feature/http/task/types";
 import { WriteSelectable } from "@/feature/http/task/Write";
-import { type Task } from "@/platform/task";
+import { Task } from "@/platform/task";
+
+const readPlotChannels: Task.PlotChannels = (config) =>
+  Task.enabledChannels(
+    READ_SCHEMAS.config.parse(config).endpoints.flatMap(({ fields }) => fields),
+  );
 
 export const INTEGRATION: Task.Integration = {
   prefix: PREFIX,
   name: "HTTP",
   icon: <Icon.Logo.HTTP />,
   selectables: [ReadSelectable, WriteSelectable],
+  plotChannels: { [READ_TYPE]: readPlotChannels },
 };

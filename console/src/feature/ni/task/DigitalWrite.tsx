@@ -101,7 +101,7 @@ const Form: FC = () => {
   return (
     <Task.Views.List<DOChannel>
       path={root.config.channels}
-      createChannel={(channels) => createNextDOChannel(channels, {}, dev)}
+      createChannel={(channels, copy) => createNextDOChannel(channels, { copy }, dev)}
       listItem={listItem}
       columns={PORT_LINE_COLUMNS}
       channelColumns={Task.Views.LIST_WRITE_CHANNEL_COLUMNS}

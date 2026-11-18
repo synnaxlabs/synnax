@@ -279,6 +279,19 @@ describe("CounterRead", () => {
     );
     expect(tsk.config.channels.map(({ device }) => device)).toEqual([dev.key]);
   });
+
+  it("should create the task with a channel on each of the given devices", async () => {
+    const devices = [await createNIDevice(client), await createNIDevice(client)];
+    const keys = devices.map((d) => d.key);
+    const tsk = await createWithHook(
+      NI.Task.useCreateCounterRead,
+      NI.Task.COUNTER_READ_SCHEMAS,
+      {
+        deviceKeys: keys,
+      },
+    );
+    expect(tsk.config.channels.map(({ device }) => device)).toEqual(keys);
+  });
 });
 
 describe("CounterRead ports", () => {
