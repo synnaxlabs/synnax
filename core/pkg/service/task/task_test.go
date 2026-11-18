@@ -2130,6 +2130,7 @@ var _ = Describe("Task", Ordered, func() {
 var _ = Describe("OpenService with a store that hashes used records", func() {
 	It("Should store the current config hash of each task", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
 		roles := MustOpen(role.OpenService(ctx, role.ServiceConfig{DB: db}))
 		racks := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
