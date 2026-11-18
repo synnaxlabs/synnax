@@ -30,7 +30,8 @@ five minutes. `DOCS_GITHUB_APP_ID` and `DOCS_GITHUB_APP_PRIVATE_KEY` in the Verc
 project hold the ID and the PEM private key of the "Synnax Docs" GitHub App. The site
 makes installation tokens from them, which raise the GitHub API rate limit. The site
 works without them at a lower rate limit. Set both or neither. Without the App, the site
-uses `GITHUB_TOKEN` if set, as CI does.
+uses `GITHUB_TOKEN` if set, as CI does. Keep `DOCS_GITHUB_TOKEN` in the Vercel project:
+older trains build from release refs whose code reads only that variable.
 
 The release notes in `src/releases` take their date from the same listing: the day, in
 Mountain Time, that the stable `core/vX.Y.0` release was published. Notes with no stable
