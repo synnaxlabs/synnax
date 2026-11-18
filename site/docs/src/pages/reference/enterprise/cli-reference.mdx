@@ -225,15 +225,16 @@ a service, because a service has no standard input.
 <Field.Item name="--disable-integrations" type="list" env="SYNNAX_DISABLE_INTEGRATIONS">
 
 The device integrations to disable. All integrations are enabled by default. The options
-are `arc`, `ethercat`, `http`, `labjack`, `modbus`, `ni`, and `opc`.
+are `arc`, `ethercat`, `http`, `labjack`, `modbus`, `ni`, and `opc`. You cannot use it
+with `--enable-integrations`.
 
 </Field.Item>
 
 <Field.Item name="--enable-integrations" type="list" env="SYNNAX_ENABLE_INTEGRATIONS">
 
-The device integrations to enable, when you want only some of them. All integrations are
-enabled by default. The options are `arc`, `ethercat`, `http`, `labjack`, `modbus`,
-`ni`, and `opc`.
+The only device integrations to enable, when you want only some of them. All
+integrations are enabled by default. The options are `arc`, `ethercat`, `http`,
+`labjack`, `modbus`, `ni`, and `opc`. You cannot use it with `--disable-integrations`.
 
 </Field.Item>
 

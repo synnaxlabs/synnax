@@ -441,7 +441,8 @@ class DocumentStore<
 
   private async commit(tx: actions.Transaction<patch.Action>): Promise<boolean> {
     const beforeSend = this.params.beforeSend.current;
-    // Each wait starts after the one before, so the sends still commit in order.
+    // Each wait starts after the one before, so the sends still commit in order. The
+    // send that owns a wait reports its rejection, so the chain drops it.
     const waited = beforeSend == null ? null : this.waited.then(beforeSend);
     if (waited != null) this.waited = waited.catch(() => undefined);
     try {
