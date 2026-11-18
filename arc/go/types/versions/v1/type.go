@@ -71,47 +71,23 @@ func (t Type) IntegerMinValue() int64 {
 
 // String returns the string representation of the type.
 func (t Type) String() string {
-	var base string
 	switch t.Kind {
-	case KindU8:
-		base = "u8"
-	case KindU16:
-		base = "u16"
-	case KindU32:
-		base = "u32"
-	case KindU64:
-		base = "u64"
-	case KindI8:
-		base = "i8"
-	case KindI16:
-		base = "i16"
-	case KindI32:
-		base = "i32"
-	case KindI64:
-		base = "i64"
-	case KindF32:
-		base = "f32"
-	case KindF64:
-		base = "f64"
+	case KindU8, KindU16, KindU32, KindU64, KindI8, KindI16, KindI32, KindI64,
+		KindF32, KindF64:
+		if t.Unit != nil && t.Unit.Name != "" {
+			return numericName(t.Kind) + " " + t.Unit.Name
+		}
+		return numericName(t.Kind)
 	case KindBool:
 		return "bool"
 	case KindString:
 		return "str"
 	case KindChan:
-		if t.Elem != nil {
-			return "chan " + t.Elem.String()
-		}
-		return "chan <invalid>"
+		return t.elemString("chan")
 	case KindSeries:
-		if t.Elem != nil {
-			return "series " + t.Elem.String()
-		}
-		return "series <invalid>"
+		return t.elemString("series")
 	case KindVarRef:
-		if t.Elem != nil {
-			return "var " + t.Elem.String()
-		}
-		return "var <invalid>"
+		return t.elemString("var")
 	case KindVariable:
 		if t.Constraint != nil {
 			return t.Constraint.String()
@@ -136,11 +112,43 @@ func (t Type) String() string {
 	default:
 		return t.Kind.String()
 	}
+}
 
-	if t.Unit != nil && t.Unit.Name != "" {
-		return base + " " + t.Unit.Name
+func (t Type) elemString(prefix string) string {
+	if t.Elem != nil {
+		return prefix + " " + t.Elem.String()
 	}
-	return base
+	return prefix + " <invalid>"
+}
+
+func numericName(k Kind) string {
+	switch k {
+	case KindU8:
+		return "u8"
+	case KindU16:
+		return "u16"
+	case KindU32:
+		return "u32"
+	case KindU64:
+		return "u64"
+	case KindI8:
+		return "i8"
+	case KindI16:
+		return "i16"
+	case KindI32:
+		return "i32"
+	case KindI64:
+		return "i64"
+	case KindF32:
+		return "f32"
+	case KindF64:
+		return "f64"
+	case KindInvalid, KindString, KindChan, KindSeries, KindVariable,
+		KindNumericConstant, KindIntegerConstant, KindFloatConstant,
+		KindExactIntegerFloatConstant, KindFunction, KindSequence, KindStage,
+		KindVarRef, KindBool:
+	}
+	panic(fmt.Sprintf("[types.numericName] %s is not a numeric kind", k))
 }
 
 // IsNumeric returns true if the type is a numeric type (integer or float).

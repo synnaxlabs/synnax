@@ -37,6 +37,7 @@ Configuration:
 
 import argparse
 import ssl
+import sys
 from pathlib import Path
 
 import synnax as sy
@@ -113,7 +114,7 @@ if existing_device is not None:
     print()
     print("No action needed - device is ready to use.")
     print("=" * 70)
-    exit(0)
+    sys.exit(0)
 
 # Device not found - prompt user for connection method
 print("Device not found")
@@ -184,7 +185,7 @@ if response in ("", "y", "yes"):
         print()
         print("Device is ready to use.")
         print("=" * 70)
-        exit(0)
+        sys.exit(0)
 
     except Exception as e:
         print(f"✗ Failed to connect device: {e}")
@@ -207,4 +208,4 @@ if response in ("n", "no") or response not in ("", "y", "yes"):
         print("   - Client Certificate: Driver certificate")
         print("   - Click Connect, check the thumbprint, then click Trust")
     print("=" * 70)
-    exit(1)
+    sys.exit(1)

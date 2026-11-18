@@ -19,7 +19,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { Arc } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
-import { type ReactElement, useState } from "react";
+import { type DragEvent, type ReactElement, useState } from "react";
 
 import { CSS } from "@/platform/css";
 
@@ -33,14 +33,17 @@ const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
     key: "stages",
   });
   const theme = Theming.use();
-  const handleDragStart = () => {
-    startDrag([Arc.createHaulItem(itemKey)]);
-  };
-
   const spec = List.useItem<string, Arc.Graph.Node.Spec>(itemKey);
   const config = spec?.defaultConfig(theme);
   if (spec == null || config == null) return null;
   const { name, Preview } = spec;
+  const handleDragStart = (event: DragEvent<HTMLElement>) =>
+    startDrag({
+      event,
+      items: [Arc.createHaulItem(itemKey)],
+      preview: <Preview config={config} scale={1} />,
+      anchor: "corner",
+    });
 
   return (
     <Select.Item

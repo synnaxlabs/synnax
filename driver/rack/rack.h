@@ -255,18 +255,6 @@ struct Config {
         return {cfg, err};
     }
 
-    void override_integrations(
-        const std::vector<std::string> &enable,
-        const std::vector<std::string> &disable
-    ) {
-        std::set i_set(this->integrations.begin(), this->integrations.end());
-        for (const auto &integration: disable)
-            i_set.erase(integration);
-        for (const auto &integration: enable)
-            i_set.insert(integration);
-        this->integrations = std::vector(i_set.begin(), i_set.end());
-    }
-
     /// @brief permanently saves connection parameters to the persisted state file.
     static x::errors::Error
     save_conn_params(x::args::Parser &args, const synnax::Config &conn_params);

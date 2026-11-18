@@ -36,6 +36,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/connectivity"
 	"github.com/synnaxlabs/synnax/pkg/api/control"
 	"github.com/synnaxlabs/synnax/pkg/api/device"
+	"github.com/synnaxlabs/synnax/pkg/api/enumeration"
 	"github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
 	"github.com/synnaxlabs/synnax/pkg/api/icd"
@@ -199,6 +200,29 @@ type Transport struct {
 	ColorDispatch freighter.UnaryServer[color.DispatchRequest, struct{}]
 	// ColorRetrieveBuiltins returns the shipped values of the built-in named colors.
 	ColorRetrieveBuiltins freighter.UnaryServer[struct{}, color.RetrieveBuiltinsResponse]
+	// ENUMERATION
+	EnumerationCreate freighter.UnaryServer[
+		enumeration.CreateRequest,
+		enumeration.CreateResponse,
+	]
+	EnumerationRetrieve freighter.UnaryServer[
+		enumeration.RetrieveRequest,
+		enumeration.RetrieveResponse,
+	]
+	EnumerationDelete freighter.UnaryServer[enumeration.DeleteRequest, struct{}]
+	// EnumerationDispatch applies path actions to an enumeration.
+	EnumerationDispatch freighter.UnaryServer[enumeration.DispatchRequest, struct{}]
+	// EnumerationRetrieveBuiltins returns the shipped values of the built-in
+	// enumerations.
+	EnumerationRetrieveBuiltins freighter.UnaryServer[
+		struct{},
+		enumeration.RetrieveBuiltinsResponse,
+	]
+	// EnumerationRetrieveDependents returns the records that use an enumeration.
+	EnumerationRetrieveDependents freighter.UnaryServer[
+		enumeration.RetrieveDependentsRequest,
+		enumeration.RetrieveDependentsResponse,
+	]
 	// RACK
 	RackCreate   freighter.UnaryServer[rack.CreateRequest, rack.CreateResponse]
 	RackRetrieve freighter.UnaryServer[rack.RetrieveRequest, rack.RetrieveResponse]
@@ -315,6 +339,7 @@ type Layer struct {
 	Panel        *panel.Service
 	Label        *label.Service
 	Color        *color.Service
+	Enumeration  *enumeration.Service
 	Rack         *rack.Service
 	Task         *task.Service
 	Device       *device.Service
@@ -502,6 +527,14 @@ func (l *Layer) BindTo(t Transport) {
 		t.ColorDelete,
 		t.ColorDispatch,
 		t.ColorRetrieveBuiltins,
+
+		// ENUMERATION
+		t.EnumerationCreate,
+		t.EnumerationRetrieve,
+		t.EnumerationDelete,
+		t.EnumerationDispatch,
+		t.EnumerationRetrieveBuiltins,
+		t.EnumerationRetrieveDependents,
 
 		// RACK
 		t.RackCreate,
@@ -763,6 +796,16 @@ func (l *Layer) BindTo(t Transport) {
 	t.ColorDispatch.BindHandler(bind.Write(l.binder, l.Color.Dispatch))
 	t.ColorRetrieveBuiltins.BindHandler(l.Color.RetrieveBuiltins)
 
+	// ENUMERATION
+	t.EnumerationCreate.BindHandler(bind.Write(l.binder, l.Enumeration.Create))
+	t.EnumerationRetrieve.BindHandler(bind.Read(l.binder, l.Enumeration.Retrieve))
+	t.EnumerationDelete.BindHandler(bind.Write(l.binder, l.Enumeration.Delete))
+	t.EnumerationDispatch.BindHandler(bind.Write(l.binder, l.Enumeration.Dispatch))
+	t.EnumerationRetrieveBuiltins.BindHandler(l.Enumeration.RetrieveBuiltins)
+	t.EnumerationRetrieveDependents.BindHandler(
+		bind.Read(l.binder, l.Enumeration.RetrieveDependents),
+	)
+
 	// RACK
 	t.RackCreate.BindHandler(bind.Write(l.binder, l.Rack.Create))
 	t.RackRetrieve.BindHandler(bind.Read(l.binder, l.Rack.Retrieve))
@@ -1003,6 +1046,11 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}
 	if l.Color, err = color.NewService(color.ServiceConfig{
 		Color: cfg.Service.Color,
+	}); err != nil {
+		return nil, err
+	}
+	if l.Enumeration, err = enumeration.NewService(enumeration.ServiceConfig{
+		Enumeration: cfg.Service.Enumeration,
 	}); err != nil {
 		return nil, err
 	}
