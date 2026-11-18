@@ -118,6 +118,7 @@ export const configureMessage = async (
         ? DataType.TIMESTAMP.toString()
         : bindingDataType({ dataType }, f.type),
       channel: stale ? 0 : binding.channel,
+      replaces: stale ? ch.key : 0,
       binding: { ...binding, dataType },
     };
   });

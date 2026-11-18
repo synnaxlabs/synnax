@@ -62,6 +62,8 @@ export interface ReadChannelField {
   dataType: string;
   /** A disabled field gets no channel. */
   disabled?: boolean;
+  /** The channel that a new channel of the field replaces, as it no longer suits it. */
+  replaces?: channel.Key;
 }
 
 /** Where a device stores the channels of one read source. */
@@ -120,7 +122,9 @@ const freeNames = async (client: Client, names: string[]): Promise<string[]> => 
  * or a new indexed channel gets the stored index. When that is gone, it gets the index
  * of a live channel of the source, or a new one. A source that needs no new channel
  * gets no entry in stored. A new channel whose name is taken gets a number, such as
- * `_2`, and fields claim their names before a new index.
+ * `_2`, and fields claim their names before a new index. A replaced channel that holds
+ * the name of its replacement moves to a numbered name first, so the replacement keeps
+ * the plain one.
  */
 export const configureReadChannels = async <F extends ReadChannelField>({
   client,
@@ -161,12 +165,19 @@ export const configureReadChannels = async <F extends ReadChannelField>({
   const takesIndex = createsIndex || primitive.isNonZero(props.index);
   if (indexField != null && !takesIndex && !(await bind(indexField)))
     unbound.push(indexField);
+  const planned = unbound.map((field) =>
+    primitive.isNonZero(field.name)
+      ? field.name
+      : `${namePrefix}${channel.escapeInvalidName(field.pointer)}`,
+  );
+  for (const [i, field] of unbound.entries()) {
+    const old = await retrieveChannel(client, field.replaces ?? 0);
+    if (old == null || old.name !== planned[i]) continue;
+    const [numbered] = await freeNames(client, [old.name]);
+    await client.channels.rename(old.key, numbered);
+  }
   const names = await freeNames(client, [
-    ...unbound.map((field) =>
-      primitive.isNonZero(field.name)
-        ? field.name
-        : `${namePrefix}${channel.escapeInvalidName(field.pointer)}`,
-    ),
+    ...planned,
     ...(createsIndex ? [`${namePrefix}_time`] : []),
   ]);
   if (createsIndex) {

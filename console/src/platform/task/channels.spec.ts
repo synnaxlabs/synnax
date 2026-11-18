@@ -95,6 +95,43 @@ describe("channels", () => {
       );
     });
 
+    describe("replacement", () => {
+      /** Configures a field whose new channel replaces old. */
+      const replace = async (prefix: string, old: number) => {
+        const fields = [{ ...createField("f1", "/mode", "string"), replaces: old }];
+        await Task.configureReadChannels({
+          client,
+          fields,
+          namePrefix: prefix,
+          indexKey: "",
+        });
+        return await client.channels.retrieve(fields[0].channel);
+      };
+
+      it("should move a replaced channel to a numbered name and keep the plain name", async () => {
+        const prefix = uniqueName("src");
+        const old = await createIndex(`${prefix}_mode`);
+        expect((await replace(prefix, old.key)).name).toBe(`${prefix}_mode`);
+        expect((await client.channels.retrieve(old.key)).name).toBe(`${prefix}_mode_2`);
+      });
+
+      it("should leave a replaced channel that the user renamed", async () => {
+        const prefix = uniqueName("src");
+        const old = await createIndex(uniqueName("custom"));
+        expect((await replace(prefix, old.key)).name).toBe(`${prefix}_mode`);
+        expect((await client.channels.retrieve(old.key)).name).toBe(old.name);
+      });
+
+      it("should number the new channel when another channel holds its name", async () => {
+        const prefix = uniqueName("src");
+        const other = await createIndex(`${prefix}_mode`);
+        const old = await createIndex(uniqueName("custom"));
+        expect((await replace(prefix, old.key)).name).toBe(`${prefix}_mode_2`);
+        expect((await client.channels.retrieve(other.key)).name).toBe(`${prefix}_mode`);
+        expect((await client.channels.retrieve(old.key)).name).toBe(old.name);
+      });
+    });
+
     it("should create the index and the channels of a source that the device does not store", async () => {
       const prefix = uniqueName("src");
       const fields = [
