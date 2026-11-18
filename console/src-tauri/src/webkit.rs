@@ -66,13 +66,16 @@ fn features(render_node: bool, version: (u32, u32)) -> Vec<(&'static CStr, bool)
     if !render_node {
         return Vec::new();
     }
-    vec![
+    let mut features = vec![
         (c"AllowWebGLInWorkers", true),
         // Accelerated 2D canvases crash the web process during the bitmap handoff.
         (c"CanvasUsesAcceleratedDrawing", false),
-        // WebKitGTK 2.54 runs worker WebGL only in the GPU process, which crashes 2.50.
-        (c"UseGPUProcessForWebGL", version >= (2, 54)),
-    ]
+    ];
+    // WebKitGTK 2.54 runs worker WebGL only in the GPU process, which crashes 2.50.
+    if version >= (2, 54) {
+        features.push((c"UseGPUProcessForWebGL", true));
+    }
+    features
 }
 
 fn set(settings: &Settings, features: &[(&CStr, bool)]) {
@@ -92,14 +95,15 @@ fn set(settings: &Settings, features: &[(&CStr, bool)]) {
                     f,
                     enabled.into(),
                 ),
-                None => eprintln!("WebKitGTK has no {id:?} feature"),
+                None => panic!("WebKitGTK has no {id:?} feature"),
             }
         }
         webkit_feature_list_unref(list);
     }
 }
 
-/// Sets the WebKitGTK features that Pluto needs on each webview the app creates.
+/// Sets the WebKitGTK features that Pluto needs on each webview the app creates. The
+/// app panics when it creates a webview if WebKitGTK lacks one of the features.
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
     // SAFETY: the functions only read constants.
     let version = unsafe {
@@ -157,7 +161,6 @@ mod tests {
             [
                 (c"AllowWebGLInWorkers", true),
                 (c"CanvasUsesAcceleratedDrawing", false),
-                (c"UseGPUProcessForWebGL", false),
             ]
         );
     }
