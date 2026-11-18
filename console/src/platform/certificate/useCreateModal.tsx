@@ -223,6 +223,7 @@ const Create = ({
       certificatePath,
       privateKeyFile: values.privateKeyFile === "" ? undefined : values.privateKeyFile,
       details: picked?.path === certificatePath ? picked.certificate : undefined,
+      rack,
     });
   };
   return (

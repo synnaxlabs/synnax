@@ -24,6 +24,12 @@ import { Secret } from "@/platform/secret";
 
 const nextMinute = (now: TimeStamp): TimeStamp => now.add(TimeSpan.MINUTE);
 
+const STORED: certificate.Where = { source: { eq: "stored" } };
+
+// A file certificate on another rack cannot be read by the device, so the list leaves it out.
+const whereOnRack = (rack: rack.Key): certificate.Where =>
+  primitive.isZero(rack) ? STORED : { or: [STORED, { racks: [rack] }] };
+
 interface ControlProps extends Input.Control<certificate.Key> {
   defaultName: string;
   rack: rack.Key;
@@ -31,7 +37,7 @@ interface ControlProps extends Input.Control<certificate.Key> {
 }
 
 const Control = ({ value, defaultName, rack, ...rest }: ControlProps): ReactElement => {
-  const list = Certificate.useList();
+  const list = Certificate.useList({ query: { where: whereOnRack(rack) } });
   const result = Certificate.useResult(primitive.isZero(value) ? null : { key: value });
   const canCreate = Access.useCreateGranted(certificate.TYPE_RESOURCE_ID);
   const openCreate = useCreateModal();

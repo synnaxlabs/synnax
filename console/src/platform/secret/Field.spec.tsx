@@ -21,7 +21,7 @@ import {
   within,
 } from "@testing-library/react";
 import { type ReactElement } from "react";
-import { afterEach, describe, expect, it, type Mock, vi } from "vitest";
+import { afterEach, describe, expect, it, type Mock, onTestFinished, vi } from "vitest";
 import { z } from "zod";
 
 import {
@@ -289,5 +289,34 @@ describe("Secret.Field", () => {
     fireEvent.click(findButton("Create"));
     await screen.findByText("File is required");
     expect(onChange).not.toHaveBeenCalled();
+  });
+  it("lists stored secrets and the file secrets of its rack, not of another", async () => {
+    const [own, other] = await Promise.all([
+      client.racks.create({ name: uniqueName("rack") }),
+      client.racks.create({ name: uniqueName("rack") }),
+    ]);
+    onTestFinished(async () => await client.racks.delete([own.key, other.key]));
+    const prefix = uniqueName("rack secret");
+    const createFile = async (r: rack.Rack, name: string): Promise<secret.Secret> => {
+      const s = await client.secrets.set({
+        name: `${prefix} ${name}`,
+        source: "file",
+        fileName: "token",
+        rack: r.key,
+      });
+      created.push(s.key);
+      return s;
+    };
+    const onRack = await createFile(own, "own");
+    const offRack = await createFile(other, "other");
+    const stored = await createSecret(client, created);
+    await renderField("", { rack: own.key });
+    await open("Select a secret");
+    await findOption(stored);
+    fireEvent.change(screen.getByPlaceholderText("Search secrets..."), {
+      target: { value: prefix },
+    });
+    await screen.findByRole("option", { name: new RegExp(onRack.name) });
+    expect(screen.queryByRole("option", { name: new RegExp(offRack.name) })).toBeNull();
   });
 });

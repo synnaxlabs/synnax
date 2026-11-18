@@ -23,6 +23,12 @@ const describe = (s: secret.Secret): Picker.Description => ({
   text: Validity.describeSecret(s),
 });
 
+const STORED: secret.Where = { source: { eq: "stored" } };
+
+// A file secret on another rack cannot be read by the device, so the list leaves it out.
+const whereOnRack = (rack: rack.Key): secret.Where =>
+  primitive.isZero(rack) ? STORED : { or: [STORED, { racks: [rack] }] };
+
 interface ControlProps extends Input.Control<secret.Key> {
   defaultName: string;
   rack: rack.Key;
@@ -30,7 +36,7 @@ interface ControlProps extends Input.Control<secret.Key> {
 }
 
 const Control = ({ value, defaultName, rack, ...rest }: ControlProps): ReactElement => {
-  const list = Secret.useList();
+  const list = Secret.useList({ query: { where: whereOnRack(rack) } });
   const result = Secret.useResult(primitive.isZero(value) ? null : { key: value });
   const canCreate = Access.useCreateGranted(secret.TYPE_RESOURCE_ID);
   const openCreate = useCreateModal();

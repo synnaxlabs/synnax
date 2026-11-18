@@ -141,7 +141,7 @@ const Create = ({ close, name: initialName, rack }: CreateProps): ReactElement =
     if (!form.validate()) return;
     const { name, source, value, fileName } = form.value();
     if (source === "stored") update({ name: name.trim(), source, value });
-    else update({ name: name.trim(), source, fileName });
+    else update({ name: name.trim(), source, fileName, rack });
   };
   // A given name moves focus to the value.
   const named = initialName.length > 0;

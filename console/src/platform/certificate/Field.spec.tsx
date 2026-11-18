@@ -23,7 +23,16 @@ import {
   within,
 } from "@testing-library/react";
 import { type ReactElement } from "react";
-import { afterEach, assert, describe, expect, it, type Mock, vi } from "vitest";
+import {
+  afterEach,
+  assert,
+  describe,
+  expect,
+  it,
+  type Mock,
+  onTestFinished,
+  vi,
+} from "vitest";
 import { z } from "zod";
 
 import { Certificate } from "@/platform/certificate";
@@ -538,5 +547,37 @@ describe("Certificate.Field", () => {
     fireEvent.click(findButton("Create"));
     await screen.findByText("Certificate file is required");
     expect(onChange).not.toHaveBeenCalled();
+  });
+  it("lists stored certificates and the file certificates of its rack, not of another", async () => {
+    const [own, other] = await Promise.all([
+      client.racks.create({ name: uniqueName("rack") }),
+      client.racks.create({ name: uniqueName("rack") }),
+    ]);
+    onTestFinished(async () => await client.racks.delete([own.key, other.key]));
+    const prefix = uniqueName("rack certificate");
+    const createFile = async (
+      r: rack.Rack,
+      name: string,
+    ): Promise<certificate.Certificate> => {
+      const c = await client.certificates.set({
+        name: `${prefix} ${name}`,
+        source: "file",
+        certificatePath: "/etc/ssl/client.crt",
+        rack: r.key,
+      });
+      created.push(c.key);
+      return c;
+    };
+    const onRack = await createFile(own, "own");
+    const offRack = await createFile(other, "other");
+    const stored = await createStored();
+    await renderField("", { rack: own.key });
+    await open("Select a certificate");
+    await findOption(stored);
+    fireEvent.change(screen.getByPlaceholderText("Search certificates..."), {
+      target: { value: prefix },
+    });
+    await screen.findByRole("option", { name: new RegExp(onRack.name) });
+    expect(screen.queryByRole("option", { name: new RegExp(offRack.name) })).toBeNull();
   });
 });
