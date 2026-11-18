@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/x/config"
@@ -95,6 +96,8 @@ type Input struct {
 	CertificatePath string `json:"certificate_path" msgpack:"certificate_path"`
 	// Key selects the certificate to replace. A zero key creates a new certificate.
 	Key Key `json:"key" msgpack:"key"`
+	// Rack is the rack that reads the files of a file certificate.
+	Rack rack.Key `json:"rack" msgpack:"rack"`
 }
 
 func (in Input) certificate() (Certificate, error) {
@@ -106,6 +109,7 @@ func (in Input) certificate() (Certificate, error) {
 		const msg = "must be empty for a stored certificate"
 		v.Ternary("certificate_path", in.CertificatePath != "", msg)
 		v.Ternary("private_key_file", in.PrivateKeyFile != nil, msg)
+		v.Ternary("rack", in.Rack != 0, msg)
 		c.Variant = certificate.StoredCertificate{Base: base, Pem: in.Pem}
 	case secret.SourceFile:
 		v.Ternary("pem", in.Pem != "", "must be empty for a file certificate")
@@ -114,6 +118,7 @@ func (in Input) certificate() (Certificate, error) {
 			CertificatePath: in.CertificatePath,
 			PrivateKeyFile:  in.PrivateKeyFile,
 			Details:         in.Details,
+			Rack:            in.Rack,
 		}
 	default:
 		v.Ternaryf("source", true, "must be stored or file, not %q", in.Source)

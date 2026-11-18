@@ -40,6 +40,7 @@ import {
   serverComputed,
   shortcutZ,
 } from "@/certificate/where.gen";
+import { LINES } from "@/certificate/where";
 import { query } from "@/query";
 
 export const ACTION_CHANNEL_NAME = "sy_certificate_action_set";
@@ -119,8 +120,8 @@ export class Client extends query.Retriever<
         list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
-        matches: (certificate, req) => matches(certificate, req.where),
-        serverComputed: (req) => serverComputed(req.where),
+        matches: (certificate, req) => matches(LINES, certificate, req.where),
+        serverComputed: (req) => serverComputed(LINES, req.where),
       },
     });
     this.cfg = cfg;
