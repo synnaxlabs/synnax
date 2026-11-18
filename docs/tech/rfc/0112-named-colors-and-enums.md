@@ -172,11 +172,12 @@ the first eight are closer than 0.05 in OKLab, in either theme. The first eight 
 hues of `#DC136C`, `#20A4F3`, `#52FFB8`, `#F18F01`, `#FE5F55`, `#8075FF`, `#F7AEF8`, and
 `#791E94` from today's list, and a hue moves only to pass a check. The last eight fill
 the hue gaps and pass only the contrast check: a repeated color is a sure mix-up, and a
-near color only a possible one. A new line gets the first series color that no other
-line in its plot uses, and stores its key. Past 16 lines, it gets the series color used
-least in its plot, and a tie goes to the first by position. A user can pick any color.
-Auto clears a picked color, and the line gets a series color the same way. Rules get
-series colors the same way, counted among the rules of the plot.
+near color only a possible one. A user can add colors to Series, and a new color takes
+part in the assignment by its position. A new line gets the first series color that no
+other line in its plot uses, and stores its key. When the plot uses every series color,
+it gets the one used least in its plot, and a tie goes to the first by position. A user
+can pick any color. Auto clears a picked color, and the line gets a series color the
+same way. Rules get series colors the same way, counted among the rules of the plot.
 
 ### 4.5 Editor checks
 
@@ -255,8 +256,9 @@ stores each old color as `fixed`, and its hand-written client code writes the un
 The field that uses a named color or an enumeration is the main place to create and edit
 one. The color picker creates a named color and edits the one it shows. The Options tab
 of a select or a state indicator does the same for enumerations. Each type has one
-editor, and the field and Settings open the same editor. Settings only finds items,
-lists their users, replaces them, and deletes them.
+editor, and the field and Settings open the same editor. A user never needs Settings to
+create or edit one. Settings finds and deletes items, and for enumerations it also lists
+their users and replaces them.
 
 ## 5 What this RFC does not cover
 
@@ -272,9 +274,10 @@ rows), and #5632 (`on_delete inline` in Oracle) are merged.
 
 Phases 9, 16, and 20, and the node picker of RFC 0114 phase 2, ship without a flag.
 Phase 21 and RFC 0114 phase 2 come after phases 16 and 20, so the Console never loses a
-way to edit states. Phases 10 and 11 ship in one release, and phase 21 in one release
-with RFC 0114 phase 2. RFC 0114 phase 1 needs phases 13 to 15, phases 19 and 21 need RFC
-0114 phase 1, and RFC 0114 phase 2 needs phase 22.
+way to edit states. Phase 21 also comes after phase 30, so the Options tab keeps a way
+to edit states. Phases 10 and 11 ship in one release, and phase 21 in one release with
+RFC 0114 phase 2. RFC 0114 phase 1 needs phases 13 to 15, phases 19 and 21 need RFC 0114
+phase 1, and RFC 0114 phase 2 needs phase 22.
 
 | Phase | Scope                                                      | Touches                                                                                                                                | Depends on     |
 | ----- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | -------------- |

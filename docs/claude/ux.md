@@ -325,8 +325,9 @@ bound, a log precision, or the line plot X channel.
 
 - A shared item is a record that many places use: a named color, an enumeration, a
   label, or an ICD message.
-- The field that uses a shared item is the main place to create and edit it. Settings is
-  only for cleanup: find an item, see what uses it, Replace with, and delete.
+- The field that uses a shared item is the main place to create and edit it. A user
+  never needs Settings to create or edit one. Settings is for cleanup: find an item and
+  delete it, and, where the type supports it, see what uses it and Replace with.
 - Each type has one editor. The field and Settings open the same editor.
 - A field that takes a shared item can create one, and edit the one it holds, without
   leaving the field.
@@ -366,7 +367,8 @@ bound, a log precision, or the line plot X channel.
   color, else the linked one. Swatches have no tooltips.
 - A swatch shows the color's value for the current theme only.
 - A "+" swatch ends each palette. It creates a named color from the field's current
-  color, asks for its name inline, and links the field to it.
+  color, asks for its name inline, and links the field to it. On Auto, it starts from
+  the color that Auto shows. A blank name cancels the create.
 - Hovering a swatch shows an edit action. It opens the named color editor of Settings
   (name, light, dark) inside the picker, and each edit saves at once.
 - "Create palette" ends the Library list.
