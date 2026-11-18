@@ -12,8 +12,6 @@ import json
 import pathlib
 from typing import Any
 
-_CONFIG_DIR_NAME = "./synnax"
-
 
 class File:
     """The global synnax py configuration file."""

@@ -193,10 +193,10 @@ The schematic cutover ships in one release:
   and "Replace with..." merges them later. When a list repeats a value, the first entry
   stays.
 - RFC 0114 phase 1 adds the function that turns a state list into an enumeration. Phase
-  22 calls it to give each `select` and `state_indicator` that has no `enumeration` an
-  `enumeration` key for its `options`. A node that already has one keeps it. Phase 22
+  21 calls it to give each `select` and `state_indicator` that has no `enumeration` an
+  `enumeration` key for its `options`. A node that already has one keeps it. Phase 21
   removes `options` from every node, and an empty list gets no enumeration. The RFC 0114
-  phase 2 node migration, which merges after phase 22, calls the function to give a
+  phase 2 node migration, which merges after phase 21, calls the function to give a
   state binding an `enumeration` key when its node had its own non-empty state list, an
   `on_color`, or `state_overrides` that change the entry colors, and removes those
   fields.
@@ -246,7 +246,7 @@ The schematic cutover ships in one release:
 
 The line plot migration stores the color that each uncolored line and rule shows today
 as `fixed`. The old 14 colors are frozen in the migration's version package. Each other
-record that moves to `color.Ref` (phases 24 to 29) mints a version (RFC 0053) that
+record that moves to `color.Ref` (phases 23 to 28) mints a version (RFC 0053) that
 stores each old color as `fixed`, and its hand-written client code writes the union
 (`client/py/synnax/ranger/client.py:831`, `client/py/synnax/label/client.py:93`).
 
@@ -262,12 +262,11 @@ PRs #4260 (color v2), #5621 (configs on nodes, group membership as `Node.parent`
 #5625 (WCAG contrast), #5626 (custom strokes through the band), #5627 (table cells in
 rows), and #5632 (`on_delete inline` in Oracle) are merged.
 
-Phase 16 ships behind a flag in `console/src/flags.ts`. Phase 21 deletes the flag after
-the editor's stable Desktop release, and phase 22 and RFC 0114 phase 2 wait for phase
-21, so the Console never loses a way to edit states. Phases 9 and 20, and the node
-picker of RFC 0114 phase 2, ship without a flag. Phases 10 and 11 ship in one release,
-and phase 22 in one release with RFC 0114 phase 2. RFC 0114 phase 1 needs phases 13 to
-15, phases 19 and 22 need RFC 0114 phase 1, and RFC 0114 phase 2 needs phase 23.
+Phases 9, 16, and 20, and the node picker of RFC 0114 phase 2, ship without a flag.
+Phase 21 and RFC 0114 phase 2 come after phases 16 and 20, so the Console never loses a
+way to edit states. Phases 10 and 11 ship in one release, and phase 21 in one release
+with RFC 0114 phase 2. RFC 0114 phase 1 needs phases 13 to 15, phases 19 and 21 need RFC
+0114 phase 1, and RFC 0114 phase 2 needs phase 22.
 
 | Phase | Scope                                                      | Touches                                                                                                                                | Depends on     |
 | ----- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
@@ -291,15 +290,14 @@ and phase 22 in one release with RFC 0114 phase 2. RFC 0114 phase 1 needs phases
 | 18    | Draw stale and unknown indicators instead of colors        | `pluto/src/schematic`, `pluto/src/vis`, `schemas/synnax`, `core/pkg/service/schematic`, `console/src/feature/schematic`, `integration` | -              |
 | 19    | Add and bundle enumeration keys on selects and indicators  | `schemas/synnax`, `core/pkg/service/schematic`, `core/pkg/service/imex`, `core/pkg/service/enumeration`                                | 14             |
 | 20    | Pick and draw enumerations in selects and state indicators | `pluto/src/schematic`, `console/src/feature/schematic`                                                                                 | 16, 19         |
-| 21    | Delete the enumeration editor flag                         | `console/src/flags.ts`                                                                                                                 | 16             |
-| 22    | Migrate inline state colors to enumerations                | `schemas/synnax`, `core/pkg/service/schematic`, `pluto/src/schematic`, `console`, `client/py`, `integration`                           | 20, 21         |
-| 23    | Carry color references in multi-edit                       | `console/src/platform/multiedit`                                                                                                       | 8              |
-| 24    | Store color references in the other schematic node colors  | `schemas/synnax`, `core/pkg/service/schematic`, `client/ts`, `client/py`                                                               | 3, 23          |
-| 25    | Store color references in table colors                     | `schemas/synnax`, `core/pkg/service/table`, `client/ts`, `client/py`                                                                   | 3, 23          |
-| 26    | Store color references in log colors                       | `schemas/synnax`, `core/pkg/service/log`, `client/ts`, `client/py`                                                                     | 3, 23          |
-| 27    | Store color references in label colors                     | `schemas/synnax`, `core/pkg/service/label`, `client/ts`, `client/py`                                                                   | 3, 23          |
-| 28    | Store color references in range colors                     | `schemas/synnax`, `core/pkg/service/ranger`, `client/ts`, `client/py`, `driver/arc`                                                    | 3, 23          |
-| 29    | Store color references in panel colors                     | `schemas/synnax`, `core/pkg/service/panel`, `client/ts`, `client/py`                                                                   | 3, 23          |
+| 21    | Migrate inline state colors to enumerations                | `schemas/synnax`, `core/pkg/service/schematic`, `pluto/src/schematic`, `console`, `client/py`, `integration`                           | 20             |
+| 22    | Carry color references in multi-edit                       | `console/src/platform/multiedit`                                                                                                       | 8              |
+| 23    | Store color references in the other schematic node colors  | `schemas/synnax`, `core/pkg/service/schematic`, `client/ts`, `client/py`                                                               | 3, 22          |
+| 24    | Store color references in table colors                     | `schemas/synnax`, `core/pkg/service/table`, `client/ts`, `client/py`                                                                   | 3, 22          |
+| 25    | Store color references in log colors                       | `schemas/synnax`, `core/pkg/service/log`, `client/ts`, `client/py`                                                                     | 3, 22          |
+| 26    | Store color references in label colors                     | `schemas/synnax`, `core/pkg/service/label`, `client/ts`, `client/py`                                                                   | 3, 22          |
+| 27    | Store color references in range colors                     | `schemas/synnax`, `core/pkg/service/ranger`, `client/ts`, `client/py`, `driver/arc`                                                    | 3, 22          |
+| 28    | Store color references in panel colors                     | `schemas/synnax`, `core/pkg/service/panel`, `client/ts`, `client/py`                                                                   | 3, 22          |
 
 Phase 3 ships `@ref on_delete inline` and `Inline()` with the record. Phase 18 mints a
 schematic version (RFC 0053) that drops `staleness_color`. Tables keep their own
@@ -307,16 +305,16 @@ schematic version (RFC 0053) that drops `staleness_color`. Tables keep their own
 `select` or `state_indicator` can match no entry. Phase 19 adds the `enumeration` field
 to `select` and `state_indicator`, and moves the schematic export off the generated
 single-record `Export` (`core/pkg/service/schematic/imex.gen.go`), on the Oracle `imex`
-option of RFC 0114 phase 1, so that it bundles enumerations. Phase 22 fills the field,
+option of RFC 0114 phase 1, so that it bundles enumerations. Phase 21 fills the field,
 and RFC 0114 phase 1 adds it to symbol states. Phase 20 adds the enumeration picker to
 the Pluto forms of `select` and `state_indicator`, and Pluto draws each from its
 `enumeration`, or from `options` when it has none. The picker leaves `options` as they
-are, so clearing the picker goes back to them until phase 22. RFC 0114 phase 2 adds the
+are, so clearing the picker goes back to them until phase 21. RFC 0114 phase 2 adds the
 picker to node state bindings, and RFC 0114 phase 4 to custom symbol states. RFC 0114
 phase 1 stores a `color.Ref` in custom symbol looks from the start, and RFC 0114 phase 2
 in the `color` of a `symbol` node, which the schematic multi-edit panel edits through
-phase 23. Phase 24 covers the variants that keep their own colors (RFC 0114 §4.0). In
-phase 28, the Driver writes range colors (`driver/arc/ranges/ranges.h:46-52`) as
+phase 22. Phase 23 covers the variants that keep their own colors (RFC 0114 §4.0). In
+phase 27, the Driver writes range colors (`driver/arc/ranges/ranges.h:46-52`) as
 `fixed`.
 
 ## 7 Resolved decisions

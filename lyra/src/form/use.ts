@@ -116,7 +116,7 @@ export const use = <Z extends z.ZodType>(params: UseParams<Z>): UseReturn<Z> => 
   const commit = (path: string, write: () => void, silent = false) => {
     const change = {
       path,
-      prev: deep.get(ref.current.values, path, { optional: true }),
+      prev: deep.get(ref.current.values, path),
       silent,
     };
     const pending = batchRef.current;

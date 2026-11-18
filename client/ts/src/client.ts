@@ -32,6 +32,7 @@ import { color } from "@/color";
 import { connection } from "@/connection";
 import { control } from "@/control";
 import { device } from "@/device";
+import { enumeration } from "@/enumeration";
 import { nodeSystem, resolveParams } from "@/env";
 import { errorsMiddleware, isConnectionError } from "@/errors";
 import { framer } from "@/framer";
@@ -174,6 +175,10 @@ const RESOURCE_CHANNELS: Record<resource.Type, resource.Channels | null> = {
   channel: changes(channel.SET_CHANNEL_NAME, channel.DELETE_CHANNEL_NAME),
   color: changes(color.ACTION_CHANNEL_NAME, color.DELETE_CHANNEL_NAME),
   device: changes(device.ACTION_CHANNEL_NAME, device.DELETE_CHANNEL_NAME),
+  enumeration: changes(
+    enumeration.ACTION_CHANNEL_NAME,
+    enumeration.DELETE_CHANNEL_NAME,
+  ),
   ethercat_master: null,
   ethercat_slave: null,
   framer: null,
@@ -229,6 +234,7 @@ export default class Synnax extends framer.Client {
   readonly projects: project.Client;
   readonly labels: label.Client;
   readonly colors: color.Client;
+  readonly enumerations: enumeration.Client;
   readonly license: license.Client;
   readonly statuses: status.Client;
   readonly tasks: task.Client;
@@ -393,6 +399,7 @@ export default class Synnax extends framer.Client {
       },
     });
     this.colors = new color.Client({ unary, cache });
+    this.enumerations = new enumeration.Client({ unary, cache });
     this.statuses = new status.Client({ unary, cache });
     this.ranges = new ranger.Client({
       framer: this,

@@ -17,6 +17,7 @@ from typing import Protocol
 
 import psutil
 import synnax as sy
+from freighter.websocket import ConnectionClosedError
 
 SERVICE = "github-runner.service"
 TASK = "GitHubActionsRunner"
@@ -50,6 +51,21 @@ class Streamer(Protocol):
     def read(self, *, timeout: sy.TimeSpan) -> Frame | None: ...
 
     def close(self) -> object: ...
+
+
+class Closeable(Protocol):
+    def close(self) -> object: ...
+
+
+def close_quietly(resource: Closeable | None) -> None:
+    """Closes a resource whose failure was already reported. Raises any error other
+    than the Core or transport error that the close re-raises."""
+    if resource is None:
+        return
+    try:
+        resource.close()
+    except (sy.Error, ConnectionClosedError):
+        pass
 
 
 class Keyed(Protocol):
@@ -126,18 +142,10 @@ class Runner:
                         break
             except Exception as e:
                 self.log(f"commands failed: {type(e).__name__}: {e}")
-                if streamer is not None:
-                    try:
-                        streamer.close()
-                    except Exception:
-                        pass
+                close_quietly(streamer)
                 streamer = None
                 stopping.wait(LISTEN_RETRY)
-        if streamer is not None:
-            try:
-                streamer.close()
-            except Exception:
-                pass
+        close_quietly(streamer)
 
     def stop_listening(self) -> None:
         self.stopping.set()
