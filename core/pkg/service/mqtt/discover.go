@@ -210,8 +210,14 @@ func (t *heardTopic) infer() {
 		f := byPointer[t.Fields[i].Pointer]
 		t.Fields[i].Kind, t.Fields[i].TimeFormat = f.Kind, f.TimeFormat
 	}
-	if shape.Index >= 0 {
-		t.Index = shape.Fields[shape.Index].Pointer.String()
+	if shape.Index < 0 {
+		return
+	}
+	index := shape.Fields[shape.Index].Pointer.String()
+	if slices.ContainsFunc(t.Fields, func(f browsedField) bool {
+		return f.Pointer == index
+	}) {
+		t.Index = index
 	}
 }
 

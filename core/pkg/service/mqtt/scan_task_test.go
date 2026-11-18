@@ -754,24 +754,45 @@ var _ = Describe("Scan task", func() {
 			},
 		)
 
-		It("Should give at most 256 scalars of a payload", func(ctx SpecContext) {
-			names := make([]string, 300)
-			for i := range names {
-				names[i] = fmt.Sprintf(`"f%03d": %d`, i, i)
-			}
-			broker.publish("plant/a", "{"+strings.Join(names, ", ")+"}", true)
-			stat := browse(ctx, msgpack.EncodedJSON{"duration": 200})
-			topics, ok := stat.Details.Data["topics"].([]any)
-			Expect(ok).To(BeTrue())
-			topic, ok := topics[0].(map[string]any)
-			Expect(ok).To(BeTrue())
-			fields, ok := topic["fields"].([]any)
-			Expect(ok).To(BeTrue())
-			Expect(fields).To(HaveLen(256))
-			Expect(fields[255]).To(
-				Equal(field("/f255", "number", "255", payload.KindInteger)),
-			)
-		})
+		It("Should give at most 256 scalars of a payload, and no index past them",
+			func(ctx SpecContext) {
+				names := make([]string, 301)
+				for i := range 300 {
+					names[i] = fmt.Sprintf(`"f%03d": %d`, i, i)
+				}
+				ms := int64(telem.Now() / telem.MillisecondTS)
+				names[300] = fmt.Sprintf(`"ts": %d`, ms)
+				broker.publish("plant/a", "{"+strings.Join(names, ", ")+"}", true)
+				stat := browse(ctx, msgpack.EncodedJSON{"duration": 200})
+				topics, ok := stat.Details.Data["topics"].([]any)
+				Expect(ok).To(BeTrue())
+				topic, ok := topics[0].(map[string]any)
+				Expect(ok).To(BeTrue())
+				fields, ok := topic["fields"].([]any)
+				Expect(ok).To(BeTrue())
+				Expect(fields).To(HaveLen(256))
+				Expect(fields[255]).To(
+					Equal(field("/f255", "number", "255", payload.KindInteger)),
+				)
+				Expect(topic).To(HaveKeyWithValue("index", ""))
+			},
+		)
+
+		It("Should give no index when the last payload is not JSON",
+			func(ctx SpecContext) {
+				ms := int64(telem.Now() / telem.MillisecondTS)
+				broker.publish("plant/a", fmt.Sprintf(`{"ts":%d}`, ms), true)
+				publishUntilDone(broker, "plant/a", "offline")
+				stat := browse(ctx, msgpack.EncodedJSON{"duration": 300})
+				topics, ok := stat.Details.Data["topics"].([]any)
+				Expect(ok).To(BeTrue())
+				Expect(topics[0]).To(SatisfyAll(
+					HaveKeyWithValue("format", "text"),
+					HaveKeyWithValue("fields", BeEmpty()),
+					HaveKeyWithValue("index", ""),
+				))
+			},
+		)
 
 		It("Should infer the kinds and the index from every message heard",
 			func(ctx SpecContext) {

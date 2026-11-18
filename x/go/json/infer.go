@@ -147,8 +147,7 @@ type Inferrer struct{ group *inferGroup }
 func NewInferrer() *Inferrer { return &Inferrer{group: newInferGroup()} }
 
 // Add adds data, written at t. Zero t selects the time of the call. Data that is not
-// one
-// JSON value adds nothing.
+// one JSON value adds nothing.
 func (i *Inferrer) Add(data []byte, t telem.TimeStamp) {
 	leaves, err := parseLeaves(data)
 	if err != nil {
