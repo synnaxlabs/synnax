@@ -55,6 +55,7 @@ func newEnv(ctx SpecContext, interval telem.TimeSpan) *env {
 	e.now.Store(int64(telem.NewTimeStamp(start)))
 	clock := func() telem.TimeStamp { return telem.TimeStamp(e.now.Load()) }
 	e.db = DeferClose(gorp.Wrap(memkv.New()))
+	StartRun(e.db.Run)
 	e.status = MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: e.db}))
 	grants := MustOpen(grant.OpenService(ctx, grant.ServiceConfig{DB: e.db}))
 	e.secrets = MustOpen(secret.OpenService(ctx, secret.ServiceConfig{

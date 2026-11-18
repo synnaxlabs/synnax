@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 )
@@ -117,7 +118,14 @@ func (s *streamer[I, O]) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	o.AttachClosables(s.Out)
 	frames, disconnect := s.relay.connect()
 	sCtx.Go(func(ctx context.Context) error {
-		defer disconnect()
+		// The relay closes frames when it drops the connection itself: on a stop, or
+		// on a panic it retries.
+		connected := true
+		defer func() {
+			if connected {
+				disconnect()
+			}
+		}()
 		if s.sendOpenAck {
 			if err := signal.SendUnderContext(
 				ctx,
@@ -136,7 +144,16 @@ func (s *streamer[I, O]) Flow(sCtx signal.Context, opts ...confluence.Option) {
 					return nil
 				}
 				s.keys = set.New(s.translateRequest(req).Channels...)
-			case rf := <-frames.Outlet():
+			case rf, ok := <-frames.Outlet():
+				if !ok {
+					connected = false
+					select {
+					case <-s.relay.delta.Stopped():
+						return ErrDBClosed
+					default:
+						return errors.New("relay dropped the streamer after a panic")
+					}
+				}
 				if !s.applyPendingRequests() {
 					return nil
 				}

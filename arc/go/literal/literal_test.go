@@ -10,11 +10,16 @@
 package literal_test
 
 import (
+	"strings"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/diagnostics"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -387,8 +392,11 @@ var _ = Describe("Literal Parser", func() {
 		Context("Error cases", func() {
 			It("Should return error for unknown units", func() {
 				lit := getLiteral("5foobar")
-				Expect(literal.Parse(lit, types.Type{})).
-					Error().To(MatchError(ContainSubstring("unknown unit")))
+				_, err := literal.Parse(lit, types.Type{})
+				Expect(err).To(MatchError(ContainSubstring("unknown unit")))
+				Expect(
+					diagnostics.Error(err, nil).Code,
+				).To(Equal(codes.UnknownUnit.Code))
 			})
 
 			It("Should return error for range overflow", func() {
@@ -742,6 +750,11 @@ var _ = Describe("Literal Parser", func() {
 			),
 		)
 
+		It("Should give a value that is not a constant its code", func() {
+			_, err := parse("x", types.I64())
+			Expect(diagnostics.Error(err, nil).Code).To(Equal(codes.NotConstant.Code))
+		})
+
 		DescribeTable(
 			"rejects a non-constant or out-of-range value",
 			func(text string, target types.Type, errSubstring string) {
@@ -791,5 +804,108 @@ var _ = Describe("Boolean literals", func() {
 	It("Should reject a bool literal against a numeric target", func() {
 		Expect(literal.Parse(getLiteral("true"), types.I32())).Error().
 			To(MatchError(ContainSubstring("cannot assign bool to i32")))
+	})
+})
+
+var _ = Describe("Diagnostic codes of literal errors", func() {
+	codeOf := func(err error) diagnostics.ErrorCode {
+		return diagnostics.Error(err, nil).Code
+	}
+
+	DescribeTable("Should mark a float that an integer type would truncate",
+		func(target types.Type) {
+			_, err := parseNumeric("1.5", target)
+			Expect(errors.Is(err, literal.ErrTruncated)).To(BeTrue(), err)
+			Expect(codeOf(err)).To(Equal(codes.InvalidLiteral.Code))
+		},
+		Entry("i8", types.I8()),
+		Entry("i16", types.I16()),
+		Entry("i32", types.I32()),
+		Entry("i64", types.I64()),
+		Entry("u8", types.U8()),
+		Entry("u16", types.U16()),
+		Entry("u32", types.U32()),
+		Entry("u64", types.U64()),
+	)
+
+	DescribeTable("Should report a float that does not fit its type as an overflow",
+		func(text string, target types.Type) {
+			_, err := parseNumeric(text, target)
+			Expect(err).To(MatchError(ContainSubstring("out of range")))
+			Expect(codeOf(err)).To(Equal(codes.ConstantOverflow.Code))
+		},
+		Entry("i8", "300.0", types.I8()),
+		Entry("i16", "40000.0", types.I16()),
+		Entry("i32", "3000000000.0", types.I32()),
+		Entry("u8", "300.0", types.U8()),
+		Entry("u16", "70000.0", types.U16()),
+		Entry("u32", "5000000000.0", types.U32()),
+		Entry("f32", "1"+strings.Repeat("0", 40)+".0", types.F32()),
+	)
+
+	DescribeTable(
+		"Should report a unit literal that does not fit its type as an overflow",
+		func(text string, target types.Type) {
+			_, err := literal.Parse(getLiteral(text), target)
+			Expect(err).To(MatchError(ContainSubstring("out of range")))
+			Expect(codeOf(err)).To(Equal(codes.ConstantOverflow.Code))
+		},
+		Entry("i8", "300psi", types.I8()),
+		Entry("i16", "40000psi", types.I16()),
+		Entry("i32", "3000000000psi", types.I32()),
+		Entry("u8", "300psi", types.U8()),
+		Entry("u16", "70000psi", types.U16()),
+		Entry("u32", "5000000000psi", types.U32()),
+		Entry("f32", "1"+strings.Repeat("0", 40)+".0psi", types.F32()),
+	)
+
+	DescribeTable("Should report a negative constant below its type as an overflow",
+		func(text string, target types.Type) {
+			_, err := literal.ParseConst(
+				MustSucceed(parser.ParseExpression(text)),
+				target,
+			)
+			Expect(err).To(MatchError(ContainSubstring("out of range")))
+			Expect(codeOf(err)).To(Equal(codes.ConstantOverflow.Code))
+		},
+		Entry("integer in i8", "-300", types.I8()),
+		Entry("integer in i16", "-40000", types.I16()),
+		Entry("integer in i32", "-3000000000", types.I32()),
+		Entry("integer in u8", "-1", types.U8()),
+		Entry("integer in u16", "-1", types.U16()),
+		Entry("integer in u32", "-1", types.U32()),
+		Entry("integer in u64", "-1", types.U64()),
+		Entry("float in i8", "-300.0", types.I8()),
+		Entry("float in i16", "-40000.0", types.I16()),
+		Entry("float in i32", "-3000000000.0", types.I32()),
+		Entry("float in u8", "-1.0", types.U8()),
+		Entry("float in u16", "-1.0", types.U16()),
+		Entry("float in u32", "-1.0", types.U32()),
+		Entry("float in u64", "-1.0", types.U64()),
+		Entry("unit literal in i8", "-300psi", types.I8()),
+		Entry("unit literal in i16", "-40000psi", types.I16()),
+		Entry("unit literal in i32", "-3000000000psi", types.I32()),
+		Entry("unit literal in u8", "-1s", types.U8()),
+		Entry("unit literal in u16", "-1s", types.U16()),
+		Entry("unit literal in u32", "-1s", types.U32()),
+		Entry("unit literal in u64", "-1s", types.U64()),
+	)
+
+	It("Should report a missing expression as not a constant", func() {
+		_, err := literal.ParseConst(nil, types.I64())
+		Expect(err).To(MatchError(ContainSubstring("not a constant: expression")))
+		Expect(codeOf(err)).To(Equal(codes.NotConstant.Code))
+	})
+
+	It("Should report a unit literal with a fraction in an integer type", func() {
+		_, err := literal.Parse(getLiteral("1.5psi"), types.I32())
+		Expect(err).To(MatchError(ContainSubstring("value has fractional part")))
+		Expect(codeOf(err)).To(Equal(codes.InvalidLiteral.Code))
+	})
+
+	It("Should report a string with an invalid escape", func() {
+		_, err := literal.ParseString(`"\u12"`, types.String())
+		Expect(err).To(MatchError(ContainSubstring("invalid string literal")))
+		Expect(codeOf(err)).To(Equal(codes.InvalidStringLiteral.Code))
 	})
 })

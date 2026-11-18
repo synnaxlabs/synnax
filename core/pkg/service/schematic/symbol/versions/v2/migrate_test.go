@@ -59,6 +59,7 @@ var _ = Describe("Migration", func() {
 		"Should lift an untyped v0 symbol into the typed Symbol on retrieve",
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
 			seed := seedV0(ctx, db, v0.Symbol{
 				Key:  uuid.New(),
 				Name: "pump",
@@ -102,6 +103,7 @@ var _ = Describe("Migration", func() {
 
 	It("Should default the scale when unset in v0 data", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		seed := seedV0(ctx, db, v0.Symbol{
 			Key:  uuid.New(),
 			Name: "bare",
@@ -113,6 +115,7 @@ var _ = Describe("Migration", func() {
 
 	It("Should give a stored zero scale the default", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		seed := seedV0(ctx, db, v0.Symbol{
 			Key:  uuid.New(),
 			Name: "zero",
@@ -124,6 +127,7 @@ var _ = Describe("Migration", func() {
 
 	It("Should default the scale of a symbol without data", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		seed := seedV0(ctx, db, v0.Symbol{Key: uuid.New(), Name: "empty"})
 
 		Expect(retrieveMigrated(ctx, db, seed.Key).Data.Scale).To(Equal(1.0))

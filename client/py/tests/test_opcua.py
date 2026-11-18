@@ -19,6 +19,9 @@ class TestOPCDevice:
     def test_certificate_properties(self) -> None:
         """Test that Device writes the certificate settings that the Driver reads."""
         dev = sy.opcua.Device(
+            name="Test Device",
+            location="Test Location",
+            rack=1,
             endpoint="opc.tcp://localhost:4840",
             security_mode="SignAndEncrypt",
             security_policy="Basic256Sha256",
@@ -40,6 +43,9 @@ class TestOPCDevice:
     def test_timeout_properties(self) -> None:
         """Should write the timeouts that the Driver reads."""
         dev = sy.opcua.Device(
+            name="Test Device",
+            location="Test Location",
+            rack=1,
             endpoint="opc.tcp://localhost:4840",
             client_timeout_ms=2_000,
             secure_channel_lifetime_ms=60_000,

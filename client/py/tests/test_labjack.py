@@ -482,7 +482,13 @@ class TestLabJackDevice:
 
     def test_key_is_serial_number(self) -> None:
         """Should key the device by its serial number, as the Driver's scanner does."""
-        device = sy.labjack.Device(model=sy.labjack.T8, serial_number=480010003)
+        device = sy.labjack.Device(
+            name="Test Device",
+            location="Test Location",
+            rack=1,
+            model=sy.labjack.T8,
+            serial_number=480010003,
+        )
         assert device.key == "480010003"
         assert device.make == "LabJack"
         assert device.model == "LJM_dtT8"

@@ -9,6 +9,8 @@
 
 export { default as Body } from "@/components/problem/Body.astro";
 export { default as Cause } from "@/components/problem/Cause.astro";
+export { default as Example } from "@/components/problem/Example.astro";
 export { default as Fix } from "@/components/problem/Fix.astro";
+export { default as Head } from "@/components/problem/Head.astro";
 export { default as Item } from "@/components/problem/Item.astro";
 export { default as List } from "@/components/problem/List.astro";

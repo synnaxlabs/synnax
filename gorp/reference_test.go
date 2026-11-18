@@ -193,6 +193,7 @@ var _ = Describe("Reference", func() {
 			db = DeferClose(
 				gorp.Wrap(memkv.New(), append(opts, gorp.WithCodec(msgpack.Codec))...),
 			)
+			StartRun(db.Run)
 			racks = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[uint32, refRack]{
 				DB:   db,
 				Name: "rack",
@@ -1106,6 +1107,7 @@ var _ = Describe("Reference", func() {
 					Entry(&refDevice{Key: "d1", Rack: 1}).
 					Exec(ctx, pre)).To(Succeed())
 				db = DeferClose(gorp.Wrap(kvs, gorp.WithCodec(msgpack.Codec)))
+				StartRun(db.Run)
 				racks = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[uint32, refRack]{
 					DB:   db,
 					Name: "rack",
@@ -1126,6 +1128,7 @@ var _ = Describe("Reference", func() {
 			func(ctx SpecContext) {
 				kvs := &blockingDB{DB: memkv.New(), release: make(chan struct{})}
 				db = DeferClose(gorp.Wrap(kvs, gorp.WithCodec(msgpack.Codec)))
+				StartRun(db.Run)
 				racks = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[uint32, refRack]{
 					DB:   db,
 					Name: "rack",
@@ -1160,6 +1163,7 @@ var _ = Describe("Reference", func() {
 					&failOnceDB{DB: kvs, err: errors.New("populate boom")},
 					gorp.WithCodec(msgpack.Codec),
 				)
+				StartRun(db.Run)
 				deviceRef = newDeviceRefs()
 				devices = MustOpen(
 					gorp.OpenTable(ctx, gorp.TableConfig[string, refDevice]{
@@ -1370,6 +1374,7 @@ var _ = Describe("Reference closure", func() {
 		db = DeferClose(
 			gorp.Wrap(memkv.New(), append(opts, gorp.WithCodec(msgpack.Codec))...),
 		)
+		StartRun(db.Run)
 		projects = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, refProject]{
 			DB:   db,
 			Name: "project",
@@ -1470,6 +1475,7 @@ var _ = Describe("Reference migrations", func() {
 	var db *gorp.DB
 	BeforeEach(func() {
 		db = DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
+		StartRun(db.Run)
 	})
 
 	It(
@@ -1612,6 +1618,7 @@ var _ = Describe("DropDangling", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
+		StartRun(db.Run)
 		racks := MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[uint32, refRack]{
 			DB:   db,
 			Name: "rack",
@@ -1753,6 +1760,7 @@ var _ = Describe("Inline reference", func() {
 	BeforeEach(func(ctx SpecContext) {
 		inlineErr, rewritten = nil, nil
 		db = DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
+		StartRun(db.Run)
 		groups = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, refGroup]{
 			DB:   db,
 			Name: "group",

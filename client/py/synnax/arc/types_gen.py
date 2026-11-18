@@ -180,7 +180,7 @@ class Base(BaseModel):
     """
 
     key: Key = Field(default_factory=uuid4)
-    name: str
+    name: str = Field(min_length=1)
     source: Source = Field(default_factory=lambda: TextSource(mode="text"))
     directory: UUID | None = None
 
@@ -220,7 +220,7 @@ class AutomationPayload(Base):
 
     type: Literal["automation"] = "automation"
     program: program_.Program | None = None
-    changes: list[Change] | None = None
+    changes: list[Change] = Field(default_factory=list)
     calculations: list[Calculation] = Field(default_factory=list)
 
 
