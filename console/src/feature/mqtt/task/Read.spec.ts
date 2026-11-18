@@ -1225,6 +1225,31 @@ describe("MQTT read form", () => {
       expect((await retrieveBindings(draft.key))[0].channel).toBe(streamed.key);
     });
 
+    it("should store a streamed field whose kind changes to a number", async () => {
+      const streamed = await client.channels.create({
+        name: uniqueName("mode"),
+        dataType: DataType.STRING,
+        virtual: true,
+      });
+      const mode = createField("mode", "string");
+      const entry = await createEntry({
+        fields: [mode],
+        bound: { [mode.key]: streamed.key },
+      });
+      const { container, draft } = await renderRead({
+        entries: [entry],
+        beforeRender: () => retype(entry, mode, "float"),
+        properties: {
+          read: { [TOPIC]: { index: 0, channels: { "/mode": streamed.key } } },
+        },
+      });
+      const created = await deploy(container, draft.key);
+      const [{ channel }] = plainOf(created.config.entries[0]).messages[0].bindings;
+      const stored = await client.channels.retrieve(channel);
+      expect(stored.virtual).toBe(false);
+      expect(stored.dataType.equals(DataType.FLOAT64)).toBe(true);
+    });
+
     it("should refuse a topic whose message is gone", async () => {
       const entry = await createEntry({
         fields: [createField("temperature", "float")],

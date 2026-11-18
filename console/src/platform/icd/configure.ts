@@ -100,7 +100,8 @@ export const configureMessage = async (
     index != null ||
     fields.some((f, i) => {
       const ch = live.get(reused[i]);
-      if (ch != null) return !ch.virtual;
+      if (ch != null && !ch.virtual) return true;
+      if (ch != null && converts(f.type, ch.dataType.toString())) return false;
       return !new DataType(DEFAULT_DATA_TYPES[f.type]).isVariable;
     });
   const channels = fields.map((f, i) => {
