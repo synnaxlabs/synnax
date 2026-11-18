@@ -10,7 +10,7 @@
 import { status } from "@synnaxlabs/client";
 import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
 import { Status } from "@synnaxlabs/lyra/status";
-import { errors, Size, TimeSpan } from "@synnaxlabs/x";
+import { Size, TimeSpan } from "@synnaxlabs/x";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { type DownloadEvent, type Update } from "@tauri-apps/plugin-updater";
 import {
@@ -181,7 +181,8 @@ export const Provider = ({
     }
     installing.current = null;
     if (current.released) await update.close().catch(console.error);
-    if (failed) throw errors.fromUnknown(error);
+    if (failed)
+      throw error instanceof Error ? error : new Error(String(error), { cause: error });
   };
   const start = (update: Update): void =>
     void (async () => {
