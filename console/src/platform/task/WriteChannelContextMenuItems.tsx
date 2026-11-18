@@ -23,13 +23,14 @@ export interface WriteChannelContextMenuItemsProps extends ContextMenuItemProps<
 const WriteChannelContextMenuItems: React.FC<WriteChannelContextMenuItemsProps> = ({
   channels,
   keys,
+  target,
 }) => {
   const key = keys[0];
   const canRename = Access.useUpdateGranted(clientChannel.TYPE_RESOURCE_ID);
   const channel = channels.find((ch) => ch.key === key);
   if (channel == null || !canRename) return null;
   const handleRename = (type: WriteChannelType) =>
-    Text.edit(getChannelNameID(key, type));
+    Text.edit(getChannelNameID(key, type), target);
   return (
     <>
       <Menu.Item itemKey="renameCmd" onClick={() => handleRename("cmd")}>

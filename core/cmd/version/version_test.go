@@ -32,9 +32,10 @@ var _ = Describe("Version", func() {
 	})
 	It("Should print the version through the subcommand", func() {
 		var buf bytes.Buffer
-		version.Cmd.SetOut(&buf)
-		version.Cmd.SetArgs([]string{})
-		Expect(version.Cmd.Execute()).To(Succeed())
+		cmd := version.NewCmd()
+		cmd.SetOut(&buf)
+		cmd.SetArgs([]string{})
+		Expect(cmd.Execute()).To(Succeed())
 		Expect(buf.String()).To(Equal(expected))
 	})
 })

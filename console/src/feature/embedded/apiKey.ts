@@ -10,7 +10,12 @@
 import { auth, InvalidTokenError, type Synnax } from "@synnaxlabs/client";
 import { errors } from "@synnaxlabs/x";
 
-import { retrieveAPIKey, saveAPIKey } from "@/feature/embedded/supervisor";
+import {
+  forgetLegacyAPIKey,
+  retrieveAPIKey,
+  retrieveLegacyAPIKey,
+  saveAPIKey,
+} from "@/feature/embedded/supervisor";
 
 const NAME = "Scripts on this computer";
 
@@ -18,7 +23,7 @@ const recordKey = (token: string): auth.APIKeyKey | null => {
   try {
     return auth.apiKeyID(token);
   } catch (e) {
-    // The file sits in the home directory, where a person can edit it.
+    // A person can edit the keychain item.
     if (InvalidTokenError.matches(e)) return null;
     throw errors.fromUnknown(e);
   }
@@ -29,6 +34,21 @@ const known = async (client: Synnax, token: string): Promise<boolean> => {
   if (key == null) return false;
   const keys = await client.auth.retrieveKeys();
   return keys.some((k) => k.key === key);
+};
+
+/**
+ * @returns The saved API key, after it revokes the key that Synnax Desktop 1.1 saved in
+ * plaintext. That key leaves the discovery file only after the revoke, so a failed
+ * revoke throws and runs again on the next read.
+ */
+const retrieve = async (client: Synnax): Promise<string | null> => {
+  const legacy = await retrieveLegacyAPIKey();
+  if (legacy != null) {
+    const key = recordKey(legacy);
+    if (key != null) await client.auth.deleteKeys(key);
+    await forgetLegacyAPIKey(legacy);
+  }
+  return await retrieveAPIKey();
 };
 
 /** @returns The new key, or null when another window changed the saved key first. */
@@ -56,7 +76,7 @@ const create = async (
  * @returns The saved API key.
  */
 export const ensure = async (client: Synnax): Promise<string> => {
-  const saved = await retrieveAPIKey();
+  const saved = await retrieve(client);
   if (saved != null && (await known(client, saved))) {
     if (await saveAPIKey(saved, saved)) return saved;
   } else {
@@ -72,7 +92,7 @@ export const ensure = async (client: Synnax): Promise<string> => {
  * @returns The new API key.
  */
 export const replace = async (client: Synnax): Promise<string> => {
-  const saved = await retrieveAPIKey();
+  const saved = await retrieve(client);
   const old = saved == null ? null : recordKey(saved);
   // The delete comes first, so a reset that fails never leaves the old key working.
   if (old != null) await client.auth.deleteKeys(old);

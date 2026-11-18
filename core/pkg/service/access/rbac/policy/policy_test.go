@@ -33,7 +33,7 @@ var _ = Describe("Writer", func() {
 		tx gorp.Tx
 		w  policy.Writer
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
 		tx = DeferClose(db.OpenTx())
 		w = svc.NewWriter(tx, false)
 	})
@@ -535,7 +535,7 @@ var _ = Describe("Retriever", func() {
 
 var _ = Describe("Resources", func() {
 	var tx gorp.Tx
-	BeforeEach(func(ctx SpecContext) { tx = DeferClose(db.OpenTx()) })
+	BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 
 	Describe("Search", func() {
 		It(

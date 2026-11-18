@@ -11,7 +11,6 @@ import asyncio
 import threading
 import time
 from collections.abc import Callable, Iterator
-from typing import cast
 
 import numpy as np
 import pytest
@@ -465,6 +464,26 @@ class TestController:
                 v = auto[press_en.key]
                 assert v is None
 
+    def test_state_is_a_copy(self, client: sy.Synnax) -> None:
+        """Should return a copy of the state that a condition can also read."""
+        ch = client.channels.create(
+            name="control_state_is_a_copy",
+            data_type=sy.DataType.FLOAT64,
+            virtual=True,
+            retrieve_if_name_exists=True,
+        )
+        with client.control.acquire(
+            name="State Is A Copy", read=[ch.key], write=[ch.key]
+        ) as auto:
+            auto[ch.key] = 42
+            assert_echoed(auto, ch.key, 42)
+            snapshot = auto.state
+            snapshot[ch.key] = 7
+            assert auto.get(ch.key) == 42
+            assert auto.wait_until(
+                lambda c: c.state.get(ch.key) == 42, timeout=HANDSHAKE_TIMEOUT
+            )
+
     def test_set_by_attribute(self, client: sy.Synnax) -> None:
         """Should command the channel named by an assigned attribute."""
         ch = client.channels.create(
@@ -658,7 +677,7 @@ class ObservedLock:
 
     def __init__(
         self,
-        lock: threading.Lock,
+        lock: threading.RLock,
         thread: threading.Thread,
         reached: threading.Event,
     ) -> None:
@@ -891,9 +910,9 @@ class TestRemainsTrueForProcessor:
     """Unit tests for the _RemainsTrueFor percentage logic, independent of streaming
     timing."""
 
-    # The callbacks under test never touch the controller, so a bare sentinel stands in
-    # for it.
-    _state = cast(Controller, object())
+    # The callbacks under test never touch the controller, so an uninitialized one
+    # stands in for it.
+    _state = Controller.__new__(Controller)
 
     def _run(self, results: list[bool], percentage: float) -> _RemainsTrueFor:
         it = iter(results)
@@ -941,7 +960,7 @@ class TestRemainsTrueForProcessor:
         """Should count a truthy numeric result as one true result, not as its
         value."""
         it = iter([2, 0, 2, 0])
-        processor = _RemainsTrueFor(lambda _: cast(bool, next(it)), percentage=0.75)
+        processor = _RemainsTrueFor(lambda _: next(it), percentage=0.75)
         for _ in range(4):
             processor.process(self._state)
         assert processor.count == 4

@@ -35,6 +35,7 @@ var _ = Describe("Group", Ordered, func() {
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		svc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB: db,
 		}))

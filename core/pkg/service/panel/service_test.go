@@ -27,9 +27,9 @@ var _ = Describe("ServiceConfig", func() {
 
 		DescribeTable(
 			"Should fail when a required field is missing",
-			func(clear func(*panel.ServiceConfig), field string) {
+			func(unset func(*panel.ServiceConfig), field string) {
 				cfg := full()
-				clear(&cfg)
+				unset(&cfg)
 				Expect(cfg.Validate()).To(MatchError(ContainSubstring(field)))
 			},
 			Entry("db", func(c *panel.ServiceConfig) { c.DB = nil }, "db"),

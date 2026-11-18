@@ -17,6 +17,7 @@ from console.channels import ChannelClient
 from console.layout import LayoutClient
 from console.notifications import click_past
 from console.page import ConsolePage, PageType
+from console.range.toolbar import Toolbar as RangeToolbar
 
 Axis = Literal["x1", "y1", "y2"]
 """The keys of `sy.lineplot.AxisKey` that the Console toolbar offers."""
@@ -253,6 +254,39 @@ class Plot(ConsolePage):
 
         self.data[axis].append(channel_name)
 
+    def _range_picker(self) -> Locator:
+        """The range picker in the Data tab of the visualization toolbar."""
+        self.layout.show_visualization_toolbar()
+        self.page.get_by_role("tab", name="Data", exact=True).click(timeout=5000)
+        label = self.page.locator("label").filter(has_text="Ranges")
+        return label.locator("..").locator(".lyra-dialog__trigger")
+
+    def drag_range_to_toolbar(self, range_name: str, *, ranges: RangeToolbar) -> None:
+        """Drag a range from the ranges toolbar onto the plot's range picker.
+
+        :param range_name: The name of a favorite range.
+        :param ranges: The ranges toolbar to drag the range from.
+        """
+        self.notifications.close_all()
+        picker = self._range_picker()
+        ranges.show()
+        ranges.expand("Favorites")
+        line = ranges.get_item(range_name, group="Favorites")
+        line.wait_for(state="visible", timeout=5000)
+        self.layout.drag(line, picker)
+        self.data["Ranges"].append(range_name)
+
+    def get_range_tag(self, range_name: str) -> Locator:
+        """The tag of a range in the plot's range picker.
+
+        :param range_name: The name of the range.
+        """
+        return (
+            self._range_picker()
+            .locator(".lyra-tag")
+            .filter(has_text=re.compile(f"^{re.escape(range_name)}$"))
+        )
+
     def create_range_from_selection(self, range_name: str) -> None:
         """Create a range by selecting a region on the plot and using the context menu.
 
@@ -283,7 +317,7 @@ class Plot(ConsolePage):
             state="visible", timeout=5000
         )
         self.page.get_by_role("textbox", name="Name").fill(range_name)
-        self.page.get_by_role("button", name="Save to Core").click()
+        self.page.get_by_role("button", name="Create", exact=True).click()
 
     def get_annotation_toggle(self) -> Locator:
         """Return the range-annotation visibility toggle button.

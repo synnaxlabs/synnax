@@ -11,7 +11,7 @@ from examples.simulators import PressSimDAQ, SimDAQ
 
 import synnax as sy
 from console.case import ConsoleCase
-from framework.utils import create_virtual_channel
+from framework.utils import create_virtual_channel, hold
 from tests.arc.arc import ArcCase
 from x import random_name
 
@@ -102,6 +102,14 @@ sequence signal_ctrl {
 }
 """
 
+# The second flow runs only when the Arc reads its own first write.
+ARC_OWN_WRITE_SOURCE = """
+1 -> lifecycle_own_first
+lifecycle_own_first -> lifecycle_own_second
+"""
+
+OWN_WRITE_STARTS = 5
+
 
 class Lifecycle(ArcCase, ConsoleCase):
     """Test Arc lifecycle operations: rename, delete, status, stable_for, select.
@@ -117,6 +125,7 @@ class Lifecycle(ArcCase, ConsoleCase):
        accumulation bug where transitive channel accesses were lost)
     8. Stale virtual channel signal does not trigger stage re-entry on first
        yield activation (regression for source node watermark bug)
+    9. An Arc reads its own first write on every start
     """
 
     arc_source = ARC_LIFECYCLE_SOURCE
@@ -151,6 +160,8 @@ class Lifecycle(ArcCase, ConsoleCase):
         create_virtual_channel(
             self.client, "bb_signal_stop_cmd", data_type=sy.DataType.UINT8
         )
+        for ch in ("lifecycle_own_first", "lifecycle_own_second"):
+            create_virtual_channel(self.client, ch, data_type=sy.DataType.UINT8)
         self.client.statuses.set(
             sy.Status(
                 key="lifecycle_press_alarm",
@@ -160,6 +171,20 @@ class Lifecycle(ArcCase, ConsoleCase):
             )
         )
         super().setup()
+
+    def _verify_own_first_write(self) -> None:
+        self.log("Phase 3a: Testing that an Arc reads its own first write")
+        name = self.load_arc(
+            ARC_OWN_WRITE_SOURCE, name_prefix="ArcOwnWrite", start=False
+        )
+        task = self._arc(name).task
+        for start in range(1, OWN_WRITE_STARTS + 1):
+            # A new streamer sees no sample from an earlier start.
+            with self.client.open_streamer(["lifecycle_own_second"]) as streamer:
+                self.start_arc_task(task)
+                if streamer.read(timeout=5) is None:
+                    self.fail(f"Start {start}: the Arc did not read its first write")
+            self.stop_arc_task(task)
 
     def verify_sequence_execution(self) -> None:
         # --- 0a. Verify global constant as flow source in press stage ---
@@ -208,12 +233,15 @@ class Lifecycle(ArcCase, ConsoleCase):
         self.log("signal_ctrl entered yield stage")
 
         # Wait then confirm no spurious re-entry from the stale start signal.
-        sy.sleep(0.501)  # noqa: TID251 hold, > 2 * time.wait{250ms}
+        hold(0.501, reason="hold, > 2 * time.wait{250ms}")
         self.wait_for_eq("signal_stage_log", "yield")
 
         # Confirm a fresh start signal correctly re-enters start.
         self.writer.write("bb_signal_start_cmd", 1)
         self.wait_for_eq("signal_stage_log", "start")
+
+        # --- 3a. An Arc reads its own first write on every start ---
+        self._verify_own_first_write()
 
         # --- 4. Rename while running ---
         self.log(f"Renaming Arc from '{self.arc_name}' to '{self.new_name}'")

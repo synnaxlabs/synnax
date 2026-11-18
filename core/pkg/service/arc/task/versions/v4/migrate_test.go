@@ -35,6 +35,7 @@ var _ = Describe("Migration", func() {
 				MemoryLocked:  true,
 			}
 			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
 			MustSucceed(
 				gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, v3.Config]{DB: db}),
 			)

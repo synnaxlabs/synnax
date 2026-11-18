@@ -13,12 +13,13 @@ package secret
 
 import (
 	"os"
+	"path/filepath"
 
 	"github.com/synnaxlabs/x/errors"
 )
 
 func syncDir(path string) error {
-	d, err := os.Open(path)
+	d, err := os.Open(filepath.Clean(path))
 	if err != nil {
 		return err
 	}

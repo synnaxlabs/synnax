@@ -15,7 +15,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
@@ -28,7 +27,7 @@ import (
 // imex.Envelope, binding the codec Decode needs.
 func LoadEnvelope(path string) imex.Envelope {
 	ginkgo.GinkgoHelper()
-	raw := testutil.MustSucceed(os.ReadFile(path))
+	raw := testutil.MustSucceed(os.ReadFile(filepath.Clean(path)))
 	var env imex.Envelope
 	gomega.Expect(json.Unmarshal(raw, &env)).To(gomega.Succeed())
 	return env
@@ -51,21 +50,19 @@ func WireRoundTrip(env imex.Envelope) imex.Envelope {
 func LoadBundle(dir string) zip.Files {
 	ginkgo.GinkgoHelper()
 	files := zip.Files{}
-	gomega.Expect(filepath.WalkDir(
-		dir,
+	bundle := os.DirFS(dir)
+	gomega.Expect(fs.WalkDir(
+		bundle,
+		".",
 		func(path string, d fs.DirEntry, err error) error {
 			if err != nil || d.IsDir() {
 				return err
 			}
-			rel, err := filepath.Rel(dir, path)
+			data, err := fs.ReadFile(bundle, path)
 			if err != nil {
 				return err
 			}
-			data, err := os.ReadFile(path)
-			if err != nil {
-				return err
-			}
-			files[strings.ReplaceAll(rel, string(filepath.Separator), "/")] = data
+			files[path] = data
 			return nil
 		},
 	)).To(gomega.Succeed())

@@ -54,7 +54,7 @@ Channel struct {
 		GinkgoHelper()
 		table := resolution.NewTable()
 		diag := analyzer.AnalyzeSeeded(
-			GinkgoT().Context(), source,
+			source,
 			"schemas/synnax/channel.oracle", "channel",
 			analyzer.NewStandardFileLoader(root), table,
 		)
@@ -261,6 +261,33 @@ Channel struct {
 		Expect(report.Status).To(Equal(check.StatusPass))
 	})
 
+	It("Should allow a lagging pin that shares its namespace with another pin", func() {
+		write("schemas/x/versions/status/v0.oracle", "Code = int64\n")
+		write(
+			"schemas/x/versions/status/v1.oracle",
+			"Code = v0.Code\n\nExtra = int32\n",
+		)
+		write("schemas/x/status.oracle", "Code = int64\nExtra = int32\n")
+		write("schemas/synnax/versions/status/v0.oracle", "Level = int32\n")
+		write("schemas/synnax/status.oracle", "Level = int32\n")
+		write("schemas/synnax/versions/channel/v0.oracle", `
+import "schemas/synnax/versions/status/v0"
+import "schemas/x/versions/status/v0"
+
+Channel struct {
+	key uuid @key
+	code status.Code
+	level status.Level
+
+	@go marshal
+}
+`)
+		p := analyzeLive(liveV0)
+		report := run(p)
+		Expect(report.Findings).To(BeEmpty())
+		Expect(report.Status).To(Equal(check.StatusPass))
+	})
+
 	It("Should walk stored references through every declaration form", func() {
 		write(
 			"schemas/x/versions/telem/v0.oracle",
@@ -450,9 +477,10 @@ Channel struct {
 	@go marshal
 }
 `)
-			var messages []string
-			for _, f := range run(analyzeLive(liveV0)).Findings {
-				messages = append(messages, f.Message)
+			findings := run(analyzeLive(liveV0)).Findings
+			messages := make([]string, len(findings))
+			for i, f := range findings {
+				messages[i] = f.Message
 			}
 			Expect(messages).To(ContainElement(
 				"schemas/synnax/channel's current surface resolves channel at v0, " +
@@ -480,9 +508,9 @@ Channel struct {
 `)
 			report := run(analyzeLive(liveV0))
 			Expect(report.Status).To(Equal(check.StatusFail))
-			var messages []string
-			for _, f := range report.Findings {
-				messages = append(messages, f.Message)
+			messages := make([]string, len(report.Findings))
+			for i, f := range report.Findings {
+				messages[i] = f.Message
 			}
 			Expect(messages).To(ContainElement(
 				"schemas/synnax/channel's current surface resolves telem at v0 for " +
@@ -502,9 +530,10 @@ Channel struct {
 			for rel, content := range files {
 				write(rel, content)
 			}
-			var messages []string
-			for _, f := range run(analyzeLive(liveV0)).Findings {
-				messages = append(messages, f.Message)
+			findings := run(analyzeLive(liveV0)).Findings
+			messages := make([]string, len(findings))
+			for i, f := range findings {
+				messages[i] = f.Message
 			}
 			Expect(messages).To(ContainElement(ContainSubstring(
 				"resolves telem at v0 for omitted fields",
@@ -583,9 +612,10 @@ Channel struct {
 	@go marshal
 }
 `)
-		var messages []string
-		for _, f := range run(analyzeLive(liveV0)).Findings {
-			messages = append(messages, f.Message)
+		findings := run(analyzeLive(liveV0)).Findings
+		messages := make([]string, len(findings))
+		for i, f := range findings {
+			messages[i] = f.Message
 		}
 		Expect(
 			messages,
@@ -1256,7 +1286,6 @@ Tone struct {
 			GinkgoHelper()
 			loader := analyzer.NewStandardFileLoader(root)
 			table, diag := analyzer.Analyze(
-				GinkgoT().Context(),
 				[]string{
 					"schemas/synnax/tone",
 					"schemas/synnax/label",

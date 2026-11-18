@@ -13,27 +13,27 @@ import (
 	"bytes"
 )
 
-// FunctionType represents a function signature
+// FunctionType represents a function signature.
 type FunctionType struct {
 	Params  []ValueType
 	Results []ValueType
 }
 
-// function represents a WASM function
+// function represents a WASM function.
 type function struct {
 	Locals  []ValueType
 	Body    []byte
 	TypeIdx uint32
 }
 
-// Import represents an imported function
+// Import represents an imported function.
 type Import struct {
 	Module  string
 	Name    string
 	TypeIdx uint32
 }
 
-// export represents an exported item
+// export represents an exported item.
 type export struct {
 	Name  string
 	Kind  ExportKind
@@ -54,13 +54,13 @@ type Global struct {
 // the name apart from function exports, which are Arc identifiers.
 const LoopBudgetExport = "$loop_budget"
 
-// dataSegment represents a data segment to be placed in linear memory
+// dataSegment represents a data segment to be placed in linear memory.
 type dataSegment struct {
 	Bytes  []byte
 	Offset uint32
 }
 
-// Module represents a complete WASM module
+// Module represents a complete WASM module.
 type Module struct {
 	types      []FunctionType
 	imports    []Import
@@ -73,7 +73,7 @@ type Module struct {
 	memory     bool
 }
 
-// NewModule creates a new WASM module
+// NewModule creates a new WASM module.
 func NewModule() *Module {
 	return &Module{
 		types:     make([]FunctionType, 0),
@@ -90,7 +90,7 @@ func (m *Module) AddGlobal(g Global) uint32 {
 	return uint32(len(m.globals) - 1)
 }
 
-// AddType adds a function type and returns its index
+// AddType adds a function type and returns its index.
 func (m *Module) AddType(ft FunctionType) uint32 {
 	for i, existing := range m.types {
 		if typesEqual(existing, ft) {
@@ -102,7 +102,7 @@ func (m *Module) AddType(ft FunctionType) uint32 {
 	return idx
 }
 
-// AddImport adds an imported function
+// AddImport adds an imported function.
 func (m *Module) AddImport(module, name string, ft FunctionType) uint32 {
 	typeIdx := m.AddType(ft)
 	m.imports = append(m.imports, Import{
@@ -113,7 +113,7 @@ func (m *Module) AddImport(module, name string, ft FunctionType) uint32 {
 	return uint32(len(m.imports) - 1)
 }
 
-// AddFunction adds a function to the module and returns its index
+// AddFunction adds a function to the module and returns its index.
 func (m *Module) AddFunction(typeIdx uint32, locals []ValueType, body []byte) uint32 {
 	// Function index is imports + local functions
 	idx := uint32(len(m.imports) + len(m.functions))
@@ -125,7 +125,7 @@ func (m *Module) AddFunction(typeIdx uint32, locals []ValueType, body []byte) ui
 	return idx
 }
 
-// AddExport adds an export to the module
+// AddExport adds an export to the module.
 func (m *Module) AddExport(name string, kind ExportKind, index uint32) {
 	m.exports = append(m.exports, export{
 		Name:  name,
@@ -140,7 +140,7 @@ func (m *Module) ImportCount() uint32 {
 	return uint32(len(m.imports))
 }
 
-// EnableMemory enables memory for the module
+// EnableMemory enables memory for the module.
 func (m *Module) EnableMemory() {
 	m.memory = true
 }
@@ -157,7 +157,7 @@ func (m *Module) AddData(bytes []byte) uint32 {
 	return offset
 }
 
-// Generate generates the WASM binary
+// Generate generates the WASM binary.
 func (m *Module) Generate() []byte {
 	m.buf.Reset()
 	m.buf.Write(magicNumber)
@@ -347,7 +347,7 @@ type localGroup struct {
 	typ   ValueType
 }
 
-// groupLocalsByType groups consecutive locals of the same type
+// groupLocalsByType groups consecutive locals of the same type.
 func groupLocalsByType(locals []ValueType) []localGroup {
 	if len(locals) == 0 {
 		return nil

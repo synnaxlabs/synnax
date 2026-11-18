@@ -375,14 +375,12 @@ func (t *Text) String() string {
 	runes := make([]rune, 0, t.live)
 	for _, e := range t.order {
 		if e.dead == 0 {
-			for _, c := range e.chars {
-				runes = append(runes, rune(c))
-			}
+			runes = append(runes, e.chars...)
 			continue
 		}
 		for i, c := range e.chars {
 			if !e.deleted[i] {
-				runes = append(runes, rune(c))
+				runes = append(runes, c)
 			}
 		}
 	}

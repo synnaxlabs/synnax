@@ -60,6 +60,13 @@ func dataSetValue() *pb.Payload_Metric {
 	}
 }
 
+func cloneMetric(m *pb.Payload_Metric) *pb.Payload_Metric {
+	GinkgoHelper()
+	c, ok := proto.Clone(m).(*pb.Payload_Metric)
+	Expect(ok).To(BeTrue())
+	return c
+}
+
 // declared returns a copy of m with what a birth message declares about a tag.
 func declared(
 	name string,
@@ -67,21 +74,21 @@ func declared(
 	dt sparkplug.DataType,
 	m *pb.Payload_Metric,
 ) *pb.Payload_Metric {
-	m = proto.Clone(m).(*pb.Payload_Metric)
+	m = cloneMetric(m)
 	m.Name, m.Alias, m.Datatype = new(name), new(alias), new(uint32(dt))
 	return m
 }
 
 // byAlias returns a copy of m that names its tag with alias only.
 func byAlias(alias uint64, m *pb.Payload_Metric) *pb.Payload_Metric {
-	m = proto.Clone(m).(*pb.Payload_Metric)
+	m = cloneMetric(m)
 	m.Alias = new(alias)
 	return m
 }
 
 // byName returns a copy of m that names its tag with name only.
 func byName(name string, m *pb.Payload_Metric) *pb.Payload_Metric {
-	m = proto.Clone(m).(*pb.Payload_Metric)
+	m = cloneMetric(m)
 	m.Name = new(name)
 	return m
 }

@@ -28,6 +28,7 @@ import (
 var _ = Describe("OpenTable", func() {
 	It("Should open a table that stores Arcs", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
 		a := newAutomation(arc.Base{
 			Key:    uuid.New(),
@@ -46,6 +47,7 @@ var _ = Describe("OpenTable", func() {
 
 	It("Should migrate stored v3 Arcs with its parser config", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		chain := versions.NewMigrations(uuid.New(), parser.Config{})
 		swap := slices.IndexFunc(chain, func(m gorp.Migration) bool {
 			return m.Key() == "v61_swap_brackets"

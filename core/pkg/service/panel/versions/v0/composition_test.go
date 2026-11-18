@@ -185,6 +185,7 @@ var _ = Describe("Composition migrations", func() {
 		"Should convert mosaics into panels parented under the project",
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
 			projectKey := uuid.New()
 			lpKey, scKey, logKey, tblKey := uuid.New().String(), uuid.New().String(),
 				uuid.New().String(), uuid.New().String()
@@ -323,6 +324,7 @@ var _ = Describe("Composition migrations", func() {
 		"Should collapse splits whose sides lose all of their tabs",
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
 			lpKey, staleKey := uuid.New().String(), uuid.New().String()
 			createResources(ctx, db, resource.ID{
 				Type: resource.TypeLineplot, Key: lpKey,
@@ -372,6 +374,7 @@ var _ = Describe("Composition migrations", func() {
 
 	It("Should skip corrupt or unmigratable staged layouts", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		stageLayout(ctx, db, project.Project{
 			Key:    uuid.New(),
 			Name:   "Corrupt",
@@ -407,6 +410,7 @@ var _ = Describe("Composition migrations", func() {
 
 	It("Should be a no-op on a cluster with no projects", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		openPanelTable(ctx, db)
 		runComposition(ctx, db)
 		Expect(collectPanels(ctx, db)).To(BeEmpty())
@@ -414,6 +418,7 @@ var _ = Describe("Composition migrations", func() {
 
 	It("Should convert staged task tabs into resource tabs", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		legacy := "4294967395"
 		taskKey := uuid.New()
 		stageTaskKey(ctx, db, legacy, taskKey)
@@ -472,6 +477,7 @@ var _ = Describe("Composition migrations", func() {
 		"Should resolve task tabs keyed by a placeholder layout key",
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
 			argsPlaceholder, altPlaceholder := uuid.New().String(), uuid.New().String()
 			argsLegacy, altLegacy := "281479271677954", "281479271677955"
 			argsTaskKey, altTaskKey := uuid.New(), uuid.New()
@@ -537,6 +543,7 @@ var _ = Describe("Composition migrations", func() {
 		"Should convert a document-backed layout into a resource tab",
 		func(ctx SpecContext, layoutType string, resourceType resource.Type) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
 			docKey, staleKey := uuid.New().String(), uuid.New().String()
 			createResources(ctx, db, resource.ID{Type: resourceType, Key: docKey})
 			stageLayout(ctx, db, project.Project{
@@ -583,6 +590,7 @@ var _ = Describe("Composition migrations", func() {
 	// of being dropped.
 	It("Should convert app view tabs into view tabs", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		legacyTypes := []string{
 			"range_explorer",
 			"status_explorer",
@@ -635,6 +643,7 @@ var _ = Describe("Composition migrations", func() {
 		"Should drop app views with no current equivalent",
 		func(ctx SpecContext, layoutType string) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
 			stageLayout(ctx, db, project.Project{
 				Key:  uuid.New(),
 				Name: "Ops",
@@ -670,6 +679,7 @@ var _ = Describe("Composition migrations", func() {
 		"Should strip resource tabs the type whitelist rejects",
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
 			table := openPanelTable(ctx, db)
 			logKey, userKey := uuid.New().String(), uuid.New().String()
 			p := v0.Panel{
@@ -709,6 +719,7 @@ var _ = Describe("Composition migrations", func() {
 
 	It("Should drain staged task keys that no layout uses", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		legacy := "4294967395"
 		stageTaskKey(ctx, db, legacy, uuid.New())
 		openPanelTable(ctx, db)

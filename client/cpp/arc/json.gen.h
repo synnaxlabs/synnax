@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "client/cpp/arc/types.gen.h"
+#include "client/cpp/channel/json.gen.h"
 #include "client/cpp/status/json.gen.h"
 #include "x/cpp/filter/json.gen.h"
 #include "x/cpp/json/json.h"
@@ -31,7 +32,7 @@ namespace synnax::arc {
 inline Base Base::parse(x::json::Parser parser) {
     return Base{
         .key = parser.field<Key>("key", x::uuid::create()),
-        .name = parser.field<std::string>("name"),
+        .name = parser.required_field<std::string>("name"),
         .source = parser.has("source") ? parse_source(parser.child("source"))
                                        : Source{TextSource{}},
         .directory = parser.field<std::optional<x::uuid::UUID>>("directory"),
@@ -89,6 +90,20 @@ inline x::json::json Where::to_json() const {
             arr.push_back(item.to_json());
         j["directories"] = arr;
     }
+    return j;
+}
+
+inline Calculation Calculation::parse(x::json::Parser parser) {
+    return Calculation{
+        .channel = parser.field<::synnax::channel::Key>("channel"),
+        .program = parser.field<::arc::program::Program>("program"),
+    };
+}
+
+inline x::json::json Calculation::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["channel"] = this->channel;
+    j["program"] = this->program.to_json();
     return j;
 }
 
@@ -202,7 +217,14 @@ inline AutomationArc AutomationArc::parse(x::json::Parser parser) {
     AutomationArc result;
     static_cast<Base &>(result) = Base::parse(parser);
     result.program = parser.field<std::optional<::arc::program::Program>>("program");
-    result.changes = parser.field<std::optional<std::vector<Change>>>("changes");
+    result.changes = parser.field<std::vector<Change>>(
+        "changes",
+        std::vector<Change>{}
+    );
+    result.calculations = parser.field<std::vector<Calculation>>(
+        "calculations",
+        std::vector<Calculation>{}
+    );
     result.type = parser.field<std::string>("type");
     return result;
 }
@@ -211,7 +233,8 @@ inline x::json::json AutomationArc::to_json() const {
     x::json::json j = x::json::json::object();
     if (const auto parent = Base::to_json(); parent.is_object()) j.update(parent);
     if (this->program.has_value()) j["program"] = this->program->to_json();
-    if (this->changes.has_value()) j["changes"] = x::json::to_array(*this->changes);
+    j["changes"] = x::json::to_array(this->changes);
+    j["calculations"] = x::json::to_array(this->calculations);
     j["type"] = this->type;
     return j;
 }

@@ -95,6 +95,7 @@ var _ = Describe("State", func() {
 	)
 	BeforeEach(func() {
 		db = DeferClose(gorptestutil.OpenGorpMsgpackDB())
+		StartRun(db.Run)
 		state = actions.NewState[uuid.UUID, testAction](db)
 		rec = &Recorder[uuid.UUID, testAction]{}
 		DeferCleanup(state.OnChange(rec.Record))
@@ -250,6 +251,7 @@ var _ = Describe("Dispatcher", func() {
 	)
 	BeforeEach(func() {
 		db = DeferClose(gorptestutil.OpenGorpMsgpackDB())
+		StartRun(db.Run)
 		state = actions.NewState[uuid.UUID, testAction](db)
 		rec = &Recorder[uuid.UUID, testAction]{}
 		DeferCleanup(state.OnChange(rec.Record))

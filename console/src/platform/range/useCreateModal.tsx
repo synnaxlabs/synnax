@@ -18,7 +18,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Ranger, Synnax } from "@synnaxlabs/pluto";
-import { primitive, TimeRange, uuid } from "@synnaxlabs/x";
+import { primitive, uuid } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 import { type z } from "zod";
 
@@ -27,7 +27,6 @@ import { CSS } from "@/platform/css";
 import { Label } from "@/platform/label";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
-import { Session } from "@/session";
 
 const path = Ranger.createFormPath;
 
@@ -62,7 +61,6 @@ const TimelineField = (): ReactElement => {
 
 const Create = ({ close, ...params }: Modals.ContentProps<CreateModalParams, void>) => {
   const [now] = useState(() => Number(TimeStamp.now().valueOf()));
-  const dispatch = Session.useDispatch();
   const { capture } = Analytics.use();
 
   const client = Synnax.use();
@@ -78,31 +76,12 @@ const Create = ({ close, ...params }: Modals.ContentProps<CreateModalParams, voi
       parent: "",
       ...params,
     },
-    afterSave: (form) => {
+    afterSave: () => {
       capture("range_created", {});
       close();
-      const { key } = form.value();
-      if (key == null) return;
-      dispatch(Session.Range.add({ variant: "persisted", key }));
     },
   });
-
-  const saveLocal = () => {
-    if (!form.validate()) return;
-    const { name, key, timeRange } = form.value();
-    if (key == null) return;
-    dispatch(
-      Session.Range.add({
-        variant: "static",
-        key,
-        name,
-        timeRange: new TimeRange(timeRange.start, timeRange.end).numeric,
-      }),
-    );
-    close();
-  };
-
-  const saveName = "Save to Core";
+  Modals.useBusy(variant === "loading");
 
   return (
     <Modal.Frame className={CSS.B("range-create-layout")}>
@@ -145,7 +124,7 @@ const Create = ({ close, ...params }: Modals.ContentProps<CreateModalParams, voi
                 )}
               </Form.Field>
               <Form.Field path={path.labels} showLabel={false} showHelpText={false}>
-                {(p) => <Label.SelectMultiple zIndex={100} {...p} />}
+                {(p) => <Label.SelectMultiple {...p} />}
               </Form.Field>
             </Flex.Box>
           </Flex.Box>
@@ -153,9 +132,6 @@ const Create = ({ close, ...params }: Modals.ContentProps<CreateModalParams, voi
       </Modal.Body>
       <Modal.Footer>
         <Nav.Bar.End>
-          <Button.Button onClick={() => saveLocal()} disabled={variant === "loading"}>
-            Save locally
-          </Button.Button>
           <Button.Button
             variant="filled"
             onClick={() => save()}
@@ -164,7 +140,7 @@ const Create = ({ close, ...params }: Modals.ContentProps<CreateModalParams, voi
             trigger={Triggers.SAVE}
             triggerIndicator
           >
-            {saveName}
+            Create
           </Button.Button>
         </Nav.Bar.End>
       </Modal.Footer>

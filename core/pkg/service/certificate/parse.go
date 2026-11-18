@@ -127,7 +127,9 @@ func keyError(msg string) error {
 
 // samePublicKey reports whether a and b are the same public key.
 func samePublicKey(a, b crypto.PublicKey) bool {
-	pub, ok := a.(interface{ Equal(crypto.PublicKey) bool })
+	pub, ok := a.(interface {
+		Equal(other crypto.PublicKey) bool
+	})
 	return ok && pub.Equal(b)
 }
 

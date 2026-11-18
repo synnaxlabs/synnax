@@ -608,9 +608,9 @@ var _ = Describe("WASM", func() {
 			)
 			h.Execute(ctx, "div")
 			Expect(h.Errors()).To(HaveLen(1))
-			Expect(h.Errors()[0]).To(MatchError(ContainSubstring(
-				"WASM execution failed in node div",
-			)))
+			Expect(h.Errors()[0]).To(MatchError(
+				"WASM execution failed in node div at sample 0/1: integer divide by zero",
+			))
 			Expect(h.Done()).To(BeFalse())
 		})
 	})
@@ -1201,7 +1201,7 @@ var _ = Describe("WASM", func() {
 				}
 
 				source := `
-func emit_period(period i64 ns) {trigger f32} i64 {
+func emit_period(period i64 ns) {trigger f32} i64 ns {
     return period
 }
 
@@ -2991,11 +2991,11 @@ sequence main {
 						flushNow,
 					)
 					Expect(changed).To(BeTrue())
-					Expect(highest).To(Equal(telem.TimeStamp(flushNow)))
+					Expect(highest).To(Equal(flushNow))
 					Expect(fr.Get(201).Series).To(HaveLen(1))
 					Expect(
 						fr.Get(201).Series[0],
-					).To(telem.MatchSeries(telem.NewSeriesV(telem.TimeStamp(flushNow))))
+					).To(telem.MatchSeries(telem.NewSeriesV(flushNow)))
 				},
 			)
 

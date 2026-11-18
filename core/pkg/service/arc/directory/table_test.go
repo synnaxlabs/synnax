@@ -32,6 +32,7 @@ var _ = Describe("Table", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		table = MustOpen(directory.OpenTable(ctx, directory.TableConfig{DB: db}))
 	})
 	create := func(

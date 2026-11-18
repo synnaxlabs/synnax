@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
+  array,
   bounds,
   type breaker,
   DataType,
@@ -422,7 +423,7 @@ export class Latest {
       if (this.indexStamps !== stamps) return;
       if (times.length === length) {
         stamps.add([realign(times, read.span.lower, tr)], [read.span]);
-        this.indexReads = this.indexReads.filter((r) => r !== read);
+        this.indexReads = array.remove(this.indexReads, read);
         return this.notify();
       }
       read.tries++;
@@ -434,7 +435,7 @@ export class Latest {
   }
 
   private createBuffer(): Dynamic {
-    const size = Math.min(Math.max(this.count, MIN_BUFFER), MAX_BUFFER);
+    const size = bounds.clamp({ lower: MIN_BUFFER, upper: MAX_BUFFER }, this.count);
     // A value keeps every series it served, so a closed buffer stays the same object.
     return new Dynamic({
       dynamicBufferSize: size,

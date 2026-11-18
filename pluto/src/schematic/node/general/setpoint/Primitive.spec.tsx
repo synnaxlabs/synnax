@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { TimeSpan } from "@synnaxlabs/x";
 import { act, fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -40,7 +41,11 @@ describe("setpoint symbol", () => {
     it("should swallow a click shorter than the delay", () => {
       const onSend = vi.fn();
       const { getByText } = render(
-        <Setpoint onSend={onSend} value={3} onClickDelay={500} />,
+        <Setpoint
+          onSend={onSend}
+          value={3}
+          onClickDelay={TimeSpan.milliseconds(500).nanoseconds}
+        />,
       );
       const btn = getByText("Set");
       fireEvent.mouseDown(btn);
@@ -66,7 +71,10 @@ describe("setpoint symbol", () => {
     it("should send the value typed before the hold", () => {
       const onSend = vi.fn();
       const { container, getByText } = render(
-        <Setpoint onSend={onSend} onClickDelay={500} />,
+        <Setpoint
+          onSend={onSend}
+          onClickDelay={TimeSpan.milliseconds(500).nanoseconds}
+        />,
       );
       const input = container.querySelector("input");
       if (input == null) throw new Error("expected an input");
@@ -82,7 +90,11 @@ describe("setpoint symbol", () => {
     it("should set after the delay while the button stays held", () => {
       const onSend = vi.fn();
       const { getByText } = render(
-        <Setpoint onSend={onSend} value={3} onClickDelay={500} />,
+        <Setpoint
+          onSend={onSend}
+          value={3}
+          onClickDelay={TimeSpan.milliseconds(500).nanoseconds}
+        />,
       );
       fireEvent.mouseDown(getByText("Set"));
       act(() => {

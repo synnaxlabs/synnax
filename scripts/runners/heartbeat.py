@@ -15,7 +15,7 @@ from collections.abc import Callable
 
 import synnax as sy
 
-from common import HEARTBEAT_INTERVAL, STOP_TIMEOUT, Channels
+from common import HEARTBEAT_INTERVAL, STOP_TIMEOUT, Channels, Writes
 from publisher import Publisher
 
 
@@ -29,7 +29,7 @@ class Heartbeat:
     def __init__(
         self,
         *,
-        client: sy.Synnax,
+        client: Writes,
         channels: Channels,
         name: str,
         value: Callable[[], bool] = lambda: True,

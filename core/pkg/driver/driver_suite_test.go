@@ -21,8 +21,10 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
+	"github.com/synnaxlabs/synnax/pkg/service/license"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -31,6 +33,9 @@ var (
 	db     *gorp.DB
 	mockFS fs.FS
 	keys   *apikey.Service
+	signer svctestutil.Signer
+	// licenses covers the Core, so the mock Driver registers its rack.
+	licenses *license.Service
 )
 
 func TestDriver(t *testing.T) {
@@ -66,6 +71,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	mockFS = os.DirFS(string(dir))
 	ShouldNotLeakGoroutines()
 	db = DeferClose(gorp.Wrap(memkv.New()))
+	StartRun(db.Run)
 	racks := MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[rack.Key, rack.Rack]{
 		DB:   db,
 		Name: string(resource.TypeRack),
@@ -73,4 +79,10 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	r := rack.Rack{Key: rackKey, Name: "driver"}
 	Expect(racks.NewCreate().Entry(&r).Exec(ctx, db)).To(Succeed())
 	keys = MustOpen(apikey.OpenService(ctx, apikey.ServiceConfig{DB: db}))
+	signer = svctestutil.NewSigner()
+	licenses = MustOpen(license.OpenService(ctx, license.ServiceConfig{
+		DB:      DeferClose(memkv.New()),
+		Anchors: signer.Anchors,
+		Key:     signer.Sign(svctestutil.NewLicense()),
+	}))
 })

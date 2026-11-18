@@ -66,7 +66,8 @@ name is reached only in order.
 Do not put an abort stage right after a write, a wait, or a gate. See
 [steps of a sequence](/reference/control/arc/execution-model#steps-of-a-sequence).
 
-Starting a sequence with an empty body fails with `sequence 'press' has no steps`.
+Starting a sequence with an empty body fails with
+`empty sequence: sequence 'press' has no steps`.
 
 <Divider.Divider x />
 
@@ -107,4 +108,5 @@ start_cmd == 1 or remote_start_cmd == 1 => press
 ```
 
 Set a sequence variable with `=` or with a flow, such as `tank_pt -> peak`. Compound
-assignment fails: `compound and indexed assignment to a variable are not yet supported`.
+assignment fails:
+`invalid assignment: compound and indexed assignment to a variable are not yet supported`.

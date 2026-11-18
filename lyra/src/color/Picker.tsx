@@ -10,13 +10,18 @@
 import "@/color/Picker.css";
 
 import { color, TimeSpan } from "@synnaxlabs/x";
-import { type ComponentPropsWithoutRef, type ReactElement, useState } from "react";
+import {
+  type ComponentPropsWithoutRef,
+  type ReactElement,
+  type ReactNode,
+  useState,
+} from "react";
 
 import { Button } from "@/button";
-import { HexText, parseHexInput } from "@/color/HexText";
-import { Plane } from "@/color/Plane";
-import { useFrequentUpdater } from "@/color/Provider";
-import { Slider } from "@/color/Slider";
+import { BaseSwatch } from "@/color/BaseSwatch";
+import { Editor } from "@/color/Editor";
+import { findNamed, type Library, type Palette } from "@/color/named";
+import { useFrequent, useFrequentUpdater } from "@/color/Provider";
 import { Swatches } from "@/color/Swatches";
 import { CSS } from "@/css";
 import { Divider } from "@/divider";
@@ -24,7 +29,11 @@ import { Flex } from "@/flex";
 import { useDebouncedCallback } from "@/hooks";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
+import { Select } from "@/select";
 import { Status } from "@/status";
+import { Text } from "@/text";
+import { theme } from "@/theme";
+import { Theming } from "@/theming";
 
 export interface PickerProps
   extends
@@ -35,47 +44,46 @@ export interface PickerProps
    * optional and adds an Auto button that clears it.
    */
   fallback?: color.Crude;
+  /**
+   * Named colors to offer. Setting it splits the picker into two tabs: Library links
+   * the value to a named color, and Custom edits a fixed color.
+   */
+  library?: Library;
 }
-
-const HUE_STOPS = ["#f00", "#ff0", "#0f0", "#0ff", "#00f", "#f0f", "#f00"];
-const HUE_TRACK = `linear-gradient(to right, ${HUE_STOPS.join(", ")})`;
 
 /**
  * An HSV color picker: a saturation and brightness plane, hue and alpha sliders, a hex
- * and alpha input row, theme and palette swatches, and the user's recent colors.
+ * and alpha input row, and swatches. With a library, the swatches are its named colors.
  */
-export const Picker = ({
-  value,
-  onChange,
-  fallback,
-  className,
-  ...rest
-}: PickerProps): ReactElement => {
-  const shown = value ?? fallback ?? color.TRANSPARENT;
-  const hsva = useHSVA(shown);
-  const [h, s, v, a] = hsva.value;
+export const Picker = ({ library, ...rest }: PickerProps): ReactElement =>
+  library == null ? <Plain {...rest} /> : <Tabbed library={library} {...rest} />;
+
+type BaseProps = Omit<PickerProps, "library">;
+
+/** Wraps onChange so that each picked color also joins the recent colors. */
+const useChangeHandler = (
+  onChange: (c?: color.Color) => void,
+): ((c?: color.Color) => void) => {
   const updateFrequent = useFrequentUpdater();
   const updateFrequentDebounced = useDebouncedCallback(
     updateFrequent,
     TimeSpan.SECOND,
     [updateFrequent],
   );
-
-  const handleChange = (next?: color.Color): void => {
+  return (next) => {
     onChange(next);
     if (next != null) updateFrequentDebounced(next);
   };
+};
 
-  const handleHSVAChange = (next: color.HSVA): void => {
-    hsva.set(next);
-    handleChange(color.fromHSVA(next));
-  };
-
-  // Moving the plane or the hue of a fully transparent color would change nothing
-  // visible, so those moves make it opaque.
-  const visibleAlpha = a === 0 ? 1 : a;
-  const opaqueCSS = color.cssString(color.fromHSVA([h, s, v, 1]));
-
+const Plain = ({
+  value,
+  onChange,
+  fallback,
+  className,
+  ...rest
+}: BaseProps): ReactElement => {
+  const handleChange = useChangeHandler(onChange);
   return (
     <Flex.Box
       y
@@ -84,149 +92,230 @@ export const Picker = ({
       background={1}
       {...rest}
     >
-      <Flex.Box y gap="small">
-        <Plane
-          value={hsva.value}
-          thumb={opaqueCSS}
-          onChange={(nextS, nextV) => handleHSVAChange([h, nextS, nextV, visibleAlpha])}
-        />
-        <Slider
-          label="Hue"
-          value={h / 360}
-          valueText={`${Math.round(h)} degrees`}
-          track={HUE_TRACK}
-          thumb={color.cssString(color.fromHSVA([h, 100, 100, 1]))}
-          onChange={(nextH) => handleHSVAChange([nextH * 360, s, v, visibleAlpha])}
-        />
-        <Slider
-          label="Alpha"
-          className={CSS.BE("color-picker", "alpha")}
-          value={a}
-          valueText={`${Math.round(a * 100)}%`}
-          track={`linear-gradient(to right, transparent, ${opaqueCSS})`}
-          thumb={color.cssString(color.fromHSVA(hsva.value))}
-          onChange={(nextA) => handleHSVAChange([h, s, v, nextA])}
-        />
-      </Flex.Box>
-      <InputRow value={shown} onChange={handleChange} />
+      <Editor value={value ?? fallback ?? color.TRANSPARENT} onChange={handleChange} />
       <Divider.Divider x />
       <Swatches value={value} fallback={fallback} onChange={handleChange} />
     </Flex.Box>
   );
 };
 
-interface UseHSVAReturn {
-  value: color.HSVA;
-  set: (value: color.HSVA) => void;
+type Tab = "library" | "custom";
+
+interface TabbedProps extends BaseProps {
+  library: Library;
 }
 
-/**
- * Holds the color as HSVA so the hue survives a move to gray, black, or white, where
- * RGB cannot carry it. Resyncs when the value changes to a color the HSVA does not
- * produce.
- */
-const useHSVA = (value: color.Crude): UseHSVAReturn => {
-  const [hsva, setHSVA] = useState(() => color.hsva(value));
-  const [prev, setPrev] = useState(value);
-  if (!color.equals(prev, value)) {
-    setPrev(value);
-    if (!color.equals(color.fromHSVA(hsva), value)) setHSVA(color.hsva(value));
-  }
-  return { value: hsva, set: setHSVA };
-};
-
-interface InputRowProps {
-  value: color.Crude;
-  onChange: (value: color.Color) => void;
-}
-
-const InputRow = ({ value, onChange }: InputRowProps): ReactElement => {
-  const alpha = color.opacity(value);
+const Tabbed = ({
+  value,
+  onChange,
+  fallback,
+  library: { palettes, named, onNamedChange },
+  className,
+  ...rest
+}: TabbedProps): ReactElement => {
+  const handleChange = useChangeHandler(onChange);
+  const frequent = useFrequent();
+  const linked = named == null ? undefined : findNamed(palettes, named);
+  const [tab, setTab] = useState<Tab>(
+    linked != null || value == null ? "library" : "custom",
+  );
+  const [search, setSearch] = useState("");
+  const autoSelected = value == null && linked == null;
   return (
-    <Flex.Box x gap="small" align="center">
-      <HexText
-        aria-label="Hex"
-        size="small"
-        grow
-        startContent="#"
-        text={color.hex(color.setOpacity(value, 1)).slice(1)}
-        alpha={alpha}
-        onChange={onChange}
-      />
-      <Input.Numeric
-        aria-label="Alpha percentage"
-        className={CSS.BE("color-picker", "alpha-input")}
-        size="small"
-        value={Math.round(alpha * 100)}
-        bounds={{ lower: 0, upper: 100 }}
-        endContent="%"
-        startContent={<Icon.Opacity />}
-        showDragHandle={false}
-        onChange={(pct) => onChange(color.setOpacity(value, pct / 100))}
-      />
-      <Button.Copy
-        size="small"
-        variant="text"
-        text={() => color.hex(value)}
-        tooltip="Copy hex"
-      />
-      <Eyedropper alpha={alpha} onChange={onChange} />
+    <Flex.Box
+      y
+      gap={0}
+      className={CSS.cls(
+        CSS.B("color-picker"),
+        CSS.BM("color-picker", "tabbed"),
+        className,
+      )}
+      background={1}
+      {...rest}
+    >
+      <Flex.Box
+        x
+        align="center"
+        gap="small"
+        className={CSS.BE("color-picker", "header")}
+      >
+        <Select.Buttons<Tab>
+          value={tab}
+          onChange={setTab}
+          x
+          className={CSS.BE("color-picker", "tabs")}
+        >
+          <Select.Item itemKey="library" size="small" level="small">
+            <Icon.Library />
+            Library
+          </Select.Item>
+          <Select.Item itemKey="custom" size="small" level="small">
+            <Icon.Sliders />
+            Custom
+          </Select.Item>
+        </Select.Buttons>
+        {fallback != null && (
+          <Button.Button
+            variant="outlined"
+            size="small"
+            square
+            className={CSS.cls(CSS.selected(autoSelected))}
+            onClick={() => handleChange(undefined)}
+            tooltip="Auto: the theme picks the color"
+            aria-label="Auto"
+          >
+            <Icon.Auto />
+          </Button.Button>
+        )}
+      </Flex.Box>
+      {tab === "library" ? (
+        <>
+          <Input.Search
+            value={search}
+            onChange={setSearch}
+            flush
+            rounded
+            full="x"
+            size="medium"
+            placeholder="Search colors"
+            startContent={<Icon.Search />}
+            className={CSS.BE("color-picker", "search")}
+          />
+          <Palettes
+            palettes={palettes}
+            search={search}
+            linked={linked?.key}
+            onPick={onNamedChange}
+          />
+        </>
+      ) : (
+        <Flex.Box y gap="medium" className={CSS.BE("color-picker", "custom")}>
+          <Editor
+            value={value ?? fallback ?? color.TRANSPARENT}
+            onChange={handleChange}
+          />
+          {frequent.length > 0 && (
+            <Section title="Recent">
+              {frequent.map((c) => (
+                <BaseSwatch
+                  key={color.hex(c)}
+                  value={c}
+                  size="tiny"
+                  draggable={false}
+                  className={CSS.cls(
+                    CSS.selected(
+                      linked == null && value != null && color.equals(value, c),
+                    ),
+                  )}
+                  onClick={() => handleChange(color.construct(c))}
+                  aria-label={color.hex(c)}
+                />
+              ))}
+            </Section>
+          )}
+        </Flex.Box>
+      )}
     </Flex.Box>
   );
 };
 
-interface EyeDropperResult {
-  sRGBHex: string;
+interface SectionProps {
+  title: string;
+  /** Shown at the end of the title. */
+  name?: string;
+  children: ReactNode;
 }
 
-interface EyeDropper {
-  open: () => Promise<EyeDropperResult>;
+const Section = ({ title, name, children }: SectionProps): ReactElement => (
+  <Flex.Box y gap="small">
+    <Flex.Box x justify="between" gap="medium">
+      <Text.Text level="small" color={9} overflow="nowrap">
+        {title}
+      </Text.Text>
+      <Text.Text level="small" color={10} overflow="fade">
+        {name}
+      </Text.Text>
+    </Flex.Box>
+    <div className={CSS.BE("color-picker", "grid")}>{children}</div>
+  </Flex.Box>
+);
+
+interface PaletteSectionProps {
+  palette: Palette;
+  linked?: string;
+  onPick: (key: string) => void;
 }
 
-type EyeDropperConstructor = new () => EyeDropper;
-
-const getEyeDropper = (): EyeDropperConstructor | undefined =>
-  (globalThis as { EyeDropper?: EyeDropperConstructor }).EyeDropper;
-
-/** @returns the picked color as hex, or null when the user leaves with Escape. */
-const pickFromScreen = async (Ctor: EyeDropperConstructor): Promise<string | null> => {
-  try {
-    return (await new Ctor().open()).sRGBHex;
-  } catch (e) {
-    if (e instanceof DOMException && e.name === "AbortError") return null;
-    throw e instanceof Error ? e : new Error(String(e), { cause: e });
-  }
+/** A palette under its title, which names the hovered color, else the linked one. */
+const PaletteSection = ({
+  palette,
+  linked,
+  onPick,
+}: PaletteSectionProps): ReactElement => {
+  const t = Theming.use();
+  const [hovered, setHovered] = useState<string>();
+  const named =
+    palette.colors.find((c) => c.key === hovered) ??
+    palette.colors.find((c) => c.key === linked);
+  return (
+    <Section title={palette.name} name={named?.name}>
+      {palette.colors.map((c) => (
+        <BaseSwatch
+          key={c.key}
+          value={theme.resolve(c, t)}
+          size="tiny"
+          draggable={false}
+          className={CSS.cls(CSS.selected(c.key === linked))}
+          onClick={() => onPick(c.key)}
+          onPointerEnter={() => setHovered(c.key)}
+          onPointerLeave={() => setHovered((h) => (h === c.key ? undefined : h))}
+          aria-label={c.name}
+        />
+      ))}
+    </Section>
+  );
 };
 
-interface EyedropperProps {
-  alpha: number;
-  onChange: (value: color.Color) => void;
+interface PalettesProps {
+  palettes: Palette[];
+  search: string;
+  /** The key of the named color that the value follows. */
+  linked?: string;
+  onPick: (key: string) => void;
 }
 
-/**
- * Picks a color from anywhere on the screen. Renders nothing where the platform has
- * no EyeDropper API, such as WebKit.
- */
-const Eyedropper = ({ alpha, onChange }: EyedropperProps): ReactElement | null => {
-  const handleError = Status.useErrorHandler();
-  const Ctor = getEyeDropper();
-  if (Ctor == null) return null;
-  const handleClick = (): void =>
-    handleError(async () => {
-      const hex = await pickFromScreen(Ctor);
-      if (hex == null) return;
-      const parsed = parseHexInput(hex, alpha);
-      if (parsed != null) onChange(parsed);
-    }, "Failed to pick a color from the screen");
+/** The palettes, filtered by color name, palette name, or the hex a swatch shows. */
+const Palettes = ({
+  palettes,
+  search,
+  linked,
+  onPick,
+}: PalettesProps): ReactElement => {
+  const t = Theming.use();
+  const term = search.trim().toLowerCase();
+  const shown = palettes
+    .map((p) => ({
+      ...p,
+      colors:
+        term.length === 0 || p.name.toLowerCase().includes(term)
+          ? p.colors
+          : p.colors.filter(
+              (c) =>
+                c.name.toLowerCase().includes(term) ||
+                color.hex(theme.resolve(c, t)).includes(term.replace("#", "")),
+            ),
+    }))
+    .filter((p) => p.colors.length > 0);
   return (
-    <Button.Button
-      size="small"
-      variant="text"
-      onClick={handleClick}
-      tooltip="Pick a color from the screen"
-      aria-label="Pick a color from the screen"
-    >
-      <Icon.Eyedropper />
-    </Button.Button>
+    <Flex.Box y gap={2} className={CSS.BE("color-picker", "palettes")}>
+      {shown.length === 0 && (
+        <Status.Summary center variant="disabled" hideIcon>
+          {term.length === 0 ? "No colors found" : `No colors match "${search.trim()}"`}
+        </Status.Summary>
+      )}
+      {shown.map((p) => (
+        <PaletteSection key={p.key} palette={p} linked={linked} onPick={onPick} />
+      ))}
+    </Flex.Box>
   );
 };

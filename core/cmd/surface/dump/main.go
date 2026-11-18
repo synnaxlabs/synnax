@@ -22,7 +22,7 @@ import (
 )
 
 func main() {
-	if err := surface.Write(os.Stdout, cmd.Cmd); err != nil {
+	if err := surface.Write(os.Stdout, cmd.NewCmd()); err != nil {
 		if _, printErr := fmt.Fprintln(os.Stderr, err); printErr != nil {
 			os.Exit(2)
 		}

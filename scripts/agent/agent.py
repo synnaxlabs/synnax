@@ -25,14 +25,16 @@ Outputs:
 --recipient, with report, keeps the report private on a public repository: it writes
 only the report encrypted to the GPG public key file KEY, as the `report` step output.
 The agent gets no GitHub token, and its stderr, CLI state, and output files are
-discarded. It uses the seat's CLI login in place.
+discarded. It uses the agent's login in place.
 
 The last stdout line is the PR URL for pr and comment, and is also written as `pr-url`
 to $GITHUB_OUTPUT when it is set. --dry-run runs the agent but pushes, comments, and
 opens nothing.
 
 When Claude Code stops at the usage limit of its login, the wrapper writes the reset
-time, in Unix seconds, as the `limited-until` step output and exits with LIMITED.
+time, in Unix seconds, as the `limited-until` step output and exits with LIMITED. When
+Claude rejects the token of its login, the wrapper writes the time the agent started, in
+Unix seconds, as the `login-broken` step output and exits with REJECTED.
 
 Environment: AGENT_DEFAULT picks the agent when --agent is absent. GH_TOKEN is the
 GitHub App installation token for `gh` and for Git pushes. AGENT_GIT_NAME and
@@ -51,6 +53,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+import time
 import urllib.parse
 from collections.abc import Sequence
 from dataclasses import dataclass, field
@@ -64,6 +67,7 @@ IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".gif", ".webp"}
 TEMPLATE = Path(".github/pull_request_template.md")
 LINEAR_URL = "https://linear.app/synnax/issue/"
 LIMITED = 75
+REJECTED = 77
 # Claude Code otherwise appends a co-author trailer, which the repository rules forbid.
 CLAUDE_SETTINGS = '{"attribution":{"commit":"","pr":""}}'
 
@@ -302,10 +306,20 @@ class UsageLimit(Exception):
         self.until = until
 
 
-def claude_result(stream: str) -> tuple[str, bool, int | None]:
+class LoginRejected(Exception):
+    """Claude rejected the token of the agent's login: it was revoked, expired, or is
+    invalid. The agent started at started, in Unix seconds."""
+
+    def __init__(self, message: str, *, started: int) -> None:
+        super().__init__(message)
+        self.started = started
+
+
+def claude_result(stream: str) -> tuple[str, bool, int | None, bool]:
     """Returns the final message of a Claude Code stream-json run, whether the run
-    failed, and the reset time of a usage limit it was rejected by, if any."""
-    message, failed, until = "", True, None
+    failed, the reset time of a usage limit it was rejected by, if any, and whether
+    Claude rejected the token of its login."""
+    message, failed, until, rejected = "", True, None, False
     for line in stream.splitlines():
         event = json.loads(line)
         if event["type"] == "result":
@@ -313,7 +327,9 @@ def claude_result(stream: str) -> tuple[str, bool, int | None]:
         elif event["type"] == "rate_limit_event":
             info = event["rate_limit_info"]
             until = info.get("resetsAt") if info["status"] == "rejected" else None
-    return message, failed, until
+        elif event["type"] == "assistant":
+            rejected |= event.get("error") == "authentication_failed"
+    return message, failed, until, rejected
 
 
 def run_cli(
@@ -321,9 +337,10 @@ def run_cli(
 ) -> str:
     """Runs the agent CLI and returns its final message on stdout.
 
-    Raises UsageLimit when Claude Code fails at a usage limit, and
-    CalledProcessError on any other failure.
+    Raises UsageLimit when Claude Code fails at a usage limit, LoginRejected when
+    Claude rejects its token, and CalledProcessError on any other failure.
     """
+    started = int(time.time())
     code, stdout = run_agent(
         cmd, env=env, seconds=opts.timeout_minutes * 60, quiet=quiet
     )
@@ -331,9 +348,11 @@ def run_cli(
         if code != 0:
             raise subprocess.CalledProcessError(code, cmd[:1])
         return stdout
-    message, failed, until = claude_result(stdout)
+    message, failed, until, rejected = claude_result(stdout)
     if failed and until is not None:
         raise UsageLimit(until)
+    if failed and rejected:
+        raise LoginRejected(message, started=started)
     if code != 0 or failed:
         raise subprocess.CalledProcessError(code, cmd[:1], output=message)
     return message
@@ -466,6 +485,10 @@ def main(argv: Sequence[str]) -> int:
         write_output(dict(os.environ), name="limited-until", value=str(e.until))
         print(f"The agent reached the usage limit of its login: {e}", file=sys.stderr)
         return LIMITED
+    except LoginRejected as e:
+        write_output(dict(os.environ), name="login-broken", value=str(e.started))
+        print(f"Claude rejected the token of the agent's login: {e}", file=sys.stderr)
+        return REJECTED
 
 
 def deliver(argv: Sequence[str]) -> int:

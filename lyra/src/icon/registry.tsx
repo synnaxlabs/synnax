@@ -196,6 +196,8 @@ import {
   PiFileCsv,
   PiMagnifyingGlassBold,
   PiSelectionPlusBold,
+  PiSlidersHorizontalBold,
+  PiSwatches,
   PiTreeViewBold,
   PiUploadSimple,
   PiWaveformBold,
@@ -261,6 +263,7 @@ import {
   VscSplitHorizontal,
   VscSplitVertical,
   VscSymbolConstant,
+  VscSymbolEnum,
   VscSymbolString,
 } from "react-icons/vsc";
 
@@ -526,6 +529,8 @@ export const Type = wrapSVGIcon(MdTypeSpecimen, "type");
 export const Array = wrapSVGIcon(MdDataArray, "array");
 export const Label = wrapSVGIcon(MdLabel, "label");
 export const Library = wrapSVGIcon(PiBooks, "library");
+export const Swatches = wrapSVGIcon(PiSwatches, "swatches");
+export const Sliders = wrapSVGIcon(PiSlidersHorizontalBold, "sliders");
 export const Details = wrapSVGIcon(MdOutlineTableRows, "details");
 export const LinkExternal = wrapSVGIcon(BiLinkExternal, "link-external");
 export const Access = wrapSVGIcon(MdShield, "access");
@@ -593,6 +598,7 @@ export const InProgress = wrapSVGIcon(RiProgress4Line, "in-progress");
 export const Completed = wrapSVGIcon(RiProgress8Line, "completed");
 export const ToDo = wrapSVGIcon(RiProgress1Line, "to-do");
 export const Constant = wrapSVGIcon(VscSymbolConstant, "constant");
+export const Enumeration = wrapSVGIcon(VscSymbolEnum, "enumeration");
 export const Boolean = wrapSVGIcon(RxComponentBoolean, "boolean");
 export const True = wrapSVGIcon(FaCheck, "true");
 export const False = wrapSVGIcon(FaXmark, "false");
@@ -730,6 +736,7 @@ const icons = {
   Array,
   Label,
   Library,
+  Swatches,
   Details,
   LinkExternal,
   Access,
@@ -778,6 +785,7 @@ const icons = {
   None,
   New,
   Constant,
+  Enumeration,
   Terminal,
   TerminalOutline,
   Arc,
@@ -811,13 +819,10 @@ export const resolve = ((
   overrides?: IconProps,
 ): ReactElement | undefined => {
   if (icon == null) return;
-  if (typeof icon === "string")
-    try {
-      const C = deep.get<FC<IconProps>>(icons, icon);
-      return <C {...overrides} />;
-    } catch (cause) {
-      throw new Error(`Unable to find icon with path ${icon} in registry`, { cause });
-    }
-
+  if (typeof icon === "string") {
+    const C = deep.get<FC<IconProps>>(icons, icon);
+    if (C == null) throw new Error(`Unable to find icon with path ${icon} in registry`);
+    return <C {...overrides} />;
+  }
   return cloneElement(icon, overrides);
 }) as Resolve;

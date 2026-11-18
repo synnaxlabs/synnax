@@ -8,21 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { execFileSync } from "node:child_process";
-import {
-  copyFileSync,
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { copyFileSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import path from "node:path";
 
 import { type Plugin } from "vite";
 
 import { compileEmitted } from "./compiler.js";
-import { tscBin, TSCONFIG } from "./declarations.js";
+import { files, fullySpecify, tscBin, TSCONFIG } from "./declarations.js";
 import { discoverModules } from "./modules.js";
 
 /**
@@ -32,52 +24,10 @@ import { discoverModules } from "./modules.js";
 export const ENTRY = "virtual:synnax-transpiled";
 const RESOLVED_ENTRY = `\0${ENTRY}`;
 
-const SPECIFIER = /((?:from|import)\s*\(?\s*)(["'])((?:@\/|\.{1,2}\/)[^"']*)\2/g;
-const KEPT = /\.(css|js|json)$/;
 const ENTRY_FIX =
   "Module entries must only re-export. Move each import into the module that uses " +
   "it, or page-wide CSS into the stylesheet an app imports once:";
 const SIDE_EFFECT_IMPORT = /\bimport\s*["']([^"']+)["']/g;
-
-const files = (dir: string, match: (name: string) => boolean): string[] =>
-  readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) return files(full, match);
-    return match(entry.name) ? [full] : [];
-  });
-
-const relative = (from: string, to: string): string => {
-  const rel = path.relative(from, to).split(path.sep).join("/");
-  return rel.startsWith(".") ? rel : `./${rel}`;
-};
-
-// Node loads only fully specified relative imports, so each one must name its file.
-const fullySpecify = (outDir: string): void => {
-  const emitted = files(
-    outDir,
-    (name) => name.endsWith(".js") || name.endsWith(".d.ts"),
-  );
-  for (const file of emitted) {
-    const dir = path.dirname(file);
-    const source = readFileSync(file, "utf8");
-    const rewritten = source.replace(
-      SPECIFIER,
-      (_, prefix: string, quote: string, spec: string) => {
-        const target = spec.startsWith("@/")
-          ? path.join(outDir, spec.slice(2))
-          : path.resolve(dir, spec);
-        let resolved = target;
-        if (!KEPT.test(spec))
-          if (existsSync(`${target}.js`)) resolved = `${target}.js`;
-          else if (existsSync(path.join(target, "index.js")))
-            resolved = path.join(target, "index.js");
-          else throw new Error(`${file}: cannot resolve import "${spec}"`);
-        return `${prefix}${quote}${relative(dir, resolved)}${quote}`;
-      },
-    );
-    if (rewritten !== source) writeFileSync(file, rewritten);
-  }
-};
 
 const copyStylesheets = (srcDir: string, outDir: string): void => {
   for (const file of files(srcDir, (name) => name.endsWith(".css"))) {
@@ -141,7 +91,7 @@ export const transpile = (modules: boolean, reactCompiled: boolean): Plugin => {
         await Promise.all(
           files(outDir, (name) => /\.jsx?$/.test(name)).map(compileEmitted),
         );
-      fullySpecify(outDir);
+      fullySpecify(outDir, outDir, ".js");
       copyStylesheets(path.join(root, "src"), outDir);
       checkEntries(outDir, entries);
       console.log(`transpiled in ${Math.round(performance.now() - start)}ms`);

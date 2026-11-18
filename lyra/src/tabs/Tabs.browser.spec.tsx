@@ -13,6 +13,7 @@ import { userEvent } from "vitest/browser";
 import { Icon } from "@/icon";
 import { computed, renderThemed, resolve } from "@/styletest";
 import { Tabs } from "@/tabs";
+import { Text } from "@/text";
 
 const renderTabs = async (
   variant?: Tabs.Variant,
@@ -97,6 +98,26 @@ describe("Tabs", () => {
     expect(tab("Tab A").getBoundingClientRect().width).toBe(
       tab("Tab B").getBoundingClientRect().width,
     );
+  });
+
+  it("should keep the parts of a name close, and space the last from the close", async () => {
+    const { getByRole } = await renderThemed(
+      <Tabs.Frame initialValue="a">
+        <Tabs.Selector>
+          <Tabs.Tab itemKey="a">
+            <Icon.Range />
+            <Text.Text>Ranges ›</Text.Text>
+            <Text.Text>Hotfires</Text.Text>
+            <Tabs.Close />
+          </Tabs.Tab>
+        </Tabs.Selector>
+      </Tabs.Frame>,
+    );
+    const [type, name] = getByRole("tab").element().querySelectorAll(":scope > p");
+    const margin = (part: Element): number =>
+      parseFloat(computed(part, "margin-right"));
+    expect(margin(type)).toBe(0);
+    expect(margin(name)).toBeGreaterThan(0);
   });
 
   describe("text variant", () => {

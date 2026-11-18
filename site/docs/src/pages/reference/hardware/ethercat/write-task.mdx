@@ -60,8 +60,10 @@ every frame.
   <Fragment slot="console">
 
 1. In the devices toolbar, right-click a module and select **Create write task**. The
-   task starts with a channel for each output of the module. To remove a channel,
-   right-click it and select **Remove**.
+   task starts with a channel for each output of the module. To write to several modules
+   of one network in one task, select them first. The Console configures each module
+   that is not configured yet. To remove a channel, right-click it and select
+   **Remove**.
 2. Set **Execution rate** and **State update rate**.
 3. Click <Icon.Play /> (**Start**).
 
@@ -310,16 +312,17 @@ Right-click the module, select **Configure**, and click **Save**.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"Slave ... is set up for .... Switch it to Synnax before you start the task."}>
+<Problem.Item message={"... sets up this device"}>
 <Problem.Cause>
 
-Another program, such as DewesoftX, sets up the module.
+Another program, such as DewesoftX, sets up the module. The channel list marks each
+channel on the module in yellow, and the details of the channel show this warning.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Switch the module to Synnax in the Configure dialog. If the message tells you to set up
-the module in the other program, do that.
+Click **Switch to Synnax** in the warning. If the warning tells you to set up the module
+in the other program, do that.
 
 </Problem.Fix>
 </Problem.Item>
@@ -337,7 +340,7 @@ Set an **Execution rate** of 10 kHz or less.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"Slave ... has no output entry at ..."}>
+<Problem.Item message={"Module ... has no output entry at ..."}>
 <Problem.Cause>
 
 The module has no output entry at the address of the channel.
@@ -378,7 +381,7 @@ Select an integer type of the same size as the entry.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"stop value ... does not fit entry ... on slave .... Pick ..."}>
+<Problem.Item message={"stop value ... does not fit entry ... on module .... Pick ..."}>
 <Problem.Cause>
 
 The **Stop value** of a channel is out of range for its entry, or it is not a whole
@@ -435,7 +438,7 @@ Right-click one of the modules, select **Configure**, and change its
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={["Slave ... uses the index channel ...", "A channel named ... already exists and is not an index"]}>
+<Problem.Item message={["Module ... uses the index channel ...", "A channel named ... already exists and is not an index"]}>
 <Problem.Cause>
 
 The state index name `<identifier>_state_time` belongs to another module, or to a
@@ -452,5 +455,5 @@ Change the [identifier](/reference/hardware/devices#identifiers) of the module.
 </Problem.List>
 
 For errors that stop every task on a port, such as `Failed to reach SAFE-OP` or
-`No EtherCAT slaves found on ...`, see
+`No EtherCAT modules found on ...`, see
 [Troubleshoot EtherCAT](/reference/hardware/ethercat/troubleshooting).

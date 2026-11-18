@@ -48,7 +48,7 @@ func (*Host) Create(cfg node.Config) (node.Node, error) {
 
 // stampNow overwrites ts with a single sample of now, reusing its buffer.
 func stampNow(ts *telem.Series, now telem.TimeStamp) {
-	ts.Resize(1)
+	*ts = ts.Resized(1)
 	ts.SetValueAt(0, now)
 }
 
@@ -69,7 +69,8 @@ func (v *register) Reset(ctx node.Context) {
 		return
 	}
 	v.AbsorbInputs()
-	v.Output(0).CopyFrom(v.Input(0))
+	out := v.Output(0)
+	*out = out.CopiedFrom(v.Input(0))
 	stampNow(v.OutputTime(0), ctx.Now)
 	v.MarkFresh(0)
 }
@@ -81,7 +82,8 @@ func (v *register) Next(ctx node.Context) {
 	}
 	// Feeders reuse their output buffers in place; the register value must not alias
 	// them.
-	v.Output(0).CopyFrom(data)
+	out := v.Output(0)
+	*out = out.CopiedFrom(data)
 	stampNow(v.OutputTime(0), ctx.Now)
 	v.Emit(ctx, 0)
 }
@@ -111,7 +113,8 @@ func (v *exprRead) Next(ctx node.Context) {
 	if !ok || repointed {
 		return
 	}
-	v.Output(0).CopyFrom(data)
+	out := v.Output(0)
+	*out = out.CopiedFrom(data)
 	stampNow(v.OutputTime(0), ctx.Now)
 	v.Emit(ctx, 0)
 }

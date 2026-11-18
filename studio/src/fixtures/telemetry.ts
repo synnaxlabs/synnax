@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { TimeStamp } from "@synnaxlabs/client";
+import { sleep, TimeSpan } from "@synnaxlabs/x";
 
 import { connect, type ConnectionOptions } from "@/fixtures/client";
 
@@ -65,7 +66,7 @@ export const sineTelemetry = async ({
   const loop = (async () => {
     let i = 0;
     while (running) {
-      await new Promise((resolve) => setTimeout(resolve, periodMs));
+      await sleep.sleep(TimeSpan.milliseconds(periodMs));
       i++;
       await writer.write({
         [time.key]: TimeStamp.now(),

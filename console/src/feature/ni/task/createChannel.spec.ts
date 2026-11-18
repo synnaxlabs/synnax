@@ -62,6 +62,14 @@ describe("createChannel", () => {
       expect(result.key.length).toBeGreaterThan(0);
       expect(result.channel).toBe(0);
     });
+    it("should take a line on the port of the copied channel without port data", () => {
+      const channels: NI.Task.DIChannel[] = [
+        { ...NI.Task.createDIChannel(), key: "1", port: 1, line: 0 },
+        { ...NI.Task.createDIChannel(), key: "2", port: 2, line: 0 },
+      ];
+      const result = createNextDIChannel(channels, { copy: "1" });
+      expect(result).toMatchObject({ port: 1, line: 1 });
+    });
   });
 
   describe("createNextDOChannel", () => {
@@ -121,6 +129,13 @@ describe("createChannel", () => {
       expect(result.key.length).toBeGreaterThan(0);
       expect(portOf(result)).toBe(2);
       expect(result.channel).not.toBe(3);
+    });
+
+    it("should copy the last channel when no channel to copy is given", () => {
+      const channels = [aiChannel("1", 0, "ai_accel"), aiChannel("2", 1, "ai_bridge")];
+      const result = createNextAIChannel(channels);
+      expect(result.type).toBe("ai_bridge");
+      expect(portOf(result)).toBe(2);
     });
 
     it("should correctly increment port when duplicating with multiple existing channels", () => {

@@ -67,7 +67,9 @@ var _ = Describe("Completion", func() {
 			},
 			Position: protocol.Position{Line: line, Character: col},
 		}))
-		return result.(*protocol.CompletionList)
+		list, ok := result.(*protocol.CompletionList)
+		Expect(ok).To(BeTrue())
+		return list
 	}
 
 	completionFor := func(ctx context.Context, docURI uri.URI, line, col uint32) *protocol.CompletionList {
@@ -76,7 +78,9 @@ var _ = Describe("Completion", func() {
 			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 			Position:     protocol.Position{Line: line, Character: col},
 		}))
-		return result.(*protocol.CompletionList)
+		list, ok := result.(*protocol.CompletionList)
+		Expect(ok).To(BeTrue())
+		return list
 	}
 
 	labels := func(items []protocol.CompletionItem) []string {
@@ -210,9 +214,13 @@ var _ = Describe("Initialize", func() {
 			&protocol.InitializeParams{},
 		))
 		Expect(result.ServerInfo.Name).To(Equal("oracle-lsp"))
-		Expect(bool(result.Capabilities.HoverProvider.(protocol.Boolean))).To(BeTrue())
-		Expect(bool(result.Capabilities.DocumentFormattingProvider.(protocol.Boolean))).
-			To(BeTrue())
+		hover, ok := result.Capabilities.HoverProvider.(protocol.Boolean)
+		Expect(ok).To(BeTrue())
+		Expect(bool(hover)).To(BeTrue())
+		formatting, ok := result.Capabilities.
+			DocumentFormattingProvider.(protocol.Boolean)
+		Expect(ok).To(BeTrue())
+		Expect(bool(formatting)).To(BeTrue())
 	})
 })
 
@@ -266,7 +274,9 @@ var _ = Describe("DidChange", func() {
 			},
 			Position: protocol.Position{Line: 0, Character: 0},
 		}))
-		Expect(result.(*protocol.CompletionList).Items).ToNot(BeEmpty())
+		list, ok := result.(*protocol.CompletionList)
+		Expect(ok).To(BeTrue())
+		Expect(list.Items).ToNot(BeEmpty())
 	})
 
 	It("should handle empty content changes", func(ctx SpecContext) {
@@ -309,7 +319,9 @@ var _ = Describe("DidClose", func() {
 			},
 			Position: protocol.Position{Line: 0, Character: 0},
 		}))
-		Expect(result.(*protocol.CompletionList).Items).To(BeEmpty())
+		list, ok := result.(*protocol.CompletionList)
+		Expect(ok).To(BeTrue())
+		Expect(list.Items).To(BeEmpty())
 	})
 })
 
@@ -471,7 +483,9 @@ var _ = Describe("SemanticTokensFull", func() {
 	) string {
 		GinkgoHelper()
 		res := MustSucceed(server.Initialize(ctx, &protocol.InitializeParams{}))
-		opts := res.Capabilities.SemanticTokensProvider.(*protocol.SemanticTokensOptions)
+		opts, ok := res.Capabilities.
+			SemanticTokensProvider.(*protocol.SemanticTokensOptions)
+		Expect(ok).To(BeTrue())
 		legend := opts.Legend.TokenTypes
 		var l, c uint32
 		for i := 0; i+4 < len(data); i += 5 {

@@ -356,46 +356,54 @@ func (keyDeleteRequestTranslator) Backward(
 	return auth.KeyDeleteRequest{Keys: keys}, nil
 }
 
-func New(t *api.Transport) grpc.BindableTransport {
+func New(t *api.Transport, errs *errors.Codec) grpc.BindableTransport {
 	login := &loginServer{
 		RequestTranslator:  loginRequestTranslator{},
 		ResponseTranslator: loginResponseTranslator{},
 		ServiceDesc:        &AuthLoginService_ServiceDesc,
+		Errors:             errs,
 	}
 	create := &sessionCreateServer{
 		RequestTranslator:  sessionCreateRequestTranslator{},
 		ResponseTranslator: sessionCreateResponseTranslator{},
 		ServiceDesc:        &AuthSessionCreateService_ServiceDesc,
+		Errors:             errs,
 	}
 	renew := &sessionRenewServer{
 		RequestTranslator:  grpc.EmptyTranslator{},
 		ResponseTranslator: sessionRenewResponseTranslator{},
 		ServiceDesc:        &AuthSessionRenewService_ServiceDesc,
+		Errors:             errs,
 	}
 	retrieve := &sessionRetrieveServer{
 		RequestTranslator:  sessionRetrieveRequestTranslator{},
 		ResponseTranslator: sessionRetrieveResponseTranslator{},
 		ServiceDesc:        &AuthSessionRetrieveService_ServiceDesc,
+		Errors:             errs,
 	}
 	del := &sessionDeleteServer{
 		RequestTranslator:  sessionDeleteRequestTranslator{},
 		ResponseTranslator: grpc.EmptyTranslator{},
 		ServiceDesc:        &AuthSessionDeleteService_ServiceDesc,
+		Errors:             errs,
 	}
 	keyCreate := &keyCreateServer{
 		RequestTranslator:  keyCreateRequestTranslator{},
 		ResponseTranslator: keyCreateResponseTranslator{},
 		ServiceDesc:        &AuthKeyCreateService_ServiceDesc,
+		Errors:             errs,
 	}
 	keyRetrieve := &keyRetrieveServer{
 		RequestTranslator:  keyRetrieveRequestTranslator{},
 		ResponseTranslator: keyRetrieveResponseTranslator{},
 		ServiceDesc:        &AuthKeyRetrieveService_ServiceDesc,
+		Errors:             errs,
 	}
 	keyDelete := &keyDeleteServer{
 		RequestTranslator:  keyDeleteRequestTranslator{},
 		ResponseTranslator: grpc.EmptyTranslator{},
 		ServiceDesc:        &AuthKeyDeleteService_ServiceDesc,
+		Errors:             errs,
 	}
 	t.AuthLogin = login
 	t.AuthSessionCreate = create
@@ -406,13 +414,6 @@ func New(t *api.Transport) grpc.BindableTransport {
 	t.AuthKeyRetrieve = keyRetrieve
 	t.AuthKeyDelete = keyDelete
 	return grpc.CompoundBindableTransport{
-		login,
-		create,
-		renew,
-		retrieve,
-		del,
-		keyCreate,
-		keyRetrieve,
-		keyDelete,
+		login, create, renew, retrieve, del, keyCreate, keyRetrieve, keyDelete,
 	}
 }

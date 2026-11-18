@@ -33,6 +33,25 @@ NEW = "new.diff"
 """The file in the working directory that holds the changes since the last review when
 they are too long to show."""
 
+
+class UsageLimit(RuntimeError):
+    """Claude Code stopped at the usage limit of its login, which resets at until, in
+    Unix seconds."""
+
+    def __init__(self, until: int) -> None:
+        super().__init__(f"usage limit until {until}")
+        self.until = until
+
+
+class LoginRejected(RuntimeError):
+    """Claude rejected the token of the login. Claude Code started at started, in Unix
+    seconds."""
+
+    def __init__(self, started: int) -> None:
+        super().__init__("Claude rejected the token of the login")
+        self.started = started
+
+
 _HUNK = re.compile(r"@@ -\d+(?:,\d+)? \+(\d+)")
 _FILE = re.compile(r"^diff --git a/.* b/(.*)$", re.M)
 _GLOB = {"**/": "(?:.*/)?", "**": ".*", "*": "[^/]*", "?": "[^/]"}
@@ -97,6 +116,8 @@ class Config:
     caps: dict[str, int]
     """The highest score a review can give while it has a finding of the severity."""
     prompt: str
+    judge: str
+    """The method of a judgment of a rebuttal to a finding."""
     docs: list[Doc]
     lenses: list[Lens]
     """The focus of each extra pass. One pass always reviews the pull request with the
@@ -239,7 +260,11 @@ def load(root: Path) -> Config:
         )
     lenses = [Lens(**lens) for lens in data.pop("lens", [])]
     return Config(
-        **data, prompt=(home / "prompt.md").read_text(), docs=docs, lenses=lenses
+        **data,
+        prompt=(home / "prompt.md").read_text(),
+        judge=(home / "judge.md").read_text(),
+        docs=docs,
+        lenses=lenses,
     )
 
 
@@ -295,12 +320,22 @@ def _shared(config: Config, pr: PullRequest, shown: str, rest: str) -> str:
             "# Earlier findings still open",
             "\n".join(f"- `{path}`: {title}" for path, title in sorted(pr.open)),
         ]
-    if pr.dismissed:
+    members = [d for d in pr.dismissed if not d.withdrawn]
+    withdrawn = [d for d in pr.dismissed if d.withdrawn]
+    if members:
         parts += [
             "# Dismissed findings",
-            "A member dismissed each of these findings. Do not report them again in "
-            "any form, and do not let them lower the score.",
-            "\n".join(_dismissal(d) for d in pr.dismissed),
+            "Someone with write access dismissed each of these findings. Do not "
+            "report them again in any form, and do not let them lower the score.",
+            "\n".join(_dismissal(d) for d in members),
+        ]
+    if withdrawn:
+        parts += [
+            "# Withdrawn findings",
+            "You withdrew each of these findings after a rebuttal on its thread, and "
+            "its file has not changed since. Do not report them again in any form, "
+            "and do not let them lower the score.",
+            "\n".join(_dismissal(d) for d in withdrawn),
         ]
     if pr.reviewed:
         parts.append("# Changes since your last review")
@@ -353,11 +388,12 @@ def _command(
     *,
     head: Path,
     system: Path,
+    schema: dict[str, Any] = SCHEMA,
     effort: str | None = None,
     partial: bool = False,
 ) -> list[str]:
     """Returns the `claude` command that reviews the code checked out at head, with the
-    shared prompt in the file at system.
+    shared prompt in the file at system, and answers in the JSON of the schema.
 
     Restricted mode confines the tools to the working directory and head, and ignores
     every settings file. Partial messages show when the first response begins.
@@ -381,7 +417,7 @@ def _command(
         "stream-json",
         "--verbose",
         "--json-schema",
-        json.dumps(SCHEMA),
+        json.dumps(schema),
         "--no-session-persistence",
         "--append-system-prompt-file",
         str(system),
@@ -476,6 +512,26 @@ def _pass(
     command = _command(
         config, head=pr.head, system=system, effort=effort, partial=bool(started)
     )
+    out, usage = _stream(command, text, claude=claude, workdir=workdir, started=started)
+    return parse(out), usage
+
+
+def _stream(
+    command: list[str],
+    text: str,
+    *,
+    claude: Claude,
+    workdir: Path,
+    started: threading.Event | None = None,
+) -> tuple[dict[str, Any], Usage]:
+    """Runs Claude Code, and returns its structured output and what it cost. Sets
+    started, if given, once the first response begins.
+
+    :raises UsageLimit: If Claude Code stops at the usage limit of its login.
+    :raises LoginRejected: If Claude rejects the token of the login.
+    :raises RuntimeError: If Claude Code ends with another error.
+    """
+    begun = int(time.time())
     messages: list[dict[str, Any]] = []
     try:
         for line in claude(command, text, workdir):
@@ -487,6 +543,7 @@ def _pass(
             elif started and m["event"]["type"] == "message_start":
                 started.set()
     except subprocess.CalledProcessError as e:
+        _refused(messages, started=begun)
         # The last message tells why Claude Code exited: a usage limit, an API error.
         last = json.dumps(messages[-1]) if messages else "no message"
         raise RuntimeError(
@@ -494,8 +551,24 @@ def _pass(
         ) from e
     [out] = [m for m in messages if m["type"] == "result"]
     if out["is_error"]:
+        _refused(messages, started=begun)
         raise RuntimeError(f"claude ended with {out['subtype']}: {out.get('result')}")
-    return parse(out["structured_output"]), Usage.of(out, messages)
+    structured: dict[str, Any] = out["structured_output"]
+    return structured, Usage.of(out, messages)
+
+
+def _refused(messages: list[dict[str, Any]], *, started: int) -> None:
+    until, rejected = None, False
+    for m in messages:
+        if m["type"] == "rate_limit_event":
+            info = m["rate_limit_info"]
+            until = info.get("resetsAt") if info["status"] == "rejected" else None
+        elif m["type"] == "assistant":
+            rejected |= m.get("error") == "authentication_failed"
+    if until is not None:
+        raise UsageLimit(until)
+    if rejected:
+        raise LoginRejected(started)
 
 
 def run(
@@ -509,7 +582,9 @@ def run(
 
     :param claude: Called from one thread for each pass when the lenses run.
     :param workdir: An empty directory that Claude Code starts in and can read.
-    :raises RuntimeError: If Claude Code ends with an error.
+    :raises UsageLimit: If Claude Code stops at the usage limit of its login.
+    :raises LoginRejected: If Claude rejects the token of the login.
+    :raises RuntimeError: If Claude Code ends with another error.
     """
     shown, rest = _cut(_numbered(pr.diff), config.diff_chars)
     if rest:

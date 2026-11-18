@@ -16,7 +16,7 @@ import (
 )
 
 // FormatFunctionSignature returns a human-readable function signature in Arc syntax.
-// Format: "name(param type, param type) returnType"
+// Format: "name(param type, param type) returnType".
 func FormatFunctionSignature(name string, t types.Type) string {
 	if t.Kind != types.KindFunction {
 		return name
@@ -35,13 +35,14 @@ func FormatFunctionSignature(name string, t types.Type) string {
 	sb.WriteString(")")
 	if len(t.Outputs) > 0 {
 		sb.WriteString(" ")
-		if len(t.Outputs) == 1 && t.Outputs[0].Name == DefaultOutputParam {
+		switch {
+		case len(t.Outputs) == 1 && t.Outputs[0].Name == DefaultOutputParam:
 			sb.WriteString(t.Outputs[0].Type.String())
-		} else if len(t.Outputs) == 1 {
+		case len(t.Outputs) == 1:
 			sb.WriteString(t.Outputs[0].Name)
 			sb.WriteString(" ")
 			sb.WriteString(t.Outputs[0].Type.String())
-		} else {
+		default:
 			sb.WriteString("(")
 			for i, p := range t.Outputs {
 				if i > 0 {

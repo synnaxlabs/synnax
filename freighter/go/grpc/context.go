@@ -29,7 +29,7 @@ func parseServerContext(
 		Context:  ctx,
 		Role:     freighter.RoleServer,
 		Target:   address.Address(serviceName),
-		Protocol: reporter.Protocol,
+		Protocol: protocol,
 		Params:   make(freighter.Params),
 		Variant:  variant,
 	}

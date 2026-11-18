@@ -60,11 +60,7 @@ func makeMathGraph(nodeType string, dt types.Type, inputs types.Params) graph.Gr
 	}
 }
 
-func makeMathGraphWithReset(
-	nodeType string,
-	dt, resetDt types.Type,
-	inputs types.Params,
-) graph.Graph {
+func makeMathGraphWithReset(nodeType string, dt, resetDt types.Type) graph.Graph {
 	return graph.Graph{
 		Nodes: []graph.Node{
 			{Key: "input"},
@@ -74,7 +70,7 @@ func makeMathGraphWithReset(
 		Inputs: map[string]msgpack.EncodedJSON{
 			"input":        {"type": "input"},
 			"reset_signal": {"type": "reset_signal"},
-			"math":         nodeConfig(nodeType, inputs),
+			"math":         nodeConfig(nodeType, nil),
 		},
 		Edges: graph.Edges{
 			{
@@ -126,21 +122,16 @@ func openMath(
 	return mathSetup{state: s, inputNode: inputNode, n: n}
 }
 
-func openMathWithReset(
-	ctx SpecContext,
-	nodeType string,
-	dt types.Type,
-	inputs types.Params,
-) mathSetup {
+func openMathWithReset(ctx SpecContext, nodeType string, dt types.Type) mathSetup {
 	GinkgoHelper()
-	g := makeMathGraphWithReset(nodeType, dt, types.Bool(), inputs)
+	g := makeMathGraphWithReset(nodeType, dt, types.Bool())
 	analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 	Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 	s := node.New(analyzed)
 	inputNode := s.Node("input")
 	m := MustSucceed(stlmath.NewHost(ctx, nil))
 	n := MustSucceed(m.Create(node.Config{
-		Node:    ir.Node{Key: "math", Type: nodeType, Inputs: inputs},
+		Node:    ir.Node{Key: "math", Type: nodeType},
 		State:   s.Node("math"),
 		Program: program.Program{IR: analyzed},
 	}))
@@ -245,7 +236,7 @@ var _ = Describe("Math", func() {
 			var negTwo int32 = -2
 			var expected int32 = -8
 			res = rt.Call(ctx, "math", "pow_i32", testutil.I32(negTwo), testutil.U32(3))
-			Expect(testutil.AsU32(res[0])).To(Equal(uint32(uint32(expected))))
+			Expect(testutil.AsU32(res[0])).To(Equal(uint32(expected)))
 		})
 
 		It("Should compute u64 power", func(ctx SpecContext) {
@@ -348,7 +339,7 @@ var _ = Describe("Math", func() {
 		It("Should negate i32 values", func(ctx SpecContext) {
 			var negFive int32 = -5
 			res := rt.Call(ctx, "math", "neg_i32", testutil.I32(5))
-			Expect(testutil.AsU32(res[0])).To(Equal(uint32(uint32(negFive))))
+			Expect(testutil.AsU32(res[0])).To(Equal(uint32(negFive)))
 		})
 		It("Should negate f64 values", func(ctx SpecContext) {
 			res := rt.Call(ctx, "math", "neg_f64", testutil.F64(3.5))
@@ -357,7 +348,7 @@ var _ = Describe("Math", func() {
 		It("Should negate i8 values", func(ctx SpecContext) {
 			var negThree int32 = -3
 			res := rt.Call(ctx, "math", "neg_i8", testutil.I32(3))
-			Expect(testutil.AsU32(res[0])).To(Equal(uint32(uint32(negThree))))
+			Expect(testutil.AsU32(res[0])).To(Equal(uint32(negThree)))
 		})
 		It("Should negate i64 values", func(ctx SpecContext) {
 			res := rt.Call(ctx, "math", "neg_i64", testutil.U64(42))
@@ -541,7 +532,7 @@ var _ = Describe("Avg", func() {
 	})
 
 	It("Should reset on signal", func(ctx SpecContext) {
-		s := openMathWithReset(ctx, "avg", types.F64(), nil)
+		s := openMathWithReset(ctx, "avg", types.F64())
 		resetNode := s.state.Node("reset_signal")
 		*s.inputNode.Output(0) = telem.NewSeriesV(10.0, 20.0, 30.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
@@ -565,7 +556,7 @@ var _ = Describe("Avg", func() {
 	})
 
 	It("Should stamp from the data, not a longer reset batch", func(ctx SpecContext) {
-		s := openMathWithReset(ctx, "avg", types.F64(), nil)
+		s := openMathWithReset(ctx, "avg", types.F64())
 		resetNode := s.state.Node("reset_signal")
 		*s.inputNode.Output(0) = telem.NewSeriesV(10.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
@@ -685,7 +676,7 @@ var _ = Describe("Min", func() {
 	})
 
 	It("Should reset on signal", func(ctx SpecContext) {
-		s := openMathWithReset(ctx, "min", types.I32(), nil)
+		s := openMathWithReset(ctx, "min", types.I32())
 		resetNode := s.state.Node("reset_signal")
 		*s.inputNode.Output(0) = telem.NewSeriesV[int32](50, 10, 70)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
@@ -790,7 +781,7 @@ var _ = Describe("Max", func() {
 	})
 
 	It("Should reset on signal", func(ctx SpecContext) {
-		s := openMathWithReset(ctx, "max", types.F64(), nil)
+		s := openMathWithReset(ctx, "max", types.F64())
 		resetNode := s.state.Node("reset_signal")
 		*s.inputNode.Output(0) = telem.NewSeriesV(10.0, 50.0, 30.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
@@ -832,7 +823,7 @@ var _ = Describe("Max", func() {
 	})
 
 	It("Should catch fast reset pulses (1->0 transition)", func(ctx SpecContext) {
-		s := openMathWithReset(ctx, "avg", types.I64(), nil)
+		s := openMathWithReset(ctx, "avg", types.I64())
 		resetNode := s.state.Node("reset_signal")
 
 		*s.inputNode.Output(0) = telem.NewSeriesV[int64](10, 20, 30)
@@ -856,7 +847,7 @@ var _ = Describe("Max", func() {
 		expectOutputTime(s.state, 6*telem.SecondTS)
 	})
 	It("Should reject a non-boolean reset signal", func(ctx SpecContext) {
-		g := makeMathGraphWithReset("max", types.I64(), types.U8(), nil)
+		g := makeMathGraphWithReset("max", types.I64(), types.U8())
 		_, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 		Expect(diagnostics.Ok()).To(BeFalse())
 		Expect(diagnostics.String()).To(ContainSubstring("type mismatch"))
@@ -887,7 +878,7 @@ var _ = Describe("Alignment", func() {
 	})
 
 	It("Should sum alignments when reset signal is connected", func(ctx SpecContext) {
-		s := openMathWithReset(ctx, "avg", types.I64(), nil)
+		s := openMathWithReset(ctx, "avg", types.I64())
 		resetNode := s.state.Node("reset_signal")
 
 		inputSeries := telem.NewSeriesV[int64](10, 20, 30)

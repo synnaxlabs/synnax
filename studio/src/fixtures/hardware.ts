@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { device, rack, task } from "@synnaxlabs/client";
+import { sleep, TimeSpan } from "@synnaxlabs/x";
 
 import { connect, type ConnectionOptions } from "@/fixtures/client";
 
@@ -325,7 +326,7 @@ export const simulatedDriver = async ({
   let running = true;
   const heartbeat = (async () => {
     while (running) {
-      await new Promise((resolve) => setTimeout(resolve, periodMs));
+      await sleep.sleep(TimeSpan.milliseconds(periodMs));
       if (running) await client.statuses.set(rackStatus(embedded));
     }
   })();

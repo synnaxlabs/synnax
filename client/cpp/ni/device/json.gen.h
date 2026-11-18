@@ -31,10 +31,10 @@ inline Device Device::parse(x::json::Parser parser) {
     return Device{
         .key = parser.field<Key>("key", x::uuid::create()),
         .rack = parser.field<::synnax::rack::Key>("rack"),
-        .name = parser.field<std::string>("name"),
+        .name = parser.required_field<std::string>("name"),
         .serial = parser.field<std::string>("serial", ""),
-        .resource_name = parser.field<std::string>("resource_name"),
-        .model = parser.field<std::string>("model"),
+        .resource_name = parser.required_field<std::string>("resource_name"),
+        .model = parser.required_field<std::string>("model"),
         .chassis = parser.field<std::optional<::synnax::ni::chassis::Key>>("chassis"),
         .identifier = parser.field<std::string>("identifier", ""),
         .analog_input = parser.field<AnalogInputPorts>(
@@ -289,10 +289,10 @@ inline x::json::json StatusDetails::to_json() const {
 
 inline Identity Identity::parse(x::json::Parser parser) {
     return Identity{
-        .rack = parser.field<::synnax::rack::Key>("rack"),
+        .rack = parser.required_field<::synnax::rack::Key>("rack"),
         .serial = parser.field<std::string>("serial", ""),
-        .resource_name = parser.field<std::string>("resource_name"),
-        .model = parser.field<std::string>("model"),
+        .resource_name = parser.required_field<std::string>("resource_name"),
+        .model = parser.required_field<std::string>("model"),
         .chassis = parser.field<std::optional<::synnax::ni::chassis::Key>>("chassis"),
     };
 }
@@ -309,7 +309,7 @@ inline x::json::json Identity::to_json() const {
 
 inline Configuration Configuration::parse(x::json::Parser parser) {
     return Configuration{
-        .name = parser.field<std::string>("name"),
+        .name = parser.required_field<std::string>("name"),
         .identifier = parser.field<std::string>("identifier", ""),
         .analog_input = parser.field<AnalogInputPorts>(
             "analog_input",

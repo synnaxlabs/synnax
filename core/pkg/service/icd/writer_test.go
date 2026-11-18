@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
+	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -25,6 +26,7 @@ func binaryField(name string, startBit uint16, bitLength uint8) icd.BinaryField 
 		StartBit:  startBit,
 		BitLength: bitLength,
 		ByteOrder: icd.ByteOrderLittleEndian,
+		Kind:      payload.KindUnsigned,
 	}
 }
 
@@ -64,7 +66,10 @@ func canMessage(name string, id uint32, fields ...icd.BinaryField) icd.Message {
 }
 
 func binaryPayloadOf(m icd.Message) icd.BinaryPayload {
-	return m.Payload.Variant.(icd.BinaryPayload)
+	GinkgoHelper()
+	p, ok := m.Payload.Variant.(icd.BinaryPayload)
+	Expect(ok).To(BeTrue())
+	return p
 }
 
 func binaryFieldOf(m icd.Message, i int) icd.BinaryField {
@@ -117,11 +122,13 @@ var _ = Describe("Writer", func() {
 				}})
 				ic := icd.ICD{Name: "Sensor", Messages: []icd.Message{m}}
 				Expect(svc.NewWriter(tx).Create(ctx, &ic)).To(Succeed())
-				res := retrieveICD(ctx, ic.Key).Messages[0].Payload.Variant.(icd.TextPayload)
+				msg := retrieveICD(ctx, ic.Key).Messages[0]
+				res, ok := msg.Payload.Variant.(icd.TextPayload)
+				Expect(ok).To(BeTrue())
 				Expect(res.Delimiter).To(Equal(","))
-				Expect(
-					res.Fields[0].Variant.(icd.DelimitedTextField).Scale,
-				).To(Equal(2.0))
+				field, ok := res.Fields[0].Variant.(icd.DelimitedTextField)
+				Expect(ok).To(BeTrue())
+				Expect(field.Scale).To(Equal(2.0))
 			},
 		)
 

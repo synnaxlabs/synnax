@@ -142,9 +142,9 @@ var _ = Describe("Retrieve", func() {
 				Exec(ctx, tx)).To(Succeed())
 			Expect(allSymbols).To(HaveLen(3))
 
-			names := []string{}
-			for _, s := range allSymbols {
-				names = append(names, s.Name)
+			names := make([]string, len(allSymbols))
+			for i, s := range allSymbols {
+				names[i] = s.Name
 			}
 			Expect(names).To(ContainElements("symbol-1", "symbol-2", "symbol-3"))
 		})

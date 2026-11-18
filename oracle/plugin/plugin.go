@@ -23,7 +23,7 @@ type Plugin interface {
 	Name() string
 	Domains() []string
 	Requires() []string
-	Generate(*Request) (*Response, error)
+	Generate(req *Request) (*Response, error)
 }
 
 // Request contains all data needed for code generation.

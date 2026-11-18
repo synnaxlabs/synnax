@@ -146,14 +146,14 @@ func (f *factory) ConfigureTask(
 	}
 	var cfg Config
 	if err := t.Config.Unmarshal(&cfg); err != nil {
-		f.reporter.Report(ctx, t, cmdKey, false, err)
+		f.reporter.Report(ctx, t, cmdKey, err)
 		return nil, err
 	}
 	prog, err := channel.RetryChanged(ctx, func() (arc.AutomationArc, error) {
 		return f.cfg.GetProgram(ctx, cfg.ArcKey)
 	})
 	if err != nil {
-		f.reporter.Report(ctx, t, cmdKey, cfg.AutoStart, err)
+		f.reporter.Report(ctx, t, cmdKey, err)
 		return nil, err
 	}
 	arcTask := &impl{

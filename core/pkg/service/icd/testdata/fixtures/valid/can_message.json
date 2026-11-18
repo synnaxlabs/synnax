@@ -20,8 +20,7 @@
               "start_bit": 0,
               "bit_length": 16,
               "byte_order": "little_endian",
-              "signed": false,
-              "float": false,
+              "kind": "unsigned",
               "min": 0,
               "max": 16000
             },
@@ -35,8 +34,7 @@
               "start_bit": 16,
               "bit_length": 8,
               "byte_order": "little_endian",
-              "signed": false,
-              "float": false
+              "kind": "unsigned"
             },
             {
               "key": "00000000-0000-4000-8000-00000000000c",
@@ -48,8 +46,7 @@
               "start_bit": 31,
               "bit_length": 16,
               "byte_order": "big_endian",
-              "signed": true,
-              "float": false
+              "kind": "integer"
             }
           ],
           "length": 8,

@@ -7,20 +7,32 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { compare, uuid } from "@synnaxlabs/x";
+import { eq } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { type Organization } from "@/server/db/schema";
+import {
+  type License,
+  license,
+  type Organization,
+  organization,
+} from "@/server/db/schema";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import {
+  type Cursor,
   findActivatable,
   findSeat,
   listActivatable,
-  listAll,
   listAllHeld,
   listForOrganization,
+  listPage,
+  type Query,
 } from "@/server/license/list";
+import { STATUSES, statusOf } from "@/server/license/status";
 import { HASH_A, HASH_B, HASH_C, NOW } from "@/server/license/testutil";
 import { createActivation, createLicense, createOrganization } from "@/testutil";
+
+const PAGE_SIZE = 50;
 
 describe("list", () => {
   let store: Memory;
@@ -81,7 +93,37 @@ describe("list", () => {
     });
   });
 
-  describe("listAll", () => {
+  describe("listPage", () => {
+    const days = (n: number): Date => new Date(NOW.getTime() + n * 24 * 60 * 60 * 1000);
+
+    /** createMany saves `n` licenses of acme, all issued on the same day. */
+    const createMany = async (n: number, values: Partial<License> = {}) =>
+      await store.query
+        .insert(license)
+        .values(
+          Array.from({ length: n }, () => ({
+            organization: acme.key,
+            edition: "enterprise" as const,
+            term: "subscription" as const,
+            nodes: 2,
+            issuedBy: "user_staff",
+            issuedAt: issuedOn(1),
+            ...values,
+          })),
+        )
+        .returning();
+
+    const readAll = async (query: Query = {}): Promise<License[]> => {
+      const read: License[] = [];
+      let after: Cursor | undefined;
+      for (;;) {
+        const page = await listPage(store.query, { ...query, after }, NOW);
+        read.push(...page.entries.map((e) => e.license));
+        if (page.next == null) return read;
+        after = page.next;
+      }
+    };
+
     it("should list every license with its organization, newest first", async () => {
       const a = await createLicense(store, {
         organization: acme.key,
@@ -92,10 +134,14 @@ describe("list", () => {
         issuedAt: issuedOn(2),
         revokedAt: NOW,
       });
-      expect(await listAll(store.query)).toEqual([
-        { license: b, organization: globex, seats: 0 },
-        { license: a, organization: acme, seats: 0 },
-      ]);
+      expect(await listPage(store.query, {}, NOW)).toEqual({
+        entries: [
+          { license: b, organization: globex, seats: 0 },
+          { license: a, organization: acme, seats: 0 },
+        ],
+        total: 2,
+        next: null,
+      });
     });
 
     it("should count only the seats machines still hold", async () => {
@@ -106,7 +152,124 @@ describe("list", () => {
         fingerprint: [HASH_B],
         releasedAt: NOW,
       });
-      expect((await listAll(store.query))[0].seats).toBe(1);
+      expect((await listPage(store.query, {}, NOW)).entries[0].seats).toBe(1);
+    });
+
+    it("should read a full page, newest first, with ties broken by key", async () => {
+      const older = await createMany(PAGE_SIZE + 1);
+      const newer = await createLicense(store, {
+        organization: globex.key,
+        issuedAt: issuedOn(2),
+      });
+      const first = await listPage(store.query, {}, NOW);
+      expect(first.entries).toHaveLength(PAGE_SIZE);
+      expect(first.total).toBe(PAGE_SIZE + 2);
+      const keys = older.map((l) => l.key).sort(compare.reverse(compare.text));
+      expect(first.entries.map((e) => e.license.key)).toEqual([
+        newer.key,
+        ...keys.slice(0, PAGE_SIZE - 1),
+      ]);
+      expect(first.next).toEqual({ key: keys[PAGE_SIZE - 2] });
+      const second = await listPage(
+        store.query,
+        { after: first.next ?? undefined },
+        NOW,
+      );
+      expect(second.entries.map((e) => e.license.key)).toEqual(keys.slice(-2));
+      expect(second.total).toBe(PAGE_SIZE + 2);
+      expect(second.next).toBeNull();
+    });
+
+    it("should find a match on a later page and count only matches", async () => {
+      const needle = await createLicense(store, {
+        organization: globex.key,
+        label: "North bench",
+        issuedAt: new Date("2026-08-01T00:00:00Z"),
+      });
+      await createMany(PAGE_SIZE + 1);
+      const unfiltered = await listPage(store.query, {}, NOW);
+      expect(unfiltered.entries.map((e) => e.license)).not.toContainEqual(needle);
+      await store.query
+        .update(organization)
+        .set({ name: "ÉQUIPE" })
+        .where(eq(organization.key, globex.key));
+      for (const search of ["north BENCH", "équipe", needle.key.slice(9, 23)]) {
+        const page = await listPage(store.query, { search: ` ${search} ` }, NOW);
+        expect(page.entries.map((e) => e.license)).toEqual([needle]);
+        expect(page.total).toBe(1);
+      }
+    });
+
+    it("should match each status exactly as statusOf reads it", async () => {
+      const shapes: Partial<License>[] = [
+        { revokedAt: NOW, expiresAt: days(90) },
+        { revokedAt: NOW, expiresAt: days(-1) },
+        { expiresAt: null },
+        { expiresAt: NOW },
+        { expiresAt: days(-1) },
+        { expiresAt: days(1) },
+        { expiresAt: days(30) },
+        { expiresAt: new Date(days(30).getTime() + 1) },
+        { expiresAt: days(31) },
+        { edition: "desktop", expiresAt: days(2) },
+        { edition: "desktop", expiresAt: days(-1) },
+        { edition: "desktop", expiresAt: null },
+      ];
+      const created: License[] = [];
+      for (const s of shapes)
+        created.push(await createLicense(store, { organization: acme.key, ...s }));
+      for (const status of STATUSES) {
+        const want = created.filter((l) => statusOf(l, NOW) === status);
+        expect(want.length).toBeGreaterThan(0);
+        const page = await listPage(store.query, { status }, NOW);
+        expect(page.total).toBe(want.length);
+        const keys = (l: License[]): string[] => l.map((x) => x.key).sort();
+        expect(keys(page.entries.map((e) => e.license))).toEqual(keys(want));
+      }
+    });
+
+    it("should page every status filter across pages", async () => {
+      await createMany(PAGE_SIZE + 1, { revokedAt: NOW });
+      await createMany(PAGE_SIZE + 1, { expiresAt: days(-1) });
+      await createMany(PAGE_SIZE + 1, { expiresAt: days(90) });
+      await createMany(3, { expiresAt: days(5) });
+      for (const status of STATUSES) {
+        const read = await readAll({ status });
+        expect(read.every((l) => statusOf(l, NOW) === status)).toBe(true);
+        expect(new Set(read.map((l) => l.key)).size).toBe(read.length);
+        const { total } = await listPage(store.query, { status }, NOW);
+        expect(read).toHaveLength(total);
+      }
+    });
+
+    it("should list expiring licenses soonest first across pages", async () => {
+      await createMany(PAGE_SIZE - 1, { expiresAt: days(20) });
+      const soonest = await createMany(1, { expiresAt: days(3) });
+      const later = await createMany(2, { expiresAt: days(25) });
+      const read = await readAll({ status: "expiring" });
+      expect(read).toHaveLength(PAGE_SIZE + 2);
+      expect(read[0]).toEqual(soonest[0]);
+      expect(read.slice(-2).map((l) => l.key)).toEqual(later.map((l) => l.key).sort());
+      const expiries = read.map((l) => l.expiresAt?.getTime() ?? 0);
+      expect(expiries).toEqual([...expiries].sort((a, b) => a - b));
+    });
+
+    it("should page on from the expiry its cursor read, even after a renewal", async () => {
+      const licenses = await createMany(PAGE_SIZE + 2, { expiresAt: days(20) });
+      const first = await listPage(store.query, { status: "expiring" }, NOW);
+      const anchor = first.next?.key ?? "";
+      expect(first.next?.expiresAt).toEqual(days(20));
+      await store.query
+        .update(license)
+        .set({ expiresAt: null })
+        .where(eq(license.key, anchor));
+      const second = await listPage(
+        store.query,
+        { status: "expiring", after: first.next ?? undefined },
+        NOW,
+      );
+      const keys = licenses.map((l) => l.key).sort();
+      expect(second.entries.map((e) => e.license.key)).toEqual(keys.slice(-2));
     });
   });
 
@@ -211,7 +374,7 @@ describe("list", () => {
         organization: acme.key,
         edition: "desktop",
       });
-      for (const key of [revoked.key, desktop.key, crypto.randomUUID()])
+      for (const key of [revoked.key, desktop.key, uuid.create()])
         expect(await findActivatable(store.query, key, NOW)).toBeUndefined();
     });
   });

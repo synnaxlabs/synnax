@@ -10,7 +10,6 @@
 import { describe, expect, it } from "vitest";
 
 import { deep } from "@/deep";
-import { type record } from "@/record";
 
 describe("path utilities", () => {
   describe("transformPath", () => {
@@ -50,38 +49,6 @@ describe("path utilities", () => {
     });
   });
 
-  describe("resolvePath", () => {
-    it("should resolve a path", () => {
-      expect(deep.resolvePath("a.b.c", { a: { b: { c: 1 } } })).toEqual("a.b.c");
-    });
-
-    it("should resolve a path with a keyed record", () => {
-      expect(deep.resolvePath("a.b.c", { a: { b: { c: 1 } } })).toEqual("a.b.c");
-    });
-
-    it("should resolve a path with a record in an array", () => {
-      expect(deep.resolvePath("a.b.c", { a: { b: [{ c: 1 }] } })).toEqual("a.b.c");
-    });
-
-    it("should resolve a path with a keyed record in an array with a key", () => {
-      expect(deep.resolvePath("a.b.0.d", { a: { b: [{ key: "c", d: 1 }] } })).toEqual(
-        "a.b.c.d",
-      );
-    });
-
-    it("should not modify a path that has a keyed record accessed by key", () => {
-      expect(deep.resolvePath("a.b.c.d", { a: { b: [{ key: "c", c: 1 }] } })).toEqual(
-        "a.b.c.d",
-      );
-    });
-
-    it("should rewrite only the parts inside arrays", () => {
-      expect(deep.resolvePath("a.b.c", { a: { b: { key: "", c: 1 } } })).toEqual(
-        "a.b.c",
-      );
-    });
-  });
-
   describe("element", () => {
     it("should get element at index", () => {
       expect(deep.element("a.b.c", 1)).toEqual("b");
@@ -94,103 +61,6 @@ describe("path utilities", () => {
 
     it("should get first element", () => {
       expect(deep.element("a.b.c", 0)).toEqual("a");
-    });
-  });
-
-  describe("getIndex", () => {
-    it("should return index for numeric string", () => {
-      expect(deep.getIndex("42")).toEqual(42);
-    });
-
-    it("should return null for non-numeric string", () => {
-      expect(deep.getIndex("abc")).toBeNull();
-    });
-
-    it("should return null for mixed string", () => {
-      expect(deep.getIndex("1a")).toBeNull();
-    });
-
-    it("should handle zero", () => {
-      expect(deep.getIndex("0")).toEqual(0);
-    });
-  });
-
-  describe("defaultGetter", () => {
-    it("should get property from object", () => {
-      const obj = { a: 1, b: 2 };
-      expect(deep.defaultGetter(obj, "a")).toEqual(1);
-    });
-
-    it("should get index from array", () => {
-      const arr = [1, 2, 3];
-      expect(deep.defaultGetter(arr as any, "1")).toEqual(2);
-    });
-
-    it("should find keyed item in array", () => {
-      const arr = [
-        { key: "item1", value: 1 },
-        { key: "item2", value: 2 },
-      ];
-      expect(deep.defaultGetter(arr as any, "item2")).toEqual({
-        key: "item2",
-        value: 2,
-      });
-    });
-
-    it("should return undefined for non-existent key", () => {
-      const obj = { a: 1 };
-      expect(deep.defaultGetter(obj, "b")).toBeUndefined();
-    });
-
-    it("should handle empty array", () => {
-      const arr: any[] = [];
-      expect(deep.defaultGetter(arr as any, "0")).toBeUndefined();
-    });
-  });
-
-  describe("findBestKey", () => {
-    it("should find single part key", () => {
-      const obj = { a: { b: 1 } };
-      const result = deep.findBestKey(obj, ["a", "b"]);
-      expect(result).toEqual(["a", 1]);
-    });
-
-    it("should find multi-part key with period", () => {
-      const obj = { "a.b": { c: 1 } };
-      const result = deep.findBestKey(obj, ["a.b", "c"]);
-      expect(result).toEqual(["a.b", 1]);
-    });
-
-    it("should return null if no key found", () => {
-      const obj = { a: 1 };
-      const result = deep.findBestKey(obj, ["b", "c"]);
-      expect(result).toBeNull();
-    });
-
-    it("should prefer the longer key", () => {
-      const obj = { a: { b: 1 }, "a.b": 2 };
-      const result = deep.findBestKey(obj, ["a", "b"]);
-      expect(result).toEqual(["a.b", 2]);
-    });
-
-    it("should not find a key from the prototype", () => {
-      expect(deep.findBestKey({ a: 1 }, ["constructor"])).toBeNull();
-    });
-
-    it("should not find a key from the array prototype", () => {
-      expect(
-        deep.findBestKey([{ key: "x" }] as unknown as record.Unknown, ["constructor"]),
-      ).toBeNull();
-      expect(deep.findBestKey([1] as unknown as record.Unknown, ["length"])).toBeNull();
-    });
-
-    it("should find an array index or entry key", () => {
-      expect(
-        deep.findBestKey([{ key: "x" }] as unknown as record.Unknown, ["0"]),
-      ).toEqual(["0", 1]);
-      expect(
-        deep.findBestKey([{ key: "x" }] as unknown as record.Unknown, ["x"]),
-      ).toEqual(["x", 1]);
     });
   });
 });

@@ -46,10 +46,12 @@ jobs:
         with:
           cache: "false"
 
+      # All packages share one cache. The client installs every browser that the others
+      # install, so its cache serves them all.
       - name: Install browsers
         uses: ./.github/actions/setup-browsers
         with:
-          package: pluto
+          package: client
 
   # CI restores only the newest cache, so the older ones only evict others.
   prune:
