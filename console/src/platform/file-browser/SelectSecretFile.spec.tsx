@@ -77,7 +77,7 @@ describe("FileBrowser.SelectSecretFile", () => {
   it("should say when the rack has no secrets folder", async () => {
     await renderSelect([createListing()]);
     const trigger = await findDialogTriggerByText("The rack has no secrets folder");
-    expect(trigger).toHaveProperty("disabled", true);
+    expect(trigger.getAttribute("aria-disabled")).toBe("true");
   });
 
   it("should show the error when the rack fails to list the folder", async () => {

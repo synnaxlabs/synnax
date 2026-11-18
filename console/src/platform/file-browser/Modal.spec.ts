@@ -104,12 +104,15 @@ describe("FileBrowser.useModal", () => {
     );
   });
 
-  it("should not pick a folder", async () => {
-    await openBrowser([TOP, ROOT, ETC]);
+  it("should open a folder on a double click and not resolve with it", async () => {
+    const { result } = await openBrowser([TOP, ROOT, ETC]);
     await openFolder("/");
-    await openFolder("etc");
+    const etc = await screen.findByText("etc");
+    fireEvent.click(etc);
+    fireEvent.doubleClick(etc);
     await screen.findByText("hosts");
-    expect(findButton("Select").disabled).toBe(true);
+    fireEvent.click(findButton("Cancel"));
+    await expect(result()).resolves.toBeNull();
   });
 
   it("should go up to the parent folder", async () => {
