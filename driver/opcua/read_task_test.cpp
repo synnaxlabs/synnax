@@ -21,12 +21,14 @@
 
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/testutil/testutil.h"
+#include "x/cpp/x509/testutil/testutil.h"
 
 #include "driver/opcua/opcua.h"
 #include "driver/opcua/read_task.h"
 #include "driver/opcua/testutil/server.h"
 #include "driver/opcua/testutil/testutil.h"
 #include "driver/pipeline/testutil/pipeline.h"
+#include "driver/secret/testutil/testutil.h"
 
 namespace driver::opcua {
 /// @brief Allowed relative error of a task's achieved sample rate.
@@ -1015,6 +1017,46 @@ TEST_F(TestReadTask, testReadConnectsAgainWithNewCertificate) {
     secured = std::make_unique<testutil::Server>(secured_cfg);
     secured->start();
     ASSERT_TRUE(secured->wait_until_ready());
+    ASSERT_NIL(source.read(breaker, fr).error);
+    ASSERT_NIL(source.stop());
+}
+
+/// @brief it should log in to the device's server with the password in its secret.
+TEST_F(TestReadTask, testReadLogsInWithPasswordSecret) {
+    const auto server_id = ASSERT_NIL_P(testutil::create_server_identity());
+    auto secured_cfg = testutil::ServerConfig::create_default();
+    secured_cfg.port = 4862;
+    secured_cfg.identity = server_id;
+    secured_cfg.users = {{"user", x::x509::testutil::KEY}};
+    const auto secured = std::make_unique<testutil::Server>(secured_cfg);
+    secured->start();
+    ASSERT_TRUE(secured->wait_until_ready());
+    connection::Config conn_cfg;
+    conn_cfg.endpoint = "opc.tcp://localhost:4862";
+    conn_cfg.security_mode = "SignAndEncrypt";
+    conn_cfg.security_policy = "Basic256Sha256";
+    conn_cfg.server_certificate = server_id.certificate;
+    conn_cfg.username = "user";
+    conn_cfg.password_secret = secret::testutil::create_secret(*ctx->client);
+    ASSERT_NIL(ctx->client->devices.dispatch(
+        this->dev.key,
+        {synnax::device::set(
+            {.path = {"properties", "connection"},
+             .value = testutil::connection_json(conn_cfg)}
+        )}
+    ));
+    reader = std::make_shared<secret::Reader>(
+        std::make_shared<synnax::Synnax>(
+            rack_client_config(*ctx->client, this->dev.rack)
+        ),
+        secret::Config{.rack = this->dev.rack}
+    );
+    auto p = x::json::Parser(task_cfg_json);
+    UnaryReadTaskSource
+        source(ctx->client, conn_pool, reader, ReadTaskConfig(ctx->client, p));
+    ASSERT_NIL(source.start("start_cmd", this->cancel));
+    x::breaker::Breaker breaker;
+    x::telem::Frame fr;
     ASSERT_NIL(source.read(breaker, fr).error);
     ASSERT_NIL(source.stop());
 }
