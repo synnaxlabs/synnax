@@ -335,14 +335,18 @@ The certificate of the server is not valid at the current time.
 <Problem.Item message={"Failed to read client certificate"}>
 <Problem.Cause>
 
-The Driver could not use the files in **Certificate file** and **Private key file**.
+The saved client certificate has no private key, its key does not belong to it, or the
+Driver cannot parse one of them.
 
 </Problem.Cause>
 <Problem.Fix>
 
-1. Make sure that the paths are correct on the computer that runs the Driver.
-2. Make sure that the key belongs to the certificate.
-3. Remove the password from the private key.
+1. Make sure that the certificate has a private key, and that the key belongs to the
+   certificate. The key file of a certificate that names files must be in the secrets
+   folder of the Driver.
+2. Remove the password from the private key.
+
+See [client certificate](#client-certificate).
 
 </Problem.Fix>
 </Problem.Item>
