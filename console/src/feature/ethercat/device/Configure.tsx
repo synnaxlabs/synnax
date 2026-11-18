@@ -60,6 +60,7 @@ import {
 import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
 import { Device } from "@/platform/device";
+import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 
 const AUTO = -1;
@@ -368,6 +369,8 @@ export const Configure = ({
     query: { key: deviceKey },
     beforeSave,
   });
+  const busy = variant === "loading";
+  Modals.useBusy(busy);
   // Save sets configured, so the dialog keeps the slave as it was at open.
   const [opened] = useState(form.value);
   const openedSlot = slotZ.parse(opened.properties);
@@ -519,7 +522,7 @@ export const Configure = ({
       <Modal.Footer>
         <Nav.Bar.Start gap="small">
           {onBack != null && (
-            <Button.Button variant="text" onClick={onBack}>
+            <Button.Button variant="text" onClick={onBack} disabled={busy}>
               <Icon.Arrow.Left />
               Back
             </Button.Button>
