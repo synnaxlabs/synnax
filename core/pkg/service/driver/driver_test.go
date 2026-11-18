@@ -1017,6 +1017,54 @@ var _ = Describe("Driver", func() {
 		})
 
 		It(
+			"should stop a task that a commit deletes while it deploys",
+			func(ctx SpecContext) {
+				var (
+					stopped     atomic.Bool
+					taskKey     atomic.Value
+					configuring = make(chan struct{})
+					released    = make(chan struct{})
+				)
+				factory := &mockFactory{
+					name: "test",
+					configureFunc: func(
+						_ context.Context,
+						t task.Task,
+					) (driver.Task, error) {
+						if t.Key == taskKey.Load() {
+							close(configuring)
+							<-released
+						}
+						return &mockTask{
+							key: t.Key,
+							stopFunc: func(bool) error {
+								if t.Key == taskKey.Load() {
+									stopped.Store(true)
+								}
+								return nil
+							},
+						}, nil
+					},
+				}
+				openDriver(ctx, factory)
+				t := newTask(embeddedRackKey(ctx))
+				taskKey.Store(t.Key)
+				Expect(gorp.NewCreate[task.Key, task.Task]().Entry(&t).Exec(ctx, db)).
+					To(Succeed())
+				writeCommand(
+					ctx,
+					task.Command{Task: t.Key, Type: "start", Key: "cmd-1"},
+				)
+				Eventually(configuring).Should(BeClosed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Delete(ctx, t.Key, false)
+				})).To(Succeed())
+				close(released)
+				Eventually(stopped.Load).Should(BeTrue())
+			},
+		)
+
+		It(
 			"should stop each task that a commit deletes while a stop blocks",
 			func(ctx SpecContext) {
 				var (
