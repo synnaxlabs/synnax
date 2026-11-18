@@ -250,6 +250,14 @@ record that moves to `color.Ref` (phases 23 to 28) mints a version (RFC 0053) th
 stores each old color as `fixed`, and its hand-written client code writes the union
 (`client/py/synnax/ranger/client.py:831`, `client/py/synnax/label/client.py:93`).
 
+### 4.7 Creating and editing in place
+
+The field that uses a named color or an enumeration is the main place to create and edit
+one. The color picker creates a named color and edits the one it shows. The Options tab
+of a select or a state indicator does the same for enumerations. Each type has one
+editor, and the field and Settings open the same editor. Settings only finds items,
+lists their users, replaces them, and deletes them.
+
 ## 5 What this RFC does not cover
 
 - **Limits**: Value ranges that mean one state belong to the `limit` type.
@@ -298,6 +306,8 @@ with RFC 0114 phase 2. RFC 0114 phase 1 needs phases 13 to 15, phases 19 and 21 
 | 26    | Store color references in label colors                     | `schemas/synnax`, `core/pkg/service/label`, `client/ts`, `client/py`                                                                   | 3, 22          |
 | 27    | Store color references in range colors                     | `schemas/synnax`, `core/pkg/service/ranger`, `client/ts`, `client/py`, `driver/arc`                                                    | 3, 22          |
 | 28    | Store color references in panel colors                     | `schemas/synnax`, `core/pkg/service/panel`, `client/ts`, `client/py`                                                                   | 3, 22          |
+| 29    | Create and edit named colors in the color picker           | `lyra/src/color`, `pluto/src/color`, `console/src/feature/color`                                                                       | 8, 9           |
+| 30    | Create and edit enumerations from the Options tab          | `pluto/src/schematic`, `console/src/feature/enumeration`, `console/src/feature/schematic`                                              | 16, 20         |
 
 Phase 3 ships `@ref on_delete inline` and `Inline()` with the record. Phase 18 mints a
 schematic version (RFC 0053) that drops `staleness_color`. Tables keep their own

@@ -321,6 +321,21 @@ bound, a log precision, or the line plot X channel.
 - A number never clips, because a clipped number reads as a different valid number.
 - A flex child that holds cut text needs `min-width: 0`.
 
+### Shared items
+
+- A shared item is a record that many places use: a named color, an enumeration, a
+  label, or an ICD message.
+- The field that uses a shared item is the main place to create and edit it. Settings is
+  only for cleanup: find an item, see what uses it, Replace with, and delete.
+- Each type has one editor. The field and Settings open the same editor.
+- A field that takes a shared item can create one, and edit the one it holds, without
+  leaving the field.
+- The picker's footer holds "Create <type>", as the label field does
+  (`Button.CreateListItem` in `console/src/platform/label/Select.tsx`).
+- Hovering an item shows an edit action. It opens the type's editor in place.
+- An edit reaches every user of the item. When other places use the item and the Core
+  can list them, the editor shows "Used by N".
+
 ### Pickers
 
 - A card that creates something shows the item's own icon in a large icon tile, then its
@@ -350,6 +365,13 @@ bound, a log precision, or the line plot X channel.
   under it. Each palette sits under its title, which ends with the name of the hovered
   color, else the linked one. Swatches have no tooltips.
 - A swatch shows the color's value for the current theme only.
+- A "+" swatch ends each palette. It creates a named color from the field's current
+  color, asks for its name inline, and links the field to it.
+- Hovering a swatch shows an edit action. It opens the named color editor of Settings
+  (name, light, dark) inside the picker, and each edit saves at once.
+- "Create palette" ends the Library list.
+- A user without create access sees no "+" swatch and no "Create palette". A user
+  without update access sees no edit action.
 - An edit in Custom stores a fixed color and unlinks the value. There is no unlink
   button.
 - An optional color puts a square Auto button at the right of the tab bar, on both tabs.
