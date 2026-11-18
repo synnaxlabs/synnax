@@ -200,6 +200,20 @@ var _ = Describe("Filter Combinators", func() {
 			Expect(res).To(Equal([]entry{entries[0], entries[3]}))
 		})
 
+		It("Should match a repeated key once", func(ctx SpecContext) {
+			f := gorp.MatchKeysFunc[int32, entry](func(gorp.Context) ([]int32, error) {
+				return []int32{1, 1}, nil
+			})
+			var res []entry
+			Expect(gorp.NewRetrieve[int32, entry]().
+				Entries(&res).
+				Where(f).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(res).To(Equal([]entry{entries[1]}))
+			Expect(gorp.NewRetrieve[int32, entry]().Where(f).Count(ctx, tx)).
+				To(Equal(1))
+		})
+
 		It("Should propagate errors from the function", func(ctx SpecContext) {
 			var res []entry
 			Expect(gorp.NewRetrieve[int32, entry]().
