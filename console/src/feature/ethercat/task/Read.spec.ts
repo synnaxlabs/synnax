@@ -45,15 +45,18 @@ import {
 import { Device } from "@/platform/device";
 import {
   awaitEditableForm,
+  awaitTare,
   clickDeploy,
   createWithHook,
   deployAndAwaitTask,
   findChannelListItem,
   renderTaskFormTab,
+  reportTaskRunning,
 } from "@/platform/task/testutil";
 import {
   createTestClientWithGrants,
   findDialogTriggerByText,
+  findIconButton,
   uniqueName,
 } from "@/testutil";
 
@@ -181,6 +184,33 @@ const EXCITATION = { index: 0x8040, subIndex: 0x1c, dataType: "float32", name: "
 const POLARITY = { index: 0x8040, subIndex: 0x21, dataType: "uint16", name: "" };
 
 describe("Read", () => {
+  it("should tare a float channel from its button while the task runs", async () => {
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: createPDOs(),
+    });
+    const float = await client.channels.create({
+      name: uniqueName("tare"),
+      dataType: "float32",
+      virtual: true,
+    });
+    const { container, draft } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [
+        {
+          ...EtherCAT.Task.createEntryReadChannel(slave.key, STATUS_ENTRY),
+          channel: float.key,
+        },
+      ],
+    });
+    const args = await awaitTare(client, draft.key, async () => {
+      await reportTaskRunning(client, draft);
+      fireEvent.click(await findIconButton(container, "tare"));
+    });
+    expect(args).toEqual({ keys: [float.key] });
+  });
+
   it("should render channels from the task row's config with their port labels", async () => {
     const slave = await createSlaveDevice(client, testRack.key, {
       identifier: createIdentifier(),

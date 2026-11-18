@@ -21,7 +21,12 @@ import {
   renderTaskFormTab,
   selectFromDropdown,
 } from "@/platform/task/testutil";
-import { findDialogTriggerByText, getSwitchInput, uniqueName } from "@/testutil";
+import {
+  assertDefined,
+  findDialogTriggerByText,
+  getSwitchInput,
+  uniqueName,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -1181,5 +1186,27 @@ describe("MQTT Read form", () => {
       });
       expect(updated.properties.read["plant/oven"].index).toBe(idxCh.key);
     });
+  });
+});
+
+describe("plotChannels", () => {
+  it("should find the enabled fields of plain entries and enabled Sparkplug tags", () => {
+    const plotChannels = MQTT.Task.INTEGRATION.plotChannels?.[MQTT.Task.READ_TYPE];
+    assertDefined(plotChannels, "read tasks have no channels to plot");
+    const config = {
+      entries: [
+        {
+          type: "plain",
+          fields: [
+            { channel: 1, disabled: false },
+            { channel: 2, disabled: true },
+          ],
+        },
+        { type: "plain", disabled: true, fields: [{ channel: 3, disabled: false }] },
+        { type: "sparkplug", channel: 4 },
+        { type: "sparkplug", channel: 5, disabled: true },
+      ],
+    };
+    expect(plotChannels(config)).toEqual([1, 4]);
   });
 });
