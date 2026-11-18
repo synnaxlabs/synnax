@@ -409,7 +409,7 @@ TEST_F(IGHMasterTest, ScanFillsNamesAndDataTypesFromTheRegistry) {
 }
 
 /// @brief it should name each entry and give its data type from the CoE dictionary
-/// that IgH read from the slave.
+/// that IgH read from the slave, the final object of the dictionary included.
 TEST_F(IGHMasterTest, ScanNamesEntriesFromTheDictionaryOfTheSlave) {
     auto &slave = this->api->add_slave();
     create_dictionary_layout(slave);
@@ -423,18 +423,19 @@ TEST_F(IGHMasterTest, ScanNamesEntriesFromTheDictionaryOfTheSlave) {
     EXPECT_EQ(inputs[1].data_type, x::telem::FLOAT32_T);
 }
 
-/// @brief it should keep the generic name of an entry whose object IgH has not read
-/// yet, with no lookup that IgH would write to the kernel log.
+/// @brief it should keep the generic name of an entry of the object that IgH still
+/// reads, with no lookup that IgH would write to the kernel log.
 TEST_F(IGHMasterTest, ScanKeepsTheNameOfAnEntryThatIgHHasNotRead) {
     auto &slave = this->api->add_slave();
     create_dictionary_layout(slave);
     slave.dictionary = create_dictionary();
-    slave.dictionary[0].info.name.clear();
+    slave.dictionary[1].entries.clear();
+    slave.dictionary.push_back({.info = {.index = 0xF050, .max_sub_index = 4}});
     const auto slaves = ASSERT_NIL_P(this->master.scan());
     const auto &inputs = slaves[0].properties.input_pdos;
     ASSERT_EQ(inputs.size(), 2);
-    EXPECT_EQ(inputs[0].name, "Input (uint32) 0x6000:07");
-    EXPECT_EQ(inputs[1].name, "u1");
+    EXPECT_EQ(inputs[0].name, "BufCounter");
+    EXPECT_EQ(inputs[1].name, "Input (uint32) 0x6030:01");
     EXPECT_EQ(slave.entry_reads, 1);
 }
 

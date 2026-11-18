@@ -156,18 +156,26 @@ void fill_dictionary_entries(
     const uint16_t object_count,
     slave::Properties &slave
 ) {
-    // IgH names an object when it reads its description, before its entries. A lookup
-    // of an entry that IgH has not read writes an error to the kernel log.
-    std::map<uint16_t, uint8_t> described;
+    std::vector<ObjectInfo> objects;
     for (uint16_t i = 0; i < object_count; ++i) {
         ObjectInfo object;
         if (api.object_info(master_index, position, i, object) != 0) break;
-        if (!object.name.empty()) described[object.index] = object.max_sub_index;
+        objects.push_back(std::move(object));
+    }
+    // A lookup of an entry that IgH has not read writes an error to the kernel log. IgH
+    // reads the name of an object, then its entries, then the next object. IgH gives no
+    // sign that it has read the final object, so it counts once it has a name.
+    std::map<uint16_t, uint8_t> read;
+    for (size_t i = 0; i < objects.size(); ++i) {
+        const bool next_named = i + 1 < objects.size() ? !objects[i + 1].name.empty()
+                                                       : i + 1 == object_count;
+        if (!objects[i].name.empty() && next_named)
+            read[objects[i].index] = objects[i].max_sub_index;
     }
     const auto fill = [&](std::vector<pdo::Properties> &pdos) {
         for (auto &pdo: pdos) {
-            const auto object = described.find(pdo.index);
-            if (pdo.is_padding() || object == described.end() ||
+            const auto object = read.find(pdo.index);
+            if (pdo.is_padding() || object == read.end() ||
                 pdo.sub_index > object->second)
                 continue;
             EntryInfo entry;
@@ -422,7 +430,6 @@ std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Master::scan() 
 
 void Master::read_dictionaries() {
     for (auto &slave: this->cached_slaves) {
-        if (slave.status.starting) continue;
         auto &props = slave.properties;
         const auto pos = ring_position(props.position);
         ec_slave_info_t info{};
