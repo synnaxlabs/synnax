@@ -136,7 +136,7 @@ var _ = Describe("Service", func() {
 				Rack:       rackKey,
 				Name:       "T7-0001",
 				Serial:     470010001,
-				Connection: device.ConnectionUsb,
+				Connection: device.ConnectionUSB,
 			}}}
 			Expect(svc.NewWriter(tx).Create(ctx, &d)).To(Succeed())
 			Expect(d.Base().Key).To(Equal(key))
@@ -149,7 +149,7 @@ var _ = Describe("Service", func() {
 					Rack:       rackKey,
 					Name:       "T7-0001",
 					Serial:     470010001,
-					Connection: device.ConnectionUsb,
+					Connection: device.ConnectionUSB,
 				}}}
 				change(&d)
 				Expect(svc.NewWriter(tx).Create(ctx, &d)).
@@ -235,7 +235,7 @@ var _ = Describe("Service", func() {
 				Rack:       missing,
 				Name:       "T7-0001",
 				Serial:     470010001,
-				Connection: device.ConnectionUsb,
+				Connection: device.ConnectionUSB,
 			}}}
 			Expect(svc.NewWriter(tx).Create(ctx, &d)).To(MatchError(fmt.Sprintf(
 				"rack: rack %d does not exist: validation error",
