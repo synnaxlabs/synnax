@@ -105,7 +105,8 @@ func Handshake(ctx context.Context, conn net.Conn, addr string, cfg *tls.Config)
 	}
 }
 
-// FormatOf returns the format of data.
+// FormatOf returns the format of data: json for one JSON value, text for other UTF-8
+// text, and binary for anything else.
 func FormatOf(data []byte) payload.Format {
 	switch {
 	case jsontext.Value(data).IsValid():

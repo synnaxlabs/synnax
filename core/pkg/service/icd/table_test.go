@@ -366,12 +366,8 @@ var _ = Describe("Import CSV", func() {
 	DescribeTable(
 		"Should reject an invalid table",
 		func(ctx SpecContext, csv, message string) {
-			Expect(
-				importFile(ctx, icd.ImportFormatCSV, []byte(csv)),
-			).Error().
-				To(MatchError(
-					"data: " + message + ": validation error",
-				))
+			Expect(importFile(ctx, icd.ImportFormatCSV, []byte(csv))).Error().
+				To(MatchError("data: " + message + ": validation error"))
 		},
 		Entry("an empty file", "", "missing header row"),
 		Entry("an unknown column", "message,field,start_bit,bit_length,Color\n",
@@ -487,9 +483,7 @@ var _ = Describe("Import XLSX", func() {
 			{"m", "a", "0", "8"},
 			{"m", "b", "x", "8"},
 		}
-		Expect(
-			importFile(ctx, icd.ImportFormatXLSX, toXLSX(rows)),
-		).Error().
+		Expect(importFile(ctx, icd.ImportFormatXLSX, toXLSX(rows))).Error().
 			To(MatchError(
 				`data: row 3, column start_bit: invalid integer "x": validation error`,
 			))

@@ -130,7 +130,7 @@ type Format = v0.Format
 const (
 	// FormatJSON is one JSON value.
 	FormatJSON Format = v0.FormatJSON
-	// FormatText is UTF-8 text that is not JSON.
+	// FormatText is UTF-8 text.
 	FormatText Format = v0.FormatText
 	// FormatBinary is raw bytes.
 	FormatBinary Format = v0.FormatBinary

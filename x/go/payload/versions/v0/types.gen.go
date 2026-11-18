@@ -84,7 +84,7 @@ type Format string
 const (
 	// FormatJSON is one JSON value.
 	FormatJSON Format = "json"
-	// FormatText is UTF-8 text that is not JSON.
+	// FormatText is UTF-8 text.
 	FormatText Format = "text"
 	// FormatBinary is raw bytes.
 	FormatBinary Format = "binary"

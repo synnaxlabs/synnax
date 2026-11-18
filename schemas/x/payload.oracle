@@ -292,7 +292,7 @@ Format enum {
         @doc value "is one JSON value."
     }
     text   = "text" {
-        @doc value "is UTF-8 text that is not JSON."
+        @doc value "is UTF-8 text."
     }
     binary = "binary" {
         @doc value "is raw bytes."
