@@ -45,7 +45,7 @@ var _ = Describe("Service", func() {
 			Rack:       svc.Rack.EmbeddedKey,
 			Name:       "T7-0001",
 			Serial:     serial,
-			Connection: device.ConnectionUsb,
+			Connection: device.ConnectionUSB,
 		}
 		for _, override := range overrides {
 			override(&b)
