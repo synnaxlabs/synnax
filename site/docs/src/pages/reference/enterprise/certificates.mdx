@@ -80,22 +80,17 @@ sudo security add-trusted-cert -d -r trustRoot \
   -k /Library/Keychains/System.keychain synnax-ca.crt
 ```
 
-The Console and browsers use the Keychain. A standalone Driver does not. For the Driver
-service, point it at the file in `/etc/synnax/driver.env`, then restart the service:
-
-```bash
-GRPC_DEFAULT_SSL_ROOTS_FILE_PATH=/path/to/synnax-ca.crt
-```
-
-For `synnax-driver start --standalone`, export the variable in the shell instead.
+The Console and browsers use the Keychain. The Driver does not. Run
+`sudo synnax-driver login --ca-cert /path/to/synnax-ca.crt`, then restart the service.
 
 </Fragment>
 
 </Platform.Tabs>
 
 <Note.Note variant="warning">
-  `GRPC_DEFAULT_SSL_ROOTS_FILE_PATH` replaces every certificate the Driver trusts. Set
-  it only for a Core with a self-signed certificate.
+  A CA certificate file given to the Driver replaces every certificate the Driver
+  trusts, and turns TLS on. Give one only for a Core with a certificate from your own
+  authority.
 </Note.Note>
 
 <Divider.Divider x />
