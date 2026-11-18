@@ -554,6 +554,7 @@ class TestEtherCATDevice:
     def test_device_auto_key_generation(self) -> None:
         """Test that Device auto-generates key if not provided."""
         device = sy.ethercat.Device(
+            rack=1,
             name="Test Device",
             network="eth0",
             position=1,
@@ -564,6 +565,7 @@ class TestEtherCATDevice:
     def test_device_location_format(self) -> None:
         """Test that device location is formatted as network:position."""
         device = sy.ethercat.Device(
+            rack=1,
             name="Test Device",
             network="enp3s0",
             position=5,
@@ -572,13 +574,14 @@ class TestEtherCATDevice:
 
     def test_device_default_position(self) -> None:
         """Test that Device puts the slave at the first bus position by default."""
-        device = sy.ethercat.Device(name="Test Device", network="eth0")
+        device = sy.ethercat.Device(rack=1, name="Test Device", network="eth0")
         assert device.properties["position"] == 1
         assert device.location == "eth0:1"
 
     def test_device_omits_unset_pdo_names(self) -> None:
         """Test that Device leaves out the PDO name of an entry that has none."""
         device = sy.ethercat.Device(
+            rack=1,
             name="Test Device",
             network="eth0",
             position=1,
@@ -700,6 +703,7 @@ class TestPDOEntry:
 def _create_el1008() -> sy.Device:
     """An EL1008-like slave: eight "Input" entries, one per PDO group."""
     return sy.ethercat.Device(
+        rack=1,
         name="EL1008",
         network="eth0",
         position=1,
@@ -806,6 +810,7 @@ class TestFindEntry:
     def test_repeated_address(self) -> None:
         """Should resolve once when groups repeat the same object."""
         slave = sy.ethercat.Device(
+            rack=1,
             name="EJ7342",
             input_pdos=[
                 sy.ethercat.PDOEntry(

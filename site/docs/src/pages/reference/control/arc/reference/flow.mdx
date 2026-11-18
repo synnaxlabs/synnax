@@ -37,8 +37,7 @@ tank_pt -> scale(k=6.895) -> tank_pt_kpa
 | `=>`     | Each new value that is true | `tank_pt > 500 => vent`     |
 
 A `=>` after a non-boolean value gives the warning
-[ARC2005](/reference/control/arc/reference/errors#arc2005). For when a transition fires,
-see
+[W2000](/reference/control/arc/reference/errors#w2000). For when a transition fires, see
 [conditions and transitions](/reference/control/arc/execution-model#conditions-and-transitions).
 
 <Divider.Divider x />
@@ -76,8 +75,10 @@ flow.
 | Routing table            | `-> { ... }`          | Runs an entry for each output. See [routing tables](#routing-tables). |
 | Inline stage or sequence | `=> sequence { ... }` | Starts an anonymous stage or sequence.                                |
 
-- A top-level variable is not a sink: `cannot reassign top-level variable 'peak'`.
-- A function name without parentheses is not a sink: `f is not a channel`. Write `f()`.
+- A top-level variable is not a sink:
+  `invalid assignment: cannot reassign top-level variable 'peak'`.
+- A function name without parentheses is not a sink:
+  `channel expected: f is not a channel`. Write `f()`.
 - `=> name` finds a stage or sequence with that name in the enclosing sequences, from
   the innermost out, then at the top level. A stage of a different sequence is not
   found: `undefined symbol: name`.
@@ -86,8 +87,9 @@ flow.
   [conditions and transitions](/reference/control/arc/execution-model#conditions-and-transitions).
 - `-> name` starts a stage or sequence on each new value, also a false one. `=> name`
   starts it only on a true value.
-- `next` outside a sequence fails with `'next' used outside of a sequence`. In the last
-  step, it fails with `'next' in last stage 'hold' has no next stage`.
+- `next` outside a sequence fails with
+  `invalid transition target: 'next' used outside of a sequence`. In the last step, it
+  fails with `invalid transition target: 'next' in last stage 'hold' has no next stage`.
 
 <Divider.Divider x />
 
@@ -129,7 +131,7 @@ For required parameters and defaults, see
 A routing table after a function with named outputs runs the entry of each output that
 fires. Each entry is `output: flow`. Commas between entries are necessary: a newline
 alone is a parse error. Use `->` in front of the table. A `=>` fails with
-`'=>' cannot feed a routing table, use '->'`.
+`invalid flow operator: '=>' cannot feed a routing table, use '->'`.
 
 ```arc channels="tank_pt, vent_vlv_cmd"
 tank_pt > 500.0 -> select() -> {
@@ -143,10 +145,10 @@ tank_pt > 500.0 -> select() -> {
 Each entry is a full flow, such as `true: 1 -> vent_vlv_cmd`, or an inline stage or
 sequence. The output starts the entry, but its value does not pass into the entry. An
 entry with only a target fails with
-`routing entry must be a full statement, e.g. 'true: true => next' to transition or 'true: false -> some_chan' to send false`.
+`invalid routing table: routing entry must be a full statement, e.g. 'true: true => next' to transition or 'true: false -> some_chan' to send false`.
 
 An inline stage or sequence has no name. It cannot use `next`:
-`'next' is not valid inside an inline routing case body`.
+`invalid transition target: 'next' is not valid inside an inline routing case body`.
 
 ```arc channels="tank_pt, vent_vlv_cmd"
 import time

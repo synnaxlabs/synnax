@@ -11,6 +11,7 @@ package flow
 
 import (
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/expression"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
@@ -53,8 +54,7 @@ func analyzeLiteralExpression(ctx acontext.Context[parser.IExpressionContext]) {
 		AST:  ctx.AST,
 	})
 	if err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-		return
+		panic(err)
 	}
 	scope.AutoName("constant_")
 }
@@ -75,8 +75,13 @@ func analyzeFmtStrExpression(
 	}
 	body, flags, ok := literal.StripQuotes(strTerm.GetText())
 	if !ok {
-		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
-			"invalid string literal: %s", strTerm.GetText()))
+		ctx.Diagnostics.Add(
+			codes.InvalidStringLiteral.Atf(
+				ctx.AST,
+				"invalid string literal: %s",
+				strTerm.GetText(),
+			),
+		)
 		return true
 	}
 	if !flags.Format {
@@ -84,7 +89,7 @@ func analyzeFmtStrExpression(
 	}
 	segs, err := literal.FmtStrSplit(body, flags)
 	if err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+		ctx.Diagnostics.Add(codes.InvalidStringLiteral.Wrap(err, ctx.AST))
 		return true
 	}
 	if !literal.FmtStrHasPlaceholder(segs) {
@@ -93,8 +98,7 @@ func analyzeFmtStrExpression(
 	fnScope, err := ctx.Scope.Root().
 		Add(ctx, symbol.Symbol{Kind: symbol.KindFunction, Type: t, AST: ctx.AST})
 	if err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-		return true
+		panic(err)
 	}
 	fnScope.AutoName("fmt_str_")
 	fnScope.SetLexicalResolver(ctx.Scope)
@@ -112,8 +116,7 @@ func analyzeComputedExpression(ctx acontext.Context[parser.IExpressionContext]) 
 		AST:  ctx.AST,
 	})
 	if err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-		return
+		panic(err)
 	}
 	fnScope = fnScope.AutoName("expression_")
 	// Set on the function scope, not the block: the compiler resolves the
@@ -125,8 +128,7 @@ func analyzeComputedExpression(ctx acontext.Context[parser.IExpressionContext]) 
 		AST:  ctx.AST,
 	})
 	if err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-		return
+		panic(err)
 	}
 	// Inferring in the body's scope gives the output and the body one type variable.
 	body := ctx.WithScope(blockScope)
@@ -178,8 +180,7 @@ func analyzeWASMCall(
 		AST:  ctx.AST,
 	})
 	if err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-		return
+		panic(err)
 	}
 	fnScope = fnScope.AutoName("expression_")
 	fnScope.SetLexicalResolver(enclosing)
@@ -188,8 +189,7 @@ func analyzeWASMCall(
 		AST:  ctx.AST,
 	})
 	if err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-		return
+		panic(err)
 	}
 	blockCtx := ctx.WithScope(blockScope)
 	args := inputArguments(blockCtx, ctx.AST)
@@ -251,8 +251,7 @@ func LiftVarReads[T antlr.ParserRuleContext](
 			Internal: true,
 			AST:      expr,
 		}); err != nil {
-			ctx.Diagnostics.Add(diagnostics.Error(err, expr))
-			return
+			panic(err)
 		}
 		fn.Type.Inputs = append(fn.Type.Inputs, types.Param{Name: name, Type: t})
 	}

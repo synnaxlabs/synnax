@@ -38,7 +38,7 @@ export default defineConfig({
         "vitest",
         /^@vitest\//,
         "react-hook-form",
-        "zod",
+        /^zod(\/|$)/,
         "@synnaxlabs/x",
         /^@synnaxlabs\/lyra\//,
         "@synnaxlabs/client",

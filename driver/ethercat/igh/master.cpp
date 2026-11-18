@@ -514,32 +514,32 @@ void Master::deactivate() {
     this->latest_inputless.clear();
 }
 
-x::errors::Error Master::receive() {
+const x::errors::Error &Master::receive() {
     this->latest_shortfall.reset();
     this->latest_inputless.clear();
     if (!this->activated)
-        return x::errors::Error(errors::CYCLIC_ERROR, "not activated");
+        return this->received = x::errors::Error(errors::CYCLIC_ERROR, "not activated");
 
     if (const int ret = this->api->master_receive(this->ec_master); ret != 0)
-        return x::errors::Error(
-            errors::CYCLIC_ERROR,
-            "failed to receive frames: " + reason(ret)
-        );
+        return this->received = x::errors::Error(
+                   errors::CYCLIC_ERROR,
+                   "failed to receive frames: " + reason(ret)
+               );
     uint32_t working_counter = 0;
     uint32_t expected = 0;
     size_t silent = 0;
     for (const auto &domain: this->domains) {
         if (const int ret = this->api->domain_process(domain.handle); ret != 0)
-            return x::errors::Error(
-                errors::CYCLIC_ERROR,
-                "failed to process a domain: " + reason(ret)
-            );
+            return this->received = x::errors::Error(
+                       errors::CYCLIC_ERROR,
+                       "failed to process a domain: " + reason(ret)
+                   );
         ec_domain_state_t state{};
         if (const int ret = this->api->domain_state(domain.handle, &state); ret != 0)
-            return x::errors::Error(
-                errors::CYCLIC_ERROR,
-                "failed to read a domain state: " + reason(ret)
-            );
+            return this->received = x::errors::Error(
+                       errors::CYCLIC_ERROR,
+                       "failed to read a domain state: " + reason(ret)
+                   );
         std::memcpy(this->inputs.data() + domain.offset, domain.data, domain.size);
         const uint32_t full = domain.share.inputs + domain.share.outputs;
         expected += full;
@@ -558,12 +558,19 @@ x::errors::Error Master::receive() {
     this->latest_shortfall = expected - working_counter;
     if (silent == this->domains.size()) {
         this->latest_inputless.clear();
-        return x::errors::Error(errors::WORKING_COUNTER_ERROR, "no slaves responded");
+        return this->received = x::errors::Error(
+                   errors::WORKING_COUNTER_ERROR,
+                   "no slaves responded"
+               );
     }
-    return x::errors::Error(
-        errors::WORKING_COUNTER_ERROR,
-        std::format("incomplete working counter: {} of {}", working_counter, expected)
-    );
+    return this->received = x::errors::Error(
+               errors::WORKING_COUNTER_ERROR,
+               std::format(
+                   "incomplete working counter: {} of {}",
+                   working_counter,
+                   expected
+               )
+           );
 }
 
 x::errors::Error Master::send() {

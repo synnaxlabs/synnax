@@ -87,6 +87,7 @@ var _ = Describe("OwnersMigration", func() {
 
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
+		StartRun(db.Run)
 		entries := []vis{
 			{Key: owned},
 			{Key: snapshot},

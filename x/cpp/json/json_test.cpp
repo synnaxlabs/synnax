@@ -48,6 +48,35 @@ TEST(testConfig, testParserFieldDoesnNotExist) {
     EXPECT_EQ(err["message"], "This field is required");
 }
 
+/// @brief it should accept a required field that holds a nonzero value.
+TEST(testConfig, testParserRequiredFieldNonzero) {
+    Parser parser(json{{"name", "dev"}, {"serial", 7}});
+    EXPECT_EQ(parser.required_field<std::string>("name"), "dev");
+    EXPECT_EQ(parser.required_field<std::uint32_t>("serial"), 7);
+    EXPECT_TRUE(parser.ok());
+}
+
+/// @brief it should report error when a required field holds its zero value.
+TEST(testConfig, testParserRequiredFieldZero) {
+    Parser parser(json{{"name", ""}, {"serial", 0}});
+    parser.required_field<std::string>("name");
+    parser.required_field<std::uint32_t>("serial");
+    ASSERT_EQ(parser.errors->size(), 2);
+    EXPECT_EQ(parser.errors->at(0)["path"], "name");
+    EXPECT_EQ(parser.errors->at(0)["message"], "This field is required");
+    EXPECT_EQ(parser.errors->at(1)["path"], "serial");
+}
+
+/// @brief it should report one error when a required field is missing or mistyped.
+TEST(testConfig, testParserRequiredFieldMissingOrMistyped) {
+    Parser parser(json{{"serial", "abc"}});
+    parser.required_field<std::string>("name");
+    parser.required_field<std::uint32_t>("serial");
+    ASSERT_EQ(parser.errors->size(), 2);
+    EXPECT_EQ(parser.errors->at(0)["path"], "name");
+    EXPECT_EQ(parser.errors->at(1)["path"], "serial");
+}
+
 /// @brief it should report error when field has invalid type.
 TEST(testConfig, testParserFieldHasInvalidType) {
     struct MyConfig {

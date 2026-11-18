@@ -86,6 +86,8 @@ class Master final : public master::Master {
     std::vector<uint16_t> latest_inputless;
     /// @brief what the latest check() returned.
     std::vector<slave::Health> latest_health;
+    /// @brief what the latest receive() returns.
+    x::errors::Error received;
 
 public:
     /// @brief constructs an IgH master with the given API and master index.
@@ -124,7 +126,7 @@ public:
 
     void deactivate() override;
 
-    x::errors::Error receive() override;
+    const x::errors::Error &receive() override;
 
     x::errors::Error send() override;
 

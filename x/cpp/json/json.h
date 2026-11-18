@@ -342,6 +342,22 @@ public:
         return get<T>(path, iter);
     }
 
+    /// @brief pulls the value at the given path like field, and also accumulates an
+    /// error when the value is the zero value of T, such as an empty string or 0.
+    /// @param path The JSON path to the field.
+    /// @returns The value at the given path, or a default-constructed T if not found.
+    template<typename T>
+    T required_field(const std::string &path) {
+        if (noop) return T();
+        const auto iter = find(path);
+        if (iter == config.end()) return field<T>(path);
+        const auto before = this->errors == nullptr ? 0 : this->errors->size();
+        T value = get<T>(path, iter);
+        const bool parsed = this->errors == nullptr || this->errors->size() == before;
+        if (parsed && value == T()) field_err(path, "This field is required");
+        return value;
+    }
+
     /// @brief attempts to pull the value at the provided path. If that path is not
     /// found, returns the default. Works for scalars, vectors, and maps.
     /// Note that this function will still accumulate an error if the path is found
