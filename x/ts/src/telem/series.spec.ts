@@ -2865,6 +2865,15 @@ describe("MultiSeries", () => {
       const data = multi.data;
       expect(data).toEqual(new Float32Array([1, 2, 3, 4, 5, 6]));
     });
+
+    it("should combine the bytes of variable length series", () => {
+      const a = new Series(["ab"]);
+      const b = new Series(["cd"]);
+      const multi = new MultiSeries([a, b]);
+      expect(
+        new Series({ data: multi.data, dataType: DataType.STRING }).toStrings(),
+      ).toEqual(["ab", "cd"]);
+    });
   });
 
   describe("timeRange", () => {

@@ -70,6 +70,28 @@ func unwrapPosition(pos protocol.Position) protocol.Position {
 	return pos
 }
 
+func unwrapPositions(r protocol.Range) protocol.Range {
+	return protocol.Range{Start: unwrapPosition(r.Start), End: unwrapPosition(r.End)}
+}
+
+// unwrapDiagnostics moves the positions of diags, from analysis of a parsed block, to
+// their places in the document. It modifies diags in place.
+func unwrapDiagnostics(diags diagnostics.Diagnostics) diagnostics.Diagnostics {
+	for i := range diags {
+		d := &diags[i]
+		d.Range = unwrapPositions(d.Range)
+		for j := range d.Notes {
+			d.Notes[j].Location.Range = unwrapPositions(d.Notes[j].Location.Range)
+		}
+		for _, fix := range d.Fixes {
+			for k := range fix.Edits {
+				fix.Edits[k].Range = unwrapPositions(fix.Edits[k].Range)
+			}
+		}
+	}
+	return diags
+}
+
 func (d *document) toDocRange(r protocol.Range) protocol.Range {
 	return protocol.Range{
 		Start: d.toDocPosition(r.Start),

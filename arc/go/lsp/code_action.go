@@ -132,21 +132,13 @@ func analyzedQuickFixes(
 			continue
 		}
 		for _, fix := range analyzed.Fixes {
-			edits := fix.Edits
-			if snap.IsBlock {
-				edits = slices.Clone(edits)
-				for i := range edits {
-					edits[i].Range.Start = unwrapPosition(edits[i].Range.Start)
-					edits[i].Range.End = unwrapPosition(edits[i].Range.End)
-				}
-			}
 			actions = append(actions, &protocol.CodeAction{
 				Title:       fix.Title,
 				Kind:        new(protocol.CodeActionKindQuickFix),
 				Diagnostics: []protocol.Diagnostic{diag},
 				IsPreferred: new(len(actions) == 0),
 				Edit: &protocol.WorkspaceEdit{
-					Changes: map[uri.URI][]protocol.TextEdit{snap.URI: edits},
+					Changes: map[uri.URI][]protocol.TextEdit{snap.URI: fix.Edits},
 				},
 			})
 		}
