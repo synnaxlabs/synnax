@@ -1312,6 +1312,19 @@ var _ = Describe("Vouched records", func() {
 			create(ctx, &dev)
 			Expect(writeAs(ctx, other.ResourceID(), setRack(dev.Key))).To(Succeed())
 		})
+
+		It(
+			"Should let a rack move a record that uses a certificate with no private key "+
+				"onto itself",
+			func(ctx SpecContext) {
+				certPEM, _ := certtestutil.NewPair()
+				dev := opcDevice(map[string]any{
+					"server_certificate": createCertificate(ctx, certPEM, "").String(),
+				})
+				create(ctx, &dev)
+				Expect(writeAs(ctx, other.ResourceID(), setRack(dev.Key))).To(Succeed())
+			},
+		)
 	})
 })
 
