@@ -84,6 +84,13 @@ public:
         ec_domain_state_t state{.working_counter = 0, .wc_state = EC_WC_COMPLETE};
     };
 
+    /// @brief an object of the CoE dictionary that IgH read, with its entries by
+    /// sub-index.
+    struct DictionaryObject {
+        ObjectInfo info;
+        std::map<uint8_t, EntryInfo> entries;
+    };
+
     /// @brief a slave on the bus.
     struct Slave {
         /// @brief the identity and name that master_get_slave reads, with the state and
@@ -112,6 +119,10 @@ public:
         bool state_unreadable = false;
         /// @brief whether master_get_pdo fails for the slave.
         bool layout_unreadable = false;
+        /// @brief the CoE dictionary that IgH read from the slave, in list order.
+        std::vector<DictionaryObject> dictionary;
+        /// @brief how many entries entry_info looked up.
+        mutable size_t entry_reads = 0;
         /// @brief the SII from word 0.
         std::vector<uint16_t> sii;
         /// @brief what sii_read returns for the slave, when not 0.
@@ -353,6 +364,7 @@ public:
         if (slave.reads_to_pre_op >= 0) slave.reads_to_pre_op--;
         *info = slave.info;
         info->sync_count = static_cast<uint8_t>(slave.syncs.size());
+        info->sdo_count = static_cast<uint16_t>(slave.dictionary.size());
         return 0;
     }
 
@@ -651,6 +663,38 @@ public:
         if (slave.sii_result != 0) return slave.sii_result;
         if (words.empty() || offset + words.size() > slave.sii.size()) return -EINVAL;
         std::copy_n(slave.sii.begin() + offset, words.size(), words.begin());
+        return 0;
+    }
+
+    int object_info(
+        unsigned int,
+        const uint16_t position,
+        const uint16_t list_position,
+        ObjectInfo &info
+    ) const override {
+        const auto &dictionary = this->slaves.at(position).dictionary;
+        if (list_position >= dictionary.size()) return -EINVAL;
+        info = dictionary[list_position].info;
+        return 0;
+    }
+
+    int entry_info(
+        unsigned int,
+        const uint16_t position,
+        const uint16_t index,
+        const uint8_t sub_index,
+        EntryInfo &info
+    ) const override {
+        const auto &slave = this->slaves.at(position);
+        slave.entry_reads++;
+        const auto object = std::ranges::find_if(
+            slave.dictionary,
+            [index](const DictionaryObject &o) { return o.info.index == index; }
+        );
+        if (object == slave.dictionary.end()) return -EINVAL;
+        const auto entry = object->entries.find(sub_index);
+        if (entry == object->entries.end()) return -EINVAL;
+        info = entry->second;
         return 0;
     }
 
