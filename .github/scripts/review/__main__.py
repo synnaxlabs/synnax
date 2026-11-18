@@ -13,6 +13,8 @@
     python3 -m review post <review.json>
     python3 -m review carry
     python3 -m review dismiss
+    python3 -m review judge <judgments.json>
+    python3 -m review rule <judgments.json>
     python3 -m review compare <days> <records>
 
 Run it from `.github/scripts`. Environment: GH_TOKEN, GITHUB_REPOSITORY, PR, HEAD_SHA,
@@ -30,7 +32,10 @@ also takes KEY, the external ID of the check run, `<pr>:<base ref>`. `dismiss` a
 COMMENT, a reply on the thread of one of the bot's findings, or a comment that dismisses
 a finding outside the diff: an `@sedosaur dismiss` from someone with write access
 dismisses the finding, and scores the head 5/5 when no finding of its review is left.
-It also takes KEY. `compare` takes only GH_TOKEN and GITHUB_REPOSITORY,
+It also takes KEY, and prints `true` when a rebuttal on a thread waits for `judge`.
+`judge` takes POLICY_DIR, HEAD_DIR, and CLAUDE_CODE_OAUTH_TOKEN as `run` does, judges
+each rebuttal with Claude Code, and writes the judgments. `rule` posts them, and takes
+KEY. `compare` takes only GH_TOKEN and GITHUB_REPOSITORY,
 runs in a clone with full history, and prints a Markdown comparison of the records of
 the last days with Greptile's reviews of the same commits. It keeps each record it
 downloads in the records directory, and reads it from there on the next run.
@@ -49,6 +54,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from review import (
+    Judgment,
     PullRequest,
     Target,
     authority,
@@ -57,11 +63,13 @@ from review import (
     dismiss,
     dismissals,
     gh,
+    judge,
     load,
     outside_findings,
     parse,
     post,
     reviewed,
+    rule,
     run,
     threads,
 )
@@ -107,7 +115,7 @@ def claude(args: list[str], stdin: str, cwd: Path) -> Iterator[str]:
 def review(target: Target, path: Path, *, replay: bool) -> None:
     config = load(Path(os.environ["POLICY_DIR"]))
     head = Path(os.environ["HEAD_DIR"]).resolve()
-    excluded = [f":(glob,exclude){g}" for g in config.excluded]
+    excluded = _excluded(config.excluded)
     diff = _diff(head, target.base, target.head, excluded)
     earlier = [c for c in reviewed(target, gh) if c != target.head]
     since = next((c for c in earlier if _before(head, c, target.head)), None)
@@ -180,6 +188,27 @@ def review(target: Target, path: Path, *, replay: bool) -> None:
     path.write_text(json.dumps(record))
 
 
+def judgments(target: Target, path: Path) -> None:
+    config = load(Path(os.environ["POLICY_DIR"]))
+    head = Path(os.environ["HEAD_DIR"]).resolve()
+    diff = _diff(head, target.base, target.head, _excluded(config.excluded))
+    with tempfile.TemporaryDirectory() as workdir:
+        found = judge(
+            config,
+            target,
+            gh,
+            head=head,
+            diff=diff,
+            claude=claude,
+            workdir=Path(workdir),
+        )
+    path.write_text(json.dumps([dataclasses.asdict(j) for j in found]))
+
+
+def _excluded(globs: list[str]) -> list[str]:
+    return [f":(glob,exclude){g}" for g in globs]
+
+
 def _diff(head: Path, base: str, commit: str, excluded: list[str]) -> str:
     """Returns the diff from the merge base of the base and a commit to the commit."""
     return subprocess.run(
@@ -241,7 +270,15 @@ def _before(head: Path, commit: str, tip: str) -> bool:
 
 
 def main(argv: list[str]) -> None:
-    args = {"run": 2, "post": 2, "carry": 1, "dismiss": 1, "compare": 3}
+    args = {
+        "run": 2,
+        "post": 2,
+        "carry": 1,
+        "dismiss": 1,
+        "judge": 2,
+        "rule": 2,
+        "compare": 3,
+    }
     if not argv or args.get(argv[0]) != len(argv):
         sys.exit(__doc__)
     env = os.environ
@@ -265,10 +302,16 @@ def main(argv: list[str]) -> None:
         print(str(carry(target, gh, key=env["KEY"])).lower())
         return
     if argv[0] == "dismiss":
-        dismiss(target, gh, comment=int(env["COMMENT"]), key=env["KEY"])
+        waits = dismiss(target, gh, comment=int(env["COMMENT"]), key=env["KEY"])
+        print(str(waits).lower())
         return
     path = Path(argv[1])
-    if argv[0] == "run":
+    if argv[0] == "judge":
+        judgments(target, path)
+    elif argv[0] == "rule":
+        found = [Judgment(**j) for j in json.loads(path.read_text())]
+        rule(target, gh, found, key=env["KEY"])
+    elif argv[0] == "run":
         review(target, path, replay=env.get("REPLAY") == "true")
     else:
         post(parse(json.loads(path.read_text())["review"]), target=target, gh=gh)

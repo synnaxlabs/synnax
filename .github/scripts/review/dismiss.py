@@ -12,7 +12,6 @@ finding on a pull request, with a reply of `@sedosaur dismiss` on the thread of 
 finding, or with a comment of `@sedosaur dismiss` and its title on the pull request."""
 
 import re
-from typing import Any
 
 from review.post import (
     GH,
@@ -22,10 +21,13 @@ from review.post import (
     answer,
     answers,
     authority,
+    by_bot,
     command,
     comments,
     issue_comment,
     outside_findings,
+    pending,
+    rebutted,
     reply,
     rescore,
     resolve,
@@ -45,21 +47,23 @@ UNNAMED = (
 REFUSED = "Only someone with write access to the repository can dismiss a finding."
 DONE = "Dismissed. Later reviews of this pull request will not report it."
 PASSED = (
-    " Every finding of the review of the head is dismissed, so the head scores 5/5."
+    " Every finding of the review of the head is dismissed or withdrawn, so the head "
+    "scores 5/5."
 )
 _QUOTES = "\"'\u201c\u201d\u2018\u2019"
 _PATH = re.compile(r"(?:^|\s)path:(\S+)")
 
 
-def dismiss(t: Target, gh: GH, *, comment: int, key: str) -> None:
+def dismiss(t: Target, gh: GH, *, comment: int, key: str) -> bool:
     """Answers a reply on the thread of one of the bot's findings, or a comment on the
     pull request, and each reply and comment on the pull request that has no answer
     yet, so a run also does the work of a run that never finished. A writer's
-    `@sedosaur dismiss` reply dismisses the finding of its thread. An open thread whose
-    replies hold no dismiss command gets the usage once. A writer's comment binds to the
-    one open finding its title names, and the answer records that finding. Each
-    dismissal resolves the finding's thread. When every finding of the newest review of
-    the head is then dismissed, a new check run scores the head 5/5.
+    `@sedosaur dismiss` reply dismisses the finding of its thread. A rebuttal waits for
+    `judge`. An open thread with other replies gets the usage once. A writer's comment
+    binds to the one open finding its title names, and the answer records that finding.
+    Each dismissal resolves the finding's thread. When every finding of the newest
+    review of the head is then dismissed, a new check run scores the head 5/5. Returns
+    whether a rebuttal waits for `judge`.
 
     :param comment: The database ID of the reply or the comment.
     :param key: The external ID of the review's check run, `<pr>:<base ref>`.
@@ -75,17 +79,22 @@ def dismiss(t: Target, gh: GH, *, comment: int, key: str) -> None:
     _sweep_comments(t, gh, found, can)
     if rescore(t, gh, found, key, can):
         _comment(t, gh, PASSED.strip())
+    return any(rebutted(t, th, can) for th in threads(t, gh))
 
 
 def _sweep_threads(t: Target, gh: GH, found: list[Thread], can: Authority) -> None:
     """Answers each dismissal reply that no reply of the bot follows, and gives the
-    usage to each open thread that has other replies only."""
+    usage to each open thread that has other replies only and no rebuttal."""
     for th in found:
-        if not th.resolved and _needs_usage(t, th):
+        if not th.resolved and _needs_usage(t, th, can):
             reply(gh, th, USAGE)
         for i, r in enumerate(th.replies):
             later = th.replies[i + 1 :]
-            if _by(t, r) or command(r["body"]) is None or any(_by(t, c) for c in later):
+            if (
+                by_bot(t, r)
+                or command(r["body"]) is None
+                or any(by_bot(t, c) for c in later)
+            ):
                 continue
             if not can(r):
                 reply(gh, th, REFUSED)
@@ -94,12 +103,13 @@ def _sweep_threads(t: Target, gh: GH, found: list[Thread], can: Authority) -> No
             resolve(gh, th)
 
 
-def _needs_usage(t: Target, th: Thread) -> bool:
-    people = [r for r in th.replies if not _by(t, r)]
+def _needs_usage(t: Target, th: Thread, can: Authority) -> bool:
+    replies = pending(t, th)
     return (
-        bool(people)
-        and all(command(r["body"]) is None for r in people)
-        and not any(_by(t, r) and r["body"] == USAGE for r in th.replies)
+        bool(replies)
+        and all(command(r["body"]) is None for r in replies)
+        and not rebutted(t, th, can)
+        and not any(by_bot(t, r) and r["body"] == USAGE for r in th.replies)
     )
 
 
@@ -124,10 +134,6 @@ def _sweep_comments(t: Target, gh: GH, found: list[Thread], can: Authority) -> N
             _comment(t, gh, answer(record | {"reason": reason}, DONE))
             if (th := still.get((path, title))) is not None:
                 resolve(gh, th)
-
-
-def _by(t: Target, reply: dict[str, Any]) -> bool:
-    return (reply["author"] or {}).get("login") == t.bot
 
 
 def _named(

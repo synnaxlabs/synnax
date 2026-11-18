@@ -61,6 +61,9 @@ REPLY = """mutation($t: ID!, $b: String!) {
     comment { id }
   }
 }"""
+BLOB = """query($o: String!, $r: String!, $e: String!) {
+  repository(owner: $o, name: $r) { object(expression: $e) { oid } }
+}"""
 RESOLVE = """mutation($t: ID!) {
   resolveReviewThread(input: {threadId: $t}) { thread { id } }
 }"""
@@ -75,11 +78,14 @@ COMMAND = re.compile(r"@sedosaur\s+dismiss\b", re.I)
 WRITE = {"admin", "write"}
 """The repository permissions that can dismiss a finding. GitHub reports maintain as
 write."""
-DISMISSED = "Someone with write access dismissed every finding of the review."
+AGENTS = frozenset({"synnax-claude-code", "synnax-codex"})
+"""The logins of the agents whose rebuttals the bot judges."""
+DISMISSED = "Every finding of the review is dismissed or withdrawn."
 SETTLED = "The review of {head} no longer reports this finding."
 ANSWER_START = "<!-- sedosaur_answer "
 ANSWER_END = " -->"
 # The REST fields of a comment, in the shape that GraphQL serves.
+_FIXED = re.compile(r"(?:\*agent reply\.\*\s*)?fixed (?:in|by)\b", re.I)
 _COMMENT = (
     "{id, login: .user.login, author: {__typename: .user.type, login: .user.login}, "
     "body}"
@@ -349,16 +355,40 @@ def dismissed(found: list[Thread], can: Authority) -> list[Dismissal]:
     return out
 
 
+def withdrawn(t: Target, gh: GH, found: list[Thread]) -> list[Dismissal]:
+    """Returns each finding that the bot withdrew on its thread in the threads after a
+    rebuttal, while the finding's file at the head is the file the bot judged."""
+    out: list[Dismissal] = []
+    for th in found:
+        records = [
+            _record(c["body"])
+            for c in th.replies
+            if by_bot(t, c) and c["body"].startswith(ANSWER_START)
+        ]
+        records = [r for r in records if r.get("withdrawn")]
+        if records and records[-1]["blob"] == blob(t, gh, t.head, th.path):
+            reason = records[-1]["reason"]
+            out.append(
+                Dismissal(path=th.path, title=th.title, reason=reason, withdrawn=True)
+            )
+    return out
+
+
 def dismissals(
     t: Target, gh: GH, found: list[Thread], can: Authority
 ) -> list[Dismissal]:
-    """Returns each finding that someone with write access dismissed: on its thread in
-    the threads, or with a comment on the pull request that the bot answered and bound
-    to a finding."""
+    """Returns each finding that someone with write access dismissed, on its thread in
+    the threads or with a comment on the pull request that the bot answered and bound
+    to a finding, and each finding that the bot withdrew and that still holds."""
     bound = [a for a in answers(t, comments(t, gh)) if "path" in a]
-    return dismissed(found, can) + [
-        Dismissal(path=a["path"], title=a["title"], reason=a["reason"]) for a in bound
-    ]
+    return (
+        dismissed(found, can)
+        + [
+            Dismissal(path=a["path"], title=a["title"], reason=a["reason"])
+            for a in bound
+        ]
+        + withdrawn(t, gh, found)
+    )
 
 
 def answers(t: Target, found: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -366,10 +396,60 @@ def answers(t: Target, found: list[dict[str, Any]]) -> list[dict[str, Any]]:
     comments on the pull request. A record holds the `comment` it answers and, when the
     comment dismissed a finding, its `path`, `title`, and `reason`."""
     return [
-        json.loads(c["body"][len(ANSWER_START) :].split(ANSWER_END)[0])
+        _record(c["body"])
         for c in found
         if c["login"] == f"{t.bot}[bot]" and c["body"].startswith(ANSWER_START)
     ]
+
+
+def _record(body: str) -> dict[str, Any]:
+    data: dict[str, Any] = json.loads(body[len(ANSWER_START) :].split(ANSWER_END)[0])
+    return data
+
+
+def by_bot(t: Target, comment: dict[str, Any]) -> bool:
+    """Reports whether the bot wrote a comment in the shape that GraphQL serves."""
+    return (comment["author"] or {}).get("login") == t.bot
+
+
+def pending(t: Target, th: Thread) -> list[dict[str, Any]]:
+    """Returns the replies of a thread after the last reply of the bot."""
+    last = max((i for i, r in enumerate(th.replies) if by_bot(t, r)), default=-1)
+    return th.replies[last + 1 :]
+
+
+def rebutted(t: Target, th: Thread, can: Authority) -> bool:
+    """Reports whether an open thread waits for the bot to judge a rebuttal: a reply
+    after the bot's last one, from someone with write access or an agent, that is not a
+    note of a fix. A dismiss command among those replies takes precedence."""
+    replies = pending(t, th)
+    if th.resolved or any(command(r["body"]) is not None for r in replies):
+        return False
+    return any(
+        (can(r) or (r["author"] or {}).get("login") in AGENTS)
+        and not _FIXED.match(_unquoted(r["body"]).strip())
+        for r in replies
+    )
+
+
+def blob(t: Target, gh: GH, commit: str, path: str) -> str | None:
+    """Returns the ID of the blob of a file at a commit, or None when it has none."""
+    owner, name = t.repo.split("/")
+    out = gh(
+        "api",
+        "graphql",
+        "-f",
+        f"query={BLOB}",
+        "-f",
+        f"o={owner}",
+        "-f",
+        f"r={name}",
+        "-f",
+        f"e={commit}:{path}",
+        "--jq",
+        ".data.repository.object.oid",
+    ).strip()
+    return None if out in ("", "null") else out
 
 
 def answer(record: dict[str, Any], text: str) -> str:
@@ -382,10 +462,14 @@ def answer(record: dict[str, Any], text: str) -> str:
 def command(body: str) -> str | None:
     """Returns the text of a reply beside the dismiss command, or None when the reply
     holds no command. Quoted lines do not count."""
-    text = "\n".join(r for r in body.splitlines() if not r.lstrip().startswith(">"))
+    text = _unquoted(body)
     if not COMMAND.search(text):
         return None
     return COMMAND.sub("", text).strip().lstrip(",:;").strip()
+
+
+def _unquoted(body: str) -> str:
+    return "\n".join(r for r in body.splitlines() if not r.lstrip().startswith(">"))
 
 
 def authority(t: Target, gh: GH) -> Authority:
