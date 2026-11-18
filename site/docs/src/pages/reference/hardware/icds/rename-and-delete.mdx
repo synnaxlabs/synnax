@@ -106,3 +106,8 @@ remove a field, click <Icon.Close /> at the end of its line in the fields table.
 
 A task that reads a removed message shows "Message not found" in place of the message,
 and it does not deploy. Remove that message from the task to deploy it again.
+
+When you open a task, the Console drops the binding of each removed field. After you
+deploy the task again, the channel of that field gets no new data. A task that code
+configures with a binding of a removed field does not deploy, and the error says that
+the field does not exist in the message.
