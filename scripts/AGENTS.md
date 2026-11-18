@@ -50,7 +50,8 @@ Prettier (TS) and Ruff (Python) run via each toolchain's own CLI, not a repo scr
 - `pack_ts.sh <package> <dir>` — builds and packs `@synnaxlabs/<package>` and its Synnax
   dependencies, then installs it in a new project in `<dir>`.
   `check_declarations_ts.sh <package> <dir>` then runs `tsc` on that project with
-  `skipLibCheck` off, with `bundler` and `nodenext` resolution.
+  `skipLibCheck` off, with `bundler` and `nodenext` resolution, and with the oldest
+  supported TypeScript (pinned in the script) and the repo's TypeScript.
 
 ## Copyright headers
 

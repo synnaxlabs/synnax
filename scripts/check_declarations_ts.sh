@@ -13,13 +13,17 @@
 #
 # Type-checks the declaration files of each entry point of @synnaxlabs/<package>,
 # installed in <directory> by pack_ts.sh, as a strict consumer with skipLibCheck off
-# sees them. It checks once with the bundler module resolution and once with nodenext.
+# sees them. It checks with the bundler and nodenext module resolutions, each with the
+# oldest supported TypeScript and with the repo's TypeScript.
 
 set -euo pipefail
 
 package=$1
 work=$(cd "$2" && pwd)
 repo=$(cd "$(dirname "$0")/.." && pwd)
+
+# The oldest TypeScript less than two years old. Move up a minor when it turns two.
+oldest=5.7.3
 
 manifest=$work/node_modules/@synnaxlabs/$package/package.json
 
@@ -31,6 +35,7 @@ console.log(Object.entries(peers).map(([name, range]) => name + "@" + range).joi
 if [ ${#peers[@]} -gt 0 ]; then
     pnpm --dir "$work" add --reporter=silent "${peers[@]}"
 fi
+pnpm --dir "$work" add --reporter=silent "typescript@$oldest"
 
 # Wildcard exports such as ./dist/* name files, not entry points.
 node -e '
@@ -49,6 +54,7 @@ for resolution in bundler nodenext; do
     "strict": true,
     "skipLibCheck": false,
     "noEmit": true,
+    "target": "ES2024",
     "lib": ["ES2024", "DOM"],
     "module": "$module",
     "moduleResolution": "$resolution"
@@ -56,7 +62,9 @@ for resolution in bundler nodenext; do
   "files": ["index.ts"]
 }
 EOF
-    echo "Checking @synnaxlabs/$package with moduleResolution $resolution"
+    echo "Checking @synnaxlabs/$package, $resolution, TypeScript $oldest"
+    "$work/node_modules/.bin/tsc" --project "$work/tsconfig.json"
+    echo "Checking @synnaxlabs/$package, $resolution, the repo's TypeScript"
     pnpm --dir "$repo" --filter "@synnaxlabs/$package" exec tsc \
         --project "$work/tsconfig.json"
 done
