@@ -117,7 +117,8 @@ jobs:
 
         Your area is `${{ matrix.area }}`: ${{ matrix.paths }}.
 
-        The reviewer for a `review/human` PR is `pjdotson`.
+        The reviewer for a `review/human` PR is `${{ vars.AGENT_REVIEWER }}`.
+        End each PR body with the line `Bug hunt run ${{ github.run_id }}`.
       agent: ${{ vars.AGENT_DEFAULT || 'claude' }}
       output: report
       timeout-minutes: 240
@@ -137,7 +138,8 @@ jobs:
     env:
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NIGHTLY_WEBHOOK_URL }}
     steps:
-      # The agents open their own PRs, so the run finds them by branch and start time.
+      # The agents open their own PRs, so the run finds them by the run ID each PR body
+      # ends with. Every attempt of the run lists them all.
       - name: Post the PRs the run opened
         if: env.SLACK_WEBHOOK_URL != ''
         env:
@@ -147,13 +149,12 @@ jobs:
             ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{
             github.run_id }}
         run: |
-          started=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
-            --jq .run_started_at)
           gh pr list --repo "$GITHUB_REPOSITORY" --state all --limit 500 \
-            --search "head:agent/bug-hunt- created:>=$started" \
+            --search "\"Bug hunt run $GITHUB_RUN_ID\" in:body" \
             --json number,title,url,labels > prs.json
           jq -r --arg result "$RESULT" --arg run "$RUN_URL" '
-            def line: "• <\(.url)|#\(.number)> \(.title)";
+            def esc: gsub("&"; "&amp;") | gsub("<"; "&lt;") | gsub(">"; "&gt;");
+            def line: "• <\(.url)|#\(.number)> \(.title | esc)";
             def tier($t): map(select(any(.labels[]; .name == $t)));
             (tier("review/human")) as $human
             | (tier("review/bot")) as $bot
@@ -161,7 +162,8 @@ jobs:
               as $none
             | (if $result == "success" then "Every area finished."
                else "Some areas did not finish (\($result))." end) as $areas
-            | ["*Bug hunt*: \(length) PRs opened. \($areas) <\($run)|Run>"]
+            | ["*Bug hunt*: \(length) PRs opened. \($areas) <\($run)|Run>",
+               "Label - Classify can still raise a tier and request a review."]
             + (if ($human | length) > 0
                then ["", "*Needs your review*"] + ($human | map(line)) else [] end)
             + (if ($none | length) > 0

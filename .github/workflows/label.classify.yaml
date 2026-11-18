@@ -91,4 +91,5 @@ jobs:
           GH_TOKEN: ${{ steps.token.outputs.token }}
           HEAD_SHA: ${{ inputs.head_sha }}
           PR: ${{ inputs.pr }}
+          REVIEWER: ${{ vars.AGENT_REVIEWER }}
         run: python3 .github/scripts/classify.py "$RUNNER_TEMP/results"
