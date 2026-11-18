@@ -30,6 +30,7 @@ import {
   commitTextEdit,
   createConsoleWrapper,
   createTestClientWithGrants,
+  dragOnto,
   HaulProvider,
   openContextMenu,
   uniqueName,
@@ -78,13 +79,6 @@ const deleted = async (retrieve: () => Promise<unknown>): Promise<boolean> => {
 
 const findColor = async (name: string): Promise<HTMLElement> =>
   await screen.findByRole("option", { name });
-
-const dragOnto = (from: HTMLElement, to: HTMLElement): void => {
-  fireEvent.dragStart(from);
-  fireEvent.dragOver(to);
-  fireEvent.drop(to);
-  fireEvent.dragEnd(from);
-};
 
 /** Names the colors in the palette by position, with any that have none last. */
 const namesInOrder = async (palette: group.Group): Promise<string[]> =>

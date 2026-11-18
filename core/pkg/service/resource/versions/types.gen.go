@@ -82,6 +82,8 @@ const (
 	TypeColor Type = v0.TypeColor
 	// TypeICD identifies an interface control document.
 	TypeICD Type = v0.TypeICD
+	// TypeEnumeration identifies an enumeration.
+	TypeEnumeration Type = v0.TypeEnumeration
 )
 
 // ID is a unique identifier for a Resource. An example:

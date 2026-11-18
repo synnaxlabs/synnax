@@ -463,10 +463,9 @@ Pluto draws `entry` paint from the start, so no migrated symbol changes its look
 moves the symbol editor and the clients to the new shape, and phase 3 redesigns the
 editor. Until phase 2 deletes them, it keeps `variant`, which picks the node variant on
 placement, and today's state shape, under its own name, for `state_overrides`. Phase 2
-ships in one release with RFC 0112 phase 22, after RFC 0112 phase 21 deletes the
-enumeration editor flag, and needs RFC 0112 phase 23, so the schematic multi-edit panel
-can edit the `color` of a `symbol` node. Each family is redesigned after phase 5 in its
-own PR.
+ships in one release with RFC 0112 phase 21, after the RFC 0112 enumeration editor and
+picker merge, and needs RFC 0112 phase 22, so the schematic multi-edit panel can edit
+the `color` of a `symbol` node. Each family is redesigned after phase 5 in its own PR.
 
 Phase 2 is one cutover of the stored node shape: a node variant with channel references,
 its checks with the Core list of built-ins and its route, the removal of the bindings

@@ -7,15 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export const copy = <T>(obj: T): T => {
-  try {
-    return structuredClone(obj);
-  } catch (_) {
-    console.warn(
-      "Failed to deep copy object, falling back to JSON.parse(JSON.stringify)",
-      obj,
-    );
-    console.trace();
-    return JSON.parse(JSON.stringify(obj));
-  }
-};
+/**
+ * @returns a deep copy of the value, made with `structuredClone`.
+ * @throws {DOMException} if the value holds something that cannot be cloned, such as a
+ * function or a proxy. Copy an Immer draft through Immer's `current`.
+ */
+export const copy = <T>(obj: T): T => structuredClone(obj);

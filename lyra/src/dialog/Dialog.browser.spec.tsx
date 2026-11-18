@@ -230,10 +230,12 @@ const Chain = (): ReactElement => {
 
 describe("Dialog", () => {
   describe("shadow trigger", () => {
-    const renderShadow = async (): Promise<Element> => {
+    const renderShadow = async (disabled = false): Promise<Element> => {
       const { getByText } = await renderThemed(
         <Dialog.Frame>
-          <Dialog.Trigger variant="shadow">Value</Dialog.Trigger>
+          <Dialog.Trigger variant="shadow" disabled={disabled}>
+            Value
+          </Dialog.Trigger>
           <Dialog.Dialog>Content</Dialog.Dialog>
         </Dialog.Frame>,
       );
@@ -246,10 +248,45 @@ describe("Dialog", () => {
       expect(computed(trigger, "border-top-color")).toBe(resolve("transparent"));
     });
 
-    it("should show no caret, even on hover", async () => {
+    const caretOf = (trigger: Element): Element => {
+      const caret = trigger.querySelector(`.${CSS.B("caret-animated")}`);
+      assert(caret != null);
+      return caret;
+    };
+
+    it("should hide its caret at rest", async () => {
+      const trigger = await renderShadow();
+      expect(computed(caretOf(trigger), "opacity")).toBe("0");
+    });
+
+    it("should show its caret on hover, in the color of every caret", async () => {
       const trigger = await renderShadow();
       await userEvent.hover(trigger);
-      expect(trigger.querySelector(`.${CSS.B("caret-animated")}`)).toBeNull();
+      await expect.poll(() => computed(caretOf(trigger), "opacity")).toBe("1");
+      expect(computed(caretOf(trigger), "color")).toBe(resolve("var(--pluto-gray-l9)"));
+    });
+
+    it("should show its caret on keyboard focus", async () => {
+      const trigger = await renderShadow();
+      assert(trigger instanceof HTMLElement);
+      // Safari's Tab skips buttons, so a key press marks the focus as keyboard focus.
+      await userEvent.keyboard("{Shift}");
+      trigger.focus();
+      expect(document.activeElement).toBe(trigger);
+      await expect.poll(() => computed(caretOf(trigger), "opacity")).toBe("1");
+    });
+
+    it("should show its caret while open", async () => {
+      const trigger = await renderShadow();
+      await userEvent.click(trigger);
+      await userEvent.unhover(trigger);
+      await expect.poll(() => computed(caretOf(trigger), "opacity")).toBe("1");
+    });
+
+    it("should keep its caret hidden on hover while disabled", async () => {
+      const trigger = await renderShadow(true);
+      await userEvent.hover(trigger);
+      expect(computed(caretOf(trigger), "opacity")).toBe("0");
     });
   });
 

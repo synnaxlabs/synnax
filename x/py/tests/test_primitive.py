@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from x.primitive import _Primitive, is_primitive
+from x.primitive import is_primitive
 
 
 class TestIsPrimitive:
@@ -31,13 +31,3 @@ class TestIsPrimitive:
 
     def test_dict_is_not_primitive(self) -> None:
         assert is_primitive({"a": 1}) is False
-
-
-class TestPrimitiveType:
-    def test_accepts_str(self) -> None:
-        v: _Primitive = "hello"
-        assert v == "hello"
-
-    def test_accepts_none(self) -> None:
-        v: _Primitive = None
-        assert v is None
