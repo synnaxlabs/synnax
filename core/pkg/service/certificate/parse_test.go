@@ -69,7 +69,10 @@ var _ = Describe("ParseDetails", func() {
 		).To(Equal("CN=Leaf"))
 	})
 
-	It("Should read a DER certificate that holds PEM text as DER", func() {
+	// derWithPEM returns a DER certificate for CN=Outer that holds the PEM of leaf in
+	// an extension.
+	derWithPEM := func() []byte {
+		GinkgoHelper()
 		key := newKey()
 		tmpl := &x509.Certificate{
 			SerialNumber: big.NewInt(1),
@@ -81,10 +84,21 @@ var _ = Describe("ParseDetails", func() {
 				Value: []byte("\n" + leaf),
 			}},
 		}
-		der := MustSucceed(
+		return MustSucceed(
 			x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key),
 		)
-		Expect(MustSucceed(certificate.ParseDetails(der)).Subject).To(Equal("CN=Outer"))
+	}
+
+	It("Should read a DER certificate that holds PEM text as DER", func() {
+		Expect(
+			MustSucceed(certificate.ParseDetails(derWithPEM())).Subject,
+		).To(Equal("CN=Outer"))
+	})
+
+	It("Should fail for a cut DER certificate that holds PEM text", func() {
+		der := derWithPEM()
+		Expect(certificate.ParseDetails(der[:len(der)-16])).Error().
+			To(MatchError("x509: malformed certificate"))
 	})
 
 	It("Should read PEM whose first line starts with 0", func() {
