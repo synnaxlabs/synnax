@@ -235,18 +235,11 @@ export const withControlHeld = (run: () => void): void => {
   }
 };
 
-/** Drags one element onto another. jsdom has no DataTransfer, so a map stands in. */
+/** Drags one element onto another, with one DataTransfer carried through the drag. */
 export const dragOnto = (from: HTMLElement, to: HTMLElement): void => {
-  const data = new Map<string, string>();
-  const dataTransfer = {
-    effectAllowed: "none",
-    get types() {
-      return [...data.keys()];
-    },
-    setData: (type: string, value: string) => data.set(type, value),
-    getData: (type: string) => data.get(type) ?? "",
-  };
+  const dataTransfer = new DataTransfer();
   fireEvent.dragStart(from, { dataTransfer });
   fireEvent.dragOver(to, { dataTransfer });
   fireEvent.drop(to, { dataTransfer });
+  fireEvent.dragEnd(from, { dataTransfer });
 };

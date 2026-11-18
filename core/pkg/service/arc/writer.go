@@ -231,40 +231,13 @@ func (w Writer) UpdateTask(
 		}
 		return nil, w.clearRack(ctx, existing)
 	}
-	var (
-		a   Arc
-		cfg taskversions.Config
-		tsk task.Task
-	)
-	if err = w.table.NewRetrieve().
-		Where(gorp.MatchKeys[Key, Arc](key)).
-		Entry(&a).
-		Exec(ctx, w.tx); err != nil {
+	a, err := w.retrieveBindable(ctx, key)
+	if err != nil {
 		return nil, err
 	}
-	if a.Type() == TypeModule {
-		return nil, errors.Wrap(
-			validate.ErrValidation, "a module cannot be bound to a rack",
-		)
-	}
-	switch {
-	case len(existing) > 0:
-		if tsk, cfg, err = w.retrieveTask(ctx, existing[0]); err != nil {
-			return nil, err
-		}
-	case update.Rack == nil:
-		return nil, errors.Wrap(
-			validate.ErrValidation,
-			"cannot set the performance of an arc with no rack",
-		)
-	default:
-		cfg.SetDefaults()
-	}
-	if update.Rack != nil {
-		tsk.Rack = *update.Rack
-	}
-	if update.Performance != nil {
-		cfg.Performance = *update.Performance
+	tsk, cfg, err := w.updatedTask(ctx, existing, update)
+	if err != nil {
+		return nil, err
 	}
 	rec, err := w.record(ctx, tsk.Key)
 	if err != nil {
@@ -287,6 +260,52 @@ func (w Writer) UpdateTask(
 		return nil, err
 	}
 	return written, nil
+}
+
+// retrieveBindable returns the Arc with key, or an error when it is a module.
+func (w Writer) retrieveBindable(ctx context.Context, key Key) (Arc, error) {
+	var a Arc
+	if err := w.table.NewRetrieve().
+		Where(gorp.MatchKeys[Key, Arc](key)).
+		Entry(&a).
+		Exec(ctx, w.tx); err != nil {
+		return Arc{}, err
+	}
+	if a.Type() == TypeModule {
+		return Arc{}, errors.Wrap(
+			validate.ErrValidation, "a module cannot be bound to a rack",
+		)
+	}
+	return a, nil
+}
+
+// updatedTask returns the task and config of an Arc with the existing tasks after
+// applying update to them.
+func (w Writer) updatedTask(
+	ctx context.Context,
+	existing []task.Key,
+	update TaskUpdate,
+) (tsk task.Task, cfg taskversions.Config, err error) {
+	switch {
+	case len(existing) > 0:
+		if tsk, cfg, err = w.retrieveTask(ctx, existing[0]); err != nil {
+			return task.Task{}, taskversions.Config{}, err
+		}
+	case update.Rack == nil:
+		return task.Task{}, taskversions.Config{}, errors.Wrap(
+			validate.ErrValidation,
+			"cannot set the performance of an arc with no rack",
+		)
+	default:
+		cfg.SetDefaults()
+	}
+	if update.Rack != nil {
+		tsk.Rack = *update.Rack
+	}
+	if update.Performance != nil {
+		cfg.Performance = *update.Performance
+	}
+	return tsk, cfg, nil
 }
 
 // current returns b, or builds the Arc with key in w.tx when b is zero. When a lookup

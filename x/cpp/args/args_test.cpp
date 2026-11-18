@@ -7,6 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <optional>
+#include <string>
+#include <vector>
+
 #include "gtest/gtest.h"
 
 #include "x/cpp/args/args.h"
@@ -85,6 +89,18 @@ TEST_F(ArgsTest, TestOptionalWithDefault) {
     ASSERT_NIL(parser.error());
     ASSERT_EQ(count, 100);
     cleanup(argc, argv);
+}
+
+/// @brief it should tell a missing argument from one set to the default.
+TEST_F(ArgsTest, TestOptionalType) {
+    const std::optional<bool> unset;
+    parser = Parser(std::vector<std::string>{"program"});
+    ASSERT_EQ(parser.field("--secure", unset), std::nullopt);
+    parser = Parser(std::vector<std::string>{"program", "--secure", "false"});
+    ASSERT_EQ(parser.field("--secure", unset), false);
+    parser = Parser(std::vector<std::string>{"program", "--secure", "true"});
+    ASSERT_EQ(parser.field("--secure", unset), true);
+    ASSERT_NIL(parser.error());
 }
 
 /// @brief it should use the provided value over the default for optional arguments.
