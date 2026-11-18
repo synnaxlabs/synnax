@@ -56,6 +56,17 @@ describe("Swatches", () => {
       expect(swatches).toHaveLength(6);
     });
 
+    it("should offer a repeated color once", () => {
+      const c = render(
+        <Color.Provider presets={[...PRESETS, PRESETS[0]]}>
+          <Color.Swatches value={undefined} onChange={vi.fn()} />
+        </Color.Provider>,
+        { wrapper: Wrapper },
+      );
+      const swatches = c.container.querySelectorAll(`.${CSS.B("color-swatch")}`);
+      expect(swatches).toHaveLength(6);
+    });
+
     it("should offer only the theme colors without a provider", () => {
       const c = renderSwatches({ value: undefined, onChange: vi.fn() });
       const swatches = c.container.querySelectorAll(`.${CSS.B("color-swatch")}`);

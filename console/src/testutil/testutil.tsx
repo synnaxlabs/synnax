@@ -21,7 +21,7 @@ import { Drift } from "@synnaxlabs/drift";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { Access, Synnax } from "@synnaxlabs/pluto";
+import { Access, Color, Synnax } from "@synnaxlabs/pluto";
 import { type aether, eraser } from "@synnaxlabs/pluto/ether";
 import { deep, id, uuid } from "@synnaxlabs/x";
 import {
@@ -233,11 +233,13 @@ const composeConsole = (
 ): FC<PropsWithChildren> => {
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <SynnaxWrapper>
-      <Triggers.Provider>
-        <Provider store={store}>
-          <Session.Modals.Context>{children}</Session.Modals.Context>
-        </Provider>
-      </Triggers.Provider>
+      <Color.Provider>
+        <Triggers.Provider>
+          <Provider store={store}>
+            <Session.Modals.Context>{children}</Session.Modals.Context>
+          </Provider>
+        </Triggers.Provider>
+      </Color.Provider>
     </SynnaxWrapper>
   );
   return Wrapper;

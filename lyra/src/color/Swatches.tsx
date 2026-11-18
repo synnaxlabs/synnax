@@ -37,7 +37,7 @@ export interface SwatchesProps extends Input.Control<
 
 /**
  * One-click swatches for the theme colors and the presets of the nearest
- * {@link Provider}, then the user's frequent colors from it.
+ * {@link Provider}, then the user's frequent colors from it. A color shows once.
  */
 export const Swatches = ({
   value,
@@ -47,13 +47,14 @@ export const Swatches = ({
 }: SwatchesProps): ReactElement => {
   const { colors } = Theming.use();
   const frequent = useFrequent();
-  const presets = [
+  const offered = [
     colors.primary.z,
     colors.secondary.z,
     colors.warning.z,
     colors.error.z,
     ...usePresets(),
   ];
+  const presets = [...new Map(offered.map((c) => [color.hex(c), c])).values()];
   return (
     <Flex.Box y gap="medium" className={CSS.B("color-swatches")}>
       <div className={CSS.BE("color-swatches", "grid")}>
