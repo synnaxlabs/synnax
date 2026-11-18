@@ -58,8 +58,11 @@ const toJSONField = ({
     return icd.jsonFieldZ.parse({ ...base, type: "timestamp", timeFormat });
   if (type === "boolean" || type === "string")
     return icd.jsonFieldZ.parse({ ...base, type });
-  const integer = new DataType(dataType).equals(DataType.INT64);
-  return icd.jsonFieldZ.parse({ ...base, type: integer ? "integer" : "float" });
+  const dt = new DataType(dataType);
+  let number: "integer" | "unsigned" | "float" = "float";
+  if (dt.equals(DataType.INT64)) number = "integer";
+  else if (dt.equals(DataType.UINT64)) number = "unsigned";
+  return icd.jsonFieldZ.parse({ ...base, type: number });
 };
 
 /** @returns base, numbered from 2 until no message has the name. */
