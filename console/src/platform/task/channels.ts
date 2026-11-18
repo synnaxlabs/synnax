@@ -94,8 +94,8 @@ export interface PlanReadChannelsArgs<F extends ReadChannelField> {
 /** The channels that deploying gives a read source, found with reads alone. */
 export interface ReadChannelPlan {
   /**
-   * What the device stores for the source, before the channels that deploying creates.
-   * Null when the device stores nothing for it.
+   * What the device stores for the source before deploying creates a channel. Null
+   * when the device stores nothing for it until then.
    */
   props: ReadChannelProps | null;
   /** The name of the index that deploying creates, if it creates one. */
@@ -230,7 +230,7 @@ export const planReadChannels = async <F extends ReadChannelField>({
     creates.push({ key: field.key, name: await namer.claim(planned[i]) });
   const newIndex = createsIndex ? await namer.claim(indexName) : undefined;
   return {
-    props: saves || creates.length > 0 ? props : null,
+    props: saves ? props : null,
     newIndex,
     indexField: indexField != null && takesIndex ? indexField.key : undefined,
     channels,
@@ -241,7 +241,8 @@ export const planReadChannels = async <F extends ReadChannelField>({
 
 /**
  * Renames and creates the channels of plan, gives each enabled field its channel, and
- * stores the props of plan, with the new channels, in stored.
+ * stores the props of plan in stored. Stores each new channel as it creates it, so a
+ * failure keeps the channels created before it.
  *
  * @param fields - The fields that plan was made for. Each enabled one gets its channel
  * in place.
@@ -254,6 +255,10 @@ export const applyReadChannels = async (
 ): Promise<void> => {
   for (const { key, name } of plan.renames) await client.channels.rename(key, name);
   const props = deep.copy(plan.props ?? { index: 0, channels: {} });
+  const save = () => {
+    if (stored != null) stored.read[stored.key] = props;
+  };
+  if (plan.props != null) save();
   if (plan.newIndex != null) {
     const index = await client.channels.create({
       name: plan.newIndex,
@@ -273,6 +278,7 @@ export const applyReadChannels = async (
     });
     created.set(key, ch.key);
     props.channels[field.pointer] = ch.key;
+    save();
   }
   for (const field of fields) {
     const ch =
@@ -281,7 +287,6 @@ export const applyReadChannels = async (
         : (plan.channels[field.key] ?? created.get(field.key));
     if (ch != null) field.channel = ch;
   }
-  if (stored != null && plan.props != null) stored.read[stored.key] = props;
 };
 
 export interface ConfigureReadChannelsArgs<F extends ReadChannelField> extends Omit<
