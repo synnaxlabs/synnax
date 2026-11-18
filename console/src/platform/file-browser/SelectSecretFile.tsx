@@ -39,7 +39,6 @@ export interface SelectSecretFileProps extends Input.Control<string> {
   rack: rack.Key;
   /** The text of an empty value, such as "None" for an optional file. */
   placeholder?: string;
-  preview?: boolean;
 }
 
 /**
@@ -51,7 +50,6 @@ export const SelectSecretFile = ({
   value,
   onChange,
   placeholder = "Select a file",
-  preview,
 }: SelectSecretFileProps): ReactElement => {
   const client = Synnax.use();
   const [state, setState] = useState<State>({ variant: "loading" });
@@ -86,7 +84,6 @@ export const SelectSecretFile = ({
       value={value === "" ? undefined : value}
       onChange={(next: string | null) => onChange(next ?? "")}
       allowNone
-      preview={preview}
       disabled={state.variant === "none"}
       emptyContent={emptyContent}
       triggerProps={{
