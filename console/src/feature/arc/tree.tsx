@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc, type resource } from "@synnaxlabs/client";
+import { arc, query, type resource } from "@synnaxlabs/client";
+import { Haul } from "@synnaxlabs/lyra/haul";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access, Arc } from "@synnaxlabs/pluto";
@@ -103,9 +104,27 @@ const TypeIcon = ({ arcKey, ...rest }: TypeIconProps): ReactElement | null => {
   return <C {...rest} />;
 };
 
+const FACTS = ["Arc"];
+
+const haulPreview: Tree.HaulPreview = ({ resource, client, count }) => {
+  const cached = client.arcs.watch({ key: resource.id.key }).getCached();
+  const TypeGlyph = query.isLive(cached)
+    ? PlatformArc.TYPE_ICONS[cached.type]
+    : Icon.Arc;
+  return (
+    <Haul.Preview
+      icon={<TypeGlyph />}
+      name={resource.name}
+      facts={FACTS}
+      count={count}
+    />
+  );
+};
+
 const TreeItem = Tree.createItem({
   linkable: true,
   icon: ({ id }) => <TypeIcon arcKey={id.key} />,
+  haulPreview,
   hasChildren: false,
   useOnSelect: Panel.useOpenResource,
   ContextMenu: TreeContextMenu,
@@ -202,6 +221,7 @@ const ENTRY_TYPES = new Set<resource.Type>(["arc", "arc_directory"]);
 
 const DirectoryItem = Tree.createItem({
   icon: <Icon.Group />,
+  typeName: "Directory",
   folder: true,
   children: ({ client, id }) => [
     Tree.createSource(

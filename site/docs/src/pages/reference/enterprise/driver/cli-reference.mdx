@@ -200,13 +200,14 @@ or `false`.
 </Field.Item>
 
 <Field.Item name="--enable-integrations">
-  Integrations to add, separated by commas: `arc`, `ethercat`, `http`, `labjack`,
-  `modbus`, `ni`, or `opc`.
+  The only integrations to run, separated by commas: `arc`, `ethercat`, `http`,
+  `labjack`, `modbus`, `ni`, or `opc`. For example, `--enable-integrations http`. You
+  cannot use it with `--disable-integrations`.
 </Field.Item>
 
 <Field.Item name="--disable-integrations">
   Integrations to remove, separated by commas. For example, `--disable-integrations
-  ni,labjack`.
+  ni,labjack`. You cannot use it with `--enable-integrations`.
 </Field.Item>
 
 </Field.List>

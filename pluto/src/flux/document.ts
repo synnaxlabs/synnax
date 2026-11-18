@@ -14,6 +14,7 @@ import {
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
+import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Status } from "@synnaxlabs/lyra/status";
 import {
   deep,
@@ -23,7 +24,7 @@ import {
   TimeSpan,
   zod,
 } from "@synnaxlabs/x";
-import { useEffect, useState } from "react";
+import { type RefObject, useEffect, useState } from "react";
 import { type z } from "zod";
 
 import { Synnax } from "@/synnax";
@@ -166,6 +167,8 @@ interface StoreParams<
   /** The path of the edited part in the document. */
   path: string[];
   onError: (error: unknown) => void;
+  /** Holds what each send waits for, read when the send starts. */
+  beforeSend: RefObject<(() => Promise<unknown>) | undefined>;
 }
 
 /**
@@ -193,6 +196,8 @@ class DocumentStore<
   private readonly edits: Edit[] = [];
   private batched: actions.Transaction<patch.Action> | null = null;
   private readonly inFlight = new Set<Promise<boolean>>();
+  /** Settles once the last send has waited for beforeSend. */
+  private waited: Promise<unknown> = Promise.resolve();
 
   constructor(params: StoreParams<Key, Doc, Query, V>) {
     this.params = params;
@@ -445,6 +450,18 @@ class DocumentStore<
   }
 
   private async commit(tx: actions.Transaction<patch.Action>): Promise<boolean> {
+    const beforeSend = this.params.beforeSend.current;
+    // Each wait starts after the one before, so the sends still commit in order. The
+    // send that owns a wait reports its rejection, so the chain drops it.
+    const waited = beforeSend == null ? null : this.waited.then(beforeSend);
+    if (waited != null) this.waited = waited.catch(() => undefined);
+    try {
+      await waited;
+    } catch (e) {
+      tx.abort();
+      this.params.onError(e);
+      return false;
+    }
     try {
       await tx.commit();
       return true;
@@ -490,6 +507,11 @@ export interface UseDocumentFormParams<Query> extends Pick<
   "mode" | "onHasTouched"
 > {
   query: Query;
+  /**
+   * Runs before each send, which waits for it to settle and fails if it rejects. A
+   * form passes it when the Core must hold the edits of another form first.
+   */
+  beforeSend?: () => Promise<unknown>;
 }
 
 export interface UseDocumentFormReturn<Schema extends z.ZodType> {
@@ -533,10 +555,12 @@ export const createDocumentForm = <
     query,
     mode,
     onHasTouched,
+    beforeSend,
   }: UseDocumentFormParams<Query>): UseDocumentFormReturn<Schema> => {
     useEnsure({ key: query.key });
     const client = Synnax.use();
     const handleError = Status.useErrorHandler();
+    const beforeSendRef = useSyncedRef(beforeSend);
     const create = (): DocumentStore<Key, Doc, Query, z.infer<Schema>> => {
       if (client == null)
         throw new DisconnectedError(`Cannot edit ${name}: no Core connected.`);
@@ -548,6 +572,7 @@ export const createDocumentForm = <
         toValues,
         path: pathOf(query),
         onError: (error) => handleError(error, `Failed to save ${name}`),
+        beforeSend: beforeSendRef,
       });
     };
     const [store, setStore] = useState(create);

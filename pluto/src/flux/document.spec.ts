@@ -697,6 +697,62 @@ describe("createDocumentForm", () => {
     await act(async () => expect(await flushed).toBe(true));
   });
 
+  describe("beforeSend", () => {
+    const renderGated = async (key: task.Key, beforeSend: () => Promise<unknown>) =>
+      await renderHookSuspended(() => useForm({ query: { key }, beforeSend }), {
+        wrapper,
+      });
+
+    it("should send an edit once beforeSend settles", async () => {
+      const t = await createTask();
+      const gate = Promise.withResolvers<void>();
+      const { result } = await renderGated(t.key, async () => await gate.promise);
+      const send = spyOnSend(formClient);
+      let flushed = Promise.resolve(false);
+      act(() => {
+        result.current.form.set(path.config.routingKey, OTHER_ROUTING_KEY);
+        flushed = result.current.flush();
+      });
+      await act(async () => {});
+      expect(countDispatches(send)).toBe(0);
+      gate.resolve();
+      await act(async () => expect(await flushed).toBe(true));
+      expect(dispatchedActions(send)).toEqual([[setRoutingKey(OTHER_ROUTING_KEY)]]);
+    });
+
+    it("should send edits in order when each send waits", async () => {
+      const t = await createTask();
+      const gates = [Promise.withResolvers<void>(), Promise.withResolvers<void>()];
+      let calls = 0;
+      const { result } = await renderGated(t.key, async () => {
+        await gates[calls++].promise;
+      });
+      const send = spyOnSend(formClient);
+      act(() => {
+        result.current.form.batch(() => result.current.form.set(path.name, "first"));
+        result.current.form.batch(() => result.current.form.set(path.name, "second"));
+      });
+      gates[1].resolve();
+      gates[0].resolve();
+      await act(async () => expect(await result.current.flush()).toBe(true));
+      expect(countDispatches(send)).toBe(2);
+      expect((await fetchStored(t.key)).name).toBe("second");
+    });
+
+    it("should drop an edit when beforeSend rejects", async () => {
+      const t = await createTask();
+      const { result } = await renderGated(t.key, async () => {
+        throw new Error("not ready");
+      });
+      act(() =>
+        result.current.form.batch(() => result.current.form.set(path.name, "x")),
+      );
+      await act(async () => expect(await result.current.flush()).toBe(false));
+      expect(result.current.form.get(path.name).value).toBe(t.name);
+      expect((await fetchStored(t.key)).name).toBe(t.name);
+    });
+  });
+
   it("should flush a batch that changes nothing", async () => {
     const t = await createTask();
     const { result } = await renderForm(t.key);

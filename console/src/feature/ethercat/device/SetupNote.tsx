@@ -25,23 +25,17 @@ import { Docs } from "@/platform/docs";
 const SETUP_DOCS = "hardware/ethercat/dewesoft#set-up-a-module-in-synnax";
 
 interface NoteBodyProps {
-  variant: "warning" | "info";
   title: string;
   /** Sits at the right of the text when it fits, else below it. */
   action?: ReactNode;
   children?: ReactNode;
 }
 
-const NoteBody = ({
-  variant,
-  title,
-  action,
-  children,
-}: NoteBodyProps): ReactElement => (
-  <Note.Note variant={variant} x align="center" justify="between" gap="medium" wrap>
+const NoteBody = ({ title, action, children }: NoteBodyProps): ReactElement => (
+  <Note.Note variant="warning" x align="center" justify="between" gap="medium" wrap>
     <Flex.Box y gap="small">
-      <Text.Text weight={500} status={variant === "warning" ? "warning" : undefined}>
-        {variant === "warning" ? <Icon.Warning /> : <Icon.Info />}
+      <Text.Text weight={500} status="warning">
+        <Icon.Warning />
         {title}
       </Text.Text>
       {children}
@@ -55,6 +49,10 @@ const Detail = ({ children }: { children: ReactNode }): ReactElement => (
     {children}
   </Text.Text>
 );
+
+/** The Driver writes a switch to the slave, so it must reach the slave. */
+const canReach = (slave: SlaveDevice): boolean =>
+  slave.status?.details.connected === true;
 
 interface SwitchNoteProps extends Omit<NoteBodyProps, "action"> {
   slave: SlaveDevice;
@@ -88,10 +86,8 @@ const SwitchNote = ({
   });
   // The note shows the setup of the last scan until the next one.
   const switched = variant === "success" && data != null;
-  // The Driver writes the switch to the device, so it must reach the device.
-  const reached = slave.status?.details.connected === true;
   const action =
-    switchable && reached && !switched ? (
+    switchable && canReach(slave) && !switched ? (
       <Button.Button
         size="small"
         status={status.keepVariants(variant, "loading")}
@@ -118,18 +114,27 @@ interface ReaderNoteProps {
   shared: boolean;
 }
 
-/** Says which program sets up the slave, and offers the switch when it has one. */
+/** @returns what the user must do before a task uses the slave that reader sets up. */
+const readerStep = (slave: SlaveDevice, reader: string): string => {
+  if (!canSwitch(slave.properties))
+    return `Set it up for Synnax in ${reader} before you use it in a task.`;
+  if (!canReach(slave))
+    return "Connect the device, then switch it to Synnax before you use it in a task.";
+  return "Switch it to Synnax before you use it in a task.";
+};
+
+/** Says which program sets up the slave and what to do, with a switch if it has one. */
 const ReaderNote = ({ slave, reader, shared }: ReaderNoteProps): ReactElement => {
   const openDocs = Docs.useOpen(SETUP_DOCS);
   return (
     <SwitchNote
       slave={slave}
       switchable={canSwitch(slave.properties)}
-      variant={shared ? "info" : "warning"}
       title={
         shared ? `${reader} sets up this device` : `Only ${reader} can use this device`
       }
     >
+      <Detail>{readerStep(slave, reader)}</Detail>
       <Button.Button variant="text" size="small" onClick={openDocs}>
         What does this mean?
         <Icon.OpenExternal />
@@ -150,12 +155,7 @@ const DeviceStatusNote = ({
   deviceStatus,
   switchable,
 }: DeviceStatusNoteProps): ReactElement => (
-  <SwitchNote
-    slave={slave}
-    switchable={switchable}
-    variant="warning"
-    title={deviceStatus.message}
-  >
+  <SwitchNote slave={slave} switchable={switchable} title={deviceStatus.message}>
     {deviceStatus.description !== "" && <Detail>{deviceStatus.description}</Detail>}
   </SwitchNote>
 );
@@ -180,7 +180,7 @@ const noteOf = (slave: SlaveDevice): ReactElement | null => {
   if (setup.kind === "synnax" || setup.kind === "switched") return null;
   if (setup.kind === "bus")
     return (
-      <NoteBody variant="warning" title="Connected to EtherCAT bus 2 IN">
+      <NoteBody title="Connected to EtherCAT bus 2 IN">
         <Detail>
           In Synnax only mode, the device uses EtherCAT bus 1 IN. Connect Synnax to bus
           1 IN.
@@ -191,6 +191,12 @@ const noteOf = (slave: SlaveDevice): ReactElement | null => {
     <ReaderNote slave={slave} reader={setup.reader} shared={setup.kind === "shared"} />
   );
 };
+
+/**
+ * @returns whether the user must act on the setup of the slave before a task uses it,
+ * which is when {@link SetupNote} shows a note.
+ */
+export const needsSetup = (slave: SlaveDevice): boolean => noteOf(slave) != null;
 
 export interface SetupNoteProps {
   deviceKey: string;
