@@ -187,6 +187,28 @@ var _ = Describe("Go ImEx Plugin", func() {
 					"Where(MatchKeys(key))",
 					"Version: versions.Latest, Type: string(s.Type()), Name: v.Name,",
 					"env.Encode(v)",
+				).ToNotContain("prepareExport").ToBeValidGoSource()
+			},
+		)
+
+		It(
+			"Should prepare the entry before it encodes it when the service declares "+
+				"prepareExport",
+			func() {
+				tmpDir := GinkgoT().TempDir()
+				dir := filepath.Join(tmpDir, "core/pkg/service/log")
+				Expect(os.MkdirAll(dir, 0o755)).To(Succeed())
+				Expect(os.WriteFile(
+					filepath.Join(dir, "imex.go"),
+					[]byte("package log\n\nfunc (s *Service) prepareExport() {}\n"),
+					0o644,
+				)).To(Succeed())
+				req := chainRequest(tmpDir, liveLog, map[int]string{3: logChain(true)})
+				resp := MustSucceed(p.Generate(req))
+				ExpectContent(resp, "core/pkg/service/log/imex.gen.go").ToContain(
+					"\tif err = s.prepareExport(ctx, snap, &v); err != nil {\n" +
+						"\t\treturn imex.Envelope{}, err\n\t}\n" +
+						"\tenv := imex.Envelope{",
 				).ToBeValidGoSource()
 			},
 		)

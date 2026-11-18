@@ -88,6 +88,48 @@ func isBuiltin(key Key) bool {
 	return lo.ContainsBy(series[:], func(s shipped) bool { return s.key == key })
 }
 
+// InlineCustom sets each reference to a named color that the Core does not ship to the
+// color's fixed value, so a Core without the color keeps it. A reference to a built-in
+// stays, since every Core holds the built-ins. Nil references are skipped. It returns
+// query.ErrNotFound if a referenced named color does not exist.
+func (s *Service) InlineCustom(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	refs []*Ref,
+) error {
+	custom := make(set.Set[Key])
+	for _, r := range refs {
+		if n, ok := namedRef(r); ok && !isBuiltin(n.Key) {
+			custom.Add(n.Key)
+		}
+	}
+	if len(custom) == 0 {
+		return nil
+	}
+	var named []Named
+	if err := s.NewRetrieve().
+		Where(MatchKeys(custom.Slice()...)).
+		Entries(&named).
+		Exec(ctx, snap); err != nil {
+		return err
+	}
+	byKey := lo.KeyBy(named, func(n Named) Key { return n.Key })
+	for _, r := range refs {
+		if n, ok := namedRef(r); ok && custom.Contains(n.Key) {
+			r.Variant = byKey[n.Key].Inline()
+		}
+	}
+	return nil
+}
+
+func namedRef(r *Ref) (NamedRef, bool) {
+	if r == nil {
+		return NamedRef{}, false
+	}
+	n, ok := r.Variant.(NamedRef)
+	return n, ok
+}
+
 // Builtins returns the named colors that the Core ships, with their shipped values. A
 // stored built-in can differ from its shipped values, because users can edit it.
 func Builtins() []Named {

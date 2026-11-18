@@ -39,6 +39,9 @@ func (s *Service) Export(
 		Exec(ctx, snap); err != nil {
 		return imex.Envelope{}, err
 	}
+	if err = s.prepareExport(ctx, snap, &v); err != nil {
+		return imex.Envelope{}, err
+	}
 	env := imex.Envelope{
 		Version: versions.Latest, Type: string(s.Type()), Name: v.Name,
 	}

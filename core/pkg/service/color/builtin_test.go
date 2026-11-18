@@ -12,6 +12,7 @@ package color_test
 import (
 	"fmt"
 	"slices"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -114,6 +115,43 @@ var _ = Describe("Built-in named colors", func() {
 			keys := MustSucceed(svc.Series(ctx, db))
 			Expect(keys).To(HaveLen(17))
 			Expect(keys[16]).To(Equal(extra.Key))
+		})
+	})
+
+	Describe("InlineCustom", func() {
+		It(
+			"Should inline a custom named color and keep a built-in",
+			func(ctx SpecContext) {
+				svc := open(ctx)
+				custom := color.Named{
+					Name:  "Custom",
+					Light: MustSucceed(xcolor.Parse("#123456")),
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &custom)
+				})).To(Succeed())
+				builtin := color.Builtins()[0].Key
+				fixed := color.FixedRef{Value: MustSucceed(xcolor.Parse("#abcdef"))}
+				refs := []*color.Ref{
+					{Variant: color.NamedRef{Key: custom.Key}},
+					{Variant: color.NamedRef{Key: builtin}},
+					{Variant: fixed},
+					nil,
+				}
+				Expect(svc.InlineCustom(ctx, db, refs)).To(Succeed())
+				Expect(refs).To(Equal([]*color.Ref{
+					{Variant: color.FixedRef{Value: custom.Light}},
+					{Variant: color.NamedRef{Key: builtin}},
+					{Variant: fixed},
+					nil,
+				}))
+			},
+		)
+
+		It("Should return not found for a missing named color", func(ctx SpecContext) {
+			refs := []*color.Ref{{Variant: color.NamedRef{Key: uuid.New()}}}
+			Expect(open(ctx).InlineCustom(ctx, db, refs)).
+				To(MatchError(query.ErrNotFound))
 		})
 	})
 
