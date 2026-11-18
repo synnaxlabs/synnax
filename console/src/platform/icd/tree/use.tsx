@@ -312,12 +312,19 @@ export const use = <S extends Source>({
     onSelect([fieldKey(sourceKey, message, field.key)]);
   };
 
-  /** Removes each chosen field from its message in the ICD. */
+  /** Removes each chosen field from its message in the ICD and from each read of it. */
   const removeFields = (chosen: FieldNode[]) => {
-    for (const { source, read: r, field } of chosen) {
-      const { icd: icdKey, messages } = ctx.get(pathOf(source)).value;
-      formatOf(formats, icdKey).remove(fieldsPath(messages[r].message)[field.key]);
-    }
+    ctx.batch(() => {
+      for (const { source, read: r, field } of chosen) {
+        const { icd: icdKey, messages } = ctx.get(pathOf(source)).value;
+        const { message } = messages[r];
+        formatOf(formats, icdKey).remove(fieldsPath(message)[field.key]);
+        for (const s of ctx.get(sources).value)
+          sourceOf(s)?.messages.forEach((m, i) => {
+            if (m.message === message) read(s.key, i, field, false);
+          });
+      }
+    });
     onSelect([]);
   };
 
