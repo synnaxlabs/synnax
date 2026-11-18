@@ -13,26 +13,12 @@
 
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/testutil/testutil.h"
+#include "x/cpp/x509/testutil/testutil.h"
 #include "x/cpp/x509/x509.h"
 
 namespace x::x509 {
 namespace {
-/// @brief a self-signed P-256 certificate for "O=Synnax, CN=Test Client", valid from
-/// 2026-01-01 to 2125-12-31, with a URI and a DNS name in its alternative name.
-const std::string CERT_A = R"(-----BEGIN CERTIFICATE-----
-MIIBhzCCAS2gAwIBAgIUCo7esOasXFQfGXnv+UE0prCzDx0wCgYIKoZIzj0EAwIw
-JzEPMA0GA1UECgwGU3lubmF4MRQwEgYDVQQDDAtUZXN0IENsaWVudDAgFw0yNjAx
-MDEwMDAwMDBaGA8yMTI1MTIzMTIzNTk1OVowJzEPMA0GA1UECgwGU3lubmF4MRQw
-EgYDVQQDDAtUZXN0IENsaWVudDBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABEw8
-BF4DCqCo3fOG3vyEr5iCb2/ZdJt4jiuBYWn1bwIl9ic7slEK8o5JVKlfWv5yJwyX
-UPVXDGBFuV2Z+vlgvL+jNTAzMDEGA1UdEQQqMCiGG3VybjpzeW5uYXg6dGVzdDpj
-ZXJ0aWZpY2F0ZYIJdGVzdC1ob3N0MAoGCCqGSM49BAMCA0gAMEUCIQDZFy41nKIT
-t0DFDW3L/CTyBqqQcAnxq1zl2nIphE/9YwIgFYy5vAB7Je/V7TbYLYtdePvcELKN
-nNLdp+AYW7gMXR8=
------END CERTIFICATE-----
-)";
-
-/// @brief the private key of CERT_A.
+/// @brief the private key of testutil::CERTIFICATE.
 const std::string KEY_A = R"(-----BEGIN PRIVATE KEY-----
 MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgXsLANwJSgnKYh56a
 45Wp6vcgMMl4Pkvp3saAT1dd8sGhRANCAARMPAReAwqgqN3zht78hK+Ygm9v2XSb
@@ -50,7 +36,8 @@ FtePTAVFQPeF2toKSLj7zSFXPdbbXWQfMa3nga+GT6pnxlpBPMrEULsLS0koxnSM
 -----END ENCRYPTED PRIVATE KEY-----
 )";
 
-/// @brief a certificate with the same names and validity as CERT_A, and another key.
+/// @brief a certificate with the same names and validity as testutil::CERTIFICATE,
+/// and another key.
 const std::string CERT_B = R"(-----BEGIN CERTIFICATE-----
 MIIBhzCCAS2gAwIBAgIUTGjJZ0xaaYJBQFgv6TBHTiS+DFcwCgYIKoZIzj0EAwIw
 JzEPMA0GA1UECgwGU3lubmF4MRQwEgYDVQQDDAtUZXN0IENsaWVudDAgFw0yNjAx
@@ -64,6 +51,38 @@ BWGYvh2eKE/z/9s=
 -----END CERTIFICATE-----
 )";
 
+/// @brief a certificate whose names hold escaped characters, a T61String, a BMPString,
+/// two OU values, two CN values, a multi-valued RDN, and attribute types that Go does
+/// not name.
+const std::string CERT_NAMES = R"(-----BEGIN CERTIFICATE-----
+MIICGzCCAcGgAwIBAgIUB9VfRewbStY6eEYpBTBUmKVyCIwwCgYIKoZIzj0EAwIw
+JzERMA8GA1UECgwIUGxhbnQgQ0ExEjAQBgNVBAMMCVJvb3Qgw6kgMTAeFw0yNjAx
+MDEwMDAwMDBaFw0yNzAxMDEwMDAwMDBaMIHzMQswCQYDVQQGEwJVUzETMBEGA1UE
+CAwKQ2FsaWZvcm5pYTETMBEGA1UEBxQKU8OjbyBQYXVsbzETMBEGA1UECgwKQWNt
+ZSwgSW5jLjEMMAoGA1UECwwDRW5nMRcwFQYDVQQLHg4ATwBwAHMAIAA8ADEAPjEV
+MBMGCSqGSIb3DQEJARYGYUBiLmNvMSIwDAYDVQQDDAVGaXJzdDASBgoJkiaJk/Is
+ZAEBDAR1aWQxMR0wGwYDVQQDDBQgI0xlYWQrdHJhaWw7ICJxIiBcIDELMAkGA1UE
+BRMCNDIxFzAVBgoJkiaJk/IsZAEZFgdleGFtcGxlMFkwEwYHKoZIzj0CAQYIKoZI
+zj0DAQcDQgAEJJM9P9FoypCiKpA+sf0joTUjsn/8fXtQsMVmfCll58341BpIapc4
+BD5Aj1vGkWPhV+AKJu5N5zvKwYyFtlcToDAKBggqhkjOPQQDAgNIADBFAiBA6VB9
+rfX6G1JJjjTHxMPj/nkSh0AuTAWmd1ODKJ05yQIhAO05zs9wiDDkc+ob2L3wBKYW
+zqJ/caxt+tVnaBYVCv4s
+-----END CERTIFICATE-----
+)";
+
+/// @brief a certificate valid from 1960-01-01 to 9999-12-31, outside the range of a
+/// TimeStamp.
+const std::string CERT_WIDE = R"(-----BEGIN CERTIFICATE-----
+MIIBITCByKADAgECAhQrFoZ0JsEpQhxVZ0sKXm2nvdQRRzAKBggqhkjOPQQDAjAQ
+MQ4wDAYDVQQDDAVSYW5nZTAgFw02MDAxMDEwMDAwMDBaGA85OTk5MTIzMTIzNTk1
+OVowEDEOMAwGA1UEAwwFUmFuZ2UwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAARb
+wGFsINPokD/i+qd4xDFk8yw63w+aZaWie9VImzRjgnGx1iA8gXWcJW6imfSRIY6V
+a44FT9kAWJH42k97G0sIMAoGCCqGSM49BAMCA0gAMEUCIQChfz9Ge4JjVsIixuXe
+m5WVCIRhrUXR2YFLeitIWiKZFgIgJkv8d2zRLbW6Vf+Vd5u8fUSVUazIkA2tBdLK
+FbGJbLw=
+-----END CERTIFICATE-----
+)";
+
 /// @brief the private key of CERT_B.
 const std::string KEY_B = R"(-----BEGIN PRIVATE KEY-----
 MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg160R6M902UlqFdVs
@@ -73,21 +92,48 @@ jkxdWFNbI+EucovblNKkdnx+wzNGe1jaO1OInW0uD+ebM1sO2S6LCc4g
 )";
 }
 
-/// @brief it should read the names, validity, and thumbprint of a PEM certificate.
+/// @brief it should read the names, validity, and fingerprints of a PEM certificate.
 TEST(CertificateTest, ParsePem) {
-    const auto cert = ASSERT_NIL_P(Certificate::parse(CERT_A));
-    ASSERT_EQ(cert.subject(), "O=Synnax, CN=Test Client");
+    const auto cert = ASSERT_NIL_P(Certificate::parse(testutil::CERTIFICATE));
+    ASSERT_EQ(cert.subject(), "CN=Test Client,O=Synnax");
+    ASSERT_EQ(cert.issuer(), "CN=Test Client,O=Synnax");
     ASSERT_EQ(cert.uri(), "urn:synnax:test:certificate");
     ASSERT_EQ(cert.not_before(), telem::TimeStamp(1767225600000000000));
     ASSERT_EQ(cert.not_after(), telem::TimeStamp(4922899199000000000));
     ASSERT_EQ(cert.thumbprint(), "915D90FFF8FB63289202F5155CE6CBC027CC1C57");
+    ASSERT_EQ(cert.sha1(), "915d90fff8fb63289202f5155ce6cbc027cc1c57");
+    ASSERT_EQ(
+        cert.sha256(),
+        "7b42752d0bb377f9c35ac660d491fa8fa46e5b8885fd41a2650f19f8bd52309e"
+    );
+}
+
+/// @brief it should give the subject and issuer as Go's pkix.Name.String() does.
+TEST(CertificateTest, NamesMatchCore) {
+    const auto cert = ASSERT_NIL_P(Certificate::parse(CERT_NAMES));
+    ASSERT_EQ(
+        cert.subject(),
+        "SERIALNUMBER=42,CN=\\ #Lead\\+trail\\; \\\"q\\\" \\\\\\ ,"
+        "OU=Eng+OU=Ops \\<1\\>,O=Acme\\, Inc.,L=S\xC3\x83\xC2\xA3o Paulo,"
+        "ST=California,C=US,0.9.2342.19200300.100.1.25=example,"
+        "0.9.2342.19200300.100.1.1=uid1,1.2.840.113549.1.9.1=a@b.co"
+    );
+    ASSERT_EQ(cert.issuer(), "CN=Root \xC3\xA9 1,O=Plant CA");
+}
+
+/// @brief it should clamp the validity period to the range of a TimeStamp, as the
+/// Core does.
+TEST(CertificateTest, ValidityClamps) {
+    const auto cert = ASSERT_NIL_P(Certificate::parse(CERT_WIDE));
+    ASSERT_EQ(cert.not_before(), telem::TimeStamp(0));
+    ASSERT_EQ(cert.not_after(), telem::TimeStamp::max());
 }
 
 /// @brief it should give the same certificate after a PEM or DER round trip.
 TEST(CertificateTest, PemRoundTrip) {
-    const auto cert = ASSERT_NIL_P(Certificate::parse(CERT_A));
+    const auto cert = ASSERT_NIL_P(Certificate::parse(testutil::CERTIFICATE));
     const auto pem = cert.pem();
-    ASSERT_EQ(pem, CERT_A);
+    ASSERT_EQ(pem, testutil::CERTIFICATE);
     ASSERT_TRUE(Certificate::is_pem(pem));
     ASSERT_EQ(ASSERT_NIL_P(Certificate::parse(pem)), cert);
     ASSERT_EQ(ASSERT_NIL_P(Certificate::parse(cert.der())), cert);
@@ -96,15 +142,15 @@ TEST(CertificateTest, PemRoundTrip) {
 
 /// @brief it should find a PEM header after leading white space.
 TEST(CertificateTest, IsPemAfterWhitespace) {
-    ASSERT_TRUE(Certificate::is_pem(" \t\r\n" + CERT_A));
+    ASSERT_TRUE(Certificate::is_pem(" \t\r\n" + testutil::CERTIFICATE));
     ASSERT_FALSE(Certificate::is_pem(""));
     ASSERT_FALSE(Certificate::is_pem("not a certificate"));
 }
 
 /// @brief it should keep only the first certificate of a chain.
 TEST(CertificateTest, ParseChainKeepsFirst) {
-    const auto cert = ASSERT_NIL_P(Certificate::parse(CERT_A + CERT_B));
-    ASSERT_EQ(cert, ASSERT_NIL_P(Certificate::parse(CERT_A)));
+    const auto cert = ASSERT_NIL_P(Certificate::parse(testutil::CERTIFICATE + CERT_B));
+    ASSERT_EQ(cert, ASSERT_NIL_P(Certificate::parse(testutil::CERTIFICATE)));
 }
 
 /// @brief it should reject data that holds no certificate.
@@ -120,7 +166,7 @@ TEST(CertificateTest, ParseRejectsGarbage) {
 
 /// @brief it should report the validity period.
 TEST(CertificateTest, ValidAt) {
-    const auto cert = ASSERT_NIL_P(Certificate::parse(CERT_A));
+    const auto cert = ASSERT_NIL_P(Certificate::parse(testutil::CERTIFICATE));
     ASSERT_TRUE(cert.valid_at(telem::TimeStamp::now()));
     ASSERT_TRUE(cert.valid_at(cert.not_before()));
     ASSERT_TRUE(cert.valid_at(cert.not_after()));
@@ -130,13 +176,13 @@ TEST(CertificateTest, ValidAt) {
 
 /// @brief it should accept the private key of the certificate.
 TEST(CertificateTest, CheckKeyMatches) {
-    const auto cert = ASSERT_NIL_P(Certificate::parse(CERT_A));
+    const auto cert = ASSERT_NIL_P(Certificate::parse(testutil::CERTIFICATE));
     ASSERT_NIL(cert.check_key(KEY_A));
 }
 
 /// @brief it should reject the private key of another certificate.
 TEST(CertificateTest, CheckKeyMismatched) {
-    const auto cert = ASSERT_NIL_P(Certificate::parse(CERT_A));
+    const auto cert = ASSERT_NIL_P(Certificate::parse(testutil::CERTIFICATE));
     const auto err = cert.check_key(KEY_B);
     ASSERT_MATCHES(err, KEY_INVALID);
     ASSERT_EQ(err.data, "The private key does not match the certificate.");
@@ -144,7 +190,7 @@ TEST(CertificateTest, CheckKeyMismatched) {
 
 /// @brief it should reject a private key that needs a password.
 TEST(CertificateTest, CheckKeyEncrypted) {
-    const auto cert = ASSERT_NIL_P(Certificate::parse(CERT_A));
+    const auto cert = ASSERT_NIL_P(Certificate::parse(testutil::CERTIFICATE));
     const auto err = cert.check_key(KEY_A_ENCRYPTED);
     ASSERT_MATCHES(err, KEY_INVALID);
     ASSERT_EQ(
@@ -155,7 +201,7 @@ TEST(CertificateTest, CheckKeyEncrypted) {
 
 /// @brief it should reject data that holds no private key.
 TEST(CertificateTest, CheckKeyGarbage) {
-    const auto cert = ASSERT_NIL_P(Certificate::parse(CERT_A));
+    const auto cert = ASSERT_NIL_P(Certificate::parse(testutil::CERTIFICATE));
     const auto err = cert.check_key("not a key");
     ASSERT_MATCHES(err, KEY_INVALID);
     ASSERT_TRUE(err.data.starts_with("Failed to parse the private key: ")) << err.data;

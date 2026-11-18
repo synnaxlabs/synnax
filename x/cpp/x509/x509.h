@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <array>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -39,10 +40,19 @@ public:
     [[nodiscard]] const std::string &der() const { return this->der_bytes; }
     /// @returns the PEM encoded certificate.
     [[nodiscard]] std::string pem() const;
-    /// @returns the SHA-1 hash of the DER bytes as 40 uppercase hex characters.
+    /// @returns the SHA-1 hash of the DER bytes as 40 uppercase hex characters, as
+    /// OPC UA shows it.
     [[nodiscard]] std::string thumbprint() const;
-    /// @returns the distinguished name of the subject, such as "CN=Server, O=Org".
+    /// @returns the SHA-1 hash of the DER bytes as lowercase hex.
+    [[nodiscard]] std::string sha1() const;
+    /// @returns the SHA-256 hash of the DER bytes as lowercase hex.
+    [[nodiscard]] std::string sha256() const;
+    /// @returns the distinguished name of the subject in the form of Go's
+    /// pkix.Name.String(), such as "CN=Server,O=Org", so it matches what the Core
+    /// reads from the same certificate.
     [[nodiscard]] const std::string &subject() const { return this->subject_name; }
+    /// @returns the distinguished name of the issuer, in the same form as subject().
+    [[nodiscard]] const std::string &issuer() const { return this->issuer_name; }
     /// @returns the first URI in the subject alternative name, or an empty string.
     [[nodiscard]] const std::string &uri() const { return this->san_uri; }
     /// @returns the start of the validity period.
@@ -65,8 +75,11 @@ public:
 private:
     std::string der_bytes;
     std::string subject_name;
+    std::string issuer_name;
     std::string san_uri;
     telem::TimeStamp valid_from;
     telem::TimeStamp valid_to;
+
+    [[nodiscard]] std::array<unsigned char, 20> sha1_hash() const;
 };
 }

@@ -63,6 +63,7 @@ cc_library(
         "//driver/common",
         "//driver/errors",
         "//driver/ethercat",
+        "//driver/file",
         "//driver/http",
         "//driver/labjack:names",
         "//driver/modbus:names",

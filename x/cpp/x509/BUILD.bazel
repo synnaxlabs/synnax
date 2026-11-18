@@ -32,6 +32,7 @@ cc_test(
         ":x509",
         "//x/cpp/telem",
         "//x/cpp/testutil",
+        "//x/cpp/x509/testutil",
         "@googletest//:gtest_main",
     ],
 )
