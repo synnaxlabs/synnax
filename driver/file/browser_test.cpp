@@ -13,6 +13,7 @@
 
 #include "gtest/gtest.h"
 
+#include "x/cpp/defer/defer.h"
 #include "x/cpp/fs/fs.h"
 #include "x/cpp/testutil/testutil.h"
 #include "x/cpp/uuid/uuid.h"
@@ -60,7 +61,11 @@ protected:
 
     [[nodiscard]] Browser browser() const {
         return Browser(
-            Config{.roots = {"/"}, .home = this->dir / "home", .secrets_dir = secrets}
+            Config{
+                .roots = {this->dir.root_path()},
+                .home = this->dir / "home",
+                .secrets_dir = this->secrets,
+            }
         );
     }
 };
@@ -78,7 +83,9 @@ TEST_F(BrowserTest, TopLevel) {
         {"truncated", false},
         {"entries",
          {
-             {{"name", "/"}, {"path", "/"}, {"kind", "directory"}},
+             {{"name", this->dir.root_path().string()},
+              {"path", this->dir.root_path().string()},
+              {"kind", "directory"}},
              {{"name", "home"},
               {"path", (this->dir / "home").string()},
               {"kind", "directory"}},
@@ -245,9 +252,34 @@ TEST_F(BrowserTest, NormalPath) {
 
 /// @brief it should give a root no parent.
 TEST_F(BrowserTest, RootHasNoParent) {
-    const auto data = ASSERT_NIL_P(this->browser().list("/"));
-    ASSERT_EQ(data["path"], "/");
+    const auto root = this->dir.root_path().string();
+    const auto data = ASSERT_NIL_P(this->browser().list(root));
+    ASSERT_EQ(data["path"], root);
     ASSERT_EQ(data["parent"], "");
+}
+
+/// @brief it should name a home folder that is a root by its path.
+TEST_F(BrowserTest, RootHomeNamedByPath) {
+    const auto root = this->dir.root_path();
+    const Browser browser(Config{.home = root});
+    const auto data = ASSERT_NIL_P(browser.list(""));
+    ASSERT_EQ(data["entries"][0]["name"], root.string());
+}
+
+/// @brief it should reject a folder that the Driver cannot read.
+TEST_F(BrowserTest, PermissionDenied) {
+    const auto locked = this->dir / "locked";
+    std::filesystem::create_directories(locked);
+    std::filesystem::permissions(locked, std::filesystem::perms::none);
+    x::defer::defer restore([&] {
+        std::filesystem::permissions(locked, std::filesystem::perms::owner_all);
+    });
+    std::error_code ec;
+    std::filesystem::directory_iterator probe(locked, ec);
+    if (!ec) GTEST_SKIP() << "cannot make a folder unreadable";
+    const auto [data, err] = this->browser().list(locked.string());
+    ASSERT_MATCHES(err, x::fs::PERMISSION_DENIED);
+    ASSERT_EQ(err.data, "The Driver cannot read " + locked.string() + ".");
 }
 
 /// @brief it should reject a relative path.

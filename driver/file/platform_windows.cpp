@@ -12,7 +12,11 @@
 #include <string>
 #include <vector>
 
+// clang-format off
+// shlobj.h must be included after windows.h.
 #include <windows.h>
+#include <shlobj.h>
+// clang-format on
 
 #include "driver/file/file.h"
 
@@ -27,15 +31,12 @@ std::vector<std::filesystem::path> roots() {
 }
 
 std::filesystem::path home() {
-    std::wstring buf(MAX_PATH, L'\0');
-    DWORD n = GetEnvironmentVariableW(L"USERPROFILE", buf.data(), buf.size());
-    if (n > buf.size()) {
-        buf.resize(n);
-        n = GetEnvironmentVariableW(L"USERPROFILE", buf.data(), buf.size());
-    }
-    if (n == 0 || n > buf.size()) return {};
-    buf.resize(n);
-    return buf;
+    PWSTR dir = nullptr;
+    const auto result = SHGetKnownFolderPath(FOLDERID_Profile, 0, nullptr, &dir);
+    const auto path = SUCCEEDED(result) ? std::filesystem::path(dir)
+                                        : std::filesystem::path();
+    CoTaskMemFree(dir);
+    return path;
 }
 
 x::telem::TimeStamp to_timestamp(const std::filesystem::file_time_type time) {

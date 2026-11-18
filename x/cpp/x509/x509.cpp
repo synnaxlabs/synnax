@@ -51,7 +51,8 @@ telem::TimeStamp to_timestamp(const mbedtls_x509_time &t) {
         static_cast<uint8_t>(t.mon),
         static_cast<uint8_t>(t.day),
     });
-    const int64_t seconds = days * 86400 + t.hour * 3600 + t.min * 60 + t.sec;
+    const int64_t seconds = days * 86400 + int64_t{t.hour} * 3600 +
+                            int64_t{t.min} * 60 + t.sec;
     const int64_t max_seconds = std::numeric_limits<int64_t>::max() /
                                 telem::SECOND.nanoseconds();
     if (seconds < 0) return telem::TimeStamp(0);

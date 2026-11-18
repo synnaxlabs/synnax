@@ -27,6 +27,13 @@ cc_library(
         ],
         "//conditions:default": [],
     }),
+    linkopts = select({
+        "@platforms//os:windows": [
+            "/DEFAULTLIB:ole32.lib",
+            "/DEFAULTLIB:shell32.lib",
+        ],
+        "//conditions:default": [],
+    }),
     visibility = ["//visibility:public"],
     deps = [
         "//driver/common",
@@ -47,6 +54,7 @@ cc_test(
     ],
     deps = [
         ":file",
+        "//x/cpp/defer",
         "//x/cpp/fs",
         "//x/cpp/testutil",
         "//x/cpp/uuid",

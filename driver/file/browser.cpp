@@ -55,13 +55,7 @@ bool starts_with(
     const std::filesystem::path &path,
     const std::filesystem::path &prefix
 ) {
-    const auto [p, _] = std::mismatch(
-        prefix.begin(),
-        prefix.end(),
-        path.begin(),
-        path.end()
-    );
-    return p == prefix.end();
+    return std::ranges::mismatch(prefix, path).in1 == prefix.end();
 }
 
 bool certificate_extension(const std::filesystem::path &path) {
@@ -138,7 +132,8 @@ bool Browser::secret(const std::filesystem::path &path) const {
     if (this->secrets.empty()) return false;
     std::error_code ec;
     const auto resolved = std::filesystem::weakly_canonical(path, ec);
-    return starts_with(ec ? path : resolved, this->secrets);
+    // A path that does not resolve can still lead into the secrets folder.
+    return ec || starts_with(resolved, this->secrets);
 }
 
 x::json::json Browser::top() const {
@@ -151,7 +146,7 @@ x::json::json Browser::top() const {
         if (dir.empty()) continue;
         const auto path = normal(dir);
         entries.push_back(
-            {{"name", to_utf8(path.filename())},
+            {{"name", to_utf8(path.has_filename() ? path.filename() : path)},
              {"path", to_utf8(path)},
              {"kind", "directory"}}
         );
