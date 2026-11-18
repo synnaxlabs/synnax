@@ -30,6 +30,7 @@ import {
   commitTextEdit,
   createConsoleWrapper,
   createTestClientWithGrants,
+  dragOnto,
   HaulProvider,
   openContextMenu,
   uniqueName,
@@ -79,13 +80,6 @@ const deleted = async (retrieve: () => Promise<unknown>): Promise<boolean> => {
 const findColor = async (name: string): Promise<HTMLElement> =>
   await screen.findByRole("option", { name });
 
-const dragOnto = (from: HTMLElement, to: HTMLElement): void => {
-  fireEvent.dragStart(from);
-  fireEvent.dragOver(to);
-  fireEvent.drop(to);
-  fireEvent.dragEnd(from);
-};
-
 /** Names the colors in the palette by position, with any that have none last. */
 const namesInOrder = async (palette: group.Group): Promise<string[]> =>
   (await client.colors.retrieve({ groups: [palette.key] }))
@@ -116,12 +110,11 @@ describe("Color.Settings", () => {
     const palette = await createPalette();
     const existing = await createColor(palette, "a0");
     await renderColors();
+    const create = await screen.findByRole("button", {
+      name: `Create a color in ${palette.name}`,
+    });
     await act(async () => {
-      fireEvent.click(
-        await screen.findByRole("button", {
-          name: `Create a color in ${palette.name}`,
-        }),
-      );
+      fireEvent.click(create);
     });
     const first = uniqueName("first");
     const second = uniqueName("second");
@@ -165,8 +158,9 @@ describe("Color.Settings", () => {
         "This also deletes its 2 colors. This action cannot be undone.",
       ),
     ).toBeTruthy();
+    const confirm = await screen.findByRole("button", { name: "Delete" });
     await act(async () => {
-      fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+      fireEvent.click(confirm);
     });
     await expect
       .poll(
@@ -287,8 +281,9 @@ describe("Color.Settings", () => {
     expect(
       await screen.findByText(`Are you sure you want to delete ${custom.name}?`),
     ).toBeTruthy();
+    const confirm = await screen.findByRole("button", { name: "Delete" });
     await act(async () => {
-      fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+      fireEvent.click(confirm);
     });
     await expect
       .poll(async () => await deleted(() => client.colors.retrieve(custom.key)))
@@ -317,8 +312,9 @@ describe("Color.Settings", () => {
         "This also deletes its 2 colors. This action cannot be undone.",
       ),
     ).toBeTruthy();
+    const confirm = await screen.findByRole("button", { name: "Delete" });
     await act(async () => {
-      fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+      fireEvent.click(confirm);
     });
     await expect
       .poll(async () => await deleted(() => client.colors.retrieve(hidden.key)))

@@ -942,6 +942,29 @@ describe("Device", async () => {
         expect(retrieved.properties.channels).toEqual(["ai0", "ai1"]);
       });
 
+      it("should keep an edit of a retrieved device out of the cache", async () => {
+        const d = await client.devices.create(
+          {
+            key: id.create(),
+            rack: testRack.key,
+            location: "Dev1",
+            name: "edited-device",
+            make: "ni",
+            model: "pxi",
+            properties: { rate: 100, channels: ["ai0"] },
+          },
+          schemas,
+        );
+        // A client that has not cached the device stores the record it fetches.
+        const local = createTestClient();
+        await local.connect();
+        const retrieved = await local.devices.retrieve({ key: d.key, schemas });
+        retrieved.properties.rate = 200;
+        retrieved.properties.channels.push("ai1");
+        const cached = expectLive(local.devices.watch({ key: d.key }).getCached());
+        expect(cached.properties).toEqual({ rate: 100, channels: ["ai0"] });
+      });
+
       it("should retrieve devices by a flat filter with schemas", async () => {
         const location = `flat-${id.create()}`;
         const d = await client.devices.create(

@@ -31,6 +31,7 @@ import {
   isReadable,
   type ReadBinding,
   type ReadSource,
+  reindex,
 } from "@/platform/icd/read";
 import {
   fieldKey,
@@ -312,7 +313,10 @@ export const use = <S extends Source>({
     onSelect([fieldKey(sourceKey, message, field.key)]);
   };
 
-  /** Removes each chosen field from its message in the ICD and from each read of it. */
+  /**
+   * Removes each chosen field from its message in the ICD and from each read of it. A
+   * read whose index is the field gets no index.
+   */
   const removeFields = (chosen: FieldNode[]) => {
     ctx.batch(() => {
       for (const { source, read: r, field } of chosen) {
@@ -321,7 +325,10 @@ export const use = <S extends Source>({
         formatOf(formats, icdKey).remove(fieldsPath(message)[field.key]);
         for (const s of ctx.get(sources).value)
           sourceOf(s)?.messages.forEach((m, i) => {
-            if (m.message === message) read(s.key, i, field, false);
+            if (m.message !== message) return;
+            if (m.index === field.key)
+              ctx.set(pathOf(s.key).messages[i], reindex(m, undefined, 0));
+            else read(s.key, i, field, false);
           });
       }
     });

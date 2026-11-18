@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor, filter, type record, zod } from "@synnaxlabs/x";
+import { array, deep, type destructor, filter, type record, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
@@ -439,7 +439,11 @@ export class Client extends query.Retriever<
       async (since) =>
         await statuses.track(async (statusSince) => {
           const devices = await this.execRetrieve(req, schemas);
-          this.store.ingest(devices.map(stripStatus), { since });
+          // A caller that edits a returned device must not edit the cached one.
+          this.store.ingest(
+            devices.map((d) => deep.copy(stripStatus(d))),
+            { since },
+          );
           devices.forEach(({ status: st }) => {
             if (st != null) statuses.ingest(st, { since: statusSince });
           });

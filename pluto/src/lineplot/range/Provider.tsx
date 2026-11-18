@@ -21,10 +21,18 @@ import { CSS } from "@/css";
 import { useContext, useGridEntry } from "@/lineplot/Frame";
 import { range } from "@/lineplot/range/aether";
 
+/** The props of the menu of a range in the strip. */
+export interface MenuProps extends range.SelectedState {
+  /** Whether the plot is zoomed to the range. */
+  zoomed: boolean;
+  /** Zooms the plot to the range, or back to the view before it when zoomed. */
+  onZoom: () => void;
+}
+
 export interface ProviderProps extends Aether.ComponentProps {
   visible?: boolean;
   onHasAnnotationsChange?: (hasAnnotations: boolean) => void;
-  menu?: Component.RenderProp<range.SelectedState>;
+  menu?: Component.RenderProp<MenuProps>;
 }
 
 export const Provider = ({
@@ -35,7 +43,7 @@ export const Provider = ({
   ...rest
 }: ProviderProps): ReactElement => {
   const cKey = useUniqueKey(aetherKey);
-  const { toggleZoom } = useContext("Range.Provider");
+  const { toggleZoom, zoomedKey } = useContext("Range.Provider");
   const [, { hovered, height }, setState] = Aether.use({
     aetherKey: cKey,
     type: range.Provider.TYPE,
@@ -44,6 +52,7 @@ export const Provider = ({
       ...rest,
       visible,
       cursor: null,
+      menuOpen: false,
       hovered: null,
       count: 0,
       height: 0,
@@ -62,6 +71,9 @@ export const Provider = ({
 
   const menuProps = Menu.useContextMenu();
   const visibleRef = useSyncedRef(menuProps.visible);
+  useEffect(() => {
+    setState((s) => ({ ...s, menuOpen: menuProps.visible }));
+  }, [menuProps.visible, setState]);
 
   const handleMouseMove: React.MouseEventHandler<HTMLDivElement> = (e) => {
     const canvas = document.querySelector(".pluto-canvas-container");
@@ -79,7 +91,11 @@ export const Provider = ({
       {...menuProps}
       menu={() => {
         if (menu == null || hovered == null) return null;
-        return menu(hovered);
+        return menu({
+          ...hovered,
+          zoomed: zoomedKey === hovered.key,
+          onZoom: () => toggleZoom(hovered.key, hovered.viewport),
+        });
       }}
     >
       <Flex.Box

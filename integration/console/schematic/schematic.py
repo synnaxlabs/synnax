@@ -19,12 +19,6 @@ from console.page import ConsolePage, PageType
 from console.schematic.symbol import (
     Properties,
     Symbol,
-    box_bottom,
-    box_center_x,
-    box_center_y,
-    box_left,
-    box_right,
-    box_top,
 )
 from x.control import Authority
 from x.spatial import AngularDirection, OuterLocation
@@ -42,15 +36,6 @@ AlignmentType = Literal[
     "top",
     "bottom",
 ]
-
-_ALIGNMENT_EXTRACTORS = {
-    "left": box_left,
-    "right": box_right,
-    "top": box_top,
-    "bottom": box_bottom,
-    "horizontal": box_center_x,
-    "vertical": box_center_y,
-}
 
 DistributionType = Literal[
     "horizontal",

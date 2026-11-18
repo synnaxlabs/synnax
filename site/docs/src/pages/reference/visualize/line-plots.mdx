@@ -57,9 +57,8 @@ field to open the range picker:
   no live data.
 - **A typed duration** -> type a duration such as `1h 30min` in the search field, then
   press **Enter**. The plot shows the live data of that span.
-- **A range** -> click a range to show its data. The list holds your favorite ranges and
-  the ranges that you added to plots. To add a range to the list,
-  [favorite it](/reference/ranges/find#favorites). You can also drag a range from the
+- **A range** -> click a range to show its data. The list holds every range, newest
+  first, and the search field finds a range by name. You can also drag a range from the
   ranges toolbar onto the field.
 
 The field shows the live span as a tag with a live icon, such as **30s**. A plot can
@@ -76,8 +75,9 @@ above the plot. Only ranges that have a color show.
 - **Hover over a bar** -> see the name, start, end, and duration of the range.
 - **Click a bar** -> zoom to the range and pause the plot. Click the bar again to go
   back to the view from before.
-- **Right-click a bar** -> select **View details**, **Open in new plot**, or **Download
-  as CSV**.
+- **Right-click a bar** -> open the menu of the range, the same menu as in the ranges
+  toolbar. Its first item is **Zoom to range**, which reads **Zoom out** while the plot
+  is zoomed to the range.
 
 To hide the bars, click <Icon.Range /> (**Hide range annotations**) in the top right of
 the plot.
@@ -305,22 +305,6 @@ the newest samples that the channels hold.
 <Problem.Fix>
 
 Check that a task or a script writes to the channels.
-
-</Problem.Fix>
-</Problem.Body>
-
-### A range is not in the Ranges list
-
-<Problem.Body>
-<Problem.Cause>
-
-The list holds only your favorite ranges and ranges that you added to plots.
-
-</Problem.Cause>
-<Problem.Fix>
-
-[Favorite the range](/reference/ranges/find#favorites), or drag it from the ranges
-toolbar onto the **Ranges** field.
 
 </Problem.Fix>
 </Problem.Body>

@@ -76,6 +76,7 @@ select = [
     "E7",
     "E9",
     "PLE",
+    "PLR1722",
     "PLW1514",
     "UP",
     "SIM",
@@ -84,6 +85,7 @@ select = [
     "PIE",
     "PERF",
     "RUF",
+    "S110",
     "PT",
 ]
 ignore = ["UP040", "UP046", "UP047", "SIM105", "SIM115", "SIM117", "PT012", "RUF001"]
@@ -131,6 +133,7 @@ markers = [
     "channel: mark test as a channel test",
     "cli: mark test as a cli test",
     "color: mark test as a color test",
+    "enumeration: mark test as an enumeration test",
     "control: mark test as a control test",
     "core: the test needs a running Core",
     "deprecation: mark test as a deprecation test",
@@ -183,6 +186,7 @@ markers = [
 
 [tool.coverage.run]
 omit = ["*/actions_gen.py", "*/types_gen.py"]
+patch = ["subprocess"]
 
 [build-system]
 requires = ["hatchling"]

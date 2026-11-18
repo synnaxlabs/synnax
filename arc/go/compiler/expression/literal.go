@@ -23,7 +23,7 @@ func compileLiteral(
 	ctx context.Context[parser.ILiteralContext],
 ) (types.Type, error) {
 	if num := ctx.AST.NumericLiteral(); num != nil {
-		return compileNumericLiteral(ctx.Child(num))
+		return compileNumericLiteral(ctx.Child(num), false)
 	}
 	if strTerm := parser.StringTerminal(ctx.AST); strTerm != nil {
 		return compileStringLiteral(ctx, strTerm)
@@ -111,22 +111,18 @@ func compileSeriesLiteral(
 	return seriesType, nil
 }
 
+// compileNumericLiteral emits the literal, negated before the range check when negate
+// is true, so type minimums like -128 for i8 fit.
 func compileNumericLiteral(
 	ctx context.Context[parser.INumericLiteralContext],
+	negate bool,
 ) (types.Type, error) {
-	targetType := ctx.Hint
-	inferred, _ := inferredLiteralType(ctx.AST.GetParent(), ctx.TypeMap)
-	if !targetType.IsValid() || !targetType.IsNumeric() ||
-		targetType.Kind == types.KindVariable {
-		targetType = inferred
-	}
-	targetType = targetType.Unwrap()
-	// A literal beside a value of another dimension keeps its number.
-	if types.UnitsIncompatible(inferred.Unit, targetType.Unit) {
-		targetType.Unit = nil
-	}
-
-	parsed, err := literal.ParseNumeric(ctx.AST, targetType)
+	targetType := numericLiteralType(ctx)
+	parsed, err := literal.ParseNumericSigned(
+		ctx.AST,
+		negate != (ctx.AST.MINUS() != nil),
+		targetType,
+	)
 	if err != nil {
 		return types.Type{}, err
 	}
@@ -241,4 +237,21 @@ func int32Value(v any) (int32, bool) {
 	default:
 		return 0, false
 	}
+}
+
+// numericLiteralType returns the type a numeric literal parses into: the hint, or the
+// analyzer's inferred type when the hint is not a concrete number.
+func numericLiteralType(ctx context.Context[parser.INumericLiteralContext]) types.Type {
+	targetType := ctx.Hint
+	inferred, _ := inferredLiteralType(ctx.AST.GetParent(), ctx.TypeMap)
+	if !targetType.IsValid() || !targetType.IsNumeric() ||
+		targetType.Kind == types.KindVariable {
+		targetType = inferred
+	}
+	targetType = targetType.Unwrap()
+	// A literal beside a value of another dimension keeps its number.
+	if types.UnitsIncompatible(inferred.Unit, targetType.Unit) {
+		targetType.Unit = nil
+	}
+	return targetType
 }

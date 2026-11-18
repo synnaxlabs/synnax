@@ -694,6 +694,7 @@ var _ = Describe("Resource search", Ordered, func() {
 		Entry("Channel", resource.TypeChannel),
 		Entry("Color", resource.TypeColor),
 		Entry("Device", resource.TypeDevice),
+		Entry("Enumeration", resource.TypeEnumeration),
 		Entry("Group", resource.TypeGroup),
 		Entry("Label", resource.TypeLabel),
 		Entry("Lineplot", resource.TypeLineplot),

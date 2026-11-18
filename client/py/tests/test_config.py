@@ -11,8 +11,10 @@
 import json
 import os
 import socket
+import struct
 import subprocess
 import sys
+import threading
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -687,6 +689,45 @@ class TestDesktopConnection:
         )
         assert result.returncode != 0
         assert DESKTOP_NOT_RUNNING_MSG in result.stderr
+
+    def test_reset(self, tmp_path: Path) -> None:
+        """Should not say that Synnax Desktop is not running when its Core accepts
+        the connection and then resets it.
+        """
+        listener = socket.create_server(("127.0.0.1", 0))
+
+        def reset() -> None:
+            conn, _ = listener.accept()
+            with conn:
+                conn.recv(1 << 16)
+                conn.setsockopt(
+                    socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0)
+                )
+
+        thread = threading.Thread(target=reset, daemon=True)
+        thread.start()
+        write_desktop_file(
+            tmp_path / ".synnax" / "desktop.json",
+            port=int(listener.getsockname()[1]),
+            helper=write_helper(tmp_path),
+        )
+        env = {
+            **{k: v for k, v in os.environ.items() if not k.startswith("SYNNAX_")},
+            "HOME": str(tmp_path),
+            "USERPROFILE": str(tmp_path),
+        }
+        with listener:
+            result = subprocess.run(
+                [sys.executable, "-c", "import synnax as sy; sy.Synnax(max_retries=0)"],
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            thread.join(5)
+        assert result.returncode != 0
+        assert "Unreachable" in result.stderr
+        assert DESKTOP_NOT_RUNNING_MSG not in result.stderr
 
 
 class TestEnvConnection:

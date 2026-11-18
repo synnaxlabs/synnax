@@ -19,7 +19,11 @@ export type Entry = record.Keyed<string>;
 export interface Store<V> {
   /** @returns the values. A change gives each object on its path a new identity. */
   get: () => V;
-  /** Replaces the value at the path. An empty path replaces the values. */
+  /**
+   * Replaces the value at the path. An empty path replaces the values. A path into a
+   * list entry that another client removed changes nothing, unless it also reads as a
+   * path into a kept entry, as `a.b` does when the list keeps `a`.
+   */
   set: (path: string, value: unknown) => void;
   /** Removes the object field or the list entry at the path. */
   remove: (path: string) => void;
@@ -38,26 +42,18 @@ export interface Store<V> {
 }
 
 /**
- * Copies the root and every container on the way to the path's leaf, walking the path
- * the way `deep.set` and `deep.remove` do. A write at the path then gives each ancestor
- * a new identity and leaves every untouched subtree shared.
+ * Copies the root and each object or array on the way to the value at the path. A write
+ * at the path then gives each ancestor a new identity and leaves every untouched
+ * subtree shared.
  */
 const copyPath = <V>(root: V, path: string): V => {
   const next = shallow.copy(root);
   const parts = path.split(deep.SEPARATOR);
-  let parent = next as record.Unknown;
-  let i = 0;
-  while (i < parts.length - 1) {
-    const best = deep.findBestKey(parent, parts.slice(i, parts.length - 1));
-    if (best == null) break;
-    const [key, consumed] = best;
-    i += consumed;
-    const child = deep.defaultGetter(parent, key);
-    const copy = shallow.copy(child) as record.Unknown;
-    // An array entry found by its key field sits at an index, not at the key.
-    if (parent[key] === child) parent[key] = copy;
-    else parent[(parent as unknown as unknown[]).indexOf(child)] = copy;
-    parent = copy;
+  for (let end = 1; end < parts.length; end++) {
+    const found = deep.resolve(next, parts.slice(0, end).join(deep.SEPARATOR));
+    if (found == null || found.value == null || typeof found.value !== "object")
+      continue;
+    found.parent[found.key] = shallow.copy(found.value);
   }
   return next;
 };
@@ -84,11 +80,11 @@ export const createLocalStore = <V>(values: V): Store<V> => {
     mutate(next);
     commit(next);
   };
-  const list = (path: string): Entry[] =>
-    deep.get<Entry[], V>(current, path, { optional: true }) ?? [];
+  const list = (path: string): Entry[] => deep.get<Entry[], V>(current, path) ?? [];
   const set = (path: string, value: unknown) => {
     if (path === "") commit(value as V);
-    else write(path, (next) => deep.set(next, path, value));
+    else if (deep.canSet(current, path))
+      write(path, (next) => deep.set(next, path, value));
   };
   return {
     get: () => current,

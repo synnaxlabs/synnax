@@ -146,25 +146,43 @@ describe("copy", () => {
     } else expect(Array.from(copied.uint8 as Uint8Array)).toEqual([1, 2, 3]);
   });
 
-  // Mirrors the immer Draft scenario: callers store snapshots of mutable
-  // proxy state in long-lived structures (e.g., undo entries) that outlive
-  // the proxy. The snapshot must own its data so it survives revocation.
-  it("should produce a snapshot detached from a revocable proxy source", () => {
-    const target = { nested: { value: 1 }, list: [1, 2, 3] };
-    const { proxy, revoke } = Proxy.revocable(target, {});
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const trace = vi.spyOn(console, "trace").mockImplementation(() => {});
-    const copied = deep.copy(proxy);
-    expect(warn).toHaveBeenCalledExactlyOnceWith(
-      "Failed to deep copy object, falling back to JSON.parse(JSON.stringify)",
-      proxy,
-    );
-    expect(trace).toHaveBeenCalledOnce();
+  it("should keep the prototype of a Date and drop the prototype of a class", () => {
+    class Point {
+      constructor(
+        readonly x: number,
+        readonly y: number,
+      ) {}
+    }
+    const copied = deep.copy({ at: new Date(5), point: new Point(1, 2) });
+    expect(copied.at).toBeInstanceOf(Date);
+    expect(copied.at.getTime()).toBe(5);
+    expect(copied.point).not.toBeInstanceOf(Point);
+    expect(copied.point).toEqual({ x: 1, y: 2 });
+  });
+
+  // An Immer draft is a proxy. Callers copy it through Immer's current instead.
+  it("should throw on a proxy", () => {
+    const { proxy } = Proxy.revocable({ nested: { value: 1 } }, {});
+    expect(() => deep.copy(proxy)).toThrow(DOMException);
+  });
+
+  it("should throw on a proxy nested inside a plain object", () => {
+    const nested = new Proxy({ value: 1 }, {});
+    expect(() => deep.copy({ a: 1, nested })).toThrow(DOMException);
+  });
+
+  it("should throw on a function", () => {
+    expect(() => deep.copy({ fn: () => 1 })).toThrow(DOMException);
+  });
+
+  it("should not log when it copies or throws", () => {
+    const warn = vi.spyOn(console, "warn");
+    const trace = vi.spyOn(console, "trace");
+    deep.copy({ a: 1 });
+    expect(() => deep.copy({ fn: () => 1 })).toThrow();
+    expect(warn).not.toHaveBeenCalled();
+    expect(trace).not.toHaveBeenCalled();
     warn.mockRestore();
     trace.mockRestore();
-    revoke();
-    expect(copied).toEqual({ nested: { value: 1 }, list: [1, 2, 3] });
-    expect(copied.nested).not.toBe(target.nested);
-    expect(copied.list).not.toBe(target.list);
   });
 });

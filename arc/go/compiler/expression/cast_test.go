@@ -10,6 +10,8 @@
 package expression_test
 
 import (
+	"math"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
@@ -130,9 +132,7 @@ var _ = Describe("Type Cast Compilation", func() {
 			"i8 to str (negative)",
 			"str(i8(-127))",
 			types.String(),
-			OpI32Const, int32(127),
-			OpI32Const, int32(-1),
-			OpI32Mul, OpI32Const, int32(24), OpI32Shl, OpI32Const, int32(24), OpI32ShrS,
+			OpI32Const, int32(-127),
 			OpCall, uint32(0),
 		),
 		Entry(
@@ -146,9 +146,7 @@ var _ = Describe("Type Cast Compilation", func() {
 			"i16 to str (negative)",
 			"str(i16(-32767))",
 			types.String(),
-			OpI32Const, int32(32767),
-			OpI32Const, int32(-1),
-			OpI32Mul, OpI32Const, int32(16), OpI32Shl, OpI32Const, int32(16), OpI32ShrS,
+			OpI32Const, int32(-32767),
 			OpCall, uint32(0),
 		),
 		Entry(
@@ -162,9 +160,7 @@ var _ = Describe("Type Cast Compilation", func() {
 			"i32 to str (negative)",
 			"str(i32(-2147483647))",
 			types.String(),
-			OpI32Const, int32(2147483647),
-			OpI32Const, int32(-1),
-			OpI32Mul,
+			OpI32Const, int32(-2147483647),
 			OpCall, uint32(0),
 		),
 		Entry(
@@ -178,9 +174,7 @@ var _ = Describe("Type Cast Compilation", func() {
 			"i64 to str (negative)",
 			"str(i64(-9223372036854775807))",
 			types.String(),
-			OpI64Const, int64(9223372036854775807),
-			OpI64Const, int64(-1),
-			OpI64Mul,
+			OpI64Const, int64(-9223372036854775807),
 			OpCall, uint32(0),
 		),
 		Entry(
@@ -222,8 +216,7 @@ var _ = Describe("Type Cast Compilation", func() {
 			"f32 to str (negative)",
 			"str(f32(-3.14))",
 			types.String(),
-			OpF32Const, float32(3.14),
-			OpF32Neg,
+			OpF32Const, float32(-3.14),
 			OpCall, uint32(0),
 		),
 		Entry(
@@ -258,8 +251,7 @@ var _ = Describe("Type Cast Compilation", func() {
 			"f64 to str (negative)",
 			"str(f64(-3.14))",
 			types.String(),
-			OpF64Const, float64(3.14),
-			OpF64Neg,
+			OpF64Const, float64(-3.14),
 			OpCall, uint32(0),
 		),
 		Entry(
@@ -294,9 +286,7 @@ var _ = Describe("Type Cast Compilation", func() {
 			"integer literal to str (negative)",
 			"str(-42)",
 			types.String(),
-			OpI64Const, int64(42),
-			OpI64Const, int64(-1),
-			OpI64Mul,
+			OpI64Const, int64(-42),
 			OpCall, uint32(0),
 		),
 		Entry(
@@ -310,24 +300,21 @@ var _ = Describe("Type Cast Compilation", func() {
 			"float literal to str (negative)",
 			"str(-3.14)",
 			types.String(),
-			OpF64Const, float64(3.14),
-			OpF64Neg,
+			OpF64Const, float64(-3.14),
 			OpCall, uint32(0),
 		),
 		Entry(
 			"float literal to str (negative zero)",
 			"str(-0.0)",
 			types.String(),
-			OpF64Const, float64(0),
-			OpF64Neg,
+			OpF64Const, math.Copysign(0, -1),
 			OpCall, uint32(0),
 		),
 		Entry(
 			"float literal to str (negative zero with trailing zeros)",
 			"str(-0.0000)",
 			types.String(),
-			OpF64Const, float64(0),
-			OpF64Neg,
+			OpF64Const, math.Copysign(0, -1),
 			OpCall, uint32(0),
 		),
 		Entry(
@@ -513,8 +500,7 @@ var _ = Describe("Type Cast of Mixed Expressions", func() {
 			"i64: negative literal * var to f64",
 			"f64(-2 * n)",
 			types.I64(), types.F64(),
-			OpI64Const, int64(2), OpI64Const, int64(-1), OpI64Mul,
-			OpLocalGet, 0, OpI64Mul, OpF64ConvertI64S,
+			OpI64Const, int64(-2), OpLocalGet, 0, OpI64Mul, OpF64ConvertI64S,
 		),
 		Entry(
 			"i64: three operands to f64",
