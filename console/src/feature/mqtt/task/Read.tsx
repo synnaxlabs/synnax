@@ -110,8 +110,6 @@ interface Draft {
   type: "plain";
   topic: string;
   fields: icd.JSONField[];
-  /** The keys of the fields that the task reads. */
-  bound: string[];
 }
 
 /** What the discovery dialog adds: topics to read and Sparkplug B tags. */
@@ -130,12 +128,11 @@ const toJSONField = (leaf: Leaf): icd.JSONField =>
     type: SAMPLE_KINDS[leaf.type],
   });
 
-const createDraft = (topic: string, leaves: Leaf[] = []): Draft => {
-  const fields = leaves.map(toJSONField);
-  // A disabled leaf would mix a variable-length channel among fixed ones.
-  const bound = fields.filter((_, i) => !leaves[i].disabled).map(({ key }) => key);
-  return { type: "plain", topic, fields, bound };
-};
+const createDraft = (topic: string, leaves: Leaf[] = []): Draft => ({
+  type: "plain",
+  topic,
+  fields: leaves.map(toJSONField),
+});
 
 const DISCOVER_KIND: Kind<Addition> = {
   title: "Add data",
@@ -760,12 +757,8 @@ const Entries: FC<EntriesProps> = ({
     const drafts = additions.filter(isDraft);
     const tags = additions.filter((a): a is SparkplugReadEntry => !isDraft(a));
     const written = writtenChannels(entries);
-    const bind: Bind = ({ topic, bound }, fields, message) =>
-      bindingsOf(
-        topicChannels(stored, topic, message),
-        fields.filter(({ key }) => bound.includes(key)),
-        written,
-      );
+    const bind: Bind = ({ topic }, fields, message) =>
+      bindingsOf(topicChannels(stored, topic, message), fields, written);
     const { added, held: grown } =
       drafts.length === 0
         ? { added: [], held: [] }

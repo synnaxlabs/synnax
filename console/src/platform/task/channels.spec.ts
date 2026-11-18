@@ -307,7 +307,7 @@ describe("channels", () => {
         newIndex: `${prefix}_time`,
         indexField: "ts",
         channels: {},
-        creates: [{ key: "f1", name: `${prefix}_temperature_2` }],
+        creates: [{ key: "f1", name: `${prefix}_temperature_2`, indexed: true }],
         renames: [],
       });
       expect(fields.map(({ channel }) => channel)).toEqual([0, 0]);
@@ -328,7 +328,9 @@ describe("channels", () => {
         indexKey: "",
       });
       expect(plan.renames).toEqual([{ key: old.key, name: `${prefix}_mode_2` }]);
-      expect(plan.creates).toEqual([{ key: "f1", name: `${prefix}_mode` }]);
+      expect(plan.creates).toEqual([
+        { key: "f1", name: `${prefix}_mode`, indexed: false },
+      ]);
       expect((await client.channels.retrieve(old.key)).name).toBe(`${prefix}_mode`);
     });
   });
