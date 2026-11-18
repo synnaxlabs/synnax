@@ -9,7 +9,7 @@
 
 import "@/feature/schematic/symbol/edit/Edit.css";
 
-import { type group, type schematic } from "@synnaxlabs/client";
+import { type group, type schematic, status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -61,7 +61,7 @@ const Editor = ({
 }: Modals.ContentProps<ModalParams, void>): ReactElement => {
   const isCreate = symbolKey == null;
   const theme = Theming.use();
-  const { form, save } = Schematic.Symbol.useForm({
+  const { form, save, variant } = Schematic.Symbol.useForm({
     query: symbolKey == null ? null : { key: symbolKey },
     initialValues: {
       key: createKey,
@@ -79,6 +79,7 @@ const Editor = ({
     },
     afterSave: () => close(),
   });
+  Modals.useBusy(variant === "loading");
   const [selectedState, setSelectedState, selectedStateRef] =
     useCombinedStateAndRef<string>("base");
   const [selectedRegion, setSelectedRegion, selectedRegionRef] =
@@ -262,6 +263,7 @@ const Editor = ({
             <Nav.Bar.End>
               <Button.Button
                 variant="filled"
+                status={status.keepVariants(variant, "loading")}
                 onClick={() => save()}
                 trigger={Triggers.SAVE}
                 triggerIndicator

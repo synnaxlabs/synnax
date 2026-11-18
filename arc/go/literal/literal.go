@@ -69,10 +69,9 @@ func Parse(
 var ErrTruncated = errors.New("non-integer float in an integer type")
 
 // ParseString parses any of the eight string literal forms ("..." / `...`
-// crossed with optional r/f/rf/fr prefix) and returns the cooked Go string. For
-// format-prefixed strings without placeholders, {{ and }} are collapsed to
-// literal braces; for format strings with placeholders the body is returned
-// with placeholders intact so callers can run FmtStrParse themselves.
+// crossed with optional r/f/rf/fr prefix) and returns the cooked Go string. A format
+// string collapses {{ and }} to literal braces. One with a placeholder is not a
+// constant and returns a codes.NotConstant error.
 func ParseString(text string, targetType types.Type) (ParsedValue, error) {
 	if targetType.IsValid() && targetType.Kind != types.KindString {
 		return ParsedValue{}, codes.TypeMismatch.Errorf(
@@ -104,15 +103,37 @@ func ParseString(text string, targetType types.Type) (ParsedValue, error) {
 				errors.Wrapf(err, "invalid format string %s", text),
 			)
 		}
-		if !FmtStrHasPlaceholder(segments) {
-			var sb strings.Builder
-			for _, seg := range segments {
-				sb.WriteString(seg.Text)
-			}
-			value = sb.String()
+		if FmtStrHasPlaceholder(segments) {
+			return ParsedValue{}, codes.NotConstant.Errorf(
+				"format string %s is not a compile-time constant",
+				text,
+			)
 		}
+		var sb strings.Builder
+		for _, seg := range segments {
+			sb.WriteString(seg.Text)
+		}
+		value = sb.String()
 	}
 	return ParsedValue{Value: value, Type: types.String()}, nil
+}
+
+// IsConstant reports whether expr is a lone literal with a value known at compile
+// time. A format string that has a placeholder, or that does not split, is not.
+func IsConstant(expr parser.IExpressionContext) bool {
+	if !parser.IsLiteral(expr) {
+		return false
+	}
+	str := parser.StringTerminal(parser.GetLiteral(expr))
+	if str == nil {
+		return true
+	}
+	body, flags, ok := StripQuotes(str.GetText())
+	if !ok || !flags.Format {
+		return true
+	}
+	segments, err := FmtStrSplit(body, flags)
+	return err == nil && !FmtStrHasPlaceholder(segments)
 }
 
 // ParseNumeric parses a numeric literal (integer or float, with optional unit suffix)

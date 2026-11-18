@@ -41,6 +41,7 @@ cc_library(
         "//x/cpp/cli",
         "//x/cpp/crash",
         "//x/cpp/log",
+        "//x/cpp/path",
         "//x/cpp/shutdown",
         "@abseil-cpp//absl/log",
         "@abseil-cpp//absl/log:globals",

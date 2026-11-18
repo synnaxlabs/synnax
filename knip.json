@@ -52,6 +52,7 @@
         "src/feature/*/{explorer,overview}/external.tsx": ["exports"],
         "src/feature/sift/range/{UploadMenuItem,Uploads}.tsx": ["exports"],
         "src/platform/view/filter/{Chip,Chips,Menu}.tsx": ["exports"],
+        "src/platform/icd/picker/*.tsx": ["exports"],
         "src/platform/task/{fields,payload,port,views}/*.tsx": ["exports"]
       }
     },
