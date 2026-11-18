@@ -7,12 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device, icd, kafka } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import {
+  type device,
+  icd,
+  kafka,
+  type resource,
+  type Synnax,
+} from "@synnaxlabs/client";
+import {
+  createTestClient,
+  createTestClientWithPolicy,
+} from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
-import { DataType, type payload, uuid } from "@synnaxlabs/x";
+import { DataType, type payload, sleep, TimeSpan, uuid } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { Kafka } from "@/feature/kafka";
 import { createKafkaDevice } from "@/feature/kafka/testutil";
@@ -24,7 +33,7 @@ import {
   deployAndAwaitTask,
   renderTaskFormTab,
 } from "@/platform/task/testutil";
-import { findDialogTriggerByText, uniqueName } from "@/testutil";
+import { assertDefined, findDialogTriggerByText, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -58,6 +67,8 @@ interface RenderParams extends Partial<RecordParams> {
    * ICD edit here would make invalid.
    */
   beforeRender?: () => Promise<unknown>;
+  /** The client the form runs as. */
+  as?: Synnax;
 }
 
 /** Creates an ICD that holds one message, and a record that reads it. */
@@ -96,6 +107,7 @@ const renderRead = async ({
   bound,
   records = [],
   beforeRender,
+  as,
 }: RenderParams = {}) => {
   const dev = await createKafkaDevice(client);
   const first =
@@ -113,6 +125,7 @@ const renderRead = async ({
   const statuses: Status.NotificationSpec[] = [];
   const result = await renderTaskFormTab(Kafka.Task.Read, {
     client,
+    as,
     taskKey: draft.key,
     onStatuses: (next) => {
       statuses.length = 0;
@@ -151,6 +164,62 @@ const retype = async (
     icd.remove({ path, key: field.key }),
     icd.insert({ path, value: { ...field, type: kind } }),
   ]);
+};
+
+/** @returns a client with the policies of the Owner role, which reads ICDs only. */
+const createICDReaderClient = async (): Promise<Synnax> => {
+  const owner = (await client.access.roles.retrieve({})).find(
+    ({ name }) => name === "Owner",
+  );
+  assertDefined(owner, "no built-in role named Owner");
+  const policies = await client.access.policies.retrieve({ roles: [owner.key] });
+  const isICD = ({ type }: resource.ID) => type === icd.TYPE_RESOURCE_ID.type;
+  const reader = await createTestClientWithPolicy(client, [
+    ...policies.map(({ objects, actions }) => ({
+      name: uniqueName("policy"),
+      objects: objects.filter((o) => !isICD(o)),
+      actions,
+    })),
+    {
+      name: uniqueName("policy"),
+      objects: [icd.TYPE_RESOURCE_ID],
+      actions: ["retrieve"],
+    },
+  ]);
+  onTestFinished(async () => await reader.close());
+  return reader;
+};
+
+/**
+ * Adds a field to the message of a record, in a form whose client reads ICDs only.
+ * @param onReader - Runs on the client before the form renders.
+ */
+const addFieldAsICDReader = async (onReader?: (reader: Synnax) => void) => {
+  const temperature = createField("temperature", "float");
+  const reader = await createICDReaderClient();
+  onReader?.(reader);
+  const { draft, statuses } = await renderRead({ fields: [temperature], as: reader });
+  const [{ icd: icdKey, messages }] = await retrieveRecords(draft.key);
+  fireEvent.click(await screen.findByRole("treeitem", { name: /JSON.*Any key/ }));
+  fireEvent.click(await screen.findByRole("button", { name: "Add field" }));
+  return { draft, statuses, temperature, icdKey, bindings: messages[0].bindings };
+};
+
+/** Expects the ICD and the read of an added field to hold what the Core holds. */
+const expectFieldUndone = async ({
+  draft,
+  temperature,
+  icdKey,
+  bindings,
+}: Awaited<ReturnType<typeof addFieldAsICDReader>>) => {
+  await waitFor(() =>
+    expect(screen.queryByRole("treeitem", { name: /^Field 2/ })).toBeNull(),
+  );
+  expect(jsonFieldsOf(await client.icds.retrieve(icdKey))).toEqual([temperature]);
+  expect(await retrieveBindings(draft.key)).toEqual(bindings);
+  // A read that still held the refused field would be refused again.
+  fireEvent.click(await screen.findByRole("checkbox", { name: "Read temperature" }));
+  await waitFor(async () => expect(await retrieveBindings(draft.key)).toEqual([]));
 };
 
 /** @returns the fields of the first message of an ICD. */
@@ -496,6 +565,43 @@ describe("Kafka read form", () => {
           { field: added.key, channel: 0, dataType: "" },
         ]),
       );
+    });
+
+    it("should drop the read of a field whose ICD edit fails", async () => {
+      const added = await addFieldAsICDReader();
+      await waitFor(() =>
+        expect(added.statuses).toContainEqual(
+          expect.objectContaining({ message: "Failed to save ICD" }),
+        ),
+      );
+      await expectFieldUndone(added);
+    });
+
+    it("should undo a read that the Core refuses after a slow ICD edit", async () => {
+      const added = await addFieldAsICDReader((reader) => {
+        const begin = reader.icds.beginTransaction.bind(reader.icds);
+        // The ICD fails once the read's edit has left the window that holds it.
+        vi.spyOn(reader.icds, "beginTransaction").mockImplementation((key) => {
+          const tx = begin(key);
+          return {
+            add: (actions) => tx.add(actions),
+            abort: () => tx.abort(),
+            commit: async () => {
+              await sleep.sleep(TimeSpan.milliseconds(500));
+              return await tx.commit();
+            },
+          };
+        });
+      });
+      await waitFor(() =>
+        expect(added.statuses).toContainEqual(
+          expect.objectContaining({
+            message: "Failed to save task",
+            description: expect.stringContaining("does not exist in message"),
+          }),
+        ),
+      );
+      await expectFieldUndone(added);
     });
 
     it("should remove a field from the ICD through the context menu", async () => {
