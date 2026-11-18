@@ -18,7 +18,7 @@ import { Graph } from "@/feature/arc/editor/Graph";
 import { Vis } from "@/platform/vis";
 import {
   createConsoleWrapper,
-  getIconButton,
+  findIconButton,
   installMissingGPU,
   renderSuspended,
   uniqueName,
@@ -56,7 +56,7 @@ describe("arc/editor/Graph", () => {
           "Arcs need a GPU to render. Run the Console on a machine with a GPU.",
         ),
       ).toBeDefined();
-      expect(getIconButton(container, "play")).toBeDefined();
+      expect(await findIconButton(container, "play")).toBeDefined();
     });
   });
 });
