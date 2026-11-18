@@ -374,27 +374,22 @@ func (r *reference[K, E, T]) bind(owner string, position int) {
 	r.owner, r.position = owner, position
 }
 
-//nolint:unused
 func (r *reference[K, E, T]) populate() (func(E), func(error)) {
 	insert, finish := r.store.Populate()
 	return func(entry E) { insert(entry.GorpKey(), r.targetsOf(&entry)) },
 		func(err error) { finish(populateErr(r.name, err)) }
 }
 
-//nolint:unused
 func (r *reference[K, E, T]) set(entry E) {
 	r.store.Set(entry.GorpKey(), r.targetsOf(&entry))
 }
 
-//nolint:unused
 func (r *reference[K, E, T]) delete(key K) { r.store.Delete(key) }
 
-//nolint:unused
 func (r *reference[K, E, T]) stageSet(tx Tx, entry E) {
 	r.store.Stage(tx.txIdentity(), entry.GorpKey(), r.targetsOf(&entry))
 }
 
-//nolint:unused
 func (r *reference[K, E, T]) stageDelete(tx Tx, key K) {
 	r.store.StageDelete(tx.txIdentity(), key)
 }
@@ -610,6 +605,7 @@ func (r *reference[K, E, T]) ownerTable() string       { return r.owner }
 func (r *reference[K, E, T]) referenceName() string    { return r.name }
 func (r *reference[K, E, T]) index() int               { return r.position }
 func (r *reference[K, E, T]) onDeletePolicy() OnDelete { return r.onDelete }
+func (r *reference[K, E, T]) linkKind() LinkKind       { return r.kind }
 func (r *reference[K, E, T]) targetTables() []string   { return r.tables }
 
 // check implements Reference.

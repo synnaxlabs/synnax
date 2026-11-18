@@ -23,8 +23,7 @@ on:
         default: ""
       shards:
         description:
-          How many jobs split the Ginkgo suites on each OS, from 1 to 4. A cached run is
-          one job.
+          How many jobs split the test suites and the lint on each OS, from 1 to 4
         required: false
         type: number
         default: 1
@@ -51,6 +50,13 @@ on:
         default: true
       windows:
         description: Whether to test on Windows
+        required: false
+        type: boolean
+        default: false
+      os_specific:
+        description:
+          Whether the module has code that only some operating systems build. Lint then
+          skips the type-check for Windows and macOS, which a full run lints instead.
         required: false
         type: boolean
         default: false
@@ -83,20 +89,56 @@ env:
 
 jobs:
   # Every GOOS lints on Ubuntu, because the Windows runner does not have the disk space
-  # for a cold lint. One job per GOOS keeps each runner's cache and compile scratch to
-  # one GOOS, which fits the Ubuntu runner's disk. Without a limit, a hung lint holds the
-  # runner for up to 6 hours.
+  # for a cold lint. A full run lints each GOOS in its own job, which keeps each
+  # runner's cache to one GOOS. Other runs lint only for Linux, and that job also
+  # type-checks a module with no OS-specific code for Windows and macOS. Without a
+  # limit, a hung lint holds the runner for up to 6 hours.
   lint:
-    name: Lint (${{ matrix.goos }})
+    name:
+      Lint (${{ matrix.goos }}${{ inputs.shards > 1 && format(', {0}/{1}', matrix.shard,
+      inputs.shards) || '' }})
     runs-on: ubuntu-latest
     timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
-        goos: [linux, windows, darwin]
+        goos:
+          ${{ fromJSON((inputs.windows || inputs.macos) && '["linux", "windows",
+          "darwin"]' || '["linux"]') }}
+        shard: [1, 2, 3, 4]
+        exclude:
+          - shard: ${{ inputs.shards < 2 && 2 }}
+          - shard: ${{ inputs.shards < 3 && 3 }}
+          - shard: ${{ inputs.shards < 4 && 4 }}
     steps:
+      # Lint reports only issues since the merge base with origin/main, so it needs
+      # the history back to that commit.
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          filter: blob:none
+
+      - name: Check that the module has no OS-specific code
+        if: ${{ !inputs.os_specific && matrix.goos == 'linux' && matrix.shard == 1 }}
+        working-directory: ${{ inputs.directory }}
+        run: |
+          os='aix|android|darwin|dragonfly|freebsd|illumos|ios|js|linux|netbsd|openbsd'
+          os="$os|plan9|solaris|unix|wasip1|windows"
+          tag="^//go:build(.*[^A-Za-z0-9_])?($os)([^A-Za-z0-9_]|$)"
+          found=$(
+            {
+              git ls-files -z -- '*.go' ':(exclude)**/testdata/**' |
+                tr '\0' '\n' | grep -E "_($os)(_[a-z0-9]+)?(_test)?\.go$" || true
+              git grep -lE "$tag" -- '*.go' ':(exclude)**/testdata/**' || true
+            } | sort -u
+          )
+          if [ -n "$found" ]; then
+            echo "::error::These files build only on some operating systems:"
+            echo "$found"
+            echo "Set os_specific: true for this module in ci.yaml."
+            exit 1
+          fi
 
       # The Ubuntu image ships toolchains lint never uses, and the restored cache plus a
       # compile overflows the disk they leave free.
@@ -151,17 +193,40 @@ jobs:
       # A download adds missing go.sum entries, so a changed go.mod or go.sum means the
       # committed ones were not tidy. Tidiness does not depend on GOOS.
       - name: Check that go.mod and go.sum are tidy
-        if: matrix.goos == 'linux'
+        if: matrix.goos == 'linux' && matrix.shard == 1
         working-directory: ${{ inputs.directory }}
         run: |
           git diff --exit-code -- go.mod go.sum
           go mod tidy -diff
+
+      # golangci-lint drops each report on a line that a //nolint directive names,
+      # including a report about the directive itself, so a grep forbids them.
+      - name: Forbid //nolint directives
+        if: matrix.goos == 'linux' && matrix.shard == 1
+        working-directory: ${{ inputs.directory }}
+        run: "! git grep -nE '//[/ ]*nolint( |:|$)' -- '*.go'"
 
       # Each job and GOOS restores its own module cache from an earlier run, and a
       # download checks go.sum only for modules it fetches.
       - name: Verify the Go module cache
         working-directory: ${{ inputs.directory }}
         run: go mod verify
+
+      # Code with no build constraint can still use an API that some operating systems
+      # lack, so a module with no OS-specific code type-checks for the others. Main runs
+      # it too, so the cache it saves holds the objects that pull requests build.
+      - name: Type-check for Windows and macOS
+        if: >-
+          ${{ !inputs.os_specific && matrix.goos == 'linux' && matrix.shard == 1 &&
+          (github.ref == 'refs/heads/main' || !inputs.windows && !inputs.macos) }}
+        working-directory: ${{ inputs.directory }}
+        env:
+          CGO_ENABLED: "0"
+        # go vet would also report on generated files, so the test binaries are built,
+        # and run with `true` in place of the binary.
+        run: |
+          GOOS=windows go test -exec=true -run='^$' ./...
+          GOOS=darwin go test -exec=true -run='^$' ./...
 
       - name: Build the custom golangci-lint binary
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9
@@ -174,21 +239,35 @@ jobs:
           # the paths resolve, which the action adds only to a lint it runs itself.
           problem-matchers: true
 
+      # The config reports only lines changed since the merge base, which the
+      # complexity linters need until their old findings are split (SY-6110). Every
+      # other linter reports the whole module, so the merge queue and main still catch
+      # a finding on a line no change touched.
       - name: Lint
+        shell: bash
         working-directory: ${{ inputs.directory }}
         env:
           CGO_ENABLED: "0"
           GOOS: ${{ matrix.goos }}
+          COMPLEXITY: funlen,gocognit,maintidx,nestif
+          SHARD: ${{ matrix.shard }}
+          SHARDS: ${{ inputs.shards }}
+        # Each shard lints every nth package in path order.
         run: |
           ./custom-gcl config verify
-          ./custom-gcl run --path-mode=abs
+          packages=$(go list -f '.{{slice .ImportPath (len .Module.Path)}}' ./... |
+            awk -v n="$SHARDS" -v s="$SHARD" 'NF && ++i % n == s % n')
+          read -ra packages <<< "${packages//$'\n'/ }"
+          ./custom-gcl run --path-mode=abs --new-from-merge-base= \
+            --disable "$COMPLEXITY" "${packages[@]}"
+          ./custom-gcl run --path-mode=abs --enable-only "$COMPLEXITY" "${packages[@]}"
 
       # Each save holds every entry it restored, so stale builds pile up until their
       # extraction fills the disk. Go and golangci-lint refresh an entry's mtime when
       # they use it, so deleting the oldest files first keeps the ones this lint read.
       # One cold lint fills about 11 GB.
       - name: Trim the Go caches
-        if: ${{ success() && github.ref == 'refs/heads/main' }}
+        if: ${{ success() && github.ref == 'refs/heads/main' && matrix.shard == 1 }}
         env:
           BUDGET: 14000000000
         run: |
@@ -199,9 +278,10 @@ jobs:
           du -sh ~/.cache/go-build ~/.cache/golangci-lint
 
       # A failed lint leaves a cache that pull requests would restore, so only a
-      # passing lint on main saves.
+      # passing lint on main saves. The shards restore one cache, so only the first
+      # saves. It holds the shared packages, and a cache per shard is near full size.
       - name: Save the Go caches
-        if: ${{ success() && github.ref == 'refs/heads/main' }}
+        if: ${{ success() && github.ref == 'refs/heads/main' && matrix.shard == 1 }}
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: *lint-cache
@@ -209,8 +289,8 @@ jobs:
 
   test:
     name:
-      Test (${{ matrix.os }}${{ !inputs.cached && inputs.shards > 1 && format(',
-      {0}/{1}', matrix.shard, inputs.shards) || '' }})
+      Test (${{ matrix.os }}${{ inputs.shards > 1 && format(', {0}/{1}', matrix.shard,
+      inputs.shards) || '' }})
     strategy:
       fail-fast: false
       matrix:
@@ -220,9 +300,9 @@ jobs:
           - os: ${{ !inputs.macos && 'macos-latest' }}
           - os: ${{ !inputs.ubuntu && 'ubuntu-latest' }}
           - os: ${{ !inputs.windows && 'windows-latest' }}
-          - shard: ${{ (inputs.cached || inputs.shards < 2) && 2 }}
-          - shard: ${{ (inputs.cached || inputs.shards < 3) && 3 }}
-          - shard: ${{ (inputs.cached || inputs.shards < 4) && 4 }}
+          - shard: ${{ inputs.shards < 2 && 2 }}
+          - shard: ${{ inputs.shards < 3 && 3 }}
+          - shard: ${{ inputs.shards < 4 && 4 }}
         include:
           - os: ubuntu-latest
             shard: 1
@@ -375,8 +455,11 @@ jobs:
         env:
           FLAGS:
             ${{ runner.os != 'macOS' && '-race -cover -coverprofile=cover.out' || '' }}
+          SHARD: ${{ matrix.shard }}
+          SHARDS: ${{ inputs.shards }}
         run: |
-          suites=$(go list -f "$SUITE" ./...)
+          suites=$(go list -f "$SUITE" ./... |
+            awk -v n="$SHARDS" -v s="$SHARD" 'NF && ++i % n == s % n')
           read -ra flags <<< "$FLAGS"
           read -ra suites <<< "${suites//$'\n'/ }"
           go test "${flags[@]}" -timeout=30m "${suites[@]}"

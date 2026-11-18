@@ -287,35 +287,40 @@ func (dispatchResponseTranslator) Backward(
 	return task.DispatchResponse{}, nil
 }
 
-func New(t *api.Transport) grpc.BindableTransport {
+func New(t *api.Transport, errs *errors.Codec) grpc.BindableTransport {
 	create := &createServer{
 		RequestTranslator:  createRequestTranslator{},
 		ResponseTranslator: createResponseTranslator{},
 		ServiceDesc:        &TaskCreateService_ServiceDesc,
+		Errors:             errs,
 	}
 	t.TaskCreate = create
 	retrieve := &retrieveServer{
 		RequestTranslator:  retrieveRequestTranslator{},
 		ResponseTranslator: retrieveResponseTranslator{},
 		ServiceDesc:        &TaskRetrieveService_ServiceDesc,
+		Errors:             errs,
 	}
 	t.TaskRetrieve = retrieve
 	del := &deleteServer{
 		RequestTranslator:  deleteRequestTranslator{},
 		ResponseTranslator: grpc.EmptyTranslator{},
 		ServiceDesc:        &TaskDeleteService_ServiceDesc,
+		Errors:             errs,
 	}
 	t.TaskDelete = del
 	cpy := &copyServer{
 		RequestTranslator:  copyRequestTranslator{},
 		ResponseTranslator: copyResponseTranslator{},
 		ServiceDesc:        &TaskCopyService_ServiceDesc,
+		Errors:             errs,
 	}
 	t.TaskCopy = cpy
 	dispatch := &dispatchServer{
 		RequestTranslator:  dispatchRequestTranslator{},
 		ResponseTranslator: dispatchResponseTranslator{},
 		ServiceDesc:        &TaskDispatchService_ServiceDesc,
+		Errors:             errs,
 	}
 	t.TaskDispatch = dispatch
 

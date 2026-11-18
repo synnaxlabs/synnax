@@ -42,7 +42,7 @@ func (e EnumZ) Validate(data any) error {
 	return e.Parse(data, &dest)
 }
 
-// validateDestination validates that the destination is compatible with enum data
+// validateDestination validates that the destination is compatible with enum data.
 func (e EnumZ) validateDestination(dest reflect.Value) error {
 	if dest.Kind() != reflect.Pointer || dest.IsNil() {
 		return NewInvalidDestinationTypeError("enum", dest)

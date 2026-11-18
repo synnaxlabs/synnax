@@ -18,11 +18,11 @@ import (
 	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	color "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	v9 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v9"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
 	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
-	color "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/validate"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
@@ -143,28 +143,16 @@ type Line struct {
 	// Label is the user-specified line label. Null means derive from the channel name
 	// at render time; non-null is an override.
 	Label *string `json:"label,omitzero" msgpack:"label,omitempty"`
-	// Color is the line color. When null, the Console assigns one from the
-	// visualization palette at render time.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
+	// Color is the line color, a named color or a fixed color. A write with no color
+	// gets the series color that the fewest other lines use, and a tie goes to the
+	// first.
+	Color *color.Ref `json:"color,omitzero" msgpack:"color,omitempty"`
 	// StrokeWidth is the line stroke width in pixels.
 	StrokeWidth float64 `json:"stroke_width" msgpack:"stroke_width"`
 	// Aggregation selects how the line reduces the samples of one pixel group.
 	Aggregation Aggregation `json:"aggregation" msgpack:"aggregation"`
 	// Detail selects how many sample groups the line draws per pixel column.
 	Detail Detail `json:"detail" msgpack:"detail"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (l *Line) ApplyDefaults() {
-	if l.StrokeWidth == 0 {
-		l.StrokeWidth = 2
-	}
-	if l.Aggregation == "" {
-		l.Aggregation = AggregationMinMax
-	}
-	if l.Detail == "" {
-		l.Detail = DetailMedium
-	}
 }
 
 // SetDefaults sets every field that has a schema default to that default.
@@ -201,6 +189,9 @@ func (l Line) Validate() error {
 	v.Ternaryf("aggregation", !l.Aggregation.IsValid(), "invalid aggregation: %v", l.Aggregation)
 	v.Ternaryf("detail", !l.Detail.IsValid(), "invalid detail: %v", l.Detail)
 	v.GreaterThanEq("stroke_width", l.StrokeWidth, 1)
+	if l.Color != nil {
+		v.Exec(func() error { return validate.PathedError(l.Color.Validate(), "color") })
+	}
 	return v.Error()
 }
 
@@ -210,9 +201,10 @@ type Rule struct {
 	Key string `json:"key" msgpack:"key"`
 	// Label is the human-readable label rendered alongside the rule.
 	Label string `json:"label" msgpack:"label"`
-	// Color is the display color of the rule. When null, the Console assigns a default
-	// at render time.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
+	// Color is the display color of the rule, a named color or a fixed color. A write
+	// with no color gets the series color that the fewest other rules use, and a tie
+	// goes to the first.
+	Color *color.Ref `json:"color,omitzero" msgpack:"color,omitempty"`
 	// Axis is the axis the rule is anchored to.
 	Axis AxisKey `json:"axis" msgpack:"axis"`
 	// LineWidth is the rule line width in pixels.
@@ -223,13 +215,6 @@ type Rule struct {
 	Units string `json:"units" msgpack:"units"`
 	// Position is the value-space position of the rule along its anchored axis.
 	Position float64 `json:"position" msgpack:"position"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *Rule) ApplyDefaults() {
-	if r.LineWidth == 0 {
-		r.LineWidth = 1
-	}
 }
 
 // SetDefaults sets every field that has a schema default to that default.
@@ -261,6 +246,9 @@ func (r *Rule) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 func (r Rule) Validate() error {
 	v := validate.New("Rule")
 	v.Ternaryf("axis", !r.Axis.IsValid(), "invalid axis: %v", r.Axis)
+	if r.Color != nil {
+		v.Exec(func() error { return validate.PathedError(r.Color.Validate(), "color") })
+	}
 	return v.Error()
 }
 
@@ -292,19 +280,6 @@ type LinePlot struct {
 	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
 	// Project is the project that holds the line plot.
 	Project *project.Key `json:"project,omitzero" msgpack:"project,omitempty"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (l *LinePlot) ApplyDefaults() {
-	l.Title.ApplyDefaults()
-	l.Legend.ApplyDefaults()
-	l.Axes.ApplyDefaults()
-	for i := range l.Lines {
-		l.Lines[i].ApplyDefaults()
-	}
-	for i := range l.Rules {
-		l.Rules[i].ApplyDefaults()
-	}
 }
 
 // SetDefaults sets every field that has a schema default to that default.

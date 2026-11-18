@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/synnaxlabs/oracle/format"
+	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	"golang.org/x/sync/errgroup"
@@ -36,6 +37,13 @@ const bufGenerateStampKey = "buf-generate"
 // _grpc.pb.go file on disk is stored. Required to detect on-disk drift across
 // buf-version bumps and hand edits when the input proto contents have not changed.
 const bufOutputStampKey = "buf-output"
+
+// RunBufGenerateResult is the outcome of RunBufGenerate.
+type RunBufGenerateResult struct {
+	// Cached is true when both input and output stamps matched and no `buf generate`
+	// invocation was needed.
+	Cached bool
+}
 
 // RunBufGenerate runs `buf generate` if and only if BOTH of the following match the
 // previous successful run:
@@ -51,12 +59,6 @@ const bufOutputStampKey = "buf-output"
 // changedProtos contains repo-relative paths to generated `.proto` files that the
 // format step actually wrote. When non-empty the run is scoped via `--path` so protoc
 // only runs over the slice that changed.
-type RunBufGenerateResult struct {
-	// Cached is true when both input and output stamps matched and no `buf generate`
-	// invocation was needed.
-	Cached bool
-}
-
 func RunBufGenerate(
 	ctx context.Context,
 	repoRoot string,
@@ -121,7 +123,7 @@ func bufOutputStamp(ctx context.Context, repoRoot string) (string, error) {
 			if err := gctx.Err(); err != nil {
 				return err
 			}
-			b, err := os.ReadFile(p)
+			b, err := paths.ReadFile(p, repoRoot)
 			if err != nil {
 				return errors.Wrapf(err, "read %s", p)
 			}
@@ -150,11 +152,7 @@ func bufOutputStamp(ctx context.Context, repoRoot string) (string, error) {
 // repoRoot. We hash the file contents (not just mtimes) so a `git checkout` of
 // identical bytes doesn't trigger an unnecessary regeneration.
 func bufInputStamp(ctx context.Context, repoRoot string) (string, error) {
-	configs, err := readIfExists(
-		filepath.Join(repoRoot, "buf.yaml"),
-		filepath.Join(repoRoot, "buf.gen.yaml"),
-		filepath.Join(repoRoot, "buf.lock"),
-	)
+	configs, err := readIfExists(repoRoot, "buf.yaml", "buf.gen.yaml", "buf.lock")
 	if err != nil {
 		return "", err
 	}
@@ -172,7 +170,7 @@ func bufInputStamp(ctx context.Context, repoRoot string) (string, error) {
 			if err := gctx.Err(); err != nil {
 				return err
 			}
-			b, err := os.ReadFile(p)
+			b, err := paths.ReadFile(p, repoRoot)
 			if err != nil {
 				return errors.Wrapf(err, "read %s", p)
 			}
@@ -201,10 +199,10 @@ func bufInputStamp(ctx context.Context, repoRoot string) (string, error) {
 	return hex.EncodeToString(rollup.Sum(nil)), nil
 }
 
-func readIfExists(paths ...string) ([][]byte, error) {
-	out := make([][]byte, len(paths))
-	for i, p := range paths {
-		b, err := os.ReadFile(p)
+func readIfExists(repoRoot string, names ...string) ([][]byte, error) {
+	out := make([][]byte, len(names))
+	for i, p := range names {
+		b, err := paths.ReadFile(p, repoRoot)
 		if err != nil {
 			if os.IsNotExist(err) {
 				continue
@@ -304,7 +302,7 @@ func FormatBufOutputs(
 
 	batch := make([]format.File, len(files))
 	for i, path := range files {
-		raw, err := os.ReadFile(path)
+		raw, err := paths.ReadFile(path, repoRoot)
 		if err != nil {
 			return 0, errors.Wrapf(err, "read %s", path)
 		}

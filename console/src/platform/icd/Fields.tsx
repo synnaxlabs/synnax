@@ -511,6 +511,7 @@ export const Fields = ({ path, encoding }: FieldsProps): ReactElement => {
         createRow={createRow}
         resourceName="field"
         rowLabel={(i) => (i + 1).toString()}
+        rowKey={(i) => own[i].key}
         preview={ctx.mode === "preview"}
       >
         {columns.map((column, i) => renderColumn(column, i, fields, path))}

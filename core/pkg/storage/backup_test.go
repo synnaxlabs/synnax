@@ -123,7 +123,7 @@ type archiveEntry struct {
 
 func readArchive(file string) []archiveEntry {
 	GinkgoHelper()
-	f := MustSucceed(os.Open(file))
+	f := MustSucceed(os.Open(filepath.Clean(file)))
 	defer func() { Expect(f.Close()).To(Succeed()) }()
 	r := tar.NewReader(f)
 	var read []archiveEntry
@@ -142,9 +142,10 @@ func readArchive(file string) []archiveEntry {
 
 func archiveEntries(file string) []string {
 	GinkgoHelper()
-	var names []string
-	for _, e := range readArchive(file) {
-		names = append(names, e.header.Name)
+	entries := readArchive(file)
+	names := make([]string, len(entries))
+	for i, e := range entries {
+		names[i] = e.header.Name
 	}
 	return names
 }
@@ -153,7 +154,7 @@ func archiveEntries(file string) []string {
 func dropFromArchive(file, dir string) {
 	GinkgoHelper()
 	read := readArchive(file)
-	f := MustSucceed(os.Create(file))
+	f := MustSucceed(os.Create(filepath.Clean(file)))
 	w := tar.NewWriter(f)
 	for _, e := range read {
 		if strings.HasPrefix(e.header.Name, dir+"/") {
@@ -216,7 +217,7 @@ var _ = Describe("Backup", func() {
 			Expect(entries(backups)).To(ConsistOf(
 				"0000000002-0.58.0.tar",
 				"0000000003-0.59.0.tar",
-				HaveSuffix("-unknown.tar"),
+				HaveSuffix("-before-0.61.0.tar"),
 				"orphaned-5",
 			))
 		},
@@ -273,15 +274,25 @@ var _ = Describe("Backups", func() {
 			"0000000001-unknown.tar",
 			"0000000003-0.60.0.tar.partial",
 			"0000000004-0.60.0",
+			"0000000006-before-0.61.0.tar",
 		} {
 			writeFile(filepath.Join(backups, name), "")
 		}
 		Expect(MustSucceed(newBackups(dir).List())).To(Equal([]storage.Backup{
-			{Name: "0000000001-unknown", Time: time.Unix(1, 0), Version: "unknown"},
+			{
+				Name:    "0000000001-unknown",
+				Time:    time.Unix(1, 0),
+				Version: storage.UnknownVersion,
+			},
 			{
 				Name:    "0000000002-0.60.0-rc.1",
 				Time:    time.Unix(2, 0),
 				Version: "0.60.0-rc.1",
+			},
+			{
+				Name:    "0000000006-before-0.61.0",
+				Time:    time.Unix(6, 0),
+				Version: storage.UnknownVersion,
 			},
 		}))
 	})

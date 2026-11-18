@@ -10,6 +10,7 @@
 #include "absl/log/log.h"
 
 #include "client/cpp/errors/errors.h"
+#include "x/cpp/defer/defer.h"
 #include "x/cpp/thread/rt/rt.h"
 #include "x/cpp/thread/thread.h"
 
@@ -18,10 +19,15 @@
 namespace driver::rack {
 bool Rack::should_exit(
     const x::errors::Error &err,
-    const std::function<void()> &on_shutdown
+    const std::function<void()> &on_shutdown,
+    const bool reconnecting
 ) {
     if (!err) return false;
-    if (synnax::errors::is_temporarily_unavailable(err) && this->breaker.wait(err))
+    if (reconnecting && synnax::errors::is_unreachable(err)) {
+        if (this->breaker.wait_unlimited(err)) return false;
+    } else if (
+        synnax::errors::is_temporarily_unavailable(err) && this->breaker.wait(err)
+    )
         return false;
     // A stop came first, so the error did not stop the rack.
     if (!this->breaker.running()) return true;
@@ -67,16 +73,19 @@ void Rack::run(x::args::Parser &args, const std::function<void()> &on_shutdown) 
             cfg.manager
         );
     }
+    // A run that lost the Core leaves its tasks running for the next run.
+    x::defer::defer close([this] { this->task_manager->close(); });
     while (true) {
         const auto err = this->task_manager->run([this]() { this->breaker.reset(); });
-        if (this->should_exit(err, on_shutdown) || !this->breaker.running()) return;
+        if (this->should_exit(err, on_shutdown, true) || !this->breaker.running())
+            return;
         // The factories hold the Core version and cluster from startup, so a new one
         // needs a new Driver process. No run starts before a check passes.
         while (const auto check_err = cfg.check_core()) {
             if (check_err.matches(CORE_CHANGED))
                 LOG(ERROR) << "Core changed cluster or version, restarting: "
                            << check_err.data;
-            if (this->should_exit(check_err, on_shutdown)) return;
+            if (this->should_exit(check_err, on_shutdown, true)) return;
         }
     }
 }

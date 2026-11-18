@@ -43,8 +43,8 @@ inline std::string multi_match_description(
            ". Give each status a unique name, or set it by key.";
 }
 
-/// @brief Upserts a status via the core API and surfaces failures via report.
-/// Returns the resolved key on success, "" on failure.
+/// @brief Upserts a status via the core API, stamped with the current time, and
+/// surfaces failures via report. Returns the resolved key on success, "" on failure.
 inline std::string dispatch_set(
     const std::shared_ptr<synnax::Synnax> &client,
     const Reporter &report,
@@ -52,8 +52,12 @@ inline std::string dispatch_set(
     const std::string &message,
     const std::string &variant
 ) {
-    auto [res, err] = client->statuses
-                          .set_by_key_or_name(key_or_name, message, variant);
+    auto [res, err] = client->statuses.set_by_key_or_name(
+        key_or_name,
+        message,
+        variant,
+        x::telem::TimeStamp::now()
+    );
     if (err) {
         LOG(ERROR) << "status.set failed: key_or_name=" << key_or_name
                    << " error=" << err.data;

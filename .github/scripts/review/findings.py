@@ -37,7 +37,6 @@ SCHEMA: dict[str, Any] = {
                     "start_line": _LINE,
                     "suggestion": _TEXT,
                     "rule": _TEXT,
-                    "deferrable": {"type": "boolean"},
                 },
             },
         },
@@ -60,13 +59,6 @@ class Finding:
     """Replacement text for lines start_line through line."""
     rule: str | None = None
     """Repository path of the document that states the rule the finding enforces."""
-    deferrable: bool = False
-    """The finding can wait for a follow-up issue."""
-
-    @property
-    def blocks(self) -> bool:
-        """Whether the finding blocks merge. A P0 always does."""
-        return self.severity == "P0" or not self.deferrable
 
     @property
     def lines(self) -> range:
@@ -76,12 +68,16 @@ class Finding:
 
 @dataclass(frozen=True, kw_only=True)
 class Dismissal:
-    """A finding that a member told the bot to stop reporting on a pull request."""
+    """A finding that someone with write access told the bot to stop reporting on a
+    pull request, or that the bot withdrew after a rebuttal."""
 
     path: str
     title: str
     reason: str
-    """What the member wrote beside the command. It can be empty."""
+    """What the member wrote beside the command, or the bot's reason to withdraw. It
+    can be empty."""
+    withdrawn: bool = False
+    """The bot withdrew the finding, and no member dismissed it."""
 
 
 @dataclass(frozen=True, kw_only=True)

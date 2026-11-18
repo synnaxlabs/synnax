@@ -207,9 +207,8 @@ var _ = Describe("ResolveNodeTypes", func() {
 			}}
 			Expect(analyzer.ResolveNodeTypes(nodes, edges, cs, diag)).To(BeFalse())
 			Expect(diag.String()).To(ContainSubstring(
-				"type mismatch in edge from 'on' output 'output' " +
-					"to 'sink' input 'input': expected " + target.String() +
-					", got " + src.String(),
+				"type mismatch: expected " + target.String() + ", got " + src.String() +
+					" in edge from 'on' output 'output' to 'sink' input 'input'",
 			))
 		},
 		Entry("f64 into u8", types.F64(), types.U8()),
@@ -221,6 +220,29 @@ var _ = Describe("ResolveNodeTypes", func() {
 		Entry("f32 into str", types.F32(), types.String()),
 		Entry("str into f64", types.String(), types.F64()),
 	)
+
+	It("Should hint a comparison for a numeric edge into a bool input", func() {
+		nodes := ir.Nodes{
+			{
+				Key:     "source",
+				Type:    "on",
+				Outputs: types.Params{{Name: "output", Type: types.U8()}},
+			},
+			{
+				Key:    "gate",
+				Type:   "select",
+				Inputs: types.Params{{Name: "output", Type: types.Bool()}},
+			},
+		}
+		edges := ir.Edges{{
+			Source: ir.Handle{Node: "source", Param: "output"},
+			Target: ir.Handle{Node: "gate", Param: "output"},
+		}}
+		Expect(analyzer.ResolveNodeTypes(nodes, edges, cs, diag)).To(BeFalse())
+		Expect(diag.String()).To(ContainSubstring(
+			"note: hint: compare the value to get a bool, such as value != 0",
+		))
+	})
 
 	DescribeTable("Should describe the edge when a resolved type variable mismatches",
 		func(src types.Type) {
@@ -258,9 +280,8 @@ var _ = Describe("ResolveNodeTypes", func() {
 			}
 			Expect(analyzer.ResolveNodeTypes(nodes, edges, cs, diag)).To(BeFalse())
 			Expect(diag.String()).To(ContainSubstring(
-				"type mismatch in edge from 'avg' output 'output' " +
-					"to 'select' input 'output': " + src.String() +
-					" is not compatible with bool",
+				"type mismatch: " + src.String() + " is not compatible with bool in " +
+					"edge from 'avg' output 'output' to 'select' input 'output'",
 			))
 		},
 		Entry("f32", types.F32()),

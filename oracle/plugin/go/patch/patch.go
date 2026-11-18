@@ -18,7 +18,6 @@ package patch
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"maps"
 	"slices"
@@ -537,7 +536,6 @@ func definerPath(req *plugin.Request, t resolution.Type) (string, error) {
 		return root, nil
 	}
 	surface, err := req.Versions.Surface(
-		context.Background(),
 		livePath,
 		chain.Current(),
 	)
@@ -878,8 +876,10 @@ func zeroDefault(
 		return !v.BoolValue
 	case resolution.ValueKindArray:
 		return len(v.Elements) == 0
-	default:
+	case resolution.ValueKindStruct:
 		return false
+	default:
+		panic(fmt.Sprintf("unknown value kind %d", v.Kind))
 	}
 }
 
@@ -918,7 +918,7 @@ func hashValue(sel string, ptr bool, sh shape, depth int) []string {
 		return []string{sel + ".HashContent(h)"}
 	case shapeEnum:
 		if sh.intEnum {
-			return []string{"h.Int(int64(" + value + "))"}
+			return []string{"h.Uint(uint64(" + value + "))"}
 		}
 		return []string{"h.String(string(" + value + "))"}
 	case shapeList, shapeArray:
@@ -933,6 +933,7 @@ func hashValue(sel string, ptr bool, sh shape, depth int) []string {
 			indent(hashValue(addressable+"["+i+"]", false, *sh.elem, depth+1))...,
 		)
 		return append(lines, "}")
+	case shapePrimitive:
 	}
 	call := func(method, goType string) []string {
 		if sh.converted {
@@ -955,10 +956,9 @@ func hashValue(sel string, ptr bool, sh shape, depth int) []string {
 		return []string{"h.Any(map[string]any(" + value + "))"}
 	case "float32", "float64":
 		return convert("Float", "float64", value, sh.primitive, sh.converted)
-	case "uint8", "uint12", "uint16", "uint20", "uint32", "uint64":
-		return convert("Uint", "uint64", value, sh.primitive, sh.converted)
 	default:
-		return convert("Int", "int64", value, sh.primitive, sh.converted)
+		// A signed integer hashes as its two's complement bits.
+		return convert("Uint", "uint64", value, sh.primitive, sh.converted)
 	}
 }
 
@@ -1012,7 +1012,7 @@ func variantPath(
 			embedPath(payload, name, table)...,
 		)
 	}
-	pform := payload.Form.(resolution.StructForm)
+	pform := resolution.MustForm[resolution.StructForm](payload)
 	inherited, flattened := resolver.VariantBases(form, v, "go", table)
 	if declares(inherited, slices.Concat(flattened, pform.Fields), name, table) {
 		return nil

@@ -13,7 +13,7 @@ import { type Component } from "@synnaxlabs/lyra/component";
 import { Input } from "@synnaxlabs/lyra/input";
 import { List as Base } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
-import { destructor, type record } from "@synnaxlabs/x";
+import { destructor, type record, strings } from "@synnaxlabs/x";
 import { type MouseEvent, type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
@@ -66,8 +66,7 @@ export const BaseList = <E extends record.Keyed<string>>({
 }: BaseListProps<E>) => {
   const handleSearch = (v: string) => {
     onChange(v);
-    if (v.startsWith(prefix)) v = v.slice(prefix.length);
-    search(v);
+    search(strings.trimPrefix(v, prefix));
   };
   return (
     <Select.Frame<string, E>

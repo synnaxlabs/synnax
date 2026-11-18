@@ -12,7 +12,6 @@ package mqtt_test
 import (
 	"context"
 	"crypto/tls"
-	"io"
 	"log/slog"
 	"net"
 	"slices"
@@ -361,7 +360,7 @@ func startBrokerWith(opts brokerOptions) *testBroker {
 	b := &testBroker{}
 	b.server = mochi.New(&mochi.Options{
 		InlineClient: true,
-		Logger:       slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Logger:       slog.New(slog.DiscardHandler),
 	})
 	if opts.username == "" {
 		Expect(b.server.AddHook(&openHook{refused: opts.refused}, nil)).To(Succeed())
@@ -508,9 +507,10 @@ func (b *testBroker) collected() []received {
 
 // retained returns the payloads of the retained messages that match filter.
 func (b *testBroker) retained(filter string) []string {
-	var out []string
-	for _, pk := range b.server.Topics.Messages(filter) {
-		out = append(out, string(pk.Payload))
+	messages := b.server.Topics.Messages(filter)
+	out := make([]string, len(messages))
+	for i, pk := range messages {
+		out[i] = string(pk.Payload)
 	}
 	return out
 }

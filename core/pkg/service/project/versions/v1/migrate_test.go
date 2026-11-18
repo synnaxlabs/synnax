@@ -63,6 +63,7 @@ var _ = Describe("Workspace to project migration", func() {
 		"Should lift workspaces, repoint the ontology, and rename the group",
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
 
 			// Seed two legacy workspace records under the "Workspace" gorp prefix.
 			wsA, wsB := uuid.New(), uuid.New()
@@ -200,6 +201,7 @@ var _ = Describe("Workspace to project migration", func() {
 		"Should be a no-op on a cluster that never created a workspace",
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
 			runMigrations(ctx, db)
 			Expect(openProjectTable(ctx, db).NewRetrieve().
 				Where(gorp.MatchKeys[v1.Key, v1.Project](uuid.New())).
@@ -227,6 +229,7 @@ var _ = Describe("Remove author relationships migration", func() {
 		"Should delete user-to-project parent relationships and leave others intact",
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
 			relTable := MustOpen(gorp.OpenTable(
 				ctx, gorp.TableConfig[string, ontology.Relationship]{DB: db},
 			))
@@ -265,6 +268,7 @@ var _ = Describe("Remove author relationships migration", func() {
 
 	It("Should be a no-op when no author relationships exist", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		runMigrations(ctx, db)
 	})
 })
@@ -274,6 +278,7 @@ var _ = Describe("Project layout staging migration", func() {
 		"Should stage each non-empty layout under its key and skip empty ones",
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
 			table := MustOpen(gorp.OpenTable(
 				ctx, gorp.TableConfig[v1.Key, v1.Project]{DB: db},
 			))
@@ -291,7 +296,7 @@ var _ = Describe("Project layout staging migration", func() {
 
 			By("Writing the layout blob under the project's staging key")
 			blob, closer := MustSucceed2(
-				db.Get(ctx, []byte(v1.LegacyLayoutKVPrefix+withLayout.String())),
+				db.Get([]byte(v1.LegacyLayoutKVPrefix + withLayout.String())),
 			)
 			var got msgpack.EncodedJSON
 			Expect(json.Unmarshal(blob, &got)).To(Succeed())
@@ -299,7 +304,7 @@ var _ = Describe("Project layout staging migration", func() {
 			Expect(got).To(Equal(layout))
 
 			By("Leaving no staging entry for a project without a layout")
-			Expect(db.Get(ctx, []byte(v1.LegacyLayoutKVPrefix+empty.String()))).Error().
+			Expect(db.Get([]byte(v1.LegacyLayoutKVPrefix + empty.String()))).Error().
 				To(MatchError(query.ErrNotFound))
 		},
 	)

@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/table/versions"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v2"
+	"github.com/synnaxlabs/x/defaults"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -30,6 +31,7 @@ var _ = Describe("Migrations", func() {
 		"Should key the rows and columns of a table stored by a v2 Core",
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
 			v2Chain := versions.Migrations[:len(versions.Migrations)-7]
 			MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v2.Key, v2.Table]{
 				DB:         db,
@@ -47,7 +49,7 @@ var _ = Describe("Migrations", func() {
 					"a": {Variant: v2.TextCellConfig{Value: "A"}},
 				},
 			}
-			stored.ApplyDefaults()
+			stored = defaults.Fill(stored)
 			Expect(gorp.NewCreate[v2.Key, v2.Table]().Entry(&stored).Exec(ctx, db)).
 				To(Succeed())
 			proj := projectv3.Project{Key: uuid.New(), Name: "Project"}
@@ -79,7 +81,7 @@ var _ = Describe("Migrations", func() {
 						Variant: versions.TextCellConfig{Value: value},
 					},
 				}
-				c.Config.ApplyDefaults()
+				c.Config = defaults.Fill(c.Config)
 				return c
 			}
 			Expect(got.Rows).To(Equal([]versions.Row{

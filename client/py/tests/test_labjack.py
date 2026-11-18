@@ -7,8 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from collections.abc import Callable, Iterator
-from typing import cast
+from collections.abc import Iterator
 
 import pytest
 from pydantic import ValidationError
@@ -17,6 +16,7 @@ import synnax as sy
 from tests.json_value import obj
 from tests.task_targets import TaskTargets
 from x.strings import random_name
+from x.testutil import untyped
 
 
 @pytest.mark.labjack
@@ -191,7 +191,7 @@ class TestLabJackReadTask:
             )
 
         # Invalid thermocouple type
-        channel = cast(Callable[..., object], sy.labjack.ThermocoupleReadChannel)
+        channel = untyped(sy.labjack.ThermocoupleReadChannel)
         with pytest.raises(ValidationError):
             channel(
                 type="thermocouple",
@@ -235,6 +235,7 @@ class TestLabJackReadTask:
         )
         task_targets.attach(task.config)
         created_task = client.tasks.create(
+            rack=task_targets.rack,
             name="test-labjack-read-task",
             type="labjack_read",
             config=task.config,
@@ -412,6 +413,7 @@ class TestLabJackWriteTask:
         )
         task_targets.attach(task.config)
         created_task = client.tasks.create(
+            rack=task_targets.rack,
             name="test-labjack-write-task",
             type="labjack_write",
             config=task.config,
@@ -450,6 +452,7 @@ class TestLabJackWriteTask:
 
         task_targets.attach(original_task.config)
         created_task = client.tasks.create(
+            rack=task_targets.rack,
             name="test-round-trip",
             type="labjack_write",
             config=original_task.config,
@@ -482,7 +485,13 @@ class TestLabJackDevice:
 
     def test_key_is_serial_number(self) -> None:
         """Should key the device by its serial number, as the Driver's scanner does."""
-        device = sy.labjack.Device(model=sy.labjack.T8, serial_number=480010003)
+        device = sy.labjack.Device(
+            name="Test Device",
+            location="Test Location",
+            rack=1,
+            model=sy.labjack.T8,
+            serial_number=480010003,
+        )
         assert device.key == "480010003"
         assert device.make == "LabJack"
         assert device.model == "LJM_dtT8"
@@ -490,8 +499,8 @@ class TestLabJackDevice:
     def test_invalid_model(self) -> None:
         """Should reject a model that Synnax does not support."""
         with pytest.raises(ValueError, match="Invalid model 'LJM_dtDIGIT'"):
-            sy.labjack.Device(
-                model=cast(sy.labjack.SUPPORTED_MODELS, "LJM_dtDIGIT"),
+            untyped(sy.labjack.Device)(
+                model="LJM_dtDIGIT",
                 serial_number=1,
             )
 

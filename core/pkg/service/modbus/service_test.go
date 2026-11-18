@@ -39,9 +39,12 @@ func register(fields map[string]any) map[string]any {
 // channel returns the only channel of a normalized or stored config.
 func channel(cfg msgpack.EncodedJSON) map[string]any {
 	GinkgoHelper()
-	chs := cfg["channels"].([]any)
+	chs, ok := cfg["channels"].([]any)
+	Expect(ok).To(BeTrue())
 	Expect(chs).To(HaveLen(1))
-	return chs[0].(map[string]any)
+	ch, ok := chs[0].(map[string]any)
+	Expect(ok).To(BeTrue())
+	return ch
 }
 
 var _ = Describe("Service", func() {
@@ -79,9 +82,10 @@ var _ = Describe("Service", func() {
 
 	Describe("Stores", func() {
 		It("Should expose one store per Modbus task type", func() {
-			types := []string{}
-			for _, s := range svc.Stores() {
-				types = append(types, s.Type())
+			stores := svc.Stores()
+			types := make([]string, len(stores))
+			for i, s := range stores {
+				types[i] = s.Type()
 			}
 			Expect(types).To(ConsistOf(
 				"modbus_read",
@@ -338,6 +342,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			stored := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(stored.Run)
 			MustSucceed(gorp.OpenTable(
 				ctx, gorp.TableConfig[uuid.UUID, v1.ReadConfig]{DB: stored},
 			))
@@ -361,7 +366,9 @@ var _ = Describe("Service", func() {
 			migrated := MustOpen(modbus.OpenService(
 				ctx, modbus.ServiceConfig{DB: stored},
 			))
-			chs := MustSucceed(migrated.Read.Read(ctx, stored, key))["channels"].([]any)
+			data := MustSucceed(migrated.Read.Read(ctx, stored, key))
+			chs, ok := data["channels"].([]any)
+			Expect(ok).To(BeTrue())
 			Expect(chs).To(HaveLen(2))
 			Expect(chs[0]).ToNot(HaveKey("bytes_swapped"))
 			Expect(chs[0]).ToNot(HaveKey("words_swapped"))

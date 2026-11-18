@@ -96,6 +96,21 @@ x::errors::Error give_opcua_dir(const int dir_fd, const passwd &user) {
         return errno_error("failed to give OPC UA directory to the service user");
     return x::errors::NIL;
 }
+
+std::string user_name(const uid_t uid) {
+    const passwd *user = getpwuid(uid);
+    return user != nullptr ? std::string(user->pw_name) : std::to_string(uid);
+}
+
+/// @brief returns whether the Driver may write its API key to a file that uid owns:
+/// its own file, or, as root, the file that root gives to the Linux service user.
+bool trusted_owner(const uid_t uid) {
+    const auto self = geteuid();
+    if (uid == self) return true;
+    if (self != 0) return false;
+    const passwd *service_user = getpwnam("synnax");
+    return service_user != nullptr && uid == service_user->pw_uid;
+}
 }
 
 fs::path machine_dir() {
@@ -117,14 +132,59 @@ fs::path user_dir() {
     return {};
 }
 
+bool sudo() {
+    if (geteuid() != 0) return false;
+    const char *sudo_user = std::getenv("SUDO_USER");
+    if (sudo_user == nullptr) return false;
+    const passwd *user = getpwnam(sudo_user);
+    return user == nullptr || user->pw_uid != 0;
+}
+
+x::errors::Error prepare(const fs::path &path) {
+    FD dir{open(
+        path.parent_path().c_str(),
+        O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC
+    )};
+    if (dir.fd < 0) {
+        if (errno == ENOENT) return x::errors::NIL;
+        return errno_error("failed to open state directory");
+    }
+    FD file{openat(dir.fd, path.filename().c_str(), O_RDONLY | O_NOFOLLOW | O_CLOEXEC)};
+    if (file.fd < 0) {
+        if (errno == ENOENT) return x::errors::NIL;
+        return errno_error("failed to open state file");
+    }
+    struct stat st{};
+    if (fstat(file.fd, &st) != 0) return errno_error("failed to read state file");
+    if (!trusted_owner(st.st_uid)) {
+        const auto owner = user_name(st.st_uid);
+        const auto fix = geteuid() == 0
+                           ? "Run the Driver as " + owner + ", or delete the file"
+                           : "Run 'chown " + user_name(geteuid()) + " " +
+                                 path.string() + "', then start the Driver again";
+        return x::errors::Error(
+            STATE_ERROR,
+            owner + " owns the state file " + path.string() + ". " + fix
+        );
+    }
+    if ((st.st_mode & (S_IRGRP | S_IROTH)) != 0)
+        return x::errors::Error(
+            STATE_ERROR,
+            "other users can read the API key in " + path.string() +
+                ". Run 'chmod 600 " + path.string() +
+                "', then start the Driver again. In Kubernetes, set "
+                "fsGroupChangePolicy to OnRootMismatch or remove fsGroup"
+        );
+    return x::errors::NIL;
+}
+
 /// @brief opens the state directory and file without following links, so a link put
-/// in their place is refused. A file that does not exist yet is skipped. Only the
-/// default directory is dedicated to the Driver, so only it changes mode or owner,
-/// through the open descriptors. When root writes it, as `sudo synnax-driver login`
-/// does, root keeps the directory and the Linux service user gets read access to it
-/// and owns the file and the OPC UA directory. The service can then read and write its
-/// key but cannot put a link in the directory for root to follow. A process that is not
-/// root and does not own the file takes it over first.
+/// in their place is refused. A file that does not exist yet is skipped. Only root
+/// changes a mode or owner, and only a dedicated directory changes. Root keeps that
+/// directory and the Linux service user gets read access to it and owns the file and
+/// the OPC UA directory. The service can then read and write its key but cannot put a
+/// link in the directory for root to follow. Without a service user, root makes that
+/// directory owner-only and takes the file.
 x::errors::Error secure(const fs::path &path, const bool dedicated) {
     FD dir{open(
         path.parent_path().c_str(),
@@ -134,32 +194,31 @@ x::errors::Error secure(const fs::path &path, const bool dedicated) {
         if (errno == ENOENT) return x::errors::NIL;
         return errno_error("failed to open state directory");
     }
+    const bool root = geteuid() == 0;
     const passwd *service_user = nullptr;
 #ifdef __linux__
-    if (geteuid() == 0) service_user = getpwnam("synnax");
+    if (root) service_user = getpwnam("synnax");
 #endif
-    if (dedicated) {
+    if (dedicated && service_user != nullptr) {
+        // Other users may pass through to run the service binary in bin/.
+        if (fchown(dir.fd, 0, service_user->pw_gid) != 0 ||
+            fchmod(dir.fd, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH) != 0)
+            return errno_error("failed to secure state directory");
+        if (auto err = give_opcua_dir(dir.fd, *service_user)) return err;
+    } else if (dedicated && root) {
         struct stat st{};
         if (fstat(dir.fd, &st) != 0)
             return errno_error("failed to read state directory");
-        if (service_user != nullptr) {
-            // Other users may pass through to run the service binary in bin/.
-            if (fchown(dir.fd, 0, service_user->pw_gid) != 0 ||
-                fchmod(dir.fd, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH) != 0)
-                return errno_error("failed to secure state directory");
-            if (auto err = give_opcua_dir(dir.fd, *service_user)) return err;
-        } else if (st.st_uid == geteuid() && fchmod(dir.fd, S_IRWXU) != 0)
+        if (st.st_uid == 0 && fchmod(dir.fd, S_IRWXU) != 0)
             return errno_error("failed to secure state directory");
-        if (service_user == nullptr)
-            if (auto err = take_state_file(dir.fd, path.filename().string()))
-                return err;
+        if (auto err = take_state_file(dir.fd, path.filename().string())) return err;
     }
     FD file{openat(dir.fd, path.filename().c_str(), O_RDONLY | O_NOFOLLOW | O_CLOEXEC)};
     if (file.fd < 0) {
         if (errno == ENOENT) return x::errors::NIL;
         return errno_error("failed to open state file");
     }
-    if (dedicated && service_user != nullptr &&
+    if (service_user != nullptr &&
         (fchown(file.fd, service_user->pw_uid, service_user->pw_gid) != 0 ||
          fchmod(file.fd, S_IRUSR | S_IWUSR) != 0))
         return errno_error("failed to give state file to the service user");

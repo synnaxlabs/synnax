@@ -18,8 +18,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Ranger } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { CreateChildRangeIcon } from "@/feature/range/ContextMenu";
-import { useStart, useStop } from "@/feature/range/tree/Item";
+import { NextIcon, useStart, useStop } from "@/feature/range/tree/Item";
 import { Sift } from "@/feature/sift";
 import { ContextMenu as Base } from "@/platform/context-menu";
 import { Core } from "@/platform/core";
@@ -28,8 +27,20 @@ import { Modals } from "@/platform/modals";
 import { Range } from "@/platform/range";
 import { Session } from "@/session";
 
-/** The menu for ranges in the explorer and the overview. */
-export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
+export interface ContextMenuProps extends Menu.ContextMenuMenuProps {
+  /** Starts a child of the range in place. Without it, the create form opens. */
+  onStartChild?: (range: ranger.Range) => void;
+  /** Stops a running range and starts the one after it. Without it, Next is absent. */
+  onNext?: (range: ranger.Range) => void;
+}
+
+/** The menu for ranges in the explorer, the overview, and the toolbar. */
+export const ContextMenu = ({
+  keys,
+  target,
+  onStartChild,
+  onNext,
+}: ContextMenuProps): ReactElement => {
   const { getItem, subscribe } = List.useUtilContext<ranger.Key, ranger.Range>();
   if (getItem == null || subscribe == null)
     throw new UnexpectedError("No item getter found");
@@ -40,7 +51,7 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement =
   const canUpdate = Access.useUpdateGranted(ids);
   const canDelete = Access.useDeleteGranted(ids);
   const canPlot = Access.useCreateGranted(lineplot.TYPE_RESOURCE_ID);
-  const favoriteKeys = Session.Range.useSelectKeys();
+  const favoriteKeys = Session.Range.useSelectFavoriteKeys();
   const dispatch = Session.useDispatch();
   const open = Range.useOpen();
   const plot = Range.useAddToNewPlot();
@@ -93,17 +104,34 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement =
           Stop
         </Menu.Item>
       )}
+      {onNext != null &&
+        single != null &&
+        single.parent != null &&
+        running.length === 1 &&
+        canUpdate &&
+        canCreate && (
+          <Menu.Item itemKey="next" onClick={() => onNext(single)}>
+            <NextIcon />
+            Next
+          </Menu.Item>
+        )}
       {single != null && canCreate && (
         <Menu.Item
           itemKey="startChild"
-          onClick={() => openCreate({ parent: single.key })}
+          onClick={() =>
+            onStartChild == null
+              ? openCreate({ parent: single.key })
+              : onStartChild(single)
+          }
         >
-          <CreateChildRangeIcon />
+          <Ranger.CreateIcon />
           Start child range
         </Menu.Item>
       )}
       {single != null && canUpdate && (
-        <Base.RenameItem onClick={() => Text.edit(List.itemNameID(single.key))} />
+        <Base.RenameItem
+          onClick={() => Text.edit(List.itemNameID(single.key), target)}
+        />
       )}
       <Menu.Divider />
       {ranges.some((r) => !favoriteKeys.includes(r.key)) && (

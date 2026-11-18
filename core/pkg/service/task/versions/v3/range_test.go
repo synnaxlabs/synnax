@@ -17,9 +17,11 @@ import (
 	"github.com/synnaxlabs/gorp"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions"
+	rangerv2 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
+	colorv0 "github.com/synnaxlabs/x/color/versions/v0"
 	color "github.com/synnaxlabs/x/color/versions/v2"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -29,6 +31,8 @@ var _ = Describe("RangeMigration", func() {
 	var (
 		db       *gorp.DB
 		rng      = uuid.New()
+		current  = uuid.New()
+		inCur    = uuid.New()
 		gone     = uuid.New()
 		inRange  = uuid.New()
 		inGone   = uuid.New()
@@ -53,8 +57,10 @@ var _ = Describe("RangeMigration", func() {
 
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		stored := []v2.Task{
 			{Key: inRange, Name: "In Range", Snapshot: true},
+			{Key: inCur, Name: "In Current Range", Snapshot: true},
 			{Key: inGone, Name: "In Deleted Range", Snapshot: true},
 			{Key: liveIn, Name: "Live In Range"},
 			{Key: inArc, Name: "Arc Task"},
@@ -62,15 +68,26 @@ var _ = Describe("RangeMigration", func() {
 		}
 		Expect(gorp.NewCreate[v2.Key, v2.Task]().Entries(&stored).Exec(ctx, db)).
 			To(Succeed())
-		ranges := []ranger.Range{
-			{Key: rng, Name: "Range", Color: &color.Color{R: 1, A: 128}},
+		storedV2 := rangerv2.Range{
+			Key:   rng,
+			Name:  "Range",
+			Color: &colorv0.Color{R: 1, A: 0.5},
+		}
+		Expect(gorp.NewCreate[rangerv2.Key, rangerv2.Range]().
+			Entry(&storedV2).
+			Exec(ctx, db)).To(Succeed())
+		storedCur := ranger.Range{
+			Key:   current,
+			Name:  "Current Range",
+			Color: &color.Color{R: 1, A: 128},
 		}
 		Expect(gorp.NewCreate[ranger.Key, ranger.Range]().
-			Entries(&ranges).
+			Entry(&storedCur).
 			Exec(ctx, db)).To(Succeed())
 		toRack = parentOf(rackID, onRack)
 		edges := []ontology.Relationship{
 			parentOf(rangeID(rng), inRange),
+			parentOf(rangeID(current), inCur),
 			parentOf(rangeID(gone), inGone),
 			parentOf(rangeID(rng), liveIn),
 			parentOf(
@@ -101,12 +118,16 @@ var _ = Describe("RangeMigration", func() {
 	})
 
 	It("Should keep every task", func() {
-		Expect(tasks).To(HaveLen(5))
+		Expect(tasks).To(HaveLen(6))
 		Expect(tasks[inRange].Name).To(Equal("In Range"))
 	})
 
-	It("Should set the range of a task in a stored range", func() {
+	It("Should set the range of a task in a range stored in the v2 shape", func() {
 		Expect(tasks[inRange].Range).To(HaveValue(Equal(rng)))
+	})
+
+	It("Should set the range of a task in a range stored in the current shape", func() {
+		Expect(tasks[inCur].Range).To(HaveValue(Equal(current)))
 	})
 
 	DescribeTable("Should leave no range on a task",
@@ -125,6 +146,7 @@ var _ = Describe("RangeMigration", func() {
 var _ = Describe("RangeMigration with a corrupt range key", func() {
 	It("Should fail on a range key that does not parse", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		t := v2.Task{Key: uuid.New(), Name: "Snapshot", Snapshot: true}
 		Expect(gorp.NewCreate[v2.Key, v2.Task]().Entry(&t).Exec(ctx, db)).
 			To(Succeed())

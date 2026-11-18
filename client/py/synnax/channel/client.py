@@ -505,7 +505,9 @@ class Client:
         or name as ``channel``, returns one channel.
 
         :param channel: The key or name of one channel, or a list of keys or names. A
-            name matches exactly. To match a pattern, use where with a name regex.
+            name matches exactly. To match a pattern, use where with a name regex. An
+            empty list retrieves no channels. To retrieve every channel, leave out
+            channel.
         :param key: Keeps channels with this key.
         :param name: Keeps channels with this name.
         :param leaseholder: Keeps channels whose leaseholder is this node.

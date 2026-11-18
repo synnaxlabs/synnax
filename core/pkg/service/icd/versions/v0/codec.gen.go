@@ -15,7 +15,6 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
 	payload "github.com/synnaxlabs/x/payload/versions/v0"
-	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
 
 // EncodeOrc writes the value to w in the Orc binary format.
@@ -542,12 +541,6 @@ func (jsonf JSONField) EncodeOrc(w *orc.Writer) error {
 			return err
 		}
 		w.String(string(v.TimeFormat))
-		if v.Default != nil {
-			w.Bool(true)
-			w.Int64(int64(*v.Default))
-		} else {
-			w.Bool(false)
-		}
 	case JSONJSONField:
 		w.String("json")
 		if err := v.JSONBaseField.EncodeOrc(w); err != nil {
@@ -784,23 +777,6 @@ func (jsonf *JSONField) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			v.TimeFormat = payload.TimeFormat(rawV)
-		}
-		{
-			present, err := r.Bool()
-			if err != nil {
-				return err
-			}
-			if present {
-				var hv telem.TimeStamp
-				{
-					rawV, err := r.Int64()
-					if err != nil {
-						return err
-					}
-					hv = telem.TimeStamp(rawV)
-				}
-				v.Default = &hv
-			}
 		}
 		jsonf.Variant = v
 	case "json":

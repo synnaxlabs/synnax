@@ -73,8 +73,20 @@ const tableScaleZ = ni.tableScaleZ
     if (preScaledVals.length !== scaledVals.length) {
       const code = "custom";
       const message = "Pre-scaled and scaled values must have the same length";
-      issues.push({ path: ["preScaledVals"], code, message, input: value });
-      issues.push({ path: ["scaledVals"], code, message, input: value });
+      issues.push({
+        continue: true,
+        path: ["preScaledVals"],
+        code,
+        message,
+        input: value,
+      });
+      issues.push({
+        continue: true,
+        path: ["scaledVals"],
+        code,
+        message,
+        input: value,
+      });
     }
   })
   .check(({ value, issues }) => {
@@ -84,6 +96,7 @@ const tableScaleZ = ni.tableScaleZ
     for (let i = 1; i < preScaledVals.length; i++) {
       if (preScaledVals[i] <= lastVal)
         issues.push({
+          continue: true,
           code: "custom",
           message: "Pre-scaled values must be monotonically increasing",
           path: ["preScaledVals"],

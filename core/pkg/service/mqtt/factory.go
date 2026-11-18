@@ -12,12 +12,10 @@ package mqtt
 import (
 	"context"
 	"io"
-	"slices"
 	"sync"
 	"time"
 
 	paho "github.com/eclipse/paho.mqtt.golang"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -38,7 +36,6 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	"go.uber.org/zap"
 )
 
 // FactoryConfig is the configuration for the MQTT task factory.
@@ -144,26 +141,19 @@ func (c FactoryConfig) Validate() error {
 
 // Factory configures the MQTT task types. Its tasks share one connection for each
 // broker device, and an edit of the properties of a broker device reaches that
-// connection, whether or not a scan task runs. A change of an ICD configures again each
-// configured read task that reads it. Safe for concurrent use.
+// connection, whether or not a scan task runs. Safe for concurrent use.
 type Factory struct {
 	pool     *pool
 	reporter driver.ConfigReporter
 	cfg      FactoryConfig
-	// edited holds the broker devices and the ICDs that changed since the last
+	// edited holds the keys of the broker devices that changed since the last
 	// reconfigure.
 	edited struct {
-		brokers set.Set[device.Key]
-		icds    set.Set[icd.Key]
+		keys set.Set[device.Key]
 		sync.Mutex
 	}
 	// wake signals that edited holds a key.
-	wake chan struct{}
-	// reads holds the read tasks that the driver has not stopped.
-	reads struct {
-		tasks set.Set[*readTask]
-		sync.Mutex
-	}
+	wake       chan struct{}
 	disconnect observe.Disconnect
 	shutdown   io.Closer
 }
@@ -193,22 +183,15 @@ func OpenFactory(cfgs ...FactoryConfig) (*Factory, error) {
 		},
 		wake: make(chan struct{}, 1),
 	}
-	f.edited.brokers = make(set.Set[device.Key])
-	f.edited.icds = make(set.Set[icd.Key])
-	f.reads.tasks = make(set.Set[*readTask])
+	f.edited.keys = make(set.Set[device.Key])
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
 	sCtx.Go(f.reconfigureEdited, signal.RecoverWithErrOnPanic())
 	f.shutdown = signal.NewHardShutdown(sCtx, cancel)
-	disconnectDevices := cfg.Device.Observe().OnChange(f.onDeviceChange)
-	disconnectICDs := cfg.ICD.Observe().OnChange(f.onICDChange)
-	f.disconnect = func() {
-		disconnectDevices()
-		disconnectICDs()
-	}
+	f.disconnect = cfg.Device.Observe().OnChange(f.onDeviceChange)
 	return f, nil
 }
 
-// Close stops following the edits of broker devices and ICDs.
+// Close stops following the edits of broker devices.
 func (f *Factory) Close() error {
 	f.disconnect()
 	return f.shutdown.Close()
@@ -225,35 +208,17 @@ func (f *Factory) onDeviceChange(
 			continue
 		}
 		f.edited.Lock()
-		f.edited.brokers.Add(ch.Key)
+		f.edited.keys.Add(ch.Key)
 		f.edited.Unlock()
-		f.notify()
+		select {
+		case f.wake <- struct{}{}:
+		default:
+		}
 	}
 }
 
-// onICDChange runs in the commit of an ICD change, so it hands the changed ICDs to
-// reconfigureEdited and never waits.
-func (f *Factory) onICDChange(_ context.Context, r gorp.TxReader[icd.Key, icd.ICD]) {
-	f.edited.Lock()
-	for ch := range r {
-		f.edited.icds.Add(ch.Key)
-	}
-	f.edited.Unlock()
-	f.notify()
-}
-
-// notify wakes reconfigureEdited, or leaves it to the wake that is pending.
-func (f *Factory) notify() {
-	select {
-	case f.wake <- struct{}{}:
-	default:
-	}
-}
-
-// reconfigureEdited points the connection of each edited broker at its new properties,
-// and configures again each read task that reads a changed ICD, until ctx is cancelled.
-// The changes that arrive while it works go into one pass, which reads the latest
-// version of each record.
+// reconfigureEdited points the connection of each edited broker at its new properties
+// until ctx is cancelled.
 func (f *Factory) reconfigureEdited(ctx context.Context) error {
 	for {
 		select {
@@ -262,15 +227,11 @@ func (f *Factory) reconfigureEdited(ctx context.Context) error {
 		case <-f.wake:
 		}
 		f.edited.Lock()
-		brokers, icds := f.edited.brokers, f.edited.icds
-		f.edited.brokers = make(set.Set[device.Key])
-		f.edited.icds = make(set.Set[icd.Key])
+		keys := f.edited.keys
+		f.edited.keys = make(set.Set[device.Key])
 		f.edited.Unlock()
-		for key := range brokers {
+		for key := range keys {
 			f.pool.reconfigure(ctx, key)
-		}
-		for _, t := range f.readsOf(icds) {
-			f.reconfigureRead(ctx, t)
 		}
 	}
 }
@@ -313,15 +274,14 @@ func (f *Factory) ConfigureTask(
 		return nil, driver.ErrTaskNotHandled
 	}
 	if err != nil {
-		f.reporter.Report(ctx, t, cmdKey, autoStart, err)
+		f.reporter.Report(ctx, t, cmdKey, err)
 		return nil, err
 	}
 	// A successful configure writes no status: the start that follows it answers the
 	// command, and a "configured" status would answer it first with running false.
 	if autoStart {
 		if err = configured.Start(ctx, driver.NoCommand); err != nil {
-			// The driver drops a task that fails to start, so this stops it.
-			return nil, errors.Combine(err, configured.Stop(false))
+			return nil, err
 		}
 	}
 	return configured, nil
@@ -402,36 +362,85 @@ func (f *Factory) retrieveICD(ctx context.Context, key icd.Key) (icd.ICD, error)
 	return ic, err
 }
 
-// readPlan is a read config resolved against the broker, channels, and ICDs that it
-// names.
-type readPlan struct {
-	cfg    ReadConfig
-	broker device.Key
-	topics map[string]topicReader
-	tags   map[tagID]readTag
-	// writerKeys holds the channels that the task writes, and indexes their index
-	// channels.
-	writerKeys, indexes channel.Keys
-	// icds holds the ICDs that the enabled plain entries read.
-	icds set.Set[icd.Key]
+func (f *Factory) configureRead(
+	ctx context.Context,
+	t task.Task,
+) (autoStarter, bool, error) {
+	var cfg ReadConfig
+	if err := t.Config.Unmarshal(&cfg); err != nil {
+		return nil, false, err
+	}
+	dev, err := f.retrieveDevice(ctx, cfg.Device)
+	if err != nil {
+		return nil, cfg.AutoStart, err
+	}
+	enabled, keys, err := enabledReadEntries(cfg.Entries)
+	if err != nil {
+		return nil, cfg.AutoStart, err
+	}
+	channels, err := f.retrieveChannels(ctx, keys)
+	if err != nil {
+		return nil, cfg.AutoStart, err
+	}
+	icds, err := f.retrieveICDs(ctx, enabled)
+	if err != nil {
+		return nil, cfg.AutoStart, err
+	}
+	src := &readSource{
+		pool:       f.pool,
+		broker:     dev.Key,
+		queueSize:  f.cfg.QueueSize,
+		birthGrace: f.cfg.BirthGrace,
+		topics:     make(map[string]*readTopic),
+		tags:       make(map[tagID]readTag),
+		lastStamp:  make(map[channel.Key]telem.TimeStamp),
+		framer:     f.cfg.Framer,
+		subject:    control.Subject{Key: t.Key.String(), Name: t.Name},
+		ins:        f.cfg.Child(t.Key.String()),
+	}
+	writerKeys, indexes, err := src.addEntries(enabled, icds, channels)
+	if err != nil {
+		return nil, cfg.AutoStart, err
+	}
+	rt, err := f.openRead(t, src, writerKeys, indexes, cfg.DataSavingDisabled)
+	return rt, cfg.AutoStart, err
 }
 
-// planRead resolves the read config of t. The plan holds the config whenever it
-// unmarshals, also with an error.
-func (f *Factory) planRead(ctx context.Context, t task.Task) (readPlan, error) {
-	var p readPlan
-	if err := t.Config.Unmarshal(&p.cfg); err != nil {
-		return p, err
+func (f *Factory) openRead(
+	t task.Task,
+	src *readSource,
+	writerKeys, indexes channel.Keys,
+	dataSavingDisabled bool,
+) (autoStarter, error) {
+	mode := framer.WriterModePersistStream
+	if dataSavingDisabled {
+		mode = framer.WriterModeStreamOnly
+	} else {
+		src.stored = indexes
 	}
-	dev, err := f.retrieveDevice(ctx, p.cfg.Device)
+	rt, err := driver.NewReadTask(driver.ReadTaskConfig{
+		Instrumentation: f.cfg.Child(t.Key.String()),
+		Source:          src,
+		DB:              f.cfg.DB,
+		Status:          f.cfg.Status,
+		Framer:          f.cfg.Framer,
+		Channels:        writerKeys,
+		Task:            t,
+		Mode:            mode,
+	})
 	if err != nil {
-		return p, err
+		return nil, err
 	}
+	return rt, nil
+}
+
+// enabledReadEntries returns the enabled entries and the channels that they name.
+func enabledReadEntries(entries []ReadEntry) ([]ReadEntryVariant, channel.Keys, error) {
 	var (
 		enabled []ReadEntryVariant
 		keys    channel.Keys
 	)
-	for _, e := range p.cfg.Entries {
+	for _, e := range entries {
 		switch entry := e.Variant.(type) {
 		case PlainReadEntry:
 			if entry.Disabled {
@@ -448,189 +457,132 @@ func (f *Factory) planRead(ctx context.Context, t task.Task) (readPlan, error) {
 			}
 			keys = append(keys, entry.Channel)
 		case nil:
-			return p, errors.Wrap(validate.ErrValidation, "entries: an entry is null")
+			return nil, nil, errors.Wrap(
+				validate.ErrValidation, "entries: an entry is null",
+			)
 		default:
 			panic(errors.Newf("mqtt: unknown read entry variant %T", entry))
 		}
 		enabled = append(enabled, e.Variant)
 	}
 	if len(enabled) == 0 {
-		return p, errors.Wrap(
+		return nil, nil, errors.Wrap(
 			validate.ErrValidation, "entries: the task has no enabled entries",
 		)
 	}
-	channels, err := f.retrieveChannels(ctx, keys)
-	if err != nil {
-		return p, err
-	}
-	p.broker = dev.Key
-	p.topics = make(map[string]topicReader)
-	p.tags = make(map[tagID]readTag)
-	var (
-		// written names the message or tag that writes to each channel.
-		written = make(map[channel.Key]string)
-		icds    = make(map[icd.Key]icd.ICD)
-	)
-	// claim takes the channels of keys and their index for the writer name. Two
-	// writers on one index would race for the rising order of its timestamps, or write
-	// frames that lack the channels of the other.
-	claim := func(name string, keys channel.Keys, index channel.Key) error {
-		for _, key := range keys {
-			if other, ok := written[key]; ok {
-				return errors.Wrapf(
-					validate.ErrValidation,
-					"entries: %s and %s write to the same channel %d",
-					other, name, key,
-				)
-			}
-			written[key] = name
-			p.writerKeys = append(p.writerKeys, key)
+	return enabled, keys, nil
+}
+
+// retrieveICDs returns the ICDs that the plain entries of enabled name, by key.
+func (f *Factory) retrieveICDs(
+	ctx context.Context,
+	enabled []ReadEntryVariant,
+) (map[icd.Key]icd.ICD, error) {
+	icds := make(map[icd.Key]icd.ICD)
+	for _, variant := range enabled {
+		entry, ok := variant.(PlainReadEntry)
+		if !ok {
+			continue
 		}
-		if index != 0 {
-			p.indexes = append(p.indexes, index)
+		if _, ok = icds[entry.ICD]; ok {
+			continue
+		}
+		ic, err := f.retrieveICD(ctx, entry.ICD)
+		if err != nil {
+			return nil, err
+		}
+		icds[entry.ICD] = ic
+	}
+	return icds, nil
+}
+
+// writers holds the channels that the messages and tags of a read task write to.
+type writers struct {
+	// names names the message or tag that writes to each channel.
+	names   map[channel.Key]string
+	keys    channel.Keys
+	indexes channel.Keys
+}
+
+// claim takes the channels of keys and their index for the writer name. Two writers on
+// one index would race for the rising order of its timestamps, or write frames that
+// lack the channels of the other.
+func (w *writers) claim(name string, keys channel.Keys, index channel.Key) error {
+	for _, key := range keys {
+		if other, ok := w.names[key]; ok {
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"entries: %s and %s write to the same channel %d",
+				other, name, key,
+			)
+		}
+		w.names[key] = name
+		w.keys = append(w.keys, key)
+	}
+	if index != 0 {
+		w.indexes = append(w.indexes, index)
+	}
+	return nil
+}
+
+// addEntries adds the topics and tags of enabled to s. icds holds the ICD of each plain
+// entry. It returns the channels that the entries write to and their index channels.
+func (s *readSource) addEntries(
+	enabled []ReadEntryVariant,
+	icds map[icd.Key]icd.ICD,
+	channels map[channel.Key]channel.Channel,
+) (writerKeys, indexes channel.Keys, err error) {
+	w := writers{names: make(map[channel.Key]string)}
+	for _, variant := range enabled {
+		if err = s.addEntry(variant, icds, channels, &w); err != nil {
+			return nil, nil, err
+		}
+	}
+	return w.keys, w.indexes, nil
+}
+
+// addEntry adds the topic or tag of variant to s, and claims its channels in w.
+func (s *readSource) addEntry(
+	variant ReadEntryVariant,
+	icds map[icd.Key]icd.ICD,
+	channels map[channel.Key]channel.Channel,
+	w *writers,
+) error {
+	switch entry := variant.(type) {
+	case PlainReadEntry:
+		topic, err := newReadTopic(entry, icds[entry.ICD], channels)
+		if err != nil {
+			return err
+		}
+		if _, ok := s.topics[topic.topic]; ok {
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"entries: topic %s appears more than once", topic.topic,
+			)
+		}
+		s.topics[topic.topic] = topic
+		for _, m := range topic.messages {
+			name := "message " + m.name + " of topic " + topic.topic
+			if err = w.claim(name, m.keys, m.index); err != nil {
+				return err
+			}
 		}
 		return nil
-	}
-	for _, variant := range enabled {
-		switch entry := variant.(type) {
-		case PlainReadEntry:
-			ic, ok := icds[entry.ICD]
-			if !ok {
-				if ic, err = f.retrieveICD(ctx, entry.ICD); err != nil {
-					return p, err
-				}
-				icds[entry.ICD] = ic
-			}
-			topic, err := newReadTopic(entry, ic, channels)
-			if err != nil {
-				return p, err
-			}
-			if _, ok := p.topics[topic.topic]; ok {
-				return p, errors.Wrapf(
-					validate.ErrValidation,
-					"entries: topic %s appears more than once", topic.topic,
-				)
-			}
-			p.topics[topic.topic] = topic
-			for _, m := range topic.messages {
-				name := "message " + m.name + " of topic " + topic.topic
-				if err := claim(name, m.keys, m.index); err != nil {
-					return p, err
-				}
-			}
-		case SparkplugReadEntry:
-			tag, err := newReadTag(entry, channels)
-			if err != nil {
-				return p, err
-			}
-			if _, ok := p.tags[tag.tagID]; ok {
-				return p, errors.Wrapf(
-					validate.ErrValidation, "entries: %s appears more than once", tag,
-				)
-			}
-			p.tags[tag.tagID] = tag
-			if err := claim(tag.String(), tag.keys(), tag.index); err != nil {
-				return p, err
-			}
-		default:
-			panic(errors.Newf("mqtt: unknown read entry variant %T", entry))
+	case SparkplugReadEntry:
+		tag, err := newReadTag(entry, channels)
+		if err != nil {
+			return err
 		}
-	}
-	p.icds = set.New(lo.Keys(icds)...)
-	return p, nil
-}
-
-func (f *Factory) configureRead(
-	ctx context.Context,
-	t task.Task,
-) (autoStarter, bool, error) {
-	p, err := f.planRead(ctx, t)
-	if err != nil {
-		return nil, p.cfg.AutoStart, err
-	}
-	src := &readSource{
-		pool:       f.pool,
-		broker:     p.broker,
-		queueSize:  f.cfg.QueueSize,
-		birthGrace: f.cfg.BirthGrace,
-		tags:       p.tags,
-		lastStamp:  make(map[channel.Key]telem.TimeStamp),
-		framer:     f.cfg.Framer,
-		subject:    control.Subject{Key: t.Key.String(), Name: t.Name},
-		ins:        f.cfg.Child(t.Key.String()),
-	}
-	src.configure(p.topics, nil)
-	mode := framer.WriterModePersistStream
-	if p.cfg.DataSavingDisabled {
-		mode = framer.WriterModeStreamOnly
-	} else {
-		src.stored = p.indexes
-	}
-	inner, err := driver.NewReadTask(driver.ReadTaskConfig{
-		Instrumentation: f.cfg.Child(t.Key.String()),
-		Source:          src,
-		DB:              f.cfg.DB,
-		Status:          f.cfg.Status,
-		Framer:          f.cfg.Framer,
-		Channels:        p.writerKeys,
-		Task:            t,
-		Mode:            mode,
-	})
-	if err != nil {
-		return nil, p.cfg.AutoStart, err
-	}
-	rt := &readTask{ReadTask: inner, t: t, src: src, icds: p.icds, forget: f.forget}
-	f.reads.Lock()
-	f.reads.tasks.Add(rt)
-	f.reads.Unlock()
-	return rt, p.cfg.AutoStart, nil
-}
-
-// forget stops following t, which the driver stopped.
-func (f *Factory) forget(t *readTask) {
-	f.reads.Lock()
-	defer f.reads.Unlock()
-	f.reads.tasks.Remove(t)
-}
-
-// readsOf returns the configured read tasks that read any of icds.
-func (f *Factory) readsOf(icds set.Set[icd.Key]) []*readTask {
-	f.reads.Lock()
-	defer f.reads.Unlock()
-	var tasks []*readTask
-	for t := range f.reads.tasks {
-		if slices.ContainsFunc(icds.Slice(), t.icds.Contains) {
-			tasks = append(tasks, t)
+		if _, ok := s.tags[tag.tagID]; ok {
+			return errors.Wrapf(
+				validate.ErrValidation, "entries: %s appears more than once", tag,
+			)
 		}
+		s.tags[tag.tagID] = tag
+		return w.claim(tag.String(), tag.keys(), tag.index)
+	default:
+		panic(errors.Newf("mqtt: unknown read entry variant %T", entry))
 	}
-	return tasks
-}
-
-// reconfigureRead configures t again with the ICDs that it reads now. When the config
-// no longer resolves, it stops t and gives it the status of a failed configure.
-func (f *Factory) reconfigureRead(ctx context.Context, t *readTask) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	if t.mu.stopped {
-		return
-	}
-	p, err := f.planRead(ctx, t.t)
-	if err == nil {
-		t.src.configure(p.topics, nil)
-		return
-	}
-	if ctx.Err() != nil {
-		return
-	}
-	t.src.configure(nil, err)
-	if err := t.ReadTask.Stop(false); err != nil {
-		f.cfg.L.Error(
-			"failed to stop read task",
-			zap.Stringer("task", t.t),
-			zap.Error(err),
-		)
-	}
-	f.reporter.Fail(ctx, t.t, driver.NoCommand, err)
 }
 
 // enabledTarget returns the command channel and the name of a target. ok is false
@@ -658,21 +610,9 @@ func (f *Factory) configureWrite(
 	if err != nil {
 		return nil, cfg.AutoStart, err
 	}
-	var keys channel.Keys
-	for _, tg := range cfg.Targets {
-		if tg.Variant == nil {
-			return nil, cfg.AutoStart, errors.Wrap(
-				validate.ErrValidation, "targets: a target is null",
-			)
-		}
-		if key, _, ok := enabledTarget(tg.Variant); ok {
-			keys = append(keys, key)
-		}
-	}
-	if len(keys) == 0 {
-		return nil, cfg.AutoStart, errors.Wrap(
-			validate.ErrValidation, "targets: the task has no enabled targets",
-		)
+	keys, err := enabledTargetKeys(cfg.Targets)
+	if err != nil {
+		return nil, cfg.AutoStart, err
 	}
 	channels, err := f.retrieveChannels(ctx, keys)
 	if err != nil {
@@ -683,31 +623,8 @@ func (f *Factory) configureWrite(
 		broker:  dev.Key,
 		targets: make(map[channel.Key][]target, len(keys)),
 	}
-	for _, tg := range cfg.Targets {
-		key, name, ok := enabledTarget(tg.Variant)
-		if !ok {
-			continue
-		}
-		ch, ok := channels[key]
-		if !ok {
-			return nil, cfg.AutoStart, errors.Wrapf(
-				validate.ErrValidation,
-				"target %s: channel %d does not exist", name, key,
-			)
-		}
-		var built target
-		switch variant := tg.Variant.(type) {
-		case PlainWriteTarget:
-			built, err = newWriteTarget(variant, ch)
-		case SparkplugWriteTarget:
-			built, err = newCommandTarget(variant, ch)
-		default:
-			panic(errors.Newf("mqtt: unknown write target variant %T", variant))
-		}
-		if err != nil {
-			return nil, cfg.AutoStart, err
-		}
-		sink.targets[key] = append(sink.targets[key], built)
+	if err = sink.addTargets(cfg.Targets, channels); err != nil {
+		return nil, cfg.AutoStart, err
 	}
 	wt, err := driver.NewWriteTask(driver.WriteTaskConfig{
 		Instrumentation: f.cfg.Child(t.Key.String()),
@@ -722,6 +639,63 @@ func (f *Factory) configureWrite(
 		return nil, cfg.AutoStart, err
 	}
 	return wt, cfg.AutoStart, nil
+}
+
+// enabledTargetKeys returns the command channels of the enabled targets.
+func enabledTargetKeys(targets []WriteTarget) (channel.Keys, error) {
+	var keys channel.Keys
+	for _, tg := range targets {
+		if tg.Variant == nil {
+			return nil, errors.Wrap(validate.ErrValidation, "targets: a target is null")
+		}
+		if key, _, ok := enabledTarget(tg.Variant); ok {
+			keys = append(keys, key)
+		}
+	}
+	if len(keys) == 0 {
+		return nil, errors.Wrap(
+			validate.ErrValidation, "targets: the task has no enabled targets",
+		)
+	}
+	return keys, nil
+}
+
+// addTargets adds the enabled targets to s. channels holds the command channel of
+// each enabled target.
+func (s *writeSink) addTargets(
+	targets []WriteTarget,
+	channels map[channel.Key]channel.Channel,
+) error {
+	for _, tg := range targets {
+		key, name, ok := enabledTarget(tg.Variant)
+		if !ok {
+			continue
+		}
+		ch, ok := channels[key]
+		if !ok {
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"target %s: channel %d does not exist", name, key,
+			)
+		}
+		var (
+			built target
+			err   error
+		)
+		switch variant := tg.Variant.(type) {
+		case PlainWriteTarget:
+			built, err = newWriteTarget(variant, ch)
+		case SparkplugWriteTarget:
+			built, err = newCommandTarget(variant, ch)
+		default:
+			panic(errors.Newf("mqtt: unknown write target variant %T", variant))
+		}
+		if err != nil {
+			return err
+		}
+		s.targets[key] = append(s.targets[key], built)
+	}
+	return nil
 }
 
 func (f *Factory) configureEdge(
@@ -740,20 +714,9 @@ func (f *Factory) configureEdge(
 	if err = node.Validate(); err != nil {
 		return nil, cfg.AutoStart, err
 	}
-	var keys channel.Keys
-	for _, tg := range cfg.Tags {
-		if tg.Disabled {
-			continue
-		}
-		keys = append(keys, tg.Channel)
-		if tg.CommandChannel != 0 {
-			keys = append(keys, tg.CommandChannel)
-		}
-	}
-	if len(keys) == 0 {
-		return nil, cfg.AutoStart, errors.Wrap(
-			validate.ErrValidation, "tags: the task has no enabled tags",
-		)
+	keys, err := enabledTagKeys(cfg.Tags)
+	if err != nil {
+		return nil, cfg.AutoStart, err
 	}
 	channels, err := f.retrieveChannels(ctx, keys)
 	if err != nil {
@@ -776,43 +739,9 @@ func (f *Factory) configureEdge(
 		authority: control.Authority(cfg.Authority),
 		clock:     telem.MonoClock{Source: f.cfg.Now},
 	}
-	var (
-		declared   []sparkplug.Tag
-		streamKeys channel.Keys
-		// commanded names the tag that writes to each command channel.
-		commanded = make(map[channel.Key]string)
-	)
-	for _, tg := range cfg.Tags {
-		if tg.Disabled {
-			continue
-		}
-		et, tag, err := newPublishedTag(node, tg, channels)
-		if err != nil {
-			return nil, cfg.AutoStart, err
-		}
-		if _, ok := edge.byName[et.name]; ok {
-			return nil, cfg.AutoStart, errors.Wrapf(
-				validate.ErrValidation, "tags: tag %s appears more than once", et.name,
-			)
-		}
-		if et.command != nil {
-			// One command would carry two values for one sample of the channel.
-			if other, ok := commanded[et.command.channel]; ok {
-				return nil, cfg.AutoStart, errors.Wrapf(
-					validate.ErrValidation,
-					"tags: tag %s and tag %s write to the same command channel %d",
-					other, et.name, et.command.channel,
-				)
-			}
-			commanded[et.command.channel] = et.name
-		}
-		edge.byName[et.name] = et
-		edge.tags[et.channel] = append(edge.tags[et.channel], et)
-		declared = append(declared, tag)
-		streamKeys = append(streamKeys, et.channel)
-		if et.index != 0 {
-			streamKeys = append(streamKeys, et.index)
-		}
+	declared, streamKeys, err := edge.addTags(node, cfg.Tags, channels)
+	if err != nil {
+		return nil, cfg.AutoStart, err
 	}
 	edge.edge = sparkplug.NewEdge(node, declared)
 	edge.mu.seq = sparkplug.NewSequence(edge.edge)
@@ -829,6 +758,70 @@ func (f *Factory) configureEdge(
 		return nil, cfg.AutoStart, err
 	}
 	return wt, cfg.AutoStart, nil
+}
+
+// enabledTagKeys returns the channels and command channels of the enabled tags.
+func enabledTagKeys(tags []EdgeTag) (channel.Keys, error) {
+	var keys channel.Keys
+	for _, tg := range tags {
+		if tg.Disabled {
+			continue
+		}
+		keys = append(keys, tg.Channel)
+		if tg.CommandChannel != 0 {
+			keys = append(keys, tg.CommandChannel)
+		}
+	}
+	if len(keys) == 0 {
+		return nil, errors.Wrap(
+			validate.ErrValidation, "tags: the task has no enabled tags",
+		)
+	}
+	return keys, nil
+}
+
+// addTags adds the enabled tags to e. It returns the tags to declare in births and the
+// channels to stream.
+func (e *edgeNode) addTags(
+	node sparkplug.NodeID,
+	tags []EdgeTag,
+	channels map[channel.Key]channel.Channel,
+) (declared []sparkplug.Tag, streamKeys channel.Keys, err error) {
+	// commanded names the tag that writes to each command channel.
+	commanded := make(map[channel.Key]string)
+	for _, tg := range tags {
+		if tg.Disabled {
+			continue
+		}
+		et, tag, err := newPublishedTag(node, tg, channels)
+		if err != nil {
+			return nil, nil, err
+		}
+		if _, ok := e.byName[et.name]; ok {
+			return nil, nil, errors.Wrapf(
+				validate.ErrValidation, "tags: tag %s appears more than once", et.name,
+			)
+		}
+		if et.command != nil {
+			// One command would carry two values for one sample of the channel.
+			if other, ok := commanded[et.command.channel]; ok {
+				return nil, nil, errors.Wrapf(
+					validate.ErrValidation,
+					"tags: tag %s and tag %s write to the same command channel %d",
+					other, et.name, et.command.channel,
+				)
+			}
+			commanded[et.command.channel] = et.name
+		}
+		e.byName[et.name] = et
+		e.tags[et.channel] = append(e.tags[et.channel], et)
+		declared = append(declared, tag)
+		streamKeys = append(streamKeys, et.channel)
+		if et.index != 0 {
+			streamKeys = append(streamKeys, et.index)
+		}
+	}
+	return declared, streamKeys, nil
 }
 
 func (f *Factory) configureScan(t task.Task) (autoStarter, bool, error) {

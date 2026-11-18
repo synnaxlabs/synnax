@@ -97,22 +97,28 @@ describe("Problem.Item", () => {
     expect(elements(title).some((node) => node.tagName === "code")).toBe(true);
   });
 
-  it("should anchor at the diagnostic code and show the severity", async () => {
+  it("should anchor at the diagnostic code and put it before the title", async () => {
     const { get } = await render({
       message: "Unknown channel",
-      code: "ARC3001",
+      code: "E3001",
       severity: "error",
     });
-    expect(get("problem").properties.id).toEqual("arc3001");
-    expect(text(get("problem__code"))).toEqual("ARC3001");
+    expect(get("problem").properties.id).toEqual("e3001");
+    expect(text(get("problem__label"))).toEqual("E3001");
     const severity = get("problem__severity");
-    expect(text(severity)).toEqual("Error");
+    expect(severity.properties.ariaLabel).toEqual("Error");
     expect(hasClass(severity, "problem__severity--error")).toBe(true);
   });
 
-  it("should leave out the meta line when there is no code or severity", async () => {
-    const { all } = await render({ message: "Failed to start task" });
-    expect(all("problem__meta")).toEqual([]);
+  it("should name the severity when there is no code", async () => {
+    const { get } = await render({ message: "Slow task", severity: "warning" });
+    expect(text(get("problem__label"))).toEqual("Warning");
+  });
+
+  it("should show only the title when there is no code or severity", async () => {
+    const { all, get } = await render({ message: "Failed to start task" });
+    expect(text(get("problem__head"))).toEqual("Failed to start task");
+    expect(all("problem__severity")).toEqual([]);
   });
 
   it("should cut a long anchor to 64 characters", async () => {

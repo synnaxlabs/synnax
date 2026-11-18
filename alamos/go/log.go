@@ -10,7 +10,6 @@
 package alamos
 
 import (
-	"context"
 	"slices"
 
 	"github.com/synnaxlabs/x/config"
@@ -29,10 +28,7 @@ type LoggerConfig struct {
 	ZapLogger *zap.Logger
 }
 
-var (
-	_                   config.Config[LoggerConfig] = LoggerConfig{}
-	defaultLoggerConfig                             = LoggerConfig{}
-)
+var _ config.Config[LoggerConfig] = LoggerConfig{}
 
 // Validate implements config.Config.
 func (c LoggerConfig) Validate() error { return nil }
@@ -53,7 +49,7 @@ type Logger struct {
 
 // NewLogger creates a new Logger with the given configuration.
 func NewLogger(configs ...LoggerConfig) (*Logger, error) {
-	cfg, err := config.New(defaultLoggerConfig, configs...)
+	cfg, err := config.New(LoggerConfig{}, configs...)
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +67,7 @@ func NewLogger(configs ...LoggerConfig) (*Logger, error) {
 	return l, nil
 }
 
-// Zap returns the underlying zap Logger
+// Zap returns the underlying zap Logger.
 func (l *Logger) Zap() *zap.Logger {
 	return l.zap
 }
@@ -157,11 +153,16 @@ func (l *Logger) WithOptions(opts ...zap.Option) *Logger {
 	return nil
 }
 
-func CustomZapCore(core zapcore.Core) zapcore.Core {
-	return customCore{c: core}
+// CustomZapCore wraps core so that it drops the stack traces of errors that errs
+// reports as expected.
+func CustomZapCore(core zapcore.Core, errs *errors.Codec) zapcore.Core {
+	return customCore{c: core, errs: errs}
 }
 
-type customCore struct{ c zapcore.Core }
+type customCore struct {
+	c    zapcore.Core
+	errs *errors.Codec
+}
 
 var _ zapcore.Core = (*customCore)(nil)
 
@@ -172,7 +173,7 @@ func (c customCore) Enabled(level zapcore.Level) bool { return c.c.Enabled(level
 func (c customCore) With(
 	fields []zapcore.Field,
 ) zapcore.Core {
-	return &customCore{c.c.With(fields)}
+	return &customCore{c: c.c.With(fields), errs: c.errs}
 }
 
 // Check implements zapcore.Core.
@@ -198,30 +199,33 @@ func (c customCore) Write(entry zapcore.Entry, fields []zapcore.Field) error {
 		unexpected bool
 	)
 	for i, field := range fields {
-		if field.Type == zapcore.ErrorType {
-			err, ok := field.Interface.(error)
-			if !ok {
-				continue
-			}
-			if errors.Expected(context.Background(), err) {
-				if !unexpected {
-					entry.Stack = ""
-				}
-				// A plain string field drops the stack trace that zap adds as
-				// errorVerbose.
-				if !cloned {
-					fields, cloned = slices.Clone(fields), true
-				}
-				fields[i] = zap.String(field.Key, err.Error())
-				continue
-			}
-			entry.Stack = errors.GetStackTrace(err).String()
-			unexpected = true
-		} else if field.Key == "caller" && field.Type == zapcore.StringType && len(field.String) > 0 {
+		if field.Key == "caller" && field.Type == zapcore.StringType &&
+			len(field.String) > 0 {
 			// This means that we should specify a custom caller.
 			entry.Caller = zapcore.EntryCaller{Defined: true, File: field.String}
 			toRemove = i
+			continue
 		}
+		if field.Type != zapcore.ErrorType {
+			continue
+		}
+		err, ok := field.Interface.(error)
+		if !ok {
+			continue
+		}
+		if !c.errs.Expected(err) {
+			entry.Stack = errors.GetStackTrace(err).String()
+			unexpected = true
+			continue
+		}
+		if !unexpected {
+			entry.Stack = ""
+		}
+		// A plain string field drops the stack trace that zap adds as errorVerbose.
+		if !cloned {
+			fields, cloned = slices.Clone(fields), true
+		}
+		fields[i] = zap.String(field.Key, err.Error())
 	}
 	if toRemove >= 0 {
 		// Clone the slice first to avoid accidentally modifying it if/when zap

@@ -13,6 +13,7 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/context"
@@ -20,6 +21,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/diagnostics"
 	. "github.com/synnaxlabs/x/testutil"
 	"go.lsp.dev/protocol"
 )
@@ -81,7 +83,7 @@ var _ = Describe("Analyzer Integration", func() {
 				diagnostic := (*ctx.Diagnostics)[0]
 				Expect(
 					diagnostic.Message,
-				).To(Equal("name dog conflicts with existing function at line 2, col 4"))
+				).To(Equal("name conflict: name dog conflicts with existing function at line 2, col 4"))
 			},
 		)
 
@@ -1646,6 +1648,64 @@ var _ = Describe("Declaration order", func() {
 	})
 })
 
+var _ = DescribeTable("Name conflicts with an earlier nested declaration",
+	func(bCtx SpecContext, source, expected string) {
+		ctx := analyzeAndExpectErrorWithResolver(bCtx, source, nil)
+		Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(expected))
+	},
+	Entry("a top-level variable after a function variable", `
+		func scale(v f64) f64 {
+			limit := 1.0
+			return v * limit
+		}
+		limit := 5.0
+	`, "name limit conflicts with existing variable"),
+	Entry("a top-level variable after a function parameter", `
+		func scale(limit f64) f64 {
+			return limit * 2.0
+		}
+		limit := 5.0
+	`, "name limit conflicts with existing variable"),
+)
+
+var _ = It("Should report each declaration that shadows an outer variable",
+	func(bCtx SpecContext) {
+		ctx := analyzeAndExpectErrorWithResolver(bCtx, `foo := 1.0
+sequence main {
+    limit := 1.0
+    foo := 2.0
+}
+stage other {
+    limit := 1.0
+    foo := 2.0
+}
+func f() {
+    limit := 1.0
+    foo := 2.0
+}
+limit := 5.0
+`, nil)
+		lines := lo.Map(*ctx.Diagnostics, func(d diagnostics.Diagnostic, _ int) int {
+			return int(d.Range.Start.Line) + 1
+		})
+		Expect(lines).To(ConsistOf(3, 4, 7, 8, 11, 12))
+	},
+)
+
+var _ = It("Should accept a function variable after a nested block variable",
+	func(bCtx SpecContext) {
+		analyzeAndExpect(bCtx, `
+			func scale(v f64) f64 {
+				if v > 0 {
+					limit := 1.0
+				}
+				limit := 5.0
+				return v * limit
+			}
+		`)
+	},
+)
+
 var _ = Describe("Channel reads through later declarations", func() {
 	rawResolver := []symbol.Symbol{
 		{Name: "raw", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10},
@@ -1660,6 +1720,20 @@ var _ = Describe("Channel reads through later declarations", func() {
 			    return raw * 2.0
 			}`, rawResolver)
 			Expect(MustSucceed(ctx.Scope.Resolve(ctx, "x")).IsReactive()).To(BeTrue())
+		},
+	)
+
+	It(
+		"Should let a func read a local that a later callee makes reactive",
+		func(bCtx SpecContext) {
+			analyzeAndExpectWithResolver(bCtx, `
+			x := rd() + 1.0
+			func f() f64 {
+			    return x
+			}
+			func rd() f64 {
+			    return raw * 2.0
+			}`, rawResolver)
 		},
 	)
 
@@ -1684,3 +1758,25 @@ var _ = Describe("Channel reads through later declarations", func() {
 		)
 	})
 })
+
+var _ = DescribeTable("Reads of a top-level variable that is not a constant",
+	func(bCtx SpecContext, source, message string) {
+		ctx := analyzeAndExpectErrorWithResolver(bCtx, source, nil)
+		Expect(*ctx.Diagnostics).To(HaveLen(1), ctx.Diagnostics.String())
+		Expect(ctx.Diagnostics.String()).To(ContainSubstring(message))
+	},
+	Entry(
+		"a computed initializer",
+		"k := 1 + 2\nfunc f() i64 {\n    return k\n}",
+		"3:11 error [E2006]: not a constant: cannot read 'k': its initializer is not a compile-time "+
+			"constant",
+	),
+	Entry("an initializer with an undefined name",
+		"k := undefined_name\nfunc f() i64 {\n    return k\n}",
+		"1:5 error [E4004]: undefined symbol: undefined_name",
+	),
+	Entry("an initializer that overflows its type",
+		"k i8 := 300\nfunc f() i64 {\n    return i64(k)\n}",
+		"1:8 error [E2007]: constant overflow: 300 overflows i8",
+	),
+)

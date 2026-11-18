@@ -22,7 +22,7 @@ import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { Schematic } from "@synnaxlabs/pluto";
-import { type bounds, color, id, type xy } from "@synnaxlabs/x";
+import { array, type bounds, color, id, type xy } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import { HandleList } from "@/feature/schematic/symbol/edit/HandleList";
@@ -132,7 +132,7 @@ const Editor = ({
     const region = form.get(regionPath).value;
     const hasSelector = region.selectors.includes(selector);
     if (hasSelector) {
-      const updatedSelectors = region.selectors.filter((s) => s !== selector);
+      const updatedSelectors = array.remove(region.selectors, selector);
       form.set(regionPath, { ...region, selectors: updatedSelectors });
     } else {
       const allRegions = form.get(regions).value;
@@ -140,7 +140,7 @@ const Editor = ({
         if (!r.selectors.includes(selector)) return;
         const updatedRegion = {
           ...r,
-          selectors: r.selectors.filter((s) => s !== selector),
+          selectors: array.remove(r.selectors, selector),
         };
         form.set(regions[index], updatedRegion);
       });

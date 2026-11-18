@@ -12,6 +12,7 @@ package telem_test
 import (
 	"encoding/json/v2"
 	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/synnaxlabs/x/telem"
@@ -60,62 +61,61 @@ func BenchmarkSetValueAtLargeSlice(b *testing.B) {
 }
 
 func BenchmarkValidate(b *testing.B) {
-	b.Run("FixedDensity", func(b *testing.B) {
-		for _, size := range []int{10, 100, 1000, 10000} {
-			b.Run(fmt.Sprintf("Float64/%d", size), func(b *testing.B) {
-				data := make([]float64, size)
-				for i := range data {
-					data[i] = float64(i)
-				}
-				s := telem.NewSeriesV(data...)
-				for b.Loop() {
-					if err := s.Validate(); err != nil {
-						b.Fatal(err)
-					}
-				}
-			})
-		}
-	})
+	b.Run("FixedDensity", benchmarkValidateFixedDensity)
+	b.Run("String", benchmarkValidateString)
+	b.Run("JSON", benchmarkValidateJSON)
+}
 
-	b.Run("String", func(b *testing.B) {
-		for _, size := range []int{10, 100, 1000} {
-			b.Run(fmt.Sprintf("%d", size), func(b *testing.B) {
-				data := make([]string, size)
-				for i := range data {
-					data[i] = fmt.Sprintf("sample-%d", i)
-				}
-				s := telem.NewSeriesV(data...)
-				for b.Loop() {
-					if err := s.Validate(); err != nil {
-						b.Fatal(err)
-					}
-				}
-			})
-		}
-	})
+func benchmarkValidateFixedDensity(b *testing.B) {
+	for _, size := range []int{10, 100, 1000, 10000} {
+		b.Run(fmt.Sprintf("Float64/%d", size), func(b *testing.B) {
+			data := make([]float64, size)
+			for i := range data {
+				data[i] = float64(i)
+			}
+			loopValidate(b, telem.NewSeriesV(data...))
+		})
+	}
+}
 
-	b.Run("JSON", func(b *testing.B) {
-		for _, size := range []int{10, 100, 1000} {
-			b.Run(fmt.Sprintf("%d", size), func(b *testing.B) {
-				data := make([][]byte, size)
-				for i := range data {
-					var err error
-					data[i], err = json.Marshal(map[string]any{
-						"key": fmt.Sprintf("value-%d", i),
-						"num": i,
-					})
-					if err != nil {
-						b.Fatal(err)
-					}
+func benchmarkValidateString(b *testing.B) {
+	for _, size := range []int{10, 100, 1000} {
+		b.Run(strconv.Itoa(size), func(b *testing.B) {
+			data := make([]string, size)
+			for i := range data {
+				data[i] = fmt.Sprintf("sample-%d", i)
+			}
+			loopValidate(b, telem.NewSeriesV(data...))
+		})
+	}
+}
+
+func benchmarkValidateJSON(b *testing.B) {
+	for _, size := range []int{10, 100, 1000} {
+		b.Run(strconv.Itoa(size), func(b *testing.B) {
+			data := make([][]byte, size)
+			for i := range data {
+				var err error
+				data[i], err = json.Marshal(map[string]any{
+					"key": fmt.Sprintf("value-%d", i),
+					"num": i,
+				})
+				if err != nil {
+					b.Fatal(err)
 				}
-				s := telem.NewSeriesV(data...)
-				s.DataType = telem.JSONT
-				for b.Loop() {
-					if err := s.Validate(); err != nil {
-						b.Fatal(err)
-					}
-				}
-			})
+			}
+			s := telem.NewSeriesV(data...)
+			s.DataType = telem.JSONT
+			loopValidate(b, s)
+		})
+	}
+}
+
+func loopValidate(b *testing.B, s telem.Series) {
+	b.Helper()
+	for b.Loop() {
+		if err := s.Validate(); err != nil {
+			b.Fatal(err)
 		}
-	})
+	}
 }

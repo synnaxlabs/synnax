@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { errors, TimeSpan } from "@synnaxlabs/x";
+import { errors, scheduler, sleep, TimeSpan } from "@synnaxlabs/x";
 import { act, render, waitFor } from "@testing-library/react";
 import {
   Component,
@@ -184,8 +184,7 @@ const createHeldPair = () => {
   const toMain: aether.WorkerMessage[][] = [];
   let workerHandler: (messages: aether.MainMessage[]) => void = () => {};
   let mainHandler: (messages: aether.WorkerMessage[]) => void = () => {};
-  const flushed = async (): Promise<void> =>
-    await new Promise((resolve) => setTimeout(resolve, 0));
+  const flushed = async (): Promise<void> => await scheduler.flushTaskQueue();
   return {
     workerSide: {
       send: (messages) => toMain.push(messages),
@@ -476,6 +475,51 @@ describe("Aether Main", () => {
       await waitFor(() => expect(captured.error).not.toBeNull());
       expect(captured.error?.message).toBe("Component deleted");
     });
+    it("should not resolve an invoke with the late answer of a replaced component", async () => {
+      const [Provider, root] = await newProvider();
+      const results = new Map<number, number>();
+      const failures = new Map<number, string>();
+      const C = ({ n }: { n: number }) => {
+        const [, , , methods] = Aether.use({
+          aetherKey: "same",
+          type: InvokeLeaf.TYPE,
+          schema: exampleProps,
+          initialState: { x: 0 },
+          methods: invokeMethodsSchema,
+        });
+        useEffect(() => {
+          void methods
+            .slowEcho(n)
+            .then((r) => results.set(n, r))
+            .catch((e: unknown) => failures.set(n, errors.fromUnknown(e).message));
+        }, []);
+        return null;
+      };
+      const leaf = (): InvokeLeaf | undefined => root.children[0] as InvokeLeaf;
+      const { rerender } = render(
+        <Provider>
+          <C key="a" n={1} />
+        </Provider>,
+      );
+      await waitFor(() => expect(leaf()?.slowEchoResolvers).toHaveLength(1));
+      const first = leaf()!;
+      rerender(
+        <Provider>
+          <C key="b" n={2} />
+        </Provider>,
+      );
+      await waitFor(() => {
+        expect(leaf()).not.toBe(first);
+        expect(leaf()?.slowEchoResolvers).toHaveLength(1);
+      });
+      first.slowEchoResolvers[0]();
+      leaf()!.slowEchoResolvers[0]();
+      await waitFor(() => expect(results.has(2)).toBe(true));
+      expect(results.get(2)).toBe(2);
+      expect(failures.get(1)).toBe("Component deleted");
+      expect(failures.has(2)).toBe(false);
+    });
+
     it("should forward multiple positional args spread to the worker handler", async () => {
       const [Provider, root] = await newProvider();
       const captured: { result: [number, string] | null } = { result: null };
@@ -785,7 +829,7 @@ describe("Aether Main", () => {
           <C x={99} />
         </Provider>,
       );
-      await new Promise((r) => setTimeout(r, 50));
+      await sleep.sleep(TimeSpan.milliseconds(50));
       expect(leaf.state.x).toBe(1);
     });
     it("should ignore type prop changes after the first render", async () => {
@@ -816,7 +860,7 @@ describe("Aether Main", () => {
           <C type={InvokeLeaf.TYPE} />
         </Provider>,
       );
-      await new Promise((r) => setTimeout(r, 50));
+      await sleep.sleep(TimeSpan.milliseconds(50));
       expect(root.children.length).toBe(1);
       expect(root.children[0]).toBe(original);
       expect(original.deletef).not.toHaveBeenCalled();
@@ -846,7 +890,7 @@ describe("Aether Main", () => {
           <C k="second" />
         </Provider>,
       );
-      await new Promise((r) => setTimeout(r, 50));
+      await sleep.sleep(TimeSpan.milliseconds(50));
       expect(root.children.length).toBe(1);
       expect(root.children[0]).toBe(original);
       expect(original.key).toBe("first");
@@ -983,7 +1027,7 @@ describe("Aether Main", () => {
           <UnidirectionalLeaf x={5} />
         </Provider>,
       );
-      await new Promise((r) => setTimeout(r, 50));
+      await sleep.sleep(TimeSpan.milliseconds(50));
       expect(leaf.updatef.mock.calls.length).toBe(initialCount);
     });
     it("should send the state prop as the initial worker state on first render", async () => {
@@ -1094,9 +1138,9 @@ describe("Aether Main", () => {
         </Provider>,
       );
       await waitFor(() => expect(root.children.length).toBe(1));
-      await new Promise((r) => setTimeout(r, 75));
+      await sleep.sleep(TimeSpan.milliseconds(75));
       const baseline = renderCount;
-      await new Promise((r) => setTimeout(r, 75));
+      await sleep.sleep(TimeSpan.milliseconds(75));
       expect(renderCount).toBe(baseline);
     });
   });
@@ -1236,7 +1280,7 @@ describe("Aether Main", () => {
       await waitFor(() => expect(root.children.length).toBe(1));
       await waitFor(() => expect((root.children[0] as InvokeLeaf).state.x).toBe(33));
       const settled = renderCount;
-      await new Promise((r) => setTimeout(r, 75));
+      await sleep.sleep(TimeSpan.milliseconds(75));
       expect(renderCount).toBe(settled);
     });
   });
@@ -1412,7 +1456,7 @@ describe("Aether Main", () => {
           <Parent trigger={3} />
         </Provider>,
       );
-      await new Promise((r) => setTimeout(r, 50));
+      await sleep.sleep(TimeSpan.milliseconds(50));
       expect(composite.children.length).toBe(1);
       expect(composite.children[0]).toBe(originalLeaf);
       expect(originalLeaf.deletef).not.toHaveBeenCalled();
@@ -1666,7 +1710,7 @@ describe("Aether Main", () => {
     it("should send only the fields a main update changed", async () => {
       const { handle, toWorker } = await stageLive();
       handle.setState((p) => ({ ...p, y: "b" }));
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      await scheduler.flushTaskQueue();
       expect(toWorker.flat()).toEqual([
         {
           variant: "update",

@@ -18,10 +18,15 @@ import { Segmented } from "@/schematic/edge/common/segmented";
 import { type Spec } from "@/schematic/edge/spec";
 
 export const spec: Spec<"secondary", schematic.SecondaryEdgeConfig> =
-  Segmented.createSpec("secondary", "Secondary", ({ points, crossings, color }) => (
-    <Base.Base
-      path={Path.rounded(points, crossings)}
-      color={color}
-      className={CSS.B("schematic-edge-secondary")}
-    />
-  ));
+  Segmented.createSpec(
+    "secondary",
+    "Secondary",
+    ({ points, crossings, color, strokeWidth }) => (
+      <Base.Base
+        path={Path.rounded(points, crossings)}
+        color={color}
+        strokeWidth={strokeWidth}
+        className={CSS.B("schematic-edge-secondary")}
+      />
+    ),
+  );

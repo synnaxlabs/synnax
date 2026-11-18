@@ -137,8 +137,15 @@ x::errors::Error Writer::close(const x::errors::Error &err) {
 
 std::pair<grpc::framer::WriterResponse, x::errors::Error>
 Writer::exec(grpc::framer::WriterRequest &req, const bool ack) {
-    if (const auto err = this->stream->send(req); err)
-        return {grpc::framer::WriterResponse(), this->close(err)};
+    if (const auto err = this->stream->send(req); err) {
+        // A send fails once the stream has ended. The stream status holds the cause,
+        // such as an unreachable Core. A stream that ended with no error keeps the
+        // send error, so the caller still sees the write fail.
+        if (const auto close_err = this->close(x::errors::NIL))
+            return {grpc::framer::WriterResponse(), close_err};
+        this->close_err = err;
+        return {grpc::framer::WriterResponse(), err};
+    }
     while (ack) {
         auto [res, res_err] = stream->receive();
         if (res_err) return {res, this->close(res_err)};

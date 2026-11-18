@@ -9,6 +9,7 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
+import { suggestIdentifiers } from "@/feature/ni/device/identifier";
 import { INTEGRATION_KEY, MAKE, ZERO_PROPERTIES } from "@/feature/ni/device/types";
 import { SCAN_TYPE } from "@/feature/ni/task/types";
 import { Device } from "@/platform/device";
@@ -24,7 +25,11 @@ export const HARDWARE: Device.Hardware = {
   make: MAKE,
   scanType: SCAN_TYPE,
   location: { shape: "plain" },
-  Configure: Device.createConfigure({ icon: ICON, zeroProperties: ZERO_PROPERTIES }),
+  Configure: Device.createConfigure({
+    icon: ICON,
+    zeroProperties: ZERO_PROPERTIES,
+    suggestIdentifiers,
+  }),
   checks: [
     "NI-DAQmx is installed on that computer. NI hardware needs Windows or Linux.",
     "The device shows in NI MAX, and no other program reserves it.",

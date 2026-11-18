@@ -30,7 +30,7 @@ func ResourceID(key Key) resource.ID {
 	return resource.ID{Type: resource.TypeUser, Key: key.String()}
 }
 
-// ResourceIDsFromKeys returns a slice of unique identifiers from a slice of keys
+// ResourceIDsFromKeys returns a slice of unique identifiers from a slice of keys.
 func ResourceIDsFromKeys(keys []Key) []resource.ID {
 	return lo.Map(keys, func(key Key, _ int) resource.ID { return ResourceID(key) })
 }

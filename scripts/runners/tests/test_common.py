@@ -12,13 +12,33 @@ import argparse
 import pytest
 from botocore.exceptions import ClientError
 
-from common import add_connection_args, instance_for, instance_prefix, secret
+from common import Channels, add_connection_args, instance_for, instance_prefix, secret
+from conftest import Client
 
 
 def parse(*argv: str) -> argparse.Namespace:
     p = argparse.ArgumentParser()
     add_connection_args(p)
     return p.parse_args(argv)
+
+
+class TestChannels:
+    """Tests for the channels the scripts create on the Core."""
+
+    def test_should_rewrite_the_expression_of_a_calculated_channel(self) -> None:
+        client = Client()
+        channels = Channels(client=client, enabled=True)
+        channels.calculated("cost", expression="return a")
+        channels.calculated("cost", expression="return a + b")
+        assert client.channels.stored["cost"].expression == "return a + b"
+
+    def test_should_keep_an_unchanged_calculated_channel(self) -> None:
+        client = Client()
+        channels = Channels(client=client, enabled=True)
+        channels.calculated("cost", expression="return a")
+        channels.calculated("cost", expression="return a")
+        assert len(client.channels.created) == 2
+        assert client.channels.stored["cost"].expression == "return a"
 
 
 class TestConnectionArgs:

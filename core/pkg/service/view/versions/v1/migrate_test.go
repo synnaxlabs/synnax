@@ -32,6 +32,7 @@ var _ = Describe("Migration", func() {
 	var db *gorp.DB
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.View]{DB: db}))
 	})
 
@@ -39,9 +40,9 @@ var _ = Describe("Migration", func() {
 		GinkgoHelper()
 		Expect(gorp.NewCreate[v0.Key, v0.View]().Entries(&views).Exec(ctx, db)).
 			To(Succeed())
-		ids := make([]resource.ID, len(views))
-		for i, v := range views {
-			ids[i] = v.ResourceID()
+		ids := make([]resource.ID, 0, len(views)+1)
+		for _, v := range views {
+			ids = append(ids, v.ResourceID())
 		}
 		Expect(ontology.DefineResources(ctx, db, append(ids, rootID)...)).
 			To(Succeed())

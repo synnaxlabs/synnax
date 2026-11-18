@@ -74,7 +74,7 @@ Channel struct {
 		)
 		table := resolution.NewTable()
 		diag := analyzer.AnalyzeSeeded(
-			GinkgoT().Context(), chainLiveSource,
+			chainLiveSource,
 			"schemas/synnax/channel.oracle", "channel",
 			analyzer.NewStandardFileLoader(root), table,
 		)
@@ -159,7 +159,7 @@ Proof union on method Method {
 		)
 		table := resolution.NewTable()
 		diag := analyzer.AnalyzeSeeded(
-			GinkgoT().Context(), `@go output "core/pkg/service/auth"`+"\n"+`
+			`@go output "core/pkg/service/auth"`+"\n"+`
 Method enum {
 	password = "password"
 	api_key  = "api_key"
@@ -221,7 +221,7 @@ Thing struct {
 		)
 		table := resolution.NewTable()
 		diag := analyzer.AnalyzeSeeded(
-			GinkgoT().Context(), `
+			`
 @go output "core/thing"
 
 Thing struct {
@@ -314,7 +314,6 @@ Log struct {
 		chains := MustSucceed(versions.Discover(root))
 		loader := analyzer.NewStandardFileLoader(root)
 		table, diag := analyzer.Analyze(
-			GinkgoT().Context(),
 			[]string{"schemas/synnax/channel", "schemas/synnax/log"},
 			loader,
 		)
@@ -386,7 +385,7 @@ Doc struct {
 		resolver := versions.NewResolver(chains, analyzer.NewStandardFileLoader(root))
 		table := resolution.NewTable()
 		diag := analyzer.AnalyzeSeeded(
-			GinkgoT().Context(), liveSource, "schemas/synnax/doc.oracle", "doc",
+			liveSource, "schemas/synnax/doc.oracle", "doc",
 			analyzer.NewStandardFileLoader(root), table,
 		)
 		Expect(diag.Ok()).To(BeTrue(), diag.String())
@@ -498,7 +497,7 @@ Doc struct {
 		resolver := versions.NewResolver(chains, analyzer.NewStandardFileLoader(root))
 		table := resolution.NewTable()
 		diag := analyzer.AnalyzeSeeded(
-			GinkgoT().Context(), liveSource, "schemas/synnax/doc.oracle", "doc",
+			liveSource, "schemas/synnax/doc.oracle", "doc",
 			analyzer.NewStandardFileLoader(root), table,
 		)
 		Expect(diag.Ok()).To(BeTrue(), diag.String())
@@ -565,10 +564,9 @@ Doc struct {
 
 var _ = Describe("Live to_any on a frozen definer", func() {
 	const livePath = "schemas/synnax/box.oracle"
-	generate := func(ctx SpecContext, v1 string) map[string]string {
+	generate := func(v1 string) map[string]string {
 		GinkgoHelper()
 		resp := chainGenerate(
-			ctx,
 			gotypes.New(gotypes.DefaultOptions()),
 			map[string]string{
 				livePath: `
@@ -605,8 +603,8 @@ Box struct<T> {
 
 	It(
 		"Should keep a live to_any out of a frozen definer the current version aliases",
-		func(ctx SpecContext) {
-			files := generate(ctx, `
+		func() {
+			files := generate(`
 Box = v0.Box
 `)
 			Expect(files["core/box/versions/v0/types.gen.go"]).ToNot(ContainSubstring(
@@ -620,8 +618,8 @@ Box = v0.Box
 
 	It(
 		"Should leave a frozen definer unconverted once a later version redeclares it",
-		func(ctx SpecContext) {
-			files := generate(ctx, `
+		func() {
+			files := generate(`
 Box struct<T> {
 	key uuid @key
 	value T
@@ -703,7 +701,7 @@ Doc struct {
 		resolver := versions.NewResolver(chains, analyzer.NewStandardFileLoader(root))
 		table := resolution.NewTable()
 		diag := analyzer.AnalyzeSeeded(
-			GinkgoT().Context(), liveSource, "schemas/synnax/doc.oracle", "doc",
+			liveSource, "schemas/synnax/doc.oracle", "doc",
 			analyzer.NewStandardFileLoader(root), table,
 		)
 		Expect(diag.Ok()).To(BeTrue(), diag.String())
@@ -825,7 +823,6 @@ Log struct {
 		chains := MustSucceed(versions.Discover(root))
 		loader := analyzer.NewStandardFileLoader(root)
 		table, diag := analyzer.Analyze(
-			GinkgoT().Context(),
 			[]string{"schemas/x/color", "schemas/synnax/log"},
 			loader,
 		)
@@ -865,25 +862,16 @@ Log struct {
 	})
 })
 
-// writePinFixture writes a log whose v0 declares Note against color v0 and whose v1
-// declares Log against color v1, where color v1 only aliases v0's Color. With frozen
-// set, a log v2 aliases both, freezing v1.
-func writePinFixture(root string, frozen bool) {
-	GinkgoHelper()
-	write := func(rel, content string) {
-		GinkgoHelper()
-		full := filepath.Join(root, rel)
-		Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
-		Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
-	}
-	write("schemas/x/versions/color/v0.oracle", `
+// The schemas of the fixture that writePinFixture writes.
+const (
+	pinColorV0 = `
 Color struct {
 	r uint8
 
 	@go marshal
 }
-`)
-	write("schemas/x/versions/color/v1.oracle", `
+`
+	pinColorV1 = `
 Color = v0.Color
 
 Band struct {
@@ -891,8 +879,8 @@ Band struct {
 
 	@go marshal
 }
-`)
-	write("schemas/x/color.oracle", `
+`
+	pinColor = `
 @go output "x/go/color"
 
 Color struct {
@@ -906,8 +894,8 @@ Band struct {
 
 	@go marshal
 }
-`)
-	write("schemas/synnax/versions/log/v0.oracle", `
+`
+	pinLogV0 = `
 import "schemas/x/versions/color/v0"
 
 Note struct {
@@ -922,8 +910,8 @@ Log struct {
 
 	@go marshal
 }
-`)
-	write("schemas/synnax/versions/log/v1.oracle", `
+`
+	pinLogV1 = `
 import "schemas/x/versions/color/v1"
 
 Note = v0.Note
@@ -936,15 +924,13 @@ Log struct {
 
 	@go marshal
 }
-`)
-	if frozen {
-		write("schemas/synnax/versions/log/v2.oracle", `
+`
+	pinLogV2 = `
 Note = v0.Note
 
 Log = v1.Log
-`)
-	}
-	write("schemas/synnax/log.oracle", `
+`
+	pinLog = `
 import "schemas/x/color"
 
 @go output "core/pkg/service/log"
@@ -963,7 +949,29 @@ Log struct {
 
 	@go marshal
 }
-`)
+`
+)
+
+// writePinFixture writes a log whose v0 declares Note against color v0 and whose v1
+// declares Log against color v1, where color v1 only aliases v0's Color. With frozen
+// set, a log v2 aliases both, freezing v1.
+func writePinFixture(root string, frozen bool) {
+	GinkgoHelper()
+	write := func(rel, content string) {
+		GinkgoHelper()
+		full := filepath.Join(root, rel)
+		Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
+		Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
+	}
+	write("schemas/x/versions/color/v0.oracle", pinColorV0)
+	write("schemas/x/versions/color/v1.oracle", pinColorV1)
+	write("schemas/x/color.oracle", pinColor)
+	write("schemas/synnax/versions/log/v0.oracle", pinLogV0)
+	write("schemas/synnax/versions/log/v1.oracle", pinLogV1)
+	if frozen {
+		write("schemas/synnax/versions/log/v2.oracle", pinLogV2)
+	}
+	write("schemas/synnax/log.oracle", pinLog)
 }
 
 // pinRequest analyzes the fixture writePinFixture writes.
@@ -974,7 +982,6 @@ func pinRequest(frozen bool) *plugin.Request {
 	chains := MustSucceed(versions.Discover(root))
 	loader := analyzer.NewStandardFileLoader(root)
 	table, diag := analyzer.Analyze(
-		GinkgoT().Context(),
 		[]string{"schemas/x/color", "schemas/synnax/log"},
 		loader,
 	)
@@ -1039,7 +1046,7 @@ var _ = Describe("Frozen enum that the live file omits", func() {
 		chains := MustSucceed(versions.Discover(root))
 		loader := analyzer.NewStandardFileLoader(root)
 		table, diag := analyzer.Analyze(
-			GinkgoT().Context(), []string{"schemas/synnax/doc"}, loader,
+			[]string{"schemas/synnax/doc"}, loader,
 		)
 		Expect(diag.Ok()).To(BeTrue(), diag.String())
 		return MustSucceed(gotypes.New(gotypes.DefaultOptions()).Generate(
@@ -1152,7 +1159,7 @@ Doc struct {
 		chains := MustSucceed(versions.Discover(root))
 		loader := analyzer.NewStandardFileLoader(root)
 		table, diag := analyzer.Analyze(
-			GinkgoT().Context(), []string{"schemas/synnax/doc"}, loader,
+			[]string{"schemas/synnax/doc"}, loader,
 		)
 		Expect(diag.Ok()).To(BeTrue(), diag.String())
 		resp := MustSucceed(gotypes.New(gotypes.DefaultOptions()).Generate(
@@ -1265,7 +1272,6 @@ Job struct {
 			chains := MustSucceed(versions.Discover(root))
 			loader := analyzer.NewStandardFileLoader(root)
 			table, diag := analyzer.Analyze(
-				GinkgoT().Context(),
 				[]string{"schemas/synnax/doc", "schemas/synnax/job"},
 				loader,
 			)
@@ -1422,7 +1428,6 @@ Doc struct {
 		chains := MustSucceed(versions.Discover(root))
 		loader := analyzer.NewStandardFileLoader(root)
 		table, diag := analyzer.Analyze(
-			GinkgoT().Context(),
 			[]string{"schemas/x/color", "schemas/synnax/doc"},
 			loader,
 		)
@@ -1449,10 +1454,9 @@ Doc struct {
 var _ = Describe("Renamed predecessor aliases", func() {
 	It(
 		"Should alias the frozen names of a renamed enum and union",
-		func(ctx SpecContext) {
+		func() {
 			const livePath = "schemas/synnax/doc.oracle"
 			resp := chainGenerate(
-				ctx,
 				gotypes.New(gotypes.DefaultOptions()),
 				map[string]string{
 					"schemas/synnax/versions/doc/v0.oracle": `
@@ -1647,7 +1651,6 @@ Doc struct {
 		chains := MustSucceed(versions.Discover(root))
 		loader := analyzer.NewStandardFileLoader(root)
 		table, diag := analyzer.Analyze(
-			GinkgoT().Context(),
 			[]string{"schemas/x/color", "schemas/synnax/doc"},
 			loader,
 		)
@@ -1748,7 +1751,6 @@ Doc struct {
 		chains := MustSucceed(versions.Discover(root))
 		loader := analyzer.NewStandardFileLoader(root)
 		table, diag := analyzer.Analyze(
-			GinkgoT().Context(),
 			[]string{"schemas/x/color", "schemas/synnax/doc"},
 			loader,
 		)
@@ -1908,7 +1910,6 @@ Doc struct {
 			chains := MustSucceed(versions.Discover(root))
 			loader := analyzer.NewStandardFileLoader(root)
 			table, diag := analyzer.Analyze(
-				GinkgoT().Context(),
 				[]string{"schemas/x/color", "schemas/synnax/doc"},
 				loader,
 			)
@@ -1955,7 +1956,7 @@ var _ = Describe("Minting on top of a version", func() {
 		}
 		chains := MustSucceed(versions.Discover(root))
 		loader := analyzer.NewStandardFileLoader(root)
-		table, diag := analyzer.Analyze(GinkgoT().Context(), live, loader)
+		table, diag := analyzer.Analyze(live, loader)
 		Expect(diag.Ok()).To(BeTrue(), diag.String())
 		return MustSucceed(gotypes.New(gotypes.DefaultOptions()).Generate(
 			&plugin.Request{
@@ -2238,7 +2239,7 @@ Doc struct {
 var _ = Describe("Frozen type that only a frozen version embeds", func() {
 	It(
 		"Should give the frozen type defaults but no decode hooks",
-		func(ctx SpecContext) {
+		func() {
 			root := GinkgoT().TempDir()
 			write := func(rel, content string) {
 				GinkgoHelper()
@@ -2285,7 +2286,7 @@ Cfg struct {
 				analyzer.NewStandardFileLoader(root),
 			)
 			table := resolution.NewTable()
-			diag := analyzer.AnalyzeSeeded(ctx, `
+			diag := analyzer.AnalyzeSeeded(`
 @go output "core/pkg/service/cfg"
 
 Base struct {

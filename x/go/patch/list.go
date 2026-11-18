@@ -10,6 +10,8 @@
 package patch
 
 import (
+	"fmt"
+
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -33,9 +35,10 @@ func List[T any, P Entry[T]](dst *[]T, c Cursor) error {
 			return insertEntry[T, P](dst, c)
 		case kindMove:
 			return moveEntry[T, P](dst, c)
-		default:
+		case kindSet, kindRemove:
 			return whole(dst, c)
 		}
+		panic(fmt.Sprintf("patch: invalid action kind %d", c.kind))
 	}
 	key := c.Segment()
 	next := c.Next()
@@ -53,9 +56,10 @@ func List[T any, P Entry[T]](dst *[]T, c Cursor) error {
 			return setEntry(dst, i, key, c)
 		case kindRemove:
 			return removeEntry[T, P](dst, key, c)
-		default:
+		case kindInsert, kindMove:
 			return c.notList()
 		}
+		panic(fmt.Sprintf("patch: invalid action kind %d", c.kind))
 	}
 	entries := make([]T, len(list))
 	copy(entries, list)

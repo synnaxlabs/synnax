@@ -45,6 +45,7 @@ jobs:
       cached: true
       coverage_flag: core
       directory: core
+      os_specific: true
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 

@@ -60,6 +60,7 @@ var _ = Describe("Migrations", func() {
 		"Should migrate a legacy uint64-keyed task and its status to a UUID key",
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
+			StartRun(db.Run)
 			MustOpen(label.OpenService(ctx, label.ServiceConfig{
 				DB: db,
 			}))
@@ -156,7 +157,7 @@ var _ = Describe("Migrations", func() {
 			Expect(resourceExists(ctx, db, task.ResourceID(migrated.Key))).To(BeTrue())
 			Expect(resourceExists(ctx, db, legacyID)).To(BeFalse())
 
-			staged, closer := MustSucceed2(db.Get(ctx, v2.LegacyKeyKVKey(legacyKey)))
+			staged, closer := MustSucceed2(db.Get(v2.LegacyKeyKVKey(legacyKey)))
 			Expect(string(staged)).To(Equal(migrated.Key.String()))
 			Expect(closer.Close()).To(Succeed())
 		},
@@ -371,8 +372,9 @@ var _ = Describe("Migrations", func() {
 				Where(task.MatchNames("Stored PD Task")).
 				Entry(&migratedPD).
 				Exec(ctx, db)).To(Succeed())
-			Expect(migratedPD.Config["routing_key"]).To(BeAssignableToTypeOf(""))
-			routingKey := uuid.MustParse(migratedPD.Config["routing_key"].(string))
+			rawKey, ok := migratedPD.Config["routing_key"].(string)
+			Expect(ok).To(BeTrue())
+			routingKey := uuid.MustParse(rawKey)
 			Expect(secrets.Reveal(ctx, db, routingKey)).
 				To(HaveKeyWithValue(routingKey, []byte("rk-stored")))
 			Expect(migratedPD.Config).ToNot(HaveKey("data_saving"))
@@ -454,12 +456,12 @@ var _ = Describe("Migrations", func() {
 				Where(task.MatchNames("Bogus Task")).
 				Exists(ctx, db)).To(BeFalse())
 			rekeyed, rekeyCloser := MustSucceed2(
-				db.Get(ctx, v2.LegacyKeyKVKey(bogusTask.Key)),
+				db.Get(v2.LegacyKeyKVKey(bogusTask.Key)),
 			)
 			bogusKey := MustSucceed(uuid.Parse(string(rekeyed)))
 			Expect(rekeyCloser.Close()).To(Succeed())
 			staged, closer := MustSucceed2(
-				db.Get(ctx, v3.QuarantineKVKey(bogusKey)),
+				db.Get(v3.QuarantineKVKey(bogusKey)),
 			)
 			Expect(string(staged)).To(ContainSubstring("Bogus Task"))
 			Expect(closer.Close()).To(Succeed())
@@ -469,12 +471,12 @@ var _ = Describe("Migrations", func() {
 					Where(task.MatchNames(retired.Name)).
 					Exists(ctx, db)).To(BeFalse())
 				rekeyed, rekeyCloser := MustSucceed2(
-					db.Get(ctx, v2.LegacyKeyKVKey(retired.Key)),
+					db.Get(v2.LegacyKeyKVKey(retired.Key)),
 				)
 				retiredKey := MustSucceed(uuid.Parse(string(rekeyed)))
 				Expect(rekeyCloser.Close()).To(Succeed())
 				blob, blobCloser := MustSucceed2(
-					db.Get(ctx, v3.QuarantineKVKey(retiredKey)),
+					db.Get(v3.QuarantineKVKey(retiredKey)),
 				)
 				Expect(string(blob)).To(ContainSubstring(retired.Name))
 				Expect(blobCloser.Close()).To(Succeed())
@@ -487,6 +489,7 @@ var _ = Describe("NameMigration", func() {
 	migrated := func(ctx SpecContext, in v2.Task) v2.Task {
 		GinkgoHelper()
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		Expect(gorp.NewCreate[v2.Key, v2.Task]().Entry(&in).Exec(ctx, db)).
 			To(Succeed())
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
