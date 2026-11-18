@@ -13,12 +13,11 @@
    fits the widest label, and every control fills the rest. The four columns after the
    second hold the later fields of rows, and are empty when no row uses them. The
    second never shrinks below the first control of a row, so wide later fields make
-   the grid overflow instead of covering a label. A control with a min-width of zero,
-   such as a group of tags that folds into a count, gives way instead. */
+   the grid overflow instead of covering a label. */
 .lyra-form-sections.lyra--direction-y {
     display: grid;
     grid-template-columns:
-        var(--pluto-form-label-column, max-content) minmax(auto, 1fr)
+        var(--pluto-form-label-column, max-content) minmax(min-content, 1fr)
         repeat(4, max-content);
     gap: 2.5rem 4rem;
     align-items: start;
@@ -46,6 +45,12 @@
 
     .lyra-form-section__body > .lyra-form-section__aligned {
         grid-column: 2 / -1;
+    }
+
+    /* A group of tags asks for the width of all its tags, but folds them into a count,
+       so it never widens the control column. */
+    .lyra-input__item > .lyra-input-label + *:has(> .lyra-dialog__frame > .lyra-tags) {
+        contain: inline-size;
     }
 
     /* A number or a duration holds a short value, so it keeps its control width. */
