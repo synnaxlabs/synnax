@@ -15,7 +15,7 @@
 }
 
 /* The look of a create item that ends a list, across the full width of the picker. */
-.lyra-btn.pluto-color-create-palette {
+.pluto-color-create-palette {
     width: auto;
     margin-inline: calc(-1 * var(--pluto-color-picker-inset));
     padding: 1rem var(--pluto-color-picker-inset);
