@@ -1409,6 +1409,27 @@ var _ = Describe("Statement", func() {
 				Entry("type mismatch", `{ output = "hello" }`, false, "type mismatch"),
 			)
 
+			It(
+				"should reject a unit literal of another dimension",
+				func(bCtx SpecContext) {
+					block := MustSucceed(parser.ParseBlock("{ distance = 5s }"))
+					ctx := context.NewRoot(bCtx, block, NewRoot(nil, symbol.Symbol{
+						Kind: symbol.KindChannel,
+						Name: "distance",
+						Type: types.Chan(
+							types.Type{Kind: types.KindF64, Unit: &types.Unit{
+								Name: "m", Scale: 1, Dimensions: types.DimLength,
+							}},
+						),
+					}))
+					setupChannelFunctionContext(ctx)
+					statement.AnalyzeBlock(ctx)
+					Expect(ctx.Diagnostics.String()).To(
+						ContainSubstring("type mismatch: expected f64 m"),
+					)
+				},
+			)
+
 			DescribeTable("should reject a series written to a scalar channel",
 				func(bCtx SpecContext, value string) {
 					block := MustSucceed(parser.ParseBlock(
@@ -3803,6 +3824,19 @@ var _ = Describe("Unit checks", func() {
 			")", "xs := [5psi]\nxs *= 1Pa",
 			"invalid operand: a series of i64 in psi does not convert to Pa, use a "+
 				"float series or the same unit"),
+	)
+
+	DescribeTable("Should accept a compound product or quotient by a unit literal",
+		func(bCtx SpecContext, body string) {
+			ast := MustSucceed(parser.Parse("func f() {\n" + body + "\n}"))
+			ctx := context.NewRoot(bCtx, ast, symbol.NewRoot(nil, stl.NewSymbols()))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		},
+		Entry("a product", "d f64 psi := 1psi\nd *= 2s"),
+		Entry("a quotient", "d f64 psi := 1psi\nd /= 2s"),
+		Entry("a product of an element", "ys := [1.0psi]\nys[0] *= 2s"),
+		Entry("a product of a series", "ys := [1.0psi]\nys *= 2s"),
 	)
 
 	DescribeTable(

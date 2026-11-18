@@ -1293,12 +1293,15 @@ func analyzeIndexedCompoundAssignment(
 	if !exprType.IsValid() || !elemType.IsValid() {
 		return
 	}
-	if !checkCompoundUnits(ctx, varScope, nil, compoundOp, expr, exprType, elemType) {
+	result, ok := checkCompoundUnits(
+		ctx, varScope, nil, compoundOp, expr, exprType, elemType,
+	)
+	if !ok {
 		return
 	}
 
 	if exprType.Kind == types.KindVariable || elemType.Kind == types.KindVariable {
-		if err := atypes.Check(ctx.Constraints, elemType, exprType, ctx.AST,
+		if err := atypes.Check(ctx.Constraints, elemType, result, ctx.AST,
 			"indexed compound assignment type compatibility"); err != nil {
 			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		}
@@ -1357,16 +1360,17 @@ func analyzeSeriesCompoundAssignment(
 	if !exprType.IsValid() || !elemType.IsValid() {
 		return
 	}
-	if !checkCompoundUnits(
+	result, ok := checkCompoundUnits(
 		ctx, varScope, nil, compoundOp, expr, exprType, varScope.Type,
-	) {
+	)
+	if !ok {
 		return
 	}
 
 	if exprType.Kind == types.KindVariable || elemType.Kind == types.KindVariable {
-		valueType := exprType
-		if exprType.Kind == types.KindSeries {
-			valueType = *exprType.Elem
+		valueType := result
+		if result.Kind == types.KindSeries {
+			valueType = *result.Elem
 		}
 		if err := atypes.Check(ctx.Constraints, elemType, valueType, ctx.AST,
 			"series compound assignment type compatibility"); err != nil {
@@ -1452,16 +1456,17 @@ func analyzeCompoundAssignment(
 	if !exprType.IsValid() || !varType.IsValid() {
 		return
 	}
-	if !checkCompoundUnits(
+	result, ok := checkCompoundUnits(
 		ctx, varScope, varScope.AST, compoundOp, expr, exprType, varType,
-	) {
+	)
+	if !ok {
 		return
 	}
 	if exprType.Kind == types.KindVariable || varType.Kind == types.KindVariable {
 		if err := atypes.Check(
 			ctx.Constraints,
 			varType,
-			exprType,
+			result,
 			ctx.AST,
 			"compound assignment type compatibility",
 		); err != nil {
@@ -1480,7 +1485,8 @@ func analyzeCompoundAssignment(
 	))
 }
 
-// checkCompoundUnits applies the unit rules to the compound assignment op of expr.
+// checkCompoundUnits applies the unit rules to the compound assignment op of expr. It
+// returns source in the unit of the result that op writes to target.
 func checkCompoundUnits[ASTNode antlr.ParserRuleContext](
 	ctx context.Context[ASTNode],
 	varScope *symbol.Symbol,
@@ -1488,20 +1494,14 @@ func checkCompoundUnits[ASTNode antlr.ParserRuleContext](
 	op parser.ICompoundOpContext,
 	expr parser.IExpressionContext,
 	source, target types.Type,
-) bool {
+) (types.Type, bool) {
 	if (op.STAR_ASSIGN() != nil || op.SLASH_ASSIGN() != nil) &&
 		!expression.CheckOperandUnits(ctx, target, source) {
-		return false
+		return source, false
 	}
-	_, ok := checkUnits(
-		ctx,
-		varScope.Name,
-		declaration,
-		expr,
-		compoundSource(op, source, target),
-		target,
-	)
-	return ok
+	result := compoundSource(op, source, target)
+	_, ok := checkUnits(ctx, varScope.Name, declaration, expr, result, target)
+	return result, ok
 }
 
 // compoundSource returns value in the unit of the result that op writes to target.

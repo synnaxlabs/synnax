@@ -62,7 +62,7 @@ func Check(
 		return cs.AddEquality(t2, target, source, reason)
 	}
 	if t1.Kind == types.KindVariable || t2.Kind == types.KindVariable {
-		if !sameDimensions(t1, t2) {
+		if types.UnitsIncompatible(t1.Unit, t2.Unit) {
 			return newTypeMismatchError(t1, t2, reason)
 		}
 		return cs.AddEquality(t1, t2, source, reason)
@@ -125,7 +125,7 @@ func newTypeMismatchError(
 	// A cast drops a unit without converting the value, so it fixes no dimension
 	// mismatch.
 	if expected.IsNumeric() && actual.IsNumeric() &&
-		sameDimensions(expected.Unwrap(), actual.Unwrap()) {
+		!types.UnitsIncompatible(expected.Unwrap().Unit, actual.Unwrap().Unit) {
 		name := concreteTypeForHint(expected)
 		hint = fmt.Sprintf("hint: use %s(value) to convert", name)
 		if expected.Unwrap().Kind == expected.Kind &&

@@ -529,6 +529,25 @@ compute(src_chan) -> gate() -> flag`)
 			},
 		)
 
+		DescribeTable("Should reject a unit literal of another dimension",
+			func(bCtx SpecContext, source, message string) {
+				ast := MustSucceed(parser.Parse(source))
+				ctx := context.NewRoot(bCtx, ast, NewRoot(nil))
+				analyzer.AnalyzeProgram(ctx)
+				Expect(ctx.Diagnostics.String()).To(ContainSubstring(message))
+			},
+			Entry("on an upstream connection",
+				"func consumer() {v f64 m} {}\n5s -> consumer()",
+				"does not match func 'consumer' trigger parameter 'v' type f64 m"),
+			Entry(
+				"on a routing table parameter mapping",
+				"func d() {v f64} (high f64) { high = v }\n"+
+					"func f() {a f64 m} {}\n"+
+					"d(v=1.0) -> { high: 5s: a } -> f()",
+				"does not match target parameter a type f64 m",
+			),
+		)
+
 		It(
 			"Should register a stage node as an expression node",
 			func(bCtx SpecContext) {
