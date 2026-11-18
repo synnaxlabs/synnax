@@ -111,6 +111,7 @@ class TableLifecycle(ConsoleCase):
             self.test_edit_toggle_gates_editing(interaction)
             self.test_multi_cell_variant_swap(interaction)
             self.test_multi_cell_color_grouping(interaction)
+            self.test_multi_cell_mixed_and_selection_recolor(interaction)
             self.test_multi_cell_level_bulk_apply(interaction)
             self.test_multi_cell_level_empty_when_disagreed(interaction)
         finally:
@@ -666,6 +667,40 @@ class TableLifecycle(ConsoleCase):
         expect(swatches).to_have_count(0)
         table.colors.set("Fill", "ff0000")
         expect(swatches).to_have_count(1)
+
+    def test_multi_cell_mixed_and_selection_recolor(self, table: Table) -> None:
+        """Test that differing fills show Mixed, and that a Selection swatch recolors
+        only the cells that hold its color."""
+        self.log("Testing Mixed and a Selection swatch recolor on cells")
+        while table.get_row_count() < 1:
+            table.add_row()
+        while table.get_column_count() < 3:
+            table.add_column()
+        for col in range(3):
+            table.set_cell_text(0, col, f"recolor-{col}")
+        table.layout.show_visualization_toolbar()
+        colors = table.colors
+
+        table.select_cell(0, 0)
+        table.shift_select_cell(0, 2)
+        colors.set("Fill", "ff0000")
+        table.select_cell(0, 1)
+        table.shift_select_cell(0, 2)
+        colors.set("Fill", "0000ff")
+        table.expect_fill(0, 0, (255, 0, 0))
+        table.expect_fill(0, 1, (0, 0, 255))
+        table.expect_fill(0, 2, (0, 0, 255))
+
+        table.select_cell(0, 0)
+        table.shift_select_cell(0, 2)
+        expect(colors.field("Fill")).to_have_attribute("placeholder", "Mixed")
+        expect(colors.selection_swatches()).to_have_count(2)
+        red = colors.selection_colors().index("#ff0000")
+
+        colors.recolor(colors.selection_swatches().nth(red), "00ff00")
+        table.expect_fill(0, 0, (0, 255, 0))
+        table.expect_fill(0, 1, (0, 0, 255))
+        table.expect_fill(0, 2, (0, 0, 255))
 
     def test_multi_cell_level_bulk_apply(self, table: Table) -> None:
         """Test that the toolbar's Size selector bulk-applies a level to
