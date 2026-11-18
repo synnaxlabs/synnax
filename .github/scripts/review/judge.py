@@ -31,6 +31,7 @@ from review.post import (
     reply,
     rescore,
     resolve,
+    ruling,
     threads,
     trusted,
     write,
@@ -180,11 +181,12 @@ def _case(t: Target, th: Thread, can: Authority) -> str:
 
 
 def rule(t: Target, gh: GH, judgments: list[Judgment], *, key: str) -> None:
-    """Posts each judgment on its thread while the thread is open and neither the bot
-    nor a reply that it judges follows the reply that the judgment answers. A hold
-    replies with the reason. A withdrawal replies with the reason and a record of the
-    finding's file at the head, and resolves the thread. When a withdrawal leaves no
-    finding of the newest review of the head, a new check run scores the head 5/5.
+    """Posts each judgment on its thread while the thread is open and neither a verdict
+    of the bot nor a reply that it judges follows the reply that the judgment answers.
+    A hold replies with the reason and a record of the hold. A withdrawal replies with
+    the reason and a record of the finding's file at the head, and resolves the thread.
+    When a withdrawal leaves no finding of the newest review of the head, a new check
+    run scores the head 5/5.
 
     :param key: The external ID of the review's check run, `<pr>:<base ref>`.
     """
@@ -199,10 +201,10 @@ def rule(t: Target, gh: GH, judgments: list[Judgment], *, key: str) -> None:
         if j.reply not in ids:
             continue
         later = th.replies[ids.index(j.reply) + 1 :]
-        if any(by_bot(t, r) or trusted(r, can) for r in later):
+        if any(ruling(t, r) or trusted(r, can) for r in later):
             continue
         if j.verdict == "hold":
-            reply(gh, th, HELD.format(reason=j.reason))
+            reply(gh, th, answer({"held": True}, HELD.format(reason=j.reason)))
             continue
         record = {
             "withdrawn": True,

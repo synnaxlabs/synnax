@@ -420,15 +420,26 @@ def pending(t: Target, th: Thread) -> list[dict[str, Any]]:
 
 def rebutted(t: Target, th: Thread, can: Authority) -> bool:
     """Reports whether an open thread waits for the bot to judge a rebuttal: a reply
-    after the bot's last one, from someone with write access or an agent, that is not a
-    note of a fix. A dismiss command among those replies takes precedence."""
-    replies = pending(t, th)
-    if th.resolved or any(command(r["body"]) is not None for r in replies):
+    after the bot's last verdict, from someone with write access or an agent, that is
+    not a note of a fix. A dismiss command of someone with write access among those
+    replies takes precedence."""
+    last = max((i for i, r in enumerate(th.replies) if ruling(t, r)), default=-1)
+    replies = th.replies[last + 1 :]
+    if th.resolved or any(command(r["body"]) is not None and can(r) for r in replies):
         return False
     return any(
         trusted(r, can) and not _FIXED.match(_unquoted(r["body"]).strip())
         for r in replies
     )
+
+
+def ruling(t: Target, comment: dict[str, Any]) -> bool:
+    """Reports whether a comment is the bot's verdict on a rebuttal, a hold or a
+    withdrawal, from the record in it."""
+    if not by_bot(t, comment) or not comment["body"].startswith(ANSWER_START):
+        return False
+    record = _record(comment["body"])
+    return bool(record.get("held") or record.get("withdrawn"))
 
 
 def trusted(comment: dict[str, Any], can: Authority) -> bool:

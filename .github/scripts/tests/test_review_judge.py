@@ -22,9 +22,10 @@ from test_review_dismiss import (
     comment,
     thread,
 )
-from test_review_run import config
+from test_review_run import config, git
 
 from review import Dismissal, Judgment, authority, dismissals, judge, rule, threads
+from review.__main__ import main
 from review.judge import SCHEMA, parse
 from review.post import ANSWER_START
 
@@ -94,6 +95,10 @@ def withdrawal(blob: str | None, reason: str = "`a.go:3` checks it.") -> str:
     return f"{ANSWER_START}{json.dumps(record)} -->\n\nWithdrawn. {reason}"
 
 
+HELD = f"{ANSWER_START}{json.dumps({'held': True})} -->\n\nThe finding holds. No."
+"""The bot's reply that holds a finding, with its record."""
+
+
 def by_bot(id: int, body: str) -> dict[str, Any]:
     return comment(id, body, kind="Bot", login="sedosaur")
 
@@ -131,7 +136,7 @@ class TestJudge:
     @pytest.mark.parametrize(
         "replies",
         [
-            [comment(2, REBUTTAL), by_bot(3, "The finding holds. No.")],
+            [comment(2, REBUTTAL), by_bot(3, HELD)],
             [comment(2, REBUTTAL, login="reader")],
             [comment(2, "Fixed in abc1234.")],
             [comment(2, "It is meant. @sedosaur dismiss")],
@@ -156,11 +161,21 @@ class TestJudge:
     def test_should_judge_a_new_rebuttal_after_a_hold(
         self, gh: FakeGH, tmp_path: Path
     ) -> None:
-        held = by_bot(3, "The finding holds. No.")
+        held = by_bot(3, HELD)
         gh.threads = [thread("T1", comment(2, REBUTTAL), held, comment(4, "See L9."))]
         claude = FakeClaude({"verdict": "withdraw", "reason": "`a.go:9` checks it."})
         [j], _ = judged(gh, claude, tmp_path)
         assert j.reply == 4
+
+    def test_should_judge_a_rebuttal_beside_a_reader_dismissal(
+        self, gh: FakeGH, tmp_path: Path
+    ) -> None:
+        reader = comment(2, "@sedosaur dismiss", login="reader")
+        refused = by_bot(4, "Only someone with write access can dismiss a finding.")
+        gh.threads = [thread("T1", reader, comment(3, REBUTTAL), refused)]
+        claude = FakeClaude({"verdict": "hold", "reason": "No."})
+        [j], _ = judged(gh, claude, tmp_path)
+        assert j.reply == 3
 
     def test_should_answer_the_last_rebuttal_before_a_reader_reply(
         self, gh: FakeGH, tmp_path: Path
@@ -252,15 +267,24 @@ class TestRule:
         gh.threads = [thread("T1", comment(2, REBUTTAL))]
         j = Judgment(thread="T1", reply=2, verdict="hold", reason="L3 reads first.")
         rule(TARGET, gh, [j], key=KEY)
-        assert gh.replies == [
-            (
-                "T1",
-                "The finding holds. L3 reads first. To dismiss it anyway, someone with "
-                "write access replies `@sedosaur dismiss` and a reason.",
-            )
-        ]
+        [(t, body)] = gh.replies
+        assert t == "T1"
+        assert body == (
+            ANSWER_START + '{"held": true} -->\n\n'
+            "The finding holds. L3 reads first. To dismiss it anyway, someone with "
+            "write access replies `@sedosaur dismiss` and a reason."
+        )
         assert gh.resolved == []
         assert dismissals(TARGET, gh, threads(TARGET, gh), authority(TARGET, gh)) == []
+
+    def test_should_post_a_judgment_that_a_usage_reply_follows(
+        self, gh: FakeGH
+    ) -> None:
+        refused = by_bot(4, "Only someone with write access can dismiss a finding.")
+        gh.threads = [thread("T1", comment(2, REBUTTAL), refused)]
+        j = Judgment(thread="T1", reply=2, verdict="hold", reason="No.")
+        rule(TARGET, gh, [j], key=KEY)
+        assert [t for t, _ in gh.replies] == ["T1"]
 
     def test_should_post_a_judgment_that_a_reader_reply_follows(
         self, gh: FakeGH
@@ -345,3 +369,85 @@ class TestWithdrawn:
         gh.blobs = {f"{HEAD}:a.go": "b"}
         found = threads(TARGET, gh)
         assert dismissals(TARGET, gh, found, authority(TARGET, gh)) == []
+
+
+class TestMain:
+    """Tests the `dismiss`, `judge`, and `rule` commands."""
+
+    @pytest.fixture
+    def env(
+        self, gh: FakeGH, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> dict[str, str]:
+        home = tmp_path / "policy" / ".sedosaur"
+        (home / "rules").mkdir(parents=True)
+        (home / "config.toml").write_text(
+            'model = "m"\neffort = "low"\ntools = []\nexcluded = []\n'
+            "diff_chars = 1000\ncaps = {}\ncontext = []\n"
+        )
+        (home / "prompt.md").write_text("Review it.\n")
+        (home / "judge.md").write_text("Judge it.\n")
+        head = tmp_path / "head"
+        head.mkdir()
+        git(head, "init", "-q")
+        (head / "a.go").write_text("one\n")
+        git(head, "add", ".")
+        git(head, "commit", "-qm", "base")
+        base = git(head, "rev-parse", "HEAD")
+        (head / "a.go").write_text("one\ntwo\n")
+        git(head, "commit", "-qam", "head")
+        monkeypatch.setattr("review.__main__.gh", gh)
+        env = {
+            "GITHUB_REPOSITORY": "synnaxlabs/synnax",
+            "PR": "7",
+            "HEAD_SHA": git(head, "rev-parse", "HEAD"),
+            "BASE_SHA": base,
+            "RUN_URL": TARGET.run_url,
+            "BOT": "sedosaur",
+            "KEY": KEY,
+            "COMMENT": "2",
+            "POLICY_DIR": str(tmp_path / "policy"),
+            "HEAD_DIR": str(head),
+        }
+        for k, v in env.items():
+            monkeypatch.setenv(k, v)
+        return env
+
+    def test_should_print_whether_a_rebuttal_waits(
+        self,
+        gh: FakeGH,
+        env: dict[str, str],
+        capsys: pytest.CaptureFixture[str],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setenv("HEAD_SHA", HEAD)
+        gh.threads = [thread("T1", comment(2, REBUTTAL))]
+        main(["dismiss"])
+        assert capsys.readouterr().out == "true\n"
+
+    def test_should_write_the_judgments_that_succeeded_and_then_fail(
+        self,
+        gh: FakeGH,
+        env: dict[str, str],
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        gh.threads = [
+            thread("T1", comment(2, REBUTTAL)),
+            thread("T2", comment(3, REBUTTAL), path="b.go", title="Nit"),
+        ]
+        claude = FakeClaude(
+            {"verdict": "hold", "reason": "No check."},
+            **{"b.go": RuntimeError("error_max_turns")},
+        )
+        monkeypatch.setattr(
+            "review.__main__.claude",
+            lambda args, stdin, cwd: iter(claude(args, stdin, cwd)),
+        )
+        out = tmp_path / "judgments.json"
+        with pytest.raises(ExceptionGroup, match="could not be judged"):
+            main(["judge", str(out)])
+        [(_, _, system)] = [c for c in claude.calls if "`a.go`" in c[1]]
+        assert "+two" in system
+        main(["rule", str(out)])
+        assert [t for t, _ in gh.replies] == ["T1"]
+        assert gh.resolved == []
