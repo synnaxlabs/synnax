@@ -642,6 +642,30 @@ describe("MQTT read form", () => {
     expect((box as HTMLInputElement).checked).toBe(false);
   });
 
+  it("should read the time only from a timestamp field with no default", async () => {
+    const started = icd.jsonFieldZ.parse({
+      name: "started",
+      pointer: "/started",
+      type: "timestamp",
+      timeFormat: "unix_ms",
+      default: TimeStamp.milliseconds(1_700_000_000_000),
+    });
+    const time = createTimeField();
+    const { draft } = await renderRead({ fields: [started, time] });
+    fireEvent.click(await screen.findByRole("button", { name: "Payload value" }));
+    await waitFor(async () =>
+      expect(plainOf((await retrieveEntries(draft.key))[0]).messages[0].index).toBe(
+        time.key,
+      ),
+    );
+    fireEvent.click(await screen.findByRole("button", { name: /^Field/ }));
+    const option = await screen.findByRole("option", { name: /^started/ });
+    expect(option.getAttribute("aria-disabled")).toBe("true");
+    expect(option.textContent).toContain(
+      "It has a default, so it cannot be the index.",
+    );
+  });
+
   describe("messages", () => {
     it("should list each message of a topic that reads several, with its fields", async () => {
       const entry = await createEntry({
