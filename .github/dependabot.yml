@@ -27,10 +27,11 @@ updates:
         patterns:
           - "*"
     open-pull-requests-limit: 1
+    # The trailing space stops Dependabot from adding a colon after the prefix.
     commit-message:
-      prefix: "[ci]"
-    # Check - Review passes a pull request that Dependabot wrote, and Merge - Auto turns
-    # on auto-merge for review/bot.
+      prefix: "[ci] "
+    # A bump changes code that runs in CI, and the classifier marks a change to
+    # .github/actions/ for human review, so a person merges these.
     labels:
       - dependencies
-      - review/bot
+      - review/human
