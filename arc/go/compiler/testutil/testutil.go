@@ -363,6 +363,8 @@ func assemble(instructions ...any) []byte {
 				panic(fmt.Sprintf("assemble: no operand writer for opcode %s", instr))
 			}
 			i += write(encoder, instr, instructions[i+1:])
+		case wasm.TruncSatOpcode:
+			encoder.WriteTruncSat(instr)
 		case []byte:
 			out.Write(encoder.Bytes())
 			out.Write(instr)

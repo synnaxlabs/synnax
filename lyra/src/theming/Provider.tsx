@@ -71,12 +71,12 @@ const parseThemes = (
     const { key: _, dark: __, ...override } = theme;
     const synnaxLight = zod.parse(
       baseTheme.themeZ,
-      deep.override(deep.copy(baseTheme.SYNNAX_LIGHT), override),
+      deep.override(baseTheme.SYNNAX_LIGHT, override),
       { label: "theme" },
     );
     const synnaxDark = zod.parse(
       baseTheme.themeZ,
-      deep.override(deep.copy(baseTheme.SYNNAX_DARK), override),
+      deep.override(baseTheme.SYNNAX_DARK, override),
       { label: "theme" },
     );
     return { synnaxLight, synnaxDark };

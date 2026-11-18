@@ -14,6 +14,7 @@
 import { z } from "zod";
 
 import { plan } from "@/util/deploy/plan";
+import { tokenSource } from "@/util/githubApp";
 import { Releases } from "@/util/releases";
 import { withSites } from "@/util/version";
 
@@ -23,7 +24,7 @@ const comparisonZ = z.object({ status: z.string() });
 const token = process.env.GITHUB_TOKEN;
 const headers: Record<string, string> = { Accept: "application/vnd.github+json" };
 if (token != null) headers.Authorization = `Bearer ${token}`;
-const releases = new Releases({ token });
+const releases = new Releases({ token: tokenSource({ token }) });
 
 // The compare API answers 404 when the branch does not exist.
 const holds = async (branch: string, tag: string): Promise<boolean> => {

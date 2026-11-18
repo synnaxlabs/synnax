@@ -9,9 +9,9 @@
 
 import { z } from "zod";
 
+import { array } from "@/array";
 import { binary } from "@/binary";
 import { caseconv } from "@/caseconv";
-import { compare } from "@/compare";
 import { id } from "@/id";
 import { instance } from "@/instance";
 import { math } from "@/math";
@@ -964,17 +964,16 @@ export class Series<T extends TelemValue = TelemValue>
    * @param value - the value to search for.
    */
   binarySearch(value: math.Numeric): number {
-    let left = 0;
-    let right = this.length - 1;
-    const cf = compare.newF(value);
-    while (left <= right) {
-      const mid = Math.floor((left + right) / 2);
-      const cmp = cf(this.at(mid, true) as math.Numeric, value);
-      if (cmp === 0) return mid;
-      if (cmp < 0) left = mid + 1;
-      else right = mid - 1;
-    }
-    return left;
+    // A NaN sample orders after every value. A bigint sample becomes a number when the
+    // value is one, so a timestamp past 2^53 matches the number it rounds to. Babel
+    // prints `(x as T) < y` without its parentheses, and the Console build then reads
+    // `T < y` as type arguments.
+    return array.partitionPoint(this.length, (i) => {
+      let sample = this.at(i, true) as math.Numeric;
+      if (typeof sample === "bigint" && typeof value === "number")
+        sample = Number(sample);
+      return !(sample < value);
+    });
   }
 
   /**

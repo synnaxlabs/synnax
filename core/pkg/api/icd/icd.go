@@ -173,9 +173,9 @@ func (s *Service) Check(
 }
 
 type ImportRequest struct {
-	Key    Key        `json:"key"    msgpack:"key"`
-	Format icd.Format `json:"format" msgpack:"format"`
-	Data   []byte     `json:"data"   msgpack:"data"`
+	Key    Key              `json:"key"    msgpack:"key"`
+	Format icd.ImportFormat `json:"format" msgpack:"format"`
+	Data   []byte           `json:"data"   msgpack:"data"`
 	// DispatchKey is stamped onto the create broadcast so the sender skips its echo.
 	DispatchKey string `json:"dispatch_key" msgpack:"dispatch_key"`
 }

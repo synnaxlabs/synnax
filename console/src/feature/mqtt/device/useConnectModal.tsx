@@ -293,7 +293,7 @@ const KEEP_ALIVE_INPUT_PROPS = { placeholder: "30s" } as const;
 
 const USERNAME_INPUT_PROPS = { placeholder: "Anonymous" } as const;
 
-const PASSWORD_INPUT_PROPS = { type: "password" } as const;
+const PASSWORD_INPUT_PROPS = { type: "password", placeholder: "None" } as const;
 
 const CA_FILE_INPUT_PROPS = { placeholder: "/etc/ssl/certs/ca.pem" } as const;
 

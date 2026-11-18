@@ -18,6 +18,7 @@ from synnax.exceptions import PathError, UnexpectedError
 from synnax.icd.types_gen import (
     ICD,
     Cursor,
+    ImportFormat,
     Key,
     Message,
     RetrieveRequest,
@@ -64,10 +65,6 @@ class _DispatchRequest(BaseModel):
     key: Key
     dispatch_key: str = ""
     actions: list[_SetAction]
-
-
-ImportFormat = Literal["dbc", "csv", "xlsx"]
-"""The format of an interface control document file."""
 
 
 class _ImportRequest(BaseModel):
