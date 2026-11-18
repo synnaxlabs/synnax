@@ -538,8 +538,9 @@ func (d *Driver) runOnce(
 	},
 		signal.WithKey("wait"),
 		signal.RecoverWithErrOnPanic())
+	err = internalSCtx.Wait()
 	return d.exitAction(ctx, policy, exit{
-		err:       internalSCtx.Wait(),
+		err:       err,
 		output:    cmp.Or(out.stderrErr, out.stdoutErr),
 		startedAt: startedAt,
 		restarted: restarted.Load(),
