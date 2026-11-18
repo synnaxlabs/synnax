@@ -337,6 +337,7 @@ describe("Enumeration.Settings", () => {
     await openContextMenu(shipped.name);
     await clickAndSettle("Restore default");
     await expect.poll(async () => await stored(shipped.key)).toEqual(shipped.entries);
+    await waitFor(() => expect(screen.queryByText("Edited")).toBeNull());
   });
 
   it("should not offer to delete a built-in", async () => {
