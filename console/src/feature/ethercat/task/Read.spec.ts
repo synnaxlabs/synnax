@@ -50,6 +50,7 @@ import {
   createWithHook,
   deployAndAwaitTask,
   findChannelListItem,
+  getChannelItemStatus,
   renderTaskFormTab,
   reportTaskRunning,
 } from "@/platform/task/testutil";
@@ -484,21 +485,41 @@ describe("Read", () => {
     expect(measurement.textContent).not.toContain("Voltage");
   });
 
-  it("should name a slave in DewesoftX mode before Start and offer the switch", async () => {
+  it("should mark a channel on a slave that DewesoftX sets up and offer the switch in its details", async () => {
     const slave = await createSharedSlave();
     await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
       channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY)],
     });
+    const option = await screen.findByRole("option", { name: /0x6030:01/ });
+    await waitFor(() => expect(getChannelItemStatus(option)).toBe("warning"));
+    expect(screen.queryByText(/is set up for DewesoftX/)).toBeNull();
+    fireEvent.click(option);
+    expect(await screen.findByText("DewesoftX sets up this device")).toBeTruthy();
+    expect(
+      screen.getByText("Switch it to Synnax before you use it in a task."),
+    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Switch to Synnax" })).toBeTruthy();
+  });
+
+  it("should ask to connect a slave that DewesoftX sets up before the switch", async () => {
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: { inputs: [STRAIN_ENTRY], outputs: [] },
+      settings: createDewesoftXSettings(true),
+    });
+    await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY)],
+    });
+    fireEvent.click(await screen.findByRole("option", { name: /0x6030:01/ }));
     expect(
       await screen.findByText(
-        `Slave ${slave.name} is set up for DewesoftX. In Configure, switch it to ` +
-          "Synnax before you start the task.",
+        "Connect the device, then switch it to Synnax before you use it in a task.",
       ),
     ).toBeTruthy();
-    fireEvent.click(await screen.findByRole("option", { name: /0x6030:01/ }));
-    expect(await screen.findByText("DewesoftX sets up this device")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Switch to Synnax" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Switch to Synnax" })).toBeNull();
   });
 
   it("should ask to set up in DewesoftX a slave that Synnax cannot switch", async () => {
@@ -514,15 +535,16 @@ describe("Read", () => {
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
       channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY)],
     });
+    fireEvent.click(await screen.findByRole("option", { name: /0x6030:01/ }));
     expect(
       await screen.findByText(
-        `Slave ${slave.name} is set up for DewesoftX. Set it up for Synnax in ` +
-          "DewesoftX before you start the task.",
+        "Set it up for Synnax in DewesoftX before you use it in a task.",
       ),
     ).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Switch to Synnax" })).toBeNull();
   });
 
-  it("should add the DewesoftX step to a task-wide error", async () => {
+  it("should keep the DewesoftX step out of a task-wide error", async () => {
     const shared = await createSharedSlave();
     const other = await createSlaveDevice(client, testRack.key, {
       identifier: createIdentifier(),
@@ -539,47 +561,30 @@ describe("Read", () => {
     expect(
       await screen.findByText(
         "All slaves must be on the same network. Found: eth0, eth1. Pick slaves on " +
-          `one network. Slave ${shared.name} is set up for DewesoftX. In Configure, ` +
-          "switch it to Synnax before you start the task.",
+          "one network.",
       ),
     ).toBeTruthy();
+    const option = screen.getByRole("option", { name: /0x6030:01/ });
+    await waitFor(() => expect(getChannelItemStatus(option)).toBe("warning"));
   });
 
-  it("should not warn of a slave in DewesoftX mode that only disabled channels use", async () => {
+  it("should not mark a disabled channel on a slave that DewesoftX sets up", async () => {
     const shared = await createSharedSlave();
-    const position = Math.floor(Math.random() * 2 ** 31);
-    const name = uniqueName("slave");
-    const other = await createSlaveDevice(client, testRack.key, {
-      name: `${name} a`,
-      identifier: createIdentifier(),
-      network: "eth0",
-      position,
-      pdos: createPDOs(),
-    });
-    const stale = await createSlaveDevice(client, testRack.key, {
-      name: `${name} b`,
-      identifier: createIdentifier(),
-      network: "eth0",
-      position,
-      pdos: createPDOs(),
-    });
     await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
       channels: [
+        EtherCAT.Task.createEntryReadChannel(shared.key, STRAIN_ENTRY),
         {
           ...EtherCAT.Task.createEntryReadChannel(shared.key, STRAIN_ENTRY),
           disabled: true,
         },
-        EtherCAT.Task.createEntryReadChannel(other.key, STATUS_ENTRY),
       ],
     });
-    // The whole text matches only when the error carries no DewesoftX step.
-    expect(
-      await screen.findByText(
-        `Slaves ${other.name} and ${stale.name} are both at position ${position} on ` +
-          "eth0. Delete the one that is not on the network.",
-      ),
-    ).toBeTruthy();
+    const [enabled, disabled] = await screen.findAllByRole("option", {
+      name: /0x6030:01/,
+    });
+    await waitFor(() => expect(getChannelItemStatus(enabled)).toBe("warning"));
+    expect(getChannelItemStatus(disabled)).toBeUndefined();
   });
 
   it("should deploy a task on a slave in DewesoftX mode, as the form only warns", async () => {
@@ -1040,6 +1045,9 @@ describe("Read", () => {
         ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
         channels: [EtherCAT.Task.createEntryReadChannel(stale.key, STATUS_ENTRY)],
       });
+      const option = await screen.findByRole("option", { name: /0x6000:01/ });
+      await waitFor(() => expect(getChannelItemStatus(option)).toBe("error"));
+      fireEvent.click(option);
       expect(
         await screen.findByText(
           `Slaves ${connected.name} and ${stale.name} have the same serial number ` +
@@ -1055,6 +1063,9 @@ describe("Read", () => {
         ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
         channels: [EtherCAT.Task.createEntryReadChannel(stale.key, STATUS_ENTRY)],
       });
+      const option = await screen.findByRole("option", { name: /0x6000:01/ });
+      await waitFor(() => expect(getChannelItemStatus(option)).toBe("error"));
+      fireEvent.click(option);
       // The whole text matches only when the error carries no position problem.
       expect(
         await screen.findByText(
@@ -1085,13 +1096,14 @@ describe("Read", () => {
           EtherCAT.Task.createEntryReadChannel(onEth1.key, STATUS_ENTRY),
         ],
       });
-      // The whole text matches only when the error carries no serial problem.
       expect(
         await screen.findByText(
           "All slaves must be on the same network. Found: eth0, eth1. Pick slaves on " +
             "one network.",
         ),
       ).toBeTruthy();
+      const options = screen.getAllByRole("option", { name: /0x6000:01/ });
+      options.forEach((o) => expect(getChannelItemStatus(o)).toBeUndefined());
     });
   });
 
@@ -1120,6 +1132,9 @@ describe("Read", () => {
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
       channels: [EtherCAT.Task.createEntryReadChannel(stale.key, STATUS_ENTRY)],
     });
+    const option = await screen.findByRole("option", { name: /0x6000:01/ });
+    await waitFor(() => expect(getChannelItemStatus(option)).toBe("error"));
+    fireEvent.click(option);
     expect(
       await screen.findByText(
         `Slaves ${connected.name} and ${stale.name} are both at position ` +
@@ -1150,7 +1165,7 @@ describe("Read", () => {
     expect(deployed.config.channels[0].channel).not.toBe(0);
   });
 
-  it("should name both slaves at one position once when the task uses both", async () => {
+  it("should give both slaves at one position the same problem when the task uses both", async () => {
     const position = Math.floor(Math.random() * 2 ** 31);
     const ownRack = await createRack();
     const props = { network: "eth0", position, pdos: createPDOs() };
@@ -1175,14 +1190,15 @@ describe("Read", () => {
         EtherCAT.Task.createEntryReadChannel(second.key, STATUS_ENTRY),
       ],
     });
-    expect(
-      await screen.findByText(
-        new RegExp(
-          `^Slaves ${second.name} and ${first.name} are both at position ${position} ` +
-            "on eth0\\. Delete the one that is not on the network\\.$",
-        ),
-      ),
-    ).toBeTruthy();
+    const problem =
+      `Slaves ${second.name} and ${first.name} are both at position ${position} on ` +
+      "eth0. Delete the one that is not on the network.";
+    const options = await screen.findAllByRole("option", { name: /0x6000:01/ });
+    for (const option of options) {
+      await waitFor(() => expect(getChannelItemStatus(option)).toBe("error"));
+      fireEvent.click(option);
+      expect(await screen.findByText(problem)).toBeTruthy();
+    }
   });
 
   it("should name the slots of two slaves whose identifiers give the same names", async () => {
@@ -1207,6 +1223,9 @@ describe("Read", () => {
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
       channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STATUS_ENTRY)],
     });
+    const option = await screen.findByRole("option", { name: /0x6000:01/ });
+    await waitFor(() => expect(getChannelItemStatus(option)).toBe("error"));
+    fireEvent.click(option);
     expect(
       await screen.findByText(
         `Slave ${other.name} in slot 4 has an identifier that gives the same channel ` +
@@ -1216,7 +1235,7 @@ describe("Read", () => {
     ).toBeTruthy();
   });
 
-  it("should name two slaves whose identifiers give the same names once", async () => {
+  it("should give two slaves whose identifiers give the same names the same problem", async () => {
     const ownRack = await createRack();
     const base = createIdentifier();
     const name = uniqueName("slave");
@@ -1241,13 +1260,16 @@ describe("Read", () => {
         EtherCAT.Task.createEntryReadChannel(second.key, STATUS_ENTRY),
       ],
     });
-    expect(
-      await screen.findByText(
-        `Slave ${second.name} in slot 4 has an identifier that gives the same channel ` +
-          `names as slave ${first.name} in slot 3. In Configure, change the identifier ` +
-          "of one of them.",
-      ),
-    ).toBeTruthy();
+    const problem =
+      `Slave ${second.name} in slot 4 has an identifier that gives the same channel ` +
+      `names as slave ${first.name} in slot 3. In Configure, change the identifier of ` +
+      "one of them.";
+    const options = await screen.findAllByRole("option", { name: /0x6000:01/ });
+    for (const option of options) {
+      await waitFor(() => expect(getChannelItemStatus(option)).toBe("error"));
+      fireEvent.click(option);
+      expect(await screen.findByText(problem)).toBeTruthy();
+    }
   });
 
   it("should name neither slave at one position when both are connected", async () => {
@@ -1271,6 +1293,9 @@ describe("Read", () => {
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
       channels: [EtherCAT.Task.createEntryReadChannel(first.key, STATUS_ENTRY)],
     });
+    const option = await screen.findByRole("option", { name: /0x6000:01/ });
+    await waitFor(() => expect(getChannelItemStatus(option)).toBe("error"));
+    fireEvent.click(option);
     expect(
       await screen.findByText(
         `Slaves ${first.name} and ${second.name} are both at position ${position} ` +

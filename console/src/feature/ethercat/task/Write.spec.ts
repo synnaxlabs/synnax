@@ -37,6 +37,7 @@ import {
   createWithHook,
   deployAndAwaitTask,
   findChannelListItem,
+  getChannelItemStatus,
   renderTaskFormTab,
 } from "@/platform/task/testutil";
 import { uniqueName } from "@/testutil";
@@ -632,19 +633,35 @@ describe("Write", () => {
     ).toBeTruthy();
   });
 
-  it("should ask for a scan when no slave of the task has a network", async () => {
-    const slave = await createSlaveDevice(client, testRack.key, {
+  it("should ask for a found slave in place of one with no network", async () => {
+    const lost = await createSlaveDevice(client, testRack.key, {
       identifier: createIdentifier(),
       network: "",
       pdos: createPDOs(),
     });
+    const found = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: createPDOs(),
+    });
     await renderWrite({
       ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
-      channels: [EtherCAT.Task.createEntryWriteChannel(slave.key, CONTROL_ENTRY)],
+      channels: [
+        EtherCAT.Task.createEntryWriteChannel(lost.key, CONTROL_ENTRY),
+        EtherCAT.Task.createEntryWriteChannel(found.key, CONTROL_ENTRY),
+      ],
     });
+    const [lostOption, foundOption] = await screen.findAllByRole("option", {
+      name: /0x7000:01/,
+    });
+    await waitFor(() => expect(getChannelItemStatus(lostOption)).toBe("error"));
+    expect(getChannelItemStatus(foundOption)).toBeUndefined();
+    expect(screen.queryByText(/same network/)).toBeNull();
+    fireEvent.click(lostOption);
     expect(
       await screen.findByText(
-        "No network found for the selected slaves. Scan the network again.",
+        `The Driver has never found ${lost.name} on a network. Select a connected ` +
+          `device for each channel that uses ${lost.name}.`,
       ),
     ).toBeTruthy();
   });
