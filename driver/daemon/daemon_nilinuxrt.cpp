@@ -84,10 +84,8 @@ do_start() {
 
     # Ensure PID directory exists with correct permissions
     PID_DIR=$(dirname "$PIDFILE")
-    if [ ! -d "$PID_DIR" ]; then
-        mkdir -p "$PID_DIR"
-        chmod 755 "$PID_DIR"
-    fi
+    mkdir -p "$PID_DIR"
+    chmod 755 "$PID_DIR"
 
     if [ -f "$PIDFILE" ]; then
         PID=$(cat "$PIDFILE")
@@ -197,49 +195,36 @@ x::errors::Error setup_pid_file() {
     const std::string pid_dir = "/var/run/synnax-driver";
     const std::string pid_file = pid_dir + "/synnax-driver.pid";
 
-    // Check if directory exists with correct permissions
     std::error_code ec;
     if (!fs::exists(pid_dir)) {
-        // Setup PID directory
         fs::create_directories(pid_dir, ec);
         if (ec)
             return x::errors::Error(
                 "failed to create pid directory. try running with sudo: " + ec.message()
             );
         LOG(INFO) << "PID directory created";
-
-        if (chmod(pid_dir.c_str(), 0755) != 0)
-            return x::errors::Error("failed to set PID directory permissions");
-        LOG(INFO) << "PID directory permissions set";
-
-        std::string chown_dir_cmd = "chown synnax:synnax " + pid_dir;
-        if (system(chown_dir_cmd.c_str()) != 0)
-            return x::errors::Error("failed to change owner of PID directory");
-        LOG(INFO) << "PID directory ownership changed";
-    } else {
-        LOG(INFO) << "PID directory already exists";
     }
+    // Set on every call, so an upgrade also tightens a directory an older installer
+    // made world-writable.
+    if (chmod(pid_dir.c_str(), 0755) != 0)
+        return x::errors::Error("failed to set PID directory permissions");
+    std::string chown_dir_cmd = "chown synnax:synnax " + pid_dir;
+    if (system(chown_dir_cmd.c_str()) != 0)
+        return x::errors::Error("failed to change owner of PID directory");
 
-    // Check if PID file exists
     if (!fs::exists(pid_file)) {
-        // Setup PID file
         std::ofstream pid_file_stream(pid_file);
         if (!pid_file_stream)
             return x::errors::Error("failed to create PID file: " + pid_file);
         pid_file_stream.close();
         LOG(INFO) << "PID file created";
-
-        if (chmod(pid_file.c_str(), 0644) != 0)
-            return x::errors::Error("failed to set PID file permissions");
-        LOG(INFO) << "PID file permissions set";
-
-        std::string chown_file_cmd = "chown synnax:synnax " + pid_file;
-        if (system(chown_file_cmd.c_str()) != 0)
-            return x::errors::Error("failed to change owner of PID file");
-        LOG(INFO) << "PID file ownership changed";
-    } else {
-        LOG(INFO) << "PID file already exists";
     }
+    if (chmod(pid_file.c_str(), 0644) != 0)
+        return x::errors::Error("failed to set PID file permissions");
+    std::string chown_file_cmd = "chown synnax:synnax " + pid_file;
+    if (system(chown_file_cmd.c_str()) != 0)
+        return x::errors::Error("failed to change owner of PID file");
+    LOG(INFO) << "PID directory and file permissions set";
 
     return x::errors::NIL;
 }
