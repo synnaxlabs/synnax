@@ -256,13 +256,17 @@ TEST(CertificateTest, TruncatedPem) {
 /// @brief it should read DER that holds PEM text as DER, so that a forged certificate
 /// cannot pass for the certificate that it holds.
 TEST(CertificateTest, DerHoldingPem) {
-    const auto der = testutil::create_der_holding(KEY_A, "urn:holder", CERT_B);
+    const auto der = testutil::create_der_holding(
+        testutil::KEY,
+        "urn:holder",
+        testutil::OTHER_CERTIFICATE
+    );
     ASSERT_TRUE(der.contains("-----BEGIN CERTIFICATE-----"));
     ASSERT_FALSE(Certificate::is_pem(der));
     ASSERT_TRUE(Certificate::pem_blocks(der).empty());
     const auto cert = ASSERT_NIL_P(Certificate::parse(der));
     ASSERT_EQ(cert.der(), der);
-    ASSERT_NE(cert, ASSERT_NIL_P(Certificate::parse(CERT_B)));
+    ASSERT_NE(cert, ASSERT_NIL_P(Certificate::parse(testutil::OTHER_CERTIFICATE)));
 }
 
 /// @brief it should read text that starts with "0" as PEM, though DER starts with the
