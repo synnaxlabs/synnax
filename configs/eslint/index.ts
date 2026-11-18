@@ -85,8 +85,8 @@ const RESTRICTED_SYNTAX = [
     message: "Write a true boolean attribute without a value.",
   },
   NAMESPACE_IMPORT,
-  // Babel prints `(x as T) < y` without its parentheses, and Vite then reads `T < y`
-  // as type arguments, so the build fails.
+  // Babel prints `(x as T) < y` without its parentheses, and Vite then reads `T < y` as
+  // type arguments, so the build fails.
   {
     selector:
       "BinaryExpression[operator=/^<=?$/] > :matches(TSAsExpression, TSSatisfiesExpression).left",
