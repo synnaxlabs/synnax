@@ -26,13 +26,29 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// problem is a problem that Check finds, with its path dotted.
+type problem struct {
+	Path    string `json:"path"`
+	Message string `json:"message"`
+}
+
+// problemsOf returns the problems that icd.Check finds in ic. Each must wrap
+// validate.ErrValidation.
+func problemsOf(ic icd.ICD) []problem {
+	GinkgoHelper()
+	return lo.Map(icd.Check(ic), func(p validate.PathError, _ int) problem {
+		Expect(p).To(MatchError(validate.ErrValidation))
+		return problem{Path: strings.Join(p.Path, "."), Message: p.Err.Error()}
+	})
+}
+
 // checkFixture is one ICD from testdata/fixtures. An invalid fixture lists the exact
 // problems Check must find, and says whether the Driver's codec also rejects it.
 type checkFixture struct {
-	Description  string            `json:"description"`
-	CodecRejects bool              `json:"codec_rejects"`
-	Problems     validate.Problems `json:"problems"`
-	ICD          icd.ICD           `json:"icd"`
+	Description  string    `json:"description"`
+	CodecRejects bool      `json:"codec_rejects"`
+	Problems     []problem `json:"problems"`
+	ICD          icd.ICD   `json:"icd"`
 }
 
 var checkFixtures = os.DirFS("testdata/fixtures")
@@ -59,7 +75,7 @@ var _ = Describe("Check", func() {
 	DescribeTable("Should find no problems in a valid fixture", func(path string) {
 		f := loadCheckFixture(path)
 		Expect(f.Problems).To(BeEmpty())
-		Expect(icd.Check(f.ICD)).To(BeEmpty())
+		Expect(problemsOf(f.ICD)).To(BeEmpty())
 	}, checkFixtureEntries("valid"))
 
 	DescribeTable(
@@ -67,7 +83,7 @@ var _ = Describe("Check", func() {
 		func(path string) {
 			f := loadCheckFixture(path)
 			Expect(f.Problems).ToNot(BeEmpty())
-			Expect(icd.Check(f.ICD)).To(ConsistOf(f.Problems))
+			Expect(problemsOf(f.ICD)).To(ConsistOf(f.Problems))
 		},
 		checkFixtureEntries("invalid"),
 	)
@@ -94,21 +110,21 @@ var _ = Describe("Check", func() {
 			canMessage("M", 0x800, mux, sig),
 			binaryMessage("M"),
 		}}
-		Expect(icd.Check(ic)).To(ConsistOf(
-			validate.Problem{Path: "name", Message: "name is required"},
-			validate.Problem{
+		Expect(problemsOf(ic)).To(ConsistOf(
+			problem{Path: "name", Message: "name is required"},
+			problem{
 				Path:    "messages.0.payload.fields.1.scale",
 				Message: "scale must be finite and non-zero",
 			},
-			validate.Problem{
+			problem{
 				Path:    "messages.0.payload.fields.1.multiplex_values.0",
 				Message: `value 16 does not fit the multiplexor "mux"`,
 			},
-			validate.Problem{
+			problem{
 				Path:    "messages.0.payload.identifier.id",
 				Message: "id 0x800 exceeds the maximum 0x7FF",
 			},
-			validate.Problem{
+			problem{
 				Path:    "messages.1.name",
 				Message: `duplicate message name "M"`,
 			},
@@ -117,8 +133,8 @@ var _ = Describe("Check", func() {
 
 	DescribeTable("Should require a format, encoding, or type",
 		func(ic icd.ICD, path, message string) {
-			Expect(icd.Check(ic)).To(ConsistOf(
-				validate.Problem{Path: path, Message: message},
+			Expect(problemsOf(ic)).To(ConsistOf(
+				problem{Path: path, Message: message},
 			))
 		},
 		Entry("message without a format",
@@ -173,8 +189,8 @@ var _ = Describe("Check", func() {
 			ic := icd.ICD{Name: "L", Messages: []icd.Message{
 				canMessage("M", 1, f),
 			}}
-			Expect(icd.Check(ic)).To(ConsistOf(
-				validate.Problem{
+			Expect(problemsOf(ic)).To(ConsistOf(
+				problem{
 					Path:    "messages.0.payload.fields.0." + path,
 					Message: message,
 				},
@@ -203,17 +219,17 @@ var _ = Describe("Check", func() {
 			canMessage("A", 1, binaryField("a", 0, 8), binaryField("b", 8, 8)),
 			canMessage("B", 2, binaryField("a", 0, 8)),
 		}}
-		Expect(icd.Check(ic)).To(BeEmpty())
+		Expect(problemsOf(ic)).To(BeEmpty())
 	})
 
 	Describe("Overlapping fields", func() {
-		check := func(fields ...icd.BinaryField) validate.Problems {
-			return icd.Check(icd.ICD{Name: "L", Messages: []icd.Message{
+		check := func(fields ...icd.BinaryField) []problem {
+			return problemsOf(icd.ICD{Name: "L", Messages: []icd.Message{
 				canMessage("M", 1, fields...),
 			}})
 		}
-		overlapping := func(i int) validate.Problem {
-			return validate.Problem{
+		overlapping := func(i int) problem {
+			return problem{
 				Path:    fmt.Sprintf("messages.0.payload.fields.%d.start_bit", i),
 				Message: `field overlaps the bits of field "a"`,
 			}

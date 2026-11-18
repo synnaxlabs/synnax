@@ -284,7 +284,7 @@ var _ = Describe("Import", func() {
 		csv := "message,field,start_bit,bit_length\nm,a,0,8\nm,a,8,8\n"
 		res := MustSucceed(importICD(ctx, ic.Key, icd.FormatCSV, csv))
 		Expect(retrieveICD(ctx, ic.Key)).To(Equal(res))
-		Expect(icd.Check(res)).To(ConsistOf(validate.Problem{
+		Expect(problemsOf(res)).To(ConsistOf(problem{
 			Path:    "messages.0.payload.fields.1.name",
 			Message: `duplicate field name "a"`,
 		}))

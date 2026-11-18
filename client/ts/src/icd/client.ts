@@ -8,10 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, caseconv, zod } from "@synnaxlabs/x";
+import { array, caseconv, errors, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
+import { PathError, ValidationError } from "@/errors";
 import { createOf, encode, reduceAll } from "@/icd/actions";
 import {
   type Action,
@@ -51,20 +52,8 @@ export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiPara
 
 const createReqZ = z.object({ icds: icdZ.array(), dispatchKey: z.string() });
 const createResZ = z.object({ icds: icdZ.array() });
-/** One rule an ICD breaks. */
-export const problemZ = z.object({
-  /**
-   * The dotted location of the bad value, such as "messages.0.name", or empty for a
-   * problem with the whole ICD.
-   */
-  path: z.string(),
-  /** What is wrong. */
-  message: z.string(),
-});
-export interface Problem extends z.infer<typeof problemZ> {}
-
 const checkReqZ = z.object({ icd: icdZ });
-const checkResZ = z.object({ problems: problemZ.array() });
+const checkResZ = z.object({ problems: errors.payloadZ.array() });
 
 /**
  * Words an issue with a rule of the ICD schema as a sentence that names its field, as
@@ -190,30 +179,34 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, IC
   /**
    * Checks an ICD for problems, such as two fields that use the same bits. The Core
    * stores an ICD that has problems.
-   * @returns Every problem in the ICD, or an empty array when it has none. Each path is
-   * dotted and camel case, such as "messages.0.payload.fields.1.bitLength". An ICD that
-   * breaks a rule of its schema returns only those problems, as the Core cannot read
-   * it.
+   * @returns Every problem in the ICD as an error at the path of the bad value, or an
+   * empty array when it has none. Each path is camel case, such as
+   * ["messages", "0", "payload", "fields", "1", "bitLength"]. An ICD that breaks a rule
+   * of its schema returns only those problems, as the Core cannot read it.
    */
-  async check(icd: New): Promise<Problem[]> {
+  async check(icd: New): Promise<PathError[]> {
     const parsed = icdZ.safeParse(icd);
     if (!parsed.success)
-      return parsed.error.issues.map((issue) => ({
-        path: issue.path.join("."),
-        message: issueMessage(issue),
-      }));
+      return parsed.error.issues.map(
+        (issue) =>
+          new PathError(
+            issue.path.map(String),
+            new ValidationError(issueMessage(issue)),
+          ),
+      );
     const res = await this.cfg.unary.send(
       "/icd/check",
       { icd: parsed.data },
       checkReqZ,
       checkResZ,
     );
-    return res.problems.map((p) => ({
-      ...p,
-      path: caseconv
-        .snakeToCamelPath(p.path.split("."), { schema: icdZ })
-        .path.join("."),
-    }));
+    return res.problems.map((payload) => {
+      const { path, error } = PathError.decode(payload);
+      return new PathError(
+        caseconv.snakeToCamelPath(path, { schema: icdZ }).path,
+        error,
+      );
+    });
   }
 
   /**

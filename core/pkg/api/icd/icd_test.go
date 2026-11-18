@@ -21,6 +21,7 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -115,9 +116,11 @@ var _ = Describe("ICD", func() {
 				AuthedCtx(ctx, u),
 				apiicd.CheckRequest{ICD: icd.ICD{}},
 			))
-			Expect(res.Problems).To(Equal(validate.Problems{
-				{Path: "name", Message: "name is required"},
-			}))
+			Expect(res.Problems).To(Equal([]errors.Payload{{
+				Type: "sy.validation.path",
+				Data: `{"error":{"type":"sy.validation","data":"name is required"},` +
+					`"path":["name"]}`,
+			}}))
 		})
 
 		It("Should return no problems for a valid ICD", func(ctx SpecContext) {
@@ -136,9 +139,9 @@ var _ = Describe("ICD", func() {
 			grantOn(ctx, u.ResourceID(), access.ActionRetrieve, ic.ResourceID())
 			ic.Name = ""
 			res := MustSucceed(check(AuthedCtx(ctx, u), apiicd.CheckRequest{ICD: ic}))
-			Expect(res.Problems).To(Equal(validate.Problems{
-				{Path: "name", Message: "name is required"},
-			}))
+			Expect(res.Problems).To(HaveLen(1))
+			Expect(errors.NewCodec(validate.ErrorProvider()).Decode(res.Problems[0])).
+				To(MatchError("name: name is required"))
 		})
 
 		It("Should reject a check of an ICD it cannot retrieve", func(ctx SpecContext) {

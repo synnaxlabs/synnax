@@ -978,7 +978,8 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	if l.ICD, err = icd.NewService(icd.ServiceConfig{
-		ICD: cfg.Service.ICD,
+		ICD:    cfg.Service.ICD,
+		Errors: cfg.Errors,
 	}); err != nil {
 		return nil, err
 	}

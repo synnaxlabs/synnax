@@ -182,7 +182,7 @@ var _ = Describe("Apply", func() {
 		Expect(dispatch(ctx, set(messagePath(1, "name"), "Engine"))).To(Succeed())
 		res := retrieve(ctx)
 		Expect(res.Messages[1].Name).To(Equal("Engine"))
-		Expect(icd.Check(res)).To(ConsistOf(validate.Problem{
+		Expect(problemsOf(res)).To(ConsistOf(problem{
 			Path:    "messages.1.name",
 			Message: `duplicate message name "Engine"`,
 		}))

@@ -16,6 +16,7 @@ import (
 	"strings"
 	"uuid"
 
+	"github.com/synnaxlabs/x/errors"
 	xjson "github.com/synnaxlabs/x/json"
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/set"
@@ -30,12 +31,13 @@ const (
 	maxBitLength     = 64
 )
 
-// Check returns every problem in the ICD: the rules its schema declares and the rules
-// that span messages and fields, such as unique names, references between fields, and
-// the limits of each bus. Problems do not stop a save. Messages and fields with no key
+// Check returns every problem in the ICD as an error at the path of the bad value: the
+// rules its schema declares and the rules that span messages and fields, such as unique
+// names, references between fields, and the limits of each bus. Each error wraps
+// validate.ErrValidation. Problems do not stop a save. Messages and fields with no key
 // do not count as duplicates, as a save assigns their keys.
-func Check(ic ICD) validate.Problems {
-	c := checker{Problems: validate.Problems{}}
+func Check(ic ICD) []validate.PathError {
+	c := checker{problems: []validate.PathError{}}
 	c.addSchema(ic.Validate())
 	keys := make(set.Set[MessageKey], len(ic.Messages))
 	names := make(set.Set[string], len(ic.Messages))
@@ -51,28 +53,47 @@ func Check(ic ICD) validate.Problems {
 		names.Add(m.Name)
 		c.checkMessage(path, m)
 	}
-	return c.Problems
+	return c.problems
 }
 
-type checker struct{ validate.Problems }
+type checker struct{ problems []validate.PathError }
+
+// Addf adds a problem at path.
+func (c *checker) Addf(path []string, format string, args ...any) {
+	c.problems = append(c.problems, validate.PathError{
+		Path: slices.Clone(path),
+		Err:  validate.Errorf(format, args...),
+	})
+}
 
 // addSchema adds each problem that err holds as a sentence that names its field, such
-// as "bit length must be less than or equal to 64".
+// as "bit length must be less than or equal to 64". err may join several errors, and an
+// error that is not a validate.PathError is a problem with the whole ICD.
 func (c *checker) addSchema(err error) {
-	var schema validate.Problems
-	schema.AddError(err)
-	for _, p := range schema {
-		field := p.Path[strings.LastIndexByte(p.Path, '.')+1:]
-		field = strings.ReplaceAll(field, "_", " ")
-		switch {
-		case p.Message == "required":
-			p.Message = field + " is required"
-		case strings.HasPrefix(p.Message, "must "):
-			p.Message = field + " " + p.Message
-		default:
-			p.Message = field + " is not valid"
+	if err == nil {
+		return
+	}
+	if members := errors.UnwrapMulti(err); members != nil {
+		for _, m := range members {
+			c.addSchema(m)
 		}
-		c.Problems = append(c.Problems, p)
+		return
+	}
+	var p validate.PathError
+	if !errors.As(err, &p) {
+		p = validate.PathError{Err: err}
+	}
+	var field string
+	if len(p.Path) > 0 {
+		field = strings.ReplaceAll(p.Path[len(p.Path)-1], "_", " ")
+	}
+	switch message := p.Err.Error(); {
+	case message == "required":
+		c.Addf(p.Path, "%s is required", field)
+	case strings.HasPrefix(message, "must "):
+		c.Addf(p.Path, "%s %s", field, message)
+	default:
+		c.Addf(p.Path, "%s is not valid", field)
 	}
 }
 

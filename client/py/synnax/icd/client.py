@@ -14,6 +14,7 @@ from pydantic import BaseModel, field_serializer
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
+from synnax.exceptions import PathError, UnexpectedError
 from synnax.icd.types_gen import (
     ICD,
     Cursor,
@@ -26,17 +27,8 @@ from synnax.icd.types_gen import (
 )
 from synnax.util import request_where, returns_one, sole
 from x import filter
+from x.exceptions import ExceptionPayload, Registry
 from x.lists import normalize
-
-
-class Problem(BaseModel):
-    """A problem that a check finds in an ICD."""
-
-    path: str = ""
-    """The dotted location of the bad value, such as "messages.0.name". It is empty for
-    a problem with the whole ICD."""
-    message: str
-    """What is wrong."""
 
 
 class _CreateRequest(BaseModel):
@@ -51,7 +43,7 @@ class _CheckRequest(BaseModel):
 
 
 class _CheckResponse(BaseModel):
-    problems: list[Problem]
+    problems: list[ExceptionPayload]
 
 
 class _DeleteRequest(BaseModel):
@@ -106,9 +98,15 @@ class Client:
     def __init__(
         self,
         client: UnaryClient,
+        registry: Registry,
         instrumentation: Instrumentation = NOOP,
     ) -> None:
+        """
+        :param client: Sends the requests of the client to the Core.
+        :param registry: Decodes the problems that a check returns.
+        """
         self._client = client
+        self._registry = registry
         self.instrumentation = instrumentation
 
     @overload
@@ -150,14 +148,21 @@ class Client:
         res = self._client.send("/icd/create", req, _CreateResponse)
         return res.icds[0] if is_single else res.icds
 
-    def check(self, icd: ICD) -> list[Problem]:
+    def check(self, icd: ICD) -> list[PathError]:
         """Check an ICD without saving it.
 
         :param icd: The ICD to check.
-        :returns: Every problem in the ICD, or an empty list.
+        :returns: Every problem in the ICD as an error at the path of the bad value, or
+            an empty list. Each error holds a ValidationError.
         """
         res = self._client.send("/icd/check", _CheckRequest(icd=icd), _CheckResponse)
-        return res.problems
+        return [self._path_error(p) for p in res.problems]
+
+    def _path_error(self, pld: ExceptionPayload) -> PathError:
+        err = self._registry.decode(pld)
+        if not isinstance(err, PathError):
+            raise UnexpectedError(f"a check returned a problem without a path: {err}")
+        return err
 
     def delete(self, keys: Key | list[Key]) -> None:
         """Delete one or more ICDs by key.
