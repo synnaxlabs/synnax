@@ -32,6 +32,7 @@ protected:
     std::shared_ptr<pipeline::testutil::StreamerFactory> mock_factory;
     std::unique_ptr<testutil::Server> server;
     std::shared_ptr<connection::Pool> conn_pool;
+    std::shared_ptr<secret::Reader> reader;
     connection::Config conn_cfg;
     synnax::device::Device dev;
 
@@ -212,6 +213,7 @@ protected:
         auto server_cfg = testutil::ServerConfig::create_default();
 
         ctx = std::make_shared<task::MockContext>(client);
+        reader = std::make_shared<secret::Reader>(client, secret::Config{});
         auto reads = std::make_shared<std::vector<::x::telem::Frame>>();
 
         // Create test frames with different data types
@@ -286,7 +288,12 @@ protected:
             task,
             ctx,
             x::breaker::default_config(task.name),
-            std::make_unique<WriteTaskSink>(ctx->client, conn_pool, std::move(*cfg)),
+            std::make_unique<WriteTaskSink>(
+                ctx->client,
+                conn_pool,
+                reader,
+                std::move(*cfg)
+            ),
             nullptr,
             mock_factory
         );
@@ -343,6 +350,7 @@ protected:
         return std::make_unique<WriteTaskSink>(
             ctx->client,
             conn_pool,
+            reader,
             std::move(write_cfg)
         );
     }
@@ -413,6 +421,7 @@ TEST_F(TestWriteTask, testLastWriteWins) {
     auto sink = std::make_unique<WriteTaskSink>(
         ctx->client,
         conn_pool,
+        reader,
         std::move(*cfg)
     );
     ASSERT_NIL(sink->start("start_cmd", this->cancel));
@@ -441,6 +450,7 @@ TEST_F(TestWriteTask, testReconnectAfterServerRestart) {
     auto sink = std::make_unique<WriteTaskSink>(
         ctx->client,
         conn_pool,
+        reader,
         std::move(*cfg)
     );
     ASSERT_NIL(sink->start("start_cmd", this->cancel));
@@ -493,6 +503,7 @@ TEST_F(TestWriteTask, testReconnectUsesUpdatedDevice) {
     auto sink = std::make_unique<WriteTaskSink>(
         ctx->client,
         conn_pool,
+        reader,
         std::move(*cfg)
     );
     ASSERT_NIL(sink->start("start_cmd", this->cancel));
@@ -532,6 +543,7 @@ TEST_F(TestWriteTask, testMultipleSequentialWrites) {
     auto sink = std::make_unique<WriteTaskSink>(
         ctx->client,
         conn_pool,
+        reader,
         std::move(*cfg)
     );
     ASSERT_NIL(sink->start("start_cmd", this->cancel));
@@ -586,6 +598,7 @@ TEST_F(TestWriteTask, testRejectedNodeWritesOthers) {
     const auto sink = std::make_unique<WriteTaskSink>(
         ctx->client,
         conn_pool,
+        reader,
         std::move(write_cfg)
     );
     ASSERT_NIL(sink->start("start_cmd", this->cancel));
@@ -633,7 +646,12 @@ std::unique_ptr<WriteTaskSink> sink_for(
     auto p = x::json::Parser(task_cfg);
     auto write_cfg = WriteTaskConfig(client, p);
     EXPECT_NIL(p.error());
-    return std::make_unique<WriteTaskSink>(client, pool, std::move(write_cfg));
+    return std::make_unique<WriteTaskSink>(
+        client,
+        pool,
+        std::make_shared<secret::Reader>(client, secret::Config{}),
+        std::move(write_cfg)
+    );
 }
 
 /// @brief it should write a node by the URI of its namespace.
@@ -807,6 +825,7 @@ TEST_F(TestWriteTask, testSplitsWriteAtServerLimit) {
     const auto sink = std::make_unique<WriteTaskSink>(
         ctx->client,
         conn_pool,
+        reader,
         std::move(*cfg)
     );
     ASSERT_NIL(sink->start("start_cmd", this->cancel));
@@ -848,6 +867,7 @@ TEST_F(TestWriteTask, testStartsWhileServerOff) {
     const auto sink = std::make_unique<WriteTaskSink>(
         ctx->client,
         conn_pool,
+        reader,
         std::move(*cfg)
     );
     ASSERT_NIL(sink->start("start_cmd", this->cancel));

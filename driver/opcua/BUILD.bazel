@@ -36,6 +36,7 @@ cc_library(
         "//driver/opcua/telem",
         "//driver/opcua/types",
         "//driver/pipeline",
+        "//driver/secret",
         "//driver/task",
         "//vendor/open62541",
         "//x/cpp/breaker",

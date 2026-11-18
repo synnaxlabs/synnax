@@ -20,6 +20,7 @@
 
 #include "driver/opcua/certificate/store.h"
 #include "driver/opcua/connection/connection.h"
+#include "driver/secret/secret.h"
 #include "driver/task/task.h"
 
 namespace driver::opcua {
@@ -30,8 +31,14 @@ const std::string READ_TASK_TYPE = "opc_read";
 
 struct Factory final : task::Factory {
     /// @param store keeps the certificate that the Driver presents to servers.
-    explicit Factory(std::shared_ptr<certificate::Store> store):
-        store(store), pool(std::make_shared<connection::Pool>(std::move(store))) {}
+    /// @param reader reads the passwords of connections.
+    Factory(
+        std::shared_ptr<certificate::Store> store,
+        std::shared_ptr<secret::Reader> reader
+    ):
+        store(store),
+        pool(std::make_shared<connection::Pool>(std::move(store))),
+        reader(std::move(reader)) {}
 
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,
@@ -56,5 +63,6 @@ struct Factory final : task::Factory {
 private:
     std::shared_ptr<certificate::Store> store;
     std::shared_ptr<connection::Pool> pool;
+    std::shared_ptr<secret::Reader> reader;
 };
 }

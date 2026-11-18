@@ -53,6 +53,7 @@ protected:
     std::shared_ptr<pipeline::testutil::WriterFactory> mock_factory;
     std::unique_ptr<testutil::Server> server;
     std::shared_ptr<connection::Pool> conn_pool;
+    std::shared_ptr<secret::Reader> reader;
     synnax::device::Device dev;
     synnax::channel::Channel index_channel;
     synnax::channel::Channel bool_channel;
@@ -263,6 +264,7 @@ protected:
         task_cfg_json = task_cfg;
 
         ctx = std::make_shared<task::MockContext>(client);
+        reader = std::make_shared<secret::Reader>(client, secret::Config{});
         mock_factory = std::make_shared<pipeline::testutil::WriterFactory>();
         conn_pool = std::make_shared<connection::Pool>(testutil::create_store());
 
@@ -279,6 +281,7 @@ protected:
         return std::make_unique<UnaryReadTaskSource>(
             ctx->client,
             conn_pool,
+            reader,
             std::move(cfg)
         );
     }
@@ -342,6 +345,7 @@ protected:
             std::make_unique<UnaryReadTaskSource>(
                 ctx->client,
                 conn_pool,
+                reader,
                 std::move(*cfg)
             ),
             mock_factory
@@ -999,7 +1003,8 @@ TEST_F(TestReadTask, testReadConnectsAgainWithNewCertificate) {
         )}
     ));
     auto p = x::json::Parser(task_cfg_json);
-    UnaryReadTaskSource source(ctx->client, conn_pool, ReadTaskConfig(ctx->client, p));
+    UnaryReadTaskSource
+        source(ctx->client, conn_pool, reader, ReadTaskConfig(ctx->client, p));
     ASSERT_NIL(source.start("start_cmd", this->cancel));
     x::breaker::Breaker breaker;
     x::telem::Frame fr;
@@ -1069,7 +1074,12 @@ TEST_F(TestReadTask, testInvalidDataHandlingInArrayMode) {
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<ArrayReadTaskSource>(ctx->client, conn_pool, std::move(*cfg)),
+        std::make_unique<ArrayReadTaskSource>(
+            ctx->client,
+            conn_pool,
+            reader,
+            std::move(*cfg)
+        ),
         mock_factory
     );
 
@@ -1265,7 +1275,12 @@ TEST_F(TestReadTask, testErrorAggregationInArrayMode) {
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<ArrayReadTaskSource>(ctx->client, conn_pool, std::move(*cfg)),
+        std::make_unique<ArrayReadTaskSource>(
+            ctx->client,
+            conn_pool,
+            reader,
+            std::move(*cfg)
+        ),
         mock_factory
     );
 
@@ -1355,7 +1370,12 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidBooleanData) {
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<UnaryReadTaskSource>(ctx->client, conn_pool, std::move(*cfg)),
+        std::make_unique<UnaryReadTaskSource>(
+            ctx->client,
+            conn_pool,
+            reader,
+            std::move(*cfg)
+        ),
         mock_factory
     );
 
@@ -1436,7 +1456,12 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidFloatData) {
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<UnaryReadTaskSource>(ctx->client, conn_pool, std::move(*cfg)),
+        std::make_unique<UnaryReadTaskSource>(
+            ctx->client,
+            conn_pool,
+            reader,
+            std::move(*cfg)
+        ),
         mock_factory
     );
 
@@ -1517,7 +1542,12 @@ TEST_F(TestReadTask, testFrameClearWithInvalidDoubleArrayData) {
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<ArrayReadTaskSource>(ctx->client, conn_pool, std::move(*cfg)),
+        std::make_unique<ArrayReadTaskSource>(
+            ctx->client,
+            conn_pool,
+            reader,
+            std::move(*cfg)
+        ),
         mock_factory
     );
 
@@ -1632,7 +1662,12 @@ TEST_F(TestReadTask, testArrayTimestampsTrailTheClock) {
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<ArrayReadTaskSource>(ctx->client, conn_pool, std::move(*cfg)),
+        std::make_unique<ArrayReadTaskSource>(
+            ctx->client,
+            conn_pool,
+            reader,
+            std::move(*cfg)
+        ),
         mock_factory
     );
 
