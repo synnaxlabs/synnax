@@ -329,12 +329,10 @@ void Master::read_coe(slave::DiscoveryResult &slave) {
     props.settings = std::move(settings);
 }
 
-void Master::read_starting(const master::Plan &plan) {
+void Master::read_starting() {
     std::vector<slave::DiscoveryResult *> pending;
     for (auto &slave: this->cached_slaves)
-        if (const auto it = plan.slaves.find(slave.properties.position);
-            slave.status.starting && it != plan.slaves.end() && it->second.enabled)
-            pending.push_back(&slave);
+        if (slave.status.starting) pending.push_back(&slave);
     if (pending.empty()) return;
     // IgH moves each slave to PRE-OP in the background once the master is requested.
     const auto deadline = this->cfg.clock.steady() + this->cfg.pre_op_timeout.chrono();
@@ -526,7 +524,7 @@ master::Activation Master::activate(
                 config_of(slave.properties.position)
             ))
             return {.err = err};
-    this->read_starting(plan);
+    this->read_starting();
     master::Image image;
     for (const auto &slave: this->cached_slaves) {
         const auto pos = slave.properties.position;
