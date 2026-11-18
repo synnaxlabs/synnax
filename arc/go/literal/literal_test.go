@@ -508,44 +508,44 @@ var _ = Describe("Literal Parser", func() {
 			),
 			Entry("no target type infers string from raw", `r"hi"`, types.Type{}, "hi"),
 			Entry(
-				"format single preserves placeholders in body",
-				`f"hi {x}"`,
+				"format single collapses doubled braces",
+				`f"hi {{x}}"`,
 				types.String(),
 				"hi {x}",
 			),
 			Entry(
 				"format single processes standard escapes",
-				`f"a\nb {x}"`,
+				`f"a\nb {{x}}"`,
 				types.String(),
 				"a\nb {x}",
 			),
 			Entry(
-				"format multi preserves placeholders in body",
-				"f`v={x}\nt={t}`",
+				"format multi collapses doubled braces",
+				"f`v={{x}}\nt={{t}}`",
 				types.String(),
 				"v={x}\nt={t}",
 			),
 			Entry(
-				"format multi processes escapes outside placeholders",
-				"f`a\\tb {x}`",
+				"format multi processes escapes",
+				"f`a\\tb {{x}}`",
 				types.String(),
 				"a\tb {x}",
 			),
 			Entry(
-				"rf preserves placeholder and backslash verbatim",
-				`rf"C:\path\{x}"`,
+				"rf keeps a backslash verbatim",
+				`rf"C:\path\{{x}}"`,
 				types.String(),
 				`C:\path\{x}`,
 			),
 			Entry(
 				"fr (order-flipped) behaves identically to rf",
-				`fr"hi {x}"`,
+				`fr"hi {{x}}"`,
 				types.String(),
 				`hi {x}`,
 			),
 			Entry(
-				"rf multi preserves placeholder, real newline, and backslash",
-				"rf`v={x}\nraw=\\n`",
+				"rf multi keeps a real newline and a backslash",
+				"rf`v={{x}}\nraw=\\n`",
 				types.String(),
 				"v={x}\nraw=\\n",
 			),
@@ -582,6 +582,57 @@ var _ = Describe("Literal Parser", func() {
 				"invalid string literal",
 			),
 			Entry("empty text too short", "", types.String(), "invalid string literal"),
+			Entry(
+				"format single with a placeholder",
+				`f"hi {x}"`,
+				types.String(),
+				"is not a compile-time constant",
+			),
+			Entry(
+				"format multi with a placeholder",
+				"f`v={x}\nt={t}`",
+				types.String(),
+				"is not a compile-time constant",
+			),
+			Entry(
+				"rf with a placeholder",
+				`rf"C:\path\{x}"`,
+				types.String(),
+				"is not a compile-time constant",
+			),
+			Entry(
+				"fr with a placeholder",
+				`fr"hi {x}"`,
+				types.String(),
+				"is not a compile-time constant",
+			),
+		)
+
+		It("Should give a format string with a placeholder its code", func() {
+			_, err := literal.ParseString(`f"hi {x}"`, types.String())
+			Expect(diagnostics.Error(err, nil).Code).To(Equal(codes.NotConstant.Code))
+		})
+
+		DescribeTable("IsConstant",
+			func(text string, expected bool) {
+				expr := MustSucceed(parser.ParseExpression(text))
+				Expect(literal.IsConstant(expr)).To(Equal(expected))
+			},
+			Entry("integer", "42", true),
+			Entry("negated integer", "-3", true),
+			Entry("bool", "true", true),
+			Entry("string", `"abc"`, true),
+			Entry("string with braces", `"{x}"`, true),
+			Entry("raw string with braces", `r"{x}"`, true),
+			Entry("format string with no placeholder", `f"abc"`, true),
+			Entry("format string with doubled braces", `f"{{x}}"`, true),
+			Entry("format string with a placeholder", `f"{x}"`, false),
+			Entry("format multi with a placeholder", "f`{x}`", false),
+			Entry("raw format string with a placeholder", `rf"{x}"`, false),
+			Entry("format string that does not split", `f"{x"`, false),
+			Entry("name", "x", false),
+			Entry("operator", "1 + 2", false),
+			Entry("call", "foo()", false),
 		)
 
 		Describe("Parse AST routing", func() {

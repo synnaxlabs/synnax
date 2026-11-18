@@ -11,6 +11,7 @@ package arc
 
 import (
 	"context"
+	"io"
 	"slices"
 	"sync"
 
@@ -555,7 +556,27 @@ func OpenService(
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{
+	s = newService(cfg)
+	cleanup, ok := service.NewOpener(ctx, &s.closer)
+	defer func() { err = cleanup(err) }()
+	// ctx can end before the service closes.
+	if err = s.openSyncs(context.WithoutCancel(ctx), ok); !ok(err, nil) {
+		return nil, err
+	}
+	ok(nil, xio.NoFailCloserFunc(cfg.DB.Observe().OnChange(s.followCommit)))
+	if err = s.registerImEx(ok); !ok(err, nil) {
+		return nil, err
+	}
+	if cfg.Signals != nil {
+		if err = s.publishSignals(ctx, ok); !ok(err, nil) {
+			return nil, err
+		}
+	}
+	return s, nil
+}
+
+func newService(cfg ServiceConfig) *Service {
+	return &Service{
 		cfg:           cfg,
 		reserved:      reservedNames(),
 		state:         actions.NewState[Key, Action](cfg.DB),
@@ -575,79 +596,95 @@ func OpenService(
 		),
 		directoryState: actions.NewState[directory.Key, directory.Action](cfg.DB),
 	}
-	cleanup, ok := service.NewOpener(ctx, &s.closer)
-	defer func() { err = cleanup(err) }()
-	// ctx can end before the service closes.
-	life := context.WithoutCancel(ctx)
-	if s.taskSync, err = debounce.NewKeyed(life, debounce.KeyedConfig[Key]{
-		Delay:    cfg.TaskSyncDebounce.Duration(),
-		MaxDelay: cfg.TaskSyncDebounce.Duration() * 4,
-		Callback: s.resync,
-	}); !ok(err, s.taskSync) {
-		return nil, err
+}
+
+// opener adds a resource to the service closer. It returns false when opening must
+// stop.
+type opener = func(err error, c io.Closer) bool
+
+// openSyncs opens the debouncers that resync Arcs. It returns nil when ok rejects a
+// resource only because the open context ended, so the caller must check ok again.
+func (s *Service) openSyncs(ctx context.Context, ok opener) (err error) {
+	if s.taskSync, err = debounce.NewKeyed(
+		ctx,
+		syncConfig(s.cfg.TaskSyncDebounce, s.resync),
+	); !ok(err, s.taskSync) {
+		return err
 	}
-	if s.importerSync, err = debounce.NewKeyed(life, debounce.KeyedConfig[Key]{
-		Delay:    cfg.TaskSyncDebounce.Duration(),
-		MaxDelay: cfg.TaskSyncDebounce.Duration() * 4,
-		Callback: s.resyncImporters,
-	}); !ok(err, s.importerSync) {
-		return nil, err
+	if s.importerSync, err = debounce.NewKeyed(
+		ctx,
+		syncConfig(s.cfg.TaskSyncDebounce, s.resyncImporters),
+	); !ok(err, s.importerSync) {
+		return err
 	}
-	if s.pathSync, err = debounce.NewKeyed(life, debounce.KeyedConfig[struct{}]{
-		Delay:    cfg.TaskSyncDebounce.Duration(),
-		MaxDelay: cfg.TaskSyncDebounce.Duration() * 4,
-		Callback: s.resyncImporting,
-	}); !ok(err, s.pathSync) {
-		return nil, err
+	s.pathSync, err = debounce.NewKeyed(
+		ctx,
+		syncConfig(s.cfg.TaskSyncDebounce, s.resyncImporting),
+	)
+	ok(err, s.pathSync)
+	return err
+}
+
+func syncConfig[K comparable](
+	delay telem.TimeSpan,
+	callback func(context.Context, K),
+) debounce.KeyedConfig[K] {
+	return debounce.KeyedConfig[K]{
+		Delay:    delay.Duration(),
+		MaxDelay: delay.Duration() * 4,
+		Callback: callback,
 	}
-	ok(nil, xio.NoFailCloserFunc(cfg.DB.Observe().OnChange(s.followCommit)))
-	if err = cfg.ImEx.RegisterImportExporter(s); !ok(err, nil) {
-		return nil, err
+}
+
+func (s *Service) registerImEx(ok opener) error {
+	if err := s.cfg.ImEx.RegisterImportExporter(s); !ok(err, nil) {
+		return err
 	}
 	for _, t := range []Type{TypeAutomation, TypeModule} {
-		if err = cfg.ImEx.RegisterImporter(versions.FileType(t), s); !ok(err, nil) {
-			return nil, err
+		if err := s.cfg.ImEx.RegisterImporter(versions.FileType(t), s); !ok(err, nil) {
+			return err
 		}
 	}
-	if cfg.Signals != nil {
-		if err = cfg.Signals.PublishActions(ctx, signals.ActionConfig[Key, Action]{
-			Name:     "sy_arc_set",
-			Actions:  s.state,
-			Resource: ResourceID,
-			Table:    tableName,
-		}); !ok(err, nil) {
-			return nil, err
-		}
-		if err = cfg.Signals.PublishTable(ctx, signals.TableConfig[Key, Arc]{
-			Changes:     s.table.Changes,
-			Resource:    ResourceID,
-			SetDisabled: new(true),
-		}); !ok(err, nil) {
-			return nil, err
-		}
-		if err = cfg.Signals.PublishTable(
-			ctx,
-			signals.TableConfig[directory.Key, directory.Directory]{
-				Changes:    s.directories.Changes,
-				Resource:   directory.ResourceID,
-				SetName:    directory.SetChannelName,
-				DeleteName: directory.DeleteChannelName,
-			},
-		); !ok(err, nil) {
-			return nil, err
-		}
-		if err = cfg.Signals.PublishActions(
-			ctx,
-			signals.ActionConfig[directory.Key, directory.Action]{
-				Name:     "sy_arc_directory_action_set",
-				Actions:  s.directoryState,
-				Resource: directory.ResourceID,
-			},
-		); !ok(err, nil) {
-			return nil, err
-		}
+	return nil
+}
+
+// publishSignals publishes the Arc and directory changes as signals. Like openSyncs, it
+// returns nil when ok rejects a step only because the open context ended.
+func (s *Service) publishSignals(ctx context.Context, ok opener) error {
+	if err := s.cfg.Signals.PublishActions(ctx, signals.ActionConfig[Key, Action]{
+		Name:     "sy_arc_set",
+		Actions:  s.state,
+		Resource: ResourceID,
+		Table:    tableName,
+	}); !ok(err, nil) {
+		return err
 	}
-	return s, nil
+	if err := s.cfg.Signals.PublishTable(ctx, signals.TableConfig[Key, Arc]{
+		Changes:     s.table.Changes,
+		Resource:    ResourceID,
+		SetDisabled: new(true),
+	}); !ok(err, nil) {
+		return err
+	}
+	if err := s.cfg.Signals.PublishTable(
+		ctx,
+		signals.TableConfig[directory.Key, directory.Directory]{
+			Changes:    s.directories.Changes,
+			Resource:   directory.ResourceID,
+			SetName:    directory.SetChannelName,
+			DeleteName: directory.DeleteChannelName,
+		},
+	); !ok(err, nil) {
+		return err
+	}
+	return s.cfg.Signals.PublishActions(
+		ctx,
+		signals.ActionConfig[directory.Key, directory.Action]{
+			Name:     "sy_arc_directory_action_set",
+			Actions:  s.directoryState,
+			Resource: directory.ResourceID,
+		},
+	)
 }
 
 // OnAction calls handler with each action batch that a transaction attaches, after the

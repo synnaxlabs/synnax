@@ -14,22 +14,26 @@ import { describe, expect, it } from "vitest";
 import { Range } from "@/platform/range";
 import { createTestRange } from "@/platform/range/testutil";
 import { Session } from "@/session";
-import { createConsoleWrapper } from "@/testutil";
+import { createConsoleWrapper, resolveFocusedTab, selectTestProject } from "@/testutil";
 
 const client = createTestClient();
 
 describe("Range.useAddToNewPlot", () => {
-  it("should favorite the retrieved ranges into the slice", async () => {
+  it("should plot the ranges without adding them to the favorites", async () => {
     const a = await createTestRange(client);
     const b = await createTestRange(client);
     const { wrapper, store } = await createConsoleWrapper({ client });
+    await selectTestProject(store, client);
     const { result } = renderHook(() => Range.useAddToNewPlot(), { wrapper });
     act(() => result.current([a.key, b.key]));
-    await waitFor(() => {
-      const { ranges } = store.getState()[Session.Range.SLICE_NAME];
-      expect(ranges.map(({ key }) => key)).toEqual(
-        expect.arrayContaining([a.key, b.key]),
-      );
-    });
+    const tab = await resolveFocusedTab(store, client);
+    if (tab.variant !== "resource") throw new Error("expected a resource tab");
+    await waitFor(async () =>
+      expect((await client.lineplots.retrieve(tab.resource.key)).ranges).toEqual([
+        { variant: "key", key: a.key },
+        { variant: "key", key: b.key },
+      ]),
+    );
+    expect(store.getState()[Session.Range.SLICE_NAME].ranges).toEqual([]);
   });
 });

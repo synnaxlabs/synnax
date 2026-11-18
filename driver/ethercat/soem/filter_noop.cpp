@@ -7,4 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * as Picker from "@/feature/mqtt/task/discover/picker/external";
+#include "driver/ethercat/errors/errors.h"
+#include "driver/ethercat/soem/filter.h"
+
+namespace driver::ethercat::soem {
+x::errors::Error disable_dewesoft_filter(const std::vector<std::string> &) {
+    return x::errors::Error(
+        errors::FILTER_ERROR,
+        "Only a Driver on Windows can turn off the DewesoftX filter."
+    );
+}
+}

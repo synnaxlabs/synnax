@@ -20,8 +20,8 @@ import { Tree as Base } from "@synnaxlabs/lyra/tree";
 import { deep } from "@synnaxlabs/x";
 import { type ReactElement, useLayoutEffect } from "react";
 
-import { CheckSkeleton } from "@/feature/mqtt/task/discover/picker/Picker";
 import { CSS } from "@/platform/css";
+import { CheckSkeleton } from "@/platform/icd/picker/Picker";
 
 // The skeleton items match it.
 const ITEM_HEIGHT = 33;
@@ -70,10 +70,7 @@ const Item = (props: Base.ItemRenderProps<string>): ReactElement | null => {
       <Text.Text
         level="small"
         color={accented ? undefined : 9}
-        className={CSS.cls(
-          CSS.BE("mqtt-discover", "meta"),
-          accented && CSS.M("picked"),
-        )}
+        className={CSS.cls(CSS.BE("icd-picker", "meta"), accented && CSS.M("picked"))}
       >
         {meta}
       </Text.Text>
@@ -159,11 +156,7 @@ export interface TreeSkeletonProps {
 
 /** Holds the place of a {@link Tree} while the first listen runs. */
 export const TreeSkeleton = ({ items }: TreeSkeletonProps): ReactElement => (
-  <div
-    aria-hidden
-    className={CSS.BE("mqtt-discover", "skeleton")}
-    style={SKELETON_STYLE}
-  >
+  <div aria-hidden className={CSS.BE("icd-picker", "skeleton")} style={SKELETON_STYLE}>
     {items.map(([depth, width], i) => (
       <Flex.Box
         key={i}
@@ -171,7 +164,7 @@ export const TreeSkeleton = ({ items }: TreeSkeletonProps): ReactElement => (
         align="center"
         gap="small"
         style={indent(depth)}
-        className={CSS.BE("mqtt-discover", "skeleton-item")}
+        className={CSS.BE("icd-picker", "skeleton-item")}
       >
         <CheckSkeleton />
         <Text.Text level="small">

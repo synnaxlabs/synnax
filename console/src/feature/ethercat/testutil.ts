@@ -360,6 +360,25 @@ export const createReachedStatus = async (
   });
 };
 
+/** Gives the slave a warning status, as a scan of the Driver does. */
+export const createWarningStatus = async (
+  client: Synnax,
+  slave: SlaveDevice,
+  message: string,
+  description: string,
+  connected = true,
+): Promise<void> => {
+  await client.statuses.set({
+    owner: device.resourceID(slave.key),
+    name: slave.name,
+    variant: "warning",
+    message,
+    description,
+    time: TimeStamp.now(),
+    details: { rack: slave.rack, connected },
+  });
+};
+
 /** Creates a slave on eth0 whose eight channels repeat the same entry names. */
 export const createRepeatedNameSlave = async (
   client: Synnax,
