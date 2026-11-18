@@ -254,7 +254,7 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
     fireEvent.change(identifierInput(), { target: { value: `${base}_a` } });
     await save();
     await screen.findByText(
-      `Slave ${other.name} in slot 4 has an identifier that gives the same channel ` +
+      `Module ${other.name} in slot 4 has an identifier that gives the same channel ` +
         "names. Pick another identifier.",
     );
     const unchanged = await retrieve(slave.key);
@@ -1369,6 +1369,21 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
       await setup({ useOpen: useConfigureWithActionsModal });
       expect(findButton("Back")).toBeTruthy();
       expect(screen.queryByText("Save and create read task")).toBeNull();
+    });
+
+    it("should hold Back while the slave saves", async () => {
+      const slave = await setup({
+        configured: false,
+        useOpen: useConfigureWithActionsModal,
+      });
+      fireEvent.change(identifierInput(), { target: { value: createIdentifier() } });
+      fireEvent.click(findButton("Save"));
+      await waitFor(() =>
+        expect(findButton("Back").getAttribute("aria-disabled")).toBe("true"),
+      );
+      await waitFor(async () =>
+        expect((await retrieve(slave.key)).configured).toBe(true),
+      );
     });
 
     it("should go back without saving", async () => {

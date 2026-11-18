@@ -59,7 +59,7 @@ seconds at the default), the dialog shows the error and keeps your entries.
 ```python
 from synnax import opcua
 
-rack = client.racks.retrieve_embedded_rack()
+rack = client.racks.retrieve_embedded_rack("opc")
 device = client.devices.create(
     opcua.Device(
         name="Line 1 PLC",

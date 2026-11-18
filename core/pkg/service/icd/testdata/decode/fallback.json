@@ -1,0 +1,78 @@
+{
+  "description": "A document that meets no match rule belongs to the message with no rule.",
+  "messages": [
+    {
+      "name": "status",
+      "payload": {
+        "format": "json",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "v",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/v",
+            "type": "float"
+          }
+        ],
+        "match": {
+          "type": "string",
+          "pointer": "/type",
+          "value": "status"
+        }
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "float64"
+        }
+      ]
+    },
+    {
+      "name": "other",
+      "payload": {
+        "format": "json",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000002",
+            "name": "v",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/v",
+            "type": "float"
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000002",
+          "data_type": "float64"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "document": { "type": "status", "v": 1 },
+      "message": "status",
+      "samples": [1]
+    },
+    {
+      "document": { "type": "event", "v": 2 },
+      "message": "other",
+      "samples": [2]
+    },
+    {
+      "document": { "type": 1, "v": 3 },
+      "message": "other",
+      "samples": [3]
+    },
+    {
+      "document": { "v": 4 },
+      "message": "other",
+      "samples": [4]
+    }
+  ]
+}

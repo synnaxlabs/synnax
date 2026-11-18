@@ -14,7 +14,7 @@ import {
   NotFoundError,
   type Synnax,
 } from "@synnaxlabs/client";
-import { errors, primitive } from "@synnaxlabs/x";
+import { errors, primitive, unique } from "@synnaxlabs/x";
 
 import { clashProblem, findClash } from "@/feature/ethercat/device/identifier";
 import { fill, findInput, sameAddress } from "@/feature/ethercat/device/settings";
@@ -90,7 +90,7 @@ export const retrieveSlaves = async <C extends Channel>(
   config: CheckedConfig & { channels: C[] },
 ): Promise<Slaves<C>> => {
   const { channels } = config;
-  const slaveKeys = [...new Set(channels.map((ch) => ch.device))];
+  const slaveKeys = unique.unique(channels.map((ch) => ch.device));
   const slaves = await client.devices.retrieve({
     key: slaveKeys,
     schemas: SLAVE_SCHEMAS,
@@ -197,8 +197,8 @@ const checkIndexFree = async (
   );
   if (owner != null)
     throw new Error(
-      `Slave ${owner.name} uses the index channel ${index.name}. Change the ` +
-        `identifier of slave ${slave.name}.`,
+      `Module ${owner.name} uses the index channel ${index.name}. Change the ` +
+        `identifier of module ${slave.name}.`,
     );
 };
 
@@ -236,7 +236,7 @@ export const checkOrCreateIndex = async (
       if (!idx.isIndex)
         throw new Error(
           `A channel named ${name} already exists and is not an index. Change the ` +
-            `identifier of slave ${slave.name}.`,
+            `identifier of module ${slave.name}.`,
         );
       await checkIndexFree(client, slave, idx);
     } else

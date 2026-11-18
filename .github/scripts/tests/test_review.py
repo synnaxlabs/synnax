@@ -376,8 +376,7 @@ class TestDismissedFindings:
         [done] = gh.written("PATCH", "check-runs/55")
         assert done["output"]["title"] == "Confidence Score: 5/5"
         assert done["output"]["summary"] == (
-            "Someone with write access dismissed every finding of the review.\n\n"
-            "Findings: none."
+            "Every finding of the review is dismissed or withdrawn.\n\nFindings: none."
         )
 
     def test_should_score_the_head_5_after_a_dismissal_while_posting(

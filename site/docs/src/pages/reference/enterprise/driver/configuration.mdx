@@ -206,7 +206,19 @@ a key is saved, the Driver ignores a username and password and logs a warning.
 </Field.Item>
 
 <Field.Item name="secure" default="false">
-  Connect to the Core over TLS.
+  Connect to the Core over TLS. With `ca_cert` set and `secure` not set, the Driver uses
+  TLS. With `ca_cert` set and `secure` false in the same source, the Driver fails to
+  connect.
+</Field.Item>
+
+<Field.Item name="ca_cert">
+  The path to a PEM file of the CA certificates that sign the certificate of the Core.
+  Without it, the Driver uses the system trust store. `secure` and `ca_cert` go
+  together: the first source that sets either one, in the order command line,
+  environment, config file, and saved state, gives both. When the Driver enrolls, it
+  saves both with the API key, so a CA stays in use after you remove it from a higher
+  source. To stop using a saved CA, set `secure` in a higher source, run `login` again,
+  or run [`clear`](/reference/enterprise/driver/cli-reference#clear).
 </Field.Item>
 
 <Field.Item name="correct_skew" default="true">

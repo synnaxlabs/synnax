@@ -41,9 +41,9 @@ const entryWidth = (bitLength: number): number => {
 
 /** @returns what the user must do before Synnax can read an entry of the slave. */
 const onlyReaderStep = (props: SlaveProperties): string => {
-  if (of(props).kind === "switched") return "Restart the power of the slave.";
+  if (of(props).kind === "switched") return "Restart the power of the module.";
   return canSwitch(props)
-    ? "In Configure, switch the slave to Synnax."
+    ? "In Configure, switch the module to Synnax."
     : "Pick another entry.";
 };
 
@@ -73,27 +73,27 @@ const entryProblem = (
   const entry = entryAt(slave.properties.pdos[pdoType], ch);
   if (entry == null)
     return (
-      `Slave ${slave.name} has no ${DIRECTIONS[pdoType]} entry at ${address}. ` +
+      `Module ${slave.name} has no ${DIRECTIONS[pdoType]} entry at ${address}. ` +
       "Pick an entry."
     );
   const reader = pdoType === "inputs" ? onlyReaderOf(slave.properties, ch) : null;
   if (reader != null)
     return (
-      `Entry ${address} on slave ${slave.name} sends data that only ${reader} ` +
+      `Entry ${address} on module ${slave.name} sends data that only ${reader} ` +
       `reads. ${onlyReaderStep(slave.properties)}`
     );
   const dataType = new DataType(ch.dataType);
   const width = entryWidth(entry.bitLength);
   if (!(dataType.isInteger || dataType.isFloat) || dataType.density.valueOf() !== width)
     return (
-      `Data type ${ch.dataType} does not fit entry ${address} on slave ` +
+      `Data type ${ch.dataType} does not fit entry ${address} on module ` +
       `${slave.name}, which holds ${entry.bitLength} bits. Pick a ${width} ` +
       "byte number type."
     );
   const key = addressKey(ch);
   if (channels.some((o) => o.key !== ch.key && hasEntry(o) && addressKey(o) === key))
     return (
-      `More than one channel uses entry ${address} on slave ${slave.name}. ` +
+      `More than one channel uses entry ${address} on module ${slave.name}. ` +
       "Pick a different entry for one of them."
     );
   return null;
@@ -115,7 +115,7 @@ const settingProblem = (
   const [problem] = check(input, fill(input.settings, prior).values);
   if (problem == null) return null;
   const address = ethercat.formatAddress(ch);
-  return `Entry ${address} on slave ${slave.name}: ${problem.message}`;
+  return `Entry ${address} on module ${slave.name}: ${problem.message}`;
 };
 
 type Slave = SlaveDevice | SlaveOnRack;
@@ -170,7 +170,7 @@ const positionProblem = (
   if (other == null) return null;
   const [first, second] = inOrder(slave, other);
   return (
-    `Slaves ${first.name} and ${second.name} are both at position ${position} on ` +
+    `Modules ${first.name} and ${second.name} are both at position ${position} on ` +
     `${network}. ${deleteStep(slave, other, onRack)}`
   );
 };
@@ -196,7 +196,7 @@ const serialProblem = (slave: SlaveDevice, onRack: SlaveOnRack[]): string | null
   if (other == null) return null;
   const [first, second] = inOrder(slave, other);
   return (
-    `Slaves ${first.name} and ${second.name} have the same serial number ${serial}. ` +
+    `Modules ${first.name} and ${second.name} have the same serial number ${serial}. ` +
     `${deleteStep(slave, other, onRack)}`
   );
 };
@@ -219,8 +219,8 @@ const mixedNetworksProblem = (slaves: SlaveDevice[]): string | null => {
     .sort();
   if (networks.length < 2) return null;
   return (
-    `All slaves must be on the same network. Found: ${networks.join(", ")}. ` +
-    "Pick slaves on one network."
+    `All modules must be on the same network. Found: ${networks.join(", ")}. ` +
+    "Pick modules on one network."
   );
 };
 

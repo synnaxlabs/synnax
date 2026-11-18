@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config/legacy"
 	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
+	"github.com/synnaxlabs/x/content"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/patch"
@@ -102,6 +103,33 @@ var _ = Describe("Service", func() {
 						Ladder: arcversions.ConfigLadder,
 					},
 				)).Error().To(MatchError(ContainSubstring("set_entry_key: must be non-nil")))
+			},
+		)
+
+		It(
+			"Should reject hash references without the tables they read",
+			func(ctx SpecContext) {
+				Expect(config.OpenService(
+					ctx,
+					config.ServiceConfig[arctask.Config]{
+						DB:          db,
+						Type:        testType,
+						Ladder:      arcversions.ConfigLadder,
+						SetEntryKey: (*arctask.Config).SetKey,
+						PatchEntry:  (*arctask.Config).Patch,
+						HashEntry:   (*arctask.Config).HashContent,
+						HashReferences: func(
+							context.Context,
+							gorp.Snapshot,
+							*arctask.Config,
+							*content.Hash,
+						) error {
+							return nil
+						},
+					},
+				)).Error().To(MatchError(ContainSubstring(
+					"hashed_tables: must be set exactly when hash_references is set",
+				)))
 			},
 		)
 
@@ -1014,7 +1042,10 @@ var _ = Describe("Registry", func() {
 
 // target is a record that the detach reference of the "With a detach reference" specs
 // points at.
-type target struct{ Key uuid.UUID }
+type target struct {
+	Key  uuid.UUID
+	Name string
+}
 
 func (t target) GorpKey() uuid.UUID { return t.Key }
 
@@ -1181,6 +1212,107 @@ var _ = Describe("With a detach reference", func() {
 				Expect(configHash(ctx, ldb)).To(Equal(before))
 			},
 		)
+	})
+
+	Describe("HashReferences", func() {
+		var (
+			svc   *config.Service[arctask.Config]
+			tasks *tasktestutil.Tasks
+			t     target
+			key   uuid.UUID
+		)
+		setTarget := func(ctx SpecContext, name string) {
+			GinkgoHelper()
+			t.Name = name
+			Expect(targets.NewCreate().Entry(&t).Exec(ctx, ldb)).To(Succeed())
+		}
+		BeforeEach(func(ctx SpecContext) {
+			svc = MustOpen(config.OpenService(
+				ctx,
+				config.ServiceConfig[arctask.Config]{
+					DB:          ldb,
+					Type:        testType,
+					Ladder:      arcversions.ConfigLadder,
+					SetEntryKey: (*arctask.Config).SetKey,
+					PatchEntry:  (*arctask.Config).Patch,
+					HashEntry:   (*arctask.Config).HashContent,
+					References: []gorp.Reference[uuid.UUID, arctask.Config]{
+						reference(),
+					},
+					HashedTables: []string{targetTable},
+					HashReferences: func(
+						ctx context.Context,
+						snap gorp.Snapshot,
+						c *arctask.Config,
+						h *content.Hash,
+					) error {
+						var used target
+						if err := targets.NewRetrieve().
+							Where(gorp.MatchKeys[uuid.UUID, target](c.ArcKey)).
+							Entry(&used).
+							Exec(ctx, snap); err != nil {
+							return err
+						}
+						h.String(used.Name)
+						return nil
+					},
+				},
+			))
+			tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
+				DB:     ldb,
+				Stores: []config.Store{svc},
+			}))
+			t = target{Key: uuid.New()}
+			setTarget(ctx, "a")
+			key = MustSucceed(tasks.Create(ctx, svc, msgpack.EncodedJSON{
+				"arc_key": t.Key.String(),
+			}))
+		})
+
+		It("Should report the tables it hashes", func() {
+			Expect(svc.HashedTables()).To(Equal([]string{targetTable}))
+		})
+
+		It("Should cover the content of a used record in the hash", func(
+			ctx SpecContext,
+		) {
+			before := MustSucceed(svc.Hash(ctx, ldb, key))
+			setTarget(ctx, "b")
+			Expect(MustSucceed(svc.Hash(ctx, ldb, key))).ToNot(Equal(before))
+			setTarget(ctx, "a")
+			Expect(MustSucceed(svc.Hash(ctx, ldb, key))).To(Equal(before))
+		})
+
+		It(
+			"Should run the target hook in the write's transaction with the key of "+
+				"the record",
+			func(ctx SpecContext) {
+				var (
+					set    []uuid.UUID
+					hashes []string
+				)
+				svc.OnTargetSet(
+					func(ctx context.Context, tx gorp.Tx, k uuid.UUID) error {
+						set = append(set, k)
+						hashes = append(hashes, MustSucceed(svc.Hash(ctx, tx, k)))
+						return nil
+					},
+				)
+				before := MustSucceed(svc.Hash(ctx, ldb, key))
+				setTarget(ctx, "b")
+				Expect(set).To(Equal([]uuid.UUID{key}))
+				Expect(hashes).To(HaveExactElements(Not(Equal(before))))
+			},
+		)
+
+		It("Should fail the write when the target hook fails", func(ctx SpecContext) {
+			svc.OnTargetSet(func(context.Context, gorp.Tx, uuid.UUID) error {
+				return errors.New("hook failed")
+			})
+			t.Name = "b"
+			Expect(targets.NewCreate().Entry(&t).Exec(ctx, ldb)).
+				To(MatchError("hook failed"))
+		})
 	})
 
 	Describe("OpenService", func() {

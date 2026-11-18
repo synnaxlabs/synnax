@@ -1588,7 +1588,7 @@ describe("Table", () => {
       });
       const pending = [table.retrieve(["k0"])];
       for (let i = 1; i <= 5; i++) {
-        await new Promise((resolve) => setTimeout(resolve, 10));
+        await sleep.sleep(TimeSpan.milliseconds(10));
         pending.push(table.retrieve([`k${i}`]));
       }
       // A timer reset by each join would still be pending here.

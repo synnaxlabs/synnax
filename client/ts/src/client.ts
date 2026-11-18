@@ -32,7 +32,7 @@ import { color } from "@/color";
 import { connection } from "@/connection";
 import { control } from "@/control";
 import { device } from "@/device";
-import { resolveParams } from "@/env";
+import { nodeSystem, resolveParams } from "@/env";
 import { errorsMiddleware, isConnectionError } from "@/errors";
 import { framer } from "@/framer";
 import { group } from "@/group";
@@ -127,7 +127,9 @@ export interface ParsedSynnaxParams extends z.infer<typeof synnaxParamsZ> {}
 
 /**
  * The parameters of the client constructor. The SYNNAX_HOST, SYNNAX_PORT,
- * SYNNAX_API_KEY, and SYNNAX_SECURE environment variables fill the fields left out.
+ * SYNNAX_API_KEY, SYNNAX_SECURE, and SYNNAX_CA_CERT environment variables fill the
+ * fields left out.
+ * With no host from either, Synnax Desktop on this computer fills them.
  */
 export interface ConstructorParams extends Omit<SynnaxParams, "host" | "port"> {
   host?: string;
@@ -254,13 +256,15 @@ export default class Synnax extends framer.Client {
   readonly clientVersion: string = __VERSION__;
 
   /**
-   * @param props.host - Hostname of a node in the cluster. Defaults to SYNNAX_HOST.
+   * @param props.host - Hostname of a node in the cluster. Defaults to SYNNAX_HOST,
+   * then the Core of Synnax Desktop on this computer.
    * @param props.port - Port of the node in the cluster. Defaults to SYNNAX_PORT, then
-   * 9090.
+   * the port of Synnax Desktop when it gives the host, then 9090.
    * @param props.username - Username for authentication, with props.password.
    * @param props.password - Password for authentication, with props.username.
    * @param props.apiKey - API key for authentication, in place of a username and
-   * password. Defaults to SYNNAX_API_KEY when no credentials or token are given.
+   * password. Defaults to SYNNAX_API_KEY, then the key of Synnax Desktop when it gives
+   * the host. Used only when no credentials or token are given.
    * @param props.token - The token of an earlier login to resume instead.
    * @param props.sessionCookie - Whether the Core keeps the token in a cookie the page
    * never sees, for a browser client the Core serves.
@@ -270,26 +274,36 @@ export default class Synnax extends framer.Client {
    * healthy. Defaults to 30 seconds.
    * @param props.secure - Whether to connect to the cluster using TLS. The cluster must
    * be configured to support TLS. Defaults to true with props.caCert, else to
-   * SYNNAX_SECURE, then false. A Synnax client must be closed when it is no longer
-   * needed. This stops the connection machine and closes the change stream.
+   * SYNNAX_SECURE (true with SYNNAX_CA_CERT), then the value of Synnax Desktop when it
+   * gives the host, then false.
+   * A Synnax client must be closed when it is no longer needed. This stops the
+   * connection machine and closes the change stream.
    * @param props.caCert - The PEM text of a CA certificate that signs the Core's
-   * certificate. Turns on props.secure when it is not given.
-   * @throws {ValidationError} If neither the params nor SYNNAX_HOST give a host, or if
-   * SYNNAX_PORT or SYNNAX_SECURE is not valid.
+   * certificate. Turns on props.secure when it is not given. When props.secure and
+   * props.caCert are both left out, defaults to the text of the file at SYNNAX_CA_CERT,
+   * except in Deno, where TLS trusts the store that --cert or DENO_CERT fills.
+   * @throws {ValidationError} If no host is given, set, or saved by Synnax Desktop, if
+   * SYNNAX_PORT or SYNNAX_SECURE is not valid, if SYNNAX_CA_CERT is set with
+   * SYNNAX_SECURE false, if the SYNNAX_CA_CERT file is missing, empty, not PEM text, or
+   * cannot be read, if ~/.synnax/desktop.json cannot be read, if Synnax Desktop is too
+   * old, or if its key helper fails.
+   * @throws {Unreachable} If the key helper of Synnax Desktop is gone, as for a closed
+   * AppImage.
    * @throws {Error} if props.caCert is set with props.secure false, in a browser, or in
    * Deno.
    */
   constructor(params: ConstructorParams = {}) {
+    const system = nodeSystem();
     const parsedParams = zod.parse(
       constructorParamsZ,
-      resolveParams(params, globalThis.process?.env),
+      resolveParams(params, globalThis.process?.env, system),
     );
     const { host, port, connectivityPollFrequency, clockSkewThreshold, secure, retry } =
       parsedParams;
     const address = new url.URL({ host, port: Number(port) });
     const { caCert } = parsedParams;
     // Deno's WebSocket cannot use the CA, so the client's change stream never opens.
-    if (caCert != null && "Deno" in globalThis)
+    if (caCert != null && system?.caCertUnsupported === true)
       throw new Error(
         "Deno cannot use caCert. Leave it out and start Deno with --cert <file>.",
       );

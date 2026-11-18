@@ -91,10 +91,17 @@ describe("constructor", () => {
     await client.close();
   });
 
-  it("should throw when neither an argument nor a variable gives a host", () => {
+  it("should throw when no argument, variable, or Synnax Desktop gives a host", () => {
     vi.stubEnv("SYNNAX_HOST", "");
-    expect(() => new Synnax()).toThrow(ValidationError);
-    expect(() => new Synnax()).toThrow("give a host, or set SYNNAX_HOST");
+    const home = mkdtempSync(join(tmpdir(), "synnax-home-"));
+    vi.stubEnv("HOME", home);
+    vi.stubEnv("USERPROFILE", home);
+    try {
+      expect(() => new Synnax()).toThrow(ValidationError);
+      expect(() => new Synnax()).toThrow(/^give a host, or set SYNNAX_HOST$/);
+    } finally {
+      rmSync(home, { recursive: true });
+    }
   });
 });
 
@@ -152,11 +159,29 @@ describe("constructor with caCert", () => {
     ).toThrow("browser");
   });
 
-  it("should tell a Deno user to start Deno with --cert", () => {
+  it("should tell a Deno user to leave out caCert", () => {
     vi.stubGlobal("Deno", {});
     expect(
       () => new Synnax({ host: "localhost", port: 9090, secure: true, caCert: PEM }),
-    ).toThrow("--cert");
+    ).toThrow("Deno cannot use caCert. Leave it out and start Deno with --cert");
+  });
+
+  it("should use TLS with no CA for SYNNAX_CA_CERT in Deno", async () => {
+    vi.stubEnv("SYNNAX_CA_CERT", join(tmpdir(), "synnax-missing-ca.pem"));
+    vi.stubGlobal("Deno", {});
+    const client = new Synnax({ host: "localhost", port: 9090 });
+    expect(client.params.secure).toBe(true);
+    expect(client.params.caCert).toBeUndefined();
+    await client.close();
+  });
+
+  it("should reject SYNNAX_CA_CERT with SYNNAX_SECURE false in Deno", () => {
+    vi.stubEnv("SYNNAX_SECURE", "false");
+    vi.stubEnv("SYNNAX_CA_CERT", join(tmpdir(), "synnax-missing-ca.pem"));
+    vi.stubGlobal("Deno", {});
+    expect(() => new Synnax({ host: "localhost", port: 9090 })).toThrow(
+      "SYNNAX_CA_CERT requires SYNNAX_SECURE",
+    );
   });
 });
 

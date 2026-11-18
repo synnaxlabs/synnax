@@ -9,6 +9,7 @@
 
 import { TimeRange, TimeStamp } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { uuid } from "@synnaxlabs/x";
 import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -20,10 +21,7 @@ const client = createTestClient();
 describe("Sift.Range.UploadMenuItem", () => {
   it("should open the upload dialog for the range", async () => {
     await renderMenuItem(
-      <Sift.Range.UploadMenuItem
-        rangeKey={crypto.randomUUID()}
-        rangeName="Hotfire 3"
-      />,
+      <Sift.Range.UploadMenuItem rangeKey={uuid.create()} rangeName="Hotfire 3" />,
       { client },
     );
     fireEvent.click(screen.getByText("Upload to Sift"));

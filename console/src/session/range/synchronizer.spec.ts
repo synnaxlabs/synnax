@@ -15,6 +15,7 @@ import {
 import { Status } from "@synnaxlabs/lyra/status";
 import {
   dynamicWindow,
+  scheduler,
   staticWindow,
   TimeRange,
   TimeSpan,
@@ -37,20 +38,28 @@ const createRange = async (): Promise<ranger.Range> => {
   });
 };
 
-const preloadedFor = (range: ranger.Range) => ({
+const preloadedFor = (keys: string[]) => ({
   [Session.Range.SLICE_NAME]: Session.Range.sliceStateZ.parse({
-    ranges: Session.Range.fromClient(range),
+    ranges: keys.map((key) => ({ variant: "persisted", key })),
   }),
 });
 
-const createLocal = (): Session.Range.StaticState => ({
+/** A range that Desktop 1.0 kept only in the Console, as version 0 stored it. */
+interface Local {
+  variant: "static";
+  key: string;
+  name: string;
+  timeRange: { start: number; end: number };
+}
+
+const createLocal = (): Local => ({
   variant: "static",
   key: uuid.create(),
   name: uniqueName("local"),
   timeRange: { start: 1, end: 2 },
 });
 
-const windowOf = (local: Session.Range.StaticState): ranger.Ref => ({
+const windowOf = (local: Local): ranger.Ref => ({
   variant: "window",
   window: staticWindow(new TimeRange(local.timeRange)),
 });
@@ -69,7 +78,7 @@ describe("Range.SYNCHRONIZERS", () => {
     const range = await createRange();
     const { wrapper, store } = await createConsoleWrapper({
       client,
-      preloadedState: preloadedFor(range),
+      preloadedState: preloadedFor([range.key]),
     });
     renderHook(() => Session.Synchronizer.use(Session.Range.SYNCHRONIZERS), {
       wrapper,
@@ -79,6 +88,22 @@ describe("Range.SYNCHRONIZERS", () => {
     await waitFor(() => {
       expect(selectRange(store.getState(), range.key)).toBeUndefined();
     });
+  });
+
+  it("should remove a favorited range the Core no longer holds on connect", async () => {
+    const range = await createRange();
+    const gone = uuid.create();
+    const { wrapper, store } = await createConsoleWrapper({
+      client,
+      preloadedState: preloadedFor([range.key, gone]),
+    });
+    renderHook(() => Session.Synchronizer.use(Session.Range.SYNCHRONIZERS), {
+      wrapper,
+    });
+    await waitFor(() => {
+      expect(selectRange(store.getState(), gone)).toBeUndefined();
+    });
+    expect(selectRange(store.getState(), range.key)).toBeDefined();
   });
 
   describe("static range keys", () => {
@@ -107,9 +132,7 @@ describe("Range.SYNCHRONIZERS", () => {
         wrapper,
       });
       await waitFor(() =>
-        expect(store.getState()[Session.Range.SLICE_NAME].staticKeysRewritten).toBe(
-          true,
-        ),
+        expect(store.getState()[Session.Range.SLICE_NAME].staticWindows).toEqual({}),
       );
       const reader = createTestClient();
       expect((await reader.lineplots.retrieve(mixed.key)).ranges).toEqual([
@@ -149,7 +172,7 @@ describe("Range.SYNCHRONIZERS", () => {
       expect(ranges).toEqual([{ variant: "key", key: local.key }]);
     });
 
-    const mount = async (local: Session.Range.StaticState, as: Synnax = client) => {
+    const mount = async (local: Local, as: Synnax = client) => {
       const { wrapper, store } = await createConsoleWrapper({
         client: as,
         preloadedState: {
@@ -166,7 +189,8 @@ describe("Range.SYNCHRONIZERS", () => {
         { wrapper },
       );
       const rewritten = () =>
-        store.getState()[Session.Range.SLICE_NAME].staticKeysRewritten;
+        Object.keys(store.getState()[Session.Range.SLICE_NAME].staticWindows).length ===
+        0;
       return { ...hook, rewritten };
     };
 
@@ -242,7 +266,7 @@ describe("Range.SYNCHRONIZERS", () => {
         await waitFor(() => expect(send).toHaveBeenCalled());
         unmount();
         release();
-        await new Promise((resolve) => setTimeout(resolve, 0));
+        await scheduler.flushTaskQueue();
         expect(rewritten()).toBe(false);
       } finally {
         send.mockRestore();

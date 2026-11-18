@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { bounds } from "@synnaxlabs/x";
 import { type RefCallback, useRef } from "react";
 
 const LINE_HEIGHT = 16;
@@ -53,7 +54,7 @@ export const useWheelScrollX = <E extends HTMLElement>(): RefCallback<E> => {
       )
         if (scrollsY(node, delta)) return;
       const max = Math.max(el.scrollWidth - el.clientWidth, 0);
-      const next = Math.min(Math.max(el.scrollLeft + delta, 0), max);
+      const next = bounds.clamp({ lower: 0, upper: max }, el.scrollLeft + delta);
       if (next === el.scrollLeft) return;
       e.preventDefault();
       el.scrollLeft = next;

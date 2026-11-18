@@ -79,12 +79,15 @@ interface FooterProps {
 
 const Footer = ({ label, variant, onCancel, onSave }: FooterProps): ReactElement => {
   const client = Synnax.use();
+  const busy = variant === "loading";
+  Modals.useBusy(busy);
   return (
     <Modal.Footer>
       <Nav.Bar.End x align="center">
         <Button.Button
           variant="outlined"
           onClick={onCancel}
+          disabled={busy}
           triggerIndicator={PTriggers.ESCAPE}
         >
           Cancel

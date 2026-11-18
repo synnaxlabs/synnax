@@ -339,7 +339,6 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
       { target, protocol: "websocket", params: {}, role: "client" },
       async (ctx: Context): Promise<Context> => {
         const { [AUTHORIZATION_HEADER_KEY]: authorization, ...params } = ctx.params;
-        // A browser cannot set WebSocket headers, so the token stays in the URL.
         const ws =
           authorization == null || this.connector.sendsHeaders !== true
             ? await this.connector.dial(this.buildURL(target, ctx.params), {})
