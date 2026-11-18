@@ -57,11 +57,11 @@
     },
     {
       "document": { "temp": 1, "state": "run", "count": null },
-      "error": "message reading: field count: no value at /count: validation error"
+      "error": "field count: no value at /count: validation error"
     },
     {
       "document": { "temp": 1, "state": "run", "count": "" },
-      "error": "message reading: field count: no value at /count: validation error"
+      "error": "field count: no value at /count: validation error"
     }
   ]
 }

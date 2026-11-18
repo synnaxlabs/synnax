@@ -234,3 +234,12 @@ export const withControlHeld = (run: () => void): void => {
     fireEvent.keyUp(window, { key: "Control", code: "ControlLeft" });
   }
 };
+
+/** Drags one element onto another, with one DataTransfer carried through the drag. */
+export const dragOnto = (from: HTMLElement, to: HTMLElement): void => {
+  const dataTransfer = new DataTransfer();
+  fireEvent.dragStart(from, { dataTransfer });
+  fireEvent.dragOver(to, { dataTransfer });
+  fireEvent.drop(to, { dataTransfer });
+  fireEvent.dragEnd(from, { dataTransfer });
+};

@@ -373,7 +373,7 @@ func (w Writer) parentScope(
 		resource.TypeHTTPServer, resource.TypeLabjackDevice, resource.TypeModbusServer,
 		resource.TypeNiChassis, resource.TypeNiDevice, resource.TypeOpcuaServer,
 		resource.TypeArcDirectory, resource.TypeSecret, resource.TypeCertificate,
-		resource.TypeColor, resource.TypeICD:
+		resource.TypeColor, resource.TypeICD, resource.TypeEnumeration:
 	}
 	return "", validate.PathedError(errors.Wrapf(
 		validate.ErrValidation,

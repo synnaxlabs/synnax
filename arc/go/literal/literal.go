@@ -69,10 +69,9 @@ func Parse(
 var ErrTruncated = errors.New("non-integer float in an integer type")
 
 // ParseString parses any of the eight string literal forms ("..." / `...`
-// crossed with optional r/f/rf/fr prefix) and returns the cooked Go string. For
-// format-prefixed strings without placeholders, {{ and }} are collapsed to
-// literal braces; for format strings with placeholders the body is returned
-// with placeholders intact so callers can run FmtStrParse themselves.
+// crossed with optional r/f/rf/fr prefix) and returns the cooked Go string. A format
+// string collapses {{ and }} to literal braces. One with a placeholder is not a
+// constant and returns a codes.NotConstant error.
 func ParseString(text string, targetType types.Type) (ParsedValue, error) {
 	if targetType.IsValid() && targetType.Kind != types.KindString {
 		return ParsedValue{}, codes.TypeMismatch.Errorf(
@@ -104,15 +103,37 @@ func ParseString(text string, targetType types.Type) (ParsedValue, error) {
 				errors.Wrapf(err, "invalid format string %s", text),
 			)
 		}
-		if !FmtStrHasPlaceholder(segments) {
-			var sb strings.Builder
-			for _, seg := range segments {
-				sb.WriteString(seg.Text)
-			}
-			value = sb.String()
+		if FmtStrHasPlaceholder(segments) {
+			return ParsedValue{}, codes.NotConstant.Errorf(
+				"format string %s is not a compile-time constant",
+				text,
+			)
 		}
+		var sb strings.Builder
+		for _, seg := range segments {
+			sb.WriteString(seg.Text)
+		}
+		value = sb.String()
 	}
 	return ParsedValue{Value: value, Type: types.String()}, nil
+}
+
+// IsConstant reports whether expr is a lone literal with a value known at compile
+// time. A format string that has a placeholder, or that does not split, is not.
+func IsConstant(expr parser.IExpressionContext) bool {
+	if !parser.IsLiteral(expr) {
+		return false
+	}
+	str := parser.StringTerminal(parser.GetLiteral(expr))
+	if str == nil {
+		return true
+	}
+	body, flags, ok := StripQuotes(str.GetText())
+	if !ok || !flags.Format {
+		return true
+	}
+	segments, err := FmtStrSplit(body, flags)
+	return err == nil && !FmtStrHasPlaceholder(segments)
 }
 
 // ParseNumeric parses a numeric literal (integer or float, with optional unit suffix)
@@ -124,55 +145,121 @@ func ParseNumeric(
 	numLit parser.INumericLiteralContext,
 	targetType types.Type,
 ) (ParsedValue, error) {
-	return parseNumericSigned(numLit, numLit.MINUS() != nil, targetType)
+	return ParseNumericSigned(numLit, numLit.MINUS() != nil, targetType)
 }
 
-// parseNumericSigned parses numLit's magnitude and applies negate before the range
+// ParseNumericSigned parses numLit's magnitude and applies negate before the range
 // check and unit scaling, so type minimums like -128 for i8 fit and negated units keep
 // sign.
-func parseNumericSigned(
+func ParseNumericSigned(
 	numLit parser.INumericLiteralContext,
 	negate bool,
 	targetType types.Type,
 ) (ParsedValue, error) {
 	if intLit := numLit.INTEGER_LITERAL(); intLit != nil {
-		intValue, err := strconv.ParseInt(intLit.GetText(), 10, 64)
-		if err != nil {
-			return ParsedValue{}, codes.InvalidLiteral.Mark(
-				errors.Wrapf(err, "invalid integer literal: %s", intLit.GetText()),
-			)
-		}
+		return parseIntegerMagnitude(numLit, intLit.GetText(), negate, targetType)
+	}
+	if floatLit := numLit.FLOAT_LITERAL(); floatLit != nil {
+		return parseFloatMagnitude(numLit, floatLit.GetText(), negate, targetType)
+	}
+	return ParsedValue{}, codes.InvalidLiteral.Errorf("unknown numeric literal")
+}
+
+func parseIntegerMagnitude(
+	numLit parser.INumericLiteralContext,
+	text string,
+	negate bool,
+	targetType types.Type,
+) (ParsedValue, error) {
+	magnitude, err := strconv.ParseUint(text, 10, 64)
+	if err != nil {
+		return ParsedValue{}, codes.InvalidLiteral.Mark(
+			errors.Wrapf(err, "invalid integer literal: %s", text),
+		)
+	}
+	if magnitude <= math.MaxInt64 {
+		intValue := int64(magnitude)
 		if negate {
 			intValue = -intValue
 		}
-		if unitID := numLit.IDENTIFIER(); unitID != nil {
-			return parseNumericWithUnit(
-				float64(intValue),
-				true,
-				unitID.GetText(),
-				targetType,
-			)
-		}
-		return parseIntegerLiteral(intValue, targetType)
+		return parseIntegerValue(numLit, intValue, targetType)
 	}
-
-	if floatLit := numLit.FLOAT_LITERAL(); floatLit != nil {
-		floatValue, err := strconv.ParseFloat(floatLit.GetText(), 64)
+	switch {
+	case negate && magnitude == -math.MinInt64:
+		return parseIntegerValue(numLit, math.MinInt64, targetType)
+	case !negate && targetType.Kind == types.KindU64 &&
+		numLit.IDENTIFIER() == nil:
+		return ParsedValue{Value: magnitude, Type: types.U64()}, nil
+	case targetType.IsFloat():
+		floatValue, err := strconv.ParseFloat(text, 64)
 		if err != nil {
 			return ParsedValue{}, codes.InvalidLiteral.Mark(
-				errors.Wrapf(err, "invalid float literal: %s", floatLit.GetText()),
+				errors.Wrapf(err, "invalid integer literal: %s", text),
 			)
 		}
 		if negate {
 			floatValue = -floatValue
 		}
 		if unitID := numLit.IDENTIFIER(); unitID != nil {
-			return parseNumericWithUnit(floatValue, false, unitID.GetText(), targetType)
+			return parseNumericWithUnit(
+				floatValue,
+				true,
+				unitID.GetText(),
+				targetType,
+			)
 		}
 		return parseFloatLiteral(floatValue, targetType)
+	default:
+		rangeType := types.I64()
+		if targetType.IsValid() {
+			rangeType = targetType
+		}
+		if negate {
+			text = "-" + text
+		}
+		return ParsedValue{}, codes.ConstantOverflow.Errorf(
+			"integer literal %s out of range for %s",
+			text,
+			rangeType,
+		)
 	}
+}
 
-	return ParsedValue{}, codes.InvalidLiteral.Errorf("unknown numeric literal")
+func parseIntegerValue(
+	numLit parser.INumericLiteralContext,
+	intValue int64,
+	targetType types.Type,
+) (ParsedValue, error) {
+	if unitID := numLit.IDENTIFIER(); unitID != nil {
+		return parseNumericWithUnit(
+			float64(intValue),
+			true,
+			unitID.GetText(),
+			targetType,
+		)
+	}
+	return parseIntegerLiteral(intValue, targetType)
+}
+
+func parseFloatMagnitude(
+	numLit parser.INumericLiteralContext,
+	text string,
+	negate bool,
+	targetType types.Type,
+) (ParsedValue, error) {
+	floatValue, err := strconv.ParseFloat(text, 64)
+	if err != nil {
+		return ParsedValue{}, codes.InvalidLiteral.Mark(
+			errors.Wrapf(err, "invalid float literal: %s", text),
+		)
+	}
+	if negate {
+		floatValue = -floatValue
+	}
+	if unitID := numLit.IDENTIFIER(); unitID != nil {
+		return parseNumericWithUnit(floatValue, false, unitID.GetText(), targetType)
+	}
+	return parseFloatLiteral(floatValue, targetType)
 }
 
 // parseNumericWithUnit handles numeric literals with unit suffixes (e.g., "300ms",
@@ -608,7 +695,7 @@ func ParseConst(
 	if parser.IsNegatedLiteral(expr) {
 		if lit := parser.GetLiteral(expr); lit != nil {
 			if numLit := lit.NumericLiteral(); numLit != nil {
-				return parseNumericSigned(numLit, true, targetType)
+				return ParseNumericSigned(numLit, true, targetType)
 			}
 		}
 	}

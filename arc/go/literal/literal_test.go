@@ -508,44 +508,44 @@ var _ = Describe("Literal Parser", func() {
 			),
 			Entry("no target type infers string from raw", `r"hi"`, types.Type{}, "hi"),
 			Entry(
-				"format single preserves placeholders in body",
-				`f"hi {x}"`,
+				"format single collapses doubled braces",
+				`f"hi {{x}}"`,
 				types.String(),
 				"hi {x}",
 			),
 			Entry(
 				"format single processes standard escapes",
-				`f"a\nb {x}"`,
+				`f"a\nb {{x}}"`,
 				types.String(),
 				"a\nb {x}",
 			),
 			Entry(
-				"format multi preserves placeholders in body",
-				"f`v={x}\nt={t}`",
+				"format multi collapses doubled braces",
+				"f`v={{x}}\nt={{t}}`",
 				types.String(),
 				"v={x}\nt={t}",
 			),
 			Entry(
-				"format multi processes escapes outside placeholders",
-				"f`a\\tb {x}`",
+				"format multi processes escapes",
+				"f`a\\tb {{x}}`",
 				types.String(),
 				"a\tb {x}",
 			),
 			Entry(
-				"rf preserves placeholder and backslash verbatim",
-				`rf"C:\path\{x}"`,
+				"rf keeps a backslash verbatim",
+				`rf"C:\path\{{x}}"`,
 				types.String(),
 				`C:\path\{x}`,
 			),
 			Entry(
 				"fr (order-flipped) behaves identically to rf",
-				`fr"hi {x}"`,
+				`fr"hi {{x}}"`,
 				types.String(),
 				`hi {x}`,
 			),
 			Entry(
-				"rf multi preserves placeholder, real newline, and backslash",
-				"rf`v={x}\nraw=\\n`",
+				"rf multi keeps a real newline and a backslash",
+				"rf`v={{x}}\nraw=\\n`",
 				types.String(),
 				"v={x}\nraw=\\n",
 			),
@@ -582,6 +582,57 @@ var _ = Describe("Literal Parser", func() {
 				"invalid string literal",
 			),
 			Entry("empty text too short", "", types.String(), "invalid string literal"),
+			Entry(
+				"format single with a placeholder",
+				`f"hi {x}"`,
+				types.String(),
+				"is not a compile-time constant",
+			),
+			Entry(
+				"format multi with a placeholder",
+				"f`v={x}\nt={t}`",
+				types.String(),
+				"is not a compile-time constant",
+			),
+			Entry(
+				"rf with a placeholder",
+				`rf"C:\path\{x}"`,
+				types.String(),
+				"is not a compile-time constant",
+			),
+			Entry(
+				"fr with a placeholder",
+				`fr"hi {x}"`,
+				types.String(),
+				"is not a compile-time constant",
+			),
+		)
+
+		It("Should give a format string with a placeholder its code", func() {
+			_, err := literal.ParseString(`f"hi {x}"`, types.String())
+			Expect(diagnostics.Error(err, nil).Code).To(Equal(codes.NotConstant.Code))
+		})
+
+		DescribeTable("IsConstant",
+			func(text string, expected bool) {
+				expr := MustSucceed(parser.ParseExpression(text))
+				Expect(literal.IsConstant(expr)).To(Equal(expected))
+			},
+			Entry("integer", "42", true),
+			Entry("negated integer", "-3", true),
+			Entry("bool", "true", true),
+			Entry("string", `"abc"`, true),
+			Entry("string with braces", `"{x}"`, true),
+			Entry("raw string with braces", `r"{x}"`, true),
+			Entry("format string with no placeholder", `f"abc"`, true),
+			Entry("format string with doubled braces", `f"{{x}}"`, true),
+			Entry("format string with a placeholder", `f"{x}"`, false),
+			Entry("format multi with a placeholder", "f`{x}`", false),
+			Entry("raw format string with a placeholder", `rf"{x}"`, false),
+			Entry("format string that does not split", `f"{x"`, false),
+			Entry("name", "x", false),
+			Entry("operator", "1 + 2", false),
+			Entry("call", "foo()", false),
 		)
 
 		Describe("Parse AST routing", func() {
@@ -658,6 +709,36 @@ var _ = Describe("Literal Parser", func() {
 		})
 	})
 
+	Describe("ParseNumericSigned", func() {
+		parseSigned := func(
+			text string,
+			negate bool,
+			target types.Type,
+		) (literal.ParsedValue, error) {
+			return literal.ParseNumericSigned(
+				getLiteral(text).NumericLiteral(),
+				negate,
+				target,
+			)
+		}
+
+		DescribeTable("should apply negate before the range check",
+			func(text string, negate bool, target types.Type, expected any) {
+				Expect(MustSucceed(parseSigned(text, negate, target)).Value).
+					To(Equal(expected))
+			},
+			Entry("negated i8 minimum", "128", true, types.I8(), int8(-128)),
+			Entry("unnegated magnitude", "128", false, types.I16(), int16(128)),
+			Entry("negated unit literal", "5s", true, types.I64(), telem.TimeSpan(-5)),
+			Entry("negated float", "2.5", true, types.F64(), float64(-2.5)),
+		)
+
+		It("Should reject a negated magnitude into an unsigned target", func() {
+			Expect(parseSigned("1", true, types.U8())).
+				Error().To(MatchError(ContainSubstring("out of range for u8")))
+		})
+	})
+
 	Describe("IsExactInteger", func() {
 		DescribeTable("should correctly identify exact integers",
 			func(value float64, expected bool) {
@@ -692,6 +773,30 @@ var _ = Describe("Literal Parser", func() {
 			Entry("i8 type minimum", "-128", types.I8(), int8(-128)),
 			Entry("i16 type minimum", "-32768", types.I16(), int16(-32768)),
 			Entry("i32 type minimum", "-2147483648", types.I32(), int32(-2147483648)),
+			Entry(
+				"i64 type minimum",
+				"-9223372036854775808",
+				types.I64(),
+				int64(-9223372036854775808),
+			),
+			Entry(
+				"u64 type maximum",
+				"18446744073709551615",
+				types.U64(),
+				uint64(18446744073709551615),
+			),
+			Entry(
+				"magnitude above the i64 maximum into f64",
+				"10000000000000000000",
+				types.F64(),
+				float64(1e19),
+			),
+			Entry(
+				"negated magnitude above the i64 maximum into f32",
+				"-10000000000000000000",
+				types.F32(),
+				float32(-1e19),
+			),
 			Entry("negated float", "-2.5", types.F64(), float64(-2.5)),
 			Entry("negated float narrowed to f32", "-2.5", types.F32(), float32(-2.5)),
 			Entry(
@@ -747,6 +852,42 @@ var _ = Describe("Literal Parser", func() {
 				"-200",
 				types.I8(),
 				"out of range for i8",
+			),
+			Entry(
+				"i64 maximum plus one",
+				"9223372036854775808",
+				types.I64(),
+				"out of range for i64",
+			),
+			Entry(
+				"one below the i64 minimum",
+				"-9223372036854775809",
+				types.I64(),
+				"integer literal -9223372036854775809 out of range for i64",
+			),
+			Entry(
+				"magnitude above the i64 maximum with no target",
+				"9223372036854775808",
+				types.Type{},
+				"out of range for i64",
+			),
+			Entry(
+				"magnitude above the i64 maximum into u32",
+				"10000000000000000000",
+				types.U32(),
+				"out of range for u32",
+			),
+			Entry(
+				"negated magnitude above the i64 maximum into u64",
+				"-9223372036854775809",
+				types.U64(),
+				"integer literal -9223372036854775809 out of range for u64",
+			),
+			Entry(
+				"magnitude above the i64 maximum with a unit into u64",
+				"9223372036854775808ns",
+				types.U64(),
+				"out of range for u64",
 			),
 		)
 	})
