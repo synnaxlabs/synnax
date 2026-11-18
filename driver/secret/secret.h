@@ -44,7 +44,7 @@ public:
     Reader(std::shared_ptr<synnax::Synnax> client, Config cfg);
 
     /// @brief returns the values of the secrets with the given keys. It reads a file
-    /// secret from the secrets folder.
+    /// secret from the secrets folder, without the line breaks at the end of the file.
     /// @param granted the values of a spent grant. When set, each stored secret must be
     /// in it. When not, the Core gives a stored value only when a device or task on
     /// the rack uses the secret.

@@ -163,8 +163,8 @@ TEST_F(ReaderTest, MissingSecret) {
     );
 }
 
-/// @brief it should read a file certificate, its key from the secrets folder, and save
-/// its details.
+/// @brief it should read a file certificate, its key file from the secrets folder byte
+/// for byte, and save its details.
 TEST_F(ReaderTest, ReadsFileCertificate) {
     const auto key = this->create_file_certificate(
         this->rack,

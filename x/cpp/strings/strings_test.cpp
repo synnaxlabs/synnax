@@ -126,6 +126,24 @@ TEST(Trim, AllWhitespaceIsEmpty) {
     EXPECT_EQ(x::strings::trim(""), "");
 }
 
+TEST(TrimTrailingLineBreaks, RemovesLineFeed) {
+    EXPECT_EQ(x::strings::trim_trailing_line_breaks("value\n"), "value");
+}
+
+TEST(TrimTrailingLineBreaks, RemovesCarriageReturnLineFeed) {
+    EXPECT_EQ(x::strings::trim_trailing_line_breaks("value\r\n"), "value");
+    EXPECT_EQ(x::strings::trim_trailing_line_breaks("value\r\n\n"), "value");
+}
+
+TEST(TrimTrailingLineBreaks, KeepsSpacesAndInnerLineBreaks) {
+    EXPECT_EQ(x::strings::trim_trailing_line_breaks(" a\nb \n"), " a\nb ");
+}
+
+TEST(TrimTrailingLineBreaks, AllLineBreaksIsEmpty) {
+    EXPECT_EQ(x::strings::trim_trailing_line_breaks("\r\n"), "");
+    EXPECT_EQ(x::strings::trim_trailing_line_breaks(""), "");
+}
+
 TEST(Unquote, RemovesOneLayer) {
     EXPECT_EQ(x::strings::unquote("\"hello\""), "hello");
     EXPECT_EQ(x::strings::unquote("'hello'"), "hello");

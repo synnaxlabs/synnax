@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "x/cpp/fs/fs.h"
+#include "x/cpp/strings/strings.h"
 #include "x/cpp/x509/x509.h"
 
 #include "driver/secret/secret.h"
@@ -82,7 +83,7 @@ std::pair<synnax::secret::Values, x::errors::Error> Reader::read(
                 file->rack
             );
             if (file_err) return {{}, file_err};
-            values[file->key] = std::move(value);
+            values[file->key] = x::strings::trim_trailing_line_breaks(std::move(value));
             continue;
         }
         const auto &key = std::get<synnax::secret::StoredSecret>(s).key;
