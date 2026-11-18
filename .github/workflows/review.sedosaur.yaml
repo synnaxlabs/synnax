@@ -7,7 +7,7 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Reviews a pull request with Sedosaur on a review runner, and posts the review as the
+# Reviews a pull request with Sedosaur on an agent seat, and posts the review as the
 # sedosaur GitHub App. The scripts and the policy in `.sedosaur/` come from the commit
 # that started this workflow, on the default branch, never from the pull request or its
 # base. Claude Code gets only read tools, a checkout of the head, and its OAuth token.
@@ -234,7 +234,7 @@ jobs:
     needs: start
     if: needs.start.outputs.skip == 'false' && needs.start.outputs.carried != 'true'
     name: Review
-    runs-on: [self-hosted, review]
+    runs-on: [self-hosted, agent-claude]
     timeout-minutes: 30
     permissions:
       contents: read
@@ -348,6 +348,7 @@ jobs:
           echo "CLAUDE_CODE_OAUTH_TOKEN=$token" >> "$GITHUB_ENV"
 
       - name: Review
+        id: review
         working-directory: .github/scripts
         env:
           GH_TOKEN: ${{ github.token }}
@@ -357,6 +358,23 @@ jobs:
           REPLAY: ${{ inputs.replay }}
           HEAD_DIR: ${{ runner.temp }}/head
         run: python3 -m review run "$RUNNER_TEMP/review.json"
+
+      # A usage limit or a rejected token stops every job of the seat. The seat leaves
+      # the pool, and Agent - Requeue runs this job again on a seat with a usable login.
+      - name: Leave the pool until the usage limit resets
+        if: failure() && steps.review.outputs.limited-until != ''
+        env:
+          UNTIL: ${{ steps.review.outputs.limited-until }}
+        run: scripts/agent/leave.sh limited-until "$UNTIL"
+
+      - name: Leave the pool until a person renews the login
+        if: failure() && steps.review.outputs.login-broken != ''
+        env:
+          AT: ${{ steps.review.outputs.login-broken }}
+        run: |
+          scripts/agent/leave.sh login-broken "$AT"
+          echo "::error::Claude rejected the token of the seat's login. Store a new" \
+            "one with infra/agent-runner/seat.sh token <login>."
 
       # The trial report compares these records with Greptile's reviews.
       - name: Keep the record

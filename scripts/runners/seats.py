@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""Starts the agent and review seats, driven by controller.py's poll cycle. A seat is
+"""Starts the agent seats, driven by controller.py's poll cycle. A seat is
 one EC2 instance whose runners share an agent login. The runners belong to the
 organization, so the repository's runner list holds none of them, and a seat is found
 by its instance tags. A seat stops itself once idle, when its login reaches a usage
@@ -50,8 +50,6 @@ def seat_labels(tags: dict[str, str]) -> set[str]:
         return set()
     if pool == "agent":
         return {"agent", f"agent-{agent}", f"seat-{seat}"}
-    if pool == "review":
-        return {"review", f"seat-{seat}"}
     return set()
 
 

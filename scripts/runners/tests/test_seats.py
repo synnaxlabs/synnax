@@ -21,7 +21,7 @@ JOB = {"self-hosted", "agent-claude"}
 CLAUDE = "i-0aaa"
 CLAUDE_2 = "i-0bbb"
 CODEX = "i-0ccc"
-REVIEW = "i-0ddd"
+CLAUDE_3 = "i-0ddd"
 
 
 ROLE = "AROAROLE"
@@ -41,8 +41,7 @@ def seat(
     until: sy.TimeStamp | None = None,
     rejected: sy.TimeStamp | None = None,
 ) -> dict:
-    # Review seats run Claude Code.
-    agent = "claude" if pool == "review" else name.split("-")[0]
+    agent = name.split("-")[0]
     tags = {"project": "synnax-agents", "pool": pool, "agent": agent, "seat": name}
     if login is not None:
         tags["login"] = login
@@ -113,10 +112,6 @@ class TestSeatLabels:
         labels = seat_labels(seat("stopped")["tags"])
         assert labels == {"agent", "agent-claude", "seat-claude-1"}
 
-    def test_should_map_a_review_seat_to_its_runner_labels(self) -> None:
-        labels = seat_labels(seat("stopped", name="review-1", pool="review")["tags"])
-        assert labels == {"review", "seat-review-1"}
-
     def test_should_map_other_instances_to_no_labels(self) -> None:
         assert seat_labels(seat("stopped", pool="other")["tags"]) == set()
         assert seat_labels({"RunnerOS": "ubuntu"}) == set()
@@ -162,38 +157,11 @@ class TestSeats:
         )
         assert aws.started == [CLAUDE_2]
 
-    def test_should_start_a_stopped_review_seat_for_a_queued_review(
-        self, client: Client
-    ) -> None:
-        aws = Instances()
-        found = {
-            CLAUDE: seat("stopped"),
-            REVIEW: seat("stopped", name="review-1", pool="review"),
-        }
-        seats(client, aws).step(queued=[{"self-hosted", "review"}], found=found)
-        assert aws.started == [REVIEW]
-        assert client.written("log") == [
-            ["seat review-1: start requested on login claude-1"]
-        ]
-
-    def test_should_not_start_a_review_seat_for_an_agent_job(
-        self, client: Client
-    ) -> None:
-        aws = Instances()
-        seats(client, aws).step(
-            queued=[JOB, {"self-hosted", "agent"}],
-            found={REVIEW: seat("stopped", name="review-1", pool="review")},
-        )
-        assert aws.started == []
-
     def test_should_not_start_a_seat_for_jobs_of_other_pools(
         self, client: Client
     ) -> None:
         aws = Instances()
-        found = {
-            CLAUDE: seat("stopped"),
-            REVIEW: seat("stopped", name="review-1", pool="review"),
-        }
+        found = {CLAUDE: seat("stopped")}
         seats(client, aws).step(
             queued=[
                 {"self-hosted", "ubuntu-build-bot"},
@@ -666,14 +634,14 @@ class TestSeats:
         found = {
             CLAUDE: seat("running", login="claude-1"),
             CLAUDE_2: seat("pending", name="claude-2", login="claude-1"),
-            REVIEW: seat("running", name="review-1", pool="review", login="claude-2"),
+            CLAUDE_3: seat("running", name="claude-3", login="claude-2"),
         }
         seats(client, aws, store).step(queued=[], found=found)
         assert (
             store.tags[f"{PREFIX}claude-1"]["holders"]
             == f"{ROLE}:{CLAUDE} {ROLE}:{CLAUDE_2}"
         )
-        assert store.tags[f"{PREFIX}claude-2"]["holders"] == f"{ROLE}:{REVIEW}"
+        assert store.tags[f"{PREFIX}claude-2"]["holders"] == f"{ROLE}:{CLAUDE_3}"
 
     def test_should_drop_a_seat_from_a_login_its_tag_does_not_name(
         self, client: Client
