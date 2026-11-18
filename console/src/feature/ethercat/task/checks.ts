@@ -216,7 +216,7 @@ const identifierProblem = (
 
 /** @returns what the user must do when other software sets up the slave, or null. */
 const setupStep = (slave: SlaveDevice): string | null => {
-  const reader = setUpBy(slave.properties);
+  const reader = setUpBy(slave.properties.settings);
   if (reader == null) return null;
   const step = canSwitch(slave.properties)
     ? "In Configure, switch it to Synnax"

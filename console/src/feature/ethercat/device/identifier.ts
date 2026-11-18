@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel } from "@synnaxlabs/client";
 import { caseconv } from "@synnaxlabs/x";
 
 import { MAKE, SLAVE_MODEL } from "@/feature/ethercat/device/types";
+import { Device } from "@/platform/device";
 
 /** The fields of a device of any make that the identifier checks read. */
 export interface Holder {
@@ -21,13 +21,6 @@ export interface Holder {
   properties?: { identifier?: unknown; position?: unknown };
 }
 
-/** @returns the prefix that the identifier gives channel names. */
-const prefixOf = (d: Holder): string | null => {
-  const identifier = d.properties?.identifier;
-  if (typeof identifier !== "string" || identifier === "") return null;
-  return channel.escapeInvalidName(identifier);
-};
-
 /**
  * @returns the device other than the slave whose identifier gives the same channel
  * names, or undefined. A slave with no identifier clashes with no device.
@@ -36,9 +29,9 @@ export const findClash = <D extends Holder>(
   slave: Holder,
   devices: D[],
 ): D | undefined => {
-  const prefix = prefixOf(slave);
+  const prefix = Device.channelPrefix(slave);
   if (prefix == null) return undefined;
-  return devices.find((d) => d.key !== slave.key && prefixOf(d) === prefix);
+  return devices.find((d) => d.key !== slave.key && Device.channelPrefix(d) === prefix);
 };
 
 /** @returns "module <name> in slot <position>" for a slave, else "device <name>". */

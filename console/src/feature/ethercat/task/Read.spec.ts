@@ -45,15 +45,18 @@ import {
 import { Device } from "@/platform/device";
 import {
   awaitEditableForm,
+  awaitTare,
   clickDeploy,
   createWithHook,
   deployAndAwaitTask,
   findChannelListItem,
   renderTaskFormTab,
+  reportTaskRunning,
 } from "@/platform/task/testutil";
 import {
   createTestClientWithGrants,
   findDialogTriggerByText,
+  findIconButton,
   uniqueName,
 } from "@/testutil";
 
@@ -181,6 +184,33 @@ const EXCITATION = { index: 0x8040, subIndex: 0x1c, dataType: "float32", name: "
 const POLARITY = { index: 0x8040, subIndex: 0x21, dataType: "uint16", name: "" };
 
 describe("Read", () => {
+  it("should tare a float channel from its button while the task runs", async () => {
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: createPDOs(),
+    });
+    const float = await client.channels.create({
+      name: uniqueName("tare"),
+      dataType: "float32",
+      virtual: true,
+    });
+    const { container, draft } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [
+        {
+          ...EtherCAT.Task.createEntryReadChannel(slave.key, STATUS_ENTRY),
+          channel: float.key,
+        },
+      ],
+    });
+    const args = await awaitTare(client, draft.key, async () => {
+      await reportTaskRunning(client, draft);
+      fireEvent.click(await findIconButton(container, "tare"));
+    });
+    expect(args).toEqual({ keys: [float.key] });
+  });
+
   it("should render channels from the task row's config with their port labels", async () => {
     const slave = await createSlaveDevice(client, testRack.key, {
       identifier: createIdentifier(),
@@ -405,17 +435,53 @@ describe("Read", () => {
     ).toBeTruthy();
   });
 
-  it("should say that DewesoftX sets the settings of a channel of a slave it sets up", async () => {
-    const slave = await createSharedSlave();
+  it("should show the settings that DewesoftX holds for a channel of a slave it sets up", async () => {
+    const settings = createDewesoftXSettings(true);
+    settings.channels = settings.channels.map((input) => ({
+      ...input,
+      settings: input.settings.map((f) =>
+        f.index === MEASUREMENT.index && f.subIndex === MEASUREMENT.subIndex
+          ? { ...f, value: 6 }
+          : f,
+      ),
+    }));
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: { inputs: [STRAIN_ENTRY], outputs: [] },
+      settings,
+    });
     await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
       channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY)],
     });
     fireEvent.click(await screen.findByRole("option", { name: /0x6030:01/ }));
     expect(
-      await screen.findByText("DewesoftX sets the settings of this device."),
+      await screen.findByText(
+        "DewesoftX sets these values. Synnax does not change them.",
+      ),
     ).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /^Measurement/ })).toBeNull();
+    const measurement = screen.getByRole("button", { name: /^Measurement/ });
+    expect(measurement.getAttribute("aria-disabled")).toBe("true");
+    expect(measurement.textContent).toContain("Bridge");
+    expect(screen.getByLabelText<HTMLInputElement>("Excitation voltage").disabled).toBe(
+      true,
+    );
+    expect(
+      screen.queryByText("A bridge needs an excitation voltage above 0 V."),
+    ).toBeNull();
+  });
+
+  it("should show no value for a setting that the scan did not read on a slave that DewesoftX sets up", async () => {
+    const slave = await createSharedSlave();
+    await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY)],
+    });
+    fireEvent.click(await screen.findByRole("option", { name: /0x6030:01/ }));
+    const measurement = await screen.findByRole("button", { name: /^Measurement/ });
+    expect(measurement.getAttribute("aria-disabled")).toBe("true");
+    expect(measurement.textContent).not.toContain("Voltage");
   });
 
   it("should name a slave in DewesoftX mode before Start and offer the switch", async () => {

@@ -22,6 +22,7 @@ import {
   createReachedStatus,
   createSettingsDescription,
   createSlaveDevice,
+  STATUS_ENTRY,
   STRAIN_ENTRY,
   STRAIN_SAMPLE_ENTRY,
 } from "@/feature/ethercat/testutil";
@@ -30,7 +31,13 @@ import { createTestSink } from "@/platform/analytics/testutil";
 import { Device } from "@/platform/device";
 import { Modals } from "@/platform/modals";
 import { findButton, renderModalOpener } from "@/platform/modals/testutil";
-import { answerNextCommand, type CommandAnswer } from "@/platform/task/testutil";
+import {
+  answerCommandsUntil,
+  answerNextCommand,
+  type CommandAnswer,
+  reportTaskRunning,
+  reportTaskStopped,
+} from "@/platform/task/testutil";
 import {
   CaptureStatuses,
   fakePickedFile,
@@ -933,6 +940,119 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
     });
   });
 
+  describe("restart", () => {
+    const RESTART = "Save and restart tasks";
+
+    const createRunningRead = async (slave: EtherCAT.Device.SlaveDevice) => {
+      const rack = await client.racks.retrieve({ key: slave.rack });
+      const read = await rack.createTask({
+        name: uniqueName("ecat_read"),
+        type: EtherCAT.Task.READ_TYPE,
+        config: EtherCAT.Task.READ_SCHEMAS.config.parse({
+          channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STATUS_ENTRY)],
+        }),
+      });
+      await reportTaskRunning(client, read);
+      return read;
+    };
+
+    it("should save, then restart only the tasks on the network", async () => {
+      const slave = await setup();
+      const read = await createRunningRead(slave);
+      const elsewhere = await createSlaveDevice(client, slave.rack, {
+        network: "eth1",
+      });
+      const other = await createRunningRead(elsewhere);
+      const driver = await answerCommandsUntil(client, [read, other], "start");
+      const name = uniqueName("renamed");
+      fireEvent.change(nameInput(), { target: { value: name } });
+      await screen.findByText(RESTART);
+      await save(RESTART);
+      const commands = await driver.answered;
+      expect(commands.map((c) => [c.task, c.type])).toEqual([
+        [read.key, "stop"],
+        [read.key, "start"],
+      ]);
+      expect((await retrieve(slave.key)).name).toBe(name);
+    });
+
+    it("should stop no task for a save that fails validation", async () => {
+      const slave = await setup();
+      const read = await createRunningRead(slave);
+      const driver = await answerCommandsUntil(client, [read], "start");
+      fireEvent.change(identifierInput(), { target: { value: "1x" } });
+      await screen.findByText(RESTART);
+      await save(RESTART);
+      await screen.findByText(IDENTIFIER_FORMAT_ERROR);
+      const identifier = createIdentifier();
+      fireEvent.change(identifierInput(), { target: { value: identifier } });
+      await save(RESTART);
+      // A stop from the first save would arrive before the start of the second.
+      expect((await driver.answered).map((c) => c.type)).toEqual(["stop", "start"]);
+      expect((await retrieve(slave.key)).properties.identifier).toBe(identifier);
+    });
+
+    it("should restart a running write task on the network", async () => {
+      const slave = await setup({ outputs: [CONTROL_ENTRY] });
+      const rack = await client.racks.retrieve({ key: slave.rack });
+      const write = await rack.createTask({
+        name: uniqueName("ecat_write"),
+        type: EtherCAT.Task.WRITE_TYPE,
+        config: EtherCAT.Task.WRITE_SCHEMAS.config.parse({
+          channels: [EtherCAT.Task.createEntryWriteChannel(slave.key, CONTROL_ENTRY)],
+        }),
+      });
+      await reportTaskRunning(client, write);
+      const driver = await answerCommandsUntil(client, [write], "start");
+      await screen.findByText(RESTART);
+      await save(RESTART);
+      expect((await driver.answered).map((c) => c.type)).toEqual(["stop", "start"]);
+    });
+
+    it("should start the tasks again and give the reason when a stop fails", async () => {
+      let statuses: Status.NotificationSpec[] = [];
+      const slave = await setup({ onStatuses: (s) => (statuses = s) });
+      const read = await createRunningRead(slave);
+      const stop = await answerNextCommand(client, read, {
+        type: "stop",
+        variant: "error",
+        message: "Failed to stop task",
+        description: "Slave 2 did not answer.",
+      });
+      const start = await answerNextCommand(client, read, { type: "start" });
+      await screen.findByText(RESTART);
+      await save(RESTART);
+      await stop.answered;
+      await start.answered;
+      await waitFor(() =>
+        expect(statuses).toContainEqual(
+          expect.objectContaining({
+            variant: "error",
+            message: "Failed to restart tasks",
+            description: "Failed to stop task. Slave 2 did not answer.",
+          }),
+        ),
+      );
+    });
+
+    it("should offer a restart for a slave that is not configured", async () => {
+      const slave = await setup({ configured: false });
+      const other = await createSlaveDevice(client, slave.rack, {
+        network: slave.properties.network,
+      });
+      await createRunningRead(other);
+      expect(await screen.findByText(RESTART)).toBeTruthy();
+    });
+
+    it("should offer no restart once no task on the network runs", async () => {
+      const slave = await setup();
+      const read = await createRunningRead(slave);
+      expect(await screen.findByText(RESTART)).toBeTruthy();
+      await reportTaskStopped(client, read);
+      await waitFor(() => expect(screen.queryByText(RESTART)).toBeNull());
+    });
+  });
+
   describe("setup", () => {
     it("should offer to switch a card that sends data only DewesoftX reads", async () => {
       await setup({
@@ -943,16 +1063,19 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
         await screen.findByText("Only DewesoftX can use this device"),
       ).toBeTruthy();
       expect(findButton("Switch to Synnax")).toBeTruthy();
-      expect(screen.queryByRole("button", { name: "Sample rate" })).toBeNull();
     });
 
-    it("should hide the settings and startup parameters of a card that DewesoftX sets up", async () => {
-      await setup({
-        settings: createDewesoftXSettings(true, 2),
-        inputs: [STRAIN_ENTRY],
-      });
+    it("should show the held settings of a card that DewesoftX sets up and hide its startup parameters", async () => {
+      const settings = createDewesoftXSettings(true, 2);
+      settings.device = settings.device.map((f) => ({ ...f, value: 12 }));
+      await setup({ settings, inputs: [STRAIN_ENTRY] });
       expect(await screen.findByText("DewesoftX sets up this device")).toBeTruthy();
-      expect(screen.queryByRole("button", { name: "Sample rate" })).toBeNull();
+      const rate = screen.getByRole("button", { name: /^Sample rate/ });
+      expect(rate.getAttribute("aria-disabled")).toBe("true");
+      expect(rate.textContent).toContain("1 kS/s");
+      expect(
+        screen.getByText("DewesoftX sets these values. Synnax does not change them."),
+      ).toBeTruthy();
       expect(screen.queryByText("Startup parameters")).toBeNull();
       expect(findButton("Switch to Synnax")).toBeTruthy();
     });
