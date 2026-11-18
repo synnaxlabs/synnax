@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export type { Entry, Listing } from "@/platform/file-browser/list";
-export { list, TASK_TYPE } from "@/platform/file-browser/list";
+export type { Entry } from "@/platform/file-browser/list";
 export * from "@/platform/file-browser/Modal";
 export * from "@/platform/file-browser/SelectSecretFile";

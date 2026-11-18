@@ -18,14 +18,14 @@ import {
 import { z } from "zod";
 
 /** The type of the task on each rack that lists its files. */
-export const TASK_TYPE = "file_browser";
+const TASK_TYPE = "file_browser";
 
 /** The command that lists a folder. */
-export const LIST_COMMAND_TYPE = "list";
+const LIST_COMMAND_TYPE = "list";
 
 const LIST_TIMEOUT = TimeSpan.seconds(10);
 
-export const entryZ = z.object({
+const entryZ = z.object({
   name: z.string(),
   /** The absolute path of the entry on the rack. */
   path: z.string(),
@@ -40,7 +40,7 @@ export const entryZ = z.object({
 /** A file or folder on a rack. */
 export interface Entry extends z.infer<typeof entryZ> {}
 
-export const listingZ = z.object({
+const listingZ = z.object({
   /** The listed folder, or empty for the top. */
   path: z.string(),
   /** The folder above the listed one, or empty at a root. */

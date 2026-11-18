@@ -13,7 +13,7 @@ import { onTestFinished } from "vitest";
 import { z } from "zod";
 
 import { createRunningRack } from "@/platform/device/testutil";
-import { FileBrowser } from "@/platform/file-browser";
+import { type Listing } from "@/platform/file-browser/list";
 import { answerCommand } from "@/platform/task/testutil";
 import { uniqueName } from "@/testutil";
 
@@ -28,7 +28,7 @@ export const createFileRack = async (client: Synnax): Promise<FileRack> => {
   const r = await createRunningRack(client, "file");
   const browser = await r.createTask({
     name: uniqueName("file_browser"),
-    type: FileBrowser.TASK_TYPE,
+    type: "file_browser",
     config: {},
   });
   return { rack: r, browser };
@@ -37,9 +37,7 @@ export const createFileRack = async (client: Synnax): Promise<FileRack> => {
 const listArgsZ = z.object({ path: z.string() });
 
 /** Creates the listing of a folder, with defaults for the fields a spec ignores. */
-export const createListing = (
-  overrides: Partial<FileBrowser.Listing> = {},
-): FileBrowser.Listing => ({
+export const createListing = (overrides: Partial<Listing> = {}): Listing => ({
   path: "",
   parent: "",
   secretsDir: "",
@@ -57,7 +55,7 @@ export const createListing = (
 export const serveListings = async (
   client: Synnax,
   { browser }: FileRack,
-  listings: FileBrowser.Listing[],
+  listings: Listing[],
 ): Promise<void> => {
   const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
   let finished = false;
@@ -70,7 +68,7 @@ export const serveListings = async (
       const frame = await streamer.read();
       for (const sample of frame.get(task.COMMAND_CHANNEL_NAME)) {
         const cmd = task.commandZ.parse(sample);
-        if (cmd.task !== browser.key) continue;
+        if (cmd.task !== browser.key || cmd.type !== "list") continue;
         const { path } = listArgsZ.parse(cmd.args);
         const listing = listings.find((l) => l.path === path);
         await answerCommand(

@@ -62,7 +62,7 @@ const ETC = createListing({
   ],
 });
 
-const openBrowser = async (listings: FileBrowser.Listing[]) => {
+const openBrowser = async (listings: ReturnType<typeof createListing>[]) => {
   const files = await createFileRack(client);
   await serveListings(client, files, listings);
   const handle = await renderModalOpener(

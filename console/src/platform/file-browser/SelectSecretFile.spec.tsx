@@ -44,7 +44,7 @@ const Fixture = ({ rack, onChange }: FixtureProps): ReactElement => {
 };
 
 const renderSelect = async (
-  listings: FileBrowser.Listing[],
+  listings: ReturnType<typeof createListing>[],
 ): Promise<Mock<(name: string) => void>> => {
   const files = await createFileRack(client);
   await serveListings(client, files, listings);
