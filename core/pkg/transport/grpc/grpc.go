@@ -43,6 +43,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/view"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/arc"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/auth"
+	"github.com/synnaxlabs/synnax/pkg/transport/grpc/certificate"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/channel"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/connectivity"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/control"
@@ -53,6 +54,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/rack"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/ranger"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/ranger/kv"
+	"github.com/synnaxlabs/synnax/pkg/transport/grpc/secret"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/status"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/task"
 )
@@ -82,6 +84,8 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 		control.New(&t, errs),
 		nidevice.New(&t, errs),
 		nichassis.New(&t, errs),
+		secret.New(&t, errs),
+		certificate.New(&t, errs),
 	}
 
 	// AUTH
@@ -230,15 +234,11 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 
 	// SECRET
 	t.SecretSet = noop.UnaryServer[apisecret.SetRequest, apisecret.SetResponse]{}
-	t.SecretRetrieve = noop.UnaryServer[apisecret.RetrieveRequest, apisecret.RetrieveResponse]{}
 	t.SecretDelete = noop.UnaryServer[apisecret.DeleteRequest, struct{}]{}
 	t.SecretDispatch = noop.UnaryServer[apisecret.DispatchRequest, struct{}]{}
 	t.SecretGrantCreate = noop.UnaryServer[apisecret.GrantCreateRequest, apisecret.GrantCreateResponse]{}
-	t.SecretResolve = noop.UnaryServer[apisecret.ResolveRequest, apisecret.ResolveResponse]{}
 
 	// CERTIFICATE
-	t.CertificateSet = noop.UnaryServer[apicertificate.SetRequest, apicertificate.SetResponse]{}
-	t.CertificateRetrieve = noop.UnaryServer[apicertificate.RetrieveRequest, apicertificate.RetrieveResponse]{}
 	t.CertificateDelete = noop.UnaryServer[apicertificate.DeleteRequest, struct{}]{}
 	t.CertificateDispatch = noop.UnaryServer[apicertificate.DispatchRequest, struct{}]{}
 
