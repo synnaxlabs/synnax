@@ -7,50 +7,57 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement, useState } from "react";
 
+import { type LicenseList } from "@/page";
 import { type Listed } from "@/server/directory";
-import { type Held, type Owned } from "@/server/license/list";
+import { type Query } from "@/server/license/list";
+import { type Status, STATUSES } from "@/server/license/status";
 import { IssueDialog } from "@/ui/admin/IssueDialog";
 import { LicenseTable } from "@/ui/admin/LicenseTable";
-import { type LicenseStatus, STATUS_LABELS, STATUSES, statusOf } from "@/ui/format";
+import { navigate } from "@/ui/api";
+import { STATUS_LABELS } from "@/ui/format";
 import { Empty, Page } from "@/ui/Page";
 
-export interface LicensesProps {
+export interface LicensesProps extends LicenseList {
   /** teams are the organizations a license can be issued to. */
   teams: Listed[];
-  licenses: (Owned & Held)[];
   now: Date;
 }
 
-const expiry = ({ license: lic }: Owned): number =>
-  lic.expiresAt == null ? Infinity : lic.expiresAt.getTime();
+const licensesHref = ({ search, status }: Query): string => {
+  const params = new URLSearchParams();
+  const trimmed = search?.trim() ?? "";
+  if (trimmed !== "") params.set("search", trimmed);
+  if (status != null) params.set("status", status);
+  const query = params.toString();
+  return query === "" ? "/admin/licenses" : `/admin/licenses?${query}`;
+};
 
-/** Licenses lists every license and issues new ones. Staff only. */
-export const Licenses = ({ teams, licenses, now }: LicensesProps): ReactElement => {
-  const [search, setSearch] = useState("");
-  const [status, setStatus] = useState<LicenseStatus | null>(null);
-  const query = search.trim().toLowerCase();
-  const matches = (row: Owned): boolean => {
-    const { license: lic, organization: org } = row;
-    if (status != null && statusOf(lic, now) !== status) return false;
-    if (query === "") return true;
-    return `${lic.label} ${org.name} ${lic.key}`.toLowerCase().includes(query);
-  };
-  const shown = licenses.filter(matches);
-  // Soonest first is the only order that answers what the Expiring filter asks.
-  if (status === "expiring") shown.sort((a, b) => expiry(a) - expiry(b));
+/** Licenses lists every license a page at a time and issues new ones. Staff only. */
+export const Licenses = ({
+  teams,
+  page,
+  query,
+  nextHref,
+  now,
+}: LicensesProps): ReactElement => {
+  const [search, setSearch] = useState(query.search ?? "");
+  const filtered = query.search != null || query.status != null;
+  const firstHref = licensesHref(query);
   return (
     <Page
       title="Licenses"
       subtitle="Every license issued"
       actions={<IssueDialog teams={teams} />}
     >
-      {licenses.length === 0 ? (
+      {page.total === 0 && !filtered ? (
         <Empty icon={<Icon.Access />} message="No licenses issued yet" />
       ) : (
         <>
@@ -58,6 +65,10 @@ export const Licenses = ({ teams, licenses, now }: LicensesProps): ReactElement 
             <Input.Text
               value={search}
               onChange={setSearch}
+              onKeyDown={(e) => {
+                if (e.key !== "Enter") return;
+                navigate(licensesHref({ search, status: query.status }));
+              }}
               placeholder={
                 <>
                   <Icon.Search />
@@ -66,22 +77,43 @@ export const Licenses = ({ teams, licenses, now }: LicensesProps): ReactElement 
               }
               className="portal-search"
             />
-            <Select.Buttons<LicenseStatus>
-              value={status ?? undefined}
-              onChange={setStatus}
-              allowNone
-            >
-              {STATUSES.map((s) => (
-                <Select.Item key={s} itemKey={s} size="small">
-                  {STATUS_LABELS[s]}
-                </Select.Item>
-              ))}
-            </Select.Buttons>
+            <Flex.Box x align="center" gap="medium">
+              <Text.Text level="small" color={9}>
+                {page.total === 1 ? "1 license" : `${page.total} licenses`}
+              </Text.Text>
+              <Select.Buttons<Status>
+                value={query.status}
+                onChange={(status: Status | null) =>
+                  navigate(licensesHref({ search, status: status ?? undefined }))
+                }
+                allowNone
+              >
+                {STATUSES.map((s) => (
+                  <Select.Item key={s} itemKey={s} size="small">
+                    {STATUS_LABELS[s]}
+                  </Select.Item>
+                ))}
+              </Select.Buttons>
+            </Flex.Box>
           </Flex.Box>
-          {shown.length === 0 ? (
+          {page.entries.length === 0 ? (
             <Empty icon={<Icon.Search />} message="No licenses match" />
           ) : (
-            <LicenseTable entries={shown} now={now} />
+            <LicenseTable entries={page.entries} now={now} />
+          )}
+          {(query.after != null || nextHref != null) && (
+            <Flex.Box x justify="center" gap="medium">
+              {query.after != null && (
+                <Button.Button variant="outlined" href={firstHref}>
+                  First page
+                </Button.Button>
+              )}
+              {nextHref != null && (
+                <Button.Button variant="outlined" href={nextHref}>
+                  Next page
+                </Button.Button>
+              )}
+            </Flex.Box>
           )}
         </>
       )}

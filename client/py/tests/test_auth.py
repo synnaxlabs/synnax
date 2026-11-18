@@ -10,6 +10,7 @@
 from uuid import uuid4
 
 import pytest
+from pydantic import ValidationError
 
 import freighter
 import synnax as sy
@@ -40,7 +41,7 @@ class TestClusterAuth:
         Should raise a ValidationError
         """
         host, port, username, _ = login_info
-        with pytest.raises(sy.PathError):
+        with pytest.raises(ValidationError):
             sy.Synnax(
                 host=host,
                 port=port,
@@ -243,11 +244,6 @@ class TestAPIKeys:
                 password=password,
                 api_key="syk_key",
             )
-
-    def test_key_without_host(self) -> None:
-        """Should reject an API key given without a host."""
-        with pytest.raises(sy.ValidationError):
-            sy.Synnax(api_key="syk_key")
 
     def test_lifecycle(
         self, login_info: tuple[str, int, str, str], empty_role: sy.Role

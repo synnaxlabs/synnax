@@ -19,6 +19,9 @@ class TestOPCDevice:
     def test_certificate_properties(self) -> None:
         """Test that Device writes the certificate settings that the Driver reads."""
         dev = sy.opcua.Device(
+            name="Test Device",
+            location="Test Location",
+            rack=1,
             endpoint="opc.tcp://localhost:4840",
             security_mode="SignAndEncrypt",
             security_policy="Basic256Sha256",
@@ -40,6 +43,9 @@ class TestOPCDevice:
     def test_timeout_properties(self) -> None:
         """Should write the timeouts that the Driver reads."""
         dev = sy.opcua.Device(
+            name="Test Device",
+            location="Test Location",
+            rack=1,
             endpoint="opc.tcp://localhost:4840",
             client_timeout_ms=2_000,
             secure_channel_lifetime_ms=60_000,
@@ -178,6 +184,7 @@ class TestOPCReadTask:
         )
         task_targets.attach(task.config)
         createdTask = client.tasks.create(
+            rack=task_targets.rack,
             name="test-task",
             type="opc_read",
             config=task.config,
@@ -193,7 +200,10 @@ class TestOPCReadTask:
         )
         task_targets.attach(task.config)
         created = client.tasks.create(
-            name="test-task", type="opc_read", config=task.config
+            rack=task_targets.rack,
+            name="test-task",
+            type="opc_read",
+            config=task.config,
         )
         retrieved = client.tasks.retrieve(key=created.key)
         assert sy.opcua.ReadTask(retrieved).config.nan_fill_enabled is True
@@ -297,6 +307,7 @@ class TestOPCWriteTask:
         )
         task_targets.attach(task.config)
         createdTask = client.tasks.create(
+            rack=task_targets.rack,
             name="test-write-task",
             type="opc_write",
             config=task.config,
@@ -372,6 +383,7 @@ class TestOPCWriteTask:
         # Create task in database
         task_targets.attach(original_task.config)
         created_task = client.tasks.create(
+            rack=task_targets.rack,
             name="test-round-trip",
             type="opc_write",
             config=original_task.config,

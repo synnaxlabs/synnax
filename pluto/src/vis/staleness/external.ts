@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export { DEFAULT_TIMEOUT, resolveColor } from "@/vis/staleness/aether/staleness";
+export * from "@/vis/staleness/Badge";
 export * from "@/vis/staleness/config";
 export * from "@/vis/staleness/Fields";
 export * from "@/vis/staleness/Provider";

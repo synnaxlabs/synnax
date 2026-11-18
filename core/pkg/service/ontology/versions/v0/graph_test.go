@@ -33,6 +33,7 @@ var _ = Describe("NewFieldMigration", func() {
 	var db *gorp.DB
 	BeforeEach(func() {
 		db = DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
+		StartRun(db.Run)
 	})
 
 	var (

@@ -10,8 +10,8 @@
 package dbc_test
 
 import (
+	"io/fs"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -25,12 +25,13 @@ import (
 // FuzzParse checks that Parse returns definitions or an *Error for any input, and never
 // panics.
 func FuzzParse(f *testing.F) {
-	paths, err := filepath.Glob(filepath.Join("..", "..", "testdata", "*.dbc"))
+	testdata := os.DirFS("../../testdata")
+	paths, err := fs.Glob(testdata, "*.dbc")
 	if err != nil {
 		f.Fatal(err)
 	}
 	for _, path := range paths {
-		data, err := os.ReadFile(path)
+		data, err := fs.ReadFile(testdata, path)
 		if err != nil {
 			f.Fatal(err)
 		}

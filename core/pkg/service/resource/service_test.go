@@ -28,6 +28,7 @@ var _ = Describe("Service", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
+		StartRun(db.Run)
 		channels = openFixture[channelEntry](ctx, db, resource.TypeChannel)
 		racks = openFixture[rackEntry](ctx, db, resource.TypeRack)
 		svc = MustSucceed(resource.NewService(resource.ServiceConfig{

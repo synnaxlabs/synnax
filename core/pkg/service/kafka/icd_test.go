@@ -54,9 +54,18 @@ func createICD(ctx context.Context, messages ...icd.Message) icd.ICD {
 	return ic
 }
 
+// jsonFields returns the fields of m, which must have a JSON payload.
+func jsonFields(m icd.Message) []icd.JSONField {
+	GinkgoHelper()
+	p, ok := m.Payload.Variant.(icd.JSONPayload)
+	Expect(ok).To(BeTrue())
+	return p.Fields
+}
+
 // fieldKey returns the key of field i of m.
 func fieldKey(m icd.Message, i int) icd.FieldKey {
-	return m.Payload.Variant.(icd.JSONPayload).Fields[i].Base().Key
+	GinkgoHelper()
+	return jsonFields(m)[i].Base().Key
 }
 
 // bind returns the binding that writes field i of m to ch.

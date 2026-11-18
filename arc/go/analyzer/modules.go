@@ -11,9 +11,9 @@ package analyzer
 
 import (
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/parser"
-	"github.com/synnaxlabs/x/diagnostics"
 )
 
 // checkModuleRules reports a misplaced export, authority block, or top-level flow.
@@ -21,12 +21,12 @@ func checkModuleRules(ctx acontext.Context[parser.IProgramContext]) {
 	for _, item := range ctx.AST.AllTopLevelItem() {
 		if ctx.Module {
 			if auth := item.AuthorityBlock(); auth != nil {
-				ctx.Diagnostics.Add(diagnostics.Errorf(
+				ctx.Diagnostics.Add(codes.ModuleAuthority.Atf(
 					auth, "a module cannot have an authority block",
 				))
 			}
 			if flow := item.FlowStatement(); flow != nil {
-				ctx.Diagnostics.Add(diagnostics.Errorf(
+				ctx.Diagnostics.Add(codes.ModuleFlow.Atf(
 					flow, "a module cannot have a top-level flow",
 				))
 			}
@@ -35,13 +35,13 @@ func checkModuleRules(ctx acontext.Context[parser.IProgramContext]) {
 			continue
 		}
 		if !ctx.Module {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.Diagnostics.Add(codes.ExportOutsideModule.Atf(
 				item, "export is only valid in a module",
 			))
 			continue
 		}
 		if decl, name := exportedDeclaration(item); name == nil {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.Diagnostics.Add(codes.UnnamedExport.Atf(
 				decl, "an exported declaration needs a name",
 			))
 		}

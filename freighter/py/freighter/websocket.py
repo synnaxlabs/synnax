@@ -505,6 +505,7 @@ class WebsocketClient(_Base, MiddlewareCollector, StreamClient):
         assert socket is not None
         return socket
 
+    @override
     def with_codec(self, codec: Codec) -> "WebsocketClient":
         """
         Create a new client with a different codec.

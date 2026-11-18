@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/encoding"
+	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/http"
 	"go.uber.org/zap"
@@ -79,9 +80,7 @@ func withCodec(c http.Codec) StreamServerOption {
 
 func newStreamServerOptions(opts []StreamServerOption) streamServerOptions {
 	so := streamServerOptions{}
-	for _, c := range defaultCodecs {
-		withCodec(c)(&so)
-	}
+	withCodec(json.Codec)(&so)
 	for _, opt := range opts {
 		opt(&so)
 	}
@@ -92,6 +91,7 @@ type streamServer[RQ, RS freighter.Payload] struct {
 	alamos.Instrumentation
 	serverCtx context.Context
 	streamServerOptions
+	errs    *errors.Codec
 	handler func(context.Context, freighter.ServerStream[RQ, RS]) error
 	wg      *sync.WaitGroup
 	path    string
@@ -156,9 +156,10 @@ func (s *streamServer[RQ, RS]) fiberHandler(upgradeCtx fiber.Ctx) error {
 		return upgradeCtx.SendStatus(fiber.StatusUnsupportedMediaType)
 	}
 	// Upgrade the connection to a websocket connection.
-	return fiberws.New(func(c *fiberws.Conn) { s.handleSocket(iCtx, newCodec, c) })(
-		upgradeCtx,
-	)
+	return fiberws.New(
+		func(c *fiberws.Conn) { s.handleSocket(iCtx, newCodec, c) },
+		fiberws.Config{Subprotocols: []string{subprotocol}},
+	)(upgradeCtx)
 }
 
 func (s *streamServer[RQ, RS]) handleSocket(
@@ -183,6 +184,7 @@ func (s *streamServer[RQ, RS]) handleSocket(
 			writeDeadline: s.writeDeadline,
 			conn:          c.Conn,
 			codec:         codec,
+			errs:          s.errs,
 			forced:        forced,
 			cause: func() error {
 				if handlerCtx == nil {
@@ -263,7 +265,7 @@ func (s *serverStream[RQ, RS]) close(err error) (closeErr error) {
 		closeCode = ws.CloseNormalClosure
 		if err = s.send(WSMessage[RS]{
 			Type: WSMessageTypeClose,
-			Err:  errors.Encode(err, false),
+			Err:  s.errs.Encode(err, false),
 		}); err != nil {
 			return err
 		}

@@ -7,13 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { render } from "@testing-library/react";
+import { act, render, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vitest } from "vitest";
 
 import { Button } from "@/button";
 import { Header } from "@/header";
 import { Icon } from "@/icon";
+import { Text } from "@/text";
 
 describe("Header", () => {
   describe("Header.Title", () => {
@@ -46,6 +47,58 @@ describe("Header", () => {
       expect(onClick).toHaveBeenCalled();
     });
   });
+  describe("Header.Group", () => {
+    it("should call onOpenChange with the next state on a click", async () => {
+      const onOpenChange = vitest.fn();
+      const c = render(
+        <Header.Group open onOpenChange={onOpenChange}>
+          Plant
+        </Header.Group>,
+      );
+      const toggle = c.getByRole("button", { name: "Plant" });
+      expect(toggle.getAttribute("aria-expanded")).toBe("true");
+      await userEvent.click(toggle);
+      expect(onOpenChange).toHaveBeenCalledExactlyOnceWith(false);
+    });
+
+    it("should not open or close the group from a click in a title being edited", async () => {
+      const onOpenChange = vitest.fn();
+      const c = render(
+        <Header.Group open onOpenChange={onOpenChange}>
+          <Text.Editable id="title" value="Plant" onChange={vitest.fn()} />
+        </Header.Group>,
+      );
+      act(() => Text.edit("title"));
+      const title = await c.findByText("Plant");
+      await waitFor(() => expect(title.getAttribute("contenteditable")).toBe("true"));
+      await userEvent.click(title);
+      expect(onOpenChange).not.toHaveBeenCalled();
+      await userEvent.keyboard(" ");
+      expect(onOpenChange).not.toHaveBeenCalled();
+    });
+
+    it("should not open or close the group from a click on an action", async () => {
+      const onOpenChange = vitest.fn();
+      const onCreate = vitest.fn();
+      const c = render(
+        <Header.Group
+          open={false}
+          onOpenChange={onOpenChange}
+          actions={
+            <Button.Button variant="text" aria-label="Create" onClick={onCreate}>
+              <Icon.Add />
+            </Button.Button>
+          }
+        >
+          Plant
+        </Header.Group>,
+      );
+      await userEvent.click(c.getByRole("button", { name: "Create" }));
+      expect(onCreate).toHaveBeenCalledOnce();
+      expect(onOpenChange).not.toHaveBeenCalled();
+    });
+  });
+
   describe("Header.Title.Use", () => {
     it("should render a header with button as its title", async () => {
       const onClick = vitest.fn();

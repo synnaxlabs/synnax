@@ -68,7 +68,9 @@ class StableFor : public runtime::node::Node {
         const auto [i, err] = this->state.resolve_input("duration");
         if (err || !this->state.ref_sourced(i)) return;
         if (const auto v = this->state.ref_input(i); v != nullptr && !v->empty())
-            this->duration = x::telem::TimeSpan(v->at<int64_t>(-1));
+            this->duration = x::telem::TimeSpan(
+                this->state.numeric_input<int64_t>("duration")
+            );
     }
 
 public:

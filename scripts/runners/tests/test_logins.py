@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, cast
+from typing import Any
 
 import pytest
 
@@ -19,7 +19,7 @@ YEAR = 365 * 24 * 3600
 
 
 def logins(secrets: Secrets) -> Logins:
-    return Logins(secrets=cast(Any, secrets), role="AROAROLE")
+    return Logins(secrets=secrets, role="AROAROLE")
 
 
 def login(**fields: Any) -> Login:

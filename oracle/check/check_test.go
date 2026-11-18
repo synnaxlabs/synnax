@@ -67,9 +67,9 @@ var _ = Describe("Run", func() {
 			&fixedGate{name: "analyze", status: check.StatusPass},
 			&fixedGate{name: "generated", status: check.StatusPass},
 		}, nil)
-		names := []string{}
-		for _, g := range report.Gates {
-			names = append(names, g.Gate)
+		names := make([]string, len(report.Gates))
+		for i, g := range report.Gates {
+			names[i] = g.Gate
 		}
 		Expect(names).To(Equal([]string{"format", "analyze", "generated"}))
 	})

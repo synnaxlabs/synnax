@@ -14,6 +14,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -23,6 +24,8 @@ import (
 type LayerConfig struct {
 	Service      *service.Layer
 	Distribution *distribution.Layer
+	// Errors encodes the errors that the API sends to clients.
+	Errors *errors.Codec
 	alamos.Instrumentation
 }
 
@@ -36,6 +39,7 @@ func (c LayerConfig) Validate() error {
 	v := validate.New("api")
 	v.NotNil("service", c.Service)
 	v.NotNil("distribution", c.Distribution)
+	v.NotNil("errors", c.Errors)
 	return v.Error()
 }
 
@@ -44,5 +48,6 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Service = override.Nil(c.Service, other.Service)
 	c.Distribution = override.Nil(c.Distribution, other.Distribution)
+	c.Errors = override.Nil(c.Errors, other.Errors)
 	return c
 }

@@ -47,6 +47,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		// Status labels reference the label table, so it must be open.
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB: db,
@@ -504,6 +505,7 @@ func (f *failOnceDB) OpenIterator(opts kv.IteratorOptions) (kv.Iterator, error) 
 var _ = Describe("Failed index population", func() {
 	It("Should find a status by name with a scan", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(&failOnceDB{DB: memkv.New()}))
+		StartRun(db.Run)
 		svc := MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
 		st := status.Status[any]{
 			Key:     "stored",

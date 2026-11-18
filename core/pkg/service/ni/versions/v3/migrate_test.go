@@ -37,6 +37,7 @@ var _ = Describe("ScanMigration", func() {
 				IgnoredModels: []string{"^cRIO.*", "^nown.*"},
 			}
 			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
 			MustSucceed(gorp.OpenTable(
 				ctx,
 				gorp.TableConfig[uuid.UUID, v2.ScanConfig]{DB: db},
@@ -310,6 +311,7 @@ var _ = Describe("DigitalReadMigration", func() {
 				},
 			}
 			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
 			MustSucceed(gorp.OpenTable(
 				ctx,
 				gorp.TableConfig[uuid.UUID, v2.DigitalReadConfig]{DB: db},
@@ -360,6 +362,7 @@ var _ = Describe("CounterReadMigration", func() {
 			}}},
 		}
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		MustSucceed(gorp.OpenTable(
 			ctx,
 			gorp.TableConfig[uuid.UUID, v2.CounterReadConfig]{DB: db},
@@ -385,9 +388,10 @@ var _ = Describe("CounterReadMigration", func() {
 		Expect(ch.PulsesPerRev).To(Equal(uint32(1)))
 		Expect(ch.Port).To(BeZero())
 		Expect(ch.Disabled).To(BeTrue())
-		fields := []any{}
-		for _, e := range logs.FilterMessage("narrowed an NI channel field").All() {
-			fields = append(fields, e.ContextMap()["field"])
+		logged := logs.FilterMessage("narrowed an NI channel field").All()
+		fields := make([]any, len(logged))
+		for i, e := range logged {
+			fields[i] = e.ContextMap()["field"]
 		}
 		Expect(fields).To(ConsistOf("Port", "PulsesPerRev", "Disabled"))
 	})
@@ -423,6 +427,7 @@ var _ = Describe("AnalogReadMigration", func() {
 			}}},
 		}
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		MustSucceed(gorp.OpenTable(
 			ctx,
 			gorp.TableConfig[uuid.UUID, v2.AnalogReadConfig]{DB: db},
@@ -439,9 +444,10 @@ var _ = Describe("AnalogReadMigration", func() {
 			Namespace:       "ni_analog_read_config",
 			Migrations:      []gorp.Migration{v3.AnalogReadMigration},
 		})).To(Succeed())
-		fields := []any{}
-		for _, e := range logs.FilterMessage("narrowed an NI channel field").All() {
-			fields = append(fields, e.ContextMap()["field"])
+		logged := logs.FilterMessage("narrowed an NI channel field").All()
+		fields := make([]any, len(logged))
+		for i, e := range logged {
+			fields[i] = e.ContextMap()["field"]
 		}
 		Expect(fields).To(ConsistOf("Cjc.Port", "Disabled"))
 	})
@@ -475,6 +481,7 @@ func runStored[I, O gorp.Entry[uuid.UUID]](
 ) (O, []any) {
 	GinkgoHelper()
 	db := DeferClose(gorp.Wrap(memkv.New()))
+	StartRun(db.Run)
 	MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, I]{DB: db}))
 	Expect(gorp.NewCreate[uuid.UUID, I]().Entry(&old).Exec(ctx, db)).To(Succeed())
 	core, logs := observer.New(zapcore.WarnLevel)
@@ -491,9 +498,10 @@ func runStored[I, O gorp.Entry[uuid.UUID]](
 	Expect(gorp.NewRetrieve[uuid.UUID, O]().
 		Where(gorp.MatchKeys[uuid.UUID, O](old.GorpKey())).
 		Entry(&got).Exec(ctx, db)).To(Succeed())
-	fields := []any{}
-	for _, e := range logs.FilterMessage("narrowed an NI channel field").All() {
-		fields = append(fields, e.ContextMap()["field"])
+	logged := logs.FilterMessage("narrowed an NI channel field").All()
+	fields := make([]any, len(logged))
+	for i, e := range logged {
+		fields[i] = e.ContextMap()["field"]
 	}
 	return got, fields
 }

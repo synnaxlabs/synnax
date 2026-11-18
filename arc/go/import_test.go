@@ -75,7 +75,7 @@ var _ = Describe("Imports", func() {
 		It("Should reject time.now without an import", func() {
 			d := analyze(`
 trig -> get_now() -> now_out
-func get_now() {t u8} i64 {
+func get_now() {t u8} i64 ns {
     return time.now()
 }
 `, chans)
@@ -89,7 +89,7 @@ func get_now() {t u8} i64 {
 import time
 
 trig -> get_now() -> now_out
-func get_now() {t u8} i64 {
+func get_now() {t u8} i64 ns {
     return time.now()
 }
 `, chans)
@@ -110,7 +110,7 @@ trig -> time.now() -> now_out
 import ( time control )
 
 trig -> control.set_authority(value=200, channel=valve_cmd)
-func get_now() i64 { return time.now() }
+func get_now() i64 ns { return time.now() }
 `, chans)
 			Expect(d.Ok()).To(BeTrue(), messages(d))
 		})
@@ -201,7 +201,7 @@ sensor -> double() -> output
 			Expect(d.Ok()).To(BeTrue())
 			Expect(*d).To(HaveLen(1))
 			Expect((*d)[0].Severity).To(Equal(protocol.DiagnosticSeverityWarning))
-			Expect(messages(d)).To(ContainSubstring(`imported module "time" is unused`))
+			Expect(messages(d)).To(ContainSubstring(`unused import: "time"`))
 		})
 
 		It("Should compile a program with an unused import", func(ctx SpecContext) {
@@ -223,7 +223,7 @@ sensor -> double() -> output
 import ( time time )
 
 trig -> get_now() -> now_out
-func get_now() {t u8} i64 {
+func get_now() {t u8} i64 ns {
     return time.now()
 }
 `, chans)
@@ -249,7 +249,7 @@ sensor -> avg() -> output
 `, chans)
 			Expect(
 				messages(d),
-			).ToNot(ContainSubstring(`imported module "banana" is unused`))
+			).ToNot(ContainSubstring(`unused import: "banana"`))
 		})
 
 		It("Should not flag a misspelled member as an unused import", func() {
@@ -261,7 +261,7 @@ trig -> time.doesnotexist() -> now_out
 			Expect(d.Ok()).To(BeFalse())
 			Expect(
 				messages(d),
-			).ToNot(ContainSubstring(`imported module "time" is unused`))
+			).ToNot(ContainSubstring(`unused import: "time"`))
 		})
 	})
 
@@ -312,7 +312,7 @@ import time
 import control
 
 trig -> control.set_authority(value=200, channel=valve_cmd)
-func get_now() i64 { return time.now() }
+func get_now() i64 ns { return time.now() }
 `, chans)
 			Expect(d.Ok()).To(BeTrue(), messages(d))
 		})

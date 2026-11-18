@@ -29,6 +29,7 @@ import { ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
 import {
   DataType,
   deep,
+  errors,
   type payload,
   primitive,
   type record,
@@ -186,12 +187,47 @@ const writtenChannels = (entries: ReadEntry[]): Set<channel.Key> => {
   return written;
 };
 
+/** @returns the key of the device properties that store the channels of a message. */
+const storedKey = (topic: string, message: icd.MessageKey): string =>
+  `${topic}#${message}`;
+
 /**
- * The key of the device properties that store the channels of a message that a topic
- * reads. The first message of a topic stores under the topic.
+ * @returns the channels that the device stores for read r of the entry. An older
+ * Console stored the channels of a topic under the bare topic. They belong to the
+ * message that binds one of them, or else to the first message.
  */
-const storedKey = (topic: string, read: number, message: icd.MessageKey): string =>
-  read === 0 ? topic : `${topic}#${message}`;
+const storedOf = (
+  stored: Stored,
+  { topic, messages }: Pick<PlainReadEntry, "topic" | "messages">,
+  r: number,
+): Stored[string] | undefined => {
+  const own = stored[storedKey(topic, messages[r].message)];
+  if (own != null) return own;
+  const legacy = stored[topic];
+  if (legacy == null) return undefined;
+  const channels = new Set([legacy.index, ...Object.values(legacy.channels)]);
+  channels.delete(0);
+  const owner = messages.findIndex(({ bindings }) =>
+    bindings.some(({ channel }) => channels.has(channel)),
+  );
+  return Math.max(owner, 0) === r ? legacy : undefined;
+};
+
+/**
+ * @returns the channel that the device stores for each pointer under any message of the
+ * topic. The channels of the message itself come first.
+ */
+const topicChannels = (
+  stored: Stored,
+  topic: string,
+  message: icd.MessageKey,
+): Record<string, channel.Key> => {
+  const channels: Record<string, channel.Key> = {};
+  for (const [key, props] of Object.entries(stored))
+    if (key === topic || key.startsWith(`${topic}#`))
+      Object.assign(channels, props.channels);
+  return { ...channels, ...stored[storedKey(topic, message)]?.channels };
+};
 
 /**
  * The prefix of the names of the channels that deploying creates for a message. A
@@ -208,18 +244,17 @@ const messagePrefix = (
 };
 
 /**
- * @returns the bindings of fields, each to the channel the device stores for it under
- * the key. A field whose stored channel is in written gets no channel, as the Core
- * refuses a channel that two bindings write. Adds the channels it binds to written.
+ * @returns the bindings of fields, each to the channel stored for its pointer. A field
+ * whose stored channel is in written gets no channel, as the Core refuses a channel
+ * that two bindings write. Adds the channels it binds to written.
  */
 const bindingsOf = (
-  stored: Stored,
-  key: string,
+  stored: Record<string, channel.Key>,
   fields: icd.JSONField[],
   written: Set<channel.Key>,
 ): ReadBinding[] =>
   fields.map(({ key: field, pointer }) => {
-    const ch = stored[key]?.channels[pointer] ?? 0;
+    const ch = stored[pointer] ?? 0;
     if (written.has(ch)) return mqtt.readBindingZ.parse({ field });
     if (ch !== 0) written.add(ch);
     return mqtt.readBindingZ.parse({ field, channel: ch });
@@ -248,11 +283,21 @@ const appendFields = (
   return appended;
 };
 
-const createMessage = (topic: string, fields: icd.JSONField[]): icd.Message => ({
-  key: uuid.create(),
-  name: topic === "" ? "Untitled" : topic,
-  payload: { format: "json", fields },
-});
+/**
+ * @returns a message for the fields of a topic, named after the topic. A name that a
+ * message in taken holds gets a number, such as `plant/oven 2`.
+ */
+const createMessage = (
+  topic: string,
+  fields: icd.JSONField[],
+  taken: icd.Message[],
+): icd.Message => {
+  const names = new Set(taken.map(({ name }) => name));
+  const base = topic === "" ? "Untitled" : topic;
+  let name = base;
+  for (let n = 2; names.has(name); n++) name = `${base} ${n}`;
+  return { key: uuid.create(), name, payload: { format: "json", fields } };
+};
 
 const entryOf = (
   icdKey: icd.Key,
@@ -271,8 +316,12 @@ interface AddTopicsResult {
   held: { key: string; message?: icd.MessageKey; bindings: ReadBinding[] }[];
 }
 
-/** @returns the bindings of the fields of a draft that the task reads. */
-type Bind = (draft: Draft, fields: icd.JSONField[]) => ReadBinding[];
+/** @returns the bindings of the fields of a draft that the message reads. */
+type Bind = (
+  draft: Draft,
+  fields: icd.JSONField[],
+  message: icd.MessageKey,
+) => ReadBinding[];
 
 /** @returns the name of the ICD of a task named name. */
 const icdName = (name: string): string => (name.trim() === "" ? DEFAULT_NAME : name);
@@ -284,10 +333,15 @@ const createICD = async (
   drafts: Draft[],
   bind: Bind,
 ): Promise<AddTopicsResult> => {
-  const messages = drafts.map(({ topic, fields }) => createMessage(topic, fields));
+  const messages: icd.Message[] = [];
+  for (const { topic, fields } of drafts)
+    messages.push(createMessage(topic, fields, messages));
   const { key } = await client.icds.create({ name, messages });
   const added = drafts.map((d, i) =>
-    entryOf(key, d.topic, { message: messages[i].key, bindings: bind(d, d.fields) }),
+    entryOf(key, d.topic, {
+      message: messages[i].key,
+      bindings: bind(d, d.fields, messages[i].key),
+    }),
   );
   return { added, held: [] };
 };
@@ -333,14 +387,17 @@ const addTopics = async ({
       const message = entry == null ? undefined : messageOf(messages, entry, 0);
       if (entry != null && message != null) {
         const appended = appendFields(inserterOf(key), message, draft.fields);
-        result.held.push({ key: entry.key, bindings: bind(draft, appended) });
+        result.held.push({
+          key: entry.key,
+          bindings: bind(draft, appended, message.key),
+        });
         continue;
       }
       const prior = messages.get(key) ?? [];
-      const created = createMessage(draft.topic, draft.fields);
+      const created = createMessage(draft.topic, draft.fields, prior);
       inserterOf(key).insert(PICD.formPath.messages, created, prior.at(-1)?.key);
       messages.set(key, [...prior, created]);
-      const bindings = bind(draft, draft.fields);
+      const bindings = bind(draft, draft.fields, created.key);
       if (entry == null)
         result.added.push(
           entryOf(key, draft.topic, { message: created.key, bindings }),
@@ -389,14 +446,12 @@ const setRead = (
   const bindings = ctx.get(path.bindings).value;
   const bound = bindings.some(({ field: key }) => key === field.key);
   if (bound === on || (on && !ICD.isReadable(field))) return;
-  const { topic } = ctx.get(plainPath(entry)).value;
-  const { message } = ctx.get(path).value;
+  const channels = storedOf(stored, ctx.get(plainPath(entry)).value, read)?.channels;
   const written = writtenChannels(ctx.get(root.config.entries).value);
-  const key = storedKey(topic, read, message);
   ctx.set(
     path.bindings,
     on
-      ? [...bindings, ...bindingsOf(stored, key, [field], written)]
+      ? [...bindings, ...bindingsOf(channels ?? {}, [field], written)]
       : bindings.filter(({ field: k }) => k !== field.key),
   );
 };
@@ -568,13 +623,14 @@ const useMessageProps = (
   read: number,
 ): Omit<ICD.MessageSectionsProps, "format"> => {
   const topic = PForm.useFieldValue(path.topic);
-  const message = PForm.useFieldValue(path.messages[read].message);
+  const messages = PForm.useFieldValue(path.messages);
   const prefix = usePrefix(device.name, path, read);
   return {
     path,
     read,
     prefix,
-    indexChannel: device.properties.read[storedKey(topic, read, message)]?.index ?? 0,
+    indexChannel:
+      storedOf(device.properties.read, { topic, messages }, read)?.index ?? 0,
     sourceLabel: "Arrival time",
     missingDescription:
       read === 0
@@ -649,7 +705,11 @@ const TopicDetails: FC<TopicDetailsProps> = ({
   onAddMessage,
 }) => {
   const isPreview = Task.useIsPreview();
-  const reads = PForm.useFieldValue(path.messages).length;
+  const reads = PForm.useFieldValue(path.messages);
+  const encoding = PForm.useFieldValue(
+    PICD.formPath.messages[reads.length === 1 ? reads[0].message : ""].payload.format,
+    { optional: true, ctx: format },
+  );
   return (
     <Flex.Box y grow empty className={CSS.BE("details", "form")}>
       <PForm.Sections>
@@ -658,7 +718,7 @@ const TopicDetails: FC<TopicDetailsProps> = ({
           actions={
             !isPreview && (
               <>
-                {reads === 1 && <ICD.AddField onClick={onAddField} />}
+                {encoding === "json" && <ICD.AddField onClick={onAddField} />}
                 <Button.Button variant="text" size="small" onClick={onAddMessage}>
                   <Icon.Add />
                   Add message
@@ -680,7 +740,7 @@ const TopicDetails: FC<TopicDetailsProps> = ({
             padHelpText={false}
           />
         </PForm.Section>
-        {reads === 1 && (
+        {reads.length === 1 && (
           <MessageSections path={path} read={0} format={format} device={device} />
         )}
       </PForm.Sections>
@@ -798,10 +858,9 @@ const Entries: FC<EntriesProps> = ({
     const drafts = additions.filter(isDraft);
     const tags = additions.filter((a): a is SparkplugReadEntry => !isDraft(a));
     const written = writtenChannels(entries);
-    const bind: Bind = ({ topic, bound }, fields) =>
+    const bind: Bind = ({ topic, bound }, fields, message) =>
       bindingsOf(
-        stored,
-        topic,
+        topicChannels(stored, topic, message),
         fields.filter(({ key }) => bound.includes(key)),
         written,
       );
@@ -840,9 +899,13 @@ const Entries: FC<EntriesProps> = ({
     handleError(async () => {
       if (adding.current) return;
       adding.current = true;
-      await add().finally(() => {
+      try {
+        await add();
+      } catch (e) {
         adding.current = false;
-      });
+        throw errors.fromUnknown(e);
+      }
+      adding.current = false;
     }, "Failed to add data");
 
   /**
@@ -881,6 +944,18 @@ const Entries: FC<EntriesProps> = ({
       ]),
     );
     onSelect([messageNodeKey(entryKey, message.key)]);
+  };
+
+  /** Whether the ICD holds the message of a read of a topic, as JSON. */
+  const holdsJSON = (entryKey: string, read: number): boolean => {
+    const { icd: icdKey, messages } = ctx.get(plainPath(entryKey)).value;
+    const message = messages[read].message;
+    return (
+      formats
+        .get(icdKey)
+        ?.value()
+        .messages.find(({ key }) => key === message)?.payload.format === "json"
+    );
   };
 
   /** Adds a field to a message of a topic and to its ICD, reads it, and selects it. */
@@ -984,9 +1059,17 @@ const Entries: FC<EntriesProps> = ({
         ? only.entry
         : undefined;
     let addField: (() => void) | undefined;
-    if (chosen.length === 1 && only.kind === "message")
+    if (
+      chosen.length === 1 &&
+      only.kind === "message" &&
+      holdsJSON(only.entry, only.read)
+    )
       addField = () => handleAddField(only.entry, only.read);
-    else if (topic != null && ctx.get(plainPath(topic).messages).value.length === 1)
+    else if (
+      topic != null &&
+      ctx.get(plainPath(topic).messages).value.length === 1 &&
+      holdsJSON(topic, 0)
+    )
       addField = () => handleAddField(topic, 0);
     const fields = chosen.filter((n): n is FieldNode => n.kind === "field");
     let onRemove: (() => void) | undefined;
@@ -1263,8 +1346,13 @@ const configureMessage = async (
 ): Promise<void> => {
   const read = entry.messages[r];
   const index = fields.find(({ key }) => key === read.index)?.key;
-  const propertiesKey = storedKey(entry.topic, r, read.message);
-  const stored = dev.properties.read[propertiesKey]?.channels ?? {};
+  const propertiesKey = storedKey(entry.topic, read.message);
+  const props = storedOf(dev.properties.read, entry, r);
+  if (props != null && dev.properties.read[propertiesKey] == null) {
+    dev.properties.read[propertiesKey] = props;
+    delete dev.properties.read[entry.topic];
+  }
+  const stored = props?.channels ?? {};
   const bindingOf = (f: icd.JSONField): ReadBinding =>
     read.bindings.find(({ field }) => field === f.key) ??
     mqtt.readBindingZ.parse({ field: f.key });

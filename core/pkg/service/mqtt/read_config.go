@@ -11,6 +11,7 @@ package mqtt
 
 import (
 	"context"
+	"encoding/json/v2"
 	"slices"
 	"strconv"
 	"strings"
@@ -22,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/codec"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v2"
+	"github.com/synnaxlabs/x/content"
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -91,6 +93,49 @@ func (r readResolver) resolve(
 	return func(ctx context.Context, tx gorp.Tx) error {
 		return r.create(ctx, tx, staged)
 	}, nil
+}
+
+// hash writes to h the payload of each ICD message that an enabled plain entry of cfg
+// reads, so an edit to the format of one changes the config hash of the task.
+func (r readResolver) hash(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	cfg *ReadConfig,
+	h *content.Hash,
+) error {
+	icdKeys, _ := referencedKeys(cfg, nil)
+	if len(icdKeys) == 0 {
+		return nil
+	}
+	var found []icd.ICD
+	if err := r.icds.NewRetrieve().
+		Where(icd.MatchKeys(lo.Uniq(icdKeys)...)).
+		Entries(&found).
+		Exec(ctx, snap); err != nil {
+		return err
+	}
+	icds := lo.KeyBy(found, func(ic icd.ICD) icd.Key { return ic.Key })
+	for _, e := range cfg.Entries {
+		entry, ok := e.Variant.(PlainReadEntry)
+		if !ok || entry.Disabled {
+			continue
+		}
+		for _, rm := range entry.Messages {
+			m, ok := lo.Find(icds[entry.ICD].Messages, func(m icd.Message) bool {
+				return m.Key == rm.Message
+			})
+			h.Bool(ok)
+			if !ok {
+				continue
+			}
+			b, err := json.Marshal(m.Payload, json.Deterministic(true))
+			if err != nil {
+				return err
+			}
+			h.Bytes(b)
+		}
+	}
+	return nil
 }
 
 // check checks each enabled entry of cfg against its ICD, from icds or else read
@@ -262,16 +307,17 @@ func checkIndex(
 	message string,
 ) error {
 	f, ok := fields[*rm.Index]
+	timestamp, isTimestamp := f.Variant.(icd.TimestampJSONField)
 	switch {
 	case !ok:
 		return validate.Errorf(
 			"field %s does not exist in message %s", *rm.Index, message,
 		)
-	case f.Type() != payload.KindTimestamp:
+	case !isTimestamp:
 		return validate.Errorf(
 			"the index field %s must be a timestamp field", f.Base().Name,
 		)
-	case f.Variant.(icd.TimestampJSONField).Default != nil:
+	case timestamp.Default != nil:
 		return validate.Errorf(
 			"the index field %s cannot take a default", f.Base().Name,
 		)

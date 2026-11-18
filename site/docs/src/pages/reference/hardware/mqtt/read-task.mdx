@@ -27,16 +27,17 @@ An entry is one topic. A field is one value in its payload, found by a
 [JSON pointer](https://datatracker.ietf.org/doc/html/rfc6901) such as `/temperature`,
 and recorded in one channel.
 
-- **Bare values** -> an empty pointer, shown as **Whole payload**, reads a topic that
-  carries a bare number or string, such as `42.7`.
+- **Bare values** -> an empty pointer reads a topic that carries a bare number or
+  string, such as `42.7`. The **Add data** dialog shows it as **Whole payload**.
 - **Text labels** -> the **Enum mapping** of a field maps text, such as `ON`, to a
   channel value.
 - **All or nothing** -> the task writes all fields of a payload or none. A payload that
   lacks a field, or holds a value that the channel cannot store, is skipped. In code, a
   field's `default` is written in place of a missing value.
 
-A topic can be in a task once, and it cannot hold the wildcards `+` or `#`. All fields
-of one topic share one index channel, and two topics cannot write to the same channel.
+A topic can be in a task once, and it cannot hold the wildcards `+` or `#`. The fields
+of one message share one index channel. Two messages cannot share an index channel, and
+two topics cannot write to the same channel.
 
 <Divider.Divider x />
 
@@ -51,8 +52,9 @@ of one topic share one index channel, and two topics cannot write to the same ch
    topics that it saw.
 3. Select a topic to see the last value and the type of each field, then select the
    fields to record. For a topic that publishes rarely, click **Add a topic by name**.
-4. Click **Add** _N_ **channels**. Each field becomes a channel.
-5. Select a field to change its **Pointer**, **Data type**, or **Channel** name.
+4. Click **Add** _N_ **fields**. Each field becomes a channel.
+5. Select a field. Its **Field** section edits the field in the message format, such as
+   its **Pointer**. Its **Channel** section sets the channel name and **Data type**.
 6. Click <Icon.Play /> (**Start**).
 
 The Console creates a channel for each field and an index channel for each topic.

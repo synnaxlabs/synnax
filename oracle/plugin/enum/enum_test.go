@@ -689,15 +689,12 @@ var _ = Describe("CollectNamespaceEnums", func() {
 			Domains:       fileDomains,
 		})).To(Succeed())
 
-		customPathFunc := func(typ resolution.Type, t *resolution.Table) string {
-			return enum.FindPBOutputPath(typ, t)
-		}
 		result := enum.CollectNamespaceEnums(
 			"control",
 			"x/go/control/pb",
 			table,
 			"pb",
-			customPathFunc,
+			enum.FindPBOutputPath,
 		)
 		Expect(result).To(HaveLen(1))
 		Expect(result[0].Name).To(Equal("Status"))
