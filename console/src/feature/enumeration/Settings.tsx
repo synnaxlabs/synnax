@@ -401,13 +401,10 @@ const NewEntry = ({ enumeration: key, onClose }: NewEntryProps): ReactElement =>
   const handleSave = (): void => {
     const trimmed = name.trim();
     if (trimmed === "" || valueTaken(entries, trimmed, value)) return;
-    form.insert(
-      path.entries,
-      { key: id.create(), value, name: trimmed, abnormal: false },
-      entries.at(-1)?.key,
-    );
+    const entry = { key: id.create(), value, name: trimmed, abnormal: false };
+    form.insert(path.entries, entry, entries.at(-1)?.key);
     setName("");
-    setValue((v) => Math.max(v + 1, nextValue(entries) + 1));
+    setValue(nextValue([...entries, entry]));
   };
   const handleKeyDown = (e: KeyboardEvent): void => {
     if (e.key === "Enter") {
