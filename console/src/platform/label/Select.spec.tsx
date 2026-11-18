@@ -9,8 +9,6 @@
 
 import { label, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Theming } from "@synnaxlabs/lyra/theming";
-import { color } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -29,17 +27,6 @@ import {
 } from "@/testutil";
 
 const client = createTestClient();
-
-const PALETTE = Theming.themeZ.parse(Theming.SYNNAX_LIGHT).colors.visualization.palettes
-  .default;
-
-/** The color a new label should take: the first palette color no label uses. */
-const nextColor = async (): Promise<string> => {
-  const used = new Set(
-    (await client.labels.retrieve({})).map((l) => color.hex(l.color)),
-  );
-  return color.hex(PALETTE.find((c) => !used.has(color.hex(c))) ?? PALETTE[0]);
-};
 
 const openAndSearch = async (term: string): Promise<void> => {
   fireEvent.click(await findDialogTrigger());
@@ -176,27 +163,7 @@ describe("Label.Select", () => {
     expect(onChange.mock.calls[0][0]).toEqual([existing.key, created.key]);
   });
 
-  it("should open New label with the first palette color that no label uses", async () => {
-    await renderSelect(<Label.SelectMultiple value={[]} onChange={vi.fn()} />);
-    fireEvent.click(await findDialogTrigger());
-    const expected = await nextColor();
-    fireEvent.click(await screen.findByText("New label"));
-    const name = uniqueName("label");
-    fireEvent.change(await screen.findByPlaceholderText("Label name"), {
-      target: { value: name },
-    });
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Create" }));
-    });
-    const created = await waitFor(async () => {
-      const [l] = await client.labels.retrieve({ name: [name] });
-      if (l == null) throw new Error("label not created");
-      return l;
-    });
-    expect(color.hex(created.color)).toBe(expected);
-  });
-
-  it("should create a label from the search text and add it to the selection", async () => {
+  it("should create a label named after the search text in the create modal", async () => {
     const existing = await client.labels.create({
       name: uniqueName("label"),
       color: "#00FF00",
@@ -211,24 +178,14 @@ describe("Label.Select", () => {
       target: { value: name },
     });
     fireEvent.click(await screen.findByText(`Create label "${name}"`));
+    const input = await screen.findByPlaceholderText("Label name");
+    expect(input).toHaveProperty("value", name);
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Create" }));
+    });
     await waitFor(() => expect(onChange).toHaveBeenCalled());
     const [created] = await client.labels.retrieve({ name: [name] });
     expect(onChange.mock.calls[0][0]).toEqual([existing.key, created.key]);
-  });
-
-  it("should give a label created from the search the first palette color no label uses", async () => {
-    await renderSelect(<Label.SelectMultiple value={[]} onChange={vi.fn()} />);
-    const name = uniqueName("label");
-    await openAndSearch(name);
-    const create = await screen.findByText(`Create label "${name}"`);
-    const expected = await nextColor();
-    fireEvent.click(create);
-    const created = await waitFor(async () => {
-      const [l] = await client.labels.retrieve({ name: [name] });
-      if (l == null) throw new Error("label not created");
-      return l;
-    });
-    expect(color.hex(created.color)).toBe(expected);
   });
 
   it("should hide the create option while the search matches a label name in any case", async () => {

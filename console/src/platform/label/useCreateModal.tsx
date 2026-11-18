@@ -17,7 +17,6 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Label, Synnax } from "@synnaxlabs/pluto";
-import { type color as xcolor } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Modals } from "@/platform/modals";
@@ -26,18 +25,18 @@ import { Triggers } from "@/platform/triggers";
 const path = Label.createFormPath;
 
 export interface CreateModalParams {
-  /** The color the new label starts with. */
-  color: xcolor.Color;
+  /** The name the new label starts with. */
+  name?: string;
 }
 
 const Create = ({
   close,
-  color,
+  name = "",
 }: Modals.ContentProps<CreateModalParams, label.Key>): ReactElement => {
   const client = Synnax.use();
   const { form, save, variant } = Label.useCreateForm({
     query: null,
-    initialValues: { name: "", color },
+    initialValues: { ...Label.ZERO_CREATE_FORM_VALUES, name },
     afterSave: ({ value }) => {
       const { key } = value();
       if (key == null) throw new UnexpectedError("Label key is null");

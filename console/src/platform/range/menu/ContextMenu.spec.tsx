@@ -126,13 +126,18 @@ describe("Range.ContextMenu", () => {
       });
     });
 
-    it("should create a label from the search text and add it to the ranges", async () => {
+    it("should create a label named after the search text and add it to the ranges", async () => {
       const rng = await createTestRange(client, { name: uniqueRangeName("create") });
       await renderMenu([rng]);
       const labels = await openSubmenu("Labels");
       const name = uniqueName("created");
       searchIn(labels, "Search labels...", name);
       fireEvent.click(await within(labels).findByText(`Create label "${name}"`));
+      const input = await screen.findByPlaceholderText("Label name");
+      expect(input).toHaveProperty("value", name);
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "Create" }));
+      });
       const key = await waitFor(async () => {
         const [first] = await labelsOf(rng);
         if (first == null) throw new Error("no label on the range");

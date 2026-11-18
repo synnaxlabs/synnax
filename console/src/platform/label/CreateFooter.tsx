@@ -7,13 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DisconnectedError, type label } from "@synnaxlabs/client";
+import { type label } from "@synnaxlabs/client";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
-import { Status } from "@synnaxlabs/lyra/status";
-import { Theming } from "@synnaxlabs/lyra/theming";
-import { Synnax } from "@synnaxlabs/pluto";
-import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { useCreateModal } from "@/platform/label/useCreateModal";
@@ -24,31 +20,15 @@ export interface CreateFooterProps {
 }
 
 /**
- * The create option of a label select, under a divider. A new label takes the first
- * palette color that no label uses.
+ * The create option of a label select, under a divider. It opens the create modal with
+ * the search text as the name, so the user picks the color.
  */
 export const CreateFooter = ({ onCreate }: CreateFooterProps): ReactElement => {
-  const client = Synnax.use();
-  const handleError = Status.useErrorHandler();
-  const palette = Theming.use().colors.visualization.palettes.default;
   const openCreate = useCreateModal();
   const handleCreate = (name: string) =>
-    handleError(
-      async () => {
-        if (client == null) throw new DisconnectedError();
-        const used = new Set(
-          (await client.labels.retrieve({})).map((l) => color.hex(l.color)),
-        );
-        const next = palette.find((c) => !used.has(color.hex(c))) ?? palette[0];
-        if (name !== "") {
-          const created = await client.labels.create({ name, color: next });
-          return onCreate(created.key);
-        }
-        const key = await openCreate({ color: next });
-        if (key != null) onCreate(key);
-      },
-      { message: "Failed to create label", name },
-    );
+    void openCreate({ name }).then((key) => {
+      if (key != null) onCreate(key);
+    });
   return (
     <>
       <Menu.Divider />
