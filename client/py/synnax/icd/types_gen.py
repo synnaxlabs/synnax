@@ -383,11 +383,10 @@ class Message(BaseModel):
         key: Is the unique identifier for the message within its ICD.
         name: Is the name of the message, unique within its ICD.
         payload: Is the layout of the message's payload.
-        query: Is the request a device must receive before it sends the message. A
-            binary query holds escaped bytes. When absent the device sends the message
-            unprompted.
-        cycle_time: Is the send cycle that the protocol states for the message. A write
-            task takes it as the default period. When absent the protocol states none.
+        query: Is the request that the device answers with the message. When absent the
+            device sends the message unprompted.
+        cycle_time: Is the send cycle that the protocol states for the message. When
+            absent the protocol states none.
     """
 
     key: MessageKey = Field(default_factory=uuid4)

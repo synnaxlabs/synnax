@@ -358,15 +358,14 @@ Message struct {
     }
     query      string?         {
         @doc value """
-            is the request a device must receive before it sends the message. A binary
-            query holds escaped bytes. When absent the device sends the message
-            unprompted.
+            is the request that the device answers with the message. When absent the
+            device sends the message unprompted.
         """
     }
     cycle_time telem.TimeSpan? {
         @doc value """
-            is the send cycle that the protocol states for the message. A write task
-            takes it as the default period. When absent the protocol states none.
+            is the send cycle that the protocol states for the message. When absent the
+            protocol states none.
         """
     }
 
