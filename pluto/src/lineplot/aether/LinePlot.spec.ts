@@ -346,8 +346,10 @@ describe("LinePlot against a Core", () => {
     teardowns.push(() => stack.driver.delete([aetherTest.ROOT_KEY]));
     const { recorder } = stack;
     if (recorder == null) throw new Error("the stack has no render recorder");
+    const l1 = stack.driver.find<line.Line>([...base, "x1", "y1", "l1"]);
     return {
       plot: stack.driver.find<LinePlot>(base),
+      xBounds: () => l1.xBounds().bounds,
       setViewport,
       render: () => renderPlot(recorder),
     };
@@ -397,7 +399,7 @@ describe("LinePlot against a Core", () => {
       dataType: DataType.FLOAT32,
       index: time.key,
     });
-    const { plot, render } = mount({
+    const { plot, render, xBounds } = mount({
       channel: data.key,
       window: dynamicWindow(TimeSpan.seconds(10)),
     });
@@ -405,10 +407,13 @@ describe("LinePlot against a Core", () => {
     // channels. A write before the subscription streams reaches the plot only through
     // a history read, which reduces the samples to the point budget.
     await expect
-      .poll(() => {
-        render();
-        return plot.state.loading;
-      })
+      .poll(
+        () => {
+          render();
+          return plot.state.loading;
+        },
+        { timeout: 10_000 },
+      )
       .toBe(false);
     const writer = await synnax.openWriter({
       start: TimeStamp.now(),
@@ -436,6 +441,8 @@ describe("LinePlot against a Core", () => {
       await expect
         .poll(() => gaps(plot, [edge])[0], { timeout: 10_000 })
         .toBeLessThan(tolerance);
+      // The live window ends at the exclusive end of the newest sample.
+      expect(xBounds().upper).toBe(Number(last.valueOf() + 1n));
     } finally {
       await writer.close();
     }
