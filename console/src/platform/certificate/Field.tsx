@@ -24,17 +24,6 @@ import { Secret } from "@/platform/secret";
 
 const nextMinute = (now: TimeStamp): TimeStamp => now.add(TimeSpan.MINUTE);
 
-const OTHER_RACK: Picker.Description = {
-  text: "File on another rack",
-  status: "error",
-};
-
-const STORED: certificate.Where = { source: { eq: "stored" } };
-
-// The device cannot read a file certificate of another rack.
-const whereOnRack = (rack: rack.Key): certificate.Where =>
-  primitive.isZero(rack) ? STORED : { or: [STORED, { racks: [rack] }] };
-
 interface ControlProps extends Input.Control<certificate.Key> {
   defaultName: string;
   rack: rack.Key;
@@ -42,14 +31,14 @@ interface ControlProps extends Input.Control<certificate.Key> {
 }
 
 const Control = ({ value, defaultName, rack, ...rest }: ControlProps): ReactElement => {
-  const list = Certificate.useList({ query: { where: whereOnRack(rack) } });
+  const list = Certificate.useList({ query: { where: Secret.whereOnRack(rack) } });
   const result = Certificate.useResult(primitive.isZero(value) ? null : { key: value });
   const canCreate = Access.useCreateGranted(certificate.TYPE_RESOURCE_ID);
   const openCreate = useCreateModal();
   const now = useNow(nextMinute);
   const describe = (c: certificate.Certificate): Picker.Description =>
     c.source === "file" && c.rack !== rack
-      ? OTHER_RACK
+      ? Secret.OTHER_RACK_DESCRIPTION
       : Secret.Validity.describeCertificate(c, now);
   return (
     <Flex.Box y gap="small" grow>

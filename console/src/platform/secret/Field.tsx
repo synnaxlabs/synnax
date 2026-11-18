@@ -23,15 +23,19 @@ const describe = (s: secret.Secret): Picker.Description => ({
   text: Validity.describeSecret(s),
 });
 
-const OTHER_RACK: Picker.Description = {
+/** Describes a held file item of another rack, which the device cannot read. */
+export const OTHER_RACK_DESCRIPTION: Picker.Description = {
   text: "File on another rack",
   status: "error",
 };
 
 const STORED: secret.Where = { source: { eq: "stored" } };
 
-// The device cannot read a file secret of another rack.
-const whereOnRack = (rack: rack.Key): secret.Where =>
+/**
+ * Matches stored items and the file items of a rack, the only file items its devices
+ * can read. A zero rack matches only stored items.
+ */
+export const whereOnRack = (rack: rack.Key): secret.Where =>
   primitive.isZero(rack) ? STORED : { or: [STORED, { racks: [rack] }] };
 
 interface ControlProps extends Input.Control<secret.Key> {
@@ -46,7 +50,7 @@ const Control = ({ value, defaultName, rack, ...rest }: ControlProps): ReactElem
   const canCreate = Access.useCreateGranted(secret.TYPE_RESOURCE_ID);
   const openCreate = useCreateModal();
   const describeOnRack = (s: secret.Secret): Picker.Description =>
-    s.source === "file" && s.rack !== rack ? OTHER_RACK : describe(s);
+    s.source === "file" && s.rack !== rack ? OTHER_RACK_DESCRIPTION : describe(s);
   return (
     <Picker.Select<secret.Key, secret.Secret>
       value={value}
