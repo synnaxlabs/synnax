@@ -121,15 +121,15 @@ class Target:
 def post(review: Review, *, target: Target, gh: GH) -> None:
     """Posts a review, without the findings that someone with write access dismissed or
     that the bot withdrew. A review with no finding left scores 5, and so does the head
-    when the rest are dismissed or withdrawn while the review posts. Findings on lines of the diff become one review of
-    inline threads, skipping any finding an unresolved thread of the bot already holds.
-    Such a thread gets the finding's new heading when its severity changed, and keeps
-    the rest of its comment. The findings outside the diff go in one comment the bot
-    edits on each review. The summary in the pull request body is replaced, and the
-    check run completes. Last, while the target is still the head of the pull request,
-    each open thread of the bot whose finding the review no longer reports gets a reply
-    and is resolved, when its file changed since the review before. A failure there
-    only warns.
+    when the rest are dismissed or withdrawn while the review posts. Findings on lines
+    of the diff become one review of inline threads, skipping any finding an unresolved
+    thread of the bot already holds. Such a thread gets the finding's new heading when
+    its severity changed, and keeps the rest of its comment. The findings outside the
+    diff go in one comment the bot edits on each review. The summary in the pull request
+    body is replaced, and the check run completes. Last, while the target is still the
+    head of the pull request, each open thread of the bot whose finding the review no
+    longer reports gets a reply and is resolved, when its file changed since the review
+    before. A failure there only warns.
     """
     t = target
     found = threads(t, gh)
