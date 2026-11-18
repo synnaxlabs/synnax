@@ -184,6 +184,17 @@ TEST_F(BrowserTest, CertificateDetails) {
     ASSERT_FALSE(entry(data, "server.txt").contains("certificate"));
 }
 
+/// @brief it should list folders in full when the secrets folder does not exist.
+TEST_F(BrowserTest, MissingSecretsFolder) {
+    const auto folder = this->dir / "certs";
+    std::filesystem::create_directories(folder);
+    write(folder / "server.pem", x::x509::testutil::CERTIFICATE);
+    const Browser browser(Config{.secrets_dir = this->dir / "absent"});
+    const auto data = ASSERT_NIL_P(browser.list(folder.string()));
+    ASSERT_FALSE(data["secret"].get<bool>());
+    ASSERT_EQ(entry(data, "server.pem")["certificate"], CERTIFICATE_DETAILS);
+}
+
 /// @brief it should not read a certificate file larger than 1 MiB.
 TEST_F(BrowserTest, LargeCertificateNotRead) {
     const auto folder = this->dir / "certs";
