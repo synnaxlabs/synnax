@@ -1132,39 +1132,52 @@ describe("MQTT read form", () => {
       expect(ch.dataType.equals(DataType.STRING)).toBe(true);
     });
 
-    it("should refuse a read that mixes string and number fields", async () => {
-      const { container, dev, statuses } = await renderRead({
+    it("should store a string field on the index of a number field", async () => {
+      const { container, dev, draft } = await renderRead({
         fields: [createField("mode", "string"), createField("temperature", "float")],
       });
-      await screen.findByText(/mode: a string, JSON, or bytes field cannot share/);
-      await clickDeploy(container);
-      await waitFor(() =>
-        expect(statuses).toContainEqual(
-          expect.objectContaining({
-            message: "Failed to start task",
-            description: expect.stringContaining(`In ${TOPIC}, mode: a string`),
-          }),
-        ),
+      await deploy(container, draft.key);
+      const { index, channels } = await retrieveStored(dev.key, firstMessage(draft));
+      const mode = await client.channels.retrieve(channels["/mode"]);
+      expect(mode.virtual).toBe(false);
+      expect(mode.index).toBe(index);
+      expect(mode.dataType.equals(DataType.STRING)).toBe(true);
+      expect((await client.channels.retrieve(channels["/temperature"])).index).toBe(
+        index,
       );
-      expect(await retrieveRead(dev.key)).toEqual({});
     });
 
-    it("should refuse a read of a string field on the time of the payload", async () => {
+    it("should store a string field on the time of the payload", async () => {
       const time = createTimeField();
-      const { container, dev, statuses } = await renderRead({
+      const { container, dev, draft } = await renderRead({
         fields: [time, createField("mode", "string")],
         index: time.key,
       });
-      await clickDeploy(container);
-      await waitFor(() =>
-        expect(statuses).toContainEqual(
-          expect.objectContaining({
-            message: "Failed to start task",
-            description: expect.stringContaining(`In ${TOPIC}, mode: a string`),
-          }),
-        ),
-      );
-      expect(await retrieveRead(dev.key)).toEqual({});
+      await deploy(container, draft.key);
+      const { index, channels } = await retrieveStored(dev.key, firstMessage(draft));
+      const mode = await client.channels.retrieve(channels["/mode"]);
+      expect(mode.virtual).toBe(false);
+      expect(mode.index).toBe(index);
+    });
+
+    it("should replace a streamed string channel beside a number field", async () => {
+      const mode = createField("mode", "string");
+      const temperature = createField("temperature", "float");
+      const streamed = await client.channels.create({
+        name: uniqueName("mode"),
+        dataType: DataType.STRING,
+        virtual: true,
+      });
+      const { container, dev, draft } = await renderRead({
+        fields: [mode, temperature],
+        bound: { [mode.key]: streamed.key, [temperature.key]: 0 },
+      });
+      await deploy(container, draft.key);
+      const { index, channels } = await retrieveStored(dev.key, firstMessage(draft));
+      expect(channels["/mode"]).not.toBe(streamed.key);
+      const stored = await client.channels.retrieve(channels["/mode"]);
+      expect(stored.virtual).toBe(false);
+      expect(stored.index).toBe(index);
     });
 
     it("should refuse a topic whose message is gone", async () => {

@@ -151,7 +151,7 @@ export const configureReadChannels = async <F extends ReadChannelField>({
     const ch = await client.channels.create({
       name,
       dataType: field.dataType,
-      ...(isFixed(field) ? { index: props.index } : { virtual: true }),
+      ...(indexed(field) ? { index: props.index } : { virtual: true }),
     });
     field.channel = ch.key;
     props.channels[field.pointer] = ch.key;

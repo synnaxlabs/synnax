@@ -11,7 +11,7 @@ import { type channel, type icd, type Synnax } from "@synnaxlabs/client";
 import { ICD as PICD } from "@synnaxlabs/pluto";
 import { DataType, deep, type payload, unique } from "@synnaxlabs/x";
 
-import { converts, DEFAULT_DATA_TYPES } from "@/platform/icd/dataType";
+import { converts } from "@/platform/icd/dataType";
 
 /** Writes the value of one message field to a channel. */
 export interface ReadBinding {
@@ -62,19 +62,6 @@ export const readFields = (
   fields.filter(
     ({ key }) => key === index || bindings.some(({ field }) => field === key),
   );
-
-const isVariable = ({ type }: icd.JSONField): boolean =>
-  new DataType(DEFAULT_DATA_TYPES[type]).isVariable;
-
-/**
- * The fields of a message share one index, which a variable-length channel cannot have.
- * @returns the variable-length fields among fields that also hold fixed ones.
- */
-export const variableAmongFixed = (fields: icd.JSONField[]): icd.JSONField[] =>
-  fields.every(isVariable) ? [] : fields.filter(isVariable);
-
-export const mixMessage = (fields: icd.JSONField[]): string =>
-  `${fields.map(({ name }) => name).join(", ")}: a string, JSON, or bytes field cannot share a message with number, boolean, or timestamp fields.`;
 
 /** @returns whether the Core can read the field: a bytes field needs a pointer. */
 export const isReadable = ({ type, pointer }: icd.JSONField): boolean =>

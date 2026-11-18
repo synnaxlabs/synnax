@@ -10,15 +10,13 @@
 import { channel, type icd, type Synnax, ValidationError } from "@synnaxlabs/client";
 import { DataType } from "@synnaxlabs/x";
 
-import { bindingDataType, converts } from "@/platform/icd/dataType";
+import { bindingDataType, converts, DEFAULT_DATA_TYPES } from "@/platform/icd/dataType";
 import {
   isIndexable,
   type Messages,
-  mixMessage,
   type ReadBinding,
   readFields,
   type ReadSource,
-  variableAmongFixed,
 } from "@/platform/icd/read";
 import { Task } from "@/platform/task";
 
@@ -66,8 +64,6 @@ export const boundMessage = <S extends ReadSource>(
     );
   if (fields.length === 0)
     throw new ValidationError(`The task reads no fields of ${where}`);
-  const mixed = variableAmongFixed(fields);
-  if (mixed.length > 0) throw new ValidationError(`In ${where}, ${mixMessage(mixed)}`);
   return { source, read, message, fields };
 };
 
@@ -87,6 +83,11 @@ export const configureMessage = async (
 ): Promise<channel.Key[]> => {
   const read = source.messages[r];
   const index = fields.find(({ key }) => key === read.index)?.key;
+  // A message with a fixed-density field, its index included, stores every field on
+  // its index. A message of only variable-length fields streams them.
+  const indexed = fields.some(
+    ({ type }) => !new DataType(DEFAULT_DATA_TYPES[type]).isVariable,
+  );
   const held = stored?.read[stored.key]?.channels ?? {};
   const bindingOf = (f: icd.JSONField): ReadBinding =>
     read.bindings.find(({ field }) => field === f.key) ?? {
@@ -104,11 +105,13 @@ export const configureMessage = async (
     const suited = binding.dataType !== "" && converts(f.type, binding.dataType);
     const dataType = suited ? binding.dataType : "";
     const ch = live.get(reused[i]);
-    // An edit of the field's kind or index role since the last deploy needs a new
-    // channel.
+    // An edit of the field's kind or index role since the last deploy, or a streamed
+    // field that the message now stores, needs a new channel.
     const stale =
       ch != null &&
-      (!converts(f.type, ch.dataType.toString()) || ch.isIndex !== isIndex);
+      (!converts(f.type, ch.dataType.toString()) ||
+        ch.isIndex !== isIndex ||
+        (indexed && ch.virtual));
     if (stale && held[f.pointer] === ch.key) delete held[f.pointer];
     return {
       key: f.key,
@@ -127,6 +130,7 @@ export const configureMessage = async (
     fields: channels,
     namePrefix: prefix,
     indexKey: index ?? "",
+    indexed: () => indexed,
   });
   source.messages[r] = {
     message: read.message,
