@@ -382,6 +382,44 @@ var _ = Describe("Block Expressions with GlobalResolver", func() {
 		})
 
 		It(
+			"Should replace occurrences on the first line of a block",
+			func(ctx SpecContext) {
+				docURI := generateBlockURI("rename-test-first-line")
+				content := "x := 10\ny := x + 1\nreturn y"
+				Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
+					TextDocument: protocol.TextDocumentItem{
+						URI:        docURI,
+						LanguageID: "arc",
+						Version:    1,
+						Text:       content,
+					},
+				})).To(Succeed())
+				edit := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+					Position:     protocol.Position{Line: 0, Character: 0},
+					NewName:      "value",
+				}))
+				Expect(edit).ToNot(BeNil())
+				Expect(edit.Changes[docURI]).To(ConsistOf(
+					protocol.TextEdit{
+						Range: protocol.Range{
+							Start: protocol.Position{Line: 0, Character: 0},
+							End:   protocol.Position{Line: 0, Character: 1},
+						},
+						NewText: "value",
+					},
+					protocol.TextEdit{
+						Range: protocol.Range{
+							Start: protocol.Position{Line: 1, Character: 5},
+							End:   protocol.Position{Line: 1, Character: 6},
+						},
+						NewText: "value",
+					},
+				))
+			},
+		)
+
+		It(
 			"Should return nil when renaming GlobalResolver symbol in block",
 			func(ctx SpecContext) {
 				docURI := generateBlockURI("rename-test-2")
