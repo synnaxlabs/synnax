@@ -286,7 +286,7 @@ func FuzzImportCSV(f *testing.F) {
 			"message,field,start_bit,bit_length,id,extended\nm,a,0,8,0x1FFFFFFF,1\n",
 		),
 	)
-	f.Fuzz(fuzzImport(f, icd.FormatCSV))
+	f.Fuzz(fuzzImport(f, icd.ImportFormatCSV))
 }
 
 // FuzzImportXLSX checks that any input either imports with resolved references or fails
@@ -299,7 +299,7 @@ func FuzzImportXLSX(f *testing.F) {
 		}
 		f.Add(data)
 	}
-	f.Fuzz(fuzzImport(f, icd.FormatXLSX))
+	f.Fuzz(fuzzImport(f, icd.ImportFormatXLSX))
 }
 
 // FuzzImportXLSXSheet is FuzzImportXLSX for a valid workbook whose first sheet holds
@@ -315,7 +315,7 @@ func FuzzImportXLSXSheet(f *testing.F) {
 	}); err != nil {
 		f.Fatal(err)
 	}
-	importXLSX := fuzzImport(f, icd.FormatXLSX)
+	importXLSX := fuzzImport(f, icd.ImportFormatXLSX)
 	f.Fuzz(func(t *testing.T, sheet []byte) {
 		data, err := mapSheet(workbook, func([]byte) []byte { return sheet })
 		if err != nil {
@@ -327,12 +327,12 @@ func FuzzImportXLSXSheet(f *testing.F) {
 
 var _ = Describe("Import CSV", func() {
 	It("Should group the rows of each message into one message", func(ctx SpecContext) {
-		messages := MustSucceed(importFile(ctx, icd.FormatCSV, toCSV(tableRows)))
+		messages := MustSucceed(importFile(ctx, icd.ImportFormatCSV, toCSV(tableRows)))
 		Expect(withoutKeys(messages)).To(Equal(tableMessages))
 	})
 
 	It("Should give every message and field a key", func(ctx SpecContext) {
-		messages := MustSucceed(importFile(ctx, icd.FormatCSV, toCSV(tableRows)))
+		messages := MustSucceed(importFile(ctx, icd.ImportFormatCSV, toCSV(tableRows)))
 		m := messages[0]
 		Expect(m.Key).ToNot(Equal(uuid.Nil()))
 		Expect(binaryFields(m)[0].Key).ToNot(Equal(uuid.Nil()))
@@ -342,7 +342,7 @@ var _ = Describe("Import CSV", func() {
 		messages := MustSucceed(
 			importFile(
 				ctx,
-				icd.FormatCSV,
+				icd.ImportFormatCSV,
 				append([]byte("\ufeff"), toCSV(tableRows)...),
 			),
 		)
@@ -353,7 +353,7 @@ var _ = Describe("Import CSV", func() {
 		Expect(
 			importFile(
 				ctx,
-				icd.FormatCSV,
+				icd.ImportFormatCSV,
 				[]byte("message,field,start_bit,bit_length\na,\"b,0,8\n"),
 			),
 		).
@@ -366,9 +366,8 @@ var _ = Describe("Import CSV", func() {
 	DescribeTable(
 		"Should reject an invalid table",
 		func(ctx SpecContext, csv, message string) {
-			Expect(importFile(ctx, icd.FormatCSV, []byte(csv))).Error().To(MatchError(
-				"data: " + message + ": validation error",
-			))
+			Expect(importFile(ctx, icd.ImportFormatCSV, []byte(csv))).Error().
+				To(MatchError("data: " + message + ": validation error"))
 		},
 		Entry("an empty file", "", "missing header row"),
 		Entry("an unknown column", "message,field,start_bit,bit_length,Color\n",
@@ -439,7 +438,7 @@ var _ = Describe("Import XLSX", func() {
 	It("Should parse the table in the first sheet", func(ctx SpecContext) {
 		other := [][]string{{"Color"}, {"red"}}
 		messages := MustSucceed(
-			importFile(ctx, icd.FormatXLSX, toXLSX(tableRows, other)),
+			importFile(ctx, icd.ImportFormatXLSX, toXLSX(tableRows, other)),
 		)
 		Expect(withoutKeys(messages)).To(Equal(tableMessages))
 	})
@@ -454,7 +453,11 @@ var _ = Describe("Import XLSX", func() {
 			style := MustSucceed(f.NewStyle(&excelize.Style{CustomNumFmt: new("0.0")}))
 			Expect(f.SetCellStyle("Sheet1", "C2", "F2", style)).To(Succeed())
 			messages := MustSucceed(
-				importFile(ctx, icd.FormatXLSX, MustSucceed(f.WriteToBuffer()).Bytes()),
+				importFile(
+					ctx,
+					icd.ImportFormatXLSX,
+					MustSucceed(f.WriteToBuffer()).Bytes(),
+				),
 			)
 			a := binaryFields(messages[0])[0]
 			Expect(a.StartBit).To(Equal(uint16(8)))
@@ -470,7 +473,7 @@ var _ = Describe("Import XLSX", func() {
 			{"m", "b", "8", "8"},
 		}
 		data := replaceInSheet(toXLSX(rows), `r="B3"`, `r="3B"`)
-		Expect(importFile(ctx, icd.FormatXLSX, data)).Error().
+		Expect(importFile(ctx, icd.ImportFormatXLSX, data)).Error().
 			To(MatchError(HavePrefix("data: row 3: ")))
 	})
 
@@ -480,13 +483,14 @@ var _ = Describe("Import XLSX", func() {
 			{"m", "a", "0", "8"},
 			{"m", "b", "x", "8"},
 		}
-		Expect(importFile(ctx, icd.FormatXLSX, toXLSX(rows))).Error().To(MatchError(
-			`data: row 3, column start_bit: invalid integer "x": validation error`,
-		))
+		Expect(importFile(ctx, icd.ImportFormatXLSX, toXLSX(rows))).Error().
+			To(MatchError(
+				`data: row 3, column start_bit: invalid integer "x": validation error`,
+			))
 	})
 
 	It("Should reject data that is not a workbook", func(ctx SpecContext) {
-		Expect(importFile(ctx, icd.FormatXLSX, []byte("message,field"))).Error().
+		Expect(importFile(ctx, icd.ImportFormatXLSX, []byte("message,field"))).Error().
 			To(MatchError(HavePrefix("data: invalid workbook: ")))
 	})
 })
