@@ -1010,6 +1010,9 @@ const (
 	StringJSONMatchType JSONMatchType = "string"
 	// BooleanJSONMatchType matches an equal JSON boolean.
 	BooleanJSONMatchType JSONMatchType = "boolean"
+	// PresentJSONMatchType matches a document that holds a value other than null at the
+	// pointer.
+	PresentJSONMatchType JSONMatchType = "present"
 )
 
 // JSONMatchVariant is implemented by every JSONMatch variant.
@@ -1062,6 +1065,14 @@ type BooleanJSONMatch struct {
 
 func (BooleanJSONMatch) isJSONMatchVariant() {}
 
+// PresentJSONMatch matches a document that holds a value other than null at the
+// pointer.
+type PresentJSONMatch struct {
+	JSONBaseMatch
+}
+
+func (PresentJSONMatch) isJSONMatchVariant() {}
+
 // JSONMatch selects the JSON documents that belong to a message.
 type JSONMatch struct {
 	Variant JSONMatchVariant
@@ -1097,6 +1108,11 @@ func (u JSONMatch) MarshalJSONTo(enc *jsontext.Encoder) error {
 			Type JSONMatchType `json:"type"`
 			BooleanJSONMatch
 		}{Type: BooleanJSONMatchType, BooleanJSONMatch: v})
+	case PresentJSONMatch:
+		return json.MarshalEncode(enc, struct {
+			Type JSONMatchType `json:"type"`
+			PresentJSONMatch
+		}{Type: PresentJSONMatchType, PresentJSONMatch: v})
 	default:
 		return errors.Newf("JSONMatch: unknown variant %T", v)
 	}
@@ -1167,6 +1183,15 @@ func (u *JSONMatch) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			return err
 		}
 		u.Variant = v.BooleanJSONMatch
+	case PresentJSONMatchType:
+		var v struct {
+			Type JSONMatchType `json:"type"`
+			PresentJSONMatch
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.PresentJSONMatch
 	default:
 		return errors.Wrapf(
 			validate.ErrValidation,
@@ -1190,6 +1215,8 @@ func (u JSONMatch) Type() JSONMatchType {
 		return StringJSONMatchType
 	case BooleanJSONMatch:
 		return BooleanJSONMatchType
+	case PresentJSONMatch:
+		return PresentJSONMatchType
 	}
 	return ""
 }
@@ -1215,6 +1242,8 @@ func (u JSONMatch) Base() JSONBaseMatch {
 		return variant.JSONBaseMatch
 	case BooleanJSONMatch:
 		return variant.JSONBaseMatch
+	case PresentJSONMatch:
+		return variant.JSONBaseMatch
 	}
 	return JSONBaseMatch{}
 }
@@ -1235,6 +1264,9 @@ func (u *JSONMatch) SetBase(base JSONBaseMatch) {
 		variant.JSONBaseMatch = base
 		u.Variant = variant
 	case BooleanJSONMatch:
+		variant.JSONBaseMatch = base
+		u.Variant = variant
+	case PresentJSONMatch:
 		variant.JSONBaseMatch = base
 		u.Variant = variant
 	default:

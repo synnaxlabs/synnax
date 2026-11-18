@@ -170,13 +170,20 @@ class BooleanJSONMatch(JSONBaseMatch):
     value: bool
 
 
+class PresentJSONMatch(JSONBaseMatch):
+    """Matches a document that holds a value other than null at the pointer."""
+
+    type: Literal["present"] = "present"
+
+
 # Selects the JSON documents that belong to a message.
 JSONMatch = Annotated[
     FloatJSONMatch
     | IntegerJSONMatch
     | UnsignedJSONMatch
     | StringJSONMatch
-    | BooleanJSONMatch,
+    | BooleanJSONMatch
+    | PresentJSONMatch,
     Field(discriminator="type"),
 ]
 

@@ -297,6 +297,11 @@ JSONMatch union on type extends JSONBaseMatch {
 
         @doc value "matches an equal JSON boolean."
     }
+    present {
+        @doc value """
+            matches a document that holds a value other than null at the pointer.
+        """
+    }
 
     @doc value  "selects the JSON documents that belong to a message."
     @go marshal

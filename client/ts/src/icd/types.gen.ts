@@ -74,12 +74,22 @@ export const booleanJSONMatchZ = jsonBaseMatchZ.extend({
 });
 export interface BooleanJSONMatch extends z.infer<typeof booleanJSONMatchZ> {}
 
+/**
+ * PresentJSONMatch matches a document that holds a value other than null at the
+ * pointer.
+ */
+export const presentJSONMatchZ = jsonBaseMatchZ.extend({
+  type: z.literal("present"),
+});
+export interface PresentJSONMatch extends z.infer<typeof presentJSONMatchZ> {}
+
 export const JSON_MATCH_TYPES = [
   "float",
   "integer",
   "unsigned",
   "string",
   "boolean",
+  "present",
 ] as const;
 export const jsonMatchTypeZ = z.enum(JSON_MATCH_TYPES);
 export type JSONMatchType = z.infer<typeof jsonMatchTypeZ>;
@@ -91,13 +101,15 @@ export const jsonMatchZ = z.discriminatedUnion("type", [
   unsignedJSONMatchZ,
   stringJSONMatchZ,
   booleanJSONMatchZ,
+  presentJSONMatchZ,
 ]);
 export type JSONMatch =
   | FloatJSONMatch
   | IntegerJSONMatch
   | UnsignedJSONMatch
   | StringJSONMatch
-  | BooleanJSONMatch;
+  | BooleanJSONMatch
+  | PresentJSONMatch;
 
 export const JSON_MATCH_SCHEMAS: {
   [K in JSONMatchType]: z.ZodType<Extract<JSONMatch, { type: K }>>;
@@ -107,6 +119,7 @@ export const JSON_MATCH_SCHEMAS: {
   unsigned: unsignedJSONMatchZ,
   string: stringJSONMatchZ,
   boolean: booleanJSONMatchZ,
+  present: presentJSONMatchZ,
 };
 
 /** Where is a filter that selects ICDs. */

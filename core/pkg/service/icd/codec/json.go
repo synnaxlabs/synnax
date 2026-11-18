@@ -46,9 +46,11 @@ type JSONMessage struct {
 // It is not safe for concurrent use.
 type JSON struct {
 	extractor *xjson.Extractor
-	// values holds the match value, when a message has a match rule, then the value of
-	// each field of each message, in message order.
-	values   []jsontext.Value
+	// values holds the values that the match rules test, then the value of each field
+	// of each message, in message order.
+	values []jsontext.Value
+	// routed is the number of values that the match rules test.
+	routed   int
 	messages []jsonMessage
 	router   *router
 }
@@ -84,8 +86,9 @@ type jsonField struct {
 // NewJSON returns a JSON decoder for messages that share one source of documents. A
 // document belongs to the message whose match rule it meets, or else to the message
 // with no rule. NewJSON returns an error wrapping validate.ErrValidation when:
-//   - two match rules test different pointers
-//   - one document value can meet two match rules
+//   - two value rules test different pointers
+//   - one document value can meet two value rules
+//   - a present rule tests the pointer of another rule
 //   - two messages have no match rule
 //   - a binding names no field of its message
 //   - a field's kind does not convert to its binding's data type
@@ -94,10 +97,11 @@ func NewJSON(messages []JSONMessage) (*JSON, error) {
 	if err != nil {
 		return nil, err
 	}
-	j := &JSON{messages: make([]jsonMessage, len(messages)), router: r}
-	var pointers []xjson.Pointer
-	if r.ruled {
-		pointers = append(pointers, r.pointer)
+	pointers := r.pointers()
+	j := &JSON{
+		messages: make([]jsonMessage, len(messages)),
+		router:   r,
+		routed:   len(pointers),
 	}
 	for i, m := range messages {
 		if j.messages[i], err = newJSONMessage(m); err != nil {
@@ -109,10 +113,7 @@ func NewJSON(messages []JSONMessage) (*JSON, error) {
 	}
 	j.extractor = xjson.NewExtractor(pointers)
 	j.values = make([]jsontext.Value, len(pointers))
-	values := j.values
-	if r.ruled {
-		values = values[1:]
-	}
+	values := j.values[j.routed:]
 	for i := range j.messages {
 		m := &j.messages[i]
 		m.values, values = values[:len(m.fields)], values[len(m.fields):]
@@ -361,7 +362,8 @@ func (f *jsonField) appendFloat(dst []byte, v float64) ([]byte, error) {
 // bindings to samples[message]. samples holds an entry for each message in NewJSON
 // order, and each entry holds one slice for each binding, in binding order. ok is
 // false, and Decode appends nothing, when doc belongs to no message. Decode returns an
-// error, appending nothing, when doc is not JSON or a value does not convert.
+// error, appending nothing, when doc is not JSON, meets two match rules, or holds a
+// value that does not convert.
 func (j *JSON) Decode(
 	doc []byte,
 	samples [][][]byte,
@@ -369,11 +371,7 @@ func (j *JSON) Decode(
 	if err := j.extractor.Extract(doc, j.values); err != nil {
 		return 0, false, errors.Wrap(validate.ErrValidation, err.Error())
 	}
-	var match jsontext.Value
-	if j.router.ruled {
-		match = j.values[0]
-	}
-	if message, ok, err = j.router.find(match); err != nil || !ok {
+	if message, ok, err = j.router.find(j.values[:j.routed]); err != nil || !ok {
 		return 0, false, err
 	}
 	if err := j.messages[message].decode(samples[message]); err != nil {

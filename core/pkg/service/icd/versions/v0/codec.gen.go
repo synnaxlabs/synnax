@@ -860,6 +860,11 @@ func (jsonm JSONMatch) EncodeOrc(w *orc.Writer) error {
 			return err
 		}
 		w.Bool(v.Value)
+	case PresentJSONMatch:
+		w.String("present")
+		if err := v.JSONBaseMatch.EncodeOrc(w); err != nil {
+			return err
+		}
 	default:
 		return errors.Newf("JSONMatch: nil or unknown variant %T", jsonm.Variant)
 	}
@@ -927,6 +932,12 @@ func (jsonm *JSONMatch) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if v.Value, err = r.Bool(); err != nil {
+			return err
+		}
+		jsonm.Variant = v
+	case "present":
+		var v PresentJSONMatch
+		if err := v.JSONBaseMatch.DecodeOrc(r); err != nil {
 			return err
 		}
 		jsonm.Variant = v

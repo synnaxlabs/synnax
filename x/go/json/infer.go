@@ -28,12 +28,14 @@ const (
 	maxEnumLabels = 16
 	// maxInferredFields is the most fields that one shape holds.
 	maxInferredFields = 1024
+	// maxKinds is the most sets of fields of the documents of one source that split
+	// into kinds.
+	maxKinds = 16
 )
 
 // Document is one sampled JSON document.
 type Document struct {
-	// Source is where the document came from, such as a record key or a topic. The
-	// sources whose documents hold the same fields share one shape.
+	// Source is where the document came from, such as a record key or a topic.
 	Source string
 	// Data is the JSON text of the document.
 	Data []byte
@@ -62,7 +64,7 @@ type InferredField struct {
 	Mismatched int `json:"mismatched" msgpack:"mismatched"`
 }
 
-// Shape is the layout that the documents of one or more sources share.
+// Shape is the layout of one kind of document, from one or more sources.
 type Shape struct {
 	// Sources are the sources of the documents, in the order first seen.
 	Sources []string `json:"sources" msgpack:"sources"`
@@ -76,6 +78,10 @@ type Shape struct {
 }
 
 // Infer returns the shapes of docs, which are in the order that each source wrote them.
+//   - The documents of a source that hold the same fields are one kind. A kind whose
+//     fields are all in one widest kind joins it, so a field that some documents lack
+//     does not split a kind. A source with more than 16 sets of fields is one kind.
+//   - The kinds of every source that hold the same fields share a shape.
 //   - A field is a JSON pointer to a scalar. Arrays and nulls give no field.
 //   - Types widen across documents: int64, then uint64, then float64. A boolean field
 //     gives uint8. The JSON type of most values wins, and the rest are mismatched.
@@ -99,7 +105,7 @@ func Infer(docs []Document) []Shape {
 		}
 		src, ok := byName[doc.Source]
 		if !ok {
-			src = &inferSource{name: doc.Source, fields: make(set.Set[string])}
+			src = &inferSource{name: doc.Source, byKey: make(map[string]int)}
 			byName[doc.Source] = src
 			sources = append(sources, src)
 		}
@@ -107,29 +113,22 @@ func Infer(docs []Document) []Shape {
 		if ref <= 0 {
 			ref = now
 		}
-		src.docs = append(src.docs, parsedDocument{leaves: leaves, time: ref})
-		for _, l := range leaves {
-			if !src.fields.Contains(l.key) {
-				src.fields.Add(l.key)
-				src.order = append(src.order, l.key)
-			}
-		}
+		src.add(parsedDocument{leaves: leaves, time: ref})
 	}
 	var (
-		groups      []*inferGroup
-		bySignature = make(map[string]*inferGroup)
+		groups []*inferGroup
+		byKey  = make(map[string]*inferGroup)
 	)
 	for _, src := range sources {
-		sig := slices.Clone(src.order)
-		slices.Sort(sig)
-		key := strings.Join(sig, "\x00")
-		g, ok := bySignature[key]
-		if !ok {
-			g = newInferGroup()
-			bySignature[key] = g
-			groups = append(groups, g)
+		for _, k := range src.split() {
+			g, ok := byKey[k.key]
+			if !ok {
+				g = newInferGroup()
+				byKey[k.key] = g
+				groups = append(groups, g)
+			}
+			g.add(src.name, k.docs)
 		}
-		g.add(src)
 	}
 	shapes := make([]Shape, len(groups))
 	for i, g := range groups {
@@ -138,9 +137,9 @@ func Infer(docs []Document) []Shape {
 	return shapes
 }
 
-// Inferrer infers the shape of the documents of one source as they arrive, with the
-// rules of Infer. It keeps counts, not documents, so its memory does not grow with the
-// number of documents. It is not safe for concurrent use.
+// Inferrer infers one shape of every document of one source as they arrive, with the
+// field rules of Infer. It keeps counts, not documents, so its memory does not grow
+// with the number of documents. It is not safe for concurrent use.
 type Inferrer struct{ group *inferGroup }
 
 // NewInferrer returns an Inferrer that holds no documents.
@@ -163,10 +162,115 @@ func (i *Inferrer) Add(data []byte, t telem.TimeStamp) {
 func (i *Inferrer) Shape() Shape { return i.group.shape() }
 
 type inferSource struct {
-	name   string
-	docs   []parsedDocument
+	name string
+	docs []parsedDocument
+	// kinds holds each set of fields of docs, in the order first seen.
+	kinds []fieldSet
+	byKey map[string]int
+	// kindOf holds the index in kinds of each document of docs.
+	kindOf []int
+}
+
+// fieldSet is a set of field pointers in their text form.
+type fieldSet struct {
+	// key is the sorted pointers, joined by NUL.
+	key    string
 	fields set.Set[string]
-	order  []string
+}
+
+func newFieldSet(fields set.Set[string]) fieldSet {
+	sorted := fields.Slice()
+	slices.Sort(sorted)
+	return fieldSet{key: strings.Join(sorted, "\x00"), fields: fields}
+}
+
+// kind is the documents of a source that share a shape.
+type kind struct {
+	key  string
+	docs []parsedDocument
+}
+
+func (src *inferSource) add(doc parsedDocument) {
+	fields := make(set.Set[string], len(doc.leaves))
+	for _, l := range doc.leaves {
+		fields.Add(l.key)
+	}
+	fs := newFieldSet(fields)
+	k, ok := src.byKey[fs.key]
+	if !ok {
+		k = len(src.kinds)
+		src.byKey[fs.key] = k
+		src.kinds = append(src.kinds, fs)
+	}
+	src.docs = append(src.docs, doc)
+	src.kindOf = append(src.kindOf, k)
+}
+
+// split returns the kinds of the documents of src, in the order of their first
+// documents. Each kind keeps the order of its documents.
+func (src *inferSource) split() []kind {
+	if len(src.kinds) > maxKinds {
+		union := make(set.Set[string])
+		for _, k := range src.kinds {
+			union.Add(k.fields.Slice()...)
+		}
+		return []kind{{key: newFieldSet(union).key, docs: src.docs}}
+	}
+	into := src.joins()
+	var (
+		kinds []kind
+		at    = make(map[int]int)
+	)
+	for i, doc := range src.docs {
+		target := into[src.kindOf[i]]
+		k, ok := at[target]
+		if !ok {
+			k = len(kinds)
+			at[target] = k
+			kinds = append(kinds, kind{key: src.kinds[target].key})
+		}
+		kinds[k].docs = append(kinds[k].docs, doc)
+	}
+	return kinds
+}
+
+// joins returns, for each set of fields of src, the set whose kind its documents join:
+// the one widest set that holds all of its fields, or else itself. A set is widest when
+// no other set holds all of its fields.
+func (src *inferSource) joins() []int {
+	holds := func(a, b int) bool {
+		return a != b && len(src.kinds[a].fields) > len(src.kinds[b].fields) &&
+			src.kinds[b].fields.IsSubsetOf(src.kinds[a].fields)
+	}
+	n := len(src.kinds)
+	widest := make([]bool, n)
+	for i := range n {
+		widest[i] = true
+		for j := range n {
+			if holds(j, i) {
+				widest[i] = false
+				break
+			}
+		}
+	}
+	into := make([]int, n)
+	for i := range n {
+		into[i] = i
+		if widest[i] {
+			continue
+		}
+		holders := 0
+		for j := range n {
+			if widest[j] && holds(j, i) {
+				into[i] = j
+				holders++
+			}
+		}
+		if holders > 1 {
+			into[i] = i
+		}
+	}
+	return into
 }
 
 type parsedDocument struct {
@@ -243,10 +347,10 @@ func newInferGroup() *inferGroup {
 	return &inferGroup{fields: make(map[string]*fieldStats)}
 }
 
-func (g *inferGroup) add(src *inferSource) {
-	g.sources = append(g.sources, src.name)
-	for _, doc := range src.docs {
-		g.addDocument(src.name, doc)
+func (g *inferGroup) add(source string, docs []parsedDocument) {
+	g.sources = append(g.sources, source)
+	for _, doc := range docs {
+		g.addDocument(source, doc)
 	}
 }
 

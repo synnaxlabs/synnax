@@ -97,6 +97,7 @@ class TestICD:
             sy.icd.BytesJSONField(name="blob", pointer="/blob"),
         ]
         match = sy.icd.UnsignedJSONMatch(pointer="/seq", value=Unsigned(2**64 - 1))
+        present = sy.icd.PresentJSONMatch(pointer="/fault")
         ic = client.icds.create(
             sy.ICD(
                 name="JSON",
@@ -104,11 +105,23 @@ class TestICD:
                     sy.icd.Message(
                         name="Reading",
                         payload=sy.icd.JSONPayload(match=match, fields=fields),
-                    )
+                    ),
+                    sy.icd.Message(
+                        name="Fault",
+                        payload=sy.icd.JSONPayload(
+                            match=present,
+                            fields=[
+                                sy.icd.StringJSONField(name="fault", pointer="/fault")
+                            ],
+                        ),
+                    ),
                 ],
             )
         )
         assert client.icds.retrieve(key=ic.key) == ic
+        fault = ic.messages[1].payload
+        assert isinstance(fault, sy.icd.JSONPayload)
+        assert fault.match == present
         payload = ic.messages[0].payload
         assert isinstance(payload, sy.icd.JSONPayload)
         assert payload.match == match

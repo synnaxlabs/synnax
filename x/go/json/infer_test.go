@@ -141,6 +141,69 @@ var _ = Describe("Infer", func() {
 			To(HaveValue(Equal(xjson.UnixSecond)))
 	})
 
+	It("Should give a shape to each kind of document of one source", func() {
+		kinds := func(i int) string {
+			ms := t0Milliseconds + int64(i)
+			if i%2 == 0 {
+				return fmt.Sprintf(`{"time":%d,"pressure":%d.5,"flow":2}`, ms, i)
+			}
+			return fmt.Sprintf(`{"time":%d,"state":"run","faults":0}`, ms)
+		}
+		docs := documents("line-1", 6, kinds)
+		docs = append(docs, documents("line-2", 2, func(i int) string {
+			return kinds(i * 2)
+		})...)
+		shapes := xjson.Infer(docs)
+		Expect(shapes).To(HaveLen(2))
+		Expect(shapes[0].Sources).To(Equal([]string{"line-1", "line-2"}))
+		Expect(shapes[0].Count).To(Equal(5))
+		Expect(shapes[0].Fields).To(HaveLen(3))
+		Expect(fieldAt(shapes[0], "/pressure").DataType).To(Equal(telem.Float64T))
+		Expect(indexPointer(shapes[0])).To(Equal("/time"))
+		Expect(shapes[1].Sources).To(Equal([]string{"line-1"}))
+		Expect(shapes[1].Count).To(Equal(3))
+		Expect(fieldAt(shapes[1], "/state").Type).To(Equal(xjson.String))
+		Expect(indexPointer(shapes[1])).To(Equal("/time"))
+	})
+
+	It("Should join a kind whose fields are all in one wider kind", func() {
+		shapes := xjson.Infer(documents("tank", 4, func(i int) string {
+			flow := "2"
+			if i%2 == 1 {
+				flow = "null"
+			}
+			return fmt.Sprintf(
+				`{"ts":%d,"pressure":1,"flow":%s}`, t0Seconds+int64(i), flow,
+			)
+		}))
+		Expect(shapes).To(HaveLen(1))
+		Expect(shapes[0].Count).To(Equal(4))
+		Expect(fieldAt(shapes[0], "/flow").Count).To(Equal(2))
+		Expect(indexPointer(shapes[0])).To(Equal("/ts"))
+	})
+
+	It("Should keep apart a kind whose fields are in two wider kinds", func() {
+		shapes := xjson.Infer(documents("line", 3, func(i int) string {
+			return [...]string{
+				`{"t":1,"pressure":1}`,
+				`{"t":2,"state":"run"}`,
+				`{"t":3}`,
+			}[i]
+		}))
+		Expect(shapes).To(HaveLen(3))
+		Expect(shapes[2].Fields).To(HaveLen(1))
+		Expect(shapes[2].Count).To(Equal(1))
+	})
+
+	It("Should give one shape to a source with more than 16 sets of fields", func() {
+		shapes := xjson.Infer(documents("devices", 17, func(i int) string {
+			return fmt.Sprintf(`{"device-%d":1}`, i)
+		}))
+		Expect(shapes).To(HaveLen(1))
+		Expect(shapes[0].Fields).To(HaveLen(17))
+		Expect(shapes[0].Count).To(Equal(17))
+	})
+
 	It("Should keep every digit of a nanosecond index and read a boolean", func() {
 		shapes := xjson.Infer(documents("valve", 3, func(i int) string {
 			return fmt.Sprintf(`{"timestamp":%d,"open":%t}`, int64(t0)+int64(i), i == 1)

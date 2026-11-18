@@ -323,6 +323,7 @@ var _ = Describe("Codec", func() {
 			}}),
 			Entry("string variant", v0.JSONMatch{Variant: v0.StringJSONMatch{JSONBaseMatch: fullyPopulatedJSONBaseMatch, Value: "test_1"}}),
 			Entry("boolean variant", v0.JSONMatch{Variant: v0.BooleanJSONMatch{JSONBaseMatch: fullyPopulatedJSONBaseMatch, Value: true}}),
+			Entry("present variant", v0.JSONMatch{Variant: v0.PresentJSONMatch{JSONBaseMatch: fullyPopulatedJSONBaseMatch}}),
 		)
 	})
 	Describe("Message", func() {
@@ -1284,6 +1285,14 @@ func FuzzDecodeJSONMatch(f *testing.F) {
 	}
 	{
 		seed := v0.JSONMatch{Variant: v0.BooleanJSONMatch{JSONBaseMatch: fullyPopulatedJSONBaseMatch, Value: true}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.JSONMatch{Variant: v0.PresentJSONMatch{JSONBaseMatch: fullyPopulatedJSONBaseMatch}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)

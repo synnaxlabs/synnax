@@ -129,6 +129,7 @@ describe("icd", () => {
         pointer: "/seq",
         value: "18446744073709551615",
       };
+      const present: icd.JSONMatch = { type: "present", pointer: "/fault" };
       const ic = await client.icds.create({
         name: "JSON",
         messages: [
@@ -155,9 +156,18 @@ describe("icd", () => {
               ],
             },
           },
+          {
+            name: "Fault",
+            payload: {
+              format: "json",
+              match: present,
+              fields: [{ type: "string", name: "fault", pointer: "/fault" }],
+            },
+          },
         ],
       });
       expect(await client.icds.retrieve(ic.key)).toEqual(ic);
+      expect(ic.messages[1].payload).toMatchObject({ format: "json", match: present });
       expect(ic.messages[0].payload).toMatchObject({
         format: "json",
         match,
