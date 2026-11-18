@@ -369,6 +369,7 @@ class TestHTTPReadTask:
         )
         task_targets.attach(task.config)
         created = client.tasks.create(
+            rack=task_targets.rack,
             name="test-http-read-task",
             type="http_read",
             config=task.config.model_dump(exclude_none=True),
@@ -654,6 +655,7 @@ class TestHTTPWriteTask:
         )
         task_targets.attach(task.config)
         created = client.tasks.create(
+            rack=task_targets.rack,
             name="test-http-write-task",
             type="http_write",
             config=task.config.model_dump(exclude_none=True),
@@ -692,6 +694,7 @@ class TestHTTPWriteTask:
         )
         task_targets.attach(original.config)
         created = client.tasks.create(
+            rack=task_targets.rack,
             name="test-round-trip",
             type="http_write",
             config=original.config.model_dump(exclude_none=True),

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, schematic, type Synnax, TimeStamp } from "@synnaxlabs/client";
+import { sleep, TimeSpan } from "@synnaxlabs/x";
 import { type Page } from "playwright";
 
 import { capture, fixtures } from "@/index";
@@ -348,7 +349,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
           [ch.regulator]: [jitter(READINGS.regulator, 0.04)],
           [ch.tank]: [jitter(READINGS.tank, 0.2)],
         });
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        await sleep.sleep(TimeSpan.milliseconds(100));
       }
       await writer.close();
     })();

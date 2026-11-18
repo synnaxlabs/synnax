@@ -278,6 +278,7 @@ class TestEtherCATReadTask:
         )
         task_targets.attach(task.config)
         created_task = client.tasks.create(
+            rack=task_targets.rack,
             name="test-ethercat-read-task",
             type="ethercat_read",
             config=task.config.model_dump(),
@@ -431,6 +432,7 @@ class TestEtherCATWriteTask:
         )
         task_targets.attach(task.config)
         created_task = client.tasks.create(
+            rack=task_targets.rack,
             name="test-ethercat-write-task",
             type="ethercat_write",
             config=task.config.model_dump(),
@@ -472,6 +474,7 @@ class TestEtherCATWriteTask:
         )
         task_targets.attach(original_task.config)
         created_task = client.tasks.create(
+            rack=task_targets.rack,
             name="test-round-trip",
             type="ethercat_write",
             config=original_task.config,

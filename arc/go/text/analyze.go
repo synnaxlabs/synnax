@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/authority"
 	"github.com/synnaxlabs/arc/analyzer/codes"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
+	"github.com/synnaxlabs/arc/analyzer/expression"
 	"github.com/synnaxlabs/arc/analyzer/statement"
 	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/ir"
@@ -33,6 +34,7 @@ import (
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // keyGenerator produces globally unique IR node keys. It maintains a running
@@ -895,6 +897,26 @@ func varReadRef(vn *ir.Node) nodeResult {
 		node:   ir.Node{Outputs: vn.Outputs},
 		output: ir.Handle{Node: vn.Key, Param: ir.DefaultOutputParam},
 	}
+}
+
+// buildScaleNode builds the node that converts a value of type from to the unit of to.
+func buildScaleNode(from, to types.Type, kg *keyGenerator) nodeResult {
+	key := kg.generate("scale", "")
+	inputs := types.Params{{Name: "value", Type: from}}
+	outputs := types.Params{{Name: ir.DefaultOutputParam, Type: to}}
+	*kg.synthFuncs = append(*kg.synthFuncs, ir.Function{
+		Key:      compiler.ScaleSyntheticPrefix + key,
+		Inputs:   inputs,
+		Outputs:  outputs,
+		Channels: types.NewChannels(),
+	})
+	return newNodeResult(ir.Node{
+		Key:      key,
+		Type:     compiler.ScaleSyntheticPrefix + key,
+		Channels: types.NewChannels(),
+		Inputs:   inputs,
+		Outputs:  outputs,
+	}, "value", ir.DefaultOutputParam)
 }
 
 // varFeederRef appends a fresh feeder param to vn and returns a reference
@@ -2089,6 +2111,18 @@ func (p *flowChainProcessor) processFlowNode(flowNode parser.IFlowNodeContext) b
 			))
 			return false
 		}
+		// A value written to a variable of another unit converts on the way.
+		if from, to := p.prevNode.Outputs[0].Type, node.node.Outputs; isSink &&
+			len(to) > 0 && types.UnitsConvertible(from.Unit, to[0].Type.Unit) {
+			scale := buildScaleNode(from, to[0].Type, p.kg)
+			p.edges = append(p.edges, ir.Edge{
+				Source: p.prevOutput,
+				Target: scale.input,
+				Kind:   p.edgeKind(),
+			})
+			p.nodes = append(p.nodes, scale.node)
+			p.prevOutput = scale.output
+		}
 		p.edges = append(p.edges, ir.Edge{
 			Source: p.prevOutput,
 			Target: node.input,
@@ -2388,12 +2422,10 @@ func (p *inputParser) parseName(
 		return nil, paramType, false, false
 	}
 	if sym.IsLiteral() || isExprReadVar(sym) {
-		if rn := p.shell.varNodes[sym].readNode(sym); rn != nil {
-			t := sym.Type.UnwrapChan()
-			return varValue(sym), types.VarRef(t, rn.Key), true, true
-		}
-		if !sym.Reassigned && sym.DefaultValue != nil {
-			return sym.DefaultValue, paramType, true, true
+		rn := p.shell.varNodes[sym].readNode(sym)
+		if rn != nil || (!sym.Reassigned && sym.DefaultValue != nil) {
+			value, typ, ok = p.parseVariable(expr, sym, rn, paramType)
+			return value, typ, ok, true
 		}
 	}
 	if sym.Type.Kind == types.KindChan {
@@ -2406,6 +2438,52 @@ func (p *inputParser) parseName(
 		return nil, paramType, false, true
 	}
 	return nil, paramType, false, false
+}
+
+// parseVariable parses an input that reads the variable sym, in the unit of the
+// input. rn is the node that holds the variable, or nil for a variable that inlines.
+func (p *inputParser) parseVariable(
+	expr parser.IExpressionContext,
+	sym *symbol.Symbol,
+	rn *ir.Node,
+	paramType types.Type,
+) (any, types.Type, bool) {
+	t, value := sym.Type.UnwrapChan(), varValue(sym)
+	convertible := types.UnitsConvertible(t.Unit, paramType.Unit)
+	check := convertible && rn != nil
+	// A value that is not finite is text, the same in each unit.
+	_, nonFinite := sym.DefaultValue.(string)
+	if convertible && sym.DefaultValue != nil && !nonFinite {
+		parsed, err := literal.Convert(
+			telem.CastNumeric[float64](sym.DefaultValue), t.Unit, paramType,
+		)
+		if err != nil {
+			p.ctx.Diagnostics.Add(diagnostics.Error(err, expr))
+			return nil, paramType, false
+		}
+		value, check = parsed.Value, check || parsed.Truncated
+	}
+	if check {
+		expression.CheckUnits(p.ctx, expression.Write{
+			AST: expr, Source: sym.Type, Target: paramType,
+		})
+	}
+	if rn == nil {
+		return value, paramType, true
+	}
+	ref := types.VarRef(t, rn.Key)
+	if !convertible {
+		return value, ref, true
+	}
+	// A native node converts the register when it reads it. Any other node reads a
+	// scale node that fires with the call.
+	if p.fnSym.Exec != symbol.ExecFlow {
+		scale := buildScaleNode(ref, paramType, p.kg)
+		p.args = append(p.args, scale.node)
+		return value, types.VarRef(paramType, scale.node.Key), true
+	}
+	ref.Unit = paramType.Unit
+	return value, ref, true
 }
 
 func (p *inputParser) parseChannel(

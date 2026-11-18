@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { uuid } from "@synnaxlabs/x";
 import { eq } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
@@ -373,7 +374,7 @@ describe("list", () => {
         organization: acme.key,
         edition: "desktop",
       });
-      for (const key of [revoked.key, desktop.key, crypto.randomUUID()])
+      for (const key of [revoked.key, desktop.key, uuid.create()])
         expect(await findActivatable(store.query, key, NOW)).toBeUndefined();
     });
   });
