@@ -273,10 +273,12 @@ describe("Certificate.Field", () => {
   });
 
   it("shows the path of a file certificate and offers no download", async () => {
+    const r = await client.racks.create({ name: uniqueName("rack") });
     const c = await client.certificates.set({
       name: uniqueName("file"),
       source: "file",
       certificatePath: "/etc/synnax/client.crt",
+      rack: r.key,
     });
     created.push(c.key);
     await renderField(c.key);
