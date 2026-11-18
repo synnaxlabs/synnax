@@ -11,12 +11,13 @@ import { DataType, log } from "@synnaxlabs/client";
 import { aether, canvas } from "@synnaxlabs/pluto/ether";
 import { id } from "@synnaxlabs/x";
 import { screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { Log } from "@/feature/log/Log";
 import { client, renderLog } from "@/feature/log/toolbar/testutil";
 import { Vis } from "@/platform/vis";
+import { installMissingGPU } from "@/testutil";
 
 const stateZ = z.looseObject({});
 
@@ -52,17 +53,7 @@ describe("log/Log", () => {
   });
 
   describe("when the canvas has no GPU", () => {
-    // jsdom has no OffscreenCanvas. One that gives no WebGL context stands in for it.
-    beforeEach(() => {
-      Object.defineProperty(HTMLCanvasElement.prototype, "transferControlToOffscreen", {
-        configurable: true,
-        value: () => ({ getContext: () => null }),
-      });
-    });
-
-    afterEach(() => {
-      Reflect.deleteProperty(HTMLCanvasElement.prototype, "transferControlToOffscreen");
-    });
+    installMissingGPU();
 
     it("shows a placeholder in place of the log", async () => {
       const InCanvas = () => (
