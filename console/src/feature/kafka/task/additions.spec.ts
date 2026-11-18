@@ -90,7 +90,7 @@ describe("createAdditions", () => {
 });
 
 describe("defaultPicks", () => {
-  it("should pick the fixed fields that can share the index", () => {
+  it("should pick every field but the index, strings included", () => {
     const shape = createShape(
       ["oven"],
       [
@@ -100,17 +100,6 @@ describe("defaultPicks", () => {
       ],
       0,
     );
-    expect(defaultPicks(shape)).toEqual(new Set(["/temperature"]));
-  });
-
-  it("should pick variable-length fields only when no fixed field is free", () => {
-    const shape = createShape(
-      ["log"],
-      [
-        createField("/line", "string", "string"),
-        createField("/host", "string", "string"),
-      ],
-    );
-    expect(defaultPicks(shape)).toEqual(new Set(["/line", "/host"]));
+    expect(defaultPicks(shape)).toEqual(new Set(["/temperature", "/state"]));
   });
 });

@@ -485,12 +485,14 @@ describe("Kafka read form", () => {
         });
     });
 
-    it("should keep a string field out of a message with a timestamp", async () => {
+    it("should pick a string field with the numbers of its record", async () => {
       const { dev } = await renderRead();
       const dialog = await openAddData(dev, { data: sampleOf(OVEN_SHAPE) });
       const state = await dialog.findByRole("checkbox", { name: "Record /state" });
-      expect(state).toHaveProperty("disabled", true);
-      dialog.getByText(/A string field cannot share a message/);
+      expect(state).toHaveProperty("disabled", false);
+      fireEvent.click(dialog.getByRole("button", { name: "Select all" }));
+      expect(state).toHaveProperty("checked", true);
+      dialog.getByRole("button", { name: "Add 2 fields" });
     });
 
     it("should show each field's value from the newest record that holds it", async () => {

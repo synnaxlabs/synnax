@@ -20,7 +20,6 @@ import { type Device } from "@/feature/kafka/device/types";
 import {
   defaultPicks,
   freeKeys,
-  isPickable,
   type Picks,
   shapeKey,
 } from "@/feature/kafka/task/additions";
@@ -112,7 +111,6 @@ const ShapeValues = ({
     let lock: ICD.Picker.Lock | undefined;
     if (i === shape.index) lock = INDEX;
     else if (taken) lock = ICD.Picker.TAKEN;
-    else if (!isPickable(shape, value, f)) lock = { checked: false, label: dataType };
     return {
       key: f.pointer,
       name: f.pointer === "" ? "Whole value" : f.pointer,
@@ -121,7 +119,6 @@ const ShapeValues = ({
       lock,
     };
   });
-  const mixed = !taken && values.some(({ lock }) => lock?.checked === false);
   return (
     <>
       <ICD.Picker.PaneHeader
@@ -138,12 +135,6 @@ const ShapeValues = ({
         value={[...value]}
         onChange={(keys) => onChange(new Set(keys))}
       />
-      {mixed && (
-        <Text.Text level="small" color={9} className={CSS.BE("kafka-add-data", "note")}>
-          A string field cannot share a message with number, boolean, or timestamp
-          fields.
-        </Text.Text>
-      )}
     </>
   );
 };

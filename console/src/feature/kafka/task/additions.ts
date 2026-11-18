@@ -35,33 +35,11 @@ export interface Addition {
   index?: icd.FieldKey;
 }
 
-const isVariable = ({ dataType }: json.InferredField): boolean =>
-  new DataType(dataType).isVariable;
-
-/**
- * @returns whether a pick of a shape can take the field. The fields of a message share
- * one index, which a variable-length field cannot have, so the two kinds never mix.
- */
-export const isPickable = (
-  shape: json.Shape,
-  picked: Set<string>,
-  field: json.InferredField,
-): boolean =>
-  shape.fields
-    .filter((f, i) => i === shape.index || picked.has(f.pointer))
-    .every((f) => isVariable(f) === isVariable(field));
-
-/**
- * @returns the fields that a click on a shape picks: each one it can take, without
- * mixing variable-length fields among fixed ones. Fixed fields go first.
- */
-export const defaultPicks = (shape: json.Shape): Set<string> => {
-  const free = shape.fields.filter(
-    (f, i) => i !== shape.index && isPickable(shape, new Set(), f),
+/** @returns the fields that a click on a shape picks: each one but its index. */
+export const defaultPicks = (shape: json.Shape): Set<string> =>
+  new Set(
+    shape.fields.filter((_, i) => i !== shape.index).map(({ pointer }) => pointer),
   );
-  const fixed = free.filter((f) => !isVariable(f));
-  return new Set((fixed.length > 0 ? fixed : free).map(({ pointer }) => pointer));
-};
 
 /** @returns the Kafka keys of a shape that no record of the task reads yet. */
 export const freeKeys = (shape: json.Shape, records: ReadRecord[]): string[] =>
