@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax as Client, table } from "@synnaxlabs/client";
+import { type color as Color, type Synnax as Client, table } from "@synnaxlabs/client";
 import {
   createTestClient,
   RoleClients,
@@ -55,8 +55,8 @@ const roleInput = (label: string): HTMLInputElement => {
   return input;
 };
 
-const hexOf = (value: unknown): string | undefined =>
-  value == null ? undefined : color.hex(value as color.Crude);
+const hexOf = (ref?: Color.Ref | null): string | undefined =>
+  ref?.type === "fixed" ? color.hex(ref.value) : undefined;
 
 const renderToolbar = async ({
   tableState,
@@ -258,6 +258,35 @@ describe("table/Toolbar", () => {
         })),
       }),
     );
+  });
+
+  it("sets a named fill on every selected cell and shows its name", async () => {
+    const palette = await client.groups.create({
+      scope: "color",
+      name: uniqueName("palette"),
+    });
+    const named = await client.colors.create({
+      name: uniqueName("color"),
+      light: "#00ff00",
+      group: palette.key,
+    });
+    const { key } = await renderToolbar({
+      tableState: { selectedCells: ["a", "b"], lastSelected: "b" },
+    });
+    await screen.findByText("Colors");
+    const item = screen.getByText("Fill").closest(".lyra-input__item");
+    const swatch = item?.querySelector<HTMLElement>(".lyra-color-swatch");
+    assertDefined(swatch);
+    fireEvent.click(swatch);
+    fireEvent.click(await screen.findByRole("button", { name: named.name }));
+    await waitFor(async () => {
+      const t = await client.tables.retrieve(key);
+      expect(["a", "b"].map((k) => configOf(t, k)?.fillColor)).toEqual([
+        { type: "named", key: named.key },
+        { type: "named", key: named.key },
+      ]);
+    });
+    await waitFor(() => expect(roleInput("Fill").placeholder).toBe(named.name));
   });
 
   it("shows Mixed when the selected fills differ", async () => {

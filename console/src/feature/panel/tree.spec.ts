@@ -49,7 +49,10 @@ describe("panel tree item", () => {
   });
 
   it("should draw the icon of the panel in its color", async () => {
-    const pan = await renderPanelTree({ icon: "valve", color: "#dc136c" });
+    const pan = await renderPanelTree({
+      icon: "valve",
+      color: { type: "fixed", value: "#dc136c" },
+    });
     const icon = await findRowIcon(pan, "valve");
     expect(icon?.style.getPropertyValue("--pluto-symbol-color")).toEqual(
       "220, 19, 108",

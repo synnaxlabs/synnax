@@ -9,7 +9,7 @@
 
 import { type panel } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Panel } from "@synnaxlabs/pluto";
+import { Color, Panel } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Appearance } from "@/platform/appearance";
@@ -22,7 +22,9 @@ interface ItemIconProps {
 
 const ItemIcon = ({ panelKey }: ItemIconProps): ReactElement => {
   const { data } = Panel.useResultAppearance({ key: panelKey });
-  return Appearance.renderIcon({ ...data, fallback: Icon.Panel });
+  const resolve = Color.useResolve();
+  const color = data?.color == null ? undefined : resolve(data.color);
+  return Appearance.renderIcon({ icon: data?.icon, color, fallback: Icon.Panel });
 };
 
 /** Lists the panels that sit in a group. */

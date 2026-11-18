@@ -69,7 +69,7 @@ const createHarness = async (): Promise<Harness> => {
   const source = await createPanel(projectKey, [tab]);
   const destination = await createPanel(projectKey, [createTab()], {
     icon: "valve",
-    color: "#dc136c",
+    color: { type: "fixed", value: "#dc136c" },
   });
   const other = await createPanel(projectKey, [createTab()]);
   const { wrapper, store } = await createPanelWrapper({ client, project: projectKey });
@@ -96,8 +96,9 @@ const createHarness = async (): Promise<Harness> => {
 describe("Panel.MovePicker", () => {
   it("should move the tab into the panel the user picks", async () => {
     const { store, source, tab, destination } = await createHarness();
+    const row = await screen.findByText(destination.name);
     await act(async () => {
-      fireEvent.click(await screen.findByText(destination.name));
+      fireEvent.click(row);
     });
     await waitFor(async () => {
       const [srcDoc, dstDoc] = await Promise.all([
@@ -114,8 +115,9 @@ describe("Panel.MovePicker", () => {
 
   it("should mint a panel holding the tab when New panel is picked", async () => {
     const { store, source, tab } = await createHarness();
+    const row = await screen.findByText("New panel");
     await act(async () => {
-      fireEvent.click(await screen.findByText("New panel"));
+      fireEvent.click(row);
     });
     await waitFor(() => {
       const selected = Session.Panel.selectSelected(store.getState());
