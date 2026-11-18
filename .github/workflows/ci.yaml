@@ -113,6 +113,7 @@ jobs:
       arc_go: ${{ steps.filter.outputs.arc_go }}
       buildifier: ${{ steps.filter.outputs.buildifier }}
       cesium: ${{ steps.filter.outputs.cesium }}
+      base: ${{ steps.base.outputs.sha }}
       ci: ${{ steps.ci.outputs.jobs }}
       ci_scripts: ${{ steps.filter.outputs.ci_scripts }}
       client_cpp: ${{ steps.filter.outputs.client_cpp }}
@@ -669,17 +670,16 @@ jobs:
       MODULES: >-
         alamos/go arc/go cesium core freighter/go freighter/integration gorp oracle x/go
     steps:
-      # The first parent is the code the change applies to: the target branch of a pull
-      # request, or the merge group entries ahead.
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          fetch-depth: 2
 
       - name: Select the changed modules and their dependents
         id: modules
+        env:
+          BASE: ${{ needs.changes.outputs.base }}
         run: |
-          changed=$(git diff --name-only HEAD^1 HEAD)
+          git fetch --no-tags --depth=1 origin "$BASE"
+          changed=$(git diff --name-only "$BASE" HEAD)
           # shellcheck disable=SC2086
           affected=$(python3 .github/scripts/go_affected.py $MODULES <<< "$changed" |
             xargs)
@@ -691,7 +691,9 @@ jobs:
 
       - name: Check out the base
         if: steps.modules.outputs.affected != ''
-        run: git worktree add --detach "$RUNNER_TEMP/base" HEAD^1
+        env:
+          BASE: ${{ needs.changes.outputs.base }}
+        run: git worktree add --detach "$RUNNER_TEMP/base" "$BASE"
 
       # The check compiles nothing, and the modules download faster than a cache
       # restores.
