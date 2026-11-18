@@ -114,8 +114,9 @@ describe("Panel Commands", () => {
       await screen.findByText(pan.name);
       await openCommandPalette();
       await selectCommand(CHANGE_ICON);
+      const valve = await screen.findByLabelText("Valve");
       await act(async () => {
-        fireEvent.click(await screen.findByLabelText("Valve"));
+        fireEvent.click(valve);
       });
       await waitFor(async () =>
         expect((await client.panels.retrieve({ key: pan.key })).icon).toEqual("valve"),
