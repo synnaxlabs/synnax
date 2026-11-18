@@ -25,6 +25,11 @@ import {
   reducer,
   restoreWindows,
   runtimeSetWindowProps,
+  setWindowMaxSize,
+  setWindowMinSize,
+  setWindowPosition,
+  setWindowSize,
+  setWindowTitle,
   type SliceState,
   ZERO_SLICE_STATE,
 } from "@/state";
@@ -306,6 +311,24 @@ describe("focusWindow", () => {
     expect(s.windows.pre.visible).toEqual(true);
     expect(s.windows.pre.focusCount).toEqual(2);
   });
+});
+
+describe("window prop setters", () => {
+  const SIZE = { width: 300, height: 300 };
+  const SETTERS: Array<[string, PayloadAction<{ key?: string }>]> = [
+    ["setWindowPosition", setWindowPosition({ key: "gone", position: { x: 1, y: 1 } })],
+    ["setWindowSize", setWindowSize({ key: "gone", size: SIZE })],
+    ["setWindowMinSize", setWindowMinSize({ key: "gone", size: SIZE })],
+    ["setWindowMaxSize", setWindowMaxSize({ key: "gone", size: SIZE })],
+    ["setWindowTitle", setWindowTitle({ key: "gone", title: "t" })],
+  ];
+
+  SETTERS.forEach(([name, action]) =>
+    it(`should ignore ${name} for a window that is already closed`, () => {
+      const s = sliceState({ [MAIN_WINDOW]: reserved(MAIN_WINDOW) });
+      expect(reducer(s, assignLabel(action, s))).toEqual(s);
+    }),
+  );
 });
 
 describe("internalSetInitial", () => {

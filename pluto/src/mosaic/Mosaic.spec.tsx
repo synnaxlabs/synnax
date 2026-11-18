@@ -175,6 +175,19 @@ describe("Mosaic", () => {
       expect(onDrop).toHaveBeenCalledWith(expect.objectContaining({ location }));
     });
 
+    it.each<[string, number, number]>([
+      ["top", 100, 75],
+      ["top", 300, 75],
+      ["bottom", 100, 225],
+      ["bottom", 300, 225],
+    ])("should report a %s drop on a diagonal of the leaf", (location, x, y) => {
+      const onDrop = vi.fn();
+      render(<Harness onDrop={onDrop} items={[Mosaic.createTabDropHaulItem("x")]} />);
+      beginDrag(leaf());
+      drop(leaf(), x, y);
+      expect(onDrop).toHaveBeenCalledWith(expect.objectContaining({ location }));
+    });
+
     it("should resolve strip drops to a center drop at the insertion index, claimed before the leaf multi-fires", () => {
       const onDrop = vi.fn();
       render(<Harness onDrop={onDrop} items={[Mosaic.createTabDropHaulItem("x")]} />);

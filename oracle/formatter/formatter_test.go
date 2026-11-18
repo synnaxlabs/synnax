@@ -420,6 +420,43 @@ var _ = Describe("Format", func() {
 			Expect(result).To(Equal("// Copyright 2026\n\n// Tombstone: removed.\n"))
 		})
 
+		It("should preserve a comment on its own line before a field", func() {
+			source := "User struct {\n    // is the name.\n    name string\n}\n"
+			Expect(format(source)).To(Equal(source))
+		})
+
+		It("should preserve a comment on its own line before a definition", func() {
+			source := "A struct {}\n\n// B is a struct.\nB struct {}\n"
+			Expect(format(source)).To(Equal(source))
+		})
+
+		It("should preserve the comment of a field that follows an omission", func() {
+			source := "U struct extends P {\n    /* n */ name string\n    -key\n}\n"
+			Expect(format(source)).To(ContainSubstring("/* n */"))
+		})
+
+		It("should preserve the comment of a domain that precedes a field", func() {
+			source := "V struct {\n    /* g */ @go output \"x\"\n    name string\n}\n"
+			Expect(format(source)).To(ContainSubstring("/* g */"))
+		})
+
+		It("should not move a trailing field comment onto the next field", func() {
+			source := "User struct {\n    name string // the name\n    age int32\n}\n"
+			Expect(format(source)).ToNot(ContainSubstring("// the name\n    age"))
+		})
+
+		It("should not move a trailing definition comment onto the next one", func() {
+			source := "A struct {} // deprecated\n\nB struct {}\n"
+			Expect(format(source)).ToNot(ContainSubstring("// deprecated\nB"))
+		})
+
+		It("should keep the comment of an import with that import", func() {
+			source := "import \"a\"\nimport \"c\"\n// about b\nimport \"b\"\n"
+			Expect(format(source)).To(Equal(
+				"import \"a\"\n// about b\nimport \"b\"\nimport \"c\"\n",
+			))
+		})
+
 		It("should leave glued leading comments glued", func() {
 			source := "// Copyright 2026\n// Tombstone: removed.\n"
 			Expect(format(source)).To(Equal(source))

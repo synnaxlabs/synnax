@@ -62,14 +62,14 @@ func (tr TimeRange) OverlapsWith(rng TimeRange) bool {
 		return true
 	}
 
-	validTR := tr.MakeValid()
+	tr = tr.MakeValid()
 	rng = rng.MakeValid()
 
-	if rng.Start == validTR.Start {
+	if rng.Start == tr.Start {
 		return true
 	}
 
-	if rng.End == validTR.Start || rng.Start == validTR.End {
+	if rng.End == tr.Start || rng.Start == tr.End {
 		return false
 	}
 
