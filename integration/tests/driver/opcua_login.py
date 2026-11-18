@@ -60,7 +60,8 @@ class OPCUAGrantLogin(SimulatorCase):
         listing = browser.execute_command_sync(LIST, args={}, timeout=TIMEOUT)
         assert listing.details is not None
         data = listing.details.data
-        assert isinstance(data, dict) and data["secrets_dir"], data
+        assert isinstance(data, dict), data
+        assert data["secrets_dir"], f"{self.rack.name} has no secrets folder"
         self.secrets_dir = Path(str(data["secrets_dir"]))
 
     def run(self) -> None:
