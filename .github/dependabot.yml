@@ -8,8 +8,8 @@
 # included in the file licenses/APL.txt.
 
 # Version updates for the pinned GitHub Actions and the uv, Go, and Cargo dependencies.
-# Security updates for every ecosystem come from the repository settings and do not use
-# this file.
+# Security updates are on in the repository settings, but they obey the ignore rules
+# here.
 
 version: 2
 
@@ -61,7 +61,7 @@ updates:
       - dependencies
       - review/human
 
-  # A bump changes the code that the Core and Driver releases build from.
+  # A bump changes the code that the Core releases build from.
   - package-ecosystem: gomod
     directories:
       - /alamos/go
@@ -77,6 +77,10 @@ updates:
       interval: monthly
     cooldown:
       default-days: 7
+    # A module that is direct in one go.mod is often indirect in the siblings that
+    # replace it, so every pin must move together or go mod tidy fails.
+    allow:
+      - dependency-type: all
     # Sibling modules come from replace directives.
     ignore:
       - dependency-name: github.com/synnaxlabs/*
@@ -98,9 +102,27 @@ updates:
       interval: monthly
     cooldown:
       default-days: 7
-    # The Tauri crates must match the @tauri-apps packages in the pnpm catalog.
+    # These crates must match the minor version of their @tauri-apps package in the
+    # pnpm catalog, so only patches update here. A person bumps both sides together.
     ignore:
-      - dependency-name: tauri*
+      - dependency-name: tauri
+        update-types: [version-update:semver-major, version-update:semver-minor]
+      - dependency-name: tauri-plugin-deep-link
+        update-types: [version-update:semver-major, version-update:semver-minor]
+      - dependency-name: tauri-plugin-dialog
+        update-types: [version-update:semver-major, version-update:semver-minor]
+      - dependency-name: tauri-plugin-fs
+        update-types: [version-update:semver-major, version-update:semver-minor]
+      - dependency-name: tauri-plugin-os
+        update-types: [version-update:semver-major, version-update:semver-minor]
+      - dependency-name: tauri-plugin-process
+        update-types: [version-update:semver-major, version-update:semver-minor]
+      - dependency-name: tauri-plugin-shell
+        update-types: [version-update:semver-major, version-update:semver-minor]
+      - dependency-name: tauri-plugin-store
+        update-types: [version-update:semver-major, version-update:semver-minor]
+      - dependency-name: tauri-plugin-updater
+        update-types: [version-update:semver-major, version-update:semver-minor]
     groups:
       rust:
         patterns:
