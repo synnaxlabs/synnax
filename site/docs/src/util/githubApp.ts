@@ -12,7 +12,7 @@ import { sign } from "crypto";
 import { z } from "zod";
 
 const API_URL = "https://api.github.com";
-const INSTALLATION_URL = `${API_URL}/repos/synnaxlabs/synnax/installation`;
+const INSTALLATION_URL = `${API_URL}/orgs/synnaxlabs/installation`;
 // GitHub rejects an `iat` ahead of its clock, so the JWT starts in the past.
 const CLOCK_DRIFT = TimeSpan.seconds(60);
 const JWT_LIFETIME = TimeSpan.minutes(9);
@@ -54,8 +54,8 @@ const jwt = (appID: string, privateKey: string, now: number): string => {
 };
 
 /**
- * Builds a source of installation tokens for the GitHub App installed on the Synnax
- * repository. A token serves until five minutes before it expires.
+ * Builds a source of installation tokens for the GitHub App installed on the synnaxlabs
+ * organization. A token serves until five minutes before it expires.
  * @returns A function that resolves to a token. Without an App, it resolves to the
  * static token, or is undefined if there is none.
  * @throws {Error} if only one of the ID and the key is set. The function it returns

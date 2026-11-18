@@ -78,7 +78,7 @@ describe("tokenSource", () => {
     const token = tokenSource({ appID: "42", privateKey, fetch, now: () => NOW });
     expect(await token?.()).toEqual("t1");
     expect(fetch.mock.calls[0]?.[0]).toEqual(
-      "https://api.github.com/repos/synnaxlabs/synnax/installation",
+      "https://api.github.com/orgs/synnaxlabs/installation",
     );
     expect(fetch.mock.calls[1]?.[0]).toEqual(
       "https://api.github.com/app/installations/7/access_tokens",
