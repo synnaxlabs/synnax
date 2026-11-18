@@ -483,12 +483,15 @@ every moving part. One table holds motion as data: it maps each `Motion` variant
 opacity. Motion composes with a part's own `transform` and never writes an attribute
 that a look writes. A part joins the loop when Pluto builds its drawing, and leaves it
 when the drawing is rebuilt or removed. The bar for motion is 60 fps, and at least 30
-fps under heavy load, such as a live line plot with pan and zoom. The WebKit benchmark
-measured this loop in WKWebView on an Apple M3 Max. It holds 60 fps at 100 moving parts
-and fails 60 fps at 500. At 1,000 it draws 21 fps, and 15 to 26 fps during pan, wheel
-zoom, or a main thread 60% busy. Each moving part costs about 40 µs of main-thread time
-a frame, so the 60 fps limit is between 100 and 400 moving parts. WebKitGTK on a test
-machine with the nouveau driver fails 60 fps at 100.
+fps under heavy load, such as a live line plot with pan and zoom. The bar is a target,
+not a run time limit: the phase 5 PR shows the benchmark holding it at 100 moving parts
+in WKWebView, and nothing caps motion while the Console runs. On a large schematic or a
+slow machine, the Reduce motion setting and `motion_disabled` stop the animation (§4.2).
+The WebKit benchmark measured this loop in WKWebView on an Apple M3 Max. It holds 60 fps
+at 100 moving parts and fails 60 fps at 500. At 1,000 it draws 21 fps, and 15 to 26 fps
+during pan, wheel zoom, or a main thread 60% busy. Each moving part costs about 40 µs of
+main-thread time a frame, so the 60 fps limit is between 100 and 400 moving parts.
+WebKitGTK on a test machine with the nouveau driver fails 60 fps at 100.
 
 | Phase | Scope                                                    | Touches                                                                                                                                                                                                           | Depends on |
 | ----- | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
@@ -515,8 +518,8 @@ machine with the nouveau driver fails 60 fps at 100.
    model for one kind of record. The trade is real: a wrong save reaches running stands.
 7. **Components attach at their own handles**: A pipe to any member breaks when a
    revision moves it, and a "port" would name what a handle already names.
-8. **Built-ins may move**: Beauty is a product principle. The frame rate bar of phase 5
-   (§6) limits it.
+8. **Built-ins may move**: Beauty is a product principle. Phase 5 measures motion
+   against a frame rate bar (§6), and Reduce motion and `motion_disabled` stop it.
 9. **Four families, not one variant for all**: A shape in `symbol` adds per-copy
    geometry that most symbols ignore, against principle 1. The trade is real: the editor
    edits four kinds of item, as Figma, tldraw, Excalidraw, and draw.io do.
