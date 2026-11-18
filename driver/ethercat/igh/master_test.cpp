@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <cerrno>
 #include <map>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -85,6 +87,56 @@ void create_assignable_layout(MockAPI::Slave &slave) {
         {{0x1A01, 0}, 1},
         {{0x1A01, 1}, 0x60100120},
     };
+}
+
+/// @brief a mode that runs on the sync manager events.
+const dc::OpMode FREE_RUN{.name = "FreeRun"};
+
+/// @brief a mode that runs SYNC0 once in each bus cycle, 50 µs after the cycle starts.
+const dc::OpMode DC_SYNC{
+    .name = "DC",
+    .assign_activate = 0x0300,
+    .sync0_factor = 1,
+    .sync0_shift = 50'000,
+};
+
+/// @brief returns an SII that lists modes, as the strings and DC categories hold them.
+std::vector<uint16_t> create_sii(const std::vector<dc::OpMode> &modes) {
+    std::vector<uint8_t> strings{static_cast<uint8_t>(modes.size())};
+    std::vector<uint8_t> dc;
+    const auto put = [&dc](const uint32_t value, const int bytes) {
+        for (int i = 0; i < bytes; i++)
+            dc.push_back(static_cast<uint8_t>(value >> (8 * i)));
+    };
+    for (size_t i = 0; i < modes.size(); i++) {
+        const auto &mode = modes[i];
+        strings.push_back(static_cast<uint8_t>(mode.name.size()));
+        strings.insert(strings.end(), mode.name.begin(), mode.name.end());
+        put(mode.sync0_cycle, 4);
+        put(static_cast<uint32_t>(mode.sync0_shift), 4);
+        put(static_cast<uint32_t>(mode.sync1_shift), 4);
+        put(static_cast<uint16_t>(mode.sync1_factor), 2);
+        put(mode.assign_activate, 2);
+        put(static_cast<uint16_t>(mode.sync0_factor), 2);
+        put(i + 1, 1);
+        put(0, 5);
+    }
+    std::vector<uint16_t> words(0x40, 0);
+    for (auto [type, bytes]: {std::pair{10, strings}, std::pair{60, dc}}) {
+        if (bytes.size() % 2 != 0) bytes.push_back(0);
+        words.push_back(static_cast<uint16_t>(type));
+        words.push_back(static_cast<uint16_t>(bytes.size() / 2));
+        for (size_t i = 0; i < bytes.size(); i += 2)
+            words.push_back(static_cast<uint16_t>(bytes[i] | (bytes[i + 1] << 8)));
+    }
+    words.push_back(0xFFFF);
+    return words;
+}
+
+/// @brief makes slave a slave with a distributed clock that lists modes.
+void create_dc(MockAPI::Slave &slave, const std::vector<dc::OpMode> &modes) {
+    slave.info.ports[0].receive_time = 1;
+    slave.sii = create_sii(modes);
 }
 
 /// @brief returns the entry 0x6010:01 of the slave at position 1.
@@ -262,22 +314,13 @@ TEST_F(IGHMasterTest, ScanFailsWhenTheMasterInfoCannotBeRead) {
     EXPECT_TRUE(this->api->released);
 }
 
-/// @brief it should fail activation when it cannot create the output domain.
-TEST_F(IGHMasterTest, ActivateFailsWhenTheOutputDomainFails) {
-    this->api->add_slave();
-    this->api->output_domain_fails = true;
+/// @brief it should fail activation when it cannot create the domain of a slave.
+TEST_F(IGHMasterTest, ActivateFailsWhenADomainCannotBeCreated) {
+    create_io(this->api->add_slave());
+    this->api->domain_fails = true;
     const auto err = this->scan_and_activate();
     ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
-    EXPECT_EQ(err.data, "failed to create output domain");
-}
-
-/// @brief it should fail activation when it cannot create the input domain.
-TEST_F(IGHMasterTest, ActivateFailsWhenTheInputDomainFails) {
-    this->api->add_slave();
-    this->api->input_domain_fails = true;
-    const auto err = this->scan_and_activate();
-    ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
-    EXPECT_EQ(err.data, "failed to create input domain");
+    EXPECT_EQ(err.data, "failed to create the domain of slave 1 (TestSlave)");
 }
 
 /// @brief it should fail to initialize, and release the master, when it cannot read a
@@ -541,23 +584,38 @@ TEST_F(IGHMasterTest, ActivateFailsWhenASlaveCannotBeConfigured) {
 /// @brief it should give the cycle the domains, with the offset of each entry.
 TEST_F(IGHMasterTest, ActivateGivesTheProcessImage) {
     create_io(this->api->add_slave());
+    create_io(this->api->add_slave());
     ASSERT_NIL(this->scan_and_activate());
-    EXPECT_EQ(this->image.outputs.size(), 2);
-    EXPECT_EQ(this->image.inputs.size(), 4);
-    ASSERT_NIL_P(this->image.offset(
-        {.slave_position = 1,
+    EXPECT_EQ(this->api->domains.size(), 2);
+    EXPECT_EQ(this->image.outputs.size(), 12);
+    EXPECT_EQ(this->image.inputs.size(), 12);
+    const auto output = ASSERT_NIL_P(this->image.offset(
+        {.slave_position = 2,
          .index = 0x7000,
          .sub_index = 0x01,
          .bit_length = 16,
          .is_input = false}
     ));
-    ASSERT_NIL_P(this->image.offset(
-        {.slave_position = 1,
+    EXPECT_EQ(output.byte, 6);
+    const auto input = ASSERT_NIL_P(this->image.offset(
+        {.slave_position = 2,
          .index = 0x6000,
          .sub_index = 0x01,
          .bit_length = 32,
          .is_input = true}
     ));
+    EXPECT_EQ(input.byte, 8);
+}
+
+/// @brief it should create no domain for a slave with no process data.
+TEST_F(IGHMasterTest, ActivateCreatesNoDomainForASlaveWithNoProcessData) {
+    this->api->add_slave();
+    create_io(this->api->add_slave());
+    ASSERT_NIL(this->scan_and_activate());
+    ASSERT_EQ(this->api->domains.size(), 1);
+    EXPECT_EQ(this->api->slaves[1].domain, 0);
+    EXPECT_EQ(this->image.working_counter_shares.count(1), 0);
+    ASSERT_NIL(this->master.receive());
 }
 
 /// @brief it should start a bus whose slaves have no process data.
@@ -729,11 +787,30 @@ TEST_F(IGHMasterTest, ActivateReturnsTheRefusalsWhenTheResetFails) {
     );
 }
 
-/// @brief it should fail activation on a chosen DC mode before it configures any slave,
-/// as the IgH master does not run DC sync.
-TEST_F(IGHMasterTest, ActivateFailsOnAChosenDCMode) {
+/// @brief it should read the modes of each slave from its SII, and read none from a SII
+/// with no categories.
+TEST_F(IGHMasterTest, ScanReadsTheModesOfEachSlaveFromItsSII) {
+    create_dc(this->api->add_slave(), {FREE_RUN, DC_SYNC});
     this->api->add_slave();
+    const auto slaves = ASSERT_NIL_P(this->master.scan());
+    EXPECT_EQ(slaves[0].properties.op_modes, (std::vector{FREE_RUN, DC_SYNC}));
+    EXPECT_TRUE(slaves[1].properties.op_modes.empty());
+}
+
+/// @brief it should fail the scan when it cannot read the SII of a slave.
+TEST_F(IGHMasterTest, ScanFailsWhenTheSIICannotBeRead) {
     this->api->add_slave();
+    this->api->add_slave().sii_result = -EIO;
+    const auto err = this->master.scan().second;
+    ASSERT_OCCURRED_AS(err, errors::MASTER_INIT_ERROR);
+    EXPECT_EQ(err.data, "failed to read the SII of slave 2: Input/output error");
+}
+
+/// @brief it should fail activation on a chosen mode that the slave does not list,
+/// before it configures any slave.
+TEST_F(IGHMasterTest, ActivateFailsOnAChosenModeTheSlaveDoesNotList) {
+    this->api->add_slave();
+    create_dc(this->api->add_slave(), {FREE_RUN, DC_SYNC});
     this->configs = {
         {2, {.op_mode = dc::Choice{.index = 1, .assign_activate = 0x0700}}}
     };
@@ -741,8 +818,9 @@ TEST_F(IGHMasterTest, ActivateFailsOnAChosenDCMode) {
     ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
     EXPECT_EQ(
         err.data,
-        "slave 2 (TestSlave) cannot use its chosen mode: the IgH master does not run "
-        "DC sync"
+        "slave 2 (TestSlave) cannot use its chosen mode: the slave does not list mode "
+        "1 with AssignActivate 0x0700. It lists 0 \"FreeRun\" (AssignActivate "
+        "0x0000), 1 \"DC\" (AssignActivate 0x0300)."
     );
     EXPECT_FALSE(this->api->slaves[0].configured);
 }
@@ -750,7 +828,7 @@ TEST_F(IGHMasterTest, ActivateFailsOnAChosenDCMode) {
 /// @brief it should fail activation on a chosen cycle for an SM mode, as the SOEM
 /// master does.
 TEST_F(IGHMasterTest, ActivateFailsOnAChosenCycleForAnSMMode) {
-    this->api->add_slave();
+    create_dc(this->api->add_slave(), {FREE_RUN, DC_SYNC});
     this->configs = {{
         1,
         {.op_mode = dc::Choice{
@@ -763,18 +841,251 @@ TEST_F(IGHMasterTest, ActivateFailsOnAChosenCycleForAnSMMode) {
     ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
     EXPECT_EQ(
         err.data,
-        "slave 1 (TestSlave) cannot use its chosen mode: mode (AssignActivate 0x0000) "
-        "does not run SYNC0, so it cannot use a SYNC0 cycle of 1ms"
+        "slave 1 (TestSlave) cannot use its chosen mode: mode \"FreeRun\" "
+        "(AssignActivate 0x0000) does not run SYNC0, so it cannot use a SYNC0 cycle "
+        "of 1ms"
     );
     EXPECT_FALSE(this->api->slaves[0].configured);
 }
 
-/// @brief it should run a slave in a chosen SM mode.
+/// @brief it should run a slave in a chosen SM mode, with no DC sync.
 TEST_F(IGHMasterTest, ActivateRunsAChosenSMMode) {
-    this->api->add_slave();
-    this->configs = {{1, {.op_mode = dc::Choice{.index = 0, .assign_activate = 0}}}};
+    create_dc(this->api->add_slave(), {DC_SYNC, FREE_RUN});
+    this->configs = {{1, {.op_mode = dc::Choice{.index = 1, .assign_activate = 0}}}};
     ASSERT_NIL(this->scan_and_activate());
     EXPECT_TRUE(this->api->slaves[0].configured);
+    EXPECT_FALSE(this->api->slaves[0].dc);
+    EXPECT_TRUE(this->image.dc_sync.empty());
+    EXPECT_FALSE(this->image.reference_clock);
+}
+
+/// @brief it should set up the DC sync of each slave in a DC mode, and give the first
+/// slave with a distributed clock as the reference clock.
+TEST_F(IGHMasterTest, ActivateSetsUpTheDCSyncOfEachSlaveInADCMode) {
+    this->api->add_slave();
+    create_dc(this->api->add_slave(), {FREE_RUN, DC_SYNC});
+    create_dc(this->api->add_slave(), {DC_SYNC});
+    ASSERT_NIL(this->scan_and_activate());
+    EXPECT_FALSE(this->api->slaves[1].dc);
+    EXPECT_EQ(
+        this->api->slaves[2].dc,
+        (MockAPI::DC{
+            .assign_activate = 0x0300,
+            .sync0_cycle = 1'000'000,
+            .sync0_shift = 50'000,
+            .sync1_cycle = 0,
+            .sync1_shift = 0,
+        })
+    );
+    EXPECT_EQ(
+        this->image.dc_sync,
+        (std::vector<dc::Registers>{{
+            .assign_activate = 0x0300,
+            .sync0_cycle = 1'000'000,
+            .sync0_shift = 50'000,
+        }})
+    );
+    EXPECT_EQ(this->image.reference_clock, 2);
+}
+
+/// @brief it should give IgH a first application time on whole SYNC0 cycles of each
+/// slave, at or before the time of the first cycle, so that the SYNC0 events start on
+/// whole cycles after the DC epoch.
+TEST_F(IGHMasterTest, ActivateStartsTheSYNC0EventsOnWholeCycles) {
+    create_dc(this->api->add_slave(), {DC_SYNC});
+    auto slow = DC_SYNC;
+    slow.sync0_factor = 3;
+    create_dc(this->api->add_slave(), {slow});
+    ASSERT_NIL(this->scan_and_activate());
+    ASSERT_NIL(this->master.send());
+    ASSERT_EQ(this->api->app_times.size(), 2);
+    EXPECT_EQ(this->api->app_times[0] % 3'000'000, 0);
+    EXPECT_LE(this->api->app_times[0], this->api->app_times[1]);
+    EXPECT_LT(this->api->app_times[1] - this->api->app_times[0], 3'000'000);
+}
+
+/// @brief it should fail activation, before it configures any slave, when SYNC1 of a
+/// slave does not come a whole number of SYNC0 cycles after SYNC0, since IgH would
+/// start its SYNC0 events off the grid.
+TEST_F(IGHMasterTest, ActivateFailsOnASYNC1ShiftOffTheSYNC0Grid) {
+    auto shifted = DC_SYNC;
+    shifted.assign_activate = 0x0700;
+    shifted.sync1_factor = 1;
+    shifted.sync1_shift = 250'000;
+    create_dc(this->api->add_slave(), {shifted});
+    const auto err = this->scan_and_activate();
+    ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "slave 1 (TestSlave) cannot run its DC mode on the IgH master: SYNC1 comes "
+        "250us after SYNC0, which is not a whole number of SYNC0 cycles of 1ms"
+    );
+    EXPECT_FALSE(this->api->slaves[0].configured);
+}
+
+/// @brief it should fail activation, before it configures any slave, when the SYNC0
+/// cycles of the slaves have no common multiple that IgH can start them on.
+TEST_F(IGHMasterTest, ActivateFailsOnSYNC0CyclesWithNoCommonStart) {
+    for (const int64_t cycles: {42'949, 42'947, 42'943}) {
+        create_dc(this->api->add_slave(), {DC_SYNC});
+        this->configs[static_cast<uint16_t>(this->api->slaves.size())] = {
+            .op_mode = dc::Choice{
+                .index = 0,
+                .assign_activate = DC_SYNC.assign_activate,
+                .cycles = {.sync0 = x::telem::MICROSECOND * 100 * cycles},
+            },
+        };
+    }
+    const auto err = this->scan_and_activate();
+    ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "the SYNC0 cycles of the slaves have no common multiple that the IgH master "
+        "can start them on"
+    );
+    EXPECT_FALSE(this->api->slaves[0].configured);
+}
+
+/// @brief it should fail activation when IgH cannot set up the DC sync of a slave.
+TEST_F(IGHMasterTest, ActivateFailsWhenTheDCSyncCannotBeSetUp) {
+    create_dc(this->api->add_slave(), {DC_SYNC});
+    this->api->dc_config_result = -ENOMEM;
+    const auto err = this->scan_and_activate();
+    ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "failed to set up the DC sync of slave 1 (TestSlave): Cannot allocate memory"
+    );
+}
+
+/// @brief it should fail a send when IgH does not take the application time.
+TEST_F(IGHMasterTest, SendFailsWhenTheApplicationTimeIsNotTaken) {
+    create_dc(this->api->add_slave(), {DC_SYNC});
+    ASSERT_NIL(this->scan_and_activate());
+    this->api->app_time_result = -EPERM;
+    const auto err = this->master.send();
+    ASSERT_OCCURRED_AS(err, errors::CYCLIC_ERROR);
+    EXPECT_EQ(err.data, "failed to give the application time: Operation not permitted");
+}
+
+/// @brief it should give the application time in each cycle, and sync the reference
+/// clock to it and the other clocks to the reference clock.
+TEST_F(IGHMasterTest, CycleSyncsTheClocksToTheApplicationTime) {
+    create_dc(this->api->add_slave(), {DC_SYNC});
+    ASSERT_NIL(this->scan_and_activate());
+    ASSERT_NIL(this->master.send());
+    ASSERT_EQ(this->api->app_times.size(), 2);
+    EXPECT_EQ(this->api->reference_syncs, std::vector{this->api->app_times[1]});
+    EXPECT_EQ(this->api->slave_syncs, 1);
+}
+
+/// @brief it should sync no clocks and read no DC time when no slave runs a DC mode.
+TEST_F(IGHMasterTest, CycleSyncsNoClocksWithoutADCMode) {
+    auto &slave = this->api->add_slave();
+    create_io(slave);
+    create_dc(slave, {FREE_RUN, DC_SYNC});
+    ASSERT_NIL(this->scan_and_activate());
+    ASSERT_NIL(this->master.send());
+    ASSERT_NIL(this->master.receive());
+    EXPECT_TRUE(this->api->app_times.empty());
+    EXPECT_EQ(this->api->slave_syncs, 0);
+    EXPECT_FALSE(this->master.dc_time());
+}
+
+/// @brief it should go on while IgH has no reference clock, as during a scan of the
+/// bus.
+TEST_F(IGHMasterTest, SendGoesOnWithoutAReferenceClock) {
+    create_dc(this->api->add_slave(), {DC_SYNC});
+    ASSERT_NIL(this->scan_and_activate());
+    this->api->clock_sync_result = -ENXIO;
+    ASSERT_NIL(this->master.send());
+}
+
+/// @brief it should fail a send when IgH cannot sync the clocks.
+TEST_F(IGHMasterTest, SendFailsWhenTheClocksCannotSync) {
+    create_dc(this->api->add_slave(), {DC_SYNC});
+    ASSERT_NIL(this->scan_and_activate());
+    this->api->clock_sync_result = -EIO;
+    const auto err = this->master.send();
+    ASSERT_OCCURRED_AS(err, errors::CYCLIC_ERROR);
+    EXPECT_EQ(err.data, "failed to sync the distributed clocks: Input/output error");
+}
+
+/// @brief it should read the DC time once a slave gives a working counter, as the time
+/// nearest the application time of the frame with the low 32 bits that the reference
+/// clock gave.
+TEST_F(IGHMasterTest, DCTimeReadsTheReferenceClockOnceASlaveAnswers) {
+    auto &slave = this->api->add_slave();
+    create_io(slave);
+    create_dc(slave, {DC_SYNC});
+    ASSERT_NIL(this->scan_and_activate());
+    this->api->domain_of(slave).state = {.working_counter = 0, .wc_state = EC_WC_ZERO};
+    ASSERT_NIL(this->master.send());
+    ASSERT_OCCURRED_AS(this->master.receive(), errors::WORKING_COUNTER_ERROR);
+    EXPECT_FALSE(this->master.dc_time());
+    this->api->domain_of(slave).state = {
+        .working_counter = 3,
+        .wc_state = EC_WC_COMPLETE
+    };
+    for (const int64_t ahead: {500, -1000}) {
+        ASSERT_NIL(this->master.send());
+        const auto sent = this->api->app_times.back();
+        this->api->reference_clock_time = static_cast<uint32_t>(sent + ahead);
+        ASSERT_NIL(this->master.receive());
+        EXPECT_EQ(
+            this->master.dc_time(),
+            master::DC_EPOCH + x::telem::TimeSpan(static_cast<int64_t>(sent) + ahead)
+        );
+    }
+}
+
+/// @brief it should give no DC time for a frame that did not reach the reference clock,
+/// or while IgH has no reference clock during a scan of the bus.
+TEST_F(IGHMasterTest, DCTimeGivesNoneForAFrameWithNoTime) {
+    auto &slave = this->api->add_slave();
+    create_io(slave);
+    create_dc(slave, {DC_SYNC});
+    ASSERT_NIL(this->scan_and_activate());
+    for (const int ret: {-EIO, -ENXIO}) {
+        this->api->reference_clock_result = 0;
+        ASSERT_NIL(this->master.send());
+        ASSERT_NIL(this->master.receive());
+        ASSERT_TRUE(this->master.dc_time());
+        this->api->reference_clock_result = ret;
+        ASSERT_NIL(this->master.send());
+        ASSERT_NIL(this->master.receive());
+        EXPECT_FALSE(this->master.dc_time());
+    }
+}
+
+/// @brief it should find the reference clock again on a scan after a failed one, as the
+/// bus can change in between.
+TEST_F(IGHMasterTest, ScanFindsTheReferenceClockAgainAfterAFailedScan) {
+    this->api->add_slave();
+    this->api->add_slave();
+    auto &slaves = this->api->slaves;
+    slaves[0].info.ports[0].receive_time = 1;
+    slaves[1].sii_result = -EIO;
+    ASSERT_OCCURRED_AS_P(this->master.scan(), errors::MASTER_INIT_ERROR);
+    slaves[0].info.ports[0].receive_time = 0;
+    slaves[1].sii_result = 0;
+    create_dc(slaves[1], {DC_SYNC});
+    ASSERT_NIL(this->scan_and_activate());
+    EXPECT_EQ(this->image.reference_clock, 2);
+}
+
+/// @brief it should fail a receive when IgH cannot read the reference clock for a
+/// reason other than a missed frame or a scan of the bus.
+TEST_F(IGHMasterTest, ReceiveFailsWhenTheReferenceClockCannotBeRead) {
+    auto &slave = this->api->add_slave();
+    create_io(slave);
+    create_dc(slave, {DC_SYNC});
+    ASSERT_NIL(this->scan_and_activate());
+    this->api->reference_clock_result = -EFAULT;
+    ASSERT_NIL(this->master.send());
+    const auto err = this->master.receive();
+    ASSERT_OCCURRED_AS(err, errors::CYCLIC_ERROR);
+    EXPECT_EQ(err.data, "failed to read the reference clock: Bad address");
 }
 
 /// @brief it should start the bus when the master rejects the entries of a slave whose
@@ -1092,73 +1403,93 @@ TEST_F(IGHMasterTest, ReceiveSucceedsOnACompleteWorkingCounter) {
     ASSERT_NIL(this->master.receive());
 }
 
-/// @brief it should fail when no slave answers a domain.
+/// @brief it should fail when no slave answers its domain, and report no slave as
+/// inputless, since no frame came back.
 TEST_F(IGHMasterTest, ReceiveFailsWhenNoSlaveAnswers) {
     create_io(this->api->add_slave());
+    create_io(this->api->add_slave());
     ASSERT_NIL(this->scan_and_activate());
-    this->api->outputs.state.wc_state = EC_WC_ZERO;
+    for (const auto &slave: this->api->slaves)
+        this->api->domain_of(slave).state.wc_state = EC_WC_ZERO;
     const auto err = this->master.receive();
     ASSERT_OCCURRED_AS(err, errors::WORKING_COUNTER_ERROR);
     EXPECT_EQ(err.data, "no slaves responded");
+    EXPECT_EQ(this->master.shortfall(), 6);
+    EXPECT_TRUE(this->master.inputless().empty());
 }
 
-/// @brief it should return a working counter error when a domain reports an incomplete
-/// working counter.
-TEST_F(IGHMasterTest, ReceiveFailsOnAnIncompleteWorkingCounter) {
+/// @brief it should report the shortfall of a slave that gives its inputs but does not
+/// take its outputs, and not report it as inputless.
+TEST_F(IGHMasterTest, ReceiveReportsThePartOfASlaveThatFellShort) {
     create_io(this->api->add_slave());
     ASSERT_NIL(this->scan_and_activate());
-    this->api->outputs.state = {.working_counter = 1, .wc_state = EC_WC_INCOMPLETE};
-    this->api->inputs.state = {.working_counter = 2, .wc_state = EC_WC_COMPLETE};
+    this->api->domain_of(this->api->slaves[0]).state = {
+        .working_counter = 1,
+        .wc_state = EC_WC_INCOMPLETE,
+    };
     const auto err = this->master.receive();
     ASSERT_OCCURRED_AS(err, errors::WORKING_COUNTER_ERROR);
-    EXPECT_EQ(err.data, "incomplete working counter: output 1, input 2");
+    EXPECT_EQ(err.data, "incomplete working counter: 1 of 3");
+    EXPECT_EQ(this->master.shortfall(), 2);
+    EXPECT_TRUE(this->master.inputless().empty());
 }
 
-/// @brief it should report no shortfall before a complete cycle gives the full working
-/// counter.
-TEST_F(IGHMasterTest, ReceiveReportsNoShortfallBeforeACompleteCycle) {
+/// @brief it should report each slave whose domain gave nothing as inputless, one with
+/// only outputs too, and count its whole share in the shortfall.
+TEST_F(IGHMasterTest, ReceiveReportsEachSilentSlaveAsInputless) {
     create_io(this->api->add_slave());
-    ASSERT_NIL(this->scan_and_activate());
-    this->api->outputs.state = {.working_counter = 0, .wc_state = EC_WC_ZERO};
-    ASSERT_OCCURRED_AS(this->master.receive(), errors::WORKING_COUNTER_ERROR);
-    EXPECT_EQ(this->master.shortfall(), std::nullopt);
-}
-
-/// @brief it should report how far the working counter fell below the latest complete
-/// cycle.
-TEST_F(IGHMasterTest, ReceiveReportsTheShortfallBelowTheLatestCompleteCycle) {
     create_io(this->api->add_slave());
+    this->api->add_slave().syncs = {{EC_DIR_OUTPUT, {{0x1600, {{0x7000, 0x01, 8}}}}}};
     ASSERT_NIL(this->scan_and_activate());
-    this->api->outputs.state = {.working_counter = 1, .wc_state = EC_WC_COMPLETE};
-    this->api->inputs.state = {.working_counter = 1, .wc_state = EC_WC_COMPLETE};
+    this->api->domain_of(this->api->slaves[1]).state.wc_state = EC_WC_ZERO;
+    this->api->domain_of(this->api->slaves[2]).state.wc_state = EC_WC_ZERO;
+    const auto err = this->master.receive();
+    ASSERT_OCCURRED_AS(err, errors::WORKING_COUNTER_ERROR);
+    EXPECT_EQ(err.data, "incomplete working counter: 3 of 7");
+    EXPECT_EQ(this->master.shortfall(), 4);
+    EXPECT_EQ(
+        std::vector(this->master.inputless().begin(), this->master.inputless().end()),
+        (std::vector<uint16_t>{2, 3})
+    );
+    this->api->domain_of(this->api->slaves[1]).state.wc_state = EC_WC_COMPLETE;
+    this->api->domain_of(this->api->slaves[2]).state.wc_state = EC_WC_COMPLETE;
     ASSERT_NIL(this->master.receive());
-    this->api->outputs.state = {.working_counter = 0, .wc_state = EC_WC_ZERO};
-    ASSERT_OCCURRED_AS(this->master.receive(), errors::WORKING_COUNTER_ERROR);
-    EXPECT_EQ(this->master.shortfall(), 1);
+    EXPECT_EQ(this->master.shortfall(), std::nullopt);
+    EXPECT_TRUE(this->master.inputless().empty());
 }
 
-/// @brief it should give each enabled slave a working counter share of 1 in each domain
-/// that holds one of its entries.
+/// @brief it should give each enabled slave the working counter share that its own
+/// domain expects: 2 for its outputs and 1 for its inputs in one LRW datagram, or 1 for
+/// the one direction it maps.
 TEST_F(IGHMasterTest, ImageGivesTheWorkingCounterShareOfEachSlave) {
     create_io(this->api->add_slave());
     this->api->add_slave().syncs = {{EC_DIR_INPUT, {{0x1A00, {{0x6000, 0x01, 16}}}}}};
+    this->api->add_slave().syncs = {{EC_DIR_OUTPUT, {{0x1600, {{0x7000, 0x01, 8}}}}}};
     ASSERT_NIL(this->scan_and_activate());
     EXPECT_EQ(
         this->image.working_counter_shares,
         (std::map<uint16_t, master::WorkingCounterShare>{
-            {1, {.outputs = 1, .inputs = 1}},
+            {1, {.outputs = 2, .inputs = 1}},
             {2, {.inputs = 1}},
+            {3, {.outputs = 1}},
         })
     );
 }
 
-/// @brief it should not count the zero working counter of an empty domain, which
-/// exchanges no data.
-TEST_F(IGHMasterTest, ReceiveIgnoresAnEmptyDomain) {
-    this->api->add_slave().syncs = {{EC_DIR_INPUT, {{0x1A00, {{0x6000, 0x01, 16}}}}}};
+/// @brief it should copy the memory of each domain into the image inputs on receive,
+/// and copy the image outputs into each domain before it queues the domain.
+TEST_F(IGHMasterTest, CycleCopiesTheProcessDataOfEachDomain) {
+    create_io(this->api->add_slave());
+    create_io(this->api->add_slave());
     ASSERT_NIL(this->scan_and_activate());
-    this->api->outputs.state.wc_state = EC_WC_ZERO;
+    auto &second = this->api->domain_of(this->api->slaves[1]);
+    second.data[2] = 0xAB;
     ASSERT_NIL(this->master.receive());
+    EXPECT_EQ(this->image.inputs[8], 0xAB);
+    this->image.outputs[6] = 0xCD;
+    ASSERT_NIL(this->master.send());
+    EXPECT_EQ(second.data[0], 0xCD);
+    EXPECT_EQ(this->api->queued, (std::vector<size_t>{0, 1}));
 }
 
 /// @brief it should fail when the master fails to receive frames.
@@ -1244,6 +1575,26 @@ TEST_F(IGHMasterTest, CheckReportsTheErrorFlagAsFaulted) {
     ASSERT_EQ(health.size(), 1);
     EXPECT_EQ(health[0].state, slave::State::SAFE_OP);
     EXPECT_TRUE(health[0].faulted);
+}
+
+/// @brief it should keep the health of a slave whose domain answers, or that has no
+/// domain, while IgH scans the bus again, and report a slave whose domain gives nothing
+/// as lost.
+TEST_F(IGHMasterTest, CheckKeepsTheHealthOfAnAnsweringSlaveDuringAScan) {
+    create_io(this->api->add_slave());
+    create_io(this->api->add_slave());
+    this->api->add_slave();
+    ASSERT_NIL(this->scan_and_activate());
+    const auto before = this->master.check(this->brk);
+    this->api->scanning = true;
+    this->api->domain_of(this->api->slaves[1]).state.wc_state = EC_WC_ZERO;
+    const auto health = this->master.check(this->brk);
+    ASSERT_EQ(health.size(), 3);
+    EXPECT_EQ(health[0], before[0]);
+    EXPECT_FALSE(health[0].lost);
+    EXPECT_EQ(health[0].state, slave::State::OP);
+    EXPECT_TRUE(health[1].lost);
+    EXPECT_EQ(health[2], before[2]);
 }
 
 /// @brief it should reset the master when the latest check found a faulted slave, so
@@ -1353,6 +1704,26 @@ TEST_F(IGHMasterTest, RecoverDoesNothingOnceTheBreakerStops) {
     this->brk.stop();
     this->master.recover(this->brk);
     EXPECT_EQ(this->api->resets, 0);
+}
+
+/// @brief it should keep the reset backoff while IgH scans the bus and a faulted slave
+/// keeps its health.
+TEST_F(IGHMasterTest, CheckKeepsTheResetBackoffThroughAScan) {
+    auto &slave = this->api->add_slave();
+    create_io(slave);
+    ASSERT_NIL(this->scan_and_activate());
+    slave.reaches = EC_AL_STATE_SAFEOP;
+    slave.refuses = true;
+    slave.info.error_flag = 1;
+    ASSERT_TRUE(this->master.check(this->brk)[0].faulted);
+    this->master.recover(this->brk);
+    EXPECT_EQ(this->api->resets, 1);
+    this->api->scanning = true;
+    ASSERT_TRUE(this->master.check(this->brk)[0].faulted);
+    this->api->scanning = false;
+    ASSERT_TRUE(this->master.check(this->brk)[0].faulted);
+    this->master.recover(this->brk);
+    EXPECT_EQ(this->api->resets, 1);
 }
 
 /// @brief it should start the reset backoff over after a deactivate.

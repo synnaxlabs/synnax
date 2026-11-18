@@ -1574,7 +1574,11 @@ func ({{$s.Receiver}} *{{$s.Name}}) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 func ({{$s.Receiver}} {{$s.Name}}) Validate() error {
 	v := validate.New("{{$s.Name}}")
 {{- range $s.EnumChecks}}
-{{- if .Optional}}
+{{- if .MapKey}}
+	for key := range {{$s.Receiver}}.{{.GoName}} {
+		v.Ternaryf("{{.FieldName}}", !key.IsValid(), "invalid {{.FieldName}} key: %v", key)
+	}
+{{- else if .Optional}}
 	if {{$s.Receiver}}.{{.GoName}} != nil {
 		v.Ternaryf("{{.FieldName}}", !{{$s.Receiver}}.{{.GoName}}.IsValid(), "invalid {{.FieldName}}: %v", *{{$s.Receiver}}.{{.GoName}})
 	}
@@ -1704,7 +1708,11 @@ func ({{.TypeName}}) {{$u.Marker}}() {}
 func ({{$vt.Receiver}} {{$vt.TypeName}}) Validate() error {
 	v := validate.New("{{$vt.TypeName}}")
 {{- range $vt.EnumChecks}}
-{{- if .Optional}}
+{{- if .MapKey}}
+	for key := range {{$vt.Receiver}}.{{.GoName}} {
+		v.Ternaryf("{{.FieldName}}", !key.IsValid(), "invalid {{.FieldName}} key: %v", key)
+	}
+{{- else if .Optional}}
 	if {{$vt.Receiver}}.{{.GoName}} != nil {
 		v.Ternaryf("{{.FieldName}}", !{{$vt.Receiver}}.{{.GoName}}.IsValid(), "invalid {{.FieldName}}: %v", *{{$vt.Receiver}}.{{.GoName}})
 	}

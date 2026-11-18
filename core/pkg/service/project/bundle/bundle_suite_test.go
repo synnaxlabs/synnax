@@ -23,6 +23,7 @@ import (
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -88,6 +89,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	lineplotSvc = MustOpen(lineplot.OpenService(ctx, lineplot.ServiceConfig{
 		DB:   db,
 		ImEx: imex.NewService(),
+		Color: MustOpen(color.OpenService(ctx, color.ServiceConfig{
+			DB:    db,
+			Group: groupSvc,
+		})),
 	}))
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB: db,

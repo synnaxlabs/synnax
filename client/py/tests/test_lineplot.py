@@ -42,7 +42,7 @@ class TestLinePlot:
                         "key": str(uuid4()),
                         "y_axis": "y1",
                         "y_channel": 2,
-                        "color": "#ff0000",
+                        "color": {"type": "fixed", "value": "#ff0000"},
                         "detail": "high",
                     }
                 ],
@@ -60,6 +60,7 @@ class TestLinePlot:
         )
         assert p.channels.y1 == [2, 3]
         assert p.lines[0].detail == "high"
+        assert p.lines[0].color == sy.color.FixedRef(value=sy.color.Color("#ff0000"))
         assert p.lines[0].x_channel == 0
         assert p.rules[0].line_width == 1
         assert p.ranges[0] == ranger.KeyRef(key=range_key)

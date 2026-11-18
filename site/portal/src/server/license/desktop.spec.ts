@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { uuid } from "@synnaxlabs/x";
 import { eq } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
@@ -477,7 +478,7 @@ describe("desktop ledger", () => {
     it("should throw a 404 for an unknown machine", async () => {
       await expect(
         unlink(store, {
-          activationKey: crypto.randomUUID(),
+          activationKey: uuid.create(),
           actor: "user_a",
           now: NOW,
         }),

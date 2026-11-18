@@ -142,7 +142,11 @@ public:
 /// @brief the connectivity check skips client middleware so it can probe a Core before
 /// authenticating.
 TEST(TransportMiddleware, ConnectivityCheckSkipsMiddleware) {
-    synnax::details::Transport t(1, "localhost", false);
+    synnax::details::Transport t(
+        1,
+        "localhost",
+        std::make_shared<freighter::grpc::Pool>()
+    );
     auto mw = std::make_shared<CountingMiddleware>();
     t.use(mw);
     google::protobuf::Empty req;
@@ -153,7 +157,11 @@ TEST(TransportMiddleware, ConnectivityCheckSkipsMiddleware) {
 
 /// @brief every other client runs middleware.
 TEST(TransportMiddleware, OtherClientsRunMiddleware) {
-    synnax::details::Transport t(1, "localhost", false);
+    synnax::details::Transport t(
+        1,
+        "localhost",
+        std::make_shared<freighter::grpc::Pool>()
+    );
     auto mw = std::make_shared<CountingMiddleware>();
     t.use(mw);
     grpc::channel::RetrieveRequest req;
@@ -165,7 +173,11 @@ TEST(TransportMiddleware, OtherClientsRunMiddleware) {
 /// @brief middleware runs once per call, so repeated requests each pass
 /// through it.
 TEST(TransportMiddleware, MiddlewareRunsPerCall) {
-    synnax::details::Transport t(1, "localhost", false);
+    synnax::details::Transport t(
+        1,
+        "localhost",
+        std::make_shared<freighter::grpc::Pool>()
+    );
     auto mw = std::make_shared<CountingMiddleware>();
     t.use(mw);
     grpc::channel::RetrieveRequest req;

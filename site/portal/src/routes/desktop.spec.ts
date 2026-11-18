@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { uuid } from "@synnaxlabs/x";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -467,7 +468,7 @@ describe("desktop routes", () => {
 
     it("should answer 404 for an unknown machine", async () => {
       harness.signIn("user_a");
-      const res = await postUnlink(crypto.randomUUID());
+      const res = await postUnlink(uuid.create());
       expect(res.status).toBe(404);
       expect(await body(res)).toEqual({ error: "Activation not found" });
     });

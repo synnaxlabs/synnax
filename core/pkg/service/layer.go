@@ -742,6 +742,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		DB:              cfg.Distribution.DB,
 		Signals:         l.Signals,
 		ImEx:            l.ImEx,
+		Color:           l.Color,
 	}); !ok(err, l.LinePlot) {
 		return nil, err
 	}

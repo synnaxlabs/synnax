@@ -31,7 +31,9 @@ import (
 // descent.
 func InferFromExpression(ctx context.Context[parser.IExpressionContext]) types.Type {
 	if logicalOr := ctx.AST.LogicalOrExpression(); logicalOr != nil {
-		return inferLogicalOr(ctx.Child(logicalOr))
+		t := inferLogicalOr(ctx.Child(logicalOr))
+		ctx.TypeMap[ctx.AST] = t
+		return t
 	}
 	return types.Type{}
 }
@@ -94,18 +96,20 @@ func InferRelational(
 	ctx context.Context[parser.IRelationalExpressionContext],
 ) types.Type {
 	additives := ctx.AST.AllAdditiveExpression()
+	t := types.Type{}
 	if len(additives) > 1 {
+		t = types.Bool()
 		for _, a := range additives {
 			if InferAdditive(ctx.Child(a)).Kind == types.KindSeries {
-				return types.Series(types.Bool())
+				t = types.Series(types.Bool())
+				break
 			}
 		}
-		return types.Bool()
+	} else if len(additives) == 1 {
+		t = InferAdditive(ctx.Child(additives[0]))
 	}
-	if len(additives) == 1 {
-		return InferAdditive(ctx.Child(additives[0]))
-	}
-	return types.Type{}
+	ctx.TypeMap[ctx.AST] = t
+	return t
 }
 
 func inferBinaryType(elemType, nextElem types.Type) (types.Type, bool) {
@@ -173,9 +177,11 @@ func InferAdditive(ctx context.Context[parser.IAdditiveExpressionContext]) types
 		firstType := InferMultiplicative(ctx.Child(multiplicatives[0]))
 		isSeries := firstType.Kind == types.KindSeries
 		elemType := firstType.Unwrap()
+		unit := elemType.Unit
 
 		for i := 1; i < len(multiplicatives); i++ {
 			nextType := InferMultiplicative(ctx.Child(multiplicatives[i]))
+			unit = types.CommonUnit(unit, nextType.Unwrap().Unit)
 			if nextType.Kind == types.KindSeries {
 				isSeries = true
 				nextElem := nextType.Unwrap()
@@ -195,6 +201,7 @@ func InferAdditive(ctx context.Context[parser.IAdditiveExpressionContext]) types
 				}
 			}
 		}
+		elemType.Unit = unit
 		resultType := lo.Ternary(isSeries, types.Series(elemType), elemType)
 		ctx.TypeMap[ctx.AST] = resultType
 		return resultType
@@ -215,9 +222,19 @@ func InferMultiplicative(
 		firstType := InferFromUnaryExpression(ctx.Child(unaries[0]))
 		isSeries := firstType.Kind == types.KindSeries
 		elemType := firstType.Unwrap()
+		unit := elemType.Unit
+		operators := multiplicativeOperators(ctx.AST)
 
 		for i := 1; i < len(unaries); i++ {
 			nextType := InferFromUnaryExpression(ctx.Child(unaries[i]))
+			switch nextUnit := nextType.Unwrap().Unit; operators[i-1] {
+			case parser.ArcLexerPERCENT:
+				unit = types.CommonUnit(unit, nextUnit)
+			case parser.ArcLexerSLASH:
+				unit = types.QuotientUnit(unit, nextUnit)
+			default:
+				unit = types.ProductUnit(unit, nextUnit)
+			}
 			if nextType.Kind == types.KindSeries {
 				isSeries = true
 				nextElem := nextType.Unwrap()
@@ -227,20 +244,17 @@ func InferMultiplicative(
 				bothConcrete := elemType.Kind != types.KindVariable &&
 					nextElem.Kind != types.KindVariable
 				if bothConcrete && !Compatible(elemType, nextElem) {
-					resultType := lo.Ternary(isSeries, types.Series(elemType), elemType)
-					ctx.TypeMap[ctx.AST] = resultType
-					return resultType
+					break
 				}
 			} else {
 				var earlyReturn bool
 				elemType, earlyReturn = inferBinaryType(elemType, nextType.Unwrap())
 				if earlyReturn {
-					resultType := lo.Ternary(isSeries, types.Series(elemType), elemType)
-					ctx.TypeMap[ctx.AST] = resultType
-					return resultType
+					break
 				}
 			}
 		}
+		elemType.Unit = unit
 		resultType := lo.Ternary(isSeries, types.Series(elemType), elemType)
 		ctx.TypeMap[ctx.AST] = resultType
 		return resultType
@@ -248,6 +262,17 @@ func InferMultiplicative(
 	resultType := InferFromUnaryExpression(ctx.Child(unaries[0]))
 	ctx.TypeMap[ctx.AST] = resultType
 	return resultType
+}
+
+// multiplicativeOperators returns the token type of each operator of ast in order.
+func multiplicativeOperators(ast parser.IMultiplicativeExpressionContext) []int {
+	var operators []int
+	for _, child := range ast.GetChildren() {
+		if term, ok := child.(antlr.TerminalNode); ok {
+			operators = append(operators, term.GetSymbol().GetTokenType())
+		}
+	}
+	return operators
 }
 
 func inferPower(ctx context.Context[parser.IPowerExpressionContext]) types.Type {
@@ -263,8 +288,11 @@ func inferPower(ctx context.Context[parser.IPowerExpressionContext]) types.Type 
 		_ = InferFromUnaryExpression(ctx.Child(ctx.AST.UnaryExpression()))
 
 		// Power operation returns the unwrapped base type
-		// (e.g., chan f32 ^ i32 = f32, f64 ^ f64 = f64)
-		return baseType.Unwrap()
+		// (e.g., chan f32 ^ i32 = f32, f64 ^ f64 = f64). A power of a unit value has
+		// no unit.
+		t := baseType.Unwrap()
+		t.Unit = nil
+		return t
 	}
 	return types.Type{}
 }
@@ -272,16 +300,15 @@ func inferPower(ctx context.Context[parser.IPowerExpressionContext]) types.Type 
 func InferFromUnaryExpression(
 	ctx context.Context[parser.IUnaryExpressionContext],
 ) types.Type {
+	var t types.Type
 	if ctx.AST.UnaryExpression() != nil {
 		// Unwrap channels but keep series: not/- on a series stays a series.
-		return InferFromUnaryExpression(
-			ctx.Child(ctx.AST.UnaryExpression()),
-		).UnwrapChan()
+		t = InferFromUnaryExpression(ctx.Child(ctx.AST.UnaryExpression())).UnwrapChan()
+	} else if power := ctx.AST.PowerExpression(); power != nil {
+		t = inferPower(ctx.Child(power))
 	}
-	if power := ctx.AST.PowerExpression(); power != nil {
-		return inferPower(ctx.Child(power))
-	}
-	return types.Type{}
+	ctx.TypeMap[ctx.AST] = t
+	return t
 }
 
 func InferPostfix(
@@ -416,6 +443,7 @@ func inferSeriesLiteralType(
 	firstExpr := exprs[0]
 	elemType := InferFromExpression(ctx.Child(firstExpr)).UnwrapChan()
 	allLiterals := parser.IsNumericLiteral(firstExpr) || isUntypedNumber(elemType)
+	unit := elemType.Unit
 
 	for i := 1; i < len(exprs); i++ {
 		nextType := InferFromExpression(ctx.Child(exprs[i])).UnwrapChan()
@@ -426,6 +454,11 @@ func inferSeriesLiteralType(
 			compatible = literalsCompatible(elemType, nextType)
 		} else {
 			allLiterals = false
+		}
+		if types.UnitsIncompatible(unit, nextType.Unit) {
+			compatible = false
+		} else {
+			unit = types.CommonUnit(unit, nextType.Unit)
 		}
 		if !compatible {
 			ctx.Diagnostics.Add(codes.TypeMismatch.Atf(
@@ -456,6 +489,7 @@ func inferSeriesLiteralType(
 			elemType = nextType
 		}
 	}
+	elemType.Unit = unit
 
 	t := types.Series(elemType)
 	ctx.TypeMap[ctx.AST] = t

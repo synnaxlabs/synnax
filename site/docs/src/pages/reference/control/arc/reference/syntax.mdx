@@ -62,14 +62,14 @@ Arc has no `while` keyword. Loops use `for`. See
 
 ## Literals
 
-| Literal         | Form                       | Default type                                          |
-| --------------- | -------------------------- | ----------------------------------------------------- |
-| Integer         | `42`, `-7`                 | `i64`                                                 |
-| Float           | `3.14`, `5.`, `.25`        | `f64`                                                 |
-| Number and unit | `50ms`, `10min`, `14.7psi` | The value in the base unit: `50ms` is `50000000` (ns) |
-| Boolean         | `true`, `false`            | `bool`                                                |
-| String          | `"text"`, `` `text` ``     | `str`                                                 |
-| Series          | `[1.0, 2.0, 3.0]`          | `series f64`                                          |
+| Literal         | Form                       | Default type                                   |
+| --------------- | -------------------------- | ---------------------------------------------- |
+| Integer         | `42`, `-7`                 | `i64`                                          |
+| Float           | `3.14`, `5.`, `.25`        | `f64`                                          |
+| Number and unit | `50ms`, `10min`, `14.7psi` | The value in that unit: `50ms` is `50` in `ms` |
+| Boolean         | `true`, `false`            | `bool`                                         |
+| String          | `"text"`, `` `text` ``     | `str`                                          |
+| Series          | `[1.0, 2.0, 3.0]`          | `series f64`                                   |
 
 Numbers are decimal only. Hex (`0xFF`), scientific (`1e3`), and `_` separators (`1_000`)
 are not numbers: Arc reads the part after the digits as a unit and fails with
@@ -79,7 +79,7 @@ are not numbers: Arc reads the part after the digits as a unit and fails with
 ### Units
 
 A unit name directly after a number, with no space, gives the number a unit: `50ms`,
-`10min`. Arc stores the value in the base unit, so `14.7psi` is `101352.97` (Pa). See
+`10min`. The value is the number in that unit, so `14.7psi` is `14.7`. See
 [units](/reference/control/arc/reference/types#units).
 
 ### Strings

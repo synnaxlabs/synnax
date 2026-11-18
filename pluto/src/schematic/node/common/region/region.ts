@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic, ValidationError } from "@synnaxlabs/client";
-import { color, type dimensions, id } from "@synnaxlabs/x";
+import { color, type dimensions, id, unique } from "@synnaxlabs/x";
 import DOMPurify from "dompurify";
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
@@ -190,7 +190,7 @@ export const extract = (svgElement: SVGElement): schematic.symbol.Region[] => {
   });
   return Array.from(groups.values()).map((group, index) => {
     const selectors = group.elements.map(selector);
-    const uniqueSelectors = Array.from(new Set(selectors));
+    const uniqueSelectors = unique.unique(selectors);
     const regionIndex = index + 1;
     const region: schematic.symbol.Region = {
       key: `region-${regionIndex}`,
