@@ -25,6 +25,10 @@ on:
 
 permissions: {}
 
+# The review module reads the Claude Code stream with the agent wrapper's code.
+env:
+  PYTHONPATH: ${{ github.workspace }}/scripts
+
 jobs:
   report:
     name: Compare the reviews

@@ -2908,6 +2908,22 @@ var _ = Describe("Compiler", func() {
 				x f64 := -42.9
 				return i64(i8(x))
 			}`, float64(-42)),
+			Entry("f64 above the range to i32", `{
+				x f64 := 10000000000.0
+				return i64(i32(x))
+			}`, float64(math.MaxInt32)),
+			Entry("negative f64 to u32", `{
+				x f64 := -5.0
+				return i64(u32(x))
+			}`, float64(0)),
+			Entry("f64 below the range to i64", `{
+				x f64 := -100000000000000000000.0
+				return i64(x)
+			}`, float64(math.MinInt64)),
+			Entry("f32 above the range to i32", `{
+				x f32 := 10000000000.0
+				return i64(i32(x))
+			}`, float64(math.MaxInt32)),
 		)
 	})
 
