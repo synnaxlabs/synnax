@@ -518,7 +518,8 @@ describe("range/explorer/Explorer", () => {
 
     it("should show the first 100 matches and say so", async () => {
       const token = uniqueToken();
-      const start = TimeStamp.now();
+      // Ended ranges stay out of the Running group that the toolbar specs read.
+      const start = TimeStamp.now().sub(TimeSpan.DAY);
       await client.ranges.create(
         Array.from({ length: 101 }, (_, i) => ({
           name: `${token} ${i}`,
