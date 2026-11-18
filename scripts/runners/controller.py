@@ -252,6 +252,16 @@ class Controller:
             report=log.error,
         )
 
+    def start_seats(self, found: dict[str, dict]) -> None:
+        """Starts the seats that the queued jobs wait for, given the instances found."""
+        self.seats.step(
+            queued=[job.labels for job in self.jobs.queued.values()],
+            found=found,
+            enabled=self.scaler.enabled,
+            stuck=self.jobs.stuck(after=FULL_AFTER),
+            connected=self.gate.enabled,
+        )
+
     def cycle(self, timer: sy.Timer) -> None:
         (listed, labels), found = self.fetch()
         self.runners.add(labels)
@@ -305,13 +315,7 @@ class Controller:
             # An unread queue looks empty, which would stop runners jobs wait for.
             stops=self.jobs.ready,
         )
-        self.seats.step(
-            queued=[job.labels for job in self.jobs.queued.values()],
-            found=found,
-            enabled=self.scaler.enabled,
-            stuck=self.jobs.stuck(after=FULL_AFTER),
-            connected=self.gate.enabled,
-        )
+        self.start_seats(found)
         now = sy.TimeStamp.now()
         self.pool_report.step(
             ready=self.jobs.ready,
