@@ -110,5 +110,18 @@ describe("TauriRuntime", () => {
       expect(runtimeSetWindowProps.match(action)).toBe(true);
       expect(action?.payload).toMatchObject({ label: "main", fullscreen: true });
     });
+
+    it("should report resizes again after the window becomes resizable", async () => {
+      // The Tauri event mock keeps a handler after unlisten and warns when it fires.
+      vi.spyOn(console, "warn").mockImplementation(() => {});
+      const runtime = new TauriRuntime();
+      const listener = vi.fn<(event: Event<StoreState>) => void>();
+      await runtime.subscribe(listener);
+      await runtime.setResizable(false);
+      await runtime.setResizable(true);
+      await emit(TauriEvent.WINDOW_RESIZED);
+      await vi.waitFor(() => expect(listener).toHaveBeenCalled());
+      runtime.release();
+    });
   });
 });
