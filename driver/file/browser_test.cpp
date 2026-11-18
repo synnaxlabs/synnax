@@ -109,7 +109,7 @@ TEST_F(BrowserTest, TopLevelWithoutSecrets) {
 /// @brief it should list folders first, then files, each in byte order of name.
 TEST_F(BrowserTest, ListOrder) {
     const auto folder = this->dir / "certs";
-    std::filesystem::create_directories(folder / "b");
+    std::filesystem::create_directories(folder / "a");
     std::filesystem::create_directories(folder / "B");
     write(folder / "a.txt", "hello");
     write(folder / "Z.txt", "");
@@ -117,7 +117,7 @@ TEST_F(BrowserTest, ListOrder) {
     std::vector<std::string> names;
     for (const auto &e: data["entries"])
         names.push_back(e["name"]);
-    ASSERT_EQ(names, std::vector<std::string>({"B", "b", "Z.txt", "a.txt"}));
+    ASSERT_EQ(names, std::vector<std::string>({"B", "a", "Z.txt", "a.txt"}));
     ASSERT_EQ(data["path"], folder.string());
     ASSERT_EQ(data["parent"], this->dir.string());
     ASSERT_EQ(data["secrets_dir"], this->secrets.string());
