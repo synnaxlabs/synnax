@@ -482,18 +482,20 @@ every moving part. One table holds motion as data: it maps each `Motion` variant
 `blink` to the attribute that it writes, a transform, a dash offset, a fill level, or an
 opacity. Motion composes with a part's own `transform` and never writes an attribute
 that a look writes. A part is in the loop only while it moves: while the looks in effect
-give it a `blink`, or a `spin` or `flow` with a rate above 0, that runs under §4.2, or
-while its `level`, `rotate`, or `move` transitions to a new fraction. A part that stops,
-or whose drawing is rebuilt or removed, leaves the loop. The bar for motion is 60 fps,
-and at least 30 fps under heavy load, such as a live line plot with pan and zoom. The
-bar is a target, not a run time limit: the phase 5 PR shows the benchmark holding it at
-100 moving parts in WKWebView, and nothing caps motion while the Console runs. On a
-large schematic or a slow machine, the Reduce motion setting and `motion_disabled` stop
-the animation (§4.2). The WebKit benchmark measured this loop in WKWebView on an Apple
-M3 Max. It holds 60 fps at 100 moving parts and fails 60 fps at 500. At 1,000 it draws
-21 fps, and 15 to 26 fps during pan, wheel zoom, or a main thread 60% busy. Each moving
-part costs about 40 µs of main-thread time a frame, so the 60 fps limit is between 100
-and 400 moving parts.
+give it a `blink`, or a `spin` or `flow` with a speed that is not 0, that runs under
+§4.2, or while its `level`, `rotate`, or `move` transitions to a new fraction. The speed
+of a `spin` or `flow` is its `rate` times the fraction that its `state` reads (§4.1), so
+the part joins and leaves the loop as that fraction changes. A negative `rate` is valid
+and moves the part the other way. A part that stops, or whose drawing is rebuilt or
+removed, leaves the loop. The bar for motion is 60 fps, and at least 30 fps under heavy
+load, such as a live line plot with pan and zoom. The bar is a target, not a run time
+limit: the phase 5 PR shows the benchmark holding it at 100 moving parts in WKWebView,
+and nothing caps motion while the Console runs. On a large schematic or a slow machine,
+the Reduce motion setting and `motion_disabled` stop the animation (§4.2). The WebKit
+benchmark measured this loop in WKWebView on an Apple M3 Max. It holds 60 fps at 100
+moving parts and fails 60 fps at 500. At 1,000 it draws 21 fps, and 15 to 26 fps during
+pan, wheel zoom, or a main thread 60% busy. Each moving part costs about 40 µs of
+main-thread time a frame, so the 60 fps limit is between 100 and 400 moving parts.
 
 | Phase | Scope                                                    | Touches                                                                                                                                                                                                           | Depends on |
 | ----- | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
