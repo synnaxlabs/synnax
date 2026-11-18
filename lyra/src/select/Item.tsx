@@ -24,7 +24,7 @@ import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Input } from "@/input";
 import { List } from "@/list";
-import { usePathChildren } from "@/menu/filter";
+import { nodeText, useMatches, usePathChildren } from "@/menu/filter";
 import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/types";
 import { useItemState, useReselectNoop, useSelectedAmong } from "@/select/Context";
 import { type ItemOptions, useIsHidden, useRegistryContext } from "@/select/registry";
@@ -69,10 +69,12 @@ interface BlockItemProps<
   E extends Button.ElementType,
 > extends Pick<ItemProps<K, E>, "checkable" | "onActivate"> {
   item: List.ItemProps<K, E>;
+  text?: string;
 }
 
 const BlockItem = <K extends record.Key, E extends Button.ElementType>({
   item,
+  text,
   checkable = false,
   onActivate,
 }: BlockItemProps<K, E>): ReactNode => {
@@ -81,6 +83,9 @@ const BlockItem = <K extends record.Key, E extends Button.ElementType>({
   // In its menu, an option is a menu item, and its click closes the menu.
   const inline = useInline();
   const children = usePathChildren(item.children);
+  // The search of the list answers late, so the menu filter checks each option itself.
+  const matches = useMatches(text ?? nodeText(item.children));
+  if (inline && !matches) return null;
   if (!checkable)
     return (
       <List.Item<K, E>
@@ -261,7 +266,14 @@ export const Item = <
   const buttons = useButtonsContext();
   const { textValue, checkable, onActivate, label, ...rest } = props;
   if (inItems)
-    return <BlockItem item={rest} checkable={checkable} onActivate={onActivate} />;
+    return (
+      <BlockItem
+        item={rest}
+        text={textValue}
+        checkable={checkable}
+        onActivate={onActivate}
+      />
+    );
   if (buttons != null) return <ButtonItem {...rest} buttons={buttons} />;
   return <FixedItem item={rest} text={textValue} label={label ?? rest.children} />;
 };

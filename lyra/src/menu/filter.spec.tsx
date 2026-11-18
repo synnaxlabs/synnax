@@ -298,12 +298,17 @@ describe("menu filter", () => {
 
         const LabelsMenu = ({
           onChange,
+          pending = false,
         }: {
           onChange: (keys: string[], extra: { clicked: string | null }) => void;
+          /** Whether the search of the list never answers, like a slow server. */
+          pending?: boolean;
         }): ReactElement => {
           const [data, setData] = useState(NAMES);
-          const handleSearch = (term: string): void =>
+          const handleSearch = (term: string): void => {
+            if (pending) return;
             setData(NAMES.filter((n) => n.toLowerCase().includes(term.toLowerCase())));
+          };
           return (
             <Menu.Menu>
               <Menu.Item itemKey="rename">Rename</Menu.Item>
@@ -365,6 +370,17 @@ describe("menu filter", () => {
             clicked: "Leak check",
           });
           expect(screen.queryByRole("menu")).toBeNull();
+        });
+
+        it("should hide the options that do not match before the search answers", () => {
+          const onChange = vi.fn();
+          open(<LabelsMenu onChange={onChange} pending />);
+          type("cold");
+          expect(shown()).toEqual(["LabelsCold flow"]);
+          press("Enter");
+          expect(onChange).toHaveBeenCalledExactlyOnceWith(["Cold flow"], {
+            clicked: "Cold flow",
+          });
         });
 
         it("should list every option again once the filter clears", () => {
@@ -551,6 +567,36 @@ describe("menu filter", () => {
         </Triggers.Provider>,
       );
     };
+
+    it("should show nothing of a selection under a submenu that the filter passes", () => {
+      renderDialog(
+        <Menu.Menu>
+          <Menu.Item itemKey="rename">Rename</Menu.Item>
+          <Menu.Sub itemKey="parent" textValue="Parent">
+            <Menu.SubTrigger>Parent</Menu.SubTrigger>
+            <Select.Frame<string, undefined>
+              value={undefined}
+              onChange={vi.fn()}
+              data={["Cold flow"]}
+            >
+              <Select.Dialog surface="menu" aria-label="Parent">
+                <Select.Body<string> resourceName="range" onSearch={vi.fn()}>
+                  {({ key, ...p }) => (
+                    <Select.Item<string> key={key} {...p}>
+                      {p.itemKey}
+                    </Select.Item>
+                  )}
+                </Select.Body>
+              </Select.Dialog>
+            </Select.Frame>
+          </Menu.Sub>
+        </Menu.Menu>,
+      );
+      type("rena");
+      expect(shown()).toEqual(["Rename"]);
+      expect(screen.queryByText("Cold flow")).toBeNull();
+      expect(screen.queryByRole("dialog", { name: "Parent" })).toBeNull();
+    });
 
     it("should take the focus and filter its items", () => {
       renderDialog(ITEMS);

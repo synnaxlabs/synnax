@@ -64,14 +64,16 @@ export const Dialog = ({
   ...rest
 }: DialogProps): ReactNode => {
   const { visible } = BaseDialog.useContext();
-  const inline = usePath().length > 0 && filtered;
+  // Under a submenu that the menu filter passes, a selection shows its options in the
+  // menu or nothing.
+  const nested = usePath().length > 0;
   const cls = CSS.cls(CSS.BE("select", "dialog"), className);
   const menuSurface = Menu.useSurface(ref, cls);
   // False on the server and during hydration, since the server renders no portal.
   const hydrated = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   const content = <Input.ItemBoundary>{children}</Input.ItemBoundary>;
-  if (inline) return <InlineContext value>{content}</InlineContext>;
-  if (!visible) return hydrated && <Closed>{content}</Closed>;
+  if (nested && filtered) return <InlineContext value>{content}</InlineContext>;
+  if (!visible || nested) return hydrated && <Closed>{content}</Closed>;
   if (surface === "menu")
     return (
       <BaseDialog.Dialog {...menuSurface} {...rest}>
