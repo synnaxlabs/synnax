@@ -104,8 +104,11 @@ export interface ReadChannelPlan {
   indexField?: string;
   /** The existing channel of each other enabled field, by key. */
   channels: Record<string, channel.Key>;
-  /** The channels that deploying creates for fields, in order. */
-  creates: { key: string; name: string }[];
+  /**
+   * The channels that deploying creates for fields, in order. An indexed one stores its
+   * samples on the index of the source.
+   */
+  creates: { key: string; name: string; indexed: boolean }[];
   /** Replaced channels that deploying moves to a numbered name before it creates. */
   renames: { key: channel.Key; name: string }[];
 }
@@ -227,7 +230,11 @@ export const planReadChannels = async <F extends ReadChannelField>({
   }
   const creates: ReadChannelPlan["creates"] = [];
   for (const [i, field] of unbound.entries())
-    creates.push({ key: field.key, name: await namer.claim(planned[i]) });
+    creates.push({
+      key: field.key,
+      name: await namer.claim(planned[i]),
+      indexed: indexed(field),
+    });
   const newIndex = createsIndex ? await namer.claim(indexName) : undefined;
   return {
     props: saves ? props : null,
@@ -268,13 +275,13 @@ export const applyReadChannels = async (
     props.index = index.key;
   }
   const created = new Map<string, channel.Key>();
-  for (const { key, name } of plan.creates) {
+  for (const { key, name, indexed } of plan.creates) {
     const field = fields.find((f) => f.key === key);
     if (field == null) throw new Error(`no field has the key ${key}`);
     const ch = await client.channels.create({
       name,
       dataType: field.dataType,
-      ...(isFixed(field) ? { index: props.index } : { virtual: true }),
+      ...(indexed ? { index: props.index } : { virtual: true }),
     });
     created.set(key, ch.key);
     props.channels[field.pointer] = ch.key;

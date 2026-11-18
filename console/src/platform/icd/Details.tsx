@@ -30,11 +30,8 @@ import {
   hiddenDataTypes,
   isIndexable,
   jsonFields,
-  mixMessage,
-  readFields,
   type ReadSource,
   reindex,
-  variableAmongFixed,
 } from "@/platform/icd/read";
 import { Panel } from "@/platform/panel";
 import { Task } from "@/platform/task";
@@ -249,7 +246,6 @@ export const MessageSections: FC<MessageSectionsProps> = ({
     ctx: format,
   });
   const fields = jsonFields(message);
-  const mixed = variableAmongFixed(readFields(fields, readMessage));
   return (
     <>
       {message == null && (
@@ -271,9 +267,6 @@ export const MessageSections: FC<MessageSectionsProps> = ({
       )}
       <PForm.Section title="Timestamp">
         <TimestampFields {...rest} fields={fields} />
-        {mixed.length > 0 && (
-          <Input.HelpText variant="error">{mixMessage(mixed)}</Input.HelpText>
-        )}
       </PForm.Section>
       <PForm.Form<typeof PICD.formSchema> {...format}>
         <FieldsStatus path={fieldsPath(readMessage.message)} />

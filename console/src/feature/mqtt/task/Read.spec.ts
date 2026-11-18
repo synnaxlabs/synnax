@@ -291,7 +291,9 @@ describe("MQTT read form", () => {
     const scanner = await openScanner(client, dev.rack);
     let dialog = await openAddData();
     await scanner.answer({ data: { topics: TOPICS, truncated: false } });
-    fireEvent.click(await dialog.findByRole("checkbox", { name: "Pick oven" }));
+    fireEvent.click(
+      await dialog.findByRole("checkbox", { name: "Record temperature" }),
+    );
     fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
     const [entry] = await waitFor(async () => {
       const entries = await retrieveEntries(draft.key);
@@ -303,7 +305,7 @@ describe("MQTT read form", () => {
     scanner.close();
     fireEvent.click(await dialog.findByRole("checkbox", { name: "Record label" }));
     fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
-    const [temperature] = await waitFor(async () => {
+    const [temperature, label] = await waitFor(async () => {
       const format = await client.icds.retrieve(entry.icd);
       expect(format.name).toBe("MQTT read task");
       expect(format.messages).toMatchObject([
@@ -323,11 +325,41 @@ describe("MQTT read form", () => {
         ? format.messages[0].payload.fields
         : [];
     });
-    // A string cannot share an index with a number, so the label stays unread.
-    expect(await retrieveBindings(draft.key)).toEqual([
-      { field: temperature.key, channel: 0, dataType: "" },
-    ]);
+    await waitFor(async () =>
+      expect(await retrieveBindings(draft.key)).toEqual([
+        { field: temperature.key, channel: 0, dataType: "" },
+        { field: label.key, channel: 0, dataType: "" },
+      ]),
+    );
     expect(await retrieveEntries(draft.key)).toHaveLength(1);
+  });
+
+  it("should pick and read the string field of a topic with its numbers", async () => {
+    const { dev, draft } = await renderRead();
+    const scanner = await openScanner(client, dev.rack);
+    const dialog = await openAddData();
+    await scanner.answer({
+      data: {
+        topics: [
+          {
+            topic: TOPIC,
+            payload: '{"temperature": 21.5, "label": "ok"}',
+            fields: [
+              { pointer: "/temperature", type: "number", sample: "21.5" },
+              { pointer: "/label", type: "string", sample: '"ok"' },
+            ],
+            retained: true,
+          },
+        ],
+        truncated: false,
+      },
+    });
+    scanner.close();
+    fireEvent.click(await dialog.findByRole("checkbox", { name: "Pick oven" }));
+    fireEvent.click(dialog.getByRole("button", { name: "Add 2 fields" }));
+    await waitFor(async () =>
+      expect(await retrieveBindings(draft.key)).toHaveLength(2),
+    );
   });
 
   it("should add a topic by name", async () => {
@@ -1170,39 +1202,128 @@ describe("MQTT read form", () => {
       expect(ch.dataType.equals(DataType.STRING)).toBe(true);
     });
 
-    it("should refuse a read that mixes string and number fields", async () => {
-      const { container, dev, statuses } = await renderRead({
+    it("should store a string field on the index of a number field", async () => {
+      const { container, dev, draft } = await renderRead({
         fields: [createField("mode", "string"), createField("temperature", "float")],
       });
-      await screen.findByText(/mode: a string, JSON, or bytes field cannot share/);
-      await clickDeploy(container);
-      await waitFor(() =>
-        expect(statuses).toContainEqual(
-          expect.objectContaining({
-            message: "Failed to start task",
-            description: expect.stringContaining(`In ${TOPIC}, mode: a string`),
-          }),
-        ),
+      await deploy(container, draft.key);
+      const { index, channels } = await retrieveStored(dev.key, firstMessage(draft));
+      const mode = await client.channels.retrieve(channels["/mode"]);
+      expect(mode.virtual).toBe(false);
+      expect(mode.index).toBe(index);
+      expect(mode.dataType.equals(DataType.STRING)).toBe(true);
+      expect((await client.channels.retrieve(channels["/temperature"])).index).toBe(
+        index,
       );
-      expect(await retrieveRead(dev.key)).toEqual({});
     });
 
-    it("should refuse a read of a string field on the time of the payload", async () => {
+    it("should store a string field on the time of the payload", async () => {
       const time = createTimeField();
-      const { container, dev, statuses } = await renderRead({
+      const { container, dev, draft } = await renderRead({
         fields: [time, createField("mode", "string")],
         index: time.key,
       });
-      await clickDeploy(container);
-      await waitFor(() =>
-        expect(statuses).toContainEqual(
-          expect.objectContaining({
-            message: "Failed to start task",
-            description: expect.stringContaining(`In ${TOPIC}, mode: a string`),
-          }),
-        ),
+      await deploy(container, draft.key);
+      const { index, channels } = await retrieveStored(dev.key, firstMessage(draft));
+      const mode = await client.channels.retrieve(channels["/mode"]);
+      expect(mode.virtual).toBe(false);
+      expect(mode.index).toBe(index);
+    });
+
+    it("should store a streamed string field once its message reads a number", async () => {
+      const mode = createField("mode", "string");
+      const temperature = createField("temperature", "float");
+      const { container, dev, draft } = await renderRead({
+        fields: [mode, temperature],
+        bound: { [mode.key]: 0 },
+      });
+      await deploy(container, draft.key);
+      const [{ channel: streamed }] = await retrieveBindings(draft.key);
+      expect((await client.channels.retrieve(streamed)).virtual).toBe(true);
+      fireEvent.click(
+        await screen.findByRole("checkbox", { name: "Read temperature" }),
       );
-      expect(await retrieveRead(dev.key)).toEqual({});
+      await waitFor(async () =>
+        expect(await retrieveBindings(draft.key)).toHaveLength(2),
+      );
+      await deploy(container, draft.key);
+      const { index, channels } = await retrieveStored(dev.key, firstMessage(draft));
+      const stored = await client.channels.retrieve(channels["/mode"]);
+      expect(stored.virtual).toBe(false);
+      expect(stored.index).toBe(index);
+      const name = `${dev.name}_plant_oven_mode`;
+      expect(stored.name).toBe(name);
+      expect((await client.channels.retrieve(streamed)).name).toBe(`${name}_2`);
+    });
+
+    it("should keep storing a message that comes to read only strings", async () => {
+      const temperature = createField("temperature", "float");
+      const label = createField("label", "string");
+      const { container, dev, draft } = await renderRead({
+        fields: [createField("mode", "string"), temperature, label],
+        bound: { [temperature.key]: 0 },
+      });
+      fireEvent.click(await screen.findByRole("checkbox", { name: "Read mode" }));
+      await waitFor(async () =>
+        expect(await retrieveBindings(draft.key)).toHaveLength(2),
+      );
+      await deploy(container, draft.key);
+      const { index } = await retrieveStored(dev.key, firstMessage(draft));
+      fireEvent.click(
+        await screen.findByRole("checkbox", { name: "Read temperature" }),
+      );
+      fireEvent.click(await screen.findByRole("checkbox", { name: "Read label" }));
+      await waitFor(async () =>
+        expect((await retrieveBindings(draft.key)).map(({ field }) => field)).toEqual([
+          expect.any(String),
+          label.key,
+        ]),
+      );
+      await deploy(container, draft.key);
+      const { channels } = await retrieveStored(dev.key, firstMessage(draft));
+      const stored = await client.channels.retrieve(channels["/label"]);
+      expect(stored.virtual).toBe(false);
+      expect(stored.index).toBe(index);
+    });
+
+    it("should keep a number field bound to a virtual channel", async () => {
+      const temperature = createField("temperature", "float");
+      const streamed = await client.channels.create({
+        name: uniqueName("temperature"),
+        dataType: DataType.FLOAT64,
+        virtual: true,
+      });
+      const { container, draft } = await renderRead({
+        fields: [temperature],
+        bound: { [temperature.key]: streamed.key },
+      });
+      await deploy(container, draft.key);
+      expect((await retrieveBindings(draft.key))[0].channel).toBe(streamed.key);
+    });
+
+    it("should store a streamed field whose kind changes to a number", async () => {
+      const streamed = await client.channels.create({
+        name: uniqueName("mode"),
+        dataType: DataType.STRING,
+        virtual: true,
+      });
+      const mode = createField("mode", "string");
+      const entry = await createEntry({
+        fields: [mode],
+        bound: { [mode.key]: streamed.key },
+      });
+      const { container, draft } = await renderRead({
+        entries: [entry],
+        beforeRender: () => retype(entry, mode, "float"),
+        properties: {
+          read: { [TOPIC]: { index: 0, channels: { "/mode": streamed.key } } },
+        },
+      });
+      const created = await deploy(container, draft.key);
+      const [{ channel }] = plainOf(created.config.entries[0]).messages[0].bindings;
+      const stored = await client.channels.retrieve(channel);
+      expect(stored.virtual).toBe(false);
+      expect(stored.dataType.equals(DataType.FLOAT64)).toBe(true);
     });
 
     it("should refuse a topic whose message is gone", async () => {
