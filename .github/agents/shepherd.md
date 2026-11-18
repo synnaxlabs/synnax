@@ -29,7 +29,30 @@ When CI failed on the head:
    `main`), change nothing. For a flake, put the line `<!-- agent:rerun -->` in your
    last message. The workflow then reruns the failed jobs.
 
-## 3. Address every review finding
+## 3. Fix CodeQL alerts
+
+When the CodeQL check failed on the head, the pull request adds code scanning alerts.
+
+1. Read the open alerts:
+   `gh api "repos/synnaxlabs/synnax/code-scanning/alerts?ref=refs/pull/<number>/merge&state=open" --jq '.[] | [.rule.id, .most_recent_instance.location.path, .most_recent_instance.location.start_line, .most_recent_instance.message.text] | @tsv'`.
+2. Fix each alert on a line this pull request changed, so that the analysis can see the
+   code is safe. CodeQL does not take a bound in a `switch` case as a guard. Use an
+   `if`.
+3. Never dismiss an alert or add a suppression.
+
+## 4. Fix a merge queue removal
+
+When the merge queue removed the pull request after its last commit, CI failed on the
+pull request merged with its base branch. The gate gives that `merge_group` CI run. The
+removal cancels the run, so it can show as cancelled.
+
+1. Read the failed jobs: `gh run view <run> --log-failed`.
+2. Merge the base branch as in step 1. Fix what the merged tree breaks, in one place.
+   Run the failed check locally when you can.
+3. When the failure does not come from this pull request, change nothing and name the
+   failure in your last message.
+
+## 5. Address every review finding
 
 A Sedosaur score of 5/5 does not mean the work is done. Every open Sedosaur finding, P2
 and style findings included, gets a fix or a reply that gives the reason.

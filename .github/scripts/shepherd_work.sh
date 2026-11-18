@@ -11,8 +11,10 @@
 
 # Prints the work a pull request needs before it is done, one item per line, and
 # nothing when it is done. Usage: shepherd_work.sh <pr>. The items are "conflict", "ci
-# <run id>" for a failed CI run on the head, "threads <count>" for review threads that
-# need action, and "outside-diff" for open Sedosaur findings outside the diff.
+# <run id>" for a failed CI run on the head, "codeql" for a failed CodeQL check on the
+# head, "queue <run id>" for a merge queue removal after the head commit with the CI
+# run of its merge group, "threads <count>" for review threads that need action, and
+# "outside-diff" for open Sedosaur findings outside the diff.
 
 set -euo pipefail
 
@@ -42,6 +44,36 @@ if [ "$RUN" != null ] && [ "$CONCLUSION" = null ]; then
 fi
 if [ "$CONCLUSION" = failure ]; then
     echo "ci $RUN"
+fi
+
+CHECKS="repos/${REPO}/commits/${SHA}/check-runs?check_name=CodeQL"
+if [ "$(gh api "$CHECKS" --jq '.check_runs[0].conclusion')" = failure ]; then
+    echo codeql
+fi
+
+# The span from the head commit to a later merge queue removal for failed checks. The
+# removal cancels the CI run of its merge group, so a failed run can end cancelled.
+# shellcheck disable=SC2016 # The GraphQL query uses GraphQL variables.
+SPAN=$(gh api graphql -F p="$PR" -f o="${REPO%/*}" -f r="${REPO#*/}" -f query='
+query($o: String!, $r: String!, $p: Int!) {
+  repository(owner: $o, name: $r) {
+    pullRequest(number: $p) {
+      commits(last: 1) { nodes { commit { committedDate } } }
+      timelineItems(last: 1, itemTypes: [REMOVED_FROM_MERGE_QUEUE_EVENT]) {
+        nodes { ... on RemovedFromMergeQueueEvent { createdAt reason } }
+      }
+    }
+  }
+}' --jq '.data.repository.pullRequest
+    | .commits.nodes[0].commit.committedDate as $head
+    | .timelineItems.nodes[0] as $removal
+    | select($removal.reason == "failed_checks" and $removal.createdAt > $head)
+    | "\($head)..\($removal.createdAt)"')
+if [ -n "$SPAN" ]; then
+    GROUP=$(gh api "${RUNS}?event=merge_group&created=${SPAN}&per_page=100" --jq \
+        "[.workflow_runs[] | select(.head_branch
+            | test(\"^gh-readonly-queue/.+/pr-${PR}-\"))][0].id")
+    echo "queue $GROUP"
 fi
 
 THREADS=$("$HERE/review_threads.sh" "$PR" | wc -l | tr -d ' ')

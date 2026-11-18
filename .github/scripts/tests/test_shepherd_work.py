@@ -18,10 +18,13 @@ SCRIPT = Path(__file__).resolve().parents[1] / "shepherd_work.sh"
 
 
 FINDINGS = "<!-- sedosaur_outside_diff -->\n\n- **Bug** `a.go:1`\n"
+COMMITTED = "2026-01-01T12:00:00Z"
+QUEUE_BRANCH = "gh-readonly-queue/main/pr-7-base"
 
 
 class Harness:
-    """A fake gh serving one pull request, its CI runs, threads, and comments."""
+    """A fake gh serving one pull request, its CI runs, checks, threads, queue removals,
+    and comments."""
 
     def __init__(self, path: Path) -> None:
         self.gh = FakeGH(path)
@@ -31,10 +34,13 @@ class Harness:
             "GITHUB_REPOSITORY": "synnaxlabs/synnax",
             "SHEPHERD_RETRY_SECONDS": "0",
         }
+        self.thread_count = 0
+        self.removals: list[dict[str, str]] = []
         self.pull()
         self.ok()
         self.runs()
-        self.threads()
+        self.codeql()
+        self.graphql()
         self.comments()
 
     def pull(self, state: str = "clean") -> None:
@@ -42,20 +48,39 @@ class Harness:
             "api */pulls/7", {"head": {"sha": "head"}, "mergeable_state": state}
         )
 
-    def runs(self, *conclusions: str | None) -> None:
-        runs = [{"id": i + 1, "conclusion": c} for i, c in enumerate(conclusions)]
+    def runs(self, *conclusions: str | None, group: str | None = None) -> None:
+        runs = [
+            {"id": i + 1, "conclusion": c, "head_branch": "branch"}
+            for i, c in enumerate(conclusions)
+        ]
+        if group is not None:
+            runs.append({"id": 9, "conclusion": group, "head_branch": QUEUE_BRANCH})
         self.gh.serve("api */actions/*", {"workflow_runs": runs})
+
+    def codeql(self, conclusion: str | None = None) -> None:
+        checks = [{"name": "CodeQL", "conclusion": conclusion}]
+        self.gh.serve("api */commits/*", {"check_runs": checks})
 
     def ok(self, conclusion: str | None = None) -> None:
         jobs = [{"name": "OK", "conclusion": conclusion}]
         self.gh.serve("api */jobs*", {"jobs": jobs})
 
-    def threads(self, count: int = 0) -> None:
+    def threads(self, count: int) -> None:
+        self.thread_count = count
+        self.graphql()
+
+    def removed(self, at: str, reason: str = "failed_checks") -> None:
+        self.removals = [{"createdAt": at, "reason": reason}]
+        self.graphql()
+
+    def graphql(self) -> None:
         last = {"author": {"login": "someone", "__typename": "User"}}
         node = {"id": "t", "isResolved": False, "comments": {"nodes": [last]}}
         pull = {
             "author": {"login": "agent"},
-            "reviewThreads": {"nodes": [node] * count},
+            "reviewThreads": {"nodes": [node] * self.thread_count},
+            "commits": {"nodes": [{"commit": {"committedDate": COMMITTED}}]},
+            "timelineItems": {"nodes": self.removals},
         }
         self.gh.serve("api graphql", {"data": {"repository": {"pullRequest": pull}}})
 
@@ -115,6 +140,37 @@ class TestShepherdWork:
         gh.ok("failure")
         assert gh.run() == ["conflict"]
 
+    def test_should_report_a_failed_codeql_check_on_the_head(self, gh: Harness) -> None:
+        gh.codeql("failure")
+        assert gh.run() == ["codeql"]
+
+    def test_should_ignore_a_codeql_check_in_progress(self, gh: Harness) -> None:
+        gh.codeql(None)
+        assert gh.run() == []
+
+    def test_should_report_a_queue_removal_after_the_head_commit(
+        self, gh: Harness
+    ) -> None:
+        gh.runs("success", group="cancelled")
+        gh.removed(at="2026-01-01T13:00:00Z")
+        assert gh.run() == ["queue 9"]
+        span = "created=2026-01-01T12:00:00Z..2026-01-01T13:00:00Z"
+        assert any(span in call[1] for call in gh.gh.calls())
+
+    def test_should_ignore_a_queue_removal_before_the_head_commit(
+        self, gh: Harness
+    ) -> None:
+        gh.runs("success", group="failure")
+        gh.removed(at="2026-01-01T11:00:00Z")
+        assert gh.run() == []
+
+    def test_should_ignore_a_queue_removal_for_another_reason(
+        self, gh: Harness
+    ) -> None:
+        gh.runs("success", group="failure")
+        gh.removed(at="2026-01-01T13:00:00Z", reason="merged")
+        assert gh.run() == []
+
     def test_should_report_threads_that_need_action(self, gh: Harness) -> None:
         gh.threads(count=2)
         assert gh.run() == ["threads 2"]
@@ -125,7 +181,16 @@ class TestShepherdWork:
 
     def test_should_report_every_kind_of_work_in_order(self, gh: Harness) -> None:
         gh.pull(state="dirty")
-        gh.runs("failure")
+        gh.runs("failure", group="failure")
+        gh.codeql("failure")
+        gh.removed(at="2026-01-01T13:00:00Z")
         gh.threads(count=1)
         gh.comments(outside=True)
-        assert gh.run() == ["conflict", "ci 1", "threads 1", "outside-diff"]
+        assert gh.run() == [
+            "conflict",
+            "ci 1",
+            "codeql",
+            "queue 9",
+            "threads 1",
+            "outside-diff",
+        ]
