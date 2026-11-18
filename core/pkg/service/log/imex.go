@@ -34,8 +34,8 @@ func (*Service) Match(body map[string]any) bool {
 
 // Decode decodes env into a Log that its Write creates under opts.Parent, which must be
 // a project. A group must be in the parent project. The key on the wire is discarded so
-// every import mints a new resource. The log drops each channel the Core does not hold.
-// An unknown envelope version is a path-scoped validation error.
+// every import mints a new resource. The log drops each channel and named color the
+// Core does not hold. An unknown envelope version is a path-scoped validation error.
 func (s *Service) Decode(ctx context.Context, env imex.Envelope) (imex.Write, error) {
 	l, err := versions.DecodeImExEnvelope(ctx, env)
 	if err != nil {

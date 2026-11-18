@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
+	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/panel/versions"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v0"
@@ -173,7 +174,9 @@ var _ = Describe("Migrations", func() {
 			want.Project = &owner
 			got := retrieve(stored.Key)
 			Expect(got).To(Equal(want))
-			Expect(got.Color).To(HaveValue(Equal(colorv2.Color{R: 1, A: 128})))
+			Expect(got.Color).To(Equal(&servicecolor.Ref{
+				Variant: servicecolor.FixedRef{Value: colorv2.Color{R: 1, A: 128}},
+			}))
 		})
 
 		It("Should remove the Arc explorer tabs of a v0.58 Core", func() {

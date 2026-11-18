@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/log/versions"
 	"github.com/synnaxlabs/x/color"
@@ -36,9 +37,11 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(l.Channels[0].Channel).To(Equal(channel.Key(1)))
 		Expect(l.Channels[0].Alias).To(Equal("temp"))
 		Expect(l.Channels[0].Notation).To(Equal(notation.NotationScientific))
-		Expect(
-			l.Channels[0].Color,
-		).To(HaveValue(Equal(color.Color{R: 127, G: 29, B: 29, A: 255})))
+		Expect(l.Channels[0].Color).To(Equal(&servicecolor.Ref{
+			Variant: servicecolor.FixedRef{
+				Value: color.Color{R: 127, G: 29, B: 29, A: 255},
+			},
+		}))
 		Expect(l.Channels[0].Precision).To(Equal(new(uint8(2))))
 		Expect(l.Channels[1].Precision).To(BeNil())
 		Expect(l.TimestampPrecision).To(Equal(uint8(1)))

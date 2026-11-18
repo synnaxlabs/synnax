@@ -12,8 +12,8 @@
 package panel
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/union"
@@ -62,9 +62,10 @@ type SetIconPayload struct {
 	Icon *string `json:"icon,omitzero" msgpack:"icon,omitempty"`
 }
 
-// SetColorPayload sets the color of the panel's icon. Null lets the theme pick it.
+// SetColorPayload sets the color of the panel's icon, a named color or a fixed color.
+// Null lets the theme pick it.
 type SetColorPayload struct {
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
+	Color *color.Ref `json:"color,omitzero" msgpack:"color,omitempty"`
 }
 
 // InsertTabsPayload inserts tabs into a leaf in order, starting at the given index and

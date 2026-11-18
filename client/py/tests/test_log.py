@@ -21,7 +21,12 @@ class TestLog:
     def test_round_trip(self) -> None:
         """Should parse channel entries and dump them back unchanged."""
         lg = log.Log.model_validate(
-            {"name": "Events", "channels": [{"channel": 1, "color": "#00ff00"}]}
+            {
+                "name": "Events",
+                "channels": [
+                    {"channel": 1, "color": {"type": "fixed", "value": "#00ff00"}}
+                ],
+            }
         )
         entry = lg.channels[0]
         assert entry.precision is None
@@ -35,7 +40,11 @@ class TestLog:
         """Should reject a precision above the float64 limit."""
         with pytest.raises(ValidationError):
             log.ChannelEntry.model_validate(
-                {"channel": 1, "color": "#00ff00", "precision": 18}
+                {
+                    "channel": 1,
+                    "color": {"type": "fixed", "value": "#00ff00"},
+                    "precision": 18,
+                }
             )
 
     def test_resource_id(self) -> None:
@@ -89,7 +98,7 @@ class TestClient:
         """Should keep the channel entries of a created log."""
         entry = sy.log.ChannelEntry(
             channel=virtual_channel.key,
-            color=sy.Color("#FF0000"),
+            color=sy.color.FixedRef(value=sy.color.Color("#FF0000")),
             alias="pressure",
             timestamp_config=sy.log.TimestampConfig(format="ISO", time_zone="UTC"),
         )

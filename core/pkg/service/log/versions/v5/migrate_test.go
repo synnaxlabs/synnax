@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v3"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v4"
 	v5 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v5"
@@ -24,13 +25,17 @@ import (
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
+func fixed(c colorv2.Color) *servicecolor.Ref {
+	return &servicecolor.Ref{Variant: servicecolor.FixedRef{Value: c}}
+}
+
 var _ = Describe("Migrate", func() {
-	DescribeTable("Should store the channel color alpha as a byte",
+	DescribeTable("Should store the channel color as a fixed color with a byte alpha",
 		func(ctx SpecContext, a float64, expected uint8) {
 			old := v4.ChannelEntry{Channel: 1, Color: color.Color{R: 1, G: 2, A: a}}
 			e := MustSucceed(v5.MigrateChannelEntry(ctx, old))
 			Expect(e.Channel).To(BeEquivalentTo(1))
-			Expect(e.Color).To(HaveValue(Equal(colorv2.Color{R: 1, G: 2, A: expected})))
+			Expect(e.Color).To(Equal(fixed(colorv2.Color{R: 1, G: 2, A: expected})))
 		},
 		Entry("a transparent alpha", 0.0, uint8(0)),
 		Entry("a faint alpha", 0.003, uint8(1)),
@@ -61,8 +66,8 @@ var _ = Describe("Migrate", func() {
 		Expect(l.Name).To(Equal("log"))
 		Expect(l.Group).To(HaveValue(Equal(group)))
 		Expect(l.Channels).To(HaveLen(2))
-		Expect(l.Channels[0].Color).To(HaveValue(Equal(colorv2.Color{R: 1, A: 128})))
-		Expect(l.Channels[1].Color).To(HaveValue(Equal(colorv2.Color{B: 2, A: 255})))
+		Expect(l.Channels[0].Color).To(Equal(fixed(colorv2.Color{R: 1, A: 128})))
+		Expect(l.Channels[1].Color).To(Equal(fixed(colorv2.Color{B: 2, A: 255})))
 	})
 
 	// v0.61 stored logs as v3, so the stored rows pass through v4 on the way to v5.
@@ -113,8 +118,7 @@ var _ = Describe("Migrate", func() {
 		Expect(got.Channels).To(HaveLen(2))
 		colored := got.Channels[0]
 		Expect(colored.Channel).To(BeEquivalentTo(1))
-		Expect(colored.Color).
-			To(HaveValue(Equal(colorv2.Color{R: 1, G: 2, B: 3, A: 128})))
+		Expect(colored.Color).To(Equal(fixed(colorv2.Color{R: 1, G: 2, B: 3, A: 128})))
 		Expect(colored.Notation).To(BeEquivalentTo("scientific"))
 		Expect(colored.Precision).To(HaveValue(BeEquivalentTo(2)))
 		Expect(colored.Alias).To(Equal("Pressure"))

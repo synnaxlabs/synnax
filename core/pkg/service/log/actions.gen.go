@@ -13,7 +13,7 @@ package log
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/telem"
@@ -98,12 +98,12 @@ type SetChannelEntryPayload struct {
 	Entry ChannelEntry `json:"entry" msgpack:"entry"`
 }
 
-// SetChannelColorPayload sets the display color of the entry identified by channel.
-// Absent resets it to the text color of the log. No-op when no entry references the
-// channel.
+// SetChannelColorPayload sets the display color of the entry identified by channel, a
+// named color or a fixed color. Absent resets it to the text color of the log. No-op
+// when no entry references the channel.
 type SetChannelColorPayload struct {
-	Channel channel.Key  `json:"channel" msgpack:"channel"`
-	Color   *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
+	Channel channel.Key `json:"channel" msgpack:"channel"`
+	Color   *color.Ref  `json:"color,omitzero" msgpack:"color,omitempty"`
 }
 
 // SetChannelNotationPayload sets the numeric notation of the entry identified by

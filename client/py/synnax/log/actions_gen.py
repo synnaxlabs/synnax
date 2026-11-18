@@ -15,9 +15,9 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from synnax import channel as channel_
+from synnax import channel as channel_, color as color_
 from synnax.log.types_gen import ChannelEntry, Log
-from x import color as color_, notation as notation_, patch, telem
+from x import notation as notation_, patch, telem
 
 
 class CreatePayload(BaseModel):
@@ -55,12 +55,13 @@ class SetChannelEntryPayload(BaseModel):
 
 
 class SetChannelColorPayload(BaseModel):
-    """Sets the display color of the entry identified by channel. Absent resets it to
-    the text color of the log. No-op when no entry references the channel.
+    """Sets the display color of the entry identified by channel, a named color or a
+    fixed color. Absent resets it to the text color of the log. No-op when no entry
+    references the channel.
     """
 
     channel: channel_.Key = Field(ge=0, le=4294967295)
-    color: color_.Color | None = None
+    color: color_.Ref | None = None
 
 
 class SetChannelNotationPayload(BaseModel):

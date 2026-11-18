@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x";
+import { color as xcolor } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
+import { type color } from "@/color";
 import { log } from "@/log";
 
 const createChannelEntry = (
@@ -154,7 +155,7 @@ describe("log reducer", () => {
       expected: unknown;
     }
 
-    const red = color.construct("#ff0000");
+    const red: color.Ref = { type: "fixed", value: xcolor.construct("#ff0000") };
     const cases: FieldCase[] = [
       {
         name: "setChannelColor",

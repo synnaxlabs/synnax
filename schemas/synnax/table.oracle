@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/channel"
+import "schemas/synnax/color"
 import "schemas/synnax/group"
 import "schemas/synnax/project"
 import "schemas/x/color"
@@ -57,15 +58,17 @@ CellConfig union on variant {
         align      FlexAlignment = FlexAlignmentCenter {
             @doc value "is the alignment of the cell text along the row axis."
         }
-        fill_color color.Color?  {
+        fill_color color.Ref?    {
             @doc value """
-                is the background color of the cell. When absent the theme picks the
-                fill; a fully transparent value paints nothing.
+                is the background color of the cell, a named color or a fixed color.
+                When absent the theme picks the fill; a fully transparent value paints
+                nothing.
             """
         }
-        text_color color.Color?  {
+        text_color color.Ref?    {
             @doc value """
-                is the color of the cell text. When absent the theme picks the color.
+                is the color of the cell text, a named color or a fixed color. When
+                absent the theme picks the color.
             """
         }
 
@@ -91,19 +94,19 @@ CellConfig union on variant {
         redline           color.Scale = {} {
             @doc value "is the threshold band mapping applied to the background."
         }
-        fill_color        color.Color?      {
+        fill_color        color.Ref?        {
             @doc value """
-                is the fill behind the value where no redline band paints. When absent
-                the cell paints no fill.
+                is the fill behind the value where no redline band paints, a named color
+                or a fixed color. When absent the cell paints no fill.
             """
         }
         level             text.Level = text.LevelH5 {
             @doc value "is the typography level of the displayed value."
         }
-        text_color        color.Color?      {
+        text_color        color.Ref?        {
             @doc value """
-                is the color of the displayed text. When absent the value renders with a
-                theme-derived legible color.
+                is the color of the displayed text, a named color or a fixed color. When
+                absent the value renders with a theme-derived legible color.
             """
         }
         units             string = "" {
@@ -115,10 +118,10 @@ CellConfig union on variant {
             """
             @validate min 1
         }
-        staleness_color   color.Color?      {
+        staleness_color   color.Ref?        {
             @doc value """
-                is the color applied when the value is stale. When absent the value
-                renders with the theme warning color.
+                is the color applied when the value is stale, a named color or a fixed
+                color. When absent the value renders with the theme warning color.
             """
         }
 

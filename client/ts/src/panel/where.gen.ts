@@ -152,9 +152,9 @@ export const retrieveInputZ = <O extends z.core.$ZodShape>(options: O) =>
 export const LIST_FIELDS: readonly string[] = [
   "key",
   "name",
+  "owner",
   "group",
   "project",
-  "owner",
 ];
 
 /** @returns the position of record in order, or in key order when order is absent. */

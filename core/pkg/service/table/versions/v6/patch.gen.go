@@ -110,9 +110,25 @@ func (tcc *TextCellConfig) Patch(c patch.Cursor) error {
 			tcc.Align = def.Align
 		})
 	case "fill_color":
-		return patch.OptionalValue(&tcc.FillColor, c.Next())
+		if c = c.Next(); c.Done() || tcc.FillColor == nil {
+			return patch.OptionalValue(&tcc.FillColor, c)
+		}
+		next := *tcc.FillColor
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		tcc.FillColor = &next
+		return nil
 	case "text_color":
-		return patch.OptionalValue(&tcc.TextColor, c.Next())
+		if c = c.Next(); c.Done() || tcc.TextColor == nil {
+			return patch.OptionalValue(&tcc.TextColor, c)
+		}
+		next := *tcc.TextColor
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		tcc.TextColor = &next
+		return nil
 	default:
 		return c.UnknownField()
 	}
@@ -141,13 +157,29 @@ func (vcc *ValueCellConfig) Patch(c patch.Cursor) error {
 		}
 		return vcc.Redline.Patch(c)
 	case "fill_color":
-		return patch.OptionalValue(&vcc.FillColor, c.Next())
+		if c = c.Next(); c.Done() || vcc.FillColor == nil {
+			return patch.OptionalValue(&vcc.FillColor, c)
+		}
+		next := *vcc.FillColor
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		vcc.FillColor = &next
+		return nil
 	case "level":
 		return patch.Defaulted(&vcc.Level, c.Next(), func(def *ValueCellConfig) {
 			vcc.Level = def.Level
 		})
 	case "text_color":
-		return patch.OptionalValue(&vcc.TextColor, c.Next())
+		if c = c.Next(); c.Done() || vcc.TextColor == nil {
+			return patch.OptionalValue(&vcc.TextColor, c)
+		}
+		next := *vcc.TextColor
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		vcc.TextColor = &next
+		return nil
 	case "units":
 		return patch.Value(&vcc.Units, c.Next())
 	case "staleness_timeout":
@@ -155,7 +187,15 @@ func (vcc *ValueCellConfig) Patch(c patch.Cursor) error {
 			vcc.StalenessTimeout = def.StalenessTimeout
 		})
 	case "staleness_color":
-		return patch.OptionalValue(&vcc.StalenessColor, c.Next())
+		if c = c.Next(); c.Done() || vcc.StalenessColor == nil {
+			return patch.OptionalValue(&vcc.StalenessColor, c)
+		}
+		next := *vcc.StalenessColor
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		vcc.StalenessColor = &next
+		return nil
 	default:
 		return c.UnknownField()
 	}
