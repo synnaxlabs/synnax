@@ -327,6 +327,28 @@ var _ = Describe("Control", func() {
 						Expect(err).To(MatchError(xcontrol.ErrUnauthorized))
 					},
 				)
+
+				It("Should not grow the region when the gate fails to open", func() {
+					cfg1, _ := baseConfig(1)
+					cfg1.Subject.Key = "g1"
+					cfg1.TimeRange = telem.NewRangeSeconds(10, 20)
+					MustSucceed2(c.OpenGate(cfg1))
+
+					cfg2, _ := baseConfig(1)
+					cfg2.Subject.Key = "g2"
+					cfg2.TimeRange = telem.NewRangeSeconds(15, 100)
+					cfg2.Authority = xcontrol.AuthorityAbsolute - 1
+					cfg2.ErrOnUnauthorizedOpen = new(true)
+					Expect(c.OpenGate(cfg2)).Error().
+						To(MatchError(xcontrol.ErrUnauthorized))
+
+					cfg3, _ := baseConfig(1)
+					cfg3.Subject.Key = "g3"
+					cfg3.TimeRange = telem.NewRangeSeconds(50, 60)
+					cfg3.Bounded = new(true)
+					g3, _ := MustSucceed2(c.OpenGate(cfg3))
+					g3.Release()
+				})
 			})
 		})
 
