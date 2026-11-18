@@ -48,6 +48,7 @@ export type ProviderState = z.infer<typeof providerStateZ>;
 interface InternalState {
   retrieve: flux.Retrieve<aetherRanger.ListQuery, ranger.Range[]>;
   colors: flux.Retrieve<aetherColor.ListQuery, color.Named[]>;
+  named: Map<color.Key, color.Named>;
   window?: TimeRange;
   client: Synnax | null;
   render: render.Context;
@@ -106,9 +107,13 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
       onChange: () => i.requestRender("tool"),
       onError: (error) => i.runAsync(error, "Failed to retrieve ranges"),
     });
+    i.named ??= new Map();
     i.colors ??= new flux.Retrieve({
       definition: aetherColor.listDefinition,
-      onChange: () => i.requestRender("tool"),
+      onChange: () => {
+        i.named = new Map((i.colors.value ?? []).map((c) => [c.key, c]));
+        i.requestRender("tool");
+      },
       onError: (error) => i.runAsync(error, "Failed to retrieve colors"),
     });
     const client = synnax.use(ctx);
@@ -148,7 +153,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
       region,
       (v) => regionScale.pos(v),
       draw.theme,
-      new Map((i.colors.value ?? []).map((c) => [c.key, c])),
+      i.named,
     );
     const bars = packed.filter(
       (b) => b.end >= box.left(region) && b.start <= box.right(region),

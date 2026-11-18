@@ -7,8 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { color } from "@synnaxlabs/client";
 import { createTestClient, TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
-import { box, id, scale, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import {
+  box,
+  color as xcolor,
+  id,
+  scale,
+  TimeRange,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
@@ -242,6 +251,46 @@ describe("Provider", () => {
           return provider.state.count;
         })
         .toEqual(1);
+    } finally {
+      await client.ranges.delete(rng.key);
+      await client.colors.delete(named.key);
+    }
+  });
+
+  it("repaints a bar when its named color changes", async () => {
+    const client = createTestClient();
+    const start = TimeStamp.now().add(TimeSpan.days(18250));
+    const named = await client.colors.create({
+      name: `strip-${id.create()}`,
+      light: "#7C3AED",
+    });
+    const rng = await client.ranges.create({
+      name: `repaint-${id.create()}`,
+      timeRange: new TimeRange(start, start.add(TimeSpan.seconds(4))),
+      color: { type: "named", key: named.key },
+    });
+    try {
+      const recorder = canvasTest.record();
+      const provider = mount(recorder);
+      const props = renderProps(new TimeRange(start, start.add(TimeSpan.seconds(10))));
+      const fills = (): unknown[] => {
+        recorder.upper2d.calls.length = 0;
+        provider.render(props);
+        return recorder.upper2d.calls
+          .filter(({ op }) => op === "set:fillStyle")
+          .map(({ args }) => args[0]);
+      };
+      let before: unknown[] = [];
+      await expect
+        .poll(() => {
+          before = fills();
+          return provider.state.count;
+        })
+        .toEqual(1);
+      await client.colors.dispatch(named.key, [
+        color.set({ path: ["light"], value: xcolor.construct("#123456") }),
+      ]);
+      await expect.poll(fills).not.toEqual(before);
     } finally {
       await client.ranges.delete(rng.key);
       await client.colors.delete(named.key);
