@@ -496,6 +496,33 @@ describe("MQTT read form", () => {
     );
   });
 
+  it("should reuse a channel stored under another message of a topic it adds", async () => {
+    const time = await createTimeChannel();
+    const flow = await client.channels.create({
+      name: uniqueName("flow"),
+      dataType: DataType.FLOAT64,
+      index: time.key,
+    });
+    const { dev, draft } = await renderRead({
+      fields: [createField("temperature", "float")],
+      properties: {
+        read: {
+          [`plant/kiln#${uuid.create()}`]: {
+            index: time.key,
+            channels: { "/flow": flow.key },
+          },
+        },
+      },
+    });
+    await screen.findByRole("treeitem", { name: /^temperature/ });
+    await addField(dev.rack, "plant/kiln", "flow");
+    await waitFor(async () =>
+      expect(
+        plainOf((await retrieveEntries(draft.key))[1]).messages[0].bindings,
+      ).toEqual([{ field: expect.any(String), channel: flow.key, dataType: "" }]),
+    );
+  });
+
   it("should show a note for a topic whose message is gone", async () => {
     const entry = await createEntry({ fields: [createField("temperature", "float")] });
     await renderRead({ entries: [entry], beforeRender: () => removeMessage(entry) });
@@ -745,6 +772,22 @@ describe("MQTT read form", () => {
         (await client.icds.retrieve(entry.icd)).messages.map(({ name }) => name),
       ).toEqual([TOPIC, `${TOPIC} 2`]),
     );
+  });
+
+  describe("field details", () => {
+    it("should show the scale, offset, and units only for a number type", async () => {
+      await renderRead({
+        fields: [createField("temperature", "float"), createField("mode", "string")],
+      });
+      await selectField("temperature");
+      await screen.findByText("Units");
+      expect(screen.getByText("Scale")).toBeTruthy();
+      expect(screen.getByText("Offset")).toBeTruthy();
+      await selectField("mode");
+      await waitFor(() => expect(screen.queryByText("Units")).toBeNull());
+      expect(screen.queryByText("Scale")).toBeNull();
+      expect(screen.getByText("Enum mapping")).toBeTruthy();
+    });
   });
 
   describe("channels", () => {

@@ -294,6 +294,9 @@ bound, a log precision, or the line plot X channel.
   channel table, and a fields table in the topic details, which showed each field twice.
 - A topic that reads several messages holds a node for each, with its fields beneath. A
   message's details hold its name and match, from the ICD, then its timestamp.
+- A field's format stays short, so its channel shows with no scroll: Scale and Offset
+  share a line, Units shows only for a number type, and Enum mapping is one line until
+  it holds a mapping.
 - A task form is at most 1000 px wide. A task whose channel table needs more room sets
   `--console-task-form-max-width`. Modbus uses 1200 px.
 - Port banks sit side by side in columns eight ports wide, each under its title. They
@@ -790,6 +793,31 @@ says why in a sentence, then gives the raw error.
 - Plots, schematics, tables, and the log keep their own selection, and Cmd+C copies it.
 - A copy button shows a check while it stays in view. A menu item that copies shows a
   toast, because the menu closes.
+
+### Drag previews
+
+A drag shows the smallest true form of the object, with the facts that matter. It is
+never so small that it is hard to read.
+
+- **Objects** use `Haul.Preview`: a tile, the name, then one line of facts. The frame
+  stays the same, and each type fills the tile and the facts. A channel shows its data
+  type and index. A range shows its color, start, and length, or "Planned" when it has
+  no start. Other tree resources show their type name.
+- **Colors** fill the tile: a swatch, a palette color, or a range with a color.
+- **Many objects** show the grabbed object's preview with two plates behind it and a
+  count.
+- **Schematic symbols and Arc stages** drag as the drawing alone, at canvas size, with
+  the top-left corner on the pointer, where the drop places the node.
+- **Tabs and panel tabs** drag as `Haul.Copy` of the tab at rest: its icon stays, its
+  close button goes, and the copy holds the grab point.
+- **The source dims** to 40% opacity until the drag ends. A selection dims every
+  selected item.
+
+Each source passes its own preview to `startDrag`, which requires one. There is no
+preview map. Each object type has one preview component in its own module, such as
+`Channel.HaulPreview`. A generic part (a select trigger, the tree) gets its preview from
+its domain wrapper, through `renderHaulPreview` or the tree item's `haulPreview`. A
+preview renders above every provider, so it takes plain values, not hooks.
 
 ## Prior art
 

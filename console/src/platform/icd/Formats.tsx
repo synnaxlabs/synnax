@@ -67,7 +67,7 @@ export const WithFormat = ({ icdKey, children }: WithFormatProps): ReactElement 
     mode: isPreview || !canEdit ? "preview" : "normal",
   });
   PICD.useCheck({ key: icdKey, form });
-  Task.useFlushBeforeDeploy(flush);
+  Task.useFlushFirst(flush);
   const formats = new Map(useContext(Context)).set(icdKey, form);
   return <Context value={formats}>{children}</Context>;
 };
