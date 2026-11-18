@@ -221,6 +221,15 @@ describe("device Configure", () => {
       expect(onCreateReadTask).not.toHaveBeenCalled();
     });
 
+    it("should hold Back while the device saves", async () => {
+      await setup(useConfigureWithActionsModal);
+      fireEvent.change(identifierInput(), { target: { value: "sensor_1" } });
+      fireEvent.click(findButton("Save"));
+      fireEvent.click(findButton("Back"));
+      expect(onBack).not.toHaveBeenCalled();
+      await waitFor(() => expect(screen.queryByText(HINT)).toBeNull());
+    });
+
     it("should go back without saving", async () => {
       const { dev } = await setup(useConfigureWithActionsModal);
       fireEvent.change(identifierInput(), { target: { value: "sensor_1" } });

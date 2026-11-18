@@ -55,38 +55,15 @@ func SwapBrackets(src string, cfgs ...parser.Config) string {
 		case parser.ArcLexerFUNC:
 			i = e.rewriteDeclaration(s, i)
 		case parser.ArcLexerLBRACE:
-			end := s.match[i]
-			if end == -1 {
-				continue
+			if end := s.match[i]; end != -1 {
+				open = append(open, e.rewriteBrace(s, i, end))
 			}
-			call := isCallBrace(s.tokens, i)
-			if call {
-				e.swapPair(s.tokens, i, end, '(', ')')
-				e.moveGap(s.tokens[i-1], s.tokens[i], s.tokens[end])
-			}
-			open = append(open, bracket{end: end, holdsItems: !call})
 		case parser.ArcLexerLPAREN, parser.ArcLexerLBRACKET:
 			if end := s.match[i]; end != -1 {
 				open = append(open, bracket{end: end})
 			}
 		case parser.ArcLexerIDENTIFIER, parser.ArcLexerAUTHORITY:
-			if n := len(open); n > 0 && !open[n-1].holdsItems {
-				continue
-			}
-			paren := s.itemCallParen(i)
-			if paren == -1 {
-				continue
-			}
-			afterItem := i > 0 && endsItem(s.tokens[i-1].GetTokenType())
-			if len(open) == 0 && afterItem && afterFlow {
-				e.insert[s.tokens[paren].GetStart()] += " "
-				continue
-			}
-			if len(open) > 0 && afterItem {
-				e.insert[s.tokens[i-1].GetStop()+1] += ","
-			}
-			e.insert[s.tokens[i].GetStart()] += "("
-			e.insert[s.tokens[s.match[paren]].GetStop()+1] += ")"
+			e.wrapItemCall(s, i, open, afterFlow)
 		}
 	}
 	return e.apply()
@@ -279,6 +256,41 @@ func (e *editor) rewriteDeclaration(s stream, i int) int {
 		return bodyEnd
 	}
 	return len(tokens)
+}
+
+// rewriteBrace swaps the brace at i, closed at end, for parens when it opens a flow
+// call, and returns it as a bracket.
+func (e *editor) rewriteBrace(s stream, i, end int) bracket {
+	call := isCallBrace(s.tokens, i)
+	if call {
+		e.swapPair(s.tokens, i, end, '(', ')')
+		e.moveGap(s.tokens[i-1], s.tokens[i], s.tokens[end])
+	}
+	return bracket{end: end, holdsItems: !call}
+}
+
+// wrapItemCall wraps the expression call that starts a flow node or stage item at i, so
+// the current grammar does not read it as a flow call. open holds the brackets that
+// enclose i. afterFlow is set when the last top-level item is a flow statement.
+func (e *editor) wrapItemCall(s stream, i int, open []bracket, afterFlow bool) {
+	n := len(open)
+	if n > 0 && !open[n-1].holdsItems {
+		return
+	}
+	paren := s.itemCallParen(i)
+	if paren == -1 {
+		return
+	}
+	afterItem := i > 0 && endsItem(s.tokens[i-1].GetTokenType())
+	if n == 0 && afterItem && afterFlow {
+		e.insert[s.tokens[paren].GetStart()] += " "
+		return
+	}
+	if n > 0 && afterItem {
+		e.insert[s.tokens[i-1].GetStop()+1] += ","
+	}
+	e.insert[s.tokens[i].GetStart()] += "("
+	e.insert[s.tokens[s.match[paren]].GetStop()+1] += ")"
 }
 
 func (e *editor) swapPair(tokens []antlr.Token, open, closing int, l, r rune) {

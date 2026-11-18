@@ -38,6 +38,9 @@ type Writer struct {
 	table *gorp.Table[Key, Rack]
 	// driverRole is the role each new rack receives.
 	driverRole role.Key
+	// deletableEmbedded is the one embedded rack that Delete accepts: the rack of a
+	// disabled embedded Driver.
+	deletableEmbedded Key
 	// dispatcher attaches the actions of each write to tx.
 	dispatcher actions.Dispatcher[Key, Action]
 }
@@ -227,7 +230,8 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 }
 
 // Delete deletes the racks with keys, their statuses, and every task they hold. It
-// returns a validation error when a rack is embedded, holds a device, or fails guard.
+// returns a validation error when a rack holds a device or fails guard, or when it is
+// embedded and is not the rack of a disabled embedded Driver.
 // Delete racks through task.Writer.DeleteRacks, which keeps the tasks of users.
 func (w Writer) Delete(
 	ctx context.Context,
@@ -236,13 +240,13 @@ func (w Writer) Delete(
 ) error {
 	return w.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Rack](keys...)).
-		Guard(guardEmbedded).
+		Guard(w.guardEmbedded).
 		Guard(guard).
 		Exec(ctx, w.tx)
 }
 
-func guardEmbedded(_ gorp.Context, r Rack) error {
-	if !r.Embedded {
+func (w Writer) guardEmbedded(_ gorp.Context, r Rack) error {
+	if !r.Embedded || r.Key == w.deletableEmbedded {
 		return nil
 	}
 	return errors.Wrapf(

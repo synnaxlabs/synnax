@@ -215,6 +215,15 @@ var _ = Describe("Field", func() {
 					TimeFormat: xjson.UnixNanosecond,
 				},
 				`10.9`, sample(telem.TimeStamp(10))),
+			Entry("an integer in range into a float",
+				xjson.Field{DataType: telem.Float64T, Range: telem.Int64T}, `-3`,
+				sample(-3.0)),
+			Entry("a whole decimal in range into a float32",
+				xjson.Field{DataType: telem.Float32T, Range: telem.Uint64T}, `7.0`,
+				sample[float32](7)),
+			Entry("true in an unsigned range",
+				xjson.Field{DataType: telem.Float64T, Range: telem.Uint64T}, `true`,
+				sample(1.0)),
 		)
 
 		DescribeTable("Should reject a JSON value that does not convert",
@@ -241,11 +250,11 @@ var _ = Describe("Field", func() {
 				`1.5`, "1.5 is not an integer"),
 			Entry("a fraction that a float rounds away",
 				xjson.Field{DataType: telem.Int64T}, `9007199254740993.5`,
-				"9.007199254740994e+15 is not an integer"),
+				"9007199254740993.5 is not an integer"),
 			Entry("a whole decimal past an int64", xjson.Field{DataType: telem.Int64T},
 				`1e19`, "10000000000000000000 is out of range for int64"),
 			Entry("a float past a float32", xjson.Field{DataType: telem.Float32T},
-				`1e39`, "1e+39 overflows float32"),
+				`1e39`, "1e39 overflows float32"),
 			Entry("an object into a UUID", xjson.Field{DataType: telem.UUIDT}, `{}`,
 				"expected a UUID string, got an object"),
 			Entry("text that is not a UUID", xjson.Field{DataType: telem.UUIDT},
@@ -279,6 +288,15 @@ var _ = Describe("Field", func() {
 				`"Y\nQ=="`, "base64 must not hold a line break"),
 			Entry("base64 with a carriage return", xjson.Field{DataType: telem.BytesT},
 				`"YQ==\r"`, "base64 must not hold a line break"),
+			Entry("a fraction that a float rounds away from an integer range",
+				xjson.Field{DataType: telem.Float64T, Range: telem.Int64T},
+				`9007199254740993.5`, "9007199254740993.5 is not an integer"),
+			Entry("a negative number outside an unsigned range",
+				xjson.Field{DataType: telem.Int64T, Range: telem.Uint64T}, `-1`,
+				"-1 is out of range for uint64"),
+			Entry("a whole decimal past an integer range",
+				xjson.Field{DataType: telem.Float64T, Range: telem.Int64T}, `1e19`,
+				"10000000000000000000 is out of range for int64"),
 		)
 
 		It("Should reject a data type that no JSON value converts to", func() {
@@ -288,6 +306,56 @@ var _ = Describe("Field", func() {
 					MatchError(ContainSubstring("cannot convert a JSON value to")),
 				))
 		})
+
+		It("Should reject a range that is not an integer data type", func() {
+			Expect(xjson.NewDecoder(xjson.Field{
+				DataType: telem.Float64T,
+				Range:    telem.Float32T,
+			})).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(
+					"range float32 is not an integer data type",
+				)),
+			))
+		})
+
+		DescribeTable("Should convert a float into a sample",
+			func(f xjson.Field, v float64, expected []byte) {
+				d := MustSucceed(xjson.NewDecoder(f))
+				Expect(d.AppendFloat(nil, v)).To(Equal(expected))
+			},
+			Entry("a float64", xjson.Field{DataType: telem.Float64T}, 0.1, sample(0.1)),
+			Entry("a float32", xjson.Field{DataType: telem.Float32T}, 0.25,
+				sample[float32](0.25)),
+			Entry("a whole float into an integer", xjson.Field{DataType: telem.Int16T},
+				-3.0, sample[int16](-3)),
+			Entry("a whole float in an integer range",
+				xjson.Field{DataType: telem.Float64T, Range: telem.Int64T}, 4.0,
+				sample(4.0)),
+		)
+
+		DescribeTable("Should reject a float that does not convert",
+			func(f xjson.Field, v float64, message string) {
+				d := MustSucceed(xjson.NewDecoder(f))
+				Expect(d.AppendFloat(nil, v)).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(message)),
+				))
+			},
+			Entry("infinity", xjson.Field{DataType: telem.Float64T}, math.Inf(1),
+				"Infinity is not finite"),
+			Entry("NaN", xjson.Field{DataType: telem.Float32T}, math.NaN(),
+				"NaN is not finite"),
+			Entry("a float past a float32", xjson.Field{DataType: telem.Float32T},
+				1e39, "1e+39 overflows float32"),
+			Entry("a fraction into an integer", xjson.Field{DataType: telem.Int32T},
+				1.5, "1.5 is not an integer"),
+			Entry("a fraction outside an integer range",
+				xjson.Field{DataType: telem.Float64T, Range: telem.Int64T}, 2.5,
+				"2.5 is not an integer"),
+			Entry("a float into a string", xjson.Field{DataType: telem.StringT}, 1.0,
+				"cannot convert a float to string"),
+		)
 
 		DescribeTable(
 			"Should reject an enum value that does not convert",

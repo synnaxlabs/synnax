@@ -605,6 +605,7 @@ func (r *reference[K, E, T]) ownerTable() string       { return r.owner }
 func (r *reference[K, E, T]) referenceName() string    { return r.name }
 func (r *reference[K, E, T]) index() int               { return r.position }
 func (r *reference[K, E, T]) onDeletePolicy() OnDelete { return r.onDelete }
+func (r *reference[K, E, T]) linkKind() LinkKind       { return r.kind }
 func (r *reference[K, E, T]) targetTables() []string   { return r.tables }
 
 // check implements Reference.
