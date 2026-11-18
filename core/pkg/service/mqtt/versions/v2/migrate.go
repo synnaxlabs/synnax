@@ -12,6 +12,7 @@ package v2
 import (
 	"context"
 	"fmt"
+	"math"
 	"strconv"
 	"uuid"
 
@@ -19,8 +20,9 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
-	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	icd "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v1"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/set"
@@ -28,31 +30,19 @@ import (
 	"go.uber.org/zap"
 )
 
-// MigrateReadField lifts a v1 read field to v2, and describes each entry it drops. The
-// stored data type picks the kind, and a numeric kind keeps it as the data type of a
-// new channel. A float entry converts to an integer or unsigned kind when the kind
-// holds it exactly. A boolean entry becomes true when its value is not 0. A string
-// field drops its entries, and a timestamp field with no time format takes ISO 8601.
-// Each kind but string drops an entry with an empty label, which it can never match.
-// An empty data type is the v1 default, float64. An unknown one lifts to the float
-// kind with no data type, so that reconciling with the channel can set the kind. The
-// index field of its entry lifts to the timestamp kind. So does a field with a time
-// format, no entries, and the default or an unknown data type, and it keeps the format,
-// because v1 left the data type at its default and read the channel's data type. On
-// any other field, the time format is left over from an earlier data type, so the
-// field keeps its kind and entries.
-func MigrateReadField(old v1.ReadField, index bool) (ReadField, []string) {
-	return migrateReadField(old, index, nil)
-}
-
-// migrateReadField is MigrateReadField with the field's channel, when known. The
-// channel's data type then picks the kind, as v1 read it, and a numeric kind takes no
-// data type, because the channel exists.
-func migrateReadField(
-	old v1.ReadField,
+// liftField returns the JSON field of base for old, the data type of a new channel for
+// it, and a description of each change. The data type of ch, when old has a channel,
+// picks the kind. Otherwise the stored data type picks it, and a numeric kind keeps it
+// as the data type of a new channel. The returned data type is empty for any other
+// field. An index field lifts to the timestamp kind, and so does a field with a time
+// format, no entries, and the default or an unknown data type. An entry that the kind
+// cannot hold is dropped.
+func liftField(
+	old ReadField,
 	index bool,
 	ch *Channel,
-) (ReadField, []string) {
+	base icd.JSONBaseField,
+) (icd.JSONField, telem.DataType, []string) {
 	var changes []string
 	note := func(format string, args ...any) {
 		changes = append(changes, fmt.Sprintf(format, args...))
@@ -83,13 +73,13 @@ func migrateReadField(
 			kind,
 		)
 	}
-	return NewReadField(BaseReadField{
-		Key:      old.Key,
-		Name:     old.Name,
-		Disabled: old.Disabled,
-		Channel:  old.Channel,
-		Pointer:  old.Pointer,
-	}, migrateRead(old, kind, dt, known && ch == nil, note)), changes
+	field := liftRead(old, kind, base, enumFilter{seen: set.New[string](), note: note})
+	numeric := kind == payload.KindFloat || kind == payload.KindInteger ||
+		kind == payload.KindUnsigned
+	if !known || ch != nil || !numeric {
+		dt = ""
+	}
+	return field, dt, changes
 }
 
 // enumFilter keeps the enum entries that a lifted field can use and notes each one it
@@ -118,173 +108,267 @@ func (f enumFilter) usable(e payload.EnumEntry) bool {
 	return true
 }
 
-// migrateRead returns the read options of kind for old and notes each enum entry that
-// it drops. A typed number read keeps dt as its data type.
-func migrateRead(
-	old v1.ReadField,
+// liftRead returns the JSON field of base with kind and the options of old.
+func liftRead(
+	old ReadField,
 	kind payload.Kind,
-	dt telem.DataType,
-	typed bool,
-	note func(format string, args ...any),
-) payload.Read {
-	r := payload.Read{Kind: kind}
-	filter := enumFilter{seen: set.New[string](), note: note}
+	base icd.JSONBaseField,
+	f enumFilter,
+) icd.JSONField {
+	if field, ok := liftEnumRead(old, kind, base, f); ok {
+		return field
+	}
+	for _, e := range old.EnumValues {
+		f.drop(e, "a "+string(kind)+" field takes no numeric entries")
+	}
 	switch kind {
-	case payload.KindFloat, payload.KindInteger, payload.KindUnsigned:
-		if typed {
-			r.Number.DataType = &dt
-		}
-		for _, e := range old.EnumValues {
-			v, ok := payload.FloatNumber(payload.Float(e.Value)).To(kind)
-			switch {
-			case !ok:
-				filter.drop(
-					e,
-					strconv.FormatFloat(e.Value, 'g', -1, 64)+" is not "+string(kind),
-				)
-			case filter.usable(e):
-				r.Number.EnumValues = append(
-					r.Number.EnumValues,
-					payload.NumberEntry{Label: e.Label, Value: v},
-				)
-			}
-		}
-	case payload.KindBoolean:
-		for _, e := range old.EnumValues {
-			if !filter.usable(e) {
-				continue
-			}
-			r.Boolean.EnumValues = append(
-				r.Boolean.EnumValues,
-				payload.BooleanEntry{Label: e.Label, Value: e.Value != 0},
-			)
-		}
+	case payload.KindString:
+		return icd.JSONField{Variant: icd.StringJSONField{JSONBaseField: base}}
 	case payload.KindTimestamp:
-		r.Timestamp.TimeFormat = payload.TimeFormatISO8601
+		format := payload.TimeFormatISO8601
 		if old.TimeFormat != nil {
-			r.Timestamp.TimeFormat = *old.TimeFormat
+			format = *old.TimeFormat
 		}
-	case payload.KindString, payload.KindJSON, payload.KindUUID, payload.KindBytes:
+		return icd.JSONField{Variant: icd.TimestampJSONField{
+			JSONBaseField: base,
+			TimeFormat:    format,
+		}}
+	case payload.KindJSON:
+		return icd.JSONField{Variant: icd.JSONJSONField{JSONBaseField: base}}
+	case payload.KindUUID:
+		return icd.JSONField{Variant: icd.UuidJSONField{JSONBaseField: base}}
+	case payload.KindBytes:
+		return icd.JSONField{Variant: icd.BytesJSONField{JSONBaseField: base}}
+	case payload.KindFloat, payload.KindInteger, payload.KindUnsigned,
+		payload.KindBoolean:
 	}
-	if kind != payload.KindFloat && kind != payload.KindInteger &&
-		kind != payload.KindUnsigned && kind != payload.KindBoolean {
-		for _, e := range old.EnumValues {
-			filter.drop(e, "a "+string(kind)+" field takes no numeric entries")
-		}
-	}
-	return r
+	panic("unknown read field kind " + string(kind))
 }
 
-// migrateReadConfig lifts a v1 read config to v2, with the channels of its fields in
-// found, and calls note with the path and a description of each change to a field.
-func migrateReadConfig(
-	ctx context.Context,
-	old v1.ReadConfig,
-	found map[channel.Key]Channel,
-	note func(field, change string),
-) (ReadConfig, error) {
+// liftEnumRead returns the JSON field of base for a kind that takes enum entries, with
+// the entries of old that f keeps, and false for any other kind.
+func liftEnumRead(
+	old ReadField,
+	kind payload.Kind,
+	base icd.JSONBaseField,
+	f enumFilter,
+) (icd.JSONField, bool) {
+	switch kind {
+	case payload.KindFloat:
+		return icd.JSONField{Variant: icd.FloatJSONField{
+			JSONBaseField: base,
+			EnumValues:    liftEntries(old.EnumValues, f, kind, floatEntry),
+		}}, true
+	case payload.KindInteger:
+		return icd.JSONField{Variant: icd.IntegerJSONField{
+			JSONBaseField: base,
+			EnumValues:    liftEntries(old.EnumValues, f, kind, integerEntry),
+		}}, true
+	case payload.KindUnsigned:
+		return icd.JSONField{Variant: icd.UnsignedJSONField{
+			JSONBaseField: base,
+			EnumValues:    liftEntries(old.EnumValues, f, kind, unsignedEntry),
+		}}, true
+	case payload.KindBoolean:
+		return icd.JSONField{Variant: icd.BooleanJSONField{
+			JSONBaseField: base,
+			EnumValues:    liftEntries(old.EnumValues, f, kind, booleanEntry),
+		}}, true
+	case payload.KindString, payload.KindTimestamp, payload.KindJSON,
+		payload.KindUUID, payload.KindBytes:
+	}
+	return icd.JSONField{}, false
+}
+
+// liftEntries returns the entries of old that f keeps, through entry. It drops each one
+// whose value entry reports that kind does not hold.
+func liftEntries[E any](
+	old []payload.EnumEntry,
+	f enumFilter,
+	kind payload.Kind,
+	entry func(payload.EnumEntry) (E, bool),
+) []E {
+	entries := make([]E, 0, len(old))
+	for _, e := range old {
+		lifted, ok := entry(e)
+		switch {
+		case !ok:
+			f.drop(
+				e,
+				strconv.FormatFloat(e.Value, 'g', -1, 64)+" is not "+string(kind),
+			)
+		case f.usable(e):
+			entries = append(entries, lifted)
+		}
+	}
+	return entries
+}
+
+func floatEntry(e payload.EnumEntry) (payload.FloatEntry, bool) {
+	return payload.FloatEntry{Label: e.Label, Value: payload.Float(e.Value)}, true
+}
+
+// integerEntry returns false when the value of e is not a whole number that int64
+// holds.
+func integerEntry(e payload.EnumEntry) (payload.IntegerEntry, bool) {
+	if v := e.Value; v != math.Trunc(v) || v < math.MinInt64 || v >= 1<<63 {
+		return payload.IntegerEntry{}, false
+	}
+	return payload.IntegerEntry{Label: e.Label, Value: payload.Integer(e.Value)}, true
+}
+
+// unsignedEntry returns false when the value of e is not a whole number that uint64
+// holds.
+func unsignedEntry(e payload.EnumEntry) (payload.UnsignedEntry, bool) {
+	if v := e.Value; v != math.Trunc(v) || v < 0 || v >= 1<<64 {
+		return payload.UnsignedEntry{}, false
+	}
+	return payload.UnsignedEntry{Label: e.Label, Value: payload.Unsigned(e.Value)}, true
+}
+
+func booleanEntry(e payload.EnumEntry) (payload.BooleanEntry, bool) {
+	return payload.BooleanEntry{Label: e.Label, Value: e.Value != 0}, true
+}
+
+// MigrateReadEntry lifts a v1 read entry to v2. A plain entry has no ICD until
+// MigrateReadConfig stages it.
+func MigrateReadEntry(ctx context.Context, old v1.ReadEntry) (ReadEntry, error) {
+	return autoMigrateReadEntry(ctx, old)
+}
+
+// MigrateReadConfig lifts a v1 read config to v2. It moves each plain entry into
+// Inline, for ResolveReadConfig to add back with an ICD.
+func MigrateReadConfig(ctx context.Context, old v1.ReadConfig) (ReadConfig, error) {
 	cfg, err := autoMigrateReadConfig(ctx, old)
 	if err != nil {
 		return ReadConfig{}, err
 	}
+	var (
+		entries = make([]ReadEntry, 0, len(cfg.Entries))
+		staged  []InlineEntry
+	)
 	for i, e := range old.Entries {
 		plain, ok := e.Variant.(v1.PlainReadEntry)
 		if !ok {
+			entries = append(entries, cfg.Entries[i])
 			continue
 		}
-		fields := make([]ReadField, len(plain.Fields))
-		for j, f := range plain.Fields {
-			path := "entries." + strconv.Itoa(i) + ".fields." + strconv.Itoa(j)
-			var changes []string
-			var ch *Channel
-			if c, ok := found[f.Channel]; ok {
-				ch = &c
-			}
-			fields[j], changes = migrateReadField(f, f.Key == plain.Index, ch)
-			for _, c := range changes {
-				note(path, c)
-			}
-		}
-		entry, ok := cfg.Entries[i].Variant.(PlainReadEntry)
-		if !ok {
-			return ReadConfig{}, errors.Newf("entries.%d: expected a plain entry", i)
-		}
-		entry.Fields = fields
-		cfg.Entries[i].Variant = entry
+		staged = append(staged, InlineEntry{
+			BaseReadEntry:   plain.BaseReadEntry,
+			At:              uint32(i),
+			Topic:           plain.Topic,
+			Qos:             plain.Qos,
+			RetainedIgnored: plain.RetainedIgnored,
+			Fields:          plain.Fields,
+			Index:           plain.Index,
+		})
+	}
+	if len(staged) > 0 {
+		cfg.Entries, cfg.Inline = entries, &InlineRead{Entries: staged}
 	}
 	return cfg, nil
 }
 
-// MigrateReadConfig lifts a v1 read config to v2, as MigrateReadField lifts each of its
-// fields.
-func MigrateReadConfig(ctx context.Context, old v1.ReadConfig) (ReadConfig, error) {
-	return migrateReadConfig(ctx, old, nil, func(string, string) {})
-}
+// CreateICD creates ic through tx.
+type CreateICD func(ctx context.Context, tx gorp.Tx, ic icd.ICD) error
 
-// noteLift returns the note that logs each change the v1 lift makes to a field of the
-// config with key.
-func noteLift(ins alamos.Instrumentation, key uuid.UUID) func(field, change string) {
-	return func(field, change string) {
+// NoteLift returns the note for ResolveReadConfig that logs each change to a field of
+// the config with key through ins.
+func NoteLift(ins alamos.Instrumentation, key uuid.UUID) func(path, change string) {
+	return func(path, change string) {
 		ins.L.Warn(
 			"changed an MQTT read field to v2",
 			zap.Stringer("config", key),
-			zap.String("field", field),
+			zap.String("field", path),
 			zap.String("change", change),
 		)
 	}
 }
 
-// NewReadMigration returns the migration that lifts stored read configs to v2, with the
-// kind of each field's channel read through channels, then reconciles each field with
-// its channel. It logs each change to a field.
-func NewReadMigration(channels Channels) gorp.Migration {
+// NewReadMigration returns the migration that lifts stored v1 read configs to v2. It
+// resolves each config as ResolveReadConfig does, with the name of its task, creates
+// the ICD with create, and logs each change to a field. The config of a snapshot task
+// gets no ICD and loses its plain entries, because the task service deletes snapshots
+// after this migration runs.
+func NewReadMigration(channels Channels, create CreateICD) gorp.Migration {
 	return migrate.New(
-		"v62_mqtt_read_typed_fields",
+		"v62_mqtt_read_icd",
 		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
 			var olds []v1.ReadConfig
 			if err := gorp.NewRetrieve[uuid.UUID, v1.ReadConfig]().
 				Entries(&olds).
-				Exec(ctx, tx); err != nil {
+				Exec(ctx, tx); err != nil || len(olds) == 0 {
 				return err
 			}
-			news := make([]ReadConfig, 0, len(olds))
-			for _, old := range olds {
-				found, err := v1FieldChannels(ctx, tx, channels, old)
-				if err != nil {
+			tasks, err := retrieveTasks(ctx, tx, olds)
+			if err != nil {
+				return err
+			}
+			news := make([]ReadConfig, len(olds))
+			for i, old := range olds {
+				if tasks[old.Key].Snapshot {
+					if news[i], err = MigrateReadConfig(ctx, old); err != nil {
+						return errors.Wrapf(err, "config %s", old.Key)
+					}
+					continue
+				}
+				if news[i], err = migrateStored(
+					ctx,
+					tx,
+					channels,
+					create,
+					tasks[old.Key].Name,
+					old,
+					NoteLift(ins, old.Key),
+				); err != nil {
 					return errors.Wrapf(err, "config %s", old.Key)
 				}
-				cfg, err := migrateReadConfig(ctx, old, found, noteLift(ins, old.Key))
-				if err != nil {
-					return errors.Wrapf(err, "config %s", old.Key)
-				}
-				if err = ReconcileReadConfig(ctx, tx, channels, ins, &cfg); err != nil {
-					return errors.Wrapf(err, "config %s", old.Key)
-				}
-				news = append(news, cfg)
 			}
 			return gorp.WrapWriter[uuid.UUID, ReadConfig](tx).Set(ctx, news...)
 		},
 	)
 }
 
-func v1FieldChannels(
+func migrateStored(
 	ctx context.Context,
 	tx gorp.Tx,
 	channels Channels,
-	cfg v1.ReadConfig,
-) (map[channel.Key]Channel, error) {
-	var keys []channel.Key
-	for _, e := range cfg.Entries {
-		if plain, ok := e.Variant.(v1.PlainReadEntry); ok {
-			for _, f := range plain.Fields {
-				if f.Channel != 0 {
-					keys = append(keys, f.Channel)
-				}
-			}
-		}
+	create CreateICD,
+	name string,
+	old v1.ReadConfig,
+	note func(field, change string),
+) (ReadConfig, error) {
+	cfg, err := MigrateReadConfig(ctx, old)
+	if err != nil {
+		return ReadConfig{}, err
 	}
-	if len(keys) == 0 {
-		return nil, nil
+	ic, ok, err := ResolveReadConfig(ctx, tx, channels, name, &cfg, note)
+	if err != nil {
+		return ReadConfig{}, err
 	}
-	return channels(ctx, tx, lo.Uniq(keys))
+	if !ok {
+		return cfg, nil
+	}
+	if err = create(ctx, tx, ic); err != nil {
+		return ReadConfig{}, err
+	}
+	return cfg, nil
+}
+
+// retrieveTasks returns the task of each config of cfgs by key, read through tx.
+func retrieveTasks(
+	ctx context.Context,
+	tx gorp.Tx,
+	cfgs []v1.ReadConfig,
+) (map[uuid.UUID]task.Task, error) {
+	var tasks []task.Task
+	if err := gorp.NewRetrieve[task.Key, task.Task]().
+		Where(gorp.MatchKeys[task.Key, task.Task](
+			lo.Map(cfgs, func(c v1.ReadConfig, _ int) task.Key { return c.Key })...,
+		)).
+		Entries(&tasks).
+		Exec(ctx, tx); err != nil {
+		return nil, errors.Wrap(err, "tasks of MQTT read configs")
+	}
+	return lo.KeyBy(tasks, func(t task.Task) uuid.UUID { return t.Key }), nil
 }

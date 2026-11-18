@@ -895,6 +895,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Instrumentation: cfg.Child("mqtt"),
 		DB:              cfg.Distribution.DB,
 		Channel:         l.Channel,
+		ICD:             l.ICD,
 	}); !ok(err, l.MQTT) {
 		return nil, err
 	}
@@ -1101,6 +1102,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Channel:         l.Channel,
 		Framer:          l.Framer,
 		Status:          l.Status,
+		ICD:             l.ICD,
 	})
 	if !ok(err, mqttFactory) {
 		return nil, err

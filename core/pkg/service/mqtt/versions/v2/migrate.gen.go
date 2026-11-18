@@ -32,7 +32,7 @@ func autoMigrateEdgeConfig(_ context.Context, old v1.EdgeConfig) (EdgeConfig, er
 
 func autoMigrateReadConfig(ctx context.Context, old v1.ReadConfig) (ReadConfig, error) {
 	entries, err := lo.MapErr(old.Entries, func(v v1.ReadEntry, _ int) (ReadEntry, error) {
-		return autoMigrateReadEntry(ctx, v)
+		return MigrateReadEntry(ctx, v)
 	})
 	if err != nil {
 		return ReadConfig{}, err
@@ -62,7 +62,6 @@ func autoMigrateReadEntry(_ context.Context, old v1.ReadEntry) (ReadEntry, error
 			Topic:           variant.Topic,
 			Qos:             variant.Qos,
 			RetainedIgnored: variant.RetainedIgnored,
-			Index:           variant.Index,
 		}}, nil
 	case v1.SparkplugReadEntry:
 		return ReadEntry{Variant: SparkplugReadEntry{

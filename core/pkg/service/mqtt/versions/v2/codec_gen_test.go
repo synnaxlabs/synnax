@@ -18,70 +18,38 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	icd "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
-	payload "github.com/synnaxlabs/x/payload/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/testutil"
 )
 
 var (
 	fullyPopulatedBaseReadEntry = v2.BaseReadEntry{Key: "test_1", Disabled: false}
-	fullyPopulatedBaseReadField = v2.BaseReadField{
-		Key:      "test_1",
-		Name:     "test_2",
-		Disabled: true,
-		Channel:  channel.Key(5),
-		Pointer:  "test_5",
-	}
-	fullyPopulatedFloatRead = payload.FloatRead{
-		DataType:   new(telem.DataType("test_1")),
-		EnumValues: []payload.FloatEntry{{Label: "test_3", Value: payload.Float(4.5)}},
-		Fill:       new(payload.Float(5.5)),
-	}
-	fullyPopulatedIntegerRead = payload.IntegerRead{
-		DataType:   new(telem.DataType("test_1")),
-		EnumValues: []payload.IntegerEntry{{Label: "test_3", Value: payload.Integer(5)}},
-		Fill:       new(payload.Integer(6)),
-	}
-	fullyPopulatedUnsignedRead = payload.UnsignedRead{
-		DataType:   new(telem.DataType("test_1")),
-		EnumValues: []payload.UnsignedEntry{{Label: "test_3", Value: payload.Unsigned(5)}},
-		Fill:       new(payload.Unsigned(6)),
-	}
-	fullyPopulatedStringRead = payload.StringRead{
-		EnumValues: []payload.StringEntry{{Label: "test_2", Value: "test_3"}},
-		Fill:       new(string("test_4")),
-	}
-	fullyPopulatedBooleanRead = payload.BooleanRead{
-		EnumValues: []payload.BooleanEntry{{Label: "test_2", Value: true}},
-		Fill:       new(bool(false)),
-	}
-	fullyPopulatedTimestampRead = payload.TimestampRead{
-		TimeFormat: payload.TimeFormat("iso8601"),
-		Fill:       new(telem.TimeStamp(3)),
-	}
 )
 
 var _ = Describe("Codec", func() {
-	Describe("BaseReadField", func() {
+	Describe("ReadBinding", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original v2.BaseReadField) {
+			func(original v2.ReadBinding) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v2.BaseReadField
+				var decoded v2.ReadBinding
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", fullyPopulatedBaseReadField),
-			Entry("zero values", v2.BaseReadField{
-				Key:      "",
-				Name:     "",
-				Disabled: false,
+			Entry("fully populated", v2.ReadBinding{
+				Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Channel:  channel.Key(3),
+				DataType: telem.DataType("test_3"),
+			}),
+			Entry("zero values", v2.ReadBinding{
+				Field:    uuid.Nil(),
 				Channel:  channel.Key(0),
-				Pointer:  "",
+				DataType: telem.DataType(""),
 			}),
 		)
 	})
@@ -107,13 +75,20 @@ var _ = Describe("Codec", func() {
 						Topic:           "test_6",
 						Qos:             v2.QoS("at_most_once"),
 						RetainedIgnored: false,
-						Fields: []v2.ReadField{
-							{Variant: v2.FloatReadField{
-								BaseReadField: fullyPopulatedBaseReadField,
-								FloatRead:     fullyPopulatedFloatRead,
-							}},
+						ICD:             uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"),
+						Messages: []v2.ReadMessage{
+							{
+								Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b"),
+								Index:   new(icd.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"))),
+								Bindings: []v2.ReadBinding{
+									{
+										Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780e"),
+										Channel:  channel.Key(16),
+										DataType: telem.DataType("test_16"),
+									},
+								},
+							},
 						},
-						Index: "test_10",
 					}},
 				},
 			}),
@@ -149,13 +124,20 @@ var _ = Describe("Codec", func() {
 				Topic:           "test_1",
 				Qos:             v2.QoS("at_most_once"),
 				RetainedIgnored: true,
-				Fields: []v2.ReadField{
-					{Variant: v2.FloatReadField{
-						BaseReadField: fullyPopulatedBaseReadField,
-						FloatRead:     fullyPopulatedFloatRead,
-					}},
+				ICD:             uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
+				Messages: []v2.ReadMessage{
+					{
+						Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"),
+						Index:   new(icd.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
+						Bindings: []v2.ReadBinding{
+							{
+								Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"),
+								Channel:  channel.Key(11),
+								DataType: telem.DataType("test_11"),
+							},
+						},
+					},
 				},
-				Index: "test_5",
 			}}),
 			Entry("sparkplug variant", v2.ReadEntry{Variant: v2.SparkplugReadEntry{
 				BaseReadEntry: fullyPopulatedBaseReadEntry,
@@ -169,50 +151,48 @@ var _ = Describe("Codec", func() {
 			}}),
 		)
 	})
-	Describe("ReadField", func() {
+	Describe("ReadMessage", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original v2.ReadField) {
+			func(original v2.ReadMessage) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v2.ReadField
+				var decoded v2.ReadMessage
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("float variant", v2.ReadField{Variant: v2.FloatReadField{
-				BaseReadField: fullyPopulatedBaseReadField,
-				FloatRead:     fullyPopulatedFloatRead,
-			}}),
-			Entry("integer variant", v2.ReadField{Variant: v2.IntegerReadField{
-				BaseReadField: fullyPopulatedBaseReadField,
-				IntegerRead:   fullyPopulatedIntegerRead,
-			}}),
-			Entry("unsigned variant", v2.ReadField{Variant: v2.UnsignedReadField{
-				BaseReadField: fullyPopulatedBaseReadField,
-				UnsignedRead:  fullyPopulatedUnsignedRead,
-			}}),
-			Entry("string variant", v2.ReadField{Variant: v2.StringReadField{
-				BaseReadField: fullyPopulatedBaseReadField,
-				StringRead:    fullyPopulatedStringRead,
-			}}),
-			Entry("boolean variant", v2.ReadField{Variant: v2.BooleanReadField{
-				BaseReadField: fullyPopulatedBaseReadField,
-				BooleanRead:   fullyPopulatedBooleanRead,
-			}}),
-			Entry("timestamp variant", v2.ReadField{Variant: v2.TimestampReadField{
-				BaseReadField: fullyPopulatedBaseReadField,
-				TimestampRead: fullyPopulatedTimestampRead,
-			}}),
-			Entry("json variant", v2.ReadField{Variant: v2.JSONReadField{BaseReadField: fullyPopulatedBaseReadField}}),
-			Entry("uuid variant", v2.ReadField{Variant: v2.UuidReadField{BaseReadField: fullyPopulatedBaseReadField}}),
-			Entry("bytes variant", v2.ReadField{Variant: v2.BytesReadField{BaseReadField: fullyPopulatedBaseReadField}}),
+			Entry("fully populated", v2.ReadMessage{
+				Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Index:   new(icd.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"))),
+				Bindings: []v2.ReadBinding{
+					{
+						Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
+						Channel:  channel.Key(6),
+						DataType: telem.DataType("test_6"),
+					},
+				},
+			}),
+			Entry("zero values", v2.ReadMessage{
+				Message:  uuid.Nil(),
+				Index:    nil,
+				Bindings: []v2.ReadBinding{},
+			}),
+			Entry("empty collections", v2.ReadMessage{
+				Message:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Index:    new(icd.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"))),
+				Bindings: []v2.ReadBinding{},
+			}),
 		)
 	})
 })
 
-func BenchmarkEncodeDecodeBaseReadField(b *testing.B) {
-	seed := fullyPopulatedBaseReadField
+func BenchmarkEncodeDecodeReadBinding(b *testing.B) {
+	seed := v2.ReadBinding{
+		Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		Channel:  channel.Key(3),
+		DataType: telem.DataType("test_3"),
+	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
@@ -220,7 +200,7 @@ func BenchmarkEncodeDecodeBaseReadField(b *testing.B) {
 		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded v2.BaseReadField
+		var decoded v2.ReadBinding
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -240,13 +220,20 @@ func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 				Topic:           "test_6",
 				Qos:             v2.QoS("at_most_once"),
 				RetainedIgnored: false,
-				Fields: []v2.ReadField{
-					{Variant: v2.FloatReadField{
-						BaseReadField: fullyPopulatedBaseReadField,
-						FloatRead:     fullyPopulatedFloatRead,
-					}},
+				ICD:             uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"),
+				Messages: []v2.ReadMessage{
+					{
+						Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b"),
+						Index:   new(icd.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"))),
+						Bindings: []v2.ReadBinding{
+							{
+								Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780e"),
+								Channel:  channel.Key(16),
+								DataType: telem.DataType("test_16"),
+							},
+						},
+					},
 				},
-				Index: "test_10",
 			}},
 		},
 	}
@@ -271,13 +258,20 @@ func BenchmarkEncodeDecodeReadEntry(b *testing.B) {
 		Topic:           "test_1",
 		Qos:             v2.QoS("at_most_once"),
 		RetainedIgnored: true,
-		Fields: []v2.ReadField{
-			{Variant: v2.FloatReadField{
-				BaseReadField: fullyPopulatedBaseReadField,
-				FloatRead:     fullyPopulatedFloatRead,
-			}},
+		ICD:             uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
+		Messages: []v2.ReadMessage{
+			{
+				Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"),
+				Index:   new(icd.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
+				Bindings: []v2.ReadBinding{
+					{
+						Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"),
+						Channel:  channel.Key(11),
+						DataType: telem.DataType("test_11"),
+					},
+				},
+			},
 		},
-		Index: "test_5",
 	}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -294,11 +288,18 @@ func BenchmarkEncodeDecodeReadEntry(b *testing.B) {
 	}
 }
 
-func BenchmarkEncodeDecodeReadField(b *testing.B) {
-	seed := v2.ReadField{Variant: v2.FloatReadField{
-		BaseReadField: fullyPopulatedBaseReadField,
-		FloatRead:     fullyPopulatedFloatRead,
-	}}
+func BenchmarkEncodeDecodeReadMessage(b *testing.B) {
+	seed := v2.ReadMessage{
+		Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		Index:   new(icd.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"))),
+		Bindings: []v2.ReadBinding{
+			{
+				Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
+				Channel:  channel.Key(6),
+				DataType: telem.DataType("test_6"),
+			},
+		},
+	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
@@ -306,7 +307,7 @@ func BenchmarkEncodeDecodeReadField(b *testing.B) {
 		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded v2.ReadField
+		var decoded v2.ReadMessage
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -314,9 +315,13 @@ func BenchmarkEncodeDecodeReadField(b *testing.B) {
 	}
 }
 
-func FuzzDecodeBaseReadField(f *testing.F) {
+func FuzzDecodeReadBinding(f *testing.F) {
 	{
-		seed := fullyPopulatedBaseReadField
+		seed := v2.ReadBinding{
+			Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Channel:  channel.Key(3),
+			DataType: telem.DataType("test_3"),
+		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -324,12 +329,10 @@ func FuzzDecodeBaseReadField(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v2.BaseReadField{
-			Key:      "",
-			Name:     "",
-			Disabled: false,
+		seed := v2.ReadBinding{
+			Field:    uuid.Nil(),
 			Channel:  channel.Key(0),
-			Pointer:  "",
+			DataType: telem.DataType(""),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -338,7 +341,7 @@ func FuzzDecodeBaseReadField(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v2.BaseReadField
+		var decoded v2.ReadBinding
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -348,7 +351,7 @@ func FuzzDecodeBaseReadField(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded v2.BaseReadField
+		var redecoded v2.ReadBinding
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -372,13 +375,20 @@ func FuzzDecodeReadConfig(f *testing.F) {
 					Topic:           "test_6",
 					Qos:             v2.QoS("at_most_once"),
 					RetainedIgnored: false,
-					Fields: []v2.ReadField{
-						{Variant: v2.FloatReadField{
-							BaseReadField: fullyPopulatedBaseReadField,
-							FloatRead:     fullyPopulatedFloatRead,
-						}},
+					ICD:             uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"),
+					Messages: []v2.ReadMessage{
+						{
+							Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b"),
+							Index:   new(icd.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"))),
+							Bindings: []v2.ReadBinding{
+								{
+									Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780e"),
+									Channel:  channel.Key(16),
+									DataType: telem.DataType("test_16"),
+								},
+							},
+						},
 					},
-					Index: "test_10",
 				}},
 			},
 		}
@@ -445,13 +455,20 @@ func FuzzDecodeReadEntry(f *testing.F) {
 			Topic:           "test_1",
 			Qos:             v2.QoS("at_most_once"),
 			RetainedIgnored: true,
-			Fields: []v2.ReadField{
-				{Variant: v2.FloatReadField{
-					BaseReadField: fullyPopulatedBaseReadField,
-					FloatRead:     fullyPopulatedFloatRead,
-				}},
+			ICD:             uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
+			Messages: []v2.ReadMessage{
+				{
+					Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"),
+					Index:   new(icd.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
+					Bindings: []v2.ReadBinding{
+						{
+							Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"),
+							Channel:  channel.Key(11),
+							DataType: telem.DataType("test_11"),
+						},
+					},
+				},
 			},
-			Index: "test_5",
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -498,12 +515,19 @@ func FuzzDecodeReadEntry(f *testing.F) {
 	})
 }
 
-func FuzzDecodeReadField(f *testing.F) {
+func FuzzDecodeReadMessage(f *testing.F) {
 	{
-		seed := v2.ReadField{Variant: v2.FloatReadField{
-			BaseReadField: fullyPopulatedBaseReadField,
-			FloatRead:     fullyPopulatedFloatRead,
-		}}
+		seed := v2.ReadMessage{
+			Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Index:   new(icd.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"))),
+			Bindings: []v2.ReadBinding{
+				{
+					Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
+					Channel:  channel.Key(6),
+					DataType: telem.DataType("test_6"),
+				},
+			},
+		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -511,10 +535,11 @@ func FuzzDecodeReadField(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v2.ReadField{Variant: v2.IntegerReadField{
-			BaseReadField: fullyPopulatedBaseReadField,
-			IntegerRead:   fullyPopulatedIntegerRead,
-		}}
+		seed := v2.ReadMessage{
+			Message:  uuid.Nil(),
+			Index:    nil,
+			Bindings: []v2.ReadBinding{},
+		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -522,67 +547,11 @@ func FuzzDecodeReadField(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v2.ReadField{Variant: v2.UnsignedReadField{
-			BaseReadField: fullyPopulatedBaseReadField,
-			UnsignedRead:  fullyPopulatedUnsignedRead,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
+		seed := v2.ReadMessage{
+			Message:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Index:    new(icd.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"))),
+			Bindings: []v2.ReadBinding{},
 		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v2.ReadField{Variant: v2.StringReadField{
-			BaseReadField: fullyPopulatedBaseReadField,
-			StringRead:    fullyPopulatedStringRead,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v2.ReadField{Variant: v2.BooleanReadField{
-			BaseReadField: fullyPopulatedBaseReadField,
-			BooleanRead:   fullyPopulatedBooleanRead,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v2.ReadField{Variant: v2.TimestampReadField{
-			BaseReadField: fullyPopulatedBaseReadField,
-			TimestampRead: fullyPopulatedTimestampRead,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v2.ReadField{Variant: v2.JSONReadField{BaseReadField: fullyPopulatedBaseReadField}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v2.ReadField{Variant: v2.UuidReadField{BaseReadField: fullyPopulatedBaseReadField}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v2.ReadField{Variant: v2.BytesReadField{BaseReadField: fullyPopulatedBaseReadField}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -590,7 +559,7 @@ func FuzzDecodeReadField(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v2.ReadField
+		var decoded v2.ReadMessage
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -600,7 +569,7 @@ func FuzzDecodeReadField(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded v2.ReadField
+		var redecoded v2.ReadMessage
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

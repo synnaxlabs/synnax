@@ -14,16 +14,18 @@ package v2
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"reflect"
 	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	icd "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v1"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v4"
 	"github.com/synnaxlabs/x/errors"
-	payload "github.com/synnaxlabs/x/payload/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // QoS is the MQTT quality of service of a subscription or a publish: level 0, 1, or 2.
@@ -71,380 +73,109 @@ const (
 	SparkplugDataTypeDateTime SparkplugDataType = v1.SparkplugDataTypeDateTime
 )
 
-// BaseReadField carries the fields every read field shares.
-type BaseReadField struct {
-	// Key uniquely identifies the field within the entry.
-	Key string `json:"key" msgpack:"key"`
-	// Name is the human-readable field name.
-	Name string `json:"name" msgpack:"name"`
-	// Disabled is true when the field is excluded from the task.
-	Disabled bool `json:"disabled" msgpack:"disabled"`
-	// Channel is the Synnax channel the extracted value is written to.
-	Channel channel.Key `json:"channel" msgpack:"channel"`
-	// Pointer is the JSON Pointer to the value within the payload. An empty pointer
-	// takes the whole payload.
-	Pointer string `json:"pointer" msgpack:"pointer"`
-}
-
-// ReadFieldVariant is implemented by every ReadField variant.
-type ReadFieldVariant interface {
-	isReadFieldVariant()
-}
-
-// FloatReadField reads a float.
-type FloatReadField struct {
-	BaseReadField
-	payload.FloatRead
-}
-
-func (FloatReadField) isReadFieldVariant() {}
-
-// IntegerReadField reads a signed integer.
-type IntegerReadField struct {
-	BaseReadField
-	payload.IntegerRead
-}
-
-func (IntegerReadField) isReadFieldVariant() {}
-
-// UnsignedReadField reads an unsigned integer.
-type UnsignedReadField struct {
-	BaseReadField
-	payload.UnsignedRead
-}
-
-func (UnsignedReadField) isReadFieldVariant() {}
-
-// StringReadField reads a string.
-type StringReadField struct {
-	BaseReadField
-	payload.StringRead
-}
-
-func (StringReadField) isReadFieldVariant() {}
-
-// BooleanReadField reads a boolean.
-type BooleanReadField struct {
-	BaseReadField
-	payload.BooleanRead
-}
-
-func (BooleanReadField) isReadFieldVariant() {}
-
-// TimestampReadField reads a timestamp.
-type TimestampReadField struct {
-	BaseReadField
-	payload.TimestampRead
-}
-
-func (TimestampReadField) isReadFieldVariant() {}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (t TimestampReadField) Validate() error {
-	v := validate.New("TimestampReadField")
-	v.Exec(t.TimestampRead.Validate)
-	return v.Error()
-}
-
-// JSONReadField reads any JSON value.
-type JSONReadField struct {
-	BaseReadField
-}
-
-func (JSONReadField) isReadFieldVariant() {}
-
-// UuidReadField reads a UUID string.
-type UuidReadField struct {
-	BaseReadField
-}
-
-func (UuidReadField) isReadFieldVariant() {}
-
-// BytesReadField reads base64 text.
-type BytesReadField struct {
-	BaseReadField
-}
-
-func (BytesReadField) isReadFieldVariant() {}
-
-// ReadField is a single value extracted from the JSON payload of a topic. The type
-// field is the kind of the value, which matches the data type of the channel.
-type ReadField struct {
-	Variant ReadFieldVariant
-}
-
-// MarshalJSONTo encodes the active variant with its "type" tag injected.
-func (u ReadField) MarshalJSONTo(enc *jsontext.Encoder) error {
-	switch v := u.Variant.(type) {
-	case nil:
-		return enc.WriteToken(jsontext.Null)
-	case FloatReadField:
-		return json.MarshalEncode(enc, struct {
-			Type payload.Kind `json:"type"`
-			FloatReadField
-		}{Type: payload.KindFloat, FloatReadField: v})
-	case IntegerReadField:
-		return json.MarshalEncode(enc, struct {
-			Type payload.Kind `json:"type"`
-			IntegerReadField
-		}{Type: payload.KindInteger, IntegerReadField: v})
-	case UnsignedReadField:
-		return json.MarshalEncode(enc, struct {
-			Type payload.Kind `json:"type"`
-			UnsignedReadField
-		}{Type: payload.KindUnsigned, UnsignedReadField: v})
-	case StringReadField:
-		return json.MarshalEncode(enc, struct {
-			Type payload.Kind `json:"type"`
-			StringReadField
-		}{Type: payload.KindString, StringReadField: v})
-	case BooleanReadField:
-		return json.MarshalEncode(enc, struct {
-			Type payload.Kind `json:"type"`
-			BooleanReadField
-		}{Type: payload.KindBoolean, BooleanReadField: v})
-	case TimestampReadField:
-		return json.MarshalEncode(enc, struct {
-			Type payload.Kind `json:"type"`
-			TimestampReadField
-		}{Type: payload.KindTimestamp, TimestampReadField: v})
-	case JSONReadField:
-		return json.MarshalEncode(enc, struct {
-			Type payload.Kind `json:"type"`
-			JSONReadField
-		}{Type: payload.KindJSON, JSONReadField: v})
-	case UuidReadField:
-		return json.MarshalEncode(enc, struct {
-			Type payload.Kind `json:"type"`
-			UuidReadField
-		}{Type: payload.KindUUID, UuidReadField: v})
-	case BytesReadField:
-		return json.MarshalEncode(enc, struct {
-			Type payload.Kind `json:"type"`
-			BytesReadField
-		}{Type: payload.KindBytes, BytesReadField: v})
-	default:
-		return errors.Newf("ReadField: unknown variant %T", v)
-	}
-}
-
-// UnmarshalJSONFrom decodes the variant selected by the "type" field.
-func (u *ReadField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	data, err := dec.ReadValue()
-	if err != nil {
-		return err
-	}
-	if data.Kind() == 'n' {
-		u.Variant = nil
-		return nil
-	}
-	opts := dec.Options()
-	var disc struct {
-		Type payload.Kind `json:"type"`
-	}
-	if err := json.Unmarshal(
-		data, &disc, opts, json.RejectUnknownMembers(false),
-	); err != nil {
-		return err
-	}
-	switch disc.Type {
-	case payload.KindFloat:
-		var v struct {
-			Type payload.Kind `json:"type"`
-			FloatReadField
-		}
-		if err := json.Unmarshal(data, &v, opts); err != nil {
-			return err
-		}
-		u.Variant = v.FloatReadField
-	case payload.KindInteger:
-		var v struct {
-			Type payload.Kind `json:"type"`
-			IntegerReadField
-		}
-		if err := json.Unmarshal(data, &v, opts); err != nil {
-			return err
-		}
-		u.Variant = v.IntegerReadField
-	case payload.KindUnsigned:
-		var v struct {
-			Type payload.Kind `json:"type"`
-			UnsignedReadField
-		}
-		if err := json.Unmarshal(data, &v, opts); err != nil {
-			return err
-		}
-		u.Variant = v.UnsignedReadField
-	case payload.KindString:
-		var v struct {
-			Type payload.Kind `json:"type"`
-			StringReadField
-		}
-		if err := json.Unmarshal(data, &v, opts); err != nil {
-			return err
-		}
-		u.Variant = v.StringReadField
-	case payload.KindBoolean:
-		var v struct {
-			Type payload.Kind `json:"type"`
-			BooleanReadField
-		}
-		if err := json.Unmarshal(data, &v, opts); err != nil {
-			return err
-		}
-		u.Variant = v.BooleanReadField
-	case payload.KindTimestamp:
-		var v struct {
-			Type payload.Kind `json:"type"`
-			TimestampReadField
-		}
-		if err := json.Unmarshal(data, &v, opts); err != nil {
-			return err
-		}
-		u.Variant = v.TimestampReadField
-	case payload.KindJSON:
-		var v struct {
-			Type payload.Kind `json:"type"`
-			JSONReadField
-		}
-		if err := json.Unmarshal(data, &v, opts); err != nil {
-			return err
-		}
-		u.Variant = v.JSONReadField
-	case payload.KindUUID:
-		var v struct {
-			Type payload.Kind `json:"type"`
-			UuidReadField
-		}
-		if err := json.Unmarshal(data, &v, opts); err != nil {
-			return err
-		}
-		u.Variant = v.UuidReadField
-	case payload.KindBytes:
-		var v struct {
-			Type payload.Kind `json:"type"`
-			BytesReadField
-		}
-		if err := json.Unmarshal(data, &v, opts); err != nil {
-			return err
-		}
-		u.Variant = v.BytesReadField
-	default:
-		return errors.Wrapf(
-			validate.ErrValidation,
-			"ReadField: unknown type %q",
-			disc.Type,
-		)
-	}
-	return nil
-}
-
-// Type returns the type of the active variant, or an empty type when there is none.
-func (u ReadField) Type() payload.Kind {
-	switch u.Variant.(type) {
-	case FloatReadField:
-		return payload.KindFloat
-	case IntegerReadField:
-		return payload.KindInteger
-	case UnsignedReadField:
-		return payload.KindUnsigned
-	case StringReadField:
-		return payload.KindString
-	case BooleanReadField:
-		return payload.KindBoolean
-	case TimestampReadField:
-		return payload.KindTimestamp
-	case JSONReadField:
-		return payload.KindJSON
-	case UuidReadField:
-		return payload.KindUUID
-	case BytesReadField:
-		return payload.KindBytes
-	}
-	return ""
-}
-
-// Validate returns an error wrapping validate.ErrValidation if no variant is active or
-// the active variant violates its schema constraints.
-func (u ReadField) Validate() error {
-	v := validate.New("ReadField")
-	v.Ternary("type", u.Variant == nil, "required")
-	switch variant := u.Variant.(type) {
-	case TimestampReadField:
-		v.Exec(variant.Validate)
-	}
-	return v.Error()
-}
-
-// Base returns the fields every variant shares, or the zero value if Variant is nil.
-func (u ReadField) Base() BaseReadField {
-	switch variant := u.Variant.(type) {
-	case FloatReadField:
-		return variant.BaseReadField
-	case IntegerReadField:
-		return variant.BaseReadField
-	case UnsignedReadField:
-		return variant.BaseReadField
-	case StringReadField:
-		return variant.BaseReadField
-	case BooleanReadField:
-		return variant.BaseReadField
-	case TimestampReadField:
-		return variant.BaseReadField
-	case JSONReadField:
-		return variant.BaseReadField
-	case UuidReadField:
-		return variant.BaseReadField
-	case BytesReadField:
-		return variant.BaseReadField
-	}
-	return BaseReadField{}
-}
-
-// SetBase replaces the fields every variant shares. It panics if Variant is nil.
-func (u *ReadField) SetBase(base BaseReadField) {
-	switch variant := u.Variant.(type) {
-	case FloatReadField:
-		variant.BaseReadField = base
-		u.Variant = variant
-	case IntegerReadField:
-		variant.BaseReadField = base
-		u.Variant = variant
-	case UnsignedReadField:
-		variant.BaseReadField = base
-		u.Variant = variant
-	case StringReadField:
-		variant.BaseReadField = base
-		u.Variant = variant
-	case BooleanReadField:
-		variant.BaseReadField = base
-		u.Variant = variant
-	case TimestampReadField:
-		variant.BaseReadField = base
-		u.Variant = variant
-	case JSONReadField:
-		variant.BaseReadField = base
-		u.Variant = variant
-	case UuidReadField:
-		variant.BaseReadField = base
-		u.Variant = variant
-	case BytesReadField:
-		variant.BaseReadField = base
-		u.Variant = variant
-	default:
-		panic(errors.Newf("ReadField: cannot set the base of variant %T", variant))
-	}
-}
+// ReadField is a single value extracted from the JSON payload of a topic.
+type ReadField = v1.ReadField
 
 // BaseReadEntry carries the fields every read entry shares.
 type BaseReadEntry = v1.BaseReadEntry
+
+// ReadBinding writes the value of one message field to a channel.
+type ReadBinding struct {
+	// Field is the key of the message field to read.
+	Field icd.FieldKey `json:"field" msgpack:"field"`
+	// Channel is the channel the value of the field is written to.
+	Channel channel.Key `json:"channel" msgpack:"channel"`
+	// DataType is the data type of the channel that a client creates for the field.
+	// Empty takes the default of the field's kind. The Core ignores it once the channel
+	// exists.
+	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
+}
+
+// ReadMessage reads the documents of one ICD message.
+type ReadMessage struct {
+	// Message is the key of the ICD message to read.
+	Message icd.MessageKey `json:"message" msgpack:"message"`
+	// Index is the key of the field whose channel indexes the others. Absent when the
+	// task stamps samples on arrival.
+	Index *icd.FieldKey `json:"index,omitzero" msgpack:"index,omitempty"`
+	// Bindings are the fields the task reads. A field with no binding is not read.
+	Bindings []ReadBinding `json:"bindings" msgpack:"bindings"`
+}
+
+// InlineEntry is a plain entry from before ICDs, which held its fields inline.
+type InlineEntry struct {
+	BaseReadEntry
+	// At is the index of the entry in the entries of its config.
+	At uint32 `json:"at" msgpack:"at"`
+	// Topic is the topic to subscribe to.
+	Topic string `json:"topic" msgpack:"topic"`
+	// Qos is the quality of service of the subscription.
+	Qos QoS `json:"qos" msgpack:"qos"`
+	// RetainedIgnored is true when the task drops the retained message on subscribe.
+	RetainedIgnored bool `json:"retained_ignored" msgpack:"retained_ignored"`
+	// Fields are the fields of the entry.
+	Fields []ReadField `json:"fields" msgpack:"fields"`
+	// Index is the key of the index field. Empty for arrival timing.
+	Index string `json:"index" msgpack:"index"`
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (in *InlineEntry) SetDefaults() {
+	in.Qos = QoSAtMostOnce
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (in *InlineEntry) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain InlineEntry
+	if reflect.ValueOf(*in).IsZero() {
+		in.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(in))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (in *InlineEntry) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain InlineEntry
+	if reflect.ValueOf(*in).IsZero() {
+		in.SetDefaults()
+	}
+	return dec.Decode((*plain)(in))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (in InlineEntry) Validate() error {
+	v := validate.New("InlineEntry")
+	v.Ternaryf("qos", !in.Qos.IsValid(), "invalid qos: %v", in.Qos)
+	for i := range in.Fields {
+		v.Exec(func() error { return validate.PathedError(in.Fields[i].Validate(), "fields", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}
+
+// InlineRead holds the plain entries of a read config from before ICDs.
+type InlineRead struct {
+	// Entries are the plain entries that hold their fields inline.
+	Entries []InlineEntry `json:"entries" msgpack:"entries"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (in InlineRead) Validate() error {
+	v := validate.New("InlineRead")
+	for i := range in.Entries {
+		v.Exec(func() error { return validate.PathedError(in.Entries[i].Validate(), "entries", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}
 
 // ReadEntryType is the "type" value that selects a variant of ReadEntry.
 type ReadEntryType string
 
 const (
-	// PlainReadEntryType reads JSON payloads from one topic.
+	// PlainReadEntryType reads the JSON payloads of one topic as the messages of an
+	// ICD.
 	PlainReadEntryType ReadEntryType = "plain"
 	// SparkplugReadEntryType reads one Sparkplug B tag.
 	SparkplugReadEntryType ReadEntryType = "sparkplug"
@@ -455,7 +186,7 @@ type ReadEntryVariant interface {
 	isReadEntryVariant()
 }
 
-// PlainReadEntry reads JSON payloads from one topic.
+// PlainReadEntry reads the JSON payloads of one topic as the messages of an ICD.
 type PlainReadEntry struct {
 	BaseReadEntry
 	// Topic is the topic to subscribe to. It holds no wildcards.
@@ -465,11 +196,11 @@ type PlainReadEntry struct {
 	// RetainedIgnored is true when the task drops the retained message that the broker
 	// sends on subscribe.
 	RetainedIgnored bool `json:"retained_ignored" msgpack:"retained_ignored"`
-	// Fields contains the values to extract from each payload.
-	Fields []ReadField `json:"fields" msgpack:"fields"`
-	// Index is the key of the field whose channel indexes the others. Empty when the
-	// task stamps samples on arrival.
-	Index string `json:"index" msgpack:"index"`
+	// ICD is the key of the ICD that holds the messages of the topic.
+	ICD icd.Key `json:"icd" msgpack:"icd"`
+	// Messages are the messages the topic carries. Each payload is read as the message
+	// whose match rule it meets.
+	Messages []ReadMessage `json:"messages" msgpack:"messages"`
 }
 
 func (PlainReadEntry) isReadEntryVariant() {}
@@ -484,9 +215,6 @@ func (p *PlainReadEntry) SetDefaults() {
 func (p PlainReadEntry) Validate() error {
 	v := validate.New("PlainReadEntry")
 	v.Ternaryf("qos", !p.Qos.IsValid(), "invalid qos: %v", p.Qos)
-	for i := range p.Fields {
-		v.Exec(func() error { return validate.PathedError(p.Fields[i].Validate(), "fields", strconv.Itoa(i)) })
-	}
 	return v.Error()
 }
 
@@ -648,6 +376,9 @@ type ReadConfig struct {
 	Device device.Key `json:"device" msgpack:"device"`
 	// Entries contains the topics and tags to read.
 	Entries []ReadEntry `json:"entries" msgpack:"entries"`
+	// Inline holds the plain entries of a config from before ICDs. A write moves their
+	// fields into a new ICD, adds the entries, and clears it.
+	Inline *InlineRead `json:"inline,omitzero" msgpack:"inline,omitempty"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -656,6 +387,9 @@ func (r ReadConfig) Validate() error {
 	v := validate.New("ReadConfig")
 	for i := range r.Entries {
 		v.Exec(func() error { return validate.PathedError(r.Entries[i].Validate(), "entries", strconv.Itoa(i)) })
+	}
+	if r.Inline != nil {
+		v.Exec(func() error { return validate.PathedError(r.Inline.Validate(), "inline") })
 	}
 	return v.Error()
 }

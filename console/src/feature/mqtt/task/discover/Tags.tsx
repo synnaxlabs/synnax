@@ -30,11 +30,10 @@ import {
 import {
   type BrowsedSparkplugNode,
   type BrowsedSparkplugTag,
+  type HeldEntry,
   nodeKey,
-  type ReadEntry,
   type SparkplugTag,
   tagKey,
-  type WriteTarget,
 } from "@/feature/mqtt/task/types";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
@@ -105,7 +104,7 @@ const SKELETON: Picker.SkeletonItem[] = [
 export interface TagPickerProps {
   device: Device;
   /** What the task holds now. */
-  entries: (ReadEntry | WriteTarget)[];
+  entries: HeldEntry[];
   value: TagPicks;
   onChange: (value: TagPicks) => void;
   onAddByName: () => void;
