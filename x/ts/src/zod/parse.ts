@@ -351,7 +351,7 @@ const renderIssues = (
     // annotate each bad key in place.
     const marks = new Map<string, Mark>();
     for (const issue of group) {
-      const lastKey = String(issue.path[issue.path.length - 1]);
+      const lastKey = String(issue.path.at(-1));
       const found = deep.atKeys(root, issue.path);
       marks.set(lastKey, {
         reason: describeCore(issue),

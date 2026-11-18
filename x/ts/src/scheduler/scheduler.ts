@@ -13,3 +13,7 @@ export const flushMicrotasks = (): Promise<void> => Promise.resolve();
 /** @returns A promise that resolves when the task queue is flushed. */
 export const flushTaskQueue = (): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, 0));
+
+/** @returns A promise that resolves on the next animation frame. */
+export const nextFrame = (): Promise<void> =>
+  new Promise((resolve) => requestAnimationFrame(() => resolve()));

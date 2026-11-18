@@ -80,3 +80,19 @@ export const mult = multiCoercedOp((a, b) => a * b);
 
 /** @returns the division of a and b, coercing b to the type of a if necessary. */
 export const div = multiCoercedOp((a, b) => a / b);
+
+/** @returns the sum of the values, or 0 when there are none. */
+export const sum = (values: Iterable<number>): number => {
+  let total = 0;
+  for (const v of values) total += v;
+  return total;
+};
+
+/**
+ * @returns the arithmetic mean of the values.
+ * @throws {Error} when there are no values, as their mean is undefined.
+ */
+export const mean = (values: readonly number[]): number => {
+  if (values.length === 0) throw new Error("cannot take the mean of zero values");
+  return sum(values) / values.length;
+};

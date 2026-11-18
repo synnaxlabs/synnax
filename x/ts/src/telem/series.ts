@@ -126,14 +126,7 @@ const noopIterableIterator: IterableIterator<never> = {
   next: () => ({ done: true, value: undefined }),
 };
 
-const stringArrayZ = z.string().transform(
-  (s) =>
-    new Uint8Array(
-      atob(s)
-        .split("")
-        .map((c) => c.charCodeAt(0)),
-    ).buffer,
-);
+const stringArrayZ = z.string().transform((s) => binary.decodeBase64(s).buffer);
 
 const nullArrayZ = z
   .union([z.null(), z.undefined()])

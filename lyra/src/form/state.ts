@@ -228,17 +228,15 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     this.observed = next;
     this.clearChangedExternal(prev, next);
     const changed = new Map<string, boolean>();
-    const parentChanged = (parent: string): boolean => {
-      let c = changed.get(parent);
-      if (c == null) {
-        c =
+    const parentChanged = (parent: string): boolean =>
+      map.getOrInsert(
+        changed,
+        parent,
+        () =>
           parent === "" ||
           deep.get(prev, parent, { optional: true }) !==
-            deep.get(next, parent, { optional: true });
-        changed.set(parent, c);
-      }
-      return c;
-    };
+            deep.get(next, parent, { optional: true }),
+      );
     this.cachedRefs.forEach((cached, path) => {
       if (parentChanged(parentPath(next, path))) cached.stale = true;
     });
@@ -555,11 +553,11 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
       if (optional) return null;
       throw new Error(`Field ${path} is not in the form`);
     }
-    const status = map.getOrSetDefault(this.statuses, path, {
+    const status = map.getOrInsert(this.statuses, path, (): Status.Crude => ({
       key: path,
       variant: "success",
       message: "",
-    });
+    }));
     const touched = this.touched.has(path);
     // A field whose state did not change keeps its object, so it does not re-render.
     if (

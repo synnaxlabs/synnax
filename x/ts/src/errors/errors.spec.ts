@@ -302,4 +302,34 @@ describe("errors", () => {
       expect(e.message).toEqual("hello");
     });
   });
+  describe("causes", () => {
+    it("should yield each cause beneath the error, outermost first", () => {
+      const root = new Error("root");
+      const middle = new Error("middle", { cause: root });
+      const top = new Error("top", { cause: middle });
+      expect([...errors.causes(top)]).toEqual([middle, root]);
+    });
+    it("should yield nothing for an error without a cause", () => {
+      expect([...errors.causes(new Error("alone"))]).toEqual([]);
+    });
+    it("should yield nothing for a value that is not an error", () => {
+      expect([...errors.causes("not an error")]).toEqual([]);
+    });
+    it("should end the chain after a cause that is not an error", () => {
+      const top = new Error("top", { cause: { code: 42 } });
+      expect([...errors.causes(top)]).toEqual([{ code: 42 }]);
+    });
+    it("should stop after maxDepth causes", () => {
+      const root = new Error("root");
+      const middle = new Error("middle", { cause: root });
+      const top = new Error("top", { cause: middle });
+      expect([...errors.causes(top, 1)]).toEqual([middle]);
+    });
+    it("should stop when the chain links back to itself", () => {
+      const a = new Error("a");
+      const b = new Error("b", { cause: a });
+      a.cause = b;
+      expect([...errors.causes(a)]).toEqual([b]);
+    });
+  });
 });
