@@ -33,7 +33,6 @@ import (
 	authv0 "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/file"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	groupv0 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v0"
@@ -898,7 +897,7 @@ var _ = Describe("LayerConfig", func() {
 		Expect(layer.Task.NewRetrieve().
 			Where(task.And(
 				task.MatchRacks(coreRack.Key),
-				task.MatchTypes(file.BrowserTaskType),
+				task.MatchTypes("file_browser"),
 			)).
 			Entry(&browser).
 			Exec(ctx, node.DB)).To(Succeed())
