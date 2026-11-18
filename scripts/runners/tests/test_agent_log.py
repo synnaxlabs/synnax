@@ -13,7 +13,7 @@ import pytest
 
 import agent_log
 from agent_log import Log
-from conftest import Client, core
+from conftest import Client
 
 CHANNEL = "ubuntu_build_i_0f44_log"
 
@@ -36,14 +36,14 @@ class TestLog:
         self, client: Client, page: Path
     ) -> None:
         page.write_text("old\n")
-        Log(core(client), CHANNEL).write()
+        Log(client, CHANNEL).write()
         assert client.written(CHANNEL) == []
 
     def test_should_send_the_lines_written_after_it_started(
         self, client: Client, page: Path
     ) -> None:
         page.write_text("old\n")
-        log = Log(core(client), CHANNEL)
+        log = Log(client, CHANNEL)
         append(page, "one\ntwo\n")
         log.write()
         log.write()
@@ -52,7 +52,7 @@ class TestLog:
     def test_should_hold_a_partial_line_until_its_newline(
         self, client: Client, page: Path
     ) -> None:
-        log = Log(core(client), CHANNEL)
+        log = Log(client, CHANNEL)
         append(page, "par")
         log.write()
         append(page, "tial\n")
@@ -63,7 +63,7 @@ class TestLog:
         self, client: Client, page: Path
     ) -> None:
         page.write_text("a long first line\n")
-        log = Log(core(client), CHANNEL)
+        log = Log(client, CHANNEL)
         page.write_text("new\n")
         log.write()
         assert client.written(CHANNEL) == [["new"]]
@@ -72,7 +72,7 @@ class TestLog:
         self, client: Client, page: Path
     ) -> None:
         page.write_text("old line\n")
-        log = Log(core(client), CHANNEL)
+        log = Log(client, CHANNEL)
         page.unlink()
         log.write()
         page.write_text("a longer new line\n")
@@ -83,7 +83,7 @@ class TestLog:
         self, client: Client, page: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(agent_log, "LOG_BUDGET", 8)
-        log = Log(core(client), CHANNEL)
+        log = Log(client, CHANNEL)
         append(page, "one\ntwo\nthree\n")
         log.write()
         log.write()
@@ -93,7 +93,7 @@ class TestLog:
         self, client: Client, page: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(agent_log, "LOG_BUDGET", 8)
-        log = Log(core(client), CHANNEL)
+        log = Log(client, CHANNEL)
         append(page, "a line with no end")
         log.write()
         log.write()
@@ -104,7 +104,7 @@ class TestLog:
     def test_should_skip_a_file_it_cannot_open(
         self, client: Client, page: Path
     ) -> None:
-        log = Log(core(client), CHANNEL)
+        log = Log(client, CHANNEL)
         page.with_name("Worker_1.log").mkdir()
         append(page, "one\n")
         log.write()
@@ -113,7 +113,7 @@ class TestLog:
     def test_should_send_the_lines_of_the_agent_first(
         self, client: Client, page: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        log = Log(core(client), CHANNEL)
+        log = Log(client, CHANNEL)
         append(page, "runner\n")
         log.log("agent connected")
         log.write()
@@ -123,7 +123,7 @@ class TestLog:
     def test_should_keep_the_lines_of_the_agent_when_a_write_fails(
         self, client: Client, page: Path
     ) -> None:
-        log = Log(core(client), CHANNEL)
+        log = Log(client, CHANNEL)
         log.log("agent connected")
         client.failing = True
         with pytest.raises(ConnectionError):

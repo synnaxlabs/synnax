@@ -452,6 +452,35 @@ gone. Page with `limit` and `after`.
   Arcs, such as `range(i64(n), i64(100))`, but not where an argument reads a channel or
   a module value. Add the casts to those calls and to new Arc text.
 
+#### Driver state file
+
+From Driver 0.61.0 to 0.61.4, on Linux and macOS, these commands change the owners and
+modes of the Driver state. They replace the values that a setup step, such as an init
+container, gives these paths:
+
+- `start`, `login`, and `clear` set the state file to mode `0600`, at any path. At a
+  `--state-file` path, the user that runs the Driver must own the file, or the command
+  fails.
+- At the default path, `install`, `start`, `login`, and `clear` also do one of these:
+  - On Linux, when root runs the command and a `synnax` user exists, they give the
+    directory to root and the `synnax` group with mode `0751`. They give the state file
+    to the `synnax` user. They create the `opcua` directory if it is missing and give it
+    to the `synnax` user with mode `0700`.
+  - Else, they set a state directory that the Driver user owns to `0700`. They replace a
+    state file that another user owns with a copy that the Driver user owns, so the
+    Driver user must be able to write to the directory.
+- The state directory and the state file must not be symbolic links, such as a file in a
+  mounted Kubernetes Secret, or the command fails.
+
+Give the state directory and the state file to the user that runs the Driver.
+
+Driver 0.61.5 stops these changes in `start` and `clear`: they do not change the mode or
+owner of a state directory or state file that exists. Only `install` and `login` that
+root runs change them. A command fails if other users can read the state file, or if a
+user other than the Driver user owns it. When root runs the Driver, the `synnax` user
+can also own it. Set the state file to mode `0600` and give it to the user that runs the
+Driver.
+
 #### Hardware
 
 - EtherCAT on IgH counts positions from 1. After the upgrade, delete the EtherCAT

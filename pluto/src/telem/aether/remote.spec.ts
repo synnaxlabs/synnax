@@ -362,7 +362,6 @@ describe("remote", () => {
         client,
         { channel: 0, window: staticWindow(HOME), ...props },
         options,
-        undefined,
         BREAKER,
       );
       closers.push(() => source.cleanup());
@@ -718,6 +717,54 @@ describe("remote", () => {
       await expect.poll(() => x.value().data[0].upper, POLL).toBe(next);
     });
 
+    describe("live line whose samples stopped", () => {
+      const END = START.add(TimeSpan.minutes(5));
+      const SPAN = TimeSpan.seconds(10);
+
+      const createLine = (core: SyntheticCore): [ChannelData, ChannelData] => {
+        const client = connect(core);
+        const props = { channel: core.data[0].key, window: dynamicWindow(SPAN) };
+        return [
+          create(client, { ...props, useIndexOfChannel: true }),
+          create(client, props),
+        ];
+      };
+
+      it("should end its bounds at the newest stored sample as the clock moves", async () => {
+        const core = createCore({ end: END });
+        const [x] = createLine(core);
+        await settle(x);
+        const upper = ns(newest(core, core.data[0].key).timeRange.end);
+        const expected = { lower: upper - ns(new TimeStamp(SPAN)), upper };
+        expect(x.value().data[0]).toEqual(expected);
+        expect(x.value().rolling).toBe(true);
+        core.advance(TimeSpan.minutes(1));
+        await sleep.sleep(TimeSpan.milliseconds(50));
+        expect(x.value().data[0]).toEqual(expected);
+      });
+
+      it("should have no bounds when its channel stores no samples", async () => {
+        const [x] = createLine(createCore({ end: START }));
+        await settle(x);
+        expect(x.value().data[0]).toEqual(bounds.INVALID);
+      });
+
+      it("should read its value bounds across the view it is passed", async () => {
+        const core = createCore({ end: END });
+        const [x, y] = createLine(core);
+        await settle(x);
+        await settle(y);
+        expect(y.value().rolling).toBe(false);
+        const { upper } = x.value().data[0];
+        const shown: ValueProps = {
+          extremesKept: true,
+          bounds: { lower: upper - ns(new TimeStamp(SPAN)), upper },
+        };
+        await expect.poll(() => y.value(shown).data[1].length, POLL).toBeGreaterThan(0);
+        expect(bounds.isFinite(y.value(shown).data[0])).toBe(true);
+      });
+    });
+
     it("should release its series and stop notifying on cleanup", async () => {
       const core = createCore();
       const client = connect(core);
@@ -864,7 +911,6 @@ describe("remote", () => {
           client,
           { channel: yChannel, window: dynamicWindow(span), xChannel, ...props },
           undefined,
-          core.now,
           BREAKER,
         );
         closers.push(() => source.cleanup());

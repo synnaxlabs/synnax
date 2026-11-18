@@ -215,9 +215,10 @@ Chan union on type extends Base {
 		chanType := MustBeOk(again.Get("test.Chan"))
 		form, ok := chanType.Form.(resolution.UnionForm)
 		Expect(ok).To(BeTrue())
-		names := make([]string, 0)
-		for _, f := range resolution.UnifiedVariantFields(chanType, form.Variants[1], again) {
-			names = append(names, f.Name)
+		fields := resolution.UnifiedVariantFields(chanType, form.Variants[1], again)
+		names := make([]string, len(fields))
+		for i, f := range fields {
+			names[i] = f.Name
 		}
 		Expect(names).To(Equal([]string{"enabled", "units"}))
 	})

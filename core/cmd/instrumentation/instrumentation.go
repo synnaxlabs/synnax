@@ -18,6 +18,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/spf13/viper"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/uptrace/uptrace-go/uptrace"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -75,9 +76,13 @@ func configureLogger() (*alamos.Logger, error) {
 	fileEncoder := zapcore.NewJSONEncoder(fileEncoderConfig)
 	consoleEncoder := zapcore.NewConsoleEncoder(consoleEncoderConfig)
 
+	errs := api.NewErrorCodec()
 	core := zapcore.NewTee(
-		alamos.CustomZapCore(zapcore.NewCore(consoleEncoder, consoleOutput, level)),
-		alamos.CustomZapCore(zapcore.NewCore(fileEncoder, fileOutput, level)),
+		alamos.CustomZapCore(
+			zapcore.NewCore(consoleEncoder, consoleOutput, level),
+			errs,
+		),
+		alamos.CustomZapCore(zapcore.NewCore(fileEncoder, fileOutput, level), errs),
 	)
 	logger, err := alamos.NewLogger(alamos.LoggerConfig{
 		ZapLogger: zap.New(core, opts...),

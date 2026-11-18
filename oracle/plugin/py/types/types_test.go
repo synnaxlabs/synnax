@@ -139,7 +139,7 @@ var _ = Describe("Python Types Plugin", func() {
 					"type StringInput = str | list[str] | StringDict | String",
 					"class BoolDict(TypedDict, total=False):\n    eq: bool",
 					"type BoolInput = bool | BoolDict | Bool",
-					"{\"eq\": T, \"in\": list[T]},  # type: ignore[valid-type]",
+					"{\"eq\": \"T\", \"in\": \"list[T]\"},\n    total=False,",
 					"type SetInput[T] = T | list[T] | SetDict[T] | Set[T]",
 					"class ContainsDict(TypedDict, Generic[T], total=False):\n"+
 						"    any: list[T]",
@@ -1884,7 +1884,9 @@ var _ = Describe("Python Types Plugin", func() {
 				`
 					resp := MustGenerate(source, "channel", loader, typesPlugin)
 					content := string(resp.Files[0].Content)
-					newClass := content[strings.Index(content, "class New"):]
+					start := strings.Index(content, "class New")
+					Expect(start).To(BeNumerically(">=", 0))
+					newClass := content[start:]
 					Expect(newClass).To(ContainSubstring(`key: Key | None`))
 					Expect(
 						newClass,
@@ -1990,13 +1992,13 @@ var _ = Describe("Python Types Plugin", func() {
 					resp := MustGenerate(source, "api", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
-							`from typing_extensions import TypeVar`,
+							`from typing import Generic, TypeVar`,
 							`from pydantic import BaseModel, JsonValue`,
 							`Details = TypeVar("Details", default=JsonValue)`,
 							`class Status(BaseModel, Generic[Details]):`,
 							`details: Details | None = None`,
 						).
-						ToNotContain(`from typing import Generic, TypeVar`)
+						ToNotContain(`typing_extensions`)
 				},
 			)
 
@@ -2013,7 +2015,7 @@ var _ = Describe("Python Types Plugin", func() {
 					resp := MustGenerate(source, "api", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
-							`from typing_extensions import TypeVar`,
+							`from typing import Generic, TypeVar`,
 							`T = TypeVar("T", bound=str, default=str)`,
 						).
 						ToNotContain(`JsonValue`)

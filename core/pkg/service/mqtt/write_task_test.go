@@ -239,8 +239,9 @@ var _ = Describe("Write task", func() {
 				command(ctx, ch, telem.NewSeriesV[int32](1200), func(g Gomega) {
 					g.Expect(payloads("plant/pump/set")).ToNot(BeEmpty())
 				})
-				var ids []string
-				for _, payload := range payloads("plant/pump/set") {
+				published := payloads("plant/pump/set")
+				ids := make([]string, 0, len(published))
+				for _, payload := range published {
 					var doc map[string]any
 					Expect(json.Unmarshal([]byte(payload), &doc)).To(Succeed())
 					Expect(doc).To(HaveKeyWithValue("rpm", BeEquivalentTo(1200)))

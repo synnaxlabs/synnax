@@ -422,6 +422,8 @@ var _ = Describe("Time", func() {
 					sundays++
 				case stdtime.Monday:
 					mondays++
+				case stdtime.Tuesday, stdtime.Wednesday, stdtime.Thursday,
+					stdtime.Friday, stdtime.Saturday:
 				}
 				if !swept(day, n) {
 					continue

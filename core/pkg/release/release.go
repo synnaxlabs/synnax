@@ -17,6 +17,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -152,7 +153,11 @@ func Download(ctx context.Context, cfg Config, file File, dst string) (err error
 		return err
 	}
 	defer func() { err = errors.Combine(err, body.Close()) }()
-	f, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	f, err := os.OpenFile(
+		filepath.Clean(dst),
+		os.O_CREATE|os.O_WRONLY|os.O_TRUNC,
+		0o600,
+	)
 	if err != nil {
 		return err
 	}

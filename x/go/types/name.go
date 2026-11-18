@@ -118,7 +118,8 @@ func chanPrefix(dir reflect.ChanDir) string {
 		return "chan<- "
 	case reflect.RecvDir:
 		return "<-chan "
-	default:
+	case reflect.BothDir:
 		return "chan "
 	}
+	panic(fmt.Sprintf("types: invalid channel direction %d", dir))
 }

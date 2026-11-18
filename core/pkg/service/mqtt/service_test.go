@@ -92,9 +92,10 @@ var _ = Describe("Service", func() {
 
 	Describe("Stores", func() {
 		It("Should expose one store per MQTT task type", func() {
-			types := []string{}
-			for _, s := range svc.Stores() {
-				types = append(types, s.Type())
+			stores := svc.Stores()
+			types := make([]string, len(stores))
+			for i, s := range stores {
+				types[i] = s.Type()
 			}
 			Expect(types).To(ConsistOf(
 				mqtt.ReadTaskType,
@@ -489,8 +490,9 @@ var _ = Describe("Service", func() {
 					Expect(ic.Messages).To(HaveLen(1))
 					m := ic.Messages[0]
 					Expect(m.Name).To(Equal("plant/level"))
-					fields := m.Payload.Variant.(icd.JSONPayload).Fields
-					names, kinds := []string{}, []payload.Kind{}
+					fields := jsonFields(m)
+					names := make([]string, 0, len(fields))
+					kinds := make([]payload.Kind, 0, len(fields))
 					for _, f := range fields {
 						names = append(names, f.Base().Name)
 						kinds = append(kinds, f.Type())

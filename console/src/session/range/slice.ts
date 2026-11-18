@@ -32,7 +32,7 @@ const staticStateZ = z.object({
 
 export interface StaticState extends z.infer<typeof staticStateZ> {}
 
-/** A window of the given span ending now. The Core has no notion of one. */
+/** A rolling window of the given span. The Core has no notion of one. */
 const dynamicStateZ = z.object({
   variant: z.literal("dynamic"),
   key: z.string(),

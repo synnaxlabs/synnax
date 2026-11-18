@@ -500,13 +500,14 @@ func renderGoFile(
 	aliasOverrides map[string]string,
 ) ([]byte, map[string][]string, error) {
 	namespace := ""
-	if len(structs) > 0 {
+	switch {
+	case len(structs) > 0:
 		namespace = structs[0].Namespace
-	} else if len(unions) > 0 {
+	case len(unions) > 0:
 		namespace = unions[0].Namespace
-	} else if len(typeDefs) > 0 {
+	case len(typeDefs) > 0:
 		namespace = typeDefs[0].Namespace
-	} else if len(enums) > 0 {
+	case len(enums) > 0:
 		namespace = enums[0].Namespace
 	}
 

@@ -57,8 +57,9 @@ func isBuiltin(key Key) bool {
 	return lo.ContainsBy(series[:], func(s shipped) bool { return s.key == key })
 }
 
-// builtins returns the named colors that the Core ships, with their shipped values.
-func builtins() []Named {
+// Builtins returns the named colors that the Core ships, with their shipped values. A
+// stored built-in can differ from its shipped values, because users can edit it.
+func Builtins() []Named {
 	named := make([]Named, len(series))
 	for i, s := range series {
 		dark := xcolor.FromUint32(s.dark)
@@ -96,7 +97,7 @@ func (s *Service) createBuiltins(
 		stored := set.New(
 			lo.Map(existing, func(n Named, _ int) Key { return n.Key })...,
 		)
-		missing := lo.Reject(builtins(), func(n Named, _ int) bool {
+		missing := lo.Reject(Builtins(), func(n Named, _ int) bool {
 			return stored.Contains(n.Key)
 		})
 		if len(missing) == 0 {
