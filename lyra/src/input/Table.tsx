@@ -570,9 +570,11 @@ export const Table = ({
                       <Icon.Drag />
                     </Button.Button>
                   ) : (
-                    <Text.Text level="small" color={9}>
-                      {rowName(i)}
-                    </Text.Text>
+                    rowLabel != null && (
+                      <Text.Text level="small" color={9}>
+                        {rowName(i)}
+                      </Text.Text>
+                    )
                   )}
                 </th>
               )}

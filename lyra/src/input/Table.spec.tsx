@@ -892,9 +892,10 @@ describe("Input.Table", () => {
       expect(marked(cell("Raw", "1"))).toBe(false);
     });
 
-    it("should show no handles in preview", () => {
+    it("should show no handles and no row numbers in preview", () => {
       renderTable({ value: ROWS, onMove: vi.fn(), preview: true });
       expect(screen.queryByRole("button", { name: "Move row 1" })).toBeNull();
+      expect(screen.queryByRole("rowheader", { name: "1" })).toBeNull();
     });
   });
 });
