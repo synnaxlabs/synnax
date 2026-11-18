@@ -43,6 +43,7 @@ def message_of(m: cantools.database.Message) -> dict:
         "extended": m.is_extended_frame,
         "fd": m.is_fd,
         "length": m.length,
+        "cycle_time": m.cycle_time,
         "fields": [signal_of(s) for s in m.signals],
     }
 

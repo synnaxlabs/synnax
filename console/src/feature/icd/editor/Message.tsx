@@ -12,7 +12,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
-import { deep } from "@synnaxlabs/x";
+import { type CrudeTimeSpan, deep, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { FormattedField, parseInteger } from "@/feature/icd/editor/FormattedField";
@@ -31,14 +31,25 @@ const createPayload = (format: icd.PayloadType): icd.Payload => {
   }
 };
 
+// The form store clones its values, which strips the TimeSpan class.
+const formatMilliseconds = (span: CrudeTimeSpan): string =>
+  new TimeSpan(span).milliseconds.toString();
+
+const parseMilliseconds = (text: string): TimeSpan | null => {
+  const ms = Number(text.trim());
+  return Number.isFinite(ms) ? TimeSpan.milliseconds(ms) : null;
+};
+
+const parseText = (text: string): string => text;
+
 export interface MessageProps {
   /** The form path of the message. */
   path: deep.Path<icd.Message>;
 }
 
 /**
- * Edits a message: its format, how frames match it, and its fields. A format switch
- * replaces the payload with an empty one of the new format.
+ * Edits a message: its format, its query and cycle time, how frames match it, and its
+ * fields. A format switch replaces the payload with an empty one of the new format.
  */
 export const Message = ({ path }: MessageProps): ReactElement => {
   const payloadPath = path.payload;
@@ -66,6 +77,25 @@ export const Message = ({ path }: MessageProps): ReactElement => {
               <Select.Item<icd.PayloadType> itemKey="json">JSON</Select.Item>
             </Select.Buttons>
           </Input.Item>
+        </Flex.Box>
+        <Flex.Box x>
+          <FormattedField<string>
+            path={path.query}
+            label="Query"
+            placeholder="None"
+            optional
+            format={String}
+            parse={parseText}
+          />
+          <FormattedField<CrudeTimeSpan>
+            path={path.cycleTime}
+            label="Cycle time"
+            placeholder="None"
+            unit="ms"
+            optional
+            format={formatMilliseconds}
+            parse={parseMilliseconds}
+          />
         </Flex.Box>
       </Form.Section>
       {format === "binary" && (

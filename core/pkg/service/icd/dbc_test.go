@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -32,12 +33,13 @@ type expectedFile struct {
 }
 
 type expectedMessage struct {
-	Name     string          `json:"name"`
-	ID       uint32          `json:"id"`
-	Extended bool            `json:"extended"`
-	FD       bool            `json:"fd"`
-	Length   uint16          `json:"length"`
-	Fields   []expectedField `json:"fields"`
+	Name      string          `json:"name"`
+	ID        uint32          `json:"id"`
+	Extended  bool            `json:"extended"`
+	FD        bool            `json:"fd"`
+	Length    uint16          `json:"length"`
+	CycleTime *float64        `json:"cycle_time"`
+	Fields    []expectedField `json:"fields"`
 }
 
 type expectedField struct {
@@ -101,6 +103,9 @@ func toExpected(messages []icd.Message) []expectedMessage {
 			Extended: id.Extended,
 			FD:       id.Fd,
 			Length:   *p.Length,
+		}
+		if m.CycleTime != nil {
+			em.CycleTime = new(float64(*m.CycleTime) / float64(telem.Millisecond))
 		}
 		fields := binaryFields(m)
 		names := make(map[icd.FieldKey]string, len(fields))
@@ -618,5 +623,20 @@ SIG_VALTYPE_ 256 A : 1;
 		Entry("a signal of more than 64 bits", `BO_ 256 Engine: 8 Ecu
  SG_ A : 0|65@1+ (1,0) [0|0] "" Ecu
 `, "line 10: signal A has 65 bits, not 1 to 64"),
+		Entry("a negative cycle time", `BO_ 256 Engine: 8 Ecu
+
+BA_DEF_ BO_ "GenMsgCycleTime" INT -100 65535;
+BA_ "GenMsgCycleTime" BO_ 256 -5;
+`, "line 9: message Engine has a cycle time out of range: -5 ms"),
+		Entry("a cycle time past the longest time span", `BO_ 256 Engine: 8 Ecu
+
+BA_DEF_ BO_ "GenMsgCycleTime" FLOAT 0 1e300;
+BA_ "GenMsgCycleTime" BO_ 256 1e300;
+`, "line 9: message Engine has a cycle time out of range: 1e+300 ms"),
+		Entry("a cycle time shorter than a nanosecond", `BO_ 256 Engine: 8 Ecu
+
+BA_DEF_ BO_ "GenMsgCycleTime" FLOAT 0 1;
+BA_ "GenMsgCycleTime" BO_ 256 1e-9;
+`, "line 9: message Engine has a cycle time out of range: 1e-09 ms"),
 	)
 })

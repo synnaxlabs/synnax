@@ -463,6 +463,16 @@ export const messageZ = z.object({
   name: z.string().min(1),
   /** payload is the layout of the message's payload. */
   payload: payloadZ,
+  /**
+   * query is the request a device must receive before it sends the message. A binary
+   * query holds escaped bytes. When absent the device sends the message unprompted.
+   */
+  query: z.string().optional(),
+  /**
+   * cycleTime is the send cycle that the protocol states for the message. A write task
+   * takes it as the default period. When absent the protocol states none.
+   */
+  cycleTime: telem.timeSpanZ.optional(),
 });
 export interface Message extends z.infer<typeof messageZ> {}
 

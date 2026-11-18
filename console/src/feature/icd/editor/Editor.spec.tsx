@@ -15,7 +15,7 @@ import {
 } from "@synnaxlabs/client/testutil";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Panel as PlutoPanel } from "@synnaxlabs/pluto";
-import { uuid } from "@synnaxlabs/x";
+import { TimeSpan, uuid } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -236,6 +236,52 @@ describe("ICD editor", () => {
         fields: [],
       });
     });
+  });
+
+  it("should store the query of a message", async () => {
+    const ic = await createICD([createTextMessage()]);
+    await renderEditor(ic);
+    const query = await screen.findByLabelText("Query");
+    fireEvent.change(query, { target: { value: "READ?" } });
+    fireEvent.blur(query);
+    await waitFor(async () =>
+      expect((await retrieveMessage(ic.key)).query).toBe("READ?"),
+    );
+  });
+
+  it("should store a cycle time in milliseconds", async () => {
+    const ic = await createICD([createMessage([])]);
+    await renderEditor(ic);
+    const cycleTime = await screen.findByLabelText("Cycle time");
+    fireEvent.change(cycleTime, { target: { value: "100" } });
+    fireEvent.blur(cycleTime);
+    await waitFor(async () =>
+      expect((await retrieveMessage(ic.key)).cycleTime).toEqual(
+        TimeSpan.milliseconds(100),
+      ),
+    );
+  });
+
+  it("should show the cycle time of a message in milliseconds", async () => {
+    const ic = await createICD([
+      { ...createMessage([]), cycleTime: TimeSpan.milliseconds(250) },
+    ]);
+    await renderEditor(ic);
+    const cycleTime = await screen.findByLabelText<HTMLInputElement>("Cycle time");
+    expect(cycleTime.value).toBe("250");
+  });
+
+  it("should remove the cycle time when its text is cleared", async () => {
+    const ic = await createICD([
+      { ...createMessage([]), cycleTime: TimeSpan.milliseconds(250) },
+    ]);
+    await renderEditor(ic);
+    const cycleTime = await screen.findByLabelText("Cycle time");
+    fireEvent.change(cycleTime, { target: { value: "" } });
+    fireEvent.blur(cycleTime);
+    await waitFor(async () =>
+      expect((await retrieveMessage(ic.key)).cycleTime).toBeUndefined(),
+    );
   });
 
   it("should store the pointer of a JSON field", async () => {

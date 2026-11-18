@@ -174,6 +174,8 @@ var _ = Describe("Codec", func() {
 								},
 							},
 						}},
+						Query:     new(string("test_28")),
+						CycleTime: new(telem.TimeSpan(30)),
 					},
 				},
 			}),
@@ -366,6 +368,8 @@ var _ = Describe("Codec", func() {
 						},
 					},
 				}},
+				Query:     new(string("test_25")),
+				CycleTime: new(telem.TimeSpan(27)),
 			}),
 			Entry("zero values", v0.Message{
 				Key:  uuid.Nil(),
@@ -375,6 +379,8 @@ var _ = Describe("Codec", func() {
 					Identifier: nil,
 					Fields:     []v0.BinaryField{},
 				}},
+				Query:     nil,
+				CycleTime: nil,
 			}),
 		)
 	})
@@ -536,6 +542,8 @@ func BenchmarkEncodeDecodeICD(b *testing.B) {
 						},
 					},
 				}},
+				Query:     new(string("test_28")),
+				CycleTime: new(telem.TimeSpan(30)),
 			},
 		},
 	}
@@ -683,6 +691,8 @@ func BenchmarkEncodeDecodeMessage(b *testing.B) {
 				},
 			},
 		}},
+		Query:     new(string("test_25")),
+		CycleTime: new(telem.TimeSpan(27)),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -931,6 +941,8 @@ func FuzzDecodeICD(f *testing.F) {
 							},
 						},
 					}},
+					Query:     new(string("test_28")),
+					CycleTime: new(telem.TimeSpan(30)),
 				},
 			},
 		}
@@ -1344,6 +1356,8 @@ func FuzzDecodeMessage(f *testing.F) {
 					},
 				},
 			}},
+			Query:     new(string("test_25")),
+			CycleTime: new(telem.TimeSpan(27)),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1360,6 +1374,8 @@ func FuzzDecodeMessage(f *testing.F) {
 				Identifier: nil,
 				Fields:     []v0.BinaryField{},
 			}},
+			Query:     nil,
+			CycleTime: nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

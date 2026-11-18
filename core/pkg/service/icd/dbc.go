@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/icd/internal/dbc"
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/telem"
 )
 
 const (
@@ -26,6 +27,7 @@ const (
 	attrBRS         = "CANFD_BRS"
 	attrBusType     = "BusType"
 	attrProtocol    = "ProtocolType"
+	attrCycleTime   = "GenMsgCycleTime"
 	busTypeFD       = "CAN FD"
 	protocolJ1939   = "J1939"
 	formatJ1939     = "J1939PG"
@@ -57,9 +59,10 @@ const (
 // file with no VFrameFormat, when the BusType is CAN FD. A CAN FD message switches
 // bitrates when its CANFD_BRS is 1. A J1939 group matches frames by its parameter group
 // number, and also by its addresses when other messages share the group. A signal keeps
-// its [min|max] range unless both are zero. Messages and signals take their long names
-// when the file gives them. Every message and field gets a new key. Errors are scoped
-// to the "data" path and name the line.
+// its [min|max] range unless both are zero. A message takes its GenMsgCycleTime as its
+// cycle time unless that is zero. Messages and signals take their long names when the
+// file gives them. Every message and field gets a new key. Errors are scoped to the
+// "data" path and name the line.
 func parseDBC(data []byte) ([]Message, error) {
 	defs, err := dbc.Parse(data)
 	if err != nil {
@@ -312,6 +315,10 @@ func (f dbcFile) message(
 	if long, ok := f.messageNames[m.MessageID]; ok {
 		name = long
 	}
+	cycleTime, err := f.cycleTime(m)
+	if err != nil {
+		return Message{}, err
+	}
 	keys, switches, err := signalKeys(m)
 	if err != nil {
 		return Message{}, err
@@ -336,10 +343,33 @@ func (f dbcFile) message(
 		payload.Fields = append(payload.Fields, field)
 	}
 	return Message{
-		Key:     uuid.New(),
-		Name:    name,
-		Payload: Payload{Variant: payload},
+		Key:       uuid.New(),
+		Name:      name,
+		Payload:   Payload{Variant: payload},
+		CycleTime: cycleTime,
 	}, nil
+}
+
+// cycleTime returns the GenMsgCycleTime of m, or nil when it is absent or zero.
+func (f dbcFile) cycleTime(m *dbc.MessageDef) (*telem.TimeSpan, error) {
+	v, ok := f.attr(attrCycleTime, m.MessageID)
+	if !ok {
+		return nil, nil
+	}
+	ms := v.number()
+	if ms == 0 {
+		return nil, nil
+	}
+	span := ms * float64(telem.Millisecond)
+	if !(span >= float64(telem.Nanosecond) && span < float64(telem.TimeSpanMax)) {
+		return nil, dataErrorf(
+			"line %d: message %s has a cycle time out of range: %g ms",
+			m.Pos.Line,
+			m.Name,
+			ms,
+		)
+	}
+	return new(telem.TimeSpan(span)), nil
 }
 
 // validateMessage checks that the identifier and the size of m fit an ICD message.
