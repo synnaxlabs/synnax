@@ -121,8 +121,8 @@ const settingProblem = (
 type Slave = SlaveDevice | SlaveOnRack;
 
 /**
- * @returns the two slaves by name, then by slot, then by key. A problem of a pair then
- * reads the same from either slave, so the task names it once.
+ * @returns the two slaves by name, then by slot, then by key, so that a problem of a
+ * pair reads the same on the channels of either slave.
  */
 const inOrder = (a: Slave, b: Slave): [Slave, Slave] => {
   const order =
