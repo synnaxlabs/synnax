@@ -66,10 +66,10 @@ export const Input = ({
       />
       <HexText
         size={size}
-        className={CSS.cls(named != null && CSS.M("named"))}
         placeholder={mixed ? "Mixed" : "Auto"}
         startContent={named == null && digits !== "" ? "#" : undefined}
         text={named?.name ?? digits}
+        named={named != null}
         alpha={color.opacity(value ?? fallback)}
         onChange={onChange}
         onClear={() => onChange(undefined)}

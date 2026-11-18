@@ -8,10 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { assert, describe, expect, it } from "vitest";
-import { page } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 
 import { Color } from "@/color";
 import { CSS } from "@/css";
+import { Input } from "@/input";
 import { renderThemed } from "@/styletest";
 import { Triggers } from "@/triggers";
 
@@ -38,7 +39,40 @@ const boxWidth = (name: string): number => {
   return box.getBoundingClientRect().width;
 };
 
+const fontOf = (
+  name: string,
+): Pick<CSSStyleDeclaration, "fontFamily" | "textTransform"> => {
+  const { fontFamily, textTransform } = getComputedStyle(
+    page.getByRole("textbox", { name }).element(),
+  );
+  return { fontFamily, textTransform };
+};
+
 describe("Input", () => {
+  it("should show a linked name in the text font until the user types", async () => {
+    await renderThemed(
+      <Triggers.Provider>
+        <Color.Input
+          aria-label="Fixed"
+          value={RED}
+          fallback={RED}
+          onChange={() => {}}
+        />
+        <Color.Input
+          aria-label="Linked"
+          value={RED}
+          fallback={RED}
+          library={LIBRARY}
+          onChange={() => {}}
+        />
+        <Input.Text aria-label="Plain" value="" onChange={() => {}} />
+      </Triggers.Provider>,
+    );
+    expect(fontOf("Linked")).toEqual(fontOf("Plain"));
+    await userEvent.fill(page.getByRole("textbox", { name: "Linked" }), "0f0");
+    expect(fontOf("Linked")).toEqual(fontOf("Fixed"));
+  });
+
   it("should take one width while fixed, linked, Auto, or mixed", async () => {
     await renderThemed(
       <Triggers.Provider>

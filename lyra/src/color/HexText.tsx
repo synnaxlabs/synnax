@@ -37,8 +37,10 @@ export interface HexTextProps extends Omit<
   Input.TextProps,
   "value" | "onChange" | "onBlur" | "onKeyDown" | "onPaste"
 > {
-  /** The hex digits, or another text such as a name, to show while not editing. */
+  /** The hex digits, or a name, to show while the user is not editing. */
   text: string;
+  /** If true, `text` is a name, shown in the text font until the user edits it. */
+  named?: boolean;
   /** The alpha a hex without alpha digits keeps. */
   alpha: number;
   onChange: (value: color.Color) => void;
@@ -53,6 +55,7 @@ export interface HexTextProps extends Omit<
  */
 export const HexText = ({
   text,
+  named = false,
   alpha,
   onChange,
   onClear,
@@ -69,7 +72,11 @@ export const HexText = ({
   };
   return (
     <Input.Text
-      className={CSS.cls(CSS.B("color-hex-text"), className)}
+      className={CSS.cls(
+        CSS.B("color-hex-text"),
+        named && draft == null && CSS.M("named"),
+        className,
+      )}
       value={draft ?? text}
       onChange={(raw) => {
         setDraft(raw);
