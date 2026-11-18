@@ -439,6 +439,19 @@ unit_cast := i64 s(5000ms)
 flow_trigger -> unit_to_ms(x=unit_cast) -> unit_fn_cast
 unit_bare i64 s := 2
 flow_trigger -> unit_to_ms(x=unit_bare) -> unit_fn_bare
+// A stateful variable converts its first value to its unit.
+unit_span := 2s
+func unit_stateful(x i64 s) i64 ms {
+    held i64 ms $= x
+    return held
+}
+flow_trigger -> unit_stateful(x=unit_span) -> unit_fn_stateful
+unit_kpa := 250.0kPa
+func unit_stateful_float(x f64 kPa) f64 bar {
+    held f64 bar $= x
+    return held
+}
+flow_trigger -> unit_stateful_float(x=unit_kpa) -> unit_fn_stateful_float
 """
 
 # Every line with a comment is an error or a warning that the compiler gives in one
@@ -1102,6 +1115,8 @@ OUTPUT_CHANNELS: list[tuple[str, sy.DataType]] = [
     ("unit_fn_held", sy.DataType.INT64),
     ("unit_fn_cast", sy.DataType.INT64),
     ("unit_fn_bare", sy.DataType.INT64),
+    ("unit_fn_stateful", sy.DataType.INT64),
+    ("unit_fn_stateful_float", sy.DataType.FLOAT64),
     ("unit_fold_bare", sy.DataType.INT64),
     ("unit_fold_unit", sy.DataType.INT64),
     ("unit_log", sy.DataType.STRING),
@@ -1308,6 +1323,8 @@ class Conversion(ArcCase):
         self.wait_for_eq("unit_fn_held", 1000)
         self.wait_for_eq("unit_fn_cast", 5000)
         self.wait_for_eq("unit_fn_bare", 2000)
+        self.wait_for_eq("unit_fn_stateful", 2000)
+        self.wait_for_near("unit_fn_stateful_float", 2.5, tolerance=1e-9)
 
     def _test_unit_errors(self) -> None:
         self.log("=== Unit conversion errors ===")

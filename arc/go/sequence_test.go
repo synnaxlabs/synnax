@@ -6315,6 +6315,49 @@ var _ = Describe("Sequence", func() {
 				"src i32 mV := 7000mV\ndst i32 V := 0V", "src=7000 dst=7"),
 		)
 
+		DescribeTable("Converts the first value of a stateful variable to its unit",
+			func(ctx SpecContext, from, to, value, zero, expected string) {
+				h := newRuntimeHarness(ctx, `
+				func body(x `+from+`) `+to+` {
+				    held `+to+` $= x
+				    return held
+				}
+				sequence main {
+				    src := `+value+`
+				    d `+to+` := `+zero+`
+				    stage write {
+				        raw -> body(x=src) -> d
+				        raw -> `+`f"d={d}"`+` -> log
+				    }
+				}
+				1 => main`, resolver, digests...)
+				defer h.Close(ctx)
+				Expect(lastLog(ctx, h)).To(Equal(expected))
+			},
+			Entry("an integer in a larger unit",
+				"i64 s", "i64 ms", "2s", "0ms", "d=2000"),
+			Entry("an integer in a smaller unit",
+				"i64 ms", "i64 s", "5000ms", "0s", "d=5"),
+			Entry("a float", "f64 kPa", "f64 bar", "250.0kPa", "0.0bar", "d=2.5"),
+		)
+
+		It("Converts the first value of a stateful sequence variable to its unit", func(
+			ctx SpecContext,
+		) {
+			h := newRuntimeHarness(ctx, `
+			sequence main {
+			    src := 2s
+			    held i64 ms $= src
+			    calc i64 ms $= src * 2
+			    stage write {
+			        raw -> `+`f"held={held} calc={calc}"`+` -> log
+			    }
+			}
+			1 => main`, resolver, digests...)
+			defer h.Close(ctx)
+			Expect(lastLog(ctx, h)).To(Equal("held=2000 calc=4000"))
+		})
+
 		DescribeTable("Converts a variable written to a variable of another kind",
 			func(
 				ctx SpecContext,

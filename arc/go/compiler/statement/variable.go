@@ -144,13 +144,18 @@ func compileStatefulVariable(
 
 	// Compile the initialization expression (analyzer guarantees type correctness)
 	exprCtx := ctx.Child(ctx.AST.Expression()).WithHint(varType)
-	_, err = expression.Compile(exprCtx)
+	exprType, err := expression.Compile(exprCtx)
 	if err != nil {
 		return errors.Wrapf(
 			err,
 			"failed to compile initialization for stateful variable '%s'",
 			name,
 		)
+	}
+	if types.UnitsConvertible(exprType.Unit, varType.Unit) {
+		if err = expression.EmitCast(ctx, exprType, varType); err != nil {
+			return err
+		}
 	}
 
 	// Stack is now: [varID, initValue/initHandle]
