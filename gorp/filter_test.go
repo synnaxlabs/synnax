@@ -626,8 +626,35 @@ var _ = Describe("Filter Combinators", func() {
 					10,
 					10,
 				),
+				Entry(
+					"Raw rejection on a key-bounded read yields no decodes",
+					gorp.And(
+						gorp.MatchKeys[int32, entry](1, 2, 3),
+						gorp.MatchRaw[int32, entry](alwaysFalseRaw),
+					),
+					0,
+					0,
+				),
 			)
 		})
+
+		It(
+			"Should pass the pebble key to a raw child on a key-bounded read",
+			func(ctx SpecContext) {
+				var res []entry
+				Expect(gorp.NewRetrieve[int32, entry]().
+					Entries(&res).
+					Where(gorp.MatchKeys[int32, entry](1, 2, 3)).
+					Where(gorp.Or(
+						gorp.MatchRaw[int32, entry](func(key, _ []byte) (bool, error) {
+							return bytes.HasSuffix(key, []byte{0, 0, 0, 2}), nil
+						}),
+						idEQ(3),
+					)).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(res).To(Equal([]entry{entries[2], entries[3]}))
+			},
+		)
 	})
 
 	Describe("Nested Composition", func() {
