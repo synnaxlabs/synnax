@@ -162,12 +162,9 @@ const openWithDriverCertificate = async () => {
   return { scan, result };
 };
 
-// The endpoint select sits beside the Find endpoints button.
+// The endpoint select sits in the Mode field, beside the security mode buttons.
 const queryEndpointTrigger = (): HTMLElement | null =>
-  screen
-    .getByText("Find endpoints")
-    .closest("button")
-    ?.parentElement?.querySelector<HTMLElement>('[aria-haspopup="dialog"]') ?? null;
+  getInputItem("Mode").querySelector<HTMLElement>('[aria-haspopup="dialog"]');
 
 const findEndpointTrigger = async (): Promise<HTMLElement> =>
   await waitFor(() => {
