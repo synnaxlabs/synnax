@@ -13,8 +13,7 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
-import { Theming } from "@synnaxlabs/lyra/theming";
-import { Access, Flux, Label, Synnax } from "@synnaxlabs/pluto";
+import { Access, Color, Flux, Label, Synnax } from "@synnaxlabs/pluto";
 import { color } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
@@ -55,7 +54,7 @@ export const Labels = ({ ranges }: LabelsProps): ReactElement => {
   const handleError = Status.useErrorHandler();
   const { update } = Label.useEditFor();
   const canCreate = Access.useCreateGranted(label.TYPE_RESOURCE_ID);
-  const { colors } = Theming.use();
+  const seriesColors = Color.useSeriesValues();
   const [term, setTerm] = useState("");
   const { data, getItem, subscribe, status, more, search } = Flux.useList(
     (c) => c.labels,
@@ -90,8 +89,8 @@ export const Labels = ({ ranges }: LabelsProps): ReactElement => {
             return c == null ? [] : [color.hex(c)];
           }),
         );
-        const palette = colors.visualization.palettes.default;
-        const next = palette.find((c) => !used.has(color.hex(c))) ?? palette[0];
+        const next =
+          seriesColors.find((c) => !used.has(color.hex(c))) ?? seriesColors[0];
         const created = await client.labels.create({ name, color: next });
         add(created.key);
       },
