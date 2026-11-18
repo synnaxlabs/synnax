@@ -425,7 +425,7 @@ func analyzeIdentifier(
 	if sym.IsParameterized() {
 		ctx.Diagnostics.Add(
 			codes.TransitionTarget.Atf(ctx.AST, "%s has parameters", name).
-				WithNote("use " + name + "(...) to start it"),
+				WithNote("use " + name + "()"),
 		)
 		return
 	}

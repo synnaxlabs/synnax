@@ -129,7 +129,9 @@ For required parameters and defaults, see
 ## Stage and sequence parameters
 
 A named top-level stage or sequence can take parameters, written as the
-[inputs of a function](/reference/control/arc/reference/functions#inputs).
+[inputs of a function](/reference/control/arc/reference/functions#inputs). A stage or
+sequence is called with parentheses only if it has parameters. A stage or sequence with
+no parameters has no parentheses in its declaration or its call.
 
 ```arc channels="fill_a_cmd, fill_b_cmd, abort_cmd, tank_a_pt, tank_b_pt, press_a_vlv_cmd, press_b_vlv_cmd, vent_vlv_cmd" bodies="fill, open, close, vent"
 sequence fill(pressure chan f32, valve chan bool, limit f32 = 300) {

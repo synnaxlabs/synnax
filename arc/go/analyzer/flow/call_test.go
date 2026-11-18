@@ -204,7 +204,59 @@ var _ = Describe("Calls of a sequence or stage with parameters", func() {
 				}
 			}
 			start => plain()
-		`, "plain is not a function"),
+		`, "invalid transition target: plain has no parameters"),
+		Entry("parentheses on a stage with no parameters", `
+			stage plain {
+			}
+			start => plain()
+		`, "invalid transition target: plain has no parameters"),
+		Entry("an argument for a sequence with no parameters", `
+			sequence plain {
+				stage idle {
+				}
+			}
+			start => plain(50.0)
+		`, "invalid transition target: plain has no parameters"),
+		Entry("an argument for a stage with no parameters", `
+			stage plain {
+			}
+			start => plain(50.0)
+		`, "invalid transition target: plain has no parameters"),
+		Entry("parentheses on a stage of the calling sequence", `
+			sequence outer {
+				stage first {
+					start => second()
+				}
+				stage second {
+				}
+			}
+		`, "invalid transition target: second has no parameters"),
+		Entry("parentheses on a sequence in a routing table entry", `
+			func split() {value f64} (high f64, low f64) {
+				high = value
+				low = value
+			}
+			sequence plain {
+				stage idle {
+				}
+			}
+			pressure -> split() -> {
+				high: true => plain(),
+				low: true => main(20.0, valve_b)
+			}
+		`, "invalid transition target: plain has no parameters"),
+		Entry("parentheses on a stage in a routing table entry", `
+			func split() {value f64} (high f64, low f64) {
+				high = value
+				low = value
+			}
+			stage plain {
+			}
+			pressure -> split() -> {
+				high: true => plain(),
+				low: true => main(20.0, valve_b)
+			}
+		`, "invalid transition target: plain has no parameters"),
 		Entry("a call as a step", `
 			sequence outer {
 				main(50.0, valve_a)
@@ -232,8 +284,30 @@ var _ = Describe("Calls of a sequence or stage with parameters", func() {
 		Expect(*ctx.Diagnostics).To(HaveLen(1))
 		Expect((*ctx.Diagnostics)[0].Notes).To(HaveLen(1))
 		Expect((*ctx.Diagnostics)[0].Notes[0].Message).
-			To(Equal("use main(...) to start it"))
+			To(Equal("use main()"))
 	})
+
+	DescribeTable("Should say how to start one called with no parameter list",
+		func(bCtx SpecContext, source string) {
+			ctx := analyze(bCtx, source)
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Notes).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Notes[0].Message).
+				To(Equal("use plain with no parentheses"))
+		},
+		Entry("a sequence", `
+			sequence plain {
+				stage idle {
+				}
+			}
+			start => plain()
+		`),
+		Entry("a stage", `
+			stage plain {
+			}
+			start => plain()
+		`),
+	)
 
 	It("Should list the channel arguments that are fixed at compile time", func(
 		bCtx SpecContext,

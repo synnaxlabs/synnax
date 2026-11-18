@@ -650,8 +650,8 @@ abort => vent(vent_valve)
 ```
 
 Each call is its own instance with its own state, and instances run at the same time. A
-call is a valid target where the name of a sequence or stage is one. The bare name of a
-sequence or stage with parameters is not a valid target.
+sequence or stage is called with parentheses if and only if its declaration has a
+parameter list, and the list cannot be empty.
 
 - Arguments are all positional or all named. Trailing parameters with defaults may be
   omitted.

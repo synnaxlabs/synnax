@@ -18,16 +18,24 @@ import (
 	"github.com/synnaxlabs/arc/types"
 )
 
-// analyzeBodyCall checks a call of a sequence or stage with parameters, if ctx is one.
+// analyzeBodyCall checks a call of a sequence or stage, if ctx is one.
 func analyzeBodyCall(ctx context.Context[parser.IFunctionContext]) bool {
 	head, tail := parser.FunctionNameParts(ctx.AST)
 	// ResolveQualified would warn about a deprecated callee a second time.
 	body, err := ctx.Scope.ResolveMember(ctx, head, tail)
-	if err != nil || !body.IsParameterized() {
+	if err != nil ||
+		(body.Kind != symbol.KindSequence && body.Kind != symbol.KindStage) {
 		return false
 	}
+	name := parser.FunctionName(ctx.AST)
+	if !body.IsParameterized() {
+		ctx.Diagnostics.Add(
+			codes.TransitionTarget.Atf(ctx.AST, "%s has no parameters", name).
+				WithNote("use " + name + " with no parentheses"),
+		)
+		return true
+	}
 	var (
-		name   = parser.FunctionName(ctx.AST)
 		noun   = BodyNoun(body)
 		args   = inputArguments(ctx, ctx.AST)
 		values []symbol.Argument
