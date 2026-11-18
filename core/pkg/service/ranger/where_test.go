@@ -12,17 +12,37 @@ package ranger_test
 import (
 	"encoding/json/v2"
 	"math"
+	"sync/atomic"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/testutil/vectors"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/validate"
 )
+
+// failArmedDB fails the first iterator that the DB opens once armed, which is the scan
+// that populates the indexes of a table opened next.
+type failArmedDB struct {
+	kv.DB
+	armed atomic.Bool
+}
+
+func (f *failArmedDB) OpenIterator(opts kv.IteratorOptions) (kv.Iterator, error) {
+	if f.armed.CompareAndSwap(true, false) {
+		return nil, errors.New("populate failed")
+	}
+	return f.DB.OpenIterator(opts)
+}
 
 var _ = Describe("Where", func() {
 	v := MustSucceed(vectors.Read[ranger.Range, ranger.Where]("ranges"))
@@ -239,6 +259,44 @@ var _ = Describe("Where", func() {
 				Not: &ranger.Where{Ancestors: keysOf([]string{"Root"})},
 			})).To(ConsistOf("Root", "Other"))
 		})
+
+		It(
+			"Should scan when the parent index failed to populate",
+			func(ctx SpecContext) {
+				kvDB := &failArmedDB{DB: memkv.New()}
+				db := DeferClose(gorp.Wrap(kvDB))
+				StartRun(db.Run)
+				cfg := ranger.ServiceConfig{
+					DB: db,
+					Group: MustOpen(
+						group.OpenService(ctx, group.ServiceConfig{DB: db}),
+					),
+				}
+				written := MustSucceed(ranger.OpenService(ctx, cfg))
+				tr := telem.SecondTS.SpanRange(telem.Second)
+				root := ranger.Range{Name: "Root", TimeRange: tr}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					w := written.NewWriter(tx)
+					if err := w.Create(ctx, &root); err != nil {
+						return err
+					}
+					return w.Create(ctx, &ranger.Range{
+						Name:      "Child",
+						TimeRange: tr,
+						Parent:    &root.Key,
+					})
+				})).To(Succeed())
+				Expect(written.Close()).To(Succeed())
+				kvDB.armed.Store(true)
+				reader := MustOpen(ranger.OpenService(ctx, cfg))
+				var res []ranger.Range
+				Expect(reader.NewRetrieve().
+					Where(ranger.MatchAncestors(root.Key)).
+					Entries(&res).
+					Exec(ctx, db)).To(Succeed())
+				Expect(res).To(HaveExactElements(HaveField("Name", "Child")))
+			},
+		)
 
 		It("Should see a range moved in the same transaction", func(ctx SpecContext) {
 			Expect(svc.NewWriter(tx).Apply(ctx, named["Other"], ranger.NewSetAction(

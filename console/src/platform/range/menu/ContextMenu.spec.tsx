@@ -138,6 +138,18 @@ describe("Range.ContextMenu", () => {
       expect(within(parent).queryByText(grandchild.name)).toBeNull();
     });
 
+    it("should show the current parent once", async () => {
+      const token = uniqueName("current");
+      const sibling = await createRange(`${token} sibling`);
+      const top = await createRange(`${token} top`);
+      const child = await createRange(uniqueRangeName("child"), { parent: top.key });
+      await renderMenu([child]);
+      const parent = await openSubmenu("Parent");
+      searchIn(parent, "Search ranges...", token);
+      await within(parent).findByText(sibling.name);
+      expect(within(parent).getAllByText(top.name)).toHaveLength(1);
+    });
+
     it("should leave the ranges themselves out of the list", async () => {
       const token = uniqueName("self");
       const sibling = await createRange(`${token} sibling`);

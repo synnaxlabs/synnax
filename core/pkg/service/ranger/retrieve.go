@@ -12,7 +12,9 @@ package ranger
 import (
 	"fmt"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -53,15 +55,42 @@ func MatchAncestors(keys ...Key) Filter {
 }
 
 func (r Retrieve) descendants(ctx gorp.Context, keys []Key) ([]Key, error) {
+	found, err := walk(keys, func(parents []Key) ([]Key, error) {
+		return r.indexes.parent.Get(ctx, ctx.Snapshot, parents...)
+	})
+	if !errors.Is(err, gorp.ErrIndexInvalid) {
+		return found, err
+	}
+	// Scan when the index failed to populate, as an index Filter does.
+	var ranges []Range
+	if err = gorp.NewRetrieve[Key, Range]().
+		Entries(&ranges).
+		Exec(ctx, ctx.Snapshot); err != nil {
+		return nil, err
+	}
+	children := make(map[Key][]Key)
+	for _, rng := range ranges {
+		if rng.Parent != nil {
+			children[*rng.Parent] = append(children[*rng.Parent], rng.Key)
+		}
+	}
+	return walk(keys, func(parents []Key) ([]Key, error) {
+		return lo.FlatMap(parents, func(p Key, _ int) []Key { return children[p] }), nil
+	})
+}
+
+// walk returns the keys below keys at any depth, where children returns the keys one
+// level below parents.
+func walk(keys []Key, children func(parents []Key) ([]Key, error)) ([]Key, error) {
 	// A given range can be nested in another, so the walk can reach it twice.
 	found := make(set.Set[Key])
 	for frontier := keys; len(frontier) > 0; {
-		children, err := r.indexes.parent.Get(ctx, ctx.Snapshot, frontier...)
+		next, err := children(frontier)
 		if err != nil {
 			return nil, err
 		}
 		frontier = nil
-		for _, c := range children {
+		for _, c := range next {
 			if !found.Contains(c) {
 				found.Add(c)
 				frontier = append(frontier, c)
