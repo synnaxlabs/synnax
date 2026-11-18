@@ -257,7 +257,7 @@ check_sync1(const slave::Properties &slave, const dc::Registers &regs) {
     return x::errors::Error(
         errors::SLAVE_CONFIG_ERROR,
         std::format(
-            "slave {} ({}) cannot run its DC mode on the IgH master: SYNC1 comes {} "
+            "module {} ({}) cannot run its DC mode on the IgH master: SYNC1 comes {} "
             "after SYNC0, which is not a whole number of SYNC0 cycles of {}",
             slave.position,
             slave.name,
@@ -271,17 +271,17 @@ check_sync1(const slave::Properties &slave, const dc::Registers &regs) {
 /// port with no link from slaves that do not answer.
 x::errors::Error
 no_slaves_error(const std::string &name, const unsigned int index, const bool link_up) {
-    const auto found = "No EtherCAT slaves found on " + name + ". ";
+    const auto found = "No EtherCAT modules found on " + name + ". ";
     if (link_up)
         return x::errors::Error(
             errors::NO_SLAVES_FOUND,
-            found + "Check the cable and the power of the first device."
+            found + "Check the cable and the power of the first module."
         );
     return x::errors::Error(
         errors::NO_LINK,
         found + std::format(
                     "Its network port has no link. Check the cable to the first "
-                    "device, and that MASTER{}_DEVICE in the IgH configuration names "
+                    "module, and that MASTER{}_DEVICE in the IgH configuration names "
                     "the port.",
                     index
                 )
@@ -330,7 +330,7 @@ first_app_time(const uint64_t now, const std::vector<dc::Registers> &dc_sync) {
                 0,
                 x::errors::Error(
                     errors::SLAVE_CONFIG_ERROR,
-                    "the SYNC0 cycles of the slaves have no common multiple that the "
+                    "the SYNC0 cycles of the modules have no common multiple that the "
                     "IgH master can start them on"
                 )
             };
@@ -421,7 +421,9 @@ x::errors::Error Master::initialize() {
         if (const int ret = this->api
                                 ->master_get_slave(this->ec_master, i, &slave_info);
             ret != 0)
-            return fail(std::format("failed to read slave {}: {}", i + 1, reason(ret)));
+            return fail(
+                std::format("failed to read module {}: {}", i + 1, reason(ret))
+            );
         slave::DiscoveryResult result{};
         result.properties.network = "igh:" + std::to_string(this->master_index);
         result.properties.position = static_cast<uint16_t>(i + 1);
@@ -453,7 +455,7 @@ x::errors::Error Master::initialize() {
         if (ret != 0)
             return fail(
                 std::format(
-                    "failed to read the SII of slave {}: {}",
+                    "failed to read the SII of module {}: {}",
                     i + 1,
                     reason(ret)
                 )
@@ -548,7 +550,7 @@ std::pair<master::Change, x::errors::Error> Master::changed() {
                 x::errors::Error(
                     errors::MASTER_INIT_ERROR,
                     std::format(
-                        "failed to read slave {}: {}",
+                        "failed to read module {}: {}",
                         props.position,
                         reason(ret)
                     )
@@ -580,7 +582,7 @@ Master::download(const slave::Properties &slave, const slave::StartupParameter &
     const bool rejected = failure.kind == errors::SDOFailure::Kind::ABORTED;
     return x::errors::Error(
         errors::startup_parameter_error(abort_code),
-        "slave " + std::to_string(slave.position) + " (" + slave.name + ") " +
+        "module " + std::to_string(slave.position) + " (" + slave.name + ") " +
             (rejected ? "rejected" : "failed to write") + " startup parameter " +
             param.to_string() + ": " + failure.reason()
     );
@@ -593,7 +595,7 @@ x::errors::Error Master::write(
     if (position == 0 || position > this->cached_slaves.size())
         return x::errors::Error(
             errors::STARTUP_PARAMETER_ERROR,
-            "no slave at position " + std::to_string(position)
+            "no module at position " + std::to_string(position)
         );
     const auto &slave = this->cached_slaves[position - 1].properties;
     if (!this->activated) {
@@ -619,14 +621,14 @@ x::errors::Error Master::write(
             ret < 0)
             return x::errors::Error(
                 errors::startup_parameter_error(abort_code),
-                "slave " + std::to_string(position) + " (" + slave.name +
+                "module " + std::to_string(position) + " (" + slave.name +
                     ") failed to read startup parameter " + param.to_string() + ": " +
                     sdo_failure(ret, abort_code).reason()
             );
         if (size != want.size() || held != want)
             return x::errors::Error(
                 errors::SETTING_CONFLICT,
-                "the IgH master cannot change " + param.to_string() + " of slave " +
+                "the IgH master cannot change " + param.to_string() + " of module " +
                     std::to_string(position) + " (" + slave.name +
                     ") while other tasks run the bus. Stop them, then start this "
                     "task first"
@@ -662,7 +664,7 @@ x::errors::Error Master::add_startup_parameters(
             ) < 0)
             return x::errors::Error(
                 errors::ACTIVATION_ERROR,
-                "failed to add startup parameter " + param.to_string() + " to slave " +
+                "failed to add startup parameter " + param.to_string() + " to module " +
                     std::to_string(slave.position) + " (" + slave.name + ")"
             );
     }
@@ -698,7 +700,7 @@ master::Activation Master::activate(
         std::string msg;
         for (const auto &[pos, refusal]: unidentified)
             msg += std::format(
-                "{}slave {} ({}) {}",
+                "{}module {} ({}) {}",
                 msg.empty() ? "" : "; ",
                 pos,
                 this->cached_slaves[pos - 1].properties.name,
@@ -724,7 +726,7 @@ master::Activation Master::activate(
         return {
             .err = x::errors::Error(
                 errors::ACTIVATION_ERROR,
-                "the slaves on " + this->name() + " changed since the last scan"
+                "the modules on " + this->name() + " changed since the last scan"
             )
         };
     master::Image image;
@@ -753,7 +755,7 @@ master::Activation Master::activate(
             return {
                 .err = x::errors::Error(
                     errors::ACTIVATION_ERROR,
-                    "failed to configure slave " + std::to_string(pos) + " (" +
+                    "failed to configure module " + std::to_string(pos) + " (" +
                         slave.properties.name + ")"
                 )
             };
@@ -785,7 +787,7 @@ master::Activation Master::activate(
                 .err = x::errors::Error(
                     errors::ACTIVATION_ERROR,
                     std::format(
-                        "failed to set up the DC sync of slave {} ({}): {}",
+                        "failed to set up the DC sync of module {} ({}): {}",
                         pos,
                         slave.properties.name,
                         reason(ret)
@@ -900,7 +902,7 @@ Master::op_error(const std::vector<uint16_t> &pending, const bool timed_out) {
             ret != 0) {
             if (!msg.empty()) msg += "; ";
             msg += std::format(
-                "slave {} ({}): failed to read its state: {}",
+                "module {} ({}): failed to read its state: {}",
                 pos,
                 name,
                 reason(ret)
@@ -912,7 +914,7 @@ Master::op_error(const std::vector<uint16_t> &pending, const bool timed_out) {
         if (state == slave::State::OP) continue;
         if (!msg.empty()) msg += "; ";
         msg += std::format(
-            "slave {} ({}) is in {}",
+            "module {} ({}) is in {}",
             pos,
             name,
             slave::to_string(state)
@@ -1033,7 +1035,7 @@ const x::errors::Error &Master::receive() {
         this->latest_inputless.clear();
         return this->received = x::errors::Error(
                    errors::WORKING_COUNTER_ERROR,
-                   "no slaves responded"
+                   "no modules responded"
                );
     }
     return this->received = x::errors::Error(
@@ -1154,7 +1156,7 @@ void Master::recover(const x::breaker::Breaker &breaker) {
 x::errors::Error
 Master::configure_assigned_pdos(const uint16_t position, ec_slave_config_t *sc) {
     auto props = this->cached_slaves[position - 1].properties;
-    const auto slave_name = "slave " + std::to_string(position) + " (" + props.name +
+    const auto slave_name = "module " + std::to_string(position) + " (" + props.name +
                             ")";
     const auto [syncs, err] = read_layout(
         *this->api,
@@ -1267,7 +1269,7 @@ x::errors::Error Master::register_pdo_entries(
         return x::errors::Error(
             errors::ACTIVATION_ERROR,
             std::format(
-                "failed to create the domain of slave {} ({})",
+                "failed to create the domain of module {} ({})",
                 slave.position,
                 slave.name
             )
@@ -1292,7 +1294,7 @@ x::errors::Error Master::register_pdo_entries(
                 x::errors::Error(
                     errors::PDO_MAPPING_ERROR,
                     std::format(
-                        "the IgH master rejected PDO {} of slave {} ({}): {}",
+                        "the IgH master rejected PDO {} of module {} ({}): {}",
                         telem::format_index_sub_index(pdo.index, pdo.sub_index),
                         slave.position,
                         slave.name,

@@ -41,7 +41,7 @@ _BAD_ADDRESS = sy.ethercat.StartupParameter(
 )
 """An object that the 6xSTG does not have, so it aborts the write at once."""
 _ABORT = "Object does not exist in the object dictionary"
-_ACTIVATING = re.compile(r"Bringing \d+ slaves? to OP\.")
+_ACTIVATING = re.compile(r"Bringing \d+ modules? to OP\.")
 """The description of the start step right before the bus writes the startup
 parameters."""
 

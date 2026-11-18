@@ -203,7 +203,7 @@ describe("Write", () => {
     fireEvent.click(await screen.findByRole("option", { name: /Output/ }));
     expect(
       await screen.findByText(
-        /^'Output' matches more than one output entry on slave .+\. Pick an entry\.$/,
+        /^'Output' matches more than one output entry on module .+\. Pick an entry\.$/,
       ),
     ).toBeTruthy();
   });
@@ -626,7 +626,7 @@ describe("Write", () => {
     });
     expect(
       await screen.findByText(
-        "All slaves must be on the same network. Found: eth0, eth1. Pick slaves on " +
+        "All modules must be on the same network. Found: eth0, eth1. Pick modules on " +
           "one network.",
       ),
     ).toBeTruthy();
@@ -644,7 +644,7 @@ describe("Write", () => {
     });
     expect(
       await screen.findByText(
-        "No network found for the selected slaves. Scan the network again.",
+        "No network found for the selected modules. Scan the network again.",
       ),
     ).toBeTruthy();
   });

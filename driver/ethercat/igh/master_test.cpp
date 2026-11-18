@@ -287,8 +287,8 @@ TEST_F(IGHMasterTest, ScanFailsWhenNoSlaveAnswers) {
     ASSERT_OCCURRED_AS(err, errors::NO_SLAVES_FOUND);
     EXPECT_EQ(
         err.data,
-        "No EtherCAT slaves found on igh:0. Check the cable and the power of the first "
-        "device."
+        "No EtherCAT modules found on igh:0. Check the cable and the power of the first "
+        "module."
     );
     EXPECT_TRUE(this->api->released);
 }
@@ -300,8 +300,8 @@ TEST_F(IGHMasterTest, ScanFailsWhenThePortHasNoLink) {
     ASSERT_OCCURRED_AS(err, errors::NO_LINK);
     EXPECT_EQ(
         err.data,
-        "No EtherCAT slaves found on igh:0. Its network port has no link. Check the "
-        "cable to the first device, and that MASTER0_DEVICE in the IgH configuration "
+        "No EtherCAT modules found on igh:0. Its network port has no link. Check the "
+        "cable to the first module, and that MASTER0_DEVICE in the IgH configuration "
         "names the port."
     );
 }
@@ -321,7 +321,7 @@ TEST_F(IGHMasterTest, ActivateFailsWhenADomainCannotBeCreated) {
     this->api->domain_fails = true;
     const auto err = this->scan_and_activate();
     ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
-    EXPECT_EQ(err.data, "failed to create the domain of slave 1 (TestSlave)");
+    EXPECT_EQ(err.data, "failed to create the domain of module 1 (TestSlave)");
 }
 
 /// @brief it should fail to initialize, and release the master, when it cannot read a
@@ -331,7 +331,7 @@ TEST_F(IGHMasterTest, ScanFailsWhenASlaveCannotBeRead) {
     this->api->add_slave().unreadable = true;
     const auto err = this->master.scan().second;
     ASSERT_OCCURRED_AS(err, errors::MASTER_INIT_ERROR);
-    EXPECT_EQ(err.data, "failed to read slave 2: Input/output error");
+    EXPECT_EQ(err.data, "failed to read module 2: Input/output error");
     EXPECT_TRUE(this->api->released);
 }
 
@@ -556,8 +556,8 @@ TEST_F(IGHMasterTest, ReadGivesTheReasonForEachFailure) {
     ASSERT_NIL_P(this->master.scan());
     const std::vector<std::pair<uint8_t, std::string>> reasons{
         {1, "no response"},
-        {2, "the slave refused the mailbox request"},
-        {3, "the slave refused the mailbox request"},
+        {2, "the module refused the mailbox request"},
+        {3, "the module refused the mailbox request"},
         {4, "the reply is larger than the read allows"},
         {5, "Object does not exist in the object dictionary"},
     };
@@ -638,7 +638,7 @@ TEST_F(IGHMasterTest, ActivateFailsWhenTheSlavesChangedSinceTheScan) {
     this->api->slaves[0].info.product_code = 0x03F03052;
     const auto err = this->activate().err;
     ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
-    EXPECT_EQ(err.data, "the slaves on igh:0 changed since the last scan");
+    EXPECT_EQ(err.data, "the modules on igh:0 changed since the last scan");
     EXPECT_FALSE(this->api->slaves[0].configured);
 }
 
@@ -655,7 +655,7 @@ TEST_F(IGHMasterTest, ActivateRefusesAUsedSlaveWithNoIdentity) {
     ASSERT_OCCURRED_AS(activation.err, errors::ACTIVATION_ERROR);
     EXPECT_EQ(
         activation.err.data,
-        "slave 1 (Unknown) gave no identity when IgH read its EEPROM"
+        "module 1 (Unknown) gave no identity when IgH read its EEPROM"
     );
     const std::map<uint16_t, slave::Refusal> refusals{
         {1, {.reason = "gave no identity when IgH read its EEPROM"}},
@@ -711,7 +711,7 @@ TEST_F(IGHMasterTest, ActivateFailsWhenASlaveCannotBeConfigured) {
     this->api->slave_config_fails = true;
     const auto err = this->scan_and_activate();
     ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
-    EXPECT_EQ(err.data, "failed to configure slave 1 (TestSlave)");
+    EXPECT_EQ(err.data, "failed to configure module 1 (TestSlave)");
 }
 
 /// @brief it should give the cycle the domains, with the offset of each entry.
@@ -804,8 +804,8 @@ TEST_F(IGHMasterTest, ActivateReturnsTheRefusalOfEachSlave) {
     ASSERT_OCCURRED_AS(activation.err, errors::STATE_CHANGE_REFUSED);
     EXPECT_EQ(
         activation.err.data,
-        "failed to reach OP: slave 2 (EL4002) is in PRE-OP with an AL error; slave 3 "
-        "(EL1008) is in SAFE-OP with an AL error"
+        "failed to reach OP: module 2 (EL4002) is in PRE-OP with an AL error; module "
+        "3 (EL1008) is in SAFE-OP with an AL error"
     );
     const std::map<uint16_t, slave::Refusal> refusals{
         {2, {.reason = "refused SAFE-OP"}},
@@ -823,7 +823,7 @@ TEST_F(IGHMasterTest, ActivateFailsWhenASlaveStaysBelowOP) {
     ASSERT_OCCURRED_AS(activation.err, errors::STATE_CHANGE_ERROR);
     EXPECT_EQ(
         activation.err.data,
-        "failed to reach OP within 10s: slave 1 (TestSlave) is in SAFE-OP"
+        "failed to reach OP within 10s: module 1 (TestSlave) is in SAFE-OP"
     );
     EXPECT_TRUE(activation.refusals.empty());
 }
@@ -851,7 +851,7 @@ TEST_F(IGHMasterTest, ActivateReportsASlaveWhoseStateItCannotRead) {
     ASSERT_OCCURRED_AS(activation.err, errors::STATE_CHANGE_ERROR);
     EXPECT_EQ(
         activation.err.data,
-        "failed to reach OP within 10s: slave 1 (TestSlave): failed to read its "
+        "failed to reach OP within 10s: module 1 (TestSlave): failed to read its "
         "state: Input/output error"
     );
 }
@@ -894,8 +894,8 @@ TEST_F(IGHMasterTest, ActivateWaitsForASlaveBelowOPWithNoErrorFlag) {
     ASSERT_OCCURRED_AS(activation.err, errors::STATE_CHANGE_REFUSED);
     EXPECT_EQ(
         activation.err.data,
-        "failed to reach OP within 10s: slave 1 (EL4002) is in PRE-OP with an AL "
-        "error; slave 2 (EL1008) is in SAFE-OP"
+        "failed to reach OP within 10s: module 1 (EL4002) is in PRE-OP with an AL "
+        "error; module 2 (EL1008) is in SAFE-OP"
     );
     const std::map<uint16_t, slave::Refusal> refusals{
         {1, {.reason = "refused SAFE-OP"}},
@@ -916,7 +916,7 @@ TEST_F(IGHMasterTest, ActivateReturnsTheRefusalsWhenTheResetFails) {
     ASSERT_OCCURRED_AS(activation.err, errors::STATE_CHANGE_REFUSED);
     EXPECT_EQ(
         activation.err.data,
-        "failed to reach OP: slave 1 (TestSlave) is in PRE-OP with an AL error"
+        "failed to reach OP: module 1 (TestSlave) is in PRE-OP with an AL error"
     );
 }
 
@@ -936,7 +936,7 @@ TEST_F(IGHMasterTest, ScanFailsWhenTheSIICannotBeRead) {
     this->api->add_slave().sii_result = -EIO;
     const auto err = this->master.scan().second;
     ASSERT_OCCURRED_AS(err, errors::MASTER_INIT_ERROR);
-    EXPECT_EQ(err.data, "failed to read the SII of slave 2: Input/output error");
+    EXPECT_EQ(err.data, "failed to read the SII of module 2: Input/output error");
 }
 
 /// @brief it should fail activation on a chosen mode that the slave does not list,
@@ -951,8 +951,8 @@ TEST_F(IGHMasterTest, ActivateFailsOnAChosenModeTheSlaveDoesNotList) {
     ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
     EXPECT_EQ(
         err.data,
-        "slave 2 (TestSlave) cannot use its chosen mode: the slave does not list mode "
-        "1 with AssignActivate 0x0700. It lists 0 \"FreeRun\" (AssignActivate "
+        "module 2 (TestSlave) cannot use its chosen mode: the module does not list "
+        "mode 1 with AssignActivate 0x0700. It lists 0 \"FreeRun\" (AssignActivate "
         "0x0000), 1 \"DC\" (AssignActivate 0x0300)."
     );
     EXPECT_FALSE(this->api->slaves[0].configured);
@@ -974,7 +974,7 @@ TEST_F(IGHMasterTest, ActivateFailsOnAChosenCycleForAnSMMode) {
     ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
     EXPECT_EQ(
         err.data,
-        "slave 1 (TestSlave) cannot use its chosen mode: mode \"FreeRun\" "
+        "module 1 (TestSlave) cannot use its chosen mode: mode \"FreeRun\" "
         "(AssignActivate 0x0000) does not run SYNC0, so it cannot use a SYNC0 cycle "
         "of 1ms"
     );
@@ -1050,7 +1050,7 @@ TEST_F(IGHMasterTest, ActivateFailsOnASYNC1ShiftOffTheSYNC0Grid) {
     ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
     EXPECT_EQ(
         err.data,
-        "slave 1 (TestSlave) cannot run its DC mode on the IgH master: SYNC1 comes "
+        "module 1 (TestSlave) cannot run its DC mode on the IgH master: SYNC1 comes "
         "250us after SYNC0, which is not a whole number of SYNC0 cycles of 1ms"
     );
     EXPECT_FALSE(this->api->slaves[0].configured);
@@ -1073,7 +1073,7 @@ TEST_F(IGHMasterTest, ActivateFailsOnSYNC0CyclesWithNoCommonStart) {
     ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
     EXPECT_EQ(
         err.data,
-        "the SYNC0 cycles of the slaves have no common multiple that the IgH master "
+        "the SYNC0 cycles of the modules have no common multiple that the IgH master "
         "can start them on"
     );
     EXPECT_FALSE(this->api->slaves[0].configured);
@@ -1087,7 +1087,7 @@ TEST_F(IGHMasterTest, ActivateFailsWhenTheDCSyncCannotBeSetUp) {
     ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
     EXPECT_EQ(
         err.data,
-        "failed to set up the DC sync of slave 1 (TestSlave): Cannot allocate memory"
+        "failed to set up the DC sync of module 1 (TestSlave): Cannot allocate memory"
     );
 }
 
@@ -1243,7 +1243,7 @@ TEST_F(IGHMasterTest, ActivateReturnsWhyTheMasterRejectedAnEntry) {
         rejected.second.data,
         "the IgH master rejected PDO " +
             telem::format_index_sub_index(entry->index, entry->sub_index) +
-            " of slave 1 (EL3102): No such file or directory"
+            " of module 1 (EL3102): No such file or directory"
     );
     ASSERT_NIL_P(this->image.offset(pdo::Entry(2, 0x6000, 1, 32, true, {})));
 }
@@ -1268,7 +1268,7 @@ TEST_F(IGHMasterTest, ActivateFailsWhenASlaveRejectsAStartupParameter) {
     ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_REJECTED);
     EXPECT_EQ(
         err.data,
-        "slave 1 (TestSlave) rejected startup parameter 0x8000:15 (Filter): Value of "
+        "module 1 (TestSlave) rejected startup parameter 0x8000:15 (Filter): Value of "
         "parameter written too high"
     );
     EXPECT_TRUE(this->api->slaves[0].startup_sdos.empty());
@@ -1284,7 +1284,7 @@ TEST_F(IGHMasterTest, ActivateFailsWhenASlaveDoesNotAnswerAStartupParameter) {
     EXPECT_FALSE(err.matches(errors::STARTUP_PARAMETER_REJECTED));
     EXPECT_EQ(
         err.data,
-        "slave 1 (TestSlave) failed to write startup parameter 0x8000:15 (Filter): no "
+        "module 1 (TestSlave) failed to write startup parameter 0x8000:15 (Filter): no "
         "response"
     );
 }
@@ -1299,7 +1299,7 @@ TEST_F(IGHMasterTest, ActivateFailsWhenAStartupParameterCannotBeConfigured) {
     ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
     EXPECT_EQ(
         err.data,
-        "failed to add startup parameter 0x8000:15 (Filter) to slave 1 (TestSlave)"
+        "failed to add startup parameter 0x8000:15 (Filter) to module 1 (TestSlave)"
     );
 }
 
@@ -1329,7 +1329,7 @@ TEST_F(IGHMasterTest, WriteReturnsWhyASlaveRejectedAParameter) {
     ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
     EXPECT_EQ(
         err.data,
-        "slave 1 (TestSlave) rejected startup parameter 0x8000:15 (Filter): Value of "
+        "module 1 (TestSlave) rejected startup parameter 0x8000:15 (Filter): Value of "
         "parameter written too high"
     );
 }
@@ -1377,7 +1377,7 @@ TEST_F(IGHMasterTest, WriteRefusesAValueThatTheSlaveDoesNotHold) {
     ASSERT_OCCURRED_AS(err, errors::SETTING_CONFLICT);
     EXPECT_EQ(
         err.data,
-        "the IgH master cannot change 0x8000:15 (Filter) of slave 1 (TestSlave) while "
+        "the IgH master cannot change 0x8000:15 (Filter) of module 1 (TestSlave) while "
         "other tasks run the bus. Stop them, then start this task first"
     );
     const std::vector<MockAPI::SDO> expected{{0x8000, 0x15, {0x03, 0x00}}};
@@ -1393,7 +1393,7 @@ TEST_F(IGHMasterTest, WriteReturnsWhyASlaveFailedToReadAParameter) {
     ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
     EXPECT_EQ(
         err.data,
-        "slave 1 (TestSlave) failed to read startup parameter 0x8000:15 (Filter): "
+        "module 1 (TestSlave) failed to read startup parameter 0x8000:15 (Filter): "
         "Object does not exist in the object dictionary"
     );
 }
@@ -1404,7 +1404,7 @@ TEST_F(IGHMasterTest, WriteRejectsAPositionWithNoSlave) {
     ASSERT_NIL(this->scan_and_activate());
     const auto err = this->master.write(2, {FILTER});
     ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
-    EXPECT_EQ(err.data, "no slave at position 2");
+    EXPECT_EQ(err.data, "no module at position 2");
 }
 
 /// @brief it should register the entries of the PDO a startup parameter assigns, and
@@ -1523,7 +1523,7 @@ TEST_F(IGHMasterTest, ActivateFailsWhenTheLayoutCannotBeRead) {
     ASSERT_OCCURRED_AS(err, errors::PDO_DISCOVERY_ERROR);
     EXPECT_EQ(
         err.data,
-        "failed to read the PDO layout of slave 1 (TestSlave) after its startup "
+        "failed to read the PDO layout of module 1 (TestSlave) after its startup "
         "parameters: failed to read 0x1A01:00: Object does not exist in the "
         "object dictionary"
     );
@@ -1547,7 +1547,7 @@ TEST_F(IGHMasterTest, ReceiveFailsWhenNoSlaveAnswers) {
         this->api->domain_of(slave).state.wc_state = EC_WC_ZERO;
     const auto err = this->master.receive();
     ASSERT_OCCURRED_AS(err, errors::WORKING_COUNTER_ERROR);
-    EXPECT_EQ(err.data, "no slaves responded");
+    EXPECT_EQ(err.data, "no modules responded");
     EXPECT_EQ(this->master.shortfall(), 6);
     EXPECT_TRUE(this->master.inputless().empty());
 }
