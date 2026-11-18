@@ -23,6 +23,10 @@ on:
         required: false
         type: boolean
         default: false
+    outputs:
+      core_image:
+        description: The Core image the tests ran against, pinned by digest
+        value: ${{ jobs.core-image.outputs.image }}
     secrets:
       APPLE_CERTIFICATE:
         required: false

@@ -44,6 +44,13 @@ on:
         required: false
         type: string
         default: ""
+      latest_runtimes:
+        description:
+          Whether the smoke test uses the latest stable Deno and Bun instead of the
+          pinned versions
+        required: false
+        type: boolean
+        default: false
       lint:
         description: Whether to check types, circular imports, and lint
         required: false
@@ -235,7 +242,7 @@ jobs:
 
       # Without a limit, a stuck mirror holds the merge queue for up to 6 hours.
       - name: Install browsers
-        if: inputs.test && (inputs.browsers || (inputs.runtimes && matrix.lint))
+        if: (inputs.test && inputs.browsers) || (inputs.runtimes && matrix.lint)
         uses: ./.github/actions/setup-browsers
         timeout-minutes: 20
         with:
@@ -297,20 +304,20 @@ jobs:
           webkit
 
       - name: Set up Deno
-        if: inputs.test && inputs.runtimes && matrix.lint
+        if: inputs.runtimes && matrix.lint
         uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
         with:
-          deno-version: 2.9.8
+          deno-version: ${{ inputs.latest_runtimes && 'latest' || '2.9.8' }}
 
       - name: Set up Bun
-        if: inputs.test && inputs.runtimes && matrix.lint
+        if: inputs.runtimes && matrix.lint
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          bun-version: 1.4.4
+          bun-version: ${{ inputs.latest_runtimes && 'latest' || '1.4.4' }}
 
       # The smoke test needs the Core, which only the Linux runner has.
       - name: Smoke-test the packed package
-        if: inputs.test && inputs.runtimes && matrix.lint
+        if: inputs.runtimes && matrix.lint
         shell: bash
         timeout-minutes: 10
         env:
