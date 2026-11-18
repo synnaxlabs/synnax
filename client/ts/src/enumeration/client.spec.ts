@@ -178,6 +178,26 @@ describe("enumeration.Client", () => {
     });
   });
 
+  describe("replace", () => {
+    it("should delete the replaced enumeration and keep the other", async () => {
+      const [from, to] = await Promise.all([createEnumeration(), createEnumeration()]);
+      await client.enumerations.replace(from.key, to.key);
+      const other = createTestClient();
+      await expect(other.enumerations.retrieve(from.key)).rejects.toThrow(
+        NotFoundError,
+      );
+      expect((await other.enumerations.retrieve(to.key)).name).toEqual(to.name);
+    });
+
+    it("should refuse to replace a built-in enumeration", async () => {
+      const [valve] = await client.enumerations.retrieveBuiltins();
+      const to = await createEnumeration();
+      await expect(client.enumerations.replace(valve.key, to.key)).rejects.toThrow(
+        "cannot delete built-in enumeration Valve",
+      );
+    });
+  });
+
   describe("retrieveBuiltins", () => {
     it("should return the shipped values of the built-in enumerations", async () => {
       const builtins = await client.enumerations.retrieveBuiltins();

@@ -76,6 +76,15 @@ const stored = async (key: enumeration.Key): Promise<enumeration.Entry[]> =>
 const storedNames = async (key: enumeration.Key): Promise<string[]> =>
   (await stored(key)).map((e) => e.name);
 
+// The delete dialog enables its button once it knows what uses the enumeration.
+const clickWhenEnabled = async (name: string): Promise<void> => {
+  const button = await screen.findByRole("button", { name });
+  await waitFor(() => expect(button).toHaveProperty("disabled", false));
+  await act(async () => {
+    fireEvent.click(button);
+  });
+};
+
 describe("Enumeration.Settings", () => {
   it("should create an enumeration and count up the values of its entries", async () => {
     await renderEnumerations();
@@ -327,14 +336,37 @@ describe("Enumeration.Settings", () => {
     expect(screen.queryByText("Delete")).toBeNull();
   });
 
+  it("should replace an enumeration with the one picked in the delete dialog", async () => {
+    const [from, to] = await Promise.all([createEnumeration(), createEnumeration()]);
+    await renderEnumerations();
+    await openContextMenu(from.name);
+    await clickAndSettle("Delete");
+    expect(await screen.findByText(/Nothing uses it/)).toBeTruthy();
+    fireEvent.click(await screen.findByRole("button", { name: /Replace with/ }));
+    fireEvent.change(await screen.findByPlaceholderText("Search enumerations..."), {
+      target: { value: to.name },
+    });
+    fireEvent.click(await screen.findByRole("option", { name: new RegExp(to.name) }));
+    await clickWhenEnabled("Replace");
+    await expect
+      .poll(async () => {
+        try {
+          await client.enumerations.retrieve(from.key);
+          return false;
+        } catch (err) {
+          return NotFoundError.matches(err);
+        }
+      })
+      .toBe(true);
+    expect((await client.enumerations.retrieve(to.key)).name).toBe(to.name);
+  });
+
   it("should delete an enumeration after confirming", async () => {
     const e = await createEnumeration();
     await renderEnumerations();
     await openContextMenu(e.name);
     await clickAndSettle("Delete");
-    await act(async () => {
-      fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
-    });
+    await clickWhenEnabled("Delete");
     await expect
       .poll(async () => {
         try {
