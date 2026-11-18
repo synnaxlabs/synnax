@@ -70,8 +70,7 @@ var _ = Describe("ParseDetails", func() {
 	})
 
 	// derWithPEM returns a DER certificate for CN=Outer that holds the PEM of leaf in
-	// an
-	// extension.
+	// an extension.
 	derWithPEM := func() []byte {
 		GinkgoHelper()
 		key := newKey()
