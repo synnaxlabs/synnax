@@ -9,7 +9,29 @@
 
 import { narrow } from "@/narrow";
 
-export interface Options {
+/**
+ * Renders an object path as a human-readable string.
+ *
+ * - An empty path becomes `<root>`.
+ * - String segments are joined with `.`.
+ * - Numeric segments are rendered as bracket indices (`items[0]`).
+ *
+ * @example
+ * formatPath([]) // "<root>"
+ * formatPath(["config", "channels", 0, "port"]) // "config.channels[0].port"
+ */
+export const formatPath = (segments: ReadonlyArray<PropertyKey>): string => {
+  if (segments.length === 0) return "<root>";
+  let out = "";
+  segments.forEach((p, i) => {
+    if (typeof p === "number") out += `[${p}]`;
+    else if (i === 0) out += String(p);
+    else out += `.${String(p)}`;
+  });
+  return out;
+};
+
+export interface FormatOptions {
   maxStringLength?: number;
   maxArrayLength?: number;
   maxDepth?: number;
@@ -27,7 +49,7 @@ const DEFAULT_MAX_DEPTH = 8;
  * input may be untrusted or unbounded in size. The output is always structurally
  * cloneable and safe to JSON.stringify.
  */
-export const value = (input: unknown, options: Options = {}): unknown => {
+export const formatValue = (input: unknown, options: FormatOptions = {}): unknown => {
   const maxStringLength = options.maxStringLength ?? DEFAULT_MAX_STRING_LENGTH;
   const maxArrayLength = options.maxArrayLength ?? DEFAULT_MAX_ARRAY_LENGTH;
   const maxDepth = options.maxDepth ?? DEFAULT_MAX_DEPTH;
@@ -71,12 +93,3 @@ export const value = (input: unknown, options: Options = {}): unknown => {
 
   return walk(input, 0);
 };
-
-/**
- * Returns a pretty-printed JSON rendering of `input` after passing it through
- * {@link value}. Safe for untrusted or unbounded data: `value()` always returns a
- * JSON-compatible structure (primitives, arrays, plain objects, strings), breaks
- * cycles at the depth cap, and converts bigints/symbols/functions to strings.
- */
-export const stringify = (input: unknown, options: Options = {}): string =>
-  JSON.stringify(value(input, options), null, 2);

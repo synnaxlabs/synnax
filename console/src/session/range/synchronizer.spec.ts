@@ -266,7 +266,7 @@ describe("Range.SYNCHRONIZERS", () => {
         await waitFor(() => expect(send).toHaveBeenCalled());
         unmount();
         release();
-        await scheduler.flushTaskQueue();
+        await scheduler.nextTask();
         expect(rewritten()).toBe(false);
       } finally {
         send.mockRestore();

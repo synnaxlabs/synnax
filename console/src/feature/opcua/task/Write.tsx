@@ -20,7 +20,6 @@ import { Select } from "@/feature/opcua/device/Select";
 import {
   type Device,
   MAKE,
-  migrateProperties,
   type Properties as DeviceProperties,
   SCHEMAS,
 } from "@/feature/opcua/device/types";
@@ -115,13 +114,12 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   client,
   config,
 ) => {
-  let dev = await client.devices.retrieve({
+  const dev = await client.devices.retrieve({
     key: config.device,
     schemas: SCHEMAS,
   });
   const before = deep.copy(dev.properties);
   try {
-    dev = { ...dev, properties: migrateProperties(dev.properties) };
     const commandsToCreate: WriteChannel[] = [];
     for (const channel of config.channels) {
       const key = getChannelByNodeID(dev.properties, channel.nodeId);

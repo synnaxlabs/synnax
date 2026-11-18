@@ -9,7 +9,6 @@
 
 import { z } from "zod";
 
-import { caseconv } from "@/caseconv";
 import {
   type AngularDirection,
   CENTER_LOCATIONS,
@@ -32,6 +31,7 @@ import {
   type YLocation,
   yLocationZ,
 } from "@/spatial/base";
+import { strings } from "@/strings";
 
 export {
   CENTER_LOCATIONS,
@@ -198,7 +198,7 @@ export const isX = (a: Crude): a is XLocation | CenterLocation =>
 export const isY = (a: Crude): a is YLocation => direction(construct(a)) === "y";
 
 /** Renders an XY location as a {@link CornerString}, e.g. "topLeft". */
-export const xyToString = (a: XY): string => `${a.x}${caseconv.capitalize(a.y)}`;
+export const xyToString = (a: XY): string => `${a.x}${strings.capitalize(a.y)}`;
 
 /** Builds an {@link XY} from an XY, two locations, or one location used for both. */
 export const constructXY = (x: Crude | XY, y?: Crude): XY => {

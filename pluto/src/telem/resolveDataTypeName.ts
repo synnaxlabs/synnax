@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { caseconv, DataType } from "@synnaxlabs/x";
+import { DataType, strings } from "@synnaxlabs/x";
 
 const ALL_CAPS = [DataType.UUID, DataType.JSON];
 
@@ -16,5 +16,5 @@ export const resolveDataTypeName = (d: DataType): string => {
   if (ALL_CAPS.some((c) => c.equals(d))) return d.toString().toUpperCase();
   if (d.isNumeric && !d.equals(DataType.TIMESTAMP) && !d.equals(DataType.BOOLEAN))
     return d.toString();
-  return caseconv.capitalize(d.toString());
+  return strings.capitalize(d.toString());
 };

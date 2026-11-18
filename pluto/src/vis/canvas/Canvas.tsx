@@ -34,7 +34,10 @@ type HTMLDivProps = DetailedHTMLProps<
   HTMLDivElement
 >;
 
-const ZERO_PROPS = { region: box.ZERO, dpr: 1, os: runtime.getOS() };
+// The render context needs an OS, so a user agent that names none draws as Windows.
+const getOS = (): runtime.OS => runtime.getOS() ?? "Windows";
+
+const ZERO_PROPS = { region: box.ZERO, dpr: 1, os: getOS() };
 
 interface Canvases {
   gl: HTMLCanvasElement | null;
@@ -78,7 +81,7 @@ export const Canvas = ({
         bootstrapped: true,
         region,
         dpr: window.devicePixelRatio,
-        os: runtime.getOS({ default: "Windows" }),
+        os: getOS(),
       }));
       initialResizeComplete.current = true;
     }
@@ -159,7 +162,7 @@ export const Canvas = ({
         bootstrapped: false,
         region: box.construct(gl),
         dpr: window.devicePixelRatio,
-        os: runtime.getOS({ default: "Windows" }),
+        os: getOS(),
       },
       [glCanvas, upper2dCanvas, lower2dCanvas],
     );

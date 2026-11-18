@@ -602,7 +602,7 @@ describe("Aether Worker", () => {
           args: [5],
           method: "increment",
         });
-        await scheduler.flushTaskQueue();
+        await scheduler.nextTask();
 
         expect(leaf.incrementSpy).toHaveBeenCalledWith(5);
         expect(MockSender.send).toHaveBeenCalledWith({
@@ -619,7 +619,7 @@ describe("Aether Worker", () => {
           args: [{ name: "World" }],
           method: "greet",
         });
-        await scheduler.flushTaskQueue();
+        await scheduler.nextTask();
 
         expect(leaf.greetSpy).toHaveBeenCalledWith({ name: "World" });
         expect(MockSender.send).toHaveBeenCalledWith({
@@ -635,7 +635,7 @@ describe("Aether Worker", () => {
           args: [],
           method: "noArgs",
         });
-        await scheduler.flushTaskQueue();
+        await scheduler.nextTask();
 
         expect(leaf.noArgsSpy).toHaveBeenCalled();
         expect(MockSender.send).not.toHaveBeenCalled();
@@ -649,7 +649,7 @@ describe("Aether Worker", () => {
           method: "asyncMethod",
         });
 
-        await scheduler.flushTaskQueue();
+        await scheduler.nextTask();
 
         expect(leaf.asyncMethodSpy).toHaveBeenCalledWith(10);
         expect(MockSender.send).toHaveBeenCalledWith({
@@ -667,7 +667,7 @@ describe("Aether Worker", () => {
           method: "throwError",
         });
 
-        await scheduler.flushTaskQueue();
+        await scheduler.nextTask();
 
         expect(leaf.throwErrorSpy).toHaveBeenCalled();
         expect(MockSender.send).toHaveBeenCalledWith({
@@ -688,7 +688,7 @@ describe("Aether Worker", () => {
           args: [],
           method: "throwError",
         });
-        await scheduler.flushTaskQueue();
+        await scheduler.nextTask();
 
         expect(leaf.throwErrorSpy).toHaveBeenCalled();
         expect(MockSender.send).not.toHaveBeenCalled();

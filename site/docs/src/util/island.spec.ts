@@ -34,7 +34,7 @@ const press = (key: string, metaKey = false): KeyboardEvent => {
 };
 
 const flush = async (): Promise<void> => {
-  await scheduler.flushTaskQueue();
+  await scheduler.nextTask();
 };
 
 describe("onDemand", () => {

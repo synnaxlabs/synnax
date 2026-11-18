@@ -228,7 +228,7 @@ export class StreamMultiChannelLog
       this.resume();
       if (this.valid) void this.resolve();
     }
-    this.notify();
+    this.observer.notify();
   }
 
   /** The times the channels store, or null until the oldest is known. */
@@ -257,7 +257,7 @@ export class StreamMultiChannelLog
   resume(): void {
     // A late older page could evict the newest entries of a live log.
     this.cancelPage();
-    if (this.live) return this.notify();
+    if (this.live) return this.observer.notify();
     this.unread = [];
     this.skipped = [];
     this.skippedLines = 0;
@@ -273,7 +273,7 @@ export class StreamMultiChannelLog
       });
     });
     if (this.subscription != null) this.pull(this.subscription);
-    this.notify();
+    this.observer.notify();
   }
 
   /**
@@ -311,7 +311,7 @@ export class StreamMultiChannelLog
   ): Promise<Page[] | null> {
     const abort = new AbortController();
     [this.abort, this.paging, this.reading] = [abort, true, true];
-    this.notify();
+    this.observer.notify();
     const { signal } = abort;
     const pages = await Promise.all(read(signal));
     if (signal.aborted) return null;
@@ -321,7 +321,7 @@ export class StreamMultiChannelLog
         this.onStatusChange?.(failed);
       this.pageFailure = failed;
       this.reading = false;
-      this.notify();
+      this.observer.notify();
       if ((await this.pageBreaker.wait()) && !signal.aborted) this.paging = false;
       return null;
     }
@@ -375,7 +375,7 @@ export class StreamMultiChannelLog
       (missed && span.missed !== true)
     ) {
       if (this.unread[0] === span) span.missed = missed;
-      this.notify();
+      this.observer.notify();
       return;
     }
     const split = (): void => {
@@ -387,7 +387,7 @@ export class StreamMultiChannelLog
       if (middle > span.start)
         this.unread.splice(0, 1, half(span.start, middle), half(middle, span.end));
       else counts.forEach(([key, count]) => span.counts.set(key, count * 2));
-      this.notify();
+      this.observer.notify();
     };
     if (read.some(({ full }) => full)) return split();
     const groups = counts.flatMap(([key], i) =>
@@ -437,7 +437,7 @@ export class StreamMultiChannelLog
     if (groups.length > 0) this.insert(groups);
     this.evict();
     if (live) this.rejoin(tail);
-    this.notify();
+    this.observer.notify();
   }
 
   // The lines the entries keep after an eviction.
@@ -525,7 +525,7 @@ export class StreamMultiChannelLog
         true,
       );
     this.evictNewest();
-    this.notify();
+    this.observer.notify();
   }
 
   private cancelPage(): void {
@@ -595,7 +595,7 @@ export class StreamMultiChannelLog
         if (read !== this.startRead) return;
         this.start = start;
         this.startPending = false;
-        return this.notify();
+        return this.observer.notify();
       } catch (e) {
         if (framer.retry.isDefinitive(e)) return;
         if (!(await this.startBreaker.wait())) {
@@ -617,11 +617,11 @@ export class StreamMultiChannelLog
       this.subscription = subscription;
       const sub = subscription;
       subscription.onChange(() => {
-        if (this.pull(sub)) this.notify();
+        if (this.pull(sub)) this.observer.notify();
       });
     }
     this.pull(subscription);
-    this.notify();
+    this.observer.notify();
   }
 
   // Adds the samples each channel received since the last pull, and returns whether
@@ -705,7 +705,7 @@ export class StreamMultiChannelLog
     if (this.recheck != null) return;
     this.recheck = setTimeout(() => {
       this.recheck = null;
-      if (this.pull(subscription)) this.notify();
+      if (this.pull(subscription)) this.observer.notify();
     }, this.recheckInterval.milliseconds);
   }
 

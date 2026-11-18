@@ -182,7 +182,7 @@ export const createDiscoveryFile = (
  */
 export const clearSupervisor = async (): Promise<void> => {
   cleanup();
-  await scheduler.flushTaskQueue();
+  await scheduler.nextTask();
   clearMocks();
 };
 

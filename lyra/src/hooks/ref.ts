@@ -26,9 +26,9 @@ import {
 export const useStateRef = <T extends state.State>(
   initialValue: state.Initial<T>,
 ): [RefObject<T>, state.Setter<T>] => {
-  const ref = useRef<T>(state.executeInitialSetter(initialValue));
+  const ref = useRef<T>(state.resolveInitial(initialValue));
   const setValue: state.Setter<T> = (setter) => {
-    ref.current = state.executeSetter(setter, ref.current);
+    ref.current = state.resolve(setter, ref.current);
   };
   return [ref, setValue];
 };
@@ -97,11 +97,11 @@ export const useCombinedRefs = <T>(
 export const useCombinedStateAndRef = <T extends primitive.Value | object>(
   initialState: state.Initial<T>,
 ): [T, state.Setter<T>, RefObject<T>] => {
-  const [s, setS] = useState<T>(() => state.executeInitialSetter<T>(initialState));
+  const [s, setS] = useState<T>(() => state.resolveInitial<T>(initialState));
   const ref = useRef<T>(s);
 
   const setStateAndRef: state.Setter<T> = (nextState): void => {
-    ref.current = state.executeSetter<T>(nextState, ref.current);
+    ref.current = state.resolve<T>(nextState, ref.current);
     setS(ref.current);
   };
 

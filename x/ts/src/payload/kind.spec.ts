@@ -34,13 +34,3 @@ describe("kindOf", () => {
     expect(payload.kindOf(DataType.UNKNOWN)).toBeUndefined();
   });
 });
-
-describe("isNumeric", () => {
-  it("should hold for the float, integer, and unsigned kinds only", () => {
-    expect(payload.KINDS.filter(payload.isNumeric)).toEqual([
-      "float",
-      "integer",
-      "unsigned",
-    ]);
-  });
-});

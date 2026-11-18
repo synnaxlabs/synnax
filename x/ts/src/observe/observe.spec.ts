@@ -12,6 +12,26 @@ import { describe, expect, it } from "vitest";
 import { observe } from "@/observe";
 import { TimeSpan } from "@/telem";
 
+const createCounted = (): {
+  observable: observe.Observable<number>;
+  observer: observe.Observer<number>;
+  bound: () => number;
+} => {
+  const observer = new observe.Observer<number>();
+  let count = 0;
+  const observable: observe.Observable<number> = {
+    onChange: (handler) => {
+      count++;
+      const detach = observer.onChange(handler);
+      return () => {
+        count--;
+        detach();
+      };
+    },
+  };
+  return { observable, observer, bound: () => count };
+};
+
 describe("observe", () => {
   describe("Observer", () => {
     it("should correctly notify the receives of values", () => {
@@ -31,27 +51,15 @@ describe("observe", () => {
       observer.notify(2);
       expect(values).toEqual([1]);
     });
-    it("should correctly transform an observed value", () => {
-      const observer = new observe.Observer<number, string>((value) => [
-        value.toString(),
-        true,
-      ]);
-      const values: string[] = [];
-      observer.onChange((value) => values.push(value));
+    it("should notify every bound handler", () => {
+      const observer = new observe.Observer<number>();
+      const first: number[] = [];
+      const second: number[] = [];
+      observer.onChange((value) => first.push(value));
+      observer.onChange((value) => second.push(value));
       observer.notify(1);
-      observer.notify(2);
-      expect(values).toEqual(["1", "2"]);
-    });
-    it("should not notify when the transform returns false", () => {
-      const observer = new observe.Observer<number, string>((value) => [
-        value.toString(),
-        false,
-      ]);
-      const values: string[] = [];
-      observer.onChange((value) => values.push(value));
-      observer.notify(1);
-      observer.notify(2);
-      expect(values).toEqual([]);
+      expect(first).toEqual([1]);
+      expect(second).toEqual([1]);
     });
   });
 
@@ -106,32 +114,30 @@ describe("observe", () => {
     });
 
     it("should unsubscribe once it resolves", async () => {
-      const handlers = new Map<observe.Handler<number>, null>();
-      const observer = new observe.Observer<number>(undefined, handlers);
+      const { observable, observer, bound } = createCounted();
       const promise = observe.until(
-        observer,
+        observable,
         () => 0,
         (v) => v > 2,
         TimeSpan.seconds(1),
       );
-      expect(handlers.size).toEqual(1);
+      expect(bound()).toEqual(1);
       observer.notify(3);
       await expect(promise).resolves.toBe(3);
-      expect(handlers.size).toEqual(0);
+      expect(bound()).toEqual(0);
     });
 
     it("should unsubscribe once the timeout elapses", async () => {
-      const handlers = new Map<observe.Handler<number>, null>();
-      const observer = new observe.Observer<number>(undefined, handlers);
+      const { observable, bound } = createCounted();
       await expect(
         observe.until(
-          observer,
+          observable,
           () => 0,
           (v) => v > 2,
           TimeSpan.milliseconds(5),
         ),
       ).rejects.toThrow(new Error("timed out after 5ms"));
-      expect(handlers.size).toEqual(0);
+      expect(bound()).toEqual(0);
     });
   });
 });

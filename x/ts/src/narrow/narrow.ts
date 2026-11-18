@@ -9,12 +9,6 @@
 
 import { type record } from "@/record";
 
-export type IsUndefined<T> = [T] extends [undefined] // T can be assigned to undefined
-  ? [undefined] extends [T] // undefined can be assigned to T
-    ? true // both directions → exactly undefined
-    : false
-  : false;
-
 export const isObject = <T extends record.Unknown = record.Unknown>(
   item?: unknown,
 ): item is T => item != null && typeof item === "object" && !Array.isArray(item);

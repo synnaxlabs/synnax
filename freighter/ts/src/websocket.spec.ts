@@ -378,7 +378,7 @@ describe("local server", () => {
       const req = await authorize();
       expect(req.headers.authorization).toEqual(TOKEN);
       expect(req.url).not.toContain("test-token");
-      expect(req.url).toContain("freighterctxContent-Type=application/json");
+      expect(req.url).toContain("freighterctxContent-Type=application%2Fjson");
     });
 
     test("should send the token in the URL when dial does not send headers", async () => {
@@ -387,7 +387,7 @@ describe("local server", () => {
         dial: async (u) => new globalThis.WebSocket(u),
       });
       expect(req.headers.authorization).toBeUndefined();
-      expect(req.url).toContain(`freighterctxAuthorization=${encodeURI(TOKEN)}`);
+      expect(req.url).toContain("freighterctxAuthorization=Bearer+test-token");
     });
 
     describe("DOM WebSocket", () => {

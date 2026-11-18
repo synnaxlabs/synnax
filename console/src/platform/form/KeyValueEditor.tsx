@@ -9,7 +9,7 @@
 
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
-import { caseconv, type deep, type xy } from "@synnaxlabs/x";
+import { type deep, strings, type xy } from "@synnaxlabs/x";
 import { useEffect } from "react";
 
 export type Entry<K extends string, V extends string | number> = {
@@ -86,7 +86,7 @@ export const KeyValueEditor = <K extends string, V extends string | number>({
     );
 
   const keyColumn = (
-    <Input.TableColumn key="key" name={caseconv.capitalize(keyField)} type="string">
+    <Input.TableColumn key="key" name={strings.capitalize(keyField)} type="string">
       {(p) => <Input.Text {...p} placeholder={keyPlaceholder} />}
     </Input.TableColumn>
   );

@@ -102,7 +102,7 @@ const handleMinimize = windowAction("minimize");
 const handleMaximize = windowAction("maximize");
 
 interface WindowControlsProps {
-  os: runtime.OS;
+  os?: runtime.OS;
 }
 
 const WindowControls = ({ os }: WindowControlsProps): ReactElement | null => {

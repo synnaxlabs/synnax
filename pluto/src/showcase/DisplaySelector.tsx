@@ -11,7 +11,7 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { caseconv } from "@synnaxlabs/x";
+import { strings } from "@synnaxlabs/x";
 
 import { DISPLAY } from "@/showcase/constants";
 
@@ -54,7 +54,7 @@ export const DisplaySelector = ({ display, setDisplay }: DisplaySelectorProps) =
       <Select.Buttons multiple value={display} onChange={setDisplay}>
         {DISPLAY.map((d) => (
           <Select.Item key={d} itemKey={d}>
-            {caseconv.capitalize(d)}
+            {strings.capitalize(d)}
           </Select.Item>
         ))}
       </Select.Buttons>

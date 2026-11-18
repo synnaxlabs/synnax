@@ -76,7 +76,7 @@ const miss = (channels: number): (() => Promise<void>) => {
 };
 
 // A miss waits out one batch timer, which the baseline measures alone.
-const batchTimer = async (): Promise<void> => await scheduler.flushTaskQueue();
+const batchTimer = async (): Promise<void> => await scheduler.nextTask();
 
 test("read", async ({ bench }) => {
   await bench.compare(

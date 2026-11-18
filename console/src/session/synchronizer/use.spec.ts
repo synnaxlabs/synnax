@@ -157,7 +157,7 @@ describe("Synchronizer.use", () => {
       await closing.close();
       release();
       await gate;
-      await scheduler.flushTaskQueue();
+      await scheduler.nextTask();
       expect(calls).toEqual(["first:start"]);
       expect(error).not.toHaveBeenCalled();
     } finally {

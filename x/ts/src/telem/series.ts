@@ -13,7 +13,6 @@ import { binary } from "@/binary";
 import { caseconv } from "@/caseconv";
 import { compare } from "@/compare";
 import { id } from "@/id";
-import { instance } from "@/instance";
 import { math } from "@/math";
 import { bounds } from "@/spatial";
 import {
@@ -158,9 +157,7 @@ const SERIES_DISCRIMINATOR = "sy_x_telem_series";
  * Series is a strongly typed array of telemetry samples backed by an underlying binary
  * buffer.
  */
-export class Series<T extends TelemValue = TelemValue>
-  implements instance.Discriminated
-{
+export class Series<T extends TelemValue = TelemValue> {
   /**
    * A unique identifier for the series. If specified by the user, it is their
    * responsibility to ensure that it is unique. If not specified, a new ID will be
@@ -891,7 +888,7 @@ export class Series<T extends TelemValue = TelemValue>
 
   private atUUID(index: number, required: boolean): string | undefined {
     if (index < 0) index = this.length + index;
-    const uuidString = uuid.parse(
+    const uuidString = uuid.fromBytes(
       new Uint8Array(this.buffer, index * this.dataType.density.valueOf()),
     );
     if (uuidString == null) {
@@ -1337,8 +1334,16 @@ export const isCrudeSeries = (value: unknown): value is CrudeSeries => {
   return isTelemValue(value);
 };
 
-/** @returns true if the given value is an instance of the series class. */
-const isSeries = instance.createMatcher<Series>(SERIES_DISCRIMINATOR, Series);
+/**
+ * @returns true if the given value is an instance of the series class, or carries its
+ * discriminator because a bundler duplicated the class.
+ */
+const isSeries = (value: unknown): value is Series =>
+  value instanceof Series ||
+  (typeof value === "object" &&
+    value !== null &&
+    "discriminator" in value &&
+    value.discriminator === SERIES_DISCRIMINATOR);
 
 class SubIterator<T> implements Iterator<T> {
   private readonly series: Series;
@@ -1424,7 +1429,7 @@ class UUIDSeriesIterator implements Iterator<string> {
 
   next(): IteratorResult<string> {
     if (this.index >= this.series.length) return { done: true, value: undefined };
-    const uuidString = uuid.parse(this.data, this.index * this.density);
+    const uuidString = uuid.fromBytes(this.data, this.index * this.density);
     this.index++;
     return { done: false, value: uuidString };
   }

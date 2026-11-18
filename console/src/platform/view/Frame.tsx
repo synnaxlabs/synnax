@@ -20,7 +20,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Flux, Panel as PPanel, View as PView } from "@synnaxlabs/pluto";
-import { caseconv, uuid } from "@synnaxlabs/x";
+import { strings, uuid } from "@synnaxlabs/x";
 import { plural } from "pluralize";
 import {
   Fragment,
@@ -251,7 +251,7 @@ const ContextMenu = ({
   const editableKeys = keys.filter((key) => !staticViews.includes(key));
   const confirm = Modals.useConfirmDelete({
     icon: "View",
-    type: caseconv.capitalize(resourceType),
+    type: strings.capitalize(resourceType),
   });
   const { update: del } = PView.useDelete({
     beforeUpdate: async ({ data }: Flux.BeforeUpdateParams<PView.DeleteParams>) => {

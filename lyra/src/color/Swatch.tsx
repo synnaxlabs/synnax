@@ -114,7 +114,7 @@ export const Swatch = ({
   });
   const [pending, setPending] = useState<Pending | null>(null);
   const handleVisibleChange: xstate.Setter<boolean> = (arg) => {
-    if (pending != null && !xstate.executeSetter(arg, visible)) {
+    if (pending != null && !xstate.resolve(arg, visible)) {
       onChange?.(pending.value);
       setPending(null);
     }

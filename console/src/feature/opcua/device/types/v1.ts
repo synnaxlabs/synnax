@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { channel } from "@synnaxlabs/client";
-import { migrate } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
@@ -41,16 +40,11 @@ export const ZERO_PROPERTIES: Properties = {
   version: VERSION,
 };
 
-export const PROPERTIES_MIGRATION_NAME = "hardware.opc.device.properties";
-
-export const propertiesMigration = migrate.createMigration<BaseProperties, Properties>({
-  name: PROPERTIES_MIGRATION_NAME,
-  migrate: (p) => {
-    const read = p.read;
-    return {
-      ...p,
-      version: VERSION,
-      read: { indexes: read.index === 0 ? [] : [read.index], channels: read.channels },
-    };
+export const propertiesMigration = (p: BaseProperties): Properties => ({
+  ...p,
+  version: VERSION,
+  read: {
+    indexes: p.read.index === 0 ? [] : [p.read.index],
+    channels: p.read.channels,
   },
 });

@@ -94,7 +94,8 @@ interface Check {
   schema: z.ZodType;
 }
 
-export class State<Z extends z.ZodType> extends observe.Observer<void> {
+export class State<Z extends z.ZodType> implements observe.Observable<void> {
+  private readonly observer = new observe.Observer<void>();
   private readonly schema?: Z;
   private store: Store<z.infer<Z>>;
   initialValues: z.infer<Z>;
@@ -111,7 +112,6 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
   private depth = 0;
 
   constructor(store: Store<z.infer<Z>>, schema?: Z) {
-    super();
     this.schema = schema;
     this.store = store;
     this.observed = store.get();
@@ -121,6 +121,15 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     this.checks = new Set();
     this.cachedRefs = new Map();
     this.initialValues = deep.copy(this.observed);
+  }
+
+  onChange(handler: observe.Handler<void>): destructor.Destructor {
+    return this.observer.onChange(handler);
+  }
+
+  /** Calls every handler bound with onChange. */
+  notify(): void {
+    this.observer.notify();
   }
 
   /**

@@ -14,8 +14,8 @@ import {
   type CrudeTimeSpan,
   type destructor,
   errors,
-  migrate,
   observe,
+  semver,
   sync,
   TimeSpan,
   TimeStamp,
@@ -535,7 +535,7 @@ export class Client implements Handle {
     if (clientServerCompatible || this.versionWarned) return;
     this.versionWarned = true;
     const clientIsNewer =
-      nodeVersion == null || migrate.semVerNewer(clientVersion, nodeVersion);
+      nodeVersion == null || semver.newer(clientVersion, nodeVersion);
     const toUpgrade = clientIsNewer ? "Core" : "client";
     console.warn(
       `The Synnax Core version ${nodeVersion != null ? `${nodeVersion} ` : ""}is too ` +

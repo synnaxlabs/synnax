@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { caseconv } from "@synnaxlabs/x";
+import { strings } from "@synnaxlabs/x";
 import pluralize from "pluralize";
 
 import { Input } from "@/input";
@@ -17,7 +17,7 @@ import { Input } from "@/input";
  * user to act; with no label it is the field's only name, so it reads as one.
  */
 export const usePlaceholder = (resourceName: string): string =>
-  Input.useLabelled() ? `Select ${resourceName}` : caseconv.capitalize(resourceName);
+  Input.useLabelled() ? `Select ${resourceName}` : strings.capitalize(resourceName);
 
 const ACRONYM = /^[A-Z]{2,}$/;
 const IDENTIFIER = / [A-Za-z0-9]$/;

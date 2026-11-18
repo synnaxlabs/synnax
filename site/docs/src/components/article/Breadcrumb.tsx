@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Breadcrumb as Base } from "@synnaxlabs/lyra/breadcrumb";
-import { caseconv } from "@synnaxlabs/x";
+import { strings } from "@synnaxlabs/x";
 
 import { Text } from "@/components/text";
 import { labelOf } from "@/pages/_nav";
@@ -38,7 +38,7 @@ const WORDS: Record<string, string> = {
 const fromSlug = (segment: string): string =>
   segment
     .split("-")
-    .map((word, i) => WORDS[word] ?? (i === 0 ? caseconv.capitalize(word) : word))
+    .map((word, i) => WORDS[word] ?? (i === 0 ? strings.capitalize(word) : word))
     .join(" ");
 
 // The URL slug drops the casing of a code title, so a fully backticked title supplies

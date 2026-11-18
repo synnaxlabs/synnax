@@ -206,7 +206,7 @@ const run = async <
 
     const setStatus = (setter: state.SetArg<ResultStatus<StatusDetails>>) =>
       onChange((p) => {
-        const nextStatus = state.executeSetter(setter, p.status);
+        const nextStatus = state.resolve(setter, p.status);
         return {
           ...p,
           status: nextStatus,

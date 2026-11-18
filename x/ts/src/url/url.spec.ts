@@ -46,6 +46,46 @@ describe("URL", () => {
   });
 });
 
+describe("buildQueryString", () => {
+  test("should join the entries with a leading question mark", () => {
+    expect(url.buildQueryString({ a: "1", b: "2" })).toEqual("?a=1&b=2");
+  });
+
+  test("should prepend the prefix to each key", () => {
+    expect(url.buildQueryString({ a: "1", b: "2" }, "ctx")).toEqual("?ctxa=1&ctxb=2");
+  });
+
+  test("should skip null and undefined values", () => {
+    expect(url.buildQueryString({ a: null, b: "2", c: undefined })).toEqual("?b=2");
+  });
+
+  test("should keep an empty string value", () => {
+    expect(url.buildQueryString({ a: "" })).toEqual("?a=");
+  });
+
+  test("should percent-encode keys and values", () => {
+    expect(
+      url.buildQueryString({ "Content-Type": "application/json", "a&b": "x=y" }),
+    ).toEqual("?Content-Type=application%2Fjson&a%26b=x%3Dy");
+  });
+
+  test("should encode a space as a plus", () => {
+    expect(url.buildQueryString({ Authorization: "Bearer token" })).toEqual(
+      "?Authorization=Bearer+token",
+    );
+  });
+
+  test("should round trip through URLSearchParams", () => {
+    const record = { token: "a+b c/d?e&f=g" };
+    const parsed = new URLSearchParams(url.buildQueryString(record));
+    expect(parsed.get("token")).toEqual(record.token);
+  });
+
+  test("should return a lone question mark for an empty record", () => {
+    expect(url.buildQueryString({})).toEqual("?");
+  });
+});
+
 describe("base64", () => {
   test("encodeBase64 - produces unpadded url-safe output", () => {
     const encoded = url.encodeBase64(JSON.stringify({ is_block: true }));

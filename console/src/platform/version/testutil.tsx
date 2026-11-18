@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { connection, type resource, type Synnax as Client } from "@synnaxlabs/client";
-import { migrate } from "@synnaxlabs/x";
+import { semver } from "@synnaxlabs/x";
 import { type Channel } from "@tauri-apps/api/core";
 import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
 import { type DownloadEvent } from "@tauri-apps/plugin-updater";
@@ -63,7 +63,7 @@ export const mockUpdater = ({
     rid: ++rid,
     currentVersion: version,
     version: next,
-    downgrade: migrate.semVerNewer(version, next),
+    downgrade: semver.newer(version, next),
     rawJson: {},
   });
   const ipc: IPC = vi.fn(async (cmd: string, args?: unknown) => {
@@ -73,7 +73,7 @@ export const mockUpdater = ({
       case "updater_check": {
         const { secure } = args as { secure: boolean };
         if (served == null || served === version) return null;
-        if (!secure && migrate.semVerNewer(version, served)) return null;
+        if (!secure && semver.newer(version, served)) return null;
         return createMetadata(served);
       }
       case "plugin:updater|check":

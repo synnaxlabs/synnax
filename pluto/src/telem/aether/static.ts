@@ -151,7 +151,7 @@ export class IterativeSeries
   start(rate: Rate): void {
     if (this.interval != null) clearInterval(this.interval);
     this.interval = setInterval(() => {
-      this.notify?.();
+      this.observer.notify();
       this.position++;
     }, rate.period.milliseconds) as unknown as number;
   }
@@ -223,7 +223,7 @@ export class Clock extends AbstractSource<typeof clockPropsZ> implements NumberS
     const period = this.props.period.milliseconds;
     const delay = period - (TimeStamp.now().milliseconds % period);
     this.timeout = setTimeout(() => {
-      this.notify();
+      this.observer.notify();
       this.schedule();
     }, delay);
   }

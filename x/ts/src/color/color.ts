@@ -132,8 +132,15 @@ export const cssString = ((color?: Crude): string | undefined => {
  * of 255.
  * @throws {zod.ParseError} if the value is not a valid crude color.
  */
-export const construct = (color: Crude): Color =>
-  fromCrude(zod.parse(crudeZ, color, { label: "color" }));
+export const construct = (color: Crude): Color => {
+  if (isRGBA(color)) return [color[0], color[1], color[2], color[3]];
+  return fromCrude(zod.parse(crudeZ, color, { label: "color" }));
+};
+
+const isByte = (v: number): boolean => Number.isInteger(v) && v >= 0 && v <= 255;
+
+const isRGBA = (color: Crude): color is RGBA =>
+  Array.isArray(color) && color.length === 4 && color.every(isByte);
 
 const fromCrude = (parsed: z.output<typeof crudeZ>): Color =>
   parsed.length === 3 ? [...parsed, 255] : parsed;
@@ -180,21 +187,18 @@ export const rgbString = (color: Crude): string => {
  * given, so the property falls back to its default.
  * @example "255, 0, 0, 0.5"
  */
-export const rgbaString = (color?: Crude): string | undefined =>
-  color == null ? undefined : `${rgbString(color)}, ${opacity(color)}`;
+export const rgbaString = (color?: Crude): string | undefined => {
+  if (color == null) return undefined;
+  const [r, g, b, a] = construct(color);
+  return `${r}, ${g}, ${b}, ${a / 255}`;
+};
 
 /**
  * @returns the color as a tuple of four numbers between 0 and 1, as WebGL takes it.
  */
-export const rgba1 = (color: Crude): [number, number, number, number] => [
-  ...rgb1(color),
-  opacity(color),
-];
-
-/** @returns the color normalized as an RGB tuple between 0 and 1. */
-const rgb1 = (color: Crude): [number, number, number] => {
-  const [r, g, b] = construct(color);
-  return [r / 255, g / 255, b / 255];
+export const rgba1 = (color: Crude): [number, number, number, number] => {
+  const [r, g, b, a] = construct(color);
+  return [r / 255, g / 255, b / 255, a / 255];
 };
 
 /** @returns the opacity of the color, between 0 and 1. */

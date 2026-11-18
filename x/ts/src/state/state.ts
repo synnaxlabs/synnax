@@ -28,33 +28,18 @@ export type PureSetter<S extends State> = (value: S) => void;
 /** An initial state, or a function that lazily computes it. */
 export type Initial<S extends State> = S | (() => S);
 
-export const isSetter = <S extends State, PS = S>(
-  arg: SetArg<S, PS>,
-): arg is SetFunc<S, PS> => typeof arg === "function";
-
-export const executeSetter = <S extends State, PS extends State = S>(
-  setter: SetArg<S, PS>,
-  prev: PS,
-): S => (isSetter(setter) ? setter(prev) : setter);
-
-export const isInitialSetter = <S extends State>(arg: Initial<S>): arg is () => S =>
+const isSetter = <S extends State, PS = S>(arg: SetArg<S, PS>): arg is SetFunc<S, PS> =>
   typeof arg === "function";
 
-export const executeInitialSetter = <S extends State>(setter: Initial<S>): S =>
-  isInitialSetter(setter) ? setter() : setter;
+/** @returns the next state: the value itself, or the result of calling it on prev. */
+export const resolve = <S extends State, PS extends State = S>(
+  arg: SetArg<S, PS>,
+  prev: PS,
+): S => (isSetter(arg) ? arg(prev) : arg);
 
-/** Wraps an updater so it passes undefined through instead of applying f. */
-export const skipUndefined =
-  <S extends State, PS extends State = S>(
-    f: SetFunc<S, PS>,
-  ): SetFunc<S | undefined, PS | undefined> =>
-  (v) =>
-    v == null ? undefined : f(v);
+const isInitialSetter = <S extends State>(arg: Initial<S>): arg is () => S =>
+  typeof arg === "function";
 
-/** Wraps an updater so it passes null through instead of applying f. */
-export const skipNull =
-  <S extends State, PS extends State = S>(
-    f: SetFunc<S, PS>,
-  ): SetFunc<S | null, PS | null> =>
-  (v) =>
-    v == null ? null : f(v);
+/** @returns the initial state: the value itself, or the result of calling it. */
+export const resolveInitial = <S extends State>(initial: Initial<S>): S =>
+  isInitialSetter(initial) ? initial() : initial;

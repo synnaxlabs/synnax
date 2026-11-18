@@ -12,7 +12,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status as Base } from "@synnaxlabs/lyra/status";
 import { Status } from "@synnaxlabs/pluto";
-import { caseconv } from "@synnaxlabs/x";
+import { strings } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { getSelected } from "@/platform/status/filter/selected";
@@ -54,7 +54,7 @@ const Value = ({
     {value.map((variant) => (
       <Base.Indicator key={variant} variant={variant} />
     ))}
-    {value.map((variant) => caseconv.capitalize(variant)).join(", ")}
+    {value.map((variant) => strings.capitalize(variant)).join(", ")}
   </>
 );
 

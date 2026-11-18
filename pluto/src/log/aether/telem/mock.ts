@@ -23,7 +23,7 @@ export class MockLogSource implements LogSource {
   status: status.Status = telem.SUCCESS_STATUS;
   private _entries: LogEntry[] = [];
   private activeChannels: Set<channel.Key> = new Set();
-  private readonly observable = new observe.BaseObserver<void>();
+  private readonly observable = new observe.Observer<void>();
 
   value(): telem.Result<LogEntry[]> {
     const { activeChannels, status } = this;

@@ -20,7 +20,7 @@ export interface AtKeysResult<V = unknown> {
  * Walks a value by a strict `PropertyKey[]` path and returns whether the path is
  * present along with the value at that location.
  *
- * Differs from {@link get}/{@link has} in three important ways:
+ * Differs from `deep.get` and `deep.has` in three important ways:
  *
  * 1. Takes a `PropertyKey[]` instead of a dotted string, so keys containing literal
  *    `.` are handled unambiguously.

@@ -66,7 +66,7 @@ export const useAsyncEffect = (
     const effectFn = async () => {
       // flush the task queue so that the effect from the previous render has a chance
       // to finish before the cleanup function is called.
-      await scheduler.flushTaskQueue();
+      await scheduler.nextTask();
       const maybeCleanup = await effect(signal);
       return maybeCleanup;
     };

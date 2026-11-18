@@ -10,7 +10,7 @@
 import { type ethercat } from "@synnaxlabs/client";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Text } from "@synnaxlabs/lyra/text";
-import { caseconv, deep, primitive } from "@synnaxlabs/x";
+import { deep, primitive, strings } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import { useResultSlave } from "@/feature/ethercat/device/queries";
@@ -74,7 +74,7 @@ export const ChannelSettings = ({
     <PForm.Section title="Settings">
       {reader != null && (
         <Text.Text level="small" color={9}>
-          {caseconv.capitalize(reader)} sets these values. Synnax does not change them.
+          {strings.capitalize(reader)} sets these values. Synnax does not change them.
         </Text.Text>
       )}
       {visibleFields(fields, values).map((field) => (

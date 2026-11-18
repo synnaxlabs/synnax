@@ -502,7 +502,7 @@ export abstract class Leaf<
    * values when their updates cross in flight. */
   setState(next: state.SetArg<z.infer<StateSchema>>): void {
     const prev = this.state;
-    const nextState = state.executeSetter(next, prev);
+    const nextState = state.resolve(next, prev);
     this._prevState = shallow.copy(this._state);
     this._state = zod.parse(this._schema, nextState, { label: this.toString() });
     this.sender.send({
