@@ -15,6 +15,7 @@ export const ICDS_NAV: Nav.PageNavNode = {
   children: [
     { href: "/reference/hardware/icds", name: "Overview" },
     { href: "/reference/hardware/icds/create", name: "Create" },
+    { href: "/reference/hardware/icds/import", name: "Import" },
     {
       href: "/reference/hardware/icds/rename-and-delete",
       name: "Rename and delete",
