@@ -12,6 +12,7 @@
 #include <cstddef>
 #include <string>
 #include <string_view>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -64,7 +65,7 @@ class Decoder {
     std::string text;
     /// @brief open and names are scratch space for compacting a JSON value.
     std::vector<std::size_t> open;
-    std::vector<std::string> names;
+    std::vector<std::unordered_set<std::string>> names;
 
     errors::Error append_string(std::string_view raw, telem::Series &dst);
     errors::Error append_json(std::string_view raw, telem::Series &dst);
@@ -73,6 +74,8 @@ class Decoder {
     errors::Error append_numeric(std::string_view raw, telem::Series &dst);
     errors::Error append_timestamp(std::string_view raw, telem::Series &dst);
     errors::Error append_number(const Number &n, telem::Series &dst) const;
+    /// @brief writes n, which the data type of the field holds, to dst.
+    void write_number(const Number &n, telem::Series &dst) const;
     [[nodiscard]] const Label *find_label(std::string_view text) const;
 
 public:
