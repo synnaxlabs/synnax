@@ -20,6 +20,7 @@ import { Triggers as PTriggers } from "@synnaxlabs/lyra/triggers";
 import { Enumeration, Resource } from "@synnaxlabs/pluto";
 import { type ReactElement, Suspense, useState } from "react";
 
+import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Tree } from "@/platform/tree";
 import { Triggers } from "@/platform/triggers";
@@ -75,9 +76,9 @@ const Delete = ({
     else replace({ from: e.key, to: replacement });
   };
   return (
-    <Modal.Frame>
+    <Modal.Frame className={CSS.B("confirm")}>
       <Modal.Header icon={<Icon.Enumeration />}>Enumeration.Delete</Modal.Header>
-      <Modal.Body gap="medium">
+      <Modal.Body gap="medium" className={CSS.BE("confirm", "body")}>
         <Text.Text level="h3" weight={450}>
           Are you sure you want to delete {e.name}?
         </Text.Text>

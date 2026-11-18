@@ -435,6 +435,19 @@ describe("Enumeration.Settings", () => {
     expect((await client.enumerations.retrieve(to.key)).name).toBe(to.name);
   });
 
+  it("should open delete as a narrow confirmation with selectable text", async () => {
+    const e = await createEnumeration();
+    await renderEnumerations();
+    await openContextMenu(e.name);
+    await clickAndSettle("Delete");
+    const message = await screen.findByText(/Are you sure you want to delete/);
+    const dialog = (await screen.findAllByRole("dialog")).find((d) =>
+      d.contains(message),
+    );
+    expect(dialog?.classList).toContain("console-confirm");
+    expect(message.parentElement?.classList).toContain("console-confirm__body");
+  });
+
   it("should delete an enumeration after confirming", async () => {
     const e = await createEnumeration();
     await renderEnumerations();
