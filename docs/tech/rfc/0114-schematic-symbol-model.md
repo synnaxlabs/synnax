@@ -491,7 +491,6 @@ The WebKit benchmark measured this loop in WKWebView on an Apple M3 Max. It hold
 at 100 moving parts and fails 60 fps at 500. At 1,000 it draws 21 fps, and 15 to 26 fps
 during pan, wheel zoom, or a main thread 60% busy. Each moving part costs about 40 µs of
 main-thread time a frame, so the 60 fps limit is between 100 and 400 moving parts.
-WebKitGTK on a test machine with the nouveau driver fails 60 fps at 100.
 
 | Phase | Scope                                                    | Touches                                                                                                                                                                                                           | Depends on |
 | ----- | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
@@ -555,13 +554,12 @@ WebKitGTK on a test machine with the nouveau driver fails 60 fps at 100.
     turn on, so the migration gives it `within` 0.9 to 1.1 and logs a warning that names
     it. The trade is real: it is the one place where the migration changes what a user
     sees.
-21. **Motion draws in SVG, and a move of all symbol rendering to canvas waits**: In
-    WKWebView a worker canvas holds 60 fps at 2,000 moving parts. A hybrid that draws
+21. **Motion draws in SVG, not on a canvas**: In WKWebView a worker canvas holds 60 fps
+    at 2,000 moving parts, but both canvas options cost too much. A hybrid that draws
     only the moving parts on a worker canvas costs 1,500 to 2,500 lines and leaves zoom
     slow: wheel zoom over 1,000 still symbols drops WKWebView to 22 fps with no motion.
-    A full canvas renderer fixes zoom too, at 5,000 to 10,000 lines. So phase 5 builds
-    no hybrid. The trade is real: a schematic drops below 60 fps past 100 to 400 moving
-    parts in WKWebView, and at 100 on WebKitGTK with nouveau.
+    A full canvas renderer fixes zoom too, but costs 5,000 to 10,000 lines. The trade is
+    real: a schematic drops below 60 fps past 100 to 400 moving parts in WKWebView.
 
 ## 8 Open questions
 
