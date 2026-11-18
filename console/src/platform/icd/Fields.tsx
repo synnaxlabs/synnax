@@ -19,7 +19,7 @@ import { type ReactElement, type ReactNode } from "react";
 
 import { CSS } from "@/platform/css";
 import { EnumValues } from "@/platform/icd/EnumValues";
-import { isMappable, Optional, Options } from "@/platform/icd/Options";
+import { isMappable, Optional, Options, showsDefault } from "@/platform/icd/Options";
 import { Task } from "@/platform/task";
 
 type Field = icd.BinaryField | icd.TextField | icd.JSONField;
@@ -588,7 +588,7 @@ export const JSONField = ({ path, actions }: JSONFieldProps): ReactElement => {
           </>
         )}
         <Form.TextField path={path.units} label="Units" padHelpText={false} />
-        {isMappable(field) && <Optional path={path} field={field} />}
+        {showsDefault(field) && <Optional path={path} field={field} />}
       </Form.Section>
       {isMappable(field) && (
         <Form.Section title="Enum mapping">

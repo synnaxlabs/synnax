@@ -250,7 +250,7 @@ const messagePrefix = (
  */
 const bindingsOf = (
   stored: Record<string, channel.Key>,
-  fields: icd.JSONField[],
+  fields: Pick<icd.JSONField, "key" | "pointer">[],
   written: Set<channel.Key>,
 ): ReadBinding[] =>
   fields.map(({ key: field, pointer }) => {
@@ -438,7 +438,7 @@ const setRead = (
   ctx: PForm.ContextValue,
   entry: string,
   read: number,
-  field: icd.JSONField,
+  field: ICD.TreeField,
   on: boolean,
   stored: Stored,
 ): void => {
@@ -477,7 +477,7 @@ interface FieldNode {
   entry: string;
   /** The index of the message in the topic's reads. */
   read: number;
-  field: icd.JSONField;
+  field: ICD.TreeField;
 }
 
 type Node = EntryNode | MessageNode | FieldNode;
@@ -494,7 +494,7 @@ const fieldNodeKey = (entry: string, message: icd.MessageKey, field: string): st
   `${entry}/${message}/${field}`;
 
 /** Each entry key with the message and shown fields of each read, or null for a tag. */
-type Structure = [string, [icd.MessageKey, icd.JSONField[]][] | null][];
+type Structure = [string, [icd.MessageKey, ICD.TreeField[]][] | null][];
 
 /**
  * The entries of the task as tree nodes. A topic holds the fields of its message, or a
@@ -517,7 +517,9 @@ const useIndex = (formats: ICD.Formats): Index => {
         isPlain(e)
           ? e.messages.map(({ message, index }) => [
               message,
-              ICD.fieldsOf(formats, e.icd, message).filter(({ key }) => key !== index),
+              ICD.fieldsOf(formats, e.icd, message)
+                .filter(({ key }) => key !== index)
+                .map(ICD.treeFieldOf),
             ])
           : null,
       ]),
@@ -531,7 +533,7 @@ const useIndex = (formats: ICD.Formats): Index => {
       const fieldNodes = (
         read: number,
         message: icd.MessageKey,
-        fields: icd.JSONField[],
+        fields: ICD.TreeField[],
       ): Tree.Node[] =>
         fields.map((field) => {
           const key = fieldNodeKey(entry, message, field.key);
@@ -675,7 +677,7 @@ const MessageDetails = ({
 };
 
 interface FieldDetailsProps extends MessagePanelProps {
-  field: icd.JSONField;
+  field: ICD.TreeField;
 }
 
 const FieldDetails = ({ device, ...rest }: FieldDetailsProps) => {
@@ -1293,9 +1295,9 @@ const boundMessage = (
   const readMessage = entry.messages[read];
   const fields = ICD.readFields(message.payload.fields, readMessage);
   const index = fields.find(({ key }) => key === readMessage.index);
-  if (index != null && index.type !== "timestamp")
+  if (index != null && !ICD.isIndexable(index))
     throw new ValidationError(
-      `In ${where}, the index field ${index.name} must be a timestamp field`,
+      `In ${where}, the index field ${index.name} must be a timestamp field with no default`,
     );
   if (fields.length === 0)
     throw new ValidationError(`The task reads no fields of ${where}`);

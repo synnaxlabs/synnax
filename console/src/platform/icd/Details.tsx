@@ -28,11 +28,13 @@ import { Match } from "@/platform/icd/Match";
 import {
   fieldsPath,
   hiddenDataTypes,
+  isIndexable,
   jsonFields,
   mixMessage,
   readFields,
   type ReadSource,
   reindex,
+  type TreeField,
   variableAmongFixed,
 } from "@/platform/icd/read";
 import { Panel } from "@/platform/panel";
@@ -109,6 +111,7 @@ const TimestampFields: FC<TimestampFieldsProps> = ({
     set(readPath, reindex(get(readPath).value, next, indexChannel));
   const handleMode = (mode: TimingMode) =>
     setIndex(mode === "payload" ? timestamps.at(0)?.key : undefined);
+  const invalid = index != null && !isIndexable(index);
   return (
     <>
       <Input.Item
@@ -130,7 +133,16 @@ const TimestampFields: FC<TimestampFieldsProps> = ({
         </Select.Buttons>
       </Input.Item>
       {index != null && (
-        <Input.Item label="Field" padHelpText={false}>
+        <Input.Item
+          label="Field"
+          padHelpText={false}
+          helpText={
+            invalid
+              ? `${index.name} has a default, so it cannot be the index. Remove its default in the message format.`
+              : undefined
+          }
+          status={invalid ? "error" : undefined}
+        >
           <Select.Simple<string>
             value={index.key}
             onChange={setIndex}
@@ -160,7 +172,7 @@ export interface FieldDetailsProps {
   path: deep.Path<ReadSource>;
   /** The index of the message in the source's reads. */
   read: number;
-  field: icd.JSONField;
+  field: TreeField;
   format: FormatForm;
   /** The prefix of the names of the channels that deploying creates. */
   prefix: string;

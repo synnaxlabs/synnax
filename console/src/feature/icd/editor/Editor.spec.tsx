@@ -15,7 +15,7 @@ import {
 } from "@synnaxlabs/client/testutil";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Panel as PlutoPanel } from "@synnaxlabs/pluto";
-import { uuid } from "@synnaxlabs/x";
+import { TimeStamp, uuid } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -511,6 +511,30 @@ describe("ICD editor", () => {
       expect(await retrieveJSONField(ic.key)).toMatchObject({ default: true }),
     );
     expect(await screen.findByText("Default True, 1 mapping")).toBeTruthy();
+  });
+
+  it("should show and remove the default of a timestamp JSON field", async () => {
+    const at = TimeStamp.milliseconds(1_700_000_000_000);
+    const ic = await createICD([
+      createJSONMessage([
+        {
+          ...createJSONBase("Time", "/time"),
+          type: "timestamp",
+          timeFormat: "unix_ms",
+          default: at,
+        },
+      ]),
+    ]);
+    await renderEditor(ic);
+    expect(
+      await screen.findByText(`Default ${at.toString("preciseDate", "local")}`),
+    ).toBeTruthy();
+    await openOptions(1);
+    fireEvent.click(await screen.findByRole("checkbox", { name: "Optional" }));
+    await waitFor(async () =>
+      expect(await retrieveJSONField(ic.key)).not.toHaveProperty("default"),
+    );
+    expect(await screen.findByText("None")).toBeTruthy();
   });
 
   it("should open no options for a JSON field that holds any value", async () => {

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, uuid } from "@synnaxlabs/x";
+import { id, TimeStamp, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import { type z } from "zod";
 
@@ -211,6 +211,13 @@ describe("icd", () => {
           pointer: "/armed",
           enumValues: [{ label: "yes", value: true }],
           default: false,
+        },
+        {
+          type: "timestamp",
+          name: "time",
+          pointer: "/ts",
+          timeFormat: "unix_ns",
+          default: new TimeStamp(2n ** 62n + 1n),
         },
       ];
       const ic = await client.icds.create({

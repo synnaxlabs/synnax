@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/x/versions/payload/v0"
+import "schemas/x/versions/telem/v0"
 
 Key = uuid {
     @doc value "is a unique identifier for an ICD."
@@ -221,6 +222,9 @@ JSONField union on type payload.Kind extends JSONBaseField {
     timestamp {
         time_format payload.TimeFormat {
             @doc value "is the encoding of the timestamp."
+        }
+        default     telem.TimeStamp?   {
+            @doc value "is the value when the document has none. Absent requires one."
         }
 
         @doc value "is a timestamp held in a JSON number or string."

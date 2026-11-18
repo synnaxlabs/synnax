@@ -202,8 +202,8 @@ type jsonVariant struct {
 	floatDefault *payload.Float
 }
 
-// readVariant sets the kind of f from the variant of jf. It returns the rest of what
-// the variant sets.
+// readVariant sets the kind of f from the variant of jf, and the fallback of a
+// timestamp field. It returns the rest of what the variant sets.
 func (f *jsonField) readVariant(jf icd.JSONField) (jsonVariant, error) {
 	out := jsonVariant{sample: xjson.Field{DataType: f.dataType, Enums: enumsOf(jf)}}
 	var err error
@@ -238,6 +238,9 @@ func (f *jsonField) readVariant(jf icd.JSONField) (jsonVariant, error) {
 		format := string(v.TimeFormat)
 		if out.sample.TimeFormat, err = xjson.ParseTimeFormat(format); err != nil {
 			return jsonVariant{}, err
+		}
+		if v.Default != nil {
+			f.fallback = telem.ByteOrder.AppendUint64(nil, uint64(*v.Default))
 		}
 	case icd.JSONJSONField:
 		f.kind = payload.KindJSON
