@@ -127,6 +127,9 @@ struct Where {
     ::x::filter::List<::synnax::label::Key> labels;
     /// @brief parents matches the ranges nested in any of the given ranges.
     ::x::filter::List<Key> parents;
+    /// @brief ancestors matches the ranges nested at any depth in any of the given
+    /// ranges.
+    ::x::filter::List<Key> ancestors;
     /// @brief nested matches the ranges nested in a range, or top-level ranges when
     /// false.
     std::optional<bool> nested;

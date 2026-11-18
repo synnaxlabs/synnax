@@ -982,6 +982,19 @@ class TestRangeRetrieveFilters:
         assert client.ranges.retrieve(key=child.key).parent == parent.key
         assert client.ranges.retrieve(key=parent.key).parent is None
 
+    def test_ancestors(self, client: sy.Synnax) -> None:
+        """Should keep the ranges nested at any depth in the given ranges"""
+        root = client.ranges.create(
+            name=random_name(),
+            time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+        )
+        child = root.create_child_range(name=random_name(), time_range=root.time_range)
+        grandchild = child.create_child_range(
+            name=random_name(), time_range=root.time_range
+        )
+        res = client.ranges.retrieve(ancestors=root.key)
+        assert {r.key for r in res} == {child.key, grandchild.key}
+
     def test_nested(self, client: sy.Synnax) -> None:
         """Should keep the nested ranges, or the top-level ranges when false"""
         parent = client.ranges.create(

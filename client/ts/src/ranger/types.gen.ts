@@ -80,6 +80,7 @@ export type Where = {
   overlaps?: telem.TimeRange;
   labels?: label.Key[];
   parents?: Key[];
+  ancestors?: Key[];
   nested?: boolean;
   labeled?: boolean;
   stages?: Stage[];
@@ -108,6 +109,8 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   labels: zod.nullToUndefined(label.keyZ.array()),
   /** parents matches the ranges nested in any of the given ranges. */
   parents: zod.nullToUndefined(keyZ.array()),
+  /** ancestors matches the ranges nested at any depth in any of the given ranges. */
+  ancestors: zod.nullToUndefined(keyZ.array()),
   /** nested matches the ranges nested in a range, or top-level ranges when false. */
   nested: z.boolean().optional(),
   /** labeled matches ranges that have a label, or ranges with none when false. */

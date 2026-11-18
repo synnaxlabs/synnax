@@ -48,27 +48,30 @@ Stage enum {
 Where filter Range {
     key
     name
-    overlaps telem.TimeRange {
+    overlaps  telem.TimeRange {
         @doc value "matches ranges whose time range overlaps the given range."
     }
-    labels   label.Key[]     {
+    labels    label.Key[]     {
         @doc value "matches ranges that have any of the given labels."
     }
-    parents  Key[]           {
+    parents   Key[]           {
         @doc value "matches the ranges nested in any of the given ranges."
     }
-    nested   bool            {
+    ancestors Key[]           {
+        @doc value "matches the ranges nested at any depth in any of the given ranges."
+    }
+    nested    bool            {
         @doc value """
             matches the ranges nested in a range, or top-level ranges when false.
         """
     }
-    labeled  bool            {
+    labeled   bool            {
         @doc value "matches ranges that have a label, or ranges with none when false."
     }
-    stages   Stage[]         {
+    stages    Stage[]         {
         @doc value "matches ranges in any of the given stages at the Core's clock."
     }
-    recent   telem.TimeSpan  {
+    recent    telem.TimeSpan  {
         @doc value """
             matches ranges that overlap the span ending now, or starting now if
             negative.

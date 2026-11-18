@@ -98,6 +98,8 @@ type Where struct {
 	Labels []label.Key `json:"labels,omitzero" msgpack:"labels,omitempty"`
 	// Parents matches the ranges nested in any of the given ranges.
 	Parents []Key `json:"parents,omitzero" msgpack:"parents,omitempty"`
+	// Ancestors matches the ranges nested at any depth in any of the given ranges.
+	Ancestors []Key `json:"ancestors,omitzero" msgpack:"ancestors,omitempty"`
 	// Nested matches the ranges nested in a range, or top-level ranges when false.
 	Nested *bool `json:"nested,omitzero" msgpack:"nested,omitempty"`
 	// Labeled matches ranges that have a label, or ranges with none when false.

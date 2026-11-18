@@ -111,6 +111,57 @@ describe("useForm", () => {
       });
     });
 
+    it("should read the record again when a form with no cache mounts again", async () => {
+      let stored = { key: "123", name: "Before", age: 30 };
+      const retrieve = vi.fn(async () => stored);
+      const useForm = Flux.createForm<Params, typeof formSchema>({
+        initialValues: { key: "", name: "", age: 0 },
+        schema: formSchema,
+        name: "test",
+        retrieve,
+        update: vi.fn(),
+      });
+      const first = await renderHookSuspended(
+        () => useForm({ query: { key: "123" } }),
+        {
+          wrapper: Wrapper,
+        },
+      );
+      first.unmount();
+      stored = { ...stored, name: "After" };
+      const second = await renderHookSuspended(
+        () => useForm({ query: { key: "123" } }),
+        { wrapper: Wrapper },
+      );
+      expect(second.result.current.form.value().name).toBe("After");
+      expect(retrieve).toHaveBeenCalledTimes(2);
+    });
+
+    it("should keep the record for a form still mounted when another unmounts", async () => {
+      let stored = { key: "123", name: "Before", age: 30 };
+      const retrieve = vi.fn(async () => stored);
+      const useForm = Flux.createForm<Params, typeof formSchema>({
+        initialValues: { key: "", name: "", age: 0 },
+        schema: formSchema,
+        name: "test",
+        retrieve,
+        update: vi.fn(),
+      });
+      const first = await renderHookSuspended(
+        () => useForm({ query: { key: "123" } }),
+        { wrapper: Wrapper },
+      );
+      const second = await renderHookSuspended(
+        () => useForm({ query: { key: "123" } }),
+        { wrapper: Wrapper },
+      );
+      second.unmount();
+      stored = { ...stored, name: "After" };
+      await act(async () => first.rerender());
+      expect(first.result.current.form.value().name).toBe("Before");
+      expect(retrieve).toHaveBeenCalledTimes(1);
+    });
+
     it("should route a failed read to the error boundary", async () => {
       const useForm = Flux.createForm<Params, typeof formSchema>({
         initialValues: { key: "", name: "", age: 0 },

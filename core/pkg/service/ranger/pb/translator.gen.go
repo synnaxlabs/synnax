@@ -258,6 +258,9 @@ func WhereToPB(r ranger.Where) (*Where, error) {
 	if r.Parents != nil {
 		pb.Parents = &KeyList{Values: lo.Map(r.Parents, func(u ranger.Key, _ int) string { return uuid.UUID(u).String() })}
 	}
+	if r.Ancestors != nil {
+		pb.Ancestors = &KeyList{Values: lo.Map(r.Ancestors, func(u ranger.Key, _ int) string { return uuid.UUID(u).String() })}
+	}
 	if r.Nested != nil {
 		pb.Nested = r.Nested
 	}
@@ -359,6 +362,23 @@ func WhereFromPB(pb *Where) (ranger.Where, error) {
 			return ranger.Where{}, err
 		}
 		r.Parents = xpb.ListValues(vals)
+	}
+	if pb.Ancestors != nil {
+		vals, err := func() ([]ranger.Key, error) {
+			result := make([]ranger.Key, len(pb.Ancestors.Values))
+			for i, s := range pb.Ancestors.Values {
+				parsed, err := uuid.Parse(s)
+				if err != nil {
+					return nil, err
+				}
+				result[i] = ranger.Key(parsed)
+			}
+			return result, nil
+		}()
+		if err != nil {
+			return ranger.Where{}, err
+		}
+		r.Ancestors = xpb.ListValues(vals)
 	}
 	if pb.Nested != nil {
 		r.Nested = pb.Nested
