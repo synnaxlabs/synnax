@@ -228,6 +228,8 @@ const Warnings = ({ warnings }: WarningsProps): ReactElement => (
   </Tooltip.Dialog>
 );
 
+const OWN_VALUE = "Each entry needs its own value.";
+
 /** Returns a check for a value that another entry holds, which warns when one does. */
 const useValueTaken = (): ((
   entries: enumeration.Entry[],
@@ -239,11 +241,12 @@ const useValueTaken = (): ((
   return (entries, name, value, except) => {
     const holder = entries.find((e) => e.key !== except && e.value === value);
     if (holder == null) return false;
+    const holderName = holder.name.trim() === "" ? "Another entry" : holder.name;
     addStatus({
       variant: "warning",
       name,
       message: "Value in use",
-      description: `${holder.name} has the value ${value}. Each entry needs its own value.`,
+      description: `${holderName} has the value ${value}. ${OWN_VALUE}`,
     });
     return true;
   };

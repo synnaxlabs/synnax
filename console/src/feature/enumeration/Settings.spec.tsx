@@ -76,8 +76,10 @@ const stored = async (key: enumeration.Key): Promise<enumeration.Entry[]> =>
 const storedNames = async (key: enumeration.Key): Promise<string[]> =>
   (await stored(key)).map((e) => e.name);
 
+const OWN_VALUE = "Each entry needs its own value.";
+
 describe("Enumeration.Settings", () => {
-  it("should create an enumeration and count up the values of its entries", async () => {
+  it("should create an enumeration and count up its entry values", async () => {
     await renderEnumerations();
     await clickAndSettle("Create enumeration");
     const name = uniqueName("enumeration");
@@ -170,24 +172,34 @@ describe("Enumeration.Settings", () => {
       .toEqual([0, 7, 2]);
   });
 
-  it("should refuse a value that another entry holds and say so", async () => {
-    const e = await createEnumeration();
-    const onStatuses = vi.fn();
-    await renderEnumerations(onStatuses);
-    const input = within(await findEntry(e.entries[1].name)).getByLabelText("Value");
-    fireEvent.change(input, { target: { value: "2" } });
-    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
-    await waitFor(() =>
-      expect(onStatuses).toHaveBeenLastCalledWith([
-        expect.objectContaining({
-          message: "Value in use",
-          description: `${e.entries[2].name} has the value 2. Each entry needs its own value.`,
-        }),
-      ]),
-    );
-    await act(async () => {});
-    expect((await stored(e.key)).map((x) => x.value)).toEqual([0, 1, 2]);
-  });
+  it.each([
+    { holder: "named", name: uniqueName("c"), shown: (n: string) => n },
+    { holder: "unnamed", name: "", shown: () => "Another entry" },
+  ])(
+    "should refuse a value that a $holder entry holds and say so",
+    async ({ name, shown }) => {
+      const e = await createEnumeration([
+        { key: "a", value: 0, name: uniqueName("a"), abnormal: false },
+        { key: "b", value: 1, name: uniqueName("b"), abnormal: false },
+        { key: "c", value: 2, name, abnormal: false },
+      ]);
+      const onStatuses = vi.fn();
+      await renderEnumerations(onStatuses);
+      const input = within(await findEntry(e.entries[1].name)).getByLabelText("Value");
+      fireEvent.change(input, { target: { value: "2" } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+      await waitFor(() =>
+        expect(onStatuses).toHaveBeenLastCalledWith([
+          expect.objectContaining({
+            message: "Value in use",
+            description: `${shown(name)} has the value 2. ${OWN_VALUE}`,
+          }),
+        ]),
+      );
+      await act(async () => {});
+      expect((await stored(e.key)).map((x) => x.value)).toEqual([0, 1, 2]);
+    },
+  );
 
   it("should add an entry with the value typed into the add form", async () => {
     const e = await createEnumeration();
@@ -304,7 +316,7 @@ describe("Enumeration.Settings", () => {
     await warns(red, /It has an alarm color, but it is not abnormal/);
   });
 
-  it("should mark an edited built-in and restore the entries Synnax ships", async () => {
+  it("should mark an edited built-in and restore its shipped entries", async () => {
     const shipped = await builtinFromEnd(2);
     await client.enumerations.retrieve(shipped.key);
     await client.enumerations.dispatch(
