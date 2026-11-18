@@ -79,6 +79,24 @@ var _ = Describe("Field", func() {
 		)
 	})
 
+	Describe("DecodeBase64", func() {
+		It("Should decode standard, padded base64", func() {
+			Expect(xjson.DecodeBase64("AP8/")).To(Equal([]byte{0x00, 0xFF, 0x3F}))
+		})
+		DescribeTable("Should refuse text that is not standard, padded base64",
+			func(text, message string) {
+				Expect(xjson.DecodeBase64(text)).Error().To(And(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(message)),
+				))
+			},
+			Entry("no padding", "YQ", "illegal base64 data at input byte 0"),
+			Entry("padding bits set", "YR==", "illegal base64 data at input byte 2"),
+			Entry("a line feed", "YQ\n==", "base64 must not hold a line break"),
+			Entry("a carriage return", "YQ\r==", "base64 must not hold a line break"),
+		)
+	})
+
 	Describe("Decoder", func() {
 		DescribeTable("Should convert a JSON value into a sample",
 			func(f xjson.Field, raw string, expected []byte) {
