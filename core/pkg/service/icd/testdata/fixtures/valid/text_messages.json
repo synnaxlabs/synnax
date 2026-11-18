@@ -28,7 +28,8 @@
               "offset": 0,
               "units": "",
               "encoding": "delimited",
-              "position": 2
+              "position": 2,
+              "default": 0.5
             }
           ]
         }

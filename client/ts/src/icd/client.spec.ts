@@ -217,7 +217,33 @@ describe("icd", () => {
           name: "time",
           pointer: "/ts",
           timeFormat: "unix_ns",
-          default: new TimeStamp(2n ** 62n + 1n),
+          default: { type: "constant", value: new TimeStamp(2n ** 62n + 1n) },
+        },
+        {
+          type: "timestamp",
+          name: "sent",
+          pointer: "/sent",
+          timeFormat: "iso8601",
+          default: { type: "now" },
+        },
+        { type: "json", name: "config", pointer: "/config", default: { mode: "auto" } },
+        {
+          type: "uuid",
+          name: "device",
+          pointer: "/device",
+          default: { type: "constant", value: uuid.create() },
+        },
+        {
+          type: "uuid",
+          name: "request",
+          pointer: "/request",
+          default: { type: "random" },
+        },
+        {
+          type: "bytes",
+          name: "raw",
+          pointer: "/raw",
+          default: "AQI=",
         },
       ];
       const ic = await client.icds.create({

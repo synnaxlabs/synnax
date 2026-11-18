@@ -411,6 +411,9 @@ func (c *checker) checkBinaryField(path []string, p BinaryPayload, f BinaryField
 	if f.Kind == payload.KindFloat && f.BitLength != 32 && f.BitLength != 64 {
 		c.Addf(pathOf(path, "bit_length"), "a float field must be 32 or 64 bits")
 	}
+	if f.Default != nil {
+		c.checkBinaryDefault(pathOf(path, "default"), f)
+	}
 	if p.Length != nil {
 		if lastByte(f) >= int(*p.Length) {
 			c.Addf(
@@ -431,6 +434,20 @@ func (c *checker) checkBinaryField(path []string, p BinaryPayload, f BinaryField
 			"field extends past the %d bytes a CAN frame carries",
 			canLength(id),
 		)
+	}
+}
+
+// checkBinaryDefault adds a problem when the bits of f cannot hold its default.
+func (c *checker) checkBinaryDefault(path []string, f BinaryField) {
+	v := float64(*f.Default)
+	switch {
+	case integral(f) && v != math.Trunc(v):
+		c.Addf(path, "default %g is not a whole number", v)
+	case integral(f) && !holds(v, f):
+		c.Addf(path, "default %g does not fit the field", v)
+	case f.Kind == payload.KindFloat && f.BitLength == 32 &&
+		math.Abs(v) > math.MaxFloat32 && !math.IsInf(v, 0):
+		c.Addf(path, "default %g does not fit a 32-bit float", v)
 	}
 }
 
@@ -578,6 +595,15 @@ func fits(v int32, f BinaryField) bool {
 		return true
 	}
 	return int64(v) >= -(int64(1)<<(n-1)) && int64(v) < int64(1)<<(n-1)
+}
+
+// holds reports whether the integer field f can hold the whole number v.
+func holds(v float64, f BinaryField) bool {
+	n := int(f.BitLength)
+	if f.Kind == payload.KindUnsigned {
+		return v >= 0 && v < math.Ldexp(1, n)
+	}
+	return v >= -math.Ldexp(1, n-1) && v < math.Ldexp(1, n-1)
 }
 
 // lastByte returns the index of the last payload byte a binary field touches. A

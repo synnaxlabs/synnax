@@ -163,8 +163,28 @@ class TestICD:
                 name="time",
                 pointer="/ts",
                 time_format="unix_ns",
-                default=sy.TimeStamp(2**62 + 1),
+                default=sy.icd.ConstantTimestampDefault(value=sy.TimeStamp(2**62 + 1)),
             ),
+            sy.icd.TimestampJSONField(
+                name="sent",
+                pointer="/sent",
+                time_format="iso8601",
+                default=sy.icd.NowTimestampDefault(),
+            ),
+            sy.icd.JSONJSONField(
+                name="config", pointer="/config", default={"mode": "auto"}
+            ),
+            sy.icd.UuidJSONField(
+                name="device",
+                pointer="/device",
+                default=sy.icd.ConstantUUIDDefault(value=uuid4()),
+            ),
+            sy.icd.UuidJSONField(
+                name="request",
+                pointer="/request",
+                default=sy.icd.RandomUUIDDefault(),
+            ),
+            sy.icd.BytesJSONField(name="raw", pointer="/raw", default="AQI="),
         ]
         ic = client.icds.create(
             name="Defaults",

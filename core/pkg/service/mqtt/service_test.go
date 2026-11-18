@@ -268,11 +268,12 @@ var _ = Describe("Service", func() {
 				jsonField("state", "/state", icd.StringJSONField{}),
 				jsonField("raw", "", icd.BytesJSONField{}),
 			)
-			stamp := telem.SecondTS
 			stamped := jsonMessage("Stamped", nil, jsonField(
 				"ts", "/ts", icd.TimestampJSONField{
 					TimeFormat: payload.TimeFormatUnixSec,
-					Default:    &stamp,
+					Default: &icd.TimestampDefault{
+						Variant: icd.ConstantTimestampDefault{Value: telem.SecondTS},
+					},
 				},
 			))
 			ic := icd.ICD{Name: "Plant", Messages: []icd.Message{m, stamped}}
