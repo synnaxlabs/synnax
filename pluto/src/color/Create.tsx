@@ -167,10 +167,10 @@ const PaletteAdd = ({ palette }: PaletteAddProps): ReactElement | null =>
 
 /**
  * Ends a palette of a color picker. It asks for a name in place, creates a named color
- * at the end of the palette, and links the value to it. The new color copies the linked
- * one, else the color that the picker shows in the current theme. The Series palette
- * gets none, because a copy of a series color would repeat it. A palette that the user
- * cannot update gets none, because a new color updates it.
+ * after the last positioned color of the palette, and links the value to it. The new
+ * color copies the linked one, else the color that the picker shows in the current
+ * theme. The Series palette gets none, because a copy of a series color would repeat
+ * it. A palette that the user cannot update gets none, because a new color updates it.
  */
 export const CreateSwatch = (): ReactElement | null => {
   const { palette } = Color.usePalette();
