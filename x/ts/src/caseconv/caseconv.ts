@@ -184,7 +184,12 @@ const selectOption = (def: ZodDef, data: unknown): z.core.SomeType | undefined =
   const key = def.discriminator;
   if (key == null || def.options == null || !narrow.isObject(data)) return undefined;
   const value = data[key] ?? data[camelToSnakeStr(key)];
-  if (typeof value !== "string" && typeof value !== "number") return undefined;
+  if (
+    typeof value !== "string" &&
+    typeof value !== "number" &&
+    typeof value !== "boolean"
+  )
+    return undefined;
   return def.options.find((o) => o._zod.propValues?.[key]?.has(value));
 };
 
@@ -443,13 +448,36 @@ const camelToSnakeStr = (str: string): string => {
 /** Converts a camelCase string to snake_case. */
 export const camelToSnake = createConverter(camelToSnakeStr, true);
 
+/** The value of a union's discriminator, at the path that ends at the discriminator. */
+export interface Discriminator {
+  path: string[];
+  value: unknown;
+}
+
 /** Options for {@link snakeToCamelPath} and {@link camelToSnakePath}. */
 export interface PathOptions {
   /** The schema that the document converts with. */
   schema?: z.ZodType;
   /** The document that the path goes into. A segment into a list is an entry key. */
   data?: unknown;
+  /**
+   * Values that select the option of a union ahead of data. Each path is in the case of
+   * the input path, not the converted one.
+   */
+  discriminators?: Discriminator[];
 }
+
+// selector returns an object that holds the discriminator of the union at path.
+const selector = (
+  discriminators: Discriminator[] | undefined,
+  path: string[],
+): record.Unknown | undefined => {
+  const found = discriminators?.find(
+    (d) =>
+      d.path.length === path.length + 1 && path.every((seg, i) => d.path[i] === seg),
+  );
+  return found == null ? undefined : { [found.path[path.length]]: found.value };
+};
 
 /** A path converted the way the converter of the same direction converts keys. */
 export interface ConvertedPath {
@@ -467,8 +495,12 @@ type Converter = ReturnType<typeof createConverter>;
 
 const createPathConverter =
   (f: (v: string) => string, converter: Converter, encodes: boolean = false) =>
-  (path: string[], { schema, data }: PathOptions = {}): ConvertedPath => {
+  (
+    path: string[],
+    { schema, data, discriminators }: PathOptions = {},
+  ): ConvertedPath => {
     const out: string[] = [];
+    const src: string[] = [];
     let s = schema;
     let d = data;
     let preserved = false;
@@ -484,6 +516,7 @@ const createPathConverter =
         d = Array.isArray(d)
           ? d.find((e) => narrow.isObject(e) && e.key === seg)
           : undefined;
+        src.push(seg);
         continue;
       }
       const keysKept = hasPreserveKeysMarker(s);
@@ -491,11 +524,12 @@ const createPathConverter =
       out.push(next);
       if (keysKept) s = getRecordValueSchema(s);
       else {
-        const shape = getSchemaShape(s, d);
+        const shape = getSchemaShape(s, selector(discriminators, src) ?? d);
         s = shape != null ? (shape[seg] ?? shape[next]) : getRecordValueSchema(s);
       }
       const obj = narrow.isObject(d) ? d : undefined;
       d = obj?.[seg] ?? obj?.[next];
+      src.push(seg);
     }
     const convert = <V>(value: V): V =>
       preserved ? value : convertChild(value, s, converter, encodes);
