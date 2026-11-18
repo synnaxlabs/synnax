@@ -90,8 +90,10 @@ def _reset(conn: socket.socket) -> None:
 
 
 def _hang(conn: socket.socket) -> None:
-    """Holds conn open until the client gives up and closes it."""
-    conn.recv(1)
+    """Holds conn open until the client gives up and closes it. Reads every byte, as
+    a close with unread bytes would send a reset."""
+    while conn.recv(1 << 16):
+        pass
 
 
 @pytest.fixture

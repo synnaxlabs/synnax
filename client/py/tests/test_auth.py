@@ -230,6 +230,21 @@ class TestSessions:
         proxied_client.close()
         assert not proxied_client.connectivity._thread.is_alive()
 
+    def test_close_when_logout_times_out(
+        self, login_info: tuple[str, int, str, str], proxy: Proxy
+    ) -> None:
+        """Should close without error when logout gets no response in time."""
+        _, _, username, password = login_info
+        client = sy.Synnax(
+            host="localhost",
+            port=proxy.port,
+            username=username,
+            password=password,
+            read_timeout=0.5,
+        )
+        assert proxy.blackhole() > 0
+        client.close()
+
 
 @pytest.mark.auth
 class TestAPIKeys:
