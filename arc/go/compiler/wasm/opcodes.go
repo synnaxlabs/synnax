@@ -250,3 +250,19 @@ const (
 	OpF32ReinterpretI32 Opcode = 0xbe // f32.reinterpret_i32
 	OpF64ReinterpretI64 Opcode = 0xbf // f64.reinterpret_i64
 )
+
+// TruncSatOpcode is a saturating float-to-integer conversion, encoded after the 0xfc
+// prefix.
+type TruncSatOpcode byte
+
+// Saturating conversion instructions.
+const (
+	OpI32TruncSatF32S TruncSatOpcode = 0x00 // i32.trunc_sat_f32_s
+	OpI32TruncSatF32U TruncSatOpcode = 0x01 // i32.trunc_sat_f32_u
+	OpI32TruncSatF64S TruncSatOpcode = 0x02 // i32.trunc_sat_f64_s
+	OpI32TruncSatF64U TruncSatOpcode = 0x03 // i32.trunc_sat_f64_u
+	OpI64TruncSatF32S TruncSatOpcode = 0x04 // i64.trunc_sat_f32_s
+	OpI64TruncSatF32U TruncSatOpcode = 0x05 // i64.trunc_sat_f32_u
+	OpI64TruncSatF64S TruncSatOpcode = 0x06 // i64.trunc_sat_f64_s
+	OpI64TruncSatF64U TruncSatOpcode = 0x07 // i64.trunc_sat_f64_u
+)

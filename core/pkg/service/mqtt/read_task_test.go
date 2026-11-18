@@ -355,8 +355,8 @@ var _ = Describe("Read task", func() {
 					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
 					g.Expect(stat.Message).To(Equal("Skipped 1 of 1 message"))
 					g.Expect(stat.Description).To(Equal(
-						"Message on topic plant/line4: message plant/line4: field b: " +
-							"no value at /b: validation error",
+						"Message on topic plant/line4: field b: no value at /b: " +
+							"validation error",
 					))
 					g.Expect(stat.Details.Data).To(HaveKeyWithValue("stats", SatisfyAll(
 						HaveKeyWithValue("read", BeNumerically("==", 1)),

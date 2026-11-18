@@ -393,8 +393,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
     for (const ep of config.endpoints)
       await Task.configureReadChannels({
         client,
-        read: dev.properties.read,
-        propertiesKey: ep.path,
+        stored: { read: dev.properties.read, key: ep.path },
         fields: ep.fields,
         namePrefix: `${safeDevName}${channel.escapeInvalidName(ep.path)}`,
         indexKey: ep.index,

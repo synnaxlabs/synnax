@@ -28,7 +28,9 @@ import {
   createConsoleWrapper,
   getIconButton,
   getIconButtons,
+  HaulProvider,
   uniqueName,
+  withControlHeld,
 } from "@/testutil";
 
 const NODE: OPCUA.Task.ScannedNode = {
@@ -192,7 +194,12 @@ const renderBrowser = async () => {
     data: { channels: [TANK, PUMP] },
   });
   const { wrapper } = await createConsoleWrapper({ client });
-  const { container } = render(<OPCUA.Device.Browser device={dev} />, { wrapper });
+  const { container } = render(
+    <HaulProvider>
+      <OPCUA.Device.Browser device={dev} />
+    </HaulProvider>,
+    { wrapper },
+  );
   await root.answered;
   await screen.findByText("TankPressure");
   return { client, scan, container };
@@ -296,6 +303,40 @@ describe("Browser search", () => {
     } finally {
       streamer.close();
     }
+  });
+});
+
+const layer = (): Element | null => document.querySelector(".lyra-haul__layer");
+
+describe("Browser drag preview", () => {
+  it("should picture a dragged node with its data type and node ID", async () => {
+    await renderBrowser();
+    fireEvent.dragStart(screen.getByRole("treeitem", { name: /TankPressure/ }));
+    expect(layer()?.querySelector(".lyra-icon--variable")).toBeInstanceOf(Element);
+    expect(layer()?.textContent).toBe("TankPressurefloat64·ns=2;s=TankPressure");
+  });
+
+  it("should count every selected node that the drag carries", async () => {
+    await renderBrowser();
+    fireEvent.click(screen.getByText("TankPressure"));
+    withControlHeld(() => fireEvent.click(screen.getByText("PumpSpeed")));
+    fireEvent.dragStart(screen.getByRole("treeitem", { name: /PumpSpeed/ }));
+    expect(layer()?.querySelector(".lyra-haul-preview__count")?.textContent).toBe("2");
+  });
+
+  it("should picture the node dragged from its details", async () => {
+    const { client, scan } = await renderBrowser();
+    const read = await answerNextCommand(client, scan, {
+      type: OPCUA.Task.READ_NODE_COMMAND_TYPE,
+      data: DETAILS,
+    });
+    fireEvent.click(screen.getByText("TankPressure"));
+    await read.answered;
+    await screen.findByText("Double");
+    const title = document.querySelector('[aria-expanded][draggable="true"]');
+    if (title == null) throw new Error("expected a draggable details title");
+    fireEvent.dragStart(title);
+    expect(layer()?.textContent).toBe("TankPressurefloat64·ns=2;s=TankPressure");
   });
 });
 

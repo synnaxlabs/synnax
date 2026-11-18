@@ -27,6 +27,7 @@ import { useEffect } from "react";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
+import { flux } from "@/flux/aether";
 import { Label } from "@/label";
 import { Synnax } from "@/synnax";
 
@@ -141,6 +142,15 @@ export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRet
   onChange: ({ client, query: { keys } }, handler) =>
     client.ranges.watch(keys).onChange(handler),
   getCached: ({ client, query: { keys } }) => client.ranges.watch(keys).getCached(),
+});
+
+/** The ranges that match the params. A change to a range updates the answer. */
+export const { useResult: useResultList } = Flux.createRetrieve<
+  ranger.RetrieveMultipleParams,
+  ranger.Range[]
+>({
+  name: PLURAL_RESOURCE_NAME,
+  ...flux.listReads(({ client, query }) => client.ranges.watch(query)),
 });
 
 const timeRangeZ = z
@@ -348,6 +358,22 @@ export const { useUpdate: useSetColor } = Flux.createUpdate<SetColorParams>({
       key,
       ranger.set({ path: ["color"], value: value == null ? null : color.hex(value) }),
     );
+    return data;
+  },
+});
+
+export interface SetParentParams {
+  key: ranger.Key;
+  /** The key of the new parent. Null makes the range a top-level range. */
+  parent: ranger.Key | null;
+}
+
+export const { useUpdate: useSetParent } = Flux.createUpdate<SetParentParams>({
+  name: RESOURCE_NAME,
+  verbs: verbs.UPDATE,
+  update: async ({ client, data }) => {
+    const { key, parent } = data;
+    await client.ranges.dispatch(key, ranger.set({ path: ["parent"], value: parent }));
     return data;
   },
 });
