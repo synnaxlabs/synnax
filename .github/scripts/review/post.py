@@ -16,7 +16,7 @@ from dataclasses import dataclass, replace
 from typing import Any
 
 from review import render
-from review.findings import Dismissal, Finding, Review
+from review.findings import Dismissal, Finding, Review, parse
 
 GH = Callable[..., str]
 """Runs `gh` with the given arguments and optional stdin, and returns its stdout."""
@@ -118,25 +118,30 @@ class Target:
     """The slug of the GitHub App the review posts as."""
 
 
-def post(review: Review, *, target: Target, gh: GH) -> None:
-    """Posts a review, without the findings that someone with write access dismissed or
-    that the bot withdrew. A review with no finding left scores 5, and so does the head
-    when the rest are dismissed or withdrawn while the review posts. Findings on lines
-    of the diff become one review of inline threads, skipping any finding an unresolved
-    thread of the bot already holds. Such a thread gets the finding's new heading when
-    its severity changed, and keeps the rest of its comment. The findings outside the
-    diff go in one comment the bot edits on each review. The summary in the pull request
-    body is replaced, and the check run completes. Last, while the target is still the
-    head of the pull request, each open thread of the bot whose finding the review no
-    longer reports gets a reply and is resolved, when its file changed since the review
-    before. A failure there only warns.
+def post(rec: dict[str, Any], *, target: Target, gh: GH) -> None:
+    """Posts the review of a record, without the findings that someone with write
+    access dismissed or that the bot withdrew. A review with no finding left scores 5,
+    and so does the head when the rest are dismissed or withdrawn while the review
+    posts. Findings on lines of the diff become one review of inline threads, skipping
+    any finding an unresolved thread of the bot already holds. Such a thread gets the
+    finding's new heading when its severity changed, and keeps the rest of its comment.
+    The findings outside the diff go in one comment the bot edits on each review. The
+    check run takes the record, when it fits, before any other write. Then the summary
+    in the pull request body is replaced and the check run completes. Last, while the
+    target is still the head of the pull request, each open thread of the bot whose
+    finding the review no longer reports gets a reply and is resolved, when its file
+    changed since the review before. A failure there only warns.
     """
     t = target
+    review = parse(rec["review"])
     found = threads(t, gh)
     can = authority(t, gh)
     gone = {(d.path, d.title) for d in dismissals(t, gh, found, can)}
     reported = {(f.path, render.title(render.heading(f))) for f in review.findings}
     review = _drop(review, gone)
+    run = f"repos/{t.repo}/check-runs/{t.check_run}"
+    # The summary links the check run, so the record lands first.
+    write(gh, "PATCH", run, {"output": render.check(review, rec)})
     blob = f"https://github.com/{t.repo}/blob/{t.head}"
     diff = _diff_lines(t, gh)
     inline = [f for f in review.findings if set(f.lines) <= diff.get(f.path, set())]
@@ -171,12 +176,7 @@ def post(review: Review, *, target: Target, gh: GH) -> None:
     )
     body = render.splice(body.removesuffix("\n"), block)
     write(gh, "PATCH", f"repos/{t.repo}/pulls/{t.pr}", {"body": body})
-    done = {
-        "status": "completed",
-        "conclusion": "success",
-        "output": render.check(review),
-    }
-    write(gh, "PATCH", f"repos/{t.repo}/check-runs/{t.check_run}", done)
+    write(gh, "PATCH", run, {"status": "completed", "conclusion": "success"})
     try:
         _settle(
             t, gh, [th for th in found if (th.path, th.title) not in reported | gone]
