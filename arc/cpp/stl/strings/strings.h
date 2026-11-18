@@ -337,7 +337,8 @@ format_int_value(const std::string &spec_str, int64_t value, bool is_signed) {
 
 /// Formats a float value to match Go's fmt.Sprintf("%"+spec, v). Delegates
 /// finite values to snprintf; NaN/±Inf use Go's capitalization.
-inline std::string format_float_value(const std::string &spec_str, double v) {
+template<typename T>
+std::string format_float_value(const std::string &spec_str, T v) {
     if (spec_str.empty()) return format_float(v);
     const FormatSpec f = parse_format_spec(spec_str);
     if (std::isnan(v)) {
@@ -385,30 +386,31 @@ inline std::string format_float_value(const std::string &spec_str, double v) {
         }
         return apply_width(sign, "", body, f);
     }
+    const auto d = static_cast<double>(v);
     char buf[128];
     const int prec = f.precision >= 0 ? f.precision : 6;
     int n = 0;
     switch (f.verb) {
         case 'f':
         case 'F':
-            n = f.alt ? std::snprintf(buf, sizeof(buf), "%#.*f", prec, v)
-                      : std::snprintf(buf, sizeof(buf), "%.*f", prec, v);
+            n = f.alt ? std::snprintf(buf, sizeof(buf), "%#.*f", prec, d)
+                      : std::snprintf(buf, sizeof(buf), "%.*f", prec, d);
             break;
         case 'e':
-            n = f.alt ? std::snprintf(buf, sizeof(buf), "%#.*e", prec, v)
-                      : std::snprintf(buf, sizeof(buf), "%.*e", prec, v);
+            n = f.alt ? std::snprintf(buf, sizeof(buf), "%#.*e", prec, d)
+                      : std::snprintf(buf, sizeof(buf), "%.*e", prec, d);
             break;
         case 'E':
-            n = f.alt ? std::snprintf(buf, sizeof(buf), "%#.*E", prec, v)
-                      : std::snprintf(buf, sizeof(buf), "%.*E", prec, v);
+            n = f.alt ? std::snprintf(buf, sizeof(buf), "%#.*E", prec, d)
+                      : std::snprintf(buf, sizeof(buf), "%.*E", prec, d);
             break;
         case 'g':
-            n = f.alt ? std::snprintf(buf, sizeof(buf), "%#.*g", prec, v)
-                      : std::snprintf(buf, sizeof(buf), "%.*g", prec, v);
+            n = f.alt ? std::snprintf(buf, sizeof(buf), "%#.*g", prec, d)
+                      : std::snprintf(buf, sizeof(buf), "%.*g", prec, d);
             break;
         case 'G':
-            n = f.alt ? std::snprintf(buf, sizeof(buf), "%#.*G", prec, v)
-                      : std::snprintf(buf, sizeof(buf), "%.*G", prec, v);
+            n = f.alt ? std::snprintf(buf, sizeof(buf), "%#.*G", prec, d)
+                      : std::snprintf(buf, sizeof(buf), "%.*G", prec, d);
             break;
         default:
             return "";
@@ -708,7 +710,7 @@ public:
                 "format_f32",
                 [self, ss](float v, uint32_t ptr, uint32_t len) -> uint32_t {
                     const std::string spec = self->read_memory_string(ptr, len);
-                    return ss->create(format_float_value(spec, static_cast<double>(v)));
+                    return ss->create(format_float_value(spec, v));
                 }
             )
             .unwrap();

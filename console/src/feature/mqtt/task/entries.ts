@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, mqtt } from "@synnaxlabs/client";
+import { json } from "@synnaxlabs/x";
 
 import { createLeaves, createRawLeaf, type Leaf } from "@/feature/mqtt/task/leaves";
 import {
@@ -35,15 +36,9 @@ export const createSparkplugEntry = (tag?: SparkplugTag): SparkplugReadEntry => 
   };
 };
 
-const unescapeToken = (token: string): string =>
-  token.replaceAll("~1", "/").replaceAll("~0", "~");
-
-const tokens = (pointer: string): string[] =>
-  pointer === "" ? [] : pointer.slice(1).split("/").map(unescapeToken);
-
 /** Names a pointer for people: "motor › speed", or "Whole payload". */
 export const pointerLabel = (pointer: string): string =>
-  pointer === "" ? "Whole payload" : tokens(pointer).join(" › ");
+  pointer === "" ? "Whole payload" : json.parsePointer(pointer).join(" › ");
 
 /** @returns the sample of a browsed topic at a pointer, or null when it has none. */
 export const sampleAt = (

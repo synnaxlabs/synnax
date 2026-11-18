@@ -25,6 +25,15 @@ var _ = Describe("Parse", func() {
 		Expect(rules.Required).To(BeTrue())
 	})
 
+	It("should parse finite expression", func() {
+		domain := resolution.Domain{
+			Expressions: []resolution.Expression{{Name: "finite"}},
+		}
+		rules := validation.Parse(domain)
+		Expect(rules.Finite).To(BeTrue())
+		Expect(validation.IsEmpty(rules)).To(BeFalse())
+	})
+
 	It("should parse skip expression", func() {
 		domain := resolution.Domain{
 			Expressions: []resolution.Expression{{Name: "skip"}},
@@ -395,6 +404,13 @@ var _ = Describe("Merge", func() {
 	It("should keep required from either side", func() {
 		merged := validation.Merge(&validation.Rules{}, parse("required"))
 		Expect(merged.Required).To(BeTrue())
+	})
+
+	It("should keep finite from either side", func() {
+		Expect(validation.Merge(parse("finite"), &validation.Rules{}).Finite).
+			To(BeTrue())
+		Expect(validation.Merge(&validation.Rules{}, parse("finite")).Finite).
+			To(BeTrue())
 	})
 
 	It("should take a pattern from the side that sets one", func() {
