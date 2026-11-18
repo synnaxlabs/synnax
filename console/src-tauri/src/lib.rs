@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-//! The parts of Synnax Desktop that its helper programs share with the app.
+//! The parts of the Console shell that its programs and tests share.
 
 pub mod discovery;
+#[cfg(target_os = "linux")]
+pub mod webkit;

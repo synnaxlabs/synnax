@@ -46,6 +46,45 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "read",
+    srcs = [
+        "extract.cpp",
+        "literal.h",
+        "number.cpp",
+        "pointer.cpp",
+        "text.cpp",
+    ],
+    hdrs = [
+        "extract.h",
+        "number.h",
+        "pointer.h",
+        "text.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//x/cpp/errors",
+        "//x/cpp/telem",
+    ],
+)
+
+cc_test(
+    name = "read_test",
+    srcs = [
+        "extract_test.cpp",
+        "number_test.cpp",
+        "pointer_test.cpp",
+        "text_test.cpp",
+    ],
+    deps = [
+        ":read",
+        "//x/cpp/errors",
+        "//x/cpp/telem",
+        "//x/cpp/testutil",
+        "@googletest//:gtest_main",
+    ],
+)
+
 cc_test(
     name = "json_test",
     srcs = [

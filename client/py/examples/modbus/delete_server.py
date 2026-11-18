@@ -29,6 +29,8 @@ Configuration:
     Modify the constants below to match your Modbus server name.
 """
 
+import sys
+
 import synnax as sy
 
 # Configuration
@@ -51,7 +53,7 @@ if existing_device is None:
     print()
     print("The server is already disconnected from Synnax.")
     print("=" * 70)
-    exit(0)
+    sys.exit(0)
 
 # Server found - show info and prompt for confirmation
 print("Server found:")
@@ -79,7 +81,7 @@ if response in ("y", "yes"):
         print()
         print("The Modbus server has been disconnected from Synnax.")
         print("=" * 70)
-        exit(0)
+        sys.exit(0)
 
     except Exception as e:
         print(f"✗ Failed to delete server: {e}")
@@ -89,11 +91,11 @@ if response in ("y", "yes"):
         print("2. Go to Resources → Devices")
         print(f"3. Find '{DEVICE_NAME}' and delete it")
         print("=" * 70)
-        exit(1)
+        sys.exit(1)
 
 else:
     # User cancelled
     print()
     print("Deletion cancelled - server preserved.")
     print("=" * 70)
-    exit(0)
+    sys.exit(0)
