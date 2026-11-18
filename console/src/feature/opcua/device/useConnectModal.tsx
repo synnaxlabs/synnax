@@ -206,7 +206,6 @@ export const Connect = ({
   const hasSecurity =
     Form.useFieldValue(path.properties.connection.securityMode, { ctx: form }) !=
     NO_SECURITY_MODE;
-  const name = Form.useFieldValue(path.name, { ctx: form });
   const clientCertificate = Form.useFieldValue(
     path.properties.connection.clientCertificate,
     { ctx: form },
@@ -240,7 +239,7 @@ export const Connect = ({
   });
   const handleTrust = (offer: CertificateInfo) =>
     trust({
-      name: `${name || DEFAULT_NAME} server certificate`,
+      name: `${getField(path.name).value || DEFAULT_NAME} server certificate`,
       source: "stored",
       pem: offer.pem,
     });
@@ -334,20 +333,18 @@ export const Connect = ({
                     </Flex.Box>
                   </Input.Item>
                   {source === "certificate" && (
-                    <Certificate.Field
+                    <DeviceCertificateField
                       path={path.properties.connection.clientCertificate}
                       label="Certificate"
-                      defaultName={`${name || DEFAULT_NAME} client certificate`}
-                      rack={rackKey}
+                      role="client certificate"
                       padHelpText={false}
                     />
                   )}
                   <Flex.Box y gap={2}>
-                    <Certificate.Field
+                    <DeviceCertificateField
                       path={path.properties.connection.serverCertificate}
                       label="Server certificate"
-                      defaultName={`${name || DEFAULT_NAME} server certificate`}
-                      rack={rackKey}
+                      role="server certificate"
                       padHelpText={false}
                       allowNone
                     />
@@ -438,6 +435,27 @@ const LoginField = ({ value, onChange }: Input.Control<string | undefined>) => {
 };
 
 const renderLogin = Component.renderProp(LoginField);
+
+interface DeviceCertificateFieldProps extends Omit<
+  Certificate.FieldProps,
+  "defaultName" | "rack"
+> {
+  /** What a new certificate is to the device, such as "server certificate". */
+  role: string;
+}
+
+/** A certificate field whose new certificate starts with the name of the device. */
+const DeviceCertificateField = ({ role, ...rest }: DeviceCertificateFieldProps) => {
+  const name = Form.useFieldValue(path.name);
+  const rack = Form.useFieldValue(path.rack);
+  return (
+    <Certificate.Field
+      {...rest}
+      defaultName={`${name || DEFAULT_NAME} ${role}`}
+      rack={rack}
+    />
+  );
+};
 
 const VALIDATION_PATH = path.properties.connection.certificateValidationDisabled;
 

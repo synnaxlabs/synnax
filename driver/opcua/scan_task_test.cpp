@@ -801,6 +801,24 @@ TEST_F(TestScanTask, testHealthCheckMissingPassword) {
     EXPECT_FALSE(status.details.connected);
 }
 
+/// @brief it should report a device whose server certificate it cannot read.
+TEST_F(TestScanTask, testHealthCheckMissingCertificate) {
+    Scanner scanner(ctx, task, conn_pool, store, reader);
+    const auto missing = x::uuid::create();
+    auto cfg = secured_config();
+    cfg.server_certificate_item = missing;
+    const auto scanned = scan(scanner, secured_device(cfg));
+    ASSERT_EQ(scanned.size(), 1);
+    const auto &status = scanned[0].status.value();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(status.message, "Failed to read certificate");
+    EXPECT_EQ(
+        status.description,
+        "Found no certificate where key = \"" + missing.to_string() + "\""
+    );
+    EXPECT_FALSE(status.details.connected);
+}
+
 /// @brief it should browse a saved device's server with the password in its secret.
 TEST_F(TestScanTask, testBrowseDeviceReadsPassword) {
     start_secured_server(server_id, {}, {{"user", x::x509::testutil::KEY}});
@@ -845,9 +863,9 @@ TEST_F(TestScanTask, testSentPasswordNeedsGrant) {
 /// and no grant, so that a command cannot present a saved certificate to any server.
 TEST_F(TestScanTask, testSentClientCertificateNeedsGrant) {
     Scanner scanner(ctx, task, conn_pool, store, reader);
+    const auto own = secret::testutil::create_stored_certificate(*client);
     auto cfg = secured_config();
-    cfg.client_certificate_item = secret::testutil::create_stored_certificate(*client)
-                                      .key;
+    cfg.client_certificate_item = own.key;
     synnax::task::Command cmd{
         .type = TEST_CONNECTION_CMD_TYPE,
         .key = "client_certificate_cmd",
@@ -869,13 +887,13 @@ TEST_F(TestScanTask, testSentClientCertificateNeedsGrant) {
 TEST_F(TestScanTask, testHealthCheckReadsClientCertificate) {
     start_secured_server(server_id, {other_id.certificate});
     Scanner scanner(ctx, task, conn_pool, store, reader);
-    synnax::certificate::Certificate c = synnax::certificate::StoredCertificate{};
-    auto &stored = std::get<synnax::certificate::StoredCertificate>(c);
-    stored.name = "client " + x::uuid::create().to_string();
-    stored.pem = other_id.certificate.pem();
-    ASSERT_NIL(client->certificates.set(c, other_id.private_key));
+    const auto own = secret::testutil::create_stored_certificate(
+        *client,
+        other_id.certificate.pem(),
+        other_id.private_key
+    );
     auto cfg = secured_config();
-    cfg.client_certificate_item = stored.key;
+    cfg.client_certificate_item = own.key;
     cfg.server_certificate_item = secret::testutil::create_certificate(
         *client,
         server_id.certificate.pem()
