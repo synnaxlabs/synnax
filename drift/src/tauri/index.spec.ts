@@ -32,16 +32,18 @@ const WINDOW_PROPS: Record<string, unknown> = {
 describe("TauriRuntime", () => {
   let created: Record<string, unknown> | undefined;
   let commands: string[];
+  let responses: Record<string, unknown>;
   beforeEach(() => {
     created = undefined;
     commands = [];
+    responses = { ...WINDOW_PROPS };
     mockWindows("main");
     mockIPC(
       (cmd, args) => {
         commands.push(cmd);
         if (cmd === "plugin:webview|create_webview_window")
           created = (args as { options: Record<string, unknown> }).options;
-        return WINDOW_PROPS[cmd] ?? null;
+        return responses[cmd] ?? null;
       },
       { shouldMockEvents: true },
     );
@@ -64,6 +66,17 @@ describe("TauriRuntime", () => {
       const runtime = new TauriRuntime();
       await runtime.create("child", {});
       expect(created?.trafficLightPosition).toBeUndefined();
+    });
+
+    it("should move a window off a HiDPI monitor back to the origin", async () => {
+      const area = { position: { x: 0, y: 0 }, size: { width: 2000, height: 1000 } };
+      // 2000 physical pixels at a scale of 2 span 1000 logical pixels.
+      responses["plugin:window|available_monitors"] = [
+        { name: "hidpi", scaleFactor: 2, ...area, workArea: area },
+      ];
+      const runtime = new TauriRuntime();
+      await runtime.create("child", { position: { x: 1500, y: 100 } });
+      expect(created).toMatchObject({ x: 0, y: 0 });
     });
   });
 

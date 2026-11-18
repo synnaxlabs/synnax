@@ -166,9 +166,8 @@ export class TimeStamp
   }
 
   private static parseDate([year = 1970, month = 1, day = 1]: DateComponents): bigint {
-    const date = new Date(year, month - 1, day, 0, 0, 0, 0);
-    // We truncate here to only get the date component regardless of the time zone.
-    return new TimeStamp(date).truncate(TimeSpan.DAY).valueOf();
+    const ms = Date.UTC(year, month - 1, day);
+    return BigInt(ms) * TimeSpan.MILLISECOND.valueOf();
   }
 
   /** @returns the timestamp as nanoseconds since the Unix epoch. */

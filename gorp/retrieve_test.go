@@ -886,6 +886,19 @@ var _ = Describe("Retrieve", func() {
 			).To(Succeed())
 			Expect(res).To(HaveLen(10))
 		})
+
+		It("Should filter a query bounded by keys", func(ctx SpecContext) {
+			var res []entry
+			Expect(gorp.NewRetrieve[int32, entry]().
+				Entries(&res).
+				Where(gorp.MatchKeys[int32, entry](1, 2, 3)).
+				WhereRaw(func(key, _ []byte) (bool, error) {
+					return bytes.HasSuffix(key, []byte{0, 0, 0, 2}), nil
+				}).
+				Exec(ctx, tx),
+			).To(Succeed())
+			Expect(res).To(Equal([]entry{entries[2]}))
+		})
 	})
 
 	Describe("No Parameters", func() {
