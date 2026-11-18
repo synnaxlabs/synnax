@@ -43,6 +43,12 @@ describe("Scale", () => {
       });
     });
   });
+  it("should sort a reversed pair of bounds it scales from", () => {
+    const reversed = Scale.scale<number>(10, 0).scale(0, 1);
+    expect(reversed.pos(0)).toBe(0);
+    expect(reversed.pos(10)).toBe(1);
+    expect(Scale.scale<number>({ lower: 10, upper: 0 }).scale(0, 1).pos(10)).toBe(1);
+  });
   describe("dimension", () => {
     const dimensionSpecs: ScaleSpec[] = [
       ["basic", simpleScale, 0, 0],
