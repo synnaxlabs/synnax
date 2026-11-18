@@ -12,7 +12,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 
-import { useConnected } from "@/feature/sift/device/useConnected";
+import { Device } from "@/feature/sift/device";
 import { useUploadModal } from "@/feature/sift/range/useUploadModal";
 
 export interface UploadMenuItemProps {
@@ -26,7 +26,7 @@ export interface UploadMenuItemProps {
  */
 export const UploadMenuItem = ({ rangeKey, rangeName }: UploadMenuItemProps) => {
   const open = useUploadModal();
-  const connected = useConnected();
+  const connected = Device.useConnected();
   if (!connected) return null;
   return (
     <Menu.Item
@@ -56,7 +56,7 @@ export const UploadRegionMenuItem = ({
 }: UploadRegionMenuItemProps) => {
   const open = useUploadModal();
   const handleError = Status.useErrorHandler();
-  const connected = useConnected();
+  const connected = Device.useConnected();
   const handleClick = () =>
     handleError(async () => {
       const tr = await getTimeRange();

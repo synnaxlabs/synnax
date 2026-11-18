@@ -21,7 +21,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Ranger, Status as PStatus } from "@synnaxlabs/pluto";
 import { bounds, TimeRange } from "@synnaxlabs/x";
 
-import { useConnected } from "@/feature/sift/device/useConnected";
+import { Device } from "@/feature/sift/device";
 import { useList } from "@/feature/sift/range/list";
 import { useUploadModal } from "@/feature/sift/range/useUploadModal";
 import { CSS } from "@/platform/css";
@@ -95,7 +95,7 @@ export interface UploadsProps {
  */
 export const Uploads = ({ rangeKey }: UploadsProps) => {
   const rangeName = Ranger.useResult({ key: rangeKey }).data?.name ?? "";
-  const connected = useConnected();
+  const connected = Device.useConnected();
   const open = useUploadModal();
   const uploads = useList(rangeKey);
   const data = uploads.data ?? [];
