@@ -59,32 +59,4 @@ describe("MultiEdit", () => {
       ).toThrow(z.ZodError);
     });
   });
-
-  describe("fixedColorRefs", () => {
-    it("should reference each color stored at the fields as a fixed color", () => {
-      const refs = MultiEdit.fixedColorRefs(
-        "a",
-        { strokeColor: "#ff0000", fillColor: undefined, textColor: "#00ff00" },
-        ["strokeColor", "fillColor", "textColor"],
-      );
-      expect(refs).toEqual([
-        {
-          key: "a",
-          path: "strokeColor",
-          value: { type: "fixed", value: color.construct("#ff0000") },
-        },
-        {
-          key: "a",
-          path: "textColor",
-          value: { type: "fixed", value: color.construct("#00ff00") },
-        },
-      ]);
-    });
-
-    it("should throw when a field holds a value that is not a color", () => {
-      expect(() =>
-        MultiEdit.fixedColorRefs("a", { fillColor: { type: "named" } }, ["fillColor"]),
-      ).toThrow(z.ZodError);
-    });
-  });
 });

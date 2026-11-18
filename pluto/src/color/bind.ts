@@ -32,7 +32,7 @@ export const useBinding = (
   const palettes = usePalettes();
   const resolve = useResolve();
   return {
-    value: value == null ? undefined : resolve(value),
+    value: resolve(value),
     onChange: (c) => onChange(c == null ? undefined : { type: "fixed", value: c }),
     library:
       palettes.length === 0

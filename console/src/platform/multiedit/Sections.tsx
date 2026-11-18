@@ -50,15 +50,10 @@ export const StalenessSection = ({
   unit = TimeSpan.NANOSECOND,
   onColorChange,
   onTimeoutChange,
-  palettesHidden,
+  ...rest
 }: StalenessSectionProps): ReactElement => (
   <Form.Section title="Staleness">
-    <ColorField
-      label="Color"
-      values={colors}
-      onChange={onColorChange}
-      palettesHidden={palettesHidden}
-    />
+    <ColorField label="Color" values={colors} onChange={onColorChange} {...rest} />
     <Input.Item label="Timeout" align="start" padHelpText={false}>
       <Input.TimeSpan
         inline
