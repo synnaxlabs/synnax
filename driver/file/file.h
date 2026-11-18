@@ -63,7 +63,7 @@ public:
     explicit Browser(Config cfg);
 
     /// @brief lists the folder at path, or the roots, the home folder, and the secrets
-    /// folder when path is empty.
+    /// folder when path is empty. It leaves out an entry whose name is not valid UTF-8.
     /// @param path an absolute path as UTF-8.
     /// @returns the data of the reply to a list command.
     /// @returns x::fs::INVALID_PATH if the path is relative or not a folder,
@@ -75,11 +75,9 @@ public:
 
 private:
     Config cfg;
-    /// @brief the secrets folder with its links resolved, for comparison.
-    std::filesystem::path secrets;
 
     [[nodiscard]] x::json::json top() const;
-    [[nodiscard]] bool secret(const std::filesystem::path &path) const;
+    [[nodiscard]] std::string secrets_dir() const;
 };
 
 /// @brief the File Browser task. It runs nothing, and answers each list command with
