@@ -17,6 +17,8 @@ import (
 	"slices"
 	"syscall"
 
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/invariants"
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -99,6 +101,21 @@ func (d *disk) sync(n *node, p string) {
 		n.syncs++
 	}
 	n.dirty, n.written = nil, nil
+	if invariants.Enabled {
+		checkSynced(n.synced)
+	}
+}
+
+// checkSynced panics when the ranges that a Sync made durable are not sorted, apart,
+// and not empty, as the targets of lasting corruption need them.
+func checkSynced(synced []Span) {
+	for i, s := range synced {
+		if s.From < 0 || s.From >= s.To || (i > 0 && synced[i-1].To >= s.From) {
+			panic(
+				errors.Newf("fault: synced ranges %v are not sorted and apart", synced),
+			)
+		}
+	}
 }
 
 // writtenIn returns, in rising order, the parts of the written ranges of n that are in

@@ -16,6 +16,7 @@ import (
 	"sync"
 
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/invariants"
 	"github.com/synnaxlabs/x/io/fs/testutil/fault"
 )
 
@@ -123,6 +124,9 @@ func (r *run) work(engine Engine) {
 		}
 		r.mu.Lock()
 		r.attempts = append(r.attempts, attempt{record: rec})
+		if invariants.Enabled {
+			checkOrder(r.attempts)
+		}
 		r.mu.Unlock()
 		ack, err := engine.Commit(r.ctx, rec, want)
 		if err != nil {
@@ -157,6 +161,17 @@ func (r *run) work(engine Engine) {
 	}
 	if b := checkLive(r.attempts, records); b != nil {
 		r.fail(b, 0, nil)
+	}
+}
+
+// checkOrder panics when the newest attempt is not the next commit, since the oracle
+// reads attempt i as commit i + 1.
+func checkOrder(attempts []attempt) {
+	last := attempts[len(attempts)-1]
+	if last.record.ID != uint64(len(attempts)) {
+		panic(errors.Newf(
+			"crash: attempt %d holds commit %d", len(attempts), last.record.ID,
+		))
 	}
 }
 
