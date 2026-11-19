@@ -31,11 +31,9 @@ type paint struct {
 }
 
 func (p paint) changes() bool {
-	distinct := make([]xcolor.Color, 0, len(p.colors))
+	distinct := make(set.Set[xcolor.Color], len(p.colors))
 	for _, c := range p.colors {
-		if !slices.Contains(distinct, c) {
-			distinct = append(distinct, c)
-		}
+		distinct.Add(c)
 	}
 	return len(distinct) > 1
 }

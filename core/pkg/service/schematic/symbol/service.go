@@ -117,12 +117,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		Name:       tableName,
 		Indexes:    s.indexes.all(),
 		References: s.indexes.references(),
-		Migrations: versions.Migrations(
-			func(tx gorp.Tx) v5.Intern {
+		Migrations: versions.NewMigrations(versions.MigrationsConfig{
+			Intern: func(tx gorp.Tx) v5.Intern {
 				return cfg.Enumeration.NewWriter(tx).NewInterner().Intern
 			},
-			cfg.Actuators,
-		),
+			Actuators: cfg.Actuators,
+		}),
 		// A named color delete or an enumeration retarget rewrites the symbol outside
 		// any symbol write, so the service sends it as a create.
 		OnRewrite: func(_ context.Context, tx gorp.Tx, sym Symbol) error {

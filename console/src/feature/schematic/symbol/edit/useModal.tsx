@@ -61,15 +61,16 @@ interface StatesProps {
 
 // States lists the values of the state, named by the entries of its enumeration.
 const States = ({ value, onChange }: StatesProps): ReactElement | null => {
-  const spec = Form.useFieldValue(path.data);
-  const key = Spec.enumerationKey(spec);
+  const states = Form.useFieldValue(path.data.states);
+  const variant = Form.useFieldValue(path.data.variant);
+  const key = Spec.enumerationKey({ states });
   const res = Enumeration.useResult(key == null ? null : { key });
   const entries = res.variant === "success" ? res.data.entries : undefined;
   return (
     <StateList
       value={value}
       onChange={onChange}
-      tabs={Schematic.Node.Custom.listValues(spec, entries)}
+      tabs={Schematic.Node.Custom.listValues({ variant }, entries)}
     />
   );
 };

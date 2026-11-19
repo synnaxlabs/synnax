@@ -17,10 +17,12 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
+	namedcolor "github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
+	"github.com/synnaxlabs/x/color"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/validate"
@@ -237,5 +239,64 @@ var _ = Describe("Dispatch", func() {
 			{Key: sym.Key, DispatchKey: "dk", Seq: frames[0].Seq, Actions: want},
 			{Key: other.Key, DispatchKey: "dk", Seq: frames[1].Seq, Actions: want},
 		}))
+	})
+
+	Describe("Named color delete", func() {
+		It("Should inline the light value and broadcast the symbol", func(
+			ctx SpecContext,
+		) {
+			colors := MustOpen(namedcolor.OpenService(
+				ctx,
+				namedcolor.ServiceConfig{DB: db, Group: groupSvc},
+			))
+			red := MustSucceed(color.Parse("#ff0000"))
+			trip := namedcolor.Named{Name: "Trip", Light: red}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return colors.NewWriter(tx).Create(ctx, &trip)
+			})).To(Succeed())
+			paint := func(ref namedcolor.RefVariant) *symbol.Paint {
+				return &symbol.Paint{
+					Variant: symbol.ColorPaint{Value: namedcolor.Ref{Variant: ref}},
+				}
+			}
+			painted := symbol.Symbol{
+				Name: "Painted",
+				Data: symbol.Spec{
+					Drawing: svg(`<svg><rect id="body"/></svg>`),
+					Parts: []symbol.Part{
+						{Key: "body", Name: "Body", Selectors: []string{"#body"}},
+					},
+					Looks: []symbol.Look{{
+						Key:  "a",
+						Part: new("body"),
+						Fill: paint(namedcolor.NamedRef{Key: trip.Key}),
+					}},
+					Variant: "static",
+					Scale:   1,
+				},
+			}
+			Expect(write(ctx, func(w symbol.Writer) error {
+				return w.Create(ctx, &painted)
+			})).To(Succeed())
+			rec := record()
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return colors.NewWriter(tx).Delete(ctx, trip.Key)
+			})).To(Succeed())
+			var stored symbol.Symbol
+			Expect(svc.NewRetrieve().
+				Where(symbol.MatchKeys(painted.Key)).
+				Entry(&stored).
+				Exec(ctx, db)).To(Succeed())
+			Expect(stored.Data.Looks[0].Fill).
+				To(Equal(paint(namedcolor.FixedRef{Value: red})))
+			frames := rec.Snapshot()
+			Expect(frames).To(ConsistOf(frame{
+				Key: painted.Key,
+				Seq: frames[0].Seq,
+				Actions: []symbol.Action{
+					symbol.NewCreateAction(symbol.CreatePayload{Symbol: stored}),
+				},
+			}))
+		})
 	})
 })

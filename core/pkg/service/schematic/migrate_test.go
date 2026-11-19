@@ -10,6 +10,7 @@
 package schematic_test
 
 import (
+	"slices"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -23,6 +24,7 @@ import (
 	symbolversions "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v4"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions"
+	v13 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v13"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/types"
@@ -33,12 +35,16 @@ var _ = Describe("Stored v4 symbols", func() {
 		"node draws", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		StartRun(db.Run)
+		// Stores hold the shapes of 0.62.0, whose chains end at these migrations.
+		shipped := slices.IndexFunc(versions.Migrations, func(m gorp.Migration) bool {
+			return m.Key() == v13.NameMigration.Key()
+		})
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:         db,
 			Namespace:  types.Name[schematic.Schematic](),
-			Migrations: versions.Migrations,
+			Migrations: versions.Migrations[:shipped+1],
 		})).To(Succeed())
-		chain := symbolversions.Migrations(nil, nil)
+		chain := symbolversions.NewMigrations(symbolversions.MigrationsConfig{})
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:         db,
 			Namespace:  types.Name[symbol.Symbol](),
@@ -55,25 +61,19 @@ var _ = Describe("Stored v4 symbols", func() {
 		Expect(gorp.NewCreate[v4.Key, v4.Symbol]().
 			Entries(&[]v4.Symbol{drawn, static}).
 			Exec(ctx, db)).To(Succeed())
-		node := func(key string, v schematic.NodeConfigVariant) schematic.Node {
-			return schematic.Node{Key: key, Config: schematic.NodeConfig{Variant: v}}
+		node := func(key string, v v13.NodeConfigVariant) v13.Node {
+			return v13.Node{Key: key, Config: v13.NodeConfig{Variant: v}}
 		}
-		sc := schematic.Schematic{
+		sc := v13.Schematic{
 			Key:  uuid.New(),
 			Name: "Schematic",
-			Nodes: []schematic.Node{
-				node(
-					"a",
-					schematic.CustomActuatorNodeConfig{SpecKey: drawn.Key.String()},
-				),
-				node(
-					"b",
-					schematic.CustomStaticNodeConfig{SpecKey: static.Key.String()},
-				),
-				node("c", schematic.CustomActuatorNodeConfig{SpecKey: "not-a-uuid"}),
+			Nodes: []v13.Node{
+				node("a", v13.CustomActuatorNodeConfig{SpecKey: drawn.Key.String()}),
+				node("b", v13.CustomStaticNodeConfig{SpecKey: static.Key.String()}),
+				node("c", v13.CustomActuatorNodeConfig{SpecKey: "not-a-uuid"}),
 			},
 		}
-		Expect(gorp.NewCreate[schematic.Key, schematic.Schematic]().
+		Expect(gorp.NewCreate[v13.Key, v13.Schematic]().
 			Entry(&sc).
 			Exec(ctx, db)).To(Succeed())
 		enums := MustOpen(

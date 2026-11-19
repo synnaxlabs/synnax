@@ -34,7 +34,9 @@ export const createState = (): schematic.symbol.State => ({
 });
 
 /** @returns the key of the enumeration of the state, if it has one. */
-export const enumerationKey = (spec: Spec): enumeration.Key | undefined => {
+export const enumerationKey = (
+  spec: Pick<Spec, "states">,
+): enumeration.Key | undefined => {
   const state = spec.states.find((s) => s.key === STATE);
   return state?.type === "enumeration" ? state.enumeration : undefined;
 };

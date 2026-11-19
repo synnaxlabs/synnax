@@ -107,6 +107,7 @@ func valveSpec() symbol.Spec {
 
 var _ = Describe("Checks", func() {
 	create := func(ctx SpecContext, data symbol.Spec) error {
+		GinkgoHelper()
 		sym := symbol.Symbol{Name: "valve", Data: data}
 		tx := DeferClose(db.OpenTx())
 		return svc.NewWriter(tx).Create(ctx, &sym)

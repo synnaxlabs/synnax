@@ -285,8 +285,8 @@ export interface Named {
  * Names a shape of markup with a data-region-id when it has no id or data-region-id.
  * @param drawing - The element that useRender built from markup.
  * @param shape - A shape inside drawing.
- * @returns markup with the new name, and a selector that names the shape. The markup
- * is as given when the shape already has a name.
+ * @returns markup with the new name, and a selector that names the shape. The markup is
+ * as given when the shape already has a name.
  */
 export const name = (markup: string, drawing: Element, shape: Element): Named => {
   const root = parseSVG(markup);
