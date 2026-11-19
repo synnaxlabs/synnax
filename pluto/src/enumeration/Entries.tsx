@@ -156,8 +156,11 @@ const ColorCell = ({
 
 export interface TableProps {
   value: enumeration.Entry[];
-  /** Called with an entry the user edits. */
-  onSet: (entry: enumeration.Entry) => void;
+  /**
+   * Called once per edit with every entry it changes. The caller saves them as one
+   * change, since a swap of two values is valid only as a whole.
+   */
+  onSet: (entries: enumeration.Entry[]) => void;
   /** Called with the entries the user adds, in order, after the last entry. */
   onAdd: (entries: enumeration.Entry[]) => void;
   onRemove: (index: number) => void;
@@ -223,6 +226,7 @@ export const Table = ({
     nextValue([...rows, ...value.map(toRow)]);
 
   const handleChange = (rows: Input.TableCell[][]): void => {
+    const changed: enumeration.Entry[] = [];
     const added: enumeration.Entry[] = [];
     const nextHeld = new Map<string, number>();
     // An edit can free a value that another row holds, so each row checks the rows as
@@ -247,8 +251,9 @@ export const Table = ({
         nextHeld.set(prev.key, next.value);
         next = { ...next, value: prev.value };
       }
-      if (!deep.equal(next, prev)) onSet(next);
+      if (!deep.equal(next, prev)) changed.push(next);
     });
+    if (changed.length > 0) onSet(changed);
     if (!deep.equal([...nextHeld], [...held])) setHeld(nextHeld);
     if (added.length > 0) onAdd(added);
   };
@@ -261,11 +266,13 @@ export const Table = ({
       stored.filter((_, j) => j !== i),
     );
     const nextHeld = new Map<string, number>();
+    const freed: enumeration.Entry[] = [];
     rest.forEach((entry, j) => {
       if (!holds.has(entry.key)) return;
       if (still.has(j)) nextHeld.set(entry.key, entry.value);
-      else onSet(entry);
+      else freed.push(entry);
     });
+    if (freed.length > 0) onSet(freed);
     setHeld(nextHeld);
   };
 
@@ -382,7 +389,11 @@ export const Entries = ({ enumeration: key }: EntriesProps): ReactElement => {
     <Table
       value={entries}
       preview={!canUpdate}
-      onSet={(entry) => form.set(formPath.entries[entry.key], entry)}
+      onSet={(changed) =>
+        form.batch(() => {
+          for (const entry of changed) form.set(formPath.entries[entry.key], entry);
+        })
+      }
       onAdd={handleAdd}
       onRemove={(i) => form.remove(formPath.entries[entries[i].key])}
       onMove={handleMove}
