@@ -262,6 +262,11 @@ jobs:
             --disable "$COMPLEXITY" "${packages[@]}"
           ./custom-gcl run --path-mode=abs --enable-only "$COMPLEXITY" "${packages[@]}"
 
+      - name: Check for known vulnerabilities
+        if: matrix.goos == 'linux' && matrix.shard == 1
+        working-directory: ${{ inputs.directory }}
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
+
       # Each save holds every entry it restored, so stale builds pile up until their
       # extraction fills the disk. Go and golangci-lint refresh an entry's mtime when
       # they use it, so deleting the oldest files first keeps the ones this lint read.
