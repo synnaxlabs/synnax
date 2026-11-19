@@ -132,8 +132,13 @@ export interface ContextValue {
   claimDragEvent: (event: Event) => boolean;
   /** Shows `preview` at the pointer for the drag that `event` starts. */
   setPreview: (event: DragEvent, preview: ReactNode, anchor?: PreviewAnchor) => void;
-  /** A live ref to the current dragging state, readable at event time. */
+  /**
+   * A live ref to the current dragging state, readable at event time. It also holds a
+   * drag that another window started.
+   */
   stateRef: RefObject<DraggingState>;
+  /** A live ref to the drag this window started. It is empty in every other window. */
+  startedRef: RefObject<DraggingState>;
 }
 
 /**
@@ -195,6 +200,7 @@ export const Provider = memo(
       onChange,
     });
     const ref = useRef<ProviderRef>(HAUL_REF);
+    const stateRef = useSyncedRef(dragging);
     const interceptors = useRef<Set<DragEndInterceptor>>(new Set());
     const watchers = useRef<Set<OnResolve>>(new Set());
     const handledEvents = useRef<WeakSet<Event>>(new WeakSet());
@@ -276,7 +282,8 @@ export const Provider = memo(
       watch,
       claimDragEvent,
       setPreview,
-      stateRef: ref,
+      stateRef,
+      startedRef: ref,
     };
     // A nested Provider reuses the outer one's contexts, which are already in scope,
     // so it renders children without re-providing.
@@ -379,7 +386,7 @@ export const useDrag = ({ type, key }: UseDragProps): UseDragReturn => {
     onSuccessfulDrop,
   }) => {
     if (ctx == null) return;
-    const { start, end, stateRef, setPreview } = ctx;
+    const { start, end, startedRef, setPreview } = ctx;
     start(source, items, onSuccessfulDrop);
     setPreview(event, preview, anchor);
     dimSources(event.currentTarget);
@@ -389,7 +396,7 @@ export const useDrag = ({ type, key }: UseDragProps): UseDragReturn => {
     document.addEventListener(
       "mousemove",
       (e) => {
-        if (stateRef.current.items.length === 0) return;
+        if (startedRef.current.items.length === 0) return;
         end(xy.construct({ x: e.screenX, y: e.screenY }));
       },
       { once: true },

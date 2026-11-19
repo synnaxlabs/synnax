@@ -28,6 +28,11 @@ import { Haul } from "@/haul";
 import { mockBoundingClientRect } from "@/testutil";
 
 const ITEMS: Haul.Item[] = [{ type: "cat", key: "whiskers" }];
+// A drag that another window started reaches this window only through the state.
+const MIRRORED: Haul.DraggingState = {
+  source: { type: "cat", key: "basket" },
+  items: ITEMS,
+};
 
 interface SourceProps {
   items?: Haul.Item[];
@@ -255,6 +260,18 @@ describe("Haul", () => {
       );
       fireEvent.drop(screen.getByTestId("target"));
       expect(onDrop).not.toHaveBeenCalled();
+    });
+
+    it("should accept a drop of a drag that another window started", () => {
+      const onDrop = passthroughDrop();
+      render(
+        <Haul.Provider value={MIRRORED} onChange={vi.fn()}>
+          <Target testId="target" onDrop={onDrop} />
+        </Haul.Provider>,
+      );
+      fireEvent.drop(screen.getByTestId("target"));
+      expect(onDrop).toHaveBeenCalledTimes(1);
+      expect(onDrop.mock.calls[0][0].items).toEqual(ITEMS);
     });
 
     it("should clear the dragging state after a successful drop", () => {
@@ -805,6 +822,18 @@ describe("Haul", () => {
     it("should not report a file drag for a disallowed drag effect", () => {
       const event = captureDragOverEvent("move");
       expect(Haul.isFileDrag(event, Haul.ZERO_DRAGGING_STATE)).toBe(false);
+    });
+
+    it("should not report a file drag while another window hauls items", () => {
+      const { result } = renderHook(() => Haul.useDraggingRef(), {
+        wrapper: ({ children }: PropsWithChildren) => (
+          <Haul.Provider value={MIRRORED} onChange={vi.fn()}>
+            {children}
+          </Haul.Provider>
+        ),
+      });
+      const event = captureDragOverEvent("all");
+      expect(Haul.isFileDrag(event, result.current.current)).toBe(false);
     });
   });
   describe("preview", () => {
