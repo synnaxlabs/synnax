@@ -9,8 +9,9 @@
 
 import "@/feature/enumeration/Settings.css";
 
-import { enumeration } from "@synnaxlabs/client";
+import { enumeration, schematic } from "@synnaxlabs/client";
 import { Badge } from "@synnaxlabs/lyra/badge";
+import { Caret } from "@synnaxlabs/lyra/caret";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Header } from "@synnaxlabs/lyra/header";
@@ -18,6 +19,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
+import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Access, Enumeration, Flux } from "@synnaxlabs/pluto";
@@ -28,8 +30,6 @@ import { useDeleteModal } from "@/feature/enumeration/Delete";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Settings as PlatformSettings } from "@/platform/settings";
-
-const headingNameID = (key: enumeration.Key): string => List.itemNameID(key);
 
 /** @returns whether a stored built-in differs from its shipped name or entries. */
 const edited = (
@@ -44,80 +44,92 @@ const ShippedContext = createContext<Map<enumeration.Key, enumeration.Enumeratio
 );
 ShippedContext.displayName = "Enumeration.Shipped";
 
-const HeadingTitle = ({ enumeration: e }: { enumeration: enumeration.Enumeration }) => {
-  const canUpdate = Access.useUpdateGranted(enumeration.resourceID(e.key));
-  const { update } = Enumeration.useRename();
+const COLUMNS: List.Column[] = [
+  { name: "Name", width: "1fr" },
+  { name: "Entries", width: "12rem" },
+  { name: "Used by", width: "20rem" },
+];
+
+const UsedBy = ({ enumeration: key }: { enumeration: enumeration.Key }) => {
+  const res = Enumeration.useResultDependents({ key });
+  const n = (res.data ?? []).filter(
+    ({ type }) => type === schematic.TYPE_RESOURCE_ID.type,
+  ).length;
+  if (n === 0) return null;
   return (
-    // A span takes the size and weight of the heading's label.
-    <Text.MaybeEditable
-      id={headingNameID(e.key)}
-      defaultEl="span"
-      value={e.name}
-      onChange={canUpdate && ((name) => update({ key: e.key, name }))}
-      allowDoubleClick={false}
-      overflow="fade"
-    />
+    <Text.Text level="small" color={9}>
+      <Icon.Schematic />
+      {n} {n === 1 ? "schematic" : "schematics"}
+    </Text.Text>
   );
 };
 
-interface SectionProps {
+interface ItemProps extends List.ItemProps<enumeration.Key> {
   enumeration: enumeration.Enumeration;
-  first: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-/** An enumeration's heading, and its entries under it while it is open. */
-const Section = ({
+/** An enumeration's row, and its entries under it while it is open. */
+const Item = ({
   enumeration: e,
-  first,
   open,
   onOpenChange,
-}: SectionProps): ReactElement => {
+  ...props
+}: ItemProps): ReactElement => {
   const builtin = use(ShippedContext).get(e.key);
+  const canUpdate = Access.useUpdateGranted(enumeration.resourceID(e.key));
+  const { update: rename } = Enumeration.useRename();
+  const itemClass = PlatformSettings.useItemClass(e.key);
   return (
-    <section
-      aria-labelledby={headingNameID(e.key)}
-      className={CSS.cls(
-        CSS.BE("enumeration-settings", "section"),
-        first && CSS.BEM("enumeration-settings", "section", "first"),
-        !open && CSS.BEM("enumeration-settings", "section", "closed"),
-      )}
-    >
-      <div
-        className={CSS.cls(
-          CSS.BE("enumeration-settings", "heading"),
-          Menu.CONTEXT_TARGET,
-        )}
-        data-menu-key={e.key}
+    <div className={CSS.BE("enumeration-settings", "record")}>
+      <Select.Item<enumeration.Key>
+        {...props}
+        checkable
+        align="center"
+        aria-label={e.name}
+        aria-expanded={open}
+        onActivate={() => onOpenChange(!open)}
+        className={CSS.cls(CSS.BE("enumeration-settings", "item"), itemClass)}
       >
-        <Header.Group
-          size="large"
-          open={open}
-          onOpenChange={onOpenChange}
-          className={CSS.BE("enumeration-settings", "bar")}
-        >
-          <HeadingTitle enumeration={e} />
-          <Text.Text level="tiny" color={9}>
-            {e.entries.length}
-          </Text.Text>
-          {builtin != null && <Badge.Badge>Built-in</Badge.Badge>}
-          {builtin != null && edited(e, builtin) && (
-            <Tooltip.Dialog location="bottom">
-              <Text.Text level="small">
-                This built-in enumeration differs from the one that Synnax ships.
-              </Text.Text>
-              <Badge.Badge status="warning">Edited</Badge.Badge>
-            </Tooltip.Dialog>
-          )}
-        </Header.Group>
-      </div>
+        <List.Cells>
+          <List.Cell>
+            <Flex.Box x align="center" gap="small">
+              <Caret.Animated enabled={open} enabledLoc="bottom" disabledLoc="right" />
+              <Text.MaybeEditable
+                id={List.itemNameID(e.key)}
+                value={e.name}
+                onChange={canUpdate && ((name) => rename({ key: e.key, name }))}
+                allowDoubleClick={false}
+                overflow="fade"
+              />
+              {builtin != null && <Badge.Badge>Built-in</Badge.Badge>}
+              {builtin != null && edited(e, builtin) && (
+                <Tooltip.Dialog location="bottom">
+                  <Text.Text level="small">
+                    This built-in enumeration differs from the one that Synnax ships.
+                  </Text.Text>
+                  <Badge.Badge status="warning">Edited</Badge.Badge>
+                </Tooltip.Dialog>
+              )}
+            </Flex.Box>
+          </List.Cell>
+          <List.Cell>
+            <Text.Text level="small" color={9}>
+              {e.entries.length}
+            </Text.Text>
+          </List.Cell>
+          <List.Cell>
+            <UsedBy enumeration={e.key} />
+          </List.Cell>
+        </List.Cells>
+      </Select.Item>
       {open && (
         <div className={CSS.BE("enumeration-settings", "entries")}>
           <Enumeration.Entries enumeration={e.key} />
         </div>
       )}
-    </section>
+    </div>
   );
 };
 
@@ -166,7 +178,7 @@ const SectionMenu = ({ enumeration: e }: SectionMenuProps): ReactElement => {
   return (
     <ContextMenu.Menu>
       {canUpdate && (
-        <ContextMenu.RenameItem onClick={() => Text.edit(headingNameID(e.key))} />
+        <ContextMenu.RenameItem onClick={() => Text.edit(List.itemNameID(e.key))} />
       )}
       {builtin != null && edited(e, builtin) && canUpdate && (
         <Menu.Item itemKey="restore" onClick={() => restore(builtin)}>
@@ -205,7 +217,7 @@ export const Settings = (): ReactElement => {
   const records = Enumeration.useResultList({});
   const builtins = Enumeration.useResultBuiltins({});
   const canCreate = Access.useCreateGranted(enumeration.TYPE_RESOURCE_ID);
-  const [closed, setClosed] = useState<ReadonlySet<enumeration.Key>>(() => new Set());
+  const [opened, setOpened] = useState<ReadonlySet<enumeration.Key>>(() => new Set());
   const byKey = new Map(
     (records.variant === "success" ? records.data : []).map((e) => [e.key, e]),
   );
@@ -218,33 +230,33 @@ export const Settings = (): ReactElement => {
       return e == null ? [] : [e];
     })
     .sort((a, b) => a.name.localeCompare(b.name));
-  const first = sorted[0]?.key;
   const setOpen = (key: enumeration.Key, open: boolean): void =>
-    setClosed((prev) => {
+    setOpened((prev) => {
       const next = new Set(prev);
-      if (open) next.delete(key);
-      else next.add(key);
+      if (open) next.add(key);
+      else next.delete(key);
       return next;
     });
   return (
     <ShippedContext value={shipped}>
       <PlatformSettings.Table<enumeration.Key, enumeration.Enumeration>
         list={{ ...list, data: sorted.map((e) => e.key) }}
+        columns={COLUMNS}
         noun="enumerations"
         menu={menu}
         createLabel={canCreate ? "Create enumeration" : undefined}
         create={<CreateForm />}
       >
-        {({ key, itemKey }) => {
-          const e = byKey.get(itemKey);
+        {({ key, ...p }) => {
+          const e = byKey.get(p.itemKey);
           if (e == null) return null;
           return (
-            <Section
+            <Item
               key={key}
+              {...p}
               enumeration={e}
-              first={itemKey === first}
-              open={!closed.has(itemKey)}
-              onOpenChange={(open) => setOpen(itemKey, open)}
+              open={opened.has(p.itemKey)}
+              onOpenChange={(open) => setOpen(p.itemKey, open)}
             />
           );
         }}
