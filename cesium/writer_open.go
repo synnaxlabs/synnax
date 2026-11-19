@@ -52,13 +52,6 @@ type WriterConfig struct {
 	//
 	// [OPTIONAL] - Defaults to false.
 	ErrOnUnauthorized *bool
-	// EnableAutoCommit determines whether the writer will automatically commit after
-	// each write. If EnableAutoCommit is true, then the writer will commit after each
-	// write, and will flush that commit to index on FS after the specified
-	// AutoIndexPersistInterval.
-	//
-	// [OPTIONAL] - Defaults to true.
-	EnableAutoCommit *bool
 	// Name sets the human-readable name for the writer, which is useful for identifying
 	// it in control transfer scenarios.
 	//
@@ -85,12 +78,6 @@ type WriterConfig struct {
 	//
 	// [OPTIONAL]
 	Start telem.TimeStamp
-	// AutoIndexPersistInterval is the interval at which commits to the index will be
-	// persisted. To persist every commit to guarantee minimal loss of data, set
-	// AutoIndexPersistInterval to AlwaysIndexPersistOnAutoCommit.
-	//
-	// [OPTIONAL] - Defaults to 1s.
-	AutoIndexPersistInterval telem.TimeSpan
 	// Mode sets the persistence and streaming mode of the writer. The default mode is
 	// WriterModePersistStream. See the WriterMode documentation for more.
 	//
@@ -98,7 +85,9 @@ type WriterConfig struct {
 	Mode WriterMode
 }
 
-const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1
+// commitsNeverPersist is the persist interval of the internal writers. Their commits
+// never persist the index: Writer.Sync and Writer.Close do.
+const commitsNeverPersist = telem.TimeSpanMax
 
 var _ config.Config[WriterConfig] = WriterConfig{}
 
@@ -124,11 +113,6 @@ func (c WriterConfig) Override(other WriterConfig) WriterConfig {
 	c.ControlSubject = c.ControlSubject.Override(other.ControlSubject)
 	c.ErrOnUnauthorized = override.Nil(c.ErrOnUnauthorized, other.ErrOnUnauthorized)
 	c.Mode = override.Numeric(c.Mode, other.Mode)
-	c.EnableAutoCommit = override.Nil(c.EnableAutoCommit, other.EnableAutoCommit)
-	c.AutoIndexPersistInterval = override.Zero(
-		c.AutoIndexPersistInterval,
-		other.AutoIndexPersistInterval,
-	)
 	return c
 }
 
@@ -136,8 +120,8 @@ func (c WriterConfig) unaryConfig(i int) unary.WriterConfig {
 	return unary.WriterConfig{
 		Subject:                  c.ControlSubject,
 		ErrOnUnauthorizedOpen:    c.ErrOnUnauthorized,
-		EnableAutoCommit:         c.EnableAutoCommit,
-		AutoIndexPersistInterval: c.AutoIndexPersistInterval,
+		EnableAutoCommit:         new(true),
+		AutoIndexPersistInterval: commitsNeverPersist,
 		Start:                    c.Start,
 		Persist:                  new(c.Mode.persist()),
 		Bounded:                  new(!c.Mode.Stream()),
@@ -167,12 +151,10 @@ func (db *DB) newWriter(
 	cfgs ...WriterConfig,
 ) (w *Writer, err error) {
 	cfg, err := config.New(WriterConfig{
-		ControlSubject:           xcontrol.Subject{Key: uuid.New().String()},
-		Authorities:              []xcontrol.Authority{xcontrol.AuthorityAbsolute},
-		ErrOnUnauthorized:        new(false),
-		Mode:                     WriterModePersistStream,
-		EnableAutoCommit:         new(true),
-		AutoIndexPersistInterval: 1 * telem.Second,
+		ControlSubject:    xcontrol.Subject{Key: uuid.New().String()},
+		Authorities:       []xcontrol.Authority{xcontrol.AuthorityAbsolute},
+		ErrOnUnauthorized: new(false),
+		Mode:              WriterModePersistStream,
 	}, cfgs...)
 	if err != nil {
 		return nil, err

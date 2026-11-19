@@ -76,9 +76,8 @@ var _ = Describe("History", func() {
 			) *cesium.Writer {
 				GinkgoHelper()
 				w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-					Channels:         []cesium.ChannelKey{key},
-					Start:            start,
-					EnableAutoCommit: new(false),
+					Channels: []cesium.ChannelKey{key},
+					Start:    start,
 				}))
 				DeferCleanup(func() { Expect(w.Close()).To(Succeed()) })
 				return w

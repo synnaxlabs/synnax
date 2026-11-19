@@ -191,6 +191,7 @@ var _ = Describe("Alignment", func() {
 							MustSucceed(
 								w.Write(ctx, telem.MultiFrame(keys, s)),
 							)
+							MustSucceed(w.Commit(ctx))
 						}
 						Expect(w.Close()).To(Succeed())
 					}

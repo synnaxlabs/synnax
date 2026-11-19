@@ -656,7 +656,7 @@ func (t *readTask) openWriter(ctx context.Context) (*framer.Writer, error) {
 		Mode:              mode,
 		// The offsets commit once Write returns, so the index must persist every
 		// commit before then or a crash loses samples Kafka will not replay.
-		AutoIndexPersistInterval: cesium.AlwaysIndexPersistOnAutoCommit,
+		AutoIndexPersistInterval: framer.AlwaysIndexPersistOnAutoCommit,
 	})
 }
 

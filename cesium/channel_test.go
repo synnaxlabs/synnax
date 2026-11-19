@@ -323,6 +323,7 @@ var _ = Describe("Channel", Ordered, func() {
 								),
 							),
 						)
+						MustSucceed(w.Commit(ctx))
 
 						Expect(
 							db.RenameChannels(
@@ -340,6 +341,7 @@ var _ = Describe("Channel", Ordered, func() {
 								),
 							),
 						)
+						MustSucceed(w.Commit(ctx))
 						Expect(w.Close()).To(Succeed())
 
 						ch := MustSucceed(db.RetrieveChannel(ctx, key))

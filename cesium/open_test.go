@@ -267,10 +267,9 @@ var _ = Describe("Open after a crash", func() {
 					},
 				))).To(Succeed())
 				w := DeferClose(MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-					Channels:                 keys,
-					Start:                    10 * telem.SecondTS,
-					Mode:                     cesium.WriterModePersistStream,
-					AutoIndexPersistInterval: telem.Hour,
+					Channels: keys,
+					Start:    10 * telem.SecondTS,
+					Mode:     cesium.WriterModePersistStream,
 				})))
 				MustSucceed(w.Write(ctx, telem.MultiFrame(
 					keys,
@@ -279,6 +278,7 @@ var _ = Describe("Open after a crash", func() {
 						newSeries(10, 11, 12),
 					},
 				)))
+				MustSucceed(w.Commit(ctx))
 				By("Saving the domain of both channels")
 				Expect(db.DeleteTimeRange(
 					ctx,
@@ -292,6 +292,7 @@ var _ = Describe("Open after a crash", func() {
 						newSeries(13, 14, 15),
 					},
 				)))
+				MustSucceed(w.Commit(ctx))
 				By("Saving the domain of only the data channel")
 				Expect(db.DeleteTimeRange(
 					ctx,

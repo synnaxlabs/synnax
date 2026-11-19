@@ -160,7 +160,8 @@ var _ = Describe("Control", func() {
 						w := MustSucceed(
 							db.OpenWriter(ctx, persistConfig(1*telem.SecondTS)),
 						)
-						Expect(w.Write(ctx, frame(1, 10))).Error().To(And(
+						MustSucceed(w.Write(ctx, frame(1, 10)))
+						Expect(w.Commit(ctx)).Error().To(And(
 							MatchError(validate.ErrValidation),
 							MatchError(
 								ContainSubstring("cannot write to time range"),
@@ -224,7 +225,8 @@ var _ = Describe("Control", func() {
 						expectUnauthorized(live.Write(ctx, frame(20)))
 						MustSucceed(operator.Write(ctx, frame(21, 22)))
 						MustSucceed(operator.Commit(ctx))
-						Expect(w.Write(ctx, frame(1, 30))).Error().To(And(
+						MustSucceed(w.Write(ctx, frame(1, 30)))
+						Expect(w.Commit(ctx)).Error().To(And(
 							MatchError(validate.ErrValidation),
 							MatchError(ContainSubstring(
 								"because writer [Operator]<operator> holds it",
@@ -305,11 +307,10 @@ var _ = Describe("Control", func() {
 				) *cesium.Writer {
 					GinkgoHelper()
 					return MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-						ControlSubject:   xcontrol.Subject{Key: key},
-						Start:            10 * telem.SecondTS,
-						Channels:         keys,
-						Authorities:      []xcontrol.Authority{authority},
-						EnableAutoCommit: new(false),
+						ControlSubject: xcontrol.Subject{Key: key},
+						Start:          10 * telem.SecondTS,
+						Channels:       keys,
+						Authorities:    []xcontrol.Authority{authority},
 					}))
 				}
 				createIndex := func(ctx SpecContext) cesium.ChannelKey {
@@ -373,11 +374,10 @@ var _ = Describe("Control", func() {
 					"Should report a refused write once and keep the end of a commit with control",
 					func(ctx SpecContext) {
 						low := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-							ControlSubject:   xcontrol.Subject{Key: "low"},
-							Start:            10 * telem.SecondTS,
-							Channels:         []cesium.ChannelKey{idx},
-							Authorities:      []xcontrol.Authority{1},
-							EnableAutoCommit: new(false),
+							ControlSubject: xcontrol.Subject{Key: "low"},
+							Start:          10 * telem.SecondTS,
+							Channels:       []cesium.ChannelKey{idx},
+							Authorities:    []xcontrol.Authority{1},
 						}))
 						MustSucceed(low.Write(ctx, frame(10)))
 						MustSucceed(low.Commit(ctx))
@@ -546,6 +546,7 @@ var _ = Describe("Control", func() {
 									telem.NewSeriesV[int16](1, 2, 3),
 								},
 							)))
+							MustSucceed(w1.Commit(ctx))
 
 							By("Failing to write to the second writer")
 							w2Frame := telem.MultiFrame(
@@ -1044,7 +1045,6 @@ var _ = Describe("Control", func() {
 					})
 
 					// Set up:
-					// Auto-Commit Enabled On Both
 					// Writer 1: Virtual Channel, Persisted Channel, Persisted Channel
 					// Index
 					// Writer 2: Persisted Channel, Persisted Channel Index

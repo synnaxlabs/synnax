@@ -31,6 +31,7 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
+	xtime "github.com/synnaxlabs/x/time"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -84,9 +85,10 @@ type Config struct {
 	//
 	// [OPTIONAL]
 	Start telem.TimeStamp
-	// AutoIndexPersistInterval is the interval at which commits to the index will be
-	// persisted. To persist every commit to guarantee minimal loss of data, set
-	// AutoIndexPersistInterval to AlwaysAutoPersist.
+	// AutoIndexPersistInterval is the least time between two syncs of auto commits. To
+	// sync every auto commit, so that no committed sample is lost, set it to
+	// AlwaysIndexPersistOnAutoCommit. A writer that does not auto commit syncs every
+	// commit.
 	//
 	// [OPTIONAL] - Defaults to 1s.
 	AutoIndexPersistInterval telem.TimeSpan
@@ -149,14 +151,12 @@ func (c Config) splitFree() (stored Config, free channel.Keys) {
 
 func (c Config) toStorage() cesium.WriterConfig {
 	return cesium.WriterConfig{
-		ControlSubject:           c.ControlSubject,
-		Channels:                 c.Keys.Uint32(),
-		Start:                    c.Start,
-		Authorities:              c.Authorities,
-		ErrOnUnauthorized:        c.ErrOnUnauthorized,
-		Mode:                     c.Mode,
-		EnableAutoCommit:         c.EnableAutoCommit,
-		AutoIndexPersistInterval: c.AutoIndexPersistInterval,
+		ControlSubject:    c.ControlSubject,
+		Channels:          c.Keys.Uint32(),
+		Start:             c.Start,
+		Authorities:       c.Authorities,
+		ErrOnUnauthorized: c.ErrOnUnauthorized,
+		Mode:              c.Mode,
 	}
 }
 
@@ -216,6 +216,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	TS *cesium.DB
+	// Clock times the AutoIndexPersistInterval of each writer. It must be monotonic.
+	//
+	// [OPTIONAL] - Defaults to xtime.Real.
+	Clock xtime.Clock
 	// Instrumentation is for logging, tracing, and metrics.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -229,6 +233,7 @@ func (cfg ServiceConfig) Validate() error {
 	v := validate.New("distribution.framer.writer")
 	v.NotNil("writes", cfg.Writes)
 	v.NotNil("ts", cfg.TS)
+	v.NotNil("clock", cfg.Clock)
 	return v.Error()
 }
 
@@ -236,6 +241,7 @@ func (cfg ServiceConfig) Validate() error {
 func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	cfg.Writes = override.Nil(cfg.Writes, other.Writes)
 	cfg.TS = override.Nil(cfg.TS, other.TS)
+	cfg.Clock = override.Nil(cfg.Clock, other.Clock)
 	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
 	return cfg
 }
@@ -273,7 +279,7 @@ func (s *Service) SetFreeIndexResolver(r FreeIndexResolver) { s.resolver.Store(&
 
 // NewService opens the writer service using the given configuration.
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(ServiceConfig{}, cfgs...)
+	cfg, err := config.New(ServiceConfig{Clock: xtime.Real}, cfgs...)
 	if err != nil {
 		return nil, err
 	}

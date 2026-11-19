@@ -72,16 +72,46 @@ func (w *Writer) fail(err error) error {
 	return err
 }
 
-// Close releases the writer. It does not commit. It returns the error that broke the
-// writer, if any, joined with any error from the release. A second Close returns the
-// same error.
+// Sync makes the commits of the writer durable. On the old layout, it persists the
+// index of each channel that the writer stores, and syncs no file.
+func (w *Writer) Sync() error {
+	if err := w.check(); err != nil {
+		return err
+	}
+	return w.fail(w.persist())
+}
+
+// persist persists each index before the data channels it indexes, as Commit commits
+// them, so a reopen never sees data that its index cannot resolve.
+func (w *Writer) persist() error {
+	for _, idx := range w.internal {
+		if idx.writingToIdx {
+			if err := idx.internal[idx.idx.ch.Key].Persist(); err != nil {
+				return err
+			}
+		}
+		for key, u := range idx.internal {
+			if key == idx.idx.ch.Key {
+				continue
+			}
+			if err := u.Persist(); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// Close releases the writer and makes its commits durable, as Sync does. It does not
+// commit. It returns the error that broke the writer, if any, joined with any error
+// from the release. A second Close returns the same error.
 func (w *Writer) Close() error {
 	if w.closed {
 		return w.err
 	}
 	w.closed = true
 	var (
-		err    error
+		err    = w.persist()
 		update = ControlUpdate{
 			Transfers: make([]xcontrol.Transfer[ChannelKey], 0, len(w.internal)),
 		}
@@ -189,15 +219,6 @@ func (w *Writer) Write(ctx context.Context, fr Frame) (Frame, error) {
 				return Frame{}, w.fail(err)
 			}
 			unauthorized = err
-			continue
-		}
-		if *w.EnableAutoCommit {
-			if _, err = idx.Commit(ctx); err != nil {
-				if !errors.Is(err, xcontrol.ErrUnauthorized) {
-					return Frame{}, w.fail(err)
-				}
-				unauthorized = err
-			}
 		}
 	}
 	if w.virtual.internal != nil {

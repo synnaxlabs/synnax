@@ -439,6 +439,15 @@ func checkOrder(mark telem.TimeStamp, series telem.Series) (telem.TimeStamp, err
 	return mark, nil
 }
 
+// Persist writes the index of the channel's domains to disk, so that a reopen of the DB
+// sees every commit made before the call. It needs no control of the channel.
+func (w *Writer) Persist() error {
+	if w.closed {
+		return w.wrapError(ErrWriterClosed)
+	}
+	return w.wrapError(w.control.PeekResource().Persist())
+}
+
 // Commit commits the written series to the database.
 func (w *Writer) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	if w.closed {

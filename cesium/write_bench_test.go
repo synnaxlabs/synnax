@@ -65,6 +65,9 @@ func benchmarkWrite(b *testing.B, mem, contended bool) {
 		if _, err := w.Write(b.Context(), benchFrame(keys, start)); err != nil {
 			b.Fatal(err)
 		}
+		if _, err := w.Commit(b.Context()); err != nil {
+			b.Fatal(err)
+		}
 		start += benchFrameSamples
 	}
 	b.StopTimer()
@@ -88,48 +91,55 @@ func BenchmarkCommit(b *testing.B) {
 			c.samples,
 		)
 		b.Run(name, func(b *testing.B) {
-			perIndex := c.channels / c.indexes
-			db := openBenchDB(b, false)
-			keys := createIndexedChannels(b, db, c.indexes, perIndex)
-			w, err := db.OpenWriter(b.Context(), cesium.WriterConfig{
-				Channels:                 keys,
-				Start:                    telem.SecondTS,
-				AutoIndexPersistInterval: cesium.AlwaysIndexPersistOnAutoCommit,
-			})
-			if err != nil {
-				b.Fatal(err)
-			}
-			data := telem.NewSeries(make([]float32, c.samples))
-			stamps := make([]telem.TimeStamp, c.samples)
-			start := telem.SecondTS
-			b.ReportAllocs()
-			for b.Loop() {
-				for i := range stamps {
-					stamps[i] = start + telem.TimeStamp(i)
-				}
-				// Write returns its frame to the caller, who may keep it, so each
-				// write gets its own series slice and stamps.
-				series := make([]telem.Series, len(keys))
-				for i := range series {
-					series[i] = data
-				}
-				time := telem.NewSeries(stamps)
-				for i := 0; i < len(series); i += perIndex + 1 {
-					series[i] = time
-				}
-				if _, err := w.Write(
-					b.Context(),
-					telem.MultiFrame(keys, series),
-				); err != nil {
-					b.Fatal(err)
-				}
-				start += telem.TimeStamp(c.samples)
-			}
-			b.StopTimer()
-			if err := w.Close(); err != nil {
-				b.Error(err)
-			}
+			benchmarkCommit(b, c.indexes, c.channels, c.samples)
 		})
+	}
+}
+
+func benchmarkCommit(b *testing.B, indexes, channels, samples int) {
+	b.Helper()
+	perIndex := channels / indexes
+	db := openBenchDB(b, false)
+	keys := createIndexedChannels(b, db, indexes, perIndex)
+	w, err := db.OpenWriter(b.Context(), cesium.WriterConfig{
+		Channels: keys,
+		Start:    telem.SecondTS,
+	})
+	if err != nil {
+		b.Fatal(err)
+	}
+	data := telem.NewSeries(make([]float32, samples))
+	stamps := make([]telem.TimeStamp, samples)
+	start := telem.SecondTS
+	b.ReportAllocs()
+	for b.Loop() {
+		for i := range stamps {
+			stamps[i] = start + telem.TimeStamp(i)
+		}
+		// Write returns its frame to the caller, who may keep it, so each write gets
+		// its own series slice and stamps.
+		series := make([]telem.Series, len(keys))
+		for i := range series {
+			series[i] = data
+		}
+		time := telem.NewSeries(stamps)
+		for i := 0; i < len(series); i += perIndex + 1 {
+			series[i] = time
+		}
+		if _, err := w.Write(b.Context(), telem.MultiFrame(keys, series)); err != nil {
+			b.Fatal(err)
+		}
+		if _, err := w.Commit(b.Context()); err != nil {
+			b.Fatal(err)
+		}
+		if err := w.Sync(); err != nil {
+			b.Fatal(err)
+		}
+		start += telem.TimeStamp(samples)
+	}
+	b.StopTimer()
+	if err := w.Close(); err != nil {
+		b.Error(err)
 	}
 }
 

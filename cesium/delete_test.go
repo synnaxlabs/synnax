@@ -1121,6 +1121,7 @@ var _ = Describe("Delete", func() {
 								},
 							),
 							))
+							MustSucceed(w.Commit(ctx))
 							Expect(w.Close()).To(Succeed())
 
 							By("Deleting channel data")
@@ -1206,6 +1207,7 @@ var _ = Describe("Delete", func() {
 								},
 							),
 							))
+							MustSucceed(w.Commit(ctx))
 							Expect(w.Close()).To(Succeed())
 
 							Expect(w.Close()).To(Succeed())

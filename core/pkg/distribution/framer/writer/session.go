@@ -11,6 +11,7 @@ package writer
 
 import (
 	"context"
+	"time"
 
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
@@ -20,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
+	xtime "github.com/synnaxlabs/x/time"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -35,6 +37,14 @@ type session struct {
 	stamper *unindexedStamper[cesium.ChannelKey]
 	// autoIndex is nil when the writer does not stamp its indexes.
 	autoIndex *indexStamper
+	// autoCommit is true when the session commits after each write.
+	autoCommit bool
+	// persistInterval is the least time between two syncs of auto commits. The session
+	// syncs every commit when it does not auto commit, and every auto commit when
+	// persistInterval is not positive.
+	persistInterval telem.TimeSpan
+	clock           xtime.Clock
+	lastSync        time.Time
 	// writes is where the session sends each written frame when mode streams.
 	writes confluence.Inlet[relay.Response]
 	mode   Mode
@@ -56,13 +66,17 @@ func (s *Service) newSession(
 	autoIndex *indexStamper,
 ) *session {
 	return &session{
-		w:         w,
-		stamper:   newUnindexedStamper(virtual),
-		autoIndex: autoIndex,
-		writes:    s.cfg.Writes,
-		mode:      cfg.Mode,
-		group:     cfg.ControlSubject.Group,
-		sync:      *cfg.Sync,
+		w:               w,
+		stamper:         newUnindexedStamper(virtual),
+		autoIndex:       autoIndex,
+		writes:          s.cfg.Writes,
+		autoCommit:      *cfg.EnableAutoCommit,
+		persistInterval: cfg.AutoIndexPersistInterval,
+		clock:           s.cfg.Clock,
+		lastSync:        s.cfg.Clock.Now(),
+		mode:            cfg.Mode,
+		group:           cfg.ControlSubject.Group,
+		sync:            *cfg.Sync,
 	}
 }
 
@@ -109,22 +123,10 @@ func (s *session) exec(
 	}
 	switch req.Command {
 	case CommandWrite:
-		fr := req.Frame.ToStorage()
-		s.stamper.stamp(fr)
-		if s.autoIndex != nil {
-			fr = s.autoIndex.stamp(fr)
-		}
-		var written cesium.Frame
-		written, err = s.w.Write(ctx, fr)
-		refused := errors.Is(err, control.ErrUnauthorized)
-		s.writeRefused = s.writeRefused || refused
-		if err == nil || refused {
-			if sendErr := s.relay(ctx, written); sendErr != nil {
-				return 0, false, sendErr
-			}
-		}
+		authorized, err = s.write(ctx, req.Frame)
+		return 0, authorized && err == nil, err
 	case CommandCommit:
-		end, err = s.w.Commit(ctx)
+		end, err = s.commit(ctx)
 		refused := s.writeRefused
 		s.writeRefused = false
 		if err == nil {
@@ -134,6 +136,11 @@ func (s *session) exec(
 		err = s.w.SetAuthority(req.Config.toStorage())
 	case CommandEndDomain:
 		err = s.w.EndDomain(ctx, req.Config.Keys.Uint32()...)
+		if err == nil || errors.Is(err, control.ErrUnauthorized) {
+			if syncErr := s.maybeSync(); syncErr != nil {
+				err = syncErr
+			}
+		}
 	case CommandOpen:
 		fallthrough
 	default:
@@ -148,6 +155,56 @@ func (s *session) exec(
 		return 0, false, nil
 	}
 	return 0, err == nil, err
+}
+
+// write writes fr, commits it when the session auto commits, and relays the frame that
+// the Cesium writer returns. A refusal for no control is not an error: write returns
+// authorized false.
+func (s *session) write(
+	ctx context.Context,
+	fr frame.Frame,
+) (authorized bool, err error) {
+	st := fr.ToStorage()
+	s.stamper.stamp(st)
+	if s.autoIndex != nil {
+		st = s.autoIndex.stamp(st)
+	}
+	written, err := s.w.Write(ctx, st)
+	refused := errors.Is(err, control.ErrUnauthorized)
+	if err != nil && !refused {
+		return false, err
+	}
+	if s.autoCommit {
+		if _, err = s.commit(ctx); errors.Is(err, control.ErrUnauthorized) {
+			refused = true
+		} else if err != nil {
+			return false, err
+		}
+	}
+	s.writeRefused = s.writeRefused || refused
+	return !refused, s.relay(ctx, written)
+}
+
+// commit commits the Cesium writer, then syncs it when the persist rule asks.
+func (s *session) commit(ctx context.Context) (telem.TimeStamp, error) {
+	end, err := s.w.Commit(ctx)
+	if err != nil {
+		return 0, err
+	}
+	return end, s.maybeSync()
+}
+
+// maybeSync syncs the Cesium writer on every commit when the session does not auto
+// commit, and otherwise once persistInterval has passed since the last sync.
+func (s *session) maybeSync() error {
+	if s.autoCommit && s.persistInterval > 0 {
+		now := s.clock.Now()
+		if now.Sub(s.lastSync) < s.persistInterval.Duration() {
+			return nil
+		}
+		s.lastSync = now
+	}
+	return s.w.Sync()
 }
 
 // relay sends fr to the relay when the writer streams.

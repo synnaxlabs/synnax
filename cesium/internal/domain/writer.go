@@ -316,6 +316,11 @@ func (w *Writer) Commit(ctx context.Context, end telem.TimeStamp, g *Group) erro
 	return w.commit(ctx, end, shouldPersist, g)
 }
 
+// Persist writes the index of the DB to disk, so that a reopen of the DB sees every
+// commit made before the call. It is safe to call concurrently with the methods of any
+// writer of the DB.
+func (w *Writer) Persist() error { return w.idx.persist() }
+
 func (w *Writer) commit(
 	ctx context.Context,
 	end telem.TimeStamp,
