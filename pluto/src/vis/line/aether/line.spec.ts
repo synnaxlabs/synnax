@@ -330,6 +330,25 @@ describe("line", () => {
         expect(Array.from(upload?.args[1] as Float32Array)).toEqual([2, 30, 5, 40]);
       });
 
+      it("should draw each strip with the program of its y data type", () => {
+        const u8 = new Series({
+          data: new Uint8Array([40, 50]),
+          dataType: DataType.UINT8,
+          alignment: 10n,
+          timeRange: new TimeRange(100, 200),
+        });
+        const m = mount([X1, X2], [Y1, u8]);
+        m.line.render(PROPS);
+        const programs = m.calls.flatMap((c, i) =>
+          c.op === "drawArraysInstanced" && c.args[0] === canvasTest.GL_ENUMS.LINE_STRIP
+            ? [m.calls.slice(0, i).findLast((p) => p.op === "useProgram")?.args[0]]
+            : [],
+        );
+        expect(programs).toHaveLength(2);
+        expect(programs[0]).not.toBe(programs[1]);
+        expect(m.draws().at(-1)).toEqual([canvasTest.GL_ENUMS.LINES, 2]);
+      });
+
       it("should draw no bridge between two domains with time between them", () => {
         const late = { start: 200, end: 300 };
         const m = mount(

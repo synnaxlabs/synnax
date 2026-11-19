@@ -352,6 +352,21 @@ describe("forEachPair", () => {
 });
 
 describe("windowBounds", () => {
+  it("should bound the samples of a channel across a change of data type", () => {
+    const x = stamps(0, 4);
+    const old = values(0, [3, -1]);
+    const retyped = new Series({
+      data: new Uint8Array([200, 7]),
+      dataType: DataType.UINT8,
+      timeRange: TimeStamp.seconds(2).range(TimeStamp.seconds(4)),
+      alignment: 2n,
+    });
+    expect(calc([x], [old, retyped], xWindow(0, 4))).toStrictEqual({
+      lower: -1,
+      upper: 200,
+    });
+  });
+
   it("should bound only the samples inside the window", () => {
     const x = stamps(0, 10);
     const y = values(0, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);

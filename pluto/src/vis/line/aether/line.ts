@@ -532,22 +532,29 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       x.updateGLBuffer(ctx.renderCtx);
       y.updateGLBuffer(ctx.renderCtx);
     });
-    const prog = ctx.getProgram(ops[0].y.glDataType);
     this.internal.instrumentation.L.debug("render", () => ({
       key: this.key,
       scale: dataToDecimalScale.transform,
       props: props.region,
       ops: digests(ops),
     }));
-    const clearProg = prog.setAsActive();
-    const instances = prog.bindState(this.state);
-    const regionTransform = prog.renderCtx.scaleRegion(props.region).transform;
-    ops.forEach((op) => {
-      const scaleTransform = offsetScale(dataToDecimalScale, op).transform;
-      prog.bindScale(scaleTransform, regionTransform);
-      prog.draw(op, instances);
-    });
-    clearProg();
+    const regionTransform = ctx.renderCtx.scaleRegion(props.region).transform;
+    // Each op draws with the program of its y GL data type.
+    const glDataTypes: DataType[] = [];
+    for (const { y } of ops)
+      if (!glDataTypes.some((dt) => dt.equals(y.glDataType)))
+        glDataTypes.push(y.glDataType);
+    for (const dt of glDataTypes) {
+      const prog = ctx.getProgram(dt);
+      const clearProg = prog.setAsActive();
+      const instances = prog.bindState(this.state);
+      for (const op of ops) {
+        if (!op.y.glDataType.equals(dt)) continue;
+        prog.bindScale(offsetScale(dataToDecimalScale, op).transform, regionTransform);
+        prog.draw(op, instances);
+      }
+      clearProg();
+    }
     const bridges = bridgeVertices(ops, dataToDecimalScale);
     if (bridges.length === 0) return;
     const bridgeProg = ctx.getProgram(DataType.FLOAT32);

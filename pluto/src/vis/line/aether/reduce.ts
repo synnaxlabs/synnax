@@ -423,9 +423,14 @@ class Pair {
   }
 }
 
+// Returns true when b continues the run of a: the two touch in time and hold one y
+// data type. A run stops at a type change, so each run reduces in its own type.
+const continues = (a: DrawOperation, b: DrawOperation): boolean =>
+  touching(a, b) && a.y.dataType.equals(b.y.dataType);
+
 // Returns the op, then the ops that continue it, until they hold groupSize samples past
-// its end. The chain stops where the ops stop touching in time, since block alignment
-// goes on across a restart.
+// its end. The chain stops where the ops stop continuing a run, since block alignment
+// goes on across a restart and a type change.
 const chainOf = (
   op: DrawOperation,
   after: Map<bigint, DrawOperation>,
@@ -435,7 +440,7 @@ const chainOf = (
   let samples = op.count;
   let last = op;
   let next = after.get(endOf(last));
-  while (next != null && touching(last, next) && samples < op.count + groupSize) {
+  while (next != null && continues(last, next) && samples < op.count + groupSize) {
     chain.push(next);
     samples += next.count;
     last = next;
@@ -452,10 +457,10 @@ const chainOf = (
  * first sample of a group, and average keeps the mean of x and the mean of y. A group
  * only partly inside the ops reduces the samples it holds.
  *
- * Ops that continue one another in alignment and touch in time reduce as one run of
- * samples. The op a group starts in draws it, and the first op of a run also draws the
- * group it starts inside. An op that draws no group gives its span to the op before it,
- * so the two ops around it still touch.
+ * Ops that continue one another in alignment, touch in time, and hold one y data type
+ * reduce as one run of samples. The op a group starts in draws it, and the first op of
+ * a run also draws the group it starts inside. An op that draws no group gives its span
+ * to the op before it, so the two ops around it still touch.
  *
  * A reduced pair starts at the alignment of its first group and steps groupSize / 2 per
  * point for min_max, or groupSize otherwise. It holds the GL data type, and keeps the
@@ -501,7 +506,7 @@ export class Reducer {
         continue;
       }
       const prev = before.get(startOf(op));
-      const preceded = prev != null && touching(prev, op);
+      const preceded = prev != null && continues(prev, op);
       let byY = this.pairs.get(op.x);
       if (byY == null) {
         byY = new Map();
