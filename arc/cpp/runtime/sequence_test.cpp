@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <iterator>
 #include <limits>
+#include <optional>
 #include <ostream>
 #include <string>
 #include <string_view>
@@ -119,6 +120,11 @@ public:
     }
 
     [[nodiscard]] x::telem::Frame flush() { return this->harness.flush(); }
+
+    /// @brief drains the authority changes that set_authority nodes buffered.
+    [[nodiscard]] std::vector<state::AuthorityChange> flush_authority() const {
+        return this->harness.flush_authority();
+    }
 };
 
 /// @brief returns every sample in a series as T.
@@ -1978,7 +1984,8 @@ TEST(
     EXPECT_EQ(last<std::uint8_t>(out, h.key("out")), 60);
 }
 
-TEST(VariableReassignmentTest, RePointsAChannelReadVariableFromAnInlineSequence) {
+/// @brief it should re-point a channel-read variable from an anonymous sequence.
+TEST(VariableReassignmentTest, RePointsAChannelReadVariableFromAnAnonymousSequence) {
     Sequence h(
         R"(
     stage {
@@ -3199,9 +3206,8 @@ TEST(ReactiveReadChainCadenceTest, FiresOncePerSampleWhenTheChainLivesInAStage) 
     EXPECT_EQ(count_of(out, h.key("out_str"), "tick"), 1);
 }
 
-// A jump to a top-level scope acts only when it is the first true jump in source order.
-// It stops the whole top-level scope that holds it, then starts its target.
-namespace jumps {
+// A line that names a top-level stage or sequence starts a copy of it.
+namespace names {
 /// @brief what one flush holds: the log in write order, and the alive_* channels that a
 /// probe reached.
 struct Phase {
@@ -3276,14 +3282,13 @@ private:
 struct Case {
     std::string name;
     std::string source;
-    std::string expected;
 };
 
 std::string case_name(const testing::TestParamInfo<Case> &info) {
     return info.param.name;
 }
 
-const std::string TWO_JUMPS_TO_ABORT = R"(
+const std::string TWO_USES_OF_ABORT = R"(
     sequence main {
         stage armed {
             "main" -> %log%
@@ -3295,30 +3300,24 @@ const std::string TWO_JUMPS_TO_ABORT = R"(
         stage safed { "abort" -> %log% }
     }
     %start% == 1 => main)";
-
-const std::string FLIGHT = R"(
-    sequence flight {
-        stage f {
-            "flight" -> %log%
-            %probe% -> %alive_flight%
-        }
-    })";
 }
 
-class JumpTargetTest : public testing::TestWithParam<std::string> {};
+class NameLineTest : public testing::TestWithParam<std::string> {};
 
-INSTANTIATE_TEST_SUITE_P(Jumps, JumpTargetTest, testing::Values("a", "b"));
+INSTANTIATE_TEST_SUITE_P(Names, NameLineTest, testing::Values("a", "b"));
 
-TEST_P(JumpTargetTest, StartsTheTargetFromEachJumpToIt) {
-    using namespace jumps;
-    Program p(TWO_JUMPS_TO_ABORT);
+/// @brief it should start a copy from each line that names the body.
+TEST_P(NameLineTest, StartsACopyFromEachLineThatNamesTheBody) {
+    using namespace names;
+    Program p(TWO_USES_OF_ABORT);
     p.write("start");
     p.write(GetParam());
     EXPECT_EQ(p.phase(), (Phase{.log = {"main", "abort"}}));
 }
 
-TEST(JumpTest, StartsTheTargetFromAJumpAndFromAnEntryPoint) {
-    using namespace jumps;
+/// @brief it should start a copy from a stage and from the top level.
+TEST(NameTest, StartsACopyFromAStageAndFromTheTopLevel) {
+    using namespace names;
     Program p(R"(
     sequence main {
         stage armed {
@@ -3336,12 +3335,13 @@ TEST(JumpTest, StartsTheTargetFromAJumpAndFromAnEntryPoint) {
     EXPECT_EQ(p.phase(), (Phase{.log = {"main", "abort"}}));
 }
 
-class EntryPointTest : public testing::TestWithParam<std::string> {};
+class TopLevelFlowTest : public testing::TestWithParam<std::string> {};
 
-INSTANTIATE_TEST_SUITE_P(Jumps, EntryPointTest, testing::Values("a", "b"));
+INSTANTIATE_TEST_SUITE_P(Names, TopLevelFlowTest, testing::Values("a", "b"));
 
-TEST_P(EntryPointTest, StartsAScopeFromEachEntryPointToIt) {
-    using namespace jumps;
+/// @brief it should start a copy from each top-level flow.
+TEST_P(TopLevelFlowTest, StartsACopyFromEachTopLevelFlow) {
+    using namespace names;
     Program p(R"(
     sequence main {
         stage armed { "main" -> %log% }
@@ -3352,14 +3352,14 @@ TEST_P(EntryPointTest, StartsAScopeFromEachEntryPointToIt) {
     EXPECT_EQ(p.phase(), (Phase{.log = {"main"}}));
 }
 
-class FirstJumpTest : public testing::TestWithParam<jumps::Case> {};
+class SameCycleTest : public testing::TestWithParam<names::Case> {};
 
 INSTANTIATE_TEST_SUITE_P(
-    Jumps,
-    FirstJumpTest,
+    Names,
+    SameCycleTest,
     testing::Values(
-        jumps::Case{
-            "two_jumps_in_one_stage",
+        names::Case{
+            "two_lines_in_a_stage_of_a_sequence",
             R"(
     sequence main {
         stage armed {
@@ -3369,11 +3369,10 @@ INSTANTIATE_TEST_SUITE_P(
     }
     sequence abort { stage s { "abort" -> %log% } }
     sequence flight { stage f { "flight" -> %log% } }
-    %start% == 1 => main)",
-            "abort"
+    %start% == 1 => main)"
         },
-        jumps::Case{
-            "two_jumps_in_a_top_level_stage",
+        names::Case{
+            "two_lines_in_a_top_level_stage",
             R"(
     stage armed {
         %a% == 1 => abort
@@ -3381,253 +3380,27 @@ INSTANTIATE_TEST_SUITE_P(
     }
     sequence abort { stage s { "abort" -> %log% } }
     sequence flight { stage f { "flight" -> %log% } }
-    %start% == 1 => armed)",
-            "abort"
-        },
-        jumps::Case{
-            "a_next_before_a_jump",
-            R"(
-    sequence main {
-        stage armed {
-            %b% == 1 => next
-            %a% == 1 => abort
-        }
-        stage hold { "hold" -> %log% }
-    }
-    sequence abort { stage s { "abort" -> %log% } }
-    %start% == 1 => main)",
-            "hold"
-        },
-        jumps::Case{
-            "a_stage_jump_before_a_jump_in_its_inline_sequence",
-            R"(
-    sequence main {
-        stage armed {
-            %a% == 1 => abort
-            sequence { stage r { %b% == 1 => flight } }
-        }
-    }
-    sequence abort { stage s { "abort" -> %log% } }
-    sequence flight { stage f { "flight" -> %log% } }
-    %start% == 1 => main)",
-            "abort"
-        },
-        jumps::Case{
-            "a_jump_in_an_inline_sequence_before_a_stage_jump",
-            R"(
-    sequence main {
-        stage armed {
-            sequence { stage r { %b% == 1 => flight } }
-            %a% == 1 => abort
-        }
-    }
-    sequence abort { stage s { "abort" -> %log% } }
-    sequence flight { stage f { "flight" -> %log% } }
-    %start% == 1 => main)",
-            "flight"
+    %start% == 1 => armed)"
         }
     ),
-    jumps::case_name
+    names::case_name
 );
 
-TEST_P(FirstJumpTest, ActsOnlyOnTheFirstTrueJumpInSourceOrder) {
-    using namespace jumps;
+/// @brief it should start each body whose line is true in the same cycle.
+TEST_P(SameCycleTest, StartsEachBodyWhoseLineIsTrueInTheSameCycle) {
+    using namespace names;
     Program p(GetParam().source);
     p.write("start");
     p.write("a", "b");
-    EXPECT_EQ(p.phase(), (Phase{.log = {GetParam().expected}}));
+    auto log = p.phase().log;
+    std::ranges::sort(log);
+    EXPECT_EQ(log, (std::vector<std::string>{"abort", "flight"}));
 }
 
-class InnerTransitionTest : public testing::TestWithParam<jumps::Case> {};
-
-INSTANTIATE_TEST_SUITE_P(
-    Jumps,
-    InnerTransitionTest,
-    testing::Values(
-        jumps::Case{
-            "the_jump_in_the_enclosing_stage",
-            R"(
-    sequence main {
-        stage armed {
-            %a% == 1 => abort
-            sequence {
-                stage r { %b% == 1 => next }
-                stage r2 { "r2" -> %log% }
-            }
-        }
-    }
-    sequence abort { stage s { "abort" -> %log% } }
-    %start% == 1 => main)",
-            ""
-        },
-        jumps::Case{
-            "the_jump_in_the_inner_stage",
-            R"(
-    sequence main {
-        stage armed {
-            sequence {
-                stage r {
-                    %a% == 1 => abort
-                    %b% == 1 => next
-                }
-                stage r2 { "r2" -> %log% }
-            }
-        }
-    }
-    sequence abort { stage s { "abort" -> %log% } }
-    %start% == 1 => main)",
-            ""
-        }
-    ),
-    jumps::case_name
-);
-
-TEST_P(InnerTransitionTest, ActsOnAnInnerTransitionBeforeTheJump) {
-    using namespace jumps;
-    Program p(GetParam().source);
-    p.write("start");
-    p.write("a", "b");
-    EXPECT_EQ(p.phase(), (Phase{.log = {"r2", "abort"}}));
-}
-
-class StopTopLevelScopeTest : public testing::TestWithParam<jumps::Case> {};
-
-INSTANTIATE_TEST_SUITE_P(
-    Jumps,
-    StopTopLevelScopeTest,
-    testing::Values(
-        jumps::Case{
-            "a_stage_of_a_sequence",
-            R"(
-    sequence main {
-        stage armed {
-            "main" -> %log%
-            %probe% -> %alive_main%
-            %a% == 1 => flight
-        }
-    }
-    %start% == 1 => main)",
-            "main"
-        },
-        jumps::Case{
-            "an_inline_sequence_in_a_stage",
-            R"(
-    sequence main {
-        stage armed {
-            "main" -> %log%
-            %probe% -> %alive_main%
-            sequence {
-                stage release {
-                    %probe% -> %alive_inner%
-                    %a% == 1 => flight
-                }
-            }
-        }
-    }
-    %start% == 1 => main)",
-            "main"
-        },
-        jumps::Case{
-            "a_sequence_that_is_a_step",
-            R"(
-    sequence main {
-        sequence ramp {
-            stage r {
-                "main" -> %log%
-                %probe% -> %alive_inner%
-                %a% == 1 => flight
-            }
-        }
-        stage hold { "hold" -> %log% }
-    }
-    %start% == 1 => main)",
-            "main"
-        },
-        jumps::Case{
-            "a_top_level_stage",
-            R"(
-    stage idle {
-        "idle" -> %log%
-        %probe% -> %alive_main%
-        %a% == 1 => flight
-    }
-    %start% == 1 => idle)",
-            "idle"
-        },
-        jumps::Case{
-            "an_inline_sequence_in_a_top_level_stage",
-            R"(
-    stage idle {
-        "idle" -> %log%
-        %probe% -> %alive_main%
-        sequence {
-            stage release {
-                %probe% -> %alive_inner%
-                %a% == 1 => flight
-            }
-        }
-    }
-    %start% == 1 => idle)",
-            "idle"
-        }
-    ),
-    jumps::case_name
-);
-
-TEST_P(StopTopLevelScopeTest, StopsTheWholeTopLevelScopeThatHoldsTheJump) {
-    using namespace jumps;
-    const auto &name = GetParam().expected;
-    Program p(GetParam().source + FLIGHT);
-    p.write("start");
-    p.write("a");
-    EXPECT_EQ(p.phase(), (Phase{.log = {name, "flight"}}));
-    p.write("probe");
-    EXPECT_EQ(p.phase(), (Phase{.alive = {"alive_flight"}}));
-    p.write("start");
-    EXPECT_EQ(p.phase(), (Phase{.log = {name}}));
-}
-
-TEST(JumpTest, RestartsASequenceThatJumpsToItself) {
-    using namespace jumps;
+/// @brief it should not act on a losing transition after its stage restarts.
+TEST(NameTest, DoesNotActOnALosingTransitionAfterItsStageRestarts) {
+    using namespace names;
     Program p(R"(
-    sequence main {
-        stage armed {
-            "main" -> %log%
-            %probe% -> %alive_main%
-            %a% == 1 => main
-        }
-    }
-    %start% == 1 => main)");
-    p.write("start");
-    p.write("a");
-    EXPECT_EQ(p.phase(), (Phase{.log = {"main", "main"}}));
-    p.write("probe");
-    EXPECT_EQ(p.phase(), (Phase{.alive = {"alive_main"}}));
-}
-
-class RestartTest : public testing::TestWithParam<jumps::Case> {};
-
-INSTANTIATE_TEST_SUITE_P(
-    Jumps,
-    RestartTest,
-    testing::Values(
-        jumps::Case{
-            "a_self_jump_to_a_top_level_scope",
-            R"(
-    sequence main {
-        stage armed {
-            "main" -> %log%
-            %a% == 1 => main
-            %b% == 1 => flight
-        }
-    }
-    sequence flight { stage f { "flight" -> %log% } }
-    %start% == 1 => main)",
-            "main"
-        },
-        jumps::Case{
-            "a_stage_that_transitions_to_itself",
-            R"(
     sequence main {
         stage s {
             "s" -> %log%
@@ -3636,79 +3409,61 @@ INSTANTIATE_TEST_SUITE_P(
         }
         stage t { "t" -> %log% }
     }
-    %start% == 1 => main)",
-            "s"
-        }
-    ),
-    jumps::case_name
-);
-
-TEST_P(RestartTest, DoesNotActOnALosingTransitionAfterItsScopeRestarts) {
-    using namespace jumps;
-    const auto &expected = GetParam().expected;
-    Program p(GetParam().source);
+    %start% == 1 => main)");
     p.write("start");
     p.write("a", "b");
-    EXPECT_EQ(p.phase(), (Phase{.log = {expected, expected}}));
+    EXPECT_EQ(p.phase(), (Phase{.log = {"s", "s"}}));
 }
 
-TEST(JumpTest, DoesNotRestartATargetThatIsAlreadyRunning) {
-    using namespace jumps;
+/// @brief it should not start a copy again while it runs.
+TEST(NameTest, DoesNotStartACopyAgainWhileItRuns) {
+    using namespace names;
     Program p(R"(
-    sequence main {
-        stage armed {
-            "main" -> %log%
-            %a% == 1 => abort
-        }
-    }
     sequence abort {
         stage s {
             "abort" -> %log%
             %probe% -> %alive_flight%
         }
     }
-    %start% == 1 => main
     %b% == 1 => abort)");
     p.write("b");
-    p.write("start");
-    p.write("a");
-    EXPECT_EQ(p.phase(), (Phase{.log = {"abort", "main"}}));
+    p.write("b");
+    EXPECT_EQ(p.phase(), (Phase{.log = {"abort"}}));
     p.write("probe");
     EXPECT_EQ(p.phase(), (Phase{.alive = {"alive_flight"}}));
 }
 
-class JumpCycleTest : public testing::TestWithParam<jumps::Case> {};
+class StartCycleTest : public testing::TestWithParam<names::Case> {};
 
 INSTANTIATE_TEST_SUITE_P(
-    Jumps,
-    JumpCycleTest,
+    Names,
+    StartCycleTest,
     testing::Values(
-        jumps::Case{
-            "target_declared_after_the_source",
+        names::Case{
+            "a_body_declared_after_the_flow",
             R"(
     sequence main {
         stage armed { %a% == 1 => flight }
     }
     sequence flight { stage f { "flight" -> %log% } }
-    %start% == 1 => main)",
-            ""
+    %start% == 1 => main)"
         },
-        jumps::Case{
-            "target_declared_before_the_source",
+        names::Case{
+            "a_body_declared_before_the_flow",
             R"(
     sequence flight { stage f { "flight" -> %log% } }
     sequence main {
         stage armed { %a% == 1 => flight }
     }
-    %start% == 1 => main)",
-            ""
+    %start% == 1 => main)"
         }
     ),
-    jumps::case_name
+    names::case_name
 );
 
-TEST_P(JumpCycleTest, StartsTheTargetInTheCycleOfTheJump) {
-    using namespace jumps;
+/// @brief it should start a copy in the cycle of the flow that starts it.
+TEST_P(StartCycleTest, StartsACopyInTheCycleOfTheFlowThatStartsIt) {
+    using namespace names;
     Program p(GetParam().source);
     p.write("start");
     EXPECT_EQ(p.phase(), Phase{});
@@ -3716,36 +3471,10 @@ TEST_P(JumpCycleTest, StartsTheTargetInTheCycleOfTheJump) {
     EXPECT_EQ(p.phase(), (Phase{.log = {"flight"}}));
 }
 
-/// @brief a program whose stage leaves and enters again, with the log that shows it.
-struct ReentryCase {
-    std::string name;
-    std::string source;
-    std::vector<std::string> log;
-};
-
-class TriggeredBodyTest : public testing::TestWithParam<ReentryCase> {};
-
-INSTANTIATE_TEST_SUITE_P(
-    Jumps,
-    TriggeredBodyTest,
-    testing::Values(
-        ReentryCase{
-            "left_through_a_jump_to_a_top_level_scope",
-            R"(
-    sequence main {
-        stage armed {
-            "armed" -> %log%
-            %b% == 1 => stage { %probe% -> %alive_inner% }
-            %a% == 1 => flight
-        }
-    }
-    sequence flight { stage f { "flight" -> %log% } }
-    %start% == 1 => main)",
-            {"armed", "flight", "armed"}
-        },
-        ReentryCase{
-            "left_through_a_transition_to_another_stage",
-            R"(
+/// @brief it should not run a triggered body of a stage that left and entered again.
+TEST(NameTest, DoesNotRunATriggeredBodyOfAStageThatLeftAndEnteredAgain) {
+    using namespace names;
+    Program p(R"(
     sequence main {
         stage armed {
             "armed" -> %log%
@@ -3754,21 +3483,12 @@ INSTANTIATE_TEST_SUITE_P(
         }
         stage hold { %start% == 1 => armed }
     }
-    %start% == 1 => main)",
-            {"armed", "armed"}
-        }
-    ),
-    [](const testing::TestParamInfo<ReentryCase> &info) { return info.param.name; }
-);
-
-TEST_P(TriggeredBodyTest, DoesNotRunATriggeredBodyOfAStageThatLeftAndEnteredAgain) {
-    using namespace jumps;
-    Program p(GetParam().source);
+    %start% == 1 => main)");
     p.write("start");
     p.write("b");
     p.write("a");
     p.write("start");
-    EXPECT_EQ(p.phase(), (Phase{.log = GetParam().log}));
+    EXPECT_EQ(p.phase(), (Phase{.log = {"armed", "armed"}}));
     p.write("probe");
     EXPECT_EQ(p.phase(), Phase{});
     p.write("b");
@@ -4766,5 +4486,1018 @@ TEST(StageEntrySamplesTest, EmitsOnlyTheSamplesTakenAtOrAfterEntry) {
         collect<float>(h.flush(), h.key("pt_seen")),
         (std::vector<float>{3.0f, 4.0f})
     );
+}
+
+// Each direct call of a sequence or stage with parameters is its own instance.
+namespace parameters {
+const std::string FILL = R"(
+    sequence fill(limit f32, valve chan u8) {
+        stage open {
+            1 -> valve
+            %tank% > limit => next
+        }
+        stage close {
+            0 -> valve
+        }
+    })";
+
+Sequence new_h(const std::string &source) {
+    return Sequence(
+        source,
+        {{"start_a", x::telem::UINT8_T},
+         {"start_b", x::telem::UINT8_T},
+         {"tank", x::telem::FLOAT32_T},
+         {"gate", x::telem::UINT8_T},
+         {"valve_a", x::telem::UINT8_T},
+         {"valve_b", x::telem::UINT8_T},
+         {"out_a", x::telem::FLOAT32_T},
+         {"out_b", x::telem::FLOAT32_T},
+         {"log", x::telem::STRING_T},
+         {"override", x::telem::FLOAT32_T}}
+    );
+}
+
+void level(Sequence &h, const float value) {
+    h.push("tank", x::telem::Series(value));
+}
+
+/// @brief reports whether a flushed frame holds a write to the named valve.
+bool written(const Sequence &h, const x::telem::Frame &fr, const std::string &valve) {
+    return !collect<std::uint8_t>(fr, h.key(valve)).empty();
+}
+
+/// @brief a stage or a sequence, with the text that uses it.
+struct Form {
+    std::string name;
+    std::string declaration;
+    std::string use;
+};
+
+/// @brief returns text with each limit replaced by 10.
+std::string literal(std::string text) {
+    for (auto at = text.find("limit"); at != std::string::npos;
+         at = text.find("limit", at))
+        text.replace(at, 5, "10");
+    return text;
+}
+
+/// @brief returns items as each kind of stage or sequence, where limit is 10.
+std::vector<Form> forms(const std::string &keyword, const std::string &items) {
+    const std::string body = " {\n" + items + "\n}";
+    return {
+        {"a " + keyword, keyword + " watch" + literal(body), "watch"},
+        {"a " + keyword + " with parameters",
+         keyword + " watch(limit f32)" + body,
+         "watch(10)"},
+        {"an anonymous " + keyword, "", keyword + literal(body)},
+    };
+}
+
+/// @brief returns items as each kind of stage, and of sequence with one stage.
+std::vector<Form> both(const std::string &items) {
+    auto out = forms("stage", items);
+    const auto sequences = forms("sequence", "stage run {\n" + items + "\n}");
+    out.insert(out.end(), sequences.begin(), sequences.end());
+    return out;
+}
+
+/// @brief returns each form with each way to start it.
+std::vector<Form> starts(const std::vector<Form> &forms) {
+    std::vector<Form> out;
+    for (const auto &f: forms) {
+        out.push_back({f.name + " with no trigger", f.declaration, f.use});
+        out.push_back({f.name + " on true", f.declaration, "true => " + f.use});
+        out.push_back(
+            {f.name + " on a trigger", f.declaration, "%gate% == 1 => " + f.use}
+        );
+    }
+    return out;
+}
+
+/// @brief a body that writes tank plus 10 to out_a.
+const std::string WATCH = "%tank% + limit -> %out_a%";
+
+/// @brief runs line in a stage, then leaves the stage on start_b.
+void stops(const Form &form, const std::string &line) {
+    SCOPED_TRACE(form.name);
+    auto h = new_h(
+        form.declaration + R"(
+    sequence outer {
+        stage main {
+            )" +
+        line + R"(
+            %start_b% == 1 => next
+        }
+        stage after {
+            1 -> %valve_b%
+        }
+    }
+    %start_a% == 1 => outer)"
+    );
+    h.trigger("start_a");
+    h.trigger("gate");
+    level(h, 5);
+    EXPECT_EQ(last<float>(h.flush(), h.key("out_a")), 15.0f);
+
+    h.trigger("start_b");
+    EXPECT_EQ(last<std::uint8_t>(h.flush(), h.key("valve_b")), 1);
+
+    level(h, 5);
+    EXPECT_TRUE(collect<float>(h.flush(), h.key("out_a")).empty());
+}
+
+const std::string SET_220 = R"(
+        control.set_authority(value=220, channel=valve)
+        1 -> valve)";
+
+/// @brief returns take declared as a stage and as a sequence of one stage.
+std::vector<std::string> bodies(const std::string &params, const std::string &body) {
+    return {
+        "import control\nstage take(" + params + ") {" + body + "\n}\n",
+        "import control\nsequence take(" + params + ") {\nstage run {" + body +
+            "\n}\n}\n",
+    };
+}
+
+/// @brief what two calls wrote to out_a and out_b before and after the gate.
+struct Reassigned {
+    std::vector<float> before;
+    std::vector<float> after;
+};
+
+/// @brief runs two calls of a body that reassigns a variable.
+Reassigned reassigned(const std::string &source) {
+    auto h = new_h(source);
+    h.trigger("start_a");
+    h.trigger("start_b");
+    level(h, 10);
+    const auto first = h.flush();
+    Reassigned r;
+    r.before = {last<float>(first, h.key("out_a")), last<float>(first, h.key("out_b"))};
+    h.trigger("gate");
+    (void) h.flush();
+    level(h, 20);
+    const auto second = h.flush();
+    r.after = {
+        last<float>(second, h.key("out_a")),
+        last<float>(second, h.key("out_b"))
+    };
+    return r;
+}
+
+/// @brief checks that a call holds valve_a for a wait of two seconds, then opens it.
+void expect_two_second_wait(const std::string &source) {
+    auto h = new_h("import time\n" + source);
+    h.trigger("start_a");
+    h.advance(x::telem::SECOND);
+    EXPECT_FALSE(written(h, h.flush(), "valve_a"));
+    h.advance(2500 * x::telem::MILLISECOND);
+    h.advance(2600 * x::telem::MILLISECOND);
+    EXPECT_EQ(last<std::uint8_t>(h.flush(), h.key("valve_a")), 1);
+}
+
+/// @brief an authority change that a spec expects, with no channel for all channels.
+struct Change {
+    std::uint8_t authority;
+    std::optional<std::string> channel;
+};
+
+/// @brief triggers the named channel and checks the authority changes that follow.
+void expect_changes(
+    Sequence &h,
+    const std::string &trigger,
+    const std::vector<Change> &expected
+) {
+    using Pair = std::pair<int, std::optional<types::ChannelKey>>;
+    h.trigger(trigger);
+    std::vector<Pair> got, want;
+    for (const auto &c: h.flush_authority())
+        got.emplace_back(c.authority, c.channel_key);
+    for (const auto &c: expected) {
+        std::optional<types::ChannelKey> key;
+        if (c.channel.has_value()) key = h.key(*c.channel);
+        want.emplace_back(c.authority, key);
+    }
+    std::ranges::sort(got);
+    std::ranges::sort(want);
+    EXPECT_EQ(got, want) << "after " << trigger;
+}
+}
+
+/// @brief it should run each call as its own instance.
+TEST(ParametersTest, RunsEachCallAsItsOwnInstance) {
+    using namespace parameters;
+    auto h = new_h(FILL + R"(
+    %start_a% == 1 => fill(10, %valve_a%)
+    %start_b% == 1 => fill(20, %valve_b%))");
+    h.trigger("start_a");
+    const auto first = h.flush();
+    EXPECT_EQ(last<std::uint8_t>(first, h.key("valve_a")), 1);
+    EXPECT_FALSE(written(h, first, "valve_b"));
+
+    h.trigger("start_b");
+    EXPECT_EQ(last<std::uint8_t>(h.flush(), h.key("valve_b")), 1);
+
+    level(h, 15);
+    const auto low = h.flush();
+    EXPECT_EQ(last<std::uint8_t>(low, h.key("valve_a")), 0);
+    EXPECT_FALSE(written(h, low, "valve_b"));
+
+    level(h, 25);
+    EXPECT_EQ(last<std::uint8_t>(h.flush(), h.key("valve_b")), 0);
+}
+
+/// @brief it should take arguments by name and a default.
+TEST(ParametersTest, TakesArgumentsByNameAndADefault) {
+    using namespace parameters;
+    auto h = new_h(R"(
+    sequence set(out chan f32, value f32 = 7.5) {
+        stage write {
+            value -> out
+        }
+    }
+    %start_a% == 1 => set(out=%out_a%)
+    %start_b% == 1 => set(value=-2.5, out=%out_b%))");
+    h.trigger("start_a");
+    h.trigger("start_b");
+    const auto out = h.flush();
+    EXPECT_FLOAT_EQ(last<float>(out, h.key("out_a")), 7.5f);
+    EXPECT_FLOAT_EQ(last<float>(out, h.key("out_b")), -2.5f);
+}
+
+/// @brief it should give each instance its own variables.
+TEST(ParametersTest, GivesEachInstanceItsOwnVariables) {
+    using namespace parameters;
+    auto h = new_h(R"(
+    sequence fill(limit f32, valve chan u8) {
+        high := limit * 2
+        stage open {
+            1 -> valve
+            %tank% > high => next
+        }
+        stage close {
+            0 -> valve
+        }
+    }
+    %start_a% == 1 => fill(10, %valve_a%)
+    %start_b% == 1 => fill(20, %valve_b%))");
+    h.trigger("start_a");
+    h.trigger("start_b");
+    EXPECT_EQ(last<std::uint8_t>(h.flush(), h.key("valve_b")), 1);
+
+    level(h, 25);
+    const auto low = h.flush();
+    EXPECT_EQ(last<std::uint8_t>(low, h.key("valve_a")), 0);
+    EXPECT_FALSE(written(h, low, "valve_b"));
+
+    level(h, 45);
+    EXPECT_EQ(last<std::uint8_t>(h.flush(), h.key("valve_b")), 0);
+}
+
+/// @brief it should run a top-level stage with parameters.
+TEST(ParametersTest, RunsATopLevelStageWithParameters) {
+    using namespace parameters;
+    auto h = new_h(R"(
+    stage hold(valve chan u8) {
+        1 -> valve
+    }
+    %start_a% == 1 => hold(%valve_a%)
+    %start_b% == 1 => hold(%valve_b%))");
+    h.trigger("start_b");
+    const auto out = h.flush();
+    EXPECT_EQ(last<std::uint8_t>(out, h.key("valve_b")), 1);
+    EXPECT_FALSE(written(h, out, "valve_a"));
+}
+
+/// @brief it should set authority on the channel of each instance.
+TEST(ParametersTest, SetsAuthorityOnTheChannelOfEachInstance) {
+    using namespace parameters;
+    for (const auto &take: bodies("valve chan u8", SET_220)) {
+        auto h = new_h(take + R"(
+        %start_a% == 1 => take(%valve_a%)
+        %start_b% == 1 => take(%valve_b%))");
+        expect_changes(h, "start_b", {{220, "valve_b"}});
+        expect_changes(h, "start_a", {{220, "valve_a"}});
+    }
+}
+
+/// @brief it should set authority at the authority of each instance.
+TEST(ParametersTest, SetsAuthorityAtTheAuthorityOfEachInstance) {
+    using namespace parameters;
+    for (const auto &take: bodies("level u8, valve chan u8", R"(
+        control.set_authority(value=level, channel=valve)
+        1 -> valve)")) {
+        auto h = new_h(take + R"(
+        %start_a% == 1 => take(220, %valve_a%)
+        %start_b% == 1 => take(90, %valve_b%))");
+        expect_changes(h, "start_a", {{220, "valve_a"}});
+        expect_changes(h, "start_b", {{90, "valve_b"}});
+    }
+}
+
+/// @brief it should set authority on two channels at two authorities.
+TEST(ParametersTest, SetsAuthorityOnTwoChannelsAtTwoAuthorities) {
+    using namespace parameters;
+    for (const auto &take: bodies("high chan u8, low chan u8", R"(
+        control.set_authority(value=220, channel=high)
+        control.set_authority(value=90, channel=low)
+        1 -> high
+        1 -> low)")) {
+        auto h = new_h(take + R"(
+        %start_a% == 1 => take(%valve_a%, %valve_b%)
+        %start_b% == 1 => take(%valve_b%, %valve_a%))");
+        expect_changes(h, "start_a", {{220, "valve_a"}, {90, "valve_b"}});
+        expect_changes(h, "start_b", {{220, "valve_b"}, {90, "valve_a"}});
+    }
+}
+
+/// @brief it should set authority on all channels with no channel argument.
+TEST(ParametersTest, SetsAuthorityOnAllChannelsWithNoChannelArgument) {
+    using namespace parameters;
+    for (const auto &take: bodies("level u8, valve chan u8", R"(
+        control.set_authority(value=level)
+        1 -> valve)")) {
+        auto h = new_h(take + R"(
+        %start_a% == 1 => take(220, %valve_a%)
+        %start_b% == 1 => take(90, %valve_b%))");
+        expect_changes(h, "start_a", {{220, std::nullopt}});
+        expect_changes(h, "start_b", {{90, std::nullopt}});
+    }
+}
+
+/// @brief it should set authority on a channel parameter and a channel by name.
+TEST(ParametersTest, SetsAuthorityOnAChannelParameterAndAChannelByName) {
+    using namespace parameters;
+    for (const auto &take: bodies("valve chan u8", R"(
+        control.set_authority(value=220, channel=valve)
+        control.set_authority(value=90, channel=%valve_b%)
+        1 -> valve)")) {
+        auto h = new_h(take + R"(
+        %start_a% == 1 => take(%valve_a%))");
+        expect_changes(h, "start_a", {{220, "valve_a"}, {90, "valve_b"}});
+    }
+}
+
+/// @brief it should set authority on a top-level alias.
+TEST(ParametersTest, SetsAuthorityOnATopLevelAlias) {
+    using namespace parameters;
+    for (const auto &take: bodies("valve chan u8", SET_220)) {
+        auto h = new_h(take + R"(
+        sink := %valve_a%
+        %start_a% == 1 => take(sink))");
+        expect_changes(h, "start_a", {{220, "valve_a"}});
+    }
+}
+
+/// @brief it should set authority in a callee of a sequence.
+TEST(ParametersTest, SetsAuthorityInACalleeOfASequence) {
+    using namespace parameters;
+    for (const auto &take: bodies("valve chan u8", SET_220)) {
+        auto h = new_h(take + R"(
+        sequence arm(valve chan u8) {
+            stage wait {
+                %gate% == 1 => take(valve)
+            }
+        }
+        %start_a% == 1 => arm(%valve_a%)
+        %start_b% == 1 => arm(%valve_b%))");
+        expect_changes(h, "start_a", {});
+        expect_changes(h, "start_b", {});
+        expect_changes(h, "gate", {{220, "valve_a"}, {220, "valve_b"}});
+    }
+}
+
+/// @brief it should set authority in a callee of a stage.
+TEST(ParametersTest, SetsAuthorityInACalleeOfAStage) {
+    using namespace parameters;
+    for (const auto &take: bodies("valve chan u8", SET_220)) {
+        auto h = new_h(take + R"(
+        stage arm(valve chan u8) {
+            %gate% == 1 => take(valve)
+        }
+        %start_a% == 1 => arm(%valve_a%)
+        %start_b% == 1 => arm(%valve_b%))");
+        expect_changes(h, "start_a", {});
+        expect_changes(h, "start_b", {});
+        expect_changes(h, "gate", {{220, "valve_a"}, {220, "valve_b"}});
+    }
+}
+
+/// @brief it should set authority in each stage of a sequence.
+TEST(ParametersTest, SetsAuthorityInEachStageOfASequence) {
+    using namespace parameters;
+    auto h = new_h(R"(
+    import control
+    sequence run(valve chan u8) {
+        stage take {
+            control.set_authority(value=220, channel=valve)
+            1 -> valve
+            %gate% == 1 => next
+        }
+        stage give {
+            control.set_authority(value=90, channel=valve)
+            0 -> valve
+        }
+    }
+    %start_a% == 1 => run(%valve_a%))");
+    expect_changes(h, "start_a", {{220, "valve_a"}});
+    expect_changes(h, "gate", {{90, "valve_a"}});
+}
+
+/// @brief it should set authority as a step of a sequence.
+TEST(ParametersTest, SetsAuthorityAsAStepOfASequence) {
+    using namespace parameters;
+    auto h = new_h(R"(
+    import control
+    sequence run(level u8, valve chan u8) {
+        control.set_authority(value=level, channel=valve)
+        stage hold {
+            1 -> valve
+        }
+    }
+    %start_a% == 1 => run(220, %valve_a%)
+    %start_b% == 1 => run(90, %valve_b%))");
+    expect_changes(h, "start_a", {{220, "valve_a"}});
+    expect_changes(h, "start_b", {{90, "valve_b"}});
+}
+
+/// @brief it should take a top-level constant and a top-level alias.
+TEST(ParametersTest, TakesATopLevelConstantAndATopLevelAlias) {
+    using namespace parameters;
+    auto h = new_h(FILL + R"(
+    threshold f32 := 10
+    sink := %valve_b%
+    %start_a% == 1 => fill(threshold, sink))");
+    h.trigger("start_a");
+    EXPECT_EQ(last<std::uint8_t>(h.flush(), h.key("valve_b")), 1);
+    level(h, 15);
+    EXPECT_EQ(last<std::uint8_t>(h.flush(), h.key("valve_b")), 0);
+}
+
+/// @brief it should pass the parameters of the caller to its callee.
+TEST(ParametersTest, PassesTheParametersOfTheCallerToItsCallee) {
+    using namespace parameters;
+    auto h = new_h(FILL + R"(
+    sequence arm(limit f32, valve chan u8) {
+        stage wait {
+            %gate% == 1 => fill(limit, valve)
+        }
+    }
+    %start_a% == 1 => arm(10, %valve_a%)
+    %start_b% == 1 => arm(20, %valve_b%))");
+    h.trigger("start_a");
+    h.trigger("start_b");
+    EXPECT_FALSE(written(h, h.flush(), "valve_a"));
+
+    h.trigger("gate");
+    const auto opened = h.flush();
+    EXPECT_EQ(last<std::uint8_t>(opened, h.key("valve_a")), 1);
+    EXPECT_EQ(last<std::uint8_t>(opened, h.key("valve_b")), 1);
+
+    level(h, 15);
+    const auto low = h.flush();
+    EXPECT_EQ(last<std::uint8_t>(low, h.key("valve_a")), 0);
+    EXPECT_FALSE(written(h, low, "valve_b"));
+}
+
+/// @brief it should pass a value parameter to a function input.
+TEST(ParametersTest, PassesAValueParameterToAFunctionInput) {
+    using namespace parameters;
+    auto h = new_h(R"(
+    func add(offset f32) {value f32} f32 {
+        return value + offset
+    }
+    sequence shift(offset f32, out chan f32) {
+        stage run {
+            %tank% -> add(offset=offset) -> out
+        }
+    }
+    %start_a% == 1 => shift(1, %out_a%)
+    %start_b% == 1 => shift(100, %out_b%))");
+    h.trigger("start_a");
+    h.trigger("start_b");
+    level(h, 5);
+    const auto out = h.flush();
+    EXPECT_FLOAT_EQ(last<float>(out, h.key("out_a")), 6);
+    EXPECT_FLOAT_EQ(last<float>(out, h.key("out_b")), 105);
+}
+
+/// @brief it should read a channel parameter in an expression and a variable.
+TEST(ParametersTest, ReadsAChannelParameterInAnExpressionAndAVariable) {
+    using namespace parameters;
+    auto h = new_h(R"(
+    sequence scale(src chan f32, gain f32, out chan f32) {
+        doubled := src * 2
+        stage run {
+            doubled + gain -> out
+        }
+    }
+    %start_a% == 1 => scale(%tank%, 1, %out_a%)
+    %start_b% == 1 => scale(%tank%, 10, %out_b%))");
+    h.trigger("start_a");
+    h.trigger("start_b");
+    level(h, 3);
+    const auto out = h.flush();
+    EXPECT_FLOAT_EQ(last<float>(out, h.key("out_a")), 7);
+    EXPECT_FLOAT_EQ(last<float>(out, h.key("out_b")), 16);
+}
+
+/// @brief it should reassign a variable that reads a value parameter of a sequence.
+TEST(ParametersTest, ReassignsAVariableThatReadsAValueParameterOfASequence) {
+    using namespace parameters;
+    const auto r = reassigned(R"(
+    sequence scale(gain f32, out chan f32) {
+        x := %tank% * gain
+        stage first {
+            x -> out
+            %gate% == 1 => next
+        }
+        stage second {
+            x = %tank% * gain * 2
+            x -> out
+        }
+    }
+    %start_a% == 1 => scale(3, %out_a%)
+    %start_b% == 1 => scale(5, %out_b%))");
+    EXPECT_EQ(r.before, (std::vector<float>{30, 50}));
+    EXPECT_EQ(r.after, (std::vector<float>{120, 200}));
+}
+
+/// @brief it should reassign a variable that reads a channel parameter of a sequence.
+TEST(ParametersTest, ReassignsAVariableThatReadsAChannelParameterOfASequence) {
+    using namespace parameters;
+    const auto r = reassigned(R"(
+    sequence scale(src chan f32, out chan f32) {
+        x := src * 3
+        stage first {
+            x -> out
+            %gate% == 1 => next
+        }
+        stage second {
+            x = src * 6
+            x -> out
+        }
+    }
+    %start_a% == 1 => scale(%tank%, %out_a%)
+    %start_b% == 1 => scale(%tank%, %out_b%))");
+    EXPECT_EQ(r.before, (std::vector<float>{30, 30}));
+    EXPECT_EQ(r.after, (std::vector<float>{120, 120}));
+}
+
+/// @brief it should reassign a variable that reads a channel parameter and a value
+/// parameter of a sequence.
+TEST(ParametersTest, ReassignsAVariableThatReadsBothParametersOfASequence) {
+    using namespace parameters;
+    const auto r = reassigned(R"(
+    sequence scale(src chan f32, gain f32, out chan f32) {
+        x := src * gain
+        stage first {
+            x -> out
+            %gate% == 1 => next
+        }
+        stage second {
+            x = src * gain * 2
+            x -> out
+        }
+    }
+    %start_a% == 1 => scale(%tank%, 3, %out_a%)
+    %start_b% == 1 => scale(%tank%, 5, %out_b%))");
+    EXPECT_EQ(r.before, (std::vector<float>{30, 50}));
+    EXPECT_EQ(r.after, (std::vector<float>{120, 200}));
+}
+
+/// @brief it should reassign a variable that reads a parameter with a top-level
+/// constant as its argument.
+TEST(ParametersTest, ReassignsAVariableThatReadsATopLevelConstantArgument) {
+    using namespace parameters;
+    const auto r = reassigned(R"(
+    low f32 := 3
+    high f32 := 5
+    sequence scale(gain f32, out chan f32) {
+        x := %tank% * gain
+        stage first {
+            x -> out
+            %gate% == 1 => next
+        }
+        stage second {
+            x = %tank% * gain * 2
+            x -> out
+        }
+    }
+    %start_a% == 1 => scale(low, %out_a%)
+    %start_b% == 1 => scale(high, %out_b%))");
+    EXPECT_EQ(r.before, (std::vector<float>{30, 50}));
+    EXPECT_EQ(r.after, (std::vector<float>{120, 200}));
+}
+
+/// @brief it should reassign a variable that reads a parameter in a variable of one
+/// stage.
+TEST(ParametersTest, ReassignsAVariableOfOneStageThatReadsAParameter) {
+    using namespace parameters;
+    const auto r = reassigned(R"(
+    sequence scale(src chan f32, gain f32, out chan f32) {
+        stage first {
+            x := src * gain
+            x = src * gain * 2
+            x -> out
+        }
+    }
+    %start_a% == 1 => scale(%tank%, 3, %out_a%)
+    %start_b% == 1 => scale(%tank%, 5, %out_b%))");
+    EXPECT_EQ(r.before, (std::vector<float>{60, 100}));
+    EXPECT_EQ(r.after, (std::vector<float>{120, 200}));
+}
+
+/// @brief it should reassign a variable that reads a value parameter of a stage.
+TEST(ParametersTest, ReassignsAVariableThatReadsAValueParameterOfAStage) {
+    using namespace parameters;
+    const auto r = reassigned(R"(
+    stage scale(gain f32, out chan f32) {
+        x := %tank% * gain
+        x = %tank% * gain * 2
+        x -> out
+    }
+    %start_a% == 1 => scale(3, %out_a%)
+    %start_b% == 1 => scale(5, %out_b%))");
+    EXPECT_EQ(r.before, (std::vector<float>{60, 100}));
+    EXPECT_EQ(r.after, (std::vector<float>{120, 200}));
+}
+
+/// @brief it should reassign a variable that reads a channel parameter of a stage.
+TEST(ParametersTest, ReassignsAVariableThatReadsAChannelParameterOfAStage) {
+    using namespace parameters;
+    const auto r = reassigned(R"(
+    stage scale(src chan f32, out chan f32) {
+        x := src * 3
+        x = src * 6
+        x -> out
+    }
+    %start_a% == 1 => scale(%tank%, %out_a%)
+    %start_b% == 1 => scale(%tank%, %out_b%))");
+    EXPECT_EQ(r.before, (std::vector<float>{60, 60}));
+    EXPECT_EQ(r.after, (std::vector<float>{120, 120}));
+}
+
+/// @brief it should reassign a variable that reads a channel parameter and a value
+/// parameter of a stage.
+TEST(ParametersTest, ReassignsAVariableThatReadsBothParametersOfAStage) {
+    using namespace parameters;
+    const auto r = reassigned(R"(
+    stage scale(src chan f32, gain f32, out chan f32) {
+        x := src * gain
+        x = src * gain * 2
+        x -> out
+    }
+    %start_a% == 1 => scale(%tank%, 3, %out_a%)
+    %start_b% == 1 => scale(%tank%, 5, %out_b%))");
+    EXPECT_EQ(r.before, (std::vector<float>{60, 100}));
+    EXPECT_EQ(r.after, (std::vector<float>{120, 200}));
+}
+
+/// @brief it should wait for the time of a parameter in milliseconds, in a sequence.
+TEST(ParametersTest, WaitsForAParameterInMillisecondsInASequence) {
+    using namespace parameters;
+    expect_two_second_wait(R"(
+    sequence hold(d i64 ms, valve chan u8) {
+        stage wait {
+            time.wait(duration=d) => next
+        }
+        stage open {
+            1 -> valve
+        }
+    }
+    %start_a% == 1 => hold(2s, %valve_a%))");
+}
+
+/// @brief it should wait for the time of a parameter in seconds, in a sequence.
+TEST(ParametersTest, WaitsForAParameterInSecondsInASequence) {
+    using namespace parameters;
+    expect_two_second_wait(R"(
+    sequence hold(d i64 s, valve chan u8) {
+        stage wait {
+            time.wait(duration=d) => next
+        }
+        stage open {
+            1 -> valve
+        }
+    }
+    %start_a% == 1 => hold(2s, %valve_a%))");
+}
+
+/// @brief it should wait for the time of a parameter in milliseconds, in a stage.
+TEST(ParametersTest, WaitsForAParameterInMillisecondsInAStage) {
+    using namespace parameters;
+    expect_two_second_wait(R"(
+    stage open(valve chan u8) {
+        1 -> valve
+    }
+    stage hold(d i64 ms, valve chan u8) {
+        time.wait(duration=d) => open(valve)
+    }
+    %start_a% == 1 => hold(2s, %valve_a%))");
+}
+
+/// @brief it should wait for the time of a parameter in seconds, in a stage.
+TEST(ParametersTest, WaitsForAParameterInSecondsInAStage) {
+    using namespace parameters;
+    expect_two_second_wait(R"(
+    stage open(valve chan u8) {
+        1 -> valve
+    }
+    stage hold(d i64 s, valve chan u8) {
+        time.wait(duration=d) => open(valve)
+    }
+    %start_a% == 1 => hold(2s, %valve_a%))");
+}
+
+/// @brief it should keep an anonymous body in its own instance.
+TEST(ParametersTest, KeepsAnAnonymousBodyInItsOwnInstance) {
+    using namespace parameters;
+    auto h = new_h(R"(
+    sequence watch(limit f32, valve chan u8) {
+        stage armed {
+            %tank% > limit => stage {
+                1 -> valve
+            }
+        }
+    }
+    %start_a% == 1 => watch(10, %valve_a%)
+    %start_b% == 1 => watch(20, %valve_b%))");
+    h.trigger("start_a");
+    h.trigger("start_b");
+    level(h, 15);
+    const auto out = h.flush();
+    EXPECT_EQ(last<std::uint8_t>(out, h.key("valve_a")), 1);
+    EXPECT_FALSE(written(h, out, "valve_b"));
+}
+
+/// @brief it should show a value parameter in a format string.
+TEST(ParametersTest, ShowsAValueParameterInAFormatString) {
+    using namespace parameters;
+    auto h = new_h(R"(
+    sequence report(limit f32) {
+        stage write {
+            f"limit {limit}" -> %log%
+        }
+    }
+    %start_a% == 1 => report(10)
+    %start_b% == 1 => report(20))");
+    h.trigger("start_a");
+    h.trigger("start_b");
+    EXPECT_EQ(
+        collect<std::string>(h.flush(), h.key("log")),
+        (std::vector<std::string>{"limit 10", "limit 20"})
+    );
+}
+
+/// @brief it should follow a variable of the caller while the instance runs.
+TEST(ParametersTest, FollowsAVariableOfTheCallerWhileTheInstanceRuns) {
+    using namespace parameters;
+    const std::vector<std::pair<std::string, float>> lines = {
+        {"%gate% == 1 => fill(l, %valve_a%)", 1.0f},
+        {"%gate% == 1 => fill(l * 2, %valve_a%)", 2.0f},
+        {"fill(l, %valve_a%)", 1.0f},
+    };
+    for (const auto &[line, scale]: lines) {
+        SCOPED_TRACE(line);
+        auto h = new_h(FILL + R"(
+    stage arm {
+        l f32 := 10
+        %override% -> l
+        )" + line + R"(
+    }
+    %start_a% == 1 => arm)");
+        h.trigger("start_a");
+        h.trigger("gate");
+        EXPECT_EQ(last<std::uint8_t>(h.flush(), h.key("valve_a")), 1);
+
+        h.push("override", x::telem::Series(20.0f));
+        level(h, 15 * scale);
+        EXPECT_FALSE(written(h, h.flush(), "valve_a"));
+
+        level(h, 25 * scale);
+        EXPECT_EQ(last<std::uint8_t>(h.flush(), h.key("valve_a")), 0);
+    }
+}
+
+/// @brief it should run a body inside the stage that holds it.
+TEST(ParametersTest, RunsABodyInsideTheStageThatHoldsIt) {
+    using namespace parameters;
+    auto forms = starts(both(WATCH));
+    forms.push_back({
+        "a stage declared in the stage",
+        "",
+        "stage watch {\n%tank% + 10 -> %out_a%\n}",
+    });
+    forms.push_back({
+        "a sequence declared in the stage",
+        "",
+        "sequence watch {\nstage run {\n%tank% + 10 -> %out_a%\n}\n}",
+    });
+    for (const auto &form: forms) {
+        SCOPED_TRACE(form.name);
+        auto h = new_h(
+            form.declaration + "\nstage main {\n" + form.use +
+            "\n%tank% -> %out_b%\n}\n%start_a% == 1 => main"
+        );
+        h.trigger("start_a");
+        h.trigger("gate");
+        level(h, 5);
+        const auto out = h.flush();
+        EXPECT_EQ(last<float>(out, h.key("out_a")), 15.0f);
+        EXPECT_EQ(last<float>(out, h.key("out_b")), 5.0f);
+    }
+}
+
+/// @brief it should run a body as a step of the sequence that holds it.
+TEST(ParametersTest, RunsABodyAsAStepOfTheSequenceThatHoldsIt) {
+    using namespace parameters;
+    for (const auto &form: starts(both(WATCH))) {
+        SCOPED_TRACE(form.name);
+        auto h = new_h(
+            form.declaration + "\nsequence main {\n" + form.use +
+            "\n1 -> %valve_b%\n}\n%start_a% == 1 => main"
+        );
+        h.trigger("start_a");
+        h.trigger("gate");
+        level(h, 5);
+        const auto out = h.flush();
+        EXPECT_EQ(last<float>(out, h.key("out_a")), 15.0f);
+        EXPECT_FALSE(written(h, out, "valve_b"));
+    }
+}
+
+/// @brief it should stop a body when the stage that holds it stops.
+TEST(ParametersTest, StopsABodyWhenTheStageThatHoldsItStops) {
+    using namespace parameters;
+    for (const auto &form: starts(both(WATCH)))
+        stops(form, form.use);
+}
+
+/// @brief it should stop a body when the sequence that holds it stops.
+TEST(ParametersTest, StopsABodyWhenTheSequenceThatHoldsItStops) {
+    using namespace parameters;
+    for (const auto &form: starts(both(WATCH)))
+        stops(form, "sequence {\n" + form.use + "\n}");
+}
+
+/// @brief it should give each use its own copy.
+TEST(ParametersTest, GivesEachUseItsOwnCopy) {
+    using namespace parameters;
+    const auto stages = forms("stage", "limit -> %out_a%");
+    const auto sequences = forms("sequence", "limit -> %out_a%");
+    auto all = stages;
+    all.insert(all.end(), sequences.begin(), sequences.end());
+    std::vector<Form> programs;
+    const auto lines = [](const Form &f) {
+        return "%start_a% == 1 => " + f.use + "\n%start_b% == 1 => " + f.use;
+    };
+    for (const auto &f: all) {
+        programs.push_back({f.name + " at the top level", f.declaration, lines(f)});
+        programs.push_back(
+            {f.name + " in a stage",
+             f.declaration,
+             "stage main {\n" + lines(f) + "\n}\n%gate% == 1 => main"}
+        );
+    }
+    for (const auto &f: sequences)
+        programs.push_back(
+            {f.name + " in a sequence",
+             f.declaration,
+             "sequence main {\n" + lines(f) + "\n}\n%gate% == 1 => main"}
+        );
+    for (const auto &program: programs) {
+        SCOPED_TRACE(program.name);
+        auto h = new_h(program.declaration + "\n" + program.use);
+        h.trigger("gate");
+        h.trigger("start_a");
+        EXPECT_EQ(last<float>(h.flush(), h.key("out_a")), 10.0f);
+
+        h.trigger("start_b");
+        EXPECT_EQ(last<float>(h.flush(), h.key("out_a")), 10.0f);
+    }
+}
+
+/// @brief it should not start a body again while it runs.
+TEST(ParametersTest, DoesNotStartABodyAgainWhileItRuns) {
+    using namespace parameters;
+    for (const auto &form: both("limit -> %out_a%")) {
+        SCOPED_TRACE(form.name);
+        auto h = new_h(
+            form.declaration + "\nstage main {\n%gate% == 1 => " + form.use +
+            "\n}\n%start_a% == 1 => main"
+        );
+        h.trigger("start_a");
+        h.trigger("gate");
+        EXPECT_EQ(last<float>(h.flush(), h.key("out_a")), 10.0f);
+
+        h.trigger("gate");
+        EXPECT_TRUE(collect<float>(h.flush(), h.key("out_a")).empty());
+    }
+}
+
+/// @brief it should start a sequence again after it completes.
+TEST(ParametersTest, StartsASequenceAgainAfterItCompletes) {
+    using namespace parameters;
+    for (const auto &form: forms("sequence", "limit -> %out_a%")) {
+        SCOPED_TRACE(form.name);
+        auto h = new_h(
+            form.declaration + "\nstage main {\n%gate% == 1 => " + form.use +
+            "\n}\n%start_a% == 1 => main"
+        );
+        h.trigger("start_a");
+        for (int i = 0; i < 2; i++) {
+            h.trigger("gate");
+            EXPECT_EQ(last<float>(h.flush(), h.key("out_a")), 10.0f);
+        }
+    }
+}
+
+/// @brief it should move a sequence to its next step when a body completes.
+TEST(ParametersTest, MovesASequenceToItsNextStepWhenABodyCompletes) {
+    using namespace parameters;
+    const auto waits = forms(
+        "sequence",
+        "stage hold {\n%tank% > limit => next\n}\n1 -> %valve_a%"
+    );
+    for (const auto &form: starts(waits)) {
+        SCOPED_TRACE(form.name);
+        auto h = new_h(
+            form.declaration + "\nsequence main {\n" + form.use +
+            "\n1 -> %valve_b%\n}\n%start_a% == 1 => main"
+        );
+        h.trigger("start_a");
+        h.trigger("gate");
+        level(h, 5);
+        EXPECT_FALSE(written(h, h.flush(), "valve_b"));
+
+        level(h, 15);
+        level(h, 15);
+        const auto out = h.flush();
+        EXPECT_EQ(last<std::uint8_t>(out, h.key("valve_a")), 1);
+        EXPECT_EQ(last<std::uint8_t>(out, h.key("valve_b")), 1);
+    }
+}
+
+/// @brief it should move a sequence to its next step on next in a stage.
+TEST(ParametersTest, MovesASequenceToItsNextStepOnNextInAStage) {
+    using namespace parameters;
+    for (const auto &form: starts(forms("stage", "%tank% > limit => next"))) {
+        SCOPED_TRACE(form.name);
+        auto h = new_h(
+            form.declaration + "\nsequence main {\n" + form.use +
+            "\n1 -> %valve_b%\n}\n%start_a% == 1 => main"
+        );
+        h.trigger("start_a");
+        h.trigger("gate");
+        level(h, 5);
+        EXPECT_FALSE(written(h, h.flush(), "valve_b"));
+
+        level(h, 15);
+        EXPECT_EQ(last<std::uint8_t>(h.flush(), h.key("valve_b")), 1);
+    }
+}
+
+/// @brief it should end a body on next and keep its stage active.
+TEST(ParametersTest, EndsABodyOnNextAndKeepsItsStageActive) {
+    using namespace parameters;
+    for (const auto &form: starts(both(WATCH + "\n%tank% > limit * 2 => next"))) {
+        SCOPED_TRACE(form.name);
+        auto h = new_h(
+            form.declaration + "\nstage main {\n" + form.use +
+            "\n%tank% -> %out_b%\n}\n%start_a% == 1 => main"
+        );
+        h.trigger("start_a");
+        h.trigger("gate");
+        level(h, 5);
+        EXPECT_EQ(last<float>(h.flush(), h.key("out_a")), 15.0f);
+
+        level(h, 25);
+        (void) h.flush();
+        level(h, 5);
+        const auto out = h.flush();
+        EXPECT_TRUE(collect<float>(out, h.key("out_a")).empty());
+        EXPECT_EQ(last<float>(out, h.key("out_b")), 5.0f);
+    }
+}
+
+/// @brief it should start a stage again after next ends it.
+TEST(ParametersTest, StartsAStageAgainAfterNextEndsIt) {
+    using namespace parameters;
+    for (const auto &form: forms("stage", WATCH + "\n%tank% > limit * 2 => next")) {
+        SCOPED_TRACE(form.name);
+        auto h = new_h(
+            form.declaration + "\nstage main {\n%gate% == 1 => " + form.use +
+            "\n}\n%start_a% == 1 => main"
+        );
+        h.trigger("start_a");
+        for (int i = 0; i < 2; i++) {
+            h.trigger("gate");
+            level(h, 5);
+            EXPECT_EQ(last<float>(h.flush(), h.key("out_a")), 15.0f);
+            level(h, 25);
+            (void) h.flush();
+        }
+    }
 }
 }

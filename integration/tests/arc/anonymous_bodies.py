@@ -17,7 +17,7 @@ from tests.arc.arc import ArcCase
 # separate so no single source fans out to two transitions. trigger_5 and
 # trigger_6 activate the lifecycle flows (blocking/wait race and
 # re-entry/deactivation) one at a time, separate from the trigger_1 bodies.
-ARC_INLINE_BODY_SOURCE = """
+ARC_ANONYMOUS_BODY_SOURCE = """
 // Flat stage: a multi-write body; all writes fire in parallel.
 trigger_1 -> stage {
     1 -> stage_1
@@ -68,12 +68,12 @@ trigger_1 -> sequence {
     }
 }
 
-// Mixed kind: a stage body routes into an inline sequence.
+// Mixed kind: a stage body routes into an anonymous sequence.
 trigger_1 -> stage {
     1 -> sequence { 1 -> mixed_stage_seq_out }
 }
 
-// Mixed kind: a sequence body routes into an inline stage.
+// Mixed kind: a sequence body routes into an anonymous stage.
 trigger_1 -> sequence {
     1 -> stage { 1 -> mixed_seq_stage_out }
 }
@@ -178,7 +178,7 @@ trigger_1 -> select() -> {
     }
 }
 
-// Sibling transition: a multi-write inline stage then a multi-step inline
+// Sibling transition: a multi-write anonymous stage then a multi-step anonymous
 // sequence body each write their outputs and advance main to the next sibling
 // stage, walking through to a third stage.
 trigger_1 => main
@@ -285,8 +285,8 @@ sequence select_gated_seq_main {
 // a time, separate from the trigger_1-driven bodies.
 // ============================================================================
 
-// Blocking inline stages with a multi-exit race. The sequence pauses at each
-// inline stage until an exit fires. The first stage's condition exit beats its
+// Blocking anonymous stages with a multi-exit race. The sequence pauses at each
+// anonymous stage until an exit fires. The first stage's condition exit beats its
 // wait backstop; the second stage's condition is unreachable, so the wait
 // backstop fires instead.
 trigger_5 => race_main
@@ -308,7 +308,7 @@ sequence race_main {
 
 // ============================================================================
 
-// Inline sub-sequence running alongside a stage's reactive exit. Re-entering
+// Anonymous sub-sequence running alongside a stage's reactive exit. Re-entering
 // the fire stage resets the sub-sequence (reentry_fire_out returns to 1); the
 // exit stage stops writing once left (reentry_exit_out must not re-apply).
 trigger_6 => reentry_main
@@ -423,8 +423,8 @@ FLOAT_INPUTS = ["race_cond", "reentry_cond"]
 CREATE_CHANNELS = OUTPUTS + INPUTS
 
 
-class InlineBodies(ArcCase):
-    """Anonymous inline ``stage``/``sequence`` bodies used as routing targets,
+class AnonymousBodies(ArcCase):
+    """Anonymous ``stage``/``sequence`` bodies used as routing targets,
     exercised across module scope, nested bodies, sequence-scope sibling
     transitions, and ``select`` routing-table branches.
 
@@ -432,14 +432,14 @@ class InlineBodies(ArcCase):
 
     - Flat: a multi-write body per kind. A ``stage`` fires all writes in
       parallel; a ``sequence`` runs them as ordered steps.
-    - Nested: each body routes into an inner inline body of the same kind, which
+    - Nested: each body routes into an inner anonymous body of the same kind, which
       fires in the same cycle.
-    - Deep nesting: same-kind inline bodies nested several levels deep; the
+    - Deep nesting: same-kind anonymous bodies nested several levels deep; the
       innermost body fires in the same cycle.
-    - Mixed-kind nesting: a ``stage`` body routes into an inline ``sequence`` and
-      a ``sequence`` body into an inline ``stage``; the inner body fires in the
+    - Mixed-kind nesting: a ``stage`` body routes into an anonymous ``sequence`` and
+      a ``sequence`` body into an anonymous ``stage``; the inner body fires in the
       same cycle regardless of kind.
-    - Alternating-kind nesting: inline bodies nested several levels deep with the
+    - Alternating-kind nesting: anonymous bodies nested several levels deep with the
       kind switching at each level; the innermost body fires in the same cycle.
     - Select multi-write branch: a ``true`` value routed into a ``select`` fires
       a multi-write branch body — a ``stage`` writes all outputs in parallel, a
@@ -450,11 +450,11 @@ class InlineBodies(ArcCase):
       ``sequence`` bodies.
     - Nested select: a ``select`` branch body routes into a further ``select``,
       three deep; the innermost branch fires in the same cycle.
-    - Cross-nested flow/routing: an inline flow body wrapping a ``select`` and a
-      ``select`` wrapping an inline flow body — for both ``stage`` and
+    - Cross-nested flow/routing: an anonymous flow body wrapping a ``select`` and a
+      ``select`` wrapping an anonymous flow body — for both ``stage`` and
       ``sequence`` wrappers — each fire their innermost body in the same cycle.
-    - Sibling transition: inside a named ``sequence``, a multi-write inline
-      ``stage`` body (first stage) and a multi-step inline ``sequence`` body
+    - Sibling transition: inside a named ``sequence``, a multi-write anonymous
+      ``stage`` body (first stage) and a multi-step anonymous ``sequence`` body
       (second stage) each write their outputs and transition to the next sibling
       stage, walking the sequence through to a third stage.
     - Select branch selection: a bool routed into a ``select`` fires the
@@ -466,18 +466,18 @@ class InlineBodies(ArcCase):
       activation edge.
     - Gated select: a ``select`` inside a named scope fires only once that scope
       is activated, routing its constant into the matching branch body.
-    - Blocking / wait race: inside a named ``sequence``, an inline ``stage``
+    - Blocking / wait race: inside a named ``sequence``, an anonymous ``stage``
       blocks progression until an exit fires — a condition exit beats its
       ``wait()`` backstop, while an unreachable condition lets the backstop win.
-    - Re-entry / deactivation: an inline ``sequence`` inside a stage re-runs from
+    - Re-entry / deactivation: an anonymous ``sequence`` inside a stage re-runs from
       its first step when the parent stage is re-entered, and a stage stops
       applying its writes once it is left.
 
     Every output holds its written value.
     """
 
-    arc_source = ARC_INLINE_BODY_SOURCE
-    arc_name_prefix = "ArcInlineBodies"
+    arc_source = ARC_ANONYMOUS_BODY_SOURCE
+    arc_name_prefix = "ArcAnonymousBodies"
     start_cmd_channel = "trigger_1"
     subscribe_channels = OUTPUTS
 
@@ -605,7 +605,7 @@ class InlineBodies(ArcCase):
         blocked = self.read_tlm("race_first_out")
         if blocked != 1:
             self.fail(
-                f"race_first_out={blocked} while race_cond=100; the inline stage "
+                f"race_first_out={blocked} while race_cond=100; the anonymous stage "
                 "should still be blocking the sequence"
             )
 

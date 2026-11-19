@@ -1436,3 +1436,97 @@ var _ = Describe("Function Analyzer", func() {
 		})
 	})
 })
+
+var _ = Describe("Input lists", func() {
+	// inputList parses the input list of a function with the given parameters.
+	inputList := func(
+		bCtx SpecContext,
+		params string,
+	) (context.Context[parser.IProgramContext], parser.IInputListContext) {
+		GinkgoHelper()
+		prog := MustSucceed(parser.Parse("func f(" + params + ") {}"))
+		ctx := context.NewRoot(bCtx, prog, NewRoot(nil))
+		return ctx, prog.TopLevelItem(0).FunctionDeclaration().InputList()
+	}
+
+	Describe("CollectInputs", func() {
+		It("Should append the type and default of each input", func(bCtx SpecContext) {
+			ctx, list := inputList(bCtx, "valve chan f64, limit f64 = 50.0")
+			var inputs types.Params
+			function.CollectInputs(ctx, list, &inputs)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			Expect(inputs).To(Equal(types.Params{
+				{Name: "valve", Type: types.Chan(types.F64())},
+				{Name: "limit", Type: types.F64(), Value: 50.0},
+			}))
+		})
+
+		It("Should append nothing for a missing list", func(bCtx SpecContext) {
+			ctx, _ := inputList(bCtx, "limit f64")
+			var inputs types.Params
+			function.CollectInputs(ctx, nil, &inputs)
+			Expect(inputs).To(BeEmpty())
+		})
+
+		DescribeTable("rejections",
+			func(bCtx SpecContext, params, message string) {
+				ctx, list := inputList(bCtx, params)
+				var inputs types.Params
+				function.CollectInputs(ctx, list, &inputs)
+				Expect(*ctx.Diagnostics).To(HaveLen(1))
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(message))
+			},
+			Entry("a default of the wrong type", `limit f64 = "high"`,
+				"invalid default value for input parameter limit"),
+			Entry(
+				"a required input after an optional one",
+				"limit f64 = 1.0, gain f64",
+				"required input parameter gain cannot follow optional input parameters",
+			),
+		)
+	})
+
+	Describe("AddInputsToScope", func() {
+		It("Should add each input to the scope as an input symbol", func(
+			bCtx SpecContext,
+		) {
+			ctx, list := inputList(bCtx, "valve chan f64, limit f64 = 50.0")
+			scope := MustSucceed(ctx.Scope.Add(bCtx, symbol.Symbol{
+				Name: "main", Kind: symbol.KindSequence,
+			}))
+			function.AddInputsToScope(ctx, list, scope)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			valve := MustSucceed(scope.Resolve(bCtx, "valve"))
+			Expect(valve.Kind).To(Equal(symbol.KindInput))
+			Expect(valve.Type).To(Equal(types.Chan(types.F64())))
+			limit := MustSucceed(scope.Resolve(bCtx, "limit"))
+			Expect(limit.Kind).To(Equal(symbol.KindInput))
+			Expect(limit.DefaultValue).To(Equal(50.0))
+		})
+
+		It("Should add nothing for a missing list", func(bCtx SpecContext) {
+			ctx, _ := inputList(bCtx, "limit f64")
+			scope := MustSucceed(ctx.Scope.Add(bCtx, symbol.Symbol{
+				Name: "main", Kind: symbol.KindSequence,
+			}))
+			function.AddInputsToScope(ctx, nil, scope)
+			Expect(scope.Children()).To(BeEmpty())
+		})
+
+		DescribeTable("rejections",
+			func(bCtx SpecContext, params, message string) {
+				ctx, list := inputList(bCtx, params)
+				scope := MustSucceed(ctx.Scope.Add(bCtx, symbol.Symbol{
+					Name: "main", Kind: symbol.KindSequence,
+				}))
+				function.AddInputsToScope(ctx, list, scope)
+				Expect(*ctx.Diagnostics).To(HaveLen(1))
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(message))
+			},
+			Entry("a default of the wrong type", `limit f64 = "high"`,
+				"invalid default value for input parameter limit"),
+			Entry("two inputs with one name", "limit f64, limit f64",
+				"name limit conflicts with existing input parameter"),
+		)
+	})
+})

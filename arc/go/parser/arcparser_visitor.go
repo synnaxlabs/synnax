@@ -67,17 +67,14 @@ type ArcParserVisitor interface {
 	// Visit a parse tree produced by ArcParser#sequenceDeclaration.
 	VisitSequenceDeclaration(ctx *SequenceDeclarationContext) interface{}
 
-	// Visit a parse tree produced by ArcParser#sequenceItem.
-	VisitSequenceItem(ctx *SequenceItemContext) interface{}
-
 	// Visit a parse tree produced by ArcParser#stageDeclaration.
 	VisitStageDeclaration(ctx *StageDeclarationContext) interface{}
 
-	// Visit a parse tree produced by ArcParser#stageBody.
-	VisitStageBody(ctx *StageBodyContext) interface{}
+	// Visit a parse tree produced by ArcParser#body.
+	VisitBody(ctx *BodyContext) interface{}
 
-	// Visit a parse tree produced by ArcParser#stageItem.
-	VisitStageItem(ctx *StageItemContext) interface{}
+	// Visit a parse tree produced by ArcParser#bodyItem.
+	VisitBodyItem(ctx *BodyItemContext) interface{}
 
 	// Visit a parse tree produced by ArcParser#singleInvocation.
 	VisitSingleInvocation(ctx *SingleInvocationContext) interface{}

@@ -150,6 +150,16 @@ var _ = Describe("Formatter", func() {
 			"sequence main {\n    stage s {\n        true => next\n    }\n    a := 1 }",
 			"sequence main {\n    stage s {\n        true => next\n    }\n    a := 1 }",
 		),
+		Entry(
+			"hoists below a parameter list on several lines",
+			"sequence main(\n    x f32,\n) {\n    stage s {\n        true => next\n    }\n    a := 1\n}",
+			"sequence main(\n    x f32,\n) {\n    a := 1\n    stage s {\n        true => next\n    }\n}",
+		),
+		Entry(
+			"leaves a step that shares a line with the end of a parameter list alone",
+			"sequence main(\n    x f32,\n) { stage s {\n        true => next\n    }\n    a := 1\n}",
+			"sequence main(\n    x f32,\n) { stage s {\n        true => next\n    }\n    a := 1\n}",
+		),
 	)
 
 	It("hoists a body written on one line after expanding it", func() {
@@ -375,6 +385,36 @@ var _ = Describe("Formatter", func() {
 			"sequence with stages",
 			"sequence main{stage first{}stage second{}}",
 			"sequence main {\n    stage first {}\n    stage second {}\n}\n",
+		),
+		Entry(
+			"sequence with parameters",
+			"sequence main(x f32,y chan f32,){stage first{x->y}}",
+			"sequence main(x f32, y chan f32) {\n    stage first {\n        x -> y\n    }\n}\n",
+		),
+		Entry(
+			"stage with parameters",
+			"export stage hold(out chan f32,value f32=7.5){value->out,1->out}",
+			"export stage hold(out chan f32, value f32 = 7.5) {\n    value -> out\n    1 -> out\n}\n",
+		),
+		Entry(
+			"stage with parameters and an empty body",
+			"stage hold(out chan f32){}",
+			"stage hold(out chan f32) {}\n",
+		),
+		Entry(
+			"parameters longer than a line",
+			"sequence fill(limit f32, level chan f32, valve chan bool, echo chan f32, ready chan bool) {\n    stage open {\n        true -> valve\n    }\n}",
+			"sequence fill(\n    limit f32,\n    level chan f32,\n    valve chan bool,\n    echo chan f32,\n    ready chan bool,\n) {\n    stage open {\n        true -> valve\n    }\n}\n",
+		),
+		Entry(
+			"parameters with a comment",
+			"stage hold(\nout chan f32, // sink\nvalue f32\n) {\n    value -> out\n}",
+			"stage hold(\n    out chan f32, // sink\n    value f32,\n) {\n    value -> out\n}\n",
+		),
+		Entry(
+			"function after a sequence with parameters",
+			"sequence main(x f32){stage s{x->out}}\nfunc add(a f32){b f32}f32{return a+b}",
+			"sequence main(x f32) {\n    stage s {\n        x -> out\n    }\n}\nfunc add(a f32) {b f32} f32 {\n    return a + b\n}\n",
 		),
 		Entry(
 			"comments between stages",

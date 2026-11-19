@@ -90,7 +90,7 @@ sequence channel_read_main_sequence {
     r_bool -> bool_final
 }
 
-// ─────────── variable inherited into an inline stage/sequence ────────────
+// ─────────── variable inherited into an anonymous stage/sequence ────────────
 vars_start => inherit_main
 
 sequence inherit_main {
@@ -103,11 +103,11 @@ sequence inherit_main {
 
     stage inherit_run {
         1 -> stage {
-            vc -> inherit_out_inline_stage
-            f"vc={vc}" -> inherit_out_inline_fmt
+            vc -> inherit_out_anonymous_stage
+            f"vc={vc}" -> inherit_out_anonymous_fmt
         }
         1 -> sequence {
-            vc -> inherit_out_inline_seq
+            vc -> inherit_out_anonymous_seq
         }
     }
 }
@@ -134,7 +134,7 @@ stage stage_scope_main {
     ss_var -> stage_scoped_out
 }
 
-// ── channel-read/write & channel-read inherited into a nested inline body ──
+// ── channel-read/write & channel-read inherited into a nested anonymous body ──
 vars_start => inherit_kind_main
 
 sequence inherit_kind_main {
@@ -641,9 +641,9 @@ VAR_OUTPUTS = [
     "bool_final",
 ]
 INHERIT_OUTPUTS = [
-    "inherit_out_inline_stage",
-    "inherit_out_inline_fmt",
-    "inherit_out_inline_seq",
+    "inherit_out_anonymous_stage",
+    "inherit_out_anonymous_fmt",
+    "inherit_out_anonymous_seq",
 ]
 SCOPE_OUTPUTS = [
     "toplevel_from_seq",
@@ -761,8 +761,8 @@ F64_CHANNELS = [
     "inherit_in",
     "f64_initial",
     "f64_final",
-    "inherit_out_inline_stage",
-    "inherit_out_inline_seq",
+    "inherit_out_anonymous_stage",
+    "inherit_out_anonymous_seq",
 ]
 U32_CHANNELS = [
     "channel_read_write_u32_a",
@@ -808,7 +808,7 @@ STR_CHANNELS = [
     "channel_read_str",
     "str_initial",
     "str_final",
-    "inherit_out_inline_fmt",
+    "inherit_out_anonymous_fmt",
     "toplevel_from_seq",
     "toplevel_from_stage",
     "stage_scoped_out",
@@ -892,8 +892,8 @@ class Variables(ArcCase):
 
     Literal, ChannelReadWrite, and ChannelRead variables across the f64/u32/i64/str data
     types, each read to its own channel, plus reassignment (literal overwrite,
-    channel read/write rebind, channel-read re-express), inheritance into inline bodies,
-    and variables as brace inputs (value and chan params, reassignment tracked).
+    channel read/write rebind, channel-read re-express), inheritance into anonymous
+    bodies, and variables as brace inputs (value and chan params, reassignment tracked).
     """
 
     arc_source = ARC_VARIABLES_SOURCE
@@ -909,7 +909,7 @@ class Variables(ArcCase):
         self._verify_literal()
         self._verify_channel_read_write()
         self._verify_channel_read()
-        self._verify_inline_inheritance()
+        self._verify_anonymous_inheritance()
         self._verify_top_level_scope()
         self._verify_stage_scope()
         self._verify_kind_inheritance()
@@ -981,13 +981,13 @@ class Variables(ArcCase):
         self.writer.write("channel_read_bool", 1)
         self.wait_for_eq("bool_final", 1)
 
-    def _verify_inline_inheritance(self) -> None:
-        self.log("=== inherited into inline stage/sequence ===")
+    def _verify_anonymous_inheritance(self) -> None:
+        self.log("=== inherited into anonymous stage/sequence ===")
         self.writer.write("inherit_in", 12.0)
         self.writer.write("inherit_to_run_cmd", 1)
-        self.wait_for_eq("inherit_out_inline_seq", 12.0)
-        self.wait_for_eq("inherit_out_inline_stage", 12.0)
-        self.wait_for_eq("inherit_out_inline_fmt", "vc=12")
+        self.wait_for_eq("inherit_out_anonymous_seq", 12.0)
+        self.wait_for_eq("inherit_out_anonymous_stage", 12.0)
+        self.wait_for_eq("inherit_out_anonymous_fmt", "vc=12")
 
     def _verify_top_level_scope(self) -> None:
         self.log("=== top-level scope ===")

@@ -27,7 +27,7 @@ import (
 // the trigger in positional binding; externallySatisfied names aren't reported missing.
 func AnalyzeCall[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
-	fnName string,
+	noun, fnName string,
 	fnType types.Type,
 	args []symbol.Argument,
 	hook symbol.ArgumentsHook,
@@ -37,7 +37,9 @@ func AnalyzeCall[T antlr.ParserRuleContext](
 ) {
 	signature := ir.FormatFunctionSignature(fnName, fnType)
 	supplied := set.New[string]()
-	for _, b := range bindArguments(ctx, fnName, fnType, args, signature, trigger) {
+	for _, b := range bindArguments(
+		ctx, noun, fnName, fnType, args, signature, trigger,
+	) {
 		supplied.Add(b.param.Name)
 		checkArgType(ctx, fnName, b.param, b.arg, signature)
 	}
@@ -47,8 +49,9 @@ func AnalyzeCall[T antlr.ParserRuleContext](
 			!satisfied.Contains(param.Name) {
 			ctx.Diagnostics.Add(codes.FuncArgMissing.Atf(
 				site,
-				"missing required argument: parameter '%s' of func '%s'",
+				"missing required argument: parameter '%s' of %s '%s'",
 				param.Name,
+				noun,
 				fnName,
 			).WithNote("signature: " + signature))
 		}
@@ -68,7 +71,7 @@ type boundArgument struct {
 // names, out-of-range positions, and duplicates. Type checks are the caller's.
 func bindArguments[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
-	fnName string,
+	noun, fnName string,
 	fnType types.Type,
 	args []symbol.Argument,
 	signature string,
@@ -77,15 +80,16 @@ func bindArguments[T antlr.ParserRuleContext](
 	supplied := set.New[string]()
 	var bound []boundArgument
 	for _, arg := range args {
-		param, ok := matchParam(ctx, fnName, fnType, arg, signature, trigger)
+		param, ok := matchParam(ctx, noun, fnName, fnType, arg, signature, trigger)
 		if !ok {
 			continue
 		}
 		if supplied.Contains(param.Name) {
 			ctx.Diagnostics.Add(codes.FuncArgDuplicate.Atf(
 				arg.AST,
-				"duplicate argument: parameter '%s' of func '%s'",
+				"duplicate argument: parameter '%s' of %s '%s'",
 				param.Name,
+				noun,
 				fnName,
 			).
 				WithNote("signature: " + signature))
@@ -101,7 +105,7 @@ func bindArguments[T antlr.ParserRuleContext](
 // trigger when binding by position. Reports an unknown name or out-of-range arg.
 func matchParam[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
-	fnName string,
+	noun, fnName string,
 	fnType types.Type,
 	arg symbol.Argument,
 	signature string,
@@ -111,7 +115,7 @@ func matchParam[T antlr.ParserRuleContext](
 		param, ok := fnType.Inputs.Get(arg.Name)
 		if !ok {
 			ctx.Diagnostics.Add(codes.FuncArgUnknown.Atf(arg.AST,
-				"unknown parameter: '%s' for func '%s'", arg.Name, fnName).
+				"unknown parameter: '%s' for %s '%s'", arg.Name, noun, fnName).
 				WithNote("signature: " + signature))
 			return types.Param{}, false
 		}
@@ -122,7 +126,8 @@ func matchParam[T antlr.ParserRuleContext](
 		if arg.Index == len(positional) {
 			ctx.Diagnostics.Add(codes.FuncArgExtra.Atf(
 				arg.AST,
-				"too many arguments: func '%s' takes at most %d",
+				"too many arguments: %s '%s' takes at most %d",
+				noun,
 				fnName,
 				len(positional),
 			).WithNote("signature: " + signature))

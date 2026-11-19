@@ -211,6 +211,48 @@ var _ = Describe("AnalyzeCallSite", func() {
 	})
 })
 
+var _ = Describe("Callee noun", func() {
+	It("Should name the kind of callee in a call error", func(bCtx SpecContext) {
+		expr := MustSucceed(parser.ParseExpression("1.5"))
+		ctx := context.NewRoot(bCtx, expr, NewRoot(nil))
+		seqType := types.Sequence()
+		seqType.Inputs = types.Params{
+			{Name: "limit", Type: types.F64()},
+			{Name: "gain", Type: types.F64()},
+		}
+		expression.AnalyzeCall(
+			ctx,
+			"sequence",
+			"main",
+			seqType,
+			[]symbol.Argument{
+				{Name: "limit", Expr: expr, AST: expr},
+				{Name: "limit", Expr: expr, AST: expr},
+				{Name: "offset", Expr: expr, AST: expr},
+				{Index: 2, Expr: expr, AST: expr},
+			},
+			nil,
+			expr,
+			"",
+		)
+		messages := make([]string, 0, len(*ctx.Diagnostics))
+		for _, d := range *ctx.Diagnostics {
+			messages = append(messages, d.Message)
+		}
+		Expect(messages).To(ConsistOf(
+			"duplicate argument: parameter 'limit' of sequence 'main'",
+			"unknown parameter: 'offset' for sequence 'main'",
+			"too many arguments: sequence 'main' takes at most 2",
+			"missing required argument: parameter 'gain' of sequence 'main'",
+		))
+		for _, d := range *ctx.Diagnostics {
+			Expect(d.Notes).To(HaveLen(1))
+			Expect(d.Notes[0].Message).
+				To(Equal("signature: main(limit f64, gain f64)"))
+		}
+	})
+})
+
 var _ = Describe("Computed arguments", func() {
 	It("Should type a computed argument by its node's output", func(bCtx SpecContext) {
 		root := NewRoot(nil)
@@ -230,6 +272,7 @@ var _ = Describe("Computed arguments", func() {
 		})
 		expression.AnalyzeCall(
 			ctx,
+			"func",
 			"f",
 			fnType,
 			[]symbol.Argument{{Name: "a", Expr: expr, AST: expr}},

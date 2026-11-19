@@ -50,7 +50,7 @@ func CollectDeclarations(ctx acontext.Context[parser.IProgramContext]) {
 
 			// Inputs come first, then triggers. The first trigger is the Trigger.
 			var inputs, outputs types.Params
-			collectInputs(ctx, fn.InputList(), &inputs)
+			CollectInputs(ctx, fn.InputList(), &inputs)
 			triggerStart := len(inputs)
 			collectTriggers(ctx.Child(fn.TriggerList()), &inputs)
 			collectOutputs(ctx, fn.OutputType(), &outputs)
@@ -77,8 +77,8 @@ func CollectDeclarations(ctx acontext.Context[parser.IProgramContext]) {
 	}
 }
 
-// collectInputs extracts input parameter types without adding them to scope.
-func collectInputs[T antlr.ParserRuleContext](
+// CollectInputs extracts input parameter types without adding them to scope.
+func CollectInputs[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
 	inputList parser.IInputListContext,
 	inputs *types.Params,
@@ -236,7 +236,7 @@ func Analyze(ctx acontext.Context[parser.IFunctionDeclarationContext]) {
 
 	// Add inputs and outputs to the function's scope
 	// (types are already populated by CollectDeclarations)
-	addInputsToScope(ctx, ctx.AST.InputList(), fn)
+	AddInputsToScope(ctx, ctx.AST.InputList(), fn)
 	addTriggersToScope(ctx.Child(ctx.AST.TriggerList()).WithScope(fn))
 	addOutputsToScope(ctx, ctx.AST.OutputType(), fn)
 
@@ -418,9 +418,8 @@ func IfStmtAlwaysReturns(ifStmt parser.IIfStatementContext) bool {
 	return BlockAlwaysReturns(ifStmt.ElseClause().Block())
 }
 
-// addInputsToScope adds input parameters to the function's scope.
-// The input types are already collected in fn.Type.Inputs by CollectDeclarations.
-func addInputsToScope[T antlr.ParserRuleContext](
+// AddInputsToScope adds each input of inputList to scope as an input symbol.
+func AddInputsToScope[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
 	inputList parser.IInputListContext,
 	scope *symbol.Symbol,

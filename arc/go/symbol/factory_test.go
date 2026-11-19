@@ -12,8 +12,10 @@ package symbol_test
 import (
 	"context"
 
+	"github.com/antlr4-go/antlr/v4"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
@@ -367,4 +369,128 @@ var _ = Describe("IsComputed", func() {
 			Expect(v.IsComputed()).To(BeFalse())
 		},
 	)
+})
+
+var _ = Describe("Sequence parameters", func() {
+	inputs := types.Params{{Name: "limit", Type: types.F64()}}
+	withInputs := func(t types.Type) types.Type {
+		t.Inputs = inputs
+		return t
+	}
+	DescribeTable("IsParameterized",
+		func(sym symbol.Symbol, parameterized bool) {
+			Expect(sym.IsParameterized()).To(Equal(parameterized))
+		},
+		Entry(
+			"a sequence with inputs",
+			symbol.Symbol{
+				Kind: symbol.KindSequence,
+				Type: withInputs(types.Sequence()),
+			},
+			true,
+		),
+		Entry("a sequence with no inputs",
+			symbol.Symbol{Kind: symbol.KindSequence, Type: types.Sequence()},
+			false),
+		Entry("a function with inputs",
+			symbol.Symbol{
+				Kind: symbol.KindFunction,
+				Type: types.Function(types.FunctionProperties{Inputs: inputs}),
+			},
+			false),
+	)
+
+	DescribeTable("IsTemplate",
+		func(bCtx SpecContext, source string, nested, template bool) {
+			item := MustSucceed(parser.Parse(source)).TopLevelItem(0)
+			var ast antlr.ParserRuleContext = item.StageDeclaration()
+			if sequence := item.SequenceDeclaration(); sequence != nil {
+				ast = sequence
+			}
+			parent := symbol.NewRoot(nil, nil)
+			if nested {
+				parent = MustSucceed(parent.Add(bCtx, symbol.Symbol{
+					Name: "outer",
+					Kind: symbol.KindSequence,
+				}))
+			}
+			sym := MustSucceed(parent.Add(bCtx, symbol.Symbol{
+				Name: "main",
+				Kind: symbol.KindSequence,
+				Type: types.Sequence(),
+				AST:  ast,
+			}))
+			Expect(sym.IsTemplate()).To(Equal(template))
+		},
+		Entry("a named sequence at the top level", "sequence main {}", false, true),
+		Entry("a named stage at the top level", "stage main {}", false, true),
+		Entry("an anonymous sequence at the top level", "sequence {}", false, false),
+		Entry("a named sequence inside a sequence", "sequence main {}", true, false),
+	)
+
+	DescribeTable(
+		"IsSequenceInput",
+		func(bCtx SpecContext, parent, kind symbol.Kind, input bool) {
+			root := symbol.NewRoot(nil, nil)
+			scope := MustSucceed(
+				root.Add(bCtx, symbol.Symbol{Name: "main", Kind: parent}),
+			)
+			sym := MustSucceed(scope.Add(bCtx, symbol.Symbol{
+				Name: "limit", Kind: kind, Type: types.F64(),
+			}))
+			Expect(sym.IsSequenceInput()).To(Equal(input))
+		},
+		Entry("an input of a sequence", symbol.KindSequence, symbol.KindInput, true),
+		Entry("an input of a function", symbol.KindFunction, symbol.KindInput, false),
+		Entry(
+			"a variable of a sequence",
+			symbol.KindSequence,
+			symbol.KindVariable,
+			false,
+		),
+	)
+
+	It("Should not treat a symbol with no parent as a sequence input", func() {
+		sym := symbol.Symbol{Kind: symbol.KindInput, Type: types.F64()}
+		Expect(sym.IsSequenceInput()).To(BeFalse())
+	})
+
+	Describe("ResolveMember", func() {
+		var root *symbol.Symbol
+		add := func(bCtx SpecContext, t types.Type) {
+			GinkgoHelper()
+			root = symbol.NewRoot(nil, nil)
+			main := MustSucceed(root.Add(bCtx, symbol.Symbol{
+				Name: "main", Kind: symbol.KindSequence, Type: t,
+			}))
+			MustSucceed(main.Add(bCtx, symbol.Symbol{
+				Name: "vent", Kind: symbol.KindStage, Type: types.Stage(),
+			}))
+		}
+
+		It(
+			"Should reject a member of a sequence with parameters",
+			func(bCtx SpecContext) {
+				add(bCtx, withInputs(types.Sequence()))
+				Expect(root.ResolveMember(bCtx, "main", "vent")).Error().
+					To(MatchError("undefined symbol: main.vent"))
+			},
+		)
+
+		It("Should resolve a member of a sequence with no parameters", func(
+			bCtx SpecContext,
+		) {
+			add(bCtx, types.Sequence())
+			Expect(MustSucceed(root.ResolveMember(bCtx, "main", "vent")).Name).
+				To(Equal("vent"))
+		})
+
+		It("Should resolve a sequence with parameters by its bare name", func(
+			bCtx SpecContext,
+		) {
+			add(bCtx, withInputs(types.Sequence()))
+			Expect(MustSucceed(root.ResolveMember(bCtx, "main", "")).Name).
+				To(Equal("main"))
+		})
+	})
 })

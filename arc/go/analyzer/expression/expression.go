@@ -647,6 +647,7 @@ func AnalyzeCallSite[T antlr.ParserRuleContext](
 		// and arity are checked here.
 		bindArguments(
 			ctx,
+			"func",
 			funcName,
 			fnType,
 			args,
@@ -662,7 +663,9 @@ func AnalyzeCallSite[T antlr.ParserRuleContext](
 			),
 		)
 	default:
-		AnalyzeCall(ctx, funcName, fnType, args, callee.AnalyzeArguments, site, "")
+		AnalyzeCall(
+			ctx, "func", funcName, fnType, args, callee.AnalyzeArguments, site, "",
+		)
 	}
 	if callerFn == nil {
 		return

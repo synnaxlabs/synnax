@@ -283,7 +283,7 @@ var completions = []completionInfo{
 		Insert:       "stage ${1:name} {\n\t$0\n}",
 		Kind:         protocol.CompletionItemKindKeyword,
 		InsertFormat: protocol.InsertTextFormatSnippet,
-		Category:     categorySequenceKeyword | categoryTopLevelKeyword,
+		Category:     categoryTopLevelKeyword | categorySequenceKeyword | categoryStageKeyword,
 	},
 	{
 		Label:        parser.LiteralNEXT,
@@ -669,7 +669,7 @@ func scopeCompletions(
 		if sym.Kind == symbol.KindModule {
 			item.AdditionalTextEdits = buildAutoImportEdit(doc, sym.Name)
 		}
-		applyInvocationSuffix(&item, sym.Kind)
+		applyInvocationSuffix(&item, sym)
 		items = append(items, item)
 	}
 	return items
@@ -683,7 +683,7 @@ func qualifiedMemberItem(
 	item := symbolCompletionItem(member)
 	item.FilterText = protocol.NewOptional(qualifiedName)
 	item.TextEdit = &protocol.TextEdit{Range: replace, NewText: qualifiedName}
-	applyInvocationSuffix(&item, member.Kind)
+	applyInvocationSuffix(&item, member)
 	return item
 }
 
@@ -901,12 +901,12 @@ func readImportPath(tokens []antlr.Token, start int) (string, int) {
 	return b.String(), i
 }
 
-// applyInvocationSuffix appends a `($0)` snippet to a function completion item so
-// the cursor lands inside the parens. No-op for non-function kinds, which insert
-// their bare name. The suffix is appended to TextEdit.NewText when set, otherwise
-// to InsertText (falling back to Label when InsertText is empty).
-func applyInvocationSuffix(item *protocol.CompletionItem, kind symbol.Kind) {
-	if kind != symbol.KindFunction {
+// applyInvocationSuffix appends a `($0)` snippet to the completion item of a symbol
+// that takes arguments so the cursor lands inside the parens. No-op for other symbols,
+// which insert their bare name. The suffix is appended to TextEdit.NewText when set,
+// otherwise to InsertText (falling back to Label when InsertText is empty).
+func applyInvocationSuffix(item *protocol.CompletionItem, sym *symbol.Symbol) {
+	if sym.Kind != symbol.KindFunction && !sym.IsParameterized() {
 		return
 	}
 	suffix := "($0)"
@@ -1078,15 +1078,13 @@ func (s *Server) resolveFunctionType(
 	name string,
 	root *symbol.Symbol,
 ) (types.Type, bool) {
-	if doc.IR.Symbols != nil {
-		sym, err := doc.IR.Symbols.Resolve(ctx, name, symbol.WithoutUsageTracking)
-		if err == nil && sym.Type.Kind == types.KindFunction {
-			return sym.Type, true
+	for _, scope := range []*symbol.Symbol{doc.IR.Symbols, root} {
+		if scope == nil {
+			continue
 		}
-	}
-	if root != nil {
-		sym, err := root.Resolve(ctx, name, symbol.WithoutUsageTracking)
-		if err == nil && sym.Type.Kind == types.KindFunction {
+		sym, err := scope.Resolve(ctx, name, symbol.WithoutUsageTracking)
+		if err == nil &&
+			(sym.Type.Kind == types.KindFunction || sym.IsParameterized()) {
 			return sym.Type, true
 		}
 	}

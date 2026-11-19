@@ -551,7 +551,7 @@ source() -> sink()`,
 		Severity: protocol.DiagnosticSeverityError,
 		Message:  "invalid transition target",
 		Problem: "A transition has a target that the code cannot reach from there, " +
-			"such as `next` outside a sequence or in the last stage.",
+			"such as `next` outside a stage or sequence.",
 		Example: `sensor > 10 => next`,
 	}
 	// FlowOperator is a => where the flow needs a ->.
@@ -576,12 +576,12 @@ source() -> sink()`,
 
 sensor > 10 => main`,
 	}
-	// NamedInlineBody is an inline stage or sequence that has a name.
-	NamedInlineBody = diagnostics.Kind{
+	// NamedFlowBody is a stage or sequence in a flow that has a name.
+	NamedFlowBody = diagnostics.Kind{
 		Code:     "E5008",
 		Severity: protocol.DiagnosticSeverityError,
-		Message:  "an inline stage or sequence cannot have a name",
-		Problem:  "An inline stage or sequence has a name.",
+		Message:  "a stage or sequence in a flow cannot have a name",
+		Problem:  "A stage or sequence in a flow has a name.",
 		Example: `sequence main {
     stage a {
         sensor -> select() -> {
@@ -674,6 +674,18 @@ sensor -> split() -> {
 		Message:  "channel limit exceeded",
 		Problem:  "A program has more top-level variables than Arc allows.",
 	}
+	// BodyDeclaration is a stage or sequence declared in a form that is not valid.
+	BodyDeclaration = diagnostics.Kind{
+		Code:     "E5016",
+		Severity: protocol.DiagnosticSeverityError,
+		Message:  "invalid stage or sequence declaration",
+		Problem: "Only a named top-level stage or sequence can have parameters. " +
+			"A parameter list cannot be empty.",
+		Example: `sequence main {
+    stage hold(limit f64) {
+    }
+}`,
+	}
 	// DeclarationAfterStep is a variable declared after a step of its scope.
 	DeclarationAfterStep = diagnostics.Kind{
 		Code:     "W5000",
@@ -752,7 +764,7 @@ var All = []diagnostics.Kind{
 	TransitionTarget,
 	FlowOperator,
 	EmptySequence,
-	NamedInlineBody,
+	NamedFlowBody,
 	TriggerBinding,
 	ChannelExpected,
 	ReadOnlyWrite,
@@ -760,5 +772,6 @@ var All = []diagnostics.Kind{
 	RoutingName,
 	DataflowCycle,
 	ChannelLimit,
+	BodyDeclaration,
 	DeclarationAfterStep,
 }

@@ -339,14 +339,14 @@ func lastLine(tok antlr.Token) int {
 }
 
 func (p *printer) detectBraceContext(idx int, tokens []antlr.Token) braceContext {
+	switch p.headerKeyword(idx, tokens) {
+	case parser.ArcLexerSTAGE:
+		return braceContextStageBody
+	case parser.ArcLexerSEQUENCE:
+		return braceContextSequenceBody
+	}
 	if p.isTriggerList(idx, tokens) {
 		return braceContextTriggerList
-	}
-	if p.isStageBody(idx, tokens) {
-		return braceContextStageBody
-	}
-	if p.isSequenceBody(idx, tokens) {
-		return braceContextSequenceBody
 	}
 	if p.inFuncHeader {
 		return braceContextFuncBody
@@ -354,36 +354,30 @@ func (p *printer) detectBraceContext(idx int, tokens []antlr.Token) braceContext
 	return braceContextBlock
 }
 
-func (p *printer) isStageBody(idx int, tokens []antlr.Token) bool {
-	if idx < 1 {
-		return false
+// headerKeyword returns the token type that starts the header before the brace at idx.
+func (p *printer) headerKeyword(idx int, tokens []antlr.Token) int {
+	i := idx - 1
+	if i >= 0 && tokens[i].GetTokenType() == parser.ArcLexerRPAREN {
+		for depth := 0; i >= 0; i-- {
+			switch tokens[i].GetTokenType() {
+			case parser.ArcLexerRPAREN:
+				depth++
+			case parser.ArcLexerLPAREN:
+				depth--
+			}
+			if depth == 0 {
+				break
+			}
+		}
+		i--
 	}
-	// stage { ... }  or  stage IDENT { ... }
-	if tokens[idx-1].GetTokenType() == parser.ArcLexerSTAGE {
-		return true
+	if i >= 0 && tokens[i].GetTokenType() == parser.ArcLexerIDENTIFIER {
+		i--
 	}
-	if idx >= 2 &&
-		tokens[idx-1].GetTokenType() == parser.ArcLexerIDENTIFIER &&
-		tokens[idx-2].GetTokenType() == parser.ArcLexerSTAGE {
-		return true
+	if i < 0 {
+		return antlr.TokenInvalidType
 	}
-	return false
-}
-
-func (p *printer) isSequenceBody(idx int, tokens []antlr.Token) bool {
-	if idx < 1 {
-		return false
-	}
-	// sequence { ... }  or  sequence IDENT { ... }
-	if tokens[idx-1].GetTokenType() == parser.ArcLexerSEQUENCE {
-		return true
-	}
-	if idx >= 2 &&
-		tokens[idx-1].GetTokenType() == parser.ArcLexerIDENTIFIER &&
-		tokens[idx-2].GetTokenType() == parser.ArcLexerSEQUENCE {
-		return true
-	}
-	return false
+	return tokens[i].GetTokenType()
 }
 
 // isTriggerList matches the brace after the input list when a body follows it.
@@ -859,9 +853,14 @@ func (p *printer) detectParenContext(idx int, tokens []antlr.Token) parenContext
 }
 
 func (p *printer) isInputListParen(idx int, tokens []antlr.Token) bool {
-	return idx >= 2 &&
-		tokens[idx-1].GetTokenType() == parser.ArcLexerIDENTIFIER &&
-		tokens[idx-2].GetTokenType() == parser.ArcLexerFUNC
+	if idx < 2 || tokens[idx-1].GetTokenType() != parser.ArcLexerIDENTIFIER {
+		return false
+	}
+	switch tokens[idx-2].GetTokenType() {
+	case parser.ArcLexerFUNC, parser.ArcLexerSTAGE, parser.ArcLexerSEQUENCE:
+		return true
+	}
+	return false
 }
 
 // isMultiOutputParen matches the `(` right after the input list or the trigger list.

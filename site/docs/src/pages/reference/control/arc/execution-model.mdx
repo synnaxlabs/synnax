@@ -57,16 +57,17 @@ sequence fill {
 start_cmd == 1 => fill
 ```
 
-Several flows can start the same top-level sequence or stage. A flow at the top level
-starts its target without stopping other sequences or stages.
+Several flows can start the same top-level sequence or stage, and each flow starts its
+own copy. A flow at the top level starts its target without stopping other sequences or
+stages.
 
 While `fill` waits for 300 psi, it checks nothing else. To watch for unsafe values
 during a step, put the step in a stage. All the flows in a stage run at the same time.
 
-`=> next` moves to the next step in the code. `=> name` moves to the named stage of the
-same sequence. A `=> name` to a top-level sequence or stage stops the whole top-level
-sequence or stage that holds the transition, including its nested items, then starts the
-target in the same cycle. Nothing in the stopped scope resumes:
+`=> next` ends the stage, and its sequence moves to the next step in the code. `=> name`
+moves to the named stage of the same sequence. A `=> name` to a top-level sequence or
+stage starts a copy of it inside the stage that holds the flow. The stage keeps running,
+and the copy stops when the stage stops:
 
 ```arc channels="press_vlv_cmd, vent_vlv_cmd, tank_pt, start_cmd" bodies="fill, pressurize, vent"
 sequence fill {
@@ -94,11 +95,10 @@ abort stage, right after one of those steps.
 
 A sequence stops when its last step finishes, if that step is a write, a wait, or a
 gate. Then the next new true value of its start condition starts it again, at the first
-step. A sequence that ends with a stage never stops by itself.
+step. A sequence that ends with a stage stops only when that stage ends with `=> next`.
 
-Starting a sequence that runs has no effect, except when a transition inside that
-sequence targets the sequence itself. That transition leaves and restarts the sequence.
-Several top-level sequences and flows can run at the same time.
+A flow does not start its copy of a sequence again while that copy runs. Several
+top-level sequences and flows can run at the same time.
 
 <Divider.Divider x />
 
@@ -134,11 +134,6 @@ condition on a channel that stays true starts the sequence each time it stops.
 
 When more than one transition in a stage is true in the same cycle, the first one in the
 code wins. Put safety checks before the other transitions.
-
-Between a stage and a sequence declared inside it, line order decides only when both
-transitions target a top-level sequence or stage. A transition inside the inner
-sequence, such as `=> next`, acts first. The outer jump then acts in the same cycle, so
-the stage the inner sequence entered stops at once.
 
 <Divider.Divider x />
 

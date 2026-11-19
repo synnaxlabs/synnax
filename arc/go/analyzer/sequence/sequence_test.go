@@ -613,7 +613,7 @@ var _ = Describe("Sequence Analyzer", func() {
 					true -> start_cmd
 				}
 			`),
-			Entry("top-level stage with inline routing case body", `
+			Entry("top-level stage with anonymous routing case body", `
 				stage main {
 					start_cmd -> select() -> {
 						true: stage { 1 -> abort_btn },
@@ -621,7 +621,9 @@ var _ = Describe("Sequence Analyzer", func() {
 					}
 				}
 			`),
-			Entry("top-level stage containing a nested sequence with inline routing", `
+			Entry(
+				"top-level stage containing a nested sequence with anonymous routing",
+				`
 				stage main {
 					sequence inner {
 						start_cmd -> select() -> {
@@ -629,14 +631,15 @@ var _ = Describe("Sequence Analyzer", func() {
 						}
 					}
 				}
-			`),
-			Entry("top-level stage with inline flow target", `
+			`,
+			),
+			Entry("top-level stage with anonymous flow target", `
 				stage main {
 					start_cmd -> stage { 1 -> abort_btn }
 				}
 			`),
 			Entry(
-				"top-level stage containing a nested sequence with inline flow target",
+				"top-level stage containing a nested sequence with anonymous flow target",
 				`
 				stage main {
 					sequence inner {
@@ -648,10 +651,10 @@ var _ = Describe("Sequence Analyzer", func() {
 		)
 	})
 
-	Describe("Inline Routing Case Bodies", func() {
-		DescribeTable("Valid Inline Routing",
+	Describe("Anonymous Routing Case Bodies", func() {
+		DescribeTable("Valid Anonymous Routing",
 			analyzeAndExpectSuccess,
-			Entry("inline stage in routing case body (stage context)", `
+			Entry("anonymous stage in routing case body (stage context)", `
 				sequence main {
 					stage hold {
 						start_cmd -> select() -> {
@@ -660,7 +663,7 @@ var _ = Describe("Sequence Analyzer", func() {
 					}
 				}
 			`),
-			Entry("inline sequence in routing case body (stage context)", `
+			Entry("anonymous sequence in routing case body (stage context)", `
 				sequence main {
 					stage hold {
 						start_cmd -> select() -> {
@@ -671,14 +674,14 @@ var _ = Describe("Sequence Analyzer", func() {
 					}
 				}
 			`),
-			Entry("inline routing directly in sequence body", `
+			Entry("anonymous routing directly in sequence body", `
 				sequence main {
 					start_cmd -> select() -> {
 						true: stage { 1 -> abort_btn }
 					}
 				}
 			`),
-			Entry("inline routing inside nested sequence", `
+			Entry("anonymous routing inside nested sequence", `
 				sequence main {
 					stage hold {
 						sequence inner {
@@ -689,7 +692,7 @@ var _ = Describe("Sequence Analyzer", func() {
 					}
 				}
 			`),
-			Entry("empty inline stage body", `
+			Entry("empty anonymous stage body", `
 				sequence main {
 					stage hold {
 						start_cmd -> select() -> {
@@ -699,7 +702,7 @@ var _ = Describe("Sequence Analyzer", func() {
 					}
 				}
 			`),
-			Entry("empty inline sequence body", `
+			Entry("empty anonymous sequence body", `
 				sequence main {
 					stage hold {
 						start_cmd -> select() -> {
@@ -712,7 +715,7 @@ var _ = Describe("Sequence Analyzer", func() {
 		)
 
 		It(
-			"Should give a named inline routing case body its code",
+			"Should give a named anonymous routing case body its code",
 			func(bCtx SpecContext) {
 				ast := MustSucceed(parser.Parse(`
 				sequence main {
@@ -727,16 +730,16 @@ var _ = Describe("Sequence Analyzer", func() {
 				analyzer.AnalyzeProgram(ctx)
 				Expect(*ctx.Diagnostics).ToNot(BeEmpty())
 				Expect((*ctx.Diagnostics)[0].Code).
-					To(Equal(codes.NamedInlineBody.Code))
+					To(Equal(codes.NamedFlowBody.Code))
 			},
 		)
 
-		DescribeTable("Should reject named inline routing case bodies",
+		DescribeTable("Should reject named anonymous routing case bodies",
 			func(bCtx SpecContext, source, expectedError string) {
 				msg := analyzeAndExpectError(bCtx, source)
 				Expect(msg).To(ContainSubstring(expectedError))
 			},
-			Entry("named inline stage", `
+			Entry("named anonymous stage", `
 				sequence main {
 					stage hold {
 						start_cmd -> select() -> {
@@ -744,8 +747,8 @@ var _ = Describe("Sequence Analyzer", func() {
 						}
 					}
 				}
-			`, `an inline stage or sequence cannot have a name`),
-			Entry("named inline sequence", `
+			`, `a stage or sequence in a flow cannot have a name`),
+			Entry("named anonymous sequence", `
 				sequence main {
 					stage hold {
 						start_cmd -> select() -> {
@@ -753,21 +756,21 @@ var _ = Describe("Sequence Analyzer", func() {
 						}
 					}
 				}
-			`, `an inline stage or sequence cannot have a name`),
+			`, `a stage or sequence in a flow cannot have a name`),
 		)
 	})
 
-	Describe("Inline Flow Target Bodies", func() {
-		DescribeTable("Valid Inline Flow Targets",
+	Describe("Anonymous Flow Target Bodies", func() {
+		DescribeTable("Valid Anonymous Flow Targets",
 			analyzeAndExpectSuccess,
-			Entry("inline stage as flow target (stage context)", `
+			Entry("anonymous stage as flow target (stage context)", `
 				sequence main {
 					stage hold {
 						start_cmd -> stage { 1 -> abort_btn }
 					}
 				}
 			`),
-			Entry("inline sequence as flow target (stage context)", `
+			Entry("anonymous sequence as flow target (stage context)", `
 				sequence main {
 					stage hold {
 						start_cmd -> sequence {
@@ -776,32 +779,32 @@ var _ = Describe("Sequence Analyzer", func() {
 					}
 				}
 			`),
-			Entry("inline flow target directly in sequence body", `
+			Entry("anonymous flow target directly in sequence body", `
 				sequence main {
 					start_cmd -> stage { 1 -> abort_btn }
 				}
 			`),
-			Entry("inline stage flow target at module scope", `
+			Entry("anonymous stage flow target at module scope", `
 				start_cmd -> stage { 1 -> abort_btn }
 			`),
-			Entry("inline sequence flow target at module scope", `
+			Entry("anonymous sequence flow target at module scope", `
 				start_cmd -> sequence {
 					1 -> abort_btn
 				}
 			`),
-			Entry("module-scope inline stage with multiple parallel writes", `
+			Entry("module-scope anonymous stage with multiple parallel writes", `
 				start_cmd -> stage {
 					1 -> abort_btn
 					true -> start_cmd
 				}
 			`),
-			Entry("module-scope inline sequence with multiple steps", `
+			Entry("module-scope anonymous sequence with multiple steps", `
 				start_cmd -> sequence {
 					1 -> abort_btn
 					true -> start_cmd
 				}
 			`),
-			Entry("inline flow target inside nested sequence", `
+			Entry("anonymous flow target inside nested sequence", `
 				sequence main {
 					stage hold {
 						sequence inner {
@@ -810,14 +813,14 @@ var _ = Describe("Sequence Analyzer", func() {
 					}
 				}
 			`),
-			Entry("empty inline stage flow target", `
+			Entry("empty anonymous stage flow target", `
 				sequence main {
 					stage hold {
 						start_cmd -> stage { }
 					}
 				}
 			`),
-			Entry("empty inline sequence flow target", `
+			Entry("empty anonymous sequence flow target", `
 				sequence main {
 					stage hold {
 						start_cmd -> sequence { }
@@ -826,25 +829,25 @@ var _ = Describe("Sequence Analyzer", func() {
 			`),
 		)
 
-		DescribeTable("Should reject named inline flow targets",
+		DescribeTable("Should reject named anonymous flow targets",
 			func(bCtx SpecContext, source, expectedError string) {
 				msg := analyzeAndExpectError(bCtx, source)
 				Expect(msg).To(ContainSubstring(expectedError))
 			},
-			Entry("named inline stage", `
+			Entry("named anonymous stage", `
 				sequence main {
 					stage hold {
 						start_cmd -> stage my_stage { 1 -> abort_btn }
 					}
 				}
-			`, `an inline stage or sequence cannot have a name`),
-			Entry("named inline sequence", `
+			`, `a stage or sequence in a flow cannot have a name`),
+			Entry("named anonymous sequence", `
 				sequence main {
 					stage hold {
 						start_cmd -> sequence my_seq { 1 -> abort_btn }
 					}
 				}
-			`, `an inline stage or sequence cannot have a name`),
+			`, `a stage or sequence in a flow cannot have a name`),
 		)
 	})
 
@@ -917,5 +920,355 @@ var _ = Describe("Stage reassignment types", func() {
 					ToNot(Equal(types.KindChan))
 			}
 		}
+	})
+})
+
+var _ = Describe("Parameters", func() {
+	DescribeTable("Valid",
+		analyzeAndExpectSuccess,
+		Entry("a sequence with a value and a channel parameter", `
+			sequence main(limit f64, valve chan f64) {
+				stage press {
+					1.0 -> valve
+					pressure > limit => next
+				}
+				stage vent {
+					0.0 -> valve
+				}
+			}
+		`),
+		Entry("a top-level stage with a channel parameter", `
+			stage hold(valve chan f64) {
+				0.0 -> valve
+			}
+		`),
+		Entry("a parameter with a default", `
+			sequence main(valve chan f64, limit f64 = 50.0) {
+				stage press {
+					pressure > limit => next
+				}
+				stage vent {
+					0.0 -> valve
+				}
+			}
+		`),
+		Entry("a channel parameter as a flow source", `
+			sequence main(sensor chan f64) {
+				stage copy {
+					sensor -> valve_cmd
+				}
+			}
+		`),
+		Entry("a variable computed from a value parameter", `
+			sequence main(limit f64) {
+				high := limit * 2.0
+				stage press {
+					pressure > high => next
+				}
+				stage vent {
+				}
+			}
+		`),
+		Entry("a variable that copies a value parameter", `
+			sequence main(limit f64) {
+				copy := limit
+				stage press {
+					pressure > copy => next
+				}
+				stage vent {
+				}
+			}
+		`),
+		Entry("a value parameter as a function input", `
+			sequence main(note str) {
+				stage hold {
+					start_cmd -> log(message=note)
+				}
+			}
+		`),
+		Entry("a parameter as the source of a function trigger", `
+			func double() {v f64} f64 {
+				return v * 2.0
+			}
+			sequence main(limit f64, sensor chan f64) {
+				stage copy {
+					limit -> double() -> valve_cmd
+					sensor -> double() -> valve_cmd
+				}
+			}
+		`),
+		Entry("a parameter with the name of a channel", `
+			sequence main(pressure f64) {
+				stage hold {
+					pressure -> valve_cmd
+				}
+			}
+		`),
+	)
+
+	DescribeTable("Invalid",
+		func(bCtx SpecContext, source, expectedError string) {
+			Expect(
+				analyzeAndExpectError(bCtx, source),
+			).To(ContainSubstring(expectedError))
+		},
+		Entry("a parameter list on a stage in a sequence", `
+			sequence main {
+				stage press(limit f64) {
+				}
+			}
+		`, "invalid stage or sequence declaration: only a top-level stage or sequence can have parameters"),
+		Entry("a parameter list on a sequence in a sequence", `
+			sequence main {
+				sequence inner(limit f64) {
+					0.0 -> valve_cmd
+				}
+			}
+		`, "invalid stage or sequence declaration: only a top-level stage or sequence can have parameters"),
+		Entry("a parameter list on an anonymous stage", `
+			start_cmd => stage(limit f64) {
+				0.0 -> valve_cmd
+			}
+		`, "invalid stage or sequence declaration: only a top-level stage or sequence can have parameters"),
+		Entry("a parameter list on a sequence with no name", `
+			sequence(limit f64) {
+				0.0 -> valve_cmd
+			}
+		`, "invalid stage or sequence declaration: a sequence with parameters needs a name"),
+		Entry("a parameter list on a stage with no name", `
+			stage(limit f64) {
+				0.0 -> valve_cmd
+			}
+		`, "invalid stage or sequence declaration: a stage with parameters needs a name"),
+		Entry("an empty parameter list on a sequence", `
+			sequence main() {
+				stage press {
+				}
+			}
+		`, "invalid stage or sequence declaration: a parameter list cannot be empty"),
+		Entry("an empty parameter list on a stage", `
+			stage hold() {
+			}
+		`, "invalid stage or sequence declaration: a parameter list cannot be empty"),
+		Entry("an empty parameter list on a stage in a sequence", `
+			sequence main {
+				stage press() {
+				}
+			}
+		`, "invalid stage or sequence declaration: a parameter list cannot be empty"),
+		Entry("an empty parameter list on a sequence in a sequence", `
+			sequence main {
+				sequence inner() {
+					0.0 -> valve_cmd
+				}
+			}
+		`, "invalid stage or sequence declaration: a parameter list cannot be empty"),
+		Entry("an empty parameter list on an anonymous stage", `
+			start_cmd => stage() {
+				0.0 -> valve_cmd
+			}
+		`, "invalid stage or sequence declaration: a parameter list cannot be empty"),
+		Entry("an empty parameter list on a sequence with no name", `
+			sequence() {
+				0.0 -> valve_cmd
+			}
+		`, "invalid stage or sequence declaration: a parameter list cannot be empty"),
+		Entry("spaces in the parentheses of a sequence", `
+			sequence main(    ) {
+				stage press {
+				}
+			}
+		`, "invalid stage or sequence declaration: a parameter list cannot be empty"),
+		Entry("spaces in the parentheses of a stage", `
+			stage hold(    ) {
+			}
+		`, "invalid stage or sequence declaration: a parameter list cannot be empty"),
+		Entry("a new line in the parentheses of a sequence", `
+			sequence main(
+			) {
+				stage press {
+				}
+			}
+		`, "invalid stage or sequence declaration: a parameter list cannot be empty"),
+		Entry("a new line in the parentheses of a stage", `
+			stage hold(
+			) {
+			}
+		`, "invalid stage or sequence declaration: a parameter list cannot be empty"),
+		Entry("a space before the empty parentheses of a sequence", `
+			sequence main () {
+				stage press {
+				}
+			}
+		`, "invalid stage or sequence declaration: a parameter list cannot be empty"),
+		Entry("a space before the empty parentheses of a stage", `
+			stage hold () {
+			}
+		`, "invalid stage or sequence declaration: a parameter list cannot be empty"),
+		Entry("a default of the wrong type", `
+			sequence main(limit f64 = "high") {
+				stage press {
+				}
+			}
+		`, "invalid default value for input parameter limit"),
+		Entry("a default on a channel parameter of a sequence", `
+			sequence main(valve chan f64 = 0) {
+				stage press {
+				}
+			}
+		`, "invalid stage or sequence declaration: channel parameter 'valve' "+
+			"cannot have a default"),
+		Entry("a default on a channel parameter of a stage", `
+			stage hold(valve chan f64 = 0) {
+				0.0 -> valve
+			}
+		`, "invalid stage or sequence declaration: channel parameter 'valve' "+
+			"cannot have a default"),
+		Entry("a bool default on a channel parameter of a sequence", `
+			sequence main(valve chan bool = false) {
+				stage press {
+				}
+			}
+		`, "invalid stage or sequence declaration: channel parameter 'valve' "+
+			"cannot have a default"),
+		Entry("a bool default on a channel parameter of a stage", `
+			stage hold(valve chan bool = false) {
+				true -> valve
+			}
+		`, "invalid stage or sequence declaration: channel parameter 'valve' "+
+			"cannot have a default"),
+		Entry("a default on a channel parameter after a value parameter", `
+			sequence main(limit f64 = 1.0, valve chan u8 = 1) {
+				stage press {
+				}
+			}
+		`, "invalid stage or sequence declaration: channel parameter 'valve' "+
+			"cannot have a default"),
+		Entry("a required parameter after an optional one", `
+			sequence main(limit f64 = 1.0, valve chan f64) {
+				stage press {
+				}
+			}
+		`, "required input parameter valve cannot follow optional input parameters"),
+		Entry("an assignment to a value parameter", `
+			sequence main(limit f64) {
+				stage press {
+					limit = 1.0
+				}
+			}
+		`, "invalid assignment: cannot reassign parameter 'limit'"),
+		Entry("a flow into a value parameter", `
+			sequence main(limit f64) {
+				stage press {
+					1.0 -> limit
+				}
+			}
+		`, "invalid assignment: cannot reassign parameter 'limit'"),
+		Entry("an assignment to a channel parameter", `
+			sequence main(valve chan f64) {
+				stage press {
+					valve = 1.0
+				}
+			}
+		`, "use '<value> -> valve' to write to 'valve'"),
+		Entry("a flow of the wrong type into a channel parameter", `
+			sequence main(valve chan f64) {
+				stage press {
+					start_cmd -> valve
+				}
+			}
+		`, "does not match channel valve value type f64"),
+		Entry("an alias of a channel parameter", `
+			sequence main(valve chan f64) {
+				out := valve
+				stage press {
+					1.0 -> out
+				}
+			}
+		`, "invalid assignment: a channel parameter cannot have an alias, use 'valve' directly"),
+		Entry("two parameters with one name", `
+			sequence main(limit f64, limit f64) {
+				stage press {
+				}
+			}
+		`, "name limit conflicts with existing input parameter"),
+		Entry("a parameter with the name of a top-level variable above it", `
+			limit := 1.0
+			sequence main(limit f64) {
+				stage press {
+				}
+			}
+		`, "name limit conflicts with existing variable"),
+		Entry("a parameter with the name of a function", `
+			func limit() f64 {
+				return 1.0
+			}
+			sequence main(limit f64) {
+				stage press {
+				}
+			}
+		`, "name limit conflicts with existing function"),
+		Entry("a parameter with the name of another sequence", `
+			sequence main(abort f64) {
+				stage press {
+				}
+			}
+			sequence abort {
+				stage safed {
+				}
+			}
+		`, "name abort conflicts with existing sequence"),
+		Entry("a variable with the name of a parameter", `
+			sequence main(limit f64) {
+				limit := 1.0
+				stage press {
+				}
+			}
+		`, "name limit conflicts with existing input parameter"),
+		Entry("a parameter with the name of a stage in its sequence", `
+			sequence main(press f64) {
+				stage press {
+				}
+			}
+		`, "name press conflicts with existing stage"),
+		Entry("the bare name of its own sequence", `
+			sequence main(limit f64) {
+				stage press {
+					start_cmd => main
+				}
+			}
+		`, "invalid transition target: main has parameters"),
+		Entry("a member of its own sequence by qualified name", `
+			sequence main(limit f64) {
+				stage press {
+					start_cmd => main.vent
+				}
+				stage vent {
+				}
+			}
+		`, "undefined symbol: main.vent"),
+		Entry("a parameter read by qualified name from outside", `
+			sequence main(limit f64) {
+				stage press {
+				}
+			}
+			main.limit -> valve_cmd
+		`, "undefined symbol: main.limit"),
+	)
+
+	It("Should give the sequence type its inputs", func(bCtx SpecContext) {
+		ast := MustSucceed(parser.Parse(`
+			sequence main(valve chan f64, limit f64 = 50.0) {
+				stage press {
+				}
+			}
+		`))
+		ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
+		sequence.CollectDeclarations(ctx)
+		main := MustSucceed(ctx.Scope.Resolve(bCtx, "main"))
+		Expect(main.Type.Inputs).To(Equal(types.Params{
+			{Name: "valve", Type: types.Chan(types.F64())},
+			{Name: "limit", Type: types.F64(), Value: 50.0},
+		}))
 	})
 })

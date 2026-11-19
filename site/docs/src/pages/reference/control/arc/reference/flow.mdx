@@ -65,15 +65,15 @@ automation starts, or each time its stage starts. See
 The last node of a flow is its sink. A function instance can also be in the middle of a
 flow.
 
-| Sink                     | Example               | Effect                                                                |
-| ------------------------ | --------------------- | --------------------------------------------------------------------- |
-| Channel                  | `-> press_vlv_cmd`    | Writes the value to the channel.                                      |
-| Variable                 | `-> peak`             | Sets a variable of the enclosing sequence or stage.                   |
-| Function instance        | `-> scale(k=6.895)`   | Passes the value to the first trigger of the function.                |
-| Stage or sequence        | `=> vent`             | Starts the stage or the sequence.                                     |
-| `next`                   | `=> next`             | Moves to the next step of the enclosing sequence.                     |
-| Routing table            | `-> { ... }`          | Runs an entry for each output. See [routing tables](#routing-tables). |
-| Inline stage or sequence | `=> sequence { ... }` | Starts an anonymous stage or sequence.                                |
+| Sink                        | Example               | Effect                                                                |
+| --------------------------- | --------------------- | --------------------------------------------------------------------- |
+| Channel                     | `-> press_vlv_cmd`    | Writes the value to the channel.                                      |
+| Variable                    | `-> peak`             | Sets a variable of the enclosing sequence or stage.                   |
+| Function instance           | `-> scale(k=6.895)`   | Passes the value to the first trigger of the function.                |
+| Stage or sequence           | `=> vent`             | Starts the stage or the sequence.                                     |
+| `next`                      | `=> next`             | Ends the stage, and its sequence moves to the next step.              |
+| Routing table               | `-> { ... }`          | Runs an entry for each output. See [routing tables](#routing-tables). |
+| Anonymous stage or sequence | `=> sequence { ... }` | Starts an anonymous stage or sequence.                                |
 
 - A top-level variable is not a sink:
   `invalid assignment: cannot reassign top-level variable 'peak'`.
@@ -82,14 +82,17 @@ flow.
 - `=> name` finds a stage or sequence with that name in the enclosing sequences, from
   the innermost out, then at the top level. A stage of a different sequence is not
   found: `undefined symbol: name`.
-- Several flows can start the same top-level sequence or stage. A running target does
-  not restart, except when a transition inside it targets itself. See
+- Each flow that names a top-level stage or sequence starts its own copy, with its own
+  state. The copy runs inside the stage or sequence that holds the flow, and stops when
+  the holder stops. A name with no flow in front, such as `vent` on its own line, is the
+  same as `true => vent`. See
   [conditions and transitions](/reference/control/arc/execution-model#conditions-and-transitions).
 - `-> name` starts a stage or sequence on each new value, also a false one. `=> name`
   starts it only on a true value.
-- `next` outside a sequence fails with
-  `invalid transition target: 'next' used outside of a sequence`. In the last step, it
-  fails with `invalid transition target: 'next' in last stage 'hold' has no next stage`.
+- A stage or sequence with [parameters](#stage-and-sequence-parameters) starts with a
+  call, such as `=> fill(tank_pt, press_vlv_cmd)`.
+- `next` outside a stage or sequence fails with
+  `invalid transition target: 'next' used outside of a stage or sequence`.
 
 <Divider.Divider x />
 
@@ -124,6 +127,41 @@ For required parameters and defaults, see
 
 <Divider.Divider x />
 
+## Stage and sequence parameters
+
+A named top-level stage or sequence can take parameters, written as the
+[inputs of a function](/reference/control/arc/reference/functions#inputs). A stage or
+sequence is called with parentheses only if it has parameters. A stage or sequence with
+no parameters has no parentheses in its declaration or its call.
+
+```arc channels="fill_a_cmd, fill_b_cmd, abort_cmd, tank_a_pt, tank_b_pt, press_a_vlv_cmd, press_b_vlv_cmd, vent_vlv_cmd" bodies="fill, open, close, vent"
+sequence fill(pressure chan f32, valve chan bool, limit f32 = 300) {
+    stage open {
+        true -> valve
+        pressure > limit => next
+    }
+    stage close {
+        false -> valve
+    }
+}
+
+stage vent(valve chan bool) {
+    true -> valve
+}
+
+fill_a_cmd => fill(tank_a_pt, press_a_vlv_cmd)
+fill_b_cmd => fill(pressure=tank_b_pt, valve=press_b_vlv_cmd, limit=500)
+abort_cmd => vent(vent_vlv_cmd)
+```
+
+Each call site is its own instance with its own state, in the same way that each call
+site of a function keeps its own
+[state](/reference/control/arc/reference/functions#stateful-variables). The two `fill`
+calls run at the same time, each with its own channels and limit. The nested stages
+`open` and `close` read the parameters of `fill`.
+
+<Divider.Divider x />
+
 ## Routing tables
 
 ### Output routing
@@ -142,13 +180,12 @@ tank_pt > 500.0 -> select() -> {
 
 ### Case bodies
 
-Each entry is a full flow, such as `true: 1 -> vent_vlv_cmd`, or an inline stage or
+Each entry is a full flow, such as `true: 1 -> vent_vlv_cmd`, or an anonymous stage or
 sequence. The output starts the entry, but its value does not pass into the entry. An
 entry with only a target fails with
 `invalid routing table: routing entry must be a full statement, e.g. 'true: true => next' to transition or 'true: false -> some_chan' to send false`.
 
-An inline stage or sequence has no name. It cannot use `next`:
-`invalid transition target: 'next' is not valid inside an inline routing case body`.
+An anonymous stage or sequence has no name.
 
 ```arc channels="tank_pt, vent_vlv_cmd"
 import time

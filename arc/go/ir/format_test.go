@@ -84,6 +84,21 @@ var _ = Describe("FormatFunctionSignature", func() {
 			sig := ir.FormatFunctionSignature("myChan", types.Chan(types.F64()))
 			Expect(sig).To(Equal("myChan"))
 		})
+
+		It("Should return just the name for a sequence with no inputs", func() {
+			sig := ir.FormatFunctionSignature("main", types.Sequence())
+			Expect(sig).To(Equal("main"))
+		})
+
+		It("Should format the inputs of a sequence that has them", func() {
+			seqType := types.Sequence()
+			seqType.Inputs = types.Params{
+				{Name: "limit", Type: types.F64()},
+				{Name: "valve", Type: types.Chan(types.F64())},
+			}
+			sig := ir.FormatFunctionSignature("main", seqType)
+			Expect(sig).To(Equal("main(limit f64, valve chan f64)"))
+		})
 	})
 
 	Describe("Mixed Types", func() {

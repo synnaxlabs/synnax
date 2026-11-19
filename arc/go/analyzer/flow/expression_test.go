@@ -540,6 +540,35 @@ var _ = Describe("LiftVarReads", func() {
 		Expect(child.Internal).To(BeTrue())
 	})
 
+	Describe("a parameter of a sequence", func() {
+		addParam := func(bCtx SpecContext, t types.Type) {
+			GinkgoHelper()
+			seq := MustSucceed(root.Add(bCtx, symbol.Symbol{
+				Name: "main", Kind: symbol.KindSequence, Type: types.Sequence(),
+			}))
+			MustSucceed(seq.Add(bCtx, symbol.Symbol{
+				Name: "x", Kind: symbol.KindInput, Type: t,
+			}))
+			fn.SetLexicalResolver(seq)
+		}
+
+		It("Should lift a value parameter as an input param", func(bCtx SpecContext) {
+			addParam(bCtx, types.F64())
+			ctx := lift(bCtx, "x + 1.0")
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			Expect(MustBeOk(fn.Type.Inputs.Get("x")).Type).To(Equal(types.F64()))
+			Expect(fn.FindChild("x").Internal).To(BeTrue())
+		})
+
+		It("Should lift a channel parameter as a channel", func(bCtx SpecContext) {
+			addParam(bCtx, types.Chan(types.F64()))
+			ctx := lift(bCtx, "x + 1.0")
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			Expect(MustBeOk(fn.Type.Inputs.Get("x")).Type).
+				To(Equal(types.Chan(types.F64())))
+		})
+	})
+
 	It("Should not lift a never-reassigned literal variable", func(bCtx SpecContext) {
 		addVar(bCtx, symbol.Symbol{
 			Name: "x", Kind: symbol.KindVariable, Type: types.I32(),

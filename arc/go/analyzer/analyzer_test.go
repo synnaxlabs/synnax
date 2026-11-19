@@ -1759,6 +1759,141 @@ var _ = Describe("Channel reads through later declarations", func() {
 	})
 })
 
+var _ = Describe("Calls between sequences with parameters", func() {
+	It("Should reject a sequence that calls itself", func(bCtx SpecContext) {
+		ctx := analyzeAndExpectErrorWithResolver(bCtx, `
+			sequence main(valve chan f32) {
+				stage press {
+					ch > 0 => main(valve)
+				}
+			}
+		`, chResolver)
+		Expect(*ctx.Diagnostics).To(HaveLen(1))
+		Expect((*ctx.Diagnostics)[0].Message).
+			To(Equal("circular function call: sequence 'main' cannot call itself"))
+		Expect((*ctx.Diagnostics)[0].Notes).To(BeEmpty())
+	})
+
+	It("Should reject a stage that calls itself", func(bCtx SpecContext) {
+		ctx := analyzeAndExpectErrorWithResolver(bCtx, `
+			stage hold(valve chan f32) {
+				ch > 0 => hold(valve)
+			}
+		`, chResolver)
+		Expect(*ctx.Diagnostics).To(HaveLen(1))
+		Expect((*ctx.Diagnostics)[0].Message).
+			To(Equal("circular function call: stage 'hold' cannot call itself"))
+	})
+
+	It("Should reject a cycle of calls and show the chain", func(bCtx SpecContext) {
+		ctx := analyzeAndExpectErrorWithResolver(bCtx, `
+			sequence fill(valve chan f32) {
+				stage open {
+					ch > 0 => drain(valve)
+				}
+			}
+			sequence drain(valve chan f32) {
+				stage open {
+					ch > 0 => fill(valve)
+				}
+			}
+		`, chResolver)
+		Expect(*ctx.Diagnostics).To(HaveLen(1))
+		d := (*ctx.Diagnostics)[0]
+		Expect(
+			d.Message,
+		).To(MatchRegexp(`^circular function call: sequence '(fill|drain)' cannot call itself$`))
+		Expect(d.Notes).To(HaveLen(1))
+		Expect(d.Notes[0].Message).To(MatchRegexp(
+			`^call chain: (fill -> drain -> fill|drain -> fill -> drain)$`,
+		))
+	})
+
+	DescribeTable("Should reject a stage or sequence that uses itself",
+		func(bCtx SpecContext, source, message string) {
+			ctx := analyzeAndExpectErrorWithResolver(bCtx, source, chResolver)
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Message).To(MatchRegexp(message))
+		},
+		Entry("a sequence that names itself", `
+			sequence main {
+				main
+			}
+		`, `^circular function call: sequence 'main' cannot call itself$`),
+		Entry("a stage that names itself", `
+			stage hold {
+				hold
+			}
+		`, `^circular function call: stage 'hold' cannot call itself$`),
+		Entry("two stages that name each other", `
+			stage one {
+				two
+			}
+			stage two {
+				one
+			}
+		`, `^circular function call: stage '(one|two)' cannot call itself$`),
+		Entry("a sequence that names itself after a trigger", `
+			sequence main {
+				stage run {
+					ch > 0 => main
+				}
+			}
+		`, `^circular function call: sequence 'main' cannot call itself$`),
+		Entry("two sequences that name each other after a trigger", `
+			sequence main {
+				stage run {
+					ch > 0 => abort
+				}
+			}
+			sequence abort {
+				stage safe {
+					ch > 0 => main
+				}
+			}
+		`, `^circular function call: sequence '(main|abort)' cannot call itself$`),
+		Entry("a name and a call", `
+			sequence fill(valve chan f32) {
+				stage open {
+					ch > 0 => idle
+				}
+			}
+			sequence idle {
+				stage wait {
+					ch > 0 => fill(ch)
+				}
+			}
+		`, `^circular function call: sequence '(fill|idle)' cannot call itself$`),
+		Entry("a name in an anonymous sequence", `
+			sequence main {
+				stage run {
+					ch > 0 => sequence {
+						main
+					}
+				}
+			}
+		`, `^circular function call: sequence 'main' cannot call itself$`),
+	)
+
+	It("Should allow a step with the name of a stage that uses the sequence", func(
+		bCtx SpecContext,
+	) {
+		analyzeAndExpectWithResolver(bCtx, `
+			sequence main {
+				sequence inner {
+					stage abort {}
+					stage run {
+						ch > 0 => abort
+					}
+				}
+			}
+			stage abort {
+				main
+			}
+		`, chResolver)
+	})
+})
+
 var _ = DescribeTable("Reads of a top-level variable that is not a constant",
 	func(bCtx SpecContext, source, message string) {
 		ctx := analyzeAndExpectErrorWithResolver(bCtx, source, nil)

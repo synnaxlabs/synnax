@@ -984,7 +984,7 @@ var _ = Describe("Routing Table Runtime", func() {
 		})
 
 		It(
-			"Should run an inline body entry without an upstream flow",
+			"Should run an anonymous body entry without an upstream flow",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"flag":      {types.Bool(), 100},
@@ -1003,7 +1003,7 @@ var _ = Describe("Routing Table Runtime", func() {
 				)
 				defer h.Close(ctx)
 
-				// True branch activates the inline stage; its body fires on
+				// True branch activates the anonymous stage; its body fires on
 				// activation with no upstream flow in the entry.
 				h.Ingest(100, telem.NewSeriesV(true))
 				h.Tick(ctx, telem.Millisecond)
@@ -1017,7 +1017,7 @@ var _ = Describe("Routing Table Runtime", func() {
 				).To(Equal([]uint8{1}))
 				Expect(out.Get(300).Series).To(BeEmpty())
 
-				// False branch activates the inline sequence the same way.
+				// False branch activates the anonymous sequence the same way.
 				h.Ingest(100, telem.NewSeriesV(false))
 				h.Tick(ctx, 2*telem.Millisecond)
 				h.channelState.ClearReads()

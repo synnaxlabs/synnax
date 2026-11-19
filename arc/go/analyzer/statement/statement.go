@@ -155,7 +155,7 @@ func inferVarKind(ctx context.Context[parser.IVariableDeclarationContext]) {
 			sym.Type = types.ReadChan(sym.Type)
 			return
 		}
-		if !ref.IsValueVariable() {
+		if !ref.IsValueVariable() && !ref.IsSequenceInput() {
 			return
 		}
 	}
@@ -452,6 +452,7 @@ func castValue(cast parser.ITypeCastContext, t types.Type) any {
 func analyzeLocalVariable(ctx context.Context[parser.ILocalVariableContext]) {
 	name := ctx.AST.IDENTIFIER().GetText()
 	expr := ctx.AST.Expression()
+	rejectParameterAlias(ctx, expr)
 
 	if expr != nil && ctx.AST.Type_() == nil {
 		childCtx := ctx.Child(expr)
@@ -516,6 +517,26 @@ func analyzeLocalVariable(ctx context.Context[parser.ILocalVariableContext]) {
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 	}
+}
+
+// rejectParameterAlias reports a declaration that aliases a channel parameter.
+func rejectParameterAlias(
+	ctx context.Context[parser.ILocalVariableContext],
+	expr parser.IExpressionContext,
+) {
+	if expr == nil {
+		return
+	}
+	head, tail := parser.ExpressionNameParts(expr)
+	if head == "" {
+		return
+	}
+	ref, err := ctx.Scope.ResolveMember(ctx, head, tail)
+	if err != nil || !ref.IsSequenceInput() || ref.Type.Kind != types.KindChan {
+		return
+	}
+	ctx.Diagnostics.Add(codes.AssignmentTarget.Atf(ctx.AST,
+		"a channel parameter cannot have an alias, use '%s' directly", ref.Name))
 }
 
 // getChannelSymbol checks if an expression is a simple identifier referencing

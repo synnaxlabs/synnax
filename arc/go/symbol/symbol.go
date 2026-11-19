@@ -167,6 +167,24 @@ func (s *Symbol) IsComputed() bool {
 	return errors.Is(err, query.ErrNotFound)
 }
 
+// IsTemplate reports whether s is a named stage or sequence at the top level of a
+// program or a module. Each use of its name is a copy of it.
+func (s *Symbol) IsTemplate() bool {
+	decl, ok := s.AST.(interface{ IDENTIFIER() antlr.TerminalNode })
+	return ok && s.Kind == KindSequence && s.Parent == s.Root() &&
+		decl.IDENTIFIER() != nil
+}
+
+// IsParameterized reports whether s is a sequence or a top-level stage with parameters.
+func (s *Symbol) IsParameterized() bool {
+	return s.Kind == KindSequence && len(s.Type.Inputs) > 0
+}
+
+// IsSequenceInput reports whether s is a parameter of a sequence or a top-level stage.
+func (s *Symbol) IsSequenceInput() bool {
+	return s.Kind == KindInput && s.Parent != nil && s.Parent.Kind == KindSequence
+}
+
 // Symbol is a named entity in an Arc program and, when it has Children, a
 // container that holds other Symbols. Variables, functions, modules, channels,
 // blocks, loops, sequences, stages, and aliases are all Symbols distinguished
@@ -667,6 +685,9 @@ func (s *Symbol) ResolveMember(
 	sym, err := s.Resolve(ctx, head, options...)
 	if err != nil || tail == "" {
 		return sym, err
+	}
+	if sym.IsParameterized() {
+		return nil, codes.SymbolUndefined.Errorf("undefined symbol: %s.%s", head, tail)
 	}
 	return sym.Resolve(ctx, tail)
 }

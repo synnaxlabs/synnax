@@ -15,23 +15,32 @@ A sequence runs its steps in order, one step at a time. Newlines or commas separ
 steps.
 
 ```text
-sequence = "sequence" name? "{" step* "}"
+sequence = "sequence" name? ("(" params ")")? "{" step* "}"
 ```
 
-```arc channels="start_cmd, press_vlv_cmd, tank_pt" bodies="press"
+```arc channels="start_cmd, ox_start_cmd, press_vlv_cmd, ox_press_vlv_cmd, tank_pt, ox_pt" bodies="press, press_to"
 import time
 
 sequence press {
-    1 -> press_vlv_cmd
+    true -> press_vlv_cmd
     tank_pt > 300 => next
     time.wait(duration=10s)
-    0 -> press_vlv_cmd
+    false -> press_vlv_cmd
 }
 
-start_cmd == 1 => press
+sequence press_to(pressure chan f32, valve chan bool, target f32) {
+    true -> valve
+    pressure > target => next
+    false -> valve
+}
+
+start_cmd => press
+ox_start_cmd => press_to(ox_pt, ox_press_vlv_cmd, 500)
 ```
 
-To learn when a step moves on and when a sequence stops, see
+A named top-level sequence can take
+[parameters](/reference/control/arc/reference/flow#stage-and-sequence-parameters). To
+learn when a step moves on and when a sequence stops, see
 [steps of a sequence](/reference/control/arc/execution-model#steps-of-a-sequence).
 
 <Divider.Divider x />
@@ -40,7 +49,7 @@ To learn when a step moves on and when a sequence stops, see
 
 | Step          | Example                                     |
 | ------------- | ------------------------------------------- |
-| Write         | `1 -> press_vlv_cmd`                        |
+| Write         | `true -> press_vlv_cmd`                     |
 | Wait          | `time.wait(duration=10s)`                   |
 | Gate          | `tank_pt > 300 => next`, or `tank_pt > 300` |
 | Stage         | `stage hold { ... }`                        |
@@ -72,17 +81,15 @@ Starting a sequence with an empty body fails with
 
 ## Starting a sequence
 
-| Sequence             | Starts                                                     |
-| -------------------- | ---------------------------------------------------------- |
-| Named, top level     | When a flow targets it, such as `start_cmd == 1 => press`. |
-| Anonymous, top level | When the automation starts.                                |
-| Nested               | When its parent sequence or stage reaches it.              |
+| Sequence             | Starts                                                |
+| -------------------- | ----------------------------------------------------- |
+| Named, top level     | When a flow targets it, such as `start_cmd => press`. |
+| Anonymous, top level | When the automation starts.                           |
+| Nested               | When its parent sequence or stage reaches it.         |
 
 A flow that starts a top-level sequence can be at the top level, or in a step of a
-different sequence. From a step, it stops the whole top-level sequence or stage that
-holds the transition, then starts the target in the same cycle. From the top level, it
-stops nothing. A running target does not restart, except when a transition inside it
-targets itself.
+different sequence. Each flow starts its own copy of the sequence. From a step, the copy
+runs inside the step and stops when the step ends.
 
 Several flows can start the same sequence. Each flow can activate it when its condition
 is true and the sequence is not already running.
@@ -98,12 +105,12 @@ it. To learn when it goes back to its first value, see
 ```arc channels="start_cmd, remote_start_cmd, press_vlv_cmd, tank_pt" bodies="press"
 sequence press {
     target := 300.0
-    1 -> press_vlv_cmd
+    true -> press_vlv_cmd
     tank_pt > target => next
-    0 -> press_vlv_cmd
+    false -> press_vlv_cmd
 }
 
-start_cmd == 1 or remote_start_cmd == 1 => press
+start_cmd or remote_start_cmd => press
 ```
 
 Set a sequence variable with `=` or with a flow, such as `tank_pt -> peak`. Compound

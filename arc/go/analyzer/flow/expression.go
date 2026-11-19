@@ -157,12 +157,12 @@ func LiftVarReads[T antlr.ParserRuleContext](
 			continue
 		}
 		exprRead := sym.IsReactive() && sym.SourceID == nil
-		if !sym.Reassigned && !exprRead && !sym.IsComputed() {
+		if !sym.Reassigned && !exprRead && !sym.IsComputed() && !sym.IsSequenceInput() {
 			continue
 		}
-		// A channel-coupled var lifts as its value type; a node feeds it data.
+		// A channel-coupled var lifts as its value type. A channel parameter stays one.
 		t := sym.Type
-		if t.Kind == types.KindChan {
+		if t.Kind == types.KindChan && !sym.IsSequenceInput() {
 			t = t.Unwrap()
 		}
 		if _, err = fn.Add(ctx, symbol.Symbol{

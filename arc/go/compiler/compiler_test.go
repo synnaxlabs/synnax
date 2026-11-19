@@ -519,6 +519,9 @@ var _ = Describe("Compiler", func() {
 			sequence main {
 				r := count_ch + 1
 				r = count_ch + 2
+			}
+			stage {
+			    main
 			}`}))
 			inter, diag := text.Analyze(ctx, prog, NewRoot(nil, resolver...))
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
@@ -4632,7 +4635,8 @@ var _ = Describe("Compiler", func() {
 				writes.WriteString("d -> " + sink.Name + "\n")
 			}
 			prog := MustSucceed(text.Parse(text.Text{Raw: "sequence main {\n" +
-				declarations + "\nstage s1 {\n" + writes.String() + "}\n}"}))
+				declarations + "\nstage s1 {\n" + writes.String() +
+				"}\n}\nstage {\nmain\n}"}))
 			inter, diag := text.Analyze(ctx, prog, NewRoot(nil, sinks...))
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 			for i, f := range inter.Functions {

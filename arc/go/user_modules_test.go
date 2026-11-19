@@ -803,4 +803,149 @@ export sequence s { stage a { 1 -> seq_out } }
 		out := run(ctx, h, 2)
 		Expect(last(out, seqOut).Unmarshal[uint8]()).To(Equal([]uint8{1}))
 	})
+
+	Describe("Sequences and stages with parameters", func() {
+		written := func(fr telem.Frame[uint32], key uint32) bool {
+			return len(fr.Get(key).Series) > 0
+		}
+
+		It("Should run each call of an exported sequence as its own instance", func(
+			ctx SpecContext,
+		) {
+			h := newModuleRuntimeHarness(ctx, `
+import m
+
+trig == 1 => m.set(fn_out, 1)
+trig2 == 1 => m.set(fn_out2, 2)
+`, map[string]string{"m": `
+offset i64 := 5
+
+export sequence set(out chan i64, value i64) {
+    stage write {
+        value + offset -> out
+    }
+}
+`}, resolver, digests...)
+			defer h.Close(ctx)
+			out := send(ctx, h, trig, 1)
+			Expect(last(out, fnOut).Unmarshal[int64]()).To(Equal([]int64{6}))
+			Expect(written(out, fnOut2)).To(BeFalse())
+			out = send(ctx, h, trig2, 1)
+			Expect(last(out, fnOut2).Unmarshal[int64]()).To(Equal([]int64{7}))
+		})
+
+		It("Should run each call of an exported stage as its own instance", func(
+			ctx SpecContext,
+		) {
+			h := newModuleRuntimeHarness(ctx, `
+import m
+
+trig == 1 => m.hold(fn_out, 1)
+trig2 == 1 => m.hold(fn_out2, 2)
+`, map[string]string{"m": `
+offset i64 := 5
+
+export stage hold(out chan i64, value i64) {
+    value + offset -> out
+}
+`}, resolver, digests...)
+			defer h.Close(ctx)
+			out := send(ctx, h, trig, 1)
+			Expect(last(out, fnOut).Unmarshal[int64]()).To(Equal([]int64{6}))
+			Expect(written(out, fnOut2)).To(BeFalse())
+			out = send(ctx, h, trig2, 1)
+			Expect(last(out, fnOut2).Unmarshal[int64]()).To(Equal([]int64{7}))
+		})
+
+		DescribeTable("Should set authority on a channel parameter of an exported",
+			func(ctx SpecContext, module string) {
+				h := newModuleRuntimeHarness(ctx, `
+import m
+
+trig == 1 => m.take(fn_out, 220)
+trig2 == 1 => m.take(fn_out2, 90)
+`, map[string]string{"m": module}, resolver, digests...)
+				defer h.Close(ctx)
+				send(ctx, h, trig, 1)
+				changes := h.FlushAuthority()
+				Expect(changes).To(HaveLen(1))
+				Expect(changes[0].Authority).To(Equal(uint8(220)))
+				Expect(changes[0].Channel).To(HaveValue(Equal(fnOut)))
+				send(ctx, h, trig2, 1)
+				changes = h.FlushAuthority()
+				Expect(changes).To(HaveLen(1))
+				Expect(changes[0].Authority).To(Equal(uint8(90)))
+				Expect(changes[0].Channel).To(HaveValue(Equal(fnOut2)))
+			},
+			Entry("stage", `
+import control
+
+export stage take(out chan i64, level u8) {
+    control.set_authority(value=level, channel=out)
+    1 -> out
+}
+`),
+			Entry("sequence", `
+import control
+
+export sequence take(out chan i64, level u8) {
+    stage run {
+        control.set_authority(value=level, channel=out)
+        1 -> out
+    }
+}
+`),
+		)
+
+		It("Should call a sequence the module does not export from one it does", func(
+			ctx SpecContext,
+		) {
+			h := newModuleRuntimeHarness(ctx, `
+import m
+
+trig == 1 => m.arm(fn_out)
+`, map[string]string{"m": `
+sequence set(out chan i64, value i64) {
+    stage write {
+        value -> out
+    }
+}
+
+export sequence arm(out chan i64) {
+    stage wait {
+        trig2 == 1 => set(out, 9)
+    }
+}
+`}, resolver, digests...)
+			defer h.Close(ctx)
+			out := send(ctx, h, trig, 1)
+			Expect(written(out, fnOut)).To(BeFalse())
+			out = send(ctx, h, trig2, 1)
+			Expect(last(out, fnOut).Unmarshal[int64]()).To(Equal([]int64{9}))
+		})
+
+		It("Should run a call that the module makes itself", func(ctx SpecContext) {
+			h := newModuleRuntimeHarness(ctx, `
+import m
+
+trig == 1 => m.s
+`, map[string]string{"m": `
+sequence set(out chan i64, value i64) {
+    stage write {
+        value -> out
+    }
+}
+
+export sequence s {
+    stage wait {
+        trig2 == 1 => set(fn_out, 3)
+    }
+}
+`}, resolver, digests...)
+			defer h.Close(ctx)
+			send(ctx, h, trig, 1)
+			out := send(ctx, h, trig2, 1)
+			Expect(last(out, fnOut).Unmarshal[int64]()).To(Equal([]int64{3}))
+		})
+	})
 })

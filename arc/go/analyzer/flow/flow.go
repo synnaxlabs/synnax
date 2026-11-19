@@ -40,6 +40,9 @@ func freshenKey(node antlr.ParserRuleContext, name string) string {
 }
 
 func AnalyzeSingleFunction(ctx context.Context[parser.IFunctionContext]) {
+	if analyzeBodyCall(ctx) {
+		return
+	}
 	funcType, name := resolveFunc(ctx, ctx.AST)
 	if funcType == nil {
 		return
@@ -53,6 +56,7 @@ func AnalyzeSingleFunction(ctx context.Context[parser.IFunctionContext]) {
 	AnalyzeComputedArgs(ctx, args)
 	expression.AnalyzeCall(
 		ctx,
+		"func",
 		name,
 		freshType,
 		args,
@@ -144,7 +148,7 @@ func analyzeNode(
 		AnalyzeSingleExpression(ctx.Child(expr))
 		return
 	}
-	// NEXT and inline stage/sequence declarations are resolved during sequence
+	// NEXT and anonymous stage/sequence declarations are resolved during sequence
 	// analysis, not here. The grammar guarantees flowNode is one of: identifier |
 	// function | expression | stageDeclaration | sequenceDeclaration | NEXT.
 }
@@ -153,6 +157,9 @@ func parseFunction(
 	ctx context.Context[parser.IFunctionContext],
 	prevNode parser.IFlowNodeContext,
 ) {
+	if analyzeBodyCall(ctx) {
+		return
+	}
 	funcType, name := resolveFunc(ctx, ctx.AST)
 	if funcType == nil {
 		return
@@ -178,6 +185,7 @@ func parseFunction(
 	}
 	expression.AnalyzeCall(
 		ctx,
+		"func",
 		name,
 		freshType,
 		args,
@@ -245,7 +253,10 @@ func identifierUpstreamType(
 	if idSym.IsLiteral() {
 		return idSym.Type, true
 	}
-	isChanVar := idSym.Kind == symbol.KindVariable &&
+	if idSym.IsSequenceInput() && idSym.Type.Kind != types.KindChan {
+		return idSym.Type, true
+	}
+	isChanVar := (idSym.Kind == symbol.KindVariable || idSym.IsSequenceInput()) &&
 		idSym.Type.Kind == types.KindChan
 	if idSym.Kind != symbol.KindChannel && !isChanVar {
 		ctx.Diagnostics.Add(
@@ -414,10 +425,14 @@ func analyzeIdentifier(
 		constantType(ctx, ctx.AST, sym)
 		return
 	}
+	if sym.IsParameterized() {
+		ctx.Diagnostics.Add(needsCall(ctx.AST, name))
+		return
+	}
 	// Any other symbol would lower to a read or write of a channel that does not exist.
 	isFlowNode := sym.Kind == symbol.KindChannel || sym.Kind == symbol.KindStage ||
 		sym.Kind == symbol.KindSequence || sym.Kind == symbol.KindVariable ||
-		sym.Kind == symbol.KindStatefulVariable
+		sym.Kind == symbol.KindStatefulVariable || sym.IsSequenceInput()
 	if !isFlowNode {
 		d := codes.ChannelExpected.Atf(ctx.AST, "%s is not a channel", name)
 		if sym.Kind == symbol.KindFunction {
@@ -438,10 +453,16 @@ func analyzeIdentifier(
 			}
 			sym.Reassigned = true
 		}
+		if sym.IsSequenceInput() && sym.Type.Kind != types.KindChan {
+			ctx.Diagnostics.Add(codes.AssignmentTarget.Atf(ctx.AST,
+				"cannot reassign parameter '%s'", name))
+			return
+		}
 	}
 
 	if isLastNode && prevNode != nil &&
-		(sym.Kind == symbol.KindChannel || sym.IsValueVariable()) {
+		(sym.Kind == symbol.KindChannel || sym.IsValueVariable() ||
+			sym.IsSequenceInput()) {
 		checkFlowSink(ctx, prevNode, sym, name)
 	}
 }
@@ -790,7 +811,7 @@ func analyzeOutputRoutingEntry(
 	// A routing key only gates its entry, so a bare target would never
 	// receive a value. The entry must define its own source.
 	if len(flowNodes) == 1 && targetParamName == "" &&
-		!isInlineBody(flowNodes[0]) {
+		!isAnonymousBody(flowNodes[0]) {
 		ctx.Diagnostics.Add(
 			codes.RoutingTable.Atf(
 				entry,
@@ -883,9 +904,9 @@ func analyzeRoutingEntryChain(
 	}
 }
 
-// isInlineBody reports whether the flow node is an inline stage or sequence
+// isAnonymousBody reports whether the flow node is an anonymous stage or sequence
 // declaration, which is a self-contained routing target.
-func isInlineBody(node parser.IFlowNodeContext) bool {
+func isAnonymousBody(node parser.IFlowNodeContext) bool {
 	return node.StageDeclaration() != nil || node.SequenceDeclaration() != nil
 }
 
@@ -1000,6 +1021,9 @@ func analyzeRoutingTargetWithParam(
 	targetParam *string,
 ) {
 	if fn := ctx.AST.Function(); fn != nil {
+		if analyzeBodyCall(ctx.Child(fn)) {
+			return
+		}
 		fnType, fnName := resolveFunc(ctx, fn)
 		if fnType == nil {
 			return
@@ -1018,6 +1042,7 @@ func analyzeRoutingTargetWithParam(
 		}
 		expression.AnalyzeCall(
 			ctx,
+			"func",
 			fnName,
 			freshType,
 			args,

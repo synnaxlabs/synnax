@@ -819,7 +819,7 @@ private:
     }
 
     /// @brief recursively wires each activation of a gated scope (an entry point or
-    /// an inline body's trigger) onto its source Node, so mark_changed needs zero
+    /// an anonymous body's trigger) onto its source Node, so mark_changed needs zero
     /// scheduler-wide hash lookups, and resolves each scope's transition tables.
     void register_scope(const size_t idx) {
         auto &state = this->s->scopes[idx];

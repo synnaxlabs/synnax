@@ -369,7 +369,7 @@ var _ = Describe("Sequence", func() {
 		)
 
 		It(
-			"Advances past a completed inline sequence flow target",
+			"Advances past a completed anonymous sequence flow target",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(
 					map[string]channelDef{"log": {types.String(), 101}},
@@ -397,7 +397,7 @@ var _ = Describe("Sequence", func() {
 		)
 
 		It(
-			"Preserves stage transitions around nested and inline stages",
+			"Preserves stage transitions around nested and anonymous stages",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"trigger": {types.U8(), 100},
@@ -414,7 +414,7 @@ var _ = Describe("Sequence", func() {
 				        time.wait(100ms) -> 50 > 40 => next
 				    }
 				    stage {
-				        "inline" -> log
+				        "anonymous" -> log
 				        time.wait(100ms) => pressurize
 				    }
 				}
@@ -432,7 +432,7 @@ var _ = Describe("Sequence", func() {
 				advance(h, ctx, 330*telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(drainStrings(out, 101)).To(
-					Equal([]string{"pressurize", "hold", "inline", "pressurize"}),
+					Equal([]string{"pressurize", "hold", "anonymous", "pressurize"}),
 				)
 			},
 		)
@@ -519,7 +519,7 @@ var _ = Describe("Sequence", func() {
 		)
 
 		It(
-			"Keeps an inline sequence target inside a stage from exiting the stage",
+			"Keeps an anonymous sequence target inside a stage from exiting the stage",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"trigger": {types.U8(), 100},
@@ -544,7 +544,7 @@ var _ = Describe("Sequence", func() {
 				settle(h, ctx)
 				out, _ := h.Flush()
 				Expect(drainStrings(out, 101)).To(Equal([]string{"body"}),
-					"inline body completion must freeze, not exit the stage")
+					"anonymous body completion must freeze, not exit the stage")
 
 				h.Ingest(100, telem.NewSeriesV[uint8](1))
 				advance(h, ctx, 10*telem.Millisecond)
@@ -650,7 +650,7 @@ var _ = Describe("Sequence", func() {
 		)
 
 		It(
-			"Hands off to a top-level scope from inside a nested sequence",
+			"Moves the parent on when a named sequence in a nested sequence completes",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(
 					map[string]channelDef{"log": {types.String(), 101}},
@@ -676,8 +676,8 @@ var _ = Describe("Sequence", func() {
 				settle(h, ctx)
 				out, _ := h.Flush()
 				Expect(drainStrings(out, 101)).To(
-					Equal([]string{"ramp", "abort"}),
-					"the cross-scope jump hands control away; hold must not run",
+					Equal([]string{"ramp", "abort", "hold"}),
+					"abort is the last step of ramp, so ramp completes with it",
 				)
 			},
 		)
@@ -1664,8 +1664,8 @@ var _ = Describe("Sequence", func() {
 			    }
 			}
 			1 => main`
-			// A later cmd == 2 reaches hold only while main is still running.
-			crossScope = `
+			// The copy of abort runs inside flight, so a later cmd == 2 reaches hold.
+			named = `
 			sequence main {
 			    stage flight {
 			        "flight" -> log
@@ -1686,7 +1686,7 @@ var _ = Describe("Sequence", func() {
 			    "main" -> log
 			}
 			cmd == 1 ARROW main`
-			inline = `
+			anonymous = `
 			cmd == 1 ARROW stage {
 			    "body" -> log
 			}`
@@ -1731,35 +1731,34 @@ var _ = Describe("Sequence", func() {
 			Entry("next, ->, false", next, "->", uint8(0), []string{"a", "b"}),
 			Entry("next, ->, true", next, "->", uint8(1), []string{"a", "b"}),
 			Entry(
-				"cross-scope, =>, false",
-				crossScope, "=>", uint8(0), []string{"flight", "hold"},
+				"named body, =>, false",
+				named, "=>", uint8(0), []string{"flight", "hold"},
 			),
 			Entry(
-				"cross-scope, =>, true",
-				crossScope, "=>", uint8(1), []string{"flight", "abort"},
+				"named body, =>, true",
+				named, "=>", uint8(1), []string{"flight", "abort", "hold"},
 			),
 			Entry(
-				"cross-scope, ->, false",
-				crossScope, "->", uint8(0), []string{"flight", "abort"},
+				"named body, ->, false",
+				named, "->", uint8(0), []string{"flight", "abort", "abort", "hold"},
 			),
 			Entry(
-				"cross-scope, ->, true",
-				crossScope, "->", uint8(1), []string{"flight", "abort"},
+				"named body, ->, true",
+				named, "->", uint8(1), []string{"flight", "abort", "abort", "hold"},
 			),
 			Entry("root, =>, false", root, "=>", uint8(0), []string(nil)),
 			Entry("root, =>, true", root, "=>", uint8(1), []string{"main"}),
 			Entry("root, ->, false", root, "->", uint8(0), []string{"main", "main"}),
 			Entry("root, ->, true", root, "->", uint8(1), []string{"main", "main"}),
-			Entry("inline, =>, false", inline, "=>", uint8(0), []string(nil)),
-			Entry("inline, =>, true", inline, "=>", uint8(1), []string{"body"}),
-			Entry("inline, ->, false", inline, "->", uint8(0), []string{"body"}),
-			Entry("inline, ->, true", inline, "->", uint8(1), []string{"body"}),
+			Entry("anonymous, =>, false", anonymous, "=>", uint8(0), []string(nil)),
+			Entry("anonymous, =>, true", anonymous, "=>", uint8(1), []string{"body"}),
+			Entry("anonymous, ->, false", anonymous, "->", uint8(0), []string{"body"}),
+			Entry("anonymous, ->, true", anonymous, "->", uint8(1), []string{"body"}),
 		)
 	})
 
-	// A jump to a top-level scope acts only when it is the first true jump in source
-	// order. It stops the whole top-level scope that holds it, then starts its target.
-	Describe("Jumps to a top-level scope", func() {
+	// A line that names a top-level stage or sequence starts a copy of it.
+	Describe("Names of a stage or sequence", func() {
 		const (
 			start uint32 = iota + 100
 			a
@@ -1855,7 +1854,7 @@ var _ = Describe("Sequence", func() {
 			}
 		}
 
-		const twoJumpsToAbort = `
+		const twoUsesOfAbort = `
 		sequence main {
 		    stage armed {
 		        "main" -> log
@@ -1869,19 +1868,19 @@ var _ = Describe("Sequence", func() {
 		start == 1 => main`
 
 		DescribeTable(
-			"Should start the target from each jump to it",
-			func(ctx SpecContext, jump string) {
-				p := open(ctx, twoJumpsToAbort)
+			"Should start a copy from each line that names the body",
+			func(ctx SpecContext, line string) {
+				p := open(ctx, twoUsesOfAbort)
 				p.write("start")
-				p.write(jump)
+				p.write(line)
 				Expect(p.phase()).To(Equal(phase{log: []string{"main", "abort"}}))
 			},
-			Entry("first jump", "a"),
-			Entry("second jump", "b"),
+			Entry("first line", "a"),
+			Entry("second line", "b"),
 		)
 
 		It(
-			"Should start the target from a jump and from an entry point",
+			"Should start a copy from a stage and from the top level",
 			func(ctx SpecContext) {
 				p := open(ctx, `
 			sequence main {
@@ -1902,7 +1901,7 @@ var _ = Describe("Sequence", func() {
 		)
 
 		DescribeTable(
-			"Should start a scope from each entry point to it",
+			"Should start a copy from each top-level flow",
 			func(ctx SpecContext, entry string) {
 				p := open(ctx, `
 				sequence main {
@@ -1913,19 +1912,19 @@ var _ = Describe("Sequence", func() {
 				p.write(entry)
 				Expect(p.phase()).To(Equal(phase{log: []string{"main"}}))
 			},
-			Entry("first entry point", "a"),
-			Entry("second entry point", "b"),
+			Entry("first flow", "a"),
+			Entry("second flow", "b"),
 		)
 
 		DescribeTable(
-			"Should act only on the first true jump in source order",
-			func(ctx SpecContext, source string, expected []string) {
+			"Should start each body whose line is true in the same cycle",
+			func(ctx SpecContext, source string) {
 				p := open(ctx, source)
 				p.write("start")
 				p.write("a", "b")
-				Expect(p.phase()).To(Equal(phase{log: expected}))
+				Expect(p.phase().log).To(ConsistOf("abort", "flight"))
 			},
-			Entry("two jumps in one stage", `
+			Entry("two lines in a stage of a sequence", `
 			sequence main {
 			    stage armed {
 			        a == 1 => abort
@@ -1934,195 +1933,21 @@ var _ = Describe("Sequence", func() {
 			}
 			sequence abort { stage s { "abort" -> log } }
 			sequence flight { stage f { "flight" -> log } }
-			start == 1 => main`, []string{"abort"}),
-			Entry("two jumps in a top-level stage", `
+			start == 1 => main`),
+			Entry("two lines in a top-level stage", `
 			stage armed {
 			    a == 1 => abort
 			    b == 1 => flight
 			}
 			sequence abort { stage s { "abort" -> log } }
 			sequence flight { stage f { "flight" -> log } }
-			start == 1 => armed`, []string{"abort"}),
-			Entry("a next before a jump", `
-			sequence main {
-			    stage armed {
-			        b == 1 => next
-			        a == 1 => abort
-			    }
-			    stage hold { "hold" -> log }
-			}
-			sequence abort { stage s { "abort" -> log } }
-			start == 1 => main`, []string{"hold"}),
-			Entry("a stage jump before a jump in its inline sequence", `
-			sequence main {
-			    stage armed {
-			        a == 1 => abort
-			        sequence { stage r { b == 1 => flight } }
-			    }
-			}
-			sequence abort { stage s { "abort" -> log } }
-			sequence flight { stage f { "flight" -> log } }
-			start == 1 => main`, []string{"abort"}),
-			Entry("a jump in an inline sequence before a stage jump", `
-			sequence main {
-			    stage armed {
-			        sequence { stage r { b == 1 => flight } }
-			        a == 1 => abort
-			    }
-			}
-			sequence abort { stage s { "abort" -> log } }
-			sequence flight { stage f { "flight" -> log } }
-			start == 1 => main`, []string{"flight"}),
+			start == 1 => armed`),
 		)
 
-		DescribeTable(
-			"Should act on an inner transition before the jump",
-			func(ctx SpecContext, source string) {
-				p := open(ctx, source)
-				p.write("start")
-				p.write("a", "b")
-				Expect(p.phase()).To(Equal(phase{log: []string{"r2", "abort"}}))
-			},
-			Entry("the jump in the enclosing stage", `
-			sequence main {
-			    stage armed {
-			        a == 1 => abort
-			        sequence {
-			            stage r { b == 1 => next }
-			            stage r2 { "r2" -> log }
-			        }
-			    }
-			}
-			sequence abort { stage s { "abort" -> log } }
-			start == 1 => main`),
-			Entry("the jump in the inner stage", `
-			sequence main {
-			    stage armed {
-			        sequence {
-			            stage r {
-			                a == 1 => abort
-			                b == 1 => next
-			            }
-			            stage r2 { "r2" -> log }
-			        }
-			    }
-			}
-			sequence abort { stage s { "abort" -> log } }
-			start == 1 => main`),
-		)
-
-		const flight = `
-		sequence flight {
-		    stage f {
-		        "flight" -> log
-		        probe -> alive_flight
-		    }
-		}`
-
-		DescribeTable(
-			"Should stop the whole top-level scope that holds the jump",
-			func(ctx SpecContext, source, name string) {
-				p := open(ctx, source+flight)
-				p.write("start")
-				p.write("a")
-				Expect(p.phase()).To(Equal(phase{log: []string{name, "flight"}}))
-				p.write("probe")
-				Expect(p.phase()).To(Equal(phase{alive: []string{"alive_flight"}}))
-				p.write("start")
-				Expect(p.phase()).To(Equal(phase{log: []string{name}}))
-			},
-			Entry("a stage of a sequence", `
-			sequence main {
-			    stage armed {
-			        "main" -> log
-			        probe -> alive_main
-			        a == 1 => flight
-			    }
-			}
-			start == 1 => main`, "main"),
-			Entry("an inline sequence in a stage", `
-			sequence main {
-			    stage armed {
-			        "main" -> log
-			        probe -> alive_main
-			        sequence {
-			            stage release {
-			                probe -> alive_inner
-			                a == 1 => flight
-			            }
-			        }
-			    }
-			}
-			start == 1 => main`, "main"),
-			Entry("a sequence that is a step", `
-			sequence main {
-			    sequence ramp {
-			        stage r {
-			            "main" -> log
-			            probe -> alive_inner
-			            a == 1 => flight
-			        }
-			    }
-			    stage hold { "hold" -> log }
-			}
-			start == 1 => main`, "main"),
-			Entry("a top-level stage", `
-			stage idle {
-			    "idle" -> log
-			    probe -> alive_main
-			    a == 1 => flight
-			}
-			start == 1 => idle`, "idle"),
-			Entry("an inline sequence in a top-level stage", `
-			stage idle {
-			    "idle" -> log
-			    probe -> alive_main
-			    sequence {
-			        stage release {
-			            probe -> alive_inner
-			            a == 1 => flight
-			        }
-			    }
-			}
-			start == 1 => idle`, "idle"),
-		)
-
-		It("Should restart a sequence that jumps to itself", func(ctx SpecContext) {
+		It("Should not act on a losing transition after its stage restarts", func(
+			ctx SpecContext,
+		) {
 			p := open(ctx, `
-			sequence main {
-			    stage armed {
-			        "main" -> log
-			        probe -> alive_main
-			        a == 1 => main
-			    }
-			}
-			start == 1 => main`)
-			p.write("start")
-			p.write("a")
-			Expect(p.phase()).To(Equal(phase{log: []string{"main", "main"}}))
-			p.write("probe")
-			Expect(p.phase()).To(Equal(phase{alive: []string{"alive_main"}}))
-		})
-
-		DescribeTable(
-			"Should not act on a losing transition after its scope restarts",
-			func(ctx SpecContext, source string, log []string) {
-				p := open(ctx, source)
-				p.write("start")
-				p.write("a", "b")
-				Expect(p.phase()).To(Equal(phase{log: log}))
-			},
-			Entry("a self-jump to a top-level scope", `
-			sequence main {
-			    stage armed {
-			        "main" -> log
-			        a == 1 => main
-			        b == 1 => flight
-			    }
-			}
-			sequence flight { stage f { "flight" -> log } }
-			start == 1 => main`, []string{"main", "main"}),
-			Entry("a stage that transitions to itself", `
 			sequence main {
 			    stage s {
 			        "s" -> log
@@ -2131,38 +1956,30 @@ var _ = Describe("Sequence", func() {
 			    }
 			    stage t { "t" -> log }
 			}
-			start == 1 => main`, []string{"s", "s"}),
-		)
+			start == 1 => main`)
+			p.write("start")
+			p.write("a", "b")
+			Expect(p.phase()).To(Equal(phase{log: []string{"s", "s"}}))
+		})
 
-		It(
-			"Should not restart a target that is already running",
-			func(ctx SpecContext) {
-				p := open(ctx, `
-			sequence main {
-			    stage armed {
-			        "main" -> log
-			        a == 1 => abort
-			    }
-			}
+		It("Should not start a copy again while it runs", func(ctx SpecContext) {
+			p := open(ctx, `
 			sequence abort {
 			    stage s {
 			        "abort" -> log
 			        probe -> alive_flight
 			    }
 			}
-			start == 1 => main
 			b == 1 => abort`)
-				p.write("b")
-				p.write("start")
-				p.write("a")
-				Expect(p.phase()).To(Equal(phase{log: []string{"abort", "main"}}))
-				p.write("probe")
-				Expect(p.phase()).To(Equal(phase{alive: []string{"alive_flight"}}))
-			},
-		)
+			p.write("b")
+			p.write("b")
+			Expect(p.phase()).To(Equal(phase{log: []string{"abort"}}))
+			p.write("probe")
+			Expect(p.phase()).To(Equal(phase{alive: []string{"alive_flight"}}))
+		})
 
 		DescribeTable(
-			"Should start the target in the cycle of the jump",
+			"Should start a copy in the cycle of the flow that starts it",
 			func(ctx SpecContext, source string) {
 				p := open(ctx, source)
 				p.write("start")
@@ -2170,13 +1987,13 @@ var _ = Describe("Sequence", func() {
 				p.writeOnce("a")
 				Expect(p.phase()).To(Equal(phase{log: []string{"flight"}}))
 			},
-			Entry("target declared after the source", `
+			Entry("a body declared after the flow", `
 			sequence main {
 			    stage armed { a == 1 => flight }
 			}
 			sequence flight { stage f { "flight" -> log } }
 			start == 1 => main`),
-			Entry("target declared before the source", `
+			Entry("a body declared before the flow", `
 			sequence flight { stage f { "flight" -> log } }
 			sequence main {
 			    stage armed { a == 1 => flight }
@@ -2184,32 +2001,12 @@ var _ = Describe("Sequence", func() {
 			start == 1 => main`),
 		)
 
-		DescribeTable(
+		It(
 			"Should not run a triggered body of a stage that left and entered again",
-			func(ctx SpecContext, source string, log []string) {
-				p := open(ctx, source)
-				p.write("start")
-				p.write("b")
-				p.write("a")
-				p.write("start")
-				Expect(p.phase()).To(Equal(phase{log: log}))
-				p.write("probe")
-				Expect(p.phase()).To(Equal(phase{}))
-				p.write("b")
-				p.write("probe")
-				Expect(p.phase()).To(Equal(phase{alive: []string{"alive_inner"}}))
-			},
-			Entry("left through a jump to a top-level scope", `
-			sequence main {
-			    stage armed {
-			        "armed" -> log
-			        b == 1 => stage { probe -> alive_inner }
-			        a == 1 => flight
-			    }
-			}
-			sequence flight { stage f { "flight" -> log } }
-			start == 1 => main`, []string{"armed", "flight", "armed"}),
-			Entry("left through a transition to another stage", `
+			func(
+				ctx SpecContext,
+			) {
+				p := open(ctx, `
 			sequence main {
 			    stage armed {
 			        "armed" -> log
@@ -2218,12 +2015,23 @@ var _ = Describe("Sequence", func() {
 			    }
 			    stage hold { start == 1 => armed }
 			}
-			start == 1 => main`, []string{"armed", "armed"}),
+			start == 1 => main`)
+				p.write("start")
+				p.write("b")
+				p.write("a")
+				p.write("start")
+				Expect(p.phase()).To(Equal(phase{log: []string{"armed", "armed"}}))
+				p.write("probe")
+				Expect(p.phase()).To(Equal(phase{}))
+				p.write("b")
+				p.write("probe")
+				Expect(p.phase()).To(Equal(phase{alive: []string{"alive_inner"}}))
+			},
 		)
 	})
 
 	Describe("Composition", func() {
-		It("Inline stage in sequence resumes after => next", func(ctx SpecContext) {
+		It("Anonymous stage in sequence resumes after => next", func(ctx SpecContext) {
 			resolver := channelSymbols(map[string]channelDef{
 				"start_cmd": {types.U8(), 100},
 				"ox_cmd":    {types.U8(), 101},
@@ -2260,7 +2068,7 @@ var _ = Describe("Sequence", func() {
 		})
 
 		It(
-			"Inline sequence in stage runs alongside reactive flows",
+			"Anonymous sequence in stage runs alongside reactive flows",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd": {types.U8(), 100},
@@ -2293,7 +2101,7 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 101)).To(Equal(uint8(1)),
-					"inline sub-sequence's first write should fire on stage entry")
+					"anonymous sub-sequence's first write should fire on stage entry")
 				h.channelState.ClearReads()
 
 				h.Ingest(103, telem.NewSeriesV[float32](10))
@@ -2702,7 +2510,7 @@ var _ = Describe("Sequence", func() {
 		)
 	})
 
-	Describe("Inline routing case body lifetime", func() {
+	Describe("Anonymous routing case body lifetime", func() {
 		// mk builds `trigger -> select() -> { true: <body> }` inside a stage,
 		// so <body> is entered once when trigger fires select's true output.
 		mk := func(ctx SpecContext, body string) *runtimeHarness {
@@ -2757,7 +2565,7 @@ var _ = Describe("Sequence", func() {
 		}
 
 		It(
-			"Re-triggering an active inline stage does not stack instances",
+			"Re-triggering an active anonymous stage does not stack instances",
 			func(ctx SpecContext) {
 				h := mk(ctx, "stage { cpu > 0 => out }")
 				defer h.Close(ctx)
@@ -2786,12 +2594,12 @@ var _ = Describe("Sequence", func() {
 			},
 			Entry("bare inline flow fires once and done", "cpu > 0 => out", 1),
 			Entry(
-				"inline sequence fires once and done",
+				"anonymous sequence fires once and done",
 				"sequence { cpu > 0 => out }",
 				1,
 			),
 			Entry(
-				"inline stage fires on every cpu update",
+				"anonymous stage fires on every cpu update",
 				"stage { cpu > 0 => out }",
 				4,
 			),
@@ -2905,9 +2713,9 @@ var _ = Describe("Sequence", func() {
 		)
 	})
 
-	Describe("Inline routing case bodies", func() {
+	Describe("Anonymous routing case bodies", func() {
 		It(
-			"Anonymous top-level stage dispatches into the inline branch matching the routed output",
+			"Anonymous top-level stage dispatches into the anonymous branch matching the routed output",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"flag":      {types.Bool(), 100},
@@ -2931,14 +2739,14 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 101)).To(Equal(uint8(1)),
-					"true branch inline must fire when flag is truthy")
+					"true branch anonymous must fire when flag is truthy")
 				Expect(out.Get(102).Series).To(BeEmpty(),
-					"false branch inline must not fire when flag is truthy")
+					"false branch anonymous must not fire when flag is truthy")
 			},
 		)
 
 		It(
-			"Named gated top-level stage dispatches inline branch only after activation",
+			"Named gated top-level stage dispatches anonymous branch only after activation",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd": {types.U8(), 100},
@@ -2963,7 +2771,7 @@ var _ = Describe("Sequence", func() {
 				advance(h, ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(out.Get(102).Series).To(BeEmpty(),
-					"inline must not fire before main is activated")
+					"anonymous must not fire before main is activated")
 
 				h.Ingest(100, telem.NewSeriesV[uint8](1))
 				h.Tick(ctx, telem.Millisecond)
@@ -2971,12 +2779,12 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ = h.Flush()
 				Expect(lastU8(out, 102)).To(Equal(uint8(1)),
-					"inline must fire once main is activated and flag is truthy")
+					"anonymous must fire once main is activated and flag is truthy")
 			},
 		)
 
 		It(
-			"Inline sequence body in a top-level stage runs its sequential steps in order",
+			"Anonymous sequence body in a top-level stage runs its sequential steps in order",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"flag":  {types.Bool(), 100},
@@ -3002,14 +2810,14 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 101)).To(Equal(uint8(1)),
-					"first sequential step of inline sequence must fire")
+					"first sequential step of anonymous sequence must fire")
 				Expect(lastU8(out, 102)).To(Equal(uint8(2)),
-					"second sequential step of inline sequence must fire")
+					"second sequential step of anonymous sequence must fire")
 			},
 		)
 
 		It(
-			"Inline routing directly in a sequence body dispatches without duplicate transitions",
+			"Anonymous routing directly in a sequence body dispatches without duplicate transitions",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd": {types.U8(), 100},
@@ -3036,12 +2844,12 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 102)).To(Equal(uint8(1)),
-					"inline must fire once when routed directly from a sequence body")
+					"anonymous must fire once when routed directly from a sequence body")
 			},
 		)
 
 		It(
-			"Inline body transition to a sibling stage advances the enclosing sequence",
+			"Anonymous body transition to a sibling stage advances the enclosing sequence",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd":  {types.U8(), 100},
@@ -3079,14 +2887,14 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 102)).To(Equal(uint8(1)),
-					"inline first_out write must fire")
+					"anonymous first_out write must fire")
 				Expect(lastU8(out, 103)).To(Equal(uint8(1)),
-					"transition from inline body to sibling stage must advance main")
+					"transition from anonymous body to sibling stage must advance main")
 			},
 		)
 
 		It(
-			"Inline body navigates to a named sibling stage as its sole write",
+			"Anonymous body navigates to a named sibling stage as its sole write",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd":   {types.U8(), 100},
@@ -3119,18 +2927,18 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 102)).To(Equal(uint8(1)),
-					"following_stage must activate after inline body fires its cross-stage write")
+					"following_stage must activate after anonymous body fires its cross-stage write")
 			},
 		)
 
 		It(
-			"Completion of inline routing does not auto-advance the enclosing sequence",
+			"Completion of anonymous routing does not auto-advance the enclosing sequence",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
-					"start_cmd":  {types.U8(), 100},
-					"flag":       {types.Bool(), 101},
-					"inline_out": {types.U8(), 102},
-					"second_out": {types.U8(), 103},
+					"start_cmd":     {types.U8(), 100},
+					"flag":          {types.Bool(), 101},
+					"anonymous_out": {types.U8(), 102},
+					"second_out":    {types.U8(), 103},
 				})
 				h := newRuntimeHarness(ctx, `
 				start_cmd => main
@@ -3138,7 +2946,7 @@ var _ = Describe("Sequence", func() {
 				sequence main {
 				    stage first {
 				        flag -> select() -> {
-				            true: stage { 1 -> inline_out }
+				            true: stage { 1 -> anonymous_out }
 				        }
 				    }
 				    stage second {
@@ -3159,15 +2967,15 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 102)).To(Equal(uint8(1)),
-					"inline body must fire its write")
+					"anonymous body must fire its write")
 				Expect(out.Get(103).Series).To(BeEmpty(),
-					"main must remain on 'first' after inline routing completes; "+
+					"main must remain on 'first' after anonymous routing completes; "+
 						"'second' must not auto-advance")
 			},
 		)
 
 		It(
-			"Doubly-nested inline activation fires the inner body in the same cycle",
+			"Doubly-nested anonymous activation fires the inner body in the same cycle",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd": {types.U8(), 100},
@@ -3196,12 +3004,12 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 103)).To(Equal(uint8(1)),
-					"doubly-nested inline body must activate when outer body fires its inner select")
+					"doubly-nested anonymous body must activate when outer body fires its inner select")
 			},
 		)
 
 		It(
-			"Triply-nested inline activation fires the innermost body in the same cycle",
+			"Triply-nested anonymous activation fires the innermost body in the same cycle",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd":     {types.U8(), 100},
@@ -3234,12 +3042,12 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 103)).To(Equal(uint8(1)),
-					"triply-nested inline body must activate via the chain of inline selects")
+					"triply-nested anonymous body must activate via the chain of anonymous selects")
 			},
 		)
 
 		It(
-			"Quadruply-nested inline activation fires the innermost body in the same cycle",
+			"Quadruply-nested anonymous activation fires the innermost body in the same cycle",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd":     {types.U8(), 100},
@@ -3276,14 +3084,14 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 103)).To(Equal(uint8(1)),
-					"quadruply-nested inline body must activate via the chain of inline selects")
+					"quadruply-nested anonymous body must activate via the chain of anonymous selects")
 			},
 		)
 	})
 
-	Describe("Inline flow target bodies", func() {
+	Describe("Anonymous flow target bodies", func() {
 		It(
-			"Anonymous top-level stage fires its inline flow body when the source fires",
+			"Anonymous top-level stage fires its anonymous flow body when the source fires",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"flag":     {types.U8(), 100},
@@ -3302,12 +3110,12 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 101)).To(Equal(uint8(1)),
-					"inline flow body must fire when its source channel fires")
+					"anonymous flow body must fire when its source channel fires")
 			},
 		)
 
 		It(
-			"Named gated top-level stage fires its inline flow body only after activation",
+			"Named gated top-level stage fires its anonymous flow body only after activation",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd": {types.U8(), 100},
@@ -3330,7 +3138,7 @@ var _ = Describe("Sequence", func() {
 				advance(h, ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(out.Get(102).Series).To(BeEmpty(),
-					"inline must not fire before main is activated")
+					"anonymous must not fire before main is activated")
 
 				h.Ingest(100, telem.NewSeriesV[uint8](1))
 				h.Tick(ctx, telem.Millisecond)
@@ -3338,12 +3146,12 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ = h.Flush()
 				Expect(lastU8(out, 102)).To(Equal(uint8(1)),
-					"inline must fire once main is activated and flag is truthy")
+					"anonymous must fire once main is activated and flag is truthy")
 			},
 		)
 
 		It(
-			"Inline sequence flow body runs its sequential steps in order",
+			"Anonymous sequence flow body runs its sequential steps in order",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"flag":  {types.U8(), 100},
@@ -3367,14 +3175,14 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 101)).To(Equal(uint8(1)),
-					"first sequential step of inline sequence must fire")
+					"first sequential step of anonymous sequence must fire")
 				Expect(lastU8(out, 102)).To(Equal(uint8(2)),
-					"second sequential step of inline sequence must fire")
+					"second sequential step of anonymous sequence must fire")
 			},
 		)
 
 		It(
-			"Inline flow body directly in a sequence body dispatches without duplicate transitions",
+			"Anonymous flow body directly in a sequence body dispatches without duplicate transitions",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd": {types.U8(), 100},
@@ -3399,12 +3207,12 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 102)).To(Equal(uint8(1)),
-					"inline must fire once when routed directly from a sequence body")
+					"anonymous must fire once when routed directly from a sequence body")
 			},
 		)
 
 		It(
-			"Inline flow body transition to a sibling stage advances the enclosing sequence",
+			"Anonymous flow body transition to a sibling stage advances the enclosing sequence",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd":  {types.U8(), 100},
@@ -3440,14 +3248,14 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 102)).To(Equal(uint8(1)),
-					"inline first_out write must fire")
+					"anonymous first_out write must fire")
 				Expect(lastU8(out, 103)).To(Equal(uint8(1)),
-					"transition from inline body to sibling stage must advance main")
+					"transition from anonymous body to sibling stage must advance main")
 			},
 		)
 
 		It(
-			"Inline flow body navigates to a named sibling stage as its sole write",
+			"Anonymous flow body navigates to a named sibling stage as its sole write",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd":   {types.U8(), 100},
@@ -3478,25 +3286,25 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 102)).To(Equal(uint8(1)),
-					"following_stage must activate after inline body fires its cross-stage write")
+					"following_stage must activate after anonymous body fires its cross-stage write")
 			},
 		)
 
 		It(
-			"Completion of an inline flow body does not auto-advance the enclosing sequence",
+			"Completion of an anonymous flow body does not auto-advance the enclosing sequence",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
-					"start_cmd":  {types.U8(), 100},
-					"flag":       {types.U8(), 101},
-					"inline_out": {types.U8(), 102},
-					"second_out": {types.U8(), 103},
+					"start_cmd":     {types.U8(), 100},
+					"flag":          {types.U8(), 101},
+					"anonymous_out": {types.U8(), 102},
+					"second_out":    {types.U8(), 103},
 				})
 				h := newRuntimeHarness(ctx, `
 				start_cmd => main
 
 				sequence main {
 				    stage first {
-				        flag -> stage { 1 -> inline_out }
+				        flag -> stage { 1 -> anonymous_out }
 				    }
 				    stage second {
 				        1 -> second_out
@@ -3516,15 +3324,15 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 102)).To(Equal(uint8(1)),
-					"inline body must fire its write")
+					"anonymous body must fire its write")
 				Expect(out.Get(103).Series).To(BeEmpty(),
-					"main must remain on 'first' after the inline body completes; "+
+					"main must remain on 'first' after the anonymous body completes; "+
 						"'second' must not auto-advance")
 			},
 		)
 
 		It(
-			"Doubly-nested inline flow body fires the inner body in the same cycle",
+			"Doubly-nested anonymous flow body fires the inner body in the same cycle",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd": {types.U8(), 100},
@@ -3549,12 +3357,12 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 103)).To(Equal(uint8(1)),
-					"doubly-nested inline flow body must activate when the outer body fires")
+					"doubly-nested anonymous flow body must activate when the outer body fires")
 			},
 		)
 
 		It(
-			"Triply-nested inline flow body fires the innermost body in the same cycle",
+			"Triply-nested anonymous flow body fires the innermost body in the same cycle",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd":     {types.U8(), 100},
@@ -3581,12 +3389,12 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 103)).To(Equal(uint8(1)),
-					"triply-nested inline flow body must activate via the chain of inline bodies")
+					"triply-nested anonymous flow body must activate via the chain of anonymous bodies")
 			},
 		)
 
 		It(
-			"Quadruply-nested inline flow body fires the innermost body in the same cycle",
+			"Quadruply-nested anonymous flow body fires the innermost body in the same cycle",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd":     {types.U8(), 100},
@@ -3615,14 +3423,14 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 103)).To(Equal(uint8(1)),
-					"quadruply-nested inline flow body must activate via the chain of inline bodies")
+					"quadruply-nested anonymous flow body must activate via the chain of anonymous bodies")
 			},
 		)
 	})
 
-	Describe("Mixed inline dispatch nesting", func() {
+	Describe("Mixed anonymous dispatch nesting", func() {
 		It(
-			"Flow body wrapping an inline routing body fires the inner body in the same cycle",
+			"Flow body wrapping an anonymous routing body fires the inner body in the same cycle",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd": {types.U8(), 100},
@@ -3649,12 +3457,12 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 103)).To(Equal(uint8(1)),
-					"inline routing body nested in a flow body must fire in the same cycle")
+					"anonymous routing body nested in a flow body must fire in the same cycle")
 			},
 		)
 
 		It(
-			"Routing body wrapping an inline flow body fires the inner body in the same cycle",
+			"Routing body wrapping an anonymous flow body fires the inner body in the same cycle",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd": {types.U8(), 100},
@@ -3681,7 +3489,7 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 103)).To(Equal(uint8(1)),
-					"inline flow body nested in a routing body must fire in the same cycle")
+					"anonymous flow body nested in a routing body must fire in the same cycle")
 			},
 		)
 
@@ -3720,9 +3528,9 @@ var _ = Describe("Sequence", func() {
 		)
 	})
 
-	Describe("Top-level inline flow bodies", func() {
+	Describe("Top-level anonymous flow bodies", func() {
 		It(
-			"Module-scope inline stage flow body fires when its source fires",
+			"Module-scope anonymous stage flow body fires when its source fires",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"trigger": {types.U8(), 100},
@@ -3739,12 +3547,12 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 101)).To(Equal(uint8(1)),
-					"module-scope inline flow body must fire when its source channel fires")
+					"module-scope anonymous flow body must fire when its source channel fires")
 			},
 		)
 
 		It(
-			"Module-scope inline stage flow body fires on a single trigger edge",
+			"Module-scope anonymous stage flow body fires on a single trigger edge",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"trigger":    {types.U8(), 100},
@@ -3767,13 +3575,13 @@ var _ = Describe("Sequence", func() {
 				Expect(lastU8(out, 101)).To(Equal(uint8(1)),
 					"plain flow must fire on the triggering edge")
 				Expect(lastU8(out, 102)).To(Equal(uint8(1)),
-					"inline stage flow body must fire on the same cycle as the "+
+					"anonymous stage flow body must fire on the same cycle as the "+
 						"triggering edge, not one cycle later")
 			},
 		)
 
 		It(
-			"Module-scope inline stage flow body fires every parallel write",
+			"Module-scope anonymous stage flow body fires every parallel write",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"trigger": {types.U8(), 100},
@@ -3798,16 +3606,16 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 101)).To(Equal(uint8(1)),
-					"first parallel write of module-scope inline stage must fire")
+					"first parallel write of module-scope anonymous stage must fire")
 				Expect(lastU8(out, 102)).To(Equal(uint8(2)),
-					"second parallel write of module-scope inline stage must fire")
+					"second parallel write of module-scope anonymous stage must fire")
 				Expect(lastU8(out, 103)).To(Equal(uint8(3)),
-					"third parallel write of module-scope inline stage must fire")
+					"third parallel write of module-scope anonymous stage must fire")
 			},
 		)
 
 		It(
-			"Module-scope inline sequence flow body runs three steps in order",
+			"Module-scope anonymous sequence flow body runs three steps in order",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"trigger": {types.U8(), 100},
@@ -3832,16 +3640,16 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 101)).To(Equal(uint8(1)),
-					"first step of module-scope inline sequence must fire")
+					"first step of module-scope anonymous sequence must fire")
 				Expect(lastU8(out, 102)).To(Equal(uint8(2)),
-					"second step of module-scope inline sequence must fire")
+					"second step of module-scope anonymous sequence must fire")
 				Expect(lastU8(out, 103)).To(Equal(uint8(3)),
-					"third step of module-scope inline sequence must fire")
+					"third step of module-scope anonymous sequence must fire")
 			},
 		)
 
 		It(
-			"Module-scope nested inline flow bodies fire the inner body in the same cycle",
+			"Module-scope nested anonymous flow bodies fire the inner body in the same cycle",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"trigger":   {types.U8(), 100},
@@ -3860,14 +3668,14 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 101)).To(Equal(uint8(1)),
-					"nested module-scope inline flow body must activate in the same cycle")
+					"nested module-scope anonymous flow body must activate in the same cycle")
 			},
 		)
 	})
 
-	Describe("Sequence-scope inline flow bodies", func() {
+	Describe("Sequence-scope anonymous flow bodies", func() {
 		It(
-			"Fires constant-gated inline bodies on stage entry and cascades",
+			"Fires constant-gated anonymous bodies on stage entry and cascades",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd": {types.U8(), 100},
@@ -3904,16 +3712,16 @@ var _ = Describe("Sequence", func() {
 				trigger(h, ctx, 100)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 101)).To(Equal(uint8(1)),
-					"first stage's constant-gated inline stage body must fire on entry")
+					"first stage's constant-gated anonymous stage body must fire on entry")
 				Expect(lastU8(out, 102)).To(Equal(uint8(1)),
-					"second stage's constant-gated inline sequence body must fire on entry")
+					"second stage's constant-gated anonymous sequence body must fire on entry")
 				Expect(lastU8(out, 103)).To(Equal(uint8(1)),
-					"third stage must fire after the inline-body transitions cascade")
+					"third stage must fire after the anonymous-body transitions cascade")
 			},
 		)
 
 		It(
-			"Cascades when the first stage's inline body is gated by an external edge",
+			"Cascades when the first stage's anonymous body is gated by an external edge",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd": {types.U8(), 100},
@@ -3953,9 +3761,9 @@ var _ = Describe("Sequence", func() {
 				trigger(h, ctx, 104)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 101)).To(Equal(uint8(1)),
-					"externally-gated inline stage body must fire on its edge")
+					"externally-gated anonymous stage body must fire on its edge")
 				Expect(lastU8(out, 102)).To(Equal(uint8(1)),
-					"second stage's constant-gated inline body must fire on entry, "+
+					"second stage's constant-gated anonymous body must fire on entry, "+
 						"not wait for another external edge")
 				Expect(lastU8(out, 103)).To(Equal(uint8(1)),
 					"third stage must fire after the cascade completes")
@@ -3963,7 +3771,7 @@ var _ = Describe("Sequence", func() {
 		)
 
 		It(
-			"Cascades constant-gated inline bodies within a single tick",
+			"Cascades constant-gated anonymous bodies within a single tick",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd": {types.U8(), 100},
@@ -4001,9 +3809,9 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 101)).To(Equal(uint8(1)),
-					"first inline body must fire in the triggering tick")
+					"first anonymous body must fire in the triggering tick")
 				Expect(lastU8(out, 102)).To(Equal(uint8(1)),
-					"second stage's inline body must fire in the same tick, not the next")
+					"second stage's anonymous body must fire in the same tick, not the next")
 				Expect(lastU8(out, 103)).To(Equal(uint8(1)),
 					"third stage must fire in the same tick")
 			},
@@ -8541,7 +8349,7 @@ var _ = Describe("Sequence", func() {
 		)
 
 		It(
-			"Re-points a channel-read variable from an inline sequence",
+			"Re-points a channel-read variable from an anonymous sequence",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"cpu": {types.U8(), 201},
@@ -10313,6 +10121,1098 @@ var _ = Describe("Sequence", func() {
 				}
 				Expect(seen(h)).To(Equal([]float32{3, 4}))
 			},
+		)
+	})
+
+	Describe("Parameters", func() {
+		const (
+			startA uint32 = 100 + iota
+			startB
+			tank
+			gate
+			valveA
+			valveB
+			outA
+			outB
+			log
+			override
+		)
+		resolver := channelSymbols(map[string]channelDef{
+			"start_a":  {types.U8(), int(startA)},
+			"start_b":  {types.U8(), int(startB)},
+			"tank":     {types.F32(), int(tank)},
+			"gate":     {types.U8(), int(gate)},
+			"valve_a":  {types.U8(), int(valveA)},
+			"valve_b":  {types.U8(), int(valveB)},
+			"out_a":    {types.F32(), int(outA)},
+			"out_b":    {types.F32(), int(outB)},
+			"log":      {types.String(), int(log)},
+			"override": {types.F32(), int(override)},
+		})
+		open := func(ctx SpecContext, source string) *runtimeHarness {
+			GinkgoHelper()
+			h := newRuntimeHarness(ctx, source, resolver,
+				channels.Digest{Key: startA, DataType: telem.Uint8T},
+				channels.Digest{Key: startB, DataType: telem.Uint8T},
+				channels.Digest{Key: tank, DataType: telem.Float32T},
+				channels.Digest{Key: gate, DataType: telem.Uint8T},
+				channels.Digest{Key: valveA, DataType: telem.Uint8T},
+				channels.Digest{Key: valveB, DataType: telem.Uint8T},
+				channels.Digest{Key: outA, DataType: telem.Float32T},
+				channels.Digest{Key: outB, DataType: telem.Float32T},
+				channels.Digest{Key: log, DataType: telem.StringT},
+				channels.Digest{Key: override, DataType: telem.Float32T},
+			)
+			DeferCleanup(func() { h.Close(ctx) })
+			return h
+		}
+		// level ingests a tank level and lets the program settle.
+		level := func(h *runtimeHarness, ctx SpecContext, value float32) {
+			h.Ingest(tank, telem.NewSeriesV(value))
+			for range 5 {
+				advance(h, ctx, telem.Millisecond)
+			}
+		}
+		// written reports whether the last flush holds a write to key.
+		written := func(fr telem.Frame[uint32], key uint32) bool {
+			return len(fr.Get(key).Series) > 0
+		}
+
+		const fill = `
+		sequence fill(limit f32, valve chan u8) {
+		    stage open {
+		        1 -> valve
+		        tank > limit => next
+		    }
+		    stage close {
+		        0 -> valve
+		    }
+		}`
+
+		It("Should run each call as its own instance", func(ctx SpecContext) {
+			h := open(ctx, fill+`
+			start_a == 1 => fill(10, valve_a)
+			start_b == 1 => fill(20, valve_b)`)
+			trigger(h, ctx, startA)
+			out, _ := h.Flush()
+			Expect(lastU8(out, valveA)).To(Equal(uint8(1)))
+			Expect(written(out, valveB)).To(BeFalse())
+
+			trigger(h, ctx, startB)
+			out, _ = h.Flush()
+			Expect(lastU8(out, valveB)).To(Equal(uint8(1)))
+
+			level(h, ctx, 15)
+			out, _ = h.Flush()
+			Expect(lastU8(out, valveA)).To(Equal(uint8(0)))
+			Expect(written(out, valveB)).To(BeFalse())
+
+			level(h, ctx, 25)
+			out, _ = h.Flush()
+			Expect(lastU8(out, valveB)).To(Equal(uint8(0)))
+		})
+
+		It("Should take arguments by name and a default", func(ctx SpecContext) {
+			h := open(ctx, `
+			sequence set(out chan f32, value f32 = 7.5) {
+			    stage write {
+			        value -> out
+			    }
+			}
+			start_a == 1 => set(out=out_a)
+			start_b == 1 => set(value=-2.5, out=out_b)`)
+			trigger(h, ctx, startA)
+			trigger(h, ctx, startB)
+			out, _ := h.Flush()
+			Expect(lastF32(out, outA)).To(Equal(float32(7.5)))
+			Expect(lastF32(out, outB)).To(Equal(float32(-2.5)))
+		})
+
+		It("Should give each instance its own variables", func(ctx SpecContext) {
+			h := open(ctx, `
+			sequence fill(limit f32, valve chan u8) {
+			    high := limit * 2
+			    stage open {
+			        1 -> valve
+			        tank > high => next
+			    }
+			    stage close {
+			        0 -> valve
+			    }
+			}
+			start_a == 1 => fill(10, valve_a)
+			start_b == 1 => fill(20, valve_b)`)
+			trigger(h, ctx, startA)
+			trigger(h, ctx, startB)
+			h.Flush()
+
+			level(h, ctx, 25)
+			out, _ := h.Flush()
+			Expect(lastU8(out, valveA)).To(Equal(uint8(0)))
+			Expect(written(out, valveB)).To(BeFalse())
+
+			level(h, ctx, 45)
+			out, _ = h.Flush()
+			Expect(lastU8(out, valveB)).To(Equal(uint8(0)))
+		})
+
+		It("Should run a top-level stage with parameters", func(ctx SpecContext) {
+			h := open(ctx, `
+			stage hold(valve chan u8) {
+			    1 -> valve
+			}
+			start_a == 1 => hold(valve_a)
+			start_b == 1 => hold(valve_b)`)
+			trigger(h, ctx, startB)
+			out, _ := h.Flush()
+			Expect(lastU8(out, valveB)).To(Equal(uint8(1)))
+			Expect(written(out, valveA)).To(BeFalse())
+		})
+
+		// change is an authority change that a spec expects, with 0 for all channels.
+		type change struct {
+			authority uint8
+			channel   uint32
+		}
+		// step triggers a channel and gives the authority changes that must follow.
+		type step struct {
+			key     uint32
+			changes []change
+		}
+		// expectChanges runs source and checks the authority changes of each step.
+		expectChanges := func(ctx SpecContext, source string, steps []step) {
+			GinkgoHelper()
+			h := open(ctx, "import control\n"+source)
+			for _, s := range steps {
+				trigger(h, ctx, s.key)
+				flushed := h.FlushAuthority()
+				got := make([]change, 0, len(flushed))
+				for _, c := range flushed {
+					ch := change{authority: c.Authority}
+					if c.Channel != nil {
+						ch.channel = *c.Channel
+					}
+					got = append(got, ch)
+				}
+				if len(s.changes) == 0 {
+					Expect(got).To(BeEmpty(), source)
+					continue
+				}
+				Expect(got).To(ConsistOf(s.changes), source)
+			}
+		}
+		const set220 = `
+		        control.set_authority(value=220, channel=valve)
+		        1 -> valve`
+
+		DescribeTable(
+			"Should set authority from a stage and from a sequence",
+			func(ctx SpecContext, params, body, calls string, steps ...step) {
+				expectChanges(ctx, "stage take("+params+") {"+body+"\n}\n"+calls, steps)
+				expectChanges(
+					ctx,
+					"sequence take("+params+") {\nstage run {"+body+"\n}\n}\n"+calls,
+					steps,
+				)
+			},
+			Entry("on the channel of each instance", "valve chan u8", set220, `
+			start_a == 1 => take(valve_a)
+			start_b == 1 => take(valve_b)`,
+				step{startB, []change{{220, valveB}}},
+				step{startA, []change{{220, valveA}}},
+			),
+			Entry("at the authority of each instance", "level u8, valve chan u8", `
+			    control.set_authority(value=level, channel=valve)
+			    1 -> valve`, `
+			start_a == 1 => take(220, valve_a)
+			start_b == 1 => take(90, valve_b)`,
+				step{startA, []change{{220, valveA}}},
+				step{startB, []change{{90, valveB}}},
+			),
+			Entry("on two channels at two authorities", "high chan u8, low chan u8", `
+			    control.set_authority(value=220, channel=high)
+			    control.set_authority(value=90, channel=low)
+			    1 -> high
+			    1 -> low`, `
+			start_a == 1 => take(valve_a, valve_b)
+			start_b == 1 => take(valve_b, valve_a)`,
+				step{startA, []change{{220, valveA}, {90, valveB}}},
+				step{startB, []change{{220, valveB}, {90, valveA}}},
+			),
+			Entry(
+				"on all channels with no channel argument",
+				"level u8, valve chan u8",
+				`
+			    control.set_authority(value=level)
+			    1 -> valve`,
+				`
+			start_a == 1 => take(220, valve_a)
+			start_b == 1 => take(90, valve_b)`,
+				step{startA, []change{{220, 0}}},
+				step{startB, []change{{90, 0}}},
+			),
+			Entry("on a channel parameter and a channel by name", "valve chan u8", `
+			    control.set_authority(value=220, channel=valve)
+			    control.set_authority(value=90, channel=valve_b)
+			    1 -> valve`, `
+			start_a == 1 => take(valve_a)`,
+				step{startA, []change{{220, valveA}, {90, valveB}}},
+			),
+			Entry("on a top-level alias", "valve chan u8", set220, `
+			sink := valve_a
+			start_a == 1 => take(sink)`,
+				step{startA, []change{{220, valveA}}},
+			),
+			Entry("in a callee of a sequence", "valve chan u8", set220, `
+			sequence arm(valve chan u8) {
+			    stage wait {
+			        gate == 1 => take(valve)
+			    }
+			}
+			start_a == 1 => arm(valve_a)
+			start_b == 1 => arm(valve_b)`,
+				step{startA, nil},
+				step{startB, nil},
+				step{gate, []change{{220, valveA}, {220, valveB}}},
+			),
+			Entry("in a callee of a stage", "valve chan u8", set220, `
+			stage arm(valve chan u8) {
+			    gate == 1 => take(valve)
+			}
+			start_a == 1 => arm(valve_a)
+			start_b == 1 => arm(valve_b)`,
+				step{startA, nil},
+				step{startB, nil},
+				step{gate, []change{{220, valveA}, {220, valveB}}},
+			),
+		)
+
+		DescribeTable("Should set authority from the steps of a sequence",
+			func(ctx SpecContext, source string, steps ...step) {
+				expectChanges(ctx, source, steps)
+			},
+			Entry("in each stage", `
+			sequence run(valve chan u8) {
+			    stage take {
+			        control.set_authority(value=220, channel=valve)
+			        1 -> valve
+			        gate == 1 => next
+			    }
+			    stage give {
+			        control.set_authority(value=90, channel=valve)
+			        0 -> valve
+			    }
+			}
+			start_a == 1 => run(valve_a)`,
+				step{startA, []change{{220, valveA}}},
+				step{gate, []change{{90, valveA}}},
+			),
+			Entry("as a step of its own", `
+			sequence run(level u8, valve chan u8) {
+			    control.set_authority(value=level, channel=valve)
+			    stage hold {
+			        1 -> valve
+			    }
+			}
+			start_a == 1 => run(220, valve_a)
+			start_b == 1 => run(90, valve_b)`,
+				step{startA, []change{{220, valveA}}},
+				step{startB, []change{{90, valveB}}},
+			),
+		)
+
+		It("Should take a top-level constant and a top-level alias", func(
+			ctx SpecContext,
+		) {
+			h := open(ctx, fill+`
+			threshold f32 := 10
+			sink := valve_b
+			start_a == 1 => fill(threshold, sink)`)
+			trigger(h, ctx, startA)
+			out, _ := h.Flush()
+			Expect(lastU8(out, valveB)).To(Equal(uint8(1)))
+			level(h, ctx, 15)
+			out, _ = h.Flush()
+			Expect(lastU8(out, valveB)).To(Equal(uint8(0)))
+		})
+
+		It("Should pass the parameters of the caller to its callee", func(
+			ctx SpecContext,
+		) {
+			h := open(ctx, fill+`
+			sequence arm(limit f32, valve chan u8) {
+			    stage wait {
+			        gate == 1 => fill(limit, valve)
+			    }
+			}
+			start_a == 1 => arm(10, valve_a)
+			start_b == 1 => arm(20, valve_b)`)
+			trigger(h, ctx, startA)
+			trigger(h, ctx, startB)
+			out, _ := h.Flush()
+			Expect(written(out, valveA)).To(BeFalse())
+
+			trigger(h, ctx, gate)
+			out, _ = h.Flush()
+			Expect(lastU8(out, valveA)).To(Equal(uint8(1)))
+			Expect(lastU8(out, valveB)).To(Equal(uint8(1)))
+
+			level(h, ctx, 15)
+			out, _ = h.Flush()
+			Expect(lastU8(out, valveA)).To(Equal(uint8(0)))
+			Expect(written(out, valveB)).To(BeFalse())
+		})
+
+		It("Should pass a value parameter to a function input", func(ctx SpecContext) {
+			h := open(ctx, `
+			func add(offset f32) {value f32} f32 {
+			    return value + offset
+			}
+			sequence shift(offset f32, out chan f32) {
+			    stage run {
+			        tank -> add(offset=offset) -> out
+			    }
+			}
+			start_a == 1 => shift(1, out_a)
+			start_b == 1 => shift(100, out_b)`)
+			trigger(h, ctx, startA)
+			trigger(h, ctx, startB)
+			level(h, ctx, 5)
+			out, _ := h.Flush()
+			Expect(lastF32(out, outA)).To(Equal(float32(6)))
+			Expect(lastF32(out, outB)).To(Equal(float32(105)))
+		})
+
+		It("Should read a channel parameter in an expression and a variable", func(
+			ctx SpecContext,
+		) {
+			h := open(ctx, `
+			sequence scale(src chan f32, gain f32, out chan f32) {
+			    doubled := src * 2
+			    stage run {
+			        doubled + gain -> out
+			    }
+			}
+			start_a == 1 => scale(tank, 1, out_a)
+			start_b == 1 => scale(tank, 10, out_b)`)
+			trigger(h, ctx, startA)
+			trigger(h, ctx, startB)
+			level(h, ctx, 3)
+			out, _ := h.Flush()
+			Expect(lastF32(out, outA)).To(Equal(float32(7)))
+			Expect(lastF32(out, outB)).To(Equal(float32(16)))
+		})
+
+		// reassigned runs two calls and gives what each wrote before and after the
+		// gate.
+		reassigned := func(ctx SpecContext, source string) (before, after [2]float32) {
+			GinkgoHelper()
+			h := open(ctx, source)
+			trigger(h, ctx, startA)
+			trigger(h, ctx, startB)
+			level(h, ctx, 10)
+			out, _ := h.Flush()
+			before = [2]float32{lastF32(out, outA), lastF32(out, outB)}
+			trigger(h, ctx, gate)
+			h.Flush()
+			level(h, ctx, 20)
+			out, _ = h.Flush()
+			after = [2]float32{lastF32(out, outA), lastF32(out, outB)}
+			return before, after
+		}
+
+		DescribeTable("Should reassign a variable that reads a parameter of a sequence",
+			func(ctx SpecContext, source string, before, after [2]float32) {
+				gotBefore, gotAfter := reassigned(ctx, source)
+				Expect(gotBefore).To(Equal(before))
+				Expect(gotAfter).To(Equal(after))
+			},
+			Entry("a value parameter", `
+			sequence scale(gain f32, out chan f32) {
+			    x := tank * gain
+			    stage first {
+			        x -> out
+			        gate == 1 => next
+			    }
+			    stage second {
+			        x = tank * gain * 2
+			        x -> out
+			    }
+			}
+			start_a == 1 => scale(3, out_a)
+			start_b == 1 => scale(5, out_b)`,
+				[2]float32{30, 50}, [2]float32{120, 200},
+			),
+			Entry("a channel parameter", `
+			sequence scale(src chan f32, out chan f32) {
+			    x := src * 3
+			    stage first {
+			        x -> out
+			        gate == 1 => next
+			    }
+			    stage second {
+			        x = src * 6
+			        x -> out
+			    }
+			}
+			start_a == 1 => scale(tank, out_a)
+			start_b == 1 => scale(tank, out_b)`,
+				[2]float32{30, 30}, [2]float32{120, 120},
+			),
+			Entry("a channel parameter and a value parameter", `
+			sequence scale(src chan f32, gain f32, out chan f32) {
+			    x := src * gain
+			    stage first {
+			        x -> out
+			        gate == 1 => next
+			    }
+			    stage second {
+			        x = src * gain * 2
+			        x -> out
+			    }
+			}
+			start_a == 1 => scale(tank, 3, out_a)
+			start_b == 1 => scale(tank, 5, out_b)`,
+				[2]float32{30, 50}, [2]float32{120, 200},
+			),
+			Entry("a top-level constant as the argument", `
+			low f32 := 3
+			high f32 := 5
+			sequence scale(gain f32, out chan f32) {
+			    x := tank * gain
+			    stage first {
+			        x -> out
+			        gate == 1 => next
+			    }
+			    stage second {
+			        x = tank * gain * 2
+			        x -> out
+			    }
+			}
+			start_a == 1 => scale(low, out_a)
+			start_b == 1 => scale(high, out_b)`,
+				[2]float32{30, 50}, [2]float32{120, 200},
+			),
+			Entry("a variable of one stage", `
+			sequence scale(src chan f32, gain f32, out chan f32) {
+			    stage first {
+			        x := src * gain
+			        x = src * gain * 2
+			        x -> out
+			    }
+			}
+			start_a == 1 => scale(tank, 3, out_a)
+			start_b == 1 => scale(tank, 5, out_b)`,
+				[2]float32{60, 100}, [2]float32{120, 200},
+			),
+		)
+
+		DescribeTable("Should reassign a variable that reads a parameter of a stage",
+			func(ctx SpecContext, source string, before, after [2]float32) {
+				gotBefore, gotAfter := reassigned(ctx, source)
+				Expect(gotBefore).To(Equal(before))
+				Expect(gotAfter).To(Equal(after))
+			},
+			Entry("a value parameter", `
+			stage scale(gain f32, out chan f32) {
+			    x := tank * gain
+			    x = tank * gain * 2
+			    x -> out
+			}
+			start_a == 1 => scale(3, out_a)
+			start_b == 1 => scale(5, out_b)`,
+				[2]float32{60, 100}, [2]float32{120, 200},
+			),
+			Entry("a channel parameter", `
+			stage scale(src chan f32, out chan f32) {
+			    x := src * 3
+			    x = src * 6
+			    x -> out
+			}
+			start_a == 1 => scale(tank, out_a)
+			start_b == 1 => scale(tank, out_b)`,
+				[2]float32{60, 60}, [2]float32{120, 120},
+			),
+			Entry("a channel parameter and a value parameter", `
+			stage scale(src chan f32, gain f32, out chan f32) {
+			    x := src * gain
+			    x = src * gain * 2
+			    x -> out
+			}
+			start_a == 1 => scale(tank, 3, out_a)
+			start_b == 1 => scale(tank, 5, out_b)`,
+				[2]float32{60, 100}, [2]float32{120, 200},
+			),
+		)
+
+		DescribeTable("Should wait for the time of a parameter that has a unit",
+			func(ctx SpecContext, source string) {
+				h := open(ctx, "import time\n"+source)
+				trigger(h, ctx, startA)
+				advance(h, ctx, telem.Second)
+				out, _ := h.Flush()
+				Expect(written(out, valveA)).To(BeFalse())
+				advance(h, ctx, 2500*telem.Millisecond)
+				advance(h, ctx, 2600*telem.Millisecond)
+				out, _ = h.Flush()
+				Expect(lastU8(out, valveA)).To(Equal(uint8(1)))
+			},
+			Entry("in milliseconds, in a sequence", `
+			sequence hold(d i64 ms, valve chan u8) {
+			    stage wait {
+			        time.wait(duration=d) => next
+			    }
+			    stage open {
+			        1 -> valve
+			    }
+			}
+			start_a == 1 => hold(2s, valve_a)`),
+			Entry("in seconds, in a sequence", `
+			sequence hold(d i64 s, valve chan u8) {
+			    stage wait {
+			        time.wait(duration=d) => next
+			    }
+			    stage open {
+			        1 -> valve
+			    }
+			}
+			start_a == 1 => hold(2s, valve_a)`),
+			Entry("in milliseconds, in a stage", `
+			stage open(valve chan u8) {
+			    1 -> valve
+			}
+			stage hold(d i64 ms, valve chan u8) {
+			    time.wait(duration=d) => open(valve)
+			}
+			start_a == 1 => hold(2s, valve_a)`),
+			Entry("in seconds, in a stage", `
+			stage open(valve chan u8) {
+			    1 -> valve
+			}
+			stage hold(d i64 s, valve chan u8) {
+			    time.wait(duration=d) => open(valve)
+			}
+			start_a == 1 => hold(2s, valve_a)`),
+		)
+
+		It("Should keep an anonymous body in its own instance", func(ctx SpecContext) {
+			h := open(ctx, `
+			sequence watch(limit f32, valve chan u8) {
+			    stage armed {
+			        tank > limit => stage {
+			            1 -> valve
+			        }
+			    }
+			}
+			start_a == 1 => watch(10, valve_a)
+			start_b == 1 => watch(20, valve_b)`)
+			trigger(h, ctx, startA)
+			trigger(h, ctx, startB)
+			level(h, ctx, 15)
+			out, _ := h.Flush()
+			Expect(lastU8(out, valveA)).To(Equal(uint8(1)))
+			Expect(written(out, valveB)).To(BeFalse())
+		})
+
+		It("Should show a value parameter in a format string", func(ctx SpecContext) {
+			h := open(ctx, `
+			sequence report(limit f32) {
+			    stage write {
+			        f"limit {limit}" -> log
+			    }
+			}
+			start_a == 1 => report(10)
+			start_b == 1 => report(20)`)
+			trigger(h, ctx, startA)
+			trigger(h, ctx, startB)
+			out, _ := h.Flush()
+			Expect(drainStrings(out, log)).To(Equal([]string{"limit 10", "limit 20"}))
+		})
+
+		It("Should take a top-level variable computed at run time", func(
+			ctx SpecContext,
+		) {
+			h := open(ctx, fill+`
+			threshold f32 := 5.0 * 2.0
+			start_a == 1 => fill(threshold, valve_a)`)
+			trigger(h, ctx, startA)
+			out, _ := h.Flush()
+			Expect(lastU8(out, valveA)).To(Equal(uint8(1)))
+			level(h, ctx, 15)
+			out, _ = h.Flush()
+			Expect(lastU8(out, valveA)).To(Equal(uint8(0)))
+		})
+
+		// arm holds line in a stage that writes override to its variable l.
+		arm := func(line string) string {
+			return `
+			stage arm {
+			    l f32 := 10
+			    override -> l
+			    ` + line + `
+			}
+			start_a == 1 => arm`
+		}
+		// raise sets l to 20 while the copy that reads it runs.
+		raise := func(h *runtimeHarness, ctx SpecContext) {
+			h.Ingest(override, telem.NewSeriesV[float32](20))
+			for range 5 {
+				advance(h, ctx, telem.Millisecond)
+			}
+		}
+
+		DescribeTable("Should follow a variable of the caller while the instance runs",
+			func(ctx SpecContext, source string, scale float32) {
+				h := open(ctx, source)
+				trigger(h, ctx, startA)
+				trigger(h, ctx, gate)
+				out, _ := h.Flush()
+				Expect(lastU8(out, valveA)).To(Equal(uint8(1)))
+
+				raise(h, ctx)
+				level(h, ctx, 15*scale)
+				out, _ = h.Flush()
+				Expect(written(out, valveA)).To(BeFalse())
+
+				level(h, ctx, 25*scale)
+				out, _ = h.Flush()
+				Expect(lastU8(out, valveA)).To(Equal(uint8(0)))
+			},
+			Entry("as the argument",
+				fill+arm("gate == 1 => fill(l, valve_a)"), float32(1)),
+			Entry("in an expression argument",
+				fill+arm("gate == 1 => fill(l * 2, valve_a)"), float32(2)),
+			Entry("in the same expression in the body", `
+			sequence fill(limit f32, valve chan u8) {
+			    stage open {
+			        1 -> valve
+			        tank > limit * 2 => next
+			    }
+			    stage close {
+			        0 -> valve
+			    }
+			}`+arm("gate == 1 => fill(l, valve_a)"), float32(2)),
+			Entry("in a bare call", fill+arm("fill(l, valve_a)"), float32(1)),
+			Entry("in a routing table entry", fill+arm(`gate == 1 -> select() -> {
+			        true: true => fill(l, valve_a)
+			    }`), float32(1)),
+		)
+
+		DescribeTable("Should follow a variable of the caller through a nested call",
+			func(ctx SpecContext, call string, scale float32) {
+				h := open(ctx, fill+`
+				sequence relay(limit f32, valve chan u8) {
+				    stage wait {
+				        gate == 1 => `+call+`
+				    }
+				}`+arm("gate == 1 => relay(l, valve_a)"))
+				trigger(h, ctx, startA)
+				trigger(h, ctx, gate)
+				trigger(h, ctx, gate)
+				out, _ := h.Flush()
+				Expect(lastU8(out, valveA)).To(Equal(uint8(1)))
+
+				raise(h, ctx)
+				level(h, ctx, 15*scale)
+				out, _ = h.Flush()
+				Expect(written(out, valveA)).To(BeFalse())
+
+				level(h, ctx, 25*scale)
+				out, _ = h.Flush()
+				Expect(lastU8(out, valveA)).To(Equal(uint8(0)))
+			},
+			Entry("as the argument", "fill(limit, valve)", float32(1)),
+			Entry("in an expression argument", "fill(limit * 2, valve)", float32(2)),
+		)
+
+		// form is a stage or a sequence, with the text that uses it.
+		type form struct{ name, declaration, use string }
+		// forms returns items as each kind of stage or sequence, where limit is 10.
+		forms := func(keyword, items string) []form {
+			var (
+				body    = " {\n" + items + "\n}"
+				literal = strings.ReplaceAll(body, "limit", "10")
+			)
+			return []form{
+				{"a " + keyword, keyword + " watch" + literal, "watch"},
+				{
+					"a " + keyword + " with parameters",
+					keyword + " watch(limit f32)" + body,
+					"watch(10)",
+				},
+				{"an anonymous " + keyword, "", keyword + literal},
+			}
+		}
+		// both returns items as each kind of stage, and of sequence with one stage.
+		both := func(items string) []form {
+			return append(
+				forms("stage", items),
+				forms("sequence", "stage run {\n"+items+"\n}")...,
+			)
+		}
+		// uses returns an entry for each form.
+		uses := func(forms []form) []TableEntry {
+			entries := make([]TableEntry, len(forms))
+			for i, f := range forms {
+				entries[i] = Entry(f.name, f.declaration, f.use)
+			}
+			return entries
+		}
+		// starts returns an entry for each form with each way to start it.
+		starts := func(forms []form) []TableEntry {
+			entries := make([]TableEntry, 0, 3*len(forms))
+			for _, f := range forms {
+				entries = append(entries,
+					Entry(f.name+" with no trigger", f.declaration, f.use),
+					Entry(f.name+" on true", f.declaration, "true => "+f.use),
+					Entry(f.name+" on a trigger", f.declaration, "gate == 1 => "+f.use),
+				)
+			}
+			return entries
+		}
+		// watch is a body that writes tank plus 10 to out_a.
+		const watch = "tank + limit -> out_a"
+
+		DescribeTable("Should run a body inside the stage that holds it",
+			func(ctx SpecContext, declaration, use string) {
+				h := open(ctx, declaration+`
+				stage main {
+				    `+use+`
+				    tank -> out_b
+				}
+				start_a == 1 => main`)
+				trigger(h, ctx, startA)
+				trigger(h, ctx, gate)
+				level(h, ctx, 5)
+				out, _ := h.Flush()
+				Expect(lastF32(out, outA)).To(Equal(float32(15)))
+				Expect(lastF32(out, outB)).To(Equal(float32(5)))
+			},
+			starts(both(watch)),
+			Entry("a stage declared in the stage", "",
+				"stage watch {\ntank + 10 -> out_a\n}"),
+			Entry("a sequence declared in the stage", "",
+				"sequence watch {\nstage run {\ntank + 10 -> out_a\n}\n}"),
+		)
+
+		DescribeTable("Should run a body as a step of the sequence that holds it",
+			func(ctx SpecContext, declaration, use string) {
+				h := open(ctx, declaration+`
+				sequence main {
+				    `+use+`
+				    1 -> valve_b
+				}
+				start_a == 1 => main`)
+				trigger(h, ctx, startA)
+				trigger(h, ctx, gate)
+				level(h, ctx, 5)
+				out, _ := h.Flush()
+				Expect(lastF32(out, outA)).To(Equal(float32(15)))
+				Expect(written(out, valveB)).To(BeFalse())
+			},
+			starts(both(watch)),
+		)
+
+		// stops runs line in a stage, then leaves the stage on start_b.
+		stops := func(ctx SpecContext, declaration, line string) {
+			GinkgoHelper()
+			h := open(ctx, declaration+`
+			sequence outer {
+			    stage main {
+			        `+line+`
+			        start_b == 1 => next
+			    }
+			    stage after {
+			        1 -> valve_b
+			    }
+			}
+			start_a == 1 => outer`)
+			trigger(h, ctx, startA)
+			trigger(h, ctx, gate)
+			level(h, ctx, 5)
+			out, _ := h.Flush()
+			Expect(lastF32(out, outA)).To(Equal(float32(15)))
+
+			trigger(h, ctx, startB)
+			out, _ = h.Flush()
+			Expect(lastU8(out, valveB)).To(Equal(uint8(1)))
+
+			level(h, ctx, 5)
+			out, _ = h.Flush()
+			Expect(written(out, outA)).To(BeFalse())
+		}
+
+		DescribeTable("Should stop a body when the stage that holds it stops",
+			func(ctx SpecContext, declaration, use string) {
+				stops(ctx, declaration, use)
+			},
+			starts(both(watch)),
+		)
+
+		DescribeTable("Should stop a body when the sequence that holds it stops",
+			func(ctx SpecContext, declaration, use string) {
+				stops(ctx, declaration, "sequence {\n"+use+"\n}")
+			},
+			starts(both(watch)),
+		)
+
+		// copies returns a program that uses each form two times, in each place.
+		copies := func() []TableEntry {
+			var (
+				stages    = forms("stage", "limit -> out_a")
+				sequences = forms("sequence", "limit -> out_a")
+				entries   = make([]TableEntry, 0, 2*len(stages)+3*len(sequences))
+			)
+			for _, f := range append(stages, sequences...) {
+				lines := "start_a == 1 => " + f.use + "\nstart_b == 1 => " + f.use
+				entries = append(entries,
+					Entry(f.name+" at the top level", f.declaration, lines),
+					Entry(f.name+" in a stage", f.declaration,
+						"stage main {\n"+lines+"\n}\ngate == 1 => main"),
+				)
+			}
+			for _, f := range sequences {
+				entries = append(entries, Entry(f.name+" in a sequence", f.declaration,
+					"sequence main {\nstart_a == 1 => "+f.use+
+						"\nstart_b == 1 => "+f.use+"\n}\ngate == 1 => main"))
+			}
+			return entries
+		}
+
+		DescribeTable("Should give each use its own copy",
+			func(ctx SpecContext, declaration, program string) {
+				h := open(ctx, declaration+"\n"+program)
+				trigger(h, ctx, gate)
+				trigger(h, ctx, startA)
+				out, _ := h.Flush()
+				Expect(lastF32(out, outA)).To(Equal(float32(10)))
+
+				trigger(h, ctx, startB)
+				out, _ = h.Flush()
+				Expect(lastF32(out, outA)).To(Equal(float32(10)))
+			},
+			copies(),
+		)
+
+		DescribeTable("Should not start a body again while it runs",
+			func(ctx SpecContext, declaration, use string) {
+				h := open(ctx, declaration+`
+				stage main {
+				    gate == 1 => `+use+`
+				}
+				start_a == 1 => main`)
+				trigger(h, ctx, startA)
+				trigger(h, ctx, gate)
+				out, _ := h.Flush()
+				Expect(lastF32(out, outA)).To(Equal(float32(10)))
+
+				trigger(h, ctx, gate)
+				out, _ = h.Flush()
+				Expect(written(out, outA)).To(BeFalse())
+			},
+			uses(both("limit -> out_a")),
+		)
+
+		DescribeTable("Should start a sequence again after it completes",
+			func(ctx SpecContext, declaration, use string) {
+				h := open(ctx, declaration+`
+				stage main {
+				    gate == 1 => `+use+`
+				}
+				start_a == 1 => main`)
+				trigger(h, ctx, startA)
+				for range 2 {
+					trigger(h, ctx, gate)
+					out, _ := h.Flush()
+					Expect(lastF32(out, outA)).To(Equal(float32(10)))
+				}
+			},
+			uses(forms("sequence", "limit -> out_a")),
+		)
+
+		DescribeTable(
+			"Should move a sequence to its next step when a body completes",
+			func(ctx SpecContext, declaration, use string) {
+				h := open(ctx, declaration+`
+				sequence main {
+				    `+use+`
+				    1 -> valve_b
+				}
+				start_a == 1 => main`)
+				trigger(h, ctx, startA)
+				trigger(h, ctx, gate)
+				level(h, ctx, 5)
+				out, _ := h.Flush()
+				Expect(written(out, valveB)).To(BeFalse())
+
+				level(h, ctx, 15)
+				level(h, ctx, 15)
+				out, _ = h.Flush()
+				Expect(lastU8(out, valveA)).To(Equal(uint8(1)))
+				Expect(lastU8(out, valveB)).To(Equal(uint8(1)))
+			},
+			starts(
+				forms(
+					"sequence",
+					"stage hold {\ntank > limit => next\n}\n1 -> valve_a",
+				),
+			),
+		)
+
+		DescribeTable("Should move a sequence to its next step on next in a stage",
+			func(ctx SpecContext, declaration, use string) {
+				h := open(ctx, declaration+`
+				sequence main {
+				    `+use+`
+				    1 -> valve_b
+				}
+				start_a == 1 => main`)
+				trigger(h, ctx, startA)
+				trigger(h, ctx, gate)
+				level(h, ctx, 5)
+				out, _ := h.Flush()
+				Expect(written(out, valveB)).To(BeFalse())
+
+				level(h, ctx, 15)
+				out, _ = h.Flush()
+				Expect(lastU8(out, valveB)).To(Equal(uint8(1)))
+			},
+			starts(forms("stage", "tank > limit => next")),
+		)
+
+		DescribeTable("Should end a body on next and keep its stage active",
+			func(ctx SpecContext, declaration, use string) {
+				h := open(ctx, declaration+`
+				stage main {
+				    `+use+`
+				    tank -> out_b
+				}
+				start_a == 1 => main`)
+				trigger(h, ctx, startA)
+				trigger(h, ctx, gate)
+				level(h, ctx, 5)
+				out, _ := h.Flush()
+				Expect(lastF32(out, outA)).To(Equal(float32(15)))
+
+				level(h, ctx, 25)
+				h.Flush()
+				level(h, ctx, 5)
+				out, _ = h.Flush()
+				Expect(written(out, outA)).To(BeFalse())
+				Expect(lastF32(out, outB)).To(Equal(float32(5)))
+			},
+			starts(both(watch+"\ntank > limit * 2 => next")),
+		)
+
+		DescribeTable("Should start a stage again after next ends it",
+			func(ctx SpecContext, declaration, use string) {
+				h := open(ctx, declaration+`
+				stage main {
+				    gate == 1 => `+use+`
+				}
+				start_a == 1 => main`)
+				trigger(h, ctx, startA)
+				for range 2 {
+					trigger(h, ctx, gate)
+					level(h, ctx, 5)
+					out, _ := h.Flush()
+					Expect(lastF32(out, outA)).To(Equal(float32(15)))
+					level(h, ctx, 25)
+					h.Flush()
+				}
+			},
+			uses(forms("stage", watch+"\ntank > limit * 2 => next")),
+		)
+
+		DescribeTable("Should take a variable that its sequence writes before the call",
+			func(ctx SpecContext, argument string, expected float32) {
+				h := open(ctx, `
+				sequence lift(base f32, src chan f32, out chan f32) {
+				    stage run {
+				        src + base -> out
+				    }
+				}
+				sequence caller {
+				    amount f32 := 1
+				    stage set {
+				        10 -> amount
+				        gate == 1 => lift(`+argument+`, tank, out_a)
+				    }
+				}
+				start_a == 1 => caller`)
+				trigger(h, ctx, startA)
+				trigger(h, ctx, gate)
+				level(h, ctx, 1)
+				out, _ := h.Flush()
+				Expect(lastF32(out, outA)).To(Equal(expected))
+			},
+			Entry("as the argument", "amount", float32(11)),
+			Entry("in an expression argument", "amount * 2", float32(21)),
+		)
+
+		It("Should pass a variable argument to a function input", func(
+			ctx SpecContext,
+		) {
+			h := open(ctx, `
+			func add(offset f32) {value f32} f32 {
+			    return value + offset
+			}
+			sequence shift(offset f32, out chan f32) {
+			    stage run {
+			        tank -> add(offset=offset) -> out
+			    }
+			}
+			sequence caller {
+			    amount f32 $= 1
+			    stage set {
+			        10 -> amount
+			        gate == 1 => shift(amount, out_a)
+			    }
+			}
+			start_a == 1 => caller`)
+			trigger(h, ctx, startA)
+			trigger(h, ctx, gate)
+			level(h, ctx, 5)
+			out, _ := h.Flush()
+			Expect(lastF32(out, outA)).To(Equal(float32(15)))
+		})
+
+		// timed makes call on gate from a sequence that writes its variable t.
+		timed := func(call string) string {
+			return `
+			sequence timed {
+			    t $= 2s
+			    stage wait {
+			        start_b == 1 => later
+			        gate == 1 => ` + call + `
+			    }
+			    stage later {
+			        3s -> t
+			    }
+			}
+			start_a == 1 => timed`
+		}
+
+		DescribeTable("Should convert an argument to the unit of its parameter",
+			func(ctx SpecContext, source, expected string) {
+				h := open(ctx, `
+				sequence report(d i64 ms) {
+				    stage write {
+				        f"d {d}" -> log
+				    }
+				}`+source)
+				trigger(h, ctx, startA)
+				trigger(h, ctx, gate)
+				out, _ := h.Flush()
+				Expect(drainStrings(out, log)).To(Equal([]string{expected}))
+			},
+			Entry("a literal", `
+			start_a == 1 => report(2s)`, "d 2000"),
+			Entry("a variable that does not change", `
+			t := 2s
+			start_a == 1 => report(t)`, "d 2000"),
+			Entry("a variable that changes", timed("report(t)"), "d 2000"),
+			Entry("an expression", timed("report(t * 2)"), "d 4000"),
 		)
 	})
 })

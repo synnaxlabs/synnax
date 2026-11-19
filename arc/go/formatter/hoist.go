@@ -39,17 +39,8 @@ func DeclarationHoists(content string) []LineMove {
 	comments := lineComments(content)
 	var moves []LineMove
 	walk(program, func(node antlr.Tree) {
-		switch body := node.(type) {
-		case parser.ISequenceDeclarationContext:
-			moves = append(
-				moves,
-				bodyHoists(body, bodyItems(body.AllSequenceItem()), comments)...,
-			)
-		case parser.IStageBodyContext:
-			moves = append(
-				moves,
-				bodyHoists(body, bodyItems(body.AllStageItem()), comments)...,
-			)
+		if body, ok := node.(parser.IBodyContext); ok {
+			moves = append(moves, bodyHoists(body, comments)...)
 		}
 	})
 	return moves
@@ -80,36 +71,17 @@ func HoistDeclarations(content string) string {
 	return strings.Join(out, "\n")
 }
 
-type bodyItem struct {
-	node antlr.ParserRuleContext
-	decl bool
-}
-
-func bodyItems[I interface {
-	antlr.ParserRuleContext
-	VariableDeclaration() parser.IVariableDeclarationContext
-}](items []I) []bodyItem {
-	out := make([]bodyItem, len(items))
-	for i, item := range items {
-		out[i] = bodyItem{node: item, decl: item.VariableDeclaration() != nil}
-	}
-	return out
-}
-
 // bodyHoists returns one move per declaration that follows the body's first step.
-func bodyHoists(
-	body antlr.ParserRuleContext,
-	items []bodyItem,
-	comments commentLines,
-) []LineMove {
+func bodyHoists(body parser.IBodyContext, comments commentLines) []LineMove {
+	items := body.AllBodyItem()
 	if !onSeparateLines(body, items, comments) {
 		return nil
 	}
 	anchor := -1
 	var moves []LineMove
 	for _, item := range items {
-		start := comments.leadingLine(item.node.GetStart().GetLine() - 1)
-		if !item.decl {
+		start := comments.leadingLine(item.GetStart().GetLine() - 1)
+		if item.VariableDeclaration() == nil {
 			if anchor < 0 {
 				anchor = start
 			}
@@ -172,8 +144,8 @@ func (c commentLines) leadingLine(line int) int {
 }
 
 // lastLine returns the last line of item and the comments after it.
-func (c commentLines) lastLine(item bodyItem) int {
-	line := item.node.GetStop().GetLine() - 1
+func (c commentLines) lastLine(item parser.IBodyItemContext) int {
+	line := item.GetStop().GetLine() - 1
 	for {
 		end, ok := c.trailing[line]
 		if !ok || end == line {
@@ -186,13 +158,13 @@ func (c commentLines) lastLine(item bodyItem) int {
 // onSeparateLines reports whether no item shares a line with another item or with
 // the body's braces, so whole lines can move.
 func onSeparateLines(
-	body antlr.ParserRuleContext,
-	items []bodyItem,
+	body parser.IBodyContext,
+	items []parser.IBodyItemContext,
 	comments commentLines,
 ) bool {
-	last := body.GetStart().GetLine()
+	last := body.LBRACE().GetSymbol().GetLine()
 	for _, item := range items {
-		if item.node.GetStart().GetLine() <= last {
+		if item.GetStart().GetLine() <= last {
 			return false
 		}
 		last = comments.lastLine(item) + 1

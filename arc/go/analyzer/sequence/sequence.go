@@ -17,12 +17,14 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/flow"
+	"github.com/synnaxlabs/arc/analyzer/function"
 	"github.com/synnaxlabs/arc/analyzer/statement"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
+	"go.lsp.dev/protocol"
 )
 
 // RejectReactiveAssignment reports that '=' cannot write to name in a reactive scope.
@@ -59,6 +61,9 @@ func analyzeReactiveAssignment[T antlr.ParserRuleContext](
 		return
 	}
 	switch {
+	case sym.IsSequenceInput() && sym.Type.Kind != types.KindChan:
+		ctx.Diagnostics.Add(codes.AssignmentTarget.Atf(assign,
+			"cannot reassign parameter '%s'", name))
 	case sym.IsChannelReadWrite():
 		target, ok := channelRebindTarget(ctx, assign.Expression())
 		if !ok {
@@ -140,24 +145,24 @@ func CollectDeclarations(ctx context.Context[parser.IProgramContext]) {
 			collectTopLevelStage(ctx.Child(stageDecl), ctx.Scope)
 		}
 	}
-	desugarInlineDecls(ctx)
+	desugarAnonymousDecls(ctx)
 }
 
-// desugarInlineDecls registers a synth scope under the lexically enclosing
-// scope for each anonymous inline stage/sequence body used as a flow target.
-func desugarInlineDecls(ctx context.Context[parser.IProgramContext]) {
+// desugarAnonymousDecls registers a synth scope under the lexically enclosing
+// scope for each anonymous stage/sequence body used as a flow target.
+func desugarAnonymousDecls(ctx context.Context[parser.IProgramContext]) {
 	counter := 0
 	var walk func(enclosing *symbol.Symbol, node antlr.Tree)
 	walk = func(enclosing *symbol.Symbol, node antlr.Tree) {
 		if fn, ok := node.(parser.IFlowNodeContext); ok {
-			var decl antlr.ParserRuleContext
+			var decl declaration
 			if s := fn.StageDeclaration(); s != nil {
 				decl = s
 			} else if s := fn.SequenceDeclaration(); s != nil {
 				decl = s
 			}
 			if decl != nil {
-				if synth := registerInlineBody(
+				if synth := registerAnonymousBody(
 					ctx,
 					enclosing,
 					decl,
@@ -188,27 +193,21 @@ func desugarInlineDecls(ctx context.Context[parser.IProgramContext]) {
 	walk(ctx.Scope, ctx.AST)
 }
 
-// registerInlineBody registers a synth scope under parentScope for an inline
+// registerAnonymousBody registers a synth scope under parentScope for an anonymous
 // routing case body; named bodies emit a diagnostic and return nil.
-func registerInlineBody(
+func registerAnonymousBody(
 	ctx context.Context[parser.IProgramContext],
 	parentScope *symbol.Symbol,
-	decl antlr.ParserRuleContext,
+	decl declaration,
 	counter *int,
 ) *symbol.Symbol {
-	var id antlr.TerminalNode
-	switch d := decl.(type) {
-	case parser.IStageDeclarationContext:
-		id = d.IDENTIFIER()
-	case parser.ISequenceDeclarationContext:
-		id = d.IDENTIFIER()
-	}
-	if id != nil {
-		ctx.Diagnostics.Add(codes.NamedInlineBody.At(decl))
+	collectParameters(ctx, decl, "", "", false)
+	if decl.IDENTIFIER() != nil {
+		ctx.Diagnostics.Add(codes.NamedFlowBody.At(decl))
 		return nil
 	}
 	synth, err := parentScope.Add(ctx, symbol.Symbol{
-		Name: ir.InlinePrefix + strconv.Itoa(*counter),
+		Name: ir.AnonymousPrefix + strconv.Itoa(*counter),
 		Kind: symbol.KindSequence,
 		Type: types.Sequence(),
 		AST:  decl,
@@ -218,35 +217,33 @@ func registerInlineBody(
 		return nil
 	}
 	*counter++
-	switch d := decl.(type) {
-	case parser.IStageDeclarationContext:
-		if body := d.StageBody(); body != nil {
-			for _, item := range body.AllStageItem() {
-				if nested := item.SequenceDeclaration(); nested != nil {
-					collectSequenceDecl(ctx.Child(nested), synth)
-				}
-			}
-		}
-	case parser.ISequenceDeclarationContext:
-		for _, item := range d.AllSequenceItem() {
-			if stage := item.StageDeclaration(); stage != nil {
-				collectStageDecl(ctx.Child(stage), synth)
-			}
-			if nested := item.SequenceDeclaration(); nested != nil {
-				collectSequenceDecl(ctx.Child(nested), synth)
-			}
-		}
-	}
+	collectBodies(ctx, decl.Body(), synth)
 	return synth
 }
 
-// AnalyzeSynthInlines analyzes every synth inline scope in the tree; must run
+// collectBodies registers each stage and sequence that body declares under scope.
+func collectBodies[T antlr.ParserRuleContext](
+	ctx context.Context[T],
+	body parser.IBodyContext,
+	scope *symbol.Symbol,
+) {
+	for _, item := range parser.BodyItems(body) {
+		if stage := item.StageDeclaration(); stage != nil {
+			collectStageDecl(ctx.Child(stage), scope)
+		}
+		if nested := item.SequenceDeclaration(); nested != nil {
+			collectSequenceDecl(ctx.Child(nested), scope)
+		}
+	}
+}
+
+// AnalyzeAnonymousBodies analyzes every synth anonymous scope in the tree; must run
 // after the top-level analyze loop so bodies can resolve forward references.
-func AnalyzeSynthInlines(ctx context.Context[parser.IProgramContext]) {
+func AnalyzeAnonymousBodies(ctx context.Context[parser.IProgramContext]) {
 	var walk func(parent *symbol.Symbol)
 	walk = func(parent *symbol.Symbol) {
 		for _, child := range parent.Children() {
-			if strings.HasPrefix(child.Name, ir.InlinePrefix) {
+			if strings.HasPrefix(child.Name, ir.AnonymousPrefix) {
 				switch decl := child.AST.(type) {
 				case parser.IStageDeclarationContext:
 					AnalyzeTopLevelStage(ctx.Child(decl).WithScope(parent))
@@ -260,8 +257,89 @@ func AnalyzeSynthInlines(ctx context.Context[parser.IProgramContext]) {
 	walk(ctx.Scope)
 }
 
+// declaration is a sequence or a stage declaration.
+type declaration interface {
+	antlr.ParserRuleContext
+	IDENTIFIER() antlr.TerminalNode
+	LPAREN() antlr.TerminalNode
+	RPAREN() antlr.TerminalNode
+	InputList() parser.IInputListContext
+	Body() parser.IBodyContext
+}
+
+// emptyParameters returns the diagnostic for the empty parentheses of decl.
+func emptyParameters(decl declaration) diagnostics.Diagnostic {
+	open, closed := decl.LPAREN().GetSymbol(), decl.RPAREN().GetSymbol()
+	start := protocol.Position{
+		Line:      uint32(open.GetLine() - 1),
+		Character: uint32(open.GetColumn()),
+	}
+	end := protocol.Position{
+		Line:      uint32(closed.GetLine() - 1),
+		Character: uint32(closed.GetColumn() + 1),
+	}
+	// The fix also removes the blanks between the name and the parentheses.
+	from := start
+	for input, i := open.GetInputStream(), open.GetStart()-1; i >= 0; i-- {
+		if c := input.GetText(i, i); c != " " && c != "\t" {
+			break
+		}
+		from.Character--
+	}
+	return codes.BodyDeclaration.Atf(decl, "a parameter list cannot be empty").
+		WithRange(start, end).
+		WithNote("add a parameter or remove the parentheses").
+		WithEdits(
+			"Remove the empty parentheses",
+			protocol.TextEdit{Range: protocol.Range{Start: from, End: end}},
+		)
+}
+
+// collectParameters returns the parameters of a named top-level sequence or stage.
+func collectParameters[T antlr.ParserRuleContext](
+	ctx context.Context[T],
+	decl declaration,
+	kind, name string,
+	topLevel bool,
+) types.Params {
+	if decl == nil {
+		return nil
+	}
+	inputList := decl.InputList()
+	if inputList == nil {
+		if decl.LPAREN() != nil {
+			ctx.Diagnostics.Add(emptyParameters(decl))
+		}
+		return nil
+	}
+	if !topLevel {
+		ctx.Diagnostics.Add(codes.BodyDeclaration.Atf(inputList,
+			"only a top-level stage or sequence can have parameters"))
+		return nil
+	}
+	if name == "" {
+		ctx.Diagnostics.Add(codes.BodyDeclaration.Atf(inputList,
+			"a %s with parameters needs a name", kind))
+		return nil
+	}
+	for _, input := range inputList.AllInput() {
+		t, lit := input.Type_(), input.Literal()
+		if lit == nil || t == nil || t.ChannelType() == nil {
+			continue
+		}
+		ctx.Diagnostics.Add(codes.BodyDeclaration.Atf(
+			lit,
+			"channel parameter '%s' cannot have a default",
+			input.IDENTIFIER().GetText(),
+		))
+	}
+	var inputs types.Params
+	function.CollectInputs(ctx, inputList, &inputs)
+	return inputs
+}
+
 // collectSequenceDecl recursively registers a sequence and its children.
-// Anonymous inline sequences (no IDENTIFIER) get a synthetic name from
+// Anonymous sequences (no IDENTIFIER) get a synthetic name from
 // AutoName so the scope is still addressable via GetChildByParserRule.
 func collectSequenceDecl(
 	ctx context.Context[parser.ISequenceDeclarationContext],
@@ -271,10 +349,14 @@ func collectSequenceDecl(
 	if id := ctx.AST.IDENTIFIER(); id != nil {
 		name = id.GetText()
 	}
+	t := types.Sequence()
+	t.Inputs = collectParameters(
+		ctx, ctx.AST, "sequence", name, parentScope == ctx.Scope,
+	)
 	seqScope, err := parentScope.Add(ctx, symbol.Symbol{
 		Name: name,
 		Kind: symbol.KindSequence,
-		Type: types.Sequence(),
+		Type: t,
 		AST:  ctx.AST,
 	})
 	if err != nil {
@@ -284,17 +366,10 @@ func collectSequenceDecl(
 	if name == "" {
 		seqScope.AutoName("seq_")
 	}
-	for _, item := range ctx.AST.AllSequenceItem() {
-		if stageDecl := item.StageDeclaration(); stageDecl != nil {
-			collectStageDecl(ctx.Child(stageDecl), seqScope)
-		}
-		if nestedSeq := item.SequenceDeclaration(); nestedSeq != nil {
-			collectSequenceDecl(ctx.Child(nestedSeq), seqScope)
-		}
-	}
+	collectBodies(ctx, ctx.AST.Body(), seqScope)
 }
 
-// collectStageDecl registers a stage and any nested sequences within it.
+// collectStageDecl registers a stage and the stages and sequences inside it.
 // Anonymous stages get a synthetic name so they remain addressable.
 func collectStageDecl(
 	ctx context.Context[parser.IStageDeclarationContext],
@@ -304,6 +379,7 @@ func collectStageDecl(
 	if id := ctx.AST.IDENTIFIER(); id != nil {
 		stageName = id.GetText()
 	}
+	collectParameters(ctx, ctx.AST, "stage", stageName, false)
 	stageScope, err := seqScope.Add(ctx, symbol.Symbol{
 		Name: stageName,
 		Kind: symbol.KindStage,
@@ -317,61 +393,40 @@ func collectStageDecl(
 	if stageName == "" {
 		stageScope.AutoName("stage_")
 	}
-	stageBody := ctx.AST.StageBody()
-	if stageBody == nil {
-		return
-	}
-	for _, item := range stageBody.AllStageItem() {
-		if nestedSeq := item.SequenceDeclaration(); nestedSeq != nil {
-			collectSequenceDecl(ctx.Child(nestedSeq), stageScope)
-		}
-	}
+	collectBodies(ctx, ctx.AST.Body(), stageScope)
 }
 
-// scopeBodyItem is a body line common to sequences and stages.
-type scopeBodyItem interface {
-	VariableDeclaration() parser.IVariableDeclarationContext
-	Assignment() parser.IAssignmentContext
-	FlowStatement() parser.IFlowStatementContext
-	SingleInvocation() parser.ISingleInvocationContext
-	SequenceDeclaration() parser.ISequenceDeclarationContext
-}
-
-// analyzeScopeBodyItem analyzes one body line in the construct's own ctx.Scope.
-func analyzeScopeBodyItem[T antlr.ParserRuleContext](
+// analyzeBody analyzes the items of a stage or sequence body in ctx.Scope, and flags
+// each declaration that follows a step.
+func analyzeBody[T antlr.ParserRuleContext](
 	ctx context.Context[T],
-	item scopeBodyItem,
+	body parser.IBodyContext,
 ) {
-	if varDecl := item.VariableDeclaration(); varDecl != nil {
-		statement.AnalyzeVariableDeclaration(ctx.Child(varDecl))
-	}
-	if assign := item.Assignment(); assign != nil {
-		analyzeReactiveAssignment(ctx, assign)
-	}
-	if flowStmt := item.FlowStatement(); flowStmt != nil {
-		flow.Analyze(ctx.Child(flowStmt))
-	}
-	if single := item.SingleInvocation(); single != nil {
-		analyzeSingleInvocation(ctx.Child(single))
-	}
-	if nestedSeq := item.SequenceDeclaration(); nestedSeq != nil {
-		Analyze(ctx.Child(nestedSeq))
-	}
-}
-
-// warnLateDeclarations flags each declaration that follows a step in the body.
-func warnLateDeclarations[T antlr.ParserRuleContext, I interface {
-	VariableDeclaration() parser.IVariableDeclarationContext
-}](ctx context.Context[T], items []I) {
 	sawStep := false
-	for _, item := range items {
-		decl := item.VariableDeclaration()
-		if decl == nil {
+	for _, item := range parser.BodyItems(body) {
+		varDecl := item.VariableDeclaration()
+		if varDecl == nil {
 			sawStep = true
-			continue
+		} else {
+			statement.AnalyzeVariableDeclaration(ctx.Child(varDecl))
+			if sawStep {
+				ctx.Diagnostics.Add(codes.DeclarationAfterStep.At(varDecl))
+			}
 		}
-		if sawStep {
-			ctx.Diagnostics.Add(codes.DeclarationAfterStep.At(decl))
+		if stage := item.StageDeclaration(); stage != nil {
+			analyzeStage(ctx.Child(stage))
+		}
+		if nestedSeq := item.SequenceDeclaration(); nestedSeq != nil {
+			Analyze(ctx.Child(nestedSeq))
+		}
+		if assign := item.Assignment(); assign != nil {
+			analyzeReactiveAssignment(ctx, assign)
+		}
+		if flowStmt := item.FlowStatement(); flowStmt != nil {
+			flow.Analyze(ctx.Child(flowStmt))
+		}
+		if single := item.SingleInvocation(); single != nil {
+			analyzeSingleInvocation(ctx.Child(single))
 		}
 	}
 }
@@ -384,14 +439,8 @@ func Analyze(ctx context.Context[parser.ISequenceDeclarationContext]) {
 		return
 	}
 	ctx = ctx.WithScope(seqScope)
-	for _, item := range ctx.AST.AllSequenceItem() {
-		if stageDecl := item.StageDeclaration(); stageDecl != nil {
-			analyzeStage(ctx.Child(stageDecl))
-			continue
-		}
-		analyzeScopeBodyItem(ctx, item)
-	}
-	warnLateDeclarations(ctx, ctx.AST.AllSequenceItem())
+	function.AddInputsToScope(ctx, ctx.AST.InputList(), seqScope)
+	analyzeBody(ctx, ctx.AST.Body())
 }
 
 // collectTopLevelStage registers a top-level stage as a sequence in the symbol
@@ -406,10 +455,12 @@ func collectTopLevelStage(
 	if id := ctx.AST.IDENTIFIER(); id != nil {
 		name = id.GetText()
 	}
+	t := types.Sequence()
+	t.Inputs = collectParameters(ctx, ctx.AST, "stage", name, true)
 	stageScope, err := parentScope.Add(ctx, symbol.Symbol{
 		Name: name,
 		Kind: symbol.KindSequence,
-		Type: types.Sequence(),
+		Type: t,
 		AST:  ctx.AST,
 	})
 	if err != nil {
@@ -419,15 +470,7 @@ func collectTopLevelStage(
 	if name == "" {
 		stageScope.AutoName("stage_")
 	}
-	stageBody := ctx.AST.StageBody()
-	if stageBody == nil {
-		return
-	}
-	for _, item := range stageBody.AllStageItem() {
-		if nestedSeq := item.SequenceDeclaration(); nestedSeq != nil {
-			collectSequenceDecl(ctx.Child(nestedSeq), stageScope)
-		}
-	}
+	collectBodies(ctx, ctx.AST.Body(), stageScope)
 }
 
 // AnalyzeTopLevelStage performs semantic analysis on a top-level stage declaration.
@@ -436,18 +479,12 @@ func AnalyzeTopLevelStage(ctx context.Context[parser.IStageDeclarationContext]) 
 }
 
 func analyzeStage(ctx context.Context[parser.IStageDeclarationContext]) {
-	stageBody := ctx.AST.StageBody()
-	if stageBody == nil {
-		return
-	}
 	// Top-level stages have no owned child scope; keep ctx.Scope when absent.
 	if stageScope, err := context.ResolveOwnScope(ctx); err == nil {
 		ctx = ctx.WithScope(stageScope)
+		function.AddInputsToScope(ctx, ctx.AST.InputList(), stageScope)
 	}
-	for _, item := range stageBody.AllStageItem() {
-		analyzeScopeBodyItem(ctx, item)
-	}
-	warnLateDeclarations(ctx, stageBody.AllStageItem())
+	analyzeBody(ctx, ctx.AST.Body())
 }
 
 func analyzeSingleInvocation(ctx context.Context[parser.ISingleInvocationContext]) {
@@ -456,6 +493,9 @@ func analyzeSingleInvocation(ctx context.Context[parser.ISingleInvocationContext
 		return
 	}
 	if expr := ctx.AST.Expression(); expr != nil {
+		if flow.AnalyzeBodyName(ctx.Child(expr)) {
+			return
+		}
 		flow.AnalyzeSingleExpression(ctx.Child(expr))
 	}
 }

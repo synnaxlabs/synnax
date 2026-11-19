@@ -107,6 +107,27 @@ var _ = Describe("FoldingRange", func() {
 			Expect(hasSequenceRange).To(BeTrue())
 		})
 
+		It("Should fold a sequence with parameters on several lines", func(
+			ctx SpecContext,
+		) {
+			server, uri := SetupTestServer()
+			OpenArcDocument(
+				server,
+				ctx,
+				uri,
+				"sequence main(\n\tx f32,\n) {\n\tstage first {\n\t}\n}",
+			)
+			ranges := MustSucceed(
+				server.FoldingRanges(ctx, &protocol.FoldingRangeParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+				}),
+			)
+			Expect(ranges).To(ContainElement(SatisfyAll(
+				HaveField("StartLine", uint32(0)),
+				HaveField("EndLine", uint32(5)),
+			)))
+		})
+
 		It("Should return folding ranges for nested stages", func(ctx SpecContext) {
 			server, uri := SetupTestServer()
 			OpenArcDocument(

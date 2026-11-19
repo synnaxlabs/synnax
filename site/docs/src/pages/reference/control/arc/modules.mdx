@@ -26,7 +26,9 @@ and does not run by itself.
 ## Export code
 
 Put `export` before a top-level function, sequence, stage, or `:=` variable. Importers
-see only exported code.
+see only exported code. An exported stage or sequence can take
+[parameters](/reference/control/arc/reference/flow#stage-and-sequence-parameters), so
+each importer calls it with its own values and channels.
 
 ```arc channels="press_vlv_cmd, vent_vlv_cmd, tank_pt" bodies="psi_to_kpa, press, fill, hold, vent"
 export func psi_to_kpa() {v f64} f64 {

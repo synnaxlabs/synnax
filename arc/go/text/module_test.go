@@ -11,6 +11,7 @@ package text_test
 
 import (
 	"context"
+	"slices"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -282,16 +283,16 @@ var _ = Describe("Loader", func() {
 				sources["m"] = `export sequence s { stage a { trig -> out8 } }`
 			})
 
-			It("Should bind a top-level activation to the module scope", func(
+			It("Should start a copy of a module sequence from a top-level flow", func(
 				ctx SpecContext,
 			) {
 				i, diag := analyzeIR(ctx, "import m\n\ntrig > 0 => m.s")
 				Expect(diag.Ok()).To(BeTrue(), diag.String())
-				Expect(findTopLevelScope(i, "m.s").Activations).To(HaveLen(1))
+				Expect(findMember(i.Root, "$m.s_0").Scope.Activations).To(HaveLen(1))
 			})
 
 			It(
-				"Should not bind to a sibling stage of the same name",
+				"Should not move to a sibling stage of the same name",
 				func(ctx SpecContext) {
 					i, diag := analyzeIR(ctx, `
 import m
@@ -300,53 +301,124 @@ sequence main {
     stage s { trig -> out8 }
     stage b { trig > 0 => m.s }
 }
+
+trig > 0 => main
 `)
 					Expect(diag.Ok()).To(BeTrue(), diag.String())
 					main := findTopLevelScope(i, "main")
-					Expect(main.Transitions).To(HaveLen(1))
-					Expect(main.Transitions[0].Target.Variant).To(
-						Equal(ir.ScopeTarget{Key: "m.s"}),
-					)
+					Expect(main.Transitions).To(BeEmpty())
+					b := findMember(main, "b").Scope
+					Expect(findMember(*b, "$m.s_0").Scope.Activations).To(HaveLen(1))
 				},
 			)
 
-			It("Should key an activation by the module path, not the alias", func(
+			It("Should key a copy by the module path, not the alias", func(
 				ctx SpecContext,
 			) {
-				i, diag := analyzeIR(ctx, `
-import m as mm
-
-sequence main {
-    stage b { trig > 0 => mm.s }
-}
-`)
+				i, diag := analyzeIR(ctx, "import m as mm\n\ntrig > 0 => mm.s")
 				Expect(diag.Ok()).To(BeTrue(), diag.String())
-				main := findTopLevelScope(i, "main")
-				Expect(main.Transitions[0].Target.Variant).To(
-					Equal(ir.ScopeTarget{Key: "m.s"}),
-				)
+				Expect(findMember(i.Root, "$m.s_0").Scope.Activations).To(HaveLen(1))
 			})
 
 			It(
-				"Should not activate a local scope of the same name",
+				"Should not copy a local sequence of the same name",
 				func(ctx SpecContext) {
 					i, diag := analyzeIR(ctx, `
 import m
 
 sequence s { stage a { trig -> out8 } }
 
-sequence main {
-    stage b { trig > 0 => m.s }
-}
+trig > 0 => m.s
 `)
 					Expect(diag.Ok()).To(BeTrue(), diag.String())
-					Expect(findTopLevelScope(i, "s").Activations).To(BeEmpty())
-					main := findTopLevelScope(i, "main")
-					Expect(main.Transitions[0].Target.Variant).To(
-						Equal(ir.ScopeTarget{Key: "m.s"}),
-					)
+					var keys []string
+					for _, member := range slices.Concat(i.Root.Strata...) {
+						if member.Scope != nil {
+							keys = append(keys, member.Scope.Key)
+						}
+					}
+					Expect(keys).To(Equal([]string{"$m.s_0"}))
 				},
 			)
+		})
+
+		Describe("Imported sequences with parameters", func() {
+			BeforeEach(func() {
+				sources["m"] = `
+export sequence set(target chan u8) { stage a { trig -> target } }
+export sequence own { stage a { trig > 0 => set(out8) } }`
+			})
+
+			It("Should lower a call from the importer in the importer", func(
+				ctx SpecContext,
+			) {
+				i, diag := analyzeIR(ctx, "import m\n\ntrig > 0 => m.set(out8)")
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+				Expect(findTopLevelScope(i, "$m.set_0").Activations).To(HaveLen(1))
+			})
+
+			It(
+				"Should lower a call that the module makes inside the copy of its caller",
+				func(
+					ctx SpecContext,
+				) {
+					i, diag := analyzeIR(ctx, "import m\n\ntrig > 0 => m.own")
+					Expect(diag.Ok()).To(BeTrue(), diag.String())
+					own := findMember(i.Root, "$m.own_0").Scope
+					Expect(own.Transitions).To(BeEmpty())
+					a := findMember(*own, "a").Scope
+					Expect(findMember(*a, "$m.set_0").Scope.Steps).To(HaveLen(1))
+				},
+			)
+
+			It(
+				"Should give a call of the module and a call of the importer a copy each",
+				func(
+					ctx SpecContext,
+				) {
+					i, diag := analyzeIR(ctx, `
+import m
+
+trig > 0 => m.own
+trig > 0 => m.set(out8)
+`)
+					Expect(diag.Ok()).To(BeTrue(), diag.String())
+					a := findMember(*findMember(i.Root, "$m.own_0").Scope, "a").Scope
+					findMember(*a, "$m.set_0")
+					findMember(i.Root, "$m.set_1")
+				},
+			)
+
+			Context("With an error in the sequence", func() {
+				const source = "sequence empty {}\n" +
+					"export sequence set(target chan u8) {\n" +
+					"    stage a { trig > 0 => empty }\n}\n" +
+					"export stage ok { trig -> out8 }"
+				BeforeEach(func() { sources["m"] = source })
+
+				It("Should not compile the module", func(ctx SpecContext) {
+					_, diag := analyzeModule(ctx, source)
+					Expect(diag.Errors()).To(HaveLen(1), diag.String())
+					Expect(diag.Errors()[0].Message).
+						To(Equal("empty sequence: sequence 'empty' has no steps"))
+				})
+
+				DescribeTable("Should report the error once, at the import",
+					func(ctx SpecContext, flow string) {
+						diag := analyze(ctx, "import m\n\n"+flow)
+						Expect(*diag).To(HaveLen(1), diag.String())
+						Expect((*diag)[0].Message).To(Equal(
+							`import failed: module "m" does not compile: 3:26 empty ` +
+								`sequence: sequence 'empty' has no steps`,
+						))
+						Expect((*diag)[0].Range.Start.Line).To(BeZero())
+					},
+					Entry("to an importer that calls the sequence",
+						"trig > 0 => m.set(out8)"),
+					Entry("to an importer that calls a different member",
+						"trig > 0 => m.ok"),
+				)
+			})
 		})
 
 		Describe("Search", func() {
@@ -473,10 +545,12 @@ sequence main {
 		})
 
 		It("Should key a call node's type by the module path", func(ctx SpecContext) {
-			i := analyzeAt(ctx, "lib.m", `
+			sources["lib.m"] = `
 func f() i64 { return 1 }
 export sequence s { stage a { trig -> f() -> out } }
-`)
+`
+			i, diag := analyzeIR(ctx, "import lib.m\n\ntrig > 0 => m.s")
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
 			nodeTypes := make([]string, 0, len(i.Nodes))
 			for _, n := range i.Nodes {
 				nodeTypes = append(nodeTypes, n.Type)
@@ -485,38 +559,35 @@ export sequence s { stage a { trig -> f() -> out } }
 		})
 
 		It("Should prefix every node key with the module path", func(ctx SpecContext) {
-			i := analyzeAt(ctx, "lib.m", `
-export sequence s { stage a { trig -> out8 } }
-export stage t { trig -> out8 }
-`)
+			i := analyzeAt(ctx, "lib.m", `export c := trig + 1`)
 			Expect(i.Nodes).ToNot(BeEmpty())
 			for _, n := range i.Nodes {
 				Expect(n.Key).To(HavePrefix("lib.m."), n.Key)
 			}
 		})
 
-		It("Should key top-level scopes by the module path", func(ctx SpecContext) {
+		It("Should add nothing to a module for its sequences and stages", func(
+			ctx SpecContext,
+		) {
 			i := analyzeAt(ctx, "lib.m", `
 export sequence s { stage a { trig -> out8 } }
 export stage t { trig -> out8 }
 `)
-			Expect(findTopLevelScope(i, "lib.m.s").Steps[0].Key()).To(Equal("a"))
-			Expect(findTopLevelScope(i, "lib.m.t").Key).To(Equal("lib.m.t"))
+			Expect(i.Nodes).To(BeEmpty())
+			Expect(i.Root.Strata).To(BeEmpty())
 		})
 
-		It(
-			"Should keep a sibling activation on the module path",
-			func(ctx SpecContext) {
-				i := analyzeAt(ctx, "lib.m", `
+		It("Should key a copy by the module path", func(ctx SpecContext) {
+			sources["lib.m"] = `
 export sequence s { stage a { trig > 0 => t } }
 sequence t { stage b { trig -> out8 } }
-`)
-				s := findTopLevelScope(i, "lib.m.s")
-				Expect(s.Transitions[0].Target.Variant).To(
-					Equal(ir.ScopeTarget{Key: "lib.m.t"}),
-				)
-			},
-		)
+`
+			i, diag := analyzeIR(ctx, "import lib.m\n\ntrig > 0 => m.s")
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			s := findMember(i.Root, "$lib.m.s_0").Scope
+			Expect(s.Transitions).To(BeEmpty())
+			findMember(*findMember(*s, "a").Scope, "$lib.m.t_0")
+		})
 	})
 
 	Describe("Link", func() {
@@ -582,18 +653,17 @@ sequence t { stage b { trig -> out8 } }
 			Expect(nodeTypes(i)).To(ContainElements("a.m.f", "b.m.f"))
 		})
 
-		It("Should link an exported sequence and its nodes", func(ctx SpecContext) {
+		It("Should lower a copy of an exported sequence in the importer", func(
+			ctx SpecContext,
+		) {
 			sources["m"] = `export sequence s { stage a { trig -> out8 } }`
 			i, diag := analyzeIR(ctx, "import m\n\ntrig > 0 => m.s")
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
-			s := findTopLevelScope(i, "m.s")
+			s := findMember(i.Root, "$m.s_0").Scope
 			Expect(s.Steps[0].Key()).To(Equal("a"))
 			Expect(s.Activations).To(HaveLen(1))
-			keys := make([]string, 0, len(i.Nodes))
-			for _, n := range i.Nodes {
-				keys = append(keys, n.Key)
-			}
-			Expect(keys).To(ContainElement(HavePrefix("m.")))
+			Expect(scopeNodeRefs(*s.Steps[0].Scope)).
+				To(ConsistOf("on_trig_1", "write_out8_0"))
 		})
 
 		It("Should give linked members a root stratum of their own", func(
@@ -601,14 +671,19 @@ sequence t { stage b { trig -> out8 } }
 		) {
 			sources["m"] = `
 export func f() i64 { return 1 }
-export sequence s { stage a { trig -> out8 } }
+export c := trig + 1
 `
 			i, diag := analyzeIR(ctx, "import m\n\nfunc g() i64 { return m.f() }")
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
-			Expect(findTopLevelScope(i, "m.s").Key).To(Equal("m.s"))
+			Expect(i.Root.Strata).ToNot(BeEmpty())
+			for _, member := range slices.Concat(i.Root.Strata...) {
+				Expect(member.Key()).To(HavePrefix("m."))
+			}
 		})
 
-		It("Should link an exported stage and its nodes", func(ctx SpecContext) {
+		It("Should lower a copy of an exported stage in the importer", func(
+			ctx SpecContext,
+		) {
 			sources["m"] = `export stage t { trig -> out8 }`
 			i, diag := analyzeIR(ctx, "import m\n\ntrig > 0 => m.t")
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
@@ -620,10 +695,12 @@ export sequence s { stage a { trig -> out8 } }
 					keys = append(keys, *member.NodeKey)
 				}
 			}
-			Expect(keys).To(ConsistOf("m.on_trig_0", "m.write_out8_0"))
+			Expect(keys).To(ConsistOf("on_trig_1", "write_out8_0"))
 		})
 
-		It("Should keep a nested jump to a module scope", func(ctx SpecContext) {
+		It("Should lower a copy of a module sequence in the stage that uses it", func(
+			ctx SpecContext,
+		) {
 			sources["m"] = `export sequence s { stage a { trig -> out8 } }`
 			i, diag := analyzeIR(ctx, `
 import m
@@ -631,15 +708,16 @@ import m
 sequence main {
     stage b { trig > 0 => m.s }
 }
+
+trig > 0 => main
 `)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
-			Expect(findTopLevelScope(i, "main").Transitions[0].Target.Variant).To(
-				Equal(ir.ScopeTarget{Key: "m.s"}),
-			)
-			Expect(findTopLevelScope(i, "m.s").Key).To(Equal("m.s"))
+			main := findTopLevelScope(i, "main")
+			Expect(main.Transitions).To(BeEmpty())
+			findMember(*findMember(main, "b").Scope, "$m.s_0")
 		})
 
-		It("Should keep an importer's inline activation beside a module's", func(
+		It("Should keep an importer's anonymous activation beside a module's", func(
 			ctx SpecContext,
 		) {
 			sources["m"] = `
@@ -652,7 +730,7 @@ trig -> sequence { stage c { trig -> out8 } }
 trig > 0 => m.s
 `)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
-			var inline []ir.Scope
+			var anonymous []ir.Scope
 			var walk func(s ir.Scope)
 			walk = func(s ir.Scope) {
 				for _, stratum := range s.Strata {
@@ -667,17 +745,17 @@ trig > 0 => m.s
 						walk(*m.Scope)
 					}
 				}
-				if strings.HasPrefix(s.Key, ir.InlinePrefix) {
-					inline = append(inline, s)
+				if strings.Contains(s.Key, ir.AnonymousPrefix) {
+					anonymous = append(anonymous, s)
 				}
 			}
 			walk(i.Root)
-			Expect(inline).To(HaveLen(2))
-			for _, s := range inline {
+			Expect(anonymous).To(HaveLen(2))
+			for _, s := range anonymous {
 				Expect(s.Activations).To(HaveLen(1), s.Key)
 			}
-			Expect(inline[0].Activations[0].On).ToNot(
-				Equal(inline[1].Activations[0].On),
+			Expect(anonymous[0].Activations[0].On).ToNot(
+				Equal(anonymous[1].Activations[0].On),
 			)
 		})
 
@@ -740,7 +818,7 @@ export sequence s {
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 			var sources []string
 			for _, e := range i.Edges {
-				if e.Target.Node == "a.write_out8_0" {
+				if e.Target.Node == "write_out8_0" {
 					sources = append(sources, e.Source.Node)
 				}
 			}

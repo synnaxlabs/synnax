@@ -1426,6 +1426,9 @@ sequence main {
         time.interval(period=q) -> %b%
     }
 }
+stage {
+    main
+}
 )",
             60
         },
@@ -1445,6 +1448,9 @@ sequence main {
         q = i64 ns(45ms)
     }
 }
+stage {
+    main
+}
 )",
             10
         },
@@ -1463,6 +1469,9 @@ sequence main {
         p = i64 ns(2 * 25ms)
         q = i64 ns(3 * 20ms)
     }
+}
+stage {
+    main
 }
 )",
             60
@@ -1491,6 +1500,9 @@ sequence main {
         e = i64 ns(35ms)
     }
 }
+stage {
+    main
+}
 )",
             30
         },
@@ -1504,6 +1516,9 @@ sequence main {
         time.interval(period=p) -> %a%
         time.wait(duration=d) -> %b%
     }
+}
+stage {
+    main
 }
 )",
             75
@@ -1524,6 +1539,9 @@ sequence main {
         d = i64 ns(30ms)
     }
 }
+stage {
+    main
+}
 )",
             30
         },
@@ -1543,6 +1561,9 @@ sequence main {
         d = i64 ns(3 * 15ms)
     }
 }
+stage {
+    main
+}
 )",
             75
         },
@@ -1559,6 +1580,9 @@ sequence main {
     stage faster {
         d = i64 ns(45ms)
     }
+}
+stage {
+    main
 }
 )",
             45
@@ -1580,6 +1604,9 @@ sequence main {
         p = i64 ns(30ms)
     }
 }
+stage {
+    main
+}
 )",
             30
         },
@@ -1597,6 +1624,9 @@ sequence main {
         p = i64 ns(30ms)
     }
 }
+stage {
+    main
+}
 )",
             30
         },
@@ -1611,6 +1641,9 @@ sequence main {
     stage never {
         p = i64 ns(30ms)
     }
+}
+stage {
+    main
 }
 )",
             30
@@ -1665,7 +1698,7 @@ TEST_P(ShortestSpanUnitTest, IsTheShortestSpanOfAVariableInAUnit) {
     }
     stage faster {
         p = )" +
-            c.reassigned + "\n    }\n}\n"
+            c.reassigned + "\n    }\n}\nstage {\n    main\n}\n"
     );
     EXPECT_EQ(shortest, c.expected);
     EXPECT_EQ(runtime::loop::Config().apply_defaults(shortest).mode, auto_mode(c.rate));

@@ -4457,7 +4457,7 @@ var _ = Describe("Task", Ordered, func() {
 				"func vent() {\n    OUT = 2\n}\n"+
 					"sequence main {\n    stage a {\n        1 -> OUT\n    }\n}\n"+
 					"SRC -> vent()\nSRC => main\n",
-				[]uint8{1, 2},
+				[]uint8{2, 1},
 			),
 		)
 

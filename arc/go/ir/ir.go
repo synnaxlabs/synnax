@@ -57,9 +57,9 @@ import (
 	"github.com/synnaxlabs/x/tree"
 )
 
-// InlinePrefix names the synthetic scopes lowered from inline stage/sequence flow
+// AnonymousPrefix names the synthetic scopes lowered from anonymous stage/sequence flow
 // targets, so the analyzer can detect and resolve them by key.
-const InlinePrefix = "__inline_"
+const AnonymousPrefix = "__inline_"
 
 // Parameter naming conventions for IR nodes and functions.
 const (

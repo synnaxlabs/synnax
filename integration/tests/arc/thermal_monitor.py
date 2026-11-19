@@ -14,8 +14,7 @@ Tests Arc features not covered by arc_press_sequence:
 - Stateful variables ($=) for rising-edge detection and peak tracking
 - Custom functions with arithmetic and conditionals
 - Looping sequences (cooling => heating cycle)
-- Cross-sequence transitions (overheat => abort)
-- Multiple entry points (start_monitor_cmd, abort_cmd)
+- A transition to the stage that ends the loop (overheat => abort)
 - Calculated channels (temp_error)
 """
 
@@ -24,7 +23,7 @@ from itertools import pairwise
 from examples.simulators import SimDAQ, ThermalSimDAQ
 
 import synnax as sy
-from framework.utils import create_indexed_pair, create_virtual_channel
+from framework.utils import create_indexed_pair
 from tests.arc.arc import ArcCase
 from x.telem import to_float
 
@@ -52,7 +51,6 @@ func calc_temp_error(setpoint f32) {measured f32} f32 {
 }
 
 start_monitor_cmd => monitor
-abort_cmd => abort
 
 heater_cmd -> count_heater_cycles() -> cycle_count
 temp_sensor -> track_peak_temp() -> peak_temp
@@ -69,10 +67,7 @@ sequence monitor {
         temp_sensor > 80 => abort
         temp_sensor < 50 => heating
     }
-}
-
-sequence abort {
-    stage safed {
+    stage abort {
         0 -> heater_cmd
         1 -> alarm_active
     }
@@ -104,7 +99,6 @@ class ThermalMonitor(ArcCase):
         super().setup()
 
     def _create_additional_channels(self) -> None:
-        create_virtual_channel(self.client, "abort_cmd", data_type=sy.DataType.UINT8)
         create_indexed_pair(self.client, "cycle_count", data_type=sy.DataType.INT64)
         create_indexed_pair(self.client, "peak_temp", data_type=sy.DataType.FLOAT32)
         create_indexed_pair(self.client, "temp_error", data_type=sy.DataType.FLOAT32)

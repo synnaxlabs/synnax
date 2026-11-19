@@ -35,6 +35,7 @@ const (
 	tokenTypeFunction          = uint32(7)
 	tokenTypeChannel           = uint32(9)
 	tokenTypeStatefulVariable  = uint32(13)
+	tokenTypeInput             = uint32(17)
 	tokenTypeNamespace         = uint32(19)
 	tokenTypeStringRaw         = uint32(20)
 	tokenTypeStringPlaceholder = uint32(21)
@@ -785,6 +786,30 @@ func cat() {
 	})
 
 	Describe("variable kinds", func() {
+		It("classifies a sequence parameter as an input", func(ctx SpecContext) {
+			OpenArcDocument(
+				server,
+				ctx,
+				uri,
+				"sequence main(x f32) {\n    stage s {\n        x -> out\n    }\n}\n",
+			)
+			tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+			Expect(filterByType(tokens, tokenTypeInput)).To(ConsistOf(
+				decodedToken{
+					Line:      0,
+					StartChar: 14,
+					Length:    1,
+					TokenType: tokenTypeInput,
+				},
+				decodedToken{
+					Line:      2,
+					StartChar: 8,
+					Length:    1,
+					TokenType: tokenTypeInput,
+				},
+			))
+		})
+
 		It(
 			"classifies literal, stateful, channel read/write, and channel-read variables distinctly",
 			func(ctx SpecContext) {

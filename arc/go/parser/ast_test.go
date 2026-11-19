@@ -509,4 +509,26 @@ var _ = Describe("AST Utilities", func() {
 			Expect(parser.PrimaryName(primaryOf("42"))).To(Equal(""))
 		})
 	})
+
+	Describe("BodyItems", func() {
+		It("Should return the items of a stage and of a sequence", func() {
+			prog := MustSucceed(parser.Parse(`
+			sequence main {
+				stage first {
+					1 -> a
+					stage {}
+				}
+				1 -> b
+			}`))
+			main := prog.TopLevelItem(0).SequenceDeclaration()
+			items := parser.BodyItems(main.Body())
+			Expect(items).To(HaveLen(2))
+			first := items[0].StageDeclaration()
+			Expect(parser.BodyItems(first.Body())).To(HaveLen(2))
+		})
+
+		It("Should return no items for a body that did not parse", func() {
+			Expect(parser.BodyItems(nil)).To(BeEmpty())
+		})
+	})
 })

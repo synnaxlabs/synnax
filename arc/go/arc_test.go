@@ -11,6 +11,7 @@ package arc_test
 
 import (
 	"encoding/binary"
+	"slices"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -140,18 +141,29 @@ var _ = Describe("Arc", func() {
 		return ir.Node{}
 	}
 
-	// findTopLevelScope returns the top-level Scope member whose key matches.
-	// Fails the spec if no such member exists.
+	// findTopLevelScope returns the scope keyed key, or the first copy of the stage or
+	// sequence named key. Fails the spec if the program holds neither.
 	findTopLevelScope := func(prog arc.Program, key string) ir.Scope {
 		GinkgoHelper()
-		for _, stratum := range prog.Root.Strata {
-			for _, m := range stratum {
-				if m.Scope != nil && m.Scope.Key == key {
-					return *m.Scope
+		var find func(s ir.Scope) *ir.Scope
+		find = func(s ir.Scope) *ir.Scope {
+			for _, m := range slices.Concat(slices.Concat(s.Strata...), s.Steps) {
+				if m.Scope == nil {
+					continue
+				}
+				if m.Scope.Key == key || strings.HasPrefix(m.Scope.Key, "$"+key+"_") {
+					return m.Scope
+				}
+				if found := find(*m.Scope); found != nil {
+					return found
 				}
 			}
+			return nil
 		}
-		Fail("expected top-level scope '" + key + "'")
+		if found := find(prog.Root); found != nil {
+			return *found
+		}
+		Fail("expected scope '" + key + "'")
 		return ir.Scope{}
 	}
 
@@ -321,6 +333,9 @@ ox_pt_1 -> calc() -> ox_pt_doubled`,
     stage init {
         1 -> output
     }
+}
+stage {
+    seg
 }`,
 			symbol.Symbol{
 				Name: "output",
@@ -532,6 +547,9 @@ sequence main {
 			        wait(duration=5s) => next
 			    }
 			    stage end {}
+			}
+			stage {
+			    main
 			}`)
 		// Under the new IR the wait node is the only IR node; stages and
 		// entries no longer materialize as nodes.
@@ -766,7 +784,7 @@ sequence main {
 
 	Describe("Top-Level Stages", func() {
 		It(
-			"Should compile a top-level stage as a single-step sequence",
+			"Should compile a copy of a top-level stage as a parallel scope",
 			func(ctx SpecContext) {
 				mod := compile(
 					ctx,
@@ -799,16 +817,14 @@ stage abort {
 				)
 
 				abort := findTopLevelScope(mod, "abort")
-				// Top-level stages are now parallel scopes directly under root,
-				// not wrapped in a single-step sequence.
 				Expect(abort.Mode).To(Equal(ir.ScopeModeParallel))
-				Expect(abort.Key).To(Equal("abort"))
+				Expect(abort.Key).To(Equal("$abort_0"))
 				Expect(scopeNodeRefs(abort)).ToNot(BeEmpty())
 			},
 		)
 
 		It(
-			"Should allow => name from a sequence stage to a top-level stage",
+			"Should run a copy of a top-level stage inside the stage that names it",
 			func(ctx SpecContext) {
 				mod := compile(
 					ctx,
@@ -854,13 +870,10 @@ stage abort {
 				)
 
 				main := findTopLevelScope(mod, "main")
-				abort := findTopLevelScope(mod, "abort")
+				Expect(main.Transitions).To(BeEmpty())
+				abort := findMember(*findMember(main, "fire").Scope, "$abort_0").Scope
 				Expect(abort.Mode).To(Equal(ir.ScopeModeParallel))
-				Expect(abort.Activations).To(BeEmpty())
-				Expect(main.Transitions).To(ContainElement(HaveField(
-					"Target.Variant",
-					Equal(ir.ScopeTarget{Key: "abort"}),
-				)))
+				Expect(abort.Activations).To(HaveLen(1))
 			},
 		)
 	})
@@ -1257,5 +1270,35 @@ var _ = Describe("Source limits", func() {
 			strings.Repeat(")", n) + " }"
 		Expect(arc.CompileText(ctx, arc.Text{Raw: src}, root())).Error().
 			To(MatchError(ContainSubstring("nesting is deeper than the parser allows")))
+	})
+})
+
+var _ = Describe("Sequences with parameters", func() {
+	root := func() *symbol.Symbol {
+		r := symbol.NewRoot(nil, stl.NewSymbols())
+		for i, name := range []string{"start", "tank_pt", "valve_cmd"} {
+			r.Parent.AddChild(&symbol.Symbol{
+				Name: name,
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F32()),
+				ID:   i + 1,
+			})
+		}
+		return r
+	}
+
+	It("Should compile a declaration that no flow calls", func(ctx SpecContext) {
+		MustSucceed(arc.CompileText(ctx, arc.Text{Raw: `
+			sequence main(limit f32, sensor chan f32, out chan f32) {
+				high := limit * 2
+				stage press {
+					1 -> out
+					sensor > high => next
+				}
+				stage vent {
+					sensor + limit -> out
+				}
+			}
+		`}, root()))
 	})
 })

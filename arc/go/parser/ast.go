@@ -362,6 +362,14 @@ func isFloatType(t ITypeContext) bool {
 	return primitive.NumericType().FloatType() != nil
 }
 
+// BodyItems returns the items of body, and none for a body that did not parse.
+func BodyItems(body IBodyContext) []IBodyItemContext {
+	if body == nil {
+		return nil
+	}
+	return body.AllBodyItem()
+}
+
 // QualifiedNameParts returns the head and tail of a qualified identifier
 // (e.g., "math" and "avg" for `math.avg`). Reads the terminal children
 // directly so it works when either side is a lexer keyword (AUTHORITY on

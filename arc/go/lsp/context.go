@@ -78,7 +78,7 @@ func findInputParen(tokens []antlr.Token) *inputParenResult {
 		!tokensAdjacent(prevToken, tokens[parenIndex]) {
 		return nil
 	}
-	if parenIndex >= 2 && tokens[parenIndex-2].GetTokenType() == parser.ArcLexerFUNC {
+	if isInputListParen(tokens, parenIndex) {
 		return nil
 	}
 	// A call inside a func body takes positional arguments.
@@ -388,9 +388,14 @@ func isFuncParamList(tokens, all []antlr.Token) bool {
 }
 
 func isInputListParen(tokens []antlr.Token, i int) bool {
-	return i >= 2 &&
-		tokens[i-1].GetTokenType() == parser.ArcLexerIDENTIFIER &&
-		tokens[i-2].GetTokenType() == parser.ArcLexerFUNC
+	if i < 2 || tokens[i-1].GetTokenType() != parser.ArcLexerIDENTIFIER {
+		return false
+	}
+	switch tokens[i-2].GetTokenType() {
+	case parser.ArcLexerFUNC, parser.ArcLexerSTAGE, parser.ArcLexerSEQUENCE:
+		return true
+	}
+	return false
 }
 
 // isTriggerListBrace matches the `{` after a func declaration's input list. On the
@@ -408,7 +413,8 @@ func isTriggerListBrace(tokens, all []antlr.Token, i int) bool {
 		case parser.ArcLexerLPAREN:
 			depth--
 			if depth == 0 {
-				if !isInputListParen(tokens, j) {
+				if !isInputListParen(tokens, j) ||
+					tokens[j-2].GetTokenType() != parser.ArcLexerFUNC {
 					return false
 				}
 				return tokens[i].GetLine() == tokens[len(tokens)-1].GetLine() ||
@@ -696,15 +702,23 @@ func detectNesting(tokens []antlr.Token) nestingKind {
 			if tt == parser.ArcLexerSTAGE {
 				kind = nestingStageBody
 			}
-			if i+2 < len(tokens) &&
-				tokens[i+1].GetTokenType() == parser.ArcLexerIDENTIFIER &&
-				tokens[i+2].GetTokenType() == parser.ArcLexerLBRACE {
+			j := i + 1
+			if j < len(tokens) &&
+				tokens[j].GetTokenType() == parser.ArcLexerIDENTIFIER {
+				j++
+			}
+			if j < len(tokens) && tokens[j].GetTokenType() == parser.ArcLexerLPAREN {
+				j = matchingClose(
+					tokens,
+					j,
+					parser.ArcLexerLPAREN,
+					parser.ArcLexerRPAREN,
+				) + 1
+			}
+			if j > 0 && j < len(tokens) &&
+				tokens[j].GetTokenType() == parser.ArcLexerLBRACE {
 				stack = append(stack, frame{kind: kind})
-				i += 2
-			} else if i+1 < len(tokens) &&
-				tokens[i+1].GetTokenType() == parser.ArcLexerLBRACE {
-				stack = append(stack, frame{kind: kind})
-				i++
+				i = j
 			}
 		case parser.ArcLexerLBRACE:
 			// A routing table's entries are flow statements of the enclosing body.

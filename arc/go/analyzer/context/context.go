@@ -195,20 +195,16 @@ func (c Context[AST]) Resolve(name string) (*symbol.Symbol, error) {
 // dispatches to its Target inside Resolve. Deprecation warnings fire on
 // whichever segment resolved to the deprecated symbol.
 func (c Context[AST]) ResolveQualified(head, tail string) (*symbol.Symbol, error) {
-	headSym, err := c.Scope.Resolve(c, head)
+	sym, err := c.Scope.ResolveMember(c, head, tail)
 	if err != nil {
 		return nil, err
 	}
-	if tail == "" {
-		c.warnIfDeprecated(head, headSym)
-		return headSym, nil
+	name := head
+	if tail != "" {
+		name = head + "." + tail
 	}
-	tailSym, err := headSym.Resolve(c, tail)
-	if err != nil {
-		return nil, err
-	}
-	c.warnIfDeprecated(head+"."+tail, tailSym)
-	return tailSym, nil
+	c.warnIfDeprecated(name, sym)
+	return sym, nil
 }
 
 // RejectTopLevel reports that name cannot be reassigned and returns true when sym is a
