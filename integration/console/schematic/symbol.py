@@ -252,6 +252,11 @@ class Symbol(ABC):
         """The element that carries the symbol's `--pluto-symbol-color` style."""
         return self.locator.locator(".lyra-symbol-colored").first
 
+    @property
+    def stale_indicator(self) -> Locator:
+        """The indicator the symbol shows while its data is stale."""
+        return self.locator.get_by_role("img", name="Stale")
+
     def delete(self) -> None:
         self.click()
         self.layout.press_delete()

@@ -103,9 +103,35 @@ const openBuiltinMenu = async (name: string): Promise<void> => {
 const stored = async (key: enumeration.Key): Promise<enumeration.Entry[]> =>
   (await core.enumerations.retrieve(key)).entries;
 
+type Queries = ReturnType<typeof within>;
+
+/**
+ * Returns the queries of the dialog that holds the element. They stay fast while the
+ * page shows each enumeration on the Core.
+ */
+const dialogOf = async (el: HTMLElement): Promise<Queries> => {
+  const dialog = (await screen.findAllByRole("dialog")).find((d) => d.contains(el));
+  if (dialog == null) throw new Error("expected a dialog");
+  return within(dialog);
+};
+
+const openDelete = async (name: string): Promise<Queries> => {
+  await openContextMenu(name);
+  await clickAndSettle("Delete");
+  return await dialogOf(await screen.findByText(/Are you sure you want to delete/));
+};
+
+const pickReplacement = async (dialog: Queries, name: string): Promise<void> => {
+  fireEvent.click(await dialog.findByRole("button", { name: /Replace with/ }));
+  const search = await screen.findByPlaceholderText("Search enumerations...");
+  fireEvent.change(search, { target: { value: name } });
+  const dropdown = await dialogOf(search);
+  fireEvent.click(await dropdown.findByRole("option", { name: new RegExp(name) }));
+};
+
 // The delete dialog enables its button once it knows what uses the enumeration.
-const clickWhenEnabled = async (name: string): Promise<void> => {
-  const button = await screen.findByRole("button", { name });
+const clickWhenEnabled = async (dialog: Queries, name: string): Promise<void> => {
+  const button = await dialog.findByRole("button", { name });
   await waitFor(() => expect(button).toHaveProperty("disabled", false));
   await act(async () => {
     fireEvent.click(button);
@@ -208,15 +234,10 @@ describe("Enumeration.Settings", () => {
   it("should replace an enumeration with the one picked on delete", async () => {
     const [from, to] = await Promise.all([createEnumeration(), createEnumeration()]);
     await renderEnumerations();
-    await openContextMenu(from.name);
-    await clickAndSettle("Delete");
-    expect(await screen.findByText(/Nothing uses it/)).toBeTruthy();
-    fireEvent.click(await screen.findByRole("button", { name: /Replace with/ }));
-    fireEvent.change(await screen.findByPlaceholderText("Search enumerations..."), {
-      target: { value: to.name },
-    });
-    fireEvent.click(await screen.findByRole("option", { name: new RegExp(to.name) }));
-    await clickWhenEnabled("Replace");
+    const dialog = await openDelete(from.name);
+    expect(await dialog.findByText(/Nothing uses it/)).toBeTruthy();
+    await pickReplacement(dialog, to.name);
+    await clickWhenEnabled(dialog, "Replace");
     await waitForDialogToClose();
     await expect(client.enumerations.retrieve(from.key)).rejects.toThrow(
       "enumeration was deleted",
@@ -228,17 +249,12 @@ describe("Enumeration.Settings", () => {
     const [from, to] = await Promise.all([createEnumeration(), createEnumeration()]);
     const user = await createSelectUser(from.key);
     await renderEnumerations();
-    await openContextMenu(from.name);
-    await clickAndSettle("Delete");
+    const dialog = await openDelete(from.name);
     expect(
-      await within(await screen.findByLabelText("Users")).findByText(user.name),
+      await within(await dialog.findByLabelText("Users")).findByText(user.name),
     ).toBeTruthy();
-    fireEvent.click(await screen.findByRole("button", { name: /Replace with/ }));
-    fireEvent.change(await screen.findByPlaceholderText("Search enumerations..."), {
-      target: { value: to.name },
-    });
-    fireEvent.click(await screen.findByRole("option", { name: new RegExp(to.name) }));
-    await clickWhenEnabled("Replace");
+    await pickReplacement(dialog, to.name);
+    await clickWhenEnabled(dialog, "Replace");
     await waitForDialogToClose();
     const [node] = (await core.schematics.retrieve(user.key)).nodes;
     expect(node.config).toMatchObject({ variant: "select", enumeration: to.key });
@@ -266,10 +282,10 @@ describe("Enumeration.Settings", () => {
     act(() => {
       fireEvent.click(item);
     });
-    expect(screen.getByText(/This action cannot be undone/)).toBeTruthy();
-    expect(screen.queryByText(/Nothing uses it/)).toBeNull();
-    expect(await screen.findByText(/Nothing uses it/)).toBeTruthy();
-    await clickWhenEnabled("Delete");
+    const dialog = await dialogOf(screen.getByText(/This action cannot be undone/));
+    expect(dialog.queryByText(/Nothing uses it/)).toBeNull();
+    expect(await dialog.findByText(/Nothing uses it/)).toBeTruthy();
+    await clickWhenEnabled(dialog, "Delete");
     await waitForDialogToClose();
     await expect(client.enumerations.retrieve(e.key)).rejects.toThrow(
       "enumeration was deleted",
