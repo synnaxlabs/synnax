@@ -242,12 +242,13 @@ class Repo:
         build = (sys.executable, "-c", BUILD, "{bin}/built.txt", str(self.builds))
         bench = f"exec(open('bench.py').read()); sys.exit({code})"
         argv = (sys.executable, "-c", bench, "{bin}/built.txt", str(self.log))
-        return cb.Group(name, "io", (cb.Step(".", build),), cb.Step(".", argv), control)
+        steps = (cb.Step(".", build),)
+        return cb.Group(name, "io", (), steps, cb.Step(".", argv), control)
 
     def reporter(self) -> cb.Group:
         """Returns a group whose run writes a Google Benchmark report on base only."""
         argv = (sys.executable, "-c", REPORT, "{json}")
-        return cb.Group("gb", "io", (), cb.Step(".", argv), format="gbench")
+        return cb.Group("gb", "io", (), (), cb.Step(".", argv), format="gbench")
 
     def config(self, *groups: cb.Group) -> cb.Config:
         out = self.path / "out"
@@ -329,6 +330,26 @@ class TestMeasure:
         assert cfg.results("base", False).read_text() == "pkg: x\n" * 3
         assert cfg.results("head", False).read_text() == lines("x", 200) * 3
 
+    def test_should_skip_a_group_whose_sources_base_lacks(self, repo: Repo) -> None:
+        (repo.root / "added.txt").write_text("")
+        repo.commit("300", "added")
+        group = replace(repo.group("x"), sources=("value.txt", "added.txt"))
+        cfg = replace(repo.config(group), head="added")
+        cb.measure(cfg)
+        assert cfg.results("base", False).read_text() == ""
+        assert cfg.results("head", False).read_text() == lines("x", 300) * 3
+        assert repo.builds.read_text().splitlines() == ["300"]
+
+    def test_should_fail_when_head_lacks_the_sources_of_a_group(
+        self, repo: Repo
+    ) -> None:
+        missing = replace(repo.group("x"), sources=("no-such-file",))
+        cfg = repo.config(repo.group("y"), missing)
+        with pytest.raises(RuntimeError, match=r"^head lacks the sources of x$"):
+            cb.measure(cfg)
+        assert not repo.builds.exists()
+        assert len(repo.worktrees()) == 1
+
     def test_should_fail_on_a_group_with_no_benchmark_on_head(self, repo: Repo) -> None:
         repo.commit("0", "empty")
         cfg = replace(repo.config(repo.group("x")), head="empty")
@@ -346,7 +367,7 @@ class TestMeasure:
         cfg = replace(repo.config(repo.reporter()), rounds=1)
         with pytest.raises(FileNotFoundError, match=r"run\.json"):
             cb.measure(cfg)
-        assert not cfg.results("head", False).exists()
+        assert cfg.results("head", False).read_text() == ""
 
     def test_should_run_with_a_relative_out_directory(
         self, repo: Repo, monkeypatch: pytest.MonkeyPatch
@@ -461,6 +482,13 @@ class TestParse:
     def test_should_accept_the_fewest_rounds_that_can_find_a_change(self) -> None:
         assert cb.parse(["--base", "a", "--head", "b", "--rounds", "4"]).rounds == 4
 
+    def test_should_make_the_out_and_io_directories_absolute(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        cfg = cb.parse(["--base", "a", "--head", "b", "--out", "out", "--io-dir", "io"])
+        assert (cfg.out, cfg.io_dir) == (tmp_path / "out", tmp_path / "io")
+
     def test_should_refuse_an_existing_out_directory(self, tmp_path: Path) -> None:
         with pytest.raises(FileExistsError):
             cb.parse(["--base", "a", "--head", "b", "--out", str(tmp_path)])
@@ -469,6 +497,7 @@ class TestParse:
 class TestGroups:
     def test_should_build_one_go_binary_per_package(self) -> None:
         group = cb.go("cesium/write", "cpu", "cesium", "^BenchmarkWrite$")
+        assert group.sources == ("cesium",)
         assert group.build == (
             cb.Step("cesium", ("go", "test", "-c", "-o", "{bin}/cesium.test", ".")),
         )
@@ -481,6 +510,7 @@ class TestGroups:
     def test_should_have_vitest_write_a_json_report(self) -> None:
         group = cb.vitest("ts/codec", "src/framer/codec.bench.ts")
         assert (group.suite, group.format) == ("cpu", "vitest")
+        assert group.sources == ("client/ts/src/framer/codec.bench.ts",)
         assert group.run.directory == "client/ts"
         assert group.run.argv[-3:] == (
             "--reporter=json",
@@ -493,6 +523,7 @@ class TestGroups:
         target = "//client/cpp/framer:codec_bench"
         assert group.build == (cb.Step(".", ("bazel", "build", "-c", "opt", target)),)
         assert group.format == "gbench"
+        assert group.sources == ("client/cpp/framer/codec_bench.cpp",)
         assert group.run == cb.Step(
             ".",
             (

@@ -18,7 +18,8 @@ benchstat compares the two result files.
 
 A benchmark fails on a sec/op rise over 5% at p < 0.05, on an allocs/op rise of any
 size at p < 0.05, or when head does not have it. A failure exits with 1. A control
-group that breaks the rule does not fail the run: it means the host is noisy.
+group that breaks the rule does not fail the run: it means the host is noisy. A
+benchmark or a whole group that only head has reports as new.
 
 Pass one ref as both --base and --head for an A/A run, which measures the noise of the
 host. The io suite puts its files in --io-dir, the disk to measure.
@@ -72,6 +73,9 @@ class Group:
 
     name: str
     suite: Suite
+    # The repo-relative paths that the group needs. A base that lacks one does not have
+    # the group. Head must have them all.
+    sources: tuple[str, ...]
     build: tuple[Step, ...]
     run: Step
     control: bool = False
@@ -87,6 +91,7 @@ def go(
     return Group(
         name,
         suite,
+        (package,),
         (Step(package, ("go", "test", "-c", "-o", binary, ".")),),
         Step(
             package,
@@ -107,6 +112,7 @@ def vitest(name: str, *files: str) -> Group:
     return Group(
         name,
         "cpu",
+        tuple(f"client/ts/{file}" for file in files),
         (
             Step(".", ("pnpm", "install", "--frozen-lockfile")),
             Step(".", ("pnpm", "build:client")),
@@ -133,6 +139,7 @@ def gbench(name: str, package: str, binary: str) -> Group:
     return Group(
         name,
         "cpu",
+        (f"{package}/{binary}.cpp",),
         (Step(".", ("bazel", "build", "-c", "opt", f"//{package}:{binary}")),),
         Step(
             ".",
@@ -179,6 +186,7 @@ GROUPS: tuple[Group, ...] = (
     Group(
         "py/codec",
         "cpu",
+        ("client/py/benchmarks/frame_codec.py",),
         (Step("client/py", ("uv", "sync")),),
         Step("client/py", ("uv", "run", "python", "benchmarks/frame_codec.py")),
     ),
@@ -226,8 +234,10 @@ class Config:
     )
 
     def __post_init__(self) -> None:
-        # Steps run in other directories, so every path under out must be absolute.
+        # Steps run in other directories, so each path they get must be absolute.
         object.__setattr__(self, "out", self.out.resolve())
+        if self.io_dir is not None:
+            object.__setattr__(self, "io_dir", self.io_dir.resolve())
 
     def selected(self) -> tuple[Group, ...]:
         """Returns the groups of the suite that match only."""
@@ -246,6 +256,14 @@ class Config:
     @property
     def report(self) -> Path:
         return self.out / "run.json"
+
+    def present(self, side: str) -> tuple[Group, ...]:
+        """Returns the selected groups whose sources the worktree of side holds."""
+        return tuple(
+            g
+            for g in self.selected()
+            if all((self.source(side) / s).exists() for s in g.sources)
+        )
 
     def results(self, side: str, control: bool) -> Path:
         return self.out / (f"control-{side}.txt" if control else f"{side}.txt")
@@ -338,9 +356,22 @@ def record_host(cfg: Config, moment: str) -> None:
             subprocess.run(argv, stdout=f, check=True)
 
 
+def run_group(cfg: Config, side: str, group: Group) -> None:
+    """Runs group once on side and appends its results to the result file."""
+    # A run that writes no report must not read the report before.
+    cfg.report.unlink(missing_ok=True)
+    printed = run(cfg, side, group.run)
+    results = FORMATS[group.format](printed, cfg.report)
+    # Base can lack a benchmark that head adds.
+    if side == SIDES[1] and not BENCHMARK.search(results):
+        raise RuntimeError(f"{group.name} ran no benchmark on head")
+    # A Go test binary prints its own pkg line, which then applies.
+    with cfg.results(side, group.control).open("a") as f:
+        f.write(f"pkg: {group.name}\n{results}")
+
+
 def measure(cfg: Config) -> None:
     """Builds both refs, then appends the results of each round to the result files."""
-    groups = cfg.selected()
     record_host(cfg, "start")
     added = []
     try:
@@ -351,27 +382,27 @@ def measure(cfg: Config) -> None:
                 check=True,
             )
             added.append(side)
+        present = {side: cfg.present(side) for side in SIDES}
+        absent = [g.name for g in cfg.selected() if g not in present[SIDES[1]]]
+        if absent:
+            raise RuntimeError(f"head lacks the sources of {', '.join(absent)}")
         for side in SIDES:
             cfg.binaries(side).mkdir(parents=True)
-            for step in dict.fromkeys(s for g in groups for s in g.build):
+            for step in dict.fromkeys(s for g in present[side] for s in g.build):
                 run(cfg, side, step)
         for round_ in range(cfg.rounds):
-            for group in groups:
+            for group in cfg.selected():
                 for side in order(round_):
+                    # A base that lacks the sources of a group keeps an empty file, so
+                    # the report shows the benchmarks of the group as new.
+                    cfg.results(side, group.control).touch()
+                    if group not in present[side]:
+                        continue
                     print(
                         f"round {round_ + 1}/{cfg.rounds} {group.name} {side}",
                         flush=True,
                     )
-                    # A run that writes no report must not read the report before.
-                    cfg.report.unlink(missing_ok=True)
-                    printed = run(cfg, side, group.run)
-                    results = FORMATS[group.format](printed, cfg.report)
-                    # Base can lack a benchmark that head adds.
-                    if side == SIDES[1] and not BENCHMARK.search(results):
-                        raise RuntimeError(f"{group.name} ran no benchmark on head")
-                    # A Go test binary prints its own pkg line, which then applies.
-                    with cfg.results(side, group.control).open("a") as f:
-                        f.write(f"pkg: {group.name}\n{results}")
+                    run_group(cfg, side, group)
         record_host(cfg, "end")
     finally:
         for side in added:
