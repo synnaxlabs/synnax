@@ -493,10 +493,10 @@ export class AuthoritySource
     this.controller = controller;
     this.retrieve = new flux.Retrieve({
       definition: retrieveDefinition,
-      onChange: () => this.notify?.(),
+      onChange: () => this.observer.notify(),
       onError: (error) => runAsync(error, "Failed to retrieve control state"),
     });
-    this.stopListening = colors.onChange(() => this.notify?.());
+    this.stopListening = colors.onChange(() => this.observer.notify());
   }
 
   async needsControlOf(): Promise<channel.Key[]> {

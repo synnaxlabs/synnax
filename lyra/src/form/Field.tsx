@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import {
-  caseconv,
   deep,
   type optional,
   type record,
+  strings,
   type TimeSpan,
 } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
@@ -72,7 +72,7 @@ export const Field = <I = string | number, O = I>({
   const markable = emptiable ?? children == null;
   if (field == null || !visible) return null;
   const key = String(path);
-  if (label == null) label = caseconv.toSentence(deep.element(key, -1));
+  if (label == null) label = strings.toSentence(deep.element(key, -1));
   const helpText = field.status.message;
   const { onChange: fieldOnChange, value } = field;
   const childrenProps: FieldChild<I, O> = { onChange: fieldOnChange, value };
@@ -233,7 +233,7 @@ export const TimeSpanField = ({
   emptiable,
   ...rest
 }: TimeSpanFieldProps): ReactElement | null => {
-  const name = label ?? caseconv.toSentence(deep.element(String(path), -1));
+  const name = label ?? strings.toSentence(deep.element(String(path), -1));
   const check = (span: TimeSpan): string | null => {
     if (bounds?.lower != null && span.lessThan(bounds.lower))
       return `${name} must be ${Input.formatTimeSpan(bounds.lower)} or more`;
