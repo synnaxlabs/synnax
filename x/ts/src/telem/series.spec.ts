@@ -638,6 +638,17 @@ describe("Series", () => {
       expect(series.atAlignment(2n)).toEqual(2);
       expect(series.atAlignment(3n)).toEqual(3);
     });
+
+    it("should return undefined below the series alignment when the multiple is above one", () => {
+      const series = new Series({
+        data: new Float64Array([1, 2, 3]),
+        dataType: DataType.FLOAT64,
+        alignment: 10n,
+        alignmentMultiple: 2n,
+      });
+      expect(series.atAlignment(9n)).toBeUndefined();
+      expect(series.atAlignment(10n)).toEqual(1);
+    });
   });
 
   describe("bigint sampleOffset precision", () => {
