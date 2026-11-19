@@ -351,7 +351,7 @@ describe("tile", () => {
     });
 
     describe("data type changes", () => {
-      it("should keep a channel's cached tiles when a fetch returns a new data type", async () => {
+      it("should keep cached tiles when a fetch returns a new data type", async () => {
         let dataType = DataType.FLOAT64;
         const { reader, calls } = createReader({
           readRemote: async (tr, keys) => {
@@ -379,7 +379,7 @@ describe("tile", () => {
         reader.close();
       });
 
-      it("should keep a channel's raw blocks when a tile fetch returns a new data type", async () => {
+      it("should keep raw blocks when a tile fetch returns a new type", async () => {
         const { reader, store } = createReader({
           readRemote: async (tr, keys) =>
             new framer.Frame(

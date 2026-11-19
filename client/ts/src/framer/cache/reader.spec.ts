@@ -345,7 +345,7 @@ describe("Reader", () => {
       return { state, answer };
     };
 
-    it("should keep the samples of both data types when a fetch changes the channel's data type", async () => {
+    it("should keep both types when a fetch changes the data type", async () => {
       const { state, answer } = createConversion();
       const { core, fetches, read } = createReader({ elapsed: 30, answer });
       await read(new TimeRange(at(0), at(30)), 2);

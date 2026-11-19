@@ -730,7 +730,9 @@ var _ = Describe("Calculator", Ordered, func() {
 
 	Describe("Input data type changes", func() {
 		// openDoubled opens a calculation that doubles a float32 virtual input.
-		openDoubled := func(ctx SpecContext) (*calculator.Calculator, channel.Key, channel.Key) {
+		openDoubled := func(
+			ctx SpecContext,
+		) (*calculator.Calculator, channel.Key, channel.Key) {
 			GinkgoHelper()
 			base := []channel.Channel{{
 				Name:     UniqueChannelName(),
