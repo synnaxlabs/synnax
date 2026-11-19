@@ -1473,8 +1473,8 @@ public:
     }
 
     /// @brief Series / scalar operator. Returns a new Series.
-    /// @throws std::runtime_error if scalar is zero, or if an integer series
-    /// divides by a scalar that truncates to zero.
+    /// @throws std::runtime_error if scalar is zero, or if an integer series divides by
+    /// a scalar that truncates to zero.
     template<typename T>
     Series operator/(T scalar) const {
         if (scalar == 0) throw std::runtime_error("division by zero");
@@ -1483,8 +1483,8 @@ public:
 
     /// @brief Series % scalar operator. Returns a new Series.
     /// Uses % for integer types, std::fmod for floating-point types.
-    /// @throws std::runtime_error if scalar is zero, or if an integer series
-    /// takes the modulo of a scalar that truncates to zero.
+    /// @throws std::runtime_error if scalar is zero, or if an integer series takes the
+    /// modulo of a scalar that truncates to zero.
     template<typename T>
     Series operator%(T scalar) const {
         if (scalar == 0) throw std::runtime_error("modulo by zero");
