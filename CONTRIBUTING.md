@@ -91,18 +91,18 @@ it. Sedosaur checks the reply against the head, then withdraws the finding and r
 the thread, or replies why it holds. Later reviews leave a withdrawn finding out until
 its file changes. Sedosaur answers any other reply of a writer or an agent, such as
 "Fixed in <commit>", with how to dismiss. The gate does not wait for a human approval on
-either tier. A pull request Dependabot opened and wrote every commit of passes the gate
-without a review. `OK` is the CI workflow's last job: it fails when any check the PR's
-paths select failed. A merge into `main` goes through a merge queue, which reruns CI
-with the integration suite added before the branch moves. A queue entry's CI builds
-`main` with the entries ahead of it and the entry itself, and selects checks from every
-change since `main`. An entry skips the integration suite only when it and the entries
-ahead of it change only unit tests. The queue merges a group when its last entry passes,
-even when an entry ahead of it failed. GitHub refuses a queue on a wildcard branch
-pattern, so a `release/**` merge goes in directly, and CI runs again on the pushed
-commit. The queue also runs the gate again, on every pull request in the group. A
-release runs the integration suite itself. Nobody bypasses the rules on `main`: when
-Sedosaur is down, pull requests wait for it. The gate script is
+either tier, except on a fork. A pull request Dependabot opened and wrote every commit
+of passes the gate without a review. `OK` is the CI workflow's last job: it fails when
+any check the PR's paths select failed. A merge into `main` goes through a merge queue,
+which reruns CI with the integration suite added before the branch moves. A queue
+entry's CI builds `main` with the entries ahead of it and the entry itself, and selects
+checks from every change since `main`. An entry skips the integration suite only when it
+and the entries ahead of it change only unit tests. The queue merges a group when its
+last entry passes, even when an entry ahead of it failed. GitHub refuses a queue on a
+wildcard branch pattern, so a `release/**` merge goes in directly, and CI runs again on
+the pushed commit. The queue also runs the gate again, on every pull request in the
+group. A release runs the integration suite itself. Nobody bypasses the rules on `main`:
+when Sedosaur is down, pull requests wait for it. The gate script is
 `.github/scripts/check_review.sh`, the rulesets `.github/rulesets/main.json` and
 `.github/rulesets/release.json`. An admin applies a changed ruleset file by hand; the
 `Check - Rulesets` workflow fails each day until GitHub matches the files.

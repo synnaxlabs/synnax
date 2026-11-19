@@ -79,9 +79,10 @@ jobs:
         # A status names only a commit, so the step finds the pull request it heads.
         run: |
           if [ -n "$STATUS_SHA" ]; then
-            NUMBER=$(.github/scripts/gh_api.sh \
+            NUMBERS=$(.github/scripts/gh_api.sh \
               "repos/${GITHUB_REPOSITORY}/pulls?state=open&per_page=100" --paginate \
-              --jq '.[] | select(.head.sha == env.STATUS_SHA) | .number' | head -1)
+              --jq '.[] | select(.head.sha == env.STATUS_SHA) | .number')
+            NUMBER=${NUMBERS%%$'\n'*}
             if [ -z "$NUMBER" ]; then
               echo "no open pull request has head $STATUS_SHA"
               echo "skip=true" >> "$GITHUB_OUTPUT"
