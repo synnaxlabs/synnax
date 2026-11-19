@@ -9,16 +9,19 @@
  * included in the file licenses/APL.txt.
  */
 
-/* The picker spans the box of the entries grid, between its handles and its remove
-   buttons. */
+/* A value starts at the left edge of the entries grid, past its handles. */
+.pluto-states__value {
+    margin-inline-start: var(--pluto-input-table-gutter-width);
+}
+
+/* The picker spans the box of the entries grid, up to its remove buttons. */
 .pluto-states__enumeration {
     --pluto-control-width: calc(
         100% - var(--pluto-input-table-gutter-width) -
             var(--pluto-input-table-action-width)
     );
 
-    margin-inline: var(--pluto-input-table-gutter-width)
-        var(--pluto-input-table-action-width);
+    margin-inline-end: var(--pluto-input-table-action-width);
 }
 
 /* A drawer section is as wide as its content, and the entries grid has none. */
