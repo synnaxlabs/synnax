@@ -72,8 +72,8 @@ const Delete = ({
   const { update: replace } = Enumeration.useReplace({ afterSuccess: () => close() });
   const inUse = users.length > 0;
   const handleConfirm = () => {
-    if (replacement == null) remove(e.key);
-    else replace({ from: e.key, to: replacement });
+    if (inUse && replacement != null) replace({ from: e.key, to: replacement });
+    else remove(e.key);
   };
   return (
     <Modal.Frame className={CSS.B("confirm")}>
@@ -91,19 +91,20 @@ const Delete = ({
           </Text.Text>
         )}
         {inUse && (
-          <Suspense>
-            <Users ids={users} />
-          </Suspense>
+          <>
+            <Suspense>
+              <Users ids={users} />
+            </Suspense>
+            <Input.Item label="Replace with">
+              <Enumeration.SelectSingle
+                triggerProps={TRIGGER_PROPS}
+                value={replacement}
+                onChange={setReplacement}
+                filter={(other) => other.key !== e.key}
+              />
+            </Input.Item>
+          </>
         )}
-        <Input.Item label="Replace with">
-          <Enumeration.SelectSingle
-            triggerProps={TRIGGER_PROPS}
-            value={replacement}
-            onChange={setReplacement}
-            filter={(other) => other.key !== e.key}
-            allowNone
-          />
-        </Input.Item>
       </Modal.Body>
       <Modal.Footer>
         <Nav.Bar.End x align="center">
@@ -124,7 +125,7 @@ const Delete = ({
             }
             onClick={handleConfirm}
           >
-            {replacement == null ? "Delete" : "Replace"}
+            {inUse ? "Replace" : "Delete"}
           </Button.Button>
         </Nav.Bar.End>
       </Modal.Footer>
@@ -132,5 +133,5 @@ const Delete = ({
   );
 };
 
-/** Opens a dialog that deletes an enumeration, or replaces it with another first. */
+/** Opens a dialog that deletes an unused enumeration, or replaces one in use. */
 export const useDeleteModal = Modals.create(Delete);
