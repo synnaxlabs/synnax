@@ -59,8 +59,7 @@ func Execute(args []string) int {
 		return 0
 	}
 	// A gate failure's report is already on stdout.
-	var ec *exitCodeError
-	if errors.As(err, &ec) {
+	if ec, ok := errors.AsType[*exitCodeError](err); ok {
 		return ec.code
 	}
 	printError(err.Error())

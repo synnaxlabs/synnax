@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from ..constants import ExcCodes
+from pymodbus.constants import ExcCodes
 
 class ModbusServerContext:
     async def async_setValues(
