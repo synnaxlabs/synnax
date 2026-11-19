@@ -50,8 +50,35 @@ const reaches = (look: Look, part: string, value: number): boolean =>
   (look.when == null ||
     (look.when.state === STATE && look.when.values.includes(value)));
 
+type ConditionedLook = Look & { when: schematic.symbol.Condition };
+
 const setsNothing = ({ fill, stroke, hidden, motion, blink }: Look): boolean =>
   fill == null && stroke == null && hidden == null && motion == null && blink == null;
+
+const clearColor = (spec: Spec, part: string, value: number, field: Field): Spec => {
+  const clears = (l: Look): l is ConditionedLook =>
+    l.part === part &&
+    l[field] != null &&
+    l.when?.state === STATE &&
+    l.when.values.includes(value);
+  if (!spec.looks.some(clears)) return spec;
+  return {
+    ...spec,
+    looks: spec.looks.flatMap((l): Look[] => {
+      if (!clears(l)) return [l];
+      const others = l.when.values.filter((v) => v !== value);
+      const cleared = {
+        ...l,
+        [field]: undefined,
+        when: { ...l.when, values: [value] },
+      };
+      if (others.length === 0) return setsNothing(cleared) ? [] : [cleared];
+      const narrowed = { ...l, when: { ...l.when, values: others } };
+      if (setsNothing(cleared)) return [narrowed];
+      return [narrowed, { ...cleared, key: `look-${id.create()}` }];
+    }),
+  };
+};
 
 const withActive = (states: Spec["states"]): Spec["states"] =>
   states.some((s) => s.key === STATE) ? states : [...states, createState()];
@@ -59,9 +86,10 @@ const withActive = (states: Spec["states"]): Spec["states"] =>
 /**
  * @returns spec in which part shows c in field at value. It sets the field on the
  * part's look for value alone, or adds a look when that look is missing or a later look
- * sets the field, and adds the state when spec lacks it. With no c, it clears the field
- * on that look, so the other looks or the drawing color the part. Looks that other
- * parts or values read stay as they are.
+ * sets the field, and adds the state when spec lacks it. With no c, it takes the field
+ * off every look of the part at value, so the drawing colors the part there. A look on
+ * more values keeps the field on the others. Looks that other parts or values read stay
+ * as they are.
  */
 export const setColor = (
   spec: Spec,
@@ -70,15 +98,9 @@ export const setColor = (
   field: Field,
   c?: color.Color,
 ): Spec => {
+  if (c == null) return clearColor(spec, part, value, field);
   const { looks } = spec;
   const i = looks.findLastIndex((l) => only(l, part, value));
-  if (c == null) {
-    if (i < 0) return spec;
-    const cleared = { ...looks[i], [field]: undefined };
-    if (setsNothing(cleared))
-      return { ...spec, looks: looks.filter((_, j) => j !== i) };
-    return { ...spec, looks: looks.map((l, j) => (j === i ? cleared : l)) };
-  }
   const paint: schematic.symbol.Paint = {
     type: "color",
     value: { type: "fixed", value: c },

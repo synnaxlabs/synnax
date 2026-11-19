@@ -137,6 +137,55 @@ describe("symbol editor spec", () => {
         },
       ]);
     });
+
+    it("should narrow a look on several values when it clears one of them", () => {
+      const entry: schematic.symbol.Look = {
+        key: "entry-body-fill",
+        part: "body",
+        when: equals(0, 1),
+        fill: { type: "entry", state: STATE },
+      };
+      expect(
+        Spec.setColor(createSpec({ looks: [entry] }), "body", 1, "fill").looks,
+      ).toEqual([{ ...entry, when: equals(0) }]);
+    });
+
+    it("should clear the field on every look of the part at the value", () => {
+      const looks: schematic.symbol.Look[] = [
+        {
+          key: "entry-body-fill",
+          part: "body",
+          when: equals(0, 1),
+          fill: { type: "entry", state: STATE },
+        },
+        { key: "a", part: "body", when: equals(1), fill: fixed(RED) },
+      ];
+      expect(Spec.setColor(createSpec({ looks }), "body", 1, "fill").looks).toEqual([
+        { ...looks[0], when: equals(0) },
+      ]);
+    });
+
+    it("should keep the other fields at the value when it splits a look", () => {
+      const look: schematic.symbol.Look = {
+        key: "a",
+        part: "body",
+        when: equals(0, 1),
+        stroke: fixed(RED),
+        fill: fixed(BLUE),
+      };
+      expect(
+        Spec.setColor(createSpec({ looks: [look] }), "body", 1, "stroke").looks,
+      ).toEqual([
+        { ...look, when: equals(0) },
+        {
+          key: expect.any(String),
+          part: "body",
+          when: equals(1),
+          stroke: undefined,
+          fill: fixed(BLUE),
+        },
+      ]);
+    });
   });
 
   describe("setColor on a spec with no state", () => {
