@@ -9,19 +9,15 @@
 
 import { type label, status, UnexpectedError } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
-import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
-import { Color, Label, Synnax } from "@synnaxlabs/pluto";
+import { Label, Synnax } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
-
-const path = Label.createFormPath;
 
 export interface CreateModalParams {
   /** The name the new label starts with. */
@@ -48,24 +44,7 @@ const Create = ({
       <Modal.Header icon={<Icon.Label />}>Label.Create</Modal.Header>
       <Modal.Body>
         <Form.Form<typeof Label.createFormSchema> {...form}>
-          <Flex.Box x align="center" gap="medium">
-            <Form.Field path={path.color} showLabel={false} padHelpText={false}>
-              {(p) => <Color.Swatch aria-label="Label color" {...p} />}
-            </Form.Field>
-            <Form.Field path={path.name} showLabel={false} padHelpText={false} grow>
-              {(p) => (
-                <Input.Text
-                  placeholder="Label name"
-                  aria-label="Label name"
-                  variant="text"
-                  autoFocus
-                  level="h3"
-                  full="x"
-                  {...p}
-                />
-              )}
-            </Form.Field>
-          </Flex.Box>
+          <Label.Fields variant="text" level="h3" autoFocus />
         </Form.Form>
       </Modal.Body>
       <Modal.Footer>
