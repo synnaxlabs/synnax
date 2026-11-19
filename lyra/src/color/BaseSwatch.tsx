@@ -54,9 +54,8 @@ export const BaseSwatch = ({
 }: BaseSwatchProps): ReactElement => {
   const { gray } = Theming.use().colors;
   const hex = color.hex(value);
-  // A clear fill shows the surface, so its text takes the icon gray instead. The
-  // l2 and l5 checkerboard shows through a translucent fill, so the icon takes the gray
-  // that reads best over both of its squares.
+  // A clear fill shows the surface, so its text takes the icon gray. A translucent fill
+  // shows the l2 and l5 checkerboard, so the icon takes the gray that reads over both.
   const opacity = color.opacity(value);
   const contrastOverCheckerboard = (icon: color.Color): number =>
     Math.min(
