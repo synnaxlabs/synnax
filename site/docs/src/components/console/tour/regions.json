@@ -1,5 +1,5 @@
 {
-  "version": "bca18e24847f",
+  "version": "91134f34790e",
   "width": 1440,
   "height": 900,
   "stills": {
@@ -101,13 +101,19 @@
         "height": 28
       },
       "help": {
+        "x": 1377,
+        "y": 9,
+        "width": 24,
+        "height": 24
+      },
+      "settings": {
         "x": 1407,
         "y": 9,
         "width": 24,
         "height": 24
       },
       "code": {
-        "x": 1377,
+        "x": 1347,
         "y": 9,
         "width": 24,
         "height": 24
@@ -225,13 +231,19 @@
         "height": 28
       },
       "help": {
+        "x": 1377,
+        "y": 9,
+        "width": 24,
+        "height": 24
+      },
+      "settings": {
         "x": 1407,
         "y": 9,
         "width": 24,
         "height": 24
       },
       "code": {
-        "x": 1377,
+        "x": 1347,
         "y": 9,
         "width": 24,
         "height": 24
@@ -341,13 +353,19 @@
         "height": 28
       },
       "help": {
+        "x": 1377,
+        "y": 9,
+        "width": 24,
+        "height": 24
+      },
+      "settings": {
         "x": 1407,
         "y": 9,
         "width": 24,
         "height": 24
       },
       "code": {
-        "x": 1377,
+        "x": 1347,
         "y": 9,
         "width": 24,
         "height": 24
@@ -457,13 +475,19 @@
         "height": 28
       },
       "help": {
+        "x": 1377,
+        "y": 9,
+        "width": 24,
+        "height": 24
+      },
+      "settings": {
         "x": 1407,
         "y": 9,
         "width": 24,
         "height": 24
       },
       "code": {
-        "x": 1377,
+        "x": 1347,
         "y": 9,
         "width": 24,
         "height": 24
@@ -573,13 +597,19 @@
         "height": 28
       },
       "help": {
+        "x": 1377,
+        "y": 9,
+        "width": 24,
+        "height": 24
+      },
+      "settings": {
         "x": 1407,
         "y": 9,
         "width": 24,
         "height": 24
       },
       "code": {
-        "x": 1377,
+        "x": 1347,
         "y": 9,
         "width": 24,
         "height": 24
@@ -689,13 +719,19 @@
         "height": 28
       },
       "help": {
+        "x": 1377,
+        "y": 9,
+        "width": 24,
+        "height": 24
+      },
+      "settings": {
         "x": 1407,
         "y": 9,
         "width": 24,
         "height": 24
       },
       "code": {
-        "x": 1377,
+        "x": 1347,
         "y": 9,
         "width": 24,
         "height": 24
@@ -805,13 +841,19 @@
         "height": 28
       },
       "help": {
+        "x": 1377,
+        "y": 9,
+        "width": 24,
+        "height": 24
+      },
+      "settings": {
         "x": 1407,
         "y": 9,
         "width": 24,
         "height": 24
       },
       "code": {
-        "x": 1377,
+        "x": 1347,
         "y": 9,
         "width": 24,
         "height": 24
@@ -921,13 +963,19 @@
         "height": 28
       },
       "help": {
+        "x": 1377,
+        "y": 9,
+        "width": 24,
+        "height": 24
+      },
+      "settings": {
         "x": 1407,
         "y": 9,
         "width": 24,
         "height": 24
       },
       "code": {
-        "x": 1377,
+        "x": 1347,
         "y": 9,
         "width": 24,
         "height": 24
@@ -1037,13 +1085,19 @@
         "height": 28
       },
       "help": {
+        "x": 1377,
+        "y": 9,
+        "width": 24,
+        "height": 24
+      },
+      "settings": {
         "x": 1407,
         "y": 9,
         "width": 24,
         "height": 24
       },
       "code": {
-        "x": 1377,
+        "x": 1347,
         "y": 9,
         "width": 24,
         "height": 24

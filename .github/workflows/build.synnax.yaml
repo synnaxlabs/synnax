@@ -227,6 +227,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       # Dispatch inputs reach shell commands: reject a malformed tag or version before
       # any job interpolates one.
@@ -381,6 +382,8 @@ jobs:
     steps: &build_steps
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       # Only the Bazel Driver build reads the vendored submodules.
       - name: Update submodules
@@ -403,7 +406,7 @@ jobs:
 
       - name: Setup Bazel
         if: inputs.driver && (env.DRIVER_REF_RUN_ID == '' || inputs.nilinuxrt)
-        uses: bazel-contrib/setup-bazel@104e3eea9447cdaa4b00d0fb46191a3985d26ab3 # 0.19.1
+        uses: bazel-contrib/setup-bazel@f34d6a05eae3c24acab7fa54587492daeaeffdab # 0.19.2
         with:
           # Use S3 cache instead of github cache.
           bazelisk-cache: false
@@ -917,6 +920,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           sparse-checkout: .github/scripts
+          persist-credentials: false
 
       - name: Download unsigned binary
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
@@ -1139,7 +1143,7 @@ jobs:
           for file in binaries/*; do
             # A rerun downloads the signatures of the first run too.
             case "$file" in *.sig) continue ;; esac
-            npx --yes @tauri-apps/cli@2.12.3 signer sign "$file"
+            npx --yes @tauri-apps/cli@2.12.6 signer sign "$file"
           done
 
       - name: Upload signatures
@@ -1165,6 +1169,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Download Linux Driver artifact
         if: inputs.driver
@@ -1236,13 +1242,13 @@ jobs:
 
       - name: Login to Docker Hub
         if: inputs.release_tag != ''
-        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}

@@ -51,15 +51,14 @@ func (b Budget) Reset() {
 	}
 }
 
-// Err returns an error wrapping ErrLoopBudget when the guest used its whole budget
+// Err returns an error marked with ErrLoopBudget when the guest used its whole budget
 // since the last Reset, and nil otherwise.
 func (b Budget) Err() error {
 	if b.global == nil || int64(b.global.Get()) > 0 {
 		return nil
 	}
-	return errors.Wrapf(
-		ErrLoopBudget,
-		"it ran more than %d loop iterations and function calls in one cycle",
+	return errors.Mark(errors.Newf(
+		"The program ran more than %d loop iterations and function calls in one cycle.",
 		b.limit,
-	)
+	), ErrLoopBudget)
 }
