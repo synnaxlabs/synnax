@@ -1193,9 +1193,10 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 	fileFactory, err := file.NewFactory(file.FactoryConfig{
-		DB:         cfg.Distribution.DB,
-		Status:     l.Status,
-		SecretsDir: cfg.SecretsDir,
+		Instrumentation: cfg.Child("file"),
+		DB:              cfg.Distribution.DB,
+		Status:          l.Status,
+		SecretsDir:      cfg.SecretsDir,
 	})
 	if !ok(err, nil) {
 		return nil, err
