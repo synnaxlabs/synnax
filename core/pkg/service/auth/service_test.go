@@ -130,6 +130,7 @@ var _ = Describe("Service", func() {
 	var (
 		svc            *auth.Service
 		authenticators map[auth.Method]auth.Authenticator
+		accepted       []auth.Method
 		pw             *password.Service
 		clock          *timetestutil.Clock
 		alice          resource.ID
@@ -143,6 +144,7 @@ var _ = Describe("Service", func() {
 		pw = MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 		clock = timetestutil.NewClock(time.Unix(1_700_000_000, 0))
 		authenticators = map[auth.Method]auth.Authenticator{auth.MethodPassword: pw}
+		accepted = nil
 		alice = subject()
 		username = uuid.New().String()
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -153,6 +155,7 @@ var _ = Describe("Service", func() {
 		svc = MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
 			DB:             db,
 			Authenticators: authenticators,
+			Accepted:       accepted,
 			IdleTimeout:    idle,
 			Clock:          clock,
 		}))
@@ -233,24 +236,17 @@ var _ = Describe("Service", func() {
 		})
 	})
 	Describe("Accepted", func() {
-		var narrowed *auth.Service
-		BeforeEach(func(ctx SpecContext) {
-			narrowed = MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
-				DB: db,
-				Authenticators: map[auth.Method]auth.Authenticator{
-					auth.MethodPassword: pw,
-					auth.MethodAPIKey:   rejecter{},
-				},
-				Accepted: []auth.Method{auth.MethodPassword},
-			}))
+		BeforeEach(func() {
+			authenticators[auth.MethodAPIKey] = rejecter{}
+			accepted = []auth.Method{auth.MethodPassword}
 		})
 		It("Should list only the accepted methods", func() {
-			Expect(narrowed.Methods()).To(Equal([]auth.Method{auth.MethodPassword}))
+			Expect(svc.Methods()).To(Equal([]auth.Method{auth.MethodPassword}))
 		})
 		It("Should refuse a login with a method that is not accepted", func(
 			ctx SpecContext,
 		) {
-			Expect(narrowed.Login(ctx, auth.Proof{Variant: auth.APIKeyProof{
+			Expect(svc.Login(ctx, auth.Proof{Variant: auth.APIKeyProof{
 				APIKeyCredentials: auth.APIKeyCredentials{Key: "syk_key"},
 			}})).Error().To(MatchError(ContainSubstring("not accepted")))
 		})
