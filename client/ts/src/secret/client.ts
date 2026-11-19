@@ -167,7 +167,7 @@ export class Client extends query.Retriever<
     // The Core announces no change to uses. Refetches run outside the change stream and
     // one at a time, so an older reply cannot overwrite a newer one. A change that
     // arrives while a refetch waits joins it.
-    const refetchMu = sync.newMutex({ waiting: false });
+    const refetchMu = sync.createMutex({ waiting: false });
     const refetchUses = () => {
       if (refetchMu.waiting) return;
       refetchMu.waiting = true;

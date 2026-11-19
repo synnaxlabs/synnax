@@ -35,7 +35,8 @@ export const Controls = ({
   forceOS,
   ...rest
 }: ControlsProps): ReactElement | null => {
-  const os = OS.use({ force: forceOS });
+  const detected = OS.use();
+  const os = forceOS ?? detected;
   const window = useSelectWindow();
   const dispatch = Session.useDispatch();
   const handleClose = () => {
