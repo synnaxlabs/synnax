@@ -439,8 +439,11 @@ describe("reconcile panel order and selection", () => {
     await waitFor(() =>
       expect(stripOrder(store)).toEqual([alpha.key, mike.key, zulu.key]),
     );
-    await expect(client.panels.retrieve({ key: draft.key })).rejects.toThrow(
-      NotFoundError,
+    await waitFor(
+      async () =>
+        await expect(client.panels.retrieve({ key: draft.key })).rejects.toThrow(
+          NotFoundError,
+        ),
     );
   });
 
