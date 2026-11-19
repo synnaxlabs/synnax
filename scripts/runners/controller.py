@@ -483,7 +483,7 @@ def main() -> None:
     github = GitHub(secret("GH_APP_ID", store=store), secret("GH_APP_KEY", store=store))
     client = connect(args, store=store)
     channels = Channels(client=client, enabled=args.create_channels)
-    log = Log(client=client, channels=channels, channel=LOG)
+    log = Log(client=client, channels=channels, channel=LOG, echo=True)
     health = Health()
     alive = Heartbeat(
         client=client, channels=channels, name=HEARTBEAT, value=health.healthy

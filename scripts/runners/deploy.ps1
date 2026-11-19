@@ -101,12 +101,10 @@ switch ($Step) {
             $task = $Tasks[$name]
             $base = Get-Launcher $name
             Remove-Item "$base.cmd", "$base.launches" -ErrorAction Ignore
-            # cmd runs the script once, so stdout and stderr share one log. Unbuffered
-            # output reaches the log at once and survives a crash.
+            # cmd runs the script once, so stdout and stderr share one log.
             Set-Content -Path "$base.once.cmd" -Encoding ascii -Value @(
                 '@echo off'
                 "cd /d `"$Dir`""
-                'set PYTHONUNBUFFERED=1'
                 ("`"$Uv`" run --project . --locked --no-dev $($task.Args) " +
                     "> $($task.Log) 2>&1")
             )
