@@ -9,8 +9,14 @@
 
 import { type certificate, TimeSpan, TimeStamp } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+// The shortcut reads "Ctrl" on Windows. On macOS it shows ⌘ and listens for Command.
+await vi.hoisted(async () => {
+  const { pinOS } = await import("@/testutil/pinOS");
+  pinOS("Windows");
+});
 
 import { FileBrowser } from "@/platform/file-browser";
 import {
@@ -83,6 +89,13 @@ const pressEnter = (): void => {
   fireEvent.keyUp(files, { key: "Enter", code: "Enter" });
 };
 
+const pressSave = (): void => {
+  fireEvent.keyDown(window, { code: "ControlLeft" });
+  fireEvent.keyDown(window, { code: "Enter" });
+  fireEvent.keyUp(window, { code: "Enter" });
+  fireEvent.keyUp(window, { code: "ControlLeft" });
+};
+
 describe("FileBrowser.useModal", () => {
   it("should resolve with a certificate file picked in a folder", async () => {
     const { result, rack } = await openBrowser([TOP, ROOT, ETC]);
@@ -138,6 +151,18 @@ describe("FileBrowser.useModal", () => {
     pressEnter();
     await expect(result()).resolves.toEqual(
       expect.objectContaining({ path: "/etc/hosts" }),
+    );
+  });
+
+  it("should pick the selected file on the shortcut its Select button shows", async () => {
+    const { result } = await openBrowser([TOP, ROOT, ETC]);
+    await openFolder("/");
+    await openFolder("etc");
+    fireEvent.click(await screen.findByText("client.crt"));
+    within(findButton("Select")).getByText("Ctrl");
+    pressSave();
+    await expect(result()).resolves.toEqual(
+      expect.objectContaining({ path: "/etc/client.crt" }),
     );
   });
 

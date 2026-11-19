@@ -28,6 +28,7 @@ import { CSS } from "@/platform/css";
 import { type Entry, list, type Listing } from "@/platform/file-browser/list";
 import { Modals } from "@/platform/modals";
 import { Validity } from "@/platform/secret/validity";
+import { Triggers } from "@/platform/triggers";
 
 const nextMinute = (now: TimeStamp): TimeStamp => now.add(TimeSpan.MINUTE);
 
@@ -207,6 +208,8 @@ const Content = ({
             onClick={() => {
               if (selectedFile != null) close(selectedFile);
             }}
+            trigger={Triggers.SAVE}
+            triggerIndicator
           >
             Select
           </Button.Button>
