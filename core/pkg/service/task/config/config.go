@@ -323,6 +323,15 @@ func TaskOf(target gorp.Target) (resource.ID, bool) {
 	return resource.ID{Type: resource.TypeTask, Key: target.Key}, true
 }
 
+// RecordOf returns the record that holder, the holder of a reference, stands for: the
+// task of a config record, or holder itself.
+func RecordOf(holder gorp.Target) resource.ID {
+	if id, ok := TaskOf(holder); ok {
+		return id
+	}
+	return resource.ID{Type: resource.Type(holder.Table), Key: holder.Key}
+}
+
 // newTaskReference returns the reference from a record to the task that shares its key.
 func newTaskReference[E gorp.Entry[uuid.UUID]]() *gorp.KeyReference[uuid.UUID, E, uuid.UUID] {
 	return gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, E, uuid.UUID]{

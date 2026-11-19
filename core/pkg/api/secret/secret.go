@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/secret/grant"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
@@ -204,7 +205,8 @@ func (s *Service) fillUses(
 			return err
 		}
 		base.Uses = lo.FilterMap(uses, func(id resource.ID, _ int) (resource.ID, bool) {
-			return snap.Holder(gorp.Target{Table: string(id.Type), Key: id.Key})
+			id = taskconfig.RecordOf(gorp.Target{Table: string(id.Type), Key: id.Key})
+			return id, snap.Allowed(id)
 		})
 		secrets[i].SetBase(base)
 	}

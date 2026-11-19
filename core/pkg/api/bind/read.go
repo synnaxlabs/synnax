@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/filter"
 )
 
@@ -60,17 +59,6 @@ type Snapshot struct {
 
 // Allowed reports whether the subject of the request can retrieve the record with id.
 func (s Snapshot) Allowed(id resource.ID) bool { return s.allowed(id) }
-
-// Holder returns the record that holder, the holder of a reference, stands for, and
-// whether the subject of the request can retrieve it. A task config stands for its
-// task.
-func (s Snapshot) Holder(holder gorp.Target) (resource.ID, bool) {
-	id, ok := taskconfig.TaskOf(holder)
-	if !ok {
-		id = resource.ID{Type: resource.Type(holder.Table), Key: holder.Key}
-	}
-	return id, s.allowed(id)
-}
 
 // Enforce returns an error that wraps access.ErrDenied and names the first of ids that
 // the subject of the request cannot retrieve.

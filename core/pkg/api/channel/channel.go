@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
@@ -267,7 +268,8 @@ func (s *Service) fillUses(
 			func(u channel.Use, _ int) (Use, bool) {
 				h, ok := holders[u.Holder]
 				if !ok {
-					h.id, h.allowed = snap.Holder(u.Holder)
+					h.id = taskconfig.RecordOf(u.Holder)
+					h.allowed = snap.Allowed(h.id)
 					holders[u.Holder] = h
 				}
 				return Use{ID: h.id, Direction: u.Direction}, h.allowed

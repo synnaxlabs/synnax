@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	arcversions "github.com/synnaxlabs/synnax/pkg/service/arc/task/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config/legacy"
@@ -1347,6 +1348,21 @@ var _ = Describe("TaskOf", func() {
 	It("Should return false for a table that stores no config records", func() {
 		_, ok := config.TaskOf(gorp.NewTarget("task", uuid.New()))
 		Expect(ok).To(BeFalse())
+	})
+})
+
+var _ = Describe("RecordOf", func() {
+	It("Should return the task of a config record", func() {
+		key := uuid.New()
+		Expect(config.RecordOf(gorp.NewTarget(config.TableName(testType), key))).
+			To(Equal(task.ResourceID(key)))
+	})
+
+	It("Should return any other holder as itself", func() {
+		key := uuid.New()
+		Expect(config.RecordOf(gorp.NewTarget("schematic", key))).To(Equal(
+			resource.ID{Type: resource.TypeSchematic, Key: key.String()},
+		))
 	})
 })
 
