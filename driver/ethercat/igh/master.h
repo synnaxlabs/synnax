@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <functional>
 #include <optional>
+#include <set>
 #include <span>
 #include <string>
 #include <utility>
@@ -54,7 +55,7 @@ class Master final : public master::Master {
 
     // Non-owning pointers managed by IgH kernel module via ecrt_release_master().
 
-    /// @brief IgH master handle from ecrt_request_master().
+    /// @brief IgH master handle from ecrt_open_master().
     ec_master_t *ec_master;
 
     /// @brief the process data of one enabled slave. Its own domain gives the working
@@ -80,6 +81,8 @@ class Master final : public master::Master {
     std::vector<uint8_t> outputs;
     /// @brief cached slave information populated during initialization.
     std::vector<slave::DiscoveryResult> cached_slaves;
+    /// @brief the positions of the slaves whose CoE dictionary IgH reads.
+    std::set<uint16_t> dictionaries;
     /// @brief the configuration of each enabled slave, in position order.
     std::vector<std::pair<uint16_t, ec_slave_config_t *>> slave_configs;
     /// @brief whether the master has been initialized.
@@ -134,19 +137,28 @@ public:
         return "igh:" + std::to_string(this->master_index);
     }
 
+    /// @brief does what master::Master::scan does, but leaves the master unreserved, so
+    /// IgH keeps scanning the bus and changed() sees the slaves that come and go. Waits
+    /// up to 10 s for a scan that IgH runs. Returns errors::NO_SLAVES_FOUND when no
+    /// slave answers.
     std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> scan() override;
 
+    /// @brief does what master::Master::changed does, and also reports a change while
+    /// IgH scans the bus.
     std::pair<master::Change, x::errors::Error> changed() override;
 
     [[nodiscard]] bool restarts_visible() const override { return false; }
 
     /// @brief does what master::Master::activate does, and keeps the reference clock on
-    /// the host clock. Also returns errors::SLAVE_CONFIG_ERROR when a slave whose SYNC0
-    /// events mark data has a SYNC1 shift that is not a whole number of SYNC0 cycles,
-    /// since IgH would start its SYNC0 events off the grid. The IgH master moves the
-    /// slaves to OP on its own, so a slave below OP with its AL error flag set counts
-    /// as a refusal. Once every slave below OP has the flag, the master tries them once
-    /// more with a reset, then returns the refusals without waiting for
+    /// the host clock. It reserves the master, then returns errors::ACTIVATION_ERROR
+    /// when another program reserved it, no network port is attached to it, or the
+    /// slaves changed since the scan. It refuses a used slave with no identity as the
+    /// SOEM master does. Also returns errors::SLAVE_CONFIG_ERROR when a slave whose
+    /// SYNC0 events mark data has a SYNC1 shift that is not a whole number of SYNC0
+    /// cycles, since IgH would start its SYNC0 events off the grid. The IgH master
+    /// moves the slaves to OP on its own, so a slave below OP with its AL error flag
+    /// set counts as a refusal. Once every slave below OP has the flag, the master
+    /// tries them once more with a reset, then returns the refusals without waiting for
     /// Config::op_timeout.
     master::Activation activate(
         const master::Plan &plan,
@@ -209,6 +221,11 @@ private:
     /// @brief opens the master and reads each slave on the bus.
     x::errors::Error initialize();
 
+    /// @brief names the entries of each slave from the CoE dictionary that IgH read
+    /// from it. IgH reads the dictionaries in the background after its scan, so a later
+    /// call can name more entries. Makes no bus traffic.
+    void read_dictionaries();
+
     /// @brief returns the application time now.
     [[nodiscard]] uint64_t app_time() const;
 
@@ -222,8 +239,14 @@ private:
     /// the scan to reach PRE-OP, then reads its CoE objects.
     void read_starting();
 
-    /// @brief reads the CoE serial number and the settings of slave.
-    void read_coe(slave::DiscoveryResult &slave);
+    /// @brief waits until IgH has read the CoE dictionary of each of slaves, as IgH
+    /// lets an SDO transfer use the mailbox of a slave while it reads the dictionary.
+    /// Stops waiting once IgH reads no more of the dictionaries for 5 s.
+    void await_dictionaries(const std::vector<slave::DiscoveryResult *> &slaves);
+
+    /// @brief reads the CoE serial number and the settings of each of slaves once IgH
+    /// has read their dictionaries.
+    void read_coe(const std::vector<slave::DiscoveryResult *> &slaves);
 
     /// @brief returns true when every slave at positions has its AL error flag set.
     [[nodiscard]] bool refusing(const std::vector<uint16_t> &positions) const;

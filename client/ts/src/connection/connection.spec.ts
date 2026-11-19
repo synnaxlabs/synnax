@@ -477,6 +477,36 @@ describe("connection", () => {
       expect(checked.details.streamDenied).toBe(true);
     });
 
+    it("should reconnect when the Core stops answering a denied connection", () => {
+      const config = createConfig({ requiresStream: true, escalateAfter: 2 });
+      const denied = apply(
+        config,
+        { type: "check.success", info: createInfo() },
+        { type: "stream.denied" },
+      );
+      const error = new Unreachable({ message: "server down" });
+      const reconnecting = reduce(
+        denied,
+        { type: "check.failure", error, attempt: 1 },
+        config,
+      );
+      expect(reconnecting.variant).toEqual("loading");
+      expect(reconnecting.message).toEqual("Reconnecting");
+      const unreachable = reduce(
+        reconnecting,
+        { type: "check.failure", error, attempt: 2 },
+        config,
+      );
+      expect(unreachable.variant).toEqual("error");
+      const recovered = reduce(
+        unreachable,
+        { type: "check.success", info: createInfo() },
+        config,
+      );
+      expect(recovered.variant).toEqual("warning");
+      expect(recovered.details.streamDenied).toBe(true);
+    });
+
     it("should clear a denial when the stream comes up or credentials change", () => {
       const config = createConfig({ requiresStream: true });
       const denied = apply(

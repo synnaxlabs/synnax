@@ -36,4 +36,12 @@ describe("deep/difference", () => {
     expect(diff.b).toEqual([2, 3]);
     expect(diff["c.e"]).toEqual([5, 6]);
   });
+
+  it("should not report two null values as a difference", () => {
+    expect(deep.difference({ a: null }, { a: null })).toEqual({});
+  });
+
+  it("should report a null value against an object", () => {
+    expect(deep.difference({ a: null }, { a: {} })).toEqual({ a: [null, {}] });
+  });
 });

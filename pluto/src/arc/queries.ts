@@ -9,7 +9,7 @@
 
 import { arc, type rack, status, task } from "@synnaxlabs/client";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { compare, deep, type record, verbs, xy } from "@synnaxlabs/x";
+import { array, deep, type record, verbs, xy } from "@synnaxlabs/x";
 import z from "zod";
 
 import { Node } from "@/arc/graph/node";
@@ -99,7 +99,7 @@ export const useNodes = Scope.bindHook(
       const keySet = new Set(keys);
       return graphOf(a).nodes.filter((n) => keySet.has(n.key));
     },
-    (a, b) => compare.arraysEqual(a, b),
+    (a, b) => array.equal(a, b),
   ),
 );
 

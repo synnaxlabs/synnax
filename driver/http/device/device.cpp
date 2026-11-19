@@ -30,7 +30,16 @@ static std::string build_url(
 ) {
     CURLU *u = curl_url();
     curl_url_set(u, CURLUPART_URL, base_url.c_str(), 0);
-    if (!path.empty()) curl_url_set(u, CURLUPART_PATH, path.c_str(), 0);
+    if (!path.empty()) {
+        char *base_path = nullptr;
+        curl_url_get(u, CURLUPART_PATH, &base_path, 0);
+        std::string joined = base_path == nullptr ? "" : base_path;
+        curl_free(base_path);
+        if (joined.ends_with('/')) joined.pop_back();
+        if (!path.starts_with('/')) joined += '/';
+        joined += path;
+        curl_url_set(u, CURLUPART_PATH, joined.c_str(), 0);
+    }
     for (const auto &[k, v]: query_params) {
         const auto param = k + "=" + v;
         curl_url_set(

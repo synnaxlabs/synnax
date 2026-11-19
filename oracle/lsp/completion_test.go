@@ -546,6 +546,22 @@ var _ = Describe("SemanticTokensFull", func() {
 		Entry("as a field name", "filter string\n", uint32(0), "property"),
 	)
 
+	DescribeTable(
+		"should color a declaration keyword as a keyword",
+		func(ctx SpecContext, text string, line, char uint32) {
+			openDoc(ctx, "file:///keywords.oracle", text)
+			data := tokensFor(ctx, "file:///keywords.oracle").Data
+			Expect(tokenTypeAt(ctx, data, line, char)).To(Equal("keyword"))
+		},
+		Entry("union", "Shape union on kind {}\n", uint32(0), uint32(6)),
+		Entry(
+			"action",
+			"User struct {\n    action rename {}\n}\n",
+			uint32(1),
+			uint32(4),
+		),
+	)
+
 	It("should not color the filter schema in a field type as a keyword", func(
 		ctx SpecContext,
 	) {

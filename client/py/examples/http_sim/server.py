@@ -310,7 +310,6 @@ def create_app(auth_type: str = "none", delay_ms: int = 0) -> Flask:
             state["power"] = data["power"]
         if "mode" in data:
             state["mode"] = data["mode"]
-        app.logger.info(f"Control command: {data} → state: {state}")
         return (
             jsonify(
                 {
@@ -337,7 +336,6 @@ def create_app(auth_type: str = "none", delay_ms: int = 0) -> Flask:
             state["setpoint"] = data.get("value", data)
         else:
             state["setpoint"] = data
-        app.logger.info(f"Setpoint: {data} → setpoint: {state['setpoint']}")
         return (
             jsonify({"status": "updated", "setpoint": state["setpoint"]}),
             200,
@@ -351,7 +349,6 @@ def create_app(auth_type: str = "none", delay_ms: int = 0) -> Flask:
         """
         data = request.get_json(silent=True) or {}
         config.update(data)
-        app.logger.info(f"Config update: {data} → config: {config}")
         return (
             jsonify({"status": "patched", "config": config}),
             200,

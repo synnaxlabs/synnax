@@ -2454,3 +2454,31 @@ func ByteOrderFromPB(v ByteOrder) (icd.ByteOrder, error) {
 		return icd.ByteOrder(""), errors.Newf("unrecognized ByteOrder value: %v", v)
 	}
 }
+
+// ImportFormatToPB converts icd.ImportFormat to ImportFormat.
+func ImportFormatToPB(v icd.ImportFormat) (ImportFormat, error) {
+	switch v {
+	case icd.ImportFormatDBC:
+		return ImportFormat_IMPORT_FORMAT_DBC, nil
+	case icd.ImportFormatCSV:
+		return ImportFormat_IMPORT_FORMAT_CSV, nil
+	case icd.ImportFormatXLSX:
+		return ImportFormat_IMPORT_FORMAT_XLSX, nil
+	default:
+		return 0, errors.Newf("unrecognized icd.ImportFormat value: %v", v)
+	}
+}
+
+// ImportFormatFromPB converts ImportFormat to icd.ImportFormat.
+func ImportFormatFromPB(v ImportFormat) (icd.ImportFormat, error) {
+	switch v {
+	case ImportFormat_IMPORT_FORMAT_DBC:
+		return icd.ImportFormatDBC, nil
+	case ImportFormat_IMPORT_FORMAT_CSV:
+		return icd.ImportFormatCSV, nil
+	case ImportFormat_IMPORT_FORMAT_XLSX:
+		return icd.ImportFormatXLSX, nil
+	default:
+		return icd.ImportFormat(""), errors.Newf("unrecognized ImportFormat value: %v", v)
+	}
+}

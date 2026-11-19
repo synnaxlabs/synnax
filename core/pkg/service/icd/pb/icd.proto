@@ -23,6 +23,13 @@ enum ByteOrder {
   BYTE_ORDER_BIG_ENDIAN = 1;
 }
 
+// ImportFormat is the file format of an ICD that an import reads.
+enum ImportFormat {
+  IMPORT_FORMAT_DBC = 0;
+  IMPORT_FORMAT_CSV = 1;
+  IMPORT_FORMAT_XLSX = 2;
+}
+
 // BaseField carries the parts every message field shares.
 message BaseField {
   // key is the unique identifier for the field within its message.

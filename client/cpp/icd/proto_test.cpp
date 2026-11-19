@@ -163,6 +163,20 @@ void expect_round_trips(const x::json::json &j) {
     EXPECT_EQ(parsed.to_json(), ic.to_json());
 }
 
+/// @brief expects the value that j parses to to come back from protobuf as j.
+template<typename T>
+void expect_request_round_trips(const x::json::json &j) {
+    x::json::Parser parser(j);
+    const auto v = T::parse(parser);
+    ASSERT_NIL(parser.error());
+    const auto pb = ASSERT_NIL_P(v.to_proto());
+    const auto parsed = ASSERT_NIL_P(T::from_proto(pb));
+    EXPECT_EQ(parsed.to_json(), j);
+}
+
+const std::string KEY_A = "7f1b3a52-8c1d-4f0e-9d5a-1a2b3c4d5ea1";
+const std::string KEY_B = "7f1b3a52-8c1d-4f0e-9d5a-1a2b3c4d5ea2";
+
 x::json::json with_match(const x::json::json &match) {
     auto j = FULL_ICD;
     j["messages"] = {JSON_MESSAGE};
@@ -215,6 +229,78 @@ TEST(Identifier, RoundTripsFieldVariantProto) {
         {"value", -2},
     };
     expect_round_trips(j);
+}
+
+/// @brief it should round trip a filter with no clauses through protobuf.
+TEST(Where, RoundTripsEmptyProto) {
+    expect_request_round_trips<Where>(x::json::json::object());
+}
+
+/// @brief it should round trip a filter of one key through protobuf.
+TEST(Where, RoundTripsOneKeyProto) {
+    expect_request_round_trips<Where>({{"key", {{"eq", KEY_A}}}});
+}
+
+/// @brief it should round trip a filter of several keys through protobuf.
+TEST(Where, RoundTripsKeySetProto) {
+    expect_request_round_trips<Where>({{"key", {{"in", {KEY_A, KEY_B}}}}});
+}
+
+/// @brief it should round trip a filter of no keys through protobuf, apart from an
+/// absent key set.
+TEST(Where, RoundTripsEmptyKeySetProto) {
+    expect_request_round_trips<Where>({{"key", {{"in", x::json::json::array()}}}});
+}
+
+/// @brief it should round trip a key set with no operators through protobuf.
+TEST(Where, RoundTripsAbsentKeySetProto) {
+    expect_request_round_trips<Where>({{"key", x::json::json::object()}});
+}
+
+/// @brief it should round trip nested clauses through protobuf.
+TEST(Where, RoundTripsNestedClausesProto) {
+    expect_request_round_trips<Where>({
+        {"and", {{{"key", {{"eq", KEY_A}}}}, {{"not", {{"key", {{"in", {KEY_B}}}}}}}}},
+        {"or", {{{"key", {{"eq", KEY_B}}}}}},
+    });
+}
+
+/// @brief it should round trip empty clause lists through protobuf.
+TEST(Where, RoundTripsEmptyClausesProto) {
+    expect_request_round_trips<Where>(
+        {{"and", x::json::json::array()}, {"or", x::json::json::array()}}
+    );
+}
+
+/// @brief it should round trip a retrieve request that filters, searches, and pages
+/// through protobuf.
+TEST(RetrieveRequest, RoundTripsProto) {
+    expect_request_round_trips<RetrieveRequest>({
+        {"where", {{"key", {{"in", {KEY_A}}}}}},
+        {"search_term", "rig"},
+        {"after", {{"key", KEY_B}}},
+        {"limit", 10},
+    });
+}
+
+/// @brief it should round trip a retrieve request that selects every ICD through
+/// protobuf.
+TEST(RetrieveRequest, RoundTripsEmptyProto) {
+    expect_request_round_trips<RetrieveRequest>({{"search_term", ""}});
+}
+
+/// @brief it should round trip a retrieve response through protobuf.
+TEST(RetrieveResponse, RoundTripsProto) {
+    expect_request_round_trips<RetrieveResponse>({{"icds", {FULL_ICD}}});
+}
+
+/// @brief it should reject a cursor key that is not a UUID.
+TEST(Cursor, RejectsInvalidKeyFromProto) {
+    ::api::icd::pb::Cursor pb;
+    pb.set_key("rig");
+    const auto [_, err] = Cursor::from_proto(pb);
+    ASSERT_OCCURRED_AS(err, x::uuid::INVALID);
+    ASSERT_EQ(err.data, "Invalid UUID string at position 0: hex digit expected");
 }
 
 /// @brief it should reject a message with no key.

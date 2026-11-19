@@ -60,7 +60,7 @@ var _ = Describe("CompileIndex", func() {
 				[]symbol.Symbol{seriesSymbol("s", types.F64(), 0)},
 				types.F64(),
 				OpLocalGet, 0,
-				OpI32Const, int32(1), OpI32Const, int32(-1), OpI32Mul,
+				OpI32Const, int32(-1),
 				OpCall, uint32(0),
 			)
 		},

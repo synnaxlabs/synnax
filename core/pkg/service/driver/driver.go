@@ -247,9 +247,9 @@ func (s *commandSink) process(ctx context.Context, res framer.StreamerResponse) 
 }
 
 func (d *Driver) processCommand(ctx context.Context, frame framer.Frame) {
-	var cmd task.Command
 	for series := range frame.Series() {
 		for s := range series.Samples() {
+			var cmd task.Command
 			if err := json.Unmarshal(s, &cmd); err != nil {
 				d.cfg.L.Error("failed to unmarshal command", zap.Error(err))
 				continue
@@ -625,9 +625,19 @@ func (d *Driver) configure(ctx context.Context, t task.Task, cmdKey string) erro
 			if err != nil {
 				return err
 			}
+			// A commit that deleted the task during the deploy marked no instance. The
+			// lock orders this check before markDeleted of any later delete.
 			d.mu.Lock()
-			d.mu.instances[t.Key] = instance{task: newTask, hash: t.ConfigHash}
+			exists, err := d.cfg.Task.NewRetrieve().
+				Where(task.MatchKeys(t.Key)).
+				Exists(ctx, d.cfg.DB)
+			if exists {
+				d.mu.instances[t.Key] = instance{task: newTask, hash: t.ConfigHash}
+			}
 			d.mu.Unlock()
+			if err != nil || !exists {
+				return errors.Combine(err, newTask.Stop(false))
+			}
 			d.cfg.L.Info("configured task", zap.Stringer("task", t))
 			return nil
 		}

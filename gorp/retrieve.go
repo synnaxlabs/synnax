@@ -401,9 +401,8 @@ func (r Retrieve[K, E]) countScan(
 	return count, err
 }
 
-// match runs the filter's predicates against a decoded entry. Returns
-// true if no filter is set. key may be nil when the caller does not
-// have the raw key bytes available.
+// match runs the filter's predicates against a decoded entry and its stored key and
+// value. Returns true if no filter is set.
 func (r Retrieve[K, E]) match(ctx Context, e *E, key, value []byte) (bool, error) {
 	if !r.filter.keys.Contains((*e).GorpKey()) {
 		return false, nil
@@ -417,6 +416,40 @@ func (r Retrieve[K, E]) matchEval(ctx Context, e *E, key, value []byte) (bool, e
 		return true, nil
 	}
 	return r.filter.eval(ctx, e, key, value)
+}
+
+// read decodes the entry at k into e and reports whether k has an entry and whether it
+// matches the filter. k must be in the filter's keys. It decodes only an entry whose
+// key starts with prefix and that passes the raw filter.
+func (r Retrieve[K, E]) read(
+	ctx Context,
+	reader Reader[K, E],
+	k K,
+	prefix []byte,
+	e *E,
+) (found, match bool, err error) {
+	encoded := reader.keyCodec.Encode(k)
+	value, closer, err := reader.snap.Get(encoded)
+	if errors.Is(err, query.ErrNotFound) {
+		return false, false, nil
+	}
+	if err != nil {
+		return false, false, err
+	}
+	match = reader.keyCodec.HasPrefix(k, prefix)
+	if match {
+		match, err = r.matchRaw(encoded, value)
+	}
+	if match && err == nil {
+		err = reader.snap.Decode(value, e)
+	}
+	if match && err == nil {
+		match, err = r.matchEval(ctx, e, encoded, value)
+	}
+	if err = errors.Combine(err, closer.Close()); err != nil {
+		return false, false, err
+	}
+	return true, match, nil
 }
 
 // matchRaw runs the filter's raw-byte pre-screen against key/value.
@@ -460,28 +493,19 @@ func (r *Retrieve[K, E]) execKeys(ctx context.Context, snap Snapshot) ([]K, erro
 			break
 		}
 		e = zero
-		b, closer, err := reader.get(k, &e)
+		found, match, err := r.read(gorpCtx, reader, k, r.prefix, &e)
 		if err != nil {
-			if errors.Is(err, query.ErrNotFound) {
-				notFound = append(notFound, k)
-				continue
-			}
 			return nil, err
 		}
-		if reader.keyCodec.HasPrefix(e.GorpKey(), r.prefix) {
-			match, mErr := r.matchEval(gorpCtx, &e, nil, b)
-			if mErr != nil {
-				return nil, errors.Combine(mErr, closer.Close())
-			}
-			if match {
-				validCount++
-				if r.limit == 0 || validCount <= r.limit {
-					r.entries.add(e)
-				}
-			}
+		if !found {
+			notFound = append(notFound, k)
+			continue
 		}
-		if cErr := closer.Close(); cErr != nil {
-			return nil, cErr
+		if match {
+			validCount++
+			if r.limit == 0 || validCount <= r.limit {
+				r.entries.add(e)
+			}
 		}
 	}
 	if len(r.validators) == 0 {
@@ -592,28 +616,6 @@ func (r *Retrieve[K, E]) execFilter(ctx context.Context, snap Snapshot) (err err
 // filter that rejects most entries does not cost one index lock per entry.
 const minWalkBatch = 128
 
-// readMatch decodes the entry with key k into e and reports whether it exists and
-// matches the filter.
-func (r *Retrieve[K, E]) readMatch(
-	ctx Context,
-	reader *Reader[K, E],
-	k K,
-	e *E,
-) (bool, error) {
-	b, closer, err := reader.get(k, e)
-	if err != nil {
-		if errors.Is(err, query.ErrNotFound) {
-			return false, nil
-		}
-		return false, err
-	}
-	match, mErr := r.matchEval(ctx, e, nil, b)
-	if cErr := closer.Close(); mErr != nil || cErr != nil {
-		return false, errors.Combine(mErr, cErr)
-	}
-	return match, nil
-}
-
 // execOrdered walks the configured OrderQuery, fetching entries per-key in walk order
 // and matching each against the filter until it collects the limit.
 func (r *Retrieve[K, E]) execOrdered(ctx context.Context, snap Snapshot) error {
@@ -636,7 +638,7 @@ func (r *Retrieve[K, E]) execOrdered(ctx context.Context, snap Snapshot) error {
 			continue
 		}
 		var e E
-		match, err := r.readMatch(gorpCtx, &reader, k, &e)
+		_, match, err := r.read(gorpCtx, reader, k, nil, &e)
 		if err != nil {
 			return err
 		}
