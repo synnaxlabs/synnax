@@ -107,18 +107,21 @@ def go(
     )
 
 
-def vitest(name: str, *files: str) -> Group:
-    """Returns the group for the vitest benchmark files of the TypeScript client."""
+def vitest(
+    name: str, *files: str, package: str = "client/ts", build: str = "build:client"
+) -> Group:
+    """Returns the group for the vitest benchmark files of a TypeScript package, which
+    the root build script build makes ready."""
     return Group(
         name,
         "cpu",
-        tuple(f"client/ts/{file}" for file in files),
+        tuple(f"{package}/{file}" for file in files),
         (
             Step(".", ("pnpm", "install", "--frozen-lockfile")),
-            Step(".", ("pnpm", "build:client")),
+            Step(".", ("pnpm", build)),
         ),
         Step(
-            "client/ts",
+            package,
             (
                 "pnpm",
                 "vitest",
@@ -189,13 +192,23 @@ GROUPS: tuple[Group, ...] = (
         "^Benchmark(StreamerFrame|IteratorFrame)_",
     ),
     go("telem/msgpack", "cpu", "x/go/telem", "^BenchmarkEncodeMsgpack$"),
+    go("telem/convert", "cpu", "x/go/telem", "^Benchmark(Convert|ValueAs)$"),
+    go("export", "cpu", "core/pkg/transport/http/framer", "^BenchmarkExport$"),
     go("api/stream", "cpu", "core/pkg/api/framer", "^BenchmarkStreamKeyChange$"),
     go("iterator/calc", "cpu", f"{FRAMER}/iterator", "^BenchmarkIteratorCalc_"),
+    go("streamer/calc", "cpu", f"{FRAMER}/streamer", "^BenchmarkStreamerCalc_"),
     go(
         "calculator", "cpu", f"{FRAMER}/calculation/calculator", "^BenchmarkCalculator_"
     ),
     vitest("ts/codec", "src/framer/codec.bench.ts"),
     vitest("ts/cache", "src/framer/cache/"),
+    vitest(
+        "pluto/line",
+        "src/vis/line/aether/line.bench.ts",
+        "src/lineplot/aether/LinePlot.bench.ts",
+        package="pluto",
+        build="build:pluto",
+    ),
     Group(
         "py/codec",
         "cpu",

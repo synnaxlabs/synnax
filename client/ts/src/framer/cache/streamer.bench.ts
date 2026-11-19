@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { DataType } from "@synnaxlabs/x";
 import { allocSuiteAsync } from "@synnaxlabs/x/bench";
 import { test } from "vitest";
 
@@ -94,6 +95,10 @@ test("ingest", async ({ bench }) => {
   const narrowFrames = createSequence(narrowKeys, 10, 500);
   const wideKeys = createKeys(1000);
   const wideFrames = createSequence(wideKeys, 1, 100);
+  // The channels change from float32 to float64 halfway through the stream.
+  const retypedFrames = narrowFrames.map((f, i) =>
+    i < narrowFrames.length / 2 ? f : f.map((k, s) => [k, s.convert(DataType.FLOAT64)]),
+  );
   await bench.compare(
     bench(
       "500fr x 100ch x 10smp, 1 handler",
@@ -106,6 +111,10 @@ test("ingest", async ({ bench }) => {
     bench(
       "100fr x 1000ch x 1smp, 1 handler",
       async () => await runIngest(wideFrames, wideKeys, 1),
+    ),
+    bench(
+      "500fr x 100ch x 10smp, type change halfway, 1 handler",
+      async () => await runIngest(retypedFrames, narrowKeys, 1),
     ),
     BENCH_OPTS,
   );
