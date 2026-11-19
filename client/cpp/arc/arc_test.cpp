@@ -342,6 +342,10 @@ sequence main {
     stage end {
     }
 }
+
+stage {
+    main
+}
 )"}};
 
     ASSERT_NIL(client.arcs.create(arc));
@@ -368,16 +372,12 @@ sequence main {
     }
     ASSERT_TRUE(found_interval);
 
-    // The compiled scope tree should contain a sequential "main" scope
-    // with two member stages ("initial" and "end"). After the IR-refactor
-    // that replaced flat sequences/stages with the composable Scope tree,
-    // sequences and stages are no longer top-level struct fields; they
-    // live as nested Scopes under program->root.
+    // The copy of main is a sequential scope with two stages.
     const ::arc::ir::Scope *main_scope = nullptr;
     std::function<void(const ::arc::ir::Scope &)> find_main;
     find_main = [&](const ::arc::ir::Scope &scope) {
         if (main_scope != nullptr) return;
-        if (scope.key == "main" && scope.mode == ::arc::ir::ScopeMode::Sequential) {
+        if (scope.key == "$main_0" && scope.mode == ::arc::ir::ScopeMode::Sequential) {
             main_scope = &scope;
             return;
         }
