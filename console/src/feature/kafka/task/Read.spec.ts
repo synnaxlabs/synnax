@@ -19,15 +19,7 @@ import {
   createTestClientWithPolicy,
 } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
-import {
-  array,
-  DataType,
-  deep,
-  type payload,
-  sleep,
-  TimeSpan,
-  uuid,
-} from "@synnaxlabs/x";
+import { array, DataType, deep, type payload, uuid } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
@@ -203,10 +195,9 @@ const createICDReaderClient = async (): Promise<Synnax> => {
  * Adds a field to the message of a record, in a form whose client reads ICDs only.
  * @param onReader - Runs on the client before the form renders.
  */
-const addFieldAsICDReader = async (onReader?: (reader: Synnax) => void) => {
+const addFieldAsICDReader = async () => {
   const temperature = createField("temperature", "float");
   const reader = await createICDReaderClient();
-  onReader?.(reader);
   const { draft, statuses } = await renderRead({ fields: [temperature], as: reader });
   const [{ icd: icdKey, messages }] = await retrieveRecords(draft.key);
   fireEvent.click(await screen.findByRole("treeitem", { name: /JSON.*Any key/ }));
@@ -707,7 +698,7 @@ describe("Kafka read form", () => {
       const again = await answerNextCommand(client, scan, { data: sampleOf(grown) });
       fireEvent.click(dialog.getByRole("button", { name: "Listen again" }));
       await again.answered;
-      await dialog.findByText(/Select the fields to read/);
+      await dialog.findByRole("checkbox", { name: "Record /flow" });
       expect(dialog.queryByText("1 field selected")).toBeNull();
     });
 
@@ -770,30 +761,52 @@ describe("Kafka read form", () => {
     });
 
     it("should undo a read that the Core refuses after a slow ICD edit", async () => {
-      const added = await addFieldAsICDReader((reader) => {
-        const begin = reader.icds.beginTransaction.bind(reader.icds);
-        // The ICD fails once the read's edit has left the window that holds it.
-        vi.spyOn(reader.icds, "beginTransaction").mockImplementation((key) => {
-          const tx = begin(key);
-          return {
-            add: (actions) => tx.add(actions),
-            abort: () => tx.abort(),
-            commit: async () => {
-              await sleep.sleep(TimeSpan.milliseconds(500));
-              return await tx.commit();
-            },
-          };
-        });
+      const temperature = createField("temperature", "float");
+      const reader = await createICDReaderClient();
+      const held = Promise.withResolvers<void>();
+      const begin = reader.icds.beginTransaction.bind(reader.icds);
+      vi.spyOn(reader.icds, "beginTransaction").mockImplementation((key) => {
+        const tx = begin(key);
+        return {
+          add: (actions) => tx.add(actions),
+          abort: () => tx.abort(),
+          commit: async () => {
+            await held.promise;
+            return await tx.commit();
+          },
+        };
       });
+      const { draft, statuses } = await renderRead({
+        fields: [temperature],
+        as: reader,
+      });
+      const [{ icd: icdKey, messages }] = await retrieveRecords(draft.key);
+      fireEvent.click(await screen.findByRole("treeitem", { name: /JSON.*Any key/ }));
+      const add = await screen.findByRole("button", { name: "Add field" });
+      // The ICD edit fails only after the read's edit leaves the window that holds it.
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+      onTestFinished(() => {
+        vi.useRealTimers();
+      });
+      fireEvent.click(add);
+      await vi.runOnlyPendingTimersAsync();
+      vi.useRealTimers();
+      held.resolve();
       await waitFor(() =>
-        expect(added.statuses).toContainEqual(
+        expect(statuses).toContainEqual(
           expect.objectContaining({
             message: "Failed to save task",
             description: expect.stringContaining("does not exist in message"),
           }),
         ),
       );
-      await expectFieldUndone(added);
+      await expectFieldUndone({
+        draft,
+        statuses,
+        temperature,
+        icdKey,
+        bindings: messages[0].bindings,
+      });
     });
 
     it("should remove a field from the ICD through the context menu", async () => {
