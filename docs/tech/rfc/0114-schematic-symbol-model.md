@@ -409,12 +409,11 @@ Each built-in gets the enumeration and command names of its family. A normally o
 | `switch`, `thruster`                                                                                                                                                                                                                                                 | Switch: 0 Off, 1 On                   | Turn off, Turn on |
 | `light`                                                                                                                                                                                                                                                              | Light: 0 Off, 1 On                    | None              |
 
-The migration and an import give a node whose custom symbol does not exist `missing`
-with the old key, and keep its bindings. Pluto draws today's "Missing custom symbol"
-look, and "Change symbol" moves the node to another symbol. Because an import keeps
-symbol keys (§4.4), only a symbol absent from both the import and the Core gives
-`missing`. A node stays `missing` until "Change symbol" moves it, also after an import
-adds a symbol with its key.
+A schematic import carries no symbols. The migration and a schematic import give a node
+whose custom symbol is not in the Core `missing` with the old key, and keep its
+bindings. Pluto draws today's "Missing custom symbol" look, and "Change symbol" moves
+the node to another symbol. A node stays `missing` until "Change symbol" moves it, also
+after a symbol import adds a symbol with its key.
 
 In a stored custom symbol, `svg` becomes an `svg` drawing, each distinct pair of region
 key and selector set becomes a part, state `i` becomes value `i` of one state `active`
