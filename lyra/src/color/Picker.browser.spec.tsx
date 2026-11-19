@@ -111,6 +111,17 @@ describe("Picker", () => {
       expect(hex.scrollWidth).toBeLessThanOrEqual(hex.clientWidth);
     });
 
+    it("should draw the # of the Custom tab in the code font of the digits", async () => {
+      await renderLibrary("#cccccc");
+      const hex = page.getByRole("textbox", { name: "Hex" }).element();
+      const hash = hex
+        .closest(`.${CSS.B("color-hex-text")}`)
+        ?.querySelector(`.${CSS.BE("input", "start-content")}`);
+      assert(hash != null);
+      expect(hash.textContent).toBe("#");
+      expect(getComputedStyle(hash).fontFamily).toBe(getComputedStyle(hex).fontFamily);
+    });
+
     it("should start the tabs, the search icon, and the swatches on one inset", async () => {
       const picker = (await renderLibrary()).getBoundingClientRect();
       const swatch = swatchRect(0).left - picker.left;

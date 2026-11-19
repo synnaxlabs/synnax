@@ -28,11 +28,6 @@
     & .lyra-color-hex-text {
         font-family: var(--pluto-code-font-family);
         width: calc(10.5ch + 4rem);
-
-        /* The "#" is text, which sets its own font. */
-        & .lyra-input__start-content {
-            font-family: var(--pluto-code-font-family);
-        }
     }
 
     & input {
