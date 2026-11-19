@@ -54,6 +54,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	channelLimit.Store(math.MaxInt64)
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel: node.Channel,
+		TS:      node.TS,
 		DB:      node.DB,
 		HostKey: node.Identity.HostKey,
 		Status:  statusSvc,

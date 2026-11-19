@@ -99,6 +99,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel: core.Channel,
+		TS:      core.TS,
 		DB:      db,
 		HostKey: core.Identity.HostKey,
 		Status:  statusSvc,

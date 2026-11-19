@@ -150,7 +150,7 @@ func (c Config) splitFree() (stored Config, free channel.Keys) {
 func (c Config) toStorage() cesium.WriterConfig {
 	return cesium.WriterConfig{
 		ControlSubject:           c.ControlSubject,
-		Channels:                 c.Keys.Storage(),
+		Channels:                 c.Keys.Uint32(),
 		Start:                    c.Start,
 		Authorities:              c.Authorities,
 		ErrOnUnauthorized:        c.ErrOnUnauthorized,

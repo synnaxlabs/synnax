@@ -51,11 +51,6 @@ var _ = Describe("Key", func() {
 			Expect(k.Free()).To(BeFalse())
 		})
 	})
-	Describe("StorageKey", func() {
-		It("Should return the storage representation of the key", func() {
-			Expect(channel.Key(42).StorageKey()).To(Equal(cesium.ChannelKey(42)))
-		})
-	})
 	DescribeTable("String", func(k channel.Key, expected string) {
 		Expect(k.String()).To(Equal(expected))
 	},
@@ -100,12 +95,6 @@ var _ = Describe("Keys", func() {
 		It("Should correctly reinterpret the keys as a slice of uint32", func() {
 			keys := channel.Keys{1, 2, 3}
 			Expect(keys.Uint32()).To(Equal([]uint32{1, 2, 3}))
-		})
-	})
-	Describe("Storage", func() {
-		It("Should correctly return the storage representation of the keys", func() {
-			keys := channel.Keys{1, 2, 3}
-			Expect(keys.Storage()).To(Equal([]cesium.ChannelKey{1, 2, 3}))
 		})
 	})
 	Describe("Contains", func() {
@@ -192,7 +181,7 @@ var _ = Describe("Channel", func() {
 				Virtual:     true,
 			}
 			stored := ch.Storage()
-			Expect(stored.Key).To(Equal(ch.Key().StorageKey()))
+			Expect(stored.Key).To(Equal(uint32(ch.Key())))
 			Expect(stored.Virtual).To(BeTrue())
 		})
 		It(

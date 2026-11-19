@@ -666,7 +666,7 @@ func stallWrites(ctx SpecContext) {
 	)
 	for i := range streamerCount {
 		streamer := MustSucceed(node.Storage.TS.NewStreamer(cesium.StreamerConfig{
-			Channels: []cesium.ChannelKey{ch.Key().StorageKey()},
+			Channels: []cesium.ChannelKey{uint32(ch.Key())},
 		}))
 		requests[i], responses[i] = confluence.Attach(streamer, 1)
 		streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())

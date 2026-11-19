@@ -13,7 +13,6 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/kv"
@@ -36,10 +35,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	KV kv.ReadWriter
-	// TS is the storage-layer time-series database where channel storage is created.
-	//
-	// [REQUIRED]
-	TS *cesium.DB
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -48,7 +43,6 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("distribution.channel")
 	v.NonZero("host_key", c.HostKey)
 	v.NotNil("kv", c.KV)
-	v.NotNil("ts", c.TS)
 	return v.Error()
 }
 
@@ -56,12 +50,10 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.HostKey = override.Numeric(c.HostKey, other.HostKey)
 	c.KV = override.Nil(c.KV, other.KV)
-	c.TS = override.Nil(c.TS, other.TS)
 	return c
 }
 
-// Service is the distribution-layer channel allocator. It assigns local channel keys
-// and creates, renames, and deletes the storage channels.
+// Service is the distribution-layer channel allocator. It assigns local channel keys.
 type Service struct {
 	cfg           ServiceConfig
 	leasedCounter *counter

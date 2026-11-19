@@ -13,7 +13,6 @@ import (
 	"context"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -57,16 +56,6 @@ func (s *Service) Allocate(ctx context.Context, channels []Channel) ([]Channel, 
 		}
 	}
 	return out, nil
-}
-
-// Create creates the storage channels for the provided channels, which carry the keys
-// that Allocate assigned. Free channels have no storage registration and are skipped.
-func (s *Service) Create(ctx context.Context, channels []Channel) error {
-	stored := lo.Reject(channels, func(c Channel, _ int) bool { return c.Key().Free() })
-	return s.cfg.TS.CreateChannel(
-		ctx,
-		lo.Map(stored, func(c Channel, _ int) cesium.Channel { return c.Storage() })...,
-	)
 }
 
 // assignKeys draws len(channels with a zero LocalKey) values from the provided counter

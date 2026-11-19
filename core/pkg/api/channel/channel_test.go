@@ -333,7 +333,7 @@ var _ = Describe("Service", func() {
 			})).To(Succeed())
 			Expect(dist.Storage.TS.WriteSeries(
 				ctx,
-				ch.Key().StorageKey(),
+				uint32(ch.Key()),
 				start,
 				telem.NewSeriesSecondsTSV(10, 11, 12),
 			)).To(Succeed())
@@ -344,7 +344,7 @@ var _ = Describe("Service", func() {
 		stored := func(ctx SpecContext) cesium.Channel {
 			GinkgoHelper()
 			return MustSucceed(
-				dist.Storage.TS.RetrieveChannel(ctx, ch.Key().StorageKey()),
+				dist.Storage.TS.RetrieveChannel(ctx, uint32(ch.Key())),
 			)
 		}
 
@@ -359,7 +359,7 @@ var _ = Describe("Service", func() {
 				frame := MustSucceed(dist.Storage.TS.Read(
 					ctx,
 					telem.TimeRangeMax,
-					ch.Key().StorageKey(),
+					uint32(ch.Key()),
 				))
 				Expect(frame.Len()).To(Equal(int64(3)))
 			},
@@ -380,7 +380,7 @@ var _ = Describe("Service", func() {
 				Expect(channelSvc.NewRetrieve().
 					Where(channel.MatchKeys(ch.Key())).
 					Exists(ctx, db)).To(BeFalse())
-				Expect(dist.Storage.TS.RetrieveChannel(ctx, ch.Key().StorageKey())).
+				Expect(dist.Storage.TS.RetrieveChannel(ctx, uint32(ch.Key()))).
 					Error().To(MatchError(cesium.ErrChannelNotFound))
 			},
 		)

@@ -1350,7 +1350,7 @@ var _ = Describe("Writer", func() {
 						return svc.NewWriter(tx).Delete(ctx, ch.Key(), true)
 					})).To(Succeed())
 					Expect(
-						dist.Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey()),
+						dist.Storage.TS.RetrieveChannels(ctx, uint32(ch.Key())),
 					).
 						Error().
 						To(MatchError(cesium.ErrChannelNotFound))
@@ -1431,14 +1431,14 @@ var _ = Describe("Writer", func() {
 					kept, open := chs[0].Key(), chs[1].Key()
 					Expect(dist.Storage.TS.WriteSeries(
 						ctx,
-						kept.StorageKey(),
+						uint32(kept),
 						10*telem.SecondTS,
 						telem.NewSeriesSecondsTSV(10, 11, 12),
 					)).To(Succeed())
 					w := MustSucceed(
 						dist.Storage.TS.OpenWriter(ctx, cesium.WriterConfig{
 							Start:    20 * telem.SecondTS,
-							Channels: []cesium.ChannelKey{open.StorageKey()},
+							Channels: []cesium.ChannelKey{uint32(open)},
 						}),
 					)
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -1456,11 +1456,11 @@ var _ = Describe("Writer", func() {
 						dist.Storage.TS.Read(
 							ctx,
 							telem.TimeRangeMax,
-							kept.StorageKey(),
+							uint32(kept),
 						),
 					)
 					Expect(
-						fr.Get(kept.StorageKey()).Series[0],
+						fr.Get(uint32(kept)).Series[0],
 					).To(telem.MatchSeriesDataV(
 						10*telem.SecondTS,
 						11*telem.SecondTS,
@@ -1758,7 +1758,7 @@ var _ = Describe("Writer", func() {
 				func(ctx SpecContext) {
 					keys := MustSucceed(CreateVirtual(ctx, db, svc, 2))
 					before := MustSucceed(
-						dist.Storage.TS.RetrieveChannel(ctx, keys[0].StorageKey()),
+						dist.Storage.TS.RetrieveChannel(ctx, uint32(keys[0])),
 					)
 					first, second := UniqueChannelName(), UniqueChannelName()
 					var between cesium.Channel
@@ -1771,7 +1771,7 @@ var _ = Describe("Writer", func() {
 						gorp.BeforeCommit(tx, func(ctx context.Context) (err error) {
 							between, err = dist.Storage.TS.RetrieveChannel(
 								ctx,
-								keys[0].StorageKey(),
+								uint32(keys[0]),
 							)
 							return err
 						})
@@ -1779,10 +1779,10 @@ var _ = Describe("Writer", func() {
 					})).To(Succeed())
 					Expect(between.Name).To(Equal(before.Name))
 					Expect(MustSucceed(
-						dist.Storage.TS.RetrieveChannel(ctx, keys[0].StorageKey()),
+						dist.Storage.TS.RetrieveChannel(ctx, uint32(keys[0])),
 					).Name).To(Equal(first))
 					Expect(MustSucceed(
-						dist.Storage.TS.RetrieveChannel(ctx, keys[1].StorageKey()),
+						dist.Storage.TS.RetrieveChannel(ctx, uint32(keys[1])),
 					).Name).To(Equal(second))
 				},
 			)
@@ -1807,12 +1807,12 @@ var _ = Describe("Writer", func() {
 						return w.Rename(ctx, created.Key(), second, false)
 					})).To(Succeed())
 					Expect(MustSucceed(
-						dist.Storage.TS.RetrieveChannel(ctx, keys[0].StorageKey()),
+						dist.Storage.TS.RetrieveChannel(ctx, uint32(keys[0])),
 					).Name).To(Equal(first))
 					Expect(MustSucceed(
 						dist.Storage.TS.RetrieveChannel(
 							ctx,
-							created.Key().StorageKey(),
+							uint32(created.Key()),
 						),
 					).Name).To(Equal(second))
 				},
@@ -2000,7 +2000,7 @@ var _ = Describe("Writer", func() {
 				// The rejected create must not leave an orphaned storage channel behind
 				// at the key it would have been allocated.
 				nextKey := distchannel.NewKey(1, channels[limit-1].LocalKey+1)
-				Expect(dist.Storage.TS.RetrieveChannels(ctx, nextKey.StorageKey())).
+				Expect(dist.Storage.TS.RetrieveChannels(ctx, uint32(nextKey))).
 					Error().To(MatchError(cesium.ErrChannelNotFound))
 
 				// The rejected create must not burn a local key: after freeing
@@ -2076,15 +2076,28 @@ var _ = Describe("Writer", func() {
 				})).To(Succeed())
 				return ch
 			}
+			createFree = func(ctx SpecContext) channel.Channel {
+				GinkgoHelper()
+				ch := channel.Channel{
+					Name:        UniqueChannelName(),
+					DataType:    telem.Float32T,
+					Leaseholder: node.KeyFree,
+					Virtual:     true,
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &ch)
+				})).To(Succeed())
+				return ch
+			}
 			stored = func(ctx SpecContext, ch channel.Channel) cesium.Channel {
 				GinkgoHelper()
 				return MustSucceed(
-					dist.Storage.TS.RetrieveChannel(ctx, ch.Key().StorageKey()),
+					dist.Storage.TS.RetrieveChannel(ctx, uint32(ch.Key())),
 				)
 			}
 			expectNotStored = func(ctx SpecContext, ch channel.Channel) {
 				GinkgoHelper()
-				Expect(dist.Storage.TS.RetrieveChannel(ctx, ch.Key().StorageKey())).
+				Expect(dist.Storage.TS.RetrieveChannel(ctx, uint32(ch.Key()))).
 					Error().To(MatchError(cesium.ErrChannelNotFound))
 			}
 		)
@@ -2157,6 +2170,48 @@ var _ = Describe("Writer", func() {
 					return rollback
 				})).To(MatchError(rollback))
 				stored(ctx, ch)
+			},
+		)
+		It("Should not register a free channel in storage", func(ctx SpecContext) {
+			ch := createFree(ctx)
+			Expect(ch.Key().Lease()).To(Equal(node.KeyFree))
+			expectNotStored(ctx, ch)
+		})
+		It("Should return the error of a failed storage create", func(ctx SpecContext) {
+			ch := channel.Channel{Name: UniqueChannelName(), DataType: telem.Float32T}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &ch)
+			})).To(MatchError(ContainSubstring("non-indexed channel must have an index")))
+		})
+		It(
+			"Should delete a free channel with no storage delete",
+			func(ctx SpecContext) {
+				ch := createFree(ctx)
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Delete(ctx, ch.Key(), false)
+				})).To(Succeed())
+			},
+		)
+		It(
+			"Should rename the storage channel when the transaction commits",
+			func(ctx SpecContext) {
+				ch := create(ctx)
+				name := UniqueChannelName()
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Rename(ctx, ch.Key(), name, false)
+				})).To(Succeed())
+				Expect(stored(ctx, ch).Name).To(Equal(name))
+			},
+		)
+		It(
+			"Should rename a free channel with no storage rename",
+			func(ctx SpecContext) {
+				ch := createFree(ctx)
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).
+						Rename(ctx, ch.Key(), UniqueChannelName(), false)
+				})).To(Succeed())
+				expectNotStored(ctx, ch)
 			},
 		)
 		It(

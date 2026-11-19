@@ -51,6 +51,7 @@ var _ = Describe("Service", func() {
 		statuses := MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
 		channels = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 			Channel: node.Channel,
+			TS:      node.TS,
 			DB:      db,
 			HostKey: node.Identity.HostKey,
 			Status:  statuses,

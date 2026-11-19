@@ -56,7 +56,7 @@ func (s *Service) newStorage(
 ) (confluence.Segment[Request, Response], error) {
 	iter, err := s.cfg.TS.NewStreamIterator(cesium.IteratorConfig{
 		Bounds:        cfg.Bounds,
-		Channels:      cfg.Keys.Storage(),
+		Channels:      cfg.Keys.Uint32(),
 		AutoChunkSize: cfg.ChunkSize,
 		Reduction:     cfg.Reduction,
 	})

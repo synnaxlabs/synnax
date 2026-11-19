@@ -19,6 +19,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/gorp"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
@@ -324,7 +325,10 @@ var _ = Describe("Metrics upgrade", func() {
 			[]distchannel.Channel{idx},
 			MustSucceed(n.Channel.Allocate(ctx, data))...,
 		)
-		Expect(n.Channel.Create(ctx, stored)).To(Succeed())
+		Expect(n.Storage.TS.CreateChannel(ctx, lo.Map(
+			stored,
+			func(c distchannel.Channel, _ int) cesium.Channel { return c.Storage() },
+		)...)).To(Succeed())
 		calcIdx := MustSucceed(n.Channel.Allocate(ctx, []distchannel.Channel{{
 			Name:        prefix + "total_size_gb_time",
 			Leaseholder: node.KeyFree,

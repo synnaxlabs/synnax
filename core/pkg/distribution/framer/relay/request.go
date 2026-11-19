@@ -42,7 +42,7 @@ type Response struct {
 }
 
 func reqToStorage(req Request) cesium.StreamerRequest {
-	return cesium.StreamerRequest{Channels: req.Keys.Storage()}
+	return cesium.StreamerRequest{Channels: req.Keys.Uint32()}
 }
 
 func resFromStorage(res cesium.StreamerResponse) Response {

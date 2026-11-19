@@ -47,6 +47,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel: node.Channel,
+		TS:      node.TS,
 		DB:      db,
 		HostKey: node.Identity.HostKey,
 		Status:  statusSvc,

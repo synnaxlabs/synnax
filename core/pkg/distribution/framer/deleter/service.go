@@ -72,5 +72,5 @@ func (s *Service) DeleteTimeRange(
 	stored := lo.Reject(keys, func(k channel.Key, _ int) bool {
 		return k.Free()
 	})
-	return s.cfg.TS.DeleteTimeRange(ctx, stored.Storage(), tr)
+	return s.cfg.TS.DeleteTimeRange(ctx, stored.Uint32(), tr)
 }

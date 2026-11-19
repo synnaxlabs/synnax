@@ -195,7 +195,7 @@ func (t *tapper) startTap(
 // channels.
 func (t *tapper) tapIntoStorage(keys channel.Keys) (tap, error) {
 	str, err := t.TS.NewTranslatedStreamer(
-		cesium.StreamerConfig{Channels: keys.Storage()},
+		cesium.StreamerConfig{Channels: keys.Uint32()},
 		reqToStorage,
 		resFromStorage,
 	)

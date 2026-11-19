@@ -79,6 +79,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	})).RBAC
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel: dist.Channel,
+		TS:      dist.TS,
 		DB:      dist.DB,
 		HostKey: dist.Identity.HostKey,
 		Status:  statusSvc,
