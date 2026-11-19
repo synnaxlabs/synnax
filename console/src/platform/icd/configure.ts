@@ -85,11 +85,13 @@ export interface MessagePlan {
  * suits its field is replaced, and leaves the stored channels. Reads from the Core, and
  * changes neither bound nor props.
  *
+ * @param namer - Names the new channels of every source that the task plans.
  * @param prefix - The prefix of the names of the channels it creates.
  * @param props - What the device stores for the message.
  */
 export const planMessage = async (
   client: Synnax,
+  namer: Task.Namer,
   { source, read: r, fields }: BoundMessage<ReadSource>,
   prefix: string,
   props?: Task.ReadChannelProps,
@@ -150,6 +152,7 @@ export const planMessage = async (
   });
   const channels = await Task.planReadChannels({
     client,
+    namer,
     props: props == null ? undefined : { ...props, channels: held },
     fields: planned,
     namePrefix: prefix,
@@ -160,30 +163,32 @@ export const planMessage = async (
 };
 
 /**
- * Gives each field that a message reads its channel, as planMessage plans it. Rewrites
- * the read of the source in place.
- *
- * @param prefix - The prefix of the names of the channels it creates.
- * @returns the channels that the message binds.
+ * @returns the channels that a message binds once deployed, other than the ones that
+ * deploying creates.
  */
-export const configureMessage = async (
+export const keptChannels = ({ channels: plan }: MessagePlan): channel.Key[] => {
+  const kept = Object.values(plan.channels);
+  if (plan.indexField != null && plan.newIndex == null && plan.props != null)
+    kept.push(plan.props.index);
+  return kept;
+};
+
+/**
+ * Gives each field that a message reads its channel, as plan plans it. Rewrites the
+ * read of the source in place.
+ *
+ * @param plan - The plan of planMessage for bound.
+ */
+export const applyMessage = async (
   client: Synnax,
-  bound: BoundMessage<ReadSource>,
-  prefix: string,
+  { source, read: r }: BoundMessage<ReadSource>,
+  { index, fields, channels }: MessagePlan,
   stored?: Task.StoredChannels,
-): Promise<channel.Key[]> => {
-  const { index, fields, channels } = await planMessage(
-    client,
-    bound,
-    prefix,
-    stored?.read[stored.key],
-  );
+): Promise<void> => {
   await Task.applyReadChannels(client, channels, fields, stored);
-  const { source, read: r } = bound;
   source.messages[r] = {
     message: source.messages[r].message,
     index,
     bindings: fields.map(({ channel, binding }) => ({ ...binding, channel })),
   };
-  return fields.map(({ channel }) => channel);
 };

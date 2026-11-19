@@ -25,8 +25,25 @@ const createField = (
   dataType = "float64",
 ): Task.ReadChannelField => ({ key, pointer, channel: 0, name: "", dataType });
 
+/** Plans and applies the channels of one source, as deploying does. */
+const configure = async ({
+  stored,
+  ...args
+}: Omit<
+  Task.PlanReadChannelsArgs<Task.ReadChannelField>,
+  "client" | "namer" | "props"
+> & { stored?: Task.StoredChannels }): Promise<void> => {
+  const plan = await Task.planReadChannels({
+    ...args,
+    client,
+    namer: Task.createNamer(client),
+    props: stored?.read[stored.key],
+  });
+  await Task.applyReadChannels(client, plan, args.fields, stored);
+};
+
 describe("channels", () => {
-  describe("configureReadChannels", () => {
+  describe("applyReadChannels", () => {
     it("should create the index and a channel for each field", async () => {
       const prefix = uniqueName("src");
       const read: Record<string, Task.ReadChannelProps> = {};
@@ -35,8 +52,7 @@ describe("channels", () => {
         createField("f2", "/label", "string"),
         createField("ts", "/ts", "timestamp"),
       ];
-      await Task.configureReadChannels({
-        client,
+      await configure({
         stored: { read, key: "src" },
         fields,
         namePrefix: prefix,
@@ -59,8 +75,7 @@ describe("channels", () => {
       const prefix = uniqueName("src");
       const read: Record<string, Task.ReadChannelProps> = {};
       const fields = [createField("f1", "/time")];
-      await Task.configureReadChannels({
-        client,
+      await configure({
         stored: { read, key: "src" },
         fields,
         namePrefix: prefix,
@@ -80,8 +95,7 @@ describe("channels", () => {
       await createIndex(`${prefix}_temperature_2`);
       const read: Record<string, Task.ReadChannelProps> = {};
       const fields = [createField("f1", "/temperature")];
-      await Task.configureReadChannels({
-        client,
+      await configure({
         stored: { read, key: "src" },
         fields,
         namePrefix: prefix,
@@ -99,8 +113,7 @@ describe("channels", () => {
       /** Configures a field whose new channel replaces old. */
       const replace = async (prefix: string, old: number) => {
         const fields = [{ ...createField("f1", "/mode", "string"), replaces: old }];
-        await Task.configureReadChannels({
-          client,
+        await configure({
           fields,
           namePrefix: prefix,
           indexKey: "",
@@ -138,8 +151,7 @@ describe("channels", () => {
         createField("f1", "/temperature"),
         createField("ts", "/ts", "timestamp"),
       ];
-      await Task.configureReadChannels({
-        client,
+      await configure({
         fields,
         namePrefix: prefix,
         indexKey: "ts",
@@ -153,8 +165,7 @@ describe("channels", () => {
     it("should create no channel or index for a disabled field", async () => {
       const read: Record<string, Task.ReadChannelProps> = {};
       const fields = [{ ...createField("f1", "/temperature"), disabled: true }];
-      await Task.configureReadChannels({
-        client,
+      await configure({
         stored: { read, key: "src" },
         fields,
         namePrefix: uniqueName("src"),
@@ -183,8 +194,7 @@ describe("channels", () => {
         { ...createField("f1", "/own"), channel: own.key },
         createField("f2", "/stored"),
       ];
-      await Task.configureReadChannels({
-        client,
+      await configure({
         stored: { read, key: "src" },
         fields,
         namePrefix: uniqueName("src"),
@@ -208,8 +218,7 @@ describe("channels", () => {
         src: { index: MISSING_KEY, channels: { "/stored": stored.key } },
       };
       const fields = [createField("f1", "/new")];
-      await Task.configureReadChannels({
-        client,
+      await configure({
         stored: { read, key: "src" },
         fields,
         namePrefix: uniqueName("src"),
@@ -233,8 +242,7 @@ describe("channels", () => {
         { ...createField("f1", "/own"), channel: own.key },
         createField("f2", "/new"),
       ];
-      await Task.configureReadChannels({
-        client,
+      await configure({
         stored: { read, key: "src" },
         fields,
         namePrefix: uniqueName("src"),
@@ -255,8 +263,7 @@ describe("channels", () => {
       });
       const read: Record<string, Task.ReadChannelProps> = {};
       const fields = [{ ...createField("f1", "/own"), channel: own.key }];
-      await Task.configureReadChannels({
-        client,
+      await configure({
         stored: { read, key: "src" },
         fields,
         namePrefix: uniqueName("src"),
@@ -274,8 +281,7 @@ describe("channels", () => {
       });
       const read: Record<string, Task.ReadChannelProps> = {};
       const fields = [{ ...createField("f1", "/ts", "timestamp"), channel: own.key }];
-      await Task.configureReadChannels({
-        client,
+      await configure({
         stored: { read, key: "src" },
         fields,
         namePrefix: uniqueName("src"),
@@ -297,6 +303,7 @@ describe("channels", () => {
       ];
       const plan = await Task.planReadChannels({
         client,
+        namer: Task.createNamer(client),
         props,
         fields,
         namePrefix: prefix,
@@ -323,6 +330,7 @@ describe("channels", () => {
       const fields = [{ ...createField("f1", "/mode", "string"), replaces: old.key }];
       const plan = await Task.planReadChannels({
         client,
+        namer: Task.createNamer(client),
         fields,
         namePrefix: prefix,
         indexKey: "",
@@ -332,6 +340,22 @@ describe("channels", () => {
         { key: "f1", name: `${prefix}_mode`, indexed: false },
       ]);
       expect((await client.channels.retrieve(old.key)).name).toBe(`${prefix}_mode`);
+    });
+    it("should number a name that an earlier plan of the same namer claims", async () => {
+      const name = uniqueName("temperature");
+      const namer = Task.createNamer(client);
+      const plan = async (source: string) =>
+        await Task.planReadChannels({
+          client,
+          namer,
+          fields: [{ ...createField("f1", "/temperature"), name }],
+          namePrefix: uniqueName(source),
+          indexKey: "",
+        });
+      expect((await plan("a")).creates).toEqual([{ key: "f1", name, indexed: true }]);
+      expect((await plan("b")).creates).toEqual([
+        { key: "f1", name: `${name}_2`, indexed: true },
+      ]);
     });
   });
 

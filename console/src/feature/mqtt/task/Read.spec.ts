@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { type device, icd, mqtt, type rack } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createTestClient, rejectRequests } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { DataType, type payload, TimeStamp, uuid } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { MQTT } from "@/feature/mqtt";
 import { createBroker, openAddData, openScanner } from "@/feature/mqtt/testutil";
@@ -22,6 +22,7 @@ import {
   clickFailedDeploy,
   deployAndAwaitTask,
   renderTaskFormTab,
+  START_FAILURE,
 } from "@/platform/task/testutil";
 import { findDialogTriggerByText } from "@/testutil";
 
@@ -1486,6 +1487,39 @@ describe("MQTT read form", () => {
       ]);
     });
 
+    it("should give a channel that two messages store to the first message alone", async () => {
+      const time = await createTimeChannel();
+      const level = await client.channels.create({
+        name: uniqueName("level"),
+        dataType: DataType.FLOAT64,
+        index: time.key,
+      });
+      const entry = await createEntry({ fields: [createField("level", "float")] });
+      const status = await addMessage(
+        entry,
+        "status",
+        [createField("level", "float")],
+        KIND_MATCH,
+      );
+      const stored = { index: time.key, channels: { "/level": level.key } };
+      const { container, draft } = await renderRead({
+        entries: [entry],
+        properties: {
+          read: {
+            [`${TOPIC}#${entry.messages[0].message}`]: stored,
+            [`${TOPIC}#${status.key}`]: stored,
+          },
+        },
+      });
+      const created = await deploy(container, draft.key);
+      const [first, second] = plainOf(created.config.entries[0]).messages.map(
+        ({ bindings }) => bindings[0].channel,
+      );
+      expect(first).toBe(level.key);
+      expect(second).not.toBe(level.key);
+      expect(second).toBeGreaterThan(0);
+    });
+
     it("should create channels for the fields the task reads only", async () => {
       const temperature = createField("temperature", "float");
       const { container, dev, draft } = await renderRead({
@@ -1938,6 +1972,80 @@ describe("MQTT read form", () => {
       });
     });
 
+    it("should create no channel when a later message fails to plan", async () => {
+      const entry = await createEntry({
+        fields: [createField("temperature", "float")],
+      });
+      await addMessage(entry, "later", [createField("rejected", "float")], {
+        ...KIND_MATCH,
+        value: "later",
+      });
+      const error = vi.spyOn(console, "error").mockImplementation(() => {});
+      onTestFinished(() => error.mockRestore());
+      const { container, dev, statuses } = await renderRead({ entries: [entry] });
+      // Only the plan of the later message names a channel after its field.
+      const reject = rejectRequests(
+        client,
+        (target, req) =>
+          target === "/channel/retrieve" && JSON.stringify(req).includes("rejected"),
+        new Error("plan failed"),
+      );
+      try {
+        await clickFailedDeploy(container);
+      } finally {
+        reject.mockRestore();
+      }
+      expect(statuses).toContainEqual(START_FAILURE);
+      const made = await client.channels.retrieve({ searchTerm: dev.name });
+      expect(
+        made.map(({ name }) => name).filter((n) => n.startsWith(dev.name)),
+      ).toEqual([]);
+    });
+
+    it("should keep the channels stored under a topic when an earlier message fails", async () => {
+      const time = await createTimeChannel();
+      const createFloat = async (name: string) =>
+        await client.channels.create({
+          name: uniqueName(name),
+          dataType: DataType.FLOAT64,
+          index: time.key,
+        });
+      const value = await createFloat("value");
+      const notIndex = await createFloat("not_index");
+      const entry = await createEntry({
+        fields: [createField("temperature", "float")],
+      });
+      const match = (value: string): icd.JSONMatch => ({ ...KIND_MATCH, value });
+      const failing = await addMessage(
+        entry,
+        "failing",
+        [createField("pressure", "float")],
+        match("failing"),
+      );
+      const valueField = createField("value", "float");
+      await addMessage(entry, "owner", [valueField], match("owner"));
+      entry.messages[2].bindings = [
+        { field: valueField.key, channel: value.key, dataType: "" },
+      ];
+      const legacy = { index: time.key, channels: { "/value": value.key } };
+      const { container, dev, statuses } = await renderRead({
+        entries: [entry],
+        properties: {
+          read: {
+            [TOPIC]: legacy,
+            [`${TOPIC}#${failing.key}`]: { index: notIndex.key, channels: {} },
+          },
+        },
+      });
+      await clickDeploy(container);
+      await waitFor(() =>
+        expect(statuses).toContainEqual(
+          expect.objectContaining({ message: "Failed to start task" }),
+        ),
+      );
+      expect((await retrieveRead(dev.key))[TOPIC]).toEqual(legacy);
+    });
+
     it("should give a new entry the stored channel that only a disabled entry binds", async () => {
       const time = await createTimeChannel();
       const ch = await client.channels.create({
@@ -2011,6 +2119,20 @@ describe("MQTT read form", () => {
       );
       expect(flowCh.name).toBe(`${dev.name}_plant_line1_flow`);
       expect(flowCh.dataType.toString()).toBe("float32");
+    });
+
+    it("should number a typed name that an earlier tag takes", async () => {
+      const name = uniqueName("temperature");
+      const { container, draft } = await renderRead({
+        entries: [createTagEntry("flow", { name }), createTagEntry("level", { name })],
+      });
+      const created = await deploy(container, draft.key);
+      const names = await Promise.all(
+        created.config.entries.map(
+          async (e) => (await client.channels.retrieve(sparkplugOf(e).channel)).name,
+        ),
+      );
+      expect(names).toEqual([name, `${name}_2`]);
     });
 
     it("should reuse the channel of a tag that the device stores", async () => {

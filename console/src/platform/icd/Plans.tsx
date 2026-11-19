@@ -100,7 +100,9 @@ export const Planner = ({ path, read, prefix, propsOf }: PlannerProps): null => 
       : { source, read, message, fields: readFields(jsonFields(message), readMessage) };
   const props = bound == null ? undefined : propsOf(bound);
   const plan = Task.useChannelPlan({ bound, prefix, props }, async (client) =>
-    bound == null ? undefined : await planMessage(client, bound, prefix, props),
+    bound == null
+      ? undefined
+      : await planMessage(client, Task.createNamer(client), bound, prefix, props),
   );
   const key = readKey(path, read);
   useEffect(() => {
