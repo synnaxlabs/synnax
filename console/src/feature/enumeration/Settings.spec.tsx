@@ -302,6 +302,27 @@ describe("Enumeration.Settings", () => {
     expect(item.getAttribute("aria-expanded")).toBe("false");
   });
 
+  it("should open and close an enumeration from the keyboard", async () => {
+    const e = await createEnumeration();
+    await renderEnumerations();
+    const item = await screen.findByRole("option", { name: e.name });
+    expect(item.tabIndex).toBe(0);
+    const press = (key: string, expanded: boolean): void => {
+      fireEvent.keyDown(item, { key });
+      expect(item.getAttribute("aria-expanded"), key).toBe(String(expanded));
+    };
+    press("Enter", true);
+    expect(screen.getByRole("region", { name: `${e.name} entries` })).toBeTruthy();
+    press("Enter", false);
+    press(" ", true);
+    press(" ", false);
+    press("ArrowRight", true);
+    press("ArrowRight", true);
+    press("ArrowLeft", false);
+    press("ArrowLeft", false);
+    expect(screen.queryByRole("region", { name: `${e.name} entries` })).toBeNull();
+  });
+
   it("should rename an enumeration from its menu", async () => {
     const e = await createEnumeration();
     await renderEnumerations();

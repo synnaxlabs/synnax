@@ -24,7 +24,13 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Access, Enumeration, Flux } from "@synnaxlabs/pluto";
 import { deep, uuid } from "@synnaxlabs/x";
-import { createContext, type ReactElement, use, useState } from "react";
+import {
+  createContext,
+  type KeyboardEvent,
+  type ReactElement,
+  use,
+  useState,
+} from "react";
 
 import { useDeleteModal } from "@/feature/enumeration/Delete";
 import { ContextMenu } from "@/platform/context-menu";
@@ -76,6 +82,13 @@ const Item = ({
   const { update: rename } = Enumeration.useRename();
   const itemClass = PlatformSettings.useItemClass(e.key);
   const [element, setElement] = useState<HTMLElement | null>(null);
+  const handleKeyDown = (ev: KeyboardEvent<HTMLElement>): void => {
+    if (ev.target !== ev.currentTarget) return;
+    if (ev.key === "ArrowRight") onOpenChange(true);
+    else if (ev.key === "ArrowLeft") onOpenChange(false);
+    else return;
+    ev.preventDefault();
+  };
   return (
     <div>
       <Select.Item<enumeration.Key>
@@ -85,6 +98,8 @@ const Item = ({
         align="center"
         aria-label={e.name}
         aria-expanded={open}
+        tabIndex={0}
+        onKeyDown={handleKeyDown}
         onActivate={() => onOpenChange(!open)}
         className={CSS.cls(CSS.BE("enumeration-settings", "item"), itemClass)}
       >
