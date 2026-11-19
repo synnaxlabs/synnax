@@ -345,15 +345,7 @@ describe("Reader", () => {
       return { state, answer };
     };
 
-    it("should return the samples of a fetch that changes the channel's data type", async () => {
-      const { store, read } = createReader();
-      store.retainDataType(2, DataType.FLOAT64);
-      const res = await read(new TimeRange(at(10), at(20)), 2);
-      expect(res.length).toBe(66);
-      expect(res.series.map((s) => s.dataType)).toEqual([DataType.FLOAT32]);
-    });
-
-    it("should fetch a block again from its start when its data type changes", async () => {
+    it("should keep the samples of both data types when a fetch changes the channel's data type", async () => {
       const { state, answer } = createConversion();
       const { core, fetches, read } = createReader({ elapsed: 30, answer });
       await read(new TimeRange(at(0), at(30)), 2);
@@ -363,30 +355,27 @@ describe("Reader", () => {
       expect(fetches.map(({ tr }) => tr)).toEqual([
         blockRange(100),
         new TimeRange(at(29), blockRange(100).end),
-        blockRange(100),
       ]);
-      expect(res.series.map((s) => s.dataType)).toEqual([DataType.FLOAT64]);
-      expect(res.series.map((s) => s.alignment)).toEqual([blockAlignment(100, 0)]);
-      expect(res.length).toBe(40);
+      expect(res.series.map((s) => [s.dataType, s.alignment, s.length])).toEqual([
+        [DataType.FLOAT32, blockAlignment(100, 0), 30],
+        [DataType.FLOAT64, blockAlignment(100, 30), 10],
+      ]);
     });
 
-    it("should drop cached blocks when a fetch changes the data type", async () => {
+    it("should keep cached blocks when a fetch changes the data type", async () => {
       const { state, answer } = createConversion();
       const { reader, store, fetches, read } = createReader({ answer });
       await read(new TimeRange(at(0), at(30)), 2);
+      const kept = store.findRaw(2, 100);
       state.converted = true;
       const tr = new TimeRange(at(0), at(100));
       await reader.fill(tr, 2);
-      expect(store.findRaw(2, 100)).toBeUndefined();
+      expect(store.findRaw(2, 100)).toBe(kept);
       const res = await read(tr, 2);
-      expect(fetches.map(({ tr }) => tr)).toEqual([
-        blockRange(100),
-        blockRange(101),
-        blockRange(100),
-      ]);
-      expect(res.series.map((s) => s.dataType.toString())).toEqual([
-        "float64",
-        "float64",
+      expect(fetches.map(({ tr }) => tr)).toEqual([blockRange(100), blockRange(101)]);
+      expect(res.series.map((s) => s.dataType)).toEqual([
+        DataType.FLOAT32,
+        DataType.FLOAT64,
       ]);
       expect(res.length).toBe(132);
     });

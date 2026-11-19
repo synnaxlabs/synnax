@@ -351,17 +351,7 @@ describe("tile", () => {
     });
 
     describe("data type changes", () => {
-      it("should read a cached tile again when the caller holds another data type", async () => {
-        const { reader, calls } = createReader();
-        await reader.read(createSpec());
-        await reader.read(createSpec(), DataType.FLOAT64);
-        expect(calls).toHaveLength(1);
-        await reader.read(createSpec(), DataType.UINT8);
-        expect(calls).toHaveLength(2);
-        reader.close();
-      });
-
-      it("should drop a channel's cached tiles when a fetch returns a new data type", async () => {
+      it("should keep a channel's cached tiles when a fetch returns a new data type", async () => {
         let dataType = DataType.FLOAT64;
         const { reader, calls } = createReader({
           readRemote: async (tr, keys) => {
@@ -380,22 +370,16 @@ describe("tile", () => {
           },
         });
         await reader.read(createSpec({ tile: 1 }));
-        await reader.read(createSpec({ tile: 2 }));
-        await reader.read(createSpec({ tile: 1, key: 2 }));
         dataType = DataType.UINT8;
-        const changed = await reader.read(createSpec({ tile: 3 }));
-        expect(changed.dataType.equals(DataType.UINT8)).toBe(true);
-        expect(calls).toHaveLength(4);
-        const refetched = await reader.read(createSpec({ tile: 1 }));
-        expect(refetched.dataType.equals(DataType.UINT8)).toBe(true);
-        expect(calls).toHaveLength(5);
-        const other = await reader.read(createSpec({ tile: 1, key: 2 }));
-        expect(other.dataType.equals(DataType.FLOAT64)).toBe(true);
-        expect(calls).toHaveLength(5);
+        const changed = await reader.read(createSpec({ tile: 2 }));
+        expect(changed.dataType).toEqual(DataType.UINT8);
+        const kept = await reader.read(createSpec({ tile: 1 }));
+        expect(kept.dataType).toEqual(DataType.FLOAT64);
+        expect(calls).toHaveLength(2);
         reader.close();
       });
 
-      it("should drop a channel's raw blocks when a tile fetch returns a new data type", async () => {
+      it("should keep a channel's raw blocks when a tile fetch returns a new data type", async () => {
         const { reader, store } = createReader({
           readRemote: async (tr, keys) =>
             new framer.Frame(
@@ -410,7 +394,6 @@ describe("tile", () => {
               ),
             ),
         });
-        store.retainDataType(1, DataType.FLOAT64);
         const block = store.raw(1, 0);
         block.fill(
           [new Series({ data: new Float64Array([1]), timeRange: block.range })],
@@ -418,7 +401,7 @@ describe("tile", () => {
           1,
         );
         await reader.read(createSpec());
-        expect(store.get(rawKey(1, 0))).toBeUndefined();
+        expect(store.get(rawKey(1, 0))).toBe(block);
         reader.close();
       });
     });

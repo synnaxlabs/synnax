@@ -9,7 +9,6 @@
 
 import { alamos } from "@synnaxlabs/alamos";
 import {
-  type DataType,
   type destructor,
   MultiSeries,
   type Series,
@@ -121,11 +120,12 @@ export const calculated = (p: channel.Payload): boolean =>
 
 /**
  * Caches blocks of channel samples under one byte budget. The least recently used block
- * leaves first. Every block of a channel holds one data type. A join appends streamed
- * samples to the raw block of their time, which stays open until the stream moves past
- * it. A sealed block stays valid until a history change names it while the history
- * signals stream. Other blocks expire. A streamed index channel and its data channels
- * keep about liveSamples raw samples each, from the floor of the index on.
+ * leaves first. A block holds the series of every data type of its channel and tile,
+ * so a type change keeps history. A join appends streamed samples to the raw block of
+ * their time, which stays open until the stream moves past it. A sealed block stays
+ * valid until a history change names it while the history signals stream. Other blocks
+ * expire. A streamed index channel and its data channels keep about liveSamples raw
+ * samples each, from the floor of the index on.
  */
 export class Store {
   private readonly budget: number;
@@ -136,10 +136,9 @@ export class Store {
   private readonly node: () => number | undefined;
   // Map order is recency order: a get moves its entry to the end.
   private readonly entries = new Map<string, Entry>();
-  private readonly dataTypes = new Map<channel.Key, DataType>();
   private readonly live = new Map<channel.Key, Live>();
   // newest holds the newest raw block that held samples of each channel. A block that
-  // leaves stays its newest, until the channel's data type changes.
+  // leaves stays its newest.
   private readonly newest = new Map<channel.Key, number>();
   // epochs counts the changes to the series of each channel's raw blocks.
   private readonly epochs = new Map<channel.Key, number>();
@@ -345,11 +344,6 @@ export class Store {
     this.invalidateHandlers.forEach((h) => h(ch, tr));
   }
 
-  /** @returns the data type of the channel's cached samples. */
-  dataType(ch: channel.Key): DataType | undefined {
-    return this.dataTypes.get(ch);
-  }
-
   /**
    * @returns the channel's raw block at the tile, cached empty when absent. An expired
    * block comes back without its fetched samples.
@@ -478,40 +472,12 @@ export class Store {
     if (live != null) this.seal(live);
   }
 
-  /**
-   * Records the channel's data type. A channel's data type can change, and series of
-   * two data types cannot be read together, so a new data type drops every block of the
-   * channel and its stream's buffer.
-   * @returns true if the data type changed.
-   */
-  retainDataType(ch: channel.Key, dataType: DataType): boolean {
-    const held = this.dataTypes.get(ch);
-    this.dataTypes.set(ch, dataType);
-    if (held == null || held.equals(dataType)) return false;
-    this.instrumentation.L.warn("channel data type changed, dropping its blocks", {
-      channel: ch,
-      prev: held.toString(),
-      next: dataType.toString(),
-    });
-    for (const [key, { block }] of this.entries)
-      if (block.channel === ch) this.delete(key);
-    this.newest.delete(ch);
-    this.floors.delete(ch);
-    const live = this.live.get(ch);
-    if (live == null) return true;
-    live.buffer.retainDataType(dataType);
-    if (live.block != null) live.block.buffer = null;
-    live.block = null;
-    return true;
-  }
-
   /** Drops every block and stream buffer. */
   close(): void {
     this.live.forEach(({ buffer }) => buffer.close());
     this.live.clear();
     this.invalidateHandlers.clear();
     this.entries.clear();
-    this.dataTypes.clear();
     this.newest.clear();
     this.streamed.clear();
     this.indexOf.clear();

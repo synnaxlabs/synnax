@@ -178,8 +178,8 @@ class Join {
  * the streamed series of its index channel and of the data channels on it while it
  * catches up with a read. Then index samples get block offsets in time order, and data
  * samples take the offsets of the index samples that share their Core alignment, from
- * the same frame or an earlier one. A gap in the stream, a new data type, or a change
- * to the history of an open block sends a join back to wait. Every method that can do
+ * the same frame or an earlier one. A gap in the stream or a change to the history of
+ * an open block sends a join back to wait. Every method that can do
  * so returns the index channels of the joins that wait.
  */
 export class Joins {
@@ -473,11 +473,6 @@ export class Joins {
       }
       const runs = this.runs(j.index, s);
       const fresh = runs.filter((r) => r.fresh < r.to);
-      if (fresh.length > 0 && this.store.retainDataType(j.index, s.dataType)) {
-        this.waitJoin(j);
-        im.hold(s);
-        continue;
-      }
       for (const { from, fresh: at, to, block, offset } of fresh)
         this.store.append(
           this.store.raw(j.index, block),
@@ -541,8 +536,7 @@ export class Joins {
   }
 
   // Writes the samples of a data series into the blocks its index samples went into.
-  // Returns false on a new data type, and on a gap: the series skips samples its blocks
-  // have not taken.
+  // Returns false on a gap: the series skips samples its blocks have not taken.
   private place(
     m: Member,
     s: Series,
@@ -570,7 +564,6 @@ export class Joins {
       });
     }
     if (pieces.length === 0) return true;
-    if (this.store.retainDataType(m.key, s.dataType)) return false;
     pieces.forEach(({ block, p, newRun }) => this.store.append(block, p, newRun));
     m.fresh = false;
     return true;

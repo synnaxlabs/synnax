@@ -251,9 +251,8 @@ export class Reader {
   // Reads the channels and their indexes over tr, and fills the blocks. A block after
   // the first merges the read with its samples. The first block takes the read only
   // while its coverage ends at the read's start. The result holds the requests to fetch
-  // again: a first block that a new data type reset, a first catch-up block that
-  // another fetch filled with newest samples it did not trust, and a block whose
-  // history changed while the read ran.
+  // again: a first catch-up block that another fetch filled with newest samples it did
+  // not trust, and a block whose history changed while the read ran.
   private async load(
     { first, last, start, catchUp, entries }: Group,
     tr: TimeRange,
@@ -313,8 +312,6 @@ export class Reader {
     });
     indexOf.forEach((idx, key) => {
       const series = grouped.get(key) ?? [];
-      const changed =
-        series.length > 0 && store.retainDataType(key, series[0].dataType);
       const timestamps = idx === 0 ? [] : (grouped.get(idx) ?? []);
       const parts = split(timestamps, series);
       const targets = [...(requested.get(key) ?? [])];
@@ -341,13 +338,6 @@ export class Reader {
           return;
         }
         const from = block.tile === first ? start : block.range.start;
-        if (changed) {
-          block.expire();
-          if (!from.equals(block.range.start)) {
-            refetch.add(r);
-            return;
-          }
-        }
         const merged = block.tile !== first;
         if (!merged && !block.coveredEnd.equals(from)) {
           if (catchUp && requested.has(key)) refetch.add(r);

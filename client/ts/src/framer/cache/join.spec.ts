@@ -481,7 +481,7 @@ describe("Joins", () => {
       expect(store.open(DATA)).toBeNull();
     });
 
-    it("should send back a member when the stream changes its data type", () => {
+    it("should stream on when the stream changes a member's data type", () => {
       const { store, joins } = createJoined();
       const waiting = joins.write(
         createFrame(
@@ -492,25 +492,17 @@ describe("Joins", () => {
           ],
         ),
       );
-      expect(waiting).toEqual(new Set([INDEX]));
-      expect(keysOf(joins)).toEqual([DATA]);
-      expect(store.dataType(DATA)).toEqual(DataType.FLOAT64);
-    });
-
-    it("should send back a member when a read changed its data type", () => {
-      const { store, joins } = createJoined();
-      store.retainDataType(DATA, DataType.FLOAT64);
-      const waiting = joins.write(
-        createFrame(
-          [INDEX, createIndex([3], 2n)],
-          [
-            DATA,
-            new Series({ data: new Float64Array([30]), alignment: 2n, clock: INDEX }),
-          ],
-        ),
-      );
-      expect(waiting).toEqual(new Set([INDEX]));
-      expect(keysOf(joins)).toEqual([DATA]);
+      expect(waiting.size).toBe(0);
+      expect(keysOf(joins)).toEqual([]);
+      expect(
+        seriesOf(store, DATA, BLOCK).map((s) => [
+          s.dataType,
+          Array.from(s).map(Number),
+        ]),
+      ).toEqual([
+        [DataType.FLOAT32, [10, 20]],
+        [DataType.FLOAT64, [30]],
+      ]);
     });
   });
 

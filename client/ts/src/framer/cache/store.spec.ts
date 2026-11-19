@@ -213,41 +213,65 @@ describe("Store", () => {
     });
   });
 
-  describe("retainDataType", () => {
-    const createStore = (): Store => {
-      const store = new Store();
-      const channels: channel.Key[] = [1, 1, 2];
-      channels.forEach((ch, i) => store.set(`${i}`, createBlock({ channel: ch })));
-      store.retainDataType(1, DataType.FLOAT32);
-      store.retainDataType(2, DataType.FLOAT32);
-      return store;
+  describe("data types", () => {
+    const createFilled = (store: Store) => {
+      const block = store.raw(1, 100);
+      const f64 = new Series({
+        data: new Float64Array([3, 4]),
+        alignment: alignmentOf(100, 2),
+        timeRange: new TimeRange(
+          BLOCK.start.add(TimeSpan.seconds(2)),
+          BLOCK.start.add(TimeSpan.seconds(4)),
+        ),
+      });
+      block.fill(
+        [createPiece(0, [1, 2]), f64],
+        BLOCK.start.add(TimeSpan.seconds(4)),
+        4,
+      );
+      store.set(rawKey(1, 100), block);
+      return block;
     };
 
-    it("should keep a channel's blocks while its data type holds", () => {
-      const store = createStore();
-      store.retainDataType(1, DataType.FLOAT32);
-      expect(store.get("0")).toBeDefined();
-      expect(store.get("1")).toBeDefined();
+    it("should hold the series of two data types in one block", () => {
+      const store = new Store();
+      const block = createFilled(store);
+      expect(block.seriesIn(TimeRange.MAX).map((s) => s.dataType)).toEqual([
+        DataType.FLOAT32,
+        DataType.FLOAT64,
+      ]);
     });
 
-    it("should drop every block of a channel whose data type changes", () => {
-      const store = createStore();
-      store.retainDataType(1, DataType.INT64);
-      expect(store.get("0")).toBeUndefined();
-      expect(store.get("1")).toBeUndefined();
-      expect(store.get("2")).toBeDefined();
+    it("should evict a block of two data types whole", () => {
+      const store = new Store({ budget: Size.bytes(1.5 * BYTES) });
+      const tr = new TimeRange(BLOCK.start, BLOCK.start.add(TimeSpan.seconds(4)));
+      expect(createFilled(store).covers(tr)).toBe(true);
+      store.set("a", createBlock());
+      store.set("b", createBlock());
+      expect(store.findRaw(1, 100)).toBeUndefined();
+      const block = store.raw(1, 100);
+      expect(block.covers(tr)).toBe(false);
+      expect(block.fetched).toEqual([]);
     });
 
-    it("should close the channel's open block when its data type changes", () => {
+    it("should keep the open block when the stream changes its data type", () => {
       const store = new Store({ dynamicBufferSize: 100 });
       const block = store.raw(1, 100);
-      store.retainDataType(1, DataType.FLOAT32);
       store.append(block, createPiece(0, [1]));
-      expect(store.retainDataType(1, DataType.FLOAT64)).toBe(true);
-      expect(block.buffer).toBeNull();
-      expect(block.joined).toBe(false);
-      expect(store.open(1)).toBeNull();
-      expect(store.raw(1, 100)).not.toBe(block);
+      const f64 = new Series({
+        data: new Float64Array([2]),
+        alignment: alignmentOf(100, 1),
+        timeRange: new TimeRange(
+          BLOCK.start.add(TimeSpan.seconds(1)),
+          BLOCK.start.add(TimeSpan.seconds(2)),
+        ),
+      });
+      store.append(block, f64);
+      expect(store.open(1)).toBe(block);
+      expect(block.seriesIn(TimeRange.MAX).map((s) => [s.dataType, s.at(0)])).toEqual([
+        [DataType.FLOAT32, 1],
+        [DataType.FLOAT64, 2],
+      ]);
     });
   });
 
