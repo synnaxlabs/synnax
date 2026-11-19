@@ -87,18 +87,18 @@ export const isCut = ({ start, end }: TileSpec): boolean =>
 export const tileKey = ({
   key,
   level,
-  index,
+  tile,
   pointLimit,
   aggregation,
-}: TileSpec): string => `${key}/${level}/${index}/${pointLimit}/${aggregation}`;
+}: TileSpec): string => `${key}/${level}/${tile}/${pointLimit}/${aggregation}`;
 
 /**
  * @returns a key for the time range and reduction of the tile's read. Specs with equal
  * keys differ at most in channel, so their reads share one request.
  */
 export const tileRequestKey = (spec: TileSpec): string => {
-  const { level, index, pointLimit, aggregation, start, end } = spec;
-  return [level, index, pointLimit, aggregation, start?.valueOf(), end?.valueOf()].join(
+  const { level, tile, pointLimit, aggregation, start, end } = spec;
+  return [level, tile, pointLimit, aggregation, start?.valueOf(), end?.valueOf()].join(
     "/",
   );
 };

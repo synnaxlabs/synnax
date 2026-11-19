@@ -37,7 +37,7 @@ const createBlock = (overrides: Partial<TestBlock> = {}): TestBlock => ({
   ...overrides,
 });
 
-const BLOCK = tileRange({ level: RAW_LEVEL, index: 100 });
+const BLOCK = tileRange({ level: RAW_LEVEL, tile: 100 });
 
 // Returns a piece of float32 values at the block offset, stamped one second apart from
 // the start of raw block 100.

@@ -28,9 +28,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	passwordversions "github.com/synnaxlabs/synnax/pkg/service/auth/password/versions"
+	calcgraph "github.com/synnaxlabs/synnax/pkg/service/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	channelsignals "github.com/synnaxlabs/synnax/pkg/service/channel/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/control"
@@ -414,6 +414,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.Channel, err = channel.OpenService(ctx, channel.ServiceConfig{
 		Instrumentation: cfg.Child("channel"),
 		Channel:         cfg.Distribution.Channel,
+		TS:              cfg.Storage.TS,
 		DB:              cfg.Distribution.DB,
 		HostKey:         cfg.Distribution.Identity.HostKey,
 		Limit:           l.License.CheckChannelLimit,

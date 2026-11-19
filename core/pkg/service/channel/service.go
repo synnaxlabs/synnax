@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
@@ -45,11 +46,14 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
-	// Channel is the distribution-layer channel service the service drives to assign
-	// local keys and create, rename, and delete storage channels.
+	// Channel is the distribution-layer channel allocator, which assigns local keys.
 	//
 	// [REQUIRED]
 	Channel *channel.Service
+	// TS is the time-series database that holds the storage channels.
+	//
+	// [REQUIRED]
+	TS *cesium.DB
 	// DB is the metadata database backing the channel table.
 	//
 	// [REQUIRED]
@@ -79,6 +83,7 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Validate() error {
 	v := validate.New("service.channel")
 	v.NotNil("channel", c.Channel)
+	v.NotNil("ts", c.TS)
 	v.NotNil("db", c.DB)
 	v.NonZero("host_key", c.HostKey)
 	v.NotNil("limit", c.Limit)
@@ -91,6 +96,7 @@ func (c ServiceConfig) Validate() error {
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Channel = override.Nil(c.Channel, other.Channel)
+	c.TS = override.Nil(c.TS, other.TS)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.HostKey = override.Numeric(c.HostKey, other.HostKey)
 	c.Limit = override.Nil(c.Limit, other.Limit)
@@ -100,9 +106,9 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 }
 
 // Service is the top-level channel service. It owns the channel metadata table,
-// retrieval, search integration, and the create/delete/rename orchestration, driving
-// the distribution-layer allocator for key assignment and storage. It also infers
-// DataTypes for calculated channels on write.
+// retrieval, search integration, and the create/delete/rename orchestration. It takes
+// keys from the distribution-layer allocator and creates, renames, and deletes the
+// storage channels. It also infers DataTypes for calculated channels on write.
 type Service struct {
 	cfg     ServiceConfig
 	db      *gorp.DB

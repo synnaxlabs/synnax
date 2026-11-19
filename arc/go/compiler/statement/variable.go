@@ -105,11 +105,12 @@ func resolveChannelSource(
 	ctx context.Context[parser.ILocalVariableContext],
 	expr parser.IExpressionContext,
 ) *symbol.Symbol {
-	head, tail := parser.ExpressionNameParts(expr)
-	if head == "" {
+	var buf [2]string
+	parts := parser.AppendExpressionNameParts(buf[:0], expr)
+	if len(parts) == 0 {
 		return nil
 	}
-	scope, err := ctx.Scope.ResolveMember(ctx, head, tail)
+	scope, err := ctx.Scope.ResolveMember(ctx, parts)
 	if err != nil {
 		return nil
 	}

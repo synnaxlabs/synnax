@@ -11,6 +11,7 @@ package expression
 
 import (
 	"math"
+	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/compiler/context"
@@ -147,8 +148,9 @@ func compilePostfix(
 		call, isCall = ops[0].(parser.IFunctionCallSuffixContext)
 	}
 	if isCall && parser.PrimaryName(primary) != "" {
-		head, tail := parser.PrimaryNameParts(primary)
-		currentType, err = CompileCall(ctx, head, tail, symbol.CallArguments(call))
+		var buf [2]string
+		parts := parser.AppendPrimaryNameParts(buf[:0], primary)
+		currentType, err = CompileCall(ctx, parts, symbol.CallArguments(call))
 		ops = ops[1:]
 	} else {
 		currentType, err = compilePrimary(ctx.Child(primary))
@@ -171,25 +173,20 @@ func compilePostfix(
 	return currentType, nil
 }
 
-// CompileCall emits a call to the function named head.tail with args bound by name or
-// position and defaults for the rest. It returns the default output type.
+// CompileCall emits a call to the function that parts name with args bound by name or
+// position and defaults for the rest. It returns the default output type. parts must
+// not be empty.
 func CompileCall[T antlr.ParserRuleContext](
 	ctx context.Context[T],
-	head, tail string,
+	parts []string,
 	args []symbol.Argument,
 ) (types.Type, error) {
-	funcName := head
-	if tail != "" {
-		funcName = head + "." + tail
-	}
+	funcName := strings.Join(parts, ".")
 	// len() dispatches on its argument type, so it bypasses symbol resolution.
 	if funcName == "len" || funcName == "series.len" || funcName == "string.len" {
 		return compileBuiltinLen(ctx, args, funcName)
 	}
-	scope, err := ctx.Scope.Resolve(ctx, head)
-	if err == nil && tail != "" {
-		scope, err = scope.Resolve(ctx, tail)
-	}
+	scope, err := ctx.Scope.ResolveMember(ctx, parts)
 	if err != nil {
 		return types.Type{}, err
 	}
@@ -467,8 +464,9 @@ func compilePrimary(
 	if lit := ctx.AST.Literal(); lit != nil {
 		return compileLiteral(ctx.Child(lit))
 	}
-	if head, tail := parser.PrimaryNameParts(ctx.AST); head != "" {
-		return compileIdentifier(ctx, head, tail)
+	var buf [2]string
+	if parts := parser.AppendPrimaryNameParts(buf[:0], ctx.AST); len(parts) > 0 {
+		return compileIdentifier(ctx, parts)
 	}
 	if ctx.AST.LPAREN() != nil && ctx.AST.Expression() != nil {
 		return Compile(ctx.Child(ctx.AST.Expression()))

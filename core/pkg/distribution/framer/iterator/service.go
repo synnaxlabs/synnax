@@ -13,8 +13,8 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
@@ -74,7 +74,7 @@ type ServiceConfig struct {
 	// TS is the underlying storage layer time-series database for reading frames.
 	//
 	// [REQUIRED]
-	TS *ts.DB
+	TS *cesium.DB
 	// Instrumentation is used for logging, tracing, and metrics.
 	//
 	// [OPTIONAL] - defaults to noop instrumentation.

@@ -16,7 +16,7 @@ import {
   offsetOf,
   RAW_LEVEL,
   type RawBlock,
-  rawIndex,
+  rawTile,
   search,
 } from "@/framer/cache/block";
 import { tileRange } from "@/framer/cache/grid";
@@ -275,16 +275,16 @@ export class Joins {
    * it.
    */
   catchUpFrom(ch: channel.Key, at: TimeStamp): number {
-    let from = rawIndex(at);
+    let from = rawTile(at);
     const m = this.members.get(ch);
     if (m == null) return from;
     if (m.from != null) from = Math.min(from, m.from);
     const first = m.held.find((s) => s.length > 0);
     if (first == null) return from;
     if (m === m.join.indexMember)
-      return Math.min(from, rawIndex(new TimeStamp(first.data[0])));
+      return Math.min(from, rawTile(new TimeStamp(first.data[0])));
     if (first.timeRange.isZero) return from;
-    return Math.min(from, rawIndex(first.timeRange.start));
+    return Math.min(from, rawTile(first.timeRange.start));
   }
 
   /**
@@ -494,8 +494,8 @@ export class Joins {
   private runs(index: channel.Key, s: Series): Run[] {
     const runs: Run[] = [];
     for (let lo = 0; lo < s.length;) {
-      const b = rawIndex(new TimeStamp(s.data[lo]));
-      const end = tileRange({ level: RAW_LEVEL, index: b }).end.valueOf();
+      const b = rawTile(new TimeStamp(s.data[lo]));
+      const end = tileRange({ level: RAW_LEVEL, tile: b }).end.valueOf();
       const hi = search(s, end, lo);
       const block = this.store.raw(index, b);
       const newest = newestOf(block);
