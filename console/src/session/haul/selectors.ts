@@ -19,10 +19,9 @@ import {
 } from "@/session/haul/slice";
 import { Select } from "@/session/select";
 
-const selectHauling = (state: StoreState): Haul.DraggingState =>
-  state[SLICE_NAME].state;
+const selectHauling = (state: StoreState): Haul.State => state[SLICE_NAME].state;
 
-const useSelectHauling = (): Haul.DraggingState => Select.useMemo(selectHauling, []);
+const useSelectHauling = (): Haul.State => Select.useMemo(selectHauling, []);
 
 /** @returns props that keep the Haul provider's drag state in the session. */
 export const useProviderProps = (): Haul.ProviderProps => {
