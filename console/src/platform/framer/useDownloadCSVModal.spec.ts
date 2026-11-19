@@ -9,7 +9,7 @@
 
 import { DataType } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { id, TimeRange, TimeStamp } from "@synnaxlabs/x";
+import { id, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -46,6 +46,26 @@ describe("useDownloadCSVModal", () => {
       });
       await waitFor(() =>
         expect(findButton("Download").className).not.toContain("lyra--disabled"),
+      );
+    });
+
+    it("shows a range that still runs as ending now", async () => {
+      await openDownloadModal({
+        timeRange: new TimeRange(TimeStamp.seconds(0), TimeStamp.MAX).numeric,
+        channels: [],
+        name: "My Plot",
+      });
+      await waitFor(() => expect(document.body.textContent).toMatch(/To\s*Today/));
+    });
+
+    it("shows a range that has not started as starting now", async () => {
+      await openDownloadModal({
+        timeRange: new TimeRange(TimeStamp.MAX, TimeStamp.MAX).numeric,
+        channels: [],
+        name: "My Plot",
+      });
+      await waitFor(() =>
+        expect(document.body.textContent).toMatch(/From\s*Today.*To\s*Today/),
       );
     });
 
@@ -127,6 +147,45 @@ describe("useDownloadCSVModal", () => {
       await waitFor(() =>
         expect(screen.queryByText("Download data for export as CSV")).toBeNull(),
       );
+    });
+
+    it("reads every sample of a range that still runs up to the download", async () => {
+      const client = createTestClient();
+      const suffix = id.create().replace(/-/g, "_");
+      const indexCh = await client.channels.create({
+        name: `csv_dl_time_${suffix}`,
+        dataType: DataType.TIMESTAMP,
+        isIndex: true,
+      });
+      const dataCh = await client.channels.create({
+        name: `csv_dl_data_${suffix}`,
+        dataType: DataType.FLOAT64,
+        index: indexCh.key,
+      });
+      // A float of this start rounds up past it.
+      const start = new TimeStamp((TimeStamp.now().valueOf() / 256n) * 256n + 200n);
+      await client.write(start, { [indexCh.key]: [start], [dataCh.key]: [1] });
+      await openDownloadModal(
+        {
+          timeRange: new TimeRange(start, TimeStamp.MAX),
+          channels: [dataCh.key],
+          name: "running",
+        },
+        { client },
+      );
+      const downloadButton = await waitFor(() => {
+        const btn = findButton("Download");
+        expect(btn.className).not.toContain("lyra--disabled");
+        return btn;
+      });
+      const late = TimeStamp.now().add(TimeSpan.SECOND);
+      await client.write(late, { [indexCh.key]: [late], [dataCh.key]: [2] });
+      await act(async () => {
+        fireEvent.click(downloadButton);
+      });
+      await waitFor(() => expect(downloads.blobs).toHaveLength(1));
+      const rows = (await readBlob(downloads.blobs[0])).trim().split("\n");
+      expect(rows.slice(1).map((r) => Number(r.split(",").at(-1)))).toEqual([1, 2]);
     });
   });
 });

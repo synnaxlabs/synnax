@@ -712,7 +712,7 @@ export class Log
     const upper = regHeight * SCROLLBAR_RENDER_THRESHOLD;
     if (proportionalHeight >= upper && top.tail === 0) return;
     const height = bounds.clamp(
-      { lower: SCROLLBAR_MIN_HEIGHT, upper },
+      { lower: Math.min(SCROLLBAR_MIN_HEIGHT, upper), upper },
       proportionalHeight,
     );
     // The thumb travels the track less its own height, over the entries that sit

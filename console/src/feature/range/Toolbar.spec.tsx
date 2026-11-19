@@ -19,7 +19,7 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
 import { color as xcolor, sleep, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { renderLinePlot } from "@/feature/lineplot/testutil";
 import { Toolbar as LinePlotToolbar } from "@/feature/lineplot/toolbar";
@@ -108,10 +108,19 @@ const groupOf = (title: string): HTMLElement =>
   screen.getByRole("region", { name: title });
 
 // The toolbar's first fetch can outlast the default 1 s wait on a busy runner.
+/** Clicks Show more until the line loads, since other specs can fill the first page. */
 const findLine = async (title: string, name: string): Promise<HTMLElement> =>
-  await waitFor(() => within(groupOf(title)).getByRole("listitem", { name }), {
-    timeout: 10_000,
-  });
+  await waitFor(
+    () => {
+      const group = groupOf(title);
+      const line = within(group).queryByRole("listitem", { name });
+      if (line != null) return line;
+      const more = within(group).queryByRole("button", { name: "Show more" });
+      if (more != null) fireEvent.click(more);
+      throw new Error(`${title} has no line named ${name}`);
+    },
+    { timeout: 10_000 },
+  );
 
 /** Running shows only while a range runs, so its group can be absent. */
 const queryLine = (title: string, name: string): HTMLElement | null => {
@@ -150,6 +159,46 @@ describe("range/Toolbar", () => {
       await renderToolbar();
       const line = await findLine("Running", rng.name);
       expect(line.textContent).toMatch(/1m \d\ds/);
+    });
+
+    it("should show a running range behind a page of newer ones after Show more, and keep the pages as others start", async () => {
+      const oldest = await createRunning(uniqueRangeName("oldest"), {
+        since: TimeSpan.minutes(5),
+      });
+      const newer = await client.ranges.create(
+        Array.from({ length: 120 }, () => ({
+          name: uniqueRangeName("newer"),
+          timeRange: new TimeRange(TimeStamp.now().sub(TimeSpan.SECOND), TimeStamp.MAX),
+        })),
+      );
+      onTestFinished(async () => await client.ranges.delete(newer.map((r) => r.key)));
+      await renderToolbar();
+      await waitFor(
+        () => within(groupOf("Running")).getByRole("button", { name: "Show more" }),
+        { timeout: 10_000 },
+      );
+      expect(queryLine("Running", oldest.name)).toBeNull();
+      expect(within(groupOf("Running")).getByText(/^\d+\+$/)).toBeTruthy();
+      expect(await findLine("Running", oldest.name)).toBeTruthy();
+      // A range that starts later joins Running only through the read for its start.
+      const starting = await createRange(
+        uniqueRangeName("starting"),
+        new TimeRange(TimeStamp.now().add(TimeSpan.SECOND), TimeStamp.MAX),
+      );
+      onTestFinished(async () => await client.ranges.delete(starting.key));
+      await waitFor(
+        () => within(groupOf("Running")).getByRole("listitem", { name: starting.name }),
+        { timeout: 10_000 },
+      );
+      // Both lists read for the new start at once, and a busy list shows held keys.
+      const list = groupOf("Running").closest<HTMLElement>('[role="list"]');
+      await waitFor(() => expect(list?.getAttribute("aria-busy")).toBe("false"), {
+        timeout: 10_000,
+      });
+      // Other specs can push this range past the loaded pages, so the count checks that
+      // the pages stayed.
+      const count = within(groupOf("Running")).getByText(/^\d+\+?$/).textContent ?? "";
+      expect(parseInt(count, 10)).toBeGreaterThan(100);
     });
 
     it("should move ranges from Running to Recent as they end, newest end first", async () => {
@@ -213,11 +262,16 @@ describe("range/Toolbar", () => {
         },
       );
       expect(within(finished).getByText(run.name)).toBeTruthy();
-      fireEvent.click(
-        await within(await findLine("Running", run.name)).findByRole("button", {
-          name: "Stop",
-        }),
-      );
+      // "should stop a running range" covers Stop, so the run ends through the client.
+      expect(
+        await client.ranges.dispatch(
+          run.key,
+          ranger.set({
+            path: ["timeRange"],
+            value: new TimeRange(run.timeRange.start, TimeStamp.now()).numeric,
+          }),
+        ),
+      ).toBe(true);
       const ended = await findLine("Recent", run.name);
       await waitFor(() => expect(queryLine("Recent", phase.name)).toBeNull());
       fireEvent.click(within(ended).getByRole("button", { name: "Expand" }));

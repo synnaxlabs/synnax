@@ -490,6 +490,21 @@ describe("Provider", () => {
     }
   });
 
+  it("keeps the window for a viewport that ends at the window's end", () => {
+    const retrieve = vi.spyOn(ranger.listDefinition, "retrieve");
+    try {
+      const provider = mount();
+      const end = TimeStamp.MAX;
+      const ending = (span: TimeSpan) =>
+        provider.render(renderProps(new TimeRange(end.sub(span), end)));
+      ending(TimeSpan.seconds(30));
+      ending(TimeSpan.seconds(28));
+      expect(retrieve).toHaveBeenCalledTimes(1);
+    } finally {
+      retrieve.mockRestore();
+    }
+  });
+
   it("requeries once the viewport zooms in past 2x", () => {
     const retrieve = vi.spyOn(ranger.listDefinition, "retrieve");
     try {
