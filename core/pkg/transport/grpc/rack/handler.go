@@ -171,29 +171,33 @@ func (deleteRequestTranslator) Backward(
 	}, nil
 }
 
-func New(t *api.Transport) grpc.BindableTransport {
+func New(t *api.Transport, errs *errors.Codec) grpc.BindableTransport {
 	create := &createServer{
 		RequestTranslator:  createRequestTranslator{},
 		ResponseTranslator: createResponseTranslator{},
 		ServiceDesc:        &RackCreateService_ServiceDesc,
+		Errors:             errs,
 	}
 	t.RackCreate = create
 	retrieve := &retrieveServer{
 		RequestTranslator:  retrieveRequestTranslator{},
 		ResponseTranslator: retrieveResponseTranslator{},
 		ServiceDesc:        &RackRetrieveService_ServiceDesc,
+		Errors:             errs,
 	}
 	t.RackRetrieve = retrieve
 	del := &deleteServer{
 		RequestTranslator:  deleteRequestTranslator{},
 		ResponseTranslator: grpc.EmptyTranslator{},
 		ServiceDesc:        &RackDeleteService_ServiceDesc,
+		Errors:             errs,
 	}
 	t.RackDelete = del
 	dispatch := &dispatchServer{
 		RequestTranslator:  dispatchRequestTranslator{},
 		ResponseTranslator: grpc.EmptyTranslator{},
 		ServiceDesc:        &RackDispatchService_ServiceDesc,
+		Errors:             errs,
 	}
 	t.RackDispatch = dispatch
 

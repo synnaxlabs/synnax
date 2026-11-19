@@ -9,11 +9,13 @@
 
 from __future__ import annotations
 
-from typing import cast, override
+from typing import override
 
-from pydantic import BaseModel
+from pydantic import BaseModel, TypeAdapter
 
 from synnax.resource.types_gen import Type
+
+_TYPE = TypeAdapter[Type](Type)
 
 
 class ID(BaseModel):
@@ -30,9 +32,7 @@ class ID(BaseModel):
             super().__init__(key=key.key, type=key.type)
         elif type is None and key is not None:
             type_str, key = key.split(":")
-            # cast satisfies mypy; pydantic validates the value against the Type literal
-            # at runtime.
-            super().__init__(key=key, type=cast(Type, type_str))
+            super().__init__(key=key, type=_TYPE.validate_python(type_str))
         else:
             super().__init__(key=key, type=type)
 

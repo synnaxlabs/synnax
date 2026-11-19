@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { scheduler } from "@synnaxlabs/x";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { onDemand } from "@/util/island";
@@ -33,7 +34,7 @@ const press = (key: string, metaKey = false): KeyboardEvent => {
 };
 
 const flush = async (): Promise<void> => {
-  await new Promise((resolve) => setTimeout(resolve));
+  await scheduler.nextTask();
 };
 
 describe("onDemand", () => {

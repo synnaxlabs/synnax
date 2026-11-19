@@ -16,9 +16,15 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from synnax import channel, group as group_, project as project_, ranger
+from synnax import (
+    channel,
+    color as color_,
+    group as group_,
+    project as project_,
+    ranger,
+)
 from synnax.resource import ID
-from x import color as color_, filter, spatial, text
+from x import filter, spatial, text
 from x.filter import shorthand
 
 AXIS_KEY_X1: Literal["x1"] = "x1"
@@ -167,8 +173,9 @@ class Line(BaseModel):
         x_channel: Is the channel plotted on the x-axis, or 0 to plot against time.
         label: Is the user-specified line label. Null means derive from the channel name
             at render time; non-null is an override.
-        color: Is the line color. When null, the Console assigns one from the
-            visualization palette at render time.
+        color: Is the line color, a named color or a fixed color. A write with no color
+            gets the series color that the fewest other lines use, and a tie goes to the
+            first.
         stroke_width: Is the line stroke width in pixels.
         aggregation: Selects how the line reduces the samples of one pixel group.
         detail: Selects how many sample groups the line draws per pixel column.
@@ -179,7 +186,7 @@ class Line(BaseModel):
     y_channel: channel.Key = Field(ge=0, le=4294967295)
     x_channel: channel.Key = Field(default=channel.Key(0), ge=0, le=4294967295)
     label: str | None = None
-    color: color_.Color | None = None
+    color: color_.Ref | None = None
     stroke_width: float = Field(default=2, ge=1, allow_inf_nan=False)
     aggregation: Aggregation = "min_max"
     detail: Detail = "medium"
@@ -191,8 +198,9 @@ class Rule(BaseModel):
     Attributes:
         key: Is the unique rule identifier within the line plot.
         label: Is the human-readable label rendered alongside the rule.
-        color: Is the display color of the rule. When null, the Console assigns a
-            default at render time.
+        color: Is the display color of the rule, a named color or a fixed color. A write
+            with no color gets the series color that the fewest other rules use, and a
+            tie goes to the first.
         axis: Is the axis the rule is anchored to.
         line_width: Is the rule line width in pixels.
         line_dash: Is the dash length in pixels; 0 renders a solid line.
@@ -202,7 +210,7 @@ class Rule(BaseModel):
 
     key: str
     label: str
-    color: color_.Color | None = None
+    color: color_.Ref | None = None
     axis: AxisKey
     line_width: float = 1
     line_dash: float = 0
@@ -372,7 +380,7 @@ class LinePlot(BaseModel):
     """
 
     key: Key = Field(default_factory=uuid4)
-    name: str
+    name: str = Field(min_length=1)
     title: Title = Field(default_factory=lambda: Title())
     legend: Legend = Field(default_factory=lambda: Legend())
     channels: Channels = Field(default_factory=lambda: Channels())

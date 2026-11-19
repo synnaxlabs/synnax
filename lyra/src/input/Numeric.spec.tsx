@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { scheduler } from "@synnaxlabs/x";
 import { act, fireEvent, render, type RenderResult } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -45,7 +46,7 @@ const release = (el: HTMLElement, x: number): void => {
 const settle = async (): Promise<void> =>
   await act(async () => {
     await import("mathjs");
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await scheduler.nextTask();
   });
 
 describe("Input.Numeric", () => {

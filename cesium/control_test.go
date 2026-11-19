@@ -39,7 +39,7 @@ func observeControl(
 ) (<-chan cesium.ControlUpdate, observe.Disconnect) {
 	updates := make(chan cesium.ControlUpdate, 100)
 	return updates, db.OnControlUpdate(
-		func(_ context.Context, u cesium.ControlUpdate) {
+		func(u cesium.ControlUpdate) {
 			select {
 			case updates <- u:
 			default:
@@ -66,7 +66,7 @@ var _ = Describe("Control", func() {
 				)
 				BeforeAll(func(ctx SpecContext) {
 					ShouldNotLeakGoroutines()
-					db = DeferClose(mustOpenDBOnFS(ctx, fs))
+					db = mustOpenDBOnFS(ctx, fs)
 				})
 				BeforeEach(func(ctx SpecContext) {
 					idxCh, dataCh = GenerateChannelKey(), GenerateChannelKey()
@@ -338,7 +338,7 @@ var _ = Describe("Control", func() {
 				}
 				BeforeAll(func(ctx SpecContext) {
 					ShouldNotLeakGoroutines()
-					db = DeferClose(mustOpenDBOnFS(ctx, fs))
+					db = mustOpenDBOnFS(ctx, fs)
 				})
 				BeforeEach(func(ctx SpecContext) { idx = createIndex(ctx) })
 
@@ -674,7 +674,7 @@ var _ = Describe("Control", func() {
 
 							ctx1, cancel1 := signal.Isolated()
 
-							w1In, _ := confluence.Attach(w1, 2)
+							w1In, w1Out := confluence.Attach(w1, 2)
 							w2In, w2Out := confluence.Attach(w2, 2)
 
 							w1.Flow(ctx1, confluence.CloseOutputInletsOnExit())
@@ -694,6 +694,10 @@ var _ = Describe("Control", func() {
 									},
 								),
 							}
+							var r cesium.WriterResponse
+							Eventually(w1Out.Outlet()).Should(Receive(&r))
+							Expect(r.Command).To(Equal(cesium.WriterCommandWrite))
+							Expect(r.Err).ToNot(HaveOccurred())
 
 							var d cesium.ControlUpdate
 							Eventually(updates).Should(Receive(&d))
@@ -728,13 +732,16 @@ var _ = Describe("Control", func() {
 									},
 								),
 							}
+							Eventually(w2Out.Outlet()).Should(Receive(&r))
+							Expect(r.Command).To(Equal(cesium.WriterCommandWrite))
 
 							By("Committing the second writer")
 							w2In.Inlet() <- cesium.WriterRequest{
 								Command: cesium.WriterCommandCommit,
 							}
-							var r cesium.WriterResponse
 							Eventually(w2Out.Outlet()).Should(Receive(&r))
+							Expect(r.Command).To(Equal(cesium.WriterCommandCommit))
+							Expect(r.End).To(Equal(15*telem.SecondTS + 1))
 
 							By("Shutting down the second writer")
 							w2In.Close()

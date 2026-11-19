@@ -11,8 +11,10 @@
 #include <array>
 #include <cmath>
 #include <format>
+#include <iterator>
 #include <numeric>
 #include <set>
+#include <span>
 #include <tuple>
 #include <utility>
 
@@ -36,6 +38,10 @@ const x::telem::Rate MIN_CYCLE_RATE(100);
 const x::telem::Rate MAX_CYCLE_RATE(10000);
 /// @brief how often the supervisor reads slave states.
 const auto SUPERVISOR_INTERVAL = x::telem::MILLISECOND * 100;
+/// @brief the longest wait for the frames in flight when the bus stops.
+const auto LAST_FRAME_TIMEOUT = x::telem::MILLISECOND * 10;
+/// @brief the wait between receives of a frame in flight when the bus stops.
+const auto LAST_FRAME_POLL = x::telem::MICROSECOND * 100;
 /// @brief how often a call that needs the stopped bus tries mu again.
 const auto LOCK_POLL_INTERVAL = x::telem::MILLISECOND * 10;
 /// @brief how long each step of a start may run before the task warns.
@@ -200,7 +206,7 @@ x::errors::Error left_out_error(
     const slave::Refusal &refusal
 ) {
     auto msg = std::format(
-        "Slave {} ({}) is left out of the network: it {}. Fix the device, then stop "
+        "Module {} ({}) is left out of the network: it {}. Fix the device, then stop "
         "every task on the network to try it again.",
         position,
         name,
@@ -224,7 +230,7 @@ std::string unapplied(
         const bool one = it->second == 1;
         if (!text.empty()) text += ' ';
         text += std::format(
-            "Slave {} ({}) is set up for {}, so Synnax did not apply its {} startup "
+            "Module {} ({}) is set up for {}, so Synnax did not apply its {} startup "
             "setting{}. Remove {}, or switch the device to Synnax in Configure.",
             props.position,
             props.name,
@@ -253,7 +259,7 @@ x::errors::Error Engine::start_error(
     for (const auto &[_, refusal]: refused)
         add_advice(refusal);
     for (const auto &[pos, left]: left_out) {
-        err.data += " The Driver left out slave " + std::to_string(pos) +
+        err.data += " The Driver left out module " + std::to_string(pos) +
                     " because it " + left.refusal.reason + ".";
         add_advice(left.refusal);
     }
@@ -357,8 +363,8 @@ std::vector<std::pair<uint16_t, std::string>> Engine::slaves_of(
 
 std::string
 Engine::out_of_op(const uint16_t position, const std::string &name, const bool silent) {
-    if (silent) return std::format("Lost contact with slave {} ({}).", position, name);
-    return std::format("Slave {} ({}) is not in OP.", position, name);
+    if (silent) return std::format("Lost contact with module {} ({}).", position, name);
+    return std::format("Module {} ({}) is not in OP.", position, name);
 }
 
 bool Engine::Input::lose(
@@ -385,6 +391,9 @@ void Engine::run() {
     outage.positions.reserve(this->image.slaves.size());
     outage.silent.reserve(this->image.slaves.size());
     outage.inputless.reserve(this->image.slaves.size());
+    // The slaves that a cycle drops, when the frame adds inputless ones to the outage.
+    std::vector<uint16_t> cycle_dropped;
+    cycle_dropped.reserve(this->image.slaves.size());
     uint64_t outage_version = 0;
     // How far the time of the latest full cycle ran ahead of its send. A short cycle
     // keeps it, since its DC time can be stale.
@@ -398,16 +407,39 @@ void Engine::run() {
     // The cycle_err that this thread stored last.
     x::errors::Error stored_err;
     uint64_t send_failures = 0;
-    x::telem::TimeStamp sent_at{};
+    // The send time of each frame in flight, oldest first.
+    std::vector<x::telem::TimeStamp> in_flight;
+    in_flight.reserve(master::MAX_FRAMES_IN_FLIGHT + 1);
+    // Whether a frame is left to take before the next wait.
+    bool taking = false;
+    // The newest DC time of the frames taken since the last wait. The timer shifts
+    // once a wait, since an older frame measured a phase that this shift corrects too.
+    std::optional<x::telem::TimeStamp> wake_dc;
     Clock clock;
     // The working counter falls short until the slaves reach OP.
     const auto shortfall = [this](const x::errors::Error &err) {
         return this->starting.load(std::memory_order_acquire) &&
                err.matches(errors::WORKING_COUNTER_ERROR);
     };
+    // How much further than the outage the slaves that a cycle found with no inputs can
+    // keep the working counter from a full cycle.
+    const auto inputless_shortfall =
+        [this, &outage](const std::span<const uint16_t> inputless) {
+            uint32_t extra = 0;
+            for (const auto pos: inputless) {
+                const auto share = this->image.working_counter_shares.find(pos);
+                if (share == this->image.working_counter_shares.end() ||
+                    std::ranges::binary_search(outage.inputless, pos))
+                    continue;
+                extra += share->second.inputs;
+                if (!std::ranges::binary_search(outage.positions, pos))
+                    extra += share->second.outputs;
+            }
+            return extra;
+        };
 
     const auto send = [&] {
-        sent_at = this->config.host_clock.now();
+        in_flight.push_back(this->config.host_clock.now());
         if (auto err = this->master->send(); err) {
             if (send_failures++ == 0)
                 LOG(WARNING) << "[ethercat] send failed on " << this->iface << ": "
@@ -455,6 +487,7 @@ void Engine::run() {
                     phase.reset();
                 else
                     phase.emplace(sched->rate, syncs);
+                wake_dc.reset();
                 // Moves each reader's next sample to the first cycle at or after the
                 // time it was due.
                 if (prev > x::telem::Rate(0))
@@ -466,16 +499,38 @@ void Engine::run() {
                     }
             }
         }
-        timer.wait();
-        if (!this->bus.running()) break;
-
-        // The slaves latched these inputs when the previous cycle's frame passed.
-        auto latched_at = sent_at;
-        const auto err = this->master->receive();
+        if (!taking) {
+            if (wake_dc && phase) {
+                timer.shift(phase->update(*wake_dc));
+                if (!this->starting.load(std::memory_order_acquire) && phase->lost() &&
+                    late_frames++ == 0)
+                    LOG(WARNING) << "[ethercat] cycles on " << this->iface
+                                 << " run late: a frame passed the reference clock "
+                                    "near a SYNC0 event";
+            }
+            wake_dc.reset();
+            timer.wait();
+            if (!this->bus.running()) break;
+        }
+        // Takes each frame that came back, oldest first, as the data of its own cycle.
+        const auto &err = this->master->receive();
+        if (err.matches(errors::FRAME_IN_FLIGHT)) {
+            taking = false;
+            this->write_outputs(false);
+            send();
+            continue;
+        }
+        const auto frame_sent_at = in_flight.front();
+        in_flight.erase(in_flight.begin());
+        taking = !in_flight.empty();
+        // The slaves latched these inputs when the frame passed them.
+        auto latched_at = frame_sent_at;
         const bool starting = this->starting.load(std::memory_order_acquire);
         // A full cycle drops the inputs of the slaves that give none, since a slave
         // below SAFE-OP can keep its share of the working counter. A cycle short by
-        // what the slaves out of OP can miss drops the inputs of each of them.
+        // what the slaves out of OP can miss drops the inputs of each of them. The
+        // cycle adds the slaves that it found with no inputs, and what they can miss,
+        // before the supervisor sees them.
         const std::vector<uint16_t> *dropped = nullptr;
         if (!starting) {
             if (this->outage_version.load(std::memory_order_acquire) !=
@@ -484,16 +539,27 @@ void Engine::run() {
                 outage = this->outage;
                 outage_version = this->outage_version.load(std::memory_order_relaxed);
             }
+            const auto inputless = this->master->inputless();
             if (!err) {
                 if (!outage.inputless.empty()) dropped = &outage.inputless;
             } else if (
                 const auto missed = this->master->shortfall();
                 err.matches(errors::WORKING_COUNTER_ERROR) && missed &&
-                *missed >= outage.least_shortfall && *missed <= outage.shortfall
+                *missed >= outage.least_shortfall &&
+                *missed <= outage.shortfall + inputless_shortfall(inputless)
             ) {
                 dropped = &outage.positions;
-                latched_at = sent_at + lead;
+                latched_at = frame_sent_at + lead;
                 host_timed = true;
+            }
+            if (!inputless.empty() && (!err || dropped != nullptr)) {
+                cycle_dropped.clear();
+                std::ranges::set_union(
+                    dropped == nullptr ? std::span<const uint16_t>() : *dropped,
+                    inputless,
+                    std::back_inserter(cycle_dropped)
+                );
+                dropped = &cycle_dropped;
             }
         }
         // After the slaves reach OP, a short frame carries the DC time only when it
@@ -503,23 +569,17 @@ void Engine::run() {
                            (dropped != nullptr && ref &&
                             std::ranges::find(*dropped, *ref) == dropped->end());
         const auto dc = timed ? this->master->dc_time() : std::nullopt;
-        if (dc && phase) {
-            timer.shift(phase->update(*dc));
-            if (!starting && phase->lost() && late_frames++ == 0)
-                LOG(WARNING) << "[ethercat] cycles on " << this->iface
-                             << " run late: a frame passed the reference clock near "
-                                "a SYNC0 event";
-        }
+        if (dc) wake_dc = dc;
         if (!err) {
             if (dc && host_timed) {
                 // The distributed clock can drift from the host times of the short
                 // cycles, so its times go on from where those left off.
                 clock = Clock();
-                latched_at = clock.map(*dc, sent_at + lead);
+                latched_at = clock.map(*dc, frame_sent_at + lead);
             } else if (dc)
-                latched_at = clock.map(*dc, sent_at);
+                latched_at = clock.map(*dc, frame_sent_at);
             host_timed = false;
-            lead = latched_at - sent_at;
+            lead = latched_at - frame_sent_at;
             if (receive_failures > 0) {
                 LOG(INFO) << "[ethercat] cycles recovered on " << this->iface
                           << " after " << receive_failures << " failures";
@@ -550,15 +610,34 @@ void Engine::run() {
                 input->push(inputs, latched_at);
         }
 
+        if (taking) continue;
         this->write_outputs(false);
         send();
     }
+    const auto take_in_flight = [&] {
+        const auto deadline = this->config.host_clock.now() + LAST_FRAME_TIMEOUT;
+        x::errors::Error err;
+        while (!in_flight.empty()) {
+            err = this->master->receive();
+            if (!err.matches(errors::FRAME_IN_FLIGHT))
+                in_flight.erase(in_flight.begin());
+            else if (this->config.host_clock.now() < deadline)
+                this->config.host_clock.sleep(LAST_FRAME_POLL);
+            else
+                break;
+        }
+        return err;
+    };
+    // A master that keeps no frames in flight takes the frames of all its sends at
+    // once.
+    take_in_flight();
     // Sends the stop values of the last writer to close before the slaves leave OP.
     this->write_outputs(true);
     send();
-    if (const auto err = this->master->receive(); err && !shortfall(err))
+    const auto last_err = take_in_flight();
+    if (last_err && !shortfall(last_err))
         LOG(WARNING) << "[ethercat] last cycle failed on " << this->iface << ": "
-                     << err.message();
+                     << last_err.message();
     if (late_frames > 0)
         LOG(WARNING) << "[ethercat] " << late_frames << " frames on " << this->iface
                      << " passed the reference clock near a SYNC0 event";
@@ -672,6 +751,21 @@ x::errors::Error Engine::start_locked(
     };
     master::Plan plan{
         .period = x::telem::Rate(static_cast<double>(mhz) / 1000).period(),
+        .cancel = &start.cancel,
+        .progress = [this, &start](const size_t operational, const size_t total) {
+            report(
+                start,
+                {
+                    .message = "Starting " + this->network_name,
+                    .description = std::format(
+                        "{} of {} modules in OP.",
+                        operational,
+                        total
+                    ),
+                    .limit = ACTIVATE_STEP_LIMIT,
+                }
+            );
+        },
     };
     this->left_out.clear();
     // The activation brings a restarted slave up, so changed() misses it afterwards.
@@ -720,14 +814,16 @@ x::errors::Error Engine::start_locked(
                 {
                     .message = "Starting " + this->network_name,
                     .description = std::format(
-                        "Bringing {} slave{} to OP.",
+                        "Bringing {} module{} to OP.",
                         starting,
                         starting == 1 ? "" : "s"
                     ),
                     .limit = ACTIVATE_STEP_LIMIT,
                 }
             );
+            this->activating.store(true, std::memory_order_release);
             auto activation = this->master->activate(plan, start_cycle);
+            this->activating.store(false, std::memory_order_release);
             err = activation.err;
             if (!err) break;
             refused = std::move(activation.refusals);
@@ -757,7 +853,7 @@ x::errors::Error Engine::start_locked(
                         start,
                         {
                             .message = std::format(
-                                "Resetting slave {} ({})",
+                                "Resetting module {} ({})",
                                 pos,
                                 s == this->slaves.end() ? "" : s->properties.name
                             ),
@@ -783,6 +879,8 @@ x::errors::Error Engine::start_locked(
                 this->stop_locked();
             else
                 this->master->deactivate();
+            if (!start.cancel.running())
+                return start_canceled_error(this->network_name);
             if (!refused.empty() && io_left) {
                 for (const auto &[pos, refusal]: leaving)
                     LOG(WARNING)
@@ -914,15 +1012,16 @@ Engine::plan_locked(const std::vector<SavedSlave> &saved) const {
                 [](const slave::DiscoveryResult &d) { return d.properties.position; }
             );
             (owner->second->serial != 0 || identity.serial != 0) &&
-            live != this->slaves.end() && live->status.serial_unread())
+            live != this->slaves.end() && live->serial_unread())
             return {
                 {},
                 x::errors::Error(
                     errors::ACTIVATION_ERROR,
                     errors::sentence(
                         std::format(
-                            "{} and {} are both saved for slave {} on {} with different "
-                            "settings, and the slave did not give its serial number: {}",
+                            "{} and {} are both saved for module {} on {} with "
+                            "different settings, and the module did not give its "
+                            "serial number: {}",
                             first,
                             second,
                             *position,
@@ -938,7 +1037,7 @@ Engine::plan_locked(const std::vector<SavedSlave> &saved) const {
             x::errors::Error(
                 errors::SLAVE_CONFIG_ERROR,
                 std::format(
-                    "{} and {} are both saved for slave {} on {} with different "
+                    "{} and {} are both saved for module {} on {} with different "
                     "settings. Give them the same settings, or delete the device that "
                     "is no longer on the bus.",
                     first,
@@ -1014,7 +1113,7 @@ std::pair<uint64_t, x::errors::Error> Engine::rate_locked(
         x::errors::Error(
             errors::RATE_MISMATCH,
             std::format(
-                "The bus on {0} cycles at {1} Hz while a slave runs DC sync, and the "
+                "The bus on {0} cycles at {1} Hz while a module runs DC sync, and the "
                 "rate cannot change until every task on the port stops. Use a sample "
                 "rate that {1} Hz is a multiple of, or an execution rate of at most "
                 "{1} Hz.",
@@ -1058,7 +1157,7 @@ x::errors::Error Engine::cycle_error() const {
             return s.properties.position;
         });
         err.data += std::format(
-            ". Slave {} ({}) is not in OP: {}",
+            ". Module {} ({}) is not in OP: {}",
             h.position,
             slave == slaves.end() ? "" : slave->properties.name,
             h.to_string()
@@ -1133,7 +1232,7 @@ x::errors::Error Engine::check_settings_locked(const Settings &settings) const {
                         return x::errors::Error(
                             errors::SETTING_CONFLICT,
                             std::format(
-                                "Another task sets {} of slave {} to {}. Stop it, or "
+                                "Another task sets {} of module {} to {}. Stop it, or "
                                 "give both tasks the same value.",
                                 telem::format_index_sub_index(
                                     param.index,
@@ -1369,6 +1468,7 @@ std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Engine::redisco
 
 x::errors::Error
 Engine::lock_for(std::unique_lock<std::mutex> &lock, const Start &start) const {
+    auto polled = this->config.host_clock.steady();
     // A wait of one poll is a short hold, such as a notify of the cycle thread.
     for (int polls = 0; !lock.try_lock(); polls++) {
         if (polls == 1)
@@ -1382,8 +1482,11 @@ Engine::lock_for(std::unique_lock<std::mutex> &lock, const Start &start) const {
             );
         start.blocked = true;
         if (!start.cancel.running()) return start_canceled_error(this->network_name);
-        if (this->config.host_clock.steady() >= start.deadline)
-            return start_blocked_error(this->network_name);
+        const auto now = this->config.host_clock.steady();
+        if (this->activating.load(std::memory_order_acquire))
+            start.deadline += now - polled;
+        polled = now;
+        if (now >= start.deadline) return start_blocked_error(this->network_name);
         start.cancel.wait_for(LOCK_POLL_INTERVAL);
     }
     return x::errors::NIL;
@@ -1508,7 +1611,7 @@ void Engine::track_restarts_locked(const std::set<uint16_t> &restarted) {
         const auto &props = slave.properties;
         auto key = restart_key(props);
         auto it = this->restarts.find(key);
-        const bool unread = slave.status.serial_unread();
+        const bool unread = slave.serial_unread();
         // An unread serial number differs from the read one, so a slave with one, or
         // with one at its last discovery, is the slave of its model at its position.
         if (unread || it == this->restarts.end())

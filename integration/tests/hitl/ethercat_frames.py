@@ -8,30 +8,22 @@
 #  included in the file licenses/APL.txt.
 
 """EtherCAT read tasks on the USB Ethernet adapter of the HITL station. The adapter
-holds some frames back past their bus cycle at 1 kHz, but not at 500 Hz."""
-
-import re
+holds some frames back past their bus cycle at 1 kHz, and the Driver takes them late."""
 
 import synnax as sy
 from framework.test_case import TestCase
 from tests.driver.task import StatusWatch, delete_channels, status_text
 from tests.hitl.ethercat import START_TIMEOUT, STGS, create_read_task, prepare_bus
 
-USB_WARNING = re.compile(
-    r"Bus cycles failed: process data receive failed\. .+ is a USB adapter, which can "
-    r"hold frames back\. Use a PCIe or onboard Ethernet adapter, or lower the rate of "
-    r"the fastest task on the network\."
-)
-"""The adapter name comes from the station. The Driver joins other held reasons into the
-same description."""
-
 
 class _Read(TestCase):
-    """Runs a read task on a 6xSTG for DURATION."""
+    """Runs a read task on a 6xSTG for DURATION, and checks that it shows no warning and
+    misses fewer than MAX_MISSING samples."""
 
     task_name: str
     SAMPLE_RATE: sy.Rate
     DURATION: sy.TimeSpan
+    MAX_MISSING: int
     tsk: sy.ethercat.ReadTask | None = None
 
     def setup(self) -> None:
@@ -74,40 +66,6 @@ class _Read(TestCase):
         self.log(f"Read {len(times)} of {expected} samples")
         return watch.seen, expected - len(times)
 
-
-class EtherCATDroppedSamplesAt1kHz(_Read):
-    """Checks that a bus that drops frames on a USB adapter warns with a text that names
-    the adapter."""
-
-    task_name = "HITL EtherCAT Dropped Samples"
-    SAMPLE_RATE = 1 * sy.Rate.KHZ
-    DURATION = 30 * sy.TimeSpan.SECOND
-
-    def run(self) -> None:
-        statuses, _ = self.read()
-        problems = [s for s in statuses if s.variant in ("warning", "error")]
-        for status in problems:
-            if (status.variant, status.message) != (
-                "warning",
-                "Dropped samples",
-            ) or not USB_WARNING.search(status.description):
-                self.fail(
-                    "Expected Dropped samples with the USB adapter text, but got "
-                    f"{status.variant}: {status_text(status)}"
-                )
-        if not problems:
-            self.fail(f"Expected a Dropped samples warning in {self.DURATION}")
-
-
-class EtherCATSamplesAt500Hz(_Read):
-    """Checks that the USB adapter keeps up at 500 Hz."""
-
-    task_name = "HITL EtherCAT Samples"
-    SAMPLE_RATE = 500 * sy.Rate.HZ
-    DURATION = 3 * sy.TimeSpan.MINUTE
-    MAX_MISSING = 10
-    """The station measures 3 missing samples in 3 minutes."""
-
     def run(self) -> None:
         statuses, missing = self.read()
         for status in statuses:
@@ -118,3 +76,25 @@ class EtherCATSamplesAt500Hz(_Read):
                 f"Expected fewer than {self.MAX_MISSING} missing samples, but missed "
                 f"{missing}"
             )
+
+
+class EtherCATSamplesAt1kHz(_Read):
+    """Checks that the Driver takes the frames that the USB adapter holds back at
+    1 kHz."""
+
+    task_name = "HITL EtherCAT Samples at 1 kHz"
+    SAMPLE_RATE = 1 * sy.Rate.KHZ
+    DURATION = 30 * sy.TimeSpan.SECOND
+    MAX_MISSING = 20
+    """The station measures 1 to 3 missing samples in 30 s, and about 200 when the
+    Driver drops each late frame."""
+
+
+class EtherCATSamplesAt500Hz(_Read):
+    """Checks that the USB adapter keeps up at 500 Hz."""
+
+    task_name = "HITL EtherCAT Samples"
+    SAMPLE_RATE = 500 * sy.Rate.HZ
+    DURATION = 3 * sy.TimeSpan.MINUTE
+    MAX_MISSING = 10
+    """The station measures 3 missing samples in 3 minutes."""

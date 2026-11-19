@@ -16,10 +16,12 @@ from dataclasses import dataclass, replace
 from typing import Any
 
 from review import render
-from review.findings import Dismissal, Finding, Review
+from review.findings import Dismissal, Finding, Review, parse
 
 GH = Callable[..., str]
 """Runs `gh` with the given arguments and optional stdin, and returns its stdout."""
+Authority = Callable[[dict[str, Any]], bool]
+"""Reports whether the author of a comment can dismiss a finding."""
 
 THREADS = """query($o: String!, $r: String!, $p: Int!, $endCursor: String) {
   repository(owner: $o, name: $r) {
@@ -31,7 +33,7 @@ THREADS = """query($o: String!, $r: String!, $p: Int!, $endCursor: String) {
           isResolved
           path
           comments(first: 100) {
-            nodes { databaseId author { __typename login } authorAssociation body }
+            nodes { databaseId author { __typename login } body }
           }
         }
       }
@@ -43,10 +45,21 @@ EDITS = """query($o: String!, $r: String!, $p: Int!, $endCursor: String) {
     pullRequest(number: $p) {
       userContentEdits(first: 100, after: $endCursor) {
         pageInfo { hasNextPage endCursor }
-        nodes { editor { __typename login } diff }
+        nodes { editor { __typename login } diff editedAt }
       }
     }
   }
+}"""
+REPLY = """mutation($t: ID!, $b: String!) {
+  addPullRequestReviewThreadReply(input: {pullRequestReviewThreadId: $t, body: $b}) {
+    comment { id }
+  }
+}"""
+BLOB = """query($o: String!, $r: String!, $e: String!) {
+  repository(owner: $o, name: $r) { object(expression: $e) { oid } }
+}"""
+RESOLVE = """mutation($t: ID!) {
+  resolveReviewThread(input: {threadId: $t}) { thread { id } }
 }"""
 THREAD_NODES = (
     ".data.repository.pullRequest.reviewThreads.nodes[]"
@@ -56,14 +69,20 @@ THREAD_NODES = (
 
 COMMAND = re.compile(r"@sedosaur\s+dismiss\b", re.I)
 """The reply on the thread of a finding that dismisses it."""
-MEMBERS = {"OWNER", "MEMBER", "COLLABORATOR"}
-DISMISSED = "A member dismissed every finding of the review."
+WRITE = {"admin", "write"}
+"""The repository permissions that can dismiss a finding. GitHub reports maintain as
+write."""
+AGENTS = frozenset({"synnax-claude-code", "synnax-codex"})
+"""The logins of the agents whose rebuttals the bot judges."""
+DISMISSED = "Every finding of the review is dismissed or withdrawn."
+SETTLED = "The review of {head} finds this fixed: {reason}"
 ANSWER_START = "<!-- sedosaur_answer "
 ANSWER_END = " -->"
-# The REST fields of a comment, in the shape that `member` reads from GraphQL.
+# The REST fields of a comment, in the shape that GraphQL serves.
+_FIXED = re.compile(r"(?:\*agent reply\.\*\s*)?fixed (?:in|by)\b", re.I)
 _COMMENT = (
     "{id, login: .user.login, author: {__typename: .user.type, login: .user.login}, "
-    "authorAssociation: .author_association, body}"
+    "body}"
 )
 
 _SUMMARY = re.compile(
@@ -93,19 +112,30 @@ class Target:
     """The slug of the GitHub App the review posts as."""
 
 
-def post(review: Review, *, target: Target, gh: GH) -> None:
-    """Posts a review, without the findings that a member dismissed. A review with no
-    finding left scores 5, and so does the head when the rest are dismissed while the
-    review posts. Findings on lines of the diff become one review of inline threads,
-    skipping any finding an unresolved thread of the bot already holds. Such a thread
-    gets the finding's new heading when its severity changed, and keeps the rest of its
-    comment. The findings outside the diff go in one comment the bot edits on each
-    review. The summary in the pull request body is replaced, and the check run
-    completes.
+def post(rec: dict[str, Any], *, target: Target, gh: GH) -> None:
+    """Posts the review of a record, without the findings that someone with write
+    access dismissed or that the bot withdrew. A review with no finding left scores 5,
+    and so does the head when the rest are dismissed or withdrawn while the review
+    posts. Findings on lines of the diff become one review of inline threads, skipping
+    any finding an unresolved thread of the bot already holds. Such a thread gets the
+    finding's new heading when its severity changed, and keeps the rest of its comment.
+    The findings outside the diff go in one comment the bot edits on each review. The
+    check run takes its output before any other write. Then the summary in the pull
+    request body is replaced and the check run completes. Last, while the target is
+    still the head of the pull request, each open thread of the bot whose finding the
+    review marks fixed, and does not report, is resolved with the reason as a reply. A
+    failure there only warns.
     """
     t = target
+    review = parse(rec["review"])
     found = threads(t, gh)
-    review = _drop(review, {(d.path, d.title) for d in dismissals(t, gh, found)})
+    can = authority(t, gh)
+    gone = {(d.path, d.title) for d in dismissals(t, gh, found, can)}
+    reported = {(f.path, render.title(render.heading(f))) for f in review.findings}
+    review = _drop(review, gone)
+    run = f"repos/{t.repo}/check-runs/{t.check_run}"
+    # The summary links the check run, so its output lands first.
+    write(gh, "PATCH", run, {"output": render.check(review)})
     blob = f"https://github.com/{t.repo}/blob/{t.head}"
     diff = _diff_lines(t, gh)
     inline = [f for f in review.findings if set(f.lines) <= diff.get(f.path, set())]
@@ -140,14 +170,18 @@ def post(review: Review, *, target: Target, gh: GH) -> None:
     )
     body = render.splice(body.removesuffix("\n"), block)
     write(gh, "PATCH", f"repos/{t.repo}/pulls/{t.pr}", {"body": body})
-    done = {
-        "status": "completed",
-        "conclusion": "success",
-        "output": render.check(review),
-    }
-    write(gh, "PATCH", f"repos/{t.repo}/check-runs/{t.check_run}", done)
+    write(gh, "PATCH", run, {"status": "completed", "conclusion": "success"})
+    try:
+        fixed = {
+            (f.path, f.title): f.reason
+            for f in review.fixed
+            if (f.path, f.title) not in reported | gone
+        }
+        _settle(t, gh, found, fixed)
+    except subprocess.CalledProcessError as e:
+        print(f"::warning::Could not resolve settled threads: {e}", file=sys.stderr)
     if review.findings:
-        recheck(t, gh)
+        recheck(t, gh, can)
 
 
 def _drop(review: Review, gone: set[tuple[str, str]]) -> Review:
@@ -249,24 +283,84 @@ def threads(t: Target, gh: GH) -> list[Thread]:
     return found
 
 
-def dismissed(found: list[Thread]) -> list[Dismissal]:
-    """Returns each finding that a member dismissed in one of the threads."""
+def _settle(
+    t: Target, gh: GH, found: list[Thread], fixed: dict[tuple[str, str], str]
+) -> None:
+    done = [th for th in found if not th.resolved and (th.path, th.title) in fixed]
+    if not done:
+        return
+    pr = f"repos/{t.repo}/pulls/{t.pr}"
+    if gh("api", pr, "--jq", ".head.sha").strip() != t.head:
+        return
+    for th in done:
+        resolve(gh, th)
+        reason = fixed[(th.path, th.title)]
+        reply(gh, th, SETTLED.format(head=t.head, reason=reason))
+
+
+def reply(gh: GH, thread: Thread, body: str) -> None:
+    gh(
+        "api",
+        "graphql",
+        "-f",
+        f"query={REPLY}",
+        "-f",
+        f"t={thread.id}",
+        "-f",
+        f"b={body}",
+    )
+
+
+def resolve(gh: GH, thread: Thread) -> None:
+    gh("api", "graphql", "-f", f"query={RESOLVE}", "-f", f"t={thread.id}")
+
+
+def dismissed(found: list[Thread], can: Authority) -> list[Dismissal]:
+    """Returns each finding that someone with write access dismissed in one of the
+    threads."""
     out: list[Dismissal] = []
     for th in found:
-        reasons = (command(c["body"]) for c in th.replies if member(c))
+        reasons = (command(c["body"]) for c in th.replies if can(c))
         reason = next((r for r in reasons if r is not None), None)
         if reason is not None:
             out.append(Dismissal(path=th.path, title=th.title, reason=reason))
     return out
 
 
-def dismissals(t: Target, gh: GH, found: list[Thread]) -> list[Dismissal]:
-    """Returns each finding that a member dismissed: on its thread in the threads, or
-    with a comment on the pull request that the bot answered and bound to a finding."""
+def withdrawn(t: Target, gh: GH, found: list[Thread]) -> list[Dismissal]:
+    """Returns each finding that the bot withdrew on its thread in the threads after a
+    rebuttal, while the finding's file at the head is the file the bot judged."""
+    out: list[Dismissal] = []
+    for th in found:
+        records = [
+            _record(c["body"])
+            for c in th.replies
+            if by_bot(t, c) and c["body"].startswith(ANSWER_START)
+        ]
+        records = [r for r in records if r.get("withdrawn")]
+        if records and records[-1]["blob"] == blob(t, gh, t.head, th.path):
+            reason = records[-1]["reason"]
+            out.append(
+                Dismissal(path=th.path, title=th.title, reason=reason, withdrawn=True)
+            )
+    return out
+
+
+def dismissals(
+    t: Target, gh: GH, found: list[Thread], can: Authority
+) -> list[Dismissal]:
+    """Returns each finding that someone with write access dismissed, on its thread in
+    the threads or with a comment on the pull request that the bot answered and bound
+    to a finding, and each finding that the bot withdrew and that still holds."""
     bound = [a for a in answers(t, comments(t, gh)) if "path" in a]
-    return dismissed(found) + [
-        Dismissal(path=a["path"], title=a["title"], reason=a["reason"]) for a in bound
-    ]
+    return (
+        dismissed(found, can)
+        + [
+            Dismissal(path=a["path"], title=a["title"], reason=a["reason"])
+            for a in bound
+        ]
+        + withdrawn(t, gh, found)
+    )
 
 
 def answers(t: Target, found: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -274,10 +368,76 @@ def answers(t: Target, found: list[dict[str, Any]]) -> list[dict[str, Any]]:
     comments on the pull request. A record holds the `comment` it answers and, when the
     comment dismissed a finding, its `path`, `title`, and `reason`."""
     return [
-        json.loads(c["body"][len(ANSWER_START) :].split(ANSWER_END)[0])
+        _record(c["body"])
         for c in found
         if c["login"] == f"{t.bot}[bot]" and c["body"].startswith(ANSWER_START)
     ]
+
+
+def _record(body: str) -> dict[str, Any]:
+    data: dict[str, Any] = json.loads(body[len(ANSWER_START) :].split(ANSWER_END)[0])
+    return data
+
+
+def by_bot(t: Target, comment: dict[str, Any]) -> bool:
+    """Reports whether the bot wrote a comment in the shape that GraphQL serves."""
+    return (comment["author"] or {}).get("login") == t.bot
+
+
+def pending(t: Target, th: Thread) -> list[dict[str, Any]]:
+    """Returns the replies of a thread after the last reply of the bot."""
+    last = max((i for i, r in enumerate(th.replies) if by_bot(t, r)), default=-1)
+    return th.replies[last + 1 :]
+
+
+def rebutted(t: Target, th: Thread, can: Authority) -> bool:
+    """Reports whether an open thread waits for the bot to judge a rebuttal: a reply
+    after the bot's last verdict, from someone with write access or an agent, that is
+    not a note of a fix. A dismiss command of someone with write access among those
+    replies takes precedence."""
+    last = max((i for i, r in enumerate(th.replies) if ruling(t, r)), default=-1)
+    replies = th.replies[last + 1 :]
+    if th.resolved or any(command(r["body"]) is not None and can(r) for r in replies):
+        return False
+    return any(
+        trusted(r, can) and not _FIXED.match(_unquoted(r["body"]).strip())
+        for r in replies
+    )
+
+
+def ruling(t: Target, comment: dict[str, Any]) -> bool:
+    """Reports whether a comment is the bot's verdict on a rebuttal, a hold or a
+    withdrawal, from the record in it."""
+    if not by_bot(t, comment) or not comment["body"].startswith(ANSWER_START):
+        return False
+    record = _record(comment["body"])
+    return bool(record.get("held") or record.get("withdrawn"))
+
+
+def trusted(comment: dict[str, Any], can: Authority) -> bool:
+    """Reports whether someone with write access or an agent wrote a comment, so the
+    bot judges it as a rebuttal."""
+    return can(comment) or (comment["author"] or {}).get("login") in AGENTS
+
+
+def blob(t: Target, gh: GH, commit: str, path: str) -> str | None:
+    """Returns the ID of the blob of a file at a commit, or None when it has none."""
+    owner, name = t.repo.split("/")
+    out = gh(
+        "api",
+        "graphql",
+        "-f",
+        f"query={BLOB}",
+        "-f",
+        f"o={owner}",
+        "-f",
+        f"r={name}",
+        "-f",
+        f"e={commit}:{path}",
+        "--jq",
+        ".data.repository.object.oid",
+    ).strip()
+    return None if out in ("", "null") else out
 
 
 def answer(record: dict[str, Any], text: str) -> str:
@@ -290,20 +450,32 @@ def answer(record: dict[str, Any], text: str) -> str:
 def command(body: str) -> str | None:
     """Returns the text of a reply beside the dismiss command, or None when the reply
     holds no command. Quoted lines do not count."""
-    text = "\n".join(r for r in body.splitlines() if not r.lstrip().startswith(">"))
+    text = _unquoted(body)
     if not COMMAND.search(text):
         return None
     return COMMAND.sub("", text).strip().lstrip(",:;").strip()
 
 
-def member(comment: dict[str, Any]) -> bool:
-    """Reports whether a person who is a member of the repository wrote a comment."""
-    author = comment["author"]
-    return (
-        author is not None
-        and author["__typename"] == "User"
-        and comment["authorAssociation"] in MEMBERS
-    )
+def _unquoted(body: str) -> str:
+    return "\n".join(r for r in body.splitlines() if not r.lstrip().startswith(">"))
+
+
+def authority(t: Target, gh: GH) -> Authority:
+    """Returns an `Authority` that accepts a person with write access to the repository,
+    and never a bot. It asks GitHub once for each login."""
+    known: dict[str, bool] = {}
+
+    def can(comment: dict[str, Any]) -> bool:
+        author = comment["author"]
+        if author is None or author["__typename"] != "User":
+            return False
+        login = author["login"]
+        if login not in known:
+            path = f"repos/{t.repo}/collaborators/{login}/permission"
+            known[login] = gh("api", path, "--jq", ".permission").strip() in WRITE
+        return known[login]
+
+    return can
 
 
 def newest(t: Target, gh: GH, commit: str, key: str) -> dict[str, Any] | None:
@@ -332,6 +504,17 @@ def current(run: dict[str, Any]) -> bool:
 def reviewed(t: Target, gh: GH) -> list[str]:
     """Returns each commit that the bot reviewed, newest first, from the revisions of
     the pull request body."""
+    commits: list[str] = []
+    for block in summaries(t, gh):
+        found = re.findall(r"/commit/([0-9a-f]{40})", block)
+        if found and found[-1] not in commits:
+            commits.append(found[-1])
+    return commits
+
+
+def summaries(t: Target, gh: GH) -> list[str]:
+    """Returns each summary that the bot wrote in the pull request body, newest first,
+    from the revisions of the body."""
     owner, name = t.repo.split("/")
     out = gh(
         "api",
@@ -348,16 +531,13 @@ def reviewed(t: Target, gh: GH) -> list[str]:
         "--jq",
         ".data.repository.pullRequest.userContentEdits.nodes[] | tojson",
     )
-    commits: list[str] = []
+    blocks: list[str] = []
     for line in out.splitlines():
         e = json.loads(line)
         block = _SUMMARY.search(e["diff"] or "")
-        if (e["editor"] or {}).get("login") != t.bot or block is None:
-            continue
-        found = re.findall(r"/commit/([0-9a-f]{40})", block[0])
-        if found and found[-1] not in commits:
-            commits.append(found[-1])
-    return commits
+        if (e["editor"] or {}).get("login") == t.bot and block is not None:
+            blocks.append(block[0])
+    return blocks
 
 
 def _anchor(f: Finding) -> dict[str, Any]:
@@ -375,7 +555,7 @@ def outside_findings(t: Target, gh: GH) -> set[tuple[str, str]]:
 
 
 def comments(t: Target, gh: GH) -> list[dict[str, Any]]:
-    """Returns the comments on the pull request in the shape that `member` reads."""
+    """Returns the comments on the pull request in the shape that GraphQL serves."""
     out = gh(
         "api",
         "--paginate",
@@ -387,7 +567,7 @@ def comments(t: Target, gh: GH) -> list[dict[str, Any]]:
 
 
 def issue_comment(t: Target, gh: GH, id: int) -> dict[str, Any] | None:
-    """Returns a comment on the pull request in the shape that `member` reads, or None
+    """Returns a comment on the pull request in the shape that GraphQL serves, or None
     when the comment is on another issue or pull request."""
     out = gh(
         "api",
@@ -413,13 +593,13 @@ def _upsert_outside(t: Target, gh: GH, body: str, *, created: bool) -> None:
         write(gh, "POST", f"repos/{t.repo}/issues/{t.pr}/comments", {"body": body})
 
 
-def recheck(t: Target, gh: GH) -> None:
+def recheck(t: Target, gh: GH, can: Authority) -> None:
     """Runs `rescore` once the check run of the target completes, for a dismissal that
     found it running. The head has its review, so a failure only warns."""
     try:
         run = f"repos/{t.repo}/check-runs/{t.check_run}"
         key = gh("api", run, "--jq", ".external_id").strip()
-        rescore(t, gh, threads(t, gh), key)
+        rescore(t, gh, threads(t, gh), key, can)
     except subprocess.CalledProcessError as e:
         print(
             f"::warning::Could not read dismissals after the review: {e}",
@@ -427,9 +607,10 @@ def recheck(t: Target, gh: GH) -> None:
         )
 
 
-def rescore(t: Target, gh: GH, found: list[Thread], key: str) -> bool:
-    """Scores the head 5/5 in a new check run when a member dismissed every finding of
-    its newest review, in the threads or in answered comments. Returns whether it did.
+def rescore(t: Target, gh: GH, found: list[Thread], key: str, can: Authority) -> bool:
+    """Scores the head 5/5 in a new check run when every finding of its newest review is
+    dismissed by someone with write access, in the threads or in answered comments, or
+    withdrawn by the bot. Returns whether it did.
 
     :param key: The external ID of the review's check run, `<pr>:<base ref>`.
     """
@@ -441,7 +622,7 @@ def rescore(t: Target, gh: GH, found: list[Thread], key: str) -> bool:
     listed = render.listed(run["output"]["text"] or "")
     if not listed:
         return False
-    gone = {(d.path, d.title) for d in dismissals(t, gh, found)}
+    gone = {(d.path, d.title) for d in dismissals(t, gh, found, can)}
     if not listed <= gone:
         return False
     output = {

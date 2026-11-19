@@ -96,14 +96,15 @@ jobs:
       RELEASE_TAG: ${{ inputs.release_tag }}
       APP: ${{ inputs.desktop && 'Synnax Desktop' || 'Synnax' }}
       PRODUCT: ${{ inputs.desktop && 'desktop' || 'console' }}
-      OS_NAME:
-        ${{ startsWith(matrix.os, 'macos') && 'macos' || startsWith(matrix.os, 'ubuntu')
-        && 'linux' || 'windows' }}
+      OS_NAME: ${{ startsWith(matrix.os, 'macos') && 'macos' || 'windows' }}
       EXECUTABLE: ${{ startsWith(matrix.os, 'windows') && '.exe' || '' }}
       BINARY_DIR: console/src-tauri/target/release
       BUNDLE_DIR: console/src-tauri/target/release/bundle
-      # The bundle stage has the compiled app, so it only bundles.
-      TAURI: ${{ inputs.stage == 'bundle' && 'pnpm exec tauri bundle' || 'pnpm build' }}
+      # The bundle stage has the compiled app, so it only bundles. tauri bundle takes no
+      # features from the config, and without desktop it leaves out the key helper.
+      TAURI:
+        ${{ inputs.stage == 'bundle' && format('pnpm exec tauri bundle{0}',
+        inputs.desktop && ' --features desktop' || '') || 'pnpm build' }}
       # The name must not start with synnax-desktop-, which release.yaml downloads as
       # the bundles.
       BINARY_ARTIFACT:
@@ -131,13 +132,6 @@ jobs:
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
           KEYCHAIN_NAME: build-${{ runner.name }}.keychain
         run: .github/scripts/import_apple_certificate.sh
-
-      - name: Install Linux build dependencies
-        if: env.OS_NAME == 'linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev \
-            librsvg2-dev patchelf file
 
       - name: Set up pnpm and Node.js
         uses: ./.github/actions/setup-pnpm
@@ -174,10 +168,6 @@ jobs:
           BUILD="$(jq -r .build.beforeBuildCommand src-tauri/tauri.conf.json)"
           if [ "$PRODUCT" = desktop ]; then
             BASE="$(cat src-tauri/tauri.desktop.conf.json)"
-          fi
-          if [ "$PRODUCT" = desktop ] && [ "$OS_NAME" = linux ]; then
-            BASE="$(jq -s '.[0] * .[1]' - src-tauri/tauri.desktop.linux.conf.json \
-              <<< "$BASE")"
           fi
           # A Desktop release sends its source maps to PostHog, which resolves exception
           # stacks with them. The chunk IDs go in after the frontend builds and before
@@ -274,7 +264,10 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: ${{ env.BINARY_ARTIFACT }}
-          path: ${{ env.BINARY_DIR }}/synnax-console${{ env.EXECUTABLE }}
+          # Only Desktop builds the key helper.
+          path: |
+            ${{ env.BINARY_DIR }}/synnax-console${{ env.EXECUTABLE }}
+            ${{ env.BINARY_DIR }}/synnax-desktop-key${{ env.EXECUTABLE }}
           retention-days: 7
           if-no-files-found: error
 
@@ -286,9 +279,13 @@ jobs:
           path: ${{ env.BINARY_DIR }}
 
       # An artifact does not keep the executable bit.
-      - name: Make app binary executable
+      - name: Make app binaries executable
         if: inputs.stage == 'bundle'
-        run: chmod +x "$BINARY_DIR/synnax-console$EXECUTABLE"
+        run: |
+          chmod +x "$BINARY_DIR/synnax-console$EXECUTABLE"
+          if [ "$PRODUCT" = desktop ]; then
+            chmod +x "$BINARY_DIR/synnax-desktop-key$EXECUTABLE"
+          fi
 
       - name: Build app (signed)
         if: inputs.sign_binaries && inputs.stage != 'compile'
@@ -341,11 +338,6 @@ jobs:
             if [ -f "$BUNDLE_DIR/macos/${APP}.app.tar.gz" ]; then
               stage "macos/${APP}.app.tar.gz" "${NAME}.app.tar.gz"
             fi
-          elif [ "$OS_NAME" = "linux" ]; then
-            stage "appimage/${APP}_${APP_VERSION}_amd64.AppImage" \
-              "${NAME}_${APP_VERSION}_amd64.AppImage"
-            stage "deb/${APP}_${APP_VERSION}_amd64.deb" \
-              "${NAME}_${APP_VERSION}_amd64.deb"
           else
             stage "msi/${APP}_${APP_VERSION}_x64_en-US.msi" \
               "${NAME}_${APP_VERSION}_x64_en-US.msi"

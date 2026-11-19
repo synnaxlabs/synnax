@@ -131,7 +131,7 @@ type Inlet[V Value] interface {
 	// InletAddress returns the address of the Inlet.
 	InletAddress() address.Address
 	// SetInletAddress sets the OutletAddress of the Inlet.
-	SetInletAddress(address.Address)
+	SetInletAddress(addr address.Address)
 	Closable
 }
 
@@ -149,7 +149,7 @@ type Outlet[V Value] interface {
 	// OutletAddress returns the address of the Outlet.
 	OutletAddress() address.Address
 	// SetOutletAddress sets the OutletAddress of the Outlet.
-	SetOutletAddress(address.Address)
+	SetOutletAddress(addr address.Address)
 }
 
 // NopFlow implements Flow and does nothing.

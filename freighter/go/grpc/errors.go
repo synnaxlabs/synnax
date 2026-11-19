@@ -11,10 +11,9 @@ package grpc
 
 import "github.com/synnaxlabs/x/errors"
 
-// EncodeError encodes the given error into a protobuf error payload. If the type of
-// the error cannot be determined, returns a payload with type TypeUnknown and the error
-// message. If the error is nil, returns a payload with type TypeNil.
-func EncodeError(err error, internal bool) *errors.PBPayload {
-	pld := errors.Encode(err, internal)
+// EncodeError encodes err with codec into a protobuf error payload. See
+// errors.Codec.Encode for the payload of an error that codec does not handle.
+func EncodeError(codec *errors.Codec, err error, internal bool) *errors.PBPayload {
+	pld := codec.Encode(err, internal)
 	return &errors.PBPayload{Type: pld.Type, Data: pld.Data}
 }

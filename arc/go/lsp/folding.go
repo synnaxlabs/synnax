@@ -60,7 +60,11 @@ func isFoldableKind(kind symbol.Kind) bool {
 	switch kind {
 	case symbol.KindFunction, symbol.KindSequence, symbol.KindStage, symbol.KindLoop:
 		return true
-	default:
+	case symbol.KindVariable, symbol.KindStatefulVariable, symbol.KindChannel,
+		symbol.KindBlock, symbol.KindInput, symbol.KindOutput, symbol.KindConstant,
+		symbol.KindLoopVariable, symbol.KindModule, symbol.KindModuleAlias,
+		symbol.KindAmbient:
 		return false
 	}
+	panic("unknown symbol kind " + kind.String())
 }

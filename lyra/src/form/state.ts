@@ -7,15 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  deep,
-  type destructor,
-  errors,
-  map,
-  observe,
-  type record,
-  zod,
-} from "@synnaxlabs/x";
+import { deep, type destructor, errors, map, observe, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Entry, type Store } from "@/form/store";
@@ -29,27 +21,28 @@ export interface FieldState<V = unknown> {
   required: boolean;
 }
 
-// A keyed entry's key can hold the separator, so the parts come from the values. A part
-// the values lack counts as one part.
-const parentPath = (values: unknown, path: string): string => {
-  const parts = path.split(deep.SEPARATOR);
-  let node = values;
-  let last = 0;
-  for (let i = 0; i < parts.length;) {
-    last = i;
-    const best =
-      node != null && typeof node === "object"
-        ? deep.findBestKey(node as record.Unknown, parts.slice(i))
-        : null;
-    if (best == null) {
-      node = undefined;
-      i++;
-      continue;
-    }
-    node = deep.defaultGetter(node as record.Unknown, best[0]);
-    i += best[1];
+// The object or array that holds the value at the path, or would hold it. A part the
+// values lack counts as one part.
+const parentOf = (values: unknown, path: string): unknown => {
+  const found = deep.resolve(values, path);
+  if (found != null) return found.parent;
+  const cut = path.lastIndexOf(deep.SEPARATOR);
+  return cut === -1 ? values : deep.get(values, path.slice(0, cut));
+};
+
+// The path of the object or array that holds the value at the path, or null when
+// nothing holds the path. A keyed entry's key can hold the separator, so the parts come
+// from the values.
+const parentPath = (values: unknown, path: string): string | null => {
+  const found = deep.resolve(values, path);
+  if (found == null) return null;
+  let cut = path.lastIndexOf(deep.SEPARATOR);
+  while (cut > 0) {
+    const prefix = path.slice(0, cut);
+    if (deep.get(values, prefix) === found.parent) return prefix;
+    cut = path.lastIndexOf(deep.SEPARATOR, cut - 1);
   }
-  return parts.slice(0, last).join(deep.SEPARATOR);
+  return "";
 };
 
 // The value a cleared input leaves for a field of this value's type, or undefined when
@@ -94,7 +87,8 @@ interface Check {
   schema: z.ZodType;
 }
 
-export class State<Z extends z.ZodType> extends observe.Observer<void> {
+export class State<Z extends z.ZodType> implements observe.Observable<void> {
+  private readonly observer = new observe.Observer<void>();
   private readonly schema?: Z;
   private store: Store<z.infer<Z>>;
   initialValues: z.infer<Z>;
@@ -111,7 +105,6 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
   private depth = 0;
 
   constructor(store: Store<z.infer<Z>>, schema?: Z) {
-    super();
     this.schema = schema;
     this.store = store;
     this.observed = store.get();
@@ -121,6 +114,15 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     this.checks = new Set();
     this.cachedRefs = new Map();
     this.initialValues = deep.copy(this.observed);
+  }
+
+  onChange(handler: observe.Handler<void>): destructor.Destructor {
+    return this.observer.onChange(handler);
+  }
+
+  /** Calls every handler bound with onChange. */
+  notify(): void {
+    this.observer.notify();
   }
 
   /**
@@ -169,13 +171,13 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
       this.materialize(entryPath);
       this.store.insert(path, value, after);
     });
-    this.checkTouched(path, deep.get(this.values, path, { optional: true }));
+    this.checkTouched(path, deep.get(this.values, path));
   }
 
   /** Moves the entry with the key after the entry with the key `after`, as insert. */
   move(path: string, key: string, after?: string) {
     this.write(() => this.store.move(path, key, after));
-    this.checkTouched(path, deep.get(this.values, path, { optional: true }));
+    this.checkTouched(path, deep.get(this.values, path));
   }
 
   /** Runs the writes that the function makes as one change to the store. */
@@ -227,20 +229,8 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     if (prev === next) return false;
     this.observed = next;
     this.clearChangedExternal(prev, next);
-    const changed = new Map<string, boolean>();
-    const parentChanged = (parent: string): boolean => {
-      let c = changed.get(parent);
-      if (c == null) {
-        c =
-          parent === "" ||
-          deep.get(prev, parent, { optional: true }) !==
-            deep.get(next, parent, { optional: true });
-        changed.set(parent, c);
-      }
-      return c;
-    };
     this.cachedRefs.forEach((cached, path) => {
-      if (parentChanged(parentPath(next, path))) cached.stale = true;
+      if (parentOf(prev, path) !== parentOf(next, path)) cached.stale = true;
     });
     return true;
   }
@@ -248,8 +238,8 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
   /** Clears each external status whose value differs between prev and next. */
   private clearChangedExternal(prev: z.infer<Z>, next: z.infer<Z>) {
     this.external.forEach((path) => {
-      const before = deep.get(prev, path, { optional: true });
-      const after = deep.get(next, path, { optional: true });
+      const before = deep.get(prev, path);
+      const after = deep.get(next, path);
       if (before === after || deep.equal(before, after)) return;
       this.deleteStatus(path);
     });
@@ -277,7 +267,7 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     const parts = path.split(".");
     for (let i = 1; i < parts.length; i++) {
       const prefix = parts.slice(0, i).join(".");
-      if (deep.get(this.values, prefix, { optional: true }) != null) continue;
+      if (deep.get(this.values, prefix) != null) continue;
       const value = this.schemaDefault(prefix);
       return value == null ? null : [prefix, value];
     }
@@ -299,12 +289,12 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     if (ancestor == null) return undefined;
     const [prefix, value] = ancestor;
     const rest = path.slice(prefix.length + 1);
-    return deep.get(value, rest, { optional: true }) ?? undefined;
+    return deep.get(value, rest) ?? undefined;
   }
 
   private checkTouched(path: string, value: unknown, options: SetValueOptions = {}) {
     const { markTouched = true } = options;
-    const initialValue = deep.get(this.initialValues, path, { optional: true });
+    const initialValue = deep.get(this.initialValues, path);
     const equalsInitial = deep.equal(initialValue, value);
     if (equalsInitial) {
       this.clearTouched(path);
@@ -402,7 +392,8 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     this.statuses.delete(path);
     this.clearTouched(path);
     this.cachedRefs.delete(path);
-    const list = deep.get(this.values, parent, { optional: true });
+    if (parent == null) return;
+    const list = deep.get(this.values, parent);
     if (Array.isArray(list)) this.checkTouched(parent, list);
   }
 
@@ -478,9 +469,7 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
       });
     this.checks.forEach(({ path, schema }) => {
       const root = path === "";
-      const value = root
-        ? this.values
-        : deep.get(this.values, path, { optional: true });
+      const value = root ? this.values : deep.get(this.values, path);
       const checked = schema.safeParse(value);
       if (checked.success) return;
       const prefix = root ? [] : path.split(deep.SEPARATOR);
@@ -531,7 +520,7 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     this.catchUp();
     const cached = this.cachedRefs.get(path);
     if (cached != null && !cached.stale) return cached.state as FieldState<V>;
-    let value = deep.get<V, z.infer<Z>>(this.values, path, { optional: true });
+    let value = deep.get<V, z.infer<Z>>(this.values, path);
     value ??= this.readAbsent(path) as V | null;
     let required = false;
     const fieldSchema =

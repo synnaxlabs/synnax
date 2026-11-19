@@ -25,7 +25,7 @@
     "check-types": "turbo check-types",
     "check-types:alamos": "turbo check-types --filter @synnaxlabs/alamos",
     "check-types:arc": "turbo check-types --filter @synnaxlabs/arc",
-    "check-types:client": "turbo check-types --filter @synnaxlabs/client",
+    "check-types:client": "turbo check-types --filter @synnaxlabs/client --filter @synnaxlabs/client-examples",
     "check-types:console": "turbo check-types --filter @synnaxlabs/console",
     "check-types:docs": "turbo check-types --filter @synnaxlabs/docs",
     "check-types:eslint-config": "turbo check-types --filter @synnaxlabs/eslint-config",
@@ -91,6 +91,7 @@
     "cov:vite-plugin": "turbo cov --filter @synnaxlabs/vite-plugin",
     "cov:www": "turbo cov --filter @synnaxlabs/www",
     "cov:x": "turbo cov --filter @synnaxlabs/x",
+    "install-browsers:client": "pnpm --filter @synnaxlabs/client install-browsers",
     "install-browsers:docs": "pnpm --filter @synnaxlabs/docs install-browsers",
     "install-browsers:lyra": "pnpm --filter @synnaxlabs/lyra install-browsers",
     "install-browsers:pluto": "pnpm --filter @synnaxlabs/pluto install-browsers",
@@ -162,6 +163,7 @@
     "knip:x": "knip --workspace x/ts"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "catalog:",
     "@prettier/plugin-xml": "catalog:",
     "knip": "catalog:",
     "prettier": "catalog:",

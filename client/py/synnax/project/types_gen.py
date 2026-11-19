@@ -52,7 +52,7 @@ class Project(BaseModel):
     """
 
     key: Key = Field(default_factory=uuid4)
-    name: str
+    name: str = Field(min_length=1)
     group: group_.Key | None = None
 
     @_override

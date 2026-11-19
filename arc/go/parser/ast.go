@@ -10,6 +10,7 @@
 package parser
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
@@ -108,54 +109,54 @@ func GetLiteralNode(node antlr.ParserRuleContext) ILiteralContext {
 	if node == nil {
 		return nil
 	}
+	if primary, ok := node.(IPrimaryExpressionContext); ok {
+		return primary.Literal()
+	}
+	if operand := literalOperand(node); operand != nil {
+		return GetLiteralNode(operand)
+	}
+	return nil
+}
+
+// literalOperand returns the operand of node that can hold its literal: the only
+// operand of a binary chain, the operand of a negation, or the wrapped expression.
+// Returns nil when node applies any other operator.
+func literalOperand(node antlr.ParserRuleContext) antlr.ParserRuleContext {
 	switch ctx := node.(type) {
 	case ILogicalOrExpressionContext:
-		ands := ctx.AllLogicalAndExpression()
-		if len(ands) == 1 {
-			return GetLiteralNode(ands[0])
-		}
+		return soleOperand(ctx.AllLogicalAndExpression())
 	case ILogicalAndExpressionContext:
-		eqs := ctx.AllEqualityExpression()
-		if len(eqs) == 1 {
-			return GetLiteralNode(eqs[0])
-		}
+		return soleOperand(ctx.AllEqualityExpression())
 	case IEqualityExpressionContext:
-		rels := ctx.AllRelationalExpression()
-		if len(rels) == 1 {
-			return GetLiteralNode(rels[0])
-		}
+		return soleOperand(ctx.AllRelationalExpression())
 	case IRelationalExpressionContext:
-		adds := ctx.AllAdditiveExpression()
-		if len(adds) == 1 {
-			return GetLiteralNode(adds[0])
-		}
+		return soleOperand(ctx.AllAdditiveExpression())
 	case IAdditiveExpressionContext:
-		muls := ctx.AllMultiplicativeExpression()
-		if len(muls) == 1 {
-			return GetLiteralNode(muls[0])
-		}
+		return soleOperand(ctx.AllMultiplicativeExpression())
 	case IMultiplicativeExpressionContext:
-		unaries := ctx.AllUnaryExpression()
-		if len(unaries) == 1 {
-			return GetLiteralNode(unaries[0])
-		}
+		return soleOperand(ctx.AllUnaryExpression())
 	case IUnaryExpressionContext:
 		if ctx.MINUS() != nil && ctx.UnaryExpression() != nil {
-			return GetLiteralNode(ctx.UnaryExpression())
+			return ctx.UnaryExpression()
 		}
 		if ctx.UnaryExpression() == nil {
-			return GetLiteralNode(ctx.PowerExpression())
+			return ctx.PowerExpression()
 		}
 	case IPowerExpressionContext:
 		if ctx.CARET() == nil {
-			return GetLiteralNode(ctx.PostfixExpression())
+			return ctx.PostfixExpression()
 		}
 	case IPostfixExpressionContext:
 		if len(ctx.AllIndexOrSlice()) == 0 && len(ctx.AllFunctionCallSuffix()) == 0 {
-			return GetLiteralNode(ctx.PrimaryExpression())
+			return ctx.PrimaryExpression()
 		}
-	case IPrimaryExpressionContext:
-		return ctx.Literal()
+	}
+	return nil
+}
+
+func soleOperand[T antlr.ParserRuleContext](operands []T) antlr.ParserRuleContext {
+	if len(operands) == 1 {
+		return operands[0]
 	}
 	return nil
 }
@@ -235,21 +236,33 @@ func ExpressionNameParts(expr IExpressionContext) (head, tail string) {
 }
 
 // CollectNamedPrimaries returns the primary expressions in expr that read a name,
-// bare or qualified, one per name, in source order.
-func CollectNamedPrimaries(expr IExpressionContext) []IPrimaryExpressionContext {
+// bare or qualified, one per name, in source order. A format string in fmtStrings
+// gives the names that its placeholders read.
+func CollectNamedPrimaries(
+	expr IExpressionContext,
+	fmtStrings FmtStrings,
+) []IPrimaryExpressionContext {
 	var (
 		primaries []IPrimaryExpressionContext
 		seen      = make(set.Set[string])
 		walk      func(t antlr.Tree)
 	)
 	walk = func(t antlr.Tree) {
+		if term, ok := t.(antlr.TerminalNode); ok {
+			for _, seg := range fmtStrings[term] {
+				if seg.Expr != nil {
+					walk(seg.Expr)
+				}
+			}
+			return
+		}
 		if pe, ok := t.(IPrimaryExpressionContext); ok {
 			if name := PrimaryName(pe); name != "" && !seen.Contains(name) {
 				seen.Add(name)
 				primaries = append(primaries, pe)
 			}
 		}
-		for i := 0; i < t.GetChildCount(); i++ {
+		for i := range t.GetChildCount() {
 			walk(t.GetChild(i))
 		}
 	}
@@ -354,9 +367,15 @@ func isFloatType(t ITypeContext) bool {
 // directly so it works when either side is a lexer keyword (AUTHORITY on
 // the left, FOR on the right) and not just an IDENTIFIER.
 func QualifiedNameParts(qid IQualifiedIdentifierContext) (head, tail string) {
-	head = qid.GetChild(0).(antlr.TerminalNode).GetText()
-	tail = qid.GetChild(2).(antlr.TerminalNode).GetText()
-	return head, tail
+	return terminalText(qid, 0), terminalText(qid, 2)
+}
+
+func terminalText(qid IQualifiedIdentifierContext, i int) string {
+	node, ok := qid.GetChild(i).(antlr.TerminalNode)
+	if !ok {
+		panic(fmt.Sprintf("qualified identifier child %d is a %T", i, qid.GetChild(i)))
+	}
+	return node.GetText()
 }
 
 // FunctionNameParts returns the head and tail of a function context's

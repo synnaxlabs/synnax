@@ -8,7 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { EOF, type WebSocketClient } from "@synnaxlabs/freighter";
-import { DataType, id, Series, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import {
+  DataType,
+  id,
+  Series,
+  sleep,
+  TimeRange,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/x";
 import { describe, expect, it, test } from "vitest";
 
 import { channel } from "@/channel";
@@ -123,7 +131,7 @@ describe("Writer", () => {
       // Simulating a timeout.
       const v = await Promise.race([
         stream.read(),
-        new Promise((resolve) => setTimeout(() => resolve(123), 250)),
+        sleep.sleep(TimeSpan.milliseconds(250)).then(() => 123),
       ]);
       expect(v).toEqual(123);
     });
@@ -303,7 +311,7 @@ describe("Writer", () => {
 
       await expect(async () => {
         for (let i = 0; i < 10; i++) {
-          await new Promise((resolve) => setTimeout(resolve, 5));
+          await sleep.sleep(TimeSpan.milliseconds(5));
           await writer.write({
             [indexCh.key]: TimeStamp.seconds(10 - i),
             [dataCh.key]: i,

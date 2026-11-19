@@ -15,6 +15,7 @@ import {
   type status,
   type Synnax as Client,
 } from "@synnaxlabs/client";
+import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
@@ -35,7 +36,6 @@ import {
   type AlertSchemas,
   deployAlertTaskConfigZ,
 } from "@/feature/pagerduty/task/types";
-import { Button } from "@/platform/button";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
@@ -67,11 +67,11 @@ const Properties = () => (
   </Flex.Box>
 );
 
-const selectRackRenderProp = Component.renderProp(
-  (p: Omit<Rack.SelectSingleProps, "variant">) => (
-    <Rack.SelectSingle {...p} query={INITIAL_RACK_QUERY} />
-  ),
+const SelectRack = (p: Omit<Rack.SelectSingleProps, "variant">) => (
+  <Rack.SelectSingle {...p} query={INITIAL_RACK_QUERY} />
 );
+
+const selectRackRenderProp = Component.renderProp(SelectRack);
 
 const INITIAL_RACK_QUERY: rack.RetrieveMultipleParams = {
   where: { integrations: { any: ["pagerduty"] } },
@@ -121,9 +121,11 @@ const GROUP_INPUT_PROPS = { placeholder: "engines" };
 
 const CLASS_INPUT_PROPS = { placeholder: "engine-failure" };
 
-const selectStatusRenderProp = Component.renderProp(
-  (p: Omit<Status.SelectProps, "variant">) => <Status.Select {...p} />,
+const SelectStatus = (p: Omit<Status.SelectProps, "variant">) => (
+  <Status.Select {...p} />
 );
+
+const selectStatusRenderProp = Component.renderProp(SelectStatus);
 
 const EMPTY_CONTENT = <Empty.Action message="No alerts" />;
 
@@ -254,7 +256,11 @@ const Form: FC = () => {
             </Select.Frame>
           </PMenu.ContextMenu>
           {!isPreview && (
-            <Button.CreateListItem size="small" onClick={handleAdd}>
+            <Button.CreateListItem
+              size="small"
+              onClick={handleAdd}
+              className={CSS.BE("panes", "create")}
+            >
               Add alert
             </Button.CreateListItem>
           )}

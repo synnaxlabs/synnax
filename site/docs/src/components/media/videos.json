@@ -1,4 +1,6 @@
 {
+  "blog/introducing-synnax-desktop/download": "6b529ebd4290",
+  "blog/introducing-synnax-desktop/notebook": "27e6e551ffd9",
   "client/calculated-channels/create": "2f24f8139230",
   "client/calculated-channels/edit": "b7680e7b7709",
   "client/channels/create": "a2e17503f442",
@@ -30,7 +32,6 @@
   "console/panels/rename-and-delete": "43a769d432a8",
   "console/panels/split": "070abd3e5ba7",
   "console/racks/create-key": "ffdcc67e03f7",
-  "console/ranges/active": "324a1d88ad3f",
   "console/redlines/add": "9328abeea5d8",
   "console/schematics/align-items": "003d53ad9ec8",
   "console/schematics/connections": "d26047e4a7f3",

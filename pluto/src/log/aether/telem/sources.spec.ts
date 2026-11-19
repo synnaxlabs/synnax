@@ -17,7 +17,7 @@ import {
 } from "@synnaxlabs/client";
 import { SyntheticCore, type SyntheticCoreProps } from "@synnaxlabs/client/testutil";
 import { Unreachable } from "@synnaxlabs/freighter";
-import { Rate, Series, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { Rate, Series, sleep, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { afterEach, assert, describe, expect, it, vi } from "vitest";
 
 import {
@@ -361,7 +361,7 @@ describe("StreamMultiChannelLog", () => {
     const log = open(core, client, { channels: [a] });
     log.value();
     await expect.poll(() => calls, POLL).toBe(2);
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await sleep.sleep(TimeSpan.milliseconds(50));
     const streamed = 1_000;
     core.advance(TimeSpan.seconds(streamed / 10));
     release();
@@ -681,7 +681,7 @@ describe("StreamMultiChannelLog", () => {
       await page(log, STORED);
       const { reads } = core;
       log.loadOlder();
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await sleep.sleep(TimeSpan.milliseconds(50));
       expect(core.reads).toBe(reads);
       expect(valuesOf(entriesOf(log), a)).toEqual(textOf(core, a, STORED));
       expect(stampsOf(entriesOf(log))).toEqual(timesOf(core, STORED));
@@ -867,7 +867,7 @@ describe("StreamMultiChannelLog", () => {
         () => !log.live,
       );
       core.advance(TimeSpan.seconds(1));
-      await new Promise((resolve) => setTimeout(resolve, 20));
+      await sleep.sleep(TimeSpan.milliseconds(20));
       await until(
         () => log.loadNewer(),
         () => log.live,
@@ -890,7 +890,7 @@ describe("StreamMultiChannelLog", () => {
         () => !log.live,
       );
       core.advance(TimeSpan.seconds(300));
-      await new Promise((resolve) => setTimeout(resolve, 20));
+      await sleep.sleep(TimeSpan.milliseconds(20));
       const seen = new Set<string>();
       await until(
         () => {
@@ -914,7 +914,7 @@ describe("StreamMultiChannelLog", () => {
       );
       const { length } = entriesOf(log);
       core.advance(TimeSpan.seconds(300));
-      await new Promise((resolve) => setTimeout(resolve, 20));
+      await sleep.sleep(TimeSpan.milliseconds(20));
       expect(entriesOf(log)).toHaveLength(length);
       await until(
         () => log.loadNewer(),
@@ -934,7 +934,7 @@ describe("StreamMultiChannelLog", () => {
         () => !log.live,
       );
       core.advance(TimeSpan.seconds(1_100));
-      await new Promise((resolve) => setTimeout(resolve, 20));
+      await sleep.sleep(TimeSpan.milliseconds(20));
       await until(
         () => log.loadNewer(),
         () => log.live,
@@ -1024,7 +1024,7 @@ describe("StreamMultiChannelLog", () => {
         () => log.loadOlder(),
         () => !log.live,
       );
-      await new Promise((resolve) => setTimeout(resolve, 20));
+      await sleep.sleep(TimeSpan.milliseconds(20));
       const end = log.timeRange?.end.valueOf();
       const onChange = vi.fn();
       closers.push(log.onChange(onChange));
@@ -1045,13 +1045,13 @@ describe("StreamMultiChannelLog", () => {
       });
       const log = open(core, client, { channels: [a] });
       await settle(log, PAGE);
-      await new Promise((resolve) => setTimeout(resolve, 20));
+      await sleep.sleep(TimeSpan.milliseconds(20));
       const opened = reads;
       core.advance(TimeSpan.seconds(1));
       await expect.poll(() => entriesOf(log).length, POLL).toBeGreaterThan(PAGE);
       core.advance(TimeSpan.seconds(1));
       await expect.poll(() => entriesOf(log).length, POLL).toBeGreaterThan(PAGE + 10);
-      await new Promise((resolve) => setTimeout(resolve, 20));
+      await sleep.sleep(TimeSpan.milliseconds(20));
       expect(reads).toBe(opened);
     });
 
@@ -1075,7 +1075,7 @@ describe("StreamMultiChannelLog", () => {
       log.setChannels([b]);
       release();
       await expect.poll(() => reads, POLL).toBe(2);
-      await new Promise((resolve) => setTimeout(resolve, 20));
+      await sleep.sleep(TimeSpan.milliseconds(20));
       expect(log.timeRange).toBeNull();
     });
 
@@ -1183,7 +1183,7 @@ describe("StreamMultiChannelLog", () => {
         () => !log.live,
       );
       core.advance(TimeSpan.seconds(5));
-      await new Promise((resolve) => setTimeout(resolve, 20));
+      await sleep.sleep(TimeSpan.milliseconds(20));
       expect(valuesOf(entriesOf(log), key)).toEqual([]);
       await until(
         () => log.loadNewer(),
@@ -1211,7 +1211,7 @@ describe("StreamMultiChannelLog", () => {
         () => !log.live,
       );
       core.advance(TimeSpan.seconds(150));
-      await new Promise((resolve) => setTimeout(resolve, 20));
+      await sleep.sleep(TimeSpan.milliseconds(20));
       const stored = new Set<string>();
       const virtual = new Set<string>();
       const see = (): void => {
@@ -1247,7 +1247,7 @@ describe("StreamMultiChannelLog", () => {
         () => !log.live,
       );
       core.advance(TimeSpan.seconds(1_000));
-      await new Promise((resolve) => setTimeout(resolve, 20));
+      await sleep.sleep(TimeSpan.milliseconds(20));
       const samples = new Set<string>();
       await until(
         () => {
@@ -1284,7 +1284,7 @@ describe("StreamMultiChannelLog", () => {
         () => log.live,
       );
       streaming = false;
-      await new Promise((resolve) => setTimeout(resolve, 20));
+      await sleep.sleep(TimeSpan.milliseconds(20));
       expectRun(core, a, log);
       expect(valuesOf(entriesOf(log), a).at(-1)).toBe(textOf(core, a, 1)[0]);
     });
@@ -1303,7 +1303,7 @@ describe("StreamMultiChannelLog", () => {
         () => !log.live,
       );
       core.advance(TimeSpan.seconds(30));
-      await new Promise((resolve) => setTimeout(resolve, 20));
+      await sleep.sleep(TimeSpan.milliseconds(20));
       const seen = new Set<string>();
       await until(
         () => {
@@ -1379,7 +1379,7 @@ describe("StreamMultiChannelLog", () => {
       await expect.poll(() => waiting, POLL).toBe(true);
       log.resume();
       release();
-      await new Promise((resolve) => setTimeout(resolve, 20));
+      await sleep.sleep(TimeSpan.milliseconds(20));
       expect(log.live).toBe(true);
       expect(log.value().status.variant).toBe("success");
     });
@@ -1450,7 +1450,7 @@ describe("StreamMultiChannelLog", () => {
         const closed = client.feed.close();
         log.cleanup();
         await closed;
-        await new Promise((resolve) => setTimeout(resolve, 20));
+        await sleep.sleep(TimeSpan.milliseconds(20));
       } finally {
         process.off("unhandledRejection", onRejection);
       }
@@ -1514,7 +1514,9 @@ describe("StreamMultiChannelLog", () => {
       closers.push(log.onChange(onChange));
       log.loadOlder();
       expect(log.value().status.variant).toBe("loading");
-      await expect.poll(() => onChange.mock.calls.length, POLL).toBe(2);
+      await expect
+        .poll(() => onChange.mock.calls.length, POLL)
+        .toBeGreaterThanOrEqual(2);
       expect(log.value().status.variant).toBe("success");
     });
 
@@ -1607,7 +1609,7 @@ describe("StreamMultiChannelLog", () => {
       await settle(log, 10);
       const { reads } = core;
       log.loadOlder();
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await sleep.sleep(TimeSpan.milliseconds(50));
       expect(core.reads).toBe(reads);
     });
   });

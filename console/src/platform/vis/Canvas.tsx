@@ -10,10 +10,20 @@
 import "@/platform/vis/Canvas.css";
 
 import { Canvas as Base } from "@synnaxlabs/pluto";
+import { runtime } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
+import { Session } from "@/session";
+
+// WebKitGTK crashes when a worker draws on a canvas transferred from the page.
+const HANDOFF: Base.Handoff =
+  Session.Runtime.ENGINE === "tauri" && runtime.getOS() === "Linux"
+    ? "bitmap"
+    : "canvas";
 
 export const Canvas = ({ children }: PropsWithChildren): ReactElement => (
-  <Base.Canvas className={CSS.BE("vis", "canvas")}>{children}</Base.Canvas>
+  <Base.Canvas className={CSS.BE("vis", "canvas")} handoff={HANDOFF}>
+    {children}
+  </Base.Canvas>
 );

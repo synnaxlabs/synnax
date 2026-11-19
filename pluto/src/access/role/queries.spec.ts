@@ -279,7 +279,7 @@ describe("queries", () => {
       expect(result.current.status.message).toEqual("Failed to delete role");
       expect(result.current.status.description).toEqual(
         `cannot delete role ${role.name} because user ${u.name} ` +
-          "uses it as its role: validation error",
+          "uses it as its role",
       );
       expect((await client.access.roles.retrieve(role.key)).key).toEqual(role.key);
     });

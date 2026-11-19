@@ -8,23 +8,21 @@
 #  included in the file licenses/APL.txt.
 
 from collections.abc import Mapping, Sequence
-from typing import TypeAlias, cast, overload
-
-import pandas as pd
+from typing import TypeAlias, overload
 
 import synnax.channel.payload as channel
 from alamos import NOOP, Instrumentation
 from freighter import (
     AsyncStreamClient,
     FileTransport,
+    StreamClient,
     UnaryClient,
-    WebsocketClient,
 )
 from synnax.channel.retrieve import Retriever
 from synnax.exceptions import ValidationError
 from synnax.framer.adapter import ReadFrameAdapter, WriteFrameAdapter
 from synnax.framer.deleter import Deleter
-from synnax.framer.frame import CrudeFrame, Frame, FramePayload, K
+from synnax.framer.frame import CrudeFrame, Frame, FramePayload, K, is_dataframe
 from synnax.framer.iterator import AUTO_SPAN, Iterator
 from synnax.framer.reader import Reader
 from synnax.framer.streamer import DEFAULT_KEEP_ALIVE, AsyncStreamer, Streamer
@@ -60,7 +58,7 @@ class Client:
     directly, but rather used through the synnax.Synnax class.
     """
 
-    _stream_client: WebsocketClient
+    _stream_client: StreamClient
     _async_client: AsyncStreamClient
     _unary_client: UnaryClient
     _channels: Retriever
@@ -72,7 +70,7 @@ class Client:
     def __init__(
         self,
         *,
-        stream_client: WebsocketClient,
+        stream_client: StreamClient,
         async_client: AsyncStreamClient,
         unary_client: UnaryClient,
         file_transport: FileTransport,
@@ -231,13 +229,12 @@ class Client:
     ) -> None:
         parsed_channels: channel.Params
         if isinstance(channels, Mapping):
-            # normalize_params rejects a mix of keys and names
-            parsed_channels = cast(channel.Params, list(channels.keys()))
+            parsed_channels = _params(list(channels.keys()))
         elif isinstance(channels, Frame):
-            parsed_channels = cast(channel.Params, channels.channels)
+            parsed_channels = _params(channels.channels)
         elif isinstance(channels, FramePayload):
             parsed_channels = channels.keys
-        elif isinstance(channels, pd.DataFrame):
+        elif is_dataframe(channels):
             parsed_channels = list(channels.columns)
         else:
             parsed_channels = channels
@@ -249,7 +246,9 @@ class Client:
             err_on_unauthorized=True,
             auto_index_persist_interval=TimeSpan.MAX,
         ) as w:
-            if isinstance(channels, (Mapping, Frame, FramePayload, pd.DataFrame)):
+            if isinstance(channels, (Mapping, Frame, FramePayload)) or is_dataframe(
+                channels
+            ):
                 w.write(channels)
             elif series is None:
                 raise ValidationError(f"No series provided for channels {channels}")
@@ -465,3 +464,18 @@ class Client:
         :param tr: time range to delete data from.
         """
         self._deleter.delete(channels, tr)
+
+
+def _params(
+    channels: Sequence[channel.Key | str | channel.Payload],
+) -> channel.Params:
+    keys = [c for c in channels if isinstance(c, channel.Key)]
+    if len(keys) == len(channels):
+        return keys
+    names = [c for c in channels if isinstance(c, str)]
+    if len(names) == len(channels):
+        return names
+    payloads = [c for c in channels if isinstance(c, channel.Payload)]
+    if len(payloads) == len(channels):
+        return payloads
+    raise TypeError("channel params must be all keys or all names, got a mix of both")

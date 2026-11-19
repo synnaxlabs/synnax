@@ -20,6 +20,8 @@ interface BaseProps {
   problem?: string;
   /** Says why the value changed. A problem hides it. */
   note?: string;
+  /** Shows the field as one that other software sets. Pass no value with it. */
+  disabled?: boolean;
 }
 
 interface RequiredProps extends BaseProps {
@@ -52,7 +54,7 @@ export type SettingInputProps = RequiredProps | OptionalProps;
  * shows the value that the slave held at the scan as its placeholder.
  */
 export const SettingInput = (props: SettingInputProps): ReactElement => {
-  const { field, value, problem, note, onChange } = props;
+  const { field, value, problem, note, disabled, onChange } = props;
   const status = problem == null ? undefined : "error";
   const held = heldText(field);
   const clear = props.allowNone === true ? () => props.onChange(null) : undefined;
@@ -72,6 +74,7 @@ export const SettingInput = (props: SettingInputProps): ReactElement => {
           status={status}
           placeholder={held}
           aria-label={field.name}
+          disabled={disabled}
         />
       ) : (
         <Select.Simple<number>
@@ -80,6 +83,7 @@ export const SettingInput = (props: SettingInputProps): ReactElement => {
             next == null ? clear?.() : onChange(next)
           }
           resourceName={inSentence(field.name)}
+          disabled={disabled}
           searchHidden
           allowNone={clear != null}
           triggerProps={held == null ? { status } : { status, placeholder: held }}

@@ -14,7 +14,7 @@ from collections.abc import Callable
 
 import synnax as sy
 
-from common import Channels, channel_name, warn
+from common import Channels, Writes, channel_name, warn
 from publisher import Publisher
 
 SOURCE = "events"
@@ -31,7 +31,7 @@ class Events:
     def __init__(
         self,
         *,
-        client: sy.Synnax,
+        client: Writes,
         channels: Channels,
         runners: set[str],
         report: Callable[[str, Exception], None] = warn,

@@ -7,47 +7,40 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { compare } from "@synnaxlabs/x";
+
 import KINDS from "../../../../../arc/go/analyzer/codes/codes.gen.json";
 
-interface Kind {
-  severity: string;
-  message: string;
-}
-
-/** The props that a `Problem.Item` takes from an Arc diagnostic kind. */
-export interface Props {
+/** An Arc diagnostic kind, as the docs show it. */
+export interface Kind {
   code: string;
   severity: "error" | "warning";
-  message?: string | string[];
+  /** The headline that each message of the kind starts with. */
+  message: string;
+  /** The description of the problem, in general terms. */
+  problem: string;
+  /** Source that reports the kind. Empty when the kind has no example. */
+  example: string;
 }
 
-const fill = (code: string, format: string, values: string[]): string => {
-  let used = 0;
-  const message = format.replace(/%[a-z]/g, (verb) => {
-    if (used === values.length) throw new Error(`${code} has a verb with no value`);
-    const value = values[used++];
-    return verb === "%q" ? `"${value}"` : value;
-  });
-  if (used !== values.length) throw new Error(`${code} has a value with no verb`);
-  return message;
+/** The name of each band that the docs show, by the first digit of its codes. */
+export const BANDS: Record<string, string> = {
+  1: "Syntax",
+  2: "Types and expressions",
+  3: "Functions and statements",
+  4: "Names and modules",
+  5: "Flows, sequences, and stages",
 };
 
+// The band is first, then W before E.
+const order = (code: string): string =>
+  code[1] + (code[0] === "W" ? "0" : "1") + code.slice(2);
+
 /**
- * Gives a `Problem.Item` the code, severity, and message of an Arc diagnostic kind.
- * @param code - The code of the kind, for example `ARC3001`.
- * @param values - For each message to show, the text that stands for each verb of the
- * message format, in order. With no list, the format has no verbs and shows as it is.
- * @returns The props. They have no message when the kind takes its message from an
- * error.
- * @throws If no kind has the code, or the values do not match the verbs.
+ * Returns the Arc diagnostic kinds that the docs show, by band, warnings before errors.
  */
-export const diagnostic = (code: string, ...values: string[][]): Props => {
-  const kind: Kind | undefined = (KINDS as Record<string, Kind>)[code];
-  if (kind == null) throw new Error(`no Arc diagnostic kind has the code ${code}`);
-  const props: Props = { code, severity: kind.severity as Props["severity"] };
-  if (kind.message === "") return props;
-  const messages = (values.length === 0 ? [[]] : values).map((v) =>
-    fill(code, kind.message, v),
-  );
-  return { ...props, message: messages.length === 1 ? messages[0] : messages };
-};
+export const kinds = (): Kind[] =>
+  Object.entries(KINDS as Record<string, Omit<Kind, "code">>)
+    .filter(([code]) => code[1] in BANDS)
+    .map(([code, kind]) => ({ code, ...kind }))
+    .sort(compare.by((k) => order(k.code)));

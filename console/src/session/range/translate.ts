@@ -10,8 +10,10 @@
 import { type ranger } from "@synnaxlabs/client";
 import { array } from "@synnaxlabs/x";
 
-import { type State } from "@/session/range/slice";
+import { type PersistedState } from "@/session/range/slice";
 
 /** References the Core's ranges. Their names and windows stay on the Core. */
-export const fromClient = (ranges: ranger.Payload | ranger.Payload[]): State[] =>
+export const fromClient = (
+  ranges: ranger.Payload | ranger.Payload[],
+): PersistedState[] =>
   array.toArray(ranges).map(({ key }) => ({ variant: "persisted", key }));

@@ -581,13 +581,14 @@ export func stopped() bool {
 						modules,
 					)
 					defer h.Close(ctx)
-					for _, key := range []uint32{a, b, c} {
+					keys := []uint32{a, b, c}
+					for _, key := range keys {
 						set(ctx, h, key, 1)
 					}
-					var sums []float32
-					for _, key := range []uint32{a, b, c} {
+					sums := make([]float32, len(keys))
+					for i, key := range keys {
 						vals := last(set(ctx, h, key, 2), sum).Unmarshal[float32]()
-						sums = append(sums, vals[len(vals)-1])
+						sums[i] = vals[len(vals)-1]
 					}
 					Expect(sums).To(Equal([]float32{4, 5, 6}))
 				},

@@ -7,20 +7,28 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { sleep } from "@/sleep";
+import { type CrudeTimeSpan, TimeSpan } from "@/telem";
+
 export const toString = (value: unknown): string =>
   JSON.stringify(value, (_, value) => {
     if (typeof value === "bigint") return value.toString();
     return value;
   });
 
+/**
+ * Calls fn once per interval until the duration elapses. A bare number is milliseconds.
+ * @throws the first error that fn throws.
+ */
 export const expectAlways = async (
   fn: () => void | Promise<void>,
-  duration: number = 200,
-  interval: number = 20,
-) => {
+  duration: CrudeTimeSpan = TimeSpan.milliseconds(200),
+  interval: CrudeTimeSpan = TimeSpan.milliseconds(20),
+): Promise<void> => {
+  const span = TimeSpan.fromMilliseconds(duration).milliseconds;
   const start = Date.now();
-  while (Date.now() - start < duration) {
+  while (Date.now() - start < span) {
     await fn();
-    await new Promise((resolve) => setTimeout(resolve, interval));
+    await sleep.sleep(interval);
   }
 };

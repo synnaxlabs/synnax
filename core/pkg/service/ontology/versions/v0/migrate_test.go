@@ -28,6 +28,7 @@ var _ = Describe("Migrate", func() {
 		func(ctx SpecContext) {
 			kvDB := memkv.New()
 			db := DeferClose(gorp.Wrap(kvDB))
+			StartRun(db.Run)
 			res := v0.Resource{
 				ID: resource.ID{Type: resource.TypeLabel, Key: "critical"},
 			}

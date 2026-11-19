@@ -12,7 +12,7 @@ from uuid import UUID, uuid4
 import pytest
 
 import synnax as sy
-from x.testutil import assert_eventually
+from x.testutil import assert_eventually, untyped
 
 
 @pytest.mark.status
@@ -325,12 +325,12 @@ class TestStatusClient:
     def test_one_with_limit(self, client: sy.Synnax) -> None:
         """Should reject one beside a limit, since a page could hide a match."""
         with pytest.raises(sy.ValidationError, match="cannot set a limit"):
-            client.statuses.retrieve(key="a", limit=1)  # type: ignore[call-overload]
+            untyped(client.statuses.retrieve)(key="a", limit=1)
 
     def test_none_field(self, client: sy.Synnax) -> None:
         """Should reject a field set to None, since it would select every status."""
         with pytest.raises(sy.ValidationError, match="variant is None"):
-            client.statuses.retrieve(variant=None)  # type: ignore[call-overload]
+            untyped(client.statuses.retrieve)(variant=None)
 
     def test_retrieve_with_no_matching_variants(self, client: sy.Synnax) -> None:
         """Should return empty when no statuses match the variant filter."""

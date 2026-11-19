@@ -82,7 +82,8 @@ var _ = Describe("AddImport", func() {
 var _ = Describe("RemoveImport", func() {
 	DescribeTable("Should remove the import",
 		func(ctx SpecContext, source, alias, expected string) {
-			item := rootOf(ctx, source).FindChild(alias).AST.(parser.IImportItemContext)
+			item, ok := rootOf(ctx, source).FindChild(alias).AST.(parser.IImportItemContext)
+			Expect(ok).To(BeTrue())
 			edit := formatter.RemoveImport(item)
 			Expect(xlsp.ApplyIncrementalChange(
 				source,

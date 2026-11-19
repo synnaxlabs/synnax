@@ -146,7 +146,9 @@ var _ = Describe("Recorder", func() {
 					f := MustSucceed(sub.Open("a.bin", os.O_CREATE|os.O_RDWR))
 					DeferClose(f)
 					rec.Reset()
-					Expect(sub.(*Recorder).Events()).To(BeEmpty())
+					subRec, ok := sub.(*Recorder)
+					Expect(ok).To(BeTrue())
+					Expect(subRec.Events()).To(BeEmpty())
 				})
 			})
 

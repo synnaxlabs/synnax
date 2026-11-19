@@ -73,13 +73,15 @@ var _ = Describe("EncodeBundle", func() {
 		}
 		root := rootOf(MustSucceed(panel.EncodeBundle(p, refs)))
 		Expect(root).To(HaveKeyWithValue("variant", "split"))
-		firstLeaf := root["first"].(map[string]any)
+		firstLeaf, ok := root["first"].(map[string]any)
+		Expect(ok).To(BeTrue())
 		Expect(firstLeaf["tabs"]).To(ConsistOf(SatisfyAll(
 			HaveKeyWithValue("variant", "resource"),
 			HaveKeyWithValue("resource", "chamber_pressure.json"),
 			HaveKeyWithValue("key", first.Key().String()),
 		)))
-		lastLeaf := root["last"].(map[string]any)
+		lastLeaf, ok := root["last"].(map[string]any)
+		Expect(ok).To(BeTrue())
 		Expect(lastLeaf["tabs"]).To(ConsistOf(
 			HaveKeyWithValue("resource", "propulsion/pressurization.json"),
 		))

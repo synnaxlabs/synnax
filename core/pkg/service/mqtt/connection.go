@@ -12,6 +12,7 @@ package mqtt
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"maps"
 	"net"
 	"net/url"
@@ -781,8 +782,12 @@ const subscribeRefused = 0x80
 // refusedFilters returns the filters that the broker refused in the answer to a
 // completed subscribe token.
 func refusedFilters(token paho.Token) set.Set[string] {
+	subToken, ok := token.(*paho.SubscribeToken)
+	if !ok {
+		panic(fmt.Sprintf("subscribe token is a %T", token))
+	}
 	refused := make(set.Set[string])
-	for filter, code := range token.(*paho.SubscribeToken).Result() {
+	for filter, code := range subToken.Result() {
 		if code >= subscribeRefused {
 			refused.Add(filter)
 		}

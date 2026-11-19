@@ -491,10 +491,10 @@ describe("Status", () => {
     });
 
     it("should search for statuses", async () => {
-      const uniqueName = `SearchableStatus_${Date.now()}`;
+      const uniqueName = `SearchableStatus_${id.create()}`;
       await client.statuses.set({
         name: uniqueName,
-        key: `searchable-${Date.now()}`,
+        key: `searchable-${id.create()}`,
         variant: "info",
         message: "Searchable status",
         time: TimeStamp.now(),
@@ -512,7 +512,7 @@ describe("Status", () => {
     it("should page with a limit and a cursor", async () => {
       const keys = [];
       for (let i = 0; i < 5; i++) {
-        const key = `paginate-${i}-${Date.now()}`;
+        const key = `paginate-${i}-${id.create()}`;
         keys.push(key);
         await client.statuses.set({
           name: `Paginate ${i}`,
@@ -744,7 +744,7 @@ describe("Status", () => {
 
   describe("retrieve with variants filter", () => {
     it("should filter statuses by a single variant", async () => {
-      const prefix = `variant-filter-${Date.now()}`;
+      const prefix = `variant-filter-${id.create()}`;
       await client.statuses.set([
         {
           name: "Success",
@@ -779,7 +779,7 @@ describe("Status", () => {
     });
 
     it("should filter statuses by multiple variants", async () => {
-      const prefix = `variant-multi-${Date.now()}`;
+      const prefix = `variant-multi-${id.create()}`;
       await client.statuses.set([
         {
           name: "Info",
@@ -817,7 +817,7 @@ describe("Status", () => {
     });
 
     it("should return empty when no statuses match variant", async () => {
-      const prefix = `variant-none-${Date.now()}`;
+      const prefix = `variant-none-${id.create()}`;
       await client.statuses.set({
         name: "Info Only",
         key: `${prefix}-info`,
@@ -835,7 +835,7 @@ describe("Status", () => {
     });
 
     it("should filter statuses by a flat filter", async () => {
-      const prefix = `variant-flat-${Date.now()}`;
+      const prefix = `variant-flat-${id.create()}`;
       const keys = [`${prefix}-info`, `${prefix}-error`];
       await client.statuses.set(
         (["info", "error"] as const).map((variant, i) => ({
@@ -915,7 +915,7 @@ describe("Status", () => {
     });
 
     it("should filter statuses by a tree of filters", async () => {
-      const prefix = `variant-tree-${Date.now()}`;
+      const prefix = `variant-tree-${id.create()}`;
       const keys = [`${prefix}-info`, `${prefix}-error`, `${prefix}-success`];
       await client.statuses.set(
         (["info", "error", "success"] as const).map((variant, i) => ({
@@ -986,7 +986,7 @@ describe("Status", () => {
       const statuses = await client.statuses.set(
         variants.map((variant) => ({
           name: `Variant ${variant}`,
-          key: `variant-${variant}-${Date.now()}`,
+          key: `variant-${variant}-${id.create()}`,
           variant,
           message: `Testing ${variant} variant`,
           time: TimeStamp.now(),

@@ -11,8 +11,8 @@ from __future__ import annotations
 
 from asyncio import Future
 from collections.abc import Callable
-from threading import Event, Lock
-from typing import Any, Protocol, TypeAlias, cast, overload, override
+from threading import Event, RLock
+from typing import Any, Protocol, TypeAlias, overload, override
 
 import numpy as np
 
@@ -276,12 +276,8 @@ class Controller:
         authority: CrudeAuthority | None = None,
     ) -> None:
         if isinstance(value, dict):
-            # Overloads guarantee homogeneous key types; widen for uniform access
-            auth = cast(
-                dict[channel_.Key | str | channel_.Payload, CrudeAuthority], value
-            )
             resolved: dict[channel_.Key | str | channel_.Payload, CrudeAuthority] = {}
-            for k, a in auth.items():
+            for k, a in value.items():
                 ch = self._resolve(k)
                 resolved[ch.key] = a
                 resolved[ch.index] = a
@@ -470,12 +466,12 @@ class Controller:
     @property
     def state(self) -> dict[channel_.Key, np.number | int | float]:
         """
-        :returns: The current state of all channels passed to read_from in the acquire
-        method. This is a dictionary of channel keys to their most recent values. It's
-        important to note that this dictionary may not contain entries for all channels
-        passed to read_from if no data has been received for them yet.
+        :returns: A copy of the current state of all channels passed to read_from in
+        the acquire method. This is a dictionary of channel keys to their most recent
+        values. It does not contain entries for channels that have no data yet.
         """
-        return self._receiver.state
+        with self._receiver.lock:
+            return dict(self._receiver.state)
 
     @override
     def __setattr__(self, key: str, value: CrudeSample) -> None:
@@ -555,7 +551,7 @@ class _Receiver(AsyncThread):
     client: framer.Client
     streamer: framer.AsyncStreamer
     processors: set[_Processor]
-    lock: Lock
+    lock: RLock
     retriever: channel_.Retriever
     controller: Controller
     startup_ack: Event
@@ -575,7 +571,8 @@ class _Receiver(AsyncThread):
         self.client = client
         self.state = {}
         self.controller = controller
-        self.lock = Lock()
+        # Reentrant because processor callbacks read Controller.state under it.
+        self.lock = RLock()
         self.startup_ack = Event()
         self.processors = set()
         self.error = None

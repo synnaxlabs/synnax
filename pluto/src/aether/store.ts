@@ -40,12 +40,12 @@ interface PendingRequest {
 
 class InvokeTracker {
   private pending = new Map<string, PendingRequest>();
-  private counters = new Map<string, number>();
+  // One count for every component: a component that re-attaches at the same path must
+  // not reuse a key that a late answer to its predecessor still carries.
+  private counter = 0;
 
   nextKey(componentID: string): string {
-    const counter = this.counters.get(componentID) ?? 0;
-    this.counters.set(componentID, counter + 1);
-    return `${componentID}-${counter}`;
+    return `${componentID}-${this.counter++}`;
   }
 
   track(
@@ -83,10 +83,6 @@ class InvokeTracker {
   abort(reason: Error): void {
     this.pending.forEach(({ controller }) => controller.abort(reason));
     this.pending.clear();
-  }
-
-  clearCounter(id: string): void {
-    this.counters.delete(id);
   }
 }
 
@@ -438,8 +434,8 @@ export class Store {
 
   /** Returns `entry` to the staged phase. Sends a delete only when its create message
    * already went out; a component that never flushed does not exist on the worker.
-   * `displaced` marks a same-path replacement, which must not clear the successor's
-   * entry or invoke counter. */
+   * `displaced` marks a same-path replacement, which must not delete the successor's
+   * entry. */
   private detachEntry(entry: Entry, displaced = false): void {
     if (entry.phase === "staged") return;
     const id = pathID(entry.path);
@@ -465,7 +461,6 @@ export class Store {
       return;
     }
     this.entries.delete(id);
-    this.invokeTracker.clearCounter(id);
   }
 
   private handleWorkerMessage(msg: aether.WorkerMessage): void {
@@ -510,10 +505,7 @@ export class Store {
     ): void => {
       if (entry.displaced) return;
       const prev = entry.state;
-      const raw = state.executeSetter<z.input<StateSchema>, z.infer<StateSchema>>(
-        next,
-        prev,
-      );
+      const raw = state.resolve<z.input<StateSchema>, z.infer<StateSchema>>(next, prev);
       entry.state = zod.parse(entry.schema, raw, { label: entry.type });
       // Before the create message flushes the worker has no component to update, so
       // the state rides along on that message instead and the transfer list merges

@@ -52,7 +52,7 @@ func (ts TimeSpan) Duration() time.Duration { return time.Duration(ts) }
 // IsZero returns true if the TimeSpan is TimeSpanZero.
 func (ts TimeSpan) IsZero() bool { return ts == TimeSpanZero }
 
-// String returns a string representation of the TimeSpan
+// String returns a string representation of the TimeSpan.
 func (ts TimeSpan) String() string {
 	adjusted := ts
 	if adjusted == 0 {

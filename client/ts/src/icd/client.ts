@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, caseconv, zod } from "@synnaxlabs/x";
+import { array, caseconv, strings, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
@@ -23,6 +23,8 @@ import {
 import {
   type ICD,
   icdZ,
+  type ImportFormat,
+  importFormatZ,
   type Key,
   keyZ,
   type New,
@@ -72,7 +74,7 @@ const checkResZ = z.object({ problems: problemZ.array() });
  */
 const issueMessage = (issue: z.core.$ZodIssue): string => {
   const name = issue.path.findLast((p) => typeof p === "string") ?? "";
-  const field = caseconv.toSentence(name).toLowerCase();
+  const field = strings.toSentence(name).toLowerCase();
   if (issue.code === "too_small")
     return issue.origin === "string"
       ? `${field} is required`
@@ -83,11 +85,6 @@ const issueMessage = (issue: z.core.$ZodIssue): string => {
 };
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const emptyResZ = z.object({});
-
-/** The file formats an interface control document is imported from. */
-export const IMPORT_FORMATS = ["dbc", "csv", "xlsx"] as const;
-export const importFormatZ = z.enum(IMPORT_FORMATS);
-export type ImportFormat = z.infer<typeof importFormatZ>;
 
 const importReqZ = z.object({
   key: keyZ,

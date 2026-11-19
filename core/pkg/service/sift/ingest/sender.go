@@ -58,7 +58,7 @@ func (s *sender) send(req *ingestv1.IngestWithConfigDataStreamRequest) error {
 		s.stream, s.cancel = stream, cancel
 	}
 	if err := s.stream.Send(req); err != nil {
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			// Sift ended the stream; its status is the real error.
 			_, err = s.stream.CloseAndRecv()
 		}

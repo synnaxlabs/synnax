@@ -26,7 +26,6 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	"go.uber.org/zap"
 )
 
 // scanTaskName is the name of the internal scan task the factory creates on its rack.
@@ -104,6 +103,14 @@ type factory struct{ cfg FactoryConfig }
 
 var _ driver.Factory = (*factory)(nil)
 
+func (f *factory) reporter() driver.ConfigReporter {
+	return driver.ConfigReporter{
+		DB:              f.cfg.DB,
+		Status:          f.cfg.Status,
+		Instrumentation: f.cfg.Instrumentation,
+	}
+}
+
 // NewFactory creates a driver.Factory for the Kafka scan, read, and write task types.
 func NewFactory(cfgs ...FactoryConfig) (driver.Factory, error) {
 	cfg, err := config.New(DefaultFactoryConfig, cfgs...)
@@ -135,7 +142,7 @@ func (f *factory) ConfigureTask(
 	case ScanTaskType:
 		st, autoStart, err := f.configureScan(t)
 		if err != nil {
-			f.reportConfigError(ctx, t, cmdKey, err)
+			f.reporter().Report(ctx, t, cmdKey, err)
 			return nil, err
 		}
 		// Start writes its own status when it fails.
@@ -148,7 +155,7 @@ func (f *factory) ConfigureTask(
 	case ReadTaskType:
 		rt, err := f.configureRead(ctx, t)
 		if err != nil {
-			f.reportConfigError(ctx, t, cmdKey, err)
+			f.reporter().Report(ctx, t, cmdKey, err)
 			return nil, err
 		}
 		// A successful configure writes no status, so a start answers the command. An
@@ -162,7 +169,7 @@ func (f *factory) ConfigureTask(
 	case WriteTaskType:
 		wt, err := f.configureWrite(ctx, t)
 		if err != nil {
-			f.reportConfigError(ctx, t, cmdKey, err)
+			f.reporter().Report(ctx, t, cmdKey, err)
 			return nil, err
 		}
 		if wt.cfg.AutoStart {
@@ -173,36 +180,6 @@ func (f *factory) ConfigureTask(
 		return wt, nil
 	default:
 		return nil, driver.ErrTaskNotHandled
-	}
-}
-
-// reportConfigError answers cmdKey with err, or logs it when nothing waits on the
-// configure.
-func (f *factory) reportConfigError(
-	ctx context.Context,
-	t task.Task,
-	cmdKey string,
-	err error,
-) {
-	if cmdKey == driver.NoCommand {
-		f.cfg.L.Warn("failed to configure task",
-			zap.Stringer("task", t),
-			zap.Error(err),
-		)
-		return
-	}
-	if sErr := driver.NewStatusHandler(f.cfg.DB, f.cfg.Status, t).Send(
-		ctx,
-		cmdKey,
-		status.VariantError,
-		false,
-		"Failed to configure task",
-		err.Error(),
-	); sErr != nil {
-		f.cfg.L.Error("failed to set configuration status",
-			zap.Stringer("task", t),
-			zap.Error(sErr),
-		)
 	}
 }
 

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { scheduler } from "@synnaxlabs/x";
+import { scheduler, sleep, TimeSpan } from "@synnaxlabs/x";
 import { renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -21,13 +21,13 @@ describe("useAsyncEffect", () => {
       expect(signal.aborted).toBe(false);
     });
     const { rerender, unmount } = renderHook(() => useAsyncEffect(effect, [state]));
-    await scheduler.flushTaskQueue();
+    await scheduler.nextTask();
     expect(state).toBe(1);
     rerender();
-    await scheduler.flushTaskQueue();
+    await scheduler.nextTask();
     expect(state).toBe(2);
     unmount();
-    await scheduler.flushTaskQueue();
+    await scheduler.nextTask();
     expect(state).toBe(2);
   });
   it("should cleanup", async () => {
@@ -41,15 +41,15 @@ describe("useAsyncEffect", () => {
     });
 
     const { rerender, unmount } = renderHook(() => useAsyncEffect(effect));
-    await scheduler.flushTaskQueue();
+    await scheduler.nextTask();
     expect(connectedNumber).toBe(1);
 
     rerender();
-    await scheduler.flushTaskQueue();
+    await scheduler.nextTask();
     expect(connectedNumber).toBe(1);
 
     unmount();
-    await scheduler.flushTaskQueue();
+    await scheduler.nextTask();
     expect(connectedNumber).toBe(0);
   });
   it("should still cleanup previous effects even if the callback has not finished by the time the hook rerenders", async () => {
@@ -109,21 +109,21 @@ describe("useAsyncEffect", () => {
       };
     });
     const { rerender, unmount } = renderHook(() => useAsyncEffect(effect));
-    await scheduler.flushTaskQueue();
+    await scheduler.nextTask();
     expect(server.isConnected("id-0")).toBe(false);
     expect(server.isConnected("id-1")).toBe(false);
     expect(server.connectionsCount).toBe(0);
     expect(cleanupsCalled).toBe(0);
 
     rerender();
-    await scheduler.flushTaskQueue();
+    await scheduler.nextTask();
     expect(server.isConnected("id-0")).toBe(false);
     expect(server.isConnected("id-1")).toBeTruthy();
     expect(server.connectionsCount).toBe(1);
     expect(cleanupsCalled).toBe(1);
 
     unmount();
-    await scheduler.flushTaskQueue();
+    await scheduler.nextTask();
     expect(server.isConnected("id-0")).toBe(false);
     expect(server.isConnected("id-1")).toBe(false);
     expect(server.connectionsCount).toBe(0);
@@ -133,7 +133,7 @@ describe("useAsyncEffect", () => {
   it("should not finish running the effect if the hook is unmounted before the effect is finished", async () => {
     let state = 0;
     const effect = vi.fn(async (signal: AbortSignal) => {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await sleep.sleep(TimeSpan.milliseconds(1000));
       if (signal.aborted) return;
       state++;
     });
@@ -144,7 +144,7 @@ describe("useAsyncEffect", () => {
     unmount();
     vi.advanceTimersByTime(2000);
     vi.useRealTimers();
-    await scheduler.flushTaskQueue();
+    await scheduler.nextTask();
     expect(state).toBe(0);
   });
 
@@ -154,7 +154,7 @@ describe("useAsyncEffect", () => {
       throw new Error("test");
     });
     renderHook(() => useAsyncEffect(effect, undefined));
-    await scheduler.flushTaskQueue();
+    await scheduler.nextTask();
     expect(consoleSpy).toHaveBeenCalledWith(new Error("test"));
   });
 });

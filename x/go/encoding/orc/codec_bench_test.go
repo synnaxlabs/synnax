@@ -68,37 +68,10 @@ func (r *benchRecord) DecodeOrc(rd *orc.Reader) error {
 		return err
 	}
 	defer rd.PopDepth()
+	if err := r.decodeNumbers(rd); err != nil {
+		return err
+	}
 	var err error
-	if r.U8, err = rd.Uint8(); err != nil {
-		return err
-	}
-	if r.U16, err = rd.Uint16(); err != nil {
-		return err
-	}
-	if r.U32, err = rd.Uint32(); err != nil {
-		return err
-	}
-	if r.U64, err = rd.Uint64(); err != nil {
-		return err
-	}
-	if r.I8, err = rd.Int8(); err != nil {
-		return err
-	}
-	if r.I16, err = rd.Int16(); err != nil {
-		return err
-	}
-	if r.I32, err = rd.Int32(); err != nil {
-		return err
-	}
-	if r.I64, err = rd.Int64(); err != nil {
-		return err
-	}
-	if r.F32, err = rd.Float32(); err != nil {
-		return err
-	}
-	if r.F64, err = rd.Float64(); err != nil {
-		return err
-	}
 	if r.Flag, err = rd.Bool(); err != nil {
 		return err
 	}
@@ -133,6 +106,41 @@ func (r *benchRecord) DecodeOrc(rd *orc.Reader) error {
 		r.Child = &benchRecord{}
 	}
 	return r.Child.DecodeOrc(rd)
+}
+
+func (r *benchRecord) decodeNumbers(rd *orc.Reader) error {
+	var err error
+	if r.U8, err = rd.Uint8(); err != nil {
+		return err
+	}
+	if r.U16, err = rd.Uint16(); err != nil {
+		return err
+	}
+	if r.U32, err = rd.Uint32(); err != nil {
+		return err
+	}
+	if r.U64, err = rd.Uint64(); err != nil {
+		return err
+	}
+	if r.I8, err = rd.Int8(); err != nil {
+		return err
+	}
+	if r.I16, err = rd.Int16(); err != nil {
+		return err
+	}
+	if r.I32, err = rd.Int32(); err != nil {
+		return err
+	}
+	if r.I64, err = rd.Int64(); err != nil {
+		return err
+	}
+	if r.F32, err = rd.Float32(); err != nil {
+		return err
+	}
+	if r.F64, err = rd.Float64(); err != nil {
+		return err
+	}
+	return nil
 }
 
 func benchInput() *benchRecord {

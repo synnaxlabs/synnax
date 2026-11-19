@@ -9,6 +9,7 @@
 
 import { type ranger, type Synnax } from "@synnaxlabs/client";
 import { id, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { onTestFinished } from "vitest";
 
 import { createKeyEndingIn } from "@/testutil";
 
@@ -18,14 +19,37 @@ export const uniqueRangeName = (prefix = "range"): string =>
 
 /**
  * Creates a real range on the connected Core with a unique name and a valid, non-zero
- * time range, so range specs share one place for building fixtures.
+ * time range, so range specs share one place for building fixtures. The overrides
+ * replace those defaults.
  */
-export const createTestRange = async (client: Synnax): Promise<ranger.Range> => {
-  const start = TimeStamp.now();
+export const createTestRange = async (
+  client: Synnax,
+  overrides: Partial<ranger.New> = {},
+): Promise<ranger.Range> => {
+  // Each start or end after now makes the stage readers of parallel specs, such as the
+  // range toolbar, read again, so the range ends in the past.
+  const end = TimeStamp.now().sub(TimeSpan.MINUTE);
   return await client.ranges.create({
     name: uniqueRangeName(),
-    timeRange: new TimeRange(start, start.add(TimeSpan.seconds(10))),
+    timeRange: new TimeRange(end.sub(TimeSpan.seconds(10)), end),
+    ...overrides,
   });
+};
+
+/**
+ * Creates a range with no start. It sorts above every other range, so it is deleted
+ * once the test finishes.
+ */
+export const createPlannedTestRange = async (
+  client: Synnax,
+  name: string,
+): Promise<ranger.Range> => {
+  const rng = await createTestRange(client, {
+    name,
+    timeRange: new TimeRange(TimeStamp.MAX, TimeStamp.MAX),
+  });
+  onTestFinished(async () => await client.ranges.delete(rng.key));
+  return rng;
 };
 
 /** Matches the default page size of Flux.useList, which the range select uses. */
@@ -39,8 +63,8 @@ const PAGE_SIZE = 50;
  * ordering fails the spec instead of quietly restoring it to the first page.
  */
 export const createOffPageTestRange = async (client: Synnax): Promise<ranger.Range> => {
-  const start = TimeStamp.now();
-  const timeRange = new TimeRange(start, start.add(TimeSpan.seconds(10)));
+  const end = TimeStamp.now().sub(TimeSpan.MINUTE);
+  const timeRange = new TimeRange(end.sub(TimeSpan.seconds(10)), end);
   await client.ranges.create(
     Array.from({ length: PAGE_SIZE }, () => ({
       key: createKeyEndingIn("0"),

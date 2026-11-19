@@ -11,6 +11,7 @@ package testutil_test
 
 import (
 	"context"
+	"io"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -94,9 +95,80 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 				}
 			}()
 			Expect(stream.Receive()).Error().To(MatchError("handler failed"))
-			Eventually(sent).Should(Receive(MatchError(freighter.EOF)))
+			Eventually(sent).Should(Receive(MatchError(io.EOF)))
 		}
 	})
+
+	It("Should pass the context from server middleware to the handler", func(
+		ctx SpecContext,
+	) {
+		type key struct{}
+		srv, dialer := testutil.NewStreamPair[testutil.Request, testutil.Response]()
+		srv.Use(freighter.MiddlewareFunc(func(
+			ctx freighter.Context,
+			next freighter.Next,
+		) (freighter.Context, error) {
+			ctx.Context = context.WithValue(ctx.Context, key{}, "value")
+			return next(ctx)
+		}))
+		values := make(chan any, 1)
+		srv.BindHandler(func(
+			ctx context.Context,
+			_ freighter.ServerStream[testutil.Request, testutil.Response],
+		) error {
+			values <- ctx.Value(key{})
+			return nil
+		})
+		stream := MustSucceed(dialer.Stream(ctx, "localhost:0"))
+		Eventually(values).Should(Receive(Equal("value")))
+		Expect(stream.Receive()).Error().To(MatchError(io.EOF))
+	})
+
+	It("Should unblock a parked handler and tell the peer why when middleware cancels",
+		func(ctx SpecContext) {
+			srv, dialer := testutil.NewStreamPair[testutil.Request, testutil.Response]()
+			errEnded := errors.New("session ended")
+			endSession := make(chan struct{})
+			srv.Use(freighter.MiddlewareFunc(func(
+				ctx freighter.Context,
+				next freighter.Next,
+			) (freighter.Context, error) {
+				dCtx, cancel := context.WithCancelCause(ctx.Context)
+				defer cancel(nil)
+				go func() {
+					select {
+					case <-endSession:
+						cancel(errEnded)
+					case <-dCtx.Done():
+					}
+				}()
+				ctx.Context = dCtx
+				oCtx, err := next(ctx)
+				if cause := context.Cause(dCtx); errors.Is(cause, errEnded) {
+					return oCtx, cause
+				}
+				return oCtx, err
+			}))
+			handlerEntered := make(chan error, 1)
+			received := make(chan error, 1)
+			srv.BindHandler(func(
+				ctx context.Context,
+				stream freighter.ServerStream[testutil.Request, testutil.Response],
+			) error {
+				handlerEntered <- ctx.Err()
+				_, err := stream.Receive()
+				received <- err
+				return err
+			})
+			stream := MustSucceed(dialer.Stream(ctx, "localhost:0"))
+			Eventually(handlerEntered).Should(Receive(BeNil()))
+			Consistently(received).ShouldNot(Receive())
+			close(endSession)
+			Eventually(received).Should(Receive(MatchError(context.Canceled)))
+			Expect(stream.Receive()).Error().
+				To(MatchError(ContainSubstring("session ended")))
+		},
+	)
 })
 
 // Go picks at random between the ready cases of a select, so a cancelled context and

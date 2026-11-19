@@ -42,34 +42,54 @@ export type EditableProps = Omit<TextProps<"p">, "children" | "onChange"> &
 
 const NOMINAL_EXIT_KEYS = ["Escape", "Enter"];
 const BASE_CLASS = PCSS.BM("text", "editable");
+const TEXT_CLASS = PCSS.B("text");
 const MAX_EDIT_RETRIES = 10;
 const RENAMED_EVENT_NAME = "renamed";
 const ESCAPED_EVENT_NAME = "escaped";
 const START_EDITING_EVENT_NAME = "start-editing";
 
-// Read-only copies of the same value render with the same id, so the id alone does not
-// identify the edit target. Selecting on the class first and matching the id by hand
-// keeps every candidate in play: a `#id.class` selector resolves the id to one element
-// before testing the class, and gives up when that element is a read-only copy.
-const findEditable = (id: string): Element | undefined =>
-  Array.from(document.getElementsByClassName(BASE_CLASS)).find((el) => el.id === id);
+// Read-only copies of a value carry the same id as its editable copies, so a lookup by
+// id collects every copy.
+const findCopies = (id: string, within: Element | Document): Element[] =>
+  Array.from(within.getElementsByClassName(TEXT_CLASS)).filter((el) => el.id === id);
+
+const isEditable = (el: Element): boolean => el.classList.contains(BASE_CLASS);
+
+// The nearest copy wins, even a read-only one. Without `near`, the first editable copy
+// wins.
+const findNearest = (id: string, near: Element | null): Element | undefined => {
+  for (let scope = near; scope != null; scope = scope.parentElement) {
+    const copies = findCopies(id, scope);
+    if (copies.length > 0) return copies.find(isEditable) ?? copies[0];
+  }
+  return findCopies(id, document).find(isEditable);
+};
 
 /**
  * Starts editing the {@link Editable} carrying the given id, retrying for a second
  * while it mounts. Use it to rename a resource the same gesture just created.
  *
+ * @param within - The item a menu opened over. When the same id shows in several
+ * places, the copy nearest to it wins: inside it, then inside each of its parents.
  * @returns the final text and whether the user committed it. A rejected promise means
- * no such element appeared.
+ * no such element appeared, or the nearest copy is read-only.
  */
-export const asyncEdit = (id: string): Promise<[string, boolean]> =>
+export const asyncEdit = (
+  id: string,
+  within: Element | null = null,
+): Promise<[string, boolean]> =>
   new Promise((resolve, reject) => {
     let currRetry = 0;
     const tryEdit = (): void => {
       currRetry++;
-      const el = findEditable(id);
+      const el = findNearest(id, within);
       if (el == null) {
         if (currRetry < MAX_EDIT_RETRIES) setTimeout(tryEdit, 100);
         else reject(new Error(`Could not find element with id ${id}`));
+        return;
+      }
+      if (!isEditable(el)) {
+        reject(new Error(`The nearest element with id ${id} is read-only`));
         return;
       }
       el.dispatchEvent(new CustomEvent(START_EDITING_EVENT_NAME));
@@ -88,9 +108,9 @@ export const asyncEdit = (id: string): Promise<[string, boolean]> =>
     tryEdit();
   });
 
-/** Starts editing the {@link Editable} carrying the given id, discarding the result. */
-export const edit = (id: string): void => {
-  asyncEdit(id).catch(console.error);
+/** Like {@link asyncEdit}, but discards the result. */
+export const edit = (id: string, within: Element | null = null): void => {
+  asyncEdit(id, within).catch(console.error);
 };
 
 const getInnerText = (el: HTMLElement): string => el.innerText.trim();

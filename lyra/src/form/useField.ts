@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array, compare, deep, type record, state } from "@synnaxlabs/x";
+import { array, type compare, deep, type record, state } from "@synnaxlabs/x";
 import { useRef, useSyncExternalStore } from "react";
 
 import { type ContextValue, useContext } from "@/form/Context";
@@ -123,7 +123,7 @@ export const useStatuses = (
     const next = getStatuses().filter(
       ({ key }) => key != null && deep.pathsMatch(key, path),
     );
-    if (compare.arraysEqual(next, cached.current)) return cached.current;
+    if (array.equal(next, cached.current)) return cached.current;
     cached.current = next;
     return next;
   };
@@ -204,7 +204,7 @@ export const fieldListUtils = <E extends record.Keyed<string>>(
       const kept = new Set(array.toArray(key));
       return removeWhere((k) => !kept.has(k));
     },
-    set: (values) => ctx.set(path, state.executeSetter(values, value())),
+    set: (values) => ctx.set(path, state.resolve(values, value())),
     sort: (compareFn) => ctx.batch(() => reorder(value().toSorted(compareFn))),
   };
 };

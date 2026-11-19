@@ -18,18 +18,18 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Cursor is a position in an order of nameds: the sort value and the key of a named.
+// Cursor is a position in an order of colors: the sort value and the key of a color.
 type Cursor struct {
-	// Key is the key of the named at the position.
+	// Key is the key of the color at the position.
 	Key servicecolor.Key `json:"key" msgpack:"key"`
-	// Name is the name of the named at the position, when the order sorts by it.
+	// Name is the name of the color at the position, when the order sorts by it.
 	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
 }
 
-// OrderField is a field that nameds can be sorted by.
+// OrderField is a field that colors can be sorted by.
 type OrderField string
 
-// OrderFieldName sorts the nameds by name.
+// OrderFieldName sorts the colors by name.
 const OrderFieldName OrderField = "name"
 
 // IsValid reports whether o is one of the defined OrderField
@@ -43,7 +43,7 @@ func (o OrderField) IsValid() bool {
 	}
 }
 
-// Order is a sort of nameds.
+// Order is a sort of colors.
 type Order struct {
 	// Field is the field to sort by. Records with equal values sort by key.
 	Field OrderField `json:"field" msgpack:"field"`
@@ -59,17 +59,17 @@ func (o Order) Validate() error {
 	return v.Error()
 }
 
-// RetrieveRequest is a request to retrieve nameds.
+// RetrieveRequest is a request to retrieve colors.
 type RetrieveRequest struct {
-	// Where selects the nameds to retrieve. An absent where selects all of them.
+	// Where selects the colors to retrieve. An absent where selects all of them.
 	Where *servicecolor.Where `json:"where,omitzero" msgpack:"where,omitempty"`
-	// SearchTerm keeps the nameds that match the term, closest match first.
+	// SearchTerm keeps the colors that match the term, closest match first.
 	SearchTerm string `json:"search_term" msgpack:"search_term"`
-	// Order sorts the nameds. An absent order sorts them by key.
+	// Order sorts the colors. An absent order sorts them by key.
 	Order *Order `json:"order,omitzero" msgpack:"order,omitempty"`
-	// After starts the nameds strictly past this position in their order.
+	// After starts the colors strictly past this position in their order.
 	After *Cursor `json:"after,omitzero" msgpack:"after,omitempty"`
-	// Limit is the most nameds to return.
+	// Limit is the most colors to return.
 	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
 }
 
@@ -83,18 +83,18 @@ func (r RetrieveRequest) Validate() error {
 	return v.Error()
 }
 
-// RetrieveResponse holds the nameds a RetrieveRequest selects.
+// RetrieveResponse holds the colors a RetrieveRequest selects.
 type RetrieveResponse struct {
-	// Nameds are the nameds the request selects.
-	Nameds []servicecolor.Named `json:"nameds" msgpack:"nameds"`
+	// Colors are the colors the request selects.
+	Colors []servicecolor.Named `json:"colors" msgpack:"colors"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (r RetrieveResponse) Validate() error {
 	v := validate.New("RetrieveResponse")
-	for i := range r.Nameds {
-		v.Exec(func() error { return validate.PathedError(r.Nameds[i].Validate(), "nameds", strconv.Itoa(i)) })
+	for i := range r.Colors {
+		v.Exec(func() error { return validate.PathedError(r.Colors[i].Validate(), "colors", strconv.Itoa(i)) })
 	}
 	return v.Error()
 }

@@ -37,8 +37,8 @@ class Credentials(BaseModel):
         password: Is the plaintext password. It is never stored.
     """
 
-    username: str
-    password: str
+    username: str = Field(min_length=1)
+    password: str = Field(min_length=1)
 
 
 class APIKeyCredentials(BaseModel):
@@ -48,7 +48,7 @@ class APIKeyCredentials(BaseModel):
         key: Is the full API key, as it was shown at creation.
     """
 
-    key: str
+    key: str = Field(min_length=1)
 
 
 class Session(BaseModel):

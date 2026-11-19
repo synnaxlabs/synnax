@@ -24,7 +24,7 @@ import (
 // not just the cases checkDefaultInvariant can settle.
 func checkOptionalDefaultInvariant(c *analysisCtx) {
 	for _, typ := range c.table.Types {
-		if typ.Namespace != c.namespace {
+		if !c.owns(typ) {
 			continue
 		}
 		form, ok := typ.Form.(resolution.StructForm)
@@ -59,7 +59,7 @@ func checkOptionalDefaultInvariant(c *analysisCtx) {
 // `@default group`; see checkDefaultGroups.
 func checkDefaultInvariant(c *analysisCtx) {
 	for _, typ := range c.table.Types {
-		if typ.Namespace != c.namespace {
+		if !c.owns(typ) {
 			continue
 		}
 		form, ok := typ.Form.(resolution.StructForm)
@@ -162,10 +162,10 @@ func checkUnionDefaultConstructible(c *analysisCtx) {
 }
 
 // forEachDefaultedField calls fn for every field carrying a default on every struct
-// declared in the namespace under analysis.
+// declared in the file under analysis.
 func forEachDefaultedField(c *analysisCtx, fn func(resolution.Type, resolution.Field)) {
 	for _, typ := range c.table.Types {
-		if typ.Namespace != c.namespace {
+		if !c.owns(typ) {
 			continue
 		}
 		form, ok := typ.Form.(resolution.StructForm)
@@ -212,6 +212,11 @@ func defaultInvariantViolation(
 			return "an integer-enum default that is not the zeroth member leaves the " +
 				"zeroth member (the zero value) as a valid, distinct value", true
 		}
+	case resolution.ValueKindString,
+		resolution.ValueKindInt,
+		resolution.ValueKindFloat,
+		resolution.ValueKindArray,
+		resolution.ValueKindStruct:
 	}
 	return "", false
 }
@@ -248,7 +253,7 @@ func defaultGroup(f resolution.Field) (string, bool) {
 // one member survives.
 func checkDefaultGroups(c *analysisCtx) {
 	for _, typ := range c.table.Types {
-		if typ.Namespace != c.namespace {
+		if !c.owns(typ) {
 			continue
 		}
 		form, ok := typ.Form.(resolution.StructForm)
@@ -347,6 +352,9 @@ func checkGroupMember(
 				return
 			}
 		}
+	case resolution.ValueKindBool,
+		resolution.ValueKindArray,
+		resolution.ValueKindStruct:
 	}
 	c.diag.Add(diagnostics.Errorf(
 		nil,

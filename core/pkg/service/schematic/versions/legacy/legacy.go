@@ -66,46 +66,23 @@ func MigrateData(blob msgpack.EncodedJSON) (Data, error) {
 	case v5.Version:
 		d, err = imex.DecodeBlob[v5.Data](blob, "schematic data", version)
 	case v4.Version:
-		var old v4.Data
-		old, err = imex.DecodeBlob[v4.Data](blob, "schematic data", version)
-		if err != nil {
-			break
-		}
-		d = v5.Migrate(old)
+		d, err = decodeAndMigrate(blob, version, v5.Migrate)
 	case v3.Version:
-		var old v3.Data
-		old, err = imex.DecodeBlob[v3.Data](blob, "schematic data", version)
-		if err != nil {
-			break
-		}
-		d = v5.Migrate(v4.Migrate(old))
+		d, err = decodeAndMigrate(blob, version, func(old v3.Data) Data {
+			return v5.Migrate(v4.Migrate(old))
+		})
 	case v2.Version:
-		var old v2.Data
-		old, err = imex.DecodeBlob[v2.Data](blob, "schematic data", version)
-		if err != nil {
-			break
-		}
-		d = v5.Migrate(v4.Migrate(v3.Migrate(old)))
+		d, err = decodeAndMigrate(blob, version, func(old v2.Data) Data {
+			return v5.Migrate(v4.Migrate(v3.Migrate(old)))
+		})
 	case v1.Version:
-		var old v1.Data
-		old, err = imex.DecodeBlob[v1.Data](blob, "schematic data", version)
-		if err != nil {
-			break
-		}
-		d = v5.Migrate(
-			v4.Migrate(v3.Migrate(v2.Migrate(old))),
-		)
+		d, err = decodeAndMigrate(blob, version, func(old v1.Data) Data {
+			return v5.Migrate(v4.Migrate(v3.Migrate(v2.Migrate(old))))
+		})
 	case v0.Version:
-		var old v0.Data
-		old, err = imex.DecodeBlob[v0.Data](blob, "schematic data", version)
-		if err != nil {
-			break
-		}
-		d = v5.Migrate(
-			v4.Migrate(
-				v3.Migrate(v2.Migrate(v1.Migrate(old))),
-			),
-		)
+		d, err = decodeAndMigrate(blob, version, func(old v0.Data) Data {
+			return v5.Migrate(v4.Migrate(v3.Migrate(v2.Migrate(v1.Migrate(old)))))
+		})
 	default:
 		return Data{}, errors.Newf("unknown schematic data version %d", version)
 	}
@@ -116,4 +93,17 @@ func MigrateData(blob msgpack.EncodedJSON) (Data, error) {
 		return e.Source == "" || e.Target == ""
 	})
 	return d, nil
+}
+
+// decodeAndMigrate decodes blob as an Old at version and walks it forward to Data.
+func decodeAndMigrate[Old any](
+	blob msgpack.EncodedJSON,
+	version imex.Version,
+	migrate func(Old) Data,
+) (Data, error) {
+	old, err := imex.DecodeBlob[Old](blob, "schematic data", version)
+	if err != nil {
+		return Data{}, err
+	}
+	return migrate(old), nil
 }

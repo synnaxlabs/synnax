@@ -11,6 +11,7 @@ package check
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/synnaxlabs/oracle/pipeline"
 	"github.com/synnaxlabs/x/diagnostics"
@@ -79,8 +80,10 @@ func severityFromDiagnostic(
 			return SeverityError
 		}
 		return SeverityWarning
-	default:
+	case protocol.DiagnosticSeverityInformation, protocol.DiagnosticSeverityHint:
 		return SeverityInfo
+	default:
+		panic(fmt.Sprintf("unknown diagnostic severity %d", s))
 	}
 }
 

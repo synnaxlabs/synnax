@@ -75,9 +75,9 @@ func MultiFrame[K types.SizedNumeric](keys []K, series []Series) Frame[K] {
 // AllocFrame allocates a new frame with the given capacity. The capacity is the maximum
 // number of entries that can be added to the frame before it needs to be resized. The
 // frame is not initialized, so the keys and series slices will be empty. This function
-// is useful for creating a frame with a known number of entries
-func AllocFrame[K types.SizedNumeric](cap int) Frame[K] {
-	return Frame[K]{keys: make([]K, 0, cap), series: make([]Series, 0, cap)}
+// is useful for creating a frame with a known number of entries.
+func AllocFrame[K types.SizedNumeric](capacity int) Frame[K] {
+	return Frame[K]{keys: make([]K, 0, capacity), series: make([]Series, 0, capacity)}
 }
 
 // String returns a nicely formatted string representation of the frame. This function
@@ -327,9 +327,20 @@ func (f Frame[K]) Get(key K) MultiSeries {
 // Append adds a new key-series pair to the end of the frame, returning the updated
 // frame.
 func (f Frame[K]) Append(key K, series Series) Frame[K] {
+	f = f.reserve(1)
 	f.keys = append(f.keys, key)
 	f.series = append(f.series, series)
 	return f
+}
+
+// reserve returns a frame that can hold n more entries. When a filtered frame would
+// grow past the capacity of its mask, it returns an unfiltered copy of the kept
+// entries.
+func (f Frame[K]) reserve(n int) Frame[K] {
+	if !f.mask.enabled || len(f.keys)+n <= f.mask.Cap() {
+		return f
+	}
+	return Frame[K]{keys: f.KeysSlice(), series: f.SeriesSlice()}
 }
 
 // Grow ensures the frame has capacity for at least n additional entries beyond its
@@ -345,9 +356,10 @@ func (f Frame[K]) Grow(n int) Frame[K] {
 // Prepend adds a new key-series pair to the beginning of the frame, returning the
 // updated frame.
 func (f Frame[K]) Prepend(key K, series Series) Frame[K] {
-	f.keys = append([]K{key}, f.keys...)
-	f.series = append([]Series{series}, f.series...)
-	return f
+	return Frame[K]{
+		keys:   append([]K{key}, f.KeysSlice()...),
+		series: append([]Series{series}, f.SeriesSlice()...),
+	}
 }
 
 // Empty returns true if the frame has no keys or series.
@@ -383,12 +395,13 @@ func (f Frame[K]) Extend(frames ...Frame[K]) Frame[K] {
 	if len(frames) == 0 {
 		return f
 	}
-	totalKeys := len(f.keys)
+	n := 0
 	for _, fr := range frames {
-		totalKeys += fr.Count()
+		n += fr.Count()
 	}
-	f.keys = slices.Grow(f.keys, totalKeys-len(f.keys))
-	f.series = slices.Grow(f.series, totalKeys-len(f.series))
+	f = f.reserve(n)
+	f.keys = slices.Grow(f.keys, n)
+	f.series = slices.Grow(f.series, n)
 	for _, fr := range frames {
 		if !fr.mask.enabled {
 			f.keys = append(f.keys, fr.keys...)
@@ -422,7 +435,7 @@ func (f Frame[K]) KeepKeys(keys set.Set[K]) Frame[K] {
 }
 
 // notContain is defined statically so that it doesn't accidentally escape to the heap,
-// applying more pressure on GC
+// applying more pressure on GC.
 func notContains[T comparable](s []T, e T) bool { return !lo.Contains(s, e) }
 
 // ExcludeKeys filters the frame to include any keys that are NOT in the given slice,
