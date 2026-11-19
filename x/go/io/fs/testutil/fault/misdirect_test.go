@@ -92,6 +92,51 @@ var _ = Describe("Misdirected reads", func() {
 			To(Equal("tacocat" + strings.Repeat("\x00", blockSize-7)))
 	})
 
+	It("Should keep the offset in the block for a read that is not aligned", func() {
+		data := make([]byte, 2*blockSize)
+		for i := range data {
+			data[i] = byte(i % 251)
+		}
+		base := MustSucceed(fault.New(fault.Config{}))
+		save(base, "f.bin", string(data))
+		Expect(base.SyncDir("")).To(Succeed())
+		fs := MustSucceed(base.Crash(fault.CrashConfig{Image: always}))
+		Expect(readAt(fs, blockSize+50, 100)).To(Equal(string(data[50:150])))
+	})
+
+	It("Should hit the same block of a read whatever other files hold", func() {
+		// victims returns, for each of 32 run keys, the block of f.bin that a read gets
+		// from another place.
+		victims := func(others bool) []int {
+			GinkgoHelper()
+			out := make([]int, 32)
+			for runKey := range out {
+				base := MustSucceed(fault.New(fault.Config{}))
+				save(
+					base,
+					"f.bin",
+					strings.Repeat("a", blockSize)+strings.Repeat("b", blockSize),
+				)
+				if others {
+					save(base, "g.bin", strings.Repeat("c", 3*blockSize))
+				}
+				Expect(base.SyncDir("")).To(Succeed())
+				cfg := fault.Config{RunKey: uint64(runKey), MisdirectedReadRate: 1}
+				got := readAt(
+					MustSucceed(base.Crash(fault.CrashConfig{Image: cfg})),
+					0,
+					2*blockSize,
+				)
+				if got[:1] == "a" {
+					out[runKey] = 1
+				}
+			}
+			return out
+		}
+		Expect(victims(true)).To(Equal(victims(false)))
+		Expect(victims(true)).To(And(ContainElement(0), ContainElement(1)))
+	})
+
 	It("Should leave the read of a disk with one block as it is", func() {
 		base := MustSucceed(fault.New(fault.Config{}))
 		save(base, "f.bin", "tacocat")

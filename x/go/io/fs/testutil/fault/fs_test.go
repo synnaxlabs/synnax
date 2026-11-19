@@ -10,6 +10,7 @@
 package fault_test
 
 import (
+	"io"
 	"os"
 	"strconv"
 	"sync"
@@ -54,10 +55,13 @@ var _ = Describe("FS", func() {
 			To(MatchError(os.ErrExist))
 	})
 
-	It("Should fail to make a directory under a file", func() {
+	It("Should fail a path under a file", func() {
 		write(fs, "f.txt", "tacocat")
 		Expect(fs.Sub("f.txt/a")).Error().To(MatchError(syscall.ENOTDIR))
 		Expect(fs.List("f.txt")).Error().To(MatchError(syscall.ENOTDIR))
+		Expect(fs.Stat("f.txt/a")).Error().To(MatchError(syscall.ENOTDIR))
+		Expect(fs.Open("f.txt/a", os.O_RDONLY)).Error().
+			To(MatchError(syscall.ENOTDIR))
 	})
 
 	DescribeTable("Should refuse to change the root",
@@ -123,6 +127,18 @@ var _ = Describe("FS", func() {
 				To(MatchError(syscall.EISDIR))
 			Expect(fs.List("a")).To(BeEmpty())
 		})
+
+		It(
+			"Should return the bytes and io.EOF from a ReadAt that passes the end",
+			func() {
+				write(fs, "f.txt", "tacocat")
+				f := MustOpen(fs.Open("f.txt", os.O_RDONLY))
+				buf := make([]byte, 8)
+				n, err := f.ReadAt(buf, 0)
+				Expect(err).To(MatchError(io.EOF))
+				Expect(string(buf[:n])).To(Equal("tacocat"))
+			},
+		)
 
 		It("Should not grow a file on an empty write past its end", func() {
 			f := MustOpen(fs.Open("f.txt", os.O_CREATE|os.O_WRONLY))

@@ -14,6 +14,7 @@ import (
 	"math"
 	"os"
 	"strings"
+	"syscall"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -148,6 +149,19 @@ var _ = Describe("Crash", func() {
 			Expect(image.Exists("a/f.txt")).To(BeFalse())
 			Expect(read(image, "a/b/f.txt")).To(Equal("tacocat"))
 		})
+
+		It(
+			"Should not make a change durable for a SyncDir of another directory",
+			func() {
+				MustSucceed(fs.Sub("a"))
+				MustSucceed(fs.Sub("b"))
+				Expect(fs.SyncDir("")).To(Succeed())
+				save(fs, "a/f.txt", "tacocat")
+				Expect(fs.Rename("a/f.txt", "a/g.txt")).To(Succeed())
+				Expect(fs.SyncDir("b")).To(Succeed())
+				Expect(MustSucceed(strict(fs).List("a"))).To(BeEmpty())
+			},
+		)
 
 		It("Should sync a directory through the Sync of its handle", func() {
 			save(fs, "f.txt", "tacocat")
@@ -368,24 +382,53 @@ var _ = Describe("Crash", func() {
 				}
 				Expect(fs.Rename("a/f.txt", "b/f.txt")).To(Succeed())
 			})
+			// places returns the paths that hold f.txt in image.
+			places := func(image *fault.FS) string {
+				GinkgoHelper()
+				var out []string
+				for _, name := range []string{"a/f.txt", "b/f.txt"} {
+					if MustSucceed(image.Exists(name)) {
+						out = append(out, name)
+					}
+				}
+				return strings.Join(out, " ")
+			}
 
-			It("Should keep both names when only the target is synced", func() {
-				Expect(fs.SyncDir("b")).To(Succeed())
-				image := strict(fs)
-				Expect(read(image, "a/f.txt")).To(Equal("tacocat"))
-				write(image, "a/f.txt", "burrito")
-				Expect(read(image, "b/f.txt")).To(Equal("burrito"))
-				image = MustSucceed(fs.Crash(all))
-				Expect(image.Exists("a/f.txt")).To(BeFalse())
-				Expect(read(image, "b/f.txt")).To(Equal("tacocat"))
+			DescribeTable("Should make the rename durable in both with one SyncDir",
+				func(dir string) {
+					Expect(fs.SyncDir(dir)).To(Succeed())
+					Expect(places(strict(fs))).To(Equal("b/f.txt"))
+				},
+				Entry("of the target", "b"),
+				Entry("of the source", "a"),
+			)
+
+			It("Should keep the file under one name when no SyncDir follows", func() {
+				seen := set.Set[string]{}
+				for runKey := range uint64(32) {
+					cfg := fault.CrashConfig{RunKey: runKey, EntrySurvivalRate: 0.5}
+					seen.Add(places(MustSucceed(fs.Crash(cfg))))
+				}
+				Expect(seen.Slice()).To(ConsistOf("a/f.txt", "b/f.txt"))
 			})
 
-			It("Should lose the file when only the source is synced", func() {
+			It("Should make durable the earlier changes that the rename needs", func() {
+				save(fs, "a/g.txt", "burrito")
+				Expect(fs.Rename("a/g.txt", "b/g.txt")).To(Succeed())
+				Expect(fs.SyncDir("b")).To(Succeed())
+				Expect(read(strict(fs), "b/g.txt")).To(Equal("burrito"))
+				Expect(MustSucceed(fs.Crash(all)).Exists("a/g.txt")).To(BeFalse())
+			})
+
+			It("Should not leave a directory under two names", func() {
+				MustSucceed(fs.Sub("a/x"))
 				Expect(fs.SyncDir("a")).To(Succeed())
+				Expect(fs.Rename("a/x", "b/x")).To(Succeed())
+				Expect(fs.SyncDir("b")).To(Succeed())
 				image := strict(fs)
-				Expect(image.Exists("a/f.txt")).To(BeFalse())
-				Expect(image.Exists("b/f.txt")).To(BeFalse())
-				Expect(read(MustSucceed(fs.Crash(all)), "b/f.txt")).To(Equal("tacocat"))
+				Expect(image.Exists("a/x")).To(BeFalse())
+				Expect(image.Exists("b/x")).To(BeTrue())
+				Expect(image.Rename("b/x", "b/x/y")).To(MatchError(syscall.EINVAL))
 			})
 		})
 	})

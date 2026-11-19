@@ -24,17 +24,19 @@ import (
 )
 
 var _ = Describe("Full disk", func() {
-	var (
-		fs *fault.FS
-		f  xfs.File
-	)
+	var fs *fault.FS
 	BeforeEach(func() {
 		fs = MustSucceed(fault.New(fault.Config{Capacity: 10}))
-		f = MustOpen(fs.Open("f.txt", os.O_CREATE|os.O_RDWR))
-		Expect(f.Write([]byte("tacocat"))).To(Equal(7))
+		write(fs, "f.txt", "tacocat")
 	})
+	// open returns a handle that appends to f.txt.
+	open := func() xfs.File {
+		GinkgoHelper()
+		return MustOpen(fs.Open("f.txt", os.O_RDWR|os.O_APPEND))
+	}
 
 	It("Should write the bytes that fit and fail with ENOSPC", func() {
+		f := open()
 		n, err := f.Write([]byte("burrito"))
 		Expect(err).To(MatchError(syscall.ENOSPC))
 		Expect(n).To(Equal(3))
@@ -43,17 +45,20 @@ var _ = Describe("Full disk", func() {
 	})
 
 	It("Should write over bytes that the file holds on a full disk", func() {
+		f := open()
 		Expect(f.WriteAt([]byte("cat"), 7)).To(Equal(3))
 		Expect(f.WriteAt([]byte("burrito"), 0)).To(Equal(7))
 		Expect(read(fs, "f.txt")).To(Equal("burritocat"))
 	})
 
 	It("Should not grow a file to a write that starts past the space", func() {
-		Expect(f.WriteAt([]byte("s"), 10)).Error().To(MatchError(syscall.ENOSPC))
+		Expect(open().WriteAt([]byte("s"), 10)).Error().
+			To(MatchError(syscall.ENOSPC))
 		Expect(read(fs, "f.txt")).To(Equal("tacocat"))
 	})
 
 	It("Should fail to grow a file past the space with Truncate", func() {
+		f := open()
 		Expect(f.Truncate(11)).To(MatchError(syscall.ENOSPC))
 		Expect(read(fs, "f.txt")).To(Equal("tacocat"))
 		Expect(f.Truncate(10)).To(Succeed())
@@ -74,35 +79,31 @@ var _ = Describe("Full disk", func() {
 			Expect(other.Write([]byte("burritos"))).To(Equal(8))
 		},
 		Entry("after a remove", func() { Expect(fs.Remove("f.txt")).To(Succeed()) }),
-		Entry("after a truncate", func() { Expect(f.Truncate(2)).To(Succeed()) }),
+		Entry("after a truncate", func() { Expect(open().Truncate(2)).To(Succeed()) }),
 		Entry("after an open that truncates", func() { write(fs, "f.txt", "ta") }),
 	)
 
-	Describe("A disk that a crash leaves", func() {
-		It("Should write over the bytes of a file when it is past its space", func() {
-			Expect(f.Sync()).To(Succeed())
-			Expect(fs.SyncDir("")).To(Succeed())
-			cfg := fault.CrashConfig{Image: fault.Config{Capacity: 4}}
-			image := MustSucceed(fs.Crash(cfg))
-			g := MustOpen(image.Open("f.txt", os.O_WRONLY))
-			n, err := g.WriteAt([]byte("burritos"), 0)
-			Expect(err).To(MatchError(syscall.ENOSPC))
-			Expect(n).To(Equal(7))
-			Expect(read(image, "f.txt")).To(Equal("burrito"))
-		})
+	It("Should hold the space of a removed file until its last handle closes", func() {
+		f := MustSucceed(fs.Open("f.txt", os.O_RDONLY))
+		Expect(fs.Remove("f.txt")).To(Succeed())
+		other := MustOpen(fs.Open("g.txt", os.O_CREATE|os.O_WRONLY))
+		n, err := other.Write([]byte("burritos"))
+		Expect(err).To(MatchError(syscall.ENOSPC))
+		Expect(n).To(Equal(3))
+		Expect(f.Close()).To(Succeed())
+		Expect(other.Write([]byte("ritos"))).To(Equal(5))
+	})
 
-		It("Should count a file with two names once", func() {
-			MustSucceed(fs.Sub("a"))
-			Expect(f.Sync()).To(Succeed())
-			Expect(fs.SyncDir("")).To(Succeed())
-			Expect(fs.Rename("f.txt", "a/f.txt")).To(Succeed())
-			Expect(fs.SyncDir("a")).To(Succeed())
-			cfg := fault.CrashConfig{Image: fault.Config{Capacity: 10}}
-			image := MustSucceed(fs.Crash(cfg))
-			Expect(read(image, "f.txt")).To(Equal(read(image, "a/f.txt")))
-			g := MustOpen(image.Open("g.txt", os.O_CREATE|os.O_WRONLY))
-			Expect(g.Write([]byte("cat"))).To(Equal(3))
-		})
+	It("Should write over the bytes of a file that is past the space", func() {
+		Expect(open().Sync()).To(Succeed())
+		Expect(fs.SyncDir("")).To(Succeed())
+		cfg := fault.CrashConfig{Image: fault.Config{Capacity: 4}}
+		image := MustSucceed(fs.Crash(cfg))
+		g := MustOpen(image.Open("f.txt", os.O_WRONLY))
+		n, err := g.WriteAt([]byte("burritos"), 0)
+		Expect(err).To(MatchError(syscall.ENOSPC))
+		Expect(n).To(Equal(7))
+		Expect(read(image, "f.txt")).To(Equal("burrito"))
 	})
 
 	It("Should fail New for a capacity under zero", func() {

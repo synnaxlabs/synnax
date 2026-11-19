@@ -45,6 +45,39 @@ var _ = Describe("Sync errors", func() {
 		Expect(read(strict(fs), "f.txt")).To(Equal("tacocat"))
 	})
 
+	It("Should draw again for a Sync that follows a new write", func() {
+		fs := faulty(always)
+		f := MustOpen(fs.Open("f.txt", os.O_WRONLY))
+		Expect(f.WriteAt([]byte("burrito"), 0)).To(Equal(7))
+		Expect(f.Sync()).To(MatchError(syscall.EIO))
+		Expect(f.WriteAt([]byte("bowl"), 7)).To(Equal(4))
+		Expect(f.Sync()).To(MatchError(syscall.EIO))
+	})
+
+	It("Should make a dropped block durable when a later write touches it", func() {
+		for runKey := range uint64(64) {
+			fs := faulty(fault.Config{RunKey: runKey, SyncErrorRate: 0.5})
+			f := MustSucceed(fs.Open("f.txt", os.O_WRONLY))
+			Expect(f.WriteAt([]byte("burrito"), 0)).To(Equal(7))
+			dropped := errors.Is(f.Sync(), syscall.EIO)
+			Expect(f.WriteAt([]byte("B"), 0)).To(Equal(1))
+			synced := f.Sync() == nil
+			Expect(f.Close()).To(Succeed())
+			if dropped && synced {
+				Expect(read(strict(fs), "f.txt")).To(Equal("Burrito"))
+				return
+			}
+		}
+		Fail("no run key gave a failed Sync and then a good one")
+	})
+
+	It("Should fail a Sync that only shrinks a file", func() {
+		fs := faulty(always)
+		f := MustOpen(fs.Open("f.txt", os.O_WRONLY))
+		Expect(f.Truncate(3)).To(Succeed())
+		Expect(f.Sync()).To(MatchError(syscall.EIO))
+	})
+
 	It("Should read the durable bytes of an evicted block at once", func() {
 		fs := faulty(fault.Config{SyncErrorRate: 1, EvictionRate: 1})
 		f := MustOpen(fs.Open("f.txt", os.O_WRONLY))
@@ -91,6 +124,20 @@ var _ = Describe("Sync errors", func() {
 		Expect(strict(fs).Exists("g.txt")).To(BeFalse())
 		image := MustSucceed(fs.Crash(fault.CrashConfig{EntrySurvivalRate: 1}))
 		Expect(image.Exists("g.txt")).To(BeTrue())
+	})
+
+	It("Should let a SyncDir that failed succeed on a later try", func() {
+		for runKey := range uint64(64) {
+			fs := faulty(fault.Config{RunKey: runKey, SyncErrorRate: 0.5})
+			write(fs, "g.txt", "burrito")
+			if !errors.Is(fs.SyncDir(""), syscall.EIO) {
+				continue
+			}
+			Eventually(func() error { return fs.SyncDir("") }).Should(Succeed())
+			Expect(strict(fs).Exists("g.txt")).To(BeTrue())
+			return
+		}
+		Fail("no run key gave a failed SyncDir")
 	})
 
 	It("Should fix the Syncs that fail by the run key", func() {

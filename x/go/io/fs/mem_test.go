@@ -51,6 +51,7 @@ var _ = Describe("Mem", func() {
 		backends := map[string]func() (fs.FS, string){
 			"memFS": func() (fs.FS, string) { return fs.NewMem(), "" },
 			"faultFS": func() (fs.FS, string) {
+				GinkgoHelper()
 				return MustSucceed(fault.New(fault.Config{})), ""
 			},
 			"osFS": func() (fs.FS, string) {

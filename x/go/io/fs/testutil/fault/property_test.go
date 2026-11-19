@@ -62,13 +62,14 @@ func letters(rng *rand.Rand) []byte {
 // behind each one. The run key fixes the changes.
 func churn(fs xfs.FS, runKey uint64, count int, after func()) {
 	GinkgoHelper()
-	var (
-		rng   = rand.New(rand.NewPCG(runKey, 0))
-		dirs  = []string{"", "a", "a/b", "c"}
-		pick  = func(names []string) string { return names[rng.IntN(len(names))] }
-		file  = func() string { return path.Join(pick(dirs), pick([]string{"f", "g", "h"})) }
-		exist = func(name string) bool { return MustSucceed(fs.Exists(name)) }
-	)
+	rng := rand.New(rand.NewPCG(runKey, 0))
+	dirs, names := []string{"", "a", "a/b", "c"}, []string{"f", "g", "h"}
+	pick := func(from []string) string { return from[rng.IntN(len(from))] }
+	file := func() string { return path.Join(pick(dirs), pick(names)) }
+	exist := func(name string) bool {
+		GinkgoHelper()
+		return MustSucceed(fs.Exists(name))
+	}
 	for range count {
 		name := file()
 		switch op := rng.IntN(10); {
