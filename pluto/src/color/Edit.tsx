@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { color } from "@synnaxlabs/client";
-import { Button } from "@synnaxlabs/lyra/button";
 import { Color } from "@synnaxlabs/lyra/color";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
+import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
@@ -33,7 +33,7 @@ const EditView = ({ itemKey }: EditViewProps): ReactElement => (
       Changes every use of this color.
     </Text.Text>
     <Form.Field<string> path={formPath.name} label="Name" padHelpText={false}>
-      {(p) => <Input.Text {...p} placeholder="Color name" onlyChangeOnBlur />}
+      {(p) => <Input.Text {...p} placeholder="Color name" />}
     </Form.Field>
     <Flex.Box x gap="large">
       <Input.Item label="Light" padHelpText={false}>
@@ -46,35 +46,33 @@ const EditView = ({ itemKey }: EditViewProps): ReactElement => (
   </Editor>
 );
 
-interface EditButtonProps {
+interface EditMenuProps {
   named: Color.Named;
 }
 
-const EditButton = ({ named }: EditButtonProps): ReactElement | null => {
+const EditMenu = ({ named }: EditMenuProps): ReactElement | null => {
   const { open } = Dialog.useViews();
   const canUpdate = Access.useUpdateGranted(color.resourceID(named.key));
   if (!canUpdate) return null;
   return (
-    <Button.Button
-      variant="text"
-      size="tiny"
-      square
-      textColor={9}
-      tooltip="Edit color"
-      tooltipLocation="right"
-      aria-label={`Edit ${named.name}`}
-      onClick={() => open("Edit color", <EditView itemKey={named.key} />)}
-    >
-      <Icon.Edit />
-    </Button.Button>
+    <Menu.Menu gap="small">
+      <Menu.Item
+        size="small"
+        itemKey="edit"
+        onClick={() => open("Edit color", <EditView itemKey={named.key} />)}
+      >
+        <Icon.Edit />
+        Edit
+      </Menu.Item>
+    </Menu.Menu>
   );
 };
 
 /**
- * Follows the name in a palette title of a color picker. It opens the named color
+ * The context menu of a swatch in a color picker. Its Edit item opens the named color
  * editor inside the picker, for a user who can update the color.
  */
-export const EditAction = (): ReactElement | null => {
-  const { shown } = Color.usePalette();
-  return shown == null ? null : <EditButton named={shown} />;
+export const SwatchMenu = (): ReactElement | null => {
+  const { swatch } = Color.usePalette();
+  return swatch == null ? null : <EditMenu named={swatch} />;
 };

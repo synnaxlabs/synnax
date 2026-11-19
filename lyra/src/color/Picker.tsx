@@ -12,8 +12,8 @@ import "@/color/Picker.css";
 import { color, TimeSpan } from "@synnaxlabs/x";
 import {
   type ComponentPropsWithoutRef,
+  type KeyboardEvent,
   type ReactElement,
-  type ReactNode,
   useRef,
   useState,
 } from "react";
@@ -32,6 +32,8 @@ import { Flex } from "@/flex";
 import { useDebouncedCallback } from "@/hooks";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
+import { Menu } from "@/menu";
+import { keyboardMenuKey, openContextMenu } from "@/menu/keyboard";
 import { Select } from "@/select";
 import { Status } from "@/status";
 import { Text } from "@/text";
@@ -82,17 +84,17 @@ export const usePicker = (): PickerContextValue => usePickerContext("Color.usePi
 export interface PaletteContextValue {
   /** The palette, with every color it holds. */
   palette: Palette;
-  /** The color that the palette title names: the hovered one, else the linked one. */
-  shown?: Named;
+  /** In `swatchMenu`, the color of the swatch that the menu opened on. */
+  swatch?: Named;
 }
 
 const [PaletteContext, usePaletteContext] = context.create<PaletteContextValue>({
   displayName: "Color.PaletteContext",
-  providerName: "paletteEnd or swatchActions",
+  providerName: "paletteEnd or swatchMenu",
 });
 
 /**
- * @returns the palette around a `paletteEnd` or `swatchActions` slot.
+ * @returns the palette around a `paletteEnd` or `swatchMenu` slot.
  * @throws {Error} outside those slots.
  */
 export const usePalette = (): PaletteContextValue =>
@@ -156,7 +158,7 @@ const Tabbed = ({
   value,
   onChange,
   fallback,
-  library: { palettes, named, onNamedChange, paletteEnd, swatchActions, footer },
+  library: { palettes, named, onNamedChange, paletteEnd, swatchMenu, footer },
   className,
   ...rest
 }: TabbedProps): ReactElement => {
@@ -259,7 +261,7 @@ const Tabbed = ({
               onPick={onNamedChange}
               registerSwatch={registerSwatch}
               paletteEnd={paletteEnd}
-              swatchActions={swatchActions}
+              swatchMenu={swatchMenu}
               footer={footer}
             />
           </>
@@ -299,40 +301,23 @@ interface SectionProps extends Omit<Flex.BoxProps, "title"> {
   title: string;
   /** Shown at the end of the title. */
   name?: string;
-  /** Shown after the name. */
-  actions?: ReactNode;
 }
 
-const Section = ({
-  title,
-  name,
-  actions,
-  children,
-  ...rest
-}: SectionProps): ReactElement => (
+const Section = ({ title, name, children, ...rest }: SectionProps): ReactElement => (
   <Flex.Box y gap="small" {...rest}>
-    <Flex.Box
-      x
-      justify="between"
-      align="center"
-      gap="medium"
-      className={CSS.BE("color-picker", "title")}
-    >
+    <Flex.Box x justify="between" gap="medium">
       <Text.Text level="small" color={9} overflow="nowrap">
         {title}
       </Text.Text>
-      <Flex.Box x align="center" gap="small" className={CSS.BE("color-picker", "name")}>
-        <Text.Text level="small" color={10} overflow="fade">
-          {name}
-        </Text.Text>
-        {actions}
-      </Flex.Box>
+      <Text.Text level="small" color={10} overflow="fade">
+        {name}
+      </Text.Text>
     </Flex.Box>
     <div className={CSS.BE("color-picker", "grid")}>{children}</div>
   </Flex.Box>
 );
 
-interface PaletteSectionProps extends Pick<Library, "paletteEnd" | "swatchActions"> {
+interface PaletteSectionProps extends Pick<Library, "paletteEnd" | "swatchMenu"> {
   palette: Palette;
   /** The colors of the palette that match the search. */
   colors: Named[];
@@ -343,9 +328,9 @@ interface PaletteSectionProps extends Pick<Library, "paletteEnd" | "swatchAction
 }
 
 /**
- * A palette under its title, which names the hovered color, else the linked one. The
- * hovered color stays until the pointer or the focus leaves the palette, so the actions
- * after its name stay in reach. It also stays under a view, so Back finds its actions.
+ * A palette under its title, which names the color of an open swatch menu, else the
+ * hovered or focused color, else the linked one. A hovered name stays until the pointer
+ * or the focus leaves the palette.
  */
 const PaletteSection = ({
   palette,
@@ -354,52 +339,85 @@ const PaletteSection = ({
   onPick,
   registerSwatch,
   paletteEnd,
-  swatchActions,
+  swatchMenu,
 }: PaletteSectionProps): ReactElement => {
   const t = Theming.use();
-  const { viewing } = Dialog.useViews();
   const [hovered, setHovered] = useState<string>();
-  const leave = (): void => {
-    if (!viewing) setHovered(undefined);
-  };
+  const menu = Menu.useContextMenu();
+  const leave = (): void => setHovered(undefined);
+  const find = (key?: string): Named | undefined =>
+    key == null ? undefined : colors.find((c) => c.key === key);
+  // The menu takes the focus, so the title names its swatch while it is open.
   const shown =
-    colors.find((c) => c.key === hovered) ?? colors.find((c) => c.key === linked);
+    find(menu.visible ? menu.keys[0] : undefined) ?? find(hovered) ?? find(linked);
+  const menuProps =
+    swatchMenu == null
+      ? {}
+      : {
+          onContextMenu: menu.open,
+          onKeyDown: (e: KeyboardEvent<HTMLElement>) => {
+            const key = keyboardMenuKey(e);
+            if (key == null) return;
+            e.preventDefault();
+            if (key === "F10" && !e.repeat) openContextMenu(e.currentTarget);
+          },
+          onKeyUp: (e: KeyboardEvent<HTMLElement>) => {
+            if (keyboardMenuKey(e) !== "ContextMenu") return;
+            e.preventDefault();
+            openContextMenu(e.currentTarget);
+          },
+        };
   return (
-    <PaletteContext value={{ palette, shown }}>
-      <Section
-        title={palette.name}
-        name={shown?.name}
-        actions={shown == null ? undefined : swatchActions}
-        role="group"
-        aria-label={palette.name}
-        onPointerLeave={leave}
-        onBlur={(e) => {
-          if (!e.currentTarget.contains(e.relatedTarget)) leave();
-        }}
+    <PaletteContext value={{ palette }}>
+      <Menu.ContextMenu
+        {...menu}
+        menu={({ keys }) => (
+          <PaletteContext
+            value={{ palette, swatch: palette.colors.find((c) => c.key === keys[0]) }}
+          >
+            {swatchMenu}
+          </PaletteContext>
+        )}
       >
-        {colors.map((c) => (
-          <BaseSwatch
-            key={c.key}
-            value={theme.resolve(c, t)}
-            size="tiny"
-            draggable={false}
-            className={CSS.cls(CSS.selected(c.key === linked))}
-            onClick={() => onPick(c.key)}
-            ref={(el: HTMLElement | null) => registerSwatch(c.key, el)}
-            onPointerEnter={() => setHovered(c.key)}
-            onFocus={() => setHovered(c.key)}
-            aria-label={c.name}
-          />
-        ))}
-        {paletteEnd}
-      </Section>
+        <Section
+          title={palette.name}
+          name={shown?.name}
+          role="group"
+          aria-label={palette.name}
+          onPointerLeave={leave}
+          onBlur={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget)) leave();
+          }}
+        >
+          {colors.map((c) => (
+            <BaseSwatch
+              key={c.key}
+              value={theme.resolve(c, t)}
+              size="tiny"
+              draggable={false}
+              className={CSS.cls(
+                CSS.selected(c.key === linked),
+                swatchMenu != null && Menu.CONTEXT_TARGET,
+              )}
+              data-menu-key={c.key}
+              onClick={() => onPick(c.key)}
+              ref={(el: HTMLElement | null) => registerSwatch(c.key, el)}
+              onPointerEnter={() => setHovered(c.key)}
+              onFocus={() => setHovered(c.key)}
+              aria-label={c.name}
+              {...menuProps}
+            />
+          ))}
+          {paletteEnd}
+        </Section>
+      </Menu.ContextMenu>
     </PaletteContext>
   );
 };
 
 interface PalettesProps
   extends
-    Pick<Library, "paletteEnd" | "swatchActions" | "footer">,
+    Pick<Library, "paletteEnd" | "swatchMenu" | "footer">,
     Pick<PaletteSectionProps, "registerSwatch"> {
   palettes: Palette[];
   search: string;
@@ -416,7 +434,7 @@ const Palettes = ({
   onPick,
   registerSwatch,
   paletteEnd,
-  swatchActions,
+  swatchMenu,
   footer,
 }: PalettesProps): ReactElement => {
   const t = Theming.use();
@@ -452,7 +470,7 @@ const Palettes = ({
           onPick={onPick}
           registerSwatch={registerSwatch}
           paletteEnd={paletteEnd}
-          swatchActions={swatchActions}
+          swatchMenu={swatchMenu}
         />
       ))}
       {footer}

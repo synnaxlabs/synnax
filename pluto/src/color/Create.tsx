@@ -138,7 +138,7 @@ const Add = ({ focused = false, onFocus }: AddProps): ReactElement => {
     <Button.Button
       ref={plus}
       onFocus={onFocus}
-      variant="outlined"
+      variant="text"
       square
       textColor={9}
       className={CSS.cls(CSS.B("color-create"), CSS.selected(naming))}
