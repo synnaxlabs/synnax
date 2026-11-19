@@ -94,7 +94,6 @@ RECORDS = """query($o: String!, $r: String!, $app: Int!) {
 fragment Runs on Commit {
   checkSuites(first: 1, filterBy: {appId: $app}) {
     nodes {
-      app { slug }
       checkRuns(last: 10, filterBy: {checkName: "Sedosaur Review"}) {
         nodes { detailsUrl startedAt text }
       }
@@ -363,7 +362,6 @@ def records(
             runs[c] = [
                 r
                 for s in found[f"c{j}"]["checkSuites"]["nodes"]
-                if s["app"]["slug"] == SEDOSAUR
                 for r in s["checkRuns"]["nodes"]
             ]
     recs: dict[tuple[str, int], dict[str, Any]] = {}

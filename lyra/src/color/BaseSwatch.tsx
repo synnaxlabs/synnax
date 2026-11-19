@@ -54,6 +54,11 @@ export const BaseSwatch = ({
 }: BaseSwatchProps): ReactElement => {
   const { gray } = Theming.use().colors;
   const hex = color.hex(value);
+  // A clear fill shows the surface, so its text takes the icon gray instead.
+  const text =
+    color.opacity(value) === 0
+      ? gray.l9
+      : color.pickByContrast(value, gray.l0, gray.l11);
   const dragging = Haul.useDraggingState();
   const canDrop: Haul.CanDrop = ({ items }) => {
     const [k] = filterHaulItems(items);
@@ -90,7 +95,7 @@ export const BaseSwatch = ({
       style={{
         ...style,
         [COLOR_VAR]: color.cssString(value),
-        [TEXT_VAR]: color.cssString(color.pickByContrast(value, gray.l0, gray.l11)),
+        [TEXT_VAR]: color.cssString(text),
       }}
       variant="outlined"
       {...haulProps}
