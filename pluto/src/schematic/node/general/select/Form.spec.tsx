@@ -15,6 +15,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
+import { Enumeration } from "@/enumeration";
 import { SelectForm } from "@/schematic/node/general/select/Form";
 import { createConfig } from "@/schematic/node/registry";
 import { createAsyncSynnaxWrapper, renderForm } from "@/testutil";
@@ -29,7 +30,14 @@ describe("SelectForm", () => {
   let wrapper: FC<PropsWithChildren>;
   let ch: channel.Channel;
   beforeAll(async () => {
-    wrapper = await createAsyncSynnaxWrapper({ client });
+    const Base = await createAsyncSynnaxWrapper({ client });
+    wrapper = ({ children }) => (
+      <Base>
+        <Enumeration.CreatePromptProvider value={vi.fn()}>
+          {children}
+        </Enumeration.CreatePromptProvider>
+      </Base>
+    );
     ch = await client.channels.create({
       name: id.create(),
       dataType: DataType.UINT8,

@@ -7,15 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type enumeration, schematic } from "@synnaxlabs/client";
+import { type enumeration, schematic, type Synnax } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
+import { mockGeometry } from "@synnaxlabs/lyra/testutil";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { color, deep, id } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 import { type z } from "zod";
 
+import { Enumeration } from "@/enumeration";
 import { Form } from "@/schematic/node/common/form";
 import { createAsyncSynnaxWrapper, renderForm } from "@/testutil";
 
@@ -32,14 +34,32 @@ const OPTIONS: schematic.StateMapping[] = [
 ];
 
 describe("Form.States", () => {
-  let wrapper: FC<PropsWithChildren>;
-  beforeAll(async () => {
-    const Base = await createAsyncSynnaxWrapper({ client });
-    wrapper = ({ children }) => (
+  // Stands in for the Console's name modal, which creates the enumeration on Create.
+  let prompt: Mock<Enumeration.CreatePrompt>;
+  beforeEach(() => {
+    prompt = vi.fn(
+      async ({ entries }) =>
+        (await client.enumerations.create({ name: `Created ${id.create()}`, entries }))
+          .key,
+    );
+  });
+  const createWrapper = async (as: Synnax = client): Promise<FC<PropsWithChildren>> => {
+    const Base = await createAsyncSynnaxWrapper({ client: as });
+    return ({ children }) => (
       <Base>
-        <Triggers.Provider>{children}</Triggers.Provider>
+        <Triggers.Provider>
+          <Enumeration.CreatePromptProvider value={(params) => prompt(params)}>
+            {children}
+          </Enumeration.CreatePromptProvider>
+        </Triggers.Provider>
       </Base>
     );
+  };
+  // Without a box, the dropdown's virtual list shows no items.
+  beforeAll(() => mockGeometry(100, 100));
+  let wrapper: FC<PropsWithChildren>;
+  beforeAll(async () => {
+    wrapper = await createWrapper();
   });
 
   const renderStates = (
@@ -111,6 +131,28 @@ describe("Form.States", () => {
       );
     });
 
+    it("should remove one of the node's own options", async () => {
+      const { value } = renderStates();
+      fireEvent.click(await screen.findByRole("button", { name: "Remove entry 1" }));
+      await waitFor(() =>
+        expect(
+          (value(path.options) as schematic.StateMapping[]).map((o) => o.key),
+        ).toEqual(["on"]),
+      );
+    });
+
+    it("should move one of the node's own options", async () => {
+      const { value } = renderStates();
+      fireEvent.keyDown(await screen.findByRole("button", { name: "Move entry 2" }), {
+        key: "ArrowUp",
+      });
+      await waitFor(() =>
+        expect(
+          (value(path.options) as schematic.StateMapping[]).map((o) => o.key),
+        ).toEqual(["on", "off"]),
+      );
+    });
+
     it("should keep a named color picked for an option as its color", async () => {
       const palette = await client.groups.create({
         scope: "color",
@@ -167,22 +209,16 @@ describe("Form.States", () => {
       fireEvent.click(await c.findByRole("option", { name: createName(term) }));
     };
 
-    /** Presses Create in the modal that asks for the name. */
-    const confirmCreate = async (): Promise<void> => {
-      fireEvent.click(await screen.findByRole("button", { name: /^Create/ }));
-    };
-
     it("should lock the options while it creates an enumeration", async () => {
       const c = renderStates();
-      await openCreate(c);
-      await confirmCreate();
+      await openCreate(c, `Valve ${id.create()}`);
       expect(c.queryByRole("button", { name: "Add entry" })).toBeNull();
       await created(c.value);
     });
 
     it("should not offer Create enumeration to a user who cannot create", async () => {
       const viewer = await new RoleClients(client).get("Viewer");
-      const viewerWrapper = await createAsyncSynnaxWrapper({ client: viewer });
+      const viewerWrapper = await createWrapper(viewer);
       // A render as a user who is not an admin suspends at first.
       let c: ReturnType<typeof renderStates> | undefined;
       await act(async () => {
@@ -206,7 +242,6 @@ describe("Form.States", () => {
     it("should move the node's options into a new enumeration", async () => {
       const c = renderStates();
       await openCreate(c);
-      await confirmCreate();
       const e = await created(c.value);
       expect(
         e.entries.map(({ name, value, color: ref }) => ({ name, value, ref })),
@@ -216,46 +251,30 @@ describe("Form.States", () => {
       ]);
     });
 
-    it("should ask for the name of an unlinked node's new enumeration", async () => {
-      const label = `Pump ${id.create()}`;
-      const c = renderStates({ label: { label } });
+    it("should start the name of an unlinked node's enumeration with its label", async () => {
+      const c = renderStates({ label: { label: "Pump" } });
       await openCreate(c);
-      expect((await findInput("Enumeration name")).value).toBe(label);
-      await confirmCreate();
-      expect((await created(c.value)).name).toBe(label);
+      await created(c.value);
+      expect(prompt).toHaveBeenCalledWith(expect.objectContaining({ name: "Pump" }));
     });
 
     it("should start the name with the symbol for a node with no label", async () => {
       const c = renderStates();
       await openCreate(c);
-      expect((await findInput("Enumeration name")).value).toBe("State indicator");
-      await confirmCreate();
-      expect((await created(c.value)).name).toBe("State indicator");
-    });
-
-    it("should show an error at the name field on a Create with no name", async () => {
-      const c = renderStates();
-      await openCreate(c);
-      const field = await findInput("Enumeration name");
-      fireEvent.change(field, { target: { value: " " } });
-      await confirmCreate();
-      expect(await screen.findByText("Name is required")).toBeTruthy();
-      fireEvent.change(field, { target: { value: "Pump" } });
-      expect(screen.queryByText("Name is required")).toBeNull();
-      await act(async () => {});
-      expect(c.value(path.enumeration)).toBeUndefined();
-    });
-
-    it("should close the modal with one Escape from the name field", async () => {
-      const c = renderStates();
-      await openCreate(c);
-      const field = await findInput("Enumeration name");
-      fireEvent.keyDown(field, { key: "Escape", code: "Escape" });
-      fireEvent.keyUp(field, { key: "Escape", code: "Escape" });
-      await waitFor(() =>
-        expect(screen.queryByLabelText("Enumeration name")).toBeNull(),
+      await created(c.value);
+      expect(prompt).toHaveBeenCalledWith(
+        expect.objectContaining({ name: "State indicator" }),
       );
+    });
+
+    it("should keep the node's options when the user cancels the name", async () => {
+      prompt.mockResolvedValueOnce(null);
+      const c = renderStates();
+      await openCreate(c);
+      await act(async () => {});
+      expect(prompt).toHaveBeenCalledOnce();
       expect(c.value(path.enumeration)).toBeUndefined();
+      expect((await findInput("Name 1")).value).toBe("Off");
     });
 
     it("should list Create enumeration above No enumeration", async () => {
@@ -310,21 +329,34 @@ describe("Form.States", () => {
       });
       const c = renderStates({ enumeration: linked.key, label: { label: "Pump" } });
       await openCreate(c);
-      const field = await findInput("Enumeration name");
-      expect(field.value).toBe("");
-      expect(c.value(path.enumeration)).toBe(linked.key);
-      const name = `Pump ${id.create()}`;
-      fireEvent.change(field, { target: { value: name } });
-      await confirmCreate();
       const e = await created(c.value, linked.key);
-      expect(e.name).toBe(name);
+      expect(prompt).toHaveBeenCalledWith({ name: "", entries: [] });
       expect(e.entries).toEqual([]);
       await waitFor(() =>
         expect(document.activeElement).toBe(
           c.getByRole("button", { name: "Add entry" }),
         ),
       );
-      expect(screen.queryByLabelText("Enumeration name")).toBeNull();
+    });
+
+    it("should not focus a created enumeration's entries on a later pick", async () => {
+      const linked = await client.enumerations.create({
+        name: `Valve ${id.create()}`,
+        entries: [],
+      });
+      const c = renderStates({ enumeration: linked.key });
+      await openCreate(c);
+      const e = await created(c.value, linked.key);
+      const add = (): HTMLElement => c.getByRole("button", { name: "Add entry" });
+      await waitFor(() => expect(document.activeElement).toBe(add()));
+      await openPicker(c, linked.name);
+      fireEvent.click(await c.findByRole("option", { name: linked.name }));
+      await waitFor(() => expect(c.value(path.enumeration)).toBe(linked.key));
+      await openPicker(c, e.name);
+      fireEvent.click(await c.findByRole("option", { name: e.name }));
+      await waitFor(() => expect(c.value(path.enumeration)).toBe(e.key));
+      await act(async () => {});
+      expect(document.activeElement).not.toBe(add());
     });
 
     it("should make no copy on a second click of a typed create", async () => {
