@@ -283,10 +283,13 @@ read_sii(const API &api, const unsigned int master_index, const uint16_t positio
         return api.sii_read(master_index, position, offset, words);
     };
     for (uint32_t offset = sii::CATEGORIES;;) {
-        std::array<uint16_t, 2> header{};
-        int ret = read(offset, header);
-        const auto [type, size] = header;
+        // The SII that IgH holds ends at the type word of the end marker, and IgH logs
+        // a kernel error for each read past its end.
+        uint16_t type = 0;
+        uint16_t size = 0;
+        int ret = read(offset, std::span(&type, 1));
         if (ret == 0 && type == sii::END) break;
+        if (ret == 0) ret = read(offset + 1, std::span(&size, 1));
         std::vector<uint16_t> words;
         if (ret == 0 &&
             (type == sii::STRINGS || type == sii::DC || type == sii::GENERAL)) {
@@ -1061,12 +1064,13 @@ master::Activation Master::activate(
     // The IgH master moves the slaves to OP on its own while the caller cycles.
     start_cycle(image);
     if (!unidentified.empty()) return refuse_unidentified();
-    return this->wait_for_op(plan.cancel);
+    return this->wait_for_op(plan);
 }
 
-master::Activation Master::wait_for_op(const x::breaker::Breaker *cancel) {
+master::Activation Master::wait_for_op(const master::Plan &plan) {
     auto deadline = this->cfg.clock.steady() + this->cfg.op_timeout.chrono();
-    size_t waiting = this->slave_configs.size();
+    const size_t total = this->slave_configs.size();
+    size_t waiting = total;
     std::optional<std::chrono::steady_clock::time_point> reset_at;
     while (true) {
         std::vector<uint16_t> pending;
@@ -1076,8 +1080,13 @@ master::Activation Master::wait_for_op(const x::breaker::Breaker *cancel) {
                 state.operational == 0)
                 pending.push_back(pos);
         }
+        const bool advanced = pending.size() < waiting;
+        if (advanced) {
+            waiting = pending.size();
+            if (plan.progress) plan.progress(total - waiting, total);
+        }
         if (pending.empty()) return {};
-        if (cancel != nullptr && !cancel->running())
+        if (plan.cancel != nullptr && !plan.cancel->running())
             return {
                 .err = x::errors::Error(
                     x::errors::CANCELLED,
@@ -1085,10 +1094,7 @@ master::Activation Master::wait_for_op(const x::breaker::Breaker *cancel) {
                 ),
             };
         const auto now = this->cfg.clock.steady();
-        if (pending.size() < waiting) {
-            waiting = pending.size();
-            deadline = now + this->cfg.op_timeout.chrono();
-        }
+        if (advanced) deadline = now + this->cfg.op_timeout.chrono();
         if (now >= deadline) return this->op_error(pending, true);
         if (this->refusing(pending)) {
             if (!reset_at) {
