@@ -728,6 +728,71 @@ var _ = Describe("Calculator", Ordered, func() {
 		})
 	})
 
+	Describe("Input data type changes", func() {
+		// openDoubled opens a calculation that doubles a float32 virtual input.
+		openDoubled := func(ctx SpecContext) (*calculator.Calculator, channel.Key, channel.Key) {
+			GinkgoHelper()
+			base := []channel.Channel{{
+				Name:     UniqueChannelName(),
+				DataType: telem.Float32T,
+				Virtual:  true,
+			}}
+			c, calc := open(ctx, nil, &base, calctestutil.Calculation{
+				Name:       UniqueChannelName(),
+				DataType:   telem.Float32T,
+				Expression: "return " + base[0].Name + " * 2",
+			})
+			return c, base[0].Key(), calc.Key()
+		}
+
+		// at returns s at sample a of the first domain.
+		at := func(s telem.Series, a uint32) telem.Series {
+			s.Alignment = telem.NewAlignment(0, a)
+			return s
+		}
+
+		It("Should keep calculating when an input changes its data type", func(
+			ctx SpecContext,
+		) {
+			c, in, out := openDoubled(ctx)
+			of, changed := MustSucceed2(c.Next(
+				ctx,
+				frame.NewUnary(in, telem.NewSeriesV[float32](1.5)),
+				frame.Frame{},
+			))
+			Expect(changed).To(BeTrue())
+			Expect(of.Get(out).Series[0]).To(telem.MatchSeriesDataV[float32](3))
+			of, changed = MustSucceed2(c.Next(
+				ctx,
+				frame.NewUnary(in, at(telem.NewSeriesV[int16](4), 1)),
+				frame.Frame{},
+			))
+			Expect(changed).To(BeTrue())
+			Expect(of.Get(out).Series[0]).To(telem.MatchSeriesDataV[float32](8))
+		})
+
+		It("Should fail a step whose number input holds text, then keep calculating",
+			func(ctx SpecContext) {
+				c, in, out := openDoubled(ctx)
+				Expect(c.Next(
+					ctx,
+					frame.NewUnary(in, telem.NewSeriesV("a")),
+					frame.Frame{},
+				)).Error().To(MatchError(fmt.Sprintf(
+					"channel %d: cannot convert a string series to float32",
+					in,
+				)))
+				of, changed := MustSucceed2(c.Next(
+					ctx,
+					frame.NewUnary(in, at(telem.NewSeriesV[float32](2), 1)),
+					frame.Frame{},
+				))
+				Expect(changed).To(BeTrue())
+				Expect(of.Get(out).Series[0]).To(telem.MatchSeriesDataV[float32](4))
+			},
+		)
+	})
+
 	Describe("Accumulation", func() {
 		Specify("Index after data", func(ctx SpecContext) {
 			indexes := []channel.Channel{{
