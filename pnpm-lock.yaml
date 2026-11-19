@@ -1678,6 +1678,9 @@ importers:
       '@types/html-escaper':
         specifier: 'catalog:'
         version: 3.0.4
+      '@types/jsdom':
+        specifier: 'catalog:'
+        version: 30.0.0
       '@types/offscreencanvas':
         specifier: 'catalog:'
         version: 2019.7.3
