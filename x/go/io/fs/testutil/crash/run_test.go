@@ -213,17 +213,23 @@ var _ = Describe("Run", func() {
 
 	Describe("Audit", func() {
 		It("Should audit each recovery", func(ctx SpecContext) {
-			result, calls := MustSucceed2(runAudited(ctx, nil))
+			result, calls := MustSucceed2(runAudited(ctx, nil, always))
 			Expect(calls).To(Equal(result.Recoveries))
 		})
 
-		It("Should break R5 on a failed audit", func(ctx SpecContext) {
-			_, _, err := runAudited(ctx, errors.New("taco"))
-			var v *crash.Violation
-			Expect(errors.As(err, &v)).To(BeTrue(), "no violation: %v", err)
-			Expect(v.Rule).To(Equal(crash.R5))
-			Expect(v.Detail).To(Equal("the audit failed: taco"))
-		})
+		// Each image gets a first recovery and then a second, after a crash in the
+		// first, so the odd calls of Audit are first recoveries.
+		DescribeTable("Should break R5 on a failed audit",
+			func(ctx SpecContext, fails func(call int) bool) {
+				_, _, err := runAudited(ctx, errors.New("taco"), fails)
+				var v *crash.Violation
+				Expect(errors.As(err, &v)).To(BeTrue(), "no violation: %v", err)
+				Expect(v.Rule).To(Equal(crash.R5))
+				Expect(v.Detail).To(Equal("the audit failed: taco"))
+			},
+			Entry("in a first recovery", func(call int) bool { return call%2 == 1 }),
+			Entry("in a second recovery", func(call int) bool { return call%2 == 0 }),
+		)
 	})
 
 	Describe("Writeback", func() {
@@ -262,21 +268,30 @@ var _ = Describe("Run", func() {
 	})
 })
 
-// audited is an engine whose Audit counts its calls and returns err.
+// audited is an engine whose Audit counts its calls, and returns err on each call for
+// which fails is true.
 type audited struct {
 	crash.Engine
 	err   error
+	fails func(call int) bool
 	calls *int
 }
 
 func (a audited) Audit(context.Context) error {
 	*a.calls++
-	return a.err
+	if a.fails(*a.calls) {
+		return a.err
+	}
+	return nil
 }
 
-// runAudited runs the harness under Strict on a plain log whose Audit returns audit,
-// and returns the count of Audit calls.
-func runAudited(ctx context.Context, audit error) (crash.Result, int, error) {
+// runAudited runs the harness under Strict on a plain log whose Audit returns audit on
+// each call for which fails is true, and returns the count of Audit calls.
+func runAudited(
+	ctx context.Context,
+	audit error,
+	fails func(call int) bool,
+) (crash.Result, int, error) {
 	calls := 0
 	result, runErr := crash.Run(ctx, crash.Config{
 		Open: func(ctx context.Context, fs xfs.FS) (crash.Engine, error) {
@@ -284,7 +299,7 @@ func runAudited(ctx context.Context, audit error) (crash.Result, int, error) {
 			if err != nil {
 				return nil, err
 			}
-			return audited{Engine: e, err: audit, calls: &calls}, nil
+			return audited{Engine: e, err: audit, fails: fails, calls: &calls}, nil
 		},
 		Commits: 4,
 		Stride:  1,
@@ -292,6 +307,9 @@ func runAudited(ctx context.Context, audit error) (crash.Result, int, error) {
 	})
 	return result, calls, runErr
 }
+
+// always fails each call of Audit.
+func always(int) bool { return true }
 
 // BenchmarkRun measures one pass of 200 commits on the reference engine, with a crash
 // image and a recovery after each disk change.
