@@ -20,6 +20,22 @@ import (
 )
 
 var _ = Describe("Mem", func() {
+	Describe("SyncDir", func() {
+		It("Should take a current directory element as the directory itself", func() {
+			fs := fs.NewMem()
+			MustSucceed(fs.Sub("a"))
+			Expect(fs.SyncDir(".")).To(Succeed())
+			Expect(fs.SyncDir("./a/.")).To(Succeed())
+		})
+		It("Should name the call and the path of the caller in its error", func() {
+			fs := fs.NewMem()
+			MustSucceed(fs.Sub("a/b"))
+			Expect(fs.SyncDir("a/b/missing")).To(MatchError(
+				&os.PathError{Op: "sync", Path: "a/b/missing", Err: os.ErrNotExist},
+			))
+		})
+	})
+
 	It("Should advance the modification time on every write", func() {
 		fs := fs.NewMem()
 		var prev time.Time

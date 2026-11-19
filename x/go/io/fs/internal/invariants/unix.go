@@ -13,8 +13,4 @@ package invariants
 
 import "syscall"
 
-const (
-	ErrAccessDenied = syscall.EBADF
-	// DirSyncSupported is true when the platform can sync a directory.
-	DirSyncSupported = true
-)
+const ErrAccessDenied = syscall.EBADF

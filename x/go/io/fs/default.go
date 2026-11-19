@@ -13,10 +13,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"syscall"
-
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/io/fs/internal/invariants"
 )
 
 type defaultFS struct{ perm os.FileMode }
@@ -75,21 +71,4 @@ func (d *defaultFS) Rename(name, newName string) error {
 func (d *defaultFS) Stat(name string) (os.FileInfo, error) { return os.Stat(name) }
 
 // SyncDir implements FS.
-func (d *defaultFS) SyncDir(name string) (err error) {
-	dir, err := os.Open(filepath.Clean(name))
-	if err != nil {
-		return err
-	}
-	defer func() { err = errors.Combine(err, dir.Close()) }()
-	info, err := dir.Stat()
-	if err != nil {
-		return err
-	}
-	if !info.IsDir() {
-		return &os.PathError{Op: "sync", Path: name, Err: syscall.ENOTDIR}
-	}
-	if !invariants.DirSyncSupported {
-		return nil
-	}
-	return dir.Sync()
-}
+func (d *defaultFS) SyncDir(name string) error { return syncDir(name) }
