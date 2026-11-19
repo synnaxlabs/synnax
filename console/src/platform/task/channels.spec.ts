@@ -286,6 +286,55 @@ describe("channels", () => {
     });
   });
 
+  describe("planReadChannels", () => {
+    it("should plan the channels of a source without writing to the Core", async () => {
+      const prefix = uniqueName("src");
+      await createIndex(`${prefix}_temperature`);
+      const props: Task.ReadChannelProps = { index: 0, channels: {} };
+      const fields = [
+        createField("f1", "/temperature"),
+        createField("ts", "/ts", "timestamp"),
+      ];
+      const plan = await Task.planReadChannels({
+        client,
+        props,
+        fields,
+        namePrefix: prefix,
+        indexKey: "ts",
+      });
+      expect(plan).toEqual({
+        props: { index: 0, channels: {} },
+        newIndex: `${prefix}_time`,
+        indexField: "ts",
+        channels: {},
+        creates: [{ key: "f1", name: `${prefix}_temperature_2`, indexed: true }],
+        renames: [],
+      });
+      expect(fields.map(({ channel }) => channel)).toEqual([0, 0]);
+      expect(props).toEqual({ index: 0, channels: {} });
+      expect(
+        await client.channels.retrieve([`${prefix}_temperature_2`, `${prefix}_time`]),
+      ).toEqual([]);
+    });
+
+    it("should plan to move a replaced channel off the name of its replacement", async () => {
+      const prefix = uniqueName("src");
+      const old = await createIndex(`${prefix}_mode`);
+      const fields = [{ ...createField("f1", "/mode", "string"), replaces: old.key }];
+      const plan = await Task.planReadChannels({
+        client,
+        fields,
+        namePrefix: prefix,
+        indexKey: "",
+      });
+      expect(plan.renames).toEqual([{ key: old.key, name: `${prefix}_mode_2` }]);
+      expect(plan.creates).toEqual([
+        { key: "f1", name: `${prefix}_mode`, indexed: false },
+      ]);
+      expect((await client.channels.retrieve(old.key)).name).toBe(`${prefix}_mode`);
+    });
+  });
+
   describe("configureCommandChannel", () => {
     it("should adopt the channel of the target and store it", async () => {
       const ch = await client.channels.create({

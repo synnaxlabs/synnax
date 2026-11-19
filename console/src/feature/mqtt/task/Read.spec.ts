@@ -946,6 +946,44 @@ describe("MQTT read form", () => {
       await screen.findByDisplayValue(ch.name);
     });
 
+    it("should start reading a field again with the channel that a deploy in the open form stored", async () => {
+      const time = createTimeField();
+      const temperature = createField("temperature", "float");
+      const { container, dev, draft } = await renderRead({
+        fields: [time, temperature],
+        index: time.key,
+      });
+      const created = await deploy(container, draft.key);
+      const { channels } = await retrieveStored(dev.key, firstMessage(created));
+      const ch = channels["/temperature"];
+      expect(ch).not.toBe(0);
+      await selectField("temperature");
+      const box = await screen.findByRole("checkbox", { name: "Read temperature" });
+      fireEvent.click(box);
+      await waitFor(async () =>
+        expect(await retrieveBindings(draft.key)).not.toContainEqual(
+          expect.objectContaining({ field: temperature.key }),
+        ),
+      );
+      fireEvent.click(box);
+      await waitFor(async () =>
+        expect(await retrieveBindings(draft.key)).toContainEqual({
+          field: temperature.key,
+          channel: ch,
+          dataType: "",
+        }),
+      );
+      const again = await deploy(container, draft.key);
+      expect(plainOf(again.config.entries[0]).messages[0].bindings).toContainEqual({
+        field: temperature.key,
+        channel: ch,
+        dataType: "",
+      });
+      expect((await retrieveStored(dev.key, firstMessage(again))).channels).toEqual(
+        channels,
+      );
+    });
+
     it("should stop and start reading a field through the context menu", async () => {
       const temperature = createField("temperature", "float");
       const { draft } = await renderRead({ fields: [temperature] });
