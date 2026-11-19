@@ -12,6 +12,7 @@ package crash
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/io/fs/testutil/fault"
 )
 
 var _ = Describe("Second recovery", func() {
@@ -61,5 +62,36 @@ var _ = Describe("Second recovery", func() {
 			Rule(""),
 			false,
 		),
+	)
+})
+
+var _ = Describe("Clusters", func() {
+	// at returns a fault in the file id, from a read of the bytes from, to.
+	at := func(id fault.ID, from, to int64) fault.Fault {
+		return fault.Fault{
+			File:  id,
+			Block: from / 4096,
+			Read:  fault.Span{From: from, To: to},
+		}
+	}
+
+	DescribeTable("Should group the faults whose reads overlap in one file",
+		func(faults []fault.Fault, sizes []int, most int) {
+			got := make([]int, 0, len(sizes))
+			for _, cluster := range clusters(faults) {
+				got = append(got, len(cluster))
+			}
+			Expect(got).To(ConsistOf(sizes))
+			Expect(largest(faults)).To(Equal(most))
+		},
+		Entry("no fault", []fault.Fault(nil), []int{}, 0),
+		Entry("two reads of the same bytes",
+			[]fault.Fault{at(1, 0, 100), at(1, 0, 100)}, []int{2}, 2),
+		Entry("two reads side by side",
+			[]fault.Fault{at(1, 0, 100), at(1, 100, 200)}, []int{1, 1}, 1),
+		Entry("the same bytes of two files",
+			[]fault.Fault{at(1, 0, 100), at(2, 0, 100)}, []int{1, 1}, 1),
+		Entry("a chain of overlaps",
+			[]fault.Fault{at(1, 0, 100), at(1, 200, 300), at(1, 50, 250)}, []int{3}, 3),
 	)
 })

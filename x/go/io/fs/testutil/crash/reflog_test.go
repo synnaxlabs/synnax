@@ -40,6 +40,8 @@ type bugs struct {
 	checksumSkipped, badRecordSkipped, tornTailRefused, writeErrorIgnored bool
 	// retryTrusted takes the second read of a bad slot with no checksum.
 	retryTrusted bool
+	// retryRationed reads a bad slot a second time only once in each recovery.
+	retryRationed bool
 }
 
 // refLog is a small log store: records in slots of segment files, a checksum that binds
@@ -55,6 +57,8 @@ type refLog struct {
 	segment, next int
 	// synced is the count of records, from the first segment, that are durable.
 	synced uint64
+	// retried says that a read of a bad slot was done a second time.
+	retried bool
 }
 
 func segmentName(n int) string { return fmt.Sprintf("%06d.log", n) }
@@ -94,6 +98,12 @@ func (l *refLog) read(
 	segment, slot int,
 ) (r crash.Record, synced uint64, ok bool, err error) {
 	for try := range 2 {
+		if try == 1 && l.bugs.retryRationed {
+			if l.retried {
+				break
+			}
+			l.retried = true
+		}
 		buf := make([]byte, slotSize)
 		n, err := f.ReadAt(buf, int64(slot)*slotSize)
 		if err != nil && !errors.Is(err, io.EOF) {

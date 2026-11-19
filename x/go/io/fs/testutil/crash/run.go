@@ -12,7 +12,9 @@ package crash
 import (
 	"context"
 	"fmt"
+	"maps"
 	"math/rand/v2"
+	"slices"
 	"sync"
 
 	"github.com/synnaxlabs/x/errors"
@@ -45,9 +47,10 @@ type run struct {
 	attempts, acked []attempt
 	cfg             Config
 	result          Result
-	// brokenAt is the event of broken, and brokenFaults is the count of read faults in
-	// the recovery that broke it.
-	brokenAt, brokenFaults int
+	// brokenAt is the event of broken, and brokenFaults holds the read faults of the
+	// recovery that broke it.
+	brokenAt     int
+	brokenFaults []fault.Fault
 	// mu guards every field below plan.
 	mu sync.Mutex
 }
@@ -101,7 +104,8 @@ func Run(ctx context.Context, cfg Config) (Result, error) {
 		RunKey:     cfg.RunKey,
 		Profile:    cfg.Profile,
 		Event:      r.brokenAt,
-		ReadFaults: r.brokenFaults,
+		ReadFaults: len(r.brokenFaults),
+		Clustered:  largest(r.brokenFaults),
 	}
 }
 
@@ -148,7 +152,7 @@ func (r *run) work(engine Engine) {
 		return
 	}
 	if b := checkLive(r.attempts, records); b != nil {
-		r.fail(b, 0, 0)
+		r.fail(b, 0, nil)
 	}
 }
 
@@ -162,7 +166,7 @@ func (r *run) faulted() bool {
 // worksf breaks R0, before any crash, when ok is false.
 func (r *run) worksf(ok bool, format string, args ...any) {
 	if !ok {
-		r.fail(&broken{R0, fmt.Sprintf(format, args...)}, 0, 0)
+		r.fail(&broken{R0, fmt.Sprintf(format, args...)}, 0, nil)
 	}
 }
 
@@ -172,7 +176,7 @@ func (r *run) stopped() bool {
 	return r.broken != nil || r.err != nil
 }
 
-func (r *run) fail(b *broken, event, faults int) {
+func (r *run) fail(b *broken, event int, faults []fault.Fault) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.broken == nil {
@@ -268,22 +272,67 @@ func (r *run) check(s *snapshot, attempts []attempt) {
 }
 
 // underFaults returns base for a recovery on a disk that gave the read faults, and if
-// they relaxed it. Under RepeatedReadFaults, two or more faults let the engine refuse,
-// return unreadable records, and lose the commits from the first Sync that changed the
-// earliest block that a fault hit.
+// they relaxed it. Under RepeatedReadFaults, a cluster of two or more faults lets the
+// engine refuse, return unreadable records, and lose the commits from the first Sync
+// that changed the earliest block that a fault of the cluster hit.
 func (r *run) underFaults(base rules, faults []fault.Fault) (rules, bool) {
-	if r.cfg.Profile != RepeatedReadFaults || len(faults) < 2 {
+	if r.cfg.Profile != RepeatedReadFaults {
 		return base, false
 	}
-	for _, f := range faults {
-		if file, ok := r.counter.files[f.File]; ok {
-			if event, ok := file.first[f.Block]; ok {
-				base.exemptFrom = min(base.exemptFrom, event)
+	relaxed := false
+	for _, cluster := range clusters(faults) {
+		if len(cluster) < 2 {
+			continue
+		}
+		relaxed = true
+		for _, f := range cluster {
+			if file, ok := r.counter.files[f.File]; ok {
+				if event, ok := file.first[f.Block]; ok {
+					base.exemptFrom = min(base.exemptFrom, event)
+				}
 			}
 		}
 	}
-	base.refusalAllowed, base.unreadableAllowed = true, true
-	return base, true
+	if relaxed {
+		base.refusalAllowed, base.unreadableAllowed = true, true
+	}
+	return base, relaxed
+}
+
+// clusters groups the read faults whose reads overlap in one file, also through other
+// faults. A fault with a good retry is alone in its cluster.
+func clusters(faults []fault.Fault) [][]fault.Fault {
+	root := make([]int, len(faults))
+	for i := range root {
+		root[i] = i
+	}
+	find := func(i int) int {
+		for root[i] != i {
+			i = root[i]
+		}
+		return i
+	}
+	for i, a := range faults {
+		for j, b := range faults[:i] {
+			if a.File == b.File && a.Read.From < b.Read.To && b.Read.From < a.Read.To {
+				root[find(i)] = find(j)
+			}
+		}
+	}
+	groups := map[int][]fault.Fault{}
+	for i, f := range faults {
+		groups[find(i)] = append(groups[find(i)], f)
+	}
+	return slices.Collect(maps.Values(groups))
+}
+
+// largest returns the count of faults in the largest cluster.
+func largest(faults []fault.Fault) int {
+	most := 0
+	for _, cluster := range clusters(faults) {
+		most = max(most, len(cluster))
+	}
+	return most
 }
 
 // refused counts the refusal err of a recovery that the rules allow, or breaks R4.
@@ -298,14 +347,14 @@ func (r *run) refused(
 		r.result.Refusals++
 		return
 	}
-	r.fail(&broken{R4, fmt.Sprintf("%s: %v", what, err)}, event, len(faults))
+	r.fail(&broken{R4, fmt.Sprintf("%s: %v", what, err)}, event, faults)
 }
 
 // held breaks the rule of b, or counts a recovery that lost a commit that the rules
 // free. It reports if the recovery held.
 func (r *run) held(b *broken, lost bool, event int, faults []fault.Fault) bool {
 	if b != nil {
-		r.fail(b, event, len(faults))
+		r.fail(b, event, faults)
 		return false
 	}
 	if lost {

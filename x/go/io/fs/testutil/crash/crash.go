@@ -80,10 +80,11 @@ const (
 	// Mixed joins the faults of Partial, SyncErrors, FullDisk, and OneTimeReadFaults.
 	Mixed
 	// RepeatedReadFaults gives the engine that recovers read faults that each read can
-	// get, retries too. After two or more faults in a recovery, the engine can refuse
-	// with its corruption error, return unreadable records, or lose the commits from
-	// the first Sync that changed the earliest block that a fault hit. It must never
-	// return wrong data or a hole.
+	// get, retries too. A cluster is the faults whose reads overlap in one file. After
+	// a cluster of two or more faults, the engine can refuse with its corruption error,
+	// return unreadable records, or lose the commits from the first Sync that changed
+	// the earliest block that a fault of the cluster hit. It must never return wrong
+	// data or a hole.
 	RepeatedReadFaults
 )
 
@@ -126,20 +127,18 @@ type Violation struct {
 	Event int
 	// Profile is the profile of the run.
 	Profile Profile
-	// ReadFaults is the count of read faults in the recovery that broke the rule.
-	ReadFaults int
+	// ReadFaults is the count of read faults in the recovery that broke the rule, and
+	// Clustered is the count in the largest cluster of them: faults whose reads overlap
+	// in one file.
+	ReadFaults, Clustered int
 }
 
 // Error implements error.
 func (v *Violation) Error() string {
 	return fmt.Sprintf(
-		"crash: %s broken at event %d of run key %d, profile %d, with %d read faults: %s",
-		v.Rule,
-		v.Event,
-		v.RunKey,
-		v.Profile,
-		v.ReadFaults,
-		v.Detail,
+		"crash: %s broken at event %d of run key %d, profile %d, with %d read faults, "+
+			"%d in one cluster: %s",
+		v.Rule, v.Event, v.RunKey, v.Profile, v.ReadFaults, v.Clustered, v.Detail,
 	)
 }
 
