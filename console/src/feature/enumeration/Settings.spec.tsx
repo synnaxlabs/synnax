@@ -19,7 +19,7 @@ import {
   within,
 } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { Enumeration } from "@/feature/enumeration";
 import { Modals } from "@/platform/modals";
@@ -27,7 +27,6 @@ import { Tree } from "@/platform/tree";
 import {
   awaitGranted,
   awaitTextEditingElement,
-  CaptureStatuses,
   clickAndSettle,
   commitTextEdit,
   createConsoleWrapper,
@@ -73,7 +72,7 @@ const builtinFromEnd = async (n: number): Promise<enumeration.Enumeration> => {
   return shipped;
 };
 
-const renderEnumerations = async (onStatuses = vi.fn()): Promise<void> => {
+const renderEnumerations = async (): Promise<void> => {
   const { wrapper: Console } = await createConsoleWrapper({ client });
   const wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Console>
@@ -81,7 +80,6 @@ const renderEnumerations = async (onStatuses = vi.fn()): Promise<void> => {
         <HaulProvider>{children}</HaulProvider>
         <Modals.Stack />
       </Tree.Provider>
-      <CaptureStatuses onStatuses={onStatuses} />
     </Console>
   );
   await act(async () => {
