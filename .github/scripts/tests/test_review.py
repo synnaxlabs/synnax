@@ -312,7 +312,8 @@ class TestSettledThreads:
     def test_should_keep_one_whose_title_holds_asterisks(self, gh: FakeGH) -> None:
         f = finding(title="Leaks `**kwargs`")
         gh.threads = [posted(f)]
-        post(record(f), target=TARGET, gh=gh)
+        fixed = dataclasses.replace(self.FIXED, title=f.title)
+        post(record(f, fixed=(fixed,)), target=TARGET, gh=gh)
         assert gh.mutations == []
 
     def test_should_keep_one_still_reported_outside_the_diff(self, gh: FakeGH) -> None:
