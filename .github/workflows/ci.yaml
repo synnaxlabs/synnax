@@ -122,6 +122,7 @@ jobs:
       client_ts: ${{ steps.filter.outputs.client_ts }}
       console: ${{ steps.filter.outputs.console }}
       console_build: ${{ steps.filter.outputs.console_build }}
+      console_deps: ${{ steps.filter.outputs.console_deps }}
       core: ${{ steps.filter.outputs.core }}
       core_build: ${{ steps.filter.outputs.core_build }}
       core_image: ${{ steps.filter.outputs.core_image }}
@@ -561,6 +562,25 @@ jobs:
           files: console/src-tauri/lcov.info
           flags: desktop-shell
           token: ${{ secrets.CODECOV_TOKEN }}
+
+  desktop-shell-audit:
+    needs: changes
+    if:
+      inputs.full || needs.changes.outputs.console_deps == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'desktop-shell-audit')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
+        with:
+          tool: cargo-audit@0.22.2
+
+      - name: Audit
+        working-directory: console/src-tauri
+        run: cargo audit
 
   docs:
     needs: changes
@@ -1435,6 +1455,7 @@ jobs:
       - core-image
       - dependency-review
       - desktop-shell
+      - desktop-shell-audit
       - docs
       - docs-site
       - drift
