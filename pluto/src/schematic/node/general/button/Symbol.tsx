@@ -11,6 +11,7 @@ import { type schematic } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
 import { Control } from "@/schematic/node/common/control";
+import { Deleted } from "@/schematic/node/common/deleted";
 import { Grid } from "@/schematic/node/common/grid";
 import { Telem } from "@/schematic/node/common/telem";
 import { Button } from "@/schematic/node/general/button/Primitive";
@@ -29,6 +30,7 @@ export const Symbol = ({
     sink,
     mode,
   });
+  const deleted = Deleted.use([commandChannel]);
   return (
     <Grid.Grid
       orientation={orientation}
@@ -41,6 +43,7 @@ export const Symbol = ({
         config={control}
         channel={commandChannel}
         onChange={onConfigChange}
+        deleted={deleted}
       />
       <Button
         label={label}
@@ -50,6 +53,7 @@ export const Symbol = ({
         onMouseUp={onMouseUp}
         orientation={orientation}
         {...rest}
+        disabled={deleted}
       />
     </Grid.Grid>
   );

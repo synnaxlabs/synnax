@@ -11,6 +11,7 @@ import { theme } from "@synnaxlabs/lyra/theme";
 import { box, color, TimeSpan, type xy } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/testutil";
 import { type ProviderOptions } from "@/testutil/providers";
 import { renderAether } from "@/testutil/renderAether";
@@ -138,6 +139,15 @@ describe("value/aether/Value", () => {
       recorder.clear();
       source.setValue("2");
       expect(fillTexts(recorder)).toContain("2");
+    });
+
+    it("should draw Deleted channel in a muted gray for a deleted channel", () => {
+      const { component, source, recorder } = setup({ value: "" });
+      source.status = telem.DELETED_STATUS;
+      recorder.clear();
+      component.render({});
+      expect(fillTexts(recorder)).toEqual(["Deleted channel"]);
+      expect(fillStyles(recorder)).toContain(color.hex(THEME.colors.gray.l9));
     });
 
     it("should reflect a new value on the next explicit render", () => {

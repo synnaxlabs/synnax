@@ -111,8 +111,10 @@ export class StringValue
     canvas.font = fontString;
     canvas.textAlign = "left";
     canvas.textBaseline = "middle";
-    canvas.fillStyle = color.hex(this.textColor);
-    const value = source.value().data;
+    const result = source.value();
+    const deleted = result.status === telem.DELETED_STATUS;
+    canvas.fillStyle = color.hex(deleted ? theme.colors.gray.l9 : this.textColor);
+    const value = deleted ? telem.DELETED_STATUS.message : result.data;
     if (value.length === 0) return;
     const position = xy.construct(box.left(b), box.center(b).y);
     const width = box.width(b);

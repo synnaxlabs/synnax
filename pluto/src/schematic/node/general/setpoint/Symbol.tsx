@@ -15,6 +15,7 @@ import { box, type color, xy } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import { Control } from "@/schematic/node/common/control";
+import { Deleted } from "@/schematic/node/common/deleted";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { Primitive } from "@/schematic/node/common/primitive";
@@ -102,6 +103,7 @@ export const Symbol = ({
   const sink = Telem.numberSink(commandChannel);
   const source = Telem.numberSource(commandChannel);
   const { set, value } = BaseSetpoint.use({ aetherKey: nodeKey, sink, source });
+  const deleted = Deleted.use([stateChannel, commandChannel]);
   const resize = Grid.useInlineResize(inlineSize, (inlineSize) =>
     onConfigChange({ inlineSize }),
   );
@@ -111,6 +113,7 @@ export const Symbol = ({
         config={control}
         channel={commandChannel}
         onChange={onConfigChange}
+        deleted={deleted}
       />
       <Label.Label config={label} onChange={onConfigChange} />
       <Setpoint
@@ -119,7 +122,7 @@ export const Symbol = ({
         units={units}
         fillColor={fillColor}
         orientation={orientation}
-        disabled={disabled}
+        disabled={disabled || deleted}
         size={size}
         onClickDelay={onClickDelay}
         inlineSize={inlineSize}

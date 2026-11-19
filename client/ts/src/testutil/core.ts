@@ -33,6 +33,7 @@ import {
   streamerConfigZ,
   type StreamerUpdateOptions,
 } from "@/framer/streamer";
+import { query } from "@/query";
 
 // Samples per series in an unreduced read, matching an iterator response.
 const CHUNK = 1e5;
@@ -116,9 +117,18 @@ export class SyntheticCore {
   readonly channels = {
     retrieve: async (key: channel.Key | channel.Name): Promise<channel.Channel> => {
       const ch = this.all().find((c) => c.key === key || c.name === key);
-      if (ch == null) throw new NotFoundError(`channel ${key} not found`);
+      if (ch == null || this.deleted.has(ch.key))
+        throw new NotFoundError(`channel ${key} not found`);
       return ch;
     },
+    /** Watches a channel. Only a {@link SyntheticCore.delete} of it changes it. */
+    watch: (key: channel.Key): Pick<query.Live<channel.Channel>, "onChange"> => ({
+      onChange: (handler) => {
+        const handlers = this.watchers.get(key) ?? new Set();
+        this.watchers.set(key, handlers.add(handler));
+        return () => handlers.delete(handler);
+      },
+    }),
   };
 
   private readonly start: bigint;
@@ -138,6 +148,11 @@ export class SyntheticCore {
   private readonly lag: TimeSpan;
   private end?: TimeStamp;
   private readonly denied = new Set<channel.Key>();
+  private readonly deleted = new Set<channel.Key>();
+  private readonly watchers = new Map<
+    channel.Key,
+    Set<query.ChangeHandler<channel.Channel>>
+  >();
 
   constructor({
     rate,
@@ -227,6 +242,15 @@ export class SyntheticCore {
   /** Changes the data type of every sample of a channel, as a recalculation does. */
   retype(key: channel.Key, dataType: DataType): void {
     this.dataTypes.set(key, dataType);
+  }
+
+  /** Deletes a channel. A watch of it receives its corpse, and a retrieve rejects. */
+  delete(key: channel.Key): void {
+    const ch = this.all().find((c) => c.key === key);
+    if (ch == null) throw new NotFoundError(`channel ${key} not found`);
+    this.deleted.add(key);
+    const corpse = new query.Deleted(ch, this.clock);
+    this.watchers.get(key)?.forEach((handler) => handler(corpse));
   }
 
   /** Rejects each stream of the channel, as the Core does for a user without access. */

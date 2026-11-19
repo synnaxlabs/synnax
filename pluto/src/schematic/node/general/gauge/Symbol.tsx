@@ -14,6 +14,7 @@ import { box, dimensions, type text, xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
+import { Deleted } from "@/schematic/node/common/deleted";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { type NodeProps } from "@/schematic/node/spec";
@@ -68,9 +69,11 @@ export const Symbol = ({
     stalenessColor,
     stalenessTimeout,
   });
+  const deleted = Deleted.use([channel]);
   return (
     <Grid.Grid editable={selected} nodeKey={nodeKey} allowRotate={false}>
       <Label.Label config={label} onChange={onConfigChange} />
+      {deleted && <Deleted.Item />}
       <div style={dims} className={CSS.B("symbol-primitive")} />
     </Grid.Grid>
   );

@@ -11,6 +11,7 @@ import { type schematic } from "@synnaxlabs/client";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { type ReactElement } from "react";
 
+import { Deleted } from "@/schematic/node/common/deleted";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { Telem } from "@/schematic/node/common/telem";
@@ -43,6 +44,7 @@ export const Symbol = ({
     options,
     stalenessTimeout,
   });
+  const deleted = Deleted.use([channel]);
   return (
     <Grid.Grid
       allowRotate={false}
@@ -52,10 +54,15 @@ export const Symbol = ({
       onResize={({ width }) => onConfigChange({ inlineSize: width })}
     >
       <Label.Label config={label} onChange={onConfigChange} />
-      {stale && badged && (
-        <Grid.Item itemKey="stale" location="bottom">
-          <Staleness.Badge />
-        </Grid.Item>
+      {deleted ? (
+        <Deleted.Item />
+      ) : (
+        stale &&
+        badged && (
+          <Grid.Item itemKey="stale" location="bottom">
+            <Staleness.Badge />
+          </Grid.Item>
+        )
       )}
       <StateIndicator
         matchedOptionKey={optKey}

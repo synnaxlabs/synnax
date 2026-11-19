@@ -22,6 +22,7 @@ import { type ReactElement, type ReactNode, useEffect, useState } from "react";
 import { Channel } from "@/channel";
 import { CSS } from "@/css";
 import { type Node } from "@/schematic/node";
+import { Deleted } from "@/schematic/node/common/deleted";
 import { Synnax } from "@/synnax";
 import { LatestSample } from "@/vis/latestSample";
 import { Staleness } from "@/vis/staleness";
@@ -139,8 +140,24 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
   );
   if (!visible || (keys.length > 0 && data == null)) return null;
   const channels = CHANNEL_ROWS.flatMap(({ field, icon: RoleIcon }) => {
-    const ch = data?.find((c) => c.key === values[field]);
-    if (ch == null) return [];
+    const key = values[field];
+    if (typeof key !== "number" || primitive.isZero(key)) return [];
+    const ch = data?.find((c) => c.key === key);
+    // The schematic keeps the key of a deleted channel, which a retrieve leaves out.
+    if (ch == null)
+      return (
+        <Row
+          key={field}
+          labelColor={9}
+          label={
+            <>
+              <RoleIcon />
+              {Deleted.TEXT}
+            </>
+          }
+          value={undefined}
+        />
+      );
     const KindIcon = kindIcon(ch);
     return (
       <Row

@@ -149,8 +149,9 @@ export class Value
       this.setState((p) => ({ ...p, width: Math.max(requiredWidth, p.minWidth) }));
   }
 
-  private getTextColor(): color.Color {
+  private getTextColor(deleted: boolean): color.Color {
     const { theme } = this.internal;
+    if (deleted) return theme.colors.gray.l9;
     if (this.internal.stale)
       return staleness.resolveColor(this.state.stalenessColor, theme);
 
@@ -166,15 +167,22 @@ export class Value
   }
 
   render({ viewportScale = scale.XY.IDENTITY }): void {
-    const { renderCtx, telem, backgroundTelem, fontString, requestRender } =
-      this.internal;
+    const {
+      renderCtx,
+      telem: source,
+      backgroundTelem,
+      fontString,
+      requestRender,
+    } = this.internal;
     const { location, box: b } = this.state;
     if (box.areaIsZero(b)) return;
     const bTopLeft = box.topLeft(b);
     const bWidth = box.width(b);
     const bHeight = box.height(b);
     const canvas = renderCtx.upper2d.applyScale(viewportScale);
-    let value = telem.value().data;
+    const result = source.value();
+    const deleted = result.status === telem.DELETED_STATUS;
+    let value = deleted ? telem.DELETED_STATUS.message : result.data;
     canvas.font = fontString;
     canvas.textAlign = "left";
     canvas.textBaseline = "alphabetic";
@@ -212,7 +220,7 @@ export class Value
         );
       }
 
-      const textColor = this.getTextColor();
+      const textColor = this.getTextColor(deleted);
       canvas.fillStyle = color.hex(textColor);
 
       // If the value is negative, chop of the negative sign and draw it separately so

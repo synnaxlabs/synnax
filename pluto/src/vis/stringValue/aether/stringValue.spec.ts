@@ -12,6 +12,7 @@ import { box, color, scale, TimeSpan, xy } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type z } from "zod";
 
+import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/testutil";
 import { renderAether } from "@/testutil/renderAether";
 import { type FillTextOptions } from "@/vis/draw2d/canvas";
@@ -75,6 +76,15 @@ describe("stringValue.StringValue", () => {
     it("should draw the source's value when it mounts", () => {
       const { recorder } = setup({ value: "IDLE" });
       expect(fillTexts(recorder)).toEqual(["IDLE"]);
+    });
+
+    it("should draw Deleted channel in a muted gray for a deleted channel", () => {
+      const { component, source, recorder } = setup({ value: "" });
+      source.status = telem.DELETED_STATUS;
+      recorder.clear();
+      component.render({});
+      expect(fillTexts(recorder)).toEqual(["Deleted channel"]);
+      expect(lastFillStyle(recorder)).toBe(color.hex(THEME.colors.gray.l9));
     });
 
     it("should redraw when the source sends a new value", () => {

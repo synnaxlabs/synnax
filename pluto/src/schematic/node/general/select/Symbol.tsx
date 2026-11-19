@@ -12,6 +12,7 @@ import { Theming } from "@synnaxlabs/lyra/theming";
 import { type ReactElement } from "react";
 
 import { Control } from "@/schematic/node/common/control";
+import { Deleted } from "@/schematic/node/common/deleted";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { Primitive } from "@/schematic/node/common/primitive";
@@ -53,6 +54,7 @@ export const Symbol = ({
     options,
     stalenessTimeout,
   });
+  const deleted = Deleted.use([stateChannel, commandChannel]);
   const readback = options.find((o) => o.key === readbackKey);
   const resize = Grid.useInlineResize(inlineSize, (inlineSize) =>
     onConfigChange({ inlineSize }),
@@ -64,8 +66,9 @@ export const Symbol = ({
         config={control}
         channel={commandChannel}
         onChange={onConfigChange}
+        deleted={deleted}
       >
-        {stale && badged ? <Staleness.Badge /> : null}
+        {!deleted && stale && badged ? <Staleness.Badge /> : null}
       </Control.State>
       <Label.Label config={label} onChange={onConfigChange} />
       <Select
@@ -73,7 +76,7 @@ export const Symbol = ({
         onSend={set}
         fillColor={fillColor}
         orientation={orientation}
-        disabled={disabled}
+        disabled={disabled || deleted}
         options={options}
         size={size}
         inlineSize={inlineSize}

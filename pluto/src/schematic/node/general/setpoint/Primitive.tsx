@@ -139,6 +139,7 @@ export const Setpoint = ({
               draft.send();
             }}
             onClickDelay={new TimeSpan(onClickDelay ?? 0)}
+            disabled={disabled}
             // WebKit leaves the input focused on a button press, so the typed value
             // would never commit. Blurring commits it before the click or hold sends.
             onMouseDown={() => inputRef.current?.blur()}

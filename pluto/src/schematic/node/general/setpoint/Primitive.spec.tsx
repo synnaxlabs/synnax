@@ -30,6 +30,13 @@ describe("setpoint symbol", () => {
       expect(onSend).toHaveBeenCalledWith(3);
     });
 
+    it("should send nothing from a disabled setpoint", () => {
+      const onSend = vi.fn();
+      const { getByText } = render(<Setpoint onSend={onSend} value={3} disabled />);
+      fireEvent.click(getByText("Set"));
+      expect(onSend).not.toHaveBeenCalled();
+    });
+
     it("should show a blank field and send nothing when no target is known", () => {
       const onSend = vi.fn();
       const { container, getByText } = render(<Setpoint onSend={onSend} />);

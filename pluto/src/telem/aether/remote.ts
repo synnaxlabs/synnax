@@ -7,13 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, framer, status as cstatus } from "@synnaxlabs/client";
+import {
+  type channel,
+  framer,
+  NotFoundError,
+  query,
+  status as cstatus,
+} from "@synnaxlabs/client";
 import {
   type Aggregation,
   aggregationZ,
   bounds,
   type breaker,
   DataType,
+  type destructor,
   MultiSeries,
   primitive,
   resolveWindow,
@@ -29,6 +36,7 @@ import { type status } from "@/status/aether";
 import { type CreateOptions } from "@/telem/aether/factory";
 import {
   AbstractSource,
+  DELETED_STATUS,
   LOADING_STATUS,
   type NumberSourceSpec,
   type Result,
@@ -48,6 +56,7 @@ export interface Client {
   feed: Pick<framer.Feed, "subscribe" | "firstTime">;
   channels: {
     retrieve: (ch: channel.Key | channel.Name) => Promise<channel.Channel>;
+    watch: (key: channel.Key) => Pick<query.Live<channel.Channel>, "onChange">;
   };
   /** @returns the current time on the Core's clock, which stamps every sample. */
   now: () => TimeStamp;
@@ -68,8 +77,23 @@ export class FailureReporter {
   status?: cstatus.Status;
   constructor(private readonly onStatusChange?: status.Adder) {}
 
-  report(e: unknown, message: string): void {
+  /**
+   * Posts e. A channel the Core does not hold is deleted, which posts nothing and which
+   * the source does not retry.
+   * @returns true when the channel is deleted.
+   */
+  report(e: unknown, message: string): boolean {
+    if (NotFoundError.matches(e)) {
+      this.delete();
+      return true;
+    }
     this.post(cstatus.fromException(e, message));
+    return false;
+  }
+
+  /** Reports the source's channel as deleted, which posts nothing. */
+  delete(): void {
+    this.status = DELETED_STATUS;
   }
 
   /** Posts a subscription's status when it is an error, and resets on any other. */
@@ -139,6 +163,7 @@ class ChannelValue<V>
   private readonly onStatusChange?: status.Adder;
   private readonly failures: FailureReporter;
   private subscription: framer.Subscription | null = null;
+  private unwatch: destructor.Destructor | null = null;
   private key: channel.Key | null = null;
   private converted: Converted<V> | null = null;
   // notified is the value listeners last heard of. A read can convert a new sample
@@ -178,6 +203,8 @@ class ChannelValue<V>
     this.generation++;
     this.subscription?.close();
     this.subscription = null;
+    this.unwatch?.();
+    this.unwatch = null;
     this.key = null;
     this.converted = null;
     this.notified = null;
@@ -204,6 +231,18 @@ class ChannelValue<V>
     };
   }
 
+  // Stops streaming a channel the Core deleted. The source stays valid, so it never
+  // retrieves the channel again.
+  private delete(): void {
+    this.subscription?.close();
+    this.subscription = null;
+    this.key = null;
+    this.converted = null;
+    this.loading = false;
+    this.failures.delete();
+    this.notify();
+  }
+
   /** Never rejects: a failure invalidates the source and reaches onStatusChange. */
   private async resolve(): Promise<void> {
     const generation = this.generation;
@@ -222,6 +261,9 @@ class ChannelValue<V>
         limit: { variant: "latest", count: 1 },
       });
       [this.subscription, this.key] = [subscription, key];
+      this.unwatch = client.channels.watch(key).onChange((r) => {
+        if (query.Deleted.matches(r)) this.delete();
+      });
       subscription.onChange(() => {
         const snapshot = subscription.value(key);
         this.failures.observe(snapshot.status);
@@ -234,9 +276,9 @@ class ChannelValue<V>
       });
     } catch (e) {
       if (generation !== this.generation) return;
-      this.valid = false;
       this.loading = false;
-      this.failures.report(e, "Failed to stream channel value");
+      this.valid = this.failures.report(e, "Failed to stream channel value");
+      if (this.valid) this.notify();
     }
   }
 }
@@ -568,13 +610,14 @@ export class ChannelData
         return this.notify();
       } catch (e) {
         if (generation !== this.generation) return;
-        this.failures.report(e, "Failed to read channel data");
+        const deleted = this.failures.report(e, "Failed to read channel data");
         // Retries never hold loading, so a failure wakes observers of the status.
         if (this.loading) {
           this.loading = false;
           this.notify();
         }
-        if (framer.retry.isDefinitive(e) || !(await this.breaker.wait())) return;
+        if (deleted || framer.retry.isDefinitive(e) || !(await this.breaker.wait()))
+          return;
       }
   }
 

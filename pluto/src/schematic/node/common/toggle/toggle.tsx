@@ -12,6 +12,7 @@ import { Theming } from "@synnaxlabs/lyra/theming";
 import { type FC, memo, type ReactElement } from "react";
 
 import { Control } from "@/schematic/node/common/control";
+import { Deleted } from "@/schematic/node/common/deleted";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { type Primitive } from "@/schematic/node/common/primitive";
@@ -62,6 +63,7 @@ export const createToggle = <C extends ToggleConfig>(
       sink,
       stalenessTimeout,
     });
+    const deleted = Deleted.use([stateChannel, commandChannel]);
     const scaleResize = Grid.useScaleResize(config, onConfigChange);
     return (
       <Grid.Grid
@@ -77,16 +79,18 @@ export const createToggle = <C extends ToggleConfig>(
           config={control}
           channel={commandChannel}
           onChange={onConfigChange}
+          deleted={deleted}
         >
-          {stale && badged ? <Staleness.Badge /> : null}
+          {!deleted && stale && badged ? <Staleness.Badge /> : null}
         </Control.State>
         <Sym
           enabled={enabled}
           onClick={toggle}
           onClickDelay={onClickDelay}
           orientation={orientation}
+          disabled={deleted}
           strokeColor={
-            stale && !badged
+            !deleted && stale && !badged
               ? Staleness.resolveColor(stalenessColor, theme)
               : symbolColor
           }

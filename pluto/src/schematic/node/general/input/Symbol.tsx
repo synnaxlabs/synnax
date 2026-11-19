@@ -14,6 +14,7 @@ import { type color, type xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Control } from "@/schematic/node/common/control";
+import { Deleted } from "@/schematic/node/common/deleted";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { Primitive } from "@/schematic/node/common/primitive";
@@ -75,6 +76,7 @@ export const Symbol = ({
   const sink = Telem.stringSink(commandChannel);
   const source = telem.streamChannelStringValue({ channel: commandChannel });
   const { set, value } = InputTelem.use({ aetherKey: nodeKey, sink, source });
+  const deleted = Deleted.use([stateChannel, commandChannel]);
   const resize = Grid.useInlineResize(inlineSize, (inlineSize) =>
     onConfigChange({ inlineSize }),
   );
@@ -84,6 +86,7 @@ export const Symbol = ({
         config={control}
         channel={commandChannel}
         onChange={onConfigChange}
+        deleted={deleted}
       />
       <Label.Label config={label} onChange={onConfigChange} />
       <Input
@@ -104,6 +107,7 @@ export const Symbol = ({
           )
         }
         {...rest}
+        disabled={rest.disabled || deleted}
       />
     </Grid.Grid>
   );

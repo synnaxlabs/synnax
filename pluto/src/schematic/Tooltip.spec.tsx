@@ -176,6 +176,22 @@ describe("Schematic.Tooltip", () => {
       expect(within(tooltip).getAllByText("f32")).toHaveLength(2);
     });
 
+    it("should mark a deleted channel under its role icon", async () => {
+      const [command, state] = await Promise.all([createChannel(), createChannel()]);
+      await client.channels.delete(state.key);
+      renderTooltip(
+        Node.createConfig({
+          variant: "valve",
+          commandChannel: command.key,
+          stateChannel: state.key,
+        }),
+      );
+      const tooltip = await findTooltip();
+      const deleted = labelOf(tooltip, "Deleted channel");
+      expect(deleted.querySelector(".lyra-icon--channel")).not.toBeNull();
+      expect(within(tooltip).getByText(command.name)).not.toBeNull();
+    });
+
     it("should stay hidden until the channel names have loaded", async () => {
       const ch = await createChannel();
       renderTooltip(Node.createConfig({ variant: "value", channel: ch.key }));

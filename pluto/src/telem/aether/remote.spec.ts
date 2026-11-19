@@ -40,6 +40,7 @@ import {
   streamChannelValue,
 } from "@/telem/aether/remote";
 import {
+  DELETED_STATUS,
   type NumberSource,
   type StringSource,
   type ValueProps,
@@ -318,19 +319,41 @@ describe("remote", () => {
       expect(source.value().status.variant).toBe("error");
     });
 
-    it("should post an error when the channel cannot be retrieved", async () => {
+    it("should report a deleted channel and post nothing", async () => {
       const statuses: cstatus.Crude[] = [];
-      const source = createNumber(connect(createCore()), 999, {
+      const client = connect(createCore());
+      const retrieve = vi.spyOn(client.channels, "retrieve");
+      const source = createNumber(client, 999, {
         onStatusChange: (s) => statuses.push(s),
       });
+      const notified = vi.fn();
+      source.onChange(notified);
       source.value();
-      await expect.poll(() => statuses.length, POLL).toBe(1);
-      expect(statuses[0]).toMatchObject({
-        variant: "error",
-        message: "Failed to stream channel value",
-        description: "channel 999 not found",
+      await expect.poll(() => source.value().status, POLL).toBe(DELETED_STATUS);
+      expect(notified).toHaveBeenCalled();
+      expect(Number.isNaN(source.value().data)).toBe(true);
+      expect(statuses).toEqual([]);
+      // A deleted channel never comes back, so the source does not retrieve it again.
+      source.value();
+      expect(retrieve).toHaveBeenCalledTimes(1);
+    });
+
+    it("should report a channel deleted while it streams as deleted", async () => {
+      const core = createCore();
+      const { key } = core.data[0];
+      const statuses: cstatus.Crude[] = [];
+      const source = createNumber(connect(core), key, {
+        onStatusChange: (s) => statuses.push(s),
       });
-      expect(source.value().status).toBe(statuses[0]);
+      core.advance(RATE.period);
+      await expect.poll(() => source.value().data, POLL).toBe(newest(core, key).at(-1));
+      const notified = vi.fn();
+      source.onChange(notified);
+      core.delete(key);
+      expect(notified).toHaveBeenCalled();
+      expect(source.value().status).toBe(DELETED_STATUS);
+      expect(Number.isNaN(source.value().data)).toBe(true);
+      expect(statuses).toEqual([]);
     });
 
     it("should post the error of a channel the Core denies", async () => {
@@ -865,7 +888,7 @@ describe("remote", () => {
     const withRetrieve = (
       client: Client,
       retrieve: Client["channels"]["retrieve"],
-    ): Client => ({ ...client, channels: { retrieve } });
+    ): Client => ({ ...client, channels: { ...client.channels, retrieve } });
 
     it("should retry a channel retrieval that fails to connect", async () => {
       const core = createCore();
@@ -914,19 +937,19 @@ describe("remote", () => {
       expect(handler).not.toHaveBeenCalled();
     });
 
-    it("should post an error and park when the channel is not found", async () => {
+    it("should report a deleted channel, post nothing, and park", async () => {
       const statuses: cstatus.Crude[] = [];
+      const client = connect(createCore());
+      const retrieve = vi.spyOn(client.channels, "retrieve");
       const y = create(
-        connect(createCore()),
+        client,
         { channel: 999 },
         { onStatusChange: (s) => statuses.push(s) },
       );
-      await expect.poll(() => y.value().status.variant, POLL).toBe("error");
-      expect(y.value().status).toMatchObject({
-        message: "Failed to read channel data",
-        description: "channel 999 not found",
-      });
-      expect(statuses).toHaveLength(1);
+      await expect.poll(() => y.value().status, POLL).toBe(DELETED_STATUS);
+      expect(statuses).toEqual([]);
+      y.value();
+      expect(retrieve).toHaveBeenCalledTimes(1);
     });
   });
 

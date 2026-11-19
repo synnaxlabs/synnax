@@ -23,6 +23,7 @@ import { render } from "@/testutil/render";
 
 interface RenderOptions {
   config?: Control.StateConfig;
+  deleted?: boolean;
   registry?: aether.ComponentRegistry;
   children?: ReactNode;
 }
@@ -32,6 +33,7 @@ const renderState = (
   {
     config = Control.stateConfigZ.parse({}),
     registry = control.REGISTRY,
+    deleted,
     children,
   }: RenderOptions = {},
 ) =>
@@ -40,7 +42,7 @@ const renderState = (
       <Haul.Provider>
         <div data-id="node">
           <Grid.Grid nodeKey="node" editable={false}>
-            <Control.State config={config} channel={channel}>
+            <Control.State config={config} channel={channel} deleted={deleted}>
               {children}
             </Control.State>
           </Grid.Grid>
@@ -114,5 +116,23 @@ describe("Control.State authority", () => {
         control.acquireChannelControl({ channel: 7, authority: 100 }),
       ),
     );
+  });
+});
+
+describe("Control.State deleted", () => {
+  it("should show the deleted badge in place of the chip and the indicator", () => {
+    const { getByText, queryAllByRole, container } = renderState(7, {
+      registry: STUB_REGISTRY,
+      deleted: true,
+    });
+    expect(getByText("Deleted channel")).toBeTruthy();
+    expect(queryAllByRole("button")).toHaveLength(0);
+    expect(container.querySelector(".pluto-indicator")).toBeNull();
+  });
+
+  it("should show the chip and the indicator of a channel that exists", () => {
+    const { queryByText, queryAllByRole } = renderState(7, { registry: STUB_REGISTRY });
+    expect(queryByText("Deleted channel")).toBeNull();
+    expect(queryAllByRole("button").length).toBeGreaterThan(0);
   });
 });

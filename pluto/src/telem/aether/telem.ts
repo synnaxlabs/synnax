@@ -122,6 +122,16 @@ const statusOf = (variant: status.Variant): status.Status => ({
 export const SUCCESS_STATUS: status.Status = statusOf("success");
 export const LOADING_STATUS: status.Status = statusOf("loading");
 
+/**
+ * The status of a source whose channel the Core does not hold, as after a delete. A
+ * transform passes it on, so a consumer compares a result's status to it.
+ */
+export const DELETED_STATUS: status.Status = {
+  ...statusOf("warning"),
+  key: "deleted",
+  message: "Deleted channel",
+};
+
 /** @returns a result that holds data with a success status. */
 export const success = <V>(data: V, time?: TimeStamp): Result<V> => ({
   data,

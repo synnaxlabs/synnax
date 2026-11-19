@@ -37,6 +37,7 @@ interface ButtonProps extends Partial<
   label?: schematic.ButtonNodeConfig["label"];
   fillColor?: color.Crude;
   className?: string;
+  disabled?: boolean;
   onClick?: MouseEventHandler<HTMLButtonElement>;
   onMouseDown?: MouseEventHandler<HTMLButtonElement>;
   onMouseUp?: MouseEventHandler<HTMLButtonElement>;
@@ -52,6 +53,7 @@ export const Button = ({
   size = "medium",
   mode = "fire",
   onClickDelay: delay,
+  disabled,
 }: ButtonProps): ReactElement => {
   const symbolColor = color.rgbaString(fillColor);
   const style: CSSProperties = {
@@ -82,6 +84,7 @@ export const Button = ({
         className={CSS.cls(CSS.symbolColored, CSS.B("symbol-button"))}
         style={style}
         {...handlers}
+        disabled={disabled}
         size={size}
         level={SIZE_LEVELS[size]}
         direction={label?.direction}

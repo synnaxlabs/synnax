@@ -30,6 +30,13 @@ describe("input symbol", () => {
       expect(onSend).toHaveBeenCalledWith("hi");
     });
 
+    it("should send nothing from a disabled input", () => {
+      const onSend = vi.fn();
+      const { getByText } = render(<Input value="hi" onSend={onSend} disabled />);
+      fireEvent.click(getByText("Set"));
+      expect(onSend).not.toHaveBeenCalled();
+    });
+
     it("should swallow a click shorter than the delay", () => {
       const onSend = vi.fn();
       const { getByText } = render(

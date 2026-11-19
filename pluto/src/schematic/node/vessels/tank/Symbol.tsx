@@ -12,6 +12,7 @@ import { border, box, type dimensions, primitive, xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Border } from "@/schematic/node/common/border";
+import { Deleted } from "@/schematic/node/common/deleted";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { Scale } from "@/schematic/node/common/scale";
@@ -94,6 +95,7 @@ export const Symbol = ({
     borderRadius,
     channel,
   } = config;
+  const deleted = Deleted.use([channel]);
   return (
     <Grid.Grid
       allowCenter
@@ -103,6 +105,7 @@ export const Symbol = ({
       onResize={(dimensions) => onConfigChange({ dimensions })}
     >
       <Label.Label config={label} onChange={onConfigChange} />
+      {deleted && <Deleted.Item />}
       {primitive.isNonZero(channel) && (
         <Fill nodeKey={nodeKey} position={position} config={config} />
       )}
