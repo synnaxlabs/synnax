@@ -52,27 +52,24 @@ var _ = Describe("Misdirected reads", func() {
 	}
 	always := fault.Config{MisdirectedReadRate: 1}
 
-	It("Should return one whole block from another place", func() {
-		fs := open(always)
-		sources := set.Set[string]{}
+	It("Should return one whole block from another place, once for each block", func() {
 		whole := strings.Repeat("a", blockSize) + strings.Repeat("b", blockSize)
-		for range 32 {
-			got := readAt(fs, 0, 2*blockSize)
-			Expect(readAt(fs, 0, 2*blockSize)).To(Equal(whole))
-			first, second := got[:blockSize], got[blockSize:]
-			for _, block := range []string{first, second} {
+		sources := set.Set[string]{}
+		for runKey := range uint64(32) {
+			fs := open(fault.Config{RunKey: runKey, MisdirectedReadRate: 1})
+			first, second := readAt(fs, 0, 2*blockSize), readAt(fs, 0, 2*blockSize)
+			Expect(first[blockSize:]).To(Equal(whole[blockSize:]))
+			Expect(second[:blockSize]).To(Equal(whole[:blockSize]))
+			for _, block := range []string{first[:blockSize], second[blockSize:]} {
 				Expect(block).To(Equal(strings.Repeat(block[:1], blockSize)))
+				sources.Add(block[:1])
 			}
-			if first[:1] == "a" {
-				Expect(second[:1]).ToNot(Equal("b"))
-				sources.Add(second[:1])
-			} else {
-				Expect(second[:1]).To(Equal("b"))
-				sources.Add(first[:1])
-			}
+			Expect(first[:1]).ToNot(Equal("a"))
+			Expect(second[blockSize : blockSize+1]).ToNot(Equal("b"))
+			Expect(readAt(fs, 0, 2*blockSize)).To(Equal(whole))
 		}
 		Expect(sources.Slice()).To(ConsistOf("a", "b", "c", "d"))
-		Expect(read(strict(fs), "f.bin")).To(HavePrefix("a"))
+		Expect(read(strict(open(always)), "f.bin")).To(Equal(whole))
 	})
 
 	It("Should replace only the bytes of the block that a short read covers", func() {
@@ -106,37 +103,28 @@ var _ = Describe("Misdirected reads", func() {
 		Expect(readAt(fs, blockSize+50, 100)).To(Equal(string(data[50:150])))
 	})
 
-	It("Should hit the same block of a read whatever other files hold", func() {
-		// victims returns, for each of 32 run keys, the block of f.bin that a read gets
-		// from another place.
-		victims := func(others bool) []int {
+	It("Should misdirect the same reads whatever other files hold", func() {
+		whole := strings.Repeat("a", blockSize) + strings.Repeat("b", blockSize)
+		// hits says, for each of 32 run keys, if the first read of f.bin is
+		// misdirected.
+		hits := func(others bool) []bool {
 			GinkgoHelper()
-			out := make([]int, 32)
+			out := make([]bool, 32)
 			for runKey := range out {
 				base := MustSucceed(fault.New(fault.Config{}))
-				save(
-					base,
-					"f.bin",
-					strings.Repeat("a", blockSize)+strings.Repeat("b", blockSize),
-				)
+				save(base, "f.bin", whole)
 				if others {
 					save(base, "g.bin", strings.Repeat("c", 3*blockSize))
 				}
 				Expect(base.SyncDir("")).To(Succeed())
-				cfg := fault.Config{RunKey: uint64(runKey), MisdirectedReadRate: 1}
-				got := readAt(
-					MustSucceed(base.Crash(fault.CrashConfig{Image: cfg})),
-					0,
-					2*blockSize,
-				)
-				if got[:1] == "a" {
-					out[runKey] = 1
-				}
+				cfg := fault.Config{RunKey: uint64(runKey), MisdirectedReadRate: 0.5}
+				image := MustSucceed(base.Crash(fault.CrashConfig{Image: cfg}))
+				out[runKey] = readAt(image, 0, 2*blockSize) != whole
 			}
 			return out
 		}
-		Expect(victims(true)).To(Equal(victims(false)))
-		Expect(victims(true)).To(And(ContainElement(0), ContainElement(1)))
+		Expect(hits(true)).To(Equal(hits(false)))
+		Expect(hits(true)).To(And(ContainElement(true), ContainElement(false)))
 	})
 
 	It("Should leave the read of a disk with one block as it is", func() {

@@ -23,7 +23,6 @@ const (
 	drawRead
 	drawReadBit
 	drawMisdirect
-	drawMisdirectBlock
 	drawMisdirectSource
 )
 

@@ -134,35 +134,37 @@ var _ = Describe("Read corruption", func() {
 		Expect(read(strict(fs), "f.txt")).To(Equal("tacocat"))
 	})
 
-	It("Should give a good read after a faulted read of the same place", func() {
+	It("Should give one read fault for a block at most", func() {
 		fs := faulty(fault.Config{ReadCorruptionRate: 1, MisdirectedReadRate: 1})
 		f := MustOpen(fs.Open("f.txt", os.O_RDONLY))
 		buf := make([]byte, 7)
-		for _, want := range []int{1, 0, 1, 0} {
+		for _, want := range []int{1, 0, 0} {
 			Expect(f.ReadAt(buf, 0)).To(Equal(7))
 			Expect(flipped(buf, "tacocat")).To(Equal(want))
 		}
 		Expect(f.ReadAt(buf[:3], 4)).To(Equal(3))
-		Expect(flipped(buf[:3], "cat")).To(Equal(1))
+		Expect(flipped(buf[:3], "cat")).To(BeZero())
 	})
 
 	It("Should fix the reads that it corrupts by the run key", func() {
-		// results has the count of flipped bits in each of 32 reads.
-		results := func(runKey uint64) []int {
+		// results has the count of flipped bits in the first read of 32 disks, whose
+		// run keys start at first.
+		results := func(first uint64) []int {
 			GinkgoHelper()
-			fs := faulty(fault.Config{RunKey: runKey, ReadCorruptionRate: 0.5})
-			f := MustOpen(fs.Open("f.txt", os.O_RDONLY))
 			counts := make([]int, 32)
 			for i := range counts {
+				cfg := fault.Config{RunKey: first + uint64(i), ReadCorruptionRate: 0.5}
+				f := MustSucceed(faulty(cfg).Open("f.txt", os.O_RDONLY))
 				buf := make([]byte, 7)
 				Expect(f.ReadAt(buf, 0)).To(Equal(7))
+				Expect(f.Close()).To(Succeed())
 				counts[i] = flipped(buf, "tacocat")
 			}
 			return counts
 		}
-		Expect(results(1)).To(Equal(results(1)))
-		Expect(results(1)).ToNot(Equal(results(2)))
-		Expect(results(1)).To(And(ContainElement(0), ContainElement(1)))
+		Expect(results(0)).To(Equal(results(0)))
+		Expect(results(0)).ToNot(Equal(results(100)))
+		Expect(results(0)).To(And(ContainElement(0), ContainElement(1)))
 	})
 
 	DescribeTable("Should fail a rate that is not from 0 to 1",

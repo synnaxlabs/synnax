@@ -222,24 +222,30 @@ func (d *disk) usedUnder(n *node, seen set.Set[*node]) int64 {
 }
 
 // spoil applies the read faults to p, the bytes that a read of the file n at path and
-// off returns. A fault never hits the read that follows a faulted read of the same
-// place, so a second read is good.
+// off returns. A fault hits the first block of the read that gave no fault before. A
+// block gives one read fault at most, so a second read of it is good.
 func (d *disk) spoil(p []byte, n *node, path string, off int64) {
 	if len(p) == 0 || d.cfg.ReadCorruptionRate == 0 && d.cfg.MisdirectedReadRate == 0 {
 		return
 	}
-	at := place{path: path, off: off}
-	if d.spoiled.Contains(at) {
-		d.spoiled.Remove(at)
+	end := off + int64(len(p))
+	for block := off / blockSize; block*blockSize < end; block++ {
+		at := place{path: path, block: block}
+		if d.spoiled.Contains(at) {
+			continue
+		}
+		from := max(off, block*blockSize)
+		part := p[from-off : min(end, (block+1)*blockSize)-off]
+		misdirected := d.misdirect(part, n, path, from)
+		if d.corrupt(part, path, from) || misdirected {
+			d.spoiled.Add(at)
+		}
 		return
-	}
-	misdirected := d.misdirect(p, n, path, off)
-	if d.corrupt(p, path, off) || misdirected {
-		d.spoiled.Add(at)
 	}
 }
 
-// corrupt flips one bit of p at the read corruption rate, and reports if it did.
+// corrupt flips one bit of p, the bytes of one block that a read of path returns from
+// off, at the read corruption rate. It reports if it did.
 func (d *disk) corrupt(p []byte, path string, off int64) bool {
 	file, at, nth := hashPath(path), uint64(off), d.next(drawRead, path, off)
 	if d.draw(drawRead, file, at, nth) >= d.cfg.ReadCorruptionRate {
