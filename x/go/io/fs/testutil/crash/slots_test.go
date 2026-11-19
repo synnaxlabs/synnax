@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/io/fs/testutil/crash"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 const (
@@ -304,14 +305,13 @@ var _ = Describe("A recovery that harms the disk", func() {
 		func(ctx SpecContext, profile crash.Profile, losses types.GomegaMatcher) {
 			total := 0
 			for runKey := range uint64(8) {
-				result, err := crash.Run(ctx, crash.Config{
+				result := MustSucceed(crash.Run(ctx, crash.Config{
 					RunKey:  runKey,
 					Open:    openSlotLog(slotOpts{lenient: true}),
 					Commits: 12,
 					Stride:  1,
 					Profile: profile,
-				})
-				Expect(err).ToNot(HaveOccurred())
+				}))
 				total += result.Losses
 			}
 			Expect(total).To(losses)

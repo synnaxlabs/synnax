@@ -23,6 +23,7 @@ import (
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/io/fs/testutil/crash"
 	"github.com/synnaxlabs/x/io/fs/testutil/fault"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 // altered is a correct reference engine whose Recovered goes through alter.
@@ -401,14 +402,13 @@ var _ = Describe("Lasting corruption", func() {
 
 	It("Should count each refusal that the rules allow", func(ctx SpecContext) {
 		s := &spied{}
-		result, err := crash.Run(ctx, crash.Config{
+		result := MustSucceed(crash.Run(ctx, crash.Config{
 			Open:    s.open,
 			Corrupt: func(err error) bool { return errors.Is(err, errCorrupt) },
 			Commits: 12,
 			Stride:  1,
 			Profile: crash.NewCorruption,
-		})
-		Expect(err).ToNot(HaveOccurred())
+		}))
 		Expect(s.refused).To(BeNumerically(">", 0))
 		Expect(result.Refusals).To(Equal(s.refused))
 	})
