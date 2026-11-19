@@ -93,9 +93,13 @@ describe("LinePlot", () => {
       const v = await client.lineplots.create({ project: proj.key, name: "Line Plot" });
       await client.batch.send(client.lineplots.setGroupRequest(v.key, g.key));
       await client.batch.send(client.lineplots.setProjectRequest(v.key, dest.key));
-      const [res] = await client.lineplots.retrieve({ projects: [dest.key] });
-      expect(res.key).toEqual(v.key);
-      expect(res.group).toBeUndefined();
+      // A batch dispatch is not pending in the cache, so the late echo of the group
+      // move can put the old group back until the echo of the project move lands.
+      await vi.waitFor(async () => {
+        const [res] = await client.lineplots.retrieve({ projects: [dest.key] });
+        expect(res.key).toEqual(v.key);
+        expect(res.group).toBeUndefined();
+      });
     });
 
     test("move out of its group into the top of its project", async () => {
@@ -107,9 +111,11 @@ describe("LinePlot", () => {
       const v = await client.lineplots.create({ project: proj.key, name: "Line Plot" });
       await client.batch.send(client.lineplots.setGroupRequest(v.key, g.key));
       await client.batch.send(client.lineplots.setProjectRequest(v.key, proj.key));
-      const [res] = await client.lineplots.retrieve([v.key]);
-      expect(res.project).toEqual(proj.key);
-      expect(res.group).toBeUndefined();
+      await vi.waitFor(async () => {
+        const [res] = await client.lineplots.retrieve([v.key]);
+        expect(res.project).toEqual(proj.key);
+        expect(res.group).toBeUndefined();
+      });
     });
 
     test("move into the project of its group", async () => {
