@@ -14,7 +14,7 @@ package v1
 import (
 	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/secret/grant/versions/v0"
-	secret "github.com/synnaxlabs/synnax/pkg/service/secret/versions/v0"
+	secret "github.com/synnaxlabs/synnax/pkg/service/secret/versions/v1"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v4"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"

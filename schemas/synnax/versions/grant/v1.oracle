@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/versions/resource/v0"
-import "schemas/synnax/versions/secret/v0"
+import "schemas/synnax/versions/secret/v1"
 import "schemas/synnax/versions/task/v4"
 import "schemas/x/versions/telem/v0"
 
