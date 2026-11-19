@@ -491,6 +491,13 @@ public:
         this->slave(position).status.starting = starting;
     }
 
+    /// @brief sets the serial number that the next read of the slave at position
+    /// gives.
+    void set_slave_serial(const uint16_t position, const uint64_t serial) {
+        std::lock_guard lock(this->mu);
+        this->slave(position).properties.serial = serial;
+    }
+
     /// @brief moves a slave to the state with the AL status error flag set and the
     /// given AL status text, as a slave does when its watchdog trips.
     void fault_slave(

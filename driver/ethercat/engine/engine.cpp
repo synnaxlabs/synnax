@@ -13,6 +13,7 @@
 #include <format>
 #include <iterator>
 #include <numeric>
+#include <ranges>
 #include <set>
 #include <span>
 #include <tuple>
@@ -693,17 +694,15 @@ void Engine::supervise() {
         }
         if (!restarted.empty()) {
             const auto now = this->config.host_clock.now();
+            for (const auto pos: restarted)
+                LOG(INFO) << "[ethercat] slave " << pos << " on " << this->iface
+                          << " restarted";
             std::lock_guard lock(this->restarts_mu);
-            for (const auto &s: this->image.slaves)
-                if (std::ranges::find(restarted, s.properties.position) !=
-                    restarted.end()) {
-                    LOG(INFO) << "[ethercat] slave " << s.properties.position << " on "
-                              << this->iface << " restarted";
-                    this->restarts[restart_key(s.properties)] = {
-                        .at = now,
-                        .position = s.properties.position,
-                    };
-                }
+            // The latest discovery keys each slave, and it can know a serial number
+            // that the image does not.
+            for (auto &restart: this->restarts | std::views::values)
+                if (std::ranges::find(restarted, restart.position) != restarted.end())
+                    restart.at = now;
         }
         std::ranges::sort(next.positions);
         std::ranges::sort(next.silent);
