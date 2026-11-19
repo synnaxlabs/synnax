@@ -78,46 +78,6 @@ SparkplugDataType enum {
     @doc value "is the Sparkplug B data type of a tag."
 }
 
-ReadBinding struct {
-    field     icd.FieldKey   {
-        @doc value "is the key of the message field to read."
-    }
-    channel   channel.Key = 0 {
-        @doc value     "is the channel the value of the field is written to."
-        @ref kind      use
-        @ref on_delete restrict
-    }
-    data_type telem.DataType = "" {
-        @doc value """
-            is the data type of the channel that a client creates for the field. Empty
-            takes the default of the field's kind. The Core ignores it once the channel
-            exists.
-        """
-        @ts type   "string"
-    }
-
-    @doc value  "writes the value of one message field to a channel."
-    @go marshal
-}
-
-ReadMessage struct {
-    message  icd.MessageKey {
-        @doc value "is the key of the ICD message to read."
-    }
-    index    icd.FieldKey?  {
-        @doc value """
-            is the key of the field whose channel indexes the others. Absent when the
-            task stamps samples on arrival.
-        """
-    }
-    bindings ReadBinding[] = [] {
-        @doc value "are the fields the task reads. A field with no binding is not read."
-    }
-
-    @doc value  "reads the documents of one ICD message."
-    @go marshal
-}
-
 BaseReadEntry struct {
     key      string = create {
         @doc value "uniquely identifies the entry within the task."
@@ -180,12 +140,12 @@ ReadEntry union on type extends BaseReadEntry {
                 on subscribe.
             """
         }
-        icd              icd.Key       {
+        icd              icd.Key           {
             @doc value     "is the key of the ICD that holds the messages of the topic."
             @ref kind      use
             @ref on_delete restrict
         }
-        messages         ReadMessage[] = [] {
+        messages         icd.ReadMessage[] = [] {
             @doc value """
                 are the messages the topic carries. Each payload is read as the message
                 whose match rule it meets.
