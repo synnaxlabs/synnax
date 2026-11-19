@@ -9,7 +9,7 @@
 
 import "@/feature/enumeration/Settings.css";
 
-import { enumeration } from "@synnaxlabs/client";
+import { enumeration, schematic } from "@synnaxlabs/client";
 import { Badge } from "@synnaxlabs/lyra/badge";
 import { Caret } from "@synnaxlabs/lyra/caret";
 import { Component } from "@synnaxlabs/lyra/component";
@@ -46,7 +46,29 @@ ShippedContext.displayName = "Enumeration.Shipped";
 const COLUMNS: List.Column[] = [
   { name: "Name", width: "1fr" },
   { name: "Entries", width: "12rem" },
+  { name: "Used by", width: "20rem" },
 ];
+
+/** Every enumeration with its uses, read in one request. */
+const QUERY: Enumeration.ListQuery = { includeUses: true };
+
+interface UsedByProps {
+  enumeration: enumeration.Enumeration;
+}
+
+/** Names how many schematics use the enumeration. Shows nothing for none. */
+const UsedBy = ({ enumeration: e }: UsedByProps): ReactElement | null => {
+  const n = (e.uses ?? []).filter(
+    ({ type }) => type === schematic.TYPE_RESOURCE_ID.type,
+  ).length;
+  if (n === 0) return null;
+  return (
+    <Text.Text level="small" color={9}>
+      <Icon.Schematic />
+      {n} {n === 1 ? "schematic" : "schematics"}
+    </Text.Text>
+  );
+};
 
 interface ItemProps extends List.ItemProps<enumeration.Key> {
   enumeration: enumeration.Enumeration;
@@ -105,6 +127,9 @@ const Item = ({
             <Text.Text level="small" color={9}>
               {e.entries.length}
             </Text.Text>
+          </List.Cell>
+          <List.Cell>
+            <UsedBy enumeration={e} />
           </List.Cell>
         </List.Cells>
       </Select.Item>
@@ -201,17 +226,18 @@ const SettingsMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null 
 const menu = Component.renderProp(SettingsMenu);
 
 /**
- * Every enumeration, by name, with its entry count. A click shows an enumeration's
- * entries under it, where they edit in place. A new enumeration opens with Add entry
- * focused. The menu renames, restores built-ins, or deletes other enumerations.
+ * Every enumeration, by name, with its entry count and uses. A click shows an
+ * enumeration's entries under it, where they edit in place. A new enumeration opens
+ * with Add entry focused. The menu renames, restores built-ins, or deletes other
+ * enumerations.
  */
 export const Settings = (): ReactElement => {
   const list = Flux.useList((client) => client.enumerations, {
     name: "enumerations",
-    query: {},
+    query: QUERY,
     pageSize: 1000,
   });
-  const records = Enumeration.useResultList({});
+  const records = Enumeration.useResultList(QUERY);
   const builtins = Enumeration.useResultBuiltins({});
   const canCreate = Access.useCreateGranted(enumeration.TYPE_RESOURCE_ID);
   const [opened, setOpened] = useState<ReadonlySet<enumeration.Key>>(() => new Set());

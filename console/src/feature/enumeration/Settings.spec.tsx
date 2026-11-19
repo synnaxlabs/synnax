@@ -177,6 +177,18 @@ describe("Enumeration.Settings", () => {
     );
   });
 
+  it("should count the schematics that use an enumeration as they change", async () => {
+    const e = await createEnumeration();
+    const user = await createSelectUser(e.key);
+    await renderEnumerations();
+    const item = await screen.findByRole("option", { name: e.name });
+    expect(await within(item).findByText("1 schematic")).toBeTruthy();
+    await createSelectUser(e.key);
+    expect(await within(item).findByText("2 schematics")).toBeTruthy();
+    await client.schematics.delete(user.key);
+    expect(await within(item).findByText("1 schematic")).toBeTruthy();
+  });
+
   it("should create an enumeration and count up its entry values", async () => {
     await renderEnumerations();
     const name = uniqueName("enumeration");
