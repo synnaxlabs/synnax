@@ -1222,7 +1222,15 @@ const x::errors::Error &Master::receive() {
     uint32_t working_counter = 0;
     uint32_t expected = 0;
     size_t silent = 0;
-    for (const auto &domain: this->domains) {
+    for (auto &domain: this->domains) {
+        const uint32_t full = domain.share.inputs + domain.share.outputs;
+        expected += full;
+        domain.complete = false;
+        if (domain.skipped) {
+            silent++;
+            this->latest_inputless.push_back(domain.position);
+            continue;
+        }
         if (const int ret = this->api->domain_process(domain.handle); ret != 0)
             return this->received = x::errors::Error(
                        errors::CYCLIC_ERROR,
@@ -1235,12 +1243,11 @@ const x::errors::Error &Master::receive() {
                        "failed to read a domain state: " + reason(ret)
                    );
         std::memcpy(this->inputs.data() + domain.offset, domain.data, domain.size);
-        const uint32_t full = domain.share.inputs + domain.share.outputs;
-        expected += full;
         // IgH splits a domain too large for one datagram, which can change the count it
         // expects, so its own state decides whether the slave took full part.
         if (state.wc_state == EC_WC_COMPLETE) {
             working_counter += full;
+            domain.complete = true;
             continue;
         }
         working_counter += std::min<uint32_t>(state.working_counter, full);
@@ -1316,7 +1323,25 @@ x::errors::Error Master::send() {
                 );
     }
 
-    for (const auto &domain: this->domains) {
+    for (auto &domain: this->domains) {
+        domain.skipped = false;
+        // A slave can turn on its sync managers before it reports SAFE-OP, and a frame
+        // in that gap can leave it with no inputs until it restarts. A slave that
+        // changes state misses a full cycle first. IgH reports no state while it scans.
+        if (!domain.complete) {
+            ec_slave_config_state_t state{};
+            if (const int ret = this->api->slave_config_state(domain.config, &state);
+                ret != 0)
+                return x::errors::Error(
+                    errors::CYCLIC_ERROR,
+                    "failed to read the state of module " +
+                        std::to_string(domain.position) + ": " + reason(ret)
+                );
+            if (state.al_state != 0 && state.al_state < EC_AL_STATE_SAFEOP) {
+                domain.skipped = true;
+                continue;
+            }
+        }
         std::memcpy(domain.data, this->outputs.data() + domain.offset, domain.size);
         if (const int ret = this->api->domain_queue(domain.handle); ret != 0)
             return x::errors::Error(
@@ -1577,6 +1602,7 @@ x::errors::Error Master::register_pdo_entries(
     this->domains.push_back({
         .position = slave.position,
         .handle = handle,
+        .config = sc,
         .offset = base,
         .size = this->api->domain_size(handle),
         .share = share,

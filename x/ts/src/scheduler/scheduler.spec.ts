@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { scheduler } from "@/scheduler";
 
@@ -77,6 +77,27 @@ describe("scheduler", () => {
       expect(order).toEqual(["micro"]);
       await scheduler.nextTask();
       expect(order).toEqual(["micro", "macro"]);
+    });
+  });
+
+  describe("nextFrame", () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it("should resolve only once the next animation frame runs", async () => {
+      const frames: FrameRequestCallback[] = [];
+      vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) =>
+        frames.push(cb),
+      );
+      let resolved = false;
+      const frame = scheduler.nextFrame().then(() => (resolved = true));
+      await scheduler.nextTask();
+      expect(resolved).toBe(false);
+      expect(frames).toHaveLength(1);
+      frames[0](0);
+      await frame;
+      expect(resolved).toBe(true);
     });
   });
 });

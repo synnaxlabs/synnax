@@ -35,7 +35,7 @@ export class TestSink<V> implements Sink<V>, Telem {
   }
 
   get lastValue(): V | undefined {
-    return this.values[this.values.length - 1];
+    return this.values.at(-1);
   }
 
   set(...values: V[]): void {
