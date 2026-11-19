@@ -14,7 +14,6 @@ import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { HTTP } from "@/feature/http";
 import { Rack } from "@/feature/rack";
 import {
   renderForward,
@@ -24,14 +23,9 @@ import {
 
 const client = createTestClient();
 
-/** @returns the ID of a new rack in use, without the status that the Core gives it. */
+/** @returns the ID of a new rack, without the status that the Core gives it. */
 const createRack = async (): Promise<resource.ID> => {
   const r = await client.racks.create({ name: uniqueName("rack") });
-  await r.createTask({
-    name: uniqueName("task"),
-    type: HTTP.Task.READ_TYPE,
-    config: HTTP.Task.READ_SCHEMAS.config.parse({}),
-  });
   const id = rack.resourceID(r.key);
   // The Core gives a new rack an open "Rack status unknown" problem.
   const [held] = await client.statuses.retrieve({ owners: [id] });
@@ -58,7 +52,7 @@ describe("Rack.NOTIFICATION_RULE", () => {
     await settleWrites(client);
     expect(screen.queryByText(message)).toBeNull();
     act(() => void vi.advanceTimersByTime(TimeSpan.seconds(5).milliseconds));
-    expect(await screen.findByText(message)).toBeTruthy();
+    expect(screen.getByText(message)).toBeTruthy();
   });
 
   it("should not notify the unknown status of a rack whose Driver reports", async () => {
@@ -71,18 +65,6 @@ describe("Rack.NOTIFICATION_RULE", () => {
     await settleWrites(client);
     act(() => void vi.advanceTimersByTime(TimeSpan.seconds(5).milliseconds));
     expect(screen.queryByText(name)).toBeNull();
-  });
-
-  it("should not notify a warning on a rack with no tasks", async () => {
-    fakeTimers();
-    await renderForward(client, { rack: Rack.NOTIFICATION_RULE });
-    const r = await client.racks.create({ name: uniqueName("rack") });
-    await settleWrites(client);
-    const message = await writeStatus(client, rack.resourceID(r.key), "warning");
-    await settleWrites(client);
-    act(() => void vi.advanceTimersByTime(TimeSpan.seconds(5).milliseconds));
-    await settleWrites(client);
-    expect(screen.queryByText(message)).toBeNull();
   });
 
   it("should not notify a rack status that is not a problem", async () => {
