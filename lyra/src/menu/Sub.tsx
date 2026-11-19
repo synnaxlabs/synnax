@@ -34,9 +34,11 @@ import {
 } from "@/menu/filter";
 import { useContext } from "@/menu/Menu";
 import { SubContext, useSubContext, useSubmenusContext } from "@/menu/submenus";
+import { CLOSES_ATTRIBUTE } from "@/menu/types";
 import { type position } from "@/position";
 
 const MENU_ITEM = '[role="menuitem"]';
+const CLOSING = `${MENU_ITEM}, [${CLOSES_ATTRIBUTE}]`;
 const LIST = '[role="listbox"]';
 
 // The content opens beside the item, on the side that has room. It laps 4 px over the
@@ -69,10 +71,11 @@ export interface SubProps extends PropsWithChildren {
  * A menu item that opens a submenu beside its menu. Its children are a {@link
  * SubTrigger} and the content: a {@link Dialog}, or a selection dialog on the menu
  * surface. A menu opens one submenu at a time. ArrowLeft and Escape close one level. A
- * click inside the content keeps a context menu open unless it picks an item. While its
- * menu filters by text that its name does not match, the items of a {@link Dialog} show
- * in the menu, with the name of the submenu before each label. Text typed outside a
- * field of the submenu closes it and goes to the filter of the menu.
+ * click inside the content keeps a context menu open unless it picks an item or an
+ * option that leaves the menu. While its menu filters by text that its name does not
+ * match, the items of a {@link Dialog} show in the menu, with the name of the submenu
+ * before each label. Text typed outside a field of the submenu closes it and goes to
+ * the filter of the menu.
  *
  * @example
  * <Menu.Menu>
@@ -106,7 +109,7 @@ export const Sub = ({
     if (!isTrigger(e.target)) enter(e);
   };
   const handleClick = (e: MouseEvent<HTMLElement>): void => {
-    if (!(e.target instanceof Element) || e.target.closest(MENU_ITEM) == null)
+    if (!(e.target instanceof Element) || e.target.closest(CLOSING) == null)
       e.stopPropagation();
   };
   const handleKeyDown = (e: KeyboardEvent<HTMLElement>): void => {
