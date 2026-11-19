@@ -29,6 +29,7 @@ const (
 	FlagNoDriver                     = "no-driver"
 	FlagSlowConsumerTimeout          = "slow-consumer-timeout"
 	FlagSessionIdleTimeout           = "session-idle-timeout"
+	FlagAuthMethods                  = "auth-methods"
 	FlagEnableIntegrations           = "enable-integrations"
 	FlagDisableIntegrations          = "disable-integrations"
 	FlagTaskOpTimeout                = "task-op-timeout"
@@ -92,6 +93,11 @@ func AddFlags(cmd *cobra.Command) {
 		FlagSessionIdleTimeout,
 		auth.DefaultIdleTimeout,
 		"End a session after this long without a request from its client",
+	)
+	cmd.Flags().StringSlice(
+		FlagAuthMethods,
+		[]string{string(auth.MethodPassword), string(auth.MethodAPIKey)},
+		"Login methods the Core accepts (password, api_key)",
 	)
 	cmd.Flags().Duration(
 		FlagSlowConsumerTimeout,
