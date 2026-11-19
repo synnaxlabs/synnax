@@ -13,6 +13,7 @@ import {
   kafka,
   type resource,
   type Synnax,
+  task,
 } from "@synnaxlabs/client";
 import {
   createTestClient,
@@ -36,7 +37,9 @@ import { createKafkaDevice } from "@/feature/kafka/testutil";
 import { Device } from "@/platform/device";
 import { startRackHeartbeat } from "@/platform/device/testutil";
 import {
+  answerCommand,
   answerNextCommand,
+  awaitCommand,
   clickDeploy,
   type CommandAnswer,
   deployAndAwaitTask,
@@ -425,6 +428,40 @@ describe("Kafka read form", () => {
       await screen.findByRole("treeitem", { name: /Topic.*plant/ });
     });
 
+    it("should hide the last topic's sample while it reads a new one", async () => {
+      const { dev } = await renderRead({ empty: true });
+      await screen.findByText("No topics");
+      const { answered } = await answerScan(dev, {
+        data: sampleOfTopic("plant", OVEN_SHAPE),
+      });
+      fireEvent.click(await screen.findByRole("button", { name: "Add data" }));
+      const dialog = within(await screen.findByRole("dialog"));
+      const input = dialog.getByRole("textbox", { name: "Topic" });
+      fireEvent.change(input, { target: { value: "plant" } });
+      fireEvent.blur(input);
+      await answered;
+      await dialog.findByRole("button", { name: "Select all" });
+      const scan = await client.tasks.retrieve({
+        type: Kafka.Task.SCAN_TYPE,
+        rack: dev.rack,
+        one: true,
+      });
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      fireEvent.change(input, { target: { value: "boiler" } });
+      fireEvent.blur(input);
+      const cmd = await awaitCommand(streamer, scan.key).finally(() =>
+        streamer.close(),
+      );
+      expect(dialog.queryByRole("button", { name: "Select all" })).toBeNull();
+      expect(dialog.queryAllByText(/oven-1/)).toHaveLength(0);
+      const boiler = { ...OVEN_SHAPE, sources: ["boiler-1"] };
+      await answerCommand(client, scan, cmd, {
+        data: sampleOfTopic("boiler", boiler),
+      });
+      await dialog.findByRole("button", { name: "Select all" });
+      await dialog.findAllByText(/boiler-1/);
+    });
+
     it("should open Add data on the topic of the selected record", async () => {
       const { dev } = await renderRead({
         fields: [createField("temperature", "float")],
@@ -808,6 +845,33 @@ describe("Kafka read form", () => {
       expect(messages[1].payload).toMatchObject({
         fields: [{ name: "pressure", pointer: "/pressure", type: "integer" }],
       });
+    });
+
+    it("should not count the picks of a shape that a new sample lacks", async () => {
+      const { dev } = await renderRead();
+      const pump = {
+        sources: ["pump"],
+        fields: [createInferredField("/pressure", "int64", "number")],
+        index: -1,
+        count: 2,
+      };
+      const dialog = await openAddData(dev, { data: sampleOf(pump) });
+      fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
+      await dialog.findByText("1 field selected");
+      const scan = await client.tasks.retrieve({
+        type: Kafka.Task.SCAN_TYPE,
+        rack: dev.rack,
+        one: true,
+      });
+      const grown = {
+        ...pump,
+        fields: [...pump.fields, createInferredField("/flow", "float64", "number")],
+      };
+      const again = await answerNextCommand(client, scan, { data: sampleOf(grown) });
+      fireEvent.click(dialog.getByRole("button", { name: "Listen again" }));
+      await again.answered;
+      await dialog.findByText(/Select the fields to read/);
+      expect(dialog.queryByText("1 field selected")).toBeNull();
     });
 
     it("should say why a sample read no records", async () => {

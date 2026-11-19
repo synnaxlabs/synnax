@@ -190,12 +190,13 @@ const Content = ({
   );
   const [picks, setPicks] = useState<Picks>(() => new Map());
   const [selected, setSelected] = useState<string | null>(null);
-  const sample = result.data ?? null;
+  // The listen keeps the last topic's sample while it reads a new topic.
+  const sample = result.data?.topic === topic ? result.data : null;
   const shapes = sample?.shapes ?? [];
   const items = shapes.map((s) => toItem(s, picks, records, label));
   const active = shapes.find((s) => shapeKey(s) === selected) ?? shapes.at(0) ?? null;
   const loading = result.variant === "loading";
-  const count = [...picks.values()].reduce((n, p) => n + p.size, 0);
+  const count = shapes.reduce((n, s) => n + (picks.get(shapeKey(s))?.size ?? 0), 0);
 
   const setPicked = (shape: json.Shape, pointers: Set<string>) => {
     const next = new Map(picks);
