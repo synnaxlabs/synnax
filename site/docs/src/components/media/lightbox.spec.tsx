@@ -160,7 +160,11 @@ describe("lightbox", () => {
     });
 
     it("should caption an image with its text alternative", () => {
-      show(renderToString(<Media.Image id="still" alt="The plot toolbar" />));
+      show(
+        '<picture class="docs-picture">' +
+          '<img class="docs-image" src="still.webp" alt="The plot toolbar">' +
+          "</picture>",
+      );
       find<HTMLElement>(".docs-image").click();
       expect(control("caption").textContent).toBe("The plot toolbar");
     });

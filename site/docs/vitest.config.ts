@@ -59,6 +59,7 @@ const config: ViteUserConfigFn = getViteConfig(
   {
     root: import.meta.dirname,
     configFile: false,
+    image: { domains: ["synnax.nyc3.cdn.digitaloceanspaces.com"] },
     integrations: [react()],
   },
 );

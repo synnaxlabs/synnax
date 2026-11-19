@@ -147,6 +147,10 @@ const probeLocal = async (url: string): Promise<string | null> => {
   return `${url}: ${describe(status)}`;
 };
 
+// Concurrent requests allowed to the checks' own server. The preview server resets
+// connections when a page's image variants all arrive at once.
+const LOCAL_WINDOW = 16;
+
 // Consecutive connection-level failures on one host before its remaining URLs fail
 // immediately instead of burning timeouts.
 const BREAKER_LIMIT = 3;
@@ -161,8 +165,8 @@ interface Gate {
 }
 
 // A waiter woken by leave inherits the slot, so active stays exact.
-const enter = async (gate: Gate): Promise<void> => {
-  if (gate.active < HOST_WINDOW) {
+const enter = async (gate: Gate, window = HOST_WINDOW): Promise<void> => {
+  if (gate.active < window) {
     gate.active += 1;
     return;
   }
@@ -188,13 +192,21 @@ export const createFetcher = (
   const bodies = new Map<string, Promise<Body | Probe>>();
   const gates = new Map<string, Gate>();
   const hungCounts = new Map<string, number>();
+  const local: Gate = { active: 0, waiting: [] };
   return (url) => {
     const cached = cache.get(url);
     if (cached != null) return cached;
     if (url.startsWith(`${baseURL}/`)) {
-      const local = probeLocal(url);
-      cache.set(url, local);
-      return local;
+      const probe = (async () => {
+        await enter(local, LOCAL_WINDOW);
+        try {
+          return await probeLocal(url);
+        } finally {
+          leave(local);
+        }
+      })();
+      cache.set(url, probe);
+      return probe;
     }
     const parsed = new URL(url);
     const fragment = decodeURIComponent(parsed.hash).replace(/^#/, "");

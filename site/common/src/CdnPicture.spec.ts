@@ -9,23 +9,32 @@
 
 // @vitest-environment node
 
+import { experimental_AstroContainer as AstroContainer } from "astro/container";
+import { JSDOM } from "jsdom";
 import { describe, expect, it } from "vitest";
 
-import CdnPicture from "@/components/common/CdnPicture.astro";
-import { renderAstro, stubImageSize } from "@/testutil";
+import CdnPicture from "./CdnPicture.astro";
+import { stubImageSize } from "./testutil/image";
 
 const SRC = "https://synnax.nyc3.cdn.digitaloceanspaces.com/landing/images/hero.png";
 
+const DARK =
+  "https://synnax.nyc3.cdn.digitaloceanspaces.com/landing/images/hero-dark.png";
+
 interface Rendered {
+  sources: HTMLSourceElement[];
   source: HTMLSourceElement;
   img: HTMLImageElement;
 }
 
 const render = async (props: Record<string, unknown> = {}): Promise<Rendered> => {
-  const doc = await renderAstro(CdnPicture, {
-    props: { path: "images/hero.png", alt: "Hero", sizes: "100vw", ...props },
+  const container = await AstroContainer.create();
+  const html = await container.renderToString(CdnPicture, {
+    props: { src: SRC, alt: "Hero", sizes: "100vw", ...props },
   });
-  return { source: doc.querySelector("source")!, img: doc.querySelector("img")! };
+  const doc = new JSDOM(html).window.document;
+  const sources = [...doc.querySelectorAll("source")];
+  return { sources, source: sources[0], img: doc.querySelector("img")! };
 };
 
 const widths = (srcset: string): number[] =>
@@ -39,7 +48,7 @@ const hrefs = (srcset: string): string[] =>
 
 describe("CdnPicture", () => {
   describe("source", () => {
-    it("should read the image from the CDN landing folder", async () => {
+    it("should read the size of the image from the CDN", async () => {
       const fetch = stubImageSize(1600, 900);
       const { img } = await render();
       expect(fetch).toHaveBeenCalledOnce();
@@ -54,6 +63,26 @@ describe("CdnPicture", () => {
       expect(source.srcset).toContain("f=avif");
       expect(img.src).toContain("f=webp");
       expect(img.srcset).toContain("f=webp");
+    });
+  });
+
+  describe("dark", () => {
+    it("should offer the dark version for a dark color scheme first", async () => {
+      stubImageSize(1600, 900);
+      const { sources, img } = await render({ dark: DARK });
+      expect(sources.map((s) => [s.media, s.type])).toEqual([
+        ["(prefers-color-scheme: dark)", "image/avif"],
+        ["(prefers-color-scheme: dark)", "image/webp"],
+        ["", "image/avif"],
+      ]);
+      expect(new Set(hrefs(sources[0].srcset))).toEqual(new Set([DARK]));
+      expect(new Set(hrefs(img.srcset))).toEqual(new Set([SRC]));
+    });
+
+    it("should offer no dark sources without a dark version", async () => {
+      stubImageSize(1600, 900);
+      const { sources } = await render();
+      expect(sources.map((s) => s.type)).toEqual(["image/avif"]);
     });
   });
 

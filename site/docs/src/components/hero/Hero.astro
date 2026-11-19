@@ -8,7 +8,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Image, type ImageProps, Video } from "@/components/media/Media";
+import type { ComponentProps } from "astro/types";
+
+import Image from "@/components/media/Image.astro";
+import { Video } from "@/components/media/Media";
 
 interface Rect {
     x: number;
@@ -93,7 +96,7 @@ interface ImageMediaProps extends BaseProps {
     /** A docs image id, for a picture that Studio did not capture. */
     image: string;
     themed?: boolean;
-    extension?: ImageProps["extension"];
+    extension?: ComponentProps<typeof Image>["extension"];
     layout: MediaLayout;
 }
 

@@ -35,6 +35,10 @@ describe("media", () => {
       expect(check(`<img src="${IMAGE}" alt="">`)).toEqual([]);
     });
 
+    it("should pass an image with a bare alt attribute", () => {
+      expect(check(`<img src="${IMAGE}" alt>`)).toEqual([]);
+    });
+
     it("should fail an image with no alt text", () => {
       expect(check(`<img src="${IMAGE}">`)).toEqual([
         `${ROUTE} - image has no alt text: ${IMAGE}`,

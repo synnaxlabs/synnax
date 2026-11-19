@@ -13,7 +13,11 @@ import { type ViteUserConfigFn } from "vitest/config";
 
 const config: ViteUserConfigFn = getViteConfig(
   { test: { environment: "node" } },
-  { root: import.meta.dirname, integrations: [react()] },
+  {
+    root: import.meta.dirname,
+    integrations: [react()],
+    image: { domains: ["synnax.nyc3.cdn.digitaloceanspaces.com"] },
+  },
 );
 
 export default config;

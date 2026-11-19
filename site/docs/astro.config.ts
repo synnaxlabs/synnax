@@ -63,6 +63,7 @@ const SECRET = envField.string({
 export default defineConfig({
   integrations: [integration(), react(), mdx()],
   adapter: vercel(),
+  image: { domains: ["synnax.nyc3.cdn.digitaloceanspaces.com"] },
   vite: {
     define: { __DOCS_VERSION__: JSON.stringify(version) },
   },

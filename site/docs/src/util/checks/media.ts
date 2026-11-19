@@ -36,7 +36,8 @@ interface Unnamed {
 
 const unnamed = (html: string): Unnamed[] => [
   ...[...html.matchAll(/<img\b[^>]*>/g)]
-    .filter(([tag]) => attrOf(tag, "alt") == null)
+    // Astro renders an empty alt as a bare attribute.
+    .filter(([tag]) => !/\salt(?=[\s=/>])/.test(tag))
     .map(([tag]) => ({
       url: attrOf(tag, "src") ?? "",
       problem: "image has no alt text",
