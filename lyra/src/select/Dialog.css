@@ -35,6 +35,11 @@
     }
 }
 
+/* The box that shows views passes the dialog's height cap on to the list. */
+.lyra-select__dialog > .lyra-views {
+    min-height: 0;
+}
+
 /* At the dialog's height cap, the list gives up space, never the footer. */
 .lyra-select__body > :not(.lyra-list__scroll) {
     flex-shrink: 0;

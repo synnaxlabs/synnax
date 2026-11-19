@@ -478,6 +478,58 @@ const renderSearchless = async (
   return onChange;
 };
 
+interface EditButtonProps {
+  name: string;
+}
+
+const EditButton = ({ name }: EditButtonProps): ReactElement => {
+  const { open } = Dialog.useViews();
+  return (
+    <Button.Button
+      size="small"
+      aria-label={`Edit ${name}`}
+      onClick={() => open(`Editing ${name}`, <input aria-label="Name" />)}
+    >
+      <Icon.Edit />
+    </Button.Button>
+  );
+};
+
+/** Opens a select whose options each hold a button that opens a view. */
+const renderEditable = async (): Promise<ReturnType<typeof vi.fn>> => {
+  const onChange = vi.fn();
+  const items = ["low", "medium", "high"].map((key) => (
+    <Select.Item key={key} itemKey={key} textValue={key}>
+      {key}
+      <EditButton name={key} />
+    </Select.Item>
+  ));
+  await renderThemed(
+    <Triggers.Provider>
+      <Select.Simple<string>
+        resourceName="level"
+        multiple
+        value={[]}
+        onChange={onChange}
+      >
+        {items}
+      </Select.Simple>
+    </Triggers.Provider>,
+  );
+  await openEditable();
+  return onChange;
+};
+
+const openEditable = async (): Promise<void> => {
+  await userEvent.click(page.getByRole("button", { name: "Levels" }));
+  await expect.element(page.getByPlaceholder("Search levels...")).toHaveFocus();
+};
+
+const openView = async (): Promise<void> => {
+  await userEvent.click(page.getByRole("button", { name: "Edit low" }));
+  await expect.element(page.getByText("Editing low")).toBeVisible();
+};
+
 describe("Select", () => {
   describe("described options", () => {
     it("should put the icon beside the name and the description under it", async () => {
@@ -1131,6 +1183,60 @@ describe("Select", () => {
       const find = await renderCheckable();
       expect(rect(find("Type")).left).toBeCloseTo(rect(find("type-1")).left, 0);
       expect(rect(find("Channel")).left).toBeCloseTo(rect(find("channel-1")).left, 0);
+    });
+  });
+
+  describe("views", () => {
+    it("should press Back with Enter and pick nothing", async () => {
+      const onChange = await renderEditable();
+      await userEvent.keyboard("{ArrowDown}{Tab}{Enter}");
+      await expect.element(page.getByText("Editing low")).toBeVisible();
+      await expect.element(page.getByRole("button", { name: "Back" })).toHaveFocus();
+      await userEvent.keyboard("{Enter}");
+      await expect.element(page.getByText("Editing low")).not.toBeInTheDocument();
+      await expect
+        .element(page.getByRole("button", { name: "Edit low" }))
+        .toHaveFocus();
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("should keep the keys from the options while a view shows", async () => {
+      const onChange = await renderEditable();
+      await userEvent.keyboard("{ArrowDown}");
+      await openView();
+      await userEvent.click(page.getByLabelText("Name"));
+      await userEvent.keyboard("{ArrowDown}{ArrowDown}{Enter}");
+      expect(onChange).not.toHaveBeenCalled();
+      await userEvent.click(page.getByRole("button", { name: "Back" }));
+      await userEvent.click(page.getByPlaceholder("Search levels..."));
+      await userEvent.keyboard("{Enter}");
+      await expect
+        .poll(() => onChange)
+        .toHaveBeenCalledWith(["low"], {
+          clicked: "low",
+        });
+    });
+
+    it("should answer the keys again after the dialog closes on a view", async () => {
+      const onChange = await renderEditable();
+      await userEvent.keyboard("{ArrowDown}");
+      await openView();
+      await userEvent.keyboard("{Escape}");
+      await expect.element(page.getByText("Editing low")).not.toBeInTheDocument();
+      await openEditable();
+      await userEvent.keyboard("{ArrowDown}{Enter}");
+      await expect.poll(() => onChange).toHaveBeenCalledOnce();
+    });
+
+    it("should leave Enter to a focused control inside an option", async () => {
+      const onChange = await renderEditable();
+      await userEvent.keyboard("{ArrowDown}{Tab}");
+      await expect
+        .element(page.getByRole("button", { name: "Edit low" }))
+        .toHaveFocus();
+      await userEvent.keyboard("{Enter}");
+      await expect.element(page.getByText("Editing low")).toBeVisible();
+      expect(onChange).not.toHaveBeenCalled();
     });
   });
 });

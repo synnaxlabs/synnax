@@ -47,7 +47,10 @@ interface View {
   width: number;
 }
 
-export interface ViewsProps extends Omit<Flex.BoxProps, "ref" | "x" | "y" | "gap"> {}
+export interface ViewsProps extends Omit<Flex.BoxProps, "ref" | "x" | "y" | "gap"> {
+  /** Called with true when a view opens, and with false on Back. */
+  onViewingChange?: (viewing: boolean) => void;
+}
 
 /**
  * A box that can show a view in place of its children, such as an editor for one of
@@ -57,6 +60,7 @@ export const Views = ({
   className,
   style,
   children,
+  onViewingChange,
   ...rest
 }: ViewsProps): ReactElement => {
   const [view, setView] = useState<View | null>(null);
@@ -73,6 +77,11 @@ export const Views = ({
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const width = root.current?.getBoundingClientRect().width ?? 0;
     setView({ title, content, width });
+    onViewingChange?.(true);
+  };
+  const back = (): void => {
+    setView(null);
+    onViewingChange?.(false);
   };
   return (
     <ViewsContext value={{ open, viewing: view != null }}>
@@ -102,7 +111,7 @@ export const Views = ({
                 size="small"
                 square
                 textColor={9}
-                onClick={() => setView(null)}
+                onClick={back}
                 autoFocus
                 tooltip="Back"
                 aria-label="Back"

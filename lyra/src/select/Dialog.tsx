@@ -23,7 +23,7 @@ import { Dialog as BaseDialog } from "@/dialog";
 import { Input } from "@/input";
 import { Menu } from "@/menu";
 import { usePath } from "@/menu/filter";
-import { ClosedContext, InlineContext } from "@/select/scope";
+import { ClosedContext, InlineContext, useViewingContext } from "@/select/scope";
 
 /** Props for {@link Dialog}. */
 export interface DialogProps extends BaseDialog.DialogProps {
@@ -53,7 +53,8 @@ const Closed = ({ children }: PropsWithChildren): ReactNode => {
 /**
  * The floating surface of a selection. While closed it renders its children into an
  * element outside the page, so a selected fixed {@link Item} can still show its label
- * in the trigger.
+ * in the trigger. Its children can show a view in their place with `Dialog.useViews`,
+ * except in a menu that shows the options inline.
  */
 export const Dialog = ({
   ref,
@@ -71,8 +72,12 @@ export const Dialog = ({
   const menuSurface = Menu.useSurface(ref, cls);
   // False on the server and during hydration, since the server renders no portal.
   const hydrated = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-  const content = <Input.ItemBoundary>{children}</Input.ItemBoundary>;
-  if (nested && filtered) return <InlineContext value>{content}</InlineContext>;
+  const setViewing = useViewingContext();
+  const options = <Input.ItemBoundary>{children}</Input.ItemBoundary>;
+  if (nested && filtered) return <InlineContext value>{options}</InlineContext>;
+  const content = (
+    <BaseDialog.Views onViewingChange={setViewing}>{options}</BaseDialog.Views>
+  );
   if (!visible || nested) return hydrated && <Closed>{content}</Closed>;
   if (surface === "menu")
     return (

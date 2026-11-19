@@ -36,6 +36,14 @@ export const [ShownContext, useShownContext] = context.create<Dispatch<
   displayName: "Select.ShownContext",
 });
 
+/**
+ * Tells the selection whether its dialog shows a view in place of its options. The
+ * hover answers no keys while a view shows.
+ */
+export const [ViewingContext, useViewingContext] = context.create<
+  ((viewing: boolean) => void) | undefined
+>({ defaultValue: undefined, displayName: "Select.ViewingContext" });
+
 /** True inside a `Select.List`. A fixed item outside one is pinned. */
 export const [ListContext, useInList] = context.create<boolean>({
   defaultValue: false,

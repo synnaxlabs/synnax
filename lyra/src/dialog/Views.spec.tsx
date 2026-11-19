@@ -19,7 +19,7 @@ import {
   type ReactNode,
   useState,
 } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
@@ -95,6 +95,21 @@ describe("Views", () => {
     fireEvent.click(c.getByText("remove"));
     fireEvent.click(c.getByLabelText("Back"));
     expect(document.activeElement).toBe(box);
+  });
+
+  it("should report each view that opens and each Back", () => {
+    const onViewingChange = vi.fn();
+    const c = render(
+      <Dialog.Views onViewingChange={onViewingChange}>
+        <Opener />
+      </Dialog.Views>,
+      { wrapper: Wrapper },
+    );
+    expect(onViewingChange).not.toHaveBeenCalled();
+    fireEvent.click(c.getByText("open"));
+    expect(onViewingChange.mock.calls).toEqual([[true]]);
+    fireEvent.click(c.getByLabelText("Back"));
+    expect(onViewingChange.mock.calls).toEqual([[true], [false]]);
   });
 
   it("should throw from useViews outside a Dialog.Views", () => {
