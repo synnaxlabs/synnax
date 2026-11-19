@@ -14,6 +14,8 @@ import pytest
 from pydantic import ValidationError
 
 import synnax as sy
+from x import payload
+from x.payload import Unsigned
 from x.testutil import assert_eventually
 
 DBC = b"""VERSION ""
@@ -41,7 +43,7 @@ def create_icd(name: str = "ICD") -> sy.ICD:
                             name="temperature",
                             start_bit=8,
                             bit_length=16,
-                            signed=True,
+                            kind="integer",
                             scale=0.1,
                             units="degC",
                         ),
@@ -73,7 +75,7 @@ class TestICD:
         assert temp.name == "temperature"
         assert temp.start_bit == 8
         assert temp.bit_length == 16
-        assert temp.signed
+        assert temp.kind == "integer"
         assert temp.scale == 0.1
         assert temp.units == "degC"
         keys = [msg.key, *(f.key for f in payload.fields)]
@@ -82,17 +84,26 @@ class TestICD:
     def test_create_json(self, client: sy.Synnax) -> None:
         """Should create a JSON message with each field type."""
         fields: list[sy.icd.JSONField] = [
-            sy.icd.NumberJSONField(name="temp", pointer="/temp", scale=0.1),
+            sy.icd.FloatJSONField(name="temp", pointer="/temp", scale=0.1),
+            sy.icd.IntegerJSONField(name="delta", pointer="/delta"),
+            sy.icd.UnsignedJSONField(name="count", pointer="/count"),
             sy.icd.StringJSONField(name="state", pointer="/state"),
             sy.icd.BooleanJSONField(name="armed", pointer="/armed"),
-            sy.icd.TimestampJSONField(name="time", pointer="/ts", format="unix_ms"),
+            sy.icd.TimestampJSONField(
+                name="time", pointer="/ts", time_format="unix_ms"
+            ),
+            sy.icd.JSONJSONField(name="raw", pointer="/raw"),
+            sy.icd.UuidJSONField(name="id", pointer="/id"),
+            sy.icd.BytesJSONField(name="blob", pointer="/blob"),
         ]
+        match = sy.icd.UnsignedJSONMatch(pointer="/seq", value=Unsigned(2**64 - 1))
         ic = client.icds.create(
             sy.ICD(
                 name="JSON",
                 messages=[
                     sy.icd.Message(
-                        name="Reading", payload=sy.icd.JSONPayload(fields=fields)
+                        name="Reading",
+                        payload=sy.icd.JSONPayload(match=match, fields=fields),
                     )
                 ],
             )
@@ -100,16 +111,74 @@ class TestICD:
         assert client.icds.retrieve(key=ic.key) == ic
         payload = ic.messages[0].payload
         assert isinstance(payload, sy.icd.JSONPayload)
+        assert payload.match == match
         assert [type(f) for f in payload.fields] == [type(f) for f in fields]
-        assert [f.pointer for f in payload.fields] == [
-            "/temp",
-            "/state",
-            "/armed",
-            "/ts",
-        ]
-        timestamp = payload.fields[3]
+        assert [f.pointer for f in payload.fields] == [f.pointer for f in fields]
+        timestamp = payload.fields[5]
         assert isinstance(timestamp, sy.icd.TimestampJSONField)
-        assert timestamp.format == "unix_ms"
+        assert timestamp.time_format == "unix_ms"
+
+    def test_create_json_enum_values_and_defaults(self, client: sy.Synnax) -> None:
+        """Should keep the enum values and defaults of JSON fields."""
+        fields: list[sy.icd.JSONField] = [
+            sy.icd.FloatJSONField(
+                name="level",
+                pointer="/level",
+                enum_values=[
+                    payload.FloatEntry(label="FULL", value=payload.Float(100.5))
+                ],
+                default=payload.Float(-1.5),
+            ),
+            sy.icd.IntegerJSONField(
+                name="delta",
+                pointer="/delta",
+                enum_values=[
+                    payload.IntegerEntry(label="MIN", value=payload.Integer(-(2**63)))
+                ],
+                default=payload.Integer(2**63 - 1),
+            ),
+            sy.icd.UnsignedJSONField(
+                name="count",
+                pointer="/count",
+                enum_values=[
+                    payload.UnsignedEntry(
+                        label="MAX", value=payload.Unsigned(2**64 - 1)
+                    )
+                ],
+                default=payload.Unsigned(2**64 - 2),
+            ),
+            sy.icd.StringJSONField(
+                name="state",
+                pointer="/state",
+                enum_values=[payload.StringEntry(label="on", value="ON")],
+                default="OFF",
+            ),
+            sy.icd.BooleanJSONField(
+                name="armed",
+                pointer="/armed",
+                enum_values=[payload.BooleanEntry(label="yes", value=True)],
+                default=False,
+            ),
+            sy.icd.TimestampJSONField(
+                name="time",
+                pointer="/ts",
+                time_format="unix_ns",
+                default=sy.TimeStamp(2**62 + 1),
+            ),
+        ]
+        ic = client.icds.create(
+            name="Defaults",
+            messages=[
+                sy.icd.Message(
+                    name="Reading", payload=sy.icd.JSONPayload(fields=fields)
+                )
+            ],
+        )
+        retrieved = client.icds.retrieve(key=ic.key)
+        assert retrieved == ic
+        stored = retrieved.messages[0].payload
+        assert isinstance(stored, sy.icd.JSONPayload)
+        assert stored.fields == fields
 
     def test_create_text(self, client: sy.Synnax) -> None:
         """Should create a message with a text payload."""

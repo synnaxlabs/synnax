@@ -143,6 +143,9 @@ type Field struct {
 	// entry that matches it, whatever the Type. Floats match by value, and a NaN entry
 	// matches any NaN.
 	Enums []Enum
+	// Range is an integer data type, or empty. When set, a Decoder rejects a JSON
+	// number that Range does not hold exactly, such as 1.5 or -1 for Uint64T.
+	Range telem.DataType
 }
 
 // variablePrefix is the size of the length prefix of a variable-density sample.
@@ -165,8 +168,8 @@ type Decoder struct {
 }
 
 // NewDecoder returns a Decoder for f. It returns an error wrapping
-// validate.ErrValidation when no JSON value converts to f.DataType, or an enum value
-// does not convert to it.
+// validate.ErrValidation when no JSON value converts to f.DataType, an enum value does
+// not convert to it, or f.Range is not an integer data type.
 func NewDecoder(f Field) (*Decoder, error) {
 	switch dt := f.DataType; {
 	case dt == telem.TimestampT, dt == telem.StringT, dt == telem.JSONT,
@@ -174,6 +177,11 @@ func NewDecoder(f Field) (*Decoder, error) {
 	default:
 		return nil, errors.Wrapf(
 			validate.ErrValidation, "cannot convert a JSON value to %s", dt,
+		)
+	}
+	if _, _, ok := integerBounds(f.Range); f.Range != "" && !ok {
+		return nil, errors.Wrapf(
+			validate.ErrValidation, "range %s is not an integer data type", f.Range,
 		)
 	}
 	enums, err := encodeEnums(f.Enums, f.DataType)
@@ -316,6 +324,31 @@ func (d *Decoder) appendNumeric(dst []byte, raw jsontext.Value) ([]byte, error) 
 	n, err := d.number(raw)
 	if err != nil {
 		return nil, err
+	}
+	return d.appendNumber(dst, n)
+}
+
+// AppendFloat appends the sample of v to dst, as Append does for a JSON number equal to
+// v. It returns an error wrapping validate.ErrValidation when v is not finite, the data
+// type is not numeric, or v does not convert to it.
+func (d *Decoder) AppendFloat(dst []byte, v float64) ([]byte, error) {
+	n := number{kind: floatNumber, f: v}
+	if math.IsNaN(v) || math.IsInf(v, 0) {
+		return nil, errors.Wrapf(validate.ErrValidation, "%s is not finite", n)
+	}
+	if dt := d.field.DataType; !numeric(dt) {
+		return nil, errors.Wrapf(
+			validate.ErrValidation, "cannot convert a float to %s", dt,
+		)
+	}
+	return d.appendNumber(dst, n)
+}
+
+func (d *Decoder) appendNumber(dst []byte, n number) ([]byte, error) {
+	if d.field.Range != "" {
+		if err := checkFits(n, d.field.Range); err != nil {
+			return nil, err
+		}
 	}
 	if err := checkFits(n, d.field.DataType); err != nil {
 		return nil, err

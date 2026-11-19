@@ -21,7 +21,6 @@ import (
 	cppnaming "github.com/synnaxlabs/oracle/plugin/cpp/naming"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/enum"
-	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 )
@@ -80,23 +79,13 @@ func (p *Plugin) processUnion(
 		DiscJSON:  casing.FieldSnake(form.Discriminator),
 	}
 	if hasPBFlag(entry) && !omit.IsSkipped(entry, "pb") {
-		if pbOutputPath := output.GetPBPath(entry); pbOutputPath != "" {
-			pbNamespace := cppnaming.PBNamespace(pbOutputPath, entry.Namespace)
+		if msg, ok := addProtoMessage(entry, data); ok {
 			ud.HasProto = true
-			ud.ProtoType = fmt.Sprintf("%s::%s", pbNamespace, cppnaming.PBName(entry))
-			data.AddSystem("utility")
-			data.AddInternal("x/cpp/errors/errors.h")
-			data.AddInternal(fmt.Sprintf("%s/%s.pb.h", pbOutputPath, entry.Namespace))
+			ud.ProtoType = msg.typ
 		}
 	}
 
-	if base, ok := resolver.SharedBase(form, "cpp", data.table); ok {
-		parent, resolved := base.Resolve(data.table)
-		if !resolved {
-			panic(fmt.Sprintf("union %s extends unresolved base %s", name, base.Name))
-		}
-		ud.Base = p.resolveExtendsType(base, parent, data)
-	}
+	ud.Base = p.unionBase(name, form, data)
 
 	enumType, _, borrows := resolution.Dealias(form.Enum, data.table)
 	borrows = borrows && form.BorrowsEnum()
@@ -110,17 +99,7 @@ func (p *Plugin) processUnion(
 		variantName := cppnaming.VariantTypeName(name, v.Name)
 		discDefault := fmt.Sprintf("%q", v.Name)
 		if borrows {
-			member, ok := enumMember(enumType, v.Name)
-			if !ok {
-				panic(fmt.Sprintf(
-					"union %s variant %q has no member in enum %s",
-					name, v.Name, enumType.Name,
-				))
-			}
-			discDefault = p.defaultRenderer(data).EnumVariant(validation.EnumVariant{
-				Type:    enumType,
-				Variant: member,
-			})
+			discDefault = p.borrowedDiscriminator(name, v.Name, enumType, data)
 		}
 		sd := structData{
 			Name: variantName,
@@ -131,55 +110,7 @@ func (p *Plugin) processUnion(
 				DefaultValue: discDefault,
 			}},
 		}
-		inherited, declared := resolver.VariantBases(form, v, "cpp", data.table)
-		for _, ext := range inherited {
-			if parent, ok := ext.Resolve(data.table); ok {
-				sd.ExtendsTypes = append(
-					sd.ExtendsTypes,
-					p.resolveExtendsType(ext, parent, data),
-				)
-			}
-		}
-		if message, _, ok := resolution.Dealias(v.Type, data.table); ok {
-			payload, _ := v.Type.Resolve(data.table)
-			// The variant translates against its payload message: a synthetic one
-			// for an inline body, the referenced struct's own message otherwise.
-			if ud.HasProto {
-				ns, header := cppnaming.VariantPBNamespace(entry, v, message)
-				data.AddInternal(header)
-				sd.HasProto = true
-				sd.ProtoNamespace = ns
-				sd.ProtoClass = cppnaming.PBName(message)
-				sd.ProtoType = fmt.Sprintf("%s::%s", ns, sd.ProtoClass)
-			}
-			if v.Inline {
-				pform := resolution.MustForm[resolution.StructForm](payload)
-				// A field that only restates an inherited default keeps the base's
-				// member; the new default moves into a generated constructor.
-				defaultOnly := resolver.DefaultOnlyOverrides(
-					inherited, pform.Fields, data.table,
-				)
-				for _, f := range append(slices.Clone(declared), pform.Fields...) {
-					fd := p.processField(f, payload, data)
-					if !defaultOnly.Contains(f.Name) {
-						sd.Fields = append(sd.Fields, fd)
-						continue
-					}
-					if fd.DefaultValue == "" {
-						continue
-					}
-					sd.InheritedDefaults = append(
-						sd.InheritedDefaults,
-						inheritedDefaultData{Name: fd.Name, Value: fd.DefaultValue},
-					)
-				}
-			} else {
-				sd.ExtendsTypes = append(
-					sd.ExtendsTypes,
-					p.resolveExtendsType(v.Type, payload, data),
-				)
-			}
-		}
+		p.addVariantBody(&sd, entry, form, v, ud.HasProto, data)
 		sd.HasExtends = len(sd.ExtendsTypes) > 0
 		data.AddInternal("x/cpp/json/json.h")
 		variants = append(variants, sd)
@@ -189,6 +120,106 @@ func (p *Plugin) processUnion(
 		})
 	}
 	return variants, ud
+}
+
+// unionBase returns the C++ type of the struct every variant of the union inherits, or
+// "" when the variants share no base.
+func (p *Plugin) unionBase(
+	name string,
+	form resolution.UnionForm,
+	data *templateData,
+) string {
+	base, ok := resolver.SharedBase(form, "cpp", data.table)
+	if !ok {
+		return ""
+	}
+	parent, resolved := base.Resolve(data.table)
+	if !resolved {
+		panic(fmt.Sprintf("union %s extends unresolved base %s", name, base.Name))
+	}
+	return p.resolveExtendsType(base, parent, data)
+}
+
+// borrowedDiscriminator returns the discriminator default of the variant value of the
+// union name, written as the member of the borrowed enum enumType.
+func (p *Plugin) borrowedDiscriminator(
+	name string,
+	value string,
+	enumType resolution.Type,
+	data *templateData,
+) string {
+	member, ok := enumMember(enumType, value)
+	if !ok {
+		panic(fmt.Sprintf(
+			"union %s variant %q has no member in enum %s",
+			name, value, enumType.Name,
+		))
+	}
+	return p.defaultRenderer(data).EnumVariant(validation.EnumVariant{
+		Type:    enumType,
+		Variant: member,
+	})
+}
+
+// addVariantBody adds the bases, payload fields, and protobuf message of the variant v
+// to sd. hasProto reports whether the union translates to protobuf.
+func (p *Plugin) addVariantBody(
+	sd *structData,
+	entry resolution.Type,
+	form resolution.UnionForm,
+	v resolution.UnionVariant,
+	hasProto bool,
+	data *templateData,
+) {
+	inherited, declared := resolver.VariantBases(form, v, "cpp", data.table)
+	for _, ext := range inherited {
+		if parent, ok := ext.Resolve(data.table); ok {
+			sd.ExtendsTypes = append(
+				sd.ExtendsTypes,
+				p.resolveExtendsType(ext, parent, data),
+			)
+		}
+	}
+	message, _, ok := resolution.Dealias(v.Type, data.table)
+	if !ok {
+		return
+	}
+	payload, _ := v.Type.Resolve(data.table)
+	// The variant translates against its payload message: a synthetic one for an inline
+	// body, the referenced struct's own message otherwise.
+	if hasProto {
+		ns, header := cppnaming.VariantPBNamespace(entry, v, message)
+		data.AddInternal(header)
+		sd.HasProto = true
+		sd.ProtoNamespace = ns
+		sd.ProtoClass = cppnaming.PBName(message)
+		sd.ProtoType = fmt.Sprintf("%s::%s", ns, sd.ProtoClass)
+	}
+	if !v.Inline {
+		sd.ExtendsTypes = append(
+			sd.ExtendsTypes,
+			p.resolveExtendsType(v.Type, payload, data),
+		)
+		return
+	}
+	pform := resolution.MustForm[resolution.StructForm](payload)
+	// A field that only restates an inherited default keeps the base's member; the new
+	// default moves into a generated constructor.
+	defaultOnly := resolver.DefaultOnlyOverrides(inherited, pform.Fields, data.table)
+	for _, f := range append(slices.Clone(declared), pform.Fields...) {
+		fd := p.processField(f, payload, data)
+		if !defaultOnly.Contains(f.Name) {
+			sd.Fields = append(sd.Fields, fd)
+			continue
+		}
+		if fd.DefaultValue == "" {
+			continue
+		}
+		sd.InheritedDefaults = append(
+			sd.InheritedDefaults,
+			inheritedDefaultData{Name: fd.Name, Value: fd.DefaultValue},
+		)
+	}
 }
 
 // enumMember returns the member of enumType whose value is value. The analyzer

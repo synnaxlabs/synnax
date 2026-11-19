@@ -11,12 +11,14 @@ import { Unreachable } from "@synnaxlabs/freighter";
 import {
   type Aggregation,
   type DataType,
+  math,
   type MultiSeries,
   scheduler,
   sync,
   type TimeRange,
   TimeSpan,
   TimeStamp,
+  unique,
 } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
@@ -67,7 +69,7 @@ class Tile implements Block {
     readonly series: MultiSeries,
     readonly fetchedAt: TimeStamp,
   ) {
-    this.bytes = series.series.reduce((sum, s) => sum + s.byteCapacity.valueOf(), 0);
+    this.bytes = math.sum(series.series.map((s) => s.byteCapacity.valueOf()));
     this.sealed = series.series.some((s) => s.timeRange.end.afterEq(range.end));
   }
 
@@ -198,16 +200,7 @@ export class TileReader {
   private async batchRead(
     entries: Array<scheduler.BatcherEntry<TileSpec, MultiSeries>>,
   ): Promise<void> {
-    const groups = new Map<
-      string,
-      Array<scheduler.BatcherEntry<TileSpec, MultiSeries>>
-    >();
-    entries.forEach((entry) => {
-      const key = tileRequestKey(entry.req);
-      const group = groups.get(key);
-      if (group == null) groups.set(key, [entry]);
-      else group.push(entry);
-    });
+    const groups = Map.groupBy(entries, (entry) => tileRequestKey(entry.req));
     await Promise.all([...groups.values()].map(async (g) => await this.fetch(g)));
   }
 
@@ -218,7 +211,7 @@ export class TileReader {
     const { readRemote, fetchTimeout } = this.props;
     const spec = group[0].req;
     const tr = tileRange(spec);
-    const keys = [...new Set(group.map(({ req }) => req.key))];
+    const keys = unique.unique(group.map(({ req }) => req.key));
     try {
       const frame = await sync.withTimeout(
         readRemote(tr, keys, {

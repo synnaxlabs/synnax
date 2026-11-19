@@ -15,7 +15,9 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/versions"
+	v2 "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
@@ -45,6 +47,11 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Channel *channel.Service
+	// ICD holds the ICDs that read entries read the messages of, and creates the ICD of
+	// a read config from before ICDs.
+	//
+	// [REQUIRED]
+	ICD *icd.Service
 	alamos.Instrumentation
 }
 
@@ -54,6 +61,7 @@ var _ xconfig.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Channel = override.Nil(c.Channel, other.Channel)
+	c.ICD = override.Nil(c.ICD, other.ICD)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
 }
@@ -63,6 +71,7 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("mqtt.service")
 	v.NotNil("db", c.DB)
 	v.NotNil("channel", c.Channel)
+	v.NotNil("icd", c.ICD)
 	return v.Error()
 }
 
@@ -122,16 +131,28 @@ func (s *Service) Stores() []config.Store {
 
 // readServiceConfig returns the config of the read task config service.
 func readServiceConfig(cfg ServiceConfig) config.ServiceConfig[ReadConfig] {
+	resolver := readResolver{
+		icds:     cfg.ICD,
+		channels: readChannels(cfg.Channel),
+		create:   createICD(cfg.ICD),
+		ins:      cfg.Instrumentation,
+	}
 	return config.ServiceConfig[ReadConfig]{
 		DB:              cfg.DB,
 		References:      readConfigReferences(),
 		Instrumentation: cfg.Instrumentation,
 		Type:            ReadTaskType,
 		Ladder:          versions.ReadConfigLadder,
-		SetEntryKey:     (*ReadConfig).SetKey,
-		PatchEntry:      (*ReadConfig).Patch,
-		HashEntry:       (*ReadConfig).HashContent,
-		ValidateEntry:   (*ReadConfig).Validate,
+		Migrations: []gorp.Migration{
+			v2.NewReadMigration(resolver.channels, resolver.create),
+		},
+		SetEntryKey:    (*ReadConfig).SetKey,
+		PatchEntry:     (*ReadConfig).Patch,
+		HashEntry:      (*ReadConfig).HashContent,
+		HashReferences: resolver.hash,
+		HashedTables:   []string{"icd"},
+		ResolveEntry:   resolver.resolve,
+		ValidateEntry:  (*ReadConfig).Validate,
 	}
 }
 

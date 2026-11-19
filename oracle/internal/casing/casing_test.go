@@ -117,6 +117,13 @@ var _ = Describe("CamelAcronym", func() {
 		Entry("standalone acronym type", "RTDType", "rtdType"),
 		Entry("leading acronym not in the dictionary", "CJCSource", "cjcSource"),
 		Entry("unknown leading acronym", "URLValue", "urlValue"),
+		Entry("unknown acronym led by a known one", "DIOChannel", "dioChannel"),
+		Entry("unknown acronym led by co", "COMPort", "comPort"),
+		Entry(
+			"unknown acronym only partly tiled by known ones",
+			"DICOMFile",
+			"dicomFile",
+		),
 		Entry("no acronym", "BaseReadConfig", "baseReadConfig"),
 		Entry("plain word", "Channel", "channel"),
 		Entry("snake input with leading acronym", "ai_voltage", "aiVoltage"),
@@ -151,6 +158,12 @@ var _ = Describe("VariantTypeName", func() {
 		Entry("ao union", "AOChannel", "ao_voltage", "AOVoltageChannel"),
 		Entry("plain union takes the variant first", "Scale", "linear", "LinearScale"),
 		Entry("json variant", "Payload", "json", "JSONPayload"),
+		Entry(
+			"variant that is the whole acronym keeps it twice",
+			"JSONField",
+			"json",
+			"JSONJSONField",
+		),
 		Entry(
 			"plain union with a multi-word variant",
 			"ReadChannel",

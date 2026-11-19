@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device, rack, status, type Synnax } from "@synnaxlabs/client";
+import { device, rack, status, type Synnax, task } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Menu as PMenu } from "@synnaxlabs/lyra/menu";
 import { Errors } from "@synnaxlabs/pluto";
-import { deep, id, TimeSpan } from "@synnaxlabs/x";
+import { deep, id, narrow, TimeSpan } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import {
   act,
   render,
@@ -22,16 +23,15 @@ import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it, onTestFinished } from "vitest";
 import { z } from "zod";
 
+import { Analytics } from "@/platform/analytics";
+import { wrapWithSink } from "@/platform/analytics/testutil";
+import { type Hardware } from "@/platform/device/integration";
 import { Modals } from "@/platform/modals";
+import { createTaskStatus } from "@/platform/task/testutil";
 import { type Tree } from "@/platform/tree";
 import { createResource } from "@/platform/tree/testutil";
 import { Session } from "@/session";
-import {
-  createConsoleWrapper,
-  renderSuspended,
-  type TestStore,
-  uniqueName,
-} from "@/testutil";
+import { createConsoleWrapper, renderSuspended, type TestStore } from "@/testutil";
 
 const path = deep.path<z.infer<typeof deviceFormSchema>>();
 
@@ -76,6 +76,41 @@ export const createRunningRack = async (
   });
   await reportRackRunning(client, r);
   return r;
+};
+
+export interface CreateWarningScannerOptions {
+  /** Why the scan fails. */
+  description?: string;
+  /** The data that the warning carries. */
+  data?: unknown;
+}
+
+/** Creates a scanner on a running rack of the hardware, with a warning status. */
+export const createWarningScanner = async (
+  client: Synnax,
+  hardware: Hardware,
+  {
+    description = "Cannot open en1 for raw Ethernet access.",
+    data,
+  }: CreateWarningScannerOptions = {},
+): Promise<task.Task> => {
+  const r = await createRunningRack(client, hardware.key);
+  const scanner = await r.createTask({
+    name: uniqueName("scanner"),
+    type: hardware.scanType,
+    config: {},
+    internal: true,
+  });
+  await client.statuses.set(
+    createTaskStatus({
+      owner: task.resourceID(scanner.key),
+      variant: "warning",
+      message: "Failed to scan for devices",
+      description,
+      details: { running: true, rack: r.key, data },
+    }),
+  );
+  return scanner;
 };
 
 const HEARTBEAT_PERIOD = TimeSpan.seconds(1);
@@ -154,6 +189,8 @@ export const createDeviceResource = (
 export interface RenderMenuItemOptions {
   /** Client backing the console wrapper; null (default) for Core-free specs. */
   client?: Synnax | null;
+  /** Receives every event the item reports; discards them by default. */
+  analytics?: Analytics.Sink;
 }
 
 export interface MenuItemHandle extends RenderResult {
@@ -170,9 +207,10 @@ export interface MenuItemHandle extends RenderResult {
  */
 export const renderMenuItem = async (
   node: ReactElement,
-  { client = null }: RenderMenuItemOptions = {},
+  { client = null, analytics = Analytics.NOOP }: RenderMenuItemOptions = {},
 ): Promise<MenuItemHandle> => {
-  const { wrapper, store } = await createConsoleWrapper({ client });
+  const { wrapper: Console, store } = await createConsoleWrapper({ client });
+  const wrapper = wrapWithSink(Console, analytics);
   const captured: { modals?: Session.Modals.Store } = {};
   const ModalStoreProbe = (): null => {
     captured.modals = Session.Modals.useStore("renderMenuItem");
@@ -324,10 +362,10 @@ export const testPropertiesSchema = (
         const aAny = a as Record<string, unknown>;
         for (const key of Object.keys(aAny)) {
           const val = aAny[key];
-          if (val != null && typeof val === "object" && !Array.isArray(val)) {
-            (val as Record<string, unknown>).__test = true;
+          if (narrow.isObject(val)) {
+            val.__test = true;
             expect((b as Record<string, unknown>)[key]).not.toHaveProperty("__test");
-            delete (val as Record<string, unknown>).__test;
+            delete val.__test;
             break;
           }
           if (Array.isArray(val)) {

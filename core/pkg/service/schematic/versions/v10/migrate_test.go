@@ -157,6 +157,7 @@ var _ = Describe("MigrateElementConfig", func() {
 var _ = Describe("Migration", func() {
 	It("Should lift stored schematics to v10", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		old := v9.Schematic{
 			Key:  uuid.New(),
 			Name: "Feed system",

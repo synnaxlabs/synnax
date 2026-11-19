@@ -83,6 +83,7 @@ var _ = Describe("Migration", func() {
 	DescribeTable("Should store every element color alpha as a byte",
 		func(ctx SpecContext, a float64, expected uint8) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
 			MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v12.Key, v12.Schematic]{
 				DB: db,
 			}))
@@ -727,6 +728,7 @@ var _ = Describe("MigrateNodeConfig stroke widths", func() {
 
 	It("Should keep a stroke width of 0 through storage", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v12.Key, v12.Schematic]{DB: db}))
 		old := withElements(v12.Schematic{
 			Key: uuid.New(),
@@ -801,6 +803,7 @@ var _ = Describe("MigrateNodeConfig text", func() {
 
 	It("Should migrate a saved label through storage", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v12.Key, v12.Schematic]{DB: db}))
 		old := withElements(v12.Schematic{
 			Key: uuid.New(),
@@ -1268,6 +1271,7 @@ var _ = Describe("MigrateNodeConfig whole numbers and renames", func() {
 
 	It("Should keep a renamed field through storage", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v12.Key, v12.Schematic]{DB: db}))
 		old := withElements(v12.Schematic{
 			Key: uuid.New(),
@@ -1286,4 +1290,34 @@ var _ = Describe("MigrateNodeConfig whole numbers and renames", func() {
 			Entry(&got).Exec(ctx, db)).To(Succeed())
 		Expect(configOf(got, "t")).To(HaveField("InlineSize", BeEquivalentTo(120)))
 	})
+})
+
+var _ = Describe("NameMigration", func() {
+	migrated := func(ctx SpecContext, in v13.Schematic) v13.Schematic {
+		GinkgoHelper()
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
+		Expect(gorp.NewCreate[v13.Key, v13.Schematic]().Entry(&in).Exec(ctx, db)).
+			To(Succeed())
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:         db,
+			Namespace:  "Schematic",
+			Migrations: []gorp.Migration{v13.NameMigration},
+		})).To(Succeed())
+		var out v13.Schematic
+		Expect(gorp.NewRetrieve[v13.Key, v13.Schematic]().
+			Where(gorp.MatchKeys[v13.Key, v13.Schematic](in.Key)).
+			Entry(&out).Exec(ctx, db)).To(Succeed())
+		return out
+	}
+	key := uuid.MustParse("1a2b3c4d-0000-0000-0000-000000000000")
+	DescribeTable(
+		"Should name only nameless schematics",
+		func(ctx SpecContext, name, expected string) {
+			Expect(migrated(ctx, v13.Schematic{Key: key, Name: name}).Name).
+				To(Equal(expected))
+		},
+		Entry("empty name", "", "Schematic 1a2b3c4d"),
+		Entry("named schematic", "Named", "Named"),
+	)
 })

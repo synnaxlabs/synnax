@@ -44,3 +44,12 @@ export const captureBrowserDownloads = (): CapturedDownloads => {
   });
   return { anchors, blobs, revoked };
 };
+
+/** Reads a downloaded blob as text. jsdom's Blob has no text(). */
+export const readBlob = (blob: Blob): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error ?? new Error("failed to read blob"));
+    reader.readAsText(blob);
+  });

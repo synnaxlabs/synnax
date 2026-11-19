@@ -20,7 +20,6 @@ import { Select } from "@/feature/opcua/device/Select";
 import {
   type Device,
   MAKE,
-  migrateProperties,
   type Properties as DeviceProperties,
   SCHEMAS,
 } from "@/feature/opcua/device/types";
@@ -66,13 +65,17 @@ const getChannelKeyAndID: ChannelKeyAndIDGetter<WriteChannel> = ({
 
 interface ContextMenuItemProps extends Task.ContextMenuItemProps<WriteChannel> {}
 
-const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ channels, keys }) => {
+const ContextMenuItem: React.FC<ContextMenuItemProps> = ({
+  channels,
+  keys,
+  target,
+}) => {
   const canRename = Access.useUpdateGranted(channel.TYPE_RESOURCE_ID);
   if (keys.length !== 1 || !canRename) return null;
   const key = keys[0];
   const cmdChannel = channels.find((ch) => ch.key === key)?.cmdChannel;
   if (cmdChannel == null) return null;
-  const handleRename = () => Text.edit(Task.getChannelNameID(key, "cmd"));
+  const handleRename = () => Text.edit(Task.getChannelNameID(key, "cmd"), target);
   return (
     <>
       <ContextMenu.RenameItem onClick={handleRename} />
@@ -111,13 +114,12 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   client,
   config,
 ) => {
-  let dev = await client.devices.retrieve({
+  const dev = await client.devices.retrieve({
     key: config.device,
     schemas: SCHEMAS,
   });
   const before = deep.copy(dev.properties);
   try {
-    dev = { ...dev, properties: migrateProperties(dev.properties) };
     const commandsToCreate: WriteChannel[] = [];
     for (const channel of config.channels) {
       const key = getChannelByNodeID(dev.properties, channel.nodeId);

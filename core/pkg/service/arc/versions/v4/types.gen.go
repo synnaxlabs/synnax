@@ -280,7 +280,7 @@ type AutomationArc struct {
 	// Program is the compiled module output including IR and WebAssembly bytecode.
 	Program *program.Program `json:"program,omitzero" msgpack:"program,omitempty"`
 	// Changes is what changed in the automation since its task was deployed.
-	Changes []Change `json:"changes,omitzero" msgpack:"changes,omitempty"`
+	Changes []Change `json:"changes" msgpack:"changes"`
 	// Calculations are the calculated channels that the program reads, nested ones
 	// included. Dependencies come before the channels that read them.
 	Calculations []Calculation `json:"calculations" msgpack:"calculations"`

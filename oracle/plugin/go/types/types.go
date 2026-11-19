@@ -90,161 +90,163 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	preds, err := chainPredecessors(req)
-	if err != nil {
-		return nil, err
-	}
-	orders, err := chainOrders(req)
-	if err != nil {
-		return nil, err
-	}
-	currentPaths := make(set.Set[string], len(pathMap))
-	for _, current := range pathMap {
-		currentPaths.Add(current)
-	}
-	pins, err := versioning.NewPins(
-		req.Resolutions, req.Versions,
-	)
-	if err != nil {
-		return nil, err
-	}
-	closure := PersistedClosure(rewritten)
 	embedded, err := allEmbeddedTypes(req, rewritten)
 	if err != nil {
 		return nil, err
 	}
-	versionedGen := &framework.Generator{
-		Domain:      "go",
-		FilePattern: p.Options.FileNamePattern,
-		FileGenerator: &goFileGenerator{
-			preds:    preds,
-			orders:   orders,
-			original: req.Resolutions,
-			pathMap:  pathMap,
-			closure:  closure,
-			pins:     pins,
-			embedded: embedded,
-		},
-		PathFilter:      currentPaths.Contains,
-		MergeByName:     false,
-		CollectTypeDefs: true,
-		CollectEnums:    true,
-		CollectUnions:   true,
-	}
 	versionedReq := *req
 	versionedReq.Resolutions = rewritten
-	resp, err := versionedGen.Generate(&versionedReq)
+	g := generation{
+		req:       req,
+		versioned: &versionedReq,
+		pattern:   p.Options.FileNamePattern,
+		pathMap:   pathMap,
+		members:   members,
+		closure:   PersistedClosure(rewritten),
+		embedded:  embedded,
+	}
+	resp, err := g.versionPackages()
 	if err != nil {
 		return nil, err
 	}
-	unversionedGen := &framework.Generator{
-		Domain:        "go",
-		FilePattern:   p.Options.FileNamePattern,
-		FileGenerator: &goFileGenerator{embedded: embedded},
-		PathFilter: func(outputPath string) bool {
-			_, versioned := pathMap[outputPath]
-			return !versioned
-		},
-		MergeByName:     false,
-		CollectTypeDefs: true,
-		CollectEnums:    true,
-		CollectUnions:   true,
-	}
-	unversionedResp, err := unversionedGen.Generate(req)
+	unversionedResp, err := g.generator(
+		g.pattern,
+		&goFileGenerator{embedded: embedded},
+		func(outputPath string) bool { return !g.isVersioned(outputPath) },
+	).Generate(req)
 	if err != nil {
 		return nil, err
 	}
 	resp.Files = append(resp.Files, unversionedResp.Files...)
 	// Ended chains have no current-surface entries, so pathMap can be empty while
 	// frozen packages still need regeneration.
-	if len(pathMap) == 0 {
-		frozen, err := chainFrozenFiles(
-			req, p.Options.FileNamePattern, embedded,
-		)
-		if err != nil {
+	if len(pathMap) > 0 {
+		if resp.Files, err = g.versionedRoots(resp.Files); err != nil {
 			return nil, err
 		}
-		resp.Files = append(resp.Files, frozen...)
-		return resp, nil
 	}
-	pathFilter := func(outputPath string) bool { _, ok := pathMap[outputPath]; return ok }
-	// Transient types — those outside the current version file at a versioned path —
-	// stay at the package root, generating real declarations merged into the root alias
-	// file. Referenced enums that live in the version layout must not be re-declared
-	// there.
-	transientGen := &framework.Generator{
-		Domain:      "go",
-		FilePattern: p.Options.FileNamePattern,
-		FileGenerator: &goFileGenerator{
-			original: req.Resolutions,
-			pathMap:  pathMap,
-			closure:  closure,
-			embedded: embedded,
-		},
-		PathFilter: pathFilter,
-		FilterEnums: func(enums []resolution.Type, outputPath string) []resolution.Type {
-			filtered := make([]resolution.Type, 0, len(enums))
-			for _, e := range enums {
-				if output.GetPath(e, "go") == outputPath {
-					filtered = append(filtered, e)
-				}
-			}
-			return filtered
-		},
-		MergeByName:     false,
-		CollectTypeDefs: true,
-		CollectEnums:    true,
-		CollectUnions:   true,
-	}
-	transientResp, err := transientGen.Generate(&versionedReq)
-	if err != nil {
-		return nil, err
-	}
-	resp.Files = append(resp.Files, transientResp.Files...)
-	aliasGen := &framework.Generator{
-		Domain:          "go",
-		FilePattern:     p.Options.FileNamePattern,
-		FileGenerator:   &aliasFileGenerator{pathMap: pathMap, members: members},
-		PathFilter:      pathFilter,
-		MergeByName:     false,
-		CollectTypeDefs: true,
-		CollectEnums:    true,
-		CollectUnions:   true,
-		IncludeHand:     true,
-	}
-	aliasResp, err := aliasGen.Generate(req)
-	if err != nil {
-		return nil, err
-	}
-	resp.Files = mergeByPath(resp.Files, aliasResp.Files)
-	selectorGen := &framework.Generator{
-		Domain:      "go",
-		FilePattern: "versions/" + p.Options.FileNamePattern,
-		FileGenerator: &aliasFileGenerator{
-			pathMap: pathMap,
-			members: members,
-			pkg:     "versions",
-		},
-		PathFilter:      pathFilter,
-		MergeByName:     false,
-		CollectTypeDefs: true,
-		CollectEnums:    true,
-		CollectUnions:   true,
-		IncludeHand:     true,
-	}
-	selectorResp, err := selectorGen.Generate(req)
-	if err != nil {
-		return nil, err
-	}
-	resp.Files = append(resp.Files, selectorResp.Files...)
-	frozen, err := chainFrozenFiles(
-		req, p.Options.FileNamePattern, embedded,
-	)
+	frozen, err := chainFrozenFiles(req, g.pattern, embedded)
 	if err != nil {
 		return nil, err
 	}
 	resp.Files = append(resp.Files, frozen...)
 	return resp, nil
+}
+
+// generation holds the state shared by the passes of one Generate call.
+type generation struct {
+	req *plugin.Request
+	// versioned is req with its resolutions rewritten to the current version layout.
+	versioned *plugin.Request
+	pattern   string
+	pathMap   map[string]string
+	members   set.Set[string]
+	closure   set.Set[string]
+	embedded  set.Set[string]
+}
+
+func (g generation) isVersioned(outputPath string) bool {
+	_, ok := g.pathMap[outputPath]
+	return ok
+}
+
+func (g generation) generator(
+	pattern string, fg framework.FileGenerator, filter func(string) bool,
+) *framework.Generator {
+	return &framework.Generator{
+		Domain:          "go",
+		FilePattern:     pattern,
+		FileGenerator:   fg,
+		PathFilter:      filter,
+		MergeByName:     false,
+		CollectTypeDefs: true,
+		CollectEnums:    true,
+		CollectUnions:   true,
+	}
+}
+
+// versionPackages generates the current versions/vN packages.
+func (g generation) versionPackages() (*plugin.Response, error) {
+	preds, err := chainPredecessors(g.req)
+	if err != nil {
+		return nil, err
+	}
+	orders, err := chainOrders(g.req)
+	if err != nil {
+		return nil, err
+	}
+	pins, err := versioning.NewPins(g.req.Resolutions, g.req.Versions)
+	if err != nil {
+		return nil, err
+	}
+	currentPaths := make(set.Set[string], len(g.pathMap))
+	for _, current := range g.pathMap {
+		currentPaths.Add(current)
+	}
+	return g.generator(g.pattern, &goFileGenerator{
+		preds:    preds,
+		orders:   orders,
+		original: g.req.Resolutions,
+		pathMap:  g.pathMap,
+		closure:  g.closure,
+		pins:     pins,
+		embedded: g.embedded,
+	}, currentPaths.Contains).Generate(g.versioned)
+}
+
+// versionedRoots adds the root files of version-laid-out packages to files: transient
+// declarations, the root alias files merged over them, and the versions selector
+// files.
+func (g generation) versionedRoots(files []plugin.File) ([]plugin.File, error) {
+	// Transient types — those outside the current version file at a versioned path —
+	// stay at the package root, generating real declarations merged into the root alias
+	// file. Referenced enums that live in the version layout must not be re-declared
+	// there.
+	transientGen := g.generator(g.pattern, &goFileGenerator{
+		original: g.req.Resolutions,
+		pathMap:  g.pathMap,
+		closure:  g.closure,
+		embedded: g.embedded,
+	}, g.isVersioned)
+	transientGen.FilterEnums = localEnums
+	transientResp, err := transientGen.Generate(g.versioned)
+	if err != nil {
+		return nil, err
+	}
+	files = append(files, transientResp.Files...)
+	aliasGen := g.generator(
+		g.pattern,
+		&aliasFileGenerator{pathMap: g.pathMap, members: g.members},
+		g.isVersioned,
+	)
+	aliasGen.IncludeHand = true
+	aliasResp, err := aliasGen.Generate(g.req)
+	if err != nil {
+		return nil, err
+	}
+	files = mergeByPath(files, aliasResp.Files)
+	selectorGen := g.generator(
+		"versions/"+g.pattern,
+		&aliasFileGenerator{pathMap: g.pathMap, members: g.members, pkg: "versions"},
+		g.isVersioned,
+	)
+	selectorGen.IncludeHand = true
+	selectorResp, err := selectorGen.Generate(g.req)
+	if err != nil {
+		return nil, err
+	}
+	return append(files, selectorResp.Files...), nil
+}
+
+// localEnums returns the enums whose Go output path is outputPath.
+func localEnums(enums []resolution.Type, outputPath string) []resolution.Type {
+	filtered := make([]resolution.Type, 0, len(enums))
+	for _, e := range enums {
+		if output.GetPath(e, "go") == outputPath {
+			filtered = append(filtered, e)
+		}
+	}
+	return filtered
 }
 
 // predecessor identifies the version package that a current version package's unchanged
@@ -321,11 +323,22 @@ func (g *goFileGenerator) GenerateFile(ctx *framework.GenerateContext) (string, 
 	pinned := func(t resolution.Type) (string, bool) {
 		return g.pins.CurrentPath(livePath, t)
 	}
-	content, err := generateGoFile(
-		ctx.OutputPath, ctx.Structs, ctx.Enums, ctx.TypeDefs, ctx.Unions,
-		ctx.Table, ctx.RepoRoot, g.preds[ctx.OutputPath], latest, g.closure,
-		transient, g.orders[ctx.OutputPath], pinned, g.embedded,
-	)
+	content, err := generateGoFile(goFile{
+		outputPath:    ctx.OutputPath,
+		structs:       ctx.Structs,
+		enums:         ctx.Enums,
+		typeDefs:      ctx.TypeDefs,
+		unions:        ctx.Unions,
+		table:         ctx.Table,
+		repoRoot:      ctx.RepoRoot,
+		pred:          g.preds[ctx.OutputPath],
+		latest:        latest,
+		closure:       g.closure,
+		transientPass: transient,
+		order:         g.orders[ctx.OutputPath],
+		pinned:        pinned,
+		embedded:      g.embedded,
+	})
 	if err != nil {
 		return "", err
 	}
@@ -369,89 +382,111 @@ func StructurallyEqual(
 // extends, type arguments, alias targets, distinct bases, and union variants. Types
 // outside the closure never reach a table's wire format.
 func PersistedClosure(table *resolution.Table) set.Set[string] {
-	closure := make(set.Set[string])
-	var walkType func(t resolution.Type)
-	var walkRef func(ref resolution.TypeRef)
-	walkRef = func(ref resolution.TypeRef) {
-		for _, arg := range ref.TypeArgs {
-			walkRef(arg)
-		}
-		if resolved, ok := ref.Resolve(table); ok {
-			walkType(resolved)
-		}
-	}
-	walkType = func(t resolution.Type) {
-		if closure.Contains(t.QualifiedName) {
-			return
-		}
-		closure.Add(t.QualifiedName)
-		switch form := t.Form.(type) {
-		case resolution.StructForm:
-			for _, ext := range form.Extends {
-				walkRef(ext)
-			}
-			for _, tp := range form.TypeParams {
-				if tp.Constraint != nil {
-					walkRef(*tp.Constraint)
-				}
-				if tp.Default != nil {
-					walkRef(*tp.Default)
-				}
-			}
-			persisted := schemadiff.PersistedFields(resolution.UnifiedFields(t, table))
-			for _, f := range persisted {
-				walkRef(f.Type)
-			}
-		case resolution.EnumForm:
-			for _, ext := range form.Extends {
-				walkRef(ext)
-			}
-		case resolution.AliasForm:
-			walkRef(form.Target)
-		case resolution.DistinctForm:
-			walkRef(form.Base)
-		case resolution.UnionForm:
-			for _, ext := range form.Extends {
-				walkRef(ext)
-			}
-			for _, v := range form.Variants {
-				walkRef(v.Type)
-			}
-		}
-	}
+	w := closureWalker{table: table, closure: make(set.Set[string])}
 	for _, t := range table.Types {
 		if domain.HasExprFromType(t, "go", "marshal") ||
 			domain.HasExprFromType(t, "go", "migrate") {
-			walkType(t)
+			w.walkType(t)
 		}
 	}
-	return closure
+	return w.closure
 }
 
-// generateGoFile generates a Go types file for the given structs, enums, and
-// type definitions at the specified output path. Types named in pred.aliased
-// are emitted as aliases to the predecessor version package instead of full
-// definitions.
-func generateGoFile(
-	outputPath string,
-	structs []resolution.Type,
-	enums []resolution.Type,
-	typeDefs []resolution.Type,
-	unions []resolution.Type,
-	table *resolution.Table,
-	repoRoot string,
-	pred predecessor,
-	latest *resolution.Table,
-	closure set.Set[string],
-	transientPass bool,
-	order map[string]int,
-	pinned func(resolution.Type) (string, bool),
-	embedded set.Set[string],
-) ([]byte, error) {
-	content, conflicts, err := renderGoFile(
-		outputPath, structs, enums, typeDefs, unions, table, repoRoot,
-		pred, latest, closure, transientPass, order, pinned, embedded, nil,
-	)
+// closureWalker adds each type it walks, and each type that type stores, to closure.
+type closureWalker struct {
+	table   *resolution.Table
+	closure set.Set[string]
+}
+
+func (w closureWalker) walkRef(ref resolution.TypeRef) {
+	for _, arg := range ref.TypeArgs {
+		w.walkRef(arg)
+	}
+	if resolved, ok := ref.Resolve(w.table); ok {
+		w.walkType(resolved)
+	}
+}
+
+func (w closureWalker) walkRefs(refs []resolution.TypeRef) {
+	for _, ref := range refs {
+		w.walkRef(ref)
+	}
+}
+
+func (w closureWalker) walkType(t resolution.Type) {
+	if w.closure.Contains(t.QualifiedName) {
+		return
+	}
+	w.closure.Add(t.QualifiedName)
+	switch form := t.Form.(type) {
+	case resolution.StructForm:
+		w.walkStruct(t, form)
+	case resolution.EnumForm:
+		w.walkRefs(form.Extends)
+	case resolution.AliasForm:
+		w.walkRef(form.Target)
+	case resolution.DistinctForm:
+		w.walkRef(form.Base)
+	case resolution.UnionForm:
+		w.walkRefs(form.Extends)
+		for _, v := range form.Variants {
+			w.walkRef(v.Type)
+		}
+	}
+}
+
+func (w closureWalker) walkStruct(t resolution.Type, form resolution.StructForm) {
+	w.walkRefs(form.Extends)
+	for _, tp := range form.TypeParams {
+		if tp.Constraint != nil {
+			w.walkRef(*tp.Constraint)
+		}
+		if tp.Default != nil {
+			w.walkRef(*tp.Default)
+		}
+	}
+	persisted := schemadiff.PersistedFields(resolution.UnifiedFields(t, w.table))
+	for _, f := range persisted {
+		w.walkRef(f.Type)
+	}
+}
+
+// goFile holds the inputs of one generated types file. Types named in pred.aliased are
+// emitted as aliases to the predecessor version package instead of full definitions.
+type goFile struct {
+	outputPath    string
+	structs       []resolution.Type
+	enums         []resolution.Type
+	typeDefs      []resolution.Type
+	unions        []resolution.Type
+	table         *resolution.Table
+	repoRoot      string
+	pred          predecessor
+	latest        *resolution.Table
+	closure       set.Set[string]
+	transientPass bool
+	order         map[string]int
+	pinned        func(resolution.Type) (string, bool)
+	embedded      set.Set[string]
+}
+
+// addDecl adds t to the declarations of its form.
+func (f *goFile) addDecl(t resolution.Type) {
+	switch t.Form.(type) {
+	case resolution.StructForm:
+		f.structs = append(f.structs, t)
+	case resolution.EnumForm:
+		f.enums = append(f.enums, t)
+	case resolution.UnionForm:
+		f.unions = append(f.unions, t)
+	case resolution.DistinctForm, resolution.AliasForm:
+		f.typeDefs = append(f.typeDefs, t)
+	}
+}
+
+// generateGoFile generates the Go types file that f describes.
+func generateGoFile(f goFile) ([]byte, error) {
+	content, conflicts, err := f.render(nil)
 	if err != nil || len(conflicts) == 0 {
 		return content, err
 	}
@@ -462,122 +497,42 @@ func generateGoFile(
 		conflicted = append(conflicted, paths...)
 	}
 	overrides := naming.ImportAliases(
-		conflicted, resolveGoImportPath(outputPath, repoRoot),
+		conflicted, resolveGoImportPath(f.outputPath, f.repoRoot),
 	)
-	content, conflicts, err = renderGoFile(
-		outputPath, structs, enums, typeDefs, unions, table, repoRoot,
-		pred, latest, closure, transientPass, order, pinned, embedded, overrides,
-	)
+	content, conflicts, err = f.render(overrides)
 	if err != nil {
 		return nil, err
 	}
 	if len(conflicts) > 0 {
 		return nil, errors.Newf(
-			"unresolvable import alias conflicts in %s: %v", outputPath, conflicts,
+			"unresolvable import alias conflicts in %s: %v", f.outputPath, conflicts,
 		)
 	}
 	return content, nil
 }
 
-// renderGoFile renders one generated types file. Rendered references bake
-// their import alias in, so alias collisions cannot be repaired in place: the
-// caller inspects the returned conflicts and re-renders with aliasOverrides.
-func renderGoFile(
-	outputPath string,
-	structs []resolution.Type,
-	enums []resolution.Type,
-	typeDefs []resolution.Type,
-	unions []resolution.Type,
-	table *resolution.Table,
-	repoRoot string,
-	pred predecessor,
-	latest *resolution.Table,
-	closure set.Set[string],
-	transientPass bool,
-	order map[string]int,
-	pinned func(resolution.Type) (string, bool),
-	embedded set.Set[string],
+// render renders the file. Rendered references bake their import alias in, so alias
+// collisions cannot be repaired in place: the caller inspects the returned conflicts
+// and re-renders with aliasOverrides.
+func (f *goFile) render(
 	aliasOverrides map[string]string,
 ) ([]byte, map[string][]string, error) {
-	namespace := ""
-	switch {
-	case len(structs) > 0:
-		namespace = structs[0].Namespace
-	case len(unions) > 0:
-		namespace = unions[0].Namespace
-	case len(typeDefs) > 0:
-		namespace = typeDefs[0].Namespace
-	case len(enums) > 0:
-		namespace = enums[0].Namespace
-	}
-
-	pkg := naming.DerivePackageName(outputPath)
-	imports := imports.NewManager()
-
-	ctx := &resolver.Context{
-		Table:                         table,
-		OutputPath:                    outputPath,
-		Namespace:                     namespace,
-		RepoRoot:                      repoRoot,
-		DomainName:                    "go",
-		SubstituteDefaultedTypeParams: true,
-		PinnedPath:                    pinned,
-	}
-
-	importResolver := &GoImportResolver{
-		RepoRoot:       repoRoot,
-		CurrentPackage: pkg,
-		AliasOverrides: aliasOverrides,
-	}
-	r := &resolver.Resolver{
-		Formatter:       GoFormatter(),
-		ImportResolver:  importResolver,
-		ImportAdder:     imports,
-		PrimitiveMapper: primitiveMapper,
-	}
-	probeResolver := &resolver.Resolver{
-		Formatter:       GoFormatter(),
-		ImportResolver:  importResolver,
-		ImportAdder:     discardedImports{},
-		PrimitiveMapper: primitiveMapper,
-	}
-
-	data := &templateData{
-		Package:        pkg,
-		OutputPath:     outputPath,
-		Namespace:      namespace,
-		Manager:        imports,
-		table:          table,
-		repoRoot:       repoRoot,
-		resolver:       r,
-		probeResolver:  probeResolver,
-		ctx:            ctx,
-		aliasOverrides: aliasOverrides,
-		embedded:       embedded,
-	}
-
+	data := f.templateData(aliasOverrides)
 	// Transient declarations — outside the persisted closure of a marshal-rooted
 	// package — never reach the stored wire format, so their dependency references
 	// resolve against the latest table and track the dependencies' current versions
 	// instead of pinning one.
 	var latestData *templateData
-	if latest != nil && (transientPass || pathHasMarshalRoot(structs)) {
-		lctx := *ctx
-		lctx.Table = latest
-		lctx.PinnedPath = nil
-		ld := *data
-		ld.table = latest
-		ld.ctx = &lctx
-		latestData = &ld
+	if f.latest != nil && (f.transientPass || pathHasMarshalRoot(f.structs)) {
+		latestData = data.latestView(f.latest)
 		data.latest = latestData
 	}
-
 	var predAlias string
-	for _, d := range orderDecls(table, order, typeDefs, enums, structs, unions) {
-		if omit.IsSkipped(d.typ, "go") {
-			continue
-		}
-		if d.kind == declEnum && d.typ.Namespace != namespace {
+	for _, d := range orderDecls(
+		f.table, f.order, f.typeDefs, f.enums, f.structs, f.unions,
+	) {
+		if omit.IsSkipped(d.typ, "go") ||
+			(d.kind == declEnum && d.typ.Namespace != data.Namespace) {
 			continue
 		}
 		if d.kind != declStruct && domain.HasExprFromType(d.typ, "go", "to_any") {
@@ -585,48 +540,125 @@ func renderGoFile(
 				"%s: @go to_any goes on a struct", d.typ.QualifiedName,
 			)
 		}
-		if pred.aliased.Contains(d.typ.QualifiedName) {
+		if f.pred.aliased.Contains(d.typ.QualifiedName) {
 			if predAlias == "" {
-				predAlias = naming.DerivePackageName(pred.path)
-				imports.AddInternal(predAlias, resolveGoImportPath(pred.path, repoRoot))
+				predAlias = naming.DerivePackageName(f.pred.path)
+				data.AddInternal(
+					predAlias,
+					resolveGoImportPath(f.pred.path, f.repoRoot),
+				)
 			}
-			target := pred.names[d.typ.QualifiedName]
+			target := f.pred.names[d.typ.QualifiedName]
 			for _, a := range buildAliasDecls(d, predAlias, target, data) {
 				data.Decls = append(data.Decls, declData{Alias: &a})
 			}
 			continue
 		}
 		procData := data
-		if latestData != nil && !closure.Contains(d.typ.QualifiedName) {
+		if latestData != nil && !f.closure.Contains(d.typ.QualifiedName) {
 			procData = latestData
 		}
-		switch d.kind {
-		case declTypeDef:
-			td := processTypeDef(d.typ, procData)
-			data.Decls = append(data.Decls, declData{TypeDef: &td})
-		case declEnum:
-			e := processEnum(d.typ)
-			data.Decls = append(data.Decls, declData{Enum: &e})
-		case declStruct:
-			s, err := processStruct(d.typ, procData)
-			if err != nil {
-				return nil, nil, err
-			}
-			data.Decls = append(data.Decls, declData{Struct: &s})
-		case declUnion:
-			u, err := processUnion(d.typ, procData)
-			if err != nil {
-				return nil, nil, err
-			}
-			data.Decls = append(data.Decls, declData{Union: &u})
+		decl, err := processDecl(d, procData)
+		if err != nil {
+			return nil, nil, err
 		}
+		data.Decls = append(data.Decls, decl)
 	}
-
 	var buf bytes.Buffer
 	if err := fileTemplate.Execute(&buf, data); err != nil {
 		return nil, nil, err
 	}
-	return buf.Bytes(), imports.Conflicts(), nil
+	return buf.Bytes(), data.Conflicts(), nil
+}
+
+// templateData returns the template data of the file, with no declarations yet.
+func (f *goFile) templateData(aliasOverrides map[string]string) *templateData {
+	namespace := fileNamespace(f.structs, f.unions, f.typeDefs, f.enums)
+	pkg := naming.DerivePackageName(f.outputPath)
+	imports := imports.NewManager()
+	importResolver := &GoImportResolver{
+		RepoRoot:       f.repoRoot,
+		CurrentPackage: pkg,
+		AliasOverrides: aliasOverrides,
+	}
+	return &templateData{
+		Package:    pkg,
+		OutputPath: f.outputPath,
+		Namespace:  namespace,
+		Manager:    imports,
+		table:      f.table,
+		repoRoot:   f.repoRoot,
+		resolver: &resolver.Resolver{
+			Formatter:       GoFormatter(),
+			ImportResolver:  importResolver,
+			ImportAdder:     imports,
+			PrimitiveMapper: primitiveMapper,
+		},
+		probeResolver: &resolver.Resolver{
+			Formatter:       GoFormatter(),
+			ImportResolver:  importResolver,
+			ImportAdder:     discardedImports{},
+			PrimitiveMapper: primitiveMapper,
+		},
+		ctx: &resolver.Context{
+			Table:                         f.table,
+			OutputPath:                    f.outputPath,
+			Namespace:                     namespace,
+			RepoRoot:                      f.repoRoot,
+			DomainName:                    "go",
+			SubstituteDefaultedTypeParams: true,
+			PinnedPath:                    f.pinned,
+		},
+		aliasOverrides: aliasOverrides,
+		embedded:       f.embedded,
+	}
+}
+
+// latestView returns a copy of d that resolves references against latest and pins none
+// of them.
+func (d *templateData) latestView(latest *resolution.Table) *templateData {
+	ctx := *d.ctx
+	ctx.Table = latest
+	ctx.PinnedPath = nil
+	view := *d
+	view.table = latest
+	view.ctx = &ctx
+	return &view
+}
+
+// fileNamespace returns the namespace of the first declaration a file renders, checking
+// structs, unions, typedefs, and enums in that order.
+func fileNamespace(structs, unions, typeDefs, enums []resolution.Type) string {
+	for _, group := range [][]resolution.Type{structs, unions, typeDefs, enums} {
+		if len(group) > 0 {
+			return group[0].Namespace
+		}
+	}
+	return ""
+}
+
+func processDecl(d orderedDecl, data *templateData) (declData, error) {
+	switch d.kind {
+	case declTypeDef:
+		td := processTypeDef(d.typ, data)
+		return declData{TypeDef: &td}, nil
+	case declEnum:
+		e := processEnum(d.typ)
+		return declData{Enum: &e}, nil
+	case declStruct:
+		s, err := processStruct(d.typ, data)
+		if err != nil {
+			return declData{}, err
+		}
+		return declData{Struct: &s}, nil
+	case declUnion:
+		u, err := processUnion(d.typ, data)
+		if err != nil {
+			return declData{}, err
+		}
+		return declData{Union: &u}, nil
+	}
+	return declData{}, errors.Newf("unknown declaration kind %d", d.kind)
 }
 
 func resolveGoImportPath(outputPath, repoRoot string) string {
@@ -788,33 +820,7 @@ func processStruct(entry resolution.Type, data *templateData) (structData, error
 	}
 	sd.IsGeneric = len(sd.TypeParams) > 0
 
-	flatten := len(form.Extends) > 0 && !CanEmbed(form, data.table)
-	fields := resolution.UnifiedFields(entry, data.table)
-	// Fields the struct redeclares only to change an inherited default. The embedded
-	// parent already declares them, so they contribute a default fill and nothing
-	// else; declaring them again would shadow the parent's field with a duplicate
-	// JSON tag.
-	var defaultOnly set.Set[string]
-	var embeds []embeddedType
-	if len(form.Extends) > 0 && !flatten {
-		sd.HasExtends = true
-		for _, extendsRef := range form.Extends {
-			parent, ok := extendsRef.Resolve(data.table)
-			if ok {
-				rendered := resolveExtendsType(extendsRef, parent, data)
-				sd.ExtendsTypes = append(sd.ExtendsTypes, rendered)
-				embeds = append(
-					embeds,
-					embeddedType{ref: extendsRef, rendered: rendered},
-				)
-			}
-		}
-		fields = form.Fields
-		defaultOnly = resolver.DefaultOnlyOverrides(
-			form.Extends, form.Fields, data.table,
-		)
-	}
-
+	fields, embeds, defaultOnly := structMembers(&sd, entry, form, data)
 	genMethods := !sd.IsGeneric
 	if genMethods && len(embeds) > 0 {
 		sd.ValidateRecurse = append(
@@ -822,51 +828,15 @@ func processStruct(entry resolution.Type, data *templateData) (structData, error
 			embedRecurseSteps(embeds, nil, data, validateRule)...,
 		)
 	}
-	if sd.IsGeneric {
-		for _, e := range embeds {
-			parent := resolution.Field{
-				Name:     embedFieldName(e.rendered),
-				Type:     e.ref,
-				Optional: true,
-			}
-			if err := checkHeldEmbedded(entry.Name, parent, data); err != nil {
-				return structData{}, err
-			}
-		}
+	if err := checkHeld(entry.Name, sd.IsGeneric, embeds, fields, data); err != nil {
+		return structData{}, err
 	}
 	for _, field := range fields {
-		held := field
-		// A generic struct sets no defaults, so it holds each of its fields.
-		held.Optional = field.Optional || sd.IsGeneric
-		if err := checkHeldEmbedded(entry.Name, held, data); err != nil {
-			return structData{}, err
-		}
 		if !defaultOnly.Contains(field.Name) {
 			sd.Fields = append(sd.Fields, processField(field, data))
 		}
-		if !genMethods {
-			continue
-		}
-		fd := data.forField(field)
-		if defaultGroupName(field) == "" {
-			fills := goDefaultFills(field, fd)
-			if defaultOnly.Contains(field.Name) {
-				fills = overrideFills(field, fd)
-			}
-			sd.SetFills = append(sd.SetFills, fills...)
-		}
-		if validateSkip(field, fd) {
-			continue
-		}
-		if chk, ok := goEnumCheck(field, fd); ok {
-			sd.EnumChecks = append(sd.EnumChecks, chk)
-		}
-		sd.ConstraintChecks = append(
-			sd.ConstraintChecks,
-			goConstraintChecks(field, defaultOnly.Contains(field.Name), fd)...,
-		)
-		if step, ok := goRecurseStep(field, fd, validateRule); ok {
-			sd.ValidateRecurse = append(sd.ValidateRecurse, step)
+		if genMethods {
+			addFieldMethods(&sd, field, defaultOnly.Contains(field.Name), data)
 		}
 	}
 	if genMethods {
@@ -875,6 +845,139 @@ func processStruct(entry resolution.Type, data *templateData) (structData, error
 	}
 	sd.DecodeHooks = sd.SetDefaultsView().Sets() &&
 		!data.embedded.Contains(embedKey(data.OutputPath, naming.GetGoName(entry)))
+	addMethodImports(&sd, data)
+	if len(sd.Name) > 0 {
+		sd.Receiver = receiverName(sd.Name, hasSliceRecurse(sd.ValidateRecurse))
+	}
+
+	if err := applyDirectives(&sd, entry, form, data); err != nil {
+		return structData{}, err
+	}
+	return sd, nil
+}
+
+// structMembers returns the fields a struct declares, the parents it embeds, and the
+// names of the fields it redeclares only to change an inherited default. A struct that
+// cannot embed its parents flattens their fields into its own.
+func structMembers(
+	sd *structData,
+	entry resolution.Type,
+	form resolution.StructForm,
+	data *templateData,
+) ([]resolution.Field, []embeddedType, set.Set[string]) {
+	if len(form.Extends) == 0 || !CanEmbed(form, data.table) {
+		return resolution.UnifiedFields(entry, data.table), nil, nil
+	}
+	sd.HasExtends = true
+	embeds := embedExtends(sd, form, data)
+	// The embedded parent already declares a default-only field, so it contributes a
+	// default fill and nothing else. Declaring it again would shadow the parent's field
+	// with a duplicate JSON tag.
+	defaultOnly := resolver.DefaultOnlyOverrides(form.Extends, form.Fields, data.table)
+	return form.Fields, embeds, defaultOnly
+}
+
+// checkHeld checks that each field of a struct, and each parent a generic struct
+// embeds, holds an embedded type only where it may.
+func checkHeld(
+	structName string,
+	generic bool,
+	embeds []embeddedType,
+	fields []resolution.Field,
+	data *templateData,
+) error {
+	if generic {
+		for _, e := range embeds {
+			parent := resolution.Field{
+				Name:     embedFieldName(e.rendered),
+				Type:     e.ref,
+				Optional: true,
+			}
+			if err := checkHeldEmbedded(structName, parent, data); err != nil {
+				return err
+			}
+		}
+	}
+	for _, field := range fields {
+		held := field
+		// A generic struct sets no defaults, so it holds each of its fields.
+		held.Optional = field.Optional || generic
+		if err := checkHeldEmbedded(structName, held, data); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// applyDirectives applies the @go fields, imports, and to_any directives of entry.
+func applyDirectives(
+	sd *structData,
+	entry resolution.Type,
+	form resolution.StructForm,
+	data *templateData,
+) error {
+	sd.ExtraFields = domain.GetAllStringsFromType(entry, "go", "fields")
+	for _, imp := range domain.GetAllStringsFromType(entry, "go", "imports") {
+		data.AddExternal(imp)
+	}
+	sd.ToAny = domain.HasExprFromType(entry, "go", "to_any")
+	if sd.ToAny {
+		return validateToAny(entry, form, *sd)
+	}
+	return nil
+}
+
+// embedExtends renders each resolved parent of form as an embedded type.
+func embedExtends(
+	sd *structData,
+	form resolution.StructForm,
+	data *templateData,
+) []embeddedType {
+	var embeds []embeddedType
+	for _, extendsRef := range form.Extends {
+		parent, ok := extendsRef.Resolve(data.table)
+		if ok {
+			rendered := resolveExtendsType(extendsRef, parent, data)
+			sd.ExtendsTypes = append(sd.ExtendsTypes, rendered)
+			embeds = append(embeds, embeddedType{ref: extendsRef, rendered: rendered})
+		}
+	}
+	return embeds
+}
+
+// addFieldMethods adds the default fills and validation checks of field. defaultOnly
+// marks a field that only restates an inherited default.
+func addFieldMethods(
+	sd *structData,
+	field resolution.Field,
+	defaultOnly bool,
+	data *templateData,
+) {
+	fd := data.forField(field)
+	if defaultGroupName(field) == "" {
+		fills := goDefaultFills(field, fd)
+		if defaultOnly {
+			fills = overrideFills(field, fd)
+		}
+		sd.SetFills = append(sd.SetFills, fills...)
+	}
+	if validateSkip(field, fd) {
+		return
+	}
+	if chk, ok := goEnumCheck(field, fd); ok {
+		sd.EnumChecks = append(sd.EnumChecks, chk)
+	}
+	sd.ConstraintChecks = append(
+		sd.ConstraintChecks,
+		goConstraintChecks(field, defaultOnly, fd)...,
+	)
+	if step, ok := goRecurseStep(field, fd, validateRule); ok {
+		sd.ValidateRecurse = append(sd.ValidateRecurse, step)
+	}
+}
+
+// addMethodImports adds the imports that the struct's decode hooks and validation need.
+func addMethodImports(sd *structData, data *templateData) {
 	if sd.DecodeHooks {
 		data.AddExternal("encoding/json/v2")
 		data.AddExternal("encoding/json/jsontext")
@@ -889,23 +992,6 @@ func processStruct(entry resolution.Type, data *templateData) (structData, error
 	if hasSliceRecurse(sd.ValidateRecurse) {
 		data.AddExternal(strconvImportPath)
 	}
-	if len(sd.Name) > 0 {
-		sd.Receiver = receiverName(sd.Name, hasSliceRecurse(sd.ValidateRecurse))
-	}
-
-	sd.ExtraFields = domain.GetAllStringsFromType(entry, "go", "fields")
-
-	for _, imp := range domain.GetAllStringsFromType(entry, "go", "imports") {
-		data.AddExternal(imp)
-	}
-
-	sd.ToAny = domain.HasExprFromType(entry, "go", "to_any")
-	if sd.ToAny {
-		if err := validateToAny(entry, form, sd); err != nil {
-			return structData{}, err
-		}
-	}
-	return sd, nil
 }
 
 // validateToAny errors when @go to_any marks a struct that its ToAny method cannot
@@ -1541,7 +1627,11 @@ func ({{$s.Receiver}} *{{$s.Name}}) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 func ({{$s.Receiver}} {{$s.Name}}) Validate() error {
 	v := validate.New("{{$s.Name}}")
 {{- range $s.EnumChecks}}
-{{- if .Optional}}
+{{- if .MapKey}}
+	for key := range {{$s.Receiver}}.{{.GoName}} {
+		v.Ternaryf("{{.FieldName}}", !key.IsValid(), "invalid {{.FieldName}} key: %v", key)
+	}
+{{- else if .Optional}}
 	if {{$s.Receiver}}.{{.GoName}} != nil {
 		v.Ternaryf("{{.FieldName}}", !{{$s.Receiver}}.{{.GoName}}.IsValid(), "invalid {{.FieldName}}: %v", *{{$s.Receiver}}.{{.GoName}})
 	}
@@ -1571,6 +1661,8 @@ func ({{$s.Receiver}} {{$s.Name}}) Validate() error {
 	v.GreaterThan("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "le"}}
 	v.LessThanEq("{{.FieldName}}", {{$val}}, {{.Arg}})
+{{- else if eq .Kind "finite"}}
+	v.Finite("{{.FieldName}}", {{$val}})
 {{- end}}
 {{- if .Closes}}
 	}
@@ -1671,7 +1763,11 @@ func ({{.TypeName}}) {{$u.Marker}}() {}
 func ({{$vt.Receiver}} {{$vt.TypeName}}) Validate() error {
 	v := validate.New("{{$vt.TypeName}}")
 {{- range $vt.EnumChecks}}
-{{- if .Optional}}
+{{- if .MapKey}}
+	for key := range {{$vt.Receiver}}.{{.GoName}} {
+		v.Ternaryf("{{.FieldName}}", !key.IsValid(), "invalid {{.FieldName}} key: %v", key)
+	}
+{{- else if .Optional}}
 	if {{$vt.Receiver}}.{{.GoName}} != nil {
 		v.Ternaryf("{{.FieldName}}", !{{$vt.Receiver}}.{{.GoName}}.IsValid(), "invalid {{.FieldName}}: %v", *{{$vt.Receiver}}.{{.GoName}})
 	}
@@ -1701,6 +1797,8 @@ func ({{$vt.Receiver}} {{$vt.TypeName}}) Validate() error {
 	v.GreaterThan("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "le"}}
 	v.LessThanEq("{{.FieldName}}", {{$val}}, {{.Arg}})
+{{- else if eq .Kind "finite"}}
+	v.Finite("{{.FieldName}}", {{$val}})
 {{- end}}
 {{- if .Closes}}
 	}

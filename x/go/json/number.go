@@ -36,6 +36,11 @@ type number struct {
 	f    float64
 	// fraction is true when the text of a float had a fraction that f may round away.
 	fraction bool
+	// outOfRange is true when the text of a float is an integer that fits neither an
+	// int64 nor a uint64, even if f rounds into one of them.
+	outOfRange bool
+	// text is the JSON text a float was parsed from, so errors show what f rounds.
+	text []byte
 }
 
 // parseNumber converts the text of a JSON number into an int64 or uint64 when it is an
@@ -68,8 +73,54 @@ func parseNumber(text []byte) (number, error) {
 	if err != nil {
 		return number{}, invalidNumber(text)
 	}
-	return number{kind: floatNumber, f: f, fraction: d.fraction}, nil
+	return number{
+		kind:       floatNumber,
+		f:          f,
+		fraction:   d.fraction,
+		outOfRange: !d.fraction && d.magnitude != 0,
+		text:       text,
+	}, nil
 }
+
+// ParsedNumber is a JSON number held without losing precision.
+type ParsedNumber struct{ n number }
+
+// ParseNumber parses the text of a JSON number. It returns an error wrapping
+// validate.ErrValidation when text is not a number, or is past the range of a float64.
+func ParseNumber(text []byte) (ParsedNumber, error) {
+	n, err := parseNumber(text)
+	if err != nil {
+		return ParsedNumber{}, err
+	}
+	return ParsedNumber{n: n}, nil
+}
+
+// Int64 returns n when it is an integer that an int64 holds. ok is false otherwise.
+func (n ParsedNumber) Int64() (v int64, ok bool) {
+	switch {
+	case n.n.kind == intNumber:
+		return n.n.i, true
+	case n.n.kind == uintNumber:
+		if n.n.u > math.MaxInt64 {
+			return 0, false
+		}
+		return int64(n.n.u), true
+	case !n.n.integral() || !n.n.within(math.MinInt64, math.MaxInt64):
+		return 0, false
+	}
+	return int64(n.n.f), true
+}
+
+// Uint64 returns n when it is an integer that a uint64 holds. ok is false otherwise.
+func (n ParsedNumber) Uint64() (v uint64, ok bool) {
+	if !n.n.integral() || !n.n.within(0, math.MaxUint64) {
+		return 0, false
+	}
+	return n.n.bits(), true
+}
+
+// Float64 returns the float64 nearest to n.
+func (n ParsedNumber) Float64() float64 { return n.n.float() }
 
 func invalidNumber(text []byte) error {
 	return errors.Wrapf(validate.ErrValidation, "invalid number %q", text)
@@ -197,7 +248,12 @@ func (n number) appendText(dst []byte) []byte {
 	}
 }
 
-func (n number) String() string { return string(n.appendText(nil)) }
+func (n number) String() string {
+	if n.text != nil {
+		return string(n.text)
+	}
+	return string(n.appendText(nil))
+}
 
 // bits returns n as a two's complement integer. Its low bytes are the encoding of n in
 // any integer type n fits in, so check fits first.
@@ -255,23 +311,31 @@ func checkFits(n number, dt telem.DataType) error {
 	if !ok {
 		return nil
 	}
-	var fits bool
-	switch n.kind {
-	case intNumber:
-		fits = n.i >= lo && (n.i < 0 || uint64(n.i) <= hi)
-	case uintNumber:
-		fits = n.u <= hi
-	case floatNumber:
-		if n.fraction || n.f != math.Trunc(n.f) {
-			return errors.Wrapf(validate.ErrValidation, "%s is not an integer", n)
-		}
-		// float64(hi)+1 rounds to the first value past hi for every integer type.
-		fits = n.f >= float64(lo) && n.f < float64(hi)+1
+	if !n.integral() {
+		return errors.Wrapf(validate.ErrValidation, "%s is not an integer", n)
 	}
-	if !fits {
+	if !n.within(lo, hi) {
 		return errors.Wrapf(validate.ErrValidation, "%s is out of range for %s", n, dt)
 	}
 	return nil
+}
+
+func (n number) integral() bool {
+	return n.kind != floatNumber || (!n.fraction && n.f == math.Trunc(n.f))
+}
+
+// within reports whether n, an integer, lies in [lo, hi].
+func (n number) within(lo int64, hi uint64) bool {
+	switch n.kind {
+	case intNumber:
+		return n.i >= lo && (n.i < 0 || uint64(n.i) <= hi)
+	case uintNumber:
+		return n.u <= hi
+	case floatNumber:
+		// float64(hi)+1 rounds to the first value past hi for every integer type.
+		return !n.outOfRange && n.f >= float64(lo) && n.f < float64(hi)+1
+	}
+	panic(fmt.Sprintf("json: invalid number kind %d", n.kind))
 }
 
 // appendNumber appends n as a sample of dt, which must be numeric or boolean. Check

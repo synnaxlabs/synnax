@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x";
+import { color, errors } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import { Button } from "@/button";
@@ -152,7 +152,7 @@ const pickFromScreen = async (Ctor: EyeDropperConstructor): Promise<string | nul
     return (await new Ctor().open()).sRGBHex;
   } catch (e) {
     if (e instanceof DOMException && e.name === "AbortError") return null;
-    throw e instanceof Error ? e : new Error(String(e), { cause: e });
+    throw errors.fromUnknown(e);
   }
 };
 

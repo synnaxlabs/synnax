@@ -34,6 +34,7 @@ import (
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/compare"
 	"github.com/synnaxlabs/x/errors"
@@ -422,7 +423,7 @@ func (s *Symbol) Add(ctx context.Context, sym Symbol) (*Symbol, error) {
 		if _, err := s.ClosestAncestorOfKind(KindFunction); err != nil {
 			child.ID = s.Root().addIndex()
 			if child.ID >= maxProgramLocalChannelKey {
-				return nil, errors.Newf(
+				return nil, codes.ChannelLimit.Errorf(
 					"program exceeds the maximum of %d program-local channels",
 					maxProgramLocalChannelKey,
 				)
@@ -442,7 +443,7 @@ func (s *Symbol) Add(ctx context.Context, sym Symbol) (*Symbol, error) {
 // NameConflict returns the error for a declaration that reuses the name of s.
 func (s *Symbol) NameConflict() error {
 	tok := s.AST.GetStart()
-	return errors.Newf(
+	return codes.SymbolRedefined.Errorf(
 		"name %s conflicts with existing %s at line %d, col %d",
 		s.Name,
 		s.Kind.noun(),
@@ -714,10 +715,14 @@ func (s *Symbol) resolveMember(
 ) (*Symbol, error) {
 	child := s.FindChild(name)
 	if child == nil || (!opts.includeInternal && child.Internal) {
-		return nil, &UndefinedSymbolError{ctx: ctx, Name: name, scope: s}
+		return nil, codes.SymbolUndefined.Mark(
+			&UndefinedSymbolError{ctx: ctx, Name: name, scope: s},
+		)
 	}
 	if !opts.includeInternal && s.UserDefined && !child.Exported {
-		return nil, &notExportedError{Name: name, Module: s.Name}
+		return nil, codes.NotExported.Mark(
+			&notExportedError{Name: name, Module: s.Name},
+		)
 	}
 	return child, nil
 }
@@ -752,7 +757,9 @@ func (s *Symbol) resolveLexical(
 	if s.Parent != nil {
 		return s.Parent.resolveLexical(ctx, name, opts, origin)
 	}
-	return nil, &UndefinedSymbolError{ctx: ctx, Name: name, scope: origin}
+	return nil, codes.SymbolUndefined.Mark(
+		&UndefinedSymbolError{ctx: ctx, Name: name, scope: origin},
+	)
 }
 
 // Search returns symbols matching the given prefix or fuzzy term using the

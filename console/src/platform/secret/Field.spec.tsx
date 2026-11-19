@@ -11,6 +11,7 @@ import { secret, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Form } from "@synnaxlabs/lyra/form";
 import { deep, uuid } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import {
   act,
   cleanup,
@@ -34,7 +35,6 @@ import {
   createConsoleWrapper,
   createTestClientWithGrants,
   findDialogTriggerByText,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();
@@ -207,6 +207,22 @@ describe("Secret.Field", () => {
     expect(s.name).toBe(defaultName);
     expect(s.source).toBe("stored");
     await findDialogTriggerByText(defaultName);
+  });
+
+  it("holds Cancel while the secret saves", async () => {
+    const { onChange } = await renderField();
+    await openCreate("Select a secret");
+    fireEvent.change(await screen.findByPlaceholderText("Value"), {
+      target: { value: "hunter2" },
+    });
+    fireEvent.click(findButton("Create"));
+    fireEvent.click(findButton("Cancel"));
+    const key = await waitFor(() => {
+      const [last] = onChange.mock.lastCall ?? [];
+      if (last == null) throw new Error("the field did not change");
+      return last;
+    });
+    created.push(key);
   });
 
   it("leaves the value unchanged when the create dialog is canceled", async () => {

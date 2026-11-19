@@ -44,6 +44,7 @@ static void append_to_write_buffer(Series &dest, const Series &src) {
     }
     if (dest->data_type() != src->data_type())
         throw std::runtime_error("cannot append series with mismatched data types");
+    const auto alignment = dest->empty() ? src->alignment : dest->alignment;
     if (dest->data_type().is_variable()) {
         const auto old_time_range = dest->time_range;
         auto merged = dest->strings();
@@ -66,6 +67,7 @@ static void append_to_write_buffer(Series &dest, const Series &src) {
         }
         dest->write(*src);
     }
+    dest->alignment = alignment;
     if (dest->time_range == x::telem::TimeRange()) {
         dest->time_range = src->time_range;
     } else {

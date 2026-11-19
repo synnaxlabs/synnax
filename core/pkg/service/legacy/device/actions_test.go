@@ -71,6 +71,7 @@ var _ = Describe("Actions", func() {
 	}
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: db}))
 		stat = MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))

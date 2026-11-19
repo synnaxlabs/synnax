@@ -156,9 +156,10 @@ func (s *streamServer[RQ, RS]) fiberHandler(upgradeCtx fiber.Ctx) error {
 		return upgradeCtx.SendStatus(fiber.StatusUnsupportedMediaType)
 	}
 	// Upgrade the connection to a websocket connection.
-	return fiberws.New(func(c *fiberws.Conn) { s.handleSocket(iCtx, newCodec, c) })(
-		upgradeCtx,
-	)
+	return fiberws.New(
+		func(c *fiberws.Conn) { s.handleSocket(iCtx, newCodec, c) },
+		fiberws.Config{Subprotocols: []string{subprotocol}},
+	)(upgradeCtx)
 }
 
 func (s *streamServer[RQ, RS]) handleSocket(

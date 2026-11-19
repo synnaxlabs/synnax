@@ -8,9 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import {
-  compare,
+  array,
   type destructor,
   errors,
+  map,
   primitive,
   type record,
   type state,
@@ -334,6 +335,9 @@ interface Query<
   vacated?: boolean;
   /** Set when a fetch in flight deferred a refetch; honored on settle. */
   refetchOnSettle?: boolean;
+  /** Set when the stream reconnected during a fetch in flight. The fetch may predate
+   *  the reconnect, so the query refetches on settle, even when the fetch failed. */
+  reconnected?: boolean;
   refetchTimer?: ReturnType<typeof setTimeout>;
   /** When the last subscriber left; the sweep tears the query down once this
    *  outlives the grace window. Cleared on resubscribe. */
@@ -396,7 +400,9 @@ export class Space<
       // epoch bump refetches, not the reset itself.
       if (epoch === 0) return;
       this.queries.forEach((query) => {
-        if (query.teardown != null) void this.refetch(query);
+        if (query.teardown == null) return;
+        if (query.state.variant === "loading") query.reconnected = true;
+        else void this.refetch(query);
       });
     });
   }
@@ -589,6 +595,7 @@ export class Space<
     query.teardown = undefined;
     query.pendingRechecks = undefined;
     query.refetchOnSettle = false;
+    query.reconnected = false;
     if (query.refetchTimer != null) {
       clearTimeout(query.refetchTimer);
       query.refetchTimer = undefined;
@@ -624,17 +631,12 @@ export class Space<
 
   private ensure(params: P): Query<P, K, D, V> {
     const hashed = hash(params);
-    let query = this.queries.get(hashed);
-    if (query == null) {
-      query = {
-        params,
-        state: { variant: "unfetched" },
-        handlers: new Set(),
-        generation: 0,
-      };
-      this.queries.set(hashed, query);
-    }
-    return query;
+    return map.getOrInsert(this.queries, hashed, (): Query<P, K, D, V> => ({
+      params,
+      state: { variant: "unfetched" },
+      handlers: new Set(),
+      generation: 0,
+    }));
   }
 
   private report(
@@ -648,7 +650,7 @@ export class Space<
   private composedOf(query: Query<P, K, D, V>, keys: K[]): D {
     const records = this.config.table.get(keys);
     const { composed } = query;
-    if (composed != null && compare.arraysEqual(composed.records, records))
+    if (composed != null && array.equal(composed.records, records))
       return composed.value;
     const value = this.config.compose(records, query.params);
     query.composed = { records, value };
@@ -695,15 +697,15 @@ export class Space<
       perTombstone = new Map();
       this.corpses.set(tombstone, perTombstone);
     }
-    let deleted = perTombstone.get(hashed);
-    if (deleted == null) {
-      deleted = new Deleted(
-        this.config.compose([tombstone.corpse], params),
-        tombstone.deletedAt,
-      );
-      perTombstone.set(hashed, deleted);
-    }
-    return deleted;
+    return map.getOrInsert(
+      perTombstone,
+      hashed,
+      () =>
+        new Deleted(
+          this.config.compose([tombstone.corpse], params),
+          tombstone.deletedAt,
+        ),
+    );
   }
 
   /** Notifies subscribers when any of the keys is a member of the ready
@@ -741,11 +743,14 @@ export class Space<
     if (query.state !== expected) return;
     this.confirm(query, next, basis);
     this.drainRechecks(query);
+    const { reconnected } = query;
+    query.reconnected = false;
     if (next.variant === "error") {
       query.refetchOnSettle = false;
+      if (reconnected === true && query.teardown != null) this.scheduleRefetch(query);
       return;
     }
-    if (query.refetchOnSettle === true) {
+    if (query.refetchOnSettle === true || reconnected === true) {
       query.refetchOnSettle = false;
       if (query.teardown != null) this.scheduleRefetch(query);
     }
@@ -909,9 +914,7 @@ export class Space<
     if (basis == null || basis.epoch == null || this.staleFor(query, basis))
       return true;
     const now = this.basis();
-    return (
-      basis.epoch !== now.epoch || !compare.arraysEqual(basis.versions, now.versions)
-    );
+    return basis.epoch !== now.epoch || !array.equal(basis.versions, now.versions);
   }
 
   private scheduleRefetch(query: Query<P, K, D, V>): void {

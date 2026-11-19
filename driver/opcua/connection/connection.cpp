@@ -123,18 +123,18 @@ UA_ByteString byte_string(const std::string &data) {
 /// @brief checks the certificate that the server presents when it opens a secure
 /// channel, and keeps it for server_certificate and the connection error.
 struct Verifier {
-    std::optional<certificate::Certificate> trusted;
+    std::optional<x::x509::Certificate> trusted;
     bool first_certificate_trusted = false;
     bool disabled = false;
     x::telem::NowFunc now;
     std::string client_thumbprint;
-    std::optional<certificate::Certificate> received;
+    std::optional<x::x509::Certificate> received;
     x::errors::Error rejection = x::errors::NIL;
 };
 
 x::errors::Error untrusted_error(
-    const std::optional<certificate::Certificate> &trusted,
-    const certificate::Certificate &received
+    const std::optional<x::x509::Certificate> &trusted,
+    const x::x509::Certificate &received
 ) {
     if (!trusted.has_value())
         return {
@@ -154,7 +154,7 @@ x::errors::Error untrusted_error(
 }
 
 x::errors::Error time_invalid_error(
-    const certificate::Certificate &received,
+    const x::x509::Certificate &received,
     const x::telem::TimeStamp now
 ) {
     return {
@@ -169,7 +169,7 @@ x::errors::Error time_invalid_error(
 
 UA_StatusCode verify_certificate(UA_CertificateGroup *cg, const UA_ByteString *data) {
     auto *v = static_cast<Verifier *>(cg->context);
-    auto [cert, err] = certificate::Certificate::parse(
+    auto [cert, err] = x::x509::Certificate::parse(
         std::string_view(reinterpret_cast<const char *>(data->data), data->length)
     );
     if (err) {
@@ -220,9 +220,8 @@ configure_encryption(const Config &cfg, const Security &sec, UA_ClientConfig *co
     config->privateKeyPasswordCallback = priv_key_pass_callback;
     const std::string uri = SECURITY_URI_BASE + cfg.security_policy;
     config->securityPolicyUri = UA_STRING_ALLOC(uri.c_str());
-    const auto &app_uri = id.certificate.application_uri().empty()
-                            ? FALLBACK_APPLICATION_URI
-                            : id.certificate.application_uri();
+    const auto &app_uri = id.certificate.uri().empty() ? FALLBACK_APPLICATION_URI
+                                                       : id.certificate.uri();
     UA_String_clear(&config->clientDescription.applicationUri);
     config->clientDescription.applicationUri = UA_STRING_ALLOC(app_uri.c_str());
 
@@ -412,13 +411,13 @@ reconnect(const std::shared_ptr<UA_Client> &client, const std::string &endpoint)
     return connect_client(client.get(), endpoint);
 }
 
-std::optional<certificate::Certificate> server_certificate(UA_Client *client) {
+std::optional<x::x509::Certificate> server_certificate(UA_Client *client) {
     const auto *v = verifier(client);
     if (v == nullptr) return std::nullopt;
     return v->received;
 }
 
-std::optional<certificate::Certificate> trusted_certificate(UA_Client *client) {
+std::optional<x::x509::Certificate> trusted_certificate(UA_Client *client) {
     const auto *v = verifier(client);
     if (v == nullptr) return std::nullopt;
     return v->trusted;

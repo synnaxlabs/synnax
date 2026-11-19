@@ -43,6 +43,7 @@ var _ = Describe("SnapshotMigration", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v11.Key, v11.Schematic]{DB: db}))
 		Expect(gorp.NewCreate[v11.Key, v11.Schematic]().
 			Entries(&[]v11.Schematic{snapshot, ranged, live}).

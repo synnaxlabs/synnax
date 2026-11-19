@@ -94,6 +94,7 @@ var _ = Describe("Changes", func() {
 
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
+		StartRun(db.Run)
 		records = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{
 			DB:   db,
 			Name: "record",
@@ -469,6 +470,7 @@ var _ = Describe("Changes", func() {
 				store = &failOnceDB{DB: kvs, err: errors.New("populate failed")}
 			}
 			linked := gorp.Wrap(store, gorp.WithCodec(msgpack.Codec))
+			StartRun(linked.Run)
 			refs := newDeviceRefs()
 			devices := MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, refDevice]{
 				DB:         linked,
@@ -522,6 +524,7 @@ var _ = Describe("Changes", func() {
 				kvs,
 				gorp.WithCodec(deviceRefusingCodec{Codec: msgpack.Codec}),
 			)
+			StartRun(linked.Run)
 			refs := newDeviceRefs()
 			MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, refDevice]{
 				DB:         linked,

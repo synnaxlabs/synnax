@@ -11,6 +11,7 @@ package color_test
 
 import (
 	"fmt"
+	"slices"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -33,6 +34,7 @@ var _ = Describe("Built-in named colors", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		groups = MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
 	})
 	open := func(ctx SpecContext) *color.Service {
@@ -81,6 +83,38 @@ var _ = Describe("Built-in named colors", func() {
 		next := color.Builtins()
 		Expect(next[0].Name).To(Equal("Series 1"))
 		Expect(*next[0].Dark).ToNot(Equal(xcolor.Color{}))
+	})
+
+	Describe("Series", func() {
+		It("Should list the series colors by position", func(ctx SpecContext) {
+			svc := open(ctx)
+			keys := lo.Map(color.Builtins(), func(n color.Named, _ int) color.Key {
+				return n.Key
+			})
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Apply(ctx, keys[3], color.NewSetAction(
+					color.SetPayload{Path: []string{"position"}, Value: "Zz"},
+				))
+			})).To(Succeed())
+			moved := slices.Concat(keys[3:4], keys[:3], keys[4:])
+			Expect(svc.Series(ctx, db)).To(Equal(moved))
+		})
+
+		It("Should list a series color with no position last", func(ctx SpecContext) {
+			svc := open(ctx)
+			g := MustSucceed(palette(ctx))
+			extra := color.Named{
+				Name:  "Extra",
+				Light: MustSucceed(xcolor.Parse("#123456")),
+				Group: &g.Key,
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &extra)
+			})).To(Succeed())
+			keys := MustSucceed(svc.Series(ctx, db))
+			Expect(keys).To(HaveLen(17))
+			Expect(keys[16]).To(Equal(extra.Key))
+		})
 	})
 
 	It("Should create 16 series colors in the Series palette", func(ctx SpecContext) {

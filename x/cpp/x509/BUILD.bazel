@@ -1,0 +1,37 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+cc_library(
+    name = "x509",
+    srcs = ["x509.cpp"],
+    hdrs = ["x509.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//x/cpp/date",
+        "//x/cpp/defer",
+        "//x/cpp/errors",
+        "//x/cpp/telem",
+        "@mbedtls",
+    ],
+)
+
+cc_test(
+    name = "x509_test",
+    size = "small",
+    srcs = ["x509_test.cpp"],
+    deps = [
+        ":x509",
+        "//x/cpp/telem",
+        "//x/cpp/testutil",
+        "@googletest//:gtest_main",
+    ],
+)

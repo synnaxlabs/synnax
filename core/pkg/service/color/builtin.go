@@ -10,8 +10,11 @@
 package color
 
 import (
+	"cmp"
 	"context"
 	"fmt"
+	"slices"
+	"strings"
 	"uuid"
 
 	"github.com/samber/lo"
@@ -51,6 +54,34 @@ var series = [...]shipped{
 	{uuid.MustParse("129ea6b8-5285-41cd-8520-e71faddbf781"), 0xBB6452FF, 0xFFA28EFF},
 	{uuid.MustParse("10368988-b260-41a3-898d-3dbd9fba2c58"), 0x657EBCFF, 0xA1BCFFFF},
 	{uuid.MustParse("7e10b078-93f1-4369-b1ba-daaa126301a6"), 0x7C5F06FF, 0xB99A51FF},
+}
+
+// Series returns the keys of the named colors in the "Series" palette, sorted by
+// position and then by key. A color with no position comes last.
+func (s *Service) Series(ctx context.Context, snap gorp.Snapshot) ([]Key, error) {
+	var named []Named
+	if err := s.NewRetrieve().
+		Where(MatchGroups(seriesPalette)).
+		Entries(&named).
+		Exec(ctx, snap); err != nil {
+		return nil, err
+	}
+	slices.SortFunc(named, func(a, b Named) int {
+		return cmp.Or(comparePositions(a.Position, b.Position), a.Key.Compare(b.Key))
+	})
+	return lo.Map(named, func(n Named, _ int) Key { return n.Key }), nil
+}
+
+func comparePositions(a, b *string) int {
+	switch {
+	case a == nil && b == nil:
+		return 0
+	case a == nil:
+		return 1
+	case b == nil:
+		return -1
+	}
+	return strings.Compare(*a, *b)
 }
 
 func isBuiltin(key Key) bool {

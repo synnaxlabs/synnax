@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, mqtt, type task } from "@synnaxlabs/client";
-import { DataType, json, payload, record } from "@synnaxlabs/x";
+import { json, payload, record, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { sparkplugIDZ } from "@/feature/mqtt/device/types";
@@ -39,6 +39,11 @@ export const nodeKey = ({
 export const tagKey = (id: SparkplugTagID): string =>
   `${nodeKey(id)}/${id.device}/${id.tag}`;
 
+/** What a browse dialog reads from an item that a task holds. */
+export type HeldEntry =
+  | { type: "plain"; topic: string; fields: { pointer: string }[] }
+  | ({ type: "sparkplug" } & SparkplugTagID);
+
 const deployTopicZ = z
   .string()
   .min(1, "Topic is required")
@@ -63,87 +68,11 @@ const validateEnabled =
 
 export const READ_TYPE = `${PREFIX}_read`;
 
-export interface ReadField extends mqtt.ReadField {}
-
 export interface PlainReadEntry extends mqtt.PlainReadEntry {}
 
 export interface SparkplugReadEntry extends mqtt.SparkplugReadEntry {}
 
 export type ReadEntry = PlainReadEntry | SparkplugReadEntry;
-
-const validateEnumLabels = (ctx: z.core.ParsePayload<payload.EnumEntry[]>) => {
-  const seen = new Set<string>();
-  ctx.value.forEach(({ label }, i) => {
-    if (seen.has(label))
-      ctx.issues.push({
-        continue: true,
-        code: "custom",
-        input: ctx.value,
-        message: `Duplicate enum label "${label}"`,
-        path: [i, "label"],
-      });
-    else seen.add(label);
-  });
-};
-
-const deployReadFieldZ = mqtt.readFieldZ.extend({
-  pointer: json.pointerZ,
-  enumValues: payload.enumEntryZ
-    .array()
-    .check(validateEnumLabels)
-    .default(() => []),
-});
-
-const isVariable = (field: ReadField): boolean =>
-  new DataType(field.dataType).isVariable;
-
-const validateReadEntry = (ctx: z.core.ParsePayload<PlainReadEntry>) => {
-  const { value } = ctx;
-  const pointers = new Set<string>();
-  const enabled = value.fields.filter(({ disabled }) => !disabled);
-  // A variable-length channel is virtual and has no index.
-  const mixed = enabled.some(isVariable) && !enabled.every(isVariable);
-  value.fields.forEach((field, i) => {
-    if (field.disabled) return;
-    if (mixed && isVariable(field))
-      ctx.issues.push({
-        continue: true,
-        code: "custom",
-        input: value,
-        message:
-          "The fields of a topic share one index, so a variable-length data type cannot mix with the others",
-        path: ["fields", i, "dataType"],
-      });
-    if (pointers.has(field.pointer))
-      ctx.issues.push({
-        continue: true,
-        code: "custom",
-        input: value,
-        message: `Pointer "${field.pointer}" is already used by another field`,
-        path: ["fields", i, "pointer"],
-      });
-    else pointers.add(field.pointer);
-    const isTimestamp =
-      field.key === value.index || DataType.TIMESTAMP.equals(field.dataType);
-    if (isTimestamp && field.timeFormat == null)
-      ctx.issues.push({
-        continue: true,
-        code: "custom",
-        input: value,
-        message: "A timestamp field requires a time format",
-        path: ["fields", i, "timeFormat"],
-      });
-  });
-};
-
-const deployPlainReadEntryZ = mqtt.plainReadEntryZ
-  .extend({
-    topic: deployTopicZ,
-    fields: mqtt.readFieldZ
-      .array()
-      .check(validateEnabled(deployReadFieldZ), Task.validateReadChannels),
-  })
-  .check(validateReadEntry);
 
 const DEPLOY_SPARKPLUG_TAG_SHAPE = {
   group: sparkplugIDZ("Group").min(1, "Group is required"),
@@ -153,7 +82,7 @@ const DEPLOY_SPARKPLUG_TAG_SHAPE = {
 };
 
 const deployReadEntryZ = z.discriminatedUnion("type", [
-  deployPlainReadEntryZ,
+  mqtt.plainReadEntryZ.extend({ topic: deployTopicZ }),
   mqtt.sparkplugReadEntryZ.extend(DEPLOY_SPARKPLUG_TAG_SHAPE),
 ]);
 
@@ -327,9 +256,7 @@ const deployEdgeTagZ = mqtt.edgeTagZ.extend({
   channel: channel.keyZ.refine((key) => key !== 0, "A channel is required"),
 });
 
-// Two enabled tags may publish one channel under two names, so only the name is
-// checked for duplicates.
-const validateEdgeTags = (ctx: z.core.ParsePayload<EdgeTag[]>) => {
+const validateAnyTagEnabled = (ctx: z.core.ParsePayload<EdgeTag[]>) => {
   if (ctx.value.every(({ disabled }) => disabled))
     ctx.issues.push({
       continue: true,
@@ -338,26 +265,23 @@ const validateEdgeTags = (ctx: z.core.ParsePayload<EdgeTag[]>) => {
       message: "At least one tag must be enabled",
       path: [],
     });
-  const seen = new Set<string>();
-  ctx.value.forEach(({ disabled, name }, i) => {
-    if (disabled || name === "") return;
-    if (seen.has(name))
-      ctx.issues.push({
-        continue: true,
-        code: "custom",
-        input: ctx.value,
-        message: `Duplicate name "${name}"`,
-        path: [i, "name"],
-      });
-    else seen.add(name);
-  });
 };
+
+// Two enabled tags may publish one channel under two names, so only the name is
+// checked for duplicates.
+const validateTagNames = zod.uniqueBy<EdgeTag, "name">(
+  "name",
+  (name) => `Duplicate name "${name}"`,
+  ({ disabled, name }) => disabled || name === "",
+);
 
 export const deployEdgeConfigZ = mqtt.edgeConfigZ.extend({
   device: Task.deviceKeyZ,
   group: sparkplugIDZ("Group").min(1, "Group is required"),
   edgeNode: sparkplugIDZ("Edge node").min(1, "Edge node is required"),
-  tags: mqtt.edgeTagZ.array().check(validateEnabled(deployEdgeTagZ), validateEdgeTags),
+  tags: mqtt.edgeTagZ
+    .array()
+    .check(validateEnabled(deployEdgeTagZ), validateAnyTagEnabled, validateTagNames),
 });
 
 export const EDGE_SCHEMAS = {

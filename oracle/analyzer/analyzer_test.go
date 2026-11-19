@@ -1103,6 +1103,153 @@ Node union on variant {
 		)
 	})
 
+	Describe("Rule ranges", func() {
+		DescribeTable(
+			"Should reject rules that no value can satisfy",
+			func(source, want string) {
+				_, diag := Analyze(source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(want))
+			},
+			Entry("a field min above its type's max", `
+				Decimal = float64 { @validate max 1 }
+				Entry struct {
+					value Decimal { @validate min 2 }
+				}
+			`, "test.Entry.value has rules that no value can satisfy"),
+			Entry("a field gt equal to its type's max", `
+				Decimal = float64 { @validate max 1 }
+				Entry struct {
+					value Decimal { @validate gt 1 }
+				}
+			`, "test.Entry.value has rules that no value can satisfy"),
+			Entry("a field min_length above its type's max_length", `
+				Name = string { @validate max_length 4 }
+				Entry struct {
+					value Name { @validate min_length 5 }
+				}
+			`, "test.Entry.value has rules that no value can satisfy"),
+			Entry("a type min above its target's max", `
+				Decimal = float64 { @validate max 1 }
+				Big = Decimal { @validate min 2 }
+			`, "test.Big has rules that no value can satisfy"),
+			Entry("an integer min above an integer max past float precision", `
+				Entry struct {
+					value int64 {
+						@validate min 9007199254740993
+						@validate max 9007199254740992
+					}
+				}
+			`, "test.Entry.value has rules that no value can satisfy"),
+		)
+
+		It("Should report an unsatisfiable type only once", func() {
+			_, diag := Analyze(`
+				Decimal = float64 { @validate max 1 }
+				Big = Decimal { @validate min 2 }
+				Bigger = Big
+				Entry struct {
+					value Big
+					other Big { @validate max 0.5 }
+				}
+			`, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring("test.Big has rules"))
+			Expect(diag.String()).ToNot(ContainSubstring("test.Bigger"))
+			Expect(diag.String()).ToNot(ContainSubstring("test.Entry"))
+		})
+
+		DescribeTable(
+			"Should reject a length rule on a type that is not a string",
+			func(source, want string) {
+				_, diag := Analyze(source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(want))
+			},
+			Entry("an alias of uuid", `
+				Key = uuid { @validate max_length 5 }
+			`, "test.Key has a length rule, but its type is not a string"),
+			Entry("a distinct number", `
+				Count int32 { @validate min_length 1 }
+			`, "test.Count has a length rule, but its type is not a string"),
+		)
+
+		DescribeTable(
+			"Should reject a finite rule on a type that is not a float",
+			func(source, want string) {
+				_, diag := Analyze(source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(want))
+			},
+			Entry("an integer field", `
+				Entry struct {
+					value int32 { @validate finite }
+				}
+			`, "test.Entry.value has a finite rule, but its type is not a float"),
+			Entry("a string field", `
+				Entry struct {
+					value string { @validate finite }
+				}
+			`, "test.Entry.value has a finite rule, but its type is not a float"),
+			Entry("a distinct integer", `
+				Count int32 { @validate finite }
+			`, "test.Count has a finite rule, but its type is not a float"),
+		)
+
+		DescribeTable(
+			"Should accept a finite rule on a float",
+			func(source string) {
+				_, diag := Analyze(source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+			},
+			Entry("a float32 field", `
+				Entry struct {
+					value float32 { @validate finite }
+				}
+			`),
+			Entry("a field of a distinct float", `
+				Rate float64
+				Entry struct {
+					value Rate { @validate finite }
+				}
+			`),
+			Entry("an alias of a float", `
+				Decimal = float64 { @validate finite }
+			`),
+		)
+
+		DescribeTable(
+			"Should accept rules that a value can satisfy",
+			func(source string) {
+				_, diag := Analyze(source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+			},
+			Entry("a field min equal to its type's max", `
+				Decimal = float64 { @validate max 1 }
+				Entry struct {
+					value Decimal { @validate min 1 }
+				}
+			`),
+			Entry("a field min_length equal to its type's max_length", `
+				Name = string { @validate max_length 4 }
+				Entry struct {
+					value Name { @validate min_length 4 }
+				}
+			`),
+			Entry("a length rule on a string alias", `
+				Name = string { @validate max_length 4 }
+			`),
+			Entry("an integer gt below an integer max past float precision", `
+				Entry struct {
+					value int64 {
+						@validate gt 9223372036854775806
+						@validate max 9223372036854775807
+					}
+				}
+			`),
+		)
+	})
+
 	Describe("Pattern rules", func() {
 		DescribeTable(
 			"Should reject a second pattern on a value",
@@ -2905,6 +3052,21 @@ Node union on variant {
 				`struct Diamond inherits field "base" from both Left and Right`,
 			))
 		})
+
+		It(
+			"Should accept a diamond over a struct that extends another",
+			func() {
+				source := `
+				Root struct {}
+				Mid struct extends Root {}
+				Left struct extends Mid { l string }
+				Right struct extends Mid { r string }
+				Diamond struct extends Left, Right {}
+			`
+				_, diag := Analyze(source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+			},
+		)
 
 		It(
 			"Should detect circular inheritance with multiple parents",
@@ -5376,6 +5538,33 @@ var _ = Describe("Analyze", func() {
 		table, diag := analyzer.Analyze([]string{"label", "label.oracle"}, loader)
 		Expect(diag.Ok()).To(BeTrue())
 		Expect(table.MustGet("label.Label").Name).To(Equal("Label"))
+	})
+
+	It("Should derive filter types once across two schemas of one namespace", func() {
+		AddFilterSchema(loader)
+		loader.Add("schemas/x/color", `
+			Color struct {
+				r uint8
+			}
+		`).Add("schemas/synnax/color", `
+			import "schemas/x/color"
+			import "schemas/x/filter"
+
+			Key = uuid
+
+			Named struct {
+				key   Key { @key }
+				light color.Color
+			}
+
+			Where filter Named {
+				key
+			}
+		`)
+		table, diag := analyzer.Analyze([]string{"schemas/synnax/color"}, loader)
+		Expect(diag.Ok()).To(BeTrue(), diag.String())
+		Expect(table.MustGet("color.RetrieveRequest").FilePath).
+			To(Equal("schemas/synnax/color.oracle"))
 	})
 
 	It("Should report a load failure under the requested file", func() {

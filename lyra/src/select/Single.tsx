@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { caseconv, type record } from "@synnaxlabs/x";
+import { type record, strings } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Dialog } from "@/dialog";
@@ -74,6 +74,13 @@ export const Single = <K extends record.Key, E extends record.Keyed<K> | undefin
   triggerProps,
   virtual = true,
   closeDialogOnSelect = true,
+  autoSelectOnNone,
+  initialHover,
+  enableTriggers,
+  cursor,
+  moveX,
+  pinned,
+  overscan,
   ...rest
 }: SingleProps<K, E>): ReactElement => {
   const placeholder = usePlaceholder(resourceName);
@@ -90,13 +97,20 @@ export const Single = <K extends record.Key, E extends record.Keyed<K> | undefin
         itemHeight={itemHeight}
         virtual={virtual}
         closeDialogOnSelect={closeDialogOnSelect}
+        autoSelectOnNone={autoSelectOnNone}
+        initialHover={initialHover}
+        enableTriggers={enableTriggers}
+        cursor={cursor}
+        moveX={moveX}
+        pinned={pinned}
+        overscan={overscan}
       >
         <SingleTrigger
           haulType={haulType}
           icon={icon}
           clearable={allowNone}
           placeholder={placeholder}
-          aria-label={caseconv.capitalize(resourceName)}
+          aria-label={strings.capitalize(resourceName)}
           disabled={disabled}
           preview={preview}
           {...triggerProps}

@@ -180,7 +180,7 @@ export const automationArcZ = baseZ.extend({
   /** program is the compiled module output including IR and WebAssembly bytecode. */
   program: program.programZ.optional(),
   /** changes is what changed in the automation since its task was deployed. */
-  changes: zod.nullToUndefined(changeZ.array()),
+  changes: changeZ.array().default(() => []),
   /**
    * calculations are the calculated channels that the program reads, nested ones
    * included. Dependencies come before the channels that read them.

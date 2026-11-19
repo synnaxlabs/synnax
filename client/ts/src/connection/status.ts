@@ -12,8 +12,8 @@ import {
   deep,
   type destructor,
   id,
-  migrate,
   observe,
+  semver,
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
@@ -283,11 +283,7 @@ const isDev = (version: string): boolean => version.startsWith("0.0.");
 const isCompatible = (nodeVersion: string, clientVersion: string): boolean =>
   isDev(nodeVersion) ||
   isDev(clientVersion) ||
-  migrate.versionsEqual(clientVersion, nodeVersion, {
-    checkMajor: true,
-    checkMinor: true,
-    checkPatch: false,
-  });
+  semver.equal(clientVersion, nodeVersion, { patchIgnored: true });
 
 const checkFacts = (info: Info, config: Config): Partial<StatusDetails> => ({
   clusterKey: info.clusterKey,
@@ -419,6 +415,7 @@ const reduceCheckFailure = (
   // an unlicensed or incompatible Core that stops answering is unreachable
   if (
     prev.variant === "success" ||
+    prev.variant === "warning" ||
     (prev.variant === "error" &&
       (prev.details.reason === "unlicensed" || prev.details.reason === "incompatible"))
   )

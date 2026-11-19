@@ -262,7 +262,7 @@ export const useSubmenus = (): Submenus => {
     visible: open === key,
     onVisibleChange: (next: xstate.SetArg<boolean>) =>
       setState((prev) => {
-        const visible = xstate.executeSetter(next, prev.open === key);
+        const visible = xstate.resolve(next, prev.open === key);
         if (visible) return transition(prev, key);
         if (prev.open === key) return transition(prev, null);
         return prev;

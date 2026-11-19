@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { status } from "@synnaxlabs/client";
-import { bounds, color, MultiSeries, observe } from "@synnaxlabs/x";
+import { bounds, color, type destructor, MultiSeries, observe } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { type Factory } from "@/telem/aether/factory";
@@ -35,7 +35,13 @@ import {
   type Telem,
 } from "@/telem/aether/telem";
 
-class Noop extends observe.Observer<void> implements Telem {
+class Noop implements Telem {
+  private readonly observer = new observe.Observer<void>();
+
+  onChange(handler: observe.Handler<void>): destructor.Destructor {
+    return this.observer.onChange(handler);
+  }
+
   cleanup(): void {}
 }
 

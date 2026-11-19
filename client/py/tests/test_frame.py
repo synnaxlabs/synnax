@@ -11,7 +11,7 @@ import subprocess
 import sys
 from datetime import UTC
 from types import MappingProxyType
-from typing import cast
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -689,8 +689,9 @@ class TestWriteFrameAdapter:
     ) -> None:
         """Should raise a type error when an invalid value is adapted"""
         write_adapter, _ = adapter
+        invalid: Any = Exception("Invalid value")
         with pytest.raises(TypeError):
-            write_adapter.adapt(cast(sy.Frame, Exception("Invalid value")))
+            write_adapter.adapt(invalid)
 
     def test_adapt_dict_keys(
         self, adapter: tuple[WriteFrameAdapter, sy.Channel]

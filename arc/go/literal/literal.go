@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/units"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
@@ -27,13 +28,16 @@ type ParsedValue struct {
 	Value any
 	// Type is the Arc type of the value
 	Type types.Type
+	// Truncated is set when the unit conversion dropped a part of an integer.
+	Truncated bool
 }
 
 // Parse parses a literal AST node and returns its value and type. It supports numeric
 // literals (integer, float, with optional unit suffix) and validates type
 // compatibility. The targetType parameter specifies the expected type for conversion.
 // Float-to-int conversions that lose precision will fail (matching Go semantics for
-// constant conversions).
+// constant conversions). A unit literal converts to the unit of targetType, and keeps
+// its number as written when targetType has no unit.
 func Parse(
 	literal parser.ILiteralContext,
 	targetType types.Type,
@@ -45,54 +49,91 @@ func Parse(
 		return ParseString(str.GetText(), targetType)
 	}
 	if series := literal.SeriesLiteral(); series != nil {
-		return ParsedValue{}, errors.New(
+		return ParsedValue{}, codes.InvalidLiteral.Errorf(
 			"series literals not supported for default values",
 		)
 	}
 	if boolLit := literal.BooleanLiteral(); boolLit != nil {
 		if targetType.IsValid() && targetType.Kind != types.KindBool {
-			return ParsedValue{}, errors.Newf("cannot assign bool to %s", targetType)
+			return ParsedValue{}, codes.TypeMismatch.Errorf(
+				"cannot assign bool to %s",
+				targetType,
+			)
 		}
 		return ParsedValue{Value: boolLit.TRUE() != nil, Type: types.Bool()}, nil
 	}
-	return ParsedValue{}, errors.New("unknown literal type")
+	return ParsedValue{}, codes.InvalidLiteral.Errorf("unknown literal type")
 }
 
+// ErrTruncated marks a float literal that an integer type would truncate.
+var ErrTruncated = errors.New("non-integer float in an integer type")
+
 // ParseString parses any of the eight string literal forms ("..." / `...`
-// crossed with optional r/f/rf/fr prefix) and returns the cooked Go string. For
-// format-prefixed strings without placeholders, {{ and }} are collapsed to
-// literal braces; for format strings with placeholders the body is returned
-// with placeholders intact so callers can run FmtStrParse themselves.
+// crossed with optional r/f/rf/fr prefix) and returns the cooked Go string. A format
+// string collapses {{ and }} to literal braces. One with a placeholder is not a
+// constant and returns a codes.NotConstant error.
 func ParseString(text string, targetType types.Type) (ParsedValue, error) {
 	if targetType.IsValid() && targetType.Kind != types.KindString {
-		return ParsedValue{}, errors.Newf("cannot assign string to %s", targetType)
+		return ParsedValue{}, codes.TypeMismatch.Errorf(
+			"cannot assign string to %s",
+			targetType,
+		)
 	}
 	body, flags, ok := StripQuotes(text)
 	if !ok {
-		return ParsedValue{}, errors.Newf("invalid string literal: %s", text)
+		return ParsedValue{}, codes.InvalidStringLiteral.Errorf(
+			"invalid string literal: %s",
+			text,
+		)
 	}
 	value := body
 	if !flags.Raw {
 		var err error
 		value, err = UnescapeString(body, flags.Multi)
 		if err != nil {
-			return ParsedValue{}, errors.Wrapf(err, "invalid string literal %s", text)
+			return ParsedValue{}, codes.InvalidStringLiteral.Mark(
+				errors.Wrapf(err, "invalid string literal: %s", text),
+			)
 		}
 	}
 	if flags.Format {
 		segments, err := FmtStrSplit(body, flags)
 		if err != nil {
-			return ParsedValue{}, errors.Wrapf(err, "invalid format string %s", text)
+			return ParsedValue{}, codes.InvalidStringLiteral.Mark(
+				errors.Wrapf(err, "invalid format string %s", text),
+			)
 		}
-		if !FmtStrHasPlaceholder(segments) {
-			var sb strings.Builder
-			for _, seg := range segments {
-				sb.WriteString(seg.Text)
-			}
-			value = sb.String()
+		if FmtStrHasPlaceholder(segments) {
+			return ParsedValue{}, codes.NotConstant.Errorf(
+				"format string %s is not a compile-time constant",
+				text,
+			)
 		}
+		var sb strings.Builder
+		for _, seg := range segments {
+			sb.WriteString(seg.Text)
+		}
+		value = sb.String()
 	}
 	return ParsedValue{Value: value, Type: types.String()}, nil
+}
+
+// IsConstant reports whether expr is a lone literal with a value known at compile
+// time. A format string that has a placeholder, or that does not split, is not.
+func IsConstant(expr parser.IExpressionContext) bool {
+	if !parser.IsLiteral(expr) {
+		return false
+	}
+	str := parser.StringTerminal(parser.GetLiteral(expr))
+	if str == nil {
+		return true
+	}
+	body, flags, ok := StripQuotes(str.GetText())
+	if !ok || !flags.Format {
+		return true
+	}
+	segments, err := FmtStrSplit(body, flags)
+	return err == nil && !FmtStrHasPlaceholder(segments)
 }
 
 // ParseNumeric parses a numeric literal (integer or float, with optional unit suffix)
@@ -104,59 +145,121 @@ func ParseNumeric(
 	numLit parser.INumericLiteralContext,
 	targetType types.Type,
 ) (ParsedValue, error) {
-	return parseNumericSigned(numLit, numLit.MINUS() != nil, targetType)
+	return ParseNumericSigned(numLit, numLit.MINUS() != nil, targetType)
 }
 
-// parseNumericSigned parses numLit's magnitude and applies negate before the range
+// ParseNumericSigned parses numLit's magnitude and applies negate before the range
 // check and unit scaling, so type minimums like -128 for i8 fit and negated units keep
 // sign.
-func parseNumericSigned(
+func ParseNumericSigned(
 	numLit parser.INumericLiteralContext,
 	negate bool,
 	targetType types.Type,
 ) (ParsedValue, error) {
 	if intLit := numLit.INTEGER_LITERAL(); intLit != nil {
-		intValue, err := strconv.ParseInt(intLit.GetText(), 10, 64)
-		if err != nil {
-			return ParsedValue{}, errors.Wrapf(
-				err,
-				"invalid integer literal: %s",
-				intLit.GetText(),
-			)
-		}
+		return parseIntegerMagnitude(numLit, intLit.GetText(), negate, targetType)
+	}
+	if floatLit := numLit.FLOAT_LITERAL(); floatLit != nil {
+		return parseFloatMagnitude(numLit, floatLit.GetText(), negate, targetType)
+	}
+	return ParsedValue{}, codes.InvalidLiteral.Errorf("unknown numeric literal")
+}
+
+func parseIntegerMagnitude(
+	numLit parser.INumericLiteralContext,
+	text string,
+	negate bool,
+	targetType types.Type,
+) (ParsedValue, error) {
+	magnitude, err := strconv.ParseUint(text, 10, 64)
+	if err != nil {
+		return ParsedValue{}, codes.InvalidLiteral.Mark(
+			errors.Wrapf(err, "invalid integer literal: %s", text),
+		)
+	}
+	if magnitude <= math.MaxInt64 {
+		intValue := int64(magnitude)
 		if negate {
 			intValue = -intValue
 		}
-		if unitID := numLit.IDENTIFIER(); unitID != nil {
-			return parseNumericWithUnit(
-				float64(intValue),
-				true,
-				unitID.GetText(),
-				targetType,
-			)
-		}
-		return parseIntegerLiteral(intValue, targetType)
+		return parseIntegerValue(numLit, intValue, targetType)
 	}
-
-	if floatLit := numLit.FLOAT_LITERAL(); floatLit != nil {
-		floatValue, err := strconv.ParseFloat(floatLit.GetText(), 64)
+	switch {
+	case negate && magnitude == -math.MinInt64:
+		return parseIntegerValue(numLit, math.MinInt64, targetType)
+	case !negate && targetType.Kind == types.KindU64 &&
+		numLit.IDENTIFIER() == nil:
+		return ParsedValue{Value: magnitude, Type: types.U64()}, nil
+	case targetType.IsFloat():
+		floatValue, err := strconv.ParseFloat(text, 64)
 		if err != nil {
-			return ParsedValue{}, errors.Wrapf(
-				err,
-				"invalid float literal: %s",
-				floatLit.GetText(),
+			return ParsedValue{}, codes.InvalidLiteral.Mark(
+				errors.Wrapf(err, "invalid integer literal: %s", text),
 			)
 		}
 		if negate {
 			floatValue = -floatValue
 		}
 		if unitID := numLit.IDENTIFIER(); unitID != nil {
-			return parseNumericWithUnit(floatValue, false, unitID.GetText(), targetType)
+			return parseNumericWithUnit(
+				floatValue,
+				true,
+				unitID.GetText(),
+				targetType,
+			)
 		}
 		return parseFloatLiteral(floatValue, targetType)
+	default:
+		rangeType := types.I64()
+		if targetType.IsValid() {
+			rangeType = targetType
+		}
+		if negate {
+			text = "-" + text
+		}
+		return ParsedValue{}, codes.ConstantOverflow.Errorf(
+			"integer literal %s out of range for %s",
+			text,
+			rangeType,
+		)
 	}
+}
 
-	return ParsedValue{}, errors.New("unknown numeric literal")
+func parseIntegerValue(
+	numLit parser.INumericLiteralContext,
+	intValue int64,
+	targetType types.Type,
+) (ParsedValue, error) {
+	if unitID := numLit.IDENTIFIER(); unitID != nil {
+		return parseNumericWithUnit(
+			float64(intValue),
+			true,
+			unitID.GetText(),
+			targetType,
+		)
+	}
+	return parseIntegerLiteral(intValue, targetType)
+}
+
+func parseFloatMagnitude(
+	numLit parser.INumericLiteralContext,
+	text string,
+	negate bool,
+	targetType types.Type,
+) (ParsedValue, error) {
+	floatValue, err := strconv.ParseFloat(text, 64)
+	if err != nil {
+		return ParsedValue{}, codes.InvalidLiteral.Mark(
+			errors.Wrapf(err, "invalid float literal: %s", text),
+		)
+	}
+	if negate {
+		floatValue = -floatValue
+	}
+	if unitID := numLit.IDENTIFIER(); unitID != nil {
+		return parseNumericWithUnit(floatValue, false, unitID.GetText(), targetType)
+	}
+	return parseFloatLiteral(floatValue, targetType)
 }
 
 // parseNumericWithUnit handles numeric literals with unit suffixes (e.g., "300ms",
@@ -170,37 +273,45 @@ func parseNumericWithUnit(
 ) (ParsedValue, error) {
 	unit, ok := units.Resolve(unitName)
 	if !ok {
-		return ParsedValue{}, errors.Newf("unknown unit: %s", unitName)
+		return ParsedValue{}, codes.UnknownUnit.Errorf("unknown unit: %s", unitName)
 	}
 
-	// If target type has a unit, convert to target unit's scale
-	// Example: 300ms with target TimeSpan() (ns) → 300 * (1e-3 / 1e-9) = 300,000,000
-	if targetType.Unit != nil {
-		factor, err := units.ScaleFactor(unit, targetType.Unit)
-		if err != nil {
-			return ParsedValue{}, err
+	targetType = types.Concrete(targetType)
+	if !targetType.IsValid() {
+		targetType.Kind = types.KindF64
+		if isIntLiteral {
+			targetType.Kind = types.KindI64
 		}
-		targetValue := numericValue * factor
-		return convertToTargetKind(targetValue, targetType, unit)
 	}
-
-	// If target type has a kind but no unit, convert to SI then to target kind
-	if targetType.IsValid() {
-		siValue := numericValue * unit.Scale
-		return convertToTargetKind(siValue, targetType, unit)
+	// A target with no unit takes the number as written.
+	if targetType.Unit == nil {
+		return convertToTargetKind(numericValue, targetType, unit)
 	}
+	return Convert(numericValue, unit, targetType)
+}
 
-	// Default (no target type): use type inference int64 if scaled result is exact
-	// integer AND original literal was integer, else f64
-	siValue := numericValue * unit.Scale
-
-	resultType := types.Type{Unit: unit}
-	if isIntLiteral && IsExactInteger(siValue) {
-		resultType.Kind = types.KindI64
-		return ParsedValue{Value: int64(math.Round(siValue)), Type: resultType}, nil
+// Convert returns value, a number in the unit from, as a value of targetType in its
+// unit. An integer does not hold a part of a unit, so it truncates toward zero.
+func Convert(
+	value float64,
+	from *types.Unit,
+	targetType types.Type,
+) (ParsedValue, error) {
+	factor, err := units.ScaleFactor(from, targetType.Unit)
+	if err != nil {
+		return ParsedValue{}, err
 	}
-	resultType.Kind = types.KindF64
-	return ParsedValue{Value: siValue, Type: resultType}, nil
+	value *= factor
+	// IsExactInteger takes a value under 1e-9 as an exact zero.
+	dropped := value != 0 && math.Round(value) == 0
+	truncated := targetType.IsInteger() && factor != math.Trunc(factor) &&
+		(dropped || !IsExactInteger(value))
+	if truncated {
+		value = math.Trunc(value)
+	}
+	parsed, err := convertToTargetKind(value, targetType, targetType.Unit)
+	parsed.Truncated = truncated
+	return parsed, err
 }
 
 // parseIntegerLiteral converts an integer value to the target type.
@@ -215,7 +326,7 @@ func parseIntegerLiteral(intValue int64, targetType types.Type) (ParsedValue, er
 	switch targetType.Kind {
 	case types.KindI8:
 		if intValue < math.MinInt8 || intValue > math.MaxInt8 {
-			return ParsedValue{}, errors.Newf(
+			return ParsedValue{}, codes.ConstantOverflow.Errorf(
 				"value %d out of range for i8 (must be in [%d, %d])",
 				intValue,
 				math.MinInt8,
@@ -225,7 +336,7 @@ func parseIntegerLiteral(intValue int64, targetType types.Type) (ParsedValue, er
 		return ParsedValue{Value: int8(intValue), Type: types.I8()}, nil
 	case types.KindI16:
 		if intValue < math.MinInt16 || intValue > math.MaxInt16 {
-			return ParsedValue{}, errors.Newf(
+			return ParsedValue{}, codes.ConstantOverflow.Errorf(
 				"value %d out of range for i16 (must be in [%d, %d])",
 				intValue,
 				math.MinInt16,
@@ -235,7 +346,7 @@ func parseIntegerLiteral(intValue int64, targetType types.Type) (ParsedValue, er
 		return ParsedValue{Value: int16(intValue), Type: types.I16()}, nil
 	case types.KindI32:
 		if intValue < math.MinInt32 || intValue > math.MaxInt32 {
-			return ParsedValue{}, errors.Newf(
+			return ParsedValue{}, codes.ConstantOverflow.Errorf(
 				"value %d out of range for i32 (must be in [%d, %d])",
 				intValue,
 				math.MinInt32,
@@ -244,10 +355,13 @@ func parseIntegerLiteral(intValue int64, targetType types.Type) (ParsedValue, er
 		}
 		return ParsedValue{Value: int32(intValue), Type: types.I32()}, nil
 	case types.KindI64:
+		if isTime(targetType.Unit) {
+			return ParsedValue{Value: telem.TimeSpan(intValue), Type: types.I64()}, nil
+		}
 		return ParsedValue{Value: intValue, Type: types.I64()}, nil
 	case types.KindU8:
 		if intValue < 0 || intValue > math.MaxUint8 {
-			return ParsedValue{}, errors.Newf(
+			return ParsedValue{}, codes.ConstantOverflow.Errorf(
 				"value %d out of range for u8 (must be in [0, %d])",
 				intValue,
 				math.MaxUint8,
@@ -256,7 +370,7 @@ func parseIntegerLiteral(intValue int64, targetType types.Type) (ParsedValue, er
 		return ParsedValue{Value: uint8(intValue), Type: types.U8()}, nil
 	case types.KindU16:
 		if intValue < 0 || intValue > math.MaxUint16 {
-			return ParsedValue{}, errors.Newf(
+			return ParsedValue{}, codes.ConstantOverflow.Errorf(
 				"value %d out of range for u16 (must be in [0, %d])",
 				intValue,
 				math.MaxUint16,
@@ -265,7 +379,7 @@ func parseIntegerLiteral(intValue int64, targetType types.Type) (ParsedValue, er
 		return ParsedValue{Value: uint16(intValue), Type: types.U16()}, nil
 	case types.KindU32:
 		if intValue < 0 || intValue > math.MaxUint32 {
-			return ParsedValue{}, errors.Newf(
+			return ParsedValue{}, codes.ConstantOverflow.Errorf(
 				"value %d out of range for u32 (must be in [0, %d])",
 				intValue,
 				math.MaxUint32,
@@ -274,7 +388,7 @@ func parseIntegerLiteral(intValue int64, targetType types.Type) (ParsedValue, er
 		return ParsedValue{Value: uint32(intValue), Type: types.U32()}, nil
 	case types.KindU64:
 		if intValue < 0 {
-			return ParsedValue{}, errors.Newf(
+			return ParsedValue{}, codes.ConstantOverflow.Errorf(
 				"value %d out of range for u64 (must be non-negative)",
 				intValue,
 			)
@@ -302,100 +416,121 @@ func parseFloatLiteral(value float64, targetType types.Type) (ParsedValue, error
 	switch targetType.Kind {
 	case types.KindF32:
 		if math.Abs(value) > math.MaxFloat32 {
-			return ParsedValue{}, errors.Newf("value %f out of range for f32", value)
+			return ParsedValue{}, codes.ConstantOverflow.Errorf(
+				"value %f out of range for f32",
+				value,
+			)
 		}
 		return ParsedValue{Value: float32(value), Type: types.F32()}, nil
 	case types.KindF64:
 		return ParsedValue{Value: value, Type: types.F64()}, nil
 	case types.KindI8:
 		if value != math.Trunc(value) {
-			return ParsedValue{}, errors.Newf(
+			return ParsedValue{}, codes.InvalidLiteral.Mark(errors.Mark(errors.Newf(
 				"cannot convert non-integer float %f to i8",
 				value,
-			)
+			), ErrTruncated))
 		}
 		intVal := int64(value)
 		if intVal < math.MinInt8 || intVal > math.MaxInt8 {
-			return ParsedValue{}, errors.Newf("value %f out of range for i8", value)
+			return ParsedValue{}, codes.ConstantOverflow.Errorf(
+				"value %f out of range for i8",
+				value,
+			)
 		}
 		return ParsedValue{Value: int8(intVal), Type: types.I8()}, nil
 	case types.KindI16:
 		if value != math.Trunc(value) {
-			return ParsedValue{}, errors.Newf(
+			return ParsedValue{}, codes.InvalidLiteral.Mark(errors.Mark(errors.Newf(
 				"cannot convert non-integer float %f to i16",
 				value,
-			)
+			), ErrTruncated))
 		}
 		intVal := int64(value)
 		if intVal < math.MinInt16 || intVal > math.MaxInt16 {
-			return ParsedValue{}, errors.Newf("value %f out of range for i16", value)
+			return ParsedValue{}, codes.ConstantOverflow.Errorf(
+				"value %f out of range for i16",
+				value,
+			)
 		}
 		return ParsedValue{Value: int16(intVal), Type: types.I16()}, nil
 	case types.KindI32:
 		if value != math.Trunc(value) {
-			return ParsedValue{}, errors.Newf(
+			return ParsedValue{}, codes.InvalidLiteral.Mark(errors.Mark(errors.Newf(
 				"cannot convert non-integer float %f to i32",
 				value,
-			)
+			), ErrTruncated))
 		}
 		intVal := int64(value)
 		if intVal < math.MinInt32 || intVal > math.MaxInt32 {
-			return ParsedValue{}, errors.Newf("value %f out of range for i32", value)
+			return ParsedValue{}, codes.ConstantOverflow.Errorf(
+				"value %f out of range for i32",
+				value,
+			)
 		}
 		return ParsedValue{Value: int32(intVal), Type: types.I32()}, nil
 	case types.KindI64:
 		if value != math.Trunc(value) {
-			return ParsedValue{}, errors.Newf(
+			return ParsedValue{}, codes.InvalidLiteral.Mark(errors.Mark(errors.Newf(
 				"cannot convert non-integer float %f to i64",
 				value,
-			)
+			), ErrTruncated))
 		}
 		return ParsedValue{Value: int64(value), Type: types.I64()}, nil
 	case types.KindU8:
 		if value != math.Trunc(value) {
-			return ParsedValue{}, errors.Newf(
+			return ParsedValue{}, codes.InvalidLiteral.Mark(errors.Mark(errors.Newf(
 				"cannot convert non-integer float %f to u8",
 				value,
-			)
+			), ErrTruncated))
 		}
 		intVal := int64(value)
 		if intVal < 0 || intVal > math.MaxUint8 {
-			return ParsedValue{}, errors.Newf("value %f out of range for u8", value)
+			return ParsedValue{}, codes.ConstantOverflow.Errorf(
+				"value %f out of range for u8",
+				value,
+			)
 		}
 		return ParsedValue{Value: uint8(intVal), Type: types.U8()}, nil
 	case types.KindU16:
 		if value != math.Trunc(value) {
-			return ParsedValue{}, errors.Newf(
+			return ParsedValue{}, codes.InvalidLiteral.Mark(errors.Mark(errors.Newf(
 				"cannot convert non-integer float %f to u16",
 				value,
-			)
+			), ErrTruncated))
 		}
 		intVal := int64(value)
 		if intVal < 0 || intVal > math.MaxUint16 {
-			return ParsedValue{}, errors.Newf("value %f out of range for u16", value)
+			return ParsedValue{}, codes.ConstantOverflow.Errorf(
+				"value %f out of range for u16",
+				value,
+			)
 		}
 		return ParsedValue{Value: uint16(intVal), Type: types.U16()}, nil
 	case types.KindU32:
 		if value != math.Trunc(value) {
-			return ParsedValue{}, errors.Newf(
+			return ParsedValue{}, codes.InvalidLiteral.Mark(errors.Mark(errors.Newf(
 				"cannot convert non-integer float %f to u32",
 				value,
-			)
+			), ErrTruncated))
 		}
 		intVal := int64(value)
 		if intVal < 0 || intVal > math.MaxUint32 {
-			return ParsedValue{}, errors.Newf("value %f out of range for u32", value)
+			return ParsedValue{}, codes.ConstantOverflow.Errorf(
+				"value %f out of range for u32",
+				value,
+			)
 		}
 		return ParsedValue{Value: uint32(intVal), Type: types.U32()}, nil
 	case types.KindU64:
 		if value != math.Trunc(value) {
-			return ParsedValue{}, errors.Newf(
+			return ParsedValue{}, codes.InvalidLiteral.Mark(errors.Mark(errors.Newf(
 				"cannot convert non-integer float %f to u64",
 				value,
-			)
+			), ErrTruncated))
 		}
 		if value < 0 {
-			return ParsedValue{}, errors.Newf(
+			return ParsedValue{}, codes.ConstantOverflow.Errorf(
 				"value %f out of range for u64 (must be non-negative)",
 				value,
 			)
@@ -425,7 +560,7 @@ func convertToTargetKind(
 	case types.KindI8, types.KindI16, types.KindI32, types.KindI64,
 		types.KindU8, types.KindU16, types.KindU32, types.KindU64:
 		if !IsExactInteger(value) {
-			return ParsedValue{}, errors.Newf(
+			return ParsedValue{}, codes.InvalidLiteral.Errorf(
 				"cannot convert %g to %s: value has fractional part",
 				value, targetType.Kind,
 			)
@@ -443,47 +578,65 @@ func convertToTargetKind(
 	case types.KindI8:
 		intVal := int64(value)
 		if intVal < math.MinInt8 || intVal > math.MaxInt8 {
-			return ParsedValue{}, errors.Newf("value %g out of range for i8", value)
+			return ParsedValue{}, codes.ConstantOverflow.Errorf(
+				"value %g out of range for i8",
+				value,
+			)
 		}
 		return ParsedValue{Value: int8(intVal), Type: resultType}, nil
 	case types.KindI16:
 		intVal := int64(value)
 		if intVal < math.MinInt16 || intVal > math.MaxInt16 {
-			return ParsedValue{}, errors.Newf("value %g out of range for i16", value)
+			return ParsedValue{}, codes.ConstantOverflow.Errorf(
+				"value %g out of range for i16",
+				value,
+			)
 		}
 		return ParsedValue{Value: int16(intVal), Type: resultType}, nil
 	case types.KindI32:
 		intVal := int64(value)
 		if intVal < math.MinInt32 || intVal > math.MaxInt32 {
-			return ParsedValue{}, errors.Newf("value %g out of range for i32", value)
+			return ParsedValue{}, codes.ConstantOverflow.Errorf(
+				"value %g out of range for i32",
+				value,
+			)
 		}
 		return ParsedValue{Value: int32(intVal), Type: resultType}, nil
 	case types.KindI64:
-		if resultType.Unit.Dimensions.Equal(types.TimeSpan().Unit.Dimensions) {
+		if isTime(resultType.Unit) {
 			return ParsedValue{Value: telem.TimeSpan(value), Type: resultType}, nil
 		}
 		return ParsedValue{Value: int64(value), Type: resultType}, nil
 	case types.KindU8:
 		intVal := int64(value)
 		if intVal < 0 || intVal > math.MaxUint8 {
-			return ParsedValue{}, errors.Newf("value %g out of range for u8", value)
+			return ParsedValue{}, codes.ConstantOverflow.Errorf(
+				"value %g out of range for u8",
+				value,
+			)
 		}
 		return ParsedValue{Value: uint8(intVal), Type: resultType}, nil
 	case types.KindU16:
 		intVal := int64(value)
 		if intVal < 0 || intVal > math.MaxUint16 {
-			return ParsedValue{}, errors.Newf("value %g out of range for u16", value)
+			return ParsedValue{}, codes.ConstantOverflow.Errorf(
+				"value %g out of range for u16",
+				value,
+			)
 		}
 		return ParsedValue{Value: uint16(intVal), Type: resultType}, nil
 	case types.KindU32:
 		intVal := int64(value)
 		if intVal < 0 || intVal > math.MaxUint32 {
-			return ParsedValue{}, errors.Newf("value %g out of range for u32", value)
+			return ParsedValue{}, codes.ConstantOverflow.Errorf(
+				"value %g out of range for u32",
+				value,
+			)
 		}
 		return ParsedValue{Value: uint32(intVal), Type: resultType}, nil
 	case types.KindU64:
 		if value < 0 {
-			return ParsedValue{}, errors.Newf(
+			return ParsedValue{}, codes.ConstantOverflow.Errorf(
 				"value %g out of range for u64 (must be non-negative)",
 				value,
 			)
@@ -491,7 +644,10 @@ func convertToTargetKind(
 		return ParsedValue{Value: uint64(value), Type: resultType}, nil
 	case types.KindF32:
 		if math.Abs(value) > math.MaxFloat32 && !math.IsInf(value, 0) {
-			return ParsedValue{}, errors.Newf("value %g out of range for f32", value)
+			return ParsedValue{}, codes.ConstantOverflow.Errorf(
+				"value %g out of range for f32",
+				value,
+			)
 		}
 		return ParsedValue{Value: float32(value), Type: resultType}, nil
 	case types.KindF64:
@@ -504,6 +660,10 @@ func convertToTargetKind(
 	}
 	resultType.Kind = types.KindF64
 	return ParsedValue{Value: value, Type: resultType}, nil
+}
+
+func isTime(unit *types.Unit) bool {
+	return unit != nil && unit.Dimensions.Equal(types.TimeSpan().Unit.Dimensions)
 }
 
 // IsExactInteger checks if a float64 value is very close to an integer.
@@ -525,7 +685,7 @@ func ParseConst(
 	targetType types.Type,
 ) (ParsedValue, error) {
 	if expr == nil {
-		return ParsedValue{}, errors.New("expression is not a constant")
+		return ParsedValue{}, codes.NotConstant.Errorf("not a constant: expression")
 	}
 	if primary := parser.GetPrimaryExpression(expr); primary != nil {
 		if lit := primary.Literal(); lit != nil {
@@ -535,9 +695,11 @@ func ParseConst(
 	if parser.IsNegatedLiteral(expr) {
 		if lit := parser.GetLiteral(expr); lit != nil {
 			if numLit := lit.NumericLiteral(); numLit != nil {
-				return parseNumericSigned(numLit, true, targetType)
+				return ParseNumericSigned(numLit, true, targetType)
 			}
 		}
 	}
-	return ParsedValue{}, errors.New("expression is not a compile-time constant")
+	return ParsedValue{}, codes.NotConstant.Errorf(
+		"expression is not a compile-time constant",
+	)
 }

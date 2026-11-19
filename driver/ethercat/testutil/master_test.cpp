@@ -25,7 +25,7 @@ public:
         const auto position = ++this->slaves;
         this->m.add_slave({
             .position = position,
-            .name = "Slave " + std::to_string(position),
+            .name = "Module " + std::to_string(position),
             .input_pdos = {{
                 .pdo_index = 0x1A00,
                 .index = 0x6000,

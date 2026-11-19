@@ -28,9 +28,9 @@ Always prefix with `uv run`. Client CLI: `uv run sy --help`.
 ## Style
 
 - Ruff: 88-char lines, target py313. Rules: `F`, `I`, `B`, `DTZ`, `E501`, `E7`, `E9`,
-  `PLE`, `UP`, `SIM`, `C4`, `RET`, `PIE`, `PERF`, `RUF`, and `PT` (not in
-  `integration`). The published packages also select the preview rule `PLW1514`: pass
-  `encoding="utf-8"` to every text file open.
+  `PLE`, `PLR1722`, `UP`, `SIM`, `C4`, `RET`, `PIE`, `PERF`, `RUF`, `S110`, and `PT`
+  (not in `integration`). The published packages also select the preview rule `PLW1514`:
+  pass `encoding="utf-8"` to every text file open.
 - mypy strict with numpy and pydantic plugins — fix type issues early.
 - Type hints on every function signature.
 - Pydantic models for validation at API boundaries (they validate at runtime).
@@ -46,7 +46,7 @@ Always prefix with `uv run`. Client CLI: `uv run sy --help`.
 - The top-level `synnax/__init__.py` flattens the public SDK surface; name collisions
   resolve with import aliases (`from synnax.task import Status as TaskStatus`), never by
   renaming the source class.
-- Never use `TYPE_CHECKING`; `scripts/check_suppressions_py.py` fails CI on a new one.
+- Never use `TYPE_CHECKING`; `scripts/check_suppressions_py.py` fails CI on any use.
   Break an import cycle by moving the shared type into a module both sides import, or by
   importing the module instead of names from it.
 

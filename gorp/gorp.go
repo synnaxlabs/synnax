@@ -11,6 +11,7 @@ package gorp
 
 import (
 	"context"
+	"runtime/pprof"
 	"slices"
 	"sync"
 	"sync/atomic"
@@ -34,6 +35,10 @@ func Wrap(
 		options:  o,
 		registry: newRegistry(),
 		delivery: delivery{observer: observe.New[Commit](), ins: o.Instrumentation},
+		run: runState{
+			populates: make(chan func(context.Context)),
+			stopped:   make(chan struct{}),
+		},
 	}
 }
 
@@ -56,6 +61,29 @@ type DB struct {
 	lock sync.RWMutex
 	// delivery delivers each commit to the readers of Observe.
 	delivery delivery
+	// run hands the index populates of tables to Run.
+	run runState
+}
+
+// runStage is the stage of DB.Run.
+type runStage uint8
+
+const (
+	runIdle runStage = iota
+	runRunning
+	runStopped
+)
+
+// runState is the state of DB.Run.
+type runState struct {
+	// mu orders the start of Run against Close.
+	mu     sync.Mutex
+	stage  runStage
+	closed bool
+	// populates receives the index populates of tables while Run runs.
+	populates chan func(context.Context)
+	// stopped closes when Run stops receiving populates.
+	stopped chan struct{}
 }
 
 var _ Tx = (*DB)(nil)
@@ -144,10 +172,80 @@ func (db *DB) WithSnapshot(_ context.Context, f func(Snapshot) error) error {
 	return f(snapshot{Reader: db.DB, Decoder: db.Codec})
 }
 
-// Close closes the underlying DB. Although embedded into the DB struct, Jetbrains
-// Goland complains of an ambiguous reference to the Close method if it is not
-// explicitly defined.
-func (db *DB) Close() error { return db.DB.Close() }
+// Run populates the indexes of the tables that open on the DB until ctx ends. It then
+// waits for the populates in progress to stop and returns nil. A populate that ctx ends
+// leaves its indexes invalid. OpenTable for a table with indexes or references waits
+// for Run to start and fails after Run stops. Commits to a table wait for its indexes
+// to populate. Call Run once, and Close only after Run returns. A second Run, or a Run
+// after Close, returns an error.
+func (db *DB) Run(ctx context.Context) error {
+	db.run.mu.Lock()
+	if db.run.closed {
+		db.run.mu.Unlock()
+		return errors.New("[gorp] - Run called after Close")
+	}
+	if db.run.stage != runIdle {
+		db.run.mu.Unlock()
+		return errors.New("[gorp] - Run called twice")
+	}
+	db.run.stage = runRunning
+	db.run.mu.Unlock()
+	defer func() {
+		db.run.mu.Lock()
+		db.run.stage = runStopped
+		db.run.mu.Unlock()
+	}()
+	var wg sync.WaitGroup
+	defer wg.Wait()
+	defer close(db.run.stopped)
+	for {
+		select {
+		case populate := <-db.run.populates:
+			wg.Go(func() {
+				pprof.Do(ctx, pprof.Labels("routine", "gorp_index_populate"), populate)
+			})
+		case <-ctx.Done():
+			return nil
+		}
+	}
+}
+
+// goPopulate hands populate to Run. It waits for Run to start, and returns an error
+// when Run has stopped or ctx ends first.
+func (db *DB) goPopulate(ctx context.Context, populate func(context.Context)) error {
+	warn := time.NewTimer(waitWarning)
+	defer warn.Stop()
+	for {
+		select {
+		case db.run.populates <- populate:
+			return nil
+		case <-db.run.stopped:
+			return errors.New(
+				"[gorp] - a table with indexes or references opened after DB.Run stopped",
+			)
+		case <-ctx.Done():
+			return errors.Wrap(
+				ctx.Err(),
+				"[gorp] - a table with indexes or references waited for DB.Run",
+			)
+		case <-warn.C:
+			db.Instrumentation.L.Warn("gorp table open waited long for DB.Run to start")
+		}
+	}
+}
+
+// Close closes the underlying DB. Call it only after Run returns: while Run runs, Close
+// returns an error and closes nothing.
+func (db *DB) Close() error {
+	db.run.mu.Lock()
+	if db.run.stage == runRunning {
+		db.run.mu.Unlock()
+		return errors.New("[gorp] - Close called while Run runs")
+	}
+	db.run.closed = true
+	db.run.mu.Unlock()
+	return db.DB.Close()
+}
 
 // KV returns the underlying key-value storage backing the DB.
 func (db *DB) KV() kv.DB { return db.DB }

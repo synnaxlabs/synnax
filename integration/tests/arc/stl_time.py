@@ -85,6 +85,17 @@ func count_intervals_mod() {
     interval_count_mod = interval_count_mod + 1
 }
 time.interval(period=100ms) -> count_intervals_mod()
+// A period held in a variable, in milliseconds and in nanoseconds.
+period_ms := 100ms
+func count_intervals_ms() {
+    interval_count_ms = interval_count_ms + 1
+}
+time.interval(period=period_ms) -> count_intervals_ms()
+period_ns := 100000000ns
+func count_intervals_ns() {
+    interval_count_ns = interval_count_ns + 1
+}
+time.interval(period=period_ns) -> count_intervals_ns()
 // ──────────────────────────── time.wait ─────────────────────────────
 // Regression test: wait{3s} previously took 5-7s due to a runtime bug.
 // 3 seconds was chosen because it's long enough to measure accurately
@@ -113,11 +124,63 @@ sequence main_module {
     }
 }
 start_wait_mod_cmd => main_module
+// A duration held in a variable. The waits are 1 second to keep the test short.
+wait_s := 1s
+sequence main_var_s {
+    stage stage1 {
+        1 -> toggle_cmd_var_s
+        time.wait(wait_s) => stage2
+    }
+    stage stage2 {
+        0 -> toggle_cmd_var_s
+    }
+}
+start_wait_var_s_cmd => main_var_s
+wait_ns := 1000000000ns
+sequence main_var_ns {
+    stage stage1 {
+        1 -> toggle_cmd_var_ns
+        time.wait(wait_ns) => stage2
+    }
+    stage stage2 {
+        0 -> toggle_cmd_var_ns
+    }
+}
+start_wait_var_ns_cmd => main_var_ns
+// A sequence variable, in milliseconds.
+sequence main_seq_var {
+    hold := 1000ms
+    stage stage1 {
+        1 -> toggle_cmd_seq_var
+        time.wait(hold) => stage2
+    }
+    stage stage2 {
+        0 -> toggle_cmd_seq_var
+    }
+}
+start_wait_seq_var_cmd => main_seq_var
+// A duration held in a variable that is assigned again.
+sequence main_reassign {
+    hold := 60s
+    stage shorten {
+        1000ms -> hold
+        hold < 60 => next
+    }
+    stage stage1 {
+        1 -> toggle_cmd_reassign
+        time.wait(hold) => stage2
+    }
+    stage stage2 {
+        0 -> toggle_cmd_reassign
+    }
+}
+start_wait_reassign_cmd => main_reassign
 """
 
-# Wait timing bounds (seconds). See regression comment in Arc source above.
-MAX_WAIT_DURATION = 4.0
-MIN_WAIT_DURATION = 2.5
+# How far a measured wait can be under or over its duration (seconds). See the
+# regression comment in the Arc source above.
+WAIT_UNDER = 0.5
+WAIT_OVER = 0.5
 
 # Jan 1, 2020 00:00:00 UTC in nanoseconds — sanity floor for time.now().
 # Catches unit bugs (seconds vs. nanos) or zero returns.
@@ -356,30 +419,32 @@ def python_zone_strftime(ns: int, fmt: str, zone: str) -> str | None:
     return stamp.astimezone(ZoneInfo(zone)).strftime(fmt)
 
 
-# (channel, label) for the two free-running interval counters.
+# (channel, label) for the free-running interval counters.
 INTERVAL_CHANNELS = (
     ("interval_count", "standalone"),
     ("interval_count_mod", "module"),
+    ("interval_count_ms", "ms variable"),
+    ("interval_count_ns", "ns variable"),
 )
 
-# (start_cmd, toggle, label) for the two wait sequences measured concurrently.
+# (start_cmd, toggle, label, seconds) for the concurrent waits, shortest first.
 WAIT_CASES = (
-    ("start_wait_cmd", "toggle_cmd", "standalone"),
-    ("start_wait_mod_cmd", "toggle_cmd_mod", "module"),
+    ("start_wait_var_s_cmd", "toggle_cmd_var_s", "s variable", 1.0),
+    ("start_wait_var_ns_cmd", "toggle_cmd_var_ns", "ns variable", 1.0),
+    ("start_wait_seq_var_cmd", "toggle_cmd_seq_var", "sequence variable", 1.0),
+    ("start_wait_reassign_cmd", "toggle_cmd_reassign", "reassigned variable", 1.0),
+    ("start_wait_cmd", "toggle_cmd", "standalone", 3.0),
+    ("start_wait_mod_cmd", "toggle_cmd_mod", "module", 3.0),
 )
 
 
 class StlTime(ArcCase):
-    """Test time module with qualified syntax: time.now(), time.format(),
-    time.interval(), time.wait().
+    """Test the time module with qualified syntax.
 
-    time.now() is verified by checking the returned timestamp is a valid
-    nanosecond value. time.format() is verified by parsing its output as ISO
-    8601 and checking it against the wall clock, in both a function body and
-    a flow statement, then with every format code on fixed stamps, from a
-    literal and from a channel. time.interval() is verified by measuring its firing
-    rate over 1 second. time.wait() is a regression test migrated from
-    wait_timing.py verifying that a 3-second wait completes in ~3 seconds.
+    - time.now() returns a valid nanosecond timestamp.
+    - time.format() matches fixed stamps for every format code and time zone.
+    - time.interval() fires at its period, from a literal and from a variable.
+    - time.wait() lasts its duration, from a literal and from a variable.
     """
 
     arc_source = ARC_STL_TIME_SOURCE
@@ -407,8 +472,14 @@ class StlTime(ArcCase):
         "fmt_tz_lit_flow",
         "interval_count",
         "interval_count_mod",
+        "interval_count_ms",
+        "interval_count_ns",
         "toggle_cmd",
         "toggle_cmd_mod",
+        "toggle_cmd_var_s",
+        "toggle_cmd_var_ns",
+        "toggle_cmd_seq_var",
+        "toggle_cmd_reassign",
     ]
 
     def setup(self) -> None:
@@ -445,11 +516,12 @@ class StlTime(ArcCase):
                 ("fmt_tz_lit_flow", sy.DataType.STRING),
                 ("interval_count", sy.DataType.INT64),
                 ("interval_count_mod", sy.DataType.INT64),
-                ("start_wait_cmd", sy.DataType.UINT8),
-                ("start_wait_mod_cmd", sy.DataType.UINT8),
+                ("interval_count_ms", sy.DataType.INT64),
+                ("interval_count_ns", sy.DataType.INT64),
+                *((start_cmd, sy.DataType.UINT8) for start_cmd, _, _, _ in WAIT_CASES),
             ],
         )
-        for name in ("toggle_cmd", "toggle_cmd_mod"):
+        for _, name, _, _ in WAIT_CASES:
             create_indexed_pair(self.client, name, data_type=sy.DataType.UINT8)
         super().setup()
 
@@ -604,36 +676,38 @@ class StlTime(ArcCase):
                     f"expected 5-15 (nominal 10)"
                 )
 
-    def _assert_wait_duration(self, duration: sy.TimeSpan, label: str) -> None:
+    def _assert_wait_duration(
+        self, duration: sy.TimeSpan, label: str, expected: float
+    ) -> None:
         wait_s = duration / sy.TimeSpan.SECOND
-        self.log(f"[{label}] Wait duration: {wait_s:.2f}s (expected ~3.0s)")
-        if wait_s > MAX_WAIT_DURATION:
+        low, high = expected - WAIT_UNDER, expected + WAIT_OVER
+        self.log(f"[{label}] Wait duration: {wait_s:.2f}s (expected ~{expected}s)")
+        if wait_s > high:
             self.fail(
-                f"[{label}] wait{{3s}} took {wait_s:.2f}s, "
-                f"exceeding maximum of {MAX_WAIT_DURATION}s."
+                f"[{label}] wait of {expected}s took {wait_s:.2f}s, "
+                f"exceeding maximum of {high}s."
             )
-        if wait_s < MIN_WAIT_DURATION:
+        if wait_s < low:
             self.fail(
-                f"[{label}] wait{{3s}} took {wait_s:.2f}s, "
-                f"below minimum of {MIN_WAIT_DURATION}s."
+                f"[{label}] wait of {expected}s took {wait_s:.2f}s, "
+                f"below minimum of {low}s."
             )
         self.log(
-            f"[{label}] Wait timing verified: {wait_s:.2f}s is within "
-            f"[{MIN_WAIT_DURATION}, {MAX_WAIT_DURATION}]s"
+            f"[{label}] Wait timing verified: {wait_s:.2f}s is within [{low}, {high}]s"
         )
 
     def _test_wait_timing(self) -> None:
         self.log("=== time.wait ===")
-        for start_cmd, _, _ in WAIT_CASES:
+        for start_cmd, _, _, _ in WAIT_CASES:
             self.writer.write(start_cmd, 1)
-        measurements: list[tuple[sy.Timer, str, str]] = []
-        for _, toggle, label in WAIT_CASES:
+        measurements: list[tuple[sy.Timer, str, str, float]] = []
+        for _, toggle, label, expected in WAIT_CASES:
             self.wait_for_eq(toggle, 1, timeout=5 * sy.TimeSpan.SECOND)
-            self.log(f"[{label}] {toggle}=1 observed, measuring 3s wait")
-            measurements.append((sy.Timer(), toggle, label))
-        for timer, toggle, label in measurements:
+            self.log(f"[{label}] {toggle}=1 observed, measuring {expected}s wait")
+            measurements.append((sy.Timer(), toggle, label, expected))
+        for timer, toggle, label, expected in measurements:
             self.wait_for_eq(toggle, 0, timeout=8 * sy.TimeSpan.SECOND)
-            self._assert_wait_duration(timer.elapsed(), label)
+            self._assert_wait_duration(timer.elapsed(), label, expected)
 
     def verify_sequence_execution(self) -> None:
         self._test_now()

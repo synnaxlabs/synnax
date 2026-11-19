@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/sparkplug"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -59,6 +60,10 @@ type FactoryConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
+	// ICD retrieves the ICDs that ICD read tasks parse payloads with.
+	//
+	// [REQUIRED]
+	ICD *icd.Service
 	alamos.Instrumentation
 	// QueueSize is the count of messages that the queue of one read task holds
 	// before it drops the oldest.
@@ -106,6 +111,7 @@ func (c FactoryConfig) Override(other FactoryConfig) FactoryConfig {
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Status = override.Nil(c.Status, other.Status)
+	c.ICD = override.Nil(c.ICD, other.ICD)
 	c.QueueSize = override.Numeric(c.QueueSize, other.QueueSize)
 	c.RebirthInterval = override.Numeric(c.RebirthInterval, other.RebirthInterval)
 	c.BirthGrace = override.Numeric(c.BirthGrace, other.BirthGrace)
@@ -122,6 +128,7 @@ func (c FactoryConfig) Validate() error {
 	v.NotNil("channel", c.Channel)
 	v.NotNil("framer", c.Framer)
 	v.NotNil("status", c.Status)
+	v.NotNil("icd", c.ICD)
 	v.Positive("queue_size", c.QueueSize)
 	v.Positive("rebirth_interval", c.RebirthInterval)
 	v.Ternary(
@@ -339,6 +346,22 @@ func (f *Factory) retrieveChannels(
 	return byKey, nil
 }
 
+func (f *Factory) retrieveICD(ctx context.Context, key icd.Key) (icd.ICD, error) {
+	var ic icd.ICD
+	err := f.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return f.cfg.ICD.NewRetrieve().
+			Where(icd.MatchKeys(key)).
+			Entry(&ic).
+			Exec(ctx, snap)
+	})
+	if errors.Is(err, query.ErrNotFound) {
+		return icd.ICD{}, errors.Wrapf(
+			validate.ErrValidation, "icd: ICD %s does not exist", key,
+		)
+	}
+	return ic, err
+}
+
 func (f *Factory) configureRead(
 	ctx context.Context,
 	t task.Task,
@@ -359,6 +382,10 @@ func (f *Factory) configureRead(
 	if err != nil {
 		return nil, cfg.AutoStart, err
 	}
+	icds, err := f.retrieveICDs(ctx, enabled)
+	if err != nil {
+		return nil, cfg.AutoStart, err
+	}
 	src := &readSource{
 		pool:       f.pool,
 		broker:     dev.Key,
@@ -371,12 +398,22 @@ func (f *Factory) configureRead(
 		subject:    control.Subject{Key: t.Key.String(), Name: t.Name},
 		ins:        f.cfg.Child(t.Key.String()),
 	}
-	writerKeys, indexes, err := src.addEntries(enabled, channels)
+	writerKeys, indexes, err := src.addEntries(enabled, icds, channels)
 	if err != nil {
 		return nil, cfg.AutoStart, err
 	}
+	rt, err := f.openRead(t, src, writerKeys, indexes, cfg.DataSavingDisabled)
+	return rt, cfg.AutoStart, err
+}
+
+func (f *Factory) openRead(
+	t task.Task,
+	src *readSource,
+	writerKeys, indexes channel.Keys,
+	dataSavingDisabled bool,
+) (autoStarter, error) {
 	mode := framer.WriterModePersistStream
-	if cfg.DataSavingDisabled {
+	if dataSavingDisabled {
 		mode = framer.WriterModeStreamOnly
 	} else {
 		src.stored = indexes
@@ -392,9 +429,9 @@ func (f *Factory) configureRead(
 		Mode:            mode,
 	})
 	if err != nil {
-		return nil, cfg.AutoStart, err
+		return nil, err
 	}
-	return rt, cfg.AutoStart, nil
+	return rt, nil
 }
 
 // enabledReadEntries returns the enabled entries and the channels that they name.
@@ -409,9 +446,9 @@ func enabledReadEntries(entries []ReadEntry) ([]ReadEntryVariant, channel.Keys, 
 			if entry.Disabled {
 				continue
 			}
-			for _, field := range entry.Fields {
-				if !field.Disabled {
-					keys = append(keys, field.Channel)
+			for _, m := range entry.Messages {
+				for _, b := range m.Bindings {
+					keys = append(keys, b.Channel)
 				}
 			}
 		case SparkplugReadEntry:
@@ -436,70 +473,113 @@ func enabledReadEntries(entries []ReadEntry) ([]ReadEntryVariant, channel.Keys, 
 	return enabled, keys, nil
 }
 
-// addEntries adds the topics and tags of enabled to s. It returns the channels that
-// the entries write to and their index channels.
-func (s *readSource) addEntries(
+// retrieveICDs returns the ICDs that the plain entries of enabled name, by key.
+func (f *Factory) retrieveICDs(
+	ctx context.Context,
 	enabled []ReadEntryVariant,
-	channels map[channel.Key]channel.Channel,
-) (writerKeys, indexes channel.Keys, err error) {
-	// written names the entry that writes to each channel.
-	written := make(map[channel.Key]string)
+) (map[icd.Key]icd.ICD, error) {
+	icds := make(map[icd.Key]icd.ICD)
 	for _, variant := range enabled {
-		name, entryKeys, index, err := s.addEntry(variant, channels)
+		entry, ok := variant.(PlainReadEntry)
+		if !ok {
+			continue
+		}
+		if _, ok = icds[entry.ICD]; ok {
+			continue
+		}
+		ic, err := f.retrieveICD(ctx, entry.ICD)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
-		// Two entries on one index would race for the rising order of its timestamps.
-		for _, key := range entryKeys {
-			if other, ok := written[key]; ok {
-				return nil, nil, errors.Wrapf(
-					validate.ErrValidation,
-					"entries: %s and %s write to the same channel %d",
-					other, name, key,
-				)
-			}
-			written[key] = name
-			writerKeys = append(writerKeys, key)
-		}
-		if index != 0 {
-			indexes = append(indexes, index)
-		}
+		icds[entry.ICD] = ic
 	}
-	return writerKeys, indexes, nil
+	return icds, nil
 }
 
-// addEntry adds the topic or tag of variant to s. It returns the name of the entry, the
-// channels that it writes to, and its index channel.
+// writers holds the channels that the messages and tags of a read task write to.
+type writers struct {
+	// names names the message or tag that writes to each channel.
+	names   map[channel.Key]string
+	keys    channel.Keys
+	indexes channel.Keys
+}
+
+// claim takes the channels of keys and their index for the writer name. Two writers on
+// one index would race for the rising order of its timestamps, or write frames that
+// lack the channels of the other.
+func (w *writers) claim(name string, keys channel.Keys, index channel.Key) error {
+	for _, key := range keys {
+		if other, ok := w.names[key]; ok {
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"entries: %s and %s write to the same channel %d",
+				other, name, key,
+			)
+		}
+		w.names[key] = name
+		w.keys = append(w.keys, key)
+	}
+	if index != 0 {
+		w.indexes = append(w.indexes, index)
+	}
+	return nil
+}
+
+// addEntries adds the topics and tags of enabled to s. icds holds the ICD of each plain
+// entry. It returns the channels that the entries write to and their index channels.
+func (s *readSource) addEntries(
+	enabled []ReadEntryVariant,
+	icds map[icd.Key]icd.ICD,
+	channels map[channel.Key]channel.Channel,
+) (writerKeys, indexes channel.Keys, err error) {
+	w := writers{names: make(map[channel.Key]string)}
+	for _, variant := range enabled {
+		if err = s.addEntry(variant, icds, channels, &w); err != nil {
+			return nil, nil, err
+		}
+	}
+	return w.keys, w.indexes, nil
+}
+
+// addEntry adds the topic or tag of variant to s, and claims its channels in w.
 func (s *readSource) addEntry(
 	variant ReadEntryVariant,
+	icds map[icd.Key]icd.ICD,
 	channels map[channel.Key]channel.Channel,
-) (name string, keys channel.Keys, index channel.Key, err error) {
+	w *writers,
+) error {
 	switch entry := variant.(type) {
 	case PlainReadEntry:
-		topic, err := newReadTopic(entry, channels)
+		topic, err := newReadTopic(entry, icds[entry.ICD], channels)
 		if err != nil {
-			return "", nil, 0, err
+			return err
 		}
 		if _, ok := s.topics[topic.topic]; ok {
-			return "", nil, 0, errors.Wrapf(
+			return errors.Wrapf(
 				validate.ErrValidation,
 				"entries: topic %s appears more than once", topic.topic,
 			)
 		}
 		s.topics[topic.topic] = topic
-		return "topic " + topic.topic, topic.keys, topic.index, nil
+		for _, m := range topic.messages {
+			name := "message " + m.name + " of topic " + topic.topic
+			if err = w.claim(name, m.keys, m.index); err != nil {
+				return err
+			}
+		}
+		return nil
 	case SparkplugReadEntry:
 		tag, err := newReadTag(entry, channels)
 		if err != nil {
-			return "", nil, 0, err
+			return err
 		}
 		if _, ok := s.tags[tag.tagID]; ok {
-			return "", nil, 0, errors.Wrapf(
+			return errors.Wrapf(
 				validate.ErrValidation, "entries: %s appears more than once", tag,
 			)
 		}
 		s.tags[tag.tagID] = tag
-		return tag.String(), tag.keys(), tag.index, nil
+		return w.claim(tag.String(), tag.keys(), tag.index)
 	default:
 		panic(errors.Newf("mqtt: unknown read entry variant %T", entry))
 	}

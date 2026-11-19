@@ -30,6 +30,7 @@ var _ = Describe("Migration", func() {
 	DescribeTable("Should store every cell color alpha as a byte",
 		func(ctx SpecContext, a float64, expected uint8) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
 			MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v5.Key, v5.Table]{DB: db}))
 			c := func(r uint8) *color.Color { return &color.Color{R: r, A: a} }
 			old := v5.Table{
@@ -205,4 +206,34 @@ var _ = Describe("MigrateTable", func() {
 		Expect(ok).To(BeTrue())
 		Expect(text.FillColor).To(Equal(&colorv2.Color{R: 1, A: 128}))
 	})
+})
+
+var _ = Describe("NameMigration", func() {
+	migrated := func(ctx SpecContext, in v6.Table) v6.Table {
+		GinkgoHelper()
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
+		Expect(gorp.NewCreate[v6.Key, v6.Table]().Entry(&in).Exec(ctx, db)).
+			To(Succeed())
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:         db,
+			Namespace:  "Table",
+			Migrations: []gorp.Migration{v6.NameMigration},
+		})).To(Succeed())
+		var out v6.Table
+		Expect(gorp.NewRetrieve[v6.Key, v6.Table]().
+			Where(gorp.MatchKeys[v6.Key, v6.Table](in.Key)).
+			Entry(&out).Exec(ctx, db)).To(Succeed())
+		return out
+	}
+	key := uuid.MustParse("1a2b3c4d-0000-0000-0000-000000000000")
+	DescribeTable(
+		"Should name only nameless tables",
+		func(ctx SpecContext, name, expected string) {
+			Expect(migrated(ctx, v6.Table{Key: key, Name: name}).Name).
+				To(Equal(expected))
+		},
+		Entry("empty name", "", "Table 1a2b3c4d"),
+		Entry("named table", "Named", "Named"),
+	)
 })

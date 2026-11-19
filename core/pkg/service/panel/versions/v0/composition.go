@@ -271,67 +271,79 @@ func convertNode(
 		return nil, nil
 	}
 	if n.First != nil || n.Last != nil {
-		first, err := convertNode(ctx, tx, n.First, slice)
-		if err != nil {
-			return nil, err
-		}
-		last, err := convertNode(ctx, tx, n.Last, slice)
-		if err != nil {
-			return nil, err
-		}
-		if first == nil {
-			return last, nil
-		}
-		if last == nil {
-			return first, nil
-		}
-		return &Node{Variant: SplitNode{
-			Direction: convertDirection(n.Direction),
-			Size:      convertSize(n.Size),
-			First:     *first,
-			Last:      *last,
-		}}, nil
+		return convertSplit(ctx, tx, n, slice)
 	}
 	tabs := make([]Tab, 0, len(n.Tabs))
 	for _, t := range n.Tabs {
-		layout, ok := slice.Layouts[t.TabKey]
-		if !ok {
-			continue
-		}
-		resourceType, ok := migratableLayoutTypes[layout.Type]
-		if !ok {
-			if viewType, ok := viewLayoutTypes[layout.Type]; ok {
-				tabs = append(tabs, Tab{Variant: ViewTab{
-					Key:  uuid.New(),
-					Type: viewType,
-				}})
-				continue
-			}
-			tab, err := convertTaskTab(tx, taskKeyCandidates(slice, t.TabKey))
-			if err != nil {
-				return nil, err
-			}
-			if tab != nil {
-				tabs = append(tabs, *tab)
-			}
-			continue
-		}
-		id := resource.ID{Type: resourceType, Key: t.TabKey}
-		exists, err := gorp.NewRetrieve[string, ontology.Resource]().
-			Where(gorp.MatchKeys[string, ontology.Resource](id.String())).
-			Exists(ctx, tx)
+		tab, err := convertTab(ctx, tx, t, slice)
 		if err != nil {
 			return nil, err
 		}
-		if !exists {
-			continue
+		if tab != nil {
+			tabs = append(tabs, *tab)
 		}
-		tabs = append(tabs, Tab{Variant: ResourceTab{Key: uuid.New(), Resource: id}})
 	}
 	if len(tabs) == 0 {
 		return nil, nil
 	}
 	return &Node{Variant: LeafNode{Tabs: tabs}}, nil
+}
+
+func convertSplit(
+	ctx context.Context,
+	tx gorp.Tx,
+	n *legacyNode,
+	slice legacySlice,
+) (*Node, error) {
+	first, err := convertNode(ctx, tx, n.First, slice)
+	if err != nil {
+		return nil, err
+	}
+	last, err := convertNode(ctx, tx, n.Last, slice)
+	if err != nil {
+		return nil, err
+	}
+	if first == nil {
+		return last, nil
+	}
+	if last == nil {
+		return first, nil
+	}
+	return &Node{Variant: SplitNode{
+		Direction: convertDirection(n.Direction),
+		Size:      convertSize(n.Size),
+		First:     *first,
+		Last:      *last,
+	}}, nil
+}
+
+// convertTab converts a legacy mosaic tab into a panel tab. It returns nil when the tab
+// has no layout entry or names nothing that can migrate.
+func convertTab(
+	ctx context.Context,
+	tx gorp.Tx,
+	t legacyTab,
+	slice legacySlice,
+) (*Tab, error) {
+	layout, ok := slice.Layouts[t.TabKey]
+	if !ok {
+		return nil, nil
+	}
+	resourceType, ok := migratableLayoutTypes[layout.Type]
+	if !ok {
+		if viewType, ok := viewLayoutTypes[layout.Type]; ok {
+			return &Tab{Variant: ViewTab{Key: uuid.New(), Type: viewType}}, nil
+		}
+		return convertTaskTab(tx, taskKeyCandidates(slice, t.TabKey))
+	}
+	id := resource.ID{Type: resourceType, Key: t.TabKey}
+	exists, err := gorp.NewRetrieve[string, ontology.Resource]().
+		Where(gorp.MatchKeys[string, ontology.Resource](id.String())).
+		Exists(ctx, tx)
+	if err != nil || !exists {
+		return nil, err
+	}
+	return &Tab{Variant: ResourceTab{Key: uuid.New(), Resource: id}}, nil
 }
 
 // taskKeyCandidates lists every place a legacy mosaic tab can carry its task's key.

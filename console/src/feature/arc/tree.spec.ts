@@ -9,6 +9,7 @@
 
 import { arc as clientArc, NotFoundError } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -27,7 +28,6 @@ import {
   awaitTextEditingElement,
   commitTextEdit,
   resolveFocusedTab,
-  uniqueName,
   withControlHeld,
 } from "@/testutil";
 
@@ -64,6 +64,39 @@ describe("arc/tree", () => {
         (await findTreeRow(name)).querySelector(`.lyra-icon--${icon}`);
       await waitFor(async () => expect(await iconOf(arc.name, "arc")).not.toBeNull());
       expect(await iconOf(mod.name, "module")).not.toBeNull();
+    });
+  });
+
+  describe("drag preview", () => {
+    it("should picture the Arc with the icon of its type", async () => {
+      const { root } = await createArcInDirectory();
+      const mod = await client.arcs.create({
+        name: uniqueName("mod"),
+        type: "module",
+        source: { mode: "text" },
+      });
+      await client.arcs.directories.move(root, clientArc.resourceID(mod.key));
+      await renderLiveTree({ client, root, items: Arc.TREE_ITEMS });
+      const row = await findTreeRow(mod.name);
+      await waitFor(() =>
+        expect(row.querySelector(".lyra-icon--module")).not.toBeNull(),
+      );
+      fireEvent.dragStart(row);
+      const layer = document.querySelector(".lyra-haul__layer");
+      expect(layer?.querySelector(".lyra-icon--module")).not.toBeNull();
+      expect(layer?.textContent).toBe(`${mod.name}Arc`);
+    });
+
+    it("should picture a directory with its type name", async () => {
+      const { root } = await createArcInDirectory();
+      const sub = await client.arcs.directories.create({
+        parent: root.key,
+        name: uniqueName("sub"),
+      });
+      await renderLiveTree({ client, root, items: Arc.TREE_ITEMS });
+      fireEvent.dragStart(await findTreeRow(sub.name));
+      const layer = document.querySelector(".lyra-haul__layer");
+      expect(layer?.textContent).toBe(`${sub.name}Directory`);
     });
   });
 

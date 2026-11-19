@@ -27,15 +27,17 @@ An entry is one topic. A field is one value in its payload, found by a
 [JSON pointer](https://datatracker.ietf.org/doc/html/rfc6901) such as `/temperature`,
 and recorded in one channel.
 
-- **Bare values** -> an empty pointer, shown as **Whole payload**, reads a topic that
-  carries a bare number or string, such as `42.7`.
+- **Bare values** -> an empty pointer reads a topic that carries a bare number or
+  string, such as `42.7`. The **Add data** dialog shows it as **Whole payload**.
 - **Text labels** -> the **Enum mapping** of a field maps text, such as `ON`, to a
-  number.
+  channel value.
 - **All or nothing** -> the task writes all fields of a payload or none. A payload that
-  lacks a field, or holds a value that the channel cannot store, is skipped.
+  lacks a field, or holds a value that the channel cannot store, is skipped. In code, a
+  field's `default` is written in place of a missing value.
 
-A topic can be in a task once, and it cannot hold the wildcards `+` or `#`. All fields
-of one topic share one index channel, and two topics cannot write to the same channel.
+A topic can be in a task once, and it cannot hold the wildcards `+` or `#`. The fields
+of one message share one index channel. Two messages cannot share an index channel, and
+two topics cannot write to the same channel.
 
 <Divider.Divider x />
 
@@ -50,8 +52,9 @@ of one topic share one index channel, and two topics cannot write to the same ch
    topics that it saw.
 3. Select a topic to see the last value and the type of each field, then select the
    fields to record. For a topic that publishes rarely, click **Add a topic by name**.
-4. Click **Add** _N_ **channels**. Each field becomes a channel.
-5. Select a field to change its **Pointer**, **Data type**, or **Channel** name.
+4. Click **Add** _N_ **fields**. Each field becomes a channel.
+5. Select a field. Its **Field** section edits the field in the message format, such as
+   its **Pointer**. Its **Channel** section sets the channel name and **Data type**.
 6. Click <Icon.Play /> (**Start**).
 
 The Console creates a channel for each field and an index channel for each topic.
@@ -61,7 +64,7 @@ The Console creates a channel for each field and an index channel for each topic
   </Fragment>
   <Fragment slot="python">
 
-Python does not create channels. Create one index channel for each topic first.
+Python does not create channels. Create the channels and the ICD first.
 
 ```python
 import synnax as sy
@@ -79,15 +82,36 @@ pressure = client.channels.create(
 )
 
 # The payload of plant/line1/sensors is {"temperature": 23.5, "pressure": 101.3}
+temperature_field = sy.icd.FloatJSONField(
+    name="temperature", pointer="/temperature"
+)
+pressure_field = sy.icd.FloatJSONField(name="pressure", pointer="/pressure")
+sensors = sy.icd.Message(
+    name="plant/line1/sensors",
+    payload=sy.icd.JSONPayload(fields=[temperature_field, pressure_field]),
+)
+line1 = client.icds.create(name="Line 1", messages=[sensors])
+
 task = mqtt.ReadTask(
     name="Line 1 sensors",
     device=broker.key,
     entries=[
         mqtt.PlainReadEntry(
             topic="plant/line1/sensors",
-            fields=[
-                mqtt.ReadField(pointer="/temperature", channel=temperature.key),
-                mqtt.ReadField(pointer="/pressure", channel=pressure.key),
+            icd=line1.key,
+            messages=[
+                sy.icd.ReadMessage(
+                    message=sensors.key,
+                    bindings=[
+                        sy.icd.ReadBinding(
+                            field=temperature_field.key,
+                            channel=temperature.key,
+                        ),
+                        sy.icd.ReadBinding(
+                            field=pressure_field.key, channel=pressure.key
+                        ),
+                    ],
+                )
             ],
         )
     ],
@@ -114,21 +138,25 @@ Timestamps in an index channel must increase. The task skips a payload whose tim
 is not after the last one it wrote. A broker can send such a payload when it delivers a
 message twice at quality of service 1.
 
-In code, a payload timestamp is a field on the index channel with a `time_format`. Put
-the key of that field in `index` on the entry:
+In code, bind the timestamp field to the index channel, and put the key of the field in
+`index` on the message:
 
 ```python
 # The payload is {"value": 0.42, "ts": 1705312200000}
-stamp = mqtt.ReadField(
-    pointer="/ts",
-    channel=sample_time.key,
-    data_type="timestamp",
-    time_format="unix_ms",
+stamp = sy.icd.TimestampJSONField(
+    name="ts", pointer="/ts", time_format="unix_ms"
 )
-entry = mqtt.PlainReadEntry(
-    topic="plant/line1/sample",
+value = sy.icd.FloatJSONField(name="value", pointer="/value")
+sample = sy.icd.Message(
+    name="sample", payload=sy.icd.JSONPayload(fields=[stamp, value])
+)
+read = sy.icd.ReadMessage(
+    message=sample.key,
     index=stamp.key,
-    fields=[stamp, mqtt.ReadField(pointer="/value", channel=value.key)],
+    bindings=[
+        sy.icd.ReadBinding(field=stamp.key, channel=sample_time.key),
+        sy.icd.ReadBinding(field=value.key, channel=sample_value.key),
+    ],
 )
 ```
 
@@ -163,23 +191,48 @@ An entry has these settings:
 | Topic <small>`topic`</small>                      |              | The topic to subscribe to, such as `plant/line1/sensors`. |
 | Quality of service <small>`qos`</small>           | At most once | At most once (0), at least once (1), or exactly once (2). |
 | Ignore retained <small>`retained_ignored`</small> | Off          | Skips the retained message of the topic.                  |
-| Source <small>`index`</small>                     | Arrival time | The key of the timestamp field. Empty is arrival time.    |
+| Source <small>`index`</small>                     | Arrival time | The key of the timestamp field, on each `ReadMessage`.    |
+| <small>`icd`</small>                              |              | The key of the ICD that holds the messages of the topic.  |
 
 In code, an entry is `PlainReadEntry`, of type `"plain"`. The `qos` values are
-`"at_most_once"`, `"at_least_once"`, and `"exactly_once"`.
+`"at_most_once"`, `"at_least_once"`, and `"exactly_once"`. Its `messages` are each an
+`sy.icd.ReadMessage`, with the key of the `message`, its `index`, and its `bindings`. An
+`sy.icd.ReadBinding` gives the key of a `field` and the `channel` that records it.
 
-A field has these settings:
+A field of a message has these settings:
 
-| Setting                                   | Default   | Notes                                       |
-| ----------------------------------------- | --------- | ------------------------------------------- |
-| Pointer <small>`pointer`</small>          | Empty     | Empty reads the whole payload.              |
-| Data type <small>`data_type`</small>      | `float64` | The data type of the channel.               |
-| Format <small>`time_format`</small>       | None      | Required for a `timestamp` channel.         |
-| Channel <small>`channel`</small>          |           | The channel that records the value.         |
-| Enum mapping <small>`enum_values`</small> | None      | Maps text labels in the payload to numbers. |
+| Setting                                   | Default | Notes                                                       |
+| ----------------------------------------- | ------- | ----------------------------------------------------------- |
+| Name <small>`name`</small>                |         | Unique in its message. The Console names channels after it. |
+| Pointer <small>`pointer`</small>          | Empty   | Such as `/motor/speed`. Empty reads the whole payload.      |
+| Type <small>`type`</small>                | Float   | See [field types](#field-types).                            |
+| Scale <small>`scale`</small>              | 1       | Multiplies the value. Needs a float channel.                |
+| Offset <small>`offset`</small>            | 0       | Added after the scale. Needs a float channel.               |
+| Units <small>`units`</small>              | Empty   | The engineering unit of the value.                          |
+| Default <small>`default`</small>          | None    | Written when the payload has no value. Set in **Optional**. |
+| Enum mapping <small>`enum_values`</small> | None    | Maps text labels to values of the type.                     |
 
-An enum mapping in code is a list of `payload.EnumEntry(label="ON", value=1)`, with
-`from x import payload`.
+### Field types
+
+The data type is that of a new channel. A float channel also reads signed, unsigned, and
+boolean fields. A signed integer channel also reads unsigned and boolean fields, and an
+unsigned channel also reads boolean fields. The **Data type** menu lists only the data
+types that fit.
+
+| Type             | Python class         | Data type   | Notes                                            |
+| ---------------- | -------------------- | ----------- | ------------------------------------------------ |
+| Float            | `FloatJSONField`     | `float64`   | A number.                                        |
+| Signed integer   | `IntegerJSONField`   | `int64`     | An integer.                                      |
+| Unsigned integer | `UnsignedJSONField`  | `uint64`    | An integer of 0 or more.                         |
+| Boolean          | `BooleanJSONField`   | `uint8`     | `true` or `false`, as 1 or 0.                    |
+| String           | `StringJSONField`    | `string`    | A string.                                        |
+| JSON             | `JSONJSONField`      | `json`      | Any JSON value.                                  |
+| UUID             | `UuidJSONField`      | `uuid`      | A UUID in a string.                              |
+| Bytes (base64)   | `BytesJSONField`     | `bytes`     | Base64 text in a string. Needs a pointer.        |
+| Timestamp        | `TimestampJSONField` | `timestamp` | ISO 8601 text, or Unix time in s, ms, µs, or ns. |
+
+In code, the `time_format` of a timestamp field is `"iso8601"`, `"unix_sec"`,
+`"unix_ms"`, `"unix_us"`, or `"unix_ns"`.
 
 <Divider.Divider x />
 

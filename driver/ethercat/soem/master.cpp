@@ -27,9 +27,10 @@
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/esi/known_devices.h"
 #include "driver/ethercat/esi/settings.h"
+#include "driver/ethercat/master/dc.h"
+#include "driver/ethercat/sii/sii.h"
 #include "driver/ethercat/slave/slave.h"
 #include "driver/ethercat/soem/master.h"
-#include "driver/ethercat/soem/sii.h"
 #include "driver/ethercat/soem/util.h"
 #include "driver/ethercat/telem/telem.h"
 
@@ -129,6 +130,17 @@ static_assert(DISABLED_GROUP < EC_MAXGROUP);
 constexpr size_t DEFAULT_IOMAP_SIZE = 131072;
 /// What receive() says when no frame comes back.
 constexpr auto NO_FRAME = "process data receive failed";
+// receive() returns these by reference, so a cycle builds no error.
+const x::errors::Error NOT_ACTIVATED(errors::CYCLIC_ERROR, "master not activated");
+const x::errors::Error NO_FRAME_ERROR(errors::CYCLIC_ERROR, NO_FRAME);
+const x::errors::Error
+    FRAME_NOT_BACK(errors::FRAME_IN_FLIGHT, "process data frame has not come back");
+const x::errors::Error
+    REFERENCE_CLOCK_FRAME_FAILED(errors::CYCLIC_ERROR, "reference clock frame failed");
+const x::errors::Error PROCESS_DATA_HELD(
+    errors::WORKING_COUNTER_ERROR,
+    "no process data passes the modules until they reach SAFE-OP"
+);
 /// How recently a frame must have come back for a failed receive on a USB adapter to
 /// blame a late frame. A dead link gets the plain reason after it.
 constexpr auto LATE_FRAME_WINDOW = std::chrono::seconds(1);
@@ -175,22 +187,17 @@ errors::SDOFailure pop_sdo_failure(API &api) {
 /// the replies, else errors::NO_SLAVES_FOUND. The message calls the adapter name.
 x::errors::Error
 no_slaves_error(API &api, const std::string &iface, const std::string &name) {
-    const auto found = "No EtherCAT slaves found on " + name + ". ";
+    const auto found = "No EtherCAT modules found on " + name + ". ";
     if (!api.dewesoft_filter_bound(iface.c_str()))
         return x::errors::Error(
             errors::NO_SLAVES_FOUND,
-            found + "Check the cable and the power of the first device."
+            found + "Check the cable and the power of the first module."
         );
     return x::errors::Error(
         errors::REPLIES_BLOCKED,
-        found + std::format(
-                    "The DewesoftX \"EthercatDAQ Filter\" on this adapter blocks "
-                    "EtherCAT replies. Clear it in the properties of \"{}\" "
-                    "(Settings > Network & internet > Advanced network settings > "
-                    "More network adapter options, then right-click the adapter > "
-                    "Properties).",
-                    name
-                )
+        found + "The DewesoftX network filter on this adapter blocks EtherCAT "
+                "replies, even with DewesoftX closed. To turn it off, click Turn off "
+                "DewesoftX filter under Connect device > EtherCAT network."
     );
 }
 }
@@ -236,7 +243,8 @@ std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Master::scan() 
         this->api->readstate();
         this->populate_slaves();
         this->initialized = true;
-    }
+    } else
+        this->read_started();
     return {this->slave_list, x::errors::NIL};
 }
 
@@ -358,7 +366,7 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
         std::string msg;
         for (const auto &[pos, refusal]: unidentified)
             msg += std::format(
-                "{}slave {} ({}) {}",
+                "{}module {} ({}) {}",
                 msg.empty() ? "" : "; ",
                 pos,
                 this->slave_name(pos),
@@ -369,7 +377,7 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
             .refusals = std::move(unidentified),
         };
     };
-    auto [dc_setups, dc_err] = this->resolve_dc();
+    auto [dc_setups, dc_err] = master::resolve_dc(this->slave_list, session.plan);
     if (dc_err) return {.err = dc_err};
     session.dc_setups = std::move(dc_setups);
 
@@ -426,7 +434,7 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
     // One failure with no abort code is enough for a retry to help.
     auto type = errors::STARTUP_PARAMETER_REJECTED;
     for (const auto &[pos, failure]: session.startup_failures) {
-        failures += (failures.empty() ? "" : "; ") + std::string("slave ") +
+        failures += (failures.empty() ? "" : "; ") + std::string("module ") +
                     std::to_string(pos) + " (" + this->slave_name(pos) + ") " +
                     failure.data;
         if (!failure.matches(errors::STARTUP_PARAMETER_REJECTED))
@@ -485,7 +493,7 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
         return {
             .err = x::errors::Error(
                 errors::STATE_CHANGE_ERROR,
-                "failed to reach OP: no process data passed the slaves in SAFE-OP"
+                "failed to reach OP: no process data passed the modules in SAFE-OP"
             )
         };
     return this->request_state(EC_STATE_OPERATIONAL, timeout);
@@ -509,36 +517,36 @@ void Master::deactivate() {
     }
 }
 
-x::errors::Error Master::receive() {
-    if (!this->session)
-        return x::errors::Error(errors::CYCLIC_ERROR, "master not activated");
+const x::errors::Error &Master::receive() {
+    if (!this->session) return NOT_ACTIVATED;
     auto &session = *this->session;
 
     session.shortfall.reset();
     session.inputless.clear();
-    if (session.cycles.empty()) return x::errors::Error(errors::CYCLIC_ERROR, NO_FRAME);
+    if (session.cycles.empty()) return NO_FRAME_ERROR;
     int wkc = EC_NOFRAME;
     if (session.cycles.front().frames > 0) {
         // A frame that is not back yet can come back in a later cycle.
         wkc = this->api->receive_processdata(ENABLED_GROUP, 0);
         if (wkc < 0) {
-            if (session.cycles.size() < master::MAX_FRAMES_IN_FLIGHT)
-                return x::errors::Error(
-                    errors::FRAME_IN_FLIGHT,
-                    "process data frame has not come back"
-                );
+            const auto in_flight = session.cycles.size();
+            const auto age = this->cfg.clock.steady() - session.cycles.front().sent_at;
+            if (in_flight < master::MAX_FRAMES_IN_FLIGHT &&
+                (in_flight < master::MIN_FRAMES_IN_FLIGHT ||
+                 age < master::MAX_FRAME_AGE.chrono()))
+                return FRAME_NOT_BACK;
             this->api->drop_processdata();
         }
     }
-    const Cycle cycle = std::move(session.cycles.front());
+    const Cycle cycle = session.cycles.front();
     session.cycles.erase(session.cycles.begin());
-    if (cycle.held_err) return cycle.held_err;
+    if (cycle.held_err != nullptr) return *cycle.held_err;
 
     if (wkc < 0) {
         if (session.late_frame_err && session.frame_sent_at &&
             this->cfg.clock.steady() - *session.frame_sent_at < LATE_FRAME_WINDOW)
             return session.late_frame_err;
-        return x::errors::Error(errors::CYCLIC_ERROR, NO_FRAME);
+        return NO_FRAME_ERROR;
     }
     session.frame_sent_at = cycle.sent_at;
     this->frames.fetch_add(1, std::memory_order_release);
@@ -586,17 +594,11 @@ x::errors::Error Master::send() {
     if (session.process_data_held.load(std::memory_order_acquire)) {
         if (session.has_dc &&
             this->api->sync_dc(ENABLED_GROUP, PROCESSDATA_TIMEOUT) <= 0) {
-            cycle.held_err = x::errors::Error(
-                errors::CYCLIC_ERROR,
-                "reference clock frame failed"
-            );
-            return cycle.held_err;
+            cycle.held_err = &REFERENCE_CLOCK_FRAME_FAILED;
+            return REFERENCE_CLOCK_FRAME_FAILED;
         }
         if (session.has_dc) this->frames.fetch_add(1, std::memory_order_release);
-        cycle.held_err = x::errors::Error(
-            errors::WORKING_COUNTER_ERROR,
-            "no process data passes the slaves until they reach SAFE-OP"
-        );
+        cycle.held_err = &PROCESS_DATA_HELD;
         return x::errors::NIL;
     }
     cycle.sent_at = this->cfg.clock.steady();
@@ -682,7 +684,7 @@ x::errors::Error Master::write(
     if (const auto err = this->write_parameters(pos, parameters))
         return x::errors::Error(
             err,
-            "Slave " + std::to_string(pos) + " (" + this->slave_name(pos) + ") " +
+            "Module " + std::to_string(pos) + " (" + this->slave_name(pos) + ") " +
                 err.data + "."
         );
     if (this->session)
@@ -776,6 +778,24 @@ void Master::populate_slaves() {
     slave::clear_duplicate_serials(this->slave_list);
 }
 
+void Master::read_started() {
+    std::lock_guard lock(this->mailbox_mu);
+    this->api->readstate();
+    bool read = false;
+    for (auto &slave: this->slave_list) {
+        const auto pos = slave.properties.position;
+        if (!slave.status.starting ||
+            slave::starting(slave::from_al_state(this->record(pos).state)))
+            continue;
+        auto result = this->discover_slave(pos);
+        this->read_serial(result);
+        this->read_settings(result);
+        slave = std::move(result);
+        read = true;
+    }
+    if (read) slave::clear_duplicate_serials(this->slave_list);
+}
+
 void Master::read_serial(slave::DiscoveryResult &slave) {
     const auto pos = slave.properties.position;
     // A nonzero SII serial number is the identity of saved devices.
@@ -832,10 +852,7 @@ slave::DiscoveryResult Master::discover_slave(const uint16_t pos) {
     result.properties.serial = this->record(pos).eep_ser;
     result.properties.name = this->slave_name(pos);
     result.status.state = slave::from_al_state(this->record(pos).state);
-    const auto state = result.status.state;
-    result.status.starting = state == slave::State::INIT ||
-                             state == slave::State::BOOT ||
-                             state == slave::State::UNKNOWN;
+    result.status.starting = slave::starting(result.status.state);
     Description unshared;
     const auto model = result.status.starting ? std::nullopt : this->read_model(pos);
     auto &description = model ? this->descriptions[*model] : unshared;
@@ -884,7 +901,7 @@ master::Image Master::image() {
             const auto err = x::errors::Error(
                 errors::PDO_MAPPING_ERROR,
                 std::format(
-                    "Slave {} ({}) maps {} input and {} output bits, but its "
+                    "Module {} ({}) maps {} input and {} output bits, but its "
                     "discovered PDO entries hold {} and {}.",
                     props.position,
                     props.name,
@@ -1019,8 +1036,9 @@ void Master::discover_slave_pdos(
             props.input_pdos.clear();
             props.output_pdos.clear();
             slave.status.pdo_discovery_error = std::format(
-                "SOEM cannot map this slave because sync manager {} has fixed PDOs and "
-                "the other sync managers have assigned PDOs. Use IgH for this slave",
+                "SOEM cannot map this module because sync manager {} has fixed PDOs "
+                "and the other sync managers have assigned PDOs. Use IgH for this "
+                "module",
                 fixed->index
             );
             // No esi::fill: SOEM would still leave the fixed sync manager unmapped.
@@ -1093,15 +1111,12 @@ void Master::discover_pdos_sii(slave::DiscoveryResult &slave) {
         slave.status.pdo_discovery_error = "no PDOs found";
 }
 
-/// SII category that lists the synchronization modes of a slave.
-constexpr uint16_t SII_DC_CATEGORY = 60;
-
 std::vector<dc::OpMode>
 Master::read_op_modes(const uint16_t pos, Description &description) {
     auto &known = description.op_modes;
     if (!known.empty()) return known;
     auto modes = sii::parse_op_modes(
-        this->read_sii_category(pos, SII_DC_CATEGORY),
+        this->read_sii_category(pos, sii::DC),
         this->sii_strings(pos)
     );
     this->api->eeprom2pdi(pos);
@@ -1165,7 +1180,7 @@ Master::write_dc_register(const uint16_t pos, const uint16_t address, const T va
     return x::errors::Error(
         errors::ACTIVATION_ERROR,
         std::format(
-            "slave {} ({}) {} a write to DC register 0x{:04X}",
+            "module {} ({}) {} a write to DC register 0x{:04X}",
             pos,
             this->slave_name(pos),
             response(wkc),
@@ -1185,7 +1200,7 @@ Master::read_dc_register(const uint16_t pos, const uint16_t address) {
         x::errors::Error(
             errors::ACTIVATION_ERROR,
             std::format(
-                "slave {} ({}) {} a read of DC register 0x{:04X}",
+                "module {} ({}) {} a read of DC register 0x{:04X}",
                 pos,
                 this->slave_name(pos),
                 response(wkc),
@@ -1216,81 +1231,6 @@ x::errors::Error Master::clear_dc_activation() {
     return x::errors::Error(errors::ACTIVATION_ERROR, failed);
 }
 
-std::pair<std::vector<Master::DCSetup>, x::errors::Error> Master::resolve_dc() const {
-    const auto period = this->session.value().plan.period;
-    std::vector<DCSetup> setups;
-    std::vector<x::telem::TimeSpan> cycles;
-    std::string events;
-    for (const auto &slave: this->slave_list) {
-        const auto &props = slave.properties;
-        const auto config = this->config(props.position);
-        if (!config.enabled) continue;
-        const auto choice = config.op_mode ? config.op_mode : props.catalog_op_mode();
-        const auto [mode, select_err] = dc::select(props.op_modes, choice);
-        if (select_err)
-            return {
-                {},
-                x::errors::Error(
-                    errors::SLAVE_CONFIG_ERROR,
-                    std::format(
-                        "slave {} ({}) cannot use its chosen mode: {}",
-                        props.position,
-                        props.name,
-                        select_err.data
-                    )
-                )
-            };
-        if (!mode) continue;
-        auto [regs, err] = dc::resolve(
-            *mode,
-            period,
-            choice ? choice->cycles : dc::Cycles{}
-        );
-        if (err)
-            return {
-                {},
-                x::errors::Error(
-                    errors::SLAVE_CONFIG_ERROR,
-                    std::format(
-                        "slave {} ({}) cannot run its DC mode at a bus cycle of {}: {}",
-                        props.position,
-                        props.name,
-                        period.to_string(),
-                        err.data
-                    )
-                )
-            };
-        setups.push_back({.position = props.position, .registers = regs});
-        if (!regs.marks_data() || (regs.assign_activate & dc::PDI_SYNC_UNIT) != 0)
-            continue;
-        cycles.emplace_back(regs.sync0_cycle);
-        if (!events.empty()) events += ", ";
-        events += std::format(
-            "slave {} ({}) every {}",
-            props.position,
-            props.name,
-            cycles.back().to_string()
-        );
-    }
-    if (!cycles.empty() && dc::grid(period, cycles) <
-                               static_cast<double>(dc::MIN_EVENT_CYCLE.nanoseconds()))
-        return {
-            {},
-            x::errors::Error(
-                errors::SLAVE_CONFIG_ERROR,
-                std::format(
-                    "SYNC0 events do not line up with the bus cycle of {}: {}. Change "
-                    "the bus rate or the SYNC0 cycles so that a span of {} or more "
-                    "divides the bus cycle and each SYNC0 cycle.",
-                    period.to_string(),
-                    events,
-                    dc::MIN_EVENT_CYCLE.to_string()
-                )
-            )
-        };
-    return {setups, x::errors::NIL};
-}
-
 x::errors::Error Master::wait_for_dc_settle(
     const std::vector<uint16_t> &positions,
     const std::function<bool()> &stopped
@@ -1307,7 +1247,7 @@ x::errors::Error Master::wait_for_dc_settle(
         if (stopped()) return stop_err;
         return x::errors::Error(
             errors::ACTIVATION_ERROR,
-            "no frame carried the reference clock to the slaves within " +
+            "no frame carried the reference clock to the modules within " +
                 this->cfg.dc_settle_timeout.to_string()
         );
     }
@@ -1333,7 +1273,7 @@ x::errors::Error Master::wait_for_dc_settle(
             return x::errors::Error(
                 errors::ACTIVATION_ERROR,
                 std::format(
-                    "the clock of slave {} ({}) is {} off the reference clock after "
+                    "the clock of module {} ({}) is {} off the reference clock after "
                     "{}. It must be within {} before SYNC0 starts.",
                     worst_pos,
                     this->slave_name(worst_pos),
@@ -1360,7 +1300,7 @@ x::errors::Error Master::start_dc() {
     return x::errors::NIL;
 }
 
-x::errors::Error Master::start_sync(const DCSetup &setup) {
+x::errors::Error Master::start_sync(const master::DCSetup &setup) {
     const auto &[pos, regs] = setup;
     const auto cuc = static_cast<uint8_t>(regs.assign_activate & 0xFF);
     const auto act = static_cast<uint8_t>(regs.assign_activate >> 8);
@@ -1410,7 +1350,7 @@ x::errors::Error Master::align_clock(const uint16_t pos) {
     if (latched == 0)
         return x::errors::Error(
             errors::ACTIVATION_ERROR,
-            "no slave latched its receive time"
+            "no module latched its receive time"
         );
     const auto [local, local_err] = this->read_dc_register<int64_t>(pos, ECT_REG_DCSOF);
     if (local_err) return local_err;
@@ -1469,7 +1409,7 @@ Master::restore_dc(const uint16_t pos, const x::breaker::Breaker &breaker) {
         }))
         return err;
     const auto &setups = this->session.value().dc_setups;
-    const auto setup = std::ranges::find(setups, pos, &DCSetup::position);
+    const auto setup = std::ranges::find(setups, pos, &master::DCSetup::position);
     if (setup == setups.end()) return x::errors::NIL;
     return this->start_sync(*setup);
 }
@@ -1514,7 +1454,7 @@ bool Master::restore_failed(const uint16_t pos) const {
 bool Master::restores_clock(const uint16_t pos) const {
     if (this->record(0).hasdc && this->record(0).DCnext == pos) return true;
     const auto &setups = this->session.value().dc_setups;
-    return std::ranges::find(setups, pos, &DCSetup::position) != setups.end();
+    return std::ranges::find(setups, pos, &master::DCSetup::position) != setups.end();
 }
 
 bool Master::wait_for_frame(
@@ -1541,7 +1481,7 @@ Master::state_error(const std::vector<uint16_t> &failed, const uint16_t state) {
     std::map<uint16_t, slave::Refusal> refusing;
     for (const auto pos: failed) {
         if (!msg.empty()) msg += "; ";
-        msg += "slave " + std::to_string(pos) + " (" + this->slave_name(pos) +
+        msg += "module " + std::to_string(pos) + " (" + this->slave_name(pos) +
                ") is in " +
                slave::to_string(slave::from_al_state(this->record(pos).state));
         if (!this->al_error(pos)) continue;

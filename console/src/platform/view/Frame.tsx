@@ -20,7 +20,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Flux, Panel as PPanel, View as PView } from "@synnaxlabs/pluto";
-import { caseconv, uuid } from "@synnaxlabs/x";
+import { strings, uuid } from "@synnaxlabs/x";
 import { plural } from "pluralize";
 import {
   Fragment,
@@ -240,7 +240,10 @@ const opensInNewTab = (
   key: view.Key,
 ): boolean => openInNewTab != null && (key !== selected || staticViews.includes(key));
 
-const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null => {
+const ContextMenu = ({
+  keys,
+  target,
+}: Menu.ContextMenuMenuProps): ReactElement | null => {
   const ctx = useContext("View.Selector");
   const { openInNewTab, staticViews, resourceType } = ctx;
   const { getItem } = List.useUtilContext<view.Key, View>();
@@ -248,7 +251,7 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null =
   const editableKeys = keys.filter((key) => !staticViews.includes(key));
   const confirm = Modals.useConfirmDelete({
     icon: "View",
-    type: caseconv.capitalize(resourceType),
+    type: strings.capitalize(resourceType),
   });
   const { update: del } = PView.useDelete({
     beforeUpdate: async ({ data }: Flux.BeforeUpdateParams<PView.DeleteParams>) => {
@@ -276,7 +279,7 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null =
       )}
       {canRename && (
         <PlatformContextMenu.RenameItem
-          onClick={() => Text.edit(List.itemNameID(editableKeys[0]))}
+          onClick={() => Text.edit(List.itemNameID(editableKeys[0]), target)}
         />
       )}
       {canRename && (

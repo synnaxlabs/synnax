@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"uuid"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
@@ -64,6 +65,12 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL - defaults to telem.Now]
 	Now func() telem.TimeStamp
+	// EmbeddedDriverDisabled is true when the embedded Driver does not run. The Core
+	// then creates no rack for it. A stored rack stays with no integrations, can be
+	// deleted, and passes a disabled status to its tasks and devices.
+	//
+	// [OPTIONAL - defaults to false]
+	EmbeddedDriverDisabled bool
 }
 
 var (
@@ -89,6 +96,11 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 		other.HealthCheckInterval,
 	)
 	c.Now = override.Nil(c.Now, other.Now)
+	c.EmbeddedDriverDisabled = override.If(
+		c.EmbeddedDriverDisabled,
+		other.EmbeddedDriverDisabled,
+		other.EmbeddedDriverDisabled,
+	)
 	return c
 }
 
@@ -111,6 +123,8 @@ type Service struct {
 	state           *actions.State[Key, Action]
 	indexes         indexes
 	ServiceConfig
+	// EmbeddedKey is the key of the embedded Driver's rack. It is zero when the
+	// embedded Driver is disabled and no rack for it is stored.
 	EmbeddedKey Key
 }
 
@@ -186,15 +200,59 @@ func (s *Service) OnSuspect(handler SuspectHandler) observe.Disconnect {
 }
 
 func (s *Service) loadEmbeddedRack(ctx context.Context) error {
-	r, err := s.RetrieveOrCreateEmbedded(
-		ctx,
-		fmt.Sprintf("Node %s Embedded Driver", s.HostKey),
-	)
-	if err != nil {
+	name := fmt.Sprintf("Node %s Embedded Driver", s.HostKey)
+	if !s.EmbeddedDriverDisabled {
+		r, err := s.RetrieveOrCreateEmbedded(ctx, name)
+		s.EmbeddedKey = r.Key
 		return err
 	}
-	s.EmbeddedKey = r.Key
-	return nil
+	return s.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		r, err := s.retrieveEmbedded(ctx, tx, name)
+		if errors.Is(err, query.ErrNotFound) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		s.EmbeddedKey = r.Key
+		if len(r.Integrations) == 0 {
+			return nil
+		}
+		// The Driver sets its integrations again when it next starts.
+		return s.NewWriter(tx).Apply(ctx, r.Key, NewSetAction(SetPayload{
+			Path:  []string{"integrations"},
+			Value: []string{},
+		}))
+	})
+}
+
+// retrieveEmbedded returns the embedded rack of this Core that was created with name.
+func (s *Service) retrieveEmbedded(
+	ctx context.Context,
+	tx gorp.Tx,
+	name string,
+) (r Rack, err error) {
+	q := s.NewRetrieve().Entry(&r)
+	b, closer, err := tx.Get(s.embeddedBindingKey(name))
+	switch {
+	case err == nil:
+		q = q.Where(MatchKeys(Key(binary.LittleEndian.Uint32(b))))
+		if err = closer.Close(); err != nil {
+			return r, err
+		}
+	case errors.Is(err, query.ErrNotFound):
+		q = q.
+			Where(MatchNames(name)).
+			Where(MatchEmbedded(true)).
+			Where(MatchNode(s.HostKey))
+	default:
+		return r, err
+	}
+	return r, q.Exec(ctx, tx)
+}
+
+func (s *Service) embeddedBindingKey(name string) []byte {
+	return []byte(s.HostKey.String() + ".rack.embedded." + name)
 }
 
 // RetrieveOrCreateEmbedded returns the embedded rack of this Core that was created with
@@ -206,35 +264,20 @@ func (s *Service) RetrieveOrCreateEmbedded(
 	name string,
 	acts ...Action,
 ) (r Rack, err error) {
-	bindingKey := []byte(s.HostKey.String() + ".rack.embedded." + name)
 	err = s.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		q := s.NewRetrieve().Entry(&r)
-		b, closer, err := tx.Get(bindingKey)
-		switch {
-		case err == nil:
-			q = q.Where(MatchKeys(Key(binary.LittleEndian.Uint32(b))))
-			if err = closer.Close(); err != nil {
-				return err
-			}
-		case errors.Is(err, query.ErrNotFound):
-			q = q.
-				Where(MatchNames(name)).
-				Where(MatchEmbedded(true)).
-				Where(MatchNode(s.HostKey))
-		default:
-			return err
-		}
 		w := s.NewWriter(tx)
-		if err = q.Exec(ctx, tx); errors.Is(err, query.ErrNotFound) {
+		r, err = s.retrieveEmbedded(ctx, tx, name)
+		switch {
+		case errors.Is(err, query.ErrNotFound):
 			if r, err = Reduce(Rack{Name: name, Embedded: true}, acts...); err != nil {
 				return err
 			}
 			if err = w.Create(ctx, &r); err != nil {
 				return err
 			}
-		} else if err != nil {
+		case err != nil:
 			return err
-		} else if len(acts) > 0 {
+		case len(acts) > 0:
 			if err = w.Apply(ctx, r.Key, acts...); err != nil {
 				return err
 			}
@@ -247,7 +290,7 @@ func (s *Service) RetrieveOrCreateEmbedded(
 		}
 		return tx.Set(
 			ctx,
-			bindingKey,
+			s.embeddedBindingKey(name),
 			binary.LittleEndian.AppendUint32(nil, uint32(r.Key)),
 		)
 	})
@@ -268,6 +311,11 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		table:      s.table,
 		driverRole: s.DriverRole,
 		dispatcher: s.state.Dispatcher(),
+		deletableEmbedded: lo.Ternary(
+			s.EmbeddedDriverDisabled,
+			s.EmbeddedKey,
+			0,
+		),
 	}
 }
 

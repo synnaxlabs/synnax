@@ -20,8 +20,7 @@ use keyring_core::{Entry, Error};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
-/// The keychain service and account of the API key. The Python client reads the key
-/// with these names.
+/// The keychain service and account of the API key.
 pub const KEY_SERVICE: &str = "com.synnaxlabs.desktop";
 pub const KEY_ACCOUNT: &str = "api_key";
 
@@ -57,7 +56,7 @@ pub fn key_entry() -> io::Result<Entry> {
         .as_ref()
         .map_err(|err| io::Error::other(err.to_string()))?;
     let mut modifiers = HashMap::new();
-    // The Python keyring reads a Windows credential by this target name.
+    // The uninstall docs name the Windows credential by this target name.
     let target = format!("{KEY_ACCOUNT}@{KEY_SERVICE}");
     if cfg!(windows) {
         modifiers.insert("target", target.as_str());

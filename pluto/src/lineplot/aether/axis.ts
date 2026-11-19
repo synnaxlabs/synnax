@@ -78,12 +78,33 @@ export interface AxisRenderProps {
   hold: boolean;
 }
 
+/** @returns the newest sample of the bounds with an edge, or undefined if none. */
+export const newestSample = (b: line.DataBounds[]): number | undefined => {
+  const edges = b
+    .filter((d) => d.edge != null && bounds.isFinite(d.bounds))
+    .map((d) => d.bounds.upper);
+  return edges.length === 0 ? undefined : Math.max(...edges);
+};
+
+// Bounds with an edge end at the newest sample of their line. Each moves to end at the
+// newest of them, so a line whose samples stopped does not stretch the axis.
+const align = (b: line.DataBounds[]): bounds.Bounds[] => {
+  const finite = b.filter((d) => bounds.isFinite(d.bounds));
+  const newest = newestSample(finite);
+  if (newest == null) return finite.map((d) => d.bounds);
+  return finite.map(({ bounds: { lower, upper }, edge }) => {
+    if (edge === "rolling") return { lower: lower + newest - upper, upper: newest };
+    if (edge === "growing") return { lower, upper: newest };
+    return { lower, upper };
+  });
+};
+
 const autoBounds = (
-  b: bounds.Bounds[],
+  b: line.DataBounds[],
   padding: number = 0.1,
   type: TickType,
 ): bounds.Bounds => {
-  const m = bounds.max(b.filter(bounds.isFinite));
+  const m = bounds.union(align(b));
   if (!bounds.isFinite(m)) return emptyBounds(type);
   const { lower, upper } = m;
   if (upper === lower) return { lower: lower - 1, upper: upper + 1 };
@@ -175,11 +196,7 @@ export abstract class BaseAxis<
     try {
       const dataBounds = fetchDataBounds();
       loading = dataBounds.some((b) => b.loading);
-      ab = autoBounds(
-        dataBounds.map((b) => b.bounds),
-        this.state.autoBoundPadding,
-        this.state.type,
-      );
+      ab = autoBounds(dataBounds, this.state.autoBoundPadding, this.state.type);
     } catch (err_) {
       ab = emptyBounds(this.state.type);
       err = err_ as Error;

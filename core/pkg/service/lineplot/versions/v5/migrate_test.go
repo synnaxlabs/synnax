@@ -54,6 +54,7 @@ func jsonMap(raw string) msgpack.EncodedJSON {
 func migrateSeed(ctx SpecContext, seed v0.LinePlot) v5.LinePlot {
 	GinkgoHelper()
 	db := DeferClose(gorp.Wrap(memkv.New()))
+	StartRun(db.Run)
 	MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, v0.LinePlot]{DB: db}))
 	Expect(gorp.NewCreate[uuid.UUID, v0.LinePlot]().Entry(&seed).Exec(ctx, db)).
 		To(Succeed())

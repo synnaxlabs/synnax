@@ -42,8 +42,11 @@ with no details.
    - Title: `[<package>] Fix ...`, or `SY-####: Fix ...` when a Linear issue covers it.
    - Body: fill `.github/pull_request_template.md`. Say what goes wrong, when, and why.
      Paste the spec's failure output from before the fix.
-   - Add no review tier label; the classifier adds one. Never add a co-author line or a
-     "Generated with" footer.
+   - Add one review tier label, as the "Review tiers" table in `CONTRIBUTING.md` says:
+     `review/human` when the fix changes a user-facing interface, else `review/bot`. For
+     `review/human`, also request a review from the reviewer the prompt names
+     (`gh pr edit <n> --add-reviewer <login>`).
+   - Never add a co-author line or a "Generated with" footer.
 
 Keep each PR small, with one bug. When the fix needs a design decision or a large
 change, open no PR; write a draft Linear issue in your report, to

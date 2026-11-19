@@ -96,6 +96,27 @@ var _ = Describe("GetCoreConfigFromViper", func() {
 		},
 	)
 
+	Describe("Integrations", func() {
+		It("Should reject both integration flags", func() {
+			viper.Set(start.FlagInsecure, true)
+			viper.Set(start.FlagEnableIntegrations, []string{"http"})
+			viper.Set(start.FlagDisableIntegrations, []string{"ni"})
+			cfg := MustSucceed(start.GetCoreConfigFromViper(alamos.Instrumentation{}))
+			Expect(cfg.Validate()).To(MatchError(
+				ContainSubstring("cannot be used with disable_integrations"),
+			))
+		})
+
+		It("Should accept one integration flag", func() {
+			viper.Set(start.FlagInsecure, true)
+			viper.Set(start.FlagEnableIntegrations, []string{"http"})
+			cfg := MustSucceed(start.GetCoreConfigFromViper(alamos.Instrumentation{}))
+			Expect(cfg.Validate()).ToNot(MatchError(
+				ContainSubstring("cannot be used with disable_integrations"),
+			))
+		})
+	})
+
 	Describe("Session idle timeout", func() {
 		It("Should fill the default when the flag is unset", func() {
 			viper.Set(start.FlagInsecure, true)
@@ -111,6 +132,28 @@ var _ = Describe("GetCoreConfigFromViper", func() {
 			Expect(cfg.Validate()).
 				To(MatchError(ContainSubstring("session_idle_timeout")))
 		})
+	})
+
+	DescribeTable("Should reject a task worker count that does not fit a byte",
+		func(count int) {
+			viper.Set(start.FlagInsecure, true)
+			viper.Set(start.FlagTaskWorkerCount, count)
+			Expect(start.GetCoreConfigFromViper(alamos.Instrumentation{})).Error().
+				To(And(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(start.FlagTaskWorkerCount)),
+				))
+		},
+		Entry("negative", -1),
+		Entry("one above the maximum", 256),
+		Entry("far above the maximum", 300),
+	)
+
+	It("Should accept the largest task worker count that fits a byte", func() {
+		viper.Set(start.FlagInsecure, true)
+		viper.Set(start.FlagTaskWorkerCount, 255)
+		Expect(start.GetCoreConfigFromViper(alamos.Instrumentation{})).Error().
+			ToNot(HaveOccurred())
 	})
 
 	It("Should allow a Tailscale advertised listener in insecure mode", func() {

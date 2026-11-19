@@ -16,6 +16,7 @@ import { Color } from "@synnaxlabs/lyra/color";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
+import { Haul } from "@synnaxlabs/lyra/haul";
 import { Header } from "@synnaxlabs/lyra/header";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
@@ -26,7 +27,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { theme } from "@synnaxlabs/lyra/theme";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Access, Color as PColor, Flux, Group } from "@synnaxlabs/pluto";
-import { color as xcolor, type record, uuid } from "@synnaxlabs/x";
+import { array, color as xcolor, compare, type record, uuid } from "@synnaxlabs/x";
 import { generateKeyBetween, generateNKeysBetween } from "fractional-indexing";
 import pluralize from "pluralize";
 import {
@@ -44,9 +45,9 @@ import { Modals } from "@/platform/modals";
 import { Settings as PlatformSettings } from "@/platform/settings";
 
 const COLUMNS: List.Column[] = [
-  { name: "Name", width: "2fr" },
-  { name: "Light", width: "1fr" },
-  { name: "Dark", width: "1fr" },
+  { name: "Name", width: "minmax(24rem, 2fr)" },
+  { name: "Light", width: "minmax(16rem, 1fr)" },
+  { name: "Dark", width: "minmax(16rem, 1fr)" },
 ];
 
 const PALETTE_PREFIX = "palette:";
@@ -279,7 +280,9 @@ const Context = createContext<ContextValue>({
 });
 Context.displayName = "Color.Settings";
 
-const DRAG_TYPE = "application/x-synnax-color";
+const HAUL_TYPE = "palette_color";
+const canDropColor = Haul.canDropOfType(HAUL_TYPE);
+const FACTS = ["Color"];
 
 /**
  * Returns the moves that put the dragged color just before the target, given every
@@ -291,7 +294,7 @@ const placeBefore = (
   dragged: color.Key,
   target: color.Key,
 ): PColor.MoveParams[] => {
-  const others = palette.filter((c) => c.key !== dragged);
+  const others = array.removeKeyed(palette, dragged);
   const i = others.findIndex((c) => c.key === target);
   const next = others[i].position;
   const prev = i > 0 ? others[i - 1].position : undefined;
@@ -320,25 +323,34 @@ const Item = (props: List.ItemProps<color.Key>): ReactElement | null => {
   const canUpdate = Access.useUpdateGranted(color.resourceID(itemKey));
   const itemClass = PlatformSettings.useItemClass(itemKey);
   const [over, setOver] = useState(false);
+  const { startDrag, onDragEnd, onDragOver, onDrop } = Haul.useDragAndDrop({
+    type: HAUL_TYPE,
+    key: itemKey,
+    canDrop: canDropColor,
+    onDragOver: () => setOver(true),
+    onDrop: ({ items }) => {
+      setOver(false);
+      const dragged = items.find(({ type }) => type === HAUL_TYPE);
+      if (dragged != null && dragged.key !== itemKey)
+        move(String(dragged.key), itemKey);
+      return items;
+    },
+  });
   if (named == null) return null;
   const builtin = shipped.get(itemKey);
   const lightValue = light.value ?? named.light;
-  const handleDragStart = (e: DragEvent): void => {
-    e.dataTransfer.setData(DRAG_TYPE, itemKey);
-    e.dataTransfer.effectAllowed = "move";
-  };
-  const handleDragOver = (e: DragEvent): void => {
-    if (!e.dataTransfer.types.includes(DRAG_TYPE)) return;
-    e.preventDefault();
-    setOver(true);
-  };
-  const handleDrop = (e: DragEvent): void => {
-    setOver(false);
-    const dragged = e.dataTransfer.getData(DRAG_TYPE);
-    if (dragged === "" || dragged === itemKey) return;
-    e.preventDefault();
-    move(dragged, itemKey);
-  };
+  const handleDragStart = (event: DragEvent): void =>
+    startDrag({
+      event,
+      items: [{ type: HAUL_TYPE, key: itemKey }],
+      preview: (
+        <Haul.Preview
+          swatch={xcolor.cssString(lightValue)}
+          name={name.value}
+          facts={FACTS}
+        />
+      ),
+    });
   return (
     <Select.Item<color.Key>
       {...props}
@@ -347,9 +359,10 @@ const Item = (props: List.ItemProps<color.Key>): ReactElement | null => {
       aria-label={named.name}
       draggable={canUpdate}
       onDragStart={handleDragStart}
-      onDragOver={handleDragOver}
+      onDragEnd={onDragEnd}
+      onDragOver={onDragOver}
       onDragLeave={() => setOver(false)}
-      onDrop={handleDrop}
+      onDrop={onDrop}
       className={CSS.cls(
         CSS.BE("color-settings", "item"),
         over && CSS.BEM("color-settings", "item", "over"),
@@ -658,24 +671,27 @@ export const Settings = (): ReactElement => {
   );
   const paletteName = (c: color.Named): string | undefined =>
     c.group == null ? undefined : palettes.get(c.group);
-  const compare = (a: color.Named, b: color.Named): number => {
+  const byPalette = (a: color.Named, b: color.Named): number => {
     const pa = paletteName(a);
     const pb = paletteName(b);
-    if (pa !== pb) {
-      if (pa == null) return 1;
-      if (pb == null) return -1;
-      return pa.localeCompare(pb);
-    }
-    return comparePositions(a.position, b.position) || a.name.localeCompare(b.name);
+    if (pa === pb) return 0;
+    if (pa == null) return 1;
+    if (pb == null) return -1;
+    return compare.text(pa, pb);
   };
+  const inOrder = compare.chain(
+    byPalette,
+    (a, b) => comparePositions(a.position, b.position),
+    compare.by((c) => c.name),
+  );
   const sorted = list.data
     .flatMap((k) => {
       const c = byKey.get(k);
       return c == null ? [] : [c];
     })
-    .sort(compare);
+    .sort(inOrder);
   // Every color of each palette, whatever the search shows.
-  const members = Map.groupBy([...all].sort(compare), (c) => c.group ?? "");
+  const members = Map.groupBy([...all].sort(inOrder), (c) => c.group ?? "");
   const move = (dragged: color.Key, target: color.Key): void => {
     const d = byKey.get(dragged);
     const t = byKey.get(target);
@@ -688,7 +704,7 @@ export const Settings = (): ReactElement => {
     .map((c) => c.light);
   const byGroup = Map.groupBy(sorted, (c) => c.group ?? "");
   const order = [...palettes.entries()]
-    .sort(([, a], [, b]) => a.localeCompare(b))
+    .sort(compare.by(([, name]) => name))
     .map(([key]) => key);
   if (byGroup.has("")) order.push("");
   const headings = new Map<string, PaletteHeadingProps>();

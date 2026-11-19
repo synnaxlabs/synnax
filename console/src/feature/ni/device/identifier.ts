@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type device } from "@synnaxlabs/client";
-import { strings } from "@synnaxlabs/x";
+import { strings, unique } from "@synnaxlabs/x";
 
 import { Device } from "@/platform/device";
 
@@ -29,8 +29,8 @@ export const suggestIdentifiers = ({ location, name }: device.Device): string[] 
       .match(/[a-z]+|\d+/g) ?? [];
   const full = parts.join("");
   const short = parts.map((p) => (/\d/.test(p) ? p : p[0])).join("");
-  const ids = [...new Set([full, short])].filter(
-    (id) => Device.identifierZ.safeParse(id).success,
-  );
+  const ids = unique
+    .unique([full, short])
+    .filter((id) => Device.identifierZ.safeParse(id).success);
   return ids.length > 0 ? ids : strings.createShortIdentifiers(name);
 };

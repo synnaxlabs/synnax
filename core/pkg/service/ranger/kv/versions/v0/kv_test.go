@@ -55,6 +55,7 @@ var _ = Describe("NormalizeKeys", func() {
 		func(ctx SpecContext) {
 			kvDB := memkv.New()
 			db := DeferClose(gorp.Wrap(kvDB, gorp.WithCodec(msgpack.Codec)))
+			StartRun(db.Run)
 			e := v0.Pair{Range: uuid.New(), Key: "operator", Value: "ada"}
 			legacy := gorptestutil.SetPreV54Row(
 				ctx,
@@ -99,6 +100,7 @@ var _ = Describe("RecoverKVPairKeys", func() {
 	BeforeEach(func(ctx SpecContext) {
 		kvDB = memkv.New()
 		db = DeferClose(gorp.Wrap(kvDB))
+		StartRun(db.Run)
 		for k, v := range kvPairRows {
 			Expect(kvDB.Set(
 				ctx,

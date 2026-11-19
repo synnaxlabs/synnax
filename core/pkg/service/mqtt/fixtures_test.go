@@ -48,7 +48,7 @@ func newFactory(queueSize int) driver.Factory {
 		Device:  deviceSvc,
 		Channel: channelSvc,
 		Framer:  framerSvc,
-		DB:      db, Status: statusSvc,
+		DB:      db, Status: statusSvc, ICD: icdSvc,
 		QueueSize: queueSize,
 	}))
 }
@@ -97,7 +97,7 @@ func (s *publishStall) factory() driver.Factory {
 		Device:  deviceSvc,
 		Channel: channelSvc,
 		Framer:  framerSvc,
-		DB:      db, Status: statusSvc,
+		DB:      db, Status: statusSvc, ICD: icdSvc,
 		QueueSize: 64,
 		NewClient: func(opts *paho.ClientOptions) paho.Client {
 			return &stallingClient{Client: paho.NewClient(opts), stall: s}

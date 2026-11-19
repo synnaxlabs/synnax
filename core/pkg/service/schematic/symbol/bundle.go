@@ -122,50 +122,12 @@ func (s *Service) ImportGroup(
 	files zip.Files,
 ) (group.Group, error) {
 	manifestFileName := imex.ManifestBaseName + json.Codec.Extension()
-	manifestData, ok := files[manifestFileName]
-	if !ok {
-		return group.Group{}, errors.Wrapf(
-			validate.ErrValidation, "bundle holds no %s", manifestFileName,
-		)
-	}
-	var manifest imex.Manifest
-	if err := imex.Codec.Decode(manifestData, &manifest); err != nil {
-		return group.Group{}, errors.Wrap(err, manifestFileName)
-	}
-	if manifest.Type != manifestType {
-		return group.Group{}, errors.Wrapf(
-			validate.ErrValidation,
-			"bundle is a %q, not a %s", manifest.Type, manifestType,
-		)
-	}
-	if manifest.Version > manifestVersion {
-		return group.Group{}, imex.NewErrUnsupportedVersion(
-			manifestType, imex.Version(manifest.Version), manifestVersion,
-		)
-	}
-	if manifest.Name == "" {
-		return group.Group{}, errors.Wrapf(
-			validate.ErrValidation, "%s names no group", manifestFileName,
-		)
-	}
-	var (
-		members []string
-		err     error
-	)
-	switch manifest.Version {
-	case legacyManifestVersion:
-		members, err = declaredMembers(manifestData, files, manifestFileName)
-	case manifestVersion:
-		members = inferredMembers(files, manifestFileName, json.Codec.Extension())
-	default:
-		err = errors.Wrapf(
-			validate.ErrValidation, "unsupported manifest version %d", manifest.Version,
-		)
-	}
+	manifest, manifestData, err := decodeGroupManifest(files, manifestFileName)
 	if err != nil {
 		return group.Group{}, err
 	}
-	if err = validateMemberNames(members); err != nil {
+	members, err := groupMembers(manifest, manifestData, files, manifestFileName)
+	if err != nil {
 		return group.Group{}, err
 	}
 	g := group.Group{Name: manifest.Name, Scope: resource.TypeSchematicSymbol}
@@ -184,6 +146,72 @@ func (s *Service) ImportGroup(
 		}
 	}
 	return g, nil
+}
+
+// decodeGroupManifest reads and validates the bundle's manifest, returning it with its
+// raw bytes.
+func decodeGroupManifest(
+	files zip.Files,
+	manifestFileName string,
+) (imex.Manifest, []byte, error) {
+	manifestData, ok := files[manifestFileName]
+	if !ok {
+		return imex.Manifest{}, nil, errors.Wrapf(
+			validate.ErrValidation, "bundle holds no %s", manifestFileName,
+		)
+	}
+	var manifest imex.Manifest
+	if err := imex.Codec.Decode(manifestData, &manifest); err != nil {
+		return imex.Manifest{}, nil, errors.Wrap(err, manifestFileName)
+	}
+	if manifest.Type != manifestType {
+		return imex.Manifest{}, nil, errors.Wrapf(
+			validate.ErrValidation,
+			"bundle is a %q, not a %s", manifest.Type, manifestType,
+		)
+	}
+	if manifest.Version > manifestVersion {
+		return imex.Manifest{}, nil, imex.NewErrUnsupportedVersion(
+			manifestType, imex.Version(manifest.Version), manifestVersion,
+		)
+	}
+	if manifest.Name == "" {
+		return imex.Manifest{}, nil, errors.Wrapf(
+			validate.ErrValidation, "%s names no group", manifestFileName,
+		)
+	}
+	return manifest, manifestData, nil
+}
+
+// groupMembers resolves the member file names for the manifest's version and rejects
+// names that collide case-folded.
+func groupMembers(
+	manifest imex.Manifest,
+	manifestData []byte,
+	files zip.Files,
+	manifestFileName string,
+) ([]string, error) {
+	var (
+		members []string
+		err     error
+	)
+	switch manifest.Version {
+	case legacyManifestVersion:
+		members, err = declaredMembers(manifestData, files, manifestFileName)
+	case manifestVersion:
+		members = inferredMembers(files, manifestFileName, json.Codec.Extension())
+	default:
+		err = errors.Wrapf(
+			validate.ErrValidation, "unsupported manifest version %d", manifest.Version,
+		)
+	}
+	if err != nil {
+		return nil, err
+	}
+	if err = validateMemberNames(members); err != nil {
+		return nil, err
+	}
+	return members, nil
 }
 
 // declaredMembers reads a version 1 manifest's membership from its symbols list,

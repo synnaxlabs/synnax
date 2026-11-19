@@ -18,14 +18,14 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Store } from "@synnaxlabs/lyra/store";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Access, Flux, View as PView } from "@synnaxlabs/pluto";
+import { Access, Flux, Ranger, View as PView } from "@synnaxlabs/pluto";
 import { binary, location, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import { TAB_TYPE } from "@/feature/range/explorer/external";
 import { PROPERTIES } from "@/feature/range/explorer/Filter";
 import { MATCH_LIMIT, useSearchTree } from "@/feature/range/explorer/searchTree";
-import { nextCrossing, pin, useNextRanges } from "@/feature/range/explorer/time";
+import { pin } from "@/feature/range/explorer/time";
 import { Tree } from "@/feature/range/tree";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
@@ -76,7 +76,7 @@ const NoRanges = (): ReactElement => {
     <Empty.Action
       message="No ranges match"
       action={canCreate ? "Create range" : undefined}
-      onClick={() => openCreate()}
+      onClick={() => void openCreate()}
     />
   );
 };
@@ -152,8 +152,8 @@ const Internal = (): ReactElement => {
     subscribe: root.subscribe,
     getItem: root.getItem,
   });
-  const upcoming = useNextRanges(where, at);
-  const crossing = nextCrossing(where, [...held, ...upcoming], at);
+  const upcoming = Ranger.useNextRanges(where, at);
+  const crossing = Ranger.nextCrossing(where, [...held, ...upcoming], at);
   const now = useNow(() => crossing);
   if (crossing != null && !now.before(crossing)) setAt(now);
   const handleSearch = useDebouncedCallback(
@@ -247,7 +247,7 @@ const Internal = (): ReactElement => {
               size="medium"
               tooltip="Create range"
               tooltipLocation={location.BOTTOM_LEFT}
-              onClick={() => openCreate()}
+              onClick={() => void openCreate()}
             >
               <Icon.Add />
             </Button.Button>

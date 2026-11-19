@@ -11,8 +11,9 @@ import { lineplot, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { LinePlot as PLinePlot, Panel as PlutoPanel } from "@synnaxlabs/pluto";
+import { type aether } from "@synnaxlabs/pluto/ether";
 import { id } from "@synnaxlabs/x";
-import { act, render, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import {
   type ComponentType,
   type FC,
@@ -72,7 +73,20 @@ export interface RenderLinePlotOptions {
   preloadedState?: (key: string) => ConsolePreloadedState;
   /** The client the component renders against; defaults to the root client. */
   as?: Client;
+  /** Extra Aether components, for a component that needs the worker. */
+  additionalRegistry?: aether.ComponentRegistry;
 }
+
+/** Opens the picker of the first color swatch in container and picks a named color. */
+export const pickNamedColor = async (
+  container: HTMLElement,
+  name: string,
+): Promise<void> => {
+  const swatch = container.querySelector<HTMLElement>(".lyra-color-swatch");
+  if (swatch == null) throw new Error("no color swatch rendered");
+  fireEvent.click(swatch);
+  fireEvent.click(await screen.findByRole("button", { name }));
+};
 
 // renderLinePlot creates a line plot on the server, mounts Component inside the panel
 // and tab scopes of a seeded resource tab (the way the mosaic renders a tab) with the
@@ -80,7 +94,12 @@ export interface RenderLinePlotOptions {
 // result plus the Redux store and plot key.
 export const renderLinePlot = async (
   Component: ComponentType,
-  { linePlot: overrides, preloadedState, as = client }: RenderLinePlotOptions = {},
+  {
+    linePlot: overrides,
+    preloadedState,
+    as = client,
+    additionalRegistry,
+  }: RenderLinePlotOptions = {},
 ) => {
   const created = await client.lineplots.create({
     project: await project(),
@@ -90,6 +109,7 @@ export const renderLinePlot = async (
   const { wrapper: Wrapper, store } = await createConsoleWrapper({
     client: as,
     preloadedState: preloadedState?.(created.key),
+    additionalRegistry,
   });
   await loadLinePlot(Wrapper, created.key);
   const { panelKey, tabKey } = await createResourceTab(

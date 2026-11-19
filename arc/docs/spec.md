@@ -140,7 +140,7 @@ TypeCast ::= Type '(' Expression ')'
 - Signed ↔ Unsigned keeps the bits, so `u8(i8(-1))` is `255`
 - Float → Integer truncates toward zero, saturates on overflow
 - Integer overflow uses two's-complement wrapping. An expression made only of integer
-  literals that overflows its type is a compile error (`ARC6001`).
+  literals that overflows its type is a compile error (`E2007`).
 - Numeric → `bool` is `x != 0`; `bool` → numeric is `1` or `0`
 - Numeric or `bool` → `str` renders text (`"3.14"`, `"true"`); no casts from `str`
 
@@ -175,25 +175,27 @@ convert to timespan by inverting the period.
 
 ### Temporal values
 
-Timestamps and timespans are represented as `i64` with time units (nanoseconds):
+A timespan is an `i64` in the unit of its literal. A timestamp is an `i64` in
+nanoseconds:
 
 ```arc
-duration := 100ms // i64 with time units
-interval := 5s // i64 with time units
+duration := 100ms // i64 ms, holds 100
+interval := 5s // i64 s, holds 5
 timestamp := now() // i64 ns from now() builtin
 ```
 
 ### Dimensional compatibility
 
 - **Addition/Subtraction**: Operands must have compatible dimensions
-- **Multiplication/Division**: Always valid; dimensions combine
+- **Multiplication/Division**: Always valid; two values with units give no unit, and so
+  does a number divided by a value with a unit
 - **Exponentiation**: If base has dimensions, exponent must be a literal integer
 
 ```arc
 distance f64 m := 10.0
 time f64 s := 2.0
-speed := distance / time // f64 m/s (dimensions combine)
-area := distance ^ 2 // f64 m^2 (literal exponent required)
+speed := distance / time // f64 with no unit
+area := distance ^ 2 // f64 with no unit (literal exponent required)
 ```
 
 ## Variables
@@ -322,7 +324,7 @@ literal is read as a float. The constants act like a float literal: they fit `f3
 `f64`, default to `f64`, and do not fit an integer type, so `i32(math.nan)` is a compile
 error. In a flow, a constant sends its value: `x -> math.nan -> y`. `x != math.nan` is
 always `true`, and `==`, `<`, `>`, `<=`, or `>=` with `math.nan` is always `false`, so
-each fails with error ARC2004: test with `math.is_nan(x)` or `not math.is_nan(x)`.
+each fails with error E2010: test with `math.is_nan(x)` or `not math.is_nan(x)`.
 
 ```arc
 import math
@@ -817,8 +819,8 @@ These simplify implementation while maintaining expressiveness:
   dimensioned base
 - **Operands**: Non-`bool` logical operands
 - **Constants**: An expression made only of integer literals that overflows its type
-  (`ARC6001`), such as `x i8 := 100 + 100`, or that divides or takes a modulo by zero
-  (`ARC6002`), such as `x := 1 / 0`. A negated literal is one signed value, so
+  (`E2007`), such as `x i8 := 100 + 100`, or that divides or takes a modulo by zero
+  (`E2000`), such as `x := 1 / 0`. A negated literal is one signed value, so
   `x i8 := -128` fits. A cast passes a constant through only when the target type holds
   it. Float arithmetic follows IEEE 754 and is never a constant error.
 

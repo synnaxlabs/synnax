@@ -277,6 +277,9 @@ npm install @synnaxlabs/client@0.61
 
 </Client.Tabs>
 
+If pip does not update the client, check the version of Python. The 0.62 client needs
+Python 3.13 or newer.
+
 </Problem.Fix>
 </Problem.Body>
 
@@ -476,22 +479,43 @@ Ask an administrator to give your user a role that allows the action. See
 ## No connection parameters were given
 
 ```
-ValidationError: No connection parameters were given and none are saved. Open Synnax Desktop, log in with `sy login`, set SYNNAX_HOST and SYNNAX_API_KEY, or give a host and a port.
+ValidationError: No host was given and no Core is saved. Give a host, set SYNNAX_HOST, or log in with `sy login`.
 ```
 
 <Problem.Body>
 <Problem.Cause>
 
-You created a Python client with no arguments. No environment variables are set, there
-is no saved login, and Synnax Desktop has not run on this computer.
+You created a Python client with no host. `SYNNAX_HOST` is not set, and there is no
+saved login.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Open Synnax Desktop, run `sy login`, set the
+Give a host to `sy.Synnax`, set the
 [environment variables](/reference/client/connect#connect-with-environment-variables),
-or give the connection values to `sy.Synnax`. See
-[Connect to a Core](/reference/client/connect).
+or run `sy login`. See [Connect to a Core](/reference/client/connect).
+
+</Problem.Fix>
+</Problem.Body>
+
+<Divider.Divider x />
+
+## No credentials were given
+
+```
+ValidationError: No credentials were given. Set SYNNAX_API_KEY, or give an API key or a username and password.
+```
+
+<Problem.Body>
+<Problem.Cause>
+
+A host came from an argument or from `SYNNAX_HOST`, but no source gave an API key or a
+username.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Set `SYNNAX_API_KEY`, or give `api_key`, or `username` and `password`, to `sy.Synnax`.
 
 </Problem.Fix>
 </Problem.Body>
@@ -532,7 +556,7 @@ Synnax Desktop is not running. Open it and try again. To connect to another Core
 <Problem.Body>
 <Problem.Cause>
 
-You created a Python client with no arguments, and it found the Core of
+You created a client with no host, and it found the Core of
 [Synnax Desktop](/reference/client/connect#connect-to-synnax-desktop). Synnax Desktop is
 closed, or its Core has not started.
 
@@ -540,6 +564,33 @@ closed, or its Core has not started.
 <Problem.Fix>
 
 Open Synnax Desktop and wait until the workspace shows, then run the script again.
+
+</Problem.Fix>
+</Problem.Body>
+
+<Divider.Divider x />
+
+## The key helper of Synnax Desktop failed
+
+```
+ConfigurationError: The key helper of Synnax Desktop failed: failed to read the Synnax Desktop API key: Synnax Desktop has saved no API key. Open Synnax Desktop to save one.
+```
+
+<Problem.Body>
+<Problem.Cause>
+
+You created a Python client with no arguments, and it ran `synnax-desktop-key` to get
+the API key of [Synnax Desktop](/reference/client/connect#connect-to-synnax-desktop).
+The program could not read the key from the keychain of your operating system. The text
+after `failed:` tells why. A message that says `Cannot run the key helper` means that
+the program at the path in `~/.synnax/desktop.json` cannot start.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Open Synnax Desktop and wait until the workspace shows, then run the script again. If
+the program cannot start, update or install Synnax Desktop again. Over SSH or in a
+session with no keychain, set `SYNNAX_HOST` and `SYNNAX_API_KEY` instead.
 
 </Problem.Fix>
 </Problem.Body>

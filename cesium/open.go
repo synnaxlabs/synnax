@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/observe"
-	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
@@ -31,7 +30,7 @@ import (
 // Open opens a Cesium database on the specified directory. If the directory is not
 // empty, Open attempts to parse its subdirectories into Cesium channels. If any of the
 // subdirectories are not in the Cesium format, an error is logged and Open continues
-// execution.
+// execution. ctx covers only the open. Writes and streamers need DB.Run to run.
 func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 	o, err := newOptions(dirname, opts...)
 	if err != nil {
@@ -50,7 +49,6 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 	db := &DB{
 		options:        o,
 		closed:         &atomic.Bool{},
-		controlUpdates: observe.New[ControlUpdate](),
 		historyChanges: observe.New[HistoryChange](),
 	}
 	db.mu.dbs.unary = make(map[channel.Key]unary.DB, len(info))
@@ -84,10 +82,7 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 		}
 	}
 
-	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(o.Instrumentation))
-	db.relay = openRelay(sCtx, o)
-	db.startGC(sCtx, o)
-	db.shutdown = signal.NewHardShutdown(sCtx, cancel)
+	db.relay = newRelay(o)
 	db.removeDirs(detached...)
 	return db, nil
 }

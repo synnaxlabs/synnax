@@ -20,6 +20,7 @@ require (
 	github.com/synnaxlabs/alamos v0.0.0
 	github.com/synnaxlabs/gorp v0.0.0
 	github.com/synnaxlabs/x v0.0.0
+	go.opentelemetry.io/otel v1.47.0
 	go.uber.org/zap v1.28.0
 	google.golang.org/grpc v1.84.0
 	google.golang.org/protobuf v1.36.12
@@ -78,7 +79,6 @@ require (
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/runtime v0.72.0 // indirect
 	go.opentelemetry.io/contrib/processors/minsev v0.17.0 // indirect
-	go.opentelemetry.io/otel v1.47.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp v0.23.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp v1.47.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.47.0 // indirect

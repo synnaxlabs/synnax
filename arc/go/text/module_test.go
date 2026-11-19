@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
@@ -149,7 +150,7 @@ var _ = Describe("Loader", func() {
 			sources["m"] = `func f() i64 { return 1 }`
 			diag := analyze(ctx, "import m\n\ntrig -> m.f() -> out")
 			Expect(diag.String()).To(
-				ContainSubstring(`'f' is not exported by module "m"`),
+				ContainSubstring(`[E4003]: not exported: 'f' in module "m"`),
 			)
 		})
 
@@ -178,7 +179,7 @@ var _ = Describe("Loader", func() {
 		})
 
 		It("Should resolve a module's own imports", func(ctx SpecContext) {
-			sources["m"] = "import time\n\nexport func f() i64 { return time.now() }"
+			sources["m"] = "import time\n\nexport func f() i64 ns { return time.now() }"
 			diag := analyze(ctx, "import m\n\ntrig -> m.f() -> out")
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 		})
@@ -204,7 +205,7 @@ var _ = Describe("Loader", func() {
 				"import (a b)\n\ntrig -> a.f() -> out\ntrig -> b.g() -> out",
 			)
 			Expect(diag.String()).To(ContainSubstring(
-				`module "a" does not compile: 1:7 module "d" does not compile: ` +
+				`module "a" does not compile: 1:7 import failed: module "d" does not compile: ` +
 					`1:29 undefined symbol: nope`,
 			))
 			Expect(diag.String()).To(ContainSubstring(`module "b" does not compile`))
@@ -257,7 +258,8 @@ var _ = Describe("Loader", func() {
 					"f\"{m.c}\" -> outs\n\nm.abc -> outs\n\ntrig -> m.f() -> out")
 				Expect(*diag).To(HaveLen(1), diag.String())
 				Expect((*diag)[0].Message).To(Equal(
-					`module "m" does not compile: 3:19 mismatched input '<EOF>' ` +
+					`import failed: module "m" does not compile: 3:19 syntax error: ` +
+						`mismatched input '<EOF>' ` +
 						`expecting {'->', '=>'}`,
 				))
 				Expect((*diag)[0].Range.Start.Line).To(BeZero())
@@ -269,7 +271,9 @@ var _ = Describe("Loader", func() {
 			func(ctx SpecContext) {
 				diag := analyze(ctx, "import nope\n\ntrig -> nope.f() -> out")
 				Expect(*diag).To(HaveLen(1), diag.String())
-				Expect((*diag)[0].Message).To(Equal(`unknown module "nope"`))
+				Expect(
+					(*diag)[0].Message,
+				).To(Equal(`import failed: unknown module "nope"`))
 			},
 		)
 
@@ -379,7 +383,41 @@ sequence main {
 
 		It("Should report an unknown module", func(ctx SpecContext) {
 			diag := analyze(ctx, "import nope\n\ntrig -> nope.f() -> out")
-			Expect(diag.String()).To(ContainSubstring(`unknown module "nope"`))
+			Expect(
+				diag.String(),
+			).To(ContainSubstring(`import failed: unknown module "nope"`))
+		})
+	})
+
+	Describe("A module variable of another unit", func() {
+		analyzeStage := func(ctx context.Context, statement string) diagnostics.Diagnostic {
+			GinkgoHelper()
+			sources["m"] = `export t := 120s`
+			diag := analyze(ctx, "import (m time)\n\nsequence main {\nd := 1min\n"+
+				"twice := m.t * 2\nstage s1 {\n"+statement+"\n}\n}")
+			Expect(*diag).To(HaveLen(1), diag.String())
+			return (*diag)[0]
+		}
+
+		DescribeTable("Should warn when a write of a module variable truncates",
+			func(ctx SpecContext, statement string) {
+				d := analyzeStage(ctx, statement+"\ntrig -> time.wait(1s) -> out8")
+				Expect(d.Code).To(Equal(codes.UnitPrecisionLoss.Code))
+			},
+			Entry("the variable", `d = m.t`),
+			Entry("an assigned calculation", `d = m.t * 2`),
+			Entry("a calculation in a flow", `m.t * 2 -> d`),
+			Entry("a variable that the module variable sets", `d = twice * 2`),
+		)
+
+		It("Should accept a calculation that goes to an input", func(ctx SpecContext) {
+			sources["m"] = `export t := 120s`
+			diag := analyze(
+				ctx,
+				"import (m time)\n\ntrig -> time.wait(m.t * 2) -> out8",
+			)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			Expect(*diag).To(BeEmpty())
 		})
 	})
 

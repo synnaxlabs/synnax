@@ -35,8 +35,18 @@ namespace driver::ethercat::master {
 /// @brief the distributed clock epoch, 2000-01-01, as a Unix timestamp.
 inline const x::telem::TimeStamp DC_EPOCH(x::telem::SECOND * 946684800);
 
-/// @brief the most frames that a master keeps in flight after a send().
-constexpr size_t MAX_FRAMES_IN_FLIGHT = 3;
+/// @brief the most frames that a master keeps in flight after a send(), so a caller
+/// can reserve room for their results.
+constexpr size_t MAX_FRAMES_IN_FLIGHT = 32;
+
+/// @brief how long a master keeps a frame in flight after its send(). It is a time,
+/// not a count of frames, since an adapter holds frames back for the same time at any
+/// rate.
+inline const x::telem::TimeSpan MAX_FRAME_AGE = x::telem::MILLISECOND * 10;
+
+/// @brief how many frames a master keeps in flight at any age, so a frame of a slow bus
+/// gets more than one receive().
+constexpr size_t MIN_FRAMES_IN_FLIGHT = 3;
 
 /// @brief information about an available EtherCAT master or network.
 struct Info {
@@ -53,6 +63,12 @@ struct Plan {
     /// @brief the settings of each slave, keyed by position. A slave missing from it
     /// uses the defaults of slave::Config.
     std::map<uint16_t, slave::Config> slaves;
+    /// @brief ends activate() early with x::errors::CANCELLED once it stops, or
+    /// nullptr. A master whose wait for OP has no fixed length must obey it.
+    const x::breaker::Breaker *cancel = nullptr;
+    /// @brief called in activate() with the number of slaves in OP and the number of
+    /// slaves each time more reach OP, or nullptr. A master need not call it.
+    std::function<void(size_t operational, size_t total)> progress;
 };
 
 /// @brief what one slave adds to the working counter of a full cycle.
@@ -134,8 +150,10 @@ public:
     /// "Ethernet 2" for a Windows adapter.
     [[nodiscard]] virtual std::string name() const = 0;
 
-    /// @brief opens the master and discovers the slaves on the bus. Returns the slaves
-    /// it found without a new discovery until deactivate().
+    /// @brief opens the master and discovers the slaves on the bus. Until deactivate(),
+    /// a later call finds no new slaves, but reads again each slave that has left INIT
+    /// since a read found it starting. Safe to call from one thread while another runs
+    /// receive() and send().
     [[nodiscard]]
     virtual std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> scan() = 0;
 
@@ -152,12 +170,12 @@ public:
     /// image once send() and receive() work, starts the DC sync of each slave in a DC
     /// mode, then moves the enabled slaves to OP while the caller cycles the bus. After
     /// an error, the caller stops the cycle it started before it calls deactivate().
-    /// Valid after scan(). Only the SOEM master starts DC sync.
+    /// Valid after scan().
     /// @returns errors::SLAVE_CONFIG_ERROR when the DC mode of a slave gives values its
     /// registers cannot hold at the period, or errors::STATE_CHANGE_REFUSED when a
-    /// slave refuses SAFE-OP or OP. The SOEM master returns errors::ACTIVATION_ERROR
-    /// with a refusal for a used slave with no identity, after start_cycle only when
-    /// another slave has process data.
+    /// slave refuses SAFE-OP or OP. errors::ACTIVATION_ERROR with a refusal for a used
+    /// slave with no identity, after start_cycle only when another slave has process
+    /// data.
     [[nodiscard]] virtual Activation activate(
         const Plan &plan,
         const std::function<void(const Image &)> &start_cycle
@@ -170,9 +188,11 @@ public:
     /// processes its inputs. Returns errors::FRAME_IN_FLIGHT when the frame has not
     /// come back and the master keeps it in flight, so a later receive() takes it.
     /// Each send(), failed or not, gets exactly one result other than FRAME_IN_FLIGHT,
-    /// in send order. With MAX_FRAMES_IN_FLIGHT frames in flight, the master drops the
-    /// oldest frame and returns an error in place of FRAME_IN_FLIGHT.
-    [[nodiscard]] virtual x::errors::Error receive() = 0;
+    /// in send order. Once the oldest frame is MAX_FRAME_AGE old and
+    /// MIN_FRAMES_IN_FLIGHT frames are in flight, or once MAX_FRAMES_IN_FLIGHT frames
+    /// are in flight, the master drops it and returns an error in place of
+    /// FRAME_IN_FLIGHT. The error stays valid until the next receive() or deactivate().
+    [[nodiscard]] virtual const x::errors::Error &receive() = 0;
 
     /// @brief queues output data and sends to the EtherCAT network.
     [[nodiscard]] virtual x::errors::Error send() = 0;
@@ -185,9 +205,10 @@ public:
 
     /// @brief returns the positions, in ascending order, of the enabled slaves whose
     /// inputs in the latest receive() hold no data: a slave that the frames of the
-    /// cycle found below SAFE-OP, or whose AL status did not come back. Empty when the
-    /// master reads no state in each cycle, or no frame came back. Valid until the next
-    /// receive(), and only on the thread that calls it.
+    /// cycle found below SAFE-OP, or whose AL status or process data did not come back.
+    /// It can also hold a slave with no inputs whose process data did not come back.
+    /// Empty when the master reads no state in each cycle, or no frame came back. Valid
+    /// until the next receive(), and only on the thread that calls it.
     [[nodiscard]] virtual std::span<const uint16_t> inputless() const = 0;
 
     /// @brief returns the distributed clock system time, as a Unix timestamp, at which

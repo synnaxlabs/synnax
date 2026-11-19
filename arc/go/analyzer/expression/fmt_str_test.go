@@ -13,10 +13,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/antlr4-go/antlr/v4"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/expression"
 	"github.com/synnaxlabs/arc/parser"
@@ -123,7 +123,8 @@ trig -> f()`
 		DescribeTable(
 			"rejects malformed format string bodies",
 			func(specCtx SpecContext, body, errSubstr string) {
-				expectError(specCtx, wrap(`    log = `+body), errSubstr)
+				d := expectError(specCtx, wrap(`    log = `+body), errSubstr)
+				Expect(d.Code).To(Equal(codes.InvalidStringLiteral.Code))
 			},
 			Entry("unmatched opening brace at end", `f"{x"`, "unmatched '{'"),
 			Entry(
@@ -150,7 +151,8 @@ trig -> f()`
 		DescribeTable(
 			"rejects unparseable placeholder bodies",
 			func(specCtx SpecContext, body, errSubstr string) {
-				expectError(specCtx, wrap(`    log = `+body), errSubstr)
+				d := expectError(specCtx, wrap(`    log = `+body), errSubstr)
+				Expect(d.Code).To(Equal(codes.InvalidStringLiteral.Code))
 			},
 			Entry(
 				"trailing operator",
@@ -291,13 +293,13 @@ trig -> f()`
 		expr := MustSucceed(parser.ParseExpression(`f"{1 + 2} {1 +} x"`))
 		strTerm := parser.StringTerminal(parser.GetLiteral(expr))
 		ctx := acontext.NewRoot(specCtx, expr, fmtResolver())
-		expression.AnalyzeFmtStrLiteral(ctx, strTerm)
+		expression.Analyze(ctx)
 		first := ctx.FmtStrings[strTerm]
 		Expect(first).To(HaveLen(4))
 		Expect(first[0].Expr).ToNot(BeNil())
 		Expect(first[2].Expr).To(BeNil())
 		Expect(first[3]).To(Equal(parser.FmtSegment{Text: " x"}))
-		expression.AnalyzeFmtStrLiteral(ctx, strTerm)
+		expression.Analyze(ctx)
 		second := ctx.FmtStrings[strTerm]
 		Expect(second[0].Expr).To(BeIdenticalTo(first[0].Expr))
 		Expect(second[2].Expr).To(BeNil())
@@ -546,40 +548,16 @@ trig -> f()`
 	})
 
 	Describe("Defensive guards", func() {
-		// findStringTerminal locates the first STR_LITERAL or STR_LITERAL_MULTI
-		// terminal in tree.
-		var findStringTerminal func(t antlr.Tree) antlr.TerminalNode
-		findStringTerminal = func(t antlr.Tree) antlr.TerminalNode {
-			if tn, ok := t.(antlr.TerminalNode); ok {
-				if tok := tn.GetSymbol(); tok != nil {
-					tt := tok.GetTokenType()
-					if tt == parser.ArcParserSTR_LITERAL ||
-						tt == parser.ArcParserSTR_LITERAL_MULTI {
-						return tn
-					}
-				}
-			}
-			for i := range t.GetChildCount() {
-				if found := findStringTerminal(t.GetChild(i)); found != nil {
-					return found
-				}
-			}
-			return nil
-		}
-
 		It(
 			"emits a diagnostic when string token text lacks delimiters",
 			func(specCtx SpecContext) {
-				ast := MustSucceed(
-					parser.Parse("func f() {\n    log = f\"x\"\n}\ntrig -> f()"),
-				)
-				strTerm := findStringTerminal(ast)
-				Expect(strTerm).ToNot(BeNil())
+				expr := MustSucceed(parser.ParseExpression(`f"x"`))
+				strTerm := parser.StringTerminal(parser.GetLiteral(expr))
 				// Mutate token text to drop the delimiters. This is unreachable via
 				// the grammar but exercises the StripQuotes guard.
 				strTerm.GetSymbol().SetText("no_quotes")
-				ctx := acontext.NewRoot(specCtx, ast, fmtResolver())
-				expression.AnalyzeFmtStrLiteral(ctx, strTerm)
+				ctx := acontext.NewRoot(specCtx, expr, fmtResolver())
+				expression.Analyze(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 				Expect(findError(*ctx.Diagnostics, "invalid string literal")).
 					ToNot(BeNil())

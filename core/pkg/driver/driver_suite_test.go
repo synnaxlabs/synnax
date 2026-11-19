@@ -71,6 +71,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	mockFS = os.DirFS(string(dir))
 	ShouldNotLeakGoroutines()
 	db = DeferClose(gorp.Wrap(memkv.New()))
+	StartRun(db.Run)
 	racks := MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[rack.Key, rack.Rack]{
 		DB:   db,
 		Name: string(resource.TypeRack),

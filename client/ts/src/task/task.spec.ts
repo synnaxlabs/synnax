@@ -323,7 +323,7 @@ describe("Task", async () => {
     });
 
     it("should retrieve a task by its name", async () => {
-      const name = `test-${Date.now()}-${Math.random()}`;
+      const name = `test-${id.create()}`;
       const m = await testRack.createTask({
         name,
         config: { routingKey: ROUTING_KEY },
@@ -996,7 +996,7 @@ describe("Task", async () => {
     });
 
     it("should retrieve task by name with schemas", async () => {
-      const uniqueName = `schema-name-test-${Date.now()}`;
+      const uniqueName = `schema-name-test-${id.create()}`;
       await testRack.createTask(
         {
           name: uniqueName,
@@ -1578,8 +1578,8 @@ describe("Task", async () => {
       // The store is watched directly so the assertion reads the write the command
       // makes. A subscribed query would let a refetch restore the stored status
       // first, and a poll would only ever see whichever landed last.
-      let seeWrite = (_: status.Status): void => {};
-      const written = new Promise<status.Status>((resolve) => (seeWrite = resolve));
+      const { promise: written, resolve: seeWrite } =
+        Promise.withResolvers<status.Status>();
       const off = client.statuses.store.subscribe((event) => {
         // The creation-time "has not been deployed" placeholder echoes back over the
         // status stream at its own pace, so a disabled event is never the command's.
@@ -1608,8 +1608,8 @@ describe("Task", async () => {
       const key = statusKeyOf(task.resourceID(t.key));
       await client.tasks.retrieve({ key: t.key });
       await setRackStatus(warned.key, "warning", "Driver is degraded", true);
-      let seeWrite = (_: status.Status): void => {};
-      const written = new Promise<status.Status>((resolve) => (seeWrite = resolve));
+      const { promise: written, resolve: seeWrite } =
+        Promise.withResolvers<status.Status>();
       const off = client.statuses.store.subscribe((event) => {
         if (event.variant === "set" && event.value.variant !== "disabled")
           seeWrite(event.value);
@@ -1657,8 +1657,7 @@ describe("Task", async () => {
         type: "pagerduty_alert",
       });
       const key = statusKeyOf(task.resourceID(t.key));
-      let seeLoading = (): void => {};
-      const loading = new Promise<void>((resolve) => (seeLoading = resolve));
+      const { promise: loading, resolve: seeLoading } = Promise.withResolvers<void>();
       const off = client.statuses.store.subscribe((event) => {
         if (event.variant === "set" && event.value.variant === "loading") seeLoading();
       }, key);
@@ -1695,8 +1694,7 @@ describe("Task", async () => {
         type: "pagerduty_alert",
       });
       const key = statusKeyOf(task.resourceID(t.key));
-      let seeLoading = (): void => {};
-      const loading = new Promise<void>((resolve) => (seeLoading = resolve));
+      const { promise: loading, resolve: seeLoading } = Promise.withResolvers<void>();
       const off = client.statuses.store.subscribe((event) => {
         if (event.variant === "set" && event.value.variant === "loading") seeLoading();
       }, key);
@@ -1761,8 +1759,7 @@ describe("Task", async () => {
       // The status store is watched directly, leaving no subscribed query behind:
       // winding the clock forward would otherwise reach the cache streamer's
       // reconcile, whose refetch replaces the very status under test.
-      let seeLoading = (): void => {};
-      const loading = new Promise<void>((resolve) => (seeLoading = resolve));
+      const { promise: loading, resolve: seeLoading } = Promise.withResolvers<void>();
       const off = client.statuses.store.subscribe((event) => {
         if (event.variant === "set" && event.value.variant === "loading") seeLoading();
       }, key);
@@ -1804,8 +1801,8 @@ describe("Task", async () => {
       const key = statusKeyOf(task.resourceID(t.key));
       await client.tasks.retrieve({ key: t.key });
       await setRackStatus(down.key, "warning", "no Driver here");
-      let seeWrite = (_: status.Status): void => {};
-      const written = new Promise<status.Status>((resolve) => (seeWrite = resolve));
+      const { promise: written, resolve: seeWrite } =
+        Promise.withResolvers<status.Status>();
       const off = client.statuses.onWrite((s) => {
         if (s.key === key && s.variant === "warning") seeWrite(s);
       });
@@ -1828,8 +1825,8 @@ describe("Task", async () => {
         type: "pagerduty_alert",
       });
       const key = statusKeyOf(task.resourceID(t.key));
-      let seeWrite = (_: status.Status): void => {};
-      const written = new Promise<status.Status>((resolve) => (seeWrite = resolve));
+      const { promise: written, resolve: seeWrite } =
+        Promise.withResolvers<status.Status>();
       const off = client.statuses.onWrite((s) => {
         if (s.key === key && s.variant === "loading") seeWrite(s);
       });
@@ -1851,8 +1848,7 @@ describe("Task", async () => {
         type: "pagerduty_alert",
       });
       const key = statusKeyOf(task.resourceID(t.key));
-      let seeLoading = (): void => {};
-      const loading = new Promise<void>((resolve) => (seeLoading = resolve));
+      const { promise: loading, resolve: seeLoading } = Promise.withResolvers<void>();
       const offLoading = client.statuses.store.subscribe((event) => {
         if (event.variant === "set" && event.value.variant === "loading") seeLoading();
       }, key);
@@ -1890,8 +1886,7 @@ describe("Task", async () => {
         type: "pagerduty_alert",
       });
       const key = statusKeyOf(task.resourceID(t.key));
-      let seeLoading = (): void => {};
-      const loading = new Promise<void>((resolve) => (seeLoading = resolve));
+      const { promise: loading, resolve: seeLoading } = Promise.withResolvers<void>();
       const off = client.statuses.store.subscribe((event) => {
         if (event.variant === "set" && event.value.variant === "loading") seeLoading();
       }, key);
@@ -1947,8 +1942,7 @@ describe("Task", async () => {
         type: "pagerduty_alert",
       });
       const key = statusKeyOf(task.resourceID(t.key));
-      let seeLoading = (): void => {};
-      const loading = new Promise<void>((resolve) => (seeLoading = resolve));
+      const { promise: loading, resolve: seeLoading } = Promise.withResolvers<void>();
       const off = client.statuses.store.subscribe((event) => {
         if (event.variant === "set" && event.value.variant === "loading") seeLoading();
       }, key);
@@ -2013,8 +2007,7 @@ describe("Task", async () => {
         type: "pagerduty_alert",
       });
       const key = statusKeyOf(task.resourceID(t.key));
-      let seeLoading = (): void => {};
-      const loading = new Promise<void>((resolve) => (seeLoading = resolve));
+      const { promise: loading, resolve: seeLoading } = Promise.withResolvers<void>();
       const off = client.statuses.store.subscribe((event) => {
         if (event.variant === "set" && event.value.variant === "loading") seeLoading();
       }, key);
@@ -2069,8 +2062,7 @@ describe("Task", async () => {
         type: "pagerduty_alert",
       });
       const key = statusKeyOf(task.resourceID(t.key));
-      let seeLoading = (): void => {};
-      const loading = new Promise<void>((resolve) => (seeLoading = resolve));
+      const { promise: loading, resolve: seeLoading } = Promise.withResolvers<void>();
       const off = client.statuses.store.subscribe((event) => {
         if (event.variant === "set" && event.value.variant === "loading") seeLoading();
       }, key);

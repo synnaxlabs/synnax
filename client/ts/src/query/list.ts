@@ -8,8 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import {
-  compare,
+  array,
   type destructor,
+  map,
   type record,
   type TimeSpan,
   TimeStamp,
@@ -237,17 +238,12 @@ export class Lists<
       rest.searchTerm === "" ? { ...rest, searchTerm: undefined } : rest
     ) as Q;
     const entry = this.ensure(base);
-    let list = entry.lists.get(limit);
-    if (list == null) {
-      list = {
-        retrieve: async (options) => await this.retrieve(entry, limit, options),
-        more: async (n, options) => await this.more(entry, n, options),
-        getCached: () => this.cachedOf(entry),
-        onChange: (handler) => this.subscribe(entry, limit, handler),
-      };
-      entry.lists.set(limit, list);
-    }
-    return list;
+    return map.getOrInsert(entry.lists, limit, () => ({
+      retrieve: async (options) => await this.retrieve(entry, limit, options),
+      more: async (n, options) => await this.more(entry, n, options),
+      getCached: () => this.cachedOf(entry),
+      onChange: (handler) => this.subscribe(entry, limit, handler),
+    }));
   }
 
   /**
@@ -314,10 +310,9 @@ export class Lists<
 
   private ensure(query: Q): Entry<Q, K, D, V, C> {
     const hashed = hash(query);
-    let entry = this.entries.get(hashed);
-    if (entry == null) {
+    return map.getOrInsert(this.entries, hashed, () => {
       const { matches, serverComputed } = this.config;
-      entry = {
+      return {
         query,
         ranked:
           matches == null ||
@@ -334,9 +329,7 @@ export class Lists<
         ingesting: false,
         stale: false,
       };
-      this.entries.set(hashed, entry);
-    }
-    return entry;
+    });
   }
 
   private async retrieve(
@@ -543,16 +536,11 @@ export class Lists<
     const { table, cursor, compare, name } = this.config;
     const { order } = entry.query;
     const position = cursor(record, order);
-    let low = 0;
-    let high = keys.length;
-    while (low < high) {
-      const mid = (low + high) >>> 1;
-      const other = table.get(keys[mid]);
+    return array.partitionPoint(keys.length, (i) => {
+      const other = table.get(keys[i]);
       if (other == null) throw new Error(`a ${name} list holds a key with no record`);
-      if (compare(cursor(other, order), position, order) < 0) low = mid + 1;
-      else high = mid;
-    }
-    return low;
+      return compare(cursor(other, order), position, order) >= 0;
+    });
   }
 
   private onEvents(entry: Entry<Q, K, D, V, C>, events: Array<TableEvent<K, V>>): void {
@@ -743,7 +731,7 @@ export class Lists<
     if (
       composed?.keys === keys &&
       composed.end === end &&
-      compare.arraysEqual(composed.versions, versions)
+      array.equal(composed.versions, versions)
     )
       return composed.value;
     const records = table.get(keys);
@@ -752,7 +740,7 @@ export class Lists<
       entry.teardown != null &&
       composed != null &&
       composed.end === end &&
-      compare.arraysEqual(composed.records, records)
+      array.equal(composed.records, records)
     ) {
       entry.composed = { ...composed, keys, versions };
       return composed.value;
@@ -796,7 +784,7 @@ export class Lists<
 /** Whether the tables took no change between the two snapshots. */
 const unchanged = (before: Seen | undefined, now: Seen): boolean =>
   before?.epoch != null &&
-  compare.arraysEqual(before.versions, now.versions) &&
+  array.equal(before.versions, now.versions) &&
   before.epoch === now.epoch;
 
 /** Returns the limit to send the Core: undefined for every record. */

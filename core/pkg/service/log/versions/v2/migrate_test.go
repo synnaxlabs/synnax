@@ -346,6 +346,7 @@ var _ = Describe("MigrateLog", func() {
 			"Should re-encode and lift stored logs through the chain",
 			func(ctx SpecContext) {
 				db := DeferClose(gorp.Wrap(memkv.New()))
+				StartRun(db.Run)
 				stored := v0.Log{
 					Key:  uuid.New(),
 					Name: "chain-log",
@@ -394,6 +395,7 @@ var _ = Describe("Migration", func() {
 		ctx SpecContext,
 	) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		stored := v0.Log{
 			Key:  uuid.New(),
 			Name: "unparseable",

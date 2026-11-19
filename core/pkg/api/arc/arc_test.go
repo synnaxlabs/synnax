@@ -221,7 +221,7 @@ var _ = Describe("Service", func() {
 			res = MustSucceed(retrieve(AuthedCtx(ctx, author), req))
 			automation, ok = res.Arcs[0].Variant.(arc.AutomationArc)
 			Expect(ok).To(BeTrue())
-			Expect(automation.Changes).To(BeNil())
+			Expect(automation.Changes).To(BeEmpty())
 		})
 
 		It(

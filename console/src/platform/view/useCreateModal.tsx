@@ -39,7 +39,7 @@ const IconField = (): ReactElement => {
   const icon = Form.useField<string | undefined>(path.icon);
   const iconColor = Form.useField<color.Crude | undefined>(path.color);
   return (
-    <Dialog.Frame zIndex={100}>
+    <Dialog.Frame>
       <Dialog.Trigger
         hideCaret
         variant="outlined"
@@ -81,6 +81,7 @@ const Create = ({
       close({ key });
     },
   });
+  Modals.useBusy(variant === "loading");
   return (
     <Modal.Frame>
       <Modal.Header icon={<Icon.View />}>View.Create</Modal.Header>

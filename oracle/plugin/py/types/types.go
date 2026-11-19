@@ -968,10 +968,14 @@ func processField(
 	}
 
 	baseType := typeToPython(field.Type, table, data)
+	// The Core mints a key, so a client sends its zero value on create. An optional
+	// field is never required.
+	_, isKey := field.Domains["key"]
 	fieldConstraints := collectValidation(
 		validation.FieldRules(field, table),
 		field.Default,
 		field.Type,
+		!isKey && !field.Optional,
 		table,
 		data,
 	)
@@ -1138,22 +1142,32 @@ func collectValidation(
 	rules *validation.Rules,
 	defaultVal *resolution.ExpressionValue,
 	typeRef resolution.TypeRef,
+	refusesZero bool,
 	table *resolution.Table,
 	data *templateData,
 ) []string {
 	if validation.IsEmpty(rules) && defaultVal == nil {
 		return nil
 	}
+	required := rules.Required && refusesZero
 	var constraints []string
 	primitive := key.ResolvePrimitive(typeRef, table)
 	isString := resolution.IsStringPrimitive(primitive)
 	isNumber := resolution.IsNumberPrimitive(primitive)
+	// A required string, aliased or not, is nonempty. A UUID has no length.
+	requiredString := required && resolution.PrimitiveBase(typeRef, table) == "string"
+	if requiredString && !isString && rules.MinLength == nil {
+		constraints = append(constraints, "min_length=1")
+	}
 	if isString {
-		if rules.MinLength != nil {
+		switch {
+		case rules.MinLength != nil:
 			constraints = append(
 				constraints,
 				fmt.Sprintf("min_length=%d", *rules.MinLength),
 			)
+		case requiredString:
+			constraints = append(constraints, "min_length=1")
 		}
 		if rules.MaxLength != nil {
 			constraints = append(
@@ -1163,6 +1177,11 @@ func collectValidation(
 		}
 	}
 	if isNumber {
+		// A required unsigned integer is nonzero, so it is greater than zero.
+		if required && strings.HasPrefix(primitive, "uint") && rules.Min == nil &&
+			rules.GT == nil {
+			constraints = append(constraints, "gt=0")
+		}
 		if rules.Min != nil {
 			if rules.Min.IsInt {
 				constraints = append(constraints, fmt.Sprintf("ge=%d", rules.Min.Int))
@@ -1185,7 +1204,7 @@ func collectValidation(
 			}
 		}
 		isFloat := primitive == "float32" || primitive == "float64"
-		if isFloat && len(constraints) > 0 {
+		if isFloat && (len(constraints) > 0 || rules.Finite) {
 			constraints = append(constraints, "allow_inf_nan=False")
 		}
 	}

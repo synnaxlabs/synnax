@@ -1201,7 +1201,7 @@ var _ = Describe("WASM", func() {
 				}
 
 				source := `
-func emit_period(period i64 ns) {trigger f32} i64 {
+func emit_period(period i64 ns) {trigger f32} i64 ns {
     return period
 }
 

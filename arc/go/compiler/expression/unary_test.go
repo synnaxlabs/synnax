@@ -37,10 +37,7 @@ var _ = Describe("Unary Operations", func() {
 			"-100",
 			types.I64(),
 			OpI64Const,
-			int64(100),
-			OpI64Const,
-			int64(-1),
-			OpI64Mul,
+			int64(-100),
 		),
 
 		Entry(
@@ -69,8 +66,7 @@ var _ = Describe("Unary Operations", func() {
 			"-2.5",
 			types.F64(),
 			OpF64Const,
-			float64(2.5),
-			OpF64Neg,
+			float64(-2.5),
 		),
 
 		// Unary Minus - Complex negation

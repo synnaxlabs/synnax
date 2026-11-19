@@ -66,8 +66,17 @@ export interface Snapshot {
   series: MultiSeries;
   /** The worst of the channel's stream and read statuses. */
   status: status.Status;
-  /** The end of the newest sample's span, once the channel streams. */
+  /**
+   * The end of the newest sample's span: of any stored or streamed sample for a dynamic
+   * window, of any in the window for a static one that streams, and of the streamed
+   * samples otherwise.
+   */
   time?: TimeStamp;
+  /**
+   * For a points request, true while its window takes streamed samples: a dynamic
+   * window, or a static one whose end has not passed the commit point.
+   */
+  streaming?: boolean;
   /**
    * For a latest request, the count of samples appended to the channel. Samples that a
    * history change reads again do not count.

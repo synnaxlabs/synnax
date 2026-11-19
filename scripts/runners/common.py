@@ -20,6 +20,7 @@ from typing import Any, Protocol
 import boto3
 import numpy as np
 import synnax as sy
+from freighter.websocket import ConnectionClosedError
 
 HEARTBEAT_INTERVAL = 5 * sy.TimeSpan.SECOND
 # How long stop() waits for the final false to land.
@@ -110,11 +111,13 @@ class ReadsLatest(Protocol):
 
 
 def close_quietly(resource: Closeable | None) -> None:
+    """Closes a resource whose failure was already reported. Raises any error other
+    than the Core or transport error that the close re-raises."""
     if resource is None:
         return
     try:
         resource.close()
-    except Exception:
+    except (sy.Error, ConnectionClosedError):
         pass
 
 
@@ -206,6 +209,8 @@ class Creator(Protocol):
         self, channels: list[sy.Channel], /, *, retrieve_if_name_exists: bool
     ) -> list[sy.Channel]: ...
 
+    def set_expression(self, key: int, expression: str) -> None: ...
+
 
 class CreatesChannels(Protocol):
     """The part of the Core that creates channels."""
@@ -222,13 +227,11 @@ class Channels:
         self.client = client
         self.enabled = enabled
 
-    def create(
-        self, what: str, *channels: sy.Channel, update: bool = False
-    ) -> list[sy.Channel]:
-        """Creates, or with update rewrites channels that carry their key."""
+    def create(self, what: str, *channels: sy.Channel) -> list[sy.Channel]:
+        """Creates channels, or retrieves the ones whose names exist."""
         try:
             return self.client.channels.create(
-                list(channels), retrieve_if_name_exists=not update
+                list(channels), retrieve_if_name_exists=True
             )
         except Exception as e:
             raise ChannelCreateError(f"{what}: {type(e).__name__}: {e}") from e
@@ -253,9 +256,14 @@ class Channels:
             name=name, data_type=sy.DataType.FLOAT32, expression=expression
         )
         found = self.create(f"calculated {name}", channel)[0]
-        if found.expression != expression:
-            found.expression = expression
-            self.create(f"calculated {name}", found, update=True)
+        if found.expression == expression:
+            return
+        try:
+            self.client.channels.set_expression(found.key, expression)
+        except Exception as e:
+            raise ChannelCreateError(
+                f"calculated {name}: {type(e).__name__}: {e}"
+            ) from e
 
     def index(self, name: str) -> sy.Channel | None:
         if not self.enabled:

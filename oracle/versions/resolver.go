@@ -177,7 +177,12 @@ func (r *Resolver) file(livePath string, n int) (*File, error) {
 		)
 	}
 
-	b := &tableBuilder{r: r, table: resolution.NewTable(), done: set.New[string]()}
+	b := &tableBuilder{
+		r:       r,
+		table:   resolution.NewTable(),
+		done:    set.New[string](),
+		claimed: set.New[string](),
+	}
 
 	// Sibling versions seed the table with their defined declarations. A name a sibling
 	// aliases redirects to its definer.
@@ -448,7 +453,11 @@ func (r *Resolver) seedRewriter(
 			def.Name,
 		)
 	}
-	rw := rewriter("", pinRewrites(sib.Pins))
+	rewrites, err := r.pinRewrites(sib)
+	if err != nil {
+		return nil, err
+	}
+	rw := rewriter("", rewrites)
 	return func(name string) string {
 		if definer, ok := definers[name]; ok {
 			return definer
@@ -468,12 +477,42 @@ func DefinedType(f *File, name string) (resolution.Type, bool) {
 	return resolution.Type{}, false
 }
 
+// surfaceNames returns the names of livePath's surface at version n, plus the synthetic
+// support types of the files that define its members.
+func (r *Resolver) surfaceNames(livePath string, n int) (set.Set[string], error) {
+	surf, err := r.surface(livePath, n)
+	if err != nil {
+		return nil, err
+	}
+	names := make(set.Set[string], len(surf))
+	definers := make(set.Set[int])
+	for name, def := range surf {
+		names.Add(name)
+		definers.Add(def.Version)
+	}
+	for v := range definers {
+		f, err := r.file(livePath, v)
+		if err != nil {
+			return nil, err
+		}
+		for _, t := range f.Defined {
+			if t.Synthetic {
+				names.Add(t.Name)
+			}
+		}
+	}
+	return names, nil
+}
+
 // tableBuilder accumulates one version file's resolution table, tracking which surface
 // namespaces are already registered.
 type tableBuilder struct {
 	r     *Resolver
 	table *resolution.Table
 	done  set.Set[string]
+	// claimed holds each plain namespace that a pinned surface took, which a live
+	// namespace must not join.
+	claimed set.Set[string]
 }
 
 // addSurface registers livePath's surface at version n into the table under namespace
@@ -483,10 +522,13 @@ type tableBuilder struct {
 func (b *tableBuilder) addSurface(
 	livePath string, n int, ns string,
 ) error {
-	if b.done.Contains(ns) {
+	// Two pins can share a resource namespace, so the key names the surface too.
+	key := ns + " " + DepNS(livePath, n)
+	if b.done.Contains(ns) || b.done.Contains(key) {
 		return nil
 	}
-	b.done.Add(ns)
+	b.done.Add(key)
+	b.claimed.Add(ns)
 	// A pin registered under its plain resource namespace claims that resource: an
 	// unversioned schema the file also imports may reach it live, and analyzing that
 	// file again would redeclare every type. Marking the live path resolves those
@@ -507,7 +549,11 @@ func (b *tableBuilder) addSurface(
 		if err != nil {
 			return err
 		}
-		ct := copyType(def.Type, ns, rewriter(ns, pinRewrites(definer.Pins)))
+		rewrites, err := b.r.pinRewrites(definer)
+		if err != nil {
+			return err
+		}
+		ct := copyType(def.Type, ns, rewriter(ns, rewrites))
 		ct.Name = name
 		ct.QualifiedName = ns + "." + name
 		// A redeclaration without its own @doc inherits the chain-resolved doc,
@@ -545,7 +591,11 @@ func (b *tableBuilder) addSurface(
 		if err != nil {
 			return err
 		}
-		rw := rewriter(ns, pinRewrites(definer.Pins))
+		rewrites, err := b.r.pinRewrites(definer)
+		if err != nil {
+			return err
+		}
+		rw := rewriter(ns, rewrites)
 		for _, t := range definer.Defined {
 			if !t.Synthetic {
 				continue
@@ -568,7 +618,7 @@ func (b *tableBuilder) addSurface(
 // the same schema resolves to these copies instead of redeclaring every type.
 func (b *tableBuilder) addLive(f *File) error {
 	for i, ns := range f.Live {
-		if b.done.Contains(ns) {
+		if b.done.Contains(ns) || b.claimed.Contains(ns) {
 			continue
 		}
 		b.done.Add(ns)
@@ -602,7 +652,7 @@ func (r *Resolver) SurfaceInto(
 			done.Add(t.Namespace)
 		}
 	}
-	b := &tableBuilder{r: r, table: table, done: done}
+	b := &tableBuilder{r: r, table: table, done: done, claimed: set.New[string]()}
 	return b.addSurface(livePath, n, ns)
 }
 

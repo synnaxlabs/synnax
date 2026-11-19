@@ -11,13 +11,11 @@ package gorp
 
 import (
 	"context"
-	"io"
 	"slices"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp/internal/key"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/types"
 	"go.uber.org/zap"
 )
@@ -45,6 +43,11 @@ type TableConfig[K Key, E Entry[K]] struct {
 	// in an entry of the table, after Gorp writes the entry. It gets the entry as
 	// written. An error fails the delete.
 	OnDetach func(ctx context.Context, tx Tx, e E) error
+	// OnTargetSet maps the name of a table to a hook. The hook runs in the transaction
+	// of each write that sets an entry of that table which an entry of this table holds
+	// through a Use reference, after Gorp writes it, with the holding entry. An error
+	// fails the write.
+	OnTargetSet map[string]func(ctx context.Context, tx Tx, e E) error
 	// Instrumentation is used for migration and populate logging.
 	alamos.Instrumentation
 }
@@ -64,34 +67,38 @@ type Table[K Key, E Entry[K]] struct {
 	references []Reference[K, E]
 	// registered is true when the table is in the DB's registry.
 	registered bool
-	// populateShutdown cancels the populate context and waits for the populate routine
-	// to exit. Nil when the table has no indexes.
-	populateShutdown io.Closer
+	// closing closes when Close starts, to stop the populate of the indexes. Nil when
+	// the table has no indexes.
+	closing chan struct{}
+	// populated closes when the populate of the indexes returns.
+	populated chan struct{}
 	// onDetach is TableConfig.OnDetach.
 	onDetach func(ctx context.Context, tx Tx, e E) error
+	// onTargetSet is TableConfig.OnTargetSet.
+	onTargetSet map[string]func(ctx context.Context, tx Tx, e E) error
 }
 
-// Close cancels any running populate goroutine, waits for it to exit, and releases
-// related resources.
+// Close stops the populate of the indexes of the table, waits for it to return, and
+// releases related resources.
 func (t *Table[K, E]) Close() error {
-	var err error
 	t.unregister()
 	if len(t.indexes) > 0 {
 		t.db.registry.removeIndexed(t.keyPrefix, t)
 	}
-	if t.populateShutdown != nil {
-		err = t.populateShutdown.Close()
-		t.populateShutdown = nil
+	if t.closing != nil {
+		close(t.closing)
+		<-t.populated
+		t.closing = nil
 	}
-	return err
+	return nil
 }
 
 // OpenTable creates or opens a table for the given entry type. It runs any provided
 // versioned migrations followed by key migrations to ensure entries are stored under
 // the current prefix and key encoding format. After migrations complete, OpenTable
-// returns immediately; any secondary indexes in cfg.Indexes are populated
-// asynchronously by a background goroutine that scans the table once and feeds every
-// index from the same scan.
+// returns immediately; DB.Run populates any secondary indexes in cfg.Indexes from one
+// scan of the table. For a table with indexes or references, OpenTable waits for DB.Run
+// to start, and returns an error when ctx ends first or DB.Run has stopped.
 //
 // idx.Filter and SortedIndex.FilterRange inside Retrieve block the query until the
 // index has finished populating. After populate completes the index serves queries
@@ -105,12 +112,13 @@ func OpenTable[K Key, E Entry[K]](
 	cfg TableConfig[K, E],
 ) (*Table[K, E], error) {
 	t := &Table[K, E]{
-		db:         cfg.DB,
-		keyPrefix:  key.Prefix[E](),
-		indexes:    slices.Clone(cfg.Indexes),
-		name:       cfg.Name,
-		references: cfg.References,
-		onDetach:   cfg.OnDetach,
+		db:          cfg.DB,
+		keyPrefix:   key.Prefix[E](),
+		indexes:     slices.Clone(cfg.Indexes),
+		name:        cfg.Name,
+		references:  cfg.References,
+		onDetach:    cfg.OnDetach,
+		onTargetSet: cfg.OnTargetSet,
 	}
 	if t.name == "" {
 		t.name = types.Name[E]()
@@ -129,16 +137,27 @@ func OpenTable[K Key, E Entry[K]](
 		t.unregister()
 		return nil, err
 	}
-	t.registerReferences()
-	if len(t.indexes) == 0 {
+	if len(t.indexes)+len(t.references) == 0 {
 		return t, nil
 	}
+	var (
+		inserts   []func(E)
+		finishes  []func(error)
+		locked    = make(chan struct{})
+		closing   = make(chan struct{})
+		populated = make(chan struct{})
+	)
+	if err := cfg.DB.goPopulate(ctx, func(ctx context.Context) {
+		defer close(populated)
+		<-locked
+		t.runPopulate(ctx, closing, cfg.Instrumentation, inserts, finishes)
+	}); err != nil {
+		t.unregister()
+		return nil, err
+	}
+	t.registerReferences()
 	// Acquire each index's populate lock before OpenTable returns, so that no commit
 	// reaches an index before the scan that would insert the same entry again.
-	var (
-		inserts  = make([]func(E), 0, len(t.indexes))
-		finishes = make([]func(error), 0, len(t.indexes))
-	)
 	for _, idx := range t.indexes {
 		insert, finish := idx.populate()
 		inserts = append(inserts, insert)
@@ -146,25 +165,17 @@ func OpenTable[K Key, E Entry[K]](
 	}
 	// From here on, a writer that no table binds stages its writes against the indexes.
 	cfg.DB.registry.addIndexed(t.keyPrefix, t)
-	// Populate runs on an isolated signal context: the caller's ctx is the
-	// open-operation ctx (may be short-lived, e.g. an open timeout), but populate must
-	// run for the Table's full lifetime. Termination flows through Table.Close().
-	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
-	t.populateShutdown = signal.NewHardShutdown(sCtx, cancel)
-	sCtx.Go(
-		func(ctx context.Context) error {
-			t.runPopulate(ctx, cfg.Instrumentation, inserts, finishes)
-			return nil
-		},
-		signal.WithKey("gorp_index_populate"),
-	)
+	close(locked)
+	t.closing, t.populated = closing, populated
 	return t, nil
 }
 
 // runPopulate scans the table once and feeds every registered index from the same scan.
-// The terminal scan error is logged and passed to each index's finish closure.
+// It stops when ctx ends or closing closes. It logs the terminal scan error and passes
+// it to each index's finish closure.
 func (t *Table[K, E]) runPopulate(
 	ctx context.Context,
+	closing <-chan struct{},
 	ins alamos.Instrumentation,
 	inserts []func(E),
 	finishes []func(error),
@@ -190,9 +201,14 @@ func (t *Table[K, E]) runPopulate(
 	}
 	defer func() { scanErr = errors.Combine(scanErr, closer.Close()) }()
 	for e := range nexter {
-		if ctx.Err() != nil {
+		select {
+		case <-ctx.Done():
 			scanErr = ctx.Err()
 			return
+		case <-closing:
+			scanErr = errors.New("[gorp] - table closed")
+			return
+		default:
 		}
 		for _, insert := range inserts {
 			insert(e)

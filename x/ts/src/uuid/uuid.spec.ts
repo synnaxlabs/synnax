@@ -49,25 +49,25 @@ describe("UUID", () => {
     });
   });
 
-  describe("parse", () => {
+  describe("fromBytes", () => {
     it("should parse a valid UUID from bytes", () => {
       const bytes = new Uint8Array([
         0x12, 0x3e, 0x45, 0x67, 0xe8, 0x9b, 0x12, 0xd3, 0xa4, 0x56, 0x42, 0x66, 0x14,
         0x17, 0x40, 0x00,
       ]);
-      const uid = uuid.parse(bytes);
+      const uid = uuid.fromBytes(bytes);
       expect(uid).toBe("123e4567-e89b-12d3-a456-426614174000");
     });
 
     it("should handle zero bytes", () => {
       const bytes = new Uint8Array(16);
-      const uid = uuid.parse(bytes);
+      const uid = uuid.fromBytes(bytes);
       expect(uid).toBe("00000000-0000-0000-0000-000000000000");
     });
 
     it("should handle all ones", () => {
       const bytes = new Uint8Array(16).fill(0xff);
-      const uid = uuid.parse(bytes);
+      const uid = uuid.fromBytes(bytes);
       expect(uid).toBe("ffffffff-ffff-ffff-ffff-ffffffffffff");
     });
 
@@ -76,7 +76,7 @@ describe("UUID", () => {
         0x7f, 0x3e, 0x45, 0x67, 0xe8, 0x9b, 0x12, 0xd3, 0xa4, 0x56, 0x42, 0x66, 0x14,
         0x17, 0x40, 0x00,
       ]);
-      const uid = uuid.parse(bytes);
+      const uid = uuid.fromBytes(bytes);
       expect(uid).toMatch(
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
       );
@@ -84,7 +84,7 @@ describe("UUID", () => {
 
     it("should throw error for invalid byte length", () => {
       const bytes = new Uint8Array(15); // Invalid length
-      expect(() => uuid.parse(bytes)).toThrow();
+      expect(() => uuid.fromBytes(bytes)).toThrow();
     });
 
     it("should maintain byte order", () => {
@@ -93,7 +93,7 @@ describe("UUID", () => {
         0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd,
         0xee, 0xff, 0x00,
       ]);
-      const uid = uuid.parse(bytes);
+      const uid = uuid.fromBytes(bytes);
       expect(uid).toBe("11223344-5566-7788-99aa-bbccddeeff00");
     });
   });

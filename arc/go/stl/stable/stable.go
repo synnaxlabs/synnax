@@ -127,7 +127,7 @@ func (s *forNode) refreshDuration() {
 		return
 	}
 	if v := s.RefInput(i); v.Len() > 0 {
-		s.duration = telem.TimeSpan(v.ValueAt[int64](-1))
+		s.duration = telem.TimeSpan(s.NumericInput[int64]("duration"))
 	}
 }
 

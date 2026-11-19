@@ -11,6 +11,7 @@ import { status, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { xy } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, type Mock } from "vitest";
 
@@ -18,12 +19,7 @@ import { List } from "@/feature/status/list";
 import { Modals } from "@/platform/modals";
 import { findModalButton } from "@/platform/tree/testutil";
 import { Session } from "@/session";
-import {
-  createConsoleWrapper,
-  renderSuspended,
-  type TestStore,
-  uniqueName,
-} from "@/testutil";
+import { createConsoleWrapper, renderSuspended, type TestStore } from "@/testutil";
 
 const client = createTestClient();
 const roles = new RoleClients(client);
@@ -52,7 +48,13 @@ const renderMenu = async (
   });
   await renderSuspended(
     <>
-      {List.contextMenu({ keys, visible: true, position: xy.ZERO, cursor: xy.ZERO })}
+      {List.contextMenu({
+        keys,
+        visible: true,
+        position: xy.ZERO,
+        cursor: xy.ZERO,
+        target: null,
+      })}
       <Modals.Stack />
     </>,
     { wrapper },

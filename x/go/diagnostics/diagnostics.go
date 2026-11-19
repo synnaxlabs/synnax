@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/x/errors"
@@ -92,22 +93,32 @@ func rangeOf(ctx antlr.ParserRuleContext) protocol.Range {
 		Line:      uint32(start.GetLine() - 1),
 		Character: uint32(start.GetColumn()),
 	}}
-	if stop != nil {
-		r.End = protocol.Position{
-			Line:      uint32(stop.GetLine() - 1),
-			Character: uint32(stop.GetColumn() + len(stop.GetText())),
-		}
-	} else {
-		r.End = protocol.Position{
-			Line:      r.Start.Line,
-			Character: r.Start.Character + uint32(len(start.GetText())),
-		}
+	if stop == nil {
+		stop = start
 	}
+	r.End = tokenEnd(stop)
 	return r
 }
 
-// Error creates an error diagnostic from an existing error. If the error implements
-// HintProvider, the hint is automatically extracted and added as a note.
+// tokenEnd returns the position just past t. Characters count code points to match
+// the ANTLR column of the start.
+func tokenEnd(t antlr.Token) protocol.Position {
+	text := t.GetText()
+	end := protocol.Position{
+		Line:      uint32(t.GetLine() - 1),
+		Character: uint32(t.GetColumn()),
+	}
+	if i := strings.LastIndexByte(text, '\n'); i >= 0 {
+		end.Line += uint32(strings.Count(text, "\n"))
+		end.Character = 0
+		text = text[i+1:]
+	}
+	end.Character += uint32(utf8.RuneCountInString(text))
+	return end
+}
+
+// Error creates an error diagnostic from an existing error. It takes the kind that
+// marks the error and the hint of a HintProvider, if the error has them.
 func Error(err error, ctx antlr.ParserRuleContext) Diagnostic {
 	d := Diagnostic{
 		Severity: protocol.DiagnosticSeverityError,
@@ -115,7 +126,18 @@ func Error(err error, ctx antlr.ParserRuleContext) Diagnostic {
 		Range:    rangeOf(ctx),
 		cause:    err,
 	}
-	if hp, ok := err.(HintProvider); ok {
+	var marked *kindError
+	if errors.As(err, &marked) {
+		d.Code, d.Severity = marked.kind.Code, marked.kind.Severity
+		// The text of an error that wraps the marked error moves to the end.
+		own := marked.Error()
+		d.Message = marked.kind.describe(own)
+		if outer, ok := strings.CutSuffix(err.Error(), own); ok && outer != "" {
+			d.Message += " (" + strings.TrimSuffix(outer, ": ") + ")"
+		}
+	}
+	var hp HintProvider
+	if errors.As(err, &hp) {
 		if hint := hp.GetHint(); hint != "" {
 			d.Notes = append(
 				d.Notes,
@@ -166,26 +188,49 @@ func (d Diagnostic) WithNote(note string) Diagnostic {
 	return d
 }
 
+// Replacement is new text for the code at a node.
+type Replacement struct {
+	// Node is the code to replace.
+	Node antlr.ParserRuleContext
+	// Text is the new code.
+	Text string
+}
+
 // WithFix attaches a fix that changes the code at ctx to newText, and its hint note.
 func (d Diagnostic) WithFix(ctx antlr.ParserRuleContext, newText string) Diagnostic {
-	at := rangeOf(ctx)
-	start, stop := ctx.GetStart(), ctx.GetStop()
-	note := protocol.DiagnosticRelatedInformation{Message: fmt.Sprintf(
-		"hint: change `%s` to `%s`",
-		start.GetInputStream().GetText(start.GetStart(), stop.GetStop()),
-		newText,
-	)}
-	if at != d.Range {
-		note.Location.Range = at
+	return d.WithReplacements(Replacement{Node: ctx, Text: newText})
+}
+
+// WithReplacements attaches one fix that makes each replacement, and its hint note.
+func (d Diagnostic) WithReplacements(replacements ...Replacement) Diagnostic {
+	var (
+		edits = make([]protocol.TextEdit, len(replacements))
+		texts = make([]string, len(replacements))
+	)
+	for i, r := range replacements {
+		edits[i] = protocol.TextEdit{Range: rangeOf(r.Node), NewText: r.Text}
+		texts[i] = "`" + r.Text + "`"
+	}
+	to := strings.Join(texts, " and ")
+	// The hint of one replacement names the code that it changes.
+	hint := "hint: change to " + to
+	if len(replacements) == 1 {
+		start, stop := replacements[0].Node.GetStart(), replacements[0].Node.GetStop()
+		hint = fmt.Sprintf(
+			"hint: change `%s` to %s",
+			start.GetInputStream().GetText(start.GetStart(), stop.GetStop()),
+			to,
+		)
+	}
+	note := protocol.DiagnosticRelatedInformation{Message: hint}
+	if edits[0].Range != d.Range {
+		note.Location.Range = edits[0].Range
 	}
 	if d.hinted {
 		d.Notes, d.hinted = slices.Clone(d.Notes[1:]), false
 	}
 	d.Notes = append(d.Notes, note)
-	return d.WithEdits(
-		fmt.Sprintf("Change to `%s`", newText),
-		protocol.TextEdit{Range: at, NewText: newText},
-	)
+	return d.WithEdits("Change to "+to, edits...)
 }
 
 // WithEdits returns a copy of the diagnostic with a fix of the title and edits.

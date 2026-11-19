@@ -1,0 +1,67 @@
+{
+  "description": "A null, or an empty string on a channel that cannot hold one, is no value: it takes the field's default, and a field with none fails.",
+  "messages": [
+    {
+      "name": "reading",
+      "payload": {
+        "format": "json",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "temp",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/temp",
+            "type": "float",
+            "default": -1
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000002",
+            "name": "state",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/state",
+            "type": "string",
+            "default": "idle"
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000003",
+            "name": "count",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/count",
+            "type": "integer"
+          }
+        ]
+      },
+      "bindings": [
+        { "field": "00000000-0000-4000-8000-000000000001", "data_type": "float64" },
+        { "field": "00000000-0000-4000-8000-000000000002", "data_type": "string" },
+        { "field": "00000000-0000-4000-8000-000000000003", "data_type": "int64" }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "document": { "temp": null, "state": null, "count": 1 },
+      "message": "reading",
+      "samples": [-1, "idle", 1]
+    },
+    {
+      "document": { "temp": "", "state": "", "count": 2 },
+      "message": "reading",
+      "samples": [-1, "", 2]
+    },
+    {
+      "document": { "temp": 1, "state": "run", "count": null },
+      "error": "field count: no value at /count: validation error"
+    },
+    {
+      "document": { "temp": 1, "state": "run", "count": "" },
+      "error": "field count: no value at /count: validation error"
+    }
+  ]
+}

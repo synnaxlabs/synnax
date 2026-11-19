@@ -14,19 +14,21 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Access, Flux } from "@synnaxlabs/pluto";
-import { TimeRange, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
+import { uuid } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { type ReactElement, useState } from "react";
 import { describe, expect, it, onTestFinished } from "vitest";
 
 import { Label } from "@/platform/label";
 import { Modals } from "@/platform/modals";
-import { uniqueRangeName } from "@/platform/range/testutil";
+import { createTestRange } from "@/platform/range/testutil";
 import { View } from "@/platform/view";
 import { createTabWrapper, type TabWrapper } from "@/platform/view/testutil";
 import { Session } from "@/session";
 import {
   awaitTextEditing,
+  awaitTextEditingElement,
   commitTextEdit,
   countEditableText,
   createTestClientWithGrants,
@@ -36,7 +38,6 @@ import {
   openContextMenu,
   queryIconButton,
   renderSuspended,
-  uniqueName,
 } from "@/testutil";
 
 const RenderItem = ({ itemKey }: List.ItemProps<ranger.Key>): ReactElement => (
@@ -163,16 +164,8 @@ const tabIcon = (name: string): SVGElement => {
 
 describe("View", () => {
   it("filters the listed items down to those matching the search term", async () => {
-    const start = TimeStamp.now();
-    const timeRange = new TimeRange(start, start.add(TimeSpan.seconds(10)));
-    const alpha = await client.ranges.create({
-      name: uniqueRangeName("alpha"),
-      timeRange,
-    });
-    const bravo = await client.ranges.create({
-      name: uniqueRangeName("bravo"),
-      timeRange,
-    });
+    const alpha = await createTestRange(client, { name: uniqueName("alpha") });
+    const bravo = await createTestRange(client, { name: uniqueName("bravo") });
     await renderHarness();
     const input =
       await screen.findByPlaceholderText<HTMLInputElement>("Search ranges...");
@@ -229,6 +222,27 @@ describe("View", () => {
     await waitFor(async () =>
       expect((await client.views.retrieve(saved.key)).name).toBe(renamed),
     );
+  });
+
+  it("renames the copy that was right-clicked when two strips show the view", async () => {
+    const saved = await createView();
+    const { wrapper } = await createTabWrapper({ client, tab: EXPLORER });
+    await renderSuspended(
+      <>
+        <Harness />
+        <Harness />
+      </>,
+      { wrapper },
+    );
+    const copies = await waitFor(() => {
+      const found = screen.getAllByRole("tab", { name: saved.name });
+      expect(found).toHaveLength(2);
+      return found;
+    });
+    fireEvent.contextMenu(copies[1]);
+    fireEvent.click(await screen.findByText("Rename"));
+    const editor = await awaitTextEditingElement();
+    expect(copies[1].contains(editor)).toBe(true);
   });
 
   it("withholds rename from a static view's context menu", async () => {
@@ -502,16 +516,8 @@ describe("View permissions", () => {
   });
 
   it("should let a subject who cannot update views search a saved view but not filter it", async () => {
-    const start = TimeStamp.now();
-    const timeRange = new TimeRange(start, start.add(TimeSpan.seconds(10)));
-    const alpha = await client.ranges.create({
-      name: uniqueRangeName("alpha"),
-      timeRange,
-    });
-    const bravo = await client.ranges.create({
-      name: uniqueRangeName("bravo"),
-      timeRange,
-    });
+    const alpha = await createTestRange(client, { name: uniqueName("alpha") });
+    const bravo = await createTestRange(client, { name: uniqueName("bravo") });
     const saved = await createView();
     await renderHarness(await createSubject({}), showing(saved));
     await waitFor(() => expect(selectedViewName()).toBe(saved.name));

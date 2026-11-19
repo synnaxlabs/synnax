@@ -19,10 +19,15 @@
 #include "client/cpp/rack/rack.h"
 #include "client/cpp/ranger/ranger.h"
 #include "client/cpp/status/status.h"
+#include "freighter/cpp/grpc/grpc.h"
 
 namespace synnax::details {
 struct Transport {
-    Transport(uint16_t port, const std::string &ip, bool secure);
+    Transport(
+        uint16_t port,
+        const std::string &ip,
+        const std::shared_ptr<freighter::grpc::Pool> &pool
+    );
 
     void use(const std::shared_ptr<freighter::Middleware> &) const;
 

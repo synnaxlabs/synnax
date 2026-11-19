@@ -80,6 +80,7 @@ var _ = Describe("NormalizeKeys", func() {
 		func(ctx SpecContext) {
 			kvDB := memkv.New()
 			db := DeferClose(gorp.Wrap(kvDB, gorp.WithCodec(xmsgpack.Codec)))
+			StartRun(db.Run)
 			e := v0.Arc{Key: uuid.New(), Name: "Autosequence"}
 			legacy := gorptestutil.SetPreV54Row(
 				ctx,

@@ -24,7 +24,8 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Group } from "@synnaxlabs/pluto";
-import { uuid } from "@synnaxlabs/x";
+import { map, uuid } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import {
   act,
   fireEvent,
@@ -65,7 +66,6 @@ import {
   CaptureStatuses,
   createConsoleWrapper,
   getIconButton,
-  uniqueName,
   uniqueToken,
   withControlHeld,
 } from "@/testutil";
@@ -1082,6 +1082,34 @@ describe("Tree.Tree", () => {
     const childKeysOf = async (id: resource.ID): Promise<string[]> =>
       await retrieveChildGroupKeys(client, id);
 
+    const previewText = (): string | null | undefined =>
+      document.querySelector(".lyra-haul__layer")?.textContent;
+
+    it("should picture the dragged resource with its type name", async () => {
+      const container = await createGroup(null, "container");
+      const containerID = group.resourceID(container.key);
+      const folder = await createGroup(containerID, "folder");
+      await renderLiveTree({
+        client,
+        root: containerID,
+        items: { group: createGroupItem({ canDrop: () => true, typeName: "Group" }) },
+      });
+      fireEvent.dragStart(await findTreeRow(folder.name));
+      expect(previewText()).toBe(`${folder.name}Group`);
+    });
+
+    it("should picture the pressed item with a count when a selection drags", async () => {
+      const container = await createGroup(null, "container");
+      const containerID = group.resourceID(container.key);
+      const a = await createGroup(containerID, "a");
+      const b = await createGroup(containerID, "b");
+      await renderLiveTree({ client, root: containerID, items: DROPPABLE });
+      fireEvent.click(await findTreeRow(a.name));
+      withControlHeld(() => fireEvent.click(getTreeRow(b.name)));
+      fireEvent.dragStart(getTreeRow(b.name));
+      expect(previewText()).toBe(`${b.name}2`);
+    });
+
     it("should move only the parent when a parent and its own child are selected", async () => {
       const container = await createGroup(null, "container");
       const containerID = group.resourceID(container.key);
@@ -1227,7 +1255,7 @@ describe("Tree.Tree", () => {
     const countingItems = (counts: Map<string, number>): Tree.Items => ({
       group: createGroupItem({
         Content: ({ resource, onDoubleClick, icon: _, loading: __, ...rest }) => {
-          counts.set(resource.name, (counts.get(resource.name) ?? 0) + 1);
+          map.increment(counts, resource.name);
           return (
             <PTree.Item {...rest} onDoubleClick={onDoubleClick}>
               {resource.name}

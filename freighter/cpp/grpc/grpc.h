@@ -28,18 +28,6 @@ const std::string ERROR_KEY = "error";
 /// @brief the gRPC environment variable naming a PEM file of trust anchors.
 const std::string ROOTS_FILE_ENV = "GRPC_DEFAULT_SSL_ROOTS_FILE_PATH";
 
-/// @brief builds TLS credentials that verify the server against the PEM file named by
-/// GRPC_DEFAULT_SSL_ROOTS_FILE_PATH, or the system trust store when it is unset. The
-/// file is passed as explicit roots because gRPC allows a leaf certificate as the
-/// anchor only on that path, not in the default store it builds from the same variable.
-inline std::shared_ptr<::grpc::ChannelCredentials> ssl_credentials() {
-    ::grpc::SslCredentialsOptions opts;
-    if (const char *path = std::getenv(ROOTS_FILE_ENV.c_str()); path != nullptr)
-        if (auto [roots, err] = x::fs::read_file(path); !err)
-            opts.pem_root_certs = std::move(roots);
-    return ::grpc::SslCredentials(opts);
-}
-
 /// @brief converts a ::grpc::Status to a x::errors::Error.
 inline x::errors::Error err_from_status(const ::grpc::Status &status) {
     if (status.ok()) return x::errors::NIL;
@@ -49,6 +37,39 @@ inline x::errors::Error err_from_status(const ::grpc::Status &status) {
         return {TIMEOUT.type, status.error_message()};
     return x::errors::Error(status.error_message());
 }
+}
+
+/// @brief builds TLS credentials that verify the server against the trust anchors in a
+/// PEM file. A leaf certificate can be its own anchor.
+/// @param ca_cert the path to the PEM file. When empty, the credentials use the file
+/// named by GRPC_DEFAULT_SSL_ROOTS_FILE_PATH, or the system trust store when that is
+/// unset.
+/// @returns the credentials, or an error when the file at ca_cert cannot be read or
+/// holds no certificates.
+inline std::pair<std::shared_ptr<::grpc::ChannelCredentials>, x::errors::Error>
+ssl_credentials(const std::string &ca_cert) {
+    // Both files go in as explicit roots, because gRPC allows a leaf certificate as
+    // the anchor only there, not in the store it builds from the variable.
+    ::grpc::SslCredentialsOptions opts;
+    if (!ca_cert.empty()) {
+        auto [roots, err] = x::fs::read_file(ca_cert);
+        if (err) return {nullptr, err};
+        // gRPC reads empty roots as the system trust store.
+        if (roots.find_first_not_of(" \t\r\n") == std::string::npos)
+            return {
+                nullptr,
+                x::errors::Error(
+                    x::errors::VALIDATION,
+                    "the CA certificate file " + ca_cert + " is empty"
+                )
+            };
+        opts.pem_root_certs = std::move(roots);
+    } else if (
+        const char *path = std::getenv(priv::ROOTS_FILE_ENV.c_str()); path != nullptr
+    )
+        if (auto [roots, err] = x::fs::read_file(path); !err)
+            opts.pem_root_certs = std::move(roots);
+    return {::grpc::SslCredentials(opts), x::errors::NIL};
 }
 
 /// @brief how a channel finds a server that stops answering while calls run.
@@ -72,25 +93,27 @@ class Pool {
     std::unordered_map<std::string, std::shared_ptr<::grpc::Channel>> channels;
     /// @brief GRPC credentials to provide when connecting to a target.
     std::shared_ptr<::grpc::ChannelCredentials> credentials;
+    /// @brief the error that every call fails with, when the pool has no credentials.
+    x::errors::Error err;
     Keepalive keepalive;
 
 public:
     /// @brief how long a unary call waits for its response when its context sets no
     /// deadline. Each attempt of a retried call gets the full time.
-    const std::chrono::milliseconds unary_timeout;
+    const std::chrono::milliseconds unary_timeout = UNARY_TIMEOUT;
 
-    /// @brief instantiates a gRPC pool. When secure, channels use TLS and verify the
-    /// server against the trust anchors described by priv::ssl_credentials.
+    /// @brief instantiates a gRPC pool that connects with the provided credentials.
     explicit Pool(
-        const bool secure = false,
+        const std::shared_ptr<::grpc::ChannelCredentials> &credentials =
+            ::grpc::InsecureChannelCredentials(),
         const Keepalive keepalive = {},
         const std::chrono::milliseconds unary_timeout = UNARY_TIMEOUT
     ):
-        credentials(
-            secure ? priv::ssl_credentials() : ::grpc::InsecureChannelCredentials()
-        ),
-        keepalive(keepalive),
-        unary_timeout(unary_timeout) {}
+        credentials(credentials), keepalive(keepalive), unary_timeout(unary_timeout) {}
+
+    /// @brief instantiates a gRPC pool that fails every call with err. Use it when
+    /// building the credentials fails.
+    explicit Pool(const x::errors::Error &err): err(err) {}
 
     /// @brief returns the number of channels in the pool.
     size_t size() {
@@ -98,18 +121,12 @@ public:
         return this->channels.size();
     }
 
-    /// @brief instantiates a gRPC pool with the provided credentials.
-    explicit Pool(
-        const std::shared_ptr<::grpc::ChannelCredentials> &credentials,
-        const Keepalive keepalive = {},
-        const std::chrono::milliseconds unary_timeout = UNARY_TIMEOUT
-    ):
-        credentials(credentials), keepalive(keepalive), unary_timeout(unary_timeout) {}
-
     /// @brief Get a channel for a given target.
     /// @param target The target to connect to.
-    /// @returns A channel to the target.
-    std::shared_ptr<::grpc::Channel> get_channel(const x::url::URL &target) {
+    /// @returns A channel to the target, or the error the pool was built with.
+    std::pair<std::shared_ptr<::grpc::Channel>, x::errors::Error>
+    get_channel(const x::url::URL &target) {
+        if (this->err) return {nullptr, this->err};
         std::lock_guard lock(this->mu);
         const auto host_addr = target.host_address();
         const auto it = this->channels.find(host_addr);
@@ -118,7 +135,7 @@ public:
             if (channel->GetState(true) == GRPC_CHANNEL_TRANSIENT_FAILURE)
                 this->channels.erase(host_addr);
             else
-                return channel;
+                return {channel, x::errors::NIL};
         }
         ::grpc::ChannelArguments args;
         args.SetInt(
@@ -140,7 +157,7 @@ public:
         args.SetInt(GRPC_ARG_HTTP2_MAX_PINGS_WITHOUT_DATA, 0);
         auto channel = CreateCustomChannel(host_addr, this->credentials, args);
         this->channels[host_addr] = channel;
-        return channel;
+        return {channel, x::errors::NIL};
     }
 };
 
@@ -189,13 +206,13 @@ public:
             std::chrono::system_clock::now() + this->pool->unary_timeout
         ));
 
-        // Execute request.
-        auto channel = this->pool->get_channel(req_ctx.target);
-        auto stub = RPC::NewStub(channel);
         auto res = RS();
+        auto res_ctx = Context(req_ctx.protocol, req_ctx.target, UNARY);
+        auto [channel, ch_err] = this->pool->get_channel(req_ctx.target);
+        if (ch_err) return {res_ctx, ch_err, res};
+        auto stub = RPC::NewStub(channel);
 
         const auto stat = stub->Exec(&grpc_ctx, req, &res);
-        auto res_ctx = Context(req_ctx.protocol, req_ctx.target, UNARY);
         if (!stat.ok()) return {res_ctx, priv::err_from_status(stat), res};
 
         // Set inbound metadata.
@@ -327,8 +344,9 @@ public:
     /// @brief the finalizer that opens the stream.
     FinalizerReturn<std::unique_ptr<freighter::Stream<RQ, RS>>>
     operator()(Context req_ctx, std::nullptr_t &_) override {
-        auto channel = this->pool->get_channel(req_ctx.target);
         auto res_ctx = Context(req_ctx.protocol, req_ctx.target, STREAM);
+        auto [channel, ch_err] = this->pool->get_channel(req_ctx.target);
+        if (ch_err) return {res_ctx, ch_err};
         auto stream = std::make_unique<Stream<RQ, RS, RPC>>(
             channel,
             this->mw,

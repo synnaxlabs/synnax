@@ -10,6 +10,7 @@
 import { channel, mqtt, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -30,7 +31,6 @@ import {
   commitTextEdit,
   findDialogTriggerByText,
   getSwitchInput,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();
@@ -124,6 +124,21 @@ describe("MQTT Write form", () => {
     expect(screen.getByText("Data type")).toBeTruthy();
     expect(screen.getAllByText("New topic")).toHaveLength(2);
     expect(screen.getByText("No additional fields")).toBeTruthy();
+  });
+
+  it("should focus the topic of each target added by name", async () => {
+    await renderWrite();
+    await addTarget();
+    const first = screen.getByPlaceholderText("plant/line1/valve/set");
+    await waitFor(() => expect(document.activeElement).toBe(first));
+    fireEvent.change(first, { target: { value: "plant/valve/a" } });
+    fireEvent.blur(first);
+    await addTarget();
+    await waitFor(() => {
+      const topic = screen.getByPlaceholderText("plant/line1/valve/set");
+      expect(document.activeElement).toBe(topic);
+      expect(topic).toHaveProperty("value", "");
+    });
   });
 
   it("should show the enum mapping editor when the channel JSON type is string", async () => {
@@ -322,6 +337,15 @@ describe("MQTT Write form", () => {
         screen.getByRole("option", { name: /SpB.*plant\/line1\/ovenA\/setpoint/ }),
       ).toBeTruthy();
       await screen.findByText(ch.name);
+    });
+
+    it("should focus the group of a tag added by name", async () => {
+      await renderWrite();
+      const dialog = await openAddTargets();
+      fireEvent.click(dialog.getByRole("button", { name: "Sparkplug B" }));
+      fireEvent.click(await dialog.findByRole("button", { name: "Add a tag by name" }));
+      const group = await screen.findByPlaceholderText("plant");
+      await waitFor(() => expect(document.activeElement).toBe(group));
     });
 
     it("should add a tag by name and select its Sparkplug B type", async () => {

@@ -17,7 +17,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { DataType, deep, id, primitive } from "@synnaxlabs/x";
+import { array, DataType, deep, id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { useFromConfig } from "@/feature/kafka/device/queries";
@@ -133,10 +133,7 @@ const TimestampFields = ({ path }: { path: deep.Path<ReadRecord> }) => {
       set(path.fields, [...fields, field]);
       set(path.index, field.key);
     } else if (mode === "kafka" && indexField != null) {
-      set(
-        path.fields,
-        fields.filter((f) => f.key !== index),
-      );
+      set(path.fields, array.removeKeyed(fields, index));
       set(path.index, "");
     }
   };

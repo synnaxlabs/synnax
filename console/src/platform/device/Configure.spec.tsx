@@ -11,6 +11,7 @@ import { type device } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { id } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -25,7 +26,7 @@ import {
 import { Errors } from "@/platform/errors";
 import { Modals } from "@/platform/modals";
 import { findButton, renderModalOpener } from "@/platform/modals/testutil";
-import { renderWithConsole, uniqueName } from "@/testutil";
+import { renderWithConsole } from "@/testutil";
 
 const client = createTestClient();
 
@@ -219,6 +220,15 @@ describe("device Configure", () => {
       await save("Save and create read task");
       expect(screen.getByText(HINT)).toBeTruthy();
       expect(onCreateReadTask).not.toHaveBeenCalled();
+    });
+
+    it("should hold Back while the device saves", async () => {
+      await setup(useConfigureWithActionsModal);
+      fireEvent.change(identifierInput(), { target: { value: "sensor_1" } });
+      fireEvent.click(findButton("Save"));
+      fireEvent.click(findButton("Back"));
+      expect(onBack).not.toHaveBeenCalled();
+      await waitFor(() => expect(screen.queryByText(HINT)).toBeNull());
     });
 
     it("should go back without saving", async () => {

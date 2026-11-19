@@ -84,6 +84,8 @@ const Internal = ({
   const currentName = Form.useFieldValue(path.name, { ctx: methods });
   const { capture } = Analytics.use();
   const { updateAsync, variant } = useSave();
+  const busy = variant === "loading";
+  Modals.useBusy(busy);
   const suggestions = suggestIdentifiers({ ...device, name: currentName });
   const save = async (createTask: boolean) => {
     if (!methods.validate()) return;
@@ -151,7 +153,7 @@ const Internal = ({
       <Modal.Footer>
         <Nav.Bar.Start gap="small">
           {onBack != null && (
-            <Button.Button variant="text" onClick={onBack}>
+            <Button.Button variant="text" onClick={onBack} disabled={busy}>
               <Icon.Arrow.Left />
               Back
             </Button.Button>

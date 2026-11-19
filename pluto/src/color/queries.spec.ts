@@ -9,7 +9,7 @@
 
 import { color, type group, NotFoundError } from "@synnaxlabs/client";
 import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
-import { color as xcolor, id } from "@synnaxlabs/x";
+import { color as xcolor, compare, id, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -46,6 +46,79 @@ describe("queries", () => {
     wrapper = await createAsyncSynnaxWrapper({ client });
     await waitForStreamLive(client.connection);
     await remote.connect();
+  });
+
+  describe("usePalettes", () => {
+    it("should list each palette's colors in order, then loose colors under No palette", async () => {
+      const palette = await createPalette();
+      // Key order is the reverse of position order.
+      const key = uuid.create().slice(1);
+      const second = await remote.colors.create({
+        key: `0${key}`,
+        name: `color-${id.create()}`,
+        light: "#00FF00",
+        group: palette.key,
+        position: "a1",
+      });
+      const first = await remote.colors.create({
+        key: `f${key}`,
+        name: `color-${id.create()}`,
+        light: "#00FF00",
+        group: palette.key,
+        position: "a0",
+      });
+      const loose = await createNamed();
+      const { result } = renderHook(() => Color.usePalettes(), { wrapper });
+      await waitFor(() => {
+        const found = result.current.find((p) => p.key === palette.key);
+        expect(found?.colors.map((c) => c.key)).toEqual([first.key, second.key]);
+        const last = result.current.at(-1);
+        expect(last?.name).toBe("No palette");
+        expect(last?.colors.map((c) => c.key)).toContain(loose.key);
+      });
+      const names = result.current.slice(0, -1).map((p) => p.name);
+      expect(names).toEqual([...names].sort(compare.text));
+    });
+  });
+
+  describe("useSeries", () => {
+    it("should list only the series colors, in palette order", async () => {
+      const loose = await createNamed();
+      const series = (
+        await remote.colors.retrieve({ groups: [color.SERIES_PALETTE] })
+      ).sort(color.compare);
+      const { result } = renderHook(
+        () => ({ series: Color.useSeries(), all: Color.useResultList({}) }),
+        { wrapper },
+      );
+      await waitFor(() => {
+        const { all } = result.current;
+        expect(
+          all.variant === "success" && all.data.some((c) => c.key === loose.key),
+        ).toBe(true);
+        expect(result.current.series).toEqual(series.map((c) => c.key));
+      });
+    });
+  });
+
+  describe("useResolve", () => {
+    it("should resolve a fixed reference to its color", () => {
+      const { result } = renderHook(() => Color.useResolve(), { wrapper });
+      expect(
+        result.current({ type: "fixed", value: xcolor.construct("#FF0000") }),
+      ).toEqual(xcolor.construct("#FF0000"));
+    });
+
+    it("should resolve a named reference to its color, or undefined if missing", async () => {
+      const named = await createNamed();
+      const { result } = renderHook(() => Color.useResolve(), { wrapper });
+      await waitFor(() =>
+        expect(result.current({ type: "named", key: named.key })).toEqual(
+          xcolor.construct(named.light),
+        ),
+      );
+      expect(result.current({ type: "named", key: uuid.create() })).toBeUndefined();
+    });
   });
 
   describe("useRetrieve", () => {
