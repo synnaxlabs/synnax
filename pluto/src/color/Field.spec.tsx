@@ -305,6 +305,41 @@ describe("Color.Field", () => {
         await waitFor(() => expect(document.activeElement).toBe(plusOf(name)));
       });
 
+      const escape = (placeholder: string): void => {
+        fireEvent.keyDown(screen.getByPlaceholderText(placeholder), {
+          key: "Escape",
+          code: "Escape",
+        });
+      };
+
+      it("should finish a saving color past Escape, Cancel, and +", async () => {
+        const { palette } = await createInPalette();
+        const { result } = renderField();
+        openPicker(result);
+        await openCreate(palette);
+        const name = `created-${id.create()}`;
+        enterName("Color name", name);
+        escape("Color name");
+        fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+        fireEvent.click(plusOf(palette.name));
+        expect(screen.getByPlaceholderText("Color name")).toBeTruthy();
+        const swatch = await screen.findByRole("button", { name });
+        await waitFor(() => expect(document.activeElement).toBe(swatch));
+      });
+
+      it("should finish a saving palette past Escape and Cancel", async () => {
+        await createInPalette();
+        const { result } = renderField();
+        openPicker(result);
+        fireEvent.click(await screen.findByRole("button", { name: "Create palette" }));
+        const name = `palette-${id.create()}`;
+        enterName("Palette name", name);
+        escape("Palette name");
+        fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+        expect(screen.getByPlaceholderText("Palette name")).toBeTruthy();
+        await waitFor(() => expect(document.activeElement).toBe(plusOf(name)));
+      });
+
       describe("under a search", () => {
         const searchFor = (term: string): void => {
           fireEvent.change(screen.getByPlaceholderText("Search colors"), {

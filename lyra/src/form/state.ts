@@ -544,11 +544,11 @@ export class State<Z extends z.ZodType> implements observe.Observable<void> {
       if (optional) return null;
       throw new Error(`Field ${path} is not in the form`);
     }
-    const status = map.getOrSetDefault(this.statuses, path, {
+    const status = map.getOrInsert(this.statuses, path, (): Status.Crude => ({
       key: path,
       variant: "success",
       message: "",
-    });
+    }));
     const touched = this.touched.has(path);
     // A field whose state did not change keeps its object, so it does not re-render.
     if (
