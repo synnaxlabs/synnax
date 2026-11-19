@@ -296,7 +296,7 @@ export const TEXT_FIELD_SCHEMAS: {
   tagged: taggedTextFieldZ,
 };
 
-/** ReadMessage reads the documents of one ICD message. */
+/** ReadMessage reads one message of an ICD. */
 export const readMessageZ = z.object({
   /** message is the key of the ICD message to read. */
   message: messageKeyZ,

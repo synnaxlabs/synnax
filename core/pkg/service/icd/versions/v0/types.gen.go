@@ -1498,7 +1498,7 @@ type ReadBinding struct {
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
 }
 
-// ReadMessage reads the documents of one ICD message.
+// ReadMessage reads one message of an ICD.
 type ReadMessage struct {
 	// Message is the key of the ICD message to read.
 	Message MessageKey `json:"message" msgpack:"message"`

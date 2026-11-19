@@ -283,7 +283,7 @@ TextField = Annotated[
 
 
 class ReadMessage(BaseModel):
-    """Reads the documents of one ICD message.
+    """Reads one message of an ICD.
 
     Attributes:
         message: Is the key of the ICD message to read.
