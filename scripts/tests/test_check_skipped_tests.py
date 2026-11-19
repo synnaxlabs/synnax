@@ -9,12 +9,13 @@
 
 import subprocess
 import sys
+import tokenize
 from collections.abc import Mapping
 from pathlib import Path
 
 import pytest
 
-from check_skipped_tests import check, language
+from check_skipped_tests import check, language, markers
 
 GO = 'package a\n\nvar _ = It("a", func() {})\n'
 TS = 'it("a", () => {});\n'
@@ -301,3 +302,94 @@ class TestGaps:
             check=False,
         )
         assert result.returncode == code
+
+
+class TestLexerGaps:
+    @pytest.mark.parametrize(
+        ("path", "head"),
+        [
+            # A regex literal holding a quote opens a string to the next quote.
+            ("a.spec.ts", TS + 'const q = /"/;\nit.skip("b", () => {});\n'),
+            # A regex literal holding `/*` opens a block comment to the end.
+            (
+                "a.spec.ts",
+                TS + 'const s = p.replace(/\\/*$/, "");\nit.skip("b", () => {});\n',
+            ),
+            # A nested template literal ends the outer one early.
+            (
+                "a.spec.ts",
+                TS + 'const s = `${q ? `"` : ""}`;\nit.skip("b", () => {});\n',
+            ),
+            # A prefixed raw string is read as an escaped string.
+            (
+                "a_test.cpp",
+                CPP + 'auto s = u8R"(say "hi)";\nTEST(A, C) { GTEST_SKIP(); }\n'
+                'auto t = "x";\n',
+            ),
+            # A prefixed char literal is not read, so its quote opens a string.
+            (
+                "a_test.cpp",
+                CPP + 'auto q = L\'"\';\nTEST(A, C) { GTEST_SKIP(); }\nauto t = "x";\n',
+            ),
+            # str.splitlines splits on a form feed or U+2028; tokenize does not.
+            (
+                "test_a.py",
+                "# a\x0cb\n"
+                + PY
+                + "    pytest.skip()\nX = 'aaaaaaaaaaaaaaaaaaaaaaaa'\n",
+            ),
+            (
+                "test_a.py",
+                "S = 'a b'\n" + PY + "    pytest.skip()\nX = 'aaaaaaaaaaaaaaaaaaa'\n",
+            ),
+        ],
+    )
+    def test_should_report_a_marker_after_a_lexer_edge(
+        self, tmp_path: Path, path: str, head: str
+    ) -> None:
+        base = {"a.spec.ts": TS, "test_a.py": PY, "a_test.cpp": CPP}
+        assert [p for p, _ in _run(tmp_path, base, {path: head})] == [path]
+
+    @pytest.mark.parametrize(
+        ("path", "head"),
+        [
+            # A name that starts with DISABLED_ but names no test or suite.
+            ("a_test.cpp", CPP + "constexpr uint8_t DISABLED_GROUP = 2;\n"),
+            # A skip method of a helper, outside the integration TestCase.
+            (
+                "test_a.py",
+                PY + "class Reader:\n    def f(self) -> None:\n        self.skip(3)\n",
+            ),
+            # A nested template literal shows its text as code.
+            ("a.spec.ts", TS + 'const s = `a ${b ? `it.skip(` : ""}`;\n'),
+        ],
+    )
+    def test_should_not_report_text_that_is_no_marker(
+        self, tmp_path: Path, path: str, head: str
+    ) -> None:
+        base = {"a.spec.ts": TS, "test_a.py": PY, "a_test.cpp": CPP}
+        assert _run(tmp_path, base, {path: head}) == []
+
+    def test_should_not_report_a_renamed_file_with_small_edits(
+        self, tmp_path: Path
+    ) -> None:
+        base = 'package a\n\nfunc TestA(t *T) { t.Skip("needs buf") }\n'
+        head = 'package b\n\nfunc TestB(t *T) { t.Skip("needs buf") }\n'
+        moves = (("a/a_test.go", "b/b_test.go"),)
+        found = _run(tmp_path, {"a/a_test.go": base}, {"b/b_test.go": head}, moves)
+        assert found == []
+
+
+class TestFailLoud:
+    """The script stops on input that it cannot read, so CI fails with the cause."""
+
+    def test_should_raise_on_a_python_file_that_does_not_tokenize(
+        self, tmp_path: Path
+    ) -> None:
+        head = PY + "x = (\n# pytest.mark.skip\n"
+        with pytest.raises(tokenize.TokenError):
+            _run(tmp_path, {"test_a.py": PY}, {"test_a.py": head})
+
+    def test_should_raise_on_an_unknown_language(self) -> None:
+        with pytest.raises(KeyError):
+            markers("GTEST_SKIP()\n", "rust")
