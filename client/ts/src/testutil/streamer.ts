@@ -18,9 +18,15 @@ export class PushStreamer implements framer.Streamer {
   keys: channel.Key[] = [];
   private readonly frames: framer.Frame[] = [];
   private done = false;
+  private dropped = false;
 
   push(frame: framer.Frame): void {
     this.frames.push(frame);
+  }
+
+  /** Fails the read after the pushed frames, so the cache opens a new stream. */
+  drop(): void {
+    this.dropped = true;
   }
 
   async update(): Promise<void> {}
@@ -33,6 +39,7 @@ export class PushStreamer implements framer.Streamer {
     while (!this.done) {
       const frame = this.frames.shift();
       if (frame != null) return { done: false, value: frame };
+      if (this.dropped) throw new Error("stream dropped");
       await sleep.sleep(TimeSpan.milliseconds(5));
     }
     return { done: true, value: undefined };

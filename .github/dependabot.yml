@@ -7,9 +7,9 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Version updates for the pinned GitHub Actions and the uv, Go, and Cargo dependencies.
-# Security updates are on in the repository settings, but they obey the ignore rules
-# here.
+# Version updates for the pinned GitHub Actions, the agent CLIs, and the uv, Go, and
+# Cargo dependencies. Security updates are on in the repository settings, but they obey
+# the ignore rules here.
 
 version: 2
 
@@ -52,6 +52,24 @@ updates:
     versioning-strategy: lockfile-only
     groups:
       python:
+        patterns:
+          - "*"
+    open-pull-requests-limit: 1
+    commit-message:
+      prefix: "[ci] "
+    labels:
+      - dependencies
+      - review/human
+
+  # The agent and Sedosaur jobs run these CLIs, which release several times a week.
+  - package-ecosystem: npm
+    directory: /.github/agents/cli
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      agent-cli:
         patterns:
           - "*"
     open-pull-requests-limit: 1

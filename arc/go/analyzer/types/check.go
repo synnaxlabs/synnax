@@ -68,8 +68,7 @@ func Check(
 	if t1.Kind == types.KindSeries || t1.Kind == types.KindChan {
 		err := Check(cs, t1.Unwrap(), t2.Unwrap(), source, reason+" (element types)")
 		// A cast of the whole value does not convert its elements.
-		var mismatch *typeMismatchError
-		if errors.As(err, &mismatch) {
+		if mismatch, ok := errors.AsType[*typeMismatchError](err); ok {
 			mismatch.Cast = ""
 		}
 		return err
@@ -136,8 +135,8 @@ func newTypeMismatchError(
 
 // CastOf returns the type that a cast of the value fixes err with, if there is one.
 func CastOf(err error) (string, bool) {
-	var mismatch *typeMismatchError
-	if !errors.As(err, &mismatch) || mismatch.Cast == "" {
+	mismatch, ok := errors.AsType[*typeMismatchError](err)
+	if !ok || mismatch.Cast == "" {
 		return "", false
 	}
 	return mismatch.Cast, true
