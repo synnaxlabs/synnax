@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 )
 
 // ChangeKind is what a transaction did to a record. The zero value is invalid.
@@ -214,11 +215,27 @@ func (e changeEntry) kind() ChangeKind {
 	return 0
 }
 
-// subtract returns the distinct links in links that are not in minus.
+// linearSubtractLimit is the most comparisons for which subtract scans instead of
+// building a set. A scan of a small record allocates nothing.
+const linearSubtractLimit = 1024
+
+// subtract returns the distinct links in links that are not in minus, in the order of
+// links.
 func subtract(links, minus []Link) []Link {
 	var out []Link
+	if len(links)*(len(links)+len(minus)) <= linearSubtractLimit {
+		for _, l := range links {
+			if !slices.Contains(minus, l) && !slices.Contains(out, l) {
+				out = append(out, l)
+			}
+		}
+		return out
+	}
+	seen := make(set.Set[Link], len(links)+len(minus))
+	seen.Add(minus...)
 	for _, l := range links {
-		if !slices.Contains(minus, l) && !slices.Contains(out, l) {
+		if !seen.Contains(l) {
+			seen.Add(l)
 			out = append(out, l)
 		}
 	}
