@@ -13,7 +13,7 @@ import synnax as sy
 
 from common import Channels, channel_name
 from conftest import ChannelStore, Client, Streamer
-from dispatch import REFRESH, Listener
+from dispatch import REFRESH, Handlers, Listener
 from log import Log
 from registry import RunnerRegistry
 
@@ -52,6 +52,19 @@ def create_command_channel(client: Core, runner: str) -> str:
     return name
 
 
+def listener(client: Core, *, registry: Path, commands: Handlers) -> Listener:
+    return Listener(
+        client=client,
+        commands=commands,
+        log=Log(
+            client=client,
+            channels=Channels(client=client, enabled=False),
+            channel="log",
+        ),
+        registry=registry,
+    )
+
+
 class TestListener:
     """Tests for streaming the runners' command channels and dispatching each write."""
 
@@ -63,21 +76,27 @@ class TestListener:
         registry.add({FIRST: set()})
         first = create_command_channel(client, FIRST)
         stopped: list[str] = []
-        listener = Listener(
-            client=client,
-            commands={"ec2_cmd": {False: stopped.append}},
-            log=Log(
-                client=client,
-                channels=Channels(client=client, enabled=False),
-                channel="log",
-            ),
+        listening = listener(
+            client,
             registry=registry.path,
+            commands={"ec2_cmd": {False: stopped.append}},
         )
-        listener.step(0.0)
+        listening.step(0.0)
         assert client.opened == [[first]]
         registry.add({SECOND: set()})
         second = create_command_channel(client, SECOND)
         client.streamed.append({second: [False]})
-        listener.step(REFRESH)
+        listening.step(REFRESH)
         assert client.opened == [[first], [second, first]]
         assert stopped == [SECOND]
+
+    def test_should_log_the_first_refresh_with_no_channels(
+        self, tmp_path: Path
+    ) -> None:
+        client = Core()
+        registry = RunnerRegistry(tmp_path / "registry.json")
+        registry.add({FIRST: set()})
+        listening = listener(client, registry=registry.path, commands={"ec2_cmd": {}})
+        listening.step(0.0)
+        assert client.written("log") == [["listening on 0/1 channels"]]
+        assert client.opened == []

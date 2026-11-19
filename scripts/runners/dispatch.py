@@ -150,7 +150,8 @@ class Listener:
         self.commands = commands
         self.log = log
         self.registry = registry
-        self.names: list[str] = []
+        # None until the first refresh, so that refresh always logs.
+        self.names: list[str] | None = None
         self.lookup: dict[int | str, tuple[str, str]] = {}
         self.refreshed: float | None = None
         self.streamer: Streamer | None = None
