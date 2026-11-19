@@ -33,14 +33,11 @@ const VALUE = 1;
 const COLOR = 2;
 const ABNORMAL = 3;
 
-const HEX = /^#?([0-9a-f]{6}(?:[0-9a-f]{2})?)$/i;
-
-/** Reads a fixed color from a hex code, Auto from empty text, or null from the rest. */
+/** Reads a fixed color as the hex box does, Auto from empty text, or null otherwise. */
 const parseColor = (text: string): color.Ref | undefined | null => {
-  const trimmed = text.trim();
-  if (trimmed === "") return undefined;
-  const hex = HEX.exec(trimmed)?.[1];
-  return hex == null ? null : { type: "fixed", value: xcolor.construct(`#${hex}`) };
+  if (text.trim() === "") return undefined;
+  const parsed = BaseColor.parseHexInput(text, 1);
+  return parsed == null ? null : { type: "fixed", value: parsed };
 };
 
 const toRow = (e: enumeration.Entry): Input.TableCell[] => [
@@ -158,16 +155,20 @@ const ColorCell = ({
   />
 );
 
+/** One edit of the entries, which the caller saves as one change. */
+export interface Edit {
+  /** The entries whose fields change, such as the two entries of a swap of values. */
+  changed: enumeration.Entry[];
+  /** The entries to add, in order, after the last entry. */
+  added: enumeration.Entry[];
+  /** The keys of the entries to remove. */
+  removed: string[];
+}
+
 export interface TableProps {
   value: enumeration.Entry[];
-  /**
-   * Called once per edit with every entry it changes. The caller saves them as one
-   * change, since a swap of two values is valid only as a whole.
-   */
-  onSet: (entries: enumeration.Entry[]) => void;
-  /** Called with the entries the user adds, in order, after the last entry. */
-  onAdd: (entries: enumeration.Entry[]) => void;
-  onRemove: (index: number) => void;
+  /** Called once per edit, since a swap of two values is valid only as a whole. */
+  onChange: (edit: Edit) => void;
   onMove: (from: number, to: number) => void;
   /** Shows the entries read-only. */
   preview?: boolean;
@@ -180,9 +181,7 @@ export interface TableProps {
  */
 export const Table = ({
   value,
-  onSet,
-  onAdd,
-  onRemove,
+  onChange,
   onMove,
   preview,
 }: TableProps): ReactElement => {
@@ -224,6 +223,8 @@ export const Table = ({
   const holds = new Map(
     asHeld.filter((_, i) => lasting.has(i)).map((e) => [e.key, e.value]),
   );
+  // A freed hold goes for good, so a later clash does not bring it back.
+  if (holds.size !== held.size) setHeld(holds);
   const shown = withHeld(holds);
   // Counts stored values too, since a held entry shows a value it does not store.
   const freeValue = (rows: Input.TableCell[][]): number =>
@@ -257,13 +258,12 @@ export const Table = ({
       }
       if (!deep.equal(next, prev)) changed.push(next);
     });
-    if (changed.length > 0) onSet(changed);
     if (!deep.equal([...nextHeld], [...held])) setHeld(nextHeld);
-    if (added.length > 0) onAdd(added);
+    if (changed.length > 0 || added.length > 0)
+      onChange({ changed, added, removed: [] });
   };
 
   const handleRemove = (i: number): void => {
-    onRemove(i);
     const rest = shown.filter((_, j) => j !== i);
     const still = holding(
       rest.map((e) => e.value),
@@ -276,8 +276,8 @@ export const Table = ({
       if (still.has(j)) nextHeld.set(entry.key, entry.value);
       else freed.push(entry);
     });
-    if (freed.length > 0) onSet(freed);
     setHeld(nextHeld);
+    onChange({ changed: freed, added: [], removed: [shown[i].key] });
   };
 
   const cellStatus = ({ x, y }: xy.XY): Status.Crude | undefined => {
@@ -327,6 +327,7 @@ export const Table = ({
         createRow={(rows) => ["", freeValue(rows), undefined, false]}
         onRemove={handleRemove}
         onMove={onMove}
+        rowKey={(i) => shown[i].key}
         renderHaulPreview={renderHaulPreview}
       >
         <Input.TableColumn name="Name" type="string">
@@ -354,7 +355,7 @@ export const Table = ({
             <Input.Switch
               value={props.value}
               onChange={props.onChange}
-              variant="text"
+              variant={props.variant}
               disabled={props.preview}
               aria-label={props["aria-label"]}
             />
@@ -379,13 +380,16 @@ export const Entries = ({ enumeration: key }: EntriesProps): ReactElement => {
     ctx: form,
   });
   const canUpdate = Access.useUpdateGranted(enumeration.resourceID(key));
-  const handleAdd = (added: enumeration.Entry[]): void => {
-    let after = entries.at(-1)?.key;
-    for (const entry of added) {
-      form.insert(formPath.entries, entry, after);
-      after = entry.key;
-    }
-  };
+  const handleChange = ({ changed, added, removed }: Edit): void =>
+    form.batch(() => {
+      for (const k of removed) form.remove(formPath.entries[k]);
+      for (const entry of changed) form.set(formPath.entries[entry.key], entry);
+      let after = entries.findLast((e) => !removed.includes(e.key))?.key;
+      for (const entry of added) {
+        form.insert(formPath.entries, entry, after);
+        after = entry.key;
+      }
+    });
   const handleMove = (from: number, to: number): void => {
     const moved = entries[from];
     const others = entries.filter((e) => e.key !== moved.key);
@@ -395,13 +399,7 @@ export const Entries = ({ enumeration: key }: EntriesProps): ReactElement => {
     <Table
       value={entries}
       preview={!canUpdate}
-      onSet={(changed) =>
-        form.batch(() => {
-          for (const entry of changed) form.set(formPath.entries[entry.key], entry);
-        })
-      }
-      onAdd={handleAdd}
-      onRemove={(i) => form.remove(formPath.entries[entries[i].key])}
+      onChange={handleChange}
       onMove={handleMove}
     />
   );

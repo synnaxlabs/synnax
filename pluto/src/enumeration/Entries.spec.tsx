@@ -37,12 +37,18 @@ const commit = (el: HTMLInputElement, value: string): void => {
   fireEvent.blur(el);
 };
 
-type OnSet = (entries: enumeration.Entry[]) => void;
+type OnChange = (edit: Enumeration.Edit) => void;
 
-/** @returns the name and value of each sent entry, grouped by the call that sent it. */
-const sentValues = (onSet: Mock<OnSet>): [string, number][][] =>
-  onSet.mock.calls.map(([entries]) =>
-    entries.map((e): [string, number] => [e.name, e.value]),
+/** @returns the entries that each edit changes, for each edit that changes any. */
+const changes = (onChange: Mock<OnChange>): enumeration.Entry[][] =>
+  onChange.mock.calls
+    .map(([edit]) => edit.changed)
+    .filter((changed) => changed.length > 0);
+
+/** @returns the name and value of each changed entry, grouped by its edit. */
+const sentValues = (onChange: Mock<OnChange>): [string, number][][] =>
+  changes(onChange).map((changed) =>
+    changed.map((e): [string, number] => [e.name, e.value]),
   );
 
 const marked = (el: HTMLInputElement): boolean =>
@@ -53,28 +59,26 @@ describe("Enumeration.Table", () => {
 
   interface HarnessProps {
     initial: enumeration.Entry[];
-    onSet?: (entries: enumeration.Entry[]) => void;
-    onAdd?: (entries: enumeration.Entry[]) => void;
+    onChange?: OnChange;
     preview?: boolean;
   }
 
-  // Holds the entries and applies each set, as a form would.
-  const Harness = ({ initial, onSet, onAdd, ...rest }: HarnessProps): ReactElement => {
+  // Holds the entries and applies each edit, as a form would.
+  const Harness = ({ initial, onChange, ...rest }: HarnessProps): ReactElement => {
     const [value, setValue] = useState(initial);
     return (
       <Enumeration.Table
         value={value}
-        onSet={(changed) => {
-          onSet?.(changed);
-          setValue((prev) =>
-            prev.map((e) => changed.find((c) => c.key === e.key) ?? e),
-          );
+        onChange={(edit) => {
+          onChange?.(edit);
+          const { changed, added, removed } = edit;
+          setValue((prev) => [
+            ...prev
+              .filter((e) => !removed.includes(e.key))
+              .map((e) => changed.find((c) => c.key === e.key) ?? e),
+            ...added,
+          ]);
         }}
-        onAdd={(added) => {
-          onAdd?.(added);
-          setValue((prev) => [...prev, ...added]);
-        }}
-        onRemove={(i) => setValue((prev) => prev.filter((_, j) => j !== i))}
         onMove={vi.fn()}
         {...rest}
       />
@@ -91,20 +95,20 @@ describe("Enumeration.Table", () => {
 
   describe("names", () => {
     it("should send a typed name once, on Enter", () => {
-      const onSet = vi.fn<OnSet>();
-      renderTable({ initial: [createEntry("Off", 0), createEntry("On", 1)], onSet });
+      const onChange = vi.fn<OnChange>();
+      renderTable({ initial: [createEntry("Off", 0), createEntry("On", 1)], onChange });
       const name = input("Name 2");
       act(() => name.focus());
       fireEvent.change(name, { target: { value: "Run" } });
       fireEvent.change(name, { target: { value: "Running" } });
-      expect(onSet).not.toHaveBeenCalled();
+      expect(changes(onChange)).toEqual([]);
       fireEvent.keyDown(name, { key: "Enter" });
-      expect(sentValues(onSet)).toEqual([[["Running", 1]]]);
+      expect(sentValues(onChange)).toEqual([[["Running", 1]]]);
     });
 
     it("should send nothing for a typed name that Esc discards", () => {
-      const onSet = vi.fn();
-      renderTable({ initial: [createEntry("Off", 0), createEntry("On", 1)], onSet });
+      const onChange = vi.fn<OnChange>();
+      renderTable({ initial: [createEntry("Off", 0), createEntry("On", 1)], onChange });
       const name = input("Name 2");
       act(() => name.focus());
       fireEvent.change(name, { target: { value: "Running" } });
@@ -112,26 +116,26 @@ describe("Enumeration.Table", () => {
       expect(name.value).toBe("On");
       fireEvent.keyDown(name, { key: "Escape" });
       expect(document.activeElement).not.toBe(name);
-      expect(onSet).not.toHaveBeenCalled();
+      expect(changes(onChange)).toEqual([]);
     });
   });
 
   describe("values", () => {
     it("should hold a value that another entry has, marked and unsent", () => {
-      const onSet = vi.fn();
-      renderTable({ initial: [createEntry("Off", 0), createEntry("On", 1)], onSet });
+      const onChange = vi.fn<OnChange>();
+      renderTable({ initial: [createEntry("Off", 0), createEntry("On", 1)], onChange });
       commit(input("Value 2"), "0");
-      expect(onSet).not.toHaveBeenCalled();
+      expect(changes(onChange)).toEqual([]);
       expect(input("Value 2").value).toBe("0");
       expect(marked(input("Value 2"))).toBe(true);
     });
 
     it("should send a held value once the user frees it", () => {
-      const onSet = vi.fn<OnSet>();
-      renderTable({ initial: [createEntry("Off", 0), createEntry("On", 1)], onSet });
+      const onChange = vi.fn<OnChange>();
+      renderTable({ initial: [createEntry("Off", 0), createEntry("On", 1)], onChange });
       commit(input("Value 2"), "0");
       commit(input("Value 1"), "5");
-      expect(sentValues(onSet)).toEqual([
+      expect(sentValues(onChange)).toEqual([
         [
           ["Off", 5],
           ["On", 0],
@@ -141,23 +145,30 @@ describe("Enumeration.Table", () => {
     });
 
     it("should send another field of an entry whose value it holds", () => {
-      const onSet = vi.fn();
-      renderTable({ initial: [createEntry("Off", 0), createEntry("On", 1)], onSet });
+      const onChange = vi.fn<OnChange>();
+      renderTable({ initial: [createEntry("Off", 0), createEntry("On", 1)], onChange });
       commit(input("Value 2"), "0");
       commit(input("Name 2"), "Running");
-      expect(onSet).toHaveBeenCalledWith([
+      expect(changes(onChange)).toContainEqual([
         expect.objectContaining({ name: "Running", value: 1 }),
       ]);
       expect(marked(input("Value 2"))).toBe(true);
     });
 
-    it("should send a held value once the user removes the entry that has it", () => {
-      const onSet = vi.fn();
-      renderTable({ initial: [createEntry("Off", 0), createEntry("On", 1)], onSet });
+    it("should send a held value in the edit that removes the entry that has it", () => {
+      const onChange = vi.fn<OnChange>();
+      const off = createEntry("Off", 0);
+      renderTable({ initial: [off, createEntry("On", 1)], onChange });
       commit(input("Value 2"), "0");
       fireEvent.click(screen.getByRole("button", { name: "Remove entry 1" }));
-      expect(onSet).toHaveBeenCalledWith([
-        expect.objectContaining({ name: "On", value: 0 }),
+      expect(onChange.mock.calls).toEqual([
+        [
+          {
+            changed: [expect.objectContaining({ name: "On", value: 0 })],
+            added: [],
+            removed: [off.key],
+          },
+        ],
       ]);
       expect(marked(input("Value 1"))).toBe(false);
     });
@@ -165,12 +176,7 @@ describe("Enumeration.Table", () => {
     it("should show the stored value once another user frees a held value", () => {
       const off = createEntry("Off", 0);
       const on = createEntry("On", 1);
-      const props = {
-        onSet: vi.fn(),
-        onAdd: vi.fn(),
-        onRemove: vi.fn(),
-        onMove: vi.fn(),
-      };
+      const props = { onChange: vi.fn(), onMove: vi.fn() };
       const { rerender } = render(<Enumeration.Table value={[off, on]} {...props} />, {
         wrapper,
       });
@@ -180,38 +186,52 @@ describe("Enumeration.Table", () => {
       expect(marked(input("Value 2"))).toBe(false);
     });
 
+    it("should not hold a value again after another user frees it", () => {
+      const off = createEntry("Off", 0);
+      const on = createEntry("On", 1);
+      const props = { onChange: vi.fn(), onMove: vi.fn() };
+      const { rerender } = render(<Enumeration.Table value={[off, on]} {...props} />, {
+        wrapper,
+      });
+      commit(input("Value 2"), "0");
+      rerender(<Enumeration.Table value={[{ ...off, value: 5 }, on]} {...props} />);
+      rerender(<Enumeration.Table value={[off, on]} {...props} />);
+      expect(input("Value 2").value).toBe("1");
+      expect(marked(input("Value 2"))).toBe(false);
+    });
+
     it("should hold a pasted value that another entry has", () => {
-      const onSet = vi.fn<OnSet>();
-      renderTable({ initial: [createEntry("Off", 0), createEntry("On", 1)], onSet });
+      const onChange = vi.fn<OnChange>();
+      renderTable({ initial: [createEntry("Off", 0), createEntry("On", 1)], onChange });
       paste(input("Name 2"), "On\t1\nIdle\t0");
       expect(input("Value 3").value).toBe("0");
       expect(marked(input("Value 3"))).toBe(true);
       commit(input("Value 1"), "5");
-      expect(sentValues(onSet).at(-1)).toEqual([
+      expect(sentValues(onChange).at(-1)).toEqual([
         ["Off", 5],
         ["Idle", 0],
       ]);
     });
 
     it("should hold a value that a held entry still stores", () => {
-      const onSet = vi.fn();
+      const onChange = vi.fn<OnChange>();
       renderTable({
         initial: [createEntry("Off", 0), createEntry("On", 1), createEntry("Idle", 2)],
-        onSet,
+        onChange,
       });
       commit(input("Value 3"), "0");
       commit(input("Value 2"), "2");
-      expect(onSet).not.toHaveBeenCalled();
+      expect(changes(onChange)).toEqual([]);
       expect(input("Value 2").value).toBe("2");
       expect(marked(input("Value 2"))).toBe(true);
     });
 
     it("should save a swap of two values", () => {
-      const onSet = vi.fn<OnSet>();
-      renderTable({ initial: [createEntry("Off", 0), createEntry("On", 1)], onSet });
+      const onChange = vi.fn<OnChange>();
+      renderTable({ initial: [createEntry("Off", 0), createEntry("On", 1)], onChange });
       commit(input("Value 2"), "0");
       commit(input("Value 1"), "1");
-      expect(sentValues(onSet)).toEqual([
+      expect(sentValues(onChange)).toEqual([
         [
           ["Off", 1],
           ["On", 0],
@@ -221,19 +241,21 @@ describe("Enumeration.Table", () => {
     });
 
     it("should save a pasted entry with a free value that a held entry stores", () => {
-      const onAdd = vi.fn();
-      renderTable({ initial: [createEntry("Off", 0), createEntry("On", 1)], onAdd });
+      const onChange = vi.fn<OnChange>();
+      renderTable({ initial: [createEntry("Off", 0), createEntry("On", 1)], onChange });
       commit(input("Value 2"), "0");
       paste(input("Name 2"), "On\t0\nIdle\t1");
-      expect(onAdd).toHaveBeenCalledWith([
-        expect.objectContaining({ name: "Idle", value: 2 }),
-      ]);
+      expect(onChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          added: [expect.objectContaining({ name: "Idle", value: 2 })],
+        }),
+      );
       expect(input("Value 3").value).toBe("1");
       expect(marked(input("Value 3"))).toBe(true);
     });
 
     it("should keep a hold on a remove while a held entry stores its value", () => {
-      const onSet = vi.fn();
+      const onChange = vi.fn<OnChange>();
       renderTable({
         initial: [
           createEntry("Off", 0),
@@ -241,25 +263,25 @@ describe("Enumeration.Table", () => {
           createEntry("Idle", 2),
           createEntry("Fault", 3),
         ],
-        onSet,
+        onChange,
       });
       commit(input("Value 3"), "0");
       commit(input("Value 2"), "2");
       fireEvent.click(screen.getByRole("button", { name: "Remove entry 4" }));
-      expect(onSet).not.toHaveBeenCalled();
+      expect(changes(onChange)).toEqual([]);
       expect(marked(input("Value 2"))).toBe(true);
     });
 
     it("should release each hold that a remove frees", () => {
-      const onSet = vi.fn<OnSet>();
+      const onChange = vi.fn<OnChange>();
       renderTable({
         initial: [createEntry("Off", 0), createEntry("On", 1), createEntry("Idle", 2)],
-        onSet,
+        onChange,
       });
       commit(input("Value 3"), "0");
       commit(input("Value 2"), "2");
       fireEvent.click(screen.getByRole("button", { name: "Remove entry 1" }));
-      expect(sentValues(onSet)).toEqual([
+      expect(sentValues(onChange)).toEqual([
         [
           ["On", 2],
           ["Idle", 0],
@@ -295,10 +317,10 @@ describe("Enumeration.Table", () => {
 
   describe("colors", () => {
     it("should set a fixed color from a typed hex code", () => {
-      const onSet = vi.fn();
-      renderTable({ initial: [createEntry("Off", 0)], onSet });
+      const onChange = vi.fn<OnChange>();
+      renderTable({ initial: [createEntry("Off", 0)], onChange });
       commit(input("Color 1"), "#F85149");
-      expect(onSet).toHaveBeenCalledWith([
+      expect(changes(onChange)).toContainEqual([
         expect.objectContaining({
           color: { type: "fixed", value: color.construct("#f85149") },
         }),
@@ -306,10 +328,10 @@ describe("Enumeration.Table", () => {
     });
 
     it("should set a fixed color with alpha from an eight digit hex code", () => {
-      const onSet = vi.fn();
-      renderTable({ initial: [createEntry("Off", 0)], onSet });
+      const onChange = vi.fn<OnChange>();
+      renderTable({ initial: [createEntry("Off", 0)], onChange });
       commit(input("Color 1"), "F8514980");
-      expect(onSet).toHaveBeenCalledWith([
+      expect(changes(onChange)).toContainEqual([
         expect.objectContaining({
           color: { type: "fixed", value: color.construct("#f8514980") },
         }),
@@ -317,12 +339,12 @@ describe("Enumeration.Table", () => {
     });
 
     it("should clear a color to Auto when its text is erased", () => {
-      const onSet = vi.fn();
+      const onChange = vi.fn<OnChange>();
       const fixed = { type: "fixed" as const, value: color.construct("#2e7d32") };
-      renderTable({ initial: [createEntry("Off", 0, { color: fixed })], onSet });
+      renderTable({ initial: [createEntry("Off", 0, { color: fixed })], onChange });
       expect(input("Color 1").value).toBe("2e7d32");
       commit(input("Color 1"), "");
-      expect(onSet).toHaveBeenCalledWith([
+      expect(changes(onChange)).toContainEqual([
         expect.not.objectContaining({ color: fixed }),
       ]);
     });
@@ -341,23 +363,23 @@ describe("Enumeration.Table", () => {
     });
 
     it("should keep a color when the user presses Escape in its cell", () => {
-      const onSet = vi.fn();
+      const onChange = vi.fn<OnChange>();
       const fixed = { type: "fixed" as const, value: color.construct("#2e7d32") };
-      renderTable({ initial: [createEntry("Off", 0, { color: fixed })], onSet });
+      renderTable({ initial: [createEntry("Off", 0, { color: fixed })], onChange });
       const el = input("Color 1");
       act(() => el.focus());
       fireEvent.change(el, { target: { value: "f85149" } });
       fireEvent.keyDown(el, { key: "Escape" });
       act(() => el.blur());
-      expect(onSet).not.toHaveBeenCalled();
+      expect(changes(onChange)).toEqual([]);
       expect(el.value).toBe("2e7d32");
     });
 
     it("should set a fixed color from a pasted hex code", () => {
-      const onSet = vi.fn();
-      renderTable({ initial: [createEntry("Off", 0)], onSet });
+      const onChange = vi.fn<OnChange>();
+      renderTable({ initial: [createEntry("Off", 0)], onChange });
       paste(input("Name 1"), "Open\t0\t#2E7D32\tfalse");
-      expect(onSet).toHaveBeenCalledWith([
+      expect(changes(onChange)).toContainEqual([
         expect.objectContaining({
           name: "Open",
           color: { type: "fixed", value: color.construct("#2e7d32") },
@@ -367,20 +389,30 @@ describe("Enumeration.Table", () => {
     });
 
     it("should clear a color to Auto from a pasted empty cell", () => {
-      const onSet = vi.fn();
+      const onChange = vi.fn<OnChange>();
       const fixed = { type: "fixed" as const, value: color.construct("#2e7d32") };
-      renderTable({ initial: [createEntry("Off", 0, { color: fixed })], onSet });
+      renderTable({ initial: [createEntry("Off", 0, { color: fixed })], onChange });
       paste(input("Name 1"), "Open\t0\t\tfalse");
-      expect(onSet).toHaveBeenCalledOnce();
-      const [[sent]] = onSet.mock.calls[0];
+      expect(changes(onChange)).toHaveLength(1);
+      const [[sent]] = changes(onChange);
       expect(sent.name).toBe("Open");
       expect(sent).not.toHaveProperty("color");
     });
 
-    it("should mark a pasted color that is not a hex code", () => {
+    it("should mark a pasted color that does not parse", () => {
       renderTable({ initial: [createEntry("Off", 0)] });
-      paste(input("Name 1"), "Open\t0\tgreen\tfalse");
+      paste(input("Name 1"), "Open\t0\tnot a color\tfalse");
       expect(marked(input("Color 1"))).toBe(true);
+    });
+
+    it("should read a pasted color as it reads a typed one", () => {
+      const onChange = vi.fn<OnChange>();
+      renderTable({ initial: [createEntry("Off", 0), createEntry("On", 1)], onChange });
+      commit(input("Color 1"), "green");
+      paste(input("Name 2"), "On\t1\tgreen\tfalse");
+      const [[typed], [pasted]] = changes(onChange);
+      expect(typed.color).toBeDefined();
+      expect(pasted.color).toEqual(typed.color);
     });
 
     it("should show an entry's warnings on its color cell, not as a mark", () => {
@@ -467,12 +499,14 @@ describe("Enumeration.Table", () => {
 
   describe("abnormal", () => {
     it("should edit abnormal with a switch", () => {
-      const onSet = vi.fn();
-      renderTable({ initial: [createEntry("Fault", 0)], onSet });
+      const onChange = vi.fn<OnChange>();
+      renderTable({ initial: [createEntry("Fault", 0)], onChange });
       const cell = input("Abnormal 1");
       expect(cell.classList).toContain("lyra-input__switch-input");
       fireEvent.click(cell);
-      expect(onSet).toHaveBeenCalledWith([expect.objectContaining({ abnormal: true })]);
+      expect(changes(onChange)).toContainEqual([
+        expect.objectContaining({ abnormal: true }),
+      ]);
     });
 
     it("should show a read-only switch in preview", () => {
@@ -503,11 +537,11 @@ describe("Enumeration.Table", () => {
         light: "#00FF00",
         group: palette.key,
       });
-      const onSet = vi.fn();
-      renderTable({ initial: [createEntry("Off", 0)], onSet }, live);
+      const onChange = vi.fn<OnChange>();
+      renderTable({ initial: [createEntry("Off", 0)], onChange }, live);
       fireEvent.click(screen.getByRole("button", { name: "Pick color 1" }));
       fireEvent.click(await screen.findByRole("button", { name: named.name }));
-      expect(onSet).toHaveBeenCalledWith([
+      expect(changes(onChange)).toContainEqual([
         expect.objectContaining({ color: { type: "named", key: named.key } }),
       ]);
     });
