@@ -205,6 +205,7 @@ GROUPS: tuple[Group, ...] = (
     ),
     gbench("cpp/codec", "client/cpp/framer", "codec_bench"),
     gbench("driver/sample-clock", "driver/common", "sample_clock_bench"),
+    gbench("driver/bypass", "driver/bypass", "bypass_bench"),
     go("floors/cpu", "cpu", "cesium", "^BenchmarkFloor(Copy|CRC32C)$", control=True),
     go("floors", "io", "cesium", "^BenchmarkFloor", control=True),
 )
