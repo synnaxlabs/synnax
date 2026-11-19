@@ -127,3 +127,28 @@ func osRecovered(at int64) int {
 	Expect(errors.Join(iter.Close(), db.Close())).To(Succeed())
 	return n
 }
+
+var _ = Describe("Crash adapter reads", func() {
+	It("Should return each payload whole when values come from sstables",
+		func(ctx SpecContext) {
+			disk := MustSucceed(fault.New(fault.Config{}))
+			e := MustSucceed(openCrashEngine(ctx, disk))
+			want := map[uint64][]byte{}
+			for id := uint64(1); id <= 200; id++ {
+				p := make([]byte, 300)
+				for i := range p {
+					p[i] = byte(id + uint64(i))
+				}
+				want[id] = p
+				r := crash.Record{ID: id, Payload: p}
+				Expect(e.Commit(ctx, r, crash.Durable)).To(Equal(crash.Durable))
+			}
+			Expect(e.(*crashEngine).pebble.Flush()).To(Succeed())
+			got := MustSucceed(e.Recovered(ctx))
+			Expect(e.Close()).To(Succeed())
+			Expect(got).To(HaveLen(200))
+			for _, r := range got {
+				Expect(r.Payload).To(Equal(want[r.ID]), "record %d", r.ID)
+			}
+		})
+})
