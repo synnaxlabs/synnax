@@ -60,7 +60,7 @@ var _ = Describe("Signals", func() {
 			Expect(channelSvc.NewRetrieve().Where(channel.MatchNames(name)).Entry(&ch).
 				Exec(ctx, db)).To(Succeed())
 			Expect(ch.Virtual).To(BeTrue())
-			Expect(ch.Internal).To(BeTrue())
+			Expect(channelSvc.IsBuiltIn(ch.Key())).To(BeTrue())
 		}
 	})
 

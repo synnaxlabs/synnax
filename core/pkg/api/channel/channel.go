@@ -172,9 +172,6 @@ func (s *Service) Create(
 	req CreateRequest,
 ) (CreateResponse, error) {
 	translated := translateChannelsBackward(req.Channels)
-	for i := range translated {
-		translated[i].Internal = false
-	}
 	inputs, err := s.internal.CalculationInputs(ctx, tx, translated)
 	if err != nil {
 		return CreateResponse{}, err
@@ -194,7 +191,9 @@ func (s *Service) Create(
 		CreateMany(ctx, &translated, opts...); err != nil {
 		return CreateResponse{}, err
 	}
-	return CreateResponse{Channels: translateChannelsForward(translated)}, nil
+	return CreateResponse{
+		Channels: translateChannelsForward(translated, s.internal.IsBuiltIn),
+	}, nil
 }
 
 var _ bind.Named = RetrieveRequest{}
@@ -220,7 +219,9 @@ func (s *Service) Retrieve(
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	res := RetrieveResponse{Channels: translateChannelsForward(resChannels)}
+	res := RetrieveResponse{
+		Channels: translateChannelsForward(resChannels, s.internal.IsBuiltIn),
+	}
 	if req.IncludeStatus {
 		statuses, err := s.status.Join[struct{}](
 			ctx,
@@ -269,7 +270,10 @@ func namesByName(where *channel.Where) bool {
 		(where.Name.Eq != nil || len(where.Name.In) > 0)
 }
 
-func translateChannelsForward(channels []channel.Channel) []Channel {
+func translateChannelsForward(
+	channels []channel.Channel,
+	builtIn func(channel.Key) bool,
+) []Channel {
 	translated := make([]Channel, len(channels))
 	for i, ch := range channels {
 		translated[i] = Channel{
@@ -280,7 +284,7 @@ func translateChannelsForward(channels []channel.Channel) []Channel {
 			IsIndex:     ch.IsIndex,
 			Index:       ch.Index(),
 			Virtual:     ch.Virtual,
-			Internal:    ch.Internal,
+			Internal:    builtIn(ch.Key()),
 			Expression:  ch.Expression,
 			Operations:  ch.Operations,
 			Group:       ch.Group,
@@ -302,7 +306,6 @@ func translateChannelsBackward(channels []Channel) []channel.Channel {
 			LocalIndex:  ch.Index.LocalKey(),
 			LocalKey:    ch.Key.LocalKey(),
 			Virtual:     ch.Virtual,
-			Internal:    ch.Internal,
 			Expression:  ch.Expression,
 			Operations:  ch.Operations,
 			Group:       ch.Group,

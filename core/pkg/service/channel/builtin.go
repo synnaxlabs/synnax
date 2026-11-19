@@ -55,13 +55,9 @@ func (w Writer) Declare(ctx context.Context, ch *Channel) error {
 	match := slices.IndexFunc(holders, func(h Channel) bool {
 		return h.DataType == ch.DataType && h.Virtual == ch.Virtual
 	})
-	var err error
 	if match >= 0 {
-		err = w.adopt(ctx, holders[match], ch)
-	} else {
-		err = w.createBuiltIn(ctx, holders, ch)
-	}
-	if err != nil {
+		*ch = holders[match]
+	} else if err := w.createBuiltIn(ctx, holders, ch); err != nil {
 		return err
 	}
 	key := ch.Key()
@@ -75,16 +71,6 @@ func (w Writer) Declare(ctx context.Context, ch *Channel) error {
 	return nil
 }
 
-// adopt fills ch with h, the channel that becomes the built-in, and marks h internal.
-func (w Writer) adopt(ctx context.Context, h Channel, ch *Channel) error {
-	*ch = h
-	if ch.Internal {
-		return nil
-	}
-	ch.Internal = true
-	return w.svc.table.NewCreate().Entry(ch).Exec(ctx, w.tx)
-}
-
 // createBuiltIn renames each of holders, which hold the name of ch, and creates ch.
 func (w Writer) createBuiltIn(
 	ctx context.Context,
@@ -96,8 +82,7 @@ func (w Writer) createBuiltIn(
 			return err
 		}
 	}
-	ch.Internal = true
-	return w.Create(ctx, ch)
+	return w.Create(ctx, ch, func(o *createOptions) { o.builtIn = true })
 }
 
 // rehome renames h, a channel that holds the name of a built-in, with the first free

@@ -18,10 +18,12 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/types"
 )
 
 var (
@@ -77,6 +79,19 @@ func openService(
 		ctx,
 		append([]channel.ServiceConfig{cfg}, cfgs...)...,
 	))
+}
+
+// createStored writes channels in their current shape straight to the channel table of
+// db, after the stored channel migrations, so a service that opens later reads them.
+func createStored(ctx context.Context, db *gorp.DB, channels ...channel.Channel) {
+	GinkgoHelper()
+	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+		DB:         db,
+		Namespace:  types.Name[channel.Channel](),
+		Migrations: versions.Migrations,
+	})).To(Succeed())
+	Expect(gorp.WrapWriter[channel.Key, channel.Channel](db).Set(ctx, channels...)).
+		To(Succeed())
 }
 
 var _ = BeforeSuite(func(ctx SpecContext) {

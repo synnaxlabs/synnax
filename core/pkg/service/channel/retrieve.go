@@ -11,6 +11,22 @@ package channel
 
 import "github.com/synnaxlabs/gorp"
 
+// Retrieve is a builder for querying channels.
+type Retrieve struct {
+	gorp    gorp.Retrieve[Key, Channel]
+	indexes indexes
+	// builtIn reports whether a key is a built-in channel.
+	builtIn func(Key) bool
+}
+
+// MatchInternal returns a filter for the built-in channels when internal is true, or
+// for every other channel when it is false.
+func MatchInternal(internal bool) Filter {
+	return Match(func(_ gorp.Context, r Retrieve, ch *Channel) (bool, error) {
+		return r.builtIn(ch.Key()) == internal, nil
+	})
+}
+
 // MatchVirtual returns a filter for channels that are virtual if virtual is true, or
 // are not virtual if virtual is false. Calculated channels are excluded from the
 // virtual bucket even though they are stored with Virtual=true.

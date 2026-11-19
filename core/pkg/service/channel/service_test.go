@@ -313,7 +313,6 @@ var _ = Describe("Service", func() {
 					Name:        UniqueChannelName(),
 					DataType:    telem.TimestampT,
 					IsIndex:     true,
-					Internal:    true,
 					Leaseholder: 1,
 				}
 				Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
@@ -328,7 +327,7 @@ var _ = Describe("Service", func() {
 					if err := w.Create(ctx, &virtual); err != nil {
 						return err
 					}
-					if err := w.Create(ctx, &internal); err != nil {
+					if err := w.Declare(ctx, &internal); err != nil {
 						return err
 					}
 					Expect(countSvc.CountLimited()).To(Equal(base))

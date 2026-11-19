@@ -228,7 +228,6 @@ var _ = Describe("Retired channels", func() {
 					Name:        name,
 					DataType:    telem.StringT,
 					Virtual:     true,
-					Internal:    true,
 					Leaseholder: node.KeyFree,
 				}
 			}

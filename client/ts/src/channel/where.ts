@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { filter } from "@synnaxlabs/x";
+
 import { isCalculated } from "@/channel/payload";
 import { type Lines } from "@/channel/where.gen";
 import { group } from "@/group";
@@ -14,5 +16,6 @@ import { group } from "@/group";
 /** The typed lines of a channel Where. */
 export const LINES: Lines = {
   ...group.MEMBER_LINES,
+  internal: (ch, value) => filter.matchesSet(value, ch.internal),
   virtual: (ch, value) => (ch.virtual && !isCalculated(ch)) === value,
 };

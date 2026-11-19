@@ -26,13 +26,6 @@ import (
 // gorp.TableConfig.Name.
 const tableName = "channel"
 
-// Retrieve is used to retrieve Channel records from the database using a
-// builder pattern for constructing queries.
-type Retrieve struct {
-	gorp    gorp.Retrieve[Key, Channel]
-	indexes indexes
-}
-
 // indexes bundles the per-Service secondary indexes registered on the
 // Channel table. Each index is constructed via newIndexes and threaded
 // onto the Retrieve so filter functions can resolve them off r.indexes
@@ -231,16 +224,6 @@ func MatchIsIndex(v bool) Filter {
 	return func(Retrieve) gorp.Filter[Key, Channel] {
 		return gorp.Match(func(_ gorp.Context, e *Channel) (bool, error) {
 			return e.IsIndex == v, nil
-		})
-	}
-}
-
-// MatchInternal returns a filter for channels by their
-// Internal field.
-func MatchInternal(v bool) Filter {
-	return func(Retrieve) gorp.Filter[Key, Channel] {
-		return gorp.Match(func(_ gorp.Context, e *Channel) (bool, error) {
-			return e.Internal == v, nil
 		})
 	}
 }

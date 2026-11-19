@@ -105,7 +105,7 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   dataType: filter.setZ(telem.dataTypeZ).optional(),
   /** isIndex selects by is_index. */
   isIndex: filter.boolZ.optional(),
-  /** internal selects by internal. */
+  /** internal matches the built-in channels, or every other channel when false. */
   internal: filter.boolZ.optional(),
   /**
    * virtual matches virtual channels that are not calculated, or every other channel

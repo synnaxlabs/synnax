@@ -63,7 +63,7 @@ var _ = Describe("Writer", func() {
 			})
 		})
 		It(
-			"Should not count virtual or internal channels toward the limit",
+			"Should not count virtual or built-in channels toward the limit",
 			func(ctx SpecContext) {
 				for range 5 {
 					virtual := channel.Channel{
@@ -79,11 +79,10 @@ var _ = Describe("Writer", func() {
 						Name:        UniqueChannelName(),
 						DataType:    telem.TimestampT,
 						IsIndex:     true,
-						Internal:    true,
 						Leaseholder: 1,
 					}
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return limitSvc.NewWriter(tx).Create(ctx, &internal)
+						return limitSvc.NewWriter(tx).Declare(ctx, &internal)
 					})).To(Succeed())
 				}
 			},
@@ -730,31 +729,6 @@ var _ = Describe("Writer", func() {
 					Expect(chs[0].Index()).To(Equal(chs[1].Key()))
 				},
 			)
-
-			It(
-				"Should create internal index for internal calculated channel",
-				func(ctx SpecContext) {
-					calcCh := channel.Channel{
-						Name:       "internal_calculated",
-						DataType:   telem.Float64T,
-						Expression: "return 1 + 1",
-						Internal:   true,
-					}
-					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).Create(ctx, &calcCh)
-					})).To(Succeed())
-
-					// Verify index is also internal
-					indexName := "internal_calculated_time"
-					var indexChannels []channel.Channel
-					Expect(svc.NewRetrieve().
-						Where(channel.MatchNames(indexName)).
-						Entries(&indexChannels).
-						Exec(ctx, db)).To(Succeed())
-					Expect(indexChannels).To(HaveLen(1))
-					Expect(indexChannels[0].Internal).To(BeTrue())
-				},
-			)
 		})
 		Context("Calculated channel with an existing key", func() {
 			var calc channel.Channel
@@ -1254,8 +1228,7 @@ var _ = Describe("Writer", func() {
 						Expression:  "return 1 + 1",
 						Virtual:     true,
 					}
-					Expect(gorp.WrapWriter[channel.Key, channel.Channel](fresh.DB).
-						Set(ctx, calc)).To(Succeed())
+					createStored(ctx, fresh.DB, calc)
 					freshSvc := openService(ctx, fresh)
 					var stored channel.Channel
 					Expect(freshSvc.NewRetrieve().

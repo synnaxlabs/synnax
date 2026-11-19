@@ -54,7 +54,13 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 
 type createOptions struct {
 	retrieveIfNameExists bool
+	// builtIn is true when Declare creates the channels, which the channel limit does
+	// not count.
+	builtIn bool
 }
+
+// limited reports whether the channel limit counts ch.
+func (o createOptions) limited(ch Channel) bool { return !o.builtIn && !ch.Virtual }
 
 // CreateOption configures the behavior of a Create or CreateMany call.
 type CreateOption func(*createOptions)
@@ -392,7 +398,7 @@ func (w Writer) create(
 		return err
 	}
 	channels = append(channels, indexChannels...)
-	written, err := w.allocateNew(ctx, channels)
+	written, err := w.allocateNew(ctx, channels, opts)
 	if err != nil {
 		return err
 	}
@@ -556,7 +562,6 @@ func synthesizeIndexes(channels []Channel) ([]Channel, []int, error) {
 			IsIndex:     true,
 			Virtual:     true,
 			Leaseholder: node.KeyFree,
-			Internal:    ch.Internal,
 			Group:       ch.Group,
 		})
 		calcNeedingIndex = append(calcNeedingIndex, i)
@@ -628,7 +633,11 @@ func (w Writer) adoptIndexes(
 
 // allocateNew allocates local keys for the channels without one through the
 // distribution allocator, writes them, and returns their keys.
-func (w Writer) allocateNew(ctx context.Context, channels []Channel) (Keys, error) {
+func (w Writer) allocateNew(
+	ctx context.Context,
+	channels []Channel,
+	opts createOptions,
+) (Keys, error) {
 	newIndices := make([]int, 0, len(channels))
 	minimal := make([]channel.Channel, 0, len(channels))
 	for i, ch := range channels {
@@ -637,7 +646,7 @@ func (w Writer) allocateNew(ctx context.Context, channels []Channel) (Keys, erro
 			minimal = append(minimal, ch.Distribution())
 		}
 	}
-	if err := w.allocateAndWrite(ctx, channels, newIndices, minimal); err != nil {
+	if err := w.allocateAndWrite(ctx, channels, newIndices, minimal, opts); err != nil {
 		return nil, err
 	}
 	written := make(Keys, 0, len(newIndices))
@@ -715,8 +724,9 @@ func (w Writer) allocateAndWrite(
 	channels []Channel,
 	newIndices []int,
 	minimal []channel.Channel,
+	opts createOptions,
 ) error {
-	if err := w.checkLimit(channels, newIndices); err != nil {
+	if err := w.checkLimit(channels, newIndices, opts); err != nil {
 		return err
 	}
 	toCreate := make([]Channel, 0, len(newIndices))
@@ -737,7 +747,7 @@ func (w Writer) allocateAndWrite(
 
 	externalCreatedKeys := make(Keys, 0, len(toCreate))
 	for _, ch := range toCreate {
-		if !ch.Internal && !ch.Virtual {
+		if opts.limited(ch) {
 			externalCreatedKeys = append(externalCreatedKeys, ch.Key())
 		}
 	}
@@ -761,12 +771,16 @@ func (w Writer) allocateAndWrite(
 	return nil
 }
 
-// checkLimit checks that the external, non-virtual channels at newIndices in channels
+// checkLimit checks that the channels at newIndices in channels that the limit counts
 // fit the channel limit.
-func (w Writer) checkLimit(channels []Channel, newIndices []int) error {
+func (w Writer) checkLimit(
+	channels []Channel,
+	newIndices []int,
+	opts createOptions,
+) error {
 	externalNewCount := 0
 	for _, i := range newIndices {
-		if !channels[i].Internal && !channels[i].Virtual {
+		if opts.limited(channels[i]) {
 			externalNewCount++
 		}
 	}

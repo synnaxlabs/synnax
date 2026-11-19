@@ -145,11 +145,6 @@ Channel struct {
             channels can have a policy of shared concurrency.
         """
     }
-    internal    bool                {
-        @doc value """
-            is true if this is a system channel hidden from normal user queries.
-        """
-    }
     operations  Operation[]         {
         @doc value "contains aggregation operations applied to this channel's data."
     }
@@ -193,19 +188,19 @@ Channel struct {
     }
 
     @cpp hand
-    @doc value     """
+    @doc value       """
         is an internal representation of a channel containing all storage and
         cluster-routing metadata. This type is used internally by the server; clients
         should use APIChannel instead.
     """
     @go marshal
     @go migrate
-    @go output     "core/pkg/service/channel"
+    @go output       "core/pkg/service/channel"
     @pb
     @py hand
-    @resource type "channel"
-    @retrieve
-    @retrieve key  "Key"
+    @resource type   "channel"
+    @retrieve custom
+    @retrieve key    "Key"
     @ts hand
 }
 
@@ -322,7 +317,9 @@ Where filter Channel {
     leaseholder
     data_type
     is_index
-    internal
+    internal    filter.Bool {
+        @doc value "matches the built-in channels, or every other channel when false."
+    }
     virtual     bool        {
         @doc value """
             matches virtual channels that are not calculated, or every other channel

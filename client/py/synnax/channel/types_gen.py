@@ -88,7 +88,7 @@ class Where(BaseModel):
         leaseholder: Selects by leaseholder.
         data_type: Selects by data_type.
         is_index: Selects by is_index.
-        internal: Selects by internal.
+        internal: Matches the built-in channels, or every other channel when false.
         virtual: Matches virtual channels that are not calculated, or every other
             channel when false.
         groups: Matches the channels in any of the given groups.

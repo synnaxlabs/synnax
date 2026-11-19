@@ -65,17 +65,29 @@ var _ = Describe("Where", Ordered, func() {
 				LocalKey:    r.Key.LocalKey(),
 				LocalIndex:  r.Index.LocalKey(),
 				Virtual:     r.Virtual,
-				Internal:    r.Internal,
 				Expression:  r.Expression,
 			})
 		}
 		// The writer assigns its own keys, so the records go straight to the table
 		// before the service opens it and indexes them.
-		Expect(gorp.NewCreate[channel.Key, channel.Channel]().
-			Entries(&chs).
-			Exec(ctx, cfg.DB)).To(Succeed())
+		createStored(ctx, cfg.DB, chs...)
 		chSvc = MustOpen(channel.OpenService(ctx, cfg))
 		chDB = cfg.DB
+		// The internal records are the built-in channels, which Declare adopts by name.
+		for _, r := range v.Records {
+			if !r.Internal {
+				continue
+			}
+			ch := channel.Channel{
+				Name:     r.Name,
+				DataType: r.DataType,
+				Virtual:  r.Virtual,
+			}
+			Expect(chDB.WithTx(ctx, func(tx gorp.Tx) error {
+				return chSvc.NewWriter(tx).Declare(ctx, &ch)
+			})).To(Succeed())
+			Expect(ch.Key()).To(Equal(r.Key))
+		}
 	})
 
 	DescribeTable(

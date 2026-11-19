@@ -18,7 +18,7 @@ import (
 )
 
 // TableConfig returns the configuration of the set and delete channels of the channel
-// table, which sends each channel as its payload.
+// table, which sends each channel as its payload, with internal true for a built-in.
 func TableConfig(
 	svc *channel.Service,
 ) signals.TableConfig[channel.Key, channel.Channel] {
@@ -26,7 +26,9 @@ func TableConfig(
 		Changes:  svc.Changes,
 		Resource: channel.ResourceID,
 		MarshalSet: func(c channel.Channel) ([]byte, error) {
-			v, err := json.Marshal(c.ToPayload())
+			p := c.ToPayload()
+			p["internal"] = svc.IsBuiltIn(c.Key())
+			v, err := json.Marshal(p)
 			if err != nil {
 				return nil, err
 			}
