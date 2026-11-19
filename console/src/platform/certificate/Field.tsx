@@ -64,7 +64,11 @@ const Control = ({
         describe={describe}
         list={list}
         result={result}
-        onCreate={canCreate ? () => openCreate({ name: defaultName, rack }) : undefined}
+        onCreate={
+          canCreate
+            ? (name) => openCreate({ name: name === "" ? defaultName : name, rack })
+            : undefined
+        }
         preview={preview}
         {...selection}
       />

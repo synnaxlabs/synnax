@@ -135,12 +135,18 @@ const open = async (shown: string): Promise<void> => {
   fireEvent.click(await findDialogTriggerByText(shown));
 };
 
-// The list pages, so a search finds a secret however many the Core holds.
-const findOption = async (s: secret.Secret): Promise<HTMLElement> => {
+// The list pages, so a search finds a secret however many the Core holds. The create
+// option names the search too, so the match skips it.
+const findOption = async (
+  s: secret.Secret,
+  term: string = s.name,
+): Promise<HTMLElement> => {
   fireEvent.change(await screen.findByPlaceholderText("Search secrets..."), {
-    target: { value: s.name },
+    target: { value: term },
   });
-  return await screen.findByRole("option", { name: new RegExp(s.name) });
+  return await screen.findByRole("option", {
+    name: (shown) => shown.includes(s.name) && !shown.startsWith("Create "),
+  });
 };
 
 const openCreate = async (shown: string): Promise<void> => {
@@ -243,6 +249,31 @@ describe("Secret.Field", () => {
     fireEvent.click(findButton("Create"));
     await screen.findByText("Value is required");
     expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("opens the create dialog named after the search", async () => {
+    await renderField();
+    await open("Select a secret");
+    const name = uniqueName("searched");
+    fireEvent.change(await screen.findByPlaceholderText("Search secrets..."), {
+      target: { value: name },
+    });
+    fireEvent.click(
+      await screen.findByRole("option", { name: `Create secret "${name}"` }),
+    );
+    expect(await screen.findByLabelText("Secret name")).toHaveProperty("value", name);
+  });
+
+  it("hides the create option for a secret name in another case", async () => {
+    const s = await createSecret(client, created);
+    await renderField();
+    await open("Select a secret");
+    fireEvent.change(await screen.findByPlaceholderText("Search secrets..."), {
+      target: { value: `${s.name}x` },
+    });
+    await screen.findByRole("option", { name: `Create secret "${s.name}x"` });
+    await findOption(s, s.name.toUpperCase());
+    expect(screen.queryByRole("option", { name: /^Create secret/ })).toBeNull();
   });
 
   it("offers no new secret to a user who cannot create secrets", async () => {
