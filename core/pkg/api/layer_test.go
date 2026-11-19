@@ -451,15 +451,20 @@ var _ = Describe("BindTo", func() {
 			telem.NewSeriesV[float32](1, 2, 3),
 		}))).To(BeTrue())
 		Expect(w.Close()).To(Succeed())
+		hasData := func() bool {
+			GinkgoHelper()
+			iter := MustOpen(svc.Framer.OpenIterator(ctx, framer.IteratorConfig{
+				Keys:   keys,
+				Bounds: telem.TimeRangeMax,
+			}))
+			return iter.SeekFirst()
+		}
+		Expect(hasData()).To(BeTrue())
 		Expect(post("/api/v1/frame/delete", apiframer.DeleteRequest{
 			Names:  []string{index.Name, data.Name},
 			Bounds: telem.TimeRangeMax,
 		}, nil)).To(Succeed())
-		iter := MustOpen(svc.Framer.OpenIterator(ctx, framer.IteratorConfig{
-			Keys:   keys,
-			Bounds: telem.TimeRangeMax,
-		}))
-		Expect(iter.SeekFirst()).To(BeFalse())
+		Expect(hasData()).To(BeFalse())
 	})
 
 	It("Should create a grant through the secret grant route", func(ctx SpecContext) {
