@@ -29,7 +29,11 @@ import { createSiftDevice } from "@/feature/sift/testutil";
 import { searchAndClickLabelOption } from "@/platform/label/testutil";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
-import { createPlannedTestRange, uniqueRangeName } from "@/platform/range/testutil";
+import {
+  createPlannedTestRange,
+  createTestRange,
+  uniqueRangeName,
+} from "@/platform/range/testutil";
 import { createTabWrapper, openFilterProperty } from "@/platform/view/testutil";
 import { Session } from "@/session";
 import { createCore, createCoreState } from "@/session/core/testutil";
@@ -91,14 +95,7 @@ const renderExplorer = async (
 const createRange = async (
   name: string,
   extra: Partial<ranger.New> = {},
-): Promise<ranger.Range> => {
-  const start = TimeStamp.now();
-  return await client.ranges.create({
-    name,
-    timeRange: new TimeRange(start, start.add(TimeSpan.seconds(10))),
-    ...extra,
-  });
-};
+): Promise<ranger.Range> => await createTestRange(client, { name, ...extra });
 
 /** Creates a label, one range with it, and one without it, each named after token. */
 const createLabeled = async (
@@ -1072,14 +1069,13 @@ describe("range/explorer/Explorer", () => {
     });
 
     it("should give a reader's labels the room of the labels column", async () => {
-      const { labeled } = await createLabeled(uniqueToken());
+      const token = uniqueToken();
+      const { labeled } = await createLabeled(token);
       await renderExplorer(await createReader());
-      const item = (await screen.findByText(labeled.name)).closest(
-        ".console-range-item",
-      );
-      expect(item).not.toBeNull();
+      await search(token);
+      const item = await findItem(labeled.name);
       expect(
-        item?.querySelector(".console-range-item__labels > .console-range-item__tags"),
+        item.querySelector(".console-range-item__labels > .console-range-item__tags"),
       ).not.toBeNull();
     });
   });
