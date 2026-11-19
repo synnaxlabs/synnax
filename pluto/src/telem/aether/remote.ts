@@ -231,7 +231,7 @@ class ChannelValue<V>
         // redraws. Consumers that count arrivals compare its appended count.
         if (this.converted === this.notified) return;
         this.notified = this.converted;
-        this.notify();
+        this.observer.notify();
       });
     } catch (e) {
       if (generation !== this.generation) return;
@@ -520,7 +520,7 @@ export class ChannelData
     request: framer.PointsRequest,
   ): framer.Subscription {
     const subscription = client.feed.subscribe(request);
-    subscription.onChange(() => this.notify());
+    subscription.onChange(() => this.observer.notify());
     return subscription;
   }
 
@@ -569,7 +569,7 @@ export class ChannelData
     if (client == null) {
       this.loading = false;
       this.onStatusChange?.(DISCONNECTED_STATUS);
-      return this.notify();
+      return this.observer.notify();
     }
     const { channel, useIndexOfChannel, xChannel } = this.props;
     while (generation === this.generation)
@@ -582,14 +582,14 @@ export class ChannelData
         [this.channel, this.xy] = [ch, xy];
         this.breaker.reset();
         this.failures.reset();
-        return this.notify();
+        return this.observer.notify();
       } catch (e) {
         if (generation !== this.generation) return;
         this.failures.report(e, "Failed to read channel data");
         // Retries never hold loading, so a failure wakes observers of the status.
         if (this.loading) {
           this.loading = false;
-          this.notify();
+          this.observer.notify();
         }
         if (framer.retry.isDefinitive(e) || !(await this.breaker.wait())) return;
       }
