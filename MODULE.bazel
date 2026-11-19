@@ -91,7 +91,7 @@ http_archive(
 
 # The Arc runtime embeds the wasmtime C API. Each release publishes a static library and
 # headers for every platform. Bazel fetches only the host's archive.
-WASMTIME_VERSION = "49.0.7"
+WASMTIME_VERSION = "50.0.3"
 
 WASMTIME_BUILD = """
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
@@ -103,6 +103,8 @@ cc_library(
         allow_empty = True,
     ),
     hdrs = glob(["include/**"]),
+    # System headers, so warnings in wasmtime's inline code never fail a -Werror build.
+    features = ["system_include_paths"],
     includes = ["include"],
     visibility = ["//visibility:public"],
 )
@@ -122,9 +124,10 @@ cc_library(
         )],
     )
     for platform, sha256 in {
-        "aarch64-macos": "44f9f65720595270aebfea9154f3cbc7fd458aec15cb8a5b9888501768509135",
-        "x86_64-linux": "d5d489739674d3395fd7106daac78bef5bc40d6cea4dd800eb2a0716dbcb267a",
-        "x86_64-windows": "884cada87196c041b263fc0310eb56f667c6304ccd254d20368dd6ba53f50ff3",
+        "aarch64-linux": "9e4c3efb75ffc85939bbe13bd2d901f278624d7dc25bce08d8ffd9ce73c497e4",
+        "aarch64-macos": "17d1bbcb9679cf22a5c948857e1b72e69da8b5360bf7dcbaffdc1e730f615226",
+        "x86_64-linux": "e46e022c3bf91494510199ed897639681cc02929636b8d690bc67612f52b344c",
+        "x86_64-windows": "b00badf321957e9f0031bbc91980c93a2fda1fc59da17b314f09dd71b5b095df",
     }.items()
 ]
 
