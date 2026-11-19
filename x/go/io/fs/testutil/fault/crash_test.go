@@ -356,6 +356,29 @@ var _ = Describe("Crash", func() {
 			},
 		)
 
+		It("Should keep each earlier change in any directory through a later SyncDir "+
+			"when the entries are ordered", func() {
+			MustSucceed(fs.Sub("p"))
+			MustSucceed(fs.Sub("q"))
+			Expect(fs.SyncDir("")).To(Succeed())
+			save(fs, "p/x.txt", "x")
+			save(fs, "q/y.txt", "y")
+			save(fs, "q/z.txt", "z")
+			Expect(fs.SyncDir("q")).To(Succeed())
+			save(fs, "w.txt", "w")
+			seen := set.Set[string]{}
+			for runKey := range uint64(32) {
+				image := MustSucceed(fs.Crash(fault.CrashConfig{
+					RunKey:            runKey,
+					EntrySurvivalRate: 0.5,
+					EntriesOrdered:    true,
+				}))
+				Expect(read(image, "p/x.txt")).To(Equal("x"))
+				seen.Add(list(image))
+			}
+			Expect(seen.Slice()).To(ConsistOf("p q", "p q w.txt=w"))
+		})
+
 		It("Should keep a rename whole", func() {
 			save(fs, "a.txt", "tacocat")
 			Expect(fs.SyncDir("")).To(Succeed())

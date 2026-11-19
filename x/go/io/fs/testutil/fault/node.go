@@ -26,6 +26,10 @@ type disk struct {
 	root *node
 	// pending holds the changes to directory entries that are not durable, in order.
 	pending []*change
+	// changes counts the changes to directory entries. It gives each one its seq.
+	changes uint64
+	// syncedThrough is the seq of the newest change that a SyncDir made durable.
+	syncedThrough uint64
 	// calls counts the calls of each kind at each path and offset. The count is a part
 	// of each draw, so a second call gets its own draw.
 	calls map[call]uint64
@@ -188,6 +192,8 @@ type change struct {
 	halves []half
 	// key fixes the draw that decides if the change survives a crash.
 	key uint64
+	// seq is the place of the change in the order of all changes to the disk.
+	seq uint64
 }
 
 // half is the change to one entry: name in dir held from before, and holds to after. A
@@ -256,5 +262,6 @@ func (d *disk) set(dir *node, name string, n *node) half {
 // record adds the change at the path p to the changes that are not durable.
 func (d *disk) record(p string, halves ...half) {
 	key := mix(hashPath(p) ^ d.next(drawEntry, p, 0))
-	d.pending = append(d.pending, &change{halves: halves, key: key})
+	d.changes++
+	d.pending = append(d.pending, &change{halves: halves, key: key, seq: d.changes})
 }

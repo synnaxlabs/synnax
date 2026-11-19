@@ -169,6 +169,7 @@ func (d *disk) syncDir(n *node, p string) error {
 			kept = append(kept, c)
 			continue
 		}
+		d.syncedThrough = max(d.syncedThrough, c.seq)
 		for _, h := range c.halves {
 			if h.to == nil {
 				delete(h.dir.durableEntries, h.name)
