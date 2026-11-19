@@ -786,18 +786,17 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.OIDC) {
 		return nil, err
 	}
-	accepted := cfg.AuthMethods
-	if len(accepted) == 0 {
-		accepted = []auth.Method{
-			auth.MethodPassword,
-			auth.MethodAPIKey,
-			auth.MethodOIDC,
-		}
+	authenticators := map[auth.Method]auth.Authenticator{
+		auth.MethodPassword: l.Password,
+		auth.MethodAPIKey:   l.APIKey,
 	}
-	if len(cfg.OIDCProviders) == 0 {
-		accepted = lo.Without(accepted, auth.MethodOIDC)
+	if len(cfg.OIDCProviders) > 0 {
+		authenticators[auth.MethodOIDC] = l.OIDC
 	}
-	if len(accepted) == 0 {
+	if len(cfg.AuthMethods) > 0 {
+		authenticators = lo.PickByKeys(authenticators, cfg.AuthMethods)
+	}
+	if len(authenticators) == 0 {
 		return nil, errors.Wrap(
 			validate.ErrValidation,
 			"no login method is accepted: oidc needs at least one provider",
@@ -806,13 +805,8 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.Auth, err = auth.OpenService(ctx, auth.ServiceConfig{
 		Instrumentation: cfg.Child("auth"),
 		DB:              cfg.Distribution.DB,
-		Authenticators: map[auth.Method]auth.Authenticator{
-			auth.MethodPassword: l.Password,
-			auth.MethodAPIKey:   l.APIKey,
-			auth.MethodOIDC:     l.OIDC,
-		},
-		Accepted:    accepted,
-		IdleTimeout: cfg.SessionIdleTimeout,
+		Authenticators:  authenticators,
+		IdleTimeout:     cfg.SessionIdleTimeout,
 	}); !ok(err, l.Auth) {
 		return nil, err
 	}

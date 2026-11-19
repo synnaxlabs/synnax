@@ -130,7 +130,6 @@ var _ = Describe("Service", func() {
 	var (
 		svc            *auth.Service
 		authenticators map[auth.Method]auth.Authenticator
-		accepted       []auth.Method
 		pw             *password.Service
 		clock          *timetestutil.Clock
 		alice          resource.ID
@@ -144,7 +143,6 @@ var _ = Describe("Service", func() {
 		pw = MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 		clock = timetestutil.NewClock(time.Unix(1_700_000_000, 0))
 		authenticators = map[auth.Method]auth.Authenticator{auth.MethodPassword: pw}
-		accepted = nil
 		alice = subject()
 		username = uuid.New().String()
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -155,7 +153,6 @@ var _ = Describe("Service", func() {
 		svc = MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
 			DB:             db,
 			Authenticators: authenticators,
-			Accepted:       accepted,
 			IdleTimeout:    idle,
 			Clock:          clock,
 		}))
@@ -233,34 +230,6 @@ var _ = Describe("Service", func() {
 		It("Should refuse a method with no authenticator", func() {
 			Expect(svc.Accepts(auth.MethodAPIKey)).
 				To(MatchError(validate.ErrValidation))
-		})
-	})
-	Describe("Accepted", func() {
-		BeforeEach(func() {
-			authenticators[auth.MethodAPIKey] = rejecter{}
-			accepted = []auth.Method{auth.MethodPassword}
-		})
-		It("Should list only the accepted methods", func() {
-			Expect(svc.Methods()).To(Equal([]auth.Method{auth.MethodPassword}))
-		})
-		It("Should refuse a login with a method that is not accepted", func(
-			ctx SpecContext,
-		) {
-			Expect(svc.Login(ctx, auth.Proof{Variant: auth.APIKeyProof{
-				APIKeyCredentials: auth.APIKeyCredentials{Key: "syk_key"},
-			}})).Error().To(MatchError(ContainSubstring("not accepted")))
-		})
-		It("Should reject an accepted method with no authenticator", func(
-			ctx SpecContext,
-		) {
-			Expect(auth.OpenService(ctx, auth.ServiceConfig{
-				DB: db,
-				Authenticators: map[auth.Method]auth.Authenticator{
-					auth.MethodPassword: pw,
-				},
-				Accepted: []auth.Method{auth.MethodOIDC},
-			})).Error().
-				To(MatchError(ContainSubstring("method oidc has no authenticator")))
 		})
 	})
 	Describe("Authenticate", func() {
@@ -806,18 +775,3 @@ var _ = Describe("Service", func() {
 		).To(MatchError(query.ErrNotFound))
 	})
 })
-
-// rejecter is an authenticator that rejects every proof.
-type rejecter struct{}
-
-func (rejecter) Authenticate(context.Context, auth.Proof) (auth.Identity, error) {
-	return auth.Identity{}, auth.ErrInvalidCredentials
-}
-
-func (rejecter) Version(
-	context.Context,
-	gorp.Snapshot,
-	uuid.UUID,
-) (telem.TimeStamp, error) {
-	return 0, nil
-}

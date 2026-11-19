@@ -51,9 +51,17 @@ var (
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	db = DeferClose(gorp.Wrap(memkv.New()))
+	userSvc, viewer = openUsers(ctx, db)
+	provider = newFakeProvider()
+	DeferCleanup(provider.server.Close)
+})
+
+// openUsers opens a user service on db and creates a viewer role in it.
+func openUsers(ctx SpecContext, db *gorp.DB) (*user.Service, role.Key) {
+	GinkgoHelper()
 	StartRun(db.Run)
 	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
-	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
+	users := MustOpen(user.OpenService(ctx, user.ServiceConfig{
 		DB:       db,
 		Password: passwordSvc,
 	}))
@@ -62,10 +70,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 		return roleSvc.NewWriter(tx, false).Create(ctx, &r)
 	})).To(Succeed())
-	viewer = r.Key
-	provider = newFakeProvider()
-	DeferCleanup(provider.server.Close)
-})
+	return users, r.Key
+}
 
 // createUser creates a user with the viewer role and returns its resource ID.
 func createUser(ctx SpecContext) resource.ID {

@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -327,6 +328,50 @@ var _ = Describe("Service", func() {
 			})).To(Succeed())
 			Expect(svc.Version(ctx, db, l.Key)).Error().
 				To(MatchError(query.ErrNotFound))
+		})
+		It("Should end the sessions of a removed provider", func(ctx SpecContext) {
+			other := DeferClose(gorp.Wrap(memkv.New()))
+			otherUsers, otherViewer := openUsers(ctx, other)
+			cfg := oidc.ServiceConfig{
+				DB:          other,
+				User:        otherUsers,
+				NewUserRole: otherViewer,
+				Providers: []oidc.Provider{
+					{Name: "idp", Issuer: provider.issuer(), ClientID: clientID},
+				},
+			}
+			withIDP := MustSucceed(oidc.OpenService(ctx, cfg))
+			on := MustSucceed(auth.OpenService(ctx, auth.ServiceConfig{
+				DB: other,
+				Authenticators: map[auth.Method]auth.Authenticator{
+					auth.MethodOIDC: withIDP,
+				},
+			}))
+			code := uuid.New().String()
+			provider.grant(
+				code,
+				grant{sub: uuid.New().String(), verifier: "v", redirect: redirect},
+			)
+			session, token := MustSucceed2(
+				on.Login(ctx, proof(credentials("idp", code, "v"))),
+			)
+			Expect(on.Close()).To(Succeed())
+			Expect(withIDP.Close()).To(Succeed())
+			cfg.Providers = nil
+			without := MustOpen(oidc.OpenService(ctx, cfg))
+			Expect(without.Version(ctx, other, session.Credential)).Error().
+				To(MatchError(query.ErrNotFound))
+			off := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
+				DB: other,
+				Authenticators: map[auth.Method]auth.Authenticator{
+					auth.MethodOIDC: without,
+				},
+			}))
+			Expect(off.Authenticate(ctx, token)).Error().
+				To(MatchError(auth.ErrInvalidToken))
+			Expect(off.NewRetrieve().
+				Where(auth.MatchKeys(session.Key)).
+				Exec(ctx, other)).To(MatchError(query.ErrNotFound))
 		})
 		It("Should not find an unknown credential", func(ctx SpecContext) {
 			Expect(svc.Version(ctx, db, uuid.New())).Error().
