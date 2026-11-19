@@ -265,7 +265,118 @@ var _ = Describe("Crash", func() {
 			Entry("no number", fault.CrashConfig{DataSurvivalRate: math.NaN()}),
 			Entry("low torn", fault.CrashConfig{TornRate: -0.1}),
 			Entry("high torn", fault.CrashConfig{TornRate: 1.1}),
+			Entry("low entry survival", fault.CrashConfig{EntrySurvivalRate: -0.1}),
+			Entry("high entry survival", fault.CrashConfig{EntrySurvivalRate: 1.1}),
 		)
+	})
+
+	Describe("Surviving directory changes", func() {
+		// list returns the names in the root of image, each file with its bytes.
+		list := func(image *fault.FS) string {
+			GinkgoHelper()
+			var parts []string
+			for _, info := range MustSucceed(image.List("")) {
+				part := info.Name()
+				if !info.IsDir() {
+					part += "=" + read(image, info.Name())
+				}
+				parts = append(parts, part)
+			}
+			return strings.Join(parts, " ")
+		}
+		// outcomes returns each distinct list that 32 crashes give when a change has
+		// one chance in two to survive.
+		outcomes := func() []string {
+			GinkgoHelper()
+			seen := set.Set[string]{}
+			for runKey := range uint64(32) {
+				cfg := fault.CrashConfig{RunKey: runKey, EntrySurvivalRate: 0.5}
+				seen.Add(list(MustSucceed(fs.Crash(cfg))))
+			}
+			return seen.Slice()
+		}
+		all := fault.CrashConfig{EntrySurvivalRate: 1}
+
+		It("Should keep every change at a survival rate of 1", func() {
+			save(fs, "a.txt", "a")
+			save(fs, "b.txt", "b")
+			Expect(fs.SyncDir("")).To(Succeed())
+			Expect(fs.Rename("a.txt", "c.txt")).To(Succeed())
+			Expect(fs.Remove("b.txt")).To(Succeed())
+			save(fs, "d.txt", "d")
+			MustSucceed(fs.Sub("e"))
+			Expect(list(MustSucceed(fs.Crash(all)))).To(Equal("c.txt=a d.txt=d e"))
+		})
+
+		It("Should decide each change apart", func() {
+			save(fs, "a.txt", "a")
+			save(fs, "b.txt", "b")
+			Expect(
+				outcomes(),
+			).To(ConsistOf("", "a.txt=a", "b.txt=b", "a.txt=a b.txt=b"))
+		})
+
+		It("Should keep a rename whole", func() {
+			save(fs, "a.txt", "tacocat")
+			Expect(fs.SyncDir("")).To(Succeed())
+			Expect(fs.Rename("a.txt", "b.txt")).To(Succeed())
+			Expect(outcomes()).To(ConsistOf("a.txt=tacocat", "b.txt=tacocat"))
+		})
+
+		It("Should keep a rename onto a file whole", func() {
+			save(fs, "final.txt", "old")
+			save(fs, "tmp.txt", "new")
+			Expect(fs.SyncDir("")).To(Succeed())
+			Expect(fs.Rename("tmp.txt", "final.txt")).To(Succeed())
+			Expect(
+				outcomes(),
+			).To(ConsistOf("final.txt=old tmp.txt=new", "final.txt=new"))
+		})
+
+		It("Should lose a change with the change that it depends on", func() {
+			save(fs, "a.txt", "tacocat")
+			Expect(fs.Rename("a.txt", "b.txt")).To(Succeed())
+			Expect(outcomes()).To(ConsistOf("", "a.txt=tacocat", "b.txt=tacocat"))
+		})
+
+		It("Should not replace a file whose remove was lost", func() {
+			save(fs, "f.txt", "old")
+			Expect(fs.SyncDir("")).To(Succeed())
+			Expect(fs.Remove("f.txt")).To(Succeed())
+			save(fs, "f.txt", "new")
+			Expect(outcomes()).To(ConsistOf("f.txt=old", "", "f.txt=new"))
+		})
+
+		Describe("Rename across directories", func() {
+			BeforeEach(func() {
+				MustSucceed(fs.Sub("a"))
+				MustSucceed(fs.Sub("b"))
+				save(fs, "a/f.txt", "tacocat")
+				for _, dir := range []string{"", "a", "b"} {
+					Expect(fs.SyncDir(dir)).To(Succeed())
+				}
+				Expect(fs.Rename("a/f.txt", "b/f.txt")).To(Succeed())
+			})
+
+			It("Should keep both names when only the target is synced", func() {
+				Expect(fs.SyncDir("b")).To(Succeed())
+				image := strict(fs)
+				Expect(read(image, "a/f.txt")).To(Equal("tacocat"))
+				write(image, "a/f.txt", "burrito")
+				Expect(read(image, "b/f.txt")).To(Equal("burrito"))
+				image = MustSucceed(fs.Crash(all))
+				Expect(image.Exists("a/f.txt")).To(BeFalse())
+				Expect(read(image, "b/f.txt")).To(Equal("tacocat"))
+			})
+
+			It("Should lose the file when only the source is synced", func() {
+				Expect(fs.SyncDir("a")).To(Succeed())
+				image := strict(fs)
+				Expect(image.Exists("a/f.txt")).To(BeFalse())
+				Expect(image.Exists("b/f.txt")).To(BeFalse())
+				Expect(read(MustSucceed(fs.Crash(all)), "b/f.txt")).To(Equal("tacocat"))
+			})
+		})
 	})
 
 	It("Should leave the FS that crashed as it was", func() {
