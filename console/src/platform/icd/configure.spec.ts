@@ -70,6 +70,26 @@ describe("planMessage", () => {
     expect((await client.channels.retrieve(key)).name).toBe(`${prefix}_temp`);
   });
 
+  it("should plan a new channel when the stored channel was deleted", async () => {
+    const prefix = uniqueName("src");
+    const index = await createIndex(`${prefix}_time`);
+    const old = await client.channels.create({
+      name: `${prefix}_old`,
+      dataType: "float64",
+      index: index.key,
+    });
+    await client.channels.delete(old.key);
+    const bound = createBound(0);
+    const props = { index: index.key, channels: { "/temp": old.key } };
+    const namer = Task.createNamer(client);
+    const plan = await ICD.planMessage(client, namer, bound, prefix, props);
+    await ICD.applyMessage(client, bound, plan);
+    const key = bound.source.messages[0].bindings[0].channel;
+    expect(key).not.toBe(0);
+    expect(key).not.toBe(old.key);
+    expect((await client.channels.retrieve(key)).name).toBe(`${prefix}_temp`);
+  });
+
   it("should not take a stored channel that another binding writes", async () => {
     const prefix = uniqueName("src");
     const index = await createIndex(`${prefix}_time`);
