@@ -962,6 +962,7 @@ jobs:
           .github/scripts/synnax-server.exe
 
       - name: Set up trusted-signing-cli
+        id: signer
         uses: ./.github/actions/setup-trusted-signing-cli
 
       - name: Build Windows installer
@@ -978,10 +979,11 @@ jobs:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-        run:
-          trusted-signing-cli -e https://wcus.codesigning.azure.net -a
-          CodeSigningAccountName -c CodeSigningCertificateProfile -d "Synnax Core
-          Installer" ".\.github\scripts\synnax-setup-v$env:VERSION.exe"
+          SIGNER: ${{ steps.signer.outputs.path }}
+        run: >-
+          & $env:SIGNER -e https://wcus.codesigning.azure.net -a CodeSigningAccountName
+          -c CodeSigningCertificateProfile -d "Synnax Core Installer"
+          ".\.github\scripts\synnax-setup-v$env:VERSION.exe"
 
       - name: Upload Windows installer
         run: |

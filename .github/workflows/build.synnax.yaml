@@ -575,6 +575,7 @@ jobs:
           if-no-files-found: error
 
       - name: Set up trusted-signing-cli
+        id: signer
         if: inputs.sign_binaries && matrix.os == 'windows-build-bot'
         uses: ./.github/actions/setup-trusted-signing-cli
 
@@ -592,9 +593,10 @@ jobs:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-        run:
-          trusted-signing-cli -e https://wcus.codesigning.azure.net -a
-          CodeSigningAccountName -c CodeSigningCertificateProfile -d "Synnax Driver"
+          SIGNER: ${{ steps.signer.outputs.path }}
+        run: >-
+          & $env:SIGNER -e https://wcus.codesigning.azure.net -a CodeSigningAccountName
+          -c CodeSigningCertificateProfile -d "Synnax Driver"
           bazel-bin/driver/driver.exe
 
       # A scratch dir avoids leftovers in the persistent bazel output base.
@@ -839,13 +841,15 @@ jobs:
 
       - name: Sign Windows Core binary
         if: inputs.sign_binaries && inputs.core && matrix.os == 'windows-build-bot'
+        shell: powershell
         env:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-        run:
-          trusted-signing-cli -e https://wcus.codesigning.azure.net -a
-          CodeSigningAccountName -c CodeSigningCertificateProfile -d "Synnax Core"
+          SIGNER: ${{ steps.signer.outputs.path }}
+        run: >-
+          & $env:SIGNER -e https://wcus.codesigning.azure.net -a CodeSigningAccountName
+          -c CodeSigningCertificateProfile -d "Synnax Core"
           "core/synnax-v$env:VERSION.exe"
 
       - name: Upload Core binary as artifact
