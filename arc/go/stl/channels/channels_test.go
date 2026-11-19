@@ -222,6 +222,28 @@ var _ = Describe("Channel", func() {
 			})
 		})
 
+		Describe("read across a data type change", func() {
+			It("Should read an int32 sample of a float64 channel as its value", func(
+				ctx SpecContext,
+			) {
+				fr := telem.Frame[uint32]{}
+				fr = fr.Append(1, telem.NewSeriesV[int32](300))
+				cs.Ingest(fr)
+				result := rt.Call(ctx, "channels", "read_f64", testutil.U32(1))
+				Expect(testutil.AsF64(result[0])).To(Equal(float64(300)))
+			})
+
+			It("Should read an int16 sample of an int32 channel as its value", func(
+				ctx SpecContext,
+			) {
+				fr := telem.Frame[uint32]{}
+				fr = fr.Append(2, telem.NewSeriesV[int16](-7, 300))
+				cs.Ingest(fr)
+				result := rt.Call(ctx, "channels", "read_i32", testutil.U32(2))
+				Expect(int32(testutil.AsU32(result[0]))).To(Equal(int32(300)))
+			})
+		})
+
 		Describe("read with no data", func() {
 			It("Should return 0 when no data has been ingested", func(ctx SpecContext) {
 				result := rt.Call(ctx, "channels", "read_f64", testutil.U32(1))
@@ -873,6 +895,23 @@ var _ = Describe("Channel", func() {
 				Expect(errs).To(BeEmpty())
 				Expect(*progState.Node("source").Output(0)).
 					To(telem.MatchSeries(telem.NewSeriesV[float32](-1, 300)))
+			})
+
+			It("Should not emit a sample that does not fit the output type", func(
+				ctx SpecContext,
+			) {
+				source := createSource(10, types.U8())
+				fr := telem.Frame[uint32]{}
+				fr = fr.Append(10, telem.NewSeriesV[int16](300, -1))
+				fr = fr.Append(11, telem.NewSeriesSecondsTSV(100, 101))
+				channelState.Ingest(fr)
+				emitted, errs := next(ctx, source)
+				if emitted {
+					Expect(*progState.Node("source").Output(0)).
+						To(telem.MatchSeries(telem.NewSeriesV[uint8](255, 0)))
+				} else {
+					Expect(errs).ToNot(BeEmpty())
+				}
 			})
 
 			It("Should pass a text series to a text output as it is", func(

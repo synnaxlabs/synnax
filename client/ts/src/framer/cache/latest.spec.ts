@@ -142,6 +142,63 @@ describe("Latest", () => {
     });
   });
 
+  it("should keep the newest samples of the old type across a type change", async () => {
+    const core = createCore();
+    const { open, close } = createLatest(core);
+    const key = core.data[0].key;
+    const latest = open(100, undefined, key);
+    try {
+      await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
+      await expect.poll(() => latest.value().series.length, POLL).toBe(100);
+      await expect.poll(() => core.streams(key), POLL).toBe(true);
+      core.retype(key, DataType.FLOAT64);
+      core.advance(TimeSpan.milliseconds(100));
+      await expect
+        .poll(
+          () =>
+            latest
+              .value()
+              .series.series.some((s) => s.dataType.equals(DataType.FLOAT64)),
+          POLL,
+        )
+        .toBe(true);
+      const types = new Set(
+        latest.value().series.series.map((s) => s.dataType.toString()),
+      );
+      expect([...types]).toEqual([
+        DataType.FLOAT32.toString(),
+        DataType.FLOAT64.toString(),
+      ]);
+      expect(latest.value().series.length).toBeGreaterThanOrEqual(100);
+    } finally {
+      latest.close();
+      await close();
+    }
+  });
+
+  it("should keep a read that holds two data types whole", async () => {
+    const core = createCore();
+    const key = core.data[0].key;
+    // The newest stored samples change type halfway, as after a type change.
+    const { open, close } = createLatest(core, undefined, (_, read) => {
+      const all = read.series.flatMap((s) => {
+        const half = Math.floor(s.length / 2);
+        return [s.slice(0, half), s.slice(half)];
+      });
+      return new MultiSeries(
+        all.map((s, i) => (i < all.length / 2 ? s : s.convert(DataType.FLOAT64))),
+      );
+    });
+    const latest = open(100, undefined, key);
+    try {
+      await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
+      expect(latest.value().series.length).toBe(100);
+    } finally {
+      latest.close();
+      await close();
+    }
+  });
+
   it("should serve every sample of a frame larger than the count", async () => {
     const core = createCore();
     const { open, close } = createLatest(core);
