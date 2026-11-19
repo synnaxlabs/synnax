@@ -20,6 +20,12 @@ TEST(ErrorTest, testParseErrorGood) {
     ASSERT_NIL(parse(UA_STATUSCODE_GOOD));
 }
 
+/// @brief it should return nil error for a good status that carries information, such
+/// as the one a Browse returns when it cannot follow a reference to another server.
+TEST(ErrorTest, ParseErrorGoodWithInformation) {
+    ASSERT_NIL(parse(UA_STATUSCODE_GOODRESULTSMAYBEINCOMPLETE));
+}
+
 /// @brief it should map timeout status to unreachable error.
 TEST(ErrorTest, testParseErrorConnectionTimeout) {
     ASSERT_OCCURRED_AS(parse(UA_STATUSCODE_BADTIMEOUT), UNREACHABLE);

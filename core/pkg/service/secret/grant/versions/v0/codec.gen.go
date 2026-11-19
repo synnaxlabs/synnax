@@ -30,9 +30,6 @@ func (g Grant) EncodeOrc(w *orc.Writer) error {
 			w.Write(g.Secrets[i][:])
 		}
 	}
-	if err := g.Command.EncodeOrc(w); err != nil {
-		return err
-	}
 	w.Int64(int64(g.ExpiresAt))
 	return nil
 }
@@ -63,9 +60,6 @@ func (g *Grant) DecodeOrc(r *orc.Reader) error {
 				}
 			}
 		}
-	}
-	if err = g.Command.DecodeOrc(r); err != nil {
-		return err
 	}
 	{
 		rawV, err := r.Int64()

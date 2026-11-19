@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/secret/grant"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/secret/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/telem"
@@ -211,6 +212,28 @@ var _ = Describe("Service", func() {
 			Expect(openService(ctx, newStore(ctx), secret.EncryptionKey{})).Error().
 				To(MatchError(ContainSubstring("encryption_key: required")))
 		})
+		It("Should move each stored v0 file secret to the Core's rack",
+			func(ctx SpecContext) {
+				e := newStore(ctx)
+				old := MustSucceed(gorp.OpenTable(
+					ctx,
+					gorp.TableConfig[v0.Key, v0.Secret]{DB: e.db, Name: "secret"},
+				))
+				base := v0.Base{Key: uuid.New(), Name: "Key"}
+				Expect(gorp.NewCreate[v0.Key, v0.Secret]().
+					Entry(&v0.Secret{Variant: v0.FileSecret{Base: base, FileName: "k"}}).
+					Exec(ctx, e.db)).To(Succeed())
+				Expect(old.Close()).To(Succeed())
+				e.svc = MustOpen(openService(ctx, e, secret.NewEncryptionKey()))
+				Expect(e.retrieve(ctx, base.Key)).To(Equal(secret.Secret{
+					Variant: secret.FileSecret{
+						Base:     base,
+						FileName: "k",
+						Rack:     coreRack,
+					},
+				}))
+			},
+		)
 	})
 
 	Describe("NewRetrieve", func() {
