@@ -199,6 +199,18 @@ describe("scale/aether/Scale", () => {
 
     const STALE = color.hex(THEME.colors.warning.m1);
 
+    it("should report each staleness transition through its state", () => {
+      const { component, source } = setup({
+        stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
+      });
+      source.setValue(50);
+      expect(component.state.stale).toBe(false);
+      vi.advanceTimersByTime(2000);
+      expect(component.state.stale).toBe(true);
+      source.setValue(60);
+      expect(component.state.stale).toBe(false);
+    });
+
     it("should recolor the fill once the source stops sending", () => {
       const { recorder, source } = setup({
         color: ACCENT,

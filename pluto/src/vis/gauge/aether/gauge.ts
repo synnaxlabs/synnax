@@ -20,12 +20,11 @@ import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
 import { staleness } from "@/vis/staleness/aether";
 
-const gaugeState = staleness.configZ.extend({
+const gaugeState = staleness.drawnStateZ.extend({
   box: box.box,
   telem: telem.stringSourceSpecZ.default(telem.noopStringSourceSpec),
   level: text.levelZ.default("p"),
   color: color.colorZ.optional(),
-  stalenessColor: color.colorZ.optional(),
   precision: z.number().default(2),
   minWidth: z.number().default(60),
   width: z.number().optional(),
@@ -55,8 +54,6 @@ interface InternalState {
   draw2d: Draw2D;
   stopListening?: () => void;
   staleness: staleness.Registration;
-  // Staleness stays on the worker here, which draws the gauge itself.
-  stale: boolean;
   requestRender: render.Requestor | null;
   textColor: color.Color;
   strokeColor: color.Color;
@@ -90,12 +87,8 @@ export class Gauge
     i.theme = theming.use(ctx);
     i.textColor = this.state.color ?? i.theme.colors.gray.l9;
     i.telem = telem.useSource(ctx, this.state.telem, i.telem);
-    i.staleness = staleness.useInternalRegistration(
-      ctx,
-      i.staleness,
-      this,
-      i.telem,
-      () => this.requestRender(),
+    i.staleness = staleness.useStateRegistration(ctx, i.staleness, this, i.telem, () =>
+      this.requestRender(),
     );
     i.stopListening?.();
     i.stopListening = i.telem.onChange(() => {
@@ -173,9 +166,7 @@ export class Gauge
     const range = upper - lower;
     const valueRatio = range === 0 ? 0 : (clampedValue - lower) / range;
     const valueAngle = i.gaugeStartAngle + valueRatio * i.gaugeAngleRange;
-    const staleColor = this.internal.stale
-      ? staleness.resolveColor(this.state.stalenessColor, i.theme)
-      : undefined;
+    const staleColor = staleness.drawnColor(this.state, i.theme);
 
     draw2d.text({
       align: "center",
