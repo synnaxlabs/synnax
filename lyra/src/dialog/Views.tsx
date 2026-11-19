@@ -9,7 +9,14 @@
 
 import "@/dialog/Views.css";
 
-import { type ReactElement, type ReactNode, useEffect, useRef, useState } from "react";
+import {
+  type ReactElement,
+  type ReactNode,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from "react";
 
 import { Button } from "@/button";
 import { context } from "@/context";
@@ -28,8 +35,9 @@ export interface ViewsContextValue {
   open: (title: string, content: ReactNode, opener?: HTMLElement) => void;
   /**
    * Returns to the children, as Back does. A given callback runs once the children
-   * show, in place of the return of the focus to the opener, or at once when they show
-   * already.
+   * show, in place of the return of the focus to the opener. From a view that no longer
+   * shows, such as one that Back closed or that unmounted, it closes nothing, and the
+   * callback runs at once.
    */
   back: (then?: () => void) => void;
   /** If true, a view shows in place of the children. */
@@ -71,11 +79,18 @@ export const Views = ({
   ...rest
 }: ViewsProps): ReactElement => {
   const [view, setView] = useState<View | null>(null);
+  const titleID = useId();
   const root = useRef<HTMLDivElement>(null);
   const opener = useRef<HTMLElement | null>(null);
   const after = useRef<(() => void) | undefined>(undefined);
-  // A ref, so that a callback from a view that closed sees the children show.
-  const viewing = useRef(false);
+  // A ref, so that a callback from a view that closed sees that it no longer shows.
+  const shown = useRef<View | null>(null);
+  useEffect(
+    () => () => {
+      shown.current = null;
+    },
+    [],
+  );
   useEffect(() => {
     if (view != null) return;
     const then = after.current;
@@ -97,17 +112,19 @@ export const Views = ({
     else if (clicked != null && active.contains(clicked)) opener.current = clicked;
     else opener.current = active;
     const width = root.current?.getBoundingClientRect().width ?? 0;
-    viewing.current = true;
-    setView({ title, content, width });
+    const next = { title, content, width };
+    shown.current = next;
+    setView(next);
     onViewingChange?.(true);
   };
-  const back = (then?: () => void): void => {
-    if (!viewing.current) return then?.();
-    viewing.current = false;
+  const close = (from: View | null, then?: () => void): void => {
+    if (from == null || from !== shown.current) return then?.();
+    shown.current = null;
     after.current = then;
     setView(null);
     onViewingChange?.(false);
   };
+  const back = (then?: () => void): void => close(shown.current, then);
   return (
     <ViewsContext value={{ open, back, viewing: view != null }}>
       <Flex.Box
@@ -136,19 +153,29 @@ export const Views = ({
                 size="small"
                 square
                 textColor={9}
-                onClick={() => back()}
+                onClick={() => close(view)}
                 autoFocus
                 tooltip="Back"
                 aria-label="Back"
               >
                 <Icon.Arrow.Left />
               </Button.Button>
-              <Text.Text level="small" weight={500} overflow="fade">
+              <Text.Text id={titleID} level="small" weight={500} overflow="fade">
                 {view.title}
               </Text.Text>
             </Flex.Box>
-            <Flex.Box y gap="medium" className={CSS.BE("views", "view")}>
-              {view.content}
+            <Flex.Box
+              y
+              gap="medium"
+              role="group"
+              aria-labelledby={titleID}
+              className={CSS.BE("views", "view")}
+            >
+              <ViewsContext
+                value={{ open, back: (then) => close(view, then), viewing: true }}
+              >
+                {view.content}
+              </ViewsContext>
             </Flex.Box>
           </>
         )}
