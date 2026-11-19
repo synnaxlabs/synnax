@@ -221,6 +221,34 @@ var _ = Describe("MigrateSpec", func() {
 	)
 })
 
+var _ = Describe("MigrateSymbol", func() {
+	It("Should keep the key, name, and group and migrate the spec", func(
+		ctx SpecContext,
+	) {
+		data := v4.Spec{
+			SVG:     `<svg><rect id="body"/></svg>`,
+			Variant: "static",
+			Scale:   1,
+			States: []v4.State{
+				state("off", stroked(region("body", "#body"), red)),
+				state("on", stroked(region("body", "#body"), green)),
+			},
+		}
+		old := v4.Symbol{
+			Key:   uuid.New(),
+			Name:  "Valve",
+			Data:  data,
+			Group: new(uuid.New()),
+		}
+		sym := MustSucceed(v5.MigrateSymbol(ctx, old))
+		Expect(sym.Key).To(Equal(old.Key))
+		Expect(sym.Name).To(Equal("Valve"))
+		Expect(sym.Group).To(Equal(old.Group))
+		Expect(sym.Data).To(Equal(MustSucceed(v5.MigrateSpec(ctx, data))))
+		Expect(sym.Data.Parts).To(ConsistOf(HaveField("Key", "body")))
+	})
+})
+
 var _ = Describe("Migration", func() {
 	var (
 		db      *gorp.DB
