@@ -103,7 +103,8 @@ export interface CreateResult {
 
 /**
  * Creates a rack together with the API key its Driver logs in with. Deletes the rack
- * when the key cannot be created.
+ * when the key cannot be created. If that delete also fails, the thrown error names
+ * the rack and carries the key error as its cause.
  */
 export const { useUpdate: useCreate } = Flux.createUpdate<CreateParams, CreateResult>({
   name: RESOURCE_NAME,
@@ -116,10 +117,15 @@ export const { useUpdate: useCreate } = Flux.createUpdate<CreateParams, CreateRe
         name,
       });
       return { rack: created, key, token };
-    } catch (err) {
+    } catch (keyErr) {
       // a rack without a key is one no Driver can log in as
-      await client.racks.delete(created.key);
-      throw errors.fromUnknown(err);
+      await client.racks.delete(created.key).catch((deleteErr: unknown) => {
+        const { message } = errors.fromUnknown(deleteErr);
+        throw new Error(`rack ${created.key} was not deleted: ${message}`, {
+          cause: keyErr,
+        });
+      });
+      throw errors.fromUnknown(keyErr);
     }
   },
 });
