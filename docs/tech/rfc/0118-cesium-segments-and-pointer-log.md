@@ -109,8 +109,12 @@ rename (`core/pkg/distribution/channel/create.go:66`, `rename.go:27`).
    writers and readers on it, and returns it, and the Core raises a warning status that
    names the keys and their bytes. A missing record can come from a restored backup or
    lost metadata, never only from a delete, so `Sweep` never removes samples on absence
-   alone. `DB.Purge` (NEW) removes such a key, called through an admin route of the
-   Core.
+   alone. `DB.Purge` (NEW) removes such a key. The Core calls it only from a command,
+   `synnax purge`, that runs with the Core stopped: it takes the directory lock, opens
+   storage, and lists the kept keys and their bytes. With keys, it refuses any key that
+   has a record or is not kept, and purges the rest. A route would put a remote delete
+   of telemetry on the wire, and a start flag stays in a service file and purges every
+   later kept key unseen.
 
 One rule serves `Drop`, `Sweep`, and `Purge`: stamps stay while a kept segment of
 another key names their key as its clock, and the intent of such a key stays until they
