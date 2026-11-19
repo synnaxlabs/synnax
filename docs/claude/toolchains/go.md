@@ -23,8 +23,8 @@ Modules reference siblings via relative-path `replace` directives in each `go.mo
 - Test: **always `ginkgo`, never `go test`**. `ginkgo` (package), `ginkgo -r`
   (recursive), `ginkgo -v`, `ginkgo --focus "Name"`. `go tool ginkgo` runs the version
   that the module's `go.mod` sets, as CI does.
-- Generate: `go generate ./...`. Each module's `go.mod` `tool` block pins `stringer`, so
-  directives call `go tool stringer`.
+- Generate: `go generate ./...`. A module with `stringer` directives pins `stringer` in
+  its `go.mod` `tool` block, and the directives call `go tool stringer`.
 
 ## Style
 
