@@ -21,6 +21,7 @@ import (
 	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -51,6 +52,8 @@ type DB struct {
 	controlUpdates controlObserver
 	historyChanges observe.Observer[HistoryChange]
 	closed         *atomic.Bool
+	// intents makes the delete intents of the DB durable.
+	intents *intents
 	// lifecycle orders the start of Run against Close.
 	lifecycle struct {
 		sync.Mutex
@@ -60,7 +63,12 @@ type DB struct {
 		dbs struct {
 			unary   map[ChannelKey]unary.DB
 			virtual map[ChannelKey]virtual.DB
+			// hidden holds the channels that Sweep keeps: they hold samples but have
+			// no record and no intent. Writers and iterators cannot open on them.
+			hidden map[ChannelKey]unary.DB
 		}
+		// skipped holds the keys whose directories Open skipped for their intent.
+		skipped set.Set[ChannelKey]
 		sync.RWMutex
 	}
 }
@@ -207,5 +215,8 @@ func (db *DB) Close() error {
 	for _, u := range db.mu.dbs.unary {
 		err = errors.Join(err, u.Close())
 	}
-	return err
+	for _, u := range db.mu.dbs.hidden {
+		err = errors.Join(err, u.Close())
+	}
+	return errors.Join(err, db.intents.Close())
 }

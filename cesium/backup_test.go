@@ -151,7 +151,9 @@ var _ = Describe("Meta backup", func() {
 				Expect(db.Close()).To(Succeed())
 
 				Expect(cesium.RestoreMeta(fs, backup, "orphans")).To(Succeed())
-				Expect(entryNames(fs, "")).To(ConsistOf("1", "2", "orphans"))
+				Expect(
+					entryNames(fs, ""),
+				).To(ConsistOf("1", "2", "delete-intents", "orphans"))
 				Expect(entryNames(fs, "orphans")).To(ConsistOf("3"))
 				Expect(entryNames(fs, "orphans/3")).To(ContainElement("meta.json"))
 				Expect(fs.Remove("orphans")).To(Succeed())

@@ -11,12 +11,14 @@ package cesium
 
 import (
 	"context"
+	"path"
 	"strconv"
 	"sync"
 	"time"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -87,6 +89,11 @@ func (db *DB) Drop(keys []ChannelKey) error {
 	if db.closed.Load() {
 		return ErrDBClosed
 	}
+	return db.dropLocked(keys)
+}
+
+// dropLocked drops keys as Drop does. The caller must hold db.mu.
+func (db *DB) dropLocked(keys []ChannelKey) error {
 	keys = lo.Uniq(keys)
 	dropping := set.New(keys...)
 	indexes := make(map[ChannelKey]*latch)
@@ -190,20 +197,62 @@ func (l *latch) done() error {
 // Keys are never reused, so only a leftover of the same key can hold the name.
 const deletedDirSuffix = "-DELETE"
 
-// removeDir renames the directory of key to its deleted name, then removes it, so that
-// a
-// crash during the removal leaves no partial channel directory. It first removes a
-// leftover of an earlier removal of key.
+// removeDir renames the directory of key to its deleted name, then removes its data
+// files, its metadata file, and the directory, in that order, and clears the intent of
+// key last. It first removes a leftover of an earlier removal of key.
 func (db *DB) removeDir(key ChannelKey) error {
 	name := keyToDirName(key)
 	deleted := name + deletedDirSuffix
 	if err := db.fs.Remove(deleted); err != nil {
 		return err
 	}
-	if err := db.fs.Rename(name, deleted); err != nil {
+	exists, err := db.fs.Exists(name)
+	if err != nil {
 		return err
 	}
-	return db.fs.Remove(deleted)
+	if exists {
+		if err = db.fs.Rename(name, deleted); err != nil {
+			return err
+		}
+		if err = db.removeFiles(deleted); err != nil {
+			return err
+		}
+	}
+	return db.intents.clear(key)
+}
+
+// removeFiles removes the files of the channel directory dir other than its metadata
+// file, then the metadata file, then dir.
+func (db *DB) removeFiles(dir string) error {
+	infos, err := db.fs.List(dir)
+	if err != nil {
+		return err
+	}
+	for _, f := range infos {
+		if f.Name() == meta.File {
+			continue
+		}
+		if err = db.fs.Remove(path.Join(dir, f.Name())); err != nil {
+			return err
+		}
+	}
+	if err = db.fs.Remove(path.Join(dir, meta.File)); err != nil {
+		return err
+	}
+	return db.fs.Remove(dir)
+}
+
+// Intend makes delete intents for keys durable, with one write and one sync of the
+// intents file. Open skips the directory of a key with an intent, Sweep decides its
+// fate, and Drop clears the intent after it removes the files of the key.
+func (db *DB) Intend(keys []ChannelKey) error {
+	if db.closed.Load() {
+		return ErrDBClosed
+	}
+	if len(keys) == 0 {
+		return nil
+	}
+	return db.intents.add(keys)
 }
 
 // DeleteTimeRange deletes a time range of data in the database in the given channels

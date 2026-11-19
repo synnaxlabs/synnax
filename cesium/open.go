@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
@@ -53,8 +54,16 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 	}
 	db.mu.dbs.unary = make(map[channel.Key]unary.DB, len(info))
 	db.mu.dbs.virtual = make(map[channel.Key]virtual.DB, len(info))
+	db.mu.dbs.hidden = make(map[channel.Key]unary.DB)
+	db.mu.skipped = set.New[channel.Key]()
+	if db.intents, err = openIntents(o.fs); err != nil {
+		return nil, err
+	}
 	var detached []string
 	for _, i := range info {
+		if i.Name() == intentsFile || i.Name() == intentsTempFile {
+			continue
+		}
 		if !i.IsDir() {
 			db.L.Warn(fmt.Sprintf(
 				"found unknown file %s in database root directory",
@@ -78,6 +87,11 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 			continue
 		}
 
+		// A delete intends to drop the key, so Sweep decides its fate.
+		if db.intents.has(key) {
+			db.mu.skipped.Add(key)
+			continue
+		}
 		if err = db.openVirtualOrUnary(ctx, Channel{Key: key}); err != nil {
 			return nil, err
 		}
