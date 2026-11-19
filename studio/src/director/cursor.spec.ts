@@ -135,4 +135,18 @@ describe("synthesize", () => {
     expect(track[240].y).toBeCloseTo(700, 0);
     expect(track[240].pressed).toBe(false);
   });
+
+  it("should hold the cursor near the path while a drag is pressed", () => {
+    const events: Event[] = [
+      { type: "move", tick: 60, x: 300, y: 300, duration: 30 },
+      { type: "pointerdown", tick: 60, x: 300, y: 300, button: "left" },
+      { type: "move", tick: 180, x: 1200, y: 700, duration: 100 },
+      { type: "pointerup", tick: 200, x: 1200, y: 700, button: "left" },
+    ];
+    const track = synthesize(timeline(events));
+    for (let f = 80; f <= 180; f++) {
+      const x = 300 + 900 * minimumJerk((f - 80) / 100);
+      expect(Math.abs(track[f].x - x)).toBeLessThan(12);
+    }
+  });
 });
