@@ -60,9 +60,10 @@ storage half of a delete.
 
 ### 4.0 The channel record
 
-Channel v1 shipped in Core v0.61.0. Phases 1 to 3 share v2: a phase edits v2 in place
-while no stable release holds it, and mints the next version with the same lines if one
-does. RFC 0117 Phase 9 builds v3, after index channels stop being channels.
+Channel v1 shipped in `core/v0.61.0` and is still the version of `core/v0.62.0`. Phases
+1 to 3 share v2: a phase edits v2 in place while no stable release holds it, and mints
+the next version with the same lines if one does. RFC 0117 Phase 9 builds v3, after
+index channels stop being channels.
 
 | Field         | Bytes         | v1  | v2, Phase 1 | v2, Phase 2 | v2, Phase 3 | v3  |
 | ------------- | ------------- | --- | ----------- | ----------- | ----------- | --- |
@@ -345,6 +346,8 @@ The example value is 104 B. The Pebble key is `gorp.Calculation` and the 16 key 
   cycle through outputs fails the save and names the path.
 - **Old API, one minor**: The channel API turns a create or a set of `expression` or
   `operations` into calculation writes, and composes both fields and `status` on read.
+  The Arc API fills the `calculations` field of an Arc (`schemas/synnax/arc.oracle`,
+  shipped in `core/v0.62.0`) from the calculation records.
 
 ### 4.5 Arc and calculation text
 
@@ -420,10 +423,13 @@ The table lives in `core/pkg/service/channel/resolver` (NEW), for both services:
 
 Oracle generates, for each exported type, a remap over its channel links from the walk
 that builds the reference targets (NEW). The Arc service remaps the channel inputs of
-graph nodes itself. Export writes each channel as its exact path, and a dead link as no
-channel. Import resolves each path once and fails, with every path that matches nothing,
-unless the file makes that channel. It accepts raw keys only from a file of the 0.61
-format version. Arc and calculation text binds on the new Core.
+graph nodes itself. Export writes each channel link as its exact path, a JSON string,
+and a dead link as no channel. Import reads a link by its JSON type, as the clients do
+(§4.2): a number is a raw key, which every file of `core/v0.62.0` and older holds, and a
+string is a path. A file's shape does not change, so no exported type mints a version
+for the switch (`core/pkg/service/imex/imex.go:39-42`). Import resolves each path once
+and fails, with every path that matches nothing, unless the file makes that channel. Arc
+and calculation text binds on the new Core.
 
 ### 4.7 Package boundaries
 
@@ -493,11 +499,11 @@ map probe and a 1 to 2 µs keyed read. The sibling index costs about 175 B per c
   and the bind pass of Phase 5 fills them. Phase 6 runs the step of §4.5 once. Group v2
   adds `name_rule`.
 
-Compatibility is owed to 0.61. Every stored channel, folder, Arc text, and calculation
-migrates forward. `APIChannel` keeps `internal`, `expression`, `operations`, and
-`status` for one minor. Three breaks go in the release notes: a start with the old flag
-fails, a digit-only string no longer means a key, and a lookup that acts on a duplicate
-name fails where it picked one.
+Compatibility is owed to `core/v0.62.0`. Every stored channel, folder, Arc text, and
+calculation migrates forward. `APIChannel` keeps `internal`, `expression`, `operations`,
+and `status` for one minor. Three breaks go in the release notes: a start with the old
+flag fails, a digit-only string no longer means a key, and a lookup that acts on a
+duplicate name fails where it picked one.
 
 ### 4.10 Amendments to prior RFCs
 
@@ -520,6 +526,12 @@ this program. Phases 6 and 8 are small switches.
 - **Phase 2: Quoted names.** Arc gets the quoted token here, with the path filter. Phase
   5 adds bare paths, the two lists, `Rebind`, the bind pass, the rewrite, the key
   lookup, and files by path.
+- **Phase 4: A view version.** The `channel` view type mints view v4 from v3, which
+  `core/v0.62.0` shipped.
+- **Outside names**: An output that sends a channel's name, such as the Kafka key mode
+  `channel_name`, sends the local name, as today. Sift channels take the local name, and
+  a Sift flow takes the name stored in its config (RFC 0117 §4.9). Status details that
+  hold channel keys stay untracked links.
 - **Phase 3: The whole calculation shape.** `bindings` stays empty until Phase 5, and
   nothing reads `primary` until RFC 0117 Phase 5. The `weak` and `direction` tags on its
   links are live-only and arrive with the later of Phases 1 and 3.
@@ -576,7 +588,7 @@ member win with a warning, so that the channel needs the quoted form. Not taken.
 
 **6.8 No fallback, and a bare name in a client matches any folder.** Root first, then
 any folder, lets a new root channel take a name with no error; a digit string that falls
-back to a key has the same fault. A root-only shorthand breaks every 0.61 script that
+back to a key has the same fault. A root-only shorthand breaks every 0.62 script that
 names a channel in a folder at Phase 6. With any folder, those scripts run until someone
 repeats a name, and then fail with every path. `paths` is exact.
 
