@@ -112,7 +112,7 @@ export const SelectionColors = ({
               value={current[0].value}
               visible={visible}
               onVisibleChange={(arg) =>
-                setHeld(state.executeSetter(arg, visible) ? { id, groups } : null)
+                setHeld(state.resolve(arg, visible) ? { id, groups } : null)
               }
               onChange={(c) => onChange(current, c)}
               palettesHidden={palettesHidden}

@@ -195,7 +195,7 @@ def main() -> None:
     store = parameter_store()
     client = connect(args, store=store)
     creator = Channels(client=client, enabled=args.create_channels)
-    log = Log(client=client, channels=creator, channel=LOG)
+    log = Log(client=client, channels=creator, channel=LOG, echo=True)
     github = GitHub(secret("GH_APP_ID", store=store), secret("GH_APP_KEY", store=store))
     commands = handlers(aws=AWS(), github=github)
     alive = Heartbeat(client=client, channels=creator, name=HEARTBEAT)
