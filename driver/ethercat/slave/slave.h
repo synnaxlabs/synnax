@@ -83,6 +83,12 @@ inline State from_al_state(const uint16_t al_state) {
     }
 }
 
+/// @brief returns whether a slave in state is below PRE-OP, where a master reads
+/// nothing through its mailbox.
+inline bool starting(const State state) {
+    return state == State::INIT || state == State::BOOT || state == State::UNKNOWN;
+}
+
 /// @brief a CoE object the master writes to a slave in PRE-OP each time it moves the
 /// slave to SAFE-OP, including recovery after a fault.
 struct StartupParameter {

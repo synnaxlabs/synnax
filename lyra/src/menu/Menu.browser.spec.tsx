@@ -7,13 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, Suspense, use } from "react";
-import { describe, expect, it } from "vitest";
-import { page, userEvent } from "vitest/browser";
+import { type ReactElement, Suspense, use, useState } from "react";
+import { describe, expect, it, vi } from "vitest";
+import { page, server, userEvent } from "vitest/browser";
 
 import { Menu } from "@/menu";
 import { Select } from "@/select";
 import { computed, renderThemed, resolve } from "@/styletest";
+import { Triggers } from "@/triggers";
 
 const ITEMS = (
   <Menu.Menu value="copy">
@@ -44,6 +45,137 @@ const FocusMenu = (): ReactElement => {
       <button onContextMenu={ctx.open}>Opener</button>
       {/* Takes no focus on a press, as a canvas does. */}
       <div onMouseDown={(e) => e.preventDefault()}>Canvas</div>
+    </Menu.ContextMenu>
+  );
+};
+
+const ChooseMenu = ({
+  onChoose,
+}: {
+  onChoose: (focused: Element | null) => void;
+}): ReactElement => {
+  const ctx = Menu.useContextMenu();
+  return (
+    <Menu.ContextMenu
+      menu={() => (
+        <Menu.Menu>
+          <Menu.Item itemKey="edit" onClick={() => onChoose(document.activeElement)}>
+            Edit
+          </Menu.Item>
+        </Menu.Menu>
+      )}
+      {...ctx}
+    >
+      <button onContextMenu={ctx.open}>Opener</button>
+    </Menu.ContextMenu>
+  );
+};
+
+interface SubChooseMenuProps {
+  onChoose: (focused: Element | null) => void;
+  onCreate: (name: string) => void;
+}
+
+const SubChooseMenu = ({ onChoose, onCreate }: SubChooseMenuProps): ReactElement => {
+  const ctx = Menu.useContextMenu();
+  const [value, setValue] = useState<string[]>([]);
+  return (
+    <Menu.ContextMenu
+      menu={() => (
+        <Menu.Menu>
+          <Menu.Sub itemKey="move" textValue="Move">
+            <Menu.SubTrigger>Move</Menu.SubTrigger>
+            <Menu.Dialog aria-label="Move">
+              <Menu.Menu>
+                <Menu.Item
+                  itemKey="up"
+                  onClick={() => onChoose(document.activeElement)}
+                >
+                  Up
+                </Menu.Item>
+              </Menu.Menu>
+            </Menu.Dialog>
+          </Menu.Sub>
+          <Menu.Sub itemKey="labels" textValue="Labels">
+            <Menu.SubTrigger>Labels</Menu.SubTrigger>
+            <Select.Frame<string, undefined>
+              multiple
+              data={["alpha"]}
+              value={value}
+              onChange={setValue}
+            >
+              <Select.Dialog surface="menu" aria-label="Labels">
+                <Select.Body<string>
+                  resourceName="label"
+                  onSearch={() => {}}
+                  footer={
+                    <Select.CreateItem resourceName="label" modal onCreate={onCreate} />
+                  }
+                >
+                  {({ key, ...p }) => (
+                    <Select.Item key={key} {...p}>
+                      {key}
+                    </Select.Item>
+                  )}
+                </Select.Body>
+              </Select.Dialog>
+            </Select.Frame>
+          </Menu.Sub>
+        </Menu.Menu>
+      )}
+      {...ctx}
+    >
+      <button className={Menu.CONTEXT_TARGET} onContextMenu={ctx.open}>
+        Target
+      </button>
+    </Menu.ContextMenu>
+  );
+};
+
+// A right click in WebKit moves the focus to the body, so the menu opens as the menu
+// keys open it: on the focused element, with no press.
+const openFromKeyboard = (element: Element): HTMLElement => {
+  if (!(element instanceof HTMLElement)) throw new Error("not an HTML element");
+  element.focus();
+  element.dispatchEvent(
+    new MouseEvent("contextmenu", { bubbles: true, cancelable: true }),
+  );
+  return element;
+};
+
+interface TargetMenuProps {
+  onOpen: (focused: Element | null) => void;
+  onChoose: (focused: Element | null) => void;
+  /** The element of the target. Defaults to a button. */
+  el?: "button" | "div";
+}
+
+const TargetMenu = ({
+  onOpen,
+  onChoose,
+  el: Target = "button",
+}: TargetMenuProps): ReactElement => {
+  const ctx = Menu.useContextMenu();
+  return (
+    <Menu.ContextMenu
+      menu={() => (
+        <Menu.Menu>
+          <Menu.Item itemKey="edit" onClick={() => onChoose(document.activeElement)}>
+            Edit
+          </Menu.Item>
+        </Menu.Menu>
+      )}
+      {...ctx}
+    >
+      <Target
+        className={Menu.CONTEXT_TARGET}
+        onContextMenu={(e) => {
+          onOpen(document.activeElement);
+          ctx.open(e);
+        }}
+      >
+        Target
+      </Target>
     </Menu.ContextMenu>
   );
 };
@@ -236,10 +368,7 @@ describe("Menu", () => {
     });
 
     const openLoading = async () => {
-      let load = (): void => {};
-      const items = new Promise<void>((resolve) => {
-        load = resolve;
-      });
+      const { promise: items, resolve: load } = Promise.withResolvers<void>();
       const { getByText } = await renderThemed(<LoadingMenu items={items} />);
       const opener = getByText("Opener").element() as HTMLElement;
       opener.focus();
@@ -313,6 +442,141 @@ describe("Menu", () => {
       await userEvent.click(canvas, { position: { x: width - 4, y: 4 } });
       await expect.poll(() => document.querySelector('[role="menu"]')).toBeNull();
       expect(document.activeElement).not.toBe(opener);
+    });
+
+    const rightClick = async (onChoose = vi.fn()) => {
+      const onOpen = vi.fn();
+      const { getByText } = await renderThemed(
+        <Triggers.Provider>
+          <TargetMenu onOpen={onOpen} onChoose={onChoose} />
+        </Triggers.Provider>,
+      );
+      const target = getByText("Target").element();
+      await userEvent.click(target, { button: "right" });
+      await expect
+        .poll(() => document.activeElement?.getAttribute("role"))
+        .toBe("menu");
+      return { target, found: onOpen.mock.calls[0][0], getByText };
+    };
+
+    it("should focus the right-clicked target before an item acts", async () => {
+      const onChoose = vi.fn();
+      const { target, getByText } = await rightClick(onChoose);
+      await userEvent.click(getByText("Edit"));
+      await expect.poll(() => document.querySelector('[role="menu"]')).toBeNull();
+      expect(onChoose).toHaveBeenCalledExactlyOnceWith(target);
+      expect(document.activeElement).toBe(target);
+      expect(target.matches(":focus-visible")).toBe(false);
+    });
+
+    const rightClickInBox = async (el: TargetMenuProps["el"]) => {
+      const onChoose = vi.fn();
+      const { getByText, getByLabelText } = await renderThemed(
+        <Triggers.Provider>
+          {/* Keeps the focus on the box, as a right click on a button does in WebKit. */}
+          <div aria-label="Box" tabIndex={-1} onMouseDown={(e) => e.preventDefault()}>
+            <TargetMenu onOpen={vi.fn()} onChoose={onChoose} el={el} />
+          </div>
+        </Triggers.Provider>,
+      );
+      const box = getByLabelText("Box").element() as HTMLElement;
+      box.focus();
+      const target = getByText("Target").element();
+      await userEvent.click(target, { button: "right" });
+      await expect
+        .poll(() => document.activeElement?.getAttribute("role"))
+        .toBe("menu");
+      await userEvent.click(getByText("Edit"));
+      await expect.poll(() => document.querySelector('[role="menu"]')).toBeNull();
+      return { box, target, onChoose };
+    };
+
+    it("should focus a right-clicked button in a focused box before an item acts", async () => {
+      const { target, onChoose } = await rightClickInBox("button");
+      expect(onChoose).toHaveBeenCalledExactlyOnceWith(target);
+      expect(document.activeElement).toBe(target);
+    });
+
+    it("should keep the focus on a box around a target that cannot take it", async () => {
+      const { box, onChoose } = await rightClickInBox("div");
+      expect(onChoose).toHaveBeenCalledExactlyOnceWith(box);
+      expect(document.activeElement).toBe(box);
+    });
+
+    it("should keep the focus of a right click on Escape", async () => {
+      const { found } = await rightClick();
+      await userEvent.keyboard("{Escape}");
+      await expect.poll(() => document.querySelector('[role="menu"]')).toBeNull();
+      expect(document.activeElement).toBe(found);
+    });
+
+    // WebKit ignores focus({ focusVisible }).
+    it.runIf(server.browser === "chromium")(
+      "should show no ring after Escape closes a right-clicked menu",
+      async () => {
+        await rightClick();
+        await userEvent.keyboard("{Escape}");
+        await expect.poll(() => document.querySelector('[role="menu"]')).toBeNull();
+        expect(document.activeElement?.matches(":focus-visible")).toBe(false);
+      },
+    );
+
+    describe("submenu", () => {
+      const openSub = async (name: string) => {
+        const onChoose = vi.fn();
+        const onCreate = vi.fn();
+        const { getByText } = await renderThemed(
+          <Triggers.Provider>
+            <SubChooseMenu onChoose={onChoose} onCreate={onCreate} />
+          </Triggers.Provider>,
+        );
+        const target = getByText("Target").element();
+        await userEvent.click(target, { button: "right" });
+        await userEvent.click(getByText(name));
+        return { target, onChoose, onCreate, getByText };
+      };
+
+      it("should run an item of a submenu on a click", async () => {
+        const { target, onChoose, getByText } = await openSub("Move");
+        await userEvent.click(getByText("Up"));
+        await expect.poll(() => document.querySelector('[role="menu"]')).toBeNull();
+        expect(onChoose).toHaveBeenCalledExactlyOnceWith(target);
+      });
+
+      it("should run an item of a submenu on Enter", async () => {
+        const { target, onChoose } = await openSub("Move");
+        await expect.poll(() => document.activeElement?.textContent).toBe("Up");
+        await userEvent.keyboard("{Enter}");
+        await expect.poll(() => document.querySelector('[role="menu"]')).toBeNull();
+        expect(onChoose).toHaveBeenCalledExactlyOnceWith(target);
+      });
+
+      it("should run a create option of a selection in a submenu", async () => {
+        const { onCreate, getByText } = await openSub("Labels");
+        await userEvent.click(getByText("New label"));
+        await expect.poll(() => document.querySelector('[role="menu"]')).toBeNull();
+        expect(onCreate).toHaveBeenCalledExactlyOnceWith("");
+      });
+    });
+
+    it("should give the focus back before a clicked item acts", async () => {
+      const onChoose = vi.fn();
+      const { getByText } = await renderThemed(<ChooseMenu onChoose={onChoose} />);
+      const opener = openFromKeyboard(getByText("Opener").element());
+      await userEvent.click(getByText("Edit"));
+      await expect.poll(() => document.querySelector('[role="menu"]')).toBeNull();
+      expect(onChoose).toHaveBeenCalledExactlyOnceWith(opener);
+    });
+
+    it("should give the focus back before an item chosen with Enter acts", async () => {
+      const onChoose = vi.fn();
+      const { getByText } = await renderThemed(<ChooseMenu onChoose={onChoose} />);
+      const opener = openFromKeyboard(getByText("Opener").element());
+      await userEvent.keyboard("{ArrowDown}");
+      await expect.poll(() => document.activeElement?.textContent).toBe("Edit");
+      await userEvent.keyboard("{Enter}");
+      await expect.poll(() => document.querySelector('[role="menu"]')).toBeNull();
+      expect(onChoose).toHaveBeenCalledExactlyOnceWith(opener);
     });
   });
 });
