@@ -19,6 +19,7 @@ import (
 )
 
 func builtin(name string) symbol.Builtin {
+	GinkgoHelper()
 	b, ok := lo.Find(symbol.Builtins(), func(b symbol.Builtin) bool {
 		return b.Name == name
 	})
@@ -32,6 +33,7 @@ type shipped struct {
 }
 
 func enumerationOf(st symbol.State) *enumeration.Key {
+	GinkgoHelper()
 	enum, ok := st.Variant.(symbol.EnumerationState)
 	Expect(ok).To(BeTrue())
 	return enum.Enumeration
