@@ -40,7 +40,6 @@ import {
   shortcutZ,
 } from "@/enumeration/where.gen";
 import { query } from "@/query";
-import { resource } from "@/resource";
 
 export const ACTION_CHANNEL_NAME = "sy_enumeration_action_set";
 export const DELETE_CHANNEL_NAME = "sy_enumeration_delete";
@@ -53,10 +52,6 @@ const createResZ = z.object({ enumerations: enumerationZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const replaceReqZ = z.object({ from: keyZ, to: keyZ });
 const retrieveBuiltinsResZ = z.object({ enumerations: enumerationZ.array() });
-const retrieveDependentsReqZ = z.object({ key: keyZ });
-const retrieveDependentsResZ = z.object({
-  dependents: resource.idZ.array().default(() => []),
-});
 const emptyZ = z.object({});
 
 const retrieveMultiParamsZ = filter.requestInputZ(
@@ -65,7 +60,14 @@ const retrieveMultiParamsZ = filter.requestInputZ(
 );
 
 /** Names one enumeration. */
-export type RetrieveSingleParams = { key: Key };
+export type RetrieveSingleParams = {
+  key: Key;
+  /**
+   * Fills `uses` with the records that use the enumeration and that the caller can
+   * read.
+   */
+  includeUses?: boolean;
+};
 /** Everything a retrieval of many enumerations can filter on. */
 export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 /** Params for a retrieval of one or many enumerations. */
@@ -75,6 +77,11 @@ export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
+  /**
+   * The channels that announce changes to records that can use an enumeration. A
+   * change on one refetches the uses the client holds.
+   */
+  usesChannels: string[];
 }
 
 /**
@@ -84,7 +91,10 @@ export interface ClientConfig {
 export class Client extends query.Retriever<
   typeof retrieveMultiParamsZ,
   Key,
-  Enumeration
+  Enumeration,
+  Enumeration,
+  RetrieveSingleParams,
+  RetrieveSingleParams
 > {
   readonly type: string = "enumeration";
   /** The enumeration table. */
@@ -92,11 +102,20 @@ export class Client extends query.Retriever<
   private readonly unary: UnaryClient;
   private readonly dispatcher: actions.Controller<Key, Enumeration, Action>;
 
-  constructor({ unary, cache }: ClientConfig) {
+  constructor({ unary, cache, usesChannels }: ClientConfig) {
     const store = cache.createTable<Key, Enumeration>({
       name: "enumerations",
       fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
       listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
+    });
+    const uses = new query.Uses<Key, Enumeration, RetrieveRequest>({
+      name: "enumeration",
+      cache,
+      table: store,
+      key: keyZ,
+      retrieve: async (req) => await this.execRetrieve(req),
+      request: (key) => ({ where: { key }, includeUses: true }),
+      channels: usesChannels,
     });
     // Every write to an enumeration reaches the client as actions.
     const dispatcher = new actions.Controller<Key, Enumeration, Action>({
@@ -118,10 +137,15 @@ export class Client extends query.Retriever<
       request: {
         list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
-        fetch: async (req) => await this.execRetrieve(req),
-        matches: (enumeration, req) => matches(enumeration, req.where),
+        fetch: async (req) => await uses.fetch(req),
+        // An enumeration whose uses the client does not hold fetches the query again.
+        matches: (enumeration, req) =>
+          uses.lacks(enumeration, req) ? null : matches(enumeration, req.where),
         serverComputed: (req) => serverComputed(req.where),
+        triggers: [uses.trigger],
       },
+      compose: (record, q) => uses.compose(record, q),
+      single: uses.single,
     });
     this.unary = unary;
     this.store = store;
@@ -244,20 +268,6 @@ export class Client extends query.Retriever<
       retrieveBuiltinsResZ,
     );
     return res.enumerations;
-  }
-
-  /**
-   * Returns the records that use the enumeration and that the caller can retrieve.
-   * Each record that uses the enumeration refuses its delete.
-   */
-  async retrieveDependents(key: Key): Promise<resource.ID[]> {
-    const res = await this.unary.send(
-      "/enumeration/retrieve-dependents",
-      { key },
-      retrieveDependentsReqZ,
-      retrieveDependentsResZ,
-    );
-    return res.dependents;
   }
 
   private async execRetrieve(params: RetrieveRequest): Promise<Enumeration[]> {

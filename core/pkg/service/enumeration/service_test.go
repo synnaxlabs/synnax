@@ -124,7 +124,7 @@ var _ = Describe("Service", func() {
 		It("Should return no records for an unused enumeration", func(
 			ctx SpecContext,
 		) {
-			Expect(svc.Dependents(ctx, tx, e.Key)).To(BeEmpty())
+			Expect(svc.Uses(ctx, tx, e.Key)).To(BeEmpty())
 		})
 
 		It("Should return each record that uses the enumeration", func(
@@ -134,7 +134,7 @@ var _ = Describe("Service", func() {
 				{Key: "a", Enumeration: e.Key},
 				{Key: "b", Enumeration: e.Key},
 			}).Exec(ctx, tx)).To(Succeed())
-			Expect(svc.Dependents(ctx, tx, e.Key)).To(ConsistOf(
+			Expect(svc.Uses(ctx, tx, e.Key)).To(ConsistOf(
 				resource.ID{Type: "user", Key: "a"},
 				resource.ID{Type: "user", Key: "b"},
 			))

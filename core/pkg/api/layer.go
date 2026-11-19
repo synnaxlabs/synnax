@@ -220,11 +220,6 @@ type Transport struct {
 		struct{},
 		enumeration.RetrieveBuiltinsResponse,
 	]
-	// EnumerationRetrieveDependents returns the records that use an enumeration.
-	EnumerationRetrieveDependents freighter.UnaryServer[
-		enumeration.RetrieveDependentsRequest,
-		enumeration.RetrieveDependentsResponse,
-	]
 	// RACK
 	RackCreate   freighter.UnaryServer[rack.CreateRequest, rack.CreateResponse]
 	RackRetrieve freighter.UnaryServer[rack.RetrieveRequest, rack.RetrieveResponse]
@@ -535,7 +530,6 @@ func (l *Layer) BindTo(t Transport) {
 		t.EnumerationReplace,
 		t.EnumerationDispatch,
 		t.EnumerationRetrieveBuiltins,
-		t.EnumerationRetrieveDependents,
 
 		// RACK
 		t.RackCreate,
@@ -803,9 +797,6 @@ func (l *Layer) BindTo(t Transport) {
 	t.EnumerationReplace.BindHandler(bind.Write(l.binder, l.Enumeration.Replace))
 	t.EnumerationDispatch.BindHandler(bind.Write(l.binder, l.Enumeration.Dispatch))
 	t.EnumerationRetrieveBuiltins.BindHandler(l.Enumeration.RetrieveBuiltins)
-	t.EnumerationRetrieveDependents.BindHandler(
-		bind.Read(l.binder, l.Enumeration.RetrieveDependents),
-	)
 
 	// RACK
 	t.RackCreate.BindHandler(bind.Write(l.binder, l.Rack.Create))
