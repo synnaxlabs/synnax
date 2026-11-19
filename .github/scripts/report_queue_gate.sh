@@ -15,8 +15,9 @@
 # commit. Under HEADGREEN only the last entry's status gates a merge, so it must cover
 # the entries ahead. A merge group cannot wait, so anything short of success is a
 # failure. When the gate cannot judge, posts a failure, so the queue does not stall
-# until its timeout, and exits non-zero. When the queue ref is gone, the queue destroyed
-# the group, so there is nothing to judge, and the script exits zero.
+# until its timeout, and exits non-zero. When the queue ref is gone or points at another
+# commit, the queue destroyed the group, so there is nothing to judge, and the script
+# exits zero.
 
 set -euo pipefail
 
@@ -34,15 +35,18 @@ PR=${BASH_REMATCH[2]}
 
 REF_ERR=$(mktemp)
 trap 'rm -f "$REF_ERR"' EXIT
+DESTROYED=false
 QUEUED=$("$API" "repos/${REPO}/git/ref/heads/${QUEUE_REF}" --jq .object.sha \
     2> "$REF_ERR") || {
     cat "$REF_ERR" >&2
-    if grep -q 'HTTP 404' "$REF_ERR"; then
-        echo "::notice::The queue destroyed merge group ${QUEUE_REF}."
-        exit 0
-    fi
-    QUEUED=
+    if grep -q 'HTTP 404' "$REF_ERR"; then DESTROYED=true; fi
 }
+# A group rebuilt on the same base reuses the ref at a new commit.
+if [ -n "$QUEUED" ] && [ "$QUEUED" != "$SHA" ]; then DESTROYED=true; fi
+if [ "$DESTROYED" = true ]; then
+    echo "::notice::The queue destroyed merge group ${QUEUE_REF} at ${SHA}."
+    exit 0
+fi
 
 # Prints the verdict for the group, or fails when a pull request cannot be judged.
 judge() {

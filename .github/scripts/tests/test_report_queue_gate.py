@@ -171,15 +171,6 @@ class TestFailure:
         assert harness.run().returncode != 0
         assert "state=failure" in harness.statuses()[0]
 
-    def test_posts_a_failure_when_the_ref_points_at_another_commit(
-        self, harness: Harness
-    ) -> None:
-        harness.gh.serve("api */git/ref/heads/*", {"object": {"sha": BASE}})
-        assert harness.run().returncode != 0
-        post = harness.statuses()[0]
-        assert "state=failure" in post
-        assert "description=could not judge pull request 42" in post
-
     def test_posts_a_failure_when_the_ref_lookup_fails(self, harness: Harness) -> None:
         harness.gh.fail("api */git/ref/heads/*", "gh: Forbidden (HTTP 403)")
         assert harness.run().returncode != 0
@@ -187,6 +178,13 @@ class TestFailure:
 
     def test_skips_a_destroyed_group(self, harness: Harness) -> None:
         harness.gh.fail("api */git/ref/heads/*", "gh: Not Found (HTTP 404)")
+        result = harness.run()
+        assert result.returncode == 0
+        assert "destroyed merge group" in result.stdout
+        assert harness.statuses() == []
+
+    def test_skips_a_group_rebuilt_at_another_commit(self, harness: Harness) -> None:
+        harness.gh.serve("api */git/ref/heads/*", {"object": {"sha": BASE}})
         result = harness.run()
         assert result.returncode == 0
         assert "destroyed merge group" in result.stdout
