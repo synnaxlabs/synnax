@@ -33,8 +33,6 @@ export interface DownloadAsCSVParams {
   name: string;
 }
 
-// The modal holds its range in float nanoseconds, which round by up to 128 ns, so a
-// live window ends this far past the newest sample to keep it inside.
 const channelsOf = (lines: DownloadLine[]): channel.Key[] =>
   unique.unique(
     lines
