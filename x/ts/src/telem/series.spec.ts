@@ -36,6 +36,40 @@ const SAMPLE_UUID_BYTES = new Uint8Array([
 ]);
 
 describe("Series", () => {
+  describe("clock", () => {
+    it("should default to zero", () => {
+      expect(new Series(new Float32Array([1])).clock).toEqual(0);
+    });
+
+    it("should carry the clock into a derived series", () => {
+      const s = new Series({ data: new Float32Array([1, 2, 3]), clock: 5 });
+      const derived = [
+        new Series(s),
+        s.slice(1),
+        s.sub(1, 2),
+        s.convert(DataType.FLOAT64),
+        s.reAlign(3n),
+        new Series({ data: ["a", "b"], clock: 5 }).slice(1),
+      ];
+      derived.forEach((d) => expect(d.clock).toEqual(5));
+    });
+
+    it("should carry the clock through its crude form", () => {
+      const s = Series.z.parse({
+        dataType: "float32",
+        data: new Uint8Array(4),
+        clock: 7,
+      });
+      expect(s.clock).toEqual(7);
+    });
+
+    it("should carry the clock of an allocated series", () => {
+      const s = Series.alloc({ capacity: 2, dataType: DataType.FLOAT32, clock: 4 });
+      s.write(new Series(new Float32Array([1, 2])));
+      expect(s.compact().clock).toEqual(4);
+    });
+  });
+
   describe("construction", () => {
     const IS_CRUDE_SERIES_SPEC: Array<[unknown, boolean]> = [
       [{}, false],

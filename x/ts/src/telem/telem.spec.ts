@@ -2380,6 +2380,41 @@ describe("Density", () => {
 });
 
 describe("DataType", () => {
+  describe("code", () => {
+    const CODES: Array<[DataType, number]> = [
+      [DataType.UINT8, 1],
+      [DataType.UINT16, 2],
+      [DataType.UINT32, 3],
+      [DataType.UINT64, 4],
+      [DataType.INT8, 5],
+      [DataType.INT16, 6],
+      [DataType.INT32, 7],
+      [DataType.INT64, 8],
+      [DataType.FLOAT32, 9],
+      [DataType.FLOAT64, 10],
+      [DataType.TIMESTAMP, 11],
+      [DataType.UUID, 12],
+      [DataType.STRING, 13],
+      [DataType.BYTES, 14],
+      [DataType.JSON, 15],
+      [DataType.BOOLEAN, 16],
+    ];
+    CODES.forEach(([dt, code]) =>
+      it(`should map ${dt.toString()} to code ${code} and back`, () => {
+        expect(dt.code).toEqual(code);
+        expect(DataType.fromCode(code).equals(dt)).toBe(true);
+      }),
+    );
+    it("should give the unknown code to a data type with no code", () => {
+      expect(DataType.UNKNOWN.code).toEqual(0);
+    });
+    it("should give UNKNOWN to a code with no data type", () => {
+      [0, 17, 255].forEach((code) =>
+        expect(DataType.fromCode(code).equals(DataType.UNKNOWN)).toBe(true),
+      );
+    });
+  });
+
   describe("isVariable", () => {
     it("should return true if the data type has a variable length", () => {
       expect(DataType.INT32.isVariable).toBe(false);

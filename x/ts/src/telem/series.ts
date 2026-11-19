@@ -89,6 +89,7 @@ interface BaseSeriesParams {
   glBufferUsage?: GLBufferUsage;
   alignment?: bigint;
   alignmentMultiple?: bigint;
+  clock?: number;
   key?: string;
 }
 
@@ -201,6 +202,8 @@ export class Series<T extends TelemValue = TelemValue>
    * i.e. decimation or averaging.
    */
   readonly alignmentMultiple: bigint = 1n;
+  /** The key of the clock that timed the samples. Zero means no clock. */
+  readonly clock: number = 0;
   /** A cached minimum value. */
   private cachedMin?: math.Numeric;
   /** A cached maximum value. */
@@ -240,6 +243,7 @@ export class Series<T extends TelemValue = TelemValue>
     dataType: DataType.z,
     alignment: z.coerce.bigint().optional(),
     alignmentMultiple: z.coerce.bigint().optional(),
+    clock: z.number().optional(),
     data: z
       .union([
         stringArrayZ,
@@ -275,6 +279,7 @@ export class Series<T extends TelemValue = TelemValue>
       glBufferUsage = "static",
       alignment = 0n,
       alignmentMultiple = 1n,
+      clock = 0,
       key = id.create(),
       data,
     } = props;
@@ -288,6 +293,7 @@ export class Series<T extends TelemValue = TelemValue>
       this.timeRange = data_.timeRange;
       this.alignment = data_.alignment;
       this.alignmentMultiple = data_.alignmentMultiple;
+      this.clock = data_.clock;
       this.cachedMin = data_.cachedMin;
       this.cachedMax = data_.cachedMax;
       this.writePos = data_.writePos;
@@ -397,6 +403,7 @@ export class Series<T extends TelemValue = TelemValue>
     this.key = key;
     this.alignment = alignment;
     this.alignmentMultiple = alignmentMultiple;
+    this.clock = clock;
     this.sampleOffset = sampleOffset ?? 0;
     this.timeRange = timeRange ?? TimeRange.ZERO;
     this.gl = {
@@ -667,6 +674,7 @@ export class Series<T extends TelemValue = TelemValue>
       glBufferUsage: this.gl.bufferUsage,
       alignment: this.alignment,
       alignmentMultiple: this.alignmentMultiple,
+      clock: this.clock,
     });
   }
 
@@ -1248,6 +1256,7 @@ export class Series<T extends TelemValue = TelemValue>
       glBufferUsage: this.gl.bufferUsage,
       alignment: this.alignment + BigInt(start) * this.alignmentMultiple,
       alignmentMultiple: this.alignmentMultiple,
+      clock: this.clock,
     });
   }
 
@@ -1288,6 +1297,7 @@ export class Series<T extends TelemValue = TelemValue>
       glBufferUsage: this.gl.bufferUsage,
       alignment: this.alignment,
       alignmentMultiple: this.alignmentMultiple,
+      clock: this.clock,
       key: this.key,
     });
   }
@@ -1305,6 +1315,7 @@ export class Series<T extends TelemValue = TelemValue>
       glBufferUsage: "static",
       alignment,
       alignmentMultiple: this.alignmentMultiple,
+      clock: this.clock,
     });
   }
 
