@@ -129,7 +129,7 @@ export class Feed {
       now,
       node,
     });
-    this.joins = new Joins(this.store);
+    this.joins = new Joins(this.store, instrumentation?.child("joins"));
     this.reader = new Reader({
       readRemote,
       retrieveChannels,

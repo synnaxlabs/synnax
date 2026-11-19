@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { alamos } from "@synnaxlabs/alamos";
 import { Series, TimeRange, TimeStamp } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
@@ -192,7 +193,10 @@ export class Joins {
   private readonly copies = new WeakMap<Series, Series>();
   private readonly pieces = new WeakMap<Series, Series[]>();
 
-  constructor(private readonly store: Store) {}
+  constructor(
+    private readonly store: Store,
+    private readonly instrumentation: alamos.Instrumentation = alamos.NOOP,
+  ) {}
 
   /**
    * Adds the channel and its index to the join of the index. Each new member waits for
@@ -520,7 +524,14 @@ export class Joins {
     const j = m.join;
     for (const s of series) {
       // A series on another clock has no samples of this join's index to pair with.
-      if (s.clock !== j.index) continue;
+      if (s.clock !== j.index) {
+        this.instrumentation.L.error("series on another clock than its index", {
+          channel: m.key,
+          clock: s.clock,
+          index: j.index,
+        });
+        continue;
+      }
       if (!m.joined || !j.indexMember.joined) {
         m.hold(s);
         continue;
@@ -623,5 +634,6 @@ const piece = (
     sampleOffset: sub.sampleOffset,
     timeRange: new TimeRange(start, end),
     alignment: alignmentOf(block, offset),
+    clock: s.clock,
   });
 };
