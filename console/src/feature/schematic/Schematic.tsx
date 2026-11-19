@@ -24,6 +24,7 @@ import { useHandleNodeClickAction } from "@/feature/schematic/navigate";
 import { ContextMenu } from "@/platform/context-menu";
 import { Empty } from "@/platform/empty";
 import { type Panel } from "@/platform/panel";
+import { Vis } from "@/platform/vis";
 import { Session } from "@/session";
 
 const EmptyContent = (): ReactElement => {
@@ -126,8 +127,10 @@ const Internal = (): ReactElement => {
 export const Schematic: Panel.Content = () => {
   const { key } = PlutoPanel.useTabResource();
   return (
-    <Base.Suspended schematicKey={key}>
-      <Internal />
-    </Base.Suspended>
+    <Vis.GPUBoundary name="Schematics">
+      <Base.Suspended schematicKey={key}>
+        <Internal />
+      </Base.Suspended>
+    </Vis.GPUBoundary>
   );
 };

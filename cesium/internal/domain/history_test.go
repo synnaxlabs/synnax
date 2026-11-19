@@ -74,4 +74,58 @@ var _ = Describe("OnHistoryChange", func() {
 		Expect(db.Delete(ctx, tr, fixedOffset(1), fixedOffset(2))).To(Succeed())
 		Expect(changes).To(Equal([]telem.TimeRange{tr}))
 	})
+
+	It("Should not report a delete between two domains", func(ctx SpecContext) {
+		write(ctx, 10, 20)
+		write(ctx, 30, 40)
+		tr := (22 * telem.SecondTS).Range(25 * telem.SecondTS)
+		Expect(db.Delete(ctx, tr, fixedOffset(0), fixedOffset(0))).To(Succeed())
+		Expect(changes).To(BeEmpty())
+	})
+
+	It(
+		"Should not report a delete between domains of different sizes",
+		func(ctx SpecContext) {
+			write(ctx, 10, 20)
+			tr := (30 * telem.SecondTS).Range(40 * telem.SecondTS)
+			Expect(
+				testutil.WriteDomain(ctx, db, tr, []byte{1, 2, 3, 4, 5}),
+			).To(Succeed())
+			del := (15 * telem.SecondTS).Range(30 * telem.SecondTS)
+			Expect(db.Delete(ctx, del, fixedOffset(3), fixedOffset(0))).To(Succeed())
+			Expect(changes).To(BeEmpty())
+		},
+	)
+
+	It(
+		"Should report a delete ending at a smaller domain",
+		func(ctx SpecContext) {
+			first := (10 * telem.SecondTS).Range(20 * telem.SecondTS)
+			Expect(testutil.WriteDomain(
+				ctx,
+				db,
+				first,
+				[]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9},
+			)).To(Succeed())
+			second := (30 * telem.SecondTS).Range(40 * telem.SecondTS)
+			Expect(
+				testutil.WriteDomain(ctx, db, second, []byte{1, 2, 3, 4, 5}),
+			).To(Succeed())
+			del := (15 * telem.SecondTS).Range(30 * telem.SecondTS)
+			Expect(db.Delete(ctx, del, fixedOffset(5), fixedOffset(0))).To(Succeed())
+			Expect(changes).To(Equal([]telem.TimeRange{del}))
+			i := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
+			Expect(i.SeekFirst(ctx)).To(BeTrue())
+			Expect(i.TimeRange()).To(Equal(first.Start.Range(del.Start)))
+			r := MustSucceed(i.OpenReader(ctx))
+			buf := make([]byte, 5)
+			MustSucceed(r.ReadAt(buf, 0))
+			Expect(buf).To(Equal([]byte{0, 1, 2, 3, 4}))
+			Expect(r.Close()).To(Succeed())
+			Expect(i.Next()).To(BeTrue())
+			Expect(i.TimeRange()).To(Equal(second))
+			Expect(i.Size()).To(Equal(telem.Size(5)))
+			Expect(i.Close()).To(Succeed())
+		},
+	)
 })

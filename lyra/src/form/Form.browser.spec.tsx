@@ -11,9 +11,11 @@ import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { CSS } from "@/css";
+import { Dialog } from "@/dialog";
 import { Flex } from "@/flex";
 import { Form } from "@/form";
 import { Input } from "@/input";
+import { Select } from "@/select";
 import { computed, renderThemed, resolve } from "@/styletest";
 
 const renderSections = async (
@@ -215,6 +217,38 @@ describe("Form", () => {
         expect(timeout.width).toBeGreaterThan(0);
         expect(rect("Retries").label.left).toBeGreaterThan(timeout.right);
       });
+    });
+
+    it("should keep a multiple select of many tags inside the sections", async () => {
+      const names = Array.from(
+        { length: 8 },
+        (_, i) => `sy_node_1_metrics_${i}_percent`,
+      );
+      const { container } = await renderThemed(
+        <div style={{ width: "80rem" }}>
+          <Form.Sections>
+            <Form.Section>
+              <Input.Item label="Channels">
+                <Dialog.Frame>
+                  <Select.Frame<string, undefined>
+                    multiple
+                    value={names}
+                    onChange={() => {}}
+                  >
+                    <Select.MultipleTrigger />
+                  </Select.Frame>
+                </Dialog.Frame>
+              </Input.Item>
+            </Form.Section>
+          </Form.Sections>
+        </div>,
+      );
+      const sections = container.querySelector(`.${CSS.B("form-sections")}`)!;
+      const tags = container.querySelector<HTMLElement>(`.${CSS.B("tags")}`)!;
+      await expect.poll(() => tags.hasAttribute("data-stacked")).toBe(true);
+      expect(tags.getBoundingClientRect().right).toBeLessThanOrEqual(
+        sections.getBoundingClientRect().right,
+      );
     });
   });
 

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax } from "@synnaxlabs/client";
+import { type ranger, type Synnax } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -37,7 +37,7 @@ interface OpenModalOptions {
 const openModal = async (
   params?: Range.CreateModalParams,
   { client: c = null, analytics }: OpenModalOptions = {},
-): Promise<ModalOpenerHandle<void>> => {
+): Promise<ModalOpenerHandle<Promise<ranger.Key | null>>> => {
   const handle = await renderModalOpener(Range.useCreateModal, [params ?? {}], {
     client: c,
     analytics,
@@ -64,31 +64,36 @@ describe("Range.useCreateModal", () => {
     expect(screen.getByDisplayValue("Prefilled Range")).toBeTruthy();
   });
 
-  it("should keep the modal open and add nothing when the name is empty", async () => {
-    const { store } = await openModal(
-      { timeRange: { start: 1000, end: 2000 } },
-      { client },
-    );
+  it("should keep the modal open when the name is empty", async () => {
+    await openModal({ timeRange: { start: 1000, end: 2000 } }, { client });
     await clickWhenEnabled("Create");
     expect(isOpen()).toBe(true);
-    expect(store.getState()[Session.Range.SLICE_NAME].ranges).toEqual([]);
   });
 
-  it("should create the range on the Core and favorite it", async () => {
+  it("should create the range on the Core without adding it to the favorites", async () => {
     const name = uniqueRangeName("persisted");
     const { store } = await openModal(
       { name, timeRange: { start: 1, end: 2 } },
       { client },
     );
     await clickWhenEnabled("Create");
-    await waitFor(() =>
-      expect(store.getState()[Session.Range.SLICE_NAME].ranges).toHaveLength(1),
-    );
     await waitFor(() => expect(isOpen()).toBe(false));
     await waitFor(async () => {
       const retrieved = await client.ranges.retrieve(name);
       expect(retrieved.name).toEqual(name);
     });
+    expect(store.getState()[Session.Range.SLICE_NAME].ranges).toEqual([]);
+  });
+
+  it("should resolve with the key of the range it creates", async () => {
+    const name = uniqueRangeName("prompted");
+    const { result } = await openModal(
+      { name, timeRange: { start: 1, end: 2 } },
+      { client },
+    );
+    await clickWhenEnabled("Create");
+    const key = await result();
+    expect(key).toEqual((await client.ranges.retrieve(name)).key);
   });
 
   it("should report the range it saved to the Core", async () => {
