@@ -16,7 +16,7 @@ import { remark } from "remark";
 import remarkGfm from "remark-gfm";
 import stripMarkdown from "strip-markdown";
 
-import { listReleaseNotes, RELEASE_NOTES_DIR } from "./releaseNotes.ts";
+import { listReleaseNotes, NOTES_PAGE, RELEASE_NOTES_DIR } from "./releaseNotes.ts";
 import { indexName, parse } from "./version.ts";
 
 const client = algoliasearch(
@@ -66,6 +66,13 @@ const pages = [
       `Version ${version.split(".").slice(0, 2).join(".")} release notes`,
     ),
   ),
+  {
+    filename: "releases/index.mdx",
+    href: NOTES_PAGE.route,
+    title: NOTES_PAGE.title,
+    description: NOTES_PAGE.description,
+    content: "",
+  },
 ];
 const data = await Promise.all(
   pages.map(async ({ filename, href, title, description, content }) => ({
