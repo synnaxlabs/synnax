@@ -13,6 +13,11 @@
     /* The box takes the focus, with no ring, when the opener of a view is gone. */
     outline: none;
 
+    /* A view keeps the width that the children had when it opened. */
+    &.lyra-dialog-views--viewing {
+        width: var(--pluto-dialog-views-width);
+    }
+
     /* The children stay mounted under a view, so Back finds them as they were. */
     &.lyra-dialog-views--viewing
         > :not(.lyra-dialog-views__header, .lyra-dialog-views__view) {
