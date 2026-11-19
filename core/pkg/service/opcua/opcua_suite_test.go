@@ -84,6 +84,7 @@ func openEnv(ctx SpecContext) *env {
 		DB:     e.db,
 		Secret: e.secrets,
 		Status: e.statuses,
+		Rack:   e.racks.EmbeddedKey,
 	}))
 	e.devices = MustOpen(device.OpenService(ctx, device.ServiceConfig{
 		DB:     e.db,

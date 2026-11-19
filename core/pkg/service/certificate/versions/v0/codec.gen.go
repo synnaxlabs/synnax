@@ -12,7 +12,6 @@
 package v0
 
 import (
-	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v3"
 	secret "github.com/synnaxlabs/synnax/pkg/service/secret/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
@@ -76,7 +75,6 @@ func (c Certificate) EncodeOrc(w *orc.Writer) error {
 		} else {
 			w.Bool(false)
 		}
-		w.Uint32(uint32(v.Rack))
 	default:
 		return errors.Newf("Certificate: nil or unknown variant %T", c.Variant)
 	}
@@ -148,13 +146,6 @@ func (c *Certificate) DecodeOrc(r *orc.Reader) error {
 				}
 				v.Details = &hv
 			}
-		}
-		{
-			rawV, err := r.Uint32()
-			if err != nil {
-				return err
-			}
-			v.Rack = rack.Key(rawV)
 		}
 		c.Variant = v
 	default:

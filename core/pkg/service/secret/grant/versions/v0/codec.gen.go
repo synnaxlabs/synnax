@@ -30,16 +30,6 @@ func (g Grant) EncodeOrc(w *orc.Writer) error {
 			w.Write(g.Secrets[i][:])
 		}
 	}
-	w.Bool(g.Certificates != nil)
-	if g.Certificates != nil {
-		w.Uint32(uint32(len(g.Certificates)))
-		for i := range g.Certificates {
-			w.Write(g.Certificates[i][:])
-		}
-	}
-	if err := g.Command.EncodeOrc(w); err != nil {
-		return err
-	}
 	w.Int64(int64(g.ExpiresAt))
 	return nil
 }
@@ -70,27 +60,6 @@ func (g *Grant) DecodeOrc(r *orc.Reader) error {
 				}
 			}
 		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			g.Certificates = make([]uuid.UUID, n)
-			for i := range g.Certificates {
-				if _, err := r.Read(g.Certificates[i][:]); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	if err = g.Command.DecodeOrc(r); err != nil {
-		return err
 	}
 	{
 		rawV, err := r.Int64()

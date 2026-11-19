@@ -18,7 +18,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate/versions/v0"
-	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v3"
 	secret "github.com/synnaxlabs/synnax/pkg/service/secret/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
@@ -46,10 +45,6 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", fullyPopulatedBase),
 			Entry("zero values", v0.Base{Key: uuid.Nil(), Name: ""}),
-			Entry("empty collections", v0.Base{
-				Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-				Name: "test_2",
-			}),
 		)
 	})
 	Describe("Certificate", func() {
@@ -88,7 +83,6 @@ var _ = Describe("Codec", func() {
 					Sha1:      "test_8",
 					Sha256:    "test_9",
 				}),
-				Rack: rack.Key(11),
 			}}),
 		)
 	})
@@ -210,17 +204,6 @@ func FuzzDecodeBase(f *testing.F) {
 		}
 		f.Add(w.Bytes())
 	}
-	{
-		seed := v0.Base{
-			Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-			Name: "test_2",
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
 	f.Fuzz(func(t *testing.T, data []byte) {
 		var decoded v0.Base
 		r := orc.NewReader(nil)
@@ -277,7 +260,6 @@ func FuzzDecodeCertificate(f *testing.F) {
 				Sha1:      "test_8",
 				Sha256:    "test_9",
 			}),
-			Rack: rack.Key(11),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

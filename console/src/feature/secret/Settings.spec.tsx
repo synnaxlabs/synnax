@@ -86,6 +86,31 @@ const createCertificate = async () => {
   return { certificate: c, privateKey: await client.secrets.retrieve(c.privateKey) };
 };
 
+/** Creates a PagerDuty alert task, which makes the secret of its routing key used. */
+const createAlertTask = async (routingKey: secret.Key, name = uniqueName("alerts")) => {
+  // The Core refuses an alert that names a status it does not hold.
+  const st = await client.statuses.set({
+    key: uniqueName("status"),
+    name: "st",
+    variant: "info",
+    message: "st",
+  });
+  const t = await client.tasks.create(
+    {
+      name,
+      type: PagerDuty.Task.ALERT_TYPE,
+      config: {
+        ...PagerDuty.Task.ALERT_SCHEMAS.config.parse({}),
+        routingKey,
+        alerts: [{ ...pagerduty.alertZ.parse({}), key: "a1", status: st.key }],
+      },
+    },
+    PagerDuty.Task.ALERT_SCHEMAS,
+  );
+  createdTasks.push(t.key);
+  return t;
+};
+
 const renderPage = async (
   page: ReactElement,
   as: Client = client,
@@ -305,26 +330,7 @@ describe("Secret.Secrets", () => {
 
   it("opens a task that uses a secret from its users", async () => {
     const s = await createSecret(client, createdSecrets);
-    // The Core refuses an alert that names a status it does not hold.
-    const st = await client.statuses.set({
-      key: uniqueName("status"),
-      name: "st",
-      variant: "info",
-      message: "st",
-    });
-    const t = await client.tasks.create(
-      {
-        name: uniqueName("alerts"),
-        type: PagerDuty.Task.ALERT_TYPE,
-        config: {
-          ...PagerDuty.Task.ALERT_SCHEMAS.config.parse({}),
-          routingKey: s.key,
-          alerts: [{ ...pagerduty.alertZ.parse({}), key: "a1", status: st.key }],
-        },
-      },
-      PagerDuty.Task.ALERT_SCHEMAS,
-    );
-    createdTasks.push(t.key);
+    const t = await createAlertTask(s.key);
     const { store } = await renderSecrets(client, {
       ...Secret.TREE_ITEMS,
       ...Task.TREE_ITEMS,
@@ -340,6 +346,23 @@ describe("Secret.Secrets", () => {
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
     expect(tab.resource).toEqual(task.resourceID(t.key));
+  });
+
+  it("lists the users of a secret by name", async () => {
+    const s = await createSecret(client, createdSecrets);
+    const base = uniqueName("alerts");
+    const names = ["a", "b", "c", "d"].map((n) => `${base} ${n}`);
+    // The Core returns uses in no fixed order.
+    for (const name of names.toReversed()) await createAlertTask(s.key, name);
+    await renderSecrets();
+    const count = await waitFor(() => within(getOption(s.name)).getByText("Used by 4"));
+    await act(async () => {
+      fireEvent.click(count);
+    });
+    const dialog = within(await screen.findByRole("dialog"));
+    await dialog.findByText(names[0]);
+    const listed = dialog.getAllByText((text) => text.startsWith(base));
+    expect(listed.map((el) => el.textContent)).toEqual(names);
   });
 
   it("deletes every selected secret after confirmation", async () => {

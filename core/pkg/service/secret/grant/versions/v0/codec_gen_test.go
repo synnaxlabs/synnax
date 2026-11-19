@@ -19,8 +19,6 @@ import (
 	. "github.com/onsi/gomega"
 	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/secret/grant/versions/v0"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v4"
-	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/testutil"
@@ -39,49 +37,22 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v0.Grant{
-				Key:          uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-				Subject:      resource.ID{Type: resource.Type("arc"), Key: "test_4"},
-				Secrets:      []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805")},
-				Certificates: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806")},
-				Command: task.Command{
-					Task:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
-					Type:       "test_9",
-					Key:        "test_10",
-					ConfigHash: "test_11",
-					Args:       msgpack.EncodedJSON{"key_12": "value_12"},
-					Pinned:     true,
-				},
-				ExpiresAt: telem.TimeStamp(15),
+				Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Subject:   resource.ID{Type: resource.Type("arc"), Key: "test_4"},
+				Secrets:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805")},
+				ExpiresAt: telem.TimeStamp(7),
 			}),
 			Entry("zero values", v0.Grant{
-				Key:          uuid.Nil(),
-				Subject:      resource.ID{Type: resource.Type(""), Key: ""},
-				Secrets:      []uuid.UUID{},
-				Certificates: []uuid.UUID{},
-				Command: task.Command{
-					Task:       uuid.Nil(),
-					Type:       "",
-					Key:        "",
-					ConfigHash: "",
-					Args:       msgpack.EncodedJSON{},
-					Pinned:     false,
-				},
+				Key:       uuid.Nil(),
+				Subject:   resource.ID{Type: resource.Type(""), Key: ""},
+				Secrets:   []uuid.UUID{},
 				ExpiresAt: telem.TimeStamp(0),
 			}),
 			Entry("empty collections", v0.Grant{
-				Key:          uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-				Subject:      resource.ID{Type: resource.Type("arc"), Key: "test_4"},
-				Secrets:      []uuid.UUID{},
-				Certificates: []uuid.UUID{},
-				Command: task.Command{
-					Task:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
-					Type:       "test_9",
-					Key:        "test_10",
-					ConfigHash: "test_11",
-					Args:       msgpack.EncodedJSON{"key_12": "value_12"},
-					Pinned:     true,
-				},
-				ExpiresAt: telem.TimeStamp(15),
+				Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Subject:   resource.ID{Type: resource.Type("arc"), Key: "test_4"},
+				Secrets:   []uuid.UUID{},
+				ExpiresAt: telem.TimeStamp(7),
 			}),
 		)
 	})
@@ -89,19 +60,10 @@ var _ = Describe("Codec", func() {
 
 func BenchmarkEncodeDecodeGrant(b *testing.B) {
 	seed := v0.Grant{
-		Key:          uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-		Subject:      resource.ID{Type: resource.Type("arc"), Key: "test_4"},
-		Secrets:      []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805")},
-		Certificates: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806")},
-		Command: task.Command{
-			Task:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
-			Type:       "test_9",
-			Key:        "test_10",
-			ConfigHash: "test_11",
-			Args:       msgpack.EncodedJSON{"key_12": "value_12"},
-			Pinned:     true,
-		},
-		ExpiresAt: telem.TimeStamp(15),
+		Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		Subject:   resource.ID{Type: resource.Type("arc"), Key: "test_4"},
+		Secrets:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805")},
+		ExpiresAt: telem.TimeStamp(7),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -121,19 +83,10 @@ func BenchmarkEncodeDecodeGrant(b *testing.B) {
 func FuzzDecodeGrant(f *testing.F) {
 	{
 		seed := v0.Grant{
-			Key:          uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-			Subject:      resource.ID{Type: resource.Type("arc"), Key: "test_4"},
-			Secrets:      []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805")},
-			Certificates: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806")},
-			Command: task.Command{
-				Task:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
-				Type:       "test_9",
-				Key:        "test_10",
-				ConfigHash: "test_11",
-				Args:       msgpack.EncodedJSON{"key_12": "value_12"},
-				Pinned:     true,
-			},
-			ExpiresAt: telem.TimeStamp(15),
+			Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Subject:   resource.ID{Type: resource.Type("arc"), Key: "test_4"},
+			Secrets:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805")},
+			ExpiresAt: telem.TimeStamp(7),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -143,18 +96,9 @@ func FuzzDecodeGrant(f *testing.F) {
 	}
 	{
 		seed := v0.Grant{
-			Key:          uuid.Nil(),
-			Subject:      resource.ID{Type: resource.Type(""), Key: ""},
-			Secrets:      []uuid.UUID{},
-			Certificates: []uuid.UUID{},
-			Command: task.Command{
-				Task:       uuid.Nil(),
-				Type:       "",
-				Key:        "",
-				ConfigHash: "",
-				Args:       msgpack.EncodedJSON{},
-				Pinned:     false,
-			},
+			Key:       uuid.Nil(),
+			Subject:   resource.ID{Type: resource.Type(""), Key: ""},
+			Secrets:   []uuid.UUID{},
 			ExpiresAt: telem.TimeStamp(0),
 		}
 		w := orc.NewWriter(0)
@@ -165,19 +109,10 @@ func FuzzDecodeGrant(f *testing.F) {
 	}
 	{
 		seed := v0.Grant{
-			Key:          uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-			Subject:      resource.ID{Type: resource.Type("arc"), Key: "test_4"},
-			Secrets:      []uuid.UUID{},
-			Certificates: []uuid.UUID{},
-			Command: task.Command{
-				Task:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
-				Type:       "test_9",
-				Key:        "test_10",
-				ConfigHash: "test_11",
-				Args:       msgpack.EncodedJSON{"key_12": "value_12"},
-				Pinned:     true,
-			},
-			ExpiresAt: telem.TimeStamp(15),
+			Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Subject:   resource.ID{Type: resource.Type("arc"), Key: "test_4"},
+			Secrets:   []uuid.UUID{},
+			ExpiresAt: telem.TimeStamp(7),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

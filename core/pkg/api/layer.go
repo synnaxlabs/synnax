@@ -20,7 +20,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/alamos"
-	fgorp "github.com/synnaxlabs/freighter/gorp"
 	"github.com/synnaxlabs/freighter/recovery"
 	"github.com/synnaxlabs/synnax/pkg/api/access/policy"
 	"github.com/synnaxlabs/synnax/pkg/api/access/role"
@@ -685,7 +684,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.FrameIterator.BindHandler(l.Framer.Iterate)
 	t.FrameStreamer.BindHandler(l.Framer.Stream)
 	// Frame delete changes Cesium data, not Gorp records, so it checks its own access.
-	t.FrameDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Framer.Delete))
+	t.FrameDelete.BindHandler(bind.WriteUnchecked(db, l.Framer.Delete))
 	t.FrameRead.BindHandler(l.Framer.Read)
 
 	// CONTROL
@@ -868,7 +867,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.SecretDelete.BindHandler(bind.Write(l.binder, l.Secret.Delete))
 	t.SecretDispatch.BindHandler(bind.Write(l.binder, l.Secret.Dispatch))
 	t.SecretGrantCreate.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Secret.CreateGrant),
+		bind.WriteUnchecked(db, l.Secret.CreateGrant),
 	)
 	t.SecretResolve.BindHandler(l.Secret.Resolve)
 
@@ -878,7 +877,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.CertificateDelete.BindHandler(bind.Write(l.binder, l.Certificate.Delete))
 	t.CertificateDispatch.BindHandler(bind.Write(l.binder, l.Certificate.Dispatch))
 	t.CertificateRefresh.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Certificate.Refresh),
+		bind.WriteUnchecked(db, l.Certificate.Refresh),
 	)
 
 	// ARC

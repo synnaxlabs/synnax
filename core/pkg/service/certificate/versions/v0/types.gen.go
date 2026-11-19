@@ -16,8 +16,6 @@ import (
 	"encoding/json/v2"
 	"uuid"
 
-	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v3"
-	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 	secret "github.com/synnaxlabs/synnax/pkg/service/secret/versions/v0"
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
@@ -49,9 +47,6 @@ type Base struct {
 	Key Key `json:"key" msgpack:"key"`
 	// Name is a human-readable name for the certificate.
 	Name string `json:"name" msgpack:"name"`
-	// Uses are the resources that use the certificate and that the caller can read,
-	// filled only when a retrieve request asks for them.
-	Uses []resource.ID `json:"uses,omitzero" msgpack:"uses,omitempty"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -98,8 +93,6 @@ type FileCertificate struct {
 	PrivateKeyFile *string `json:"private_key_file,omitzero" msgpack:"private_key_file,omitempty"`
 	// Details describes the leaf, as the file browser read it.
 	Details *Details `json:"details,omitzero" msgpack:"details,omitempty"`
-	// Rack is the rack that reads the files.
-	Rack rack.Key `json:"rack" msgpack:"rack"`
 }
 
 func (FileCertificate) isCertificateVariant() {}
@@ -108,7 +101,6 @@ func (FileCertificate) isCertificateVariant() {}
 // schema constraints.
 func (f FileCertificate) Validate() error {
 	v := validate.New("FileCertificate")
-	v.NonZero("rack", f.Rack)
 	v.Exec(f.Base.Validate)
 	return v.Error()
 }
