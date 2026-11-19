@@ -672,13 +672,14 @@ describe("Kafka read form", () => {
     it("should show the hint above the fields and count the picks below", async () => {
       const { dev } = await renderRead();
       const dialog = await openAddData(dev, { data: sampleOf(OVEN_SHAPE) });
-      await dialog.findByText(
+      const temperature = await dialog.findByRole("checkbox", {
+        name: "Record /temperature",
+      });
+      dialog.getByText(
         "Select the fields to read. Records that hold the same fields share a message.",
       );
       expect(dialog.queryByText(/selected$/)).toBeNull();
-      fireEvent.click(
-        await dialog.findByRole("checkbox", { name: "Record /temperature" }),
-      );
+      fireEvent.click(temperature);
       await dialog.findByText("1 field selected");
     });
 
