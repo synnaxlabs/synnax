@@ -18,6 +18,7 @@ import { Haul } from "@synnaxlabs/lyra/haul";
 import { fireDragEvent } from "@synnaxlabs/lyra/testutil";
 import { Mosaic, Panel as PPanel } from "@synnaxlabs/pluto";
 import { color, uuid } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import {
   act,
   fireEvent,
@@ -47,7 +48,6 @@ import {
   getIconButton,
   HaulProvider,
   type TestStore,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();
