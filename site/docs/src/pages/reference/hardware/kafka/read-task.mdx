@@ -165,8 +165,8 @@ The **Source** of a message sets the timestamps of its samples:
   default.
 - **A timestamp field** -> a time in the JSON value, at the pointer of a timestamp field
   of the message, in the time format of that field: ISO 8601, or Unix time in seconds,
-  milliseconds, microseconds, or nanoseconds. The field is bound to the index channel of
-  the message.
+  milliseconds, microseconds, or nanoseconds. The task writes the value to the index
+  channel of the message.
 
 Timestamps in an index channel must increase. A topic with more than one partition can
 deliver records out of time order, so the task skips a record that is not after the last
