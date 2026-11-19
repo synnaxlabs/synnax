@@ -455,7 +455,7 @@ export class Table<
     fetched = false,
   ): destructor.Destructor | undefined {
     const prev = this.base(key);
-    const next = state.executeSetter(value, prev);
+    const next = state.resolve(value, prev);
     if (next == null) return undefined;
     // A fetch reads what the Core holds: a record new to the table is no change there.
     const discovered = fetched && this.status(key) === "unknown";
