@@ -24,6 +24,7 @@ import {
   pressSaveTrigger,
   renderModalOpener,
 } from "@/platform/modals/testutil";
+import { findOption } from "@/platform/picker/testutil";
 import {
   answerCommand,
   answerNextCommand,
@@ -801,16 +802,8 @@ describe("OPCUA.Device.useConnectModal", () => {
       target: { value: "operator" },
     });
     fireEvent.click(await findDialogTriggerByText("No secret"));
-    // The list pages, so a search finds the secret however many the Core holds. The
-    // create option names the search too, so the match skips it.
-    fireEvent.change(await screen.findByPlaceholderText("Search secrets..."), {
-      target: { value: password.name },
-    });
-    fireEvent.click(
-      await screen.findByRole("option", {
-        name: (shown) => shown.includes(password.name) && !shown.startsWith("Create "),
-      }),
-    );
+    // The list pages, so a search finds the secret however many the Core holds.
+    fireEvent.click(await findOption("secret", password.name));
     const { answered } = await answerNextCommand(client, scan, TEST_CONNECTION);
     pressSaveTrigger();
     expect((await answered).args).toEqual({ grant: expect.any(String) });
