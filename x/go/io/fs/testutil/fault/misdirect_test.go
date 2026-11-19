@@ -79,6 +79,19 @@ var _ = Describe("Misdirected reads", func() {
 		Expect(got[:1]).ToNot(Equal("b"))
 	})
 
+	It("Should misdirect a Read as well, and read zeros past a short block", func() {
+		base := MustSucceed(fault.New(fault.Config{}))
+		save(base, "f.bin", strings.Repeat("a", blockSize))
+		save(base, "g.bin", "tacocat")
+		Expect(base.SyncDir("")).To(Succeed())
+		fs := MustSucceed(base.Crash(fault.CrashConfig{Image: always}))
+		f := MustOpen(fs.Open("f.bin", os.O_RDONLY))
+		buf := make([]byte, blockSize)
+		Expect(f.Read(buf)).To(Equal(blockSize))
+		Expect(string(buf)).
+			To(Equal("tacocat" + strings.Repeat("\x00", blockSize-7)))
+	})
+
 	It("Should leave the read of a disk with one block as it is", func() {
 		base := MustSucceed(fault.New(fault.Config{}))
 		save(base, "f.bin", "tacocat")

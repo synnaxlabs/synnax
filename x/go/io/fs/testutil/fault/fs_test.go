@@ -104,6 +104,12 @@ var _ = Describe("FS", func() {
 			Expect(fs.List("a")).To(BeEmpty())
 		})
 
+		It("Should not grow a file on an empty write past its end", func() {
+			f := MustOpen(fs.Open("f.txt", os.O_CREATE|os.O_WRONLY))
+			Expect(f.WriteAt(nil, 100)).To(BeZero())
+			Expect(MustSucceed(f.Stat()).Size()).To(BeZero())
+		})
+
 		DescribeTable("Should fail a negative offset or size",
 			func(call func(f xfs.File) error) {
 				f := MustOpen(fs.Open("f.txt", os.O_CREATE|os.O_RDWR))

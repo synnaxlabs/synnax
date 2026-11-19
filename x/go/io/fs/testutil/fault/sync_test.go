@@ -70,6 +70,18 @@ var _ = Describe("Sync errors", func() {
 		Expect(fs.SyncDir("")).To(Succeed())
 	})
 
+	It("Should not fail a Sync after a Sync made the changes durable", func() {
+		fs := faulty(fault.Config{SyncErrorRate: 0.5})
+		f := MustOpen(fs.Open("f.txt", os.O_WRONLY))
+		Eventually(func() error {
+			Expect(f.WriteAt([]byte("burrito"), 0)).To(Equal(7))
+			return f.Sync()
+		}).Should(Succeed())
+		for range 64 {
+			Expect(f.Sync()).To(Succeed())
+		}
+	})
+
 	It("Should fail a SyncDir and keep its changes for the next one", func() {
 		fs := faulty(always)
 		write(fs, "g.txt", "burrito")

@@ -35,9 +35,6 @@ func (d *disk) misdirect(p []byte, n *node, path string, off int64) {
 	for _, f := range files {
 		others += blockCount(f)
 	}
-	if others < 1 {
-		return
-	}
 	source := int64(
 		draw(d.cfg.RunKey, drawMisdirectSource, file, at, nth) * float64(others),
 	)

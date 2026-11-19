@@ -207,6 +207,16 @@ var _ = Describe("Crash", func() {
 			Expect(kept).To(And(BeNumerically(">", 0), BeNumerically("<", blocks)))
 		})
 
+		It("Should decide the blocks of each file apart", func() {
+			overwrite()
+			save(fs, "g.bin", strings.Repeat("a", size))
+			Expect(fs.SyncDir("")).To(Succeed())
+			g := MustOpen(fs.Open("g.bin", os.O_WRONLY))
+			Expect(g.WriteAt(bytes.Repeat([]byte("b"), size), 0)).To(Equal(size))
+			image := MustSucceed(fs.Crash(fault.CrashConfig{DataSurvivalRate: 0.5}))
+			Expect(read(image, "g.bin")).ToNot(Equal(read(image, "f.bin")))
+		})
+
 		It("Should fix the image by the run key", func() {
 			overwrite()
 			cfg := fault.CrashConfig{RunKey: 1, DataSurvivalRate: 0.5, TornRate: 0.5}

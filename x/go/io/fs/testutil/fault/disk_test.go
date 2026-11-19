@@ -78,6 +78,33 @@ var _ = Describe("Full disk", func() {
 		Entry("after an open that truncates", func() { write(fs, "f.txt", "ta") }),
 	)
 
+	Describe("A disk that a crash leaves", func() {
+		It("Should write over the bytes of a file when it is past its space", func() {
+			Expect(f.Sync()).To(Succeed())
+			Expect(fs.SyncDir("")).To(Succeed())
+			cfg := fault.CrashConfig{Image: fault.Config{Capacity: 4}}
+			image := MustSucceed(fs.Crash(cfg))
+			g := MustOpen(image.Open("f.txt", os.O_WRONLY))
+			n, err := g.WriteAt([]byte("burritos"), 0)
+			Expect(err).To(MatchError(syscall.ENOSPC))
+			Expect(n).To(Equal(7))
+			Expect(read(image, "f.txt")).To(Equal("burrito"))
+		})
+
+		It("Should count a file with two names once", func() {
+			MustSucceed(fs.Sub("a"))
+			Expect(f.Sync()).To(Succeed())
+			Expect(fs.SyncDir("")).To(Succeed())
+			Expect(fs.Rename("f.txt", "a/f.txt")).To(Succeed())
+			Expect(fs.SyncDir("a")).To(Succeed())
+			cfg := fault.CrashConfig{Image: fault.Config{Capacity: 10}}
+			image := MustSucceed(fs.Crash(cfg))
+			Expect(read(image, "f.txt")).To(Equal(read(image, "a/f.txt")))
+			g := MustOpen(image.Open("g.txt", os.O_CREATE|os.O_WRONLY))
+			Expect(g.Write([]byte("cat"))).To(Equal(3))
+		})
+	})
+
 	It("Should fail New for a capacity under zero", func() {
 		Expect(fault.New(fault.Config{Capacity: -1})).Error().
 			To(MatchError(validate.ErrValidation))
