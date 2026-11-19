@@ -59,7 +59,8 @@ export const createFormSchema = label.labelZ.partial({ key: true });
 
 export const createFormPath = deep.path<z.infer<typeof createFormSchema>>();
 
-const ZERO_CREATE_FORM_VALUES: z.infer<typeof createFormSchema> = {
+/** The values a label create form starts with. */
+export const ZERO_CREATE_FORM_VALUES: z.infer<typeof createFormSchema> = {
   name: "",
   color: color.construct("#000000"),
 };

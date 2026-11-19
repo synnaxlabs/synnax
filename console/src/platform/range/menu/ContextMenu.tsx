@@ -175,7 +175,7 @@ export const ContextMenu = ({
           itemKey="startChild"
           onClick={() =>
             onStartChild == null
-              ? openCreate({ parent: single.key })
+              ? void openCreate({ parent: single.key })
               : onStartChild(single)
           }
         >

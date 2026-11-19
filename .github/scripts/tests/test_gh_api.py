@@ -82,6 +82,20 @@ class TestGhAPI:
         assert result.stderr == "gh: Not Found (HTTP 404)\n"
         assert len(gh.calls()) == 1
 
+    def test_keeps_an_error_body_out_of_stdout(self, tmp_path: Path) -> None:
+        """Should print the body of a failed call to stderr, not stdout."""
+        body = '{"message":"API rate limit exceeded for installation"}'
+        fake = tmp_path / "gh"
+        fake.write_text(f"#!/bin/sh\necho '{body}'\necho 'gh: limit' >&2\nexit 1\n")
+        fake.chmod(0o755)
+        env = {**os.environ, "PATH": f"{tmp_path}:{os.environ['PATH']}"}
+        result = subprocess.run(
+            [str(SCRIPT), "repos/a/b/pulls/7"], env=env, capture_output=True, text=True
+        )
+        assert result.returncode == 1
+        assert result.stdout == ""
+        assert result.stderr == f"{body}\ngh: limit\n"
+
     @pytest.mark.parametrize(
         "error",
         [

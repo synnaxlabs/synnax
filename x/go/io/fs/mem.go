@@ -53,6 +53,9 @@ func (y *MemFS) Open(fullName string, flag int) (File, error) {
 			if flag&os.O_CREATE != 0 && flag&os.O_EXCL != 0 {
 				return errors.New("memfs: file already exists with O_EXCL")
 			}
+			if n.isDir && flag&(os.O_WRONLY|os.O_RDWR) != 0 {
+				return &os.PathError{Op: "open", Path: fullName, Err: syscall.EISDIR}
+			}
 
 			if flag&os.O_TRUNC != 0 {
 				n.mu.Lock()
@@ -350,6 +353,7 @@ func (y *MemFS) walkLocked(
 	for len(fullname) > 0 && fullname[0] == sep[0] {
 		fullname = fullname[1:]
 	}
+	fullname = dropDots(fullname)
 	dir := y.root
 
 	for {
@@ -361,10 +365,6 @@ func (y *MemFS) walkLocked(
 			for len(remaining) > 0 && remaining[0] == sep[0] {
 				remaining = remaining[1:]
 			}
-		}
-		if !final && frag == "." {
-			fullname = remaining
-			continue
 		}
 		if err := f(dir, frag, final); err != nil {
 			return err
@@ -386,6 +386,20 @@ func (y *MemFS) walkLocked(
 		dir, fullname = child, remaining
 	}
 	return nil
+}
+
+// dropDots removes each "." element from name. Such an element names the directory that
+// holds it.
+func dropDots(name string) string {
+	if name != "." && !strings.HasPrefix(name, "./") &&
+		!strings.HasSuffix(name, "/.") && !strings.Contains(name, "/./") {
+		return name
+	}
+	elems := slices.DeleteFunc(
+		strings.Split(name, sep),
+		func(elem string) bool { return elem == "." },
+	)
+	return strings.Join(elems, sep)
 }
 
 // memFile is a reader or writer of a node's data, and implements File.
