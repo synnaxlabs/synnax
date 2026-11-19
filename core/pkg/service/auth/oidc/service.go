@@ -14,7 +14,9 @@ package oidc
 
 import (
 	"context"
+	"net/http"
 	"sync"
+	"time"
 	"uuid"
 
 	gooidc "github.com/coreos/go-oidc/v3/oidc"
@@ -32,6 +34,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"golang.org/x/oauth2"
+	"golang.org/x/sync/singleflight"
 )
 
 // Provider is an OpenID Connect provider that the Core accepts logins from.
@@ -114,26 +117,57 @@ type Service struct {
 
 var _ auth.Authenticator = (*Service)(nil)
 
+// discoveryTimeout bounds one read of a provider's discovery document.
+const discoveryTimeout = 10 * time.Second
+
 // provider reads its discovery document on first use, so a provider that is down when
-// the Core starts does not stop the Core.
+// the Core starts does not stop the Core. Concurrent logins share one read, and a
+// failed read is retried by the next login.
 type provider struct {
 	Provider
+	reads      singleflight.Group
 	mu         sync.Mutex
 	discovered *gooidc.Provider
 }
 
-func (p *provider) discover(ctx context.Context) (*gooidc.Provider, error) {
+func (p *provider) cached() *gooidc.Provider {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if p.discovered != nil {
-		return p.discovered, nil
+	return p.discovered
+}
+
+func (p *provider) discover(ctx context.Context) (*gooidc.Provider, error) {
+	if d := p.cached(); d != nil {
+		return d, nil
 	}
-	discovered, err := gooidc.NewProvider(ctx, p.Issuer)
-	if err != nil {
-		return nil, errors.Wrapf(err, "discover provider %q", p.Name)
+	read := p.reads.DoChan("", func() (any, error) {
+		readCtx, cancel := context.WithTimeout(
+			context.WithoutCancel(ctx),
+			discoveryTimeout,
+		)
+		defer cancel()
+		readCtx = gooidc.ClientContext(
+			readCtx,
+			&http.Client{Timeout: discoveryTimeout},
+		)
+		d, err := gooidc.NewProvider(readCtx, p.Issuer)
+		if err != nil {
+			return nil, errors.Wrapf(err, "discover provider %q", p.Name)
+		}
+		p.mu.Lock()
+		defer p.mu.Unlock()
+		p.discovered = d
+		return nil, nil
+	})
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case res := <-read:
+		if res.Err != nil {
+			return nil, res.Err
+		}
+		return p.cached(), nil
 	}
-	p.discovered = discovered
-	return discovered, nil
 }
 
 // OpenService opens a [Service] with the given configurations.
@@ -281,14 +315,28 @@ func (s *Service) Authenticate(
 	return auth.Identity{Subject: link.Subject, Credential: link.Key}, nil
 }
 
-// Version implements [auth.Authenticator]. A link keeps one version for life.
+// Version implements [auth.Authenticator]. A link keeps one version for life. A link
+// whose provider is not in the config is not found, so its sessions end.
 func (s *Service) Version(
 	ctx context.Context,
 	snap gorp.Snapshot,
 	credential uuid.UUID,
 ) (telem.TimeStamp, error) {
 	var link Link
-	return 0, s.NewRetrieve().Where(MatchKeys(credential)).Entry(&link).Exec(ctx, snap)
+	if err := s.NewRetrieve().
+		Where(MatchKeys(credential)).
+		Entry(&link).
+		Exec(ctx, snap); err != nil {
+		return 0, err
+	}
+	if _, ok := s.providers[link.Provider]; !ok {
+		return 0, errors.Wrapf(
+			query.ErrNotFound,
+			"provider %q is not in the config",
+			link.Provider,
+		)
+	}
+	return 0, nil
 }
 
 func (s *Service) createUser(
