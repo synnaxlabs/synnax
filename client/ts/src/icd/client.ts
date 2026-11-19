@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, caseconv, errors, zod } from "@synnaxlabs/x";
+import { array, caseconv, errors, strings, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
@@ -63,7 +63,7 @@ const checkResZ = z.object({ problems: errors.payloadZ.array() });
  */
 const issueMessage = (issue: z.core.$ZodIssue): string => {
   const name = issue.path.findLast((p) => typeof p === "string") ?? "";
-  const field = caseconv.toSentence(name).toLowerCase();
+  const field = strings.toSentence(name).toLowerCase();
   if (issue.code === "too_small")
     return issue.origin === "string"
       ? `${field} is required`

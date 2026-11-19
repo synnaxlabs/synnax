@@ -130,8 +130,10 @@ const TableControls = (): ReactElement => {
 export const Table: Panel.Content = () => {
   const { key } = PPanel.useTabResource();
   return (
-    <Base.Suspended tableKey={key}>
-      <Internal />
-    </Base.Suspended>
+    <Vis.GPUBoundary name="Tables">
+      <Base.Suspended tableKey={key}>
+        <Internal />
+      </Base.Suspended>
+    </Vis.GPUBoundary>
   );
 };

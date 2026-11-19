@@ -32,15 +32,19 @@ const WINDOW_PROPS: Record<string, unknown> = {
 describe("TauriRuntime", () => {
   let created: Record<string, unknown> | undefined;
   let commands: string[];
+  let createError: string | undefined;
   let responses: Record<string, unknown>;
   beforeEach(() => {
     created = undefined;
     commands = [];
+    createError = undefined;
     responses = { ...WINDOW_PROPS };
     mockWindows("main");
     mockIPC(
       (cmd, args) => {
         commands.push(cmd);
+        if (cmd === "plugin:webview|create_webview_window" && createError != null)
+          throw new Error(createError);
         if (cmd === "plugin:webview|create_webview_window")
           created = (args as { options: Record<string, unknown> }).options;
         return responses[cmd] ?? null;
@@ -68,6 +72,12 @@ describe("TauriRuntime", () => {
       expect(created?.trafficLightPosition).toBeUndefined();
     });
 
+    it("should reject when Tauri fails to create the window", async () => {
+      createError = "a webview with label `child` already exists";
+      const runtime = new TauriRuntime();
+      await expect(runtime.create("child", {})).rejects.toThrow();
+    });
+
     it("should move a window off a HiDPI monitor back to the origin", async () => {
       const area = { position: { x: 0, y: 0 }, size: { width: 2000, height: 1000 } };
       // 2000 physical pixels at a scale of 2 span 1000 logical pixels.
@@ -86,7 +96,7 @@ describe("TauriRuntime", () => {
         beforeClose: async (label) => {
           // A timer fires after every pending microtask, so a close that does not
           // wait for the hook destroys the window first.
-          await scheduler.flushTaskQueue();
+          await scheduler.nextTask();
           commands.push(`before close ${label}`);
         },
       });
