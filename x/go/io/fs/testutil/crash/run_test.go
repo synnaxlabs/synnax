@@ -11,6 +11,7 @@ package crash_test
 
 import (
 	"context"
+	"slices"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -270,6 +271,32 @@ var _ = Describe("Run", func() {
 			},
 		)
 
+		It("Should list the violations in the order of their events, and return the "+
+			"earliest", func(ctx SpecContext) {
+			result, err := crash.Run(ctx, crash.Config{
+				Open: func(ctx context.Context, fs xfs.FS) (crash.Engine, error) {
+					e, err := openPlainLog(plainOpts{})(ctx, fs)
+					if err != nil {
+						return nil, err
+					}
+					return dropFirst{Engine: e}, nil
+				},
+				Commits:    4,
+				Stride:     1,
+				Profile:    crash.Strict,
+				Exhaustive: true,
+			})
+			var v *crash.Violation
+			Expect(errors.As(err, &v)).To(BeTrue(), "no violation: %v", err)
+			Expect(v.Event).To(BeZero())
+			Expect(result.Violations[0]).To(Equal(*v))
+			Expect(
+				slices.IsSortedFunc(result.Violations, func(a, b crash.Violation) int {
+					return a.Event - b.Event
+				}),
+			).To(BeTrue())
+		})
+
 		It("Should list no violation in a run that is not exhaustive",
 			func(ctx SpecContext) {
 				result, _, err := runAudited(ctx, errors.New("taco"), always)
@@ -353,6 +380,17 @@ func runAudited(
 		Profile: crash.Strict,
 	})
 	return result, calls, runErr
+}
+
+// dropFirst is an engine whose every read loses its first record.
+type dropFirst struct{ crash.Engine }
+
+func (d dropFirst) Recovered(ctx context.Context) ([]crash.Record, error) {
+	records, err := d.Engine.Recovered(ctx)
+	if len(records) > 0 {
+		records = records[1:]
+	}
+	return records, err
 }
 
 // always fails each call of Audit.
