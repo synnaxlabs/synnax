@@ -13,12 +13,14 @@ import (
 	"io"
 	"math/bits"
 	"os"
+	"strings"
 	"syscall"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/io/fs/testutil/fault"
+	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -144,6 +146,36 @@ var _ = Describe("Read corruption", func() {
 		}
 		Expect(f.ReadAt(buf[:3], 4)).To(Equal(3))
 		Expect(flipped(buf[:3], "cat")).To(BeZero())
+	})
+
+	It("Should give no fault to a read over a block that gave one before", func() {
+		fs := MustSucceed(fault.New(fault.Config{ReadCorruptionRate: 1}))
+		whole := strings.Repeat("a", 2*4096)
+		write(fs, "f.bin", whole)
+		f := MustOpen(fs.Open("f.bin", os.O_RDONLY))
+		buf := make([]byte, 4096)
+		Expect(f.ReadAt(buf, 4096)).To(Equal(4096))
+		Expect(flipped(buf, whole[4096:])).To(Equal(1))
+		buf = make([]byte, 2*4096)
+		Expect(f.ReadAt(buf, 0)).To(Equal(2 * 4096))
+		Expect(flipped(buf, whole)).To(BeZero())
+	})
+
+	It("Should draw again for each read of a place that gave no fault", func() {
+		firsts := set.Set[int]{}
+		for runKey := range uint64(32) {
+			cfg := fault.Config{RunKey: runKey, ReadCorruptionRate: 0.5}
+			f := MustOpen(faulty(cfg).Open("f.txt", os.O_RDONLY))
+			buf := make([]byte, 7)
+			for i := range 8 {
+				Expect(f.ReadAt(buf, 0)).To(Equal(7))
+				if flipped(buf, "tacocat") == 1 {
+					firsts.Add(i)
+					break
+				}
+			}
+		}
+		Expect(len(firsts)).To(BeNumerically(">", 2))
 	})
 
 	It("Should fix the reads that it corrupts by the run key", func() {
