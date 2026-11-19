@@ -149,6 +149,37 @@ describe("middleware", () => {
     });
   });
   describe("configureMiddleware", () => {
+    const blockedRuntime = (release: Promise<void>) => {
+      const runtime = new MockRuntime<StoreState>(false);
+      const emit = runtime.emit.bind(runtime);
+      runtime.emit = async (event) => {
+        await release;
+        await emit(event);
+      };
+      return runtime;
+    };
+    it("should emit actions from one store in dispatch order", async () => {
+      const store = { getState: () => state, dispatch: vi.fn() };
+      let release = () => {};
+      const runtime = blockedRuntime(new Promise((r) => (release = r)));
+      const mw = driftMiddleware(runtime)(store)((action) => action);
+      mw({ type: "first" });
+      mw({ type: "second" });
+      release();
+      await expect
+        .poll(() => runtime.emissions.map((e) => e.action?.type))
+        .toEqual(["first", "second"]);
+    });
+    it("should not hold one store's emissions behind another store's", async () => {
+      const blockedStore = { getState: () => state, dispatch: vi.fn() };
+      const blocked = blockedRuntime(new Promise(() => {}));
+      driftMiddleware(blocked)(blockedStore)((action) => action)({ type: "stuck" });
+      const store = { getState: () => state, dispatch: vi.fn() };
+      const runtime = new MockRuntime<StoreState>(false);
+      driftMiddleware(runtime)(store)((action) => action)({ type: "free" });
+      await expect.poll(() => runtime.emissions.length).toEqual(1);
+      expect(blocked.emissions).toEqual([]);
+    });
     it("should return a function that returns a middleware when an empty array is provided", () => {
       const runtime = new MockRuntime(true);
       const mwF = configureMiddleware([], runtime);
