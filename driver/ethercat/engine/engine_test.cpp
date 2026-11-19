@@ -2973,6 +2973,31 @@ TEST_F(EngineTest, StartKeepsTheErrorOfATryThatFailsWhileCanceled) {
     EXPECT_EQ(this->master->call_count("activate"), 1);
 }
 
+/// @brief it should end a start at once, with no retry, when its cancel stops during a
+/// try that fails with an error that a retry can clear.
+TEST_F(EngineTest, StartEndsWhenCanceledDuringATryThatARetryCanClear) {
+    this->master->inject_activate_error(
+        x::errors::Error(errors::STATE_CHANGE_ERROR, "module 1 did not reach OP")
+    );
+    x::breaker::Breaker cancel;
+    cancel.start();
+    StepLog log;
+    log.on_step = [&cancel](const Engine::Step &step) {
+        if (step.description.starts_with("Bringing")) cancel.stop();
+    };
+    const auto res = this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(cancel, log.report())
+    );
+    ASSERT_OCCURRED_AS(res.second, x::errors::CANCELLED);
+    EXPECT_EQ(res.second.data, "The Driver stopped the start on eth0.");
+    EXPECT_EQ(this->master->call_count("activate"), 1);
+    for (const auto &step: log.snapshot())
+        EXPECT_NE(step.message, "Retrying the start");
+}
+
 /// @brief it should keep an open that reads the slave settings while another open does
 /// waiting past the start timeout while that other open brings the slaves to OP.
 TEST_F(EngineTest, OpenAfterItsSettingsReadWaitsWhileTheSlavesReachOP) {
