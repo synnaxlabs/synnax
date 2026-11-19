@@ -51,13 +51,6 @@ Range struct {
         """
         @patch
     }
-    has_children bool = false {
-        @doc value  """
-            is true when a range is nested in the range, derived on read and not
-            persisted.
-        """
-        @go marshal omit
-    }
     labels       label.Key[] = [] {
         @doc value     "are the keys of the labels attached to the range."
         @ref kind      use
@@ -72,6 +65,13 @@ Range struct {
         @ref acyclic
         @ref kind      place
         @ref on_delete cascade
+    }
+    has_children bool = false {
+        @doc value  """
+            is true when a range is nested in the range, derived on read and not
+            persisted.
+        """
+        @go marshal omit
     }
 
     action Create {

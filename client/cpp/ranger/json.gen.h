@@ -34,12 +34,12 @@ inline Range Range::parse(x::json::Parser parser) {
                          ::synnax::color::parse_ref(parser.child("color"))
                      )
                    : std::nullopt,
-        .has_children = parser.field<bool>("has_children", false),
         .labels = parser.field<std::vector<::synnax::label::Key>>(
             "labels",
             std::vector<::synnax::label::Key>{}
         ),
         .parent = parser.field<std::optional<Key>>("parent"),
+        .has_children = parser.field<bool>("has_children", false),
     };
 }
 
@@ -49,7 +49,6 @@ inline x::json::json Range::to_json() const {
     j["name"] = this->name;
     j["time_range"] = this->time_range.to_json();
     if (this->color.has_value()) j["color"] = ::synnax::color::to_json(*this->color);
-    j["has_children"] = this->has_children;
     {
         auto arr = x::json::json::array();
         for (const auto &item: this->labels)
@@ -57,6 +56,7 @@ inline x::json::json Range::to_json() const {
         j["labels"] = arr;
     }
     if (this->parent.has_value()) j["parent"] = this->parent->to_json();
+    j["has_children"] = this->has_children;
     return j;
 }
 

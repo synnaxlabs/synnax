@@ -55,11 +55,6 @@ export const payloadZ = z.object({
    * interfaces, a named color or a fixed color.
    */
   color: zod.nullToUndefined(color.refZ),
-  /**
-   * hasChildren is true when a range is nested in the range, derived on read and not
-   * persisted.
-   */
-  hasChildren: z.boolean().default(false),
   /** labels are the keys of the labels attached to the range. */
   labels: label.keyZ.array().default(() => []),
   /**
@@ -67,6 +62,11 @@ export const payloadZ = z.object({
    * range.
    */
   parent: keyZ.optional(),
+  /**
+   * hasChildren is true when a range is nested in the range, derived on read and not
+   * persisted.
+   */
+  hasChildren: z.boolean().default(false),
 });
 export interface Payload extends z.infer<typeof payloadZ> {}
 

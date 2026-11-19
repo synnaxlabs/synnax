@@ -21,4 +21,8 @@ Handle = v2.Handle
 
 Spec struct extends v2.Spec {}
 
-Symbol struct extends v3.Symbol {}
+Symbol struct extends v3.Symbol {
+    name {
+        @validate min_length 1
+    }
+}

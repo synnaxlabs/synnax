@@ -112,6 +112,31 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		})))
 	})
 
+	It("Should decode a v0.62 export with its colors as fixed colors", func(
+		ctx SpecContext,
+	) {
+		sch := decode(ctx, "testdata/import_v13.json")
+		fixed := func(r uint8) servicecolor.Ref {
+			return servicecolor.Ref{Variant: servicecolor.FixedRef{
+				Value: color.Color{R: r, G: 29, B: 29, A: 255},
+			}}
+		}
+		Expect(sch.Name).To(Equal("Test Schematic V13"))
+		Expect(sch.Nodes).To(HaveLen(2))
+		box, ok := sch.Nodes[0].Config.Variant.(versions.BoxNodeConfig)
+		Expect(ok).To(BeTrue())
+		Expect(box.StrokeColor).To(HaveValue(Equal(fixed(1))))
+		Expect(box.FillColor).To(BeNil())
+		value, ok := sch.Nodes[1].Config.Variant.(versions.ValueNodeConfig)
+		Expect(ok).To(BeTrue())
+		Expect(value.StrokeColor).To(HaveValue(Equal(fixed(2))))
+		Expect(value.TextColor).To(HaveValue(Equal(fixed(3))))
+		Expect(sch.Edges).To(HaveLen(1))
+		pipe, ok := sch.Edges[0].Config.Variant.(versions.PipeEdgeConfig)
+		Expect(ok).To(BeTrue())
+		Expect(pipe.StrokeColor).To(HaveValue(Equal(fixed(5))))
+	})
+
 	It("Should lift a v7 envelope, dropping measured", func(ctx SpecContext) {
 		sch := decode(ctx, "testdata/import_v7.json")
 		expectNode(sch, "n1", spatial.XY{X: 1, Y: 2}, 4)

@@ -65,20 +65,20 @@ class Payload(BaseModel):
             timestamps.
         color: Is an optional display color for visual identification of the range in
             user interfaces, a named color or a fixed color.
-        has_children: Is true when a range is nested in the range, derived on read and
-            not persisted.
         labels: Are the keys of the labels attached to the range.
         parent: Is the key of the range this range is nested in. Empty for a top-level
             range.
+        has_children: Is true when a range is nested in the range, derived on read and
+            not persisted.
     """
 
     key: Key
     name: str = Field(min_length=1)
     time_range: telem.TimeRange
     color: color_.Ref | None = None
-    has_children: bool = False
     labels: list[label.Key] = Field(default_factory=list)
     parent: Key | None = None
+    has_children: bool = False
 
     @_override
     def __hash__(self) -> int:
