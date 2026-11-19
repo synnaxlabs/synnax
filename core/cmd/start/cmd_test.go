@@ -223,6 +223,27 @@ var _ = Describe("GetCoreConfigFromViper", func() {
 			)))
 		})
 
+		It("Should hold no providers when the key is unset", func() {
+			cfg := MustSucceed(start.GetCoreConfigFromViper(alamos.Instrumentation{}))
+			Expect(fmt.Sprintf("%+v", cfg)).To(ContainSubstring("oidcProviders:[]"))
+		})
+
+		DescribeTable(
+			"Should reject a string setting of the wrong type",
+			func(key string) {
+				viper.Set(start.FlagOIDCProviders, []any{map[string]any{key: 1}})
+				Expect(start.GetCoreConfigFromViper(alamos.Instrumentation{})).Error().
+					To(MatchError(ContainSubstring(fmt.Sprintf(
+						"oidc-providers[0].%s must be a string, not int",
+						key,
+					))))
+			},
+			Entry("name", "name"),
+			Entry("issuer", "issuer"),
+			Entry("client ID", "client-id"),
+			Entry("client secret", "client-secret"),
+		)
+
 		It("Should reject a value that is not a list", func() {
 			viper.Set(start.FlagOIDCProviders, "idp")
 			Expect(start.GetCoreConfigFromViper(alamos.Instrumentation{})).Error().

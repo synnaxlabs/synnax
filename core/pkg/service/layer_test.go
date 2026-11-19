@@ -33,6 +33,7 @@ import (
 	sectestutil "github.com/synnaxlabs/synnax/pkg/security/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc"
 	authv0 "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -1017,6 +1018,21 @@ var _ = Describe("Auth methods", func() {
 			[]auth.Method{auth.MethodPassword},
 		),
 	)
+	It("Should accept OIDC with a provider", func(ctx SpecContext) {
+		node := testutil.NewNode(ctx)
+		layer := MustOpen(svctestutil.OpenLayer(ctx, node, service.LayerConfig{
+			OIDCProviders: []oidc.Provider{{
+				Name:     "idp",
+				Issuer:   "https://idp.example.com",
+				ClientID: "synnax",
+			}},
+		}))
+		Expect(layer.Auth.Methods()).To(Equal([]auth.Method{
+			auth.MethodAPIKey,
+			auth.MethodOIDC,
+			auth.MethodPassword,
+		}))
+	})
 	It("Should reject OIDC as the only method without a provider", func(
 		ctx SpecContext,
 	) {
