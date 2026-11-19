@@ -12,16 +12,17 @@ package mqtt
 import (
 	"context"
 	"fmt"
-	"uuid"
+	"iter"
+	"slices"
+	"time"
 
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
+	"github.com/synnaxlabs/synnax/pkg/service/icd/codec"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/x/errors"
-	xjson "github.com/synnaxlabs/x/json"
-	"github.com/synnaxlabs/x/payload"
-	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -33,217 +34,175 @@ type publication struct {
 	retained bool
 }
 
-// target turns the samples of one command channel into messages.
+// target turns the commands of a frame into messages.
 type target interface {
-	// publication returns the message for sample i of series.
-	publication(series telem.Series, i int) (publication, error)
+	// publications returns the message, or the error, of each command in fr.
+	publications(fr framer.Frame) iter.Seq2[publication, error]
+	// reset forgets the commands of an earlier run.
+	reset()
 	// String names the target in an error.
 	String() string
 }
 
-type slotKind uint8
-
-const (
-	slotValue slotKind = iota
-	slotTimestamp
-	slotUUID
-)
-
-// slot is how a payload fills one slot of its template.
-type slot struct {
-	kind   slotKind
-	format xjson.TimeFormat
-}
-
-// writeTarget is one plain write target, ready to convert samples into payloads.
-type writeTarget struct {
+// messageTarget publishes the documents of one ICD message to one topic. Document i of
+// a frame holds command i of each bound channel, and the last command of a channel with
+// fewer. A field with no command since the start sends its default. The target
+// publishes nothing until each field with no default has a command. A command that its
+// field cannot hold is dropped, and the field keeps its last command.
+type messageTarget struct {
 	topic    string
-	template xjson.Template
-	// slots[i] fills the slot of template field i.
-	slots    []slot
-	encoder  *xjson.Encoder
 	qos      byte
 	retained bool
+	encoder  *codec.JSONEncoder
+	// channels holds the command channel of each binding.
+	channels channel.Keys
+	received []bool
+	// last holds the last command of each binding that received one.
+	last [][]byte
+	// next holds the commands of the document to encode, nil for a binding with none.
+	next [][]byte
+	// spare holds a buffer for each binding to copy a new command into.
+	spare [][]byte
+	// rows holds the commands of each binding in one frame.
+	rows [][][]byte
 }
 
-var _ target = writeTarget{}
+var _ target = (*messageTarget)(nil)
 
-// String implements target.
-func (t writeTarget) String() string { return "target " + t.topic }
-
-// publication implements target.
-func (t writeTarget) publication(series telem.Series, i int) (publication, error) {
-	payload, err := t.template.Append(nil, payloadSlots{t: t, sample: series.At(i)})
-	if err != nil {
-		return publication{}, err
-	}
-	return publication{
-		topic: t.topic, payload: payload, qos: t.qos, retained: t.retained,
-	}, nil
-}
-
-// payloadSlots fills the slots of the payload of one sample.
-type payloadSlots struct {
-	t      writeTarget
-	sample []byte
-}
-
-// AppendSlot implements xjson.Slots.
-func (p payloadSlots) AppendSlot(dst []byte, field int) ([]byte, error) {
-	s := p.t.slots[field]
-	switch s.kind {
-	case slotValue:
-		return p.t.encoder.Append(dst, p.sample)
-	case slotTimestamp:
-		return xjson.AppendTimeStamp(dst, telem.Now(), s.format), nil
-	case slotUUID:
-		dst = append(dst, '"')
-		dst, err := uuid.New().AppendText(dst)
-		return append(dst, '"'), err
-	default:
-		return nil, errors.Newf("unknown slot kind %d", s.kind)
-	}
-}
-
-// enums returns entries in the form xjson takes.
-func enums(entries []payload.EnumEntry) []xjson.Enum {
-	out := make([]xjson.Enum, len(entries))
-	for i, e := range entries {
-		out[i] = xjson.NewEnum(e.Label, e.Value)
-	}
-	return out
-}
-
-func parseTimeFormat(format *payload.TimeFormat) (xjson.TimeFormat, error) {
-	if format == nil {
-		return xjson.ISO8601, nil
-	}
-	return xjson.ParseTimeFormat(string(*format))
-}
-
-// newWriteTarget validates target against ch, its command channel.
-func newWriteTarget(target PlainWriteTarget, ch channel.Channel) (writeTarget, error) {
+// newMessageTarget validates target against ic, the ICD that holds its message.
+// channels holds its command channels.
+func newMessageTarget(
+	target PlainWriteTarget,
+	ic icd.ICD,
+	channels map[channel.Key]channel.Channel,
+) (*messageTarget, error) {
 	path := "target " + target.Topic
 	qos, err := qosLevel(target.Qos)
 	if err != nil {
-		return writeTarget{}, errors.Wrap(err, path)
+		return nil, errors.Wrap(err, path)
 	}
-	t := writeTarget{topic: target.Topic, qos: qos, retained: target.Retained}
 	if err = validateTopic(target.Topic); err != nil {
-		return writeTarget{}, err
+		return nil, err
 	}
-	pointer, err := xjson.ParsePointer(target.Channel.Pointer)
+	msg, payload, err := jsonMessageOf(ic, target.Message.Message)
 	if err != nil {
-		return writeTarget{}, errors.Wrap(err, path)
+		return nil, errors.Wrap(err, path)
 	}
-	f := xjson.Field{DataType: ch.DataType, Enums: enums(target.Channel.EnumValues)}
-	if f.Type, err = xjson.ParseType(string(target.Channel.JSONType)); err != nil {
-		return writeTarget{}, errors.Wrap(err, path)
-	}
-	if ch.DataType == telem.TimestampT {
-		if f.TimeFormat, err = parseTimeFormat(target.Channel.TimeFormat); err != nil {
-			return writeTarget{}, errors.Wrap(err, path)
-		}
-	}
-	if len(f.Enums) > 0 && f.Type != xjson.String {
-		return writeTarget{}, errors.Wrapf(
-			validate.ErrValidation,
-			"%s: enum values require the string JSON type", path,
+	bindings := target.Message.Bindings
+	if len(bindings) == 0 {
+		return nil, errors.Wrapf(
+			validate.ErrValidation, "%s: message %s binds no fields", path, msg.Name,
 		)
 	}
-	if t.encoder, err = xjson.NewEncoder(f); err != nil {
-		return writeTarget{}, errors.Wrapf(err, "%s: channel %s", path, ch.Name)
+	n := len(bindings)
+	t := &messageTarget{
+		topic:    target.Topic,
+		qos:      qos,
+		retained: target.Retained,
+		channels: make(channel.Keys, n),
+		received: make([]bool, n),
+		last:     make([][]byte, n),
+		next:     make([][]byte, n),
+		spare:    make([][]byte, n),
+		rows:     make([][][]byte, n),
 	}
-	fields := []xjson.TemplateField{{Label: "channel.pointer", Pointer: pointer}}
-	t.slots = []slot{{kind: slotValue}}
-	for _, wf := range target.Fields {
-		field, s, err := newTemplateField(path, wf)
-		if err != nil {
-			return writeTarget{}, err
+	encoded := make([]codec.Binding, n)
+	for i, b := range bindings {
+		ch, ok := channels[b.Channel]
+		if !ok {
+			return nil, errors.Wrapf(
+				validate.ErrValidation,
+				"%s: channel %d does not exist", path, b.Channel,
+			)
 		}
-		fields = append(fields, field)
-		t.slots = append(t.slots, s)
+		encoded[i] = codec.Binding{Field: b.Field, DataType: ch.DataType}
+		t.channels[i] = b.Channel
+		t.last[i], t.spare[i] = []byte{}, []byte{}
 	}
-	if t.template, err = xjson.NewTemplate(fields); err != nil {
-		return writeTarget{}, errors.Wrap(err, path)
+	if t.encoder, err = codec.NewJSONEncoder(codec.JSONMessage{
+		Name:     msg.Name,
+		Payload:  payload,
+		Bindings: encoded,
+	}); err != nil {
+		return nil, errors.Wrap(err, path)
 	}
 	return t, nil
 }
 
-// newTemplateField returns the template field of wf, a field of a write target, and
-// the slot that fills it. path names the target in errors.
-func newTemplateField(path string, wf WriteField) (xjson.TemplateField, slot, error) {
-	var (
-		base  BaseWriteField
-		field xjson.TemplateField
-		s     slot
-		err   error
-	)
-	switch v := wf.Variant.(type) {
-	case StaticWriteField:
-		base = v.BaseWriteField
-		if !matchesJSONType(v.Value, v.JSONType) {
-			return xjson.TemplateField{}, slot{}, errors.Wrapf(
-				validate.ErrValidation,
-				"%s: static value at %s is not a %s",
-				path, v.Pointer, v.JSONType,
-			)
-		}
-		if field.Literal, err = xjson.Marshal(v.Value); err != nil {
-			return xjson.TemplateField{}, slot{}, errors.Wrapf(
-				validate.ErrValidation,
-				"%s: static value at %s is not JSON", path, v.Pointer,
-			)
-		}
-	case GeneratedWriteField:
-		base = v.BaseWriteField
-		s.kind = slotUUID
-		if v.Generator == payload.GeneratorTypeTimestamp {
-			s.kind = slotTimestamp
-			if s.format, err = parseTimeFormat(v.TimeFormat); err != nil {
-				return xjson.TemplateField{}, slot{}, errors.Wrap(err, path)
+// String implements target.
+func (t *messageTarget) String() string { return "target " + t.topic }
+
+// reset implements target.
+func (t *messageTarget) reset() { clear(t.received) }
+
+// publications implements target.
+func (t *messageTarget) publications(fr framer.Frame) iter.Seq2[publication, error] {
+	return func(yield func(publication, error) bool) {
+		for row := range t.gather(fr) {
+			for b, rows := range t.rows {
+				t.next[b] = nil
+				if row < len(rows) {
+					t.next[b] = append(t.spare[b][:0], rows[row]...)
+				} else if t.received[b] {
+					t.next[b] = t.last[b]
+				}
+			}
+			if !t.ready() {
+				t.commit(row)
+				continue
+			}
+			payload, err := t.encoder.Encode(nil, t.next)
+			if err == nil {
+				t.commit(row)
+			}
+			pub := publication{
+				topic: t.topic, payload: payload, qos: t.qos, retained: t.retained,
+			}
+			if !yield(pub, err) {
+				return
 			}
 		}
-	case nil:
-		return xjson.TemplateField{}, slot{}, errors.Wrapf(
-			validate.ErrValidation,
-			"%s: a field is null",
-			path,
-		)
-	default:
-		panic(errors.Newf("mqtt: unknown write field variant %T", v))
 	}
-	field.Label = fmt.Sprintf("field %q", base.Key)
-	if field.Pointer, err = xjson.ParsePointer(base.Pointer); err != nil {
-		return xjson.TemplateField{}, slot{}, errors.Wrap(err, path)
-	}
-	if len(field.Pointer) == 0 {
-		return xjson.TemplateField{}, slot{}, errors.Wrapf(
-			validate.ErrValidation, "%s: a field requires a pointer", path,
-		)
-	}
-	return field, s, nil
 }
 
-// matchesJSONType reports whether a decoded static value has the JSON type t.
-func matchesJSONType(value any, t payload.JSONType) bool {
-	switch value.(type) {
-	case string:
-		return t == payload.JSONTypeString
-	case bool:
-		return t == payload.JSONTypeBoolean
-	case int8, int16, int32, int64, uint8, uint16, uint32, uint64, float32, float64:
-		return t == payload.JSONTypeNumber
-	default:
-		return false
+// gather fills rows with the commands of each binding in fr, and returns the count of
+// documents that they make.
+func (t *messageTarget) gather(fr framer.Frame) int {
+	n := 0
+	for b, key := range t.channels {
+		t.rows[b] = t.rows[b][:0]
+		for _, s := range fr.Get(key).Series {
+			t.rows[b] = slices.AppendSeq(t.rows[b], s.Samples())
+		}
+		n = max(n, len(t.rows[b]))
+	}
+	return n
+}
+
+// ready reports whether next holds a command for each field with no default.
+func (t *messageTarget) ready() bool {
+	for b, command := range t.next {
+		if command == nil && !t.encoder.HasDefault(b) {
+			return false
+		}
+	}
+	return true
+}
+
+// commit makes the commands of row the last commands of their bindings.
+func (t *messageTarget) commit(row int) {
+	for b, rows := range t.rows {
+		if row < len(rows) {
+			t.last[b], t.spare[b] = t.next[b], t.last[b]
+			t.received[b] = true
+		}
 	}
 }
 
 // writeSink is the driver.Sink of an MQTT write task.
 type writeSink struct {
-	pool *pool
-	// targets holds the targets that each command channel triggers.
-	targets map[channel.Key][]target
+	pool    *pool
+	targets []target
 	// broker is the key of the broker device.
 	broker device.Key
 }
@@ -261,13 +220,22 @@ func (s *writeSink) Open(ctx context.Context) (driver.Writer, error) {
 		s.pool.release(s.broker, a)
 		return nil, err
 	}
-	return &writer{writeSink: s, attachment: a}, nil
+	for _, t := range s.targets {
+		t.reset()
+	}
+	return &writer{
+		writeSink:  s,
+		attachment: a,
+		skips:      driver.NewSkips("command"),
+	}, nil
 }
 
 // writer is the driver.Writer of one run of an MQTT write task.
 type writer struct {
 	*writeSink
 	attachment *attachment
+	// skips counts the commands that the run sends and drops.
+	skips *driver.Skips
 }
 
 var _ driver.Writer = (*writer)(nil)
@@ -284,32 +252,35 @@ func (w *writer) Close() error {
 	return nil
 }
 
-// Write implements driver.Writer. It publishes every sample it can, and returns the
-// first error it met.
+// Write implements driver.Writer. It publishes every message it can, and returns the
+// first error it met. A command with no form in its message, such as NaN in JSON, is
+// dropped, and Write returns the warning of the skips.
 func (w *writer) Write(ctx context.Context, fr framer.Frame) error {
 	var first error
-	for key, series := range fr.Entries() {
-		for _, t := range w.targets[key] {
-			for i := range int(series.Len()) {
-				pub, err := t.publication(series, i)
-				if err != nil {
-					// A value with no form in the payload, such as NaN in JSON, drops
-					// its command. It does not stop the task.
-					err = errors.Mark(errors.Wrap(err, t.String()), driver.ErrDegraded)
-				} else {
-					err = w.attachment.publish(
-						ctx, pub.topic, pub.qos, pub.retained, pub.payload,
-					)
-				}
-				if err != nil &&
-					!errors.IsAny(err, driver.ErrTemporary, driver.ErrDegraded) {
-					return errors.Wrap(err, t.String())
-				}
-				if first == nil {
-					first = err
-				}
+	for _, t := range w.targets {
+		for pub, err := range t.publications(fr) {
+			w.skips.Read()
+			if err != nil {
+				w.skips.Skip(time.Now(), fmt.Sprintf("Command for %s: %s", t, err))
+				continue
+			}
+			err = w.attachment.publish(
+				ctx, pub.topic, pub.qos, pub.retained, pub.payload,
+			)
+			if err != nil &&
+				!errors.IsAny(err, driver.ErrTemporary, driver.ErrDegraded) {
+				return errors.Wrap(err, t.String())
+			}
+			if first == nil {
+				first = err
 			}
 		}
 	}
-	return first
+	if first != nil {
+		return first
+	}
+	if skipped := w.skips.Warning(time.Now()); skipped != nil {
+		return skipped.Degraded()
+	}
+	return nil
 }

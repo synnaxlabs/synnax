@@ -157,24 +157,9 @@ func newTopicMessage(
 	channels map[channel.Key]channel.Channel,
 	decoded *codec.JSONMessage,
 ) (*topicMessage, error) {
-	var msg *icd.Message
-	for i := range ic.Messages {
-		if ic.Messages[i].Key == rm.Message {
-			msg = &ic.Messages[i]
-			break
-		}
-	}
-	if msg == nil {
-		return nil, errors.Wrapf(
-			validate.ErrValidation,
-			"message %s does not exist in ICD %s", rm.Message, ic.Name,
-		)
-	}
-	payload, ok := msg.Payload.Variant.(icd.JSONPayload)
-	if !ok {
-		return nil, errors.Wrapf(
-			validate.ErrValidation, "message %s is not a JSON message", msg.Name,
-		)
+	msg, payload, err := jsonMessageOf(ic, rm.Message)
+	if err != nil {
+		return nil, err
 	}
 	if len(rm.Bindings) == 0 {
 		return nil, errors.Wrapf(

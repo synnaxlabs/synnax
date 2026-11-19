@@ -10,7 +10,10 @@
 package mqtt
 
 import (
+	"iter"
+
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/sparkplug"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
@@ -150,6 +153,7 @@ var sparkplugTypes = map[SparkplugDataType]sparkplug.DataType{
 type commandTarget struct {
 	tagID
 	sparkplugType sparkplug.DataType
+	channel       channel.Key
 }
 
 var _ target = commandTarget{}
@@ -160,9 +164,10 @@ func newCommandTarget(
 	ch channel.Channel,
 ) (commandTarget, error) {
 	t := commandTarget{
-		node:   sparkplug.NodeID{Group: cfg.Group, EdgeNode: cfg.EdgeNode},
-		device: cfg.Device,
-		name:   cfg.Tag,
+		node:    sparkplug.NodeID{Group: cfg.Group, EdgeNode: cfg.EdgeNode},
+		device:  cfg.Device,
+		name:    cfg.Tag,
+		channel: ch.Key(),
 	}
 	if err := t.validate(); err != nil {
 		return commandTarget{}, err
@@ -184,8 +189,24 @@ func newCommandTarget(
 	return t, nil
 }
 
-// publication implements target. Sparkplug B sends every command at quality of service
-// 0 and not retained.
+// publications implements target.
+func (t commandTarget) publications(fr framer.Frame) iter.Seq2[publication, error] {
+	return func(yield func(publication, error) bool) {
+		for _, series := range fr.Get(t.channel).Series {
+			for i := range int(series.Len()) {
+				if !yield(t.publication(series, i)) {
+					return
+				}
+			}
+		}
+	}
+}
+
+// reset implements target.
+func (commandTarget) reset() {}
+
+// publication returns the command for sample i of series. Sparkplug B sends every
+// command at quality of service 0 and not retained.
 func (t commandTarget) publication(series telem.Series, i int) (publication, error) {
 	pub, err := sparkplug.EncodeCommand(
 		t.node,

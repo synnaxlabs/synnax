@@ -47,8 +47,8 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Channel *channel.Service
-	// ICD holds the ICDs that read entries read the messages of, and creates the ICD of
-	// a read config from before ICDs.
+	// ICD holds the ICDs that read entries and write targets use, and creates the ICD
+	// of a config from before ICDs.
 	//
 	// [REQUIRED]
 	ICD *icd.Service
@@ -164,10 +164,13 @@ func writeServiceConfig(cfg ServiceConfig) config.ServiceConfig[WriteConfig] {
 		Instrumentation: cfg.Instrumentation,
 		Type:            WriteTaskType,
 		Ladder:          versions.WriteConfigLadder,
-		SetEntryKey:     (*WriteConfig).SetKey,
-		PatchEntry:      (*WriteConfig).Patch,
-		HashEntry:       (*WriteConfig).HashContent,
-		ValidateEntry:   (*WriteConfig).Validate,
+		Migrations: []gorp.Migration{
+			v2.NewWriteMigration(readChannels(cfg.Channel), createICD(cfg.ICD)),
+		},
+		SetEntryKey:   (*WriteConfig).SetKey,
+		PatchEntry:    (*WriteConfig).Patch,
+		HashEntry:     (*WriteConfig).HashContent,
+		ValidateEntry: (*WriteConfig).Validate,
 	}
 }
 

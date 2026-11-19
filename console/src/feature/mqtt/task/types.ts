@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, mqtt, type task } from "@synnaxlabs/client";
-import { json, payload, record } from "@synnaxlabs/x";
+import { payload, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { sparkplugIDZ } from "@/feature/mqtt/device/types";
@@ -140,91 +140,14 @@ export type ReadSchemas = typeof READ_SCHEMAS;
 
 export const WRITE_TYPE = `${PREFIX}_write`;
 
-export interface ChannelField extends mqtt.ChannelField {}
-
 export interface PlainWriteTarget extends mqtt.PlainWriteTarget {}
 
 export interface SparkplugWriteTarget extends mqtt.SparkplugWriteTarget {}
 
 export type WriteTarget = PlainWriteTarget | SparkplugWriteTarget;
 
-const validateChannelField = (ctx: z.core.ParsePayload<ChannelField>) => {
-  const { value } = ctx;
-  if (value.enumValues.length > 0 && value.jsonType !== "string")
-    ctx.issues.push({
-      continue: true,
-      code: "custom",
-      input: value,
-      message: "Enum values require the string JSON type",
-      path: ["jsonType"],
-    });
-  const seen = new Set<number>();
-  value.enumValues.forEach((entry, i) => {
-    if (seen.has(entry.value))
-      ctx.issues.push({
-        continue: true,
-        code: "custom",
-        input: value,
-        message: `Duplicate enum value ${entry.value}`,
-        path: ["enumValues", i, "value"],
-      });
-    else seen.add(entry.value);
-  });
-};
-
-// The Core sets each pointer in turn, so one inside another replaces or blocks it.
-const overlaps = (a: string, b: string) =>
-  a === b || a.startsWith(`${b}/`) || b.startsWith(`${a}/`);
-
-const validateWriteTarget = (ctx: z.core.ParsePayload<PlainWriteTarget>) => {
-  const { value } = ctx;
-  const { channel, fields } = value;
-  if (channel.pointer === "") {
-    if (fields.length > 0)
-      ctx.issues.push({
-        continue: true,
-        code: "custom",
-        input: value,
-        message:
-          "An empty channel pointer sends the raw value as the payload, so additional fields are not allowed",
-        path: ["channel", "pointer"],
-      });
-    return;
-  }
-  const pointers = [channel.pointer];
-  fields.forEach((field, i) => {
-    if (field.pointer === "") return;
-    if (pointers.some((pointer) => overlaps(pointer, field.pointer)))
-      ctx.issues.push({
-        continue: true,
-        code: "custom",
-        input: value,
-        message: `Pointer "${field.pointer}" overlaps another field`,
-        path: ["fields", i, "pointer"],
-      });
-    else pointers.push(field.pointer);
-  });
-};
-
-const deployPointerZ = json.pointerZ.min(1, "Additional field pointer cannot be empty");
-
-const deployWriteFieldZ = z.discriminatedUnion("type", [
-  mqtt.staticWriteFieldZ.extend({ pointer: deployPointerZ, value: json.primitiveZ }),
-  mqtt.generatedWriteFieldZ.extend({ pointer: deployPointerZ }),
-]);
-
-const deployPlainWriteTargetZ = mqtt.plainWriteTargetZ
-  .extend({
-    topic: deployTopicZ,
-    channel: mqtt.channelFieldZ
-      .extend({ pointer: json.pointerZ })
-      .check(validateChannelField),
-    fields: deployWriteFieldZ.array().default(() => []),
-  })
-  .check(validateWriteTarget);
-
 const deployWriteTargetZ = z.discriminatedUnion("type", [
-  deployPlainWriteTargetZ,
+  mqtt.plainWriteTargetZ.extend({ topic: deployTopicZ }),
   mqtt.sparkplugWriteTargetZ.extend(DEPLOY_SPARKPLUG_TAG_SHAPE),
 ]);
 

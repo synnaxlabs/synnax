@@ -142,8 +142,8 @@ func migrateStoredWrite(
 	return cfg, nil
 }
 
-// liftTarget returns the message that holds the channel field and the fields of t,
-// with no name, and the write of that message. path is the path of t.
+// liftTarget returns the message that holds the channel field and the fields of t, with
+// no name, and the write of that message. path is the path of t.
 func liftTarget(
 	t v1.PlainWriteTarget,
 	found map[channel.Key]Channel,

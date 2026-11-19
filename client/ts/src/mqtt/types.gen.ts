@@ -227,7 +227,7 @@ export const plainWriteTargetZ = baseWriteTargetZ.extend({
    * message is the message the target publishes. A command on any bound channel
    * publishes one document.
    */
-  message: writeMessageZ.prefault({}),
+  message: writeMessageZ,
 });
 export interface PlainWriteTarget extends z.infer<typeof plainWriteTargetZ> {}
 

@@ -222,7 +222,7 @@ WriteTarget union on type extends BaseWriteTarget {
         icd      icd.Key       {
             @doc value "is the key of the ICD that holds the message."
         }
-        message  WriteMessage = {} {
+        message  WriteMessage {
             @doc value """
                 is the message the target publishes. A command on any bound channel
                 publishes one document.

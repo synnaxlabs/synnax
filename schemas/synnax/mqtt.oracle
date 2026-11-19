@@ -326,7 +326,7 @@ WriteTarget union on type extends BaseWriteTarget {
             @ref kind      use
             @ref on_delete restrict
         }
-        message  WriteMessage = {} {
+        message  WriteMessage {
             @doc value """
                 is the message the target publishes. A command on any bound channel
                 publishes one document.

@@ -265,7 +265,7 @@ class PlainWriteTarget(BaseWriteTarget):
     qos: QoS = "at_least_once"
     retained: bool = False
     icd: icd_.Key
-    message: WriteMessage = Field(default_factory=lambda: WriteMessage())
+    message: WriteMessage
 
 
 class SparkplugWriteTarget(BaseWriteTarget):

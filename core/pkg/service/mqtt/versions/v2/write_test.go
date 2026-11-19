@@ -148,8 +148,8 @@ var _ = Describe("NewWriteMigration", func() {
 	config := func(targets ...v1.WriteTarget) v1.WriteConfig {
 		return v1.WriteConfig{Key: uuid.New(), Targets: targets}
 	}
-	// lift migrates one config whose only target sends ch and fields, and returns
-	// the fields of its message and the message of the target.
+	// lift migrates one config whose only target sends ch and fields, and returns the
+	// fields of its message and the message of the target.
 	lift := func(
 		ctx SpecContext,
 		ch v1.ChannelField,

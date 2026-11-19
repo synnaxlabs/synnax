@@ -412,9 +412,7 @@ func (pwt *PlainWriteTarget) Patch(c patch.Cursor) error {
 		return patch.Value(&pwt.ICD, c.Next())
 	case "message":
 		if c = c.Next(); c.Done() {
-			return patch.Defaulted(&pwt.Message, c, func(def *PlainWriteTarget) {
-				pwt.Message = def.Message
-			})
+			return patch.Value(&pwt.Message, c)
 		}
 		return pwt.Message.Patch(c)
 	default:
