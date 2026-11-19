@@ -50,6 +50,7 @@
         { "case": "console/range/range_toolbar" },
         { "case": "console/schematic/schematic_lifecycle" },
         { "case": "console/schematic/set_output" },
+        { "case": "console/schematic/stale_indicator" },
         { "case": "console/schematic/hold_to_actuate" },
         { "case": "console/schematic/alignment" },
         { "case": "console/schematic/multi_edit" },
