@@ -139,6 +139,7 @@ var _ = Describe("Python Types Plugin", func() {
 					"type StringInput = str | list[str] | StringDict | String",
 					"class BoolDict(TypedDict, total=False):\n    eq: bool",
 					"type BoolInput = bool | BoolDict | Bool",
+					`T = TypeVar("T")`,
 					"{\"eq\": \"T\", \"in\": \"list[T]\"},\n    total=False,",
 					"type SetInput[T] = T | list[T] | SetDict[T] | Set[T]",
 					"class ContainsDict[T](TypedDict, total=False):\n"+
@@ -147,6 +148,22 @@ var _ = Describe("Python Types Plugin", func() {
 						"Contains[T]",
 				)
 			})
+
+			It("Should reject call-syntax dicts whose same-named type params differ",
+				func() {
+					loader.Add("schemas/x/filter", `
+						@go output "x/go/filter"
+						@py output "x/py/x/filter"
+						@ts output "x/ts/src/filter"
+						@cpp output "x/cpp/filter"
+						@pb
+					`+strings.Replace(FilterSchema, "Ordered struct<T>", "Ordered struct<T?>", 1))
+					req := MustGenerateRequest(ThingFilter, "thing", loader)
+					Expect(typesPlugin.Generate(req)).Error().To(MatchError(
+						ContainSubstring("type parameter T of OrderedDict conflicts"),
+					))
+				},
+			)
 
 			It("Should declare the partial record of a filter", func() {
 				resp := MustGenerate(thing+`
