@@ -710,8 +710,9 @@ bound, a log precision, or the line plot X channel.
   cell. Esc never commits typed text.
 - A cell with an error has a red frame, and its message shows on hover.
 - Paste keeps the values that parse. A cell whose text does not parse keeps its value
-  and shows the error until an edit. A first row in which no number parses is a heading,
-  and paste drops it.
+  and shows the error until an edit. A first row in which no number or boolean parses is
+  a heading, and paste drops it. A single value pasted into a text cell goes to that
+  cell. Into any other cell, such as a checkbox, it parses like a block.
 
 ### Status and toasts
 

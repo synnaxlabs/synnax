@@ -190,8 +190,8 @@ const isHeading = (row: PastedCell[], columns: TableColumnProps[]): boolean => {
 
 /**
  * Reads clipboard text as a grid of cells, parsing each against the column it lands on.
- * A first row that reads as a heading is dropped.
- * @returns null when the text is a single cell, leaving the paste to the focused cell.
+ * A first row that reads as a heading is dropped, unless it is a single cell.
+ * @returns null when the text holds no cells.
  */
 const parseBlock = (
   text: string,
@@ -208,11 +208,18 @@ const parseBlock = (
         .slice(0, targets.length)
         .map((text, j) => ({ text, value: parseCell(text, targets[j]) })),
     );
-  if (block.length > 0 && isHeading(block[0], targets)) block.shift();
-  if (block.length === 0) return null;
-  if (block.length === 1 && block[0].length === 1) return null;
-  return block;
+  if (block.length > 0 && !isSingle(block) && isHeading(block[0], targets))
+    block.shift();
+  return block.length === 0 ? null : block;
 };
+
+const isSingle = (block: unknown[][]): boolean =>
+  block.length === 1 && block[0].length === 1;
+
+/** Whether the element takes pasted text itself, as a text field does. */
+const takesText = (el: EventTarget): boolean =>
+  el instanceof HTMLTextAreaElement ||
+  (el instanceof HTMLInputElement && el.type !== "checkbox" && el.type !== "radio");
 
 type Move = (dims: dimensions.Dimensions, from: xy.XY, back: boolean) => xy.XY | null;
 
@@ -341,7 +348,7 @@ export const Table = ({
       columns,
       anchor.current.x,
     );
-    if (block == null) return;
+    if (block == null || (isSingle(block) && takesText(e.target))) return;
     e.preventDefault();
     restored.current = false;
     const plan = grid.plan(dims, anchor.current, block);

@@ -852,6 +852,26 @@ describe("Input.Table", () => {
       ]);
     });
 
+    it("should read a single value pasted into a checkbox", () => {
+      const onChange = renderFlags();
+      paste(cell("Enabled", "1"), "0");
+      expect(onChange).toHaveBeenCalledWith([["pump", false]]);
+    });
+
+    it("should mark a checkbox whose single pasted value does not parse", () => {
+      render(
+        <Stateful initial={[["pump", true]]}>
+          {[
+            <Input.TableColumn key="name" name="Name" type="string" />,
+            <Input.TableColumn key="enabled" name="Enabled" type="boolean" />,
+          ]}
+        </Stateful>,
+      );
+      paste(cell("Enabled", "1"), "maybe");
+      expect(cell("Enabled", "1").checked).toBe(true);
+      expect(marked(cell("Enabled", "1"))).toBe(true);
+    });
+
     it("should drop a heading row whose boolean cells do not parse", () => {
       const onChange = renderFlags();
       paste(cell("Name", "1"), "Name\tEnabled\nvalve\tfalse");
