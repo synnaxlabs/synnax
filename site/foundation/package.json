@@ -26,7 +26,8 @@
     "astro": "catalog:",
     "astro-seo": "catalog:",
     "react": "catalog:",
-    "react-dom": "catalog:"
+    "react-dom": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@astrojs/check": "catalog:",

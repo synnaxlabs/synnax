@@ -14,9 +14,29 @@ import { layers, lyraLayers } from "@synnaxlabs/vite-plugin";
 import { defineConfig } from "astro/config";
 import path from "path";
 
+/** VERCEL_LIVE is the Vercel toolbar, which Vercel adds to preview deployments. */
+const VERCEL_LIVE = "https://vercel.live";
+
 export default defineConfig({
   integrations: [integration(), react()],
   adapter: vercel(),
+  security: {
+    csp: {
+      directives: [
+        "default-src 'self'",
+        `connect-src 'self' https://formspree.io ${VERCEL_LIVE}`,
+        `img-src 'self' data: ${VERCEL_LIVE} https://vercel.com`,
+        `frame-src ${VERCEL_LIVE}`,
+        "object-src 'none'",
+        "base-uri 'self'",
+      ],
+      scriptDirective: { resources: ["'self'", VERCEL_LIVE] },
+      // Components set sizes and custom properties in style attributes.
+      styleDirective: {
+        resources: ["'self'", { resource: "'unsafe-inline'", kind: "attribute" }],
+      },
+    },
+  },
   vite: {
     // Prebundle the island's linked workspace modules so their icon dependencies
     // are ready before the browser hydrates it.
