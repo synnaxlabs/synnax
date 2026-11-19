@@ -13,7 +13,7 @@
 # Usage: bazel_glibc_floor.sh <bazel command> [args...]
 #
 # The workspace and the Bazel output root mount at their host paths, so the bazel-bin
-# symlinks stay valid on the host after the build.
+# symlinks stay valid on the host after the build. Each runner has its own output root.
 
 set -euo pipefail
 
@@ -22,8 +22,17 @@ image=synnax-driver-linux:$(sha256sum "$dockerfile" | cut -c1-12)
 if ! docker image inspect "$image" > /dev/null 2>&1; then
     docker build --tag "$image" - < "$dockerfile"
 fi
-root="$HOME/.cache/bazel-glibc-floor"
+root="$HOME/.cache/bazel-glibc-floor/${RUNNER_NAME:-local}"
 mkdir -p "$root"
-docker run --rm --user "$(id -u):$(id -g)" --env HOME="$root" --env USER=runner \
+# A cancelled job signals this script, not the container.
+name="bazel-glibc-floor-$$"
+trap 'docker kill "$name" > /dev/null 2>&1 || true' EXIT
+command=$1
+shift
+# The image joins every action key, so the remote cache never serves a tool that a host
+# build linked against a newer glibc.
+docker run --rm --init --name "$name" --user "$(id -u):$(id -g)" \
+    --env HOME="$root" --env USER=runner \
     --volume "$PWD:$PWD" --volume "$root:$root" --workdir "$PWD" "$image" \
-    bazel --output_user_root="$root/bazel" "$@"
+    bazel --output_user_root="$root/bazel" "$command" --action_env=BUILD_IMAGE="$image" \
+    --host_action_env=BUILD_IMAGE="$image" "$@"

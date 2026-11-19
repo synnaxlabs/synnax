@@ -110,6 +110,6 @@ mock via interface implementations. Utilities from `x/cpp/testutil/testutil.h`:
 - Include paths differ per platform — conditional includes where unavoidable.
 - Check leaks with valgrind/ASAN. `#pragma once` or traditional guards.
 - Target platforms: Windows, macOS, Linux, NI Linux Real-Time.
-- Linux Drivers need glibc 2.35 at most (NI Linux Real-Time 23.8 and later). CI builds
-  them in `driver/linux.Dockerfile`, and `check_glibc_floor.py` fails a binary that needs
-  a newer `GLIBC_` symbol or a shared libstdc++.
+- Linux Drivers run on glibc 2.35 and later (NI Linux Real-Time 23.8 and later). CI
+  builds them in `driver/linux.Dockerfile`, and `check_glibc_floor.py` fails a binary
+  that needs a newer `GLIBC_` symbol or a shared libstdc++.

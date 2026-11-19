@@ -65,7 +65,7 @@ echo ""
 
 # --- Bazel output root of the glibc floor container (.github/scripts/bazel_glibc_floor.sh) ---
 echo "Glibc floor Bazel root:"
-FLOOR_ROOT="$HOME/.cache/bazel-glibc-floor"
+FLOOR_ROOT="$HOME/.cache/bazel-glibc-floor/${RUNNER_NAME:-local}"
 if [ -d "$FLOOR_ROOT" ]; then
     before_floor=$(du -sm "$FLOOR_ROOT" 2> /dev/null | cut -f1 || echo 0)
     chmod -R u+w "$FLOOR_ROOT" 2> /dev/null || true

@@ -7,7 +7,12 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from check_glibc_floor import problems
+
+import subprocess
+
+import pytest
+
+from check_glibc_floor import main, problems
 
 SYMBOLS = """
 0000000000000000      DF *UND*  0000000000000000 (GLIBC_2.2.5) memcpy
@@ -47,3 +52,35 @@ class TestProblems:
             "links libstdc++.so.6 dynamically",
             "links libgcc_s.so.1 dynamically",
         ]
+
+
+class TestMain:
+    """Tests for checking a binary through objdump."""
+
+    def fake_objdump(self, monkeypatch: pytest.MonkeyPatch, symbols: str) -> None:
+        """Answers objdump -T with symbols and objdump -p with HEADERS."""
+
+        def check_output(args: list[str], text: bool) -> str:
+            assert args[0] == "objdump"
+            assert args[2] == "driver"
+            assert text
+            return symbols if args[1] == "-T" else HEADERS
+
+        monkeypatch.setattr(subprocess, "check_output", check_output)
+
+    def test_should_pass_a_binary_at_the_floor(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Should exit 0 when the binary loads on the floor."""
+        self.fake_objdump(monkeypatch, SYMBOLS)
+        assert main("driver") == 0
+
+    def test_should_fail_a_binary_above_the_floor(
+        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Should exit 1 and name the binary and the problem on stderr."""
+        self.fake_objdump(monkeypatch, SYMBOLS + "(GLIBC_2.39) pidfd_spawnp\n")
+        assert main("driver") == 1
+        assert capsys.readouterr().err == (
+            "driver needs GLIBC_2.39, newer than the glibc 2.35 floor\n"
+        )
