@@ -207,8 +207,8 @@ func (f Frame[K]) Series() iter.Seq[Series] {
 
 // SeriesI returns an iterable sequence of series in the frame with their indices.
 func (f Frame[K]) SeriesI() iter.Seq2[int, Series] {
-	offset := 0
 	return func(yield func(int, Series) bool) {
+		offset := 0
 		for i, s := range f.series {
 			if f.ShouldExcludeRaw(i) {
 				offset++
