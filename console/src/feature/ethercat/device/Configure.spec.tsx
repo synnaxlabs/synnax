@@ -696,6 +696,23 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
         );
       });
 
+      it("should skip a complete access command written as true", async () => {
+        await setup({ productCode: 0x67, revision: 1 });
+        const command = initCmd(
+          "PS",
+          "#x1c12",
+          "0",
+          "01001a16",
+          "PDO assignment",
+          ' CompleteAccess="true"',
+        );
+        importFile("complete.xml", esiOf([`<CoE>${command}</CoE>`]));
+        await screen.findByText(/^Imported 0 startup parameters /);
+        expect(
+          screen.getByText("Skipped 1 that the Driver cannot write."),
+        ).toBeTruthy();
+      });
+
       it("should read a file in the encoding that its declaration names", async () => {
         const slave = await setup({ productCode: 0x67, revision: 1 });
         const command = initCmd("PS", "#x8050", "1", "01", "Offset in °C");

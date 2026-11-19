@@ -7,173 +7,35 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { lineplot, ranger, UnexpectedError } from "@synnaxlabs/client";
-import { useNow } from "@synnaxlabs/lyra/hooks";
-import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
-import { Menu } from "@synnaxlabs/lyra/menu";
-import { Status } from "@synnaxlabs/lyra/status";
-import { Store } from "@synnaxlabs/lyra/store";
+import { type Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Access, Ranger } from "@synnaxlabs/pluto";
+import { Ranger } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { NextIcon, useStart, useStop } from "@/feature/range/tree/Item";
 import { Sift } from "@/feature/sift";
-import { ContextMenu as Base } from "@/platform/context-menu";
-import { Core } from "@/platform/core";
-import { Link } from "@/platform/link";
-import { Modals } from "@/platform/modals";
 import { Range } from "@/platform/range";
-import { Session } from "@/session";
 
-export interface ContextMenuProps extends Menu.ContextMenuMenuProps {
-  /** Starts a child of the range in place. Without it, the create form opens. */
-  onStartChild?: (range: ranger.Range) => void;
-  /** Stops a running range and starts the one after it. Without it, Next is absent. */
-  onNext?: (range: ranger.Range) => void;
-}
+export interface ContextMenuProps
+  extends
+    Menu.ContextMenuMenuProps,
+    Pick<Range.ContextMenuProps, "onStartChild" | "onNext"> {}
 
-/** The menu for ranges in the explorer, the overview, and the toolbar. */
-export const ContextMenu = ({
-  keys,
-  target,
-  onStartChild,
-  onNext,
-}: ContextMenuProps): ReactElement => {
-  const { getItem, subscribe } = List.useUtilContext<ranger.Key, ranger.Range>();
-  if (getItem == null || subscribe == null)
-    throw new UnexpectedError("No item getter found");
-  const ranges = Store.useItems({ keys, subscribe, getItem });
-  const single = ranges.length === 1 ? ranges[0] : null;
-  const ids = ranger.resourceID(keys);
-  const canCreate = Access.useCreateGranted(ranger.TYPE_RESOURCE_ID);
-  const canUpdate = Access.useUpdateGranted(ids);
-  const canDelete = Access.useDeleteGranted(ids);
-  const canPlot = Access.useCreateGranted(lineplot.TYPE_RESOURCE_ID);
-  const favoriteKeys = Session.Range.useSelectFavoriteKeys();
-  const dispatch = Session.useDispatch();
-  const open = Range.useOpen();
-  const plot = Range.useAddToNewPlot();
-  const start = useStart();
-  const stop = useStop();
-  const openCreate = Range.useCreateModal();
-  const copyLink = Core.useCopyLinkToClipboard();
-  const handleError = Status.useErrorHandler();
-  const confirm = Modals.useConfirmDelete({
-    type: "Range",
-    description: "Deleting a range also deletes its child ranges.",
-  });
-  const { update: del } = Ranger.useDelete();
-  const now = useNow(() => null);
-  const inStage = (stage: ranger.Stage) =>
-    ranges.filter((r) => Ranger.getStage(r.timeRange, now) === stage);
-  const planned = inStage("to_do");
-  const running = inStage("in_progress");
-  const handleDelete = () =>
-    handleError(async () => {
-      if (!(await confirm(ranges))) return;
-      const keys = ranges.map((r) => r.key);
-      dispatch(Session.Range.remove({ keys }));
-      del(keys);
-    }, "Failed to delete range");
+/** The range menu for the items of a range list. */
+export const ContextMenu = (props: ContextMenuProps): ReactElement => {
+  const { keys, target, onStartChild, onNext } = props;
+  const single = Ranger.useResult(keys.length === 1 ? { key: keys[0] } : null).data;
   return (
-    <Base.Menu>
-      {single != null && (
-        <Menu.Item itemKey="open" onClick={() => open(single.key)}>
-          <Icon.Details />
-          Open
-        </Menu.Item>
-      )}
-      {canPlot && ranges.length > 0 && (
-        <Menu.Item itemKey="plot" onClick={() => plot(keys)}>
-          <Icon.LinePlot />
-          Plot
-        </Menu.Item>
-      )}
-      <Menu.Divider />
-      {planned.length > 0 && canUpdate && (
-        <Menu.Item itemKey="start" onClick={() => planned.forEach(start)}>
-          <Icon.Play />
-          Start
-        </Menu.Item>
-      )}
-      {running.length > 0 && canUpdate && (
-        <Menu.Item itemKey="stop" onClick={() => running.forEach(stop)}>
-          <Icon.Stop />
-          Stop
-        </Menu.Item>
-      )}
-      {onNext != null &&
-        single != null &&
-        single.parent != null &&
-        running.length === 1 &&
-        canUpdate &&
-        canCreate && (
-          <Menu.Item itemKey="next" onClick={() => onNext(single)}>
-            <NextIcon />
-            Next
-          </Menu.Item>
-        )}
-      {single != null && canCreate && (
-        <Menu.Item
-          itemKey="startChild"
-          onClick={() =>
-            onStartChild == null
-              ? openCreate({ parent: single.key })
-              : onStartChild(single)
-          }
-        >
-          <Ranger.CreateIcon />
-          Start child range
-        </Menu.Item>
-      )}
-      {single != null && canUpdate && (
-        <Base.RenameItem
-          onClick={() => Text.edit(List.itemNameID(single.key), target)}
-        />
-      )}
-      <Menu.Divider />
-      {ranges.some((r) => !favoriteKeys.includes(r.key)) && (
-        <Menu.Item
-          itemKey="favorite"
-          onClick={() =>
-            Session.Range.fromClient(ranges).forEach((r) =>
-              dispatch(Session.Range.add(r)),
-            )
-          }
-        >
-          <Icon.StarFilled />
-          Favorite
-        </Menu.Item>
-      )}
-      {ranges.some((r) => favoriteKeys.includes(r.key)) && (
-        <Menu.Item
-          itemKey="unfavorite"
-          onClick={() =>
-            dispatch(Session.Range.remove({ keys: ranges.map((r) => r.key) }))
-          }
-        >
-          <Icon.StarOutlined />
-          Unfavorite
-        </Menu.Item>
-      )}
-      <Menu.Divider />
-      {single != null && (
-        <Sift.Range.UploadMenuItem rangeKey={single.key} rangeName={single.name} />
-      )}
-      <Menu.Divider />
-      {single != null && (
-        <Link.CopyContextMenuItem
-          onClick={() =>
-            copyLink({ name: single.name, resourceID: ranger.resourceID(single.key) })
-          }
-        />
-      )}
-      <Menu.Divider />
-      {canDelete && ranges.length > 0 && <Base.DeleteItem onClick={handleDelete} />}
-      <Menu.Divider />
-      <Base.ReloadConsoleItem />
-    </Base.Menu>
+    <Range.ContextMenu
+      keys={keys}
+      onRename={(r) => Text.edit(List.itemNameID(r.key), target)}
+      onStartChild={onStartChild}
+      onNext={onNext}
+      extraMenuItems={
+        single != null && (
+          <Sift.Range.UploadMenuItem rangeKey={single.key} rangeName={single.name} />
+        )
+      }
+    />
   );
 };

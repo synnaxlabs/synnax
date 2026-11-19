@@ -61,11 +61,10 @@ Run each script with `npx tsx <file>`.
 
 </Client.Tabs>
 
-The scripts connect to Synnax Desktop on the same computer. In Python, `sy.Synnax()`
-with no arguments finds it, unless `sy login` saved a Core, which it then uses. In
-TypeScript, copy the host, the port, and the API key from the **Connect from code**
-dialog of Synnax Desktop. To connect to a Synnax Core instead, pass its address and a
-login. See [Connect to a Core](/reference/client/connect).
+The scripts connect to Synnax Desktop on the same computer. The clients find it when you
+give no arguments, but in Python, a Core that `sy login` saved comes first. To connect
+to a Synnax Core instead, pass its address and a login. See
+[Connect to a Core](/reference/client/connect).
 
 Set `PORT` to the serial port of your Arduino, which the Arduino IDE shows.
 
@@ -146,12 +145,7 @@ import { SerialPort } from "serialport";
 
 const PORT = "/dev/ttyACM0";
 
-// Copy these values from the Connect from code dialog of Synnax Desktop.
-const client = new Synnax({
-  host: "localhost",
-  port: 9090,
-  apiKey: "<API key>",
-});
+const client = new Synnax();
 
 const time = await client.channels.create(
   { name: "arduino_time", isIndex: true, dataType: DataType.TIMESTAMP },
@@ -264,12 +258,7 @@ import { SerialPort } from "serialport";
 
 const PORT = "/dev/ttyACM0";
 
-// Copy these values from the Connect from code dialog of Synnax Desktop.
-const client = new Synnax({
-  host: "localhost",
-  port: 9090,
-  apiKey: "<API key>",
-});
+const client = new Synnax();
 
 await client.channels.create(
   { name: "arduino_command", dataType: DataType.UINT8, virtual: true },
@@ -419,12 +408,7 @@ import { SerialPort } from "serialport";
 
 const PORT = "/dev/ttyACM0";
 
-// Copy these values from the Connect from code dialog of Synnax Desktop.
-const client = new Synnax({
-  host: "localhost",
-  port: 9090,
-  apiKey: "<API key>",
-});
+const client = new Synnax();
 
 await client.channels.create(
   { name: "arduino_command", dataType: DataType.UINT8, virtual: true },
