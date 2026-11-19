@@ -181,3 +181,82 @@ var _ = DescribeTable("Crash harness",
 	Entry("Visible, OldCorruption", crash.Visible, crash.OldCorruption, holds),
 	Entry("Visible, NewCorruption", crash.Visible, crash.NewCorruption, holds),
 )
+
+var _ = Describe("Crash adapter", func() {
+	// open returns an adapter on an empty disk in memory.
+	open := func(ctx SpecContext) *crashEngine {
+		GinkgoHelper()
+		e := testutil.MustSucceed(openCrashEngine(crash.Durable)(ctx, xfs.NewMem()))
+		engine, ok := e.(*crashEngine)
+		Expect(ok).To(BeTrue())
+		return engine
+	}
+	// writeParts writes the record id to the channels of keys alone, as a crash that
+	// keeps some of its files would leave it.
+	writeParts := func(
+		ctx SpecContext,
+		e *crashEngine,
+		id uint64,
+		payload []byte,
+		keys []cesium.ChannelKey,
+	) {
+		GinkgoHelper()
+		start := telem.TimeStamp(id) * telem.SecondTS
+		stamps := make([]telem.TimeStamp, len(payload))
+		for i := range stamps {
+			stamps[i] = start + telem.TimeStamp(i)
+		}
+		all := map[cesium.ChannelKey]telem.Series{
+			crashClock:  telem.NewSeries(stamps),
+			crashData:   telem.NewSeries(payload),
+			crashMirror: telem.NewSeries(reversed(payload)),
+		}
+		series := make([]telem.Series, len(keys))
+		for i, k := range keys {
+			series[i] = all[k]
+		}
+		Expect(e.db.Write(ctx, start, telem.MultiFrame(keys, series))).To(Succeed())
+	}
+
+	DescribeTable("Should return no payload for a commit whose channels do not agree",
+		func(ctx SpecContext, keys []cesium.ChannelKey) {
+			e := open(ctx)
+			defer func() { Expect(e.Close()).To(Succeed()) }()
+			payload := []byte("tacocat burrito")
+			testutil.MustSucceed(
+				e.Commit(ctx, crash.Record{ID: 1, Payload: payload}, crash.Durable),
+			)
+			writeParts(ctx, e, 2, payload, keys)
+			records := testutil.MustSucceed(e.Recovered(ctx))
+			Expect(records).To(HaveLen(2))
+			Expect(records[0]).To(Equal(crash.Record{ID: 1, Payload: payload}))
+			Expect(records[1].ID).To(Equal(uint64(2)))
+			Expect(records[1].Payload).To(BeEmpty())
+		},
+		Entry("no mirror", []cesium.ChannelKey{crashClock, crashData}),
+		Entry("no data", []cesium.ChannelKey{crashClock, crashMirror}),
+	)
+
+	It("Should return no payload for a commit whose clock is longer than its data",
+		func(ctx SpecContext) {
+			e := open(ctx)
+			defer func() { Expect(e.Close()).To(Succeed()) }()
+			payload := []byte("tacocat burrito")
+			testutil.MustSucceed(
+				e.Commit(ctx, crash.Record{ID: 2, Payload: payload}, crash.Durable),
+			)
+			// One more stamp in the same second, as a clock file that kept more than
+			// its data files would read.
+			after := 2*telem.SecondTS + telem.TimeStamp(len(payload))
+			extra := telem.MultiFrame(
+				[]cesium.ChannelKey{crashClock},
+				[]telem.Series{telem.NewSeries([]telem.TimeStamp{after})},
+			)
+			Expect(e.db.Write(ctx, after, extra)).To(Succeed())
+			records := testutil.MustSucceed(e.Recovered(ctx))
+			Expect(records).To(HaveLen(1))
+			Expect(records[0].ID).To(Equal(uint64(2)))
+			Expect(records[0].Payload).To(BeEmpty())
+		},
+	)
+})
