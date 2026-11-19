@@ -10,6 +10,7 @@
 import { color } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Color } from "@synnaxlabs/lyra/color";
+import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -50,7 +51,7 @@ interface EditButtonProps {
 }
 
 const EditButton = ({ named }: EditButtonProps): ReactElement | null => {
-  const { openView } = Color.usePicker();
+  const { open } = Dialog.useViews();
   const canUpdate = Access.useUpdateGranted(color.resourceID(named.key));
   if (!canUpdate) return null;
   return (
@@ -62,7 +63,7 @@ const EditButton = ({ named }: EditButtonProps): ReactElement | null => {
       tooltip="Edit color"
       tooltipLocation="right"
       aria-label={`Edit ${named.name}`}
-      onClick={() => openView("Edit color", <EditView itemKey={named.key} />)}
+      onClick={() => open("Edit color", <EditView itemKey={named.key} />)}
     >
       <Icon.Edit />
     </Button.Button>

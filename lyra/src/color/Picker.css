@@ -28,9 +28,6 @@
         min-height: 0;
         padding: 0;
 
-        /* The picker takes the focus, with no ring, when its view opener is gone. */
-        outline: none;
-
         & > * {
             flex-shrink: 0;
         }
@@ -67,15 +64,8 @@
             overflow-y: auto;
         }
 
-        /* The tabs stay mounted under a view, so Back finds them as they were. */
-        &.lyra-color-picker--viewing
-            > :not(.lyra-color-picker__view-header, .lyra-color-picker__view) {
-            display: none;
-        }
-
         & > .lyra-color-picker__palettes,
-        & > .lyra-color-picker__custom,
-        & > .lyra-color-picker__view {
+        & > .lyra-color-picker__custom {
             padding: var(--pluto-color-picker-inset);
         }
 

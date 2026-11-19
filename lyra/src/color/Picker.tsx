@@ -14,7 +14,6 @@ import {
   type ComponentPropsWithoutRef,
   type ReactElement,
   type ReactNode,
-  useEffect,
   useRef,
   useState,
 } from "react";
@@ -27,6 +26,7 @@ import { useFrequent, useFrequentUpdater } from "@/color/Provider";
 import { Swatches } from "@/color/Swatches";
 import { context } from "@/context";
 import { CSS } from "@/css";
+import { Dialog } from "@/dialog";
 import { Divider } from "@/divider";
 import { Flex } from "@/flex";
 import { useDebouncedCallback } from "@/hooks";
@@ -66,13 +66,6 @@ export interface PickerContextValue {
   onNamedChange: (key: string) => void;
   /** Clears the search, so that every palette and color shows. */
   clearSearch: () => void;
-  /**
-   * Shows the view in place of the tabs, under a back button and the title. Back
-   * returns to the tabs as they were, with the focus on the element that opened the
-   * view. The view renders outside every palette, so it cannot call `usePalette`: give
-   * it what it needs, such as a key.
-   */
-  openView: (title: string, view: ReactNode) => void;
 }
 
 const [PickerContext, usePickerContext] = context.create<PickerContextValue>({
@@ -168,15 +161,6 @@ const Tabbed = ({
   ...rest
 }: TabbedProps): ReactElement => {
   const handleChange = useChangeHandler(onChange);
-  const [view, setView] = useState<View | null>(null);
-  const root = useRef<HTMLDivElement>(null);
-  const opener = useRef<HTMLElement | null>(null);
-  useEffect(() => {
-    if (view != null || opener.current == null) return;
-    if (opener.current.isConnected) opener.current.focus();
-    else root.current?.focus();
-    opener.current = null;
-  }, [view]);
   const frequent = useFrequent();
   const linked = named == null ? undefined : findNamed(palettes, named);
   const [tab, setTab] = useState<Tab>(
@@ -208,60 +192,18 @@ const Tabbed = ({
       else swatch.focus();
     },
     clearSearch: () => setSearch(""),
-    openView: (title, content) => {
-      opener.current =
-        document.activeElement instanceof HTMLElement ? document.activeElement : null;
-      setView({ title, content });
-    },
   };
   return (
     <PickerContext value={ctx}>
-      <Flex.Box
-        y
-        gap={0}
+      <Dialog.Views
         className={CSS.cls(
           CSS.B("color-picker"),
           CSS.BM("color-picker", "tabbed"),
-          view != null && CSS.BM("color-picker", "viewing"),
           className,
         )}
         background={1}
-        ref={root}
-        tabIndex={-1}
         {...rest}
       >
-        {view != null && (
-          <>
-            <Flex.Box
-              x
-              align="center"
-              gap="small"
-              className={CSS.cls(
-                CSS.BE("color-picker", "header"),
-                CSS.BE("color-picker", "view-header"),
-              )}
-            >
-              <Button.Button
-                variant="text"
-                size="small"
-                square
-                textColor={9}
-                onClick={() => setView(null)}
-                autoFocus
-                tooltip="Back"
-                aria-label="Back"
-              >
-                <Icon.Arrow.Left />
-              </Button.Button>
-              <Text.Text level="small" weight={500} overflow="fade">
-                {view.title}
-              </Text.Text>
-            </Flex.Box>
-            <Flex.Box y gap="medium" className={CSS.BE("color-picker", "view")}>
-              {view.content}
-            </Flex.Box>
-          </>
-        )}
         <Flex.Box
           x
           align="center"
@@ -313,7 +255,6 @@ const Tabbed = ({
             <Palettes
               palettes={palettes}
               search={search}
-              viewing={view != null}
               linked={linked?.key}
               onPick={onNamedChange}
               registerSwatch={registerSwatch}
@@ -349,15 +290,10 @@ const Tabbed = ({
             )}
           </Flex.Box>
         )}
-      </Flex.Box>
+      </Dialog.Views>
     </PickerContext>
   );
 };
-
-interface View {
-  title: string;
-  content: ReactNode;
-}
 
 interface SectionProps extends Omit<Flex.BoxProps, "title"> {
   title: string;
@@ -404,8 +340,6 @@ interface PaletteSectionProps extends Pick<Library, "paletteEnd" | "swatchAction
   onPick: (key: string) => void;
   /** Records the swatch of a named color when it renders, and null when it goes. */
   registerSwatch: (key: string, swatch: HTMLElement | null) => void;
-  /** If true, a view hides the palette, and the hovered color stays. */
-  viewing: boolean;
 }
 
 /**
@@ -421,9 +355,9 @@ const PaletteSection = ({
   registerSwatch,
   paletteEnd,
   swatchActions,
-  viewing,
 }: PaletteSectionProps): ReactElement => {
   const t = Theming.use();
+  const { viewing } = Dialog.useViews();
   const [hovered, setHovered] = useState<string>();
   const leave = (): void => {
     if (!viewing) setHovered(undefined);
@@ -472,7 +406,6 @@ interface PalettesProps
   /** The key of the named color that the value follows. */
   linked?: string;
   onPick: (key: string) => void;
-  viewing: boolean;
 }
 
 /** The palettes, filtered by color name, palette name, or the hex a swatch shows. */
@@ -485,7 +418,6 @@ const Palettes = ({
   paletteEnd,
   swatchActions,
   footer,
-  viewing,
 }: PalettesProps): ReactElement => {
   const t = Theming.use();
   const term = search.trim().toLowerCase();
@@ -519,7 +451,6 @@ const Palettes = ({
           linked={linked}
           onPick={onPick}
           registerSwatch={registerSwatch}
-          viewing={viewing}
           paletteEnd={paletteEnd}
           swatchActions={swatchActions}
         />

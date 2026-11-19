@@ -20,6 +20,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Color } from "@/color";
 import { CSS } from "@/css";
+import { Dialog } from "@/dialog";
 import { Theming } from "@/theming";
 import { Triggers } from "@/triggers";
 
@@ -530,9 +531,10 @@ describe("Picker", () => {
       };
 
       const ViewOpener = (): ReactElement => {
-        const { value, openView } = Color.usePicker();
+        const { value } = Color.usePicker();
+        const { open } = Dialog.useViews();
         return (
-          <button onClick={() => openView("Edit color", <span>view body</span>)}>
+          <button onClick={() => open("Edit color", <span>view body</span>)}>
             {`open from ${color.hex(value)}`}
           </button>
         );
@@ -636,31 +638,13 @@ describe("Picker", () => {
         ).toBe("o");
       });
 
-      it("should show a view in place of the tabs until Back", () => {
-        const c = renderSlots(
-          { named: "ocean", footer: <ViewOpener /> },
-          { value: "#3e8bff" },
-        );
-        const viewing = CSS.BM("color-picker", "viewing");
-        const picker = c
-          .getByRole("group", { name: "Series" })
-          .closest(`.${CSS.BM("color-picker", "tabbed")}`);
-        fireEvent.click(c.getByText("open from #3e8bff"));
-        expect(c.getByText("Edit color")).toBeTruthy();
-        expect(c.getByText("view body")).toBeTruthy();
-        expect(picker?.classList.contains(viewing)).toBe(true);
-        fireEvent.click(c.getByLabelText("Back"));
-        expect(c.queryByText("view body")).toBeNull();
-        expect(picker?.classList.contains(viewing)).toBe(false);
-      });
-
       it("should return the focus to the action of a hovered color after Back", () => {
         const EditOpener = (): ReactElement | null => {
           const { shown } = Color.usePalette();
-          const { openView } = Color.usePicker();
+          const { open } = Dialog.useViews();
           if (shown == null) return null;
           return (
-            <button onClick={() => openView("Edit color", <span>view body</span>)}>
+            <button onClick={() => open("Edit color", <span>view body</span>)}>
               {`edit ${shown.name}`}
             </button>
           );
@@ -692,41 +676,6 @@ describe("Picker", () => {
         );
         fireEvent.click(c.getByText("linked Ocean"));
         expect(onNamedChange).toHaveBeenCalledExactlyOnceWith("moss");
-      });
-
-      it("should focus the picker after Back when the opener is gone", () => {
-        const RemovableOpener = (): ReactElement | null => {
-          const [present, setPresent] = useState(true);
-          const { openView } = Color.usePicker();
-          if (!present) return null;
-          const remove = <button onClick={() => setPresent(false)}>remove</button>;
-          return <button onClick={() => openView("Edit color", remove)}>open</button>;
-        };
-        const c = renderSlots(
-          { named: "ocean", footer: <RemovableOpener /> },
-          { value: "#3e8bff" },
-        );
-        const open = c.getByText("open");
-        open.focus();
-        fireEvent.click(open);
-        fireEvent.click(c.getByText("remove"));
-        fireEvent.click(c.getByLabelText("Back"));
-        expect(document.activeElement).toBe(
-          c.getByRole("group", { name: "Series" }).closest(`.${CSS.B("color-picker")}`),
-        );
-      });
-
-      it("should focus Back in a view, then the opener after Back", () => {
-        const c = renderSlots(
-          { named: "ocean", footer: <ViewOpener /> },
-          { value: "#3e8bff" },
-        );
-        const open = c.getByText("open from #3e8bff");
-        open.focus();
-        fireEvent.click(open);
-        expect(document.activeElement).toBe(c.getByLabelText("Back"));
-        fireEvent.click(c.getByLabelText("Back"));
-        expect(document.activeElement).toBe(open);
       });
     });
 
