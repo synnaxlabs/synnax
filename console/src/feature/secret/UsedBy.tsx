@@ -184,7 +184,7 @@ export const UsedByPopover = ({
     setMode((m) => m ?? "hover");
   };
   const handleVisibleChange = (arg: state.SetArg<boolean>) =>
-    setMode((m) => (state.executeSetter(arg, m != null) ? "pinned" : null));
+    setMode((m) => (state.resolve(arg, m != null) ? "pinned" : null));
   const handleSelectCertificate = (key: certificate.Key) => {
     setMode(null);
     onSelectCertificate(key);

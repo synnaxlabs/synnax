@@ -19,7 +19,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select as Base } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Flux } from "@synnaxlabs/pluto";
-import { caseconv, primitive, type record } from "@synnaxlabs/x";
+import { primitive, type record, strings } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
@@ -77,7 +77,7 @@ const placeholderOf = <E extends record.Unknown>(
   if (result.variant !== "error") return "";
   const { error } = result.status.details;
   return Flux.DeletedError.matches(error) || NotFoundError.matches(error.cause)
-    ? `${caseconv.capitalize(resourceName)} not found`
+    ? `${strings.capitalize(resourceName)} not found`
     : `Unavailable ${resourceName}`;
 };
 
