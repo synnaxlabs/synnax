@@ -100,14 +100,14 @@ task = mqtt.ReadTask(
             topic="plant/line1/sensors",
             icd=line1.key,
             messages=[
-                mqtt.ReadMessage(
+                sy.icd.ReadMessage(
                     message=sensors.key,
                     bindings=[
-                        mqtt.ReadBinding(
+                        sy.icd.ReadBinding(
                             field=temperature_field.key,
                             channel=temperature.key,
                         ),
-                        mqtt.ReadBinding(
+                        sy.icd.ReadBinding(
                             field=pressure_field.key, channel=pressure.key
                         ),
                     ],
@@ -150,12 +150,12 @@ value = sy.icd.FloatJSONField(name="value", pointer="/value")
 sample = sy.icd.Message(
     name="sample", payload=sy.icd.JSONPayload(fields=[stamp, value])
 )
-read = mqtt.ReadMessage(
+read = sy.icd.ReadMessage(
     message=sample.key,
     index=stamp.key,
     bindings=[
-        mqtt.ReadBinding(field=stamp.key, channel=sample_time.key),
-        mqtt.ReadBinding(field=value.key, channel=sample_value.key),
+        sy.icd.ReadBinding(field=stamp.key, channel=sample_time.key),
+        sy.icd.ReadBinding(field=value.key, channel=sample_value.key),
     ],
 )
 ```
@@ -195,9 +195,9 @@ An entry has these settings:
 | <small>`icd`</small>                              |              | The key of the ICD that holds the messages of the topic.  |
 
 In code, an entry is `PlainReadEntry`, of type `"plain"`. The `qos` values are
-`"at_most_once"`, `"at_least_once"`, and `"exactly_once"`. Its `messages` are each a
-`ReadMessage`, with the key of the `message`, its `index`, and its `bindings`. A
-`ReadBinding` gives the key of a `field` and the `channel` that records it.
+`"at_most_once"`, `"at_least_once"`, and `"exactly_once"`. Its `messages` are each an
+`sy.icd.ReadMessage`, with the key of the `message`, its `index`, and its `bindings`. An
+`sy.icd.ReadBinding` gives the key of a `field` and the `channel` that records it.
 
 A field of a message has these settings:
 

@@ -10,13 +10,14 @@
 import { device } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { render, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Device } from "@/feature/device";
 import { createSlaveDevice } from "@/feature/ethercat/testutil";
 import { createTestDevice } from "@/platform/device/testutil";
-import { CaptureStatuses, createConsoleWrapper, uniqueName } from "@/testutil";
+import { CaptureStatuses, createConsoleWrapper } from "@/testutil";
 
 const client = createTestClient();
 
