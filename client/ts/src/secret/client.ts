@@ -107,7 +107,7 @@ export interface ClientConfig {
   cache: query.Cache;
   /**
    * The channels that announce changes to resources that can use a secret. A change on
-   * one refetches the uses the client holds.
+   * one refetches the uses that a maintained query watches.
    */
   usesChannels: string[];
 }
