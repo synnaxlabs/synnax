@@ -24,13 +24,13 @@ import { CSS } from "@/css";
 import { Dialog as BaseDialog } from "@/dialog";
 import { useSyncedRef } from "@/hooks";
 import { Input } from "@/input";
-import { List } from "@/list";
 import { Menu } from "@/menu";
 import { usePath } from "@/menu/filter";
 import { keyboardMenuKey, openContextMenu } from "@/menu/keyboard";
 import { CONTEXT_TARGET } from "@/menu/types";
 import { useContext } from "@/select/Context";
 import { ClosedContext, InlineContext, useViewingContext } from "@/select/scope";
+import { useGetElement } from "@/select/use";
 
 /** Props for {@link Dialog}. */
 export interface DialogProps extends BaseDialog.DialogProps {
@@ -95,7 +95,7 @@ const MenuViews = ({
   const [viewing, setLocalViewing] = useState(false);
   const contextMenu = Menu.useContextMenu();
   const { getState } = useContext();
-  const getElement = List.useGetElement();
+  const getElement = useGetElement();
   const opens = (option: HTMLElement): boolean => hasMenu?.(optionKey(option)) ?? true;
   // The hovered option, when it opens a menu.
   const targetRef = useSyncedRef((): HTMLElement | undefined => {

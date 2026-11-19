@@ -656,6 +656,22 @@ describe("Select.Single", () => {
       expect(c.queryByRole("menu")).toBeNull();
     });
 
+    it("should open the menu of a fixed option on Shift+F10 and a right click", () => {
+      const { c } = openDialog({
+        menu,
+        initialHover: 0,
+        fixedItems: <Select.Item<string> itemKey="pinned">Pinned</Select.Item>,
+      });
+      expect(fireEvent.keyDown(c.getByRole("textbox"), SHIFT_F10)).toBe(false);
+      expect(c.getByText("menu for pinned")).toBeTruthy();
+      fireEvent.click(c.getByText("menu for pinned"));
+      expect(c.queryByRole("menu")).toBeNull();
+      expect(fireEvent.contextMenu(c.getByRole("option", { name: "Pinned" }))).toBe(
+        false,
+      );
+      expect(c.getByText("menu for pinned")).toBeTruthy();
+    });
+
     it("should leave an option that hasMenu refuses to the platform", () => {
       const { c } = openDialog({
         menu,
