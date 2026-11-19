@@ -524,7 +524,8 @@ jobs:
         with:
           cache-workspaces: console/src-tauri -> target
           cache-shared-key: ${{ runner.os }}-desktop-test
-          components: llvm-tools-preview, clippy, rustfmt
+          components: llvm-tools-preview
+          rust-src-dir: console/src-tauri
 
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@c509219cf42fba86913069efd0ade2458c59337b # v2.90.1
