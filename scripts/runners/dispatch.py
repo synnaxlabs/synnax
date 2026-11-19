@@ -20,6 +20,7 @@ runner_commands_log.
 
 import argparse
 import os
+import time
 from collections.abc import Callable, Iterable
 from functools import partial
 from pathlib import Path
@@ -51,8 +52,8 @@ RETRY_DELAY = 5 * sy.TimeSpan.SECOND
 # Short reads keep Ctrl+C responsive: on Windows a blocking receive cannot be
 # interrupted, so the signal only lands once the read returns.
 READ_TIMEOUT = sy.TimeSpan.SECOND
-# How often to look for command channels the controller created since the last look.
-REFRESH = 30 * sy.TimeSpan.SECOND
+# Seconds between looks for command channels the controller created since.
+REFRESH = 30.0
 
 Handler = Callable[[str], str | None]
 Handlers = dict[str, dict[bool, Handler]]
@@ -151,10 +152,10 @@ class Listener:
         self.registry = registry
         self.names: list[str] = []
         self.lookup: dict[int | str, tuple[str, str]] = {}
-        self.refreshed: sy.TimeStamp | None = None
+        self.refreshed: float | None = None
         self.streamer: Streamer | None = None
 
-    def refresh(self, now: sy.TimeStamp) -> None:
+    def refresh(self, now: float) -> None:
         if self.refreshed is not None and now - self.refreshed < REFRESH:
             return
         channels = command_channels(
@@ -167,8 +168,10 @@ class Listener:
             self.names = names
             self.close()
 
-    def step(self, now: sy.TimeStamp) -> None:
-        """Reads and dispatches one frame, waiting up to READ_TIMEOUT for it."""
+    def step(self, now: float) -> None:
+        """Reads and dispatches one frame, waiting up to READ_TIMEOUT for it. now is
+        a monotonic clock reading in seconds, so a wall-clock step cannot stall the
+        refresh."""
         self.refresh(now)
         if not self.names:
             sy.sleep(READ_TIMEOUT)
@@ -199,7 +202,7 @@ def main() -> None:
     try:
         while True:
             try:
-                listener.step(sy.TimeStamp.now())
+                listener.step(time.monotonic())
             except Exception as e:
                 log.error("listener", e)
                 listener.close()

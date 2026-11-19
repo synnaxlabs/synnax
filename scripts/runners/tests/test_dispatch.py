@@ -73,12 +73,11 @@ class TestListener:
             ),
             registry=registry.path,
         )
-        now = sy.TimeStamp.now()
-        listener.step(now)
+        listener.step(0.0)
         assert client.opened == [[first]]
         registry.add({SECOND: set()})
         second = create_command_channel(client, SECOND)
         client.streamed.append({second: [False]})
-        listener.step(now + REFRESH)
+        listener.step(REFRESH)
         assert client.opened == [[first], [second, first]]
         assert stopped == [SECOND]
