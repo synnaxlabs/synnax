@@ -104,8 +104,12 @@ export const planMessage = async (
       dataType: "",
     };
   const reused = fields.map((f) => bindingOf(f).channel || (held[f.pointer] ?? 0));
+  const storedKeys = fields.map(({ pointer }) => held[pointer] ?? 0);
   const live = new Map(
-    (await client.channels.retrieve(reused)).map((ch) => [ch.key, ch]),
+    (await client.channels.retrieve([...reused, ...storedKeys])).map((ch) => [
+      ch.key,
+      ch,
+    ]),
   );
   // A message stores every field on one index when it has an index field, a stored
   // channel, or a fixed-density field that needs a new channel. Else it streams them.
@@ -117,20 +121,21 @@ export const planMessage = async (
       if (ch != null && converts(f.type, ch.dataType.toString())) return false;
       return !new DataType(DEFAULT_DATA_TYPES[f.type]).isVariable;
     });
+  // An edit of the field's kind or index role since the last deploy, or a streamed
+  // field that the message now stores, needs a new channel.
+  const stale = (f: icd.JSONField, ch?: channel.Channel): ch is channel.Channel =>
+    ch != null &&
+    (!converts(f.type, ch.dataType.toString()) ||
+      ch.isIndex !== (f.key === index) ||
+      (indexed && ch.virtual));
   const planned = fields.map((f, i): MessageField => {
     const binding = bindingOf(f);
     const isIndex = f.key === index;
     const suited = binding.dataType !== "" && converts(f.type, binding.dataType);
     const dataType = suited ? binding.dataType : "";
     const ch = live.get(reused[i]);
-    // An edit of the field's kind or index role since the last deploy, or a streamed
-    // field that the message now stores, needs a new channel.
-    const stale =
-      ch != null &&
-      (!converts(f.type, ch.dataType.toString()) ||
-        ch.isIndex !== isIndex ||
-        (indexed && ch.virtual));
-    if (stale && held[f.pointer] === ch.key) delete held[f.pointer];
+    const replaced = stale(f, ch);
+    if (stale(f, live.get(storedKeys[i]))) delete held[f.pointer];
     return {
       key: f.key,
       pointer: f.pointer,
@@ -138,8 +143,8 @@ export const planMessage = async (
       dataType: isIndex
         ? DataType.TIMESTAMP.toString()
         : bindingDataType({ dataType }, f.type),
-      channel: stale ? 0 : binding.channel,
-      replaces: stale ? ch.key : 0,
+      channel: replaced ? 0 : binding.channel,
+      replaces: replaced ? ch.key : 0,
       binding: { ...binding, dataType },
     };
   });
