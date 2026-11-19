@@ -232,6 +232,53 @@ var _ = Describe("Run", func() {
 		)
 	})
 
+	Describe("Exhaustive", func() {
+		It(
+			"Should check each crash image and list each violation",
+			func(ctx SpecContext) {
+				calls := 0
+				result, err := crash.Run(ctx, crash.Config{
+					Open: func(ctx context.Context, fs xfs.FS) (crash.Engine, error) {
+						e, err := openPlainLog(plainOpts{})(ctx, fs)
+						if err != nil {
+							return nil, err
+						}
+						return audited{
+							Engine: e,
+							err:    errors.New("taco"),
+							fails:  always,
+							calls:  &calls,
+						}, nil
+					},
+					Commits:    4,
+					Stride:     1,
+					Profile:    crash.Strict,
+					Exhaustive: true,
+				})
+				var v *crash.Violation
+				Expect(errors.As(err, &v)).To(BeTrue(), "no violation: %v", err)
+				Expect(result.Violations).To(HaveLen(result.Recoveries))
+				Expect(result.Violations[0]).To(Equal(*v))
+				for i, got := range result.Violations {
+					Expect(got.Rule).To(Equal(crash.R5))
+					if i > 0 {
+						Expect(
+							got.Event,
+						).To(BeNumerically(">", result.Violations[i-1].Event))
+					}
+				}
+			},
+		)
+
+		It("Should list no violation in a run that is not exhaustive",
+			func(ctx SpecContext) {
+				result, _, err := runAudited(ctx, errors.New("taco"), always)
+				Expect(err).To(HaveOccurred())
+				Expect(result.Violations).To(BeEmpty())
+			},
+		)
+	})
+
 	Describe("Writeback", func() {
 		It("Should keep each Durable commit that a writeback made durable",
 			func(ctx SpecContext) {
