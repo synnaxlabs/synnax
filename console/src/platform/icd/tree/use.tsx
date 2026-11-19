@@ -27,13 +27,7 @@ import { createJSONField } from "@/platform/icd/Fields";
 import { fieldsOf, formatOf, type Formats, useFormats } from "@/platform/icd/Formats";
 import { createMatch } from "@/platform/icd/Match";
 import { usePlan } from "@/platform/icd/Plans";
-import {
-  fieldsPath,
-  isReadable,
-  type ReadBinding,
-  type ReadSource,
-  reindex,
-} from "@/platform/icd/read";
+import { fieldsPath, isReadable, type ReadSource, reindex } from "@/platform/icd/read";
 import {
   fieldKey,
   type FieldNode,
@@ -56,7 +50,7 @@ const setRead = (
   read: number,
   field: icd.JSONField,
   on: boolean,
-  bindingOf: () => ReadBinding,
+  bindingOf: () => icd.ReadBinding,
 ): void => {
   const bindings = path.messages[read].bindings;
   const value = ctx.get(bindings).value;
@@ -199,7 +193,7 @@ export interface UseArgs<S extends Source> {
   /** Renders the tree item of a source. */
   SourceItem: FC<Tree.ItemRenderProps<string>>;
   /** @returns the binding of a field that the task starts to read. */
-  bindingOf: (source: string, r: number, field: icd.JSONField) => ReadBinding;
+  bindingOf: (source: string, r: number, field: icd.JSONField) => icd.ReadBinding;
   /** @returns a name for a new message of a source that no message in held has. */
   messageName: (source: string, held: icd.Message[]) => string;
   /** The key of each selected tree item. */
