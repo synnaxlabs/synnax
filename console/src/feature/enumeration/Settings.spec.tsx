@@ -38,7 +38,8 @@ import {
 } from "@/testutil";
 
 const client = createTestClient();
-// Reads what the Core holds, without the edits that the cache of client shows at once.
+// Reads what the Core broadcasts, without the edits that the cache of client shows at
+// once. Its cache hears a change a moment after the write that made it returns.
 const core = createTestClient();
 
 const createEnumeration = async (
@@ -105,8 +106,8 @@ type Queries = ReturnType<typeof within>;
  * Returns the queries of the dialog that holds the element. They stay fast while the
  * page shows each enumeration on the Core.
  */
-const dialogOf = async (el: HTMLElement): Promise<Queries> => {
-  const dialog = (await screen.findAllByRole("dialog")).find((d) => d.contains(el));
+const dialogOf = (el: HTMLElement): Queries => {
+  const dialog = screen.getAllByRole("dialog").find((d) => d.contains(el));
   if (dialog == null) throw new Error("expected a dialog");
   return within(dialog);
 };
@@ -114,14 +115,14 @@ const dialogOf = async (el: HTMLElement): Promise<Queries> => {
 const openDelete = async (name: string): Promise<Queries> => {
   await openContextMenu(name);
   await clickAndSettle("Delete");
-  return await dialogOf(await screen.findByText(/Are you sure you want to delete/));
+  return dialogOf(await screen.findByText(/Are you sure you want to delete/));
 };
 
 const pickReplacement = async (dialog: Queries, name: string): Promise<void> => {
   fireEvent.click(await dialog.findByRole("button", { name: /Replace with/ }));
   const search = await screen.findByPlaceholderText("Search enumerations...");
   fireEvent.change(search, { target: { value: name } });
-  const dropdown = await dialogOf(search);
+  const dropdown = dialogOf(search);
   fireEvent.click(await dropdown.findByRole("option", { name: new RegExp(name) }));
 };
 
@@ -487,8 +488,9 @@ describe("Enumeration.Settings", () => {
     await pickReplacement(dialog, to.name);
     await clickWhenEnabled(dialog, "Replace");
     await waitForDialogToClose();
-    const [node] = (await core.schematics.retrieve(user.key)).nodes;
-    expect(node.config).toMatchObject({ variant: "select", enumeration: to.key });
+    await expect
+      .poll(async () => (await core.schematics.retrieve(user.key)).nodes[0].config)
+      .toMatchObject({ variant: "select", enumeration: to.key });
   });
 
   it("should open delete as a narrow confirmation with selectable text", async () => {
@@ -513,7 +515,7 @@ describe("Enumeration.Settings", () => {
     act(() => {
       fireEvent.click(item);
     });
-    const dialog = await dialogOf(screen.getByText(/This action cannot be undone/));
+    const dialog = dialogOf(screen.getByText(/This action cannot be undone/));
     expect(dialog.queryByText(/Nothing uses it/)).toBeNull();
     expect(await dialog.findByText(/Nothing uses it/)).toBeTruthy();
     await clickWhenEnabled(dialog, "Delete");
