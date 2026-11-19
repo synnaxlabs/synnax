@@ -229,7 +229,7 @@ The schematic cutover ships in one release:
 - The upgrade runs as a composition migration, as panels do
   (`core/pkg/service/panel/versions/v0/composition.go:41-55`). An import passes the old
   state lists beside the converted schematic, and its write step
-  (`core/pkg/service/schematic/imex.go:45-64`) makes the enumerations and the symbol
+  (`core/pkg/service/schematic/imex.go:46-68`) makes the enumerations and the symbol
   copies with the same function as the upgrade. An import reuses an enumeration with
   equal content among the records that the importer can retrieve. It reuses a stored
   symbol only when the importer can retrieve it and its whole spec is equal (drawing,

@@ -92,7 +92,7 @@ export const SelectForm = ({ tab, onTabChange }: FormProps): ReactElement => (
         options={path.options}
         label={path.label.label}
         symbolName="Select"
-        colorDisabled
+        colorHidden
       />
     </Tabs.Content>
   </Properties.Tabs>
