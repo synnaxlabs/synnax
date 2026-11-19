@@ -74,9 +74,12 @@ export const Views = ({
     // button.
     else if (clicked != null && active.contains(clicked)) opener.current = clicked;
     else opener.current = active;
-    const width = root.current?.getBoundingClientRect().width ?? 0;
+    // offsetWidth ignores the scale of the dialog's entrance animation.
+    const width = root.current?.offsetWidth ?? 0;
     setView({ title, content, width });
   };
+  const viewStyle: CSS.VarProperties | undefined =
+    view == null ? undefined : { "--pluto-dialog-views-width": `${view.width}px` };
   return (
     <ViewsContext value={{ open }}>
       <Flex.Box
@@ -89,7 +92,7 @@ export const Views = ({
           view != null && CSS.BM("dialog-views", "viewing"),
           className,
         )}
-        style={view == null ? style : { ...style, width: view.width }}
+        style={{ ...style, ...viewStyle }}
         {...rest}
       >
         {view != null && (

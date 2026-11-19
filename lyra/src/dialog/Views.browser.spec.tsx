@@ -67,4 +67,21 @@ describe("Views", () => {
     await expect.element(getByText("open")).not.toBeVisible();
     expect(box.getBoundingClientRect().width).toBe(before);
   });
+
+  it("should keep the unscaled width when a view opens under a transform", async () => {
+    const { getByText } = await renderThemed(
+      <div style={{ display: "inline-flex", transform: "scale(0.5)" }}>
+        <Dialog.Views>
+          <div style={{ width: 200 }} />
+          <WideOpener />
+        </Dialog.Views>
+      </div>,
+    );
+    const box = getByText("open")
+      .element()
+      .closest<HTMLElement>(`.${CSS.B("dialog-views")}`)!;
+    await getByText("open").click();
+    await expect.element(getByText("wide")).toBeVisible();
+    expect(box.offsetWidth).toBe(200);
+  });
 });
