@@ -336,22 +336,23 @@ When it changes the type of a state, the confirm lists the node overrides of the
 type. When it gives a command a state, the confirm lists the `CommandBinding`s of that
 command. The Core removes them in the same transaction.
 
-An import brings the custom symbols that its schematics use. It keeps each enumeration
-key that the Core has and clears one that it lacks (RFC 0112 §4.2). Every symbol import,
-alone, in a group, or in a schematic, follows one rule. When the Core already has a
-symbol with a bundled key, the import uses it and reports a warning status that names it
-if the two differ. The import then drops each node binding that names a state or command
-that the Core's copy lacks, each override of the wrong type, and each `CommandBinding`
-of a command that has a state, and the warning status names them. Otherwise it adds the
-bundled symbol under its bundled key, so a later import of the same file reuses it. A
-group import treats the group the same way, by the group key that a new manifest version
-carries. It uses or adds a group only when a new symbol joins it, and with an old
-manifest, which has no key, it adds a new group. It refuses a group that is not a
-top-level `schematic_symbol` group. The Core refuses an import that lacks any access
-that it needs: retrieve on a reused symbol, create on an added symbol, update on a
-reused group, and create on an added group. A reused symbol stays in its group. Phase 2
-changes the symbol importer to keep keys, and copies that an import made before phase 2
-stay separate symbols.
+A schematic file that carries the custom symbols of its schematics waits for a review of
+import and export across all resources, and no phase builds it before then. A symbol
+import keeps each enumeration key that the Core has and clears one that it lacks (RFC
+0112 §4.2). Every symbol import, alone or in a group, follows one rule. When the Core
+already has a symbol with a bundled key, the import uses it and reports a warning status
+that names it if the two differ. The import then drops each node binding that names a
+state or command that the Core's copy lacks, each override of the wrong type, and each
+`CommandBinding` of a command that has a state, and the warning status names them.
+Otherwise it adds the bundled symbol under its bundled key, so a later import of the
+same file reuses it. A group import treats the group the same way, by the group key that
+a new manifest version carries. It uses or adds a group only when a new symbol joins it,
+and with an old manifest, which has no key, it adds a new group. It refuses a group that
+is not a top-level `schematic_symbol` group. The Core refuses an import that lacks any
+access that it needs: retrieve on a reused symbol, create on an added symbol, update on
+a reused group, and create on an added group. A reused symbol stays in its group. Phase
+2 changes the symbol importer to keep keys, and copies that an import made before phase
+2 stay separate symbols.
 
 A custom symbol holds only shapes. It starts from an SVG upload or a blank canvas, and
 the editor's drawing tools save SVG markup. A part names its shapes by `#id`, `.class`,
@@ -408,12 +409,11 @@ Each built-in gets the enumeration and command names of its family. A normally o
 | `switch`, `thruster`                                                                                                                                                                                                                                                 | Switch: 0 Off, 1 On                   | Turn off, Turn on |
 | `light`                                                                                                                                                                                                                                                              | Light: 0 Off, 1 On                    | None              |
 
-The migration and an import give a node whose custom symbol does not exist `missing`
-with the old key, and keep its bindings. Pluto draws today's "Missing custom symbol"
-look, and "Change symbol" moves the node to another symbol. Because an import keeps
-symbol keys (§4.4), only a symbol absent from both the import and the Core gives
-`missing`. A node stays `missing` until "Change symbol" moves it, also after an import
-adds a symbol with its key.
+A schematic import carries no symbols. The migration and a schematic import give a node
+whose custom symbol is not in the Core `missing` with the old key, and keep its
+bindings. Pluto draws today's "Missing custom symbol" look, and "Change symbol" moves
+the node to another symbol. A node stays `missing` until "Change symbol" moves it, also
+after a symbol import adds a symbol with its key.
 
 In a stored custom symbol, `svg` becomes an `svg` drawing, each distinct pair of region
 key and selector set becomes a part, state `i` becomes value `i` of one state `active`
@@ -460,14 +460,13 @@ and needs RFC 0112 phase 22, so the schematic multi-edit panel can edit the `col
 
 Phase 2 is one cutover of the stored node shape: a node variant with channel references,
 its checks with the Core list of built-ins and its route, the removal of the bindings
-and overrides that a symbol save orphans, a Core migration, a schematic export that
-bundles the schematic's custom symbols with their keys, an import that keeps those keys
-by §4.4, a renderer with its indicators, built-in specs for `light` and `switch` that
-draw from their `active` state, entry looks, and the Light and Switch enumerations, with
-the switch drawn as the Lyra switch draws it, a form with the enumeration picker, and
-the deletion of 86 variants. It is larger than a usual PR because no smaller step leaves
-one node shape in `main`. Phase 3 adds the save confirm, and phase 4 lists the removed
-bindings and overrides in it.
+and overrides that a symbol save orphans, a Core migration, a symbol import that keeps
+keys by §4.4, a renderer with its indicators, built-in specs for `light` and `switch`
+that draw from their `active` state, entry looks, and the Light and Switch enumerations,
+with the switch drawn as the Lyra switch draws it, a form with the enumeration picker,
+and the deletion of 86 variants. It is larger than a usual PR because no smaller step
+leaves one node shape in `main`. Phase 3 adds the save confirm, and phase 4 lists the
+removed bindings and overrides in it.
 
 Phase 5 draws motion in SVG. One `requestAnimationFrame` loop writes SVG attributes for
 every moving part. One table holds motion as data: it maps each `Motion` variant and
