@@ -68,10 +68,12 @@ To read another topic later, click **Add data** again and select it. The tree sh
 topic above its records. Select a topic to change its **Name**.
 
 The Console creates a channel for each field that the task reads, and an index channel
-for each message. It names them from the cluster, the topic, the record key, and the
-field. A message after the first adds its name. To rename a channel, edit **Channel**
-after you start. Click the dot of a field to stop or start reading it. Click **Add
-message** on a record when one key carries more than one message.
+for each message with a field of fixed size, such as a number. A message with only
+string, JSON, or bytes fields gets no index channel: its channels stream the values and
+do not store them. The Console names the channels from the cluster, the topic, the
+record key, and the field. A message after the first adds its name. To rename a channel,
+edit **Channel** after you start. Click the dot of a field to stop or start reading it.
+Click **Add message** on a record when one key carries more than one message.
 
 <Video id="hardware/kafka/read-task" />
 
