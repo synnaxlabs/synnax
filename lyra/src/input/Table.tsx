@@ -189,7 +189,7 @@ interface PastedCell {
  */
 const isHeading = (row: PastedCell[], columns: TableColumnProps[]): boolean => {
   const typed = row.filter((_, j) => refusesWords(columns[j]));
-  return typed.length > 0 && typed.every(({ value }) => value == null);
+  return typed.length > 0 && typed.every(({ value }) => value === null);
 };
 
 /**
@@ -226,8 +226,9 @@ const takesText = (el: EventTarget): boolean =>
   (el instanceof HTMLInputElement && el.type !== "checkbox" && el.type !== "radio");
 
 /**
- * Whether the column's reader refuses text that its cells cannot hold. Only then does a
- * single value pasted on a cell that is not a text field, such as a select, reach it.
+ * Whether a single value pasted on a cell that is not a text field, such as a select,
+ * reaches the cell. The default string and number readers take values that such a cell
+ * may not hold, so they do not.
  */
 const checksText = (column: TableColumnProps): boolean =>
   column.parse != null || column.type === "boolean" || column.type === "custom";
@@ -490,7 +491,7 @@ export const Table = ({
       next.push(createRow?.(next) ?? emptyRow());
     const rejected: Rejection[] = [];
     plan.writes.forEach(({ position: at, value: { text, value: parsed } }) => {
-      if (parsed != null) next[at.y][at.x] = parsed;
+      if (parsed !== null) next[at.y][at.x] = parsed;
       else rejected.push({ at, text, kept: next[at.y][at.x] });
     });
     const written = (at: xy.XY): boolean =>
