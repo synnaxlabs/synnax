@@ -718,6 +718,25 @@ var _ = Describe("CSV", func() {
 				)))
 		})
 
+		It("Should write each sample in the data type of its series", func(
+			ctx SpecContext,
+		) {
+			index, channels := createIndexed(ctx, telem.Int16T)
+			write(
+				ctx,
+				index,
+				telem.NewSeriesSecondsTSV(1, 2),
+				channels,
+				telem.NewSeriesV[int16](-1, 300),
+			)
+			// The record declares a type that no stored sample has.
+			declared := channels[0]
+			declared.DataType = telem.Float64T
+			Expect(csvRows(MustSucceed(
+				framer.NewCSVEncoder(ctx).Encode(read(ctx, index, declared)),
+			))).To(Equal([]string{"1000000000,-1", "2000000000,300"}))
+		})
+
 		It("Should write a large read in bounded pieces", func(ctx SpecContext) {
 			const samples = 20_000
 			index, channels := createIndexed(ctx, telem.Int64T)

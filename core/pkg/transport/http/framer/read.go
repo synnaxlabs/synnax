@@ -210,10 +210,12 @@ func groupByIndex(res ReadResponse) ([][]channel.Channel, error) {
 type column struct {
 	key channel.Key
 	// index is the key of the index channel that timestamps the column.
-	index    channel.Key
-	name     string
+	index channel.Key
+	name  string
+	// dataType is the data type of the first pending series.
 	dataType telem.DataType
-	// size is the byte size of one sample, or 0 for a variable-length data type.
+	// size is the byte size of one sample of the first pending series, or 0 for a
+	// variable-length data type.
 	size int
 	iter *svcframer.Iterator
 	// done is true once iter has no samples left.
@@ -227,16 +229,7 @@ type column struct {
 }
 
 func newColumn(ch channel.Channel) column {
-	c := column{
-		key:      ch.Key(),
-		index:    ch.Index(),
-		name:     ch.Name,
-		dataType: ch.DataType,
-	}
-	if !ch.DataType.IsVariable() {
-		c.size = int(ch.DataType.Density())
-	}
-	return c
+	return column{key: ch.Key(), index: ch.Index(), name: ch.Name}
 }
 
 // openColumns opens an iterator for every column. On failure, it closes the iterators
@@ -320,13 +313,26 @@ func (c *column) sample() (sample []byte, n int) {
 				return sample, n
 			}
 			c.pending, c.offset, c.position = c.pending[1:], 0, 0
+			c.head()
 		}
 		if c.done {
 			return nil, 0
 		}
 		if c.done = !c.iter.Next(IteratorAutoSpan); !c.done {
 			c.pending = c.iter.Value().Get(c.key).Series
+			c.head()
 		}
+	}
+}
+
+// head sets the data type and sample size of the column from its first pending series.
+func (c *column) head() {
+	if len(c.pending) == 0 {
+		return
+	}
+	c.dataType, c.size = c.pending[0].DataType, 0
+	if !c.dataType.IsVariable() {
+		c.size = int(c.dataType.Density())
 	}
 }
 

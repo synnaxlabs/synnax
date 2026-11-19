@@ -805,6 +805,80 @@ var _ = Describe("TDMS", func() {
 			)))
 		})
 
+		Describe("Data types", func() {
+			// createRetyped returns an index and an int16 channel with two samples,
+			// whose
+			// record declares float64, a type that no stored sample has.
+			createRetyped := func(ctx SpecContext) (svcchannel.Channel, svcchannel.Channel) {
+				GinkgoHelper()
+				index, channels := createIndexed(ctx, telem.Int16T)
+				write(
+					ctx,
+					index,
+					telem.NewSeriesSecondsTSV(1, 2),
+					channels,
+					telem.NewSeriesV[int16](-1, 300),
+				)
+				declared := channels[0]
+				declared.DataType = telem.Float64T
+				return index, declared
+			}
+
+			It(
+				"Should give a channel with no sample of its declared type only typed columns",
+				func(ctx SpecContext) {
+					index, declared := createRetyped(ctx)
+					segments := parseTDMS(MustSucceed(
+						framer.NewTDMSEncoder(ctx).Encode(read(ctx, index, declared)),
+					))
+					var paths []string
+					for _, seg := range segments {
+						for _, o := range seg.objects {
+							paths = append(paths, o.path)
+						}
+					}
+					Expect(
+						paths,
+					).ToNot(ContainElement(tdmsPath(index.Name, declared.Name)))
+					typed := declared.Name + " (int16)"
+					Expect(tdmsObjectAt(segments[1], tdmsPath(typed))).
+						To(Equal(tdmsGroup(typed)))
+					Expect(decodeTDMSTimeStamps(tdmsChannelData(
+						segments,
+						tdmsPath(typed, index.Name),
+					))).To(Equal([]telem.TimeStamp{telem.SecondTS, telem.SecondTS * 2}))
+					Expect(tdmsChannelData(segments, tdmsPath(typed, typed)).data).
+						To(Equal(telem.NewSeriesV[int16](-1, 300).Data))
+				},
+			)
+
+			It("Should fail a read where a typed column takes the name of a channel",
+				func(ctx SpecContext) {
+					index, channels := createIndexed(ctx, telem.Int16T, telem.Float32T)
+					write(
+						ctx,
+						index,
+						telem.NewSeriesSecondsTSV(1),
+						channels[:1],
+						telem.NewSeriesV[int16](1),
+					)
+					channels[0].DataType = telem.Float64T
+					channels[1].Name = channels[0].Name + " (int16)"
+					Expect(framer.NewTDMSEncoder(ctx).Encode(
+						read(ctx, index, channels...),
+					)).Error().To(And(
+						MatchError(validate.ErrValidation),
+						MatchError(ContainSubstring(fmt.Sprintf(
+							"channels %s and %s both take the name %s in a TDMS file",
+							channels[1].Key(),
+							channels[0].Key(),
+							channels[1].Name,
+						))),
+					))
+				},
+			)
+		})
+
 		It("Should write an index requested on its own", func(ctx SpecContext) {
 			index, channels := createIndexed(ctx, telem.Float32T)
 			write(

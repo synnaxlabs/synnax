@@ -31,13 +31,16 @@ import (
 // float channel holds NaN, which NI tools read as no value, where it has no sample.
 // TDMS has no missing value for other types, so each other channel gets its own group:
 // the timestamps of its samples, then the samples. A channel whose name another channel
-// of the read shares takes its name and key, such as "temp (1048577)". Each group sets
-// wf_xcolumns to mark its first channel as its time channel. UUID, bytes, and JSON
-// samples become TDMS strings in their text form. A latest or earliest read holds only
-// the newest or oldest rows of each index. A read of a channel whose index it does not
-// include, or a read under a limit reduction, fails before the first byte. A read that
-// fails after the first byte truncates the body. ctx bounds the iterators the encoder
-// opens.
+// of the read shares takes its name and key, such as "temp (1048577)". A channel gets a
+// column per data type of its samples. The column of its declared type keeps the name;
+// each other type takes a group of its own, such as "temp (int32)". When the first
+// sample of a channel has another type, every column of the channel takes a group of
+// its own. Each group sets wf_xcolumns to mark its first channel as its time channel.
+// UUID, bytes, and JSON samples become TDMS strings in their text form. A latest or
+// earliest read holds only the newest or oldest rows of each index. A read of a channel
+// whose index it does not include, or a read under a limit reduction, fails before the
+// first byte. A read that fails after the first byte truncates the body. ctx bounds the
+// iterators the encoder opens.
 func NewTDMSEncoder(ctx context.Context) xhttp.Encoder { return tdmsEncoder{ctx: ctx} }
 
 type tdmsEncoder struct{ ctx context.Context }
@@ -129,27 +132,51 @@ type tdmsGroup struct {
 	channels []tdmsChannel
 }
 
-// tdmsChannel is a data channel of the file.
+// tdmsChannel is a data channel of the file, with a column of the file for each data
+// type of its samples.
 type tdmsChannel struct {
 	column
-	// groupPath is the object path of the channel's own group, or empty when the
-	// channel shares the timestamps of its index.
+	// fileName is the name the channel takes in the file.
+	fileName  string
+	indexName string
+	declared  telem.DataType
+	// tdmsType is the TDMS type of the declared type.
+	tdmsType tdmsDataType
+	// shared is true when a column of the declared type shares the timestamps of the
+	// index.
+	shared bool
+	// taken holds the channel that takes each name in the file.
+	taken map[string]channel.Key
+	// outputs holds a column for each data type, in the order of their first sample.
+	// Only
+	// the first can share the timestamps of the index.
+	outputs []tdmsOutput
+}
+
+// tdmsOutput is the column of the file that holds the samples of one data type of a
+// channel.
+type tdmsOutput struct {
+	dataType telem.DataType
+	tdmsType tdmsDataType
+	// groupPath is the object path of the column's own group, or empty when the column
+	// shares the timestamps of its index.
 	groupPath string
 	path      string
-	// timePath is the object path of the channel's own time channel.
+	// timePath is the object path of the column's own time channel.
 	timePath string
-	tdmsType tdmsDataType
-	// nan is the sample a channel that shares its index's timestamps holds where it has
-	// none.
+	// nan is the sample a shared column holds where the channel has none.
 	nan []byte
-	// count is the number of samples the segment holds for the channel.
+	// declared is true once a segment declares the column's group.
+	declared bool
+	// count is the number of samples the segment holds for the column.
 	count int
 	// data holds the segment's samples, or the end offset of each string.
 	data []byte
 	// text holds the segment's strings.
 	text []byte
-	// times holds the TDMS timestamps of the segment's samples, for a channel with its
-	// own time channel.
+	// times holds the TDMS timestamps of the segment's samples, for a column with its
+	// own
+	// time channel.
 	times []byte
 }
 
@@ -158,7 +185,7 @@ func newTDMSFile(res ReadResponse) (*tdmsFile, error) {
 	if err != nil {
 		return nil, err
 	}
-	names, err := tdmsNames(indexGroups)
+	names, taken, err := tdmsNames(indexGroups)
 	if err != nil {
 		return nil, err
 	}
@@ -170,34 +197,93 @@ func newTDMSFile(res ReadResponse) (*tdmsFile, error) {
 		g.indexPath = tdmsPath(indexName, indexName)
 		var own []tdmsChannel
 		for _, ch := range channels[1:] {
-			name := names[ch.Key()]
 			t, err := newTDMSDataType(ch.DataType)
 			if err != nil {
 				return nil, err
 			}
 			c := tdmsChannel{
-				column:   newColumn(ch),
-				tdmsType: t,
-				nan:      tdmsNaN(t),
+				column:    newColumn(ch),
+				fileName:  names[ch.Key()],
+				indexName: indexName,
+				declared:  ch.DataType,
+				tdmsType:  t,
+				shared:    tdmsNaN(t) != nil,
+				taken:     taken,
 			}
-			if c.nan != nil {
-				c.path = tdmsPath(indexName, name)
+			if c.shared {
 				g.channels = append(g.channels, c)
-				continue
+			} else {
+				own = append(own, c)
 			}
-			c.groupPath, c.path = tdmsPath(name), tdmsPath(name, name)
-			c.timePath = tdmsPath(name, indexName)
-			own = append(own, c)
 		}
 		g.channels = append(g.channels, own...)
 	}
 	return f, nil
 }
 
-// tdmsNames returns the name each channel of groups takes in the file: its own name, or
-// its name and key when another channel shares the name. It returns a validation error
-// when two channels still take the same name.
-func tdmsNames(groups [][]channel.Channel) (map[channel.Key]string, error) {
+// start gives the channel the column of its declared type when its first sample has
+// that type, or when it has no samples. Each other column joins the file at its first
+// sample, in a group of its own, so the file holds a column of the declared type only
+// when the read does.
+func (c *tdmsChannel) start() {
+	if _, n := c.sample(); n > 0 && c.dataType != c.declared {
+		return
+	}
+	o := tdmsOutput{dataType: c.declared, tdmsType: c.tdmsType, declared: true}
+	if c.shared {
+		o.path, o.nan = tdmsPath(c.indexName, c.fileName), tdmsNaN(c.tdmsType)
+	} else {
+		o.own(c.fileName, c.indexName)
+	}
+	c.outputs = append(c.outputs, o)
+}
+
+// output returns the column for the samples the channel points at, adding one in a
+// group of its own when the channel has none of their type. A column of a type other
+// than the declared one takes the name "<name> (<type>)".
+func (c *tdmsChannel) output() (*tdmsOutput, error) {
+	for i := range c.outputs {
+		if c.outputs[i].dataType == c.dataType {
+			return &c.outputs[i], nil
+		}
+	}
+	t, err := newTDMSDataType(c.dataType)
+	if err != nil {
+		return nil, err
+	}
+	name := c.fileName
+	if c.dataType != c.declared {
+		name = fmt.Sprintf("%s (%s)", name, c.dataType)
+		if other, ok := c.taken[name]; ok {
+			return nil, errors.Wrapf(
+				validate.ErrValidation,
+				"channels %s and %s both take the name %s in a TDMS file",
+				other,
+				c.key,
+				name,
+			)
+		}
+		c.taken[name] = c.key
+	}
+	o := tdmsOutput{dataType: c.dataType, tdmsType: t}
+	o.own(name, c.indexName)
+	c.outputs = append(c.outputs, o)
+	return &c.outputs[len(c.outputs)-1], nil
+}
+
+// own puts the column in a group of its own, named name, with the time channel
+// indexName.
+func (o *tdmsOutput) own(name, indexName string) {
+	o.groupPath, o.path = tdmsPath(name), tdmsPath(name, name)
+	o.timePath = tdmsPath(name, indexName)
+}
+
+// tdmsNames returns the name each channel of groups takes in the file, its own name or
+// its name and key when another channel shares the name, and the channel that takes
+// each name. It returns a validation error when two channels still take the same name.
+func tdmsNames(
+	groups [][]channel.Channel,
+) (map[channel.Key]string, map[string]channel.Key, error) {
 	counts := make(map[string]int)
 	for _, group := range groups {
 		for _, ch := range group {
@@ -215,7 +301,7 @@ func tdmsNames(groups [][]channel.Channel) (map[channel.Key]string, error) {
 				name = fmt.Sprintf("%s (%s)", name, ch.Key())
 			}
 			if other, ok := taken[name]; ok {
-				return nil, errors.Wrapf(
+				return nil, nil, errors.Wrapf(
 					validate.ErrValidation,
 					"channels %s and %s both take the name %s in a TDMS file",
 					other,
@@ -226,7 +312,7 @@ func tdmsNames(groups [][]channel.Channel) (map[channel.Key]string, error) {
 			names[ch.Key()], taken[name] = name, ch.Key()
 		}
 	}
-	return names, nil
+	return names, taken, nil
 }
 
 // columns returns a pointer to every column of the file.
@@ -304,6 +390,11 @@ func tdmsPath(names ...string) string {
 // write writes the file: a segment that declares its groups and channels, then the
 // segments of each group's samples.
 func (f *tdmsFile) write(w io.Writer) error {
+	for i := range f.groups {
+		for j := range f.groups[i].channels {
+			f.groups[i].channels[j].start()
+		}
+	}
 	if err := f.writeHeader(w); err != nil {
 		return err
 	}
@@ -332,8 +423,10 @@ func (f *tdmsFile) writeHeader(w io.Writer) error {
 		g := &f.groups[i]
 		f.appendDeclaration(g.path, true)
 		for j := range g.channels {
-			if c := &g.channels[j]; c.groupPath != "" {
-				f.appendDeclaration(c.groupPath, true)
+			for _, o := range g.channels[j].outputs {
+				if o.groupPath != "" {
+					f.appendDeclaration(o.groupPath, true)
+				}
 			}
 		}
 	}
@@ -341,11 +434,12 @@ func (f *tdmsFile) writeHeader(w io.Writer) error {
 		g := &f.groups[i]
 		f.appendDeclaration(g.indexPath, false)
 		for j := range g.channels {
-			c := &g.channels[j]
-			if c.groupPath != "" {
-				f.appendDeclaration(c.timePath, false)
+			for _, o := range g.channels[j].outputs {
+				if o.groupPath != "" {
+					f.appendDeclaration(o.timePath, false)
+				}
+				f.appendDeclaration(o.path, false)
 			}
-			f.appendDeclaration(c.path, false)
 		}
 	}
 	return f.flush(w, tdmsTocMetaData|tdmsTocNewObjList)
@@ -368,19 +462,26 @@ func (f *tdmsFile) appendDeclaration(path string, group bool) {
 }
 
 // writeSegment writes a segment of the n index samples g read and the channel samples
-// at their alignments.
+// at their alignments. It declares the group of each column that has its first samples
+// in the segment.
 func (f *tdmsFile) writeSegment(w io.Writer, g *tdmsGroup, n int) error {
 	f.reset()
 	f.appendData(g.indexPath, tdmsTimeStamp, n, g.times, nil)
 	for i := range g.channels {
-		c := &g.channels[i]
-		if c.count == 0 {
-			continue
+		for j := range g.channels[i].outputs {
+			o := &g.channels[i].outputs[j]
+			if o.count == 0 {
+				continue
+			}
+			if !o.declared {
+				f.appendDeclaration(o.groupPath, true)
+				o.declared = true
+			}
+			if o.groupPath != "" {
+				f.appendData(o.timePath, tdmsTimeStamp, o.count, o.times, nil)
+			}
+			f.appendData(o.path, o.tdmsType, o.count, o.data, o.text)
 		}
-		if c.groupPath != "" {
-			f.appendData(c.timePath, tdmsTimeStamp, c.count, c.times, nil)
-		}
-		f.appendData(c.path, c.tdmsType, c.count, c.data, c.text)
 	}
 	return f.flush(w, tdmsTocMetaData|tdmsTocNewObjList|tdmsTocRawData)
 }
@@ -416,8 +517,10 @@ func (f *tdmsFile) appendData(
 func (g *tdmsGroup) read() (int, error) {
 	g.times = g.times[:0]
 	for i := range g.channels {
-		c := &g.channels[i]
-		c.count, c.data, c.text, c.times = 0, c.data[:0], c.text[:0], c.times[:0]
+		for j := range g.channels[i].outputs {
+			o := &g.channels[i].outputs[j]
+			o.count, o.data, o.text, o.times = 0, o.data[:0], o.text[:0], o.times[:0]
+		}
 	}
 	var n int
 	for n < tdmsSegmentSamples {
@@ -483,40 +586,46 @@ func (c *tdmsChannel) read(
 		if c.size > 0 {
 			k = min(n-i, c.remaining())
 		}
-		if err := c.appendSamples(k); err != nil {
+		o, err := c.output()
+		if err != nil {
 			return err
 		}
-		if c.groupPath != "" {
-			c.times = append(c.times, times[16*i:16*(i+k)]...)
+		if err = c.appendSamples(o, k); err != nil {
+			return err
+		}
+		if o.groupPath != "" {
+			o.times = append(o.times, times[16*i:16*(i+k)]...)
+			c.appendMissing(k)
 		}
 		i += k
 	}
 	return nil
 }
 
-// appendMissing fills k index samples the channel has no sample for. Only a channel
-// that shares its index's timestamps holds anything there.
+// appendMissing fills k index samples that the channel's shared column has no sample
+// for. A channel with no shared column holds nothing there.
 func (c *tdmsChannel) appendMissing(k int) {
-	if c.groupPath != "" {
+	if len(c.outputs) == 0 || c.outputs[0].groupPath != "" {
 		return
 	}
-	c.count += k
-	start := len(c.data)
-	c.data = slices.Grow(c.data, k*len(c.nan))[:start+k*len(c.nan)]
-	filled := copy(c.data[start:], c.nan)
-	for filled < k*len(c.nan) {
-		filled += copy(c.data[start+filled:], c.data[start:start+filled])
+	o := &c.outputs[0]
+	o.count += k
+	start := len(o.data)
+	o.data = slices.Grow(o.data, k*len(o.nan))[:start+k*len(o.nan)]
+	filled := copy(o.data[start:], o.nan)
+	for filled < k*len(o.nan) {
+		filled += copy(o.data[start+filled:], o.data[start:start+filled])
 	}
 }
 
-// appendSamples appends the next k samples of the series the channel points at.
-func (c *tdmsChannel) appendSamples(k int) error {
-	c.count += k
-	switch c.tdmsType {
+// appendSamples appends the next k samples of the series the channel points at to o.
+func (c *tdmsChannel) appendSamples(o *tdmsOutput, k int) error {
+	o.count += k
+	switch o.tdmsType {
 	case tdmsString:
 		for range k {
 			sample, n := c.sample()
-			if err := c.appendText(sample); err != nil {
+			if err := c.appendText(o, sample); err != nil {
 				return err
 			}
 			c.advance(n)
@@ -525,32 +634,32 @@ func (c *tdmsChannel) appendSamples(k int) error {
 		data := c.pending[0].Data[c.offset:]
 		for i := range k {
 			ts := telem.TimeStamp(telem.ByteOrder.Uint64(data[8*i:]))
-			c.data = appendTDMSTimeStamp(c.data, ts)
+			o.data = appendTDMSTimeStamp(o.data, ts)
 		}
 		c.skip(k)
 	case tdmsI8, tdmsI16, tdmsI32, tdmsI64, tdmsU8, tdmsU16, tdmsU32, tdmsU64, tdmsF32,
 		tdmsF64, tdmsBoolean:
-		c.data = append(c.data, c.pending[0].Data[c.offset:c.offset+k*c.size]...)
+		o.data = append(o.data, c.pending[0].Data[c.offset:c.offset+k*c.size]...)
 		c.skip(k)
 	default:
-		return errors.Newf("unknown TDMS data type %#x", uint32(c.tdmsType))
+		return errors.Newf("unknown TDMS data type %#x", uint32(o.tdmsType))
 	}
 	return nil
 }
 
-// appendText appends the text form of sample to a string channel.
-func (c *tdmsChannel) appendText(sample []byte) error {
+// appendText appends the text form of sample to the string column o.
+func (c *tdmsChannel) appendText(o *tdmsOutput, sample []byte) error {
 	var err error
-	if c.text, err = telem.AppendSampleText(c.text, c.dataType, sample); err != nil {
+	if o.text, err = telem.AppendSampleText(o.text, c.dataType, sample); err != nil {
 		return err
 	}
-	if len(c.text) > math.MaxUint32 {
+	if len(o.text) > math.MaxUint32 {
 		return errors.Newf(
 			"text of a TDMS segment exceeds the %d bytes its offsets can address",
 			uint32(math.MaxUint32),
 		)
 	}
-	c.data = telem.ByteOrder.AppendUint32(c.data, uint32(len(c.text)))
+	o.data = telem.ByteOrder.AppendUint32(o.data, uint32(len(o.text)))
 	return nil
 }
 
