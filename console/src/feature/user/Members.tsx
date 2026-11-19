@@ -27,7 +27,7 @@ import { Settings as PlatformSettings } from "@/platform/settings";
 import { User as PlatformUser } from "@/platform/user";
 
 const COLUMNS: List.Column[] = [
-  { name: "Name", width: "1fr" },
+  { name: "Name", width: "minmax(24rem, 1fr)" },
   { name: "Role", width: "30rem", field: true },
 ];
 

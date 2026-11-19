@@ -17,20 +17,20 @@ export interface SliceState {
    * The drag-and-drop payload currently being hauled, mirrored into redux so drags
    * synchronize across windows.
    */
-  state: Haul.DraggingState;
+  state: Haul.State;
 }
 
 export interface StoreState {
   [SLICE_NAME]: SliceState;
 }
 
-export const ZERO_SLICE_STATE: SliceState = { state: Haul.ZERO_DRAGGING_STATE };
+export const ZERO_SLICE_STATE: SliceState = { state: Haul.ZERO_STATE };
 
 const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: ZERO_SLICE_STATE,
   reducers: {
-    setHauled: (state, { payload }: PayloadAction<Haul.DraggingState>) => {
+    setHauled: (state, { payload }: PayloadAction<Haul.State>) => {
       state.state = payload;
     },
   },

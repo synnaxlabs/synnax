@@ -43,9 +43,9 @@ import { Modals } from "@/platform/modals";
 import { Settings as PlatformSettings } from "@/platform/settings";
 
 const COLUMNS: List.Column[] = [
-  { name: "Name", width: "2fr" },
-  { name: "Light", width: "1fr" },
-  { name: "Dark", width: "1fr" },
+  { name: "Name", width: "minmax(24rem, 2fr)" },
+  { name: "Light", width: "minmax(16rem, 1fr)" },
+  { name: "Dark", width: "minmax(16rem, 1fr)" },
 ];
 
 const PALETTE_PREFIX = "palette:";
