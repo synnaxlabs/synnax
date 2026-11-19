@@ -8,13 +8,19 @@
 // included in the file licenses/APL.txt.
 
 import { color as xcolor, id, uuid } from "@synnaxlabs/x";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { type color } from "@/color";
 import { enumeration } from "@/enumeration";
 import { NotFoundError } from "@/errors";
 import { query } from "@/query";
-import { createTestClient, expectDeleted, expectLive } from "@/testutil";
+import { schematic } from "@/schematic";
+import {
+  createTestClient,
+  expectDeleted,
+  expectLive,
+  waitForStreamLive,
+} from "@/testutil";
 
 const client = createTestClient();
 const remote = createTestClient();
@@ -215,10 +221,50 @@ describe("enumeration.Client", () => {
     });
   });
 
-  describe("retrieveDependents", () => {
-    it("should return no records for an enumeration that nothing uses", async () => {
+  describe("uses", () => {
+    it("should retrieve empty uses for an enumeration that nothing uses", async () => {
       const created = await createEnumeration();
-      expect(await client.enumerations.retrieveDependents(created.key)).toEqual([]);
+      const q = { key: created.key, includeUses: true };
+      expect((await client.enumerations.retrieve(q)).uses).toEqual([]);
+      expect((await client.enumerations.retrieve(created.key)).uses).toBeUndefined();
+    });
+
+    it("should update the uses of an enumeration as a schematic uses it", async () => {
+      const c = createTestClient();
+      await waitForStreamLive(c.connection);
+      const created = await createEnumeration(c);
+      const q = { key: created.key, includeUses: true };
+      const off = c.enumerations.watch(q).onChange(() => {});
+      try {
+        expect((await c.enumerations.retrieve(q)).uses).toEqual([]);
+        const project = await c.projects.create({ name: id.create() });
+        const s = await c.schematics.create({
+          project: project.key,
+          name: id.create(),
+          nodes: [
+            {
+              key: "select",
+              position: { x: 0, y: 0 },
+              zIndex: 0,
+              config: schematic.nodeConfigZ.parse({
+                variant: "select",
+                enumeration: created.key,
+              }),
+            },
+          ],
+        });
+        await vi.waitFor(() =>
+          expect(expectLive(c.enumerations.watch(q).getCached()).uses).toEqual([
+            schematic.resourceID(s.key),
+          ]),
+        );
+        await c.schematics.delete(s.key);
+        await vi.waitFor(() =>
+          expect(expectLive(c.enumerations.watch(q).getCached()).uses).toEqual([]),
+        );
+      } finally {
+        off();
+      }
     });
   });
 

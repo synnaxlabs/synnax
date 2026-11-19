@@ -65,8 +65,8 @@ const Delete = ({
   enumeration: e,
   close,
 }: Modals.ContentProps<DeleteParams, void>): ReactElement => {
-  const dependents = Enumeration.useResultDependents({ key: e.key });
-  const users = dependents.data ?? NO_USERS;
+  const dependents = Enumeration.useResult({ key: e.key, includeUses: true });
+  const users = dependents.data?.uses ?? NO_USERS;
   const [replacement, setReplacement] = useState<enumeration.Key>();
   const { update: remove } = Enumeration.useDelete({ afterSuccess: () => close() });
   const { update: replace } = Enumeration.useReplace({ afterSuccess: () => close() });
