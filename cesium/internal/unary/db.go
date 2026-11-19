@@ -14,7 +14,6 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/synnaxlabs/cesium/internal/alignment"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
@@ -36,7 +35,7 @@ type DB struct {
 	idx              *index.Domain
 	wrapError        func(error) error
 	closed           *atomic.Bool
-	leadingAlignment *alignment.Counter
+	leadingAlignment *telem.AlignmentCounter
 	// resolver handles sample-to-byte offset translation. Fixed-density channels
 	// carry a zero cache; variable-length channels carry a per-domain offset cache.
 	resolver *offsetResolver
@@ -75,7 +74,7 @@ func (db *DB) SetIndex(idx *index.Domain) { db.idx = idx }
 // writer's next write position, so the indexed channel lands in the same sample space
 // as the timestamps it is being written against. Otherwise a fresh leading domain is
 // reserved, keeping the data ordered after everything already persisted. It returns
-// alignment.ErrExhausted when no leading domain is left.
+// telem.ErrAlignmentsExhausted when no leading domain is left.
 func (db *DB) WriteCursor(ts telem.TimeStamp) (telem.Alignment, error) {
 	if cw, ok := db.controller.ResourceAt(ts.Range(ts + 1)); ok {
 		return cw.loadAlignment(), nil

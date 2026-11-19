@@ -748,7 +748,9 @@ var _ = Describe("Writer", func() {
 				groupDomain := writtenData.Alignment.DomainIndex()
 				Expect(groupDomain).To(BeNumerically(
 					">=",
-					MustSucceed(cesium.NewAlignmentCounter().Next()).DomainIndex(),
+					MustSucceed(
+						telem.NewAlignmentCounter(telem.LeadingDomain).Next(),
+					).DomainIndex(),
 				))
 				Expect(writtenData.Alignment.SampleIndex()).To(BeEquivalentTo(0))
 				Expect(writtenIdx.Alignment).To(Equal(writtenData.Alignment))

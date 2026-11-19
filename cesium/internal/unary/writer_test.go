@@ -21,7 +21,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	. "github.com/synnaxlabs/alamos/testutil"
-	"github.com/synnaxlabs/cesium/internal/alignment"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
@@ -74,12 +73,12 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					v := MustSucceed(
 						w.Write(telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15)),
 					)
-					Expect(v).To(Equal(alignment.Leading(1, 0)))
+					Expect(v).To(Equal(telem.LeadingAlignment(1, 0)))
 					Expect(
 						MustSucceed(
 							w.Write(telem.NewSeriesSecondsTSV(16, 17, 18, 19, 20, 21)),
 						),
-					).To(Equal(alignment.Leading(1, 6)))
+					).To(Equal(telem.LeadingAlignment(1, 6)))
 					Expect(MustSucceed(w.Commit(ctx))).To(Equal(21*telem.SecondTS + 1))
 					t = MustSucceed(w.Close())
 					Expect(t.Occurred()).To(BeTrue())
@@ -89,8 +88,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					By(
 						"Reserving a fresh leading domain when nothing controls the channel",
 					)
-					Expect(db.WriteCursor(0)).To(Equal(alignment.Leading(1, 0)))
-					Expect(db.WriteCursor(0)).To(Equal(alignment.Leading(2, 0)))
+					Expect(db.WriteCursor(0)).To(Equal(telem.LeadingAlignment(1, 0)))
+					Expect(db.WriteCursor(0)).To(Equal(telem.LeadingAlignment(2, 0)))
 					w, t := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
 						Start:   10 * telem.SecondTS,
 						Subject: control.Subject{Key: "leading"},
@@ -99,15 +98,15 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 
 					By("Tracking the controlling writer's next write position")
 					Expect(MustSucceed(w.Write(telem.NewSeriesSecondsTSV(10)))).
-						To(Equal(alignment.Leading(3, 0)))
+						To(Equal(telem.LeadingAlignment(3, 0)))
 					Expect(
 						db.WriteCursor(10 * telem.SecondTS),
-					).To(Equal(alignment.Leading(3, 1)))
+					).To(Equal(telem.LeadingAlignment(3, 1)))
 					Expect(MustSucceed(w.Write(telem.NewSeriesSecondsTSV(11, 12)))).
-						To(Equal(alignment.Leading(3, 1)))
+						To(Equal(telem.LeadingAlignment(3, 1)))
 					Expect(
 						db.WriteCursor(10 * telem.SecondTS),
-					).To(Equal(alignment.Leading(3, 3)))
+					).To(Equal(telem.LeadingAlignment(3, 3)))
 
 					t = MustSucceed(w.Close())
 					Expect(t.Occurred()).To(BeTrue())
@@ -126,14 +125,14 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						By("Tracking the bounded region for a timestamp inside it")
 						Expect(
 							db.WriteCursor(11 * telem.SecondTS),
-						).To(Equal(alignment.Leading(1, 3)))
+						).To(Equal(telem.LeadingAlignment(1, 3)))
 
 						By(
 							"Reserving a fresh domain for a timestamp the region does not cover",
 						)
 						Expect(
 							db.WriteCursor(20 * telem.SecondTS),
-						).To(Equal(alignment.Leading(2, 0)))
+						).To(Equal(telem.LeadingAlignment(2, 0)))
 						t = MustSucceed(w.Close())
 						Expect(t.Occurred()).To(BeTrue())
 					},
@@ -351,7 +350,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							w := open(ctx, "live", 2)
 							Expect(w.EndDomain(ctx)).To(Succeed())
 							Expect(db.WriteCursor(10 * telem.SecondTS)).
-								To(Equal(alignment.Leading(1, 0)))
+								To(Equal(telem.LeadingAlignment(1, 0)))
 							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(10, 11)))
 							MustSucceed(w.Commit(ctx))
 							MustSucceed(w.Close())
@@ -929,7 +928,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 								),
 							),
 						),
-					).To(Equal(alignment.Leading(1, 0)))
+					).To(Equal(telem.LeadingAlignment(1, 0)))
 					Expect(MustSucceed(w.Commit(ctx))).To(Equal(20*telem.SecondTS + 1))
 					t = MustSucceed(w.Close())
 					Expect(t.Occurred()).To(BeTrue())
@@ -994,7 +993,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					}))
 					Expect(
 						MustSucceed(w.Write(telem.NewSeries([]int64{0, 1, 2, 3, 4}))),
-					).To(Equal(alignment.Leading(1, 0)))
+					).To(Equal(telem.LeadingAlignment(1, 0)))
 					Expect(MustSucceed(w.Commit(ctx))).To(Equal(14*telem.SecondTS + 1))
 					MustSucceed(w.Close())
 
@@ -1552,7 +1551,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							MustSucceed(
 								w1.Write(telem.NewSeriesSecondsTSV(0, 1, 2, 3, 4, 5)),
 							),
-						).To(Equal(alignment.Leading(1, 0)))
+						).To(Equal(telem.LeadingAlignment(1, 0)))
 						w2, t := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
 							Start:     10 * telem.SecondTS,
 							Authority: control.AuthorityAbsolute,
@@ -1563,7 +1562,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							MustSucceed(
 								w2.Write(telem.NewSeriesSecondsTSV(6, 7, 8, 9, 10, 11)),
 							),
-						).To(Equal(alignment.Leading(1, 6)))
+						).To(Equal(telem.LeadingAlignment(1, 6)))
 						a, err := w1.Write(
 							telem.NewSeriesSecondsTSV(12, 13, 14, 15, 16, 17),
 						)
@@ -1581,7 +1580,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 									telem.NewSeriesSecondsTSV(12, 13, 14, 15, 16, 17),
 								),
 							),
-						).To(Equal(alignment.Leading(1, 12)))
+						).To(Equal(telem.LeadingAlignment(1, 12)))
 						Expect(
 							MustSucceed(w1.Commit(ctx)),
 						).To(Equal(17*telem.SecondTS + 1))
@@ -1734,7 +1733,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						MustSucceed(writers[0].Close())
 						Eventually(
 							cursor,
-						).Should(Receive(Equal(alignment.Leading(101, 0))))
+						).Should(Receive(Equal(telem.LeadingAlignment(101, 0))))
 						closeWriters()
 					})
 				})

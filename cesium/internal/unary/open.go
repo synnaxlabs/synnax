@@ -14,7 +14,6 @@ import (
 	"sync/atomic"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/cesium/internal/alignment"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
@@ -135,7 +134,7 @@ func Open(ctx context.Context, configs ...Config) (*DB, error) {
 		controller:       c,
 		wrapError:        wrapError,
 		closed:           &atomic.Bool{},
-		leadingAlignment: alignment.NewCounter(alignment.ZeroLeading),
+		leadingAlignment: telem.NewAlignmentCounter(telem.LeadingDomain),
 		resolver:         newOffsetResolver(cfg.Channel.DataType, cfg.Instrumentation),
 	}
 	if cfg.Channel.IsIndex {

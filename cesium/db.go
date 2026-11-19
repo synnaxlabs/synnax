@@ -14,7 +14,6 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/synnaxlabs/cesium/internal/alignment"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/cesium/internal/unary"
@@ -30,8 +29,6 @@ type (
 	Channel    = channel.Channel
 	ChannelKey = channel.Key
 	Frame      = channel.Frame
-	// AlignmentCounter hands out the leading alignment domains of new writers.
-	AlignmentCounter = alignment.Counter
 )
 
 var (
@@ -43,12 +40,6 @@ var (
 type Metrics struct {
 	// DiskSize is the total disk space used by all channel data.
 	DiskSize telem.Size
-}
-
-// NewAlignmentCounter returns an AlignmentCounter whose first domain follows the zero
-// leading alignment.
-func NewAlignmentCounter() *AlignmentCounter {
-	return alignment.NewCounter(alignment.ZeroLeading)
 }
 
 type DB struct {

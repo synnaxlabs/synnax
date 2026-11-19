@@ -26,7 +26,6 @@ import (
 	"github.com/samber/lo"
 	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium"
-	"github.com/synnaxlabs/cesium/internal/alignment"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
@@ -4958,7 +4957,7 @@ var _ = Describe("Writer Behavior", func() {
 						Eventually(o.Outlet()).Should(Receive(&res))
 						Expect(
 							res.Frame.SeriesAt(0).Alignment,
-						).To(Equal(alignment.Leading(1, 0)))
+						).To(Equal(telem.LeadingAlignment(1, 0)))
 
 						Expect(
 							w.Write(
@@ -4968,7 +4967,7 @@ var _ = Describe("Writer Behavior", func() {
 						Eventually(o.Outlet()).Should(Receive(&res))
 						Expect(
 							res.Frame.SeriesAt(0).Alignment,
-						).To(Equal(alignment.Leading(1, 3)))
+						).To(Equal(telem.LeadingAlignment(1, 3)))
 
 						i.Close()
 						Expect(sCtx.Wait()).To(Succeed())

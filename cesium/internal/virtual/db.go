@@ -14,7 +14,6 @@ import (
 	"sync/atomic"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/cesium/internal/alignment"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/cesium/internal/resource"
@@ -53,7 +52,7 @@ type DB struct {
 	controller       *xcontrol.Controller[channel.Key, *controlResource]
 	wrapError        func(error) error
 	closed           *atomic.Bool
-	leadingAlignment *alignment.Counter
+	leadingAlignment *telem.AlignmentCounter
 	openWriters      *atomic.Int32
 	cfg              Config
 }
@@ -126,7 +125,7 @@ func Open(ctx context.Context, configs ...Config) (*DB, error) {
 		controller:       c,
 		wrapError:        wrapError,
 		closed:           &atomic.Bool{},
-		leadingAlignment: alignment.NewCounter(alignment.ZeroLeading),
+		leadingAlignment: telem.NewAlignmentCounter(telem.LeadingDomain),
 		openWriters:      &atomic.Int32{},
 	}
 	return db, nil

@@ -283,7 +283,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	return &Service{
 		cfg: cfg,
 		freeWriteAlignments: &freeWriteAlignments{
-			counters: make(map[channel.Key]*cesium.AlignmentCounter),
+			counters: make(map[channel.Key]*telem.AlignmentCounter),
 		},
 	}, nil
 }
