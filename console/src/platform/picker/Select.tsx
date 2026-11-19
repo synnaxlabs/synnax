@@ -101,18 +101,15 @@ const Trigger = <E extends Entry>({
     clearable: allowNone && result.variant !== "disabled",
     preview,
   });
-  let content: ReactElement;
   const icon = <ItemIcon className={CSS.BE("picker", "icon")} />;
-  if (result.variant !== "success")
-    content = (
-      <Text.Text el="span" color={8} className={CSS.BE("picker", "text")}>
-        {placeholderOf(result, resourceName, preview === true, allowNone)}
-      </Text.Text>
-    );
-  else
-    content = (
+  const content =
+    result.variant === "success" ? (
       <Text.Text el="span" overflow="fade" className={CSS.BE("picker", "text")}>
         {result.data.name}
+      </Text.Text>
+    ) : (
+      <Text.Text el="span" color={8} className={CSS.BE("picker", "text")}>
+        {placeholderOf(result, resourceName, preview === true, allowNone)}
       </Text.Text>
     );
   return (
