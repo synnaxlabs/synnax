@@ -156,16 +156,14 @@ var _ = Describe("Translator", func() {
 	)
 
 	DescribeTable("Should reject a value that the enum does not hold",
-		func(translate func() error, message string) {
-			Expect(translate()).To(MatchError(message))
-		},
-		Entry("to protobuf", func() error {
-			_, err := pb.KindToPB("complex")
-			return err
-		}, "unrecognized payload.Kind value: complex"),
-		Entry("from protobuf", func() error {
-			_, err := pb.KindFromPB(pb.Kind(99))
-			return err
-		}, "unrecognized Kind value: 99"),
+		func(check func()) { check() },
+		Entry("to protobuf", func() {
+			Expect(pb.KindToPB("complex")).Error().
+				To(MatchError("unrecognized payload.Kind value: complex"))
+		}),
+		Entry("from protobuf", func() {
+			Expect(pb.KindFromPB(pb.Kind(99))).Error().
+				To(MatchError("unrecognized Kind value: 99"))
+		}),
 	)
 })
