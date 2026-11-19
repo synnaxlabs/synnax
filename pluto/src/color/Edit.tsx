@@ -46,8 +46,8 @@ const EditView = ({ itemKey }: EditViewProps): ReactElement => (
 );
 
 /**
- * The context menu of a swatch in a color picker, for a user who can update colors. Its
- * Edit item opens the named color editor inside the picker.
+ * The context menu of a swatch in a color picker, for a user who can update its color.
+ * Its Edit item opens the named color editor inside the picker.
  */
 export const SwatchMenu = (): ReactElement | null => {
   const { swatch } = Color.usePalette();
