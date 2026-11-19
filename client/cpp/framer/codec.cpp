@@ -280,7 +280,11 @@ Codec::encode(const x::telem::Frame &frame, std::vector<uint8_t> &output) {
                     " not provided when opening the writer"
             );
     }
-    std::ranges::stable_sort(this->entries, {}, &Entry::key);
+    // Sorting by raw index within a key keeps frame order, as a stable sort would, and
+    // needs no buffer.
+    std::ranges::sort(this->entries, [](const Entry &a, const Entry &b) {
+        return a.key != b.key ? a.key < b.key : a.raw < b.raw;
+    });
     const auto series_of = [&](const Entry &e) -> const x::telem::Series & {
         return frame.series->at(e.raw);
     };
