@@ -245,19 +245,35 @@ describe("range/Toolbar", () => {
       await waitFor(() => expect(queryShowMore("Running")).not.toBeNull(), {
         timeout: 10_000,
       });
-      // The ends come 25 ms apart for 5 s, far faster than one read.
-      const start = TimeStamp.now();
-      const ending = await create(
-        200,
-        (i) =>
-          new TimeRange(
-            start.sub(TimeSpan.SECOND),
-            start.add(TimeSpan.milliseconds(500 + 25 * i)),
-          ),
+      // Until the spec stops it, a range ends every 25 ms, far faster than one read.
+      // Batches overlap, so the ends keep coming while Show more pages.
+      let producing = true;
+      const ending: ranger.Range[] = [];
+      const produce = async (): Promise<void> => {
+        while (producing) {
+          const from = TimeStamp.now();
+          const batch = await create(
+            40,
+            (i) =>
+              new TimeRange(
+                from.sub(TimeSpan.SECOND),
+                from.add(TimeSpan.milliseconds(250 + 25 * i)),
+              ),
+          );
+          ending.push(...batch);
+          await sleep.sleep(TimeSpan.milliseconds(500));
+        }
+      };
+      const producer = produce();
+      try {
+        expect(await findLine("Running", oldest.name)).toBeTruthy();
+      } finally {
+        producing = false;
+        await producer;
+      }
+      const last = ending.reduce((a, b) =>
+        b.timeRange.end.after(a.timeRange.end) ? b : a,
       );
-      const last = ending[ending.length - 1];
-      expect(await findLine("Running", oldest.name)).toBeTruthy();
-      expect(TimeStamp.now().before(last.timeRange.end)).toBe(true);
       await waitForLine("Recent", last.name);
       const list = groupOf("Recent").closest<HTMLElement>('[role="list"]');
       await waitFor(() => expect(list?.getAttribute("aria-busy")).toBe("false"), {
