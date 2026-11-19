@@ -1322,6 +1322,39 @@ describe("Select", () => {
       await expect.poll(() => onChange).toHaveBeenCalledOnce();
     });
 
+    it("should fill the minimum height of the dialog with the list", async () => {
+      const Tall = (): ReactElement => {
+        const { data, getItem } = List.useStaticData<string, MenuEntry>({
+          data: MENU_ENTRIES,
+        });
+        return (
+          <Triggers.Provider>
+            <Select.Single<string, MenuEntry>
+              data={data}
+              getItem={getItem}
+              value={undefined}
+              onChange={() => {}}
+              resourceName="Entry"
+              dialogProps={{ style: { minHeight: "60rem" } }}
+            >
+              {renderMenuEntry}
+            </Select.Single>
+          </Triggers.Provider>
+        );
+      };
+      await renderThemed(<Tall />);
+      await userEvent.click(page.getByRole("button", { name: "Entry" }));
+      await expect.element(page.getByRole("option", { name: "Second" })).toBeVisible();
+      const dialog = document.querySelector(".lyra-select__dialog")!;
+      const list = dialog.querySelector(".lyra-dialog-views > :last-child")!;
+      const style = getComputedStyle(dialog);
+      const inner =
+        dialog.getBoundingClientRect().bottom -
+        Number.parseFloat(style.borderBottomWidth) -
+        Number.parseFloat(style.paddingBottom);
+      expect(list.getBoundingClientRect().bottom).toBeCloseTo(inner, 0);
+    });
+
     it("should join the search and the list over one hairline", async () => {
       await renderEditable();
       const views = document.querySelector(
