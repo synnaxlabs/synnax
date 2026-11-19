@@ -191,10 +191,9 @@ var _ = Describe("Symbol Suggestions", func() {
 			Expect(root.Resolve(bCtx, "temperatur")).Error().
 				To(MatchError(ContainSubstring("undefined symbol: temperatur")))
 
-			undefinedErr, ok := errors.AsType[*symbol.UndefinedSymbolError](
+			undefinedErr := MustBeOk(errors.AsType[*symbol.UndefinedSymbolError](
 				resolveErr(bCtx, root, "temperatur"),
-			)
-			Expect(ok).To(BeTrue())
+			))
 			Expect(
 				undefinedErr.GetHint(),
 			).To(ContainSubstring("did you mean: temperature?"))
@@ -211,10 +210,9 @@ var _ = Describe("Symbol Suggestions", func() {
 				Expect(root.Resolve(bCtx, "unknownSymbol")).Error().
 					To(MatchError("undefined symbol: unknownSymbol"))
 
-				undefinedErr, ok := errors.AsType[*symbol.UndefinedSymbolError](
+				undefinedErr := MustBeOk(errors.AsType[*symbol.UndefinedSymbolError](
 					resolveErr(bCtx, root, "unknownSymbol"),
-				)
-				Expect(ok).To(BeTrue())
+				))
 				Expect(undefinedErr.GetHint()).To(BeEmpty())
 			},
 		)

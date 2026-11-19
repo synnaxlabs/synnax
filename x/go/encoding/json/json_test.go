@@ -168,10 +168,9 @@ var _ = Describe("Codec", func() {
 		),
 	)
 	It("Should keep the semantic error in the chain", func() {
-		semErr, ok := errors.AsType[*jsonv2.SemanticError](
+		semErr := MustBeOk(errors.AsType[*jsonv2.SemanticError](
 			json.Codec.Decode([]byte(`{"rack":"1"}`), &request{}),
-		)
-		Expect(ok).To(BeTrue())
+		))
 		Expect(semErr.JSONPointer).To(Equal(jsontext.Pointer("/rack")))
 	})
 	It("Should name the kind of a top-level value of the wrong kind", func() {

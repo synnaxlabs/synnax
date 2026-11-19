@@ -298,8 +298,9 @@ var _ = Describe("EncodedJSON", func() {
 			type config struct {
 				Count int `json:"count"`
 			}
-			semErr, ok := errors.AsType[*json.SemanticError](m.Unmarshal(&config{}))
-			Expect(ok).To(BeTrue())
+			semErr := MustBeOk(
+				errors.AsType[*json.SemanticError](m.Unmarshal(&config{})),
+			)
 			Expect(semErr.JSONPointer).To(Equal(jsontext.Pointer("/count")))
 			Expect(semErr.GoType).To(Equal(reflect.TypeFor[int]()))
 		})

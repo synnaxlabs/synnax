@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
+	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -49,8 +50,7 @@ var _ = Describe("RequireFields", func() {
 
 	It("Should scope the error to the first missing field", func() {
 		err := imex.RequireFields(msgpack.EncodedJSON{}, "a table", "layout", "cells")
-		pathed, ok := errors.AsType[validate.PathError](err)
-		Expect(ok).To(BeTrue())
+		pathed := MustBeOk(errors.AsType[validate.PathError](err))
 		Expect(pathed.Path).To(Equal([]string{"layout"}))
 	})
 

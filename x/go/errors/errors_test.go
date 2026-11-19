@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/errors"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 type customError struct{ msg string }
@@ -520,31 +521,31 @@ var _ = Describe("Is", func() {
 
 		It("Should return a wrapped error of the matching type", func() {
 			original := &customError{msg: "test"}
-			target, ok := errors.AsType[*customError](errors.Wrap(original, "wrapped"))
-			Expect(ok).To(BeTrue())
+			target := MustBeOk(
+				errors.AsType[*customError](errors.Wrap(original, "wrapped")),
+			)
 			Expect(target).To(BeIdenticalTo(original))
 		})
 
 		It("Should find a member of a joined error", func() {
 			original := &customError{msg: "test"}
-			target, ok := errors.AsType[*customError](
+			target := MustBeOk(errors.AsType[*customError](
 				errors.Join(errors.New("other"), original),
-			)
-			Expect(ok).To(BeTrue())
+			))
 			Expect(target).To(BeIdenticalTo(original))
 		})
 
 		It("Should follow a Cause chain", func() {
 			original := &customError{msg: "test"}
-			target, ok := errors.AsType[*customError](&causeError{cause: original})
-			Expect(ok).To(BeTrue())
+			target := MustBeOk(
+				errors.AsType[*customError](&causeError{cause: original}),
+			)
 			Expect(target).To(BeIdenticalTo(original))
 		})
 
 		It("Should match an interface type", func() {
 			original := &customError{msg: "test"}
-			target, ok := errors.AsType[interface{ Error() string }](original)
-			Expect(ok).To(BeTrue())
+			target := MustBeOk(errors.AsType[interface{ Error() string }](original))
 			Expect(target).To(BeIdenticalTo(original))
 		})
 	})
