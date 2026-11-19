@@ -246,7 +246,10 @@ identity, no blocks, and a stream offset equal to its file offset. Its reads are
 unchecked until the check pass reaches it. The pass runs in the background, newest files
 first, under a rate limit, and ends after about 2 × old bytes / rate. It reads each
 block twice, takes a CRC only from two reads that agree, writes `<S>.chk`, syncs it and
-its directory, and logs a Check record, which turns the checks on.
+its directory, and logs a Check record, which turns the checks on. In a clock file it
+also checks that the stamps of each pointer rise inside its time range, and logs a
+Tombstone from the first stamp that does not, for the clock and for each key that it
+times.
 
 | Offset | Size | Type     | Check file of a version 0 segment of length `len`, with `n = ceil(len / 65,536)`                                     |
 | ------ | ---- | -------- | -------------------------------------------------------------------------------------------------------------------- |
@@ -674,7 +677,12 @@ update backup of RFC 0102. That backup now also holds the `index.domain` and
    log the cut. It can also leave a channel directory with no `meta.json`: the
    conversion skips that directory, leaves it in place, and reports its key.
 3. Apply the rule of `TruncateToIndex` once, in memory: a data pointer keeps the samples
-   that its clock has stamps for. Log each cut.
+   that its clock has stamps for. Log each cut. The cut of step 2 runs first, so a
+   pointer that covers index bytes past the end of their file never keeps data samples
+   with no stamps. Bytes inside a file can still read as zeros after a crash on some
+   file systems: the newest pointer of each old index has its last stamp read and
+   compared with the pointer's time range, and a stamp that does not fit is cut back, by
+   a binary search, to the last stamp that rises.
 4. Build the state. Each `N.domain` with a pointer is a sealed version 0 segment with a
    new identity and the old index key as its clock key. Each stretch of an old index
    takes one alignment number, in key order and then in time order. An old data pointer
