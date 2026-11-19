@@ -190,6 +190,8 @@ client_ts: &client_ts
   - client/ts/**
   # The client's filter specs read the Core's shared filter cases.
   - core/testdata/filter/**
+  # The codec specs read the golden frames that all four codecs share.
+  - x/testdata/framecodec/**
 
 pluto: &pluto
   - *alamos_ts
