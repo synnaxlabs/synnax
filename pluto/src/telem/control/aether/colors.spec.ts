@@ -256,13 +256,18 @@ describe("control/aether/Colors", SUITE, () => {
       holders.push(h);
     }
     const wrapped = holders[PALETTE.length];
-    const wrappedColor = colors.get(wrapped.subject);
-    await Promise.all(
-      holders.slice(0, PALETTE.length).map(async (h) => await h.release()),
-    );
+    const released = holders.slice(0, PALETTE.length);
+    await Promise.all(released.map(async (h) => await h.release()));
+    // A release can move the wrapped subject to the color it frees.
+    await expect
+      .poll(
+        () => released.every((h) => color.equals(colors.get(h.subject), DEFAULT_COLOR)),
+        POLL,
+      )
+      .toBe(true);
     const next = await hold(channels[PALETTE.length + 1]);
     const nextColor = await assigned(colors, next.subject);
-    expect(color.equals(nextColor, wrappedColor)).toBe(false);
+    expect(color.equals(nextColor, colors.get(wrapped.subject))).toBe(false);
   });
 
   it("should part subjects that share a color once a color frees up", async () => {
