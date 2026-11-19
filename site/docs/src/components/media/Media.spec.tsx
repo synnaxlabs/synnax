@@ -66,7 +66,7 @@ describe("Media", () => {
     it("should reserve the space of the video before it loads", () => {
       show(renderToString(<Media.Video id={ID} label="A video" />));
       expect(document.querySelector("video")?.style.aspectRatio).toBe(
-        `${WIDTH} / ${HEIGHT}`,
+        `auto ${WIDTH} / ${HEIGHT}`,
       );
     });
 

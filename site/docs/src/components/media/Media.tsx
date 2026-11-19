@@ -76,7 +76,8 @@ export const Video = ({
         playsInline
         preload="metadata"
         aria-label={label}
-        style={{ aspectRatio: `${width} / ${height}`, ...style }}
+        // With `auto`, the ratio sizes the frame inside the border, not the border box.
+        style={{ aspectRatio: `auto ${width} / ${height}`, ...style }}
         {...rest}
       >
         {themed && <source src={src("dark")} media={DARK} type="video/mp4" />}
