@@ -632,7 +632,11 @@ func (f *Factory) configureWrite(
 	if err != nil {
 		return nil, cfg.AutoStart, err
 	}
-	sink := &writeSink{pool: f.pool, broker: dev.Key}
+	sink := &writeSink{
+		pool:      f.pool,
+		broker:    dev.Key,
+		byChannel: make(map[channel.Key][]int),
+	}
 	if err = sink.addTargets(enabled, icds, channels); err != nil {
 		return nil, cfg.AutoStart, err
 	}
@@ -701,13 +705,13 @@ func (s *writeSink) addTargets(
 	channels map[channel.Key]channel.Channel,
 ) error {
 	for _, variant := range enabled {
-		var (
-			built target
-			err   error
-		)
 		switch target := variant.(type) {
 		case PlainWriteTarget:
-			built, err = newMessageTarget(target, icds[target.ICD], channels)
+			built, err := newMessageTarget(target, icds[target.ICD], channels)
+			if err != nil {
+				return err
+			}
+			s.add(built, built.channels...)
 		case SparkplugWriteTarget:
 			ch, ok := channels[target.Channel]
 			if !ok {
@@ -716,14 +720,14 @@ func (s *writeSink) addTargets(
 					"target %s: channel %d does not exist", target.Tag, target.Channel,
 				)
 			}
-			built, err = newCommandTarget(target, ch)
+			built, err := newCommandTarget(target, ch)
+			if err != nil {
+				return err
+			}
+			s.add(built, target.Channel)
 		default:
 			panic(errors.Newf("mqtt: unknown write target variant %T", target))
 		}
-		if err != nil {
-			return err
-		}
-		s.targets = append(s.targets, built)
 	}
 	return nil
 }

@@ -192,7 +192,10 @@ func newCommandTarget(
 // publications implements target.
 func (t commandTarget) publications(fr framer.Frame) iter.Seq2[publication, error] {
 	return func(yield func(publication, error) bool) {
-		for _, series := range fr.Get(t.channel).Series {
+		for key, series := range fr.Entries() {
+			if key != t.channel {
+				continue
+			}
 			for i := range int(series.Len()) {
 				if !yield(t.publication(series, i)) {
 					return

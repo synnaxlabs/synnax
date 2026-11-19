@@ -168,13 +168,19 @@ func (t *messageTarget) publications(fr framer.Frame) iter.Seq2[publication, err
 // gather fills rows with the commands of each binding in fr, and returns the count of
 // documents that they make.
 func (t *messageTarget) gather(fr framer.Frame) int {
-	n := 0
-	for b, key := range t.channels {
+	for b := range t.rows {
 		t.rows[b] = t.rows[b][:0]
-		for _, s := range fr.Get(key).Series {
-			t.rows[b] = slices.AppendSeq(t.rows[b], s.Samples())
+	}
+	for key, s := range fr.Entries() {
+		for b, ch := range t.channels {
+			if ch == key {
+				t.rows[b] = slices.AppendSeq(t.rows[b], s.Samples())
+			}
 		}
-		n = max(n, len(t.rows[b]))
+	}
+	n := 0
+	for _, rows := range t.rows {
+		n = max(n, len(rows))
 	}
 	return n
 }
@@ -203,11 +209,22 @@ func (t *messageTarget) commit(row int) {
 type writeSink struct {
 	pool    *pool
 	targets []target
+	// byChannel holds the indices in targets of the targets that each command channel
+	// feeds.
+	byChannel map[channel.Key][]int
 	// broker is the key of the broker device.
 	broker device.Key
 }
 
 var _ driver.Sink = (*writeSink)(nil)
+
+// add adds t to s, fed by the command channels of keys.
+func (s *writeSink) add(t target, keys ...channel.Key) {
+	for _, key := range keys {
+		s.byChannel[key] = append(s.byChannel[key], len(s.targets))
+	}
+	s.targets = append(s.targets, t)
+}
 
 // Open implements driver.Sink.
 func (s *writeSink) Open(ctx context.Context) (driver.Writer, error) {
@@ -227,6 +244,8 @@ func (s *writeSink) Open(ctx context.Context) (driver.Writer, error) {
 		writeSink:  s,
 		attachment: a,
 		skips:      driver.NewSkips("command"),
+		touched:    make([]bool, len(s.targets)),
+		fed:        make([]int, 0, len(s.targets)),
 	}, nil
 }
 
@@ -236,6 +255,9 @@ type writer struct {
 	attachment *attachment
 	// skips counts the commands that the run sends and drops.
 	skips *driver.Skips
+	// touched marks the targets that the frame of a Write feeds, and fed lists them.
+	touched []bool
+	fed     []int
 }
 
 var _ driver.Writer = (*writer)(nil)
@@ -256,8 +278,21 @@ func (w *writer) Close() error {
 // first error it met. A command with no form in its message, such as NaN in JSON, is
 // dropped, and Write returns the warning of the skips.
 func (w *writer) Write(ctx context.Context, fr framer.Frame) error {
+	w.fed = w.fed[:0]
+	for key := range fr.Keys() {
+		for _, i := range w.byChannel[key] {
+			if !w.touched[i] {
+				w.touched[i] = true
+				w.fed = append(w.fed, i)
+			}
+		}
+	}
+	for _, i := range w.fed {
+		w.touched[i] = false
+	}
 	var first error
-	for _, t := range w.targets {
+	for _, i := range w.fed {
+		t := w.targets[i]
 		for pub, err := range t.publications(fr) {
 			w.skips.Read()
 			if err != nil {
