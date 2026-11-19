@@ -124,6 +124,13 @@ on:
   workflow_dispatch:
     inputs: *inputs
 
+# A fork's run gets no secrets, so its Core would have no license. It skips the Core and
+# the tests that need one, and the merge queue runs them.
+env:
+  FORK:
+    ${{ github.event_name == 'pull_request' &&
+    github.event.pull_request.head.repo.full_name != github.repository }}
+
 # The test services pull their images from GHCR.
 permissions:
   contents: read
@@ -183,7 +190,7 @@ jobs:
           persist-credentials: false
 
       - name: Start Core
-        if: runner.os == 'Linux' && inputs.core_image != ''
+        if: runner.os == 'Linux' && inputs.core_image != '' && env.FORK != 'true'
         uses: ./.github/actions/start-service
         env:
           SYNNAX_INSECURE: true
@@ -250,10 +257,12 @@ jobs:
         with:
           package: ${{ inputs.package }}
 
-      # Only the Linux runners start a Core, so the others run only the spec files that
-      # create no test client.
+      # Only the Linux runners start a Core, and not for a fork, so the others run only
+      # the spec files that create no test client.
       - name: Skip the specs that need a Core
-        if: inputs.test && runner.os != 'Linux' && inputs.core_image != ''
+        if:
+          inputs.test && inputs.core_image != '' && (runner.os != 'Linux' || env.FORK ==
+          'true')
         shell: bash
         working-directory: ${{ inputs.directory }}
         run: |
@@ -291,7 +300,7 @@ jobs:
       - name: Run the examples
         if:
           inputs.test && inputs.examples_package != '' && runner.os == 'Linux' &&
-          inputs.core_image != '' && !matrix.node
+          inputs.core_image != '' && env.FORK != 'true' && !matrix.node
         shell: bash
         timeout-minutes: 5
         env:
@@ -324,9 +333,10 @@ jobs:
         with:
           bun-version: ${{ inputs.latest_runtimes && 'latest' || '1.4.4' }}
 
-      # The smoke test needs the Core, which only the Linux runner has.
+      # The smoke test needs the Core, which only the Linux runner has, and not for a
+      # fork.
       - name: Smoke-test the packed package
-        if: inputs.runtimes && matrix.lint
+        if: inputs.runtimes && matrix.lint && env.FORK != 'true'
         shell: bash
         timeout-minutes: 10
         env:
