@@ -174,7 +174,8 @@ func compilePostfix(
 }
 
 // CompileCall emits a call to the function that parts name with args bound by name or
-// position and defaults for the rest. It returns the default output type.
+// position and defaults for the rest. It returns the default output type. parts must
+// not be empty.
 func CompileCall[T antlr.ParserRuleContext](
 	ctx context.Context[T],
 	parts []string,

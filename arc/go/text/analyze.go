@@ -1458,7 +1458,8 @@ func wireVarEdges[T antlr.ParserRuleContext](
 	for i, p := range n.Inputs {
 		// A lifted input carries the name its expression reads, such as m.doubled.
 		head, tail, _ := strings.Cut(p.Name, ".")
-		parts := []string{head}
+		var buf [2]string
+		parts := append(buf[:0], head)
 		if tail != "" {
 			parts = append(parts, tail)
 		}

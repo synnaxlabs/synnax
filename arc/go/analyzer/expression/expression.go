@@ -696,7 +696,8 @@ func inDeclaredFunction(scope *symbol.Symbol) bool {
 	return ok
 }
 
-// recordChannelRead adds the channel resolved reads to the function enclosing scope.
+// recordChannelRead records that the function that encloses scope reads the channel
+// resolved.
 func recordChannelRead(scope, resolved *symbol.Symbol) {
 	fn, fnErr := scope.ClosestAncestorOfKind(symbol.KindFunction)
 	if fnErr != nil && !errors.Is(fnErr, query.ErrNotFound) {

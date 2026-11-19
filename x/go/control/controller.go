@@ -75,9 +75,8 @@ func New[K comparable, R Resource[K]](cfg Config) (*Controller[K, R], error) {
 
 // GateConfig is the configuration for opening a gate.
 type GateConfig[K comparable, R Resource[K]] struct {
-	// CreateResource is a callback that is called when the gate is opened. It should
-	// return the resource that is being controlled. This is used to create the resource
-	// in the database.
+	// OpenResource opens the resource that the gate controls. The controller calls it
+	// when the gate opens a new region.
 	//
 	// [REQUIRED]
 	OpenResource func() (R, error)
@@ -99,8 +98,8 @@ type GateConfig[K comparable, R Resource[K]] struct {
 	//
 	// [OPTIONAL] Defaults to false.
 	Bounded *bool
-	// Subject sets the identity of the gate, and is used to track changes in control
-	// within the db.
+	// Subject sets the identity of the gate, and names it in control states and
+	// transfers.
 	//
 	// [REQUIRED]
 	Subject Subject
@@ -109,8 +108,9 @@ type GateConfig[K comparable, R Resource[K]] struct {
 	//
 	// [REQUIRED]
 	TimeRange telem.TimeRange
-	// Authority sets the authority of the gate over the resource. For a complete
-	// discussion of authority, see the package level documentation.
+	// Authority sets the authority of the gate over the resource. Among the gates of a
+	// region, the one with the highest authority is in control, and on a tie, the one
+	// that opened first.
 	//
 	// [REQUIRED]
 	Authority Authority
