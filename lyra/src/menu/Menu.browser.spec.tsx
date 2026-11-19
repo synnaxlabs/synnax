@@ -236,10 +236,7 @@ describe("Menu", () => {
     });
 
     const openLoading = async () => {
-      let load = (): void => {};
-      const items = new Promise<void>((resolve) => {
-        load = resolve;
-      });
+      const { promise: items, resolve: load } = Promise.withResolvers<void>();
       const { getByText } = await renderThemed(<LoadingMenu items={items} />);
       const opener = getByText("Opener").element() as HTMLElement;
       opener.focus();

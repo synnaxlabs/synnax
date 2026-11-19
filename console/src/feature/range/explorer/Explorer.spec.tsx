@@ -20,6 +20,7 @@ import { createTestClient, rejectRequests } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { color, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, onTestFinished } from "vitest";
 
@@ -29,11 +30,7 @@ import { createSiftDevice } from "@/feature/sift/testutil";
 import { searchAndClickLabelOption } from "@/platform/label/testutil";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
-import {
-  createPlannedTestRange,
-  createTestRange,
-  uniqueRangeName,
-} from "@/platform/range/testutil";
+import { createPlannedTestRange, createTestRange } from "@/platform/range/testutil";
 import { createTabWrapper, openFilterProperty } from "@/platform/view/testutil";
 import { Session } from "@/session";
 import { createCore, createCoreState } from "@/session/core/testutil";
@@ -51,7 +48,6 @@ import {
   selectRange,
   selectTestProject,
   type TestStore,
-  uniqueName,
   uniqueToken,
 } from "@/testutil";
 
@@ -372,9 +368,9 @@ describe("range/explorer/Explorer", () => {
   describe("search", () => {
     it("should show a match under its parent and leave out the other children", async () => {
       const token = uniqueToken();
-      const parent = await createRange(uniqueRangeName("parent"));
+      const parent = await createRange(uniqueName("parent"));
       const match = await createRange(`${token} match`, { parent: parent.key });
-      const sibling = await createRange(uniqueRangeName("sibling"), {
+      const sibling = await createRange(uniqueName("sibling"), {
         parent: parent.key,
       });
       await renderExplorer();
@@ -387,7 +383,7 @@ describe("range/explorer/Explorer", () => {
 
     it("should hide the matches of a range that collapses and show them on expand", async () => {
       const token = uniqueToken();
-      const parent = await createRange(uniqueRangeName("parent"));
+      const parent = await createRange(uniqueName("parent"));
       const match = await createRange(`${token} match`, { parent: parent.key });
       await renderExplorer();
       await search(token);
@@ -406,10 +402,10 @@ describe("range/explorer/Explorer", () => {
 
     it("should show the error of a search whose ranges above fail to read, not the last matches", async () => {
       const [first, second] = [uniqueToken(), uniqueToken()];
-      const holder = await createRange(uniqueRangeName("holder"));
+      const holder = await createRange(uniqueName("holder"));
       const shown = await createRange(`${first} shown`, { parent: holder.key });
-      const top = await createRange(uniqueRangeName("top"));
-      const parent = await createRange(uniqueRangeName("parent"), { parent: top.key });
+      const top = await createRange(uniqueName("top"));
+      const parent = await createRange(uniqueName("parent"), { parent: top.key });
       await createRange(`${second} match`, { parent: parent.key });
       const as = createTestClient();
       // Only the read of the range above the second match fails. The tree lists the top
@@ -431,8 +427,8 @@ describe("range/explorer/Explorer", () => {
 
     it("should drop a deleted range that holds matches", async () => {
       const token = uniqueToken();
-      const holder = await createRange(uniqueRangeName("holder"));
-      const other = await createRange(uniqueRangeName("other"));
+      const holder = await createRange(uniqueName("holder"));
+      const other = await createRange(uniqueName("other"));
       const gone = await createRange(`${token} gone`, { parent: holder.key });
       const kept = await createRange(`${token} kept`, { parent: other.key });
       await renderExplorer();
@@ -449,9 +445,9 @@ describe("range/explorer/Explorer", () => {
 
     it("should regroup a match when another client moves the range above it", async () => {
       const token = uniqueToken();
-      const first = await createRange(uniqueRangeName("first"));
-      const second = await createRange(uniqueRangeName("second"));
-      const holder = await createRange(uniqueRangeName("holder"), {
+      const first = await createRange(uniqueName("first"));
+      const second = await createRange(uniqueName("second"));
+      const holder = await createRange(uniqueName("holder"), {
         parent: first.key,
       });
       const match = await createRange(`${token} match`, { parent: holder.key });
@@ -474,10 +470,10 @@ describe("range/explorer/Explorer", () => {
     it("should reorder the ranges above the matches when another client retimes one", async () => {
       const token = uniqueToken();
       const now = TimeStamp.now();
-      const older = await createRange(uniqueRangeName("older"), {
+      const older = await createRange(uniqueName("older"), {
         timeRange: new TimeRange(now.sub(TimeSpan.hours(1)), now),
       });
-      const newer = await createRange(uniqueRangeName("newer"));
+      const newer = await createRange(uniqueName("newer"));
       await createRange(`${token} a`, { parent: older.key });
       await createRange(`${token} b`, { parent: newer.key });
       await renderExplorer();
@@ -523,7 +519,7 @@ describe("range/explorer/Explorer", () => {
 
   describe("context menu", () => {
     it("should open the overview of the range", async () => {
-      const rng = await createRange(uniqueRangeName("open"));
+      const rng = await createRange(uniqueName("open"));
       const store = await renderExplorer();
       await selectTestProject(store, client);
       await openMenuOf(rng);
@@ -534,11 +530,11 @@ describe("range/explorer/Explorer", () => {
     });
 
     it("should rename the range in place", async () => {
-      const rng = await createRange(uniqueRangeName("rename"));
+      const rng = await createRange(uniqueName("rename"));
       await renderExplorer();
       await openMenuOf(rng);
       fireEvent.click(await menuItem("Rename"));
-      const renamed = uniqueRangeName("renamed");
+      const renamed = uniqueName("renamed");
       commitTextEdit(await awaitTextEditing(List.itemNameID(rng.key)), renamed);
       await waitFor(async () =>
         expect((await client.ranges.retrieve(rng.key)).name).toBe(renamed),
@@ -546,7 +542,7 @@ describe("range/explorer/Explorer", () => {
     });
 
     it("should rename the copy that was right-clicked when two lists show the range", async () => {
-      const rng = await createRange(uniqueRangeName("rename"));
+      const rng = await createRange(uniqueName("rename"));
       const { wrapper } = await createTabWrapper({
         client,
         tab: { variant: "view", type: TAB_TYPE },
@@ -571,7 +567,7 @@ describe("range/explorer/Explorer", () => {
     });
 
     it("should start a planned range now with no end", async () => {
-      const planned = await createPlannedTestRange(client, uniqueRangeName("planned"));
+      const planned = await createPlannedTestRange(client, uniqueName("planned"));
       await renderExplorer();
       await openMenuOf(planned);
       fireEvent.click(await menuItem("Start"));
@@ -585,7 +581,7 @@ describe("range/explorer/Explorer", () => {
     it("should start a planned range now and keep its end", async () => {
       // A whole second reads the same as a float, as the stage moves read time.
       const end = TimeStamp.seconds(Math.floor(TimeStamp.now().seconds) + 7200);
-      const planned = await createRange(uniqueRangeName("planned"), {
+      const planned = await createRange(uniqueName("planned"), {
         timeRange: new TimeRange(end.sub(TimeSpan.HOUR), end),
       });
       onTestFinished(async () => await client.ranges.delete(planned.key));
@@ -600,7 +596,7 @@ describe("range/explorer/Explorer", () => {
     });
 
     it("should stop a running range", async () => {
-      const running = await createRange(uniqueRangeName("running"), {
+      const running = await createRange(uniqueName("running"), {
         timeRange: new TimeRange(TimeStamp.now(), TimeStamp.MAX),
       });
       await renderExplorer();
@@ -614,7 +610,7 @@ describe("range/explorer/Explorer", () => {
 
     it("should open the Sift upload modal on Upload to Sift", async () => {
       await createSiftDevice(client);
-      const rng = await createRange(uniqueRangeName("sift"));
+      const rng = await createRange(uniqueName("sift"));
       await renderExplorer();
       await openMenuOf(rng);
       fireEvent.click(await menuItem("Upload to Sift"));
@@ -623,7 +619,7 @@ describe("range/explorer/Explorer", () => {
 
     it("should copy a link to the range on Copy > Link", async () => {
       const writeText = stubClipboardWriteText();
-      const rng = await createRange(uniqueRangeName("linked"));
+      const rng = await createRange(uniqueName("linked"));
       await renderExplorer(client, { core: createCore("test") });
       await openMenuOf(rng);
       const copy = await openSubmenu("Copy");
@@ -633,7 +629,7 @@ describe("range/explorer/Explorer", () => {
     });
 
     it("should open a new line plot of the range on Plot", async () => {
-      const rng = await createRange(uniqueRangeName("plotted"));
+      const rng = await createRange(uniqueName("plotted"));
       const store = await renderExplorer();
       await selectTestProject(store, client);
       await openMenuOf(rng);
@@ -652,8 +648,8 @@ describe("range/explorer/Explorer", () => {
     });
 
     it("should add the range to a plot in the panel, and check a plot that shows it", async () => {
-      const shown = await createRange(uniqueRangeName("shown"));
-      const added = await createRange(uniqueRangeName("added"));
+      const shown = await createRange(uniqueName("shown"));
+      const added = await createRange(uniqueName("added"));
       const store = await renderExplorer();
       await selectTestProject(store, client);
       await openMenuOf(shown);
@@ -693,7 +689,7 @@ describe("range/explorer/Explorer", () => {
         name: uniqueName("found"),
         color: "#000000",
       });
-      const rng = await createRange(uniqueRangeName("found"));
+      const rng = await createRange(uniqueName("found"));
       await renderExplorer();
       await openMenuOf(rng);
       fireEvent.keyDown(screen.getByRole("menu"), { key: lbl.name[0] });
@@ -709,7 +705,7 @@ describe("range/explorer/Explorer", () => {
     });
 
     it("should favorite the range, then offer Unfavorite", async () => {
-      const rng = await createRange(uniqueRangeName("favorite"));
+      const rng = await createRange(uniqueName("favorite"));
       const store = await renderExplorer();
       await openMenuOf(rng);
       expect(screen.queryByRole("menuitem", { name: "Unfavorite" })).toBeNull();
@@ -725,7 +721,7 @@ describe("range/explorer/Explorer", () => {
     });
 
     it("should open the create modal under the range on Start child range", async () => {
-      const parent = await createRange(uniqueRangeName("parent"));
+      const parent = await createRange(uniqueName("parent"));
       await renderExplorer();
       await openMenuOf(parent);
       fireEvent.click(await menuItem("Start child range"));
@@ -737,7 +733,7 @@ describe("range/explorer/Explorer", () => {
     });
 
     it("should delete the range after the confirm", async () => {
-      const rng = await createRange(uniqueRangeName("delete"));
+      const rng = await createRange(uniqueName("delete"));
       const store = await renderExplorer();
       store.dispatch(Session.Range.add({ variant: "persisted", key: rng.key }));
       await openMenuOf(rng);
@@ -757,7 +753,7 @@ describe("range/explorer/Explorer", () => {
 
   describe("item", () => {
     it("should open the overview of the range on a plain click", async () => {
-      const rng = await createRange(uniqueRangeName("click"));
+      const rng = await createRange(uniqueName("click"));
       const store = await renderExplorer();
       await selectTestProject(store, client);
       await search(rng.name);
@@ -773,7 +769,7 @@ describe("range/explorer/Explorer", () => {
       ["Ctrl", { ctrlKey: true }],
       ["Cmd", { metaKey: true }],
     ])("should select the range without opening it on a %s click", async (_, key) => {
-      const rng = await createRange(uniqueRangeName("modifier"));
+      const rng = await createRange(uniqueName("modifier"));
       const store = await renderExplorer();
       await selectTestProject(store, client);
       await search(rng.name);
@@ -784,7 +780,7 @@ describe("range/explorer/Explorer", () => {
     });
 
     it("should select the range without opening it on a click of its checkbox", async () => {
-      const rng = await createRange(uniqueRangeName("checkbox"));
+      const rng = await createRange(uniqueName("checkbox"));
       const store = await renderExplorer();
       await selectTestProject(store, client);
       await search(rng.name);
@@ -796,7 +792,7 @@ describe("range/explorer/Explorer", () => {
     });
 
     it("should show no start for a range with no start", async () => {
-      const planned = await createPlannedTestRange(client, uniqueRangeName("planned"));
+      const planned = await createPlannedTestRange(client, uniqueName("planned"));
       await renderExplorer();
       const item = await findItem(planned.name);
       const when = within(item).getByRole("group", { name: "Time range" });
@@ -921,9 +917,9 @@ describe("range/explorer/Explorer", () => {
       const at = (days: number) => ({
         timeRange: new TimeRange(start.sub(TimeSpan.days(days)), start),
       });
-      const parent = await createRange(uniqueRangeName("parent"), at(0));
-      const other = await createRange(uniqueRangeName("other"), at(1));
-      const child = await createRange(uniqueRangeName("child"), {
+      const parent = await createRange(uniqueName("parent"), at(0));
+      const other = await createRange(uniqueName("other"), at(1));
+      const child = await createRange(uniqueName("child"), {
         ...at(2),
         parent: parent.key,
       });
@@ -977,7 +973,7 @@ describe("range/explorer/Explorer", () => {
       });
 
     it("should withhold the range writes from a subject with no range grants", async () => {
-      const rng = await createRange(uniqueRangeName("read"));
+      const rng = await createRange(uniqueName("read"));
       await renderExplorer(
         await createTestClientWithGrants(client, {
           retrieve: [
@@ -997,7 +993,7 @@ describe("range/explorer/Explorer", () => {
     });
 
     it("should offer the range writes to a subject granted them", async () => {
-      const rng = await createRange(uniqueRangeName("write"));
+      const rng = await createRange(uniqueName("write"));
       await renderExplorer(
         await createTestClientWithGrants(client, {
           retrieve: [

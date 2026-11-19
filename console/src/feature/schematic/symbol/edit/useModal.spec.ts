@@ -10,6 +10,7 @@
 import { type group } from "@synnaxlabs/client";
 import { theming } from "@synnaxlabs/pluto/ether";
 import { color, uuid } from "@synnaxlabs/x";
+import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -28,13 +29,7 @@ import {
   pressSaveTrigger,
   renderModalOpener,
 } from "@/platform/modals/testutil";
-import {
-  assertDefined,
-  fakePickedFile,
-  getIconButton,
-  interceptFilePicker,
-  uniqueName,
-} from "@/testutil";
+import { fakePickedFile, getIconButton, interceptFilePicker } from "@/testutil";
 
 afterEach(() => {
   vi.restoreAllMocks();

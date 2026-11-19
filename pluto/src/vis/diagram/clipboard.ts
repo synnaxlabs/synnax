@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
-import { type record, uuid, xy } from "@synnaxlabs/x";
+import { type record, strings, uuid, xy } from "@synnaxlabs/x";
 import { type ClipboardEvent, type RefObject, useRef } from "react";
 
 import { type ClipboardHandler } from "@/vis/diagram/Diagram";
@@ -129,8 +129,7 @@ export interface UseClipboardReturn {
 }
 
 const describe = (nodeCount: number, edgeCount: number): string =>
-  `${nodeCount} node${nodeCount === 1 ? "" : "s"}, ` +
-  `${edgeCount} edge${edgeCount === 1 ? "" : "s"}`;
+  `${strings.count(nodeCount, "node")}, ${strings.count(edgeCount, "edge")}`;
 
 const centroid = (nodes: ClipboardNode[]): xy.XY => {
   if (nodes.length === 0) return xy.ZERO;
