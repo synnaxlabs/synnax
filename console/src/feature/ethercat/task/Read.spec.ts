@@ -21,6 +21,7 @@ import {
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { id, TimeStamp } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 import { type z } from "zod";
@@ -59,7 +60,6 @@ import {
   createTestClientWithGrants,
   findDialogTriggerByText,
   findIconButton,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();

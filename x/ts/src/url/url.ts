@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { binary } from "@/binary";
+
 interface URLProps {
   host: string;
   port: number;
@@ -30,25 +32,20 @@ const removeTrailingSlash = (path: string): string =>
   path.endsWith("/") ? path.slice(0, -1) : path;
 
 /**
- * Builds a query string from a record.
- * @param record - The record to build the query string from. If the record is null,
- * an empty string is returned.
- * @returns the query string.
+ * Builds a percent-encoded query string from a record, skipping null and undefined
+ * values.
+ * @param prefix - Prepended to each key.
+ * @returns the query string, with a leading "?".
  */
 export const buildQueryString = (
-  request: Record<string, string>,
+  request: Record<string, string | null | undefined>,
   prefix: string = "",
 ): string => {
-  if (request === null) return "";
-  return `?${Object.entries(request)
-    .filter(([, value]) => {
-      if (value === undefined || value === null) return false;
-      if (Array.isArray(value)) return value.length > 0;
-      return true;
-    })
-
-    .map(([key, value]) => `${prefix}${key}=${value}`)
-    .join("&")}`;
+  const params = new URLSearchParams();
+  Object.entries(request).forEach(([key, value]) => {
+    if (value != null) params.append(`${prefix}${key}`, value);
+  });
+  return `?${params.toString()}`;
 };
 
 /**
@@ -56,19 +53,12 @@ export const buildQueryString = (
  * characters that are unreserved in URI paths, queries, and fragments, so it survives
  * URI canonicalization unchanged and is safe to embed directly in a URL.
  */
-export const encodeBase64 = (input: string): string => {
-  const bytes = new TextEncoder().encode(input);
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-};
+export const encodeBase64 = (input: string): string =>
+  binary.encodeBase64(new TextEncoder().encode(input), { alphabet: "base64url" });
 
 /** Decodes an unpadded base64url string produced by {@link encodeBase64}. */
-export const decodeBase64 = (encoded: string): string => {
-  const binary = atob(encoded.replace(/-/g, "+").replace(/_/g, "/"));
-  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
-  return new TextDecoder().decode(bytes);
-};
+export const decodeBase64 = (encoded: string): string =>
+  new TextDecoder().decode(binary.decodeBase64(encoded, { alphabet: "base64url" }));
 
 /** URL is a simple class for building and extending URLs. */
 export class URL {

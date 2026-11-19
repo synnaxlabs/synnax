@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel } from "@synnaxlabs/client";
+import { type channel, type icd } from "@synnaxlabs/client";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
@@ -22,7 +22,6 @@ import { useFormats } from "@/platform/icd/Formats";
 import {
   isReadable,
   jsonFields,
-  type ReadBinding,
   type ReadSource,
   suit,
   type TreeField,
@@ -56,7 +55,7 @@ const UNREADABLE_TOOLTIP =
   "A bytes field needs a JSON pointer. Give it one in the message format.";
 
 export interface ReadCheckboxProps {
-  bindings: deep.Target<ReadBinding[]>;
+  bindings: deep.Target<icd.ReadBinding[]>;
   field: TreeField;
   /** Starts or stops reading the field. */
   onChange: (on: boolean) => void;
