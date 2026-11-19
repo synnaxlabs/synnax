@@ -315,8 +315,11 @@ func (r *registry) targetSet(
 			return err
 		}
 		keys, err := ref.dependents(ctx, tx, []Target{target}, nil)
-		if err != nil || keys == nil {
+		if err != nil {
 			return err
+		}
+		if keys == nil {
+			continue
 		}
 		for _, k := range keys[0] {
 			if err = owner.targetSet(ctx, tx, k, target.Table); err != nil {
