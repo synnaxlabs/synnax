@@ -147,11 +147,6 @@ Panel struct {
             the theme picks it.
         """
     }
-    owner   user.Key?    {
-        @doc value     "is the user whose draft the panel is. Nil for a shared panel."
-        @ref kind      use
-        @ref on_delete cascade
-    }
     group   group.Key?   {
         @doc value     "is the group the panel sits in, if any."
         @group scope   project
@@ -161,6 +156,11 @@ Panel struct {
     project project.Key? {
         @doc value     "is the project that holds the panel."
         @ref kind      place
+        @ref on_delete cascade
+    }
+    owner   user.Key?    {
+        @doc value     "is the user whose draft the panel is. Nil for a shared panel."
+        @ref kind      use
         @ref on_delete cascade
     }
 

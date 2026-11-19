@@ -233,12 +233,12 @@ export const panelZ = z.object({
    * the theme picks it.
    */
   color: zod.nullToUndefined(color.refZ),
-  /** owner is the user whose draft the panel is. Nil for a shared panel. */
-  owner: user.keyZ.optional(),
   /** group is the group the panel sits in, if any. */
   group: group.keyZ.optional(),
   /** project is the project that holds the panel. */
   project: project.keyZ.optional(),
+  /** owner is the user whose draft the panel is. Nil for a shared panel. */
+  owner: user.keyZ.optional(),
 });
 export interface Panel extends z.infer<typeof panelZ> {}
 export interface New extends z.input<typeof panelZ> {}

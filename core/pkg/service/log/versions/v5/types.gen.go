@@ -18,10 +18,10 @@ import (
 	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
-	color "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v4"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
+	color "github.com/synnaxlabs/x/color/versions/v2"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
@@ -38,9 +38,9 @@ type TimestampConfig = v4.TimestampConfig
 type ChannelEntry struct {
 	// Channel is the channel this entry references.
 	Channel channel.Key `json:"channel" msgpack:"channel"`
-	// Color is the display color for the channel, a named color or a fixed color.
-	// Absent uses the text color of the log.
-	Color *color.Ref `json:"color,omitzero" msgpack:"color,omitempty"`
+	// Color is the display color for the channel. Absent uses the text color of the
+	// log.
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// Notation is the numeric notation used to render samples.
 	Notation notation.Notation `json:"notation" msgpack:"notation"`
 	// Precision is the number of digits after the decimal point, from 0 to 17. Absent
@@ -89,9 +89,6 @@ func (c ChannelEntry) Validate() error {
 		v.LessThanEq("precision", *c.Precision, 17)
 	}
 	v.MaxLength("alias", c.Alias, 64)
-	if c.Color != nil {
-		v.Exec(func() error { return validate.PathedError(c.Color.Validate(), "color") })
-	}
 	v.Exec(func() error { return validate.PathedError(c.TimestampConfig.Validate(), "timestamp_config") })
 	return v.Error()
 }
@@ -148,8 +145,6 @@ func (l *Log) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 func (l Log) Validate() error {
 	v := validate.New("Log")
 	v.Ternaryf("time_zone", !l.TimeZone.IsValid(), "invalid time_zone: %v", l.TimeZone)
-	v.NotEmptyString("name", l.Name)
-	v.LessThanEq("timestamp_precision", l.TimestampPrecision, 3)
 	for i := range l.Channels {
 		v.Exec(func() error { return validate.PathedError(l.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
 	}
