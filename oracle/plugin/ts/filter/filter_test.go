@@ -396,6 +396,21 @@ var _ = Describe("TS Filter Plugin", func() {
 			)
 		})
 
+		It("Should check a typed line of an operator in the Lines table", func() {
+			resp := MustGenerate(thing+`
+				Where filter Thing {
+					key
+					builtIn filter.Bool
+				}
+			`, "thing", loader, p)
+			ExpectContent(resp, "where.gen.ts").ToContain(
+				`builtIn: ((record: Payload, value: NonNullable<Where["builtIn"]>) => `+
+					`boolean) | null;`,
+				"if (!lines.builtIn(record, where.builtIn)) return false;",
+				"builtIn: filter.boolInputZ.exactOptional(),",
+			)
+		})
+
 		It("Should import a typed line's type from an ancestor as a namespace", func() {
 			loader.Add("schemas/thing", `
 				@ts output "client/ts/src/thing"
