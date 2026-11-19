@@ -193,6 +193,10 @@ class TestSymbol:
         )
         assert s.data.parts[0].selectors == ["#b"]
         assert isinstance(s.data.states[0], symbol.EnumerationState)
+        assert s.data.looks[0].when == symbol.EqualsCondition(
+            state="active", values=[1]
+        )
+        assert s.data.looks[0].fill == symbol.EntryPaint(state="active")
         assert s.data.handles[0].orientation == "left"
         assert s.data.scale == 1
         assert symbol.Symbol.model_validate_json(s.model_dump_json()) == s
