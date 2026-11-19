@@ -33,9 +33,9 @@ permissions: {}
 jobs:
   relay:
     name: Relay pull request
-    # The gate and auto-merge read only the review/ labels, the draft state, the base, and
-    # the head. Sedosaur edits the body after each review, so an edit that keeps the base
-    # starts nothing.
+    # The gate and auto-merge read only the review/ labels, the draft state, the base,
+    # and the head. Sedosaur edits the body after each review, so an edit that keeps the
+    # base starts nothing.
     if: >-
       github.event.pull_request.head.repo.full_name == github.repository && github.actor
       != 'dependabot[bot]' && (!contains(fromJSON('["labeled", "unlabeled", "edited"]'),
