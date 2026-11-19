@@ -669,7 +669,7 @@ describe("Kafka read form", () => {
         });
     });
 
-    it("should show the hint above the fields and count the picks below", async () => {
+    it("should show the hint with the fields and count the picks", async () => {
       const { dev } = await renderRead();
       const dialog = await openAddData(dev, { data: sampleOf(OVEN_SHAPE) });
       const temperature = await dialog.findByRole("checkbox", {
