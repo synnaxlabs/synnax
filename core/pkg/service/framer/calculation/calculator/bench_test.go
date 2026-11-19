@@ -425,3 +425,136 @@ func BenchmarkCalculator_GroupScaling(b *testing.B) {
 		})
 	}
 }
+
+// clockFrame returns a frame of n float32 samples for each data channel and the stamps
+// of their index, one period apart.
+func clockFrame(
+	index channel.Key,
+	data []channel.Key,
+	n int,
+	period telem.TimeSpan,
+) frame.Frame {
+	stamps := make([]telem.TimeStamp, n)
+	for i := range stamps {
+		stamps[i] = telem.SecondTS + telem.TimeStamp(i)*telem.TimeStamp(period)
+	}
+	keys := append([]channel.Key{index}, data...)
+	series := make([]telem.Series, len(keys))
+	series[0] = telem.NewSeries(stamps)
+	for i := range data {
+		series[i+1] = telem.NewSeries(make([]float32, n))
+	}
+	return frame.NewMulti(keys, series)
+}
+
+// advanceClock moves the stamps of f forward by span and its series past their own
+// alignment bounds, so f reads as the next frame of its clock.
+func advanceClock(f frame.Frame, span telem.TimeSpan) {
+	stamps := f.RawSeriesAt(0)
+	for i := range int(stamps.Len()) {
+		stamps.SetValueAt(i, stamps.ValueAt[telem.TimeStamp](i)+telem.TimeStamp(span))
+	}
+	advanceAlignment(f)
+}
+
+// BenchmarkCalculator_Clocks steps the sum of two persisted inputs, a and b, with one
+// frame of a per iteration at 100 frames per second. With one clock, b shares the index
+// of a. With two clocks, b has its own index at 1 Hz, so one sample of b arrives before
+// every 100th frame of a.
+func BenchmarkCalculator_Clocks(b *testing.B) {
+	const framesPerSecond = 100
+	for _, c := range []struct {
+		name string
+		// samples is the number of samples of a in each frame.
+		samples int
+		clocks  int
+	}{
+		{name: "clocks=1/rate=1kHz", samples: 10, clocks: 1},
+		{name: "clocks=2/rates=1kHz+1Hz", samples: 10, clocks: 2},
+		{name: "clocks=1/rate=10kHz", samples: 100, clocks: 1},
+	} {
+		b.Run(c.name, func(b *testing.B) {
+			env := newBenchEnv(b)
+			defer env.close(b)
+			indexes := make([]channel.Channel, c.clocks)
+			for i := range indexes {
+				indexes[i] = channel.Channel{
+					Name:     fmt.Sprintf("time_%d", i),
+					DataType: telem.TimestampT,
+					IsIndex:  true,
+				}
+			}
+			if err := env.node.DB.WithTx(env.ctx, func(tx gorp.Tx) error {
+				return env.channelSvc.NewWriter(tx).CreateMany(env.ctx, &indexes)
+			}); err != nil {
+				b.Fatalf("failed to create index channels: %v", err)
+			}
+			bases := []channel.Channel{
+				{Name: "a", DataType: telem.Float32T, LocalIndex: indexes[0].LocalKey},
+				{
+					Name:       "b",
+					DataType:   telem.Float32T,
+					LocalIndex: indexes[c.clocks-1].LocalKey,
+				},
+			}
+			calc := channel.Channel{
+				Name:       "sum",
+				DataType:   telem.Float32T,
+				Virtual:    true,
+				Expression: "return a + b",
+			}
+			calculator := env.openCalculator(b, bases, &calc)
+			defer func() {
+				if err := calculator.Close(); err != nil {
+					b.Errorf("failed to close calculator: %v", err)
+				}
+			}()
+			period := telem.Second / telem.TimeSpan(framesPerSecond*c.samples)
+			onFast := []channel.Key{bases[0].Key(), bases[1].Key()}
+			var slow frame.Frame
+			if c.clocks == 2 {
+				onFast = onFast[:1]
+				slow = clockFrame(
+					indexes[1].Key(),
+					[]channel.Key{bases[1].Key()},
+					1,
+					telem.Second,
+				)
+			}
+			fast := clockFrame(indexes[0].Key(), onFast, c.samples, period)
+			outputs := 0
+			next := func(f frame.Frame, span telem.TimeSpan) {
+				advanceClock(f, span)
+				out, changed, err := calculator.Next(env.ctx, f, frame.Frame{})
+				if err != nil {
+					b.Fatal(err)
+				}
+				if !changed {
+					return
+				}
+				for key, series := range out.Entries() {
+					if key == calc.Key() {
+						outputs += int(series.Len())
+					}
+				}
+			}
+			b.ReportAllocs()
+			frames := 0
+			for b.Loop() {
+				if c.clocks == 2 && frames%framesPerSecond == 0 {
+					next(slow, telem.Second)
+				}
+				next(fast, telem.Second/framesPerSecond)
+				frames++
+			}
+			if outputs == 0 {
+				b.Fatal("the calculator made no output")
+			}
+			b.ReportMetric(
+				float64(c.samples*frames)/b.Elapsed().Seconds(),
+				"samples/sec",
+			)
+			b.ReportMetric(float64(outputs)/float64(frames), "outputs/op")
+		})
+	}
+}
