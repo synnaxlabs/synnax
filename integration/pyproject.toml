@@ -17,15 +17,15 @@ dependencies = [
     "synnax-x",
     "flask>=3.1.3,<4",
     "matplotlib>=3.11.2,<4",
-    "numpy>=2.5.4,<3",
-    "playwright>=1.64.0,<2",
+    "numpy>=2.5.5,<3",
+    "playwright>=1.65.2,<2",
     "protobuf>=7.36.2,<8",
     "psutil>=7.2.2,<8",
-    "pymodbus[serial]>=3.16.1,<4",
+    "pymodbus[serial]>=3.16.2,<4",
     "asyncua>=2.1.0,<3",
-    "nidaqmx>=1.6.0,<2",
+    "nidaqmx>=1.7.0,<2",
     "nisyscfg>=0.2.1,<1",
-    "pagerduty>=7.0.1,<8",
+    "pagerduty>=7.2.0,<8",
 ]
 classifiers = ["Private :: Do Not Upload"]
 
@@ -35,11 +35,11 @@ tc = "framework.test_conductor:main"
 
 [dependency-groups]
 dev = [
-    "mypy>=2.4.0,<3",
-    "pytest>=9.1.1,<10",
+    "mypy>=2.4.1,<3",
+    "pytest>=9.2.0,<10",
     "pytest-cov>=7.1.0,<8",
-    "ruff>=0.17.1,<1",
-    "types-psutil>=7.2.2.20260906,<8",
+    "ruff>=0.17.6,<1",
+    "types-psutil>=7.2.2.20261111,<8",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -94,6 +94,7 @@ combine-as-imports = true
 "framework/test_case.py" = ["B027"]
 
 [tool.mypy]
+python_version = "3.13"
 mypy_path = "stubs"
 plugins = ["pydantic.mypy"]
 strict = true
