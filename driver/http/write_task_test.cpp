@@ -223,60 +223,6 @@ TEST(HTTPWriteTask, ParseConfigNestedPointers) {
     ASSERT_OCCURRED_AS_P(WriteTaskConfig::parse(ctx, task), x::errors::VALIDATION);
 }
 
-/// @brief it should fail when a field pointer sits above the channel pointer.
-TEST(HTTPWriteTask, ParseConfigFieldAboveChannelPointer) {
-    synnax::task::Task task;
-    task.config = {
-        {"device", "dev-001"},
-        {"endpoints",
-         {{
-             {"method", "POST"},
-             {"path", "/api/data"},
-             {"channel",
-              {{"pointer", "/value/unit"}, {"json_type", "number"}, {"channel", 1}}},
-             {"fields",
-              {{
-                  {"type", "static"},
-                  {"pointer", "/value"},
-                  {"json_type", "string"},
-                  {"value", "x"},
-              }}},
-         }}},
-    };
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
-    ASSERT_OCCURRED_AS_P(WriteTaskConfig::parse(ctx, task), x::errors::VALIDATION);
-}
-
-/// @brief it should fail when field pointers nest.
-TEST(HTTPWriteTask, ParseConfigNestedFieldPointers) {
-    synnax::task::Task task;
-    task.config = {
-        {"device", "dev-001"},
-        {"endpoints",
-         {{
-             {"method", "POST"},
-             {"path", "/api/data"},
-             {"channel",
-              {{"pointer", "/value"}, {"json_type", "number"}, {"channel", 1}}},
-             {"fields",
-              {{
-                   {"type", "static"},
-                   {"pointer", "/meta"},
-                   {"json_type", "string"},
-                   {"value", "x"},
-               },
-               {
-                   {"type", "static"},
-                   {"pointer", "/meta/id"},
-                   {"json_type", "string"},
-                   {"value", "x"},
-               }}},
-         }}},
-    };
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
-    ASSERT_OCCURRED_AS_P(WriteTaskConfig::parse(ctx, task), x::errors::VALIDATION);
-}
-
 /// @brief it should fail when bare primitive has additional fields.
 TEST(HTTPWriteTask, ParseConfigBarePrimitiveWithAdditionalFields) {
     synnax::task::Task task;

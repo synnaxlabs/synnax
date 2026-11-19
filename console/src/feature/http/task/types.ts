@@ -108,11 +108,8 @@ const writeConfigZ = http.writeConfigZ.extend({
   endpoints: writeEndpointZ.array().default(() => []),
 });
 
-const nested = (a: string, b: string): boolean => {
-  if (a === "" || b === "") return false;
-  const [outer, inner] = a.length <= b.length ? [a, b] : [b, a];
-  return inner === outer || inner.startsWith(`${outer}/`);
-};
+const overlaps = (a: string, b: string): boolean =>
+  a !== "" && b !== "" && (a === b || a.startsWith(`${b}/`) || b.startsWith(`${a}/`));
 
 const validateWriteEndpoint = (ctx: z.core.ParsePayload<WriteEndpoint>) => {
   const { value } = ctx;
@@ -127,7 +124,7 @@ const validateWriteEndpoint = (ctx: z.core.ParsePayload<WriteEndpoint>) => {
         "An empty channel pointer sends the raw value as the body, so additional fields are not allowed",
       path: ["channel", "pointer"],
     });
-  const pointers: string[] = [channel.pointer];
+  const pointers = [channel.pointer];
   for (const [i, field] of fields.entries()) {
     if (field.pointer === "") {
       ctx.issues.push({
@@ -139,7 +136,7 @@ const validateWriteEndpoint = (ctx: z.core.ParsePayload<WriteEndpoint>) => {
       });
       continue;
     }
-    if (pointers.some((used) => nested(used, field.pointer)))
+    if (pointers.some((p) => overlaps(p, field.pointer)))
       ctx.issues.push({
         continue: true,
         code: "custom",
