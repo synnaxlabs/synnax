@@ -70,6 +70,18 @@ var _ = Describe("Crash", func() {
 			Expect(f.Close()).To(Succeed())
 		})
 
+		It("Should leave a later Sync only the ranges written after it", func() {
+			f := MustSucceed(fs.Open("f.bin", os.O_CREATE|os.O_RDWR))
+			Expect(f.WriteAt(make([]byte, 100), 0)).To(Equal(100))
+			fs.Writeback()
+			Expect(f.WriteAt(bytes.Repeat([]byte{1}, 100), 100)).To(Equal(100))
+			Expect(f.Sync()).To(Succeed())
+			stat, ok := MustSucceed(f.Stat()).Sys().(fault.Stat)
+			Expect(ok).To(BeTrue())
+			Expect(stat.Synced).To(Equal([]fault.Span{{From: 100, To: 200}}))
+			Expect(f.Close()).To(Succeed())
+		})
+
 		It("Should keep a write made after it only through a Sync", func() {
 			save(fs, "f.txt", "taco")
 			fs.Writeback()

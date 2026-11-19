@@ -153,7 +153,7 @@ func (d *disk) writeback(n *node) {
 		}
 		return
 	}
-	n.durable, n.dirty = slices.Clone(n.data), nil
+	n.durable, n.dirty, n.written = slices.Clone(n.data), nil, nil
 }
 
 // entry names one directory entry.

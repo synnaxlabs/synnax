@@ -118,7 +118,8 @@ const (
 )
 
 // Auditor is an Engine that checks its own invariants. Run calls Audit after each
-// recovery that returned its records, and an error breaks R5.
+// recovery that returned its records, and an error breaks R5. Audit checks only what
+// Recovered read, and reads no disk, so a read fault reaches only Recovered.
 type Auditor interface {
 	Engine
 	Audit(ctx context.Context) error
