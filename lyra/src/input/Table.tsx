@@ -749,17 +749,23 @@ export const Table = ({
           <tfoot>
             <tr>
               {hasGutter && <td className={CSS.BE("input", "table-gutter")} />}
-              <td colSpan={columns.length + 1}>
-                <Button.Button
-                  variant="text"
-                  size="small"
-                  textColor={9}
-                  onClick={handleAdd}
-                >
-                  <Icon.Add />
-                  Add {resourceName}
-                </Button.Button>
-              </td>
+              {/* A cell under each column keeps its width while the table is empty. */}
+              {columns.map((_, i) => (
+                <td key={i}>
+                  {i === 0 && (
+                    <Button.Button
+                      variant="text"
+                      size="small"
+                      textColor={9}
+                      onClick={handleAdd}
+                    >
+                      <Icon.Add />
+                      Add {resourceName}
+                    </Button.Button>
+                  )}
+                </td>
+              ))}
+              <td />
             </tr>
           </tfoot>
         )}
