@@ -425,6 +425,11 @@ runners:
   - *py
   - scripts/runners/**
 
+console_deps:
+  - console/src-tauri/.cargo/audit.toml
+  - console/src-tauri/Cargo.lock
+  - console/src-tauri/Cargo.toml
+
 console_build: &console_build
   - *console
 
