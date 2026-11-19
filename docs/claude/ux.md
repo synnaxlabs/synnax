@@ -75,8 +75,8 @@ A new line takes the first series color in that order that no other line uses.
 - Radius has five steps: tiny 4, small 6, medium 9, large 12, and huge 18 px. Outlined
   and text buttons, inputs, and keycaps use tiny. Filled buttons, tags, tooltips, and
   tabs use small. View tabs, filter chips, and cards use medium. Modals, menus, explorer
-  bars, and page sections use large. The Settings section list uses huge. Do not add a
-  step.
+  bars, and page sections use large. The Settings section list uses huge, and medium
+  when it shows only icons. Do not add a step.
 - A custom icon looks precise, never cartoony: about 1.5-unit strokes on a 24 grid,
   square ends, corner radii of 1 unit or less, and filled shapes cut by clean gaps.
 - An icon centers on its ink, not its box. A star moves up 3.6% of its box, so it lines
@@ -574,13 +574,32 @@ bound, a log precision, or the line plot X channel.
   collapses the box to its bar. An action in the header opens the box again.
 - An empty section shows no box, only one muted "+ Noun" line that adds its first item.
 
+### Settings
+
+- The section list shows names at 800 px and wider, and only icons below. A Sidebar
+  button at its top collapses it to icons and expands it again. The choice is not saved,
+  so Settings always opens expanded.
+- The list animates over 0.15 s: the width changes, the names and group headings fade,
+  and a line fades in where each heading was. A pane that turns narrow snaps to icons.
+- The toggle and each icon keep their place in both modes, so the icon-only list is as
+  wide as it takes to center the icons.
+- The page padding steps down below 100rem and 72rem, as on the range overview.
+- An entry's control moves under its label when the label has less than 36rem. In a card
+  narrower than 72rem, every control goes under its label.
+- A name column is at least 24rem wide, and a short value column 12rem to 16rem. A list
+  that does not fit scrolls sideways.
+- A button beside a field, such as a create button or "Set password", goes under the
+  field when the field has less than 30rem.
+- The Profile name field is at most 50rem wide. The license stats stack below 96rem.
+
 ### Group headings
 
 - A list that groups its items, such as the palettes on the Colors page or the groups of
   the Ranges toolbar, heads each group with `Header.Group`: one full-width bar that
   opens and closes the group.
 - The bar is l2 with the item radius. Its height is the Lyra size nearest the item
-  height: `large` above a 40 px item. Hover and press fill the whole bar.
+  height: `large` above a 40 px item. Hover and press fill the whole bar with a button's
+  transition.
 - The title is a plain string or a span at the button label weight. The count follows in
   tiny l9 text, then an optional badge. The caret at the end points down when open.
 - Actions, such as a "+" that creates an item in the group, sit before the caret and do
@@ -753,11 +772,19 @@ says why in a sentence, then gives the raw error.
   name. Up to four more are 4 px, with no name.
 - A bar is its range color tinted over the background, with a 1 px border in the color.
   The name is in the range hue, centered on its cap height, and fades at its end. A side
-  cut by the plot edge has square corners, and the name stays at the edge.
+  cut by the plot edge has square corners and fades out over 40 px, and the name stays
+  at the edge. A fade means only "more of this range is outside the view".
+- The time sits at the bar's end in the code font: `T+h:mm:ss` for a running range, and
+  the short length (`10min`) for any other. The name gets the room first.
+- A running bar ends at the newest sample of a live plot, or at now. Its end is a 2 px
+  cap in the range color that bends around the corners, with a glow that pulses every
+  1.6 s, drawn at 15 Hz. 30 Hz doubled the CPU cost for no visible gain. Rejected: a
+  fade, a dot, stripes, or a hollow bar for "running", and elapsed time after the name.
 - In the plot, each range draws its start and end lines. Only a range that holds no
   other range gets a fill, so fills do not stack. A range with no color is not drawn.
 - Hover fills the range, dims the others, and shows its name, start, end, and duration.
-  The tooltip wraps a name past 240 px.
+  A running range shows its start, how long it has run, and its planned end if it has
+  one. The tooltip wraps a name past 240 px.
 - A click on a range zooms to it and pauses the plot. A second click on that range goes
   back to the view and pause state from before. If the view changes between the two
   clicks, the second click zooms in again. Clicks nest, one level per click.
