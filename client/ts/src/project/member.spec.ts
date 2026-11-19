@@ -9,12 +9,12 @@
 
 import { describe, expect, it } from "vitest";
 
+import { type group } from "@/group";
 import { project } from "@/project";
 
 const P2 = "22222222-2222-4222-8222-222222222222";
-const G1 = "33333333-3333-4333-8333-333333333333";
 
-const build: project.EntryBuilder<string> = (key, actions) => ({
+const build: group.EntryBuilder<string> = (key, actions) => ({
   endpoint: "/doc/dispatch",
   payload: { key, actions },
 });
@@ -31,16 +31,6 @@ describe("createMoveRequest", () => {
     expect(project.createMoveRequest(build)(["a", "b"], P2)).toEqual([
       { endpoint: "/doc/dispatch", payload: payload("a") },
       { endpoint: "/doc/dispatch", payload: payload("b") },
-    ]);
-  });
-});
-
-describe("createGroupMoveRequest", () => {
-  it("should build one entry per key that sets the group", () => {
-    const actions = [{ type: "set", set: { path: ["group"], value: G1, guards: [] } }];
-    expect(project.createGroupMoveRequest(build)(["a", "b"], G1)).toEqual([
-      { endpoint: "/doc/dispatch", payload: { key: "a", actions } },
-      { endpoint: "/doc/dispatch", payload: { key: "b", actions } },
     ]);
   });
 });
