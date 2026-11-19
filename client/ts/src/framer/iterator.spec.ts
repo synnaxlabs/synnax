@@ -32,7 +32,7 @@ describe("Iterator", () => {
   test("happy path", async () => {
     const channels = await newIndexedPair(client);
     const writer = await client.openWriter({
-      start: TimeStamp.SECOND,
+      start: TimeStamp.seconds(1),
       channels,
     });
     const [idx_ch, data_ch] = channels;
@@ -55,7 +55,7 @@ describe("Iterator", () => {
     }
 
     const iter = await client.openIterator(
-      new TimeRange(TimeStamp.SECOND, TimeSpan.seconds(30)),
+      new TimeRange(TimeStamp.seconds(1), TimeSpan.seconds(30)),
       channels,
     );
 
@@ -76,7 +76,7 @@ describe("Iterator", () => {
     const channels = await newIndexedPair(client);
     const [idx_ch, data_ch] = channels;
     const writer = await client.openWriter({
-      start: TimeStamp.SECOND,
+      start: TimeStamp.seconds(1),
       channels,
     });
     await writer.write({
@@ -113,7 +113,7 @@ describe("Iterator", () => {
     test("should keep every second sample under a factor of 2", async () => {
       const channels = await newIndexedPair(client);
       const [idx_ch, data_ch] = channels;
-      const writer = await client.openWriter({ start: TimeStamp.SECOND, channels });
+      const writer = await client.openWriter({ start: TimeStamp.seconds(1), channels });
       await writer.write({
         [idx_ch.key]: secondsLinspace(1, 8),
         [data_ch.key]: new Float64Array([1, 2, 3, 4, 5, 6, 7, 8]),
@@ -137,7 +137,7 @@ describe("Iterator", () => {
     test("should keep every third sample under a factor of 3", async () => {
       const channels = await newIndexedPair(client);
       const [idx_ch, data_ch] = channels;
-      const writer = await client.openWriter({ start: TimeStamp.SECOND, channels });
+      const writer = await client.openWriter({ start: TimeStamp.seconds(1), channels });
       await writer.write({
         [idx_ch.key]: secondsLinspace(1, 9),
         [data_ch.key]: new Float64Array([1, 2, 3, 4, 5, 6, 7, 8, 9]),
@@ -159,7 +159,7 @@ describe("Iterator", () => {
     test("should keep every sample under a factor of 1", async () => {
       const channels = await newIndexedPair(client);
       const [idx_ch, data_ch] = channels;
-      const writer = await client.openWriter({ start: TimeStamp.SECOND, channels });
+      const writer = await client.openWriter({ start: TimeStamp.seconds(1), channels });
       await writer.write({
         [idx_ch.key]: secondsLinspace(1, 4),
         [data_ch.key]: new Float64Array([1, 2, 3, 4]),
@@ -206,7 +206,7 @@ describe("Iterator", () => {
     ): Promise<Series> => {
       const channels = await newIndexedPair(client);
       const [idx_ch, data_ch] = channels;
-      const writer = await client.openWriter({ start: TimeStamp.SECOND, channels });
+      const writer = await client.openWriter({ start: TimeStamp.seconds(1), channels });
       await writer.write({
         [idx_ch.key]: secondsLinspace(1, 8),
         [data_ch.key]: new Float64Array([4, 1, 3, 8, 5, 2, 6, 7]),
