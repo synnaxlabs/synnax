@@ -146,9 +146,15 @@ const openFromKeyboard = (element: Element): HTMLElement => {
 interface TargetMenuProps {
   onOpen: (focused: Element | null) => void;
   onChoose: (focused: Element | null) => void;
+  /** The element of the target. Defaults to a button. */
+  el?: "button" | "div";
 }
 
-const TargetMenu = ({ onOpen, onChoose }: TargetMenuProps): ReactElement => {
+const TargetMenu = ({
+  onOpen,
+  onChoose,
+  el: Target = "button",
+}: TargetMenuProps): ReactElement => {
   const ctx = Menu.useContextMenu();
   return (
     <Menu.ContextMenu
@@ -161,7 +167,7 @@ const TargetMenu = ({ onOpen, onChoose }: TargetMenuProps): ReactElement => {
       )}
       {...ctx}
     >
-      <button
+      <Target
         className={Menu.CONTEXT_TARGET}
         onContextMenu={(e) => {
           onOpen(document.activeElement);
@@ -169,7 +175,7 @@ const TargetMenu = ({ onOpen, onChoose }: TargetMenuProps): ReactElement => {
         }}
       >
         Target
-      </button>
+      </Target>
     </Menu.ContextMenu>
   );
 };
@@ -461,6 +467,40 @@ describe("Menu", () => {
       expect(onChoose).toHaveBeenCalledExactlyOnceWith(target);
       expect(document.activeElement).toBe(target);
       expect(target.matches(":focus-visible")).toBe(false);
+    });
+
+    const rightClickInBox = async (el: TargetMenuProps["el"]) => {
+      const onChoose = vi.fn();
+      const { getByText, getByLabelText } = await renderThemed(
+        <Triggers.Provider>
+          {/* Keeps the focus on the box, as a right click on a button does in WebKit. */}
+          <div aria-label="Box" tabIndex={-1} onMouseDown={(e) => e.preventDefault()}>
+            <TargetMenu onOpen={vi.fn()} onChoose={onChoose} el={el} />
+          </div>
+        </Triggers.Provider>,
+      );
+      const box = getByLabelText("Box").element() as HTMLElement;
+      box.focus();
+      const target = getByText("Target").element();
+      await userEvent.click(target, { button: "right" });
+      await expect
+        .poll(() => document.activeElement?.getAttribute("role"))
+        .toBe("menu");
+      await userEvent.click(getByText("Edit"));
+      await expect.poll(() => document.querySelector('[role="menu"]')).toBeNull();
+      return { box, target, onChoose };
+    };
+
+    it("should focus a right-clicked button in a focused box before an item acts", async () => {
+      const { target, onChoose } = await rightClickInBox("button");
+      expect(onChoose).toHaveBeenCalledExactlyOnceWith(target);
+      expect(document.activeElement).toBe(target);
+    });
+
+    it("should keep the focus on a box around a target that cannot take it", async () => {
+      const { box, onChoose } = await rightClickInBox("div");
+      expect(onChoose).toHaveBeenCalledExactlyOnceWith(box);
+      expect(document.activeElement).toBe(box);
     });
 
     it("should keep the focus of a right click on Escape", async () => {
