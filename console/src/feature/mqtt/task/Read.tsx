@@ -22,6 +22,7 @@ import {
   DataType,
   deep,
   errors,
+  map,
   type payload,
   primitive,
   unique,
@@ -355,8 +356,7 @@ const addTopics = async ({
   const actions = new Map<icd.Key, icd.Action[]>();
   const inserterOf = (key: icd.Key): Inserter => {
     if (key === format.key) return format.form;
-    const pending = actions.get(key) ?? [];
-    actions.set(key, pending);
+    const pending = map.getOrInsert(actions, key, () => []);
     return {
       insert: (path, value, after) =>
         pending.push(icd.insert({ path: String(path).split("."), value, after })),
