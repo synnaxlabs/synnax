@@ -75,6 +75,15 @@ describe("canvasTest.record", () => {
       ]);
     });
 
+    it("records a linear gradient and the stops added to it", () => {
+      const r = canvasTest.record();
+      r.upper2d.createLinearGradient(0, 0, 10, 0).addColorStop(1, "#fff");
+      expect(r.upper2d.calls).toEqual([
+        { op: "createLinearGradient", args: [0, 0, 10, 0] },
+        { op: "addColorStop", args: [1, "#fff"] },
+      ]);
+    });
+
     it("records textDimensions and returns a length-derived size", () => {
       const r = canvasTest.record();
       expect(r.lower2d.textDimensions("abcd")).toEqual({ width: 32, height: 12 });
