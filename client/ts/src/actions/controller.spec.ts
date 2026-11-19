@@ -376,7 +376,7 @@ describe("actions.Controller", () => {
       const r = controller.prepareUndo("k");
       // The merged inverse should restore to the pre-first-push state.
       // First inverse runs the latest's inverse (a:1), then the prior's (a:0).
-      expect(r?.actions[r.actions.length - 1]).toEqual({
+      expect(r?.actions.at(-1)).toEqual({
         type: "set",
         key: "a",
         value: 0,
@@ -1152,7 +1152,7 @@ describe("actions.Controller", () => {
         done = true;
       });
       return async () => {
-        await scheduler.flushTaskQueue();
+        await scheduler.nextTask();
         return done;
       };
     };

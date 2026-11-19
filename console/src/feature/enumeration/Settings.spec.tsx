@@ -10,6 +10,7 @@
 import { type color, enumeration } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { color as xcolor } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import {
   act,
   fireEvent,
@@ -33,7 +34,6 @@ import {
   dragOnto,
   HaulProvider,
   openContextMenu,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();
