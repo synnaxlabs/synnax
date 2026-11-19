@@ -524,7 +524,7 @@ jobs:
         with:
           cache-workspaces: console/src-tauri -> target
           cache-shared-key: ${{ runner.os }}-desktop-test
-          components: llvm-tools-preview
+          components: llvm-tools-preview, clippy, rustfmt
 
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@c509219cf42fba86913069efd0ade2458c59337b # v2.90.1
@@ -534,6 +534,14 @@ jobs:
       - name: Create an empty frontend
         # The Tauri context embeds the frontend directory, so it must exist.
         run: mkdir -p console/dist && touch console/dist/index.html
+
+      - name: Check formatting
+        working-directory: console/src-tauri
+        run: cargo fmt --check
+
+      - name: Lint
+        working-directory: console/src-tauri
+        run: cargo clippy --all-targets --features desktop --locked -- -D warnings
 
       - name: Test
         working-directory: console/src-tauri
