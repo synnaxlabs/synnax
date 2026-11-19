@@ -237,8 +237,8 @@ describe("range/Toolbar", () => {
     });
 
     it("should read a later start or end only after the reads in flight land", async () => {
-      const first = await createRunning(uniqueRangeName("first"));
-      const second = await createRunning(uniqueRangeName("second"));
+      const first = await createRunning(uniqueName("first"));
+      const second = await createRunning(uniqueName("second"));
       await renderToolbar();
       await findLine("Running", first.name);
       await findLine("Running", second.name);
