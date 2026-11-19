@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/label/Select.css";
+
 import { type label, type Synnax } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -17,6 +19,7 @@ import { state } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import { Color } from "@/color";
+import { CSS } from "@/css";
 import { Flux } from "@/flux";
 import { OptionMenu, useHasOptionMenu } from "@/label/Edit";
 import { useResultMultiple } from "@/label/queries";
@@ -40,6 +43,8 @@ export const ListItem = ({
 
 const listItemRenderProp = Component.renderProp(ListItem);
 const optionMenuRenderProp = Component.renderProp(OptionMenu);
+
+const DIALOG_CLASS = CSS.BE("label-select", "dialog");
 
 export interface SelectMultipleProps
   extends
@@ -95,6 +100,10 @@ const Base = (props: BaseProps): ReactElement => {
       menu={optionMenuRenderProp}
       hasMenu={hasMenu}
       {...props}
+      dialogProps={{
+        ...props.dialogProps,
+        className: CSS.cls(DIALOG_CLASS, props.dialogProps?.className),
+      }}
       resourceName="label"
     >
       {listItemRenderProp}
@@ -176,6 +185,10 @@ export const SelectSingle = ({
       menu={optionMenuRenderProp}
       hasMenu={hasMenu}
       {...rest}
+      dialogProps={{
+        ...rest.dialogProps,
+        className: CSS.cls(DIALOG_CLASS, rest.dialogProps?.className),
+      }}
       data={data}
       resourceName="label"
       subscribe={subscribe}
