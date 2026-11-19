@@ -25,7 +25,6 @@ import (
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/stringer"
 	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/unsafe"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
@@ -182,9 +181,6 @@ func (w *Writer) Write(ctx context.Context, fr Frame) (Frame, error) {
 	if err := w.check(); err != nil {
 		return Frame{}, err
 	}
-	if *w.AutoIndex {
-		fr = w.autoStamp(fr)
-	}
 	var (
 		unauthorized        error
 		err                 error
@@ -223,54 +219,6 @@ func (w *Writer) Write(ctx context.Context, fr Frame) (Frame, error) {
 		}
 	}
 	return fr, unauthorized
-}
-
-// autoStamp injects a TimeStamp series for each idxWriter whose index channel is
-// referenced by the writer but absent from fr. It runs in O(KeysInFrame + IndexGroups):
-// a single pass over fr's keys uses keyToIdx to resolve each key's idxWriter group in
-// O(1) and records whether that group's index is present and the length of any data
-// channel for the group. A subsequent pass over idxWriters counts how many stamps are
-// needed, grows fr by exactly that amount, and performs the appends.
-func (w *Writer) autoStamp(fr Frame) Frame {
-	for _, idx := range w.internal {
-		idx.resetAutoStampScan()
-	}
-	for i, k := range fr.RawKeys() {
-		if fr.ShouldExcludeRaw(i) {
-			continue
-		}
-		idx, ok := w.keyToIdx[k]
-		if !ok {
-			continue
-		}
-		if k == idx.idx.ch.Key {
-			idx.scanIdxPresent = true
-			continue
-		}
-		if idx.scanDataLen == 0 {
-			if l := fr.RawSeriesAt(i).Len(); l > 0 {
-				idx.scanDataLen = l
-			}
-		}
-	}
-	var toAdd int
-	for _, idx := range w.internal {
-		if idx.shouldAutoStamp() {
-			toAdd++
-		}
-	}
-	if toAdd == 0 {
-		return fr
-	}
-	fr = fr.Grow(toAdd)
-	now := telem.Now()
-	for _, idx := range w.internal {
-		if !idx.shouldAutoStamp() {
-			continue
-		}
-		fr = idx.appendAutoStamp(fr, now)
-	}
-	return fr
 }
 
 // propagateAuthority synchronizes each idxWriter's per-data-channel authority tracking
@@ -399,15 +347,9 @@ type idxWriter struct {
 		// db is the unary database of the index channel. Consulted for the current
 		// write cursor when this group does not write the index itself.
 		db *unary.DB
-		// highWaterMark is the last timestamp written to the index — whether by
-		// auto-stamping or by a caller-provided series. Drives commit resolution
-		// (resolveCommitEnd). Only relevant when writingToIdx is true.
+		// highWaterMark is the last timestamp written to the index. Drives commit
+		// resolution (resolveCommitEnd). Only relevant when writingToIdx is true.
 		highWaterMark telem.TimeStamp
-		// autoStampClock is the last timestamp emitted by appendAutoStamp on this
-		// index. Advanced only by auto-stamping; caller-provided index timestamps do
-		// not move it. Used to keep auto-stamps strictly monotonic across Write calls
-		// without inheriting future timestamps the caller wrote explicitly.
-		autoStampClock telem.TimeStamp
 	}
 	// numWriteCalls tracks the number of write calls made to the idxWriter.
 	numWriteCalls int
@@ -441,42 +383,12 @@ type idxWriter struct {
 	// recompute the written index's authority as the max across its referencing data
 	// channels.
 	dataAuth map[ChannelKey]xcontrol.Authority
-	// scanIdxPresent is a transient scratch field set during the single frame scan in
-	// Writer.autoStamp. True when the caller's frame already contains this
-	// idxWriter's index key (in which case no stamping is needed). Reset to false at
-	// the start of every autoStamp call.
-	scanIdxPresent bool
-	// scanDataLen is a transient scratch field set during the single frame scan in
-	// Writer.autoStamp. Holds the length of the first non-empty data channel
-	// observed for this group (the size of the auto-stamped series). Reset to zero at
-	// the start of every autoStamp call.
-	scanDataLen int64
 	// setAuthExplicit is a transient scratch field used during the per-channel scan in
 	// Writer.propagateAuthority. True when the caller explicitly named this
 	// idxWriter's index key in the SetAuthority config, in which case the index
 	// authority is left untouched. Reset to false at the start of every
 	// propagateAuthority call.
 	setAuthExplicit bool
-}
-
-func (w *idxWriter) resetAutoStampScan() { w.scanIdxPresent = false; w.scanDataLen = 0 }
-
-func (w *idxWriter) shouldAutoStamp() bool {
-	return w.writingToIdx && !w.scanIdxPresent && w.scanDataLen > 0
-}
-
-func (w *idxWriter) appendAutoStamp(fr Frame, now telem.TimeStamp) Frame {
-	t0 := max(now, w.idx.autoStampClock+1)
-	// Allocate the Series's byte buffer once and reinterpret it as []TimeStamp via
-	// unsafe.CastSlice so timestamps are written directly into the backing array. Going
-	// through NewSeriesV(stamps...) would perform two allocations instead of one.
-	series := telem.MakeSeries(telem.TimestampT, int(w.scanDataLen))
-	stamps := unsafe.CastSlice[byte, telem.TimeStamp](series.Data)
-	for j := range stamps {
-		stamps[j] = t0 + telem.TimeStamp(j)
-	}
-	w.idx.autoStampClock = stamps[len(stamps)-1]
-	return fr.Append(w.idx.ch.Key, series)
 }
 
 // setDataAuth records auth as the authority for k if k is one of this group's data

@@ -295,55 +295,6 @@ var _ = Describe("Streamer Behavior", func() {
 				)
 
 				It(
-					"Should stamp auto-indexed frames with the generated timestamps",
-					func(ctx SpecContext) {
-						idx := GenerateChannelKey()
-						data := GenerateChannelKey()
-						Expect(db.CreateChannel(
-							ctx,
-							cesium.Channel{
-								Key:      idx,
-								Name:     "Hopper",
-								DataType: telem.TimestampT,
-								IsIndex:  true,
-							},
-							cesium.Channel{
-								Key:      data,
-								Name:     "Lovelace",
-								DataType: telem.Float32T,
-								Index:    idx,
-							},
-						)).To(Succeed())
-						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-							Channels:  []cesium.ChannelKey{idx, data},
-							Start:     telem.Now(),
-							AutoIndex: new(true),
-						}))
-						_, o, closer := openStreamer(ctx, db, cesium.StreamerConfig{
-							Channels: []cesium.ChannelKey{idx, data},
-						})
-						MustSucceed(w.Write(ctx, telem.MultiFrame(
-							[]cesium.ChannelKey{data},
-							[]telem.Series{telem.NewSeriesV[float32](1, 2, 3)},
-						)))
-						var res cesium.StreamerResponse
-						Eventually(o.Outlet()).Should(Receive(&res))
-						idxSeries := res.Frame.Get(idx).Series[0]
-						expected := telem.TimeRange{
-							Start: idxSeries.ValueAt[telem.TimeStamp](0),
-							End:   idxSeries.ValueAt[telem.TimeStamp](-1) + 1,
-						}
-						Expect(expected.Start).ToNot(Equal(telem.TimeStamp(0)))
-						Expect(idxSeries.TimeRange).To(Equal(expected))
-						Expect(
-							res.Frame.Get(data).Series[0].TimeRange,
-						).To(Equal(expected))
-						Expect(closer.Close()).To(Succeed())
-						Expect(w.Close()).To(Succeed())
-					},
-				)
-
-				It(
 					"Should leave series unstamped when the frame does not carry the index",
 					func(ctx SpecContext) {
 						idx := GenerateChannelKey()

@@ -19,35 +19,31 @@ import (
 
 // newStorage opens the session that writes the stored channels of cfg.
 func (s *Service) newStorage(ctx context.Context, cfg Config) (StreamWriter, error) {
-	storageCfg := cfg.toStorage()
-	virtual, err := virtualKeys(ctx, s.cfg.TS, storageCfg.Channels)
+	channels, err := s.cfg.TS.RetrieveChannels(ctx, cfg.Keys.Uint32()...)
 	if err != nil {
 		return nil, err
 	}
-	w, err := s.cfg.TS.OpenWriter(ctx, storageCfg)
-	if err != nil {
-		return nil, err
-	}
-	return newSession(w, virtual, *cfg.Sync), nil
-}
-
-// virtualKeys returns the keys of the virtual channels among keys.
-func virtualKeys(
-	ctx context.Context,
-	db *cesium.DB,
-	keys []cesium.ChannelKey,
-) ([]cesium.ChannelKey, error) {
-	channels, err := db.RetrieveChannels(ctx, keys...)
-	if err != nil {
-		return nil, err
-	}
-	var virtual []cesium.ChannelKey
+	var (
+		virtual []cesium.ChannelKey
+		indexes = make(map[cesium.ChannelKey]cesium.ChannelKey, len(channels))
+	)
 	for _, ch := range channels {
 		if ch.Virtual {
 			virtual = append(virtual, ch.Key)
+		} else if !ch.IsIndex && ch.Index != 0 {
+			indexes[ch.Key] = ch.Index
 		}
 	}
-	return virtual, nil
+	var autoIndex *indexStamper
+	if *cfg.AutoIndex {
+		cfg = withIndexes(cfg, indexes)
+		autoIndex = newIndexStamper(cfg.Keys.Uint32(), indexes, cfg.Start)
+	}
+	w, err := s.cfg.TS.OpenWriter(ctx, cfg.toStorage())
+	if err != nil {
+		return nil, err
+	}
+	return newSession(w, virtual, autoIndex, *cfg.Sync), nil
 }
 
 // unindexedStamper times each sample of a channel with no index 1ns after the one

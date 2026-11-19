@@ -157,7 +157,6 @@ func (c Config) toStorage() cesium.WriterConfig {
 		Mode:                     c.Mode,
 		EnableAutoCommit:         c.EnableAutoCommit,
 		AutoIndexPersistInterval: c.AutoIndexPersistInterval,
-		AutoIndex:                c.AutoIndex,
 	}
 }
 

@@ -13,7 +13,6 @@ import (
 	"context"
 	"uuid"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/cesium/internal/virtual"
@@ -21,7 +20,6 @@ import (
 	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -98,18 +96,6 @@ type WriterConfig struct {
 	//
 	// [OPTIONAL] - Defaults to WriterModePersistStream.
 	Mode WriterMode
-	// AutoIndex causes the writer to generate timestamps for any index channel
-	// referenced by the writer's data channels whose series is omitted from a Write
-	// frame. The first sample in each Write call is stamped with telem.Now() on this
-	// node; remaining samples in the same call are spaced 1ns apart. Auto-stamps are
-	// strictly monotonic across Write calls — the next call's first sample is greater
-	// than the last sample of the previous auto-stamp.
-	//
-	// When AutoIndex is true, any index channel referenced by a data channel in
-	// Channels but not present in Channels itself is implicitly opened for writing.
-	//
-	// [OPTIONAL] - Defaults to false.
-	AutoIndex *bool
 }
 
 const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1
@@ -121,7 +107,6 @@ func (c WriterConfig) Validate() error {
 	v := validate.New("cesium.writer_config")
 	v.NotEmptySlice("channels", c.Channels)
 	v.NotNil("err_on_unauthorized_open", c.ErrOnUnauthorized)
-	v.NotNil("auto_index", c.AutoIndex)
 	v.Exec(c.ControlSubject.Validate)
 	v.Ternary(
 		"authorities",
@@ -144,7 +129,6 @@ func (c WriterConfig) Override(other WriterConfig) WriterConfig {
 		c.AutoIndexPersistInterval,
 		other.AutoIndexPersistInterval,
 	)
-	c.AutoIndex = override.Nil(c.AutoIndex, other.AutoIndex)
 	return c
 }
 
@@ -189,13 +173,9 @@ func (db *DB) newWriter(
 		Mode:                     WriterModePersistStream,
 		EnableAutoCommit:         new(true),
 		AutoIndexPersistInterval: 1 * telem.Second,
-		AutoIndex:                new(false),
 	}, cfgs...)
 	if err != nil {
 		return nil, err
-	}
-	if *cfg.AutoIndex {
-		cfg = db.expandKeysForAutoIndex(cfg)
 	}
 	var (
 		domainWriters  = make(map[ChannelKey]*idxWriter)
@@ -425,56 +405,6 @@ func (db *DB) openDataOnlyIdxWriter(
 	return idxW, nil
 }
 
-// expandKeysForAutoIndex returns a config whose Channels include any index channels
-// referenced by non-index channels in cfg.Channels that are not already present. When
-// per-channel authorities are supplied, each appended index inherits the maximum
-// authority of the data channels that reference it, since writing to a data channel
-// requires successfully writing its index. When a single broadcast authority is
-// supplied, the appended index keys naturally inherit it.
-func (db *DB) expandKeysForAutoIndex(cfg WriterConfig) WriterConfig {
-	existing := set.New(cfg.Channels...)
-	perChannelAuth := len(cfg.Authorities) > 1
-	indexToAuth := make(map[ChannelKey]xcontrol.Authority)
-	var implicit []ChannelKey
-	for i, k := range cfg.Channels {
-		u, ok := db.mu.dbs.unary[k]
-		if !ok {
-			continue
-		}
-		ch := u.Channel()
-		if ch.IsIndex {
-			continue
-		}
-		idxKey := ch.Index
-		if idxKey == 0 {
-			continue
-		}
-		if existing.Contains(idxKey) {
-			continue
-		}
-		if _, seen := indexToAuth[idxKey]; !seen {
-			implicit = append(implicit, idxKey)
-			indexToAuth[idxKey] = 0
-		}
-		if perChannelAuth {
-			if a := cfg.Authorities[i]; a > indexToAuth[idxKey] {
-				indexToAuth[idxKey] = a
-			}
-		}
-	}
-	if len(implicit) == 0 {
-		return cfg
-	}
-	cfg.Channels = append(cfg.Channels, implicit...)
-	if perChannelAuth {
-		indexAuths := lo.Map(implicit, func(k ChannelKey, _ int) xcontrol.Authority {
-			return indexToAuth[k]
-		})
-		cfg.Authorities = append(cfg.Authorities, indexAuths...)
-	}
-	return cfg
-}
-
 func (db *DB) openDomainIdxWriter(
 	idxKey ChannelKey,
 	cfg WriterConfig,
@@ -488,7 +418,6 @@ func (db *DB) openDomainIdxWriter(
 	w.idx.Domain = u.Index()
 	w.idx.db = &u
 	w.idx.highWaterMark = cfg.Start
-	w.idx.autoStampClock = cfg.Start
 	w.writingToIdx = false
 	w.start = cfg.Start
 	w.lastCommitEnd = cfg.Start

@@ -31,6 +31,8 @@ type session struct {
 	confluence.AbstractUnarySource[Response]
 	w       *cesium.Writer
 	stamper *unindexedStamper[cesium.ChannelKey]
+	// autoIndex is nil when the writer does not stamp its indexes.
+	autoIndex *indexStamper
 	// err is the first error that the session raised itself. The Cesium writer keeps
 	// its own first error and returns it from every later call.
 	err     error
@@ -44,12 +46,14 @@ type session struct {
 func newSession(
 	w *cesium.Writer,
 	virtual []cesium.ChannelKey,
+	autoIndex *indexStamper,
 	sync bool,
 ) *session {
 	return &session{
-		w:       w,
-		stamper: newUnindexedStamper(virtual),
-		sync:    sync,
+		w:         w,
+		stamper:   newUnindexedStamper(virtual),
+		autoIndex: autoIndex,
+		sync:      sync,
 	}
 }
 
@@ -98,6 +102,9 @@ func (s *session) exec(
 	case CommandWrite:
 		fr := req.Frame.ToStorage()
 		s.stamper.stamp(fr)
+		if s.autoIndex != nil {
+			fr = s.autoIndex.stamp(fr)
+		}
 		if _, err = s.w.Write(ctx, fr); errors.Is(err, control.ErrUnauthorized) {
 			s.writeRefused = true
 		}
