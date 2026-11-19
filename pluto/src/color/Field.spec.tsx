@@ -460,7 +460,7 @@ describe("Color.Field", () => {
       expect(
         await screen.findByRole("button", { name: "Create palette" }),
       ).toBeTruthy();
-      const swatch = screen.getByRole("button", { name: named.name });
+      const swatch = await screen.findByRole("button", { name: named.name });
       act(() => swatch.focus());
       expect(fireEvent.contextMenu(swatch)).toBe(true);
       fireEvent.keyDown(swatch, { key: "F10", code: "F10", shiftKey: true });
