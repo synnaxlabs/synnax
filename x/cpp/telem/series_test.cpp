@@ -2763,4 +2763,16 @@ TEST(SeriesCopyFrom, WorksWithVariableDensityTypes) {
     ASSERT_EQ(dst.data_type(), STRING_T);
     ASSERT_EQ(dst.strings(), std::vector<std::string>({"foo", "bar"}));
 }
+
+/// @brief a scalar of an integer type should not truncate the values of a float
+/// series.
+TEST(TestSeriesInplace, IntegerScalarKeepsFloatFractions) {
+    Series added(std::vector<float>{1.5f, 2.5f});
+    added.add_inplace(1);
+    ASSERT_EQ(added.values<float>(), std::vector<float>({2.5f, 3.5f}));
+    const Series sum = Series(std::vector<double>{1.5, 2.5}) + 1;
+    ASSERT_EQ(sum.values<double>(), std::vector<double>({2.5, 3.5}));
+    const Series product = Series(std::vector<double>{1.5, 2.5}) * 2;
+    ASSERT_EQ(product.values<double>(), std::vector<double>({3.0, 5.0}));
+}
 }
