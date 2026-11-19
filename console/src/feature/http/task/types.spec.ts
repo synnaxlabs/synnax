@@ -616,7 +616,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      expect(HTTP.Task.WRITE_SCHEMAS.config.validate(config)).toBe(false);
+      expect(HTTP.Task.deployWriteConfigZ.validate(config)).toBe(false);
     });
 
     it("should validate a channel field with enum values", () => {
