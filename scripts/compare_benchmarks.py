@@ -179,6 +179,8 @@ GROUPS: tuple[Group, ...] = (
         (Step("client/py", ("uv", "sync")),),
         Step("client/py", ("uv", "run", "python", "benchmarks/frame_codec.py")),
     ),
+    gbench("cpp/codec", "client/cpp/framer", "codec_bench"),
+    gbench("driver/sample-clock", "driver/common", "sample_clock_bench"),
     go("floors/cpu", "cpu", "cesium", "^BenchmarkFloor(Copy|CRC32C)$", control=True),
     go("floors", "io", "cesium", "^BenchmarkFloor", control=True),
 )
