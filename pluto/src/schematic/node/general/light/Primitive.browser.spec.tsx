@@ -7,27 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { computed } from "@synnaxlabs/lyra/styletest";
-import { Theming } from "@synnaxlabs/lyra/theming";
+import { computed, renderThemed } from "@synnaxlabs/lyra/styletest";
 import { color } from "@synnaxlabs/x";
-import { type CSSProperties, type ReactElement } from "react";
+import { type CSSProperties } from "react";
 import { describe, expect, it } from "vitest";
-import { render } from "vitest-browser-react";
 
 import { Light } from "@/schematic/node/general/light/Primitive";
 
 const STROKE = color.construct("#3e8ef7");
 const ON = color.construct("#dc136c");
 
-const renderInTheme = async (children: ReactElement): Promise<HTMLElement> => {
-  const { container } = await render(
-    <Theming.Provider theme={Theming.SYNNAX_LIGHT}>{children}</Theming.Provider>,
-  );
-  return container;
-};
-
 const lampFill = async (props: { onColor?: color.Color }): Promise<string> => {
-  const container = await renderInTheme(
+  const { container } = await renderThemed(
     <Light enabled strokeColor={STROKE} {...props} />,
   );
   const lamp = container.querySelector(".pluto-light__lamp circle");
@@ -35,11 +26,10 @@ const lampFill = async (props: { onColor?: color.Color }): Promise<string> => {
   return computed(lamp, "fill");
 };
 
-// display resolves c through the theme's symbol display color, as a colored shape
-// draws it.
+// display resolves c through the theme, as a colored shape draws it.
 const display = async (c: color.Color): Promise<string> => {
   const style = { "--pluto-symbol-color": color.rgbaString(c) } as CSSProperties;
-  const container = await renderInTheme(
+  const { container } = await renderThemed(
     <svg className="lyra-symbol-colored" style={style} />,
   );
   const probe = container.querySelector("svg");

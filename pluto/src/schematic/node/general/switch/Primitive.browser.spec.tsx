@@ -8,12 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { Input } from "@synnaxlabs/lyra/input";
-import { computed, resolve } from "@synnaxlabs/lyra/styletest";
-import { Theming } from "@synnaxlabs/lyra/theming";
+import { computed, renderThemed, resolve } from "@synnaxlabs/lyra/styletest";
 import { color, TimeSpan } from "@synnaxlabs/x";
-import { type CSSProperties, type ReactElement } from "react";
+import { type CSSProperties } from "react";
 import { afterEach, describe, expect, it } from "vitest";
-import { render } from "vitest-browser-react";
 
 import { Switch } from "@/schematic/node/general/switch/Primitive";
 
@@ -33,17 +31,10 @@ const find = (container: HTMLElement, selector: string): Element => {
 
 const px = (value: string): number => parseFloat(value);
 
-const renderInTheme = async (children: ReactElement): Promise<HTMLElement> => {
-  const { container } = await render(
-    <Theming.Provider theme={Theming.SYNNAX_LIGHT}>{children}</Theming.Provider>,
-  );
-  return container;
-};
-
 // The knob is the indicator's ::before, which has no box of its own to measure.
 const measureLyra = async (scale: number, enabled: boolean): Promise<Geometry> => {
   const style = { "--pluto-switch-scale": scale } as CSSProperties;
-  const container = await renderInTheme(
+  const { container } = await renderThemed(
     <div style={style}>
       <Input.Switch value={enabled} onChange={() => {}} />
     </div>,
@@ -63,7 +54,7 @@ const measureLyra = async (scale: number, enabled: boolean): Promise<Geometry> =
 };
 
 const measureSymbol = async (scale: number, enabled: boolean): Promise<Geometry> => {
-  const container = await renderInTheme(<Switch scale={scale} enabled={enabled} />);
+  const { container } = await renderThemed(<Switch scale={scale} enabled={enabled} />);
   const track = find(container, ".pluto-switch-symbol__track").getBoundingClientRect();
   const knob = find(container, ".pluto-switch-symbol__knob").getBoundingClientRect();
   return {
@@ -81,7 +72,7 @@ interface Fills {
 }
 
 const lyraFills = async (enabled: boolean, disabled: boolean): Promise<Fills> => {
-  const container = await renderInTheme(
+  const { container } = await renderThemed(
     <Input.Switch value={enabled} disabled={disabled} onChange={() => {}} />,
   );
   const track = find(container, ".lyra-input__switch-indicator");
@@ -96,7 +87,7 @@ const COLOR = color.construct("#3e8ef7");
 const renderFills = async (
   props: { enabled?: boolean; disabled?: boolean; strokeColor?: color.Color } = {},
 ): Promise<Fills & { at: (value: string) => string }> => {
-  const container = await renderInTheme(<Switch {...props} />);
+  const { container } = await renderThemed(<Switch {...props} />);
   const drawing = find(container, ".pluto-switch-symbol svg");
   // A probe shape inside the drawing resolves a fill against its own variables.
   const at = (value: string): string => {
@@ -140,7 +131,7 @@ describe("switch symbol in a browser", () => {
     ] as const)(
       "should stand upright with an enabled of %s knob %s the center",
       async (enabled, side) => {
-        const container = await renderInTheme(
+        const { container } = await renderThemed(
           <Switch orientation="top" enabled={enabled} />,
         );
         const track = find(
@@ -210,10 +201,12 @@ describe("switch symbol in a browser", () => {
 
     const renderDelayed = async (
       props: { enabled?: boolean; strokeColor?: color.Color } = {},
-    ): Promise<HTMLElement> =>
-      await renderInTheme(
+    ): Promise<HTMLElement> => {
+      const { container } = await renderThemed(
         <Switch onClickDelay={DELAY} onClick={() => {}} {...props} />,
       );
+      return container;
+    };
 
     const press = (container: HTMLElement): void => {
       find(container, ".pluto-switch-symbol").dispatchEvent(
@@ -222,7 +215,7 @@ describe("switch symbol in a browser", () => {
     };
 
     it("should hide the hold fill on a switch with no delay", async () => {
-      const container = await renderInTheme(<Switch />);
+      const { container } = await renderThemed(<Switch />);
       expect(computed(find(container, ".pluto-switch-symbol__hold"), "display")).toBe(
         "none",
       );
