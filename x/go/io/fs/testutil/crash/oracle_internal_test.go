@@ -81,7 +81,7 @@ var _ = Describe("Clusters", func() {
 			for _, cluster := range clusters(faults) {
 				got = append(got, len(cluster))
 			}
-			Expect(got).To(ConsistOf(sizes))
+			Expect(got).To(Equal(sizes))
 			Expect(largest(faults)).To(Equal(most))
 		},
 		Entry("no fault", []fault.Fault(nil), []int{}, 0),
@@ -91,6 +91,16 @@ var _ = Describe("Clusters", func() {
 			[]fault.Fault{at(1, 0, 100), at(1, 100, 200)}, []int{1, 1}, 1),
 		Entry("the same bytes of two files",
 			[]fault.Fault{at(1, 0, 100), at(2, 0, 100)}, []int{1, 1}, 1),
+		Entry(
+			"a pair and a fault apart",
+			[]fault.Fault{
+				at(1, 0, 100),
+				at(1, 0, 100),
+				at(1, 500, 600),
+			},
+			[]int{2, 1},
+			2,
+		),
 		Entry("a chain of overlaps",
 			[]fault.Fault{at(1, 0, 100), at(1, 200, 300), at(1, 50, 250)}, []int{3}, 3),
 	)

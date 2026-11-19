@@ -129,6 +129,8 @@ var _ = Describe("Run", func() {
 			bugs{retryTrusted: true}, crash.RepeatedReadFaults, uint64(1), crash.R2),
 		Entry("reads a bad slot a second time only once in a recovery",
 			bugs{retryRationed: true}, crash.RepeatedReadFaults, uint64(4), crash.R1),
+		Entry("reads a bad slot a second time only once in a recovery, and refuses",
+			bugs{retryRationed: true}, crash.RepeatedReadFaults, uint64(9), crash.R4),
 	)
 
 	It("Should pass an engine that trusts its retry under OneTimeReadFaults",

@@ -12,9 +12,7 @@ package crash
 import (
 	"context"
 	"fmt"
-	"maps"
 	"math/rand/v2"
-	"slices"
 	"sync"
 
 	"github.com/synnaxlabs/x/errors"
@@ -300,7 +298,8 @@ func (r *run) underFaults(base rules, faults []fault.Fault) (rules, bool) {
 }
 
 // clusters groups the read faults whose reads overlap in one file, also through other
-// faults. A fault with a good retry is alone in its cluster.
+// faults, in the order of their first faults. A fault with a good retry is alone in its
+// cluster.
 func clusters(faults []fault.Fault) [][]fault.Fault {
 	root := make([]int, len(faults))
 	for i := range root {
@@ -319,11 +318,20 @@ func clusters(faults []fault.Fault) [][]fault.Fault {
 			}
 		}
 	}
-	groups := map[int][]fault.Fault{}
+	var (
+		groups [][]fault.Fault
+		group  = map[int]int{}
+	)
 	for i, f := range faults {
-		groups[find(i)] = append(groups[find(i)], f)
+		g, ok := group[find(i)]
+		if !ok {
+			g = len(groups)
+			group[find(i)] = g
+			groups = append(groups, nil)
+		}
+		groups[g] = append(groups[g], f)
 	}
-	return slices.Collect(maps.Values(groups))
+	return groups
 }
 
 // largest returns the count of faults in the largest cluster.

@@ -179,8 +179,11 @@ func (l *plainLog) scanBulk() error {
 	if err != nil {
 		return err
 	}
-	torn := true
-	for try := 0; try < 2 && torn; try++ {
+	torn, tries := true, 2
+	if l.o.once {
+		tries = 1
+	}
+	for try := 0; try < tries && torn; try++ {
 		data := make([]byte, info.Size())
 		if _, err = l.f.ReadAt(data, 0); err != nil && !errors.Is(err, io.EOF) {
 			return err
@@ -449,8 +452,31 @@ var _ = Describe("Engines", func() {
 				found = append(found, err.Error())
 			}
 		}
-		Expect(found).To(ContainElement(MatchRegexp(`R1 broken .*with 1 read faults`)))
+		Expect(found).To(ContainElement(MatchRegexp(
+			`R1 broken .*with 1 read faults, 1 in one cluster`,
+		)))
 	})
+
+	It("Should hold every rule under one-time faults, whatever one read gets",
+		func(ctx SpecContext) {
+			var found []string
+			for runKey := range uint64(32) {
+				err := violation(ctx, crash.Config{
+					RunKey:  runKey,
+					Open:    openPlainLog(plainOpts{bulk: math.MaxInt64, once: true}),
+					Commits: 20,
+					Stride:  1,
+					Profile: crash.OneTimeReadFaults,
+				})
+				if err != nil {
+					found = append(found, err.Error())
+				}
+			}
+			Expect(found).To(ContainElement(MatchRegexp(
+				`R1 broken .*, ([2-9]|\d\d+) in one cluster`,
+			)))
+		},
+	)
 
 	It(
 		"Should catch a log that cuts more than read faults free",
