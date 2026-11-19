@@ -435,6 +435,32 @@ describe("Enumeration.Settings", () => {
     expect((await client.enumerations.retrieve(to.key)).name).toBe(to.name);
   });
 
+  it("should delete with no replace once No enumeration is picked", async () => {
+    const [from, to] = await Promise.all([createEnumeration(), createEnumeration()]);
+    await renderEnumerations();
+    await openContextMenu(from.name);
+    await clickAndSettle("Delete");
+    expect(await screen.findByText(/Nothing uses it/)).toBeTruthy();
+    const trigger = await screen.findByRole("button", { name: /Replace with/ });
+    const search = async (): Promise<void> => {
+      fireEvent.click(trigger);
+      fireEvent.change(await screen.findByPlaceholderText("Search enumerations..."), {
+        target: { value: to.name },
+      });
+    };
+    await search();
+    fireEvent.click(await screen.findByRole("option", { name: new RegExp(to.name) }));
+    expect(await screen.findByRole("button", { name: "Replace" })).toBeTruthy();
+    await search();
+    fireEvent.click(await screen.findByRole("option", { name: "No enumeration" }));
+    await clickWhenEnabled("Delete");
+    await waitForDialogToClose();
+    await expect(client.enumerations.retrieve(from.key)).rejects.toThrow(
+      "enumeration was deleted",
+    );
+    expect((await client.enumerations.retrieve(to.key)).name).toBe(to.name);
+  });
+
   it("should open delete as a narrow confirmation with selectable text", async () => {
     const e = await createEnumeration();
     await renderEnumerations();
