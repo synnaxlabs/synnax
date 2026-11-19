@@ -28,7 +28,6 @@ import { Access } from "@/access";
 import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Enumeration } from "@/enumeration";
-import { Options } from "@/schematic/node/common/options";
 
 const NONE = "none";
 
@@ -244,9 +243,8 @@ export const States = ({
   const create = (name: string): void => {
     const created = uuid.create();
     // A node that names an enumeration hides its own options, so none move.
-    const entries = Options.drawn(key)
-      ? get<schematic.StateMapping[]>(options).value.map(toEntry)
-      : [];
+    const entries =
+      key == null ? get<schematic.StateMapping[]>(options).value.map(toEntry) : [];
     void (async () => {
       if ((await updateAsync({ key: created, name, entries })) === false) return;
       set(enumerationPath, created);
@@ -290,7 +288,7 @@ export const States = ({
         </Input.Item>
         {key != null && <UsedBy enumeration={key} />}
         <Input.Item label="Entries" padHelpText={false}>
-          {Options.drawn(key) ? (
+          {key == null ? (
             // The new enumeration takes the options as they are when the create
             // starts, so they lock until it ends.
             <OwnOptions
@@ -309,7 +307,7 @@ export const States = ({
       </Form.Section>
       {naming && (
         <CreateModal
-          initialName={Options.drawn(key) ? get(label).value.trim() || symbolName : ""}
+          initialName={key == null ? get(label).value.trim() || symbolName : ""}
           onCreate={create}
           onClose={() => setNaming(false)}
           loading={variant === "loading"}

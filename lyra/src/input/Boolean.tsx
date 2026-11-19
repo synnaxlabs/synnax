@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/input/Boolean.css";
+
 import { type ReactElement, type ReactNode } from "react";
 
 import { Button } from "@/button";
@@ -76,7 +78,7 @@ export const Boolean = ({
   return (
     <Button.Button
       el="label"
-      variant={variant === "shadow" ? "outlined" : variant}
+      variant={variant}
       className={CSS.cls(
         CSS.BE("input", inputType),
         checkedIcon != null && CSS.M("icon"),

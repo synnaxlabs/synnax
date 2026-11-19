@@ -146,7 +146,7 @@ describe("Input.Table", () => {
 
   it("should center the drag icon in its handle", async () => {
     const { container } = await renderThemed(
-      <Input.Table value={[[1]]} onChange={() => {}} onMove={() => {}}>
+      <Input.Table value={[[1]]} onChange={() => {}} onMove={() => {}} rowKey={String}>
         <Input.TableColumn />
       </Input.Table>,
     );
@@ -455,7 +455,12 @@ describe("Input.Table", () => {
     it("should keep the add button in place as the first values arrive", async () => {
       const table = (value: number[][]) => (
         <div style={{ width: "600px" }}>
-          <Input.Table value={value} onChange={() => {}} onMove={() => {}}>
+          <Input.Table
+            value={value}
+            onChange={() => {}}
+            onMove={() => {}}
+            rowKey={String}
+          >
             <Input.TableColumn name="On" width={3} />
             <Input.TableColumn name="Name" />
           </Input.Table>

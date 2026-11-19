@@ -40,9 +40,7 @@ describe("Enumeration.Table", () => {
               color: { type: "named", key: "unknown" },
             },
           ]}
-          onSet={() => {}}
-          onAdd={() => {}}
-          onRemove={() => {}}
+          onChange={() => {}}
           onMove={() => {}}
         />
       </Wrapper>,
@@ -61,9 +59,7 @@ describe("Enumeration.Table", () => {
       <Wrapper>
         <Enumeration.Table
           value={[{ key: "off", name: "", value: 0, abnormal: false }]}
-          onSet={() => {}}
-          onAdd={() => {}}
-          onRemove={() => {}}
+          onChange={() => {}}
           onMove={() => {}}
         />
       </Wrapper>,
