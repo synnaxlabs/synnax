@@ -24,8 +24,8 @@ export interface ProviderProps extends Omit<Base.ProviderProps, "presets"> {}
 export const Provider = ({ children, ...rest }: ProviderProps): ReactElement => {
   const colors = useSeriesValues();
   const { path } = Aether.useUnidirectional({
-    type: color.series.Provider.TYPE,
-    schema: color.series.Provider.z,
+    type: color.SeriesProvider.TYPE,
+    schema: color.SeriesProvider.z,
     state: { colors },
   });
   return (

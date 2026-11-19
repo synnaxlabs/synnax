@@ -30,12 +30,7 @@ export interface SwatchProps extends Omit<
 }
 
 /** A swatch that picks a named color from a palette or a fixed color. */
-export const Swatch = ({
-  value,
-  onChange,
-  fallback,
-  ...rest
-}: SwatchProps): ReactElement => {
+export const Swatch = ({ value, onChange, ...rest }: SwatchProps): ReactElement => {
   const binding = useBinding(value, onChange);
-  return <Color.Swatch fallback={fallback} {...binding} {...rest} />;
+  return <Color.Swatch {...binding} {...rest} />;
 };
