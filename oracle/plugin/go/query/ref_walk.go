@@ -14,6 +14,7 @@ import (
 	"slices"
 	"strings"
 
+	refdomain "github.com/synnaxlabs/oracle/domain/ref"
 	"github.com/synnaxlabs/oracle/internal/casing"
 	plugindomain "github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
@@ -84,6 +85,8 @@ type refSite struct {
 	steps []refStep
 	field resolution.Field
 	mode  leafMode
+	// direction is the direction that a field above the @ref field sets, or None.
+	direction refdomain.Direction
 }
 
 // inArray reports whether the site reaches its field through an array.
@@ -103,11 +106,17 @@ type walkedRef struct {
 // optional structs, and unions.
 type refWalker struct {
 	table *resolution.Table
-	refs  []*walkedRef
+	// root is the qualified name of the type the walk starts from.
+	root string
+	refs []*walkedRef
 	// declared holds each struct field the walk found a @ref on.
 	declared set.Set[fieldDecl]
 	// onPath holds the types on the current path, which catches a recursive type.
 	onPath set.Set[string]
+	// direction is the direction that a field on the current path sets, and
+	// directionAt is the path to that field.
+	direction   refdomain.Direction
+	directionAt string
 }
 
 func newRefWalker(table *resolution.Table) *refWalker {
@@ -121,6 +130,7 @@ func newRefWalker(table *resolution.Table) *refWalker {
 // walk returns the references that typ holds, in the order its fields declare them.
 // For a union, these are the references in the fields of its variants.
 func (w *refWalker) walk(typ resolution.Type) ([]*walkedRef, error) {
+	w.root = typ.QualifiedName
 	var err error
 	switch form := typ.Form.(type) {
 	case resolution.StructForm:
@@ -171,20 +181,61 @@ func (w *refWalker) walkField(
 	path []string,
 ) error {
 	path = append(slices.Clone(path), f.Name)
+	at := strings.Join(path, ".")
 	isSlice := f.Type.Name == "Array" && len(f.Type.TypeArgs) == 1
-	if plugindomain.HasDomainFromField(f, "ref") {
+	dir, err := refdomain.DirectionOf(f)
+	if err != nil {
+		return errors.Wrap(err, owner.QualifiedName)
+	}
+	if dir != refdomain.None && w.direction != refdomain.None {
+		return errors.Newf(
+			"%s: @ref fields %s and %s both set a direction on one path",
+			w.root,
+			w.directionAt,
+			at,
+		)
+	}
+	if refdomain.Declares(f) {
 		w.declared.Add(fieldDecl{typ: declarer(owner, f.Name, w.table), field: f.Name})
 		site := refSite{
 			steps: append(slices.Clone(steps), refStep{
 				kind:  stepLeaf,
 				field: naming.GetFieldName(f),
 			}),
-			field: f,
-			mode:  leafModeOf(f, isSlice),
+			field:     f,
+			mode:      leafModeOf(f, isSlice),
+			direction: w.direction,
 		}
-		w.add(strings.Join(path, "."), site)
+		w.add(at, site)
 		return nil
 	}
+	if dir == refdomain.None {
+		return w.walkBelow(f, steps, path, isSlice)
+	}
+	w.declared.Add(fieldDecl{typ: declarer(owner, f.Name, w.table), field: f.Name})
+	w.direction, w.directionAt = dir, at
+	defer func() { w.direction, w.directionAt = refdomain.None, "" }()
+	before := w.siteCount()
+	if err := w.walkBelow(f, steps, path, isSlice); err != nil {
+		return err
+	}
+	if w.siteCount() == before {
+		return errors.Newf(
+			"%s: @ref field %s sets a direction but holds no @ref field",
+			w.root,
+			at,
+		)
+	}
+	return nil
+}
+
+// walkBelow walks the fields of the struct or union that f holds.
+func (w *refWalker) walkBelow(
+	f resolution.Field,
+	steps []refStep,
+	path []string,
+	isSlice bool,
+) error {
 	elem := f.Type
 	if isSlice {
 		elem = elem.TypeArgs[0]
@@ -265,7 +316,7 @@ func (w *refWalker) holdsRef(typ resolution.Type, seen set.Set[string]) bool {
 		}
 	}
 	for _, f := range fields {
-		if plugindomain.HasDomainFromField(f, "ref") {
+		if refdomain.Declares(f) {
 			return true
 		}
 		elem := f.Type
@@ -277,6 +328,15 @@ func (w *refWalker) holdsRef(typ resolution.Type, seen set.Set[string]) bool {
 		}
 	}
 	return false
+}
+
+// siteCount returns the number of sites the walk has found.
+func (w *refWalker) siteCount() int {
+	n := 0
+	for _, r := range w.refs {
+		n += len(r.sites)
+	}
+	return n
 }
 
 func (w *refWalker) add(path string, site refSite) {
@@ -743,6 +803,7 @@ func (rd *renderer) inlineDetachBody(ref *walkedRef) (string, error) {
 func sameReference(a, b refInfo) bool {
 	return a.OnDelete == b.OnDelete &&
 		a.Kind == b.Kind &&
+		a.Direction == b.Direction &&
 		a.Unique == b.Unique &&
 		a.Acyclic == b.Acyclic &&
 		a.IsID == b.IsID &&
@@ -764,7 +825,6 @@ func renderNestedRefs(
 ) ([]nestedRef, error) {
 	out := make([]nestedRef, 0, len(walked))
 	for _, ref := range walked {
-		field := ref.sites[0].field
 		mode := ref.sites[0].mode
 		for _, s := range ref.sites[1:] {
 			if s.mode != mode {
@@ -775,20 +835,25 @@ func renderNestedRefs(
 				)
 			}
 		}
-		named := field
-		named.Name = ref.path
 		inArray := mode == leafRequired && !slices.ContainsFunc(
 			ref.sites,
 			func(s refSite) bool { return !s.inArray() },
 		)
-		info, err := extractRef(typ, named, ownTable, inArray, rt, table, r, ctx)
+		extract := func(s refSite) (refInfo, error) {
+			named := s.field
+			named.Name = ref.path
+			info, err := extractRef(typ, named, ownTable, inArray, rt, table, r, ctx)
+			if s.direction != refdomain.None {
+				info.Direction = s.direction
+			}
+			return info, err
+		}
+		info, err := extract(ref.sites[0])
 		if err != nil {
 			return nil, err
 		}
 		for _, s := range ref.sites[1:] {
-			other := s.field
-			other.Name = ref.path
-			o, err := extractRef(typ, other, ownTable, inArray, rt, table, r, ctx)
+			o, err := extract(s)
 			if err != nil {
 				return nil, err
 			}
@@ -812,12 +877,14 @@ func renderNestedRefs(
 			EntryType:   entryType,
 			TargetsBody: rd.targetsBody(ref),
 		}
-		if info.OnDelete == "Inline" {
+		switch info.OnDelete {
+		case "Inline":
 			nr.InlineBody, err = rd.inlineBody(ref)
 			if err == nil {
 				nr.DetachBody, err = rd.inlineDetachBody(ref)
 			}
-		} else {
+		case "Weak":
+		default:
 			nr.DetachBody, err = rd.detachBody(ref)
 		}
 		if err != nil {

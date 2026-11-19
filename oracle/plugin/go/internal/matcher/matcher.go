@@ -16,6 +16,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/key"
+	refdomain "github.com/synnaxlabs/oracle/domain/ref"
 	plugindomain "github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
@@ -143,7 +144,7 @@ func newMatcher(f resolution.Field, table *resolution.Table) Matcher {
 	goName := naming.GetFieldName(f)
 	isArray := f.Type.Name == "Array" && len(f.Type.TypeArgs) == 1
 	switch {
-	case plugindomain.HasDomainFromField(f, "ref"):
+	case refdomain.Declares(f):
 		return Matcher{Field: f, Func: RefFunc(goName, isArray), Kind: Variadic}
 	case key.ResolvePrimitive(f.Type, table) == "bool":
 		return Matcher{Field: f, Func: "Match" + goName, Kind: Single}

@@ -273,6 +273,34 @@ var _ = Describe("TS Filter Plugin", func() {
 			},
 		)
 
+		It(
+			"Should list a reference but not a field whose @ref sets only a direction",
+			func() {
+				resp := MustGenerate(`
+				import "schemas/x/filter"
+
+				@ts output "client/ts/src/thing"
+
+				Thing struct {
+					key     uuid   { @key }
+					name    string { @index sorted }
+					owner   uuid?  { @ref on_delete cascade }
+					sources uuid[] { @ref direction read }
+
+					action Touch {
+						at int64
+					}
+				}
+				Where filter Thing {
+					key
+				}
+			`, "thing", loader, p)
+				ExpectContent(resp, "where.gen.ts").ToContain(
+					`export const LIST_FIELDS: readonly string[] = ["key", "name", "owner"];`,
+				)
+			},
+		)
+
 		It("Should order number keys by value", func() {
 			resp := MustGenerate(`
 				import "schemas/x/filter"

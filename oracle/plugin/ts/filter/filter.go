@@ -22,6 +22,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/doc"
+	refdomain "github.com/synnaxlabs/oracle/domain/ref"
 	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/domain"
@@ -133,7 +134,7 @@ func listFields(fields, lines []resolution.Field) []string {
 	return lo.FilterMap(fields, func(f resolution.Field, _ int) (string, bool) {
 		read := domain.HasDomainFromField(f, "filter") ||
 			domain.HasDomainFromField(f, "search") ||
-			domain.HasDomainFromField(f, "ref") ||
+			refdomain.Declares(f) ||
 			domain.HasExprFromField(f, "index", "sorted") ||
 			lo.ContainsBy(lines, func(l resolution.Field) bool {
 				return !l.HasType() && l.Name == f.Name

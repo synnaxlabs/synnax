@@ -520,8 +520,11 @@ var _ = Describe("@ref", func() {
 			req := MustGenerateRequest(device(fields), "device", loader)
 			Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(message)))
 		},
-		Entry("without on_delete", `rack rack.Key @ref`,
-			"@ref field rack needs on_delete cascade, restrict, detach, or inline"),
+		Entry(
+			"without on_delete",
+			`rack rack.Key @ref`,
+			"@ref field rack needs on_delete cascade, restrict, detach, inline, or weak",
+		),
 		Entry("without a kind", `rack rack.Key @ref on_delete restrict`,
 			"@ref field rack needs kind place or use"),
 		Entry(
@@ -1379,6 +1382,205 @@ var _ = Describe("@ref", func() {
 					"e.Inner = slices.DeleteFunc(",
 					"i.innerRack,",
 				)
+			},
+		)
+
+		Describe("weak and direction", func() {
+			It(
+				"Should keep the holder of a weak reference and never detach it",
+				func() {
+					generate(`
+				Chan struct {
+					channel channel.Key = 0 @ref on_delete weak @ref kind use
+				}
+			`, `
+				channels Chan[]
+			`).
+						ToContain(
+							`Name:     "channels.channel",`,
+							"OnDelete: gorp.Weak,",
+							"if v1.Channel != 0 {",
+						).
+						ToNotContain("Detach:", `"slices"`, "Tag:")
+				},
+			)
+
+			It("Should write the direction of a nested reference into its tag", func() {
+				generate(`
+				Chan struct {
+					channel channel.Key = 0 {
+						@ref on_delete restrict
+						@ref kind      use
+						@ref direction write
+					}
+				}
+			`, `
+				channels Chan[]
+			`).
+					ToContain(
+						`Name:     "channels.channel",`,
+						"Tag:      2, // direction write",
+					)
+			})
+
+			It(
+				"Should give the direction of a field to every reference below it",
+				func() {
+					content := MustContentOf(MustGenerate(config(`
+				Chan struct {
+					state   channel.Key = 0 @ref on_delete weak @ref kind use
+					command channel.Key = 0 @ref on_delete weak @ref kind use
+				}
+				Group struct {
+					channels Chan[]
+				}
+			`, `
+				group Group @ref direction read
+			`), "modbus", loader, p), "retrieve.gen.go")
+					Expect(strings.Count(content, "Tag:      1, // direction read")).
+						To(Equal(2))
+					Expect(
+						content,
+					).To(ContainSubstring(`Name:     "group.channels.state",`))
+					Expect(
+						content,
+					).To(ContainSubstring(`Name:     "group.channels.command",`))
+				},
+			)
+
+			DescribeTable(
+				"Should reject",
+				func(types, fields, message string) {
+					req := MustGenerateRequest(config(types, fields), "modbus", loader)
+					Expect(
+						p.Generate(req),
+					).Error().
+						To(MatchError(ContainSubstring(message)))
+				},
+				Entry(
+					"a direction under a field that sets one",
+					`Chan struct {
+					channel channel.Key = 0 {
+						@ref on_delete weak
+						@ref kind      use
+						@ref direction write
+					}
+				}`,
+					`channels Chan[] @ref direction read`,
+					"modbus.ReadConfig: @ref fields channels and channels.channel both "+
+						"set a direction on one path",
+				),
+				Entry(
+					"two fields above a reference that set a direction",
+					`Chan struct {
+					channel channel.Key = 0 @ref on_delete weak @ref kind use
+				}
+				Group struct {
+					channels Chan[] @ref direction write
+				}`,
+					`group Group @ref direction write`,
+					"modbus.ReadConfig: @ref fields group and group.channels both set a "+
+						"direction on one path",
+				),
+				Entry(
+					"variants that give one reference two directions",
+					`Port union on type {
+					input {
+						channel channel.Key = 0 {
+							@ref on_delete weak
+							@ref kind      use
+							@ref direction read
+						}
+					}
+					output {
+						channel channel.Key = 0 {
+							@ref on_delete weak
+							@ref kind      use
+							@ref direction write
+						}
+					}
+				}`,
+					`port Port`,
+					"@ref field port.channel declares different references in its "+
+						"variants",
+				),
+				Entry(
+					"a direction on a field that holds no reference",
+					`Chan struct {
+					name string
+				}`,
+					`channels Chan[] @ref direction read
+				rack rack.Key = 0 @ref on_delete restrict @ref kind use`,
+					"modbus.ReadConfig: @ref field channels sets a direction but holds "+
+						"no @ref field",
+				),
+				Entry(
+					"a direction other than read or write",
+					`Chan struct {
+					channel channel.Key = 0 @ref on_delete weak @ref kind use
+				}`,
+					`channels Chan[] @ref direction both`,
+					"modbus.ReadConfig: @ref field channels needs direction read or write",
+				),
+				Entry(
+					"a reference with a direction other than read or write",
+					"",
+					`rack rack.Key = 0 {
+					@ref on_delete restrict
+					@ref kind      use
+					@ref direction both
+				}`,
+					"modbus.ReadConfig: @ref field rack needs direction read or write",
+				),
+			)
+		})
+	})
+
+	Describe("weak and direction on a retrieved type", func() {
+		It("Should register a weak reference with no Detach", func() {
+			resp := MustGenerate(device(`
+			spare rack.Key @ref on_delete weak @ref kind use
+		`), "device", loader, p)
+			ExpectContent(resp, "retrieve.gen.go").
+				ToContain(
+					`Name:     "spare",`,
+					"OnDelete: gorp.Weak,",
+					"return []rack.Key{e.Spare}",
+				).
+				ToNotContain("Detach:", "Tag:")
+		})
+
+		It("Should write the direction of a reference into its tag", func() {
+			resp := MustGenerate(device(`
+			spare rack.Key {
+				@ref on_delete restrict
+				@ref kind      use
+				@ref direction read
+			}
+		`), "device", loader, p)
+			ExpectContent(resp, "retrieve.gen.go").
+				ToContain(`Name:     "spare",`, "Tag:      1, // direction read").
+				ToBeValidGoSource()
+		})
+
+		It(
+			"Should give the direction of a top-level field to the references below it",
+			func() {
+				resp := MustGenerate(device(`
+			inner Inner[] @ref direction write
+		`)+`
+			Inner struct {
+				rack rack.Key @ref on_delete weak @ref kind use
+			}
+		`, "device", loader, p)
+				ExpectContent(resp, "retrieve.gen.go").
+					ToContain(
+						`Name:     "inner.rack",`,
+						"OnDelete: gorp.Weak,",
+						"Tag:      2, // direction write",
+					).
+					ToNotContain("func MatchInners(").
+					ToBeValidGoSource()
 			},
 		)
 	})

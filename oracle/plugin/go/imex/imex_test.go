@@ -220,6 +220,34 @@ Log struct {
 		)
 
 		It(
+			"Should keep a field whose @ref sets only a direction in the export",
+			func() {
+				const live = `
+@go output "core/pkg/service/log"
+
+Log struct {
+	key   uuid @key
+	name  string
+	group uuid? {
+		@ref on_delete detach
+	}
+	sources uuid[] {
+		@ref direction read
+	}
+	@go imex
+}
+`
+				req := chainRequest(
+					GinkgoT().TempDir(), live, map[int]string{3: logChain(true)},
+				)
+				resp := MustSucceed(p.Generate(req))
+				ExpectContent(resp, "core/pkg/service/log/imex.gen.go").
+					ToContain(`env.Encode(v, "group")`).
+					ToBeValidGoSource()
+			},
+		)
+
+		It(
 			"Should read the name of an exported union through its Base accessor",
 			func() {
 				live := `

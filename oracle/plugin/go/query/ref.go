@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	"github.com/synnaxlabs/oracle/domain/key"
+	refdomain "github.com/synnaxlabs/oracle/domain/ref"
 	plugindomain "github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
@@ -43,13 +44,15 @@ type refInfo struct {
 	ElemGoType string
 	// Tables are the names of the tables the reference may point at.
 	Tables []string
-	// OnDelete is "Restrict", "Cascade", "Detach", or "Inline".
+	// OnDelete is "Restrict", "Cascade", "Detach", "Inline", or "Weak".
 	OnDelete string
 	// TargetGoType is the Go type of the entries of the one target table, set when
 	// OnDelete is "Inline".
 	TargetGoType string
 	// Kind is "Place" or "Use".
 	Kind string
+	// Direction is how the holder uses its targets, which the reference's Tag holds.
+	Direction refdomain.Direction
 	// Unique is true when at most one entry may hold each target.
 	Unique bool
 	// Acyclic is true when a chain of references within the table may not return to
@@ -145,6 +148,7 @@ var onDeleteNames = map[string]string{
 	"cascade":  "Cascade",
 	"detach":   "Detach",
 	"inline":   "Inline",
+	"weak":     "Weak",
 }
 
 var kindNames = map[string]string{"place": "Place", "use": "Use"}
@@ -191,10 +195,17 @@ func newResourceTypes(table *resolution.Table) resourceTypes {
 }
 
 // refExpressions are the expressions a @ref domain may hold.
-var refExpressions = set.New("on_delete", "kind", "types", "unique", "acyclic")
+var refExpressions = set.New(
+	"on_delete",
+	"kind",
+	"types",
+	"unique",
+	"acyclic",
+	"direction",
+)
 
 // singleRefExpressions are the @ref expressions that hold one value.
-var singleRefExpressions = set.New("on_delete", "kind")
+var singleRefExpressions = set.New("on_delete", "kind", "direction")
 
 // flagRefExpressions are the @ref expressions that hold no value.
 var flagRefExpressions = set.New("unique", "acyclic")
@@ -241,11 +252,15 @@ func extractRef(
 		"on_delete",
 	)]
 	if !ok {
-		return fail("needs on_delete cascade, restrict, detach, or inline")
+		return fail("needs on_delete cascade, restrict, detach, inline, or weak")
 	}
 	kind, ok := kindNames[plugindomain.GetStringFromField(field, "ref", "kind")]
 	if !ok {
 		return fail("needs kind place or use")
+	}
+	direction, err := refdomain.DirectionOf(field)
+	if err != nil {
+		return refInfo{}, errors.Wrap(err, typ.QualifiedName)
 	}
 	isOptional := field.Optional && !isSlice
 	var zero string
@@ -264,6 +279,7 @@ func extractRef(
 		StructField: naming.LowerFirst(naming.GetFieldName(field)),
 		OnDelete:    onDelete,
 		Kind:        kind,
+		Direction:   direction,
 		Unique:      plugindomain.HasExprFromField(field, "ref", "unique"),
 		Acyclic:     plugindomain.HasExprFromField(field, "ref", "acyclic"),
 		IsOptional:  isOptional,
