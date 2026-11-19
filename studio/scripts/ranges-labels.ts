@@ -18,9 +18,8 @@ const GREEN = "10B061";
 const START = new TimeStamp(new Date(2025, 2, 14, 10, 0, 0));
 
 /**
- * Docs `client/ranges/labels`: on a range's overview page, create a new green
- * label through "Create label", which adds it to the range, then select a pre-made
- * label.
+ * Docs `client/ranges/labels`: on a range's overview page, create a new green label
+ * through "New label", which adds it to the range, then select a pre-made label.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   // Start from a bare workspace: only the Nominal and Anomaly labels survive.
@@ -69,11 +68,11 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   session.startRecording();
   await session.hold(1500);
 
-  // Create the new label through the selector's "Create label" button.
+  // Create the new label through the selector's "New label" option.
   await session.click(trigger, { text: true });
   const create = page
     .locator(".lyra-dialog__dialog")
-    .getByText("Create label", { exact: true })
+    .getByText("New label", { exact: true })
     .first();
   await session.waitFor(create);
   await session.hold(400);
@@ -120,7 +119,8 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.click(labels.locator("button:has(.lyra-icon--add)").first());
   await pick("Nominal");
   session.endZoom();
-  await session.press("Escape");
+  // A click away, not Escape, so no focus ring stays on the add button.
+  await session.click({ x: 800, y: 600 });
   await session.waitFor(
     page.locator(".lyra-tag").filter({ hasText: NEW_LABEL }).first(),
   );
