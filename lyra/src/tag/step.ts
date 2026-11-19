@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { math } from "@synnaxlabs/x";
+
 import { CSS } from "@/css";
 
 const TAG = CSS.B("tag");
@@ -40,8 +42,6 @@ interface Measure {
   natural: number;
   lead: number;
 }
-
-const sum = (values: number[]): number => values.reduce((a, b) => a + b, 0);
 
 const px = (value: string): number => parseFloat(value) || 0;
 
@@ -145,7 +145,7 @@ const fit = (el: HTMLElement): Fit => {
       px(cs.paddingRight) +
       px(cs.borderLeftWidth) +
       px(cs.borderRightWidth) +
-      sum(fixed.map(cssWidth)),
+      math.sum(fixed.map(cssWidth)),
     fixed: fixed.length,
     gap,
   };
@@ -187,7 +187,7 @@ const estimate = (el: HTMLElement, t: Template): Fit | null => {
 // The width a group takes with its first k tags at full width.
 const full = (f: Fit, k: number, count: number): number => {
   const n = f.measures.length;
-  const tags = sum(f.measures.slice(0, k).map((m) => m.natural));
+  const tags = math.sum(f.measures.slice(0, k).map((m) => m.natural));
   const gaps = f.gap * Math.max(0, k + f.fixed - 1);
   return f.frame + tags + gaps + (k < n ? f.gap + count : 0);
 };
@@ -204,7 +204,7 @@ const stacks = (
 ): boolean => {
   if (k === 0) return true;
   const under = f.measures.slice(0, k - 1);
-  const total = sum(under.map((m) => m.natural));
+  const total = math.sum(under.map((m) => m.natural));
   const over = full(f, k, count) - room;
   if (over <= 0) return true;
   if (over >= total) return false;
