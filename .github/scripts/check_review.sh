@@ -55,7 +55,8 @@ if [ "$FORK" = true ]; then
     if [ "$CLA" != success ]; then
         report pending "waiting for the contributor license agreement"
     fi
-    if [ "$("$(dirname "$0")/fork_approved.sh" "$PR" "$HEAD")" != true ]; then
+    APPROVED=$("$(dirname "$0")/fork_approved.sh" "$PR" "$HEAD")
+    if [ "$APPROVED" != true ]; then
         report pending "waiting for a maintainer to approve the head"
     fi
 fi

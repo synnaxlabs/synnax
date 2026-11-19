@@ -25,10 +25,12 @@ set -euo pipefail
 REPO=${GITHUB_REPOSITORY:?GITHUB_REPOSITORY is not set}
 GH_API="$(dirname "$0")/gh_api.sh"
 
-if [ "${FORK:?}" = true ] \
-    && [ "$("$(dirname "$0")/fork_approved.sh" "${PR:?}" "${HEAD_SHA:?}")" != true ]; then
-    echo true
-    exit 0
+if [ "${FORK:?}" = true ]; then
+    APPROVED=$("$(dirname "$0")/fork_approved.sh" "${PR:?}" "${HEAD_SHA:?}")
+    if [ "$APPROVED" != true ]; then
+        echo true
+        exit 0
+    fi
 fi
 if [ "${REPLAY:?}" = true ] || [ "${REPEAT:?}" = true ]; then
     echo false

@@ -173,6 +173,16 @@ class TestFork:
         self.approve(harness, "maintainer", sha="earlier")
         assert harness.run(FORK="true", REPEAT="true")
 
+    def test_should_fail_when_the_reviews_cannot_be_read(
+        self, harness: Harness
+    ) -> None:
+        harness.env["GH_API_RETRY_DELAY"] = "0"
+        harness.gh.fail("api */pulls/7/reviews*", "HTTP 404", times=1)
+        result = subprocess.run(
+            [str(SCRIPT)], env=harness.env | {"FORK": "true"}, capture_output=True
+        )
+        assert result.returncode != 0
+
     def test_should_skip_an_approval_without_write_access(
         self, harness: Harness
     ) -> None:
