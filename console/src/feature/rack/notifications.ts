@@ -10,10 +10,13 @@
 import { type Notifications } from "@/platform/notifications";
 
 /**
- * The notification rule for rack statuses. A rack is always in use. Its warnings wait,
- * because the Core gives each new rack a warning until its Driver reports.
+ * The notification rule for rack statuses. A rack with no tasks is not in use, which
+ * covers a new rack that has no Driver yet. Warnings wait, because the Core gives each
+ * new rack a warning until its Driver reports.
  */
 export const NOTIFICATION_RULE: Notifications.Rule = {
   kind: () => "state",
+  inUse: async ({ client, key }) =>
+    (await client.tasks.retrieve({ rack: Number(key) })).length > 0,
   warningsDelayed: true,
 };

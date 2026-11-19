@@ -140,6 +140,19 @@ describe("Notifications.useForward", () => {
       expect(calls).toHaveLength(2);
     });
 
+    it("should check use again while its thing is not in use", async () => {
+      const owner = await createOwner();
+      let used = false;
+      const inUse = vi.fn(async () => used);
+      await renderForward(client, { channel: { ...STATE, inUse } });
+      const [unused] = await write({ owner, variant: "warning" });
+      await settleWrites(client);
+      expect(screen.queryByText(unused.message)).toBeNull();
+      used = true;
+      const [error] = await write({ owner, variant: "error" });
+      expect(await screen.findByText(error.message)).toBeTruthy();
+    });
+
     it("should drop the pending check of a deleted status", async () => {
       const owner = await createOwner();
       let resolve: ((inUse: boolean) => void) | undefined;
