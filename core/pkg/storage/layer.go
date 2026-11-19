@@ -295,9 +295,8 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 }
 
 // Run runs the time-series engine and the Gorp DB until ctx ends or one of them fails,
-// then waits for both to stop and returns the first error. Writes to the engine, its
-// streamers, and the opening of Gorp tables with indexes or references need Run to
-// run. Call Run once.
+// then waits for both to stop and returns the first error. The opening of Gorp tables
+// with indexes or references needs Run to run. Call Run once.
 func (s *Layer) Run(ctx context.Context) error {
 	g, ctx := errgroup.WithContext(ctx)
 	g.Go(func() error { return s.TS.Run(ctx) })

@@ -62,7 +62,7 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 			))
 			continue
 		}
-		// The suffix of a v0.61 removal also carries a random number.
+		// The suffix of a v0.61 or v0.62 removal also carries a random number.
 		if strings.Contains(i.Name(), deletedDirSuffix) {
 			detached = append(detached, i.Name())
 			continue

@@ -10,6 +10,7 @@
 package storage_test
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -39,7 +40,11 @@ var _ = Describe("storage", func() {
 			l := MustOpen(storage.OpenLayer(ctx, storage.LayerConfig{
 				InMemory: new(true),
 			}))
-			StartRun(l.Run)
+			StartRun(l.Run)()
+			ended, cancel := context.WithCancel(ctx)
+			cancel()
+			// The layer ran the engine once, so the engine refuses a second run.
+			Expect(l.TS.Run(ended)).To(MatchError("run called twice"))
 		})
 
 		It("Should run the Gorp DB until its context ends", func(ctx SpecContext) {
