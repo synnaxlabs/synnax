@@ -18,15 +18,22 @@ import { createConsoleWrapper } from "@/testutil";
 export const SOURCE: Haul.Item = { key: "source", type: "mosaic-tab" };
 export const ITEM: Haul.Item = { key: "tab", type: "mosaic-tab" };
 
-/** Mounts Window.useDropOutside under a Haul provider that accepts every drop. */
-export const renderDropOutside = async (): Promise<{
+/**
+ * Mounts Window.useDropOutside under a Haul provider that accepts every drop. Pass
+ * `dragging` to show a drag that another window started.
+ */
+export const renderDropOutside = async (
+  dragging?: Haul.State,
+): Promise<{
   onDrop: Mock<Window.OnDropOutside>;
   haul: Haul.ContextValue | null;
 }> => {
   const { wrapper: Base } = await createConsoleWrapper({ client: null });
   const Wrapper: FC<PropsWithChildren> = ({ children }) => (
     <Base>
-      <Haul.Provider>{children}</Haul.Provider>
+      <Haul.Provider value={dragging} onChange={dragging && vi.fn()}>
+        {children}
+      </Haul.Provider>
     </Base>
   );
   Wrapper.displayName = "Wrapper";
