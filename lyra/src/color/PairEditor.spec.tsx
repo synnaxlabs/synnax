@@ -54,8 +54,11 @@ const renderEditor = (
   return { ...c, onChange };
 };
 
-const hex = (c: RenderResult): string =>
-  c.getByLabelText<HTMLInputElement>("Hex").value.toLowerCase();
+const hex = (c: RenderResult): string => {
+  const input = c.getByLabelText("Hex");
+  if (!(input instanceof HTMLInputElement)) throw new Error("Hex is not an input");
+  return input.value.toLowerCase();
+};
 
 const setHex = (c: RenderResult, value: string): void => {
   fireEvent.change(c.getByLabelText("Hex"), { target: { value } });

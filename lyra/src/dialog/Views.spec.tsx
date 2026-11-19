@@ -61,7 +61,7 @@ describe("Views", () => {
     fireEvent.change(c.getByLabelText("Name"), { target: { value: "pump" } });
     fireEvent.click(c.getByText("open"));
     expect(c.getByText("Edit item")).toBeTruthy();
-    expect(c.getByText("view body")).toBeTruthy();
+    expect(c.getByRole("group", { name: "Edit item" }).textContent).toBe("view body");
     expect(c.getByText("open, viewing")).toBeTruthy();
     expect(boxOf(c)?.classList.contains(viewing)).toBe(true);
     fireEvent.click(c.getByLabelText("Back"));
@@ -137,7 +137,34 @@ describe("Views", () => {
     expect(document.activeElement).not.toBe(opener);
   });
 
-  it("should run the callback of back at once from a view that closed", () => {
+  it("should run the callback of back at once from a view that closed, and keep the view that shows", () => {
+    let back: ((then?: () => void) => void) | undefined;
+    const Late = (): ReactElement => {
+      back = Dialog.useViews().back;
+      return <span>view body</span>;
+    };
+    const Second = (): ReactElement => {
+      const { open } = Dialog.useViews();
+      return (
+        <button onClick={() => open("Second", <span>second body</span>)}>second</button>
+      );
+    };
+    const c = renderViews(
+      <>
+        <Opener content={<Late />} />
+        <Second />
+      </>,
+    );
+    fireEvent.click(c.getByText("open"));
+    fireEvent.click(c.getByLabelText("Back"));
+    fireEvent.click(c.getByText("second"));
+    const then = vi.fn();
+    act(() => back?.(then));
+    expect(then).toHaveBeenCalledOnce();
+    expect(c.getByText("second body")).toBeTruthy();
+  });
+
+  it("should run the callback of back at once after the views unmount", () => {
     let back: ((then?: () => void) => void) | undefined;
     const Late = (): ReactElement => {
       back = Dialog.useViews().back;
@@ -145,9 +172,9 @@ describe("Views", () => {
     };
     const c = renderViews(<Opener content={<Late />} />);
     fireEvent.click(c.getByText("open"));
-    fireEvent.click(c.getByLabelText("Back"));
+    c.unmount();
     const then = vi.fn();
-    act(() => back?.(then));
+    back?.(then);
     expect(then).toHaveBeenCalledOnce();
   });
 

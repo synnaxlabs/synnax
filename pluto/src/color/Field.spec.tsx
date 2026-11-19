@@ -24,6 +24,7 @@ import {
   type RenderResult,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -109,6 +110,17 @@ describe("Color.Field", () => {
   };
 
   const nameInput = (): HTMLElement => screen.getByRole("textbox", { name: "Name" });
+
+  const nameValue = (): string => {
+    const input = nameInput();
+    if (!(input instanceof HTMLInputElement)) throw new Error("Name is not an input");
+    return input.value;
+  };
+
+  const pickPalette = async (name: string): Promise<void> => {
+    fireEvent.click(screen.getByRole("button", { name: /^Palette/ }));
+    fireEvent.click(await screen.findByRole("option", { name }));
+  };
 
   const enterColorName = (name: string): void => {
     fireEvent.change(nameInput(), { target: { value: name } });
@@ -228,6 +240,18 @@ describe("Color.Field", () => {
       );
     });
 
+    it("should create the color in the palette picked in the view", async () => {
+      const { palette } = await createInPalette();
+      const { palette: picked } = await createInPalette();
+      const { result, values } = renderField();
+      openPicker(result);
+      await openCreate(palette);
+      await pickPalette(picked.name);
+      enterColorName(`created-${id.create()}`);
+      const created = await createdColor(values);
+      expect(created.group).toBe(picked.key);
+    });
+
     it("should refuse a blank name and keep the view", async () => {
       const { palette } = await createInPalette();
       const { result, values } = renderField();
@@ -261,6 +285,24 @@ describe("Color.Field", () => {
       await expect
         .poll(async () => xcolor.hex((await other.colors.retrieve(named.key)).light))
         .toBe("#0000ff");
+    });
+
+    it("should save a dark edit and clear it on Auto from the edit view", async () => {
+      const { named } = await createInPalette();
+      const { result } = renderField({ type: "named", key: named.key });
+      openPicker(result);
+      await openEdit(named.name);
+      // The picker's own Auto stays in the DOM under the view.
+      const view = within(await screen.findByRole("group", { name: "Edit color" }));
+      fireEvent.click(view.getByText("Dark"));
+      fireEvent.change(view.getByLabelText("Hex"), { target: { value: "112233" } });
+      const darkOf = async (): Promise<string | undefined> => {
+        const { dark } = await other.colors.retrieve(named.key);
+        return dark == null ? undefined : xcolor.hex(dark);
+      };
+      await expect.poll(darkOf).toBe("#112233");
+      fireEvent.click(view.getByLabelText("Auto"));
+      await expect.poll(darkOf).toBeUndefined();
     });
 
     it("should keep a rename when Back closes the view before a blur", async () => {
@@ -333,6 +375,37 @@ describe("Color.Field", () => {
         expect(created.name).toBe(name);
         const swatch = await screen.findByRole("button", { name });
         await waitFor(() => expect(document.activeElement).toBe(swatch));
+      });
+
+      it("should link a color that saves after Back and keep a view opened since", async () => {
+        const { palette } = await createInPalette();
+        const { result, values } = renderField();
+        openPicker(result);
+        await openCreate(palette);
+        const name = `created-${id.create()}`;
+        enterColorName(name);
+        fireEvent.click(screen.getByLabelText("Back"));
+        fireEvent.click(
+          screen.getByRole("button", { name: `Create a color in ${palette.name}` }),
+        );
+        const next = `next-${id.create()}`;
+        fireEvent.change(nameInput(), { target: { value: next } });
+        const created = await createdColor(values);
+        expect(created.name).toBe(name);
+        expect(nameValue()).toBe(next);
+      });
+
+      it("should link a color that saves after the picker closes", async () => {
+        const { palette } = await createInPalette();
+        const { result, values } = renderField();
+        openPicker(result);
+        await openCreate(palette);
+        const name = `created-${id.create()}`;
+        enterColorName(name);
+        openPicker(result);
+        expect(screen.queryByLabelText("Back")).toBeNull();
+        const created = await createdColor(values);
+        expect(created.name).toBe(name);
       });
 
       it("should finish a saving palette past Escape and Cancel", async () => {
@@ -519,6 +592,39 @@ describe("Color.Field", () => {
       await act(async () => {});
       expect(screen.queryByRole("menu")).toBeNull();
       expect(document.activeElement).toBe(swatch);
+    });
+
+    it("should list only the palettes the user can update, and no Series", async () => {
+      const { palette, named } = await createInPalette();
+      const { palette: locked } = await createInPalette();
+      const limited = await createTestClientWithPolicy(client, [
+        {
+          name: `policy-${id.create()}`,
+          objects: [
+            color.TYPE_RESOURCE_ID,
+            group.TYPE_RESOURCE_ID,
+            user.TYPE_RESOURCE_ID,
+            access.role.TYPE_RESOURCE_ID,
+            access.policy.TYPE_RESOURCE_ID,
+          ],
+          actions: ["retrieve", "create"],
+        },
+        {
+          name: `policy-${id.create()}`,
+          objects: [group.resourceID(palette.key)],
+          actions: ["update"],
+        },
+      ]);
+      const { result } = renderField(
+        { type: "named", key: named.key },
+        await createAsyncSynnaxWrapper({ client: limited }),
+      );
+      openPicker(result);
+      await openCreate(palette);
+      fireEvent.click(screen.getByRole("button", { name: /^Palette/ }));
+      expect(await screen.findByRole("option", { name: palette.name })).toBeTruthy();
+      expect(screen.queryByRole("option", { name: locked.name })).toBeNull();
+      expect(screen.queryByRole("option", { name: "Series" })).toBeNull();
     });
 
     it("should focus Create palette when a new palette gets no +", async () => {
