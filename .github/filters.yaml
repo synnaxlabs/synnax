@@ -106,7 +106,6 @@ gorp: &gorp
 freighter_go: &freighter_go
   - *alamos_go
   - *go
-  - *gorp
   - *x_go
   - freighter/go/**
 

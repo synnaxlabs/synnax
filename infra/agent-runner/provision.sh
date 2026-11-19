@@ -82,7 +82,8 @@ curl -fsSL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install
 RAW_URL=https://raw.githubusercontent.com/$REPO/main
 curl -fsSL "$RAW_URL/scripts/install_clang_format.sh" \
     | env UV_TOOL_DIR=/opt/uv-tools UV_TOOL_BIN_DIR=/usr/local/bin bash
-# The global agent CLIs sign the seat in. Each agent job installs its own latest copy.
+# The global agent CLIs sign the seat in. Each agent job installs the pinned versions
+# in .github/agents/cli with npm ci.
 npm install -g "pnpm@$PNPM_VERSION" @anthropic-ai/claude-code@latest \
     @openai/codex@latest
 
