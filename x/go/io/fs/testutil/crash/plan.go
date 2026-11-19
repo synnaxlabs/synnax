@@ -52,10 +52,11 @@ func newPlan(cfg Config) plan {
 	if cfg.Profile == FullDisk || mixed {
 		p.workload.Capacity = 4096 + rng.Int64N(60<<10)
 	}
-	if cfg.Profile == OneTimeReadFaults || mixed {
+	if cfg.Profile == OneTimeReadFaults || cfg.Profile == RepeatedReadFaults || mixed {
 		p.image.ReadCorruptionRate = rate(0.05, 0.2, 0.5)
 		p.image.MisdirectedReadRate = rate(0.05, 0.2, 0.5)
 	}
+	p.image.ReadFaultsRepeated = cfg.Profile == RepeatedReadFaults
 	p.workload.RunKey, p.image.RunKey = cfg.RunKey, cfg.RunKey
 	return p
 }

@@ -95,11 +95,11 @@ func checkLive(attempts []attempt, records []Record) *broken {
 }
 
 // checkRecovered applies R1 to R3 to the records that an engine recovered from a crash
-// image.
-func checkRecovered(attempts []attempt, records []Record, r rules) *broken {
+// image. It reports if the engine lost a Durable commit that the rules free.
+func checkRecovered(attempts []attempt, records []Record, r rules) (*broken, bool) {
 	present, b := held(attempts, records, r)
 	if b != nil {
-		return b
+		return b, false
 	}
 	missing := uint64(0)
 	for _, a := range attempts {
@@ -112,40 +112,66 @@ func checkRecovered(attempts []attempt, records []Record, r rules) *broken {
 		if missing != 0 && rec.ID > missing {
 			return &broken{R3, fmt.Sprintf(
 				"acked commit %d is missing, and commit %d is not", missing, rec.ID,
-			)}
+			)}, false
 		}
 	}
+	lost := false
 	for _, a := range attempts {
-		if a.ack == Durable && a.ackedAt < r.exemptFrom &&
-			!present.Contains(a.record.ID) {
-			return &broken{R1, fmt.Sprintf("durable commit %d is missing", a.record.ID)}
+		if a.ack != Durable || present.Contains(a.record.ID) {
+			continue
 		}
+		if a.ackedAt < r.exemptFrom {
+			return &broken{
+				R1,
+				fmt.Sprintf("durable commit %d is missing", a.record.ID),
+			}, false
+		}
+		lost = true
 	}
-	return nil
+	return nil, lost
 }
 
 // checkKept applies R1 to a second recovery, after a crash in the first: it holds each
-// commit that the first held, and reads each one that the first read.
-func checkKept(first, second []Record) *broken {
+// commit that the first held, and reads each one that the first read. Read faults can
+// free the commits after the last Durable ack before the event bound, and the reads. It
+// reports if the engine lost a commit that they free.
+func checkKept(
+	attempts []attempt,
+	first, second []Record,
+	bound int,
+	unreadableAllowed bool,
+) (*broken, bool) {
+	kept := uint64(math.MaxUint64)
+	if bound != math.MaxInt {
+		kept = 0
+		for _, a := range attempts {
+			if a.ack == Durable && a.ackedAt < bound {
+				kept = a.record.ID
+			}
+		}
+	}
 	again := make(map[uint64]Record, len(second))
 	for _, rec := range second {
 		again[rec.ID] = rec
 	}
+	lost := false
 	for _, rec := range first {
 		got, ok := again[rec.ID]
 		switch {
+		case !ok && rec.ID > kept:
+			lost = true
 		case !ok:
 			return &broken{R1, fmt.Sprintf(
 				"commit %d of the first recovery is missing after a crash in recovery",
 				rec.ID,
-			)}
-		case got.Unreadable && !rec.Unreadable:
+			)}, false
+		case got.Unreadable && !rec.Unreadable && !unreadableAllowed:
 			return &broken{R1, fmt.Sprintf(
 				"commit %d of the first recovery is unreadable after a crash in "+
 					"recovery",
 				rec.ID,
-			)}
+			)}, false
 		}
 	}
-	return nil
+	return nil, lost
 }

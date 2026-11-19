@@ -12,6 +12,7 @@ package crash
 import (
 	"context"
 	"fmt"
+	"math"
 	"math/rand/v2"
 	"sync"
 
@@ -44,25 +45,28 @@ type run struct {
 	// the newest disk change began.
 	attempts, acked []attempt
 	cfg             Config
-	brokenAt        int
+	result          Result
+	// brokenAt is the event of broken, and brokenFaults is the count of read faults in
+	// the recovery that broke it.
+	brokenAt, brokenFaults int
 	// mu guards every field below plan.
 	mu sync.Mutex
 }
 
 // Run runs the workload of cfg on an engine. After each Stride calls that change the
-// disk it takes a crash image. It opens the engine on each image two times, and applies
-// the oracle to what the engine recovers, with the acks that the engine gave while the
-// disk held that state. It returns a *Violation for the first rule that the engine
-// breaks, an error that matches validate.ErrValidation for a bad cfg, and nil when the
-// engine holds.
-func Run(ctx context.Context, cfg Config) error {
+// disk it takes a crash image. It opens the engine on each image, and again after a
+// crash in that recovery, and applies the oracle to what the engine recovers, with the
+// acks that the engine gave while the disk held that state. It returns the counts of
+// what it checked, and a *Violation for the first rule that the engine breaks, an error
+// that matches validate.ErrValidation for a bad cfg, or nil when the engine holds.
+func Run(ctx context.Context, cfg Config) (Result, error) {
 	if err := cfg.validate(); err != nil {
-		return err
+		return Result{}, err
 	}
 	r := &run{ctx: ctx, cfg: cfg, plan: newPlan(cfg)}
 	disk, err := fault.New(r.plan.workload)
 	if err != nil {
-		return err
+		return Result{}, err
 	}
 	r.disk = disk
 	r.counter = &counter{
@@ -87,17 +91,18 @@ func Run(ctx context.Context, cfg Config) error {
 	}
 	r.check(r.pending, r.attempts)
 	if r.err != nil {
-		return errors.Wrap(r.err, "crash: harness")
+		return r.result, errors.Wrap(r.err, "crash: harness")
 	}
 	if r.broken == nil {
-		return nil
+		return r.result, nil
 	}
-	return &Violation{
-		Rule:    r.broken.rule,
-		Detail:  r.broken.detail,
-		RunKey:  cfg.RunKey,
-		Profile: cfg.Profile,
-		Event:   r.brokenAt,
+	return r.result, &Violation{
+		Rule:       r.broken.rule,
+		Detail:     r.broken.detail,
+		RunKey:     cfg.RunKey,
+		Profile:    cfg.Profile,
+		Event:      r.brokenAt,
+		ReadFaults: r.brokenFaults,
 	}
 }
 
@@ -144,7 +149,7 @@ func (r *run) work(engine Engine) {
 		return
 	}
 	if b := checkLive(r.attempts, records); b != nil {
-		r.fail(b, 0)
+		r.fail(b, 0, 0)
 	}
 }
 
@@ -158,7 +163,7 @@ func (r *run) faulted() bool {
 // worksf breaks R0, before any crash, when ok is false.
 func (r *run) worksf(ok bool, format string, args ...any) {
 	if !ok {
-		r.fail(&broken{R0, fmt.Sprintf(format, args...)}, 0)
+		r.fail(&broken{R0, fmt.Sprintf(format, args...)}, 0, 0)
 	}
 }
 
@@ -168,11 +173,11 @@ func (r *run) stopped() bool {
 	return r.broken != nil || r.err != nil
 }
 
-func (r *run) fail(b *broken, event int) {
+func (r *run) fail(b *broken, event, faults int) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.broken == nil {
-		r.broken, r.brokenAt = b, event
+		r.broken, r.brokenAt, r.brokenFaults = b, event, faults
 	}
 }
 
@@ -215,21 +220,28 @@ func (r *run) snapshot(event int) *snapshot {
 
 // check opens the engine on the image of s, and applies the oracle to what it recovers.
 // Then it crashes the disk of that recovery and opens the engine again, which finds a
-// recovery that harms the disk. The second recovery must not refuse, and must keep what
-// the first held.
+// recovery that harms the disk. The second recovery must keep what the first held, and
+// can refuse only after read faults.
 func (r *run) check(s *snapshot, attempts []attempt) {
 	if s == nil || r.stopped() {
 		return
 	}
-	first, err := r.recover(s.image)
+	first, faults, err := r.recover(s.image)
+	rules, _ := r.underFaults(s.rules, faults)
 	if err != nil {
-		refused := s.rules.refusalAllowed && r.cfg.Corrupt != nil &&
-			r.cfg.Corrupt(err)
-		r.unlessAtf(refused, s.event, R4, "the engine did not recover: %v", err)
+		r.refused(err, rules, s.event, faults, "the engine did not recover")
 		return
 	}
-	if b := checkRecovered(attempts, first, s.rules); b != nil {
-		r.fail(b, s.event)
+	if b, lost := checkRecovered(
+		attempts,
+		first,
+		rules,
+	); !r.held(
+		b,
+		lost,
+		s.event,
+		faults,
+	) {
 		return
 	}
 	again, err := s.image.Crash(r.plan.crash(s.event))
@@ -237,24 +249,77 @@ func (r *run) check(s *snapshot, attempts []attempt) {
 		r.abort(err)
 		return
 	}
-	second, err := r.recover(again)
-	r.unlessAtf(
-		err == nil,
-		s.event,
-		R4,
-		"the engine did not recover after a crash in recovery: %v",
-		err,
-	)
+	// A loss that the faults of the first recovery freed stays after the crash.
+	second, faults, err := r.recover(again)
+	rules.refusalAllowed = false
+	rules, bound := r.underFaults(rules, faults)
 	if err != nil {
+		r.refused(
+			err,
+			rules,
+			s.event,
+			faults,
+			"the engine did not recover after a crash "+
+				"in recovery",
+		)
 		return
 	}
-	b := checkRecovered(attempts, second, s.rules)
+	b, lost := checkRecovered(attempts, second, rules)
 	if b == nil {
-		b = checkKept(first, second)
+		var dropped bool
+		b, dropped = checkKept(attempts, first, second, bound, bound != math.MaxInt)
+		lost = lost || dropped
 	}
+	r.held(b, lost, s.event, faults)
+}
+
+// underFaults returns base for a recovery on a disk that gave the read faults, and the
+// event from which they free commits. Under RepeatedReadFaults, two or more faults let
+// the engine refuse, return unreadable records, and lose the commits from the first
+// Sync that changed the earliest block that a fault hit.
+func (r *run) underFaults(base rules, faults []fault.Fault) (rules, int) {
+	bound := math.MaxInt
+	if r.cfg.Profile != RepeatedReadFaults || len(faults) < 2 {
+		return base, bound
+	}
+	for _, f := range faults {
+		if file, ok := r.counter.files[f.File]; ok {
+			if event, ok := file.first[f.Block]; ok {
+				bound = min(bound, event)
+			}
+		}
+	}
+	base.refusalAllowed, base.unreadableAllowed = true, true
+	base.exemptFrom = min(base.exemptFrom, bound)
+	return base, bound
+}
+
+// refused counts the refusal err of a recovery that the rules allow, or breaks R4.
+func (r *run) refused(
+	err error,
+	rules rules,
+	event int,
+	faults []fault.Fault,
+	what string,
+) {
+	if rules.refusalAllowed && r.cfg.Corrupt != nil && r.cfg.Corrupt(err) {
+		r.result.Refusals++
+		return
+	}
+	r.fail(&broken{R4, fmt.Sprintf("%s: %v", what, err)}, event, len(faults))
+}
+
+// held breaks the rule of b, or counts a recovery that lost a commit that the rules
+// free. It reports if the recovery held.
+func (r *run) held(b *broken, lost bool, event int, faults []fault.Fault) bool {
 	if b != nil {
-		r.fail(b, s.event)
+		r.fail(b, event, len(faults))
+		return false
 	}
+	if lost {
+		r.result.Losses++
+	}
+	return true
 }
 
 // abort ends the run with err, an error of the harness.
@@ -266,21 +331,23 @@ func (r *run) abort(err error) {
 	}
 }
 
-// unlessAtf breaks the rule at the event when ok is false.
-func (r *run) unlessAtf(ok bool, event int, rule Rule, format string, args ...any) {
-	if !ok {
-		r.fail(&broken{rule, fmt.Sprintf(format, args...)}, event)
-	}
-}
-
-// recover opens the engine on image and returns the commits that it holds.
-func (r *run) recover(image *fault.FS) (records []Record, err error) {
+// recover opens the engine on image and returns the commits that it holds, and the read
+// faults that the disk gave.
+func (r *run) recover(
+	image *fault.FS,
+) (records []Record, faults []fault.Fault, err error) {
+	r.result.Recoveries++
+	defer func() {
+		faults = image.ReadFaults()
+		r.result.ReadFaults += len(faults)
+	}()
 	engine, err := r.cfg.Open(r.ctx, image)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer func() { err = errors.Combine(err, engine.Close()) }()
-	return engine.Recovered(r.ctx)
+	records, err = engine.Recovered(r.ctx)
+	return records, nil, err
 }
 
 // payload returns the bytes of the commit id in the run of runKey.

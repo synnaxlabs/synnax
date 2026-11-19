@@ -79,6 +79,12 @@ const (
 	NewCorruption
 	// Mixed joins the faults of Partial, SyncErrors, FullDisk, and OneTimeReadFaults.
 	Mixed
+	// RepeatedReadFaults gives the engine that recovers read faults that each read can
+	// get, retries too. After two or more faults in a recovery, the engine can refuse
+	// with its corruption error, return unreadable records, or lose the commits from
+	// the first Sync that changed the earliest block that a fault hit. It must never
+	// return wrong data or a hole.
+	RepeatedReadFaults
 )
 
 // Rule names one rule of the oracle.
@@ -100,8 +106,9 @@ const (
 	// later commit is in the list, acked or not.
 	R3 Rule = "R3"
 	// R4 says that the engine opens, reads, and closes on each crash image, and again
-	// after a crash in that recovery. Only the first open can refuse, only an image
-	// that OldCorruption or NewCorruption changed, and only with the corruption error.
+	// after a crash in that recovery. It can refuse, with the corruption error, only an
+	// image that OldCorruption or NewCorruption changed, on the first open, or after
+	// read faults that RepeatedReadFaults allows.
 	R4 Rule = "R4"
 )
 
@@ -119,14 +126,33 @@ type Violation struct {
 	Event int
 	// Profile is the profile of the run.
 	Profile Profile
+	// ReadFaults is the count of read faults in the recovery that broke the rule.
+	ReadFaults int
 }
 
 // Error implements error.
 func (v *Violation) Error() string {
 	return fmt.Sprintf(
-		"crash: %s broken at event %d of run key %d, profile %d: %s",
-		v.Rule, v.Event, v.RunKey, v.Profile, v.Detail,
+		"crash: %s broken at event %d of run key %d, profile %d, with %d read faults: %s",
+		v.Rule,
+		v.Event,
+		v.RunKey,
+		v.Profile,
+		v.ReadFaults,
+		v.Detail,
 	)
+}
+
+// Result counts what a run checked.
+type Result struct {
+	// Recoveries counts the opens of the engine on crash images.
+	Recoveries int
+	// Refusals counts the recoveries that refused, as the rules allow.
+	Refusals int
+	// Losses counts the recoveries that lost an acked commit, as the rules allow.
+	Losses int
+	// ReadFaults counts the read faults that the disks of the recoveries gave.
+	ReadFaults int
 }
 
 // Config sets one run of the harness.
@@ -152,6 +178,10 @@ func (c Config) validate() error {
 	v.NotNil("open", c.Open)
 	v.Positive("commits", c.Commits)
 	v.Positive("stride", c.Stride)
-	v.Ternary("profile", c.Profile < Strict || c.Profile > Mixed, "must be a profile")
+	v.Ternary(
+		"profile",
+		c.Profile < Strict || c.Profile > RepeatedReadFaults,
+		"must be a profile",
+	)
 	return v.Error()
 }
