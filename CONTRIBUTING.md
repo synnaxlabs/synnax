@@ -35,6 +35,12 @@ dispatches every release ([RFC 0058](docs/tech/rfc/0058-release-workflow.md)).
 - A PR never bumps a version. Every manifest carries `0.0.0`, and Release resolves each
   version from Git tags.
 
+### Contributor license agreement
+
+Every contributor signs the [contributor license agreement](CLA.md) one time. On your
+first pull request, [CLA Assistant](https://cla-assistant.io) comments with a link to
+sign with your GitHub account, and its `license/cla` check passes once you sign.
+
 ### Pull requests from forks
 
 Workflows that hold write access start only from a branch of this repository, so a
