@@ -50,10 +50,12 @@ class EnumerationLifecycle(ConsoleCase):
         )
 
     def teardown(self) -> None:
+        # The select in the project uses an enumeration until test_replace runs, and the
+        # Core refuses to delete an enumeration in use.
+        self.client.projects.delete(self.users.key)
         stale = self.client.enumerations.retrieve(names=[self.name, self.replaced])
         if stale:
             self.client.enumerations.delete([e.key for e in stale])
-        self.client.projects.delete(self.users.key)
         # A run that fails after editing the built-in leaves it edited for the retry.
         enums = self.console.enumerations
         enums.search(_BUILTIN)
