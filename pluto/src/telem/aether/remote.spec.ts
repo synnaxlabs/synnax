@@ -735,6 +735,30 @@ describe("remote", () => {
         expect(x.value().data[0].lower).toBe(ns(FROM));
       });
 
+      it("should read its value bounds across the view it is passed", async () => {
+        const core = createCore();
+        const client = connect(core);
+        const subscribe = vi.spyOn(client.feed, "subscribe");
+        const { key } = core.data[0];
+        const y = create(client, {
+          channel: key,
+          window: OPEN,
+          aggregation: "average",
+        });
+        await settle(y);
+        const upper = ns(newest(core, key).timeRange.end);
+        const lower = upper - ns(new TimeStamp(TimeSpan.seconds(30)));
+        y.value({ extremesKept: true, bounds: { lower, upper } });
+        const kept = subscribe.mock.calls
+          .map(([request]) => request.limit)
+          .filter((limit) => limit.variant === "points" && limit.extremesKept === true);
+        expect(kept).toEqual([
+          expect.objectContaining({
+            view: new TimeRange(BigInt(lower), BigInt(upper)),
+          }),
+        ]);
+      });
+
       it("should have no bounds for a range that has not started", async () => {
         const core = createCore();
         const x = create(connect(core), {

@@ -156,6 +156,8 @@ export class Points {
   // supersedes the reads before it.
   private stored?: TimeStamp | null;
   private storedRead = 0;
+  // storedFailure counts only while the window streams, as stored does.
+  private storedFailure: status.Status | null = null;
   // tileKeys holds what tilesOf gave for the limit since the last rebuild or boundary
   // move, so a view that slides works out its tiles once per update.
   private tileKeys: string | null = null;
@@ -220,8 +222,11 @@ export class Points {
     this.stream(this.index);
     if (moved) this.moveBoundary();
     // A dynamic window reads the newest sample of any time, which a new span keeps.
-    if (moved && this.streaming && !(wasDynamic && this.dynamic))
+    if (moved && this.streaming && !(wasDynamic && this.dynamic)) {
+      this.stored = undefined;
+      this.storedFailure = null;
       void this.readStored();
+    }
   }
 
   /**
@@ -411,34 +416,36 @@ export class Points {
   }
 
   // Reads the end of the newest stored sample's span, of any time for a dynamic window
-  // and in the window for a static one. A failure that is definitive or outlasts the
-  // breaker stops the channel for good. A failure leaves loading as it is, since tiles
-  // and raw samples load apart from this read.
+  // and in the window for a static one. The read stops once a newer one starts or the
+  // window stops streaming. A failure that is definitive or outlasts the breaker stops
+  // the channel for good.
   private async readStored(): Promise<void> {
     const read = ++this.storedRead;
+    const current = (): boolean => read === this.storedRead && this.streaming;
     const brk = createBreaker(this.notifier, this.props.breaker);
     const tr = this.dynamic ? TimeRange.MAX : this.home();
-    while (read === this.storedRead)
+    while (current())
       try {
         const frame = await this.props.readLatest([this.key], 1, tr);
-        if (read !== this.storedRead) return;
+        if (!current()) return;
         const newest = frame.get(this.key).series.findLast((s) => !s.timeRange.isZero);
         this.stored = newest?.timeRange.end ?? null;
-        this.readFailure = null;
+        this.storedFailure = null;
         this.changed();
         return;
       } catch (e) {
-        if (read !== this.storedRead) return;
+        if (!current()) return;
         // The Core stores no samples for a calculation over virtual channels.
         if (UnsupportedError.matches(e)) {
           this.stored = null;
+          this.storedFailure = null;
           this.changed();
           return;
         }
-        this.readFailure = status.fromException(e, READ_FAILED);
+        this.storedFailure = status.fromException(e, READ_FAILED);
         this.changed();
         if (isDefinitive(e) || !(await brk.wait())) {
-          this.parked = this.readFailure;
+          this.parked = this.storedFailure;
           return;
         }
       }
@@ -864,6 +871,7 @@ export class Points {
       this.parked,
       this.rejection,
       this.readFailure,
+      this.streaming ? this.storedFailure : null,
       this.props.joiner.status(this.key),
       ...(live?.keys.map((k) => live.demand.status(k)) ?? []),
     );
