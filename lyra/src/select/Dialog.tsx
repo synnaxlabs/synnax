@@ -11,8 +11,10 @@ import "@/select/Dialog.css";
 
 import { destructor } from "@synnaxlabs/x";
 import {
+  type MouseEvent,
   type PropsWithChildren,
   type ReactNode,
+  useEffect,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -20,9 +22,14 @@ import { createPortal } from "react-dom";
 
 import { CSS } from "@/css";
 import { Dialog as BaseDialog } from "@/dialog";
+import { useSyncedRef } from "@/hooks";
 import { Input } from "@/input";
+import { List } from "@/list";
 import { Menu } from "@/menu";
 import { usePath } from "@/menu/filter";
+import { keyboardMenuKey, openContextMenu } from "@/menu/keyboard";
+import { CONTEXT_TARGET } from "@/menu/types";
+import { useContext } from "@/select/Context";
 import { ClosedContext, InlineContext, useViewingContext } from "@/select/scope";
 
 /** Props for {@link Dialog}. */
@@ -39,6 +46,12 @@ export interface DialogProps extends BaseDialog.DialogProps {
    * select in a `Menu.Sub` uses it.
    */
   filtered?: boolean;
+  /**
+   * The context menu of an option. A right click on an option opens it, and so do
+   * Shift+F10 and the Menu key while an option holds the hover. It gets the key of that
+   * option only, even when other options are selected.
+   */
+  menu?: Menu.ContextMenuProps["menu"];
 }
 
 const subscribe = (): destructor.Destructor => destructor.NOOP;
@@ -48,6 +61,99 @@ const getServerSnapshot = (): boolean => false;
 const Closed = ({ children }: PropsWithChildren): ReactNode => {
   const [detached] = useState(() => document.createElement("div"));
   return createPortal(<ClosedContext value>{children}</ClosedContext>, detached);
+};
+
+interface ViewsProps extends PropsWithChildren, Pick<DialogProps, "menu"> {
+  /** Whether the dialog is open, so that the menu keys act. */
+  open: boolean;
+}
+
+interface MenuViewsProps extends ViewsProps {
+  menu: NonNullable<DialogProps["menu"]>;
+}
+
+const optionKey = (option: HTMLElement): string => option.dataset.menuKey ?? option.id;
+
+// Like the hover's Enter, the menu keys act anywhere in the window while the dialog is
+// open.
+const MenuViews = ({ menu, open, children }: MenuViewsProps): ReactNode => {
+  const setViewing = useViewingContext();
+  const [viewing, setLocalViewing] = useState(false);
+  const contextMenu = Menu.useContextMenu();
+  const { getState } = useContext();
+  const getElement = List.useGetElement();
+  const hoveredRef = useSyncedRef((): HTMLElement | undefined => {
+    if (contextMenu.visible) return undefined;
+    const { hover } = getState();
+    return hover == null ? undefined : getElement(hover);
+  });
+  useEffect(() => {
+    if (!open || viewing) return;
+    const handleKeyDown = (e: KeyboardEvent): void => {
+      const key = keyboardMenuKey(e);
+      const hovered = key == null ? undefined : hoveredRef.current();
+      if (hovered == null) return;
+      e.preventDefault();
+      if (key === "F10" && !e.repeat) openContextMenu(hovered);
+    };
+    const handleKeyUp = (e: KeyboardEvent): void => {
+      if (keyboardMenuKey(e) !== "ContextMenu") return;
+      const hovered = hoveredRef.current();
+      if (hovered == null) return;
+      e.preventDefault();
+      openContextMenu(hovered);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
+  }, [open, viewing]);
+  const handleContextMenu = (e: MouseEvent<HTMLDivElement>): void => {
+    if (viewing || !(e.target instanceof Element)) return;
+    const option = e.target.closest(`.${CONTEXT_TARGET}`);
+    if (option != null && e.currentTarget.contains(option)) contextMenu.open(e);
+  };
+  // Inside the views, so that a menu item can open a view in place of the options.
+  return (
+    <BaseDialog.Views
+      pack
+      onViewingChange={(next) => {
+        setLocalViewing(next);
+        setViewing?.(next);
+      }}
+      onContextMenu={handleContextMenu}
+    >
+      <Menu.ContextMenu
+        {...contextMenu}
+        menu={(props) =>
+          menu({
+            ...props,
+            keys: props.target == null ? [] : [optionKey(props.target)],
+          })
+        }
+      >
+        {children}
+      </Menu.ContextMenu>
+    </BaseDialog.Views>
+  );
+};
+
+// Packed as the dialog is, so the options join as they would in the dialog itself.
+const Views = ({ menu, open, children }: ViewsProps): ReactNode => {
+  const setViewing = useViewingContext();
+  if (menu != null)
+    return (
+      <MenuViews menu={menu} open={open}>
+        {children}
+      </MenuViews>
+    );
+  return (
+    <BaseDialog.Views pack onViewingChange={setViewing}>
+      {children}
+    </BaseDialog.Views>
+  );
 };
 
 /**
@@ -62,6 +168,7 @@ export const Dialog = ({
   children,
   surface = "dialog",
   filtered = false,
+  menu,
   ...rest
 }: DialogProps): ReactNode => {
   const { visible } = BaseDialog.useContext();
@@ -72,14 +179,12 @@ export const Dialog = ({
   const menuSurface = Menu.useSurface(ref, cls);
   // False on the server and during hydration, since the server renders no portal.
   const hydrated = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-  const setViewing = useViewingContext();
   const options = <Input.ItemBoundary>{children}</Input.ItemBoundary>;
   if (nested && filtered) return <InlineContext value>{options}</InlineContext>;
-  // Packed as the dialog is, so the options join as they would in the dialog itself.
   const content = (
-    <BaseDialog.Views pack onViewingChange={setViewing}>
+    <Views menu={menu} open={visible && !nested}>
       {options}
-    </BaseDialog.Views>
+    </Views>
   );
   if (!visible || nested) return hydrated && <Closed>{content}</Closed>;
   if (surface === "menu")

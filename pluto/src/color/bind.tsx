@@ -14,8 +14,9 @@ import { useState } from "react";
 
 import { Access } from "@/access";
 import { CreatePalette, CreateSwatch } from "@/color/Create";
-import { EditAction } from "@/color/Edit";
+import { SwatchMenu } from "@/color/Edit";
 import { usePalettes, useResolve } from "@/color/library";
+import { Synnax } from "@/synnax";
 
 /** The props that bind a Lyra color control to a stored color reference. */
 export interface Binding {
@@ -36,6 +37,7 @@ export const useBinding = (
 ): Binding => {
   const palettes = usePalettes();
   const resolve = useResolve();
+  const client = Synnax.use();
   const canCreate = Access.useCreateGranted(color.TYPE_RESOURCE_ID);
   const canCreatePalette = Access.useCreateGranted(group.TYPE_RESOURCE_ID);
   // A palette that the picker just created. Its "+" takes the focus once it renders.
@@ -56,7 +58,9 @@ export const useBinding = (
                 onFocus={() => setCreated(undefined)}
               />
             ) : undefined,
-            swatchActions: <EditAction />,
+            swatchMenu: <SwatchMenu />,
+            hasSwatchMenu: (key) =>
+              Access.updateGranted({ client, id: color.resourceID(key) }),
             footer:
               canCreate && canCreatePalette ? (
                 <CreatePalette onCreate={setCreated} />

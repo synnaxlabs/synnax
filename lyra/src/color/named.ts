@@ -37,8 +37,16 @@ export interface Library {
    * while the search is empty.
    */
   paletteEnd?: ReactNode;
-  /** Shown at the end of each palette title, after the name of the color it shows. */
-  swatchActions?: ReactNode;
+  /**
+   * The context menu of a swatch, opened by a right click, Shift+F10, or the Menu key.
+   * In it, `usePalette` gives the color of the swatch.
+   */
+  swatchMenu?: ReactNode;
+  /**
+   * Whether the swatch of the named color with the key opens `swatchMenu`, asked when
+   * the menu would open. Defaults to every swatch.
+   */
+  hasSwatchMenu?: (key: string) => boolean;
   /** Shown under the palettes. */
   footer?: ReactNode;
 }

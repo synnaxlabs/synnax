@@ -8,14 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { act, fireEvent, render } from "@testing-library/react";
-import { useState } from "react";
+import { type ReactElement, useState } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { renderProp } from "@/component/renderProp";
+import { Dialog } from "@/dialog";
 import { Haul } from "@/haul";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { List } from "@/list";
+import { Menu } from "@/menu";
 import { Select } from "@/select";
 import { mockGeometry } from "@/testutil/dom";
 import { Text } from "@/text";
@@ -597,6 +599,108 @@ describe("Select.Single", () => {
       fireEvent.dragStart(source);
       fireEvent.drop(target);
       expect(onMultipleChange).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("option menu", () => {
+    const menu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement => (
+      <Menu.Menu>
+        <Menu.Item itemKey="edit">{`menu for ${keys.join(",")}`}</Menu.Item>
+      </Menu.Menu>
+    );
+
+    const openDialog = (props: Partial<Select.SingleProps<string, TestEntry>> = {}) => {
+      const { SelectSingle, onChange } = createSelectSingle();
+      const c = render(<SelectSingle virtual={false} {...props} />, {
+        wrapper: Triggers.Provider,
+      });
+      fireEvent.click(c.getByText("Test Item"));
+      return { c, onChange };
+    };
+
+    const SHIFT_F10 = { key: "F10", code: "F10", shiftKey: true };
+    const MENU_KEY = { key: "ContextMenu", code: "ContextMenu" };
+
+    it("should open the menu on a right click of an option, given its key", () => {
+      const { c } = openDialog({ menu });
+      const second = c.getByRole("option", { name: "Second Item Option" });
+      expect(fireEvent.contextMenu(second)).toBe(false);
+      expect(c.getByText("menu for 2")).toBeTruthy();
+    });
+
+    it("should open the menu of the hovered option on a press of Shift+F10", () => {
+      const { c } = openDialog({ menu, initialHover: 1 });
+      expect(fireEvent.keyDown(c.getByRole("textbox"), SHIFT_F10)).toBe(false);
+      expect(c.getByText("menu for 2")).toBeTruthy();
+    });
+
+    it("should open the menu of the hovered option on a release of the Menu key", () => {
+      const { c } = openDialog({ menu, initialHover: 1 });
+      expect(fireEvent.keyDown(c.getByRole("textbox"), MENU_KEY)).toBe(false);
+      expect(c.queryByRole("menu")).toBeNull();
+      fireEvent.keyUp(c.getByRole("textbox"), MENU_KEY);
+      expect(c.getByText("menu for 2")).toBeTruthy();
+    });
+
+    it("should leave the menu keys to the platform while no option holds the hover", () => {
+      const { c } = openDialog({ menu });
+      expect(fireEvent.keyDown(c.getByRole("textbox"), SHIFT_F10)).toBe(true);
+      expect(c.queryByRole("menu")).toBeNull();
+    });
+
+    it("should leave a right click and the menu keys to the platform without a menu", () => {
+      const { c } = openDialog({ initialHover: 1 });
+      const second = c.getByRole("option", { name: "Second Item Option" });
+      expect(fireEvent.contextMenu(second)).toBe(true);
+      expect(fireEvent.keyDown(c.getByRole("textbox"), SHIFT_F10)).toBe(true);
+      expect(c.queryByRole("menu")).toBeNull();
+    });
+
+    it("should not move the hover on an arrow key in the open menu", () => {
+      const { c, onChange } = openDialog({ menu, initialHover: 1 });
+      fireEvent.keyDown(c.getByRole("textbox"), SHIFT_F10);
+      fireEvent.keyDown(c.getByRole("menu"), { key: "ArrowDown", code: "ArrowDown" });
+      fireEvent.keyDown(c.getByRole("menu"), { key: "Escape", code: "Escape" });
+      fireEvent.keyDown(c.getByRole("textbox"), { key: "Enter", code: "Enter" });
+      expect(onChange).toHaveBeenCalledExactlyOnceWith("2");
+    });
+
+    it("should close only the menu on Escape in the open menu", () => {
+      const { c } = openDialog({ menu, initialHover: 1 });
+      fireEvent.keyDown(c.getByRole("textbox"), SHIFT_F10);
+      fireEvent.keyDown(c.getByRole("menu"), { key: "Escape", code: "Escape" });
+      expect(c.queryByRole("menu")).toBeNull();
+      expect(c.getByRole("option", { name: "Second Item Option" })).toBeTruthy();
+    });
+
+    it("should keep the dialog open when a menu item is clicked", () => {
+      const { c } = openDialog({ menu, initialHover: 1 });
+      fireEvent.keyDown(c.getByRole("textbox"), SHIFT_F10);
+      fireEvent.click(c.getByText("menu for 2"));
+      expect(c.queryByRole("menu")).toBeNull();
+      expect(c.getByRole("option", { name: "Second Item Option" })).toBeTruthy();
+    });
+
+    it("should let a menu item open a view in place of the options", () => {
+      const ViewMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
+        const { open } = Dialog.useViews();
+        return (
+          <Menu.Menu onChange={() => open("Edit", <span>{`editing ${keys[0]}`}</span>)}>
+            <Menu.Item itemKey="edit">Edit</Menu.Item>
+          </Menu.Menu>
+        );
+      };
+      const { c } = openDialog({ menu: (props) => <ViewMenu {...props} /> });
+      fireEvent.contextMenu(c.getByRole("option", { name: "Second Item Option" }));
+      fireEvent.click(c.getByText("Edit"));
+      expect(c.getByText("editing 2")).toBeTruthy();
+    });
+
+    it("should not select the hovered option on Enter in the open menu", () => {
+      const { c, onChange } = openDialog({ menu, initialHover: 1 });
+      fireEvent.keyDown(c.getByRole("textbox"), SHIFT_F10);
+      fireEvent.keyDown(c.getByRole("menu"), { key: "Enter", code: "Enter" });
+      expect(onChange).not.toHaveBeenCalled();
     });
   });
 });

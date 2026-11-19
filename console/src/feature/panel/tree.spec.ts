@@ -9,13 +9,13 @@
 
 import { panel, project } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Panel } from "@/feature/panel";
 import { Project } from "@/feature/project";
 import { findTreeRow, renderLiveTree } from "@/platform/tree/testutil";
-import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
 

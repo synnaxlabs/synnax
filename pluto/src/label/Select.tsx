@@ -126,7 +126,7 @@ export const SelectMultiple = ({
   );
   // It is closed until the first open, so the dialog's last state is false.
   const handleVisibleChange = (next: state.SetArg<boolean>): void => {
-    if (!opened && state.executeSetter(next, false)) setOpened(true);
+    if (!opened && state.resolve(next, false)) setOpened(true);
     onVisibleChange?.(next);
   };
   // A change to virtual mounts the trigger again, so the list stays static once open.

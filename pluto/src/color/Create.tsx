@@ -12,6 +12,7 @@ import "@/color/Create.css";
 import { color, group } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Color } from "@synnaxlabs/lyra/color";
+import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
@@ -35,6 +36,8 @@ interface NameEntryProps {
   /** Called with the trimmed name. Resolves to whether the create succeeded. */
   onSave: (name: string) => Promise<boolean>;
   onCancel: () => void;
+  /** If true, the create is saving, and nothing cancels it. */
+  saving: boolean;
   children?: ReactNode;
 }
 
@@ -43,10 +46,10 @@ const NameEntry = ({
   placeholder,
   onSave,
   onCancel,
+  saving,
   children,
 }: NameEntryProps): ReactElement => {
   const [name, setName] = useState("");
-  const [saving, setSaving] = useState(false);
   // A ref, so that two key presses in one render cannot both save.
   const savingRef = useRef(false);
   const save = (): void => {
@@ -54,11 +57,8 @@ const NameEntry = ({
     const trimmed = name.trim();
     if (trimmed === "") return onCancel();
     savingRef.current = true;
-    setSaving(true);
     void onSave(trimmed).then((ok) => {
-      if (ok) return;
-      savingRef.current = false;
-      setSaving(false);
+      if (!ok) savingRef.current = false;
     });
   };
   const handleKeyDown = (e: KeyboardEvent): void => {
@@ -68,7 +68,7 @@ const NameEntry = ({
     } else if (e.key === "Escape") {
       e.preventDefault();
       e.stopPropagation();
-      onCancel();
+      if (!saving) onCancel();
     }
   };
   return (
@@ -101,6 +101,7 @@ const NameEntry = ({
         square
         tooltip="Cancel"
         aria-label="Cancel"
+        disabled={saving}
         onClick={onCancel}
       >
         <Icon.Close />
@@ -125,7 +126,8 @@ const Add = ({ focused = false, onFocus }: AddProps): ReactElement => {
   const { value, linked, onNamedChange } = Color.usePicker();
   const { dark } = Theming.use();
   const [naming, setNaming] = useState(false);
-  const { updateAsync: append } = useAppend();
+  const { updateAsync: append, variant } = useAppend();
+  const saving = variant === "loading";
   const plus = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (focused) plus.current?.focus();
@@ -138,12 +140,13 @@ const Add = ({ focused = false, onFocus }: AddProps): ReactElement => {
     <Button.Button
       ref={plus}
       onFocus={onFocus}
-      variant="outlined"
+      variant="text"
       square
       textColor={9}
       className={CSS.cls(CSS.B("color-create"), CSS.selected(naming))}
       tooltip="Create color"
       aria-label={`Create a color in ${palette.name}`}
+      disabled={saving}
       onClick={() => setNaming((n) => !n)}
     >
       <Icon.Add />
@@ -167,7 +170,12 @@ const Add = ({ focused = false, onFocus }: AddProps): ReactElement => {
   return (
     <>
       {add}
-      <NameEntry placeholder="Color name" onSave={handleSave} onCancel={cancel}>
+      <NameEntry
+        placeholder="Color name"
+        onSave={handleSave}
+        onCancel={cancel}
+        saving={saving}
+      >
         <Color.Swatch value={value} size="small" aria-label="New color" />
       </NameEntry>
     </>
@@ -225,25 +233,7 @@ export const CreatePalette = ({ onCreate }: CreatePaletteProps): ReactElement =>
   const extendable = Access.useUpdateGranted(group.TYPE_RESOURCE_ID);
   const [naming, setNaming] = useState(false);
   const [focused, setFocused] = useState(false);
-  const { updateAsync: create } = useCreatePalette();
-  if (!naming)
-    return (
-      <Button.Button
-        variant="text"
-        size="small"
-        textColor={9}
-        justify="start"
-        className={CSS.B("color-create-palette")}
-        autoFocus={focused}
-        onClick={() => {
-          setFocused(false);
-          setNaming(true);
-        }}
-      >
-        <Icon.Add />
-        Create palette
-      </Button.Button>
-    );
+  const { updateAsync: create, variant } = useCreatePalette();
   const handleSave = async (name: string): Promise<boolean> => {
     const key = uuid.create();
     const created = await create({ key, name });
@@ -255,13 +245,31 @@ export const CreatePalette = ({ onCreate }: CreatePaletteProps): ReactElement =>
     return true;
   };
   return (
-    <NameEntry
-      placeholder="Palette name"
-      onSave={handleSave}
-      onCancel={() => {
-        setFocused(true);
-        setNaming(false);
-      }}
-    />
+    <Flex.Box y empty>
+      <Divider.Divider x padded className={CSS.BE("color-create-palette", "divider")} />
+      {naming ? (
+        <NameEntry
+          placeholder="Palette name"
+          onSave={handleSave}
+          saving={variant === "loading"}
+          onCancel={() => {
+            setFocused(true);
+            setNaming(false);
+          }}
+        />
+      ) : (
+        <Button.CreateListItem
+          size="small"
+          className={CSS.B("color-create-palette")}
+          autoFocus={focused}
+          onClick={() => {
+            setFocused(false);
+            setNaming(true);
+          }}
+        >
+          Create palette
+        </Button.CreateListItem>
+      )}
+    </Flex.Box>
   );
 };

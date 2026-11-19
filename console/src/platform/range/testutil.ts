@@ -8,14 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type ranger, type Synnax } from "@synnaxlabs/client";
-import { id, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { onTestFinished } from "vitest";
 
 import { createKeyEndingIn } from "@/testutil";
-
-/** Generates a Core-safe unique range name: letters, digits, and underscores. */
-export const uniqueRangeName = (prefix = "range"): string =>
-  `${prefix}_${id.create().replace(/-/g, "_")}`;
 
 /**
  * Creates a real range on the connected Core with a unique name and a valid, non-zero
@@ -30,7 +27,7 @@ export const createTestRange = async (
   // range toolbar, read again, so the range ends in the past.
   const end = TimeStamp.now().sub(TimeSpan.MINUTE);
   return await client.ranges.create({
-    name: uniqueRangeName(),
+    name: uniqueName("range"),
     timeRange: new TimeRange(end.sub(TimeSpan.seconds(10)), end),
     ...overrides,
   });
@@ -68,13 +65,29 @@ export const createOffPageTestRange = async (client: Synnax): Promise<ranger.Ran
   await client.ranges.create(
     Array.from({ length: PAGE_SIZE }, () => ({
       key: createKeyEndingIn("0"),
-      name: uniqueRangeName("ahead"),
+      name: uniqueName("ahead"),
       timeRange,
     })),
   );
   return await client.ranges.create({
     key: createKeyEndingIn("f"),
-    name: uniqueRangeName(),
+    name: uniqueName("range"),
     timeRange,
   });
+};
+
+const RANGE_COLOR = "--console-range-color";
+
+/**
+ * Returns the range color painted beside the element, such as the mark of a crumb or a
+ * card, or "" if none is. It reads the nearest element around it that paints one.
+ */
+export const rangeColorBeside = (element: HTMLElement): string => {
+  for (let el: HTMLElement | null = element; el != null; el = el.parentElement) {
+    const painted = [el, ...el.querySelectorAll<HTMLElement>("[style]")].find(
+      (e) => e.style.getPropertyValue(RANGE_COLOR) !== "",
+    );
+    if (painted != null) return painted.style.getPropertyValue(RANGE_COLOR);
+  }
+  return "";
 };

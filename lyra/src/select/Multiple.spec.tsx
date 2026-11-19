@@ -8,13 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { fireEvent, render, type RenderResult } from "@testing-library/react";
-import { useState } from "react";
+import { type ReactElement, useState } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { renderProp } from "@/component/renderProp";
 import { Haul } from "@/haul";
 import { Input } from "@/input";
 import { List } from "@/list";
+import { type Menu } from "@/menu";
 import { Select } from "@/select";
 import { mockGeometry } from "@/testutil/dom";
 import { Text } from "@/text";
@@ -456,6 +457,19 @@ describe("Select.Multiple", () => {
       fireEvent.keyDown(c.container, { code: "Control" });
       fireEvent.click(c.getByText("Second Item Option"));
       expect(onChange).toHaveBeenLastCalledWith(["1", "2"]);
+    });
+  });
+
+  describe("option menu", () => {
+    it("should give the menu only the option it opened on among selected ones", () => {
+      const menu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement => (
+        <span>{`menu for ${keys.join(",")}`}</span>
+      );
+      const { SelectMultiple } = createSelectMultiple(["1", "2"]);
+      const c = render(<SelectMultiple menu={menu} virtual={false} />);
+      fireEvent.click(c.getByRole("button", { name: "Test Items" }));
+      fireEvent.contextMenu(c.getByRole("option", { name: "First Item Option" }));
+      expect(c.getByText("menu for 1")).toBeTruthy();
     });
   });
 });

@@ -18,6 +18,7 @@ import { Theming } from "@synnaxlabs/lyra/theming";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { color as xcolor, deep, id } from "@synnaxlabs/x";
 import {
+  act,
   fireEvent,
   render,
   type RenderResult,
@@ -93,6 +94,15 @@ describe("Color.Field", () => {
     const fill = values().fill;
     if (fill?.type !== "named") throw new Error("the field is not linked");
     return await other.colors.retrieve(fill.key);
+  };
+
+  const openSwatchMenu = async (name: string): Promise<void> => {
+    fireEvent.contextMenu(await screen.findByRole("button", { name }));
+  };
+
+  const openEdit = async (name: string): Promise<void> => {
+    await openSwatchMenu(name);
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Edit" }));
   };
 
   const enterName = (placeholder: string, name: string): void => {
@@ -218,18 +228,31 @@ describe("Color.Field", () => {
       ).toBeNull();
     });
 
-    it("should save an edit to the linked color from the picker", async () => {
+    it("should save an edit from the menu of a swatch", async () => {
       const { named } = await createInPalette();
       const { result } = renderField({ type: "named", key: named.key });
       openPicker(result);
-      fireEvent.click(
-        await screen.findByRole("button", { name: `Edit ${named.name}` }),
-      );
+      await openEdit(named.name);
       fireEvent.click(await screen.findByLabelText("Light theme color"));
       fireEvent.change(screen.getByLabelText("Hex"), { target: { value: "0000ff" } });
       await expect
         .poll(async () => xcolor.hex((await other.colors.retrieve(named.key)).light))
         .toBe("#0000ff");
+    });
+
+    it("should keep a rename when Back closes the view before a blur", async () => {
+      const { named } = await createInPalette();
+      const { result } = renderField({ type: "named", key: named.key });
+      openPicker(result);
+      await openEdit(named.name);
+      const name = `renamed-${id.create()}`;
+      fireEvent.change(await screen.findByRole("textbox", { name: "Name" }), {
+        target: { value: name },
+      });
+      fireEvent.click(screen.getByLabelText("Back"));
+      await expect
+        .poll(async () => (await other.colors.retrieve(named.key)).name)
+        .toBe(name);
     });
 
     describe("focus", () => {
@@ -279,6 +302,41 @@ describe("Color.Field", () => {
         fireEvent.click(await screen.findByRole("button", { name: "Create palette" }));
         const name = `palette-${id.create()}`;
         enterName("Palette name", name);
+        await waitFor(() => expect(document.activeElement).toBe(plusOf(name)));
+      });
+
+      const escape = (placeholder: string): void => {
+        fireEvent.keyDown(screen.getByPlaceholderText(placeholder), {
+          key: "Escape",
+          code: "Escape",
+        });
+      };
+
+      it("should finish a saving color past Escape, Cancel, and +", async () => {
+        const { palette } = await createInPalette();
+        const { result } = renderField();
+        openPicker(result);
+        await openCreate(palette);
+        const name = `created-${id.create()}`;
+        enterName("Color name", name);
+        escape("Color name");
+        fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+        fireEvent.click(plusOf(palette.name));
+        expect(screen.getByPlaceholderText("Color name")).toBeTruthy();
+        const swatch = await screen.findByRole("button", { name });
+        await waitFor(() => expect(document.activeElement).toBe(swatch));
+      });
+
+      it("should finish a saving palette past Escape and Cancel", async () => {
+        await createInPalette();
+        const { result } = renderField();
+        openPicker(result);
+        fireEvent.click(await screen.findByRole("button", { name: "Create palette" }));
+        const name = `palette-${id.create()}`;
+        enterName("Palette name", name);
+        escape("Palette name");
+        fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+        expect(screen.getByPlaceholderText("Palette name")).toBeTruthy();
         await waitFor(() => expect(document.activeElement).toBe(plusOf(name)));
       });
 
@@ -383,16 +441,15 @@ describe("Color.Field", () => {
       const { result } = renderField({ type: "named", key: named.key }, limited);
       openPicker(result);
       // The edit proves the grants answered, so the missing creates are the gate.
-      expect(
-        await screen.findByRole("button", { name: `Edit ${named.name}` }),
-      ).toBeTruthy();
+      await openSwatchMenu(named.name);
+      expect(await screen.findByRole("menuitem", { name: "Edit" })).toBeTruthy();
       expect(
         screen.queryByRole("button", { name: `Create a color in ${palette.name}` }),
       ).toBeNull();
       expect(screen.queryByRole("button", { name: "Create palette" })).toBeNull();
     });
 
-    it("should offer no edit or palette create to a user who cannot update", async () => {
+    it("should open no swatch menu or palette + for a user who cannot update", async () => {
       const { palette, named } = await createInPalette();
       const limited = await createLimitedWrapper("create");
       const { result } = renderField({ type: "named", key: named.key }, limited);
@@ -401,10 +458,59 @@ describe("Color.Field", () => {
       expect(
         await screen.findByRole("button", { name: "Create palette" }),
       ).toBeTruthy();
-      expect(screen.queryByRole("button", { name: `Edit ${named.name}` })).toBeNull();
+      const swatch = screen.getByRole("button", { name: named.name });
+      act(() => swatch.focus());
+      expect(fireEvent.contextMenu(swatch)).toBe(true);
+      fireEvent.keyDown(swatch, { key: "F10", code: "F10", shiftKey: true });
+      await act(async () => {});
+      expect(screen.queryByRole("menuitem", { name: "Edit" })).toBeNull();
+      expect(document.activeElement).toBe(swatch);
       expect(
         screen.queryByRole("button", { name: `Create a color in ${palette.name}` }),
       ).toBeNull();
+    });
+
+    it("should open the swatch menu only on a color the user can update", async () => {
+      const { palette, named } = await createInPalette();
+      const locked = await client.colors.create({
+        name: `color-${id.create()}`,
+        light: "#0000FF",
+        group: palette.key,
+      });
+      const limited = await createTestClientWithPolicy(client, [
+        {
+          name: `policy-${id.create()}`,
+          objects: [
+            color.TYPE_RESOURCE_ID,
+            group.TYPE_RESOURCE_ID,
+            user.TYPE_RESOURCE_ID,
+            access.role.TYPE_RESOURCE_ID,
+            access.policy.TYPE_RESOURCE_ID,
+          ],
+          actions: ["retrieve"],
+        },
+        {
+          name: `policy-${id.create()}`,
+          objects: [color.resourceID(named.key)],
+          actions: ["update"],
+        },
+      ]);
+      const { result } = renderField(
+        { type: "named", key: named.key },
+        await createAsyncSynnaxWrapper({ client: limited }),
+      );
+      openPicker(result);
+      await openSwatchMenu(named.name);
+      expect(await screen.findByRole("menuitem", { name: "Edit" })).toBeTruthy();
+      fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape", code: "Escape" });
+      await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+      const swatch = screen.getByRole("button", { name: locked.name });
+      act(() => swatch.focus());
+      expect(fireEvent.contextMenu(swatch)).toBe(true);
+      fireEvent.keyDown(swatch, { key: "F10", code: "F10", shiftKey: true });
+      await act(async () => {});
+      expect(screen.queryByRole("menu")).toBeNull();
+      expect(document.activeElement).toBe(swatch);
     });
 
     it("should focus Create palette when a new palette gets no +", async () => {

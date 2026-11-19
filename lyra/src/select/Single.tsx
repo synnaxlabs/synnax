@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { caseconv, type record } from "@synnaxlabs/x";
+import { type record, strings } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Dialog } from "@/dialog";
 import { type List } from "@/list";
 import { Body, type BodyProps } from "@/select/Body";
-import { Dialog as SelectDialog } from "@/select/Dialog";
+import { Dialog as SelectDialog, type DialogProps } from "@/select/Dialog";
 import { Frame, type SingleFrameProps } from "@/select/Frame";
 import { usePlaceholder } from "@/select/placeholder";
 import { SingleTrigger, type SingleTriggerProps } from "@/select/SingleTrigger";
@@ -39,6 +39,11 @@ export interface SingleProps<
   preview?: boolean;
   triggerProps?: SingleTriggerProps;
   dialogProps?: Dialog.FrameProps;
+  /**
+   * The context menu of an option, opened by a right click on it, or by Shift+F10 or
+   * the Menu key while it holds the hover. It gets the key of that option only.
+   */
+  menu?: DialogProps["menu"];
 }
 
 /**
@@ -72,6 +77,7 @@ export const Single = <K extends record.Key, E extends record.Keyed<K> | undefin
   fixedItems,
   dialogProps,
   triggerProps,
+  menu,
   virtual = true,
   closeDialogOnSelect = true,
   autoSelectOnNone,
@@ -110,12 +116,12 @@ export const Single = <K extends record.Key, E extends record.Keyed<K> | undefin
           icon={icon}
           clearable={allowNone}
           placeholder={placeholder}
-          aria-label={caseconv.capitalize(resourceName)}
+          aria-label={strings.capitalize(resourceName)}
           disabled={disabled}
           preview={preview}
           {...triggerProps}
         />
-        <SelectDialog {...dialogProps}>
+        <SelectDialog {...dialogProps} menu={menu}>
           <Body<K>
             onSearch={onSearch}
             resourceName={resourceName}

@@ -7,17 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { scheduler } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { Button } from "@/button";
 import { type Component } from "@/component";
+import { renderProp } from "@/component/renderProp";
 import { Dialog } from "@/dialog";
 import { Haul } from "@/haul";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { List } from "@/list";
+import { Menu } from "@/menu";
 import { type position } from "@/position";
 import { Select } from "@/select";
 import { computed, renderThemed, resolve } from "@/styletest";
@@ -530,6 +533,54 @@ const openView = async (): Promise<void> => {
   await expect.element(page.getByText("Editing low")).toBeVisible();
 };
 
+interface MenuEntry {
+  key: string;
+  name: string;
+}
+
+const MENU_ENTRIES: MenuEntry[] = [
+  { key: "1", name: "First" },
+  { key: "2", name: "Second" },
+];
+
+const renderMenuEntry = renderProp((props: List.ItemProps<string>) => (
+  <Select.Item {...props}>
+    <Text.Text>{MENU_ENTRIES.find((e) => e.key === props.itemKey)?.name}</Text.Text>
+  </Select.Item>
+));
+
+const MenuSingle = (): ReactElement => {
+  const { data, getItem } = List.useStaticData<string, MenuEntry>({
+    data: MENU_ENTRIES,
+  });
+  const [value, setValue] = useState<string>();
+  return (
+    <Triggers.Provider>
+      <Select.Single<string, MenuEntry>
+        data={data}
+        getItem={getItem}
+        value={value}
+        onChange={setValue}
+        resourceName="Entry"
+        initialHover={1}
+        menu={({ keys }) => (
+          <Menu.Menu>
+            <Menu.Item itemKey="edit">{`menu for ${keys.join(",")}`}</Menu.Item>
+          </Menu.Menu>
+        )}
+      >
+        {renderMenuEntry}
+      </Select.Single>
+    </Triggers.Provider>
+  );
+};
+
+const openMenuSingle = async (): Promise<void> => {
+  await renderThemed(<MenuSingle />);
+  await userEvent.click(page.getByRole("button", { name: "Entry" }));
+  await expect.element(page.getByRole("option", { name: "Second" })).toBeVisible();
+};
+
 describe("Select", () => {
   describe("described options", () => {
     it("should put the icon beside the name and the description under it", async () => {
@@ -886,7 +937,7 @@ describe("Select", () => {
       const trigger = await renderChips("text", 200, { preview: true });
       // A preview reads as disabled, which a user can still click.
       chip(trigger, "Pass").click();
-      await new Promise(requestAnimationFrame);
+      await scheduler.nextFrame();
       expect(document.querySelector(".lyra-dialog__dialog")).toBeNull();
     });
 
@@ -1241,6 +1292,24 @@ describe("Select", () => {
       expect(list.getBoundingClientRect().top).toBe(
         search.getBoundingClientRect().bottom - 1,
       );
+    });
+  });
+
+  describe("option menu", () => {
+    it("should open the menu of the hovered option on Shift+F10", async () => {
+      await openMenuSingle();
+      await userEvent.keyboard("{Shift>}{F10}{/Shift}");
+      await expect
+        .element(page.getByRole("menuitem", { name: "menu for 2" }))
+        .toBeVisible();
+    });
+
+    it("should open the menu of the hovered option on the Menu key", async () => {
+      await openMenuSingle();
+      await userEvent.keyboard("{ContextMenu}");
+      await expect
+        .element(page.getByRole("menuitem", { name: "menu for 2" }))
+        .toBeVisible();
     });
   });
 });

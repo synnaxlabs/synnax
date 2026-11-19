@@ -9,6 +9,7 @@
 
 import { label, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -22,7 +23,6 @@ import {
   findDialogTrigger,
   getIconButton,
   type Grants,
-  uniqueName,
   uniqueToken,
 } from "@/testutil";
 

@@ -9,6 +9,7 @@
 
 import { pagerduty, type secret, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { type z } from "zod";
@@ -21,7 +22,7 @@ import {
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
 } from "@/platform/task/testutil";
-import { findDialogTriggerByText, uniqueName } from "@/testutil";
+import { findDialogTriggerByText } from "@/testutil";
 
 const client = createTestClient();
 
