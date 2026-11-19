@@ -10,8 +10,6 @@
 import "@/schematic/node/common/form/States.css";
 
 import { type color as colorRef, enumeration, schematic } from "@synnaxlabs/client";
-import { Button } from "@synnaxlabs/lyra/button";
-import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
@@ -19,7 +17,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { color, type deep, uuid } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { type ReactElement, useState } from "react";
 
 import { Access } from "@/access";
 import { Color } from "@/color";
@@ -91,27 +89,6 @@ const Options = ({ path, colorDisabled, preview }: OptionsProps): ReactElement =
   );
 };
 
-interface CreateItemProps {
-  /** Called with the search text when the user creates an enumeration. */
-  onCreate: (term: string) => void;
-}
-
-const CreateItem = ({ onCreate }: CreateItemProps): ReactElement => {
-  const { close } = Dialog.useContext();
-  const term = Select.useTerm();
-  return (
-    <Button.CreateListItem
-      size="small"
-      onClick={() => {
-        close();
-        onCreate(term);
-      }}
-    >
-      Create enumeration
-    </Button.CreateListItem>
-  );
-};
-
 interface UsedByProps {
   enumeration: enumeration.Key;
 }
@@ -148,7 +125,8 @@ export interface StatesProps {
 
 /**
  * Picks the enumeration that a node draws and edits its entries, or edits the node's
- * own options when it names none. Creating an enumeration moves the options into it.
+ * own options when it names none. Creating an enumeration moves the options into it. A
+ * node that names one gets a new empty enumeration, with focus in its entries.
  */
 export const States = ({
   enumeration: enumerationPath,
@@ -161,6 +139,8 @@ export const States = ({
   const key = Form.useFieldValue(enumerationPath, { optional: true }) ?? undefined;
   const canCreate = Access.useCreateGranted(enumeration.TYPE_RESOURCE_ID);
   const { updateAsync, variant } = Enumeration.useCreate();
+  // The enumeration just created for a node that named one, whose entries take focus.
+  const [focused, setFocused] = useState<enumeration.Key>();
   const handleChange = (next: enumeration.Key | undefined): void => {
     if (next == null || next === NONE) remove(enumerationPath);
     else set(enumerationPath, next);
@@ -169,20 +149,28 @@ export const States = ({
     const name =
       [term, get(label).value].map((n) => n.trim()).find((n) => n !== "") ?? symbolName;
     const created = uuid.create();
-    const entries = get<schematic.StateMapping[]>(options).value.map(toEntry);
+    // A node that names an enumeration hides its own options, so none move.
+    const entries =
+      key == null ? get<schematic.StateMapping[]>(options).value.map(toEntry) : [];
     void (async () => {
-      const ok = await updateAsync({ key: created, name, entries });
-      if (ok !== false) set(enumerationPath, created);
+      if ((await updateAsync({ key: created, name, entries })) === false) return;
+      set(enumerationPath, created);
+      if (key != null) setFocused(created);
     })();
   };
   const footer = (
     <>
       <Menu.Divider />
+      {canCreate && (
+        <Select.CreateItem<enumeration.Key, enumeration.Enumeration>
+          resourceName="enumeration"
+          onCreate={handleCreate}
+        />
+      )}
       <Select.Item<enumeration.Key> itemKey={NONE} textValue="No enumeration">
         <Icon.None />
         No enumeration
       </Select.Item>
-      {canCreate && <CreateItem onCreate={handleCreate} />}
     </>
   );
   return (
@@ -208,7 +196,11 @@ export const States = ({
               preview={variant === "loading"}
             />
           ) : (
-            <Enumeration.Entries enumeration={key} />
+            <Enumeration.Entries
+              key={key}
+              enumeration={key}
+              autoFocus={focused === key}
+            />
           )}
         </Input.Item>
       </Form.Section>
