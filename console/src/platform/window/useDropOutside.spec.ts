@@ -18,42 +18,18 @@ vi.mock("@/session/runtime/runtime", async (importOriginal) => {
   return await mockRuntimeEngine(importOriginal, mocks);
 });
 
-import { Haul } from "@synnaxlabs/lyra/haul";
 import type { xy } from "@synnaxlabs/x";
-import { act, renderHook } from "@testing-library/react";
-import { type FC, type PropsWithChildren } from "react";
+import { act } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { Window } from "@/platform/window";
-import { createConsoleWrapper } from "@/testutil";
+import { ITEM, renderDropOutside, SOURCE } from "@/platform/window/testutil";
 
-const SOURCE: Haul.Item = { key: "source", type: "mosaic-tab" };
-const ITEM: Haul.Item = { key: "tab", type: "mosaic-tab" };
 const CURSOR: xy.XY = { x: 100, y: 360 };
-
-const renderDropOutside = async (engine: "web" | "tauri") => {
-  mocks.engine = engine;
-  const { wrapper: Base } = await createConsoleWrapper({ client: null });
-  const Wrapper: FC<PropsWithChildren> = ({ children }) => (
-    <Base>
-      <Haul.Provider>{children}</Haul.Provider>
-    </Base>
-  );
-  Wrapper.displayName = "Wrapper";
-  const onDrop = vi.fn();
-  const { result } = renderHook(
-    () => {
-      Window.useDropOutside({ canDrop: () => true, onDrop });
-      return Haul.useContext();
-    },
-    { wrapper: Wrapper },
-  );
-  return { onDrop, haul: result.current };
-};
 
 describe("useDropOutside", () => {
   it("should resolve a drag ending over the desktop under Tauri", async () => {
-    const { onDrop, haul } = await renderDropOutside("tauri");
+    mocks.engine = "tauri";
+    const { onDrop, haul } = await renderDropOutside();
     act(() => {
       haul?.start(SOURCE, [ITEM]);
       haul?.end(CURSOR);
@@ -64,7 +40,8 @@ describe("useDropOutside", () => {
   // The web runtime reports no window geometry, so an unclaimed drop anywhere in the
   // page looks like one released over the desktop and tears the tab out of view.
   it("should leave an unclaimed drop alone in the browser", async () => {
-    const { onDrop, haul } = await renderDropOutside("web");
+    mocks.engine = "web";
+    const { onDrop, haul } = await renderDropOutside();
     act(() => {
       haul?.start(SOURCE, [ITEM]);
       haul?.end(CURSOR);

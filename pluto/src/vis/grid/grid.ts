@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, direction, location, xy } from "@synnaxlabs/x";
+import { box, direction, location, math, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export const regionZ = z.object({
@@ -98,9 +98,9 @@ export const position = (key: string, grid: Grid, container: box.Box): xy.XY => 
   const otherAxes = regions(filterLoc, grid);
   const index = axes.findIndex(({ key: k }) => k === key);
 
-  const offset = axes.slice(0, index).reduce((acc, { size }) => acc + size, 0);
+  const offset = math.sum(axes.slice(0, index).map(({ size }) => size));
 
-  const otherOffset = otherAxes.reduce((acc, { size }) => acc + size, 0);
+  const otherOffset = math.sum(otherAxes.map(({ size }) => size));
 
   switch (loc) {
     case "left":
@@ -129,10 +129,10 @@ export const visualizationBox = (grid: Grid, container: box.Box): box.Box => {
   const right = regions("right", grid);
   const top = regions("top", grid);
   const bottom = regions("bottom", grid);
-  const leftWidth = left.reduce((acc, { size }) => acc + size, 0);
-  const rightWidth = right.reduce((acc, { size }) => acc + size, 0);
-  const topHeight = top.reduce((acc, { size }) => acc + size, 0);
-  const bottomHeight = bottom.reduce((acc, { size }) => acc + size, 0);
+  const leftWidth = math.sum(left.map(({ size }) => size));
+  const rightWidth = math.sum(right.map(({ size }) => size));
+  const topHeight = math.sum(top.map(({ size }) => size));
+  const bottomHeight = math.sum(bottom.map(({ size }) => size));
   return box.construct(
     xy.translate(box.topLeft(container), { x: leftWidth, y: topHeight }),
     box.width(container) - leftWidth - rightWidth,

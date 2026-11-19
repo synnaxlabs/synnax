@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { map } from "@synnaxlabs/x";
 import { Profiler, type ReactElement, type ReactNode } from "react";
 
 export interface CountedProps {
@@ -29,7 +30,7 @@ export const createRenderCounter = (): RenderCounter => {
     <Profiler
       id={id}
       onRender={(_, phase) => {
-        if (phase !== "mount") counts.set(id, (counts.get(id) ?? 0) + 1);
+        if (phase !== "mount") map.increment(counts, id);
       }}
     >
       {children}

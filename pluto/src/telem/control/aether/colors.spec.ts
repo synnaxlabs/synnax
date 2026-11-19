@@ -246,6 +246,68 @@ describe("control/aether/Colors", SUITE, () => {
     expect(color.equals(colors.get(a.subject), colors.get(b.subject))).toBe(false);
   });
 
+  it("should give a new subject a free color, not a wrapped subject's", async () => {
+    const channels = await createChannels(PALETTE.length + 2);
+    const { colors } = await setup(channels);
+    const holders: Holder[] = [];
+    for (const ch of channels.slice(0, PALETTE.length + 1)) {
+      const h = await hold(ch);
+      await assigned(colors, h.subject);
+      holders.push(h);
+    }
+    const wrapped = holders[PALETTE.length];
+    const wrappedColor = colors.get(wrapped.subject);
+    await Promise.all(
+      holders.slice(0, PALETTE.length).map(async (h) => await h.release()),
+    );
+    const next = await hold(channels[PALETTE.length + 1]);
+    const nextColor = await assigned(colors, next.subject);
+    expect(color.equals(nextColor, wrappedColor)).toBe(false);
+  });
+
+  it("should part subjects that share a color once a color frees up", async () => {
+    const channels = await createChannels(PALETTE.length + 1);
+    const { colors } = await setup(channels);
+    const holders: Holder[] = [];
+    for (const ch of channels) {
+      const h = await hold(ch);
+      await assigned(colors, h.subject);
+      holders.push(h);
+    }
+    const [first, second] = holders;
+    const wrapped = holders[PALETTE.length];
+    expect(color.equals(colors.get(wrapped.subject), colors.get(first.subject))).toBe(
+      true,
+    );
+    await second.release();
+    await expect
+      .poll(
+        () => color.equals(colors.get(wrapped.subject), colors.get(first.subject)),
+        POLL,
+      )
+      .toBe(false);
+  });
+
+  it("should part subjects that collide when the series colors shrink", async () => {
+    const channels = await createChannels(PALETTE.length);
+    const { colors, setSeries } = await setup(channels);
+    const holders: Holder[] = [];
+    for (const ch of channels) {
+      const h = await hold(ch);
+      await assigned(colors, h.subject);
+      holders.push(h);
+    }
+    const [first, second, third] = holders;
+    await second.release();
+    await expect
+      .poll(() => color.equals(colors.get(second.subject), DEFAULT_COLOR), POLL)
+      .toBe(true);
+    setSeries(PALETTE.slice(0, 2));
+    expect(color.equals(colors.get(first.subject), colors.get(third.subject))).toBe(
+      false,
+    );
+  });
+
   it("should keep subjects apart when the same series colors arrive again", async () => {
     const [first, second] = await createChannels(2);
     const { colors, setSeries } = await setup([first, second]);
