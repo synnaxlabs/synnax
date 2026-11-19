@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import subprocess
+import sys
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -213,3 +214,90 @@ class TestCheck:
         assert finding.message == (
             "adds a skipped test: `PIt(` (skip markers in the file: 0 before, 1 now)"
         )
+
+
+class TestGaps:
+    """Cases that pin claims of the script with no spec of their own."""
+
+    def test_should_not_report_a_renamed_file_with_a_marker(
+        self, tmp_path: Path
+    ) -> None:
+        old = GO + 'var _ = PIt("b", func() {})\n'
+        new = old + 'var _ = It("c", func() {})\n'
+        got = _run(
+            tmp_path,
+            {"a_test.go": old},
+            {"b_test.go": new},
+            moves=(("a_test.go", "b_test.go"),),
+        )
+        assert got == []
+
+    @pytest.mark.parametrize(
+        "line",
+        ['it.skip.each([1])("a", () => {});\n', "it.skip`a`(() => {});\n"],
+    )
+    def test_should_report_a_chained_or_tagged_skip(
+        self, tmp_path: Path, line: str
+    ) -> None:
+        assert _run(tmp_path, {"a.spec.ts": TS}, {"a.spec.ts": TS + line}) == [
+            ("a.spec.ts", 2)
+        ]
+
+    def test_should_not_report_a_marker_in_a_cpp_raw_string(
+        self, tmp_path: Path
+    ) -> None:
+        head = CPP + 'auto s = R"x(a" GTEST_SKIP() ")x";\n'
+        assert _run(tmp_path, {"a_test.cpp": CPP}, {"a_test.cpp": head}) == []
+
+    def test_should_report_a_marker_after_a_digit_separator(
+        self, tmp_path: Path
+    ) -> None:
+        head = CPP + "int x = 1'000; GTEST_SKIP();\n"
+        assert _run(tmp_path, {"a_test.cpp": CPP}, {"a_test.cpp": head}) == [
+            ("a_test.cpp", 2)
+        ]
+
+    def test_should_not_report_a_marker_after_an_escaped_quote(
+        self, tmp_path: Path
+    ) -> None:
+        head = TS + 'const s = "a \\" it.skip(";\n'
+        assert _run(tmp_path, {"a.spec.ts": TS}, {"a.spec.ts": head}) == []
+
+    def test_should_report_a_marker_after_a_go_raw_string_that_ends_in_a_backslash(
+        self, tmp_path: Path
+    ) -> None:
+        head = GO + "func f(t *testing.T) { p := `C:\\`; t.Skip() }\n"
+        assert _run(tmp_path, {"a_test.go": GO}, {"a_test.go": head}) == [
+            ("a_test.go", 4)
+        ]
+
+    def test_should_name_a_changed_line_that_now_holds_a_marker(
+        self, tmp_path: Path
+    ) -> None:
+        head = GO.replace('It("a"', 'PIt("a"')
+        assert _run(tmp_path, {"a_test.go": GO}, {"a_test.go": head}) == [
+            ("a_test.go", 3)
+        ]
+
+    def test_should_report_a_marker_that_an_edit_elsewhere_reveals(
+        self, tmp_path: Path
+    ) -> None:
+        base = "package a\n\nvar s = `\nfunc f(t *testing.T) { t.Skip() }\n`\n"
+        head = base.replace("var s = `\n", "var s = ``\n")
+        assert _run(tmp_path, {"a_test.go": base}, {"a_test.go": head}) == [
+            ("a_test.go", 0)
+        ]
+
+    @pytest.mark.parametrize(("line", "code"), [("// a note\n", 0), ("t.Skip()\n", 1)])
+    def test_should_exit_with_one_on_a_finding(
+        self, tmp_path: Path, line: str, code: int
+    ) -> None:
+        _run(tmp_path, {"a_test.go": GO}, {"a_test.go": GO + line})
+        script = Path(__file__).resolve().parent.parent / "check_skipped_tests.py"
+        result = subprocess.run(
+            [sys.executable, str(script), "--base", "HEAD~1"],
+            cwd=tmp_path,
+            capture_output=True,
+            check=False,
+        )
+        assert result.returncode == code
