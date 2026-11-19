@@ -303,6 +303,17 @@ TEST(Cursor, RejectsInvalidKeyFromProto) {
     ASSERT_EQ(err.data, "Invalid UUID string at position 0: hex digit expected");
 }
 
+/// @brief it should reject a binary field with an unknown byte order.
+TEST(BinaryField, RejectsUnknownByteOrderToProto) {
+    x::json::Parser parser(BINARY_MESSAGE["payload"]["fields"][0]);
+    auto f = BinaryField::parse(parser);
+    ASSERT_NIL(parser.error());
+    f.byte_order = "diagonal";
+    const auto [_, err] = f.to_proto();
+    ASSERT_TRUE(err);
+    EXPECT_EQ(err.type, "unrecognized ByteOrder value: diagonal");
+}
+
 /// @brief it should reject a message with no key.
 TEST(Message, RejectsEmptyKeyFromProto) {
     const ::service::icd::pb::Message pb;
