@@ -247,14 +247,11 @@ export class Dynamic {
   private _write(series: Series, res: WriteResponse): void {
     const { instrumentation: ins } = this.props;
     if (this.curr != null)
-      if (!this.curr.dataType.equals(series.dataType)) {
-        // The channel's data type changed (e.g. a calculated channel was reconfigured).
-        ins.L.warn("buffer data type changed, resetting", {
-          prev: this.curr.dataType.toString(),
-          next: series.dataType.toString(),
-        });
+      if (
+        !this.curr.dataType.equals(series.dataType) ||
+        series.clock !== this.curr.clock
+      )
         this.flushCurr(res);
-      } else if (series.clock !== this.curr.clock) this.flushCurr(res);
       else if (series.alignment < this.curr.alignment) {
         // The alignment counter rewound (e.g. the Core restarted and reset its
         // in-memory counter).

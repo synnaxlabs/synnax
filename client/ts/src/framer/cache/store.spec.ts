@@ -647,6 +647,48 @@ describe("Store", () => {
       expect(block.covers(BLOCK)).toBe(false);
     });
 
+    // backfill appends a run of count index samples at the next alignment after the
+    // stream, stamped from the start of the block, earlier than the floor.
+    const backfill = (store: Store, count: number): void => {
+      const start = BLOCK.start.add(TimeSpan.milliseconds(1));
+      const piece = new Series({
+        data: new Float32Array(count),
+        alignment: alignmentOf(100, 10_000),
+        timeRange: start.range(start.add(TimeSpan.milliseconds(count))),
+      });
+      store.append(store.raw(index.key, 100), piece, true);
+    };
+
+    it("should not move the floor back in time for a backfilled run", () => {
+      const store = createStore(BLOCK.end);
+      stream(store, 10_000);
+      const floor = store.floor(index.key);
+      backfill(store, 40);
+      expect(store.floor(index.key)).toEqual(floor);
+    });
+
+    it("should move the floor forward for samples that come after a backfill", () => {
+      const store = createStore(BLOCK.end);
+      stream(store, 10_000);
+      const floor = store.floor(index.key);
+      backfill(store, 40);
+      for (let offset = 0; offset < 400; offset += 4) {
+        const start = BLOCK.start.add(TimeSpan.milliseconds(10_000 + offset));
+        store.append(
+          store.raw(index.key, 100),
+          new Series({
+            data: new Float32Array(4),
+            alignment: alignmentOf(100, 10_040 + offset),
+            timeRange: start.range(start.add(TimeSpan.milliseconds(4))),
+          }),
+          offset === 0,
+        );
+      }
+      expect(store.floor(index.key)?.start.after(floor?.start ?? TimeStamp.MAX)).toBe(
+        true,
+      );
+    });
+
     it("should keep every sample after the commit point", () => {
       const store = createStore(BLOCK.start.add(TimeSpan.milliseconds(1000)));
       stream(store, 1000);

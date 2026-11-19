@@ -180,8 +180,8 @@ class Join {
  * catches up with a read. Then index samples get block offsets in time order, and data
  * samples take the offsets of the index samples that share their Core alignment, from
  * the same frame or an earlier one. A gap in the stream or a change to the history of
- * an open block sends a join back to wait. Every method that can do
- * so returns the index channels of the joins that wait.
+ * an open block sends a join back to wait. Every method that can do so returns the
+ * index channels of the joins that wait.
  */
 export class Joins {
   private readonly joins = new Map<channel.Key, Join>();
