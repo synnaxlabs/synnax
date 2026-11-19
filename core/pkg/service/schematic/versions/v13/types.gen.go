@@ -18,7 +18,6 @@ import (
 	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
-	enumeration "github.com/synnaxlabs/synnax/pkg/service/enumeration/versions/v0"
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
 	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v4"
@@ -1907,9 +1906,6 @@ type SelectNodeConfig struct {
 	InlineSize uint16 `json:"inline_size" msgpack:"inline_size"`
 	// Options is the set of selectable states.
 	Options []StateMapping `json:"options" msgpack:"options"`
-	// Enumeration is the enumeration whose entries the select offers in place of its
-	// options.
-	Enumeration *enumeration.Key `json:"enumeration,omitzero" msgpack:"enumeration,omitempty"`
 	// Disabled indicates whether the select rejects interaction.
 	Disabled bool `json:"disabled" msgpack:"disabled"`
 	// OnClickDelay is the debounce delay applied to clicks.
@@ -2042,9 +2038,6 @@ type StateIndicatorNodeConfig struct {
 	InlineSize uint16 `json:"inline_size" msgpack:"inline_size"`
 	// Options is the set of displayable states.
 	Options []StateMapping `json:"options" msgpack:"options"`
-	// Enumeration is the enumeration whose entries the indicator shows in place of its
-	// options.
-	Enumeration *enumeration.Key `json:"enumeration,omitzero" msgpack:"enumeration,omitempty"`
 	// Size is the rendered size preset of the indicator.
 	Size ComponentSize `json:"size" msgpack:"size"`
 }
@@ -5330,7 +5323,6 @@ type Schematic struct {
 // schema constraints.
 func (s Schematic) Validate() error {
 	v := validate.New("Schematic")
-	v.NotEmptyString("name", s.Name)
 	for i := range s.Nodes {
 		v.Exec(func() error { return validate.PathedError(s.Nodes[i].Validate(), "nodes", strconv.Itoa(i)) })
 	}
