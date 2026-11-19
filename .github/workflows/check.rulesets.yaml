@@ -32,8 +32,21 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Verify rulesets
         env:
           GH_TOKEN: ${{ secrets.GH_SERVICE_TOKEN }}
         run: .github/scripts/verify_rulesets.sh
+
+  relay-failure:
+    name: Relay the failure
+    needs: [verify]
+    if:
+      always() && github.event_name == 'schedule' && contains(needs.*.result, 'failure')
+    permissions:
+      actions: write
+    uses: ./.github/workflows/relay.failure.yaml
+    with:
+      report: true

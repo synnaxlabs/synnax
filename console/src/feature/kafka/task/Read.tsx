@@ -39,8 +39,9 @@ import {
 
 import { use } from "@/feature/kafka/device/queries";
 import { Select as SelectDevice, useNoneSelected } from "@/feature/kafka/device/Select";
-import { type Device, MAKE, SCHEMAS } from "@/feature/kafka/device/types";
+import { type Device, SCHEMAS } from "@/feature/kafka/device/types";
 import { useConnectModal } from "@/feature/kafka/device/useConnectModal";
+import { DEFAULT_READ_NAME } from "@/feature/kafka/task/create";
 import {
   deployReadConfigZ,
   READ_SCHEMAS,
@@ -52,12 +53,9 @@ import {
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
 import { ICD } from "@/platform/icd";
-import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const root = deep.path<Task.Values<ReadSchemas>>();
-
-const DEFAULT_NAME = "Kafka read task";
 
 const ANY_KEY = "Any key";
 
@@ -173,7 +171,8 @@ const recordOf = (icdKey: icd.Key, message: icd.MessageKey): ReadRecord =>
   kafka.readRecordZ.parse({ icd: icdKey, messages: [{ message }] });
 
 /** @returns the name of the ICD of a task named name. */
-const icdName = (name: string): string => (name.trim() === "" ? DEFAULT_NAME : name);
+const icdName = (name: string): string =>
+  name.trim() === "" ? DEFAULT_READ_NAME : name;
 
 /** @returns the prefix of the channel names of a message, current with its name. */
 const usePrefix = (
@@ -633,15 +632,6 @@ const Form = PlatformDevice.wrapTaskForm({
   Content,
 });
 
-const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({
-  deviceKey,
-  config,
-}) => {
-  const cfg = READ_SCHEMAS.config.parse(config ?? {});
-  if (deviceKey != null) cfg.device = deviceKey;
-  return { name: DEFAULT_NAME, type: READ_TYPE, config: cfg };
-};
-
 /** Gives each field that an enabled record reads a channel, and binds it. */
 const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, config) => {
   const dev = await client.devices.retrieve({ key: config.device, schemas: SCHEMAS });
@@ -687,16 +677,3 @@ export const Read = Task.wrapForm({
   type: READ_TYPE,
   onConfigure,
 });
-
-export const useCreateRead = Task.createUseCreate({
-  getInitialValues,
-  deviceMake: MAKE,
-});
-
-export const ReadSelectable: Selector.Selectable = {
-  type: READ_TYPE,
-  title: DEFAULT_NAME,
-  label: "Read",
-  icon: <Icon.Logo.Kafka />,
-  useOnSelect: useCreateRead,
-};

@@ -13,8 +13,8 @@
 # <pr_number>. Prints "<state>\t<description>" where state is pending, failure, or
 # success. A pull request needs one tier label and a Sedosaur 5/5 of the head. A pull
 # request Dependabot opened and wrote every commit of passes without a review. A fork
-# fails, since Sedosaur does not review one. Exits non-zero only when the GitHub API
-# fails.
+# also needs a signed contributor license agreement and a maintainer's approval of the
+# head. Exits non-zero only when the GitHub API fails.
 
 set -euo pipefail
 
@@ -50,7 +50,15 @@ case "$TIER" in
 esac
 
 if [ "$FORK" = true ]; then
-    report failure "Sedosaur does not review forks: reopen it from a branch here"
+    CLA=$("$GH_API" "repos/${REPO}/commits/${HEAD}/status" \
+        --jq '[.statuses[] | select(.context == "license/cla")][0].state // "none"')
+    if [ "$CLA" != success ]; then
+        report pending "waiting for the contributor license agreement"
+    fi
+    APPROVED=$("$(dirname "$0")/fork_approved.sh" "$PR" "$HEAD")
+    if [ "$APPROVED" != true ]; then
+        report pending "waiting for a maintainer to approve the head"
+    fi
 fi
 
 # Only a review of the head counts. A push after the review needs a new request. When

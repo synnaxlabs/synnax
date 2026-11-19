@@ -11,11 +11,11 @@ version: v2
 managed:
   enabled: true
 plugins:
-  - remote: buf.build/grpc/go
+  - remote: buf.build/grpc/go:v1.6.2
     out: .
     opt:
       - paths=source_relative
       - require_unimplemented_servers=false
-  - remote: buf.build/protocolbuffers/go
+  - remote: buf.build/protocolbuffers/go:v1.36.12
     out: .
     opt: paths=source_relative
