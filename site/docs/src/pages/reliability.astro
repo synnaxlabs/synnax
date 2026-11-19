@@ -244,11 +244,11 @@ const skipped = Object.entries(
                             <span>
                                 Every day, our hardware-in-the-loop (HITL) station tests
                                 Synnax on real devices: an NI CompactDAQ, an NI
-                                CompactRIO that runs the Driver on the controller, a
-                                LabJack T4, and an EtherCAT network of seven modules. On
-                                the CompactRIO and the LabJack, outputs connect to
-                                inputs, so a test writes a value and reads it back
-                                through the hardware. These tests ran{" "}
+                                CompactRIO that runs the Synnax Driver on the
+                                controller, a LabJack T4, and an EtherCAT network of
+                                seven modules. On the CompactRIO and the LabJack,
+                                outputs connect to inputs, so a test writes a value and
+                                reads it back through the hardware. These tests ran{" "}
                                 {day(hardware.started_at)} in run{" "}
                                 <a href={hardware.url}>#{hardware.id}</a> on commit{" "}
                                 <a href={`${REPO}/commit/${hardware.sha}`}>
