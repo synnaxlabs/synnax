@@ -60,7 +60,7 @@ STARTS = {
     ),
     "windows-tester-new": (
         "windows-tester",
-        "self-hosted,Windows,X64,windows-latest,windows-test-bot",
+        "self-hosted,Windows,X64,windows-test-bot",
     ),
 }
 
