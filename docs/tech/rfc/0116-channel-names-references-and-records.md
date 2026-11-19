@@ -475,7 +475,11 @@ map probe and a 1 to 2 µs keyed read. The sibling index costs about 175 B per c
 
 ### 4.9 Migrations and compatibility
 
-- **Phase 1: Channel v2.** It drops `internal` and logs each record that held it.
+- **Phase 1: Channel v2.** It drops `internal` and logs each record that held it. A
+  one-shot step, `v63_clear_unissued_channel_links`, runs once the channel service and
+  its counter are open and before the API serves: it clears every stored schematic and
+  table link whose key this Core never issued, as `core/v0.62.0` import kept raw keys
+  and those fields had no reference.
 - **Phase 2: Names.** The pass rewrites a name only when it breaks the rule, which
   includes a name not in NFC, or when a channel with a lower key holds it in the same
   folder after NFC. Each `.` becomes `_`, refused characters go, invalid bytes become
