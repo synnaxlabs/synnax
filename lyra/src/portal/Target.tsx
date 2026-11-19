@@ -29,7 +29,8 @@ export interface TargetProps extends PropsWithChildren {
 
 /**
  * Makes the dialogs, context menus, and tooltips in its children portal into element
- * instead of their default target.
+ * instead of their default target. `Tooltip.Overflow` mounts at the app root, outside
+ * every Target, so it keeps its default.
  */
 export const Target = ({ element, children }: TargetProps): ReactElement => (
   <Base value={element}>{children}</Base>

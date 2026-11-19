@@ -28,8 +28,9 @@ export interface DialogProps extends Flex.BoxProps<"div"> {}
 
 /**
  * The floating surface of a {@link Frame}. It mounts only while open and portals itself
- * to the document root. A modal holds the focus while open and gives it back on close.
- * Any other dialog takes the place right after its trigger in the tab order.
+ * into the nearest `Portal.Target`, or the document root outside one. A modal holds the
+ * focus while open and gives it back on close. Any other dialog takes the place right
+ * after its trigger in the tab order.
  */
 export const Dialog = ({
   ref: propsRef,
