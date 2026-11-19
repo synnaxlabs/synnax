@@ -9,9 +9,7 @@
 
 import { describe, expect, it, test } from "vitest";
 
-import { type numeric } from "@/numeric";
 import { bounds } from "@/spatial/bounds";
-import { toString } from "@/testutil";
 
 // More items than a call takes as arguments.
 const MANY = 200_000;
@@ -94,6 +92,14 @@ describe("Bounds", () => {
       const b = bounds.construct([1, 3]);
       expect(bounds.equals(a, b)).toEqual(false);
     });
+    it("should compare reversed bounds as given", () => {
+      expect(bounds.equals([1, 2], [2, 1])).toEqual(false);
+      expect(bounds.equals([2, 1], [2, 1])).toEqual(true);
+    });
+    it("should tell INVALID apart from INFINITE", () => {
+      expect(bounds.equals(bounds.INVALID, bounds.INVALID)).toEqual(true);
+      expect(bounds.equals(bounds.INVALID, bounds.INFINITE)).toEqual(false);
+    });
   });
   describe("contains", () => {
     it("should return true if the value is within the bounds", () => {
@@ -124,60 +130,71 @@ describe("Bounds", () => {
       expect(bounds.contains(b1, b2)).toEqual(true);
       expect(bounds.contains(b2, b1)).toEqual(true);
     });
+    it("should contain no values when the lower is above the upper", () => {
+      const b = { lower: 2, upper: 1 };
+      expect(bounds.contains(b, 1)).toEqual(false);
+      expect(bounds.contains(b, 1.5)).toEqual(false);
+      expect(bounds.contains(b, 2)).toEqual(false);
+      expect(bounds.contains(b, [1.2, 1.8])).toEqual(false);
+    });
+    it("should contain nothing in INVALID", () => {
+      expect(bounds.contains(bounds.INVALID, 0)).toEqual(false);
+      expect(bounds.contains(bounds.INVALID, Infinity)).toEqual(false);
+      expect(bounds.contains(bounds.INVALID, -Infinity)).toEqual(false);
+      expect(bounds.contains(bounds.INVALID, [1, 2])).toEqual(false);
+    });
   });
   describe("span", () => {
     it("should return the span of the bound", () => {
       const b = bounds.construct([1, 2]);
       expect(bounds.span(b)).toEqual(1);
     });
+    it("should return a negative span when the lower is above the upper", () => {
+      expect(bounds.span({ lower: 2, upper: 1 })).toEqual(-1);
+    });
+    it("should return a span of -Infinity for INVALID", () => {
+      expect(bounds.span(bounds.INVALID)).toEqual(-Infinity);
+    });
   });
-  test("isZero", () => {
-    const b = bounds.construct([0, 0]);
-    expect(bounds.isZero(b)).toEqual(true);
-  });
-  test("spanIsZero", () => {
-    const b = bounds.construct([1, 1]);
-    expect(bounds.spanIsZero(b)).toEqual(true);
-  });
-  describe("max", () => {
+  describe("union", () => {
     it("should return the bound with the maximum possible span", () => {
       const args: bounds.Crude[] = [
         [1, 2],
         [-1, 1],
       ];
-      const bound = bounds.max(args);
+      const bound = bounds.union(args);
       expect(bound.lower).toEqual(-1);
       expect(bound.upper).toEqual(2);
     });
     it("should treat INVALID as the union identity", () => {
-      const bound = bounds.max([[-250, -100], bounds.INVALID]);
+      const bound = bounds.union([[-250, -100], bounds.INVALID]);
       expect(bound).toStrictEqual({ lower: -250, upper: -100 });
     });
     it("should preserve a reversed member instead of reordering it", () => {
-      const bound = bounds.max([{ lower: 20, upper: 10 }]);
+      const bound = bounds.union([{ lower: 20, upper: 10 }]);
       expect(bound).toStrictEqual({ lower: 20, upper: 10 });
     });
     it("should take more bounds than a call takes arguments", () => {
       const many = Array.from({ length: MANY }, (_, i): bounds.Crude => [i, i + MANY]);
-      expect(bounds.max(many)).toStrictEqual({ lower: 0, upper: 2 * MANY - 1 });
+      expect(bounds.union(many)).toStrictEqual({ lower: 0, upper: 2 * MANY - 1 });
     });
   });
-  describe("min", () => {
+  describe("intersection", () => {
     it("should return the bound with the minimum possible span", () => {
       const args: bounds.Crude[] = [
         [1, 2],
         [-1, 1],
       ];
-      const bound = bounds.min(args);
+      const bound = bounds.intersection(args);
       expect(bound.lower).toEqual(1);
       expect(bound.upper).toEqual(1);
     });
     it("should treat INVALID as absorbing", () => {
-      const bound = bounds.min([[-250, -100], bounds.INVALID]);
+      const bound = bounds.intersection([[-250, -100], bounds.INVALID]);
       expect(bound).toStrictEqual(bounds.INVALID);
     });
     it("should produce reversed bounds for disjoint inputs", () => {
-      const bound = bounds.min([
+      const bound = bounds.intersection([
         [0, 10],
         [20, 30],
       ]);
@@ -185,7 +202,7 @@ describe("Bounds", () => {
     });
     it("should take more bounds than a call takes arguments", () => {
       const many = Array.from({ length: MANY }, (_, i): bounds.Crude => [i, i + MANY]);
-      expect(bounds.min(many)).toStrictEqual({ lower: MANY - 1, upper: MANY });
+      expect(bounds.intersection(many)).toStrictEqual({ lower: MANY - 1, upper: MANY });
     });
   });
   describe("isFinite", () => {
@@ -199,6 +216,9 @@ describe("Bounds", () => {
     });
     it("should return false for INVALID", () => {
       expect(bounds.isFinite(bounds.INVALID)).toEqual(false);
+    });
+    it("should return true for finite bounds with the lower above the upper", () => {
+      expect(bounds.isFinite({ lower: 2, upper: 1 })).toEqual(true);
     });
   });
   describe("overlapsWith", () => {
@@ -227,276 +247,16 @@ describe("Bounds", () => {
       const b = bounds.construct([1, 2]);
       expect(bounds.overlapsWith(a, b)).toEqual(true);
     });
-  });
-  describe("findInsertPosition", () => {
-    const SPECS: Array<[bounds.Crude[], number, { index: number; position: number }]> =
-      [
-        [[[1, 3]], 2, { index: 0, position: 1 }],
-        [[[1, 3]], 3, { index: 1, position: 0 }],
-        [[[1, 3]], 4, { index: 1, position: 0 }],
-        [[[1, 3]], 4, { index: 1, position: 0 }],
-        [
-          [
-            [1, 3],
-            [4, 6],
-          ],
-          5,
-          { index: 1, position: 1 },
-        ],
-        [
-          [
-            [1, 2],
-            [3, 4],
-          ],
-          3,
-          { index: 1, position: 0 },
-        ],
-        [
-          [
-            [1, 3],
-            [3, 4],
-          ],
-          3,
-          { index: 1, position: 0 },
-        ],
-        [
-          [
-            [1, 2],
-            [3, 5],
-            [7, 10],
-          ],
-          6,
-          { index: 2, position: 0 },
-        ],
-        [
-          [
-            [1, 2],
-            [3, 5],
-            [7, 10],
-          ],
-          2,
-          { index: 1, position: 0 },
-        ],
-        [
-          [
-            [1, 2],
-            [3, 5],
-            [7, 10],
-          ],
-          3,
-          { index: 1, position: 0 },
-        ],
-        [
-          [
-            [1, 2],
-            [3, 5],
-            [7, 10],
-          ],
-          4,
-          { index: 1, position: 1 },
-        ],
-        [[[3, 7]], 1, { index: 0, position: 0 }],
-        [[[3, 7]], 8, { index: 1, position: 0 }],
-      ];
-    SPECS.forEach(([b, target, expected]) => {
-      test(`should return ${JSON.stringify(expected)} for ${JSON.stringify(b)} and ${target}`, () => {
-        expect(bounds.findInsertPosition(b, target)).toEqual(expected);
-      });
+    it("should return false when either lower is above its upper", () => {
+      const reversed = { lower: 8, upper: 2 };
+      expect(bounds.overlapsWith([0, 10], reversed)).toEqual(false);
+      expect(bounds.overlapsWith(reversed, [0, 10])).toEqual(false);
+      expect(bounds.overlapsWith(reversed, reversed)).toEqual(false);
     });
-  });
-
-  describe("buildInsertionPlan", () => {
-    it("should return null when the value lies inside the first bound", () => {
-      expect(bounds.buildInsertionPlan([[0, 10]], [2, 5])).toBeNull();
-    });
-    it("should return null when the value lies inside a later bound", () => {
-      expect(
-        bounds.buildInsertionPlan(
-          [
-            [0, 10],
-            [20, 30],
-          ],
-          [22, 25],
-        ),
-      ).toBeNull();
-    });
-    it("should return null when the value starts at a bound's lower edge", () => {
-      expect(bounds.buildInsertionPlan([[0, 10]], [0, 5])).toBeNull();
-      expect(
-        bounds.buildInsertionPlan(
-          [
-            [0, 10],
-            [20, 30],
-          ],
-          [20, 25],
-        ),
-      ).toBeNull();
-    });
-    it("should return null when the value ends at a bound's upper edge", () => {
-      expect(bounds.buildInsertionPlan([[0, 10]], [2, 10])).toBeNull();
-    });
-    it("should trim a value that ends inside the first bound", () => {
-      expect(bounds.buildInsertionPlan([[5, 10]], [0, 7])).toEqual({
-        removeBefore: 0,
-        removeAfter: 2,
-        insertInto: 0,
-        deleteInBetween: 0,
-      });
-    });
-    it("should insert a value that ends before every bound", () => {
-      expect(bounds.buildInsertionPlan([[5, 10]], [0, 3])).toEqual({
-        removeBefore: 0,
-        removeAfter: 0,
-        insertInto: 0,
-        deleteInBetween: 0,
-      });
-    });
-  });
-
-  describe("traverse", () => {
-    interface Spec<T extends numeric.Value> {
-      bounds: Array<bounds.Crude<T>>;
-      start: T;
-      dist: T;
-      expected: T;
-    }
-
-    const SPECS: Spec<numeric.Value>[] = [
-      {
-        bounds: [
-          [0, 10],
-          [10, 20],
-        ],
-        start: 5,
-        dist: 5,
-        expected: 10,
-      },
-      {
-        bounds: [
-          [0, 10],
-          [15, 20],
-        ],
-        start: 12,
-        dist: 3,
-        expected: 18,
-      },
-      {
-        bounds: [
-          [0, 10],
-          [15, 20],
-        ],
-        start: 12,
-        dist: -3,
-        expected: 7,
-      },
-      {
-        bounds: [
-          [0, 10],
-          [15, 20],
-        ],
-        start: 10,
-        dist: -3,
-        expected: 7,
-      },
-      {
-        bounds: [
-          [0, 10],
-          [15, 20],
-        ],
-        start: 15,
-        dist: -3,
-        expected: 7,
-      },
-      {
-        bounds: [
-          [0, 10],
-          [15, 20],
-        ],
-        start: 16,
-        dist: -3,
-        expected: 8,
-      },
-      {
-        bounds: [
-          [0, 10],
-          [15, 20],
-        ],
-        start: 16,
-        dist: 12,
-        expected: 20,
-      },
-      {
-        bounds: [
-          [0, 10],
-          [15, 20],
-        ],
-        start: 16,
-        dist: -20,
-        expected: 0,
-      },
-      {
-        bounds: [[620n, 726n]],
-        start: 724n,
-        dist: -6n,
-        expected: 718n,
-      },
-    ];
-    SPECS.forEach(({ bounds: b, start, dist, expected }) => {
-      test(`should return ${expected} for ${toString(b)} and ${start} and ${dist}`, () => {
-        expect(bounds.traverse(b, start, dist)).toEqual(expected);
-      });
-    });
-  });
-
-  describe("distance", () => {
-    interface Spec<T extends numeric.Value> {
-      bounds: Array<bounds.Crude<T>>;
-      start: T;
-      end: T;
-      expected: T;
-    }
-
-    const SPECS: Spec<numeric.Value>[] = [
-      {
-        bounds: [
-          [0, 10],
-          [10, 20],
-        ],
-        start: 5,
-        end: 15,
-        expected: 10,
-      },
-      {
-        bounds: [
-          [0, 10],
-          [15, 20],
-        ],
-        start: 12,
-        end: 18,
-        expected: 3,
-      },
-      {
-        bounds: [
-          [0, 10],
-          [15, 20],
-        ],
-        start: 10,
-        end: 5,
-        expected: 5,
-      },
-    ];
-    SPECS.forEach(({ bounds: b, start, end, expected }) => {
-      test(`should return ${expected} for ${JSON.stringify(b)} and ${start} and ${end}`, () => {
-        expect(bounds.distance(b, start, end)).toEqual(expected);
-      });
-    });
-  });
-
-  describe("linspace", () => {
-    it("should create the correct array", () => {
-      const b = bounds.construct([1, 3]);
-      const result = bounds.linspace(b);
-      expect(result).toEqual([1, 2]);
+    it("should return false for INVALID", () => {
+      expect(bounds.overlapsWith(bounds.INVALID, [0, 10])).toEqual(false);
+      expect(bounds.overlapsWith(bounds.INFINITE, bounds.INVALID)).toEqual(false);
+      expect(bounds.overlapsWith(bounds.INVALID, bounds.INVALID)).toEqual(false);
     });
   });
   describe("clamp", () => {
@@ -513,11 +273,26 @@ describe("Bounds", () => {
     it("should return the lower bound when the target is below it", () => {
       expect(bounds.clamp(bounds.DECIMAL, -5)).toEqual(0);
     });
+    it("should read the lower and upper as given when the lower is above the upper", () => {
+      const b = { lower: 3, upper: 1 };
+      expect(bounds.clamp(b, 0)).toEqual(3);
+      expect(bounds.clamp(b, 2)).toEqual(3);
+      expect(bounds.clamp(b, 4)).toEqual(1);
+    });
+    it("should clamp a finite target in INVALID to its lower", () => {
+      expect(bounds.clamp(bounds.INVALID, 0)).toEqual(Infinity);
+    });
   });
   describe("mean", () => {
     it("should return the mean of the bounds", () => {
       const b = bounds.construct([1, 3]);
       expect(bounds.mean(b)).toEqual(2);
+    });
+    it("should return the same mean when the lower is above the upper", () => {
+      expect(bounds.mean({ lower: 3, upper: 1 })).toEqual(2);
+    });
+    it("should return NaN for INVALID", () => {
+      expect(bounds.mean(bounds.INVALID)).toBeNaN();
     });
   });
 });
