@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand/v2"
+	"slices"
 	"sync"
 
 	"github.com/synnaxlabs/x/errors"
@@ -95,6 +96,14 @@ func Run(ctx context.Context, cfg Config) (Result, error) {
 	}
 	if r.broken == nil {
 		return r.result, nil
+	}
+	if cfg.Exhaustive {
+		// The live check of the workload can find its break after the image checks.
+		slices.SortStableFunc(r.result.Violations, func(a, b Violation) int {
+			return a.Event - b.Event
+		})
+		first := r.result.Violations[0]
+		return r.result, &first
 	}
 	first := r.violation(r.broken, r.brokenAt, r.brokenFaults)
 	return r.result, &first

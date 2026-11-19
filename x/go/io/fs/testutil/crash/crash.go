@@ -190,7 +190,7 @@ type Config struct {
 	EntriesOrdered bool
 	// Exhaustive checks each crash image past the first violation, and lists each
 	// violation in Result.Violations. Each image is a snapshot of one workload, so it
-	// gets its own verdict.
+	// gets its own verdict. The run then returns the violation of the earliest event.
 	Exhaustive bool
 }
 
