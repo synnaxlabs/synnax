@@ -339,6 +339,40 @@ TEST_F(EtherCATReadTest, ParseConfigRejectsTwoChannelsOnOneEntry) {
     );
 }
 
+/// @brief it should reject two entries that feed one Synnax channel.
+TEST_F(EtherCATReadTest, ParseConfigRejectsTwoEntriesOnOneChannel) {
+    const auto data_ch = create_data_channel("shared", x::telem::INT32_T);
+
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(create_input_channel_config(data_ch, 0x6000, 1, "int16"));
+    cfg["channels"].push_back(create_input_channel_config(data_ch, 0x6000, 2, "int32"));
+
+    auto parser = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(client, parser);
+    ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
+    const auto errors = parser.error_json()["errors"];
+    ASSERT_EQ(errors.size(), 1);
+    EXPECT_EQ(errors[0]["path"], "channels.1.channel");
+    EXPECT_EQ(errors[0]["message"], "another channel in the task reads into it");
+}
+
+/// @brief it should reject a read channel with no Synnax channel set.
+TEST_F(EtherCATReadTest, ParseConfigRejectsUnsetChannel) {
+    const auto data_ch = create_data_channel("ch", x::telem::INT16_T);
+
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(create_input_channel_config(data_ch, 0x6000, 1, "int16"));
+    cfg["channels"][0].erase("channel");
+
+    auto parser = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(client, parser);
+    ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
+    const auto errors = parser.error_json()["errors"];
+    ASSERT_EQ(errors.size(), 1);
+    EXPECT_EQ(errors[0]["path"], "channels.0.channel");
+    EXPECT_EQ(errors[0]["message"], "channel must be specified");
+}
+
 /// @brief it should allow a disabled read channel on an entry another channel uses.
 TEST_F(EtherCATReadTest, ParseConfigAllowsADisabledChannelOnAUsedEntry) {
     const auto ch1 = create_data_channel("ch1", x::telem::INT16_T);
@@ -450,6 +484,13 @@ TEST_F(EtherCATReadTest, InvalidSlaveDevice) {
     };
     auto second = cfg["channels"][0];
     second["sub_index"] = 2;
+    auto second_ch = ASSERT_NIL_P(this->client->channels.create(
+        make_unique_channel_name("analog"),
+        x::telem::INT16_T,
+        this->index_channel.key,
+        false
+    ));
+    second["channel"] = second_ch.key;
     cfg["channels"].push_back(second);
 
     auto parser = x::json::Parser(cfg);
@@ -477,10 +518,16 @@ TEST_F(EtherCATReadTest, SlaveOnAnotherNetworkIsInvalid) {
     cfg["channels"].push_back(
         this->create_input_channel_config(data_ch, 0x6000, 1, "int16")
     );
-    auto off_network = this->create_input_channel_config(data_ch, 0x6000, 1, "int16");
+    auto off_network = this->create_input_channel_config(
+        this->create_data_channel("analog", x::telem::INT16_T),
+        0x6000,
+        1,
+        "int16"
+    );
     off_network["device"] = other.key;
     cfg["channels"].push_back(off_network);
     off_network["sub_index"] = 2;
+    off_network["channel"] = this->create_data_channel("analog", x::telem::INT16_T).key;
     cfg["channels"].push_back(off_network);
 
     auto parser = x::json::Parser(cfg);
