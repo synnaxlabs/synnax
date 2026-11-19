@@ -548,16 +548,25 @@ var _ = Describe("Writer", func() {
 				return e.status.NewWriter(tx).Set(ctx, &st)
 			})).To(Succeed())
 		}
-		It("Should keep the status of a certificate with no details on rename", func(
-			ctx SpecContext,
-		) {
+		It("Should keep the status of a certificate with no details on rename, under "+
+			"the new name", func(ctx SpecContext) {
 			c := e.create(ctx, file("Plant", coreRack), nil)
 			warn(ctx, c)
 			Expect(e.write(ctx, func(w certificate.Writer) error {
 				return w.Rename(ctx, c.Base().Key, "Line")
 			})).To(Succeed())
-			Expect(e.expiry(ctx, c.Base().Key).Message).
-				To(Equal("Private key file renamed"))
+			st := e.expiry(ctx, c.Base().Key)
+			Expect(st.Message).To(Equal("Private key file renamed"))
+			Expect(st.Name).To(Equal("Line"))
+		})
+		It("Should rename a certificate with no details and no status", func(
+			ctx SpecContext,
+		) {
+			c := e.create(ctx, file("Plant", coreRack), nil)
+			Expect(e.write(ctx, func(w certificate.Writer) error {
+				return w.Rename(ctx, c.Base().Key, "Line")
+			})).To(Succeed())
+			Expect(e.retrieve(ctx, c.Base().Key).Base().Name).To(Equal("Line"))
 		})
 		It("Should keep the status of a certificate with no details on a replace "+
 			"with no details", func(ctx SpecContext) {

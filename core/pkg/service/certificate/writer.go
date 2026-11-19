@@ -137,16 +137,24 @@ func (w Writer) Set(ctx context.Context, c *Certificate, privateKey []byte) erro
 }
 
 // writeStatus writes the expiry status of next, which replaces prev. A certificate with
-// no details keeps the status it owns, such as a migration warning. When prev had
-// details, that status is a stale expiry status, and writeStatus deletes it.
+// no details keeps the status it owns, such as a migration warning, under its new name.
+// When prev had details, writeStatus deletes that status, a stale expiry status.
 func (w Writer) writeStatus(ctx context.Context, prev, next Certificate) error {
 	if st, ok := expiryStatus(next, w.now()); ok {
 		return w.statuses.Set(ctx, &st)
 	}
-	if _, ok := prev.Details(); !ok {
+	if _, ok := prev.Details(); ok {
+		return w.statuses.DeleteOwned(ctx, next.ResourceID())
+	}
+	name := next.Base().Name
+	if prev.Variant == nil || prev.Base().Name == name {
 		return nil
 	}
-	return w.statuses.DeleteOwned(ctx, next.ResourceID())
+	// A certificate with no details may own no status.
+	return errors.Skip(
+		w.statuses.RenameOwned(ctx, next.ResourceID(), name),
+		query.ErrNotFound,
+	)
 }
 
 func (w Writer) prepareStored(
