@@ -60,7 +60,7 @@ Prettier (TS) and Ruff (Python) run via each toolchain's own CLI, not a repo scr
 
 ## Benchmarks
 
-- `uv run --project scripts scripts/compare_benchmarks.py --base <ref> --head <ref>` —
+- `uv run --project scripts scripts/compare_benchmarks.py --base <ref> --head <ref>`:
   measures the gate benchmarks of two Git refs in interleaved rounds and fails on a
   regression. It needs Go, and for the groups of each language pnpm, uv, and Bazel. See
   "Benchmark gate" in `docs/claude/testing.md`.

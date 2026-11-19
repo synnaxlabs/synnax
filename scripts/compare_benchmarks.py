@@ -18,7 +18,7 @@ benchstat compares the two result files.
 
 A benchmark fails on a sec/op rise over 5% at p < 0.05, on an allocs/op rise of any
 size at p < 0.05, or when head does not have it. A failure exits with 1. A control
-group never fails the run: a control that breaks the rule means the host is noisy.
+group that breaks the rule does not fail the run: it means the host is noisy.
 
 Pass one ref as both --base and --head for an A/A run, which measures the noise of the
 host. The io suite puts its files in --io-dir, the disk to measure.
@@ -37,7 +37,7 @@ import tempfile
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 ROOT = Path(__file__).resolve().parent.parent
 BENCHSTAT = (
@@ -46,6 +46,9 @@ BENCHSTAT = (
     "golang.org/x/perf/cmd/benchstat@v0.0.0-20261117185222-4febdb082b2c",
 )
 SIDES = ("base", "head")
+# benchstat finds no change at p < 0.05 with fewer samples on each side.
+MIN_ROUNDS = 4
+type Suite = Literal["cpu", "io"]
 BENCHMARK = re.compile(r"^Benchmark", re.MULTILINE)
 ALPHA = 0.05
 MAX_TIME_RISE = 0.05
@@ -68,7 +71,7 @@ class Group:
     """One benchmark process of the gate, and the steps that build it."""
 
     name: str
-    suite: str
+    suite: Suite
     build: tuple[Step, ...]
     run: Step
     control: bool = False
@@ -77,7 +80,7 @@ class Group:
 
 
 def go(
-    name: str, suite: str, package: str, pattern: str, control: bool = False
+    name: str, suite: Suite, package: str, pattern: str, control: bool = False
 ) -> Group:
     """Returns the group for the Go benchmarks of package that match pattern."""
     binary = "{bin}/" + package.replace("/", "-") + ".test"
@@ -210,7 +213,7 @@ class Config:
     head: str
     out: Path
     rounds: int = 10
-    suite: str = "cpu"
+    suite: Suite = "cpu"
     # The directory the benchmarks put their files in. The io suite needs it.
     io_dir: Path | None = None
     # Limits the run to the groups whose name it matches.
@@ -221,6 +224,10 @@ class Config:
     host_facts: tuple[tuple[str, ...], ...] = field(
         default_factory=lambda: HOST_FACTS[platform.system()]
     )
+
+    def __post_init__(self) -> None:
+        # Steps run in other directories, so every path under out must be absolute.
+        object.__setattr__(self, "out", self.out.resolve())
 
     def selected(self) -> tuple[Group, ...]:
         """Returns the groups of the suite that match only."""
@@ -270,6 +277,8 @@ def from_gbench(report: Any) -> str:
     for benchmark in report["benchmarks"]:
         if benchmark["run_type"] != "iteration":
             continue
+        if benchmark.get("error_occurred"):
+            raise RuntimeError(f"{benchmark['name']}: {benchmark['error_message']}")
         name = benchmark["name"].removeprefix("BM_")
         time = benchmark["real_time"] * TIME_UNITS[benchmark["time_unit"]]
         line = f"Benchmark{name} {benchmark['iterations']} {time} ns/op"
@@ -333,14 +342,15 @@ def measure(cfg: Config) -> None:
     """Builds both refs, then appends the results of each round to the result files."""
     groups = cfg.selected()
     record_host(cfg, "start")
-    refs = dict(zip(SIDES, (cfg.base, cfg.head), strict=True))
-    for side, ref in refs.items():
-        subprocess.run(
-            ["git", "worktree", "add", "--detach", str(cfg.source(side)), ref],
-            cwd=cfg.repo,
-            check=True,
-        )
+    added = []
     try:
+        for side, ref in zip(SIDES, (cfg.base, cfg.head), strict=True):
+            subprocess.run(
+                ["git", "worktree", "add", "--detach", str(cfg.source(side)), ref],
+                cwd=cfg.repo,
+                check=True,
+            )
+            added.append(side)
         for side in SIDES:
             cfg.binaries(side).mkdir(parents=True)
             for step in dict.fromkeys(s for g in groups for s in g.build):
@@ -352,6 +362,8 @@ def measure(cfg: Config) -> None:
                         f"round {round_ + 1}/{cfg.rounds} {group.name} {side}",
                         flush=True,
                     )
+                    # A run that writes no report must not read the report before.
+                    cfg.report.unlink(missing_ok=True)
                     printed = run(cfg, side, group.run)
                     results = FORMATS[group.format](printed, cfg.report)
                     # Base can lack a benchmark that head adds.
@@ -362,7 +374,7 @@ def measure(cfg: Config) -> None:
                         f.write(f"pkg: {group.name}\n{results}")
         record_host(cfg, "end")
     finally:
-        for side in SIDES:
+        for side in added:
             subprocess.run(
                 ["git", "worktree", "remove", "--force", str(cfg.source(side))],
                 cwd=cfg.repo,
@@ -385,6 +397,9 @@ def judge(table: str) -> list[Finding]:
     """Applies the rule to the CSV that benchstat prints for a base and a head file."""
     findings = []
     package = unit = ""
+    # The column of each side in the current table. A table has one side only when the
+    # other side has no result for its package.
+    columns: dict[str, int] = {}
     for row in csv.reader(io.StringIO(table)):
         if not row or row[0] == "geomean":
             continue
@@ -392,10 +407,15 @@ def judge(table: str) -> list[Finding]:
             package = row[0].removeprefix("pkg: ")
         if len(row) == 1:
             continue
-        if row[0] == "":
-            unit = row[1] if row[1] not in SIDES else unit
+        if row[0] == "" and row[1] in SIDES:
+            columns = {side: row.index(side) for side in SIDES if side in row}
             continue
-        name, base, _, head, _, change = (*row, "", "", "", "")[:6]
+        if row[0] == "":
+            unit = row[1]
+            continue
+        cells = [*row, "", "", "", "", ""]
+        name, change = cells[0], cells[5]
+        base, head = (cells[columns[s]] if s in columns else "" for s in SIDES)
         if base == "" or head == "":
             if unit == "sec/op":
                 kind = "missing" if head == "" else "new"
@@ -438,11 +458,12 @@ def report(cfg: Config) -> bool:
             f.write(text)
         print(text)
         for finding in judge(benchstat(cfg, control, "-format", "csv")):
-            label = finding.kind
-            if finding.kind != "new" and control:
+            label = f"FAIL {finding.kind}"
+            if finding.kind == "new":
+                label = "new"
+            elif control and finding.kind != "missing":
                 label = "noisy control"
-            elif finding.kind != "new":
-                label = f"FAIL {finding.kind}"
+            else:
                 passed = False
             print(label, finding.package, finding.benchmark, finding.detail)
     print(f"verdict: {'pass' if passed else 'fail'}, results in {cfg.out}")
@@ -463,6 +484,8 @@ def parse(argv: Sequence[str] | None) -> Config:
     args = parser.parse_args(argv)
     if args.suite == "io" and args.io_dir is None:
         parser.error("the io suite needs --io-dir")
+    if args.rounds < MIN_ROUNDS:
+        parser.error(f"--rounds must be {MIN_ROUNDS} or more to find a change")
     cfg = Config(
         args.base, args.head, Path(), args.rounds, args.suite, args.io_dir, args.only
     )
