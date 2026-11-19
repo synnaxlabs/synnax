@@ -12,7 +12,7 @@ import { bounds, box, color, location, notation, scale, text, xy } from "@synnax
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { series } from "@/color/aether";
+import { color as aetherColor } from "@/color/aether";
 import { telem } from "@/telem/aether";
 import { theming } from "@/theming/aether";
 import { type Element } from "@/vis/diagram/aether/Diagram";
@@ -104,7 +104,8 @@ export class Gauge
     });
     i.requestRender = render.useOptionalRequestor(ctx);
 
-    i.strokeColor = this.state.color ?? colorFallback(i.theme, series.use(ctx));
+    i.strokeColor =
+      this.state.color ?? colorFallback(i.theme, aetherColor.series.use(ctx));
 
     const b = this.state.box;
     const baseRadius = box.width(b) / 2;
