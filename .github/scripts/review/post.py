@@ -120,11 +120,11 @@ def post(rec: dict[str, Any], *, target: Target, gh: GH) -> None:
     any finding an unresolved thread of the bot already holds. Such a thread gets the
     finding's new heading when its severity changed, and keeps the rest of its comment.
     The findings outside the diff go in one comment the bot edits on each review. The
-    check run takes the record, when it fits, before any other write. Then the summary
-    in the pull request body is replaced and the check run completes. Last, while the
-    target is still the head of the pull request, each open thread of the bot whose
-    finding the review marks fixed, and does not report, is resolved with the reason
-    as a reply. A failure there only warns.
+    check run takes its output before any other write. Then the summary in the pull
+    request body is replaced and the check run completes. Last, while the target is
+    still the head of the pull request, each open thread of the bot whose finding the
+    review marks fixed, and does not report, is resolved with the reason as a reply. A
+    failure there only warns.
     """
     t = target
     review = parse(rec["review"])
@@ -134,8 +134,8 @@ def post(rec: dict[str, Any], *, target: Target, gh: GH) -> None:
     reported = {(f.path, render.title(render.heading(f))) for f in review.findings}
     review = _drop(review, gone)
     run = f"repos/{t.repo}/check-runs/{t.check_run}"
-    # The summary links the check run, so the record lands first.
-    write(gh, "PATCH", run, {"output": render.check(review, rec)})
+    # The summary links the check run, so its output lands first.
+    write(gh, "PATCH", run, {"output": render.check(review)})
     blob = f"https://github.com/{t.repo}/blob/{t.head}"
     diff = _diff_lines(t, gh)
     inline = [f for f in review.findings if set(f.lines) <= diff.get(f.path, set())]
