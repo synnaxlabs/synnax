@@ -16,7 +16,7 @@ import {
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { LinePlot, Synnax } from "@synnaxlabs/pluto";
-import { resolveWindow, TimeRange, TimeSpan, TimeStamp, unique } from "@synnaxlabs/x";
+import { resolveWindow, TimeRange, TimeStamp, unique } from "@synnaxlabs/x";
 
 import { Framer } from "@/platform/framer";
 import { Session } from "@/session";
@@ -35,8 +35,6 @@ export interface DownloadAsCSVParams {
 
 // The modal holds its range in float nanoseconds, which round by up to 128 ns, so a
 // live window ends this far past the newest sample to keep it inside.
-const ROUNDING_MARGIN = TimeSpan.MILLISECOND;
-
 const channelsOf = (lines: DownloadLine[]): channel.Key[] =>
   unique.unique(
     lines
@@ -80,7 +78,7 @@ export const useDownloadAsCSV = (): ((params: DownloadAsCSVParams) => void) => {
     const channels = channelsOf(lines);
     const timeRange = TimeRange.merge(...timeRanges);
     openDownloadCSVModal({
-      timeRange: timeRange.numeric,
+      timeRange,
       name,
       channels,
       icon: <Icon.LinePlot />,
@@ -103,9 +101,7 @@ export const useDownloadPlotAsCSV = (key: string): (() => void) => {
         channels: { x: d.xChannel, y: d.yChannel },
       }));
       const live = windows.some((w) => w.variant === "dynamic");
-      const end = live
-        ? (await readEdge(client, channelsOf(lines))).add(ROUNDING_MARGIN)
-        : TimeStamp.now();
+      const end = live ? await readEdge(client, channelsOf(lines)) : TimeStamp.now();
       const timeRanges = windows.map((w) => resolveWindow(w, end));
       downloadAsCSV({ timeRanges, lines, name });
     }, "Failed to download plot as CSV");
