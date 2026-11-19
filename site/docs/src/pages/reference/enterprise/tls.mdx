@@ -172,6 +172,18 @@ The Core in the image runs as user and group `65532`.
 
 <Divider.Divider x />
 
+## Watch certificate expiry
+
+Every hour, the Core reports the expiry of each CA certificate and of the certificate
+that each listener serves as a status. A CA status is named `CA certificate <hex>`, with
+the first 8 hex digits of the CA's SHA-256 fingerprint, and a listener status is named
+`Certificate of <address>`. Each status is "Certificate valid" until 30 days before the
+certificate expires, then "Certificate expires soon", and then "Certificate expired".
+The description gives the date. The certificates that `--auto-cert` makes are valid for
+one year.
+
+<Divider.Divider x />
+
 ## Connect to the Core
 
 - **Console** -> when you add the Core, turn on **Secure**. See

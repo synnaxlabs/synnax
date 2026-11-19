@@ -240,9 +240,8 @@ release. Phase 9 saves 3 to 4 minutes per Windows build.
 
 1. **Full run cadence on `main`**: Nightly today. A run every few hours when `main`
    moved makes the lookup hit more often, at about 10 runner-hours each.
-2. **Queue skip and the Core tests**: The pull request runs the Core tests cached in one
-   job, and the queue runs three uncached shards (`ci.yaml:428`). Phase 12 skips them
-   only if the pull request runs the same job.
+2. **Queue skip and the Core tests**: Resolved. The pull request and the queue run the
+   same three cached shards, so Phase 12 can skip them.
 3. **Go caches on release branches**: The full CI takes 36 minutes on a release branch
    and 21 minutes with warm caches. A cache per shard and ref needs a measured size
    against the repository cache limit first.
