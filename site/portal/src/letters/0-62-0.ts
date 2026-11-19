@@ -15,9 +15,9 @@ export const LETTER: Letter = {
   title: "Ranges built around your test, Sift uploads, and EtherCAT at 10 kHz",
   hero: "releases/0-62-0/hero",
   opening: [
-    "Synnax v0.62 is out. Here are the three changes that I am most excited about.",
-    "EtherCAT also reads at 10 kHz on a USB network adapter, Arc stops a program " +
-      "that runs too long, and one Settings tab holds your users and secrets.",
+    "We are very excited to announce Synnax v0.62! We've rebuilt ranges around the " +
+      "way you run a test, added uploads to Sift, brought EtherCAT to 10 kHz on USB " +
+      "network adapters, and added named colors to line plots.",
   ],
   features: [
     {
@@ -52,7 +52,9 @@ export const LETTER: Letter = {
     "Some client calls, Arc unit rules, and Console features changed. Read the " +
     "breaking changes in the release notes before you upgrade.",
   closing: [
-    "Reply to this email with questions or feedback. Your reply comes straight to me.",
+    "If you have any questions or feedback, please let me know by replying to this " +
+      "email. As always, we will continue to support you all by building great " +
+      "software.",
     "Emiliano",
   ],
 };
