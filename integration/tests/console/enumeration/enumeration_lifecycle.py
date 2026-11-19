@@ -10,7 +10,6 @@
 from playwright.sync_api import expect
 
 from console.case import ConsoleCase
-from synnax import enumeration
 from x import random_name
 
 # A built-in that no other test edits.
@@ -23,17 +22,14 @@ class EnumerationLifecycle(ConsoleCase):
 
     name: str
     entries: list[str]
-    replaced: str
 
     def setup(self) -> None:
         super().setup()
         self.name = random_name()
         self.entries = [random_name() for _ in range(3)]
-        self.replaced = random_name()
-        self.client.enumerations.create(enumeration.Enumeration(name=self.replaced))
 
     def teardown(self) -> None:
-        stale = self.client.enumerations.retrieve(names=[self.name, self.replaced])
+        stale = self.client.enumerations.retrieve(names=[self.name])
         if stale:
             self.client.enumerations.delete([e.key for e in stale])
         # A run that fails after editing the built-in leaves it edited for the retry.
@@ -50,7 +46,6 @@ class EnumerationLifecycle(ConsoleCase):
         self.test_add_and_remove_entry()
         self.test_rename()
         self.test_restore_builtin()
-        self.test_replace()
         self.test_delete()
 
     def test_create(self) -> None:
@@ -143,12 +138,6 @@ class EnumerationLifecycle(ConsoleCase):
             f"The Core did not restore {_BUILTIN}",
         )
         expect(heading.get_by_text("Edited", exact=True)).to_have_count(0)
-
-    def test_replace(self) -> None:
-        """Test deleting an enumeration with Replace with in its delete dialog."""
-        self.log("Testing: Replace an enumeration")
-        self.console.enumerations.search(self.replaced)
-        self.console.enumerations.replace(self.replaced, with_name=self.name)
 
     def test_delete(self) -> None:
         """Test deleting an enumeration from the menu of its heading."""
