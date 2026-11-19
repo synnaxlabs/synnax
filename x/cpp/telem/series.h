@@ -1473,7 +1473,8 @@ public:
     }
 
     /// @brief Series / scalar operator. Returns a new Series.
-    /// @throws std::runtime_error if scalar is zero.
+    /// @throws std::runtime_error if scalar is zero, or if an integer series
+    /// divides by a scalar that truncates to zero.
     template<typename T>
     Series operator/(T scalar) const {
         if (scalar == 0) throw std::runtime_error("division by zero");
@@ -1482,7 +1483,8 @@ public:
 
     /// @brief Series % scalar operator. Returns a new Series.
     /// Uses % for integer types, std::fmod for floating-point types.
-    /// @throws std::runtime_error if scalar is zero.
+    /// @throws std::runtime_error if scalar is zero, or if an integer series
+    /// takes the modulo of a scalar that truncates to zero.
     template<typename T>
     Series operator%(T scalar) const {
         if (scalar == 0) throw std::runtime_error("modulo by zero");
@@ -1508,6 +1510,7 @@ public:
     }
 
     /// @brief scalar / Series operator. Computes (scalar / element) for each element.
+    /// @throws std::runtime_error if an element of an integer series is zero.
     template<typename T>
     friend Series operator/(T scalar, const Series &s) {
         return s.apply_reverse_scalar_op(scalar, Divide());
@@ -1515,6 +1518,7 @@ public:
 
     /// @brief scalar % Series operator. Computes (scalar % element) for each element.
     /// Uses % for integer types, std::fmod for floating-point types.
+    /// @throws std::runtime_error if an element of an integer series is zero.
     template<typename T>
     friend Series operator%(T scalar, const Series &s) {
         return s.apply_reverse_scalar_op(scalar, Modulo());
