@@ -340,6 +340,27 @@ export class ChannelData
     this.breaker = framer.retry.createBreaker(this.retryNotifier, breakerConfig);
   }
 
+  /**
+   * Takes props that draw the same channels in place, so the line keeps its samples
+   * while those of a new window or aggregation load.
+   */
+  update(props: unknown): boolean {
+    const next = this.parseProps(props);
+    const { channel, useIndexOfChannel, xChannel } = this.props;
+    if (
+      next.channel !== channel ||
+      next.useIndexOfChannel !== useIndexOfChannel ||
+      next.xChannel !== xChannel
+    )
+      return false;
+    this.setProps(next);
+    const key = this.channel?.key;
+    if (key == null) return true;
+    this.draw?.update(this.drawRequest(key, this.drawView, this.drawSettling));
+    this.bounds?.update(this.boundsRequest(key, this.boundsView));
+    return true;
+  }
+
   private get live(): boolean {
     return this.props.window.variant === "dynamic";
   }
@@ -460,18 +481,7 @@ export class ChannelData
       this.points !== this.boundsPoints ||
       !bounds.equals(target, this.boundsView)
     ) {
-      const limit: framer.PointsLimit = {
-        variant: "points",
-        count: this.points,
-        aggregation: this.props.aggregation,
-        extremesKept: true,
-      };
-      if (range != null) limit.view = range;
-      const request: framer.PointsRequest = {
-        keys: [key],
-        window: this.props.window,
-        limit,
-      };
+      const request = this.boundsRequest(key, target);
       if (this.bounds == null) this.bounds = this.subscribe(client, request);
       else this.bounds.update(request);
       this.boundsView = target && { ...target };
@@ -482,6 +492,21 @@ export class ChannelData
       snapshot = this.draw?.value(key) ?? snapshot;
     this.boundsStatus = snapshot.status;
     return snapshot;
+  }
+
+  private boundsRequest(
+    key: channel.Key,
+    view: bounds.Bounds | undefined,
+  ): framer.PointsRequest {
+    const limit: framer.PointsLimit = {
+      variant: "points",
+      count: this.points,
+      aggregation: this.props.aggregation,
+      extremesKept: true,
+    };
+    const range = view == null ? undefined : viewRange(view);
+    if (range != null) limit.view = range;
+    return { keys: [key], window: this.props.window, limit };
   }
 
   private closeBounds(): void {

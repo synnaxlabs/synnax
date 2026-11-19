@@ -270,12 +270,14 @@ export class Points {
     const home = this.home();
     this.cutoff(home);
     const view = this.view(home);
+    // advance finds where tiles end from the raw samples, so they update first.
+    const fillingBlocks = this.refreshRaw(home);
     const next = this.advance(view, home);
     const extremesKept = this.limit.extremesKept === true;
     const targets = this.targets(view, home, extremesKept);
     targets.forEach((spec) => this.request(spec));
     const tiles = this.select(targets, home);
-    const { raw, tail, filling } = this.rawEdge(home);
+    const { raw, tail, filling } = this.rawEdge(home, fillingBlocks);
     this.prune(targets, tiles, next, home, extremesKept);
     let series = [...tiles.flatMap((t) => t.series.series), ...raw, ...tail];
     const dataType = this.props.store.dataType(this.key);
@@ -562,11 +564,13 @@ export class Points {
       )
       .filter((p) => start == null || tileRange(p).end.after(start))
       .map((p) => {
-        const spec: TileSpec = {
-          ...p,
+        const tile =
+          start != null && tileRange(p).start.before(start) ? { ...p, start } : p;
+        return {
+          ...tile,
           key: this.key,
           pointLimit: tilePointLimit({
-            level: p.level,
+            tile,
             view,
             points: this.limit.count,
             drawn: this.limit.aggregation,
@@ -574,8 +578,6 @@ export class Points {
           }),
           aggregation,
         };
-        if (start != null && tileRange(p).start.before(start)) spec.start = start;
-        return spec;
       });
   }
 
@@ -727,21 +729,16 @@ export class Points {
     return Math.min(rawIndex(tr.end.sub(TimeSpan.nanoseconds(1))), last);
   }
 
-  // Returns the samples of the raw range, the tail of samples a waiting join holds in
-  // it, and whether a block of it waits for its samples. While the window streams, the
-  // join fills the blocks from the commit point on, and reads fill the rest. A block
-  // being filled shows the samples it showed before, and so does a span the store
-  // dropped until its tiles land. The tail shows the stream until the join catches up.
-  private rawEdge(home: TimeRange): {
-    raw: Series[];
-    tail: Series[];
-    filling: boolean;
-  } {
-    if (this.parked != null) return { raw: [], tail: [], filling: false };
+  // Sets raw to the samples of the raw range, and returns the blocks of it that wait
+  // for their samples. While the window streams, the join fills the blocks from the
+  // commit point on, and reads fill the rest. A block being filled shows the samples it
+  // showed before, and so does a span the store dropped until its tiles land.
+  private refreshRaw(home: TimeRange): Set<number> {
+    if (this.parked != null) return new Set();
     const tr = this.rawRange(home);
     if (!tr.start.before(tr.end)) {
       this.raw = [];
-      return { raw: [], tail: [], filling: false };
+      return new Set();
     }
     const { store } = this.props;
     const now = this.props.now();
@@ -779,6 +776,25 @@ export class Points {
     this.raw = [...fresh, ...standIns]
       .filter((s) => s.timeRange.overlapsWith(tr))
       .sort((a, b) => TimeRange.sort(a.timeRange, b.timeRange));
+    return filling;
+  }
+
+  // Returns the raw samples of the raw range, the tail of samples a waiting join holds
+  // in it, and whether a block of it waits for its samples. The tail shows the stream
+  // until the join catches up.
+  private rawEdge(
+    home: TimeRange,
+    fillingBlocks: Set<number>,
+  ): { raw: Series[]; tail: Series[]; filling: boolean } {
+    if (this.parked != null) return { raw: [], tail: [], filling: false };
+    const tr = this.rawRange(home);
+    if (!tr.start.before(tr.end)) {
+      this.raw = [];
+      return { raw: [], tail: [], filling: false };
+    }
+    this.raw = this.raw.filter((s) => s.timeRange.overlapsWith(tr));
+    const first = rawIndex(tr.start);
+    const filling = [...fillingBlocks].some((i) => i >= first);
     const tail =
       this.live == null
         ? []
@@ -787,7 +803,7 @@ export class Points {
             .filter((s) => s.timeRange.isZero || s.timeRange.overlapsWith(tr))
             // A writer can fill an earlier span after later samples streamed.
             .sort((a, b) => TimeRange.sort(a.timeRange, b.timeRange));
-    return { raw: this.raw, tail, filling: filling.size > 0 };
+    return { raw: this.raw, tail, filling };
   }
 
   // While the window streams, the read waits for the stream's ack: a read before it can
