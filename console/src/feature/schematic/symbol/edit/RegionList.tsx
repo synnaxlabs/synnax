@@ -112,8 +112,8 @@ export const RegionList = ({
   selectedValue,
   onAddRegion,
 }: RegionListProps) => {
-  const { data } = Form.useFieldList(path.data.parts);
   const parts = Form.useFieldValue(path.data.parts);
+  const data = parts.map(({ key }) => key);
   const states = Form.useFieldValue(path.data.states);
   const looks = Form.useFieldValue(path.data.looks);
   const markup = Form.useFieldValue(path.data.drawing.markup);

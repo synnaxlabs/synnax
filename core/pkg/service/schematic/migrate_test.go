@@ -45,10 +45,13 @@ var _ = Describe("Stored v4 symbols", func() {
 			Migrations: versions.Migrations[:shipped+1],
 		})).To(Succeed())
 		chain := symbolversions.NewMigrations(symbolversions.MigrationsConfig{})
+		shipped = slices.IndexFunc(chain, func(m gorp.Migration) bool {
+			return m.Key() == v4.NameMigration.Key()
+		})
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:         db,
 			Namespace:  types.Name[symbol.Symbol](),
-			Migrations: chain[:len(chain)-1],
+			Migrations: chain[:shipped+1],
 		})).To(Succeed())
 		spec := v4.Spec{
 			SVG:     `<svg><rect id="b"/></svg>`,
