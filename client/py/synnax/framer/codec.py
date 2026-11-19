@@ -72,10 +72,6 @@ _RESERVED_KINDS = 0b1111_1100
 _NO_OVERRIDE = 0xFFFFFFFF
 
 
-def _invalid(msg: str) -> ValidationError:
-    return ValidationError(msg)
-
-
 def _is_int64_like(dt: DataType) -> bool:
     return dt == DataType.INT64 or dt == DataType.TIMESTAMP
 
@@ -87,7 +83,7 @@ def _needs_type_override(agreed: DataType, dt: DataType) -> bool:
 def _code_of(key: channel.Key, dt: DataType) -> int:
     code = code_of(dt)
     if code == DataTypeCode.unknown:
-        raise _invalid(f'data type "{dt}" of channel {key} has no type code')
+        raise ValidationError(f'data type "{dt}" of channel {key} has no type code')
     return int(code)
 
 
@@ -143,7 +139,7 @@ class _Reader:
 
     def _need(self, n: int) -> None:
         if n > self.remaining:
-            raise _invalid("remote sent a frame that ends early")
+            raise ValidationError("remote sent a frame that ends early")
 
     def unpack(self, fmt: str, size: int) -> tuple[int, ...]:
         self._need(size)
@@ -170,7 +166,7 @@ class _Reader:
         code = self.uint8()
         dt = data_type_of(code)
         if dt == DataType.UNKNOWN:
-            raise _invalid(
+            raise ValidationError(
                 f"remote sent data type code {code}, which this codec does not know"
             )
         return dt
@@ -419,7 +415,7 @@ class Codec:
         for old in [s for s in self._states if s < seq_num]:
             del self._states[old]
         if state.dec.dropped:
-            raise _invalid(
+            raise ValidationError(
                 f"remote sent a frame for state {seq_num} after a frame of it failed "
                 "to decode"
             )
@@ -448,35 +444,37 @@ class Codec:
         if bit(_EXTENDED_FLAG_POS):
             ext = r.uint8()
             if ext == 0:
-                raise _invalid("remote sent extension flags of 0")
+                raise ValidationError("remote sent extension flags of 0")
             if ext & _RESERVED_EXTENSION_FLAGS:
-                raise _invalid(
+                raise ValidationError(
                     f"remote sent extension flags {ext:08b}, which hold a reserved bit"
                 )
         if not ext & _TYPES_DECLARED:
             if not ag.types_declared:
-                raise _invalid(
+                raise ValidationError(
                     f"remote sent no type declaration for state {seq_num}, so it runs "
                     "an older codec, which this codec does not support"
                 )
         else:
             if ag.types_declared:
-                raise _invalid(f"remote declared the types of state {seq_num} twice")
+                raise ValidationError(
+                    f"remote declared the types of state {seq_num} twice"
+                )
             ag.data_types = [r.data_type() for _ in state.keys]
             ag.types_declared = True
         if ext & _CLOCKS_DECLARED:
             n = r.uint32()
             if n > r.remaining // _KEY_SIZE:
-                raise _invalid("remote sent a frame that ends early")
+                raise ValidationError("remote sent a frame that ends early")
             declared: list[channel.Key] = []
             for i in range(n):
                 key = r.uint32()
                 if key in state.index:
-                    raise _invalid(
+                    raise ValidationError(
                         f"remote declared clock {key}, which the request names"
                     )
                 if i > 0 and key <= declared[-1]:
-                    raise _invalid(
+                    raise ValidationError(
                         f"remote declared clock {key} after clock {declared[-1]}, "
                         "so the list is not ascending"
                     )
@@ -497,9 +495,11 @@ class Codec:
         def read_kinds() -> int:
             kinds = r.uint8()
             if kinds == 0:
-                raise _invalid(f"remote sent override kinds of 0 for series {ordinal}")
+                raise ValidationError(
+                    f"remote sent override kinds of 0 for series {ordinal}"
+                )
             if kinds & _RESERVED_KINDS:
-                raise _invalid(
+                raise ValidationError(
                     f"remote sent override kinds {kinds:08b} for series {ordinal}, "
                     "which hold a reserved bit"
                 )
@@ -510,10 +510,12 @@ class Codec:
             i = state.index.get(key)
             if i is None:
                 if key not in ag.declared:
-                    raise _invalid(f"unknown channel key: {key}")
+                    raise ValidationError(f"unknown channel key: {key}")
                 if ordinal == nxt:
                     read_kinds()
-                    raise _invalid(f"remote sent an override for declared clock {key}")
+                    raise ValidationError(
+                        f"remote sent an override for declared clock {key}"
+                    )
                 return DataType.TIMESTAMP, key
             dt = ag.data_types[i]
             if ordinal == nxt:
@@ -524,7 +526,7 @@ class Codec:
                     ag.clocks[i] = r.uint32()
                 nxt = r.uint32()
                 if nxt != _NO_OVERRIDE and nxt <= ordinal:
-                    raise _invalid(
+                    raise ValidationError(
                         f"remote sent next override {nxt}, which is not after series "
                         f"{ordinal}"
                     )
@@ -538,7 +540,7 @@ class Codec:
             dt, clock = agreement_of(key)
             ordinal += 1
             if eq_len and dt.is_variable:
-                raise _invalid(
+                raise ValidationError(
                     f"remote sent variable data type {dt} under a shared length"
                 )
             length = shared_len if eq_len else r.uint32()
@@ -571,12 +573,12 @@ class Codec:
             for key in ag.all:
                 decode_series(key)
             if r.remaining > 0:
-                raise _invalid("remote sent bytes after the last series")
+                raise ValidationError("remote sent bytes after the last series")
         else:
             while r.remaining > 0:
                 decode_series(r.uint32())
         if nxt != _NO_OVERRIDE:
-            raise _invalid(
+            raise ValidationError(
                 f"remote ended the frame with the override for series {nxt} pending"
             )
         return FramePayload(keys=keys, series=series)

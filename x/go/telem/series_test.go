@@ -10,7 +10,9 @@
 package telem_test
 
 import (
+	"bytes"
 	"encoding/binary"
+	"testing"
 	"unsafe"
 	"uuid"
 
@@ -1361,13 +1363,43 @@ var _ = Describe("Series", func() {
 			}),
 		)
 
-		DescribeTable("Should leave a zero clock out of the encoded form",
-			func(codec encoding.Codec, key string) {
-				encoded := MustSucceed(codec.Encode(telem.NewSeriesV[int64](1)))
-				Expect(string(encoded)).ToNot(ContainSubstring(key))
+		It("Should leave a zero clock out of the JSON form", func() {
+			encoded := MustSucceed(json.Codec.Encode(telem.NewSeriesV[int64](1)))
+			Expect(string(encoded)).ToNot(ContainSubstring(`"clock"`))
+		})
+
+		It("Should carry a zero clock in the msgpack form", func() {
+			encoded := MustSucceed(msgpack.Codec.Encode(telem.NewSeriesV[int64](1)))
+			Expect(string(encoded)).To(ContainSubstring("clock"))
+		})
+
+		It(
+			"Should encode a clock through msgpack with no allocation of its own",
+			func() {
+				// unclocked has the msgpack fields of a Series apart from its clock.
+				type unclocked struct {
+					TimeRange         telem.TimeRange `msgpack:"time_range"`
+					DataType          telem.DataType  `msgpack:"data_type"`
+					Data              []byte          `msgpack:"data"`
+					Alignment         telem.Alignment `msgpack:"alignment"`
+					AlignmentMultiple uint32          `msgpack:"alignment_multiple,omitempty"`
+				}
+				s := telem.NewSeriesV[int64](1)
+				s.Clock = 300
+				u := unclocked{DataType: s.DataType, Data: s.Data}
+				var (
+					buf bytes.Buffer
+					err error
+				)
+				allocs := func(v any) float64 {
+					return testing.AllocsPerRun(100, func() {
+						buf.Reset()
+						err = msgpack.Codec.EncodeStream(&buf, v)
+					})
+				}
+				Expect(allocs(&s)).To(Equal(allocs(&u)))
+				Expect(err).To(Succeed())
 			},
-			Entry("JSON", json.Codec, `"clock"`),
-			Entry("msgpack", msgpack.Codec, "clock"),
 		)
 
 		DescribeTable("Should carry a set clock through the encoded form",

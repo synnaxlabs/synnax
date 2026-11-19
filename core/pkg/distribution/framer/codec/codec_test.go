@@ -14,7 +14,6 @@ import (
 	"context"
 	"encoding/json/v2"
 	"fmt"
-	"io"
 	"math"
 	"math/rand/v2"
 	"runtime"
@@ -513,7 +512,8 @@ var _ = Describe("Codec", func() {
 				telem.ByteOrder.PutUint32(encoded[5:9], math.MaxUint32)
 				var before, after runtime.MemStats
 				runtime.ReadMemStats(&before)
-				Expect(c.Decode(encoded)).Error().To(MatchError(io.ErrUnexpectedEOF))
+				Expect(c.Decode(encoded)).Error().
+					To(invalid("remote sent a frame that ends early"))
 				runtime.ReadMemStats(&after)
 				Expect(after.TotalAlloc - before.TotalAlloc).
 					To(BeNumerically("<", 8<<20))
@@ -1873,6 +1873,60 @@ func BenchmarkDecode(b *testing.B) {
 		if fr, err := cd.DecodeStream(r); err != nil || fr.Empty() {
 			b.Fatalf("failed to decode stream: %v", err)
 		}
+	}
+}
+
+// gateShapes are the [channels, samples per channel] frame shapes of the codec gate.
+var gateShapes = [][2]int{{1, 3}, {100, 10}, {1000, 1}}
+
+// shapeOf returns a codec of n float32 channels and a frame with a series of the given
+// number of samples for each.
+func shapeOf(n, samples int) (*codec.Codec, framer.Frame) {
+	keys := make(channel.Keys, n)
+	dataTypes := make([]telem.DataType, n)
+	series := make([]telem.Series, n)
+	for i := range keys {
+		keys[i] = channel.Key(i + 1)
+		dataTypes[i] = telem.Float32T
+		series[i] = telem.NewSeries(make([]float32, samples))
+	}
+	return codec.NewStatic(keys, dataTypes), frame.NewMulti(keys, series)
+}
+
+// BenchmarkEncodeShapes encodes a steady frame at each gate shape.
+func BenchmarkEncodeShapes(b *testing.B) {
+	for _, sh := range gateShapes {
+		b.Run(fmt.Sprintf("%dx%d", sh[0], sh[1]), func(b *testing.B) {
+			cd, fr := shapeOf(sh[0], sh[1])
+			steadyFrame(b, cd, fr)
+			w := bytes.NewBuffer(nil)
+			b.ReportAllocs()
+			for b.Loop() {
+				if err := cd.EncodeStream(b.Context(), w, fr); err != nil {
+					b.Fatal(err)
+				}
+				w.Reset()
+			}
+		})
+	}
+}
+
+// BenchmarkDecodeShapes decodes a steady frame at each gate shape.
+func BenchmarkDecodeShapes(b *testing.B) {
+	for _, sh := range gateShapes {
+		b.Run(fmt.Sprintf("%dx%d", sh[0], sh[1]), func(b *testing.B) {
+			cd, fr := shapeOf(sh[0], sh[1])
+			r := bytes.NewReader(steadyFrame(b, cd, fr))
+			b.ReportAllocs()
+			for b.Loop() {
+				if _, err := r.Seek(0, 0); err != nil {
+					b.Fatal(err)
+				}
+				if _, err := cd.DecodeStream(r); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
 	}
 }
 

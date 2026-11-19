@@ -46,7 +46,7 @@ type Series struct {
 	// one.
 	AlignmentMultiple uint32 `json:"alignment_multiple,omitempty" msgpack:"alignment_multiple,omitempty"`
 	// Clock is the key of the clock that timed the samples. Zero means no clock.
-	Clock uint32 `json:"clock,omitzero" msgpack:"clock,omitempty"`
+	Clock uint32 `json:"clock,omitzero" msgpack:"clock"`
 }
 
 // Multiple returns the number of alignment steps between consecutive samples.

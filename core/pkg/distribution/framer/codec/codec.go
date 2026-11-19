@@ -612,9 +612,9 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 	return nil
 }
 
-// sortSeries sorts the series in src that currState requests, and the time series
-// under their own clocks, by key and raw index into c.encodeSorter. It drops the series
-// of other keys.
+// sortSeries sorts the series in src that currState requests, and the time series under
+// their own clocks, by key and raw index into c.encodeSorter. It drops the series of
+// other keys.
 func (c *Codec) sortSeries(src framer.Frame, currState *state) {
 	for rawI, s := range src.RawSeries() {
 		if src.ShouldExcludeRaw(rawI) {
@@ -794,6 +794,9 @@ func (c *Codec) DecodeStream(reader io.Reader) (framer.Frame, error) {
 	if err != nil {
 		if h.state != nil {
 			h.state.dec.dropped = true
+		}
+		if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+			err = invalidf("remote sent a frame that ends early")
 		}
 		return framer.Frame{}, err
 	}

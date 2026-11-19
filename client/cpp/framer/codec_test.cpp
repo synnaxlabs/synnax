@@ -470,13 +470,38 @@ std::string to_hex(const uint8_t *data, const size_t size) {
     return out;
 }
 
+/// @brief returns the time range of a golden series, or a zero range when it has none.
+x::telem::TimeRange time_range_of(const nlohmann::json &s) {
+    const auto tr = s.value("time_range", std::vector<int64_t>{0, 0});
+    return x::telem::TimeRange(x::telem::TimeStamp(tr[0]), x::telem::TimeStamp(tr[1]));
+}
+
+/// @brief returns a series of the golden series' data, which holds each variable sample
+/// after its 4-byte little-endian length.
+x::telem::Series
+data_of(const x::telem::DataType &dt, const std::vector<uint8_t> &data) {
+    if (!dt.is_variable()) {
+        const size_t count = data.size() / dt.density();
+        auto ser = x::telem::Series(dt, count);
+        ser.write(data.data(), count);
+        return ser;
+    }
+    std::vector<std::string> samples;
+    for (size_t at = 0; at + 4 <= data.size();) {
+        const size_t n = data[at] | data[at + 1] << 8 | data[at + 2] << 16 |
+                         data[at + 3] << 24;
+        samples.emplace_back(reinterpret_cast<const char *>(data.data() + at + 4), n);
+        at += 4 + n;
+    }
+    return x::telem::Series(samples, dt);
+}
+
 x::telem::Series series_of(const nlohmann::json &s) {
     const x::telem::DataType dt(s["data_type"].get<std::string>());
-    const auto data = from_hex(s["data"].get<std::string>());
-    const size_t cap = dt.is_variable() ? data.size() : data.size() / dt.density();
-    auto ser = x::telem::Series(dt, cap);
-    ser.write(data.data(), cap);
+    auto ser = data_of(dt, from_hex(s["data"].get<std::string>()));
     ser.clock = s.value("clock", 0U);
+    ser.time_range = time_range_of(s);
+    ser.alignment = x::telem::Alignment(s.value("alignment", std::uint64_t{0}));
     return ser;
 }
 
@@ -532,9 +557,19 @@ TEST(CodecTests, GoldenFrames) {
                 const auto &got = decoded.series->at(i);
                 ASSERT_EQ(decoded.channels->at(i), want["key"].get<channel::Key>())
                     << name;
-                ASSERT_EQ(got.data_type().name(), want["data_type"].get<std::string>())
-                    << name;
+                ASSERT_EQ(
+                    got.data_type().name(),
+                    want.value(
+                        "decoded_data_type",
+                        want["data_type"].get<std::string>()
+                    )
+                ) << name;
                 ASSERT_EQ(got.clock, want.value("clock", 0U)) << name;
+                ASSERT_EQ(got.time_range, time_range_of(want)) << name;
+                ASSERT_EQ(
+                    got.alignment.uint64(),
+                    want.value("alignment", std::uint64_t{0})
+                ) << name;
                 ASSERT_EQ(
                     to_hex(
                         reinterpret_cast<const uint8_t *>(got.data()),
@@ -679,5 +714,51 @@ TEST(CodecTests, RejectsDeclaredClockErrors) {
         c.decode(encoded).second.data,
         "remote declared clock 5 after clock 7, so the list is not ascending"
     );
+}
+
+/// @brief it should keep a declared clock list unchanged when a frame carries one of
+/// its clocks and the agreed clocks still name the others. The Go encoder sends this
+/// frame with no extension.
+TEST(CodecTests, KeepsDeclaredClocksWhenOneIsInTheFrame) {
+    const std::vector<channel::Key> keys = {10, 11, 12};
+    const std::vector data_types = {
+        x::telem::FLOAT32_T,
+        x::telem::FLOAT32_T,
+        x::telem::FLOAT32_T
+    };
+    Codec enc(keys, data_types);
+    Codec dec(keys, data_types);
+    const auto clocked = [](auto s, const std::uint32_t clock) {
+        s.clock = clock;
+        return s;
+    };
+    const auto ts = [&](const std::uint32_t clock, const int64_t v) {
+        return clocked(x::telem::Series(std::vector<int64_t>{v}), clock);
+    };
+    const auto f32 = [&](const std::uint32_t clock, const float v) {
+        return clocked(x::telem::Series(std::vector<float>{v}), clock);
+    };
+    x::telem::Frame first(6);
+    first.emplace(2, ts(2, 1));
+    first.emplace(3, ts(3, 1));
+    first.emplace(9, ts(9, 1));
+    first.emplace(10, f32(2, 1));
+    first.emplace(11, f32(3, 1));
+    first.emplace(12, f32(9, 1));
+    std::vector<uint8_t> encoded;
+    ASSERT_NIL(enc.encode(first, encoded));
+    ASSERT_NIL_P(dec.decode(encoded));
+    x::telem::Frame second(4);
+    second.emplace(9, ts(9, 2));
+    second.emplace(10, f32(2, 2));
+    second.emplace(11, f32(3, 2));
+    second.emplace(12, f32(9, 2));
+    ASSERT_NIL(enc.encode(second, encoded));
+    EXPECT_EQ(
+        to_hex(encoded.data(), encoded.size()),
+        "3e01000000010000000900000002000000000000000a000000000000400b0000000000"
+        "00400c00000000000040"
+    );
+    ASSERT_NIL_P(dec.decode(encoded));
 }
 }

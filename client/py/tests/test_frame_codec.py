@@ -643,6 +643,16 @@ def _hex(h: str) -> bytes:
     return bytes.fromhex(h.replace(" ", ""))
 
 
+def _time_range_of(s: dict[str, Any]) -> sy.TimeRange:
+    start, end = s.get("time_range", [0, 0])
+    return sy.TimeRange(start, end)
+
+
+def _alignment_of(s: dict[str, Any]) -> sy.Alignment:
+    a = s.get("alignment", 0)
+    return sy.Alignment(a >> 32, a & 0xFFFFFFFF)
+
+
 class TestGoldenFrames:
     @pytest.mark.parametrize(
         "case", _VECTOR_CASES, ids=[c["name"] for c in _VECTOR_CASES]
@@ -660,6 +670,8 @@ class TestGoldenFrames:
                         data=bytes.fromhex(s["data"]),
                         data_type=s["data_type"],
                         clock=s.get("clock", 0),
+                        time_range=_time_range_of(s),
+                        alignment=_alignment_of(s),
                     )
                     for s in f["series"]
                 ],
@@ -668,8 +680,12 @@ class TestGoldenFrames:
             decoded = dec.decode(bytes.fromhex(f["encoded"]))
             assert decoded.keys == [s["key"] for s in f["series"]], f["name"]
             for got, want in zip(decoded.series, f["series"], strict=True):
-                assert got.data_type == want["data_type"], f["name"]
+                assert got.data_type == want.get(
+                    "decoded_data_type", want["data_type"]
+                ), f["name"]
                 assert got.clock == want.get("clock", 0), f["name"]
+                assert got.time_range == _time_range_of(want), f["name"]
+                assert got.alignment == _alignment_of(want), f["name"]
                 assert got.data.hex() == want["data"], f["name"]
 
 

@@ -11,7 +11,6 @@ package codec_test
 
 import (
 	"fmt"
-	"io"
 	"math"
 	"runtime"
 	"slices"
@@ -259,7 +258,7 @@ var _ = Describe("Declared clocks", func() {
 			var before, after runtime.MemStats
 			runtime.ReadMemStats(&before)
 			Expect(workedExampleCodec().Decode(encoded)).Error().
-				To(MatchError(io.ErrUnexpectedEOF))
+				To(invalid("remote sent a frame that ends early"))
 			runtime.ReadMemStats(&after)
 			Expect(after.TotalAlloc - before.TotalAlloc).To(BeNumerically("<", 8<<20))
 		})

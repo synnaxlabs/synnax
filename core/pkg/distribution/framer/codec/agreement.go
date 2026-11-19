@@ -143,9 +143,9 @@ func (c *Codec) codeOf(
 	return byte(code), nil
 }
 
-// plan returns the extension flags of the next frame of ag, and fills c.codes,
-// c.kinds, and c.clocks with its type codes, its override kinds, and the agreed clocks
-// it leaves. It does not change ag.
+// plan returns the extension flags of the next frame of ag, and fills c.codes, c.kinds,
+// and c.clocks with its type codes, its override kinds, and the agreed clocks it
+// leaves. It does not change ag.
 func (c *Codec) plan(
 	ctx context.Context,
 	merged []mergedSeriesInfo,
@@ -196,8 +196,8 @@ func (c *Codec) plan(
 	return ext, nil
 }
 
-// planOverrides sets the override kinds of each series in c.kinds and the agreed
-// clocks that the frame leaves in c.clocks.
+// planOverrides sets the override kinds of each series in c.kinds and the agreed clocks
+// that the frame leaves in c.clocks.
 func (c *Codec) planOverrides(
 	ctx context.Context,
 	merged []mergedSeriesInfo,

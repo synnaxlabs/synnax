@@ -16,6 +16,17 @@
 #include "driver/bypass/bypass.h"
 
 namespace driver::bypass {
+namespace {
+/// @brief returns channels with no index for the given keys.
+std::vector<synnax::channel::Channel>
+unindexed(const std::vector<synnax::channel::Key> &keys) {
+    std::vector<synnax::channel::Channel> channels(keys.size());
+    for (size_t i = 0; i < keys.size(); i++)
+        channels[i].key = keys[i];
+    return channels;
+}
+}
+
 TEST(BusTest, PublishNoSubscribers) {
     Bus bus;
     x::telem::Frame frame;
@@ -216,7 +227,7 @@ TEST(BusTest, DeliveredFrameFiltersExtraChannelsMultipleSubscribers) {
 
 TEST(BusTest, PublishAssignsIncreasingAlignmentPerChannel) {
     Bus bus;
-    bus.register_channels({1, 2});
+    bus.register_channels(unindexed({1, 2}));
     auto sub = bus.subscribe({1, 2});
     for (int i = 0; i < 3; i++) {
         x::telem::Frame frame;
@@ -244,7 +255,7 @@ TEST(BusTest, PublishAssignsIncreasingAlignmentPerChannel) {
 
 TEST(BusTest, PublishAlignmentAdvancesBySeriesSize) {
     Bus bus;
-    bus.register_channels({1});
+    bus.register_channels(unindexed({1}));
     auto sub = bus.subscribe({1});
     auto multi = x::telem::Series(x::telem::FLOAT32_T, 3);
     multi.write(1.0f);
@@ -280,7 +291,7 @@ TEST(BusTest, PublishAlignmentUnregisteredChannelLeftAtZero) {
 
 TEST(BusTest, ConcurrentPublishAndSubscribeLifecycle) {
     Bus bus;
-    bus.register_channels({1, 2, 3});
+    bus.register_channels(unindexed({1, 2, 3}));
     auto persistent_sub = bus.subscribe({1, 2, 3});
     constexpr int num_publishers = 4;
     constexpr int num_subscribers = 4;
@@ -319,7 +330,7 @@ TEST(BusTest, ConcurrentPublishAndSubscribeLifecycle) {
 
 TEST(BusTest, AdvanceAlignmentUpdatesCounter) {
     Bus bus;
-    bus.register_channels({1});
+    bus.register_channels(unindexed({1}));
     auto sub = bus.subscribe({1});
 
     x::telem::Frame external;
@@ -339,7 +350,7 @@ TEST(BusTest, AdvanceAlignmentUpdatesCounter) {
 
 TEST(BusTest, AdvanceAlignmentDoesNotDecrease) {
     Bus bus;
-    bus.register_channels({1});
+    bus.register_channels(unindexed({1}));
     auto sub = bus.subscribe({1});
 
     auto multi = x::telem::Series(x::telem::FLOAT32_T, 100);
@@ -368,7 +379,7 @@ TEST(BusTest, AdvanceAlignmentDoesNotDecrease) {
 
 TEST(BusTest, AdvanceAlignmentSkipsUnregisteredChannels) {
     Bus bus;
-    bus.register_channels({1});
+    bus.register_channels(unindexed({1}));
 
     x::telem::Frame external;
     auto s = x::telem::Series(static_cast<float>(1.0));
@@ -379,7 +390,7 @@ TEST(BusTest, AdvanceAlignmentSkipsUnregisteredChannels) {
 
 TEST(BusTest, AdvanceAlignmentConcurrentWithPublish) {
     Bus bus;
-    bus.register_channels({1});
+    bus.register_channels(unindexed({1}));
     auto sub = bus.subscribe({1});
 
     constexpr int iterations = 200;
