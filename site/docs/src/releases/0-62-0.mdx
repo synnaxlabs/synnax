@@ -3,6 +3,7 @@ title: "Version 0.62 release notes"
 ---
 
 import { Hero } from "@/components/hero";
+import { Video } from "@/components/media/Media";
 import { Releases } from "@/components/releases";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { mdxOverrides } from "@/components/mdxOverrides";
@@ -55,6 +56,8 @@ With 50,000 ranges, the toolbar finds the running ranges in 54% less time. See
 <Divider.Divider x />
 
 ### Send data to Sift
+
+<Video id="releases/0-62-0/sift" />
 
 Before, test data went to Sift through an export and a script of your own.
 
@@ -178,11 +181,10 @@ See [Connect to a Core](/reference/client/connect).
 
 #### ICDs for MQTT
 
-An interface control document (ICD) describes the messages that a device sends: their
-topics, fields, and types. Create one in the **ICDs** toolbar, or import a DBC, CSV, or
-XLSX file with **Import ICD**. MQTT read tasks read their messages from an ICD, and the
-read form shows one tree of topics, messages, and fields. The update makes one ICD for
-each MQTT read task, so your tasks keep running.
+MQTT read tasks now keep their messages in an interface control document (ICD): the
+topics that a device sends, and the fields and types of each message. Set the enum
+values and the default of a field in the read form. The update makes one ICD for each
+MQTT read task, so your tasks keep running.
 
 #### Stop a task while it starts
 
@@ -297,8 +299,6 @@ Type in any context menu to filter its items, also inside submenus: "copy link" 
 - The text of schematic buttons, inputs, selects, setpoints, and state indicators
   follows the size picker, so saved text can grow one step. A select at its saved width
   can cut its text.
-- MQTT: the Console cannot edit the enum values or the defaults of a field. The update
-  keeps the values that a task stored.
 
 #### Records that the update deletes
 

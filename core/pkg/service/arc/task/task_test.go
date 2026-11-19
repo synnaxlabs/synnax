@@ -34,7 +34,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	svcarc "github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/ranges"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -3791,9 +3790,16 @@ var _ = Describe("Task", Ordered, func() {
 					Entry(&stat).Exec(ctx, db)).To(Succeed())
 				g.Expect(stat.Variant).To(Equal(status.VariantError))
 				g.Expect(stat.Message).To(Equal("Program ran too long"))
+				g.Expect(stat.Description).To(Equal(
+					"The program ran more than 1000 loop iterations and function " +
+						"calls in one cycle.",
+				))
 				g.Expect(stat.Details.Running).To(BeFalse())
 			}).Should(Succeed())
-			Expect(t.Stop(false)).To(MatchError(runtime.ErrLoopBudget))
+			Expect(t.Stop(false)).To(MatchError(
+				"The program ran more than 1000 loop iterations and function calls in " +
+					"one cycle.",
+			))
 		},
 			Entry("one looping node", `
 				func spin() {

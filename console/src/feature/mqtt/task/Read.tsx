@@ -229,7 +229,7 @@ const messagePrefix = (
  */
 const bindingsOf = (
   stored: Record<string, channel.Key>,
-  fields: icd.JSONField[],
+  fields: Pick<icd.JSONField, "key" | "pointer">[],
   written: Set<channel.Key>,
 ): icd.ReadBinding[] =>
   fields.map(({ key: field, pointer }) => {
@@ -493,7 +493,7 @@ const MessageDetails = ({
 };
 
 interface FieldDetailsProps extends MessagePanelProps {
-  field: icd.JSONField;
+  field: ICD.TreeField;
 }
 
 const FieldDetails = ({ device, ...rest }: FieldDetailsProps) => {

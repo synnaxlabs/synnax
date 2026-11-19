@@ -9,7 +9,8 @@
 
 import { capture, fixtures } from "@/index";
 
-import { DRIVER, fieldItem, NI_DAQ } from "./common/task";
+import { enterIdentifier } from "./common/configure-device";
+import { DRIVER, NI_DAQ } from "./common/task";
 
 /** Every integration in the connect dialog, so that no entry shows a warning. */
 const INTEGRATIONS = [
@@ -74,10 +75,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.press("ControlOrMeta+a");
     await session.type(NI_DAQ.name);
     await session.hold(500);
-    await session.click(fieldItem(form, "Identifier").locator("input").first(), {
-      text: true,
-    });
-    await session.type(String(NI_DAQ.properties.identifier));
+    await enterIdentifier(session, form, String(NI_DAQ.properties.identifier));
     await session.hold(600);
     await capture.clickButton(session, "Save");
     await session.waitFor(modal.getByText("Configured", { exact: true }));

@@ -10,6 +10,8 @@
 import { type icd } from "@synnaxlabs/client";
 import { type record } from "@synnaxlabs/x";
 
+import { type TreeField } from "@/platform/icd/read";
+
 /** A source of the task, such as a topic or a record, at the root of the tree. */
 export interface SourceNode {
   kind: "source";
@@ -32,7 +34,7 @@ export interface FieldNode {
   source: string;
   /** The index of the message in the source's reads. */
   read: number;
-  field: icd.JSONField;
+  field: TreeField;
 }
 
 export type Node = SourceNode | MessageNode | FieldNode;
