@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { icd, mqtt, type rack } from "@synnaxlabs/client";
+import { type device, icd, mqtt, type rack } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { DataType, type payload, TimeStamp, uuid } from "@synnaxlabs/x";
@@ -70,7 +70,7 @@ interface RenderParams extends Partial<Omit<EntryParams, "topic">> {
    * Runs after the task is saved, before the form opens. The Core saves no task that an
    * ICD edit here would make invalid.
    */
-  beforeRender?: () => Promise<unknown>;
+  beforeRender?: (dev: device.Device) => Promise<unknown>;
 }
 
 /** Creates an ICD that holds one message, and an entry that reads it. */
@@ -121,7 +121,7 @@ const renderRead = async ({
     { name: "MQTT read task", type: MQTT.Task.READ_TYPE, config },
     MQTT.Task.READ_SCHEMAS,
   );
-  await beforeRender?.();
+  await beforeRender?.(dev);
   const statuses: Status.NotificationSpec[] = [];
   const result = await renderTaskFormTab(MQTT.Task.Read, {
     client,
@@ -1129,6 +1129,152 @@ describe("MQTT read form", () => {
         ]),
       );
     });
+  });
+
+  describe("channel name preview", () => {
+    /** Renders a task whose first topic reads temperature, then selects the field. */
+    const renderTemperature = async (beforeRender?: RenderParams["beforeRender"]) => {
+      const time = createTimeField();
+      const { dev } = await renderRead({
+        fields: [time, createField("temperature", "float")],
+        index: time.key,
+        beforeRender,
+      });
+      await selectField("temperature");
+      return `${dev.name}_plant_oven_temperature`;
+    };
+
+    it("should preview a numbered name for a new channel whose name is taken", async () => {
+      const name = await renderTemperature(
+        async (dev) =>
+          await client.channels.create({
+            name: `${dev.name}_plant_oven_temperature`,
+            dataType: DataType.FLOAT64,
+            virtual: true,
+          }),
+      );
+      await screen.findByDisplayValue(`${name}_2`);
+    });
+
+    it("should preview the plain name for a new channel whose name is free", async () => {
+      const name = await renderTemperature();
+      await screen.findByDisplayValue(name);
+      expect(screen.queryByDisplayValue(`${name}_2`)).toBeNull();
+    });
+
+    it("should preview the plain name for a channel that replaces the one holding it", async () => {
+      const time = await createTimeChannel();
+      const countCh = await client.channels.create({
+        name: uniqueName("count"),
+        dataType: DataType.INT64,
+        index: time.key,
+      });
+      const timeField = createTimeField();
+      const temperature = createField("temperature", "float");
+      const count = createField("count", "integer");
+      const entry = await createEntry({
+        fields: [timeField, temperature, count],
+        index: timeField.key,
+        bound: {
+          [timeField.key]: time.key,
+          [temperature.key]: 0,
+          [count.key]: countCh.key,
+        },
+      });
+      const { dev } = await renderRead({
+        entries: [entry],
+        beforeRender: async (dev) => {
+          await retype(entry, count, "float", temperature.key);
+          await client.channels.rename(countCh.key, `${dev.name}_plant_oven_count`);
+          await client.channels.create({
+            name: `${dev.name}_plant_oven_temperature`,
+            dataType: DataType.FLOAT64,
+            virtual: true,
+          });
+        },
+        properties: {
+          read: { [TOPIC]: { index: time.key, channels: { "/count": countCh.key } } },
+        },
+      });
+      // The numbered name of temperature shows that the plan of the message is done.
+      await selectField("temperature");
+      await screen.findByDisplayValue(`${dev.name}_plant_oven_temperature_2`);
+      await selectField("count");
+      await screen.findByDisplayValue(`${dev.name}_plant_oven_count`);
+      expect(screen.queryByDisplayValue(`${dev.name}_plant_oven_count_2`)).toBeNull();
+    });
+
+    it("should preview a numbered name for a new index whose name is taken", async () => {
+      const time = createTimeField();
+      const { dev } = await renderRead({
+        fields: [time, createField("temperature", "float")],
+        index: time.key,
+        beforeRender: async (dev) =>
+          await client.channels.create({
+            name: `${dev.name}_plant_oven_time`,
+            dataType: DataType.TIMESTAMP,
+            isIndex: true,
+          }),
+      });
+      fireEvent.click(
+        await screen.findByRole("treeitem", { name: /JSON.*plant\/oven/ }),
+      );
+      await screen.findByDisplayValue(`${dev.name}_plant_oven_time_2`);
+    });
+
+    it("should show the details of a topic that reads no messages", async () => {
+      const format = await client.icds.create({
+        name: uniqueName("format"),
+        messages: [],
+      });
+      await renderRead({
+        entries: [
+          mqtt.plainReadEntryZ.parse({
+            type: "plain",
+            icd: format.key,
+            topic: "plant/empty",
+            messages: [],
+          }),
+        ],
+      });
+      fireEvent.click(await screen.findByRole("treeitem", { name: /plant\/empty/ }));
+      await screen.findByDisplayValue("plant/empty");
+    });
+
+    it("should preview a numbered name for the new channel of a tag whose name is taken", async () => {
+      const { dev } = await renderRead({
+        entries: [createTagEntry("flow")],
+        beforeRender: async (dev) =>
+          await client.channels.create({
+            name: `${dev.name}_plant_line1_flow`,
+            dataType: DataType.FLOAT64,
+            virtual: true,
+          }),
+      });
+      fireEvent.click(
+        await screen.findByRole("treeitem", { name: /SpB.*plant\/line1\/flow/ }),
+      );
+      await screen.findByPlaceholderText(`${dev.name}_plant_line1_flow_2`);
+    });
+  });
+
+  it("should say the numbered name that a typed tag channel name saves as", async () => {
+    const typed = uniqueName("flow");
+    const { dev } = await renderRead({
+      entries: [createTagEntry("flow")],
+      beforeRender: async () =>
+        await client.channels.create({
+          name: typed,
+          dataType: DataType.FLOAT64,
+          virtual: true,
+        }),
+    });
+    fireEvent.click(
+      await screen.findByRole("treeitem", { name: /SpB.*plant\/line1\/flow/ }),
+    );
+    const input = await screen.findByPlaceholderText(`${dev.name}_plant_line1_flow`);
+    fireEvent.change(input, { target: { value: typed } });
+    await screen.findByText(`Saves as ${typed}_2`);
   });
 
   describe("Sparkplug B entries", () => {

@@ -296,6 +296,18 @@ export const applyReadChannels = async (
   }
 };
 
+/**
+ * @returns the name of the channel that deploying creates for the field with key, or
+ * undefined when the field keeps a channel.
+ */
+export const newChannelName = (
+  plan: ReadChannelPlan,
+  key: string,
+): string | undefined =>
+  key === plan.indexField
+    ? plan.newIndex
+    : plan.creates.find((create) => create.key === key)?.name;
+
 export interface ConfigureReadChannelsArgs<F extends ReadChannelField> extends Omit<
   PlanReadChannelsArgs<F>,
   "props"
