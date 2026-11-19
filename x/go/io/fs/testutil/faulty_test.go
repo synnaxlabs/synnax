@@ -42,6 +42,14 @@ var _ = Describe("FaultyFS", func() {
 		Expect(MustSucceed(fs.Exists("b.bin"))).To(BeFalse())
 	})
 
+	It("Should pass SyncDir through to the wrapped FS", func() {
+		fs, f := openWrapped()
+		DeferClose(f)
+		MustSucceed(fs.Sub("dir"))
+		Expect(fs.SyncDir("dir")).To(Succeed())
+		Expect(fs.SyncDir("missing")).To(MatchError(os.ErrNotExist))
+	})
+
 	DescribeTable(
 		"Should raise the fault in place of the operation",
 		func(opt FaultyFSOption, run func(fs *FaultyFS, f xfs.File) error) {
