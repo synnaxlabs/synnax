@@ -30,27 +30,36 @@ const SECRETS_DIR = "/etc/synnax/secrets";
 interface FixtureProps {
   rack: rack.Key;
   onChange: (name: string) => void;
+  allowNone: boolean;
 }
 
-const Fixture = ({ rack, onChange }: FixtureProps): ReactElement => {
+const Fixture = ({ rack, onChange, allowNone }: FixtureProps): ReactElement => {
   const [value, setValue] = useState("");
   const handleChange = (next: string) => {
     setValue(next);
     onChange(next);
   };
   return (
-    <FileBrowser.SelectSecretFile rack={rack} value={value} onChange={handleChange} />
+    <FileBrowser.SelectSecretFile
+      rack={rack}
+      value={value}
+      onChange={handleChange}
+      allowNone={allowNone}
+    />
   );
 };
 
 const renderSelect = async (
   listings: ReturnType<typeof createListing>[],
+  allowNone = false,
 ): Promise<Mock<(name: string) => void>> => {
   const files = await createFileRack(client);
   await serveListings(client, files, listings);
   const onChange = vi.fn<(name: string) => void>();
   const { wrapper } = await createConsoleWrapper({ client });
-  render(<Fixture rack={files.rack.key} onChange={onChange} />, { wrapper });
+  render(<Fixture rack={files.rack.key} onChange={onChange} allowNone={allowNone} />, {
+    wrapper,
+  });
   return onChange;
 };
 
@@ -68,14 +77,35 @@ describe("FileBrowser.SelectSecretFile", () => {
       }),
     ]);
     fireEvent.click(await findDialogTriggerByText("Select a file"));
+    expect(screen.queryByRole("option", { name: "No file" })).toBeNull();
     fireEvent.click(await screen.findByRole("option", { name: "token" }));
     expect(screen.queryByRole("option", { name: "keys" })).toBeNull();
     await waitFor(() => expect(onChange).toHaveBeenLastCalledWith("token"));
     await findDialogTriggerByText("token");
   });
 
+  it("should clear an optional file with the No file option", async () => {
+    const onChange = await renderSelect(
+      [
+        createListing({ secretsDir: SECRETS_DIR }),
+        createListing({
+          path: SECRETS_DIR,
+          secret: true,
+          entries: [{ name: "key", path: `${SECRETS_DIR}/key`, kind: "file" }],
+        }),
+      ],
+      true,
+    );
+    fireEvent.click(await findDialogTriggerByText("No file"));
+    fireEvent.click(await screen.findByRole("option", { name: "key" }));
+    fireEvent.click(await findDialogTriggerByText("key"));
+    fireEvent.click(await screen.findByRole("option", { name: "No file" }));
+    await waitFor(() => expect(onChange).toHaveBeenLastCalledWith(""));
+    await findDialogTriggerByText("No file");
+  });
+
   it("should say when the rack has no secrets folder", async () => {
-    await renderSelect([createListing()]);
+    await renderSelect([createListing()], true);
     const trigger = await findDialogTriggerByText("The rack has no secrets folder");
     expect(trigger.getAttribute("aria-disabled")).toBe("true");
   });
