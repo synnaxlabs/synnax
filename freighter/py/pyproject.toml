@@ -101,5 +101,5 @@ markers = [
 ]
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.33.0,<2"]
 build-backend = "hatchling.build"
