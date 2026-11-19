@@ -32,7 +32,7 @@ export type SASLType = kafka.SASLType;
 
 export const ZERO_PROPERTIES: Properties = {
   brokers: [""],
-  tls: false,
+  secure: false,
   caCertificate: "",
   sasl: { mechanism: "none" },
   read: {},

@@ -15,16 +15,21 @@ import { type SparkplugTagID } from "@/feature/mqtt/task/types";
 
 export interface SparkplugNodeFieldsProps {
   path: deep.Target<Pick<SparkplugTagID, "group" | "edgeNode">>;
+  /** Group takes focus when the fields mount. */
+  autoFocus?: boolean;
 }
 
-export const SparkplugNodeFields = ({ path }: SparkplugNodeFieldsProps) => {
+export const SparkplugNodeFields = ({
+  path,
+  autoFocus = false,
+}: SparkplugNodeFieldsProps) => {
   const node = deep.widen(path);
   return (
     <Flex.Box x>
       <PForm.TextField
         path={node.group}
         label="Group"
-        inputProps={GROUP_INPUT_PROPS}
+        inputProps={autoFocus ? FOCUSED_GROUP_INPUT_PROPS : GROUP_INPUT_PROPS}
         grow
       />
       <PForm.TextField
@@ -43,9 +48,11 @@ export interface SparkplugTagFieldsProps {
 
 export const SparkplugTagFields = ({ path }: SparkplugTagFieldsProps) => {
   const tag = deep.widen(path);
+  // A tag added by name has no group yet, so its fields open on the group.
+  const group = PForm.useFieldValue(tag.group);
   return (
     <>
-      <SparkplugNodeFields path={path} />
+      <SparkplugNodeFields path={path} autoFocus={group === ""} />
       <Flex.Box x>
         <PForm.TextField
           path={tag.device}
@@ -60,6 +67,8 @@ export const SparkplugTagFields = ({ path }: SparkplugTagFieldsProps) => {
 };
 
 const GROUP_INPUT_PROPS = { placeholder: "plant" } as const;
+
+const FOCUSED_GROUP_INPUT_PROPS = { ...GROUP_INPUT_PROPS, autoFocus: true } as const;
 
 const EDGE_NODE_INPUT_PROPS = { placeholder: "line1" } as const;
 
