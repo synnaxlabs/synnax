@@ -578,6 +578,12 @@ describe("Picker", () => {
         expect(c.getByText("menu for Alarm in Status")).toBeTruthy();
       });
 
+      it("should name the swatch of an open menu in the palette title", () => {
+        const c = renderSlots({ swatchMenu: <SwatchMenu /> });
+        fireEvent.contextMenu(c.getByLabelText("Alarm"));
+        expect(c.getByText("Alarm")).toBeTruthy();
+      });
+
       it("should open swatchMenu on a press of Shift+F10", () => {
         const c = renderSlots({ swatchMenu: <SwatchMenu /> });
         const alarm = c.getByLabelText("Alarm");

@@ -392,8 +392,9 @@ interface PaletteSectionProps extends Pick<Library, "paletteEnd" | "swatchMenu">
 }
 
 /**
- * A palette under its title, which names the hovered or focused color, else the linked
- * one. The name stays until the pointer or the focus leaves the palette.
+ * A palette under its title, which names the color of an open swatch menu, else the
+ * hovered or focused color, else the linked one. A hovered name stays until the pointer
+ * or the focus leaves the palette.
  */
 const PaletteSection = ({
   palette,
@@ -408,8 +409,11 @@ const PaletteSection = ({
   const [hovered, setHovered] = useState<string>();
   const menu = Menu.useContextMenu();
   const leave = (): void => setHovered(undefined);
+  const find = (key?: string): Named | undefined =>
+    key == null ? undefined : colors.find((c) => c.key === key);
+  // The menu takes the focus, so the title names its swatch while it is open.
   const shown =
-    colors.find((c) => c.key === hovered) ?? colors.find((c) => c.key === linked);
+    find(menu.visible ? menu.keys[0] : undefined) ?? find(hovered) ?? find(linked);
   const menuProps =
     swatchMenu == null
       ? {}
