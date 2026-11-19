@@ -11,6 +11,7 @@ import { type schematic } from "@synnaxlabs/client";
 import { border, box, type dimensions, primitive, xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
+import { Color } from "@/color";
 import { Border } from "@/schematic/node/common/border";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
@@ -60,12 +61,13 @@ const Fill = ({ nodeKey, position, config }: FillProps): null => {
     dimensions: dims = Border.DEFAULT_DIMENSIONS,
   } = config;
   const telem = Scale.source({ channel, rollingAverage });
+  const vis = Scale.useVisProps({
+    ...config,
+    caretHidden: !caretVisible,
+    scaleHidden: !scaleVisible,
+  });
   VisScale.use({
-    ...Scale.visProps({
-      ...config,
-      caretHidden: !caretVisible,
-      scaleHidden: !scaleVisible,
-    }),
+    ...vis,
     telem,
     aetherKey: nodeKey,
     box: box.construct(xy.translate(position ?? xy.ZERO, OVERLAP), {
@@ -86,6 +88,7 @@ export const Symbol = ({
   selected,
   config,
 }: NodeProps<schematic.TankNodeConfig>): ReactElement => {
+  const resolve = Color.useResolve();
   const {
     label,
     fillColor,
@@ -107,11 +110,24 @@ export const Symbol = ({
         <Fill nodeKey={nodeKey} position={position} config={config} />
       )}
       <Tank
-        strokeColor={strokeColor}
+        strokeColor={resolve(strokeColor)}
         dimensions={dimensions}
         borderRadius={borderRadius}
-        fillColor={fillColor}
+        fillColor={resolve(fillColor)}
       />
     </Grid.Grid>
+  );
+};
+
+/** Renders the tank in the symbol list, with its colors resolved for the theme. */
+export const Preview = ({
+  strokeColor,
+  fillColor,
+  dimensions: _dimensions,
+  ...rest
+}: schematic.TankNodeConfig): ReactElement => {
+  const resolve = Color.useResolve();
+  return (
+    <Tank {...rest} strokeColor={resolve(strokeColor)} fillColor={resolve(fillColor)} />
   );
 };

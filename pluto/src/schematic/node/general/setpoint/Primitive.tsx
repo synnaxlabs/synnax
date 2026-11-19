@@ -28,8 +28,9 @@ import { Primitive } from "@/schematic/node/common/primitive";
 import { SIZE_LEVELS } from "@/schematic/node/common/size";
 
 interface RenderProps extends Partial<
-  Omit<schematic.SetpointNodeConfig, "variant" | "label" | "scale">
+  Omit<schematic.SetpointNodeConfig, "variant" | "label" | "scale" | "fillColor">
 > {
+  fillColor?: color.Crude;
   className?: string;
   style?: CSSProperties;
   /** value is the last commanded value, or null when none is known. */

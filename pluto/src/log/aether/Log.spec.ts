@@ -364,7 +364,7 @@ describe("log/aether/Log", () => {
         channels: [
           clientLog.channelEntryZ.parse({
             channel: 1,
-            color: color.construct("#ff0000"),
+            color: { type: "fixed", value: "#ff0000" },
             precision: 3,
           }),
           clientLog.channelEntryZ.parse({ channel: 2 }),
@@ -375,7 +375,10 @@ describe("log/aether/Log", () => {
       expect(parsed.channelNamesHidden).toBe(true);
       expect(parsed.timestampPrecision).toBe(2);
       expect(parsed.channels).toHaveLength(2);
-      expect(parsed.channels[0].color).toEqual([255, 0, 0, 255]);
+      expect(parsed.channels[0].color).toEqual({
+        type: "fixed",
+        value: [255, 0, 0, 255],
+      });
       expect(parsed.channels[0].precision).toBe(3);
     });
   });
@@ -1757,12 +1760,8 @@ describe("log/aether/Log", () => {
     it("should include the color of a channel with a custom color", () => {
       const entries = Array.from({ length: 5 }, (_, i) => makeEntry(i));
       const { log } = setup(entries, REGION_500, {
-        channels: [
-          clientLog.channelEntryZ.parse({
-            channel: 1,
-            color: color.construct("#ff0000"),
-          }),
-        ],
+        channels: [clientLog.channelEntryZ.parse({ channel: 1 })],
+        channelColors: { 1: color.construct("#ff0000") },
         selectionStart: 0,
         selectionEnd: 0,
       });
@@ -1974,19 +1973,14 @@ describe("log/aether/Log", () => {
       expect(selectedText(log)).toContain("Humidity");
     });
 
-    it("should apply per-channel colors from channelConfigs", () => {
+    it("should apply the resolved color of each channel", () => {
       const entries = [makeEntry(0, 1), makeEntry(1, 2)];
       const { log } = setup(entries, REGION_500, {
         channels: [
-          clientLog.channelEntryZ.parse({
-            channel: 1,
-            color: color.construct("#ff0000"),
-          }),
-          clientLog.channelEntryZ.parse({
-            channel: 2,
-            color: color.construct("#00ff00"),
-          }),
+          clientLog.channelEntryZ.parse({ channel: 1 }),
+          clientLog.channelEntryZ.parse({ channel: 2 }),
         ],
+        channelColors: { 1: color.construct("#ff0000"), 2: color.construct("#00ff00") },
         selectionStart: 0,
         selectionEnd: 1,
       });

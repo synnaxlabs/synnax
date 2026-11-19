@@ -9,10 +9,11 @@
 
 import "@/platform/multiedit/Sections.css";
 
+import { type color } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Notation, Staleness } from "@synnaxlabs/pluto";
-import { type color, notation, TimeSpan } from "@synnaxlabs/x";
+import { notation, TimeSpan } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
@@ -36,8 +37,10 @@ export interface StalenessSectionProps {
   timeout?: number;
   /** The unit of the stored timeout. Defaults to nanoseconds. */
   unit?: TimeSpan;
-  onColorChange: (value?: color.Color) => void;
+  onColorChange: (value?: color.Ref) => void;
   onTimeoutChange: (value: number) => void;
+  /** If true, the picker hides the palettes, for a field that stores fixed colors. */
+  palettesHidden?: boolean;
 }
 
 /** Edits the staleness color and timeout of several elements. */
@@ -47,9 +50,10 @@ export const StalenessSection = ({
   unit = TimeSpan.NANOSECOND,
   onColorChange,
   onTimeoutChange,
+  ...rest
 }: StalenessSectionProps): ReactElement => (
   <Form.Section title="Staleness">
-    <ColorField label="Color" values={colors} onChange={onColorChange} />
+    <ColorField label="Color" values={colors} onChange={onColorChange} {...rest} />
     <Input.Item label="Timeout" align="start" padHelpText={false}>
       <Input.TimeSpan
         inline

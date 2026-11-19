@@ -716,7 +716,7 @@ export const Content = (): ReactElement => {
       }),
     onStartChild: (range) => {
       // The child starts now, so only a running range takes it in place.
-      if (!isRunning(range.key)) return openCreate({ parent: range.key });
+      if (!isRunning(range.key)) return void openCreate({ parent: range.key });
       openSuggested({ startedAt: TimeStamp.now(), parent: range.key });
     },
   };
@@ -726,7 +726,7 @@ export const Content = (): ReactElement => {
   };
   const addPast = () => {
     const now = TimeStamp.now();
-    openCreate({
+    void openCreate({
       timeRange: { start: now.sub(TimeSpan.HOUR).nanoseconds, end: now.nanoseconds },
     });
   };

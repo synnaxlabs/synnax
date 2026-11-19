@@ -1,0 +1,31 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.lyra-views {
+    /* The box takes the focus, with no ring, when the opener of a view is gone. */
+    outline: none;
+
+    /* The children stay mounted under a view, so Back finds them as they were. */
+    &.lyra-views--viewing > :not(.lyra-views__header, .lyra-views__view) {
+        display: none;
+    }
+
+    & > .lyra-views__header {
+        flex-shrink: 0;
+        padding: 1rem 1.5rem;
+        border-bottom: var(--pluto-border-width) solid var(--pluto-gray-l6);
+    }
+
+    & > .lyra-views__view {
+        flex-shrink: 0;
+        padding: 1.5rem;
+    }
+}

@@ -18,7 +18,14 @@ import { Haul } from "@synnaxlabs/lyra/haul";
 import { fireDragEvent } from "@synnaxlabs/lyra/testutil";
 import { Mosaic, Panel as PPanel } from "@synnaxlabs/pluto";
 import { color, uuid } from "@synnaxlabs/x";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -616,12 +623,16 @@ describe("Panel.Selector", () => {
 
     it("should tint the pill icon and keep the picker open on a color", async () => {
       const pan = await openPicker();
+      const frame = picker();
+      if (frame == null) throw new Error("the icon picker is not open");
+      const [swatch] = within(frame).getAllByRole("button", { name: /^#[0-9a-f]+$/ });
+      const [r, g, b] = color.construct(swatch.getAttribute("aria-label") ?? "");
       await act(async () => {
-        fireEvent.click(screen.getByLabelText("#dc136c"));
+        fireEvent.click(swatch);
       });
       await waitFor(() =>
         expect(pillIcon(pan).style.getPropertyValue("--pluto-symbol-color")).toEqual(
-          "220, 19, 108",
+          `${r}, ${g}, ${b}`,
         ),
       );
       expect(picker()).not.toBeNull();
@@ -660,7 +671,7 @@ describe("Panel.Selector", () => {
     });
 
     it("should clear the color on Auto", async () => {
-      const pan = await openPicker({ color: "#dc136c" });
+      const pan = await openPicker({ color: { type: "fixed", value: "#dc136c" } });
       await act(async () => {
         fireEvent.click(screen.getByLabelText("Auto"));
       });
@@ -676,6 +687,8 @@ describe("Panel.Selector", () => {
     it("should set a custom color once the custom picker closes", async () => {
       const pan = await openPicker();
       fireEvent.click(screen.getByLabelText("Custom color"));
+      // With no color set, the picker opens on its Library tab.
+      fireEvent.click(await screen.findByText("Custom"));
       fireEvent.change(await screen.findByLabelText("Hex"), {
         target: { value: "123456" },
       });
@@ -690,7 +703,32 @@ describe("Panel.Selector", () => {
       );
       expect(picker()).not.toBeNull();
       const stored = await client.panels.retrieve({ key: pan.key });
-      expect(stored.color).toEqual(color.construct("#123456"));
+      expect(stored.color).toEqual({
+        type: "fixed",
+        value: color.construct("#123456"),
+      });
+    });
+
+    it("should link the panel to a named color picked from a palette", async () => {
+      const palette = await client.groups.create({
+        scope: "color",
+        name: uniqueName("palette"),
+      });
+      const named = await client.colors.create({
+        name: uniqueName("color"),
+        light: "#123456",
+        group: palette.key,
+      });
+      const pan = await openPicker();
+      fireEvent.click(screen.getByLabelText("Custom color"));
+      fireEvent.click(await screen.findByRole("button", { name: named.name }));
+      await waitFor(() =>
+        expect(pillIcon(pan).style.getPropertyValue("--pluto-symbol-color")).toEqual(
+          "18, 52, 86",
+        ),
+      );
+      const stored = await client.panels.retrieve({ key: pan.key });
+      expect(stored.color).toEqual({ type: "named", key: named.key });
     });
 
     it("should hide the item from a user who cannot edit the panel", async () => {

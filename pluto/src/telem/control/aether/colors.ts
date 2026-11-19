@@ -12,6 +12,7 @@ import { color, type destructor, observe } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
+import { color as aetherColor } from "@/color/aether";
 import { synnax } from "@/synnax/aether";
 import { theming } from "@/theming/aether";
 
@@ -37,16 +38,18 @@ export interface ColoredState extends control.State {
 
 /**
  * Colors assigns each control subject a color, so that a reader can tell subjects
- * apart at a glance. Assignment is sequential over the visualization palette, which
- * keeps colors unique for as many subjects as the palette holds.
+ * apart at a glance. Each subject holds the smallest number no other subject holds, and
+ * takes the series color at that number, wrapping around. Colors stay unique for as
+ * many subjects as there are series colors, and a subject keeps its number when they
+ * change.
  */
 export class Colors extends aether.Composite<typeof colorsStateZ, InternalState> {
   static readonly TYPE = "Colors";
   static readonly stateZ = colorsStateZ;
   schema = Colors.stateZ;
 
-  /** The color assigned to each control subject, keyed by subject key. */
-  private readonly assigned = new Map<string, color.Color>();
+  /** The number assigned to each control subject, keyed by subject key. */
+  private readonly assigned = new Map<string, number>();
   /** User-specified color overrides from the legend UI. */
   private readonly overrides = new Map<string, color.Color>();
   private readonly obs = new observe.Observer<void>();
@@ -64,12 +67,11 @@ export class Colors extends aether.Composite<typeof colorsStateZ, InternalState>
 
   afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
-    const theme = theming.use(ctx);
-    i.palette = theme.colors.visualization.palettes.default;
-    i.defaultColor = theme.colors.gray.l9;
+    i.palette = aetherColor.series.use(ctx);
+    i.defaultColor = theming.use(ctx).colors.gray.l9;
     ctx.set(CONTEXT_KEY, this);
     const nextClient = synnax.use(ctx);
-    if (i.client != null && nextClient === i.client) return;
+    if (i.client != null && nextClient === i.client) return this.obs.notify();
     i.client = nextClient;
     this.disconnect?.();
     this.assigned.clear();
@@ -92,8 +94,12 @@ export class Colors extends aether.Composite<typeof colorsStateZ, InternalState>
 
   /** The color of the given subject, or the default color when it has none. */
   get(subject: string): color.Color {
-    const { defaultColor } = this.internal;
-    return this.overrides.get(subject) ?? this.assigned.get(subject) ?? defaultColor;
+    const { defaultColor, palette } = this.internal;
+    const override = this.overrides.get(subject);
+    if (override != null) return override;
+    const n = this.assigned.get(subject);
+    if (n == null || palette.length === 0) return defaultColor;
+    return palette[n % palette.length];
   }
 
   setOverrides(overrides: Record<string, color.Color>): void {
@@ -121,13 +127,13 @@ export class Colors extends aether.Composite<typeof colorsStateZ, InternalState>
     this.assigned.forEach((_, key) => {
       if (!subjects.has(key)) this.assigned.delete(key);
     });
-    const taken = Array.from(this.assigned.values());
-    const { palette } = this.internal;
+    const taken = new Set(this.assigned.values());
+    let next = 0;
     subjects.forEach((key) => {
       if (this.assigned.has(key)) return;
-      const next = palette.find((c) => !taken.includes(c)) ?? palette[0];
+      while (taken.has(next)) next++;
       this.assigned.set(key, next);
-      taken.push(next);
+      taken.add(next);
     });
     this.obs.notify();
   }

@@ -13,14 +13,18 @@ import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { HexText, type HexTextProps } from "@/color/HexText";
+import { findNamed } from "@/color/named";
 import { Swatch, type SwatchProps } from "@/color/Swatch";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 
 export interface InputProps
   extends
-    Omit<HexTextProps, "text" | "alpha" | "onChange" | "onClear" | "startContent">,
-    Pick<SwatchProps, "mixed"> {
+    Omit<
+      HexTextProps,
+      "text" | "named" | "alpha" | "onChange" | "onClear" | "startContent"
+    >,
+    Pick<SwatchProps, "mixed" | "library"> {
   /** The picked color. Absent means the theme picks. */
   value?: color.Crude;
   /** Called with the new color, or with undefined when the user picks Auto. */
@@ -33,7 +37,8 @@ export interface InputProps
  * An optional color as a swatch joined to a hex text box. The user types or pastes a
  * color into the box, or clicks the swatch to open the picker. An empty box means
  * Auto: the swatch shows the fallback, and the box shows "Auto". While mixed, the box
- * shows "Mixed" until the user sets a color.
+ * shows "Mixed" until the user sets a color. While the value follows a named color of
+ * the library, the box holds its name until the user types a color.
  */
 export const Input = ({
   value,
@@ -41,29 +46,39 @@ export const Input = ({
   fallback,
   onlyChangeOnBlur,
   mixed = false,
+  library,
   size = "medium",
   className,
   ...rest
-}: InputProps): ReactElement => (
-  <Flex.Box pack className={CSS.cls(CSS.B("color-input"), className)}>
-    <Swatch
-      value={value}
-      fallback={fallback}
-      onChange={onChange}
-      onlyChangeOnBlur={onlyChangeOnBlur}
-      mixed={mixed}
-      size={size}
-    />
-    <HexText
-      size={size}
-      placeholder={mixed ? "Mixed" : "Auto"}
-      startContent={mixed || value == null ? undefined : "#"}
-      text={mixed || value == null ? "" : color.hex(value).slice(1)}
-      alpha={color.opacity(value ?? fallback)}
-      onChange={onChange}
-      onClear={() => onChange(undefined)}
-      onlyChangeOnBlur={onlyChangeOnBlur}
-      {...rest}
-    />
-  </Flex.Box>
-);
+}: InputProps): ReactElement => {
+  const named =
+    mixed || library?.named == null
+      ? undefined
+      : findNamed(library.palettes, library.named);
+  const digits = mixed || value == null ? "" : color.hex(value).slice(1);
+  return (
+    <Flex.Box pack className={CSS.cls(CSS.B("color-input"), className)}>
+      <Swatch
+        value={value}
+        fallback={fallback}
+        onChange={onChange}
+        onlyChangeOnBlur={onlyChangeOnBlur}
+        mixed={mixed}
+        library={library}
+        size={size}
+      />
+      <HexText
+        size={size}
+        placeholder={mixed ? "Mixed" : "Auto"}
+        startContent={named == null && digits !== "" ? "#" : undefined}
+        text={named?.name ?? digits}
+        named={named != null}
+        alpha={color.opacity(value ?? fallback)}
+        onChange={onChange}
+        onClear={() => onChange(undefined)}
+        onlyChangeOnBlur={onlyChangeOnBlur}
+        {...rest}
+      />
+    </Flex.Box>
+  );
+};

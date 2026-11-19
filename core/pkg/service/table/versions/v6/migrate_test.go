@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	v5 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v5"
 	v6 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v6"
 	color "github.com/synnaxlabs/x/color/versions/v0"
@@ -59,7 +60,10 @@ var _ = Describe("Migration", func() {
 			Expect(gorp.NewRetrieve[v6.Key, v6.Table]().
 				Where(gorp.MatchKeys[v6.Key, v6.Table](old.Key)).
 				Entry(&got).Exec(ctx, db)).To(Succeed())
-			n := func(r uint8) *colorv2.Color { return &colorv2.Color{R: r, A: expected} }
+			b := func(r uint8) colorv2.Color { return colorv2.Color{R: r, A: expected} }
+			n := func(r uint8) *servicecolor.Ref {
+				return &servicecolor.Ref{Variant: servicecolor.FixedRef{Value: b(r)}}
+			}
 			cells := got.Rows[0].Cells
 			Expect(cells[0].Key).To(Equal("text"))
 			text, ok := cells[0].Config.Variant.(v6.TextCellConfig)
@@ -74,7 +78,7 @@ var _ = Describe("Migration", func() {
 			Expect(value.StalenessColor).To(Equal(n(5)))
 			Expect(
 				value.Redline.Bands,
-			).To(Equal([]colorv2.Band{{Key: "b", Color: *n(6)}}))
+			).To(Equal([]colorv2.Band{{Key: "b", Color: b(6)}}))
 		},
 		Entry("a transparent alpha", 0.0, uint8(0)),
 		Entry("a faint alpha", 0.003, uint8(1)),
@@ -192,7 +196,9 @@ var _ = Describe("MigrateTable", func() {
 		}))
 		Expect(out.Rows[0].Cells).To(Equal([]v6.Cell{cell("a", "A")}))
 	})
-	It("Should store the cell color alpha as a byte", func(ctx SpecContext) {
+	It("Should store a cell color as a fixed color with a byte alpha", func(
+		ctx SpecContext,
+	) {
 		out := MustSucceed(v6.MigrateTable(ctx, v5.Table{
 			Rows:    []v5.Row{{Key: "r", Cells: []string{"a"}}},
 			Columns: cols(1),
@@ -204,7 +210,10 @@ var _ = Describe("MigrateTable", func() {
 		}))
 		text, ok := out.Rows[0].Cells[0].Config.Variant.(v6.TextCellConfig)
 		Expect(ok).To(BeTrue())
-		Expect(text.FillColor).To(Equal(&colorv2.Color{R: 1, A: 128}))
+		Expect(text.FillColor).To(Equal(&servicecolor.Ref{
+			Variant: servicecolor.FixedRef{Value: colorv2.Color{R: 1, A: 128}},
+		}))
+		Expect(text.TextColor).To(BeNil())
 	})
 })
 

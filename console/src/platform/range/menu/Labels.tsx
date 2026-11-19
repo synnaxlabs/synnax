@@ -7,18 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DisconnectedError, label, ranger } from "@synnaxlabs/client";
+import { label, ranger } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
-import { Status } from "@synnaxlabs/lyra/status";
-import { Theming } from "@synnaxlabs/lyra/theming";
-import { Access, Color as PColor, Flux, Label, Synnax } from "@synnaxlabs/pluto";
-import { color } from "@synnaxlabs/x";
-import { type ReactElement, useState } from "react";
+import { Access, Color as PColor, Flux, Label as PLabel } from "@synnaxlabs/pluto";
+import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
+import { Label } from "@/platform/label";
 
 interface ItemProps extends List.ItemRenderProps<label.Key> {
   /** The labels that only some of the ranges hold. */
@@ -40,25 +38,17 @@ const Item = ({ itemKey, partial, ...rest }: ItemProps): ReactElement | null => 
   );
 };
 
-const CREATE = "create";
-
 export interface LabelsProps {
   ranges: ranger.Range[];
 }
 
 /**
  * Picks the labels of the ranges. A label that only some of them hold adds to all of
- * them on the first click and leaves all of them on the next. Typed text that matches
- * no label creates one.
+ * them on the first click and leaves all of them on the next.
  */
 export const Labels = ({ ranges }: LabelsProps): ReactElement => {
-  const client = Synnax.use();
-  const handleError = Status.useErrorHandler();
-  const { update } = Label.useEditFor();
+  const { update } = PLabel.useEditFor();
   const canCreate = Access.useCreateGranted(label.TYPE_RESOURCE_ID);
-  const { colors } = Theming.use();
-  const resolve = PColor.useResolve();
-  const [term, setTerm] = useState("");
   const { data, getItem, subscribe, status, more, search } = Flux.useList(
     (c) => c.labels,
     { name: "labels" },
@@ -77,34 +67,8 @@ export const Labels = ({ ranges }: LabelsProps): ReactElement => {
     held(key).forEach((r) =>
       update({ id: ranger.resourceID(r.key), added: [], removed: [key] }),
     );
-  const name = term.trim();
-  const exists = data.some(
-    (key) => getItem(key)?.name.toLowerCase() === name.toLowerCase(),
-  );
-  const handleCreate = () =>
-    handleError(
-      async () => {
-        if (client == null) throw new DisconnectedError();
-        // A new label takes the first palette color that no label uses yet.
-        const used = new Set(
-          data.flatMap((key) => {
-            const c = resolve(getItem(key)?.color);
-            return c == null ? [] : [color.hex(c)];
-          }),
-        );
-        const palette = colors.visualization.palettes.default;
-        const next = palette.find((c) => !used.has(color.hex(c))) ?? palette[0];
-        const created = await client.labels.create({
-          name,
-          color: { type: "fixed", value: next },
-        });
-        add(created.key);
-      },
-      { message: "Failed to create label", name },
-    );
   const handleChange = (_: label.Key[], { clicked }: { clicked: label.Key | null }) => {
     if (clicked == null) return;
-    if (clicked === CREATE) return handleCreate();
     if (common.includes(clicked)) remove(clicked);
     else add(clicked);
   };
@@ -127,19 +91,9 @@ export const Labels = ({ ranges }: LabelsProps): ReactElement => {
         <Select.Dialog surface="menu" filtered aria-label="Labels">
           <Select.Body<label.Key>
             resourceName="label"
-            onSearch={(t) => {
-              setTerm(t);
-              search(t);
-            }}
+            onSearch={search}
             status={status}
-            footer={
-              canCreate && name !== "" && !exists ? (
-                <Select.Item<label.Key> itemKey={CREATE} textValue={name}>
-                  <Icon.Add />
-                  Create label "{name}"
-                </Select.Item>
-              ) : undefined
-            }
+            footer={canCreate && <Label.CreateFooter onCreate={add} />}
           >
             {({ key, ...p }) => <Item key={key} {...p} partial={partial} />}
           </Select.Body>

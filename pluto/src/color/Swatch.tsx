@@ -12,7 +12,7 @@ import { Color } from "@synnaxlabs/lyra/color";
 import { color as xcolor } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { usePalettes, useResolve } from "@/color/library";
+import { useBinding } from "@/color/bind";
 
 interface BaseProps extends Omit<
   Color.SwatchProps,
@@ -50,38 +50,27 @@ export type SwatchProps = RequiredValueProps | OptionalValueProps;
 /** A swatch that picks a named color from a palette or a fixed color. */
 export const Swatch = (props: SwatchProps): ReactElement => {
   const { value, onChange, fallback: _, ...rest } = props;
-  const palettes = usePalettes();
-  const resolve = useResolve();
-  const library: Color.Library | undefined =
-    palettes.length === 0 || onChange == null
-      ? undefined
-      : {
-          palettes,
-          named: value?.type === "named" ? value.key : undefined,
-          onNamedChange: (key) => onChange({ type: "named", key }),
-        };
-  const resolved = resolve(value);
-  if (props.fallback == null) {
-    const { onChange: required } = props;
+  const binding = useBinding(value, (ref) => {
+    if (ref != null) onChange?.(ref);
+    else if (props.fallback != null) props.onChange?.(undefined);
+  });
+  const library = onChange == null ? undefined : binding.library;
+  const change = onChange == null ? undefined : binding.onChange;
+  if (props.fallback == null)
     return (
       <Color.Swatch
         {...rest}
-        value={resolved ?? xcolor.TRANSPARENT}
-        onChange={required && ((c) => required({ type: "fixed", value: c }))}
+        value={binding.value ?? xcolor.TRANSPARENT}
+        onChange={change}
         library={library}
       />
     );
-  }
-  const { onChange: optional, fallback } = props;
   return (
     <Color.Swatch
       {...rest}
-      value={resolved}
-      fallback={fallback}
-      onChange={
-        optional &&
-        ((c) => optional(c == null ? undefined : { type: "fixed", value: c }))
-      }
+      value={binding.value}
+      fallback={props.fallback}
+      onChange={change}
       library={library}
     />
   );

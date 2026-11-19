@@ -14,16 +14,19 @@ import {
   type ComponentPropsWithoutRef,
   type ReactElement,
   type ReactNode,
+  useRef,
   useState,
 } from "react";
 
 import { Button } from "@/button";
 import { BaseSwatch } from "@/color/BaseSwatch";
 import { Editor } from "@/color/Editor";
-import { findNamed, type Library, type Palette } from "@/color/named";
+import { findNamed, type Library, type Named, type Palette } from "@/color/named";
 import { useFrequent, useFrequentUpdater } from "@/color/Provider";
 import { Swatches } from "@/color/Swatches";
+import { context } from "@/context";
 import { CSS } from "@/css";
+import { Dialog } from "@/dialog";
 import { Divider } from "@/divider";
 import { Flex } from "@/flex";
 import { useDebouncedCallback } from "@/hooks";
@@ -50,6 +53,50 @@ export interface PickerProps
    */
   library?: Library;
 }
+
+export interface PickerContextValue {
+  /** The color that the picker shows: its value, else its fallback. */
+  value: color.Color;
+  /** The named color that the value links to. */
+  linked?: Named;
+  /**
+   * Links the value to the named color with the key, as a click on its swatch does.
+   * The search clears, and the focus moves to the swatch, at once or when it renders.
+   */
+  onNamedChange: (key: string) => void;
+  /** Clears the search, so that every palette and color shows. */
+  clearSearch: () => void;
+}
+
+const [PickerContext, usePickerContext] = context.create<PickerContextValue>({
+  displayName: "Color.PickerContext",
+  providerName: "a library slot of Color.Picker",
+});
+
+/**
+ * @returns the picker around a slot of its library.
+ * @throws {Error} outside a slot of a library.
+ */
+export const usePicker = (): PickerContextValue => usePickerContext("Color.usePicker");
+
+export interface PaletteContextValue {
+  /** The palette, with every color it holds. */
+  palette: Palette;
+  /** The color that the palette title names: the hovered one, else the linked one. */
+  shown?: Named;
+}
+
+const [PaletteContext, usePaletteContext] = context.create<PaletteContextValue>({
+  displayName: "Color.PaletteContext",
+  providerName: "paletteEnd or swatchActions",
+});
+
+/**
+ * @returns the palette around a `paletteEnd` or `swatchActions` slot.
+ * @throws {Error} outside those slots.
+ */
+export const usePalette = (): PaletteContextValue =>
+  usePaletteContext("Color.usePalette");
 
 /**
  * An HSV color picker: a saturation and brightness plane, hue and alpha sliders, a hex
@@ -109,7 +156,7 @@ const Tabbed = ({
   value,
   onChange,
   fallback,
-  library: { palettes, named, onNamedChange },
+  library: { palettes, named, onNamedChange, paletteEnd, swatchActions, footer },
   className,
   ...rest
 }: TabbedProps): ReactElement => {
@@ -120,163 +167,240 @@ const Tabbed = ({
     linked != null || value == null ? "library" : "custom",
   );
   const [search, setSearch] = useState("");
+  const swatches = useRef(new Map<string, HTMLElement>());
+  // The key of a linked swatch that takes the focus when it renders.
+  const focusing = useRef<string>(undefined);
+  const registerSwatch = (key: string, swatch: HTMLElement | null): void => {
+    if (swatch == null) {
+      swatches.current.delete(key);
+      return;
+    }
+    swatches.current.set(key, swatch);
+    if (focusing.current !== key) return;
+    focusing.current = undefined;
+    swatch.focus();
+  };
   const autoSelected = value == null && linked == null;
+  const ctx: PickerContextValue = {
+    value: color.construct(value ?? fallback ?? color.TRANSPARENT),
+    linked,
+    onNamedChange: (key) => {
+      setSearch("");
+      onNamedChange(key);
+      const swatch = swatches.current.get(key);
+      if (swatch == null) focusing.current = key;
+      else swatch.focus();
+    },
+    clearSearch: () => setSearch(""),
+  };
   return (
-    <Flex.Box
-      y
-      gap={0}
-      className={CSS.cls(
-        CSS.B("color-picker"),
-        CSS.BM("color-picker", "tabbed"),
-        className,
-      )}
-      background={1}
-      {...rest}
-    >
-      <Flex.Box
-        x
-        align="center"
-        gap="small"
-        className={CSS.BE("color-picker", "header")}
-      >
-        <Select.Buttons<Tab>
-          value={tab}
-          onChange={setTab}
-          x
-          className={CSS.BE("color-picker", "tabs")}
-        >
-          <Select.Item itemKey="library" size="small" level="small">
-            <Icon.Library />
-            Library
-          </Select.Item>
-          <Select.Item itemKey="custom" size="small" level="small">
-            <Icon.Sliders />
-            Custom
-          </Select.Item>
-        </Select.Buttons>
-        {fallback != null && (
-          <Button.Button
-            variant="outlined"
-            size="small"
-            square
-            className={CSS.cls(CSS.selected(autoSelected))}
-            onClick={() => handleChange(undefined)}
-            tooltip="Auto: the theme picks the color"
-            aria-label="Auto"
-          >
-            <Icon.Auto />
-          </Button.Button>
+    <PickerContext value={ctx}>
+      <Dialog.Views
+        className={CSS.cls(
+          CSS.B("color-picker"),
+          CSS.BM("color-picker", "tabbed"),
+          className,
         )}
-      </Flex.Box>
-      {tab === "library" ? (
-        <>
-          <Input.Search
-            value={search}
-            onChange={setSearch}
-            flush
-            rounded
-            full="x"
-            size="medium"
-            placeholder="Search colors"
-            startContent={<Icon.Search />}
-            className={CSS.BE("color-picker", "search")}
-          />
-          <Palettes
-            palettes={palettes}
-            search={search}
-            linked={linked?.key}
-            onPick={onNamedChange}
-          />
-        </>
-      ) : (
-        <Flex.Box y gap="medium" className={CSS.BE("color-picker", "custom")}>
-          <Editor
-            value={value ?? fallback ?? color.TRANSPARENT}
-            onChange={handleChange}
-          />
-          {frequent.length > 0 && (
-            <Section title="Recent">
-              {frequent.map((c) => (
-                <BaseSwatch
-                  key={color.hex(c)}
-                  value={c}
-                  size="tiny"
-                  draggable={false}
-                  className={CSS.cls(
-                    CSS.selected(
-                      linked == null && value != null && color.equals(value, c),
-                    ),
-                  )}
-                  onClick={() => handleChange(color.construct(c))}
-                  aria-label={color.hex(c)}
-                />
-              ))}
-            </Section>
+        background={1}
+        {...rest}
+      >
+        <Flex.Box
+          x
+          align="center"
+          gap="small"
+          className={CSS.BE("color-picker", "header")}
+        >
+          <Select.Buttons<Tab>
+            value={tab}
+            onChange={setTab}
+            x
+            className={CSS.BE("color-picker", "tabs")}
+          >
+            <Select.Item itemKey="library" size="small" level="small">
+              <Icon.Library />
+              Library
+            </Select.Item>
+            <Select.Item itemKey="custom" size="small" level="small">
+              <Icon.Sliders />
+              Custom
+            </Select.Item>
+          </Select.Buttons>
+          {fallback != null && (
+            <Button.Button
+              variant="outlined"
+              size="small"
+              square
+              className={CSS.cls(CSS.selected(autoSelected))}
+              onClick={() => handleChange(undefined)}
+              tooltip="Auto: the theme picks the color"
+              aria-label="Auto"
+            >
+              <Icon.Auto />
+            </Button.Button>
           )}
         </Flex.Box>
-      )}
-    </Flex.Box>
+        {tab === "library" ? (
+          <>
+            <Input.Search
+              value={search}
+              onChange={setSearch}
+              flush
+              rounded
+              full="x"
+              size="medium"
+              placeholder="Search colors"
+              startContent={<Icon.Search />}
+              className={CSS.BE("color-picker", "search")}
+            />
+            <Palettes
+              palettes={palettes}
+              search={search}
+              linked={linked?.key}
+              onPick={onNamedChange}
+              registerSwatch={registerSwatch}
+              paletteEnd={paletteEnd}
+              swatchActions={swatchActions}
+              footer={footer}
+            />
+          </>
+        ) : (
+          <Flex.Box y gap="medium" className={CSS.BE("color-picker", "custom")}>
+            <Editor
+              value={value ?? fallback ?? color.TRANSPARENT}
+              onChange={handleChange}
+            />
+            {frequent.length > 0 && (
+              <Section title="Recent">
+                {frequent.map((c) => (
+                  <BaseSwatch
+                    key={color.hex(c)}
+                    value={c}
+                    size="tiny"
+                    draggable={false}
+                    className={CSS.cls(
+                      CSS.selected(
+                        linked == null && value != null && color.equals(value, c),
+                      ),
+                    )}
+                    onClick={() => handleChange(color.construct(c))}
+                    aria-label={color.hex(c)}
+                  />
+                ))}
+              </Section>
+            )}
+          </Flex.Box>
+        )}
+      </Dialog.Views>
+    </PickerContext>
   );
 };
 
-interface SectionProps {
+interface SectionProps extends Omit<Flex.BoxProps, "title"> {
   title: string;
   /** Shown at the end of the title. */
   name?: string;
-  children: ReactNode;
+  /** Shown after the name. */
+  actions?: ReactNode;
 }
 
-const Section = ({ title, name, children }: SectionProps): ReactElement => (
-  <Flex.Box y gap="small">
-    <Flex.Box x justify="between" gap="medium">
+const Section = ({
+  title,
+  name,
+  actions,
+  children,
+  ...rest
+}: SectionProps): ReactElement => (
+  <Flex.Box y gap="small" {...rest}>
+    <Flex.Box
+      x
+      justify="between"
+      align="center"
+      gap="medium"
+      className={CSS.BE("color-picker", "title")}
+    >
       <Text.Text level="small" color={9} overflow="nowrap">
         {title}
       </Text.Text>
-      <Text.Text level="small" color={10} overflow="fade">
-        {name}
-      </Text.Text>
+      <Flex.Box x align="center" gap="small" className={CSS.BE("color-picker", "name")}>
+        <Text.Text level="small" color={10} overflow="fade">
+          {name}
+        </Text.Text>
+        {actions}
+      </Flex.Box>
     </Flex.Box>
     <div className={CSS.BE("color-picker", "grid")}>{children}</div>
   </Flex.Box>
 );
 
-interface PaletteSectionProps {
+interface PaletteSectionProps extends Pick<Library, "paletteEnd" | "swatchActions"> {
   palette: Palette;
+  /** The colors of the palette that match the search. */
+  colors: Named[];
   linked?: string;
   onPick: (key: string) => void;
+  /** Records the swatch of a named color when it renders, and null when it goes. */
+  registerSwatch: (key: string, swatch: HTMLElement | null) => void;
 }
 
-/** A palette under its title, which names the hovered color, else the linked one. */
+/**
+ * A palette under its title, which names the hovered color, else the linked one. The
+ * hovered color stays until the pointer or the focus leaves the palette, so the actions
+ * after its name stay in reach. It also stays under a view, so Back finds its actions.
+ */
 const PaletteSection = ({
   palette,
+  colors,
   linked,
   onPick,
+  registerSwatch,
+  paletteEnd,
+  swatchActions,
 }: PaletteSectionProps): ReactElement => {
   const t = Theming.use();
+  const { viewing } = Dialog.useViews();
   const [hovered, setHovered] = useState<string>();
-  const named =
-    palette.colors.find((c) => c.key === hovered) ??
-    palette.colors.find((c) => c.key === linked);
+  const leave = (): void => {
+    if (!viewing) setHovered(undefined);
+  };
+  const shown =
+    colors.find((c) => c.key === hovered) ?? colors.find((c) => c.key === linked);
   return (
-    <Section title={palette.name} name={named?.name}>
-      {palette.colors.map((c) => (
-        <BaseSwatch
-          key={c.key}
-          value={theme.resolve(c, t)}
-          size="tiny"
-          draggable={false}
-          className={CSS.cls(CSS.selected(c.key === linked))}
-          onClick={() => onPick(c.key)}
-          onPointerEnter={() => setHovered(c.key)}
-          onPointerLeave={() => setHovered((h) => (h === c.key ? undefined : h))}
-          aria-label={c.name}
-        />
-      ))}
-    </Section>
+    <PaletteContext value={{ palette, shown }}>
+      <Section
+        title={palette.name}
+        name={shown?.name}
+        actions={shown == null ? undefined : swatchActions}
+        role="group"
+        aria-label={palette.name}
+        onPointerLeave={leave}
+        onBlur={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget)) leave();
+        }}
+      >
+        {colors.map((c) => (
+          <BaseSwatch
+            key={c.key}
+            value={theme.resolve(c, t)}
+            size="tiny"
+            draggable={false}
+            className={CSS.cls(CSS.selected(c.key === linked))}
+            onClick={() => onPick(c.key)}
+            ref={(el: HTMLElement | null) => registerSwatch(c.key, el)}
+            onPointerEnter={() => setHovered(c.key)}
+            onFocus={() => setHovered(c.key)}
+            aria-label={c.name}
+          />
+        ))}
+        {paletteEnd}
+      </Section>
+    </PaletteContext>
   );
 };
 
-interface PalettesProps {
+interface PalettesProps
+  extends
+    Pick<Library, "paletteEnd" | "swatchActions" | "footer">,
+    Pick<PaletteSectionProps, "registerSwatch"> {
   palettes: Palette[];
   search: string;
   /** The key of the named color that the value follows. */
@@ -290,22 +414,28 @@ const Palettes = ({
   search,
   linked,
   onPick,
+  registerSwatch,
+  paletteEnd,
+  swatchActions,
+  footer,
 }: PalettesProps): ReactElement => {
   const t = Theming.use();
   const term = search.trim().toLowerCase();
   const shown = palettes
-    .map((p) => ({
-      ...p,
+    .map((palette) => ({
+      palette,
       colors:
-        term.length === 0 || p.name.toLowerCase().includes(term)
-          ? p.colors
-          : p.colors.filter(
+        term.length === 0 || palette.name.toLowerCase().includes(term)
+          ? palette.colors
+          : palette.colors.filter(
               (c) =>
                 c.name.toLowerCase().includes(term) ||
                 color.hex(theme.resolve(c, t)).includes(term.replace("#", "")),
             ),
     }))
-    .filter((p) => p.colors.length > 0);
+    .filter(
+      ({ colors }) => colors.length > 0 || (term.length === 0 && paletteEnd != null),
+    );
   return (
     <Flex.Box y gap={2} className={CSS.BE("color-picker", "palettes")}>
       {shown.length === 0 && (
@@ -313,9 +443,19 @@ const Palettes = ({
           {term.length === 0 ? "No colors found" : `No colors match "${search.trim()}"`}
         </Status.Summary>
       )}
-      {shown.map((p) => (
-        <PaletteSection key={p.key} palette={p} linked={linked} onPick={onPick} />
+      {shown.map(({ palette, colors }) => (
+        <PaletteSection
+          key={palette.key}
+          palette={palette}
+          colors={colors}
+          linked={linked}
+          onPick={onPick}
+          registerSwatch={registerSwatch}
+          paletteEnd={paletteEnd}
+          swatchActions={swatchActions}
+        />
       ))}
+      {footer}
     </Flex.Box>
   );
 };

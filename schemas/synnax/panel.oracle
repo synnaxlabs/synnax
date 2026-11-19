@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/color"
 import "schemas/synnax/group"
 import "schemas/synnax/project"
 import "schemas/synnax/resource"
 import "schemas/synnax/user"
-import "schemas/x/color"
 import "schemas/x/filter"
 import "schemas/x/patch"
 import "schemas/x/spatial"
@@ -141,8 +141,16 @@ Panel struct {
             draws its default panel icon.
         """
     }
-    color   color.Color? {
-        @doc value "is the color of the panel's icon. When null, the theme picks it."
+    color   color.Ref?   {
+        @doc value """
+            is the color of the panel's icon, a named color or a fixed color. When null,
+            the theme picks it.
+        """
+    }
+    owner   user.Key?    {
+        @doc value     "is the user whose draft the panel is. Nil for a shared panel."
+        @ref kind      use
+        @ref on_delete cascade
     }
     group   group.Key?   {
         @doc value     "is the group the panel sits in, if any."
@@ -153,11 +161,6 @@ Panel struct {
     project project.Key? {
         @doc value     "is the project that holds the panel."
         @ref kind      place
-        @ref on_delete cascade
-    }
-    owner   user.Key?    {
-        @doc value     "is the user whose draft the panel is. Nil for a shared panel."
-        @ref kind      use
         @ref on_delete cascade
     }
 
@@ -177,9 +180,12 @@ Panel struct {
     }
 
     action SetColor {
-        color color.Color?
+        color color.Ref?
 
-        @doc value "sets the color of the panel's icon. Null lets the theme pick it."
+        @doc value """
+            sets the color of the panel's icon, a named color or a fixed color. Null
+            lets the theme pick it.
+        """
     }
 
     action InsertTabs {

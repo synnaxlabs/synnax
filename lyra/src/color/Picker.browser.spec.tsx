@@ -7,11 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type ReactNode } from "react";
 import { assert, describe, expect, it } from "vitest";
-import { page } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 
+import { Button } from "@/button";
 import { Color } from "@/color";
 import { CSS } from "@/css";
+import { Icon } from "@/icon";
 import { renderThemed } from "@/styletest";
 import { Triggers } from "@/triggers";
 
@@ -21,7 +24,10 @@ const COLORS: Color.Named[] = Array.from({ length: 10 }, (_, i) => ({
   light: `#${(i * 20).toString(16).padStart(2, "0")}8040`,
 }));
 
-const renderLibrary = async (value?: string): Promise<HTMLElement> => {
+const renderLibrary = async (
+  value?: string,
+  paletteEnd?: ReactNode,
+): Promise<HTMLElement> => {
   await renderThemed(
     <Triggers.Provider>
       <Color.Picker
@@ -30,6 +36,7 @@ const renderLibrary = async (value?: string): Promise<HTMLElement> => {
         library={{
           palettes: [{ key: "p", name: "Palette", colors: COLORS }],
           onNamedChange: () => {},
+          paletteEnd,
         }}
       />
     </Triggers.Provider>,
@@ -57,6 +64,27 @@ describe("Picker", () => {
       await renderLibrary();
       const s = swatchRect(0);
       expect(s.width).toBeCloseTo(s.height, 0);
+    });
+
+    it("should size a slotted button as a swatch", async () => {
+      await renderLibrary(
+        undefined,
+        <Button.Button variant="outlined" square aria-label="Add">
+          <Icon.Add />
+        </Button.Button>,
+      );
+      const add = page.getByRole("button", { name: "Add" }).element();
+      const s = swatchRect(0);
+      expect(add.getBoundingClientRect().width).toBeCloseTo(s.width, 0);
+      expect(add.getBoundingClientRect().height).toBeCloseTo(s.height, 0);
+    });
+
+    it("should draw no focus ring around the picker", async () => {
+      const picker = await renderLibrary();
+      await userEvent.keyboard("{Tab}");
+      picker.focus();
+      expect(picker.matches(":focus-visible")).toBe(true);
+      expect(getComputedStyle(picker).outlineStyle).toBe("none");
     });
 
     it("should space the swatches equally across and down", async () => {

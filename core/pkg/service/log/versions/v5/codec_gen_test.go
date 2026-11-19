@@ -18,10 +18,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	color "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/log/versions/v5"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
-	color "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
@@ -41,16 +41,11 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v5.ChannelEntry{
-				Channel: channel.Key(2),
-				Color: new(color.Color{
-					R: 4,
-					G: 5,
-					B: 6,
-					A: 7,
-				}),
+				Channel:   channel.Key(2),
+				Color:     new(color.Ref{Variant: color.NamedRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567803")}}),
 				Notation:  notation.Notation("standard"),
-				Precision: new(uint8(9)),
-				Alias:     "test_9",
+				Precision: new(uint8(6)),
+				Alias:     "test_6",
 				TimestampConfig: v5.TimestampConfig{
 					Format:   telem.TimestampFormat("ISO"),
 					TimeZone: telem.TimeZone("local"),
@@ -85,28 +80,23 @@ var _ = Describe("Codec", func() {
 				Name: "test_2",
 				Channels: []v5.ChannelEntry{
 					{
-						Channel: channel.Key(5),
-						Color: new(color.Color{
-							R: 7,
-							G: 8,
-							B: 9,
-							A: 10,
-						}),
+						Channel:   channel.Key(5),
+						Color:     new(color.Ref{Variant: color.NamedRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806")}}),
 						Notation:  notation.Notation("standard"),
-						Precision: new(uint8(12)),
-						Alias:     "test_12",
+						Precision: new(uint8(9)),
+						Alias:     "test_9",
 						TimestampConfig: v5.TimestampConfig{
 							Format:   telem.TimestampFormat("ISO"),
 							TimeZone: telem.TimeZone("local"),
 						},
 					},
 				},
-				TimestampPrecision: 17,
-				ChannelNamesHidden: true,
-				TimestampsHidden:   false,
+				TimestampPrecision: 14,
+				ChannelNamesHidden: false,
+				TimestampsHidden:   true,
 				TimeZone:           telem.TimeZone("local"),
-				Group:              new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"))),
-				Project:            new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567815"))),
+				Group:              new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567811"))),
+				Project:            new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567812"))),
 			}),
 			Entry("zero values", v5.Log{
 				Key:                uuid.Nil(),
@@ -136,16 +126,11 @@ var _ = Describe("Codec", func() {
 
 func BenchmarkEncodeDecodeChannelEntry(b *testing.B) {
 	seed := v5.ChannelEntry{
-		Channel: channel.Key(2),
-		Color: new(color.Color{
-			R: 4,
-			G: 5,
-			B: 6,
-			A: 7,
-		}),
+		Channel:   channel.Key(2),
+		Color:     new(color.Ref{Variant: color.NamedRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567803")}}),
 		Notation:  notation.Notation("standard"),
-		Precision: new(uint8(9)),
-		Alias:     "test_9",
+		Precision: new(uint8(6)),
+		Alias:     "test_6",
 		TimestampConfig: v5.TimestampConfig{
 			Format:   telem.TimestampFormat("ISO"),
 			TimeZone: telem.TimeZone("local"),
@@ -172,28 +157,23 @@ func BenchmarkEncodeDecodeLog(b *testing.B) {
 		Name: "test_2",
 		Channels: []v5.ChannelEntry{
 			{
-				Channel: channel.Key(5),
-				Color: new(color.Color{
-					R: 7,
-					G: 8,
-					B: 9,
-					A: 10,
-				}),
+				Channel:   channel.Key(5),
+				Color:     new(color.Ref{Variant: color.NamedRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806")}}),
 				Notation:  notation.Notation("standard"),
-				Precision: new(uint8(12)),
-				Alias:     "test_12",
+				Precision: new(uint8(9)),
+				Alias:     "test_9",
 				TimestampConfig: v5.TimestampConfig{
 					Format:   telem.TimestampFormat("ISO"),
 					TimeZone: telem.TimeZone("local"),
 				},
 			},
 		},
-		TimestampPrecision: 17,
-		ChannelNamesHidden: true,
-		TimestampsHidden:   false,
+		TimestampPrecision: 14,
+		ChannelNamesHidden: false,
+		TimestampsHidden:   true,
 		TimeZone:           telem.TimeZone("local"),
-		Group:              new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"))),
-		Project:            new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567815"))),
+		Group:              new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567811"))),
+		Project:            new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567812"))),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -213,16 +193,11 @@ func BenchmarkEncodeDecodeLog(b *testing.B) {
 func FuzzDecodeChannelEntry(f *testing.F) {
 	{
 		seed := v5.ChannelEntry{
-			Channel: channel.Key(2),
-			Color: new(color.Color{
-				R: 4,
-				G: 5,
-				B: 6,
-				A: 7,
-			}),
+			Channel:   channel.Key(2),
+			Color:     new(color.Ref{Variant: color.NamedRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567803")}}),
 			Notation:  notation.Notation("standard"),
-			Precision: new(uint8(9)),
-			Alias:     "test_9",
+			Precision: new(uint8(6)),
+			Alias:     "test_6",
 			TimestampConfig: v5.TimestampConfig{
 				Format:   telem.TimestampFormat("ISO"),
 				TimeZone: telem.TimeZone("local"),
@@ -281,28 +256,23 @@ func FuzzDecodeLog(f *testing.F) {
 			Name: "test_2",
 			Channels: []v5.ChannelEntry{
 				{
-					Channel: channel.Key(5),
-					Color: new(color.Color{
-						R: 7,
-						G: 8,
-						B: 9,
-						A: 10,
-					}),
+					Channel:   channel.Key(5),
+					Color:     new(color.Ref{Variant: color.NamedRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806")}}),
 					Notation:  notation.Notation("standard"),
-					Precision: new(uint8(12)),
-					Alias:     "test_12",
+					Precision: new(uint8(9)),
+					Alias:     "test_9",
 					TimestampConfig: v5.TimestampConfig{
 						Format:   telem.TimestampFormat("ISO"),
 						TimeZone: telem.TimeZone("local"),
 					},
 				},
 			},
-			TimestampPrecision: 17,
-			ChannelNamesHidden: true,
-			TimestampsHidden:   false,
+			TimestampPrecision: 14,
+			ChannelNamesHidden: false,
+			TimestampsHidden:   true,
 			TimeZone:           telem.TimeZone("local"),
-			Group:              new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"))),
-			Project:            new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567815"))),
+			Group:              new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567811"))),
+			Project:            new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567812"))),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

@@ -30,6 +30,16 @@ const FREQUENT: Color.ContextState = {
 const renderSwatches = (props: Color.SwatchesProps): RenderResult =>
   render(<Color.Swatches {...props} />, { wrapper: Wrapper });
 
+const PRESETS = ["#DC136C", "#20A4F3"];
+
+const renderWithPresets = (props: Color.SwatchesProps): RenderResult =>
+  render(
+    <Color.Provider presets={PRESETS}>
+      <Color.Swatches {...props} />
+    </Color.Provider>,
+    { wrapper: Wrapper },
+  );
+
 const renderWithFrequent = (props: Color.SwatchesProps): RenderResult =>
   render(
     <Color.Provider value={FREQUENT} onChange={vi.fn()}>
@@ -40,21 +50,38 @@ const renderWithFrequent = (props: Color.SwatchesProps): RenderResult =>
 
 describe("Swatches", () => {
   describe("presets", () => {
-    it("should offer the theme colors and the visualization palette", () => {
+    it("should offer the theme colors and the presets of the provider", () => {
+      const c = renderWithPresets({ value: undefined, onChange: vi.fn() });
+      const swatches = c.container.querySelectorAll(`.${CSS.B("color-swatch")}`);
+      expect(swatches).toHaveLength(6);
+    });
+
+    it("should offer a repeated color once", () => {
+      const c = render(
+        <Color.Provider presets={[...PRESETS, PRESETS[0]]}>
+          <Color.Swatches value={undefined} onChange={vi.fn()} />
+        </Color.Provider>,
+        { wrapper: Wrapper },
+      );
+      const swatches = c.container.querySelectorAll(`.${CSS.B("color-swatch")}`);
+      expect(swatches).toHaveLength(6);
+    });
+
+    it("should offer only the theme colors without a provider", () => {
       const c = renderSwatches({ value: undefined, onChange: vi.fn() });
       const swatches = c.container.querySelectorAll(`.${CSS.B("color-swatch")}`);
-      expect(swatches).toHaveLength(18);
+      expect(swatches).toHaveLength(4);
     });
 
     it("should pick a preset with one click", () => {
       const onChange = vi.fn();
-      const c = renderSwatches({ value: "#ff0000", onChange });
+      const c = renderWithPresets({ value: "#ff0000", onChange });
       fireEvent.click(c.getByLabelText("#dc136c"));
       expect(onChange).toHaveBeenCalledExactlyOnceWith(color.construct("#dc136c"));
     });
 
     it("should mark the swatch that matches the value", () => {
-      const c = renderSwatches({ value: "#DC136C", onChange: vi.fn() });
+      const c = renderWithPresets({ value: "#DC136C", onChange: vi.fn() });
       expect(c.getByLabelText("#dc136c").className).toContain(CSS.M("selected"));
       expect(c.getByLabelText("#20a4f3").className).not.toContain(CSS.M("selected"));
     });

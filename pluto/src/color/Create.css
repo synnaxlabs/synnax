@@ -1,0 +1,25 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+/* The name entry takes a line of its own under the swatches. */
+.pluto-color-name-entry {
+    grid-column: 1 / -1;
+}
+
+/* The look of a create item that ends a list, across the full width of the picker. */
+.pluto-color-create-palette {
+    width: auto;
+    margin-inline: calc(-1 * var(--pluto-color-picker-inset));
+    padding: 1rem var(--pluto-color-picker-inset);
+    min-height: 5.5rem;
+    border-radius: var(--pluto-border-radius-small);
+    gap: 1.5rem;
+}

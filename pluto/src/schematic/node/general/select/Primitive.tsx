@@ -25,9 +25,10 @@ import { SIZE_LEVELS } from "@/schematic/node/common/size";
 interface RenderProps extends Partial<
   Pick<
     schematic.SelectNodeConfig,
-    "fillColor" | "orientation" | "size" | "disabled" | "inlineSize" | "onClickDelay"
+    "orientation" | "size" | "disabled" | "inlineSize" | "onClickDelay"
   >
 > {
+  fillColor?: color.Crude;
   options: schematic.SelectNodeConfig["options"];
   className?: string;
   /** value is the key of the last sent option, or null when none is known. */

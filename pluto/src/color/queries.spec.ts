@@ -9,6 +9,7 @@
 
 import { color, type group, NotFoundError } from "@synnaxlabs/client";
 import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { color as xcolor, compare, id, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
@@ -101,6 +102,23 @@ describe("queries", () => {
     });
   });
 
+  describe("useSeriesValues", () => {
+    it("should resolve the series colors for the theme, in palette order", async () => {
+      const series = (
+        await remote.colors.retrieve({ groups: [color.SERIES_PALETTE] })
+      ).sort(color.compare);
+      const { result } = renderHook(
+        () => ({ values: Color.useSeriesValues(), theme: Theming.use() }),
+        { wrapper },
+      );
+      await waitFor(() =>
+        expect(result.current.values).toEqual(
+          series.map((c) => Theming.resolve(c, result.current.theme)),
+        ),
+      );
+    });
+  });
+
   describe("useResolve", () => {
     it("should resolve a fixed reference to its color", () => {
       const { result } = renderHook(() => Color.useResolve(), { wrapper });
@@ -155,7 +173,7 @@ describe("queries", () => {
       const { result } = renderHook(
         () =>
           Flux.useList((c) => c.colors, {
-            name: "named colors",
+            name: "colors",
             query: { where: { key: { in: [named.key] } } },
           }),
         { wrapper },
@@ -178,6 +196,52 @@ describe("queries", () => {
       });
       expect(result.current.variant).toEqual("success");
       expect((await createTestClient().colors.retrieve(name)).name).toBe(name);
+    });
+  });
+
+  describe("useAppend", () => {
+    const order = async (palette: group.Group): Promise<color.Named[]> =>
+      (
+        await createTestClient().colors.retrieve({ where: { groups: [palette.key] } })
+      ).sort(color.compare);
+
+    const append = async (palette: group.Group): Promise<color.Key> => {
+      const { result } = renderHook(Color.useAppend, { wrapper });
+      const key = uuid.create();
+      await act(async () => {
+        await result.current.updateAsync({
+          key,
+          name: `appended-${id.create()}`,
+          light: "#FF0000",
+          group: palette.key,
+        });
+      });
+      expect(result.current.variant).toEqual("success");
+      return key;
+    };
+
+    it("should create a named color after the last one of its palette", async () => {
+      const palette = await createPalette();
+      const last = await remote.colors.create({
+        name: `color-${id.create()}`,
+        light: "#00FF00",
+        group: palette.key,
+        position: "a5",
+      });
+      const key = await append(palette);
+      const stored = await order(palette);
+      expect(stored.map((c) => c.key)).toEqual([last.key, key]);
+      expect(stored[0].position).toBe("a5");
+    });
+
+    it("should write no position to the colors that have none", async () => {
+      const palette = await createPalette();
+      await Promise.all([createInPalette(palette), createInPalette(palette)]);
+      const before = (await order(palette)).map((c) => c.key);
+      const key = await append(palette);
+      const stored = await order(palette);
+      expect(stored.map((c) => c.key)).toEqual([key, ...before]);
+      expect(stored.filter((c) => c.position == null)).toHaveLength(2);
     });
   });
 

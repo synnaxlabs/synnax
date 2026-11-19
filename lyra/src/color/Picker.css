@@ -69,6 +69,15 @@
             padding: var(--pluto-color-picker-inset);
         }
 
+        /* Actions after the name must not change the height of the title. */
+        & .lyra-color-picker__title {
+            min-height: var(--pluto-height-tiny);
+
+            & > .lyra-color-picker__name {
+                min-width: 0;
+            }
+        }
+
         & .lyra-color-picker__grid {
             display: grid;
             grid-template-columns: repeat(
@@ -77,11 +86,13 @@
             );
             gap: var(--pluto-color-picker-gap);
 
-            & .lyra-color-swatch.lyra-btn {
+            /* Any button in a palette grid, slotted ones too, takes a swatch cell. */
+            & > .lyra-btn {
                 width: 100%;
                 min-width: 0;
                 height: auto;
                 min-height: 0;
+                padding: 0;
                 aspect-ratio: 1;
             }
 

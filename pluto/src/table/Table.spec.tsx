@@ -32,7 +32,11 @@ const SURFACE_HEIGHT = 600;
 const COL_SIZE = 72;
 const ROW_SIZE = 36;
 // A value cell that draws its text in a fixed color.
-const VALUE_CONFIG = { variant: "value", level: "h5", textColor: "#000000" } as const;
+const VALUE_CONFIG = {
+  variant: "value",
+  level: "h5",
+  textColor: { type: "fixed", value: "#000000" },
+} as const;
 
 const expectedOffset = (contentWidth: number, contentHeight: number) => ({
   x: Math.floor((SURFACE_WIDTH - contentWidth - INDICATOR_SIZE) / 2),

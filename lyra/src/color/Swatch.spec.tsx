@@ -16,6 +16,7 @@ import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { mockBoundingClientRect } from "@/testutil";
+import { theme } from "@/theme";
 import { Theming } from "@/theming";
 import { Tooltip } from "@/tooltip";
 import { Triggers } from "@/triggers";
@@ -25,6 +26,7 @@ const GREEN = "00ff00";
 const BLUE = "0000ff";
 
 const SWATCH_VAR = CSS.variable("swatch", "color");
+const TEXT_VAR = CSS.variable("swatch", "text");
 
 const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
   <Triggers.Provider>
@@ -81,6 +83,26 @@ describe("Swatch", () => {
       });
       expect(swatchOf(c).querySelector(`.${CSS.B("icon")}`)).not.toBeNull();
     });
+
+    it.each([theme.SYNNAX_LIGHT, theme.SYNNAX_DARK])(
+      "should draw the auto icon of a clear swatch in the icon gray of $key",
+      (spec) => {
+        const { key, colors } = theme.themeZ.parse(spec);
+        const c = render(
+          <Color.Swatch fallback={color.TRANSPARENT} onChange={vi.fn()} />,
+          {
+            wrapper: ({ children }) => (
+              <Triggers.Provider>
+                <Theming.Provider theme={{ key }}>{children}</Theming.Provider>
+              </Triggers.Provider>
+            ),
+          },
+        );
+        expect(swatchOf(c).style.getPropertyValue(TEXT_VAR)).toEqual(
+          color.cssString(colors.gray.l9),
+        );
+      },
+    );
 
     it("should hide the auto icon on a tiny swatch", () => {
       const c = render(<Color.Swatch fallback={RED} onChange={vi.fn()} size="tiny" />, {
@@ -273,6 +295,41 @@ describe("Swatch", () => {
       pick(c, GREEN);
       fireEvent.click(c.getByText("Library"));
       fireEvent.click(c.getByLabelText("Ocean"));
+      closePicker(c);
+      expect(onNamedChange).toHaveBeenCalledExactlyOnceWith("ocean");
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("should drop a pending color when a slot links a named color", () => {
+      const onChange = vi.fn();
+      const onNamedChange = vi.fn();
+      const Linker = (): ReactElement => {
+        const { onNamedChange: link } = Color.usePicker();
+        return <button onClick={() => link("ocean")}>link Ocean</button>;
+      };
+      const c = render(
+        <Color.Swatch
+          value={RED}
+          onChange={onChange}
+          onlyChangeOnBlur
+          library={{
+            palettes: [
+              {
+                key: "series",
+                name: "Series",
+                colors: [{ key: "ocean", name: "Ocean", light: "#3e8bff" }],
+              },
+            ],
+            onNamedChange,
+            footer: <Linker />,
+          }}
+        />,
+        { wrapper: Wrapper },
+      );
+      fireEvent.click(swatchOf(c));
+      pick(c, GREEN);
+      fireEvent.click(c.getByText("Library"));
+      fireEvent.click(c.getByText("link Ocean"));
       closePicker(c);
       expect(onNamedChange).toHaveBeenCalledExactlyOnceWith("ocean");
       expect(onChange).not.toHaveBeenCalled();

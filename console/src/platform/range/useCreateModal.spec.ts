@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax } from "@synnaxlabs/client";
+import { type ranger, type Synnax } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -37,7 +37,7 @@ interface OpenModalOptions {
 const openModal = async (
   params?: Range.CreateModalParams,
   { client: c = null, analytics }: OpenModalOptions = {},
-): Promise<ModalOpenerHandle<void>> => {
+): Promise<ModalOpenerHandle<Promise<ranger.Key | null>>> => {
   const handle = await renderModalOpener(Range.useCreateModal, [params ?? {}], {
     client: c,
     analytics,
@@ -83,6 +83,17 @@ describe("Range.useCreateModal", () => {
       expect(retrieved.name).toEqual(name);
     });
     expect(store.getState()[Session.Range.SLICE_NAME].ranges).toEqual([]);
+  });
+
+  it("should resolve with the key of the range it creates", async () => {
+    const name = uniqueRangeName("prompted");
+    const { result } = await openModal(
+      { name, timeRange: { start: 1, end: 2 } },
+      { client },
+    );
+    await clickWhenEnabled("Create");
+    const key = await result();
+    expect(key).toEqual((await client.ranges.retrieve(name)).key);
   });
 
   it("should report the range it saved to the Core", async () => {

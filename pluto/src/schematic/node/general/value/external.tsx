@@ -11,6 +11,7 @@ import { type schematic } from "@synnaxlabs/client";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
+import { Color } from "@/color";
 import { ValueForm } from "@/schematic/node/general/value/Form";
 import { Value } from "@/schematic/node/general/value/Primitive";
 import { Symbol } from "@/schematic/node/general/value/Symbol";
@@ -24,17 +25,20 @@ const Preview = ({
   orientation,
   units,
   inlineSize,
-}: schematic.ValueNodeConfig): ReactElement => (
-  <Value
-    strokeColor={strokeColor}
-    orientation={orientation}
-    units={units}
-    inlineSize={inlineSize}
-    dimensions={PREVIEW_DIMENSIONS}
-  >
-    <Text.Text color={textColor}>50.00</Text.Text>
-  </Value>
-);
+}: schematic.ValueNodeConfig): ReactElement => {
+  const resolve = Color.useResolve();
+  return (
+    <Value
+      strokeColor={resolve(strokeColor)}
+      orientation={orientation}
+      units={units}
+      inlineSize={inlineSize}
+      dimensions={PREVIEW_DIMENSIONS}
+    >
+      <Text.Text color={resolve(textColor)}>50.00</Text.Text>
+    </Value>
+  );
+};
 
 export const spec: Spec<"value", schematic.ValueNodeConfig> = {
   key: "value",

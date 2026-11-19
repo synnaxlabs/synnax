@@ -13,13 +13,14 @@ import { theme } from "@synnaxlabs/lyra/theme";
 import { color, DataType, id, TimeStamp } from "@synnaxlabs/x";
 import { afterEach, assert, describe, expect, it, vi } from "vitest";
 
+import { color as aetherColor } from "@/color/aether";
 import { Colors } from "@/telem/control/aether/colors";
 import { renderAether } from "@/testutil/renderAether";
 
 const client = createTestClient();
 
 const THEME = theme.themeZ.parse(theme.SYNNAX_LIGHT);
-const PALETTE = THEME.colors.visualization.palettes.default;
+const PALETTE = ["#dc136c", "#20a4f3", "#52ffb8"].map((c) => color.construct(c));
 const DEFAULT_COLOR = THEME.colors.gray.l9;
 const POLL = { timeout: 5000 };
 // Each test creates channels, connects a client, and takes control, so the default
@@ -65,11 +66,21 @@ const hold = async (ch: channel.Channel): Promise<Holder> => {
   };
 };
 
+interface Setup {
+  colors: Colors;
+  /** Replaces the series colors that Colors assigns from. */
+  setSeries: (colors: color.Color[]) => void;
+}
+
 /** Mounts Colors against the test cluster and waits for its change stream. */
-const setup = async (channels: channel.Channel[]): Promise<Colors> => {
+const setup = async (
+  channels: channel.Channel[],
+  palette: color.Color[] = PALETTE,
+): Promise<Setup> => {
   const h = renderAether(Colors, {
     state: {},
     synnax: { props: TEST_CLIENT_PARAMS },
+    series: { colors: palette },
     // Colors reads no telemetry, and the telem provider opens a frame feed this spec
     // does not use.
     telem: false,
@@ -83,7 +94,18 @@ const setup = async (channels: channel.Channel[]): Promise<Colors> => {
   await mounted.connect();
   if (channels.length > 0)
     await mounted.control.retrieve(channels.map(({ key }) => key));
-  return h.component;
+  const { series: seriesProvider } = h.providers;
+  assert(seriesProvider != null);
+  const setSeries = (colors: color.Color[]): void =>
+    seriesProvider._updateState({
+      path: [seriesProvider.key],
+      type: aetherColor.series.Provider.TYPE,
+      state: { colors },
+      create: () => {
+        throw new Error("should not create");
+      },
+    });
+  return { colors: h.component, setSeries };
 };
 
 /** Waits until the subject holds a color, and returns it. */
@@ -97,7 +119,7 @@ const assigned = async (colors: Colors, subject: string): Promise<color.Color> =
 describe("control/aether/Colors", SUITE, () => {
   it("should assign a palette color to a subject holding control", async () => {
     const [ch] = await createChannels(1);
-    const colors = await setup([ch]);
+    const { colors } = await setup([ch]);
     const { subject } = await hold(ch);
     const assignedColor = await assigned(colors, subject);
     expect(PALETTE.some((c) => color.equals(c, assignedColor))).toBe(true);
@@ -105,7 +127,7 @@ describe("control/aether/Colors", SUITE, () => {
 
   it("should assign a different color to each subject", async () => {
     const channels = await createChannels(2);
-    const colors = await setup(channels);
+    const { colors } = await setup(channels);
     const [first, second] = await Promise.all(channels.map(hold));
     const firstColor = await assigned(colors, first.subject);
     const secondColor = await assigned(colors, second.subject);
@@ -114,7 +136,7 @@ describe("control/aether/Colors", SUITE, () => {
 
   it("should keep a subject's color when an unrelated subject appears", async () => {
     const [first, second] = await createChannels(2);
-    const colors = await setup([first, second]);
+    const { colors } = await setup([first, second]);
     const { subject } = await hold(first);
     const before = await assigned(colors, subject);
     const other = await hold(second);
@@ -123,13 +145,13 @@ describe("control/aether/Colors", SUITE, () => {
   });
 
   it("should give a subject holding nothing the default color", async () => {
-    const colors = await setup([]);
+    const { colors } = await setup([]);
     expect(color.equals(colors.get("nobody"), DEFAULT_COLOR)).toBe(true);
   });
 
   it("should return a released subject to the default color", async () => {
     const [ch] = await createChannels(1);
-    const colors = await setup([ch]);
+    const { colors } = await setup([ch]);
     const { subject, release } = await hold(ch);
     await assigned(colors, subject);
     await release();
@@ -140,7 +162,7 @@ describe("control/aether/Colors", SUITE, () => {
 
   it("should not hand a released color to a subject that still holds one", async () => {
     const [first, second, third] = await createChannels(3);
-    const colors = await setup([first, second, third]);
+    const { colors } = await setup([first, second, third]);
     const released = await hold(first);
     const kept = await hold(second);
     await assigned(colors, released.subject);
@@ -153,7 +175,7 @@ describe("control/aether/Colors", SUITE, () => {
 
   it("should share colors once the palette runs out", async () => {
     const channels = await createChannels(PALETTE.length + 1);
-    const colors = await setup(channels);
+    const { colors } = await setup(channels);
     const holders = await Promise.all(channels.map(hold));
     // One poll over the whole fan-in: the transfers arrive in any order, so a
     // per-subject window would starve whichever lands last.
@@ -172,9 +194,84 @@ describe("control/aether/Colors", SUITE, () => {
     expect(distinct.size).toBeLessThan(holders.length);
   });
 
+  it("should recolor each subject when the series colors change", async () => {
+    const [ch] = await createChannels(1);
+    const { colors, setSeries } = await setup([ch]);
+    const { subject } = await hold(ch);
+    await assigned(colors, subject);
+    const next = color.construct("#123456");
+    setSeries([next]);
+    expect(color.equals(colors.get(subject), next)).toBe(true);
+  });
+
+  it("should keep each subject's place when the series colors change", async () => {
+    const [first, second, third] = await createChannels(3);
+    const { colors, setSeries } = await setup([first, second, third]);
+    const released = await hold(first);
+    await assigned(colors, released.subject);
+    const kept = await hold(second);
+    expect(color.equals(await assigned(colors, kept.subject), PALETTE[1])).toBe(true);
+    await released.release();
+    await expect
+      .poll(() => color.equals(colors.get(released.subject), DEFAULT_COLOR), POLL)
+      .toBe(true);
+    const next = await hold(third);
+    expect(color.equals(await assigned(colors, next.subject), PALETTE[0])).toBe(true);
+    const series = ["#111111", "#222222", "#333333"].map((c) => color.construct(c));
+    setSeries(series);
+    expect(color.equals(colors.get(next.subject), series[0])).toBe(true);
+    expect(color.equals(colors.get(kept.subject), series[1])).toBe(true);
+  });
+
+  it("should reassign a subject whose place the new series colors lack", async () => {
+    const [first, second] = await createChannels(2);
+    const { colors, setSeries } = await setup([first, second]);
+    const kept = await hold(first);
+    await assigned(colors, kept.subject);
+    const moved = await hold(second);
+    expect(color.equals(await assigned(colors, moved.subject), PALETTE[1])).toBe(true);
+    const next = color.construct("#123456");
+    setSeries([next]);
+    expect(color.equals(colors.get(kept.subject), next)).toBe(true);
+    expect(color.equals(colors.get(moved.subject), next)).toBe(true);
+  });
+
+  it("should part subjects that shared a color when the palette grows", async () => {
+    const [first, second] = await createChannels(2);
+    const { colors, setSeries } = await setup([first, second], PALETTE.slice(0, 1));
+    const [a, b] = await Promise.all([hold(first), hold(second)]);
+    await assigned(colors, a.subject);
+    await assigned(colors, b.subject);
+    setSeries(PALETTE);
+    expect(color.equals(colors.get(a.subject), colors.get(b.subject))).toBe(false);
+  });
+
+  it("should keep subjects apart when the same series colors arrive again", async () => {
+    const [first, second] = await createChannels(2);
+    const { colors, setSeries } = await setup([first, second]);
+    const held = await hold(first);
+    const heldColor = await assigned(colors, held.subject);
+    setSeries(PALETTE.map((c) => color.construct(color.hex(c))));
+    const next = await hold(second);
+    const nextColor = await assigned(colors, next.subject);
+    expect(color.equals(nextColor, heldColor)).toBe(false);
+  });
+
+  it("should color a subject once the series colors load", async () => {
+    const [ch] = await createChannels(1);
+    const { colors, setSeries } = await setup([ch], []);
+    const handler = vi.fn();
+    colors.onChange(handler);
+    const { subject } = await hold(ch);
+    await expect.poll(() => handler.mock.calls.length > 0, POLL).toBe(true);
+    expect(color.equals(colors.get(subject), DEFAULT_COLOR)).toBe(true);
+    setSeries(PALETTE);
+    expect(color.equals(colors.get(subject), PALETTE[0])).toBe(true);
+  });
+
   it("should notify subscribers when the assignment changes", async () => {
     const [ch] = await createChannels(1);
-    const colors = await setup([ch]);
+    const { colors } = await setup([ch]);
     const handler = vi.fn();
     colors.onChange(handler);
     await hold(ch);
@@ -184,7 +281,7 @@ describe("control/aether/Colors", SUITE, () => {
   describe("setOverrides", SUITE, () => {
     it("should prefer an override over the assigned color", async () => {
       const [ch] = await createChannels(1);
-      const colors = await setup([ch]);
+      const { colors } = await setup([ch]);
       const { subject } = await hold(ch);
       await assigned(colors, subject);
       const override = color.construct("#123456");
@@ -193,7 +290,7 @@ describe("control/aether/Colors", SUITE, () => {
     });
 
     it("should notify subscribers when the overrides change", async () => {
-      const colors = await setup([]);
+      const { colors } = await setup([]);
       const handler = vi.fn();
       colors.onChange(handler);
       colors.setOverrides({ valve: color.construct("#123456") });
@@ -201,7 +298,7 @@ describe("control/aether/Colors", SUITE, () => {
     });
 
     it("should not notify subscribers when the overrides are unchanged", async () => {
-      const colors = await setup([]);
+      const { colors } = await setup([]);
       colors.setOverrides({ valve: color.construct("#123456") });
       const handler = vi.fn();
       colors.onChange(handler);

@@ -23,12 +23,19 @@ import { Triggers } from "@/platform/triggers";
 
 const path = Label.createFormPath;
 
+export interface CreateModalParams {
+  /** The name the new label starts with. */
+  name?: string;
+}
+
 const Create = ({
   close,
-}: Modals.ContentProps<Record<never, never>, label.Key>): ReactElement => {
+  name = "",
+}: Modals.ContentProps<CreateModalParams, label.Key>): ReactElement => {
   const client = Synnax.use();
   const { form, save, variant } = Label.useCreateForm({
     query: null,
+    initialValues: { ...Label.ZERO_CREATE_FORM_VALUES, name },
     afterSave: ({ value }) => {
       const { key } = value();
       if (key == null) throw new UnexpectedError("Label key is null");
@@ -80,4 +87,4 @@ const Create = ({
 };
 
 /** Opens a dialog that creates a label, and resolves with its key. */
-export const useCreateModal = Modals.createPrompt<label.Key>(Create);
+export const useCreateModal = Modals.createPrompt<label.Key, CreateModalParams>(Create);

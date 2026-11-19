@@ -10,8 +10,7 @@
 import { type schematic } from "@synnaxlabs/client";
 
 import { colorFallbacks, GaugeForm } from "@/schematic/node/general/gauge/Form";
-import { Gauge } from "@/schematic/node/general/gauge/Primitive";
-import { Symbol } from "@/schematic/node/general/gauge/Symbol";
+import { Preview, Symbol } from "@/schematic/node/general/gauge/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 
 export const spec: Spec<"gauge", schematic.GaugeNodeConfig> = {
@@ -19,7 +18,7 @@ export const spec: Spec<"gauge", schematic.GaugeNodeConfig> = {
   name: "Gauge",
   Form: GaugeForm,
   Node: Symbol,
-  Preview: Gauge,
+  Preview,
   zIndex: 4,
   needsPosition: true,
   colorFallbacks,

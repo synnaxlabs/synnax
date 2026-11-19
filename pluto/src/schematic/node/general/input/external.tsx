@@ -10,6 +10,7 @@
 import { type schematic } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
+import { Color } from "@/color";
 import { CSS } from "@/css";
 import { colorFallbacks, InputForm } from "@/schematic/node/general/input/Form";
 import { Input } from "@/schematic/node/general/input/Primitive";
@@ -20,16 +21,19 @@ const Preview = ({
   fillColor,
   orientation,
   size,
-}: schematic.InputNodeConfig): ReactElement => (
-  <Input
-    value="send message"
-    fillColor={fillColor}
-    orientation={orientation}
-    size={size}
-    disabled
-    className={CSS.BM("input-symbol", "preview")}
-  />
-);
+}: schematic.InputNodeConfig): ReactElement => {
+  const resolve = Color.useResolve();
+  return (
+    <Input
+      value="send message"
+      fillColor={resolve(fillColor)}
+      orientation={orientation}
+      size={size}
+      disabled
+      className={CSS.BM("input-symbol", "preview")}
+    />
+  );
+};
 
 export const spec: Spec<"input", schematic.InputNodeConfig> = {
   key: "input",

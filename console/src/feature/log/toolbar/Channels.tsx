@@ -7,18 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, log } from "@synnaxlabs/client";
-import { Color } from "@synnaxlabs/lyra/color";
+import { type channel, type color, log } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { type Select } from "@synnaxlabs/lyra/select";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { Access, Channel, Log, Notation, Telem } from "@synnaxlabs/pluto";
+import { Access, Channel, Color, Log, Notation, Telem } from "@synnaxlabs/pluto";
 import {
   array,
-  type color,
   DataType,
   notation,
   type TimestampFormat,
@@ -78,7 +76,7 @@ const ChannelRow = ({
     dispatch(log.setChannelTimestampFormat({ channel, format }));
   const handleTimeZoneChange = (timeZone: TimeZone) =>
     dispatch(log.setChannelTimestampTimeZone({ channel, timeZone }));
-  const handleColorChange = (c?: color.Color) =>
+  const handleColorChange = (c?: color.Ref) =>
     dispatch(log.setChannelColor({ channel, color: c }));
   // Clearing the row's channel removes the row.
   const handleChannelChange = (to: channel.Key | null) =>

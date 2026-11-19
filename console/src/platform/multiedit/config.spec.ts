@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x";
+import { color as xcolor, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -33,15 +33,60 @@ describe("MultiEdit", () => {
 
   describe("colorRefs", () => {
     it("should reference each color stored at the fields", () => {
+      const fault = uuid.create();
       const refs = MultiEdit.colorRefs(
         "a",
-        { strokeColor: "#ff0000", fillColor: undefined, textColor: "#00ff00" },
+        {
+          strokeColor: { type: "named", key: fault },
+          fillColor: undefined,
+          textColor: { type: "fixed", value: "#00ff00" },
+        },
         ["strokeColor", "fillColor", "textColor"],
       );
-      expect(refs.map((r) => [r.key, r.path, color.hex(r.value)])).toEqual([
-        ["a", "strokeColor", "#ff0000"],
-        ["a", "textColor", "#00ff00"],
+      expect(refs).toEqual([
+        { key: "a", path: "strokeColor", value: { type: "named", key: fault } },
+        {
+          key: "a",
+          path: "textColor",
+          value: { type: "fixed", value: xcolor.construct("#00ff00") },
+        },
       ]);
+    });
+
+    it("should throw when a field holds a plain color", () => {
+      expect(() =>
+        MultiEdit.colorRefs("a", { fillColor: "#ff0000" }, ["fillColor"]),
+      ).toThrow(z.ZodError);
+    });
+  });
+
+  describe("colorRefs with value fields", () => {
+    it("should reference each color value as a value only fixed color", () => {
+      const refs = MultiEdit.colorRefs(
+        "a",
+        { strokeColor: "#ff0000", fillColor: undefined },
+        ["strokeColor", "fillColor"],
+        ["strokeColor"],
+      );
+      expect(refs).toEqual([
+        {
+          key: "a",
+          path: "strokeColor",
+          value: { type: "fixed", value: xcolor.construct("#ff0000") },
+          valueOnly: true,
+        },
+      ]);
+    });
+
+    it("should throw when a value field holds a value that is not a color", () => {
+      expect(() =>
+        MultiEdit.colorRefs(
+          "a",
+          { fillColor: { type: "named" } },
+          ["fillColor"],
+          ["fillColor"],
+        ),
+      ).toThrow(z.ZodError);
     });
   });
 });

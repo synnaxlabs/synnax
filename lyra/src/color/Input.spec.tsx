@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { color } from "@synnaxlabs/x";
-import { fireEvent, render, type RenderResult } from "@testing-library/react";
+import { act, fireEvent, render, type RenderResult } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
-import { describe, expect, it, type Mock, vi } from "vitest";
+import { describe, expect, expectTypeOf, it, type Mock, vi } from "vitest";
 
 import { Color } from "@/color";
 import { CSS } from "@/css";
@@ -19,6 +19,14 @@ import { Triggers } from "@/triggers";
 
 const RED = "#ff0000";
 const GRAY = "#888888";
+
+const FAULT: NonNullable<Color.InputProps["library"]> = {
+  palettes: [
+    { key: "p", name: "Alarms", colors: [{ key: "fault", name: "Fault", light: RED }] },
+  ],
+  named: "fault",
+  onNamedChange: vi.fn(),
+};
 
 const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
   <Triggers.Provider>
@@ -58,6 +66,46 @@ describe("Input", () => {
     expect(textOf(c).placeholder).toEqual("Mixed");
     const swatch = c.container.querySelector(`.${CSS.B("color-swatch")}`);
     expect(swatch?.className).toContain(CSS.M("mixed"));
+  });
+
+  describe("linked to a named color", () => {
+    it("should show the name in the text font as the value of the box", () => {
+      const c = renderInput({ value: RED, library: FAULT });
+      expect(textOf(c).value).toEqual("Fault");
+      expect(c.queryByText("#")).toBeNull();
+      const box = textOf(c).closest(`.${CSS.B("color-hex-text")}`);
+      expect(box?.className).toContain(CSS.M("named"));
+    });
+
+    it("should keep the link when the box blurs with no edit", () => {
+      const onChange = vi.fn();
+      const c = renderInput({ value: RED, library: FAULT, onChange });
+      act(() => textOf(c).focus());
+      act(() => textOf(c).blur());
+      expect(onChange).not.toHaveBeenCalled();
+      expect(textOf(c).value).toEqual("Fault");
+    });
+
+    it("should put the name back when the user presses Escape", () => {
+      const onChange = vi.fn();
+      const c = renderInput({ value: RED, library: FAULT, onChange });
+      act(() => textOf(c).focus());
+      fireEvent.change(textOf(c), { target: { value: "0f0" } });
+      fireEvent.keyDown(textOf(c), { key: "Escape" });
+      expect(onChange).not.toHaveBeenCalled();
+      expect(textOf(c).value).toEqual("Fault");
+    });
+
+    it("should take the link only from the library", () => {
+      expectTypeOf<Color.InputProps>().not.toHaveProperty("named");
+    });
+
+    it("should unlink when the user types a hex", () => {
+      const onChange = vi.fn();
+      const c = renderInput({ value: RED, library: FAULT, onChange });
+      fireEvent.change(textOf(c), { target: { value: "0000ff" } });
+      expect(color.hex(lastValue(onChange))).toEqual("#0000ff");
+    });
   });
 
   it("should apply a typed hex while mixed", () => {

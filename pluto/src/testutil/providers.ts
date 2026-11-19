@@ -15,6 +15,7 @@ import { type z } from "zod";
 import { type aether } from "@/aether/aether";
 import { aetherTest } from "@/aether/testutil";
 import { alamos } from "@/alamos/aether";
+import { color } from "@/color/aether";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
 import { telem } from "@/telem/aether";
@@ -28,6 +29,7 @@ const ALAMOS_KEY = "alamos";
 const STATUS_KEY = "status";
 const SYNNAX_KEY = "synnax";
 const THEMING_KEY = "theming";
+const SERIES_KEY = "series";
 const TELEM_KEY = "telem";
 const STALENESS_KEY = "staleness";
 const RENDER_KEY = "render";
@@ -37,9 +39,9 @@ const RENDER_KEY = "render";
  * (mounted with harness defaults) except `render`, which is off until a recorder is
  * requested. Set a provider to `false` to drop it from the tree, or pass a config
  * object to override its initial state. The providers form a fixed nesting order
- * (`alamos → status → synnax → theming → telem → staleness → render`); disabling one
- * mounts the next directly under the previous enabled provider. A component that reads
- * context from a provider it disabled will not find it.
+ * (`alamos → status → synnax → theming → series → telem → staleness → render`);
+ * disabling one mounts the next directly under the previous enabled provider. A
+ * component that reads context from a provider it disabled will not find it.
  */
 export interface ProviderOptions {
   /** Alamos instrumentation provider. Defaults on. */
@@ -50,6 +52,8 @@ export interface ProviderOptions {
   synnax?: false | z.input<typeof synnax.Provider.stateZ>;
   /** Theming provider. Defaults on with `theme.SYNNAX_LIGHT`. */
   theming?: false | z.input<typeof theming.Provider.z>;
+  /** Series color provider. Defaults on with no series colors. */
+  series?: false | z.input<typeof color.series.Provider.z>;
   /** Telemetry provider. Defaults on with `TestFactory` + `NoopFactory`. */
   telem?: false | { factories?: telem.Factory[] };
   /** Staleness provider. Defaults on with a 250ms sweep. */
@@ -71,6 +75,7 @@ export interface MountedProviders {
   status: status.Aggregator | null;
   synnax: synnax.Provider | null;
   theming: theming.Provider | null;
+  series: color.series.Provider | null;
   telem: aether.Composite<typeof telem.providerStateZ> | null;
   staleness: staleness.Provider | null;
   render: canvasTest.RenderProvider | null;
@@ -132,6 +137,7 @@ export const buildStack = (options: ProviderOptions = {}): BuiltStack => {
     ...status.REGISTRY,
     ...synnax.REGISTRY,
     ...theming.REGISTRY,
+    ...color.series.REGISTRY,
     [telem.PROVIDER_TYPE]: buildTelemProvider(telemFactories),
     ...staleness.REGISTRY,
     [canvasTest.RenderProvider.TYPE]: canvasTest.RenderProvider,
@@ -147,6 +153,7 @@ export const buildStack = (options: ProviderOptions = {}): BuiltStack => {
     status: null,
     synnax: null,
     theming: null,
+    series: null,
     telem: null,
     staleness: null,
     render: null,
@@ -190,6 +197,15 @@ export const buildStack = (options: ProviderOptions = {}): BuiltStack => {
       ),
     );
     providers.theming = driver.find<theming.Provider>([...path]);
+  }
+  if (isOn(options.series)) {
+    path.push(SERIES_KEY);
+    driver.update(
+      path,
+      color.series.Provider.TYPE,
+      color.series.Provider.z.parse(stateOf(options.series, { colors: [] })),
+    );
+    providers.series = driver.find<color.series.Provider>([...path]);
   }
   if (isOn(options.telem)) {
     path.push(TELEM_KEY);

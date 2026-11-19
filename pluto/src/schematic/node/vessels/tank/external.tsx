@@ -8,20 +8,18 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
-import { Component } from "@synnaxlabs/lyra/component";
 
 import { Scale } from "@/schematic/node/common/scale";
 import { type Spec } from "@/schematic/node/spec";
 import { TankForm } from "@/schematic/node/vessels/tank/Form";
-import { Tank } from "@/schematic/node/vessels/tank/Primitive";
-import { Symbol } from "@/schematic/node/vessels/tank/Symbol";
+import { Preview, Symbol } from "@/schematic/node/vessels/tank/Symbol";
 
 export const spec: Spec<"tank", schematic.TankNodeConfig> = {
   key: "tank",
   name: "Tank",
   Form: (props) => <TankForm {...props} showFillTab />,
   Node: Symbol,
-  Preview: Component.removeProps(Tank, ["dimensions"]),
+  Preview,
   zIndex: 2,
   needsPosition: true,
   colorFallbacks: Scale.colorFallbacks,

@@ -12,10 +12,10 @@
 package v5
 
 import (
+	color "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
 	user "github.com/synnaxlabs/synnax/pkg/service/user/versions/v1"
-	color "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
@@ -40,6 +40,12 @@ func (p Panel) EncodeOrc(w *orc.Writer) error {
 	} else {
 		w.Bool(false)
 	}
+	if p.Owner != nil {
+		w.Bool(true)
+		w.Write((*p.Owner)[:])
+	} else {
+		w.Bool(false)
+	}
 	if p.Group != nil {
 		w.Bool(true)
 		w.Write((*p.Group)[:])
@@ -49,12 +55,6 @@ func (p Panel) EncodeOrc(w *orc.Writer) error {
 	if p.Project != nil {
 		w.Bool(true)
 		w.Write((*p.Project)[:])
-	} else {
-		w.Bool(false)
-	}
-	if p.Owner != nil {
-		w.Bool(true)
-		w.Write((*p.Owner)[:])
 	} else {
 		w.Bool(false)
 	}
@@ -92,11 +92,24 @@ func (p *Panel) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var hv color.Color
+			var hv color.Ref
 			if err = hv.DecodeOrc(r); err != nil {
 				return err
 			}
 			p.Color = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv user.Key
+			if _, err := r.Read(hv[:]); err != nil {
+				return err
+			}
+			p.Owner = &hv
 		}
 	}
 	{
@@ -123,19 +136,6 @@ func (p *Panel) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			p.Project = &hv
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			var hv user.Key
-			if _, err := r.Read(hv[:]); err != nil {
-				return err
-			}
-			p.Owner = &hv
 		}
 	}
 	return nil

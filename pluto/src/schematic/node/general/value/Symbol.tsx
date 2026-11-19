@@ -12,6 +12,7 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { box, text, xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
+import { Color } from "@/color";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { LEVEL_SIZES } from "@/schematic/node/common/size";
@@ -45,12 +46,13 @@ export const Symbol = ({
     fillColor,
   },
 }: NodeProps<schematic.ValueNodeConfig>): ReactElement => {
+  const resolve = Color.useResolve();
   const valueBoxHeight = Component.HEIGHTS[LEVEL_SIZES[level]];
   const t = BaseValue.stringSource({ channel, rollingAverage, precision, notation });
-  const backgroundTelem = BaseValue.backgroundTelem(t, redline, fillColor);
+  const backgroundTelem = BaseValue.backgroundTelem(t, redline, resolve(fillColor));
   const { width: oWidth } = BaseValue.use({
     aetherKey: nodeKey,
-    color: textColor,
+    color: resolve(textColor),
     level,
     box: box.construct(xy.translateY(position ?? xy.ZERO, 1), {
       height: valueBoxHeight,
@@ -75,7 +77,7 @@ export const Symbol = ({
     <Grid.Grid editable={selected} nodeKey={nodeKey} allowRotate={false} {...resize}>
       <Label.Label config={label} onChange={onConfigChange} />
       <Value
-        strokeColor={strokeColor}
+        strokeColor={resolve(strokeColor)}
         orientation={orientation}
         dimensions={{ height: valueBoxHeight, width: oWidth }}
         inlineSize={inlineSize}

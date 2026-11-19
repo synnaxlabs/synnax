@@ -10,8 +10,7 @@
 import { panel } from "@synnaxlabs/client";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Errors, Panel } from "@synnaxlabs/pluto";
-import { type color } from "@synnaxlabs/x";
+import { Color, Errors, Panel } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Appearance } from "@/platform/appearance";
@@ -34,19 +33,20 @@ interface ContentProps {
 const Content = ({ panel: key }: ContentProps): ReactElement => {
   Panel.useEnsure({ key });
   const icon = Panel.useIcon({ key });
-  const color = Panel.useColor({ key });
   const { dispatch } = Panel.useDispatch();
-  const handleColorChange = (next?: color.Color) =>
-    dispatch({ key, actions: panel.setColor({ color: next }) });
+  const color = Color.useBinding(Panel.useColor({ key }), (next) =>
+    dispatch({ key, actions: panel.setColor({ color: next }) }),
+  );
   const handleIconChange = (next?: string) =>
     dispatch({ key, actions: panel.setIcon({ icon: next }) });
   return (
     <Appearance.Picker
       icon={icon}
-      color={color}
+      color={color.value}
+      library={color.library}
       fallback={Icon.Panel}
       onIconChange={handleIconChange}
-      onColorChange={handleColorChange}
+      onColorChange={color.onChange}
     />
   );
 };

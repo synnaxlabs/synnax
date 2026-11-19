@@ -10,6 +10,7 @@
 import { type schematic } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
+import { Color } from "@/color";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { Primitive } from "@/schematic/node/common/primitive";
@@ -35,13 +36,14 @@ export const Symbol = ({
     orientation,
   },
 }: NodeProps<schematic.StringDisplayNodeConfig>): ReactElement => {
+  const resolve = Color.useResolve();
   const content = Primitive.useCanvasBox<HTMLDivElement>(position);
   BaseStringValue.use({
     aetherKey: nodeKey,
     box: content.box,
     telem: telem.streamChannelStringValue({ channel }),
     level,
-    color: textColor,
+    color: resolve(textColor),
     stalenessColor,
     stalenessTimeout,
   });
@@ -52,7 +54,7 @@ export const Symbol = ({
     <Grid.Grid editable={selected} nodeKey={nodeKey} allowRotate={false} {...resize}>
       <Label.Label config={label} onChange={onConfigChange} />
       <StringDisplay
-        strokeColor={strokeColor}
+        strokeColor={resolve(strokeColor)}
         level={level}
         inlineSize={inlineSize}
         orientation={orientation}

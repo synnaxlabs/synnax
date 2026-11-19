@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { log } from "@synnaxlabs/client";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { stubClipboardUnavailable, stubCopyCommand } from "@synnaxlabs/lyra/testutil";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { box } from "@synnaxlabs/x";
+import { box, color } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -172,6 +173,24 @@ describe("log/Base", () => {
       const { container } = renderLog({ className: "my-class" });
       const div = container.querySelector(".my-class");
       expect(div).not.toBeNull();
+    });
+  });
+
+  describe("channel colors", () => {
+    it("should send Aether the resolved color of each channel", () => {
+      setupAether();
+      renderLog({
+        channels: [
+          log.channelEntryZ.parse({
+            channel: 1,
+            color: { type: "fixed", value: "#ff0000" },
+          }),
+          log.channelEntryZ.parse({ channel: 2 }),
+        ],
+      });
+      expect(getAetherInitialState().channelColors).toEqual({
+        1: color.construct("#ff0000"),
+      });
     });
   });
 

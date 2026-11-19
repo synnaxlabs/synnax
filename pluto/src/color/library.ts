@@ -47,12 +47,19 @@ export const usePalettes = (): Color.Palette[] => {
   return palettes;
 };
 
-/** Returns the keys of the series colors in palette order. */
-export const useSeries = (): color.Key[] =>
+const useSeriesNamed = (): color.Named[] =>
   useAll()
     .filter((c) => c.group === color.SERIES_PALETTE)
-    .sort(color.compare)
-    .map((c) => c.key);
+    .sort(color.compare);
+
+/** Returns the keys of the series colors in palette order. */
+export const useSeries = (): color.Key[] => useSeriesNamed().map((c) => c.key);
+
+/** Returns the series colors in palette order, resolved for the theme. */
+export const useSeriesValues = (): xcolor.Color[] => {
+  const t = Theming.use();
+  return useSeriesNamed().map((c) => Theming.resolve(c, t));
+};
 
 /**
  * Returns a function that resolves a color reference to its value for the theme. The

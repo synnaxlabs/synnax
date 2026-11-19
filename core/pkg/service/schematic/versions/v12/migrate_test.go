@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	v10 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v10"
 	v11 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v11"
 	v12 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v12"
@@ -173,8 +174,11 @@ var _ = Describe("Migration", func() {
 		value, ok := got.Nodes[0].Config.Variant.(v13.ValueNodeConfig)
 		Expect(ok).To(BeTrue())
 		Expect(value.Precision).To(HaveValue(BeEquivalentTo(2)))
-		Expect(value.StrokeColor).
-			To(HaveValue(Equal(colorv2.Color{R: 1, G: 2, B: 3, A: 128})))
+		Expect(value.StrokeColor).To(HaveValue(Equal(servicecolor.Ref{
+			Variant: servicecolor.FixedRef{
+				Value: colorv2.Color{R: 1, G: 2, B: 3, A: 128},
+			},
+		})))
 		gauge, ok := got.Nodes[1].Config.Variant.(v13.GaugeNodeConfig)
 		Expect(ok).To(BeTrue())
 		Expect(gauge.Precision).To(HaveValue(BeEquivalentTo(3)))

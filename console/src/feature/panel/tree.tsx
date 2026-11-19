@@ -10,7 +10,7 @@
 import { type panel, query } from "@synnaxlabs/client";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Panel } from "@synnaxlabs/pluto";
+import { Color, Panel } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Appearance } from "@/platform/appearance";
@@ -23,7 +23,9 @@ interface ItemIconProps {
 
 const ItemIcon = ({ panelKey }: ItemIconProps): ReactElement => {
   const { data } = Panel.useResultAppearance({ key: panelKey });
-  return Appearance.renderIcon({ ...data, fallback: Icon.Panel });
+  const resolve = Color.useResolve();
+  const color = resolve(data?.color);
+  return Appearance.renderIcon({ icon: data?.icon, color, fallback: Icon.Panel });
 };
 
 /** Lists the panels that sit in a group. */
@@ -35,12 +37,16 @@ export const GROUP_MEMBER: Group.Member = {
 
 const FACTS = ["Panel"];
 
-const haulPreview: Tree.HaulPreview = ({ resource, client, count }) => {
+const haulPreview: Tree.HaulPreview = ({ resource, client, count, resolveColor }) => {
   const cached = client.panels.watch(resource.id.key).getCached();
-  const appearance = query.isLive(cached) ? cached : {};
+  const { icon, color } = query.isLive(cached) ? cached : {};
   return (
     <Haul.Preview
-      icon={Appearance.renderIcon({ ...appearance, fallback: Icon.Panel })}
+      icon={Appearance.renderIcon({
+        icon,
+        color: resolveColor(color),
+        fallback: Icon.Panel,
+      })}
       name={resource.name}
       facts={FACTS}
       count={count}

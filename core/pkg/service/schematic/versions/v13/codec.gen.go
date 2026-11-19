@@ -13,11 +13,12 @@ package v13
 
 import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
 	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v4"
 	border "github.com/synnaxlabs/x/border/versions/v0"
-	color "github.com/synnaxlabs/x/color/versions/v2"
+	xcolor "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
@@ -74,7 +75,7 @@ func (dtsc *DummyToggleSymbolConfig) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var hv color.Color
+			var hv xcolor.Color
 			if err = hv.DecodeOrc(r); err != nil {
 				return err
 			}
@@ -1545,7 +1546,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -1558,7 +1559,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -1634,7 +1635,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -1659,7 +1660,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -1672,7 +1673,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -1713,7 +1714,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -1781,7 +1782,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -1845,7 +1846,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv xcolor.Color
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -1858,7 +1859,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv xcolor.Color
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -1874,7 +1875,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -1902,7 +1903,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -1939,7 +1940,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -1952,7 +1953,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -2008,7 +2009,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -2103,7 +2104,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -2151,7 +2152,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -2201,7 +2202,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -2214,7 +2215,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -2274,7 +2275,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -2325,7 +2326,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -2338,7 +2339,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -2351,7 +2352,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -2765,7 +2766,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -2778,7 +2779,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -2834,7 +2835,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv xcolor.Color
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -2853,7 +2854,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -2866,7 +2867,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -2879,7 +2880,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -2915,7 +2916,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -2928,7 +2929,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -3192,7 +3193,7 @@ func (sic *ScaleIndicatorConfig) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var hv color.Color
+			var hv xcolor.Color
 			if err = hv.DecodeOrc(r); err != nil {
 				return err
 			}
@@ -3211,7 +3212,7 @@ func (sic *ScaleIndicatorConfig) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var hv color.Color
+			var hv servicecolor.Ref
 			if err = hv.DecodeOrc(r); err != nil {
 				return err
 			}
@@ -3224,7 +3225,7 @@ func (sic *ScaleIndicatorConfig) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var hv color.Color
+			var hv servicecolor.Ref
 			if err = hv.DecodeOrc(r); err != nil {
 				return err
 			}
@@ -3237,7 +3238,7 @@ func (sic *ScaleIndicatorConfig) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var hv color.Color
+			var hv servicecolor.Ref
 			if err = hv.DecodeOrc(r); err != nil {
 				return err
 			}
@@ -3423,7 +3424,7 @@ func (sec *SegmentedEdgeConfig) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var hv color.Color
+			var hv servicecolor.Ref
 			if err = hv.DecodeOrc(r); err != nil {
 				return err
 			}
@@ -3483,7 +3484,7 @@ func (sc *StalenessConfig) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var hv color.Color
+			var hv xcolor.Color
 			if err = hv.DecodeOrc(r); err != nil {
 				return err
 			}
@@ -3527,7 +3528,7 @@ func (sm *StateMapping) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var hv color.Color
+			var hv xcolor.Color
 			if err = hv.DecodeOrc(r); err != nil {
 				return err
 			}
@@ -3577,7 +3578,7 @@ func (ssc *StaticSymbolConfig) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var hv color.Color
+			var hv xcolor.Color
 			if err = hv.DecodeOrc(r); err != nil {
 				return err
 			}
@@ -3641,7 +3642,7 @@ func (tc *ToggleConfig) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var hv color.Color
+			var hv xcolor.Color
 			if err = hv.DecodeOrc(r); err != nil {
 				return err
 			}
@@ -3737,7 +3738,7 @@ func (tsc *ToggleSymbolConfig) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var hv color.Color
+			var hv xcolor.Color
 			if err = hv.DecodeOrc(r); err != nil {
 				return err
 			}
@@ -3774,7 +3775,7 @@ func (tsc *ToggleSymbolConfig) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var hv color.Color
+			var hv xcolor.Color
 			if err = hv.DecodeOrc(r); err != nil {
 				return err
 			}

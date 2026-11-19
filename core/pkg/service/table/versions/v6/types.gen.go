@@ -18,10 +18,11 @@ import (
 	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
 	v5 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v5"
-	color "github.com/synnaxlabs/x/color/versions/v2"
+	xcolor "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/errors"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
 	text "github.com/synnaxlabs/x/text/versions/v0"
@@ -71,11 +72,12 @@ type TextCellConfig struct {
 	Weight float64 `json:"weight" msgpack:"weight"`
 	// Align is the alignment of the cell text along the row axis.
 	Align FlexAlignment `json:"align" msgpack:"align"`
-	// FillColor is the background color of the cell. When absent the theme picks the
-	// fill; a fully transparent value paints nothing.
-	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
-	// TextColor is the color of the cell text. When absent the theme picks the color.
-	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
+	// FillColor is the background color of the cell, a named color or a fixed color.
+	// When absent the theme picks the fill; a fully transparent value paints nothing.
+	FillColor *servicecolor.Ref `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	// TextColor is the color of the cell text, a named color or a fixed color. When
+	// absent the theme picks the color.
+	TextColor *servicecolor.Ref `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
 }
 
 func (TextCellConfig) isCellConfigVariant() {}
@@ -95,6 +97,12 @@ func (t TextCellConfig) Validate() error {
 	v.Ternaryf("align", !t.Align.IsValid(), "invalid align: %v", t.Align)
 	v.GreaterThanEq("weight", t.Weight, 1)
 	v.LessThanEq("weight", t.Weight, 1000)
+	if t.FillColor != nil {
+		v.Exec(func() error { return validate.PathedError(t.FillColor.Validate(), "fill_color") })
+	}
+	if t.TextColor != nil {
+		v.Exec(func() error { return validate.PathedError(t.TextColor.Validate(), "text_color") })
+	}
 	return v.Error()
 }
 
@@ -110,23 +118,23 @@ type ValueCellConfig struct {
 	// Notation is the numeric notation used to format the value.
 	Notation notation.Notation `json:"notation" msgpack:"notation"`
 	// Redline is the threshold band mapping applied to the background.
-	Redline color.Scale `json:"redline" msgpack:"redline"`
-	// FillColor is the fill behind the value where no redline band paints. When absent
-	// the cell paints no fill.
-	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	Redline xcolor.Scale `json:"redline" msgpack:"redline"`
+	// FillColor is the fill behind the value where no redline band paints, a named
+	// color or a fixed color. When absent the cell paints no fill.
+	FillColor *servicecolor.Ref `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Level is the typography level of the displayed value.
 	Level text.Level `json:"level" msgpack:"level"`
-	// TextColor is the color of the displayed text. When absent the value renders with
-	// a theme-derived legible color.
-	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
+	// TextColor is the color of the displayed text, a named color or a fixed color.
+	// When absent the value renders with a theme-derived legible color.
+	TextColor *servicecolor.Ref `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
 	// Units is the unit suffix displayed after the value.
 	Units string `json:"units" msgpack:"units"`
 	// StalenessTimeout is the duration in seconds after which the value is considered
 	// stale.
 	StalenessTimeout float64 `json:"staleness_timeout" msgpack:"staleness_timeout"`
-	// StalenessColor is the color applied when the value is stale. When absent the
-	// value renders with the theme warning color.
-	StalenessColor *color.Color `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	// StalenessColor is the color applied when the value is stale, a named color or a
+	// fixed color. When absent the value renders with the theme warning color.
+	StalenessColor *servicecolor.Ref `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
 }
 
 func (ValueCellConfig) isCellConfigVariant() {}
@@ -147,6 +155,15 @@ func (va ValueCellConfig) Validate() error {
 	v.Ternaryf("level", !va.Level.IsValid(), "invalid level: %v", va.Level)
 	v.GreaterThanEq("rolling_average", va.RollingAverage, 1)
 	v.GreaterThanEq("staleness_timeout", va.StalenessTimeout, 1)
+	if va.FillColor != nil {
+		v.Exec(func() error { return validate.PathedError(va.FillColor.Validate(), "fill_color") })
+	}
+	if va.TextColor != nil {
+		v.Exec(func() error { return validate.PathedError(va.TextColor.Validate(), "text_color") })
+	}
+	if va.StalenessColor != nil {
+		v.Exec(func() error { return validate.PathedError(va.StalenessColor.Validate(), "staleness_color") })
+	}
 	return v.Error()
 }
 

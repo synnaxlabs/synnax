@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type ReactNode } from "react";
+
 import { type theme } from "@/theme";
 
 /** A color with a name and a value for each theme mode. */
@@ -29,6 +31,16 @@ export interface Library {
   named?: string;
   /** Called with the key of the named color that the user picks. */
   onNamedChange: (key: string) => void;
+  /**
+   * Shown after the swatches of each palette, as the last item of its grid. A button
+   * there takes the size of a swatch. With it, a palette with no colors still shows
+   * while the search is empty.
+   */
+  paletteEnd?: ReactNode;
+  /** Shown at the end of each palette title, after the name of the color it shows. */
+  swatchActions?: ReactNode;
+  /** Shown under the palettes. */
+  footer?: ReactNode;
 }
 
 /** @returns the named color with the key, or undefined when no palette holds it. */

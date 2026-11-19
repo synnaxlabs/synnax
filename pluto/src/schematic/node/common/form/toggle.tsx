@@ -12,7 +12,7 @@ import { Tabs as BaseTabs } from "@synnaxlabs/lyra/tabs";
 import { deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { ColorField } from "@/schematic/node/common/form/Color";
+import { ColorValueField } from "@/schematic/node/common/form/Color";
 import { ScaleField } from "@/schematic/node/common/form/Scale";
 import {
   StyleForm,
@@ -65,7 +65,7 @@ export const DummyToggleForm = (): ReactElement => (
       <Label.Form path={path.label} />
     </Form.Section>
     <Form.Section title="Appearance">
-      <ColorField path={path.strokeColor} label="Stroke" />
+      <ColorValueField path={path.strokeColor} label="Stroke" />
       <ScaleField path={path.scale} />
       <Form.SwitchField path={path.clickable} label="Clickable" />
     </Form.Section>
