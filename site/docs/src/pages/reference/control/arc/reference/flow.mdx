@@ -71,7 +71,7 @@ flow.
 | Variable                 | `-> peak`             | Sets a variable of the enclosing sequence or stage.                   |
 | Function instance        | `-> scale(k=6.895)`   | Passes the value to the first trigger of the function.                |
 | Stage or sequence        | `=> vent`             | Starts the stage or the sequence.                                     |
-| `next`                   | `=> next`             | Moves to the next step of the enclosing sequence.                     |
+| `next`                   | `=> next`             | Ends the stage, and its sequence moves to the next step.              |
 | Routing table            | `-> { ... }`          | Runs an entry for each output. See [routing tables](#routing-tables). |
 | Inline stage or sequence | `=> sequence { ... }` | Starts an anonymous stage or sequence.                                |
 
@@ -82,16 +82,17 @@ flow.
 - `=> name` finds a stage or sequence with that name in the enclosing sequences, from
   the innermost out, then at the top level. A stage of a different sequence is not
   found: `undefined symbol: name`.
-- Several flows can start the same top-level sequence or stage. A running target does
-  not restart, except when a transition inside it targets itself. See
+- Each flow that names a top-level stage or sequence starts its own copy, with its own
+  state. The copy runs inside the stage or sequence that holds the flow, and stops when
+  the holder stops. A name with no flow in front, such as `vent` on its own line, is the
+  same as `true => vent`. See
   [conditions and transitions](/reference/control/arc/execution-model#conditions-and-transitions).
 - `-> name` starts a stage or sequence on each new value, also a false one. `=> name`
   starts it only on a true value.
 - A stage or sequence with [parameters](#stage-and-sequence-parameters) starts with a
   call, such as `=> fill(tank_pt, press_vlv_cmd)`.
-- `next` outside a sequence fails with
-  `invalid transition target: 'next' used outside of a sequence`. In the last step, it
-  fails with `invalid transition target: 'next' in last stage 'hold' has no next stage`.
+- `next` outside a stage or sequence fails with
+  `invalid transition target: 'next' used outside of a stage or sequence`.
 
 <Divider.Divider x />
 
@@ -184,8 +185,7 @@ sequence. The output starts the entry, but its value does not pass into the entr
 entry with only a target fails with
 `invalid routing table: routing entry must be a full statement, e.g. 'true: true => next' to transition or 'true: false -> some_chan' to send false`.
 
-An inline stage or sequence has no name. It cannot use `next`:
-`invalid transition target: 'next' is not valid inside an inline routing case body`.
+An inline stage or sequence has no name.
 
 ```arc channels="tank_pt, vent_vlv_cmd"
 import time

@@ -72,20 +72,16 @@ same cycle, the first one in the code wins. See
 
 ## Transitions
 
-| Transition | Effect                                                                    |
-| ---------- | ------------------------------------------------------------------------- |
-| `=> next`  | Moves to the next step of the sequence.                                   |
-| `=> name`  | Moves to the named step of the same sequence, also an earlier step.       |
-| `=> other` | Stops this sequence, then starts the top-level sequence or stage `other`. |
+| Transition | Effect                                                                        |
+| ---------- | ----------------------------------------------------------------------------- |
+| `=> next`  | Ends this stage. Its sequence moves to the next step, or ends after the last. |
+| `=> name`  | Moves to the named step of the same sequence, also an earlier step.           |
+| `=> other` | Starts a copy of the top-level sequence or stage `other` inside this stage.   |
 
-A stage of a different sequence is not a valid target: `undefined symbol: name`. A
-`=> next` in the last step fails with
-`invalid transition target: 'next' in last stage 'abort' has no next stage`.
+A stage of a different sequence is not a valid target: `undefined symbol: name`.
 
-A transition to a top-level target stops the whole top-level sequence or stage that
-holds it, including all nested items. Nothing in that scope resumes. A running target
-does not restart, except when a transition inside it targets itself. Several flows can
-target the same stage or sequence.
+This stage keeps running while a copy of a top-level target runs, and the copy stops
+when this stage stops. Each flow that names the target starts its own copy.
 
 <Divider.Divider x />
 
@@ -105,5 +101,4 @@ stage {
 }
 ```
 
-A top-level stage cannot use `next`:
-`invalid transition target: 'next' used outside of a sequence`.
+In a top-level stage, `=> next` ends the stage.

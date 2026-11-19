@@ -567,7 +567,7 @@ FlowNode ::= Identifier           // channel, variable, stage, or sequence name
            | Expression           // inline computation
            | StageDeclaration     // inline stage body
            | SequenceDeclaration  // inline sequence body
-           | 'next'               // next stage (sequences only)
+           | 'next'               // ends its stage
 ```
 
 An output routing entry's case body must be a full flow statement (at least two nodes)
@@ -661,8 +661,7 @@ parameter list, and the list cannot be empty.
   channel. The parameter follows the variables in its argument.
 - A value parameter cannot be reassigned. A `chan` parameter can be read and written,
   but a variable cannot alias it.
-- A sequence or stage with parameters cannot call itself, directly or through other
-  sequences or stages with parameters.
+- A sequence or stage cannot use itself, directly or through other sequences or stages.
 
 ## Sequences
 
@@ -686,17 +685,16 @@ inactive, they don't.
 ### Sequence syntax
 
 ```
-SequenceDeclaration ::= 'sequence' Identifier? Parameters? '{' SequenceItem* '}'
+SequenceDeclaration ::= 'sequence' Identifier? Parameters? Body
+
+StageDeclaration ::= 'stage' Identifier? Parameters? Body
 
 Parameters ::= '(' InputList ')'
 
-SequenceItem ::= FlowStatement | Assignment | SingleInvocation
-              | VariableDeclaration | StageDeclaration | SequenceDeclaration
+Body ::= '{' BodyItem* '}'
 
-StageDeclaration ::= 'stage' Identifier? Parameters? '{' StageItem* '}'
-
-StageItem ::= FlowStatement | Assignment | SingleInvocation
-            | VariableDeclaration | SequenceDeclaration
+BodyItem ::= FlowStatement | Assignment | SingleInvocation
+           | VariableDeclaration | StageDeclaration | SequenceDeclaration
 ```
 
 ### Example
@@ -719,10 +717,8 @@ sequence main {
     stage complete {
         // terminal stage
     }
-}
 
-sequence abort {
-    stage safed {
+    stage abort {
         all_valves_cmd = false
     }
 }
@@ -744,14 +740,15 @@ stage step3 {} // terminal (no outgoing transitions)
 
 **Rules**:
 
-- `next` is only valid within a stage (not in top-level flow statements)
-- Using `next` on the last stage in a sequence is a compile-time error
+- `next` is only valid within a stage or a sequence (not in top-level flow statements)
+- `next` ends the stage that holds it. If the stage is a step, its sequence advances. In
+  the last step, it completes the sequence
 
 ### Transition targets
 
-- `=> next` — Go to the next stage in definition order
+- `=> next` — End this stage and go to the next stage in definition order
 - `=> stage_name` — Jump to any stage in the same sequence
-- `=> sequence_name` — Jump to a different sequence (starts at its first stage)
+- `=> sequence_name` — Start a copy of a top-level sequence or stage inside this stage
 - `=> name(args)` — Start an instance of a sequence or stage with
   [parameters](#sequence-and-stage-parameters)
 
@@ -766,8 +763,9 @@ exits in turn. A sequence declared inside a stage does not advance anything when
 completes. The stage leaves only through its own transition.
 
 A flow step completes when it writes any value to a channel or variable, when its final
-node emits a truthy output, or when that node runs without error and has no outputs.
-Stages do not complete; they leave only through an explicit `=>` or `->` transition.
+node emits a truthy output, or when that node runs without error and has no outputs. A
+stage completes only on `next`. It also leaves through an explicit `=>` or `->`
+transition to a stage.
 
 ### Reactive vs one-shot semantics
 
@@ -777,8 +775,8 @@ value, truthy or not.
 
 **Conditional transitions (`=>`)**: Propagate only when the condition is truthy (a
 `bool` `true`, a non-zero numeric, or a non-empty string). A transition to a running
-stage or sequence does not restart it. A transition to the stage or sequence that holds
-it leaves and re-enters it.
+stage or sequence does not restart it. A transition to the stage that holds it leaves
+and re-enters it.
 
 **Entry nodes**: Fire once per scope activation, and again on re-entry. A node is an
 entry node when nothing flows into it and it reads no channels: a literal, or a call
@@ -798,24 +796,20 @@ When a scope stops, every stage and sequence inside it stops too. A body that a 
 starts inside a stage runs again after the stage re-enters only when that trigger fires
 again.
 
-### Transitions to a top-level scope
+### Named top-level stages and sequences
 
-When transitioning to a top-level sequence or stage (e.g., `=> abort`):
+A flow or a line of a stage or sequence can name a top-level sequence or stage (e.g.,
+`=> abort`, or `abort` on its own line):
 
-1. The whole top-level sequence or stage that holds the transition stops, with every
-   stage and sequence nested in it. None of them resume.
-2. The target starts at its first defined stage, in the same cycle.
-3. A target that is already running does not restart. A target that is the top-level
-   scope holding the transition restarts.
-4. There is no built-in "return" mechanism.
+1. The line starts a copy of the sequence or stage. Each line has its own copy, with its
+   own state.
+2. The copy runs inside the stage or sequence that holds the line. The holder keeps
+   running, and the copy stops when the holder stops.
+3. A name with no flow in front is the same as `true => name`.
+4. The copy behaves the same as an anonymous stage or sequence written in that place.
 
-Within one sequence, only the first true transition in source order acts. Among the
-jumps to top-level scopes that one top-level scope holds, only the first true jump in
-source order acts, at any depth of nesting. A transition inside a nested sequence, such
-as `=> next`, does not compete with those jumps: it acts first, then the jump acts in
-the same cycle, so the stage the nested sequence entered stops at once.
-
-Activations are independent: several top-level scopes can run at the same time.
+A copy that is running does not start again from its line. Within one sequence, only the
+first true transition in source order acts.
 
 ### Top-level entry points
 
@@ -823,7 +817,7 @@ Entry points connect external events to sequences:
 
 ```arc
 start_cmd => main // channel triggers sequence
-emergency_stop => abort // multiple entries allowed
+emergency_stop => abort // multiple entries allowed, each starts its own copy
 ```
 
 With `=>`, the sequence starts when the source produces a truthy value. With `->`, it
