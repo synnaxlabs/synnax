@@ -28,6 +28,7 @@ import { Triggers } from "@/platform/triggers";
 const NO_USERS: resource.ID[] = [];
 const IN_USE = "Each of these moves to the enumeration you pick.";
 const NOT_IN_USE = "Nothing uses it.";
+const REPLACEMENT_REQUIRED = "Replacement is required";
 const TRIGGER_PROPS = { "aria-label": "Replace with" };
 
 interface UserProps {
@@ -68,12 +69,18 @@ const Delete = ({
   const dependents = Enumeration.useResult({ key: e.key, includeUses: true });
   const users = dependents.data?.uses ?? NO_USERS;
   const [replacement, setReplacement] = useState<enumeration.Key>();
+  const [error, setError] = useState<string>();
   const { update: remove } = Enumeration.useDelete({ afterSuccess: () => close() });
   const { update: replace } = Enumeration.useReplace({ afterSuccess: () => close() });
   const inUse = users.length > 0;
+  const handleReplacementChange = (key: enumeration.Key | undefined): void => {
+    setReplacement(key);
+    setError(undefined);
+  };
   const handleConfirm = () => {
-    if (inUse && replacement != null) replace({ from: e.key, to: replacement });
-    else remove(e.key);
+    if (!inUse) return remove(e.key);
+    if (replacement == null) return setError(REPLACEMENT_REQUIRED);
+    replace({ from: e.key, to: replacement });
   };
   return (
     <Modal.Frame className={CSS.B("confirm")}>
@@ -95,11 +102,16 @@ const Delete = ({
             <Suspense>
               <Users ids={users} />
             </Suspense>
-            <Input.Item label="Replace with">
+            <Input.Item
+              label="Replace with"
+              helpText={error}
+              status={error == null ? undefined : "error"}
+              padHelpText
+            >
               <Enumeration.SelectSingle
                 triggerProps={TRIGGER_PROPS}
                 value={replacement}
-                onChange={setReplacement}
+                onChange={handleReplacementChange}
                 filter={(other) => other.key !== e.key}
               />
             </Input.Item>
@@ -120,9 +132,7 @@ const Delete = ({
             status="error"
             trigger={Triggers.SAVE}
             triggerIndicator
-            disabled={
-              dependents.variant !== "success" || (inUse && replacement == null)
-            }
+            disabled={dependents.variant !== "success"}
             onClick={handleConfirm}
           >
             {inUse ? "Replace" : "Delete"}
