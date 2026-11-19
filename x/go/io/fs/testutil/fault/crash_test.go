@@ -420,6 +420,20 @@ var _ = Describe("Crash", func() {
 				Expect(MustSucceed(fs.Crash(all)).Exists("a/g.txt")).To(BeFalse())
 			})
 
+			DescribeTable(
+				"Should lose a file moved into a directory that is not durable",
+				func(dir string) {
+					MustSucceed(fs.Sub("c"))
+					Expect(fs.Rename("b/f.txt", "c/f.txt")).To(Succeed())
+					Expect(fs.SyncDir(dir)).To(Succeed())
+					image := strict(fs)
+					Expect(image.Exists("b/f.txt")).To(BeFalse())
+					Expect(image.Exists("c")).To(BeFalse())
+				},
+				Entry("after a SyncDir of the target", "c"),
+				Entry("after a SyncDir of the source", "b"),
+			)
+
 			It("Should not leave a directory under two names", func() {
 				MustSucceed(fs.Sub("a/x"))
 				Expect(fs.SyncDir("a")).To(Succeed())

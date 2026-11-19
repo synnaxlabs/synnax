@@ -25,8 +25,9 @@ import (
 
 // FS is a disk in memory. Only a Sync makes the bytes of a file durable, and only a
 // SyncDir makes the entries of a directory durable. A rename between two directories is
-// one change: a SyncDir of either makes it durable in both. Crash returns what a power
-// loss keeps. It is safe for concurrent use, and each call is atomic.
+// one change: a SyncDir of either makes it durable in both. A node in a directory that
+// is not durable itself is lost. Crash returns what a power loss keeps. It is safe for
+// concurrent use, and each call is atomic.
 type FS struct {
 	d *disk
 	// root is the cleaned absolute path of the directory that names resolve against.

@@ -146,6 +146,5 @@ func (d *disk) syncDir(n *node, p string) error {
 		}
 	}
 	d.pending = kept
-	n.durableEntries = maps.Clone(n.entries)
 	return nil
 }
