@@ -22,6 +22,7 @@ import {
   DataType,
   deep,
   errors,
+  map,
   type payload,
   primitive,
   unique,
@@ -237,7 +238,7 @@ const messagePrefix = (
  */
 const bindingsOf = (
   stored: Record<string, channel.Key>,
-  fields: icd.JSONField[],
+  fields: Pick<icd.JSONField, "key" | "pointer">[],
   written: Set<channel.Key>,
 ): icd.ReadBinding[] =>
   fields.map(({ key: field, pointer }) => {
@@ -364,8 +365,7 @@ const addTopics = async ({
   const actions = new Map<icd.Key, icd.Action[]>();
   const inserterOf = (key: icd.Key): Inserter => {
     if (key === format.key) return format.form;
-    const pending = actions.get(key) ?? [];
-    actions.set(key, pending);
+    const pending = map.getOrInsert(actions, key, () => []);
     return {
       insert: (path, value, after) =>
         pending.push(icd.insert({ path: String(path).split("."), value, after })),
@@ -499,7 +499,7 @@ const MessageDetails = ({
 };
 
 interface FieldDetailsProps extends MessagePanelProps {
-  field: icd.JSONField;
+  field: ICD.TreeField;
 }
 
 const FieldDetails = ({ device, ...rest }: FieldDetailsProps) => {

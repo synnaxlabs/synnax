@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { uuid } from "@synnaxlabs/x";
+import { assertDefined } from "@synnaxlabs/x/testutil";
 import { describe, expect, it } from "vitest";
 
 import { Kafka } from "@/feature/kafka";
-import { assertDefined } from "@/testutil";
 
 describe("plotChannels", () => {
   it("should find the bound channels of the enabled records", () => {

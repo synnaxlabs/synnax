@@ -13,6 +13,7 @@ import {
   type CrudeTimeSpan,
   type destructor,
   errors,
+  map,
   Rate,
   scheduler,
   type Series,
@@ -206,9 +207,7 @@ export class MultiplexedStreamer {
     this.entries.add(entry);
     keys.forEach((key) => {
       if (!this.statuses.has(key)) this.statuses.set(key, status.create(LOADING));
-      const entries = this.entriesByKey.get(key);
-      if (entries == null) this.entriesByKey.set(key, new Set([entry]));
-      else entries.add(entry);
+      map.getOrInsert(this.entriesByKey, key, () => new Set()).add(entry);
     });
     this.scheduleReconcile();
     return {
@@ -516,10 +515,7 @@ export class MultiplexedStreamer {
         // Group series by key in one pass; per-key get() scans the whole frame.
         const grouped: Map<channel.Key, Series[]> = new Map();
         frame.forEach((k, s) => {
-          const key = k as channel.Key;
-          const existing = grouped.get(key);
-          if (existing == null) grouped.set(key, [s]);
-          else existing.push(s);
+          map.getOrInsert(grouped, k as channel.Key, () => []).push(s);
         });
         onWait(joins.write(grouped));
         grouped.forEach((_, k) => this.setStatus(k, STREAMING));

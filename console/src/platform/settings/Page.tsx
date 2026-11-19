@@ -51,15 +51,12 @@ export interface EntryProps extends PropsWithChildren {
   description?: ReactNode;
 }
 
-/** One setting: its label and description on the left, and its control on the right. */
+/**
+ * One setting: its label and description on the left, and its control on the right. The
+ * control moves under the label when the two do not fit side by side.
+ */
 export const Entry = ({ label, description, children }: EntryProps): ReactElement => (
-  <Flex.Box
-    x
-    align="center"
-    justify="between"
-    gap="huge"
-    className={CSS.BE("settings", "entry")}
-  >
+  <div className={CSS.BE("settings", "entry")}>
     <Flex.Box y gap="tiny" className={CSS.BE("settings", "entry-text")}>
       <Text.Text color={11}>{label}</Text.Text>
       {typeof description === "string" ? (
@@ -71,7 +68,7 @@ export const Entry = ({ label, description, children }: EntryProps): ReactElemen
       )}
     </Flex.Box>
     {children}
-  </Flex.Box>
+  </div>
 );
 
 /** Holds content that is not a list of entries, such as a form, inside a card. */
