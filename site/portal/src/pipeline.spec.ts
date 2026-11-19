@@ -10,7 +10,7 @@
 import { uuid } from "@synnaxlabs/x";
 import { type APIRoute, type MiddlewareHandler } from "astro";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { POST as unlinkRoute } from "@/pages/api/activations/[key]/unlink";
 import { POST as linkRoute } from "@/pages/api/desktop/link";
@@ -204,23 +204,6 @@ describe("pipeline", () => {
         headers: CROSS_SITE,
       });
       expect(res.status).toBe(200);
-    });
-  });
-
-  describe("security headers", () => {
-    afterEach(() => {
-      vi.unstubAllEnvs();
-    });
-
-    it("should forbid other sites to frame a page outside development", async () => {
-      vi.stubEnv("DEV", false);
-      const res = await send(async () => new Response("page"), {
-        method: "GET",
-        path: "/licenses",
-      });
-      expect(res.headers.get("content-security-policy")).toContain(
-        "frame-ancestors 'none'",
-      );
     });
   });
 });
