@@ -54,11 +54,9 @@ export interface Step {
  */
 export const step = (value: unknown, parts: string[], start: number): Step | null => {
   if (!isContainer(value)) return null;
-  let name = parts.slice(start).join(SEPARATOR);
   for (let end = parts.length; end > start; end--) {
-    const found = child(value, name);
+    const found = child(value, parts.slice(start, end).join(SEPARATOR));
     if (found != null) return { key: found[0], value: found[1], end };
-    name = name.slice(0, name.length - parts[end - 1].length - SEPARATOR.length);
   }
   return null;
 };

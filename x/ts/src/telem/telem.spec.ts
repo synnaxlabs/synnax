@@ -1492,7 +1492,7 @@ describe("TimeSpan", () => {
     });
   });
 
-  const TRUNCATE_TESTS = [
+  const TRUNCATE_TESTS: Array<[TimeSpan, TimeSpan, TimeSpan]> = [
     [TimeSpan.days(1).add(TimeSpan.nanoseconds(50)), TimeSpan.DAY, TimeSpan.days(1)],
     [TimeSpan.hours(1).add(TimeSpan.minutes(30)), TimeSpan.HOUR, TimeSpan.hours(1)],
     [
@@ -1517,7 +1517,7 @@ describe("TimeSpan", () => {
     });
   });
 
-  const REMAINDER_TESTS = [
+  const REMAINDER_TESTS: Array<[TimeSpan, TimeSpan, TimeSpan]> = [
     [
       TimeSpan.days(1).add(TimeSpan.nanoseconds(50)),
       TimeSpan.DAY,
@@ -1532,7 +1532,7 @@ describe("TimeSpan", () => {
     });
   });
 
-  const TO_STRING_TESTS = [
+  const TO_STRING_TESTS: Array<[TimeSpan, string]> = [
     [TimeSpan.nanoseconds(1), "1ns"],
     [TimeSpan.microseconds(1), "1μs"],
     [TimeSpan.milliseconds(1), "1ms"],
@@ -2418,7 +2418,7 @@ describe("DataType", () => {
       expect(dt.toString()).toBe("int32");
     });
 
-    [
+    const tests: Array<[CrudeDataType, DataType]> = [
       [new Int32Array(), DataType.INT32],
       [new Int8Array(), DataType.INT8],
       [new Uint8Array(), DataType.UINT8],
@@ -2430,7 +2430,8 @@ describe("DataType", () => {
       [new Float64Array(), DataType.FLOAT64],
       [new BigInt64Array(), DataType.INT64],
       [new BigUint64Array(), DataType.UINT64],
-    ].forEach(([array, expected]) => {
+    ];
+    tests.forEach(([array, expected]) => {
       test(`construct from ${array.constructor.name} to ${expected.toString()}`, () => {
         const dt = new DataType(array);
         expect(dt.toString()).toBe(expected.toString());
@@ -2567,7 +2568,7 @@ describe("Size", () => {
       expect(size.valueOf()).toBe(1024);
     });
   });
-  const TO_STRING_TESTS = [
+  const TO_STRING_TESTS: Array<[Size, string]> = [
     [Size.bytes(1), "1B"],
     [Size.kilobytes(1), "1KB"],
     [Size.megabytes(1), "1MB"],
@@ -2582,7 +2583,7 @@ describe("Size", () => {
     });
   });
 
-  const TRUNCATE_TESTS = [
+  const TRUNCATE_TESTS: Array<[Size, Size, Size]> = [
     [Size.bytes(1).add(Size.kilobytes(1)), Size.KILOBYTE, Size.kilobytes(1)],
     [Size.megabytes(100).add(Size.kilobytes(500)), Size.MEGABYTE, Size.megabytes(100)],
     [
