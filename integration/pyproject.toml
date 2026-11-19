@@ -72,8 +72,6 @@ known-first-party = ["synnax", "alamos", "freighter", "x"]
 # Optional hooks with no-op defaults.
 "console/schematic/symbol.py" = ["B027"]
 "framework/test_case.py" = ["B027"]
-# Subclasses in other modules share its bounded TypeVars.
-"tests/driver/task.py" = ["UP046"]
 
 [tool.mypy]
 python_version = "3.13"
