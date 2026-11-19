@@ -14,7 +14,8 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: format-${{ github.workflow }}-${{ github.ref }}
+  group:
+    format-${{ github.workflow }}-${{ github.event.merge_group.head_sha || github.ref }}
   cancel-in-progress: true
 
 permissions:
