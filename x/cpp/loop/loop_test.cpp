@@ -468,6 +468,37 @@ TEST(StepEstimator, testAddsAStallAmongTheFirstSteps) {
     EXPECT_GT(estimator.estimate(), HIGH_RES_THRESHOLD);
 }
 
+/// @brief it should hold back a stall on a host with a recurring tail of slow steps,
+/// as the tail steps are far smaller than the stall.
+TEST(StepEstimator, testHoldsBackAStallAmongARecurringTail) {
+    StepEstimator estimator;
+    const auto add_tail = [&estimator](const int count) {
+        for (int i = 1; i <= count; i++) {
+            if (i % 1000 == 0)
+                estimator.add(telem::MICROSECOND * (i % 2000 == 0 ? 1000 : 600));
+            else
+                estimator.add(telem::MICROSECOND * 100);
+        }
+    };
+    add_normal_steps(estimator, 16);
+    add_tail(20000);
+    estimator.add(telem::SECOND * 3);
+    add_tail(5000);
+    EXPECT_LT(estimator.estimate(), telem::MICROSECOND * 300);
+}
+
+/// @brief it should drop a held stall when the next long step is far smaller than it.
+TEST(StepEstimator, testDropsAHeldStallForASmallLongStep) {
+    StepEstimator estimator;
+    add_normal_steps(estimator, 1000);
+    const auto before = estimator.estimate();
+    estimator.add(telem::SECOND * 3);
+    estimator.add(telem::MILLISECOND);
+    EXPECT_EQ(estimator.estimate(), before);
+    estimator.add(telem::MILLISECOND);
+    EXPECT_LT(estimator.estimate(), telem::MICROSECOND * 300);
+}
+
 /// @brief it should add both long steps when a second one confirms the first, so the
 /// estimate follows a host whose steps became longer.
 TEST(StepEstimator, testFollowsALastingRiseInStepDuration) {

@@ -45,15 +45,17 @@ struct Clock {
 /// RESOLUTION, so a sleep longer than one step measures a step.
 ///
 /// After WARM_UP steps, it holds back a step longer than OUTLIER_FACTOR times the
-/// estimate (a stall) until a second such step arrives within OUTLIER_WINDOW steps, and
-/// then adds both. An isolated stall is never added, so it cannot raise the estimate
-/// past every wait and stop the timer from measuring steps.
+/// estimate (a stall). It adds the stall only when the next stall comes within
+/// OUTLIER_WINDOW steps and within OUTLIER_FACTOR of its size, and then adds both. An
+/// isolated stall is never added, so it cannot raise the estimate past every wait and
+/// stop the timer from measuring steps.
 class StepEstimator {
     /// @brief steps added as measured before the estimate can hold one back.
     static constexpr double WARM_UP = 16;
-    /// @brief multiple of the estimate past which a step is held back.
+    /// @brief multiple of the estimate past which a step is held back, and the most
+    /// two stalls can differ in size and still confirm each other.
     static constexpr double OUTLIER_FACTOR = 4;
-    /// @brief steps within which a second long step confirms a held one.
+    /// @brief steps within which a second stall confirms a held one.
     static constexpr int OUTLIER_WINDOW = 10000;
 
     /// @brief doubles, so a sum of squared nanoseconds cannot overflow.
@@ -63,6 +65,7 @@ class StepEstimator {
     telem::TimeSpan value = RESOLUTION;
     std::optional<double> held;
     int since_outlier = OUTLIER_WINDOW;
+    double last_outlier = 0;
 
     void push(const double ns) {
         const double delta = ns - this->mean;
@@ -84,7 +87,10 @@ public:
             this->since_outlier = std::min(this->since_outlier + 1, OUTLIER_WINDOW);
             return;
         }
-        if (this->since_outlier >= OUTLIER_WINDOW)
+        const bool confirmed = this->since_outlier < OUTLIER_WINDOW &&
+                               ns <= OUTLIER_FACTOR * this->last_outlier &&
+                               this->last_outlier <= OUTLIER_FACTOR * ns;
+        if (!confirmed)
             this->held = ns;
         else {
             if (this->held) this->push(*this->held);
@@ -92,6 +98,7 @@ public:
             this->push(ns);
         }
         this->since_outlier = 0;
+        this->last_outlier = ns;
     }
 
     /// @brief returns the most one step is expected to take.
