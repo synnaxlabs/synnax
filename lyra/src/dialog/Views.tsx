@@ -22,9 +22,10 @@ export interface ViewsContextValue {
   /**
    * Shows the content in place of the children, under a Back button and the title, at
    * the width of the children. Back returns to the children as they were, with the
-   * focus on the element that opened the view.
+   * focus on the element that opened the view. A click passes its target as the
+   * opener, since a click in WebKit focuses no button.
    */
-  open: (title: string, content: ReactNode) => void;
+  open: (title: string, content: ReactNode, opener?: HTMLElement) => void;
   /** If true, a view shows in place of the children. */
   viewing: boolean;
 }
@@ -68,9 +69,13 @@ export const Views = ({
     else root.current?.focus();
     opener.current = null;
   }, [view]);
-  const open = (title: string, content: ReactNode): void => {
-    opener.current =
-      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  const open = (title: string, content: ReactNode, clicked?: HTMLElement): void => {
+    const active = document.activeElement;
+    if (!(active instanceof HTMLElement)) opener.current = clicked ?? null;
+    // A click in WebKit leaves the focus on the body or on a focusable box around the
+    // button.
+    else if (clicked != null && active.contains(clicked)) opener.current = clicked;
+    else opener.current = active;
     const width = root.current?.getBoundingClientRect().width ?? 0;
     setView({ title, content, width });
   };
