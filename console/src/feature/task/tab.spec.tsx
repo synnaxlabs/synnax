@@ -13,6 +13,7 @@ import {
   createTestClientWithRole,
 } from "@synnaxlabs/client/testutil";
 import { Errors, Flux } from "@synnaxlabs/pluto";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, screen, waitFor } from "@testing-library/react";
 import { type ComponentType, type FC } from "react";
 import { assert, describe, expect, it } from "vitest";
@@ -24,7 +25,7 @@ import { Task } from "@/feature/task";
 import { Panel } from "@/platform/panel";
 import { type Task as PTask } from "@/platform/task";
 import { createTaskStatus, renderTaskFormTab } from "@/platform/task/testutil";
-import { countEditableText, uniqueName } from "@/testutil";
+import { countEditableText } from "@/testutil";
 
 const client = createTestClient();
 
