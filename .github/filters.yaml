@@ -285,6 +285,8 @@ client_py: &client_py
   - *py
   - *x_py
   - client/py/**
+  # The codec tests read the golden frames that all four codecs share.
+  - x/testdata/framecodec/**
 
 exports_go:
   - *core
