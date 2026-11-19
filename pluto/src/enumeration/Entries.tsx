@@ -29,8 +29,17 @@ import { formPath, useForm } from "@/enumeration/queries";
 
 const NAME = 0;
 const VALUE = 1;
-const COLOR = 2;
-const ABNORMAL = 3;
+
+/** Where the color and abnormal cells sit in a row, or -1 for a hidden column. */
+interface Layout {
+  color: number;
+  abnormal: number;
+}
+
+const layoutOf = (colorHidden: boolean, abnormalHidden: boolean): Layout => ({
+  color: colorHidden ? -1 : 2,
+  abnormal: abnormalHidden ? -1 : colorHidden ? 2 : 3,
+});
 
 const HEX = /^#?([0-9a-f]{6}(?:[0-9a-f]{2})?)$/i;
 
@@ -42,20 +51,27 @@ const parseColor = (text: string): color.Ref | undefined | null => {
   return hex == null ? null : { type: "fixed", value: xcolor.construct(`#${hex}`) };
 };
 
-const toRow = (e: enumeration.Entry): Input.TableCell[] => [
-  e.name,
-  e.value,
-  e.color,
-  e.abnormal,
-];
+const toRow = (e: enumeration.Entry, layout: Layout): Input.TableCell[] => {
+  const row: Input.TableCell[] = [e.name, e.value];
+  if (layout.color >= 0) row[layout.color] = e.color;
+  if (layout.abnormal >= 0) row[layout.abnormal] = e.abnormal;
+  return row;
+};
 
-const fromRow = (row: Input.TableCell[], key: string): enumeration.Entry => {
-  const ref = color.refZ.optional().parse(row[COLOR]);
+/** @returns the entry that the row shows. A hidden field keeps its value from prev. */
+const fromRow = (
+  row: Input.TableCell[],
+  layout: Layout,
+  prev: Pick<enumeration.Entry, "key"> & Partial<enumeration.Entry>,
+): enumeration.Entry => {
+  const ref =
+    layout.color < 0 ? prev.color : color.refZ.optional().parse(row[layout.color]);
   return {
-    key,
+    key: prev.key,
     name: String(row[NAME]),
     value: Number(row[VALUE]),
-    abnormal: row[ABNORMAL] === true,
+    abnormal:
+      layout.abnormal < 0 ? (prev.abnormal ?? false) : row[layout.abnormal] === true,
     ...(ref != null && { color: ref }),
   };
 };
@@ -154,21 +170,6 @@ const ColorCell = ({
   />
 );
 
-interface EmptyCellProps {
-  variant?: Input.Variant;
-  "aria-label": string;
-}
-
-const EmptyCell = ({ variant, "aria-label": label }: EmptyCellProps): ReactElement => (
-  <Input.Text
-    value=""
-    variant={variant}
-    aria-label={label}
-    disabled
-    onChange={() => {}}
-  />
-);
-
 export interface TableProps {
   value: enumeration.Entry[];
   /**
@@ -182,10 +183,10 @@ export interface TableProps {
   onMove: (from: number, to: number) => void;
   /** Shows the entries read-only. */
   preview?: boolean;
-  /** Shows each Abnormal cell empty, for entries that cannot be abnormal. */
-  abnormalDisabled?: boolean;
-  /** Shows each Color cell empty, for entries whose color draws nowhere. */
-  colorDisabled?: boolean;
+  /** Leaves out the Abnormal column, for entries that cannot be abnormal. */
+  abnormalHidden?: boolean;
+  /** Leaves out the Color column, for entries whose color draws nowhere. */
+  colorHidden?: boolean;
   /** Focuses the first Name cell on mount, or Add entry when there are no entries. */
   autoFocus?: boolean;
 }
@@ -202,10 +203,11 @@ export const Table = ({
   onRemove,
   onMove,
   preview,
-  abnormalDisabled = false,
-  colorDisabled = false,
+  abnormalHidden = false,
+  colorHidden = false,
   autoFocus,
 }: TableProps): ReactElement => {
+  const layout = layoutOf(colorHidden, abnormalHidden);
   const [held, setHeld] = useState<ReadonlyMap<string, number>>(() => new Map());
   const resolve = Color.useResolve();
   const colors = Color.useResultList({});
@@ -247,7 +249,7 @@ export const Table = ({
   const shown = withHeld(holds);
   // Counts stored values too, since a held entry shows a value it does not store.
   const freeValue = (rows: Input.TableCell[][]): number =>
-    nextValue([...rows, ...value.map(toRow)]);
+    nextValue([...rows, ...value.map((e) => toRow(e, layout))]);
 
   const handleChange = (rows: Input.TableCell[][]): void => {
     const changed: enumeration.Entry[] = [];
@@ -261,12 +263,15 @@ export const Table = ({
     );
     rows.forEach((row, i) => {
       const prev = value.at(i);
-      let next = fromRow(row, prev?.key ?? id.create());
+      let next = fromRow(row, layout, prev ?? { key: id.create() });
       if (prev == null) {
         // A pasted entry saves with a free value and holds the one it repeats.
         if (clashing.has(i)) {
           nextHeld.set(next.key, next.value);
-          next = { ...next, value: freeValue([...rows, ...added.map(toRow)]) };
+          next = {
+            ...next,
+            value: freeValue([...rows, ...added.map((e) => toRow(e, layout))]),
+          };
         }
         added.push(next);
         return;
@@ -319,8 +324,8 @@ export const Table = ({
 
   const warningsAt = (row: number): string[] => {
     const entry = value[row];
-    if (entry == null || colorDisabled) return [];
-    return check(entry, value, resolvePair, { abnormalDisabled });
+    if (entry == null) return [];
+    return check(entry, value, resolvePair, { abnormalHidden });
   };
 
   const renderHaulPreview = (row: number): ReactElement => {
@@ -336,57 +341,62 @@ export const Table = ({
     );
   };
 
+  const colorColumn = (
+    <Input.TableColumn<color.Ref | undefined>
+      key="color"
+      name="Color"
+      type="custom"
+      empty={undefined}
+      parse={parseColor}
+      width={24}
+    >
+      {(props) => (
+        <ColorCell
+          {...props}
+          text={colorText(props.value)}
+          warnings={warningsAt(props.row)}
+        />
+      )}
+    </Input.TableColumn>
+  );
+
+  const abnormalColumn = (
+    <Input.TableColumn key="abnormal" name="Abnormal" type="boolean" width={14}>
+      {(props) => (
+        // Each edit saves at once, so the cell is a switch.
+        <Input.Switch
+          value={props.value}
+          onChange={props.onChange}
+          variant="text"
+          disabled={props.preview}
+          aria-label={props["aria-label"]}
+        />
+      )}
+    </Input.TableColumn>
+  );
+
   return (
     <div className={CSS.B("entries")}>
       <Input.Table
-        value={shown.map(toRow)}
+        value={shown.map((e) => toRow(e, layout))}
         onChange={handleChange}
         resourceName="entry"
         preview={preview}
         autoFocus={autoFocus}
         cellStatus={cellStatus}
-        createRow={(rows) => ["", freeValue(rows), undefined, false]}
+        createRow={(rows) =>
+          toRow({ key: "", name: "", value: freeValue(rows), abnormal: false }, layout)
+        }
         onRemove={handleRemove}
         onMove={onMove}
         renderHaulPreview={renderHaulPreview}
       >
-        <Input.TableColumn name="Name" type="string" />
-        <Input.TableColumn name="Value" type="number" width={14} />
-        <Input.TableColumn<color.Ref | undefined>
-          name="Color"
-          type="custom"
-          empty={undefined}
-          parse={parseColor}
-          width={24}
-        >
-          {(props) =>
-            colorDisabled ? (
-              <EmptyCell {...props} />
-            ) : (
-              <ColorCell
-                {...props}
-                text={colorText(props.value)}
-                warnings={warningsAt(props.row)}
-              />
-            )
-          }
-        </Input.TableColumn>
-        <Input.TableColumn name="Abnormal" type="boolean" width={14}>
-          {(props) =>
-            abnormalDisabled ? (
-              <EmptyCell {...props} />
-            ) : (
-              // Each edit saves at once, so the cell is a switch.
-              <Input.Switch
-                value={props.value}
-                onChange={props.onChange}
-                variant="text"
-                disabled={props.preview}
-                aria-label={props["aria-label"]}
-              />
-            )
-          }
-        </Input.TableColumn>
+        {[
+          <Input.TableColumn key="name" name="Name" type="string" />,
+          <Input.TableColumn key="value" name="Value" type="number" width={14} />,
+          ...(colorHidden ? [] : [colorColumn]),
+          ...(abnormalHidden ? [] : [abnormalColumn]),
+        ]}
       </Input.Table>
     </div>
   );

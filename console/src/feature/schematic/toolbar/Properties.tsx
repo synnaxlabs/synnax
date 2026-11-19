@@ -158,7 +158,10 @@ const selectionColorRefs = (
   cfg: Schematic.ElementConfig,
 ): MultiEdit.ColorRef[] => {
   const refs = MultiEdit.colorRefs(key, cfg, COLOR_FIELDS);
-  if (cfg.variant === "state_indicator")
+  if (
+    cfg.variant === "state_indicator" &&
+    Schematic.Node.Options.drawn(cfg.enumeration)
+  )
     cfg.options.forEach((o, i) => {
       if (o.color != null)
         refs.push({ key, path: `options.${i}.color`, value: color.construct(o.color) });

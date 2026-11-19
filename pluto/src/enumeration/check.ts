@@ -51,7 +51,7 @@ const isAlarm = (pair: theme.Pair): boolean =>
 
 export interface CheckOptions {
   /** Whether no entry can be abnormal, as for the options of a node. */
-  abnormalDisabled?: boolean;
+  abnormalHidden?: boolean;
 }
 
 /**
@@ -62,7 +62,7 @@ export const check = (
   entry: enumeration.Entry,
   entries: enumeration.Entry[],
   resolve: ResolveColor,
-  { abnormalDisabled = false }: CheckOptions = {},
+  { abnormalHidden = false }: CheckOptions = {},
 ): string[] => {
   const warnings: string[] = [];
   const others = entries.filter((e) => e.key !== entry.key);
@@ -90,7 +90,7 @@ export const check = (
       warnings.push(`With color blindness, its color looks like ${lookalike}.`);
       break;
     }
-  if (!abnormalDisabled && !entry.abnormal && isAlarm(pair))
+  if (!abnormalHidden && !entry.abnormal && isAlarm(pair))
     warnings.push("It has an alarm color, but it is not abnormal.");
   return warnings;
 };

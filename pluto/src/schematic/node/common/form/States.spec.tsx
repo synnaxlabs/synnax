@@ -44,7 +44,7 @@ describe("Form.States", () => {
 
   const renderStates = (
     config: Partial<z.input<typeof schematic.stateIndicatorNodeConfigZ>> = {},
-    colorDisabled = false,
+    colorHidden = false,
     as: FC<PropsWithChildren> = wrapper,
   ) =>
     renderForm(
@@ -53,7 +53,7 @@ describe("Form.States", () => {
         options={path.options}
         label={path.label.label}
         symbolName="State indicator"
-        colorDisabled={colorDisabled}
+        colorHidden={colorHidden}
       />,
       schematic.stateIndicatorNodeConfigZ.parse({
         variant: "state_indicator",
@@ -131,11 +131,16 @@ describe("Form.States", () => {
       );
     });
 
-    it("should show empty color cells for a node that draws no color", async () => {
+    it("should leave out the Abnormal column of the options", async () => {
+      renderStates();
+      await findInput("Color 2");
+      expect(screen.queryByLabelText("Abnormal 2")).toBeNull();
+    });
+
+    it("should leave out the Color column for a node that draws no color", async () => {
       renderStates({}, true);
-      const cell = await findInput("Color 2");
-      expect(cell.disabled).toBe(true);
-      expect(cell.value).toBe("");
+      await findInput("Name 2");
+      expect(screen.queryByLabelText("Color 2")).toBeNull();
     });
   });
 

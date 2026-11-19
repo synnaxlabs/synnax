@@ -416,6 +416,29 @@ describe("useList", () => {
     release();
   });
 
+  it("should call a reader of many keys once for each change of the list", async () => {
+    const records = [await create("a"), await create("b"), await create("c")];
+    const { result } = renderHook(
+      () => Flux.useList(ranges, { name: "ranges", query: byName() }),
+      { wrapper },
+    );
+    act(() => result.current.more());
+    await waitFor(() => expect(result.current.data).toHaveLength(3));
+    // A first subscriber fetches each record, so the fetches call no counted reader.
+    const fetched = vi.fn();
+    const releases = records.map(({ key }) => result.current.subscribe(fetched, key));
+    await waitFor(() => expect(fetched).toHaveBeenCalledTimes(3));
+    const many = vi.fn();
+    const one = vi.fn();
+    releases.push(...records.map(({ key }) => result.current.subscribe(many, key)));
+    releases.push(result.current.subscribe(one, records[0].key));
+    await create("d");
+    await waitFor(() => expect(result.current.data).toHaveLength(4));
+    expect(one).toHaveBeenCalled();
+    expect(many).toHaveBeenCalledTimes(one.mock.calls.length);
+    releases.forEach((release) => release());
+  });
+
   it("should read nothing before the first more or search", async () => {
     await create("a");
     const { result } = renderHook(
