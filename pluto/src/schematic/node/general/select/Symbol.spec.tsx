@@ -14,7 +14,6 @@ import { act, render, type RenderResult, waitFor } from "@testing-library/react"
 import { ReactFlowProvider } from "@xyflow/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { aether } from "@/aether/aether";
 import { CSS } from "@/css";
 import { Select } from "@/schematic/node/general/select";
 import { telemTest } from "@/telem/aether/testutil";
@@ -22,6 +21,7 @@ import { createSynnaxWrapper } from "@/testutil/Synnax";
 import { canvasTest } from "@/vis/render/testutil";
 import { setpoint } from "@/vis/setpoint/aether";
 import { Staleness } from "@/vis/staleness";
+import { stalenessTest } from "@/vis/staleness/aether/testutil";
 import { stateIndicator } from "@/vis/stateIndicator/aether";
 
 const NODE_KEY = "c1";
@@ -66,19 +66,15 @@ describe("Select.Symbol", () => {
   });
 });
 
-// Stands in for the readback worker component and reports its source as stale.
-class StaleReadback extends aether.Leaf<typeof stateIndicator.stateZ> {
-  static readonly TYPE = stateIndicator.StateIndicator.TYPE;
-  schema = stateIndicator.stateZ;
-
-  afterUpdate(): void {
-    if (!this.state.stale) this.setState((s) => ({ ...s, stale: true }));
-  }
-}
-
 const StaleWrapper = createSynnaxWrapper({
   client: null,
-  additionalRegistry: { ...setpoint.REGISTRY, [StaleReadback.TYPE]: StaleReadback },
+  additionalRegistry: {
+    ...setpoint.REGISTRY,
+    ...stalenessTest.createRegistry(
+      stateIndicator.StateIndicator.TYPE,
+      stateIndicator.stateZ,
+    ),
+  },
   telemFactories: [new telemTest.TestFactory()],
   renderContext: canvasTest.record(),
 });

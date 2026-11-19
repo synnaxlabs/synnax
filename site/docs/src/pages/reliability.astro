@@ -27,6 +27,7 @@ import {
     RANK,
     run,
     runs,
+    skippedRuns,
     type State,
     systems,
     totals,
@@ -155,7 +156,7 @@ const unclean = runs
 // Skip reason -> the tests skipped for it, when they were all run by hand and passed.
 const byHand = Object.entries(
     Object.groupBy(
-        runs.filter((r) => r.passedByHand),
+        skippedRuns.filter((r) => r.passedByHand),
         (t) => t.message!,
     ),
 );
@@ -166,10 +167,7 @@ const where = (group: typeof runs) =>
 const distinct = (group: typeof runs) => new Set(group.map(id)).size;
 
 const skipped = Object.entries(
-    Object.groupBy(
-        runs.filter((r) => r.state === "skipped"),
-        (t) => t.message ?? "No reason given",
-    ),
+    Object.groupBy(skippedRuns, (t) => t.message ?? "No reason given"),
 );
 ---
 
@@ -195,9 +193,9 @@ const skipped = Object.entries(
                             <code>{run.sha.slice(0, 7)}</code>
                         </a>
                         ). Each square below is one test, and shows its worst result on
-                        any operating system. Flaky and skipped tests are marked, and
-                        listed at the end of the page with the reason. Hover over a
-                        square to see its test, and click it to read the code.
+                        any operating system that ran it. Flaky and skipped tests are
+                        marked, and listed at the end of the page with the reason. Hover
+                        over a square to see its test, and click it to read the code.
                     </span>
                 </Text.Text>
                 <Flex.Box x wrap gap="huge" className="reliability-stats">
@@ -242,8 +240,13 @@ const skipped = Object.entries(
                             className="reliability-note-detail"
                         >
                             <span>
-                                They used NI CompactDAQ and CompactRIO devices and an
-                                EtherCAT network on our test station. They ran{" "}
+                                Every day, our hardware-in-the-loop (HITL) station tests
+                                Synnax on real devices: an NI CompactDAQ, an NI
+                                CompactRIO that runs the Synnax Driver on the
+                                controller, a LabJack T4, and an EtherCAT network of
+                                seven modules. On the CompactRIO and the LabJack,
+                                outputs connect to inputs, so a test writes a value and
+                                reads it back through the hardware. These tests ran{" "}
                                 {day(hardware.started_at)} in run{" "}
                                 <a href={hardware.url}>#{hardware.id}</a> on commit{" "}
                                 <a href={`${REPO}/commit/${hardware.sha}`}>
@@ -304,77 +307,97 @@ const skipped = Object.entries(
                 ))}
             </div>
 
-            <Divider.Divider x />
-            <Text.Text level="h2" className="reliability-heading">
-                Tests that did not pass cleanly
-            </Text.Text>
-            <Text.Text level="p" color={9}>
-                A flaky test failed once, then passed when we ran it again. We list them
-                because a retry can hide a real bug. A skipped test could not run on our
-                CI machines.
-            </Text.Text>
-            <Flex.Box y className="reliability-unclean">
-                {unclean.map((t) => (
-                    <div class="reliability-unclean-item">
-                        <Text.Text level="small" weight={500} status={STATUS[t.state]}>
-                            {LABELS[t.state]}
-                        </Text.Text>
-                        <Text.Text level="small" variant="code" href={t.source}>
-                            {t.name}
-                        </Text.Text>
-                        <Text.Text level="small" color={9}>
-                            {t.message ?? "Passed on retry"}
-                        </Text.Text>
-                        <Text.Text level="small" variant="code" href={t.suite.url}>
-                            {t.suite.job} · {t.suite.os}
-                        </Text.Text>
-                    </div>
-                ))}
-                {skipped.map(([reason, tests]) => (
-                    <details class="reliability-skipped">
-                        <summary class="reliability-unclean-item">
-                            <Text.Text level="small" weight={500} status="disabled">
-                                Skipped
-                            </Text.Text>
-                            <Text.Text level="small" color={9}>
-                                {`${distinct(tests!)} tests: ${reason}`}
-                            </Text.Text>
-                            {tests!.every((t) => t.passedByHand) && (
+            {(unclean.length > 0 || skipped.length > 0) && (
+                <>
+                    <Divider.Divider x />
+                    <Text.Text level="h2" className="reliability-heading">
+                        Tests that did not pass cleanly
+                    </Text.Text>
+                    <Text.Text level="p" color={9}>
+                        A flaky test failed once, then passed when we ran it again. We
+                        list them because a retry can hide a real bug. A skipped test
+                        could not run on our CI machines.
+                    </Text.Text>
+                    <Flex.Box y className="reliability-unclean">
+                        {unclean.map((t) => (
+                            <div class="reliability-unclean-item">
                                 <Text.Text
                                     level="small"
-                                    x
-                                    gap="small"
-                                    align="center"
-                                    className="reliability-hand"
+                                    weight={500}
+                                    status={STATUS[t.state]}
                                 >
-                                    <Icon.Check />
-                                    {`All passed manually${where(tests!)}`}
+                                    {LABELS[t.state]}
                                 </Text.Text>
-                            )}
-                        </summary>
-                        <Flex.Box y gap="small" className="reliability-skipped-list">
-                            {tests!.map((t) => (
-                                <Flex.Box x justify="between" gap="large">
+                                <Text.Text level="small" variant="code" href={t.source}>
+                                    {t.name}
+                                </Text.Text>
+                                <Text.Text level="small" color={9}>
+                                    {t.message ?? "Passed on retry"}
+                                </Text.Text>
+                                <Text.Text
+                                    level="small"
+                                    variant="code"
+                                    href={t.suite.url}
+                                >
+                                    {t.suite.job} · {t.suite.os}
+                                </Text.Text>
+                            </div>
+                        ))}
+                        {skipped.map(([reason, tests]) => (
+                            <details class="reliability-skipped">
+                                <summary class="reliability-unclean-item">
                                     <Text.Text
                                         level="small"
-                                        variant="code"
-                                        href={t.source}
+                                        weight={500}
+                                        status="disabled"
                                     >
-                                        {t.name}
+                                        Skipped
                                     </Text.Text>
-                                    <Text.Text
-                                        level="small"
-                                        variant="code"
-                                        href={t.suite.url}
-                                    >
-                                        {t.suite.job} · {t.suite.os}
+                                    <Text.Text level="small" color={9}>
+                                        {`${distinct(tests!)} tests: ${reason}`}
                                     </Text.Text>
+                                    {tests!.every((t) => t.passedByHand) && (
+                                        <Text.Text
+                                            level="small"
+                                            x
+                                            gap="small"
+                                            align="center"
+                                            className="reliability-hand"
+                                        >
+                                            <Icon.Check />
+                                            {`All passed manually${where(tests!)}`}
+                                        </Text.Text>
+                                    )}
+                                </summary>
+                                <Flex.Box
+                                    y
+                                    gap="small"
+                                    className="reliability-skipped-list"
+                                >
+                                    {tests!.map((t) => (
+                                        <Flex.Box x justify="between" gap="large">
+                                            <Text.Text
+                                                level="small"
+                                                variant="code"
+                                                href={t.source}
+                                            >
+                                                {t.name}
+                                            </Text.Text>
+                                            <Text.Text
+                                                level="small"
+                                                variant="code"
+                                                href={t.suite.url}
+                                            >
+                                                {t.suite.job} · {t.suite.os}
+                                            </Text.Text>
+                                        </Flex.Box>
+                                    ))}
                                 </Flex.Box>
-                            ))}
-                        </Flex.Box>
-                    </details>
-                ))}
-            </Flex.Box>
+                            </details>
+                        ))}
+                    </Flex.Box>
+                </>
+            )}
         </Flex.Box>
     </section>
 </Root>

@@ -96,7 +96,7 @@ const renderWithScale = async (customScale: NI.Task.Scale) => {
     { ...ZERO_DRAFT, config },
     NI.Task.ANALOG_READ_SCHEMAS,
   );
-  return await renderNITaskForm(NI.Task.AnalogRead, {
+  return await renderNITaskForm(NI.Task.FORMS[NI.Task.ANALOG_READ_TYPE], {
     client,
     taskKey: draft.key,
   });
