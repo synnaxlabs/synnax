@@ -16,7 +16,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Text } from "@synnaxlabs/lyra/text";
 import { stopPropagation } from "@synnaxlabs/lyra/util";
 import { Resource } from "@synnaxlabs/pluto";
-import { location, state } from "@synnaxlabs/x";
+import { compare, location, state } from "@synnaxlabs/x";
 import { type ReactElement, Suspense, useEffect, useRef, useState } from "react";
 
 import { CSS } from "@/platform/css";
@@ -71,6 +71,12 @@ const Unused = ({ kind }: UnusedProps): ReactElement => (
   </Text.Text>
 );
 
+/** Orders uses by name, then by key, so equal names keep one order. */
+const USE_ORDER = compare.chain<resource.Resource>(
+  compare.by((r) => r.name),
+  compare.by((r) => r.id.key),
+);
+
 interface UsesProps extends UnusedProps, Pick<UseProps, "close"> {
   ids: resource.ID[];
   selects?: Selects;
@@ -82,7 +88,7 @@ const Uses = ({ ids, kind, selects, close }: UsesProps): ReactElement => {
   if (resources.length === 0) return <Unused kind={kind} />;
   return (
     <Flex.Box y empty className={CSS.BE("settings-used-by", "resources")}>
-      {resources.map((r) => (
+      {resources.toSorted(USE_ORDER).map((r) => (
         <Use
           key={`${r.id.type}:${r.id.key}`}
           resource={r}
