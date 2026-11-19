@@ -15,14 +15,14 @@ const HEADING = "Console 0.61.0 cannot work with Core 0.60.1";
 
 /**
  * Still for the updates section of the v0.61 release notes: the screen that a Console
- * shows when the Core runs another minor version. The page reads an old version from the
- * connectivity check of the Core. The heading names the versions in the release notes,
- * because the build under capture may carry another number.
+ * shows when the Core runs another minor version. The page reads an old version from
+ * the connectivity check of the Core. The heading names the versions in the release
+ * notes, because the build under capture may carry another number.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   const { page } = session;
   await page.evaluate(() => {
-    const { fetch } = window;
+    const fetch = window.fetch.bind(window);
     window.fetch = async (input, init) => {
       const response = await fetch(input, init);
       const url = input instanceof Request ? input.url : String(input);
