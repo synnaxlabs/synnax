@@ -141,12 +141,20 @@ func (h *Host) Create(cfg node.Config) (node.Node, error) {
 		return nil, err
 	}
 	if isSource {
+		if len(cfg.Node.Outputs) != 1 {
+			return nil, errors.Newf(
+				"on node %s has %d outputs, not 1",
+				cfg.Node.Key,
+				len(cfg.Node.Outputs),
+			)
+		}
 		return &source{
 			State:      cfg.State,
 			key:        inputs.Channel,
 			currKey:    inputs.Channel,
 			channelIdx: channelIdx,
 			state:      h.state,
+			dataType:   cfg.Node.Outputs[0].Type.ToTelem(),
 		}, nil
 	}
 	inputIdx, err := cfg.State.ResolveInput(ir.DefaultInputParam)
@@ -191,7 +199,9 @@ type source struct {
 	key     uint32
 	currKey uint32
 	// channelIdx is the channel ref input's index; -1 when not alias-bound.
-	channelIdx    int
+	channelIdx int
+	// dataType is the type of the output, which each series converts to.
+	dataType      telem.DataType
 	highWaterMark telem.Alignment
 	// entryStamp is the cycle stamp of the last Reset. Samples stamped earlier were
 	// taken before the stage was entered and are dropped.
@@ -275,11 +285,17 @@ func (s *source) Next(ctx node.Context) {
 			continue
 		}
 		var timeSeries telem.Series
-		if indexData.DataType() == telem.UnknownT {
+		if len(indexData.Series) == 0 {
 			n := int(ser.Len())
 			timeSeries = telem.Arrange(ctx.ReserveStamps(n), n, 1*telem.NanosecondTS)
 			timeSeries.Alignment = ser.Alignment
 		} else if ser, timeSeries, ok = s.alignToIndex(ser, indexData); !ok {
+			continue
+		}
+		var err error
+		if ser, err = s.convert(ser); err != nil {
+			ctx.ReportError(errors.Wrapf(err, "channel %d", s.currKey))
+			s.highWaterMark = ab.Upper
 			continue
 		}
 		*s.Output(0) = ser
@@ -289,6 +305,17 @@ func (s *source) Next(ctx node.Context) {
 		return
 	}
 }
+
+// convert returns ser in the output type. Text types share one Arc type, so a text
+// series passes to a text output as it is.
+func (s *source) convert(ser telem.Series) (telem.Series, error) {
+	if ser.DataType == s.dataType || (isText(ser.DataType) && isText(s.dataType)) {
+		return ser, nil
+	}
+	return telem.Convert(ser, s.dataType)
+}
+
+func isText(dt telem.DataType) bool { return dt.IsVariable() || dt == telem.UUIDT }
 
 // alignToIndex returns ser and its timestamps from the index series that holds it,
 // trimmed to the samples at or after the entry stamp. It returns false when no index

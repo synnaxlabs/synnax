@@ -291,6 +291,9 @@ var _ = Describe("Channel", func() {
 				cfg := rnode.Config{
 					Node: ir.Node{
 						Type: "on",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.F32()},
+						},
 						Inputs: types.Params{
 							{Name: "channel", Type: types.U32(), Value: uint32(42)},
 						},
@@ -304,6 +307,9 @@ var _ = Describe("Channel", func() {
 				cfg := rnode.Config{
 					Node: ir.Node{
 						Type: "on",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.F32()},
+						},
 						Inputs: types.Params{
 							{Name: "channel", Type: types.U32(), Value: uint32(123)},
 						},
@@ -317,6 +323,9 @@ var _ = Describe("Channel", func() {
 				cfg := rnode.Config{
 					Node: ir.Node{
 						Type: "on",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.F32()},
+						},
 						Inputs: types.Params{
 							{Name: "channel", Type: types.U32(), Value: uint32(99)},
 						},
@@ -366,6 +375,9 @@ var _ = Describe("Channel", func() {
 				cfg := rnode.Config{
 					Node: ir.Node{
 						Type: "on",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.F32()},
+						},
 						Inputs: types.Params{
 							{Name: "invalid", Type: types.String(), Value: "field"},
 						},
@@ -377,12 +389,29 @@ var _ = Describe("Channel", func() {
 			It("Should return error for missing channel", func() {
 				cfg := rnode.Config{
 					Node: ir.Node{
-						Type:   "on",
+						Type: "on",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.F32()},
+						},
 						Inputs: types.Params{},
 					},
 					State: rtState.Node("test"),
 				}
 				Expect(factory.Create(cfg)).Error().To(BeAValidationPathError())
+			})
+			It("Should return error for an on node without an output", func() {
+				cfg := rnode.Config{
+					Node: ir.Node{
+						Key:  "test",
+						Type: "on",
+						Inputs: types.Params{
+							{Name: "channel", Type: types.U32(), Value: uint32(42)},
+						},
+					},
+					State: rtState.Node("test"),
+				}
+				Expect(factory.Create(cfg)).Error().
+					To(MatchError("on node test has 0 outputs, not 1"))
 			})
 			It(
 				"Should return error for a sink with neither a channel key nor a binding edge",
@@ -438,6 +467,9 @@ var _ = Describe("Channel", func() {
 				source := MustSucceed(factory.Create(rnode.Config{
 					Node: ir.Node{
 						Type: "on",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.F32()},
+						},
 						Inputs: types.Params{
 							{Name: "channel", Type: types.U32(), Value: uint32(10)},
 						},
@@ -471,6 +503,9 @@ var _ = Describe("Channel", func() {
 					source := MustSucceed(factory.Create(rnode.Config{
 						Node: ir.Node{
 							Type: "on",
+							Outputs: types.Params{
+								{Name: ir.DefaultOutputParam, Type: types.F32()},
+							},
 							Inputs: types.Params{
 								{Name: "channel", Type: types.U32(), Value: uint32(10)},
 							},
@@ -514,6 +549,9 @@ var _ = Describe("Channel", func() {
 					source := MustSucceed(factory.Create(rnode.Config{
 						Node: ir.Node{
 							Type: "on",
+							Outputs: types.Params{
+								{Name: ir.DefaultOutputParam, Type: types.F32()},
+							},
 							Inputs: types.Params{
 								{Name: "channel", Type: types.U32(), Value: uint32(10)},
 							},
@@ -553,6 +591,9 @@ var _ = Describe("Channel", func() {
 				source := MustSucceed(factory.Create(rnode.Config{
 					Node: ir.Node{
 						Type: "on",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.String()},
+						},
 						Inputs: types.Params{
 							{Name: "channel", Type: types.U32(), Value: uint32(12)},
 						},
@@ -581,6 +622,9 @@ var _ = Describe("Channel", func() {
 				source := MustSucceed(factory.Create(rnode.Config{
 					Node: ir.Node{
 						Type: "on",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.I32()},
+						},
 						Inputs: types.Params{
 							{Name: "channel", Type: types.U32(), Value: uint32(20)},
 						},
@@ -610,6 +654,9 @@ var _ = Describe("Channel", func() {
 				source := MustSucceed(factory.Create(rnode.Config{
 					Node: ir.Node{
 						Type: "on",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.F32()},
+						},
 						Inputs: types.Params{
 							{Name: "channel", Type: types.U32(), Value: uint32(999)},
 						},
@@ -633,6 +680,9 @@ var _ = Describe("Channel", func() {
 					source := MustSucceed(factory.Create(rnode.Config{
 						Node: ir.Node{
 							Type: "on",
+							Outputs: types.Params{
+								{Name: ir.DefaultOutputParam, Type: types.I32()},
+							},
 							Inputs: types.Params{
 								{Name: "channel", Type: types.U32(), Value: uint32(20)},
 							},
@@ -683,6 +733,9 @@ var _ = Describe("Channel", func() {
 					source := MustSucceed(factory.Create(rnode.Config{
 						Node: ir.Node{
 							Type: "on",
+							Outputs: types.Params{
+								{Name: ir.DefaultOutputParam, Type: types.I32()},
+							},
 							Inputs: types.Params{
 								{Name: "channel", Type: types.U32(), Value: uint32(20)},
 							},
@@ -718,6 +771,9 @@ var _ = Describe("Channel", func() {
 				source := MustSucceed(factory.Create(rnode.Config{
 					Node: ir.Node{
 						Type: "on",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.F32()},
+						},
 						Inputs: types.Params{
 							{Name: "channel", Type: types.U32(), Value: uint32(10)},
 						},
@@ -772,6 +828,95 @@ var _ = Describe("Channel", func() {
 			})
 		})
 
+		Describe("Data types", func() {
+			// createSource returns a source of the channel whose output has type t.
+			createSource := func(ch uint32, t types.Type) rnode.Node {
+				GinkgoHelper()
+				return MustSucceed(factory.Create(rnode.Config{
+					Node: ir.Node{
+						Type: "on",
+						Inputs: types.Params{
+							{Name: "channel", Type: types.U32(), Value: ch},
+						},
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: t}},
+					},
+					State: progState.Node("source"),
+				}))
+			}
+			// next runs the source once and returns whether it emitted and the errors
+			// it
+			// reported.
+			next := func(ctx SpecContext, source rnode.Node) (bool, []error) {
+				var (
+					emitted bool
+					errs    []error
+				)
+				source.Next(rnode.Context{
+					Context:       ctx,
+					ReserveStamps: testutil.ReserveStamps(0),
+					MarkChanged:   func(int) { emitted = true },
+					ReportError:   func(err error) { errs = append(errs, err) },
+				})
+				return emitted, errs
+			}
+
+			It("Should convert a series of another type to the output type", func(
+				ctx SpecContext,
+			) {
+				source := createSource(10, types.F32())
+				fr := telem.Frame[uint32]{}
+				fr = fr.Append(10, telem.NewSeriesV[int16](-1, 300))
+				fr = fr.Append(11, telem.NewSeriesSecondsTSV(100, 101))
+				channelState.Ingest(fr)
+				emitted, errs := next(ctx, source)
+				Expect(emitted).To(BeTrue())
+				Expect(errs).To(BeEmpty())
+				Expect(*progState.Node("source").Output(0)).
+					To(telem.MatchSeries(telem.NewSeriesV[float32](-1, 300)))
+			})
+
+			It("Should pass a text series to a text output as it is", func(
+				ctx SpecContext,
+			) {
+				source := createSource(12, types.String())
+				json := telem.Series{
+					DataType: telem.JSONT,
+					Data:     telem.NewSeriesV(`{"a":1}`).Data,
+				}
+				fr := telem.Frame[uint32]{}
+				fr = fr.Append(12, json)
+				fr = fr.Append(13, telem.NewSeriesSecondsTSV(100))
+				channelState.Ingest(fr)
+				emitted, _ := next(ctx, source)
+				Expect(emitted).To(BeTrue())
+				Expect(*progState.Node("source").Output(0)).To(telem.MatchSeries(json))
+			})
+
+			It("Should report text against a number output and keep running", func(
+				ctx SpecContext,
+			) {
+				source := createSource(10, types.F32())
+				fr := telem.Frame[uint32]{}
+				fr = fr.Append(10, telem.NewSeriesV("a"))
+				fr = fr.Append(11, telem.NewSeriesSecondsTSV(100))
+				channelState.Ingest(fr)
+				emitted, errs := next(ctx, source)
+				Expect(emitted).To(BeFalse())
+				Expect(errs).To(ConsistOf(
+					MatchError("channel 10: cannot convert a string series to float32"),
+				))
+				fr = telem.Frame[uint32]{}
+				fr = fr.Append(10, aligned(telem.NewSeriesV[float32](2), 1))
+				fr = fr.Append(11, aligned(telem.NewSeriesSecondsTSV(101), 1))
+				channelState.Ingest(fr)
+				emitted, errs = next(ctx, source)
+				Expect(emitted).To(BeTrue())
+				Expect(errs).To(BeEmpty())
+				Expect(*progState.Node("source").Output(0)).
+					To(telem.MatchSeries(aligned(telem.NewSeriesV[float32](2), 1)))
+			})
+		})
+
 		Describe("Reset", func() {
 			It(
 				"Should advance the watermark to prevent stale data from triggering",
@@ -779,6 +924,9 @@ var _ = Describe("Channel", func() {
 					source := MustSucceed(factory.Create(rnode.Config{
 						Node: ir.Node{
 							Type: "on",
+							Outputs: types.Params{
+								{Name: ir.DefaultOutputParam, Type: types.F32()},
+							},
 							Inputs: types.Params{
 								{Name: "channel", Type: types.U32(), Value: uint32(10)},
 							},
@@ -833,6 +981,9 @@ var _ = Describe("Channel", func() {
 				source := MustSucceed(factory.Create(rnode.Config{
 					Node: ir.Node{
 						Type: "on",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.F32()},
+						},
 						Inputs: types.Params{
 							{Name: "channel", Type: types.U32(), Value: uint32(10)},
 						},
@@ -859,6 +1010,9 @@ var _ = Describe("Channel", func() {
 					source := MustSucceed(factory.Create(rnode.Config{
 						Node: ir.Node{
 							Type: "on",
+							Outputs: types.Params{
+								{Name: ir.DefaultOutputParam, Type: types.F32()},
+							},
 							Inputs: types.Params{
 								{Name: "channel", Type: types.U32(), Value: uint32(10)},
 							},
@@ -909,6 +1063,9 @@ var _ = Describe("Channel", func() {
 				source := MustSucceed(mod.Create(rnode.Config{
 					Node: ir.Node{
 						Type: "on",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.F64()},
+						},
 						Inputs: types.Params{
 							{Name: "channel", Type: types.U32(), Value: uint32(30)},
 						},
@@ -995,6 +1152,9 @@ var _ = Describe("Channel", func() {
 			return MustSucceed(factory.Create(rnode.Config{
 				Node: ir.Node{
 					Type: "on",
+					Outputs: types.Params{
+						{Name: ir.DefaultOutputParam, Type: types.F32()},
+					},
 					Inputs: types.Params{
 						{Name: "channel", Type: types.U32(), Value: ch},
 					},
@@ -1822,6 +1982,9 @@ var _ = Describe("Channel", func() {
 				source := MustSucceed(mod.Create(rnode.Config{
 					Node: ir.Node{
 						Type: "on",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.I32()},
+						},
 						Inputs: types.Params{
 							{Name: "channel", Type: types.U32(), Value: uint32(1)},
 						},
@@ -1950,6 +2113,9 @@ var _ = Describe("Channel", func() {
 					source1 := MustSucceed(factory.Create(rnode.Config{
 						Node: ir.Node{
 							Type: "on",
+							Outputs: types.Params{
+								{Name: ir.DefaultOutputParam, Type: types.F32()},
+							},
 							Inputs: types.Params{
 								{Name: "channel", Type: types.U32(), Value: uint32(10)},
 							},
@@ -1959,6 +2125,9 @@ var _ = Describe("Channel", func() {
 					source2 := MustSucceed(factory.Create(rnode.Config{
 						Node: ir.Node{
 							Type: "on",
+							Outputs: types.Params{
+								{Name: ir.DefaultOutputParam, Type: types.F64()},
+							},
 							Inputs: types.Params{
 								{Name: "channel", Type: types.U32(), Value: uint32(20)},
 							},
