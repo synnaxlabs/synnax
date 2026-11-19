@@ -86,10 +86,10 @@ Bound indexed() {
 /// @brief returns a message named type that reads the documents whose type is type.
 Bound matching(const std::string &type) {
     auto b = reading(type);
-    std::get<icd::JSONPayload>(b.message.payload).match = icd::StringJSONMatch{
-        {.pointer = "/type"},
-        type,
-    };
+    icd::StringJSONMatch match;
+    match.pointer = "/type";
+    match.value = type;
+    std::get<icd::JSONPayload>(b.message.payload).match = match;
     return b;
 }
 
@@ -129,16 +129,21 @@ TEST(Reader, WritesNoIndexForVirtualChannels) {
     ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{2}));
 }
 
-/// @brief it should read a response as the message whose match rule it meets.
+/// @brief it should read a response as the message whose match rule it meets, or else
+/// as the message with no rule.
 TEST(Reader, ReadsMatchedMessage) {
     auto status = matching("status");
     auto other = reading("other");
     other.bindings[0].channel.key = 3;
     other.bindings[0].channel.index = 4;
     auto r = ASSERT_NIL_P(Reader::create({status, other}));
-    x::telem::Frame fr(4);
-    ASSERT_NIL(r.read(R"({"type": "event", "v": 4})", RECEIVED, fr));
-    ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{4, 3}));
+    x::telem::Frame matched(2);
+    ASSERT_NIL(r.read(R"({"type": "status", "v": 5})", RECEIVED, matched));
+    ASSERT_EQ(*matched.channels, (std::vector<std::uint32_t>{1, 2}));
+    ASSERT_EQ(matched.at<double>(2, 0), 5.0);
+    x::telem::Frame fallback(2);
+    ASSERT_NIL(r.read(R"({"type": "event", "v": 4})", RECEIVED, fallback));
+    ASSERT_EQ(*fallback.channels, (std::vector<std::uint32_t>{4, 3}));
 }
 
 /// @brief it should add nothing to the frame when a value does not convert.
