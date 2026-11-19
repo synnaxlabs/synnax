@@ -10,6 +10,8 @@
 package channels_test
 
 import (
+	"math"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/graph"
@@ -897,22 +899,51 @@ var _ = Describe("Channel", func() {
 					To(telem.MatchSeries(telem.NewSeriesV[float32](-1, 300)))
 			})
 
-			It("Should not emit a sample that does not fit the output type", func(
-				ctx SpecContext,
-			) {
-				source := createSource(10, types.U8())
-				fr := telem.Frame[uint32]{}
-				fr = fr.Append(10, telem.NewSeriesV[int16](300, -1))
-				fr = fr.Append(11, telem.NewSeriesSecondsTSV(100, 101))
-				channelState.Ingest(fr)
-				emitted, errs := next(ctx, source)
-				if emitted {
+			// D-116: a sample out of the output's range, or a NaN to an integer, fails
+			// loud. The node skips the series and reports it.
+			It("Should skip and report a series with a sample out of the output range",
+				func(ctx SpecContext) {
+					source := createSource(10, types.U8())
+					fr := telem.Frame[uint32]{}
+					fr = fr.Append(10, telem.NewSeriesV[int16](300, -1))
+					fr = fr.Append(11, telem.NewSeriesSecondsTSV(100, 101))
+					channelState.Ingest(fr)
+					emitted, errs := next(ctx, source)
+					Expect(emitted).To(BeFalse())
+					Expect(errs).To(HaveLen(1))
+				})
+
+			It(
+				"Should skip and report a NaN for an integer output",
+				func(ctx SpecContext) {
+					source := createSource(10, types.I32())
+					fr := telem.Frame[uint32]{}
+					fr = fr.Append(10, telem.NewSeriesV(math.NaN()))
+					fr = fr.Append(11, telem.NewSeriesSecondsTSV(100))
+					channelState.Ingest(fr)
+					emitted, errs := next(ctx, source)
+					Expect(emitted).To(BeFalse())
+					Expect(errs).To(HaveLen(1))
+				},
+			)
+
+			It(
+				"Should truncate a float in range toward zero for an integer output",
+				func(
+					ctx SpecContext,
+				) {
+					source := createSource(10, types.I32())
+					fr := telem.Frame[uint32]{}
+					fr = fr.Append(10, telem.NewSeriesV(2.9, -2.9))
+					fr = fr.Append(11, telem.NewSeriesSecondsTSV(100, 101))
+					channelState.Ingest(fr)
+					emitted, errs := next(ctx, source)
+					Expect(emitted).To(BeTrue())
+					Expect(errs).To(BeEmpty())
 					Expect(*progState.Node("source").Output(0)).
-						To(telem.MatchSeries(telem.NewSeriesV[uint8](255, 0)))
-				} else {
-					Expect(errs).ToNot(BeEmpty())
-				}
-			})
+						To(telem.MatchSeries(telem.NewSeriesV[int32](2, -2)))
+				},
+			)
 
 			It("Should pass a text series to a text output as it is", func(
 				ctx SpecContext,
