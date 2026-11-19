@@ -56,7 +56,6 @@ export const SwatchMenu = (): ReactElement | null => {
   return (
     <Menu.Menu gap="small">
       <Menu.Item
-        size="small"
         itemKey="edit"
         onClick={() => open("Edit color", <EditView itemKey={swatch.key} />)}
       >

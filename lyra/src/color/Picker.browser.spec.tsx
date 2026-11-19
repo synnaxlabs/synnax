@@ -7,14 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactNode } from "react";
+import { type ReactElement, type ReactNode } from "react";
 import { assert, describe, expect, it } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { Button } from "@/button";
 import { Color } from "@/color";
 import { CSS } from "@/css";
+import { Dialog } from "@/dialog";
 import { Icon } from "@/icon";
+import { Menu } from "@/menu";
 import { renderThemed } from "@/styletest";
 import { Triggers } from "@/triggers";
 
@@ -27,6 +29,7 @@ const COLORS: Color.Named[] = Array.from({ length: 10 }, (_, i) => ({
 const renderLibrary = async (
   value?: string,
   paletteEnd?: ReactNode,
+  swatchMenu?: ReactNode,
 ): Promise<HTMLElement> => {
   await renderThemed(
     <Triggers.Provider>
@@ -37,6 +40,7 @@ const renderLibrary = async (
           palettes: [{ key: "p", name: "Palette", colors: COLORS }],
           onNamedChange: () => {},
           paletteEnd,
+          swatchMenu,
         }}
       />
     </Triggers.Provider>,
@@ -58,6 +62,22 @@ const swatchRect = (i: number): DOMRect =>
     .element()
     .getBoundingClientRect();
 
+const SwatchMenu = (): ReactElement | null => {
+  const { swatch } = Color.usePalette();
+  const { open } = Dialog.useViews();
+  if (swatch == null) return null;
+  return (
+    <Menu.Menu>
+      <Menu.Item
+        itemKey="edit"
+        onClick={() => open("Edit color", <span>{`editing ${swatch.name}`}</span>)}
+      >
+        Edit
+      </Menu.Item>
+    </Menu.Menu>
+  );
+};
+
 describe("Picker", () => {
   describe("library", () => {
     it("should draw square swatches", async () => {
@@ -77,6 +97,16 @@ describe("Picker", () => {
       const s = swatchRect(0);
       expect(add.getBoundingClientRect().width).toBeCloseTo(s.width, 0);
       expect(add.getBoundingClientRect().height).toBeCloseTo(s.height, 0);
+    });
+
+    it("should focus a right-clicked swatch after an item opens a view and Back", async () => {
+      await renderLibrary(undefined, undefined, <SwatchMenu />);
+      const swatch = page.getByRole("button", { name: "Color 2", exact: true });
+      await userEvent.click(swatch, { button: "right" });
+      await userEvent.click(page.getByRole("menuitem", { name: "Edit" }));
+      await expect.element(page.getByText("editing Color 2")).toBeVisible();
+      await userEvent.click(page.getByRole("button", { name: "Back" }));
+      expect(document.activeElement).toBe(swatch.element());
     });
 
     it("should draw no focus ring around the picker", async () => {
