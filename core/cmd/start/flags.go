@@ -20,16 +20,16 @@ import (
 
 // Flag names used for starting a Synnax Core.
 const (
-	FlagData                         = "data"
-	FlagMem                          = "mem"
-	FlagInsecure                     = "insecure"
-	FlagFIPS                         = "fips"
-	FlagUsername                     = "username"
-	FlagPassword                     = "password"
-	FlagNoDriver                     = "no-driver"
-	FlagSlowConsumerTimeout          = "slow-consumer-timeout"
-	FlagSessionIdleTimeout           = "session-idle-timeout"
-	FlagAuthMethods                  = "auth-methods"
+	FlagData                = "data"
+	FlagMem                 = "mem"
+	FlagInsecure            = "insecure"
+	FlagFIPS                = "fips"
+	FlagUsername            = "username"
+	FlagPassword            = "password"
+	FlagNoDriver            = "no-driver"
+	FlagSlowConsumerTimeout = "slow-consumer-timeout"
+	FlagSessionIdleTimeout  = "session-idle-timeout"
+	FlagAuthMethods         = "auth-methods"
 	// FlagOIDCProviders is read from the config file only. It holds a list of
 	// providers, each with a name, issuer, client-id, optional client-secret, and
 	// optional user-creation-disabled.
