@@ -126,7 +126,7 @@ var _ = Describe("ResolveReadConfig", func() {
 		ctx SpecContext,
 		old v2.ReadField,
 		index bool,
-	) (icd.JSONField, v2.ReadMessage) {
+	) (icd.JSONField, icd.ReadMessage) {
 		GinkgoHelper()
 		var indexKey string
 		if index {
@@ -163,13 +163,13 @@ var _ = Describe("ResolveReadConfig", func() {
 		Expect(base.Scale).To(Equal(1.0))
 		Expect(
 			read.Bindings,
-		).To(Equal([]v2.ReadBinding{{Field: base.Key, DataType: telem.Float64T}}))
+		).To(Equal([]icd.ReadBinding{{Field: base.Key, DataType: telem.Float64T}}))
 	})
 
 	It("Should keep the stored data type as the data type of a new channel",
 		func(ctx SpecContext) {
 			f, read := lift(ctx, storedField(telem.Int16T), false)
-			Expect(read.Bindings).To(Equal([]v2.ReadBinding{
+			Expect(read.Bindings).To(Equal([]icd.ReadBinding{
 				{Field: f.Base().Key, DataType: telem.Int16T},
 			}))
 		},
@@ -190,7 +190,7 @@ var _ = Describe("ResolveReadConfig", func() {
 			Expect(integer.EnumValues).To(Equal(
 				[]payload.IntegerEntry{{Label: "ON", Value: 1}},
 			))
-			Expect(read.Bindings).To(Equal([]v2.ReadBinding{
+			Expect(read.Bindings).To(Equal([]icd.ReadBinding{
 				{Field: f.Base().Key, Channel: 7},
 			}))
 			Expect(changes).To(Equal([]string{
@@ -335,6 +335,22 @@ var _ = Describe("ResolveReadConfig", func() {
 		},
 	)
 
+	It("Should give ISO 8601 to a field whose time format is not valid",
+		func(ctx SpecContext) {
+			old := storedField(telem.Float64T)
+			old.TimeFormat = new(payload.TimeFormat("unix"))
+			f, _ := lift(ctx, old, false)
+			stamp, ok := f.Variant.(icd.TimestampJSONField)
+			Expect(ok).To(BeTrue())
+			Expect(stamp.TimeFormat).To(Equal(payload.TimeFormatISO8601))
+			Expect(stamp.Validate()).To(Succeed())
+			Expect(changes).To(ConsistOf(
+				"data type float64 became the timestamp kind of an index or time format",
+				`time format "unix" is not valid and became iso8601`,
+			))
+		},
+	)
+
 	It("Should keep the kind and entries of a typed field with a time format",
 		func(ctx SpecContext) {
 			old := storedField(telem.Uint8T, payload.EnumEntry{Label: "ON", Value: 1})
@@ -358,7 +374,7 @@ var _ = Describe("ResolveReadConfig", func() {
 			Expect(ok).To(BeTrue())
 			Expect(stamp.TimeFormat).To(Equal(payload.TimeFormatISO8601))
 			Expect(read.Index).To(HaveValue(Equal(f.Base().Key)))
-			Expect(read.Bindings).To(Equal([]v2.ReadBinding{{Field: f.Base().Key}}))
+			Expect(read.Bindings).To(Equal([]icd.ReadBinding{{Field: f.Base().Key}}))
 			Expect(changes).To(ConsistOf(
 				"data type float64 became the timestamp kind of an index or time format",
 			))
@@ -657,9 +673,9 @@ var _ = Describe("NewReadMigration", func() {
 			plain := plainEntry(migrated.Entries[0])
 			Expect(plain.Topic).To(Equal("plant/level"))
 			Expect(plain.ICD).To(Equal(made[0].Key))
-			Expect(plain.Messages).To(Equal([]v2.ReadMessage{{
+			Expect(plain.Messages).To(Equal([]icd.ReadMessage{{
 				Message:  made[0].Messages[0].Key,
-				Bindings: []v2.ReadBinding{{Field: f.Base().Key, Channel: 7}},
+				Bindings: []icd.ReadBinding{{Field: f.Base().Key, Channel: 7}},
 			}}))
 			logged := logs.FilterField(zap.String("field", "entries.0.fields.0")).All()
 			Expect(logged).To(HaveLen(2))

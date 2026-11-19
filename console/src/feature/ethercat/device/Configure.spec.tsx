@@ -10,6 +10,7 @@
 import { device, type ethercat } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -38,12 +39,7 @@ import {
   reportTaskRunning,
   reportTaskStopped,
 } from "@/platform/task/testutil";
-import {
-  CaptureStatuses,
-  fakePickedFile,
-  interceptFilePicker,
-  uniqueName,
-} from "@/testutil";
+import { CaptureStatuses, fakePickedFile, interceptFilePicker } from "@/testutil";
 
 const client = createTestClient();
 
@@ -694,6 +690,23 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
             },
           ]),
         );
+      });
+
+      it("should skip a complete access command written as true", async () => {
+        await setup({ productCode: 0x67, revision: 1 });
+        const command = initCmd(
+          "PS",
+          "#x1c12",
+          "0",
+          "01001a16",
+          "PDO assignment",
+          ' CompleteAccess="true"',
+        );
+        importFile("complete.xml", esiOf([`<CoE>${command}</CoE>`]));
+        await screen.findByText(/^Imported 0 startup parameters /);
+        expect(
+          screen.getByText("Skipped 1 that the Driver cannot write."),
+        ).toBeTruthy();
       });
 
       it("should read a file in the encoding that its declaration names", async () => {

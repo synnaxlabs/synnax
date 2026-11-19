@@ -64,13 +64,13 @@ export const Password = ({ subject, onChanged }: PasswordProps): ReactElement =>
           full="x"
         />
       )}
-      <Flex.Box x>
+      <Flex.Box x wrap justify="end">
         <Input.Text
           value={password}
           onChange={handlePassword}
           placeholder="New password"
           type="password"
-          full="x"
+          className={CSS.BE("credential", "password")}
         />
         <Button.Button
           className={CSS.BE("credential", "action")}

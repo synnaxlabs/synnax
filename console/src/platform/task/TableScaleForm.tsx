@@ -34,6 +34,20 @@ const lengthMismatch = (preScaled: number[], scaled: number[]): string | null =>
     ? null
     : `Pre-scaled ${preScaled.length} values and scaled ${scaled.length} values must be the same length`;
 
+// A column that ends before the file does ends in empty cells, which hold no points.
+const column = (
+  table: Record<string, unknown[]>,
+  key: string,
+): number[] | undefined => {
+  const values = table[key];
+  return values?.slice(0, values.findLastIndex((v) => v != null) + 1) as
+    number[] | undefined;
+};
+
+/** @returns The error to show when the column has an empty cell, or null. */
+const emptyCell = (column: string, values: unknown[]): string | null =>
+  values.some((v) => v == null) ? `Column ${column} has an empty cell` : null;
+
 export interface TableScaleFormProps {
   /** The form path of the table scale. */
   path: deep.Path<{ preScaledVals: number[]; scaledVals: number[] }>;
@@ -75,16 +89,19 @@ export const TableScaleForm = ({ path }: TableScaleFormProps): ReactElement => {
     raw: string,
     scaledKey: string,
   ) => {
-    const preScaledValues = value[raw] as number[] | undefined;
-    const scaledValues = value[scaledKey] as number[] | undefined;
-    if (preScaledValues != null && scaledValues != null) {
-      const message = lengthMismatch(preScaledValues, scaledValues);
-      if (message != null) {
-        // Loading the pair would pad the shorter column with zeros, giving the scale
-        // points the CSV never held.
-        preScaled.setStatus({ variant: "error", message });
-        return;
-      }
+    const preScaledValues = column(value, raw);
+    const scaledValues = column(value, scaledKey);
+    const message =
+      (preScaledValues != null ? emptyCell(raw, preScaledValues) : null) ??
+      (scaledValues != null ? emptyCell(scaledKey, scaledValues) : null) ??
+      (preScaledValues != null && scaledValues != null
+        ? lengthMismatch(preScaledValues, scaledValues)
+        : null);
+    if (message != null) {
+      // Loading the values would fill the empty or missing ones with zeros, giving the
+      // scale points the CSV never held.
+      preScaled.setStatus({ variant: "error", message });
+      return;
     }
     if (preScaledValues != null) preScaled.onChange(preScaledValues);
     if (scaledValues != null) scaled.onChange(scaledValues);

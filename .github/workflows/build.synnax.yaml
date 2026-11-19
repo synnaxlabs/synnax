@@ -202,12 +202,10 @@ env:
   GOPROXY: https://proxy.golang.org|direct
   RELEASE_TAG: ${{ inputs.release_tag }}
   # Desktop Console update files that every Core embeds, downloaded one call each so a
-  # missing file fails the build. A Windows or Linux install updates with the installer
-  # it came from, so each stays. The manifest carries the signatures, so the .sig files
-  # stay out.
+  # missing file fails the build. A Windows install updates with the installer it came
+  # from, so each stays. The manifest carries the signatures, so the .sig files stay out.
   CONSOLE_UPDATE_FILES:
     latest.json Synnax.app.tar.gz Synnax_*_x64-setup.exe Synnax_*_x64_en-US.msi
-    Synnax_*_amd64.AppImage Synnax_*_amd64.deb
 
 permissions:
   contents: read
@@ -223,7 +221,6 @@ jobs:
       console_tauri_matrix: ${{ steps.set-console-tauri-matrix.outputs.matrix }}
       tauri_macos_matrix: ${{ steps.set-console-tauri-matrix.outputs.macos }}
       tauri_windows_matrix: ${{ steps.set-console-tauri-matrix.outputs.windows }}
-      tauri_linux_matrix: ${{ steps.set-console-tauri-matrix.outputs.linux }}
       GO_BUILD_TAGS: ${{ steps.go-tags.outputs.GO_BUILD_TAGS }}
     steps:
       - name: Checkout repository
@@ -300,19 +297,11 @@ jobs:
           if [ "${{ inputs.windows }}" = "true" ]; then
             WINDOWS="\"windows-latest\""
           fi
-          # The oldest hosted Ubuntu gives the AppImage and the .deb the widest glibc
-          # range.
-          LINUX=""
-          if [ "${{ inputs.ubuntu }}" = "true" ]; then
-            LINUX="\"ubuntu-22.04\""
-          fi
           OS_LIST="${MACOS}${MACOS:+${WINDOWS:+,}}${WINDOWS}"
-          OS_LIST="${OS_LIST}${OS_LIST:+${LINUX:+,}}${LINUX}"
           {
             echo "matrix=[${OS_LIST}]"
             echo "macos=[${MACOS}]"
             echo "windows=[${WINDOWS}]"
-            echo "linux=[${LINUX}]"
           } >> "$GITHUB_OUTPUT"
 
       - name: Verify build configuration
@@ -414,7 +403,7 @@ jobs:
 
       - name: Setup Bazel
         if: inputs.driver && (env.DRIVER_REF_RUN_ID == '' || inputs.nilinuxrt)
-        uses: bazel-contrib/setup-bazel@104e3eea9447cdaa4b00d0fb46191a3985d26ab3 # 0.19.1
+        uses: bazel-contrib/setup-bazel@f34d6a05eae3c24acab7fa54587492daeaeffdab # 0.19.2
         with:
           # Use S3 cache instead of github cache.
           bazelisk-cache: false
@@ -1247,13 +1236,13 @@ jobs:
 
       - name: Login to Docker Hub
         if: inputs.release_tag != ''
-        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -1391,8 +1380,7 @@ jobs:
       updater_channel: ${{ inputs.updater_channel }}
     secrets: *tauri_secrets
 
-  # Desktop on Windows or Linux needs only the Core of its OS, so it does not wait for
-  # macOS.
+  # Desktop on Windows needs only the Windows Core, so it does not wait for macOS.
   build-desktop-windows:
     name: Build Synnax Desktop (Windows)
     needs: [setup, build, republish]
@@ -1404,24 +1392,6 @@ jobs:
     with:
       desktop: true
       os: ${{ needs.setup.outputs.tauri_windows_matrix }}
-      version: ${{ needs.setup.outputs.VERSION }}
-      app_version: ${{ inputs.desktop_version }}
-      sign_binaries: ${{ inputs.sign_binaries }}
-      use_simple_artifact_names: ${{ inputs.use_simple_artifact_names }}
-      updater_channel: ${{ inputs.updater_channel }}
-    secrets: *tauri_secrets
-
-  build-desktop-linux:
-    name: Build Synnax Desktop (Linux)
-    needs: [setup, build, republish]
-    # build.tauri.yaml uploads the bundles to the draft release.
-    permissions:
-      contents: write
-    if: inputs.desktop && needs.setup.outputs.tauri_linux_matrix != '[]'
-    uses: ./.github/workflows/build.tauri.yaml
-    with:
-      desktop: true
-      os: ${{ needs.setup.outputs.tauri_linux_matrix }}
       version: ${{ needs.setup.outputs.VERSION }}
       app_version: ${{ inputs.desktop_version }}
       sign_binaries: ${{ inputs.sign_binaries }}

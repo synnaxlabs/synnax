@@ -55,6 +55,8 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.click(saved, { text: true, zoom: false });
     session.endZoom();
     await session.waitFor(page.locator(".pluto-line-plot").first());
+    // Left on the plot, the cursor shows the plot's hover controls.
+    await session.moveTo(capture.PARK);
     // The reloaded plot has a gap where its stream restarted. It fills on wall time,
     // so wait out a full rolling window before the plot is on camera.
     await session.settleWall(32000);

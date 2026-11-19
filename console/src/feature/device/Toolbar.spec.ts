@@ -10,6 +10,7 @@
 import { type device, rack as rackClient } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
+import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -24,11 +25,9 @@ import {
   searchTree,
 } from "@/platform/tree/testutil";
 import {
-  assertDefined,
   createTestClientWithGrants,
   getIconButton,
   renderHookWithConsole,
-  uniqueName,
   uniqueToken,
 } from "@/testutil";
 

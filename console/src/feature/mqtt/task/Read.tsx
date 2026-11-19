@@ -22,6 +22,7 @@ import {
   DataType,
   deep,
   errors,
+  map,
   type payload,
   primitive,
   unique,
@@ -48,7 +49,6 @@ import {
   type PlainReadEntry,
   READ_SCHEMAS,
   READ_TYPE,
-  type ReadBinding,
   type ReadEntry,
   type ReadSchemas,
   type SparkplugReadEntry,
@@ -83,6 +83,8 @@ const SAMPLE_KINDS = {
 } as const satisfies Record<payload.JSONType, payload.Kind>;
 
 const TOPIC_INPUT_PROPS = { placeholder: "plant/line1/telemetry" } as const;
+// A topic added by name has no topic yet, so its details open on the topic.
+const EMPTY_TOPIC_INPUT_PROPS = { ...TOPIC_INPUT_PROPS, autoFocus: true } as const;
 
 /** @returns the messages of the entries' ICDs, reading the open one from its form. */
 const readMessages = async (
@@ -146,14 +148,19 @@ const DISCOVER_KIND: Kind<Addition> = {
 
 const useDiscoverModal = createDiscoverModal(DISCOVER_KIND);
 
-/** @returns the channels that the bindings and tags of entries write. */
+/**
+ * @returns the channels that the bindings and tags of the enabled entries write. The
+ * Core skips disabled entries.
+ */
 const writtenChannels = (entries: ReadEntry[]): Set<channel.Key> => {
   const written = new Set(
-    entries.flatMap((e) =>
-      isPlain(e)
-        ? e.messages.flatMap(({ bindings }) => bindings.map((b) => b.channel))
-        : [e.channel],
-    ),
+    entries
+      .filter(({ disabled }) => !disabled)
+      .flatMap((e) =>
+        isPlain(e)
+          ? e.messages.flatMap(({ bindings }) => bindings.map((b) => b.channel))
+          : [e.channel],
+      ),
   );
   written.delete(0);
   return written;
@@ -222,14 +229,14 @@ const messagePrefix = (
  */
 const bindingsOf = (
   stored: Record<string, channel.Key>,
-  fields: icd.JSONField[],
+  fields: Pick<icd.JSONField, "key" | "pointer">[],
   written: Set<channel.Key>,
-): ReadBinding[] =>
+): icd.ReadBinding[] =>
   fields.map(({ key: field, pointer }) => {
     const ch = stored[pointer] ?? 0;
-    if (written.has(ch)) return mqtt.readBindingZ.parse({ field });
+    if (written.has(ch)) return icd.readBindingZ.parse({ field });
     if (ch !== 0) written.add(ch);
-    return mqtt.readBindingZ.parse({ field, channel: ch });
+    return icd.readBindingZ.parse({ field, channel: ch });
   });
 
 /** Inserts entries into the lists of one ICD. */
@@ -279,7 +286,7 @@ const createMessage = (
 const entryOf = (
   icdKey: icd.Key,
   topic: string,
-  read: Pick<mqtt.ReadMessage, "message" | "bindings">,
+  read: Pick<icd.ReadMessage, "message" | "bindings">,
 ): PlainReadEntry =>
   mqtt.plainReadEntryZ.parse({ type: "plain", icd: icdKey, topic, messages: [read] });
 
@@ -290,7 +297,7 @@ interface AddTopicsResult {
    * The bindings that each held entry gains, by entry key. An entry whose message is
    * gone reads the new one.
    */
-  held: { key: string; message?: icd.MessageKey; bindings: ReadBinding[] }[];
+  held: { key: string; message?: icd.MessageKey; bindings: icd.ReadBinding[] }[];
 }
 
 /** @returns the bindings of the fields of a draft that the message reads. */
@@ -298,7 +305,7 @@ type Bind = (
   draft: Draft,
   fields: icd.JSONField[],
   message: icd.MessageKey,
-) => ReadBinding[];
+) => icd.ReadBinding[];
 
 /** @returns the name of the ICD of a task named name. */
 const icdName = (name: string): string => (name.trim() === "" ? DEFAULT_NAME : name);
@@ -349,8 +356,7 @@ const addTopics = async ({
   const actions = new Map<icd.Key, icd.Action[]>();
   const inserterOf = (key: icd.Key): Inserter => {
     if (key === format.key) return format.form;
-    const pending = actions.get(key) ?? [];
-    actions.set(key, pending);
+    const pending = map.getOrInsert(actions, key, () => []);
     return {
       insert: (path, value, after) =>
         pending.push(icd.insert({ path: String(path).split("."), value, after })),
@@ -487,7 +493,7 @@ const MessageDetails = ({
 };
 
 interface FieldDetailsProps extends MessagePanelProps {
-  field: icd.JSONField;
+  field: ICD.TreeField;
 }
 
 const FieldDetails = ({ device, ...rest }: FieldDetailsProps) => {
@@ -517,6 +523,7 @@ const TopicDetails: FC<TopicDetailsProps> = ({
   onAddMessage,
 }) => {
   const isPreview = Task.useIsPreview();
+  const topic = PForm.useFieldValue(path.topic);
   const reads = PForm.useFieldValue(path.messages);
   const encoding = PForm.useFieldValue(
     PICD.formPath.messages[reads.length === 1 ? reads[0].message : ""].payload.format,
@@ -543,7 +550,7 @@ const TopicDetails: FC<TopicDetailsProps> = ({
             path={path.topic}
             label="Topic"
             padHelpText={false}
-            inputProps={TOPIC_INPUT_PROPS}
+            inputProps={topic === "" ? EMPTY_TOPIC_INPUT_PROPS : TOPIC_INPUT_PROPS}
           />
           <QoSField path={path.qos} />
           <PForm.CheckboxField
@@ -699,8 +706,7 @@ const Entries: FC<EntriesProps> = ({
     grown.forEach(({ key, message, bindings }) => {
       const read = plainPath(key).messages[0];
       // The index and bindings of a deleted message name fields it no longer has.
-      if (message != null)
-        ctx.set(read, mqtt.readMessageZ.parse({ message, bindings }));
+      if (message != null) ctx.set(read, icd.readMessageZ.parse({ message, bindings }));
       else ctx.set(read.bindings, [...ctx.get(read.bindings).value, ...bindings]);
     });
     const firstAddition = additions[0];

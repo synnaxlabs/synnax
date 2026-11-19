@@ -13,7 +13,9 @@ on:
   workflow_call:
   workflow_dispatch:
 concurrency:
-  group: protobuf-${{ github.workflow }}-${{ github.ref }}
+  group:
+    protobuf-${{ github.workflow }}-${{ github.event.merge_group.head_sha || github.ref
+    }}
   cancel-in-progress: true
 
 permissions:
@@ -30,5 +32,6 @@ jobs:
       - name: Buf CI
         uses: bufbuild/buf-action@37ac33d8960807670a6e9719080e885197b09cc6 # v1
         with:
+          version: 1.75.0
           breaking: false
           pr_comment: false

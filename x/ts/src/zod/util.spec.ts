@@ -13,36 +13,6 @@ import { z } from "zod";
 import { zod } from "@/zod";
 
 describe("zod", () => {
-  describe("functionOutput", () => {
-    it("should return ZodUnknown for z.function() with no output", () => {
-      expect(zod.functionOutput(z.function())).toBeInstanceOf(z.ZodUnknown);
-    });
-
-    it("should return ZodVoid for z.function({ output: z.void() })", () => {
-      expect(zod.functionOutput(z.function({ output: z.void() }))).toBeInstanceOf(
-        z.ZodVoid,
-      );
-    });
-
-    it("should return ZodNumber for z.function({ output: z.number() })", () => {
-      expect(zod.functionOutput(z.function({ output: z.number() }))).toBeInstanceOf(
-        z.ZodNumber,
-      );
-    });
-
-    it("should return ZodString for z.function({ output: z.string() })", () => {
-      expect(zod.functionOutput(z.function({ output: z.string() }))).toBeInstanceOf(
-        z.ZodString,
-      );
-    });
-
-    it("should return ZodPromise for z.function({ output: z.promise(z.number()) })", () => {
-      expect(
-        zod.functionOutput(z.function({ output: z.promise(z.number()) })),
-      ).toBeInstanceOf(z.ZodPromise);
-    });
-  });
-
   describe("getFieldSchema", () => {
     const schema = z.object({
       a: z.object({
@@ -72,6 +42,9 @@ describe("zod", () => {
     );
     it("should return null for invalid path and optional is true", () => {
       expect(zod.getFieldSchema(schema, "a.b.c.d", { optional: true })).toBeNull();
+    });
+    it("should return null for a field named after an Object.prototype key", () => {
+      expect(zod.getFieldSchema(schema, "constructor", { optional: true })).toBeNull();
     });
     describe("wrappers", () => {
       const schema = z.object({

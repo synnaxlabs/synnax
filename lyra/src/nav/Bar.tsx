@@ -9,7 +9,7 @@
 
 import "@/nav/Bar.css";
 
-import { direction, location, type spatial } from "@synnaxlabs/x";
+import { direction, location } from "@synnaxlabs/x";
 import { type FunctionComponent, type ReactElement } from "react";
 
 import { CSS } from "@/css";
@@ -56,7 +56,7 @@ export interface BarContentProps extends Omit<Flex.BoxProps<"div">, "ref"> {}
 
 const createContent =
   (
-    pos: spatial.Alignment | "" | "absolute-center",
+    pos: location.Alignment | "" | "absolute-center",
   ): FunctionComponent<BarContentProps> =>
   ({ bordered = false, className, ...rest }: BarContentProps): ReactElement => (
     <Flex.Box

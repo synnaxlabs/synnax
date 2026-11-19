@@ -36,6 +36,7 @@ import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { type Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
+import { Vis } from "@/platform/vis";
 import { Session } from "@/session";
 
 const CLEAR_OVERSCAN: xy.XY = { x: 5, y: 5 };
@@ -104,7 +105,7 @@ const ContextMenuContent = ({
   const handleCreateRange = () =>
     handleError(async () => {
       const tr = await getTimeRange();
-      openCreateRange({ timeRange: tr.numeric });
+      await openCreateRange({ timeRange: tr.numeric });
     }, "Failed to create range from selection");
   const handleDownloadCSV = () =>
     handleError(async () => {
@@ -288,8 +289,10 @@ const Internal = (): ReactElement => {
 export const LinePlot: Panel.Content = () => {
   const { key } = PlutoPanel.useTabResource();
   return (
-    <Base.Suspended linePlotKey={key}>
-      <Internal />
-    </Base.Suspended>
+    <Vis.GPUBoundary name="Line plots">
+      <Base.Suspended linePlotKey={key}>
+        <Internal />
+      </Base.Suspended>
+    </Vis.GPUBoundary>
   );
 };

@@ -20,6 +20,7 @@ import { ICD as PICD } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
+import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
 import { DEFAULT_DATA_TYPES } from "@/platform/icd/dataType";
 import { FieldsStatus, JSONField } from "@/platform/icd/Fields";
@@ -34,6 +35,7 @@ import {
   readFields,
   type ReadSource,
   reindex,
+  type TreeField,
   variableAmongFixed,
 } from "@/platform/icd/read";
 import { Panel } from "@/platform/panel";
@@ -43,7 +45,7 @@ interface OpenInEditorProps {
   icdKey: icd.Key;
 }
 
-const OpenInEditor = ({ icdKey }: OpenInEditorProps): ReactElement => {
+const EditorButton = ({ icdKey }: OpenInEditorProps): ReactElement => {
   const openTab = Panel.useOpenTab();
   return (
     <Button.Button
@@ -57,6 +59,8 @@ const OpenInEditor = ({ icdKey }: OpenInEditorProps): ReactElement => {
     </Button.Button>
   );
 };
+
+const OpenInEditor: FC<OpenInEditorProps> = FLAGS.icds ? EditorButton : () => null;
 
 export interface AddFieldProps {
   onClick: () => void;
@@ -105,11 +109,12 @@ const TimestampFields: FC<TimestampFieldsProps> = ({
   const sourceDisabled = PForm.useFieldValue(path.disabled);
   const indexBinding = bindings.find(({ field }) => field === held);
   const timestamps = fields.filter(({ type }) => type === "timestamp");
+  const indexable = timestamps.filter(isIndexable);
   const index = timestamps.find(({ key }) => key === held);
   const setIndex = (next: string | undefined) =>
     set(readPath, reindex(get(readPath).value, next, indexChannel));
   const handleMode = (mode: TimingMode) =>
-    setIndex(mode === "payload" ? timestamps.at(0)?.key : undefined);
+    setIndex(mode === "payload" ? indexable.at(0)?.key : undefined);
   const invalid = index != null && !isIndexable(index);
   return (
     <>
@@ -118,7 +123,9 @@ const TimestampFields: FC<TimestampFieldsProps> = ({
         helpText={
           timestamps.length === 0
             ? "Give a field a timestamp type to read the time from the payload."
-            : undefined
+            : indexable.length === 0
+              ? "Remove the default of a timestamp field to read the time from the payload."
+              : undefined
         }
       >
         <Select.Buttons<TimingMode>
@@ -126,7 +133,7 @@ const TimestampFields: FC<TimestampFieldsProps> = ({
           onChange={handleMode}
         >
           <Select.Item<TimingMode> itemKey="source">{sourceLabel}</Select.Item>
-          <Select.Item<TimingMode> itemKey="payload" disabled={timestamps.length === 0}>
+          <Select.Item<TimingMode> itemKey="payload" disabled={indexable.length === 0}>
             Payload value
           </Select.Item>
         </Select.Buttons>
@@ -148,9 +155,21 @@ const TimestampFields: FC<TimestampFieldsProps> = ({
             resourceName="field"
             allowNone={false}
           >
-            {timestamps.map(({ key, name }) => (
-              <Select.Item<string> key={key} itemKey={key}>
-                {name}
+            {timestamps.map((field) => (
+              <Select.Item<string>
+                key={field.key}
+                itemKey={field.key}
+                label={field.name}
+                textValue={field.name}
+                disabled={!isIndexable(field)}
+              >
+                <Icon.Time />
+                {field.name}
+                {!isIndexable(field) && (
+                  <Select.ItemDescription>
+                    It has a default, so it cannot be the index.
+                  </Select.ItemDescription>
+                )}
               </Select.Item>
             ))}
           </Select.Simple>
@@ -171,7 +190,7 @@ export interface FieldDetailsProps {
   path: deep.Path<ReadSource>;
   /** The index of the message in the source's reads. */
   read: number;
-  field: icd.JSONField;
+  field: TreeField;
   format: FormatForm;
   /** The prefix of the names of the channels that deploying creates. */
   prefix: string;
@@ -265,7 +284,8 @@ export const MessageSections: FC<MessageSectionsProps> = ({
       {message != null && message.payload.format !== "json" && (
         <PForm.Section title="Message" actions={<OpenInEditor icdKey={icdKey} />}>
           <Text.Text color={9}>
-            The format of this message is not JSON. Open it to change its format.
+            The format of this message is not JSON.
+            {FLAGS.icds && " Open it to change its format."}
           </Text.Text>
         </PForm.Section>
       )}

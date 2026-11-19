@@ -117,8 +117,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Na
     this.unary = unary;
     this.store = store;
     this.dispatcher = dispatcher;
-    this.setGroupRequest = group.createMoveRequest("/color/dispatch", (keys, to) =>
-      group.moveCached(store, keys, to),
+    this.setGroupRequest = group.createMoveRequest((key, acts) =>
+      dispatcher.request("/color/dispatch", key, acts, dispatchResZ),
     );
   }
 

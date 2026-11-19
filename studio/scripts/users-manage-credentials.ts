@@ -18,14 +18,14 @@ import { createKey, openCredentials } from "./common/credentials";
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   await fixtures.createUsers([
-    { username: "grace", firstName: "Grace", lastName: "Hopper", role: "Viewer" },
+    { username: "grace", name: "Grace Hopper", role: "Viewer" },
   ]);
   const { page } = session;
   await capture.login(session);
   await capture.clearPanel(session);
 
   await capture.openSettings(session, "Users");
-  const item = page.getByRole("option", { name: "grace", exact: true });
+  const item = page.getByRole("option", { name: "Grace Hopper", exact: true });
   await session.waitFor(item);
   await session.moveTo({ x: 800, y: 450 });
 
