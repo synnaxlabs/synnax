@@ -443,8 +443,15 @@ class Schematic(ConsolePage):
             sy.sleep(0.1)  # Wait for Core update
 
     def fit_view(self) -> None:
-        """Fit the schematic view to its contents."""
-        self.page.get_by_role("button", name="Fit view to contents", exact=True).click()
+        """Fit the schematic view to its contents. The button also toggles fit view on
+        resize, so a second click restores that setting."""
+        fit = self.page.get_by_role("button", name="Fit view to contents", exact=True)
+        pressed = fit.get_attribute("aria-pressed")
+        flipped = "false" if pressed == "true" else "true"
+        fit.click()
+        expect(fit).to_have_attribute("aria-pressed", flipped)
+        fit.click()
+        expect(fit).to_have_attribute("aria-pressed", pressed or "false")
 
     def get_edit_status(self) -> bool:
         """Get whether edit is currently enabled for this schematic."""
