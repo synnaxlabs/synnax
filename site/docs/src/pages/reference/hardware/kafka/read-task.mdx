@@ -195,9 +195,7 @@ timestamp that it wrote and shows a [skip warning](#skipped-of-records). Kafka
 timestamps only count milliseconds, so a record with a Kafka timestamp in the same
 millisecond as the last written timestamp goes 1 ns after it.
 
-In code, a record value timestamp is a timestamp field of the message, with a
-`time_format`, bound to the index channel. Put the key of that field in `index` on the
-read message.
+In code, put the key of the timestamp field in `index` on the read message.
 
 <Divider.Divider x />
 
@@ -289,8 +287,8 @@ the last one, with its partition and offset:
 - **Record value: field ...** -> the value has nothing at the pointer of a field with no
   default, or its value does not fit the kind of the field or the channel. When the
   record key has more than one message, the name of the message comes first.
-- **Record stamped ... is not after the last written** -> a record value timestamp is
-  older than the last one in the index channel.
+- **Record stamped ... is not after the last written** -> the value of a timestamp field
+  is older than the last one in the index channel.
 
 The warning clears 5 seconds after the last skip.
 
@@ -336,7 +334,8 @@ Two records of the task have the same record key.
 </Problem.Cause>
 <Problem.Fix>
 
-Give each record its own key, or move the fields into one record.
+Give each record its own key. For a key that carries more than one message, read all of
+the messages through one record.
 
 </Problem.Fix>
 </Problem.Item>
