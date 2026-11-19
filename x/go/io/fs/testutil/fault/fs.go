@@ -33,7 +33,7 @@ var _ xfs.FS = (*FS)(nil)
 
 // New returns an empty FS.
 func New() *FS {
-	return &FS{d: &disk{root: newDir()}, root: "/"}
+	return &FS{d: newDisk(newDir(), 0), root: "/"}
 }
 
 func (f *FS) abs(name string) string { return path.Join(f.root, name) }
@@ -58,7 +58,7 @@ func (f *FS) Open(name string, flag int) (xfs.File, error) {
 			return nil, err
 		}
 		n = &node{}
-		d.bind(dir, base, n)
+		d.record(p, d.set(dir, base, n))
 		d.touch(n)
 	default:
 		return nil, err
@@ -78,15 +78,16 @@ func (f *FS) Sub(name string) (xfs.FS, error) {
 	p, d := f.abs(name), f.d
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	n := d.root
+	n, at := d.root, ""
 	for frag := range strings.SplitSeq(strings.TrimPrefix(p, "/"), "/") {
 		if frag == "" {
 			break
 		}
+		at += "/" + frag
 		child, ok := n.entries[frag]
 		if !ok {
 			child = newDir()
-			d.bind(n, frag, child)
+			d.record(at, d.set(n, frag, child))
 			d.touch(child)
 		} else if !child.dir {
 			return nil, pathError("mkdir", p, syscall.ENOTDIR)
@@ -134,7 +135,7 @@ func (f *FS) Remove(name string) error {
 		return err
 	}
 	if _, ok := dir.entries[base]; ok {
-		d.unbind(dir, base)
+		d.record(p, d.set(dir, base, nil))
 	}
 	return nil
 }
@@ -162,8 +163,7 @@ func (f *FS) Rename(oldPath, newPath string) error {
 	if strings.HasPrefix(to, from+"/") {
 		return &os.LinkError{Op: "rename", Old: from, New: to, Err: syscall.EINVAL}
 	}
-	d.unbind(fromDir, fromBase)
-	d.bind(toDir, toBase, n)
+	d.record(from, d.set(fromDir, fromBase, nil), d.set(toDir, toBase, n))
 	return nil
 }
 

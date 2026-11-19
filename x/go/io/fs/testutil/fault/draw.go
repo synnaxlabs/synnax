@@ -17,10 +17,11 @@ const (
 	drawTorn
 	drawTornSize
 	drawCut
+	drawEntry
 )
 
-// draw returns a number from 0 up to, but not including, 1. Only the arguments fix
-// it, so the order of calls on other files does not change a run.
+// draw returns a number from 0 up to, but not including, 1. Only the arguments fix it,
+// so the order of calls on other files does not change a run.
 func draw(runKey uint64, parts ...uint64) float64 {
 	h := runKey
 	for _, part := range parts {

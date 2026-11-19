@@ -23,6 +23,10 @@ import (
 // disk is the state that an FS shares with every FS from its Sub.
 type disk struct {
 	root *node
+	// pending holds the changes to directory entries that are not durable, in order.
+	pending []*change
+	// changes counts the changes at each path. The count fixes the draw of a change.
+	changes map[string]uint64
 	// clock counts the changes to the disk. It gives each one a later mod time.
 	clock int64
 	// mu guards every field of the disk, its nodes, and its open files.
@@ -126,12 +130,42 @@ func (d *disk) parent(op, p string) (*node, string, error) {
 	return n, base, err
 }
 
-func (d *disk) bind(dir *node, name string, n *node) {
-	dir.entries[name] = n
-	d.touch(dir)
+// change is one change to directory entries that is not durable. A create or a remove
+// has one half, and a rename has two.
+type change struct {
+	halves []half
+	// key fixes the draw that decides if the change survives a crash.
+	key uint64
 }
 
-func (d *disk) unbind(dir *node, name string) {
-	delete(dir.entries, name)
+// half is the change to one entry: name in dir held from before, and holds to after. A
+// nil node is no entry.
+type half struct {
+	dir, from, to *node
+	name          string
+	// durable is true when a SyncDir of dir came after the change.
+	durable bool
+}
+
+func newDisk(root *node, clock int64) *disk {
+	return &disk{root: root, clock: clock, changes: map[string]uint64{}}
+}
+
+// set binds name in dir to n, or to no entry when n is nil.
+func (d *disk) set(dir *node, name string, n *node) half {
+	h := half{dir: dir, name: name, from: dir.entries[name], to: n}
+	if n == nil {
+		delete(dir.entries, name)
+	} else {
+		dir.entries[name] = n
+	}
 	d.touch(dir)
+	return h
+}
+
+// record adds the change at the path p to the changes that are not durable.
+func (d *disk) record(p string, halves ...half) {
+	d.changes[p]++
+	key := mix(hashPath(p) ^ d.changes[p])
+	d.pending = append(d.pending, &change{halves: halves, key: key})
 }

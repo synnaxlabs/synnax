@@ -22,27 +22,31 @@ import (
 type CrashConfig struct {
 	// RunKey fixes every random choice of the crash.
 	RunKey uint64
-	// DataSurvivalRate is the chance, from 0 to 1, that a block of a file written
-	// since the last Sync reaches the disk. Each block has its own chance, so the
-	// blocks of one write can part, and a later write can survive an earlier one.
+	// DataSurvivalRate is the chance, from 0 to 1, that a block of a file written since
+	// the last Sync reaches the disk. Each block has its own chance, so the blocks of
+	// one write can part, and a later write can survive an earlier one.
 	DataSurvivalRate float64
 	// TornRate is the chance, from 0 to 1, that a surviving block keeps only a prefix
 	// of its new bytes.
 	TornRate float64
+	// EntrySurvivalRate is the chance, from 0 to 1, that a create, a remove, or a
+	// rename that no SyncDir made durable reaches the disk. A rename reaches it as a
+	// whole or not at all, and a change that depends on a lost change is lost too.
+	EntrySurvivalRate float64
 }
 
 func (c CrashConfig) validate() error {
 	v := validate.New("fault.CrashConfig")
 	validateRate(v, "data_survival_rate", c.DataSurvivalRate)
 	validateRate(v, "torn_rate", c.TornRate)
+	validateRate(v, "entry_survival_rate", c.EntrySurvivalRate)
 	return v.Error()
 }
 
-// Crash returns the disk as a power loss leaves it now. The new FS holds the bytes
-// that a Sync made durable, the directory entries that a SyncDir made durable, and the
-// part of the other state that cfg keeps. Crash does not change f, and files open on f
-// stay on f. The error matches validate.ErrValidation when a rate of cfg is not from 0
-// to 1.
+// Crash returns the disk as a power loss leaves it now. The new FS holds the bytes that
+// a Sync made durable, the directory entries that a SyncDir made durable, and the part
+// of the other state that cfg keeps. Crash does not change f, and files open on f stay
+// on f. The error matches validate.ErrValidation when a rate of cfg is not from 0 to 1.
 func (f *FS) Crash(cfg CrashConfig) (*FS, error) {
 	if err := cfg.validate(); err != nil {
 		return nil, err
@@ -50,14 +54,54 @@ func (f *FS) Crash(cfg CrashConfig) (*FS, error) {
 	d := f.d
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	c := crash{cfg: cfg, copies: map[*node]*node{}}
-	return &FS{d: &disk{root: c.image(d.root, "/"), clock: d.clock}, root: f.root}, nil
+	c := crash{
+		cfg:     cfg,
+		copies:  map[*node]*node{},
+		entries: map[*node]map[string]*node{},
+	}
+	for _, ch := range d.pending {
+		if draw(cfg.RunKey, drawEntry, ch.key) < cfg.EntrySurvivalRate {
+			c.apply(ch)
+		}
+	}
+	return &FS{d: newDisk(c.image(d.root, "/"), d.clock), root: f.root}, nil
 }
 
 type crash struct {
 	// copies maps each node to its image, so two names of one node keep one node.
 	copies map[*node]*node
-	cfg    CrashConfig
+	// entries holds the entries that the crash leaves in each directory it changed.
+	entries map[*node]map[string]*node
+	cfg     CrashConfig
+}
+
+// dir returns the entries that the crash leaves in the directory n.
+func (c *crash) dir(n *node) map[string]*node {
+	entries, ok := c.entries[n]
+	if !ok {
+		entries = maps.Clone(n.durableEntries)
+		c.entries[n] = entries
+	}
+	return entries
+}
+
+// apply makes the change ch in the image, but only when each entry that ch changes
+// still holds what it held before ch. A change whose base was lost is lost too.
+func (c *crash) apply(ch *change) {
+	for _, h := range ch.halves {
+		if !h.durable && c.dir(h.dir)[h.name] != h.from {
+			return
+		}
+	}
+	for _, h := range ch.halves {
+		switch {
+		case h.durable:
+		case h.to == nil:
+			delete(c.dir(h.dir), h.name)
+		default:
+			c.dir(h.dir)[h.name] = h.to
+		}
+	}
 }
 
 // image returns the node that the crash leaves in place of n, which is at the path p.
@@ -72,16 +116,17 @@ func (c *crash) image(n *node, p string) *node {
 		out.durable = slices.Clone(out.data)
 		return out
 	}
-	out.entries = make(map[string]*node, len(n.durableEntries))
-	for _, name := range slices.Sorted(maps.Keys(n.durableEntries)) {
-		out.entries[name] = c.image(n.durableEntries[name], path.Join(p, name))
+	entries := c.dir(n)
+	out.entries = make(map[string]*node, len(entries))
+	for _, name := range slices.Sorted(maps.Keys(entries)) {
+		out.entries[name] = c.image(entries[name], path.Join(p, name))
 	}
 	out.durableEntries = maps.Clone(out.entries)
 	return out
 }
 
-// keeps reports whether the draw of kind for the block index of the file with the
-// path hash file falls under rate.
+// keeps reports whether the draw of kind for the block index of the file with the path
+// hash file falls under rate.
 func (c *crash) keeps(rate float64, kind, file uint64, index int64) bool {
 	return draw(c.cfg.RunKey, kind, file, uint64(index)) < rate
 }

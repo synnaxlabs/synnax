@@ -13,6 +13,7 @@ import (
 	"iter"
 	"maps"
 	"math/bits"
+	"slices"
 )
 
 // blockSize is the unit of file data that reaches the disk, or does not, as a whole.
@@ -71,4 +72,15 @@ func (d *disk) sync(n *node) {
 }
 
 // syncDir makes the entries of the directory n durable.
-func (d *disk) syncDir(n *node) { n.durableEntries = maps.Clone(n.entries) }
+func (d *disk) syncDir(n *node) {
+	n.durableEntries = maps.Clone(n.entries)
+	d.pending = slices.DeleteFunc(d.pending, func(c *change) bool {
+		durable := true
+		for i := range c.halves {
+			h := &c.halves[i]
+			h.durable = h.durable || h.dir == n
+			durable = durable && h.durable
+		}
+		return durable
+	})
+}
