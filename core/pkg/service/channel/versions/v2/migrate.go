@@ -21,7 +21,7 @@ import (
 // Migration drops the internal flag of each stored channel and logs each channel that
 // held it.
 var Migration = migrate.NewInstrumentedEntry(
-	"v62_drop_internal",
+	"v63_drop_internal",
 	func(ctx context.Context, old v1.Channel, ins alamos.Instrumentation) (Channel, error) {
 		if old.Internal {
 			ins.L.Warn(
