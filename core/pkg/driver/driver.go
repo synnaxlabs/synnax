@@ -170,10 +170,12 @@ func (c Config) format(apiKey string) map[string]any {
 var ErrNotLoaded = errors.New("embedded Driver did not load")
 
 var (
-	_               config.Config[Config] = Config{}
-	AllIntegrations                       = []string{
+	_ config.Config[Config] = Config{}
+	// AllIntegrations are the integrations that the embedded Driver runs by default.
+	AllIntegrations = []string{
 		"arc",
 		"ethercat",
+		"file",
 		"http",
 		"labjack",
 		"modbus",
