@@ -10,6 +10,7 @@
 import { describe, expect, it, test } from "vitest";
 
 import { box } from "@/spatial/box";
+import { location } from "@/spatial/location";
 import { Scale, XY } from "@/spatial/scale/scale";
 
 type ScaleSpec = [name: string, scale: Scale<number>, i: number, o: number];
@@ -42,6 +43,12 @@ describe("Scale", () => {
       });
     });
   });
+  it("should sort a reversed pair of bounds it scales from", () => {
+    const reversed = Scale.scale<number>(10, 0).scale(0, 1);
+    expect(reversed.pos(0)).toBe(0);
+    expect(reversed.pos(10)).toBe(1);
+    expect(Scale.scale<number>({ lower: 10, upper: 0 }).scale(0, 1).pos(10)).toBe(1);
+  });
   describe("dimension", () => {
     const dimensionSpecs: ScaleSpec[] = [
       ["basic", simpleScale, 0, 0],
@@ -66,6 +73,23 @@ describe("Scale", () => {
       const b2 = s.box(box.construct(200, 200, 200, 200));
       expect(box.bottomLeft(b2).x).toBeCloseTo(0.1);
       expect(box.bottomLeft(b2).y).toBeCloseTo(0.7);
+    });
+    it("should keep the root of a box through a dimensions scale", () => {
+      const s = XY.scale(box.construct(0, 0, 10, 10, location.BOTTOM_LEFT)).scale({
+        width: 1,
+        height: 1,
+      });
+      expect(s.box(box.construct(0, 0, 10, 10)).root).toEqual(location.BOTTOM_LEFT);
+    });
+  });
+  describe("IDENTITY", () => {
+    it("should stay the identity after a scale derives from it", () => {
+      Scale.IDENTITY.translate(5).magnify(2).reverse();
+      expect(Scale.IDENTITY.pos(3)).toBe(3);
+    });
+    it("should stay the identity after an XY scale derives from it", () => {
+      XY.IDENTITY.translate({ x: 5, y: 5 }).scale(box.construct(0, 0, 10, 10));
+      expect(XY.IDENTITY.pos({ x: 3, y: 4 })).toEqual({ x: 3, y: 4 });
     });
   });
   describe("transform", () => {
