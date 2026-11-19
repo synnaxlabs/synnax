@@ -16,6 +16,9 @@ requires-python = ">=3.13,<4"
 [dependency-groups]
 dev = ["vermin>=1.9.1,<2"]
 
+[tool.uv]
+required-version = ">=0.13"
+
 [tool.uv.workspace]
 members = [
     ".github/scripts",
