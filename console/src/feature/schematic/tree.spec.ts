@@ -9,6 +9,7 @@
 
 import { NotFoundError, project, schematic } from "@synnaxlabs/client";
 import { RoleClients } from "@synnaxlabs/client/testutil";
+import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -30,12 +31,10 @@ import {
 const roles = new RoleClients(client);
 import { findButton } from "@/platform/modals/testutil";
 import {
-  assertDefined,
   awaitTextEditingElement,
   captureBrowserDownloads,
   commitTextEdit,
   resolveFocusedTab,
-  uniqueName,
 } from "@/testutil";
 
 afterEach(() => {

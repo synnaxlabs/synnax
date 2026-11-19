@@ -11,6 +11,7 @@ import "@fontsource-variable/inter";
 import "@fontsource/geist-mono/500.css";
 
 import wordmark from "@synnaxlabs/lyra/static/logo/title-white-transparent.svg";
+import { box } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useState } from "react";
 import {
   AbsoluteFill,
@@ -81,12 +82,8 @@ const boxOf = (plan: StagePlan, plane: Plane, { rect }: CalloutFrame): Box => {
     { x: x0, y: y1 },
     { x: x1, y: y1 },
   ].map((p) => project(plane, p, plan.width, plan.height, plan.perspective));
-  return {
-    left: Math.min(...corners.map((c) => c.x)),
-    top: Math.min(...corners.map((c) => c.y)),
-    right: Math.max(...corners.map((c) => c.x)),
-    bottom: Math.max(...corners.map((c) => c.y)),
-  };
+  const { one, two } = box.bound(corners);
+  return { left: one.x, top: one.y, right: two.x, bottom: two.y };
 };
 
 interface PlaneViewProps {
