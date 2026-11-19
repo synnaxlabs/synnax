@@ -23,7 +23,7 @@ export const xAxisStateZ = baseAxisStateZ;
 
 export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provider> {
   static readonly TYPE = "XAxis";
-  schema = baseAxisStateZ;
+  override schema = baseAxisStateZ;
 
   render(props: AxisRenderProps): void {
     if (this.deleted) return;

@@ -609,17 +609,19 @@ export class Client extends query.Retriever<
     return this.dispatcher.transaction(key);
   }
 
-  async retrieve<S extends Schemas = Schemas>(
+  override async retrieve<S extends Schemas = Schemas>(
     params: (RetrieveSingleParams | OneParams) & RetrieveSchemas<S>,
   ): Promise<Task<S>>;
-  async retrieve(params: Key | RetrieveSingleParams | OneParams): Promise<Task>;
-  async retrieve<S extends Schemas = Schemas>(
+  override async retrieve(
+    params: Key | RetrieveSingleParams | OneParams,
+  ): Promise<Task>;
+  override async retrieve<S extends Schemas = Schemas>(
     params: (RetrieveMultipleParams | FilterParams) & RetrieveSchemas<S>,
   ): Promise<Task<S>[]>;
-  async retrieve(
+  override async retrieve(
     params: Key[] | query.RequestInput<typeof retrieveMultiParamsZ>,
   ): Promise<Task[]>;
-  async retrieve<S extends Schemas = Schemas>(
+  override async retrieve<S extends Schemas = Schemas>(
     rawParams:
       Key | Key[] | ((RetrieveParams | OneParams | FilterParams) & RetrieveSchemas<S>),
   ): Promise<Task<S> | Task<S>[]> {
