@@ -22,10 +22,12 @@ from itertools import islice
 from types import UnionType
 from typing import (
     Any,
+    Generic,
     NoReturn,
     Protocol,
     TypeAlias,
     TypeIs,
+    TypeVar,
     Union,
     get_args,
     get_origin,
@@ -59,6 +61,10 @@ SampleValue: TypeAlias = (
     np.number | np.bool_ | uuid.UUID | TimeStamp | bytes | JsonValue
 )
 """A sample of a series whose data type is known only at runtime."""
+
+# Series and MultiSeries are covariant in T, which a PEP 695 type parameter cannot
+# declare.
+T = TypeVar("T", bound=SampleValue, covariant=True, default=SampleValue)
 
 
 def _encode_samples(samples: list[Any], data_type: DataType) -> bytes:
@@ -102,7 +108,7 @@ def _iter_variable(data: bytes) -> Iterator[bytes]:
     return (data[start:end] for start, end in _variable_spans(data))
 
 
-class _Codec[T](Protocol):
+class _Codec(Protocol[T]):
     def get(self, data: bytes, index: int) -> T: ...
 
     def iter(self, data: bytes) -> Iterator[T]: ...
@@ -261,7 +267,7 @@ def _to_payload(s: Series) -> _Payload:
     )
 
 
-class Series[T: SampleValue = SampleValue](ArrayOperators):
+class Series(ArrayOperators, Generic[T]):
     """Series is a strongly typed array of telemetry samples backed by an underlying
     binary buffer. It is interoperable with np.ndarray, meaning that it can be safely
     passed as an argument to any function/method that accepts a numpy array.
@@ -643,7 +649,7 @@ def elapsed_seconds(d: npt.NDArray[np.int64]) -> npt.NDArray[np.float64]:
     return (d - d[:1]) / TimeSpan.SECOND
 
 
-class MultiSeries[T: SampleValue = SampleValue](ArrayOperators):
+class MultiSeries(ArrayOperators, Generic[T]):
     series: list[Series[T]]
 
     def __init__(self, series: list[Series[T]]):
