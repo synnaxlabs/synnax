@@ -68,11 +68,10 @@ func (p plan) crash(event int) fault.CrashConfig {
 }
 
 // spoil corrupts the files of image for good, as the profile asks, and returns the
-// rules for the engine that recovers from it. The newest block is the last 4 KiB block
-// that holds durable bytes of the file that the newest Sync made longer. No later block
-// of that file can confirm it. An image that spoil did not change gets the strict
-// rules. So does an image that does not hold that file: there the engine cannot see
-// what the newest Sync made durable.
+// rules for the engine that recovers from it. The newest bytes are the bytes that the
+// newest Sync added to the file that it made longer. No later Sync confirms them. An
+// image that spoil did not change gets the strict rules. So does an image that does not
+// hold that file: there the engine cannot see what the newest Sync made durable.
 func (p plan) spoil(image *fault.FS, c *counter, event int) (rules, error) {
 	newest := c.grown[c.last]
 	if p.profile != OldCorruption && p.profile != NewCorruption || newest.cut {
@@ -87,7 +86,8 @@ func (p plan) spoil(image *fault.FS, c *counter, event int) (rules, error) {
 		return strictRules, nil
 	}
 	var (
-		r = rules{
+		rng = rand.New(rand.NewPCG(p.runKey, uint64(event)))
+		r   = rules{
 			exemptFrom:        math.MaxInt,
 			refusalAllowed:    true,
 			unreadableAllowed: true,
@@ -96,9 +96,17 @@ func (p plan) spoil(image *fault.FS, c *counter, event int) (rules, error) {
 		err     error
 	)
 	if p.profile == NewCorruption {
+		// One block that holds newest bytes is zeros, as a block that the disk never
+		// wrote is. The engine can lose each commit from the first Sync into the first
+		// of these blocks.
+		first, end := newest.before/blockSize, (newest.size-1)/blockSize+1
+		block := first + rng.Int64N(end-first)
+		stale := span{
+			path: last,
+			from: block * blockSize,
+			to:   min((block+1)*blockSize, newest.size),
+		}
 		r.exemptFrom = newest.event
-		stale := span{path: last, from: newest.block * blockSize, to: newest.size}
-		// A block that the disk never wrote holds zeros.
 		changed, err = true, change(image, stale, func(b []byte) { clear(b) })
 	} else {
 		var spans []span
@@ -109,7 +117,6 @@ func (p plan) spoil(image *fault.FS, c *counter, event int) (rules, error) {
 			}
 			spans = append(spans, s)
 		}
-		rng := rand.New(rand.NewPCG(p.runKey, uint64(event)))
 		changed, err = flip(image, rng, spans)
 	}
 	if !changed {

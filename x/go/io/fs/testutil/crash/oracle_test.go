@@ -201,10 +201,10 @@ type spied struct {
 	// written holds the bytes of each commit, in order.
 	written []byte
 	records []crash.Record
-	// newest and older count the images with a changed byte in the newest block of the
-	// log, and before that block. other counts the images with a changed byte in the
-	// meta file.
-	newest, older, other int
+	// These count the images with a changed byte: newest in the last commit of the log,
+	// shared before that commit in its first block, older before that block, and other
+	// in the meta file.
+	newest, shared, older, other int
 	// tolerant makes an engine open a changed image and return the commits with changed
 	// bytes as unreadable.
 	tolerant bool
@@ -244,17 +244,7 @@ func (s *spied) open(_ context.Context, root xfs.FS) (crash.Engine, error) {
 	if err != nil {
 		return nil, errors.Combine(err, engine.Close())
 	}
-	block := max(len(got)-1, 0) / 4096 * 4096
-	if !bytes.Equal(got[:block], s.written[:block]) {
-		s.older++
-	}
-	if !bytes.Equal(got[block:], s.written[block:len(got)]) {
-		s.newest++
-	}
-	if string(gotMeta) != meta {
-		s.other++
-	}
-	changed := string(gotMeta) != meta || !bytes.Equal(got, s.written[:len(got)])
+	changed := s.note(got, string(gotMeta))
 	if changed && !s.tolerant {
 		refusal := s.refusal
 		if refusal == nil {
@@ -266,6 +256,34 @@ func (s *spied) open(_ context.Context, root xfs.FS) (crash.Engine, error) {
 		err = errors.Join(metaFile.Sync(), fs.SyncDir(""), root.SyncDir(""))
 	}
 	return engine, err
+}
+
+// note counts the places where the log and the meta file of a crash image differ from
+// what the run wrote, and reports if they differ.
+func (s *spied) note(got []byte, gotMeta string) bool {
+	// The newest bytes are the last whole commit of the image.
+	newest := 0
+	for start, i := 0, 0; i < len(s.records); i++ {
+		end := start + len(s.records[i].Payload)
+		if end > len(got) {
+			break
+		}
+		newest, start = start, end
+	}
+	block := newest / 4096 * 4096
+	if !bytes.Equal(got[:block], s.written[:block]) {
+		s.older++
+	}
+	if !bytes.Equal(got[block:newest], s.written[block:newest]) {
+		s.shared++
+	}
+	if !bytes.Equal(got[newest:], s.written[newest:len(got)]) {
+		s.newest++
+	}
+	if gotMeta != meta {
+		s.other++
+	}
+	return gotMeta != meta || !bytes.Equal(got, s.written[:len(got)])
 }
 
 func (s *spy) Commit(
@@ -324,36 +342,46 @@ var _ = Describe("Lasting corruption", func() {
 		func(
 			ctx SpecContext,
 			profile crash.Profile,
-			newest, older, other types.GomegaMatcher,
+			newest, shared, older, other types.GomegaMatcher,
 		) {
 			s := &spied{}
 			Expect(run(ctx, s, profile)).To(Succeed())
 			Expect(s.newest).To(newest)
+			Expect(s.shared).To(shared)
 			Expect(s.older).To(older)
 			Expect(s.other).To(other)
 		},
 		Entry(
-			"the newest block of the file that grew last",
+			"one block of the newest commit of the file that grew last",
 			crash.NewCorruption,
+			BeNumerically(">", 0),
 			BeNumerically(">", 0),
 			BeZero(),
 			BeNumerically("<", 5),
 		),
 		Entry(
-			"a durable byte of any file, but for that newest block",
+			"a durable byte of any file, but for that newest commit",
 			crash.OldCorruption,
 			BeZero(),
 			BeNumerically(">", 0),
 			BeNumerically(">", 0),
+			BeNumerically(">", 0),
 		),
-		Entry("no byte under Strict", crash.Strict, BeZero(), BeZero(), BeZero()),
+		Entry(
+			"no byte under Strict",
+			crash.Strict,
+			BeZero(),
+			BeZero(),
+			BeZero(),
+			BeZero(),
+		),
 	)
 
 	It("Should break R4 when an engine refuses a changed image with another error",
 		func(ctx SpecContext) {
 			s := &spied{refusal: os.ErrPermission}
 			Expect(broke(run(ctx, s, crash.NewCorruption))).To(Equal(crash.R4))
-			Expect(s.newest + s.other).To(Equal(1))
+			Expect(s.newest + s.shared + s.other).To(Equal(1))
 		},
 	)
 
@@ -361,7 +389,7 @@ var _ = Describe("Lasting corruption", func() {
 		func(ctx SpecContext, profile crash.Profile) {
 			s := &spied{tolerant: true}
 			Expect(run(ctx, s, profile)).To(Succeed())
-			Expect(s.newest + s.older).To(BeNumerically(">", 0))
+			Expect(s.newest + s.shared + s.older).To(BeNumerically(">", 0))
 		},
 		Entry("under OldCorruption", crash.OldCorruption),
 		Entry("under NewCorruption", crash.NewCorruption),

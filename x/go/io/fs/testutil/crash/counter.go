@@ -26,7 +26,7 @@ type counter struct {
 	// behind each call that did. Both run with mu held.
 	before func()
 	after  func(event int)
-	// grown says, for each file, how its durable length reached its newest block.
+	// grown says, for each file, how its durable length grew.
 	grown map[fault.ID]growth
 	// last is the file that the newest Sync made longer. A Sync that makes no new byte
 	// durable gives the engine nothing new to confirm, so it does not count.
@@ -42,16 +42,19 @@ type counter struct {
 // blockSize is the unit that a disk loses or keeps as a whole.
 const blockSize = 4096
 
-// growth says how the durable length of a file reached its newest block.
+// growth says how the durable length of a file grew.
 type growth struct {
 	// size is the durable length of the file.
 	size int64
-	// block is the index of the newest block that holds durable bytes.
-	block int64
-	// before is the durable length of the file before the first Sync into block.
+	// before is the durable length of the file before the newest Sync that made it
+	// longer. No later Sync confirms a byte from before on.
 	before int64
-	// event is the number of that Sync among the events.
+	// event is the number, among the events, of the first Sync into the block of the
+	// byte at before. A stale block there takes each commit from that Sync on.
 	event int
+	// tailEvent is the number of the first Sync into the block of the last durable
+	// byte.
+	tailEvent int
 	// cut says that a Sync made the file shorter. The blocks of such a file have no
 	// known first Sync, so the file is no target of lasting corruption.
 	cut bool
@@ -78,11 +81,16 @@ func (c *counter) end(err error, changed bool) {
 
 // synced notes that a Sync made the first size bytes of file durable.
 func (c *counter) synced(file fault.ID, size int64) {
-	g, ok := c.grown[file]
-	if block := max(size-1, 0) / blockSize; !ok || block != g.block {
-		g.block, g.before, g.event = block, g.size, c.events+1
-	}
+	g := c.grown[file]
 	if size > g.size {
+		first := g.size / blockSize
+		if g.size%blockSize == 0 {
+			g.tailEvent = c.events + 1
+		}
+		g.before, g.event = g.size, g.tailEvent
+		if (size-1)/blockSize != first {
+			g.tailEvent = c.events + 1
+		}
 		c.last = file
 	}
 	g.cut = g.cut || size < g.size

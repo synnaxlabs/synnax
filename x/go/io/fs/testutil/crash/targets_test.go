@@ -20,6 +20,8 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/io/fs/testutil/crash"
+	"github.com/synnaxlabs/x/io/fs/testutil/fault"
+	"github.com/synnaxlabs/x/set"
 )
 
 // script is the plan of an engine for one commit. The steps run on the disk of the
@@ -29,9 +31,10 @@ type script struct {
 	begin  func(fs xfs.FS) error
 	commit func(fs xfs.FS, frame []byte) error
 	end    func() error
-	// side names a file. An engine on a crash image loses the commit when the first
-	// byte of that file is zero.
-	side string
+	// side names a file. An engine on a crash image loses the commit when the byte at
+	// sideAt of that file is zero.
+	side   string
+	sideAt int
 	// zeroed and mixed count the crash images whose log held only zeros, and whose log
 	// held bytes that the steps never wrote.
 	zeroed, mixed int
@@ -84,7 +87,7 @@ func (s *script) open(_ context.Context, fs xfs.FS) (crash.Engine, error) {
 	}
 	if side, err := xfs.ReadFile(fs, s.side); err != nil {
 		return nil, err
-	} else if len(side) > 0 && side[0] == 0 {
+	} else if len(side) > s.sideAt && side[s.sideAt] == 0 {
 		e.record = nil
 	}
 	return e, nil
@@ -113,6 +116,32 @@ func (e *scripted) Close() error {
 	return e.end()
 }
 
+// wide is an engine that keeps one commit in three blocks of one file.
+type wide struct {
+	f       xfs.File
+	records []crash.Record
+}
+
+func (w *wide) Commit(
+	_ context.Context,
+	r crash.Record,
+	_ crash.Ack,
+) (crash.Ack, error) {
+	data := bytes.Repeat([]byte{filler}, 3*blockSize)
+	binary.LittleEndian.PutUint32(data, uint32(len(r.Payload)))
+	copy(data[4:], r.Payload)
+	w.records = []crash.Record{r}
+	return crash.Durable, put(w.f, data)
+}
+
+func (w *wide) Recovered(
+	context.Context,
+) ([]crash.Record, error) {
+	return w.records, nil
+}
+
+func (w *wide) Close() error { return w.f.Close() }
+
 // put writes data to the end of f and syncs f.
 func put(f xfs.File, data []byte) error {
 	if _, err := f.Write(data); err != nil {
@@ -131,7 +160,8 @@ var _ = Describe("Targets of lasting corruption", func() {
 		})
 	}
 
-	It("Should hold an ack from before the first sync into the newest block",
+	It(
+		"Should hold an ack from before the first sync into the block of the newest bytes",
 		func(ctx SpecContext) {
 			var log, side xfs.File
 			s := &script{side: "side"}
@@ -152,7 +182,7 @@ var _ = Describe("Targets of lasting corruption", func() {
 				}
 				return put(log, frame)
 			}
-			// Event 7 is the first sync into the newest block of the side file.
+			// Event 7 is the first sync into the first block of the side file.
 			s.end = func() error {
 				return errors.Join(side.Sync(), side.Close(), log.Close())
 			}
@@ -163,6 +193,86 @@ var _ = Describe("Targets of lasting corruption", func() {
 			Expect(v.Event).To(Equal(7))
 		},
 	)
+
+	It("Should hold an ack from before the first sync into a later block",
+		func(ctx SpecContext) {
+			var log, side xfs.File
+			ones := bytes.Repeat([]byte{1}, 5000)
+			s := &script{side: "side", sideAt: blockSize}
+			// Five events. The side file holds 100 durable bytes.
+			s.begin = func(fs xfs.FS) (err error) {
+				if log, err = fs.Open("log", os.O_CREATE|os.O_RDWR); err != nil {
+					return err
+				}
+				if side, err = fs.Open("side", os.O_CREATE|os.O_RDWR); err != nil {
+					return err
+				}
+				return errors.Join(fs.SyncDir(""), put(side, ones[:100]))
+			}
+			// Three events. The ack follows event 8, the sync of the log.
+			s.commit = func(_ xfs.FS, frame []byte) error {
+				if _, err := side.Write(ones); err != nil {
+					return err
+				}
+				return put(log, frame)
+			}
+			// Event 9 is the first sync into the second block of the side file. Event
+			// 11 adds a byte to that block.
+			s.end = func() error {
+				return errors.Join(
+					side.Sync(),
+					put(side, ones[:1]),
+					side.Close(),
+					log.Close(),
+				)
+			}
+			err := run(ctx, s, crash.NewCorruption)
+			var v *crash.Violation
+			Expect(errors.As(err, &v)).To(BeTrue())
+			Expect(v.Rule).To(Equal(crash.R1))
+			Expect(v.Event).To(Equal(11))
+		},
+	)
+
+	It("Should make any one block of the newest bytes stale", func(ctx SpecContext) {
+		stale := set.Set[int]{}
+		// The engine keeps its one commit in three blocks, which one sync makes
+		// durable. On a crash image it holds the commit when no block is zeros.
+		open := func(_ context.Context, fs xfs.FS) (crash.Engine, error) {
+			f, err := fs.Open("log", os.O_CREATE|os.O_RDWR)
+			if err != nil {
+				return nil, err
+			}
+			e := &wide{f: f}
+			if _, image := fs.(*fault.FS); !image {
+				return e, fs.SyncDir("")
+			}
+			data, err := xfs.ReadFile(fs, "log")
+			if err != nil || len(data) == 0 {
+				return e, err
+			}
+			zero := make([]byte, blockSize)
+			for block := range 3 {
+				if bytes.Equal(data[block*blockSize:(block+1)*blockSize], zero) {
+					stale.Add(block)
+					return e, nil
+				}
+			}
+			size := binary.LittleEndian.Uint32(data)
+			e.records = []crash.Record{{ID: 1, Payload: data[4 : 4+size]}}
+			return e, nil
+		}
+		for runKey := range uint64(32) {
+			Expect(crash.Run(ctx, crash.Config{
+				RunKey:  runKey,
+				Open:    open,
+				Commits: 1,
+				Stride:  1,
+				Profile: crash.NewCorruption,
+			})).To(Succeed())
+		}
+		Expect(stale.Slice()).To(ConsistOf(0, 1, 2))
+	})
 
 	DescribeTable("Should not change a file that a sync made shorter",
 		func(ctx SpecContext, profile crash.Profile) {
