@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package codec turns the payloads that ICD messages describe into channel samples.
+// Package codec converts between the payloads that ICD messages describe and channel
+// samples.
 package codec
 
 import (
@@ -26,21 +27,22 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Binding names a field of a message and the data type of the channel it feeds.
+// Binding names a field of a message and the data type of the channel bound to it. A
+// decode writes the field to the channel, and an encode the channel to the field.
 type Binding struct {
-	// Field is the key of the message field to read.
+	// Field is the key of the message field.
 	Field icd.FieldKey
-	// DataType is the data type of the channel that the field writes to.
+	// DataType is the data type of the channel.
 	DataType telem.DataType
 }
 
-// JSONMessage is a JSON message and the fields to decode from its documents.
+// JSONMessage is a JSON message and the fields bound to channels.
 type JSONMessage struct {
 	// Name identifies the message in errors.
 	Name string
 	// Payload is the layout of the message's documents.
 	Payload icd.JSONPayload
-	// Bindings name the fields to decode, in sample order.
+	// Bindings name the bound fields, in sample order.
 	Bindings []Binding
 }
 
