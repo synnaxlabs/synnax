@@ -151,8 +151,9 @@ describe("switch symbol in a browser", () => {
           container,
           ".pluto-switch-symbol__knob",
         ).getBoundingClientRect();
-        expect(track.width).toBeCloseTo(15, 1);
-        expect(track.height).toBeCloseTo(30, 1);
+        const lyra = await measureLyra(1, enabled);
+        expect(track.width).toBeCloseTo(lyra.trackHeight, 1);
+        expect(track.height).toBeCloseTo(lyra.trackWidth, 1);
         expect(knob.left + knob.width / 2).toBeCloseTo(track.left + track.width / 2, 1);
         const knobCenter = knob.top + knob.height / 2;
         const trackCenter = track.top + track.height / 2;
