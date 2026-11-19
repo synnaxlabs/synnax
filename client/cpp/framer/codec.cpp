@@ -238,7 +238,8 @@ Codec::Codec(
 
 namespace {
 /// @brief the extension flags, type codes, overrides, and declared clocks of one
-/// frame.
+/// frame. clocks holds values only when the frame has overrides, and declared and all
+/// only when it declares clocks, so a steady frame allocates nothing.
 struct Plan {
     std::uint8_t ext = 0;
     std::vector<std::uint8_t> codes;
@@ -285,9 +286,6 @@ Codec::encode(const x::telem::Frame &frame, std::vector<uint8_t> &output) {
     };
 
     Plan plan;
-    plan.clocks = ag.clocks;
-    plan.declared = ag.declared;
-    plan.all = ag.all;
     if (!ag.types_declared) {
         plan.ext |= TYPES_DECLARED;
         for (std::size_t i = 0; i < state.keys.size(); i++) {
@@ -312,6 +310,7 @@ Codec::encode(const x::telem::Frame &frame, std::vector<uint8_t> &output) {
     }
     if (overrides) {
         plan.ext |= OVERRIDES_PRESENT;
+        plan.clocks = ag.clocks;
         for (const auto &e: this->entries) {
             std::uint8_t kinds = 0;
             if (e.index >= 0) {
@@ -331,30 +330,34 @@ Codec::encode(const x::telem::Frame &frame, std::vector<uint8_t> &output) {
             plan.kinds.push_back(kinds);
         }
     }
+    const auto &clocks = overrides ? plan.clocks : ag.clocks;
     if (declared_in_frame || !ag.declared.empty()) {
-        std::vector<channel::Key> declared;
+        auto &declared = this->declared;
+        declared.clear();
         for (const auto &e: this->entries)
             if (e.index < 0 && (declared.empty() || declared.back() != e.key))
                 declared.push_back(e.key);
+        const auto in_frame = declared.size();
         for (const auto k: ag.declared)
-            if (!std::ranges::binary_search(declared, k) &&
-                std::ranges::find(plan.clocks, k) != plan.clocks.end())
+            if (!std::binary_search(declared.begin(), declared.begin() + in_frame, k) &&
+                std::ranges::find(clocks, k) != clocks.end())
                 declared.push_back(k);
         std::ranges::sort(declared);
         if (declared != ag.declared) {
             plan.ext |= CLOCKS_DECLARED;
             plan.all = union_of(state.keys, declared);
-            plan.declared = std::move(declared);
+            plan.declared = declared;
         }
     }
+    const auto &all = plan.ext & CLOCKS_DECLARED ? plan.all : ag.all;
 
     CodecFlags flags;
     flags.extended = plan.ext != 0;
     const auto n = this->entries.size();
     size_t byte_array_size = FLAGS_SIZE + SEQ_NUM_SIZE;
-    flags.all_channels_present = n == plan.all.size();
+    flags.all_channels_present = n == all.size();
     for (std::size_t i = 0; flags.all_channels_present && i < n; i++)
-        if (this->entries[i].key != plan.all[i]) flags.all_channels_present = false;
+        if (this->entries[i].key != all[i]) flags.all_channels_present = false;
     if (!flags.all_channels_present) byte_array_size += n * KEY_SIZE;
 
     size_t cur_data_size = 0;
@@ -458,9 +461,11 @@ Codec::encode(const x::telem::Frame &frame, std::vector<uint8_t> &output) {
         if (!flags.equal_alignments) buf.uint64(ser.alignment.uint64());
     }
     ag.types_declared = true;
-    ag.clocks = std::move(plan.clocks);
-    ag.declared = std::move(plan.declared);
-    ag.all = std::move(plan.all);
+    if (overrides) ag.clocks = std::move(plan.clocks);
+    if (plan.ext & CLOCKS_DECLARED) {
+        ag.declared = std::move(plan.declared);
+        ag.all = std::move(plan.all);
+    }
     return x::errors::NIL;
 }
 

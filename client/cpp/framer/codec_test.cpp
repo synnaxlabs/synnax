@@ -680,4 +680,50 @@ TEST(CodecTests, RejectsDeclaredClockErrors) {
         "remote declared clock 5 after clock 7, so the list is not ascending"
     );
 }
+
+/// @brief it should keep a declared clock list unchanged when a frame carries one of
+/// its clocks and the agreed clocks still name the others. The Go encoder sends this
+/// frame with no extension.
+TEST(CodecTests, KeepsDeclaredClocksWhenOneIsInTheFrame) {
+    const std::vector<channel::Key> keys = {10, 11, 12};
+    const std::vector data_types = {
+        x::telem::FLOAT32_T,
+        x::telem::FLOAT32_T,
+        x::telem::FLOAT32_T
+    };
+    Codec enc(keys, data_types);
+    Codec dec(keys, data_types);
+    const auto clocked = [](auto s, const std::uint32_t clock) {
+        s.clock = clock;
+        return s;
+    };
+    const auto ts = [&](const std::uint32_t clock, const int64_t v) {
+        return clocked(x::telem::Series(std::vector<int64_t>{v}), clock);
+    };
+    const auto f32 = [&](const std::uint32_t clock, const float v) {
+        return clocked(x::telem::Series(std::vector<float>{v}), clock);
+    };
+    x::telem::Frame first(6);
+    first.emplace(2, ts(2, 1));
+    first.emplace(3, ts(3, 1));
+    first.emplace(9, ts(9, 1));
+    first.emplace(10, f32(2, 1));
+    first.emplace(11, f32(3, 1));
+    first.emplace(12, f32(9, 1));
+    std::vector<uint8_t> encoded;
+    ASSERT_NIL(enc.encode(first, encoded));
+    ASSERT_NIL_P(dec.decode(encoded));
+    x::telem::Frame second(4);
+    second.emplace(9, ts(9, 2));
+    second.emplace(10, f32(2, 2));
+    second.emplace(11, f32(3, 2));
+    second.emplace(12, f32(9, 2));
+    ASSERT_NIL(enc.encode(second, encoded));
+    EXPECT_EQ(
+        to_hex(encoded.data(), encoded.size()),
+        "3e01000000010000000900000002000000000000000a000000000000400b0000000000"
+        "00400c00000000000040"
+    );
+    ASSERT_NIL_P(dec.decode(encoded));
+}
 }
