@@ -35,6 +35,7 @@ export const FitView = ({ onClick, ...rest }: FitViewProps): ReactElement => {
         onClick?.(e);
       }}
       tooltip={tooltip}
+      aria-label="Fit view to contents"
       tooltipLocation={location.BOTTOM_LEFT}
       size="small"
       {...rest}
