@@ -142,6 +142,8 @@ class Master final : public master::Master {
     std::function<void()> scan_hook;
     x::loop::HostClock clock;
     x::telem::TimeSpan activate_duration{0};
+    /// @brief whether activate() reports each slave that reaches OP to its plan.
+    bool op_progress{false};
     /// @brief how many more frames record_dc() asked for.
     size_t frames_to_record{0};
     std::vector<x::telem::TimeStamp> recorded;
@@ -309,6 +311,12 @@ public:
         return this->writes;
     }
 
+    /// @brief makes activate() report each slave that reaches OP, one at a time.
+    void report_op_progress() {
+        std::lock_guard lock(this->mu);
+        this->op_progress = true;
+    }
+
     /// @brief makes each call to activate() take span on the clock of the master.
     void set_activate_duration(const x::telem::TimeSpan span) {
         std::lock_guard lock(this->mu);
@@ -337,7 +345,8 @@ public:
         this->recover_cv.notify_all();
     }
 
-    /// @brief makes activate() wait for release_activate(), which holds a bus start.
+    /// @brief makes activate() wait for release_activate() or the cancel of its plan,
+    /// which holds a bus start.
     void hold_activate() {
         std::lock_guard lock(this->activate_mu);
         this->activate_held = true;
@@ -629,7 +638,18 @@ public:
             std::unique_lock lock(this->activate_mu);
             this->activating = this->activate_held;
             this->activate_cv.notify_all();
-            this->activate_cv.wait(lock, [this] { return !this->activate_held; });
+            while (this->activate_held) {
+                if (plan.cancel != nullptr && !plan.cancel->running()) {
+                    this->activating = false;
+                    return {
+                        .err = x::errors::Error(
+                            x::errors::CANCELLED,
+                            "activate canceled"
+                        )
+                    };
+                }
+                this->activate_cv.wait_for(lock, std::chrono::milliseconds(1));
+            }
             this->activating = false;
         }
         size_t sent = 0;
@@ -715,6 +735,18 @@ public:
                                    ? slave::State::SAFE_OP
                                    : slave::State::OP;
         }
+        size_t total = 0;
+        if (this->op_progress)
+            total = static_cast<size_t>(std::ranges::count_if(
+                this->slave_list,
+                [this](const slave::DiscoveryResult &slave) {
+                    return this->on_bus(slave.properties.position);
+                }
+            ));
+        lock.unlock();
+        if (plan.progress)
+            for (size_t operational = 1; operational <= total; ++operational)
+                plan.progress(operational, total);
         return {};
     }
 
