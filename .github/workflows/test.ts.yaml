@@ -176,6 +176,7 @@ jobs:
             node: ""
             lint: true
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
     steps:
       # The matrix holds four shards, so a larger count would skip test files.
       - name: Check the shard count

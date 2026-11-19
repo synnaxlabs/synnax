@@ -49,6 +49,7 @@ jobs:
     name: Deploy to Sandbox-Windows
     runs-on: ubuntu-latest
     environment: runners
+    timeout-minutes: 10
     steps:
       - name: Check the selection
         if: ${{ !(inputs.controller || inputs.core || inputs.backup || inputs.agents) }}
