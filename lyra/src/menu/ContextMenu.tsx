@@ -63,9 +63,10 @@ export interface UseContextMenuReturn extends ContextMenuState {
   close: () => void;
   /**
    * Gives the focus back as a chosen item does, while the focus is in the menu: to the
-   * element that had it when the menu opened, or to the target the menu opened over if
-   * that was the body. The menu stays open. The menu surface calls it in the capture
-   * phase of an item click, so the item acts with the focus already back.
+   * target the menu opened over if the target can take the focus and the element that
+   * had the focus when the menu opened holds it, else to that element. The menu stays
+   * open. The menu surface calls it in the capture phase of an item click, so the item
+   * acts with the focus already back.
    */
   returnFocus: () => void;
   open: ContextMenuOpen;
