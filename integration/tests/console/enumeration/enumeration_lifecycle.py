@@ -90,7 +90,7 @@ class EnumerationLifecycle(ConsoleCase):
         self.log("Testing: Refuse a taken value")
         enums = self.console.enumerations
         enums.set_value(self.name, self.entries[1], 5)
-        cell = enums.section(self.name).get_by_label("Value 2", exact=True)
+        cell = enums.entries(self.name).get_by_label("Value 2", exact=True)
         expect(cell).to_have_value("5")
         expect(cell).to_have_attribute("aria-invalid", "true")
         stored = self.client.enumerations.retrieve(names=[self.name])[0]
@@ -104,10 +104,9 @@ class EnumerationLifecycle(ConsoleCase):
         enums.add_entry(self.name, added)
         stored = enums.wait_for(
             self.name,
-            lambda e: len(e.entries) == 4,
+            lambda e: [x.name for x in e.entries] == [*self.entries, added],
             f"The Core did not add {added}",
         )
-        assert stored.entries[3].name == added
         assert stored.entries[3].value == 6
         enums.remove_entry(self.name, added)
         enums.wait_for(
@@ -117,7 +116,7 @@ class EnumerationLifecycle(ConsoleCase):
         )
 
     def test_rename(self) -> None:
-        """Test renaming an enumeration from the menu of its heading."""
+        """Test renaming an enumeration from its menu."""
         self.log("Testing: Rename enumeration")
         new_name = random_name()
         self.console.enumerations.rename(old_name=self.name, new_name=new_name)
@@ -128,10 +127,10 @@ class EnumerationLifecycle(ConsoleCase):
         self.log("Testing: Restore a built-in")
         enums = self.console.enumerations
         enums.search(_BUILTIN)
-        heading = enums.heading(_BUILTIN)
-        expect(heading.get_by_text("Built-in", exact=True)).to_be_visible()
+        item = enums.item(_BUILTIN)
+        expect(item.get_by_text("Built-in", exact=True)).to_be_visible()
         enums.rename_entry(_BUILTIN, old_name="Off", new_name=random_name())
-        expect(heading.get_by_text("Edited", exact=True)).to_be_visible(timeout=5000)
+        expect(item.get_by_text("Edited", exact=True)).to_be_visible(timeout=5000)
         assert enums.menu_options(_BUILTIN, ["Restore default", "Delete"]) == [
             "Restore default"
         ]
@@ -141,7 +140,7 @@ class EnumerationLifecycle(ConsoleCase):
             lambda e: [(x.key, x.name, x.value) for x in e.entries] == _BUILTIN_ENTRIES,
             f"The Core did not restore {_BUILTIN}",
         )
-        expect(heading.get_by_text("Edited", exact=True)).to_have_count(0)
+        expect(item.get_by_text("Edited", exact=True)).to_have_count(0)
 
     def test_replace(self) -> None:
         """Test deleting an enumeration with Replace with in its delete dialog."""
@@ -150,7 +149,7 @@ class EnumerationLifecycle(ConsoleCase):
         self.console.enumerations.replace(self.replaced, with_name=self.name)
 
     def test_delete(self) -> None:
-        """Test deleting an enumeration from the menu of its heading."""
+        """Test deleting an enumeration from its menu."""
         self.log("Testing: Delete enumeration")
         self.console.enumerations.search(self.name)
         self.console.enumerations.delete(self.name)
