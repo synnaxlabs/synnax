@@ -235,7 +235,7 @@ class TestLoadEnvOptions:
             "api_key": "syk_env",
             "port": 9091,
             "secure": True,
-            "ca_cert": str(Path("~/ca.crt").expanduser()),
+            "ca_cert": os.path.expanduser("~/ca.crt"),
         }
 
     def test_one_variable(self) -> None:

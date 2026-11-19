@@ -243,7 +243,8 @@ std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Master::scan() 
         this->api->readstate();
         this->populate_slaves();
         this->initialized = true;
-    }
+    } else
+        this->read_started();
     return {this->slave_list, x::errors::NIL};
 }
 
@@ -777,6 +778,24 @@ void Master::populate_slaves() {
     slave::clear_duplicate_serials(this->slave_list);
 }
 
+void Master::read_started() {
+    std::lock_guard lock(this->mailbox_mu);
+    this->api->readstate();
+    bool read = false;
+    for (auto &slave: this->slave_list) {
+        const auto pos = slave.properties.position;
+        if (!slave.status.starting ||
+            slave::starting(slave::from_al_state(this->record(pos).state)))
+            continue;
+        auto result = this->discover_slave(pos);
+        this->read_serial(result);
+        this->read_settings(result);
+        slave = std::move(result);
+        read = true;
+    }
+    if (read) slave::clear_duplicate_serials(this->slave_list);
+}
+
 void Master::read_serial(slave::DiscoveryResult &slave) {
     const auto pos = slave.properties.position;
     // A nonzero SII serial number is the identity of saved devices.
@@ -833,10 +852,7 @@ slave::DiscoveryResult Master::discover_slave(const uint16_t pos) {
     result.properties.serial = this->record(pos).eep_ser;
     result.properties.name = this->slave_name(pos);
     result.status.state = slave::from_al_state(this->record(pos).state);
-    const auto state = result.status.state;
-    result.status.starting = state == slave::State::INIT ||
-                             state == slave::State::BOOT ||
-                             state == slave::State::UNKNOWN;
+    result.status.starting = slave::starting(result.status.state);
     Description unshared;
     const auto model = result.status.starting ? std::nullopt : this->read_model(pos);
     auto &description = model ? this->descriptions[*model] : unshared;

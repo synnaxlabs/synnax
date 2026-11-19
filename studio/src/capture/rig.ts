@@ -11,7 +11,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { TimeStamp } from "@synnaxlabs/client";
-import { array, sleep, TimeSpan } from "@synnaxlabs/x";
+import { array, box, errors, sleep, TimeSpan } from "@synnaxlabs/x";
 import {
   type Browser,
   type CDPSession,
@@ -106,7 +106,7 @@ const desktopShell = (connection: Record<string, string | number>): string => `(
       return true;
     },
     supervisor_diagnostics: () => ({
-      version: "0.61.0",
+      version: "0.62.0",
       history: {
         starts: 1,
         exits: 0,
@@ -154,6 +154,30 @@ const desktopShell = (connection: Record<string, string | number>): string => `(
 /** WebP quality of a still, from 0 to 100. */
 const STILL_QUALITY = 92;
 
+/** Virtual time each step of jumpToWall runs. Longer steps can time out connections. */
+const JUMP_STEP_MS = 100;
+
+/** Real time between jumpToWall steps, so requests answer before they time out. */
+const JUMP_PAUSE_MS = 20;
+
+/** Steps in a row without a new low in the lag after which jumpToWall gives up. */
+const JUMP_STALL_STEPS = 20;
+
+/** The step limit of jumpToWall, as a multiple of the steps the lag needs at best. */
+const JUMP_STEP_BUDGET = 10;
+
+/** How long a failed worker call waits for its worker to close before it throws. */
+const WORKER_CLOSE_GRACE_MS = 1000;
+
+/** A page worker with the Studio clock installed. */
+interface StudioWorker {
+  worker: Worker;
+  /** Resolves once the clock and frame hooks are in the worker. */
+  installed: Promise<void>;
+  /** Resolves when the worker closes. */
+  closed: Promise<void>;
+}
+
 /**
  * Pauses any newly discovered Web Animations (CSS transitions/animations, WAAPI)
  * and advances them manually per tick, so compositor-clocked motion steps in
@@ -191,6 +215,39 @@ const PERFORMANCE_ENTRIES = `(() => {
     const entries = base(...args);
     return entries.length > 0 ? entries : [{ duration: 0, startTime: 0 }];
   };
+})();`;
+
+/**
+ * The browser draws a drag's picture outside the page, so screenshots miss it. A copy
+ * of the element passed to `setDragImage` follows the pointer in its place until the
+ * drag ends. No mouse events fire during a drag, so the next one means it has ended.
+ */
+const DRAG_PREVIEW = `(() => {
+  const setDragImage = DataTransfer.prototype.setDragImage;
+  let ghost = null;
+  let offset = { x: 0, y: 0 };
+  const clear = () => {
+    ghost?.remove();
+    ghost = null;
+  };
+  DataTransfer.prototype.setDragImage = function (image, x, y) {
+    clear();
+    ghost = image.cloneNode(true);
+    ghost.style.visibility = "hidden";
+    ghost.style.opacity = "0.8";
+    offset = { x, y };
+    document.body.appendChild(ghost);
+    return setDragImage.call(this, image, x, y);
+  };
+  addEventListener("dragover", (e) => {
+    if (ghost == null) return;
+    const left = e.clientX - offset.x;
+    const top = e.clientY - offset.y;
+    ghost.style.transform = "translate(" + left + "px, " + top + "px)";
+    ghost.style.visibility = "visible";
+  }, true);
+  for (const type of ["drop", "dragend", "mousemove", "mousedown"])
+    addEventListener(type, clear, true);
 })();`;
 
 /**
@@ -249,12 +306,12 @@ interface Bounds {
   bottom: number;
 }
 
-const bounds = (rects: Rect[]): Bounds => ({
-  left: Math.min(...rects.map((r) => r.x)),
-  top: Math.min(...rects.map((r) => r.y)),
-  right: Math.max(...rects.map((r) => r.x + r.width)),
-  bottom: Math.max(...rects.map((r) => r.y + r.height)),
-});
+const bounds = (rects: Rect[]): Bounds => {
+  const { one, two } = box.bound(
+    rects.map(({ x, y, width, height }) => box.construct(x, y, width, height)),
+  );
+  return { left: one.x, top: one.y, right: two.x, bottom: two.y };
+};
 
 /**
  * CaptureSession drives the Console under a stepped virtual clock, saving one
@@ -275,7 +332,7 @@ export class CaptureSession {
   private appMs = 0;
   /** Wall time in epoch milliseconds at which the virtual clock started. */
   private readonly origin0: number;
-  private readonly workers: Set<Promise<Worker>>;
+  private readonly workers: Set<StudioWorker>;
   private recording = false;
   private speed = 1;
   private cursor: Point;
@@ -296,7 +353,7 @@ export class CaptureSession {
     cdp: CDPSession,
     opts: Required<CaptureOptions>,
     origin: number,
-    workers: Set<Promise<Worker>>,
+    workers: Set<StudioWorker>,
   ) {
     this.origin0 = origin;
     this.workers = workers;
@@ -340,17 +397,23 @@ export class CaptureSession {
     const page = await context.newPage();
     const origin = Date.now();
     await page.clock.install({ time: origin });
-    const workers = new Set<Promise<Worker>>();
+    const workers = new Set<StudioWorker>();
     page.on("worker", (worker) => {
-      const installed = worker
-        .evaluate(workerClock(origin))
-        .then(async () => await worker.evaluate(WORKER_FRAMES))
-        .then(() => worker);
-      workers.add(installed);
-      worker.on("close", () => workers.delete(installed));
+      const handle: StudioWorker = {
+        worker,
+        installed: worker
+          .evaluate(workerClock(origin))
+          .then(async () => await worker.evaluate(WORKER_FRAMES)),
+        closed: new Promise((resolve) => worker.once("close", () => resolve())),
+      };
+      // inWorkers awaits the install, so a real install failure still throws there.
+      handle.installed.catch(() => undefined);
+      workers.add(handle);
+      void handle.closed.then(() => workers.delete(handle));
     });
     await page.addInitScript(ANIMATION_STEPPER);
     await page.addInitScript(PERFORMANCE_ENTRIES);
+    await page.addInitScript(DRAG_PREVIEW);
     await page.addInitScript(
       `localStorage.setItem(${JSON.stringify(DEV_PORT_KEY)}, ${JSON.stringify(String(opts.corePort))});`,
     );
@@ -408,12 +471,50 @@ export class CaptureSession {
     this.appMs += ms;
     const now = this.origin0 + this.appMs;
     const app = this.appMs;
+    await this.inWorkers(`globalThis.__studioSetClock(${now}, ${app})`);
+  }
+
+  /** inWorkers runs script in every live worker, skipping one that closes during it. */
+  private async inWorkers(script: string): Promise<void> {
     await Promise.all(
-      [...this.workers].map(
-        async (w) =>
-          await (await w).evaluate(`globalThis.__studioSetClock(${now}, ${app})`),
-      ),
+      [...this.workers].map(async ({ worker, installed, closed }) => {
+        try {
+          await installed;
+          await worker.evaluate(script);
+        } catch (e) {
+          const gone = await Promise.race([
+            closed.then(() => true),
+            sleep.sleep(TimeSpan.milliseconds(WORKER_CLOSE_GRACE_MS)).then(() => false),
+          ]);
+          if (!gone) throw errors.fromUnknown(e);
+        }
+      }),
     );
+  }
+
+  /**
+   * jumpToWall runs the virtual clock forward to wall time without capturing. Use it
+   * before UI that compares the time now with samples stamped on wall time, which the
+   * virtual clock falls behind. Throws if the clock stops catching up or runs out of
+   * steps.
+   */
+  async jumpToWall(): Promise<void> {
+    const lag = (): number => Date.now() - (this.origin0 + this.appMs);
+    let current = lag();
+    let lowest = current;
+    let stalled = 0;
+    const budget = JUMP_STEP_BUDGET * Math.ceil(current / JUMP_STEP_MS);
+    for (let step = 0; current > JUMP_STEP_MS; step++) {
+      if (step >= budget || stalled >= JUMP_STALL_STEPS)
+        throw new Error("the virtual clock cannot catch up to wall time");
+      await this.advance(JUMP_STEP_MS);
+      await sleep.sleep(TimeSpan.milliseconds(JUMP_PAUSE_MS));
+      current = lag();
+      if (current < lowest) {
+        lowest = current;
+        stalled = 0;
+      } else stalled++;
+    }
   }
 
   private get tickMs(): number {
@@ -528,11 +629,7 @@ export class CaptureSession {
 
   /** drawn waits for every worker that animates to draw two more frames. */
   private async drawn(): Promise<void> {
-    await Promise.all(
-      [...this.workers].map(
-        async (w) => await (await w).evaluate("globalThis.__studioFrames?.(2)"),
-      ),
-    );
+    await this.inWorkers("globalThis.__studioFrames?.(2)");
   }
 
   /** settle advances virtual time without capturing; use during setup. */

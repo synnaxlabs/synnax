@@ -12,6 +12,7 @@ import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { type Haul } from "@synnaxlabs/lyra/haul";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { uuid } from "@synnaxlabs/x";
+import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -31,13 +32,7 @@ import {
   retrieveChildGroupKeys,
   searchTree,
 } from "@/platform/tree/testutil";
-import {
-  assertDefined,
-  awaitTextEditingElement,
-  commitTextEdit,
-  uniqueName,
-  uniqueToken,
-} from "@/testutil";
+import { awaitTextEditingElement, commitTextEdit, uniqueToken } from "@/testutil";
 
 const client = createTestClient();
 const roles = new RoleClients(client);
