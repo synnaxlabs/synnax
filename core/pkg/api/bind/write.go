@@ -50,7 +50,7 @@ type Returns interface {
 //     retrieve;
 //   - retrieve on the target of each use link added. A rack is denied a new use of a
 //     record of a ServiceConfig.Vouched type, and a move onto a rack of a record that
-//     uses one;
+//     uses one or holds a record that uses one;
 //   - retrieve on each source of a request that implements Copy;
 //   - retrieve on each record that a response implementing Returns holds and the
 //     transaction did not change.
@@ -183,7 +183,7 @@ func (s *Service) check(ctx context.Context, tx gorp.Tx, sources []resource.ID) 
 				}
 			}
 		}
-		if err := s.checkVouched(subject, c); err != nil {
+		if err := s.checkVouched(ctx, tx, subject, c); err != nil {
 			return err
 		}
 		for _, l := range c.Added {
@@ -259,8 +259,14 @@ func (s *Service) owned(c gorp.Change, subject resource.ID) bool {
 
 // checkVouched returns an error wrapping access.ErrDenied when subject is a rack and c
 // gives a record on a rack a use of a record of a Vouched type: through a new use link,
-// or through a new place link onto a rack.
-func (s *Service) checkVouched(subject resource.ID, c gorp.Change) error {
+// or through a new place link onto a rack of a record that uses one, or that holds a
+// record placed in it that uses one.
+func (s *Service) checkVouched(
+	ctx context.Context,
+	tx gorp.Tx,
+	subject resource.ID,
+	c gorp.Change,
+) error {
 	if subject.Type != resource.TypeRack || c.Kind == gorp.ChangeDelete {
 		return nil
 	}
@@ -269,8 +275,8 @@ func (s *Service) checkVouched(subject resource.ID, c gorp.Change) error {
 		return l.Kind == gorp.Place && ok && target.Type == resource.TypeRack
 	})
 	for _, l := range c.Links {
-		target, ok := resourceOf(l.Target)
-		if l.Kind != gorp.Use || !ok || !slices.Contains(s.cfg.Vouched, target.Type) {
+		target, ok := s.vouchedUse(l)
+		if !ok {
 			continue
 		}
 		if slices.Contains(c.Added, l) {
@@ -282,15 +288,45 @@ func (s *Service) checkVouched(subject resource.ID, c gorp.Change) error {
 			)
 		}
 		if moved {
-			return errors.Wrapf(
-				access.ErrDenied,
-				"%s cannot move a record that uses %s onto a rack",
-				subject,
-				target,
-			)
+			return errMove(subject, target)
+		}
+	}
+	if !moved {
+		return nil
+	}
+	placed, err := gorp.PlacedIn(ctx, tx, c.Record)
+	if err != nil {
+		return err
+	}
+	for _, p := range placed {
+		links, err := gorp.LinksOf(ctx, tx, p)
+		if err != nil {
+			return err
+		}
+		for _, l := range links {
+			if target, ok := s.vouchedUse(l); ok {
+				return errMove(subject, target)
+			}
 		}
 	}
 	return nil
+}
+
+// vouchedUse returns the target of l when l is a use of a record of a Vouched type.
+func (s *Service) vouchedUse(l gorp.Link) (resource.ID, bool) {
+	target, ok := resourceOf(l.Target)
+	return target, l.Kind == gorp.Use && ok &&
+		slices.Contains(s.cfg.Vouched, target.Type)
+}
+
+// errMove returns the denial of subject moving a record that uses target onto a rack.
+func errMove(subject, target resource.ID) error {
+	return errors.Wrapf(
+		access.ErrDenied,
+		"%s cannot move a record that uses %s onto a rack",
+		subject,
+		target,
+	)
 }
 
 // ownedPlace reports whether l places an owned record in a table of OwnedPlaces.
