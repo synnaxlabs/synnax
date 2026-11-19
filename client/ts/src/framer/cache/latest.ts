@@ -578,9 +578,6 @@ export class Latest {
     for (const s of series) {
       const fresh = this.fresh(s);
       if (fresh == null) continue;
-      // Series of two data types cannot share a snapshot.
-      const first = this.series.at(0) ?? this.buffer.leadingBuffer;
-      if (first != null && !first.dataType.equals(fresh.dataType)) this.clear();
       if (live) this.stamps?.record(fresh);
       this.unserved += fresh.length;
       this.appended += fresh.length;
