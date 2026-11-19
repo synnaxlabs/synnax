@@ -90,7 +90,14 @@ export const BaseSwatch = ({
       style={{
         ...style,
         [COLOR_VAR]: color.cssString(value),
-        [TEXT_VAR]: color.cssString(color.pickByContrast(value, gray.l0, gray.l11)),
+        // The background shows through a translucent color.
+        [TEXT_VAR]: color.cssString(
+          color.pickByContrast(
+            color.over(value, gray.l0, color.opacity(value)),
+            gray.l0,
+            gray.l11,
+          ),
+        ),
       }}
       variant="outlined"
       {...haulProps}
