@@ -22,6 +22,7 @@ import {
 import { List } from "@synnaxlabs/lyra/list";
 import { theming } from "@synnaxlabs/pluto/ether";
 import { color } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { createElement, type ReactElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -45,7 +46,6 @@ import {
   type Grants,
   HaulProvider,
   removeSaveFilePicker,
-  uniqueName,
 } from "@/testutil";
 
 afterEach(() => {

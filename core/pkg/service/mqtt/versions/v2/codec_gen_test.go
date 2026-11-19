@@ -30,29 +30,6 @@ var (
 )
 
 var _ = Describe("Codec", func() {
-	Describe("ReadBinding", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original v2.ReadBinding) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v2.ReadBinding
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", v2.ReadBinding{
-				Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-				Channel:  channel.Key(3),
-				DataType: telem.DataType("test_3"),
-			}),
-			Entry("zero values", v2.ReadBinding{
-				Field:    uuid.Nil(),
-				Channel:  channel.Key(0),
-				DataType: telem.DataType(""),
-			}),
-		)
-	})
 	Describe("ReadConfig", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v2.ReadConfig) {
@@ -76,11 +53,11 @@ var _ = Describe("Codec", func() {
 						Qos:             v2.QoS("at_most_once"),
 						RetainedIgnored: false,
 						ICD:             uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"),
-						Messages: []v2.ReadMessage{
+						Messages: []icd.ReadMessage{
 							{
 								Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b"),
 								Index:   new(icd.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"))),
-								Bindings: []v2.ReadBinding{
+								Bindings: []icd.ReadBinding{
 									{
 										Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780e"),
 										Channel:  channel.Key(16),
@@ -125,11 +102,11 @@ var _ = Describe("Codec", func() {
 				Qos:             v2.QoS("at_most_once"),
 				RetainedIgnored: true,
 				ICD:             uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
-				Messages: []v2.ReadMessage{
+				Messages: []icd.ReadMessage{
 					{
 						Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"),
 						Index:   new(icd.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
-						Bindings: []v2.ReadBinding{
+						Bindings: []icd.ReadBinding{
 							{
 								Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"),
 								Channel:  channel.Key(11),
@@ -151,62 +128,7 @@ var _ = Describe("Codec", func() {
 			}}),
 		)
 	})
-	Describe("ReadMessage", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original v2.ReadMessage) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v2.ReadMessage
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", v2.ReadMessage{
-				Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-				Index:   new(icd.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"))),
-				Bindings: []v2.ReadBinding{
-					{
-						Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
-						Channel:  channel.Key(6),
-						DataType: telem.DataType("test_6"),
-					},
-				},
-			}),
-			Entry("zero values", v2.ReadMessage{
-				Message:  uuid.Nil(),
-				Index:    nil,
-				Bindings: []v2.ReadBinding{},
-			}),
-			Entry("empty collections", v2.ReadMessage{
-				Message:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-				Index:    new(icd.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"))),
-				Bindings: []v2.ReadBinding{},
-			}),
-		)
-	})
 })
-
-func BenchmarkEncodeDecodeReadBinding(b *testing.B) {
-	seed := v2.ReadBinding{
-		Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-		Channel:  channel.Key(3),
-		DataType: telem.DataType("test_3"),
-	}
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for b.Loop() {
-		w.Reset()
-		if err := seed.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded v2.ReadBinding
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
 
 func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 	seed := v2.ReadConfig{
@@ -221,11 +143,11 @@ func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 				Qos:             v2.QoS("at_most_once"),
 				RetainedIgnored: false,
 				ICD:             uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"),
-				Messages: []v2.ReadMessage{
+				Messages: []icd.ReadMessage{
 					{
 						Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b"),
 						Index:   new(icd.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"))),
-						Bindings: []v2.ReadBinding{
+						Bindings: []icd.ReadBinding{
 							{
 								Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780e"),
 								Channel:  channel.Key(16),
@@ -259,11 +181,11 @@ func BenchmarkEncodeDecodeReadEntry(b *testing.B) {
 		Qos:             v2.QoS("at_most_once"),
 		RetainedIgnored: true,
 		ICD:             uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
-		Messages: []v2.ReadMessage{
+		Messages: []icd.ReadMessage{
 			{
 				Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"),
 				Index:   new(icd.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
-				Bindings: []v2.ReadBinding{
+				Bindings: []icd.ReadBinding{
 					{
 						Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"),
 						Channel:  channel.Key(11),
@@ -288,80 +210,6 @@ func BenchmarkEncodeDecodeReadEntry(b *testing.B) {
 	}
 }
 
-func BenchmarkEncodeDecodeReadMessage(b *testing.B) {
-	seed := v2.ReadMessage{
-		Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-		Index:   new(icd.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"))),
-		Bindings: []v2.ReadBinding{
-			{
-				Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
-				Channel:  channel.Key(6),
-				DataType: telem.DataType("test_6"),
-			},
-		},
-	}
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for b.Loop() {
-		w.Reset()
-		if err := seed.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded v2.ReadMessage
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func FuzzDecodeReadBinding(f *testing.F) {
-	{
-		seed := v2.ReadBinding{
-			Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-			Channel:  channel.Key(3),
-			DataType: telem.DataType("test_3"),
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v2.ReadBinding{
-			Field:    uuid.Nil(),
-			Channel:  channel.Key(0),
-			DataType: telem.DataType(""),
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v2.ReadBinding
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded v2.ReadBinding
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		if !testutil.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
-		}
-	})
-}
-
 func FuzzDecodeReadConfig(f *testing.F) {
 	{
 		seed := v2.ReadConfig{
@@ -376,11 +224,11 @@ func FuzzDecodeReadConfig(f *testing.F) {
 					Qos:             v2.QoS("at_most_once"),
 					RetainedIgnored: false,
 					ICD:             uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"),
-					Messages: []v2.ReadMessage{
+					Messages: []icd.ReadMessage{
 						{
 							Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b"),
 							Index:   new(icd.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"))),
-							Bindings: []v2.ReadBinding{
+							Bindings: []icd.ReadBinding{
 								{
 									Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780e"),
 									Channel:  channel.Key(16),
@@ -456,11 +304,11 @@ func FuzzDecodeReadEntry(f *testing.F) {
 			Qos:             v2.QoS("at_most_once"),
 			RetainedIgnored: true,
 			ICD:             uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
-			Messages: []v2.ReadMessage{
+			Messages: []icd.ReadMessage{
 				{
 					Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"),
 					Index:   new(icd.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
-					Bindings: []v2.ReadBinding{
+					Bindings: []icd.ReadBinding{
 						{
 							Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"),
 							Channel:  channel.Key(11),
@@ -505,71 +353,6 @@ func FuzzDecodeReadEntry(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v2.ReadEntry
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		if !testutil.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
-		}
-	})
-}
-
-func FuzzDecodeReadMessage(f *testing.F) {
-	{
-		seed := v2.ReadMessage{
-			Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-			Index:   new(icd.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"))),
-			Bindings: []v2.ReadBinding{
-				{
-					Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
-					Channel:  channel.Key(6),
-					DataType: telem.DataType("test_6"),
-				},
-			},
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v2.ReadMessage{
-			Message:  uuid.Nil(),
-			Index:    nil,
-			Bindings: []v2.ReadBinding{},
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v2.ReadMessage{
-			Message:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-			Index:    new(icd.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"))),
-			Bindings: []v2.ReadBinding{},
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v2.ReadMessage
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded v2.ReadMessage
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
