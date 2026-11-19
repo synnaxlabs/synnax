@@ -233,6 +233,36 @@ class TestFrameToDF:
         with pytest.raises(ValueError, match="alignments"):
             f.to_df()
 
+    def test_widen_across_types(self) -> None:
+        """Should widen a channel that holds two data types into one column."""
+        stamps = sy.Series(
+            [1, 2, 3], data_type=sy.DataType.TIMESTAMP, alignment=sy.Alignment(0, 0)
+        )
+        old = sy.Series(
+            [1, 2], data_type=sy.DataType.INT16, alignment=sy.Alignment(0, 0)
+        )
+        new = sy.Series(
+            [2.5], data_type=sy.DataType.FLOAT32, alignment=sy.Alignment(0, 2)
+        )
+        f = sy.Frame([1, 2, 2], [stamps, old, new])
+        f.names = {1: "time", 2: "dog"}
+        f.indexes = {1: 1, 2: 1}
+        df = f.to_df()
+        assert df["dog"].dtype == np.float32
+        assert df["dog"].tolist() == [1, 2, 2.5]
+        assert [s.data_type for s in f[2].series] == [
+            sy.DataType.INT16,
+            sy.DataType.FLOAT32,
+        ]
+
+    def test_text_against_numbers(self) -> None:
+        """Should fail when a channel holds text and numbers."""
+        f = sy.Frame([2, 2], [sy.Series(["a"]), sy.Series([1.5])])
+        with pytest.raises(
+            TypeError, match=r"^cannot widen string and float64 into one data type$"
+        ):
+            f.to_df()
+
     def test_key_fallback(self) -> None:
         """Should use the channel key when the frame does not know the name."""
         f = sy.Frame({1: sy.Series([1, 2]), 2: sy.Series([3, 4])})
