@@ -207,11 +207,16 @@ export const Login = (): ReactElement => {
                   </Flex.Box>
                 </>
               ) : (
-                <Status.Summary
-                  variant="warning"
-                  message="Password login is off"
-                  description="This Core does not accept passwords. Ask an administrator to add password to its accepted login methods."
-                />
+                <Flex.Box y align="center" gap="small">
+                  <Text.Text level="h4" status="warning">
+                    <Status.Indicator variant="warning" />
+                    Password login is off
+                  </Text.Text>
+                  <Text.Text level="p" color={9} style={{ textAlign: "center" }}>
+                    This Core does not accept passwords. Ask an administrator to add
+                    password to its accepted login methods.
+                  </Text.Text>
+                </Flex.Box>
               )}
             </Flex.Box>
           </Form.Form>
