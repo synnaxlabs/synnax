@@ -22,6 +22,9 @@ const (
 	drawEvict
 	drawRead
 	drawReadBit
+	drawMisdirect
+	drawMisdirectBlock
+	drawMisdirectSource
 )
 
 // draw returns a number from 0 up to, but not including, 1. Only the arguments fix it,

@@ -48,6 +48,10 @@ type Config struct {
 	// ReadCorruptionRate is the chance, from 0 to 1, that a read returns one flipped
 	// bit. The bytes on the disk do not change.
 	ReadCorruptionRate float64
+	// MisdirectedReadRate is the chance, from 0 to 1, that a read gets one 4 KiB block
+	// from the wrong place: another block of the file, or a block of another file. The
+	// bytes on the disk do not change.
+	MisdirectedReadRate float64
 	// Capacity is the size of the disk in bytes, which the lengths of its files fill.
 	// Zero is no limit. A write past it writes the bytes that fit and fails with
 	// ENOSPC.
@@ -59,6 +63,7 @@ func (c Config) validate() error {
 	validateRate(v, "sync_error_rate", c.SyncErrorRate)
 	validateRate(v, "eviction_rate", c.EvictionRate)
 	validateRate(v, "read_corruption_rate", c.ReadCorruptionRate)
+	validateRate(v, "misdirected_read_rate", c.MisdirectedReadRate)
 	v.GreaterThanEq("capacity", c.Capacity, 0)
 	return v.Error()
 }

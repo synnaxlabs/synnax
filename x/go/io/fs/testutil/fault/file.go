@@ -69,6 +69,7 @@ func (f *file) Read(p []byte) (int, error) {
 		return 0, io.EOF
 	}
 	n := copy(p, f.n.data[f.rpos:])
+	f.d.misdirect(p[:n], f.n, f.path, f.rpos)
 	f.d.corrupt(p[:n], f.path, f.rpos)
 	f.rpos += int64(n)
 	return n, nil
@@ -85,6 +86,7 @@ func (f *file) ReadAt(p []byte, off int64) (int, error) {
 		return 0, io.EOF
 	}
 	n := copy(p, f.n.data[off:])
+	f.d.misdirect(p[:n], f.n, f.path, off)
 	f.d.corrupt(p[:n], f.path, off)
 	if n < len(p) {
 		return n, io.EOF
