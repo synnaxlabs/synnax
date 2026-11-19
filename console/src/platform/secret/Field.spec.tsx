@@ -168,14 +168,14 @@ describe("Secret.Field", () => {
     expect(screen.queryByText(s.name)).toBeNull();
   });
 
-  it("sets the value to the key of the picked secret", async () => {
+  it("sets the value to the key of the picked secret and shows only its name", async () => {
     const s = await createSecret(client, created);
     const { onChange } = await renderField();
     await open("Select a secret");
     fireEvent.click(await findOption("secret", s.name));
     await waitFor(() => expect(onChange).toHaveBeenLastCalledWith(s.key));
     const trigger = await findDialogTriggerByText(s.name);
-    within(trigger).getByText(Validity.describeSecret(s));
+    expect(trigger.textContent).toBe(s.name);
   });
 
   it("opens the create dialog with the default name and focuses the value", async () => {
@@ -280,7 +280,7 @@ describe("Secret.Field", () => {
     await findDialogTriggerByText(s.name);
   });
 
-  it("shows a held file secret of another rack as an error", async () => {
+  it("shows a held file secret of another rack as an error under the field", async () => {
     const [own, other] = await Promise.all([
       client.racks.create({ name: uniqueName("rack") }),
       client.racks.create({ name: uniqueName("rack") }),
@@ -293,11 +293,12 @@ describe("Secret.Field", () => {
     });
     created.push(s.key);
     const { setRack } = await renderField(s.key, { rack: own.key });
-    await findDialogTriggerByText(s.name);
+    const trigger = await findDialogTriggerByText(s.name);
     expect(screen.queryByText("File on another rack")).toBeNull();
     setRack(other.key);
     const shown = await screen.findByText("File on another rack");
     expect(shown.classList).toContain("lyra--status-error");
+    expect(trigger.contains(shown)).toBe(false);
   });
 
   it("offers no file to a field with no rack", async () => {

@@ -76,7 +76,8 @@ const placeholderOf = <E extends record.Unknown>(
     : `Unavailable ${resourceName}`;
 };
 
-interface TriggerProps<E extends record.Unknown> extends EntryProps<E> {
+interface TriggerProps<E extends record.Unknown> {
+  icon: Icon.FC;
   resourceName: string;
   result: Flux.Result<E>;
   preview?: boolean;
@@ -84,38 +85,21 @@ interface TriggerProps<E extends record.Unknown> extends EntryProps<E> {
 
 const Trigger = <K extends record.Key, E extends Entry<K>>({
   icon: ItemIcon,
-  describe,
   resourceName,
   result,
   preview,
 }: TriggerProps<E>): ReactElement => {
   const itemStatus = Input.useItemStatus({});
-  let content: ReactElement;
-  if (result.variant !== "success")
-    content = (
+  const content =
+    result.variant === "success" ? (
+      <Text.Text el="span" overflow="fade" className={CSS.BE("picker", "text")}>
+        {result.data.name}
+      </Text.Text>
+    ) : (
       <Text.Text el="span" color={8} className={CSS.BE("picker", "text")}>
         {placeholderOf(result, resourceName, preview)}
       </Text.Text>
     );
-  else {
-    const { text, status } = describe(result.data);
-    content = (
-      <>
-        <Text.Text el="span" overflow="fade" className={CSS.BE("picker", "text")}>
-          {result.data.name}
-        </Text.Text>
-        <Text.Text
-          el="span"
-          level="tiny"
-          color={9}
-          status={status}
-          className={CSS.BE("picker", "description")}
-        >
-          {text}
-        </Text.Text>
-      </>
-    );
-  }
   return (
     <Dialog.Trigger
       variant="outlined"
@@ -149,8 +133,9 @@ export interface SelectProps<K extends record.Key, E extends Entry<K>>
 }
 
 /**
- * Selects one stored entry by key. The trigger reads the held entry live and says when
- * it is missing or unavailable. The list can end in an option that creates an entry.
+ * Selects one stored entry by key. The trigger names the held entry live and says when
+ * it is missing or unavailable. Each option of the list shows its description. The list
+ * can end in an option that creates an entry.
  */
 export const Select = <K extends record.Key, E extends Entry<K>>({
   value,
@@ -184,7 +169,6 @@ export const Select = <K extends record.Key, E extends Entry<K>>({
       >
         <Trigger<K, E>
           icon={icon}
-          describe={describe}
           resourceName={resourceName}
           result={result}
           preview={preview}
