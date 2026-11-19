@@ -27,7 +27,6 @@ const TOOLBARS = {
   device: "device",
   task: "task",
   arc: "arc",
-  icd: "library",
   status: "status",
 } as const;
 
@@ -36,12 +35,6 @@ const EXPANDED: Partial<Record<string, string>> = {
   workspace: "TPC",
   device: "Test stand DAQ",
 };
-
-/** ICDs on the Core, which the ICDs toolbar lists. Fixed keys keep their order. */
-const ICDS = [
-  { key: "1d6c3f0a-5b2e-4c8d-9a7f-2e4b6c8d0a1f", name: "Flow meter" },
-  { key: "7a9e1b3c-4d5f-4e6a-8b7c-9d0e1f2a3b4c", name: "Test stand DAQ" },
-];
 
 /** Alarms on the stand, which the statuses toolbar shows once they are favorites. */
 const ALARMS = [
@@ -70,7 +63,6 @@ export default async (session: capture.CaptureSession): Promise<void> => {
         message,
       })),
     );
-    await client.icds.create(ICDS);
     await openProject(session, world.project);
 
     await favorite(session, "Open range explorer", [
