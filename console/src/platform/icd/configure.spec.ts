@@ -127,4 +127,28 @@ describe("planMessage", () => {
     ]);
     expect((await client.channels.retrieve(shared.key)).name).toBe(`${prefix}_temp`);
   });
+
+  it("should leave a stored index that another message writes", async () => {
+    const prefix = uniqueName("src");
+    const index = await createIndex(`${prefix}_time`);
+    const temp = await client.channels.create({
+      name: `${prefix}_temp`,
+      dataType: "float64",
+      index: index.key,
+    });
+    const bound = createBound({ flow: 0 });
+    const plan = await ICD.planMessage(
+      client,
+      Task.createNamer(client),
+      bound,
+      prefix,
+      { index: index.key, channels: {} },
+      new Set([temp.key]),
+    );
+    await ICD.applyMessage(client, bound, plan);
+    const [{ channel }] = bound.source.messages[0].bindings;
+    const flow = await client.channels.retrieve(channel);
+    expect(flow.index).not.toBe(0);
+    expect(flow.index).not.toBe(index.key);
+  });
 });
