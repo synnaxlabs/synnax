@@ -131,9 +131,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
     this.cfg = cfg;
     this.store = store;
     this.dispatcher = dispatcher;
-    this.setGroupRequest = group.createMoveRequest(
-      "/schematic/symbol/dispatch",
-      (keys, to) => group.moveCached(store, keys, to),
+    this.setGroupRequest = group.createMoveRequest((key, acts) =>
+      dispatcher.request("/schematic/symbol/dispatch", key, acts, dispatchResZ),
     );
     this.builtins = new builtin.Client(cfg.unary);
   }

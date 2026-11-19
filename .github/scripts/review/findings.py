@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 SEVERITIES = ("P0", "P1", "P2")
@@ -17,7 +17,7 @@ _LINE = {"type": "integer", "minimum": 1}
 SCHEMA: dict[str, Any] = {
     "type": "object",
     "additionalProperties": False,
-    "required": ["score", "verdict", "summary", "findings"],
+    "required": ["score", "verdict", "summary", "findings", "fixed"],
     "properties": {
         "score": {"type": "integer", "minimum": 1, "maximum": 5},
         "verdict": _TEXT,
@@ -38,6 +38,15 @@ SCHEMA: dict[str, Any] = {
                     "suggestion": _TEXT,
                     "rule": _TEXT,
                 },
+            },
+        },
+        "fixed": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["path", "title", "reason"],
+                "properties": {"path": _TEXT, "title": _TEXT, "reason": _TEXT},
             },
         },
     },
@@ -67,6 +76,16 @@ class Finding:
 
 
 @dataclass(frozen=True, kw_only=True)
+class Fix:
+    """An earlier finding that the reviewer found fixed."""
+
+    path: str
+    title: str
+    reason: str
+    """The code that fixed the finding, in one sentence."""
+
+
+@dataclass(frozen=True, kw_only=True)
 class Dismissal:
     """A finding that someone with write access told the bot to stop reporting on a
     pull request, or that the bot withdrew after a rebuttal."""
@@ -87,12 +106,14 @@ class Review:
     verdict: str
     summary: list[str]
     findings: list[Finding]
+    fixed: list[Fix] = field(default_factory=list)
+    """The earlier findings still open that the review found fixed."""
 
 
 def parse(data: dict[str, Any]) -> Review:
     """Builds a review from the JSON the reviewer wrote.
 
-    :raises TypeError: If a finding has a missing or unknown field.
+    :raises TypeError: If a finding or a fix has a missing or unknown field.
     :raises ValueError: If the score, a severity, or a line range is out of range.
     """
     review = Review(
@@ -100,6 +121,7 @@ def parse(data: dict[str, Any]) -> Review:
         verdict=data["verdict"],
         summary=list(data["summary"]),
         findings=[Finding(**f) for f in data["findings"]],
+        fixed=[Fix(**f) for f in data["fixed"]],
     )
     if not 1 <= review.score <= 5:
         raise ValueError(f"score {review.score} is not between 1 and 5")
