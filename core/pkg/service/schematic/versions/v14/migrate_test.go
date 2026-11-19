@@ -18,13 +18,13 @@ import (
 	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	v13 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v13"
 	v14 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v14"
-	color "github.com/synnaxlabs/x/color/versions/v2"
+	xcolor "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/defaults"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
-func shade(r uint8) *color.Color { return &color.Color{R: r, A: 255} }
+func shade(r uint8) *xcolor.Color { return &xcolor.Color{R: r, A: 255} }
 
 func fixed(r uint8) *servicecolor.Ref {
 	return &servicecolor.Ref{Variant: servicecolor.FixedRef{Value: *shade(r)}}
@@ -178,11 +178,11 @@ var _ = Describe("MigrateNodeConfig", func() {
 		),
 		Entry(
 			"a scale",
-			v13.ScaleNodeConfig{ScaleIndicatorConfig: v13.ScaleIndicatorConfig{
+			v13.ScaleNodeConfig{
 				LevelColor: shade(1),
 				AxisColor:  shade(2),
 				TextColor:  shade(3),
-			}},
+			},
 			"LevelColor",
 			"AxisColor",
 			"TextColor",
@@ -198,4 +198,117 @@ var _ = Describe("MigrateNodeConfig", func() {
 		Expect(box.StrokeColor).To(BeNil())
 		Expect(box.FillColor).To(BeNil())
 	})
+})
+
+var _ = Describe("MigrateSegmentedEdgeConfig", func() {
+	It("Should store the stroke color as a fixed color and keep the width",
+		func(ctx SpecContext) {
+			out := MustSucceed(
+				v14.MigrateSegmentedEdgeConfig(ctx, v13.SegmentedEdgeConfig{
+					StrokeColor: shade(1),
+					StrokeWidth: 3,
+				}),
+			)
+			Expect(out.StrokeColor).To(Equal(fixed(1)))
+			Expect(out.StrokeWidth).To(BeEquivalentTo(3))
+		},
+	)
+
+	It("Should keep an absent stroke color absent", func(ctx SpecContext) {
+		out := MustSucceed(
+			v14.MigrateSegmentedEdgeConfig(
+				ctx,
+				v13.SegmentedEdgeConfig{StrokeWidth: 3},
+			),
+		)
+		Expect(out.StrokeColor).To(BeNil())
+		Expect(out.StrokeWidth).To(BeEquivalentTo(3))
+	})
+})
+
+var _ = Describe("MigrateScaleIndicatorConfig", func() {
+	It("Should store the level, axis, and text colors as fixed colors",
+		func(ctx SpecContext) {
+			out := MustSucceed(v14.MigrateScaleIndicatorConfig(
+				ctx,
+				v13.ScaleIndicatorConfig{
+					LevelColor: shade(1),
+					AxisColor:  shade(2),
+					TextColor:  shade(3),
+				},
+			))
+			Expect(out.LevelColor).To(Equal(fixed(1)))
+			Expect(out.AxisColor).To(Equal(fixed(2)))
+			Expect(out.TextColor).To(Equal(fixed(3)))
+		},
+	)
+})
+
+var _ = Describe("MigrateNode", func() {
+	It("Should keep the node and store its colors as fixed colors",
+		func(ctx SpecContext) {
+			out := MustSucceed(v14.MigrateNode(ctx, v13.Node{
+				Key:    "n",
+				ZIndex: 2,
+				Config: v13.NodeConfig{
+					Variant: v13.BoxNodeConfig{StrokeColor: shade(1)},
+				},
+			}))
+			Expect(out.Key).To(Equal("n"))
+			Expect(out.ZIndex).To(BeEquivalentTo(2))
+			box, ok := out.Config.Variant.(v14.BoxNodeConfig)
+			Expect(ok).To(BeTrue())
+			Expect(box.StrokeColor).To(Equal(fixed(1)))
+		},
+	)
+})
+
+var _ = Describe("MigrateEdge", func() {
+	It("Should keep the edge and store its stroke color as a fixed color",
+		func(ctx SpecContext) {
+			out := MustSucceed(v14.MigrateEdge(ctx, v13.Edge{
+				Key: "e",
+				Config: v13.EdgeConfig{Variant: v13.PipeEdgeConfig{
+					SegmentedEdgeConfig: v13.SegmentedEdgeConfig{StrokeColor: shade(1)},
+				}},
+			}))
+			Expect(out.Key).To(Equal("e"))
+			pipe, ok := out.Config.Variant.(v14.PipeEdgeConfig)
+			Expect(ok).To(BeTrue())
+			Expect(pipe.StrokeColor).To(Equal(fixed(1)))
+		},
+	)
+})
+
+var _ = Describe("MigrateSchematic", func() {
+	It("Should store the colors of each node and edge as fixed colors",
+		func(ctx SpecContext) {
+			out := MustSucceed(v14.MigrateSchematic(ctx, v13.Schematic{
+				Name: "Engine",
+				Nodes: []v13.Node{
+					{
+						Key: "n",
+						Config: v13.NodeConfig{
+							Variant: v13.BoxNodeConfig{FillColor: shade(1)},
+						},
+					},
+				},
+				Edges: []v13.Edge{{
+					Key: "e",
+					Config: v13.EdgeConfig{Variant: v13.PipeEdgeConfig{
+						SegmentedEdgeConfig: v13.SegmentedEdgeConfig{
+							StrokeColor: shade(2),
+						},
+					}},
+				}},
+			}))
+			Expect(out.Name).To(Equal("Engine"))
+			box, ok := out.Nodes[0].Config.Variant.(v14.BoxNodeConfig)
+			Expect(ok).To(BeTrue())
+			Expect(box.FillColor).To(Equal(fixed(1)))
+			pipe, ok := out.Edges[0].Config.Variant.(v14.PipeEdgeConfig)
+			Expect(ok).To(BeTrue())
+			Expect(pipe.StrokeColor).To(Equal(fixed(2)))
+		},
+	)
 })

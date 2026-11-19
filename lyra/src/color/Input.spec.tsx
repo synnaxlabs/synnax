@@ -20,7 +20,7 @@ import { Triggers } from "@/triggers";
 const RED = "#ff0000";
 const GRAY = "#888888";
 
-const FAULT: NonNullable<Color.InputProps["library"]> = {
+const FAULT: Color.Library = {
   palettes: [
     { key: "p", name: "Alarms", colors: [{ key: "fault", name: "Fault", light: RED }] },
   ],

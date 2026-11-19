@@ -108,22 +108,15 @@ export const useForm = Flux.createDocumentForm<
   toValues: ({ name, light, dark }) => ({ name, light, dark }),
 });
 
+/**
+ * Creates a named color. With no position, it goes after every color of its palette
+ * that has a position, and the colors with no position stay after it.
+ */
 export const { useUpdate: useCreate } = Flux.createUpdate<color.New, color.Named>({
   name: RESOURCE_NAME,
   verbs: verbs.CREATE,
-  update: async ({ client, data }) => await client.colors.create(data),
-});
-
-export interface AppendParams extends Omit<color.New, "position"> {}
-
-/**
- * Creates a named color after every color of its palette that has a position. It
- * writes no other color, so colors with no position stay after it.
- */
-export const { useUpdate: useAppend } = Flux.createUpdate<AppendParams, color.Named>({
-  name: RESOURCE_NAME,
-  verbs: verbs.CREATE,
   update: async ({ client, data }) => {
+    if (data.position != null) return await client.colors.create(data);
     const where = data.group == null ? { grouped: false } : { groups: [data.group] };
     const last = (await client.colors.retrieve({ where }))
       .filter((c) => c.position != null)
