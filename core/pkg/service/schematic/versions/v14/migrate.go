@@ -17,8 +17,7 @@ import (
 )
 
 // MigrateSchematic lifts a v13 schematic into v14. No select or state indicator names
-// an
-// enumeration yet.
+// an enumeration yet.
 func MigrateSchematic(ctx context.Context, old v13.Schematic) (Schematic, error) {
 	return autoMigrateSchematic(ctx, old)
 }
@@ -29,8 +28,7 @@ func MigrateNode(ctx context.Context, old v13.Node) (Node, error) {
 }
 
 // MigrateNodeConfig lifts a v13 node config into v14. A select or a state indicator
-// keeps
-// its options and names no enumeration.
+// keeps its options and names no enumeration.
 func MigrateNodeConfig(ctx context.Context, old v13.NodeConfig) (NodeConfig, error) {
 	return autoMigrateNodeConfig(ctx, old)
 }
