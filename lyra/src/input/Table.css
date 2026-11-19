@@ -218,7 +218,7 @@
     /* A cell control takes the cell variant, wrapped or not. It draws its border on the
        grid line, so focus and hover frame the whole cell. The focused cell stays above
        its neighbors. */
-    & tbody .lyra-btn--shadow {
+    & tbody :is(.lyra-btn--shadow, .lyra-input__checkbox, .lyra-input__switch) {
         border-width: 0;
         border-radius: 0;
         outline: var(--pluto-border-width) solid var(--pluto-btn-border-color);
@@ -232,19 +232,49 @@
         }
     }
 
+    /* A boolean control has no shadow variant, so the cell gives it the frame of one. */
+    & tbody :is(.lyra-input__checkbox, .lyra-input__switch) {
+        --pluto-border-color: transparent;
+        --pluto-hover-border-color: var(--pluto-gray-l7);
+        --pluto-active-border-color: var(--pluto-gray-l8);
+
+        &:hover:not(:focus-within) {
+            --pluto-btn-border-color: var(--pluto-hover-border-color);
+        }
+
+        &:focus-within:not(.lyra--status-error, .lyra--status-warning) {
+            --pluto-btn-border-color: var(--pluto-primary-z);
+        }
+    }
+
     /* A marked cell keeps its frame at rest, above its unfocused neighbors. */
     &
         tbody
-        .lyra-input:is(.lyra--status-error, .lyra--status-warning):not(:focus-within) {
+        :is(.lyra-input, .lyra-input__checkbox, .lyra-input__switch):is(
+            .lyra--status-error,
+            .lyra--status-warning
+        ):not(:focus-within) {
         z-index: 1;
     }
 
-    & tbody .lyra-input.lyra--status-error {
+    &
+        tbody
+        :is(
+            .lyra-input,
+            .lyra-input__checkbox,
+            .lyra-input__switch
+        ).lyra--status-error {
         --pluto-border-color: var(--pluto-error-z);
         --pluto-hover-border-color: var(--pluto-error-p1);
     }
 
-    & tbody .lyra-input.lyra--status-warning {
+    &
+        tbody
+        :is(
+            .lyra-input,
+            .lyra-input__checkbox,
+            .lyra-input__switch
+        ).lyra--status-warning {
         --pluto-border-color: var(--pluto-warning-z);
         --pluto-hover-border-color: var(--pluto-warning-p1);
     }
