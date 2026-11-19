@@ -191,8 +191,8 @@ export const readRecordZ = z.object({
   /** disabled is true when the record is excluded from the task. */
   disabled: z.boolean().default(false),
   /**
-   * recordKey is the Kafka key of the records read here. Empty reads every record that
-   * no other record of the task claims, keyless ones included.
+   * recordKey is the Kafka key of the records read here. Empty reads every record of
+   * the topic that no other record of the topic claims, keyless ones included.
    */
   recordKey: z.string().default(""),
   /** icd is the key of the ICD that holds the messages of the records. */
@@ -205,11 +205,21 @@ export const readRecordZ = z.object({
 });
 export interface ReadRecord extends z.infer<typeof readRecordZ> {}
 
+/** ReadTopic reads the records of one topic. */
+export const readTopicZ = z.object({
+  /** key uniquely identifies the topic within the task. */
+  key: z.string().default(id.create),
+  /** name is the name of the topic. */
+  name: z.string().default(""),
+  /** records contains the records the task reads from the topic, one per record key. */
+  records: readRecordZ.array().default(() => []),
+});
+export interface ReadTopic extends z.infer<typeof readTopicZ> {}
+
 export const readConfigZ = task.persistConfigZ.extend({
   device: device.keyZ.default(""),
-  topic: z.string().default(""),
   group: z.string().default(""),
   startOffset: startOffsetZ.default("latest"),
-  records: readRecordZ.array().default(() => []),
+  topics: readTopicZ.array().default(() => []),
 });
 export interface ReadConfig extends z.infer<typeof readConfigZ> {}

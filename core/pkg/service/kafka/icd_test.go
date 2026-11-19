@@ -87,7 +87,12 @@ func lift(ctx context.Context, records ...kafka.InlineRecord) []kafka.ReadRecord
 		}
 		return icdSvc.NewWriter(tx).Create(ctx, &ic)
 	})).To(Succeed())
-	return cfg.Records
+	return cfg.Topics[0].Records
+}
+
+// oneTopic returns the topics of a task that reads records from the topic name.
+func oneTopic(name string, records []kafka.ReadRecord) []kafka.ReadTopic {
+	return []kafka.ReadTopic{{Name: name, Records: records}}
 }
 
 // channels returns the channels among keys, read through snap.

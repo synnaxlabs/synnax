@@ -54,14 +54,13 @@ func (rc ReadConfig) EncodeOrc(w *orc.Writer) error {
 	w.Bool(rc.AutoStart)
 	w.Bool(rc.DataSavingDisabled)
 	w.String(rc.Device)
-	w.String(rc.Topic)
 	w.String(rc.Group)
 	w.String(string(rc.StartOffset))
-	w.Bool(rc.Records != nil)
-	if rc.Records != nil {
-		w.Uint32(uint32(len(rc.Records)))
-		for i := range rc.Records {
-			if err := rc.Records[i].EncodeOrc(w); err != nil {
+	w.Bool(rc.Topics != nil)
+	if rc.Topics != nil {
+		w.Uint32(uint32(len(rc.Topics)))
+		for i := range rc.Topics {
+			if err := rc.Topics[i].EncodeOrc(w); err != nil {
 				return err
 			}
 		}
@@ -84,9 +83,6 @@ func (rc *ReadConfig) DecodeOrc(r *orc.Reader) error {
 	if rc.Device, err = r.String(); err != nil {
 		return err
 	}
-	if rc.Topic, err = r.String(); err != nil {
-		return err
-	}
 	if rc.Group, err = r.String(); err != nil {
 		return err
 	}
@@ -107,9 +103,9 @@ func (rc *ReadConfig) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			rc.Records = make([]ReadRecord, n)
-			for i := range rc.Records {
-				if err = rc.Records[i].DecodeOrc(r); err != nil {
+			rc.Topics = make([]ReadTopic, n)
+			for i := range rc.Topics {
+				if err = rc.Topics[i].DecodeOrc(r); err != nil {
 					return err
 				}
 			}
@@ -224,6 +220,52 @@ func (rr *ReadRecord) DecodeOrc(r *orc.Reader) error {
 			rr.Messages = make([]ReadMessage, n)
 			for i := range rr.Messages {
 				if err = rr.Messages[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (rt ReadTopic) EncodeOrc(w *orc.Writer) error {
+	w.String(rt.Key)
+	w.String(rt.Name)
+	w.Bool(rt.Records != nil)
+	if rt.Records != nil {
+		w.Uint32(uint32(len(rt.Records)))
+		for i := range rt.Records {
+			if err := rt.Records[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (rt *ReadTopic) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if rt.Key, err = r.String(); err != nil {
+		return err
+	}
+	if rt.Name, err = r.String(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			rt.Records = make([]ReadRecord, n)
+			for i := range rt.Records {
+				if err = rt.Records[i].DecodeOrc(r); err != nil {
 					return err
 				}
 			}

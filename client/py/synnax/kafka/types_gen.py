@@ -211,7 +211,8 @@ class ReadRecord(BaseModel):
         key: Uniquely identifies the record within the task.
         disabled: Is true when the record is excluded from the task.
         record_key: Is the Kafka key of the records read here. Empty reads every record
-            that no other record of the task claims, keyless ones included.
+            of the topic that no other record of the topic claims, keyless ones
+            included.
         icd: Is the key of the ICD that holds the messages of the records.
         messages: Are the messages the records carry. Each record value is read as the
             message whose match rule it meets.
@@ -228,24 +229,40 @@ class ReadRecord(BaseModel):
         return hash(self.key)
 
 
+class ReadTopic(BaseModel):
+    """Reads the records of one topic.
+
+    Attributes:
+        key: Uniquely identifies the topic within the task.
+        name: Is the name of the topic.
+        records: Contains the records the task reads from the topic, one per record key.
+    """
+
+    key: str = Field(default_factory=lambda: str(uuid4()))
+    name: str = ""
+    records: list[ReadRecord] = Field(default_factory=list)
+
+    @_override
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
 class ReadConfig(task.PersistConfig):
-    """Configures a Kafka read task, which consumes a topic and writes the fields of ICD
+    """Configures a Kafka read task, which consumes topics and writes the fields of ICD
     messages into channels.
 
     Attributes:
         device: Is the key of the Kafka cluster device to consume from.
-        topic: Is the topic the task consumes.
         group: Is the consumer group the task joins. Empty derives the group from the
             task key.
         start_offset: Is where the group starts when it has no committed offset.
-        records: Contains the records the task reads, one per record key.
+        topics: Contains the topics the task consumes.
     """
 
     device: device_.Key = ""
-    topic: str = ""
     group: str = ""
     start_offset: StartOffset = "latest"
-    records: list[ReadRecord] = Field(default_factory=list)
+    topics: list[ReadTopic] = Field(default_factory=list)
 
     @_override
     def __hash__(self) -> int:

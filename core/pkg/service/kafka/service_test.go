@@ -156,7 +156,7 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("Write", func() {
-		It("Should store a read record with its schema defaults", func(
+		It("Should store a read topic and record with their schema defaults", func(
 			ctx SpecContext,
 		) {
 			Expect(tasks.CreateDevice(ctx, "dev-1")).To(Succeed())
@@ -165,21 +165,27 @@ var _ = Describe("Service", func() {
 				return icds.NewWriter(tx).Create(ctx, &ic)
 			})).To(Succeed())
 			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
-				"device":  "dev-1",
-				"topic":   "telemetry",
-				"records": []any{map[string]any{"key": "r-1", "icd": ic.Key}},
+				"device": "dev-1",
+				"topics": []any{map[string]any{
+					"key":     "t-1",
+					"name":    "telemetry",
+					"records": []any{map[string]any{"key": "r-1", "icd": ic.Key}},
+				}},
 			}))
 			data := MustSucceed(svc.Read.Read(ctx, db, key))
 			Expect(data["key"]).To(Equal(key.String()))
 			Expect(data["device"]).To(Equal("dev-1"))
-			Expect(data["topic"]).To(Equal("telemetry"))
 			Expect(data["start_offset"]).To(Equal("latest"))
 			Expect(data).ToNot(HaveKey("inline"))
-			Expect(data["records"]).To(HaveExactElements(SatisfyAll(
-				HaveKeyWithValue("record_key", ""),
-				HaveKeyWithValue("disabled", false),
-				HaveKeyWithValue("icd", ic.Key.String()),
-				HaveKeyWithValue("messages", BeEmpty()),
+			Expect(data["topics"]).To(HaveExactElements(SatisfyAll(
+				HaveKeyWithValue("key", "t-1"),
+				HaveKeyWithValue("name", "telemetry"),
+				HaveKeyWithValue("records", HaveExactElements(SatisfyAll(
+					HaveKeyWithValue("record_key", ""),
+					HaveKeyWithValue("disabled", false),
+					HaveKeyWithValue("icd", ic.Key.String()),
+					HaveKeyWithValue("messages", BeEmpty()),
+				))),
 			)))
 		})
 
@@ -315,7 +321,11 @@ var _ = Describe("Service", func() {
 			for i, r := range records {
 				list[i] = r
 			}
-			return msgpack.EncodedJSON{"records": list}
+			return msgpack.EncodedJSON{"topics": []any{map[string]any{
+				"key":     "t-1",
+				"name":    "plant",
+				"records": list,
+			}}}
 		}
 
 		prepare := func(ctx context.Context, cfg msgpack.EncodedJSON) error {
@@ -361,21 +371,24 @@ var _ = Describe("Service", func() {
 				)
 				read := readMessage(other, binding(other, 0, f.value))
 				return []map[string]any{icdRecord("", f.ic, read)}
-			}, "records.0.messages.0.message", "does not exist in ICD Plant"),
+			}, "topics.0.records.0.messages.0.message", "does not exist in ICD Plant"),
 			Entry("a message that is not JSON", func(f format) []map[string]any {
 				read := readMessage(f.frame, map[string]any{"field": uuid.New()})
 				return []map[string]any{icdRecord("", f.ic, read)}
-			}, "records.0.messages.0.message", "message Frame is not a JSON message"),
+			}, "topics.0.records.0.messages.0.message", "message Frame is not a JSON message"),
 			Entry("a field that the message lacks", func(f format) []map[string]any {
 				read := readMessage(f.m, map[string]any{
 					"field": uuid.New(), "channel": f.value.Key(),
 				})
 				return []map[string]any{icdRecord("", f.ic, read)}
-			}, "records.0.messages.0.bindings.0.field", "does not exist in message Status"),
+			},
+				"topics.0.records.0.messages.0.bindings.0.field",
+				"does not exist in message Status",
+			),
 			Entry("a bytes field at the root", func(f format) []map[string]any {
 				read := readMessage(f.m, map[string]any{"field": fieldKey(f.m, 3)})
 				return []map[string]any{icdRecord("", f.ic, read)}
-			}, "records.0.messages.0.bindings.0.field",
+			}, "topics.0.records.0.messages.0.bindings.0.field",
 				"bytes field raw requires a JSON pointer"),
 			Entry("a data type that the field kind does not suit",
 				func(f format) []map[string]any {
@@ -384,7 +397,7 @@ var _ = Describe("Service", func() {
 					})
 					return []map[string]any{icdRecord("", f.ic, read)}
 				},
-				"records.0.messages.0.bindings.0.data_type",
+				"topics.0.records.0.messages.0.bindings.0.data_type",
 				"field state of kind string cannot read into data type float64",
 			),
 			Entry("a channel that the field kind does not convert to",
@@ -392,7 +405,7 @@ var _ = Describe("Service", func() {
 					read := readMessage(f.m, binding(f.m, 2, f.value))
 					return []map[string]any{icdRecord("", f.ic, read)}
 				},
-				"records.0.messages.0.bindings.0.channel",
+				"topics.0.records.0.messages.0.bindings.0.channel",
 				"field state of kind string cannot read into channel",
 			),
 			Entry("an index field that is not a timestamp",
@@ -401,42 +414,45 @@ var _ = Describe("Service", func() {
 					read["index"] = fieldKey(f.m, 1)
 					return []map[string]any{icdRecord("", f.ic, read)}
 				},
-				"records.0.messages.0.index",
+				"topics.0.records.0.messages.0.index",
 				"the index field temp must be a timestamp field",
 			),
 			Entry("an index field with a default", func(f format) []map[string]any {
 				read := readMessage(f.stamped, binding(f.stamped, 0, f.idx))
 				read["index"] = fieldKey(f.stamped, 0)
 				return []map[string]any{icdRecord("", f.ic, read)}
-			}, "records.0.messages.0.index", "the index field ts cannot take a default"),
+			},
+				"topics.0.records.0.messages.0.index",
+				"the index field ts cannot take a default",
+			),
 			Entry("an index field with no binding", func(f format) []map[string]any {
 				read := readMessage(f.m, binding(f.m, 1, f.value))
 				read["index"] = fieldKey(f.m, 0)
 				return []map[string]any{icdRecord("", f.ic, read)}
-			}, "records.0.messages.0.index", "the index field ts has no binding"),
+			}, "topics.0.records.0.messages.0.index", "the index field ts has no binding"),
 			Entry("an index that names no field", func(f format) []map[string]any {
 				read := readMessage(f.m, binding(f.m, 1, f.value))
 				read["index"] = uuid.New()
 				return []map[string]any{icdRecord("", f.ic, read)}
-			}, "records.0.messages.0.index", "does not exist in message Status"),
+			}, "topics.0.records.0.messages.0.index", "does not exist in message Status"),
 			Entry("an index field on a data channel", func(f format) []map[string]any {
 				read := readMessage(f.m, binding(f.m, 0, f.stamp))
 				read["index"] = fieldKey(f.m, 0)
 				return []map[string]any{icdRecord("", f.ic, read)}
-			}, "records.0.messages.0.bindings.0.channel",
+			}, "topics.0.records.0.messages.0.bindings.0.channel",
 				"the index field ts must write to an index channel"),
 			Entry("a data field on an index channel", func(f format) []map[string]any {
 				read := readMessage(f.m, binding(f.m, 0, f.idx))
 				return []map[string]any{icdRecord("", f.ic, read)}
-			}, "records.0.messages.0.bindings.0.channel",
+			}, "topics.0.records.0.messages.0.bindings.0.channel",
 				"only the index field can write to index channel"),
 			Entry("a channel that two records write", func(f format) []map[string]any {
 				return []map[string]any{
 					icdRecord("a", f.ic, readMessage(f.m, binding(f.m, 1, f.value))),
 					icdRecord("b", f.ic, readMessage(f.m, binding(f.m, 1, f.value))),
 				}
-			}, "records.1.messages.0.bindings.0.channel", "is also written by "+
-				"records.0.messages.0.bindings.0.channel"),
+			}, "topics.0.records.1.messages.0.bindings.0.channel", "is also written by "+
+				"topics.0.records.0.messages.0.bindings.0.channel"),
 		)
 
 		Describe("Config hash", func() {
@@ -549,10 +565,11 @@ var _ = Describe("Service", func() {
 					Expect(stored).ToNot(HaveKey("inline"))
 					var cfg kafka.ReadConfig
 					Expect(stored.Unmarshal(&cfg)).To(Succeed())
-					Expect(cfg.Topic).To(Equal("plant"))
 					Expect(cfg.StartOffset).To(Equal(kafka.StartOffsetEarliest))
-					Expect(cfg.Records).To(HaveLen(1))
-					rec := cfg.Records[0]
+					Expect(cfg.Topics).To(HaveLen(1))
+					Expect(cfg.Topics[0].Name).To(Equal("plant"))
+					Expect(cfg.Topics[0].Records).To(HaveLen(1))
+					rec := cfg.Topics[0].Records[0]
 					Expect(rec.Key).To(Equal("record-1"))
 					Expect(rec.RecordKey).To(Equal("pump"))
 					var ic icd.ICD

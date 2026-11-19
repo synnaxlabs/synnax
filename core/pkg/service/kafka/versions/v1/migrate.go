@@ -230,18 +230,24 @@ func booleanEntry(e payload.EnumEntry) (payload.BooleanEntry, bool) {
 	return payload.BooleanEntry{Label: e.Label, Value: e.Value != 0}, true
 }
 
-// MigrateReadRecord lifts a v0 read record to v1. The record has no ICD until
-// MigrateReadConfig stages it.
-func MigrateReadRecord(ctx context.Context, old v0.ReadRecord) (ReadRecord, error) {
-	return autoMigrateReadRecord(ctx, old)
-}
-
-// MigrateReadConfig lifts a v0 read config to v1. It moves each record into Inline, for
-// ResolveReadConfig to add back with an ICD.
+// MigrateReadConfig lifts a v0 read config to v1. Its topic becomes a topic with no
+// records, and its records move into Inline, for ResolveReadConfig to add back to that
+// topic with an ICD.
 func MigrateReadConfig(ctx context.Context, old v0.ReadConfig) (ReadConfig, error) {
 	cfg, err := autoMigrateReadConfig(ctx, old)
-	if err != nil || len(old.Records) == 0 {
+	if err != nil {
 		return cfg, err
+	}
+	cfg.Topics = []ReadTopic{}
+	if old.Topic != "" {
+		cfg.Topics = append(cfg.Topics, ReadTopic{
+			Key:     uuid.New().String(),
+			Name:    old.Topic,
+			Records: []ReadRecord{},
+		})
+	}
+	if len(old.Records) == 0 {
+		return cfg, nil
 	}
 	staged := make([]InlineRecord, len(old.Records))
 	for i, r := range old.Records {
@@ -252,7 +258,7 @@ func MigrateReadConfig(ctx context.Context, old v0.ReadConfig) (ReadConfig, erro
 			Fields:    r.Fields,
 		}
 	}
-	cfg.Records, cfg.Inline = []ReadRecord{}, &InlineRead{Records: staged}
+	cfg.Inline = &InlineRead{Topic: old.Topic, Records: staged}
 	return cfg, nil
 }
 

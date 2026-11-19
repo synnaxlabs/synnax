@@ -119,11 +119,9 @@ var _ = Describe("Factory", func() {
 		GinkgoHelper()
 		_, data := createIndexed(ctx, telem.Float64T)
 		return kafka.ReadConfig{
-			AutoStart:   autoStart,
-			Device:      dev,
-			Topic:       uniqueTopic(),
-			StartOffset: kafka.StartOffsetEarliest,
-			Records: lift(ctx, kafka.InlineRecord{
+			AutoStart: autoStart,
+			Device:    dev,
+			Topics: oneTopic(uniqueTopic(), lift(ctx, kafka.InlineRecord{
 				Key: "r",
 				Fields: []kafka.ReadField{{
 					Key:      "v",
@@ -131,7 +129,8 @@ var _ = Describe("Factory", func() {
 					Pointer:  "/v",
 					DataType: telem.Float64T,
 				}},
-			}),
+			})),
+			StartOffset: kafka.StartOffsetEarliest,
 		}
 	}
 	writeConfig := func(ctx context.Context, dev device.Key, autoStart bool) any {

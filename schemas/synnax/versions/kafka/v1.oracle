@@ -58,6 +58,24 @@ ReadMessage struct {
     @go marshal
 }
 
+ReadTopic struct {
+    key     string = create {
+        @doc value "uniquely identifies the topic within the task."
+        @key
+    }
+    name    string = "" {
+        @doc value "is the name of the topic."
+    }
+    records ReadRecord[] = [] {
+        @doc value """
+            contains the records the task reads from the topic, one per record key.
+        """
+    }
+
+    @doc value  "reads the records of one topic."
+    @go marshal
+}
+
 ReadRecord struct {
     key        string = create {
         @doc value "uniquely identifies the record within the task."
@@ -68,8 +86,8 @@ ReadRecord struct {
     }
     record_key string = "" {
         @doc value """
-            is the Kafka key of the records read here. Empty reads every record that no
-            other record of the task claims, keyless ones included.
+            is the Kafka key of the records read here. Empty reads every record of the
+            topic that no other record of the topic claims, keyless ones included.
         """
     }
     icd        icd.Key       {
@@ -104,6 +122,9 @@ InlineRecord struct {
 }
 
 InlineRead struct {
+    topic   string = "" {
+        @doc value "is the topic of the records."
+    }
     records InlineRecord[] = [] {
         @doc value "are the records that hold their fields inline."
     }
@@ -115,9 +136,6 @@ ReadConfig struct extends task.PersistConfig {
     device       device.Key = "" {
         @doc value "is the key of the Kafka cluster device to consume from."
     }
-    topic        string = "" {
-        @doc value "is the topic the task consumes."
-    }
     group        string = "" {
         @doc value """
             is the consumer group the task joins. Empty derives the group from the task
@@ -127,10 +145,10 @@ ReadConfig struct extends task.PersistConfig {
     start_offset StartOffset = latest {
         @doc value "is where the group starts when it has no committed offset."
     }
-    records      ReadRecord[] {
-        @doc value "contains the records the task reads, one per record key."
+    topics       ReadTopic[] {
+        @doc value "contains the topics the task consumes."
     }
-    inline       InlineRead?  {
+    inline       InlineRead? {
         @doc value  """
             holds the records of a config from before ICDs. A write moves their fields
             into a new ICD, adds the records, and clears it.
@@ -139,8 +157,8 @@ ReadConfig struct extends task.PersistConfig {
     }
 
     @doc value  """
-        configures a Kafka read task, which consumes a topic and writes the fields of
-        ICD messages into channels.
+        configures a Kafka read task, which consumes topics and writes the fields of ICD
+        messages into channels.
     """
     @go imex    body
     @go marshal
