@@ -10,6 +10,7 @@
 import { arc as clientArc, type resource } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Haul } from "@synnaxlabs/lyra/haul";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
@@ -37,7 +38,6 @@ import {
   renderSuspended,
   resolveFocusedTab,
   type TestStore,
-  uniqueName,
   uniqueToken,
 } from "@/testutil";
 

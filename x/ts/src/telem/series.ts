@@ -122,14 +122,7 @@ const EMPTY_RANGES: readonly bounds.Bounds[] = [];
 /** Samples summarized per cached min/max block in boundsFor. */
 const BOUNDS_BLOCK_SIZE = 4096;
 
-const stringArrayZ = z.string().transform(
-  (s) =>
-    new Uint8Array(
-      atob(s)
-        .split("")
-        .map((c) => c.charCodeAt(0)),
-    ).buffer,
-);
+const stringArrayZ = z.string().transform((s) => binary.decodeBase64(s).buffer);
 
 const nullArrayZ = z
   .union([z.null(), z.undefined()])

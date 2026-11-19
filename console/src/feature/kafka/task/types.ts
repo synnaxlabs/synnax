@@ -14,6 +14,7 @@ import {
   json,
   type payload,
   record,
+  zod,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -57,25 +58,11 @@ const deployReadRecordZ = kafka.readRecordZ.extend({
 });
 
 /** Flags every record whose key an earlier record already claims. */
-const validateRecordKeys = (ctx: z.core.ParsePayload<ReadRecord[]>) => {
-  const seen = new Set<string>();
-  ctx.value.forEach(({ recordKey }, i) => {
-    if (!seen.has(recordKey)) {
-      seen.add(recordKey);
-      return;
-    }
-    ctx.issues.push({
-      continue: true,
-      code: "custom",
-      input: ctx.value,
-      message:
-        recordKey === ""
-          ? "Only one record can read any key"
-          : `Record key "${recordKey}" is used by another record`,
-      path: [i, "recordKey"],
-    });
-  });
-};
+const validateRecordKeys = zod.uniqueBy<ReadRecord, "recordKey">("recordKey", (key) =>
+  key === ""
+    ? "Only one record can read any key"
+    : `Record key "${key}" is used by another record`,
+);
 
 export const deployReadConfigZ = kafka.readConfigZ.extend({
   device: Task.deviceKeyZ,

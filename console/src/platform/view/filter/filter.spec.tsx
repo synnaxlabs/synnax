@@ -11,6 +11,7 @@ import { panel, status, type Synnax as Client, view } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Form } from "@synnaxlabs/lyra/form";
 import { deep, filter, uuid } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
@@ -20,7 +21,7 @@ import { Label } from "@/platform/label";
 import { Status } from "@/platform/status";
 import { View } from "@/platform/view";
 import { createTabWrapper, openFilterProperty } from "@/platform/view/testutil";
-import { createTestClientWithGrants, renderSuspended, uniqueName } from "@/testutil";
+import { createTestClientWithGrants, renderSuspended } from "@/testutil";
 
 const client = createTestClient();
 
