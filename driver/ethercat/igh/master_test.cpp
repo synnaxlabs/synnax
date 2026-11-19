@@ -1061,6 +1061,29 @@ TEST_F(IGHMasterTest, ActivateWaitsWhileTheSlavesReachOPOneAtATime) {
     EXPECT_GE(this->clock.steady() - started, std::chrono::seconds(21));
 }
 
+/// @brief it should report each slave that reaches OP.
+TEST_F(IGHMasterTest, ActivateReportsEachSlaveThatReachesOP) {
+    for (int i = 1; i <= 3; ++i)
+        this->api->add_slave().reads_to_reach = 700 * i;
+    ASSERT_NIL_P(this->master.scan());
+    std::vector<std::pair<size_t, size_t>> reports;
+    ASSERT_NIL(this->master
+                   .activate(
+                       {
+                           .period = PERIOD,
+                           .slaves = this->configs,
+                           .progress = [&reports](
+                                           const size_t operational,
+                                           const size_t total
+                                       ) { reports.emplace_back(operational, total); },
+                       },
+                       [](const master::Image &) {}
+                   )
+                   .err);
+    const std::vector<std::pair<size_t, size_t>> expected{{1, 3}, {2, 3}, {3, 3}};
+    EXPECT_EQ(reports, expected);
+}
+
 /// @brief it should fail once no slave has reached OP for the OP timeout, counted from
 /// the latest slave that reached OP.
 TEST_F(IGHMasterTest, ActivateFailsOnceNoSlaveReachesOPForTheTimeout) {
