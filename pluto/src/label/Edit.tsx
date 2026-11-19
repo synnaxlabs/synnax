@@ -7,18 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/label/Edit.css";
-
 import { label } from "@synnaxlabs/client";
-import { Button } from "@synnaxlabs/lyra/button";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
 import { Access } from "@/access";
-import { CSS } from "@/css";
 import { Fields } from "@/label/Fields";
 import { type formSchema, useForm } from "@/label/queries";
 
@@ -33,37 +30,31 @@ const EditView = ({ itemKey }: EditViewProps): ReactElement => {
       <Text.Text level="small" color={9}>
         Changes every use of this label.
       </Text.Text>
-      <Fields onlyChangeOnBlur />
+      <Fields />
     </Form.Form>
   );
 };
 
-interface EditButtonProps {
-  itemKey: label.Key;
-  name: string;
-}
-
 /**
- * Opens the editor of a label in place of the options around it, for a user who can
- * update the label. Each edit saves at once.
+ * The context menu of an option in a label select, for a user who can update the
+ * label. Its Edit item opens the editor of the label in place of the options. Each edit
+ * saves at once.
  */
-export const EditButton = ({ itemKey, name }: EditButtonProps): ReactElement | null => {
+export const OptionMenu = ({
+  keys: [key],
+}: Menu.ContextMenuMenuProps): ReactElement | null => {
   const { open } = Dialog.useViews();
-  const canUpdate = Access.useUpdateGranted(label.resourceID(itemKey));
+  const canUpdate = Access.useUpdateGranted(label.resourceID(key));
   if (!canUpdate) return null;
   return (
-    <Button.Button
-      variant="text"
-      size="tiny"
-      square
-      textColor={9}
-      tooltip="Edit label"
-      tooltipLocation="right"
-      aria-label={`Edit ${name}`}
-      className={CSS.BE("label", "edit")}
-      onClick={() => open("Edit label", <EditView itemKey={itemKey} />)}
-    >
-      <Icon.Edit />
-    </Button.Button>
+    <Menu.Menu gap="small">
+      <Menu.Item
+        itemKey="edit"
+        onClick={() => open("Edit label", <EditView itemKey={key} />)}
+      >
+        <Icon.Edit />
+        Edit
+      </Menu.Item>
+    </Menu.Menu>
   );
 };

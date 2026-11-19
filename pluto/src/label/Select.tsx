@@ -18,32 +18,28 @@ import { type ReactElement, useState } from "react";
 
 import { Color } from "@/color";
 import { Flux } from "@/flux";
-import { EditButton } from "@/label/Edit";
+import { OptionMenu } from "@/label/Edit";
 import { useResultMultiple } from "@/label/queries";
 import { HAUL_TYPE } from "@/label/types";
 
-/**
- * An option of a label select: the color of the label, then its name. While hovered, it
- * ends with a button that edits the label in place of the options.
- */
+/** An option of a label select: the color of the label, then its name. */
 export const ListItem = ({
   itemKey,
   ...rest
 }: List.ItemRenderProps<label.Key>): ReactElement | null => {
   const item = List.useItem<label.Key, label.Label>(itemKey);
   const resolve = Color.useResolve();
-  const { hovered } = Select.useItemState(itemKey);
   if (item == null) return null;
   return (
     <Select.Item itemKey={itemKey} {...rest}>
       <Icon.Circle color={resolve(item.color)} size="2.5em" />
       {item.name}
-      {hovered && <EditButton itemKey={itemKey} name={item.name} />}
     </Select.Item>
   );
 };
 
 const listItemRenderProp = Component.renderProp(ListItem);
+const optionMenuRenderProp = Component.renderProp(OptionMenu);
 
 export interface SelectMultipleProps
   extends
@@ -92,6 +88,7 @@ const Base = (props: BaseProps): ReactElement => (
     icon={<Icon.Label />}
     triggerProps={SELECT_MULTIPLE_TRIGGER_PROPS}
     variant="floating"
+    menu={optionMenuRenderProp}
     {...props}
     resourceName="label"
   >
@@ -169,6 +166,7 @@ export const SelectSingle = ({
       onSearch={search}
       status={status}
       haulType={HAUL_TYPE}
+      menu={optionMenuRenderProp}
       {...rest}
       data={data}
       resourceName="label"

@@ -17,7 +17,7 @@ import { createFormPath } from "@/label/queries";
 
 export interface FieldsProps extends Pick<
   Input.TextProps,
-  "level" | "variant" | "autoFocus" | "onlyChangeOnBlur"
+  "level" | "variant" | "autoFocus"
 > {}
 
 /**

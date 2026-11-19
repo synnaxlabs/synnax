@@ -254,68 +254,61 @@ describe("Label.Select edit", () => {
       color: { type: "fixed", value: "#0000FF" },
     });
 
-  const renderAndHover = async (
+  const renderAndSearch = async (
     listed: label.Label,
     as: Client = client,
   ): Promise<ReturnType<typeof vi.fn>> => {
     const onChange = vi.fn();
     await renderSelect(<Label.SelectMultiple value={[]} onChange={onChange} />, as);
     await openAndSearch(listed.name);
-    await hoverOnly(listed.name);
+    await screen.findByRole("option", { name: listed.name });
     return onChange;
   };
 
-  // Opens the edit view as a keyboard user does, from the focused edit button.
-  const openEdit = async (name: string): Promise<HTMLElement> => {
-    const edit = await screen.findByRole("button", { name: `Edit ${name}` });
-    edit.focus();
-    fireEvent.click(edit);
-    await screen.findByText("Edit label");
-    return edit;
+  const rightClick = (name: string): void => {
+    fireEvent.contextMenu(screen.getByRole("option", { name }));
   };
 
-  it("should show the edit only on the hovered label", async () => {
-    const token = uniqueToken();
-    for (const suffix of ["one", "two"])
-      await client.labels.create({
-        name: `${token} ${suffix}`,
-        color: { type: "fixed", value: "#0000FF" },
-      });
-    await renderSelect(<Label.SelectMultiple value={[]} onChange={vi.fn()} />);
-    await openAndSearch(token);
-    // The create option is listed too, after the labels.
-    const labels = new RegExp(`^${token} `);
-    await waitFor(() =>
-      expect(screen.getAllByRole("option", { name: labels })).toHaveLength(2),
+  const openEdit = async (name: string): Promise<void> => {
+    rightClick(name);
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Edit" }));
+    await screen.findByText("Edit label");
+  };
+
+  it("should open the menu of the hovered label on Shift+F10", async () => {
+    const listed = await createListed();
+    await renderAndSearch(listed);
+    await hoverOnly(listed.name);
+    fireEvent.keyDown(screen.getByPlaceholderText("Search labels..."), {
+      key: "F10",
+      code: "F10",
+      shiftKey: true,
+    });
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Edit" }));
+    expect(await screen.findByText("Edit label")).toBeTruthy();
+    expect(screen.getByLabelText<HTMLInputElement>("Label name").value).toBe(
+      listed.name,
     );
-    const edits = () => screen.queryAllByRole("button", { name: /^Edit / });
-    expect(edits()).toHaveLength(0);
-    const search = screen.getByPlaceholderText("Search labels...");
-    fireEvent.keyDown(search, { key: "ArrowDown", code: "ArrowDown" });
-    fireEvent.keyUp(search, { key: "ArrowDown", code: "ArrowDown" });
-    await waitFor(() => expect(edits()).toHaveLength(1));
   });
 
   it("should rename a label, then return to the search on Back", async () => {
     const listed = await createListed();
-    const onChange = await renderAndHover(listed);
-    const edit = await openEdit(listed.name);
+    const onChange = await renderAndSearch(listed);
+    await openEdit(listed.name);
     expect(document.activeElement).toBe(screen.getByLabelText("Back"));
     const name = screen.getByLabelText<HTMLInputElement>("Label name");
     expect(name.value).toBe(listed.name);
     const renamed = uniqueToken();
     fireEvent.change(name, { target: { value: renamed } });
-    fireEvent.blur(name);
     await expect
       .poll(async () => (await client.labels.retrieve(listed.key)).name)
       .toBe(renamed);
     fireEvent.click(screen.getByLabelText("Back"));
     expect(screen.queryByText("Edit label")).toBeNull();
-    expect(document.activeElement).toBe(edit);
-    expect(edit.getAttribute("aria-label")).toBe(`Edit ${renamed}`);
-    expect(
-      screen.getByPlaceholderText<HTMLInputElement>("Search labels...").value,
-    ).toBe(listed.name);
+    const search = screen.getByPlaceholderText<HTMLInputElement>("Search labels...");
+    expect(document.activeElement).toBe(search);
+    expect(search.value).toBe(listed.name);
+    expect(await screen.findByRole("option", { name: renamed })).toBeTruthy();
     expect(onChange).not.toHaveBeenCalled();
   });
 
@@ -330,7 +323,7 @@ describe("Label.Select edit", () => {
       group: palette.key,
     });
     const listed = await createListed();
-    await renderAndHover(listed);
+    await renderAndSearch(listed);
     await openEdit(listed.name);
     fireEvent.click(screen.getByLabelText("Label color"));
     fireEvent.click(await screen.findByText("Library"));
@@ -340,20 +333,26 @@ describe("Label.Select edit", () => {
       .toEqual({ type: "named", key: named.key });
   });
 
-  it("should offer the edit only on labels the subject may update", async () => {
+  it("should offer Edit only on labels the subject may update", async () => {
     const editable = await createListed();
     const fixed = await createListed();
     const subject = await createTestClientWithGrants(client, {
       retrieve: [label.TYPE_RESOURCE_ID],
       update: [label.resourceID(editable.key)],
     });
-    await renderAndHover(editable, subject);
-    // The edit on one label proves the grants answered, so the missing one is the gate.
-    await screen.findByRole("button", { name: `Edit ${editable.name}` });
+    await renderAndSearch(editable, subject);
+    rightClick(editable.name);
+    // Edit on one label proves the grants answered, so the missing one is the gate.
+    fireEvent.keyDown(await screen.findByRole("menuitem", { name: "Edit" }), {
+      key: "Escape",
+      code: "Escape",
+    });
     fireEvent.change(screen.getByPlaceholderText("Search labels..."), {
       target: { value: fixed.name },
     });
-    await hoverOnly(fixed.name);
-    expect(screen.queryByRole("button", { name: `Edit ${fixed.name}` })).toBeNull();
+    await screen.findByRole("option", { name: fixed.name });
+    rightClick(fixed.name);
+    await act(async () => {});
+    expect(screen.queryByRole("menuitem", { name: "Edit" })).toBeNull();
   });
 });
