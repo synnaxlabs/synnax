@@ -193,7 +193,7 @@ const Content = ({
   const items = shapes.map((s) => toItem(s, picks, records, label));
   const active = shapes.find((s) => shapeKey(s) === selected) ?? shapes.at(0) ?? null;
   const loading = result.variant === "loading";
-  const count = [...picks.values()].reduce((n, p) => n + p.size, 0);
+  const count = shapes.reduce((n, s) => n + (picks.get(shapeKey(s))?.size ?? 0), 0);
 
   const setPicked = (shape: json.Shape, pointers: Set<string>) => {
     const next = new Map(picks);
