@@ -129,7 +129,9 @@ describe("switch symbol in a browser", () => {
     const renderDelayed = async (
       props: { enabled?: boolean; strokeColor?: color.Color } = {},
     ): Promise<HTMLElement> =>
-      renderInTheme(<Switch onClickDelay={DELAY} onClick={() => {}} {...props} />);
+      await renderInTheme(
+        <Switch onClickDelay={DELAY} onClick={() => {}} {...props} />,
+      );
 
     const press = (container: HTMLElement): void => {
       find(container, ".pluto-switch-symbol").dispatchEvent(
