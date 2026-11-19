@@ -492,6 +492,6 @@ ReadMessage struct {
         @doc value "are the fields the task reads. A field with no binding is not read."
     }
 
-    @doc value  "reads the documents of one ICD message."
+    @doc value  "reads one message of an ICD."
     @go marshal
 }
