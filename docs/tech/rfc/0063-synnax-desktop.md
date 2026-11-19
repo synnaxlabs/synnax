@@ -423,7 +423,7 @@ next start.
 `console/scripts/build_desktop.sh` makes a local build: it builds the Core from source
 into `binaries/`, then an unsigned app with no updater artifacts. With `--dev` it runs
 the app with hot reload. The Rust tests of the supervisor run in the `desktop-shell` job
-of `ci.yaml`: on Linux for each pull request, and also on macOS and Windows in the
+of `ci.yaml`: on Linux and macOS for each pull request, and also on Windows in the
 nightly and release runs. The process tests in `supervisor/mod.rs` need `/bin/sh`, so
 they do not run on Windows.
 

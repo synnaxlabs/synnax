@@ -520,7 +520,6 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         exclude:
-          - os: ${{ !inputs.full && 'macos-latest' }}
           - os: ${{ !inputs.full && 'windows-latest' }}
     runs-on: ${{ matrix.os }}
     steps:
