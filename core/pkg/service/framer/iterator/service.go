@@ -188,9 +188,6 @@ func (s *Service) NewStream(
 			sizes,
 		)
 	}
-	p.SetSegment("clocks", newClocker(channels))
-	p.MustConnect[Response](routeOutletFrom, "clocks", 25)
-	routeOutletFrom = "clocks"
 	return &plumber.Segment[Request, Response]{
 		Pipeline:         p,
 		RouteInletsTo:    []address.Address{routeInletsTo},
