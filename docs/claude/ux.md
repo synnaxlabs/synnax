@@ -759,8 +759,8 @@ says why in a sentence, then gives the raw error.
   the short length (`10min`) for any other. The name gets the room first.
 - A running bar ends at the newest sample of a live plot, or at now. Its end is a 2 px
   cap in the range color that bends around the corners, with a glow that pulses every
-  1.6 s. Rejected: a fade, a dot, stripes, or a hollow bar for "running", and elapsed
-  time after the name.
+  1.6 s, drawn at 15 Hz. 30 Hz doubled the CPU cost for no visible gain. Rejected: a
+  fade, a dot, stripes, or a hollow bar for "running", and elapsed time after the name.
 - In the plot, each range draws its start and end lines. Only a range that holds no
   other range gets a fill, so fills do not stack. A range with no color is not drawn.
 - Hover fills the range, dims the others, and shows its name, start, end, and duration.

@@ -96,9 +96,10 @@ const covers = (window: TimeRange, viewport: TimeRange): boolean =>
   window.contains(viewport) &&
   window.span.valueOf() <= 2n * WINDOW_SPANS * viewport.span.valueOf();
 
-// Redraw periods in milliseconds: each second for T+, faster while a head pulses.
+// Redraw periods in milliseconds: each second for T+, and 15 Hz while a head pulses. A
+// faster pulse repaints the whole canvas more often for no visible gain.
 const CLOCK_PERIOD = 1000;
-const HEAD_PERIOD = 33;
+const HEAD_PERIOD = 66;
 
 export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> {
   static readonly TYPE = "range-provider";

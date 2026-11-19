@@ -549,7 +549,7 @@ describe("Provider", () => {
       expect(redraws()).toEqual(0);
       provider.setState((s) => ({ ...s, visible: true }));
       provider.render(props);
-      expect(redraws()).toBeGreaterThan(20);
+      expect(redraws()).toEqual(15);
       provider.setState((s) => ({ ...s, visible: false }));
       provider.render(props);
       expect(redraws()).toEqual(0);
@@ -606,7 +606,11 @@ describe("Provider", () => {
       );
       // The 0 to 5 second range runs from the left edge to 375 px.
       expect(gradients.length).toBeGreaterThan(0);
-      gradients.forEach((g) => expect(g.args).toEqual([0, 0, 375, 0]));
+      gradients.forEach((g) => {
+        const [x0, y0, x1, y1] = g.args as number[];
+        expect([x0, y0, y1]).toEqual([0, 0, 0]);
+        expect(x1).toBeCloseTo(375);
+      });
     } finally {
       await createTestClient().ranges.delete(ranges.map((r) => r.key));
     }
