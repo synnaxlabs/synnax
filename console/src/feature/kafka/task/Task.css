@@ -65,9 +65,3 @@
     flex-grow: 1;
     min-width: 0;
 }
-
-.console-kafka-add-data__warning {
-    flex-shrink: 0;
-    padding: 0 3rem 2rem;
-    overflow-wrap: anywhere;
-}
