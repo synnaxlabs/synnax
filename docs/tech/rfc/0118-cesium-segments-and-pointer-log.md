@@ -661,8 +661,12 @@ update backup of RFC 0102. That backup now also holds the `index.domain` and
 1. Detect: the root holds no head name, and a `<key>/meta.json` exists. Remove the root
    files that an earlier attempt left.
 2. Read the `meta.json` and `index.domain` of each key, and `Stat` each data file. Skip
-   a virtual channel. v0.61 never syncs, so a power loss can leave a pointer that ends
-   past its file: cut it to the file length, at a whole sample, and log the cut.
+   a virtual channel. The old files hold no checksum, so each is read twice and used
+   only when the reads agree; with no two agreeing reads in three, the conversion stops
+   with an error that names the file. v0.61 never syncs, so a power loss can leave a
+   pointer that ends past its file: cut it to the file length, at a whole sample, and
+   log the cut. It can also leave a channel directory with no `meta.json`: the
+   conversion skips that directory, leaves it in place, and reports its key.
 3. Apply the rule of `TruncateToIndex` once, in memory: a data pointer keeps the samples
    that its clock has stamps for. Log each cut.
 4. Build the state. Each `N.domain` with a pointer is a sealed version 0 segment with a
