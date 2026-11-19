@@ -31,6 +31,7 @@ import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
 import { SERVER_CERTIFICATE } from "@/feature/opcua/testutil";
 import { Rack } from "@/feature/rack";
+import { Arc } from "@/platform/arc";
 import { answerNextCommand } from "@/platform/task/testutil";
 import { Tree } from "@/platform/tree";
 import {
@@ -43,7 +44,7 @@ import {
   renderLiveTree,
   renderTreeContextMenu,
 } from "@/platform/tree/testutil";
-import { createTestClientWithGrants } from "@/testutil";
+import { createTestClientWithGrants, selectTestProject } from "@/testutil";
 
 const client = createTestClient();
 const roles = new RoleClients(client);
@@ -52,10 +53,16 @@ const Item = Rack.TREE_ITEMS.rack;
 
 const createRack = async () => await client.racks.create({ name: uniqueName("rack") });
 
+const createArcRack = async () =>
+  await client.racks.create({
+    name: uniqueName("arc_rack"),
+    integrations: [Arc.INTEGRATION_KEY],
+  });
+
 const createNIRackWithScanner = async () => {
   const r = await client.racks.create({
     name: uniqueName("ni_rack"),
-    integrations: ["ni"],
+    integrations: ["ni", Arc.INTEGRATION_KEY],
   });
   const scanTask = await r.createTask(
     {
@@ -148,11 +155,18 @@ describe("rack tree item", () => {
   });
 
   it("should expose rename, arc creation, and delete for a single rack", async () => {
+    const r = await createArcRack();
+    await renderMenu([r]);
+    expect(await screen.findByText("Create Arc automation")).toBeTruthy();
+    expect(screen.getByText("Rename")).toBeTruthy();
+    expect(screen.getByText("Delete")).toBeTruthy();
+  });
+
+  it("should hide arc creation for a rack without the Arc integration", async () => {
     const r = await createRack();
     await renderMenu([r]);
-    expect(await screen.findByText("Rename")).toBeTruthy();
-    expect(screen.getByText("Create Arc automation")).toBeTruthy();
-    expect(screen.getByText("Delete")).toBeTruthy();
+    await screen.findByText("Rename");
+    expect(screen.queryByText("Create Arc automation")).toBeNull();
   });
 
   it("should offer Reload Console", async () => {
@@ -185,11 +199,20 @@ describe("rack tree item", () => {
     });
   });
 
-  it("should open the arc creation modal from the context menu", async () => {
-    const r = await createRack();
-    await renderMenu([r]);
+  it("should bind an automation created from the context menu to the rack", async () => {
+    const r = await createArcRack();
+    const name = uniqueName("arc");
+    const { store } = await renderMenu([r]);
+    await selectTestProject(store, client);
     fireEvent.click(await screen.findByText("Create Arc automation"));
-    expect(await screen.findByText("Create Arc automation")).toBeTruthy();
+    fireEvent.change(await screen.findByPlaceholderText("Arc name"), {
+      target: { value: name },
+    });
+    fireEvent.click(findModalButton("Create"));
+    await waitFor(async () => {
+      const a = await client.arcs.retrieve({ name });
+      expect((await client.arcs.task.retrieve(a.key))?.rack).toBe(r.key);
+    });
   });
 
   it("should open the device picker scoped to the rack", async () => {
@@ -320,7 +343,7 @@ describe("permission to write the rack", () => {
   });
 
   it("should withhold Connect device from a subject who cannot create devices", async () => {
-    const r = await createRack();
+    const r = await createArcRack();
     await renderMenu([r], await createRackWriter(arc.TYPE_RESOURCE_ID));
     expect(await screen.findByText("Create Arc automation")).toBeTruthy();
     expect(screen.queryByText("Connect device")).toBeNull();
