@@ -49,7 +49,11 @@ const Control = ({ value, defaultName, rack, ...rest }: ControlProps): ReactElem
         describe={describe}
         list={list}
         result={result}
-        onCreate={canCreate ? () => openCreate({ name: defaultName, rack }) : undefined}
+        onCreate={
+          canCreate
+            ? (name) => openCreate({ name: name === "" ? defaultName : name, rack })
+            : undefined
+        }
         {...rest}
       />
       {result.variant === "success" && <Details certificate={result.data} now={now} />}

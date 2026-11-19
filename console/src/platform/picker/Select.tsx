@@ -15,13 +15,13 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { type Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
+import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select as Base } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Flux } from "@synnaxlabs/pluto";
 import { caseconv, type record } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Button } from "@/platform/button";
 import { CSS } from "@/platform/css";
 
 type Entry<K extends record.Key> = record.KeyedNamed<K> & record.Unknown;
@@ -131,30 +131,6 @@ const Trigger = <K extends record.Key, E extends Entry<K>>({
   );
 };
 
-interface CreateButtonProps<K extends record.Key> {
-  resourceName: string;
-  onCreate: () => Promise<K | null>;
-  onChange: (key: K) => void;
-}
-
-const CreateButton = <K extends record.Key>({
-  resourceName,
-  onCreate,
-  onChange,
-}: CreateButtonProps<K>): ReactElement => {
-  const { close } = Dialog.useContext();
-  const handleClick = async () => {
-    close();
-    const key = await onCreate();
-    if (key != null) onChange(key);
-  };
-  return (
-    <Button.CreateListItem size="small" onClick={() => void handleClick()}>
-      New {resourceName}
-    </Button.CreateListItem>
-  );
-};
-
 export interface SelectProps<K extends record.Key, E extends Entry<K>>
   extends Input.Control<K>, EntryProps<E> {
   /** The singular name of what the select holds, such as "secret". */
@@ -164,16 +140,17 @@ export interface SelectProps<K extends record.Key, E extends Entry<K>>
   /** The held entry, from the domain's `useResult`. */
   result: Flux.Result<E>;
   /**
-   * Opens a dialog that creates an entry, resolving with its key or null on cancel.
-   * Unset, the list offers no create.
+   * Opens a dialog that creates an entry with the search text as its name, which is
+   * empty for an empty search. Resolves with its key, or null on cancel. Unset, the
+   * list offers no create.
    */
-  onCreate?: () => Promise<K | null>;
+  onCreate?: (name: string) => Promise<K | null>;
   preview?: boolean;
 }
 
 /**
  * Selects one stored entry by key. The trigger reads the held entry live and says when
- * it is missing or unavailable. The list can end in a "New ..." button.
+ * it is missing or unavailable. The list can end in an option that creates an entry.
  */
 export const Select = <K extends record.Key, E extends Entry<K>>({
   value,
@@ -187,6 +164,13 @@ export const Select = <K extends record.Key, E extends Entry<K>>({
   preview,
 }: SelectProps<K, E>): ReactElement => {
   const { data, getItem, subscribe, status, more, search } = list;
+  const handleCreate =
+    onCreate == null
+      ? undefined
+      : (name: string) =>
+          void onCreate(name).then((key) => {
+            if (key != null) onChange(key);
+          });
   return (
     <Dialog.Frame variant="connected" grow>
       <Base.Frame<K, E | undefined>
@@ -211,12 +195,15 @@ export const Select = <K extends record.Key, E extends Entry<K>>({
             onSearch={search}
             status={status}
             footer={
-              onCreate != null && (
-                <CreateButton<K>
-                  resourceName={resourceName}
-                  onCreate={onCreate}
-                  onChange={onChange}
-                />
+              handleCreate != null && (
+                <>
+                  <Menu.Divider />
+                  <Base.CreateItem<K, E>
+                    resourceName={resourceName}
+                    modal
+                    onCreate={handleCreate}
+                  />
+                </>
               )
             }
           >
