@@ -334,7 +334,7 @@ describe("Status queries", () => {
         await expect(
           async () => await client.statuses.retrieve({ key }),
         ).rejects.toThrow(NotFoundError);
-      }, 800);
+      }, TimeSpan.milliseconds(800));
     });
 
     it("should handle status with labels", async () => {

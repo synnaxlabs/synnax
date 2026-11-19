@@ -153,7 +153,7 @@ export const renderAether = <C extends ComponentClass>(
       stack.driver.update(
         componentPath,
         Component.TYPE,
-        state.executeSetter(next, leaf.state),
+        state.resolve(next, leaf.state),
       );
     },
     setChildState(childKey, type, childState) {

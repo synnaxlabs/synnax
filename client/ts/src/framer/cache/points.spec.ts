@@ -419,7 +419,7 @@ describe("Points", () => {
       }
     });
 
-    it("should not read the newest stored sample for a static window", async () => {
+    it("should not read the newest stored sample for a static window that ended", async () => {
       const core = createIdle();
       let reads = 0;
       const { subscribe, close } = createPoints(
@@ -437,7 +437,73 @@ describe("Points", () => {
       try {
         await expect.poll(() => points.value().status.variant, POLL).toBe("success");
         expect(points.value().time).toBeUndefined();
+        expect(points.value().streaming).toBe(false);
         expect(reads).toBe(0);
+      } finally {
+        await close();
+      }
+    });
+
+    it("should end the time of a static window that streams at its newest stored sample", async () => {
+      const core = createIdle();
+      const { subscribe, close } = createPoints(core);
+      const open = staticWindow(new TimeRange(START, TimeStamp.MAX));
+      const points = subscribe(core.data[0].key, open, TILED);
+      try {
+        await expect
+          .poll(() => points.value().time?.valueOf(), POLL)
+          .toBe(LAST.valueOf());
+        expect(points.value().streaming).toBe(true);
+      } finally {
+        await close();
+      }
+    });
+
+    it("should read the newest stored sample only inside a static window", async () => {
+      const core = createIdle();
+      const ranges: TimeRange[] = [];
+      const { subscribe, close } = createPoints(
+        core,
+        undefined,
+        {},
+        BREAKER,
+        async (keys, count, tr) => {
+          ranges.push(tr);
+          return core.readLatest(keys, count, tr);
+        },
+      );
+      const range = new TimeRange(END.add(TimeSpan.minutes(10)), TimeStamp.MAX);
+      const points = subscribe(core.data[0].key, staticWindow(range), TILED);
+      try {
+        await expect.poll(() => points.value().status.variant, POLL).toBe("success");
+        expect(points.value().time).toBeUndefined();
+        expect(ranges).toEqual([range]);
+      } finally {
+        await close();
+      }
+    });
+
+    it("should size the tiles of a static window that streams by the span up to now", async () => {
+      const core = createIdle();
+      const limits: number[] = [];
+      const { subscribe, close } = createPoints(core, async (tr, keys, reduction) => {
+        if (reduction?.variant === "limit") limits.push(reduction.pointLimit);
+        return core.read(tr, keys, reduction);
+      });
+      const open = staticWindow(new TimeRange(START, TimeStamp.MAX));
+      const points = subscribe(core.data[0].key, open, TILED);
+      try {
+        await expect.poll(() => points.value().status.variant, POLL).toBe("success");
+        const view = new TimeRange(START, core.now());
+        const level = tileLevel(view);
+        const coarsest = tilePointLimit({
+          tile: { level, index: tileIndex(START, level) },
+          view,
+          points: TILED.count,
+          drawn: "min_max",
+          aggregation: "min_max",
+        });
+        expect(Math.max(...limits)).toBe(coarsest);
       } finally {
         await close();
       }
@@ -454,6 +520,111 @@ describe("Points", () => {
         await expect
           .poll(() => points.value().time?.valueOf(), POLL)
           .toBe(LAST.valueOf());
+      } finally {
+        await close();
+      }
+    });
+
+    it("should read the newest stored sample of a new window", async () => {
+      const core = createIdle();
+      let release = (): void => {};
+      let gate: Promise<void> = Promise.resolve();
+      const ranges: TimeRange[] = [];
+      const { subscribe, close } = createPoints(
+        core,
+        undefined,
+        {},
+        BREAKER,
+        async (keys, count, tr) => {
+          ranges.push(tr);
+          await gate;
+          return core.readLatest(keys, count, tr);
+        },
+      );
+      const first = new TimeRange(START, TimeStamp.MAX);
+      const points = subscribe(core.data[0].key, staticWindow(first), TILED);
+      try {
+        await expect
+          .poll(() => points.value().time?.valueOf(), POLL)
+          .toBe(LAST.valueOf());
+        gate = new Promise<void>((resolve) => (release = resolve));
+        const next = new TimeRange(END.add(TimeSpan.minutes(10)), TimeStamp.MAX);
+        points.update(staticWindow(next), TILED);
+        expect(points.value().status.variant).toBe("loading");
+        expect(points.value().time).toBeUndefined();
+        release();
+        await expect.poll(() => points.value().status.variant, POLL).toBe("success");
+        expect(points.value().time).toBeUndefined();
+        expect(ranges).toEqual([first, next]);
+      } finally {
+        await close();
+      }
+    });
+
+    it("should reread a static window's newest sample after invalidation", async () => {
+      const core = createIdle();
+      const { store, subscribe, close } = createPoints(core);
+      const key = core.data[0].key;
+      const open = staticWindow(new TimeRange(START, TimeStamp.MAX));
+      const points = subscribe(key, open, TILED);
+      try {
+        await expect
+          .poll(() => points.value().time?.valueOf(), POLL)
+          .toBe(LAST.valueOf());
+        const from = END.sub(TimeSpan.minutes(1));
+        core.truncate(from);
+        store.invalidate(key, new TimeRange(from, TimeStamp.MAX));
+        await expect
+          .poll(() => points.value().time?.valueOf(), POLL)
+          .toBe(LAST.sub(TimeSpan.minutes(1)).valueOf());
+      } finally {
+        await close();
+      }
+    });
+
+    it("should drop the newest sample once the clock passes the end", async () => {
+      const core = createIdle();
+      const { subscribe, close } = createPoints(core);
+      const range = new TimeRange(START, core.now().add(TimeSpan.seconds(5)));
+      const points = subscribe(core.data[0].key, staticWindow(range), RAW);
+      try {
+        await expect
+          .poll(() => points.value().time?.valueOf(), POLL)
+          .toBe(LAST.valueOf());
+        expect(points.value().streaming).toBe(true);
+        core.advance(TimeSpan.minutes(1));
+        await expect.poll(() => points.value().streaming, POLL).toBe(false);
+        expect(points.value().time).toBeUndefined();
+      } finally {
+        await close();
+      }
+    });
+
+    it("should stop a failing read once the window stops streaming", async () => {
+      const core = createIdle();
+      let reads = 0;
+      const { subscribe, close } = createPoints(
+        core,
+        undefined,
+        {},
+        BREAKER,
+        async () => {
+          reads++;
+          throw new Error("connection reset");
+        },
+      );
+      const open = staticWindow(new TimeRange(START, TimeStamp.MAX));
+      const points = subscribe(core.data[0].key, open, TILED);
+      try {
+        await expect.poll(() => points.value().status.variant, POLL).toBe("error");
+        const ended = new TimeRange(START, START.add(TimeSpan.minutes(1)));
+        points.update(staticWindow(ended), TILED);
+        await expect.poll(() => points.value().status.variant, POLL).toBe("success");
+        const settled = reads;
+        await sleep.sleep(TimeSpan.milliseconds(100));
+        expect(reads).toBe(settled);
+        expect(points.value().status.variant).toBe("success");
+        expect(points.value().series.length).toBeGreaterThan(0);
       } finally {
         await close();
       }

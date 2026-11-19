@@ -18,6 +18,7 @@ import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 
 import { Dialog } from "@/dialog";
 import { useDestructors, useSyncedRef } from "@/hooks";
+import { keyboardMenuKey } from "@/menu/keyboard";
 import { Triggers } from "@/triggers";
 import { isInputOrContentEditable, moveIndex } from "@/util";
 
@@ -133,15 +134,6 @@ const isCursorKey = (key: string | null): key is CursorKey =>
 
 const isX = (key: CursorKey): key is "ArrowLeft" | "ArrowRight" =>
   key === "ArrowLeft" || key === "ArrowRight";
-
-// Shift+F10 opens the context menu on its press, and the Menu key on its release, as
-// on Windows. Both keep the webview from opening its own.
-const menuKey = (e: KeyboardEvent<HTMLElement>): "F10" | "ContextMenu" | null => {
-  if (e.altKey || e.ctrlKey || e.metaKey) return null;
-  const key = Triggers.eventKey(e);
-  if (key === "ContextMenu" || (key === "F10" && e.shiftKey)) return key;
-  return null;
-};
 
 const REPEAT_DELAY = TimeSpan.milliseconds(200).milliseconds;
 const REPEAT_INTERVAL = TimeSpan.milliseconds(100).milliseconds;
@@ -295,7 +287,7 @@ export const useCursor = <K extends record.Key>(
   const keyboard: KeyboardHandlers = {
     onKeyDown: (e) => {
       if (!answers(e)) return;
-      const menu = menuKey(e);
+      const menu = keyboardMenuKey(e);
       if (menu != null) {
         e.preventDefault();
         if (menu === "F10" && !e.repeat) openMenu();
@@ -311,7 +303,7 @@ export const useCursor = <K extends record.Key>(
     },
     onKeyUp: (e) => {
       if (isCursorKey(Triggers.eventKey(e))) return release();
-      if (!answers(e) || menuKey(e) !== "ContextMenu") return;
+      if (!answers(e) || keyboardMenuKey(e) !== "ContextMenu") return;
       e.preventDefault();
       openMenu();
     },
