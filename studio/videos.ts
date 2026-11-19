@@ -141,7 +141,12 @@ export default manifest.define([
     },
   },
   { id: "get-started/first-run", script: "scripts/first-run.ts" },
-  { id: "client/connect/desktop", script: "scripts/connect-from-code.ts" },
+  // The browser snippet shows the Core's port, so it runs on the default port.
+  {
+    id: "client/connect/desktop",
+    script: "scripts/connect-from-code.ts",
+    port: 9090,
+  },
   {
     id: "desktop/troubleshooting/diagnostics",
     script: "scripts/desktop-diagnostics.ts",
