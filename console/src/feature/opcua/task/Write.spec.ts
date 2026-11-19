@@ -9,6 +9,7 @@
 
 import { type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { type z } from "zod";
@@ -35,7 +36,6 @@ import {
   commitTextEdit,
   fakePickedFile,
   interceptFilePicker,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();
