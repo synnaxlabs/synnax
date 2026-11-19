@@ -698,7 +698,7 @@ describe("Kafka read form", () => {
       const again = await answerNextCommand(client, scan, { data: sampleOf(grown) });
       fireEvent.click(dialog.getByRole("button", { name: "Listen again" }));
       await again.answered;
-      await dialog.findByText(/Select the fields to read/);
+      await dialog.findByRole("checkbox", { name: "Record /flow" });
       expect(dialog.queryByText("1 field selected")).toBeNull();
     });
 
