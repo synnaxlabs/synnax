@@ -298,9 +298,10 @@ export class Feed {
 
   /**
    * Closes the feed and every open subscription, releasing the stream and all cached
-   * buffers.
+   * buffers. Closing a closed feed does nothing.
    */
   async close(): Promise<void> {
+    if (this.closed) return;
     this.closed = true;
     this.handles.forEach((h) => h.close());
     this.latest.close(new UnexpectedError("telemetry feed is closed"));
