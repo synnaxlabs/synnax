@@ -18,23 +18,32 @@ import {
 import { box, type CrudeTimeSpan, runtime, scale, TimeSpan, xy } from "@synnaxlabs/x";
 import {
   type CanvasHTMLAttributes,
+  createContext,
   type DetailedHTMLProps,
   type ReactElement,
   type RefCallback,
+  use,
   useEffect,
   useRef,
 } from "react";
+import { type z } from "zod";
 
 import { Aether } from "@/aether";
 import { CSS } from "@/css";
 import { canvas } from "@/vis/canvas/aether";
+import { type render } from "@/vis/render";
+
+type State = z.infer<typeof canvas.canvasStateZ>;
 
 type HTMLDivProps = DetailedHTMLProps<
   CanvasHTMLAttributes<HTMLDivElement>,
   HTMLDivElement
 >;
 
-const ZERO_PROPS = { region: box.ZERO, dpr: 1, os: runtime.getOS() };
+// The render context needs an OS, so a user agent that names none draws as Windows.
+const getOS = (): runtime.OS => runtime.getOS() ?? "Windows";
+
+const ZERO_PROPS = { region: box.ZERO, dpr: 1, os: getOS() };
 
 interface Canvases {
   gl: HTMLCanvasElement | null;
@@ -50,19 +59,71 @@ const ZERO_CANVASES: Canvases = {
   bootstrapped: false,
 };
 
+/**
+ * How the worker hands its frames to the page. In "canvas", the worker draws on the
+ * page's canvases. In "bitmap", it posts each frame as bitmaps, for browsers that crash
+ * when a worker draws on a page's canvas.
+ */
+export type Handoff = "canvas" | "bitmap";
+
+const VARIANTS: render.CanvasVariant[] = ["gl", "lower2d", "upper2d"];
+
+const receiveFrames = (
+  els: Record<render.CanvasVariant, HTMLCanvasElement>,
+  port: MessagePort,
+): void => {
+  const targets = VARIANTS.map((variant) => {
+    const el = els[variant];
+    const ctx = el.getContext("bitmaprenderer");
+    if (ctx == null) throw new Error("Could not get bitmap renderer context");
+    return { variant, el, ctx };
+  });
+  port.onmessage = ({ data }: MessageEvent<render.Frame>) => {
+    targets.forEach(({ variant, el, ctx }) => {
+      const bitmap = data[variant];
+      if (bitmap == null) return;
+      if (el.width !== bitmap.width) el.width = bitmap.width;
+      if (el.height !== bitmap.height) el.height = bitmap.height;
+      ctx.transferFromImageBitmap(bitmap);
+    });
+    // The worker posts no other frame until it gets this acknowledgement.
+    port.postMessage(null);
+  };
+};
+
+const Context = createContext(false);
+Context.displayName = "Canvas.Context";
+
+/** @returns true when the enclosing canvas has no GPU to draw visualizations with. */
+export const useGPUMissing = (): boolean => use(Context);
+
+// The worker owns the bootstrap fields, so a region change keeps them and never sends
+// the transferred canvases again.
+const withRegion = (p: State, region: box.Box): State => ({
+  bootstrap: false,
+  bootstrapped: p.bootstrapped,
+  gpuMissing: p.gpuMissing,
+  region,
+  dpr: window.devicePixelRatio,
+  os: getOS(),
+});
+
 const DEFAULT_RESIZE_DEBOUNCE = TimeSpan.milliseconds(100);
 
 export interface CanvasProps extends Omit<HTMLDivProps, "ref"> {
   resizeDebounce?: CrudeTimeSpan;
+  /** Read once, when the canvas mounts. Defaults to "canvas". */
+  handoff?: Handoff;
 }
 
 export const Canvas = ({
   children,
   resizeDebounce: debounce = DEFAULT_RESIZE_DEBOUNCE,
+  handoff = "canvas",
   className,
   ...rest
 }: CanvasProps): ReactElement => {
-  const [{ path }, { bootstrapped, dpr }, setState] = Aether.use({
+  const [{ path }, { bootstrapped, gpuMissing, dpr }, setState] = Aether.use({
     type: canvas.Canvas.TYPE,
     schema: canvas.canvasStateZ,
     initialState: ZERO_PROPS,
@@ -74,12 +135,7 @@ export const Canvas = ({
 
   const handleResize = (region: box.Box) => {
     if (canvases.current.bootstrapped) {
-      setState(() => ({
-        bootstrapped: true,
-        region,
-        dpr: window.devicePixelRatio,
-        os: runtime.getOS({ default: "Windows" }),
-      }));
+      setState((p) => withRegion(p, region));
       initialResizeComplete.current = true;
     }
   };
@@ -98,14 +154,10 @@ export const Canvas = ({
         elRef.current == null
       )
         return;
-      setState((p) => ({
-        ...p,
-        // We need to explicitly construct the region here because this callback
-        // may race against the `useResize` callback and cause a stale region to
-        // be used in state.
-        region: box.construct(elRef.current ?? box.ZERO),
-        dpr: window.devicePixelRatio,
-      }));
+      // We need to explicitly construct the region here because this callback may
+      // race against the `useResize` callback and cause a stale region to be used in
+      // state.
+      setState((p) => withRegion(p, box.construct(elRef.current ?? box.ZERO)));
     };
     const query = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
     query.addEventListener("change", handleChange, { once: true });
@@ -117,16 +169,10 @@ export const Canvas = ({
   useEffect(() => {
     const handler = () => {
       if (!canvases.current.bootstrapped || elRef.current == null) return;
-      setState((p) => ({
-        ...p,
-        // We need to explicitly construct the region here because this callback
-        // may race against the `useResize` callback and cause a stale region to
-        // be used in state.
-        region: box.construct(elRef.current ?? box.ZERO),
-        glCanvas: undefined,
-        upper2dCanvas: undefined,
-        lower2dCanvas: undefined,
-      }));
+      // We need to explicitly construct the region here because this callback may
+      // race against the `useResize` callback and cause a stale region to be used in
+      // state.
+      setState((p) => withRegion(p, box.construct(elRef.current ?? box.ZERO)));
     };
     window.addEventListener("focus", handler);
     window.addEventListener("blur", handler);
@@ -147,22 +193,27 @@ export const Canvas = ({
     if (gl == null || lower2d == null || upper2d == null || bootstrapped) return;
 
     canvases.current.bootstrapped = true;
+    const base = {
+      bootstrap: true,
+      bootstrapped: false,
+      region: box.construct(gl),
+      dpr: window.devicePixelRatio,
+      os: getOS(),
+    };
+    if (handoff === "bitmap") {
+      const { port1, port2 } = new MessageChannel();
+      receiveFrames({ gl, lower2d, upper2d }, port1);
+      setState({ ...base, framePort: port2 }, [port2]);
+      return;
+    }
     const glCanvas = gl.transferControlToOffscreen();
     const upper2dCanvas = upper2d.transferControlToOffscreen();
     const lower2dCanvas = lower2d.transferControlToOffscreen();
-    setState(
-      {
-        glCanvas,
-        upper2dCanvas,
-        lower2dCanvas,
-        bootstrap: true,
-        bootstrapped: false,
-        region: box.construct(gl),
-        dpr: window.devicePixelRatio,
-        os: runtime.getOS({ default: "Windows" }),
-      },
-      [glCanvas, upper2dCanvas, lower2dCanvas],
-    );
+    setState({ ...base, glCanvas, upper2dCanvas, lower2dCanvas }, [
+      glCanvas,
+      upper2dCanvas,
+      lower2dCanvas,
+    ]);
   };
 
   return (
@@ -183,7 +234,9 @@ export const Canvas = ({
         ref={refCallback}
         className={CSS.cls(CSS.B("canvas"), CSS.BM("canvas", "upper2d"))}
       />
-      <Aether.Composite path={path}>{bootstrapped && children}</Aether.Composite>
+      <Context value={gpuMissing}>
+        <Aether.Composite path={path}>{bootstrapped && children}</Aether.Composite>
+      </Context>
     </div>
   );
 };

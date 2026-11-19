@@ -100,7 +100,6 @@ def _read_key(helper: Path, run: RunHelper, target: str) -> str:
     try:
         result = run(helper)
     except FileNotFoundError as e:
-        # The helper of an AppImage goes away with its mount when Synnax Desktop closes.
         raise Unreachable(target=target, message=DESKTOP_NOT_RUNNING_MSG) from e
     except OSError as e:
         raise ConfigurationError(
@@ -132,8 +131,7 @@ def load_desktop_options(
     :raises ConfigurationError: If the file exists but cannot be read, if it names no
         key helper, if the key helper fails, or if an older Synnax Desktop saved the
         key in the file.
-    :raises Unreachable: If the key helper is gone, as an AppImage helper is after
-        Synnax Desktop closes.
+    :raises Unreachable: If the key helper is gone.
     """
     raw = _read_desktop_file(path)
     if raw is None:
