@@ -273,7 +273,7 @@ var _ = Describe("Run", func() {
 		It("Should list no violation in a run that is not exhaustive",
 			func(ctx SpecContext) {
 				result, _, err := runAudited(ctx, errors.New("taco"), always)
-				Expect(err).To(HaveOccurred())
+				Expect(err).To(MatchError(ContainSubstring("the audit failed: taco")))
 				Expect(result.Violations).To(BeEmpty())
 			},
 		)
