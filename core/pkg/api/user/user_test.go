@@ -448,14 +448,13 @@ var _ = Describe("Service", func() {
 		It(
 			"Should report a user who has no password as not found",
 			func(ctx SpecContext) {
-				u := MustSucceed(writer.Create(ctx, user.User{
-					Name: "change-username-" + uuid.New().String(),
-				}))
-				Expect(apiSvc.ChangeUsername(
-					rootCtx(ctx),
-					db,
-					apiuser.ChangeUsernameRequest{Key: u.Key, Username: "new"},
-				)).Error().To(MatchError(query.ErrNotFound))
+				u := MustSucceed(
+					rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{
+						Name: "change-username-" + uuid.New().String(),
+					}),
+				)
+				Expect(dispatch(rootCtx(ctx), setUsername(u.Key, "new"))).Error().
+					To(MatchError(query.ErrNotFound))
 			},
 		)
 		It(
