@@ -11,7 +11,7 @@ import "schemas/synnax/versions/channel/v0"
 import "schemas/synnax/versions/group/v1"
 import "schemas/synnax/versions/project/v3"
 import "schemas/synnax/versions/ranger/v1"
-import "schemas/synnax/versions/symbol/v5"
+import "schemas/synnax/versions/symbol/v4"
 import "schemas/x/versions/border/v0"
 import "schemas/x/versions/color/v2"
 import "schemas/x/versions/notation/v0"
@@ -132,22 +132,6 @@ PageType = v9.PageType
 Page = v9.Page
 
 NodeConfig union on variant extends v10.NodeConfig {
-    custom_actuator {
-        state_overrides symbol.StateOverride[] = [] {
-            @doc value """
-                contains per-instance overrides of the spec's visual states, matched to
-                the spec's states by key.
-            """
-        }
-    }
-    custom_static {
-        state_overrides symbol.StateOverride[] = [] {
-            @doc value """
-                contains per-instance overrides of the spec's visual states, matched to
-                the spec's states by key.
-            """
-        }
-    }
     group_box {
         -members
     }

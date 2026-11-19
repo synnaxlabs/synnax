@@ -15,7 +15,7 @@ import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
-	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v5"
+	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v4"
 	border "github.com/synnaxlabs/x/border/versions/v0"
 	color "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
@@ -2989,7 +2989,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				if err != nil {
 					return err
 				}
-				v.StateOverrides = make([]symbol.StateOverride, n)
+				v.StateOverrides = make([]symbol.State, n)
 				for i := range v.StateOverrides {
 					if err = v.StateOverrides[i].DecodeOrc(r); err != nil {
 						return err
@@ -3019,7 +3019,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				if err != nil {
 					return err
 				}
-				v.StateOverrides = make([]symbol.StateOverride, n)
+				v.StateOverrides = make([]symbol.State, n)
 				for i := range v.StateOverrides {
 					if err = v.StateOverrides[i].DecodeOrc(r); err != nil {
 						return err
