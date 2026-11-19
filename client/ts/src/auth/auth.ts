@@ -19,7 +19,7 @@ import { z } from "zod";
 import {
   type Credentials,
   type Method,
-  METHODS,
+  methodZ,
   type Proof,
   proofZ,
   type Session,
@@ -147,14 +147,17 @@ const TOKENLESS_ENDPOINTS = [
   LEGACY_LOGIN_ENDPOINT,
 ];
 
-const isMethod = (m: string): m is Method => METHODS.includes(m as Method);
-
 // a newer Core may accept methods this client does not know, so they are dropped
 const methodsResZ = z.object({
   methods: z
-    .string()
+    .unknown()
     .array()
-    .transform((ms) => ms.filter(isMethod)),
+    .transform((ms) =>
+      ms.flatMap((m) => {
+        const r = methodZ.safeParse(m);
+        return r.success ? [r.data] : [];
+      }),
+    ),
 });
 
 /** The address of a Core, for a request that needs no session. */
