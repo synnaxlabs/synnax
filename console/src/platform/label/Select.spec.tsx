@@ -14,6 +14,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
+import { Access } from "@/platform/access";
 import { Label } from "@/platform/label";
 import { searchAndClickLabel } from "@/platform/label/testutil";
 import { Modals } from "@/platform/modals";
@@ -23,6 +24,7 @@ import {
   findDialogTrigger,
   getIconButton,
   type Grants,
+  renderSuspended,
   uniqueToken,
 } from "@/testutil";
 
@@ -37,11 +39,12 @@ const openAndSearch = async (term: string): Promise<void> => {
 
 const renderSelect = async (ui: ReactElement, as: Client = client) => {
   const { wrapper } = await createConsoleWrapper({ client: as });
-  return render(
-    <>
+  // As in the Console, the policies load before the select can ask them.
+  return await renderSuspended(
+    <Access.PermissionsBoundary loading={null}>
       {ui}
       <Modals.Stack />
-    </>,
+    </Access.PermissionsBoundary>,
     { wrapper },
   );
 };
@@ -333,7 +336,7 @@ describe("Label.Select edit", () => {
       .toEqual({ type: "named", key: named.key });
   });
 
-  it("should offer Edit only on labels the subject may update", async () => {
+  it("should leave a label the subject may not update to the platform", async () => {
     const editable = await createListed();
     const fixed = await createListed();
     const subject = await createTestClientWithGrants(client, {
@@ -341,18 +344,27 @@ describe("Label.Select edit", () => {
       update: [label.resourceID(editable.key)],
     });
     await renderAndSearch(editable, subject);
-    rightClick(editable.name);
     // Edit on one label proves the grants answered, so the missing one is the gate.
-    fireEvent.keyDown(await screen.findByRole("menuitem", { name: "Edit" }), {
-      key: "Escape",
-      code: "Escape",
-    });
-    fireEvent.change(screen.getByPlaceholderText("Search labels..."), {
-      target: { value: fixed.name },
-    });
-    await screen.findByRole("option", { name: fixed.name });
-    rightClick(fixed.name);
+    rightClick(editable.name);
+    const escape = { key: "Escape", code: "Escape" };
+    const edit = await screen.findByRole("menuitem", { name: "Edit" });
+    fireEvent.keyDown(edit, escape);
+    // The menu closes on the key down, so the key comes up where the focus went.
+    fireEvent.keyUp(document.activeElement ?? document.body, escape);
+    const search = screen.getByPlaceholderText("Search labels...");
+    fireEvent.change(search, { target: { value: fixed.name } });
+    await hoverOnly(fixed.name);
+    const option = await screen.findByRole("option", { name: fixed.name });
+    expect(fireEvent.contextMenu(option)).toBe(true);
+    const shiftF10 = { key: "F10", code: "F10", shiftKey: true };
+    expect(fireEvent.keyDown(search, shiftF10)).toBe(true);
+    fireEvent.keyUp(search, shiftF10);
     await act(async () => {});
-    expect(screen.queryByRole("menuitem", { name: "Edit" })).toBeNull();
+    expect(screen.queryByRole("menu")).toBeNull();
+    // With no menu open, Escape closes the select.
+    fireEvent.keyDown(search, escape);
+    await waitFor(() =>
+      expect(screen.queryByRole("option", { name: fixed.name })).toBeNull(),
+    );
   });
 });

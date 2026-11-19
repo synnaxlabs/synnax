@@ -18,7 +18,7 @@ import { type ReactElement, useState } from "react";
 
 import { Color } from "@/color";
 import { Flux } from "@/flux";
-import { OptionMenu } from "@/label/Edit";
+import { OptionMenu, useHasOptionMenu } from "@/label/Edit";
 import { useResultMultiple } from "@/label/queries";
 import { HAUL_TYPE } from "@/label/types";
 
@@ -81,20 +81,24 @@ interface BaseProps extends Omit<
   "resourceName" | "children"
 > {}
 
-const Base = (props: BaseProps): ReactElement => (
-  <Select.Multiple<label.Key, label.Label | undefined>
-    haulType={HAUL_TYPE}
-    renderTag={labelRenderTag}
-    icon={<Icon.Label />}
-    triggerProps={SELECT_MULTIPLE_TRIGGER_PROPS}
-    variant="floating"
-    menu={optionMenuRenderProp}
-    {...props}
-    resourceName="label"
-  >
-    {listItemRenderProp}
-  </Select.Multiple>
-);
+const Base = (props: BaseProps): ReactElement => {
+  const hasMenu = useHasOptionMenu();
+  return (
+    <Select.Multiple<label.Key, label.Label | undefined>
+      haulType={HAUL_TYPE}
+      renderTag={labelRenderTag}
+      icon={<Icon.Label />}
+      triggerProps={SELECT_MULTIPLE_TRIGGER_PROPS}
+      variant="floating"
+      menu={optionMenuRenderProp}
+      hasMenu={hasMenu}
+      {...props}
+      resourceName="label"
+    >
+      {listItemRenderProp}
+    </Select.Multiple>
+  );
+};
 
 /**
  * Selects labels. Until the user first opens it, it reads only the labels of its value:
@@ -159,6 +163,7 @@ export const SelectSingle = ({
     (client: Synnax) => client.labels,
     { name: "labels", query, filter },
   );
+  const hasMenu = useHasOptionMenu();
   return (
     <Select.Single<label.Key, label.Label | undefined>
       getItem={getItem}
@@ -167,6 +172,7 @@ export const SelectSingle = ({
       status={status}
       haulType={HAUL_TYPE}
       menu={optionMenuRenderProp}
+      hasMenu={hasMenu}
       {...rest}
       data={data}
       resourceName="label"

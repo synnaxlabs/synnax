@@ -18,6 +18,7 @@ import { type ReactElement } from "react";
 import { Access } from "@/access";
 import { Fields } from "@/label/Fields";
 import { type formSchema, useForm } from "@/label/queries";
+import { Synnax } from "@/synnax";
 
 interface EditViewProps {
   itemKey: label.Key;
@@ -36,16 +37,13 @@ const EditView = ({ itemKey }: EditViewProps): ReactElement => {
 };
 
 /**
- * The context menu of an option in a label select, for a user who can update the
- * label. Its Edit item opens the editor of the label in place of the options. Each edit
- * saves at once.
+ * The context menu of an option in a label select. Its Edit item opens the editor of
+ * the label in place of the options. Each edit saves at once.
  */
 export const OptionMenu = ({
   keys: [key],
-}: Menu.ContextMenuMenuProps): ReactElement | null => {
+}: Menu.ContextMenuMenuProps): ReactElement => {
   const { open } = Dialog.useViews();
-  const canUpdate = Access.useUpdateGranted(label.resourceID(key));
-  if (!canUpdate) return null;
   return (
     <Menu.Menu gap="small">
       <Menu.Item
@@ -57,4 +55,13 @@ export const OptionMenu = ({
       </Menu.Item>
     </Menu.Menu>
   );
+};
+
+/**
+ * @returns whether the option of the label with the key opens {@link OptionMenu}: only
+ * when the user can update the label.
+ */
+export const useHasOptionMenu = (): ((key: label.Key) => boolean) => {
+  const client = Synnax.use();
+  return (key) => Access.updateGranted({ client, id: label.resourceID(key) });
 };
