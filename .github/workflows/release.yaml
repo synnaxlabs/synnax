@@ -1027,7 +1027,6 @@ jobs:
     with:
       windows: true
       macos: true
-      ubuntu: true
       driver: true
       core: true
       desktop: true
@@ -1069,7 +1068,6 @@ jobs:
     with:
       windows: true
       macos: true
-      ubuntu: true
       core: true
       desktop: true
       sign_binaries: true
