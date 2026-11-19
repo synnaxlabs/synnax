@@ -1139,7 +1139,7 @@ jobs:
           for file in binaries/*; do
             # A rerun downloads the signatures of the first run too.
             case "$file" in *.sig) continue ;; esac
-            npx --yes @tauri-apps/cli@2.12.3 signer sign "$file"
+            npx --yes @tauri-apps/cli@2.12.6 signer sign "$file"
           done
 
       - name: Upload signatures

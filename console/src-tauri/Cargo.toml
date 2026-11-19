@@ -11,7 +11,7 @@
 name = "synnax-console"
 version = "0.0.0"
 edition = "2024"
-rust-version = "1.99"
+rust-version = "1.100"
 default-run = "synnax-console"
 
 [lib]
@@ -26,10 +26,10 @@ required-features = ["desktop"]
 # https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [build-dependencies]
-tauri-build = { version = "2.7.3", features = [] }
+tauri-build = { version = "2.7.6", features = [] }
 
 [target."cfg(any(target_os = \"macos\", windows, target_os = \"linux\"))".dependencies]
-tauri-plugin-single-instance = { version = "2.5.4", features = ["deep-link"] }
+tauri-plugin-single-instance = { version = "2.5.5", features = ["deep-link"] }
 
 [target."cfg(target_os = \"macos\")".dependencies]
 objc2-core-graphics = { version = "0.3.2", default-features = false, features = [
@@ -48,21 +48,21 @@ keyring-core = "1.0.1"
 semver = { version = "1.0.28", features = ["serde"] }
 serde = "1.0.229"
 serde_json = "1.0.154"
-tauri = { version = "2.12.4", features = ["devtools"] }
-tauri-plugin-store = "2.5.0"
-tauri-plugin-deep-link = "2.6.2"
+tauri = { version = "2.12.7", features = ["devtools"] }
+tauri-plugin-store = "2.5.1"
+tauri-plugin-deep-link = "2.6.3"
 tauri-plugin-fs = "2.7.1"
 tauri-plugin-os = "2.4.0"
-tauri-plugin-shell = "2.5.0"
+tauri-plugin-shell = "2.6.0"
 tauri-plugin-updater = "2.14.1"
-tauri-plugin-dialog = "2.8.3"
+tauri-plugin-dialog = "2.8.4"
 tauri-plugin-process = "2.4.0"
 tauri-plugin-prevent-default = "6.0.1"
 getrandom = { version = "0.4.3", optional = true }
-zip = { version = "9.0.5", optional = true, default-features = false, features = [
+zip = { version = "9.7.3", optional = true, default-features = false, features = [
     "deflate",
 ] }
-tokio = { version = "1.54.0", optional = true, features = [
+tokio = { version = "1.54.1", optional = true, features = [
     "io-util",
     "macros",
     "net",
@@ -74,7 +74,7 @@ tokio = { version = "1.54.0", optional = true, features = [
 
 [dev-dependencies]
 tempfile = "3.27.0"
-tokio = { version = "1.54.0", features = ["rt-multi-thread"] }
+tokio = { version = "1.54.1", features = ["rt-multi-thread"] }
 
 [features]
 # by default Tauri runs in production mode when `tauri dev` runs it is executed with
