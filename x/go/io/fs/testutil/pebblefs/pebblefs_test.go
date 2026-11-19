@@ -154,6 +154,13 @@ var _ = Describe("Pebble FS", func() {
 			Expect(MustSucceed(xfs.ReadFile(disk, "a"))).To(BeEmpty())
 		})
 
+		It("Should create a missing file with OpenReadWrite", func() {
+			f := MustSucceed(fs.OpenReadWrite("a", vfs.WriteCategoryUnspecified))
+			Expect(f.Write([]byte("taco"))).To(Equal(4))
+			Expect(f.Close()).To(Succeed())
+			Expect(MustSucceed(xfs.ReadFile(disk, "a"))).To(Equal([]byte("taco")))
+		})
+
 		It("Should open a file to read only", func() {
 			Expect(MustSucceed(fs.Create("a", vfs.WriteCategoryUnspecified)).Close()).
 				To(Succeed())
