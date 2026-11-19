@@ -76,7 +76,7 @@ declare -A BUILD_STEP=(
     [core]="Build Core"
 )
 declare -A TOOLCHAIN=(
-    [driver]="bazel-contrib/setup-bazel actions-rust-lang/setup-rust-toolchain"
+    [driver]="bazel-contrib/setup-bazel"
     [console]="pnpm/setup"
     [core]="actions/setup-go"
 )

@@ -147,7 +147,7 @@ catalog:
   '@types/hast': ^3.0.5
   '@types/html-escaper': ^3.0.4
   '@types/jsdom': ^30.0.0
-  '@types/node': ^24.19.2
+  '@types/node': ^26.6.6
   '@types/offscreencanvas': ^2019.7.3
   '@types/pluralize': ^0.0.33
   '@types/react': ^19.3.0

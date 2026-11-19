@@ -9,6 +9,7 @@
 
 export * from "@/platform/arc/ContextMenu";
 export * from "@/platform/arc/icons";
+export * from "@/platform/arc/types";
 export * from "@/platform/arc/useCaptureDeploy";
 export * from "@/platform/arc/useCreate";
 export * from "@/platform/arc/useCreateDirectory";
