@@ -495,8 +495,9 @@ describe("Points", () => {
       try {
         await expect.poll(() => points.value().status.variant, POLL).toBe("success");
         const view = new TimeRange(START, core.now());
+        const level = tileLevel(view);
         const coarsest = tilePointLimit({
-          level: tileLevel(view),
+          tile: { level, index: tileIndex(START, level) },
           view,
           points: TILED.count,
           drawn: "min_max",
