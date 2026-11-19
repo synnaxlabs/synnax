@@ -10,28 +10,13 @@
 package symbol
 
 import (
-	"regexp"
 	"slices"
 	"strconv"
 
+	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/selector"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/validate"
-)
-
-const (
-	escapeUnit = `\\[0-9a-fA-F]{1,6} ?|\\[^0-9a-fA-F\r\n\f]`
-	identStart = `(?:[A-Za-z_]|[^\x00-\x7F]|` + escapeUnit + `)`
-	identUnit  = `(?:[\w\-]|[^\x00-\x7F]|` + escapeUnit + `)`
-	// ident never starts with a digit, or with a hyphen and a digit.
-	ident = `(?:--|-?` + identStart + `)` + identUnit + `*`
-)
-
-// nameSelector matches the selectors that name shapes: #id, .class.class, and
-// [data-region-id="..."].
-var nameSelector = regexp.MustCompile(
-	`^(?:#` + ident + `|(?:\.` + ident + `)+|` +
-		`\[data-region-id="(?:[^"\\]|\\.)*"\])$`,
 )
 
 // checkSpec returns an error wrapping validate.ErrValidation at the first field of s
@@ -47,7 +32,7 @@ func checkSpec(s Spec) error {
 	}
 	for i, p := range s.Parts {
 		for j, sel := range p.Selectors {
-			if !nameSelector.MatchString(sel) {
+			if !selector.IsName(sel) {
 				return invalid(
 					at("parts", i, "selectors", strconv.Itoa(j)),
 					"%q is not an #id, .class, or [data-region-id] selector",

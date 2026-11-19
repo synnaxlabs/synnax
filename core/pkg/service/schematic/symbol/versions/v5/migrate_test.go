@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/selector"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v4"
 	v5 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v5"
 	color "github.com/synnaxlabs/x/color/versions/v2"
@@ -156,6 +157,52 @@ var _ = Describe("MigrateSpec", func() {
 		Expect(spec.Drawing).To(Equal(svg(
 			`<svg><rect data-region-id="region-1"/><rect data-region-id="region-2"/></svg>`,
 		)))
+	})
+
+	DescribeTable("Should name the shapes of a name that the checker refuses",
+		func(ctx SpecContext, markup, sel, named string) {
+			spec := migrate(ctx, markup, state("off", region("r", sel)))
+			Expect(spec.Parts[0].Selectors).
+				To(Equal([]string{`[data-region-id="region-1"]`}))
+			Expect(spec.Parts[0].Selectors).To(HaveEach(Satisfy(selector.IsName)))
+			Expect(spec.Drawing).To(Equal(svg(named)))
+		},
+		Entry(
+			"an id that starts with a digit",
+			`<svg><rect id="1a"/></svg>`,
+			"#1a",
+			`<svg><rect data-region-id="region-1" id="1a"/></svg>`,
+		),
+		Entry(
+			"an id with a comma",
+			`<svg><rect id="a,b"/></svg>`,
+			"#a,b",
+			`<svg><rect data-region-id="region-1" id="a,b"/></svg>`,
+		),
+		Entry(
+			"a class that starts with a digit",
+			`<svg><rect class="1a"/></svg>`,
+			".1a",
+			`<svg><rect data-region-id="region-1" class="1a"/></svg>`,
+		),
+		Entry(
+			"an id that starts with a hyphen and a digit",
+			`<svg><rect id="-1"/></svg>`,
+			"#-1",
+			`<svg><rect data-region-id="region-1" id="-1"/></svg>`,
+		),
+	)
+
+	It("Should drop a name that the checker refuses and that selects no shape", func(
+		ctx SpecContext,
+	) {
+		spec := migrate(
+			ctx,
+			`<svg><rect id="a"/></svg>`,
+			state("off", region("r", "#a,b")),
+		)
+		Expect(spec.Parts[0].Selectors).To(BeEmpty())
+		Expect(spec.Drawing).To(Equal(svg(`<svg><rect id="a"/></svg>`)))
 	})
 
 	It("Should drop a selector outside the editor's grammar", func(ctx SpecContext) {
