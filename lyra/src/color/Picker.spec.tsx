@@ -525,9 +525,9 @@ describe("Picker", () => {
         return <span>{`end of ${palette.name}`}</span>;
       };
 
-      const ShownActions = (): ReactElement | null => {
-        const { shown } = Color.usePalette();
-        return shown == null ? null : <span>{`edit ${shown.name}`}</span>;
+      const SwatchMenu = (): ReactElement => {
+        const { palette, swatch } = Color.usePalette();
+        return <span>{`menu for ${swatch?.name} in ${palette.name}`}</span>;
       };
 
       const ViewOpener = (): ReactElement => {
@@ -573,17 +573,45 @@ describe("Picker", () => {
         expect(c.queryByRole("group", { name: "Empty" })).toBeNull();
       });
 
-      it("should give swatchActions the hovered color, else the linked one", () => {
-        const c = renderSlots(
-          { named: "ocean", swatchActions: <ShownActions /> },
-          { value: "#3e8bff" },
-        );
-        expect(c.getByText("edit Ocean")).toBeTruthy();
-        expect(c.queryByText("edit Alarm")).toBeNull();
-        fireEvent.pointerEnter(c.getByLabelText("Alarm"));
-        expect(c.getByText("edit Alarm")).toBeTruthy();
-        fireEvent.pointerLeave(c.getByRole("group", { name: "Status" }));
-        expect(c.queryByText("edit Alarm")).toBeNull();
+      it("should open swatchMenu on a right click, given its swatch", () => {
+        const c = renderSlots({ named: "ocean", swatchMenu: <SwatchMenu /> });
+        fireEvent.contextMenu(c.getByLabelText("Alarm"));
+        expect(c.getByRole("menu")).toBeTruthy();
+        expect(c.getByText("menu for Alarm in Status")).toBeTruthy();
+      });
+
+      it("should name the swatch of an open menu in the palette title", () => {
+        const c = renderSlots({ swatchMenu: <SwatchMenu /> });
+        fireEvent.contextMenu(c.getByLabelText("Alarm"));
+        expect(c.getByText("Alarm")).toBeTruthy();
+      });
+
+      it("should open swatchMenu on a press of Shift+F10", () => {
+        const c = renderSlots({ swatchMenu: <SwatchMenu /> });
+        const alarm = c.getByLabelText("Alarm");
+        const opened = fireEvent.keyDown(alarm, {
+          key: "F10",
+          code: "F10",
+          shiftKey: true,
+        });
+        expect(opened).toBe(false);
+        expect(c.getByText("menu for Alarm in Status")).toBeTruthy();
+      });
+
+      it("should open swatchMenu on a release of the Menu key", () => {
+        const c = renderSlots({ swatchMenu: <SwatchMenu /> });
+        const moss = c.getByLabelText("Moss");
+        const key = { key: "ContextMenu", code: "ContextMenu" };
+        expect(fireEvent.keyDown(moss, key)).toBe(false);
+        expect(c.queryByRole("menu")).toBeNull();
+        fireEvent.keyUp(moss, key);
+        expect(c.getByText("menu for Moss in Series")).toBeTruthy();
+      });
+
+      it("should leave a right click to the platform without swatchMenu", () => {
+        const c = renderSlots({});
+        expect(fireEvent.contextMenu(c.getByLabelText("Alarm"))).toBe(true);
+        expect(c.queryByRole("menu")).toBeNull();
       });
 
       it("should end the palettes with the footer", () => {
@@ -636,30 +664,6 @@ describe("Picker", () => {
         expect(
           (c.getByPlaceholderText("Search colors") as HTMLInputElement).value,
         ).toBe("o");
-      });
-
-      it("should return the focus to the action of a hovered color after Back", () => {
-        const EditOpener = (): ReactElement | null => {
-          const { shown } = Color.usePalette();
-          const { open } = Dialog.useViews();
-          if (shown == null) return null;
-          return (
-            <button onClick={() => open("Edit color", <span>view body</span>)}>
-              {`edit ${shown.name}`}
-            </button>
-          );
-        };
-        const c = renderSlots(
-          { named: "ocean", swatchActions: <EditOpener /> },
-          { value: "#3e8bff" },
-        );
-        fireEvent.pointerEnter(c.getByLabelText("Alarm"));
-        const edit = c.getByText("edit Alarm");
-        edit.focus();
-        fireEvent.click(edit);
-        fireEvent.pointerLeave(c.getByRole("group", { name: "Status" }));
-        fireEvent.click(c.getByLabelText("Back"));
-        expect(document.activeElement).toBe(c.getByText("edit Alarm"));
       });
 
       it("should give a slot the linked color and link the value through the library", () => {

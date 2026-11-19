@@ -14,12 +14,13 @@
     grid-column: 1 / -1;
 }
 
-/* The look of a create item that ends a list, across the full width of the picker. */
-.pluto-color-create-palette {
-    width: auto;
+/* The create item and its divider span the picker, as the create option of a select
+   spans its list. The icon stays in line with the swatches. */
+.pluto-color-create-palette__divider {
     margin-inline: calc(-1 * var(--pluto-color-picker-inset));
-    padding: 1rem var(--pluto-color-picker-inset);
-    min-height: 5.5rem;
-    border-radius: var(--pluto-border-radius-small);
-    gap: 1.5rem;
+}
+
+.pluto-color-create-palette {
+    margin: 0 calc(-1 * var(--pluto-color-picker-inset));
+    padding-inline: var(--pluto-color-picker-inset);
 }

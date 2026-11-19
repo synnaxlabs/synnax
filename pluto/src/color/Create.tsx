@@ -12,6 +12,7 @@ import "@/color/Create.css";
 import { color, group } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Color } from "@synnaxlabs/lyra/color";
+import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
@@ -138,7 +139,7 @@ const Add = ({ focused = false, onFocus }: AddProps): ReactElement => {
     <Button.Button
       ref={plus}
       onFocus={onFocus}
-      variant="outlined"
+      variant="text"
       square
       textColor={9}
       className={CSS.cls(CSS.B("color-create"), CSS.selected(naming))}
@@ -226,24 +227,6 @@ export const CreatePalette = ({ onCreate }: CreatePaletteProps): ReactElement =>
   const [naming, setNaming] = useState(false);
   const [focused, setFocused] = useState(false);
   const { updateAsync: create } = useCreatePalette();
-  if (!naming)
-    return (
-      <Button.Button
-        variant="text"
-        size="small"
-        textColor={9}
-        justify="start"
-        className={CSS.B("color-create-palette")}
-        autoFocus={focused}
-        onClick={() => {
-          setFocused(false);
-          setNaming(true);
-        }}
-      >
-        <Icon.Add />
-        Create palette
-      </Button.Button>
-    );
   const handleSave = async (name: string): Promise<boolean> => {
     const key = uuid.create();
     const created = await create({ key, name });
@@ -255,13 +238,30 @@ export const CreatePalette = ({ onCreate }: CreatePaletteProps): ReactElement =>
     return true;
   };
   return (
-    <NameEntry
-      placeholder="Palette name"
-      onSave={handleSave}
-      onCancel={() => {
-        setFocused(true);
-        setNaming(false);
-      }}
-    />
+    <Flex.Box y empty>
+      <Divider.Divider x padded className={CSS.BE("color-create-palette", "divider")} />
+      {naming ? (
+        <NameEntry
+          placeholder="Palette name"
+          onSave={handleSave}
+          onCancel={() => {
+            setFocused(true);
+            setNaming(false);
+          }}
+        />
+      ) : (
+        <Button.CreateListItem
+          size="small"
+          className={CSS.B("color-create-palette")}
+          autoFocus={focused}
+          onClick={() => {
+            setFocused(false);
+            setNaming(true);
+          }}
+        >
+          Create palette
+        </Button.CreateListItem>
+      )}
+    </Flex.Box>
   );
 };
