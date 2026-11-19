@@ -59,7 +59,7 @@
         margin: 0.5rem 1rem 1.5rem;
     }
 
-    /* The border sets the footer apart from the panes, so it takes the inset on top too. */
+    /* Its border sets the footer apart from the panes, so it pads its top too. */
     .console-icd-picker__footer {
         padding-top: var(--pluto-modal-inset);
     }
