@@ -13,6 +13,7 @@ import (
 	"context"
 	"encoding/binary"
 	"hash/crc32"
+	"io"
 	"os"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -32,41 +33,118 @@ const (
 // payload. After each commit it writes the first slot again with the same bytes. A bad
 // slot with a good slot after it is corruption, and with none it is a torn tail.
 type slotLog struct {
+	fs      xfs.FS
 	f       xfs.File
 	records []crash.Record
-	// lenient takes each bad slot as a torn tail.
-	lenient bool
+	o       slotOpts
 }
 
-func openSlotLog(lenient bool) func(context.Context, xfs.FS) (crash.Engine, error) {
+// slotOpts holds the switches of a slotLog. The zero value is a correct log.
+type slotOpts struct {
+	// lenient takes each bad slot as a torn tail.
+	lenient bool
+	// tolerant returns a bad slot with a good slot after it as unreadable.
+	tolerant bool
+	// harm is what each recovery does to the disk after it reads the log.
+	harm harm
+}
+
+// harm is a defect of a recovery that changes the disk after it reads the log.
+type harm int
+
+const (
+	// rewritten copies the log to log.tmp with no Sync, renames the copy over the log,
+	// and syncs the directory.
+	rewritten harm = iota + 1
+	// marked leaves a durable mark, and refuses each open that finds one.
+	marked
+	// spoiled flips a bit of the first slot for good, when a later slot holds a record.
+	spoiled
+)
+
+func openSlotLog(o slotOpts) func(context.Context, xfs.FS) (crash.Engine, error) {
 	return func(_ context.Context, fs xfs.FS) (crash.Engine, error) {
 		exists, err := fs.Exists("log")
 		if err != nil {
 			return nil, err
 		}
+		marked, err := fs.Exists("mark")
+		if err != nil {
+			return nil, err
+		}
+		if marked {
+			return nil, errCorrupt
+		}
 		f, err := fs.Open("log", os.O_CREATE|os.O_RDWR)
 		if err != nil {
 			return nil, err
 		}
-		l := &slotLog{f: f, lenient: lenient}
+		l := &slotLog{fs: fs, f: f, o: o}
 		if exists {
 			err = l.scan()
 		} else {
 			err = errors.Join(put(f, make([]byte, slotBytes*slotCount)), fs.SyncDir(""))
 		}
+		if err == nil && exists {
+			err = l.damage()
+		}
 		if err != nil {
-			return nil, errors.Combine(err, f.Close())
+			return nil, errors.Combine(err, l.f.Close())
 		}
 		return l, nil
 	}
 }
 
+// damage does the harm of the log to the disk.
+func (l *slotLog) damage() error {
+	switch l.o.harm {
+	case rewritten:
+		data, err := xfs.ReadFile(l.fs, "log")
+		if err != nil {
+			return err
+		}
+		tmp, err := l.fs.Open("log.tmp", os.O_CREATE|os.O_RDWR)
+		if err != nil {
+			return err
+		}
+		_, err = tmp.Write(data)
+		err = errors.Join(err, tmp.Close(), l.f.Close(), l.fs.Rename("log.tmp", "log"))
+		if err = errors.Join(err, l.fs.SyncDir("")); err != nil {
+			return err
+		}
+		l.f, err = l.fs.Open("log", os.O_RDWR)
+		return err
+	case marked:
+		mark, err := l.fs.Open("mark", os.O_CREATE|os.O_RDWR)
+		if err != nil {
+			return err
+		}
+		return errors.Join(mark.Sync(), mark.Close(), l.fs.SyncDir(""))
+	case spoiled:
+		if len(l.records) < 2 {
+			return nil
+		}
+		b := make([]byte, 1)
+		if _, err := l.f.ReadAt(b, 8); err != nil {
+			return err
+		}
+		b[0] ^= 1
+		_, err := l.f.WriteAt(b, 8)
+		return errors.Join(err, l.f.Sync())
+	}
+	return nil
+}
+
 // slot returns the record in the slot index. ok is false for a slot that is bad on two
-// reads.
+// reads, or past the end of the log.
 func (l *slotLog) slot(index int) (r crash.Record, ok bool, err error) {
-	buf := make([]byte, slotBytes)
 	for range 2 {
-		if _, err = l.f.ReadAt(buf, int64(index)*slotBytes); err != nil {
+		buf := make([]byte, slotBytes)
+		_, err = l.f.ReadAt(buf, int64(index)*slotBytes)
+		if errors.Is(err, io.EOF) {
+			return r, false, nil
+		}
+		if err != nil {
 			return r, false, err
 		}
 		place := binary.LittleEndian.AppendUint64(nil, uint64(index))
@@ -81,17 +159,32 @@ func (l *slotLog) slot(index int) (r crash.Record, ok bool, err error) {
 }
 
 func (l *slotLog) scan() error {
-	bad := false
+	var (
+		slots = make([]crash.Record, slotCount)
+		good  = make([]bool, slotCount)
+		end   = 0
+	)
 	for index := range slotCount {
 		r, ok, err := l.slot(index)
 		if err != nil {
 			return err
 		}
-		if ok && bad && !l.lenient {
-			return errCorrupt
+		if slots[index], good[index] = r, ok; ok {
+			end = index + 1
 		}
-		if bad = bad || !ok; !bad {
-			l.records = append(l.records, r)
+	}
+	// Each bad slot before end has a good slot after it.
+	for index := range end {
+		switch {
+		case good[index]:
+			l.records = append(l.records, slots[index])
+		case l.o.tolerant:
+			unreadable := crash.Record{ID: uint64(index + 1), Unreadable: true}
+			l.records = append(l.records, unreadable)
+		case l.o.lenient:
+			return nil
+		default:
+			return errCorrupt
 		}
 	}
 	return nil
@@ -141,7 +234,7 @@ var _ = Describe("A log that writes in place in a file of zeros", func() {
 		for runKey := range uint64(32) {
 			err := crash.Run(ctx, crash.Config{
 				RunKey:  runKey,
-				Open:    openSlotLog(lenient),
+				Open:    openSlotLog(slotOpts{lenient: lenient}),
 				Corrupt: func(err error) bool { return errors.Is(err, errCorrupt) },
 				Commits: 12,
 				Stride:  1,
@@ -169,6 +262,71 @@ var _ = Describe("A log that writes in place in a file of zeros", func() {
 			rules := broken(ctx, true, crash.OldCorruption)
 			Expect(rules).ToNot(BeEmpty())
 			Expect(rules).To(HaveEach(crash.R1))
+		},
+	)
+})
+
+var _ = Describe("A recovery that harms the disk", func() {
+	// violations returns the error of each of 32 run keys on which Run fails.
+	violations := func(ctx context.Context, o slotOpts, profile crash.Profile) []string {
+		GinkgoHelper()
+		var out []string
+		for runKey := range uint64(32) {
+			err := crash.Run(ctx, crash.Config{
+				RunKey:  runKey,
+				Open:    openSlotLog(o),
+				Corrupt: func(err error) bool { return errors.Is(err, errCorrupt) },
+				Commits: 12,
+				Stride:  1,
+				Profile: profile,
+			})
+			if err != nil {
+				out = append(out, err.Error())
+			}
+		}
+		return out
+	}
+
+	It(
+		"Should pass a log that returns a bad slot as unreadable",
+		func(ctx SpecContext) {
+			Expect(violations(ctx, slotOpts{tolerant: true}, crash.OldCorruption)).
+				To(BeEmpty())
+		},
+	)
+
+	It("Should catch a recovery that renames a copy with no Sync over the log",
+		func(ctx SpecContext) {
+			found := violations(ctx, slotOpts{harm: rewritten}, crash.Strict)
+			Expect(found).To(HaveLen(32))
+			Expect(found).To(HaveEach(ContainSubstring("R1 broken")))
+		},
+	)
+
+	DescribeTable(
+		"Should catch a second open that refuses after a first that recovered",
+		func(ctx SpecContext, profile crash.Profile) {
+			found := violations(ctx, slotOpts{harm: marked}, profile)
+			Expect(found).To(HaveLen(32))
+			Expect(found).To(HaveEach(MatchRegexp(
+				`R4 broken .*did not recover after a crash in recovery: .*corrupt`,
+			)))
+		},
+		Entry("under Strict", crash.Strict),
+		Entry("under OldCorruption", crash.OldCorruption),
+	)
+
+	It("Should catch a second recovery that cannot read what the first read",
+		func(ctx SpecContext) {
+			found := violations(
+				ctx,
+				slotOpts{tolerant: true, harm: spoiled},
+				crash.OldCorruption,
+			)
+			Expect(found).To(HaveLen(32))
+			Expect(found).To(ContainElement(MatchRegexp(
+				`R1 broken .*commit 1 of the first recovery is unreadable after a crash`,
+			)))
 		},
 	)
 })

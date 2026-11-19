@@ -14,6 +14,7 @@ import (
 	"encoding/binary"
 	"hash/crc32"
 	"io"
+	"math"
 	"os"
 	"slices"
 
@@ -31,16 +32,19 @@ type plainOpts struct {
 	// lazy acks Durable before the sync. The sync comes at the start of the next
 	// commit, and at the close.
 	lazy bool
-	// split reads the header and the body of a record in two calls, three times before
-	// it calls the record bad.
+	// split reads the header and the body of a record in two calls.
 	split bool
 	// unacked returns a zero ack and no error.
 	unacked bool
-	// overcut cuts a torn tail at the start of the last good record, and keeps that
-	// record in memory.
+	// overcut cuts the last good record from the disk at each recovery, and keeps it in
+	// memory.
 	overcut bool
 	// halted makes Recovered fail after an error stopped the log.
 	halted bool
+	// bulk reads the whole log in one call, two times at most, and keeps the read with
+	// the longer good prefix. It checks the checksum of each record that starts before
+	// bulk.
+	bulk int64
 }
 
 // plainLog is an append-only log in one file. Each record is a checksum, a length, an
@@ -67,9 +71,12 @@ func openPlainLog(o plainOpts) func(context.Context, xfs.FS) (crash.Engine, erro
 			return nil, err
 		}
 		l := &plainLog{f: f, o: o}
-		if !existed {
+		switch {
+		case !existed:
 			err = fs.SyncDir("")
-		} else {
+		case o.bulk > 0:
+			err = l.scanBulk()
+		default:
 			err = l.scan()
 		}
 		if err != nil {
@@ -126,36 +133,75 @@ func (l *plainLog) scan() error {
 	if err != nil {
 		return err
 	}
-	tries, last := 2, int64(0)
-	if l.o.split {
-		tries = 3
-	}
+	last := int64(0)
 	for size := info.Size(); l.off < size; {
 		var (
 			r  crash.Record
 			n  int64
 			ok bool
 		)
-		for try := 0; try < tries && !ok; try++ {
+		for try := 0; try < 2 && !ok; try++ {
 			if r, n, ok, err = l.readOnce(l.off, size); err != nil {
 				return err
 			}
 		}
 		if !ok {
-			cut := l.off
-			if l.o.overcut {
-				cut = last
-			}
-			if err = l.f.Truncate(cut); err != nil {
-				return err
-			}
-			return l.f.Sync()
+			break
 		}
 		l.records = append(l.records, r)
 		last = l.off
 		l.off += n
 	}
-	return nil
+	cut := l.off
+	if l.o.overcut && len(l.records) > 0 {
+		cut = last
+	}
+	if cut == info.Size() {
+		return nil
+	}
+	return errors.Join(l.f.Truncate(cut), l.f.Sync())
+}
+
+// scanBulk reads the whole log in one call, and cuts a torn tail.
+func (l *plainLog) scanBulk() error {
+	info, err := l.f.Stat()
+	if err != nil {
+		return err
+	}
+	torn := true
+	for try := 0; try < 2 && torn; try++ {
+		data := make([]byte, info.Size())
+		if _, err = l.f.ReadAt(data, 0); err != nil && !errors.Is(err, io.EOF) {
+			return err
+		}
+		if records, off, cut := l.parse(data); try == 0 || off > l.off {
+			l.records, l.off, torn = records, off, cut
+		}
+	}
+	if l.off == info.Size() {
+		return nil
+	}
+	return errors.Join(l.f.Truncate(l.off), l.f.Sync())
+}
+
+// parse returns the records of data, the end of the last one, and if bytes after it do
+// not hold a whole record.
+func (l *plainLog) parse(data []byte) (records []crash.Record, off int64, torn bool) {
+	for size := int64(len(data)); off+plainHeader <= size; {
+		n := plainHeader + int64(binary.LittleEndian.Uint32(data[off+4:]))
+		if off+n > size {
+			return records, off, true
+		}
+		rec := data[off : off+n]
+		sum := crc32.Checksum(rec[4:], castagnoli)
+		if off < l.o.bulk && binary.LittleEndian.Uint32(rec) != sum {
+			return records, off, true
+		}
+		id := binary.LittleEndian.Uint64(rec[8:])
+		records = append(records, crash.Record{ID: id, Payload: rec[plainHeader:]})
+		off += n
+	}
+	return records, off, off < int64(len(data))
 }
 
 func (l *plainLog) Commit(
@@ -295,6 +341,10 @@ var _ = Describe("Engines", func() {
 		Entry("under Mixed", plainOpts{}, crash.Mixed),
 		Entry("that reads a record in two calls, under OneTimeReadFaults",
 			plainOpts{split: true}, crash.OneTimeReadFaults),
+		Entry("that reads the whole log in one call, under OneTimeReadFaults",
+			plainOpts{bulk: math.MaxInt64}, crash.OneTimeReadFaults),
+		Entry("that reads the whole log in one call, under Mixed",
+			plainOpts{bulk: math.MaxInt64}, crash.Mixed),
 		Entry("that stops its reads after a sync error",
 			plainOpts{halted: true}, crash.SyncErrors),
 		Entry("that stops its reads on a full disk",
@@ -371,6 +421,39 @@ var _ = Describe("Engines", func() {
 			crash.FullDisk,
 			crash.R0,
 		),
+	)
+
+	It("Should catch a log that checks only the first block of a read of the whole log",
+		func(ctx SpecContext) {
+			rules := broken(
+				ctx,
+				openPlainLog(plainOpts{bulk: 4096}),
+				crash.OneTimeReadFaults,
+			)
+			Expect(rules).ToNot(BeEmpty())
+			Expect(rules).To(HaveEach(crash.R2))
+		},
+	)
+
+	It(
+		"Should catch a recovery that cuts a record with no durable ack that it showed",
+		func(ctx SpecContext) {
+			found := make([]string, 0, 32)
+			for runKey := range uint64(32) {
+				err := crash.Run(ctx, crash.Config{
+					RunKey:  runKey,
+					Open:    openPlainLog(plainOpts{overcut: true}),
+					Commits: 20,
+					Stride:  1,
+					Profile: crash.Partial,
+				})
+				Expect(err).To(MatchError(ContainSubstring("broken at event")))
+				found = append(found, err.Error())
+			}
+			Expect(found).To(ContainElement(MatchRegexp(
+				`R1 broken .*commit \d+ of the first recovery is missing after a crash`,
+			)))
+		},
 	)
 
 	It(
