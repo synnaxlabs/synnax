@@ -26,20 +26,32 @@ interface Props extends Omit<
     priority?: boolean;
     /** The class of the picture element. */
     pictureClass?: string;
+    /** Encoding quality from 1 to 100. Defaults to the image service's default. */
+    quality?: number;
 }
 
 // Two pixels per CSS pixel at the widest content column.
 const WIDTHS = [640, 960, 1280, 1920, 2560];
 const DARK = "(prefers-color-scheme: dark)";
 
-const { src, dark, sizes, priority = false, pictureClass, ...rest } = Astro.props;
+const {
+    src,
+    dark,
+    sizes,
+    priority = false,
+    pictureClass,
+    quality,
+    loading = priority ? "eager" : "lazy",
+    decoding = priority ? "sync" : "async",
+    ...rest
+} = Astro.props;
 const size = await inferRemoteSize(src);
 // Sharp enlarges past the source width, which only adds bytes.
 const width = Math.min(size.width, WIDTHS[WIDTHS.length - 1]);
 const height = Math.round((size.height * width) / size.width);
 const widths = [...WIDTHS.filter((w) => w < width), width];
 const srcset = async (url: string, format: "avif" | "webp") =>
-    await getImage({ src: url, width, height, widths, format });
+    await getImage({ src: url, width, height, widths, format, quality });
 const [avif, webp, darkAvif, darkWebp] = await Promise.all([
     srcset(src, "avif"),
     srcset(src, "webp"),
@@ -66,10 +78,10 @@ const [avif, webp, darkAvif, darkWebp] = await Promise.all([
     )}
     <source type="image/avif" srcset={avif.srcSet.attribute} sizes={sizes} />
     <img
-        loading={priority ? "eager" : "lazy"}
-        decoding={priority ? "sync" : "async"}
-        fetchpriority={priority ? "high" : undefined}
         {...rest}
+        loading={loading}
+        decoding={decoding}
+        fetchpriority={priority ? "high" : undefined}
         src={webp.src}
         srcset={webp.srcSet.attribute}
         sizes={sizes}

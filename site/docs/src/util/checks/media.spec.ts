@@ -50,5 +50,12 @@ describe("media", () => {
         `${ROUTE} - video has no label: ${VIDEO}`,
       ]);
     });
+
+    it("should name an image that Vercel resizes by its original", () => {
+      const resized = `/_vercel/image?url=${encodeURIComponent(IMAGE)}&amp;w=640&amp;q=100`;
+      expect(check(`<img src="${resized}">`)).toEqual([
+        `${ROUTE} - image has no alt text: ${IMAGE}`,
+      ]);
+    });
   });
 });

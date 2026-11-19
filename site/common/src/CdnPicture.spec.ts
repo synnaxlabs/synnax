@@ -127,6 +127,20 @@ describe("CdnPicture", () => {
       expect(img.getAttribute("decoding")).toBe("sync");
       expect(img.getAttribute("fetchpriority")).toBe("high");
     });
+
+    it("should take the loading that the caller gives", async () => {
+      stubImageSize(1600, 900);
+      const { img } = await render({ loading: "eager" });
+      expect(img.outerHTML.match(/\sloading=/g)).toHaveLength(1);
+      expect(img.getAttribute("loading")).toBe("eager");
+    });
+  });
+
+  it("should encode at the quality that the caller gives", async () => {
+    stubImageSize(1600, 900);
+    const { source, img } = await render({ quality: 80 });
+    expect(source.srcset).toContain("q=80");
+    expect(img.srcset).toContain("q=80");
   });
 
   it("should pass the alt text, sizes, and class to the image", async () => {

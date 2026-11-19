@@ -21,6 +21,8 @@ interface Expanded {
   moved: Element;
   /** The hidden copy that holds the media's place on the page. */
   placeholder: Element;
+  /** The `sizes` of an image on the page, restored when it returns there. */
+  sizes: string | null;
   closing: boolean;
 }
 
@@ -38,6 +40,13 @@ const RATES = [1, 1.5, 2, 0.5];
 const seek = (video: HTMLVideoElement, time: number): void => {
   if (Number.isFinite(video.duration))
     video.currentTime = bounds.clamp({ lower: 0, upper: video.duration }, time);
+};
+
+// On the page, `sizes` picks a source for the text column. Set to the viewport width,
+// it picks the largest source that the screen can show.
+const setSizes = (moved: Element, sizes: string): void => {
+  for (const el of [moved, ...moved.querySelectorAll("source, img")])
+    if (el.hasAttribute("sizes")) el.setAttribute("sizes", sizes);
 };
 
 const query = <E extends Element>(root: ParentNode, selector: string): E => {
@@ -151,12 +160,14 @@ export const start = (): void => {
     if (placeholder instanceof HTMLVideoElement)
       placeholder.style.aspectRatio = `${from.width} / ${from.height}`;
     moved.replaceWith(placeholder);
+    const sizes = media.getAttribute("sizes");
+    if (sizes != null) setSizes(moved, "100vw");
     query(root, ".docs-lightbox__stage").append(moved);
     query(root, ".docs-lightbox__caption").textContent = name;
     root.setAttribute("aria-label", name === "" ? "Expanded media" : name);
     const video = media instanceof HTMLVideoElement;
     root.classList.toggle("docs-lightbox--video", video);
-    expanded = { media, moved, placeholder, closing: false };
+    expanded = { media, moved, placeholder, sizes, closing: false };
     root.showModal();
     // On the dialog, not its first button, so Space plays and pauses a video.
     root.focus();
@@ -201,8 +212,9 @@ export const start = (): void => {
   const restore = (): void => {
     if (expanded == null) return;
     cancelAnimationFrame(frame);
-    const { media, moved, placeholder } = expanded;
+    const { media, moved, placeholder, sizes } = expanded;
     if (media instanceof HTMLVideoElement) setRate(media, 1);
+    if (sizes != null) setSizes(moved, sizes);
     for (const animation of dialog().getAnimations({ subtree: true }))
       animation.cancel();
     placeholder.replaceWith(moved);
