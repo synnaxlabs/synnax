@@ -10,6 +10,7 @@
 import { describe, expect, it } from "vitest";
 
 import { CSS } from "@/css";
+import { Form } from "@/form";
 import { Input } from "@/input";
 import { computed, renderThemed, resolve } from "@/styletest";
 
@@ -133,6 +134,32 @@ describe("Input.Table", () => {
     );
     const cell = indicator?.closest("td");
     if (indicator == null || cell == null) throw new Error("The cell has no checkbox");
+    const center = (el: Element): number => {
+      const { left, width } = el.getBoundingClientRect();
+      return left + width / 2;
+    };
+    expect(center(indicator)).toBeCloseTo(center(cell), 0);
+  });
+
+  it("should center a switch in its cell inside a form section", async () => {
+    const { container } = await renderThemed(
+      <Form.Sections>
+        <Form.Section>
+          <Input.Table value={[[true]]} onChange={() => {}}>
+            <Input.TableColumn name="Enabled" type="boolean" width={20}>
+              {({ value, onChange, "aria-label": label }) => (
+                <Input.Switch value={value} onChange={onChange} aria-label={label} />
+              )}
+            </Input.TableColumn>
+          </Input.Table>
+        </Form.Section>
+      </Form.Sections>,
+    );
+    const indicator = container.querySelector(
+      `.${CSS.BE("input", "switch", "indicator")}`,
+    );
+    const cell = indicator?.closest("td");
+    if (indicator == null || cell == null) throw new Error("The cell has no switch");
     const center = (el: Element): number => {
       const { left, width } = el.getBoundingClientRect();
       return left + width / 2;

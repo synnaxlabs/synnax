@@ -12,7 +12,10 @@
 /* The picker spans the box of the entries grid, between its handles and its remove
    buttons. */
 .pluto-states__enumeration {
-    --pluto-control-width: 100%;
+    --pluto-control-width: calc(
+        100% - var(--pluto-input-table-gutter-width) -
+            var(--pluto-input-table-action-width)
+    );
 
     margin-inline: var(--pluto-input-table-gutter-width)
         var(--pluto-input-table-action-width);
