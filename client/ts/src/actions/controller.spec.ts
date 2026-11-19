@@ -1152,7 +1152,7 @@ describe("actions.Controller", () => {
         done = true;
       });
       return async () => {
-        await scheduler.flushTaskQueue();
+        await scheduler.nextTask();
         return done;
       };
     };

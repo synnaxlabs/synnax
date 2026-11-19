@@ -10,6 +10,7 @@
 import "@/platform/secret/Field.css";
 
 import { NotFoundError, secret } from "@synnaxlabs/client";
+import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -23,7 +24,6 @@ import { Access, Flux, Secret } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Button } from "@/platform/button";
 import { CSS } from "@/platform/css";
 import { useCreateModal } from "@/platform/secret/useCreateModal";
 import { Validity } from "@/platform/secret/validity";
