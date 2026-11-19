@@ -801,8 +801,8 @@ var _ = Describe("Type Unification", func() {
 				err,
 			).To(MatchError(ContainSubstring("str is not compatible with i32")))
 
-			var ue *constraints.UnificationError
-			Expect(errors.As(err, &ue)).To(BeTrue(), "expected UnificationError")
+			ue, ok := errors.AsType[*constraints.UnificationError](err)
+			Expect(ok).To(BeTrue(), "expected UnificationError")
 			Expect(ue.Message).To(ContainSubstring("is not compatible with"))
 		})
 
@@ -818,8 +818,8 @@ var _ = Describe("Type Unification", func() {
 				err,
 			).To(MatchError(ContainSubstring("f64 is not compatible with i64")))
 
-			var ue *constraints.UnificationError
-			Expect(errors.As(err, &ue)).To(BeTrue())
+			ue, ok := errors.AsType[*constraints.UnificationError](err)
+			Expect(ok).To(BeTrue())
 			Expect(ue.Hint).To(ContainSubstring("use"))
 			Expect(ue.Hint).To(ContainSubstring("to convert"))
 		})
@@ -833,8 +833,8 @@ var _ = Describe("Type Unification", func() {
 			Expect(err).To(
 				MatchError(ContainSubstring("u8 is not compatible with bool")),
 			)
-			var ue *constraints.UnificationError
-			Expect(errors.As(err, &ue)).To(BeTrue())
+			ue, ok := errors.AsType[*constraints.UnificationError](err)
+			Expect(ok).To(BeTrue())
 			Expect(ue.Hint).To(Equal(constraints.BoolHint))
 		})
 
@@ -848,8 +848,8 @@ var _ = Describe("Type Unification", func() {
 			Expect(err).To(
 				MatchError(ContainSubstring("u8 is not compatible with bool")),
 			)
-			var ue *constraints.UnificationError
-			Expect(errors.As(err, &ue)).To(BeTrue())
+			ue, ok := errors.AsType[*constraints.UnificationError](err)
+			Expect(ok).To(BeTrue())
 			Expect(ue.Hint).To(BeEmpty())
 		})
 	})

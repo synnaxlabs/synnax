@@ -49,8 +49,8 @@ var _ = Describe("RequireFields", func() {
 
 	It("Should scope the error to the first missing field", func() {
 		err := imex.RequireFields(msgpack.EncodedJSON{}, "a table", "layout", "cells")
-		var pathed validate.PathError
-		Expect(errors.As(err, &pathed)).To(BeTrue())
+		pathed, ok := errors.AsType[validate.PathError](err)
+		Expect(ok).To(BeTrue())
 		Expect(pathed.Path).To(Equal([]string{"layout"}))
 	})
 

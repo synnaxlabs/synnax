@@ -445,8 +445,8 @@ var _ = Describe("NewRoot", func() {
 		root := svc.NewRoot(db, &channel.Lookups{})
 		Expect(root.Resolve(ctx, "new_root_ch_3")).To(HaveField("ID", int(ch.Key())))
 		_, err := root.Resolve(ctx, "new_root_ch")
-		var undefinedErr *symbol.UndefinedSymbolError
-		Expect(errors.As(err, &undefinedErr)).To(BeTrue(), err)
+		_, undefined := errors.AsType[*symbol.UndefinedSymbolError](err)
+		Expect(undefined).To(BeTrue(), err)
 	})
 })
 

@@ -121,16 +121,16 @@ var _ = Describe("Validate", func() {
 		It("Should keep the Ternary message and path", func() {
 			v.Ternary("parent.childField", true, "100% wrong")
 			Expect(v.Error()).To(MatchError("parent.child_field: 100% wrong"))
-			var pathErr validate.PathError
-			Expect(errors.As(v.Error(), &pathErr)).To(BeTrue())
+			pathErr, ok := errors.AsType[validate.PathError](v.Error())
+			Expect(ok).To(BeTrue())
 			Expect(pathErr.Path).To(Equal([]string{"parent", "child_field"}))
 		})
 
 		It("Should keep the Ternaryf message and path", func() {
 			v.Ternaryf("parent.childField", true, "invalid value: %v", 12)
 			Expect(v.Error()).To(MatchError("parent.child_field: invalid value: 12"))
-			var pathErr validate.PathError
-			Expect(errors.As(v.Error(), &pathErr)).To(BeTrue())
+			pathErr, ok := errors.AsType[validate.PathError](v.Error())
+			Expect(ok).To(BeTrue())
 			Expect(pathErr.Path).To(Equal([]string{"parent", "child_field"}))
 		})
 

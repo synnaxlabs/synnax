@@ -772,8 +772,8 @@ var _ = Describe("Reference", func() {
 					"cannot delete rack 1 because device d1 references it through rack: " +
 						"validation error",
 				))
-				var restrict gorp.RestrictError
-				Expect(errors.As(err, &restrict)).To(BeTrue())
+				restrict, ok := errors.AsType[gorp.RestrictError](err)
+				Expect(ok).To(BeTrue())
 				Expect(restrict).To(Equal(gorp.RestrictError{
 					Target:    gorp.NewTarget("rack", uint32(1)),
 					Holder:    gorp.NewTarget("device", "d1"),

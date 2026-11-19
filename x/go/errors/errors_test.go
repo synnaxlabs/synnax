@@ -35,6 +35,12 @@ func (e *parenError) Error() string { return "outer (" + e.cause.Error() + ")" }
 
 func (e *parenError) Unwrap() error { return e.cause }
 
+type causeError struct{ cause error }
+
+func (e *causeError) Error() string { return "cause: " + e.cause.Error() }
+
+func (e *causeError) Cause() error { return e.cause }
+
 type panicError struct{}
 
 func (panicError) Error() string { panic("member failed") }
@@ -502,6 +508,44 @@ var _ = Describe("Is", func() {
 			err := errors.New("test")
 			var errCustom customError
 			Expect(func() { errors.As(err, errCustom) }).To(Panic())
+		})
+	})
+
+	Describe("AsType", func() {
+		It("Should return the zero value and false for a non-matching type", func() {
+			target, ok := errors.AsType[*customError](errors.New("test"))
+			Expect(ok).To(BeFalse())
+			Expect(target).ToNot(HaveOccurred())
+		})
+
+		It("Should return a wrapped error of the matching type", func() {
+			original := &customError{msg: "test"}
+			target, ok := errors.AsType[*customError](errors.Wrap(original, "wrapped"))
+			Expect(ok).To(BeTrue())
+			Expect(target).To(BeIdenticalTo(original))
+		})
+
+		It("Should find a member of a joined error", func() {
+			original := &customError{msg: "test"}
+			target, ok := errors.AsType[*customError](
+				errors.Join(errors.New("other"), original),
+			)
+			Expect(ok).To(BeTrue())
+			Expect(target).To(BeIdenticalTo(original))
+		})
+
+		It("Should follow a Cause chain", func() {
+			original := &customError{msg: "test"}
+			target, ok := errors.AsType[*customError](&causeError{cause: original})
+			Expect(ok).To(BeTrue())
+			Expect(target).To(BeIdenticalTo(original))
+		})
+
+		It("Should match an interface type", func() {
+			original := &customError{msg: "test"}
+			target, ok := errors.AsType[interface{ Error() string }](original)
+			Expect(ok).To(BeTrue())
+			Expect(target).To(BeIdenticalTo(original))
 		})
 	})
 })
