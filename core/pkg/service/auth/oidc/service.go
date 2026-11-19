@@ -241,27 +241,8 @@ func (s *Service) verify(
 	if err != nil {
 		return account{}, err
 	}
-	oauth := oauth2.Config{
-		ClientID:     p.ClientID,
-		ClientSecret: p.ClientSecret,
-		Endpoint:     discovered.Endpoint(),
-		RedirectURL:  creds.RedirectURI,
-	}
-	exchangeCtx := context.WithValue(
-		ctx,
-		oauth2.HTTPClient,
-		&http.Client{Timeout: requestTimeout},
-	)
-	tok, err := oauth.Exchange(
-		exchangeCtx,
-		creds.Code,
-		oauth2.VerifierOption(creds.Verifier),
-	)
+	tok, err := exchange(ctx, p, discovered, creds)
 	if err != nil {
-		var rejected *oauth2.RetrieveError
-		if errors.As(err, &rejected) {
-			return account{}, auth.ErrInvalidCredentials
-		}
 		return account{}, err
 	}
 	raw, ok := tok.Extra("id_token").(string)
@@ -285,6 +266,33 @@ func (s *Service) verify(
 		ID:       idToken.Subject,
 		Name:     claims.Name,
 	}, nil
+}
+
+// exchange trades the authorization code in creds for the provider's tokens. It returns
+// [auth.ErrInvalidCredentials] when the provider rejects the code.
+func exchange(
+	ctx context.Context,
+	p *provider,
+	discovered *gooidc.Provider,
+	creds auth.OIDCCredentials,
+) (*oauth2.Token, error) {
+	oauth := oauth2.Config{
+		ClientID:     p.ClientID,
+		ClientSecret: p.ClientSecret,
+		Endpoint:     discovered.Endpoint(),
+		RedirectURL:  creds.RedirectURI,
+	}
+	ctx = context.WithValue(
+		ctx,
+		oauth2.HTTPClient,
+		&http.Client{Timeout: requestTimeout},
+	)
+	tok, err := oauth.Exchange(ctx, creds.Code, oauth2.VerifierOption(creds.Verifier))
+	var rejected *oauth2.RetrieveError
+	if errors.As(err, &rejected) {
+		return nil, auth.ErrInvalidCredentials
+	}
+	return tok, err
 }
 
 // Authenticate implements [auth.Authenticator]. The first login of an unlinked account
