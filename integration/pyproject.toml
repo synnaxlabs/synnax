@@ -50,7 +50,7 @@ extend = "../pyproject.toml"
 
 [tool.ruff.lint]
 extend-select = ["TID251"]
-# The conductor runs these tests, not pytest.
+# Most tests here run under the conductor, not pytest.
 ignore = ["PT"]
 
 # Tests wait with bounded polling helpers, or with framework.utils.hold for a fixed
