@@ -64,7 +64,8 @@ func (f *FS) Crash(cfg CrashConfig) (*FS, error) {
 			c.apply(ch)
 		}
 	}
-	return &FS{d: newDisk(cfg.Image, c.image(d.root, "/"), d.clock), root: f.root}, nil
+	image := newDisk(cfg.Image, c.image(d.root, "/"), d.clock, d.ids)
+	return &FS{d: image, root: f.root}, nil
 }
 
 type crash struct {
@@ -102,7 +103,7 @@ func (c *crash) apply(ch *change) {
 
 // image returns the node that the crash leaves in place of n, which is at the path p.
 func (c *crash) image(n *node, p string) *node {
-	out := &node{dir: n.dir, modTime: n.modTime}
+	out := &node{dir: n.dir, modTime: n.modTime, id: n.id}
 	if !n.dir {
 		out.data = c.data(n, hashPath(p))
 		out.durable = slices.Clone(out.data)

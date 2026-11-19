@@ -37,6 +37,8 @@ type disk struct {
 	cfg  Config
 	// clock counts the changes to the disk. It gives each one a later mod time.
 	clock int64
+	// ids counts the files that the disk made. It gives each one its ID.
+	ids ID
 	// mu guards every field of the disk, its nodes, and its open files.
 	mu sync.Mutex
 }
@@ -52,8 +54,13 @@ type node struct {
 	// syncErrors counts the failed Syncs of the file. Each handle reports a count that
 	// it has not seen, once.
 	syncErrors uint64
+	id         ID
 	dir        bool
 }
+
+// ID names one file of a disk. A rename does not change it, and a crash image keeps it.
+// The Sys method of the info of a file returns it.
+type ID uint64
 
 func newDir() *node {
 	return &node{
@@ -67,6 +74,7 @@ type info struct {
 	modTime time.Time
 	name    string
 	size    int64
+	id      ID
 	dir     bool
 }
 
@@ -76,7 +84,7 @@ func (i info) Name() string       { return i.name }
 func (i info) Size() int64        { return i.size }
 func (i info) ModTime() time.Time { return i.modTime }
 func (i info) IsDir() bool        { return i.dir }
-func (i info) Sys() any           { return nil }
+func (i info) Sys() any           { return i.id }
 
 func (i info) Mode() os.FileMode {
 	mode := xfs.UserRWX | xfs.GroupRX | xfs.OtherRX
@@ -87,7 +95,13 @@ func (i info) Mode() os.FileMode {
 }
 
 func (n *node) info(name string) info {
-	return info{name: name, size: int64(len(n.data)), modTime: n.modTime, dir: n.dir}
+	return info{
+		name:    name,
+		size:    int64(len(n.data)),
+		modTime: n.modTime,
+		id:      n.id,
+		dir:     n.dir,
+	}
 }
 
 func (d *disk) touch(n *node) {
@@ -171,11 +185,12 @@ type call struct {
 	off  int64
 }
 
-func newDisk(cfg Config, root *node, clock int64) *disk {
+func newDisk(cfg Config, root *node, clock int64, ids ID) *disk {
 	return &disk{
 		cfg:     cfg,
 		root:    root,
 		clock:   clock,
+		ids:     ids,
 		calls:   map[call]uint64{},
 		open:    map[*node]int{},
 		spoiled: set.Set[place]{},

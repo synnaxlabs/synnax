@@ -84,7 +84,7 @@ func New(cfg Config) (*FS, error) {
 	if err := cfg.validate(); err != nil {
 		return nil, err
 	}
-	return &FS{d: newDisk(cfg, newDir(), 0), root: "/"}, nil
+	return &FS{d: newDisk(cfg, newDir(), 0, 0), root: "/"}, nil
 }
 
 func (f *FS) abs(name string) string { return path.Join(f.root, name) }
@@ -111,7 +111,8 @@ func (f *FS) Open(name string, flag int) (xfs.File, error) {
 		if err != nil {
 			return nil, err
 		}
-		n = &node{}
+		d.ids++
+		n = &node{id: d.ids}
 		d.record(p, d.set(dir, base, n))
 		d.touch(n)
 	default:

@@ -176,3 +176,50 @@ var _ = Describe("Read corruption", func() {
 		Entry("high", 1.1),
 	)
 })
+
+var _ = Describe("File ID", func() {
+	var fs *fault.FS
+	BeforeEach(func() { fs = MustSucceed(fault.New(fault.Config{})) })
+	id := func(fs xfs.FS, name string) fault.ID {
+		GinkgoHelper()
+		id, ok := MustSucceed(fs.Stat(name)).Sys().(fault.ID)
+		Expect(ok).To(BeTrue())
+		return id
+	}
+
+	It("Should give each file its own ID", func() {
+		write(fs, "a.txt", "taco")
+		write(fs, "b.txt", "cat")
+		Expect(id(fs, "a.txt")).ToNot(Equal(id(fs, "b.txt")))
+	})
+
+	It("Should give a new file at the path of a removed file a new ID", func() {
+		write(fs, "a.txt", "taco")
+		old := id(fs, "a.txt")
+		Expect(fs.Remove("a.txt")).To(Succeed())
+		write(fs, "a.txt", "taco")
+		Expect(id(fs, "a.txt")).ToNot(Equal(old))
+	})
+
+	It("Should keep the ID of a file through a rename, a write, and a list", func() {
+		write(fs, "a.txt", "taco")
+		old := id(fs, "a.txt")
+		Expect(fs.Rename("a.txt", "b.txt")).To(Succeed())
+		write(fs, "b.txt", "burrito")
+		Expect(id(fs, "b.txt")).To(Equal(old))
+		Expect(MustSucceed(fs.List(""))[0].Sys()).To(Equal(old))
+		f := MustOpen(fs.Open("b.txt", os.O_RDONLY))
+		Expect(MustSucceed(f.Stat()).Sys()).To(Equal(old))
+	})
+
+	It("Should keep the ID of a file in a crash image", func() {
+		save(fs, "a.txt", "taco")
+		save(fs, "b.txt", "cat")
+		Expect(fs.SyncDir("")).To(Succeed())
+		image := strict(fs)
+		Expect(id(image, "a.txt")).To(Equal(id(fs, "a.txt")))
+		Expect(id(image, "b.txt")).To(Equal(id(fs, "b.txt")))
+		write(image, "c.txt", "new")
+		Expect(id(image, "c.txt")).ToNot(BeElementOf(id(fs, "a.txt"), id(fs, "b.txt")))
+	})
+})
