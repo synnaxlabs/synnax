@@ -556,7 +556,8 @@ Fields of a provider:
 
 <Field.Item name="user-creation-disabled" id="oidc-provider-user-creation-disabled">
   Stops the first login of an account from creating a user. An account can then log in
-  only after its user links it.
+  only after its user links it. The Core cannot link accounts yet, so this setting now
+  refuses each account that has no link.
 </Field.Item>
 
 </Field.List>
