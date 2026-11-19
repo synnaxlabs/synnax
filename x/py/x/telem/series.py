@@ -247,6 +247,7 @@ class _Payload(BaseModel):
     data: bytes
     alignment: Alignment = Alignment(0, 0)
     alignment_multiple: int = 1
+    clock: int = 0
 
 
 def _from_payload(p: _Payload) -> Series:
@@ -256,6 +257,7 @@ def _from_payload(p: _Payload) -> Series:
         time_range=p.time_range,
         alignment=p.alignment,
         alignment_multiple=p.alignment_multiple,
+        clock=p.clock,
     )
 
 
@@ -266,6 +268,7 @@ def _to_payload(s: Series) -> _Payload:
         data=s.data,
         alignment=s.alignment,
         alignment_multiple=s.alignment_multiple,
+        clock=s.clock,
     )
 
 
@@ -305,6 +308,8 @@ class Series(ArrayOperators, Generic[T]):
     alignment_multiple: int
     """The number of alignment steps between consecutive samples. Above one when the
     Core reduced the Series from a longer one."""
+    clock: int
+    """The key of the clock that timed the samples. Zero means no clock."""
     _codec: _Codec[T]
     _len_cache: int | None
 
@@ -324,6 +329,7 @@ class Series(ArrayOperators, Generic[T]):
         time_range: TimeRange | None = None,
         alignment: CrudeAlignment | None = None,
         alignment_multiple: int | None = None,
+        clock: int | None = None,
     ):
         if data_type is not None:
             data_type = DataType(data_type)
@@ -340,6 +346,8 @@ class Series(ArrayOperators, Generic[T]):
             align = data.alignment if align is None else align
             if alignment_multiple is None:
                 alignment_multiple = data.alignment_multiple
+            if clock is None:
+                clock = data.clock
         elif isinstance(data, MultiSeries):
             if len(data.series) == 1:
                 data_type = data_type or data.series[0].data_type
@@ -350,6 +358,8 @@ class Series(ArrayOperators, Generic[T]):
                 align = data.series[0].alignment if align is None else align
                 if alignment_multiple is None:
                     alignment_multiple = data.series[0].alignment_multiple
+                if clock is None:
+                    clock = data.series[0].clock
             else:
                 raise ValueError(
                     "[Series] - MultiSeries with more than one series cannot be "
@@ -389,6 +399,7 @@ class Series(ArrayOperators, Generic[T]):
         self.alignment_multiple = (
             1 if alignment_multiple is None else alignment_multiple
         )
+        self.clock = 0 if clock is None else clock
         self._codec = _CODECS[data_type]
         self._len_cache = None
 
@@ -559,6 +570,7 @@ class Series(ArrayOperators, Generic[T]):
             time_range=self.time_range,
             alignment=self.alignment,
             alignment_multiple=self.alignment_multiple,
+            clock=self.clock,
         )
 
     def to_datetime(self) -> list[datetime]:

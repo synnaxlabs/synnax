@@ -9,6 +9,7 @@
 
 from x.control import Authority, CrudeAuthority, Subject
 from x.telem.clock_skew import ClockSkewCalculator
+from x.telem.code import code_of, data_type_of
 from x.telem.series import (
     CrudeSample,
     CrudeSeries,
@@ -44,6 +45,7 @@ from x.telem.telem import (
 )
 from x.telem.types_gen import (
     Aggregation,
+    DataTypeCode,
     DynamicWindow,
     LimitReduction,
     Reduction,
@@ -71,6 +73,7 @@ __all__ = [
     "CrudeTimeSpan",
     "CrudeTimeStamp",
     "DataType",
+    "DataTypeCode",
     "Density",
     "DynamicWindow",
     "LimitReduction",
@@ -91,7 +94,9 @@ __all__ = [
     "TimestampFormat",
     "TypedCrudeSeries",
     "Window",
+    "code_of",
     "convert_time_units",
+    "data_type_of",
     "elapsed_seconds",
     "is_crude_series",
     "seconds_linspace",
