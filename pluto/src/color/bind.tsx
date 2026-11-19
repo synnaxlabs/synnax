@@ -37,6 +37,7 @@ export const useBinding = (
   const palettes = usePalettes();
   const resolve = useResolve();
   const canCreate = Access.useCreateGranted(color.TYPE_RESOURCE_ID);
+  const canUpdate = Access.useUpdateGranted(color.TYPE_RESOURCE_ID);
   const canCreatePalette = Access.useCreateGranted(group.TYPE_RESOURCE_ID);
   // A palette that the picker just created. Its "+" takes the focus once it renders.
   const [created, setCreated] = useState<group.Key>();
@@ -56,7 +57,7 @@ export const useBinding = (
                 onFocus={() => setCreated(undefined)}
               />
             ) : undefined,
-            swatchMenu: <SwatchMenu />,
+            swatchMenu: canUpdate ? <SwatchMenu /> : undefined,
             footer:
               canCreate && canCreatePalette ? (
                 <CreatePalette onCreate={setCreated} />
