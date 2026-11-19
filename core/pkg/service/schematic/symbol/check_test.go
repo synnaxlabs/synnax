@@ -48,9 +48,15 @@ func valveSpec() symbol.Spec {
 		Variant: "static",
 		Scale:   1,
 		Parts: []symbol.Part{{
-			Key:       "body",
-			Name:      "Body",
-			Selectors: []string{"#body", ".a.b", `[data-region-id="r-1"]`, `#\31 23`},
+			Key:  "body",
+			Name: "Body",
+			Selectors: []string{
+				"#body",
+				"#-a",
+				".a.b",
+				`[data-region-id="r-1"]`,
+				`#\31 23`,
+			},
 		}},
 		Handles: []symbol.Handle{},
 		States: []symbol.State{
@@ -142,6 +148,15 @@ var _ = Describe("Checks", func() {
 		Entry("a selector with a combinator", func(s *symbol.Spec) {
 			s.Parts[0].Selectors = []string{"g > #body"}
 		}, `data.parts.0.selectors.0: "g > #body" is not an #id`),
+		Entry("an id that starts with a digit", func(s *symbol.Spec) {
+			s.Parts[0].Selectors = []string{"#1"}
+		}, `data.parts.0.selectors.0: "#1" is not an #id`),
+		Entry("a class that starts with a digit", func(s *symbol.Spec) {
+			s.Parts[0].Selectors = []string{".a.1a"}
+		}, `data.parts.0.selectors.0: ".a.1a" is not an #id`),
+		Entry("an id that starts with a hyphen and a digit", func(s *symbol.Spec) {
+			s.Parts[0].Selectors = []string{"#-1"}
+		}, `data.parts.0.selectors.0: "#-1" is not an #id`),
 		Entry("within bounds whose lower is not below the upper", func(s *symbol.Spec) {
 			s.States[0] = symbol.State{Variant: symbol.EnumerationState{
 				Key: "active",
