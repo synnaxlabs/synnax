@@ -15,14 +15,24 @@ import (
 	"context"
 
 	v4 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v4"
+	color "github.com/synnaxlabs/x/color/versions/v2"
 )
 
-func autoMigratePanel(_ context.Context, old v4.Panel) (Panel, error) {
+func autoMigratePanel(ctx context.Context, old v4.Panel) (Panel, error) {
+	var colorVal *color.Color
+	if old.Color != nil {
+		v, err := color.MigrateColor(ctx, *old.Color)
+		if err != nil {
+			return Panel{}, err
+		}
+		colorVal = &v
+	}
 	return Panel{
 		Key:     old.Key,
 		Name:    old.Name,
 		Root:    old.Root,
 		Icon:    old.Icon,
+		Color:   colorVal,
 		Group:   old.Group,
 		Project: old.Project,
 	}, nil

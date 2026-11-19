@@ -39,9 +39,9 @@ type Retrieve struct {
 // instead of relying on package-level state.
 type indexes struct {
 	name     *gorp.SortedIndex[Key, Panel, string]
-	owner    *gorp.KeyReference[Key, Panel, user.Key]
 	group    *gorp.KeyReference[Key, Panel, group.Key]
 	project  *gorp.KeyReference[Key, Panel, project.Key]
+	owner    *gorp.KeyReference[Key, Panel, user.Key]
 	colorKey *gorp.KeyReference[Key, Panel, color.Key]
 	search   *gorp.SearchIndex[Key, Panel]
 }
@@ -55,18 +55,6 @@ func newIndexes() indexes {
 			"name",
 			func(e *Panel) string { return compare.TextKey(string(e.Name)) },
 		),
-		owner: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Panel, user.Key]{
-			Name:     "owner",
-			Table:    "user",
-			OnDelete: gorp.Cascade,
-			Kind:     gorp.Use,
-			Targets: func(e *Panel) []user.Key {
-				if e.Owner == nil {
-					return nil
-				}
-				return []user.Key{*e.Owner}
-			},
-		}),
 		group: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Panel, group.Key]{
 			Name:     "group",
 			Table:    "group",
@@ -90,6 +78,18 @@ func newIndexes() indexes {
 					return nil
 				}
 				return []project.Key{*e.Project}
+			},
+		}),
+		owner: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Panel, user.Key]{
+			Name:     "owner",
+			Table:    "user",
+			OnDelete: gorp.Cascade,
+			Kind:     gorp.Use,
+			Targets: func(e *Panel) []user.Key {
+				if e.Owner == nil {
+					return nil
+				}
+				return []user.Key{*e.Owner}
 			},
 		}),
 		colorKey: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Panel, color.Key]{
@@ -157,9 +157,9 @@ func (i indexes) all() []gorp.Index[Key, Panel] {
 // gorp.TableConfig.References when opening the underlying table.
 func (i indexes) references() []gorp.Reference[Key, Panel] {
 	return []gorp.Reference[Key, Panel]{
-		i.owner,
 		i.group,
 		i.project,
+		i.owner,
 		i.colorKey,
 	}
 }
@@ -255,23 +255,6 @@ func MatchKeys(keys ...Key) Filter {
 	}
 }
 
-// MatchOwners returns a filter for panels
-// whose Owner matches any of the provided
-// values.
-func MatchOwners(vals ...user.Key) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Panel] {
-		return r.indexes.owner.Filter(vals...)
-	}
-}
-
-// MatchHasOwner returns a filter for panels whose
-// Owner holds a target when has is true, and holds none when has is false.
-func MatchHasOwner(has bool) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Panel] {
-		return r.indexes.owner.FilterHolding(has)
-	}
-}
-
 // MatchGroups returns a filter for panels
 // whose Group matches any of the provided
 // values.
@@ -318,6 +301,23 @@ func MatchProjects(vals ...project.Key) Filter {
 func MatchHasProject(has bool) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Panel] {
 		return r.indexes.project.FilterHolding(has)
+	}
+}
+
+// MatchOwners returns a filter for panels
+// whose Owner matches any of the provided
+// values.
+func MatchOwners(vals ...user.Key) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Panel] {
+		return r.indexes.owner.Filter(vals...)
+	}
+}
+
+// MatchHasOwner returns a filter for panels whose
+// Owner holds a target when has is true, and holds none when has is false.
+func MatchHasOwner(has bool) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Panel] {
+		return r.indexes.owner.FilterHolding(has)
 	}
 }
 
