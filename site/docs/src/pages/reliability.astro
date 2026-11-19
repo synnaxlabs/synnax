@@ -27,6 +27,7 @@ import {
     RANK,
     run,
     runs,
+    skippedRuns,
     type State,
     systems,
     totals,
@@ -155,7 +156,7 @@ const unclean = runs
 // Skip reason -> the tests skipped for it, when they were all run by hand and passed.
 const byHand = Object.entries(
     Object.groupBy(
-        runs.filter((r) => r.passedByHand),
+        skippedRuns.filter((r) => r.passedByHand),
         (t) => t.message!,
     ),
 );
@@ -166,10 +167,7 @@ const where = (group: typeof runs) =>
 const distinct = (group: typeof runs) => new Set(group.map(id)).size;
 
 const skipped = Object.entries(
-    Object.groupBy(
-        ordered.filter((t) => t.state === "skipped").flatMap((t) => t.runs),
-        (t) => t.message ?? "No reason given",
-    ),
+    Object.groupBy(skippedRuns, (t) => t.message ?? "No reason given"),
 );
 ---
 

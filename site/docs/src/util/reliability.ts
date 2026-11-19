@@ -341,6 +341,11 @@ export const ordered: Test[] = products.flatMap((p) => p.tests);
 
 export const runs: Run[] = ordered.flatMap((t) => t.runs);
 
+/** The runs of the tests that no operating system ran. */
+export const skippedRuns: Run[] = ordered
+  .filter((t) => t.state === "skipped")
+  .flatMap((t) => t.runs);
+
 /** Display names of the operating systems the run tested on, in a fixed order. */
 export const systems = Object.values(OS_NAMES).filter((os) =>
   allSuites.some((s) => s.os === os),

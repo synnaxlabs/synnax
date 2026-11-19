@@ -92,7 +92,7 @@ const DATA = {
 };
 
 vi.stubGlobal("fetch", async () => new Response(JSON.stringify(DATA)));
-const { hardware, hardwareTotals, products, ordered } =
+const { hardware, hardwareTotals, products, ordered, skippedRuns } =
   await import("@/util/reliability");
 
 const subsystems = (key: string) => products.find((p) => p.key === key)?.subsystems;
@@ -119,6 +119,10 @@ describe("reliability", () => {
     const state = (name: string) => ordered.find((t) => t.name === name)?.state;
     expect(state("driver/ni › NIRead")).toEqual("passed");
     expect(state("driver/ni › NIWrite")).toEqual("skipped");
+    expect(skippedRuns.map((r) => r.name)).toEqual([
+      "driver/ni › NIWrite",
+      "driver/ni › NIWrite",
+    ]);
   });
 
   it("should count the states of the hardware tests", () => {
