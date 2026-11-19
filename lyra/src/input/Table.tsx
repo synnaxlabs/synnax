@@ -225,6 +225,13 @@ const takesText = (el: EventTarget): boolean =>
   el instanceof HTMLTextAreaElement ||
   (el instanceof HTMLInputElement && el.type !== "checkbox" && el.type !== "radio");
 
+/**
+ * Whether the column's reader refuses text that its cells cannot hold. Only then does a
+ * single value pasted on a cell that is not a text field, such as a select, reach it.
+ */
+const checksText = (column: TableColumnProps): boolean =>
+  column.parse != null || column.type === "boolean" || column.type === "custom";
+
 type Move = (dims: dimensions.Dimensions, from: xy.XY, back: boolean) => xy.XY | null;
 
 /** The cell each navigation key moves focus to. */
@@ -469,7 +476,12 @@ export const Table = ({
       columns,
       anchor.current.x,
     );
-    if (block == null || (isSingle(block) && takesText(e.target))) return;
+    if (block == null) return;
+    if (
+      isSingle(block) &&
+      (takesText(e.target) || !checksText(columns[anchor.current.x]))
+    )
+      return;
     e.preventDefault();
     restored.current = false;
     const plan = grid.plan(dims, anchor.current, block);
