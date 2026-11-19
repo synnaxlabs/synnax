@@ -3055,7 +3055,7 @@ Node union on variant {
 
 		It(
 			"Should accept a diamond over a struct that extends another",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				Root struct {}
 				Mid struct extends Root {}
@@ -3063,7 +3063,7 @@ Node union on variant {
 				Right struct extends Mid { r string }
 				Diamond struct extends Left, Right {}
 			`
-				_, diag := Analyze(ctx, source, "test", loader)
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue(), diag.String())
 			},
 		)
