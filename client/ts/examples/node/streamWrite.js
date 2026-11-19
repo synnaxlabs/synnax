@@ -78,7 +78,7 @@ try {
       [dataChannel1.key]: data1,
       [dataChannel2.key]: data2,
     });
-    if (i % 60 == 0) console.log(`Writing sample ${i} at ${timestamp.toISOString()}`);
+    if (i % 60 == 0) console.log(`Writing sample ${i} at ${timestamp.toString()}`);
   }
 } finally {
   // Close the writer and the client when you are done

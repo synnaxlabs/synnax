@@ -19,7 +19,7 @@ import (
 // Task is the interface that all executable tasks must implement.
 type Task interface {
 	// Exec handles commands (start, stop, etc.)
-	Exec(context.Context, task.Command) error
+	Exec(ctx context.Context, cmd task.Command) error
 	// Stop gracefully shuts down the task. When sendStatus is false the task
 	// emits no terminal status: a successor instance owns status reporting.
 	Stop(sendStatus bool) error

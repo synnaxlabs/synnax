@@ -23,17 +23,17 @@ import (
 
 var _ = Describe("APIKeyReference", func() {
 	It("Should list each Sift device as a use of its API key", func(ctx SpecContext) {
-		key := createAPIKey(ctx, apiKey)
+		key := createAPIKey(ctx, fakeKey)
 		dev := createDevice(ctx, sift.Properties{URI: "localhost:1", APIKey: key})
 		createDevice(ctx, sift.Properties{
 			URI:    "localhost:1",
-			APIKey: createAPIKey(ctx, apiKey),
+			APIKey: createAPIKey(ctx, fakeKey),
 		})
 		Expect(secretSvc.Uses(ctx, db, key)).To(HaveExactElements(dev.ResourceID()))
 	})
 
 	It("Should ignore devices of another make", func(ctx SpecContext) {
-		key := createAPIKey(ctx, apiKey)
+		key := createAPIKey(ctx, fakeKey)
 		dev := device.Device{
 			Key:        uuid.New().String(),
 			Rack:       rackSvc.EmbeddedKey,
@@ -51,7 +51,7 @@ var _ = Describe("APIKeyReference", func() {
 
 	It("Should ignore a Sift device whose properties do not parse",
 		func(ctx SpecContext) {
-			key := createAPIKey(ctx, apiKey)
+			key := createAPIKey(ctx, fakeKey)
 			dev := device.Device{
 				Key:        uuid.New().String(),
 				Rack:       rackSvc.EmbeddedKey,
@@ -70,7 +70,7 @@ var _ = Describe("APIKeyReference", func() {
 
 	It("Should keep a secret from being deleted while a device uses it",
 		func(ctx SpecContext) {
-			key := createAPIKey(ctx, apiKey)
+			key := createAPIKey(ctx, fakeKey)
 			dev := createDevice(ctx, sift.Properties{URI: "localhost:1", APIKey: key})
 			deleteSecret := func(tx gorp.Tx) error {
 				return secretSvc.NewWriter(tx).Delete(ctx, key)

@@ -46,6 +46,13 @@ func emitFloatCheck[T antlr.ParserRuleContext](
 	case types.KindF64:
 		ctx.Writer.WriteOpcode(wasm.OpF64Abs)
 		ctx.Writer.WriteF64Const(math.Inf(1))
+	case types.KindInvalid, types.KindU8, types.KindU16, types.KindU32, types.KindU64,
+		types.KindI8, types.KindI16, types.KindI32, types.KindI64, types.KindString,
+		types.KindChan, types.KindSeries, types.KindVariable, types.KindNumericConstant,
+		types.KindIntegerConstant, types.KindFloatConstant,
+		types.KindExactIntegerFloatConstant, types.KindFunction, types.KindSequence,
+		types.KindStage, types.KindVarRef, types.KindBool:
+		fallthrough
 	default:
 		return types.Type{}, errors.Newf(
 			"float check requires an f32 or f64, got %s",

@@ -110,6 +110,8 @@ export interface FindResult {
 export interface DataBounds {
   bounds: bounds.Bounds;
   loading: boolean;
+  /** True when the bounds end at the newest sample and move as samples arrive. */
+  rolling?: boolean;
 }
 
 export interface LineProps {
@@ -375,7 +377,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
 
   xBounds(): DataBounds {
     const x = this.internal.xTelem.value();
-    return { bounds: x.data[0], loading: isLoading(x) };
+    return { bounds: x.data[0], loading: isLoading(x), rolling: x.rolling };
   }
 
   /**
@@ -386,7 +388,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
    */
   yBounds(xWindow: bounds.Bounds): DataBounds {
     const { xTelem, yTelem } = this.internal;
-    const valueProps = { extremesKept: true };
+    const valueProps = { extremesKept: true, bounds: xWindow };
     const y = yTelem.value(valueProps);
     const [b, yData] = y.data;
     if (!bounds.isFinite(xWindow)) return { bounds: b, loading: isLoading(y) };
@@ -576,7 +578,10 @@ const nearest = (
   let distance = Infinity;
   for (const op of ops) {
     const { x, xOffset, count } = op;
-    const after = Math.min(Math.max(x.binarySearch(target) - xOffset, 0), count);
+    const after = bounds.clamp(
+      { lower: 0, upper: count },
+      x.binarySearch(target) - xOffset,
+    );
     for (const i of [after - 1, after]) {
       if (i < 0 || i >= count) continue;
       const d = Math.abs(Number(x.at(xOffset + i, true)) - target);
@@ -594,7 +599,7 @@ const nearest = (
 const THICKNESS_DIVISOR = 5000;
 
 const newTranslationBuffer = (aspect: number, strokeWidth: number): Float32Array =>
-  replicateBuffer(newDirectionBuffer(aspect), strokeWidth).map(
+  replicateBuffer(newDirectionBuffer(aspect), Math.ceil(strokeWidth)).map(
     (v, i) => Math.floor(i / DIRECTION_COUNT) * (1 / (THICKNESS_DIVISOR * aspect)) * v,
   );
 

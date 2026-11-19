@@ -20,6 +20,7 @@ from typing import Any, Protocol
 import boto3
 import numpy as np
 import synnax as sy
+from freighter.websocket import ConnectionClosedError
 
 HEARTBEAT_INTERVAL = 5 * sy.TimeSpan.SECOND
 # How long stop() waits for the final false to land.
@@ -59,12 +60,64 @@ class Closeable(Protocol):
     def close(self) -> object: ...
 
 
+class Samples(Protocol):
+    def __len__(self) -> int: ...
+
+    def __getitem__(self, index: int, /) -> object: ...
+
+
+class Frame(Protocol):
+    def get(self, key: str | int, /) -> Samples | None: ...
+
+
+class Writer(Protocol):
+    def write(self, frame: dict, /) -> object: ...
+
+    def set_authority(self, authority: sy.Authority, /) -> object: ...
+
+    def close(self) -> object: ...
+
+
+class Writes(Protocol):
+    """The part of the Core that opens writers."""
+
+    def open_writer(
+        self,
+        start: sy.TimeStamp,
+        channels: list[str],
+        *,
+        authorities: sy.Authority = ...,
+        name: str = ...,
+        auto_index: bool = ...,
+    ) -> Writer: ...
+
+
+class Streamer(Protocol):
+    def read(self, *, timeout: sy.TimeSpan) -> Frame | None: ...
+
+    def close(self) -> object: ...
+
+
+class Streams(Protocol):
+    """The part of the Core that opens streamers."""
+
+    def open_streamer(self, channels: list[str], /) -> Streamer: ...
+
+
+class ReadsLatest(Protocol):
+    """The part of the Core that reads the last samples of channels."""
+
+    def read_latest(self, channels: list[str], /) -> sy.MultiSeries | Frame: ...
+
+
 def close_quietly(resource: Closeable | None) -> None:
+    """Closes a resource whose failure was already reported. Raises any error other
+    than the Core or transport error that the close re-raises."""
     if resource is None:
         return
     try:
         resource.close()
-    except Exception:
+    except (sy.Error, ConnectionClosedError):
         pass
 
 
@@ -151,21 +204,34 @@ class ChannelCreateError(Exception):
     out the restarts."""
 
 
+class Creator(Protocol):
+    def create(
+        self, channels: list[sy.Channel], /, *, retrieve_if_name_exists: bool
+    ) -> list[sy.Channel]: ...
+
+    def set_expression(self, key: int, expression: str) -> None: ...
+
+
+class CreatesChannels(Protocol):
+    """The part of the Core that creates channels."""
+
+    @property
+    def channels(self) -> Creator: ...
+
+
 class Channels:
     """Creates channels on the Core. While disabled every method does nothing, for an
     account that cannot create channels."""
 
-    def __init__(self, *, client: sy.Synnax, enabled: bool) -> None:
+    def __init__(self, *, client: CreatesChannels, enabled: bool) -> None:
         self.client = client
         self.enabled = enabled
 
-    def create(
-        self, what: str, *channels: sy.Channel, update: bool = False
-    ) -> list[sy.Channel]:
-        """Creates, or with update rewrites channels that carry their key."""
+    def create(self, what: str, *channels: sy.Channel) -> list[sy.Channel]:
+        """Creates channels, or retrieves the ones whose names exist."""
         try:
             return self.client.channels.create(
-                list(channels), retrieve_if_name_exists=not update
+                list(channels), retrieve_if_name_exists=True
             )
         except Exception as e:
             raise ChannelCreateError(f"{what}: {type(e).__name__}: {e}") from e
@@ -190,9 +256,14 @@ class Channels:
             name=name, data_type=sy.DataType.FLOAT32, expression=expression
         )
         found = self.create(f"calculated {name}", channel)[0]
-        if found.expression != expression:
-            found.expression = expression
-            self.create(f"calculated {name}", found, update=True)
+        if found.expression == expression:
+            return
+        try:
+            self.client.channels.set_expression(found.key, expression)
+        except Exception as e:
+            raise ChannelCreateError(
+                f"calculated {name}: {type(e).__name__}: {e}"
+            ) from e
 
     def index(self, name: str) -> sy.Channel | None:
         if not self.enabled:
@@ -226,7 +297,7 @@ class Channels:
             )
 
 
-def latest(client: sy.Synnax, *, names: list[str]) -> dict[str, np.generic]:
+def latest(client: ReadsLatest, *, names: list[str]) -> dict[str, np.generic]:
     """The last sample of each numeric channel that has one. Misses samples still
     under an open writer."""
     read = client.read_latest(names)

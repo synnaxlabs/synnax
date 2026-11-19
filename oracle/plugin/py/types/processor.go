@@ -81,7 +81,7 @@ func (fp *FieldProcessor) AddPydantic(name string) { fp.data.imports.addPydantic
 
 // ProcessField returns the declaration of field, a field of a model in the module.
 func (fp *FieldProcessor) ProcessField(field resolution.Field) FieldData {
-	fd := processField(field, fp.table, fp.data, nil, nil)
+	fd := processField(field, fp.table, fp.data, nil)
 	fp.importNamespaceTypes(field.Type)
 	return fd
 }

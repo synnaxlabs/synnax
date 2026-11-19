@@ -11,6 +11,7 @@ import {
   label,
   lineplot,
   NotFoundError,
+  panel,
   ranger,
   type Synnax as Client,
   view,
@@ -23,19 +24,24 @@ import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { describe, expect, it, onTestFinished } from "vitest";
 
 import { Explorer } from "@/feature/range/explorer/Explorer";
+import { TAB_TYPE } from "@/feature/range/explorer/external";
+import { createSiftDevice } from "@/feature/sift/testutil";
 import { searchAndClickLabelOption } from "@/platform/label/testutil";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
-import { uniqueRangeName } from "@/platform/range/testutil";
-import { openFilterProperty } from "@/platform/view/testutil";
+import { createPlannedTestRange, uniqueRangeName } from "@/platform/range/testutil";
+import { createTabWrapper, openFilterProperty } from "@/platform/view/testutil";
 import { Session } from "@/session";
 import { createCore, createCoreState } from "@/session/core/testutil";
 import {
   awaitTextEditing,
+  awaitTextEditingElement,
   commitTextEdit,
-  createConsoleWrapper,
   createTestClientWithGrants,
+  createTestStore,
+  isPlutoDisabled,
   openContextMenu,
+  openSubmenu,
   renderSuspended,
   resolveFocusedTab,
   selectRange,
@@ -47,14 +53,29 @@ import {
 
 const client = createTestClient();
 
-/** Renders the explorer. A copied link names the selected Core, if one is given. */
+interface RenderOptions {
+  /** The Core a copied link names. */
+  core?: Session.Core.Core;
+  /** The saved view the tab shows. The tab shows all ranges when absent. */
+  shown?: view.View;
+}
+
+/** Renders the explorer in a tab. */
 const renderExplorer = async (
   as: Client = client,
-  core?: Session.Core.Core,
+  { core, shown }: RenderOptions = {},
 ): Promise<TestStore> => {
-  const { wrapper, store } = await createConsoleWrapper({
-    client: as,
-    preloadedState: core == null ? undefined : createCoreState([core], core.key),
+  const { wrapper, store } = await createTabWrapper({
+    client,
+    as,
+    tab:
+      shown == null
+        ? { variant: "view", type: TAB_TYPE }
+        : { variant: "resource", resource: view.resourceID(shown.key) },
+    store:
+      core == null
+        ? undefined
+        : await createTestStore({ preloadedState: createCoreState([core], core.key) }),
   });
   await renderSuspended(
     <>
@@ -77,18 +98,6 @@ const createRange = async (
     timeRange: new TimeRange(start, start.add(TimeSpan.seconds(10))),
     ...extra,
   });
-};
-
-/**
- * Creates a range with no start. It sorts above every other range, so the spec deletes
- * it once it finishes.
- */
-const createPlanned = async (name: string): Promise<ranger.Range> => {
-  const rng = await createRange(name, {
-    timeRange: new TimeRange(TimeStamp.MAX, TimeStamp.MAX),
-  });
-  onTestFinished(async () => await client.ranges.delete(rng.key));
-  return rng;
 };
 
 /** Creates a label, one range with it, and one without it, each named after token. */
@@ -356,8 +365,7 @@ describe("range/explorer/Explorer", () => {
         type: "range",
         where: { labels: [label.key] },
       });
-      await renderExplorer();
-      fireEvent.click(await screen.findByRole("tab", { name: stored.name }));
+      await renderExplorer(client, { shown: stored });
       await screen.findByText(labeled.name);
       expect(screen.getByRole("button", { name: "Remove Labels filter" })).toBeTruthy();
       expect(screen.queryByText(other.name)).toBeNull();
@@ -538,8 +546,33 @@ describe("range/explorer/Explorer", () => {
       );
     });
 
+    it("should rename the copy that was right-clicked when two lists show the range", async () => {
+      const rng = await createRange(uniqueRangeName("rename"));
+      const { wrapper } = await createTabWrapper({
+        client,
+        tab: { variant: "view", type: TAB_TYPE },
+      });
+      await renderSuspended(
+        <>
+          <Explorer />
+          <Explorer />
+        </>,
+        { wrapper },
+      );
+      for (const input of await screen.findAllByPlaceholderText("Search ranges..."))
+        fireEvent.change(input, { target: { value: rng.name } });
+      const copies = await waitFor(() => {
+        const found = screen.getAllByRole("listitem", { name: rng.name });
+        expect(found).toHaveLength(2);
+        return found;
+      });
+      await openContextMenu(() => copies[1]);
+      fireEvent.click(await menuItem("Rename"));
+      expect(copies[1].contains(await awaitTextEditingElement())).toBe(true);
+    });
+
     it("should start a planned range now with no end", async () => {
-      const planned = await createPlanned(uniqueRangeName("planned"));
+      const planned = await createPlannedTestRange(client, uniqueRangeName("planned"));
       await renderExplorer();
       await openMenuOf(planned);
       fireEvent.click(await menuItem("Start"));
@@ -581,6 +614,7 @@ describe("range/explorer/Explorer", () => {
     });
 
     it("should open the Sift upload modal on Upload to Sift", async () => {
+      await createSiftDevice(client);
       const rng = await createRange(uniqueRangeName("sift"));
       await renderExplorer();
       await openMenuOf(rng);
@@ -588,12 +622,13 @@ describe("range/explorer/Explorer", () => {
       expect(await screen.findByText(`Upload ${rng.name} to Sift`)).toBeTruthy();
     });
 
-    it("should copy a link to the range on Copy link", async () => {
+    it("should copy a link to the range on Copy > Link", async () => {
       const writeText = stubClipboardWriteText();
       const rng = await createRange(uniqueRangeName("linked"));
-      await renderExplorer(client, createCore("test"));
+      await renderExplorer(client, { core: createCore("test") });
       await openMenuOf(rng);
-      fireEvent.click(await menuItem("Copy link"));
+      const copy = await openSubmenu("Copy");
+      fireEvent.click(within(copy).getByRole("menuitem", { name: "Link" }));
       await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
       expect(writeText.mock.calls[0][0]).toContain(`range/${rng.key}`);
     });
@@ -615,6 +650,63 @@ describe("range/explorer/Explorer", () => {
       const plot = await client.lineplots.retrieve({ key: tab.resource.key });
       expect(plot.name).toBe(`Plot for ${rng.name}`);
       expect(plot.ranges).toEqual([{ variant: "key", key: rng.key }]);
+    });
+
+    it("should add the range to a plot in the panel, and check a plot that shows it", async () => {
+      const shown = await createRange(uniqueRangeName("shown"));
+      const added = await createRange(uniqueRangeName("added"));
+      const store = await renderExplorer();
+      await selectTestProject(store, client);
+      await openMenuOf(shown);
+      fireEvent.click(await menuItem("Plot"));
+      const tab = await resolveFocusedTab(
+        store,
+        client,
+        (t) =>
+          t.variant === "resource" &&
+          t.resource.type === lineplot.TYPE_RESOURCE_ID.type,
+      );
+      if (tab.variant !== "resource") throw new Error("focused tab is not a resource");
+      const plotName = `Plot for ${shown.name}`;
+      await openMenuOf(shown);
+      const shownPlots = await openSubmenu("Add to plot");
+      await waitFor(() =>
+        expect(
+          isPlutoDisabled(within(shownPlots).getByRole("menuitem", { name: plotName })),
+        ).toBe(true),
+      );
+      await openMenuOf(added);
+      const addedPlots = await openSubmenu("Add to plot");
+      fireEvent.click(
+        await within(addedPlots).findByRole("menuitem", { name: plotName }),
+      );
+      await waitFor(async () => {
+        const plot = await client.lineplots.retrieve({ key: tab.resource.key });
+        expect(plot.ranges).toEqual([
+          { variant: "key", key: shown.key },
+          { variant: "key", key: added.key },
+        ]);
+      });
+    });
+
+    it("should add a label that the menu search finds", async () => {
+      const lbl = await client.labels.create({
+        name: uniqueName("found"),
+        color: "#000000",
+      });
+      const rng = await createRange(uniqueRangeName("found"));
+      await renderExplorer();
+      await openMenuOf(rng);
+      fireEvent.keyDown(screen.getByRole("menu"), { key: lbl.name[0] });
+      fireEvent.change(await screen.findByPlaceholderText("Search..."), {
+        target: { value: lbl.name },
+      });
+      fireEvent.click(
+        await screen.findByRole("menuitem", { name: new RegExp(lbl.name) }),
+      );
+      await waitFor(async () =>
+        expect((await client.ranges.retrieve(rng.key)).labels).toEqual([lbl.key]),
+      );
     });
 
     it("should favorite the range, then offer Unfavorite", async () => {
@@ -705,7 +797,7 @@ describe("range/explorer/Explorer", () => {
     });
 
     it("should show no start for a range with no start", async () => {
-      const planned = await createPlanned(uniqueRangeName("planned"));
+      const planned = await createPlannedTestRange(client, uniqueRangeName("planned"));
       await renderExplorer();
       const item = await findItem(planned.name);
       const when = within(item).getByRole("group", { name: "Time range" });
@@ -760,7 +852,7 @@ describe("range/explorer/Explorer", () => {
   describe("timeline", () => {
     it("should leave a range with no start out of the default window", async () => {
       const token = uniqueToken();
-      const planned = await createPlanned(`${token} planned`);
+      const planned = await createPlannedTestRange(client, `${token} planned`);
       const running = await createRange(`${token} running`);
       await renderExplorer();
       fireEvent.click(await screen.findByRole("button", { name: /Timeline/ }));
@@ -860,8 +952,7 @@ describe("range/explorer/Explorer", () => {
         name: uniqueName("view"),
         type: "range",
       });
-      await renderExplorer();
-      fireEvent.click(await screen.findByRole("tab", { name: stored.name }));
+      await renderExplorer(client, { shown: stored });
       fireEvent.click(await screen.findByRole("button", { name: /Newest first/ }));
       fireEvent.click(await screen.findByText("Name"));
       fireEvent.click(screen.getByRole("button", { name: /List/ }));
@@ -881,6 +972,7 @@ describe("range/explorer/Explorer", () => {
           ranger.TYPE_RESOURCE_ID,
           view.TYPE_RESOURCE_ID,
           label.TYPE_RESOURCE_ID,
+          panel.TYPE_RESOURCE_ID,
         ],
         create: [ranger.TYPE_RESOURCE_ID],
       });
@@ -889,7 +981,11 @@ describe("range/explorer/Explorer", () => {
       const rng = await createRange(uniqueRangeName("read"));
       await renderExplorer(
         await createTestClientWithGrants(client, {
-          retrieve: [ranger.TYPE_RESOURCE_ID, view.TYPE_RESOURCE_ID],
+          retrieve: [
+            ranger.TYPE_RESOURCE_ID,
+            view.TYPE_RESOURCE_ID,
+            panel.TYPE_RESOURCE_ID,
+          ],
           create: [lineplot.TYPE_RESOURCE_ID],
         }),
       );
@@ -905,7 +1001,11 @@ describe("range/explorer/Explorer", () => {
       const rng = await createRange(uniqueRangeName("write"));
       await renderExplorer(
         await createTestClientWithGrants(client, {
-          retrieve: [ranger.TYPE_RESOURCE_ID, view.TYPE_RESOURCE_ID],
+          retrieve: [
+            ranger.TYPE_RESOURCE_ID,
+            view.TYPE_RESOURCE_ID,
+            panel.TYPE_RESOURCE_ID,
+          ],
           create: [ranger.TYPE_RESOURCE_ID],
           update: [ranger.TYPE_RESOURCE_ID],
           delete: [ranger.TYPE_RESOURCE_ID],
@@ -920,7 +1020,11 @@ describe("range/explorer/Explorer", () => {
     it("should hide the create range button from a subject who cannot create ranges", async () => {
       await renderExplorer(
         await createTestClientWithGrants(client, {
-          retrieve: [ranger.TYPE_RESOURCE_ID, view.TYPE_RESOURCE_ID],
+          retrieve: [
+            ranger.TYPE_RESOURCE_ID,
+            view.TYPE_RESOURCE_ID,
+            panel.TYPE_RESOURCE_ID,
+          ],
           create: [view.TYPE_RESOURCE_ID],
           update: [ranger.TYPE_RESOURCE_ID],
           delete: [ranger.TYPE_RESOURCE_ID],
@@ -951,8 +1055,7 @@ describe("range/explorer/Explorer", () => {
         type: "range",
         where: { labels: [lbl.key] },
       });
-      await renderExplorer(await createReader());
-      fireEvent.click(await screen.findByRole("tab", { name: stored.name }));
+      await renderExplorer(await createReader(), { shown: stored });
       await screen.findByText(labeled.name);
       await screen.findByRole("button", { name: "Create range" });
       await act(async () => {});

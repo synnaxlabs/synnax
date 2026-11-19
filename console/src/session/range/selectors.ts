@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useStore } from "react-redux";
-
 import {
   BUILT_IN,
+  type Group,
   SLICE_NAME,
   type SliceState,
   type State,
@@ -26,24 +25,11 @@ const selectAll = (state: StoreState): State[] => [
   ...selectSliceState(state).ranges,
 ];
 
-const selectSelectedKey = (state: StoreState): string | undefined =>
-  selectSliceState(state).selected;
+const selectState = (state: StoreState, key: string): State | undefined =>
+  selectAll(state).find((r) => r.key === key);
 
-export const useSelectSelectedKey = (): string | undefined =>
-  Select.useMemo((state: StoreState) => selectSelectedKey(state), []);
-
-const selectState = (state: StoreState, key?: string): State | undefined => {
-  key ??= selectSelectedKey(state);
-  return selectAll(state).find((r) => r.key === key);
-};
-
-export const useSelectState = (key?: string): State | undefined =>
+export const useSelectState = (key: string): State | undefined =>
   Select.useMemo((state: StoreState) => selectState(state, key), [key]);
-
-export const useGetState = (): ((key?: string) => State | undefined) => {
-  const store = useStore<StoreState>();
-  return (key?: string) => selectState(store.getState(), key);
-};
 
 const selectMultiple = (state: StoreState, keys?: string[]): State[] => {
   const all = selectAll(state);
@@ -54,16 +40,15 @@ const selectMultiple = (state: StoreState, keys?: string[]): State[] => {
 export const useSelectMultiple = (keys?: string[]): State[] =>
   Select.useMemo((state: StoreState) => selectMultiple(state, keys), [keys]);
 
-const selectKeys = (state: StoreState): string[] => selectAll(state).map((r) => r.key);
+const selectFavoriteKeys = (state: StoreState): string[] =>
+  selectSliceState(state).ranges.map((r) => r.key);
 
-export const useSelectKeys = (): string[] =>
-  Select.useMemo((state: StoreState) => selectKeys(state), []);
+/** @returns the keys of the Core ranges the session added. */
+export const useSelectFavoriteKeys = (): string[] =>
+  Select.useMemo((state: StoreState) => selectFavoriteKeys(state), []);
 
-// Ranges covering a fixed window, which is every one the Core could hold.
-const selectStaticKeys = (state: StoreState): string[] =>
-  selectAll(state)
-    .filter((r) => r.variant !== "dynamic")
-    .map((r) => r.key);
+const selectGroupCollapsed = (state: StoreState, group: Group): boolean =>
+  selectSliceState(state).toolbar.collapsed.includes(group);
 
-export const useSelectStaticKeys = (): string[] =>
-  Select.useMemo((state: StoreState) => selectStaticKeys(state), []);
+export const useSelectGroupCollapsed = (group: Group): boolean =>
+  Select.useMemo((state: StoreState) => selectGroupCollapsed(state, group), [group]);

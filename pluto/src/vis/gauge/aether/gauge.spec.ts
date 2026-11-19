@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { theme } from "@synnaxlabs/lyra/theme";
-import { box, color } from "@synnaxlabs/x";
+import { box, color, TimeSpan } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { telemTest } from "@/telem/aether/testutil";
@@ -64,7 +64,10 @@ describe("gauge/aether/Gauge", () => {
 
     it("should stay live before the source has ever sent", () => {
       const { component, recorder } = setup({
-        state: { stalenessTimeout: 1, stalenessColor: STALE },
+        state: {
+          stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
+          stalenessColor: STALE,
+        },
       });
       vi.advanceTimersByTime(10000);
       recorder.clear();
@@ -74,7 +77,10 @@ describe("gauge/aether/Gauge", () => {
 
     it("should use the staleness color once the source goes quiet", () => {
       const { component, source, recorder } = setup({
-        state: { stalenessTimeout: 1, stalenessColor: STALE },
+        state: {
+          stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
+          stalenessColor: STALE,
+        },
       });
       source.setValue("60");
       vi.advanceTimersByTime(1250);
@@ -85,7 +91,10 @@ describe("gauge/aether/Gauge", () => {
 
     it("should recolor the arc as well as the value text", () => {
       const { component, source, recorder } = setup({
-        state: { stalenessTimeout: 1, stalenessColor: STALE },
+        state: {
+          stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
+          stalenessColor: STALE,
+        },
       });
       source.setValue("60");
       vi.advanceTimersByTime(1250);
@@ -96,7 +105,7 @@ describe("gauge/aether/Gauge", () => {
 
     it("should fall back to the warning color when no staleness color is set", () => {
       const { component, source, recorder } = setup({
-        state: { stalenessTimeout: 1 },
+        state: { stalenessTimeout: TimeSpan.seconds(1).nanoseconds },
       });
       source.setValue("60");
       vi.advanceTimersByTime(1250);
@@ -109,7 +118,10 @@ describe("gauge/aether/Gauge", () => {
 
     it("should repaint itself when the source goes quiet", () => {
       const { source, recorder } = setup({
-        state: { stalenessTimeout: 1, stalenessColor: STALE },
+        state: {
+          stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
+          stalenessColor: STALE,
+        },
       });
       source.setValue("60");
       recorder.clear();
@@ -121,7 +133,10 @@ describe("gauge/aether/Gauge", () => {
 
     it("should stay live while the source keeps sending", () => {
       const { component, source, recorder } = setup({
-        state: { stalenessTimeout: 5, stalenessColor: STALE },
+        state: {
+          stalenessTimeout: TimeSpan.seconds(5).nanoseconds,
+          stalenessColor: STALE,
+        },
       });
       for (let i = 0; i < 5; i++) {
         vi.advanceTimersByTime(1000);
@@ -134,7 +149,10 @@ describe("gauge/aether/Gauge", () => {
 
     it("should clear the staleness color when the source sends again", () => {
       const { component, source, recorder } = setup({
-        state: { stalenessTimeout: 1, stalenessColor: STALE },
+        state: {
+          stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
+          stalenessColor: STALE,
+        },
       });
       source.setValue("60");
       vi.advanceTimersByTime(1250);
@@ -145,7 +163,9 @@ describe("gauge/aether/Gauge", () => {
     });
 
     it("should release its registration on delete", () => {
-      const { h } = setup({ state: { stalenessTimeout: 1 } });
+      const { h } = setup({
+        state: { stalenessTimeout: TimeSpan.seconds(1).nanoseconds },
+      });
       h.unmount();
       expect(vi.getTimerCount()).toEqual(0);
     });

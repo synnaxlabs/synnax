@@ -223,15 +223,16 @@ describe("line", () => {
       });
     });
 
-    it("should read its bounds with the extremes of every sample kept", () => {
+    it("should read its bounds across the x window with every extreme kept", () => {
       const m = mount([X1], [Y1]);
       const values = [vi.spyOn(m.xSource, "value"), vi.spyOn(m.ySource, "value")];
-      expect(m.line.yBounds({ lower: 0, upper: 2 })).toEqual({
+      const xWindow = { lower: 0, upper: 2 };
+      expect(m.line.yBounds(xWindow)).toEqual({
         bounds: { lower: 10, upper: 30 },
         loading: false,
       });
       values.forEach((value) =>
-        expect(value.mock.calls).toEqual([[{ extremesKept: true }]]),
+        expect(value.mock.calls).toEqual([[{ extremesKept: true, bounds: xWindow }]]),
       );
     });
 
@@ -340,6 +341,15 @@ describe("line", () => {
           [canvasTest.GL_ENUMS.LINE_STRIP, 3],
           [canvasTest.GL_ENUMS.LINE_STRIP, 2],
         ]);
+      });
+
+      it("should draw a fractional stroke width as the next whole width", () => {
+        const m = mount([X1], [Y1], { strokeWidth: 1.5 });
+        m.line.render(PROPS);
+        const instances = m.calls
+          .filter((c) => c.op === "drawArraysInstanced")
+          .map((c) => c.args[3]);
+        expect(instances).toEqual([10]);
       });
 
       describe("non-finite samples", () => {

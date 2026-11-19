@@ -476,35 +476,37 @@ var _ = Describe("ValidateSpec", func() {
 	floatTypes := []namedType{{"f32", types.F32()}, {"f64", types.F64()}}
 	stringType := namedType{"string", types.String()}
 
-	var validArgs []any
-	validArgs = append(validArgs, func(spec string, t types.Type) {
-		Expect(literal.FmtStrValidateSpec(spec, t)).To(Succeed())
-	})
-	// Integer verbs across every integer type.
-	for _, verb := range []string{"d", "b", "o", "O", "x", "X", "c"} {
-		for _, it := range intTypes {
-			validArgs = append(validArgs, Entry(verb+" on "+it.name, verb, it.t))
+	cross := func(verbs []string, ts []namedType, args ...any) []any {
+		entries := make([]any, 0, len(verbs)*len(ts))
+		for _, verb := range verbs {
+			for _, t := range ts {
+				entries = append(
+					entries,
+					Entry(verb+" on "+t.name, append([]any{verb, t.t}, args...)...),
+				)
+			}
 		}
+		return entries
 	}
-	// Float verbs across every float type.
-	for _, verb := range []string{"f", "e", "E", "g", "G"} {
-		for _, ft := range floatTypes {
-			validArgs = append(validArgs, Entry(verb+" on "+ft.name, verb, ft.t))
-		}
-	}
-	// String verbs.
-	for _, verb := range []string{"s", "q"} {
-		validArgs = append(validArgs,
-			Entry(verb+" on "+stringType.name, verb, stringType.t))
-	}
-	// Flags, width, precision, and constants.
-	validArgs = append(validArgs,
-		Entry("padded decimal on i32", "05d", types.I32()),
-		Entry("signed decimal on i32", "+d", types.I32()),
-		Entry("decimal on integer constant", "d", types.IntegerConstraint()),
-		Entry("hex on integer constant", "05x", types.IntegerConstraint()),
-		Entry("float on float constant", ".2f", types.FloatConstraint()),
-		Entry("empty spec on string skips check", "", types.String()),
+	validArgs := slices.Concat(
+		[]any{func(spec string, t types.Type) {
+			Expect(literal.FmtStrValidateSpec(spec, t)).To(Succeed())
+		}},
+		// Integer verbs across every integer type.
+		cross([]string{"d", "b", "o", "O", "x", "X", "c"}, intTypes),
+		// Float verbs across every float type.
+		cross([]string{"f", "e", "E", "g", "G"}, floatTypes),
+		// String verbs.
+		cross([]string{"s", "q"}, []namedType{stringType}),
+		// Flags, width, precision, and constants.
+		[]any{
+			Entry("padded decimal on i32", "05d", types.I32()),
+			Entry("signed decimal on i32", "+d", types.I32()),
+			Entry("decimal on integer constant", "d", types.IntegerConstraint()),
+			Entry("hex on integer constant", "05x", types.IntegerConstraint()),
+			Entry("float on float constant", ".2f", types.FloatConstraint()),
+			Entry("empty spec on string skips check", "", types.String()),
+		},
 	)
 	DescribeTable("valid specs", validArgs...)
 
@@ -513,82 +515,68 @@ var _ = Describe("ValidateSpec", func() {
 	nonStringTypes := slices.Concat(intTypes, floatTypes)
 	allTypes := append(slices.Concat(intTypes, floatTypes), stringType)
 
-	var invalidArgs []any
-	invalidArgs = append(
-		invalidArgs,
-		func(spec string, t types.Type, errSubstr string) {
+	invalidArgs := slices.Concat(
+		[]any{func(spec string, t types.Type, errSubstr string) {
 			Expect(literal.FmtStrValidateSpec(spec, t)).
 				To(MatchError(ContainSubstring(errSubstr)))
+		}},
+		// Integer-only verbs rejected on every non-integer type.
+		cross(
+			[]string{"d", "o", "O", "c", "b", "x", "X"},
+			nonIntTypes,
+			"invalid format spec",
+		),
+		// Float verbs rejected on every non-float type.
+		cross([]string{"f", "e", "E", "g", "G"}, nonFloatTypes, "invalid format spec"),
+		// String verbs rejected on every non-string type.
+		cross([]string{"s", "q"}, nonStringTypes, "invalid format spec"),
+		// Blacklisted verbs rejected on every type.
+		cross([]string{"v", "T", "U"}, allTypes, "invalid format spec"),
+		// Spec-shape and malformed-spec error cases.
+		[]any{
+			Entry("unknown verb on int", "z", types.I32(), "invalid format spec"),
+			Entry("unknown verb on float", "z", types.F64(), "invalid format spec"),
+			Entry(
+				"blacklisted verb with flag on i32",
+				"+v",
+				types.I32(),
+				"invalid format spec",
+			),
+			Entry(
+				"blacklisted verb with width on f64",
+				"5v",
+				types.F64(),
+				"invalid format spec",
+			),
+			Entry(
+				"trailing chars after float verb",
+				"f.2",
+				types.F64(),
+				"invalid format spec",
+			),
+			Entry(
+				"trailing chars after integer verb",
+				"d5",
+				types.I32(),
+				"invalid format spec",
+			),
+			Entry(
+				"trailing chars after string verb",
+				"sx",
+				types.String(),
+				"invalid format spec",
+			),
+			Entry(
+				"precision before width",
+				".2-5f",
+				types.F64(),
+				"invalid format spec",
+			),
+			Entry("flag after width", "5+d", types.I32(), "invalid format spec"),
+			Entry("missing verb", "5", types.I32(), "invalid format spec"),
+			Entry("only precision no verb", ".2", types.F64(), "invalid format spec"),
+			Entry("precision without digits", ".f", types.F64(), "invalid format spec"),
 		},
-	)
-	// Integer-only verbs rejected on every non-integer type.
-	for _, verb := range []string{"d", "o", "O", "c", "b", "x", "X"} {
-		for _, nt := range nonIntTypes {
-			invalidArgs = append(invalidArgs,
-				Entry(verb+" on "+nt.name, verb, nt.t, "invalid format spec"))
-		}
-	}
-	// Float verbs rejected on every non-float type.
-	for _, verb := range []string{"f", "e", "E", "g", "G"} {
-		for _, nt := range nonFloatTypes {
-			invalidArgs = append(invalidArgs,
-				Entry(verb+" on "+nt.name, verb, nt.t, "invalid format spec"))
-		}
-	}
-	// String verbs rejected on every non-string type.
-	for _, verb := range []string{"s", "q"} {
-		for _, nt := range nonStringTypes {
-			invalidArgs = append(invalidArgs,
-				Entry(verb+" on "+nt.name, verb, nt.t, "invalid format spec"))
-		}
-	}
-	// Blacklisted verbs rejected on every type.
-	for _, verb := range []string{"v", "T", "U"} {
-		for _, nt := range allTypes {
-			invalidArgs = append(invalidArgs,
-				Entry(verb+" on "+nt.name, verb, nt.t, "invalid format spec"))
-		}
-	}
-	// Spec-shape and malformed-spec error cases.
-	invalidArgs = append(
-		invalidArgs,
-		Entry("unknown verb on int", "z", types.I32(), "invalid format spec"),
-		Entry("unknown verb on float", "z", types.F64(), "invalid format spec"),
-		Entry(
-			"blacklisted verb with flag on i32",
-			"+v",
-			types.I32(),
-			"invalid format spec",
-		),
-		Entry(
-			"blacklisted verb with width on f64",
-			"5v",
-			types.F64(),
-			"invalid format spec",
-		),
-		Entry(
-			"trailing chars after float verb",
-			"f.2",
-			types.F64(),
-			"invalid format spec",
-		),
-		Entry(
-			"trailing chars after integer verb",
-			"d5",
-			types.I32(),
-			"invalid format spec",
-		),
-		Entry(
-			"trailing chars after string verb",
-			"sx",
-			types.String(),
-			"invalid format spec",
-		),
-		Entry("precision before width", ".2-5f", types.F64(), "invalid format spec"),
-		Entry("flag after width", "5+d", types.I32(), "invalid format spec"),
-		Entry("missing verb", "5", types.I32(), "invalid format spec"),
-		Entry("only precision no verb", ".2", types.F64(), "invalid format spec"),
-		Entry("precision without digits", ".f", types.F64(), "invalid format spec"),
 	)
 	DescribeTable("error cases", invalidArgs...)
 

@@ -15,6 +15,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/x/compare"
@@ -36,10 +37,12 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
-	name    *gorp.SortedIndex[Key, LinePlot, string]
-	group   *gorp.KeyReference[Key, LinePlot, group.Key]
-	project *gorp.KeyReference[Key, LinePlot, project.Key]
-	search  *gorp.SearchIndex[Key, LinePlot]
+	name          *gorp.SortedIndex[Key, LinePlot, string]
+	group         *gorp.KeyReference[Key, LinePlot, group.Key]
+	project       *gorp.KeyReference[Key, LinePlot, project.Key]
+	linesColorKey *gorp.KeyReference[Key, LinePlot, color.Key]
+	rulesColorKey *gorp.KeyReference[Key, LinePlot, color.Key]
+	search        *gorp.SearchIndex[Key, LinePlot]
 }
 
 // newIndexes constructs a fresh indexes value, allocating one instance of each
@@ -76,6 +79,104 @@ func newIndexes() indexes {
 				return []project.Key{*e.Project}
 			},
 		}),
+		linesColorKey: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, LinePlot, color.Key]{
+			Name:     "lines.color.key",
+			Table:    "color",
+			OnDelete: gorp.Inline,
+			Kind:     gorp.Use,
+			Targets: func(e *LinePlot) []color.Key {
+				var targets []color.Key
+				for _, v1 := range e.Lines {
+					if v1.Color != nil {
+						switch v2 := v1.Color.Variant.(type) {
+						case color.NamedRef:
+							targets = append(targets, v2.Key)
+						}
+					}
+				}
+				return targets
+			},
+			Detach: func(e *LinePlot, t color.Key) {
+				for i5 := range e.Lines {
+					if e.Lines[i5].Color != nil {
+						if v6, ok := e.Lines[i5].Color.Variant.(color.NamedRef); ok && v6.Key == t {
+							e.Lines[i5].Color = nil
+						}
+					}
+				}
+			},
+			Inline: func(
+				ctx context.Context,
+				tx gorp.Tx,
+				e *LinePlot,
+				t color.Key,
+			) error {
+				var target color.Named
+				if err := gorp.NewRetrieve[color.Key, color.Named]().
+					Where(gorp.MatchKeys[color.Key, color.Named](t)).
+					Entry(&target).
+					Exec(ctx, tx); err != nil {
+					return err
+				}
+				for i3 := range e.Lines {
+					if e.Lines[i3].Color != nil {
+						if v4, ok := e.Lines[i3].Color.Variant.(color.NamedRef); ok && v4.Key == t {
+							e.Lines[i3].Color.Variant = target.Inline()
+						}
+					}
+				}
+				return nil
+			},
+		}),
+		rulesColorKey: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, LinePlot, color.Key]{
+			Name:     "rules.color.key",
+			Table:    "color",
+			OnDelete: gorp.Inline,
+			Kind:     gorp.Use,
+			Targets: func(e *LinePlot) []color.Key {
+				var targets []color.Key
+				for _, v1 := range e.Rules {
+					if v1.Color != nil {
+						switch v2 := v1.Color.Variant.(type) {
+						case color.NamedRef:
+							targets = append(targets, v2.Key)
+						}
+					}
+				}
+				return targets
+			},
+			Detach: func(e *LinePlot, t color.Key) {
+				for i5 := range e.Rules {
+					if e.Rules[i5].Color != nil {
+						if v6, ok := e.Rules[i5].Color.Variant.(color.NamedRef); ok && v6.Key == t {
+							e.Rules[i5].Color = nil
+						}
+					}
+				}
+			},
+			Inline: func(
+				ctx context.Context,
+				tx gorp.Tx,
+				e *LinePlot,
+				t color.Key,
+			) error {
+				var target color.Named
+				if err := gorp.NewRetrieve[color.Key, color.Named]().
+					Where(gorp.MatchKeys[color.Key, color.Named](t)).
+					Entry(&target).
+					Exec(ctx, tx); err != nil {
+					return err
+				}
+				for i3 := range e.Rules {
+					if e.Rules[i3].Color != nil {
+						if v4, ok := e.Rules[i3].Color.Variant.(color.NamedRef); ok && v4.Key == t {
+							e.Rules[i3].Color.Variant = target.Inline()
+						}
+					}
+				}
+				return nil
+			},
+		}),
 		search: gorp.NewSearchIndex[Key, LinePlot](
 			"search",
 			func(e *LinePlot) []string {
@@ -100,6 +201,8 @@ func (i indexes) references() []gorp.Reference[Key, LinePlot] {
 	return []gorp.Reference[Key, LinePlot]{
 		i.group,
 		i.project,
+		i.linesColorKey,
+		i.rulesColorKey,
 	}
 }
 

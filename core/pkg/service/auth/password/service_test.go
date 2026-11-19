@@ -192,8 +192,10 @@ var _ = Describe("Service", func() {
 		func(ctx SpecContext) {
 			bob := subject()
 			name := uuid.New().String()
+			fipsDB := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(fipsDB.Run)
 			fips := MustOpen(password.OpenService(ctx, password.ServiceConfig{
-				DB:   DeferClose(gorp.Wrap(memkv.New())),
+				DB:   fipsDB,
 				FIPS: new(true),
 			}))
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -352,8 +354,10 @@ var _ = Describe("Service with FIPS", func() {
 	It("Should refuse an Argon2id hash", func(ctx SpecContext) {
 		alice := subject()
 		name := uuid.New().String()
+		plainDB := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(plainDB.Run)
 		plain := MustOpen(password.OpenService(ctx, password.ServiceConfig{
-			DB: DeferClose(gorp.Wrap(memkv.New())),
+			DB: plainDB,
 		}))
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.NewWriter(tx).Set(ctx, alice, name, hash(plain, "p"))

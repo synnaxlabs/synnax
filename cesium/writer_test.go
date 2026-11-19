@@ -10,6 +10,7 @@
 package cesium_test
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 	"math/rand/v2"
@@ -32,6 +33,7 @@ import (
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/signal"
@@ -2391,6 +2393,7 @@ var _ = Describe("Writer Behavior", func() {
 										cesium.WithClock(clock),
 										cesium.WithInstrumentation(PanicLogger()),
 									))
+									StartRun(clockDB.Run)
 									Expect(clockDB.CreateChannel(
 										ctx,
 										cesium.Channel{
@@ -2511,6 +2514,7 @@ var _ = Describe("Writer Behavior", func() {
 								cesium.WithFileSizeCap(40*telem.Byte),
 								cesium.WithInstrumentation(PanicLogger()),
 							))
+							StartRun(db2.Run)
 							Expect(db2.CreateChannel(
 								ctx,
 								cesium.Channel{
@@ -2536,11 +2540,11 @@ var _ = Describe("Writer Behavior", func() {
 							defer shutdown()
 
 							ts := 10 * telem.SecondTS
-							write := func(w *cesium.Writer, n int) {
+							write := func(w *cesium.Writer) {
 								GinkgoHelper()
-								stamps := make([]telem.TimeStamp, n)
-								ints := make([]int64, n)
-								for j := range n {
+								stamps := make([]telem.TimeStamp, 3)
+								ints := make([]int64, 3)
+								for j := range 3 {
 									stamps[j] = ts
 									ints[j] = int64(j)
 									ts += telem.SecondTS
@@ -2565,8 +2569,8 @@ var _ = Describe("Writer Behavior", func() {
 									control.Authority(100),
 								},
 							}))
-							write(low, 3)
-							write(low, 3)
+							write(low)
+							write(low)
 
 							By(
 								"Handing control to a higher-authority writer mid-domain",
@@ -2580,8 +2584,8 @@ var _ = Describe("Writer Behavior", func() {
 									control.Authority(200),
 								},
 							}))
-							write(high, 3)
-							write(high, 3)
+							write(high)
+							write(high)
 
 							Expect(o.paired).To(BeNumerically(">", 0),
 								"the observer never saw a multi-channel frame, so it asserted nothing")
@@ -2604,6 +2608,7 @@ var _ = Describe("Writer Behavior", func() {
 							cesium.WithFileSizeCap(40*telem.Byte),
 							cesium.WithInstrumentation(PanicLogger()),
 						))
+						StartRun(db2.Run)
 
 						Expect(db2.CreateChannel(
 							ctx,
@@ -2739,6 +2744,7 @@ var _ = Describe("Writer Behavior", func() {
 								cesium.WithFileSizeCap(80*telem.Byte),
 								cesium.WithInstrumentation(PanicLogger()),
 							))
+							stopDB2 := StartRun(db2.Run)
 
 							Expect(db2.CreateChannel(
 								ctx,
@@ -2873,6 +2879,7 @@ var _ = Describe("Writer Behavior", func() {
 							)
 
 							By("Closing an reopening the db")
+							stopDB2()
 							Expect(db2.Close()).To(Succeed())
 
 							db2 = MustOpen(cesium.Open(ctx, "size-capped-db",
@@ -2880,6 +2887,7 @@ var _ = Describe("Writer Behavior", func() {
 								cesium.WithFileSizeCap(64*telem.Byte),
 								cesium.WithInstrumentation(PanicLogger()),
 							))
+							StartRun(db2.Run)
 
 							By(
 								"Asserting that upon writing to the channels, the writes go to appropriate files",
@@ -2979,6 +2987,7 @@ var _ = Describe("Writer Behavior", func() {
 							cesium.WithFileSizeCap(40*telem.Byte),
 							cesium.WithInstrumentation(PanicLogger()),
 						))
+						StartRun(db2.Run)
 
 						Expect(db2.CreateChannel(
 							ctx,
@@ -3102,6 +3111,7 @@ var _ = Describe("Writer Behavior", func() {
 								cesium.WithFileSizeCap(40*telem.Byte),
 								cesium.WithInstrumentation(PanicLogger()),
 							))
+							StartRun(db2.Run)
 
 							var (
 								index2 = GenerateChannelKey()
@@ -3173,6 +3183,69 @@ var _ = Describe("Writer Behavior", func() {
 				})
 
 				Describe("Write Authority", func() {
+					DescribeTable(
+						"Should reject an authority count that does not match the channels",
+						func(
+							ctx SpecContext,
+							channels func(idx, d1, d2 cesium.ChannelKey) []cesium.ChannelKey,
+							authorities []control.Authority,
+						) {
+							idx := GenerateChannelKey()
+							d1, d2 := GenerateChannelKey(), GenerateChannelKey()
+							Expect(db.CreateChannel(
+								ctx,
+								cesium.Channel{
+									Key:      idx,
+									Name:     "Byrd",
+									IsIndex:  true,
+									DataType: telem.TimestampT,
+								},
+								cesium.Channel{
+									Key:      d1,
+									Name:     "Balchen",
+									Index:    idx,
+									DataType: telem.Int64T,
+								},
+								cesium.Channel{
+									Key:      d2,
+									Name:     "Siple",
+									Index:    idx,
+									DataType: telem.Int64T,
+								},
+							)).To(Succeed())
+							w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+								Channels: []cesium.ChannelKey{idx, d1, d2},
+								Start:    10 * telem.SecondTS,
+							}))
+							Expect(w.SetAuthority(cesium.WriterConfig{
+								Channels:    channels(idx, d1, d2),
+								Authorities: authorities,
+							})).To(MatchError(validate.ErrValidation))
+							Expect(w.Close()).To(MatchError(validate.ErrValidation))
+						},
+						Entry(
+							"fewer authorities than channels",
+							func(idx, d1, d2 cesium.ChannelKey) []cesium.ChannelKey {
+								return []cesium.ChannelKey{idx, d1, d2}
+							},
+							[]control.Authority{10, 200},
+						),
+						Entry(
+							"more authorities than channels",
+							func(idx, d1, d2 cesium.ChannelKey) []cesium.ChannelKey {
+								return []cesium.ChannelKey{idx, d1}
+							},
+							[]control.Authority{10, 200, 30},
+						),
+						Entry(
+							"several authorities with no channels",
+							func(idx, d1, d2 cesium.ChannelKey) []cesium.ChannelKey {
+								return nil
+							},
+							[]control.Authority{10, 200},
+						),
+					)
+
 					It("Should set the authority of writers", func(ctx SpecContext) {
 						var (
 							key  = GenerateChannelKey()
@@ -4235,13 +4308,13 @@ var _ = Describe("Writer Behavior", func() {
 				Specify("Index error across many channels", func(ctx SpecContext) {
 					var (
 						idxKey   = GenerateChannelKey()
-						channels = []cesium.Channel{{
+						channels = append(make([]cesium.Channel, 0, 11), cesium.Channel{
 							Key:      idxKey,
 							Name:     "many idx",
 							DataType: telem.TimestampT,
 							IsIndex:  true,
-						}}
-						keys = []cesium.ChannelKey{idxKey}
+						})
+						keys = append(make([]cesium.ChannelKey, 0, 11), idxKey)
 					)
 					for i := range 10 {
 						k := GenerateChannelKey()
@@ -4260,7 +4333,10 @@ var _ = Describe("Writer Behavior", func() {
 					}))
 					write := func(stamps ...telem.TimeStamp) {
 						GinkgoHelper()
-						series := []telem.Series{telem.NewSeriesV(stamps...)}
+						series := append(
+							make([]telem.Series, 0, len(keys)),
+							telem.NewSeriesV(stamps...),
+						)
 						for range keys[1:] {
 							series = append(
 								series,
@@ -4378,6 +4454,61 @@ var _ = Describe("Writer Behavior", func() {
 						),
 					)
 				})
+
+				Specify(
+					"Frame with duplicate channels after a frame without them",
+					func(ctx SpecContext) {
+						otherIdx, otherData := GenerateChannelKey(), GenerateChannelKey()
+						Expect(db.CreateChannel(
+							ctx,
+							cesium.Channel{
+								Name:     "Ross",
+								Key:      otherIdx,
+								IsIndex:  true,
+								DataType: telem.TimestampT,
+							},
+							cesium.Channel{
+								Name:     "Weddell",
+								Key:      otherData,
+								Index:    otherIdx,
+								DataType: telem.Int64T,
+							},
+						)).To(Succeed())
+						w := MustSucceed(db.OpenWriter(
+							ctx,
+							cesium.WriterConfig{
+								Channels: []cesium.ChannelKey{
+									idx,
+									data,
+									otherIdx,
+									otherData,
+								},
+								Start: 10 * telem.SecondTS,
+							},
+						))
+						MustSucceed(w.Write(telem.MultiFrame(
+							[]cesium.ChannelKey{otherIdx, otherData},
+							[]telem.Series{
+								telem.NewSeriesSecondsTSV(10, 11),
+								telem.NewSeriesV[int64](1, 2),
+							},
+						)))
+						MustSucceed(w.Write(telem.MultiFrame(
+							[]cesium.ChannelKey{idx, idx},
+							[]telem.Series{
+								telem.NewSeriesSecondsTSV(10, 11),
+								telem.NewSeriesSecondsTSV(12, 13),
+							},
+						)))
+						Expect(
+							w.Commit(),
+						).Error().
+							To(MatchError(validate.ErrValidation))
+						Expect(w.Close()).To(MatchError(ContainSubstring(
+							"frame must have exactly one series per channel",
+						)))
+					},
+				)
 
 				It(
 					"Should return no end from a partly applied commit",
@@ -5299,23 +5430,27 @@ var _ = Describe("Writer commit order", func() {
 			db       *cesium.DB
 			indexKey = GenerateChannelKey()
 			dataKeys = make([]cesium.ChannelKey, dataChannelCount)
-			channels = []cesium.Channel{{
-				Key:      indexKey,
-				Name:     "index",
-				IsIndex:  true,
-				DataType: telem.TimestampT,
-			}}
+			channels = append(
+				make([]cesium.Channel, 0, 1+dataChannelCount),
+				cesium.Channel{
+					Key:      indexKey,
+					Name:     "index",
+					IsIndex:  true,
+					DataType: telem.TimestampT,
+				},
+			)
 			persistCount int
 			readErrs     []error
 		)
 		db = mustOpenDBOnFS(ctx, persistHookFS{
 			FS: FileSystems["memFS"](),
-			onPersist: func() {
+			onPersist: func() error {
 				persistCount++
 				_, err := db.Read(ctx, telem.TimeRangeMax, dataKeys...)
 				if err != nil {
 					readErrs = append(readErrs, err)
 				}
+				return nil
 			},
 		})
 		for i := range dataKeys {
@@ -5331,7 +5466,10 @@ var _ = Describe("Writer commit order", func() {
 		keys := append([]cesium.ChannelKey{indexKey}, dataKeys...)
 		for i := range domainCount {
 			start := telem.TimeStamp(i+1) * 10 * telem.SecondTS
-			series := []telem.Series{telem.NewSeriesV(start, start+telem.SecondTS)}
+			series := append(
+				make([]telem.Series, 0, len(keys)),
+				telem.NewSeriesV(start, start+telem.SecondTS),
+			)
 			for range dataKeys {
 				series = append(series, telem.NewSeriesV[int64](1, 2))
 			}
@@ -5348,13 +5486,203 @@ var _ = Describe("Writer commit order", func() {
 		}
 		Expect(persistCount).To(BeNumerically(">=", domainCount*len(keys)))
 	})
+
+	Describe("Readers", func() {
+		var (
+			db       *cesium.DB
+			indexKey cesium.ChannelKey
+			dataKey  cesium.ChannelKey
+			keys     []cesium.ChannelKey
+			// onPersist runs inside each pointer persist of a commit.
+			onPersist func()
+			// persistErr, when set, fails each pointer persist it returns an error for.
+			persistErr func() error
+		)
+
+		BeforeEach(func(ctx SpecContext) {
+			indexKey, dataKey = GenerateChannelKey(), GenerateChannelKey()
+			keys = []cesium.ChannelKey{indexKey, dataKey}
+			onPersist, persistErr = func() {}, nil
+			db = mustOpenDBOnFS(ctx, persistHookFS{
+				FS: FileSystems["memFS"](),
+				onPersist: func() error {
+					onPersist()
+					if persistErr == nil {
+						return nil
+					}
+					return persistErr()
+				},
+			})
+			Expect(db.CreateChannel(
+				ctx,
+				cesium.Channel{
+					Key:      indexKey,
+					Name:     "index",
+					IsIndex:  true,
+					DataType: telem.TimestampT,
+				},
+				cesium.Channel{
+					Key:      dataKey,
+					Name:     "data",
+					Index:    indexKey,
+					DataType: telem.Int64T,
+				},
+			)).To(Succeed())
+		})
+
+		// count returns the number of samples of key that a reader sees.
+		count := func(ctx context.Context, key cesium.ChannelKey) int64 {
+			GinkgoHelper()
+			return MustSucceed(db.Read(ctx, telem.TimeRangeMax, key)).Get(key).Len()
+		}
+
+		// frame returns a frame with one sample at seconds.
+		frame := func(seconds int) cesium.Frame {
+			return telem.MultiFrame(keys, []telem.Series{
+				telem.NewSeriesV(telem.TimeStamp(seconds) * telem.SecondTS),
+				telem.NewSeriesV(int64(seconds)),
+			})
+		}
+
+		// With auto commit off, Commit persists, so onPersist runs inside it.
+		openWriter := func(
+			ctx context.Context,
+			subject string,
+			authority control.Authority,
+		) *cesium.Writer {
+			GinkgoHelper()
+			return MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+				Channels:         keys,
+				Start:            10 * telem.SecondTS,
+				ControlSubject:   control.Subject{Key: subject},
+				Authorities:      []control.Authority{authority},
+				EnableAutoCommit: new(false),
+			}))
+		}
+
+		It("Should show the index and data of a write together", func(ctx SpecContext) {
+			// counts holds the index and data sample counts of each read.
+			var counts [][2]int64
+			onPersist = func() {
+				counts = append(counts, [2]int64{
+					count(ctx, indexKey),
+					count(ctx, dataKey),
+				})
+			}
+			w := openWriter(ctx, "writer", control.AuthorityAbsolute)
+			for i := range 3 {
+				MustSucceed(w.Write(frame(10 + i)))
+				MustCommit(w)
+			}
+			Expect(w.Close()).To(Succeed())
+			Expect(len(counts)).To(BeNumerically(">=", 6))
+			for _, c := range counts {
+				Expect(c[0]).To(Equal(c[1]))
+			}
+			Expect(count(ctx, indexKey)).To(Equal(int64(3)))
+			Expect(count(ctx, dataKey)).To(Equal(int64(3)))
+		})
+
+		It("Should show the index and data together across a control handoff",
+			func(ctx SpecContext) {
+				var counts [][2]int64
+				onPersist = func() {
+					counts = append(counts, [2]int64{
+						count(ctx, indexKey),
+						count(ctx, dataKey),
+					})
+				}
+				low := openWriter(ctx, "low", 100)
+				MustSucceed(low.Write(frame(10)))
+				MustCommit(low)
+				// high takes over the domain that low wrote, and commits to it.
+				high := openWriter(ctx, "high", 200)
+				MustSucceed(high.Write(frame(11)))
+				MustCommit(high)
+				Expect(count(ctx, indexKey)).To(Equal(int64(2)))
+				Expect(count(ctx, dataKey)).To(Equal(int64(2)))
+				Expect(high.Close()).To(Succeed())
+				// low has control again, and commits to the same domain.
+				MustSucceed(low.Write(frame(12)))
+				MustCommit(low)
+				Expect(low.Close()).To(Succeed())
+				Expect(len(counts)).To(BeNumerically(">=", 6))
+				for _, c := range counts {
+					Expect(c[0]).To(Equal(c[1]))
+				}
+				Expect(count(ctx, indexKey)).To(Equal(int64(3)))
+				Expect(count(ctx, dataKey)).To(Equal(int64(3)))
+				Expect(MustSucceed(db.Read(ctx, telem.TimeRangeMax, indexKey)).Count()).
+					To(Equal(1))
+			})
+
+		It("Should show the channels of a commit that fails to persist one of them",
+			func(ctx SpecContext) {
+				errPersist := errors.New("persist failed")
+				persists := 0
+				persistErr = func() error {
+					persists++
+					// The index persists first, so this fails the data channel.
+					if persists == 2 {
+						return errPersist
+					}
+					return nil
+				}
+				w := openWriter(ctx, "writer", control.AuthorityAbsolute)
+				MustSucceed(w.Write(frame(10)))
+				Expect(w.Commit()).Error().To(MatchError(errPersist))
+				// The commit published what it committed, so nothing waits on a
+				// publish.
+				Expect(count(ctx, indexKey)).To(Equal(int64(1)))
+				Expect(count(ctx, dataKey)).To(Equal(int64(1)))
+				Expect(w.Close()).To(MatchError(errPersist))
+				Expect(count(ctx, indexKey)).To(Equal(int64(1)))
+				Expect(count(ctx, dataKey)).To(Equal(int64(1)))
+			})
+
+		It("Should never show an index sample before its data to a concurrent reader",
+			func(ctx SpecContext) {
+				const writes = 2000
+				w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+					Channels: keys,
+					Start:    10 * telem.SecondTS,
+				}))
+				var (
+					wg   sync.WaitGroup
+					done = make(chan struct{})
+				)
+				wg.Go(func() {
+					defer GinkgoRecover()
+					for {
+						select {
+						case <-done:
+							return
+						default:
+						}
+						// The index reads first, so the data of each index sample that
+						// this read sees is already visible.
+						indexed := count(ctx, indexKey)
+						Expect(count(ctx, dataKey)).To(BeNumerically(">=", indexed))
+					}
+				})
+				for i := range writes {
+					MustSucceed(w.Write(frame(10 + i)))
+				}
+				close(done)
+				wg.Wait()
+				Expect(w.Close()).To(Succeed())
+				Expect(count(ctx, indexKey)).To(Equal(int64(writes)))
+				Expect(count(ctx, dataKey)).To(Equal(int64(writes)))
+			})
+	})
 })
 
 // persistHookFS calls onPersist as a channel starts to persist its domain pointers, the
-// only file Cesium truncates. The hook sees those pointers already published.
+// only file Cesium truncates, and fails the persist with the error of onPersist. The
+// hook runs inside the commit of that channel, before readers see the commit.
 type persistHookFS struct {
 	fs.FS
-	onPersist func()
+	onPersist func() error
 }
 
 func (f persistHookFS) Sub(name string) (fs.FS, error) {
@@ -5375,11 +5703,13 @@ func (f persistHookFS) Open(name string, flag int) (fs.File, error) {
 
 type persistHookFile struct {
 	fs.File
-	onPersist func()
+	onPersist func() error
 }
 
 func (f persistHookFile) Truncate(size int64) error {
-	f.onPersist()
+	if err := f.onPersist(); err != nil {
+		return err
+	}
 	return f.File.Truncate(size)
 }
 
@@ -5459,3 +5789,30 @@ func openObservedStreamer(
 		cancel()
 	}
 }
+
+var _ = Describe("Writer after Run stops", func() {
+	It("Should not block a write once the relay stops", func(ctx SpecContext) {
+		db := DeferClose(openDBOnFS(
+			ctx,
+			FileSystems["memFS"](),
+			cesium.WithRelayBufferSize(1),
+		))
+		stop := StartRun(db.Run)
+		key := GenerateChannelKey()
+		Expect(db.CreateChannel(ctx, virtualChannel(key, "boulder"))).To(Succeed())
+		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+			Channels: []cesium.ChannelKey{key},
+		}))
+		stop()
+		written := make(chan struct{})
+		go func() {
+			defer GinkgoRecover()
+			defer close(written)
+			for v := range int64(4) {
+				MustSucceed(w.Write(telem.UnaryFrame(key, telem.NewSeriesV(v))))
+			}
+			Expect(w.Close()).To(Succeed())
+		}()
+		Eventually(written).Should(BeClosed())
+	})
+})

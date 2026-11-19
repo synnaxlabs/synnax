@@ -38,6 +38,7 @@ var (
 	_ = BeforeSuite(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		svc = MustOpen(icd.OpenService(ctx, icd.ServiceConfig{
 			DB:   db,
 			ImEx: imex.NewService(),

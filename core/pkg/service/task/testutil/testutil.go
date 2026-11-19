@@ -188,7 +188,7 @@ func (t *Targets) CreateDevice(ctx context.Context, key device.Key) error {
 		return t.cfg.Device.NewWriter(tx).Create(ctx, &device.Device{
 			Key:      key,
 			Rack:     t.cfg.Rack,
-			Name:     string(key),
+			Name:     key,
 			Make:     "test",
 			Model:    "test",
 			Location: "test",
@@ -201,7 +201,7 @@ func (t *Targets) CreateStatus(ctx context.Context, key status.Key) error {
 	return t.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		return t.cfg.Status.NewWriter(tx).Set(ctx, &status.Status[any]{
 			Key:     key,
-			Name:    string(key),
+			Name:    key,
 			Variant: status.VariantInfo,
 			Time:    telem.Now(),
 		})

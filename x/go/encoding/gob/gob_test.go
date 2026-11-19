@@ -24,7 +24,7 @@ type toEncode struct {
 }
 
 var _ = Describe("Codec", func() {
-	It("Should encode and decode", func(ctx SpecContext) {
+	It("Should encode and decode", func() {
 		b := MustSucceed(gob.Codec.Encode(toEncode{1}))
 		var d toEncode
 		Expect(gob.Codec.Decode(b, &d)).To(Succeed())
@@ -33,7 +33,7 @@ var _ = Describe("Codec", func() {
 		Expect(gob.Codec.DecodeStream(bytes.NewReader(b), &d2)).To(Succeed())
 		Expect(d2).To(Equal(toEncode{1}))
 	})
-	It("Should add error info on encoding failure", func(ctx SpecContext) {
+	It("Should add error info on encoding failure", func() {
 		Expect(gob.Codec.Encode(make(chan int))).Error().To(MatchError(
 			SatisfyAll(
 				ContainSubstring("failed to encode value"),
@@ -42,14 +42,14 @@ var _ = Describe("Codec", func() {
 		),
 		)
 	})
-	It("Should include a stack trace on encoding errors", func(ctx SpecContext) {
+	It("Should include a stack trace on encoding errors", func() {
 		_, err := gob.Codec.Encode(make(chan int))
 		Expect(err).To(MatchError(ContainSubstring("failed to encode value")))
 		stack := errors.GetStackTrace(err)
 		Expect(stack.String()).ToNot(BeEmpty())
 		Expect(stack.String()).To(ContainSubstring(".go"))
 	})
-	It("Should include a stack trace on decoding errors", func(ctx SpecContext) {
+	It("Should include a stack trace on decoding errors", func() {
 		err := gob.Codec.Decode([]byte("invalid"), &toEncode{})
 		Expect(err).To(MatchError(ContainSubstring("failed to decode")))
 		stack := errors.GetStackTrace(err)

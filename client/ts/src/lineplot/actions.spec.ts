@@ -35,8 +35,13 @@ const roundTrip = (
   return lineplot.reduceAll(next, inverse).next;
 };
 
-const createLine = (key: string, color: string): lineplot.Line =>
-  lineplot.lineZ.parse({ key, color, yAxis: "y1", yChannel: 1 });
+const fixed = (hex: string): lineplot.Line["color"] => ({
+  type: "fixed",
+  value: color.construct(hex),
+});
+
+const createLine = (key: string, hex: string): lineplot.Line =>
+  lineplot.lineZ.parse({ key, color: fixed(hex), yAxis: "y1", yChannel: 1 });
 
 const setName = (name: string): lineplot.Action =>
   lineplot.set({ path: ["name"], value: name });
@@ -52,7 +57,7 @@ const createRule = (key: string, label: string): lineplot.Rule =>
   lineplot.ruleZ.parse({
     key,
     label,
-    color: color.construct("#888888"),
+    color: fixed("#888888"),
     axis: "y1",
     position: 0,
   });
@@ -328,23 +333,17 @@ describe("lineplot reducer", () => {
       let s = apply(state, lineplot.setChannels({ axisKey: "y1", channels: [5, 6] }));
       const keep = lk(5, 10);
       const drop = lk(6, 10);
-      s = apply(
-        s,
-        lineplot.setLineColor({ key: keep, color: color.construct("#ff0000") }),
-      );
-      s = apply(
-        s,
-        lineplot.setLineColor({ key: drop, color: color.construct("#00ff00") }),
-      );
+      s = apply(s, lineplot.setLineColor({ key: keep, color: fixed("#ff0000") }));
+      s = apply(s, lineplot.setLineColor({ key: drop, color: fixed("#00ff00") }));
       const out = apply(s, lineplot.setChannels({ axisKey: "y1", channels: [5] }));
       const survivor = out.lines.find((l) => l.key === keep);
-      expect(survivor?.color).toEqual(color.construct("#ff0000"));
+      expect(survivor?.color).toEqual(fixed("#ff0000"));
       const restored = roundTrip(
         s,
         lineplot.setChannels({ axisKey: "y1", channels: [5] }),
       );
       const dropped = restored.lines.find((l) => l.key === drop);
-      expect(dropped?.color).toEqual(color.construct("#00ff00"));
+      expect(dropped?.color).toEqual(fixed("#00ff00"));
     });
   });
 
@@ -478,7 +477,7 @@ describe("lineplot reducer", () => {
         s,
         lineplot.setLineColor({
           key: s.lines[0].key,
-          color: color.construct("#ff0000"),
+          color: fixed("#ff0000"),
         }),
       );
       const restored = roundTrip(
@@ -487,7 +486,7 @@ describe("lineplot reducer", () => {
       );
       expect(restored.lines).toHaveLength(1);
       expect(restored.lines[0].key).toEqual(lk(5, 0));
-      expect(restored.lines[0].color).toEqual(color.construct("#ff0000"));
+      expect(restored.lines[0].color).toEqual(fixed("#ff0000"));
     });
 
     it("should rekey a line when the x-channel changes", () => {
@@ -585,8 +584,8 @@ describe("lineplot reducer", () => {
       },
       {
         label: "setLineColor",
-        action: lineplot.setLineColor({ key: "l1", color: color.construct("#0000ff") }),
-        expected: { color: color.construct("#0000ff") },
+        action: lineplot.setLineColor({ key: "l1", color: fixed("#0000ff") }),
+        expected: { color: fixed("#0000ff") },
       },
       {
         label: "setLineLabel",
@@ -622,22 +621,22 @@ describe("lineplot reducer", () => {
       const state = createEmpty({ lines: [start] });
       const action = lineplot.setLineColor({
         key: "l1",
-        color: color.construct("#ff0000"),
+        color: fixed("#ff0000"),
       });
-      expect(apply(state, action).lines[0].color).toEqual(color.construct("#ff0000"));
+      expect(apply(state, action).lines[0].color).toEqual(fixed("#ff0000"));
       expect(roundTrip(state, action).lines[0]).toEqual(state.lines[0]);
     });
 
     it("is a no-op when the line does not exist", () => {
       const { targets } = lineplot.reduceAll(createEmpty(), [
-        lineplot.setLineColor({ key: "missing", color: color.construct("#ff0000") }),
+        lineplot.setLineColor({ key: "missing", color: fixed("#ff0000") }),
       ]);
       expect(targets).toEqual([]);
     });
 
     it("targets the line so distinct lines are independent", () => {
       const { targets } = lineplot.reduceAll(base(), [
-        lineplot.setLineColor({ key: "l1", color: color.construct("#0000ff") }),
+        lineplot.setLineColor({ key: "l1", color: fixed("#0000ff") }),
       ]);
       expect(targets).toEqual(["line:l1"]);
     });
@@ -651,7 +650,7 @@ describe("lineplot reducer", () => {
         yAxis: "y1",
         yChannel: 1,
         xChannel: 0,
-        color: color.construct("#0000ff"),
+        color: fixed("#0000ff"),
         strokeWidth: 4,
         aggregation: "average",
         detail: "high",
@@ -737,8 +736,8 @@ describe("lineplot reducer", () => {
       },
       {
         label: "setRuleColor",
-        action: lineplot.setRuleColor({ key: "r1", color: color.construct("#00ff00") }),
-        expected: { color: color.construct("#00ff00") },
+        action: lineplot.setRuleColor({ key: "r1", color: fixed("#00ff00") }),
+        expected: { color: fixed("#00ff00") },
       },
       {
         label: "setRuleAxis",

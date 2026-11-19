@@ -9,7 +9,7 @@
 
 import { Form } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
-import { deep } from "@synnaxlabs/x";
+import { deep, record } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { type z } from "zod";
 
@@ -46,7 +46,7 @@ export const REGISTERS: Record<ReadChannelType, { name: string; description: str
     },
   };
 
-export const REGISTER_TYPES = Object.keys(REGISTERS) as ReadChannelType[];
+export const REGISTER_TYPES = record.keys(REGISTERS);
 
 // A bit is one cell and a word two, and a bit of a word is one cell. The outline cut
 // from the inside marks read only.

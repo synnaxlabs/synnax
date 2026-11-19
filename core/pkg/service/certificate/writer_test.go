@@ -45,7 +45,7 @@ var _ = Describe("Writer", func() {
 			c := e.create(ctx, stored("Plant", pemText), nil)
 			block, _ := pem.Decode([]byte(pemText))
 			sum1, sum256 := sha1.Sum(block.Bytes), sha256.Sum256(block.Bytes)
-			s := e.retrieve(ctx, c.Base().Key).Variant.(certificate.StoredCertificate)
+			s := storedOf(e.retrieve(ctx, c.Base().Key))
 			Expect(s.Details).To(Equal(certificate.Details{
 				Subject:   "CN=plant",
 				Issuer:    "CN=plant",
@@ -60,7 +60,7 @@ var _ = Describe("Writer", func() {
 			leaf := newCertificate(newKey(), "leaf", time.Hour)
 			ca := newCertificate(newKey(), "ca", time.Hour)
 			c := e.create(ctx, stored("Plant", "Bag Attributes\n"+leaf+"\n"+ca), nil)
-			s := e.retrieve(ctx, c.Base().Key).Variant.(certificate.StoredCertificate)
+			s := storedOf(e.retrieve(ctx, c.Base().Key))
 			Expect(s.Pem).To(Equal(leaf + ca))
 			Expect(s.Details.Subject).To(Equal("CN=leaf"))
 		})
@@ -71,7 +71,7 @@ var _ = Describe("Writer", func() {
 				stored("Plant", newCertificate(key, "a", time.Hour)),
 				encodeKey(key),
 			)
-			secretKey := c.Variant.(certificate.StoredCertificate).PrivateKey
+			secretKey := storedOf(c).PrivateKey
 			Expect(secretKey).ToNot(BeNil())
 			var s secret.Secret
 			Expect(e.secrets.NewRetrieve().
@@ -124,11 +124,11 @@ var _ = Describe("Writer", func() {
 		It("Should ignore a private key secret the caller sets", func(ctx SpecContext) {
 			planted := uuid.New()
 			c := stored("Plant", newCertificate(newKey(), "a", time.Hour))
-			variant := c.Variant.(certificate.StoredCertificate)
+			variant := storedOf(c)
 			variant.PrivateKey = &planted
 			c.Variant = variant
 			c = e.create(ctx, c, nil)
-			Expect(c.Variant.(certificate.StoredCertificate).PrivateKey).To(BeNil())
+			Expect(storedOf(c).PrivateKey).To(BeNil())
 		})
 		DescribeTable(
 			"Should reject an invalid stored certificate",
@@ -277,12 +277,12 @@ var _ = Describe("Writer", func() {
 						stored("Plant", newCertificate(oldKey, "a", time.Hour)),
 						encodeKey(oldKey),
 					)
-					secretKey := *c.Variant.(certificate.StoredCertificate).PrivateKey
-					variant := c.Variant.(certificate.StoredCertificate)
+					secretKey := *storedOf(c).PrivateKey
+					variant := storedOf(c)
 					variant.Pem = newCertificate(replacement, "b", time.Hour)
 					c.Variant = variant
 					c = e.create(ctx, c, encodeKey(replacement))
-					Expect(*c.Variant.(certificate.StoredCertificate).PrivateKey).
+					Expect(*storedOf(c).PrivateKey).
 						To(Equal(secretKey))
 					Expect(e.resolveKey(ctx, c)).To(Equal(encodeKey(replacement)))
 				},
@@ -295,13 +295,12 @@ var _ = Describe("Writer", func() {
 						stored("Plant", newCertificate(key, "a", time.Hour)),
 						encodeKey(key),
 					)
-					variant := c.Variant.(certificate.StoredCertificate)
+					variant := storedOf(c)
 					variant.Pem = newCertificate(key, "a", 48*time.Hour)
 					variant.PrivateKey = nil
 					c.Variant = variant
 					c = e.create(ctx, c, nil)
-					s := e.retrieve(ctx, c.Base().Key).
-						Variant.(certificate.StoredCertificate)
+					s := storedOf(e.retrieve(ctx, c.Base().Key))
 					Expect(s.Details.NotAfter).
 						To(Equal(telem.NewTimeStamp(start.Add(48 * time.Hour))))
 					Expect(e.resolveKey(ctx, c)).To(Equal(encodeKey(key)))
@@ -315,7 +314,7 @@ var _ = Describe("Writer", func() {
 						stored("Before", newCertificate(key, "a", time.Hour)),
 						encodeKey(key),
 					)
-					variant := c.Variant.(certificate.StoredCertificate)
+					variant := storedOf(c)
 					variant.Name = "After"
 					c.Variant = variant
 					c = e.create(ctx, c, nil)
@@ -330,7 +329,7 @@ var _ = Describe("Writer", func() {
 						stored("Plant", newCertificate(key, "a", time.Hour)),
 						encodeKey(key),
 					)
-					variant := c.Variant.(certificate.StoredCertificate)
+					variant := storedOf(c)
 					variant.Pem = newCertificate(newKey(), "b", time.Hour)
 					c.Variant = variant
 					Expect(e.write(ctx, func(w certificate.Writer) error {
@@ -351,7 +350,7 @@ var _ = Describe("Writer", func() {
 						stored("Plant", newCertificate(key, "a", time.Hour)),
 						encodeKey(key),
 					)
-					secretKey := *c.Variant.(certificate.StoredCertificate).PrivateKey
+					secretKey := *storedOf(c).PrivateKey
 					e.create(ctx, certificate.Certificate{
 						Variant: certificate.FileCertificate{
 							Base:            c.Base(),
@@ -420,7 +419,7 @@ var _ = Describe("Writer", func() {
 					stored("Plant", newCertificate(key, "a", time.Hour)),
 					encodeKey(key),
 				)
-				secretKey := *c.Variant.(certificate.StoredCertificate).PrivateKey
+				secretKey := *storedOf(c).PrivateKey
 				Expect(e.write(ctx, func(w certificate.Writer) error {
 					return w.Delete(ctx, c.Base().Key)
 				})).To(Succeed())
@@ -451,7 +450,7 @@ var _ = Describe("Writer", func() {
 					stored("Plant", newCertificate(key, "a", time.Hour)),
 					encodeKey(key),
 				)
-				secretKey := *c.Variant.(certificate.StoredCertificate).PrivateKey
+				secretKey := *storedOf(c).PrivateKey
 				Expect(e.db.WithTx(ctx, func(tx gorp.Tx) error {
 					return e.secrets.NewWriter(tx).Delete(ctx, secretKey)
 				})).To(

@@ -22,7 +22,7 @@ type UnaryClient[RQ, RS Payload] interface {
 	// Send sends a request to the target server using the given context. The context
 	// should be canceled if the client expects the server to discard the request and
 	// return an error upon receiving it.
-	Send(context.Context, address.Address, RQ) (RS, error)
+	Send(ctx context.Context, target address.Address, req RQ) (RS, error)
 }
 
 // UnaryHandler is a function that handles a request and returns a response.
@@ -37,5 +37,5 @@ type UnaryServer[RQ, RS Payload] interface {
 	// If the provided context is invalid, the server is expected to abort the request
 	// and respond with an error (ideally this error should wrap a context error in some
 	// form).
-	BindHandler(UnaryHandler[RQ, RS])
+	BindHandler(handler UnaryHandler[RQ, RS])
 }

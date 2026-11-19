@@ -8,6 +8,8 @@
 #  included in the file licenses/APL.txt.
 
 import operator
+import subprocess
+import sys
 import uuid
 from collections.abc import Callable
 from datetime import timedelta, timezone
@@ -1362,3 +1364,50 @@ class TestSeriesProperties:
         s = telem.Series(np.array(values, dtype="datetime64[ns]"))
         assert s.data_type == telem.DataType.TIMESTAMP
         assert np.asarray(s).tolist() == values
+
+
+@pytest.mark.skipif(sys.version_info < (3, 15), reason="lazy imports need Python 3.15")
+class TestPandasLoading:
+    def test_series_without_pandas(self) -> None:
+        """Should build series and timestamps without loading pandas."""
+        script = (
+            "import sys\n"
+            "from x import telem\n"
+            "telem.Series([1.0, 2.0])\n"
+            "telem.Series(__import__('numpy').array([1, 2]))\n"
+            "telem.TimeStamp.now() + telem.TimeSpan.from_seconds(1)\n"
+            "print('pandas' in sys.modules)\n"
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", script], capture_output=True, text=True, timeout=60
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "False"
+
+
+@pytest.mark.series
+class TestIsCrudeSeries:
+    def test_scalar(self) -> None:
+        """Should treat a single sample as one series"""
+        assert telem.is_crude_series(1.0)
+
+    def test_list_of_samples(self) -> None:
+        """Should treat a list of samples as one series"""
+        assert telem.is_crude_series([1, 2, 3])
+
+    def test_numpy_array(self) -> None:
+        """Should treat a numpy array as one series"""
+        assert telem.is_crude_series(np.array([1, 2, 3], dtype=np.int32))
+
+    def test_series(self) -> None:
+        """Should treat a Series as one series"""
+        assert telem.is_crude_series(telem.Series([1.0, 2.0]))
+
+    def test_list_of_series(self) -> None:
+        """Should not treat a list of series as one series"""
+        series: list[telem.CrudeSeries] = [telem.Series([1.0]), telem.Series([2.0])]
+        assert not telem.is_crude_series(series)
+
+    def test_empty_list(self) -> None:
+        """Should treat an empty list as one empty series"""
+        assert telem.is_crude_series([])

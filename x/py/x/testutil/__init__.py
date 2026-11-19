@@ -10,5 +10,6 @@
 """Shared testing utilities for the Synnax monorepo."""
 
 from x.testutil.eventually import assert_eventually
+from x.testutil.untyped import untyped
 
-__all__ = ["assert_eventually"]
+__all__ = ["assert_eventually", "untyped"]

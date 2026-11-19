@@ -9,16 +9,15 @@
 
 import "@/feature/lineplot/toolbar/Lines.css";
 
-import { lineplot } from "@synnaxlabs/client";
+import { type color, lineplot } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
-import { Color } from "@synnaxlabs/lyra/color";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
-import { Channel, LinePlot } from "@synnaxlabs/pluto";
-import { type bounds, type color, type xy } from "@synnaxlabs/x";
+import { Channel, Color, LinePlot } from "@synnaxlabs/pluto";
+import { type bounds, type xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
@@ -165,7 +164,7 @@ const Line = ({ itemKey, index }: LineProps): ReactElement | null => {
   const handleDetailChange = (detail: lineplot.Detail) =>
     dispatch(lineplot.setLineDetail({ key: itemKey, detail }));
 
-  const handleColorChange = (color?: color.Color) =>
+  const handleColorChange = (color?: color.Ref) =>
     dispatch(lineplot.setLineColor({ key: itemKey, color }));
 
   return (

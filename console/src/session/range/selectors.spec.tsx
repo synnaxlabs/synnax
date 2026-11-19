@@ -15,28 +15,9 @@ import { describe, expect, it } from "vitest";
 import { Range } from "@/session/range";
 import { createMinimalStore } from "@/testutil";
 
-const STATIC: Range.StaticState = {
-  variant: "static",
-  key: "static-1",
-  name: "Static 1",
-  timeRange: { start: 0, end: 1000 },
-};
+const PERSISTED: Range.PersistedState = { variant: "persisted", key: "persisted-1" };
 
-const DYNAMIC: Range.DynamicState = {
-  variant: "dynamic",
-  key: "dynamic-1",
-  name: "Dynamic 1",
-  span: 1000,
-};
-
-const EMPTY_STATE: Range.SliceState = {
-  version: 0,
-  selected: undefined,
-  ranges: [],
-  staticKeysRewritten: false,
-};
-
-const createStore = (initial: Range.SliceState = EMPTY_STATE) =>
+const createStore = (initial: Range.SliceState = Range.ZERO_SLICE_STATE) =>
   createMinimalStore({
     reducer: { [Range.SLICE_NAME]: Range.reducer },
     preloadedState: { [Range.SLICE_NAME]: initial },
@@ -53,38 +34,61 @@ const createWrapper = (
 };
 
 describe("range selectors", () => {
-  describe("getters", () => {
-    it("should resolve a range by key and fall back to the selection on demand", () => {
+  describe("useSelectState", () => {
+    it("should resolve a range by key", () => {
       const store = createStore();
-      const { result } = renderHook(() => Range.useGetState(), {
+      const { result } = renderHook(() => Range.useSelectState(PERSISTED.key), {
         wrapper: createWrapper(store),
       });
-      const get = result.current;
-      expect(get(STATIC.key)).toBeUndefined();
+      expect(result.current).toBeUndefined();
       act(() => {
-        store.dispatch(Range.add([STATIC, DYNAMIC]));
+        store.dispatch(Range.add(PERSISTED));
       });
-      expect(get(STATIC.key)).toEqual(STATIC);
-      act(() => {
-        store.dispatch(Range.select(DYNAMIC.key));
-      });
-      expect(get()).toEqual(DYNAMIC);
-      expect(get("missing")).toBeUndefined();
+      expect(result.current).toEqual(PERSISTED);
     });
 
-    // Callers fall back to the recent range when nothing is selected, so it has to be
-    // there whatever the session has stored.
     it("should offer the rolling ranges whatever the session holds", () => {
       const store = createStore();
-      const { result } = renderHook(() => Range.useGetState(), {
+      const { result } = renderHook(() => Range.useSelectState(Range.BUILT_IN[0].key), {
         wrapper: createWrapper(store),
       });
-      const get = result.current;
-      expect(Range.BUILT_IN.every(({ key }) => get(key) != null)).toBe(true);
+      expect(result.current).toEqual(Range.BUILT_IN[0]);
       act(() => {
-        store.dispatch(Range.remove({ keys: [Range.RECENT_KEY] }));
+        store.dispatch(Range.remove({ keys: [Range.BUILT_IN[0].key] }));
       });
-      expect(get(Range.RECENT_KEY)).toBeDefined();
+      expect(result.current).toEqual(Range.BUILT_IN[0]);
+    });
+  });
+
+  describe("useSelectFavoriteKeys", () => {
+    it("should list the added Core ranges and leave out the rolling ones", () => {
+      const store = createStore();
+      const { result } = renderHook(() => Range.useSelectFavoriteKeys(), {
+        wrapper: createWrapper(store),
+      });
+      expect(result.current).toEqual([]);
+      act(() => {
+        store.dispatch(Range.add(PERSISTED));
+      });
+      expect(result.current).toEqual([PERSISTED.key]);
+    });
+  });
+
+  describe("useSelectGroupCollapsed", () => {
+    it("should follow the toolbar group it names", () => {
+      const store = createStore();
+      const { result } = renderHook(() => Range.useSelectGroupCollapsed("recent"), {
+        wrapper: createWrapper(store),
+      });
+      expect(result.current).toBe(false);
+      act(() => {
+        store.dispatch(Range.setGroupCollapsed({ group: "recent", collapsed: true }));
+      });
+      expect(result.current).toBe(true);
+      act(() => {
+        store.dispatch(Range.setGroupCollapsed({ group: "running", collapsed: true }));
+      });
+      expect(result.current).toBe(true);
     });
   });
 });

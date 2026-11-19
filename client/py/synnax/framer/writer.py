@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Literal, NoReturn, TypeAlias, cast, overload, override
+from typing import Literal, NoReturn, TypeAlias, overload, override
 from uuid import uuid4
 
 from pydantic import BaseModel
@@ -20,7 +20,7 @@ from freighter import (
     EOF,
     ExceptionPayload,
     Stream,
-    WebsocketClient,
+    StreamClient,
 )
 from freighter.transport import P
 from freighter.websocket import Message
@@ -115,12 +115,11 @@ class _WSWriterCodec(WSCodec):
 
     @override
     def decode(self, data: bytes, pld_t: type[P]) -> P:
-        if data[0] == LOW_PERF_SPECIAL_CHAR:
-            return self.lower_perf_codec.decode(data[1:], pld_t)
-        frame = self.codec.decode(data, offset=1)
-        msg: Message[WriterRequest] = Message(type="data")
-        msg.payload = WriterRequest(command=WriterCommand.WRITE, frame=frame)
-        return cast(P, msg)
+        if data[0] != LOW_PERF_SPECIAL_CHAR:
+            raise ValueError(
+                "received a high-performance data frame on the writer response stream"
+            )
+        return self.lower_perf_codec.decode(data[1:], pld_t)
 
 
 def _parse_writer_mode(mode: CrudeWriterMode) -> WriterMode:
@@ -138,9 +137,6 @@ def _parse_writer_mode(mode: CrudeWriterMode) -> WriterMode:
         except ValueError:
             pass
     raise ValueError(f"invalid writer mode {mode}")
-
-
-_ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT: TimeSpan = TimeSpan(-1)
 
 
 class WriterClosed(Error): ...
@@ -199,7 +195,7 @@ class Writer:
         self,
         *,
         start: CrudeTimeStamp | None,
-        client: WebsocketClient,
+        client: StreamClient,
         registry: Registry,
         adapter: WriteFrameAdapter,
         name: str = "",

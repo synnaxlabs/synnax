@@ -26,11 +26,14 @@
     padding: 0 2rem 0.5rem;
 }
 
+/* Keeps the scroll bar's space in every section, so a section long enough to scroll
+   has the same width and place as the others. */
 .console-settings__page {
     flex-grow: 1;
     min-width: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
+    scrollbar-gutter: stable;
 }
 
 .console-settings__content {

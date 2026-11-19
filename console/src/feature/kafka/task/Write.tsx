@@ -44,36 +44,40 @@ const TEXT_FIELD_CLASS = CSS.BE("kafka-properties", "text");
 
 const SELECT_DIALOG_PROPS = { className: CSS.BE("kafka-select", "dialog") };
 
-const renderRecordKeySelect = Component.renderProp(
-  (p: Omit<Select.SingleSimpleProps<RecordKey>, "children" | "resourceName">) => (
-    <Select.Simple<RecordKey>
-      {...p}
-      resourceName="record key"
-      triggerProps={SELECT_TRIGGER_PROPS}
-      dialogProps={SELECT_DIALOG_PROPS}
-    >
-      <Select.Item itemKey="channel_name">Channel name</Select.Item>
-      <Select.Item itemKey="none">None</Select.Item>
-    </Select.Simple>
-  ),
+const SelectRecordKey = (
+  p: Omit<Select.SingleSimpleProps<RecordKey>, "children" | "resourceName">,
+) => (
+  <Select.Simple<RecordKey>
+    {...p}
+    resourceName="record key"
+    triggerProps={SELECT_TRIGGER_PROPS}
+    dialogProps={SELECT_DIALOG_PROPS}
+  >
+    <Select.Item itemKey="channel_name">Channel name</Select.Item>
+    <Select.Item itemKey="none">None</Select.Item>
+  </Select.Simple>
 );
 
-const renderTimeFormatSelect = Component.renderProp(
-  (p: Omit<Select.SingleSimpleProps<TimeFormat>, "children" | "resourceName">) => (
-    <Select.Simple<TimeFormat>
-      {...p}
-      resourceName="time format"
-      triggerProps={SELECT_TRIGGER_PROPS}
-      dialogProps={SELECT_DIALOG_PROPS}
-    >
-      <Select.Item itemKey="iso8601">ISO 8601</Select.Item>
-      <Select.Item itemKey="unix_sec">Unix (s)</Select.Item>
-      <Select.Item itemKey="unix_ms">Unix (ms)</Select.Item>
-      <Select.Item itemKey="unix_us">Unix (µs)</Select.Item>
-      <Select.Item itemKey="unix_ns">Unix (ns)</Select.Item>
-    </Select.Simple>
-  ),
+const renderRecordKeySelect = Component.renderProp(SelectRecordKey);
+
+const SelectTimeFormat = (
+  p: Omit<Select.SingleSimpleProps<TimeFormat>, "children" | "resourceName">,
+) => (
+  <Select.Simple<TimeFormat>
+    {...p}
+    resourceName="time format"
+    triggerProps={SELECT_TRIGGER_PROPS}
+    dialogProps={SELECT_DIALOG_PROPS}
+  >
+    <Select.Item itemKey="iso8601">ISO 8601</Select.Item>
+    <Select.Item itemKey="unix_sec">Unix (s)</Select.Item>
+    <Select.Item itemKey="unix_ms">Unix (ms)</Select.Item>
+    <Select.Item itemKey="unix_us">Unix (µs)</Select.Item>
+    <Select.Item itemKey="unix_ns">Unix (ns)</Select.Item>
+  </Select.Simple>
 );
+
+const renderTimeFormatSelect = Component.renderProp(SelectTimeFormat);
 
 const Properties = () => (
   <>
@@ -159,11 +163,11 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
 
 const listItem = Component.renderProp(ChannelListItem);
 
-const renderSelectChannel = Component.renderProp(
-  (p: Pick<PChannel.SelectSingleProps, "value" | "onChange">) => (
-    <PChannel.SelectSingle {...p} />
-  ),
+const SelectChannel = (p: Pick<PChannel.SelectSingleProps, "value" | "onChange">) => (
+  <PChannel.SelectSingle {...p} />
 );
+
+const renderSelectChannel = Component.renderProp(SelectChannel);
 
 const JSON_TYPE_ITEMS = (
   <>
@@ -173,13 +177,15 @@ const JSON_TYPE_ITEMS = (
   </>
 );
 
-const renderSelectJSONType = Component.renderProp(
-  (p: Omit<Select.SingleSimpleProps<string>, "children" | "resourceName">) => (
-    <Select.Simple<string> {...p} resourceName="JSON type">
-      {JSON_TYPE_ITEMS}
-    </Select.Simple>
-  ),
+const SelectJSONType = (
+  p: Omit<Select.SingleSimpleProps<string>, "children" | "resourceName">,
+) => (
+  <Select.Simple<string> {...p} resourceName="JSON type">
+    {JSON_TYPE_ITEMS}
+  </Select.Simple>
 );
+
+const renderSelectJSONType = Component.renderProp(SelectJSONType);
 
 const ChannelDetails = ({ path }: Task.Views.DetailsProps<WriteChannel>) => {
   const { channel: key, jsonType } = PForm.useFieldValue(path);

@@ -76,12 +76,11 @@ var _ = Describe("Garbage Collection", func() {
 					func(ctx SpecContext) {
 						By("Writing data to the channel")
 						for i := 1; i <= 9; i++ {
-							var data []int64
-							var index []telem.TimeStamp
-
-							for j := 0; j <= 9; j++ {
-								data = append(data, int64(i*10+j))
-								index = append(index, telem.TimeStamp(i*10+j))
+							data := make([]int64, 10)
+							index := make([]telem.TimeStamp, 10)
+							for j := range data {
+								data[j] = int64(i*10 + j)
+								index[j] = telem.TimeStamp(i*10 + j)
 							}
 							Expect(
 								unary.Write(
@@ -425,16 +424,11 @@ var _ = Describe("Garbage Collection", func() {
 						)
 						expected := make([]int64, 0, domains*perDomain)
 						for i := range domains {
-							var (
-								data       []int64
-								timestamps []telem.TimeStamp
-							)
+							data := make([]int64, perDomain)
+							timestamps := make([]telem.TimeStamp, perDomain)
 							for j := range perDomain {
-								data = append(data, int64(i*100+j))
-								timestamps = append(
-									timestamps,
-									telem.TimeStamp(10*i+10+j),
-								)
+								data[j] = int64(i*100 + j)
+								timestamps[j] = telem.TimeStamp(10*i + 10 + j)
 							}
 							start := telem.TimeStamp(10*i+10) * telem.SecondTS
 							Expect(unary.Write(

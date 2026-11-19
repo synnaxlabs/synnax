@@ -32,34 +32,29 @@ jobs:
         with:
           version: latest-known
 
-      - name: Pin internal dependency constraints
-        run: .github/scripts/pin_internal_deps.sh
-
-      - name: Build
+      # The oldest Python is the lower bound of requires-python, and the newest is the
+      # one the workspace runs.
+      - name: Check the wheels in a clean environment
         run: |
-          for package in alamos/py x/py freighter/py client/py; do
-            uv build "$package" --out-dir dist
-          done
+          oldest=$(sed -n 's/^requires-python = ">=\([0-9.]*\).*/\1/p' \
+            client/py/pyproject.toml)
+          scripts/check_wheels_py.sh "$RUNNER_TEMP/wheels" "$oldest" \
+            "$(cat .python-version)"
 
       # W002 flags files with the same content, which every __init__.py that holds only
       # the copyright header is.
       - name: Check wheel contents
+        working-directory: ${{ runner.temp }}/wheels
         run: uvx check-wheel-contents@0.6.3 --ignore W002 dist/*.whl
 
       - name: Check metadata
+        working-directory: ${{ runner.temp }}/wheels
         run: uvx twine@7.0.0 check --strict dist/*
 
       - name: Check that the synnax sdist leaves out examples
+        working-directory: ${{ runner.temp }}/wheels
         run: |
           if tar -tzf dist/synnax-*.tar.gz | grep /examples/; then
             echo "::error::The synnax sdist ships examples."
             exit 1
           fi
-
-      - name: Import the wheels in a clean environment
-        working-directory: ${{ runner.temp }}
-        run: |
-          uv venv --python 3.12 venv
-          uv pip install --python venv "$GITHUB_WORKSPACE"/dist/*.whl
-          venv/bin/python -I -c "import alamos, freighter, synnax, x"
-          venv/bin/sy --help

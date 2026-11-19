@@ -17,6 +17,7 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/synnax/pkg/service/icd/internal/dbc"
+	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -174,45 +175,65 @@ func newDBCFile(defs []dbc.Def) (dbcFile, error) {
 				f.attrs[d.Name] = d
 			case dbc.ObjectTypeUnspecified:
 				f.networkAttrs.Add(d.Name)
+			case dbc.ObjectTypeNetworkNode,
+				dbc.ObjectTypeSignal,
+				dbc.ObjectTypeEnvironmentVariable:
 			}
 		case *dbc.AttributeDefaultValueDef:
 			f.defaults[d.AttributeName] = d
 		case *dbc.AttributeValueForObjectDef:
-			switch d.ObjectType {
-			case dbc.ObjectTypeMessage:
-				f.values[attrRef{name: d.AttributeName, message: d.MessageID}] = d
-				if d.AttributeName == attrMessageLongName && d.StringValue != "" {
-					f.messageNames[d.MessageID] = d.StringValue
-				}
-			case dbc.ObjectTypeSignal:
-				if d.AttributeName == attrSignalLongName && d.StringValue != "" {
-					ref := signalRef{message: d.MessageID, signal: string(d.SignalName)}
-					f.signalNames[ref] = d.StringValue
-				}
-			case dbc.ObjectTypeUnspecified:
-				f.networkValues[d.AttributeName] = d
-			}
+			f.addAttrValue(d)
 		case *dbc.SignalValueTypeDef:
 			f.valueTypes[signalRef{message: d.MessageID, signal: string(d.SignalName)}] = d
 		case *dbc.MultiplexedValuesDef:
-			ref := signalRef{message: d.MessageID, signal: string(d.SignalName)}
-			if _, dup := f.mux[ref]; dup {
-				return dbcFile{}, dataErrorf(
-					"line %d: duplicate SG_MUL_VAL_ for signal %s",
-					d.Pos.Line,
-					ref.signal,
-				)
-			}
-			spec, err := newMuxSpec(d, muxValues)
+			added, err := f.addMux(d, muxValues)
 			if err != nil {
 				return dbcFile{}, err
 			}
-			muxValues += len(spec.values)
-			f.mux[ref] = spec
+			muxValues += added
 		}
 	}
 	f.groupMasks = f.maskGroups()
 	return f, nil
+}
+
+// addAttrValue adds d, the value of an attribute of a message, a signal, or the
+// network, to f.
+func (f dbcFile) addAttrValue(d *dbc.AttributeValueForObjectDef) {
+	switch d.ObjectType {
+	case dbc.ObjectTypeMessage:
+		f.values[attrRef{name: d.AttributeName, message: d.MessageID}] = d
+		if d.AttributeName == attrMessageLongName && d.StringValue != "" {
+			f.messageNames[d.MessageID] = d.StringValue
+		}
+	case dbc.ObjectTypeSignal:
+		if d.AttributeName == attrSignalLongName && d.StringValue != "" {
+			ref := signalRef{message: d.MessageID, signal: string(d.SignalName)}
+			f.signalNames[ref] = d.StringValue
+		}
+	case dbc.ObjectTypeUnspecified:
+		f.networkValues[d.AttributeName] = d
+	case dbc.ObjectTypeNetworkNode, dbc.ObjectTypeEnvironmentVariable:
+	}
+}
+
+// addMux adds the multiplexor spec of d to f. muxValues is the number of switch
+// values in the specs added before. addMux returns the number of switch values of d.
+func (f dbcFile) addMux(d *dbc.MultiplexedValuesDef, muxValues int) (int, error) {
+	ref := signalRef{message: d.MessageID, signal: string(d.SignalName)}
+	if _, dup := f.mux[ref]; dup {
+		return 0, dataErrorf(
+			"line %d: duplicate SG_MUL_VAL_ for signal %s",
+			d.Pos.Line,
+			ref.signal,
+		)
+	}
+	spec, err := newMuxSpec(d, muxValues)
+	if err != nil {
+		return 0, err
+	}
+	f.mux[ref] = spec
+	return len(spec.values), nil
 }
 
 type maskedID struct{ id, mask uint32 }
@@ -279,21 +300,8 @@ func (f dbcFile) message(
 	m *dbc.MessageDef,
 	used set.Set[signalRef],
 ) (Message, error) {
-	if err := m.MessageID.Validate(); err != nil {
-		return Message{}, dataErrorf(
-			"line %d: %s in message %s",
-			m.Pos.Line,
-			err,
-			m.Name,
-		)
-	}
-	if m.Size > math.MaxUint16 {
-		return Message{}, dataErrorf(
-			"line %d: message %s is longer than %d bytes",
-			m.Pos.Line,
-			m.Name,
-			math.MaxUint16,
-		)
+	if err := validateMessage(m); err != nil {
+		return Message{}, err
 	}
 	payload := BinaryPayload{
 		Identifier: &Identifier{Variant: f.identifier(m)},
@@ -304,21 +312,9 @@ func (f dbcFile) message(
 	if long, ok := f.messageNames[m.MessageID]; ok {
 		name = long
 	}
-	keys := make(map[string]FieldKey, len(m.Signals))
-	var switches []string
-	for _, s := range m.Signals {
-		if _, ok := keys[string(s.Name)]; ok {
-			return Message{}, dataErrorf(
-				"line %d: message %s has more than one signal named %s",
-				s.Pos.Line,
-				m.Name,
-				s.Name,
-			)
-		}
-		keys[string(s.Name)] = uuid.New()
-		if s.IsMultiplexerSwitch {
-			switches = append(switches, string(s.Name))
-		}
+	keys, switches, err := signalKeys(m)
+	if err != nil {
+		return Message{}, err
 	}
 	for _, s := range m.Signals {
 		ref := signalRef{message: m.MessageID, signal: string(s.Name)}
@@ -346,47 +342,56 @@ func (f dbcFile) message(
 	}, nil
 }
 
+// validateMessage checks that the identifier and the size of m fit an ICD message.
+func validateMessage(m *dbc.MessageDef) error {
+	if err := m.MessageID.Validate(); err != nil {
+		return dataErrorf("line %d: %s in message %s", m.Pos.Line, err, m.Name)
+	}
+	if m.Size > math.MaxUint16 {
+		return dataErrorf(
+			"line %d: message %s is longer than %d bytes",
+			m.Pos.Line,
+			m.Name,
+			math.MaxUint16,
+		)
+	}
+	return nil
+}
+
+// signalKeys returns a new field key for each signal of m, by name, and the names of
+// its multiplexor switches.
+func signalKeys(m *dbc.MessageDef) (map[string]FieldKey, []string, error) {
+	keys := make(map[string]FieldKey, len(m.Signals))
+	var switches []string
+	for _, s := range m.Signals {
+		if _, ok := keys[string(s.Name)]; ok {
+			return nil, nil, dataErrorf(
+				"line %d: message %s has more than one signal named %s",
+				s.Pos.Line,
+				m.Name,
+				s.Name,
+			)
+		}
+		keys[string(s.Name)] = uuid.New()
+		if s.IsMultiplexerSwitch {
+			switches = append(switches, string(s.Name))
+		}
+	}
+	return keys, switches, nil
+}
+
 func (f dbcFile) field(
 	m *dbc.MessageDef,
 	s dbc.SignalDef,
 	ref signalRef,
 	key FieldKey,
 ) (BinaryField, error) {
-	if s.StartBit > math.MaxUint16 {
-		return BinaryField{}, dataErrorf(
-			"line %d: signal %s does not fit a message",
-			s.Pos.Line,
-			s.Name,
-		)
+	if err := validateSignal(s); err != nil {
+		return BinaryField{}, err
 	}
-	if s.Size < 1 || s.Size > maxBitLength {
-		return BinaryField{}, dataErrorf(
-			"line %d: signal %s has %d bits, not 1 to %d",
-			s.Pos.Line,
-			s.Name,
-			s.Size,
-			maxBitLength,
-		)
-	}
-	isFloat := false
-	if vt, ok := f.valueTypes[ref]; ok {
-		var bits uint64
-		switch vt.SignalValueType {
-		case dbc.SignalValueTypeFloat32:
-			bits = 32
-		case dbc.SignalValueTypeFloat64:
-			bits = 64
-		}
-		if bits != 0 && s.Size != bits {
-			return BinaryField{}, dataErrorf(
-				"line %d: signal %s is a %d-bit float but has %d bits",
-				vt.Pos.Line,
-				s.Name,
-				bits,
-				s.Size,
-			)
-		}
-		isFloat = bits != 0
+	isFloat, err := f.isFloat(s, ref)
+	if err != nil {
+		return BinaryField{}, err
 	}
 	byteOrder := ByteOrderLittleEndian
 	if s.IsBigEndian {
@@ -405,8 +410,13 @@ func (f dbcFile) field(
 		StartBit:  uint16(s.StartBit),
 		BitLength: uint8(s.Size),
 		ByteOrder: byteOrder,
-		Signed:    s.IsSigned && !isFloat,
-		Float:     isFloat,
+		Kind:      payload.KindUnsigned,
+	}
+	switch {
+	case isFloat:
+		field.Kind = payload.KindFloat
+	case s.IsSigned:
+		field.Kind = payload.KindInteger
 	}
 	if lastByte(field) >= int(m.Size) {
 		return BinaryField{}, dataErrorf(
@@ -422,6 +432,54 @@ func (f dbcFile) field(
 		field.Min, field.Max = new(s.Minimum), new(s.Maximum)
 	}
 	return field, nil
+}
+
+// validateSignal checks that the start bit and the size of s fit a binary field.
+func validateSignal(s dbc.SignalDef) error {
+	if s.StartBit > math.MaxUint16 {
+		return dataErrorf(
+			"line %d: signal %s does not fit a message",
+			s.Pos.Line,
+			s.Name,
+		)
+	}
+	if s.Size < 1 || s.Size > maxBitLength {
+		return dataErrorf(
+			"line %d: signal %s has %d bits, not 1 to %d",
+			s.Pos.Line,
+			s.Name,
+			s.Size,
+			maxBitLength,
+		)
+	}
+	return nil
+}
+
+// isFloat reports whether the value type of s, the signal at ref, is a float. A float
+// value type must match the size of s.
+func (f dbcFile) isFloat(s dbc.SignalDef, ref signalRef) (bool, error) {
+	vt, ok := f.valueTypes[ref]
+	if !ok {
+		return false, nil
+	}
+	var bits uint64
+	switch vt.SignalValueType {
+	case dbc.SignalValueTypeFloat32:
+		bits = 32
+	case dbc.SignalValueTypeFloat64:
+		bits = 64
+	case dbc.SignalValueTypeInt:
+	}
+	if bits != 0 && s.Size != bits {
+		return false, dataErrorf(
+			"line %d: signal %s is a %d-bit float but has %d bits",
+			vt.Pos.Line,
+			s.Name,
+			bits,
+			s.Size,
+		)
+	}
+	return bits != 0, nil
 }
 
 // multiplexor returns the name of the signal that multiplexes s and the switch values

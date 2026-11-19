@@ -94,8 +94,7 @@ func (s *Server) CodeAction(
 	}
 	for _, diag := range params.Context.Diagnostics {
 		code, _ := diag.Code.(protocol.String)
-		switch string(code) {
-		case string(codes.DeclarationAfterStep.Code):
+		if string(code) == string(codes.DeclarationAfterStep.Code) {
 			// One hoist covers the document, so every such warning shares it.
 			if hoist == nil {
 				hoist = hoistDeclarationsQuickFix(snap)
@@ -133,21 +132,13 @@ func analyzedQuickFixes(
 			continue
 		}
 		for _, fix := range analyzed.Fixes {
-			edits := fix.Edits
-			if snap.IsBlock {
-				edits = slices.Clone(edits)
-				for i := range edits {
-					edits[i].Range.Start = unwrapPosition(edits[i].Range.Start)
-					edits[i].Range.End = unwrapPosition(edits[i].Range.End)
-				}
-			}
 			actions = append(actions, &protocol.CodeAction{
 				Title:       fix.Title,
 				Kind:        new(protocol.CodeActionKindQuickFix),
 				Diagnostics: []protocol.Diagnostic{diag},
 				IsPreferred: new(len(actions) == 0),
 				Edit: &protocol.WorkspaceEdit{
-					Changes: map[uri.URI][]protocol.TextEdit{snap.URI: edits},
+					Changes: map[uri.URI][]protocol.TextEdit{snap.URI: fix.Edits},
 				},
 			})
 		}

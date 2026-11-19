@@ -7,25 +7,16 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import cast
-
-from playwright.sync_api import Locator, Page
-
 import synnax as sy
 from console.notifications import NotificationsClient
 
 
-class FakeToasts:
-    def evaluate_all(self, _: str) -> list[dict[str, str]]:
-        return [{"variant": "error", "message": "Failed", "description": "No Core"}]
-
-
 class FakeToastsClient(NotificationsClient):
     def __init__(self) -> None:
-        super().__init__(cast(Page, None))
+        """Holds no page: the fake read never reaches one."""
 
-    def _all(self) -> Locator:
-        return cast(Locator, FakeToasts())
+    def _read(self) -> object:
+        return [{"variant": "error", "message": "Failed", "description": "No Core"}]
 
 
 class TestCheck:

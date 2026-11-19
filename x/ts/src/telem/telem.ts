@@ -113,11 +113,8 @@ export class TimeStamp
   }
 
   private static parseDate([year = 1970, month = 1, day = 1]: DateComponents): bigint {
-    const date = new Date(year, month - 1, day, 0, 0, 0, 0);
-    // We truncate here to only get the date component regardless of the time zone.
-    return new TimeStamp(BigInt(date.getTime()) * TimeStamp.MILLISECOND.valueOf())
-      .truncate(TimeStamp.DAY)
-      .valueOf();
+    const ms = Date.UTC(year, month - 1, day);
+    return BigInt(ms) * TimeStamp.MILLISECOND.valueOf();
   }
 
   /** @returns the timestamp as nanoseconds since the Unix epoch. */
@@ -608,17 +605,25 @@ export class TimeStamp
     const d = local
       ? new Date(year, month - 1, day, hour, minute, second)
       : new Date(Date.UTC(year, month - 1, day, hour, minute, second));
-    // Date rolls a day that does not exist into the next month.
+    // Date rolls a day that does not exist into the next month, and a local time in a
+    // daylight saving gap past the gap.
     const resolved = local
-      ? [d.getFullYear(), d.getMonth() + 1, d.getDate()]
-      : [d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate()];
-    if (resolved[0] !== year || resolved[1] !== month || resolved[2] !== day)
-      return null;
+      ? [d.getFullYear(), d.getMonth() + 1, d.getDate(), d.getHours(), d.getMinutes()]
+      : [d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate(), hour, minute];
+    const parsed = [year, month, day, hour, minute];
+    // A date with no time is the start of its day, even when the zone skips midnight.
+    const checked = timeParts.length > 0 ? parsed.length : 3;
+    if (resolved.slice(0, checked).some((v, i) => v !== parsed[i])) return null;
     return new TimeStamp(d).add(new TimeSpan(fraction));
   }
 
-  /** @returns the current UTC time, accurate only to the millisecond. */
+  /**
+   * @returns the current UTC time. The resolution is finer than a millisecond in
+   * runtimes that have `Temporal`, and a millisecond in other runtimes.
+   */
   static now(): TimeStamp {
+    if (typeof Temporal !== "undefined")
+      return new TimeStamp(Temporal.Now.instant().epochNanoseconds);
     return new TimeStamp(new Date());
   }
 
@@ -829,9 +834,7 @@ export class TimeSpan
 
   /** @returns a copy truncated down to a multiple of span. */
   truncate(span: TimeSpan): TimeSpan {
-    return new TimeSpan(
-      BigInt(Math.trunc(Number(this.valueOf() / span.valueOf()))) * span.valueOf(),
-    );
+    return new TimeSpan((this.valueOf() / span.valueOf()) * span.valueOf());
   }
 
   /**
@@ -2088,7 +2091,7 @@ export const stringTimeStampZ = z.preprocess(
  */
 export type StringTimeStamp = z.infer<typeof stringTimeStampZ>;
 
-/** A rolling window that ends now. */
+/** A rolling window that ends at the newest sample. */
 export const dynamicWindowZ = z.object({
   variant: z.literal("dynamic"),
   timeSpan: numericTimeSpanZ.default(0),
@@ -2102,7 +2105,7 @@ export const staticWindowZ = z.object({
 });
 export interface StaticWindow extends z.infer<typeof staticWindowZ> {}
 
-/** A window of time: a rolling span that ends now, or a fixed range. */
+/** A window of time: a rolling span or a fixed range. */
 export const windowZ = z.discriminatedUnion("variant", [dynamicWindowZ, staticWindowZ]);
 export type Window = DynamicWindow | StaticWindow;
 
@@ -2118,11 +2121,11 @@ export const dynamicWindow = (span: CrudeTimeSpan): DynamicWindow => ({
   timeSpan: Number(new TimeSpan(span).valueOf()),
 });
 
-/** @returns the time range the window covers when the time is now. */
-export const resolveWindow = (window: Window, now: TimeStamp): TimeRange => {
-  if (window.variant === "dynamic") return new TimeRange(now.sub(window.timeSpan), now);
-  const { start, end } = window.timeRange;
-  return new TimeRange(BigInt(start), BigInt(end));
+/** @returns the time range the window covers when a dynamic window ends at end. */
+export const resolveWindow = (window: Window, end: TimeStamp): TimeRange => {
+  if (window.variant === "dynamic") return new TimeRange(end.sub(window.timeSpan), end);
+  const { timeRange } = window;
+  return new TimeRange(BigInt(timeRange.start), BigInt(timeRange.end));
 };
 
 export const typedArrayZ = z.union([

@@ -9,7 +9,7 @@
 
 import { group, label, resource } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { uuid } from "@synnaxlabs/x";
+import { id, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -20,7 +20,7 @@ import { createSynnaxWrapper } from "@/testutil/Synnax";
 const client = createTestClient();
 const wrapper = createSynnaxWrapper({ client });
 
-const randomToken = (): string => `res${Math.random().toString(36).slice(2)}`;
+const randomToken = (): string => `res${id.create()}`;
 
 const createGroup = async (name: string): Promise<resource.ID> =>
   group.resourceID((await client.groups.create({ scope: "channel", name })).key);

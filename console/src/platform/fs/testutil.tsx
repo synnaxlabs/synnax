@@ -23,13 +23,19 @@ const START_FILE_DRAG = "start file drag";
  */
 export const FileDragSource = (): ReactElement => {
   const { startDrag } = Haul.useDrag({ type: "os-file", key: "os-file" });
-  return <button onClick={() => startDrag([Haul.FILE])}>{START_FILE_DRAG}</button>;
+  return (
+    <button
+      onDragStart={(event) => startDrag({ event, items: [Haul.FILE], preview: null })}
+    >
+      {START_FILE_DRAG}
+    </button>
+  );
 };
 
 /** Starts the file haul a rendered {@link FileDragSource} provides. */
 export const startFileDrag = (): void => {
   act(() => {
-    fireEvent.click(screen.getByText(START_FILE_DRAG));
+    fireEvent.dragStart(screen.getByText(START_FILE_DRAG));
   });
 };
 

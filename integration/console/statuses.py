@@ -28,6 +28,8 @@ class StatusesClient(ResourceClient):
             layout=layout,
             search_placeholder=self.SEARCH_INPUT_PLACEHOLDER,
             static_view_name=self.STATIC_VIEW_NAME,
+            tab_name="Status explorer",
+            tab_prefix="Statuses",
         )
 
     # ── Private Helpers ──────────────────────────────────────────────────

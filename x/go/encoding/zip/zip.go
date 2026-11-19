@@ -89,13 +89,11 @@ func (codec) EncodeStream(w io.Writer, value any) error {
 func (codec) Decode(data []byte, value any) error {
 	files, ok := value.(*Files)
 	if !ok {
-		return encoding.SugarDecodingError(
-			data, value, errors.New("value is not *zip.Files"),
-		)
+		return encoding.SugarDecodingError(value, errors.New("value is not *zip.Files"))
 	}
 	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
-		return encoding.SugarDecodingError(data, value, err)
+		return encoding.SugarDecodingError(value, err)
 	}
 	entries := make([]*zip.File, 0, len(zr.File))
 	names := make([]string, 0, len(zr.File))
@@ -123,17 +121,13 @@ func (codec) Decode(data []byte, value any) error {
 		seen.Add(name)
 		rc, err := f.Open()
 		if err != nil {
-			return encoding.SugarDecodingError(data, value, err)
+			return encoding.SugarDecodingError(value, err)
 		}
 		// The extra byte past the budget distinguishes an archive exactly at the limit
 		// from one over it.
 		contents, err := io.ReadAll(io.LimitReader(rc, remaining+1))
-		if err != nil {
-			err = errors.Combine(err, rc.Close())
-			return encoding.SugarDecodingError(data, value, err)
-		}
-		if err := rc.Close(); err != nil {
-			return encoding.SugarDecodingError(data, value, err)
+		if err = errors.Combine(err, rc.Close()); err != nil {
+			return encoding.SugarDecodingError(value, err)
 		}
 		if int64(len(contents)) > remaining {
 			return errors.Wrapf(
@@ -182,7 +176,7 @@ func stripSharedRoot(names []string) {
 func (c codec) DecodeStream(r io.Reader, value any) error {
 	data, err := io.ReadAll(r)
 	if err != nil {
-		return encoding.SugarDecodingError(nil, value, err)
+		return encoding.SugarDecodingError(value, err)
 	}
 	return c.Decode(data, value)
 }

@@ -67,8 +67,11 @@ func (t DataType) bits() int {
 		return 16
 	case Int32, UInt32:
 		return 32
+	case Int64, UInt64:
+		return 64
+	case Float, Double, Boolean, String, DateTime, Text, UUID:
 	}
-	return 64
+	panic("bits of non-integer type " + t.String())
 }
 
 // Metric is one value of one tag.
@@ -184,6 +187,10 @@ func decodeValue(m *pb.Payload_Metric, dt DataType) Value {
 			return IntValue(int32(bits))
 		}
 	case Int64:
+		// An int_value holds 32 bits, so its sign bit is bit 31.
+		if v, ok := m.GetValue().(*pb.Payload_Metric_IntValue); ok {
+			return IntValue(int32(v.IntValue))
+		}
 		if integer {
 			return IntValue(bits)
 		}

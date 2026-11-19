@@ -409,8 +409,8 @@ var _ = Describe("Variable-length channel", func() {
 								(800 * telem.SecondTS).Range(806*telem.SecondTS),
 							),
 						)
-						var got []string
-						for i := 0; i < frame.Count(); i++ {
+						got := make([]string, 0, frame.Len())
+						for i := range frame.Count() {
 							got = append(
 								got,
 								frame.SeriesAt(i).Unmarshal[string]()...,
@@ -899,7 +899,7 @@ var _ = Describe("Variable-length channel", func() {
 					var all []string
 					for iter.Next(ctx, telem.TimeSpanMax) {
 						f := iter.Value()
-						for i := 0; i < f.Count(); i++ {
+						for i := range f.Count() {
 							all = append(
 								all,
 								f.SeriesAt(i).Unmarshal[string]()...,

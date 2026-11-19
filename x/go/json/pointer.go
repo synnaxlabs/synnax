@@ -40,7 +40,7 @@ func ParsePointer(text string) (Pointer, error) {
 	}
 	tokens := strings.Split(text[1:], "/")
 	for i, token := range tokens {
-		for j := 0; j < len(token); j++ {
+		for j := range len(token) {
 			if token[j] != '~' {
 				continue
 			}
@@ -84,7 +84,7 @@ func arrayIndex(token string) (int, bool) {
 	if token == "" || (len(token) > 1 && token[0] == '0') {
 		return 0, false
 	}
-	for i := 0; i < len(token); i++ {
+	for i := range len(token) {
 		if token[i] < '0' || token[i] > '9' {
 			return 0, false
 		}

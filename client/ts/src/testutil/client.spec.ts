@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { sleep, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { createTestClient, holdRequests, rejectRequests } from "@/testutil/client";
@@ -52,7 +53,7 @@ describe("holdRequests", () => {
       fetchSpy.mock.calls.some(
         ([input]) => typeof input === "string" && input.includes("channel/retrieve"),
       );
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await sleep.sleep(TimeSpan.milliseconds(50));
     expect(reachedCore()).toBe(false);
     release();
     await expect(retrieving).resolves.toEqual([]);

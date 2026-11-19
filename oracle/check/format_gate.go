@@ -11,7 +11,6 @@ package check
 
 import (
 	"context"
-	"os"
 	"sort"
 
 	"github.com/synnaxlabs/oracle/formatter"
@@ -41,7 +40,7 @@ func (g formatGate) Run(_ context.Context, res *pipeline.Result, env Env) GateRe
 		)
 	}
 	for _, rel := range versionFilePaths(res) {
-		raw, err := os.ReadFile(paths.Resolve(rel, env.RepoRoot))
+		raw, err := paths.ReadFile(rel, env.RepoRoot)
 		if err != nil {
 			r.Findings = append(r.Findings, Finding{
 				Path:     rel,

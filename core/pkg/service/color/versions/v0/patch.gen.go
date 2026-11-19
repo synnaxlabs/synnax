@@ -24,6 +24,62 @@ func (n *Named) Patch(c patch.Cursor) error {
 		return patch.OptionalValue(&n.Dark, c.Next())
 	case "group":
 		return patch.OptionalValue(&n.Group, c.Next())
+	case "position":
+		return patch.OptionalValue(&n.Position, c.Next())
+	default:
+		return c.UnknownField()
+	}
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (r *Ref) Patch(c patch.Cursor) error {
+	switch v := r.Variant.(type) {
+	case NamedRef:
+		c, ok := c.Guard("type", "named")
+		if !ok {
+			return nil
+		}
+		if c.Segment() == "type" {
+			return patch.Discriminator(r, c)
+		}
+		if err := v.Patch(c); err != nil {
+			return err
+		}
+		r.Variant = v
+		return nil
+	case FixedRef:
+		c, ok := c.Guard("type", "fixed")
+		if !ok {
+			return nil
+		}
+		if c.Segment() == "type" {
+			return patch.Discriminator(r, c)
+		}
+		if err := v.Patch(c); err != nil {
+			return err
+		}
+		r.Variant = v
+		return nil
+	default:
+		return patch.Absent(r, c, "type")
+	}
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (nr *NamedRef) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "key":
+		return patch.Value(&nr.Key, c.Next())
+	default:
+		return c.UnknownField()
+	}
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (fr *FixedRef) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "value":
+		return patch.Value(&fr.Value, c.Next())
 	default:
 		return c.UnknownField()
 	}

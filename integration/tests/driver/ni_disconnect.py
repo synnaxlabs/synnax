@@ -29,6 +29,7 @@ import nidaqmx.system
 import nisyscfg
 
 import synnax as sy
+from framework.utils import hold
 from tests.driver.ni_read import NIDigitalRead, NIReadCurrentVoltage
 from tests.driver.ni_task import retrieve_present_device
 from tests.driver.ni_write import NIDigitalWrite
@@ -290,7 +291,7 @@ class _NIReadDisconnectMixin(ReadTaskCase[ReadTaskT]):
     def _assert_no_samples_after_removal(self, tsk: ReadTaskT) -> None:
         self.log("Assert no new samples after removal")
         start = sy.TimeStamp.now()
-        sy.sleep(0.5)  # noqa: TID251 hold: checks that no sample arrives
+        hold(0.5, reason="checks that no sample arrives")
         end = sy.TimeStamp.now()
         tr = sy.TimeRange(start, end)
         for key in self._channel_keys(tsk):

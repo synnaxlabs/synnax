@@ -543,6 +543,20 @@ static int ecx_waitinframe_red(ecx_portt *port, uint8 idx, osal_timert *timer)
       }
       /* wait for both frames to arrive or timeout */
    } while (((wkc <= EC_NOFRAME) || (wkc2 <= EC_NOFRAME)) && !osal_timer_is_expired(timer));
+   /* A short or late wait can find the timer expired before it reads a frame that came
+    * in time. Read each packet that came in, past frames of other indexes. */
+   if (wkc <= EC_NOFRAME)
+   {
+      do
+         wkc = ecx_inframe(port, idx, 0);
+      while (wkc == EC_OTHERFRAME);
+   }
+   if ((port->redstate != ECT_RED_NONE) && (wkc2 <= EC_NOFRAME))
+   {
+      do
+         wkc2 = ecx_inframe(port, idx, 1);
+      while (wkc2 == EC_OTHERFRAME);
+   }
    /* only do redundant functions when in redundant mode */
    if (port->redstate != ECT_RED_NONE)
    {
@@ -582,6 +596,12 @@ static int ecx_waitinframe_red(ecx_portt *port, uint8 idx, osal_timert *timer)
             /* retrieve frame */
             wkc2 = ecx_inframe(port, idx, 1);
          } while ((wkc2 <= EC_NOFRAME) && !osal_timer_is_expired(&timer2));
+         if (wkc2 <= EC_NOFRAME)
+         {
+            do
+               wkc2 = ecx_inframe(port, idx, 1);
+            while (wkc2 == EC_OTHERFRAME);
+         }
          if (wkc2 > EC_NOFRAME)
          {
             /* copy secondary result to primary rx buffer */

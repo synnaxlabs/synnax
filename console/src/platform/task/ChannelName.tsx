@@ -45,7 +45,8 @@ export interface ChannelNameProps extends optional.Optional<
   suffix?: string;
   /**
    * Holds the name deploying the task gives the channel, shown until the channel
-   * resolves. Required while the channel is 0, unless the channel is picked.
+   * resolves. Without it, a channel of 0 shows the default name, read only. One of the
+   * two is required while the channel is 0, unless the channel is picked.
    */
   namePath?: deep.Target<string | undefined>;
   /** Leads the name. A new or missing channel shows its state icon in its place. */
@@ -217,23 +218,30 @@ const Unbound = ({ namePath, defaultName, icon, skipped, ...rest }: UnboundProps
         {lead(icon, <Stored {...rest} namePath={namePath} color={8} />)}
       </Message>
     );
-  const name = <Stored {...rest} namePath={namePath} defaultName={defaultName} />;
-  if (skipped)
-    return (
-      <Message
-        variant="info"
-        message="Skipped channel"
-        description={SKIPPED_DESCRIPTION}
-      >
-        {lead(icon, name)}
-      </Message>
-    );
   return (
-    <Message variant="info" message={STATE_MESSAGES.new} description={NEW_DESCRIPTION}>
-      {lead(<StateIcon state="new" />, name)}
-    </Message>
+    <Pending icon={icon} skipped={skipped}>
+      <Stored {...rest} namePath={namePath} defaultName={defaultName} />
+    </Pending>
   );
 };
+
+interface PendingProps {
+  icon?: ReactElement;
+  skipped: boolean;
+  children: Anchor;
+}
+
+/** Marks the name of a channel that deploying creates, or skips. */
+const Pending = ({ icon, skipped, children }: PendingProps) =>
+  skipped ? (
+    <Message variant="info" message="Skipped channel" description={SKIPPED_DESCRIPTION}>
+      {lead(icon, children)}
+    </Message>
+  ) : (
+    <Message variant="info" message={STATE_MESSAGES.new} description={NEW_DESCRIPTION}>
+      {lead(<StateIcon state="new" />, children)}
+    </Message>
+  );
 
 const deployOf = (skipped: boolean, picked: boolean): Deploy => {
   if (picked) return "never";
@@ -254,6 +262,13 @@ export const ChannelName = ({
   if (channel !== 0)
     return <Resolved {...named} channel={channel} deploy={deployOf(skipped, picked)} />;
   if (picked) return lead(icon, <Name {...rest} name={NO_CHANNEL} color={8} />);
-  if (namePath == null) throw new Error("ChannelName needs a namePath for channel 0");
-  return <Unbound {...named} namePath={namePath} skipped={skipped} />;
+  if (namePath != null)
+    return <Unbound {...named} namePath={namePath} skipped={skipped} />;
+  if (defaultName == null)
+    throw new Error("ChannelName needs a namePath or a defaultName for channel 0");
+  return (
+    <Pending icon={icon} skipped={skipped}>
+      <Name {...rest} name={defaultName} />
+    </Pending>
+  );
 };

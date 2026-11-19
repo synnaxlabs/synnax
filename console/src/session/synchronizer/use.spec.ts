@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createProxiedTestClient, createTestClient } from "@synnaxlabs/client/testutil";
-import { type breaker, TimeSpan } from "@synnaxlabs/x";
+import { type breaker, scheduler, sleep, TimeSpan } from "@synnaxlabs/x";
 import { renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -157,7 +157,7 @@ describe("Synchronizer.use", () => {
       await closing.close();
       release();
       await gate;
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      await scheduler.flushTaskQueue();
       expect(calls).toEqual(["first:start"]);
       expect(error).not.toHaveBeenCalled();
     } finally {
@@ -355,7 +355,7 @@ describe("Synchronizer.use", () => {
         ]),
       { wrapper },
     );
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await sleep.sleep(TimeSpan.milliseconds(50));
     expect(calls).toEqual([]);
   });
 });

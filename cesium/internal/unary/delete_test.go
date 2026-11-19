@@ -767,9 +767,9 @@ var _ = Describe("Delete", func() {
 							func(ctx SpecContext) {
 								By("Writing data to the channel")
 								for i := 1; i <= 9; i++ {
-									var data []telem.TimeStamp
-									for j := 0; j <= 9; j++ {
-										data = append(data, telem.TimeStamp(i*10+j))
+									data := make([]telem.TimeStamp, 10)
+									for j := range data {
+										data[j] = telem.TimeStamp(i*10 + j)
 									}
 									Expect(
 										unary.Write(
@@ -823,9 +823,9 @@ var _ = Describe("Delete", func() {
 							func(ctx SpecContext) {
 								By("Writing data to the channel")
 								for i := 1; i <= 9; i++ {
-									var data []telem.TimeStamp
-									for j := 0; j <= 9; j++ {
-										data = append(data, telem.TimeStamp(i*10+j))
+									data := make([]telem.TimeStamp, 10)
+									for j := range data {
+										data[j] = telem.TimeStamp(i*10 + j)
 									}
 									Expect(
 										unary.Write(
@@ -876,11 +876,11 @@ var _ = Describe("Delete", func() {
 							func(ctx SpecContext) {
 								By("Writing data to the channel")
 								for i := 1; i <= 9; i++ {
-									var index []telem.TimeStamp
-									var content []int64
-									for j := 0; j <= 9; j++ {
-										index = append(index, telem.TimeStamp(i*10+j))
-										content = append(content, int64(i*100+j*10))
+									index := make([]telem.TimeStamp, 10)
+									content := make([]int64, 10)
+									for j := range index {
+										index[j] = telem.TimeStamp(i*10 + j)
+										content[j] = int64(i*100 + j*10)
 									}
 									Expect(
 										unary.Write(
@@ -936,11 +936,11 @@ var _ = Describe("Delete", func() {
 							func(ctx SpecContext) {
 								By("Writing data to the channel")
 								for i := 1; i <= 9; i++ {
-									var index []telem.TimeStamp
-									var content []int64
-									for j := 0; j <= 9; j++ {
-										index = append(index, telem.TimeStamp(i*10+j))
-										content = append(content, int64(i*100+j*10))
+									index := make([]telem.TimeStamp, 10)
+									content := make([]int64, 10)
+									for j := range index {
+										index[j] = telem.TimeStamp(i*10 + j)
+										content[j] = int64(i*100 + j*10)
 									}
 									Expect(
 										unary.Write(

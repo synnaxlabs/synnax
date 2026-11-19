@@ -11,12 +11,12 @@
 
 #include <filesystem>
 #include <string>
-#include <string_view>
 #include <utility>
 
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/telem.h"
+#include "x/cpp/x509/x509.h"
 
 namespace driver::opcua::certificate {
 /// @brief the public description of a certificate that the Driver reports to the
@@ -35,54 +35,13 @@ struct Info {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief an X.509 certificate.
-class Certificate {
-public:
-    Certificate() = default;
-
-    /// @brief parses a PEM or DER encoded certificate. Of a certificate chain, only
-    /// the first certificate is kept.
-    /// @returns errors::INVALID_CERTIFICATE if the data holds no certificate.
-    static std::pair<Certificate, x::errors::Error> parse(std::string_view data);
-
-    /// @returns true if the data starts with a PEM certificate header.
-    [[nodiscard]] static bool is_pem(std::string_view data);
-
-    /// @returns the DER encoded certificate.
-    [[nodiscard]] const std::string &der() const { return this->der_bytes; }
-    /// @returns the PEM encoded certificate.
-    [[nodiscard]] std::string pem() const;
-    /// @returns the SHA-1 hash of the DER bytes as 40 uppercase hex characters.
-    [[nodiscard]] std::string thumbprint() const;
-    /// @returns the distinguished name of the subject.
-    [[nodiscard]] const std::string &subject() const { return this->subject_name; }
-    /// @returns the first URI in the subject alternative name, or an empty string.
-    [[nodiscard]] const std::string &application_uri() const { return this->uri; }
-    /// @returns the start of the validity period.
-    [[nodiscard]] x::telem::TimeStamp not_before() const { return this->valid_from; }
-    /// @returns the end of the validity period.
-    [[nodiscard]] x::telem::TimeStamp not_after() const { return this->valid_to; }
-    /// @returns true if the time is inside the validity period.
-    [[nodiscard]] bool valid_at(x::telem::TimeStamp time) const;
-    /// @returns the public description of the certificate.
-    [[nodiscard]] Info info() const;
-
-    bool operator==(const Certificate &other) const {
-        return this->der_bytes == other.der_bytes;
-    }
-
-private:
-    std::string der_bytes;
-    std::string subject_name;
-    std::string uri;
-    x::telem::TimeStamp valid_from;
-    x::telem::TimeStamp valid_to;
-};
+/// @returns the public description of the certificate.
+[[nodiscard]] Info info(const x::x509::Certificate &cert);
 
 /// @brief a certificate and the private key that signs for it.
 struct Identity {
     /// @brief the certificate that a client presents.
-    Certificate certificate;
+    x::x509::Certificate certificate;
     /// @brief the PEM or DER encoded private key.
     std::string private_key;
 

@@ -9,8 +9,9 @@
  * included in the file licenses/APL.txt.
  */
 
-/* A stacked or stepped group drops its frame. Its faces take the hover instead. */
-.lyra-btn.lyra-tags:is([data-stacked], .lyra-tags--stepped) {
+/* A stacked or stepped group drops the frame it shows on hover. Its faces take the
+   hover instead. An outlined group keeps its outline. */
+.lyra-btn.lyra-tags:is([data-stacked], .lyra-tags--stepped):not(.lyra-btn--outlined) {
     &,
     &[aria-expanded="true"] {
         --pluto-bg: transparent;
@@ -91,6 +92,9 @@
     --lyra-tags-full: auto;
     --lyra-tags-gap: 0px;
 
+    /* 1 when the count has dots, else 0. */
+    --lyra-tags-dotted: min(var(--lyra-tags-dots), 1);
+
     /* The count's face, which also rings its dots. */
     --lyra-tags-count-face: var(--pluto-gray-l0);
 
@@ -125,7 +129,7 @@
         position: relative;
         flex-shrink: 0;
         height: var(--pluto-height-small);
-        padding: 0 1.5rem 0 0.75rem;
+        padding: 0 1.5rem 0 calc(1.5rem - var(--lyra-tags-dotted) * 0.75rem);
         border: var(--pluto-border);
         border-color: transparent;
         white-space: nowrap;
@@ -141,7 +145,10 @@
             position: absolute;
             z-index: -1;
             inset: -1px -1px -1px
-                calc(-1.5rem - 2px - var(--lyra-tags-dots) * var(--lyra-tags-dot-step));
+                calc(
+                    -1px - var(--lyra-tags-dotted) * (1.5rem + 1px) -
+                        var(--lyra-tags-dots) * var(--lyra-tags-dot-step)
+                );
             border: var(--pluto-border);
             border-radius: var(--pluto-border-radius-small);
             background-color: var(--lyra-tags-count-face);
@@ -203,15 +210,15 @@
         }
     }
 
-    /* The count's face reaches back past the first dot, and keeps the gap from the
-       last tag. */
-    & > .lyra-tag:not([data-hidden]) + .lyra-flex.lyra-btn.lyra-tag[data-dot] {
-        margin-left: calc(1.5rem - 2px);
+    /* With no tag shown, the count's face starts where a first tag would. */
+    & > .lyra-flex.lyra-btn.lyra-tag[data-first-dot] {
+        margin-left: calc(1.5rem + 2px);
     }
 
-    /* With no tag before it, the count's face starts where a first tag would. */
-    & > .lyra-flex.lyra-btn.lyra-tag[data-dot]:first-child {
-        margin-left: calc(1.5rem + 2px);
+    /* After a shown tag, the count's face reaches back past the first dot, and keeps
+       the gap from the last tag. A hidden tag with no dot may come between them. */
+    & > .lyra-tag:not([data-hidden]) ~ .lyra-flex.lyra-btn.lyra-tag[data-first-dot] {
+        margin-left: calc(1.5rem - 2px);
     }
 
     /* Its own hover brightens the count as one unit. Its face lies under its dots, so
@@ -311,8 +318,9 @@
             content: "";
         }
 
-        /* The name runs on under the next tag, whose face cuts it. */
-        & > .lyra-text {
+        /* The name runs on under the next tag, whose face cuts it. With no tag over it,
+           a last or lifted tag fades its name at the cap as a full tag does. */
+        &:not([data-last], [data-lifted]) > .lyra-text {
             flex-shrink: 0;
         }
     }

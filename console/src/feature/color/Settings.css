@@ -1,0 +1,48 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-color-settings__item--over {
+    box-shadow: inset 0 var(--pluto-border-width) 0 var(--pluto-primary-z);
+}
+
+.console-color-settings__palette {
+    margin-top: 1rem;
+}
+
+.console-color-settings__palette--closed + .console-color-settings__palette {
+    margin-top: 0.5rem;
+}
+
+/* The list's own top padding sets the space under its header. */
+.console-color-settings__palette--first {
+    margin-top: 0;
+}
+
+/* Lights the heading while its context menu is open, as a hover does. */
+.console-color-settings__palette[data-context-menu-open]
+    > .console-color-settings__bar {
+    --pluto-bg: var(--pluto-fill-hover);
+}
+
+/* Lays out like an item, so each field sits over its column. */
+.console-color-settings__form {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    min-height: 5.5rem;
+    padding: 1rem 2rem;
+}
+
+.console-color-settings__form-check {
+    flex-shrink: 0;
+    width: var(--pluto-height-medium);
+    margin-inline: -1rem -1.5rem;
+}

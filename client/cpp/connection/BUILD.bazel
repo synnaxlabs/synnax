@@ -31,6 +31,7 @@ cc_test(
     deps = [
         ":connection",
         "//freighter/cpp/testutil",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )
