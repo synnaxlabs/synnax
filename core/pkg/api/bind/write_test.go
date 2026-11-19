@@ -1156,7 +1156,8 @@ var _ = Describe("WriteUnchecked", func() {
 	) {
 		failed := errors.New("failed")
 		var created label.Label
-		res, err := bind.WriteUnchecked(
+		// Error also asserts that the response is zero.
+		Expect(bind.WriteUnchecked(
 			db,
 			func(ctx context.Context, tx gorp.Tx, l label.Label) (label.Label, error) {
 				if err := svc.Label.NewWriter(tx).Create(ctx, &l); err != nil {
@@ -1165,9 +1166,7 @@ var _ = Describe("WriteUnchecked", func() {
 				created = l
 				return l, failed
 			},
-		)(ctx, label.Label{Name: "label"})
-		Expect(err).To(MatchError(failed))
-		Expect(res).To(BeZero())
+		)(ctx, label.Label{Name: "label"})).Error().To(MatchError(failed))
 		Expect(created.Key).ToNot(BeZero())
 		Expect(labelExists(ctx, created.Key)).To(BeFalse())
 	})
