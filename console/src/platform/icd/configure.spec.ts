@@ -13,53 +13,85 @@ import { uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { ICD } from "@/platform/icd";
+import { Task } from "@/platform/task";
 import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
-describe("configureMessage", () => {
-  it("should give a field whose channel was deleted a new channel", async () => {
+/** @returns a message of one float field, bound to channel, as a source reads it. */
+const createBound = (channel: number) => {
+  const field = icd.jsonFieldZ.parse({
+    key: uuid.create(),
+    name: "temp",
+    pointer: "/temp",
+    type: "float",
+  });
+  const message: icd.Message = {
+    key: uuid.create(),
+    name: "Status",
+    payload: { format: "json", fields: [field] },
+  };
+  return {
+    source: {
+      icd: uuid.create(),
+      disabled: false,
+      messages: [
+        {
+          message: message.key,
+          bindings: [{ field: field.key, channel, dataType: "" }],
+        },
+      ],
+    },
+    read: 0,
+    message,
+    fields: [field],
+  };
+};
+
+const createIndex = async (name: string) =>
+  await client.channels.create({ name, dataType: "timestamp", isIndex: true });
+
+describe("planMessage", () => {
+  it("should plan a new channel for a field whose channel was deleted", async () => {
     const prefix = uniqueName("src");
-    const index = await client.channels.create({
-      name: `${prefix}_old_time`,
-      dataType: "timestamp",
-      isIndex: true,
-    });
+    const index = await createIndex(`${prefix}_old_time`);
     const old = await client.channels.create({
       name: `${prefix}_old`,
       dataType: "float64",
       index: index.key,
     });
     await client.channels.delete(old.key);
-    const field = icd.jsonFieldZ.parse({
-      key: uuid.create(),
-      name: "temp",
-      pointer: "/temp",
-      type: "float",
-    });
-    const message: icd.Message = {
-      key: uuid.create(),
-      name: "Status",
-      payload: { format: "json", fields: [field] },
-    };
-    const bound = {
-      source: {
-        icd: uuid.create(),
-        disabled: false,
-        messages: [
-          {
-            message: message.key,
-            bindings: [{ field: field.key, channel: old.key, dataType: "" }],
-          },
-        ],
-      },
-      read: 0,
-      message,
-      fields: [field],
-    };
-    const [key] = await ICD.configureMessage(client, bound, prefix);
+    const bound = createBound(old.key);
+    const plan = await ICD.planMessage(client, Task.createNamer(client), bound, prefix);
+    expect(plan.fields[0].replaces).toBe(0);
+    await ICD.applyMessage(client, bound, plan);
+    const key = bound.source.messages[0].bindings[0].channel;
     expect(key).not.toBe(old.key);
     expect((await client.channels.retrieve(key)).name).toBe(`${prefix}_temp`);
-    expect(bound.source.messages[0].bindings[0].channel).toBe(key);
+  });
+
+  it("should not take a stored channel that another binding writes", async () => {
+    const prefix = uniqueName("src");
+    const index = await createIndex(`${prefix}_time`);
+    const shared = await client.channels.create({
+      name: `${prefix}_shared`,
+      dataType: "float64",
+      index: index.key,
+    });
+    const bound = createBound(0);
+    const props = { index: index.key, channels: { "/temp": shared.key } };
+    const plan = await ICD.planMessage(
+      client,
+      Task.createNamer(client),
+      bound,
+      prefix,
+      props,
+      new Set([shared.key]),
+    );
+    await ICD.applyMessage(client, bound, plan);
+    const key = bound.source.messages[0].bindings[0].channel;
+    expect(key).not.toBe(0);
+    expect(key).not.toBe(shared.key);
+    expect((await client.channels.retrieve(key)).index).toBe(index.key);
   });
 });

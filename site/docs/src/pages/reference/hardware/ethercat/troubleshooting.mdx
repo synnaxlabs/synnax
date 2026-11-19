@@ -230,10 +230,11 @@ restart its power.
 
 A module did not move to SAFE-OP or OP in time when the network started, or every module
 refused the change, so no task on the port starts. The built-in master waits 10 seconds
-for SAFE-OP and 10 seconds for OP. IgH waits up to 10 seconds for OP. When every module
-below OP refuses the change, IgH tries them once more and then stops waiting. The error
-names each module and its state. When a module refuses the change, the error also gives
-the error text of the module, such as "Invalid output configuration".
+for SAFE-OP and 10 seconds for OP. IgH waits for OP while modules keep reaching it, and
+stops when no module reaches OP for 10 seconds. When every module below OP refuses the
+change, IgH tries them once more and then stops waiting. The error names each module and
+its state. When a module refuses the change, the error also gives the error text of the
+module, such as "Invalid output configuration".
 
 </Problem.Cause>
 <Problem.Fix>

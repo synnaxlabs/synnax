@@ -126,8 +126,8 @@ const branchPaths = (topics: ListedTopic[]): string[] =>
   );
 
 /**
- * The values a click on a topic picks: its numbers and booleans, or all of them. A
- * single pick takes the first.
+ * The values a click on a topic picks: each free one. A single pick takes the first
+ * number or boolean, or else the first string.
  */
 const defaultPointers = (
   leaves: Leaf[],
@@ -135,9 +135,9 @@ const defaultPointers = (
   single: boolean,
 ): Set<string> => {
   const free = leaves.filter((l) => taken?.has(l.pointer) !== true);
-  const scalars = free.filter((l) => !l.disabled);
-  const picked = scalars.length > 0 ? scalars : free;
-  return new Set((single ? picked.slice(0, 1) : picked).map((l) => l.pointer));
+  if (!single) return new Set(free.map((l) => l.pointer));
+  const first = free.find((l) => l.type !== "string") ?? free.at(0);
+  return new Set(first == null ? [] : [first.pointer]);
 };
 
 /** The values picked from one topic, with the fields they came from. */

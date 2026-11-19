@@ -31,7 +31,8 @@ const child = (
   name: string,
 ): [key: string | number, child: unknown] | null => {
   if (!isContainer(value)) return null;
-  if (!Array.isArray(value)) return name in value ? [name, value[name]] : null;
+  if (!Array.isArray(value))
+    return Object.hasOwn(value, name) ? [name, value[name]] : null;
   const index = getIndex(name);
   if (index != null && index in value) return [index, value[index]];
   const i = value.findIndex((entry) => isContainer(entry) && entry.key === name);

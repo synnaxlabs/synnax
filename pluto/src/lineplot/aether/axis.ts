@@ -95,7 +95,7 @@ const autoBounds = (
   padding: number = 0.1,
   type: TickType,
 ): bounds.Bounds => {
-  const m = bounds.max(align(b));
+  const m = bounds.union(align(b));
   if (!bounds.isFinite(m)) return emptyBounds(type);
   const { lower, upper } = m;
   if (upper === lower) return { lower: lower - 1, upper: upper + 1 };

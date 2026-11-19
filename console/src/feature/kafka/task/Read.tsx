@@ -9,7 +9,13 @@
 
 import "@/feature/kafka/task/Task.css";
 
-import { channel, DisconnectedError, type icd, kafka } from "@synnaxlabs/client";
+import {
+  channel,
+  DisconnectedError,
+  type icd,
+  kafka,
+  type Synnax,
+} from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -21,7 +27,15 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { type Tree } from "@synnaxlabs/lyra/tree";
 import { ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
 import { deep, errors, unique, uuid } from "@synnaxlabs/x";
-import { type Dispatch, type FC, type SetStateAction, useRef, useState } from "react";
+import {
+  type Dispatch,
+  type FC,
+  type PropsWithChildren,
+  type ReactElement,
+  type SetStateAction,
+  useRef,
+  useState,
+} from "react";
 
 import { use } from "@/feature/kafka/device/queries";
 import { Select as SelectDevice, useNoneSelected } from "@/feature/kafka/device/Select";
@@ -508,6 +522,78 @@ const Records: FC<RecordsProps> = ({
   );
 };
 
+/**
+ * Plans the channels of each message, in deploy order with one namer. A message plans
+ * with the channels that earlier ones keep added to written, so it leaves a stored
+ * channel that another binding writes. Reads from the Core alone.
+ */
+const planRead = async (
+  client: Synnax,
+  dev: Pick<Device, "name" | "properties">,
+  topic: string,
+  bound: ICD.BoundMessage<ReadRecord>[],
+  written: Set<channel.Key>,
+): Promise<ICD.MessagePlan[]> => {
+  const namer = Task.createNamer(client);
+  const plans: ICD.MessagePlan[] = [];
+  for (const b of bound) {
+    const { recordKey, messages } = b.source;
+    const plan = await ICD.planMessage(
+      client,
+      namer,
+      b,
+      messagePrefix(dev.name, topic, recordKey, b.read, b.message.name),
+      dev.properties.read[storedKey(topic, recordKey, messages[b.read].message)],
+      written,
+    );
+    ICD.keptChannels(plan).forEach((ch) => written.add(ch));
+    plans.push(plan);
+  }
+  return plans;
+};
+
+interface PlansProps extends PropsWithChildren {
+  device: Device;
+}
+
+/**
+ * Plans the channels of every message that the task reads, together and as deploying
+ * plans them, for the tree and the panes.
+ */
+const Plans = ({ device, children }: PlansProps): ReactElement => {
+  const topic = PForm.useFieldValue(root.config.topic);
+  const records = PForm.useFieldValue(root.config.records);
+  const messages = ICD.useMessages();
+  const bound = records
+    .filter(({ disabled }) => !disabled)
+    .flatMap((source) =>
+      source.messages.flatMap((read, r) => {
+        const message = ICD.messageOf(messages, source, r);
+        if (message == null) return [];
+        const fields = ICD.readFields(ICD.jsonFields(message), read);
+        return [{ source, read: r, message, fields }];
+      }),
+    );
+  const sources = bound.map(({ source: { recordKey, messages }, read, message }) => ({
+    recordKey,
+    read: messages[read],
+    message,
+    prefix: messagePrefix(device.name, topic, recordKey, read, message.name),
+    props: device.properties.read[storedKey(topic, recordKey, messages[read].message)],
+  }));
+  const plans = Task.useChannelPlans(
+    sources,
+    async (client) =>
+      await planRead(client, device, topic, bound, writtenChannels(records)),
+  );
+  const reads = bound.map(({ source, read }, i): ICD.PlannedRead => ({
+    path: recordPath(source.key),
+    read,
+    plan: plans[i],
+  }));
+  return <ICD.Plans plans={reads}>{children}</ICD.Plans>;
+};
+
 const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
   const records = PForm.useFieldValue(root.config.records);
   const [selected, setSelected] = useState<string[]>([]);
@@ -515,7 +601,7 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
     ICD.Tree.initialExpanded(records),
   );
   const body = (
-    <>
+    <Plans device={device}>
       <Records
         device={device}
         selected={selected}
@@ -528,7 +614,7 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
           <ICD.SuitRead key={`${key}/${message}`} path={recordPath(key)} read={read} />
         )),
       )}
-    </>
+    </Plans>
   );
   return unique.unique(records.map((r) => r.icd)).reduceRight(
     (child, key) => (
@@ -572,25 +658,20 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
   );
   // A deploy that fails partway keeps the channels it made for the next one.
   const before = deep.copy(dev.properties);
-  const written = writtenChannels(config.records);
   try {
-    for (const b of bound) {
+    const plans = await planRead(
+      client,
+      dev,
+      config.topic,
+      bound,
+      writtenChannels(config.records),
+    );
+    for (const [i, b] of bound.entries()) {
       const { recordKey, messages } = b.source;
-      const prefix = messagePrefix(
-        dev.name,
-        config.topic,
-        recordKey,
-        b.read,
-        b.message.name,
-      );
-      const key = storedKey(config.topic, recordKey, messages[b.read].message);
-      await ICD.configureMessage(
-        client,
-        b,
-        prefix,
-        { read: dev.properties.read, key },
-        written,
-      );
+      await ICD.applyMessage(client, b, plans[i], {
+        read: dev.properties.read,
+        key: storedKey(config.topic, recordKey, messages[b.read].message),
+      });
     }
   } finally {
     await PlatformDevice.setProperties(client, dev, before, SCHEMAS);

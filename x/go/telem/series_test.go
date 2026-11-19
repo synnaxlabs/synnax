@@ -1302,6 +1302,14 @@ var _ = Describe("Series", func() {
 			Expect(dst.Unmarshal[int64]()).To(Equal([]int64{7}))
 		})
 
+		It("Should report the length of the source after a validated series", func() {
+			dst := telem.NewSeriesV("a", "b")
+			Expect(dst.Validate()).To(Succeed())
+			dst = dst.CopiedFrom(telem.NewSeriesV("x"))
+			Expect(dst.Len()).To(Equal(int64(1)))
+			Expect(dst.Unmarshal[string]()).To(Equal([]string{"x"}))
+		})
+
 		It("Should work with variable density types", func() {
 			src := telem.NewSeriesV("foo", "bar")
 			var dst telem.Series

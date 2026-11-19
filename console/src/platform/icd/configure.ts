@@ -10,15 +10,13 @@
 import { channel, type icd, type Synnax, ValidationError } from "@synnaxlabs/client";
 import { DataType } from "@synnaxlabs/x";
 
-import { bindingDataType, converts } from "@/platform/icd/dataType";
+import { bindingDataType, converts, DEFAULT_DATA_TYPES } from "@/platform/icd/dataType";
 import {
   isIndexable,
   type Messages,
-  mixMessage,
   type ReadBinding,
   readFields,
   type ReadSource,
-  variableAmongFixed,
 } from "@/platform/icd/read";
 import { Task } from "@/platform/task";
 
@@ -66,32 +64,45 @@ export const boundMessage = <S extends ReadSource>(
     );
   if (fields.length === 0)
     throw new ValidationError(`The task reads no fields of ${where}`);
-  const mixed = variableAmongFixed(fields);
-  if (mixed.length > 0) throw new ValidationError(`In ${where}, ${mixMessage(mixed)}`);
   return { source, read, message, fields };
 };
 
+/** A field that a message reads, with the binding that deploying writes for it. */
+export interface MessageField extends Task.ReadChannelField {
+  binding: ReadBinding;
+}
+
+/** The channels that deploying gives the fields that a message reads. */
+export interface MessagePlan {
+  /** The key of the index field, if the message has one. */
+  index?: string;
+  fields: MessageField[];
+  channels: Task.ReadChannelPlan;
+}
+
 /**
- * Gives each field that a message reads a channel: the one it has, the one stored for
- * its pointer, or a new one of the binding's data type. A channel that is gone or no
- * longer suits its field is replaced, and leaves stored. Rewrites the read of the
- * source in place.
+ * Plans the channel of each field that a message reads: the one it has, the one stored
+ * for its pointer, or a new one of the binding's data type. A channel that is gone or
+ * no longer suits its field is replaced, and leaves the stored channels. Reads from the
+ * Core, and changes neither bound nor props.
  *
+ * @param namer - Names the new channels of every source that the task plans.
  * @param prefix - The prefix of the names of the channels it creates.
+ * @param props - What the device stores for the message.
  * @param written - The channels that other bindings write, which no field takes from
- * stored. Gains the channels that the message binds.
- * @returns the channels that the message binds.
+ * props.
  */
-export const configureMessage = async (
+export const planMessage = async (
   client: Synnax,
+  namer: Task.Namer,
   { source, read: r, fields }: BoundMessage<ReadSource>,
   prefix: string,
-  stored?: Task.StoredChannels,
-  written: Set<channel.Key> = new Set(),
-): Promise<channel.Key[]> => {
+  props?: Task.ReadChannelProps,
+  written: ReadonlySet<channel.Key> = new Set(),
+): Promise<MessagePlan> => {
   const read = source.messages[r];
   const index = fields.find(({ key }) => key === read.index)?.key;
-  const held = stored?.read[stored.key]?.channels ?? {};
+  const held = { ...props?.channels };
   const bindingOf = (f: icd.JSONField): ReadBinding =>
     read.bindings.find(({ field }) => field === f.key) ?? {
       field: f.key,
@@ -106,19 +117,30 @@ export const configureMessage = async (
   const live = new Map(
     (await client.channels.retrieve(reused)).map((ch) => [ch.key, ch]),
   );
-  const channels = fields.map((f, i) => {
+  // A message stores every field on one index when it has an index field, a stored
+  // channel, or a fixed-density field that needs a new channel. Else it streams them.
+  const indexed =
+    index != null ||
+    fields.some((f, i) => {
+      const ch = live.get(reused[i]);
+      if (ch != null && !ch.virtual) return true;
+      if (ch != null && converts(f.type, ch.dataType.toString())) return false;
+      return !new DataType(DEFAULT_DATA_TYPES[f.type]).isVariable;
+    });
+  const planned = fields.map((f, i): MessageField => {
     const binding = bindingOf(f);
     const isIndex = f.key === index;
     const suited = binding.dataType !== "" && converts(f.type, binding.dataType);
     const dataType = suited ? binding.dataType : "";
     const ch = live.get(reused[i]);
-    // A deleted channel, or an edit of the field's kind or index role since the last
-    // deploy, needs a new channel.
+    // A deleted channel, an edit of the field's kind or index role since the last
+    // deploy, or a streamed field that the message now stores, needs a new channel.
     const stale =
       reused[i] !== 0 &&
       (ch == null ||
         !converts(f.type, ch.dataType.toString()) ||
-        ch.isIndex !== isIndex);
+        ch.isIndex !== isIndex ||
+        (indexed && ch.virtual));
     if (stale && held[f.pointer] === reused[i]) delete held[f.pointer];
     return {
       key: f.key,
@@ -128,22 +150,49 @@ export const configureMessage = async (
         ? DataType.TIMESTAMP.toString()
         : bindingDataType({ dataType }, f.type),
       channel: stale ? 0 : binding.channel,
+      replaces: stale && ch != null ? ch.key : 0,
       binding: { ...binding, dataType },
     };
   });
-  await Task.configureReadChannels({
+  const channels = await Task.planReadChannels({
     client,
-    stored,
-    fields: channels,
+    namer,
+    props: props == null ? undefined : { ...props, channels: held },
+    fields: planned,
     namePrefix: prefix,
     indexKey: index ?? "",
+    indexed: () => indexed,
   });
+  return { index, fields: planned, channels };
+};
+
+/**
+ * @returns the channels that a message binds once deployed, other than the ones that
+ * deploying creates.
+ */
+export const keptChannels = ({ channels: plan }: MessagePlan): channel.Key[] => {
+  const kept = Object.values(plan.channels);
+  if (plan.indexField != null && plan.newIndex == null && plan.props != null)
+    kept.push(plan.props.index);
+  return kept;
+};
+
+/**
+ * Gives each field that a message reads its channel, as plan plans it. Rewrites the
+ * read of the source in place.
+ *
+ * @param plan - The plan of planMessage for bound.
+ */
+export const applyMessage = async (
+  client: Synnax,
+  { source, read: r }: BoundMessage<ReadSource>,
+  { index, fields, channels }: MessagePlan,
+  stored?: Task.StoredChannels,
+): Promise<void> => {
+  await Task.applyReadChannels(client, channels, fields, stored);
   source.messages[r] = {
-    message: read.message,
+    message: source.messages[r].message,
     index,
-    bindings: channels.map(({ channel, binding }) => ({ ...binding, channel })),
+    bindings: fields.map(({ channel, binding }) => ({ ...binding, channel })),
   };
-  const keys = channels.map(({ channel }) => channel);
-  keys.forEach((key) => written.add(key));
-  return keys;
 };

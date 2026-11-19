@@ -21,20 +21,19 @@ import { deep } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
+import { type MessagePlan } from "@/platform/icd/configure";
 import { DEFAULT_DATA_TYPES } from "@/platform/icd/dataType";
 import { FieldsStatus, JSONField } from "@/platform/icd/Fields";
 import { type FormatForm } from "@/platform/icd/Formats";
 import { Match } from "@/platform/icd/Match";
+import { usePlan } from "@/platform/icd/Plans";
 import {
   fieldsPath,
   hiddenDataTypes,
   isIndexable,
   jsonFields,
-  mixMessage,
-  readFields,
   type ReadSource,
   reindex,
-  variableAmongFixed,
 } from "@/platform/icd/read";
 import { Panel } from "@/platform/panel";
 import { Task } from "@/platform/task";
@@ -73,6 +72,22 @@ export const AddField = ({ onClick }: AddFieldProps): ReactElement | null => {
   );
 };
 
+/**
+ * @returns the channel and default name that the channel name of a field shows: the
+ * name that deploying gives a channel it creates, or the field's own channel.
+ */
+const previewOf = (
+  plan: MessagePlan | undefined,
+  key: string,
+  ch: channel.Key,
+  defaultName: string,
+): { channel: channel.Key; defaultName: string } => {
+  const planned = plan == null ? undefined : Task.newChannelName(plan.channels, key);
+  return planned == null
+    ? { channel: ch, defaultName }
+    : { channel: 0, defaultName: planned };
+};
+
 interface TimestampFieldsProps {
   path: deep.Path<ReadSource>;
   /** The index of the message in the source's reads. */
@@ -85,6 +100,7 @@ interface TimestampFieldsProps {
   indexChannel: channel.Key;
   /** Names the time that the source stamps each sample with, such as "Arrival time". */
   sourceLabel: string;
+  plan?: MessagePlan;
 }
 
 type TimingMode = "source" | "payload";
@@ -97,6 +113,7 @@ const TimestampFields: FC<TimestampFieldsProps> = ({
   prefix,
   indexChannel,
   sourceLabel,
+  plan,
 }) => {
   const { get, set } = PForm.useContext();
   const readPath = path.messages[read];
@@ -158,8 +175,12 @@ const TimestampFields: FC<TimestampFieldsProps> = ({
       )}
       {indexBinding != null && (
         <Task.ChannelNameField
-          channel={indexBinding.channel}
-          defaultName={`${prefix}_time`}
+          {...previewOf(
+            plan,
+            indexBinding.field,
+            indexBinding.channel,
+            `${prefix}_time`,
+          )}
           skipped={sourceDisabled}
         />
       )}
@@ -189,11 +210,21 @@ export const FieldDetails: FC<FieldDetailsProps> = ({
   prefix,
 }) => {
   const readPath = path.messages[read];
+  const plan = usePlan(path, read);
   const bindings = PForm.useFieldValue(readPath.bindings);
   const message = PForm.useFieldValue(readPath.message);
   const icdKey = PForm.useFieldValue(path.icd);
   const sourceDisabled = PForm.useFieldValue(path.disabled);
   const i = bindings.findIndex(({ field: key }) => key === field.key);
+  const preview =
+    i < 0
+      ? undefined
+      : previewOf(
+          plan,
+          field.key,
+          bindings[i].channel,
+          `${prefix}_${channel.escapeInvalidName(field.name)}`,
+        );
   return (
     <Flex.Box y grow empty className={CSS.BE("details", "form")}>
       <PForm.Sections>
@@ -204,20 +235,16 @@ export const FieldDetails: FC<FieldDetailsProps> = ({
           />
         </PForm.Form>
         <PForm.Section title="Channel">
-          {i < 0 ? (
+          {preview == null ? (
             <Text.Text status="disabled">
               The task does not read this field. Click its dot to read it.
             </Text.Text>
           ) : (
             <>
-              <Task.ChannelNameField
-                channel={bindings[i].channel}
-                defaultName={`${prefix}_${channel.escapeInvalidName(field.name)}`}
-                skipped={sourceDisabled}
-              />
+              <Task.ChannelNameField {...preview} skipped={sourceDisabled} />
               <Task.Payload.DataTypeField
                 path={readPath.bindings[i].dataType}
-                channel={bindings[i].channel}
+                channel={preview.channel}
                 defaultDataType={DEFAULT_DATA_TYPES[field.type]}
                 hideDataTypes={hiddenDataTypes(field.type)}
               />
@@ -229,7 +256,10 @@ export const FieldDetails: FC<FieldDetailsProps> = ({
   );
 };
 
-export interface MessageSectionsProps extends Omit<TimestampFieldsProps, "fields"> {
+export interface MessageSectionsProps extends Omit<
+  TimestampFieldsProps,
+  "fields" | "plan"
+> {
   format: FormatForm;
   /** Says why the ICD has no message for the read, and what to do now. */
   missingDescription: string;
@@ -242,6 +272,7 @@ export const MessageSections: FC<MessageSectionsProps> = ({
   ...rest
 }) => {
   const { path, read } = rest;
+  const plan = usePlan(path, read);
   const icdKey = PForm.useFieldValue(path.icd);
   const readMessage = PForm.useFieldValue(path.messages[read]);
   const message = PForm.useFieldValue(PICD.formPath.messages[readMessage.message], {
@@ -249,7 +280,6 @@ export const MessageSections: FC<MessageSectionsProps> = ({
     ctx: format,
   });
   const fields = jsonFields(message);
-  const mixed = variableAmongFixed(readFields(fields, readMessage));
   return (
     <>
       {message == null && (
@@ -270,10 +300,7 @@ export const MessageSections: FC<MessageSectionsProps> = ({
         </PForm.Section>
       )}
       <PForm.Section title="Timestamp">
-        <TimestampFields {...rest} fields={fields} />
-        {mixed.length > 0 && (
-          <Input.HelpText variant="error">{mixMessage(mixed)}</Input.HelpText>
-        )}
+        <TimestampFields {...rest} fields={fields} plan={plan} />
       </PForm.Section>
       <PForm.Form<typeof PICD.formSchema> {...format}>
         <FieldsStatus path={fieldsPath(readMessage.message)} />
