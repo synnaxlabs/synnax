@@ -145,12 +145,15 @@ func liftEntry(
 	}, read
 }
 
-// fieldName returns the name of old, or else its pointer.
+// fieldName returns the name of old, or else the name of its pointer.
 func fieldName(old ReadField) string {
-	if old.Name != "" {
-		return old.Name
-	}
-	return lo.CoalesceOrEmpty(strings.TrimPrefix(old.Pointer, "/"), "value")
+	return lo.CoalesceOrEmpty(old.Name, pointerName(old.Pointer))
+}
+
+// pointerName returns pointer without its leading slash, or "value" for the whole
+// document.
+func pointerName(pointer string) string {
+	return lo.CoalesceOrEmpty(strings.TrimPrefix(pointer, "/"), "value")
 }
 
 // uniqueName returns name, or name with the lowest suffix " (n)" that taken lacks, and

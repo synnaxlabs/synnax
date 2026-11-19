@@ -73,22 +73,32 @@ func liftField(
 			kind,
 		)
 	}
-	if kind == payload.KindTimestamp && old.TimeFormat != nil &&
-		!old.TimeFormat.IsValid() {
-		note(
-			"time format %q is not valid and became %s",
-			*old.TimeFormat,
-			payload.TimeFormatISO8601,
-		)
-		old.TimeFormat = nil
+	if kind == payload.KindTimestamp {
+		old.TimeFormat = validFormat(old.TimeFormat, note)
 	}
-	field := liftRead(old, kind, base, enumFilter{seen: set.New[string](), note: note})
+	field := liftKind(old, kind, base, enumFilter{seen: set.New[string](), note: note})
 	numeric := kind == payload.KindFloat || kind == payload.KindInteger ||
 		kind == payload.KindUnsigned
 	if !known || ch != nil || !numeric {
 		dt = ""
 	}
 	return field, dt, changes
+}
+
+// validFormat returns format, or nil with a note when format is not valid.
+func validFormat(
+	format *payload.TimeFormat,
+	note func(format string, args ...any),
+) *payload.TimeFormat {
+	if format == nil || format.IsValid() {
+		return format
+	}
+	note(
+		"time format %q is not valid and became %s",
+		*format,
+		payload.TimeFormatISO8601,
+	)
+	return nil
 }
 
 // enumFilter keeps the enum entries that a lifted field can use and notes each one it
@@ -117,8 +127,8 @@ func (f enumFilter) usable(e payload.EnumEntry) bool {
 	return true
 }
 
-// liftRead returns the JSON field of base with kind and the options of old.
-func liftRead(
+// liftKind returns the JSON field of base with kind and the options of old.
+func liftKind(
 	old ReadField,
 	kind payload.Kind,
 	base icd.JSONBaseField,
@@ -281,12 +291,16 @@ func MigrateReadConfig(ctx context.Context, old v1.ReadConfig) (ReadConfig, erro
 // CreateICD creates ic through tx.
 type CreateICD func(ctx context.Context, tx gorp.Tx, ic icd.ICD) error
 
-// NoteLift returns the note for ResolveReadConfig that logs each change to a field of
-// the config with key through ins.
-func NoteLift(ins alamos.Instrumentation, key uuid.UUID) func(path, change string) {
+// NoteLift returns the note that logs each change to a field of the config with key
+// through ins. kind is "read" or "write".
+func NoteLift(
+	ins alamos.Instrumentation,
+	kind string,
+	key uuid.UUID,
+) func(path, change string) {
 	return func(path, change string) {
 		ins.L.Warn(
-			"changed an MQTT read field to v2",
+			"changed an MQTT "+kind+" field to v2",
 			zap.Stringer("config", key),
 			zap.String("field", path),
 			zap.String("change", change),
@@ -309,7 +323,7 @@ func NewReadMigration(channels Channels, create CreateICD) gorp.Migration {
 				Exec(ctx, tx); err != nil || len(olds) == 0 {
 				return err
 			}
-			tasks, err := retrieveTasks(ctx, tx, olds)
+			tasks, err := retrieveTasks(ctx, tx, configKeys(olds), "read")
 			if err != nil {
 				return err
 			}
@@ -328,7 +342,7 @@ func NewReadMigration(channels Channels, create CreateICD) gorp.Migration {
 					create,
 					tasks[old.Key].Name,
 					old,
-					NoteLift(ins, old.Key),
+					NoteLift(ins, "read", old.Key),
 				); err != nil {
 					return errors.Wrapf(err, "config %s", old.Key)
 				}
@@ -364,20 +378,25 @@ func migrateStored(
 	return cfg, nil
 }
 
-// retrieveTasks returns the task of each config of cfgs by key, read through tx.
+// configKeys returns the key of each config of cfgs.
+func configKeys[C interface{ GorpKey() uuid.UUID }](cfgs []C) []task.Key {
+	return lo.Map(cfgs, func(c C, _ int) task.Key { return c.GorpKey() })
+}
+
+// retrieveTasks returns the task of each key by key, read through tx. kind is "read" or
+// "write".
 func retrieveTasks(
 	ctx context.Context,
 	tx gorp.Tx,
-	cfgs []v1.ReadConfig,
+	keys []task.Key,
+	kind string,
 ) (map[uuid.UUID]task.Task, error) {
 	var tasks []task.Task
 	if err := gorp.NewRetrieve[task.Key, task.Task]().
-		Where(gorp.MatchKeys[task.Key, task.Task](
-			lo.Map(cfgs, func(c v1.ReadConfig, _ int) task.Key { return c.Key })...,
-		)).
+		Where(gorp.MatchKeys[task.Key, task.Task](keys...)).
 		Entries(&tasks).
 		Exec(ctx, tx); err != nil {
-		return nil, errors.Wrap(err, "tasks of MQTT read configs")
+		return nil, errors.Wrapf(err, "tasks of MQTT %s configs", kind)
 	}
 	return lo.KeyBy(tasks, func(t task.Task) uuid.UUID { return t.Key }), nil
 }

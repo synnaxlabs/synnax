@@ -44,11 +44,17 @@ func autoMigrateReadConfig(ctx context.Context, old v1.ReadConfig) (ReadConfig, 
 	}, nil
 }
 
-func autoMigrateWriteConfig(_ context.Context, old v1.WriteConfig) (WriteConfig, error) {
+func autoMigrateWriteConfig(ctx context.Context, old v1.WriteConfig) (WriteConfig, error) {
+	targets, err := lo.MapErr(old.Targets, func(v v1.WriteTarget, _ int) (WriteTarget, error) {
+		return MigrateWriteTarget(ctx, v)
+	})
+	if err != nil {
+		return WriteConfig{}, err
+	}
 	return WriteConfig{
 		StartConfig: old.StartConfig,
 		Device:      old.Device,
-		Targets:     old.Targets,
+		Targets:     targets,
 	}, nil
 }
 
@@ -76,5 +82,32 @@ func autoMigrateReadEntry(_ context.Context, old v1.ReadEntry) (ReadEntry, error
 		}}, nil
 	default:
 		return ReadEntry{}, errors.Newf("unknown ReadEntry variant %T", variant)
+	}
+}
+
+func autoMigrateWriteTarget(_ context.Context, old v1.WriteTarget) (WriteTarget, error) {
+	switch variant := old.Variant.(type) {
+	case nil:
+		return WriteTarget{}, nil
+	case v1.PlainWriteTarget:
+		return WriteTarget{Variant: PlainWriteTarget{
+			BaseWriteTarget: variant.BaseWriteTarget,
+			Topic:           variant.Topic,
+			Qos:             variant.Qos,
+			Retained:        variant.Retained,
+		}}, nil
+	case v1.SparkplugWriteTarget:
+		return WriteTarget{Variant: SparkplugWriteTarget{
+			BaseWriteTarget: variant.BaseWriteTarget,
+			Group:           variant.Group,
+			EdgeNode:        variant.EdgeNode,
+			Device:          variant.Device,
+			Tag:             variant.Tag,
+			TagType:         variant.TagType,
+			Channel:         variant.Channel,
+			Name:            variant.Name,
+		}}, nil
+	default:
+		return WriteTarget{}, errors.Newf("unknown WriteTarget variant %T", variant)
 	}
 }
