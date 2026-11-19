@@ -215,6 +215,56 @@ describe("range/Toolbar", () => {
       expect(parseInt(count, 10)).toBeGreaterThan(100);
     });
 
+    it("should page and settle while ranges end faster than the toolbar reads", async () => {
+      const oldest = await createRunning(uniqueRangeName("oldest"), {
+        since: TimeSpan.minutes(5),
+      });
+      const create = async (
+        length: number,
+        timeRange: (i: number) => TimeRange,
+      ): Promise<ranger.Range[]> => {
+        const created = await client.ranges.create(
+          Array.from({ length }, (_, i) => ({
+            name: uniqueRangeName("load"),
+            timeRange: timeRange(i),
+          })),
+        );
+        onTestFinished(
+          async () => await client.ranges.delete(created.map((r) => r.key)),
+        );
+        return created;
+      };
+      const now = TimeStamp.now();
+      await create(120, () => new TimeRange(now.sub(TimeSpan.SECOND), TimeStamp.MAX));
+      // Finished ranges fill Recent, so each read renders hundreds of lines.
+      await create(
+        250,
+        () => new TimeRange(now.sub(TimeSpan.minutes(2)), now.sub(TimeSpan.minutes(1))),
+      );
+      await renderToolbar();
+      await waitFor(() => expect(queryShowMore("Running")).not.toBeNull(), {
+        timeout: 10_000,
+      });
+      // The ends come 25 ms apart for 5 s, far faster than one read.
+      const start = TimeStamp.now();
+      const ending = await create(
+        200,
+        (i) =>
+          new TimeRange(
+            start.sub(TimeSpan.SECOND),
+            start.add(TimeSpan.milliseconds(500 + 25 * i)),
+          ),
+      );
+      const last = ending[ending.length - 1];
+      expect(await findLine("Running", oldest.name)).toBeTruthy();
+      expect(TimeStamp.now().before(last.timeRange.end)).toBe(true);
+      await waitForLine("Recent", last.name);
+      const list = groupOf("Recent").closest<HTMLElement>('[role="list"]');
+      await waitFor(() => expect(list?.getAttribute("aria-busy")).toBe("false"), {
+        timeout: 10_000,
+      });
+    });
+
     it("should move ranges from Running to Recent as they end, newest end first", async () => {
       const first = await createRunning(uniqueRangeName("first"));
       const second = await createRunning(uniqueRangeName("second"));
