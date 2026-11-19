@@ -159,8 +159,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	// The channel limit counts each non-virtual channel. Declare takes the built-ins
-	// out
-	// after the scan. This is the only walk of the table, as no index holds Virtual.
+	// out after the scan. This is the only walk of the table: no index holds Virtual.
 	var externalNonVirtualChannels []Channel
 	if err = s.table.NewRetrieve().
 		Where(gorp.Match(func(_ gorp.Context, c *Channel) (bool, error) {

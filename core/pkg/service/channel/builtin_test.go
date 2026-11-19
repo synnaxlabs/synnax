@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
@@ -142,6 +143,42 @@ var _ = Describe("Built-in channels", func() {
 			"The Core needs the name " + held.Name + " for a built-in channel, so " +
 				"the channel " + held.Name + " is now " + held.Name + "_3.",
 		))
+	})
+
+	It("Should rename every other holder of the name when it adopts one", func(
+		ctx SpecContext,
+	) {
+		// Create refuses a held name, so only a store from before has two holders.
+		fresh := testutil.NewNode(ctx)
+		name := UniqueChannelName()
+		other := channel.Channel{
+			Name:        name,
+			Leaseholder: node.KeyFree,
+			LocalKey:    7,
+			DataType:    telem.Float32T,
+			Virtual:     true,
+		}
+		held := channel.Channel{
+			Name:        name,
+			Leaseholder: node.KeyFree,
+			LocalKey:    8,
+			DataType:    telem.JSONT,
+			Virtual:     true,
+		}
+		createStored(ctx, fresh.DB, other, held)
+		freshSvc := openService(ctx, fresh)
+		ch := channel.Channel{Name: name, DataType: telem.JSONT, Virtual: true}
+		Expect(fresh.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return freshSvc.NewWriter(tx).Declare(ctx, &ch)
+		})).To(Succeed())
+		Expect(ch.Key()).To(Equal(held.Key()))
+		var renamed []channel.Channel
+		Expect(freshSvc.NewRetrieve().
+			Where(channel.MatchNames(name+"_2")).
+			Entries(&renamed).
+			Exec(ctx, fresh.DB)).To(Succeed())
+		Expect(renamed).To(HaveLen(1))
+		Expect(renamed[0].Key()).To(Equal(other.Key()))
 	})
 
 	It("Should let a renamed user channel be deleted", func(ctx SpecContext) {

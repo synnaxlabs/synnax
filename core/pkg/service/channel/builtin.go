@@ -55,9 +55,19 @@ func (w Writer) Declare(ctx context.Context, ch *Channel) error {
 	match := slices.IndexFunc(holders, func(h Channel) bool {
 		return h.DataType == ch.DataType && h.Virtual == ch.Virtual
 	})
+	for i, h := range holders {
+		if i == match {
+			continue
+		}
+		if err := w.rehome(ctx, h); err != nil {
+			return err
+		}
+	}
 	if match >= 0 {
 		*ch = holders[match]
-	} else if err := w.createBuiltIn(ctx, holders, ch); err != nil {
+	} else if err := w.Create(ctx, ch, func(o *createOptions) {
+		o.builtIn = true
+	}); err != nil {
 		return err
 	}
 	key := ch.Key()
@@ -69,20 +79,6 @@ func (w Writer) Declare(ctx context.Context, ch *Channel) error {
 		return nil
 	})
 	return nil
-}
-
-// createBuiltIn renames each of holders, which hold the name of ch, and creates ch.
-func (w Writer) createBuiltIn(
-	ctx context.Context,
-	holders []Channel,
-	ch *Channel,
-) error {
-	for _, h := range holders {
-		if err := w.rehome(ctx, h); err != nil {
-			return err
-		}
-	}
-	return w.Create(ctx, ch, func(o *createOptions) { o.builtIn = true })
 }
 
 // rehome renames h, a channel that holds the name of a built-in, with the first free
