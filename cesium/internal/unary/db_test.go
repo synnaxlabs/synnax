@@ -13,7 +13,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/channel"
-	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/cesium/internal/resource"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/cesium/internal/unary"
@@ -64,23 +63,6 @@ var _ = Describe("DB Metadata Operations", func() {
 						Index:    indexDBKey,
 					},
 				}))
-			})
-
-			Describe("RenameChannelInMeta", func() {
-				It("Should rename the channel and persist it", func(ctx SpecContext) {
-					Expect(dataDB.RenameChannelInMeta(ctx, "new_name")).To(Succeed())
-					ch := MustSucceed(meta.Read(ctx, dataDBfs, json.Codec))
-					Expect(ch.Name).To(Equal("new_name"))
-				})
-
-				It(
-					"Should be a no-op when the name is the same",
-					func(ctx SpecContext) {
-						Expect(dataDB.RenameChannelInMeta(ctx, "test")).To(Succeed())
-						ch := MustSucceed(meta.Read(ctx, dataDBfs, json.Codec))
-						Expect(ch.Name).To(Equal("test"))
-					},
-				)
 			})
 
 			Describe("Size", func() {
@@ -147,9 +129,6 @@ var _ = Describe("DB Metadata Operations", func() {
 			"Should return an error when methods are called on a closed DB",
 			func(ctx SpecContext) {
 				Expect(db.Close()).To(Succeed())
-				Expect(
-					db.RenameChannelInMeta(ctx, "new_name"),
-				).To(MatchError(unary.ErrDBClosed))
 				Expect(
 					db.Delete(ctx, telem.TimeRange{}),
 				).To(MatchError(unary.ErrDBClosed))

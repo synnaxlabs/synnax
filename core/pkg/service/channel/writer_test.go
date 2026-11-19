@@ -10,7 +10,6 @@
 package channel_test
 
 import (
-	"context"
 	"fmt"
 	"sync"
 
@@ -1753,39 +1752,6 @@ var _ = Describe("Writer", func() {
 				Expect(resChannels[2].Name).To(Equal(names[2]))
 			})
 			It(
-				"Should send the renames of several writers to storage in one call",
-				func(ctx SpecContext) {
-					keys := MustSucceed(CreateVirtual(ctx, db, svc, 2))
-					before := MustSucceed(
-						dist.Storage.TS.RetrieveChannel(ctx, uint32(keys[0])),
-					)
-					first, second := UniqueChannelName(), UniqueChannelName()
-					var between cesium.Channel
-					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						if err := svc.NewWriter(tx).
-							Rename(ctx, keys[0], first, false); err != nil {
-							return err
-						}
-						// Storage takes no rename before the hook of the last one.
-						gorp.BeforeCommit(tx, func(ctx context.Context) (err error) {
-							between, err = dist.Storage.TS.RetrieveChannel(
-								ctx,
-								uint32(keys[0]),
-							)
-							return err
-						})
-						return svc.NewWriter(tx).Rename(ctx, keys[1], second, false)
-					})).To(Succeed())
-					Expect(between.Name).To(Equal(before.Name))
-					Expect(MustSucceed(
-						dist.Storage.TS.RetrieveChannel(ctx, uint32(keys[0])),
-					).Name).To(Equal(first))
-					Expect(MustSucceed(
-						dist.Storage.TS.RetrieveChannel(ctx, uint32(keys[1])),
-					).Name).To(Equal(second))
-				},
-			)
-			It(
 				"Should rename a channel created after an earlier rename",
 				func(ctx SpecContext) {
 					keys := MustSucceed(CreateVirtual(ctx, db, svc, 1))
@@ -1805,15 +1771,15 @@ var _ = Describe("Writer", func() {
 						}
 						return w.Rename(ctx, created.Key(), second, false)
 					})).To(Succeed())
-					Expect(MustSucceed(
-						dist.Storage.TS.RetrieveChannel(ctx, uint32(keys[0])),
-					).Name).To(Equal(first))
-					Expect(MustSucceed(
-						dist.Storage.TS.RetrieveChannel(
-							ctx,
-							uint32(created.Key()),
-						),
-					).Name).To(Equal(second))
+					var res []channel.Channel
+					Expect(svc.NewRetrieve().
+						Where(channel.MatchKeys(keys[0], created.Key())).
+						Entries(&res).
+						Exec(ctx, db)).To(Succeed())
+					Expect(res).To(ConsistOf(
+						HaveField("Name", first),
+						HaveField("Name", second),
+					))
 				},
 			)
 		})
@@ -2196,17 +2162,6 @@ var _ = Describe("Writer", func() {
 			},
 		)
 		It(
-			"Should rename the storage channel when the transaction commits",
-			func(ctx SpecContext) {
-				ch := create(ctx)
-				name := UniqueChannelName()
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).Rename(ctx, ch.Key(), name, false)
-				})).To(Succeed())
-				Expect(stored(ctx, ch).Name).To(Equal(name))
-			},
-		)
-		It(
 			"Should rename a free channel with no storage rename",
 			func(ctx SpecContext) {
 				ch := createFree(ctx)
@@ -2233,19 +2188,14 @@ var _ = Describe("Writer", func() {
 			},
 		)
 		It(
-			"Should rename the storage channel when the transaction commits",
+			"Should rename the record and keep the name in storage",
 			func(ctx SpecContext) {
 				ch := create(ctx)
 				name := UniqueChannelName()
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					if err := svc.NewWriter(tx).
-						Rename(ctx, ch.Key(), name, false); err != nil {
-						return err
-					}
-					Expect(stored(ctx, ch).Name).To(Equal(ch.Name))
-					return nil
+					return svc.NewWriter(tx).Rename(ctx, ch.Key(), name, false)
 				})).To(Succeed())
-				Expect(stored(ctx, ch).Name).To(Equal(name))
+				Expect(stored(ctx, ch).Name).To(Equal(ch.Name))
 				var res channel.Channel
 				Expect(svc.NewRetrieve().
 					Where(channel.MatchKeys(ch.Key())).

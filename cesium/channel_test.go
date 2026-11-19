@@ -11,14 +11,11 @@ package cesium_test
 
 import (
 	"math"
-	"os"
-	"strconv"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
-	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
@@ -231,35 +228,6 @@ var _ = Describe("Channel", Ordered, func() {
 						Expect(ch.Name).To(Equal("var-lc-str"))
 					},
 				)
-				It("Should rename a variable channel", func(ctx SpecContext) {
-					var (
-						idx  = GenerateChannelKey()
-						data = GenerateChannelKey()
-					)
-					Expect(db.CreateChannel(
-						ctx,
-						cesium.Channel{
-							Key:      idx,
-							Name:     "var-rn-idx",
-							IsIndex:  true,
-							DataType: telem.TimestampT,
-						},
-						cesium.Channel{
-							Key:      data,
-							Name:     "var-rn-str",
-							Index:    idx,
-							DataType: telem.StringT,
-						},
-					)).To(Succeed())
-					Expect(
-						db.RenameChannels(
-							ctx,
-							map[cesium.ChannelKey]string{data: "renamed"},
-						),
-					).To(Succeed())
-					ch := MustSucceed(db.RetrieveChannel(ctx, data))
-					Expect(ch.Name).To(Equal("renamed"))
-				})
 				It("Should delete a variable channel", func(ctx SpecContext) {
 					var (
 						idx  = GenerateChannelKey()
@@ -285,161 +253,6 @@ var _ = Describe("Channel", Ordered, func() {
 						db.RetrieveChannel(ctx, data),
 					).Error().
 						To(MatchError(cesium.ErrChannelNotFound))
-				})
-			})
-
-			Describe("Rename", func() {
-				It(
-					"Should rename a channel into a different name while channel is being used",
-					func(ctx SpecContext) {
-						key := GenerateChannelKey()
-						Expect(
-							db.CreateChannel(
-								ctx,
-								cesium.Channel{
-									Key:      key,
-									Name:     "fermat",
-									DataType: telem.TimestampT,
-									IsIndex:  true,
-								},
-							),
-						).To(Succeed())
-						w := MustSucceed(
-							db.OpenWriter(
-								ctx,
-								cesium.WriterConfig{
-									Start:    0,
-									Channels: []cesium.ChannelKey{key},
-								},
-							),
-						)
-						series1 := telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14)
-						MustSucceed(
-							w.Write(
-								ctx,
-								telem.MultiFrame(
-									[]cesium.ChannelKey{key},
-									[]telem.Series{series1},
-								),
-							),
-						)
-						MustSucceed(w.Commit(ctx))
-
-						Expect(
-							db.RenameChannels(
-								ctx,
-								map[cesium.ChannelKey]string{key: "laplace"},
-							),
-						).To(Succeed())
-						series2 := telem.NewSeriesSecondsTSV(20, 21, 22)
-						MustSucceed(
-							w.Write(
-								ctx,
-								telem.MultiFrame(
-									[]cesium.ChannelKey{key},
-									[]telem.Series{series2},
-								),
-							),
-						)
-						MustSucceed(w.Commit(ctx))
-						Expect(w.Close()).To(Succeed())
-
-						ch := MustSucceed(db.RetrieveChannel(ctx, key))
-						Expect(ch.Name).To(Equal("laplace"))
-						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, key))
-						Expect(f.Count()).To(Equal(1))
-						Expect(
-							f.SeriesAt(0),
-						).To(telem.MatchWrittenSeries(telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 20, 21, 22)))
-
-						var (
-							subFS = MustSucceed(fs.Sub(strconv.Itoa(int(key))))
-							meta  = MustSucceed(subFS.Open("meta.json", os.O_RDONLY))
-							buf   = make([]byte, MustSucceed(meta.Stat()).Size())
-							newCh cesium.Channel
-						)
-
-						MustSucceed(meta.Read(buf))
-						Expect(meta.Close()).To(Succeed())
-
-						Expect(json.Codec.Decode(buf, &newCh)).To(Succeed())
-						Expect(newCh.Name).To(Equal("laplace"))
-					},
-				)
-				It("Should correctly rename multiple channels", func(ctx SpecContext) {
-					key1 := GenerateChannelKey()
-					key2 := GenerateChannelKey()
-					key3 := GenerateChannelKey()
-					key4 := GenerateChannelKey()
-					Expect(
-						db.CreateChannel(
-							ctx,
-							cesium.Channel{
-								Key:      key1,
-								Name:     "fermat",
-								IsIndex:  true,
-								DataType: telem.TimestampT,
-							},
-						),
-					).To(Succeed())
-					Expect(
-						db.CreateChannel(
-							ctx,
-							cesium.Channel{
-								Key:      key2,
-								Name:     "laplace",
-								Index:    key1,
-								DataType: telem.Float32T,
-							},
-						),
-					).To(Succeed())
-					Expect(
-						db.CreateChannel(
-							ctx,
-							cesium.Channel{
-								Key:      key3,
-								Name:     "newton",
-								IsIndex:  true,
-								DataType: telem.TimestampT,
-							},
-						),
-					).To(Succeed())
-					Expect(
-						db.CreateChannel(
-							ctx,
-							cesium.Channel{
-								Key:      key4,
-								Name:     "descartes",
-								Virtual:  true,
-								DataType: telem.StringT,
-							},
-						),
-					).To(Succeed())
-
-					Expect(db.RenameChannels(ctx, map[cesium.ChannelKey]string{
-						key1: "newton2",
-						key2: "fermat3",
-						key3: "laplace4",
-						key4: "descartes5",
-					})).To(Succeed())
-
-					ch := MustSucceed(db.RetrieveChannel(ctx, key1))
-					Expect(ch.Name).To(Equal("newton2"))
-					ch = MustSucceed(db.RetrieveChannel(ctx, key2))
-					Expect(ch.Name).To(Equal("fermat3"))
-					ch = MustSucceed(db.RetrieveChannel(ctx, key3))
-					Expect(ch.Name).To(Equal("laplace4"))
-					ch = MustSucceed(db.RetrieveChannel(ctx, key4))
-					Expect(ch.Name).To(Equal("descartes5"))
-				})
-				It("Should error if the channel is not found", func(ctx SpecContext) {
-					key := GenerateChannelKey()
-					Expect(
-						db.RenameChannels(
-							ctx,
-							map[cesium.ChannelKey]string{key: "new_name"},
-						),
-					).To(MatchError(cesium.ErrChannelNotFound))
 				})
 			})
 		})

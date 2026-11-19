@@ -41,10 +41,6 @@ var _ = Describe("Restore", func() {
 
 			l = openLayer(ctx, dir, "0.60.0")
 			Expect(l.KV.Set(ctx, []byte("key"), []byte("after"))).To(Succeed())
-			Expect(l.TS.RenameChannels(
-				ctx,
-				map[cesium.ChannelKey]string{dataCh.Key: "renamed"},
-			)).To(Succeed())
 			Expect(l.TS.CreateChannel(ctx, addedCh)).To(Succeed())
 			write(ctx, l, 10, indexCh.Key, dataCh.Key, addedCh.Key)
 			Expect(l.Close()).To(Succeed())

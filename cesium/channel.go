@@ -79,46 +79,6 @@ func (db *DB) retrieveChannel(key ChannelKey) (Channel, error) {
 	return Channel{}, channel.NewNotFoundError(key)
 }
 
-// RenameChannels renames each channel keyed in renames to its corresponding new name.
-func (db *DB) RenameChannels(
-	ctx context.Context, renames map[ChannelKey]string,
-) error {
-	if db.closed.Load() {
-		return ErrDBClosed
-	}
-	db.mu.Lock()
-	defer db.mu.Unlock()
-	for key, name := range renames {
-		if err := db.renameChannel(ctx, key, name); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// renameChannel renames the channel with the specified key to newName. There is a race
-// condition here: one could rename a channel while it is being read or streamed from or
-// written to. We choose to not address this since the name is purely decorative in
-// Cesium and not used to identify channels whereas the key is the unique identifier.
-// The same goes for the virtual database.
-func (db *DB) renameChannel(ctx context.Context, key ChannelKey, newName string) error {
-	if u, ok := db.mu.dbs.unary[key]; ok {
-		if err := u.RenameChannelInMeta(ctx, newName); err != nil {
-			return err
-		}
-		db.mu.dbs.unary[key] = u
-		return nil
-	}
-	if v, ok := db.mu.dbs.virtual[key]; ok {
-		if err := v.RenameChannel(ctx, newName); err != nil {
-			return err
-		}
-		db.mu.dbs.virtual[key] = v
-		return nil
-	}
-	return channel.NewNotFoundError(key)
-}
-
 func (db *DB) createChannel(ctx context.Context, ch Channel) (err error) {
 	defer func() {
 		lo.Ternary(err == nil, db.L.Debug, db.L.Error)(

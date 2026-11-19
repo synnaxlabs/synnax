@@ -197,7 +197,7 @@ var _ = Describe("LSP", func() {
 		})
 
 		It(
-			"Should rename a channel in both stores when the subject can update it",
+			"Should rename the channel record when the subject can update it",
 			func(
 				ctx SpecContext,
 			) {
@@ -205,7 +205,7 @@ var _ = Describe("LSP", func() {
 				Expect(rename()).ToNot(HaveKey("error"))
 				gorpName, cesiumName := names(ctx)
 				Expect(gorpName).To(Equal("api_lsp_renamed"))
-				Expect(cesiumName).To(Equal("api_lsp_renamed"))
+				Expect(cesiumName).To(Equal("api_lsp_ch"))
 			},
 		)
 	})

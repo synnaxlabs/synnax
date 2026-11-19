@@ -163,16 +163,3 @@ func (db *DB) MarkClosed() error {
 
 // UnmarkClosed opens a DB that MarkClosed marked closed.
 func (db *DB) UnmarkClosed() { db.closed.Store(false) }
-
-// RenameChannel renames the DB's channel to the given name, and persists the change to
-// the underlying DB.
-func (db *DB) RenameChannel(ctx context.Context, newName string) error {
-	if db.closed.Load() {
-		return ErrDBClosed
-	}
-	if db.cfg.Channel.Name == newName {
-		return nil
-	}
-	db.cfg.Channel.Name = newName
-	return meta.Create(ctx, db.cfg.FS, db.cfg.MetaCodec, db.cfg.Channel)
-}

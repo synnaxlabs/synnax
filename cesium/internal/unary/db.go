@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
-	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/cesium/internal/resource"
 	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
@@ -152,16 +151,3 @@ func (db *DB) Drop(free func() error) error {
 
 // Release frees the files of a database that MarkClosed marked closed.
 func (db *DB) Release() error { return db.wrapError(db.domain.Release()) }
-
-// RenameChannelInMeta renames the channel to the given name, and persists the change to
-// the underlying file system.
-func (db *DB) RenameChannelInMeta(ctx context.Context, newName string) error {
-	if db.closed.Load() {
-		return ErrDBClosed
-	}
-	if db.cfg.Channel.Name == newName {
-		return nil
-	}
-	db.cfg.Channel.Name = newName
-	return meta.Create(ctx, db.cfg.FS, db.cfg.MetaCodec, db.cfg.Channel)
-}

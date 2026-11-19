@@ -13,10 +13,7 @@ import { z } from "zod";
 import { actions } from "@/actions";
 import { keyZ, nameZ } from "@/channel/types.gen";
 
-/**
- * Rename renames the channel. The Core also renames the channel's storage when the
- * transaction commits.
- */
+/** Rename renames the channel. */
 export const renamePayloadZ = z.object({ name: nameZ });
 
 export type RenamePayload = z.infer<typeof renamePayloadZ>;

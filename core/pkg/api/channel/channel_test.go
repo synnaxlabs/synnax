@@ -406,7 +406,7 @@ var _ = Describe("Service", func() {
 				Expect(retrieveChannel(ctx, ch.Key()).Name).To(Equal(ch.Name))
 				Expect(stored(ctx).Name).To(Equal(ch.Name))
 			})
-			It("Should rename the channel in both stores with update on it", func(
+			It("Should rename the channel record with update on it", func(
 				ctx SpecContext,
 			) {
 				grantOn(
@@ -419,7 +419,7 @@ var _ = Describe("Service", func() {
 				Expect(dispatch(AuthedCtx(ctx, outsider), renameTo(name))).
 					To(Equal(apichannel.DispatchResponse{}))
 				Expect(retrieveChannel(ctx, ch.Key()).Name).To(Equal(name))
-				Expect(stored(ctx).Name).To(Equal(name))
+				Expect(stored(ctx).Name).To(Equal(ch.Name))
 			})
 		})
 	})

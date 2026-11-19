@@ -13,7 +13,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/channel"
-	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/cesium/internal/resource"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/cesium/internal/virtual"
@@ -47,23 +46,6 @@ var _ = Describe("DB Metadata Operations", func() {
 						Virtual:  true,
 					},
 				}))
-			})
-
-			Describe("RenameChannel", func() {
-				It("Should rename the channel and persist it", func(ctx SpecContext) {
-					Expect(db.RenameChannel(ctx, "new_name")).To(Succeed())
-					ch := MustSucceed(meta.Read(ctx, fs, json.Codec))
-					Expect(ch.Name).To(Equal("new_name"))
-				})
-
-				It(
-					"Should be a no-op when the name is the same",
-					func(ctx SpecContext) {
-						Expect(db.RenameChannel(ctx, "test")).To(Succeed())
-						ch := MustSucceed(meta.Read(ctx, fs, json.Codec))
-						Expect(ch.Name).To(Equal("test"))
-					},
-				)
 			})
 
 			Describe("LeadingControlState", func() {
@@ -117,9 +99,9 @@ var _ = Describe("DB Metadata Operations", func() {
 			"Should return an error when methods are called on a closed DB",
 			func(ctx SpecContext) {
 				Expect(db.Close()).To(Succeed())
-				Expect(
-					db.RenameChannel(ctx, "new_name"),
-				).To(MatchError(virtual.ErrDBClosed))
+				Expect(db.OpenWriter(ctx, virtual.WriterConfig{
+					Start: 10 * telem.SecondTS,
+				})).Error().To(MatchError(virtual.ErrDBClosed))
 			},
 		)
 

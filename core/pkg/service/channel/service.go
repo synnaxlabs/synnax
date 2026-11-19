@@ -122,8 +122,8 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 
 // Service is the top-level channel service. It owns the channel metadata table,
 // retrieval, search integration, and the create/delete/rename orchestration. It takes
-// keys from the distribution-layer allocator and creates, renames, and deletes the
-// storage channels. It also infers DataTypes for calculated channels on write.
+// keys from the distribution-layer allocator and creates and deletes the storage
+// channels. It also infers DataTypes for calculated channels on write.
 type Service struct {
 	cfg     ServiceConfig
 	db      *gorp.DB
@@ -132,9 +132,6 @@ type Service struct {
 	indexes indexes
 	index   *gorp.KeyReference[Key, Channel, Key]
 	state   *actions.State[Key, Action]
-	// renames holds the renames of each transaction. The hook of the last one sends all
-	// of them to storage in one call.
-	renames *gorp.Attachment[rename]
 	mu      struct {
 		sync.RWMutex
 		// externalNonVirtualSet holds the keys of external (non-internal, non-virtual)
@@ -158,7 +155,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		indexes: newIndexes(),
 		index:   indexReference(),
 		state:   actions.NewState[Key, Action](cfg.DB),
-		renames: gorp.NewAttachment[rename](),
 	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
