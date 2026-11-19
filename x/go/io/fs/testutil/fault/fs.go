@@ -45,12 +45,21 @@ type Config struct {
 	// reads its durable bytes from then on. Otherwise the block reads its new bytes
 	// until a crash.
 	EvictionRate float64
+	// ReadCorruptionRate is the chance, from 0 to 1, that a read returns one flipped
+	// bit. The bytes on the disk do not change.
+	ReadCorruptionRate float64
+	// Capacity is the size of the disk in bytes, which the lengths of its files fill.
+	// Zero is no limit. A write past it writes the bytes that fit and fails with
+	// ENOSPC.
+	Capacity int64
 }
 
 func (c Config) validate() error {
 	v := validate.New("fault.Config")
 	validateRate(v, "sync_error_rate", c.SyncErrorRate)
 	validateRate(v, "eviction_rate", c.EvictionRate)
+	validateRate(v, "read_corruption_rate", c.ReadCorruptionRate)
+	v.GreaterThanEq("capacity", c.Capacity, 0)
 	return v.Error()
 }
 
