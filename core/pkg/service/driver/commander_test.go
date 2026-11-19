@@ -198,7 +198,7 @@ var _ = Describe("Commander", func() {
 				limited, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
 				defer cancel()
 				next := run(limited, c, "list")
-				<-limited.Done()
+				Eventually(limited.Done()).Should(BeClosed())
 				close(release)
 				Expect(answer(ctx, next).Variant).To(Equal(status.VariantSuccess))
 			})
