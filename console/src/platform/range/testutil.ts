@@ -26,10 +26,12 @@ export const createTestRange = async (
   client: Synnax,
   overrides: Partial<ranger.New> = {},
 ): Promise<ranger.Range> => {
-  const start = TimeStamp.now();
+  // Each start or end after now makes the stage readers of parallel specs, such as the
+  // range toolbar, read again, so the range ends in the past.
+  const end = TimeStamp.now().sub(TimeSpan.MINUTE);
   return await client.ranges.create({
     name: uniqueRangeName(),
-    timeRange: new TimeRange(start, start.add(TimeSpan.seconds(10))),
+    timeRange: new TimeRange(end.sub(TimeSpan.seconds(10)), end),
     ...overrides,
   });
 };
