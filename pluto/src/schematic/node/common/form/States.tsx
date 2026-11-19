@@ -55,32 +55,42 @@ const toOption = (
 interface OptionsProps {
   path: deep.Path<schematic.StateMapping[]>;
   colorDisabled: boolean;
+  preview: boolean;
 }
 
-const Options = ({ path, colorDisabled }: OptionsProps): ReactElement => {
-  const { set } = Form.useContext();
+const Options = ({ path, colorDisabled, preview }: OptionsProps): ReactElement => {
+  const { set, get } = Form.useContext();
   const options = Form.useFieldValue<schematic.StateMapping[]>(path);
   const resolve = Color.useResolve();
-  const entries = options.map(toEntry);
-  const write = (next: enumeration.Entry[]): void =>
+  // One table change can call several handlers, so each changes the last write.
+  const write = (
+    change: (current: enumeration.Entry[]) => enumeration.Entry[],
+  ): void => {
+    const current = get<schematic.StateMapping[]>(path).value.map(toEntry);
     set(
       path,
-      next.map((e) => toOption(e, resolve)),
+      change(current).map((e) => toOption(e, resolve)),
     );
+  };
   return (
     <Enumeration.Table
-      value={entries}
+      value={options.map(toEntry)}
+      preview={preview}
       abnormalDisabled
       colorDisabled={colorDisabled}
-      onSet={(entry) => write(entries.map((e) => (e.key === entry.key ? entry : e)))}
-      onAdd={(added) => write([...entries, ...added])}
-      onRemove={(i) => write(entries.filter((_, j) => j !== i))}
-      onMove={(from, to) => {
-        const next = [...entries];
-        const [moved] = next.splice(from, 1);
-        next.splice(to, 0, moved);
-        write(next);
-      }}
+      onSet={(entry) =>
+        write((current) => current.map((e) => (e.key === entry.key ? entry : e)))
+      }
+      onAdd={(added) => write((current) => [...current, ...added])}
+      onRemove={(i) => write((current) => current.filter((_, j) => j !== i))}
+      onMove={(from, to) =>
+        write((current) => {
+          const next = [...current];
+          const [moved] = next.splice(from, 1);
+          next.splice(to, 0, moved);
+          return next;
+        })
+      }
     />
   );
 };
@@ -152,7 +162,7 @@ export const States = ({
   const { set, remove, get } = Form.useContext();
   const key = Form.useFieldValue(enumerationPath, { optional: true }) ?? undefined;
   const canCreate = Access.useCreateGranted(enumeration.TYPE_RESOURCE_ID);
-  const { updateAsync } = Enumeration.useCreate();
+  const { updateAsync, variant } = Enumeration.useCreate();
   const handleChange = (next: enumeration.Key | undefined): void => {
     if (next == null || next === NONE) remove(enumerationPath);
     else set(enumerationPath, next);
@@ -192,7 +202,13 @@ export const States = ({
         {key != null && <UsedBy enumeration={key} />}
         <Input.Item label="Entries" padHelpText={false}>
           {key == null ? (
-            <Options path={options} colorDisabled={colorDisabled} />
+            // The new enumeration takes the options as they are when the create
+            // starts, so they lock until it ends.
+            <Options
+              path={options}
+              colorDisabled={colorDisabled}
+              preview={variant === "loading"}
+            />
           ) : (
             <Enumeration.Entries enumeration={key} />
           )}

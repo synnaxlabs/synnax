@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type enumeration, schematic } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { color, deep, id } from "@synnaxlabs/x";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 import { type z } from "zod";
@@ -39,6 +39,7 @@ describe("Form.States", () => {
   const renderStates = (
     config: Partial<z.input<typeof schematic.stateIndicatorNodeConfigZ>> = {},
     colorDisabled = false,
+    as: FC<PropsWithChildren> = wrapper,
   ) =>
     renderForm(
       <Form.States
@@ -54,7 +55,7 @@ describe("Form.States", () => {
         ...config,
       }),
       schematic.stateIndicatorNodeConfigZ,
-      wrapper,
+      as,
     );
 
   const created = async (
@@ -79,6 +80,26 @@ describe("Form.States", () => {
         expect(
           (value(path.options) as schematic.StateMapping[]).map((o) => o.name),
         ).toEqual(["Closed", "On"]),
+      );
+    });
+
+    it("should keep every row of a paste into the options", async () => {
+      const { value } = renderStates();
+      const name = await findInput("Name 1");
+      fireEvent.focus(name);
+      fireEvent.paste(name, {
+        clipboardData: { getData: () => "Closed\t5\nOpen\t6" },
+      });
+      await waitFor(() =>
+        expect(
+          (value(path.options) as schematic.StateMapping[]).map((o) => [
+            o.name,
+            o.value,
+          ]),
+        ).toEqual([
+          ["Closed", 5],
+          ["Open", 6],
+        ]),
       );
     });
 
@@ -122,6 +143,28 @@ describe("Form.States", () => {
         });
       fireEvent.click(await c.findByRole("button", { name: "Create enumeration" }));
     };
+
+    it("should lock the options while it creates an enumeration", async () => {
+      const c = renderStates();
+      await openCreate(c);
+      expect(c.queryByRole("button", { name: "Add entry" })).toBeNull();
+      await created(c.value);
+    });
+
+    it("should not offer Create enumeration to a user who cannot create", async () => {
+      const viewer = await new RoleClients(client).get("Viewer");
+      const viewerWrapper = await createAsyncSynnaxWrapper({ client: viewer });
+      // A render as a user who is not an admin suspends at first.
+      let c: ReturnType<typeof renderStates> | undefined;
+      await act(async () => {
+        c = renderStates({}, false, viewerWrapper);
+      });
+      if (c == null) throw new Error("expected a render");
+      fireEvent.click(c.getByRole("button", { name: "Enumeration" }));
+      expect(await c.findByText("No enumeration")).toBeTruthy();
+      await act(async () => {});
+      expect(c.queryByRole("button", { name: "Create enumeration" })).toBeNull();
+    });
 
     it("should name a new enumeration after the search text", async () => {
       const term = `Valve ${id.create()}`;
