@@ -13,8 +13,6 @@
 
 #include <cstdint>
 
-#include "x/cpp/telem/telem.h"
-
 namespace x::telem {
 
 enum class DataTypeCode : std::uint8_t {
