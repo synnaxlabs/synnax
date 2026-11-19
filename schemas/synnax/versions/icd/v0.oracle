@@ -73,7 +73,8 @@ BaseField struct {
         @doc value "is the unique identifier for the field within its message."
     }
     name   string   {
-        @doc value "is the name of the field, unique within its message."
+        @doc value           "is the name of the field, unique within its message."
+        @validate min_length 1
     }
     scale  float64 = 1 {
         @doc value "multiplies the raw value on decode."
@@ -110,7 +111,9 @@ BinaryField struct extends BaseField {
         """
     }
     bit_length       uint8 = 8 {
-        @doc value "is the number of bits in the field, from 1 to 64."
+        @doc value    "is the number of bits in the field, from 1 to 64."
+        @validate max 64
+        @validate min 1
     }
     byte_order       ByteOrder = little_endian {
         @doc value "is the byte order of the field."
@@ -315,7 +318,8 @@ Payload union on format payload.Format {
     }
     text {
         delimiter string = "," {
-            @doc value "splits the items of the line."
+            @doc value           "splits the items of the line."
+            @validate min_length 1
         }
         prefix    string = "" {
             @doc value """
@@ -352,7 +356,8 @@ Message struct {
         @doc value "is the unique identifier for the message within its ICD."
     }
     name    string     {
-        @doc value "is the name of the message, unique within its ICD."
+        @doc value           "is the name of the message, unique within its ICD."
+        @validate min_length 1
     }
     payload Payload    {
         @doc value "is the layout of the message's payload."
@@ -368,7 +373,8 @@ ICD struct {
         @key
     }
     name     string    {
-        @doc value "is a human-readable name for the ICD."
+        @doc value           "is a human-readable name for the ICD."
+        @validate min_length 1
     }
     messages Message[] = [] {
         @doc value "are the messages the ICD holds."
