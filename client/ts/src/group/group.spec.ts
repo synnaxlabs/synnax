@@ -15,7 +15,7 @@ import { group } from "@/group";
 import { NotFoundError, ValidationError } from "@/index";
 import { query } from "@/query";
 import { type resource } from "@/resource";
-import { createTestClient, newVirtualChannel } from "@/testutil";
+import { createTestClient, expectLive, newVirtualChannel } from "@/testutil";
 
 const client = createTestClient();
 
@@ -333,7 +333,9 @@ describe("Group", () => {
       await expect(
         client.groups.setParent(parent.key, group.resourceID(child.key)),
       ).rejects.toThrow("would form a cycle");
-      expect(client.groups.watch(parent.key).getCached()?.parent).toBeUndefined();
+      expect(
+        expectLive(client.groups.watch(parent.key).getCached()).parent,
+      ).toBeUndefined();
     });
   });
   describe("moveRequests", () => {
