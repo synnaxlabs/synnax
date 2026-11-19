@@ -10,7 +10,8 @@
 package key_test
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp/internal/key"
@@ -31,7 +32,7 @@ var _ = Describe("Format", func() {
 
 	It("Should write a 16-byte key in the UUID form", func() {
 		u := uuid.MustParse("6ba7b810-9dad-11d1-80b4-00c04fd430c8")
-		Expect(key.Format(u)).To(Equal(u.String()))
+		Expect(key.Format(u)).To(Equal("6ba7b810-9dad-11d1-80b4-00c04fd430c8"))
 		Expect(MustSucceed(key.Parse[uuid.UUID](u.String()))).To(Equal(u))
 	})
 
