@@ -13,6 +13,7 @@ import {
   spyOnSend,
   waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
+import { theme } from "@synnaxlabs/lyra/theme";
 import { color, id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
@@ -140,14 +141,14 @@ describe("queries", () => {
       expect(stored.color).toEqual(color.construct("#FF00FF"));
     });
 
-    it("should start from a blank name and a black color", () => {
+    it("should start from a blank name and a color that reads on both themes", () => {
       const { result } = renderHook(() => Label.useCreateForm({ query: null }), {
         wrapper,
       });
-      expect(result.current.form.value()).toEqual({
-        name: "",
-        color: color.construct("#000000"),
-      });
+      const { name, color: c } = result.current.form.value();
+      expect(name).toBe("");
+      for (const t of [theme.SYNNAX_LIGHT, theme.SYNNAX_DARK])
+        expect(color.contrast(c, t.colors.gray.l0)).toBeGreaterThanOrEqual(3);
     });
   });
 

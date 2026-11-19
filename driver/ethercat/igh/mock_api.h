@@ -136,6 +136,9 @@ public:
         std::vector<uint16_t> sii;
         /// @brief what sii_read returns for the slave, when not 0.
         int sii_result = 0;
+        /// @brief how many sii_read calls ran past the end of sii, which IgH logs as a
+        /// kernel error.
+        mutable size_t sii_overreads = 0;
         /// @brief the DC sync that the config sets up, or nullopt for none.
         std::optional<DC> dc;
         bool online = true;
@@ -675,7 +678,11 @@ public:
     ) const override {
         const auto &slave = this->slaves.at(position);
         if (slave.sii_result != 0) return slave.sii_result;
-        if (words.empty() || offset + words.size() > slave.sii.size()) return -EINVAL;
+        if (words.empty()) return -EINVAL;
+        if (offset + words.size() > slave.sii.size()) {
+            slave.sii_overreads++;
+            return -EINVAL;
+        }
         std::copy_n(slave.sii.begin() + offset, words.size(), words.begin());
         return 0;
     }

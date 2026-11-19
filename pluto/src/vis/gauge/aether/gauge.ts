@@ -162,7 +162,7 @@ export class Gauge
 
     const { lower, upper } = this.state.bounds;
     const valueNum = Number(value);
-    const clampedValue = bounds.clamp(this.state.bounds, valueNum);
+    const clampedValue = bounds.clamp(bounds.construct(this.state.bounds), valueNum);
     const range = upper - lower;
     const valueRatio = range === 0 ? 0 : (clampedValue - lower) / range;
     const valueAngle = i.gaugeStartAngle + valueRatio * i.gaugeAngleRange;
