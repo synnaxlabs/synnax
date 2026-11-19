@@ -119,13 +119,15 @@ var _ = Describe("Series order", func() {
 				channel.Keys{1, 2, 3},
 				[]telem.DataType{telem.StringT, telem.Float32T, telem.Float32T},
 			)
-			encoded := MustSucceed(c.Encode(ctx, frame.NewMulti(
+			fr := frame.NewMulti(
 				channel.Keys{2, 3},
 				[]telem.Series{
 					telem.NewSeriesV[float32](1),
 					telem.NewSeriesV[float32](2),
 				},
-			)))
+			)
+			MustSucceed(c.Decode(MustSucceed(c.Encode(ctx, fr))))
+			encoded := MustSucceed(c.Encode(ctx, fr))
 			// flags, sequence number, shared length, then a key and 4 data bytes for
 			// each series.
 			Expect(encoded).To(HaveLen(1 + 4 + 4 + 2*(4+4)))

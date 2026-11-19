@@ -31,33 +31,6 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// state is the agreement that one sequence number names.
-type state struct {
-	// keys holds the requested keys, ascending.
-	keys channel.Keys
-	// index maps each requested key to its position in keys.
-	index map[channel.Key]int
-	// dataTypes holds the data type of each requested key, in key order.
-	dataTypes []telem.DataType
-}
-
-// newState returns the state of the given keys and their data types, in any order.
-func newState(keys channel.Keys, dataTypes []telem.DataType) *state {
-	s := &state{
-		keys:      slices.Clone(keys),
-		index:     make(map[channel.Key]int, len(keys)),
-		dataTypes: make([]telem.DataType, len(keys)),
-	}
-	slices.Sort(s.keys)
-	for i, key := range s.keys {
-		s.index[key] = i
-	}
-	for i, key := range keys {
-		s.dataTypes[s.index[key]] = dataTypes[i]
-	}
-	return s
-}
-
 const bitsPerByte = 8
 
 // bitPackedByteCount returns the number of wire bytes needed to bit-pack nSamples
@@ -107,7 +80,9 @@ func writeTimeRange(w *binary.Writer, tr telem.TimeRange) {
 type sorter struct {
 	rawIndices []int
 	keys       []channel.Key
-	offset     int
+	// positions holds the position of each key in the requested keys of the state.
+	positions []int
+	offset    int
 }
 
 func (s *sorter) reset(size int) {
@@ -115,12 +90,14 @@ func (s *sorter) reset(size int) {
 	if cap(s.rawIndices) < size {
 		s.rawIndices = make([]int, size)
 		s.keys = make([]channel.Key, size)
+		s.positions = make([]int, size)
 	}
 }
 
-func (s *sorter) insert(key channel.Key, rawIndex int) {
+func (s *sorter) insert(key channel.Key, rawIndex, position int) {
 	s.keys[s.offset] = key
 	s.rawIndices[s.offset] = rawIndex
+	s.positions[s.offset] = position
 	s.offset++
 }
 
@@ -143,6 +120,7 @@ func (s *sorter) Less(i, j int) bool {
 func (s *sorter) Swap(i, j int) {
 	s.keys[i], s.keys[j] = s.keys[j], s.keys[i]
 	s.rawIndices[i], s.rawIndices[j] = s.rawIndices[j], s.rawIndices[i]
+	s.positions[i], s.positions[j] = s.positions[j], s.positions[i]
 }
 
 // Codec is a high-performance encoder/decoder specifically designed for moving
@@ -191,6 +169,11 @@ type Codec struct {
 	// decodeLimit is the most bytes that one decoded frame can hold, or zero for no
 	// limit.
 	decodeLimit int64
+	// codes, kinds, and clocks hold the type codes, the override kinds, and the agreed
+	// clocks of the frame being encoded. See plan.
+	codes  []byte
+	kinds  []byte
+	clocks []uint32
 }
 
 // Option configures a Codec.
@@ -332,8 +315,7 @@ type flags struct {
 	// multiplesPresent is true when each series carries its alignment multiple after
 	// its alignment. It is set only when a series has a multiple above one.
 	multiplesPresent bool
-	// extended marks a second flags byte after the first. No encoder sets it yet, so a
-	// decoder rejects it.
+	// extended is true when the extension flags follow the sequence number.
 	extended bool
 }
 
@@ -357,6 +339,7 @@ func (f flags) encode() byte {
 	b = equalAlignmentsFlagPos.Set(b, f.equalAlignments)
 	b = zeroAlignmentsFlagPos.Set(b, f.zeroAlignments)
 	b = multiplesPresentFlagPos.Set(b, f.multiplesPresent)
+	b = extendedFlagPos.Set(b, f.extended)
 	return b
 }
 
@@ -426,6 +409,8 @@ func mergeable(s1, s2 telem.Series) bool {
 type mergedSeriesInfo struct {
 	series telem.Series
 	key    channel.Key
+	// index is the position of key in the requested keys of the state.
+	index int
 }
 
 // mergeContiguousSeries processes sorted series and merges the adjacent series of each
@@ -470,6 +455,7 @@ func (c *Codec) mergeContiguousSeries(
 			c.mergedSeriesResult = append(c.mergedSeriesResult, mergedSeriesInfo{
 				series: mergeRun(sortedIndices[runStart:runEnd], src),
 				key:    key,
+				index:  c.encodeSorter.positions[i],
 			})
 			runStart = runEnd
 		}
@@ -571,20 +557,27 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 	c.panicIfNotUpdated("Encode")
 	c.prune(c.mu.seqNum)
 	currState := c.mu.states[c.mu.seqNum]
-	if err := c.sortSeries(ctx, src, currState); err != nil {
-		return err
-	}
+	c.sortSeries(src, currState)
 	mergedSeries := c.mergeContiguousSeries(
 		c.encodeSorter.keys,
 		c.encodeSorter.rawIndices,
 		src,
 		c.encodeSorter.offset,
 	)
+	ext, err := c.plan(ctx, mergedSeries, currState.keys, &currState.enc)
+	if err != nil {
+		return err
+	}
 	h := newEncodeHeader(mergedSeries, currState)
-	c.buf.Resize(h.byteArraySize)
+	h.fgs.extended = ext != 0
+	c.buf.Resize(h.byteArraySize + c.planSize(ext))
 	c.buf.Reset()
 	c.buf.Uint8(h.fgs.encode())
 	c.buf.Uint32(c.mu.seqNum)
+	if h.fgs.extended {
+		c.buf.Uint8(ext)
+		c.buf.Write(c.codes)
+	}
 	if h.fgs.equalLens {
 		c.buf.Uint32(uint32(h.dataSize))
 	}
@@ -594,44 +587,29 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 	if h.fgs.equalAlignments && !h.fgs.zeroAlignments {
 		c.buf.Uint64(uint64(h.alignment))
 	}
-	for _, msi := range mergedSeries {
-		c.writeSeries(h.fgs, msi)
+	if overridesPresentFlagPos.Get(ext) {
+		c.buf.Uint32(c.nextOverride(0))
 	}
+	for i, msi := range mergedSeries {
+		c.writeSeries(h.fgs, i, msi)
+	}
+	c.commit(ext, &currState.enc)
 	return nil
 }
 
-// sortSeries validates each series in src that currState requests and sorts the series
-// by key and raw index into c.encodeSorter. It drops the series of other keys.
-func (c *Codec) sortSeries(
-	ctx context.Context,
-	src framer.Frame,
-	currState *state,
-) error {
-	for rawI, s := range src.RawSeries() {
+// sortSeries sorts the series in src that currState requests by key and raw index into
+// c.encodeSorter. It drops the series of other keys.
+func (c *Codec) sortSeries(src framer.Frame, currState *state) {
+	for rawI := range src.RawSeries() {
 		if src.ShouldExcludeRaw(rawI) {
 			continue
 		}
 		key := src.RawKeyAt(rawI)
-		i, ok := currState.index[key]
-		if !ok {
-			continue
-		}
-		c.encodeSorter.insert(key, rawI)
-		dt := currState.dataTypes[i]
-		isEquivalent := (dt == telem.Int64T || dt == telem.TimestampT) &&
-			(s.DataType == telem.Int64T || s.DataType == telem.TimestampT)
-		if dt != s.DataType && !isEquivalent {
-			return errors.Wrapf(
-				validate.ErrValidation,
-				"data type %s for channel %s does not match series data type %s",
-				dt,
-				c.retrieveName(ctx, key),
-				s.DataType,
-			)
+		if position, ok := currState.index[key]; ok {
+			c.encodeSorter.insert(key, rawI, position)
 		}
 	}
 	c.encodeSorter.sort()
-	return nil
 }
 
 // encodeHeader holds the flags, the shared reference values, and the total byte size
@@ -735,11 +713,12 @@ func (h *encodeHeader) metadataSize(count int) int {
 	return size
 }
 
-func (c *Codec) writeSeries(fgs flags, msi mergedSeriesInfo) {
+func (c *Codec) writeSeries(fgs flags, ordinal int, msi mergedSeriesInfo) {
 	s := msi.series
 	if !fgs.allChannelsPresent {
 		c.buf.Uint32(uint32(msi.key))
 	}
+	c.writeOverride(ordinal, s)
 	if !fgs.equalLens {
 		if s.DataType.IsVariable() {
 			c.buf.Uint32(uint32(s.Size()))
@@ -769,47 +748,89 @@ func (c *Codec) Decode(src []byte) (dst framer.Frame, err error) {
 }
 
 // decodeHeader holds the flags, the state, and the shared reference values that a
-// frame header carries.
+// frame header carries, and the position of the decoder in the frame.
 type decodeHeader struct {
 	fgs       flags
+	ext       byte
+	seqNum    uint32
 	state     *state
 	dataLen   uint32
 	tr        telem.TimeRange
 	alignment telem.Alignment
 	// decoded is the running count of bytes the frame decodes to.
 	decoded int64
+	// ordinal is the position of the next series in the frame.
+	ordinal uint32
+	// next is the ordinal of the next series that has an override.
+	next uint32
 }
 
-// DecodeStream decodes a frame from the given io reader.
+// DecodeStream decodes a frame from the given io reader. A frame that fails to decode
+// drops its state, so every later frame of the state fails.
 func (c *Codec) DecodeStream(reader io.Reader) (framer.Frame, error) {
 	c.processUpdates()
 	c.panicIfNotUpdated("Decode")
 	c.reader.Reset(reader)
-	h, err := c.readHeader()
+	var h decodeHeader
+	fr, err := c.decode(&h)
+	if err != nil {
+		if h.state != nil {
+			h.state.dec.dropped = true
+		}
+		return framer.Frame{}, err
+	}
+	return fr, nil
+}
+
+func (c *Codec) decode(h *decodeHeader) (framer.Frame, error) {
+	if err := c.readHeader(h); err != nil {
+		return framer.Frame{}, err
+	}
+	decodeSeries := c.decodeKeyedSeries
+	if h.fgs.allChannelsPresent {
+		decodeSeries = c.decodeAllSeries
+	}
+	fr, err := decodeSeries(h)
 	if err != nil {
 		return framer.Frame{}, err
 	}
-	if h.fgs.allChannelsPresent {
-		fr := frame.Alloc(len(h.state.keys))
-		for _, k := range h.state.keys {
-			s, err := c.decodeSeries(&h, k)
-			if err != nil {
-				return framer.Frame{}, err
-			}
-			fr = fr.Append(k, s)
-		}
-		return fr, nil
+	if h.next != noOverride {
+		return framer.Frame{}, invalidf(
+			"remote ended the frame with the override for series %d pending",
+			h.next,
+		)
 	}
+	return fr, nil
+}
+
+// decodeAllSeries decodes one series for each key of the state, in key order.
+func (c *Codec) decodeAllSeries(h *decodeHeader) (framer.Frame, error) {
+	fr := frame.Alloc(len(h.state.keys))
+	for _, k := range h.state.keys {
+		s, err := c.decodeSeries(h, k)
+		if err != nil {
+			return framer.Frame{}, err
+		}
+		fr = fr.Append(k, s)
+	}
+	if _, err := c.reader.Uint8(); !errors.Is(err, io.EOF) {
+		return framer.Frame{}, invalidf("remote sent bytes after the last series")
+	}
+	return fr, nil
+}
+
+// decodeKeyedSeries decodes series that each carry their key until the frame ends.
+func (c *Codec) decodeKeyedSeries(h *decodeHeader) (framer.Frame, error) {
 	var fr framer.Frame
 	for {
 		k, err := c.reader.Uint32()
+		if errors.Is(err, io.EOF) {
+			return fr, nil
+		}
 		if err != nil {
-			if errors.Is(err, io.EOF) {
-				return fr, nil
-			}
 			return framer.Frame{}, err
 		}
-		s, err := c.decodeSeries(&h, channel.Key(k))
+		s, err := c.decodeSeries(h, channel.Key(k))
 		if err != nil {
 			return framer.Frame{}, err
 		}
@@ -817,57 +838,87 @@ func (c *Codec) DecodeStream(reader io.Reader) (framer.Frame, error) {
 	}
 }
 
-func (c *Codec) readHeader() (decodeHeader, error) {
-	var h decodeHeader
+func (c *Codec) readHeader(h *decodeHeader) error {
 	flagB, err := c.reader.Uint8()
 	if err != nil {
-		return decodeHeader{}, err
+		return err
 	}
-	seqNum, err := c.reader.Uint32()
-	if err != nil {
-		return decodeHeader{}, err
+	if h.seqNum, err = c.reader.Uint32(); err != nil {
+		return err
 	}
-	cState, ok := c.mu.states[seqNum]
+	cState, ok := c.mu.states[h.seqNum]
 	if !ok {
-		return decodeHeader{}, errors.Wrapf(
+		return errors.Wrapf(
 			validate.ErrValidation,
 			"remote sent invalid sequence number %d. Valid rawIndices are %v",
-			seqNum,
+			h.seqNum,
 			lo.Keys(c.mu.states),
 		)
 	}
-	h.state = cState
-	c.prune(seqNum)
-	h.fgs = decodeFlags(flagB)
-	if h.fgs.extended {
-		return decodeHeader{}, errors.Wrap(
-			validate.ErrValidation,
-			"remote sent an extended flags byte, which this codec does not support",
+	c.prune(h.seqNum)
+	if cState.dec.dropped {
+		return invalidf(
+			"remote sent a frame for state %d after a frame of it failed to decode",
+			h.seqNum,
 		)
+	}
+	h.state = cState
+	h.fgs = decodeFlags(flagB)
+	if err = c.readExtension(h); err != nil {
+		return err
 	}
 	if h.fgs.equalLens {
 		if h.dataLen, err = c.reader.Uint32(); err != nil {
-			return decodeHeader{}, err
+			return err
 		}
 	}
 	if h.fgs.equalTimeRanges && !h.fgs.timeRangesZero {
 		if h.tr, err = c.readTimeRange(); err != nil {
-			return decodeHeader{}, err
+			return err
 		}
 	}
 	if h.fgs.equalAlignments && !h.fgs.zeroAlignments {
 		v, err := c.reader.Uint64()
 		if err != nil {
-			return decodeHeader{}, err
+			return err
 		}
 		h.alignment = telem.Alignment(v)
 	}
-	return h, nil
+	h.next = noOverride
+	if overridesPresentFlagPos.Get(h.ext) {
+		if h.next, err = c.reader.Uint32(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // decodeSeries reads the series for key and adds its size to h.decoded.
 func (c *Codec) decodeSeries(h *decodeHeader, key channel.Key) (telem.Series, error) {
-	s := telem.Series{TimeRange: h.tr, Alignment: h.alignment}
+	i, exists := h.state.index[key]
+	if !exists {
+		return telem.Series{}, errors.Newf("unknown channel key: %v", key)
+	}
+	dataType := h.state.dec.dataTypes[i]
+	if h.ordinal == h.next {
+		var err error
+		if dataType, err = c.readOverride(h, i); err != nil {
+			return telem.Series{}, err
+		}
+	}
+	h.ordinal++
+	if h.fgs.equalLens && dataType.IsVariable() {
+		return telem.Series{}, invalidf(
+			"remote sent variable data type %s under a shared length",
+			dataType,
+		)
+	}
+	s := telem.Series{
+		TimeRange: h.tr,
+		Alignment: h.alignment,
+		DataType:  dataType,
+		Clock:     h.state.dec.clocks[i],
+	}
 	dataLenOrSize := h.dataLen
 	var err error
 	if !h.fgs.equalLens {
@@ -875,12 +926,6 @@ func (c *Codec) decodeSeries(h *decodeHeader, key channel.Key) (telem.Series, er
 			return telem.Series{}, err
 		}
 	}
-	i, exists := h.state.index[key]
-	if !exists {
-		return telem.Series{}, errors.Newf("unknown channel key: %v", key)
-	}
-	dataType := h.state.dataTypes[i]
-	s.DataType = dataType
 	size := int64(dataLenOrSize)
 	if !dataType.IsVariable() && dataType != telem.BooleanT {
 		size = int64(dataType.Density().Size(size))

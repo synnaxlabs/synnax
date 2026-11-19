@@ -482,24 +482,11 @@ var _ = Describe("Codec", func() {
 
 	Describe("Error Handling", func() {
 		It(
-			"Should return a validation error when a series has the wrong data type",
-			func(ctx SpecContext) {
-				c := codec.NewStatic(
-					[]channel.Key{1},
-					[]telem.DataType{telem.Uint8T},
-				)
-				fr := frame.NewUnary(1, telem.NewSeriesSecondsTSV(1, 2, 3))
-				encoded, err := c.Encode(ctx, fr)
-				Expect(encoded).To(BeEmpty())
-				Expect(err).To(MatchError(validate.ErrValidation))
-			},
-		)
-		It(
 			"Should reject a frame with a key the decoder does not know",
 			func(ctx SpecContext) {
 				dataTypes := []telem.DataType{telem.Int32T, telem.Int32T, telem.Int32T}
-				enc := codec.NewStatic(channel.Keys{1, 2, 3}, dataTypes)
-				dec := codec.NewStatic(channel.Keys{1, 2}, dataTypes[:2])
+				enc := codec.NewStatic(channel.Keys{1, 3, 4}, dataTypes)
+				dec := codec.NewStatic(channel.Keys{1, 2, 4}, dataTypes)
 				encoded := MustSucceed(enc.Encode(ctx, frame.NewMulti(
 					channel.Keys{1, 3},
 					[]telem.Series{
@@ -517,8 +504,12 @@ var _ = Describe("Codec", func() {
 		DescribeTable("Should fail without allocating a length the frame does not hold",
 			func(ctx SpecContext, dataType telem.DataType, series telem.Series) {
 				c := codec.NewStatic(channel.Keys{1}, []telem.DataType{dataType})
+				MustSucceed(
+					c.Decode(MustSucceed(c.Encode(ctx, frame.NewUnary(1, series)))),
+				)
 				encoded := MustSucceed(c.Encode(ctx, frame.NewUnary(1, series)))
-				// The flags byte and the sequence number come before the length.
+				// In a frame after the first of its state, the flags byte and the
+				// sequence number come before the length.
 				telem.ByteOrder.PutUint32(encoded[5:9], math.MaxUint32)
 				var before, after runtime.MemStats
 				runtime.ReadMemStats(&before)
@@ -654,25 +645,6 @@ var _ = Describe("Codec", func() {
 				telem.BooleanT,
 				telem.Series{DataType: telem.BooleanT, Data: alternating(9<<20 + 3)},
 			),
-		)
-	})
-
-	Describe("Extended Flags", func() {
-		It(
-			"Should reject a frame that sets the extended flags bit",
-			func(ctx SpecContext) {
-				c := codec.NewStatic(channel.Keys{1}, []telem.DataType{telem.Int32T})
-				encoded := MustSucceed(
-					c.Encode(ctx, frame.NewUnary(1, telem.NewSeriesV[int32](1))),
-				)
-				encoded[0] |= 1 << 7
-				Expect(c.Decode(encoded)).Error().To(SatisfyAll(
-					MatchError(validate.ErrValidation),
-					MatchError(
-						"remote sent an extended flags byte, which this codec does not support: validation error",
-					),
-				))
-			},
 		)
 	})
 
@@ -987,7 +959,15 @@ var _ = Describe("Codec", func() {
 						}
 						encodeMu.Lock()
 						buf.Reset()
-						encodeErr = enc.EncodeStream(ctx, &buf, framer.Frame{})
+						// Every frame of a state reaches the decoder in order, as on a
+						// stream, since the first frame of a state declares its types.
+						if encodeErr = enc.EncodeStream(
+							ctx,
+							&buf,
+							framer.Frame{},
+						); encodeErr == nil {
+							_, encodeErr = dec.Decode(buf.Bytes())
+						}
 						encodeMu.Unlock()
 					}
 				}()
@@ -997,16 +977,15 @@ var _ = Describe("Codec", func() {
 					if i%2 == 0 {
 						keys = both
 					}
-					Expect(enc.Update(ctx, keys)).To(Succeed())
 					Expect(dec.Update(ctx, keys)).To(Succeed())
+					Expect(enc.Update(ctx, keys)).To(Succeed())
 					checking.Store(true)
-					encoded := func() []byte {
+					decoded := func() framer.Frame {
 						encodeMu.Lock()
 						defer encodeMu.Unlock()
-						return MustSucceed(enc.Encode(ctx, fr))
+						return MustSucceed(dec.Decode(MustSucceed(enc.Encode(ctx, fr))))
 					}()
 					checking.Store(false)
-					decoded := MustSucceed(dec.Decode(encoded))
 					if (decoded.Get(idxCh).Len() > 0) != (len(keys) == 2) {
 						mismatches++
 					}
@@ -1725,10 +1704,10 @@ var _ = Describe("Codec", func() {
 
 		Describe("Name Resolution", func() {
 			It(
-				"Should include the resolved channel name in a data type mismatch error",
+				"Should include the resolved channel name in a missing type code error",
 				func(ctx SpecContext) {
 					c := codec.NewDynamic(configResolver{
-						dataTypes: map[channel.Key]telem.DataType{777: telem.Uint8T},
+						dataTypes: map[channel.Key]telem.DataType{777: telem.UnknownT},
 						name:      "my-channel",
 					})
 					Expect(c.Update(ctx, []channel.Key{777})).To(Succeed())
@@ -1744,7 +1723,7 @@ var _ = Describe("Codec", func() {
 				"Should fall back to the key string when the resolver returns an empty name",
 				func(ctx SpecContext) {
 					c := codec.NewDynamic(configResolver{
-						dataTypes: map[channel.Key]telem.DataType{777: telem.Uint8T},
+						dataTypes: map[channel.Key]telem.DataType{777: telem.UnknownT},
 						name:      "",
 					})
 					Expect(c.Update(ctx, []channel.Key{777})).To(Succeed())
