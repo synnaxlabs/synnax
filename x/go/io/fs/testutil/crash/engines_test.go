@@ -45,6 +45,8 @@ type plainOpts struct {
 	wiped bool
 	// once reads each record one time.
 	once bool
+	// writeback makes a Durable commit durable with crash.Writeback, not a Sync.
+	writeback bool
 	// bulk reads the whole log in one call, two times at most, and keeps the read with
 	// the longer good prefix. It checks the checksum of each record that starts before
 	// bulk.
@@ -54,6 +56,7 @@ type plainOpts struct {
 // plainLog is an append-only log in one file. Each record is a checksum, a length, an
 // ID, and the payload. A bad record ends the log as a torn tail.
 type plainLog struct {
+	fs      xfs.FS
 	f       xfs.File
 	dead    error
 	records []crash.Record
@@ -74,7 +77,7 @@ func openPlainLog(o plainOpts) func(context.Context, xfs.FS) (crash.Engine, erro
 		if err != nil {
 			return nil, err
 		}
-		l := &plainLog{f: f, o: o}
+		l := &plainLog{fs: fs, f: f, o: o}
 		switch {
 		case !existed:
 			err = fs.SyncDir("")
@@ -247,6 +250,10 @@ func (l *plainLog) Commit(
 		return 0, nil
 	case want == crash.Durable && l.o.lazy:
 		l.pending = true
+	case want == crash.Durable && l.o.writeback:
+		if l.dead = crash.Writeback(l.fs); l.dead != nil {
+			return 0, l.dead
+		}
 	case want == crash.Durable:
 		if l.dead = l.f.Sync(); l.dead != nil {
 			l.records = l.records[:len(l.records)-1]

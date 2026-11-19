@@ -108,6 +108,24 @@ func statOf(info xfs.FileInfo) (fault.Stat, error) {
 	return stat, nil
 }
 
+// Writeback makes each write and each directory change on the disk of fs durable, as
+// fault.FS.Writeback does, in one event. fs is an FS that Run gave the engine of the
+// workload, or a Sub of it.
+func Writeback(fs xfs.FS) error {
+	counted, ok := fs.(*countedFS)
+	if !ok {
+		return errors.New("crash: writeback needs the FS of the workload")
+	}
+	disk, ok := counted.inner.(*fault.FS)
+	if !ok {
+		return errors.New("crash: writeback needs a fault disk")
+	}
+	counted.c.begin()
+	defer counted.c.end(nil, true)
+	disk.Writeback()
+	return nil
+}
+
 // countedFS passes each call to inner, an FS of a fault disk, and counts the calls that
 // change the disk.
 type countedFS struct {

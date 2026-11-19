@@ -227,7 +227,7 @@ func (r *run) check(s *snapshot, attempts []attempt) {
 	if s == nil || r.stopped() {
 		return
 	}
-	first, faults, err := r.recover(s.image)
+	first, faults, audit, err := r.recover(s.image)
 	rules, _ := r.underFaults(s.rules, faults)
 	if err != nil {
 		r.refused(err, rules, s.event, faults, "the engine did not recover")
@@ -242,7 +242,7 @@ func (r *run) check(s *snapshot, attempts []attempt) {
 		lost,
 		s.event,
 		faults,
-	) {
+	) || !r.audited(audit, s.event, faults) {
 		return
 	}
 	again, err := s.image.Crash(r.plan.crash(s.event))
@@ -251,7 +251,7 @@ func (r *run) check(s *snapshot, attempts []attempt) {
 		return
 	}
 	// A loss that the faults of the first recovery freed stays after the crash.
-	second, faults, err := r.recover(again)
+	second, faults, audit, err := r.recover(again)
 	rules.refusalAllowed = false
 	rules, faulted := r.underFaults(rules, faults)
 	if err != nil {
@@ -266,7 +266,22 @@ func (r *run) check(s *snapshot, attempts []attempt) {
 		return
 	}
 	b, lost := checkSecond(attempts, first, second, rules, faulted)
-	r.held(b, lost, s.event, faults)
+	if r.held(b, lost, s.event, faults) {
+		r.audited(audit, s.event, faults)
+	}
+}
+
+// audited applies R5 to the error of an Audit, and reports if it held.
+func (r *run) audited(audit error, event int, faults []fault.Fault) bool {
+	if audit == nil {
+		return true
+	}
+	r.fail(
+		&broken{rule: R5, detail: "the audit failed: " + audit.Error()},
+		event,
+		faults,
+	)
+	return false
 }
 
 // underFaults returns base for a recovery on a disk that gave the read faults, and if
@@ -380,11 +395,11 @@ func (r *run) abort(err error) {
 	}
 }
 
-// recover opens the engine on image and returns the commits that it holds, and the read
-// faults that the disk gave.
+// recover opens the engine on image and returns the commits that it holds, the read
+// faults that the disk gave, and the error of its Audit.
 func (r *run) recover(
 	image *fault.FS,
-) (records []Record, faults []fault.Fault, err error) {
+) (records []Record, faults []fault.Fault, audit, err error) {
 	r.result.Recoveries++
 	defer func() {
 		faults = image.ReadFaults()
@@ -392,11 +407,16 @@ func (r *run) recover(
 	}()
 	engine, err := r.cfg.Open(r.ctx, image)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	defer func() { err = errors.Combine(err, engine.Close()) }()
-	records, err = engine.Recovered(r.ctx)
-	return records, nil, err
+	if records, err = engine.Recovered(r.ctx); err != nil {
+		return nil, nil, nil, err
+	}
+	if auditor, ok := engine.(Auditor); ok {
+		audit = auditor.Audit(r.ctx)
+	}
+	return records, nil, audit, nil
 }
 
 // payload returns the bytes of the commit id in the run of runKey.

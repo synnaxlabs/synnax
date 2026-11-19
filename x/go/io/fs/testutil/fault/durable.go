@@ -145,6 +145,17 @@ func (d *disk) drop(n *node, file, nth uint64) {
 	n.dirty = nil
 }
 
+// writeback makes the bytes and the length of each file under n durable, with no Sync.
+func (d *disk) writeback(n *node) {
+	if n.dir {
+		for _, child := range n.entries {
+			d.writeback(child)
+		}
+		return
+	}
+	n.durable, n.dirty = slices.Clone(n.data), nil
+}
+
 // entry names one directory entry.
 type entry struct {
 	dir  *node
@@ -170,13 +181,7 @@ func (d *disk) syncDir(n *node, p string) error {
 			continue
 		}
 		d.syncedThrough = max(d.syncedThrough, c.seq)
-		for _, h := range c.halves {
-			if h.to == nil {
-				delete(h.dir.durableEntries, h.name)
-			} else {
-				h.dir.durableEntries[h.name] = h.to
-			}
-		}
+		c.makeDurable()
 	}
 	d.pending = kept
 	return nil

@@ -249,6 +249,20 @@ func (f *FS) Stat(name string) (xfs.FileInfo, error) {
 	return n.info(path.Base(p)), nil
 }
 
+// Writeback makes each write and each directory change on the disk durable, as kernel
+// writeback does for data written long ago. It fails no call, and it is no Sync: Stat
+// reports the Syncs from before it.
+func (f *FS) Writeback() {
+	d := f.d
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	for _, c := range d.pending {
+		c.makeDurable()
+	}
+	d.pending, d.syncedThrough = nil, d.changes
+	d.writeback(d.root)
+}
+
 // SyncDir implements fs.FS.
 func (f *FS) SyncDir(name string) error {
 	p, d := f.abs(name), f.d

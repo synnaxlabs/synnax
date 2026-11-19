@@ -196,6 +196,17 @@ type change struct {
 	seq uint64
 }
 
+// makeDurable puts the change in the entries that a crash keeps.
+func (c *change) makeDurable() {
+	for _, h := range c.halves {
+		if h.to == nil {
+			delete(h.dir.durableEntries, h.name)
+		} else {
+			h.dir.durableEntries[h.name] = h.to
+		}
+	}
+}
+
 // half is the change to one entry: name in dir held from before, and holds to after. A
 // nil node is no entry.
 type half struct {

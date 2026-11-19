@@ -45,6 +45,41 @@ var _ = Describe("Crash", func() {
 	var fs *fault.FS
 	BeforeEach(func() { fs = MustSucceed(fault.New(fault.Config{})) })
 
+	Describe("Writeback", func() {
+		It("Should make each write and each directory change durable", func() {
+			MustSucceed(fs.Sub("a"))
+			Expect(xfs.WriteFile(fs, "a/f.txt", []byte("taco"))).To(Succeed())
+			Expect(xfs.WriteFile(fs, "g.txt", []byte("cat"))).To(Succeed())
+			Expect(fs.SyncDir("")).To(Succeed())
+			Expect(fs.Rename("g.txt", "a/g.txt")).To(Succeed())
+			fs.Writeback()
+			image := strict(fs)
+			Expect(read(image, "a/f.txt")).To(Equal("taco"))
+			Expect(read(image, "a/g.txt")).To(Equal("cat"))
+			Expect(MustSucceed(image.Exists("g.txt"))).To(BeFalse())
+		})
+
+		It("Should not count as a Sync", func() {
+			f := MustSucceed(fs.Open("f.txt", os.O_CREATE|os.O_RDWR))
+			Expect(f.Write([]byte("taco"))).To(Equal(4))
+			fs.Writeback()
+			stat, ok := MustSucceed(f.Stat()).Sys().(fault.Stat)
+			Expect(ok).To(BeTrue())
+			Expect(stat.Syncs).To(BeZero())
+			Expect(stat.Synced).To(BeEmpty())
+			Expect(f.Close()).To(Succeed())
+		})
+
+		It("Should keep a write made after it only through a Sync", func() {
+			save(fs, "f.txt", "taco")
+			fs.Writeback()
+			f := MustSucceed(fs.Open("f.txt", os.O_RDWR))
+			Expect(f.WriteAt([]byte("T"), 0)).To(Equal(1))
+			Expect(f.Close()).To(Succeed())
+			Expect(read(strict(fs), "f.txt")).To(Equal("taco"))
+		})
+	})
+
 	Describe("File data", func() {
 		BeforeEach(func() {
 			save(fs, "f.txt", "tacocat")

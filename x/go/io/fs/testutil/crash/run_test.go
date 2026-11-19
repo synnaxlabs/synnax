@@ -16,8 +16,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/errors"
+	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/io/fs/testutil/crash"
+	"github.com/synnaxlabs/x/io/fs/testutil/fault"
 	"github.com/synnaxlabs/x/set"
+	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -208,6 +211,39 @@ var _ = Describe("Run", func() {
 			func(cfg *crash.Config) { cfg.Profile = 10 }),
 	)
 
+	Describe("Audit", func() {
+		It("Should audit each recovery", func(ctx SpecContext) {
+			result, calls := MustSucceed2(runAudited(ctx, nil))
+			Expect(calls).To(Equal(result.Recoveries))
+		})
+
+		It("Should break R5 on a failed audit", func(ctx SpecContext) {
+			_, _, err := runAudited(ctx, errors.New("taco"))
+			var v *crash.Violation
+			Expect(errors.As(err, &v)).To(BeTrue(), "no violation: %v", err)
+			Expect(v.Rule).To(Equal(crash.R5))
+			Expect(v.Detail).To(Equal("the audit failed: taco"))
+		})
+	})
+
+	Describe("Writeback", func() {
+		It("Should keep each Durable commit that a writeback made durable",
+			func(ctx SpecContext) {
+				Expect(violation(ctx, crash.Config{
+					Open:    openPlainLog(plainOpts{writeback: true}),
+					Commits: 20,
+					Stride:  1,
+					Profile: crash.Strict,
+				})).To(Succeed())
+			},
+		)
+
+		It("Should fail on an FS that Run did not give", func() {
+			Expect(crash.Writeback(MustSucceed(fault.New(fault.Config{})))).
+				To(MatchError("crash: writeback needs the FS of the workload"))
+		})
+	})
+
 	It("Should catch a skipped checksum on a disk of one block", func(ctx SpecContext) {
 		rules := set.Set[crash.Rule]{}
 		for runKey := range uint64(32) {
@@ -225,6 +261,37 @@ var _ = Describe("Run", func() {
 		Expect(rules.Slice()).To(ConsistOf(crash.R2))
 	})
 })
+
+// audited is an engine whose Audit counts its calls and returns err.
+type audited struct {
+	crash.Engine
+	err   error
+	calls *int
+}
+
+func (a audited) Audit(context.Context) error {
+	*a.calls++
+	return a.err
+}
+
+// runAudited runs the harness under Strict on a plain log whose Audit returns audit,
+// and returns the count of Audit calls.
+func runAudited(ctx context.Context, audit error) (crash.Result, int, error) {
+	calls := 0
+	result, runErr := crash.Run(ctx, crash.Config{
+		Open: func(ctx context.Context, fs xfs.FS) (crash.Engine, error) {
+			e, err := openPlainLog(plainOpts{})(ctx, fs)
+			if err != nil {
+				return nil, err
+			}
+			return audited{Engine: e, err: audit, calls: &calls}, nil
+		},
+		Commits: 4,
+		Stride:  1,
+		Profile: crash.Strict,
+	})
+	return result, calls, runErr
+}
 
 // BenchmarkRun measures one pass of 200 commits on the reference engine, with a crash
 // image and a recovery after each disk change.

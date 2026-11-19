@@ -112,7 +112,17 @@ const (
 	// image that OldCorruption or NewCorruption changed, on the first open, or after
 	// read faults that RepeatedReadFaults allows.
 	R4 Rule = "R4"
+	// R5 says that the state that each recovery returns keeps the invariants that the
+	// Audit of the engine checks.
+	R5 Rule = "R5"
 )
+
+// Auditor is an Engine that checks its own invariants. Run calls Audit after each
+// recovery that returned its records, and an error breaks R5.
+type Auditor interface {
+	Engine
+	Audit(ctx context.Context) error
+}
 
 // Violation is the error of a run that broke a rule. The run key and the event replay
 // it.
