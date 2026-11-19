@@ -191,11 +191,35 @@ describe("Enumeration.Settings", () => {
     const user = await createSelectUser(e.key);
     await renderEnumerations();
     const item = await screen.findByRole("option", { name: e.name });
-    expect(await within(item).findByText("1 schematic")).toBeTruthy();
+    expect(await within(item).findByText("Used by 1")).toBeTruthy();
     await createSelectUser(e.key);
-    expect(await within(item).findByText("2 schematics")).toBeTruthy();
+    expect(await within(item).findByText("Used by 2")).toBeTruthy();
     await client.schematics.delete(user.key);
-    expect(await within(item).findByText("1 schematic")).toBeTruthy();
+    expect(await within(item).findByText("Used by 1")).toBeTruthy();
+  });
+
+  it("should list the schematics that use an enumeration from its count", async () => {
+    const e = await createEnumeration();
+    const user = await createSelectUser(e.key);
+    await renderEnumerations();
+    const item = await screen.findByRole("option", { name: e.name });
+    const count = await within(item).findByText("Used by 1");
+    expect(screen.queryByText(user.name)).toBeNull();
+    await act(async () => {
+      fireEvent.click(count);
+    });
+    expect(await screen.findByText(user.name)).toBeTruthy();
+  });
+
+  it("should open the users of an enumeration from its menu", async () => {
+    const e = await createEnumeration();
+    await renderEnumerations();
+    await openContextMenu(e.name);
+    const usedBy = await screen.findByRole("menuitem", { name: "Used by" });
+    await act(async () => {
+      fireEvent.click(usedBy);
+    });
+    expect(await screen.findByText("Nothing uses this enumeration.")).toBeTruthy();
   });
 
   it("should create an enumeration and count up its entry values", async () => {

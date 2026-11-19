@@ -9,10 +9,11 @@
 
 import "@/feature/enumeration/Settings.css";
 
-import { enumeration, schematic } from "@synnaxlabs/client";
+import { enumeration } from "@synnaxlabs/client";
 import { Badge } from "@synnaxlabs/lyra/badge";
 import { Caret } from "@synnaxlabs/lyra/caret";
 import { Component } from "@synnaxlabs/lyra/component";
+import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
@@ -52,24 +53,6 @@ const COLUMNS: List.Column[] = [
 /** Every enumeration with its uses, read in one request. */
 const QUERY: Enumeration.ListQuery = { includeUses: true };
 
-interface UsedByProps {
-  enumeration: enumeration.Enumeration;
-}
-
-/** Names how many schematics use the enumeration. Shows nothing for none. */
-const UsedBy = ({ enumeration: e }: UsedByProps): ReactElement | null => {
-  const n = (e.uses ?? []).filter(
-    ({ type }) => type === schematic.TYPE_RESOURCE_ID.type,
-  ).length;
-  if (n === 0) return null;
-  return (
-    <Text.Text level="small" color={9}>
-      <Icon.Schematic />
-      {n} {n === 1 ? "schematic" : "schematics"}
-    </Text.Text>
-  );
-};
-
 interface ItemProps extends List.ItemProps<enumeration.Key> {
   enumeration: enumeration.Enumeration;
   open: boolean;
@@ -90,10 +73,12 @@ const Item = ({
   const canUpdate = Access.useUpdateGranted(enumeration.resourceID(e.key));
   const { update: rename } = Enumeration.useRename();
   const itemClass = PlatformSettings.useItemClass(e.key);
+  const [element, setElement] = useState<HTMLElement | null>(null);
   return (
     <div className={CSS.BE("enumeration-settings", "record")}>
       <Select.Item<enumeration.Key>
         {...props}
+        ref={setElement}
         checkable
         align="center"
         aria-label={e.name}
@@ -129,7 +114,12 @@ const Item = ({
             </Text.Text>
           </List.Cell>
           <List.Cell>
-            <UsedBy enumeration={e} />
+            <PlatformSettings.UsedBy
+              itemKey={e.key}
+              kind="enumeration"
+              uses={e.uses}
+              anchor={element}
+            />
           </List.Cell>
         </List.Cells>
       </Select.Item>
@@ -198,6 +188,14 @@ const ItemMenu = ({ enumeration: e }: ItemMenuProps): ReactElement => {
   const { update: restore } = Enumeration.useRestore();
   return (
     <ContextMenu.Menu>
+      <Menu.Item
+        itemKey="usedBy"
+        onClick={() => Dialog.open(PlatformSettings.usedByDialogID(e.key))}
+      >
+        <Icon.Link />
+        Used by
+      </Menu.Item>
+      <Menu.Divider />
       {canUpdate && (
         <ContextMenu.RenameItem onClick={() => Text.edit(List.itemNameID(e.key))} />
       )}
