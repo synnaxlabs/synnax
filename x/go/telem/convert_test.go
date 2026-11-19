@@ -10,6 +10,8 @@
 package telem_test
 
 import (
+	"math"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/telem"
@@ -95,4 +97,80 @@ var _ = Describe("Convert", func() {
 			"cannot convert a uuid series to int64",
 		),
 	)
+
+	DescribeTable("Should hold both ends of each integer range",
+		func(s telem.Series, dt telem.DataType, expected telem.Series) {
+			Expect(MustSucceed(telem.Convert(s, dt))).To(telem.MatchSeries(expected))
+		},
+		Entry("uint8", telem.NewSeriesV[int16](0, 255), telem.Uint8T,
+			telem.NewSeriesV[uint8](0, 255)),
+		Entry("uint16", telem.NewSeriesV[int32](0, 65535), telem.Uint16T,
+			telem.NewSeriesV[uint16](0, 65535)),
+		Entry("uint32", telem.NewSeriesV[int64](0, 4294967295), telem.Uint32T,
+			telem.NewSeriesV[uint32](0, 4294967295)),
+		Entry("uint64", telem.NewSeriesV[int64](0, math.MaxInt64), telem.Uint64T,
+			telem.NewSeriesV[uint64](0, math.MaxInt64)),
+		Entry("int8", telem.NewSeriesV[int16](-128, 127), telem.Int8T,
+			telem.NewSeriesV[int8](-128, 127)),
+		Entry("int16", telem.NewSeriesV[int32](-32768, 32767), telem.Int16T,
+			telem.NewSeriesV[int16](-32768, 32767)),
+		Entry("int32", telem.NewSeriesV[int64](math.MinInt32, math.MaxInt32),
+			telem.Int32T, telem.NewSeriesV[int32](math.MinInt32, math.MaxInt32)),
+		Entry("int64", telem.NewSeriesV[uint64](0, math.MaxInt64), telem.Int64T,
+			telem.NewSeriesV[int64](0, math.MaxInt64)),
+		Entry("int64 from a float", telem.NewSeriesV(-0x1p63), telem.Int64T,
+			telem.NewSeriesV[int64](math.MinInt64)),
+	)
+
+	DescribeTable("Should fail on a sample out of the range of the data type",
+		func(s telem.Series, dt telem.DataType, msg string) {
+			Expect(telem.Convert(s, dt)).Error().To(SatisfyAll(
+				MatchError(telem.ErrOutOfRange),
+				MatchError(ContainSubstring(msg)),
+				BeAssignableToTypeOf(telem.OutOfRangeError{}),
+			))
+		},
+		Entry("above uint8", telem.NewSeriesV[int16](256), telem.Uint8T,
+			"value 256 of an int16 series is out of range of uint8"),
+		Entry("below uint8", telem.NewSeriesV[int16](-1), telem.Uint8T,
+			"value -1 of an int16 series is out of range of uint8"),
+		Entry("above uint16", telem.NewSeriesV[int32](65536), telem.Uint16T,
+			"value 65536 of an int32 series is out of range of uint16"),
+		Entry("above uint32", telem.NewSeriesV[int64](4294967296), telem.Uint32T,
+			"value 4294967296 of an int64 series is out of range of uint32"),
+		Entry("below uint64", telem.NewSeriesV[int64](-1), telem.Uint64T,
+			"value -1 of an int64 series is out of range of uint64"),
+		Entry("above uint64", telem.NewSeriesV(0x1p64), telem.Uint64T,
+			"of a float64 series is out of range of uint64"),
+		Entry("above int8", telem.NewSeriesV[int16](128), telem.Int8T,
+			"value 128 of an int16 series is out of range of int8"),
+		Entry("below int8", telem.NewSeriesV[int16](-129), telem.Int8T,
+			"value -129 of an int16 series is out of range of int8"),
+		Entry("above int16", telem.NewSeriesV[int32](32768), telem.Int16T,
+			"value 32768 of an int32 series is out of range of int16"),
+		Entry("below int16", telem.NewSeriesV[int32](-32769), telem.Int16T,
+			"value -32769 of an int32 series is out of range of int16"),
+		Entry("above int32", telem.NewSeriesV[int64](math.MaxInt32+1), telem.Int32T,
+			"value 2147483648 of an int64 series is out of range of int32"),
+		Entry("below int32", telem.NewSeriesV[int64](math.MinInt32-1), telem.Int32T,
+			"value -2147483649 of an int64 series is out of range of int32"),
+		Entry("above int64", telem.NewSeriesV[uint64](math.MaxInt64+1), telem.Int64T,
+			"value 9223372036854775808 of a uint64 series is out of range of int64"),
+		Entry("below int64", telem.NewSeriesV(-0x1p64), telem.Int64T,
+			"of a float64 series is out of range of int64"),
+		Entry("NaN to an integer", telem.NewSeriesV(math.NaN()), telem.Int32T,
+			"value NaN of a float64 series is out of range of int32"),
+		Entry("above float32", telem.NewSeriesV(1e39), telem.Float32T,
+			"of a float64 series is out of range of float32"),
+	)
+
+	It("Should keep a NaN and an infinity from float64 to float32", func() {
+		converted := MustSucceed(telem.Convert(
+			telem.NewSeriesV(math.NaN(), math.Inf(1)),
+			telem.Float32T,
+		))
+		values := converted.Unmarshal[float32]()
+		Expect(math.IsNaN(float64(values[0]))).To(BeTrue())
+		Expect(math.IsInf(float64(values[1]), 1)).To(BeTrue())
+	})
 })
