@@ -66,7 +66,7 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 	statusSvc = mustOpen(b, "status service", statusSvc, err)
 	channelSvc, err := channel.OpenService(ctx, channel.ServiceConfig{
 		Channel: node.Channel,
-		TS:      node.TS,
+		TS:      node.Storage.TS,
 		DB:      node.DB,
 		HostKey: node.Identity.HostKey,
 		Status:  statusSvc,

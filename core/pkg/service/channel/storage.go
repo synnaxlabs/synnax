@@ -14,23 +14,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 )
-
-// createStorage creates the storage channels for the provided channels, which carry
-// the keys that the allocator assigned. Free channels have no storage registration and
-// are skipped.
-func (s *Service) createStorage(ctx context.Context, channels []channel.Channel) error {
-	stored := lo.Reject(channels, func(c channel.Channel, _ int) bool {
-		return c.Key().Free()
-	})
-	return s.cfg.TS.CreateChannel(
-		ctx,
-		lo.Map(stored, func(c channel.Channel, _ int) cesium.Channel {
-			return c.Storage()
-		})...,
-	)
-}
 
 // deleteStorage deletes the storage channels for the provided keys. Free channels have
 // no storage registration and are skipped. It does not touch channel metadata.

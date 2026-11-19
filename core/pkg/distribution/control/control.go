@@ -54,8 +54,7 @@ func updateFromStorage(u cesium.ControlUpdate) Update {
 }
 
 // statesFromStorage drops releases: updates returned by cesium.DB.ControlStates carry
-// only
-// the To end of each transfer.
+// only the To end of each transfer.
 func statesFromStorage(u cesium.ControlUpdate) []State {
 	states := make([]State, 0, len(u.Transfers))
 	for _, t := range u.Transfers {

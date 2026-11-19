@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	channelgraph "github.com/synnaxlabs/synnax/pkg/service/calculation/graph"
+	calcgraph "github.com/synnaxlabs/synnax/pkg/service/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
@@ -96,7 +96,7 @@ type ServiceConfig struct {
 	// The calculation service subscribes to it and reports through it.
 	//
 	// [REQUIRED]
-	ChannelGraph *channelgraph.Graph
+	ChannelGraph *calcgraph.Graph
 	// Reserved reports whether only the Core writes a channel. OpenWriter and
 	// NewStreamWriter refuse a reserved channel.
 	//

@@ -13,7 +13,6 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
@@ -83,8 +82,6 @@ type Layer struct {
 	Host node.Node
 	// Channel is the distribution-layer channel allocator: it assigns local keys.
 	Channel *channel.Service
-	// TS is the time-series database of the Core.
-	TS *cesium.DB
 	// Framer is for reading, writing, and streaming frames of telemetry.
 	Framer *framer.Service
 	// Control is for reading and observing the control state of channels.
@@ -118,7 +115,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}
 	l.Host = node.Node{Key: l.Identity.HostKey, Address: cfg.AdvertiseAddress}
 	l.DB = cfg.Storage.Gorp
-	l.TS = cfg.Storage.TS
 
 	if l.Channel, err = channel.NewService(ctx, channel.ServiceConfig{
 		Instrumentation: cfg.Child("channel"),

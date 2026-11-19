@@ -14,8 +14,6 @@ import (
 	"io"
 
 	"github.com/onsi/ginkgo/v2"
-	"github.com/samber/lo"
-	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/storage"
@@ -56,13 +54,7 @@ func (n Node) CreateChannels(
 	if err != nil {
 		return nil, err
 	}
-	// Free channels have no storage registration.
-	stored := lo.FilterMap(
-		allocated,
-		func(c channel.Channel, _ int) (cesium.Channel, bool) {
-			return c.Storage(), !c.Key().Free()
-		},
-	)
+	stored := channel.ToStorage(allocated)
 	if err = n.Storage.TS.CreateChannel(ctx, stored...); err != nil {
 		return nil, err
 	}

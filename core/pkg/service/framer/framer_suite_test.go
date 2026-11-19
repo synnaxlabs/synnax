@@ -52,7 +52,7 @@ func newFramerConfig(ctx context.Context, n testutil.Node) framer.ServiceConfig 
 	}))
 	channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel: n.Channel,
-		TS:      n.TS,
+		TS:      n.Storage.TS,
 		DB:      n.DB,
 		HostKey: n.Identity.HostKey,
 		Status:  statusSvc,

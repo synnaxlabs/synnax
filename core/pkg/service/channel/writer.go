@@ -802,7 +802,8 @@ func (w Writer) allocateAndWrite(
 		return err
 	}
 	gorp.BeforeCommit(w.tx, func(ctx context.Context) error {
-		if err := w.svc.createStorage(ctx, allocated); err != nil {
+		stored := channel.ToStorage(allocated)
+		if err := w.svc.cfg.TS.CreateChannel(ctx, stored...); err != nil {
 			return err
 		}
 		w.svc.mu.Lock()

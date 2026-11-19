@@ -126,18 +126,23 @@ func (c Channel) String() string {
 	return fmt.Sprintf("<%d>", c.Key())
 }
 
-// Storage returns the storage layer representation of the channel for creation in the
-// storage cesium.DB. Virtual channels are never persisted by the storage layer: they
-// are
-// registered at create time and re-registered from the channel table on boot.
-func (c Channel) Storage() cesium.Channel {
-	return cesium.Channel{
-		Key:         cesium.ChannelKey(c.Key()),
-		Name:        c.Name,
-		IsIndex:     c.IsIndex,
-		DataType:    c.DataType,
-		Index:       cesium.ChannelKey(c.Index()),
-		Virtual:     c.Virtual,
-		Concurrency: c.Concurrency,
+// ToStorage returns the storage representation of each channel that has a storage
+// channel. Free channels have none, so ToStorage leaves them out.
+func ToStorage(channels []Channel) []cesium.Channel {
+	stored := make([]cesium.Channel, 0, len(channels))
+	for _, c := range channels {
+		if c.Key().Free() {
+			continue
+		}
+		stored = append(stored, cesium.Channel{
+			Key:         cesium.ChannelKey(c.Key()),
+			Name:        c.Name,
+			IsIndex:     c.IsIndex,
+			DataType:    c.DataType,
+			Index:       cesium.ChannelKey(c.Index()),
+			Virtual:     c.Virtual,
+			Concurrency: c.Concurrency,
+		})
 	}
+	return stored
 }

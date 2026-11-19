@@ -52,7 +52,7 @@ var _ = Describe("Streamer", Ordered, func() {
 		}))
 		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 			Channel: node.Channel,
-			TS:      node.TS,
+			TS:      node.Storage.TS,
 			DB:      node.DB,
 			HostKey: node.Identity.HostKey,
 			Status:  statusSvc,

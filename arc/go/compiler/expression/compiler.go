@@ -185,10 +185,7 @@ func CompileCall[T antlr.ParserRuleContext](
 	if funcName == "len" || funcName == "series.len" || funcName == "string.len" {
 		return compileBuiltinLen(ctx, args, funcName)
 	}
-	scope, err := ctx.Scope.Resolve(ctx, parts[0])
-	if err == nil && len(parts) > 1 {
-		scope, err = scope.Resolve(ctx, parts[1])
-	}
+	scope, err := ctx.Scope.ResolveMember(ctx, parts)
 	if err != nil {
 		return types.Type{}, err
 	}

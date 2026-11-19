@@ -49,7 +49,7 @@ var _ = Describe("CreateVirtual", func() {
 		}))
 		svc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 			Channel: node.Channel,
-			TS:      node.TS,
+			TS:      node.Storage.TS,
 			DB:      node.DB,
 			HostKey: node.Identity.HostKey,
 			Status:  statusSvc,

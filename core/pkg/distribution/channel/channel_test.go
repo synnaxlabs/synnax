@@ -151,8 +151,8 @@ var _ = Describe("Channel", func() {
 			Expect(c.String()).To(Equal("<5>"))
 		})
 	})
-	Describe("Storage", func() {
-		It("Should map the channel to its storage representation", func() {
+	Describe("ToStorage", func() {
+		It("Should map each channel to its storage representation", func() {
 			c := channel.Channel{
 				Name:        "sensor",
 				LocalKey:    2,
@@ -162,7 +162,7 @@ var _ = Describe("Channel", func() {
 				Virtual:     true,
 				Concurrency: control.ConcurrencyShared,
 			}
-			Expect(c.Storage()).To(Equal(cesium.Channel{
+			Expect(channel.ToStorage([]channel.Channel{c})).To(Equal([]cesium.Channel{{
 				Key:         cesium.ChannelKey(2),
 				Name:        "sensor",
 				IsIndex:     true,
@@ -170,19 +170,25 @@ var _ = Describe("Channel", func() {
 				Index:       cesium.ChannelKey(3),
 				Virtual:     true,
 				Concurrency: control.ConcurrencyShared,
-			}))
+			}}))
 		})
-		It("Should preserve virtuality in a channel's storage registration", func() {
-			ch := channel.Channel{
+		It("Should leave out a free channel", func() {
+			free := channel.Channel{
 				Name:        "free_ch",
 				LocalKey:    1,
 				Leaseholder: node.KeyFree,
 				DataType:    telem.Int64T,
 				Virtual:     true,
 			}
-			stored := ch.Storage()
-			Expect(stored.Key).To(Equal(uint32(ch.Key())))
-			Expect(stored.Virtual).To(BeTrue())
+			leased := channel.Channel{
+				Name:        "leased_ch",
+				LocalKey:    2,
+				Leaseholder: 1,
+				DataType:    telem.Int64T,
+			}
+			stored := channel.ToStorage([]channel.Channel{free, leased})
+			Expect(stored).To(HaveLen(1))
+			Expect(stored[0].Key).To(Equal(uint32(leased.Key())))
 		})
 		It(
 			"Should not mark a stored channel's storage registration as virtual",
@@ -193,7 +199,9 @@ var _ = Describe("Channel", func() {
 					Leaseholder: 1,
 					DataType:    telem.Int64T,
 				}
-				Expect(ch.Storage().Virtual).To(BeFalse())
+				Expect(
+					channel.ToStorage([]channel.Channel{ch})[0].Virtual,
+				).To(BeFalse())
 			},
 		)
 	})

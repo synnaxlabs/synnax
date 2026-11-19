@@ -84,8 +84,12 @@ var _ = Describe("Calculation", Ordered, func() {
 			return channelSvc.NewWriter(tx).CreateMany(ctx, baseChannels)
 		})).To(Succeed())
 		calcs := MustSucceed(creator.CreateMany(ctx, calculations))
+		indexes := MustSucceed(creator.Indexes(ctx, calcs))
 		rm := c.OpenRequestManager()
-		Expect(rm.Set(ctx, channel.KeysFromChannels(calcs))).To(Succeed())
+		Expect(rm.Set(
+			ctx,
+			channel.KeysFromChannels(slices.Concat(calcs, indexes)),
+		)).To(Succeed())
 		writerKeys := channel.KeysFromChannels(*baseChannels)
 		if indexChannels != nil {
 			writerKeys = append(writerKeys, channel.KeysFromChannels(*indexChannels)...)
@@ -129,7 +133,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		}))
 		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 			Channel: dist.Channel,
-			TS:      dist.TS,
+			TS:      dist.Storage.TS,
 			DB:      dist.DB,
 			HostKey: dist.Identity.HostKey,
 			Status:  statusSvc,

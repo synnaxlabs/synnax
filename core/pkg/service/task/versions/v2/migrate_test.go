@@ -207,7 +207,7 @@ var _ = Describe("Migrations", func() {
 			Expect(targets.CreateDevice(ctx, "dev-lj")).To(Succeed())
 			channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 				Channel: node.Channel,
-				TS:      node.TS,
+				TS:      node.Storage.TS,
 				DB:      db,
 				HostKey: node.Identity.HostKey,
 				Status:  stat,

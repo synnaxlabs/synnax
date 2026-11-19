@@ -24,6 +24,7 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
+	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -160,14 +161,12 @@ var _ = Describe("Service", func() {
 		It(
 			"Should refuse an edit that reads an unreadable channel through a stored one",
 			func(ctx SpecContext) {
-				stored := channel.Channel{
+				creator := calctestutil.Creator{DB: db, Channel: channelSvc}
+				stored := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 					Name:       UniqueChannelName(),
 					DataType:   telem.Float32T,
 					Expression: fmt.Sprintf("return %s * 2", secret.Name),
-				}
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return channelSvc.NewWriter(tx).Create(ctx, &stored)
-				})).To(Succeed())
+				}))
 				grantOn(
 					ctx,
 					u.ResourceID(),

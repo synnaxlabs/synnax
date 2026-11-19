@@ -12,6 +12,7 @@ package testutil
 
 import (
 	"context"
+	"slices"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -73,7 +74,7 @@ func (c Creator) CreateMany(
 		return nil, err
 	}
 	// The writer appends the index channels that it creates after the outputs.
-	return channels[:len(calcs)], nil
+	return slices.Clip(channels[:len(calcs)]), nil
 }
 
 // Indexes returns the index channel of each output, in the order of outputs.

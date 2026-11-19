@@ -52,11 +52,10 @@ func (c Config) Override(other Config) Config {
 // Controller controls access to a specified resource type over discrete time regions. A
 // Controller maintains a set of regions that occupy non-overlapping time ranges, except
 // that an unbounded region can overlap a bounded one. If the controller is open with
-// ConcurrencyExclusive, each region can only have one subject, managed by a
-// Gate, controlling it at a single time. Each region manages an independent set of
-// gates that bid for control over the resource using a mix of both
-// first-come-first-serve precedence and specified control authorities
-// (Authority).
+// ConcurrencyExclusive, each region can only have one subject, managed by a Gate,
+// controlling it at a single time. Each region manages an independent set of gates that
+// bid for control over the resource using a mix of both first-come-first-serve
+// precedence and specified control authorities (Authority).
 type Controller[K comparable, R Resource[K]] struct {
 	Config
 	regions []*region[K, R]
@@ -93,10 +92,10 @@ type GateConfig[K comparable, R Resource[K]] struct {
 	// [OPTIONAL] Defaults to false.
 	ErrOnUnauthorizedOpen *bool
 	// Bounded marks a gate that holds only TimeRange, and grows through Gate.Reach. A
-	// bounded gate is alone in its region: it fails to open with
-	// ErrUnauthorized where another region holds TimeRange, and no gate joins
-	// it. An unbounded region can open or extend over it, and its next Gate.Reach into
-	// that region fails. A bounded region does not count toward LeadingState.
+	// bounded gate is alone in its region: it fails to open with ErrUnauthorized where
+	// another region holds TimeRange, and no gate joins it. An unbounded region can
+	// open or extend over it, and its next Gate.Reach into that region fails. A bounded
+	// region does not count toward LeadingState.
 	//
 	// [OPTIONAL] Defaults to false.
 	Bounded *bool

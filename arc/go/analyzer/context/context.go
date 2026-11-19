@@ -189,25 +189,17 @@ func (c Context[AST]) Resolve(name string) (*symbol.Symbol, error) {
 	return result, nil
 }
 
-// ResolveQualified resolves the name in parts: parts[0] in the current scope, then
-// parts[1], when the name is qualified, as a member of it. parts must not be empty. If
-// the resolved symbol is deprecated, a warning that names the joined parts is added to
+// ResolveQualified resolves the name in parts: parts[0] in the current scope, then each
+// later part as a member of the symbol before it. parts must not be empty. If the
+// resolved symbol is deprecated, a warning that names the joined parts is added to
 // diagnostics.
 func (c Context[AST]) ResolveQualified(parts []string) (*symbol.Symbol, error) {
-	headSym, err := c.Scope.Resolve(c, parts[0])
+	sym, err := c.Scope.ResolveMember(c, parts)
 	if err != nil {
 		return nil, err
 	}
-	if len(parts) == 1 {
-		c.warnIfDeprecated(parts[0], headSym)
-		return headSym, nil
-	}
-	tailSym, err := headSym.Resolve(c, parts[1])
-	if err != nil {
-		return nil, err
-	}
-	c.warnIfDeprecated(strings.Join(parts, "."), tailSym)
-	return tailSym, nil
+	c.warnIfDeprecated(strings.Join(parts, "."), sym)
+	return sym, nil
 }
 
 // RejectTopLevel reports that name cannot be reassigned and returns true when sym is a
