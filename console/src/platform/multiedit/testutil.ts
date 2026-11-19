@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { assertDefined } from "@synnaxlabs/x/testutil";
 import { screen } from "@testing-library/react";
 
-import { assertDefined, getInputItem } from "@/testutil";
+import { getInputItem } from "@/testutil";
 
 /** @returns the hex box of the color control labeled with the given text. */
 export const getHexInput = (label: string): HTMLInputElement => {
