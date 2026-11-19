@@ -93,7 +93,6 @@ export const STEPS: Step[] = [
   toolbar("device", "Devices", "D"),
   toolbar("task", "Tasks", "T"),
   toolbar("arc", "Arcs", "A"),
-  toolbar("icd", "ICDs", "L"),
   toolbar("status", "Statuses", "S"),
   toolbar("component", "Component toolbar", "V", "component"),
   part("panels", "Panel selector", "top"),
