@@ -20,6 +20,7 @@ import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Panel as PlutoPanel, Schematic as PSchematic } from "@synnaxlabs/pluto";
 import { type aether } from "@synnaxlabs/pluto/ether";
 import { id } from "@synnaxlabs/x";
+import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { act, render, screen, within } from "@testing-library/react";
 import {
   type ComponentType,
@@ -35,12 +36,7 @@ import { Modals } from "@/platform/modals";
 import { createResourceTab, primePanel } from "@/platform/panel/testutil";
 import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
-import {
-  assertDefined,
-  type ConsolePreloadedState,
-  createConsoleWrapper,
-  uniqueName,
-} from "@/testutil";
+import { type ConsolePreloadedState, createConsoleWrapper } from "@/testutil";
 
 export const client = createTestClient();
 

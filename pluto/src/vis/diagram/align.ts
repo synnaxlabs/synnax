@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, type direction, location, xy } from "@synnaxlabs/x";
+import { box, type direction, location, math, xy } from "@synnaxlabs/x";
 
 import { type NodeLayout } from "@/vis/diagram/util";
 
@@ -103,10 +103,7 @@ export const distributeNodes = (
 
   const totalSpace = box.loc(last.box, loc) - box.loc(first.box, oppositeLoc);
 
-  const totalMiddleSize = middleNodes.reduce(
-    (sum, node) => sum + box.dim(node.box, dir),
-    0,
-  );
+  const totalMiddleSize = math.sum(middleNodes.map((node) => box.dim(node.box, dir)));
 
   const numGaps = sorted.length - 1;
   const gapSize = (totalSpace - totalMiddleSize) / numGaps;
@@ -131,14 +128,10 @@ export const rotateNodesAroundCenter = (
 ): NodeLayout[] => {
   if (layouts.length === 0) return [];
 
-  const minX = Math.min(...layouts.map((l) => box.left(l.box)));
-  const maxX = Math.max(...layouts.map((l) => box.right(l.box)));
-  const minY = Math.min(...layouts.map((l) => box.top(l.box)));
-  const maxY = Math.max(...layouts.map((l) => box.bottom(l.box)));
-
+  const bounds = box.bound(layouts.map((l) => l.box));
   const center = {
-    x: (minX + maxX) / 2,
-    y: (minY + maxY) / 2,
+    x: (box.left(bounds) + box.right(bounds)) / 2,
+    y: (box.top(bounds) + box.bottom(bounds)) / 2,
   };
 
   layouts.forEach((layout) => {

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, caseconv, errors, strings, zod } from "@synnaxlabs/x";
+import { array, binary, caseconv, errors, strings, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
@@ -82,17 +82,6 @@ const importReqZ = z.object({
   dispatchKey: z.string(),
 });
 const importResZ = z.object({ icd: icdZ });
-
-// btoa takes a binary string, and spreading a large array into fromCharCode overflows
-// the stack, so the bytes convert in chunks.
-const BASE64_CHUNK_SIZE = 0x8000;
-
-const encodeBase64 = (data: Uint8Array): string => {
-  let binary = "";
-  for (let i = 0; i < data.length; i += BASE64_CHUNK_SIZE)
-    binary += String.fromCharCode(...data.subarray(i, i + BASE64_CHUNK_SIZE));
-  return btoa(binary);
-};
 
 export interface ClientConfig {
   unary: UnaryClient;
@@ -221,7 +210,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, IC
       async (dispatchKey) =>
         await this.cfg.unary.send(
           "/icd/import",
-          { key, format, data: encodeBase64(data), dispatchKey },
+          { key, format, data: binary.encodeBase64(data), dispatchKey },
           importReqZ,
           importResZ,
         ),
