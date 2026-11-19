@@ -971,7 +971,8 @@ describe("line", () => {
     it("should break a line where a writer restarted, live and read back", async () => {
       const keys = await createChannels();
       const count = 200;
-      const step = TimeSpan.milliseconds(1);
+      // Samples sparser than the read back's detail, so no tile of it reduces them.
+      const step = TimeSpan.milliseconds(4);
       const start = TimeStamp.now().sub(TimeSpan.seconds(10));
       const live = createWindowed(keys.data, dynamicWindow(TimeSpan.seconds(60)));
       await settle(live.x, live.y);

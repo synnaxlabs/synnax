@@ -1017,7 +1017,7 @@ describe("Points", () => {
     const { start } = tileRange({ level, index });
     const home = new TimeRange(start, start.add(span));
     const pointLimit = tilePointLimit({
-      level,
+      tile: { level, index },
       view: home,
       points: TILED.count,
       drawn: TILED.aggregation,
@@ -1063,6 +1063,35 @@ describe("Points", () => {
     }
   });
 
+  it("should reduce the tile that raw samples cut at the group size of the tile before it", async () => {
+    const core = new SyntheticCore({
+      rate: Rate.hz(5000),
+      start: START,
+      now: START.add(TimeSpan.minutes(4)),
+    });
+    const { joins, subscribe, close } = createPoints(core);
+    const key = core.data[0].key;
+    const points = subscribe(key, dynamicWindow(TimeSpan.minutes(4)), TILED);
+    try {
+      await expect.poll(() => joins.joined(key), POLL).toBe(true);
+      // Moves the floor into a raw block, so the tile before it is cut.
+      for (let i = 0; i < 150; i++) {
+        core.advance(TimeSpan.milliseconds(100));
+        await sleep.sleep(TimeSpan.milliseconds(1));
+      }
+      const [whole, cut] = points
+        .value()
+        .series.series.filter((s) => s.alignmentMultiple > 1n)
+        .sort((a, b) => TimeRange.sort(a.timeRange, b.timeRange))
+        .slice(-2);
+      expect(cut.timeRange.span.lessThan(tileSpan(RAW_LEVEL))).toBe(true);
+      const ratio = Number(cut.alignmentMultiple) / Number(whole.alignmentMultiple);
+      expect(ratio).toBeGreaterThan(0.9);
+    } finally {
+      await close();
+    }
+  });
+
   it("should never pin a cached tile for a cut tile at its position", async () => {
     const core = createCore();
     const { store, subscribe, unsubscribe, close } = createPoints(core);
@@ -1073,7 +1102,7 @@ describe("Points", () => {
     const { start } = tileRange({ level, index });
     const home = new TimeRange(start, start.add(span));
     const pointLimit = tilePointLimit({
-      level,
+      tile: { level, index },
       view: home,
       points: TILED.count,
       drawn: TILED.aggregation,
@@ -1091,8 +1120,17 @@ describe("Points", () => {
       await expect.poll(() => whole.value().status.variant, POLL).toBe("success");
       unsubscribe(whole);
       expect(store.get(uncut)?.pins).toBe(0);
-      const shift = TimeSpan.seconds(10);
+      const shift = TimeSpan.seconds(1);
       const shifted = new TimeRange(home.start.add(shift), home.end.add(shift));
+      // The cut keeps the whole tile's key, so only the cut check stops the pin.
+      const cutLimit = tilePointLimit({
+        tile: { level, index, start: shifted.start },
+        view: shifted,
+        points: TILED.count,
+        drawn: TILED.aggregation,
+        aggregation: TILED.aggregation,
+      });
+      expect(cutLimit).toBe(pointLimit);
       const cut = subscribe(key, staticWindow(shifted), TILED);
       await expect.poll(() => cut.value().status.variant, POLL).toBe("success");
       expect(store.get(uncut)?.pins).toBe(0);
