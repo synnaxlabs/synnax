@@ -74,7 +74,11 @@ func decodeWriteConfig(
 		if err != nil {
 			return WriteConfig{}, err
 		}
-		return t1, nil
+		t2, err := v2.MigrateWriteConfig(ctx, t1)
+		if err != nil {
+			return WriteConfig{}, err
+		}
+		return t2, nil
 	case v2.Version:
 		return imex.DecodeBlob[WriteConfig](data, "mqtt.WriteConfig", version)
 	}

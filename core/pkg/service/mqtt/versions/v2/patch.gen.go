@@ -144,6 +144,60 @@ func (rm *ReadMessage) HashContent(h *content.Hash) {
 	}
 }
 
+// HashContent writes the content of the value to h, without its keys.
+func (wb *WriteBinding) HashContent(h *content.Hash) {
+	h.Bytes(wb.Field[:])
+	h.Uint(uint64(wb.Channel))
+	h.String(string(wb.DataType))
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (wc *WriteConfig) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "key":
+		return patch.Value(&wc.StartConfig.KeyedConfig.Key, c.Next())
+	case "auto_start":
+		return patch.Value(&wc.StartConfig.AutoStart, c.Next())
+	case "device":
+		return patch.Value(&wc.Device, c.Next())
+	case "targets":
+		return patch.List(&wc.Targets, c.Next())
+	default:
+		return c.UnknownField()
+	}
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (wc *WriteConfig) HashContent(h *content.Hash) {
+	h.Bool(wc.StartConfig.AutoStart)
+	h.String(wc.Device)
+	h.Len(len(wc.Targets))
+	for i0 := range wc.Targets {
+		wc.Targets[i0].HashContent(h)
+	}
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (wm *WriteMessage) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "message":
+		return patch.Value(&wm.Message, c.Next())
+	case "bindings":
+		return patch.Value(&wm.Bindings, c.Next())
+	default:
+		return c.UnknownField()
+	}
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (wm *WriteMessage) HashContent(h *content.Hash) {
+	h.Bytes(wm.Message[:])
+	h.Len(len(wm.Bindings))
+	for i0 := range wm.Bindings {
+		wm.Bindings[i0].HashContent(h)
+	}
+}
+
 // Patch applies the path action at c, which is not done, to the value.
 func (re *ReadEntry) Patch(c patch.Cursor) error {
 	switch v := re.Variant.(type) {
@@ -278,4 +332,140 @@ func (sre *SparkplugReadEntry) HashContent(h *content.Hash) {
 	h.Uint(uint64(sre.Channel))
 	h.String(sre.Name)
 	h.String(string(sre.DataType))
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (wt *WriteTarget) Patch(c patch.Cursor) error {
+	switch v := wt.Variant.(type) {
+	case PlainWriteTarget:
+		c, ok := c.Guard("type", "plain")
+		if !ok {
+			return nil
+		}
+		if c.Segment() == "type" {
+			return patch.Discriminator(wt, c)
+		}
+		if err := v.Patch(c); err != nil {
+			return err
+		}
+		wt.Variant = v
+		return nil
+	case SparkplugWriteTarget:
+		c, ok := c.Guard("type", "sparkplug")
+		if !ok {
+			return nil
+		}
+		if c.Segment() == "type" {
+			return patch.Discriminator(wt, c)
+		}
+		if err := v.Patch(c); err != nil {
+			return err
+		}
+		wt.Variant = v
+		return nil
+	default:
+		return patch.Absent(wt, c, "type")
+	}
+}
+
+// PatchKey returns the key that paths name the value by in a list.
+func (wt *WriteTarget) PatchKey() string {
+	switch v := wt.Variant.(type) {
+	case PlainWriteTarget:
+		return v.BaseWriteTarget.Key
+	case SparkplugWriteTarget:
+		return v.BaseWriteTarget.Key
+	}
+	return ""
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (wt *WriteTarget) HashContent(h *content.Hash) {
+	switch v := wt.Variant.(type) {
+	case PlainWriteTarget:
+		h.String("plain")
+		v.HashContent(h)
+	case SparkplugWriteTarget:
+		h.String("sparkplug")
+		v.HashContent(h)
+	default:
+		h.String("")
+	}
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (pwt *PlainWriteTarget) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "key":
+		return patch.Value(&pwt.BaseWriteTarget.Key, c.Next())
+	case "disabled":
+		return patch.Value(&pwt.BaseWriteTarget.Disabled, c.Next())
+	case "topic":
+		return patch.Value(&pwt.Topic, c.Next())
+	case "qos":
+		return patch.Defaulted(&pwt.Qos, c.Next(), func(def *PlainWriteTarget) {
+			pwt.Qos = def.Qos
+		})
+	case "retained":
+		return patch.Value(&pwt.Retained, c.Next())
+	case "icd":
+		return patch.Value(&pwt.ICD, c.Next())
+	case "message":
+		if c = c.Next(); c.Done() {
+			return patch.Value(&pwt.Message, c)
+		}
+		return pwt.Message.Patch(c)
+	default:
+		return c.UnknownField()
+	}
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (pwt *PlainWriteTarget) HashContent(h *content.Hash) {
+	h.Bool(pwt.BaseWriteTarget.Disabled)
+	h.String(pwt.Topic)
+	h.String(string(pwt.Qos))
+	h.Bool(pwt.Retained)
+	h.Bytes(pwt.ICD[:])
+	pwt.Message.HashContent(h)
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (swt *SparkplugWriteTarget) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "key":
+		return patch.Value(&swt.BaseWriteTarget.Key, c.Next())
+	case "disabled":
+		return patch.Value(&swt.BaseWriteTarget.Disabled, c.Next())
+	case "group":
+		return patch.Value(&swt.Group, c.Next())
+	case "edge_node":
+		return patch.Value(&swt.EdgeNode, c.Next())
+	case "device":
+		return patch.Value(&swt.Device, c.Next())
+	case "tag":
+		return patch.Value(&swt.Tag, c.Next())
+	case "tag_type":
+		return patch.Defaulted(&swt.TagType, c.Next(), func(def *SparkplugWriteTarget) {
+			swt.TagType = def.TagType
+		})
+	case "channel":
+		return patch.Value(&swt.Channel, c.Next())
+	case "name":
+		return patch.Value(&swt.Name, c.Next())
+	default:
+		return c.UnknownField()
+	}
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (swt *SparkplugWriteTarget) HashContent(h *content.Hash) {
+	h.Bool(swt.BaseWriteTarget.Disabled)
+	h.String(swt.Group)
+	h.String(swt.EdgeNode)
+	h.String(swt.Device)
+	h.String(swt.Tag)
+	h.String(string(swt.TagType))
+	h.Uint(uint64(swt.Channel))
+	h.String(swt.Name)
 }

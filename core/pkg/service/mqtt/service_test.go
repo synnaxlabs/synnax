@@ -171,18 +171,32 @@ var _ = Describe("Service", func() {
 			)))
 		})
 
-		It("Should default a plain write target to QoS 1 and not retained", func(
-			ctx SpecContext,
-		) {
-			key := MustSucceed(tasks.Create(ctx, svc.Write, msgpack.EncodedJSON{
-				"targets": []any{map[string]any{"key": "target-1", "type": "plain"}},
-			}))
-			data := MustSucceed(svc.Write.Read(ctx, db, key))
-			Expect(data["targets"]).To(HaveExactElements(SatisfyAll(
-				HaveKeyWithValue("qos", "at_least_once"),
-				HaveKeyWithValue("retained", false),
-			)))
-		})
+		It(
+			"Should default a plain write target to QoS 1, not retained, and no bindings",
+			func(ctx SpecContext) {
+				ic := icd.ICD{Name: "Plant"}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return icds.NewWriter(tx).Create(ctx, &ic)
+				})).To(Succeed())
+				key := MustSucceed(tasks.Create(ctx, svc.Write, msgpack.EncodedJSON{
+					"targets": []any{map[string]any{
+						"key":     "target-1",
+						"type":    "plain",
+						"icd":     ic.Key,
+						"message": map[string]any{"message": uuid.New()},
+					}},
+				}))
+				data := MustSucceed(svc.Write.Read(ctx, db, key))
+				Expect(data["targets"]).To(HaveExactElements(SatisfyAll(
+					HaveKeyWithValue("qos", "at_least_once"),
+					HaveKeyWithValue("retained", false),
+					HaveKeyWithValue(
+						"message",
+						HaveKeyWithValue("bindings", BeEmpty()),
+					),
+				)))
+			},
+		)
 
 		It("Should apply scan config schema defaults to absent fields", func(
 			ctx SpecContext,

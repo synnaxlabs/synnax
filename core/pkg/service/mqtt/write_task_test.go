@@ -23,76 +23,54 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
-// plainTarget returns the config of one plain write target, whose command channel
-// value goes to pointer as jsonType.
-func plainTarget(
+// messageTarget returns the config of a plain write target that publishes m of ic to
+// topic, with bindings.
+func messageTarget(
 	topic string,
-	ch channel.Channel,
-	pointer, jsonType string,
-	fields ...map[string]any,
+	ic icd.ICD,
+	m icd.Message,
+	bindings ...map[string]any,
 ) map[string]any {
-	list := make([]any, len(fields))
-	for i, f := range fields {
-		list[i] = f
-	}
 	return map[string]any{
 		"key":   topic,
 		"type":  "plain",
 		"topic": topic,
-		"channel": map[string]any{
-			"channel":   ch.Key(),
-			"name":      ch.Name,
-			"data_type": string(ch.DataType),
-			"pointer":   pointer,
-			"json_type": jsonType,
+		"icd":   ic.Key,
+		"message": map[string]any{
+			"message":  m.Key,
+			"bindings": lo.ToAnySlice(bindings),
 		},
-		"fields": list,
 	}
 }
 
-// setEnumValues sets the enum values of the channel of target.
-func setEnumValues(target map[string]any, values ...any) {
+// fieldTarget returns the config of a plain write target that publishes to topic a
+// message of fields in a new ICD, with the first field bound to ch.
+func fieldTarget(
+	ctx context.Context,
+	topic string,
+	ch channel.Channel,
+	fields ...icd.JSONField,
+) map[string]any {
 	GinkgoHelper()
-	ch, ok := target["channel"].(map[string]any)
-	Expect(ok).To(BeTrue())
-	ch["enum_values"] = values
-}
-
-func staticField(pointer, jsonType string, value any) map[string]any {
-	return map[string]any{
-		"key":       pointer,
-		"type":      "static",
-		"pointer":   pointer,
-		"json_type": jsonType,
-		"value":     value,
-	}
-}
-
-func generatedField(pointer, generator string) map[string]any {
-	return map[string]any{
-		"key":       pointer,
-		"type":      "generated",
-		"pointer":   pointer,
-		"generator": generator,
-	}
+	m := jsonMessage("Command", nil, fields...)
+	return messageTarget(topic, createICD(ctx, m), m, binding(m, 0, ch))
 }
 
 func writeConfig(dev device.Device, targets ...map[string]any) msgpack.EncodedJSON {
-	list := make([]any, len(targets))
-	for i, t := range targets {
-		list[i] = t
-	}
-	return msgpack.EncodedJSON{"device": dev.Key, "targets": list}
+	return msgpack.EncodedJSON{"device": dev.Key, "targets": lo.ToAnySlice(targets)}
 }
 
 var _ = Describe("Write task", func() {
@@ -111,17 +89,36 @@ var _ = Describe("Write task", func() {
 		factory = newFactory(64)
 	})
 
-	start := func(ctx context.Context, cfg msgpack.EncodedJSON) task.Task {
+	start := func(ctx context.Context, cfg msgpack.EncodedJSON) (task.Task, driver.Task) {
 		GinkgoHelper()
 		t := newTask(ctx, rackKey, mqtt.WriteTaskType, cfg)
 		configured := configure(ctx, factory, t)
 		Expect(configured.Exec(ctx, task.Command{Type: "start", Key: "start"})).
 			To(Succeed())
-		return t
+		return t, configured
 	}
 
-	// command writes series to ch until check passes, because a streamer misses the
-	// frames written before it connects.
+	// send writes fr to keys until check passes, because a streamer misses the frames
+	// written before it connects.
+	send := func(
+		ctx context.Context,
+		keys channel.Keys,
+		fr frame.Frame,
+		check func(g Gomega),
+		intervals ...any,
+	) {
+		GinkgoHelper()
+		w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+			Keys:  keys,
+			Start: telem.Now(),
+		}))
+		defer func() { Expect(w.Close()).To(Succeed()) }()
+		Eventually(func(g Gomega) {
+			g.Expect(w.Write(fr)).To(BeTrue())
+			check(g)
+		}, intervals...).Should(Succeed())
+	}
+
 	command := func(
 		ctx context.Context,
 		ch channel.Channel,
@@ -129,15 +126,7 @@ var _ = Describe("Write task", func() {
 		check func(g Gomega),
 	) {
 		GinkgoHelper()
-		w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
-			Keys:  channel.Keys{ch.Key()},
-			Start: telem.Now(),
-		}))
-		defer func() { Expect(w.Close()).To(Succeed()) }()
-		Eventually(func(g Gomega) {
-			g.Expect(w.Write(frame.NewUnary(ch.Key(), series))).To(BeTrue())
-			check(g)
-		}).Should(Succeed())
+		send(ctx, channel.Keys{ch.Key()}, frame.NewUnary(ch.Key(), series), check)
 	}
 
 	// payloads returns the payloads that the broker received on topic.
@@ -154,8 +143,9 @@ var _ = Describe("Write task", func() {
 	Describe("Payloads", func() {
 		It("Should publish a command value at its pointer", func(ctx SpecContext) {
 			ch := createVirtual(ctx, telem.Float32T)
-			start(ctx, writeConfig(dev, plainTarget(
-				"plant/valve1/set", ch, "/setpoint/value", "number",
+			start(ctx, writeConfig(dev, fieldTarget(
+				ctx, "plant/valve1/set", ch,
+				jsonField("setpoint", "/setpoint/value", icd.FloatJSONField{}),
 			)))
 			command(ctx, ch, telem.NewSeriesV[float32](1.5), func(g Gomega) {
 				g.Expect(payloads("plant/valve1/set")).
@@ -166,8 +156,9 @@ var _ = Describe("Write task", func() {
 		It("Should publish a value at the root pointer as the whole payload",
 			func(ctx SpecContext) {
 				ch := createVirtual(ctx, telem.Uint8T)
-				start(ctx, writeConfig(dev, plainTarget(
-					"plant/valve2/set", ch, "", "boolean",
+				start(ctx, writeConfig(dev, fieldTarget(
+					ctx, "plant/valve2/set", ch,
+					jsonField("open", "", icd.BooleanJSONField{}),
 				)))
 				command(ctx, ch, telem.NewSeriesV[uint8](1), func(g Gomega) {
 					g.Expect(payloads("plant/valve2/set")).To(ContainElement("true"))
@@ -177,18 +168,22 @@ var _ = Describe("Write task", func() {
 
 		It("Should publish bytes as base64", func(ctx SpecContext) {
 			ch := createVirtual(ctx, telem.BytesT)
-			start(ctx, writeConfig(dev, plainTarget("plant/blob", ch, "/b", "string")))
+			start(ctx, writeConfig(dev, fieldTarget(
+				ctx, "plant/blob", ch, jsonField("b", "/b", icd.BytesJSONField{}),
+			)))
 			value := telem.NewSeriesV([]byte{0x00, 0xff, 0x3f})
 			command(ctx, ch, value, func(g Gomega) {
 				g.Expect(payloads("plant/blob")).To(ContainElement(`{"b":"AP8/"}`))
 			})
 		})
 
-		It("Should publish a timestamp as ISO 8601 when no time format is set",
+		It("Should publish a timestamp in the time format of its field",
 			func(ctx SpecContext) {
 				ch := createVirtual(ctx, telem.TimestampT)
-				start(ctx, writeConfig(dev, plainTarget(
-					"plant/clock/set", ch, "/t", "string",
+				start(ctx, writeConfig(dev, fieldTarget(
+					ctx, "plant/clock/set", ch, jsonField("t", "/t",
+						icd.TimestampJSONField{TimeFormat: payload.TimeFormatISO8601},
+					),
 				)))
 				command(ctx, ch, telem.NewSeriesSecondsTSV(1), func(g Gomega) {
 					g.Expect(payloads("plant/clock/set")).
@@ -197,44 +192,43 @@ var _ = Describe("Write task", func() {
 			},
 		)
 
-		It("Should publish the label of an enum value", func(ctx SpecContext) {
-			ch := createVirtual(ctx, telem.Uint8T)
-			target := plainTarget("plant/valve3/set", ch, "/state", "string")
-			setEnumValues(
-				target,
-				map[string]any{"label": "closed", "value": 0},
-				map[string]any{"label": "open", "value": 1},
-			)
-			start(ctx, writeConfig(dev, target))
-			command(ctx, ch, telem.NewSeriesV[uint8](1), func(g Gomega) {
-				g.Expect(payloads("plant/valve3/set")).
-					To(ContainElement(`{"state":"open"}`))
-			})
-		})
+		It("Should publish the label of an enum value, and a value outside it as is",
+			func(ctx SpecContext) {
+				ch := createVirtual(ctx, telem.Uint8T)
+				start(ctx, writeConfig(dev, fieldTarget(
+					ctx, "plant/valve3/set", ch,
+					jsonField("state", "/state", icd.UnsignedJSONField{
+						EnumValues: []payload.UnsignedEntry{
+							{Label: "closed", Value: 0}, {Label: "open", Value: 1},
+						},
+					}),
+				)))
+				command(ctx, ch, telem.NewSeriesV[uint8](1, 5), func(g Gomega) {
+					g.Expect(payloads("plant/valve3/set")).
+						To(ContainElements(`{"state":"open"}`, `{"state":5}`))
+				})
+			},
+		)
 
-		It("Should publish a value outside the enum as text", func(ctx SpecContext) {
-			ch := createVirtual(ctx, telem.Uint8T)
-			target := plainTarget("plant/valve4/set", ch, "/state", "string")
-			setEnumValues(
-				target,
-				map[string]any{"label": "closed", "value": 0},
-				map[string]any{"label": "open", "value": 1},
-			)
-			start(ctx, writeConfig(dev, target))
-			command(ctx, ch, telem.NewSeriesV[uint8](5), func(g Gomega) {
-				g.Expect(payloads("plant/valve4/set")).
-					To(ContainElement(`{"state":"5"}`))
-			})
-		})
-
-		It("Should add static and generated fields to each payload",
+		It("Should add the default of each unbound field to each payload",
 			func(ctx SpecContext) {
 				ch := createVirtual(ctx, telem.Int32T)
-				start(ctx, writeConfig(dev, plainTarget(
-					"plant/pump/set", ch, "/rpm", "number",
-					staticField("/unit", "string", "rpm"),
-					staticField("/priority", "number", 3),
-					generatedField("/id", "uuid"),
+				start(ctx, writeConfig(dev, fieldTarget(
+					ctx,
+					"plant/pump/set",
+					ch,
+					jsonField("rpm", "/rpm", icd.IntegerJSONField{}),
+					jsonField(
+						"unit",
+						"/unit",
+						icd.StringJSONField{Default: new("rpm")},
+					),
+					jsonField("priority", "/priority", icd.IntegerJSONField{
+						Default: new(payload.Integer(3)),
+					}),
+					jsonField("id", "/id", icd.UuidJSONField{
+						Default: &icd.UUIDDefault{Variant: icd.RandomUUIDDefault{}},
+					}),
 				)))
 				command(ctx, ch, telem.NewSeriesV[int32](1200), func(g Gomega) {
 					g.Expect(payloads("plant/pump/set")).ToNot(BeEmpty())
@@ -257,13 +251,22 @@ var _ = Describe("Write task", func() {
 		)
 
 		It(
-			"Should write the members of a payload in config order",
+			"Should write the members of a payload in field order",
 			func(ctx SpecContext) {
 				ch := createVirtual(ctx, telem.Int32T)
-				start(ctx, writeConfig(dev, plainTarget(
-					"plant/order/set", ch, "/reading/value", "number",
-					staticField("/source", "string", "plc"),
-					staticField("/reading/unit", "string", "rpm"),
+				start(ctx, writeConfig(dev, fieldTarget(
+					ctx,
+					"plant/order/set",
+					ch,
+					jsonField("value", "/reading/value", icd.IntegerJSONField{}),
+					jsonField(
+						"source",
+						"/source",
+						icd.StringJSONField{Default: new("plc")},
+					),
+					jsonField("unit", "/reading/unit", icd.StringJSONField{
+						Default: new("rpm"),
+					}),
 				)))
 				command(ctx, ch, telem.NewSeriesV[int32](1200), func(g Gomega) {
 					g.Expect(payloads("plant/order/set")).To(ContainElement(
@@ -276,8 +279,11 @@ var _ = Describe("Write task", func() {
 		It("Should publish one message for each sample of a command frame",
 			func(ctx SpecContext) {
 				ch := createVirtual(ctx, telem.Int32T)
-				start(ctx, writeConfig(dev, plainTarget(
-					"plant/steps", ch, "/step", "number",
+				start(ctx, writeConfig(dev, fieldTarget(
+					ctx,
+					"plant/steps",
+					ch,
+					jsonField("step", "/step", icd.IntegerJSONField{}),
 				)))
 				command(ctx, ch, telem.NewSeriesV[int32](1, 2), func(g Gomega) {
 					g.Expect(payloads("plant/steps")).
@@ -288,19 +294,32 @@ var _ = Describe("Write task", func() {
 
 		It("Should publish every target of a command channel", func(ctx SpecContext) {
 			ch := createVirtual(ctx, telem.Float64T)
-			start(ctx, writeConfig(dev,
-				plainTarget("plant/a/set", ch, "/v", "number"),
-				plainTarget("plant/b/set", ch, "", "string"),
+			start(ctx, writeConfig(
+				dev,
+				fieldTarget(
+					ctx,
+					"plant/a/set",
+					ch,
+					jsonField("v", "/v", icd.FloatJSONField{}),
+				),
+				fieldTarget(
+					ctx,
+					"plant/b/set",
+					ch,
+					jsonField("v", "", icd.FloatJSONField{}),
+				),
 			))
 			command(ctx, ch, telem.NewSeriesV(2.5), func(g Gomega) {
 				g.Expect(payloads("plant/a/set")).To(ContainElement(`{"v":2.5}`))
-				g.Expect(payloads("plant/b/set")).To(ContainElement(`"2.5"`))
+				g.Expect(payloads("plant/b/set")).To(ContainElement(`2.5`))
 			})
 		})
 
 		It("Should set the retained flag of a retained target", func(ctx SpecContext) {
 			ch := createVirtual(ctx, telem.Float64T)
-			target := plainTarget("plant/mode", ch, "", "number")
+			target := fieldTarget(
+				ctx, "plant/mode", ch, jsonField("v", "", icd.FloatJSONField{}),
+			)
 			target["retained"] = true
 			start(ctx, writeConfig(dev, target))
 			command(ctx, ch, telem.NewSeriesV(4.0), func(g Gomega) {
@@ -311,11 +330,13 @@ var _ = Describe("Write task", func() {
 
 		It("Should skip a disabled target", func(ctx SpecContext) {
 			ch := createVirtual(ctx, telem.Float64T)
-			disabled := plainTarget("plant/off/set", ch, "", "number")
+			disabled := fieldTarget(
+				ctx, "plant/off/set", ch, jsonField("v", "", icd.FloatJSONField{}),
+			)
 			disabled["disabled"] = true
-			start(ctx, writeConfig(dev,
-				disabled, plainTarget("plant/on/set", ch, "", "number"),
-			))
+			start(ctx, writeConfig(dev, disabled, fieldTarget(
+				ctx, "plant/on/set", ch, jsonField("v", "", icd.FloatJSONField{}),
+			)))
 			command(ctx, ch, telem.NewSeriesV(1.0), func(g Gomega) {
 				g.Expect(payloads("plant/on/set")).To(ContainElement("1"))
 			})
@@ -323,35 +344,189 @@ var _ = Describe("Write task", func() {
 		})
 	})
 
+	Describe("Bound fields", func() {
+		var (
+			x, y channel.Channel
+			m    icd.Message
+			ic   icd.ICD
+		)
+
+		// pointTarget returns the config of a target that sends x and y, where y has
+		// the fields of yField.
+		pointTarget := func(ctx context.Context, yField icd.JSONFieldVariant) map[string]any {
+			GinkgoHelper()
+			x, y = createVirtual(
+				ctx,
+				telem.Float64T,
+			), createVirtual(
+				ctx,
+				telem.Float64T,
+			)
+			m = jsonMessage("Point", nil,
+				jsonField("x", "/x", icd.FloatJSONField{}),
+				jsonField("y", "/y", yField),
+			)
+			ic = createICD(ctx, m)
+			return messageTarget(
+				"plant/point",
+				ic,
+				m,
+				binding(m, 0, x),
+				binding(m, 1, y),
+			)
+		}
+
+		both := func(xs, ys telem.Series) frame.Frame {
+			return frame.NewMulti(
+				[]channel.Key{x.Key(), y.Key()}, []telem.Series{xs, ys},
+			)
+		}
+
+		It("Should publish the commands of one frame as one message",
+			func(ctx SpecContext) {
+				start(ctx, writeConfig(dev, pointTarget(ctx, icd.FloatJSONField{})))
+				send(ctx, channel.Keys{x.Key(), y.Key()},
+					both(telem.NewSeriesV(1.0), telem.NewSeriesV(2.0)),
+					func(g Gomega) {
+						g.Expect(payloads("plant/point")).ToNot(BeEmpty())
+					},
+				)
+				Expect(payloads("plant/point")).To(HaveEach(`{"x":1,"y":2}`))
+			},
+		)
+
+		It("Should send the last command of a bound channel with no new one",
+			func(ctx SpecContext) {
+				start(ctx, writeConfig(dev, pointTarget(ctx, icd.FloatJSONField{})))
+				send(ctx, channel.Keys{x.Key(), y.Key()},
+					both(telem.NewSeriesV(1.0), telem.NewSeriesV(2.0)),
+					func(g Gomega) {
+						g.Expect(payloads("plant/point")).ToNot(BeEmpty())
+					},
+				)
+				command(ctx, x, telem.NewSeriesV(3.0), func(g Gomega) {
+					g.Expect(payloads("plant/point")).
+						To(ContainElement(`{"x":3,"y":2}`))
+				})
+			},
+		)
+
+		It("Should send the default of a bound field with no command yet",
+			func(ctx SpecContext) {
+				start(ctx, writeConfig(dev, pointTarget(
+					ctx, icd.FloatJSONField{Default: new(payload.Float(5))},
+				)))
+				command(ctx, x, telem.NewSeriesV(1.0), func(g Gomega) {
+					g.Expect(payloads("plant/point")).
+						To(ContainElement(`{"x":1,"y":5}`))
+				})
+			},
+		)
+
+		It("Should wait for the first command of a bound field with no default",
+			func(ctx SpecContext) {
+				start(ctx, writeConfig(dev, pointTarget(ctx, icd.FloatJSONField{})))
+				w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+					Keys:  channel.Keys{x.Key()},
+					Start: telem.Now(),
+				}))
+				Consistently(func(g Gomega) {
+					g.Expect(w.Write(frame.NewUnary(x.Key(), telem.NewSeriesV(1.0)))).
+						To(BeTrue())
+					g.Expect(payloads("plant/point")).To(BeEmpty())
+				}, 500*time.Millisecond).Should(Succeed())
+				Expect(w.Close()).To(Succeed())
+				command(ctx, y, telem.NewSeriesV(2.0), func(g Gomega) {
+					g.Expect(payloads("plant/point")).
+						To(ContainElement(`{"x":1,"y":2}`))
+				})
+			},
+		)
+
+		It("Should forget the commands of an earlier run", func(ctx SpecContext) {
+			_, configured := start(ctx, writeConfig(dev, pointTarget(
+				ctx, icd.FloatJSONField{},
+			)))
+			send(ctx, channel.Keys{x.Key(), y.Key()},
+				both(telem.NewSeriesV(1.0), telem.NewSeriesV(2.0)),
+				func(g Gomega) {
+					g.Expect(payloads("plant/point")).ToNot(BeEmpty())
+				},
+			)
+			Expect(configured.Exec(ctx, task.Command{Type: "stop", Key: "stop"})).
+				To(Succeed())
+			Expect(configured.Exec(ctx, task.Command{Type: "start", Key: "again"})).
+				To(Succeed())
+			w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+				Keys:  channel.Keys{x.Key()},
+				Start: telem.Now(),
+			}))
+			Consistently(func(g Gomega) {
+				g.Expect(w.Write(frame.NewUnary(x.Key(), telem.NewSeriesV(3.0)))).
+					To(BeTrue())
+				g.Expect(payloads("plant/point")).ToNot(ContainElement(`{"x":3,"y":2}`))
+			}, 500*time.Millisecond).Should(Succeed())
+			Expect(w.Close()).To(Succeed())
+			command(ctx, y, telem.NewSeriesV(4.0), func(g Gomega) {
+				g.Expect(payloads("plant/point")).To(ContainElement(`{"x":3,"y":4}`))
+			})
+		})
+
+		It("Should keep the last command of a field after a command it cannot hold",
+			func(ctx SpecContext) {
+				start(ctx, writeConfig(dev, pointTarget(ctx, icd.FloatJSONField{})))
+				send(ctx, channel.Keys{x.Key(), y.Key()},
+					both(telem.NewSeriesV(1.0), telem.NewSeriesV(2.0)),
+					func(g Gomega) {
+						g.Expect(payloads("plant/point")).ToNot(BeEmpty())
+					},
+				)
+				command(ctx, x, telem.NewSeriesV(math.NaN()), func(g Gomega) {
+					g.Expect(broker.collected()).ToNot(BeEmpty())
+				})
+				command(ctx, y, telem.NewSeriesV(4.0), func(g Gomega) {
+					g.Expect(payloads("plant/point")).
+						To(ContainElement(`{"x":1,"y":4}`))
+				})
+			},
+		)
+	})
+
 	Describe("Errors while running", func() {
-		It("Should warn on a value with no JSON form and keep running",
+		It("Should warn with a count of the commands it drops and keep running",
 			func(ctx SpecContext) {
 				ch := createVirtual(ctx, telem.Float64T)
-				t := start(ctx, writeConfig(dev, plainTarget(
-					"plant/nan", ch, "/v", "number",
+				t, _ := start(ctx, writeConfig(dev, fieldTarget(
+					ctx, "plant/nan", ch, jsonField("v", "/v", icd.FloatJSONField{}),
 				)))
 				command(ctx, ch, telem.NewSeriesV(math.NaN()), func(g Gomega) {
 					stat := taskStatus(ctx, t)
 					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
-					g.Expect(stat.Message).To(Equal("Failed to write data"))
+					g.Expect(stat.Message).
+						To(MatchRegexp(`^Skipped [\d,]+ of [\d,]+ commands?$`))
 					g.Expect(stat.Description).To(Equal(
-						"target plant/nan: NaN is not a JSON number: validation error",
+						"Command for target plant/nan: message Command: field v: " +
+							"NaN is not a JSON number: validation error",
 					))
 					g.Expect(stat.Details.Running).To(BeTrue())
 				})
-				command(ctx, ch, telem.NewSeriesV(7.0), func(g Gomega) {
-					g.Expect(payloads("plant/nan")).To(ContainElement(`{"v":7}`))
-					g.Expect(taskStatus(ctx, t).Variant).
-						To(Equal(status.VariantSuccess))
-				})
+				send(ctx, channel.Keys{ch.Key()},
+					frame.NewUnary(ch.Key(), telem.NewSeriesV(7.0)),
+					func(g Gomega) {
+						g.Expect(payloads("plant/nan")).To(ContainElement(`{"v":7}`))
+						g.Expect(taskStatus(ctx, t).Variant).
+							To(Equal(status.VariantSuccess))
+					},
+					2*driver.SkipHold, 100*time.Millisecond,
+				)
 			},
 		)
 
 		It("Should warn while the broker is down and drop the commands of the outage",
 			func(ctx SpecContext) {
 				ch := createVirtual(ctx, telem.Float64T)
-				t := start(ctx, writeConfig(dev, plainTarget(
-					"plant/outage", ch, "/v", "number",
+				t, _ := start(ctx, writeConfig(dev, fieldTarget(
+					ctx, "plant/outage", ch, jsonField("v", "/v", icd.FloatJSONField{}),
 				)))
 				Eventually(broker.clientCount).Should(Equal(1))
 				port := broker.port
@@ -388,11 +563,16 @@ var _ = Describe("Write task", func() {
 		It("Should warn and keep running when the connection drops under a publish",
 			func(ctx SpecContext) {
 				ch := createVirtual(ctx, telem.Float64T)
-				target := plainTarget("plant/unacked", ch, "/v", "number")
+				target := fieldTarget(
+					ctx,
+					"plant/unacked",
+					ch,
+					jsonField("v", "/v", icd.FloatJSONField{}),
+				)
 				target["qos"] = "at_least_once"
 				unacked := &unackedHook{topic: "plant/unacked"}
 				Expect(broker.server.AddHook(unacked, nil)).To(Succeed())
-				t := start(ctx, writeConfig(dev, target))
+				t, _ := start(ctx, writeConfig(dev, target))
 				command(ctx, ch, telem.NewSeriesV(1.0), func(g Gomega) {
 					g.Expect(unacked.held.Load()).To(BeNumerically(">", 0))
 				})
@@ -421,9 +601,9 @@ var _ = Describe("Write task", func() {
 			stall := newPublishStall(blocks)
 			factory = stall.factory()
 			ch := createVirtual(ctx, telem.Float64T)
-			t := start(ctx, writeConfig(
-				dev, plainTarget("plant/stalled", ch, "/v", "number"),
-			))
+			t, _ := start(ctx, writeConfig(dev, fieldTarget(
+				ctx, "plant/stalled", ch, jsonField("v", "/v", icd.FloatJSONField{}),
+			)))
 			DeferCleanup(stall.release)
 			stall.armed.Store(true)
 			command(ctx, ch, telem.NewSeriesV(1.0), func(g Gomega) {
@@ -455,13 +635,30 @@ var _ = Describe("Write task", func() {
 		) {
 			GinkgoHelper()
 			t := newTask(ctx, rackKey, mqtt.WriteTaskType, cfg)
-			Expect(factory.ConfigureTask(ctx, t, "configure")).Error().
-				To(MatchError(ContainSubstring(message)))
+			Expect(factory.ConfigureTask(ctx, t, "configure")).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(message)),
+			))
 			stat := taskStatus(ctx, t)
 			Expect(stat.Variant).To(Equal(status.VariantError))
 			Expect(stat.Message).To(Equal("Failed to configure task"))
 			Expect(stat.Description).To(ContainSubstring(message))
 			Expect(stat.Details.Cmd).To(Equal("configure"))
+		}
+
+		// valueTarget returns the config of a target that publishes to topic the value
+		// of ch at /v.
+		valueTarget := func(
+			ctx context.Context,
+			topic string,
+			ch channel.Channel,
+		) map[string]any {
+			return fieldTarget(
+				ctx,
+				topic,
+				ch,
+				jsonField("v", "/v", icd.FloatJSONField{}),
+			)
 		}
 
 		DescribeTable(
@@ -475,8 +672,11 @@ var _ = Describe("Write task", func() {
 			},
 			Entry("no enabled targets",
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
-					ch := createVirtual(ctx, telem.Float64T)
-					disabled := plainTarget("plant/x", ch, "", "number")
+					disabled := valueTarget(
+						ctx,
+						"plant/x",
+						createVirtual(ctx, telem.Float64T),
+					)
 					disabled["disabled"] = true
 					return writeConfig(dev, disabled),
 						"targets: the task has no enabled targets"
@@ -486,110 +686,124 @@ var _ = Describe("Write task", func() {
 				return msgpack.EncodedJSON{"device": dev.Key, "targets": []any{nil}},
 					"targets: a target is null"
 			}),
-			Entry("a null field",
-				func(ctx context.Context) (msgpack.EncodedJSON, string) {
-					ch := createVirtual(ctx, telem.Float64T)
-					target := plainTarget("plant/x", ch, "/v", "number")
-					target["fields"] = []any{nil}
-					return writeConfig(dev, target), "target plant/x: a field is null"
-				},
-			),
 			Entry("a topic that holds a wildcard",
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
 					ch := createVirtual(ctx, telem.Float64T)
-					target := plainTarget("plant/+/set", ch, "", "number")
-					return writeConfig(dev, target),
+					return writeConfig(dev, valueTarget(ctx, "plant/+/set", ch)),
 						"topic plant/+/set: must not hold the wildcards + or #"
 				},
 			),
 			Entry("an unknown QoS",
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
-					ch := createVirtual(ctx, telem.Float64T)
-					target := plainTarget("plant/x", ch, "", "number")
+					target := valueTarget(
+						ctx,
+						"plant/x",
+						createVirtual(ctx, telem.Float64T),
+					)
 					target["qos"] = "bogus"
 					return writeConfig(dev, target),
 						`target plant/x: qos: unknown value "bogus"`
 				},
 			),
 			Entry("a channel that does not exist",
-				func(context.Context) (msgpack.EncodedJSON, string) {
-					ch := channel.Channel{Name: "missing", DataType: telem.Float64T}
-					return writeConfig(dev, plainTarget("plant/x", ch, "", "number")),
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					missing := channel.Channel{
+						Name:     "missing",
+						DataType: telem.Float64T,
+					}
+					return writeConfig(dev, valueTarget(ctx, "plant/x", missing)),
 						"target plant/x: channel 0 does not exist"
 				},
 			),
-			Entry("a JSON type the channel cannot convert to",
+			Entry("an ICD that does not exist",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					m := jsonMessage(
+						"Command",
+						nil,
+						jsonField("v", "/v", icd.FloatJSONField{}),
+					)
+					missing := icd.ICD{Key: uuid.New()}
+					ch := createVirtual(ctx, telem.Float64T)
+					return writeConfig(dev, messageTarget(
+						"plant/x", missing, m, binding(m, 0, ch),
+					)), "icd: ICD " + missing.Key.String() + " does not exist"
+				},
+			),
+			Entry("a message that the ICD lacks",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					ic := createICD(ctx)
+					m := jsonMessage(
+						"Command",
+						nil,
+						jsonField("v", "/v", icd.FloatJSONField{}),
+					)
+					ch := createVirtual(ctx, telem.Float64T)
+					return writeConfig(dev, messageTarget(
+							"plant/x", ic, m, binding(m, 0, ch),
+						)), "target plant/x: message " + m.Key.String() +
+							" does not exist in ICD Plant"
+				},
+			),
+			Entry("a message that is not JSON",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					m := icd.Message{
+						Key:     uuid.New(),
+						Name:    "Frame",
+						Payload: icd.Payload{Variant: icd.BinaryPayload{}},
+					}
+					ch := createVirtual(ctx, telem.Float64T)
+					return writeConfig(dev, messageTarget(
+						"plant/x", createICD(ctx, m), m,
+						map[string]any{"field": uuid.New(), "channel": ch.Key()},
+					)), "target plant/x: message Frame is not a JSON message"
+				},
+			),
+			Entry("a message that binds no fields",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					m := jsonMessage(
+						"Command",
+						nil,
+						jsonField("v", "/v", icd.FloatJSONField{
+							Default: new(payload.Float(1)),
+						}),
+					)
+					return writeConfig(
+							dev,
+							messageTarget("plant/x", createICD(ctx, m), m),
+						),
+						"target plant/x: message Command binds no fields"
+				},
+			),
+			Entry("a field with no binding and no default",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					ch := createVirtual(ctx, telem.Float64T)
+					return writeConfig(dev, fieldTarget(
+							ctx, "plant/x", ch,
+							jsonField("v", "/v", icd.FloatJSONField{}),
+							jsonField("unit", "/unit", icd.StringJSONField{}),
+						)), "target plant/x: message Command: field unit: no channel and " +
+							"no default"
+				},
+			),
+			Entry("a channel that does not write to its field",
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
 					ch := createVirtual(ctx, telem.StringT)
-					return writeConfig(dev, plainTarget("plant/x", ch, "", "number")),
-						"target plant/x: channel " + ch.Name +
-							": data type string only serializes as a string"
+					return writeConfig(dev, valueTarget(ctx, "plant/x", ch)),
+						"target plant/x: message Command: field v: cannot write " +
+							"string channels to float fields"
 				},
 			),
-			Entry("enum values for a JSON type that is not string",
-				func(ctx context.Context) (msgpack.EncodedJSON, string) {
-					ch := createVirtual(ctx, telem.Uint8T)
-					target := plainTarget("plant/x", ch, "/v", "number")
-					setEnumValues(
-						target,
-						map[string]any{"label": "open", "value": 1},
-					)
-					return writeConfig(dev, target),
-						"target plant/x: enum values require the string JSON type"
-				},
-			),
-			Entry("extra fields next to a root pointer",
+			Entry("a field at the parent of another",
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
 					ch := createVirtual(ctx, telem.Float64T)
-					unit := staticField("/unit", "string", "rpm")
-					unit["key"] = "unit"
-					target := plainTarget("plant/x", ch, "", "number", unit)
-					return writeConfig(dev, target),
-						`target plant/x: channel.pointer "" and field "unit" "/unit" ` +
-							`overlap`
-				},
-			),
-			Entry("a static value that is not of its JSON type",
-				func(ctx context.Context) (msgpack.EncodedJSON, string) {
-					ch := createVirtual(ctx, telem.Float64T)
-					return writeConfig(dev, plainTarget(
-						"plant/x", ch, "/v", "number",
-						staticField("/unit", "number", "rpm"),
-					)), "target plant/x: static value at /unit is not a number"
-				},
-			),
-			Entry("a field at the parent of the channel value",
-				func(ctx context.Context) (msgpack.EncodedJSON, string) {
-					ch := createVirtual(ctx, telem.Float64T)
-					unit := staticField("/unit", "string", "rpm")
-					unit["key"] = "unit"
-					target := plainTarget("plant/x", ch, "/unit/value", "number", unit)
-					return writeConfig(dev, target),
-						`target plant/x: channel.pointer "/unit/value" and ` +
-							`field "unit" "/unit" overlap`
-				},
-			),
-			Entry("a channel value at the parent of a field",
-				func(ctx context.Context) (msgpack.EncodedJSON, string) {
-					ch := createVirtual(ctx, telem.Float64T)
-					unit := staticField("/reading/unit", "string", "rpm")
-					unit["key"] = "unit"
-					target := plainTarget("plant/x", ch, "/reading", "number", unit)
-					return writeConfig(dev, target),
-						`target plant/x: channel.pointer "/reading" and ` +
-							`field "unit" "/reading/unit" overlap`
-				},
-			),
-			Entry("two fields at one pointer",
-				func(ctx context.Context) (msgpack.EncodedJSON, string) {
-					ch := createVirtual(ctx, telem.Float64T)
-					rpm := staticField("/unit", "string", "rpm")
-					rps := staticField("/unit", "string", "rps")
-					rpm["key"], rps["key"] = "rpm", "rps"
-					target := plainTarget("plant/x", ch, "/v", "number", rpm, rps)
-					return writeConfig(dev, target),
-						`target plant/x: field "rpm" "/unit" and field "rps" "/unit" ` +
-							`overlap`
+					return writeConfig(dev, fieldTarget(
+							ctx, "plant/x", ch,
+							jsonField("value", "/reading/value", icd.FloatJSONField{}),
+							jsonField("reading", "/reading", icd.StringJSONField{
+								Default: new("rpm"),
+							}),
+						)), `target plant/x: message Command: field value "/reading/value" ` +
+							`and field reading "/reading" overlap`
 				},
 			),
 		)

@@ -14,10 +14,10 @@ from __future__ import annotations
 from typing import Annotated, Literal, override as _override
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, JsonValue
+from pydantic import BaseModel, Field
 
 from synnax import channel as channel_, device as device_, icd as icd_, task
-from x import payload, telem
+from x import telem
 
 SPARKPLUG_DATA_TYPE_INT8: Literal["int8"] = "int8"
 
@@ -104,46 +104,20 @@ class BaseReadEntry(BaseModel):
         return hash(self.key)
 
 
-class ChannelField(BaseModel):
-    """Is the command channel value placed into the payload of a target.
+class WriteBinding(BaseModel):
+    """Sends the values of one command channel as one message field.
 
     Attributes:
-        pointer: Is the JSON Pointer where the channel value is placed in the payload.
-            An empty pointer sends the bare value as the entire payload, in which case
-            the target may not declare any additional fields.
-        json_type: Is the JSON type the channel value is serialized as.
-        channel: Is the Synnax command channel that triggers the publish.
-        name: Is the human-readable name of the command channel.
-        data_type: Is the data type of the command channel.
-        time_format: Is the output encoding when the command channel holds timestamps.
-            An unset format is ISO 8601.
-        enum_values: Maps numeric channel values to string labels. Only valid when
-            json_type is 'string'.
+        field: Is the key of the message field to send.
+        channel: Is the command channel whose values the field sends.
+        data_type: Is the data type of the command channel that a client creates for the
+            field. Empty takes the default of the field's kind. The Core ignores it once
+            the channel exists.
     """
 
-    pointer: str = ""
-    json_type: payload.JSONType = "number"
+    field: icd_.FieldKey
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    name: str = ""
-    data_type: telem.DataType = telem.DataType("float64")
-    time_format: payload.TimeFormat | None = None
-    enum_values: list[payload.EnumEntry] = Field(default_factory=list)
-
-
-class BaseWriteField(BaseModel):
-    """Carries the fields every write payload field shares.
-
-    Attributes:
-        key: Uniquely identifies the field within the target.
-        pointer: Is the JSON Pointer where the value is placed in the payload.
-    """
-
-    key: str = Field(default_factory=lambda: str(uuid4()))
-    pointer: str = ""
-
-    @_override
-    def __hash__(self) -> int:
-        return hash(self.key)
+    data_type: telem.DataType = telem.DataType("")
 
 
 class BaseWriteTarget(BaseModel):
@@ -214,28 +188,17 @@ class ReadMessage(BaseModel):
     bindings: list[ReadBinding] = Field(default_factory=list)
 
 
-class StaticWriteField(BaseWriteField):
-    """Places a fixed value in the payload."""
+class WriteMessage(BaseModel):
+    """Sends the documents of one ICD message.
 
-    type: Literal["static"] = "static"
-    json_type: payload.JSONType = "number"
-    value: JsonValue
+    Attributes:
+        message: Is the key of the ICD message to send.
+        bindings: Are the fields that command channels fill. Each other field sends its
+            default.
+    """
 
-
-class GeneratedWriteField(BaseWriteField):
-    """Places a freshly generated UUID or timestamp in the payload."""
-
-    type: Literal["generated"] = "generated"
-    generator: payload.GeneratorType = "uuid"
-    time_format: payload.TimeFormat | None = None
-
-
-# Is an additional payload field on a plain write target. The type field selects
-# whether the value is fixed or generated per publish.
-WriteField = Annotated[
-    StaticWriteField | GeneratedWriteField,
-    Field(discriminator="type"),
-]
+    message: icd_.MessageKey
+    bindings: list[WriteBinding] = Field(default_factory=list)
 
 
 class EdgeConfig(task.StartConfig):
@@ -295,14 +258,14 @@ ReadEntry = Annotated[
 
 
 class PlainWriteTarget(BaseWriteTarget):
-    """Publishes a JSON payload to one topic."""
+    """Publishes the JSON documents of one ICD message to one topic."""
 
     type: Literal["plain"] = "plain"
     topic: str = ""
     qos: QoS = "at_least_once"
     retained: bool = False
-    channel: ChannelField = Field(default_factory=lambda: ChannelField())
-    fields: list[WriteField] = Field(default_factory=list)
+    icd: icd_.Key
+    message: WriteMessage
 
 
 class SparkplugWriteTarget(BaseWriteTarget):

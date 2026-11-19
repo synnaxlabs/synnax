@@ -101,35 +101,11 @@ type SparkplugReadEntry = v2.SparkplugReadEntry
 // tags on a broker device and writes their values to Synnax channels.
 type ReadConfig = v2.ReadConfig
 
-// ChannelField is the command channel value placed into the payload of a target.
-type ChannelField = v2.ChannelField
+// WriteBinding sends the values of one command channel as one message field.
+type WriteBinding = v2.WriteBinding
 
-// BaseWriteField carries the fields every write payload field shares.
-type BaseWriteField = v2.BaseWriteField
-
-// WriteField is an additional payload field on a plain write target. The type field
-// selects whether the value is fixed or generated per publish.
-type WriteField = v2.WriteField
-
-// WriteFieldVariant is implemented by every WriteField variant.
-type WriteFieldVariant = v2.WriteFieldVariant
-
-// WriteFieldType is the "type" value that selects a variant of WriteField.
-type WriteFieldType = v2.WriteFieldType
-
-const (
-	// StaticWriteFieldType places a fixed value in the payload.
-	StaticWriteFieldType WriteFieldType = v2.StaticWriteFieldType
-	// GeneratedWriteFieldType places a freshly generated UUID or timestamp in the
-	// payload.
-	GeneratedWriteFieldType WriteFieldType = v2.GeneratedWriteFieldType
-)
-
-// StaticWriteField places a fixed value in the payload.
-type StaticWriteField = v2.StaticWriteField
-
-// GeneratedWriteField places a freshly generated UUID or timestamp in the payload.
-type GeneratedWriteField = v2.GeneratedWriteField
+// WriteMessage sends the documents of one ICD message.
+type WriteMessage = v2.WriteMessage
 
 // BaseWriteTarget carries the fields every write target shares.
 type BaseWriteTarget = v2.BaseWriteTarget
@@ -145,13 +121,14 @@ type WriteTargetVariant = v2.WriteTargetVariant
 type WriteTargetType = v2.WriteTargetType
 
 const (
-	// PlainWriteTargetType publishes a JSON payload to one topic.
+	// PlainWriteTargetType publishes the JSON documents of one ICD message to one
+	// topic.
 	PlainWriteTargetType WriteTargetType = v2.PlainWriteTargetType
 	// SparkplugWriteTargetType sends a Sparkplug B command for one tag.
 	SparkplugWriteTargetType WriteTargetType = v2.SparkplugWriteTargetType
 )
 
-// PlainWriteTarget publishes a JSON payload to one topic.
+// PlainWriteTarget publishes the JSON documents of one ICD message to one topic.
 type PlainWriteTarget = v2.PlainWriteTarget
 
 // SparkplugWriteTarget sends a Sparkplug B command for one tag.

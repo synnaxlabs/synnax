@@ -394,65 +394,256 @@ func (r ReadConfig) Validate() error {
 	return v.Error()
 }
 
-// ChannelField is the command channel value placed into the payload of a target.
-type ChannelField = v1.ChannelField
+// WriteBinding sends the values of one command channel as one message field.
+type WriteBinding struct {
+	// Field is the key of the message field to send.
+	Field icd.FieldKey `json:"field" msgpack:"field"`
+	// Channel is the command channel whose values the field sends.
+	Channel channel.Key `json:"channel" msgpack:"channel"`
+	// DataType is the data type of the command channel that a client creates for the
+	// field. Empty takes the default of the field's kind. The Core ignores it once the
+	// channel exists.
+	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
+}
 
-// BaseWriteField carries the fields every write payload field shares.
-type BaseWriteField = v1.BaseWriteField
-
-// WriteField is an additional payload field on a plain write target. The type field
-// selects whether the value is fixed or generated per publish.
-type WriteField = v1.WriteField
-
-// WriteFieldVariant is implemented by every WriteField variant.
-type WriteFieldVariant = v1.WriteFieldVariant
-
-// WriteFieldType is the "type" value that selects a variant of WriteField.
-type WriteFieldType = v1.WriteFieldType
-
-const (
-	// StaticWriteFieldType places a fixed value in the payload.
-	StaticWriteFieldType WriteFieldType = v1.StaticWriteFieldType
-	// GeneratedWriteFieldType places a freshly generated UUID or timestamp in the
-	// payload.
-	GeneratedWriteFieldType WriteFieldType = v1.GeneratedWriteFieldType
-)
-
-// StaticWriteField places a fixed value in the payload.
-type StaticWriteField = v1.StaticWriteField
-
-// GeneratedWriteField places a freshly generated UUID or timestamp in the payload.
-type GeneratedWriteField = v1.GeneratedWriteField
+// WriteMessage sends the documents of one ICD message.
+type WriteMessage struct {
+	// Message is the key of the ICD message to send.
+	Message icd.MessageKey `json:"message" msgpack:"message"`
+	// Bindings are the fields that command channels fill. Each other field sends its
+	// default.
+	Bindings []WriteBinding `json:"bindings" msgpack:"bindings"`
+}
 
 // BaseWriteTarget carries the fields every write target shares.
 type BaseWriteTarget = v1.BaseWriteTarget
 
-// WriteTarget is a single destination of an MQTT write task. The type field selects a
-// plain topic with a JSON payload or a Sparkplug B tag command.
-type WriteTarget = v1.WriteTarget
-
-// WriteTargetVariant is implemented by every WriteTarget variant.
-type WriteTargetVariant = v1.WriteTargetVariant
-
 // WriteTargetType is the "type" value that selects a variant of WriteTarget.
-type WriteTargetType = v1.WriteTargetType
+type WriteTargetType string
 
 const (
-	// PlainWriteTargetType publishes a JSON payload to one topic.
-	PlainWriteTargetType WriteTargetType = v1.PlainWriteTargetType
+	// PlainWriteTargetType publishes the JSON documents of one ICD message to one
+	// topic.
+	PlainWriteTargetType WriteTargetType = "plain"
 	// SparkplugWriteTargetType sends a Sparkplug B command for one tag.
-	SparkplugWriteTargetType WriteTargetType = v1.SparkplugWriteTargetType
+	SparkplugWriteTargetType WriteTargetType = "sparkplug"
 )
 
-// PlainWriteTarget publishes a JSON payload to one topic.
-type PlainWriteTarget = v1.PlainWriteTarget
+// WriteTargetVariant is implemented by every WriteTarget variant.
+type WriteTargetVariant interface {
+	isWriteTargetVariant()
+}
+
+// PlainWriteTarget publishes the JSON documents of one ICD message to one topic.
+type PlainWriteTarget struct {
+	BaseWriteTarget
+	// Topic is the topic to publish to.
+	Topic string `json:"topic" msgpack:"topic"`
+	// Qos is the quality of service of the publish.
+	Qos QoS `json:"qos" msgpack:"qos"`
+	// Retained is true when the broker retains the published message.
+	Retained bool `json:"retained" msgpack:"retained"`
+	// ICD is the key of the ICD that holds the message.
+	ICD icd.Key `json:"icd" msgpack:"icd"`
+	// Message is the message the target publishes. A command on any bound channel
+	// publishes one document.
+	Message WriteMessage `json:"message" msgpack:"message"`
+}
+
+func (PlainWriteTarget) isWriteTargetVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (p *PlainWriteTarget) SetDefaults() {
+	p.Qos = QoSAtLeastOnce
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (p PlainWriteTarget) Validate() error {
+	v := validate.New("PlainWriteTarget")
+	v.Ternaryf("qos", !p.Qos.IsValid(), "invalid qos: %v", p.Qos)
+	return v.Error()
+}
 
 // SparkplugWriteTarget sends a Sparkplug B command for one tag.
-type SparkplugWriteTarget = v1.SparkplugWriteTarget
+type SparkplugWriteTarget struct {
+	BaseWriteTarget
+	// Group is the Sparkplug group ID of the edge node.
+	Group string `json:"group" msgpack:"group"`
+	// EdgeNode is the Sparkplug edge node ID.
+	EdgeNode string `json:"edge_node" msgpack:"edge_node"`
+	// Device is the Sparkplug device ID. Empty for a tag of the edge node.
+	Device string `json:"device" msgpack:"device"`
+	// Tag is the name of the tag to command.
+	Tag string `json:"tag" msgpack:"tag"`
+	// TagType is the Sparkplug B data type the command value is sent as.
+	TagType SparkplugDataType `json:"tag_type" msgpack:"tag_type"`
+	// Channel is the Synnax command channel whose writes trigger the command.
+	Channel channel.Key `json:"channel" msgpack:"channel"`
+	// Name is the human-readable name of the command channel.
+	Name string `json:"name" msgpack:"name"`
+}
+
+func (SparkplugWriteTarget) isWriteTargetVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (s *SparkplugWriteTarget) SetDefaults() {
+	s.TagType = SparkplugDataTypeDouble
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s SparkplugWriteTarget) Validate() error {
+	v := validate.New("SparkplugWriteTarget")
+	v.Ternaryf("tag_type", !s.TagType.IsValid(), "invalid tag_type: %v", s.TagType)
+	return v.Error()
+}
+
+// WriteTarget is a single destination of an MQTT write task. The type field selects a
+// plain topic with a JSON payload or a Sparkplug B tag command.
+type WriteTarget struct {
+	Variant WriteTargetVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u WriteTarget) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case PlainWriteTarget:
+		return json.MarshalEncode(enc, struct {
+			Type WriteTargetType `json:"type"`
+			PlainWriteTarget
+		}{Type: PlainWriteTargetType, PlainWriteTarget: v})
+	case SparkplugWriteTarget:
+		return json.MarshalEncode(enc, struct {
+			Type WriteTargetType `json:"type"`
+			SparkplugWriteTarget
+		}{Type: SparkplugWriteTargetType, SparkplugWriteTarget: v})
+	default:
+		return errors.Newf("WriteTarget: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *WriteTarget) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type WriteTargetType `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case PlainWriteTargetType:
+		var v struct {
+			Type WriteTargetType `json:"type"`
+			PlainWriteTarget
+		}
+		v.PlainWriteTarget.SetDefaults()
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.PlainWriteTarget
+	case SparkplugWriteTargetType:
+		var v struct {
+			Type WriteTargetType `json:"type"`
+			SparkplugWriteTarget
+		}
+		v.SparkplugWriteTarget.SetDefaults()
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.SparkplugWriteTarget
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"WriteTarget: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u WriteTarget) Type() WriteTargetType {
+	switch u.Variant.(type) {
+	case PlainWriteTarget:
+		return PlainWriteTargetType
+	case SparkplugWriteTarget:
+		return SparkplugWriteTargetType
+	}
+	return ""
+}
+
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u WriteTarget) Validate() error {
+	v := validate.New("WriteTarget")
+	v.Ternary("type", u.Variant == nil, "required")
+	switch variant := u.Variant.(type) {
+	case PlainWriteTarget:
+		v.Exec(variant.Validate)
+	case SparkplugWriteTarget:
+		v.Exec(variant.Validate)
+	}
+	return v.Error()
+}
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u WriteTarget) Base() BaseWriteTarget {
+	switch variant := u.Variant.(type) {
+	case PlainWriteTarget:
+		return variant.BaseWriteTarget
+	case SparkplugWriteTarget:
+		return variant.BaseWriteTarget
+	}
+	return BaseWriteTarget{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *WriteTarget) SetBase(base BaseWriteTarget) {
+	switch variant := u.Variant.(type) {
+	case PlainWriteTarget:
+		variant.BaseWriteTarget = base
+		u.Variant = variant
+	case SparkplugWriteTarget:
+		variant.BaseWriteTarget = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("WriteTarget: cannot set the base of variant %T", variant))
+	}
+}
 
 // WriteConfig configures an MQTT write task, which publishes a message whenever a value
 // is written to the command channel of a target.
-type WriteConfig = v1.WriteConfig
+type WriteConfig struct {
+	task.StartConfig
+	// Device is the key of the broker device to write to.
+	Device device.Key `json:"device" msgpack:"device"`
+	// Targets contains the topics and tags to write to.
+	Targets []WriteTarget `json:"targets" msgpack:"targets"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (w WriteConfig) Validate() error {
+	v := validate.New("WriteConfig")
+	for i := range w.Targets {
+		v.Exec(func() error { return validate.PathedError(w.Targets[i].Validate(), "targets", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}
 
 // ScanConfig configures an MQTT scan task.
 type ScanConfig = v1.ScanConfig

@@ -78,7 +78,7 @@ func (r readResolver) resolve(
 	cfg *ReadConfig,
 ) (func(context.Context, gorp.Tx) error, error) {
 	staged, ok, err := v2.ResolveReadConfig(
-		ctx, snap, r.channels, name, cfg, v2.NoteLift(r.ins, cfg.Key),
+		ctx, snap, r.channels, name, cfg, v2.NoteLift(r.ins, "read", cfg.Key),
 	)
 	if err != nil {
 		return nil, err

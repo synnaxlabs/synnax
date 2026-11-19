@@ -289,3 +289,230 @@ func (rm *ReadMessage) DecodeOrc(r *orc.Reader) error {
 	}
 	return nil
 }
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (wb WriteBinding) EncodeOrc(w *orc.Writer) error {
+	w.Write(wb.Field[:])
+	w.Uint32(uint32(wb.Channel))
+	w.String(string(wb.DataType))
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (wb *WriteBinding) DecodeOrc(r *orc.Reader) error {
+	if _, err := r.Read(wb.Field[:]); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		wb.Channel = channel.Key(rawV)
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		wb.DataType = telem.DataType(rawV)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (wc WriteConfig) EncodeOrc(w *orc.Writer) error {
+	w.Write(wc.Key[:])
+	w.Bool(wc.AutoStart)
+	w.String(wc.Device)
+	w.Bool(wc.Targets != nil)
+	if wc.Targets != nil {
+		w.Uint32(uint32(len(wc.Targets)))
+		for i := range wc.Targets {
+			if err := wc.Targets[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (wc *WriteConfig) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if _, err := r.Read(wc.Key[:]); err != nil {
+		return err
+	}
+	if wc.AutoStart, err = r.Bool(); err != nil {
+		return err
+	}
+	if wc.Device, err = r.String(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			wc.Targets = make([]WriteTarget, n)
+			for i := range wc.Targets {
+				if err = wc.Targets[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (wm WriteMessage) EncodeOrc(w *orc.Writer) error {
+	w.Write(wm.Message[:])
+	w.Bool(wm.Bindings != nil)
+	if wm.Bindings != nil {
+		w.Uint32(uint32(len(wm.Bindings)))
+		for i := range wm.Bindings {
+			if err := wm.Bindings[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (wm *WriteMessage) DecodeOrc(r *orc.Reader) error {
+	if _, err := r.Read(wm.Message[:]); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			wm.Bindings = make([]WriteBinding, n)
+			for i := range wm.Bindings {
+				if err = wm.Bindings[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (wt WriteTarget) EncodeOrc(w *orc.Writer) error {
+	switch v := wt.Variant.(type) {
+	case PlainWriteTarget:
+		w.String("plain")
+		if err := v.BaseWriteTarget.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.String(v.Topic)
+		w.String(string(v.Qos))
+		w.Bool(v.Retained)
+		w.Write(v.ICD[:])
+		if err := v.Message.EncodeOrc(w); err != nil {
+			return err
+		}
+	case SparkplugWriteTarget:
+		w.String("sparkplug")
+		if err := v.BaseWriteTarget.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.String(v.Group)
+		w.String(v.EdgeNode)
+		w.String(v.Device)
+		w.String(v.Tag)
+		w.String(string(v.TagType))
+		w.Uint32(uint32(v.Channel))
+		w.String(v.Name)
+	default:
+		return errors.Newf("WriteTarget: nil or unknown variant %T", wt.Variant)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (wt *WriteTarget) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.StringBytes()
+	if err != nil {
+		return err
+	}
+	switch string(tag) {
+	case "plain":
+		var v PlainWriteTarget
+		if err := v.BaseWriteTarget.DecodeOrc(r); err != nil {
+			return err
+		}
+		if v.Topic, err = r.String(); err != nil {
+			return err
+		}
+		{
+			rawV, err := r.String()
+			if err != nil {
+				return err
+			}
+			v.Qos = QoS(rawV)
+		}
+		if v.Retained, err = r.Bool(); err != nil {
+			return err
+		}
+		if _, err := r.Read(v.ICD[:]); err != nil {
+			return err
+		}
+		if err = v.Message.DecodeOrc(r); err != nil {
+			return err
+		}
+		wt.Variant = v
+	case "sparkplug":
+		var v SparkplugWriteTarget
+		if err := v.BaseWriteTarget.DecodeOrc(r); err != nil {
+			return err
+		}
+		if v.Group, err = r.String(); err != nil {
+			return err
+		}
+		if v.EdgeNode, err = r.String(); err != nil {
+			return err
+		}
+		if v.Device, err = r.String(); err != nil {
+			return err
+		}
+		if v.Tag, err = r.String(); err != nil {
+			return err
+		}
+		{
+			rawV, err := r.String()
+			if err != nil {
+				return err
+			}
+			v.TagType = SparkplugDataType(rawV)
+		}
+		{
+			rawV, err := r.Uint32()
+			if err != nil {
+				return err
+			}
+			v.Channel = channel.Key(rawV)
+		}
+		if v.Name, err = r.String(); err != nil {
+			return err
+		}
+		wt.Variant = v
+	default:
+		return errors.Newf("WriteTarget: unknown variant %q", tag)
+	}
+	return nil
+}
