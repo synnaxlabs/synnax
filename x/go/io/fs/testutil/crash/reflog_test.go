@@ -42,6 +42,9 @@ type bugs struct {
 	retryTrusted bool
 	// retryRationed reads a bad slot a second time only once in each recovery.
 	retryRationed bool
+	// partsRetriedTogether reads the header and the body of a slot in two calls, and
+	// reads both again when the slot is bad.
+	partsRetriedTogether bool
 }
 
 // refLog is a small log store: records in slots of segment files, a checksum that binds
@@ -91,6 +94,21 @@ func checksum(segment, slot int, body []byte) uint32 {
 
 var castagnoli = crc32.MakeTable(crc32.Castagnoli)
 
+// readSlot reads the slot into buf, in one call, or with partsRetriedTogether in two.
+func (l *refLog) readSlot(f xfs.File, buf []byte, slot int) (int, error) {
+	off := int64(slot) * slotSize
+	if !l.bugs.partsRetriedTogether {
+		return f.ReadAt(buf, off)
+	}
+	n, err := f.ReadAt(buf[:headerSize], off)
+	if err != nil || n < headerSize {
+		return n, err
+	}
+	size := min(int(binary.LittleEndian.Uint32(buf[4:])), slotSize-headerSize)
+	m, err := f.ReadAt(buf[headerSize:headerSize+size], off+headerSize)
+	return n + m, err
+}
+
 // read returns the record in the slot of f, and the durable count that it carries. It
 // reads a bad slot a second time before it calls the slot bad.
 func (l *refLog) read(
@@ -105,7 +123,7 @@ func (l *refLog) read(
 			l.retried = true
 		}
 		buf := make([]byte, slotSize)
-		n, err := f.ReadAt(buf, int64(slot)*slotSize)
+		n, err := l.readSlot(f, buf, slot)
 		if err != nil && !errors.Is(err, io.EOF) {
 			return crash.Record{}, 0, false, err
 		}

@@ -98,8 +98,9 @@ var _ = Describe("Run", func() {
 		}
 	})
 
-	// Each entry keeps the first run key that caught its bug.
-	DescribeTable("Should catch an engine that",
+	// Each entry keeps a run key that caught its bug.
+	DescribeTable(
+		"Should catch an engine that",
 		func(
 			ctx SpecContext,
 			b bugs,
@@ -131,6 +132,40 @@ var _ = Describe("Run", func() {
 			bugs{retryRationed: true}, crash.RepeatedReadFaults, uint64(4), crash.R1),
 		Entry("reads a bad slot a second time only once in a recovery, and refuses",
 			bugs{retryRationed: true}, crash.RepeatedReadFaults, uint64(9), crash.R4),
+		Entry(
+			"retries the header and the body of a slot together, with one fault on each",
+			bugs{
+				partsRetriedTogether: true,
+			},
+			crash.RepeatedReadFaults,
+			uint64(10),
+			crash.R1,
+		),
+	)
+
+	It("Should catch a whole-slot retry only through clusters of one fault",
+		func(ctx SpecContext) {
+			Expect(
+				run(
+					ctx,
+					bugs{partsRetriedTogether: true},
+					crash.RepeatedReadFaults,
+					10,
+				),
+			).
+				To(MatchError(MatchRegexp(`, 1 in one cluster:`)))
+			for runKey := range uint64(32) {
+				Expect(
+					run(
+						ctx,
+						bugs{partsRetriedTogether: true},
+						crash.OneTimeReadFaults,
+						runKey,
+					),
+				).
+					To(Succeed(), "run key %d", runKey)
+			}
+		},
 	)
 
 	It("Should pass an engine that trusts its retry under OneTimeReadFaults",
