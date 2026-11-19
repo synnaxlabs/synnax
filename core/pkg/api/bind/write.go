@@ -104,6 +104,25 @@ func WritePrepared[RQ, RS freighter.Payload, P any](
 	}
 }
 
+// WriteUnchecked returns a handler that runs apply in one write transaction of db and
+// commits it, with no access check. Use it only for an apply that checks its own
+// access. An error from apply rolls back every write and returns a zero response.
+func WriteUnchecked[RQ, RS freighter.Payload](
+	db *gorp.DB,
+	apply func(context.Context, gorp.Tx, RQ) (RS, error),
+) freighter.UnaryHandler[RQ, RS] {
+	return func(ctx context.Context, req RQ) (RS, error) {
+		var res, zero RS
+		if err := db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+			res, err = apply(ctx, tx, req)
+			return err
+		}); err != nil {
+			return zero, err
+		}
+		return res, nil
+	}
+}
+
 // unchanged returns the records that res returns and tx did not change.
 func unchanged[RS any](tx gorp.Tx, res RS) []resource.ID {
 	r, ok := any(res).(Returns)
