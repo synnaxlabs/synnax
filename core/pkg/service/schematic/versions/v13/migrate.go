@@ -428,6 +428,14 @@ func migrateNodeColors(
 	return migrateDisplayColors(ctx, old, migrated)
 }
 
+// colored returns the config at n, or no config if its colors failed to migrate.
+func colored[T NodeConfigVariant](n *T, err error) (NodeConfigVariant, error) {
+	if err != nil {
+		return nil, err
+	}
+	return *n, nil
+}
+
 func migrateStaticColors(
 	ctx context.Context,
 	old v12.NodeConfigVariant,
@@ -436,58 +444,44 @@ func migrateStaticColors(
 	switch o := old.(type) {
 	case v12.BoxNodeConfig:
 		n := as[BoxNodeConfig](migrated)
-		if err := migrateColors(ctx,
+		v, err := colored(&n, migrateColors(ctx,
 			fixed(&n.StrokeColor, o.StrokeColor),
 			fixed(&n.FillColor, o.FillColor),
-		); err != nil {
-			return nil, true, err
-		}
-		return n, true, nil
+		))
+		return v, true, err
 	case v12.CircleNodeConfig:
 		n := as[CircleNodeConfig](migrated)
-		if err := migrateColors(ctx,
+		v, err := colored(&n, migrateColors(ctx,
 			fixed(&n.StrokeColor, o.StrokeColor),
 			fixed(&n.FillColor, o.FillColor),
-		); err != nil {
-			return nil, true, err
-		}
-		return n, true, nil
+		))
+		return v, true, err
 	case v12.CylinderNodeConfig:
 		n := as[CylinderNodeConfig](migrated)
-		if err := migrateColors(ctx,
+		v, err := colored(&n, migrateColors(ctx,
 			fixed(&n.StrokeColor, o.StrokeColor),
 			fixed(&n.FillColor, o.FillColor),
-		); err != nil {
-			return nil, true, err
-		}
-		return n, true, nil
+		))
+		return v, true, err
 	case v12.LineNodeConfig:
 		n := as[LineNodeConfig](migrated)
-		if err := migrateColors(ctx, fixed(&n.StrokeColor, o.StrokeColor)); err != nil {
-			return nil, true, err
-		}
-		return n, true, nil
+		v, err := colored(&n, migrateColors(ctx, fixed(&n.StrokeColor, o.StrokeColor)))
+		return v, true, err
 	case v12.PolygonNodeConfig:
 		n := as[PolygonNodeConfig](migrated)
-		if err := migrateColors(ctx,
+		v, err := colored(&n, migrateColors(ctx,
 			fixed(&n.StrokeColor, o.StrokeColor),
 			fixed(&n.FillColor, o.FillColor),
-		); err != nil {
-			return nil, true, err
-		}
-		return n, true, nil
+		))
+		return v, true, err
 	case v12.TextBoxNodeConfig:
 		n := as[TextBoxNodeConfig](migrated)
-		if err := migrateColors(ctx, fixed(&n.TextColor, o.TextColor)); err != nil {
-			return nil, true, err
-		}
-		return n, true, nil
+		v, err := colored(&n, migrateColors(ctx, fixed(&n.TextColor, o.TextColor)))
+		return v, true, err
 	case v12.OffPageReferenceNodeConfig:
 		n := as[OffPageReferenceNodeConfig](migrated)
-		if err := migrateColors(ctx, fixed(&n.FillColor, o.FillColor)); err != nil {
-			return nil, true, err
-		}
-		return n, true, nil
+		v, err := colored(&n, migrateColors(ctx, fixed(&n.FillColor, o.FillColor)))
+		return v, true, err
 	}
 	return migrated, false, nil
 }
@@ -500,28 +494,20 @@ func migrateControlColors(
 	switch o := old.(type) {
 	case v12.ButtonNodeConfig:
 		n := as[ButtonNodeConfig](migrated)
-		if err := migrateColors(ctx, fixed(&n.FillColor, o.FillColor)); err != nil {
-			return nil, true, err
-		}
-		return n, true, nil
+		v, err := colored(&n, migrateColors(ctx, fixed(&n.FillColor, o.FillColor)))
+		return v, true, err
 	case v12.InputNodeConfig:
 		n := as[InputNodeConfig](migrated)
-		if err := migrateColors(ctx, fixed(&n.FillColor, o.FillColor)); err != nil {
-			return nil, true, err
-		}
-		return n, true, nil
+		v, err := colored(&n, migrateColors(ctx, fixed(&n.FillColor, o.FillColor)))
+		return v, true, err
 	case v12.SelectNodeConfig:
 		n := as[SelectNodeConfig](migrated)
-		if err := migrateColors(ctx, fixed(&n.FillColor, o.FillColor)); err != nil {
-			return nil, true, err
-		}
-		return n, true, nil
+		v, err := colored(&n, migrateColors(ctx, fixed(&n.FillColor, o.FillColor)))
+		return v, true, err
 	case v12.SetpointNodeConfig:
 		n := as[SetpointNodeConfig](migrated)
-		if err := migrateColors(ctx, fixed(&n.FillColor, o.FillColor)); err != nil {
-			return nil, true, err
-		}
-		return n, true, nil
+		v, err := colored(&n, migrateColors(ctx, fixed(&n.FillColor, o.FillColor)))
+		return v, true, err
 	}
 	return migrated, false, nil
 }
@@ -534,50 +520,35 @@ func migrateDisplayColors(
 	switch o := old.(type) {
 	case v12.StateIndicatorNodeConfig:
 		n := as[StateIndicatorNodeConfig](migrated)
-		if err := migrateColors(ctx, fixed(&n.StrokeColor, o.StrokeColor)); err != nil {
-			return nil, err
-		}
-		return n, nil
+		return colored(&n, migrateColors(ctx, fixed(&n.StrokeColor, o.StrokeColor)))
 	case v12.TankNodeConfig:
 		n := as[TankNodeConfig](migrated)
-		if err := migrateColors(ctx,
+		return colored(&n, migrateColors(ctx,
 			fixed(&n.StrokeColor, o.StrokeColor),
 			fixed(&n.FillColor, o.FillColor),
 			themed(&n.LevelColor, o.LevelColor),
 			themed(&n.AxisColor, o.AxisColor),
 			themed(&n.TextColor, o.TextColor),
-		); err != nil {
-			return nil, err
-		}
-		return n, nil
+		))
 	case v12.GaugeNodeConfig:
 		n := as[GaugeNodeConfig](migrated)
-		if err := migrateColors(
+		return colored(&n, migrateColors(
 			ctx,
 			themed(&n.StrokeColor, o.StrokeColor),
-		); err != nil {
-			return nil, err
-		}
-		return n, nil
+		))
 	case v12.StringDisplayNodeConfig:
 		n := as[StringDisplayNodeConfig](migrated)
-		if err := migrateColors(ctx,
+		return colored(&n, migrateColors(ctx,
 			fixed(&n.StrokeColor, o.StrokeColor),
 			fixed(&n.TextColor, o.TextColor),
-		); err != nil {
-			return nil, err
-		}
-		return n, nil
+		))
 	case v12.ValueNodeConfig:
 		n := as[ValueNodeConfig](migrated)
-		if err := migrateColors(ctx,
+		return colored(&n, migrateColors(ctx,
 			fixed(&n.StrokeColor, o.StrokeColor),
 			themed(&n.TextColor, o.TextColor),
 			fixed(&n.FillColor, o.FillColor),
-		); err != nil {
-			return nil, err
-		}
-		return n, nil
+		))
 	}
 	return migrated, nil
 }
