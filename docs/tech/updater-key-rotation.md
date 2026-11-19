@@ -19,11 +19,12 @@ is done.
 2. Merge the change of `pubkey` in `tauri.conf.json` to `main` just before the next
    stable minor. Dispatch that minor with `prerelease` off. No release candidate ships
    from `main` between the merge and this release.
-3. Cherry-pick the same change onto the newest `release/desktop-X.Y` branch. Release a
-   stable Desktop patch from it with `prerelease` off. It must be the highest stable
-   Desktop, so that every Desktop install updates to it.
-4. After both releases publish, set `TAURI_PRIVATE_KEY` and `TAURI_KEY_PASSWORD` to the
-   new key.
+3. Ship the change in the highest stable Desktop, so that every Desktop install updates
+   to it. A Desktop minor in the release run of step 2 does this. If that run has no
+   Desktop minor, cherry-pick the change onto the newest `release/desktop-X.Y` branch,
+   and release a stable Desktop patch from it with `prerelease` off.
+4. After the releases of steps 2 and 3 publish, set `TAURI_PRIVATE_KEY` and
+   `TAURI_KEY_PASSWORD` to the new key.
 5. In a later release, remove the old key from the Core's `PublicKeys`.
 
 ## What breaks
@@ -36,8 +37,10 @@ is done.
   download page to get updates. Desktop needs no bridge per train: every Desktop install
   updates to the highest stable Desktop on any train, so it reaches the bridge of
   step 3.
-- A Console from before step 2 trusts only the old key, however it was installed. After
-  step 4 it cannot update itself, so its user reinstalls from the download page.
+- A Console from before step 2 trusts only the old key, however it was installed. The
+  update feed offers only the latest release, so the Console can update to the bridge
+  until the first release after step 4. After that, its user reinstalls from the
+  download page.
 - A Console offers the Console of an older Core's minor as a downgrade when it connects
   to that Core over TLS. Before step 4 the old key signs that downgrade, so a Console
   from step 2 or later rejects it, and the user installs it by hand. After step 4 a
