@@ -166,6 +166,13 @@ describe("Enumeration.Table", () => {
       expect(marked(input("Value 1"))).toBe(false);
     });
 
+    it("should not add an entry with the value that a held entry stores", () => {
+      renderTable({ initial: [createEntry("Off", 0), createEntry("On", 1)] });
+      commit(input("Value 2"), "0");
+      fireEvent.click(screen.getByRole("button", { name: "Add entry" }));
+      expect(input("Value 3").value).toBe("2");
+    });
+
     it("should add an entry with the next whole value", () => {
       renderTable({ initial: [createEntry("Off", 0), createEntry("On", 2.5)] });
       fireEvent.click(screen.getByRole("button", { name: "Add entry" }));
