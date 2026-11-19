@@ -1762,9 +1762,6 @@ importers:
       astro:
         specifier: 'catalog:'
         version: 7.4.12(@astrojs/markdown-remark@7.3.0(supports-color@10.2.2))(@azure/identity@4.14.1(supports-color@10.2.2))(@types/node@26.6.6)(@vercel/functions@3.10.1(@aws-sdk/credential-provider-web-identity@3.972.80)(ws@8.22.0))(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1)
-      astro-seo:
-        specifier: 'catalog:'
-        version: 1.2.0
       react:
         specifier: 'catalog:'
         version: 19.3.1
