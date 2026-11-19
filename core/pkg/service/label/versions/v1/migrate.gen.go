@@ -15,11 +15,17 @@ import (
 	"context"
 
 	v0 "github.com/synnaxlabs/synnax/pkg/service/label/versions/v0"
+	color "github.com/synnaxlabs/x/color/versions/v2"
 )
 
-func autoMigrateLabel(_ context.Context, old v0.Label) (Label, error) {
+func autoMigrateLabel(ctx context.Context, old v0.Label) (Label, error) {
+	colorVal, err := color.MigrateColor(ctx, old.Color)
+	if err != nil {
+		return Label{}, err
+	}
 	return Label{
-		Key:  old.Key,
-		Name: old.Name,
+		Key:   old.Key,
+		Name:  old.Name,
+		Color: colorVal,
 	}, nil
 }

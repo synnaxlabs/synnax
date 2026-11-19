@@ -14,10 +14,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	color "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/label/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	xcolor "github.com/synnaxlabs/x/color/versions/v2"
 )
 
 var _ = Describe("Label", func() {
@@ -38,18 +36,8 @@ var _ = Describe("Label", func() {
 	})
 
 	Describe("Validate", func() {
-		It("Should accept a label with a name and a color", func() {
-			l := v1.Label{
-				Name: "Critical",
-				Color: color.Ref{
-					Variant: color.FixedRef{Value: xcolor.Color{R: 255, A: 255}},
-				},
-			}
-			Expect(l.Validate()).To(Succeed())
-		})
-		It("Should reject a label without a color", func() {
-			Expect(v1.Label{Name: "Critical"}.Validate()).
-				To(MatchError(ContainSubstring("color.type: required")))
+		It("Should accept a label with a name", func() {
+			Expect(v1.Label{Name: "Critical"}.Validate()).To(Succeed())
 		})
 		It("Should reject a label without a name", func() {
 			Expect(

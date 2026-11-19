@@ -17,8 +17,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	color "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/label/versions/v1"
+	color "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/testutil"
 )
@@ -36,14 +36,24 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v1.Label{
-				Key:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-				Name:  "test_2",
-				Color: color.Ref{Variant: color.NamedRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804")}},
+				Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Name: "test_2",
+				Color: color.Color{
+					R: 5,
+					G: 6,
+					B: 7,
+					A: 8,
+				},
 			}),
 			Entry("zero values", v1.Label{
-				Key:   uuid.Nil(),
-				Name:  "",
-				Color: color.Ref{Variant: color.NamedRef{Key: uuid.Nil()}},
+				Key:  uuid.Nil(),
+				Name: "",
+				Color: color.Color{
+					R: 0,
+					G: 0,
+					B: 0,
+					A: 0,
+				},
 			}),
 		)
 	})
@@ -51,9 +61,14 @@ var _ = Describe("Codec", func() {
 
 func BenchmarkEncodeDecodeLabel(b *testing.B) {
 	seed := v1.Label{
-		Key:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-		Name:  "test_2",
-		Color: color.Ref{Variant: color.NamedRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804")}},
+		Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		Name: "test_2",
+		Color: color.Color{
+			R: 5,
+			G: 6,
+			B: 7,
+			A: 8,
+		},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -73,9 +88,14 @@ func BenchmarkEncodeDecodeLabel(b *testing.B) {
 func FuzzDecodeLabel(f *testing.F) {
 	{
 		seed := v1.Label{
-			Key:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-			Name:  "test_2",
-			Color: color.Ref{Variant: color.NamedRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804")}},
+			Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Name: "test_2",
+			Color: color.Color{
+				R: 5,
+				G: 6,
+				B: 7,
+				A: 8,
+			},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -85,9 +105,14 @@ func FuzzDecodeLabel(f *testing.F) {
 	}
 	{
 		seed := v1.Label{
-			Key:   uuid.Nil(),
-			Name:  "",
-			Color: color.Ref{Variant: color.NamedRef{Key: uuid.Nil()}},
+			Key:  uuid.Nil(),
+			Name: "",
+			Color: color.Color{
+				R: 0,
+				G: 0,
+				B: 0,
+				A: 0,
+			},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

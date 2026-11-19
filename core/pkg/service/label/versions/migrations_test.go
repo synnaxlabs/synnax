@@ -29,6 +29,7 @@ var _ = Describe("Migrations", func() {
 			"normalize_keys",
 			"msgpack_to_orc",
 			"v62_color_alpha_byte",
+			"v63_color_ref",
 		}))
 	})
 })
