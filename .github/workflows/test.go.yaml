@@ -212,6 +212,16 @@ jobs:
         working-directory: ${{ inputs.directory }}
         run: go mod verify
 
+      # go fix -diff prints the fixes that the modernizers suggest and fails if there
+      # are any. Build constraints hide files, so each GOOS checks its own.
+      - name: Check that go fix has no fixes
+        if: matrix.shard == 1
+        working-directory: ${{ inputs.directory }}
+        env:
+          CGO_ENABLED: "0"
+          GOOS: ${{ matrix.goos }}
+        run: go fix -diff ./...
+
       # Code with no build constraint can still use an API that some operating systems
       # lack, so a module with no OS-specific code type-checks for the others. Main runs
       # it too, so the cache it saves holds the objects that pull requests build.
