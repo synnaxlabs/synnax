@@ -301,6 +301,26 @@ describe("Joins", () => {
       expect(store.raw(DATA, BLOCK).coveredEnd).toEqual(at(2).add(1));
     });
 
+    // D-111, amended: a series on another clock fails, and the error names the
+    // channel and both clock keys.
+    it("should throw on a data series whose clock is not its index", () => {
+      const { joins } = createJoined();
+      const other = new Series({
+        data: new Float32Array([30]),
+        alignment: 2n,
+        clock: INDEX + 10,
+      });
+      expect(() =>
+        joins.write(createFrame([INDEX, createIndex([3], 2n)], [DATA, other])),
+      ).toThrow(
+        expect.objectContaining({
+          message: expect.stringMatching(
+            new RegExp(`(?=.*${DATA})(?=.*${INDEX + 10})(?=.*${INDEX})`),
+          ),
+        }),
+      );
+    });
+
     it("should pair a data series only with the index of its clock", () => {
       const { store, joins } = createJoined();
       const other = new Series({
