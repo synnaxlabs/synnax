@@ -468,7 +468,7 @@ When configuring a write task, the Driver validates:
    against the specified `format` using the conversion table. If the conversion is ❌
    Error (e.g., Synnax String → JSON `number`), configuration fails immediately.
 2. **Pointer uniqueness**: Within each endpoint, no two fields may have the same
-   pointer.
+   pointer, and no pointer may sit inside another.
 3. **Channel type check**: Verify that each referenced channel's DataType is either a
    numeric type or String.
 

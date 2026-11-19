@@ -1,0 +1,107 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/channel/v0"
+import "schemas/synnax/versions/enumeration/v0"
+import "schemas/synnax/versions/group/v1"
+import "schemas/synnax/versions/project/v3"
+import "schemas/synnax/versions/ranger/v1"
+import "schemas/synnax/versions/symbol/v5"
+import "schemas/x/versions/border/v0"
+import "schemas/x/versions/color/v2"
+import "schemas/x/versions/spatial/v0"
+import "schemas/x/versions/telem/v0"
+import "schemas/x/versions/text/v0"
+
+Key = v0.Key
+
+Node struct extends v13.Node {}
+
+Handle = v7.Handle
+
+Edge = v13.Edge
+
+Segment = v9.Segment
+
+SegmentedEdgeConfig = v13.SegmentedEdgeConfig
+
+EdgeConfig = v13.EdgeConfig
+
+FlexAlignment = v9.FlexAlignment
+
+ComponentSize = v9.ComponentSize
+
+ButtonMode = v9.ButtonMode
+
+LabelConfig = v13.LabelConfig
+
+LabeledConfig = v13.LabeledConfig
+
+ScaledConfig = v9.ScaledConfig
+
+StalenessConfig = v13.StalenessConfig
+
+NumericTelemConfig = v13.NumericTelemConfig
+
+ControlStateConfig = v9.ControlStateConfig
+
+ToggleConfig = v13.ToggleConfig
+
+StaticSymbolConfig = v13.StaticSymbolConfig
+
+ToggleSymbolConfig = v13.ToggleSymbolConfig
+
+DummyToggleSymbolConfig = v13.DummyToggleSymbolConfig
+
+ScaleIndicatorConfig = v13.ScaleIndicatorConfig
+
+StateMapping = v13.StateMapping
+
+PageType = v9.PageType
+
+Page = v9.Page
+
+NodeConfig union on variant extends v13.NodeConfig {
+    custom_actuator {
+        state_overrides symbol.StateOverride[] = [] {
+            @doc value """
+                contains per-instance overrides of the spec's visual states, matched to
+                the spec's states by key.
+            """
+        }
+    }
+    custom_static {
+        state_overrides symbol.StateOverride[] = [] {
+            @doc value """
+                contains per-instance overrides of the spec's visual states, matched to
+                the spec's states by key.
+            """
+        }
+    }
+    select {
+        options
+        enumeration enumeration.Key? {
+            @doc value """
+                is the enumeration whose entries the select offers in place of its
+                options.
+            """
+        }
+    }
+    state_indicator {
+        options
+        enumeration enumeration.Key? {
+            @doc value """
+                is the enumeration whose entries the indicator shows in place of its
+                options.
+            """
+        }
+    }
+}
+
+Schematic struct extends v13.Schematic {}
