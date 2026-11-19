@@ -179,15 +179,16 @@ override sits before the length, so a decoder knows the type before it reads dat
   agreed clock at once: it reaches its own series and every later series of that key in
   the frame. A golden frame pins the reach in all four languages.
 - **Declared clocks**: A time series travels under its clock key, which a request need
-  not name (§4.5, §4.8). The list that a frame needs is the agreed clocks of the state's
-  requested keys plus every clock that a series of the frame names, less the keys the
-  request named. The encoder sends the whole list in field 5 when it differs from the
-  list of the state, and it becomes the list of the state; N can be 0. A list applies to
-  the frame that holds it. A state's key list is the sorted, unique union of the
-  requested and the declared keys in all four codecs, and `allChannelsPresent` compares
-  with it. A declared key has the agreed type `timestamp` and is its own agreed clock.
-  It takes no type and no clock override; the override chain can sit on it for another
-  kind.
+  not name (§4.5, §4.8). The list that a frame needs holds each key of a series in the
+  frame that the request did not name, plus each key already in the list that the agreed
+  clock of a requested key still names. So a stream that carries no time series declares
+  nothing, and its frames stay the frames of today. The encoder sends the whole list in
+  field 5 when it differs from the list of the state, and it becomes the list of the
+  state; N can be 0. A list applies to the frame that holds it. A state's key list is
+  the sorted, unique union of the requested and the declared keys in all four codecs,
+  and `allChannelsPresent` compares with it. A declared key has the agreed type
+  `timestamp` and is its own agreed clock. It takes no type and no clock override; the
+  override chain can sit on it for another kind.
 - **Sequence numbers**: Only a client request that lists keys makes a state and a
   sequence number (`core/pkg/transport/grpc/framer/handler.go:210`,
   `core/pkg/transport/http/framer/codec.go:269`). The Core never adds a key to a
