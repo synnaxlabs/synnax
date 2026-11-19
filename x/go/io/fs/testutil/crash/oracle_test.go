@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/io/fs/testutil/crash"
+	"github.com/synnaxlabs/x/io/fs/testutil/fault"
 )
 
 // altered is a correct reference engine whose Recovered goes through alter.
@@ -71,7 +72,8 @@ var _ = Describe("Oracle", func() {
 		},
 	)
 
-	DescribeTable("Should catch a recovered list that",
+	DescribeTable(
+		"Should catch a recovered list that",
 		func(ctx SpecContext, alter func([]crash.Record) []crash.Record) {
 			Expect(
 				broke(crash.Run(ctx, alteredConfig(false, alter))),
@@ -105,7 +107,36 @@ var _ = Describe("Oracle", func() {
 			}
 			return r
 		}),
+		Entry(
+			"holds a payload with one flipped bit",
+			func(r []crash.Record) []crash.Record {
+				for i := range r {
+					r[i].Payload = append(
+						[]byte{r[i].Payload[0] ^ 1},
+						r[i].Payload[1:]...,
+					)
+				}
+				return r
+			},
+		),
+		Entry("holds two payloads in the place of each other",
+			func(r []crash.Record) []crash.Record {
+				if len(r) > 1 {
+					r[0].Payload, r[1].Payload = r[1].Payload, r[0].Payload
+				}
+				return r
+			}),
 	)
+
+	It("Should catch a recovered list with a hole", func(ctx SpecContext) {
+		cfg := alteredConfig(false, func(r []crash.Record) []crash.Record {
+			if len(r) > 1 {
+				return r[1:]
+			}
+			return r
+		})
+		Expect(broke(crash.Run(ctx, cfg))).To(Equal(crash.R3))
+	})
 
 	It(
 		"Should not take an unreadable commit on an image with no corruption",
@@ -181,7 +212,11 @@ type spied struct {
 
 const meta = "metadata"
 
-func (s *spied) open(_ context.Context, fs xfs.FS) (crash.Engine, error) {
+func (s *spied) open(_ context.Context, root xfs.FS) (crash.Engine, error) {
+	fs, err := root.Sub("data")
+	if err != nil {
+		return nil, err
+	}
 	exists, err := fs.Exists("meta")
 	if err != nil {
 		return nil, err
@@ -228,7 +263,7 @@ func (s *spied) open(_ context.Context, fs xfs.FS) (crash.Engine, error) {
 		return nil, errors.Combine(refusal, engine.Close())
 	}
 	if fresh {
-		err = errors.Combine(metaFile.Sync(), fs.SyncDir(""))
+		err = errors.Join(metaFile.Sync(), fs.SyncDir(""), root.SyncDir(""))
 	}
 	return engine, err
 }
@@ -397,4 +432,83 @@ var _ = Describe("Events", func() {
 		Entry("each change: a directory, a file, and five writes and syncs", 1, 13),
 		Entry("each fifth change", 5, 4),
 	)
+
+	It(
+		"Should count each call that changes the disk, and no other call",
+		func(ctx SpecContext) {
+			var opens atomic.Int64
+			open := func(_ context.Context, fs xfs.FS) (crash.Engine, error) {
+				opens.Add(1)
+				if _, image := fs.(*fault.FS); image {
+					return &visible{}, nil
+				}
+				f, err := fs.Open("a", os.O_CREATE|os.O_RDWR)
+				if err != nil {
+					return nil, err
+				}
+				for _, flag := range []int{os.O_RDWR, os.O_RDWR | os.O_TRUNC} {
+					again, err := fs.Open("a", flag)
+					if err != nil {
+						return nil, err
+					}
+					if err = again.Close(); err != nil {
+						return nil, err
+					}
+				}
+				if _, err = f.Write([]byte("tacocat")); err != nil {
+					return nil, err
+				}
+				if _, err = f.ReadAt(make([]byte, 1), 0); err != nil {
+					return nil, err
+				}
+				if _, err = fs.List(""); err != nil {
+					return nil, err
+				}
+				sub, err := fs.Sub("d")
+				if err != nil {
+					return nil, err
+				}
+				if _, err = fs.Sub("d"); err != nil {
+					return nil, err
+				}
+				return &visible{}, errors.Join(
+					f.Truncate(1),
+					f.Sync(),
+					sub.SyncDir(""),
+					fs.Rename("a", "b"),
+					fs.Remove("b"),
+					f.Close(),
+				)
+			}
+			Expect(crash.Run(ctx, crash.Config{
+				Open:    open,
+				Commits: 1,
+				Stride:  1,
+				Profile: crash.Strict,
+			})).To(Succeed())
+			// Nine changes: a create, a truncating open, a write, a new directory, a
+			// truncate, a sync, a directory sync, a rename, and a remove.
+			Expect(opens.Load()).To(BeEquivalentTo(1 + 2*10))
+		},
+	)
 })
+
+// visible holds each commit in memory and acks it as Visible.
+type visible struct{ records []crash.Record }
+
+func (v *visible) Commit(
+	_ context.Context,
+	r crash.Record,
+	_ crash.Ack,
+) (crash.Ack, error) {
+	v.records = append(v.records, r)
+	return crash.Visible, nil
+}
+
+func (v *visible) Recovered(
+	context.Context,
+) ([]crash.Record, error) {
+	return v.records, nil
+}
+
+func (v *visible) Close() error { return nil }

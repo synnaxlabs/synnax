@@ -72,11 +72,11 @@ func Run(ctx context.Context, cfg Config) error {
 	}
 	r.pending = r.snapshot(0)
 	if engine, err := cfg.Open(ctx, &countedFS{inner: disk, c: r.counter}); err != nil {
-		r.unless(r.faulted(), R0, "open on an empty disk: %v", err)
+		r.worksf(r.faulted(), "open on an empty disk: %v", err)
 	} else {
 		r.work(engine)
 		if err = engine.Close(); err != nil {
-			r.unless(r.faulted(), R0, "close: %v", err)
+			r.worksf(r.faulted(), "close: %v", err)
 		}
 	}
 	r.counter.mu.Lock()
@@ -114,18 +114,16 @@ func (r *run) work(engine Engine) {
 		r.mu.Unlock()
 		ack, err := engine.Commit(r.ctx, rec, want)
 		if err != nil {
-			r.unless(
+			r.worksf(
 				r.faulted(),
-				R0,
 				"commit %d failed on a disk with no fault: %v",
 				id,
 				err,
 			)
 			continue
 		}
-		r.unless(
+		r.worksf(
 			ack == Visible || ack == Durable,
-			R0,
 			"commit %d got the ack %d",
 			id,
 			ack,
@@ -142,7 +140,7 @@ func (r *run) work(engine Engine) {
 	}
 	records, err := engine.Recovered(r.ctx)
 	if err != nil {
-		r.unless(r.faulted(), R0, "read before a crash: %v", err)
+		r.worksf(r.faulted(), "read before a crash: %v", err)
 		return
 	}
 	if b := checkLive(r.attempts, records); b != nil {
@@ -157,10 +155,10 @@ func (r *run) faulted() bool {
 	return r.counter.faults > 0
 }
 
-// unless breaks the rule when ok is false.
-func (r *run) unless(ok bool, rule Rule, format string, args ...any) {
+// worksf breaks R0, before any crash, when ok is false.
+func (r *run) worksf(ok bool, format string, args ...any) {
 	if !ok {
-		r.fail(&broken{rule, fmt.Sprintf(format, args...)}, 0)
+		r.fail(&broken{R0, fmt.Sprintf(format, args...)}, 0)
 	}
 }
 
@@ -230,7 +228,7 @@ func (r *run) check(s *snapshot, attempts []attempt) {
 		if err != nil {
 			refused := s.rules.refusalAllowed && r.cfg.Corrupt != nil &&
 				r.cfg.Corrupt(err)
-			r.unlessAt(refused, s.event, R4, "the engine did not recover: %v", err)
+			r.unlessAtf(refused, s.event, R4, "the engine did not recover: %v", err)
 			return
 		}
 		if b := checkRecovered(attempts, records, s.rules); b != nil {
@@ -240,7 +238,8 @@ func (r *run) check(s *snapshot, attempts []attempt) {
 	}
 }
 
-func (r *run) unlessAt(ok bool, event int, rule Rule, format string, args ...any) {
+// unlessAtf breaks the rule at the event when ok is false.
+func (r *run) unlessAtf(ok bool, event int, rule Rule, format string, args ...any) {
 	if !ok {
 		r.fail(&broken{rule, fmt.Sprintf(format, args...)}, event)
 	}

@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io/fs/testutil/crash"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -111,7 +112,7 @@ var _ = Describe("Run", func() {
 	})
 
 	DescribeTable("Should fail a config that",
-		func(ctx SpecContext, change func(cfg *crash.Config)) {
+		func(ctx SpecContext, field string, change func(cfg *crash.Config)) {
 			cfg := crash.Config{
 				Open:    openRefLog(bugs{}),
 				Commits: 1,
@@ -119,14 +120,34 @@ var _ = Describe("Run", func() {
 				Profile: crash.Strict,
 			}
 			change(&cfg)
-			Expect(crash.Run(ctx, cfg)).To(MatchError(validate.ErrValidation))
+			err := crash.Run(ctx, cfg)
+			Expect(err).To(MatchError(validate.ErrValidation))
+			Expect(err).To(MatchError(ContainSubstring(field)))
 		},
-		Entry("has no Open", func(cfg *crash.Config) { cfg.Open = nil }),
-		Entry("has no commit", func(cfg *crash.Config) { cfg.Commits = 0 }),
-		Entry("has no stride", func(cfg *crash.Config) { cfg.Stride = 0 }),
-		Entry("has no profile", func(cfg *crash.Config) { cfg.Profile = 0 }),
-		Entry("has an unknown profile", func(cfg *crash.Config) { cfg.Profile = 9 }),
+		Entry("has no Open", "open", func(cfg *crash.Config) { cfg.Open = nil }),
+		Entry("has no commit", "commits", func(cfg *crash.Config) { cfg.Commits = 0 }),
+		Entry("has no stride", "stride", func(cfg *crash.Config) { cfg.Stride = 0 }),
+		Entry("has no profile", "profile", func(cfg *crash.Config) { cfg.Profile = 0 }),
+		Entry("has an unknown profile", "profile",
+			func(cfg *crash.Config) { cfg.Profile = 9 }),
 	)
+
+	It("Should catch a skipped checksum on a disk of one block", func(ctx SpecContext) {
+		rules := set.Set[crash.Rule]{}
+		for runKey := range uint64(32) {
+			err := crash.Run(ctx, crash.Config{
+				RunKey:  runKey,
+				Open:    openRefLog(bugs{checksumSkipped: true}),
+				Commits: 2,
+				Stride:  1,
+				Profile: crash.OneTimeReadFaults,
+			})
+			if err != nil {
+				rules.Add(broke(err))
+			}
+		}
+		Expect(rules.Slice()).To(ConsistOf(crash.R2))
+	})
 })
 
 // BenchmarkRun measures one pass of 200 commits on the reference engine, with a crash
