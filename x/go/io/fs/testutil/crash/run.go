@@ -248,9 +248,7 @@ func (r *run) check(s *snapshot, attempts []attempt) {
 	if err != nil {
 		return
 	}
-	rules := s.rules
-	rules.refusalAllowed = false
-	b := checkRecovered(attempts, second, rules)
+	b := checkRecovered(attempts, second, s.rules)
 	if b == nil {
 		b = checkKept(first, second)
 	}
