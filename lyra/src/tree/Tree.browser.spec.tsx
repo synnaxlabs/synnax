@@ -30,11 +30,20 @@ const getItem = List.createGetItem(
 
 interface ComponentProps {
   showRules?: boolean;
+  selected?: string[];
   onDoubleClick?: (key: string) => void;
 }
 
-const Component = ({ showRules, onDoubleClick }: ComponentProps): ReactElement => {
-  const props = Tree.use({ nodes: NODES, initialExpanded: ["parent", "child"] });
+const Component = ({
+  showRules,
+  selected,
+  onDoubleClick,
+}: ComponentProps): ReactElement => {
+  const props = Tree.use({
+    nodes: NODES,
+    initialExpanded: ["parent", "child"],
+    selected,
+  });
   return (
     <Tree.Tree {...props} getItem={getItem} showRules={showRules}>
       {({ key, ...rest }) => (
@@ -209,14 +218,14 @@ describe("Tree keys", () => {
   const tree = (): HTMLElement => document.querySelector(".lyra-tree")!;
   const selected = (key: string): boolean =>
     document.getElementById(key)!.getAttribute("aria-selected") === "true";
+  const ring = (key: string): CSSStyleDeclaration =>
+    getComputedStyle(document.getElementById(key)!, "::before");
 
   it("should move the selection with the arrow keys after a click", async () => {
     const { getByText } = await renderThemed(<Component />);
     await userEvent.click(getByText("sibling", { exact: true }));
     expect(document.activeElement).toBe(tree());
-    expect(getComputedStyle(document.getElementById("sibling")!).outlineStyle).toBe(
-      "none",
-    );
+    expect(ring("sibling").borderTopStyle).toBe("none");
     await userEvent.keyboard("{ArrowUp}");
     await expect.poll(() => selected("grandchild")).toBe(true);
     expect(selected("sibling")).toBe(false);
@@ -258,10 +267,27 @@ describe("Tree keys", () => {
     await userEvent.tab();
     expect(document.activeElement).toBe(tree());
     await userEvent.keyboard("{ArrowDown}");
-    const item = getComputedStyle(document.getElementById("parent")!);
-    await expect.poll(() => item.outlineStyle).toBe("solid");
-    expect(item.outlineColor).toBe(resolve("var(--pluto-primary-z)"));
+    const item = ring("parent");
+    await expect.poll(() => item.borderTopStyle).toBe("solid");
+    expect(item.borderTopColor).toBe(resolve("var(--pluto-primary-z)"));
     expect(getComputedStyle(tree()).outlineStyle).toBe("none");
+  });
+
+  it("should ring a run of contiguous selected items as one box", async () => {
+    await renderThemed(<Component selected={["parent", "child", "grandchild"]} />);
+    await userEvent.tab();
+    const [first, middle, last] = ["parent", "child", "grandchild"].map(ring);
+    await expect.poll(() => first.borderLeftStyle).toBe("solid");
+    const side = parseFloat(first.borderLeftWidth);
+    expect(side).toBeGreaterThan(0);
+    expect(parseFloat(middle.borderLeftWidth)).toBe(side);
+    expect(parseFloat(first.borderTopWidth)).toBe(side);
+    expect(parseFloat(last.borderBottomWidth)).toBe(side);
+    expect(parseFloat(first.borderBottomWidth)).toBe(0);
+    expect(parseFloat(middle.borderTopWidth)).toBe(0);
+    expect(parseFloat(middle.borderBottomWidth)).toBe(0);
+    expect(parseFloat(last.borderTopWidth)).toBe(0);
+    expect(ring("sibling").borderTopStyle).toBe("none");
   });
 
   it("should open one context menu of the selection from either menu key", async () => {
