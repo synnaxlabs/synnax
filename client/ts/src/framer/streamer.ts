@@ -13,7 +13,7 @@ import {
   Unreachable,
   type WebSocketClient,
 } from "@synnaxlabs/freighter";
-import { errors, Rate, sync, TimeSpan, zod } from "@synnaxlabs/x";
+import { disposable, errors, Rate, sync, TimeSpan, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { channel } from "@/channel";
@@ -95,11 +95,13 @@ export interface StreamerUpdateOptions {
 /**
  * Streams frames of telemetry from a Synnax cluster in real time. Open one with the
  * client's openStreamer method, never directly. Read frames with `read` or by
- * iterating the streamer. Close it in a `finally` block to free its resources.
+ * iterating the streamer. Declare it with `using` or close it in a `finally` block to
+ * free its resources.
  *
  * @see https://docs.synnaxlabs.com/reference/client/stream-data
  */
-export interface Streamer extends AsyncIterator<Frame>, AsyncIterable<Frame> {
+export interface Streamer
+  extends AsyncIterator<Frame>, AsyncIterable<Frame>, Disposable, AsyncDisposable {
   /** The keys of the channels currently being streamed from. */
   keys: channel.Key[];
   /**
@@ -177,6 +179,12 @@ export const openStreamer = async (
 const KEEP_ALIVE_DEADLINE_FACTOR = 3;
 
 class BaseStreamer implements Streamer {
+  declare [Symbol.dispose]: () => void;
+  declare [Symbol.asyncDispose]: () => Promise<void>;
+  static {
+    disposable.implement(this);
+  }
+
   private readonly stream: StreamProxy<typeof reqZ, typeof resZ>;
   private readonly adapter: ReadAdapter;
   private readonly downsampleFactor: number;

@@ -11,6 +11,7 @@ import { EOF, type Stream, type WebSocketClient } from "@synnaxlabs/freighter";
 import {
   control,
   type CrudeSeries,
+  disposable,
   errors,
   TimeSpan,
   TimeStamp,
@@ -197,9 +198,15 @@ interface Response extends z.infer<typeof resZ> {}
  * failure surfaces on a later call: once the writer accumulates an error, every write
  * and commit returns false until `error` reads and clears it. `commit` blocks until the
  * cluster has the frames written since the last commit, and may be called repeatedly.
- * Close in a `finally` block to release resources; close throws any accumulated error.
+ * Declare it with `await using`, or close it in a `finally` block, to release
+ * resources; close throws any accumulated error.
  */
 export class Writer {
+  declare [Symbol.asyncDispose]: () => Promise<void>;
+  static {
+    disposable.implementAsync(this);
+  }
+
   private readonly stream: Stream<typeof reqZ, typeof resZ>;
   private readonly adapter: WriteAdapter;
   private closeErr: Error | null = null;
@@ -319,17 +326,18 @@ export class Writer {
 
   /**
    * Closes the writer, raising any accumulated error encountered during operation.
-   * A writer MUST be closed after use, and this method should probably be placed
-   * in a 'finally' block.
+   * A writer MUST be closed after use: declare it with `await using`, or close it in a
+   * `finally` block. Closing a closed writer raises the same error again, or nothing.
    */
   async close(): Promise<void> {
     await this.closeInternal(null);
   }
 
   private async closeInternal(err: Error | null): Promise<null> {
-    if (this.closeErr != null) throw this.closeErr;
-    this.closeErr = err;
-    this.stream.closeSend();
+    if (this.closeErr == null) {
+      this.closeErr = err;
+      this.stream.closeSend();
+    }
     while (true) {
       if (this.closeErr != null) {
         if (WriterClosedError.matches(this.closeErr)) return null;
