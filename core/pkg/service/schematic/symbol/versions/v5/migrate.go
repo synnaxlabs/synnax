@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/gorp/migrate"
 	color "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	enumeration "github.com/synnaxlabs/synnax/pkg/service/enumeration/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/selector"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v4"
 	xcolor "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/errors"
@@ -114,9 +115,9 @@ func migrateStored(
 	if err != nil {
 		return Symbol{}, err
 	}
-	for _, sel := range m.unparsed {
+	for _, sel := range m.dropped {
 		ins.L.Warn(
-			"symbol part selector is outside the editor's grammar and selects nothing",
+			"dropping a symbol part selector that names no shape",
 			zap.Stringer("symbol", old.Key),
 			zap.String("selector", sel),
 		)
@@ -142,8 +143,8 @@ type specMigration struct {
 	state *EnumerationState
 	// painted holds the region colors of each look, in look order.
 	painted []regionPaint
-	// unparsed holds the selectors outside the grammar of the v4 editor.
-	unparsed []string
+	// dropped holds the selectors that select no shape.
+	dropped []string
 }
 
 // regionPaint is the stroke and fill that a region gives its part at a value.
@@ -184,7 +185,7 @@ func migrateSpec(ctx context.Context, old v4.Spec) (*specMigration, error) {
 		}
 	}
 	m.spec.Drawing = Drawing{Variant: SvgDrawing{Markup: parts.markup(old.SVG)}}
-	m.unparsed = parts.unparsed
+	m.dropped = parts.dropped
 	if old.Variant == actuatorVariant {
 		m.addActuator()
 	}
@@ -257,11 +258,11 @@ func (m *specMigration) finish() Spec {
 // partMigrator turns regions into parts, one for each pair of region key and selector
 // set.
 type partMigrator struct {
-	tree     *tree
-	parsed   bool
-	keys     map[string]string
-	taken    []string
-	unparsed []string
+	tree    *tree
+	parsed  bool
+	keys    map[string]string
+	taken   []string
+	dropped []string
 }
 
 func (m *partMigrator) part(spec *Spec, r v4.Region) string {
@@ -294,23 +295,24 @@ func (m *partMigrator) part(spec *Spec, r v4.Region) string {
 	return key
 }
 
-// resolve returns sel when it names shapes, and otherwise a data-region-id selector for
-// each shape that sel selects.
+// resolve returns sel when the symbol checker accepts it as a name, and otherwise a
+// data-region-id selector for each shape that sel selects. It drops a sel that selects
+// no shape.
 func (m *partMigrator) resolve(sel string) []string {
-	chain, err := parseSelector(sel)
-	if err != nil {
-		m.unparsed = append(m.unparsed, sel)
-		return nil
-	}
-	if len(chain) == 1 && chain[0].isName() {
+	if selector.IsName(sel) {
 		return []string{sel}
 	}
-	if !m.parsed {
+	var shapes []*element
+	if chain, err := parseSelector(sel); err == nil && m.parsed {
+		shapes = m.tree.selectAll(chain)
+	}
+	if len(shapes) == 0 {
+		m.dropped = append(m.dropped, sel)
 		return nil
 	}
-	var out []string
-	for _, el := range m.tree.selectAll(chain) {
-		out = append(out, m.tree.name(el))
+	out := make([]string, len(shapes))
+	for i, el := range shapes {
+		out[i] = m.tree.name(el)
 	}
 	return out
 }

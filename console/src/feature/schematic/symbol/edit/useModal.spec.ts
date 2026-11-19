@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type group } from "@synnaxlabs/client";
+import { type group, type schematic } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { theming } from "@synnaxlabs/pluto/ether";
 import { color, uuid } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
@@ -260,6 +261,81 @@ describe("Schematic.Symbol.Edit.useModal", () => {
   });
 
   describe("edit mode", () => {
+    // openEditModal opens the editor on a new symbol with no state, as a client or the
+    // v5 migration creates one.
+    // The client that saves keeps its edits in its cache even when the Core refuses
+    // them, so a new client reads what the Core stored.
+    const retrieveStored = async (
+      key: schematic.symbol.Key,
+    ): Promise<schematic.symbol.Symbol> =>
+      await createTestClient().schematics.symbols.retrieve(key);
+
+    const openEditModal = async (markup?: string) => {
+      const grp = await createParentGroup();
+      const payload = createSymbolPayload(uniqueName("stateless"));
+      if (markup != null) payload.data.drawing = { type: "svg", markup };
+      const symbol = await client.schematics.symbols.create({
+        ...payload,
+        group: grp.key,
+      });
+      expect(symbol.data.states).toEqual([]);
+      const handle = await renderModalOpener(
+        Schematic.Symbol.Edit.useModal,
+        [{ symbolKey: symbol.key, group: grp.key }],
+        { client, additionalRegistry: theming.REGISTRY },
+      );
+      await waitFor(() => expect(findNameInput().value).toBe(symbol.name), {
+        timeout: 5000,
+      });
+      fireEvent.click(getEditSectionHeaderButton("Colors"));
+      await screen.findByText("Region 1");
+      return { symbol, handle };
+    };
+
+    it("saves a new region and its color on a symbol with no state", async () => {
+      const { symbol, handle } = await openEditModal();
+      const item = handle.baseElement.querySelector<HTMLElement>(
+        ".console-schematic-region-list-item",
+      );
+      assertDefined(item);
+      fireEvent.click(item.querySelectorAll<HTMLElement>(".lyra-color-swatch")[0]);
+      fireEvent.change(screen.getByLabelText("Hex"), { target: { value: "ff0000" } });
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await retrieveStored(symbol.key);
+        expect(saved.data.states.map((s) => s.key)).toEqual(["active"]);
+        const part = saved.data.parts.find((p) => p.name === "Region 1");
+        assertDefined(part);
+        expect(saved.data.looks.find((l) => l.part === part.key)?.stroke).toEqual({
+          type: "color",
+          value: { type: "fixed", value: color.construct("#ff0000") },
+        });
+      });
+    });
+
+    it("names an unnamed shape in the drawing when a click adds it to a region", async () => {
+      const { symbol, handle } = await openEditModal(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
+          '<rect data-region-id="region-1" width="10" height="10" fill="#ffffff"/>' +
+          '<circle cx="5" cy="5" r="2" fill="#000000"/></svg>',
+      );
+      const circle = getPreviewTransformWrapper(handle.baseElement).querySelector(
+        "circle",
+      );
+      assertDefined(circle);
+      fireEvent.click(circle);
+      await screen.findByText("1 elements");
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await retrieveStored(symbol.key);
+        const part = saved.data.parts.find((p) => p.name === "Region 1");
+        expect(part?.selectors).toEqual(['[data-region-id="region-2"]']);
+        expect(saved.data.drawing.markup).toContain(
+          '<circle cx="5" cy="5" r="2" fill="#000000" data-region-id="region-2"/>',
+        );
+      });
+    });
+
     it("loads the existing symbol and renames it on save", async () => {
       const grp = await createParentGroup();
       const original = uniqueName("existing");

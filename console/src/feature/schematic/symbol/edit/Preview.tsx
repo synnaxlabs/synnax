@@ -17,7 +17,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Theming as Base } from "@synnaxlabs/lyra/theming";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Schematic, Theming } from "@synnaxlabs/pluto";
-import { bounds, deep, dimensions, id, TimeSpan } from "@synnaxlabs/x";
+import { bounds, deep, dimensions, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useRef, useState } from "react";
 
 import { FileDrop } from "@/feature/schematic/symbol/edit/FileDrop";
@@ -202,9 +202,10 @@ export const Preview = ({
       });
 
       el.addEventListener("click", () => {
-        if (!el.id && !el.hasAttribute("data-region-id"))
-          el.setAttribute("data-region-id", `region-${id.create()}`);
-        onElementClick(Schematic.Node.Region.selector(el));
+        const markup = form.get(path.data.drawing.markup).value;
+        const named = Schematic.Node.Region.name(markup, drawing, el);
+        if (named.markup !== markup) form.set(path.data.drawing.markup, named.markup);
+        onElementClick(named.selector);
       });
 
       Array.from(el.children).forEach(addInteractivity);

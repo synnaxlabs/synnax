@@ -53,7 +53,9 @@ describe("symbol editor spec", () => {
       const looks: schematic.symbol.Look[] = [
         { key: "a", part: "body", when: equals(0), fill: fixed(BLUE) },
       ];
-      expect(Spec.setColor(looks, "body", 0, "stroke", RED)).toEqual([
+      expect(
+        Spec.setColor(createSpec({ looks }), "body", 0, "stroke", RED).looks,
+      ).toEqual([
         {
           key: "a",
           part: "body",
@@ -68,7 +70,13 @@ describe("symbol editor spec", () => {
       const looks: schematic.symbol.Look[] = [
         { key: "a", part: "body", when: equals(1), stroke: fixed(BLUE) },
       ];
-      const next = Spec.setColor(looks, "body", 0, "stroke", RED);
+      const { looks: next } = Spec.setColor(
+        createSpec({ looks }),
+        "body",
+        0,
+        "stroke",
+        RED,
+      );
       expect(next).toHaveLength(2);
       expect(next[0]).toEqual(looks[0]);
       expect(next[1]).toMatchObject({
@@ -88,7 +96,13 @@ describe("symbol editor spec", () => {
           stroke: { type: "entry", state: STATE },
         },
       ];
-      const next = Spec.setColor(looks, "body", 0, "stroke", RED);
+      const { looks: next } = Spec.setColor(
+        createSpec({ looks }),
+        "body",
+        0,
+        "stroke",
+        RED,
+      );
       expect(next.slice(0, 2)).toEqual(looks);
       expect(next[2]).toMatchObject({ part: "body", stroke: fixed(RED) });
     });
@@ -98,7 +112,9 @@ describe("symbol editor spec", () => {
         { key: "a", part: "body", when: equals(0), stroke: fixed(RED) },
         { key: "b", part: "seat", when: equals(0), stroke: fixed(RED) },
       ];
-      expect(Spec.setColor(looks, "body", 0, "stroke")).toEqual([looks[1]]);
+      expect(Spec.setColor(createSpec({ looks }), "body", 0, "stroke").looks).toEqual([
+        looks[1],
+      ]);
     });
 
     it("should keep the other fields of a look when it clears one", () => {
@@ -111,7 +127,7 @@ describe("symbol editor spec", () => {
           fill: fixed(BLUE),
         },
       ];
-      expect(Spec.setColor(looks, "body", 0, "stroke")).toEqual([
+      expect(Spec.setColor(createSpec({ looks }), "body", 0, "stroke").looks).toEqual([
         {
           key: "a",
           part: "body",
@@ -120,6 +136,33 @@ describe("symbol editor spec", () => {
           fill: fixed(BLUE),
         },
       ]);
+    });
+  });
+
+  describe("setColor on a spec with no state", () => {
+    it("should add the state with the look", () => {
+      const next = Spec.setColor(createSpec({ states: [] }), "body", 0, "stroke", RED);
+      expect(next.states).toEqual([Spec.createState()]);
+      expect(next.looks).toEqual([
+        expect.objectContaining({ part: "body", when: equals(0), stroke: fixed(RED) }),
+      ]);
+    });
+
+    it("should keep the other states", () => {
+      const other: schematic.symbol.State = { ...Spec.createState(), key: "other" };
+      const next = Spec.setColor(
+        createSpec({ states: [other] }),
+        "body",
+        0,
+        "fill",
+        RED,
+      );
+      expect(next.states).toEqual([other, Spec.createState()]);
+    });
+
+    it("should not add the state when it clears a field", () => {
+      const spec = createSpec({ states: [] });
+      expect(Spec.setColor(spec, "body", 0, "stroke")).toBe(spec);
     });
   });
 
