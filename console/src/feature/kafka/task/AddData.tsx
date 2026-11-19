@@ -395,17 +395,17 @@ const Content = ({
   const trimmed = term.trim();
   const visible = entries.filter(({ name }) => search.matches(name, trimmed));
   const items = visible.map((entry): ICD.Picker.TreeItem => {
-    const { name, listed: t } = entry;
+    const { name, listed: topic } = entry;
     const sample = samples.topics.get(name);
     const picked = countOf(picks.get(name)?.picks);
     const free =
       sample?.variant === "success"
         ? countOf(defaultsOf(sample.data.shapes, recordsOf(name)))
         : null;
-    let meta = t == null ? "Not listed" : formatRate(t.rate);
+    let meta = topic == null ? "Not listed" : formatRate(topic.rate);
     if (picked > 0) meta = `${picked} selected`;
-    else if (t != null && !t.readable) meta = "No access";
-    else if (t != null && !holdsRecords(t)) meta = "Empty";
+    else if (topic != null && !topic.readable) meta = "No access";
+    else if (topic != null && !holdsRecords(topic)) meta = "Empty";
     else if (held.some((h) => h.name === name)) meta = "In task";
     const loading = sample?.variant === "loading";
     return {
@@ -431,7 +431,7 @@ const Content = ({
     });
   };
 
-  const handleEnter = () => {
+  const handleReadTerm = () => {
     setEntered((prev) => unique.unique([...prev, trimmed]));
     setSelected(trimmed);
     setTerm("");
@@ -466,17 +466,19 @@ const Content = ({
     );
   else tree = <ICD.Picker.TreeSkeleton items={SKELETON} />;
 
-  const t = activeEntry?.listed ?? null;
+  const activeTopic = activeEntry?.listed ?? null;
   let pane: ReactNode;
-  if (activeEntry == null)
-    if (browseFailed) pane = <Status.Summary center status={result.status} />;
-    else if (listing == null) pane = <ICD.Picker.PaneSkeleton noun="Field" />;
-    else pane = <ICD.Picker.Notice message="Select a topic to see its records." />;
-  else if (t != null && !t.readable)
+  if (activeEntry == null && browseFailed)
+    pane = <Status.Summary center status={result.status} />;
+  else if (activeEntry == null && listing == null)
+    pane = <ICD.Picker.PaneSkeleton noun="Field" />;
+  else if (activeEntry == null)
+    pane = <ICD.Picker.Notice message="Select a topic to see its records." />;
+  else if (activeTopic != null && !activeTopic.readable)
     pane = (
       <ICD.Picker.Notice message="The cluster does not let Synnax read this topic." />
     );
-  else if (t != null && !holdsRecords(t))
+  else if (activeTopic != null && !holdsRecords(activeTopic))
     pane = <ICD.Picker.Notice message={NO_RECORDS} />;
   else if (activeSample == null || activeSample.variant === "loading")
     pane = <ICD.Picker.PaneSkeleton noun="Field" title={activeEntry.name} />;
@@ -486,9 +488,9 @@ const Content = ({
     const topic = activeEntry.name;
     const { data } = activeSample;
     const warning = [
-      t == null || t.error === ""
+      activeTopic == null || activeTopic.error === ""
         ? null
-        : `Could not measure every partition. ${t.error}`,
+        : `Could not measure every partition. ${activeTopic.error}`,
       data.error === "" ? null : `Could not read every record. ${data.error}`,
     ]
       .filter((w) => w != null)
@@ -498,9 +500,9 @@ const Content = ({
         key={`${samples.listing}/${topic}`}
         name={topic}
         note={
-          t == null || listing == null
+          activeTopic == null || listing == null
             ? "Not listed by the cluster"
-            : describeTopic(t, listing.listedAt)
+            : describeTopic(activeTopic, listing.listedAt)
         }
         warning={warning === "" ? null : warning}
         sample={data}
@@ -524,16 +526,16 @@ const Content = ({
   else pane = <ICD.Picker.Notice message={NO_JSON_RECORDS} />;
 
   const count = [...picks.values()].reduce((n, p) => n + countOf(p.picks), 0);
-  const listedTerm = trimmed === "" || entries.some(({ name }) => name === trimmed);
+  const unknownTerm = trimmed !== "" && !entries.some(({ name }) => name === trimmed);
 
   let sideAction: ReactNode = null;
-  if (!listedTerm)
+  if (unknownTerm)
     sideAction = (
-      <ICD.Picker.SideAction onClick={handleEnter}>
+      <ICD.Picker.SideAction onClick={handleReadTerm}>
         {`Read “${trimmed}”`}
       </ICD.Picker.SideAction>
     );
-  else if (activeEntry != null && t?.readable !== false)
+  else if (activeEntry != null && (activeTopic == null || activeTopic.readable))
     sideAction = (
       <ICD.Picker.SideAction
         onClick={() => close({ variant: "record", topic: activeEntry.name })}

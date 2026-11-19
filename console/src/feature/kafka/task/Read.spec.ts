@@ -986,7 +986,19 @@ describe("Kafka read form", () => {
       const dialog = await openAddData(dev, { data });
       await dialog.findByText("Read no records");
       dialog.getByText("The topic does not exist.");
-      expect(dialog.queryByText(/some unread/)).toBeNull();
+      expect(dialog.queryByText(/Could not read every record/)).toBeNull();
+    });
+
+    it("should warn when a sample could not read every record", async () => {
+      const { dev } = await renderRead();
+      const error = "partition 2: OFFSET_OUT_OF_RANGE";
+      const data = {
+        topics: [{ topic: TOPIC, records: [], shapes: [OVEN_SHAPE], error }],
+        truncated: false,
+      };
+      const dialog = await openAddData(dev, { data });
+      await dialog.findByText(`Could not read every record. ${error}`);
+      dialog.getByRole("checkbox", { name: "Record /temperature" });
     });
 
     it("should show why the sample failed", async () => {
