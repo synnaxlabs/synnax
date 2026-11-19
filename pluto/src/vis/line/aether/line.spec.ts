@@ -56,7 +56,7 @@ describe("line", () => {
 
     const createSource = (data: Series[]) =>
       telemTest.source<[bounds.Bounds, MultiSeries]>([
-        bounds.max(data.map((s) => s.bounds)),
+        bounds.union(data.map((s) => s.bounds)),
         new MultiSeries(data),
       ]);
 
@@ -132,6 +132,16 @@ describe("line", () => {
     const Y1 = series([10, 20, 30], 0n, { start: 0, end: 100 });
     const X2 = series([5, 6], 10n, { start: 100, end: 200 });
     const Y2 = series([40, 50], 10n, { start: 100, end: 200 });
+
+    it("should keep a source that takes the props of a new spec in place", () => {
+      const m = mount([X1], [Y1]);
+      m.line.render(PROPS);
+      const cleanup = vi.spyOn(m.xSource, "cleanup");
+      const x = sourceSpec(m.xSource);
+      m.update({ x: { ...x, props: { ...x.props, window: 1 } } });
+      m.line.render(PROPS);
+      expect(cleanup).not.toHaveBeenCalled();
+    });
 
     it("should pass the x range the region shows to its sources", () => {
       const m = mount([X1], [Y1]);
@@ -280,6 +290,16 @@ describe("line", () => {
         const y = createSource([]);
         y.status = telem.LOADING_STATUS;
         m.update({ y: sourceSpec(y) });
+        m.line.render(PROPS);
+        expect([m.line.loading, m.line.fetching]).toEqual([true, false]);
+      });
+
+      it("should report loading for the first load of a spec a source takes in place", () => {
+        const m = mount([X1], []);
+        m.line.render(PROPS);
+        const y = sourceSpec(m.ySource);
+        m.ySource.status = telem.LOADING_STATUS;
+        m.update({ y: { ...y, props: { ...y.props, window: 1 } } });
         m.line.render(PROPS);
         expect([m.line.loading, m.line.fetching]).toEqual([true, false]);
       });
@@ -971,7 +991,8 @@ describe("line", () => {
     it("should break a line where a writer restarted, live and read back", async () => {
       const keys = await createChannels();
       const count = 200;
-      const step = TimeSpan.milliseconds(1);
+      // Samples sparser than the read back's detail, so no tile of it reduces them.
+      const step = TimeSpan.milliseconds(4);
       const start = TimeStamp.now().sub(TimeSpan.seconds(10));
       const live = createWindowed(keys.data, dynamicWindow(TimeSpan.seconds(60)));
       await settle(live.x, live.y);

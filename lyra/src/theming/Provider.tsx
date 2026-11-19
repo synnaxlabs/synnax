@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { caseconv, deep, zod } from "@synnaxlabs/x";
+import { deep, strings, zod } from "@synnaxlabs/x";
 import {
   type PropsWithChildren,
   type ReactElement,
@@ -150,7 +150,7 @@ const CLASS_PREFIX = "lyra-theme-";
 const setThemeClass = (el: HTMLElement, theme: baseTheme.Theme): void => {
   const existing = Array.from(el.classList).find((c) => c.startsWith(CLASS_PREFIX));
   if (existing != null) el.classList.remove(existing);
-  el.classList.add(`${CLASS_PREFIX}${caseconv.toKebab(theme.key)}`);
+  el.classList.add(`${CLASS_PREFIX}${strings.toKebab(theme.key)}`);
 };
 
 export const Provider = ({

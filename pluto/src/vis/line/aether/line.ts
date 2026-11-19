@@ -15,6 +15,7 @@ import {
   box,
   color,
   DataType,
+  deep,
   type destructor,
   type direction,
   type MultiSeries,
@@ -110,8 +111,8 @@ export interface FindResult {
 export interface DataBounds {
   bounds: bounds.Bounds;
   loading: boolean;
-  /** True when the bounds end at the newest sample and move as samples arrive. */
-  rolling?: boolean;
+  /** Set when the bounds end at the newest sample. */
+  edge?: telem.Edge;
 }
 
 export interface LineProps {
@@ -325,7 +326,8 @@ interface InternalState {
   // aggregation and loadingState come from the data the line last drew.
   aggregation?: Aggregation;
   loadingState?: LoadingState;
-  // loaded is true once both sources leave loading, until either source changes.
+  // loaded is true once both sources leave loading, until either source or spec
+  // changes.
   loaded?: boolean;
   // drawn holds the ops of the last render, and groupSize the size that reduced them.
   drawn: DrawOperation[];
@@ -344,7 +346,15 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     const { xTelem, yTelem } = i;
     i.xTelem = telem.useSource(ctx, this.state.x, i.xTelem, createOptions);
     i.yTelem = telem.useSource(ctx, this.state.y, i.yTelem, createOptions);
-    if (i.xTelem !== xTelem || i.yTelem !== yTelem) i.loaded = false;
+    const { x, y } = this.state;
+    const prev = this.prevState;
+    if (
+      i.xTelem !== xTelem ||
+      i.yTelem !== yTelem ||
+      !deep.equal(x, prev.x) ||
+      !deep.equal(y, prev.y)
+    )
+      i.loaded = false;
     i.instrumentation = alamos.useInstrumentation(ctx, "line");
     i.lineCtx = Context.use(ctx);
     i.requestRender = render.useRequestor(ctx);
@@ -379,7 +389,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
 
   xBounds(): DataBounds {
     const x = this.internal.xTelem.value();
-    return { bounds: x.data[0], loading: isLoading(x), rolling: x.rolling };
+    return { bounds: x.data[0], loading: isLoading(x), edge: x.edge };
   }
 
   /**
@@ -477,7 +487,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       x: Number(x.at(xOffset + i, true)),
       y: Number(y.at(yOffset + i, true)),
     };
-    result.bounds = bounds.max(
+    result.bounds = bounds.union(
       drawn.map((op) => op.y.boundsFor(op.yOffset, op.yOffset + op.count)),
     );
     result.position = props.dataToDecimalScale.pos(result.value);
