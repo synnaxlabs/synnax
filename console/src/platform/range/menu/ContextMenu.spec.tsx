@@ -16,6 +16,7 @@ import { describe, expect, it, onTestFinished } from "vitest";
 
 import { type Analytics } from "@/platform/analytics";
 import { createTestSink, wrapWithSink } from "@/platform/analytics/testutil";
+import { dotColorBeside } from "@/platform/label/testutil";
 import { Modals } from "@/platform/modals";
 import { Range } from "@/platform/range";
 import {
@@ -124,6 +125,23 @@ describe("Range.ContextMenu", () => {
         expect(await labelsOf(held)).toEqual([]);
         expect(await labelsOf(bare)).toEqual([]);
       });
+    });
+
+    it("should paint each label in its named color", async () => {
+      const named = await client.colors.create({
+        name: uniqueName("color"),
+        light: "#123456",
+      });
+      const lbl = await client.labels.create({
+        name: uniqueName("label"),
+        color: { type: "named", key: named.key },
+      });
+      const rng = await createTestRange(client, { name: uniqueRangeName("painted") });
+      await renderMenu([rng]);
+      const labels = await openSubmenu("Labels");
+      searchIn(labels, "Search labels...", lbl.name);
+      const item = await within(labels).findByText(lbl.name);
+      await waitFor(() => expect(dotColorBeside(item)).toBe("#123456"));
     });
 
     it("should create a label named after the search text and add it to the ranges", async () => {

@@ -27,3 +27,16 @@ export const searchAndClickLabelOption = async (name: string): Promise<void> => 
   const option = await waitFor(() => screen.getByText(name));
   fireEvent.click(option);
 };
+
+/**
+ * Returns the color of the dot beside the element, such as the dot of a label tag,
+ * option, or filter chip, or null if it has none. It reads the first dot in the nearest
+ * element around it that holds one.
+ */
+export const dotColorBeside = (element: HTMLElement): string | null => {
+  for (let el: HTMLElement | null = element; el != null; el = el.parentElement) {
+    const dot = el.querySelector("svg[color]");
+    if (dot != null) return dot.getAttribute("color");
+  }
+  return null;
+};

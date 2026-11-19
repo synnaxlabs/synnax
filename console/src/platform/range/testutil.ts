@@ -78,3 +78,19 @@ export const createOffPageTestRange = async (client: Synnax): Promise<ranger.Ran
     timeRange,
   });
 };
+
+const RANGE_COLOR = "--console-range-color";
+
+/**
+ * Returns the range color painted beside the element, such as the mark of a crumb or a
+ * card, or "" if none is. It reads the nearest element around it that paints one.
+ */
+export const rangeColorBeside = (element: HTMLElement): string => {
+  for (let el: HTMLElement | null = element; el != null; el = el.parentElement) {
+    const painted = [el, ...el.querySelectorAll<HTMLElement>("[style]")].find(
+      (e) => e.style.getPropertyValue(RANGE_COLOR) !== "",
+    );
+    if (painted != null) return painted.style.getPropertyValue(RANGE_COLOR);
+  }
+  return "";
+};

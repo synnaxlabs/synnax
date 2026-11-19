@@ -10,11 +10,16 @@
 import { type ranger } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Card } from "@/feature/range/toolbar/Card";
-import { uniqueRangeName } from "@/platform/range/testutil";
+import { dotColorBeside } from "@/platform/label/testutil";
+import {
+  createTestRange,
+  rangeColorBeside,
+  uniqueRangeName,
+} from "@/platform/range/testutil";
 import { createConsoleWrapper } from "@/testutil";
 
 const client = createTestClient();
@@ -140,5 +145,34 @@ describe("range/toolbar/Card", () => {
     await client.labels.label(rng.resourceID, [lbl.key]);
     await renderCard(rng);
     expect(await screen.findByText(lbl.name)).toBeTruthy();
+  });
+
+  it("should paint the named colors of the range, children, and labels", async () => {
+    const [own, child, tag] = await client.colors.create(
+      ["#111111", "#222222", "#333333"].map((light) => ({
+        name: uniqueRangeName("color"),
+        light,
+      })),
+    );
+    const rng = await createTestRange(client, {
+      color: { type: "named", key: own.key },
+    });
+    const sub = await createTestRange(client, {
+      name: uniqueRangeName("child"),
+      parent: rng.key,
+      color: { type: "named", key: child.key },
+    });
+    const lbl = await client.labels.create({
+      name: uniqueRangeName("label"),
+      color: { type: "named", key: tag.key },
+    });
+    await client.labels.label(rng.resourceID, [lbl.key]);
+    await renderCard(rng);
+    const name = await screen.findByText(rng.name);
+    await waitFor(() => expect(rangeColorBeside(name)).toBe("#111111"));
+    const childName = await screen.findByText(sub.name);
+    await waitFor(() => expect(rangeColorBeside(childName)).toBe("#222222"));
+    const labelName = await screen.findByText(lbl.name);
+    await waitFor(() => expect(dotColorBeside(labelName)).toBe("#333333"));
   });
 });

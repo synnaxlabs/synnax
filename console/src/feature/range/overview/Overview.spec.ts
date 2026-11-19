@@ -16,7 +16,11 @@ import { assert, describe, expect, it, onTestFinished } from "vitest";
 
 import { Range } from "@/feature/range";
 import { CORE, renderOverview } from "@/feature/range/overview/testutil";
-import { createTestRange, uniqueRangeName } from "@/platform/range/testutil";
+import {
+  createTestRange,
+  rangeColorBeside,
+  uniqueRangeName,
+} from "@/platform/range/testutil";
 import {
   createTestClientWithGrants,
   findTagCloseButton,
@@ -114,6 +118,20 @@ describe("range/overview", () => {
       );
       if (tab.variant !== "resource") throw new Error("focused tab is not a resource");
       expect(tab.resource).toEqual(ranger.resourceID(parent.key));
+    });
+
+    it("should paint a crumb in the named color of its range", async () => {
+      const named = await client.colors.create({
+        name: uniqueName("color"),
+        light: "#123456",
+      });
+      const top = await createTestRange(client, {
+        color: { type: "named", key: named.key },
+      });
+      const rng = await createChild(top);
+      await renderOverview(rng.key);
+      const crumb = await screen.findByRole("button", { name: top.name });
+      await waitFor(() => expect(rangeColorBeside(crumb)).toBe("#123456"));
     });
 
     it("should copy Python and TypeScript code that retrieves the range", async () => {

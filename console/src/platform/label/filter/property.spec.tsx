@@ -17,6 +17,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { Label } from "@/platform/label";
+import { dotColorBeside } from "@/platform/label/testutil";
 import { View } from "@/platform/view";
 import { createTabWrapper, openFilterProperty } from "@/platform/view/testutil";
 import { renderSuspended, uniqueName } from "@/testutil";
@@ -98,6 +99,20 @@ describe("Label.Filter.createProperty", () => {
       await renderFixture({ labels: [only.key] });
       expect(await screen.findByText(only.name)).toBeTruthy();
       expect(screen.getByText("has")).toBeTruthy();
+    });
+
+    it("should paint the dot of a label in its named color", async () => {
+      const named = await client.colors.create({
+        name: uniqueName("color"),
+        light: "#123456",
+      });
+      const lbl = await client.labels.create({
+        name: uniqueName("label"),
+        color: { type: "named", key: named.key },
+      });
+      await renderFixture({ labels: [lbl.key] });
+      const chip = await screen.findByText(lbl.name);
+      await waitFor(() => expect(dotColorBeside(chip)).toBe("#123456"));
     });
 
     it("should name two labels after has any of", async () => {
