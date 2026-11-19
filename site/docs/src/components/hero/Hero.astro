@@ -130,6 +130,9 @@ if ("still" in props) {
     if (layout === "layered" && props.inset === true)
         throw new Error(`the ${props.still} hero cannot be both layered and inset`);
 }
+// The window is at most 960 of the hero's 792 units wide, and the toolbar still is 1280.
+const WINDOW_SIZES = "(max-width: 1100px) 122vw, 1340px";
+const TOOLBAR_SIZES = "(max-width: 1100px) 162vw, 1780px";
 const style = [
     `--from: ${from}`,
     `--to: ${to}`,
@@ -155,13 +158,14 @@ const style = [
 >
     <div class="window">
         {still != null ? (
-            <Image id={still} extension="webp" alt={alt} />
+            <Image id={still} extension="webp" alt={alt} sizes={WINDOW_SIZES} />
         ) : "image" in props ? (
             <Image
                 id={props.image}
                 themed={props.themed}
                 extension={props.extension}
                 alt={alt}
+                sizes={WINDOW_SIZES}
             />
         ) : (
             "video" in props && (
@@ -171,7 +175,7 @@ const style = [
     </div>
     {layout === "layered" && still != null && (
         <div class="toolbar">
-            <Image id={still} extension="webp" alt="" />
+            <Image id={still} extension="webp" alt="" sizes={TOOLBAR_SIZES} />
         </div>
     )}
 </div>
