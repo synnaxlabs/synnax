@@ -812,9 +812,11 @@ Phases 1 to 4 build the test base: `SyncDir`, the fault file system with the fau
 on the same event counter, decoder fuzz tests, and an invariants build. Phase 5 builds
 §4 on the old layout, except that `CreateChannel` stays, `OpenWriter` keeps the key set
 of today, and a writer that opens inside a live claim joins it, as today, with no
-authority in Cesium: the framer gates each session per channel. One clock per writer and
-the refusal of an overlapping writer (§5.8) arrive with Phase 6. Phase 6 builds the log,
-heads, `Sync` and the framer's call to it, recovery, the state owner, the handle budget,
+authority in Cesium: the framer gates each session per channel. `Commit` and `EndDomain`
+take the keys that the session controls, so a commit never reaches a channel that
+another session controls; Phase 6 drops the keys. One clock per writer and the refusal
+of an overlapping writer (§5.8) arrive with Phase 6. Phase 6 builds the log, heads,
+`Sync` and the framer's call to it, recovery, the state owner, the handle budget,
 version 1 segments, and replay from a run key, behind a Cesium open option that keeps
 the old layout the default. Phase 7 builds parts, versions 0 and 2, tombstones,
 compaction, the conversion with a crash test at each of its steps, and the backup
