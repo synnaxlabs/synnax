@@ -133,6 +133,41 @@ const FocusMenu = (): ReactElement => {
   );
 };
 
+const ChooseMenu = ({
+  onChoose,
+}: {
+  onChoose: (focused: Element | null) => void;
+}): ReactElement => {
+  const ctx = Menu.useContextMenu();
+  return (
+    <Menu.ContextMenu
+      menu={() => (
+        <Menu.Menu>
+          <Menu.Item itemKey="edit" onClick={() => onChoose(document.activeElement)}>
+            Edit
+          </Menu.Item>
+          <Menu.Sub itemKey="move" textValue="Move">
+            <Menu.SubTrigger>Move</Menu.SubTrigger>
+            <Menu.Dialog aria-label="Move">
+              <Menu.Menu>
+                <Menu.Item
+                  itemKey="up"
+                  onClick={() => onChoose(document.activeElement)}
+                >
+                  Up
+                </Menu.Item>
+              </Menu.Menu>
+            </Menu.Dialog>
+          </Menu.Sub>
+        </Menu.Menu>
+      )}
+      {...ctx}
+    >
+      <button onContextMenu={ctx.open}>Opener</button>
+    </Menu.ContextMenu>
+  );
+};
+
 const ListMenu = ({ onChange }: { onChange: (key: string) => void }): ReactElement => {
   const ctx = Menu.useContextMenu();
   return (
@@ -324,6 +359,43 @@ describe("ContextMenu", () => {
       fireEvent.click(screen.getByText("Action 1"));
       expect(screen.queryByRole("menu")).toBeNull();
       expect(document.activeElement).toBe(opener);
+    });
+  });
+
+  describe("choosing an item", () => {
+    const open = (onChoose: (focused: Element | null) => void): HTMLElement => {
+      render(
+        <Triggers.Provider>
+          <ChooseMenu onChoose={onChoose} />
+        </Triggers.Provider>,
+      );
+      const opener = screen.getByText("Opener");
+      opener.focus();
+      fireEvent.contextMenu(opener);
+      return opener;
+    };
+
+    it("should give the focus back before the item acts", () => {
+      const onChoose = vi.fn();
+      const opener = open(onChoose);
+      fireEvent.click(screen.getByText("Edit"));
+      expect(onChoose).toHaveBeenCalledExactlyOnceWith(opener);
+      expect(screen.queryByRole("menu")).toBeNull();
+    });
+
+    it("should give the focus back before an item of a submenu acts", () => {
+      const onChoose = vi.fn();
+      const opener = open(onChoose);
+      fireEvent.click(screen.getByText("Move"));
+      fireEvent.click(screen.getByText("Up"));
+      expect(onChoose).toHaveBeenCalledExactlyOnceWith(opener);
+    });
+
+    it("should keep the menu and its focus on a click that opens a submenu", () => {
+      const opener = open(vi.fn());
+      fireEvent.click(screen.getByText("Move"));
+      expect(screen.getByRole("menu")).toBeTruthy();
+      expect(document.activeElement).not.toBe(opener);
     });
   });
 
