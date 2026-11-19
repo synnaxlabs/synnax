@@ -294,9 +294,9 @@ describe("Secret.Field", () => {
     created.push(s.key);
     const { setRack } = await renderField(s.key, { rack: own.key });
     const trigger = await findDialogTriggerByText(s.name);
-    expect(screen.queryByText("File on another rack")).toBeNull();
+    expect(screen.queryByText("File on another Driver")).toBeNull();
     setRack(other.key);
-    const shown = await screen.findByText("File on another rack");
+    const shown = await screen.findByText("File on another Driver");
     expect(shown.classList).toContain("lyra--status-error");
     expect(trigger.contains(shown)).toBe(false);
   });
@@ -305,7 +305,7 @@ describe("Secret.Field", () => {
     await renderField();
     await openCreate("Select a secret");
     await screen.findByLabelText("Secret name");
-    expect(screen.queryByText("File on rack")).toBeNull();
+    expect(screen.queryByText("File on Driver")).toBeNull();
   });
 
   it("creates a file secret from the secrets folder of the rack", async () => {
@@ -327,7 +327,7 @@ describe("Secret.Field", () => {
     ]);
     const { defaultName, onChange } = await renderField("", { rack: files.rack.key });
     await openCreate("Select a secret");
-    fireEvent.click(await screen.findByText("File on rack"));
+    fireEvent.click(await screen.findByText("File on Driver"));
     await open("Select a file");
     fireEvent.click(await screen.findByRole("option", { name: "opcua-password" }));
     expect(screen.queryByRole("option", { name: "certs" })).toBeNull();
@@ -352,7 +352,7 @@ describe("Secret.Field", () => {
     await serveListings(client, files, [createListing({ secretsDir: SECRETS_DIR })]);
     const { onChange } = await renderField("", { rack: files.rack.key });
     await openCreate("Select a secret");
-    fireEvent.click(await screen.findByText("File on rack"));
+    fireEvent.click(await screen.findByText("File on Driver"));
     expect((await screen.findByText("File")).textContent).toBe("File *");
     fireEvent.click(findButton("Create"));
     await screen.findByText("File is required");
