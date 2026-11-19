@@ -381,6 +381,15 @@ def test_parse_rejects(
     assert message in capsys.readouterr().err
 
 
+# benchstat finds no change significant at p < 0.05 with fewer than 4 samples a side,
+# so a shorter run would pass any regression.
+@pytest.mark.parametrize("rounds", ["0", "3"])
+def test_parse_rejects_too_few_rounds_to_fail(rounds: str) -> None:
+    with pytest.raises(SystemExit) as error:
+        cb.parse(["--base", "a", "--head", "b", "--rounds", rounds])
+    assert error.value.code == 2
+
+
 def test_parse_refuses_an_existing_out_directory(tmp_path: Path) -> None:
     with pytest.raises(FileExistsError):
         cb.parse(["--base", "a", "--head", "b", "--out", str(tmp_path)])
