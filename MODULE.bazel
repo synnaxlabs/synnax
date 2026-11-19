@@ -10,15 +10,18 @@
 module(name = "synnax")
 
 bazel_dep(name = "abseil-cpp", version = "20260817.0")
-bazel_dep(name = "apple_support", version = "2.10.1")
+
+# Nothing loads apple_support. It registers the macOS C++ toolchain, which accepts the
+# Xcode 27 SDK that the rules_cc default rejects. Other modules bring it in today.
+bazel_dep(name = "apple_support", version = "2.12.0")
 bazel_dep(name = "boost.uuid", version = "1.90.0.bcr.1")
 bazel_dep(name = "cpp-httplib", version = "0.63.0")
 bazel_dep(name = "curl", version = "8.23.0")
-bazel_dep(name = "google_benchmark", version = "1.9.5")
+bazel_dep(name = "google_benchmark", version = "1.10.0")
 bazel_dep(name = "googletest", version = "1.18.0.bcr.1")
-bazel_dep(name = "gperftools", version = "2.18.1")
+bazel_dep(name = "gperftools", version = "2.19.1")
 bazel_dep(name = "grpc", version = "1.84.0")
-bazel_dep(name = "mbedtls", version = "3.6.7")
+bazel_dep(name = "mbedtls", version = "3.6.8")
 bazel_dep(name = "nlohmann_json", version = "3.12.0.bcr.2")
 
 # Declared here only so the root can set @openssl flags in .bazelrc. The version still
@@ -26,19 +29,19 @@ bazel_dep(name = "nlohmann_json", version = "3.12.0.bcr.2")
 bazel_dep(name = "openssl", version = "4.0.3.bcr.1")
 bazel_dep(name = "platforms", version = "1.1.0")
 bazel_dep(name = "protobuf", version = "36.2")
-bazel_dep(name = "rules_cc", version = "0.2.26")
+bazel_dep(name = "rules_cc", version = "0.2.28")
 bazel_dep(name = "rules_proto_grpc_cpp", version = "5.8.0")
-bazel_dep(name = "rules_python", version = "2.0.2")
+bazel_dep(name = "rules_python", version = "2.5.1")
 
 # Runs clang-tidy as an aspect under --config=clang-tidy. The registry does not have it.
 bazel_dep(name = "bazel_clang_tidy", dev_dependency = True)
-bazel_dep(name = "rules_shell", version = "0.6.1", dev_dependency = True)
+bazel_dep(name = "rules_shell", version = "0.10.0", dev_dependency = True)
 
 archive_override(
     module_name = "bazel_clang_tidy",
-    integrity = "sha256-ltpuk1zMkQRc+SjbxX8iUIonKcUff7P1YXgBew3rmzw=",
-    strip_prefix = "bazel_clang_tidy-c4d35e0d0b838309358e57a2efed831780f85cd0",
-    urls = ["https://github.com/erenon/bazel_clang_tidy/archive/c4d35e0d0b838309358e57a2efed831780f85cd0.tar.gz"],
+    integrity = "sha256-Y1MQt22yPSQvyrVfgE9shIxZPJGs9LEnYBXTq65gfAQ=",
+    strip_prefix = "bazel_clang_tidy-8dc8c879c9e25ddf3ede2fecc695d3162023fe14",
+    urls = ["https://github.com/erenon/bazel_clang_tidy/archive/8dc8c879c9e25ddf3ede2fecc695d3162023fe14.tar.gz"],
 )
 
 # The clang-tidy that --config=clang-tidy runs, from its PyPI wheels. Bazel fetches only
