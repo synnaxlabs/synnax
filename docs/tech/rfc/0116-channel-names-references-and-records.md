@@ -569,8 +569,14 @@ package. A parse in the migration ties frozen code to the live grammar.
 costs 48 B against 32 B (222 MB against 175 MB at 1,000,000). An index that turns
 invalid on a stored duplicate forces a dedupe across the Core at Phase 2.
 
-**6.3 No durable record of a pending delete.** A table of keys to purge stores a fact
-that storage with no channel record already states. RFC 0118 owns the sweep.
+**6.3 A delete leaves a durable intent in storage.** A missing channel record does not
+prove a delete: a restored backup, lost metadata, or a Core pointed at the wrong
+metadata gives the same state. So a delete logs an intent in Cesium before the record
+commits, and the sweep at start drops only a key with an intent and no record, or a key
+with no samples. A key with samples, no record, and no intent stays hidden, with a
+warning status and an explicit purge (RFC 0118 §4.1). Rejected: a table of keys to purge
+in Gorp, which the same metadata loss would lose too, and a sweep on absence alone,
+which turns lost metadata into lost telemetry.
 
 **6.4 Names stay on the channel and in text.** A namespace service that maps names to
 keys makes every list, search, codec error, and Arc lookup a join. Key tokens in Arc
