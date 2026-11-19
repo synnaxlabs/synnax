@@ -420,7 +420,7 @@ bool is_session_rejection(const UA_StatusCode &status) {
 }
 
 x::errors::Error to_error(const UA_StatusCode &status, const bool connecting) {
-    if (status == UA_STATUSCODE_GOOD) return x::errors::NIL;
+    if (UA_StatusCode_isGood(status)) return x::errors::NIL;
     const std::string status_name = UA_StatusCode_name(status);
     // The low 16 bits carry flags, not the condition the code names.
     const UA_StatusCode condition = status & 0xFFFF0000;
