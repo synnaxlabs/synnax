@@ -14,6 +14,12 @@ import { location } from "@/spatial/location";
 import { type xy } from "@/spatial/xy";
 
 describe("Box", () => {
+  describe("constants", () => {
+    it("should freeze ZERO and DECIMAL", () => {
+      expect(Object.isFrozen(box.ZERO)).toBe(true);
+      expect(Object.isFrozen(box.DECIMAL)).toBe(true);
+    });
+  });
   describe("construction", () => {
     test("from dom rect", () => {
       const b = box.construct({ left: 0, top: 0, right: 10, bottom: 10 });
@@ -121,9 +127,21 @@ describe("Box", () => {
         { x: 60, y: 30 },
       ];
       v.forEach((v, i) => {
-        test(`xyLoc-${location.xyToString(v)}`, () =>
-          expect(box.xyLoc(b, v)).toEqual(expected[i]));
+        test(`xyLoc-${v.x}-${v.y}`, () => expect(box.xyLoc(b, v)).toEqual(expected[i]));
       });
+    });
+  });
+  describe("center", () => {
+    it("should return the center of a box", () => {
+      expect(box.center(box.construct(20, 30, 40, 50))).toEqual({ x: 40, y: 55 });
+    });
+    it("should return the center of an inverted box", () => {
+      const b = box.construct({ x: 10, y: 10 }, { x: 0, y: 0 });
+      expect(box.center(b)).toEqual({ x: 5, y: 5 });
+    });
+    it("should return the center of a box with a bottom left root", () => {
+      const b = box.construct(0, 0, 10, 10, location.BOTTOM_LEFT);
+      expect(box.center(b)).toEqual({ x: 5, y: 5 });
     });
   });
   describe("equality", () => {
@@ -284,15 +302,6 @@ describe("Box", () => {
     it("should return false if the area is not zero", () => {
       const b = box.construct(0, 0, 10, 10);
       expect(box.areaIsZero(b)).toBe(false);
-    });
-  });
-  describe("isBox", () => {
-    it("should return true if the value is a box", () => {
-      const b = box.construct(0, 0, 10, 10);
-      expect(box.isBox(b)).toBe(true);
-    });
-    it("should return false if the value is not a box", () => {
-      expect(box.isBox({})).toBe(false);
     });
   });
   describe("yBounds", () => {

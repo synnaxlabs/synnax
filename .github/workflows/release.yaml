@@ -766,14 +766,8 @@ jobs:
           VERSION: ${{ needs.resolve.outputs.py_version }}
         run: .github/scripts/stamp_versions.sh py "$VERSION"
 
-      - name: Pin internal dependency constraints
-        run: .github/scripts/pin_internal_deps.sh
-
       - name: Build
-        run: |
-          for package in alamos/py x/py freighter/py client/py; do
-            (cd "$package" && uv build)
-          done
+        run: .github/scripts/build_py.sh dist
 
       - name: Upload packages
         id: upload

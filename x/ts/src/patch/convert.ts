@@ -21,13 +21,14 @@ const convert = (
   converter: PathConverter,
   opts: caseconv.PathOptions,
 ): Action => {
-  const at = (path: string[]) => converter(path, opts);
+  const at = (path: string[], gs: Guard[]) =>
+    converter(path, { ...opts, discriminators: gs });
   const convertGuards = (gs: Guard[]): Guard[] =>
-    gs.map((g) => ({ path: at(g.path).path, value: g.value }));
+    gs.map((g) => ({ path: at(g.path, gs).path, value: g.value }));
   switch (action.type) {
     case "set": {
       const { path, value, guards: gs } = action.set;
-      const converted = at(path);
+      const converted = at(path, gs);
       return {
         type: "set",
         set: {
@@ -39,7 +40,7 @@ const convert = (
     }
     case "remove": {
       const { path, key, guards: gs } = action.remove;
-      const converted = at([...path, key]).path;
+      const converted = at([...path, key], gs).path;
       return {
         type: "remove",
         remove: {
@@ -51,7 +52,7 @@ const convert = (
     }
     case "insert": {
       const { path, value, after, guards: gs } = action.insert;
-      const converted = at(path);
+      const converted = at(path, gs);
       return {
         type: "insert",
         insert: {
@@ -66,7 +67,7 @@ const convert = (
       const { path, key, after, guards: gs } = action.move;
       return {
         type: "move",
-        move: { path: at(path).path, key, after, guards: convertGuards(gs) },
+        move: { path: at(path, gs).path, key, after, guards: convertGuards(gs) },
       };
     }
   }
@@ -75,6 +76,7 @@ const convert = (
 /**
  * Converts an action from the snake_case form the wire carries into the camelCase form
  * of the document, the way the codec converts the whole document with the same schema.
+ * The guards of the action select the option of each union that its path goes into.
  */
 export const snakeToCamel = (action: Action, opts: caseconv.PathOptions = {}): Action =>
   convert(action, caseconv.snakeToCamelPath, opts);

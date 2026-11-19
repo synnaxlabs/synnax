@@ -108,7 +108,8 @@ A line's `detail` sets groups per pixel column:
 
 The point limit of a tile is its share of the line's pixel width, times groups per
 column, times points per group (2 for `min_max`, 1 otherwise), rounded up to a power of
-two. A resize of a few pixels then keeps the limit, and the cache still hits.
+two. A resize of a few pixels then keeps the limit, and the cache still hits. A cut tile
+gets the part of that limit that it covers, so it reduces with the same group size.
 
 ### 3.3 Aggregation
 

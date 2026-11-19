@@ -13,9 +13,9 @@
     python3 -m review post <review.json>
     python3 -m review carry
     python3 -m review dismiss
+    python3 -m review restore
     python3 -m review judge <judgments.json>
     python3 -m review rule <judgments.json>
-    python3 -m review compare <days> <records>
 
 Run it from `.github/scripts`. Environment: GH_TOKEN, GITHUB_REPOSITORY, PR, HEAD_SHA,
 BASE_SHA, CHECK_RUN, RUN_URL, and BOT, the slug of the GitHub App the review posts as.
@@ -33,13 +33,12 @@ COMMENT, a reply on the thread of one of the bot's findings, or a comment that d
 a finding outside the diff: an `@sedosaur dismiss` from someone with write access
 dismisses the finding, and scores the head 5/5 when no finding of its review is left.
 It also takes KEY, and prints `true` when a rebuttal on a thread waits for `judge`.
+`restore` takes KEY, and puts the summary that the bot wrote last back in the pull
+request body when an edit dropped or changed it. It writes the body with WRITE_TOKEN,
+asks Claude Code nothing, and fails when the head has no successful review.
 `judge` takes POLICY_DIR, HEAD_DIR, and CLAUDE_CODE_OAUTH_TOKEN as `run` does, judges
 each rebuttal with Claude Code, and writes the judgments. It fails after it writes them
-when one rebuttal could not be judged. `rule` posts them, and takes KEY. `compare`
-takes only GH_TOKEN and GITHUB_REPOSITORY, runs in a clone with full history, and
-prints a Markdown comparison of the records of the last days with Greptile's reviews
-of the same commits. It keeps each record it downloads in the records directory, and
-reads it from there on the next run.
+when one rebuttal could not be judged. `rule` posts them, and takes KEY.
 
 When Claude Code stops at the usage limit of its login, `run` and `judge` write the
 reset time, in Unix seconds, as the `limited-until` step output. When Claude rejects the
@@ -56,26 +55,27 @@ import subprocess
 import sys
 import tempfile
 from collections.abc import Iterator, Sequence
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
 
 from review import (
+    GH,
     Judgment,
     LoginRejected,
     PullRequest,
     Target,
+    Unrestorable,
     UsageLimit,
     authority,
     carry,
-    compare,
     dismiss,
     dismissals,
     gh,
     judge,
     load,
     outside_findings,
-    parse,
     post,
+    restore,
     reviewed,
     rule,
     run,
@@ -306,26 +306,33 @@ def _claude(target: Target, command: str, path: Path) -> None:
         raise
 
 
+def _writer(token: str) -> GH:
+    def run(*args: str, stdin: str | None = None) -> str:
+        return subprocess.run(
+            ["gh", *args],
+            input=stdin,
+            stdout=subprocess.PIPE,
+            text=True,
+            check=True,
+            env=os.environ | {"GH_TOKEN": token},
+        ).stdout
+
+    return run
+
+
 def main(argv: list[str]) -> None:
     args = {
         "run": 2,
         "post": 2,
         "carry": 1,
         "dismiss": 1,
+        "restore": 1,
         "judge": 2,
         "rule": 2,
-        "compare": 3,
     }
     if not argv or args.get(argv[0]) != len(argv):
         sys.exit(__doc__)
     env = os.environ
-    if argv[0] == "compare":
-        since = datetime.now(UTC) - timedelta(days=int(argv[1]))
-        repo = env["GITHUB_REPOSITORY"]
-        cache = Path(argv[2])
-        ps = compare.pairs(gh, compare.git, repo, since, cache)
-        print(compare.report(ps, compare.limits(gh, repo, since, cache), since=since))
-        return
     target = Target(
         repo=env["GITHUB_REPOSITORY"],
         pr=int(env["PR"]),
@@ -342,6 +349,14 @@ def main(argv: list[str]) -> None:
         waits = dismiss(target, gh, comment=int(env["COMMENT"]), key=env["KEY"])
         print(str(waits).lower())
         return
+    if argv[0] == "restore":
+        writer = _writer(env["WRITE_TOKEN"])
+        try:
+            done = restore(target, gh, key=env["KEY"], writer=writer)
+        except Unrestorable as e:
+            sys.exit(f"::error::{e}")
+        print("Restored the summary." if done else "The body holds the summary.")
+        return
     path = Path(argv[1])
     if argv[0] in ("judge", "run"):
         _claude(target, argv[0], path)
@@ -349,7 +364,7 @@ def main(argv: list[str]) -> None:
         found = [Judgment(**j) for j in json.loads(path.read_text())]
         rule(target, gh, found, key=env["KEY"])
     else:
-        post(parse(json.loads(path.read_text())["review"]), target=target, gh=gh)
+        post(json.loads(path.read_text()), target=target, gh=gh)
 
 
 if __name__ == "__main__":

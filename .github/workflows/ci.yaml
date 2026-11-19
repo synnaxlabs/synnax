@@ -23,6 +23,10 @@ on:
         required: false
         type: boolean
         default: false
+    outputs:
+      core_image:
+        description: The Core image the tests ran against, pinned by digest
+        value: ${{ jobs.core-image.outputs.image }}
     secrets:
       APPLE_CERTIFICATE:
         required: false
@@ -76,11 +80,12 @@ on:
         default: false
 
 # A new push to a pull request cancels the run it replaces. A merge group run is
-# cancelled only by cancel.merge-group.yaml, which uses the same key. A called run takes
-# the caller's workflow name, so Nightly and Release never share a group.
+# cancelled only by cancel.merge-group.yaml. Its key is its commit, since a rebuilt
+# group can reuse the branch name of the group it replaces. A called run takes the
+# caller's workflow name, so Nightly and Release never share a group.
 concurrency:
   group:
-    ci-${{ github.event.pull_request.number || github.event.merge_group.head_ref ||
+    ci-${{ github.event.pull_request.number || github.event.merge_group.head_sha ||
     format('{0}-{1}', github.workflow, github.ref) }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
@@ -109,6 +114,7 @@ jobs:
       arc_go: ${{ steps.filter.outputs.arc_go }}
       buildifier: ${{ steps.filter.outputs.buildifier }}
       cesium: ${{ steps.filter.outputs.cesium }}
+      base: ${{ steps.base.outputs.sha }}
       ci: ${{ steps.ci.outputs.jobs }}
       ci_scripts: ${{ steps.filter.outputs.ci_scripts }}
       client_cpp: ${{ steps.filter.outputs.client_cpp }}
@@ -163,27 +169,38 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 2
+
+      # A merge group diffs against its target branch, not the entry ahead of it. Its
+      # run then covers every pull request ahead of it in the queue. Any other checkout
+      # diffs against its first parent, which for a pull request is its current base.
+      - name: Find the base
+        id: base
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GROUP_HEAD: ${{ github.event.merge_group.head_sha }}
+          GROUP_TARGET: ${{ github.event.merge_group.base_ref }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = merge_group ]; then
+            compare="${GROUP_TARGET#refs/heads/}...$GROUP_HEAD"
+            base=$(.github/scripts/gh_api.sh \
+              "repos/$GITHUB_REPOSITORY/compare/$compare" --jq .merge_base_commit.sha)
+          else
+            base=$(git rev-parse HEAD^1)
+          fi
+          echo "sha=$base" >> "$GITHUB_OUTPUT"
+
+      # A pull request lists its changes through the API and ignores base.
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4
         id: filter
         with:
+          base:
+            ${{ github.event_name == 'merge_group' && steps.base.outputs.sha || '' }}
           filters: .github/filters.yaml
 
       - name: Install uv
         uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version: latest-known
-
-      # The first parent of a pull request's merge checkout is its current base.
-      - name: Find the base
-        id: base
-        env:
-          GROUP_BASE: ${{ github.event.merge_group.base_sha }}
-        run: |
-          base=$GROUP_BASE
-          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
-            base=$(git rev-parse HEAD^1)
-          fi
-          echo "sha=$base" >> "$GITHUB_OUTPUT"
 
       - name: Find the jobs a CI edit selects
         id: ci
@@ -653,17 +670,16 @@ jobs:
       MODULES: >-
         alamos/go arc/go cesium core freighter/go freighter/integration gorp oracle x/go
     steps:
-      # The first parent is the code the change applies to: the target branch of a pull
-      # request, or the merge group entries ahead.
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          fetch-depth: 2
 
       - name: Select the changed modules and their dependents
         id: modules
+        env:
+          BASE: ${{ needs.changes.outputs.base }}
         run: |
-          changed=$(git diff --name-only HEAD^1 HEAD)
+          git fetch --no-tags --depth=1 origin "$BASE"
+          changed=$(git diff --name-only "$BASE" HEAD)
           # shellcheck disable=SC2086
           affected=$(python3 .github/scripts/go_affected.py $MODULES <<< "$changed" |
             xargs)
@@ -675,7 +691,9 @@ jobs:
 
       - name: Check out the base
         if: steps.modules.outputs.affected != ''
-        run: git worktree add --detach "$RUNNER_TEMP/base" HEAD^1
+        env:
+          BASE: ${{ needs.changes.outputs.base }}
+        run: git worktree add --detach "$RUNNER_TEMP/base" "$BASE"
 
       # The check compiles nothing, and the modules download faster than a cache
       # restores.
@@ -1350,7 +1368,7 @@ jobs:
           while true; do
             # The next poll retries a failed API call.
             if ! jobs=$(gh api --paginate "$url" --jq '.jobs[]' | jq -s .); then
-              sleep 30
+              sleep 90
               continue
             fi
             failed=$(jq -r '.[] | select(.conclusion == "failure"
@@ -1365,7 +1383,7 @@ jobs:
             # OK starts only after every other job finished.
             jq -e '.[] | select(.name == "OK" and (.status == "in_progress"
               or .status == "completed"))' <<< "$jobs" > /dev/null && exit 0
-            sleep 30
+            sleep 90
           done
 
   # GitHub skips a job whose dependency failed or was skipped, so always() makes this

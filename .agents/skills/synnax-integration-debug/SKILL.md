@@ -49,7 +49,7 @@ the browser under "Artifacts" at the bottom.
    server log. This is the highest-signal-per-token entry point. Read it first.
 2. **Cross-reference `summary.json`** for run-level stats and the exact per-test bundle
    path. Failures and timeouts are the ones to triage.
-3. **For each failure still ambiguous after step 1, drill into `tests/NAME/`**
+3. **For each failure still ambiguous after step 1, drill into `tests/CASE/`**
    (`trace.zip` + sliced `server.log` + screenshots/exports). The trace CLI cheatsheet
    below is for when you need to inspect DOM at a specific action or compare snapshots.
 4. **Cross-reference the server log slice** for backend cause of any 4xx/5xx the trace
@@ -70,7 +70,7 @@ integration/tests/results/
     ├── summary.json                   # run + per-test outcomes
     ├── server.log                     # full server log for this run (CI only by default)
     └── tests/
-        └── TEST_NAME/
+        └── CASE/                      # "CASE (NAME)/" for a renamed test
             ├── trace.zip              # Playwright trace, only on FAILED/TIMEOUT/KILLED
             ├── server.log             # byte-sliced to this test's wall-clock window
             ├── *.png                  # screenshots from `console.screenshot()`
@@ -91,7 +91,7 @@ jq '.tests[] | select(.status | IN("FAILED", "TIMEOUT", "KILLED"))' \
 Fields:
 
 - `case` -> registry path like `console/pages/open_close`
-- `name` -> display name (used as the bundle subdir slug)
+- `name` -> display name (a renamed test has the bundle `tests/<case> (<name>)/`)
 - `status` -> `PASSED`, `FLAKY`, `SKIPPED`, `FAILED`, `TIMEOUT`, `KILLED`
 - `started_at` / `ended_at` -> ISO UTC; use these to correlate with external logs
 - `duration_s` -> wall-clock seconds
@@ -108,7 +108,7 @@ Don't open the GUI viewer for autonomous triage.
 ```bash
 # 1. Open the trace
 pnpm dlx --package @playwright/test playwright trace open \
-  integration/tests/results/latest/tests/NAME/trace.zip
+  integration/tests/results/latest/tests/CASE/trace.zip
 
 # 2. List all actions with their IDs (failures only)
 pnpm dlx --package @playwright/test playwright trace actions --errors-only
@@ -145,11 +145,11 @@ or JSON; check the first line). Greppable as-is.
 
 ```bash
 # Recent ERRORs in the failing test's window:
-grep -i "ERROR\|WARN" integration/tests/results/latest/tests/NAME/server.log
+grep -i "ERROR\|WARN" integration/tests/results/latest/tests/CASE/server.log
 
 # JSON format: pull error-level entries:
 jq -c 'select(.level == "error")' \
-  integration/tests/results/latest/tests/NAME/server.log
+  integration/tests/results/latest/tests/CASE/server.log
 ```
 
 For asynchronous test sequences, the slice contains the union of all parallel tests in

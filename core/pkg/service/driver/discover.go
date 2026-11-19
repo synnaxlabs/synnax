@@ -20,6 +20,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/payload"
 )
 
 // Failure is an error that answers a command with a status message and description.
@@ -114,38 +115,27 @@ func certificateFailure(err error) (Failure, bool) {
 	}
 }
 
-// Format is the encoding of a message payload.
-type Format string
-
-const (
-	// FormatJSON is one JSON value.
-	FormatJSON Format = "json"
-	// FormatText is UTF-8 text that is not JSON.
-	FormatText Format = "text"
-	// FormatBinary is any other payload.
-	FormatBinary Format = "binary"
-)
-
-// FormatOf returns the format of payload.
-func FormatOf(payload []byte) Format {
+// FormatOf returns the format of data: json for one JSON value, text for other UTF-8
+// text, and binary for anything else.
+func FormatOf(data []byte) payload.Format {
 	switch {
-	case jsontext.Value(payload).IsValid():
-		return FormatJSON
-	case utf8.Valid(payload):
-		return FormatText
+	case jsontext.Value(data).IsValid():
+		return payload.FormatJSON
+	case utf8.Valid(data):
+		return payload.FormatText
 	default:
-		return FormatBinary
+		return payload.FormatBinary
 	}
 }
 
-// Display returns the start of payload as an answer shows it, from at most limit
-// bytes. A payload whose format is JSON or text shows as text, cut at a rune boundary.
-// A payload of any other format shows as hex digits.
-func Display(payload []byte, format Format, limit int) string {
-	if format != FormatJSON && format != FormatText {
-		return hex.EncodeToString(payload[:min(len(payload), limit)])
+// Display returns the start of data as an answer shows it, from at most limit bytes.
+// Data whose format is JSON or text shows as text, cut at a rune boundary. Data of any
+// other format shows as hex digits.
+func Display(data []byte, format payload.Format, limit int) string {
+	if format != payload.FormatJSON && format != payload.FormatText {
+		return hex.EncodeToString(data[:min(len(data), limit)])
 	}
-	return CutText(payload, limit)
+	return CutText(data, limit)
 }
 
 // CutText returns at most limit bytes from the start of text, cut at a rune boundary.

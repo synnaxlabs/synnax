@@ -24,7 +24,7 @@ import {
 import { direction as dir, type direction } from "@/spatial/direction";
 import { type location } from "@/spatial/location";
 
-export { type ClientXY as Client, clientXYZ, NumberCouple as Couple, type XY, xyZ };
+export { type ClientXY as Client, NumberCouple as Couple, type XY, xyZ };
 
 /** A crude representation of a {@link XY} coordinate as a zod schema. */
 export const crudeZ = z.union([
@@ -68,12 +68,6 @@ export const ZERO: XY = Object.freeze({ x: 0, y: 0 });
 /** An x and y coordinate of one */
 export const ONE: XY = Object.freeze({ x: 1, y: 1 });
 
-/** An x and y coordinate of infinity */
-export const INFINITY: XY = Object.freeze({ x: Infinity, y: Infinity });
-
-/** An x and y coordinate of NaN */
-export const NAN: XY = Object.freeze({ x: NaN, y: NaN });
-
 /** @returns true if the two XY coordinates are semantically equal. */
 export const equals = (a: Crude, b: Crude, threshold: number = 0): boolean => {
   const a_ = construct(a);
@@ -81,9 +75,6 @@ export const equals = (a: Crude, b: Crude, threshold: number = 0): boolean => {
   if (threshold === 0) return a_.x === b_.x && a_.y === b_.y;
   return Math.abs(a_.x - b_.x) <= threshold && Math.abs(a_.y - b_.y) <= threshold;
 };
-
-/** Is zero is true if the XY coordinate has a semantic x and y value of zero. */
-export const isZero = (c: Crude): boolean => equals(c, ZERO);
 
 /**
  * @returns the given coordinate scaled by the given factors. If only one factor is
@@ -153,28 +144,6 @@ export const distance = (ca: Crude, cb: Crude): number => {
   const a = construct(ca);
   const b = construct(cb);
   return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
-};
-
-/**
- * @returns the translation that would need to be applied to move the first coordinate
- * to the second coordinate.
- */
-export const translation = (to: Crude, from: Crude): XY => {
-  const to_ = construct(to);
-  const from_ = construct(from);
-  return { x: from_.x - to_.x, y: from_.y - to_.y };
-};
-
-/** @returns true if both the x and y coordinates of the given coordinate are NaN. */
-export const isNan = (a: Crude): boolean => {
-  const xy = construct(a);
-  return Number.isNaN(xy.x) || Number.isNaN(xy.y);
-};
-
-/** @returns true if both the x and y coordinates of the given coordinate are finite. */
-export const isFinite = (a: Crude): boolean => {
-  const xy = construct(a);
-  return Number.isFinite(xy.x) && Number.isFinite(xy.y);
 };
 
 /** @returns the coordinate represented as a couple of the form [x, y]. */

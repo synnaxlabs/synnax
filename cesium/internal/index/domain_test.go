@@ -450,7 +450,7 @@ var _ = Describe("Domain", func() {
 						Entry(
 							"past the run",
 							20*telem.SecondTS,
-							int64(2),
+							int64(3),
 							21*telem.SecondTS,
 						),
 					)
