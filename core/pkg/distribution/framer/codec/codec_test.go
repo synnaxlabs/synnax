@@ -1837,6 +1837,24 @@ func BenchmarkJSONEncode(b *testing.B) {
 	}
 }
 
+// steadyFrame returns fr encoded after the first frame of the state, which cd has
+// decoded, so a decode benchmark measures the frame that a stream sends most.
+func steadyFrame(b *testing.B, cd *codec.Codec, fr framer.Frame) []byte {
+	b.Helper()
+	first, err := cd.Encode(b.Context(), fr)
+	if err != nil {
+		b.Fatal(err)
+	}
+	if _, err = cd.Decode(first); err != nil {
+		b.Fatal(err)
+	}
+	encoded, err := cd.Encode(b.Context(), fr)
+	if err != nil {
+		b.Fatal(err)
+	}
+	return encoded
+}
+
 func BenchmarkDecode(b *testing.B) {
 	var (
 		dataTypes = []telem.DataType{"int32"}
@@ -1847,11 +1865,7 @@ func BenchmarkDecode(b *testing.B) {
 		)
 		cd = codec.NewStatic(keys, dataTypes)
 	)
-	encoded, err := cd.Encode(b.Context(), fr)
-	if err != nil {
-		b.Fatal(err)
-	}
-	r := bytes.NewReader(encoded)
+	r := bytes.NewReader(steadyFrame(b, cd, fr))
 	for b.Loop() {
 		if _, err := r.Seek(0, 0); err != nil {
 			b.Fatalf("failed to seek: %v", err)
@@ -2154,11 +2168,7 @@ func BenchmarkStreamerFrame_Decode(b *testing.B) {
 		b.Run(fmt.Sprintf("channels=%d/allFull", nc), func(b *testing.B) {
 			keys, dataTypes, fr := makeStreamerFrame(nc, nc, 100)
 			cd := codec.NewStatic(keys, dataTypes)
-			encoded, err := cd.Encode(b.Context(), fr)
-			if err != nil {
-				b.Fatalf("encode: %v", err)
-			}
-			r := bytes.NewReader(encoded)
+			r := bytes.NewReader(steadyFrame(b, cd, fr))
 			b.ReportAllocs()
 			for b.Loop() {
 				if _, err := r.Seek(0, 0); err != nil {
@@ -2228,11 +2238,7 @@ func BenchmarkIteratorFrame_Decode(b *testing.B) {
 		b.Run(name, func(b *testing.B) {
 			keys, dataTypes, fr := makeIteratorFrame(c.channels, c.domains, c.samples)
 			cd := codec.NewStatic(keys, dataTypes)
-			encoded, err := cd.Encode(b.Context(), fr)
-			if err != nil {
-				b.Fatalf("encode: %v", err)
-			}
-			r := bytes.NewReader(encoded)
+			r := bytes.NewReader(steadyFrame(b, cd, fr))
 			b.ReportAllocs()
 			for b.Loop() {
 				if _, err := r.Seek(0, 0); err != nil {

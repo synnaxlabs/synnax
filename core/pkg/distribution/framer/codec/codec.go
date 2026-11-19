@@ -804,11 +804,15 @@ func (c *Codec) decode(h *decodeHeader) (framer.Frame, error) {
 	if err := c.readHeader(h); err != nil {
 		return framer.Frame{}, err
 	}
-	decodeSeries := c.decodeKeyedSeries
+	var (
+		fr  framer.Frame
+		err error
+	)
 	if h.fgs.allChannelsPresent {
-		decodeSeries = c.decodeAllSeries
+		fr, err = c.decodeAllSeries(h)
+	} else {
+		fr, err = c.decodeKeyedSeries(h)
 	}
-	fr, err := decodeSeries(h)
 	if err != nil {
 		return framer.Frame{}, err
 	}
