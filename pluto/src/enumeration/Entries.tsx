@@ -154,6 +154,8 @@ export interface TableProps {
   abnormalDisabled?: boolean;
   /** Shows each Color cell empty, for entries whose color draws nowhere. */
   colorDisabled?: boolean;
+  /** Focuses the first Name cell on mount, or Add entry when there are no entries. */
+  autoFocus?: boolean;
 }
 
 /**
@@ -170,6 +172,7 @@ export const Table = ({
   preview,
   abnormalDisabled = false,
   colorDisabled = false,
+  autoFocus,
 }: TableProps): ReactElement => {
   const [held, setHeld] = useState<ReadonlyMap<string, number>>(() => new Map());
   const resolve = Color.useResolve();
@@ -291,6 +294,7 @@ export const Table = ({
         onChange={handleChange}
         resourceName="entry"
         preview={preview}
+        autoFocus={autoFocus}
         cellStatus={cellStatus}
         createRow={(rows) => ["", freeValue(rows), undefined, false]}
         onRemove={handleRemove}
@@ -340,13 +344,18 @@ export const Table = ({
 
 export interface EntriesProps {
   enumeration: enumeration.Key;
+  /** Focuses the first Name cell on mount, or Add entry when there are no entries. */
+  autoFocus?: boolean;
 }
 
 /**
  * Edits the entries of an enumeration, which every editor of it shares. Each edit saves
  * at once. A user who cannot update the enumeration sees it read-only.
  */
-export const Entries = ({ enumeration: key }: EntriesProps): ReactElement => {
+export const Entries = ({
+  enumeration: key,
+  autoFocus,
+}: EntriesProps): ReactElement => {
   const { form } = useForm({ query: { key } });
   const entries = Form.useFieldValue<enumeration.Entry[]>(formPath.entries, {
     ctx: form,
@@ -372,6 +381,7 @@ export const Entries = ({ enumeration: key }: EntriesProps): ReactElement => {
       onAdd={handleAdd}
       onRemove={(i) => form.remove(formPath.entries[entries[i].key])}
       onMove={handleMove}
+      autoFocus={autoFocus}
     />
   );
 };

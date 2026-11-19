@@ -89,16 +89,18 @@ const renderEnumerations = async (onStatuses = vi.fn()): Promise<void> => {
   });
 };
 
-/** Returns the section that holds an enumeration's heading and entries. */
-const findSection = async (name: string): Promise<HTMLElement> =>
-  await screen.findByRole("region", { name });
+/** Opens an enumeration and returns the entries that show under it. */
+const openEntries = async (name: string): Promise<HTMLElement> => {
+  fireEvent.click(await screen.findByRole("option", { name }));
+  return await screen.findByRole("region", { name: `${name} entries` });
+};
 
 /** Opens the menu of a built-in, which a user enumeration can share a name with. */
 const openBuiltinMenu = async (name: string): Promise<void> => {
-  const sections = await screen.findAllByRole("region", { name });
-  const section = sections.find((r) => within(r).queryByText("Built-in") != null);
-  if (section == null) throw new Error(`no built-in named ${name}`);
-  await openContextMenu(() => within(section).getByText(name));
+  const items = await screen.findAllByRole("option", { name });
+  const item = items.find((o) => within(o).queryByText("Built-in") != null);
+  if (item == null) throw new Error(`no built-in named ${name}`);
+  await openContextMenu(() => within(item).getByText(name));
 };
 
 const stored = async (key: enumeration.Key): Promise<enumeration.Entry[]> =>
@@ -146,19 +148,42 @@ const waitForDialogToClose = async (): Promise<void> =>
   );
 
 describe("Enumeration.Settings", () => {
-  it("should create an enumeration and count up its entry values", async () => {
-    await renderEnumerations();
+  /** Creates an enumeration through the create form and returns its entries. */
+  const createThroughForm = async (name: string): Promise<HTMLElement> => {
     await clickAndSettle("Create enumeration");
-    const name = uniqueName("enumeration");
     const field = await screen.findByLabelText("Enumeration name");
     fireEvent.change(field, { target: { value: name } });
     await act(async () => {
       fireEvent.keyDown(field, { key: "Enter" });
     });
-    const section = await findSection(name);
+    return await screen.findByRole("region", { name: `${name} entries` });
+  };
+
+  it("should open a new enumeration with Add entry focused", async () => {
+    await renderEnumerations();
+    const name = uniqueName("enumeration");
+    const entries = await createThroughForm(name);
+    const add = within(entries).getByRole("button", { name: "Add entry" });
+    await waitFor(() => expect(document.activeElement).toBe(add));
+    expect(screen.getByRole("option", { name }).getAttribute("aria-expanded")).toBe(
+      "true",
+    );
+    // jsdom gives a focused button no native Enter activation, so a click stands in.
+    await act(async () => {
+      fireEvent.click(add);
+    });
+    await waitFor(() =>
+      expect(document.activeElement).toBe(within(entries).getByLabelText("Name 1")),
+    );
+  });
+
+  it("should create an enumeration and count up its entry values", async () => {
+    await renderEnumerations();
+    const name = uniqueName("enumeration");
+    const entries = await createThroughForm(name);
     for (let i = 0; i < 2; i++)
       await act(async () => {
-        fireEvent.click(within(section).getByRole("button", { name: "Add entry" }));
+        fireEvent.click(within(entries).getByRole("button", { name: "Add entry" }));
       });
     const created = (await client.enumerations.retrieve({ searchTerm: name })).find(
       (x) => x.name === name,
@@ -169,10 +194,10 @@ describe("Enumeration.Settings", () => {
       .toEqual([0, 1]);
   });
 
-  it("should save an entry edited under its enumeration's heading", async () => {
+  it("should save an entry edited under its enumeration", async () => {
     const e = await createEnumeration();
     await renderEnumerations();
-    const input = await within(await findSection(e.name)).findByLabelText("Name 2");
+    const input = await within(await openEntries(e.name)).findByLabelText("Name 2");
     const name = uniqueName("renamed");
     fireEvent.focus(input);
     fireEvent.change(input, { target: { value: name } });
@@ -182,18 +207,26 @@ describe("Enumeration.Settings", () => {
       .toEqual([e.entries[0].name, name, e.entries[2].name]);
   });
 
-  it("should hide an enumeration's entries when its heading closes", async () => {
+  it("should show an enumeration's entry count while it is closed", async () => {
     const e = await createEnumeration();
     await renderEnumerations();
-    const section = await findSection(e.name);
-    expect(await within(section).findByLabelText("Name 1")).toBeTruthy();
-    fireEvent.click(
-      within(section).getByRole("button", { name: new RegExp(e.name), expanded: true }),
-    );
-    expect(within(section).queryByLabelText("Name 1")).toBeNull();
-    expect(section.classList).toContain(
-      "console-enumeration-settings__section--closed",
-    );
+    const item = await screen.findByRole("option", { name: e.name });
+    expect(item.getAttribute("aria-expanded")).toBe("false");
+    expect(within(item).getByText(String(e.entries.length))).toBeTruthy();
+    expect(screen.queryByRole("region", { name: `${e.name} entries` })).toBeNull();
+  });
+
+  it("should hide an enumeration's entries when it closes", async () => {
+    const e = await createEnumeration();
+    await renderEnumerations();
+    expect(
+      await within(await openEntries(e.name)).findByLabelText("Name 1"),
+    ).toBeTruthy();
+    const item = screen.getByRole("option", { name: e.name });
+    expect(item.getAttribute("aria-expanded")).toBe("true");
+    fireEvent.click(item);
+    expect(screen.queryByRole("region", { name: `${e.name} entries` })).toBeNull();
+    expect(item.getAttribute("aria-expanded")).toBe("false");
   });
 
   it("should rename an enumeration from its menu", async () => {
@@ -240,8 +273,8 @@ describe("Enumeration.Settings", () => {
     await pickReplacement(dialog, to.name);
     await clickWhenEnabled(dialog, "Replace");
     await waitForDialogToClose();
-    await expect(client.enumerations.retrieve(from.key)).rejects.toThrow(
-      "enumeration was deleted",
+    await expect(core.enumerations.retrieve(from.key)).rejects.toThrow(
+      `enumeration with key ${from.key} not found`,
     );
     expect((await client.enumerations.retrieve(to.key)).name).toBe(to.name);
   });
@@ -289,8 +322,8 @@ describe("Enumeration.Settings", () => {
     expect(await dialog.findByText(/Nothing uses it/)).toBeTruthy();
     await clickWhenEnabled(dialog, "Delete");
     await waitForDialogToClose();
-    await expect(client.enumerations.retrieve(e.key)).rejects.toThrow(
-      "enumeration was deleted",
+    await expect(core.enumerations.retrieve(e.key)).rejects.toThrow(
+      `enumeration with key ${e.key} not found`,
     );
   });
 });

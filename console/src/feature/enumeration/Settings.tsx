@@ -9,12 +9,11 @@
 
 import "@/feature/enumeration/Settings.css";
 
-import { enumeration, schematic } from "@synnaxlabs/client";
+import { enumeration } from "@synnaxlabs/client";
 import { Badge } from "@synnaxlabs/lyra/badge";
 import { Caret } from "@synnaxlabs/lyra/caret";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
-import { Header } from "@synnaxlabs/lyra/header";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
@@ -47,34 +46,22 @@ ShippedContext.displayName = "Enumeration.Shipped";
 const COLUMNS: List.Column[] = [
   { name: "Name", width: "1fr" },
   { name: "Entries", width: "12rem" },
-  { name: "Used by", width: "20rem" },
 ];
-
-const UsedBy = ({ enumeration: key }: { enumeration: enumeration.Key }) => {
-  const res = Enumeration.useResultDependents({ key });
-  const n = (res.data ?? []).filter(
-    ({ type }) => type === schematic.TYPE_RESOURCE_ID.type,
-  ).length;
-  if (n === 0) return null;
-  return (
-    <Text.Text level="small" color={9}>
-      <Icon.Schematic />
-      {n} {n === 1 ? "schematic" : "schematics"}
-    </Text.Text>
-  );
-};
 
 interface ItemProps extends List.ItemProps<enumeration.Key> {
   enumeration: enumeration.Enumeration;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Focuses the entries when they first show. */
+  autoFocus: boolean;
 }
 
-/** An enumeration's row, and its entries under it while it is open. */
+/** An enumeration in the table, with its entries under it while it is open. */
 const Item = ({
   enumeration: e,
   open,
   onOpenChange,
+  autoFocus,
   ...props
 }: ItemProps): ReactElement => {
   const builtin = use(ShippedContext).get(e.key);
@@ -119,30 +106,39 @@ const Item = ({
               {e.entries.length}
             </Text.Text>
           </List.Cell>
-          <List.Cell>
-            <UsedBy enumeration={e.key} />
-          </List.Cell>
         </List.Cells>
       </Select.Item>
       {open && (
-        <div className={CSS.BE("enumeration-settings", "entries")}>
-          <Enumeration.Entries enumeration={e.key} />
+        <div
+          role="region"
+          aria-label={`${e.name} entries`}
+          className={CSS.BE("enumeration-settings", "entries")}
+        >
+          <Enumeration.Entries enumeration={e.key} autoFocus={autoFocus} />
         </div>
       )}
     </div>
   );
 };
 
-const CreateForm = (): ReactElement => {
-  const { close } = PlatformSettings.useCreate();
+interface CreateFormProps {
+  onCreated: (key: enumeration.Key) => void;
+}
+
+const CreateForm = ({ onCreated }: CreateFormProps): ReactElement => {
+  const { close, created } = PlatformSettings.useCreate();
   const { updateAsync, variant } = Enumeration.useCreate();
   const [name, setName] = useState("");
   const handleSave = (): void => {
     const trimmed = name.trim();
     if (trimmed === "" || variant === "loading") return;
+    const key = uuid.create();
     void (async () => {
-      const created = await updateAsync({ key: uuid.create(), name: trimmed });
-      if (created !== false) close();
+      if ((await updateAsync({ key, name: trimmed })) === false) return;
+      // The new enumeration lists at the top, so its entries show to take focus.
+      created(key);
+      close();
+      onCreated(key);
     })();
   };
   const onKeyDown = PlatformSettings.useCreateKeyDown(handleSave);
@@ -164,11 +160,11 @@ const CreateForm = (): ReactElement => {
   );
 };
 
-interface SectionMenuProps {
+interface ItemMenuProps {
   enumeration: enumeration.Enumeration;
 }
 
-const SectionMenu = ({ enumeration: e }: SectionMenuProps): ReactElement => {
+const ItemMenu = ({ enumeration: e }: ItemMenuProps): ReactElement => {
   const id = enumeration.resourceID(e.key);
   const canUpdate = Access.useUpdateGranted(id);
   const canDelete = Access.useDeleteGranted(id);
@@ -199,14 +195,15 @@ const SectionMenu = ({ enumeration: e }: SectionMenuProps): ReactElement => {
 const SettingsMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null => {
   const { getItem } = List.useUtilContext<enumeration.Key, enumeration.Enumeration>();
   const e = keys[0] == null ? undefined : getItem?.(keys[0]);
-  return e == null ? null : <SectionMenu enumeration={e} />;
+  return e == null ? null : <ItemMenu enumeration={e} />;
 };
 
 const menu = Component.renderProp(SettingsMenu);
 
 /**
- * Every enumeration, by name, with its entries under it. The entries edit in place, and
- * the menu renames, restores built-ins, or deletes other enumerations.
+ * Every enumeration, by name, with its entry count. A click shows an enumeration's
+ * entries under it, where they edit in place. A new enumeration opens with Add entry
+ * focused. The menu renames, restores built-ins, or deletes other enumerations.
  */
 export const Settings = (): ReactElement => {
   const list = Flux.useList((client) => client.enumerations, {
@@ -218,6 +215,8 @@ export const Settings = (): ReactElement => {
   const builtins = Enumeration.useResultBuiltins({});
   const canCreate = Access.useCreateGranted(enumeration.TYPE_RESOURCE_ID);
   const [opened, setOpened] = useState<ReadonlySet<enumeration.Key>>(() => new Set());
+  // The enumeration just created here, whose entries take focus when they first show.
+  const [created, setCreated] = useState<enumeration.Key>();
   const byKey = new Map(
     (records.variant === "success" ? records.data : []).map((e) => [e.key, e]),
   );
@@ -230,13 +229,19 @@ export const Settings = (): ReactElement => {
       return e == null ? [] : [e];
     })
     .sort((a, b) => a.name.localeCompare(b.name));
-  const setOpen = (key: enumeration.Key, open: boolean): void =>
+  const setOpen = (key: enumeration.Key, open: boolean): void => {
+    setCreated(undefined);
     setOpened((prev) => {
       const next = new Set(prev);
       if (open) next.add(key);
       else next.delete(key);
       return next;
     });
+  };
+  const handleCreated = (key: enumeration.Key): void => {
+    setOpen(key, true);
+    setCreated(key);
+  };
   return (
     <ShippedContext value={shipped}>
       <PlatformSettings.Table<enumeration.Key, enumeration.Enumeration>
@@ -245,7 +250,7 @@ export const Settings = (): ReactElement => {
         noun="enumerations"
         menu={menu}
         createLabel={canCreate ? "Create enumeration" : undefined}
-        create={<CreateForm />}
+        create={<CreateForm onCreated={handleCreated} />}
       >
         {({ key, ...p }) => {
           const e = byKey.get(p.itemKey);
@@ -257,6 +262,7 @@ export const Settings = (): ReactElement => {
               enumeration={e}
               open={opened.has(p.itemKey)}
               onOpenChange={(open) => setOpen(p.itemKey, open)}
+              autoFocus={created === p.itemKey}
             />
           );
         }}
