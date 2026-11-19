@@ -133,14 +133,20 @@ func (w Writer) Set(ctx context.Context, c *Certificate, privateKey []byte) erro
 		return err
 	}
 	w.dispatcher.Attach(w.tx, base.Key, NewCreateAction(CreatePayload{Certificate: *c}))
-	return w.writeStatus(ctx, *c)
+	return w.writeStatus(ctx, prev, *c)
 }
 
-func (w Writer) writeStatus(ctx context.Context, c Certificate) error {
-	if st, ok := expiryStatus(c, w.now()); ok {
+// writeStatus writes the expiry status of next, which replaces prev. A certificate with
+// no details keeps the status it owns, such as a migration warning. When prev had
+// details, that status is a stale expiry status, and writeStatus deletes it.
+func (w Writer) writeStatus(ctx context.Context, prev, next Certificate) error {
+	if st, ok := expiryStatus(next, w.now()); ok {
 		return w.statuses.Set(ctx, &st)
 	}
-	return w.statuses.DeleteOwned(ctx, c.ResourceID())
+	if _, ok := prev.Details(); !ok {
+		return nil
+	}
+	return w.statuses.DeleteOwned(ctx, next.ResourceID())
 }
 
 func (w Writer) prepareStored(
@@ -233,7 +239,7 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 		}
 	}
 	w.dispatcher.Attach(w.tx, key, acts...)
-	return w.writeStatus(ctx, next)
+	return w.writeStatus(ctx, prev, next)
 }
 
 // Rename renames the certificate with the given key, its key secret, and its expiry

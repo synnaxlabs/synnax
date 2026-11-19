@@ -1314,6 +1314,26 @@ var _ = Describe("Vouched records", func() {
 		})
 
 		It(
+			"Should deny a rack that moves a record that uses a certificate with a "+
+				"private key onto itself",
+			func(ctx SpecContext) {
+				certPEM, keyPEM := certtestutil.NewPair()
+				key := createCertificate(ctx, certPEM, keyPEM)
+				dev := opcDevice(map[string]any{"client_certificate": key.String()})
+				create(ctx, &dev)
+				Expect(writeAs(ctx, other.ResourceID(), setRack(dev.Key))).
+					To(SatisfyAll(
+						MatchError(access.ErrDenied),
+						MatchError(ContainSubstring(
+							"%s cannot move a record that uses %s onto a rack",
+							other.ResourceID(),
+							certificate.ResourceID(key),
+						)),
+					))
+			},
+		)
+
+		It(
 			"Should let a rack move a record that uses a certificate with no private key "+
 				"onto itself",
 			func(ctx SpecContext) {

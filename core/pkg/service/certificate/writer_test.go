@@ -533,6 +533,69 @@ var _ = Describe("Writer", func() {
 		})
 	})
 
+	Describe("Status", func() {
+		// warn writes a warning that c owns, as the OPC UA migration does.
+		warn := func(ctx SpecContext, c certificate.Certificate) {
+			GinkgoHelper()
+			st := status.Status[any]{
+				Owner:   new(c.ResourceID()),
+				Name:    c.Base().Name,
+				Time:    telem.Now(),
+				Variant: status.VariantWarning,
+				Message: "Private key file renamed",
+			}
+			Expect(e.db.WithTx(ctx, func(tx gorp.Tx) error {
+				return e.status.NewWriter(tx).Set(ctx, &st)
+			})).To(Succeed())
+		}
+		It("Should keep the status of a certificate with no details on rename", func(
+			ctx SpecContext,
+		) {
+			c := e.create(ctx, file("Plant", coreRack), nil)
+			warn(ctx, c)
+			Expect(e.write(ctx, func(w certificate.Writer) error {
+				return w.Rename(ctx, c.Base().Key, "Line")
+			})).To(Succeed())
+			Expect(e.expiry(ctx, c.Base().Key).Message).
+				To(Equal("Private key file renamed"))
+		})
+		It("Should keep the status of a certificate with no details on a replace "+
+			"with no details", func(ctx SpecContext) {
+			c := e.create(ctx, file("Plant", coreRack), nil)
+			warn(ctx, c)
+			replaced := file("Plant", coreRack)
+			replaced.SetBase(c.Base())
+			variant := fileOf(replaced)
+			variant.CertificatePath = "/etc/plant/new.pem"
+			replaced.Variant = variant
+			e.create(ctx, replaced, nil)
+			Expect(e.expiry(ctx, c.Base().Key).Message).
+				To(Equal("Private key file renamed"))
+		})
+		It("Should delete the expiry status of a certificate that loses its details",
+			func(ctx SpecContext) {
+				c := file("Plant", coreRack)
+				variant := fileOf(c)
+				variant.Details = &certificate.Details{
+					NotAfter: telem.NewTimeStamp(start.Add(time.Hour)),
+				}
+				c.Variant = variant
+				c = e.create(ctx, c, nil)
+				Expect(e.expiry(ctx, c.Base().Key).Message).
+					To(Equal("Certificate expires soon"))
+				replaced := file("Plant", coreRack)
+				replaced.SetBase(c.Base())
+				e.create(ctx, replaced, nil)
+				var found []status.Status[any]
+				Expect(e.status.NewRetrieve[any]().
+					Where(status.MatchOwners[any](c.ResourceID())).
+					Entries(&found).
+					Exec(ctx, e.db)).To(Succeed())
+				Expect(found).To(BeEmpty())
+			},
+		)
+	})
+
 	Describe("Delete", func() {
 		It(
 			"Should delete the certificate, its key, and its status",
