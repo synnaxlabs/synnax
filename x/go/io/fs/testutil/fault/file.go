@@ -180,6 +180,7 @@ func (d *disk) write(n *node, p []byte, off int64, path string) (int, error) {
 	}
 	written := copy(n.data[off:fit], p)
 	n.dirty.mark(off, fit)
+	n.wrote(Span{From: off, To: fit})
 	d.touch(n)
 	if fit < end {
 		return written, pathError("write", path, syscall.ENOSPC)
@@ -259,5 +260,6 @@ func (d *disk) resize(n *node, size int64) {
 	old := int64(len(n.data))
 	n.data = resized(n.data, size)
 	n.dirty.mark(min(old, size), max(old, size))
+	n.wrote(Span{From: min(old, size), To: max(old, size)})
 	d.touch(n)
 }

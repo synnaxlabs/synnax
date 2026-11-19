@@ -10,6 +10,8 @@
 package fault
 
 import (
+	"bytes"
+	"cmp"
 	"iter"
 	"math/bits"
 	"slices"
@@ -59,6 +61,16 @@ func resized(data []byte, size int64) []byte {
 	return data[:size]
 }
 
+// wrote notes that a write or a change of the length put the range s in the file n.
+func (n *node) wrote(s Span) {
+	last := len(n.written) - 1
+	if last >= 0 && s.From >= n.written[last].From && s.From <= n.written[last].To {
+		n.written[last].To = max(n.written[last].To, s.To)
+		return
+	}
+	n.written = append(n.written, s)
+}
+
 // sync makes the bytes and the length of the file n at the path p durable. It copies
 // only the dirty blocks. A sync that fails drops them and counts one sync error on n.
 func (d *disk) sync(n *node, p string) {
@@ -72,13 +84,45 @@ func (d *disk) sync(n *node, p string) {
 	}
 	size := int64(len(n.data))
 	n.durable = resized(n.durable, size)
+	var changed blocks
 	for b := range n.dirty.all() {
 		if from := b * blockSize; from < size {
 			to := min(from+blockSize, size)
+			if !bytes.Equal(n.durable[from:to], n.data[from:to]) {
+				changed.mark(from, to)
+			}
 			copy(n.durable[from:to], n.data[from:to])
 		}
 	}
-	n.dirty = nil
+	if synced := n.writtenIn(changed, size); len(synced) > 0 {
+		n.synced = synced
+		n.syncs++
+	}
+	n.dirty, n.written = nil, nil
+}
+
+// writtenIn returns, in rising order, the parts of the written ranges of n that are in
+// the blocks of changed and before size.
+func (n *node) writtenIn(changed blocks, size int64) []Span {
+	slices.SortFunc(
+		n.written,
+		func(a, b Span) int { return cmp.Compare(a.From, b.From) },
+	)
+	var out []Span
+	for b := range changed.all() {
+		for _, s := range n.written {
+			from, to := max(s.From, b*blockSize), min(s.To, (b+1)*blockSize, size)
+			if from >= to {
+				continue
+			}
+			if last := len(out) - 1; last >= 0 && from <= out[last].To {
+				out[last].To = max(out[last].To, to)
+			} else {
+				out = append(out, Span{From: from, To: to})
+			}
+		}
+	}
+	return out
 }
 
 // drop loses the dirty blocks of the file n, as a failed Sync does. Each block keeps
@@ -97,7 +141,7 @@ func (d *disk) drop(n *node, file, nth uint64) {
 			copy(block, n.durable[from:])
 		}
 	}
-	n.dirty = nil
+	n.dirty, n.written = nil, nil
 }
 
 // entry names one directory entry.

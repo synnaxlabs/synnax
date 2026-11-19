@@ -10,6 +10,7 @@
 package fault_test
 
 import (
+	"bytes"
 	"io"
 	"math/bits"
 	"os"
@@ -214,9 +215,9 @@ var _ = Describe("File ID", func() {
 	BeforeEach(func() { fs = MustSucceed(fault.New(fault.Config{})) })
 	id := func(fs xfs.FS, name string) fault.ID {
 		GinkgoHelper()
-		id, ok := MustSucceed(fs.Stat(name)).Sys().(fault.ID)
+		stat, ok := MustSucceed(fs.Stat(name)).Sys().(fault.Stat)
 		Expect(ok).To(BeTrue())
-		return id
+		return stat.ID
 	}
 
 	It("Should give each file its own ID", func() {
@@ -239,9 +240,9 @@ var _ = Describe("File ID", func() {
 		Expect(fs.Rename("a.txt", "b.txt")).To(Succeed())
 		write(fs, "b.txt", "burrito")
 		Expect(id(fs, "b.txt")).To(Equal(old))
-		Expect(MustSucceed(fs.List(""))[0].Sys()).To(Equal(old))
+		Expect(MustSucceed(fs.List(""))[0].Sys()).To(Equal(fault.Stat{ID: old}))
 		f := MustOpen(fs.Open("b.txt", os.O_RDONLY))
-		Expect(MustSucceed(f.Stat()).Sys()).To(Equal(old))
+		Expect(MustSucceed(f.Stat()).Sys()).To(Equal(fault.Stat{ID: old}))
 	})
 
 	It("Should keep the ID of a file in a crash image", func() {
@@ -253,5 +254,115 @@ var _ = Describe("File ID", func() {
 		Expect(id(image, "b.txt")).To(Equal(id(fs, "b.txt")))
 		write(image, "c.txt", "new")
 		Expect(id(image, "c.txt")).ToNot(BeElementOf(id(fs, "a.txt"), id(fs, "b.txt")))
+	})
+})
+
+var _ = Describe("Sync state", func() {
+	const blockSize = 4096
+	var (
+		fs *fault.FS
+		f  xfs.File
+	)
+	BeforeEach(func() {
+		fs = MustSucceed(fault.New(fault.Config{}))
+		f = MustOpen(fs.Open("f.bin", os.O_CREATE|os.O_RDWR))
+	})
+	stat := func() fault.Stat {
+		GinkgoHelper()
+		s, ok := MustSucceed(f.Stat()).Sys().(fault.Stat)
+		Expect(ok).To(BeTrue())
+		return s
+	}
+	put := func(data []byte, off int64) {
+		GinkgoHelper()
+		Expect(f.WriteAt(data, off)).To(Equal(len(data)))
+	}
+	ones := func(n int) []byte { return bytes.Repeat([]byte{1}, n) }
+
+	It("Should report the ranges that a Sync made durable", func() {
+		put(make([]byte, 200), 0)
+		Expect(f.Sync()).To(Succeed())
+		put(ones(10), 0)
+		put(ones(20), 100)
+		Expect(f.Sync()).To(Succeed())
+		Expect(stat().Syncs).To(BeEquivalentTo(1))
+		Expect(stat().Synced).To(Equal([]fault.Span{{0, 10}, {100, 120}}))
+	})
+
+	It("Should take the zeros that a write past the end adds as written", func() {
+		put(ones(10), 0)
+		put(ones(1), 100)
+		Expect(f.Sync()).To(Succeed())
+		Expect(stat().Synced).To(Equal([]fault.Span{{0, 101}}))
+	})
+
+	It("Should not count a Sync of bytes equal to the durable bytes", func() {
+		put(ones(10), 0)
+		Expect(f.Sync()).To(Succeed())
+		put(ones(10), 0)
+		Expect(f.Sync()).To(Succeed())
+		Expect(f.Sync()).To(Succeed())
+		Expect(stat().Syncs).To(BeEquivalentTo(1))
+		Expect(stat().Synced).To(Equal([]fault.Span{{0, 10}}))
+	})
+
+	It("Should not count a Sync of zeros past the durable end", func() {
+		put(make([]byte, 2*blockSize), 0)
+		Expect(f.Truncate(3 * blockSize)).To(Succeed())
+		Expect(f.Sync()).To(Succeed())
+		Expect(stat().Syncs).To(BeZero())
+		Expect(stat().Synced).To(BeEmpty())
+	})
+
+	It("Should leave out a block whose bytes did not change", func() {
+		put(ones(2*blockSize), 0)
+		Expect(f.Sync()).To(Succeed())
+		put(append(ones(blockSize), make([]byte, 10)...), 0)
+		Expect(f.Sync()).To(Succeed())
+		Expect(stat().Syncs).To(BeEquivalentTo(2))
+		Expect(stat().Synced).To(Equal([]fault.Span{{blockSize, blockSize + 10}}))
+	})
+
+	It("Should keep each range in a changed block, also of equal bytes", func() {
+		put(ones(blockSize), 0)
+		Expect(f.Sync()).To(Succeed())
+		put(ones(10), 0)
+		put([]byte{2}, 100)
+		Expect(f.Sync()).To(Succeed())
+		Expect(stat().Synced).To(Equal([]fault.Span{{0, 10}, {100, 101}}))
+	})
+
+	It("Should report only the bytes in the file after a cut", func() {
+		put(ones(100), 0)
+		Expect(f.Truncate(10)).To(Succeed())
+		Expect(f.Sync()).To(Succeed())
+		Expect(stat().Synced).To(Equal([]fault.Span{{0, 10}}))
+	})
+
+	It("Should forget the writes of a failed Sync", func() {
+		fs = MustSucceed(fault.New(fault.Config{SyncErrorRate: 1}))
+		f = MustOpen(fs.Open("f.bin", os.O_CREATE|os.O_RDWR))
+		put(ones(10), 0)
+		Expect(f.Sync()).To(MatchError(syscall.EIO))
+		Expect(stat().Syncs).To(BeZero())
+		Expect(f.Sync()).To(Succeed())
+		Expect(stat().Syncs).To(BeZero())
+	})
+
+	It("Should start a crash image with no Sync state", func() {
+		put(ones(10), 0)
+		Expect(f.Sync()).To(Succeed())
+		Expect(fs.SyncDir("")).To(Succeed())
+		image := strict(fs)
+		s, ok := MustSucceed(image.Stat("f.bin")).Sys().(fault.Stat)
+		Expect(ok).To(BeTrue())
+		Expect(s).To(Equal(fault.Stat{ID: stat().ID}))
+	})
+
+	It("Should not let a caller change the reported ranges", func() {
+		put(ones(10), 0)
+		Expect(f.Sync()).To(Succeed())
+		stat().Synced[0].To = 99
+		Expect(stat().Synced).To(Equal([]fault.Span{{0, 10}}))
 	})
 })

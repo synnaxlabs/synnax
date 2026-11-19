@@ -12,6 +12,7 @@ package fault
 import (
 	"os"
 	"path"
+	"slices"
 	"strings"
 	"sync"
 	"syscall"
@@ -51,6 +52,13 @@ type node struct {
 	data, durable           []byte
 	// dirty holds each block whose bytes or length changed since the last Sync.
 	dirty blocks
+	// written holds the ranges that writes and changes of the length put in the file
+	// since the last Sync.
+	written []Span
+	// synced holds, in rising order, the part of written that was in the blocks that
+	// the newest Sync with a changed block made durable. syncs counts those Syncs.
+	synced []Span
+	syncs  uint64
 	// syncErrors counts the failed Syncs of the file. Each handle reports a count that
 	// it has not seen, once.
 	syncErrors uint64
@@ -59,8 +67,23 @@ type node struct {
 }
 
 // ID names one file of a disk. A rename does not change it, and a crash image keeps it.
-// The Sys method of the info of a file returns it.
 type ID uint64
+
+// Span is a range of the bytes of a file, from From up to To.
+type Span struct{ From, To int64 }
+
+// Stat is what the Sys method of the info of a file returns.
+type Stat struct {
+	// Synced holds, in rising order, the ranges that the file got from writes and that
+	// the newest Sync with a changed block made durable. It leaves out each block whose
+	// bytes that Sync did not change.
+	Synced []Span
+	// ID names the file.
+	ID ID
+	// Syncs counts the Syncs that changed a durable byte of the file. A byte past the
+	// durable end counts as a zero, so new zeros at the end change nothing.
+	Syncs uint64
+}
 
 func newDir() *node {
 	return &node{
@@ -73,8 +96,8 @@ func newDir() *node {
 type info struct {
 	modTime time.Time
 	name    string
+	stat    Stat
 	size    int64
-	id      ID
 	dir     bool
 }
 
@@ -84,7 +107,7 @@ func (i info) Name() string       { return i.name }
 func (i info) Size() int64        { return i.size }
 func (i info) ModTime() time.Time { return i.modTime }
 func (i info) IsDir() bool        { return i.dir }
-func (i info) Sys() any           { return i.id }
+func (i info) Sys() any           { return i.stat }
 
 func (i info) Mode() os.FileMode {
 	mode := xfs.UserRWX | xfs.GroupRX | xfs.OtherRX
@@ -99,7 +122,7 @@ func (n *node) info(name string) info {
 		name:    name,
 		size:    int64(len(n.data)),
 		modTime: n.modTime,
-		id:      n.id,
+		stat:    Stat{ID: n.id, Syncs: n.syncs, Synced: slices.Clone(n.synced)},
 		dir:     n.dir,
 	}
 }
