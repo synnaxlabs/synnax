@@ -17,7 +17,12 @@ describe("interaction", () => {
   let island: HTMLElement;
   let button: HTMLButtonElement;
   let clicks: MouseEvent[];
+  // Astro's hydrate leaves the island unhydrated after a failed download.
+  let outcome: "hydrated" | "failed" | Error;
   const hydrate = vi.fn(async () => {
+    if (outcome instanceof Error) throw outcome;
+    if (outcome === "failed") return;
+    island.removeAttribute("ssr");
     button.addEventListener("click", (e) => clicks.push(e));
   });
   const load = vi.fn(async () => hydrate);
@@ -37,6 +42,8 @@ describe("interaction", () => {
 
   beforeEach(() => {
     island = document.createElement("astro-island");
+    island.setAttribute("ssr", "");
+    outcome = "hydrated";
     button = document.createElement("button");
     island.append(button);
     document.body.append(island);
@@ -96,5 +103,46 @@ describe("interaction", () => {
     expect(press("k", true).defaultPrevented).toBe(false);
     await flush();
     expect(load).not.toHaveBeenCalled();
+  });
+
+  it("should do nothing when Astro starts it again on the same island", async () => {
+    start(true);
+    start(true);
+    button.click();
+    await flush();
+    expect(hydrate).toHaveBeenCalledOnce();
+    expect(clicks).toHaveLength(1);
+    start(true);
+    button.click();
+    await flush();
+    expect(hydrate).toHaveBeenCalledOnce();
+    expect(clicks).toHaveLength(2);
+  });
+
+  it("should let the next click retry after a failed download", async () => {
+    start(true);
+    outcome = "failed";
+    button.click();
+    await flush();
+    expect(clicks).toHaveLength(0);
+    outcome = "hydrated";
+    button.click();
+    await flush();
+    expect(hydrate).toHaveBeenCalledTimes(2);
+    expect(clicks).toHaveLength(1);
+  });
+
+  it("should log a failed hydration and let the next click retry", async () => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    start(true);
+    outcome = new Error("offline");
+    button.click();
+    await flush();
+    expect(logged).toHaveBeenCalledExactlyOnceWith(outcome);
+    logged.mockRestore();
+    outcome = "hydrated";
+    button.click();
+    await flush();
+    expect(clicks).toHaveLength(1);
   });
 });

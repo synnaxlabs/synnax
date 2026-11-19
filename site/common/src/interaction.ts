@@ -9,31 +9,39 @@
 
 import { type ClientDirective } from "astro";
 
+const STARTED = "data-interaction";
+
 /**
  * Hydrates an island on the first click inside it, then replays the click on the
  * hydrated island. Hovering the island starts the download. A string value is a key
- * that, with Ctrl or Cmd, clicks the island's first button.
+ * that, with Ctrl or Cmd, clicks the island's first button. After a failed download,
+ * the next click tries again.
  */
 const interaction: ClientDirective = (load, options, el) => {
+  // Astro runs the directive again when a page swap moves a persisted island.
+  if (el.hasAttribute(STARTED)) return;
+  el.setAttribute(STARTED, "");
   const { value }: { value: unknown } = options;
   const hotkey = typeof value === "string" ? value.toLowerCase() : null;
 
   const preload = (): void => void load();
 
+  const open = async (target: Element): Promise<void> => {
+    const hydrate = await load();
+    await hydrate();
+    // Astro logs a failed download and leaves the island as the server rendered it.
+    if (el.hasAttribute("ssr")) return listen();
+    target.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+  };
+
   const onClick = (e: MouseEvent): void => {
     if (!(e.target instanceof Element)) return;
-    const { target } = e;
     e.preventDefault();
-    el.removeEventListener("pointerover", preload);
-    el.removeEventListener("click", onClick);
-    document.removeEventListener("keydown", onKeyDown);
-    void (async () => {
-      const hydrate = await load();
-      await hydrate();
-      target.dispatchEvent(
-        new MouseEvent("click", { bubbles: true, cancelable: true }),
-      );
-    })();
+    stop();
+    open(e.target).catch((err: unknown) => {
+      console.error(err);
+      listen();
+    });
   };
 
   const onKeyDown = (e: KeyboardEvent): void => {
@@ -46,9 +54,19 @@ const interaction: ClientDirective = (load, options, el) => {
     button.click();
   };
 
-  el.addEventListener("pointerover", preload, { once: true });
-  el.addEventListener("click", onClick);
-  if (hotkey != null) document.addEventListener("keydown", onKeyDown);
+  const listen = (): void => {
+    el.addEventListener("pointerover", preload, { once: true });
+    el.addEventListener("click", onClick);
+    if (hotkey != null) document.addEventListener("keydown", onKeyDown);
+  };
+
+  const stop = (): void => {
+    el.removeEventListener("pointerover", preload);
+    el.removeEventListener("click", onClick);
+    document.removeEventListener("keydown", onKeyDown);
+  };
+
+  listen();
 };
 
 export default interaction;
