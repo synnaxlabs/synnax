@@ -348,6 +348,8 @@ client_cpp: &client_cpp
   - core/**/*.proto
   - core/**/BUILD.bazel
   - vendor/wasmtime/**
+  # The codec tests read the golden frames that all four codecs share.
+  - x/testdata/framecodec/**
 
 driver: &driver
   - *arc_cpp
