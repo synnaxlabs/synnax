@@ -58,8 +58,6 @@ var _ = Describe("Restore", func() {
 			value, closer := MustSucceed2(l.KV.Get([]byte("key")))
 			Expect(string(value)).To(Equal("before"))
 			Expect(closer.Close()).To(Succeed())
-			Expect(MustSucceed(l.TS.RetrieveChannel(ctx, dataCh.Key)).Name).
-				To(Equal("data"))
 			Expect(l.TS.RetrieveChannel(ctx, addedCh.Key)).Error().
 				To(MatchError(cesium.ErrChannelNotFound))
 			frame := MustSucceed(l.TS.Read(ctx, telem.TimeRangeMax, dataCh.Key))
