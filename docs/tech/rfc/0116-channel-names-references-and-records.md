@@ -219,7 +219,10 @@ Binding struct {
   channel to act on it (writer, streamer, delete, rename) fails and lists every path.
 - **Client shorthand**: A number is a key. A string with a `.` is a path, and a string
   with none is a name; the `paths` parameter names a root channel exactly. No string
-  falls back to a key: a channel named `2024` would change what a call returns.
+  falls back to a key: a channel named `2024` would change what a call returns. The rule
+  covers lookups only. A stored value that the schema types as a channel key still
+  parses from text: a JSON object key, and the TypeScript key schema that accepts a
+  numeric string (`client/ts/src/channel/types.gen.ts:20-25`).
 - **Arc**: From Phase 6, a bare name is a channel at the root, and a channel in a folder
   needs its path: a new channel in another folder must never change what a working
   program means. Files, export, and import use exact paths only.
@@ -424,12 +427,13 @@ The table lives in `core/pkg/service/channel/resolver` (NEW), for both services:
 Oracle generates, for each exported type, a remap over its channel links from the walk
 that builds the reference targets (NEW). The Arc service remaps the channel inputs of
 graph nodes itself. Export writes each channel link as its exact path, a JSON string,
-and a dead link as no channel. Import reads a link by its JSON type, as the clients do
-(§4.2): a number is a raw key, which every file of `core/v0.62.0` and older holds, and a
-string is a path. A file's shape does not change, so no exported type mints a version
-for the switch (`core/pkg/service/imex/imex.go:39-42`). Import resolves each path once
-and fails, with every path that matches nothing, unless the file makes that channel. Arc
-and calculation text binds on the new Core.
+and a dead link as no channel. Import reads a link value by its JSON type, as the
+clients do (§4.2): a number is a raw key, which every file of `core/v0.62.0` and older
+holds, and a string is a path. A JSON object key that the schema types as a channel key
+is a key. A file's shape does not change, so no exported type mints a version for the
+switch (`core/pkg/service/imex/imex.go:39-42`). Import resolves each path once and
+fails, with every path that matches nothing, unless the file makes that channel. Arc and
+calculation text binds on the new Core.
 
 ### 4.7 Package boundaries
 
@@ -475,7 +479,11 @@ map probe and a 1 to 2 µs keyed read. The sibling index costs about 175 B per c
 
 ### 4.9 Migrations and compatibility
 
-- **Phase 1: Channel v2.** It drops `internal` and logs each record that held it.
+- **Phase 1: Channel v2.** It drops `internal` and logs each record that held it. A
+  one-shot step, `v63_clear_unissued_channel_links`, runs once the channel service and
+  its counter are open and before the API serves: it clears every stored schematic and
+  table link whose key this Core never issued, as `core/v0.62.0` import kept raw keys
+  and those fields had no reference.
 - **Phase 2: Names.** The pass rewrites a name only when it breaks the rule, which
   includes a name not in NFC, or when a channel with a lower key holds it in the same
   folder after NFC. Each `.` becomes `_`, refused characters go, invalid bytes become
@@ -525,7 +533,9 @@ this program. Phases 6 and 8 are small switches.
 
 - **Phase 2: Quoted names.** Arc gets the quoted token here, with the path filter. Phase
   5 adds bare paths, the two lists, `Rebind`, the bind pass, the rewrite, the key
-  lookup, and files by path.
+  lookup, and files by path. Phase 2's specs pin both halves of the number rule: a
+  stored config that holds a key as a numeric string parses to the key, and a lookup by
+  a digit-only string resolves as a name or a path.
 - **Phase 4: A view version.** The `channel` view type mints view v4 from v3, which
   `core/v0.62.0` shipped.
 - **Outside names**: An output that sends a channel's name, such as the Kafka key mode
@@ -565,8 +575,14 @@ package. A parse in the migration ties frozen code to the live grammar.
 costs 48 B against 32 B (222 MB against 175 MB at 1,000,000). An index that turns
 invalid on a stored duplicate forces a dedupe across the Core at Phase 2.
 
-**6.3 No durable record of a pending delete.** A table of keys to purge stores a fact
-that storage with no channel record already states. RFC 0118 owns the sweep.
+**6.3 A delete leaves a durable intent in storage.** A missing channel record does not
+prove a delete: a restored backup, lost metadata, or a Core pointed at the wrong
+metadata gives the same state. So a delete logs an intent in Cesium before the record
+commits, and the sweep at start drops only a key with an intent and no record, or a key
+with no samples. A key with samples, no record, and no intent stays hidden, with a
+warning status and an explicit purge (RFC 0118 §4.1). Rejected: a table of keys to purge
+in Gorp, which the same metadata loss would lose too, and a sweep on absence alone,
+which turns lost metadata into lost telemetry.
 
 **6.4 Names stay on the channel and in text.** A namespace service that maps names to
 keys makes every list, search, codec error, and Arc lookup a join. Key tokens in Arc
