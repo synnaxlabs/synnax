@@ -64,8 +64,8 @@ func checkSpec(s Spec) error {
 	return nil
 }
 
-// newChecker indexes the parts, states, and commands of s by key. It refuses a key
-// that repeats in a list.
+// newChecker indexes the parts, states, and commands of s by key. It refuses a key that
+// repeats in a list.
 func newChecker(s Spec) (c checker, err error) {
 	partKey := func(p Part) string { return p.Key }
 	if c.parts, err = keyIndex("parts", "part", s.Parts, partKey); err != nil {
@@ -202,8 +202,8 @@ func (c checker) checkInteraction(i int, in Interaction) error {
 	return nil
 }
 
-// next checks that keys name two fixed commands on one state whose values differ
-// after the match of that state.
+// next checks that keys name two fixed commands on one state whose values differ after
+// the match of that state.
 func (c checker) next(p, keys []string) error {
 	if len(keys) != 2 {
 		return invalid(p, "next needs two commands, got %d", len(keys))

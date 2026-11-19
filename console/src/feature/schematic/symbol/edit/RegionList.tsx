@@ -113,8 +113,14 @@ export const RegionList = ({
   onAddRegion,
 }: RegionListProps) => {
   const { data } = Form.useFieldList(path.data.parts);
-  const spec = Form.useFieldValue(path.data);
-  const regions = Schematic.Node.Custom.useRegions(spec, selectedValue);
+  const parts = Form.useFieldValue(path.data.parts);
+  const states = Form.useFieldValue(path.data.states);
+  const looks = Form.useFieldValue(path.data.looks);
+  const markup = Form.useFieldValue(path.data.drawing.markup);
+  const regions = Schematic.Node.Custom.useRegions(
+    { parts, states, looks },
+    selectedValue,
+  );
   return (
     <Flex.Box y gap={1} className={CSS.B("schematic-region-list")}>
       <Header.Header level="p" bordered={false}>
@@ -152,7 +158,7 @@ export const RegionList = ({
             {({ key, ...rest }) => (
               <RegionListItem
                 selectedValue={selectedValue}
-                svg={spec.drawing.markup}
+                svg={markup}
                 region={regions?.find((r) => r.key === rest.itemKey)}
                 key={key}
                 {...rest}

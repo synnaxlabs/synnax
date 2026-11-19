@@ -13,11 +13,9 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions"
-	"github.com/synnaxlabs/x/set"
 )
 
 var _ imex.ImportExporter = (*Service)(nil)
@@ -50,49 +48,13 @@ func (s *Service) Decode(ctx context.Context, env imex.Envelope) (imex.Write, er
 		tx gorp.Tx,
 		opts imex.ImportOptions,
 	) (resource.ID, error) {
-		sym.Group = opts.Group
-		if err := s.clearMissingEnumerations(ctx, tx, &sym); err != nil {
+		if _, err := s.table.DropDangling(ctx, tx, &sym); err != nil {
 			return resource.ID{}, err
 		}
+		sym.Group = opts.Group
 		if err := s.NewWriter(tx).Create(ctx, &sym); err != nil {
 			return resource.ID{}, err
 		}
 		return sym.ResourceID(), nil
 	}, nil
-}
-
-func (s *Service) clearMissingEnumerations(
-	ctx context.Context,
-	tx gorp.Tx,
-	sym *Symbol,
-) error {
-	var keys []enumeration.Key
-	for _, st := range sym.Data.States {
-		if v, ok := st.Variant.(EnumerationState); ok && v.Enumeration != nil {
-			keys = append(keys, *v.Enumeration)
-		}
-	}
-	if len(keys) == 0 {
-		return nil
-	}
-	var found []enumeration.Enumeration
-	if err := s.cfg.Enumeration.NewRetrieve().
-		Where(enumeration.MatchKeys(keys...)).
-		SkipMissingKeys().
-		Entries(&found).
-		Exec(ctx, tx); err != nil {
-		return err
-	}
-	stored := make(set.Set[enumeration.Key], len(found))
-	for _, e := range found {
-		stored.Add(e.Key)
-	}
-	for i, st := range sym.Data.States {
-		v, ok := st.Variant.(EnumerationState)
-		if ok && v.Enumeration != nil && !stored.Contains(*v.Enumeration) {
-			v.Enumeration = nil
-			sym.Data.States[i].Variant = v
-		}
-	}
-	return nil
 }
