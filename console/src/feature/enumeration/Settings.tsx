@@ -75,7 +75,7 @@ const Item = ({
   const itemClass = PlatformSettings.useItemClass(e.key);
   const [element, setElement] = useState<HTMLElement | null>(null);
   return (
-    <div className={CSS.BE("enumeration-settings", "record")}>
+    <div>
       <Select.Item<enumeration.Key>
         {...props}
         ref={setElement}
