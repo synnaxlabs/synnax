@@ -88,7 +88,8 @@ class Master final : public master::Master {
     };
     /// @brief the domain of each enabled slave with process data, in position order.
     std::vector<Domain> domains;
-    /// @brief a copy of every domain after each receive(), as the image inputs.
+    /// @brief a copy of each domain that the latest receive() processed, as the image
+    /// inputs.
     std::vector<uint8_t> inputs;
     /// @brief the image outputs, which send() copies to each domain that it queues.
     std::vector<uint8_t> outputs;

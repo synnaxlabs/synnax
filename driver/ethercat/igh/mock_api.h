@@ -15,6 +15,7 @@
 #include <cstdint>
 #include <cstring>
 #include <map>
+#include <mutex>
 #include <optional>
 #include <span>
 #include <string>
@@ -197,6 +198,8 @@ public:
     };
 
     mutable std::vector<Slave> slaves;
+    /// @brief guards the slaves while send() reads their states on the cycle thread.
+    mutable std::mutex mu;
     /// @brief the domains, in creation order.
     mutable std::vector<Domain> domains;
     x::errors::Error check_device_err = x::errors::NIL;
@@ -314,6 +317,7 @@ public:
     }
 
     int master_reset(ec_master_t *) const override {
+        std::lock_guard lock(this->mu);
         this->resets++;
         if (this->reset_result < 0) return this->reset_result;
         for (auto &slave: this->slaves)
@@ -369,6 +373,7 @@ public:
         uint16_t position,
         ec_slave_info_t *info
     ) const override {
+        std::lock_guard lock(this->mu);
         if (position >= this->slaves.size() || this->slaves[position].unreadable)
             return -EIO;
         auto &slave = this->slaves[position];
@@ -401,6 +406,7 @@ public:
         const ec_slave_config_t *sc,
         ec_slave_config_state_t *state
     ) const override {
+        std::lock_guard lock(this->mu);
         auto &slave = this->slave(sc);
         if (slave.state_unreadable) return -EIO;
         if (this->scanning) {
