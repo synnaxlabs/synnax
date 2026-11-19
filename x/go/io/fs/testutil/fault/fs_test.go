@@ -95,10 +95,13 @@ var _ = Describe("FS", func() {
 			Expect(read(fs, "f.txt")).To(Equal("onetwothreefour"))
 		})
 
-		It("Should fail to read a directory", func() {
+		It("Should fail to read a directory, or to open it for a write", func() {
 			MustSucceed(fs.Sub("a"))
 			f := MustOpen(fs.Open("a", os.O_RDONLY))
 			Expect(f.Read(make([]byte, 1))).Error().To(MatchError(syscall.EISDIR))
+			Expect(fs.Open("a/.", os.O_CREATE|os.O_WRONLY)).Error().
+				To(MatchError(syscall.EISDIR))
+			Expect(fs.List("a")).To(BeEmpty())
 		})
 
 		DescribeTable("Should fail a negative offset or size",
