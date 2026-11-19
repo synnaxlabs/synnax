@@ -319,7 +319,7 @@ describe("XAxis", () => {
 
   // Mounts an x axis with a y axis per entry, each holding lines of the given x bounds.
   const mount = (
-    yAxes: Record<string, Array<{ x: bounds.Bounds; rolling?: boolean }>>,
+    yAxes: Record<string, Array<{ x: bounds.Bounds; edge?: telem.Edge }>>,
   ): XAxis => {
     const recorder = canvasTest.record();
     (recorder as { gl: unknown }).gl = GL;
@@ -338,12 +338,12 @@ describe("XAxis", () => {
     Object.entries(yAxes).forEach(([yKey, lines]) => {
       const yPath = [...xPath, yKey];
       stack.driver.update(yPath, YAxis.TYPE, { location: "left", autoBoundPadding: 0 });
-      lines.forEach(({ x: b, rolling }, i) => {
+      lines.forEach(({ x: b, edge }, i) => {
         const x = telemTest.source<[bounds.Bounds, MultiSeries]>([
           b,
           new MultiSeries(),
         ]);
-        x.rolling = rolling;
+        x.edge = edge;
         stack.driver.update([...yPath, `line${i}`], Line.TYPE, {
           x: specOf(x),
           y: sourceSpec([1, 2]),
@@ -367,8 +367,8 @@ describe("XAxis", () => {
 
     it("should end every rolling line at the newest edge across y axes", () => {
       const x = mount({
-        y1: [{ x: { lower: 0, upper: 30 }, rolling: true }],
-        y2: [{ x: { lower: 3570, upper: 3600 }, rolling: true }],
+        y1: [{ x: { lower: 0, upper: 30 }, edge: "rolling" }],
+        y2: [{ x: { lower: 3570, upper: 3600 }, edge: "rolling" }],
       });
       expect(x.bounds(false)).toEqual({ lower: 3570, upper: 3600 });
     });
@@ -376,8 +376,8 @@ describe("XAxis", () => {
     it("should keep the longest span of the rolling lines", () => {
       const x = mount({
         y1: [
-          { x: { lower: 0, upper: 300 }, rolling: true },
-          { x: { lower: 970, upper: 1000 }, rolling: true },
+          { x: { lower: 0, upper: 300 }, edge: "rolling" },
+          { x: { lower: 970, upper: 1000 }, edge: "rolling" },
         ],
       });
       expect(x.bounds(false)).toEqual({ lower: 700, upper: 1000 });
@@ -386,19 +386,37 @@ describe("XAxis", () => {
     it("should leave the bounds of a line that does not roll in place", () => {
       const x = mount({
         y1: [
-          { x: { lower: 0, upper: 30 }, rolling: true },
-          { x: { lower: 1000, upper: 1030 }, rolling: true },
+          { x: { lower: 0, upper: 30 }, edge: "rolling" },
+          { x: { lower: 1000, upper: 1030 }, edge: "rolling" },
           { x: { lower: 10, upper: 20 } },
         ],
       });
       expect(x.bounds(false)).toEqual({ lower: 10, upper: 1030 });
     });
 
+    it("should end a growing line at the newest edge and keep its start", () => {
+      const x = mount({
+        y1: [
+          { x: { lower: 100, upper: 900 }, edge: "growing" },
+          { x: { lower: 970, upper: 1000 }, edge: "rolling" },
+        ],
+      });
+      expect(x.bounds(false)).toEqual({ lower: 100, upper: 1000 });
+    });
+
+    it("should end a rolling line at the edge of a growing line", () => {
+      const x = mount({
+        y1: [{ x: { lower: 0, upper: 30 }, edge: "rolling" }],
+        y2: [{ x: { lower: 100, upper: 2000 }, edge: "growing" }],
+      });
+      expect(x.bounds(false)).toEqual({ lower: 100, upper: 2000 });
+    });
+
     it("should ignore a rolling line with no bounds", () => {
       const x = mount({
         y1: [
-          { x: bounds.INVALID, rolling: true },
-          { x: { lower: 970, upper: 1000 }, rolling: true },
+          { x: bounds.INVALID, edge: "rolling" },
+          { x: { lower: 970, upper: 1000 }, edge: "rolling" },
         ],
       });
       expect(x.bounds(false)).toEqual({ lower: 970, upper: 1000 });
