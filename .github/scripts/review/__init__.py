@@ -13,7 +13,7 @@ its review as a check run, inline threads, and a summary in the pull request bod
 from review import compare
 from review.carry import carry
 from review.dismiss import dismiss
-from review.findings import SEVERITIES, Dismissal, Finding, Review, parse
+from review.findings import SEVERITIES, Dismissal, Finding, Fix, Review, parse
 from review.judge import Judgment, judge, rule
 from review.post import (
     GH,
@@ -26,9 +26,11 @@ from review.post import (
     outside_findings,
     post,
     reviewed,
+    summaries,
     threads,
     withdrawn,
 )
+from review.restore import Unrestorable, restore
 from review.run import (
     Claude,
     Config,
@@ -52,6 +54,7 @@ __all__ = [
     "Dismissal",
     "Doc",
     "Finding",
+    "Fix",
     "Judgment",
     "Lens",
     "LoginRejected",
@@ -60,6 +63,7 @@ __all__ = [
     "Review",
     "Target",
     "Thread",
+    "Unrestorable",
     "Usage",
     "UsageLimit",
     "Window",
@@ -75,9 +79,11 @@ __all__ = [
     "outside_findings",
     "parse",
     "post",
+    "restore",
     "reviewed",
     "rule",
     "run",
+    "summaries",
     "threads",
     "withdrawn",
 ]
