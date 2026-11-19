@@ -14,7 +14,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type Tree } from "@synnaxlabs/lyra/tree";
-import { compare, id, search, unique } from "@synnaxlabs/x";
+import { compare, id, math, search, unique } from "@synnaxlabs/x";
 import pluralize from "pluralize";
 import { type ReactNode, useState } from "react";
 
@@ -180,10 +180,7 @@ const toItem = (
 ): ICD.Picker.TreeItem => {
   const pickable = topics.filter((t) => freeCount(t, taken) > 0);
   const all = pickable.length > 0 && pickable.every((t) => picks.has(t.topic));
-  const values = topics.reduce(
-    (sum, t) => sum + (picks.get(t.topic)?.pointers.size ?? 0),
-    0,
-  );
+  const values = math.sum(topics.map((t) => picks.get(t.topic)?.pointers.size ?? 0));
   let meta = "";
   if (values > 0) meta = `${values} selected`;
   else if (topic != null && taken.has(topic.topic)) meta = "In task";

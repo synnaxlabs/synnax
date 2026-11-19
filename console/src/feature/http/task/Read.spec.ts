@@ -10,6 +10,7 @@
 import { channel, http, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { DataType } from "@synnaxlabs/x";
+import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { type z } from "zod";
@@ -27,7 +28,7 @@ import {
   type RenderTaskFormTabOptions,
   reportTaskRunning,
 } from "@/platform/task/testutil";
-import { assertDefined, findIconButton, getLabeledInput, uniqueName } from "@/testutil";
+import { findIconButton, getLabeledInput } from "@/testutil";
 
 // The form renders read-only until the update grant lands, and a preview field renders
 // no input, so wait for it to become editable before querying fields.
