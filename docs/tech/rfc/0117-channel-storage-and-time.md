@@ -319,10 +319,12 @@ layout of §4.2 (`core/pkg/transport/grpc/framer/framer.proto:50`, `:69`, `:93`)
   Python, and C++. A read of one series keeps its exact type. A read of a whole channel
   as one array widens by the NumPy rule (`int64` with `float64` gives `float64`), which
   loses integers above 2^53; text against numbers is an error.
-- **Changes**: The TypeScript cache keeps blocks per channel, clock, and type, and
-  trusts the Core it is connected to, not `leaseholder` (`cache/store.ts:290`). A line
-  plot draws one line through a change, a TDMS export writes one column per type, and an
-  Arc node converts an input per series with no recompile.
+- **Changes**: The TypeScript cache keeps blocks per channel and clock. A block holds
+  the series of every type at their alignments, so a type change keeps history and a
+  block stays the one unit of coverage and eviction. The cache trusts the Core it is
+  connected to, not `leaseholder` (`cache/store.ts:290`). A line plot draws one line
+  through a change, a TDMS export writes one column per type, and an Arc node converts
+  an input per series with no recompile.
 - **Variable samples**: A sample over 4 GiB fails loud instead of wrapping its `uint32`
   length prefix (`x/go/telem/series_factory.go:134-136`).
 
