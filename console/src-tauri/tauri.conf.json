@@ -25,12 +25,13 @@
     "macOS": {
       "entitlements": null,
       "frameworks": [],
-      "providerShortName": null
+      "providerShortName": null,
+      "minimumSystemVersion": "14.4"
     },
     "linux": {
       "deb": {
         "depends": ["desktop-file-utils"],
-        "conflicts": ["libwebkit2gtk-4.1-0 (<< 2.42)"],
+        "conflicts": ["libwebkit2gtk-4.1-0 (<< 2.44)"],
         "desktopTemplate": "linux/synnax.desktop"
       }
     }
