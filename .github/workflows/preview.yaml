@@ -46,6 +46,8 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - uses: ./.github/actions/setup-pnpm
 
@@ -61,7 +63,7 @@ jobs:
           role-to-assume: ${{ vars.PREVIEW_ROLE_ARN }}
           aws-region: ${{ vars.PREVIEW_REGION }}
 
-      - uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2
+      - uses: aws-actions/amazon-ecr-login@7290e214a610b32bc0eef81748948b6d466a8783 # v2.2.0
         id: ecr
 
       - name: Tag the image
@@ -142,6 +144,8 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6
         with:

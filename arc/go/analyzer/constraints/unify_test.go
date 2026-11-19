@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Type Unification", func() {
@@ -801,8 +802,7 @@ var _ = Describe("Type Unification", func() {
 				err,
 			).To(MatchError(ContainSubstring("str is not compatible with i32")))
 
-			var ue *constraints.UnificationError
-			Expect(errors.As(err, &ue)).To(BeTrue(), "expected UnificationError")
+			ue := MustBeOk(errors.AsType[*constraints.UnificationError](err))
 			Expect(ue.Message).To(ContainSubstring("is not compatible with"))
 		})
 
@@ -818,8 +818,7 @@ var _ = Describe("Type Unification", func() {
 				err,
 			).To(MatchError(ContainSubstring("f64 is not compatible with i64")))
 
-			var ue *constraints.UnificationError
-			Expect(errors.As(err, &ue)).To(BeTrue())
+			ue := MustBeOk(errors.AsType[*constraints.UnificationError](err))
 			Expect(ue.Hint).To(ContainSubstring("use"))
 			Expect(ue.Hint).To(ContainSubstring("to convert"))
 		})
@@ -833,8 +832,7 @@ var _ = Describe("Type Unification", func() {
 			Expect(err).To(
 				MatchError(ContainSubstring("u8 is not compatible with bool")),
 			)
-			var ue *constraints.UnificationError
-			Expect(errors.As(err, &ue)).To(BeTrue())
+			ue := MustBeOk(errors.AsType[*constraints.UnificationError](err))
 			Expect(ue.Hint).To(Equal(constraints.BoolHint))
 		})
 
@@ -848,8 +846,7 @@ var _ = Describe("Type Unification", func() {
 			Expect(err).To(
 				MatchError(ContainSubstring("u8 is not compatible with bool")),
 			)
-			var ue *constraints.UnificationError
-			Expect(errors.As(err, &ue)).To(BeTrue())
+			ue := MustBeOk(errors.AsType[*constraints.UnificationError](err))
 			Expect(ue.Hint).To(BeEmpty())
 		})
 	})

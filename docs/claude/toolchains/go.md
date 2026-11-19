@@ -20,6 +20,9 @@ Modules reference siblings via relative-path `replace` directives in each `go.mo
   branch, so it fails on the findings that a change adds. It also fails on every finding
   of a module and usage (`unused` or `tests-only`) that `.github/exports-go.json` lists.
   A PR that brings a pair to zero adds it there.
+- Modernize: `CGO_ENABLED=0 GOOS=<os> go fix ./...` applies the modernizer fixes for one
+  GOOS. CI fails when `go fix -diff ./...` prints a diff for any GOOS that lint checks,
+  so run it for `linux`, `windows`, and `darwin`.
 - Test: **always `ginkgo`, never `go test`**. `ginkgo` (package), `ginkgo -r`
   (recursive), `ginkgo -v`, `ginkgo --focus "Name"`.
 
