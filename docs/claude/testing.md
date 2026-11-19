@@ -45,7 +45,7 @@ SYNNAX_TEST_PORT=9190 bazel test //client/cpp/channel:all
   it after a merge.
 - `//driver/rack:config_test` and `channel/calc_type_cascade` need a Core on 9090. They
   ignore `SYNNAX_TEST_PORT`.
-- A Pluto spec that edits a built-in record, such as a series color, goes in a
+- A Pluto spec that changes a built-in record, such as a series color, goes in a
   `*.builtins.spec.ts` or `*.builtins.spec.tsx` file. The `builtins` project runs these
   files one at a time, after every other spec, because every spec file shares the
   built-ins of one Core.

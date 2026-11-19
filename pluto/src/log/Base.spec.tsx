@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color as named, log } from "@synnaxlabs/client";
+import { color as clientColor, log } from "@synnaxlabs/client";
 import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
@@ -227,7 +227,7 @@ describe("log/Base", () => {
       await waitFor(() => expect(sent()).toEqual({ 1: color.construct("#123456") }));
       await client.colors.dispatch(
         created.key,
-        named.set({ path: ["light"], value: color.construct("#654321") }),
+        clientColor.set({ path: ["light"], value: color.construct("#654321") }),
       );
       await waitFor(() => expect(sent()).toEqual({ 1: color.construct("#654321") }));
     });

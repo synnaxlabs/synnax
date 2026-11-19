@@ -17,7 +17,7 @@ import { notation, TimeSpan } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
-import { ColorField } from "@/platform/multiedit/Colors";
+import { ColorField, type ColorFieldProps } from "@/platform/multiedit/Colors";
 import { type ColorValue } from "@/platform/multiedit/selection";
 
 /**
@@ -30,7 +30,7 @@ export const ColorsSection = ({ children }: PropsWithChildren): ReactElement => 
   </Form.Section>
 );
 
-export interface StalenessSectionProps {
+export interface StalenessSectionProps extends Pick<ColorFieldProps, "palettesHidden"> {
   /** The staleness color of each element that has the field. */
   colors: ColorValue[];
   /** The timeout, in `unit`. */
@@ -39,8 +39,6 @@ export interface StalenessSectionProps {
   unit?: TimeSpan;
   onColorChange: (value?: color.Ref) => void;
   onTimeoutChange: (value: number) => void;
-  /** If true, the picker hides the palettes, for a field that stores fixed colors. */
-  palettesHidden?: boolean;
 }
 
 /** Edits the staleness color and timeout of several elements. */
