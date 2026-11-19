@@ -181,6 +181,17 @@ class TestRangeClient:
         assert rng.key != ""
         assert rng.color == color_.FixedRef(value=sy.Color(r=255, g=0, b=0))
 
+    def test_create_with_named_color(self, client: sy.Synnax) -> None:
+        """Should keep a named color reference."""
+        named = client.colors.create(name=random_name(), light="#00FF00")
+        ref = color_.NamedRef(key=named.key)
+        rng = client.ranges.create(
+            name=random_name(),
+            time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+            color=ref,
+        )
+        assert client.ranges.retrieve(key=rng.key).color == ref
+
     def test_create_retrieve_without_color(self, client: sy.Synnax) -> None:
         """Should keep a missing color as None instead of coercing it to black."""
         rng = client.ranges.create(
@@ -414,6 +425,18 @@ class TestRangeClient:
         color = sy.Color(r=0, g=255, b=0, a=128)
         client.ranges.set_color(rng.key, color)
         assert client.ranges.retrieve(key=rng.key).color == color_.FixedRef(value=color)
+
+    def test_set_named_color(self, client: sy.Synnax) -> None:
+        """Should link a range to a named color."""
+        named = client.colors.create(name=random_name(), light="#00FF00")
+        rng = client.ranges.create(
+            name=random_name(),
+            time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+            color="#FF0000",
+        )
+        ref = color_.NamedRef(key=named.key)
+        client.ranges.set_color(rng.key, ref)
+        assert client.ranges.retrieve(key=rng.key).color == ref
 
     def test_clear_color(self, client: sy.Synnax) -> None:
         """Should clear the color of a range when the color is None."""
