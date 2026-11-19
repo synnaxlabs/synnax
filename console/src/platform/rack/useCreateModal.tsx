@@ -20,6 +20,7 @@ import { type ReactElement, useEffect, useRef, useState } from "react";
 
 import { Code } from "@/platform/code";
 import { Modals } from "@/platform/modals";
+import { Triggers } from "@/platform/triggers";
 
 const Create = (_: Modals.ContentProps<Record<never, never>, void>): ReactElement => {
   const client = Synnax.use();
@@ -48,9 +49,12 @@ const Create = (_: Modals.ContentProps<Record<never, never>, void>): ReactElemen
       <Modal.Body>
         <Flex.Box y>
           <Input.Text
+            level="h3"
+            variant="text"
             value={name}
             onChange={setName}
             placeholder="Rack name"
+            aria-label="Rack name"
             disabled={token != null}
             autoFocus
             full="x"
@@ -70,8 +74,10 @@ const Create = (_: Modals.ContentProps<Record<never, never>, void>): ReactElemen
           <Button.Button
             variant="filled"
             status={status.keepVariants(create.variant, "loading")}
-            disabled={client == null || name === "" || token != null}
-            onClick={() => create.update({ name })}
+            disabled={client == null || name.trim() === "" || token != null}
+            onClick={() => create.update({ name: name.trim() })}
+            trigger={Triggers.SAVE}
+            triggerIndicator
           >
             Create
           </Button.Button>

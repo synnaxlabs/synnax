@@ -41,9 +41,12 @@ const Content = (): ReactElement => {
             <Toolbar.Actions>
               <Tree.SearchAction search={search} />
               {canCreateRack && (
-                <Toolbar.Action tooltip="Create rack" onClick={() => openCreateRack()}>
+                <Toolbar.CreateAction
+                  tooltip="Create rack"
+                  onClick={() => openCreateRack()}
+                >
                   <Icon.Rack />
-                </Toolbar.Action>
+                </Toolbar.CreateAction>
               )}
               {canCreate && (
                 <Toolbar.CreateAction
