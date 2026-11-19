@@ -163,6 +163,29 @@ message Where {
   // key selects by key.
   optional UuidSet key = 4;
 }
+
+// ReadBinding writes the value of one message field to a channel.
+message ReadBinding {
+  // field is the key of the message field to read.
+  string field = 1;
+  // channel is the channel the value of the field is written to.
+  uint32 channel = 2;
+  // data_type is the data type of the channel that a client creates for the field.
+  // Empty takes the default of the field's kind. The Core ignores it once the channel
+  // exists.
+  string data_type = 3;
+}
+
+// ReadMessage reads the documents of one ICD message.
+message ReadMessage {
+  // message is the key of the ICD message to read.
+  string message = 1;
+  // index is the key of the field whose channel indexes the others. Absent when the
+  // task stamps samples on arrival.
+  optional string index = 2;
+  // bindings are the fields the task reads. A field with no binding is not read.
+  repeated ReadBinding bindings = 3;
+}
 message IdentifierCanPayload {
   // id is the CAN arbitration identifier.
   uint32 id = 1;

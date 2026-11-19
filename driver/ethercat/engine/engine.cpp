@@ -13,6 +13,7 @@
 #include <format>
 #include <iterator>
 #include <numeric>
+#include <ranges>
 #include <set>
 #include <span>
 #include <tuple>
@@ -693,17 +694,15 @@ void Engine::supervise() {
         }
         if (!restarted.empty()) {
             const auto now = this->config.host_clock.now();
+            for (const auto pos: restarted)
+                LOG(INFO) << "[ethercat] slave " << pos << " on " << this->iface
+                          << " restarted";
             std::lock_guard lock(this->restarts_mu);
-            for (const auto &s: this->image.slaves)
-                if (std::ranges::find(restarted, s.properties.position) !=
-                    restarted.end()) {
-                    LOG(INFO) << "[ethercat] slave " << s.properties.position << " on "
-                              << this->iface << " restarted";
-                    this->restarts[restart_key(s.properties)] = {
-                        .at = now,
-                        .position = s.properties.position,
-                    };
-                }
+            // The latest discovery keys each slave, and it can know a serial number
+            // that the image does not.
+            for (auto &restart: this->restarts | std::views::values)
+                if (std::ranges::find(restarted, restart.position) != restarted.end())
+                    restart.at = now;
         }
         std::ranges::sort(next.positions);
         std::ranges::sort(next.silent);
@@ -751,6 +750,21 @@ x::errors::Error Engine::start_locked(
     };
     master::Plan plan{
         .period = x::telem::Rate(static_cast<double>(mhz) / 1000).period(),
+        .cancel = &start.cancel,
+        .progress = [this, &start](const size_t operational, const size_t total) {
+            report(
+                start,
+                {
+                    .message = "Starting " + this->network_name,
+                    .description = std::format(
+                        "{} of {} modules in OP.",
+                        operational,
+                        total
+                    ),
+                    .limit = ACTIVATE_STEP_LIMIT,
+                }
+            );
+        },
     };
     this->left_out.clear();
     // The activation brings a restarted slave up, so changed() misses it afterwards.
@@ -806,7 +820,9 @@ x::errors::Error Engine::start_locked(
                     .limit = ACTIVATE_STEP_LIMIT,
                 }
             );
+            this->activating.store(true, std::memory_order_release);
             auto activation = this->master->activate(plan, start_cycle);
+            this->activating.store(false, std::memory_order_release);
             err = activation.err;
             if (!err) break;
             refused = std::move(activation.refusals);
@@ -888,11 +904,14 @@ x::errors::Error Engine::start_locked(
         longest_try = std::max(longest_try, x::telem::TimeSpan(now - try_started));
         const auto wait = retry.interval(static_cast<size_t>(++failures));
         // A retry cannot clear a refused state, a setting a slave aborts, or a slave
-        // config that cannot run. A try that ends after the deadline hides its error
-        // behind the task timeout.
-        if (err.matches(errors::STATE_CHANGE_REFUSED) ||
-            err.matches(errors::STARTUP_PARAMETER_REJECTED) ||
-            err.matches(errors::SLAVE_CONFIG_ERROR) ||
+        // config that cannot run, so a stop keeps only such an error.
+        const bool lasting = err.matches(errors::STATE_CHANGE_REFUSED) ||
+                             err.matches(errors::STARTUP_PARAMETER_REJECTED) ||
+                             err.matches(errors::SLAVE_CONFIG_ERROR);
+        if (!lasting && !start.cancel.running())
+            return start_canceled_error(this->network_name);
+        // A try that ends after the deadline hides its error behind the task timeout.
+        if (lasting ||
             (retry.max_retries != x::breaker::RETRY_INFINITELY &&
              failures > retry.max_retries) ||
             now + (retry.max_interval + longest_try).chrono() > start.deadline)
@@ -1420,10 +1439,7 @@ Engine::discover(const Start &start) {
 
 std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
 Engine::discover_locked() {
-    if (this->running()) {
-        this->track_restarts_locked({});
-        return {this->slaves, x::errors::NIL};
-    }
+    if (this->running()) return this->running_slaves_locked();
     auto [slaves, err] = this->scan_locked();
     if (err) return {{}, err};
     const auto [change, change_err] = this->master->changed();
@@ -1440,15 +1456,27 @@ Engine::discover_locked() {
 
 std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Engine::rediscover() {
     std::lock_guard lock(this->mu);
-    if (this->running()) {
-        this->track_restarts_locked({});
-        return {this->slaves, x::errors::NIL};
-    }
+    if (this->running()) return this->running_slaves_locked();
     return this->rediscover_locked();
+}
+
+std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
+Engine::running_slaves_locked() {
+    const auto starting = [](const slave::DiscoveryResult &s) {
+        return s.status.starting;
+    };
+    if (std::ranges::any_of(this->slaves, starting)) {
+        auto [slaves, err] = this->master->scan();
+        if (err) return {{}, err};
+        this->slaves = std::move(slaves);
+    }
+    this->track_restarts_locked({});
+    return {this->slaves, x::errors::NIL};
 }
 
 x::errors::Error
 Engine::lock_for(std::unique_lock<std::mutex> &lock, const Start &start) const {
+    auto polled = this->config.host_clock.steady();
     // A wait of one poll is a short hold, such as a notify of the cycle thread.
     for (int polls = 0; !lock.try_lock(); polls++) {
         if (polls == 1)
@@ -1462,8 +1490,11 @@ Engine::lock_for(std::unique_lock<std::mutex> &lock, const Start &start) const {
             );
         start.blocked = true;
         if (!start.cancel.running()) return start_canceled_error(this->network_name);
-        if (this->config.host_clock.steady() >= start.deadline)
-            return start_blocked_error(this->network_name);
+        const auto now = this->config.host_clock.steady();
+        if (this->activating.load(std::memory_order_acquire))
+            start.deadline += now - polled;
+        polled = now;
+        if (now >= start.deadline) return start_blocked_error(this->network_name);
         start.cancel.wait_for(LOCK_POLL_INTERVAL);
     }
     return x::errors::NIL;

@@ -20,6 +20,7 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//client/cpp/channel",
         "//client/cpp/resource",
         "//core/pkg/api/icd:icd_grpc",
         "//core/pkg/service/icd:icd_grpc",

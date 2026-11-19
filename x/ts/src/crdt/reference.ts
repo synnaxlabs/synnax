@@ -13,7 +13,7 @@
 // public surface.
 
 import { type Delete, type ID, type Insert } from "@/crdt/types.gen";
-import { type spatial } from "@/spatial";
+import { type location } from "@/spatial";
 
 const ROOT_ID: ID = { replica: 0, counter: 0 };
 
@@ -92,7 +92,7 @@ export class ReferenceText {
   snapshot(): { inserts: Insert[]; deletes: Delete[] } {
     const inserts: Insert[] = [];
     const deletes: Delete[] = [];
-    const stack: Array<{ node: RefElement; origin: ID; side: spatial.XLocation }> = [
+    const stack: Array<{ node: RefElement; origin: ID; side: location.X }> = [
       { node: this.root, origin: ROOT_ID, side: "right" },
     ];
     while (stack.length > 0) {
@@ -202,12 +202,12 @@ export class ReferenceText {
     let left: RefElement;
     if (index <= 0) left = this.root;
     else if (index - 1 < vis.length) left = vis[index - 1];
-    else left = vis.length > 0 ? vis[vis.length - 1] : this.root;
+    else left = vis.at(-1) ?? this.root;
     const right = index >= 0 && index < vis.length ? vis[index] : null;
     const ops: Insert[] = [];
     for (const ch of chars) {
       let origin: ID;
-      let side: spatial.XLocation;
+      let side: location.X;
       if (right != null && left.right.length > 0) {
         origin = right.id;
         side = "left";
