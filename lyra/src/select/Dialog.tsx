@@ -26,7 +26,7 @@ import { useSyncedRef } from "@/hooks";
 import { Input } from "@/input";
 import { Menu } from "@/menu";
 import { usePath } from "@/menu/filter";
-import { keyboardMenuKey, openContextMenu } from "@/menu/keyboard";
+import { menuKeyDown, menuKeyUp, openContextMenu } from "@/menu/keyboard";
 import { CONTEXT_TARGET } from "@/menu/types";
 import { useContext } from "@/select/Context";
 import { ClosedContext, InlineContext, useViewingContext } from "@/select/scope";
@@ -107,18 +107,12 @@ const MenuViews = ({
   useEffect(() => {
     if (!open || viewing) return;
     const handleKeyDown = (e: KeyboardEvent): void => {
-      const key = keyboardMenuKey(e);
-      const target = key == null ? undefined : targetRef.current();
-      if (target == null) return;
-      e.preventDefault();
-      if (key === "F10" && !e.repeat) openContextMenu(target);
+      const target = targetRef.current();
+      if (target != null) menuKeyDown(e, () => openContextMenu(target));
     };
     const handleKeyUp = (e: KeyboardEvent): void => {
-      if (keyboardMenuKey(e) !== "ContextMenu") return;
       const target = targetRef.current();
-      if (target == null) return;
-      e.preventDefault();
-      openContextMenu(target);
+      if (target != null) menuKeyUp(e, () => openContextMenu(target));
     };
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);

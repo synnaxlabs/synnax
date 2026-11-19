@@ -188,7 +188,31 @@ describe("queries", () => {
   });
 
   describe("useCreate", () => {
-    it("should create a named color", async () => {
+    const order = async (palette: group.Group): Promise<color.Named[]> =>
+      (
+        await createTestClient().colors.retrieve({ where: { groups: [palette.key] } })
+      ).sort(color.compare);
+
+    const append = async (
+      palette: group.Group,
+      position?: string,
+    ): Promise<color.Key> => {
+      const { result } = renderHook(Color.useCreate, { wrapper });
+      const key = uuid.create();
+      await act(async () => {
+        await result.current.updateAsync({
+          key,
+          name: `created-${id.create()}`,
+          light: "#FF0000",
+          group: palette.key,
+          position,
+        });
+      });
+      expect(result.current.variant).toEqual("success");
+      return key;
+    };
+
+    it("should create a named color in no palette", async () => {
       const { result } = renderHook(Color.useCreate, { wrapper });
       const name = `created-${id.create()}`;
       await act(async () => {
@@ -197,28 +221,12 @@ describe("queries", () => {
       expect(result.current.variant).toEqual("success");
       expect((await createTestClient().colors.retrieve(name)).name).toBe(name);
     });
-  });
 
-  describe("useAppend", () => {
-    const order = async (palette: group.Group): Promise<color.Named[]> =>
-      (
-        await createTestClient().colors.retrieve({ where: { groups: [palette.key] } })
-      ).sort(color.compare);
-
-    const append = async (palette: group.Group): Promise<color.Key> => {
-      const { result } = renderHook(Color.useAppend, { wrapper });
-      const key = uuid.create();
-      await act(async () => {
-        await result.current.updateAsync({
-          key,
-          name: `appended-${id.create()}`,
-          light: "#FF0000",
-          group: palette.key,
-        });
-      });
-      expect(result.current.variant).toEqual("success");
-      return key;
-    };
+    it("should keep a given position", async () => {
+      const palette = await createPalette();
+      const key = await append(palette, "a0");
+      expect((await createTestClient().colors.retrieve(key)).position).toBe("a0");
+    });
 
     it("should create a named color after the last one of its palette", async () => {
       const palette = await createPalette();

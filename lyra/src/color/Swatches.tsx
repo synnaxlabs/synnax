@@ -47,12 +47,13 @@ export const Swatches = ({
 }: SwatchesProps): ReactElement => {
   const { colors } = Theming.use();
   const frequent = useFrequent();
+  const provided = usePresets();
   const offered = [
     colors.primary.z,
     colors.secondary.z,
     colors.warning.z,
     colors.error.z,
-    ...usePresets(),
+    ...provided,
   ];
   const presets = [...new Map(offered.map((c) => [color.hex(c), c])).values()];
   return (

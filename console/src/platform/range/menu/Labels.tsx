@@ -12,7 +12,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
-import { Access, Color as PColor, Flux, Label as PLabel } from "@synnaxlabs/pluto";
+import { Access, Color, Flux, Label as PLabel } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
@@ -25,7 +25,7 @@ interface ItemProps extends List.ItemRenderProps<label.Key> {
 
 const Item = ({ itemKey, partial, ...rest }: ItemProps): ReactElement | null => {
   const item = List.useItem<label.Key, label.Label>(itemKey);
-  const resolve = PColor.useResolve();
+  const resolve = Color.useResolve();
   if (item == null) return null;
   return (
     <Select.Item itemKey={itemKey} {...rest}>
