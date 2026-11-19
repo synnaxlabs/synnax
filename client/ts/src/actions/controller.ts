@@ -981,19 +981,22 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     resZ: z.ZodType<{ actions: Action[] }>,
   ): batch.Request<Required<DispatchPayload<Key, A>>> {
     const entry = this.createPending(id.create(), [...actions]);
-    let held = false;
+    let applied = false;
     return {
       endpoint,
       payload: { key, dispatchKey: entry.dispatchKey, actions },
       apply: () => {
         // The batch applies again when it commits, after the echo may have settled.
+        // Only the first apply tracks, so a doc cached mid-batch never waits on an
+        // echo that already passed.
+        if (applied) return destructor.NOOP;
+        applied = true;
         const current = this.docs.get(key);
-        if (held || current == null) return destructor.NOOP;
-        held = true;
+        if (current == null) return destructor.NOOP;
         entry.epoch = this.epoch;
         this.track(key, current, entry, this.params.reduce(current, actions).next);
         return () => {
-          held = false;
+          applied = false;
           this.discard(key, entry.dispatchKey);
         };
       },
