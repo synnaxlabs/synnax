@@ -29,7 +29,6 @@ on:
       - Nightly
       - Relay - Sweep
       - Report - Agents
-      - Report - Sedosaur
       - Security
       - Sync - Runner webhook ranges
       - Test - HITL
@@ -60,7 +59,8 @@ jobs:
           CONCLUSION: ${{ github.event.workflow_run.conclusion }}
           RUN_URL: ${{ github.event.workflow_run.html_url }}
           SELF_REPORTING: >-
-            ["Agent - Console QA", "Agent - Lint", "Check - Runners", "Test - HITL"]
+            ["Agent - Console QA", "Agent - Lint", "Agent - Nightly", "Check - Runners",
+            "Test - HITL"]
         run: |
           self=$(jq --arg name "$WORKFLOW" 'index($name) != null' <<< "$SELF_REPORTING")
           if [ "$self" = true ] && [ "$CONCLUSION" != startup_failure ]; then

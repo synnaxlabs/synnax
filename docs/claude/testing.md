@@ -126,7 +126,7 @@ helpers), `case.py` (base `ConsoleCase` with Playwright setup).
 ### Debugging failures
 
 Every run writes a debug bundle to `integration/tests/results/run-<ts>[-<name>]/` (also
-via the `latest` symlink): `summary.json`, `server.log`, and per-test `tests/<name>/`
+via the `latest` symlink): `summary.json`, `server.log`, and per-test `tests/<case>/`
 dirs with `trace.zip` (on failure), a sliced `server.log`, and screenshots/exports. CI
 uploads the directory as a `test-results-<os>-<name>` artifact.
 

@@ -27,7 +27,17 @@ import {
   unique,
   uuid,
 } from "@synnaxlabs/x";
-import { type Dispatch, type FC, type SetStateAction, useRef, useState } from "react";
+import {
+  createContext,
+  type Dispatch,
+  type FC,
+  type PropsWithChildren,
+  type ReactElement,
+  type SetStateAction,
+  useContext,
+  useRef,
+  useState,
+} from "react";
 
 import { use } from "@/feature/mqtt/device/queries";
 import { Select as SelectDevice, useNoneSelected } from "@/feature/mqtt/device/Select";
@@ -83,6 +93,8 @@ const SAMPLE_KINDS = {
 } as const satisfies Record<payload.JSONType, payload.Kind>;
 
 const TOPIC_INPUT_PROPS = { placeholder: "plant/line1/telemetry" } as const;
+// A topic added by name has no topic yet, so its details open on the topic.
+const EMPTY_TOPIC_INPUT_PROPS = { ...TOPIC_INPUT_PROPS, autoFocus: true } as const;
 
 /** @returns the messages of the entries' ICDs, reading the open one from its form. */
 const readMessages = async (
@@ -103,8 +115,6 @@ interface Draft {
   type: "plain";
   topic: string;
   fields: icd.JSONField[];
-  /** The keys of the fields that the task reads. */
-  bound: string[];
 }
 
 /** What the discovery dialog adds: topics to read and Sparkplug B tags. */
@@ -114,16 +124,17 @@ const isDraft = (addition: Addition): addition is Draft => addition.type === "pl
 
 const createDraft = (topic: string, leaves: Leaf[] = []): Draft => {
   const names = ICD.fieldNames(leaves.map(({ pointer }) => pointer));
-  const fields = leaves.map((leaf, i) =>
-    icd.jsonFieldZ.parse({
-      name: names[i],
-      pointer: leaf.pointer,
-      type: SAMPLE_KINDS[leaf.type],
-    }),
-  );
-  // A disabled leaf would mix a variable-length channel among fixed ones.
-  const bound = fields.filter((_, i) => !leaves[i].disabled).map(({ key }) => key);
-  return { type: "plain", topic, fields, bound };
+  return {
+    type: "plain",
+    topic,
+    fields: leaves.map((leaf, i) =>
+      icd.jsonFieldZ.parse({
+        name: names[i],
+        pointer: leaf.pointer,
+        type: SAMPLE_KINDS[leaf.type],
+      }),
+    ),
+  };
 };
 
 const DISCOVER_KIND: Kind<Addition> = {
@@ -146,14 +157,19 @@ const DISCOVER_KIND: Kind<Addition> = {
 
 const useDiscoverModal = createDiscoverModal(DISCOVER_KIND);
 
-/** @returns the channels that the bindings and tags of entries write. */
+/**
+ * @returns the channels that the bindings and tags of the enabled entries write. The
+ * Core skips disabled entries.
+ */
 const writtenChannels = (entries: ReadEntry[]): Set<channel.Key> => {
   const written = new Set(
-    entries.flatMap((e) =>
-      isPlain(e)
-        ? e.messages.flatMap(({ bindings }) => bindings.map((b) => b.channel))
-        : [e.channel],
-    ),
+    entries
+      .filter(({ disabled }) => !disabled)
+      .flatMap((e) =>
+        isPlain(e)
+          ? e.messages.flatMap(({ bindings }) => bindings.map((b) => b.channel))
+          : [e.channel],
+      ),
   );
   written.delete(0);
   return written;
@@ -386,6 +402,28 @@ const addTopics = async ({
   return result;
 };
 
+/**
+ * @returns what the device stores for a message read, without the stored channel of a
+ * field with no channel when written holds it, as another binding writes it. Changes
+ * neither stored nor bound.
+ */
+const storedProps = (
+  stored: Stored,
+  topic: string,
+  { source: { messages }, read: r, fields }: ICD.BoundMessage<ICD.ReadSource>,
+  written: ReadonlySet<channel.Key>,
+): Task.ReadChannelProps | undefined => {
+  const props = storedOf(stored, { topic, messages }, r);
+  if (props == null) return undefined;
+  const { bindings } = messages[r];
+  const channels = { ...props.channels };
+  for (const f of fields) {
+    const ch = bindings.find(({ field }) => field === f.key)?.channel ?? 0;
+    if (ch === 0 && written.has(channels[f.pointer])) delete channels[f.pointer];
+  }
+  return { ...props, channels };
+};
+
 /** @returns the prefix of the channel names of a message, current with its name. */
 const usePrefix = (
   deviceName: string,
@@ -402,10 +440,6 @@ const usePrefix = (
   });
   return messagePrefix(deviceName, topic, read, name ?? "");
 };
-
-/** @returns the messages of each open ICD, by ICD key. */
-const messagesOf = (formats: ICD.Formats): ICD.Messages =>
-  new Map([...formats].map(([key, form]) => [key, form.value().messages]));
 
 const EntryItem = (props: Tree.ItemRenderProps<string>) => {
   const path = root.config.entries[props.itemKey];
@@ -517,6 +551,7 @@ const TopicDetails: FC<TopicDetailsProps> = ({
   onAddMessage,
 }) => {
   const isPreview = Task.useIsPreview();
+  const topic = PForm.useFieldValue(path.topic);
   const reads = PForm.useFieldValue(path.messages);
   const encoding = PForm.useFieldValue(
     PICD.formPath.messages[reads.length === 1 ? reads[0].message : ""].payload.format,
@@ -543,7 +578,7 @@ const TopicDetails: FC<TopicDetailsProps> = ({
             path={path.topic}
             label="Topic"
             padHelpText={false}
-            inputProps={TOPIC_INPUT_PROPS}
+            inputProps={topic === "" ? EMPTY_TOPIC_INPUT_PROPS : TOPIC_INPUT_PROPS}
           />
           <QoSField path={path.qos} />
           <PForm.CheckboxField
@@ -563,13 +598,29 @@ const TopicDetails: FC<TopicDetailsProps> = ({
 // A Sparkplug B DateTime tag reads into a timestamp channel.
 const SPARKPLUG_HIDDEN_DATA_TYPES = [DataType.UUID, DataType.JSON, DataType.BYTES];
 
+/** @returns the field of a tag, which reads whole into one channel at pointer "". */
+const tagField = (
+  deviceName: string,
+  entry: SparkplugReadEntry,
+): Task.ReadChannelField => ({
+  key: entry.key,
+  pointer: "",
+  channel: entry.channel,
+  name: primitive.isNonZero(entry.name)
+    ? entry.name
+    : sparkplugChannelName(deviceName, entry),
+  dataType: entry.dataType,
+});
+
 interface TagDetailsProps {
   path: deep.Path<SparkplugReadEntry>;
-  deviceName: string;
+  device: Device;
 }
 
-const TagDetails: FC<TagDetailsProps> = ({ path, deviceName }) => {
+const TagDetails: FC<TagDetailsProps> = ({ path, device }) => {
   const entry = PForm.useFieldValue(path);
+  const plan = useContext(TagPlansContext).get(entry.key);
+  const planned = plan == null ? undefined : Task.newChannelName(plan, entry.key);
   return (
     <Flex.Box y grow empty className={CSS.BE("details", "form")}>
       <PForm.Sections>
@@ -580,7 +631,8 @@ const TagDetails: FC<TagDetailsProps> = ({ path, deviceName }) => {
           <Task.ChannelNameField
             channel={entry.channel}
             namePath={path.name}
-            defaultName={sparkplugChannelName(deviceName, entry)}
+            defaultName={planned ?? sparkplugChannelName(device.name, entry)}
+            plannedName={planned}
             skipped={entry.disabled}
           />
           <Task.Payload.DataTypeField
@@ -663,7 +715,7 @@ const Entries: FC<EntriesProps> = ({
   const add = async () => {
     if (client == null) throw new DisconnectedError();
     const plain = entries.filter(isPlain);
-    const messages = messagesOf(formats);
+    const messages = ICD.messagesOf(formats);
     const held = entries.map((e): Addition =>
       isPlain(e)
         ? {
@@ -677,12 +729,8 @@ const Entries: FC<EntriesProps> = ({
     const drafts = additions.filter(isDraft);
     const tags = additions.filter((a): a is SparkplugReadEntry => !isDraft(a));
     const written = writtenChannels(entries);
-    const bind: Bind = ({ topic, bound }, fields, message) =>
-      bindingsOf(
-        topicChannels(stored, topic, message),
-        fields.filter(({ key }) => bound.includes(key)),
-        written,
-      );
+    const bind: Bind = ({ topic }, fields, message) =>
+      bindingsOf(topicChannels(stored, topic, message), fields, written);
     const { added, held: grown } =
       drafts.length === 0
         ? { added: [], held: [] }
@@ -781,7 +829,7 @@ const Entries: FC<EntriesProps> = ({
         <TagDetails
           key={entry.key}
           path={deep.variant(root.config.entries[entry.key], "type", "sparkplug")}
-          deviceName={device.name}
+          device={device}
         />
       );
     else if (entryFormat != null)
@@ -823,6 +871,90 @@ const Entries: FC<EntriesProps> = ({
   );
 };
 
+/** The plan of each enabled tag, by entry key. */
+const TagPlansContext = createContext<
+  ReadonlyMap<string, Task.ReadChannelPlan | undefined>
+>(new Map());
+TagPlansContext.displayName = "MQTT.TagPlansContext";
+
+/** The plan of a message or a tag, in the plan of the whole task. */
+type SourcePlan =
+  | { type: "message"; plan: ICD.MessagePlan }
+  | { type: "tag"; plan: Task.ReadChannelPlan };
+
+interface PlansProps extends PropsWithChildren {
+  device: Device;
+}
+
+/**
+ * Plans the channels of every message and tag that the task reads, together and as
+ * deploying plans them, for the tree and the panes.
+ */
+const Plans = ({ device, children }: PlansProps): ReactElement => {
+  const entries = PForm.useFieldValue(root.config.entries);
+  const messages = ICD.useMessages();
+  const enabled = entries.filter(({ disabled }) => !disabled);
+  const bound = enabled.filter(isPlain).flatMap((source) =>
+    source.messages.flatMap((read, r) => {
+      const message = ICD.messageOf(messages, source, r);
+      if (message == null) return [];
+      const fields = ICD.readFields(ICD.jsonFields(message), read);
+      return [{ source, read: r, message, fields }];
+    }),
+  );
+  const tags = enabled.filter((e) => e.type === "sparkplug");
+  const written = writtenChannels(entries);
+  const sources = [
+    ...bound.map((b) => ({
+      key: b.source.key,
+      position: b.read,
+      topic: b.source.topic,
+      read: b.source.messages[b.read],
+      message: b.message,
+      prefix: messagePrefix(device.name, b.source.topic, b.read, b.message.name),
+      props: storedProps(device.properties.read, b.source.topic, b, written),
+    })),
+    ...tags.map((entry) => ({
+      entry,
+      name: device.name,
+      props: device.properties.read[sparkplugPropertiesKey(entry)],
+    })),
+  ];
+  const plans = Task.useChannelPlans<SourcePlan>(sources, async (client, signal) => {
+    const plan = await planRead(
+      client,
+      device,
+      bound,
+      tags,
+      writtenChannels(entries),
+      signal,
+    );
+    return [
+      ...plan.messages.map((p): SourcePlan => ({ type: "message", plan: p })),
+      ...plan.tags.map((p): SourcePlan => ({ type: "tag", plan: p })),
+    ];
+  });
+  const reads = bound.map(({ source, read }, i): ICD.PlannedRead => {
+    const p = plans[i];
+    return {
+      path: plainPath(source.key),
+      read,
+      plan: p?.type === "message" ? p.plan : undefined,
+    };
+  });
+  const tagPlans = new Map(
+    tags.map((entry, i) => {
+      const p = plans[bound.length + i];
+      return [entry.key, p?.type === "tag" ? p.plan : undefined];
+    }),
+  );
+  return (
+    <ICD.Plans plans={reads}>
+      <TagPlansContext value={tagPlans}>{children}</TagPlansContext>
+    </ICD.Plans>
+  );
+};
+
 const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
   const entries = PForm.useFieldValue(root.config.entries);
   const [selected, setSelected] = useState<string[]>([]);
@@ -836,7 +968,7 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
     return { channel: stored?.channels[""] ?? 0 };
   };
   const body = (
-    <>
+    <Plans device={device}>
       <Entries
         device={device}
         selected={selected}
@@ -849,7 +981,7 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
           <ICD.SuitRead key={`${key}/${message}`} path={plainPath(key)} read={read} />
         )),
       )}
-    </>
+    </Plans>
   );
   return (
     <>
@@ -884,66 +1016,96 @@ const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({
   return { name: DEFAULT_NAME, type: READ_TYPE, config: cfg };
 };
 
-/** Gives a tag a channel: the one it has, the one the device stores, or a new one. */
-const configureTag = async (
+/** The channels that deploying gives the messages and tags that a task reads. */
+interface ReadPlan {
+  /** The plan of each message, in the order that planRead takes them. */
+  messages: ICD.MessagePlan[];
+  /** The plan of each tag, in the order that planRead takes them. */
+  tags: Task.ReadChannelPlan[];
+}
+
+/**
+ * Plans the channels of each message and then each tag, in deploy order with one
+ * namer. A message plans with the channels that earlier ones keep added to written, so
+ * it leaves a stored channel that another binding writes. Reads from the Core alone.
+ * Throws between sources once signal aborts.
+ */
+const planRead = async (
+  client: Synnax,
+  dev: Pick<Device, "name" | "properties">,
+  bound: ICD.BoundMessage<PlainReadEntry>[],
+  tags: SparkplugReadEntry[],
+  written: Set<channel.Key>,
+  signal?: AbortSignal,
+): Promise<ReadPlan> => {
+  const namer = Task.createNamer(client);
+  const messages: ICD.MessagePlan[] = [];
+  for (const b of bound) {
+    signal?.throwIfAborted();
+    const { source: entry, read: r, message } = b;
+    const plan = await ICD.planMessage(
+      client,
+      namer,
+      b,
+      messagePrefix(dev.name, entry.topic, r, message.name),
+      storedProps(dev.properties.read, entry.topic, b, written),
+    );
+    ICD.keptChannels(plan).forEach((ch) => written.add(ch));
+    messages.push(plan);
+  }
+  const plans: Task.ReadChannelPlan[] = [];
+  for (const entry of tags) {
+    signal?.throwIfAborted();
+    const field = tagField(dev.name, entry);
+    plans.push(
+      await Task.planReadChannels({
+        client,
+        namer,
+        props: dev.properties.read[sparkplugPropertiesKey(entry)],
+        fields: [field],
+        namePrefix: field.name,
+        indexKey: "",
+      }),
+    );
+  }
+  return { messages, tags: plans };
+};
+
+/** Gives a tag its channel, as plan plans it. */
+const applyTag = async (
   client: Synnax,
   dev: Device,
   entry: SparkplugReadEntry,
+  plan: Task.ReadChannelPlan,
 ): Promise<void> => {
-  const name = primitive.isNonZero(entry.name)
-    ? entry.name
-    : sparkplugChannelName(dev.name, entry);
-  // A tag reads whole into one channel, as the field at the empty pointer.
-  const field = {
-    key: entry.key,
-    pointer: "",
-    channel: entry.channel,
-    name,
-    dataType: entry.dataType,
-  };
-  await Task.configureReadChannels({
-    client,
-    stored: { read: dev.properties.read, key: sparkplugPropertiesKey(entry) },
-    fields: [field],
-    namePrefix: name,
-    indexKey: "",
+  const field = tagField(dev.name, entry);
+  await Task.applyReadChannels(client, plan, [field], {
+    read: dev.properties.read,
+    key: sparkplugPropertiesKey(entry),
   });
   entry.channel = field.channel;
 };
 
 /**
- * Gives each field that a message reads a channel: the one it has, the one the device
- * stores for its pointer unless written holds it, or a new one of the binding's data
- * type. Adds the channels it binds to written.
+ * Gives each field that a message reads its channel, as plan plans it, and stores the
+ * channels under the message in place of the bare topic, where an older Console stored
+ * them.
  */
-const configureMessage = async (
+const applyMessage = async (
   client: Synnax,
   dev: Device,
   bound: ICD.BoundMessage<PlainReadEntry>,
-  written: Set<channel.Key>,
+  plan: ICD.MessagePlan,
 ): Promise<void> => {
-  const { source: entry, read: r, message, fields } = bound;
-  const read = entry.messages[r];
-  const propertiesKey = storedKey(entry.topic, read.message);
-  const props = storedOf(dev.properties.read, entry, r);
-  if (props != null && dev.properties.read[propertiesKey] == null) {
-    dev.properties.read[propertiesKey] = props;
-    delete dev.properties.read[entry.topic];
+  const { source: entry, read: r } = bound;
+  const { read } = dev.properties;
+  const propertiesKey = storedKey(entry.topic, entry.messages[r].message);
+  const legacy = read[propertiesKey] == null ? storedOf(read, entry, r) : undefined;
+  if (legacy != null) {
+    read[propertiesKey] = legacy;
+    delete read[entry.topic];
   }
-  const stored = props?.channels ?? {};
-  // A field with no channel takes the one the device stores for its pointer, unless
-  // another binding writes it.
-  for (const f of fields) {
-    const ch = read.bindings.find(({ field }) => field === f.key)?.channel ?? 0;
-    if (ch === 0 && written.has(stored[f.pointer])) delete stored[f.pointer];
-  }
-  const channels = await ICD.configureMessage(
-    client,
-    bound,
-    messagePrefix(dev.name, entry.topic, r, message.name),
-    { read: dev.properties.read, key: propertiesKey },
-  );
-  channels.forEach((ch) => written.add(ch));
+  await ICD.applyMessage(client, bound, plan, { read, key: propertiesKey });
 };
 
 /** Gives each field and tag that an enabled entry reads a channel, and binds it. */
@@ -963,10 +1125,18 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
   );
   const before = deep.copy(dev.properties);
   try {
-    const written = writtenChannels(config.entries);
-    for (const message of bound) await configureMessage(client, dev, message, written);
-    for (const entry of enabled)
-      if (entry.type === "sparkplug") await configureTag(client, dev, entry);
+    const tags = enabled.filter((e) => e.type === "sparkplug");
+    const plan = await planRead(
+      client,
+      dev,
+      bound,
+      tags,
+      writtenChannels(config.entries),
+    );
+    for (const [i, message] of bound.entries())
+      await applyMessage(client, dev, message, plan.messages[i]);
+    for (const [i, entry] of tags.entries())
+      await applyTag(client, dev, entry, plan.tags[i]);
   } finally {
     await PlatformDevice.setProperties(client, dev, before, SCHEMAS);
   }

@@ -68,6 +68,7 @@ inline Where Where::parse(x::json::Parser parser) {
             "labels"
         ),
         .parents = parser.field<std::optional<std::vector<Key>>>("parents"),
+        .ancestors = parser.field<std::optional<std::vector<Key>>>("ancestors"),
         .nested = parser.field<std::optional<bool>>("nested"),
         .labeled = parser.field<std::optional<bool>>("labeled"),
         .stages = parser.field<std::optional<std::vector<std::string>>>("stages"),
@@ -94,6 +95,12 @@ inline x::json::json Where::to_json() const {
         for (const auto &item: *this->parents)
             arr.push_back(item.to_json());
         j["parents"] = arr;
+    }
+    if (this->ancestors.has_value()) {
+        auto arr = x::json::json::array();
+        for (const auto &item: *this->ancestors)
+            arr.push_back(item.to_json());
+        j["ancestors"] = arr;
     }
     if (this->nested.has_value()) j["nested"] = *this->nested;
     if (this->labeled.has_value()) j["labeled"] = *this->labeled;
