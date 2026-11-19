@@ -500,6 +500,7 @@ describe("OPCUA.Device.useConnectModal", () => {
       client,
     });
     expect(await findDialogTriggerByText(trusted.name)).toBeTruthy();
+    fireEvent.click(await screen.findByRole("button", { name: "Details" }));
     expect(await screen.findByText("SHA-256")).toBeTruthy();
     expect(
       screen.queryByText("No certificate yet. Connect to get one from the server."),
