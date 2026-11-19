@@ -47,7 +47,7 @@ const cornerRadii = (
 };
 
 interface BodyProps extends NodeProps<schematic.TankNodeConfig> {
-  stale: boolean;
+  staleIndicated: boolean;
 }
 
 const Body = ({
@@ -55,9 +55,8 @@ const Body = ({
   onConfigChange,
   selected,
   config,
-  stale,
+  staleIndicated,
 }: BodyProps): ReactElement => {
-  const badged = Staleness.useBadged();
   const {
     label,
     fillColor,
@@ -74,7 +73,7 @@ const Body = ({
       onResize={(dimensions) => onConfigChange({ dimensions })}
     >
       <Label.Label config={label} onChange={onConfigChange} />
-      {stale && badged && <Stale.Indicator />}
+      {staleIndicated && <Stale.Indicator />}
       <Tank
         strokeColor={strokeColor}
         dimensions={dimensions}
@@ -115,12 +114,12 @@ const Filled = (props: NodeProps<schematic.TankNodeConfig>): ReactElement => {
     cornerRadii: cornerRadii(borderRadius, dims),
     staleColorHidden: badged,
   });
-  return <Body {...props} stale={stale} />;
+  return <Body {...props} staleIndicated={stale && badged} />;
 };
 
 export const Symbol = (props: NodeProps<schematic.TankNodeConfig>): ReactElement =>
   primitive.isNonZero(props.config.channel) ? (
     <Filled {...props} />
   ) : (
-    <Body {...props} stale={false} />
+    <Body {...props} staleIndicated={false} />
   );
