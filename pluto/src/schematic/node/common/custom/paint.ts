@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
-  type color as colorRef,
+  type color as clientColor,
   type enumeration,
   type schematic,
 } from "@synnaxlabs/client";
@@ -31,7 +31,7 @@ export interface Paint {
 export interface PaintContext {
   /** value is the value of each state of the symbol. */
   value: number;
-  resolve: (ref: colorRef.Ref) => color.Color | undefined;
+  resolve: (ref: clientColor.Ref) => color.Color | undefined;
   enumerations: ReadonlyMap<enumeration.Key, enumeration.Enumeration>;
   /** nodeColor is the color that `node` paint draws. */
   nodeColor?: color.Color;
@@ -91,7 +91,7 @@ interface ResolvedLook {
 }
 
 const resolveLooks = (
-  spec: schematic.symbol.Spec,
+  spec: Pick<schematic.symbol.Spec, "states" | "looks">,
   ctx: PaintContext,
 ): ResolvedLook[] => {
   const states = new Map(spec.states.map((s) => [s.key, s]));
@@ -131,7 +131,7 @@ const resolvePaints = (
  * ctx.value.
  */
 export const resolveRegions = (
-  spec: schematic.symbol.Spec,
+  spec: Pick<schematic.symbol.Spec, "parts" | "states" | "looks">,
   ctx: PaintContext,
 ): schematic.symbol.Region[] => {
   const looks = resolveLooks(spec, ctx);
@@ -163,7 +163,7 @@ const UNNAMED: Value[] = [
  * Base for a static symbol. A value takes the key and name of its entry in entries.
  */
 export const listValues = (
-  spec: schematic.symbol.Spec,
+  spec: Pick<schematic.symbol.Spec, "variant">,
   entries: enumeration.Entry[] = [],
 ): Value[] =>
   UNNAMED.slice(0, spec.variant === "actuator" ? 2 : 1).map((v) => {
@@ -171,18 +171,20 @@ export const listValues = (
     return entry == null ? v : { key: entry.key, value: v.value, name: entry.name };
   });
 
-const enumerationKeys = (spec: schematic.symbol.Spec | undefined): enumeration.Key[] =>
+const enumerationKeys = (
+  spec: Pick<schematic.symbol.Spec, "states"> | undefined,
+): enumeration.Key[] =>
   (spec?.states ?? []).flatMap((s) =>
     s.type === "enumeration" && s.enumeration != null ? [s.enumeration] : [],
   );
 
 /**
  * @returns the context that resolves the looks of spec, with no value, or undefined
- * while the enumerations of its states load. An enumeration that fails to load draws
- * no entry colors.
+ * while the enumerations of its states load. An enumeration that fails to load draws no
+ * entry colors.
  */
 export const usePaintContext = (
-  spec: schematic.symbol.Spec | undefined,
+  spec: Pick<schematic.symbol.Spec, "states"> | undefined,
   nodeColor?: color.Crude,
 ): Omit<PaintContext, "value"> | undefined => {
   const resolve = Color.useResolve();
@@ -203,7 +205,7 @@ export const usePaintContext = (
  * value, or undefined while spec or the enumerations of its states load.
  */
 export const useRegions = (
-  spec: schematic.symbol.Spec | undefined,
+  spec: Pick<schematic.symbol.Spec, "parts" | "states" | "looks"> | undefined,
   value: number,
 ): schematic.symbol.Region[] | undefined => {
   const ctx = usePaintContext(spec);

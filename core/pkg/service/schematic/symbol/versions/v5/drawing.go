@@ -35,8 +35,8 @@ type element struct {
 	start int
 }
 
-// tree holds the shapes of an SVG drawing below its root, and gives a data-region-id
-// to each shape that a part selects by its position.
+// tree holds the shapes of an SVG drawing below its root, and gives a data-region-id to
+// each shape that a part selects by its position.
 type tree struct {
 	markup   string
 	elements []*element

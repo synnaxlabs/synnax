@@ -321,14 +321,14 @@ var _ = Describe("Migration", func() {
 		GinkgoHelper()
 		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v5.Key, v5.Symbol]{
 			DB: db,
-			Migrations: []gorp.Migration{v5.NewMigration(
-				func(tx gorp.Tx) v5.Intern {
+			Migrations: []gorp.Migration{v5.NewMigration(v5.MigrationConfig{
+				Intern: func(tx gorp.Tx) v5.Intern {
 					return enumSvc.NewWriter(tx).NewInterner().Intern
 				},
-				func(context.Context, gorp.Tx) (set.Set[v5.Key], error) {
+				Actuators: func(context.Context, gorp.Tx) (set.Set[v5.Key], error) {
 					return set.New(actuators...), nil
 				},
-			)},
+			})},
 		}))
 	}
 	retrieve := func(ctx SpecContext, key v4.Key) v5.Symbol {

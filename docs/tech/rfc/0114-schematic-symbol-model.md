@@ -467,10 +467,12 @@ bindings and overrides that a symbol save orphans, a Core migration, a symbol im
 that keeps keys by §4.4, a renderer with its indicators, the `active` states that the
 `light` and `switch` specs draw from, entry looks for every built-in, the Light and
 Switch enumerations, a form with the enumeration picker, and the deletion of 86
-variants. It is larger than a usual PR because no smaller step leaves one node shape in
-`main`. Its channel references are the tracked channel links of the channel plan
-(SY-6387), so phase 4 waits for them. Phase 5 adds the save confirm, and phase 6 lists
-the removed bindings and overrides in it.
+variants. The `switch` keeps its own wrapper around the `symbol` drawing, which turns it
+only to stand upright and slides its knob, as phase 2 draws it. Phase 4 is larger than a
+usual PR because no smaller step leaves one node shape in `main`. Its channel references
+are the tracked channel links of the channel plan (SY-6387), so phase 4 waits for them.
+Phase 5 adds the save confirm, and phase 6 lists the removed bindings and overrides in
+it.
 
 Phase 7 draws motion in SVG. One `requestAnimationFrame` loop writes SVG attributes for
 every moving part. One table holds motion as data: it maps each `Motion` variant and

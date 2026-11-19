@@ -63,21 +63,28 @@ type Intern func(
 // Actuators returns the keys of the symbols that a custom_actuator node draws.
 type Actuators func(ctx context.Context, tx gorp.Tx) (set.Set[Key], error)
 
+// MigrationConfig is the configuration for NewMigration.
+type MigrationConfig struct {
+	// Intern opens the Intern of the migration's transaction.
+	Intern func(gorp.Tx) Intern
+	// Actuators returns the symbols that a custom_actuator node draws.
+	Actuators Actuators
+}
+
 // NewMigration returns the migration that lifts stored symbols from v4 to v5 as
 // MigrateSymbol does. It gives the state of each symbol a default enumeration with an
 // entry for each old state, and turns the color looks that the entries carry into entry
 // looks. A symbol that a custom_actuator node draws gets the commands of an actuator.
-// newIntern opens the Intern of the migration's transaction.
-func NewMigration(newIntern func(gorp.Tx) Intern, actuators Actuators) gorp.Migration {
+func NewMigration(cfg MigrationConfig) gorp.Migration {
 	return migrate.New(
 		"v63_symbol_model",
 		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) (err error) {
-			drawn, err := actuators(ctx, tx)
+			drawn, err := cfg.Actuators(ctx, tx)
 			if err != nil {
 				return err
 			}
 			var (
-				intern = newIntern(tx)
+				intern = cfg.Intern(tx)
 				reader = gorp.WrapReader[Key, v4.Symbol](tx)
 				writer = gorp.WrapWriter[Key, Symbol](tx)
 			)
@@ -173,10 +180,15 @@ func migrateSpec(ctx context.Context, old v4.Spec) (*specMigration, error) {
 		}
 	}
 	t, parsed := parseTree(old.SVG)
-	parts := partMigrator{tree: t, parsed: parsed, keys: map[string]string{}}
+	parts := partMigrator{
+		tree:   t,
+		parsed: parsed,
+		keys:   map[string]string{},
+		taken:  set.Set[string]{},
+	}
 	for _, st := range old.States {
 		for _, r := range st.Regions {
-			parts.taken = append(parts.taken, r.Key)
+			parts.taken.Add(r.Key)
 		}
 	}
 	for i, st := range old.States {
@@ -261,7 +273,7 @@ type partMigrator struct {
 	tree    *tree
 	parsed  bool
 	keys    map[string]string
-	taken   []string
+	taken   set.Set[string]
 	dropped []string
 }
 
@@ -276,11 +288,11 @@ func (m *partMigrator) part(spec *Spec, r v4.Region) string {
 	if slices.ContainsFunc(spec.Parts, func(p Part) bool { return p.Key == key }) {
 		for n := 2; ; n++ {
 			key = r.Key + "-" + strconv.Itoa(n)
-			if !slices.Contains(m.taken, key) {
+			if !m.taken.Contains(key) {
 				break
 			}
 		}
-		m.taken = append(m.taken, key)
+		m.taken.Add(key)
 	}
 	m.keys[id] = key
 	part := Part{Key: key, Name: r.Name, Selectors: []string{}}

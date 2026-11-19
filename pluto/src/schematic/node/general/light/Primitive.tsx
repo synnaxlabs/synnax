@@ -15,7 +15,6 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Custom } from "@/schematic/node/common/custom";
-import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import svg from "@/schematic/node/general/light/Light.svg?raw";
 
@@ -26,7 +25,15 @@ interface RenderProps extends Partial<
   enabled?: boolean;
 }
 
-const SPEC = Custom.createBuiltIn({ svg, handles: [] });
+const SPEC = Custom.createBuiltIn({
+  svg,
+  handles: [
+    { key: "1", position: { x: 0.03125, y: 0.5 }, orientation: "left" },
+    { key: "2", position: { x: 0.96875, y: 0.5 }, orientation: "right" },
+    { key: "3", position: { x: 0.5, y: 0.03125 }, orientation: "top" },
+    { key: "4", position: { x: 0.5, y: 0.9675 }, orientation: "bottom" },
+  ],
+});
 
 const ON_COLOR = CSS.variable("light-on-color");
 
@@ -50,13 +57,6 @@ export const Light = ({
     )}
     style={onColor == null ? undefined : { [ON_COLOR]: color.rgbaString(onColor) }}
   >
-    <Handle.Rectangle
-      orientation={orientation}
-      left={3.125}
-      top={3.125}
-      right={96.875}
-      bottom={96.75}
-    />
     <Custom.Drawing
       spec={SPEC}
       builtIn

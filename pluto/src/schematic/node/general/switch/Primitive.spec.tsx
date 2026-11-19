@@ -75,7 +75,7 @@ describe("switch symbol", () => {
       );
     });
 
-    it.each([0, -2, NaN])("should render a scale of %s at 1", (scale) => {
+    it.each([undefined, 0, -2, NaN])("should render a scale of %s at 1", (scale) => {
       const { container } = render(<Switch scale={scale} />);
       expect(getRoot(container).style.getPropertyValue("--pluto-switch-scale")).toBe(
         "1",
