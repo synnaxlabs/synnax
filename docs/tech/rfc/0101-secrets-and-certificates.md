@@ -274,8 +274,9 @@ The Secrets and Certificates pages of Settings list the items, with "Used by", R
 and Delete (`console/src/feature/secret/Settings.tsx`). Every connect form uses two
 shared fields:
 
-- **Secret field**: Shows the name. Its list shows "Set on <date>" for each secret. It
-  picks from the list, or adds a secret from a typed value.
+- **Secret field**: Shows the name. Its list shows "Set on <date>" for a stored secret
+  and "Read from <file>" for a file secret. It picks from the list, or adds a secret
+  from a typed value.
 - **Certificate field**: Shows the name, with the expiry and the path of a file
   certificate on a line under it. Details shows the subject, issuer, expiry, and SHA-256
   fingerprint, with Download. It picks from the list, or adds a certificate from a
