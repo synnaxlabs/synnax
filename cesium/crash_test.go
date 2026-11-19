@@ -12,14 +12,17 @@ package cesium_test
 import (
 	"bytes"
 	"context"
+	"os"
 	"slices"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/io/fs/testutil/crash"
+	"github.com/synnaxlabs/x/io/fs/testutil/fault"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/testutil"
 )
@@ -45,7 +48,12 @@ func openCrashEngine(
 	ack crash.Ack,
 ) func(context.Context, xfs.FS) (crash.Engine, error) {
 	return func(ctx context.Context, fs xfs.FS) (crash.Engine, error) {
-		db, err := cesium.Open(ctx, "", cesium.WithFS(fs))
+		db, err := cesium.Open(
+			ctx,
+			"",
+			cesium.WithFS(fs),
+			cesium.WithInstrumentation(PanicLogger()),
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -73,24 +81,31 @@ func reversed(payload []byte) []byte {
 	return out
 }
 
+// clock returns the timestamps of the record id with n payload bytes: one for each
+// byte, from the second of id.
+func clock(id uint64, n int) telem.Series {
+	start := telem.TimeStamp(id) * telem.SecondTS
+	stamps := make([]telem.TimeStamp, n)
+	for i := range stamps {
+		stamps[i] = start + telem.TimeStamp(i)
+	}
+	return telem.NewSeries(stamps)
+}
+
 func (e *crashEngine) Commit(
 	ctx context.Context,
 	r crash.Record,
 	_ crash.Ack,
 ) (crash.Ack, error) {
-	start := telem.TimeStamp(r.ID) * telem.SecondTS
-	stamps := make([]telem.TimeStamp, len(r.Payload))
-	for i := range stamps {
-		stamps[i] = start + telem.TimeStamp(i)
-	}
 	frame := telem.MultiFrame(
 		[]cesium.ChannelKey{crashClock, crashData, crashMirror},
 		[]telem.Series{
-			telem.NewSeries(stamps),
+			clock(r.ID, len(r.Payload)),
 			telem.NewSeries(r.Payload),
 			telem.NewSeries(reversed(r.Payload)),
 		},
 	)
+	start := telem.TimeStamp(r.ID) * telem.SecondTS
 	if err := e.db.Write(ctx, start, frame); err != nil {
 		return 0, err
 	}
@@ -117,7 +132,7 @@ func (e *crashEngine) Recovered(ctx context.Context) ([]crash.Record, error) {
 	for id, p := range parts {
 		r := crash.Record{ID: id}
 		data := p[crashData]
-		whole := len(p[crashClock]) == 8*len(data) &&
+		whole := bytes.Equal(p[crashClock], clock(id, len(data)).Data) &&
 			bytes.Equal(p[crashMirror], reversed(data))
 		if whole {
 			r.Payload = data
@@ -132,54 +147,86 @@ func (e *crashEngine) Recovered(ctx context.Context) ([]crash.Record, error) {
 
 func (e *crashEngine) Close() error { return errors.Combine(e.stop(), e.db.Close()) }
 
-// holds is the rule of a run that breaks no rule.
-const holds crash.Rule = ""
+// run runs the harness on the adapter with one reading of a commit, one fault profile,
+// and one run key. As Durable, a commit promises to survive a crash. As Visible, it
+// promises only that a read sees it.
+func run(
+	ctx context.Context,
+	ack crash.Ack,
+	profile crash.Profile,
+	runKey uint64,
+) error {
+	_, err := crash.Run(ctx, crash.Config{
+		RunKey:  runKey,
+		Open:    openCrashEngine(ack),
+		Commits: 8,
+		Stride:  1,
+		Profile: profile,
+	})
+	return err
+}
 
-// Each entry says what the harness finds in Cesium for one reading of a commit and one
-// fault profile, at run key 0. As Durable, a commit promises to survive a crash. As
-// Visible, it promises only that a read sees it.
+// Each entry is what the harness finds in Cesium today, and why.
 var _ = DescribeTable("Crash harness",
-	func(ctx SpecContext, ack crash.Ack, profile crash.Profile, rule crash.Rule) {
-		_, err := crash.Run(ctx, crash.Config{
-			Open:    openCrashEngine(ack),
-			Commits: 8,
-			Stride:  1,
-			Profile: profile,
-		})
-		if rule == holds {
-			Expect(err).To(Succeed())
-			return
-		}
+	func(
+		ctx SpecContext,
+		ack crash.Ack,
+		profile crash.Profile,
+		runKey uint64,
+		rule crash.Rule,
+		cause string,
+	) {
 		var v *crash.Violation
+		err := run(ctx, ack, profile, runKey)
 		Expect(errors.As(err, &v)).To(BeTrue(), "no violation: %v", err)
 		Expect(v.Rule).To(Equal(rule))
+		Expect(v.Detail).To(ContainSubstring(cause))
 	},
 	// No commit syncs a file, so a crash loses commits that Cesium acked.
-	Entry("Durable, Strict", crash.Durable, crash.Strict, crash.R1),
-	Entry("Durable, SyncErrors", crash.Durable, crash.SyncErrors, crash.R1),
-	Entry("Durable, FullDisk", crash.Durable, crash.FullDisk, crash.R1),
-	Entry("Durable, OldCorruption", crash.Durable, crash.OldCorruption, crash.R1),
-	Entry("Durable, NewCorruption", crash.Durable, crash.NewCorruption, crash.R1),
-	// A channel directory with a torn or missing meta file stops the open of the whole
-	// database.
-	Entry("Durable, Partial", crash.Durable, crash.Partial, crash.R4),
-	Entry("Durable, Mixed", crash.Durable, crash.Mixed, crash.R4),
-	Entry("Visible, Partial", crash.Visible, crash.Partial, crash.R4),
-	Entry("Visible, Mixed", crash.Visible, crash.Mixed, crash.R4),
+	Entry("Durable, Strict: R1", crash.Durable, crash.Strict, uint64(0), crash.R1,
+		"durable commit 1 is missing"),
+	Entry("Durable, SyncErrors: R1", crash.Durable, crash.SyncErrors, uint64(0),
+		crash.R1, "durable commit 1 is missing"),
+	Entry("Durable, FullDisk: R1", crash.Durable, crash.FullDisk, uint64(0), crash.R1,
+		"durable commit 1 is missing"),
+	Entry("Durable, OldCorruption: R1", crash.Durable, crash.OldCorruption, uint64(0),
+		crash.R1, "durable commit 1 is missing"),
+	Entry("Durable, NewCorruption: R1", crash.Durable, crash.NewCorruption, uint64(0),
+		crash.R1, "durable commit 1 is missing"),
+	// A channel directory that a crash left with no meta file stops the open of the
+	// whole database.
+	Entry("Durable, Partial: R4", crash.Durable, crash.Partial, uint64(0), crash.R4,
+		"data_type: required"),
+	Entry("Visible, Partial: R4", crash.Visible, crash.Partial, uint64(0), crash.R4,
+		"data_type: required"),
 	// One bad read of a meta file stops the open: no checksum, and no second read.
-	Entry("Durable, OneTimeReadFaults",
-		crash.Durable, crash.OneTimeReadFaults, crash.R4),
-	Entry("Visible, OneTimeReadFaults",
-		crash.Visible, crash.OneTimeReadFaults, crash.R4),
-	Entry("Durable, RepeatedReadFaults",
-		crash.Durable, crash.RepeatedReadFaults, crash.R4),
-	Entry("Visible, RepeatedReadFaults",
-		crash.Visible, crash.RepeatedReadFaults, crash.R4),
-	Entry("Visible, Strict", crash.Visible, crash.Strict, holds),
-	Entry("Visible, SyncErrors", crash.Visible, crash.SyncErrors, holds),
-	Entry("Visible, FullDisk", crash.Visible, crash.FullDisk, holds),
-	Entry("Visible, OldCorruption", crash.Visible, crash.OldCorruption, holds),
-	Entry("Visible, NewCorruption", crash.Visible, crash.NewCorruption, holds),
+	Entry("Durable, OneTimeReadFaults: R4", crash.Durable, crash.OneTimeReadFaults,
+		uint64(0), crash.R4, "error decoding meta"),
+	Entry("Visible, OneTimeReadFaults: R4", crash.Visible, crash.OneTimeReadFaults,
+		uint64(0), crash.R4, "error decoding meta"),
+	Entry("Durable, RepeatedReadFaults: R4", crash.Durable, crash.RepeatedReadFaults,
+		uint64(0), crash.R4, "error decoding meta"),
+	Entry("Visible, RepeatedReadFaults: R4", crash.Visible, crash.RepeatedReadFaults,
+		uint64(0), crash.R4, "error decoding meta"),
+	Entry("Durable, Mixed: R4", crash.Durable, crash.Mixed, uint64(0), crash.R4,
+		"error decoding meta"),
+	Entry("Visible, Mixed: R4", crash.Visible, crash.Mixed, uint64(0), crash.R4,
+		"error decoding meta"),
+)
+
+// Each entry holds only because Cesium syncs nothing: each crash image is empty, so the
+// harness checks only R0.
+var _ = DescribeTable("Crash harness, holding",
+	func(ctx SpecContext, ack crash.Ack, profile crash.Profile, runKey uint64) {
+		Expect(run(ctx, ack, profile, runKey)).To(Succeed())
+	},
+	Entry("Visible, Strict", crash.Visible, crash.Strict, uint64(0)),
+	Entry("Visible, SyncErrors", crash.Visible, crash.SyncErrors, uint64(0)),
+	Entry("Visible, FullDisk", crash.Visible, crash.FullDisk, uint64(0)),
+	Entry("Visible, OldCorruption", crash.Visible, crash.OldCorruption, uint64(0)),
+	Entry("Visible, NewCorruption", crash.Visible, crash.NewCorruption, uint64(0)),
+	// The disk fills on the first commit, so the engine acks nothing.
+	Entry("Durable, FullDisk, run key 1", crash.Durable, crash.FullDisk, uint64(1)),
 )
 
 var _ = Describe("Crash adapter", func() {
@@ -258,5 +305,46 @@ var _ = Describe("Crash adapter", func() {
 			Expect(records[0].ID).To(Equal(uint64(2)))
 			Expect(records[0].Payload).To(BeEmpty())
 		},
+	)
+
+	DescribeTable(
+		"Should return no payload for a commit whose clock file a crash changed",
+		func(ctx SpecContext, change func(f xfs.File, size int64) error) {
+			open := openCrashEngine(crash.Visible)
+			disk := testutil.MustSucceed(fault.New(fault.Config{}))
+			e := testutil.MustSucceed(open(ctx, disk))
+			payload := bytes.Repeat([]byte{7}, 1400)
+			for id := uint64(1); id <= 2; id++ {
+				testutil.MustSucceed(
+					e.Commit(
+						ctx,
+						crash.Record{ID: id, Payload: payload},
+						crash.Visible,
+					),
+				)
+			}
+			Expect(e.Close()).To(Succeed())
+			image := testutil.MustSucceed(disk.Crash(fault.CrashConfig{
+				DataSurvivalRate:  1,
+				EntrySurvivalRate: 1,
+			}))
+			f := testutil.MustSucceed(image.Open("1/1.domain", os.O_RDWR))
+			Expect(change(f, testutil.MustSucceed(f.Stat()).Size())).To(Succeed())
+			Expect(f.Close()).To(Succeed())
+			e = testutil.MustSucceed(open(ctx, image))
+			defer func() { Expect(e.Close()).To(Succeed()) }()
+			records := testutil.MustSucceed(e.Recovered(ctx))
+			Expect(records).To(HaveLen(2))
+			Expect(records[0]).To(Equal(crash.Record{ID: 1, Payload: payload}))
+			Expect(records[1].ID).To(Equal(uint64(2)))
+			Expect(records[1].Payload).To(BeEmpty())
+		},
+		Entry("a block of zeros", func(f xfs.File, size int64) error {
+			_, err := f.WriteAt(make([]byte, 4096), size-4096)
+			return err
+		}),
+		Entry("a lost tail", func(f xfs.File, size int64) error {
+			return f.Truncate(size - 4096)
+		}),
 	)
 })
