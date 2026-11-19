@@ -10,6 +10,7 @@
 import os
 import shutil
 import subprocess
+from collections.abc import Mapping
 from pathlib import Path
 
 import pytest
@@ -88,3 +89,37 @@ class CopyrightRepo:
 @pytest.fixture
 def copyright_repo(tmp_path: Path) -> CopyrightRepo:
     return CopyrightRepo(tmp_path)
+
+
+class GitRepo:
+    """A Git repository in a temporary directory, with a fixed author."""
+
+    def __init__(self, path: Path) -> None:
+        self.path = path
+        self.run("init", "-q", "-b", "main")
+
+    def run(self, *args: str) -> None:
+        """Runs git in the repository and fails on an error."""
+        subprocess.run(
+            ["git", "-c", "user.name=t", "-c", "user.email=t@t", *args],
+            cwd=self.path,
+            check=True,
+            capture_output=True,
+        )
+
+    def commit(self, files: Mapping[str, str | None]) -> None:
+        """Writes each file, removes each file whose text is None, and commits all."""
+        for name, text in files.items():
+            path = self.path / name
+            if text is None:
+                path.unlink()
+            else:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(text)
+        self.run("add", "-A")
+        self.run("commit", "-qm", "commit")
+
+
+@pytest.fixture
+def git_repo(tmp_path: Path) -> GitRepo:
+    return GitRepo(tmp_path)

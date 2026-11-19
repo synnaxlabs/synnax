@@ -7,8 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import subprocess
-from pathlib import Path
+
+from conftest import GitRepo
 
 from check_suppressions_py import check, check_source
 
@@ -41,15 +41,6 @@ def cast(x: int) -> int:
 """
 
 
-def _git(root: Path, *args: str) -> None:
-    subprocess.run(
-        ["git", "-c", "user.name=t", "-c", "user.email=t@t", *args],
-        cwd=root,
-        check=True,
-        capture_output=True,
-    )
-
-
 class TestCheckSource:
     def test_should_report_each_suppression(self) -> None:
         lines = [f.line for f in check_source(SOURCE, path="a.py")]
@@ -79,29 +70,20 @@ class TestCheckSource:
 
 
 class TestCheck:
-    def test_should_report_tracked_and_untracked_files(self, tmp_path: Path) -> None:
-        _git(tmp_path, "init", "-q", "-b", "main")
-        (tmp_path / "a.py").write_text("x = 1\ny = g()  # type: ignore\n")
-        (tmp_path / "b.py").write_text("z = 1\n")
-        _git(tmp_path, "add", ".")
-        _git(tmp_path, "commit", "-qm", "base")
+    def test_should_report_tracked_and_untracked_files(self, git_repo: GitRepo) -> None:
+        tmp_path = git_repo.path
+        git_repo.commit({"a.py": "x = 1\ny = g()  # type: ignore\n", "b.py": "z = 1\n"})
         (tmp_path / "c.py").write_text("z = 1  # noqa\n")
         findings = check(root=tmp_path)
         assert [(f.path, f.line) for f in findings] == [("a.py", 2), ("c.py", 1)]
 
-    def test_should_check_files_with_non_ascii_names(self, tmp_path: Path) -> None:
-        _git(tmp_path, "init", "-q", "-b", "main")
-        (tmp_path / "données.py").write_text("x = 1  # noqa\n")
-        _git(tmp_path, "add", ".")
-        _git(tmp_path, "commit", "-qm", "base")
-        assert [f.path for f in check(root=tmp_path)] == ["données.py"]
+    def test_should_check_files_with_non_ascii_names(self, git_repo: GitRepo) -> None:
+        git_repo.commit({"données.py": "x = 1  # noqa\n"})
+        assert [f.path for f in check(root=git_repo.path)] == ["données.py"]
 
-    def test_should_skip_ignored_and_deleted_files(self, tmp_path: Path) -> None:
-        _git(tmp_path, "init", "-q", "-b", "main")
-        (tmp_path / ".gitignore").write_text("ignored.py\n")
-        (tmp_path / "gone.py").write_text("x = 1  # noqa\n")
-        _git(tmp_path, "add", ".")
-        _git(tmp_path, "commit", "-qm", "base")
+    def test_should_skip_ignored_and_deleted_files(self, git_repo: GitRepo) -> None:
+        tmp_path = git_repo.path
+        git_repo.commit({".gitignore": "ignored.py\n", "gone.py": "x = 1  # noqa\n"})
         (tmp_path / "gone.py").unlink()
         (tmp_path / "ignored.py").write_text("x = 1  # noqa\n")
         assert check(root=tmp_path) == []
