@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	xjson "github.com/synnaxlabs/x/json"
+	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -78,7 +79,7 @@ type browsedTopic struct {
 	// Payload is the start of the last payload. Empty when the payload is not text.
 	Payload string `json:"payload"`
 	// Format is the format of the whole last payload.
-	Format driver.Format `json:"format"`
+	Format payload.Format `json:"format"`
 	// Fields are the scalars of the whole last payload. Empty when it is not JSON.
 	Fields   []browsedField `json:"fields"`
 	Retained bool           `json:"retained"`

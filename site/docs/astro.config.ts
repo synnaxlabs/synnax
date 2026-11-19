@@ -18,6 +18,7 @@ import { layers, lyraLayers } from "@synnaxlabs/vite-plugin";
 import { defineConfig } from "astro/config";
 import path from "path";
 
+import { tokenSource } from "./src/util/githubApp";
 import { inlineCode } from "./src/util/inlineCode";
 import { outline } from "./src/util/outline";
 import { quantities } from "./src/util/quantities";
@@ -36,7 +37,13 @@ const RELEASE_REDIRECTS = Object.fromEntries(
 
 // One resolution serves every page, so a deployment never mixes statuses, and a page
 // that renders per request never asks GitHub for its version.
-const releases = new Releases({ token: process.env.DOCS_GITHUB_TOKEN });
+const releases = new Releases({
+  token: tokenSource({
+    appID: process.env.DOCS_GITHUB_APP_ID,
+    privateKey: process.env.DOCS_GITHUB_APP_PRIVATE_KEY,
+    token: process.env.GITHUB_TOKEN,
+  }),
+});
 const versionName = parse(process.env.DOCS_VERSION);
 const version =
   versionName == null

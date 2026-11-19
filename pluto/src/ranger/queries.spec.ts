@@ -165,6 +165,39 @@ describe("queries", () => {
     });
   });
 
+  describe("useResultList", () => {
+    it("should follow a move into the ranges nested in a range", async () => {
+      const timeRange = TimeStamp.now().spanRange(TimeSpan.seconds(1));
+      const top = await client.ranges.create({ name: "top", timeRange });
+      const middle = await client.ranges.create({
+        name: "middle",
+        timeRange,
+        parent: top.key,
+      });
+      const bottom = await client.ranges.create({
+        name: "bottom",
+        timeRange,
+        parent: middle.key,
+      });
+      const moved = await client.ranges.create({ name: "moved", timeRange });
+      const reader = createTestClient();
+      const { result } = renderHook(
+        () => Ranger.useResultList({ where: { ancestors: [top.key] } }),
+        { wrapper: await createAsyncSynnaxWrapper({ client: reader }) },
+      );
+      const keys = () => result.current.data?.map((r) => r.key).sort();
+      await waitFor(() => expect(keys()).toEqual([middle.key, bottom.key].sort()));
+      await waitForStreamLive(reader.connection);
+      await client.ranges.dispatch(
+        moved.key,
+        ranger.set({ path: ["parent"], value: bottom.key }),
+      );
+      await waitFor(() =>
+        expect(keys()).toEqual([middle.key, bottom.key, moved.key].sort()),
+      );
+    });
+  });
+
   describe("useDelete", () => {
     it("should delete a range", async () => {
       const rng = await client.ranges.create({
@@ -290,6 +323,34 @@ describe("queries", () => {
         expect(await result.current.updateAsync({ key: rng.key })).toBe(true);
       });
       expect((await client.ranges.retrieve(rng.key)).color).toBeUndefined();
+    });
+  });
+
+  describe("useSetParent", () => {
+    it("should move a range under another, then to the top level", async () => {
+      const [top, rng] = await client.ranges.create([
+        {
+          name: "set_parent_top",
+          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        },
+        {
+          name: "set_parent_hook",
+          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        },
+      ]);
+      const { result } = renderHook(() => Ranger.useSetParent(), { wrapper });
+      await act(async () => {
+        expect(
+          await result.current.updateAsync({ key: rng.key, parent: top.key }),
+        ).toBe(true);
+      });
+      expect((await client.ranges.retrieve(rng.key)).parent).toEqual(top.key);
+      await act(async () => {
+        expect(await result.current.updateAsync({ key: rng.key, parent: null })).toBe(
+          true,
+        );
+      });
+      expect((await client.ranges.retrieve(rng.key)).parent).toBeUndefined();
     });
   });
 

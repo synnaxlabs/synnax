@@ -77,8 +77,6 @@ class _CopyResponse(BaseModel):
     task: Payload
 
 
-_CREATE_ENDPOINT = "/task/create"
-_DELETE_ENDPOINT = "/task/delete"
 _RETRIEVE_ENDPOINT = "/task/retrieve"
 _COPY_ENDPOINT = "/task/copy"
 
