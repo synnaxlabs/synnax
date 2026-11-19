@@ -19,24 +19,19 @@ import {
   staticWindow,
   TimeRange,
   TimeSpan,
-  TimeStamp,
   uuid,
 } from "@synnaxlabs/x";
 import { renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+import { createTestRange } from "@/platform/range/testutil";
 import { Session } from "@/session";
 import { createConsoleWrapper, selectRange, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
-const createRange = async (): Promise<ranger.Range> => {
-  const start = TimeStamp.now();
-  return await client.ranges.create({
-    name: uniqueName("range"),
-    timeRange: new TimeRange(start, start.add(TimeSpan.seconds(10))),
-  });
-};
+const createRange = async (): Promise<ranger.Range> =>
+  await createTestRange(client, { name: uniqueName("range") });
 
 const preloadedFor = (keys: string[]) => ({
   [Session.Range.SLICE_NAME]: Session.Range.sliceStateZ.parse({
