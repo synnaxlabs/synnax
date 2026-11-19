@@ -13,7 +13,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Tree } from "@synnaxlabs/lyra/tree";
 import { ICD as PICD } from "@synnaxlabs/pluto";
-import { deep, type record, unique, uuid } from "@synnaxlabs/x";
+import { deep, map, type record, unique, uuid } from "@synnaxlabs/x";
 import {
   type Dispatch,
   type FC,
@@ -26,7 +26,14 @@ import { MessageLabel, ReadCheckbox } from "@/platform/icd/Bindings";
 import { createJSONField } from "@/platform/icd/Fields";
 import { fieldsOf, formatOf, type Formats, useFormats } from "@/platform/icd/Formats";
 import { createMatch } from "@/platform/icd/Match";
-import { fieldsPath, isReadable, type ReadSource, reindex } from "@/platform/icd/read";
+import {
+  fieldsPath,
+  isReadable,
+  type ReadSource,
+  reindex,
+  type TreeField,
+  treeFieldOf,
+} from "@/platform/icd/read";
 import {
   fieldKey,
   type FieldNode,
@@ -47,7 +54,7 @@ const setRead = (
   ctx: PForm.ContextValue,
   path: deep.Path<ReadSource>,
   read: number,
-  field: icd.JSONField,
+  field: TreeField,
   on: boolean,
   bindingOf: () => icd.ReadBinding,
 ): void => {
@@ -67,7 +74,7 @@ interface Index {
 }
 
 /** Each source key with the message and shown fields of each read, or null for none. */
-type Structure = [string, [icd.MessageKey, icd.JSONField[]][] | null][];
+type Structure = [string, [icd.MessageKey, TreeField[]][] | null][];
 
 /**
  * The sources of the task as tree nodes. A source holds the fields of its message, or a
@@ -97,9 +104,9 @@ const useIndex = <S extends Source>(
             ? null
             : source.messages.map(({ message, index }) => [
                 message,
-                fieldsOf(formats, source.icd, message).filter(
-                  ({ key }) => key !== index,
-                ),
+                fieldsOf(formats, source.icd, message)
+                  .filter(({ key }) => key !== index)
+                  .map(treeFieldOf),
               ]),
         ];
       }),
@@ -113,7 +120,7 @@ const useIndex = <S extends Source>(
       const fieldNodes = (
         read: number,
         message: icd.MessageKey,
-        fields: icd.JSONField[],
+        fields: TreeField[],
       ): Tree.Node[] =>
         fields.map((field) => {
           const key = fieldKey(source, message, field.key);
@@ -185,7 +192,7 @@ export interface UseArgs<S extends Source> {
   /** Renders the tree item of a source. */
   SourceItem: FC<Tree.ItemRenderProps<string>>;
   /** @returns the binding of a field that the task starts to read. */
-  bindingOf: (source: string, r: number, field: icd.JSONField) => icd.ReadBinding;
+  bindingOf: (source: string, r: number, field: TreeField) => icd.ReadBinding;
   /** @returns a name for a new message of a source that no message in held has. */
   messageName: (source: string, held: icd.Message[]) => string;
   /** The key of each selected tree item. */
@@ -242,7 +249,7 @@ export const use = <S extends Source>({
   });
   const disabledPath = (source: string) =>
     deep.widen<Source[]>(sources)[source].disabled;
-  const read = (source: string, r: number, field: icd.JSONField, on: boolean) =>
+  const read = (source: string, r: number, field: TreeField, on: boolean) =>
     setRead(ctx, pathOf(source), r, field, on, () => bindingOf(source, r, field));
 
   const addMessage = (sourceKey: string) => {
@@ -376,8 +383,7 @@ export const use = <S extends Source>({
   const isRemovable = (chosen: Node[]): chosen is (SourceNode | MessageNode)[] => {
     if (chosen.some(({ kind }) => kind === "field")) return false;
     const counts = new Map<string, number>();
-    for (const n of chosen)
-      if (n.kind === "message") counts.set(n.source, (counts.get(n.source) ?? 0) + 1);
+    for (const n of chosen) if (n.kind === "message") map.increment(counts, n.source);
     return [...counts].every(
       ([source, count]) =>
         chosen.some((n) => n.kind === "source" && n.source === source) ||

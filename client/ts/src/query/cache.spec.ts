@@ -99,7 +99,7 @@ const lateFrameStreamer = (frame: framer.Frame): framer.Streamer => {
   let closed = false;
   let emitted = false;
   const next = async (): Promise<IteratorResult<framer.Frame>> => {
-    while (!closed) await sleep.sleep(TimeSpan.milliseconds(2));
+    await vi.waitFor(() => expect(closed).toBe(true), { timeout: 10_000, interval: 2 });
     if (emitted) return { done: true, value: undefined };
     emitted = true;
     return { done: false, value: frame };
@@ -1062,10 +1062,7 @@ describe("Cache", () => {
     });
 
     it("discards a reconcile that completes after a reset", async () => {
-      let release: (docs: Doc[]) => void = () => {};
-      const gate = new Promise<Doc[]>((resolve) => {
-        release = resolve;
-      });
+      const { promise: gate, resolve: release } = Promise.withResolvers<Doc[]>();
       const fetch = vi.fn(async () => await gate);
       const cache = makeReopeningEngine();
       const table = cache.createTable<string, Doc>({ name: "docs", fetch });
@@ -1143,10 +1140,7 @@ describe("Cache", () => {
     });
 
     it("ignores open callbacks from a streamer retired mid-open", async () => {
-      let release: () => void = () => {};
-      const gate = new Promise<void>((resolve) => {
-        release = resolve;
-      });
+      const { promise: gate, resolve: release } = Promise.withResolvers<void>();
       const cache = makeEngine(async () => {
         await gate;
         return new MockStreamer();

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Series, TimeRange, TimeStamp } from "@synnaxlabs/x";
+import { map, Series, TimeRange, TimeStamp } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
 import {
@@ -199,11 +199,11 @@ export class Joins {
    * a catch-up read.
    */
   join(ch: channel.Key, index: channel.Key): void {
-    let j = this.joins.get(index);
-    if (j == null) {
-      j = new Join(index, ++this.lastWait);
-      this.joins.set(index, j);
-    }
+    const j = map.getOrInsert(
+      this.joins,
+      index,
+      () => new Join(index, ++this.lastWait),
+    );
     this.addMember(j, index);
     if (ch !== index) this.addMember(j, ch);
   }
@@ -386,11 +386,7 @@ export class Joins {
   }
 
   private addMember(j: Join, ch: channel.Key): void {
-    let m = j.members.get(ch);
-    if (m == null) {
-      m = new Member(ch, j, ++this.lastWait);
-      j.members.set(ch, m);
-    }
+    const m = map.getOrInsert(j.members, ch, () => new Member(ch, j, ++this.lastWait));
     this.members.set(ch, m);
     m.refs++;
   }

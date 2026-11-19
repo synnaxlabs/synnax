@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { binary } from "@/binary";
+
 interface URLProps {
   host: string;
   port: number;
@@ -51,19 +53,12 @@ export const buildQueryString = (
  * characters that are unreserved in URI paths, queries, and fragments, so it survives
  * URI canonicalization unchanged and is safe to embed directly in a URL.
  */
-export const encodeBase64 = (input: string): string => {
-  const bytes = new TextEncoder().encode(input);
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-};
+export const encodeBase64 = (input: string): string =>
+  binary.encodeBase64(new TextEncoder().encode(input), { alphabet: "base64url" });
 
 /** Decodes an unpadded base64url string produced by {@link encodeBase64}. */
-export const decodeBase64 = (encoded: string): string => {
-  const binary = atob(encoded.replace(/-/g, "+").replace(/_/g, "/"));
-  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
-  return new TextDecoder().decode(bytes);
-};
+export const decodeBase64 = (encoded: string): string =>
+  new TextDecoder().decode(binary.decodeBase64(encoded, { alphabet: "base64url" }));
 
 /** URL is a simple class for building and extending URLs. */
 export class URL {
