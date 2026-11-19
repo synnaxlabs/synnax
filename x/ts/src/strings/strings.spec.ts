@@ -204,6 +204,9 @@ describe("toSentence", () => {
     ["PIDController", "PID controller"],
     ["valve-actuator-v2", "Valve actuator v2"],
     ["", ""],
+    ["_", ""],
+    ["-", ""],
+    [" ", ""],
     ["a", "A"],
     ["ABC", "ABC"],
     ["test_123_value", "Test 123 value"],
@@ -222,5 +225,19 @@ describe("capitalize", () => {
 
   it("should return an empty string unchanged", () => {
     expect(strings.capitalize("")).toBe("");
+  });
+});
+
+describe("count", () => {
+  it("should use the singular noun for a count of 1", () => {
+    expect(strings.count(1, "cell")).toEqual("1 cell");
+  });
+  it("should add an s for any other count", () => {
+    expect(strings.count(0, "cell")).toEqual("0 cells");
+    expect(strings.count(3, "cell")).toEqual("3 cells");
+  });
+  it("should use the given plural", () => {
+    expect(strings.count(2, "entry", "entries")).toEqual("2 entries");
+    expect(strings.count(1, "entry", "entries")).toEqual("1 entry");
   });
 });

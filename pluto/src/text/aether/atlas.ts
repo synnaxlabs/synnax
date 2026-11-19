@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color, type dimensions, unique } from "@synnaxlabs/x";
+import { color, type dimensions, map, unique } from "@synnaxlabs/x";
 
 import { dimensionsFromMetrics } from "@/text/aether/dimensions";
 
@@ -161,10 +161,7 @@ export class AtlasRegistry {
    */
   get(props: AtlasProps): MonospacedAtlas {
     const key = `${props.font}-${color.hex(props.textColor)}-${props.characters}`;
-    if (this.atlases.has(key)) return this.atlases.get(key)!;
-    const atlas = new MonospacedAtlas(props);
-    this.atlases.set(key, atlas);
-    return atlas;
+    return map.getOrInsert(this.atlases, key, () => new MonospacedAtlas(props));
   }
 
   /** Drops every atlas, so that the next {@link get} draws its glyphs again. */

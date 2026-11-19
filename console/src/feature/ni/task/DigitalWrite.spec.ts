@@ -11,6 +11,7 @@ import { type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Text } from "@synnaxlabs/lyra/text";
 import { id } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -23,7 +24,7 @@ import {
   deployAndAwaitTask,
   findChannelListItem,
 } from "@/platform/task/testutil";
-import { awaitTextEditing, commitTextEdit, uniqueName } from "@/testutil";
+import { awaitTextEditing, commitTextEdit } from "@/testutil";
 
 const client = createTestClient();
 

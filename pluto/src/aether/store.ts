@@ -12,6 +12,7 @@ import {
   type CrudeTimeSpan,
   type destructor,
   errors,
+  map,
   type record,
   state,
   TimeSpan,
@@ -338,12 +339,7 @@ export class Store {
    * detach-attach cycles. Returns an unsubscribe function. */
   subscribe(path: readonly string[], listener: Listener): () => void {
     const id = pathID(path);
-    let set = this.listeners.get(id);
-    if (set == null) {
-      set = new Set();
-      this.listeners.set(id, set);
-    }
-    set.add(listener);
+    map.getOrInsert(this.listeners, id, () => new Set()).add(listener);
     return () => {
       const s = this.listeners.get(id);
       if (s == null) return;

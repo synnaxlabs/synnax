@@ -321,6 +321,30 @@ describe("update", () => {
       );
       consoleError.mockRestore();
     });
+    it("should run every rollback when the first one to run throws", async () => {
+      const rollback1 = vi.fn();
+      const rollback2 = vi.fn();
+      const rollback3 = vi.fn(() => {
+        throw new Error("rollback3 failed");
+      });
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+      const beforeUpdate = vi.fn().mockImplementation(({ rollbacks }) => {
+        rollbacks.push(rollback1, rollback2, rollback3);
+        return true;
+      });
+      const update = vi.fn().mockRejectedValue(new Error("update failed"));
+      const { useUpdate } = Flux.createUpdate<number>({
+        ...BASE_UPDATE_PARAMS,
+        update,
+      });
+      const { result } = renderHook(() => useUpdate({ beforeUpdate }), { wrapper });
+      await act(async () => {
+        await result.current.updateAsync(42, { signal: controller.signal });
+      });
+      expect(rollback2).toHaveBeenCalled();
+      expect(rollback1).toHaveBeenCalled();
+      consoleError.mockRestore();
+    });
     it("should not execute rollbacks when aborted via signal", async () => {
       const rollback = vi.fn();
       const abortController = new AbortController();
