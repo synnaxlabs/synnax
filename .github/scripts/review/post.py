@@ -50,12 +50,6 @@ EDITS = """query($o: String!, $r: String!, $p: Int!, $endCursor: String) {
     }
   }
 }"""
-BLOBS = """query($o: String!, $r: String!, $a: String!, $b: String!) {
-  repository(owner: $o, name: $r) {
-    old: object(expression: $a) { oid }
-    new: object(expression: $b) { oid }
-  }
-}"""
 REPLY = """mutation($t: ID!, $b: String!) {
   addPullRequestReviewThreadReply(input: {pullRequestReviewThreadId: $t, body: $b}) {
     comment { id }
@@ -81,7 +75,7 @@ write."""
 AGENTS = frozenset({"synnax-claude-code", "synnax-codex"})
 """The logins of the agents whose rebuttals the bot judges."""
 DISMISSED = "Every finding of the review is dismissed or withdrawn."
-SETTLED = "The review of {head} no longer reports this finding."
+SETTLED = "The review of {head} finds this fixed: {reason}"
 ANSWER_START = "<!-- sedosaur_answer "
 ANSWER_END = " -->"
 # The REST fields of a comment, in the shape that GraphQL serves.
@@ -129,8 +123,8 @@ def post(rec: dict[str, Any], *, target: Target, gh: GH) -> None:
     check run takes the record, when it fits, before any other write. Then the summary
     in the pull request body is replaced and the check run completes. Last, while the
     target is still the head of the pull request, each open thread of the bot whose
-    finding the review no longer reports gets a reply and is resolved, when its file
-    changed since the review before. A failure there only warns.
+    finding the review marks fixed, and does not report, is resolved with the reason
+    as a reply. A failure there only warns.
     """
     t = target
     review = parse(rec["review"])
@@ -178,9 +172,12 @@ def post(rec: dict[str, Any], *, target: Target, gh: GH) -> None:
     write(gh, "PATCH", f"repos/{t.repo}/pulls/{t.pr}", {"body": body})
     write(gh, "PATCH", run, {"status": "completed", "conclusion": "success"})
     try:
-        _settle(
-            t, gh, [th for th in found if (th.path, th.title) not in reported | gone]
-        )
+        fixed = {
+            (f.path, f.title): f.reason
+            for f in review.fixed
+            if (f.path, f.title) not in reported | gone
+        }
+        _settle(t, gh, found, fixed)
     except subprocess.CalledProcessError as e:
         print(f"::warning::Could not resolve settled threads: {e}", file=sys.stderr)
     if review.findings:
@@ -286,44 +283,19 @@ def threads(t: Target, gh: GH) -> list[Thread]:
     return found
 
 
-def _settle(t: Target, gh: GH, unreported: list[Thread]) -> None:
+def _settle(
+    t: Target, gh: GH, found: list[Thread], fixed: dict[tuple[str, str], str]
+) -> None:
+    done = [th for th in found if not th.resolved and (th.path, th.title) in fixed]
+    if not done:
+        return
     pr = f"repos/{t.repo}/pulls/{t.pr}"
     if gh("api", pr, "--jq", ".head.sha").strip() != t.head:
         return
-    since = next((c for c in reviewed(t, gh) if c != t.head), None)
-    if since is None:
-        return
-    changed: dict[str, bool] = {}
-    for th in unreported:
-        if th.resolved:
-            continue
-        if th.path not in changed:
-            changed[th.path] = _changed(t, gh, since, th.path)
-        if changed[th.path]:
-            resolve(gh, th)
-            reply(gh, th, SETTLED.format(head=t.head))
-
-
-def _changed(t: Target, gh: GH, since: str, path: str) -> bool:
-    owner, name = t.repo.split("/")
-    out = gh(
-        "api",
-        "graphql",
-        "-f",
-        f"query={BLOBS}",
-        "-f",
-        f"o={owner}",
-        "-f",
-        f"r={name}",
-        "-f",
-        f"a={since}:{path}",
-        "-f",
-        f"b={t.head}:{path}",
-        "--jq",
-        ".data.repository | [.old.oid, .new.oid] | tojson",
-    )
-    old, new = json.loads(out)
-    return old is not None and old != new
+    for th in done:
+        resolve(gh, th)
+        reason = fixed[(th.path, th.title)]
+        reply(gh, th, SETTLED.format(head=t.head, reason=reason))
 
 
 def reply(gh: GH, thread: Thread, body: str) -> None:
@@ -532,6 +504,17 @@ def current(run: dict[str, Any]) -> bool:
 def reviewed(t: Target, gh: GH) -> list[str]:
     """Returns each commit that the bot reviewed, newest first, from the revisions of
     the pull request body."""
+    commits: list[str] = []
+    for block in summaries(t, gh):
+        found = re.findall(r"/commit/([0-9a-f]{40})", block)
+        if found and found[-1] not in commits:
+            commits.append(found[-1])
+    return commits
+
+
+def summaries(t: Target, gh: GH) -> list[str]:
+    """Returns each summary that the bot wrote in the pull request body, newest first,
+    from the revisions of the body."""
     owner, name = t.repo.split("/")
     out = gh(
         "api",
@@ -548,16 +531,13 @@ def reviewed(t: Target, gh: GH) -> list[str]:
         "--jq",
         ".data.repository.pullRequest.userContentEdits.nodes[] | tojson",
     )
-    commits: list[str] = []
+    blocks: list[str] = []
     for line in out.splitlines():
         e = json.loads(line)
         block = _SUMMARY.search(e["diff"] or "")
-        if (e["editor"] or {}).get("login") != t.bot or block is None:
-            continue
-        found = re.findall(r"/commit/([0-9a-f]{40})", block[0])
-        if found and found[-1] not in commits:
-            commits.append(found[-1])
-    return commits
+        if (e["editor"] or {}).get("login") == t.bot and block is not None:
+            blocks.append(block[0])
+    return blocks
 
 
 def _anchor(f: Finding) -> dict[str, Any]:

@@ -49,7 +49,7 @@ export const parseTimeSpan = (
 
 const ANCHOR_RE = /^(now|start|end|t)\s*(?:([+-])\s*(.+))?$/i;
 const EPOCH_RE = /^\d{9,19}$/;
-const ZONE_RE = /T.*(Z|[+-]\d{2}:?\d{2})$/;
+const ZONE_RE = /^\d{4}-\d{2}-\d{2}[T ].*(Z|[+-]\d{2}:?\d{2})$/;
 const TIME_OF_DAY_RE = /^\d{1,2}:\d{2}/;
 
 type EpochUnit = "seconds" | "milliseconds" | "microseconds" | "nanoseconds";
