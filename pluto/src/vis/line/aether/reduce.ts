@@ -47,15 +47,16 @@ const xBounds = ({ x, xOffset, count }: DrawOperation): bounds.Bounds =>
   x.boundsFor(xOffset, xOffset + count);
 
 /**
- * @returns the samples per group that reduces the full-resolution ops. It is the
- * largest group size of the reduced ops when the full-resolution samples are within two
- * times the density of that op's samples, so the line draws at one density. A tile cut
- * short can reduce at a smaller size. It stays at previous, the size the line last
- * reduced with, when previous is a multiple of POINTS_PER_GROUP within that many
- * samples of it: tiles of one level differ by that much when they hold one sample more
- * or less. Otherwise, it is the samples of the ops per pixel column of the view over
- * groupsPerColumn, rounded down to a power of two. Returns 1, meaning no reduction,
- * when that is below 2 or a span is zero or not finite.
+ * @returns the samples per group that reduces the full-resolution ops. It is the group
+ * size of the reduced op with the largest alignment multiple, so the line draws at one
+ * density, when the full-resolution samples are within two times the density of that
+ * op's samples. A tile cut short can reduce at a smaller size. When previous, the size
+ * the line last reduced with, is POINTS_PER_GROUP times a whole multiple of at least 2
+ * that is within one of that op's, it stays at previous: tiles of one level differ by
+ * one multiple when they hold one sample more or less. Otherwise, it is the samples of
+ * the ops per pixel column of the view over groupsPerColumn, rounded down to a power of
+ * two. Returns 1, meaning no reduction, when that is below 2 or a span is zero or not
+ * finite.
  */
 export const groupSize = (
   ops: DrawOperation[],
@@ -86,9 +87,10 @@ export const groupSize = (
     const ratio = density / reducedDensity;
     if (ratio >= 1 / 2 && ratio <= 2) {
       const group = POINTS_PER_GROUP[aggregation];
-      const size = multiple * group;
-      const held = Math.abs(size - previous) <= group && previous % group === 0;
-      return held ? previous : size;
+      const held = previous / group;
+      if (Number.isInteger(held) && held >= 2 && Math.abs(held - multiple) <= 1)
+        return previous;
+      return multiple * group;
     }
   }
   const samplesPerPixel = density * (bounds.span(view.bounds) / view.width);
