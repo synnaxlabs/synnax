@@ -11,6 +11,7 @@ import { icd, mqtt, type rack } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { DataType, type payload, uuid } from "@synnaxlabs/x";
+import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -22,7 +23,7 @@ import {
   deployAndAwaitTask,
   renderTaskFormTab,
 } from "@/platform/task/testutil";
-import { assertDefined, findDialogTriggerByText, uniqueName } from "@/testutil";
+import { findDialogTriggerByText } from "@/testutil";
 
 const client = createTestClient();
 
@@ -260,7 +261,7 @@ const addMessage = async (
     }),
   );
   const bindings = fields.map(({ key }) => ({ field: key, channel: 0, dataType: "" }));
-  entry.messages.push(mqtt.readMessageZ.parse({ message: message.key, bindings }));
+  entry.messages.push(icd.readMessageZ.parse({ message: message.key, bindings }));
   return message;
 };
 

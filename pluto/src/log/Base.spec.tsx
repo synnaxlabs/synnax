@@ -7,18 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { log } from "@synnaxlabs/client";
+import { color as named, log } from "@synnaxlabs/client";
+import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { stubClipboardUnavailable, stubCopyCommand } from "@synnaxlabs/lyra/testutil";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { box, color } from "@synnaxlabs/x";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { box, color, id } from "@synnaxlabs/x";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Base } from "@/log/Base";
-import { createSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil/Synnax";
 
 // Partial Aether mock: only intercepts type "log" for controlling worker-computed
 // state (empty, scrolling, selectionStart, etc.). All other Aether consumers
@@ -191,6 +192,44 @@ describe("log/Base", () => {
       expect(getAetherInitialState().channelColors).toEqual({
         1: color.construct("#ff0000"),
       });
+    });
+
+    it("should send Aether a named channel color and its changes", async () => {
+      const client = createTestClient();
+      const SynnaxWrapper = await createAsyncSynnaxWrapper({ client });
+      await waitForStreamLive(client.connection);
+      const created = await client.colors.create({
+        name: `log-${id.create()}`,
+        light: "#123456",
+      });
+      const { setState } = setupAether();
+      render(
+        <Triggers.Provider>
+          <Base
+            channels={[
+              log.channelEntryZ.parse({
+                channel: 1,
+                color: { type: "named", key: created.key },
+              }),
+            ]}
+          />
+        </Triggers.Provider>,
+        { wrapper: SynnaxWrapper },
+      );
+      const sent = (): unknown => {
+        const update = setState.mock.calls.at(-1)?.[0];
+        const state =
+          typeof update === "function"
+            ? update(DEFAULT_STATE)
+            : getAetherInitialState();
+        return state.channelColors;
+      };
+      await waitFor(() => expect(sent()).toEqual({ 1: color.construct("#123456") }));
+      await client.colors.dispatch(
+        created.key,
+        named.set({ path: ["light"], value: color.construct("#654321") }),
+      );
+      await waitFor(() => expect(sent()).toEqual({ 1: color.construct("#654321") }));
     });
   });
 

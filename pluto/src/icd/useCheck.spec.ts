@@ -110,8 +110,7 @@ describe("ICD.useCheck", () => {
   });
 
   it("should drop a result when the form changed while the check ran", async () => {
-    let release: () => void = () => {};
-    const gate = new Promise<void>((resolve) => (release = resolve));
+    const { promise: gate, resolve: release } = Promise.withResolvers<void>();
     const check = vi.spyOn(client.icds, "check");
     const { result } = renderHook(() => useChecked(values), { wrapper });
     await waitFor(() => expect(check).toHaveBeenCalledOnce());

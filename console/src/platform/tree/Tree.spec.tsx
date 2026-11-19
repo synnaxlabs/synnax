@@ -24,7 +24,8 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Group } from "@synnaxlabs/pluto";
-import { uuid } from "@synnaxlabs/x";
+import { map, uuid } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import {
   act,
   fireEvent,
@@ -65,7 +66,6 @@ import {
   CaptureStatuses,
   createConsoleWrapper,
   getIconButton,
-  uniqueName,
   uniqueToken,
   withControlHeld,
 } from "@/testutil";
@@ -1255,7 +1255,7 @@ describe("Tree.Tree", () => {
     const countingItems = (counts: Map<string, number>): Tree.Items => ({
       group: createGroupItem({
         Content: ({ resource, onDoubleClick, icon: _, loading: __, ...rest }) => {
-          counts.set(resource.name, (counts.get(resource.name) ?? 0) + 1);
+          map.increment(counts, resource.name);
           return (
             <PTree.Item {...rest} onDoubleClick={onDoubleClick}>
               {resource.name}

@@ -708,7 +708,9 @@ describe("HTTP Device Properties", () => {
         { name: "Accept", value: "text/plain" },
         { name: "Accept", value: "application/json" },
       ]);
-      expect(result.success).toBe(false);
+      expect(result.error?.issues).toMatchObject([
+        { message: 'Duplicate header "Accept"', path: [1, "name"] },
+      ]);
     });
 
     it("should accept an empty array", () => {
@@ -744,7 +746,9 @@ describe("HTTP Device Properties", () => {
         { parameter: "limit", value: "10" },
         { parameter: "limit", value: "20" },
       ]);
-      expect(result.success).toBe(false);
+      expect(result.error?.issues).toMatchObject([
+        { message: 'Duplicate query parameter "limit"', path: [1, "parameter"] },
+      ]);
     });
 
     it("should accept an empty array", () => {
@@ -758,28 +762,6 @@ describe("HTTP Device Properties", () => {
         { parameter: "", value: "b" },
       ]);
       expect(result.success).toBe(true);
-    });
-  });
-
-  describe("checkDuplicateKeys", () => {
-    it("should add an issue for duplicate keys", () => {
-      const issues: unknown[] = [];
-      const value = [{ name: "a" }, { name: "a" }];
-      HTTP.Device.checkDuplicateKeys("name", "header")({ value, issues });
-      expect(issues).toHaveLength(1);
-    });
-
-    it("should not add issues when keys are unique", () => {
-      const issues: unknown[] = [];
-      const value = [{ name: "a" }, { name: "b" }];
-      HTTP.Device.checkDuplicateKeys("name", "header")({ value, issues });
-      expect(issues).toHaveLength(0);
-    });
-
-    it("should handle undefined value", () => {
-      const issues: unknown[] = [];
-      HTTP.Device.checkDuplicateKeys("name", "header")({ value: undefined, issues });
-      expect(issues).toHaveLength(0);
     });
   });
 });

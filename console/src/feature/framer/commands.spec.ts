@@ -10,6 +10,7 @@
 import { framer } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { Access } from "@synnaxlabs/pluto";
+import { assertDefined } from "@synnaxlabs/x/testutil";
 import { screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -20,7 +21,7 @@ import { findCommand } from "@/platform/command/testutil";
 const client = createTestClient();
 const roles = new RoleClients(client);
 
-import { assertDefined, renderHookWithConsole } from "@/testutil";
+import { renderHookWithConsole } from "@/testutil";
 
 describe("Framer Commands", () => {
   it("should open the delete data modal when the command is selected", async () => {

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { scheduler } from "@synnaxlabs/x";
 import { act, fireEvent, waitFor } from "@testing-library/react";
 import { type ReactElement, useState } from "react";
 import { assert, describe, expect, it } from "vitest";
@@ -33,14 +34,11 @@ const RULE_PATH = [
 
 const POINTER = { pointerId: 1, button: 0, isPrimary: true };
 
-// Moves are coalesced and delivered on the next animation frame.
-const frame = async (): Promise<void> =>
-  await new Promise((resolve) => requestAnimationFrame(() => resolve()));
-
 const drag = async (el: Element, dy: number): Promise<void> => {
   fireEvent.pointerDown(el, { ...POINTER, clientX: 0, clientY: 0 });
   fireEvent.pointerMove(window, { ...POINTER, clientX: 0, clientY: dy });
-  await act(frame);
+  // Moves are coalesced and delivered on the next animation frame.
+  await act(scheduler.nextFrame);
   fireEvent.pointerUp(window, { ...POINTER, clientX: 0, clientY: dy });
 };
 
