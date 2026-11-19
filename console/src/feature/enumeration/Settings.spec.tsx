@@ -240,14 +240,26 @@ describe("Enumeration.Settings", () => {
     expect(
       await within(await dialog.findByLabelText("Users")).findByText(user.name),
     ).toBeTruthy();
-    const replace = dialog.getByRole("button", { name: "Replace" });
-    expect(replace.getAttribute("aria-disabled")).toBe("true");
     await pickReplacement(dialog, to.name);
     await clickWhenEnabled(dialog, "Replace");
     await waitForDialogToClose();
     await expect
       .poll(async () => (await core.schematics.retrieve(user.key)).nodes[0].config)
       .toMatchObject({ variant: "select", enumeration: to.key });
+  });
+
+  it("should show a missing replacement at its field and keep the dialog open", async () => {
+    const [from, to] = await Promise.all([createEnumeration(), createEnumeration()]);
+    await createSelectUser(from.key);
+    await renderEnumerations();
+    const dialog = await openDelete(from.name);
+    expect(await dialog.findByLabelText("Users")).toBeTruthy();
+    await clickWhenEnabled(dialog, "Replace");
+    expect(await dialog.findByText("Replacement is required")).toBeTruthy();
+    expect(screen.getByText(/Are you sure you want to delete/)).toBeTruthy();
+    await pickReplacement(dialog, to.name);
+    expect(dialog.queryByText("Replacement is required")).toBeNull();
+    expect((await core.enumerations.retrieve(from.key)).key).toEqual(from.key);
   });
 
   it("should open delete as a narrow confirmation with selectable text", async () => {
