@@ -46,6 +46,14 @@ export interface MoveRequest<K extends record.Key> {
 }
 
 /**
+ * Returns the actions that move a record into the group, or out of its group when the
+ * group is null or undefined.
+ */
+export const moveActions = (to?: Key | null): patch.Action[] => [
+  { type: "set", set: { path: ["group"], value: to ?? null, guards: [] } },
+];
+
+/**
  * Returns a builder of move entries for the dispatch endpoint of a record type. The
  * cache write of an entry calls move with its key and group, and move returns the
  * rollback.
@@ -58,12 +66,7 @@ export const createMoveRequest =
   (keys, to) =>
     array.toArray(keys).map((key) => ({
       endpoint,
-      payload: {
-        key,
-        actions: [
-          { type: "set", set: { path: ["group"], value: to ?? null, guards: [] } },
-        ],
-      },
+      payload: { key, actions: moveActions(to) },
       apply: () => move([key], to ?? undefined),
     }));
 
