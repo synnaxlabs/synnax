@@ -9,13 +9,14 @@
 
 import { type color } from "@synnaxlabs/client";
 import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { MultiEdit } from "@/platform/multiedit";
 import { getHexInput, getSwatches } from "@/platform/multiedit/testutil";
-import { createConsoleWrapper, uniqueName } from "@/testutil";
+import { createConsoleWrapper } from "@/testutil";
 
 const client = createTestClient();
 
