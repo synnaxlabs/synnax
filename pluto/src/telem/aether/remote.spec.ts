@@ -696,6 +696,96 @@ describe("remote", () => {
       });
       await settle(x);
       expect(x.value().data[0]).toEqual(HOME.numericBounds);
+      expect(x.value().edge).toBeUndefined();
+    });
+
+    describe("static window that streams", () => {
+      // A running range: it started a minute after the Core's first sample, and has no
+      // end.
+      const FROM = START.add(TimeSpan.minutes(1));
+      const OPEN = staticWindow(new TimeRange(FROM, TimeStamp.MAX));
+
+      it("should end its bounds at the newest sample and keep its start", async () => {
+        const core = createCore({ end: START.add(TimeSpan.minutes(5)) });
+        const { key } = core.data[0];
+        const x = create(connect(core), {
+          channel: key,
+          useIndexOfChannel: true,
+          window: OPEN,
+        });
+        await settle(x);
+        expect(x.value().data[0]).toEqual({
+          lower: ns(FROM),
+          upper: ns(newest(core, key).timeRange.end),
+        });
+        expect(x.value().edge).toBe("growing");
+      });
+
+      it("should grow its bounds as samples arrive", async () => {
+        const core = createCore();
+        const { key } = core.data[0];
+        const x = create(connect(core), {
+          channel: key,
+          useIndexOfChannel: true,
+          window: OPEN,
+        });
+        await settle(x);
+        core.advance(TimeSpan.seconds(1));
+        const upper = ns(newest(core, key).timeRange.end);
+        await expect.poll(() => x.value().data[0].upper, POLL).toBe(upper);
+        expect(x.value().data[0].lower).toBe(ns(FROM));
+      });
+
+      it("should read its value bounds across the view it is passed", async () => {
+        const core = createCore();
+        const client = connect(core);
+        const subscribe = vi.spyOn(client.feed, "subscribe");
+        const { key } = core.data[0];
+        const y = create(client, {
+          channel: key,
+          window: OPEN,
+          aggregation: "average",
+        });
+        await settle(y);
+        const upper = ns(newest(core, key).timeRange.end);
+        const lower = upper - ns(new TimeStamp(TimeSpan.seconds(30)));
+        y.value({ extremesKept: true, bounds: { lower, upper } });
+        const kept = subscribe.mock.calls
+          .map(([request]) => request.limit)
+          .filter((limit) => limit.variant === "points" && limit.extremesKept === true);
+        expect(kept).toEqual([
+          expect.objectContaining({
+            view: new TimeRange(BigInt(lower), BigInt(upper)),
+          }),
+        ]);
+      });
+
+      it("should have no bounds for a range that has not started", async () => {
+        const core = createCore();
+        const x = create(connect(core), {
+          channel: core.data[0].key,
+          useIndexOfChannel: true,
+          window: staticWindow(new TimeRange(TimeStamp.MAX, TimeStamp.MAX)),
+        });
+        await settle(x);
+        expect(x.value().data[0]).toEqual(bounds.INVALID);
+      });
+
+      it("should end its bounds at the newest sample before a planned end", async () => {
+        const core = createCore();
+        const { key } = core.data[0];
+        const end = NOW.add(TimeSpan.hours(1));
+        const x = create(connect(core), {
+          channel: key,
+          useIndexOfChannel: true,
+          window: staticWindow(new TimeRange(FROM, end)),
+        });
+        await settle(x);
+        expect(x.value().data[0]).toEqual({
+          lower: ns(FROM),
+          upper: ns(newest(core, key).timeRange.end),
+        });
+      });
     });
 
     describe("update", () => {
@@ -731,12 +821,16 @@ describe("remote", () => {
           window: dynamicWindow(TimeSpan.minutes(1)),
         });
         await settle(x);
-        expect(x.value().rolling).toBe(true);
+        expect(x.value().edge).toBe("rolling");
         const stopped = new TimeRange(core.now().sub(TimeSpan.minutes(1)), core.now());
         expect(x.update({ ...props, window: staticWindow(stopped) })).toBe(true);
-        const { data, rolling } = x.value();
-        expect(rolling).toBe(false);
-        expect(data[0]).toEqual(stopped.numericBounds);
+        // The window still streams until its end passes the commit point.
+        const { data, edge } = x.value();
+        expect(edge).toBe("growing");
+        expect(data[0]).toEqual({
+          lower: ns(stopped.start),
+          upper: ns(newest(core, props.channel).timeRange.end),
+        });
         expect(data[1].length).toBeGreaterThan(0);
       });
 
@@ -807,7 +901,7 @@ describe("remote", () => {
         const upper = ns(newest(core, core.data[0].key).timeRange.end);
         const expected = { lower: upper - ns(new TimeStamp(SPAN)), upper };
         expect(x.value().data[0]).toEqual(expected);
-        expect(x.value().rolling).toBe(true);
+        expect(x.value().edge).toBe("rolling");
         core.advance(TimeSpan.minutes(1));
         await sleep.sleep(TimeSpan.milliseconds(50));
         expect(x.value().data[0]).toEqual(expected);
@@ -824,7 +918,7 @@ describe("remote", () => {
         const [x, y] = createLine(core);
         await settle(x);
         await settle(y);
-        expect(y.value().rolling).toBe(false);
+        expect(y.value().edge).toBeUndefined();
         const { upper } = x.value().data[0];
         const shown: ValueProps = {
           extremesKept: true,
