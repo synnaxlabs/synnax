@@ -72,6 +72,7 @@ fn features(render_node: bool, version: (u32, u32)) -> Vec<(&'static CStr, bool)
         (c"CanvasUsesAcceleratedDrawing", false),
     ];
     // WebKitGTK 2.54 runs worker WebGL only in the GPU process, which crashes 2.50.
+    // Feature identifiers drop the "Enabled" suffix of WebKit's preference keys.
     if version >= (2, 54) {
         features.push((c"UseGPUProcessForWebGL", true));
     }
