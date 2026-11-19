@@ -81,7 +81,8 @@ const placeholderOf = <E extends record.Unknown>(
     : `Unavailable ${resourceName}`;
 };
 
-interface TriggerProps<E extends record.Unknown> extends EntryProps<E> {
+interface TriggerProps<E extends record.Unknown> {
+  icon: Icon.FC;
   resourceName: string;
   result: Flux.Result<E>;
   preview?: boolean;
@@ -90,7 +91,6 @@ interface TriggerProps<E extends record.Unknown> extends EntryProps<E> {
 
 const Trigger = <E extends Entry>({
   icon: ItemIcon,
-  describe,
   resourceName,
   result,
   preview,
@@ -109,25 +109,12 @@ const Trigger = <E extends Entry>({
         {placeholderOf(result, resourceName, preview === true, allowNone)}
       </Text.Text>
     );
-  else {
-    const { text, status } = describe(result.data);
+  else
     content = (
-      <>
-        <Text.Text el="span" overflow="fade" className={CSS.BE("picker", "text")}>
-          {result.data.name}
-        </Text.Text>
-        <Text.Text
-          el="span"
-          level="tiny"
-          color={9}
-          status={status}
-          className={CSS.BE("picker", "description")}
-        >
-          {text}
-        </Text.Text>
-      </>
+      <Text.Text el="span" overflow="fade" className={CSS.BE("picker", "text")}>
+        {result.data.name}
+      </Text.Text>
     );
-  }
   return (
     <Dialog.Trigger
       variant="outlined"
@@ -190,8 +177,9 @@ export type SelectProps<E extends Entry> = BaseSelectProps<E> &
   (RequiredProps | AllowNoneProps);
 
 /**
- * Selects one stored entry by key. The trigger reads the held entry live and says when
- * it is missing or unavailable. The list can end in an option that creates an entry.
+ * Selects one stored entry by key. The trigger names the held entry live and says when
+ * it is missing or unavailable. Each option of the list shows its description. The list
+ * can end in an option that creates an entry.
  */
 export const Select = <E extends Entry>(props: SelectProps<E>): ReactElement => {
   const { resourceName, icon, describe, list, result, onCreate, preview } = props;
@@ -223,7 +211,6 @@ export const Select = <E extends Entry>(props: SelectProps<E>): ReactElement => 
       >
         <Trigger<E>
           icon={icon}
-          describe={describe}
           resourceName={resourceName}
           result={result}
           preview={preview}

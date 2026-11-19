@@ -37,9 +37,7 @@ const Control = ({ value, defaultName, rack, ...rest }: ControlProps): ReactElem
   const openCreate = useCreateModal();
   const now = useNow(nextMinute);
   const describe = (c: certificate.Certificate): Picker.Description =>
-    c.source === "file" && c.rack !== rack
-      ? Secret.OTHER_RACK_DESCRIPTION
-      : Secret.Validity.describeCertificate(c, now);
+    Secret.Validity.describeCertificate(c, now);
   return (
     <Flex.Box y gap="small" grow>
       <Picker.Select<certificate.Certificate>
@@ -56,7 +54,9 @@ const Control = ({ value, defaultName, rack, ...rest }: ControlProps): ReactElem
         }
         {...rest}
       />
-      {result.variant === "success" && <Details certificate={result.data} now={now} />}
+      {result.variant === "success" && (
+        <Details certificate={result.data} now={now} rack={rack} />
+      )}
     </Flex.Box>
   );
 };
