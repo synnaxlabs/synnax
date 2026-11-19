@@ -12,7 +12,7 @@ import { color, type destructor, observe } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { series } from "@/color/aether";
+import { color as aetherColor } from "@/color/aether";
 import { synnax } from "@/synnax/aether";
 import { theming } from "@/theming/aether";
 
@@ -67,7 +67,7 @@ export class Colors extends aether.Composite<typeof colorsStateZ, InternalState>
 
   afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
-    i.palette = series.use(ctx);
+    i.palette = aetherColor.series.use(ctx);
     i.defaultColor = theming.use(ctx).colors.gray.l9;
     ctx.set(CONTEXT_KEY, this);
     const nextClient = synnax.use(ctx);
