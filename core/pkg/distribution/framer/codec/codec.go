@@ -27,18 +27,35 @@ import (
 	"github.com/synnaxlabs/x/bit"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
+// state is the agreement that one sequence number names.
 type state struct {
-	keyDataTypes map[channel.Key]telem.DataType
-	keys         channel.Keys
-	// keySet mirrors keys, giving the encoder constant-time membership when it filters
-	// each frame down to the channels in this state.
-	keySet               set.Set[channel.Key]
-	hasVariableDataTypes bool
+	// keys holds the requested keys, ascending.
+	keys channel.Keys
+	// index maps each requested key to its position in keys.
+	index map[channel.Key]int
+	// dataTypes holds the data type of each requested key, in key order.
+	dataTypes []telem.DataType
+}
+
+// newState returns the state of the given keys and their data types, in any order.
+func newState(keys channel.Keys, dataTypes []telem.DataType) *state {
+	s := &state{
+		keys:      slices.Clone(keys),
+		index:     make(map[channel.Key]int, len(keys)),
+		dataTypes: make([]telem.DataType, len(keys)),
+	}
+	slices.Sort(s.keys)
+	for i, key := range s.keys {
+		s.index[key] = i
+	}
+	for i, key := range keys {
+		s.dataTypes[s.index[key]] = dataTypes[i]
+	}
+	return s
 }
 
 const bitsPerByte = 8
@@ -90,7 +107,6 @@ func writeTimeRange(w *binary.Writer, tr telem.TimeRange) {
 type sorter struct {
 	rawIndices []int
 	keys       []channel.Key
-	alignments []telem.Alignment
 	offset     int
 }
 
@@ -99,14 +115,12 @@ func (s *sorter) reset(size int) {
 	if cap(s.rawIndices) < size {
 		s.rawIndices = make([]int, size)
 		s.keys = make([]channel.Key, size)
-		s.alignments = make([]telem.Alignment, size)
 	}
 }
 
-func (s *sorter) insert(key channel.Key, rawIndex int, alignment telem.Alignment) {
+func (s *sorter) insert(key channel.Key, rawIndex int) {
 	s.keys[s.offset] = key
 	s.rawIndices[s.offset] = rawIndex
-	s.alignments[s.offset] = alignment
 	s.offset++
 }
 
@@ -115,13 +129,12 @@ func (s *sorter) sort() { sort.Sort(s) }
 // Len implements sort.Interface.
 func (s *sorter) Len() int { return s.offset }
 
-// Less implements sort.Interface. Sorts by (key, alignment, rawIndex).
+// Less implements sort.Interface. It sorts by key, then by raw index, so the series of
+// one key keep the order the producer gave them. An alignment is never an order in
+// time.
 func (s *sorter) Less(i, j int) bool {
 	if s.keys[i] != s.keys[j] {
 		return s.keys[i] < s.keys[j]
-	}
-	if s.alignments[i] != s.alignments[j] {
-		return s.alignments[i] < s.alignments[j]
 	}
 	return s.rawIndices[i] < s.rawIndices[j]
 }
@@ -130,7 +143,6 @@ func (s *sorter) Less(i, j int) bool {
 func (s *sorter) Swap(i, j int) {
 	s.keys[i], s.keys[j] = s.keys[j], s.keys[i]
 	s.rawIndices[i], s.rawIndices[j] = s.rawIndices[j], s.rawIndices[i]
-	s.alignments[i], s.alignments[j] = s.alignments[j], s.alignments[i]
 }
 
 // Codec is a high-performance encoder/decoder specifically designed for moving
@@ -158,12 +170,12 @@ type Codec struct {
 		// updated, which means that the receiving codec needs to decode according to
 		// the previous state. seqNum and the states backlog are used to keep the two in
 		// sync.
-		states map[uint32]state
+		states map[uint32]*state
 		// oldest is the lowest sequence number that states can hold.
 		oldest uint32
 		// pending holds the states added by Update that Encode and Decode have not
 		// applied yet, oldest first. pendingMu guards it.
-		pending   []state
+		pending   []*state
 		pendingMu sync.Mutex
 		// seqNum corresponds to the most recent update in states. This is incremented
 		// and communicated each time a state is added.
@@ -210,12 +222,8 @@ func NewStatic(
 	if len(dataTypes) != len(channelKeys) {
 		panic("data types and channel keys must be the same length")
 	}
-	keyDataTypes := make(map[channel.Key]telem.DataType, len(channelKeys))
-	for i, key := range channelKeys {
-		keyDataTypes[key] = dataTypes[i]
-	}
 	c := newCodec(opts)
-	c.update(channelKeys, keyDataTypes)
+	c.update(newState(channelKeys, dataTypes))
 	return c
 }
 
@@ -252,7 +260,7 @@ func newCodec(opts []Option) *Codec {
 		opt(c)
 	}
 	c.mu.updateAvailable.Store(false)
-	c.mu.states = make(map[uint32]state)
+	c.mu.states = make(map[uint32]*state)
 	return c
 }
 
@@ -272,11 +280,7 @@ func (c *Codec) Update(ctx context.Context, keys []channel.Key) error {
 			len(keys),
 		)
 	}
-	keyDataTypes := make(map[channel.Key]telem.DataType, len(keys))
-	for i, key := range keys {
-		keyDataTypes[key] = dataTypes[i]
-	}
-	c.update(keys, keyDataTypes)
+	c.update(newState(keys, dataTypes))
 	return nil
 }
 
@@ -286,20 +290,7 @@ func (c *Codec) Initialized() bool {
 	return c.mu.seqNum > 0 || c.mu.updateAvailable.Load()
 }
 
-func (c *Codec) update(keys channel.Keys, keyDataTypes map[channel.Key]telem.DataType) {
-	s := state{
-		keys:                 slices.Clone(keys),
-		keySet:               set.New(keys...),
-		keyDataTypes:         keyDataTypes,
-		hasVariableDataTypes: false,
-	}
-	for _, dt := range keyDataTypes {
-		if dt.IsVariable() {
-			s.hasVariableDataTypes = true
-			break
-		}
-	}
-	slices.Sort(s.keys)
+func (c *Codec) update(s *state) {
 	c.mu.pendingMu.Lock()
 	c.mu.pending = append(c.mu.pending, s)
 	c.mu.pendingMu.Unlock()
@@ -422,13 +413,13 @@ func (c *Codec) panicIfNotUpdated(opName string) {
 	}
 }
 
-// isAlignmentContiguous checks if two series have equal alignment multiples and
-// contiguous alignments where the first series' upper bound equals the second series'
-// lower bound.
-func isAlignmentContiguous(s1, s2 telem.Series) bool {
-	bounds1 := s1.AlignmentBounds()
-	bounds2 := s2.AlignmentBounds()
-	return s1.Multiple() == s2.Multiple() && bounds1.Upper == bounds2.Lower
+// mergeable returns true when s2 can join s1 in one series: both have the same clock,
+// data type, and alignment multiple, and s2 starts at the alignment where s1 ends.
+func mergeable(s1, s2 telem.Series) bool {
+	return s1.Clock == s2.Clock &&
+		s1.DataType == s2.DataType &&
+		s1.Multiple() == s2.Multiple() &&
+		s1.AlignmentBounds().Upper == s2.AlignmentBounds().Lower
 }
 
 // mergedSeriesInfo holds information about a series that may be merged or original.
@@ -437,8 +428,8 @@ type mergedSeriesInfo struct {
 	key    channel.Key
 }
 
-// mergeContiguousSeries processes sorted series and merges those with the same key
-// and contiguous alignments. Returns the merged series info using the codec's reusable
+// mergeContiguousSeries processes sorted series and merges the adjacent series of each
+// key that are mergeable. Returns the merged series info using the codec's reusable
 // result slice. NOTE: The returned slice is reused across calls, so callers must not
 // hold references to it beyond the current encode operation.
 func (c *Codec) mergeContiguousSeries(
@@ -490,7 +481,7 @@ func (c *Codec) mergeContiguousSeries(
 }
 
 // contiguousRunEnd returns the exclusive end of the run that starts at runStart, where
-// each series is alignment-contiguous with the one before it.
+// each series is mergeable with the one before it.
 func contiguousRunEnd(
 	sortedIndices []int,
 	src framer.Frame,
@@ -500,7 +491,7 @@ func contiguousRunEnd(
 	for runEnd < groupEnd {
 		prevSeries := src.RawSeriesAt(sortedIndices[runEnd-1])
 		currSeries := src.RawSeriesAt(sortedIndices[runEnd])
-		if !isAlignmentContiguous(prevSeries, currSeries) {
+		if !mergeable(prevSeries, currSeries) {
 			break
 		}
 		runEnd++
@@ -531,6 +522,7 @@ func mergeRun(rawIndices []int, src framer.Frame) telem.Series {
 				Alignment:         s.Alignment,
 				AlignmentMultiple: s.AlignmentMultiple,
 				TimeRange:         s.TimeRange,
+				Clock:             s.Clock,
 			}
 		} else {
 			if s.TimeRange.End > mergedSeries.TimeRange.End {
@@ -579,7 +571,6 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 	c.panicIfNotUpdated("Encode")
 	c.prune(c.mu.seqNum)
 	currState := c.mu.states[c.mu.seqNum]
-	src = src.KeepKeys(currState.keySet)
 	if err := c.sortSeries(ctx, src, currState); err != nil {
 		return err
 	}
@@ -609,27 +600,24 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 	return nil
 }
 
-// sortSeries validates each series in src against currState and sorts the series by
-// key, alignment, and raw index into c.encodeSorter.
+// sortSeries validates each series in src that currState requests and sorts the series
+// by key and raw index into c.encodeSorter. It drops the series of other keys.
 func (c *Codec) sortSeries(
 	ctx context.Context,
 	src framer.Frame,
-	currState state,
+	currState *state,
 ) error {
 	for rawI, s := range src.RawSeries() {
 		if src.ShouldExcludeRaw(rawI) {
 			continue
 		}
 		key := src.RawKeyAt(rawI)
-		c.encodeSorter.insert(key, rawI, s.Alignment)
-		dt, ok := currState.keyDataTypes[key]
+		i, ok := currState.index[key]
 		if !ok {
-			return errors.Wrapf(
-				validate.ErrValidation,
-				"encoder was provided a key %s not present in current state",
-				c.retrieveName(ctx, key),
-			)
+			continue
 		}
+		c.encodeSorter.insert(key, rawI)
+		dt := currState.dataTypes[i]
 		isEquivalent := (dt == telem.Int64T || dt == telem.TimestampT) &&
 			(s.DataType == telem.Int64T || s.DataType == telem.TimestampT)
 		if dt != s.DataType && !isEquivalent {
@@ -656,15 +644,12 @@ type encodeHeader struct {
 	byteArraySize int
 }
 
-func newEncodeHeader(mergedSeries []mergedSeriesInfo, currState state) encodeHeader {
+func newEncodeHeader(mergedSeries []mergedSeriesInfo, currState *state) encodeHeader {
 	h := encodeHeader{
 		dataSize:      -1,
 		tr:            telem.TimeRangeZero,
 		byteArraySize: flagsSize + seqNumSize,
 		fgs:           newFlags(),
-	}
-	if currState.hasVariableDataTypes {
-		h.fgs.equalLens = false
 	}
 	// allChannelsPresent is true only when the merged series form a 1-to-1
 	// correspondence with currState.keys (each state key has exactly one series in the
@@ -701,6 +686,9 @@ func newEncodeHeader(mergedSeries []mergedSeriesInfo, currState state) encodeHea
 func (h *encodeHeader) addSeries(s telem.Series) {
 	sLen := int(s.Len())
 	h.byteArraySize += wireSize(s)
+	if s.DataType.IsVariable() {
+		h.fgs.equalLens = false
+	}
 	if h.dataSize == -1 {
 		h.dataSize = sLen
 		h.tr = s.TimeRange
@@ -784,7 +772,7 @@ func (c *Codec) Decode(src []byte) (dst framer.Frame, err error) {
 // frame header carries.
 type decodeHeader struct {
 	fgs       flags
-	state     state
+	state     *state
 	dataLen   uint32
 	tr        telem.TimeRange
 	alignment telem.Alignment
@@ -887,10 +875,11 @@ func (c *Codec) decodeSeries(h *decodeHeader, key channel.Key) (telem.Series, er
 			return telem.Series{}, err
 		}
 	}
-	dataType, exists := h.state.keyDataTypes[key]
+	i, exists := h.state.index[key]
 	if !exists {
 		return telem.Series{}, errors.Newf("unknown channel key: %v", key)
 	}
+	dataType := h.state.dataTypes[i]
 	s.DataType = dataType
 	size := int64(dataLenOrSize)
 	if !dataType.IsVariable() && dataType != telem.BooleanT {
