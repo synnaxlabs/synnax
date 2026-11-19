@@ -35,48 +35,6 @@ describe("isKeyed", () => {
   });
 });
 
-describe("upsertKeyed", () => {
-  it("should update a keyed item in the array", () => {
-    const arr: record.KeyedNamed[] = [
-      { key: "1", name: "First" },
-      { key: "2", name: "Second" },
-    ];
-    const updated = array.upsertKeyed(arr, {
-      key: "1",
-      name: "First Updated",
-    });
-    expect(updated).toHaveLength(2);
-    expect(updated).toEqual([
-      { key: "1", name: "First Updated" },
-      { key: "2", name: "Second" },
-    ]);
-  });
-
-  it("should append entry when updating non-existent key", () => {
-    const arr: record.KeyedNamed[] = [
-      { key: "1", name: "First" },
-      { key: "2", name: "Second" },
-    ];
-    const updated = array.upsertKeyed(arr, {
-      key: "3",
-      name: "Third",
-    });
-    expect(updated).toHaveLength(3);
-    expect(updated).toEqual([
-      { key: "1", name: "First" },
-      { key: "2", name: "Second" },
-      { key: "3", name: "Third" },
-    ]);
-  });
-
-  it("should handle empty array", () => {
-    const arr: record.KeyedNamed[] = [];
-    const updated = array.upsertKeyed(arr, { key: "1", name: "Test" });
-    expect(updated).toHaveLength(1);
-    expect(updated).toEqual([{ key: "1", name: "Test" }]);
-  });
-});
-
 describe("deleteKeyed", () => {
   it("should delete a single keyed item", () => {
     const arr: record.KeyedNamed[] = [

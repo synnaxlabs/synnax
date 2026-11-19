@@ -18,7 +18,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { caseconv, deep } from "@synnaxlabs/x";
+import { deep, strings } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useState } from "react";
 
 import { CSS } from "@/css";
@@ -128,7 +128,7 @@ const RegionControls = ({ path, svg, original }: RegionControlsProps): ReactElem
         className={CSS.B("schematic-region-name")}
         overflow="fade"
       >
-        {caseconv.capitalize(name)}
+        {strings.capitalize(name)}
       </Text.Text>
       <Flex.Box x align="stretch" key={String(path)}>
         <Color.Swatch
@@ -213,7 +213,7 @@ const SymbolOverrides = ({ spec }: SymbolOverridesProps): ReactElement => {
         <Select.Buttons value={shownState} onChange={setSelectedState} full="x">
           {states.map((state) => (
             <Select.Item key={state} itemKey={state} justify="center">
-              {caseconv.capitalize(state)}
+              {strings.capitalize(state)}
             </Select.Item>
           ))}
         </Select.Buttons>

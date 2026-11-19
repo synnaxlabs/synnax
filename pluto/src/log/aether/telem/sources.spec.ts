@@ -273,8 +273,7 @@ describe("StreamMultiChannelLog", () => {
     // Returns a client whose history reads wait for release, and whose first fails when
     // failed is true.
     const gate = (core: SyntheticCore, failed: boolean) => {
-      let release: () => void = () => {};
-      const released = new Promise<void>((resolve) => (release = resolve));
+      const { promise: released, resolve: release } = Promise.withResolvers<void>();
       let reads = 0;
       let open = false;
       const client = connect(core, {
