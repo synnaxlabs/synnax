@@ -23,7 +23,9 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// FS is a disk in memory. It is safe for concurrent use, and each call is atomic.
+// FS is a disk in memory. Only a Sync makes the bytes of a file durable, and only a
+// SyncDir makes the entries of a directory durable. Crash returns what a power loss
+// keeps. It is safe for concurrent use, and each call is atomic.
 type FS struct {
 	d *disk
 	// root is the cleaned absolute path of the directory that names resolve against.
