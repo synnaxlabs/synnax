@@ -56,37 +56,40 @@ func flip(image *fault.FS, name string, at int64) {
 	Expect(errors.Join(f.Sync(), f.Close())).To(Succeed())
 }
 
-var _ = Describe("Pebble WAL replay after one flipped bit", func() {
-	It(
-		"Should drop the record and all later ones in the last 32 KiB block, with no error",
-		func(ctx SpecContext) {
-			image, wal := walImage(ctx, 10, 500)
-			flip(image, wal, 1100)
-			e := MustSucceed(openCrashEngine(ctx, image))
-			got := MustSucceed(e.Recovered(ctx))
-			Expect(e.Close()).To(Succeed())
-			Expect(len(got)).To(BeNumerically("<", 10))
-			Expect(len(got)).To(BeNumerically(">", 0))
-		},
-	)
+var _ = Describe(
+	"Pebble WAL replay after one flipped bit in the first WAL of a new store",
+	func() {
+		It(
+			"Should drop the record and all later ones in the last 32 KiB block, with no error",
+			func(ctx SpecContext) {
+				image, wal := walImage(ctx, 10, 500)
+				flip(image, wal, 1100)
+				e := MustSucceed(openCrashEngine(ctx, image))
+				got := MustSucceed(e.Recovered(ctx))
+				Expect(e.Close()).To(Succeed())
+				Expect(len(got)).To(BeNumerically("<", 10))
+				Expect(len(got)).To(BeNumerically(">", 0))
+			},
+		)
 
-	It(
-		"Should drop later records though later blocks hold synced records, as on an OS disk",
-		func(ctx SpecContext) {
-			image, wal := walImage(ctx, 100, 1000)
-			flip(image, wal, 40000)
-			e := MustSucceed(openCrashEngine(ctx, image))
-			onFault := len(MustSucceed(e.Recovered(ctx)))
-			Expect(e.Close()).To(Succeed())
-			Expect(onFault).To(BeNumerically("<", 50))
-			Expect(osRecovered(40000)).To(Equal(onFault))
-		},
-	)
-})
+		It(
+			"Should drop later records in later blocks too, as on an OS disk",
+			func(ctx SpecContext) {
+				image, wal := walImage(ctx, 100, 1000)
+				flip(image, wal, 40000)
+				e := MustSucceed(openCrashEngine(ctx, image))
+				onFault := len(MustSucceed(e.Recovered(ctx)))
+				Expect(e.Close()).To(Succeed())
+				Expect(onFault).To(BeNumerically("<", 50))
+				Expect(osRecovered(40000)).To(Equal(onFault))
+			},
+		)
+	},
+)
 
-// osRecovered commits 100 durable records of 1000 bytes with Pebble on the OS file
-// system, flips one bit of its WAL at offset at, and returns how many records the next
-// open holds. It fails when the open returns an error.
+// osRecovered commits 100 durable records of 1000 bytes to a new store with Pebble on
+// the OS file system, flips one bit of its WAL at offset at, and returns how many
+// records the next open holds. It fails when the open returns an error.
 func osRecovered(at int64) int {
 	GinkgoHelper()
 	dir := GinkgoT().TempDir()
