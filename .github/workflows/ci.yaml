@@ -550,6 +550,25 @@ jobs:
           flags: desktop-shell
           token: ${{ secrets.CODECOV_TOKEN }}
 
+  desktop-shell-audit:
+    needs: changes
+    if:
+      inputs.full || needs.changes.outputs.console == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'desktop-shell-audit')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@c509219cf42fba86913069efd0ade2458c59337b # v2.90.1
+        with:
+          tool: cargo-audit
+
+      - name: Audit
+        working-directory: console/src-tauri
+        run: cargo audit
+
   docs:
     needs: changes
     if:
@@ -1413,6 +1432,7 @@ jobs:
       - core-image
       - dependency-review
       - desktop-shell
+      - desktop-shell-audit
       - docs
       - docs-site
       - drift
