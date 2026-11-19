@@ -352,7 +352,7 @@ var _ = Describe("Lasting corruption", func() {
 			Expect(s.other).To(other)
 		},
 		Entry(
-			"one block of the newest commit of the file that grew last",
+			"one block of the newest commit",
 			crash.NewCorruption,
 			BeNumerically(">", 0),
 			BeNumerically(">", 0),

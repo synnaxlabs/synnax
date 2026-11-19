@@ -36,9 +36,10 @@ type script struct {
 	side   string
 	sideAt int
 	// zeroed and mixed count the crash images whose log held only zeros, and whose log
-	// held bytes that the steps never wrote.
-	zeroed, mixed int
-	began         bool
+	// held bytes that the steps never wrote. lost counts the images in which the side
+	// file took the commit.
+	zeroed, mixed, lost int
+	began               bool
 }
 
 type scripted struct {
@@ -89,6 +90,7 @@ func (s *script) open(_ context.Context, fs xfs.FS) (crash.Engine, error) {
 		return nil, err
 	} else if len(side) > s.sideAt && side[s.sideAt] == 0 {
 		e.record = nil
+		s.lost++
 	}
 	return e, nil
 }
@@ -151,21 +153,21 @@ func put(f xfs.File, data []byte) error {
 }
 
 var _ = Describe("Targets of lasting corruption", func() {
-	run := func(ctx context.Context, s *script, profile crash.Profile) error {
+	run := func(ctx context.Context, s *script) error {
 		return crash.Run(ctx, crash.Config{
 			Open:    s.open,
 			Commits: 1,
 			Stride:  1,
-			Profile: profile,
+			Profile: crash.NewCorruption,
 		})
 	}
 
-	It(
-		"Should hold an ack from before the first sync into the block of the newest bytes",
+	It("Should hold an ack from before the first sync that changed a block",
 		func(ctx SpecContext) {
 			var log, side xfs.File
 			s := &script{side: "side"}
-			// Three events: two new files and a directory sync.
+			// Five events. The side file is a durable block of zeros, which changes no
+			// byte.
 			s.begin = func(fs xfs.FS) (err error) {
 				if log, err = fs.Open("log", os.O_CREATE|os.O_RDWR); err != nil {
 					return err
@@ -173,24 +175,54 @@ var _ = Describe("Targets of lasting corruption", func() {
 				if side, err = fs.Open("side", os.O_CREATE|os.O_RDWR); err != nil {
 					return err
 				}
-				return fs.SyncDir("")
+				return errors.Join(fs.SyncDir(""), put(side, make([]byte, blockSize)))
 			}
-			// Three events. The ack follows event 6, the sync of the log.
+			// Three events. The ack follows event 8, the sync of the log.
+			s.commit = func(_ xfs.FS, frame []byte) error {
+				if _, err := side.WriteAt([]byte{1}, 0); err != nil {
+					return err
+				}
+				return put(log, frame)
+			}
+			// Event 9 is the first sync that changes the block of the side file.
+			s.end = func() error {
+				return errors.Join(side.Sync(), side.Close(), log.Close())
+			}
+			err := run(ctx, s)
+			var v *crash.Violation
+			Expect(errors.As(err, &v)).To(BeTrue())
+			Expect(v.Rule).To(Equal(crash.R1))
+			Expect(v.Event).To(Equal(9))
+		},
+	)
+
+	It("Should let the engine lose a commit from the first sync that changed a block",
+		func(ctx SpecContext) {
+			var log, side xfs.File
+			s := &script{side: "side"}
+			// Event 5 is the first sync that changes the block of the side file.
+			s.begin = func(fs xfs.FS) (err error) {
+				if log, err = fs.Open("log", os.O_CREATE|os.O_RDWR); err != nil {
+					return err
+				}
+				if side, err = fs.Open("side", os.O_CREATE|os.O_RDWR); err != nil {
+					return err
+				}
+				return errors.Join(fs.SyncDir(""), put(side, []byte{1}))
+			}
+			// The ack follows event 8, the sync of the log.
 			s.commit = func(_ xfs.FS, frame []byte) error {
 				if _, err := side.Write([]byte{1}); err != nil {
 					return err
 				}
 				return put(log, frame)
 			}
-			// Event 7 is the first sync into the first block of the side file.
+			// Event 9 changes the block of the side file again.
 			s.end = func() error {
 				return errors.Join(side.Sync(), side.Close(), log.Close())
 			}
-			err := run(ctx, s, crash.NewCorruption)
-			var v *crash.Violation
-			Expect(errors.As(err, &v)).To(BeTrue())
-			Expect(v.Rule).To(Equal(crash.R1))
-			Expect(v.Event).To(Equal(7))
+			Expect(run(ctx, s)).To(Succeed())
+			Expect(s.lost).To(BeNumerically(">", 0))
 		},
 	)
 
@@ -226,7 +258,7 @@ var _ = Describe("Targets of lasting corruption", func() {
 					log.Close(),
 				)
 			}
-			err := run(ctx, s, crash.NewCorruption)
+			err := run(ctx, s)
 			var v *crash.Violation
 			Expect(errors.As(err, &v)).To(BeTrue())
 			Expect(v.Rule).To(Equal(crash.R1))
@@ -234,7 +266,7 @@ var _ = Describe("Targets of lasting corruption", func() {
 		},
 	)
 
-	It("Should make any one block of the newest bytes stale", func(ctx SpecContext) {
+	It("Should make any one block of the unit stale", func(ctx SpecContext) {
 		stale := set.Set[int]{}
 		// The engine keeps its one commit in three blocks, which one sync makes
 		// durable. On a crash image it holds the commit when no block is zeros.
@@ -274,35 +306,6 @@ var _ = Describe("Targets of lasting corruption", func() {
 		Expect(stale.Slice()).To(ConsistOf(0, 1, 2))
 	})
 
-	DescribeTable("Should not change a file that a sync made shorter",
-		func(ctx SpecContext, profile crash.Profile) {
-			var log xfs.File
-			s := &script{}
-			s.begin = func(fs xfs.FS) (err error) {
-				if log, err = fs.Open("log", os.O_CREATE|os.O_RDWR); err != nil {
-					return err
-				}
-				return errors.Join(
-					put(log, bytes.Repeat([]byte{filler}, 8192)),
-					fs.SyncDir(""),
-					log.Truncate(0),
-					log.Sync(),
-				)
-			}
-			// Before the cut, the file is a target. The counts start at the commit.
-			s.commit = func(_ xfs.FS, frame []byte) error {
-				s.zeroed, s.mixed = 0, 0
-				_, err := log.WriteAt(frame, 0)
-				return errors.Join(err, log.Sync())
-			}
-			s.end = func() error { return log.Close() }
-			Expect(run(ctx, s, profile)).To(Succeed())
-			Expect(s.zeroed + s.mixed).To(BeZero())
-		},
-		Entry("under NewCorruption", crash.NewCorruption),
-		Entry("under OldCorruption", crash.OldCorruption),
-	)
-
 	It("Should not change an older file that an image holds at the path of the newest",
 		func(ctx SpecContext) {
 			var log xfs.File
@@ -335,7 +338,7 @@ var _ = Describe("Targets of lasting corruption", func() {
 				return fs.SyncDir("")
 			}
 			s.end = func() error { return log.Close() }
-			Expect(run(ctx, s, crash.NewCorruption)).To(Succeed())
+			Expect(run(ctx, s)).To(Succeed())
 			Expect(s.mixed).To(BeZero())
 			Expect(s.zeroed).To(BeNumerically(">", 0))
 		},
@@ -360,7 +363,7 @@ var _ = Describe("Targets of lasting corruption", func() {
 			)
 		}
 		s.end = func() error { return log.Close() }
-		Expect(run(ctx, s, crash.NewCorruption)).To(Succeed())
+		Expect(run(ctx, s)).To(Succeed())
 		Expect(s.zeroed).To(BeNumerically(">", 0))
 	})
 })

@@ -26,11 +26,17 @@ type counter struct {
 	// behind each call that did. Both run with mu held.
 	before func()
 	after  func(event int)
-	// grown says, for each file, how its durable length grew.
-	grown map[fault.ID]growth
-	// last is the file that the newest Sync made longer. A Sync that makes no new byte
-	// durable gives the engine nothing new to confirm, so it does not count.
+	// files holds, for each file, the Syncs that changed its durable bytes.
+	files map[fault.ID]*syncs
+	// unit holds the ranges that the newest Sync with a changed block made durable, in
+	// the file last. A Sync that changes no durable byte gives the engine nothing new
+	// to confirm, so it does not count.
+	unit []fault.Span
 	last fault.ID
+	// lossFrom is the number, among the events, of the first Sync that changed the
+	// first block of unit. A stale block of unit can take each commit from that Sync
+	// on.
+	lossFrom int
 	// events is the count of calls that changed the disk.
 	events int
 	// faults is the count of calls that the disk failed with a sync error or with no
@@ -42,22 +48,12 @@ type counter struct {
 // blockSize is the unit that a disk loses or keeps as a whole.
 const blockSize = 4096
 
-// growth says how the durable length of a file grew.
-type growth struct {
-	// size is the durable length of the file.
-	size int64
-	// before is the durable length of the file before the newest Sync that made it
-	// longer. No later Sync confirms a byte from before on.
-	before int64
-	// event is the number, among the events, of the first Sync into the block of the
-	// byte at before. A stale block there takes each commit from that Sync on.
-	event int
-	// tailEvent is the number of the first Sync into the block of the last durable
-	// byte.
-	tailEvent int
-	// cut says that a Sync made the file shorter. The blocks of such a file have no
-	// known first Sync, so the file is no target of lasting corruption.
-	cut bool
+// syncs is what the counter knows of the Syncs of one file.
+type syncs struct {
+	// first holds, for each block, the number of the first Sync that changed it.
+	first map[int64]int
+	// count is the count of Syncs that changed a durable byte of the file.
+	count uint64
 }
 
 // begin starts a call that can change the disk.
@@ -79,32 +75,35 @@ func (c *counter) end(err error, changed bool) {
 	c.mu.Unlock()
 }
 
-// synced notes that a Sync made the first size bytes of file durable.
-func (c *counter) synced(file fault.ID, size int64) {
-	g := c.grown[file]
-	if size > g.size {
-		first := g.size / blockSize
-		if g.size%blockSize == 0 {
-			g.tailEvent = c.events + 1
-		}
-		g.before, g.event = g.size, g.tailEvent
-		if (size-1)/blockSize != first {
-			g.tailEvent = c.events + 1
-		}
-		c.last = file
+// synced notes a Sync of the file of stat.
+func (c *counter) synced(stat fault.Stat) {
+	file, ok := c.files[stat.ID]
+	if !ok {
+		file = &syncs{first: map[int64]int{}}
+		c.files[stat.ID] = file
 	}
-	g.cut = g.cut || size < g.size
-	g.size = size
-	c.grown[file] = g
+	if stat.Syncs == file.count {
+		return
+	}
+	file.count = stat.Syncs
+	for _, s := range stat.Synced {
+		for block := s.From / blockSize; block*blockSize < s.To; block++ {
+			if _, ok := file.first[block]; !ok {
+				file.first[block] = c.events + 1
+			}
+		}
+	}
+	c.unit, c.last = stat.Synced, stat.ID
+	c.lossFrom = file.first[stat.Synced[0].From/blockSize]
 }
 
-// fileID returns the ID that a fault disk gave to the file of info.
-func fileID(info xfs.FileInfo) (fault.ID, error) {
-	id, ok := info.Sys().(fault.ID)
+// statOf returns what a fault disk says of the file of info.
+func statOf(info xfs.FileInfo) (fault.Stat, error) {
+	stat, ok := info.Sys().(fault.Stat)
 	if !ok {
-		return 0, errors.Newf("crash: %s is not a file of a fault disk", info.Name())
+		return stat, errors.Newf("crash: %s is not a file of a fault disk", info.Name())
 	}
-	return id, nil
+	return stat, nil
 }
 
 // countedFS passes each call to inner, an FS of a fault disk, and counts the calls that
@@ -208,10 +207,10 @@ func (f *countedFile) Sync() (err error) {
 	if err != nil {
 		return err
 	}
-	id, err := fileID(info)
+	stat, err := statOf(info)
 	if err != nil {
 		return err
 	}
-	f.c.synced(id, info.Size())
+	f.c.synced(stat)
 	return nil
 }

@@ -68,20 +68,19 @@ func (p plan) crash(event int) fault.CrashConfig {
 }
 
 // spoil corrupts the files of image for good, as the profile asks, and returns the
-// rules for the engine that recovers from it. The newest bytes are the bytes that the
-// newest Sync added to the file that it made longer. No later Sync confirms them. An
-// image that spoil did not change gets the strict rules. So does an image that does not
-// hold that file: there the engine cannot see what the newest Sync made durable.
+// rules for the engine that recovers from it. The unit is the ranges that the newest
+// Sync with a changed block made durable. No later Sync confirms them. An image that
+// spoil did not change gets the strict rules. So does an image that does not hold the
+// file of the unit: there the engine cannot see what that Sync made durable.
 func (p plan) spoil(image *fault.FS, c *counter, event int) (rules, error) {
-	newest := c.grown[c.last]
-	if p.profile != OldCorruption && p.profile != NewCorruption || newest.cut {
+	if p.profile != OldCorruption && p.profile != NewCorruption {
 		return strictRules, nil
 	}
-	paths := map[fault.ID]string{}
-	if err := files(image, "", paths); err != nil {
+	held := map[fault.ID]span{}
+	if err := files(image, "", held); err != nil {
 		return rules{}, err
 	}
-	last, ok := paths[c.last]
+	last, ok := held[c.last]
 	if !ok {
 		return strictRules, nil
 	}
@@ -92,42 +91,50 @@ func (p plan) spoil(image *fault.FS, c *counter, event int) (rules, error) {
 			refusalAllowed:    true,
 			unreadableAllowed: true,
 		}
-		changed bool
-		err     error
+		spans []span
 	)
 	if p.profile == NewCorruption {
-		// One block that holds newest bytes is zeros, as a block that the disk never
-		// wrote is. The engine can lose each commit from the first Sync into the first
-		// of these blocks.
-		first, end := newest.before/blockSize, (newest.size-1)/blockSize+1
-		block := first + rng.Int64N(end-first)
+		// One block of the unit is zeros, as a block that the disk never wrote is. The
+		// engine can lose each commit from the first Sync that changed the first block
+		// of the unit.
+		s := c.unit[rng.IntN(len(c.unit))]
+		block := s.From/blockSize + rng.Int64N((s.To-1)/blockSize-s.From/blockSize+1)
 		stale := span{
-			path: last,
+			path: last.path,
 			from: block * blockSize,
-			to:   min((block+1)*blockSize, newest.size),
+			to:   min((block+1)*blockSize, last.to),
 		}
-		r.exemptFrom = newest.event
-		changed, err = true, change(image, stale, func(b []byte) { clear(b) })
-	} else {
-		var spans []span
-		for _, file := range slices.Sorted(maps.Keys(paths)) {
-			s := span{path: paths[file], to: c.grown[file].size}
-			if file == c.last {
-				s.to = newest.before
-			}
-			spans = append(spans, s)
+		if stale.to <= stale.from {
+			return strictRules, nil
 		}
-		changed, err = flip(image, rng, spans)
+		r.exemptFrom = c.lossFrom
+		return r, change(image, stale, func(b []byte) { clear(b) })
 	}
+	for _, file := range slices.Sorted(maps.Keys(held)) {
+		s := held[file]
+		if file != c.last {
+			spans = append(spans, s)
+			continue
+		}
+		for _, u := range c.unit {
+			spans = append(
+				spans,
+				span{path: s.path, from: s.from, to: min(u.From, s.to)},
+			)
+			s.from = min(u.To, s.to)
+		}
+		spans = append(spans, s)
+	}
+	changed, err := flip(image, rng, spans)
 	if !changed {
 		r = strictRules
 	}
 	return r, err
 }
 
-// files puts the path of each file under dir in image into paths, by the ID of the
-// file.
-func files(image *fault.FS, dir string, paths map[fault.ID]string) error {
+// files puts each file under dir in image into held, by the ID of the file: its path
+// and its bytes.
+func files(image *fault.FS, dir string, held map[fault.ID]span) error {
 	infos, err := image.List(dir)
 	if err != nil {
 		return err
@@ -135,16 +142,16 @@ func files(image *fault.FS, dir string, paths map[fault.ID]string) error {
 	for _, info := range infos {
 		p := path.Join(dir, info.Name())
 		if info.IsDir() {
-			if err = files(image, p, paths); err != nil {
+			if err = files(image, p, held); err != nil {
 				return err
 			}
 			continue
 		}
-		id, err := fileID(info)
+		stat, err := statOf(info)
 		if err != nil {
 			return err
 		}
-		paths[id] = p
+		held[stat.ID] = span{path: p, to: info.Size()}
 	}
 	return nil
 }

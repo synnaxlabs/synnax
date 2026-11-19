@@ -66,7 +66,7 @@ func Run(ctx context.Context, cfg Config) error {
 	}
 	r.disk = disk
 	r.counter = &counter{
-		grown:  map[fault.ID]growth{},
+		files:  map[fault.ID]*syncs{},
 		before: r.beforeEvent,
 		after:  r.afterEvent,
 	}

@@ -67,15 +67,15 @@ const (
 	// OneTimeReadFaults gives the engine that recovers read faults that a second read
 	// does not repeat. The engine must not refuse.
 	OneTimeReadFaults
-	// OldCorruption flips, for good, a bit that was durable before the newest Sync that
-	// made a file longer. The engine can refuse with its corruption error, or return
+	// OldCorruption flips, for good, a bit of a durable byte in any file. The byte is
+	// not in the unit: the bytes that the newest Sync with a changed block made durable
+	// from writes. The engine can refuse with its corruption error, or return
 	// unreadable records. It must not lose a Durable ack.
 	OldCorruption
-	// NewCorruption makes one 4 KiB block zeros for good, as a block that the disk
-	// never wrote is. The block holds bytes that the newest Sync added to the file that
-	// it made longer, and no later Sync confirms them. The engine can lose each commit
-	// whose Durable ack came after the first Sync into the first block of those bytes.
-	// It can also refuse with its corruption error.
+	// NewCorruption makes one 4 KiB block of the unit zeros for good, as a block that
+	// the disk never wrote is. No later Sync confirms the unit. The engine can lose
+	// each commit whose Durable ack came after the first Sync that changed the first
+	// block of the unit. It can also refuse with its corruption error.
 	NewCorruption
 	// Mixed joins the faults of Partial, SyncErrors, FullDisk, and OneTimeReadFaults.
 	Mixed
