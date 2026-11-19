@@ -112,6 +112,7 @@ jobs:
       alamos_ts: ${{ steps.filter.outputs.alamos_ts }}
       arc_cpp: ${{ steps.filter.outputs.arc_cpp }}
       arc_go: ${{ steps.filter.outputs.arc_go }}
+      arc_ts: ${{ steps.filter.outputs.arc_ts }}
       buildifier: ${{ steps.filter.outputs.buildifier }}
       cesium: ${{ steps.filter.outputs.cesium }}
       base: ${{ steps.base.outputs.sha }}
@@ -328,6 +329,23 @@ jobs:
       windows: *full
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  arc-ts:
+    needs: changes
+    if:
+      inputs.full || needs.changes.outputs.arc_ts == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'arc-ts')
+    uses: ./.github/workflows/test.ts.yaml
+    with:
+      coverage_flag: arc-ts
+      directory: arc/ts
+      macos: *full
+      package: arc
+      windows: *full
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   buildifier:
     needs: changes
@@ -1442,6 +1460,7 @@ jobs:
       - alamos-ts
       - arc-cpp
       - arc-go
+      - arc-ts
       - buildifier
       - cesium
       - changes
