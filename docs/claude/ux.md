@@ -347,8 +347,10 @@ bound, a log precision, or the line plot X channel.
 - One 1.5rem inset holds the tab boxes, the search icon, the titles, and the swatches.
   Swatches are 21 px with 1rem gaps across and down. Eight across set the width: 38rem.
 - Library has the select dialog's search under the tab bar's hairline, with a hairline
-  under it. Each palette sits under its title, which ends with the name of the hovered
-  color, else the linked one. Swatches have no tooltips.
+  under it. Each palette sits under its title, which ends with the name of the color an
+  open swatch menu acts on, else the hovered or focused color, else the linked one. A
+  hovered name stays until the pointer or the focus leaves the palette. Swatches have no
+  tooltips.
 - A swatch shows the color's value for the current theme only.
 - An edit in Custom stores a fixed color and unlinks the value. There is no unlink
   button.

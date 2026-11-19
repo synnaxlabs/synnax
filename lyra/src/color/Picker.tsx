@@ -64,9 +64,10 @@ export interface PickerContextValue {
    * Shows the view in place of the tabs, under a back button and the title. Back
    * returns to the tabs as they were, with the focus on the element that opened the
    * view. The view renders outside every palette, so it cannot call `usePalette`: give
-   * it what it needs, such as a key.
+   * it what it needs, such as a key. A click passes its target as the opener, since a
+   * click in WebKit focuses no button.
    */
-  openView: (title: string, view: ReactNode) => void;
+  openView: (title: string, view: ReactNode, opener?: HTMLElement) => void;
 }
 
 const [PickerContext, usePickerContext] = context.create<PickerContextValue>({
@@ -180,9 +181,15 @@ const Tabbed = ({
   const autoSelected = value == null && linked == null;
   const ctx: PickerContextValue = {
     value: color.construct(value ?? fallback ?? color.TRANSPARENT),
-    openView: (title, content) => {
-      opener.current =
-        document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    openView: (title, content, clicked) => {
+      const active = document.activeElement;
+      const focused =
+        active instanceof HTMLElement &&
+        active !== document.body &&
+        active !== root.current
+          ? active
+          : null;
+      opener.current = focused ?? clicked ?? null;
       setView({ title, content });
     },
   };

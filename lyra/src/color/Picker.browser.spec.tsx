@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactNode } from "react";
+import { type ReactElement, type ReactNode } from "react";
 import { assert, describe, expect, it } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
@@ -58,6 +58,17 @@ const swatchRect = (i: number): DOMRect =>
     .element()
     .getBoundingClientRect();
 
+const ViewOpener = (): ReactElement => {
+  const { openView } = Color.usePicker();
+  return (
+    <Button.Button
+      onClick={(e) => openView("Edit color", <span>view body</span>, e.currentTarget)}
+    >
+      open
+    </Button.Button>
+  );
+};
+
 describe("Picker", () => {
   describe("library", () => {
     it("should draw square swatches", async () => {
@@ -77,6 +88,14 @@ describe("Picker", () => {
       const s = swatchRect(0);
       expect(add.getBoundingClientRect().width).toBeCloseTo(s.width, 0);
       expect(add.getBoundingClientRect().height).toBeCloseTo(s.height, 0);
+    });
+
+    it("should focus a clicked slot button after Back", async () => {
+      await renderLibrary(undefined, <ViewOpener />);
+      const open = page.getByRole("button", { name: "open" });
+      await userEvent.click(open);
+      await userEvent.click(page.getByRole("button", { name: "Back" }));
+      expect(document.activeElement).toBe(open.element());
     });
 
     it("should draw no focus ring around the picker", async () => {
