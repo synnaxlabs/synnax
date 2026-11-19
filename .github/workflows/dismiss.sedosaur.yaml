@@ -143,8 +143,8 @@ jobs:
 
       - name: Install Claude Code
         run: |
-          npm install --no-save --prefix "$RUNNER_TEMP/claude" \
-            @anthropic-ai/claude-code@latest
+          cp -R .github/agents/cli "$RUNNER_TEMP/claude"
+          npm ci --prefix "$RUNNER_TEMP/claude"
           echo "$RUNNER_TEMP/claude/node_modules/.bin" >> "$GITHUB_PATH"
 
       # The fleet controller started the runner on a shared Claude login, which only
