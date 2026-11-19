@@ -12,10 +12,12 @@
 #include <chrono>
 #include <cstdint>
 #include <functional>
+#include <map>
 #include <optional>
 #include <set>
 #include <span>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -31,6 +33,10 @@
 #include "driver/ethercat/slave/slave.h"
 
 namespace driver::ethercat::igh {
+/// @brief the most startup parameters that Master::write adds to one slave on a running
+/// bus. IgH writes each again at every restart of the slave.
+constexpr size_t RUNNING_ADDITION_LIMIT = 64;
+
 /// @brief how the IgH master waits for its slaves.
 struct Config {
     /// @brief how long a slave that was below PRE-OP at the scan gets to reach PRE-OP
@@ -85,6 +91,13 @@ class Master final : public master::Master {
     std::set<uint16_t> dictionaries;
     /// @brief the configuration of each enabled slave, in position order.
     std::vector<std::pair<uint16_t, ec_slave_config_t *>> slave_configs;
+    /// @brief the last value that IgH writes to each object when its slave restarts,
+    /// by position, index, and sub-index.
+    std::map<std::tuple<uint16_t, uint16_t, uint8_t>, std::vector<uint8_t>>
+        startup_values;
+    /// @brief how many startup parameters write() added to each slave on the running
+    /// bus, by position.
+    std::map<uint16_t, size_t> running_additions;
     /// @brief whether the master has been initialized.
     bool initialized;
     /// @brief whether the master has been activated.
@@ -183,13 +196,13 @@ public:
     /// every slave in OP.
     void recover(const x::breaker::Breaker &breaker) override;
 
-    /// @brief does what master::Master::write does, but on a running bus writes
-    /// nothing, since IgH takes startup parameters only before activation. It does not
-    /// write those parameters again when the slave restarts, so a slave that loses
-    /// power goes back to the values it stores.
-    /// @returns errors::SETTING_CONFLICT when the bus runs and the slave holds another
-    /// value for a parameter. errors::STARTUP_PARAMETER_ERROR when the slave rejects or
-    /// fails to read one.
+    /// @brief does what master::Master::write does. On a running bus, it writes only
+    /// the parameters that the slave does not hold, and adds each parameter to the
+    /// startup parameters of the slave unless IgH already ends them with its value.
+    /// @returns errors::SETTING_CONFLICT when the slave has no configuration, already
+    /// has RUNNING_ADDITION_LIMIT parameters added on the running bus, or IgH refuses
+    /// to add one. After a refusal, the slave holds its old value again.
+    /// errors::STARTUP_PARAMETER_ERROR when the slave rejects or fails to read one.
     x::errors::Error write(
         uint16_t position,
         const std::vector<slave::StartupParameter> &parameters
@@ -275,11 +288,15 @@ private:
     /// counter in the latest receive().
     [[nodiscard]] bool silent(uint16_t position) const;
 
-    /// @brief writes a parameter to the slave at position with a direct SDO download.
+    /// @brief writes data to the object of param on the slave with a direct SDO
+    /// download.
     /// @returns errors::STARTUP_PARAMETER_ERROR with the abort reason when the slave
     /// rejects it.
-    x::errors::Error
-    download(const slave::Properties &slave, const slave::StartupParameter &param);
+    x::errors::Error download(
+        const slave::Properties &slave,
+        const slave::StartupParameter &param,
+        std::span<const uint8_t> data
+    );
 
     /// @brief writes a slave's startup parameters and adds them to its config, so the
     /// master writes them again at each move to SAFE-OP.

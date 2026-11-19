@@ -749,9 +749,11 @@ std::pair<master::Change, x::errors::Error> Master::changed() {
     return {{}, x::errors::NIL};
 }
 
-x::errors::Error
-Master::download(const slave::Properties &slave, const slave::StartupParameter &param) {
-    const auto data = param.bytes();
+x::errors::Error Master::download(
+    const slave::Properties &slave,
+    const slave::StartupParameter &param,
+    const std::span<const uint8_t> data
+) {
     uint32_t abort_code = 0;
     const int ret = this->api->master_sdo_download(
         this->ec_master,
@@ -785,9 +787,22 @@ x::errors::Error Master::write(
     const auto &slave = this->cached_slaves[position - 1].properties;
     if (!this->activated) {
         for (const auto &param: parameters)
-            if (auto err = this->download(slave, param)) return err;
+            if (auto err = this->download(slave, param, param.bytes())) return err;
         return x::errors::NIL;
     }
+    const auto config = std::ranges::find(
+        this->slave_configs,
+        position,
+        &std::pair<uint16_t, ec_slave_config_t *>::first
+    );
+    const auto conflict = [&](const slave::StartupParameter &param) {
+        return x::errors::Error(
+            errors::SETTING_CONFLICT,
+            "the IgH master cannot change " + param.to_string() + " of module " +
+                std::to_string(position) + " (" + slave.name +
+                ") while other tasks run the bus. Stop them, then start this task first"
+        );
+    };
     for (const auto &param: parameters) {
         const auto want = param.bytes();
         std::vector<uint8_t> held(want.size());
@@ -810,14 +825,33 @@ x::errors::Error Master::write(
                     ") failed to read startup parameter " + param.to_string() + ": " +
                     sdo_failure(ret, abort_code).reason()
             );
-        if (size != want.size() || held != want)
-            return x::errors::Error(
-                errors::SETTING_CONFLICT,
-                "the IgH master cannot change " + param.to_string() + " of module " +
-                    std::to_string(position) + " (" + slave.name +
-                    ") while other tasks run the bus. Stop them, then start this "
-                    "task first"
-            );
+        held.resize(size);
+        const bool holds = held == want;
+        if (config == this->slave_configs.end()) {
+            if (!holds) return conflict(param);
+            continue;
+        }
+        auto &kept = this->startup_values[{position, param.index, param.sub_index}];
+        auto &added = this->running_additions[position];
+        if (kept != want && added >= RUNNING_ADDITION_LIMIT) return conflict(param);
+        if (!holds)
+            if (auto err = this->download(slave, param, want)) return err;
+        if (kept == want) continue;
+        // IgH documents config SDOs for use before activation, but IgH 1.6 takes one on
+        // a running bus under the master lock and writes it when the slave restarts.
+        if (this->api->slave_config_sdo(
+                config->second,
+                param.index,
+                param.sub_index,
+                want.data(),
+                want.size()
+            ) < 0) {
+            if (!holds)
+                if (auto err = this->download(slave, param, held)) return err;
+            return conflict(param);
+        }
+        kept = want;
+        added++;
     }
     return x::errors::NIL;
 }
@@ -839,7 +873,7 @@ x::errors::Error Master::add_startup_parameters(
         const auto data = param.bytes();
         // IgH reports a rejected config SDO only as a slave stuck in PRE-OP, so a
         // direct write first gets the abort code.
-        if (auto err = this->download(slave, param)) return err;
+        if (auto err = this->download(slave, param, data)) return err;
         if (this->api->slave_config_sdo(
                 sc,
                 param.index,
@@ -852,6 +886,7 @@ x::errors::Error Master::add_startup_parameters(
                 "failed to add startup parameter " + param.to_string() + " to module " +
                     std::to_string(slave.position) + " (" + slave.name + ")"
             );
+        this->startup_values[{slave.position, param.index, param.sub_index}] = data;
     }
     return x::errors::NIL;
 }
@@ -1134,6 +1169,8 @@ void Master::deactivate() {
     this->activated = false;
     this->initialized = false;
     this->slave_configs.clear();
+    this->startup_values.clear();
+    this->running_additions.clear();
     this->cached_slaves.clear();
     this->dictionaries.clear();
     this->domains.clear();
