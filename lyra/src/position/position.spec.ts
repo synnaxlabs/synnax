@@ -749,7 +749,7 @@ describe("position", () => {
       });
 
       it("should accept a bare vertical location as a disabled preference", () => {
-        const res = position.position({ ...PARAMS, disable: "top" });
+        const res = position.position({ ...PARAMS, prefer: "top", disable: "top" });
         expect(res.targetCorner.y).not.toEqual("top");
       });
 
