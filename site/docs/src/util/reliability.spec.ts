@@ -57,6 +57,10 @@ const DATA = {
     suite("eslint-config", "toolchain", "ts"),
     suite("stylelint-config", "toolchain", "ts"),
     suite("integration-driver", "driver", "py", { kind: "system", tags: ["e2e"] }),
+    {
+      ...suite("integration-driver", "driver", "py", { kind: "system", tags: ["e2e"] }),
+      os: "windows",
+    },
     suite("hitl", "driver", "py", { kind: "system", tags: ["e2e", "hardware"] }),
   ],
   tests: [
@@ -78,14 +82,18 @@ const DATA = {
       null,
       "configs/stylelint/rules/b.spec.ts#L1",
     ],
-    [4, "driver/ni › NIRead", "passed", null, 1, "integration/tests/driver/ni.py#L1"],
-    [5, "hitl/ni_cdaq › CDAQRead", "failed", "timeout", 1, "integration/a.py#L1"],
-    [5, "hitl/crio_ni › CRIORead", "passed", null, 1, "integration/b.py#L1"],
+    [4, "driver/ni › NIRead", "skipped", "DAQmx", null, "integration/ni.py#L1"],
+    [5, "driver/ni › NIRead", "passed", null, 1, "integration/ni.py#L1"],
+    [4, "driver/ni › NIWrite", "skipped", "DAQmx", null, "integration/ni.py#L2"],
+    [5, "driver/ni › NIWrite", "skipped", "DAQmx", null, "integration/ni.py#L2"],
+    [6, "hitl/ni_cdaq › CDAQRead", "failed", "timeout", 1, "integration/a.py#L1"],
+    [6, "hitl/crio_ni › CRIORead", "passed", null, 1, "integration/b.py#L1"],
   ],
 };
 
 vi.stubGlobal("fetch", async () => new Response(JSON.stringify(DATA)));
-const { hardware, hardwareTotals, products } = await import("@/util/reliability");
+const { hardware, hardwareTotals, products, ordered } =
+  await import("@/util/reliability");
 
 const subsystems = (key: string) => products.find((p) => p.key === key)?.subsystems;
 
@@ -102,9 +110,15 @@ describe("reliability", () => {
 
   it("should count hardware tests apart from other end-to-end tests", () => {
     expect(subsystems("driver")).toEqual({
-      e2e: { name: "End-to-end", count: 1 },
+      e2e: { name: "End-to-end", count: 2 },
       hardware: { name: "Real hardware", count: 2 },
     });
+  });
+
+  it("should show a test that passed on one OS and skipped on another as passed", () => {
+    const state = (name: string) => ordered.find((t) => t.name === name)?.state;
+    expect(state("driver/ni › NIRead")).toEqual("passed");
+    expect(state("driver/ni › NIWrite")).toEqual("skipped");
   });
 
   it("should count the states of the hardware tests", () => {

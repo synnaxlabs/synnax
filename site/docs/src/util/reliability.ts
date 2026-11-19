@@ -11,7 +11,10 @@ import { compare } from "@synnaxlabs/x";
 
 export type State = "passed" | "flaky" | "failed" | "skipped" | "unknown";
 
-/** Worst first. A test takes the worst state of its runs. */
+/**
+ * Worst first. A test takes the worst state of the runs that ran, so a skip on one
+ * operating system does not hide a result from another.
+ */
 export const RANK: Record<State, number> = {
   failed: 0,
   flaky: 1,
@@ -54,7 +57,7 @@ export interface Test {
   job: string;
   kind: Suite["kind"];
   name: string;
-  /** The worst state of its runs. */
+  /** The worst state of the runs that ran, or skipped when none ran. */
   state: State;
   path: string;
   source: string;
@@ -256,15 +259,16 @@ const group = (runs: Run[]): Test[] => {
         passedByHand: false,
         runs: [r],
       });
-    else {
-      t.runs.push(r);
-      if (RANK[r.state] < RANK[t.state]) t.state = r.state;
-    }
+    else t.runs.push(r);
   }
-  for (const t of tests.values())
-    t.passedByHand =
-      t.state === "skipped" &&
-      t.runs.every((r) => r.state !== "skipped" || r.passedByHand);
+  for (const t of tests.values()) {
+    const ran = t.runs.filter((r) => r.state !== "skipped");
+    t.state = (ran.length > 0 ? ran : t.runs).reduce<State>(
+      (worst, r) => (RANK[r.state] < RANK[worst] ? r.state : worst),
+      "passed",
+    );
+    t.passedByHand = t.state === "skipped" && t.runs.every((r) => r.passedByHand);
+  }
   return [...tests.values()];
 };
 
