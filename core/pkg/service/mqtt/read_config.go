@@ -29,34 +29,6 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// readChannels returns the icdv0.Channels that reads channels from svc.
-func readChannels(svc *channel.Service) icdv0.Channels {
-	return func(
-		ctx context.Context,
-		snap gorp.Snapshot,
-		keys []channel.Key,
-	) (map[channel.Key]icdv0.Channel, error) {
-		var found []channel.Channel
-		if err := svc.NewRetrieve().
-			Where(channel.MatchKeys(keys...)).
-			SkipMissingKeys().
-			Entries(&found).
-			Exec(ctx, snap); err != nil {
-			return nil, err
-		}
-		return lo.SliceToMap(
-			found,
-			func(c channel.Channel) (channel.Key, icdv0.Channel) {
-				return c.Key(), icdv0.Channel{
-					Name:     c.Name,
-					DataType: c.DataType,
-					Index:    c.IsIndex,
-				}
-			},
-		), nil
-	}
-}
-
 // createICD returns the v2.CreateICD that creates an ICD with svc.
 func createICD(svc *icd.Service) v2.CreateICD {
 	return func(ctx context.Context, tx gorp.Tx, ic icd.ICD) error {
