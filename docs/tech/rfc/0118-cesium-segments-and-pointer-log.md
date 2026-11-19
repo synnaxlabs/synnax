@@ -579,10 +579,13 @@ clock write of 100 channels then syncs 1 file, not 101, and a read of one member
 
 ## 6 Failure policy
 
-A second read comes before every verdict of lasting corruption. After a sync error on
-the log or a `SyncDir` error (fault 7), every Cesium call returns `ErrFatal`, and the
-Core shuts down through `DB.Run` (`cesium/db.go:193`), `storage.Layer.Run`
-(`core/pkg/storage/layer.go:303-308`), and the lifetime stack. Cesium does not panic.
+A second read comes before every verdict of lasting corruption, and the verdict needs
+two failed reads of the same bytes: failures of two different byte ranges, such as a
+frame header and then its body, are two one-time faults, and each range gets its own
+second read. After a sync error on the log or a `SyncDir` error (fault 7), every Cesium
+call returns `ErrFatal`, and the Core shuts down through `DB.Run` (`cesium/db.go:193`),
+`storage.Layer.Run` (`core/pkg/storage/layer.go:303-308`), and the lifetime stack.
+Cesium does not panic.
 
 | Fault                                                                                         | What the engine sees                                                                             | What it does                                                                                                                                                                   |
 | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
