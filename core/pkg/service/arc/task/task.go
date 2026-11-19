@@ -468,18 +468,14 @@ func (t *impl) newTicker(drt dataRuntime) (*tickerRuntime, error) {
 	return &tickerRuntime{
 		dataRuntime: drt,
 		spin:        spin,
-		overrun: func(ctx context.Context) {
+		overrun: func(ctx context.Context, err error) {
 			t.setStatus(
 				ctx,
 				driver.NoCommand,
 				status.VariantError,
 				false,
 				"Program ran too long",
-				fmt.Sprintf(
-					"The program ran more than %d loop iterations and function calls "+
-						"in one cycle.",
-					t.factoryCfg.LoopBudget,
-				),
+				err.Error(),
 			)
 		},
 	}, nil
@@ -817,7 +813,7 @@ type tickerRuntime struct {
 	// spin is how long the timer spins before each deadline.
 	spin stdtime.Duration
 	// overrun reports a cycle that used its whole loop budget.
-	overrun func(context.Context)
+	overrun func(context.Context, error)
 }
 
 func (r *tickerRuntime) Flow(sCtx signal.Context, opts ...confluence.Option) {
@@ -866,7 +862,7 @@ func (r *tickerRuntime) run(ctx context.Context, t *timer.Timer) error {
 		}
 		if err := r.next(ctx, res, runReason); err != nil {
 			if errors.Is(err, runtime.ErrLoopBudget) {
-				r.overrun(ctx)
+				r.overrun(ctx, err)
 			}
 			return err
 		}
