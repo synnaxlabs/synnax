@@ -131,8 +131,8 @@ if ("still" in props) {
         throw new Error(`the ${props.still} hero cannot be both layered and inset`);
 }
 // The window is at most 960 of the hero's 792 units wide, and the toolbar still is 1280.
-const WINDOW_SIZES = "(max-width: 1100px) 122vw, 1340px";
-const TOOLBAR_SIZES = "(max-width: 1100px) 162vw, 1780px";
+const WINDOW_SIZES = "min(122vw, 960px)";
+const TOOLBAR_SIZES = "min(162vw, 1300px)";
 const style = [
     `--from: ${from}`,
     `--to: ${to}`,
