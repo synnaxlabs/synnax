@@ -149,7 +149,7 @@ describe("auth/Login", () => {
   });
 
   it("should drop the methods the client does not know", async () => {
-    const port = await serveMethods(["api_key", "oidc"]);
+    const port = await serveMethods(["api_key", "carrier_pigeon"]);
     const client = auth.createTokenlessClient({ host: "127.0.0.1", port });
     expect(await auth.retrieveMethods(client)).toEqual(["api_key"]);
   });
