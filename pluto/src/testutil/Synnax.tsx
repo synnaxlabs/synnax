@@ -17,7 +17,7 @@ import { Aether } from "@/aether";
 import { type aether } from "@/aether/aether";
 import { Alamos } from "@/alamos";
 import { alamos } from "@/alamos/aether";
-import { series } from "@/color/aether";
+import { color as aetherColor } from "@/color/aether";
 import { Status } from "@/status";
 import { status } from "@/status/aether";
 import { Synnax } from "@/synnax";
@@ -67,8 +67,8 @@ const SERIES_COLORS = ["#dc136c", "#20a4f3", "#52ffb8"].map((c) => color.constru
 // Fixed series colors, so a spec never depends on the colors stored in the Core.
 const SeriesSeed = ({ children }: PropsWithChildren): ReactElement => {
   const { path } = Aether.useLifecycle({
-    type: series.Provider.TYPE,
-    schema: series.Provider.z,
+    type: aetherColor.series.Provider.TYPE,
+    schema: aetherColor.series.Provider.z,
     initialState: { colors: SERIES_COLORS },
   });
   return <Aether.Composite path={path}>{children}</Aether.Composite>;
@@ -108,7 +108,7 @@ export const createSynnaxWrapper = ({
     ...status.REGISTRY,
     ...alamos.REGISTRY,
     ...theming.REGISTRY,
-    ...series.REGISTRY,
+    ...aetherColor.series.REGISTRY,
     ...staleness.REGISTRY,
     ...(renderContext != null
       ? { [canvasTest.RenderProvider.TYPE]: canvasTest.RenderProvider }

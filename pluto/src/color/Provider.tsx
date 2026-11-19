@@ -11,7 +11,7 @@ import { Color as Base } from "@synnaxlabs/lyra/color";
 import { type ReactElement } from "react";
 
 import { Aether } from "@/aether";
-import { series } from "@/color/aether";
+import { color } from "@/color/aether";
 import { useSeriesValues } from "@/color/library";
 
 export interface ProviderProps extends Omit<Base.ProviderProps, "presets"> {}
@@ -24,8 +24,8 @@ export interface ProviderProps extends Omit<Base.ProviderProps, "presets"> {}
 export const Provider = ({ children, ...rest }: ProviderProps): ReactElement => {
   const colors = useSeriesValues();
   const { path } = Aether.useUnidirectional({
-    type: series.Provider.TYPE,
-    schema: series.Provider.z,
+    type: color.series.Provider.TYPE,
+    schema: color.series.Provider.z,
     state: { colors },
   });
   return (

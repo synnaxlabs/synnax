@@ -11,7 +11,7 @@ import { Instrumentation, Logger, logThresholdFilter } from "@synnaxlabs/alamos"
 
 import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
-import { series } from "@/color/aether";
+import { color } from "@/color/aether";
 import { lineplot } from "@/lineplot/aether";
 import { range } from "@/lineplot/range/aether";
 import { log } from "@/log/aether";
@@ -54,7 +54,7 @@ export const render = (): void => {
     ...lineplot.REGISTRY,
     ...range.REGISTRY,
     ...scale.REGISTRY,
-    ...series.REGISTRY,
+    ...color.series.REGISTRY,
     ...setpoint.REGISTRY,
     ...staleness.REGISTRY,
     ...stateIndicator.REGISTRY,
