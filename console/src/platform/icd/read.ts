@@ -60,8 +60,26 @@ export const variableAmongFixed = (fields: icd.JSONField[]): icd.JSONField[] =>
 export const mixMessage = (fields: icd.JSONField[]): string =>
   `${fields.map(({ name }) => name).join(", ")}: a string, JSON, or bytes field cannot share a message with number, boolean, or timestamp fields.`;
 
+/**
+ * What a read tree shows of a field. It holds only JSON values, so a tree can compare
+ * its structure as a string, and an edit to the rest of the field keeps the structure.
+ */
+export type TreeField = Pick<icd.JSONField, "key" | "name" | "type" | "pointer">;
+
+export const treeFieldOf = ({
+  key,
+  name,
+  type,
+  pointer,
+}: icd.JSONField): TreeField => ({
+  key,
+  name,
+  type,
+  pointer,
+});
+
 /** @returns whether the Core can read the field: a bytes field needs a pointer. */
-export const isReadable = ({ type, pointer }: icd.JSONField): boolean =>
+export const isReadable = ({ type, pointer }: TreeField): boolean =>
   type !== "bytes" || pointer !== "";
 
 export const isIndexable = (field?: icd.JSONField): boolean =>

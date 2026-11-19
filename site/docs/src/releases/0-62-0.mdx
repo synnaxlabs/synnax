@@ -181,12 +181,10 @@ See [Connect to a Core](/reference/client/connect).
 
 #### ICDs for MQTT
 
-An interface control document (ICD) describes the messages that a device sends: their
-topics, fields, and types. Create one in the **ICDs** toolbar, or import a DBC, CSV, or
-XLSX file with **Import ICD**. MQTT read tasks read their messages from an ICD, and the
-read form shows one tree of topics, messages, and fields. Set the enum values and the
-default of a field in the ICD editor or in the read form. The update makes one ICD for
-each MQTT read task, so your tasks keep running.
+MQTT read tasks now keep their messages in an interface control document (ICD): the
+topics that a device sends, and the fields and types of each message. Set the enum
+values and the default of a field in the read form. The update makes one ICD for each
+MQTT read task, so your tasks keep running.
 
 #### Stop a task while it starts
 
