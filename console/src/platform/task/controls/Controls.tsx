@@ -12,7 +12,7 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { type Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { deep } from "@synnaxlabs/x";
+import { deep, type TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Framer } from "@/platform/framer";
@@ -80,9 +80,18 @@ const Settings = () => {
   );
 };
 
+/** A deploy that failed before the task took its start command. */
+export interface DeployFailure {
+  status: status.Status;
+  /** The time of the task status when the deploy failed. Absent for no status. */
+  statusTime?: TimeStamp;
+}
+
 export interface ControlsProps extends Flex.BoxProps {
   /** Whether a deploy runs and has not sent its start command yet. */
   configuring?: boolean;
+  /** Shown in place of the task status until the Core sends a new task status. */
+  failure?: DeployFailure;
   /** Runs the deploy pipeline: configure, save the row, issue start. */
   onDeploy: () => void;
   /** Issues a stop command to the live instance. */
@@ -92,6 +101,7 @@ export interface ControlsProps extends Flex.BoxProps {
 /** Task controls bar wired to the surrounding task Form context. */
 export const Controls = ({
   configuring = false,
+  failure,
   onDeploy,
   onStop,
   ...props
@@ -111,14 +121,19 @@ export const Controls = ({
     onStop();
   };
 
+  let shownStatus: status.Status | undefined = taskStatus;
   // The start command goes out only after the config saves, which can take seconds.
-  const shownStatus = configuring
-    ? status.create({
-        name: taskStatus?.name ?? "",
-        variant: "loading",
-        message: "Configuring task",
-      })
-    : taskStatus;
+  if (configuring)
+    shownStatus = status.create({
+      name: taskStatus?.name ?? "",
+      variant: "loading",
+      message: "Configuring task",
+    });
+  else if (
+    failure != null &&
+    failure.statusTime?.valueOf() === taskStatus?.time.valueOf()
+  )
+    shownStatus = failure.status;
   let startStopVariant = status.keepVariants(taskStatus?.variant, "loading");
   // On a running task, a loading variant disables Redeploy and keeps Stop enabled.
   if (configuring) startStopVariant = running ? "loading" : undefined;

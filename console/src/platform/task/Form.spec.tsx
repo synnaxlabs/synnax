@@ -919,4 +919,86 @@ describe("wrapForm", () => {
       }
     });
   });
+
+  describe("deploy failure", () => {
+    const failing = createRenderer({
+      onConfigure: async () => {
+        throw new Error("The device has no port 7");
+      },
+    });
+
+    it("should show a failed start in the footer until the task status changes", async () => {
+      const client = createTestClient();
+      const draft = await client.tasks.create({ ...INITIAL_VALUES, rack: 0 });
+      const { container } = await renderTaskFormTab(failing, {
+        client,
+        taskKey: draft.key,
+      });
+      await clickDeploy(container);
+      await screen.findByText("Failed to start task");
+      await reportTaskRunning(client, draft);
+      await screen.findByText("Running smoothly");
+      expect(screen.queryByText("Failed to start task")).toBeNull();
+    });
+
+    it("should say that a failed redeploy leaves the last deployed config running", async () => {
+      const client = createTestClient();
+      const draft = await client.tasks.create({ ...INITIAL_VALUES, rack: 0 });
+      const statuses: Status.NotificationSpec[] = [];
+      await renderTaskFormTab(failing, {
+        client,
+        taskKey: draft.key,
+        onStatuses: (next) => {
+          statuses.length = 0;
+          statuses.push(...next);
+        },
+      });
+      await reportTaskRunning(client, draft, "stale");
+      const redeploy = await screen.findByRole("button", { name: "Redeploy" });
+      await act(async () => fireEvent.click(redeploy));
+      await screen.findByText("Failed to deploy changes");
+      expect(statuses).toContainEqual(
+        expect.objectContaining({
+          name: "New Test Task",
+          message: "Failed to deploy changes",
+          description:
+            "The task still runs its last deployed config. The device has no port 7",
+        }),
+      );
+    });
+
+    it("should clear a failed deploy from the footer on the next deploy", async () => {
+      const DeviceField: FC = () => <PForm.Field path={path.config.device} />;
+      DeviceField.displayName = "DeviceField";
+      const client = createTestClient();
+      const draft = await client.tasks.create({ ...INITIAL_VALUES, rack: 0 });
+      let offline = false;
+      const Renderer = createRenderer({
+        Form: DeviceField,
+        deployConfigZ: schemas.config.check(({ value, issues }) => {
+          if (!offline) return;
+          issues.push({
+            code: "custom",
+            message: "Device is offline",
+            path: ["device"],
+            input: value,
+          });
+        }),
+        onConfigure: async () => {
+          throw new Error("The device has no port 7");
+        },
+      });
+      const { container } = await renderTaskFormTab(Renderer, {
+        client,
+        taskKey: draft.key,
+      });
+      await clickDeploy(container);
+      await screen.findByText("Failed to start task");
+      offline = true;
+      await clickDeploy(container);
+      await screen.findByText("Device is offline");
+      await act(async () => {});
+      expect(screen.queryByText("Failed to start task")).toBeNull();
+    });
+  });
 });
