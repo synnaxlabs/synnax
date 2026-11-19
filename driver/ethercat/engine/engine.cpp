@@ -751,6 +751,7 @@ x::errors::Error Engine::start_locked(
     };
     master::Plan plan{
         .period = x::telem::Rate(static_cast<double>(mhz) / 1000).period(),
+        .cancel = &start.cancel,
     };
     this->left_out.clear();
     // The activation brings a restarted slave up, so changed() misses it afterwards.
@@ -806,7 +807,9 @@ x::errors::Error Engine::start_locked(
                     .limit = ACTIVATE_STEP_LIMIT,
                 }
             );
+            this->activating.store(true, std::memory_order_release);
             auto activation = this->master->activate(plan, start_cycle);
+            this->activating.store(false, std::memory_order_release);
             err = activation.err;
             if (!err) break;
             refused = std::move(activation.refusals);
@@ -862,6 +865,8 @@ x::errors::Error Engine::start_locked(
                 this->stop_locked();
             else
                 this->master->deactivate();
+            if (!start.cancel.running())
+                return start_canceled_error(this->network_name);
             if (!refused.empty() && io_left) {
                 for (const auto &[pos, refusal]: leaving)
                     LOG(WARNING)
@@ -1449,6 +1454,7 @@ std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Engine::redisco
 
 x::errors::Error
 Engine::lock_for(std::unique_lock<std::mutex> &lock, const Start &start) const {
+    auto polled = this->config.host_clock.steady();
     // A wait of one poll is a short hold, such as a notify of the cycle thread.
     for (int polls = 0; !lock.try_lock(); polls++) {
         if (polls == 1)
@@ -1462,8 +1468,11 @@ Engine::lock_for(std::unique_lock<std::mutex> &lock, const Start &start) const {
             );
         start.blocked = true;
         if (!start.cancel.running()) return start_canceled_error(this->network_name);
-        if (this->config.host_clock.steady() >= start.deadline)
-            return start_blocked_error(this->network_name);
+        const auto now = this->config.host_clock.steady();
+        if (this->activating.load(std::memory_order_acquire))
+            start.deadline += now - polled;
+        polled = now;
+        if (now >= start.deadline) return start_blocked_error(this->network_name);
         start.cancel.wait_for(LOCK_POLL_INTERVAL);
     }
     return x::errors::NIL;

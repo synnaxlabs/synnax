@@ -13,6 +13,7 @@
     python3 -m review post <review.json>
     python3 -m review carry
     python3 -m review dismiss
+    python3 -m review restore
     python3 -m review judge <judgments.json>
     python3 -m review rule <judgments.json>
     python3 -m review compare <days>
@@ -33,6 +34,9 @@ COMMENT, a reply on the thread of one of the bot's findings, or a comment that d
 a finding outside the diff: an `@sedosaur dismiss` from someone with write access
 dismisses the finding, and scores the head 5/5 when no finding of its review is left.
 It also takes KEY, and prints `true` when a rebuttal on a thread waits for `judge`.
+`restore` takes KEY, and puts the summary that the bot wrote last back in the pull
+request body when an edit dropped or changed it. It writes the body with WRITE_TOKEN,
+asks Claude Code nothing, and fails when the head has no successful review.
 `judge` takes POLICY_DIR, HEAD_DIR, and CLAUDE_CODE_OAUTH_TOKEN as `run` does, judges
 each rebuttal with Claude Code, and writes the judgments. It fails after it writes them
 when one rebuttal could not be judged. `rule` posts them, and takes KEY. `compare`
@@ -59,10 +63,12 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from review import (
+    GH,
     Judgment,
     LoginRejected,
     PullRequest,
     Target,
+    Unrestorable,
     UsageLimit,
     authority,
     carry,
@@ -74,6 +80,7 @@ from review import (
     load,
     outside_findings,
     post,
+    restore,
     reviewed,
     rule,
     run,
@@ -304,12 +311,27 @@ def _claude(target: Target, command: str, path: Path) -> None:
         raise
 
 
+def _writer(token: str) -> GH:
+    def run(*args: str, stdin: str | None = None) -> str:
+        return subprocess.run(
+            ["gh", *args],
+            input=stdin,
+            stdout=subprocess.PIPE,
+            text=True,
+            check=True,
+            env=os.environ | {"GH_TOKEN": token},
+        ).stdout
+
+    return run
+
+
 def main(argv: list[str]) -> None:
     args = {
         "run": 2,
         "post": 2,
         "carry": 1,
         "dismiss": 1,
+        "restore": 1,
         "judge": 2,
         "rule": 2,
         "compare": 2,
@@ -338,6 +360,14 @@ def main(argv: list[str]) -> None:
     if argv[0] == "dismiss":
         waits = dismiss(target, gh, comment=int(env["COMMENT"]), key=env["KEY"])
         print(str(waits).lower())
+        return
+    if argv[0] == "restore":
+        writer = _writer(env["WRITE_TOKEN"])
+        try:
+            done = restore(target, gh, key=env["KEY"], writer=writer)
+        except Unrestorable as e:
+            sys.exit(f"::error::{e}")
+        print("Restored the summary." if done else "The body holds the summary.")
         return
     path = Path(argv[1])
     if argv[0] in ("judge", "run"):
