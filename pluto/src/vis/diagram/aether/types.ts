@@ -44,7 +44,7 @@ export type Node = z.infer<typeof nodeZ>;
 export const FIT_VIEW_OPTIONS: FitViewOptions = {
   maxZoom: 1,
   minZoom: 0.5,
-  padding: 0.05,
+  padding: "2.4%",
 };
 
 const EMPTY_DATA = {};
