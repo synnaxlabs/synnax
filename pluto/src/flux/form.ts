@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type query, type Synnax as Client } from "@synnaxlabs/client";
+import { query, type Synnax as Client } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import {
   useDebouncedCallback,
@@ -44,10 +44,12 @@ import {
 } from "@/flux/result";
 import {
   fulfilled,
+  invalidate,
   type LocalCache,
   localFor,
   promiseFor,
   type RetrieveParams,
+  subscribeReader,
   useMemoQuery,
   usePendingFetch,
 } from "@/flux/suspend";
@@ -320,6 +322,16 @@ export const createForm = <
   normalizeQuery,
 }: CreateFormParams<Query, Schema>): UseForm<Query, Schema> => {
   const locals = new WeakMap<Client, LocalCache<z.infer<Schema>>>();
+  // The last form to unmount drops the settled answer, so a later mount reads again.
+  const holdSettled = (client: Client, q: Query): (() => void) => {
+    const local = localFor(locals, client);
+    const hash = query.hash(q);
+    const release = subscribeReader(local, hash, () => {});
+    return () => {
+      release();
+      if (!local.listeners.has(hash)) invalidate(local, hash);
+    };
+  };
   const useForm = ({
     query,
     initialValues,
@@ -491,6 +503,12 @@ export const createForm = <
       [],
     );
     useEffect(() => () => debouncedSave.flush(), [debouncedSave]);
+
+    // Nothing keeps the settled answer current once no form shows it.
+    useEffect(() => {
+      if (client == null || memoQuery == null) return;
+      return holdSettled(client, memoQuery);
+    }, [client, memoQuery]);
 
     const abandon = () => {
       abandonedRef.current = true;

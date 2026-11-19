@@ -19,6 +19,7 @@ self-hosted-runner:
 
 config-variables:
   - AGENT_DEFAULT
+  - AGENT_REVIEWER
   - AGENT_LOGINS
   - AGENT_RUNNER_ROLE_ARN
   - BAZEL_REMOTE_CACHE_GRPC_URL

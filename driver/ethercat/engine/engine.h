@@ -63,7 +63,8 @@ struct Config {
     /// another task that starts the bus. The engine tries a failed start again only
     /// while one more try, as long as the longest failed try so far, ends inside it.
     /// Set it to the task operation timeout, so that a failed start returns its own
-    /// error.
+    /// error. A try runs past it while the slaves keep reaching OP, and a wait for such
+    /// a try does not count against it.
     x::telem::TimeSpan start_timeout = x::telem::MINUTE;
     /// @brief the clocks the bus cycle waits on and stamps frames with.
     x::loop::HostClock host_clock;
@@ -98,8 +99,9 @@ public:
 
     /// @brief the time limit, the cancel, and the steps of one task start.
     struct Start {
-        /// @brief the time at which the start fails.
-        std::chrono::steady_clock::time_point deadline;
+        /// @brief the time at which the start fails. The Engine moves it back by each
+        /// wait for another start that brings slaves to OP.
+        mutable std::chrono::steady_clock::time_point deadline;
         /// @brief ends the start when it stops.
         x::breaker::Breaker &cancel;
         /// @brief receives each step of the start, or nullptr. The engine calls it with
@@ -276,8 +278,12 @@ private:
     /// @brief true while the slaves move to OP, when the working counter is expected to
     /// fall short.
     std::atomic<bool> starting{false};
+    /// @brief true while a start holds mu in activate(), which ends once the slaves
+    /// stop reaching OP.
+    std::atomic<bool> activating{false};
     /// @brief the number of open_reader and open_writer calls in progress. One that
-    /// starts the bus holds mu for up to start_timeout.
+    /// starts the bus holds mu for up to start_timeout, or longer while the slaves keep
+    /// reaching OP.
     std::atomic<size_t> opens{0};
     /// @brief the bus rate in millihertz, or zero when the bus is not running.
     std::atomic<uint64_t> cycle_mhz{0};
@@ -591,17 +597,15 @@ public:
     /// @brief opens a reader that collects a sample of the entries every 1 /
     /// sample_rate seconds and returns samples_per_read samples per read. Starts the
     /// bus when it is not running. Writes settings to the slaves before the first
-    /// sample: in PRE-OP when it starts the bus, and on the running bus otherwise. On a
-    /// running bus, the IgH master writes nothing and takes only the values that the
-    /// slaves hold, and a slave that loses power goes back to the values it stores. The
+    /// sample: in PRE-OP when it starts the bus, and on the running bus otherwise. The
     /// slaves keep the settings when the reader closes. A slave that another program
     /// sets up gets no settings.
     /// @returns errors::RATE_MISMATCH when sample_rate is under 0.001 Hz, when no bus
     /// rate suits every open task, or when a slave runs DC sync and its fixed bus rate
     /// does not suit the reader. errors::PDO_MAPPING_ERROR when an entry is not in the
     /// process image. errors::SETTING_CONFLICT when an open reader sets an object to
-    /// another value, or when the IgH master runs the bus and a slave holds another
-    /// value. errors::STARTUP_PARAMETER_ERROR when a slave rejects or fails to read a
+    /// another value, or when the master cannot change a setting on the running bus.
+    /// errors::STARTUP_PARAMETER_ERROR when a slave rejects or fails to read a
     /// setting on the running bus, or the error that kept the bus from starting.
     /// errors::ACTIVATION_ERROR when the deadline of start passes before the bus
     /// starts, and x::errors::CANCELLED when its cancel stops first.
