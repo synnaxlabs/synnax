@@ -146,7 +146,9 @@ Scale struct {
 `)
 		rendered := versions.Render(declsOf(table), versions.RenderOptions{})
 		again := analyzeFixture(MustSucceed(formatter.Format(rendered)))
-		fields := MustBeOk(again.Get("test.Scale")).Form.(resolution.StructForm).Fields
+		form, ok := MustBeOk(again.Get("test.Scale")).Form.(resolution.StructForm)
+		Expect(ok).To(BeTrue())
+		fields := form.Fields
 		Expect(fields[0].Default.Kind).To(Equal(resolution.ValueKindFloat))
 		Expect(fields[0].Default.FloatValue).To(Equal(1.0))
 	})
