@@ -9,7 +9,15 @@
 
 import synnax as sy
 from console.case import ConsoleCase
-from console.schematic import Light, Schematic, Select, StateIndicator, Symbol, Value
+from console.schematic import (
+    Light,
+    Schematic,
+    Select,
+    Setpoint,
+    StateIndicator,
+    Symbol,
+    Value,
+)
 from x import random_name
 
 # The default stale timeout is 5 s, and the sweep reports a transition up to 1 s late.
@@ -17,7 +25,7 @@ STALE_WAIT = 15 * sy.TimeSpan.SECOND
 
 
 class StaleIndicator(ConsoleCase):
-    """Show the stale indicator on a light, a state indicator, a select, and a value.
+    """Show the stale indicator on state symbols, a value, and a setpoint read-back.
 
     Writes one sample to each channel, waits past the stale timeout, and checks that
     each symbol shows the stale indicator. A new sample clears it.
@@ -44,6 +52,11 @@ class StaleIndicator(ConsoleCase):
         )
         command_ch = client.channels.create(
             name=f"stale_cmd_{suffix}", data_type=sy.DataType.FLOAT64, index=index.key
+        )
+        setpoint_ch = client.channels.create(
+            name=f"stale_sp_cmd_{suffix}",
+            data_type=sy.DataType.FLOAT64,
+            index=index.key,
         )
         options = [
             sy.schematic.StateMapping(key="open", name="Open", value=1),
@@ -74,7 +87,15 @@ class StaleIndicator(ConsoleCase):
             Value(label="Stale Value", channel_name=value_ch.name)
         )
         value.move(delta_x=0, delta_y=200)
-        symbols: list[Symbol] = [light, indicator, select, value]
+        setpoint = schematic.create_symbol(
+            Setpoint(
+                label="Stale Setpoint",
+                channel_name=setpoint_ch.name,
+                state_channel_name=state_ch.name,
+            )
+        )
+        setpoint.move(delta_x=250, delta_y=200)
+        symbols: list[Symbol] = [light, indicator, select, value, setpoint]
 
         channels = [light_ch.key, state_ch.key, value_ch.key]
         self.log("Writing one sample to each channel")
