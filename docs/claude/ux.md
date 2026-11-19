@@ -849,6 +849,8 @@ says why in a sentence, then gives the raw error.
   keeps its space, so the layout does not move.
 - Focus never gets lost. After an add, focus goes to the new item. When a dialog closes,
   focus goes back to where it was.
+- In a field that commits on blur, Enter or a blur commits the typed text. Esc discards
+  it and puts back the stored value.
 - Dialogs, drawers, and dropdown lists set `overscroll-behavior: contain`.
 - An empty state has one primary action, named as a verb and a noun ("Create channel").
 

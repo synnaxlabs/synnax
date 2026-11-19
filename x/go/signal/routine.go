@@ -54,7 +54,7 @@ type (
 	contextPolicy uint8
 )
 
-//go:generate stringer -type=RoutineState
+//go:generate go tool stringer -type=RoutineState
 const (
 	RoutineStateStarting RoutineState = iota
 	RoutineStateRunning
@@ -65,7 +65,7 @@ const (
 	RoutineStatePanicked
 )
 
-//go:generate stringer -type=panicPolicy
+//go:generate go tool stringer -type=panicPolicy
 const (
 	propagatePanic panicPolicy = iota
 	recoverNoErr

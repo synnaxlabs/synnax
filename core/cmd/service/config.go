@@ -21,7 +21,7 @@ import (
 	cmdstart "github.com/synnaxlabs/synnax/cmd/start"
 	xos "github.com/synnaxlabs/x/os"
 	"github.com/synnaxlabs/x/set"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v4"
 )
 
 // configKeysToExclude contains keys that should not be written to the config file.

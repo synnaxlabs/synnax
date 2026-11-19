@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
-import { useEffect } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
@@ -18,8 +18,13 @@ export const colorFallback = gauge.colorFallback;
 
 type State = z.input<typeof gauge.Gauge.z>;
 
-export interface UseProps extends Omit<State, "color">, Partial<Pick<State, "color">> {
+export interface UseProps
+  extends Omit<State, "color" | "stale">, Partial<Pick<State, "color">> {
   aetherKey: string;
+}
+
+export interface UseReturn {
+  stale: boolean;
 }
 
 export const use = ({
@@ -37,7 +42,7 @@ export const use = ({
   barWidth,
   stalenessColor,
   stalenessTimeout,
-}: UseProps): void => {
+}: UseProps): UseReturn => {
   const memoProps = useMemoDeepEqual({
     box,
     telem,
@@ -53,11 +58,14 @@ export const use = ({
     stalenessColor,
     stalenessTimeout,
   });
-  const { setState } = Aether.useLifecycle({
+  const { setState, subscribe, getSnapshot } = Aether.useLifecycle({
     aetherKey,
     type: gauge.Gauge.TYPE,
     schema: gauge.Gauge.z,
     initialState: memoProps,
   });
   useEffect(() => setState((prev) => ({ ...prev, ...memoProps })), [memoProps]);
+  // Selects only the staleness, so a state push re-renders only on a transition.
+  const stale = useSyncExternalStore(subscribe, () => getSnapshot().stale);
+  return { stale };
 };
