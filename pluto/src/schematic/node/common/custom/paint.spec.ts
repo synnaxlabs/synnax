@@ -91,6 +91,29 @@ describe("Custom.usePaints", () => {
     return result.current;
   };
 
+  describe("useRegions", () => {
+    it("should give each part the colors of its looks at the value", async () => {
+      const spec = createSpec({
+        states: [
+          { type: "enumeration", key: "active", name: "Active", enumeration: valve },
+        ],
+        looks: [
+          { key: "fill", part: "body", fill: { type: "entry", state: "active" } },
+        ],
+      });
+      const { result } = renderHook(() => Custom.useRegions(spec, 1), { wrapper });
+      await waitFor(() => expect(result.current).toBeDefined());
+      expect(result.current).toEqual([
+        {
+          key: "body",
+          name: "Body",
+          selectors: [".body"],
+          fillColor: color.construct("#00ff00"),
+        },
+      ]);
+    });
+  });
+
   describe("entry paint", () => {
     const createEntrySpec = (match: schematic.symbol.Matcher = { type: "exact" }) =>
       createSpec({

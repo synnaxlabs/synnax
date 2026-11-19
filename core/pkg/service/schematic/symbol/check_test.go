@@ -129,6 +129,13 @@ var _ = Describe("Checks", func() {
 		Entry("a repeated look key", func(s *symbol.Spec) {
 			s.Looks[1].Key = "fill"
 		}, `data.looks.1.key: another look has the key "fill"`),
+		Entry("a repeated handle key", func(s *symbol.Spec) {
+			h := symbol.Handle{Key: "in", Orientation: spatial.OuterLocationLeft}
+			s.Handles = []symbol.Handle{h, h}
+		}, `data.handles.1.key: another handle has the key "in"`),
+		Entry("a repeated interaction key", func(s *symbol.Spec) {
+			s.Interactions = append(s.Interactions, next("off", "on"))
+		}, `data.interactions.1.key: another interaction has the key "click"`),
 		Entry("a selector by position", func(s *symbol.Spec) {
 			s.Parts[0].Selectors = []string{"rect:nth-of-type(1)"}
 		}, `data.parts.0.selectors.0: "rect:nth-of-type(1)" is not an #id`),
