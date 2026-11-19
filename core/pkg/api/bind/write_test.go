@@ -1290,6 +1290,53 @@ var _ = Describe("Vouched records", func() {
 			},
 		)
 
+		// createAlertTask creates an alert task on rck, then applies acts to it.
+		createAlertTask := func(ctx SpecContext, acts ...task.Action) task.Task {
+			GinkgoHelper()
+			t := task.Task{Type: pagerduty.AlertTaskType, Rack: rck.Key, Name: "Alerts"}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				w := svc.Task.NewWriter(tx)
+				if err := w.Create(ctx, &t); err != nil || len(acts) == 0 {
+					return err
+				}
+				_, err := w.Apply(ctx, t.Key, acts...)
+				return err
+			})).To(Succeed())
+			return t
+		}
+		moveTask := func(key task.Key) apply {
+			return func(ctx context.Context, tx gorp.Tx) error {
+				_, err := svc.Task.NewWriter(tx).Apply(
+					ctx,
+					key,
+					task.NewSetAction(task.SetPayload{
+						Path:  []string{"rack"},
+						Value: other.Key,
+					}),
+				)
+				return err
+			}
+		}
+
+		It(
+			"Should deny a rack that moves a task whose config uses a secret onto itself",
+			func(ctx SpecContext) {
+				t := createAlertTask(ctx, task.NewSetAction(task.SetPayload{
+					Path:  []string{"config", "routing_key"},
+					Value: key.String(),
+				}))
+				Expect(writeAs(ctx, other.ResourceID(), moveTask(t.Key))).
+					To(deniedMove())
+			},
+		)
+
+		It("Should let a rack move a task whose config uses no secret onto itself",
+			func(ctx SpecContext) {
+				t := createAlertTask(ctx)
+				Expect(writeAs(ctx, other.ResourceID(), moveTask(t.Key))).To(Succeed())
+			},
+		)
+
 		It("Should refuse a rack that creates over a record that uses a secret", func(
 			ctx SpecContext,
 		) {

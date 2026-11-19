@@ -898,6 +898,98 @@ var _ = Describe("Reference", func() {
 		)
 	})
 
+	Describe("PlacedIn", func() {
+		BeforeEach(func(ctx SpecContext) { open(ctx) })
+
+		It("Should list the records placed in a target", func(ctx SpecContext) {
+			createRack(ctx, 1)
+			Expect(createDevice(ctx, refDevice{Key: "a", Rack: 1})).To(Succeed())
+			Expect(statuses.NewCreate().
+				Entry(&refStatus{Key: "s", Owner: &refOwner{Table: "rack", Key: "1"}}).
+				Exec(ctx, db)).To(Succeed())
+			Expect(gorp.PlacedIn(ctx, db, gorp.Target{Table: "rack", Key: "1"})).
+				To(ConsistOf(
+					gorp.Target{Table: "device", Key: "a"},
+					gorp.Target{Table: "status", Key: "s"},
+				))
+		})
+
+		It("Should leave out the records that only use a target", func(
+			ctx SpecContext,
+		) {
+			createRack(ctx, 1)
+			createLabels(ctx, "l1")
+			Expect(createDevice(ctx, refDevice{
+				Key:    "a",
+				Rack:   1,
+				Labels: []string{"l1"},
+			})).To(Succeed())
+			Expect(
+				gorp.PlacedIn(ctx, db, gorp.Target{Table: "label", Key: "l1"}),
+			).To(BeEmpty())
+		})
+	})
+
+	Describe("PlacedIn and LinksOf in a transaction", func() {
+		BeforeEach(func(ctx SpecContext) { open(ctx) })
+
+		It("Should see writes staged in the same transaction", func(ctx SpecContext) {
+			createRack(ctx, 1)
+			tx := DeferClose(db.OpenTx())
+			Expect(devices.NewCreate().
+				Entry(&refDevice{Key: "a", Rack: 1}).
+				Exec(ctx, tx)).To(Succeed())
+			rack := gorp.Target{Table: "rack", Key: "1"}
+			device := gorp.Target{Table: "device", Key: "a"}
+			Expect(gorp.PlacedIn(ctx, tx, rack)).To(Equal([]gorp.Target{device}))
+			Expect(gorp.LinksOf(ctx, tx, device)).To(Equal([]gorp.Link{
+				{Target: rack, Kind: gorp.Place},
+			}))
+			Expect(gorp.PlacedIn(ctx, db, rack)).To(BeEmpty())
+			Expect(gorp.LinksOf(ctx, db, device)).Error().
+				To(MatchError(query.ErrNotFound))
+		})
+	})
+
+	Describe("LinksOf", func() {
+		BeforeEach(func(ctx SpecContext) { open(ctx) })
+
+		It("Should return the links that a stored record holds", func(ctx SpecContext) {
+			createRack(ctx, 1)
+			createLabels(ctx, "l1")
+			Expect(createDevice(ctx, refDevice{
+				Key:    "a",
+				Rack:   1,
+				Labels: []string{"l1"},
+			})).To(Succeed())
+			Expect(gorp.LinksOf(ctx, db, gorp.Target{Table: "device", Key: "a"})).
+				To(ConsistOf(
+					gorp.Link{
+						Target: gorp.Target{Table: "rack", Key: "1"},
+						Kind:   gorp.Place,
+					},
+					gorp.Link{
+						Target: gorp.Target{Table: "label", Key: "l1"},
+						Kind:   gorp.Use,
+					},
+				))
+		})
+
+		It("Should return a not found error for a missing record", func(
+			ctx SpecContext,
+		) {
+			Expect(gorp.LinksOf(ctx, db, gorp.Target{Table: "device", Key: "z"})).
+				Error().To(MatchError(query.ErrNotFound))
+		})
+
+		It("Should return an error for a table that is not open", func(
+			ctx SpecContext,
+		) {
+			Expect(gorp.LinksOf(ctx, db, gorp.Target{Table: "pump", Key: "a"})).
+				Error().To(MatchError(`[gorp] - no open table is named "pump"`))
+		})
+	})
+
 	Describe("Delete", func() {
 		BeforeEach(func(ctx SpecContext) { open(ctx) })
 
