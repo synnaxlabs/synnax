@@ -128,6 +128,7 @@ var _ = Describe("Migrations", func() {
 			"v62_table_drop_range",
 			"v62_color_bytes_cells_in_rows",
 			"v62_require_name",
+			"v63_color_ref",
 		}))
 	})
 })

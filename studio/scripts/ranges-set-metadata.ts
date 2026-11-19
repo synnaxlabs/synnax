@@ -65,7 +65,8 @@ export default async (session: capture.CaptureSession): Promise<void> => {
 
     await session.click(key);
     await session.type(k);
-    await session.click(page.getByPlaceholder("Value").first());
+    // Saved values share the placeholder, and the new pair is the last line.
+    await session.click(page.getByPlaceholder("Value").last());
     await session.type(v);
     await session.hold(200);
     if (i === pairs.length - 1) session.endZoom();
@@ -74,5 +75,6 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.waitFor(page.getByText(k, { exact: true }).first());
     await session.hold(200);
   }
+  await session.moveTo({ x: 1000, y: 600 });
   await session.hold(3000);
 };

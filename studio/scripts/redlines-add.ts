@@ -74,7 +74,11 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       await session.hold(500);
     }
     session.endZoom();
-    await session.moveTo({ x: 900, y: 300 });
+    // A toolbar opened with V closes once the pointer leaves it, so park on its
+    // empty Options area.
+    const box = await toolbar.boundingBox();
+    if (box == null) throw new Error("the toolbar is hidden");
+    await session.moveTo({ x: box.x + box.width * 0.8, y: box.y + box.height * 0.7 });
     await session.hold(3000);
   } finally {
     await fixture.stop();
