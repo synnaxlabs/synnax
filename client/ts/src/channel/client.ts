@@ -23,8 +23,15 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { actions } from "@/actions";
 import { type batch } from "@/batch";
-import { type Action, dispatchReqZ, dispatchResZ, rename } from "@/channel/actions";
+import {
+  type Action,
+  dispatchReqZ,
+  dispatchResZ,
+  rename,
+  scopedActionZ,
+} from "@/channel/actions";
 import {
   analyzeParams,
   isCalculated,
@@ -32,6 +39,7 @@ import {
   type PrimitiveParams,
   singleWhere,
 } from "@/channel/payload";
+import { createOf, reduceAll } from "@/channel/reduce";
 import {
   countLimitedResponseZ,
   type Key,
@@ -51,6 +59,7 @@ import { LINES } from "@/channel/where";
 import {
   compareCursors,
   cursor,
+  LIST_FIELDS,
   matches,
   retrieveInputZ,
   serverComputed,
@@ -66,6 +75,7 @@ import { type status } from "@/status";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_channel_set";
+export const ACTION_CHANNEL_NAME = "sy_channel_action_set";
 export const DELETE_CHANNEL_NAME = "sy_channel_delete";
 
 interface CreateOptions {
@@ -289,6 +299,7 @@ export class Client extends query.Retriever<
   private readonly cfg: ClientConfig;
   readonly writer: Writer;
   readonly store: query.Table<Key, Channel>;
+  private readonly dispatcher: actions.Controller<Key, Channel, Action>;
   /** Builds requests that move channels between groups. */
   readonly setGroupRequest: group.MoveRequest<Key>;
   private readonly byName: query.LookupIndex<Key, Channel>;
@@ -307,14 +318,33 @@ export class Client extends query.Retriever<
         (await this.execRetrieve(query.keysRequest(keys))).map((p) =>
           sugar(stripComposed(p)),
         ),
-      listen: [
-        query.createSetListener(SET_CHANNEL_NAME, payloadZ, {
-          value: (changed) => sugar(stripComposed(changed)),
-        }),
-        query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
-      ],
+      listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
       indexes: [byName],
     });
+    // Every write to a channel reaches the client as actions.
+    const dispatcher = new actions.Controller<Key, Channel, Action>({
+      store,
+      listed: (action) =>
+        action.type === "rename" || actions.changesField(action, LIST_FIELDS),
+      onError: cache.onError,
+      onEpoch: (callback) => cache.onEpoch(callback),
+      onStreamDown: (callback) => cache.onStreamDown(callback),
+      send: actions.sender(cfg.unary, "/channel/dispatch", dispatchReqZ, dispatchResZ),
+      reduce: (ch, acts) => {
+        const { next, ...rest } = reduceAll(ch.payload, acts);
+        const sugared = sugar(next);
+        // An echo that changes nothing keeps the cached channel.
+        return {
+          next: deep.equal(sugared.payload, ch.payload) ? ch : sugared,
+          ...rest,
+        };
+      },
+      createOf: (action) => {
+        const created = createOf(action);
+        return created == null ? undefined : sugar(created);
+      },
+    });
+    cache.listen(dispatcher.listener(ACTION_CHANNEL_NAME, scopedActionZ));
     const composed = cache.derive<Key, Channel, Channel>({
       name: "channel.composed",
       source: store,
@@ -362,6 +392,7 @@ export class Client extends query.Retriever<
     this.cfg = cfg;
     this.writer = writer;
     this.store = store;
+    this.dispatcher = dispatcher;
     this.setGroupRequest = (keys, to) =>
       array.toArray(keys).map((key) => ({
         endpoint: "/channel/dispatch",
@@ -552,51 +583,43 @@ export class Client extends query.Retriever<
     names: string | string[],
     opts: query.WriteOptions = {},
   ): Promise<void> {
-    const keysArr = array.toArray(keys);
     const namesArr = array.toArray(names);
-    const apply = () => keysArr.map((key, i) => this.renameThrough(key, namesArr[i]));
-    const requests = keysArr.map((key, i) => ({
-      endpoint: "/channel/dispatch",
-      payload: { key, actions: [rename({ name: namesArr[i] })] },
-    }));
-    await query.optimistic({
-      rollbacks: apply(),
+    const requests = array
+      .toArray(keys)
+      .map((key, i) =>
+        this.dispatcher.request(
+          "/channel/dispatch",
+          key,
+          [rename({ name: namesArr[i] })],
+          dispatchResZ,
+        ),
+      );
+    // A batch prefixes its errors with the request index, so one channel skips it.
+    if (requests.length !== 1) {
+      await this.cfg.batch.send(requests, opts);
+      return;
+    }
+    const [{ endpoint, payload, apply, applyResponse }] = requests;
+    const res = await query.optimistic({
+      rollbacks: [apply()],
       onOptimistic: opts.onOptimistic,
-      // A batch prefixes its errors with the request index, so one rename skips it.
       commit: async () =>
-        requests.length === 1
-          ? await this.send(keysArr[0], requests[0].payload.actions)
-          : await this.cfg.batch.send(requests),
+        await this.cfg.unary.send(endpoint, payload, dispatchReqZ, dispatchResZ),
     });
-    apply();
+    applyResponse(res);
   }
 
   /**
-   * Applies the actions to the channel in one transaction, then fetches the channel
-   * into the cache before it resolves. The fetch catches the fields that the Core sets
-   * itself, such as the data type of a calculated channel. A failed fetch goes to the
-   * cache's error handler, since the Core applied the actions.
+   * Applies the actions to the cached channel until the Core echoes them, and sends
+   * them to the Core to apply in one transaction. The cached channel also takes the
+   * fields that the Core sets itself, such as the data type of a calculated channel. A
+   * refused send drops the actions from the cached channel.
+   * @throws {Error} if the cached channel cannot hold an action, before any send.
    * @throws {ValidationError} if the channel cannot hold an action.
    * @throws {NotFoundError} if the channel does not exist.
    */
   async dispatch(key: Key, actions: Action | Action[]): Promise<void> {
-    await this.send(key, array.toArray(actions));
-    try {
-      await this.store.retrieve([key], { refresh: true });
-    } catch (exc) {
-      this.cfg.cache.onError(
-        new Error("failed to fetch a dispatched channel", { cause: exc }),
-      );
-    }
-  }
-
-  private async send(key: Key, actions: Action[]): Promise<void> {
-    await this.cfg.unary.send(
-      "/channel/dispatch",
-      { key, dispatchKey: "", actions },
-      dispatchReqZ,
-      dispatchResZ,
-    );
+    await this.dispatcher.send(key, array.toArray(actions));
   }
 
   /**
@@ -611,13 +634,6 @@ export class Client extends query.Retriever<
       );
     set(to);
     return () => set(prev);
-  }
-
-  /** Renames the cached channel, skipping when absent. Returns a rollback. */
-  private renameThrough(key: Key, name: string): destructor.Destructor {
-    return this.store.set(key, (p) =>
-      p == null ? undefined : this.sugar({ ...p.payload, name }),
-    );
   }
 
   sugar(payload: Payload): Channel;
