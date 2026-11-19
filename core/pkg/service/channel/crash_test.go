@@ -46,8 +46,8 @@ import (
 // crashEngine runs the channel services of the Core on one disk: Gorp on Pebble in kv,
 // and Cesium in cesium. Record k is the channel d<k>, with the payload as its samples.
 // Each commit also writes the payload to the channel s<k>, writes the disk back, and
-// deletes s<k>, so a crash can land in each step of the delete. Each ack is Visible,
-// because Cesium syncs no write.
+// deletes s<k>, so a crash can land in each step of the delete. Each ack is Durable:
+// the commit writes the disk back before it deletes s<k>.
 type crashEngine struct {
 	fs      xfs.FS
 	ts      xfs.FS
@@ -283,7 +283,7 @@ func (e *crashEngine) Commit(
 	}); err != nil {
 		return 0, err
 	}
-	return crash.Visible, e.removed()
+	return crash.Durable, e.removed()
 }
 
 // removed waits until Cesium removed the directory of each deleted channel, so the
@@ -468,12 +468,12 @@ func emptyMeta(cause string, locals ...distchannel.LocalKey) []string {
 }
 
 // Each entry lists every violation that the harness finds in the channel services
-// today, under Strict, where no draw decides what a crash keeps. A delete removes the
-// Cesium data in the commit hook, before the record delete is durable, and Cesium syncs
-// no directory change, so a crash keeps the Cesium channel of each deleted record. When
-// Cesium makes its directory changes durable and syncs no file, a crash also takes the
-// samples of a delete before its record, and stops the open on a channel directory with
-// no meta file or with an empty one.
+// today, under Strict, where no draw decides what a crash keeps. Cesium syncs no
+// removal and nothing sweeps, so a crash keeps the Cesium channel of each deleted
+// record. When Cesium makes its directory changes durable and syncs no file, a delete
+// that removes the Cesium data before its record delete is durable also takes the
+// samples of a record that stays, and a crash stops the open on a channel directory
+// with no meta file or with an empty one.
 var _ = DescribeTable("Crash harness on the channel services",
 	func(ctx SpecContext, dirsDurable bool, want []string) {
 		result, err := runOnCore(ctx, dirsDurable)
@@ -559,6 +559,12 @@ var _ = Describe("Crash adapter on the channel services", func() {
 			})).To(Succeed())
 			image := MustSucceed(disk.Crash(fault.CrashConfig{}))
 			Expect(image.Exists("cesium/99/meta.json")).To(BeTrue())
+			Expect(e.cesium.DeleteChannel(99)).To(Succeed())
+			Expect(e.removed()).To(Succeed())
+			image = MustSucceed(disk.Crash(fault.CrashConfig{}))
+			Expect(MustSucceed(image.List("cesium"))).ToNot(ContainElement(
+				WithTransform(os.FileInfo.Name, HavePrefix("99")),
+			))
 		},
 	)
 
