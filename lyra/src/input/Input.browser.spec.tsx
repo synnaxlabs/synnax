@@ -132,13 +132,14 @@ describe("Input", () => {
   });
 
   describe("slot button", () => {
-    const renderSlotButton = async () => {
+    const renderSlotButton = async (props: Partial<Input.TextProps> = {}) => {
       let pressed = 0;
       const { getByRole } = await renderThemed(
         <Input.Text
           value=""
           onChange={() => {}}
           placeholder="Name"
+          {...props}
           startContent={
             <Button.Button aria-label="Pick color" onClick={() => pressed++}>
               <Icon.Add />
@@ -148,7 +149,7 @@ describe("Input", () => {
       );
       return {
         button: getByRole("button", { name: "Pick color" }),
-        input: getByRole("textbox").element(),
+        input: () => getByRole("textbox").element(),
         pressed: () => pressed,
       };
     };
@@ -159,10 +160,16 @@ describe("Input", () => {
       expect(pressed()).toBe(1);
     });
 
+    it("should leave a slot button of a preview input inert", async () => {
+      const { button, pressed } = await renderSlotButton({ preview: true });
+      await userEvent.click(button, { force: true });
+      expect(pressed()).toBe(0);
+    });
+
     it("should not focus the input on a press of a slot button", async () => {
       const { button, input } = await renderSlotButton();
       await userEvent.click(button);
-      expect(document.activeElement).not.toBe(input);
+      expect(document.activeElement).not.toBe(input());
     });
 
     it("should leave a press in a dialog that a slot button opens to the dialog", async () => {
