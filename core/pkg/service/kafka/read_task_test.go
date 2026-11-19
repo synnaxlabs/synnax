@@ -964,6 +964,91 @@ var _ = Describe("Read task", func() {
 		},
 	)
 
+	// stampedTopic returns a topic named name with one record that writes the stamp of
+	// each record value to index and its value to data.
+	stampedTopic := func(
+		ctx context.Context,
+		key, name string,
+		index, data channel.Channel,
+	) kafka.ReadTopic {
+		GinkgoHelper()
+		records := single(ctx, stampedFields(index, data))
+		records[0].Key = "r-" + key
+		return kafka.ReadTopic{Key: key, Name: name, Records: records}
+	}
+
+	It("Should resume each topic from its own committed offset after a restart",
+		func(ctx SpecContext) {
+			firstIndex, firstData := createIndexed(ctx, telem.Float64T)
+			secondIndex, secondData := createIndexed(ctx, telem.Float64T)
+			dev := createDevice(ctx, clusterProperties())
+			first, second := newTopic(), newTopic()
+			dt, t := configure(ctx, kafka.ReadConfig{
+				Device: dev.Key,
+				Topics: []kafka.ReadTopic{
+					stampedTopic(ctx, "t1", first, firstIndex, firstData),
+					stampedTopic(ctx, "t2", second, secondIndex, secondData),
+				},
+			})
+			start(ctx, dt, t)
+			produceJSON(ctx, producer, first, "", map[string]any{"ts": 10e9, "v": 1.0})
+			produceJSON(ctx, producer, second, "", map[string]any{"ts": 10e9, "v": 2.0})
+			expectStored(ctx, firstData.Key(), 1)
+			expectStored(ctx, secondData.Key(), 1)
+			Expect(dt.Stop(true)).To(Succeed())
+			produceJSON(ctx, producer, first, "", map[string]any{"ts": 11e9, "v": 3.0})
+			produceJSON(ctx, producer, second, "", map[string]any{"ts": 12e9, "v": 4.0})
+			produceJSON(ctx, producer, second, "", map[string]any{"ts": 13e9, "v": 5.0})
+			start(ctx, dt, t)
+			Expect(floats(expectStored(ctx, firstData.Key(), 2))).
+				To(Equal([]float64{1, 3}))
+			Expect(floats(expectStored(ctx, secondData.Key(), 3))).
+				To(Equal([]float64{2, 4, 5}))
+		},
+	)
+
+	It(
+		"Should fail a none start offset when one topic has no commit",
+		func(ctx SpecContext) {
+			firstIndex, firstData := createIndexed(ctx, telem.Float64T)
+			secondIndex, secondData := createIndexed(ctx, telem.Float64T)
+			dev := createDevice(ctx, clusterProperties())
+			first, second := newTopic(), newTopic()
+			group := "group-" + newTopic()
+			committed := stampedTopic(ctx, "t1", first, firstIndex, firstData)
+			dt, t := configure(ctx, kafka.ReadConfig{
+				Device: dev.Key,
+				Topics: []kafka.ReadTopic{committed},
+				Group:  group,
+			})
+			start(ctx, dt, t)
+			produceJSON(ctx, producer, first, "", map[string]any{"ts": 10e9, "v": 1.0})
+			expectStored(ctx, firstData.Key(), 1)
+			Expect(dt.Stop(true)).To(Succeed())
+
+			t2 := newTask(ctx, kafka.ReadTaskType, kafka.ReadConfig{
+				Device: dev.Key,
+				Topics: []kafka.ReadTopic{
+					committed,
+					stampedTopic(ctx, "t2", second, secondIndex, secondData),
+				},
+				Group:       group,
+				StartOffset: kafka.StartOffsetNone,
+			})
+			dt2 := MustSucceed(f.ConfigureTask(ctx, t2, "cmd-1"))
+			DeferCleanup(func() { Expect(dt2.Stop(false)).To(Succeed()) })
+			Expect(dt2.Exec(ctx, task.Command{
+				Task: t2.Key, Type: "start", Key: "cmd-2",
+			})).To(Succeed())
+			stat := taskStatus(ctx, t2)
+			Expect(stat.Variant).To(Equal(status.VariantError))
+			Expect(stat.Description).To(ContainSubstring("no committed offset"))
+			Expect(stat.Description).To(ContainSubstring(second))
+			Expect(stat.Description).ToNot(ContainSubstring(first))
+			Expect(stat.Details.Running).To(BeFalse())
+		},
+	)
+
 	It("Should skip a record that is not JSON", func(ctx SpecContext) {
 		index, data := createIndexed(ctx, telem.Float64T)
 		dev := createDevice(ctx, clusterProperties())
