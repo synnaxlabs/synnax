@@ -309,9 +309,10 @@ TEST(BinaryField, RejectsUnknownByteOrderToProto) {
     auto f = BinaryField::parse(parser);
     ASSERT_NIL(parser.error());
     f.byte_order = "diagonal";
-    const auto [_, err] = f.to_proto();
-    ASSERT_TRUE(err);
-    EXPECT_EQ(err.type, "unrecognized ByteOrder value: diagonal");
+    ASSERT_OCCURRED_AS_P(
+        f.to_proto(),
+        x::errors::Error("unrecognized ByteOrder value: diagonal")
+    );
 }
 
 /// @brief it should reject a message with no key.

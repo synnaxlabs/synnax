@@ -9,6 +9,7 @@
 
 #include "gtest/gtest.h"
 
+#include "x/cpp/errors/errors.h"
 #include "x/cpp/payload/json.gen.h"
 #include "x/cpp/payload/proto.gen.h"
 #include "x/cpp/telem/telem.h"
@@ -56,7 +57,7 @@ TEST(IntegerRead, RoundTripsProto) {
     r.fill = Integer{-7};
     const auto parsed = expect_round_trips(r);
     EXPECT_EQ(parsed.data_type, x::telem::INT16_T);
-    EXPECT_EQ(parsed.fill->value, -7);
+    EXPECT_EQ(parsed.fill.value_or(Integer{0}).value, -7);
 }
 
 /// @brief it should round trip an unsigned integer read through protobuf.
@@ -67,7 +68,7 @@ TEST(UnsignedRead, RoundTripsProto) {
     r.fill = Unsigned{9};
     const auto parsed = expect_round_trips(r);
     EXPECT_EQ(parsed.data_type, x::telem::UINT8_T);
-    EXPECT_EQ(parsed.fill->value, 9);
+    EXPECT_EQ(parsed.fill.value_or(Unsigned{0}).value, 9);
 }
 
 /// @brief it should round trip a string read through protobuf.
@@ -102,23 +103,26 @@ TEST(TimestampRead, RoundTripsProto) {
 TEST(TimestampRead, RejectsUnknownTimeFormatToProto) {
     TimestampRead r;
     r.time_format = "fortnight";
-    const auto [_, err] = r.to_proto();
-    ASSERT_TRUE(err);
-    EXPECT_EQ(err.type, "unrecognized TimeFormat value: fortnight");
+    ASSERT_OCCURRED_AS_P(
+        r.to_proto(),
+        x::errors::Error("unrecognized TimeFormat value: fortnight")
+    );
 }
 
 /// @brief it should reject a protobuf time format with no value.
 TEST(TimeFormat, RejectsOutOfRangeFromProto) {
-    const auto [_, err] = time_format_from_pb(static_cast<pb::TimeFormat>(99));
-    ASSERT_TRUE(err);
-    EXPECT_EQ(err.type, "unrecognized TimeFormat protobuf value");
+    ASSERT_OCCURRED_AS_P(
+        time_format_from_pb(static_cast<pb::TimeFormat>(99)),
+        x::errors::Error("unrecognized TimeFormat protobuf value")
+    );
 }
 
 /// @brief it should reject an unknown kind.
 TEST(Kind, RejectsUnknownToProto) {
-    const auto [_, err] = kind_to_pb("complex");
-    ASSERT_TRUE(err);
-    EXPECT_EQ(err.type, "unrecognized Kind value: complex");
+    ASSERT_OCCURRED_AS_P(
+        kind_to_pb("complex"),
+        x::errors::Error("unrecognized Kind value: complex")
+    );
 }
 
 /// @brief it should round trip an enum entry through protobuf.
