@@ -147,6 +147,15 @@ const waitForDialogToClose = async (): Promise<void> =>
     expect(screen.queryByText(/Are you sure you want to delete/)).toBeNull(),
   );
 
+/** Waits for the cache of core to hear that the Core deleted the enumeration. */
+const waitForDeleted = async (key: enumeration.Key): Promise<void> =>
+  await waitFor(
+    async () =>
+      await expect(core.enumerations.retrieve(key)).rejects.toThrow(
+        `enumeration with key ${key} not found`,
+      ),
+  );
+
 describe("Enumeration.Settings", () => {
   /** Creates an enumeration through the create form and returns its entries. */
   const createThroughForm = async (name: string): Promise<HTMLElement> => {
@@ -285,9 +294,7 @@ describe("Enumeration.Settings", () => {
     await pickReplacement(dialog, to.name);
     await clickWhenEnabled(dialog, "Replace");
     await waitForDialogToClose();
-    await expect(core.enumerations.retrieve(from.key)).rejects.toThrow(
-      `enumeration with key ${from.key} not found`,
-    );
+    await waitForDeleted(from.key);
     expect((await client.enumerations.retrieve(to.key)).name).toBe(to.name);
   });
 
@@ -334,8 +341,6 @@ describe("Enumeration.Settings", () => {
     expect(await dialog.findByText(/Nothing uses it/)).toBeTruthy();
     await clickWhenEnabled(dialog, "Delete");
     await waitForDialogToClose();
-    await expect(core.enumerations.retrieve(e.key)).rejects.toThrow(
-      `enumeration with key ${e.key} not found`,
-    );
+    await waitForDeleted(e.key);
   });
 });
