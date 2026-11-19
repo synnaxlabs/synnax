@@ -92,6 +92,48 @@ http_archive(
     urls = ["https://files.pythonhosted.org/packages/26/42/65a2c5ee9be88b81d3890df15fd1af7f5bbab72a16ccf4d302454385e067/clang_tidy-23.1.3-py2.py3-none-macosx_11_0_arm64.whl"],
 )
 
+# The Arc runtime embeds the wasmtime C API. Each release publishes a static library and
+# headers for every platform. Bazel fetches only the host's archive.
+WASMTIME_VERSION = "50.0.3"
+
+WASMTIME_BUILD = """
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+cc_library(
+    name = "wasmtime",
+    srcs = glob(
+        ["lib/*.a", "lib/wasmtime.lib"],
+        allow_empty = True,
+    ),
+    hdrs = glob(["include/**"]),
+    # System headers, so warnings in wasmtime's inline code never fail a -Werror build.
+    features = ["system_include_paths"],
+    includes = ["include"],
+    visibility = ["//visibility:public"],
+)
+"""
+
+[
+    http_archive(
+        name = "wasmtime_" + platform.replace("-", "_"),
+        build_file_content = WASMTIME_BUILD,
+        sha256 = sha256,
+        strip_prefix = "wasmtime-v%s-%s-c-api" % (WASMTIME_VERSION, platform),
+        urls = ["https://github.com/bytecodealliance/wasmtime/releases/download/v%s/wasmtime-v%s-%s-c-api.%s" % (
+            WASMTIME_VERSION,
+            WASMTIME_VERSION,
+            platform,
+            "zip" if "windows" in platform else "tar.xz",
+        )],
+    )
+    for platform, sha256 in {
+        "aarch64-linux": "9e4c3efb75ffc85939bbe13bd2d901f278624d7dc25bce08d8ffd9ce73c497e4",
+        "aarch64-macos": "17d1bbcb9679cf22a5c948857e1b72e69da8b5360bf7dcbaffdc1e730f615226",
+        "x86_64-linux": "e46e022c3bf91494510199ed897639681cc02929636b8d690bc67612f52b344c",
+        "x86_64-windows": "b00badf321957e9f0031bbc91980c93a2fda1fc59da17b314f09dd71b5b095df",
+    }.items()
+]
+
 single_version_override(
     module_name = "grpc",
     patch_strip = 1,

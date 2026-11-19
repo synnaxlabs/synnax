@@ -306,7 +306,6 @@ jobs:
       coverage_flag: arc-cpp
       directories: arc/cpp
       macos: *full
-      rust: true
       targets: //arc/cpp/...
       test_flags: --spawn_strategy=local --jobs=1
       windows: *full
@@ -658,7 +657,6 @@ jobs:
       coverage_flag: driver
       directories: driver
       macos: *full
-      rust: true
       targets: //driver/... //vendor/open62541:patch_test
       test_flags: --spawn_strategy=local --local_test_jobs=1
       test_tags: -hardware

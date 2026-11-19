@@ -418,13 +418,6 @@ jobs:
           disk-cache: false
           repository-cache: false
 
-      - name: Install Rust
-        if: inputs.driver && env.DRIVER_REF_RUN_ID == ''
-        uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30 # v2
-        with:
-          # A cache save deletes rustup from ~/.cargo/bin, which the build bots keep.
-          cache-bin: false
-
       - name: Build Driver (Windows)
         if:
           inputs.driver && env.DRIVER_REF_RUN_ID == '' && matrix.os ==
