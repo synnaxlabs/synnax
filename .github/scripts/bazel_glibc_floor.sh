@@ -33,14 +33,11 @@ trap 'docker kill "$name" > /dev/null 2>&1 || true' INT TERM EXIT
 # The image joins every action key, so the remote cache never serves a tool that a host
 # build linked against a newer glibc. NI Linux Real-Time ships an older libstdc++ than
 # GCC 13, so binaries link libstdc++ and libgcc statically. Bazel's toolchain names
-# -lstdc++ itself, so -static-libstdc++ alone has no effect. The gold linker in Ubuntu
-# 22.04 crashes on the section count of an LTO Driver, so the image links with bfd,
-# which has no --start-lib.
+# -lstdc++ itself, so -static-libstdc++ alone has no effect.
 docker run --rm --init --name "$name" --user "$(id -u):$(id -g)" \
     --env HOME="$root" --env USER=runner \
     --volume "$PWD:$PWD" --volume "$root:$root" --workdir "$PWD" "$image" \
     bazel --output_user_root="$root/bazel" "$command" \
     --action_env=BUILD_IMAGE="$image" --host_action_env=BUILD_IMAGE="$image" \
-    --repo_env=BAZEL_LINKLIBS=-l%:libstdc++.a:-lm --linkopt=-static-libgcc \
-    --linkopt=-fuse-ld=bfd --features=-supports_start_end_lib "$@" &
+    --repo_env=BAZEL_LINKLIBS=-l%:libstdc++.a:-lm --linkopt=-static-libgcc "$@" &
 wait $!
