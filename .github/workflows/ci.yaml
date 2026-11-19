@@ -80,11 +80,12 @@ on:
         default: false
 
 # A new push to a pull request cancels the run it replaces. A merge group run is
-# cancelled only by cancel.merge-group.yaml, which uses the same key. A called run takes
-# the caller's workflow name, so Nightly and Release never share a group.
+# cancelled only by cancel.merge-group.yaml. Its key is its commit, since a rebuilt
+# group can reuse the branch name of the group it replaces. A called run takes the
+# caller's workflow name, so Nightly and Release never share a group.
 concurrency:
   group:
-    ci-${{ github.event.pull_request.number || github.event.merge_group.head_ref ||
+    ci-${{ github.event.pull_request.number || github.event.merge_group.head_sha ||
     format('{0}-{1}', github.workflow, github.ref) }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 

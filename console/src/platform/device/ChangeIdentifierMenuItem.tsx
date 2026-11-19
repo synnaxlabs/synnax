@@ -11,7 +11,6 @@ import { device } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access, Device } from "@synnaxlabs/pluto";
-import { errors } from "@synnaxlabs/x";
 
 import { useChangeIdentifier } from "@/platform/device/useChangeIdentifier";
 import { Modals } from "@/platform/modals";
@@ -39,20 +38,15 @@ const Internal = ({ icon, deviceKey, handleError }: InternalProps) => {
     typeof properties?.identifier === "string" ? properties.identifier : "";
   const handleClick = () =>
     handleError(async () => {
-      try {
-        const newIdentifier = await rename({
-          initialValue: identifier,
-          allowEmpty: false,
-          label: "Identifier",
-          title: "Device.Identifier",
-          icon: Icon.resolve(icon),
-        });
-        if (newIdentifier == null) return;
-        await updateAsync({ key: deviceKey, identifier: newIdentifier });
-      } catch (e) {
-        if (e instanceof Error && errors.Canceled.matches(e)) return;
-        throw errors.fromUnknown(e);
-      }
+      const newIdentifier = await rename({
+        initialValue: identifier,
+        allowEmpty: false,
+        label: "Identifier",
+        title: "Device.Identifier",
+        icon: Icon.resolve(icon),
+      });
+      if (newIdentifier == null) return;
+      await updateAsync({ key: deviceKey, identifier: newIdentifier });
     }, "Failed to change identifier");
   return (
     <Menu.Item itemKey="changeIdentifier" onClick={handleClick}>

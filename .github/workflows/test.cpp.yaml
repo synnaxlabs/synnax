@@ -316,13 +316,14 @@ jobs:
           disk-cache: false
           repository-cache: false
 
-      # Each clang-tidy action peaks near 1 GB, and the build bots have 16 GB.
+      # A clang-tidy action peaks near 2 GB, and so does the Bazel server. The build
+      # bots have 16 GB and no swap, so six jobs leave 2 GB free.
       - name: Lint
         env:
           TARGETS: ${{ inputs.targets }}
         run: |
           read -ra args <<< "$BAZEL_REMOTE_CACHE_FLAGS $TARGETS"
-          bazel build --jobs=8 --config=clang-tidy --keep_going "${args[@]}"
+          bazel build --jobs=6 --config=clang-tidy --keep_going "${args[@]}"
 
       - name: Clean build caches
         if: always()

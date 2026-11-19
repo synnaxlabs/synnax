@@ -11,16 +11,20 @@
 
     <runner>_ec2_cmd    true  ec2_on.py       false  ec2_off.py
 
-Runners come from registry.json, read once at startup, so restart after a new
-runner appears. Beats runner_commands_heartbeat and logs to runner_commands_log.
+Every REFRESH it rereads the runners in registry.json and moves its streamer onto
+any command channel created since. Beats runner_commands_heartbeat and logs to
+runner_commands_log.
 
     uv run dispatch.py
 """
 
 import argparse
 import os
-from collections.abc import Callable
+import time
+from collections.abc import Callable, Iterable
 from functools import partial
+from pathlib import Path
+from typing import Protocol
 
 import synnax as sy
 
@@ -40,7 +44,7 @@ from common import (
 from github import GitHub
 from heartbeat import Heartbeat
 from log import Log
-from registry import known_runners
+from registry import STATE_FILE, known_runners
 
 HEARTBEAT = "runner_commands_heartbeat"
 LOG = "runner_commands_log"
@@ -48,9 +52,34 @@ RETRY_DELAY = 5 * sy.TimeSpan.SECOND
 # Short reads keep Ctrl+C responsive: on Windows a blocking receive cannot be
 # interrupted, so the signal only lands once the read returns.
 READ_TIMEOUT = sy.TimeSpan.SECOND
+# Seconds between looks for command channels the controller created since.
+REFRESH = 30.0
 
 Handler = Callable[[str], str | None]
 Handlers = dict[str, dict[bool, Handler]]
+
+
+class Frame(Protocol):
+    def items(self) -> Iterable[tuple[int | str, sy.Series]]: ...
+
+
+class Streamer(Protocol):
+    def read(self, *, timeout: sy.TimeSpan) -> Frame | None: ...
+
+    def close(self) -> object: ...
+
+
+class Retriever(Protocol):
+    def retrieve(self, name: str, /) -> sy.Channel: ...
+
+
+class Client(Protocol):
+    """The part of the Core that dispatch reads."""
+
+    @property
+    def channels(self) -> Retriever: ...
+
+    def open_streamer(self, channels: list[str], /) -> Streamer: ...
 
 
 def handlers(*, aws: AWS, github: GitHub) -> Handlers:
@@ -63,11 +92,11 @@ def handlers(*, aws: AWS, github: GitHub) -> Handlers:
 
 
 def existing_channels(
-    client: sy.Synnax, *, channels: dict[str, tuple[str, str]]
+    client: Client, *, channels: dict[str, tuple[str, str]]
 ) -> tuple[list[str], dict[int | str, tuple[str, str]]]:
     """Returns the names of the command channels that exist so far, plus a lookup of
     runner and command by channel name and key, since a streamer may label frames by
-    either. Channels the poller has not created yet need a restart to be picked up."""
+    either."""
     names: list[str] = []
     lookup: dict[int | str, tuple[str, str]] = {}
     for name, target in channels.items():
@@ -82,7 +111,7 @@ def existing_channels(
 
 
 def dispatch(
-    frame: sy.Frame,
+    frame: Frame,
     *,
     lookup: dict[int | str, tuple[str, str]],
     commands: Handlers,
@@ -105,6 +134,60 @@ def dispatch(
             log.error(f"{runner} {command}={value}", e)
 
 
+class Listener:
+    """Streams the command channels of the runners in registry and dispatches each
+    write. Every REFRESH it looks for channels created since and reopens onto them."""
+
+    def __init__(
+        self,
+        *,
+        client: Client,
+        commands: Handlers,
+        log: Log,
+        registry: Path = STATE_FILE,
+    ) -> None:
+        self.client = client
+        self.commands = commands
+        self.log = log
+        self.registry = registry
+        # None until the first refresh, so that refresh always logs.
+        self.names: list[str] | None = None
+        self.lookup: dict[int | str, tuple[str, str]] = {}
+        self.refreshed: float | None = None
+        self.streamer: Streamer | None = None
+
+    def refresh(self, now: float) -> None:
+        if self.refreshed is not None and now - self.refreshed < REFRESH:
+            return
+        channels = command_channels(
+            known_runners(self.registry), commands=tuple(self.commands)
+        )
+        names, self.lookup = existing_channels(self.client, channels=channels)
+        self.refreshed = now
+        if names != self.names:
+            self.log(f"listening on {len(names)}/{len(channels)} channels")
+            self.names = names
+            self.close()
+
+    def step(self, now: float) -> None:
+        """Reads and dispatches one frame, waiting up to READ_TIMEOUT for it. now is
+        a monotonic clock reading in seconds, so a wall-clock step cannot stall the
+        refresh."""
+        self.refresh(now)
+        if not self.names:
+            sy.sleep(READ_TIMEOUT)
+            return
+        if self.streamer is None:
+            self.streamer = self.client.open_streamer(self.names)
+        frame = self.streamer.read(timeout=READ_TIMEOUT)
+        if frame is not None:
+            dispatch(frame, lookup=self.lookup, commands=self.commands, log=self.log)
+
+    def close(self) -> None:
+        close_quietly(self.streamer)
+        self.streamer = None
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description=(__doc__ or "").split("\n", 1)[0])
     add_connection_args(p)
@@ -112,32 +195,22 @@ def main() -> None:
     store = parameter_store()
     client = connect(args, store=store)
     creator = Channels(client=client, enabled=args.create_channels)
-    log = Log(client=client, channels=creator, channel=LOG)
+    log = Log(client=client, channels=creator, channel=LOG, echo=True)
     github = GitHub(secret("GH_APP_ID", store=store), secret("GH_APP_KEY", store=store))
     commands = handlers(aws=AWS(), github=github)
     alive = Heartbeat(client=client, channels=creator, name=HEARTBEAT)
-    channels = command_channels(known_runners(), commands=tuple(commands))
-    names, lookup = existing_channels(client, channels=channels)
-    if not names:
-        raise SystemExit("no command channels exist yet; run controller.py first")
-    log(f"listening on {len(names)}/{len(channels)} channels")
-    streamer = None
+    listener = Listener(client=client, commands=commands, log=log)
     try:
         while True:
             try:
-                if streamer is None:
-                    streamer = client.open_streamer(names)
-                frame = streamer.read(timeout=READ_TIMEOUT)
-                if frame is not None:
-                    dispatch(frame, lookup=lookup, commands=commands, log=log)
+                listener.step(time.monotonic())
             except Exception as e:
                 log.error("listener", e)
-                close_quietly(streamer)
-                streamer = None
+                listener.close()
                 sy.sleep(RETRY_DELAY)
     finally:
         shield()
-        close_quietly(streamer)
+        listener.close()
         alive.stop()
         log.close()
         client.close()
