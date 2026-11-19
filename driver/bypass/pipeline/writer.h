@@ -123,8 +123,7 @@ public:
         if (this->group != 0 && cfg.subject.group == 0) cfg.subject.group = this->group;
         auto [channels, retrieve_err] = this->retrieve_channels(cfg.channels);
         if (retrieve_err) return {nullptr, retrieve_err};
-        this->bus->register_channels(cfg.channels);
-        this->bus->register_clocks(channels);
+        this->bus->register_channels(channels);
         auto [writer, err] = this->server->open_writer(cfg);
         if (err) return {nullptr, err};
         VLOG(1) << "[bus.writer_factory] opened writer for " << cfg.channels.size()

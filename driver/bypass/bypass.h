@@ -175,25 +175,19 @@ class Bus {
     std::unordered_map<synnax::channel::Key, std::uint32_t> clocks;
 
 public:
-    /// @brief registers channels for alignment tracking. Must be called before
-    /// publishing frames containing these channels (typically at writer open).
-    void register_channels(const std::vector<synnax::channel::Key> &keys) {
+    /// @brief registers channels before their frames publish: an alignment counter for
+    /// each, and the clock that the bus gives each of its series, which is the index of
+    /// the channel, or zero for a channel with no index.
+    void register_channels(const std::vector<synnax::channel::Channel> &channels) {
         std::unique_lock lock(this->alignment_mu);
-        for (auto key: keys) {
-            if (!this->alignment_counters.contains(key))
+        for (const auto &ch: channels) {
+            if (!this->alignment_counters.contains(ch.key))
                 this->alignment_counters.emplace(
-                    key,
+                    ch.key,
                     std::make_unique<std::atomic<uint64_t>>(0)
                 );
-        }
-    }
-
-    /// @brief sets the clock that the bus gives each series of each channel: the index
-    /// of the channel, or zero for a channel with no index.
-    void register_clocks(const std::vector<synnax::channel::Channel> &channels) {
-        std::unique_lock lock(this->alignment_mu);
-        for (const auto &ch: channels)
             this->clocks[ch.key] = ch.is_index ? ch.key : ch.index;
+        }
     }
 
     /// @brief publishes a frame to all subscribers with matching channel keys.
