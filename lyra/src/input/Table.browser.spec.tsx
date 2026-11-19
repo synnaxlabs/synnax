@@ -8,9 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { describe, expect, it } from "vitest";
+import { userEvent } from "vitest/browser";
 
 import { CSS } from "@/css";
 import { Input } from "@/input";
+import { type Status } from "@/status";
 import { computed, renderThemed, resolve } from "@/styletest";
 
 type ColumnType = "string" | "number";
@@ -248,6 +250,45 @@ describe("Input.Table", () => {
       const r = rounded();
       expect(radii(cells[1][0])).toEqual([SQUARE, SQUARE, SQUARE, r]);
       expect(radii(cells[1][1])).toEqual([SQUARE, SQUARE, r, SQUARE]);
+    });
+  });
+
+  describe("boolean cell frame", () => {
+    /** @returns the checkbox of a boolean cell whose status is the given one. */
+    const renderCheckbox = async (status?: Status.Crude): Promise<HTMLElement> => {
+      const { container } = await renderThemed(
+        <Input.Table value={[[true]]} onChange={() => {}} cellStatus={() => status}>
+          <Input.TableColumn name="Enabled" type="boolean" width={20} />
+        </Input.Table>,
+      );
+      const box = container.querySelector<HTMLElement>(
+        `.${CSS.BE("input", "checkbox")}`,
+      );
+      if (box == null) throw new Error("The cell has no checkbox");
+      return box;
+    };
+
+    const frame = (box: Element): string => computed(box, "outline-color");
+
+    it("should frame a marked checkbox cell in the error color", async () => {
+      const box = await renderCheckbox({ variant: "error", message: "Not valid" });
+      expect(frame(box)).toBe(resolve("var(--pluto-error-z)", "outline-color"));
+    });
+
+    it("should frame a hovered checkbox cell", async () => {
+      const box = await renderCheckbox();
+      await userEvent.hover(box);
+      await expect
+        .poll(() => frame(box))
+        .toBe(resolve("var(--pluto-gray-l7)", "outline-color"));
+    });
+
+    it("should frame a focused checkbox cell in the primary color", async () => {
+      const box = await renderCheckbox();
+      box.querySelector("input")?.focus();
+      await expect
+        .poll(() => frame(box))
+        .toBe(resolve("var(--pluto-primary-z)", "outline-color"));
     });
   });
 
