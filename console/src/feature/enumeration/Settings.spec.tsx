@@ -129,7 +129,7 @@ const pickReplacement = async (dialog: Queries, name: string): Promise<void> => 
 // The delete dialog enables its button once it knows what uses the enumeration.
 const clickWhenEnabled = async (dialog: Queries, name: string): Promise<void> => {
   const button = await dialog.findByRole("button", { name });
-  await waitFor(() => expect(button).toHaveProperty("disabled", false));
+  await waitFor(() => expect(button.getAttribute("aria-disabled")).toBeNull());
   await act(async () => {
     fireEvent.click(button);
   });
