@@ -10,6 +10,8 @@
 package channels_test
 
 import (
+	"math"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/graph"
@@ -219,6 +221,28 @@ var _ = Describe("Channel", func() {
 				cs.Ingest(fr)
 				result := rt.Call(ctx, "channels", "read_bool", testutil.U32(4))
 				Expect(testutil.AsU32(result[0])).To(Equal(uint32(1)))
+			})
+		})
+
+		Describe("read across a data type change", func() {
+			It("Should read an int32 sample of a float64 channel as its value", func(
+				ctx SpecContext,
+			) {
+				fr := telem.Frame[uint32]{}
+				fr = fr.Append(1, telem.NewSeriesV[int32](300))
+				cs.Ingest(fr)
+				result := rt.Call(ctx, "channels", "read_f64", testutil.U32(1))
+				Expect(testutil.AsF64(result[0])).To(Equal(float64(300)))
+			})
+
+			It("Should read an int16 sample of an int32 channel as its value", func(
+				ctx SpecContext,
+			) {
+				fr := telem.Frame[uint32]{}
+				fr = fr.Append(2, telem.NewSeriesV[int16](-7, 300))
+				cs.Ingest(fr)
+				result := rt.Call(ctx, "channels", "read_i32", testutil.U32(2))
+				Expect(int32(testutil.AsU32(result[0]))).To(Equal(int32(300)))
 			})
 		})
 
@@ -454,7 +478,7 @@ var _ = Describe("Channel", func() {
 			inter, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 			Expect(diagnostics.Ok()).To(BeTrue())
 			channelState = channels.NewProgramState([]channels.Digest{
-				{Key: 10, DataType: telem.Float32T, Index: 11},
+				{Key: 10, Name: "pressure", DataType: telem.Float32T, Index: 11},
 				{Key: 12, DataType: telem.StringT, Index: 13},
 				{Key: 20, DataType: telem.Int32T, Index: 0},
 			})
@@ -875,6 +899,86 @@ var _ = Describe("Channel", func() {
 					To(telem.MatchSeries(telem.NewSeriesV[float32](-1, 300)))
 			})
 
+			// D-116: a sample out of the output's range, or a NaN to an integer, fails
+			// loud. The node skips the series and reports it.
+			It("Should skip and report a series with a sample out of the output range",
+				func(ctx SpecContext) {
+					source := createSource(10, types.U8())
+					fr := telem.Frame[uint32]{}
+					fr = fr.Append(10, telem.NewSeriesV[int16](300, -1))
+					fr = fr.Append(11, telem.NewSeriesSecondsTSV(100, 101))
+					channelState.Ingest(fr)
+					emitted, errs := next(ctx, source)
+					Expect(emitted).To(BeFalse())
+					Expect(errs).To(HaveLen(1))
+				})
+
+			It(
+				"Should name a channel by its key when the program does not hold its name",
+				func(ctx SpecContext) {
+					source := createSource(20, types.I32())
+					channelState.Ingest(
+						telem.UnaryFrame[uint32](20, telem.NewSeriesV("a")),
+					)
+					_, errs := next(ctx, source)
+					Expect(errs).To(ConsistOf(
+						MatchError(
+							"channel 20: cannot convert a string series to int32",
+						),
+					))
+				},
+			)
+
+			It("Should name the channel, the sample, and both types out of range", func(
+				ctx SpecContext,
+			) {
+				source := createSource(10, types.U8())
+				fr := telem.Frame[uint32]{}
+				fr = fr.Append(10, telem.NewSeriesV[int16](300))
+				fr = fr.Append(11, telem.NewSeriesSecondsTSV(100))
+				channelState.Ingest(fr)
+				_, errs := next(ctx, source)
+				Expect(errs).To(ConsistOf(SatisfyAll(
+					MatchError(telem.ErrOutOfRange),
+					MatchError(ContainSubstring(
+						"channel pressure (10): value 300 of an int16 series is out of range "+
+							"of uint8",
+					)),
+				)))
+			})
+
+			It(
+				"Should skip and report a NaN for an integer output",
+				func(ctx SpecContext) {
+					source := createSource(10, types.I32())
+					fr := telem.Frame[uint32]{}
+					fr = fr.Append(10, telem.NewSeriesV(math.NaN()))
+					fr = fr.Append(11, telem.NewSeriesSecondsTSV(100))
+					channelState.Ingest(fr)
+					emitted, errs := next(ctx, source)
+					Expect(emitted).To(BeFalse())
+					Expect(errs).To(HaveLen(1))
+				},
+			)
+
+			It(
+				"Should truncate a float in range toward zero for an integer output",
+				func(
+					ctx SpecContext,
+				) {
+					source := createSource(10, types.I32())
+					fr := telem.Frame[uint32]{}
+					fr = fr.Append(10, telem.NewSeriesV(2.9, -2.9))
+					fr = fr.Append(11, telem.NewSeriesSecondsTSV(100, 101))
+					channelState.Ingest(fr)
+					emitted, errs := next(ctx, source)
+					Expect(emitted).To(BeTrue())
+					Expect(errs).To(BeEmpty())
+					Expect(*progState.Node("source").Output(0)).
+						To(telem.MatchSeries(telem.NewSeriesV[int32](2, -2)))
+				},
+			)
+
 			It("Should pass a text series to a text output as it is", func(
 				ctx SpecContext,
 			) {
@@ -903,7 +1007,9 @@ var _ = Describe("Channel", func() {
 				emitted, errs := next(ctx, source)
 				Expect(emitted).To(BeFalse())
 				Expect(errs).To(ConsistOf(
-					MatchError("channel 10: cannot convert a string series to float32"),
+					MatchError(
+						"channel pressure (10): cannot convert a string series to float32",
+					),
 				))
 				fr = telem.Frame[uint32]{}
 				fr = fr.Append(10, aligned(telem.NewSeriesV[float32](2), 1))

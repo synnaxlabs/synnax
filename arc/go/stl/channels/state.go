@@ -20,8 +20,10 @@ import (
 // Digest provides metadata about a channel for state initialization.
 type Digest struct {
 	DataType telem.DataType
-	Key      uint32
-	Index    uint32
+	// Name is the name of the channel, which errors name it by.
+	Name  string
+	Key   uint32
+	Index uint32
 }
 
 // ProgramState manages channel I/O buffers and index mapping.
@@ -35,6 +37,8 @@ type ProgramState struct {
 	positions       map[uint32][]position
 	activeWriteKeys []uint32
 	indexes         map[uint32]uint32
+	// names holds the name of each channel that a digest names.
+	names map[uint32]string
 	// lastStamps holds the last timestamp flushed to each index.
 	lastStamps map[uint32]telem.TimeStamp
 	// writers counts the channels that wrote to each index this cycle. Flush reuses it.
@@ -49,11 +53,15 @@ func NewProgramState(digests []Digest) *ProgramState {
 		unstamped:  make(map[uint32]telem.Series),
 		positions:  make(map[uint32][]position),
 		indexes:    make(map[uint32]uint32),
+		names:      make(map[uint32]string),
 		lastStamps: make(map[uint32]telem.TimeStamp),
 		writers:    make(map[uint32]int),
 	}
 	for _, d := range digests {
 		ps.indexes[d.Key] = d.Index
+		if d.Name != "" {
+			ps.names[d.Key] = d.Name
+		}
 	}
 	return ps
 }
