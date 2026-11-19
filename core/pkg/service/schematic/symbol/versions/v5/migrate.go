@@ -70,7 +70,7 @@ type Actuators func(ctx context.Context, tx gorp.Tx) (set.Set[Key], error)
 // newIntern opens the Intern of the migration's transaction.
 func NewMigration(newIntern func(gorp.Tx) Intern, actuators Actuators) gorp.Migration {
 	return migrate.New(
-		"v62_symbol_model",
+		"v63_symbol_model",
 		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) (err error) {
 			drawn, err := actuators(ctx, tx)
 			if err != nil {
