@@ -10,6 +10,7 @@
 import { device, type ethercat } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -38,12 +39,7 @@ import {
   reportTaskRunning,
   reportTaskStopped,
 } from "@/platform/task/testutil";
-import {
-  CaptureStatuses,
-  fakePickedFile,
-  interceptFilePicker,
-  uniqueName,
-} from "@/testutil";
+import { CaptureStatuses, fakePickedFile, interceptFilePicker } from "@/testutil";
 
 const client = createTestClient();
 

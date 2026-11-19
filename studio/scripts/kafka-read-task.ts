@@ -31,6 +31,6 @@ export default serverTaskScript(KAFKA, {
     await session.click(adder, { text: true });
     await session.hold(800);
     await setText(session, form, "Pointer", "/temperature");
-    await choose(session, form, "Data type", "float64", { search: true });
+    await choose(session, form, "Data type", "float32", { search: true });
   },
 });

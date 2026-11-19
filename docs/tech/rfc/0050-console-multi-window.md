@@ -144,15 +144,18 @@ implicit-creation gesture.
 Ending a drag over the desktop is the one case with no drop target, resolved by
 `Window.useDropOutside`. The mechanism is platform-split: on Windows and Linux the
 drag-end interceptor rides the Haul provider's `dragend`, while on macOS, which swallows
-`dragend` for drops outside the window, a Tauri `mouse_up` event carries the final
-screen position. "Outside" is computed against drift's window boxes, counting only
-created, reserved windows.
+`dragend` for drops outside the window, each `dragstart` calls the Tauri `mouse_release`
+command. The command polls the left button through CoreGraphics until it comes up, then
+returns the final screen position. Neither read needs a macOS permission. "Outside" is
+computed against drift's window boxes, counting only created, reserved windows.
 
-The macOS event broadcasts to every window, and drift mirrors the dragging state
-everywhere, so naively every window would act on the drop. Only the source window does:
-the Haul provider's authoritative drag ref is populated only where the drag started, so
-every other window's interceptor resolves nothing. Tear-off therefore works from any
-window, which the deleted pre-panels implementation never managed on macOS.
+Drift mirrors the dragging state everywhere, so naively every window would act on the
+drop. Only the source window does: the Haul provider's authoritative drag ref is
+populated only where the drag started, so every other window's interceptor resolves
+nothing. The same ref is empty again once a drop inside a window resolves the drag, so a
+`mouse_release` answer that arrives after it resolves nothing either. Tear-off therefore
+works from any window, which the deleted pre-panels implementation never managed on
+macOS.
 
 A torn tab mints its panel create-first: a new panel is created with the tab already in
 its root, named after the tab's resource (falling back to "New Panel" for view tabs or
