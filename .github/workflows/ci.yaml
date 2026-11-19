@@ -156,6 +156,7 @@ jobs:
       runners: ${{ steps.filter.outputs.runners }}
       site_common: ${{ steps.filter.outputs.site_common }}
       soem: ${{ steps.filter.outputs.soem }}
+      studio: ${{ steps.filter.outputs.studio }}
       spec_only: ${{ steps.spec.outputs.spec_only }}
       stylelint: ${{ steps.filter.outputs.stylelint }}
       stylelint_config: ${{ steps.filter.outputs.stylelint_config }}
@@ -1198,6 +1199,20 @@ jobs:
     secrets:
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
+  studio:
+    needs: changes
+    if:
+      inputs.full || needs.changes.outputs.studio == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'studio')
+    uses: ./.github/workflows/test.ts.yaml
+    with:
+      directory: studio
+      package: studio
+      test: false
+    secrets:
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+
   stylelint:
     needs: changes
     if:
@@ -1461,6 +1476,7 @@ jobs:
       - runners
       - site-common
       - soem
+      - studio
       - stylelint
       - stylelint-config
       - suppressions-py
