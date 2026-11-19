@@ -165,3 +165,14 @@ jobs:
 
       - name: Set up trusted-signing-cli
         uses: ./.github/actions/setup-trusted-signing-cli
+
+  relay-failure:
+    name: Relay the failure
+    needs: [check, warm, warm-signing-cli]
+    if:
+      always() && github.event_name == 'schedule' && contains(needs.*.result, 'failure')
+    permissions:
+      actions: write
+    uses: ./.github/workflows/relay.failure.yaml
+    with:
+      report: true

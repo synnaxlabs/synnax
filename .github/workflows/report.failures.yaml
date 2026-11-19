@@ -8,34 +8,19 @@
 # included in the file licenses/APL.txt.
 
 # Posts to Slack when a scheduled run fails: on the first failure of a streak, then on
-# the first failure of each UTC day while it lasts. A self-reporting workflow posts its
-# own failures from a job, so this posts for it only when the run did not start.
+# the first failure of each UTC day while it lasts. A failed scheduled run of a watched
+# workflow starts this from its last job, through relay.failure.yaml. A self-reporting
+# workflow posts its own failures, so it does not start this.
 name: Report - Failures
+run-name: Report run ${{ inputs.run }}
 
 on:
-  workflow_run:
-    workflows:
-      - Agent - Bug hunt
-      - Agent - Console QA
-      - Agent - Lint
-      - Agent - Nightly
-      - Agent - Shepherd
-      - Check - Go exports
-      - Check - Rulesets
-      - Check - Runners
-      - CodeQL
-      - Dispatch - Agents
-      - Fuzz - Go
-      - Nightly
-      - Relay - Sweep
-      - Report - Agents
-      - Security
-      - Sync - Runner webhook ranges
-      - Test - HITL
-      - Warm - Browsers
-      - Warm - Windows
-    types:
-      - completed
+  workflow_dispatch:
+    inputs:
+      run:
+        description: "Run to report"
+        type: string
+        required: true
 
 permissions:
   actions: read
@@ -43,37 +28,45 @@ permissions:
 jobs:
   report:
     name: Report
-    if: >-
-      github.event.workflow_run.event == 'schedule' && contains(fromJSON('["failure",
-      "timed_out", "startup_failure"]'), github.event.workflow_run.conclusion)
     runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RUN: ${{ inputs.run }}
     steps:
-      - name: Post the failure to Slack
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NIGHTLY_WEBHOOK_URL }}
-          WORKFLOW: ${{ github.event.workflow_run.name }}
-          WORKFLOW_ID: ${{ github.event.workflow_run.workflow_id }}
-          CREATED: ${{ github.event.workflow_run.created_at }}
-          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
-          RUN_URL: ${{ github.event.workflow_run.html_url }}
-          SELF_REPORTING: >-
-            ["Agent - Console QA", "Agent - Lint", "Agent - Nightly", "Check - Runners",
-            "Test - HITL"]
+      - name: Wait for the run to complete
+        id: run
         run: |
-          self=$(jq --arg name "$WORKFLOW" 'index($name) != null' <<< "$SELF_REPORTING")
-          if [ "$self" = true ] && [ "$CONCLUSION" != startup_failure ]; then
-            echo "$WORKFLOW posts its own failures"
-            exit 0
-          fi
+          for _ in $(seq 120); do
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN" > "$RUNNER_TEMP/run"
+            if [ "$(jq -r .status "$RUNNER_TEMP/run")" = completed ]; then
+              jq -r '"event=\(.event)", "conclusion=\(.conclusion)", "name=\(.name)",
+                "workflow=\(.workflow_id)", "created=\(.created_at)",
+                "url=\(.html_url)"' "$RUNNER_TEMP/run" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "::error::Run $RUN did not complete in 30 minutes."
+          exit 1
+
+      - name: Post the failure to Slack
+        if:
+          steps.run.outputs.event == 'schedule' && contains(fromJSON('["failure",
+          "timed_out"]'), steps.run.outputs.conclusion)
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NIGHTLY_WEBHOOK_URL }}
+          WORKFLOW: ${{ steps.run.outputs.name }}
+          WORKFLOW_ID: ${{ steps.run.outputs.workflow }}
+          CREATED: ${{ steps.run.outputs.created }}
+          CONCLUSION: ${{ steps.run.outputs.conclusion }}
+          RUN_URL: ${{ steps.run.outputs.url }}
+        run: |
           # Earlier scheduled runs, newest first.
-          posted=$(gh api "repos/$REPO/actions/workflows/$WORKFLOW_ID/runs" \
-            -X GET -f event=schedule -f created="<$CREATED" -F per_page=100 |
-            jq --arg day "${CREATED:0:10}" --argjson self "$self" '
-              def failed: .conclusion
-                | if $self then . == "startup_failure"
-                  else IN("failure", "timed_out", "startup_failure") end;
+          runs="repos/$GITHUB_REPOSITORY/actions/workflows/$WORKFLOW_ID/runs"
+          posted=$(gh api "$runs" -X GET -f event=schedule -f created="<$CREATED" -F per_page=100 |
+            jq --arg day "${CREATED:0:10}" '
+              def failed: .conclusion | IN("failure", "timed_out", "startup_failure");
               .workflow_runs as $runs
               | ($runs[0] // {} | failed)
                 and any($runs[]; failed and .created_at[:10] == $day)')

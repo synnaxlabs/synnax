@@ -213,3 +213,13 @@ jobs:
           if [ -f "$RUNNER_TEMP/judgments.json" ]; then
             python3 -m review rule "$RUNNER_TEMP/judgments.json"
           fi
+
+  relay-failure:
+    name: Relay the failure
+    needs: [dismiss, judge]
+    if: always() && contains(needs.*.result, 'failure')
+    permissions:
+      actions: write
+    uses: ./.github/workflows/relay.failure.yaml
+    with:
+      requeue: true

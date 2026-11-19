@@ -65,3 +65,14 @@ jobs:
           # Status 1 means findings, which are report-only until they are fixed. Any
           # other failure, such as a package that fails to load, fails the job.
           [ "$status" -le 1 ]
+
+  relay-failure:
+    name: Relay the failure
+    needs: [check]
+    if:
+      always() && github.event_name == 'schedule' && contains(needs.*.result, 'failure')
+    permissions:
+      actions: write
+    uses: ./.github/workflows/relay.failure.yaml
+    with:
+      report: true
