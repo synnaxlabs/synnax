@@ -12,7 +12,6 @@ import "@/color/Create.css";
 import { color, group } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Color } from "@synnaxlabs/lyra/color";
-import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
@@ -38,6 +37,7 @@ interface NameEntryProps {
   onCancel: () => void;
   /** If true, the create is saving, and nothing cancels it. */
   saving: boolean;
+  className?: string;
   children?: ReactNode;
 }
 
@@ -47,6 +47,7 @@ const NameEntry = ({
   onSave,
   onCancel,
   saving,
+  className,
   children,
 }: NameEntryProps): ReactElement => {
   const [name, setName] = useState("");
@@ -72,7 +73,12 @@ const NameEntry = ({
     }
   };
   return (
-    <Flex.Box x align="center" gap="small" className={CSS.B("color-name-entry")}>
+    <Flex.Box
+      x
+      align="center"
+      gap="small"
+      className={CSS.cls(CSS.B("color-name-entry"), className)}
+    >
       {children}
       <Input.Text
         value={name}
@@ -244,32 +250,27 @@ export const CreatePalette = ({ onCreate }: CreatePaletteProps): ReactElement =>
     else setFocused(true);
     return true;
   };
-  return (
-    <Flex.Box y empty>
-      <Divider.Divider x padded className={CSS.BE("color-create-palette", "divider")} />
-      {naming ? (
-        <NameEntry
-          placeholder="Palette name"
-          onSave={handleSave}
-          saving={variant === "loading"}
-          onCancel={() => {
-            setFocused(true);
-            setNaming(false);
-          }}
-        />
-      ) : (
-        <Button.CreateListItem
-          size="small"
-          className={CSS.B("color-create-palette")}
-          autoFocus={focused}
-          onClick={() => {
-            setFocused(false);
-            setNaming(true);
-          }}
-        >
-          Create palette
-        </Button.CreateListItem>
-      )}
-    </Flex.Box>
+  return naming ? (
+    <NameEntry
+      placeholder="Palette name"
+      onSave={handleSave}
+      saving={variant === "loading"}
+      className={CSS.B("color-palette-name-entry")}
+      onCancel={() => {
+        setFocused(true);
+        setNaming(false);
+      }}
+    />
+  ) : (
+    <Button.CreateListItem
+      size="small"
+      autoFocus={focused}
+      onClick={() => {
+        setFocused(false);
+        setNaming(true);
+      }}
+    >
+      Create palette
+    </Button.CreateListItem>
   );
 };

@@ -69,6 +69,22 @@
             padding: var(--pluto-color-picker-inset);
         }
 
+        /* The footer's create item spans the picker, with its "+" on the inset. The
+           keys rest on it as the pointer does, since the edge of the picker clips a
+           ring. */
+        & > .lyra-color-picker__footer > .lyra-create-list-item {
+            margin: 0;
+            padding-inline: var(--pluto-color-picker-inset);
+
+            &:focus-visible {
+                --pluto-btn-bg: var(--pluto-hover-bg);
+                --pluto-btn-border-color: var(--pluto-hover-border-color);
+
+                outline: none;
+                color: var(--pluto-text-color);
+            }
+        }
+
         & .lyra-color-picker__grid {
             display: grid;
             grid-template-columns: repeat(

@@ -30,6 +30,7 @@ const renderLibrary = async (
   value?: string,
   paletteEnd?: ReactNode,
   swatchMenu?: ReactNode,
+  footer?: ReactNode,
 ): Promise<HTMLElement> => {
   await renderThemed(
     <Triggers.Provider>
@@ -41,6 +42,7 @@ const renderLibrary = async (
           onNamedChange: () => {},
           paletteEnd,
           swatchMenu,
+          footer,
         }}
       />
     </Triggers.Provider>,
@@ -61,6 +63,10 @@ const swatchRect = (i: number): DOMRect =>
     .getByRole("button", { name: `Color ${i}`, exact: true })
     .element()
     .getBoundingClientRect();
+
+const CREATE = (
+  <Button.CreateListItem size="small">Create palette</Button.CreateListItem>
+);
 
 const SwatchMenu = (): ReactElement | null => {
   const { swatch } = Color.usePalette();
@@ -160,6 +166,53 @@ describe("Picker", () => {
         rectOf(`.${CSS.BE("color-picker", "search")} svg`).left - picker.left;
       expect(tabs).toBeCloseTo(swatch, 0);
       expect(icon).toBeCloseTo(swatch, 0);
+    });
+
+    it("should span the picker with the hairline and the create item of the footer", async () => {
+      const picker = (
+        await renderLibrary(undefined, undefined, undefined, CREATE)
+      ).getBoundingClientRect();
+      const hairline = rectOf(
+        `.${CSS.BE("color-picker", "footer")} > .${CSS.B("divider")}`,
+      );
+      const item = page
+        .getByRole("button", { name: "Create palette" })
+        .element()
+        .getBoundingClientRect();
+      expect(hairline.left).toBeCloseTo(picker.left, 0);
+      expect(hairline.right).toBeCloseTo(picker.right, 0);
+      expect(hairline.bottom).toBeLessThanOrEqual(item.top);
+      expect(item.left).toBeCloseTo(picker.left, 0);
+      expect(item.right).toBeCloseTo(picker.right, 0);
+      expect(item.bottom).toBeCloseTo(picker.bottom, 0);
+    });
+
+    it("should start the icon of the footer's create item on the inset of the swatches", async () => {
+      await renderLibrary(undefined, undefined, undefined, CREATE);
+      const icon = rectOf(`.${CSS.BE("color-picker", "footer")} svg`);
+      expect(icon.left).toBeCloseTo(swatchRect(0).left, 0);
+    });
+
+    it("should paint the footer's create item on keyboard focus as on hover, with no ring", async () => {
+      await renderLibrary(undefined, undefined, undefined, CREATE);
+      const item = page.getByRole("button", { name: "Create palette" });
+      const el = item.element();
+      assert(el instanceof HTMLElement);
+      const paint = (): string[] => {
+        const s = getComputedStyle(el);
+        return [s.backgroundColor, s.color];
+      };
+      const rest = paint();
+      await userEvent.hover(item);
+      const hovered = paint();
+      expect(hovered[0]).not.toBe(rest[0]);
+      expect(hovered[1]).not.toBe(rest[1]);
+      await userEvent.unhover(item);
+      await userEvent.keyboard("{Tab}");
+      el.focus();
+      expect(el.matches(":focus-visible")).toBe(true);
+      expect(paint()).toEqual(hovered);
+      expect(getComputedStyle(el).outlineStyle).toBe("none");
     });
   });
 });

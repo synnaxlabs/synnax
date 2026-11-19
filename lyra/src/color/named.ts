@@ -47,7 +47,11 @@ export interface Library {
    * the menu would open. Defaults to every swatch.
    */
   hasSwatchMenu?: (key: string) => boolean;
-  /** Shown under the palettes. */
+  /**
+   * Shown under the palettes and a hairline, across the width of the picker. A
+   * `Button.CreateListItem` in it spans the picker, as the create option of a select
+   * spans its list.
+   */
   footer?: ReactNode;
 }
 
