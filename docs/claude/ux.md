@@ -721,7 +721,8 @@ bound, a log precision, or the line plot X channel.
 - Paste keeps the values that parse. A cell whose text does not parse keeps its value
   and shows the error until an edit. A first row in which no number or boolean parses is
   a heading, and paste drops it. A single value pasted into a text cell goes to that
-  cell. Into any other cell, such as a checkbox, it parses like a block.
+  cell. Into a checkbox, a custom cell, or a cell whose column has its own reader, it
+  parses like a block. Elsewhere, such as on a select, paste ignores it.
 
 ### Status and toasts
 
