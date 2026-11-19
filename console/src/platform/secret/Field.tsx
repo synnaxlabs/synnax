@@ -41,7 +41,11 @@ const Control = ({ value, defaultName, ...rest }: ControlProps): ReactElement =>
       describe={describe}
       list={list}
       result={result}
-      onCreate={canCreate ? () => openCreate({ name: defaultName }) : undefined}
+      onCreate={
+        canCreate
+          ? (name) => openCreate({ name: name === "" ? defaultName : name })
+          : undefined
+      }
       {...rest}
     />
   );

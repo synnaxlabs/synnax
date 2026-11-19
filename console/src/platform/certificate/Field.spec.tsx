@@ -147,12 +147,18 @@ const open = async (shown: string): Promise<void> => {
   fireEvent.click(await findDialogTriggerByText(shown));
 };
 
-// The list pages, so a search finds a certificate however many the Core holds.
-const findOption = async (c: certificate.Certificate): Promise<HTMLElement> => {
+// The list pages, so a search finds a certificate however many the Core holds. The
+// create option names the search too, so the match skips it.
+const findOption = async (
+  c: certificate.Certificate,
+  term: string = c.name,
+): Promise<HTMLElement> => {
   fireEvent.change(await screen.findByPlaceholderText("Search certificates..."), {
-    target: { value: c.name },
+    target: { value: term },
   });
-  return await screen.findByRole("option", { name: new RegExp(c.name) });
+  return await screen.findByRole("option", {
+    name: (shown) => shown.includes(c.name) && !shown.startsWith("Create "),
+  });
 };
 
 const openCreate = async (): Promise<void> => {
@@ -285,6 +291,34 @@ describe("Certificate.Field", () => {
     await screen.findByRole("term");
     expect(readDetails()).toEqual({ Path: "/etc/synnax/client.crt" });
     expect(queryIconButton(document.body, "download")).toBeNull();
+  });
+
+  it("opens the create dialog named after the search", async () => {
+    await renderField();
+    await open("Select a certificate");
+    const name = uniqueName("searched");
+    fireEvent.change(await screen.findByPlaceholderText("Search certificates..."), {
+      target: { value: name },
+    });
+    fireEvent.click(
+      await screen.findByRole("option", { name: `Create certificate "${name}"` }),
+    );
+    expect(await screen.findByLabelText("Certificate name")).toHaveProperty(
+      "value",
+      name,
+    );
+  });
+
+  it("hides the create option for a certificate name in another case", async () => {
+    const c = await createStored();
+    await renderField();
+    await open("Select a certificate");
+    fireEvent.change(await screen.findByPlaceholderText("Search certificates..."), {
+      target: { value: `${c.name}x` },
+    });
+    await screen.findByRole("option", { name: `Create certificate "${c.name}x"` });
+    await findOption(c, c.name.toUpperCase());
+    expect(screen.queryByRole("option", { name: /^Create certificate/ })).toBeNull();
   });
 
   it("offers no new certificate to a user who cannot create certificates", async () => {
