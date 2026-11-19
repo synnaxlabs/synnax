@@ -864,7 +864,7 @@ describe("encoder", () => {
         );
       });
 
-      it("should throw on a series of a key that is neither requested nor its own clock", () => {
+      it("should throw on a key that is not requested and not its own clock", () => {
         const c = new Codec([6], [DataType.FLOAT32]);
         expect(() =>
           c.encode(new framer.Frame([9], [new Series(new Float32Array([1]))])),
