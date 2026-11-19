@@ -82,7 +82,7 @@ export const apiKeyID = (token: string): APIKeyKey => {
     throw new InvalidTokenError("malformed API key");
   }
   if (raw.length !== API_KEY_LENGTH) throw new InvalidTokenError("malformed API key");
-  return uuid.parse(raw);
+  return uuid.fromBytes(raw);
 };
 
 export interface NewAPIKey {

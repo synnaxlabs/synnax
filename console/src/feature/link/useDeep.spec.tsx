@@ -302,7 +302,7 @@ describe("useDeep", () => {
     const getCurrentURLs = vi.fn(async () => ["synnax://cluster/c1/schematic/s1"]);
     const { connect } = await setup({ engine: "web", getCurrentURLs });
     // Async effects start after a task queue flush, so wait one out before asserting.
-    await act(async () => await scheduler.flushTaskQueue());
+    await act(async () => await scheduler.nextTask());
     expect(getCurrentURLs).not.toHaveBeenCalled();
     expect(connect).not.toHaveBeenCalled();
   });

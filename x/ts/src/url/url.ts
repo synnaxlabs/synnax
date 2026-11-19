@@ -32,25 +32,20 @@ const removeTrailingSlash = (path: string): string =>
   path.endsWith("/") ? path.slice(0, -1) : path;
 
 /**
- * Builds a query string from a record.
- * @param record - The record to build the query string from. If the record is null,
- * an empty string is returned.
- * @returns the query string.
+ * Builds a percent-encoded query string from a record, skipping null and undefined
+ * values.
+ * @param prefix - Prepended to each key.
+ * @returns the query string, with a leading "?".
  */
 export const buildQueryString = (
-  request: Record<string, string>,
+  request: Record<string, string | null | undefined>,
   prefix: string = "",
 ): string => {
-  if (request === null) return "";
-  return `?${Object.entries(request)
-    .filter(([, value]) => {
-      if (value === undefined || value === null) return false;
-      if (Array.isArray(value)) return value.length > 0;
-      return true;
-    })
-
-    .map(([key, value]) => `${prefix}${key}=${value}`)
-    .join("&")}`;
+  const params = new URLSearchParams();
+  Object.entries(request).forEach(([key, value]) => {
+    if (value != null) params.append(`${prefix}${key}`, value);
+  });
+  return `?${params.toString()}`;
 };
 
 /**

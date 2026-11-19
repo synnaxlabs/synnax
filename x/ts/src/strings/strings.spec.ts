@@ -140,6 +140,91 @@ describe("escapeHTML", () => {
     ));
 });
 
+describe("toKebab", () => {
+  const SPECS: [string, string][] = [
+    ["fooBar", "foo-bar"],
+    ["fooBarBaz", "foo-bar-baz"],
+    ["foo bar", "foo-bar"],
+    ["foo bar baz", "foo-bar-baz"],
+    ["foo.bar", "foo.bar"],
+    ["foo.bar.baz", "foo.bar.baz"],
+    ["Foo Bar", "foo-bar"],
+    ["foo_bar", "foo-bar"],
+    ["foo_bar_baz", "foo-bar-baz"],
+  ];
+  SPECS.forEach(([input, expected]) => {
+    it(`should convert ${input} to ${expected}`, () => {
+      expect(strings.toKebab(input)).toBe(expected);
+    });
+  });
+});
+describe("toProperNoun", () => {
+  const SPECS: [string, string][] = [
+    ["fooBar", "Foo Bar"],
+    ["foo_bar", "Foo Bar"],
+    ["foo-bar", "Foo Bar"],
+    ["FooBar", "Foo Bar"],
+    ["foo_bar_baz", "Foo Bar Baz"],
+    ["fooBarBaz", "Foo Bar Baz"],
+    ["foo-bar-baz", "Foo Bar Baz"],
+    ["XMLParser", "XML Parser"],
+    ["parseXMLDocument", "Parse XML Document"],
+    ["IODevice", "IO Device"],
+    ["temperature_sensor", "Temperature Sensor"],
+    ["pressure-gauge", "Pressure Gauge"],
+    ["flowMeter", "Flow Meter"],
+    ["my_custom_symbol", "My Custom Symbol"],
+    ["valve-actuator-v2", "Valve Actuator V2"],
+    ["PIDController", "PID Controller"],
+    ["", ""],
+    ["a", "A"],
+    ["ABC", "ABC"],
+    ["test123value", "Test123value"],
+    ["test_123_value", "Test 123 Value"],
+  ];
+  SPECS.forEach(([input, expected]) => {
+    it(`should convert ${input} to ${expected}`, () => {
+      expect(strings.toProperNoun(input)).toBe(expected);
+    });
+  });
+});
+
+describe("toSentence", () => {
+  const SPECS: [string, string][] = [
+    ["sampleRate", "Sample rate"],
+    ["state_update_rate", "State update rate"],
+    ["data-type", "Data type"],
+    ["FooBar", "Foo bar"],
+    ["name", "Name"],
+    ["XMLParser", "XML parser"],
+    ["parseXMLDocument", "Parse XML document"],
+    ["IODevice", "IO device"],
+    ["apiKey", "Api key"],
+    ["cjcSource", "Cjc source"],
+    ["PIDController", "PID controller"],
+    ["valve-actuator-v2", "Valve actuator v2"],
+    ["", ""],
+    ["a", "A"],
+    ["ABC", "ABC"],
+    ["test_123_value", "Test 123 value"],
+  ];
+  SPECS.forEach(([input, expected]) => {
+    it(`should convert ${input} to ${expected}`, () => {
+      expect(strings.toSentence(input)).toBe(expected);
+    });
+  });
+});
+
+describe("capitalize", () => {
+  it("should capitalize the first character", () => {
+    expect(strings.capitalize("hello world")).toBe("Hello world");
+  });
+
+  it("should return an empty string unchanged", () => {
+    expect(strings.capitalize("")).toBe("");
+  });
+});
+
 describe("count", () => {
   it("should use the singular noun for a count of 1", () => {
     expect(strings.count(1, "cell")).toEqual("1 cell");

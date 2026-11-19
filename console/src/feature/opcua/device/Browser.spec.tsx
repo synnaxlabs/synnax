@@ -446,7 +446,7 @@ describe("Browser details", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: /TankPressure/ }));
     expect(screen.queryByText("2.5")).toBeNull();
-    await act(async () => await scheduler.flushTaskQueue());
+    await act(async () => await scheduler.nextTask());
     fireEvent.click(screen.getByText("PumpSpeed"));
     fireEvent.click(screen.getByRole("button", { name: /PumpSpeed/ }));
     expect((await next.answered).args).toMatchObject({ nodeId: PUMP.nodeId });
@@ -476,7 +476,7 @@ describe("Browser details", () => {
       );
       fireEvent.click(screen.getByText("PumpSpeed"));
       // Lets the effect for PumpSpeed start before the next selection aborts it.
-      await act(async () => await scheduler.flushTaskQueue());
+      await act(async () => await scheduler.nextTask());
       fireEvent.click(screen.getByText("TankPressure"));
       await answerCommand(client, scan, open, { data: DETAILS });
       const next = await awaitCommand(

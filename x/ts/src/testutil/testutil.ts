@@ -11,7 +11,7 @@ import { assert } from "vitest";
 
 import { id } from "@/id";
 import { sleep } from "@/sleep";
-import { TimeSpan } from "@/telem";
+import { type CrudeTimeSpan, TimeSpan } from "@/telem";
 
 export const toString = (value: unknown): string =>
   JSON.stringify(value, (_, value) => {
@@ -19,15 +19,20 @@ export const toString = (value: unknown): string =>
     return value;
   });
 
+/**
+ * Calls fn once per interval until the duration elapses. A bare number is milliseconds.
+ * @throws the first error that fn throws.
+ */
 export const expectAlways = async (
   fn: () => void | Promise<void>,
-  duration: number = 200,
-  interval: number = 20,
-) => {
+  duration: CrudeTimeSpan = TimeSpan.milliseconds(200),
+  interval: CrudeTimeSpan = TimeSpan.milliseconds(20),
+): Promise<void> => {
+  const span = TimeSpan.fromMilliseconds(duration).milliseconds;
   const start = Date.now();
-  while (Date.now() - start < duration) {
+  while (Date.now() - start < span) {
     await fn();
-    await sleep.sleep(TimeSpan.milliseconds(interval));
+    await sleep.sleep(interval);
   }
 };
 

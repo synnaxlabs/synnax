@@ -149,14 +149,19 @@ const DISCOVER_KIND: Kind<Addition> = {
 
 const useDiscoverModal = createDiscoverModal(DISCOVER_KIND);
 
-/** @returns the channels that the bindings and tags of entries write. */
+/**
+ * @returns the channels that the bindings and tags of the enabled entries write. The
+ * Core skips disabled entries.
+ */
 const writtenChannels = (entries: ReadEntry[]): Set<channel.Key> => {
   const written = new Set(
-    entries.flatMap((e) =>
-      isPlain(e)
-        ? e.messages.flatMap(({ bindings }) => bindings.map((b) => b.channel))
-        : [e.channel],
-    ),
+    entries
+      .filter(({ disabled }) => !disabled)
+      .flatMap((e) =>
+        isPlain(e)
+          ? e.messages.flatMap(({ bindings }) => bindings.map((b) => b.channel))
+          : [e.channel],
+      ),
   );
   written.delete(0);
   return written;

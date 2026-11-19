@@ -1032,7 +1032,7 @@ describe("Answers", () => {
     it("leaves an entry written during a fetch to that fetch", async () => {
       const table = newTable();
       const fetch = vi.fn(async () => {
-        await scheduler.flushTaskQueue();
+        await scheduler.nextTask();
         table.set(rec("a", 0));
         return ["a"];
       });
@@ -2272,7 +2272,7 @@ describe("Answers", () => {
       table.set("z", rec("z", 10));
       await expect.poll(() => fetch.mock.calls.length).toBe(3);
       older.resolve(["b"]);
-      await scheduler.flushTaskQueue();
+      await scheduler.nextTask();
       expect(answers.getCached({ searchTerm: "x" })).toEqual([rec("a", 1)]);
       newer.resolve(["c"]);
       await expect

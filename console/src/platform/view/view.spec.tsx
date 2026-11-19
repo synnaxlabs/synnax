@@ -14,7 +14,7 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Access, Flux } from "@synnaxlabs/pluto";
-import { TimeRange, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
+import { uuid } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { type ReactElement, useState } from "react";
@@ -22,6 +22,7 @@ import { describe, expect, it, onTestFinished } from "vitest";
 
 import { Label } from "@/platform/label";
 import { Modals } from "@/platform/modals";
+import { createTestRange } from "@/platform/range/testutil";
 import { View } from "@/platform/view";
 import { createTabWrapper, type TabWrapper } from "@/platform/view/testutil";
 import { Session } from "@/session";
@@ -163,16 +164,8 @@ const tabIcon = (name: string): SVGElement => {
 
 describe("View", () => {
   it("filters the listed items down to those matching the search term", async () => {
-    const start = TimeStamp.now();
-    const timeRange = new TimeRange(start, start.add(TimeSpan.seconds(10)));
-    const alpha = await client.ranges.create({
-      name: uniqueName("alpha"),
-      timeRange,
-    });
-    const bravo = await client.ranges.create({
-      name: uniqueName("bravo"),
-      timeRange,
-    });
+    const alpha = await createTestRange(client, { name: uniqueName("alpha") });
+    const bravo = await createTestRange(client, { name: uniqueName("bravo") });
     await renderHarness();
     const input =
       await screen.findByPlaceholderText<HTMLInputElement>("Search ranges...");
@@ -523,16 +516,8 @@ describe("View permissions", () => {
   });
 
   it("should let a subject who cannot update views search a saved view but not filter it", async () => {
-    const start = TimeStamp.now();
-    const timeRange = new TimeRange(start, start.add(TimeSpan.seconds(10)));
-    const alpha = await client.ranges.create({
-      name: uniqueName("alpha"),
-      timeRange,
-    });
-    const bravo = await client.ranges.create({
-      name: uniqueName("bravo"),
-      timeRange,
-    });
+    const alpha = await createTestRange(client, { name: uniqueName("alpha") });
+    const bravo = await createTestRange(client, { name: uniqueName("bravo") });
     const saved = await createView();
     await renderHarness(await createSubject({}), showing(saved));
     await waitFor(() => expect(selectedViewName()).toBe(saved.name));

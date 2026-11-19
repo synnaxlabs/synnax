@@ -23,10 +23,12 @@ export const createTestRange = async (
   client: Synnax,
   overrides: Partial<ranger.New> = {},
 ): Promise<ranger.Range> => {
-  const start = TimeStamp.now();
+  // Each start or end after now makes the stage readers of parallel specs, such as the
+  // range toolbar, read again, so the range ends in the past.
+  const end = TimeStamp.now().sub(TimeSpan.MINUTE);
   return await client.ranges.create({
     name: uniqueName("range"),
-    timeRange: new TimeRange(start, start.add(TimeSpan.seconds(10))),
+    timeRange: new TimeRange(end.sub(TimeSpan.seconds(10)), end),
     ...overrides,
   });
 };
@@ -58,8 +60,8 @@ const PAGE_SIZE = 50;
  * ordering fails the spec instead of quietly restoring it to the first page.
  */
 export const createOffPageTestRange = async (client: Synnax): Promise<ranger.Range> => {
-  const start = TimeStamp.now();
-  const timeRange = new TimeRange(start, start.add(TimeSpan.seconds(10)));
+  const end = TimeStamp.now().sub(TimeSpan.MINUTE);
+  const timeRange = new TimeRange(end.sub(TimeSpan.seconds(10)), end);
   await client.ranges.create(
     Array.from({ length: PAGE_SIZE }, () => ({
       key: createKeyEndingIn("0"),

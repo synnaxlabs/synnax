@@ -268,7 +268,7 @@ export const useClipboard = <N extends ClipboardNode, E extends ClipboardEdge, C
     const payload = parsePayload<N, E, C>(raw);
     if (payload == null || payload.version !== VERSION) return;
     e.preventDefault();
-    const offset = xy.translation(payload.anchor, cursor);
+    const offset = xy.sub(cursor, payload.anchor);
     const remap: Record<string, string> = {};
     const nodes: PastedNode<N, C>[] = payload.nodes.map((node) => {
       const newKey = uuid.create();

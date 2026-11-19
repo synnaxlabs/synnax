@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/** A numeric value is either a a number, or a bigint. */
-export type Numeric = number | bigint;
+import { type numeric } from "@/numeric";
 
 const multiCoercedOp =
-  (func: (a: number, b: number) => Numeric) =>
-  <V extends Numeric>(a: V, b: Numeric): V => {
+  (func: (a: number, b: number) => numeric.Value) =>
+  <V extends numeric.Value>(a: V, b: numeric.Value): V => {
     if (typeof a === "bigint") {
       if (isInteger(b))
         return func(a as unknown as number, BigInt(b) as unknown as number) as V;
@@ -23,7 +22,7 @@ const multiCoercedOp =
     return func(Number(a), Number(b)) as V;
   };
 
-/** @returns the product of a and b, coercing b to the type of a if necessary. */
+/** @returns a minus b, coercing b to the type of a if necessary. */
 export const sub = multiCoercedOp((a, b) => a - b);
 
 /** @returns the sum of a and b, coercing b to the type of a if necessary. */
@@ -34,7 +33,7 @@ export const closeTo = (a: number, b: number, epsilon = 0.0001): boolean =>
   Math.abs(a - b) < epsilon;
 
 /** @returns true if a is equal to b, coercing b to the type of a if necessary. */
-export const equal = (a: Numeric, b: Numeric): boolean => {
+export const equal = (a: numeric.Value, b: numeric.Value): boolean => {
   const aIsBigInt = typeof a === "bigint";
   const bIsBigInt = typeof b === "bigint";
   if (aIsBigInt && bIsBigInt) return a === b;
@@ -58,7 +57,7 @@ export const roundToNearestMagnitude = (num: number): number => {
 /** @returns the minimum of a and b, coercing b to the type of a if necessary. */
 export const min = multiCoercedOp((a, b) => (a <= b ? a : b));
 
-export const isInteger = (a: Numeric): boolean => {
+export const isInteger = (a: numeric.Value): boolean => {
   if (typeof a === "bigint") return true;
   return Number.isInteger(a);
 };
@@ -67,13 +66,13 @@ export const isInteger = (a: Numeric): boolean => {
 export const max = multiCoercedOp((a, b) => (a >= b ? a : b));
 
 /** @returns the absolute value of a. */
-export const abs = <V extends Numeric>(a: V): V => {
+export const abs = <V extends numeric.Value>(a: V): V => {
   if (typeof a === "bigint") return (a < 0n ? -a : a) as V;
   return (a < 0 ? -a : a) as V;
 };
 
 /** @returns zero, represented as a bigint when the given value is one. */
-export const zero = <V extends Numeric>(like: V): V =>
+export const zero = <V extends numeric.Value>(like: V): V =>
   (typeof like === "bigint" ? 0n : 0) as V;
 
 /** @returns the multiplication of a and b, coercing b to the type of a if necessary. */

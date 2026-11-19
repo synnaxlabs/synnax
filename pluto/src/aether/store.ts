@@ -501,10 +501,7 @@ export class Store {
     ): void => {
       if (entry.displaced) return;
       const prev = entry.state;
-      const raw = state.executeSetter<z.input<StateSchema>, z.infer<StateSchema>>(
-        next,
-        prev,
-      );
+      const raw = state.resolve<z.input<StateSchema>, z.infer<StateSchema>>(next, prev);
       entry.state = zod.parse(entry.schema, raw, { label: entry.type });
       // Before the create message flushes the worker has no component to update, so
       // the state rides along on that message instead and the transfer list merges

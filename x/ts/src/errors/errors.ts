@@ -290,9 +290,3 @@ export const payloadZ = z.object({
 
 /** Network-portable representation of an error */
 export type Payload = z.infer<typeof payloadZ>;
-
-/** Error for representing the cancellation of an operation */
-export class Canceled extends createTyped("canceled") {}
-
-/** Error for representing a method that is not implemented */
-export class NotImplemented extends createTyped("not_implemented") {}

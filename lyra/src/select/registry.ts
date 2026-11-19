@@ -66,6 +66,8 @@ export interface Registry {
   isHidden: (key: record.Key) => boolean;
   /** @returns the number of unpinned fixed items the search has not hidden. */
   countVisible: () => number;
+  /** @returns whether an unpinned fixed item has the name as its text, in any case. */
+  hasName: (name: string) => boolean;
   /** @returns the search term. */
   getTerm: () => string;
   /** Sets the search term and hides the unpinned fixed items whose text misses it. */
@@ -152,6 +154,12 @@ const useRegistry = (): Registry => {
         if (!hidden && !pinned) count++;
       return count;
     },
+    hasName: (name) => {
+      const lower = name.toLowerCase();
+      for (const { text, pinned } of itemsRef.current.values())
+        if (!pinned && text?.toLowerCase() === lower) return true;
+      return false;
+    },
     getLabel: (key) =>
       map.getOrInsert(labelsRef.current, key, () => {
         const label = document.createElement("span");
@@ -222,6 +230,13 @@ export const useVisibleCount = (): number =>
 
 /** @returns the search term. It re-renders the caller whenever the term changes. */
 export const useTerm = (): string => useRegistryValue("Select.useTerm", getTerm);
+
+/**
+ * @returns whether an unpinned fixed item has the name as its text, in any case. It
+ * re-renders the caller whenever an item registers, unregisters, or changes.
+ */
+export const useHasName = (name: string): boolean =>
+  useRegistryValue("Select.useHasName", (registry) => registry.hasName(name));
 
 /** @returns whether the search term hides the fixed item with the given key. */
 export const useIsHidden = (key: record.Key): boolean =>

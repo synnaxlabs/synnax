@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { status } from "@synnaxlabs/client";
-import { bounds, color, math, notation } from "@synnaxlabs/x";
+import { bounds, color, math, notation, type numeric } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Factory } from "@/telem/aether/factory";
@@ -98,7 +98,7 @@ export class WithinBounds
   schema = WithinBounds.propsZ;
 
   protected transform(value: number): boolean {
-    return bounds.contains(this.props.trueBound, value);
+    return bounds.contains(bounds.construct(this.props.trueBound), value);
   }
 }
 
@@ -158,7 +158,7 @@ export const stringifyNumberProps = z.object({
 });
 
 export class StringifyNumber extends UnarySourceTransformer<
-  math.Numeric,
+  numeric.Value,
   string,
   typeof stringifyNumberProps
 > {
@@ -166,7 +166,7 @@ export class StringifyNumber extends UnarySourceTransformer<
   static readonly propsZ = stringifyNumberProps;
   schema = StringifyNumber.propsZ;
 
-  protected transform(value: math.Numeric): string {
+  protected transform(value: numeric.Value): string {
     if (typeof value === "number" && isNaN(value)) return "";
     const { precision, prefix, suffix, notation: pNotation } = this.props;
     return `${prefix}${notation.stringifyNumber(value, precision, pNotation)}${suffix}`;
@@ -187,7 +187,7 @@ export const rollingAverageProps = z.object({
 });
 
 export class RollingAverage extends UnarySourceTransformer<
-  math.Numeric,
+  numeric.Value,
   number,
   typeof rollingAverageProps
 > {
@@ -198,7 +198,7 @@ export class RollingAverage extends UnarySourceTransformer<
   // The appended count of the newest sample the window holds.
   private appended?: number;
 
-  protected transform(value: math.Numeric): number {
+  protected transform(value: numeric.Value): number {
     const num = Number(value);
     if (this.props.windowSize < 2 || isNaN(num) || this.window.length === 0) return num;
     return math.mean(this.window);
@@ -208,7 +208,7 @@ export class RollingAverage extends UnarySourceTransformer<
   // from a source with no count. Every change notifies, so a rewritten sample redraws
   // and staleness can count arrivals. A NaN sample enters the window like any other, so
   // the average reports it until it slides out.
-  protected shouldNotify({ data, appended }: Result<math.Numeric>): boolean {
+  protected shouldNotify({ data, appended }: Result<numeric.Value>): boolean {
     if (this.props.windowSize < 2) return true;
     if (appended != null) {
       if (this.appended != null && appended <= this.appended) return true;
@@ -244,7 +244,7 @@ export type BandColorProps = z.input<typeof bandColorProps>;
  * Listeners hear only changes of color.
  */
 export class BandColor extends MultiSourceTransformer<
-  math.Numeric | string,
+  numeric.Value | string,
   color.Color,
   typeof bandColorProps
 > {
@@ -262,7 +262,7 @@ export class BandColor extends MultiSourceTransformer<
   protected transform({
     source,
     phase = 0,
-  }: Record<string, math.Numeric | string>): color.Color {
+  }: Record<string, numeric.Value | string>): color.Color {
     const value = source === "" ? NaN : Number(source);
     const background = this.props.background ?? color.TRANSPARENT;
     const i = this.bands.findLastIndex(({ threshold }) => threshold <= value);

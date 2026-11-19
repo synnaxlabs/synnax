@@ -18,16 +18,20 @@ import {
 } from "@/telem/aether/telem";
 import { registerInstance, TEST_SINK_TYPE } from "@/telem/aether/testutil/factory";
 
-export class TestSink<V> extends observe.Observer<void> implements Sink<V>, Telem {
+export class TestSink<V> implements Sink<V>, Telem {
+  private readonly observer = new observe.Observer<void>();
   static readonly TYPE = TEST_SINK_TYPE;
   readonly id: string;
   values: V[] = [];
   private _destructor: destructor.Destructor;
 
   constructor() {
-    super();
     this.id = id.create();
     this._destructor = registerInstance(this.id, this);
+  }
+
+  onChange(handler: observe.Handler<void>): destructor.Destructor {
+    return this.observer.onChange(handler);
   }
 
   get lastValue(): V | undefined {
@@ -36,7 +40,7 @@ export class TestSink<V> extends observe.Observer<void> implements Sink<V>, Tele
 
   set(...values: V[]): void {
     this.values.push(...values);
-    this.notify();
+    this.observer.notify();
   }
 
   clear(): void {

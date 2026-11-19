@@ -10,16 +10,18 @@
 import { schematic } from "@synnaxlabs/client";
 import { type Component } from "@synnaxlabs/lyra/component";
 import { Haul } from "@synnaxlabs/lyra/haul";
-import { act, render, type RenderResult } from "@testing-library/react";
+import { act, render, type RenderResult, waitFor } from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
 import { describe, expect, it, vi } from "vitest";
 
+import { aether } from "@/aether/aether";
 import { CSS } from "@/css";
 import { Select } from "@/schematic/node/general/select";
 import { telemTest } from "@/telem/aether/testutil";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
 import { canvasTest } from "@/vis/render/testutil";
 import { setpoint } from "@/vis/setpoint/aether";
+import { Staleness } from "@/vis/staleness";
 import { stateIndicator } from "@/vis/stateIndicator/aether";
 
 const NODE_KEY = "c1";
@@ -61,5 +63,66 @@ describe("Select.Symbol", () => {
   it("should size the readout from the field's size", async () => {
     expect(await readoutTag("medium")).toBe("P");
     expect(await readoutTag("large")).toBe("H4");
+  });
+});
+
+// Stands in for the readback worker component and reports its source as stale.
+class StaleReadback extends aether.Leaf<typeof stateIndicator.stateZ> {
+  static readonly TYPE = stateIndicator.StateIndicator.TYPE;
+  schema = stateIndicator.stateZ;
+
+  afterUpdate(): void {
+    if (!this.state.stale) this.setState((s) => ({ ...s, stale: true }));
+  }
+}
+
+const StaleWrapper = createSynnaxWrapper({
+  client: null,
+  additionalRegistry: { ...setpoint.REGISTRY, [StaleReadback.TYPE]: StaleReadback },
+  telemFactories: [new telemTest.TestFactory()],
+  renderContext: canvasTest.record(),
+});
+
+const renderStale = (badged: boolean) =>
+  render(
+    <StaleWrapper>
+      <Staleness.Provider badged={badged}>
+        <ReactFlowProvider>
+          <Haul.Provider>
+            <Select.spec.Node
+              nodeKey={NODE_KEY}
+              selected={false}
+              onConfigChange={vi.fn()}
+              config={schematic.selectNodeConfigZ.parse({
+                variant: "select",
+                stateChannel: 7,
+              })}
+            />
+          </Haul.Provider>
+        </ReactFlowProvider>
+      </Staleness.Provider>
+    </StaleWrapper>,
+  );
+
+const readout = (container: HTMLElement): HTMLElement => {
+  const el = container.querySelector<HTMLElement>(
+    `.${CSS.BE("symbol-field", "readout-value")}`,
+  );
+  if (el == null) throw new Error("expected a readout");
+  return el;
+};
+
+describe("Select.Symbol staleness", () => {
+  it("should show the stale indicator in place of the stale color", async () => {
+    const { container, findByRole } = renderStale(true);
+    const indicator = await findByRole("img", { name: "Stale" });
+    expect(indicator.closest(".pluto-control-state")).not.toBeNull();
+    expect(readout(container).style.color).toBe("");
+  });
+
+  it("should paint the stale color with no indicator when not badged", async () => {
+    const { container, queryByRole } = renderStale(false);
+    await waitFor(() => expect(readout(container).style.color).not.toBe(""));
+    expect(queryByRole("img", { name: "Stale" })).toBeNull();
   });
 });

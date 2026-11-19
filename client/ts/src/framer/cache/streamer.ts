@@ -125,7 +125,7 @@ export class MultiplexedStreamer {
 
   // Serializes stream open, update, and close against each other. An open or update
   // retries while holding it, so close() interrupts them before acquiring it.
-  private readonly connMu = sync.newMutex({ closed: false });
+  private readonly connMu = sync.createMutex({ closed: false });
   // Belongs to the current stream, so a retired stream's abort listener is collected
   // with it.
   private streamAbort: AbortController | null = null;
