@@ -252,3 +252,17 @@ var _ = Describe("Agreement", func() {
 		})
 	})
 })
+
+var _ = Describe("Requested keys", func() {
+	It("Should count a key named twice once", func(ctx SpecContext) {
+		keys := channel.Keys{1, 1}
+		dataTypes := []telem.DataType{telem.Float32T, telem.Float32T}
+		enc := codec.NewStatic(keys, dataTypes)
+		encoded := MustSucceed(enc.Encode(ctx, one(telem.NewSeriesV[float32](1))))
+		Expect(encoded).To(Equal(frameBytes("BF 01000000 01 09 01000000 0000803F")))
+		decoded := MustSucceed(codec.NewStatic(keys, dataTypes).Decode(encoded))
+		Expect(
+			decoded.Get(1).Series[0],
+		).To(telem.MatchSeries(telem.NewSeriesV[float32](1)))
+	})
+})

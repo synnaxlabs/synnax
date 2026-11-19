@@ -111,7 +111,7 @@ class CodecState:
     index: dict[channel.Key, int]
 
     def __init__(self, *, keys: list[channel.Key], data_types: list[DataType]) -> None:
-        self.keys = sorted(keys)
+        self.keys = sorted(set(keys))
         self.index = {k: i for i, k in enumerate(self.keys)}
         agreed = [DataType.UNKNOWN] * len(self.keys)
         for k, dt in zip(keys, data_types, strict=True):

@@ -661,6 +661,14 @@ describe("encoder", () => {
     const CLOCK_FRAME =
       "BF 01000000 03 09 01000000 00000000 02 05000000 FFFFFFFF 0000803F";
 
+    it("should count a key named twice once", () => {
+      const enc = new Codec([1, 1], [DataType.FLOAT32, DataType.FLOAT32]);
+      const encoded = enc.encode(
+        new framer.Frame([1], [new Series(new Float32Array([1]))]),
+      );
+      expect(encoded).toEqual(hex("BF 01000000 01 09 01000000 0000803F"));
+    });
+
     it("should label an int64 series on a timestamp key with no override", () => {
       const enc = new Codec([1], [DataType.TIMESTAMP]);
       const encoded = enc.encode(

@@ -64,25 +64,27 @@ type agreement struct {
 	all channel.Keys
 }
 
-// newState returns the state of the given keys and their data types, in any order. The
-// data types are the encoder's agreed types; the decoder reads its own from the first
-// frame of the state.
+// newState returns the state of the given keys and their data types, in any order. A
+// key named twice counts once. The data types are the encoder's agreed types; the
+// decoder reads its own from the first frame of the state.
 func newState(keys channel.Keys, dataTypes []telem.DataType) *state {
+	sorted := slices.Compact(slices.Sorted(slices.Values(keys)))
+	n := len(sorted)
 	s := &state{
-		keys:  slices.Clone(keys),
-		index: make(map[channel.Key]int, len(keys)),
+		keys:  sorted,
+		index: make(map[channel.Key]int, n),
 		enc: agreement{
-			dataTypes: make([]telem.DataType, len(keys)),
-			clocks:    make([]uint32, len(keys)),
+			dataTypes: make([]telem.DataType, n),
+			clocks:    make([]uint32, n),
+			all:       sorted,
 		},
 		dec: agreement{
-			dataTypes: make([]telem.DataType, len(keys)),
-			clocks:    make([]uint32, len(keys)),
+			dataTypes: make([]telem.DataType, n),
+			clocks:    make([]uint32, n),
+			all:       sorted,
 		},
 	}
-	slices.Sort(s.keys)
-	s.enc.all, s.dec.all = s.keys, s.keys
-	for i, key := range s.keys {
+	for i, key := range sorted {
 		s.index[key] = i
 	}
 	for i, key := range keys {

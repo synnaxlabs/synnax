@@ -724,6 +724,13 @@ class TestAgreement:
         dec = Codec(keys=[1], data_types=[sy.DataType.TIMESTAMP])
         assert dec.decode(encoded).series[0].data_type == sy.DataType.TIMESTAMP
 
+    def test_key_named_twice(self) -> None:
+        """Should count a key named twice once."""
+        f32 = sy.DataType.FLOAT32
+        enc = Codec(keys=[1, 1], data_types=[f32, f32])
+        pld = FramePayload(keys=[1], series=[sy.Series(np.array([1], np.float32))])
+        assert enc.encode(pld) == _hex("BF 01000000 01 09 01000000 0000803F")
+
     def test_type_override(self) -> None:
         """Should carry a type override for its own series only."""
         enc, dec = _float32_codec(), _float32_codec()

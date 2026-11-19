@@ -547,6 +547,14 @@ TEST(CodecTests, GoldenFrames) {
     }
 }
 
+/// @brief it should count a key named twice once.
+TEST(CodecTests, KeyNamedTwiceCountsOnce) {
+    Codec enc({1, 1}, {x::telem::FLOAT32_T, x::telem::FLOAT32_T});
+    std::vector<uint8_t> encoded;
+    ASSERT_NIL(enc.encode(x::telem::Frame(1, x::telem::Series(1.0f)), encoded));
+    ASSERT_EQ(encoded, from_hex("BF 01000000 01 09 01000000 0000803F"));
+}
+
 /// @brief it should label an int64 series on a timestamp key with no override.
 TEST(CodecTests, Int64OnTimestampKeyNeedsNoOverride) {
     Codec enc({1}, {x::telem::TIMESTAMP_T});

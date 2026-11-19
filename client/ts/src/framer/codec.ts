@@ -236,15 +236,15 @@ export class Codec {
   }
 
   /**
-   * Starts a new state of the given keys and their data types. The data types are the
-   * encoder's agreed types; the decoder reads its own from the first frame of the
-   * state.
+   * Starts a new state of the given keys and their data types. A key named twice counts
+   * once. The data types are the encoder's agreed types; the decoder reads its own from
+   * the first frame of the state.
    */
   update(keys: channel.Key[], dataTypes: DataType[]): void {
     this.seqNum++;
     // Encoder and decoder walk this order positionally when a frame carries every
     // channel, so it has to match the Core's.
-    const sorted = [...keys].sort(compareKeys);
+    const sorted = [...new Set(keys)].sort(compareKeys);
     const index = new Map(sorted.map((k, i) => [k, i]));
     const agreed = new Array<DataType>(sorted.length);
     keys.forEach((k, i) => (agreed[index.get(k) as number] = dataTypes[i]));
