@@ -1039,6 +1039,36 @@ describe("Kafka read form", () => {
       });
     });
 
+    it("should not count the picks of a shape that a new sample lacks", async () => {
+      const { dev } = await renderRead();
+      const pump = {
+        sources: ["pump"],
+        fields: [createInferredField("/pressure", "int64", "number")],
+        index: -1,
+        count: 2,
+      };
+      const dialog = await openAddData(dev, { data: sampleOf(pump) });
+      fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
+      await dialog.findByText("1 field selected");
+      const scan = await client.tasks.retrieve({
+        type: Kafka.Task.SCAN_TYPE,
+        rack: dev.rack,
+        one: true,
+      });
+      const grown = {
+        ...pump,
+        fields: [...pump.fields, createInferredField("/flow", "float64", "number")],
+      };
+      const again = await answerCommandsUntil(client, [scan], "sample", {
+        browse: { data: browseOf(listTopic(TOPIC)) },
+        sample: { data: sampleOf(grown) },
+      });
+      fireEvent.click(dialog.getByRole("button", { name: "Listen again" }));
+      await again.answered;
+      await dialog.findByText(/Select the fields to read/);
+      expect(dialog.queryByText("1 field selected")).toBeNull();
+    });
+
     it("should say why a sample read no records", async () => {
       const { dev } = await renderRead();
       const data = {

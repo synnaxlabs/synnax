@@ -171,39 +171,9 @@ func (f *factory) buildReadRecords(
 	ctx context.Context,
 	cfg ReadConfig,
 ) (map[string]map[string]*readRecord, []*readGroup, error) {
-	names := make(set.Set[string], len(cfg.Topics))
-	for i, topic := range cfg.Topics {
-		if topic.Name == "" {
-			return nil, nil, errors.Wrapf(
-				validate.ErrValidation, "topics.%d.name: must not be empty", i,
-			)
-		}
-		if names.Contains(topic.Name) {
-			return nil, nil, errors.Wrapf(
-				validate.ErrValidation, "topic %q: listed more than once", topic.Name,
-			)
-		}
-		names.Add(topic.Name)
-	}
-	type topicRecord struct {
-		topic string
-		ReadRecord
-	}
-	var enabled []topicRecord
-	for _, topic := range cfg.Topics {
-		for _, rec := range topic.Records {
-			if !rec.Disabled {
-				enabled = append(
-					enabled,
-					topicRecord{topic: topic.Name, ReadRecord: rec},
-				)
-			}
-		}
-	}
-	if len(enabled) == 0 {
-		return nil, nil, errors.Wrap(
-			validate.ErrValidation, "topics: at least one record must be enabled",
-		)
+	enabled, err := enabledRecords(cfg)
+	if err != nil {
+		return nil, nil, err
 	}
 	icds, err := retrieveICDs(ctx, f.cfg.DB, f.cfg.ICD, lo.Uniq(lo.Map(
 		enabled, func(r topicRecord, _ int) icd.Key { return r.ICD },
@@ -256,6 +226,46 @@ func (f *factory) buildReadRecords(
 		groups = append(groups, rd.groups...)
 	}
 	return records, groups, nil
+}
+
+// topicRecord is a record of a read task and the name of its topic.
+type topicRecord struct {
+	topic string
+	ReadRecord
+}
+
+// enabledRecords returns the enabled records of cfg. It returns a validation error when
+// a topic has no name, when two topics have one name, or when no record is enabled.
+func enabledRecords(cfg ReadConfig) ([]topicRecord, error) {
+	names := make(set.Set[string], len(cfg.Topics))
+	var enabled []topicRecord
+	for i, topic := range cfg.Topics {
+		if topic.Name == "" {
+			return nil, errors.Wrapf(
+				validate.ErrValidation, "topics.%d.name: must not be empty", i,
+			)
+		}
+		if names.Contains(topic.Name) {
+			return nil, errors.Wrapf(
+				validate.ErrValidation, "topic %q: listed more than once", topic.Name,
+			)
+		}
+		names.Add(topic.Name)
+		for _, rec := range topic.Records {
+			if !rec.Disabled {
+				enabled = append(
+					enabled,
+					topicRecord{topic: topic.Name, ReadRecord: rec},
+				)
+			}
+		}
+	}
+	if len(enabled) == 0 {
+		return nil, errors.Wrap(
+			validate.ErrValidation, "topics: at least one record must be enabled",
+		)
+	}
+	return enabled, nil
 }
 
 // readChannels returns the channels of keys and the index channel of each, so that an
