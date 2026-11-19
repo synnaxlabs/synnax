@@ -23,6 +23,7 @@ import { Legend } from "@/feature/schematic/Legend";
 import { useHandleNodeClickAction } from "@/feature/schematic/navigate";
 import { ContextMenu } from "@/platform/context-menu";
 import { Empty } from "@/platform/empty";
+import { Framer } from "@/platform/framer";
 import { type Panel } from "@/platform/panel";
 import { Session } from "@/session";
 
@@ -53,6 +54,7 @@ const Internal = (): ReactElement => {
   const tooltipsDisabled = Session.Schematic.useSelectTooltipsDisabled();
   const visible = Session.Panel.useSelectIsTabVisible();
   const { isCurrentlyEditable, canEdit } = Session.Schematic.useSelectEditable();
+  const canCommand = Framer.useCanCommand();
 
   const handleSelectionChange = (selected: string[]) =>
     dispatch(Session.Schematic.setSelected({ key, selected }));
@@ -86,7 +88,7 @@ const Internal = (): ReactElement => {
   const renderExtraMenuItems = (): ReactElement => (
     <>
       {canEdit && <Diagram.Menu.ToggleEditItem />}
-      <Control.Menu.ToggleItem />
+      {canCommand && <Control.Menu.ToggleItem />}
       <Menu.Divider />
       <ContextMenu.ReloadConsoleItem />
     </>
