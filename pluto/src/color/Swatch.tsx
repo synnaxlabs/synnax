@@ -54,7 +54,6 @@ export const Swatch = (props: SwatchProps): ReactElement => {
     if (ref != null) onChange?.(ref);
     else if (props.fallback != null) props.onChange?.(undefined);
   });
-  const library = onChange == null ? undefined : binding.library;
   const change = onChange == null ? undefined : binding.onChange;
   if (props.fallback == null)
     return (
@@ -62,7 +61,7 @@ export const Swatch = (props: SwatchProps): ReactElement => {
         {...rest}
         value={binding.value ?? xcolor.TRANSPARENT}
         onChange={change}
-        library={library}
+        library={binding.library}
       />
     );
   return (
@@ -71,7 +70,7 @@ export const Swatch = (props: SwatchProps): ReactElement => {
       value={binding.value}
       fallback={props.fallback}
       onChange={change}
-      library={library}
+      library={binding.library}
     />
   );
 };

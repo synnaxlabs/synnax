@@ -12,7 +12,7 @@
 /* A search spans the top of a menu, over a hairline, with the look of a select's. Its
    input never sets the width of the menu. A select's search sits in its views box. */
 :is(.lyra-dialog__dialog.lyra-menu-dialog, .lyra-menu-context) > .lyra-input,
-.lyra-dialog__dialog.lyra-menu-dialog > .lyra-views > .lyra-input {
+.lyra-dialog__dialog.lyra-menu-dialog > .lyra-dialog-views > .lyra-input {
     contain: inline-size;
     flex-shrink: 0;
     width: calc(100% + 2rem);

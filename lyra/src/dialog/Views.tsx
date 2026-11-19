@@ -29,8 +29,8 @@ export interface ViewsContextValue {
   /**
    * Shows the content in place of the children, under a Back button and the title, at
    * the width of the children. Back returns to the children as they were, with the
-   * focus on the element that opened the view. A click passes its target as the
-   * opener, since a click in WebKit focuses no button.
+   * focus on the element that opened the view. A click passes its target as the opener,
+   * since a click in WebKit focuses no button.
    */
   open: (title: string, content: ReactNode, opener?: HTMLElement) => void;
   /**
@@ -40,8 +40,6 @@ export interface ViewsContextValue {
    * callback runs at once.
    */
   back: (then?: () => void) => void;
-  /** If true, a view shows in place of the children. */
-  viewing: boolean;
 }
 
 const [ViewsContext, useViewsContext] = context.create<ViewsContextValue>({
@@ -68,8 +66,8 @@ export interface ViewsProps extends Omit<Flex.BoxProps, "ref" | "x" | "y" | "gap
 }
 
 /**
- * A box that can show a view in place of its children, such as an editor for one of
- * its items. The children stay mounted under the view, so their state and scroll stay.
+ * A box that can show a view in place of its children, such as an editor for one of its
+ * items. The children stay mounted under the view, so their state and scroll stay.
  */
 export const Views = ({
   className,
@@ -97,7 +95,8 @@ export const Views = ({
     after.current = undefined;
     if (then != null) {
       opener.current = null;
-      return then();
+      then();
+      return;
     }
     if (opener.current == null) return;
     if (opener.current.isConnected) opener.current.focus();
@@ -126,15 +125,15 @@ export const Views = ({
   };
   const back = (then?: () => void): void => close(shown.current, then);
   return (
-    <ViewsContext value={{ open, back, viewing: view != null }}>
+    <ViewsContext value={{ open, back }}>
       <Flex.Box
         y
         gap={0}
         ref={root}
         tabIndex={-1}
         className={CSS.cls(
-          CSS.B("views"),
-          view != null && CSS.BM("views", "viewing"),
+          CSS.B("dialog-views"),
+          view != null && CSS.BM("dialog-views", "viewing"),
           className,
         )}
         style={view == null ? style : { ...style, width: view.width }}
@@ -146,7 +145,7 @@ export const Views = ({
               x
               align="center"
               gap="small"
-              className={CSS.BE("views", "header")}
+              className={CSS.BE("dialog-views", "header")}
             >
               <Button.Button
                 variant="text"
@@ -169,11 +168,9 @@ export const Views = ({
               gap="medium"
               role="group"
               aria-labelledby={titleID}
-              className={CSS.BE("views", "view")}
+              className={CSS.BE("dialog-views", "view")}
             >
-              <ViewsContext
-                value={{ open, back: (then) => close(view, then), viewing: true }}
-              >
+              <ViewsContext value={{ open, back: (then) => close(view, then) }}>
                 {view.content}
               </ViewsContext>
             </Flex.Box>

@@ -33,6 +33,7 @@ export interface MultipleProps<
       MultipleTriggerProps<K, E>,
       "disabled" | "icon" | "haulType" | "createHaulItem"
     >,
+    Pick<DialogProps, "menu" | "hasMenu">,
     Pick<List.ItemsProps<K>, "children"> {
   /**
    * Singular name of the thing being selected. It is pluralized for the placeholder.
@@ -42,13 +43,6 @@ export interface MultipleProps<
   renderTag?: MultipleTriggerProps<K, E>["children"];
   triggerProps?: MultipleTriggerProps<K, E>;
   dialogProps?: BaseDialog.FrameProps;
-  /**
-   * The context menu of an option, opened by a right click on it, or by Shift+F10 or
-   * the Menu key while it holds the hover. It gets the key of that option only.
-   */
-  menu?: DialogProps["menu"];
-  /** Whether the option with the key opens `menu`. Defaults to every option. */
-  hasMenu?: DialogProps["hasMenu"];
   variant?: BaseDialog.FrameProps["variant"];
   preview?: boolean;
 }

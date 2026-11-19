@@ -18,7 +18,7 @@ import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 
 import { Dialog } from "@/dialog";
 import { useDestructors, useSyncedRef } from "@/hooks";
-import { keyboardMenuKey } from "@/menu/keyboard";
+import { menuKeyDown, menuKeyUp } from "@/menu/keyboard";
 import { Triggers } from "@/triggers";
 import { isInputOrContentEditable, moveIndex } from "@/util";
 
@@ -286,13 +286,7 @@ export const useCursor = <K extends record.Key>(
     Triggers.resolveCondition(enabledRef.current);
   const keyboard: KeyboardHandlers = {
     onKeyDown: (e) => {
-      if (!answers(e)) return;
-      const menu = keyboardMenuKey(e);
-      if (menu != null) {
-        e.preventDefault();
-        if (menu === "F10" && !e.repeat) openMenu();
-        return;
-      }
+      if (!answers(e) || menuKeyDown(e, openMenu)) return;
       if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
       const key = Triggers.eventKey(e);
       if (!isCursorKey(key) || (isX(key) && moveX == null)) return;
@@ -303,9 +297,7 @@ export const useCursor = <K extends record.Key>(
     },
     onKeyUp: (e) => {
       if (isCursorKey(Triggers.eventKey(e))) return release();
-      if (!answers(e) || keyboardMenuKey(e) !== "ContextMenu") return;
-      e.preventDefault();
-      openMenu();
+      if (answers(e)) menuKeyUp(e, openMenu);
     },
     onBlur: release,
   };

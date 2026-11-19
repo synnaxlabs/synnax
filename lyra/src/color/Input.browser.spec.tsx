@@ -18,7 +18,7 @@ import { Triggers } from "@/triggers";
 
 const RED = "#ff0000";
 
-const LIBRARY: NonNullable<Color.InputProps["library"]> = {
+const LIBRARY: Color.Library = {
   palettes: [
     {
       key: "p",
@@ -125,5 +125,22 @@ describe("Input", () => {
     const fixed = boxWidth("Fixed");
     for (const name of ["Linked", "Auto", "Mixed"])
       expect(boxWidth(name), name).toBeCloseTo(fixed, 1);
+  });
+
+  it("should fit an 8-digit hex", async () => {
+    await renderThemed(
+      <Triggers.Provider>
+        <Color.Input
+          aria-label="Translucent"
+          value="#cccccc80"
+          fallback={RED}
+          onChange={() => {}}
+        />
+      </Triggers.Provider>,
+    );
+    const hex = page.getByRole("textbox", { name: "Translucent" }).element();
+    assert(hex instanceof HTMLInputElement);
+    expect(hex.value).toHaveLength(8);
+    expect(hex.scrollWidth).toBeLessThanOrEqual(hex.clientWidth);
   });
 });

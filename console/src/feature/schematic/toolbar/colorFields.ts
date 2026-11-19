@@ -10,9 +10,8 @@
 import { type schematic } from "@synnaxlabs/client";
 import { type color } from "@synnaxlabs/x";
 
-type Config = schematic.ElementConfig;
-type Variant = Config["variant"];
-type ConfigOf<V extends Variant> = Extract<Config, { variant: V }>;
+type Variant = schematic.ElementConfigType;
+type ConfigOf<V extends Variant> = Extract<schematic.ElementConfig, { variant: V }>;
 
 type ValueColorField<V extends Variant> = {
   [K in keyof ConfigOf<V>]-?: NonNullable<ConfigOf<V>[K]> extends color.Color
@@ -20,12 +19,12 @@ type ValueColorField<V extends Variant> = {
     : never;
 }[keyof ConfigOf<V>];
 
-// Each variant with a color value field must appear, and each list holds only such
-// fields, so a renamed or retyped field fails the type check.
+// Each variant with a color value field must appear and list each such field, so a
+// renamed, retyped, or missing field fails the type check.
 type ValueColorFields = {
-  readonly [
-    V in Variant as [ValueColorField<V>] extends [never] ? never : V
-  ]: readonly ValueColorField<V>[];
+  readonly [V in Variant as [ValueColorField<V>] extends [never] ? never : V]: {
+    readonly [K in ValueColorField<V>]: true;
+  };
 };
 
 /** Every stored color field, role or not, that Selection lists. */
@@ -39,110 +38,105 @@ export const COLOR_FIELDS = [
   "stalenessColor",
 ] as const;
 
-const STROKE = ["strokeColor"] as const;
-const STALENESS = ["stalenessColor"] as const;
-const STROKE_AND_STALENESS = ["strokeColor", "stalenessColor"] as const;
-
-const valueColorFields: ValueColorFields = {
-  cap: STROKE,
-  filter: STROKE,
-  flow_straightener: STROKE,
-  heater_element: STROKE,
-  iso_cap: STROKE,
-  iso_filter: STROKE,
-  nozzle: STROKE,
-  orifice: STROKE,
-  orifice_plate: STROKE,
-  strainer: STROKE,
-  strainer_cone: STROKE,
-  thruster: STROKE_AND_STALENESS,
-  vent: STROKE,
-  flowmeter_general: STROKE,
-  flowmeter_electromagnetic: STROKE,
-  flowmeter_variable_area: STROKE,
-  flowmeter_coriolis: STROKE,
-  flowmeter_nozzle: STROKE,
-  flowmeter_venturi: STROKE,
-  flowmeter_ring_piston: STROKE,
-  flowmeter_positive_displacement: STROKE,
-  flowmeter_turbine: STROKE,
-  flowmeter_pulse: STROKE,
-  flowmeter_float_sensor: STROKE,
-  flowmeter_orifice: STROKE,
-  gauge: STALENESS,
-  input: STALENESS,
-  light: ["strokeColor", "onColor", "stalenessColor"],
-  select: STALENESS,
-  scale: STALENESS,
-  setpoint: STALENESS,
-  state_indicator: STALENESS,
-  string_display: STALENESS,
-  switch: STROKE_AND_STALENESS,
-  value: STALENESS,
-  agitator: STROKE_AND_STALENESS,
-  cross_beam_agitator: STROKE_AND_STALENESS,
-  flat_blade_agitator: STROKE_AND_STALENESS,
-  heat_exchanger_general: STROKE,
-  heat_exchanger_m: STROKE,
-  heat_exchanger_straight_tube: STROKE,
-  helical_agitator: STROKE_AND_STALENESS,
-  paddle_agitator: STROKE_AND_STALENESS,
-  propeller_agitator: STROKE_AND_STALENESS,
-  rotary_mixer: STROKE_AND_STALENESS,
-  static_mixer: STROKE,
-  cavity_pump: STROKE_AND_STALENESS,
-  centrifugal_compressor: STROKE_AND_STALENESS,
-  compressor: STROKE_AND_STALENESS,
-  diaphragm_pump: STROKE_AND_STALENESS,
-  ejection_pump: STROKE_AND_STALENESS,
-  ejector_compressor: STROKE_AND_STALENESS,
-  liquid_ring_compressor: STROKE_AND_STALENESS,
-  piston_pump: STROKE_AND_STALENESS,
-  pump: STROKE_AND_STALENESS,
-  roller_vane_compressor: STROKE_AND_STALENESS,
-  screw_pump: STROKE_AND_STALENESS,
-  turbo_compressor: STROKE_AND_STALENESS,
-  vacuum_pump: STROKE_AND_STALENESS,
-  burst_disc: STROKE,
-  flame_arrestor: STROKE,
-  flame_arrestor_detonation: STROKE,
-  flame_arrestor_explosion: STROKE,
-  flame_arrestor_fire_res: STROKE,
-  flame_arrestor_fire_res_detonation: STROKE,
-  iso_burst_disc: STROKE,
-  angled_valve: STROKE_AND_STALENESS,
-  angled_relief_valve: STROKE,
-  angled_spring_loaded_relief_valve: STROKE,
-  ball_valve: STROKE_AND_STALENESS,
-  breather_valve: STROKE,
-  butterfly_valve_one: STROKE_AND_STALENESS,
-  butterfly_valve_two: STROKE_AND_STALENESS,
-  check_valve: STROKE,
-  check_valve_with_arrow: STROKE,
-  electric_regulator: STROKE,
-  electric_regulator_motorized: STROKE,
-  four_way_valve: STROKE_AND_STALENESS,
-  gate_valve: STROKE_AND_STALENESS,
-  iso_check_valve: STROKE,
-  manual_valve: STROKE,
-  needle_valve: STROKE,
-  regulator: STROKE,
-  regulator_manual: STROKE,
-  relief_valve: STROKE,
-  solenoid_valve: STROKE_AND_STALENESS,
-  spring_loaded_relief_valve: STROKE,
-  three_way_valve: STROKE_AND_STALENESS,
-  three_way_ball_valve: STROKE_AND_STALENESS,
-  valve: STROKE_AND_STALENESS,
-  cross_junction: STROKE,
-  tank: STALENESS,
-  t_junction: STROKE,
-  custom_actuator: STALENESS,
-};
-
 /**
  * The color fields of each variant that store a color value instead of a reference. A
  * named color cannot go in one.
  */
-export const VALUE_COLOR_FIELDS: Partial<Record<string, readonly string[]>> =
-  valueColorFields;
+export const VALUE_COLOR_FIELDS: Partial<
+  Record<string, Readonly<Record<string, true>>>
+> = {
+  cap: { strokeColor: true },
+  filter: { strokeColor: true },
+  flow_straightener: { strokeColor: true },
+  heater_element: { strokeColor: true },
+  iso_cap: { strokeColor: true },
+  iso_filter: { strokeColor: true },
+  nozzle: { strokeColor: true },
+  orifice: { strokeColor: true },
+  orifice_plate: { strokeColor: true },
+  strainer: { strokeColor: true },
+  strainer_cone: { strokeColor: true },
+  thruster: { strokeColor: true, stalenessColor: true },
+  vent: { strokeColor: true },
+  flowmeter_general: { strokeColor: true },
+  flowmeter_electromagnetic: { strokeColor: true },
+  flowmeter_variable_area: { strokeColor: true },
+  flowmeter_coriolis: { strokeColor: true },
+  flowmeter_nozzle: { strokeColor: true },
+  flowmeter_venturi: { strokeColor: true },
+  flowmeter_ring_piston: { strokeColor: true },
+  flowmeter_positive_displacement: { strokeColor: true },
+  flowmeter_turbine: { strokeColor: true },
+  flowmeter_pulse: { strokeColor: true },
+  flowmeter_float_sensor: { strokeColor: true },
+  flowmeter_orifice: { strokeColor: true },
+  gauge: { stalenessColor: true },
+  input: { stalenessColor: true },
+  light: { strokeColor: true, onColor: true, stalenessColor: true },
+  select: { stalenessColor: true },
+  scale: { stalenessColor: true },
+  setpoint: { stalenessColor: true },
+  state_indicator: { stalenessColor: true },
+  string_display: { stalenessColor: true },
+  switch: { strokeColor: true, stalenessColor: true },
+  value: { stalenessColor: true },
+  agitator: { strokeColor: true, stalenessColor: true },
+  cross_beam_agitator: { strokeColor: true, stalenessColor: true },
+  flat_blade_agitator: { strokeColor: true, stalenessColor: true },
+  heat_exchanger_general: { strokeColor: true },
+  heat_exchanger_m: { strokeColor: true },
+  heat_exchanger_straight_tube: { strokeColor: true },
+  helical_agitator: { strokeColor: true, stalenessColor: true },
+  paddle_agitator: { strokeColor: true, stalenessColor: true },
+  propeller_agitator: { strokeColor: true, stalenessColor: true },
+  rotary_mixer: { strokeColor: true, stalenessColor: true },
+  static_mixer: { strokeColor: true },
+  cavity_pump: { strokeColor: true, stalenessColor: true },
+  centrifugal_compressor: { strokeColor: true, stalenessColor: true },
+  compressor: { strokeColor: true, stalenessColor: true },
+  diaphragm_pump: { strokeColor: true, stalenessColor: true },
+  ejection_pump: { strokeColor: true, stalenessColor: true },
+  ejector_compressor: { strokeColor: true, stalenessColor: true },
+  liquid_ring_compressor: { strokeColor: true, stalenessColor: true },
+  piston_pump: { strokeColor: true, stalenessColor: true },
+  pump: { strokeColor: true, stalenessColor: true },
+  roller_vane_compressor: { strokeColor: true, stalenessColor: true },
+  screw_pump: { strokeColor: true, stalenessColor: true },
+  turbo_compressor: { strokeColor: true, stalenessColor: true },
+  vacuum_pump: { strokeColor: true, stalenessColor: true },
+  burst_disc: { strokeColor: true },
+  flame_arrestor: { strokeColor: true },
+  flame_arrestor_detonation: { strokeColor: true },
+  flame_arrestor_explosion: { strokeColor: true },
+  flame_arrestor_fire_res: { strokeColor: true },
+  flame_arrestor_fire_res_detonation: { strokeColor: true },
+  iso_burst_disc: { strokeColor: true },
+  angled_valve: { strokeColor: true, stalenessColor: true },
+  angled_relief_valve: { strokeColor: true },
+  angled_spring_loaded_relief_valve: { strokeColor: true },
+  ball_valve: { strokeColor: true, stalenessColor: true },
+  breather_valve: { strokeColor: true },
+  butterfly_valve_one: { strokeColor: true, stalenessColor: true },
+  butterfly_valve_two: { strokeColor: true, stalenessColor: true },
+  check_valve: { strokeColor: true },
+  check_valve_with_arrow: { strokeColor: true },
+  electric_regulator: { strokeColor: true },
+  electric_regulator_motorized: { strokeColor: true },
+  four_way_valve: { strokeColor: true, stalenessColor: true },
+  gate_valve: { strokeColor: true, stalenessColor: true },
+  iso_check_valve: { strokeColor: true },
+  manual_valve: { strokeColor: true },
+  needle_valve: { strokeColor: true },
+  regulator: { strokeColor: true },
+  regulator_manual: { strokeColor: true },
+  relief_valve: { strokeColor: true },
+  solenoid_valve: { strokeColor: true, stalenessColor: true },
+  spring_loaded_relief_valve: { strokeColor: true },
+  three_way_valve: { strokeColor: true, stalenessColor: true },
+  three_way_ball_valve: { strokeColor: true, stalenessColor: true },
+  valve: { strokeColor: true, stalenessColor: true },
+  cross_junction: { strokeColor: true },
+  tank: { stalenessColor: true },
+  t_junction: { strokeColor: true },
+  custom_actuator: { stalenessColor: true },
+} satisfies ValueColorFields;
