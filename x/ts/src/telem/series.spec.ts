@@ -756,9 +756,7 @@ describe("Series", () => {
         dataType: DataType.FLOAT64,
       });
       expect(a.convert(DataType.INT64).data).toEqual(new BigInt64Array([2n, -2n]));
-      expect(a.convert(DataType.INT64, 0.4).data).toEqual(
-        new BigInt64Array([2n, -2n]),
-      );
+      expect(a.convert(DataType.INT64, 0.4).data).toEqual(new BigInt64Array([2n, -2n]));
     });
 
     test("from uint8 to boolean normalizes nonzero to 1", () => {
