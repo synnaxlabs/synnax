@@ -33,9 +33,8 @@
 
 /* The trigger reads as a small create item, as "Add channel" does. An empty select dims
    its trigger as a placeholder, but "Add device" is an action, so it takes the color of
-   "Add channel". The repeated class outranks the Lyra button rules in any load
-   order. */
-.console-ni-ports__add > .console-ni-ports__trigger.console-ni-ports__trigger {
+   "Add channel". */
+.console-ni-ports__add > .console-ni-ports__trigger {
     width: auto;
     margin: 0 1rem 1rem;
     padding: 1rem 2rem;
