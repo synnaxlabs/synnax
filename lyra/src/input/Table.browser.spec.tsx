@@ -347,5 +347,22 @@ describe("Input.Table", () => {
       const table = await renderWide([10, undefined]);
       expect(table.getBoundingClientRect().width).toBe(2000);
     });
+
+    it("should keep the add button in place as the first values arrive", async () => {
+      const table = (value: number[][]) => (
+        <div style={{ width: "600px" }}>
+          <Input.Table value={value} onChange={() => {}} onMove={() => {}}>
+            <Input.TableColumn name="On" width={3} />
+            <Input.TableColumn name="Name" />
+          </Input.Table>
+        </div>
+      );
+      const { container, rerender } = await renderThemed(table([]));
+      const add = (): number =>
+        container.querySelector("tfoot button")!.getBoundingClientRect().left;
+      const empty = add();
+      await rerender(table([[1, 2]]));
+      expect(add()).toBe(empty);
+    });
   });
 });

@@ -13,7 +13,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import TypedDict
 
-from playwright.sync_api import FloatRect, Locator, Page
+from playwright.sync_api import FloatRect, Locator, Page, expect
 
 import synnax as sy
 from console.layout import LayoutClient
@@ -333,14 +333,25 @@ class Symbol(ABC):
         self._commit(f"Name {row}", name)
 
     def create_enumeration(self, name: str) -> None:
-        """Move the options of the symbol into a new enumeration that it then draws.
+        """Create an enumeration from the picker, which the symbol then draws. A symbol
+        that draws no enumeration moves its options into it. Otherwise it starts empty.
 
         :param name: The name of the new enumeration.
         """
         self.open_options_tab()
-        click_past(self.page.get_by_role("button", name="Enumeration", exact=True))
-        self.layout.dialog.get_by_placeholder("Search enumerations").fill(name)
-        click_past(self.layout.dialog.get_by_role("button", name="Create enumeration"))
+        picker = self.page.get_by_role("button", name=re.compile(r"^Enumeration\b"))
+        click_past(picker)
+        search = self.layout.dialog.get_by_placeholder("Search enumerations")
+        search.fill(name)
+        click_past(
+            self.layout.dialog.get_by_role(
+                "option", name=f'Create enumeration "{name}"', exact=True
+            )
+        )
+        expect(picker).to_contain_text(name, timeout=5000)
+        # A create from typed text leaves the picker open, as other selects do.
+        if search.is_visible():
+            search.press("Escape")
 
     def _commit(self, label: str, text: str) -> None:
         """Type into a cell of the entries grid, then blur it to commit the text."""
