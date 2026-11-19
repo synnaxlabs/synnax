@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/errors"
 )
 
 // clocker sets the clock of each series that an iterator returns. The clock of a
@@ -34,8 +35,18 @@ func newClocker(channels []channel.Channel) responseSegment {
 
 func (c *clocker) transform(_ context.Context, in Response) (Response, bool, error) {
 	for i, key := range in.Frame.RawKeys() {
+		if in.Frame.ShouldExcludeRaw(i) {
+			continue
+		}
+		clock, ok := c.clocks[key]
+		if !ok {
+			return Response{}, false, errors.Newf(
+				"iterator read channel %d, which it did not retrieve",
+				key,
+			)
+		}
 		s := in.Frame.RawSeriesAt(i)
-		s.Clock = c.clocks[key]
+		s.Clock = clock
 		in.Frame.SetRawSeriesAt(i, s)
 	}
 	return in, true, nil
