@@ -180,6 +180,22 @@ var _ = Describe("Apply of a move", func() {
 		},
 	)
 
+	It(
+		"Should send no create for a schematic whose group delete is refused",
+		func(ctx SpecContext) {
+			Expect(apply(ctx, target.Key, setGroup(g.Key))).To(BeEmpty())
+			rec := &Recorder[schematic.Key, schematic.Action]{}
+			DeferCleanup(svc.OnAction(rec.Record))
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return groupSvc.NewWriter(tx).Delete(ctx, g.Key)
+			})).To(MatchError(ContainSubstring(
+				"cannot delete group grouped because it is not empty",
+			)))
+			Expect(retrieveGroup(ctx, target.Key)).To(Equal(&g.Key))
+			Expect(rec.Snapshot()).To(BeEmpty())
+		},
+	)
+
 	It("Should reject a group under no project", func(ctx SpecContext) {
 		top := group.Group{Name: "top", Scope: resource.TypeProject}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
