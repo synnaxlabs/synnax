@@ -447,3 +447,30 @@ class TestPlatforms:
         git_repo.commit({".github/workflows/ci.yaml": ci, "web/a.darwin.spec.ts": TS})
         with pytest.raises(KeyError):
             platforms(root=git_repo.path)
+
+
+class TestPlatformGaps:
+    """Platform cases that no other spec pins."""
+
+    def test_should_take_a_posix_file_as_run_on_macos(self, git_repo: GitRepo) -> None:
+        files = {"lib/tests/conftest.py": IGNORES, "lib/tests/test_a_posix.py": PY}
+        assert _platforms(git_repo, files) == []
+
+    def test_should_check_a_python_posix_file(self, git_repo: GitRepo) -> None:
+        files = {"lib/tests/conftest.py": "", "lib/tests/test_a_posix.py": PY}
+        (finding,) = _platforms(git_repo, files)
+        assert finding.startswith("lib/tests/test_a_posix.py: lib/tests/conftest.py")
+
+    def test_should_run_a_job_on_linux_when_it_sets_no_ubuntu_input(
+        self, git_repo: GitRepo
+    ) -> None:
+        files = {"web/vite.config.ts": EXCLUDES, "web/a.linux.spec.ts": TS}
+        assert _platforms(git_repo, files) == []
+
+    def test_should_need_the_platform_in_a_conftest_that_ignores(
+        self, git_repo: GitRepo
+    ) -> None:
+        static = "collect_ignore_glob = ['*_darwin.py']\n"
+        files = {"lib/tests/conftest.py": static, "lib/tests/test_a_darwin.py": PY}
+        (finding,) = _platforms(git_repo, files)
+        assert finding.startswith("lib/tests/test_a_darwin.py: lib/tests/conftest.py")
