@@ -1020,11 +1020,11 @@ func lowerAliasRebind(
 	if register == nil {
 		return nil, nil, true
 	}
-	head, tail := parser.ExpressionNameParts(expr)
-	if head == "" {
+	parts := parser.ExpressionNameParts(expr)
+	if len(parts) == 0 {
 		return nil, nil, true
 	}
-	rhs, err := ctx.Scope.ResolveMember(ctx, head, tail)
+	rhs, err := ctx.Scope.ResolveMember(ctx, parts)
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, expr))
 		return nil, nil, false
@@ -1328,12 +1328,9 @@ func analyzeFunctionNode(
 	shell *shellBuilder,
 	triggered bool,
 ) (nodeResult, bool) {
-	head, tail := parser.FunctionNameParts(ctx.AST)
-	name := head
-	if tail != "" {
-		name = head + "." + tail
-	}
-	sym, err := ctx.ResolveQualified(head, tail)
+	parts := parser.FunctionNameParts(ctx.AST)
+	name := strings.Join(parts, ".")
+	sym, err := ctx.ResolveQualified(parts)
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return nodeResult{}, false
@@ -1458,7 +1455,11 @@ func wireVarEdges[T antlr.ParserRuleContext](
 	for i, p := range n.Inputs {
 		// A lifted input carries the name its expression reads, such as m.doubled.
 		head, tail, _ := strings.Cut(p.Name, ".")
-		vsym, err := ctx.Scope.ResolveMember(ctx, head, tail)
+		parts := []string{head}
+		if tail != "" {
+			parts = append(parts, tail)
+		}
+		vsym, err := ctx.Scope.ResolveMember(ctx, parts)
 		if err != nil {
 			continue
 		}
@@ -1958,8 +1959,8 @@ func headVarReads[T antlr.ParserRuleContext](
 	var nodes []*ir.Node
 	for _, arg := range symbol.FunctionArguments(fn) {
 		for _, pe := range parser.CollectNamedPrimaries(arg.Expr, ctx.FmtStrings) {
-			head, tail := parser.PrimaryNameParts(pe)
-			sym, err := ctx.Scope.ResolveMember(ctx, head, tail)
+			parts := parser.PrimaryNameParts(pe)
+			sym, err := ctx.Scope.ResolveMember(ctx, parts)
 			if err != nil || !isExprReadVar(sym) {
 				continue
 			}
@@ -2314,9 +2315,9 @@ func (p *inputParser) parse(
 	// Top-level literal variables cannot be reassigned, so they inline; so
 	// does any literal variable with no write sites in the source. Any
 	// other value variable stamps a var ref to its node instead.
-	if head, tail := parser.ExpressionNameParts(expr); head != "" {
+	if parts := parser.ExpressionNameParts(expr); len(parts) > 0 {
 		if value, typ, ok, done := p.parseName(
-			expr, head, tail, paramType, paramName,
+			expr, parts, paramType, paramName,
 		); done {
 			return value, typ, ok
 		}
@@ -2343,16 +2344,15 @@ func (p *inputParser) parse(
 	return parsedValue.Value, paramType, true
 }
 
-// parseName parses an input expression that names a symbol. done is false when
+// parseName parses an input expression that reads the name in parts. done is false when
 // the expression falls through to the other input forms.
 func (p *inputParser) parseName(
 	expr parser.IExpressionContext,
-	head string,
-	tail string,
+	parts []string,
 	paramType types.Type,
 	paramName string,
 ) (value any, typ types.Type, ok, done bool) {
-	sym, err := p.ctx.Scope.ResolveMember(p.ctx, head, tail)
+	sym, err := p.ctx.Scope.ResolveMember(p.ctx, parts)
 	if err != nil {
 		return nil, paramType, false, false
 	}

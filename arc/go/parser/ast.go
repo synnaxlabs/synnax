@@ -224,13 +224,13 @@ func isNumericLiteral(node antlr.ParserRuleContext) bool {
 	return false
 }
 
-// ExpressionNameParts returns the head and tail of the name expr reads when expr is a
-// lone name, and ("", "") otherwise. A call or an index is not a lone name.
-func ExpressionNameParts(expr IExpressionContext) (head, tail string) {
+// ExpressionNameParts returns the parts of the name expr reads when expr is a lone
+// name, and nil otherwise. A call or an index is not a lone name.
+func ExpressionNameParts(expr IExpressionContext) []string {
 	postfix := getPostfixExpression(expr)
 	if postfix == nil || len(postfix.AllFunctionCallSuffix()) > 0 ||
 		len(postfix.AllIndexOrSlice()) > 0 || postfix.PrimaryExpression() == nil {
-		return "", ""
+		return nil
 	}
 	return PrimaryNameParts(postfix.PrimaryExpression())
 }
@@ -362,12 +362,11 @@ func isFloatType(t ITypeContext) bool {
 	return primitive.NumericType().FloatType() != nil
 }
 
-// QualifiedNameParts returns the head and tail of a qualified identifier
-// (e.g., "math" and "avg" for `math.avg`). Reads the terminal children
-// directly so it works when either side is a lexer keyword (AUTHORITY on
-// the left, FOR on the right) and not just an IDENTIFIER.
-func QualifiedNameParts(qid IQualifiedIdentifierContext) (head, tail string) {
-	return terminalText(qid, 0), terminalText(qid, 2)
+// QualifiedNameParts returns the two parts of a qualified identifier, "math" and "avg"
+// for `math.avg`. A part can be a lexer keyword (AUTHORITY on the left, FOR on the
+// right) as well as an IDENTIFIER.
+func QualifiedNameParts(qid IQualifiedIdentifierContext) []string {
+	return []string{terminalText(qid, 0), terminalText(qid, 2)}
 }
 
 func terminalText(qid IQualifiedIdentifierContext, i int) string {
@@ -378,69 +377,53 @@ func terminalText(qid IQualifiedIdentifierContext, i int) string {
 	return node.GetText()
 }
 
-// FunctionNameParts returns the head and tail of a function context's
-// name. A bare function (set_authority()) returns (name, ""); a qualified
-// one (math.avg()) returns (head, tail).
-func FunctionNameParts(fn IFunctionContext) (head, tail string) {
+// FunctionNameParts returns the parts of a function context's name: one part for a bare
+// function (set_authority()), two for a qualified one (math.avg()).
+func FunctionNameParts(fn IFunctionContext) []string {
 	if qid := fn.QualifiedIdentifier(); qid != nil {
 		return QualifiedNameParts(qid)
 	}
-	return fn.IDENTIFIER().GetText(), ""
+	return []string{fn.IDENTIFIER().GetText()}
 }
 
 // FunctionName extracts the joined name from a function context. For
 // resolution use FunctionNameParts.
 func FunctionName(fn IFunctionContext) string {
-	head, tail := FunctionNameParts(fn)
-	if tail == "" {
-		return head
-	}
-	return head + "." + tail
+	return strings.Join(FunctionNameParts(fn), ".")
 }
 
-// IdentifierParts returns the head and tail of a flow identifier. A bare
-// identifier returns (name, ""); a qualified one (m.f) returns (head, tail).
-func IdentifierParts(id IIdentifierContext) (head, tail string) {
+// IdentifierParts returns the parts of a flow identifier: one part for a bare
+// identifier, two for a qualified one (m.f).
+func IdentifierParts(id IIdentifierContext) []string {
 	if qid := id.QualifiedIdentifier(); qid != nil {
 		return QualifiedNameParts(qid)
 	}
-	return id.IDENTIFIER().GetText(), ""
+	return []string{id.IDENTIFIER().GetText()}
 }
 
 // IdentifierName extracts the joined name from a flow identifier.
 func IdentifierName(id IIdentifierContext) string {
-	head, tail := IdentifierParts(id)
-	if tail == "" {
-		return head
-	}
-	return head + "." + tail
+	return strings.Join(IdentifierParts(id), ".")
 }
 
-// PrimaryNameParts returns the head and tail of a primary expression's
-// identifier. Bare (x) returns (name, ""); qualified (math.avg) returns
-// (head, tail). Returns ("", "") when the primary is not an identifier.
-func PrimaryNameParts(primary IPrimaryExpressionContext) (head, tail string) {
+// PrimaryNameParts returns the parts of a primary expression's identifier: one part for
+// a bare one (x), two for a qualified one (math.avg). It returns nil when the primary
+// is not an identifier.
+func PrimaryNameParts(primary IPrimaryExpressionContext) []string {
 	if qid := primary.QualifiedIdentifier(); qid != nil {
 		return QualifiedNameParts(qid)
 	}
 	if id := primary.IDENTIFIER(); id != nil {
-		return id.GetText(), ""
+		return []string{id.GetText()}
 	}
-	return "", ""
+	return nil
 }
 
 // PrimaryName extracts the joined name from a primary expression. For
 // resolution use PrimaryNameParts. Returns "" if the primary is not an
 // identifier.
 func PrimaryName(primary IPrimaryExpressionContext) string {
-	head, tail := PrimaryNameParts(primary)
-	if head == "" {
-		return ""
-	}
-	if tail == "" {
-		return head
-	}
-	return head + "." + tail
+	return strings.Join(PrimaryNameParts(primary), ".")
 }
 
 // ImportEntry is one collected import. Path is the dotted source path

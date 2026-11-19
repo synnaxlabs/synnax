@@ -314,21 +314,19 @@ var _ = Describe("AST Utilities", func() {
 
 	Describe("ExpressionNameParts", func() {
 		DescribeTable("returns the parts of a lone name",
-			func(code, head, tail string) {
-				h, t := parser.ExpressionNameParts(parseExpr(code))
-				Expect(h).To(Equal(head))
-				Expect(t).To(Equal(tail))
+			func(code string, parts []string) {
+				Expect(parser.ExpressionNameParts(parseExpr(code))).To(Equal(parts))
 			},
-			Entry("bare name", "x", "x", ""),
-			Entry("qualified name", "m.doubled", "m", "doubled"),
-			Entry("operator", "x + 1", "", ""),
-			Entry("call", "foo()", "", ""),
-			Entry("call with arguments", `len("abc")`, "", ""),
-			Entry("qualified call", "m.f()", "", ""),
-			Entry("index", "x[0]", "", ""),
-			Entry("parenthesized", "(x)", "", ""),
-			Entry("literal", "42", "", ""),
-			Entry("negation", "-x", "", ""),
+			Entry("bare name", "x", []string{"x"}),
+			Entry("qualified name", "m.doubled", []string{"m", "doubled"}),
+			Entry("operator", "x + 1", nil),
+			Entry("call", "foo()", nil),
+			Entry("call with arguments", `len("abc")`, nil),
+			Entry("qualified call", "m.f()", nil),
+			Entry("index", "x[0]", nil),
+			Entry("parenthesized", "(x)", nil),
+			Entry("literal", "42", nil),
+			Entry("negation", "-x", nil),
 		)
 	})
 
@@ -399,15 +397,13 @@ var _ = Describe("AST Utilities", func() {
 		}
 
 		It("Should split a qualified identifier into head and tail", func() {
-			head, tail := parser.QualifiedNameParts(qualified("math.avg"))
-			Expect(head).To(Equal("math"))
-			Expect(tail).To(Equal("avg"))
+			Expect(parser.QualifiedNameParts(qualified("math.avg"))).
+				To(Equal([]string{"math", "avg"}))
 		})
 
 		It("Should read the authority keyword as a head", func() {
-			head, tail := parser.QualifiedNameParts(qualified("authority.absolute"))
-			Expect(head).To(Equal("authority"))
-			Expect(tail).To(Equal("absolute"))
+			Expect(parser.QualifiedNameParts(qualified("authority.absolute"))).
+				To(Equal([]string{"authority", "absolute"}))
 		})
 	})
 
@@ -434,16 +430,14 @@ var _ = Describe("AST Utilities", func() {
 			return fn
 		}
 
-		It("Should return the bare name with an empty tail", func() {
-			head, tail := parser.FunctionNameParts(functionOf("x -> calc()"))
-			Expect(head).To(Equal("calc"))
-			Expect(tail).To(Equal(""))
+		It("Should return the bare name as one part", func() {
+			Expect(parser.FunctionNameParts(functionOf("x -> calc()"))).
+				To(Equal([]string{"calc"}))
 		})
 
 		It("Should split a qualified function name", func() {
-			head, tail := parser.FunctionNameParts(functionOf("x -> math.avg()"))
-			Expect(head).To(Equal("math"))
-			Expect(tail).To(Equal("avg"))
+			Expect(parser.FunctionNameParts(functionOf("x -> math.avg()"))).
+				To(Equal([]string{"math", "avg"}))
 		})
 
 		It("Should join names only when a tail is present", func() {
@@ -460,16 +454,14 @@ var _ = Describe("AST Utilities", func() {
 			return prog.TopLevelItem(0).FlowStatement().FlowNode(1).Identifier()
 		}
 
-		It("Should return the bare name with an empty tail", func() {
-			head, tail := parser.IdentifierParts(identifierOf("trig -> out"))
-			Expect(head).To(Equal("out"))
-			Expect(tail).To(Equal(""))
+		It("Should return the bare name as one part", func() {
+			Expect(parser.IdentifierParts(identifierOf("trig -> out"))).
+				To(Equal([]string{"out"}))
 		})
 
 		It("Should split a qualified identifier", func() {
-			head, tail := parser.IdentifierParts(identifierOf("trig -> m.f"))
-			Expect(head).To(Equal("m"))
-			Expect(tail).To(Equal("f"))
+			Expect(parser.IdentifierParts(identifierOf("trig -> m.f"))).
+				To(Equal([]string{"m", "f"}))
 		})
 
 		It("Should join names only when a tail is present", func() {
@@ -485,22 +477,17 @@ var _ = Describe("AST Utilities", func() {
 			return primary
 		}
 
-		It("Should return the bare name with an empty tail", func() {
-			head, tail := parser.PrimaryNameParts(primaryOf("x"))
-			Expect(head).To(Equal("x"))
-			Expect(tail).To(Equal(""))
+		It("Should return the bare name as one part", func() {
+			Expect(parser.PrimaryNameParts(primaryOf("x"))).To(Equal([]string{"x"}))
 		})
 
 		It("Should split a qualified identifier", func() {
-			head, tail := parser.PrimaryNameParts(primaryOf("math.avg"))
-			Expect(head).To(Equal("math"))
-			Expect(tail).To(Equal("avg"))
+			Expect(parser.PrimaryNameParts(primaryOf("math.avg"))).
+				To(Equal([]string{"math", "avg"}))
 		})
 
 		It("Should return empty parts for a non-identifier primary", func() {
-			head, tail := parser.PrimaryNameParts(primaryOf("42"))
-			Expect(head).To(Equal(""))
-			Expect(tail).To(Equal(""))
+			Expect(parser.PrimaryNameParts(primaryOf("42"))).To(BeNil())
 		})
 
 		It("Should join or blank the name to match the parts", func() {

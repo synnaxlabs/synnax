@@ -43,6 +43,7 @@ package context
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/codes"
@@ -188,26 +189,24 @@ func (c Context[AST]) Resolve(name string) (*symbol.Symbol, error) {
 	return result, nil
 }
 
-// ResolveQualified resolves a possibly-qualified name. head is the first
-// segment (always present); tail is the second segment, empty when the
-// reference is bare. When tail is non-empty, ResolveQualified follows
-// the head and then resolves tail through it; an alias head transparently
-// dispatches to its Target inside Resolve. Deprecation warnings fire on
-// whichever segment resolved to the deprecated symbol.
-func (c Context[AST]) ResolveQualified(head, tail string) (*symbol.Symbol, error) {
-	headSym, err := c.Scope.Resolve(c, head)
+// ResolveQualified resolves the name in parts: parts[0] in the current scope, then
+// parts[1], when the name is qualified, as a member of it. parts must not be empty. If
+// the resolved symbol is deprecated, a warning that names the joined parts is added to
+// diagnostics.
+func (c Context[AST]) ResolveQualified(parts []string) (*symbol.Symbol, error) {
+	headSym, err := c.Scope.Resolve(c, parts[0])
 	if err != nil {
 		return nil, err
 	}
-	if tail == "" {
-		c.warnIfDeprecated(head, headSym)
+	if len(parts) == 1 {
+		c.warnIfDeprecated(parts[0], headSym)
 		return headSym, nil
 	}
-	tailSym, err := headSym.Resolve(c, tail)
+	tailSym, err := headSym.Resolve(c, parts[1])
 	if err != nil {
 		return nil, err
 	}
-	c.warnIfDeprecated(head+"."+tail, tailSym)
+	c.warnIfDeprecated(strings.Join(parts, "."), tailSym)
 	return tailSym, nil
 }
 
@@ -229,12 +228,12 @@ func (c Context[AST]) FloatConstant(node antlr.Tree) (float64, bool) {
 	if primary == nil || primary.QualifiedIdentifier() == nil {
 		return 0, false
 	}
-	head, tail := parser.QualifiedNameParts(primary.QualifiedIdentifier())
-	headSym, err := c.Scope.Resolve(c, head)
+	parts := parser.QualifiedNameParts(primary.QualifiedIdentifier())
+	headSym, err := c.Scope.Resolve(c, parts[0])
 	if err != nil {
 		return 0, false
 	}
-	sym, err := headSym.Resolve(c, tail)
+	sym, err := headSym.Resolve(c, parts[1])
 	if err != nil || sym.Kind != symbol.KindConstant {
 		return 0, false
 	}

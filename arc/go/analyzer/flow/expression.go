@@ -94,8 +94,8 @@ func AnalyzeComputedArgs[T antlr.ParserRuleContext](
 	args []symbol.Argument,
 ) {
 	for _, arg := range args {
-		head, _ := parser.ExpressionNameParts(arg.Expr)
-		if head != "" || literal.IsConstant(arg.Expr) {
+		parts := parser.ExpressionNameParts(arg.Expr)
+		if len(parts) > 0 || literal.IsConstant(arg.Expr) {
 			continue
 		}
 		if _, ok := ctx.FloatConstant(arg.Expr); ok {
@@ -151,8 +151,8 @@ func LiftVarReads[T antlr.ParserRuleContext](
 		if _, ok := fn.Type.Inputs.Get(name); ok {
 			continue
 		}
-		head, tail := parser.PrimaryNameParts(pe)
-		sym, err := fn.ResolveMember(ctx, head, tail)
+		parts := parser.PrimaryNameParts(pe)
+		sym, err := fn.ResolveMember(ctx, parts)
 		if err != nil {
 			continue
 		}

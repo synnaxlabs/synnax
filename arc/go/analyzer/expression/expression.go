@@ -364,7 +364,7 @@ func checkNaNComparison[T, O antlr.ParserRuleContext](
 		}
 		primary, _ := parser.SoleOperand(operand)
 		qid := primary.QualifiedIdentifier()
-		head, _ := parser.QualifiedNameParts(qid)
+		head := parser.QualifiedNameParts(qid)[0]
 		check, imported := "is_nan from the math module", false
 		if module, err := ctx.Scope.Resolve(ctx, head); err == nil {
 			if _, err := module.Resolve(ctx, "is_nan"); err == nil {
@@ -570,9 +570,9 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 		return
 	}
 	primary := ctx.AST.PrimaryExpression()
-	head, tail := parser.PrimaryNameParts(primary)
+	parts := parser.PrimaryNameParts(primary)
 	funcName := parser.PrimaryName(primary)
-	scope, err := ctx.ResolveQualified(head, tail)
+	scope, err := ctx.ResolveQualified(parts)
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, primary))
 		return
@@ -694,9 +694,25 @@ func inDeclaredFunction(scope *symbol.Symbol) bool {
 	return ok
 }
 
+// recordChannelRead adds the channel resolved reads to the function enclosing scope.
+func recordChannelRead(scope, resolved *symbol.Symbol) {
+	fn, fnErr := scope.ClosestAncestorOfKind(symbol.KindFunction)
+	if fnErr != nil && !errors.Is(fnErr, query.ErrNotFound) {
+		panic(fnErr)
+	}
+	if fn != nil {
+		// Use SourceID if available, otherwise use symbol's own ID
+		readID := uint32(resolved.ID)
+		if resolved.SourceID != nil {
+			readID = uint32(*resolved.SourceID)
+		}
+		fn.Channels.Read[readID] = resolved.Name
+	}
+}
+
 func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
-	if head, tail := parser.PrimaryNameParts(ctx.AST); head != "" {
-		resolved, err := ctx.ResolveQualified(head, tail)
+	if parts := parser.PrimaryNameParts(ctx.AST); len(parts) > 0 {
+		resolved, err := ctx.ResolveQualified(parts)
 		if err != nil {
 			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 			return
@@ -709,18 +725,7 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 			)
 		}
 		if tracksChannelRead(resolved) {
-			fn, fnErr := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
-			if fnErr != nil && !errors.Is(fnErr, query.ErrNotFound) {
-				panic(fnErr)
-			}
-			if fn != nil {
-				// Use SourceID if available, otherwise use symbol's own ID
-				readID := uint32(resolved.ID)
-				if resolved.SourceID != nil {
-					readID = uint32(*resolved.SourceID)
-				}
-				fn.Channels.Read[readID] = resolved.Name
-			}
+			recordChannelRead(ctx.Scope, resolved)
 		}
 		return
 	}
@@ -835,11 +840,11 @@ func resolveChannelArg[T antlr.ParserRuleContext](
 	ctx context.Context[T],
 	expr parser.IExpressionContext,
 ) (uint32, string, bool) {
-	head, tail := parser.ExpressionNameParts(expr)
-	if head == "" {
+	parts := parser.ExpressionNameParts(expr)
+	if len(parts) == 0 {
 		return 0, "", false
 	}
-	sym, err := ctx.Scope.ResolveMember(ctx, head, tail)
+	sym, err := ctx.Scope.ResolveMember(ctx, parts)
 	if err != nil || sym.Type.Kind != basetypes.KindChan {
 		return 0, "", false
 	}

@@ -291,9 +291,9 @@ func compileBody(
 			)
 		}
 	case parser.IFunctionContext:
-		head, tail := parser.FunctionNameParts(body)
+		parts := parser.FunctionNameParts(body)
 		if _, err := expression.CompileCall(
-			ctx.Child(body), head, tail, symbol.FunctionArguments(body),
+			ctx.Child(body), parts, symbol.FunctionArguments(body),
 		); err != nil {
 			return errors.Wrapf(err, "failed to compile call '%s'", ctx.Scope.Name)
 		}
