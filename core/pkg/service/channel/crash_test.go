@@ -12,6 +12,7 @@ package channel_test
 import (
 	"bytes"
 	"context"
+	"os"
 	"slices"
 	"strconv"
 	"strings"
@@ -58,7 +59,63 @@ type crashEngine struct {
 	broken error
 }
 
+// writeback makes the disk of fs durable: a crash image directly, or the disk of the
+// workload through the harness.
+func writeback(fs xfs.FS) error {
+	if disk, ok := fs.(*fault.FS); ok {
+		disk.Writeback()
+		return nil
+	}
+	return crash.Writeback(fs)
+}
+
+// durableDirs writes the disk back after each directory change of Cesium, as a Cesium
+// that makes its directory changes durable would sync them.
+type durableDirs struct {
+	xfs.FS
+	disk xfs.FS
+}
+
+func (d durableDirs) after(err error) error {
+	if err != nil {
+		return err
+	}
+	return writeback(d.disk)
+}
+
+func (d durableDirs) Open(name string, flag int) (xfs.File, error) {
+	f, err := d.FS.Open(name, flag)
+	if err != nil || flag&os.O_CREATE == 0 {
+		return f, err
+	}
+	return f, errors.Combine(d.after(nil), nil)
+}
+
+func (d durableDirs) Sub(name string) (xfs.FS, error) {
+	sub, err := d.FS.Sub(name)
+	if err != nil {
+		return nil, err
+	}
+	return durableDirs{FS: sub, disk: d.disk}, d.after(nil)
+}
+
+func (d durableDirs) Remove(name string) error { return d.after(d.FS.Remove(name)) }
+
+func (d durableDirs) Rename(from, to string) error {
+	return d.after(d.FS.Rename(from, to))
+}
+
 func openCrashEngine(ctx context.Context, fs xfs.FS) (_ *crashEngine, err error) {
+	return openEngine(ctx, fs, false)
+}
+
+// openEngine opens the engine on fs. With dirsDurable, Cesium makes each of its
+// directory changes durable.
+func openEngine(
+	ctx context.Context,
+	fs xfs.FS,
+	dirsDurable bool,
+) (_ *crashEngine, err error) {
 	e := &crashEngine{fs: fs}
 	defer func() {
 		if err != nil {
@@ -71,6 +128,9 @@ func openCrashEngine(ctx context.Context, fs xfs.FS) (_ *crashEngine, err error)
 	}
 	if e.ts, err = fs.Sub("cesium"); err != nil {
 		return nil, err
+	}
+	if dirsDurable {
+		e.ts = durableDirs{FS: e.ts, disk: fs}
 	}
 	logger := pebblekv.NewNoopLogger()
 	opts := &pebble.Options{
@@ -319,11 +379,16 @@ func (e *crashEngine) Close() error {
 }
 
 // runOnCore runs the harness on the adapter with one fault profile and one run key.
-func runOnCore(ctx context.Context, profile crash.Profile, runKey uint64) error {
+func runOnCore(
+	ctx context.Context,
+	profile crash.Profile,
+	runKey uint64,
+	dirsDurable bool,
+) error {
 	_, err := crash.Run(ctx, crash.Config{
 		RunKey: runKey,
 		Open: func(ctx context.Context, fs xfs.FS) (crash.Engine, error) {
-			e, err := openCrashEngine(ctx, fs)
+			e, err := openEngine(ctx, fs, dirsDurable)
 			if err != nil {
 				return nil, err
 			}
@@ -349,7 +414,7 @@ var _ = DescribeTable("Crash harness on the channel services",
 		cause string,
 	) {
 		var v *crash.Violation
-		err := runOnCore(ctx, profile, runKey)
+		err := runOnCore(ctx, profile, runKey, false)
 		Expect(errors.As(err, &v)).To(BeTrue(), "no violation: %v", err)
 		Expect(v.Rule).To(Equal(rule))
 		Expect(v.Detail).To(ContainSubstring(cause))
@@ -427,4 +492,20 @@ var _ = Describe("Crash adapter on the channel services", func() {
 			).To(MatchError("s1 kept its record and lost its samples"))
 		},
 	)
+})
+
+var _ = Describe("ProbeDurable", func() {
+	It("runs", func(ctx SpecContext) {
+		Expect(ctx).ToNot(BeNil())
+		for _, p := range []crash.Profile{crash.Strict, crash.Partial} {
+			for k := uint64(0); k < 4; k++ {
+				GinkgoWriter.Printf(
+					"PROBE p=%d k=%d %v\n",
+					p,
+					k,
+					runOnCore(ctx, p, k, true),
+				)
+			}
+		}
+	})
 })
