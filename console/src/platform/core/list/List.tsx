@@ -10,6 +10,7 @@
 import "@/platform/core/list/List.css";
 
 import { connection } from "@synnaxlabs/client";
+import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Header } from "@synnaxlabs/lyra/header";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -21,7 +22,6 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { compare } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
-import { Button } from "@/platform/button";
 import { Clipboard } from "@/platform/clipboard";
 import { ContextMenu } from "@/platform/context-menu";
 import { Item, nameID } from "@/platform/core/list/Item";
