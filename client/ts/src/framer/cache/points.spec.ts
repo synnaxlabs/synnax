@@ -720,6 +720,38 @@ describe("Points", () => {
       }
     });
 
+    it("should draw a data channel's samples the store drops until their tiles land", async () => {
+      const core = new SyntheticCore({
+        rate: Rate.hz(5000),
+        start: START,
+        now: START.add(TimeSpan.minutes(1)),
+      });
+      const { joins, subscribe, close } = createPoints(core);
+      const window = dynamicWindow(TimeSpan.seconds(30));
+      const index = core.index.key;
+      const data = core.data[0].key;
+      subscribe(index, window, TILED);
+      await expect.poll(() => joins.joined(index), POLL).toBe(true);
+      // A later join reads further, so the data channel's first series crosses a
+      // series edge of the index, where the floor moves.
+      core.advance(TimeSpan.milliseconds(20));
+      await sleep.sleep(TimeSpan.milliseconds(1));
+      const points = subscribe(data, window, TILED);
+      try {
+        await expect.poll(() => joins.joined(data), POLL).toBe(true);
+        let largest = 0n;
+        for (let i = 0; i < 90; i++) {
+          core.advance(TimeSpan.milliseconds(100));
+          await sleep.sleep(TimeSpan.milliseconds(1));
+          const gap = largestGap(points);
+          if (gap > largest) largest = gap;
+        }
+        expect(largest).toBeLessThanOrEqual(TimeSpan.milliseconds(10).valueOf());
+      } finally {
+        await close();
+      }
+    });
+
     it("should move past the samples of a floor once its tiles land", async () => {
       const core = new SyntheticCore({
         rate: Rate.hz(2000),

@@ -207,14 +207,14 @@ def check_run(
     run: int,
     rec: dict[str, Any] | None,
     *,
-    slug: str = "sedosaur",
+    app: int = compare.SEDOSAUR_APP,
     started: str = NOON,
 ) -> dict[str, Any]:
     """A check run of a Sedosaur review run, with its record if it kept one, and the
-    slug of the App whose check suite holds it."""
+    ID of the App whose check suite holds it."""
     text = render.RULES if rec is None else f"{render.RULES}\n\n{render.record(rec)}"
     return {
-        "slug": slug,
+        "app": app,
         "detailsUrl": f"https://github.com/{REPO}/actions/runs/{run}",
         "startedAt": started,
         "text": text,
@@ -276,11 +276,11 @@ class FakeGH:
             nodes = self.body(pr) if "userContentEdits" in query else self.threads
             return "".join(f"{json.dumps(n)}\n" for n in nodes)
         if args[:2] == ("api", "graphql") and "checkSuites" in args[3]:
-            assert f"app={compare.SEDOSAUR_APP}" in args
+            app = int(next(a[4:] for a in args if a.startswith("app=")))
             objects = re.findall(r'(c\d+): object\(oid: "(\w+)"\)', args[3])
             self.reads.append([c for _, c in objects])
             return json.dumps(
-                {"data": {"repository": {a: self.commit(c) for a, c in objects}}}
+                {"data": {"repository": {a: self.commit(c, app) for a, c in objects}}}
             )
         if args[:2] == ("api", "graphql"):
             cursor = next((a[10:] for a in args if a.startswith("endCursor=")), None)
@@ -297,14 +297,11 @@ class FakeGH:
             return json.dumps({"data": {"repository": {"pullRequests": page}}})
         raise AssertionError(f"unexpected gh call: {args}")
 
-    def commit(self, sha: str) -> dict[str, Any]:
-        """Serves a commit with a check suite for each App of its check runs."""
-        suites: dict[str, list[dict[str, Any]]] = {}
-        for r in self.checks.get(sha, []):
-            suites.setdefault(r["slug"], []).append(r)
-        nodes = [
-            {"app": {"slug": s}, "checkRuns": {"nodes": rs}} for s, rs in suites.items()
-        ]
+    def commit(self, sha: str, app: int) -> dict[str, Any]:
+        """Serves a commit with the check suite of an App, as the query filters by its
+        ID. GitHub gives the workflow token no `app` field."""
+        runs = [r for r in self.checks.get(sha, []) if r["app"] == app]
+        nodes = [{"app": None, "checkRuns": {"nodes": runs}}] if runs else []
         return {"checkSuites": {"nodes": nodes}}
 
 
@@ -509,7 +506,7 @@ class TestRecords:
         gh.checks[HEAD] = [
             check_run(1, record(HEAD, score=2)),
             check_run(2, record(HEAD)),
-            check_run(2, record(HEAD, score=3), slug="other"),
+            check_run(2, record(HEAD, score=3), app=1),
         ]
         assert compare.records(gh, REPO, [(HEAD, 2)]) == {(HEAD, 2): record(HEAD)}
 
@@ -529,7 +526,7 @@ class TestRecords:
 
     def test_should_skip_a_record_of_another_app(self) -> None:
         gh = FakeGH()
-        gh.checks[HEAD] = [check_run(1, record(HEAD), slug="other")]
+        gh.checks[HEAD] = [check_run(1, record(HEAD), app=1)]
         assert compare.records(gh, REPO, [(HEAD, 1)]) == {}
 
     def test_should_read_each_commit_once_in_batches(
@@ -578,7 +575,7 @@ class TestLimits:
     def test_should_skip_a_record_of_another_app_or_from_before_a_time(self) -> None:
         gh = FakeGH()
         gh.review(1, limited(0.81, NOON), pr=9)
-        gh.checks[HEAD][0]["slug"] = "other"
+        gh.checks[HEAD][0]["app"] = 1
         gh.review(2, limited(0.81, NOON, "a" * 40), pr=8)
         gh.bodies[8][0]["editedAt"] = "2026-11-04T10:00:00Z"
         bot = [edit("", "sedosaur")]
