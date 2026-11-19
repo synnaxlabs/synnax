@@ -778,7 +778,7 @@ var _ = Describe("Reference", func() {
 			Expect(statuses.NewCreate().
 				Entry(&refStatus{Key: "s", Owner: &refOwner{Table: "rack", Key: "2"}}).
 				Exec(ctx, db)).To(Succeed())
-			deps := MustSucceed(racks.DependentsMany(ctx, db, []uint32{1, 2, 3}))
+			deps := MustSucceed(racks.DependentsEach(ctx, db, []uint32{1, 2, 3}))
 			Expect(deps).To(HaveLen(3))
 			Expect(deps[0]).To(Equal([]gorp.Dependent{{
 				Holder:    gorp.Target{Table: "device", Key: "a"},
@@ -810,7 +810,7 @@ var _ = Describe("Reference", func() {
 			Expect(devices.NewCreate().
 				Entry(&refDevice{Key: "a", Rack: 2}).
 				Exec(ctx, tx)).To(Succeed())
-			deps := MustSucceed(racks.DependentsMany(ctx, tx, []uint32{1, 2}))
+			deps := MustSucceed(racks.DependentsEach(ctx, tx, []uint32{1, 2}))
 			Expect(deps[0]).To(BeEmpty())
 			Expect(deps[1]).To(HaveLen(1))
 		})

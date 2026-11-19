@@ -231,16 +231,16 @@ func (t *Table[K, E]) Dependents(
 	snap Snapshot,
 	k K,
 ) ([]Dependent, error) {
-	deps, err := t.DependentsMany(ctx, snap, []K{k})
+	deps, err := t.DependentsEach(ctx, snap, []K{k})
 	if err != nil {
 		return nil, err
 	}
 	return deps[0], nil
 }
 
-// DependentsMany returns, at each position of keys, the dependents of the entry with
+// DependentsEach returns, at each position of keys, the dependents of the entry with
 // that key, as Dependents does. It probes each reference once for all of keys.
-func (t *Table[K, E]) DependentsMany(
+func (t *Table[K, E]) DependentsEach(
 	ctx context.Context,
 	snap Snapshot,
 	keys []K,

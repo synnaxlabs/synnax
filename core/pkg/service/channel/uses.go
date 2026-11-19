@@ -59,7 +59,7 @@ func (s *Service) Uses(
 	snap gorp.Snapshot,
 	keys []Key,
 ) ([][]Use, error) {
-	deps, err := s.table.DependentsMany(ctx, snap, keys)
+	deps, err := s.table.DependentsEach(ctx, snap, keys)
 	if err != nil {
 		return nil, err
 	}

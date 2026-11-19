@@ -662,13 +662,20 @@ func BenchmarkDependents(b *testing.B) {
 	if err = holderTable.NewCreate().Entries(&entries).Exec(ctx, db); err != nil {
 		b.Fatal(err)
 	}
+	b.Cleanup(func() {
+		if err := errors.Join(holderTable.Close(), targets.Close()); err != nil {
+			b.Error(err)
+		}
+	})
+	page := make([]int32, pageSize)
+	for k := range page {
+		page[k] = int32(k)
+	}
 	b.ReportAllocs()
 	b.ResetTimer()
 	for range b.N {
-		for k := range int32(pageSize) {
-			if _, err = targets.Dependents(ctx, db, k); err != nil {
-				b.Fatal(err)
-			}
+		if _, err = targets.DependentsEach(ctx, db, page); err != nil {
+			b.Fatal(err)
 		}
 	}
 }
