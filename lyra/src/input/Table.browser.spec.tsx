@@ -104,6 +104,22 @@ describe("Input.Table", () => {
     );
   });
 
+  it("should center the drag icon in its handle", async () => {
+    const { container } = await renderThemed(
+      <Input.Table value={[[1]]} onChange={() => {}} onMove={() => {}}>
+        <Input.TableColumn />
+      </Input.Table>,
+    );
+    const handle = container.querySelector(`.${CSS.BE("input", "table-handle")}`);
+    const icon = handle?.querySelector("svg");
+    if (handle == null || icon == null) throw new Error("The row has no drag handle");
+    const center = (el: Element): number => {
+      const { left, width } = el.getBoundingClientRect();
+      return left + width / 2;
+    };
+    expect(center(icon)).toBeCloseTo(center(handle), 0);
+  });
+
   it("should center a boolean cell's checkbox in its cell", async () => {
     const { container } = await renderThemed(
       <Input.Table value={[[true]]} onChange={() => {}}>
