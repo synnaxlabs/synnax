@@ -125,7 +125,11 @@ class NotificationsClient:
             "button", name="Clear all", exact=True
         )
         timer = sy.Timer()
-        while buttons.count() > 0 and timer.elapsed() < _CLOSE_ALL_TIMEOUT:
+        while (count := buttons.count()) > 0:
+            if timer.elapsed() >= _CLOSE_ALL_TIMEOUT:
+                raise AssertionError(
+                    f"{count} notifications still show after {_CLOSE_ALL_TIMEOUT}"
+                )
             if clear_all.count() > 0:
                 try:
                     clear_all.dispatch_event("click", timeout=_SILENCE_TIMEOUT)
@@ -138,7 +142,6 @@ class NotificationsClient:
                     buttons.nth(i).dispatch_event("click", timeout=_SILENCE_TIMEOUT)
                 except PlaywrightTimeoutError:
                     pass
-        expect(buttons).to_have_count(0, timeout=2000)
 
     def close_connection(self) -> bool:
         """Close the 'Connected to...' notification if present.

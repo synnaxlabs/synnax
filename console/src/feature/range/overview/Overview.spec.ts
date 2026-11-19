@@ -30,14 +30,8 @@ const client = createTestClient();
 
 const TAB = Range.Overview.TABS[ranger.TYPE_RESOURCE_ID.type];
 
-const createChild = async (parent: ranger.Range): Promise<ranger.Range> => {
-  const start = TimeStamp.now();
-  return await client.ranges.create({
-    name: uniqueRangeName("child"),
-    timeRange: new TimeRange(start, start.add(TimeSpan.seconds(1))),
-    parent: parent.key,
-  });
-};
+const createChild = async (parent: ranger.Range): Promise<ranger.Range> =>
+  await createTestRange(client, { name: uniqueRangeName("child"), parent: parent.key });
 
 /** @returns the text of the tooltip that a hover on the element shows. */
 const hoverTip = async (el: HTMLElement): Promise<string> => {
