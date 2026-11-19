@@ -749,6 +749,9 @@ bound, a log precision, or the line plot X channel.
 - Esc puts back the value the cell held when it took focus. A second Esc leaves the
   cell. Esc never commits typed text.
 - A cell with an error has a red frame, and its message shows on hover.
+- In a column whose values must differ, a value that another item has stays in its cell,
+  marked and not sent. It saves when it becomes free. A pasted item with such a value
+  saves with a free value, and its cell shows the value it repeats, marked.
 - Paste keeps the values that parse. A cell whose text does not parse keeps its value
   and shows the error until an edit. A first row in which no number or boolean parses is
   a heading, and paste drops it. A single value pasted into a text cell goes to that
