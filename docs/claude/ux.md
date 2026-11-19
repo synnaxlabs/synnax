@@ -427,7 +427,9 @@ bound, a log precision, or the line plot X channel.
   option hides when the text matches a name in any case, and after a click until the
   text changes, so a second click makes no copy. It needs create permission. A filter
   never creates. A new parent range covers the ranges that move into it. Under the
-  divider, the create option comes first, then "No <noun>".
+  divider, the create option comes first, then "No <noun>". The "Replace with" select of
+  the enumeration delete dialog only picks: a new enumeration has no entries for the
+  users to move to.
 - In a group, all items have an icon or none do.
 - "Copy" puts data on the clipboard. "Duplicate" makes a new resource. A menu never
   calls a duplicate "Copy".
@@ -739,6 +741,10 @@ bound, a log precision, or the line plot X channel.
   focus to the first cell of the new row. An empty table shows only the add button.
 - Every row shows its remove button at all times, at the end of the row. A remove moves
   focus to the row that takes its place.
+- A table whose items have an order shows a drag handle in each row's gutter, in place
+  of the row label. A drag drops the row in the place of the row it lands on, and a line
+  on the grid shows where. The up and down arrows on a focused handle move the row by
+  one.
 - Enter moves down, Shift+Enter moves up, and Tab moves right.
 - Esc puts back the value the cell held when it took focus. A second Esc leaves the
   cell. Esc never commits typed text.
