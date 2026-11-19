@@ -88,26 +88,54 @@ rename (`core/pkg/distribution/channel/create.go:66`, `rename.go:27`).
    is released when the transaction ends without a commit. The claim fails while a
    writer holds one of the keys, and it blocks writer opens on them while it is held.
    Today Cesium checks, with no hold (`cesium/delete.go:133-153`).
-2. The service deletes the records and commits the Gorp transaction.
-3. After the commit, a worker of the channel service calls `DB.Drop` with the keys, then
+2. The service calls `DB.Intend` with the keys (NEW). It returns once a delete intent
+   for each key is durable.
+3. The service deletes the records and commits the Gorp transaction.
+4. After the commit, a worker of the channel service calls `DB.Drop` with the keys, then
    releases the claim. A public hook, `gorp.AfterEnd` (NEW), queues the keys. It runs
    once, after the store commit returns, so the record delete is durable before `Drop`
    can run, and it reports whether the transaction committed. It is not built on
    `txState.OnCleanup` (`gorp/gorp.go:347`), which runs when the writes become visible,
    before the WAL sync (`x/go/kv/pebblekv/pebblekv.go:112`). `Drop` never refuses. It
-   logs one Drop record per key and, after the log sync, removes the segments of the key
-   when reader pins drop. An error of `Drop` raises a status.
-4. A crash between steps 2 and 3, or a failed `Drop`, leaves storage with no record. At
-   start, before a writer opens, the Core calls `DB.Sweep` with each key of the table.
+   removes the segments of the key when reader pins drop and clears the intent last. An
+   error of `Drop` raises a status.
+5. At start, before a writer opens, the Core calls `DB.Sweep` with each key of the
+   table. For a key with an intent and a record, the commit never happened: `Sweep`
+   clears the intent. It drops a key with an intent and no record, and a key with no
+   record and no samples. It keeps a key with samples, no record, and no intent, refuses
+   writers and readers on it, and returns it, and the Core raises a warning status that
+   names the keys and their bytes. A missing record can come from a restored backup or
+   lost metadata, never only from a delete, so `Sweep` never removes samples on absence
+   alone. `DB.Purge` (NEW) removes such a key, called through an admin route of the
+   Core.
 
-One rule serves both calls: stamps stay while a kept segment of another key names their
-key as its clock. `Drop` keeps such stamps of a dropped key. `Sweep` drops every key
-that is not in its set and that no segment of another key in the set names.
-`DeleteTimeRange` refuses a clock key while a live pointer of another key names it, as
-today (`cesium/delete.go:265-279`). On the old layout (Phase 5), `Drop` keeps the same
-contract: it marks the key gone at once, so a new writer or iterator on it fails, and
-removes the files of the key when its last open iterator closes. `Sweep` removes each
-directory of a key that is not in the set and is not the index of a channel in the set.
+One rule serves `Drop`, `Sweep`, and `Purge`: stamps stay while a kept segment of
+another key names their key as its clock, and the intent of such a key stays until they
+go. `DeleteTimeRange` refuses a clock key while a live pointer of another key names it,
+as today (`cesium/delete.go:265-279`).
+
+**The intent on the old layout (Phase 5).** The root holds one file, `delete-intents`.
+Each record is 8 bytes: the key (`uint32`), then a CRC32C of the record's file offset
+and the key. `Intend` appends the records of one call with one `WriteAt` and one sync,
+so a batch of deletes costs one sync. `Drop` marks the key gone at once, so a new writer
+or iterator on it fails, and when its last open iterator closes removes its data files,
+then its metadata files, then its directory. An open skips a channel directory whose key
+has an intent, so a directory that a removal cut short never stops an open. `Sweep`
+writes the remaining intents to a temporary file in the root, syncs it, renames it over
+`delete-intents`, and syncs the root. The old binary warns about the unknown root file
+and ignores it (`cesium/open.go:59-63`).
+
+| Crash after                                     | State at the next start       | `Sweep`                                                       |
+| ----------------------------------------------- | ----------------------------- | ------------------------------------------------------------- |
+| A torn append of an intent                      | The record fails its CRC      | Ignores it: the commit never ran, and the record stays        |
+| The intent, before the record commit is durable | Record and intent             | Clears the intent; channel and samples stay                   |
+| The commit, before `Drop`                       | Intent, no record             | Drops the key                                                 |
+| Part of `Drop`'s removal                        | Intent, no record, some files | The open skips the directory; `Sweep` drops the rest          |
+| `Sweep`'s rewrite of `delete-intents`           | The old or the new file       | Either is correct: an extra intent of a gone key does nothing |
+
+**The intent on the new layout (Phase 6 on).** An Intent record (type 10, the body of a
+Drop record) in the pointer log; `Intend` returns at its log sync. The conversion
+carries the records of `delete-intents` into the first head as intents.
 
 ### 4.2 The Cesium API
 
@@ -120,7 +148,7 @@ directory of a key that is not in the set and is not the index of a channel in t
 | `Writer.EndStretch`                                                   | NEW, replaces `EndDomain`     | Takes no keys. Commits, then ends the stretch of the writer's clock and channels (RFC 0095 §4.2)                                                                                                                                          |
 | `DB.OpenIterator`, `DB.Read`                                          | Kept                          | One series per pointer, in time order, with its stored type, clock key, and alignment                                                                                                                                                     |
 | `DB.DeleteTimeRange`                                                  | Kept                          | §5.6                                                                                                                                                                                                                                      |
-| `DB.Drop`, `DB.Sweep`                                                 | NEW                           | §4.1                                                                                                                                                                                                                                      |
+| `DB.Intend`, `DB.Drop`, `DB.Sweep`, `DB.Purge`                        | NEW                           | §4.1                                                                                                                                                                                                                                      |
 | `DB.OnHistoryChange`                                                  | Kept (`cesium/history.go:32`) | Reports a time range for a commit before the newest stored stamp of its key (a backfill), for a delete, and for a failed sync that takes visible samples back. Compaction and run encoding change no sample and report nothing            |
 | `DB.Write`, `DB.WriteSeries`                                          | Gone                          | `cesium/db.go:80`, `:107`. No Core code calls them                                                                                                                                                                                        |
 | Relay, streamer, stream writer, control, virtual channels, meta files | Gone                          | `cesium/relay.go`, `cesium/streamer.go`, `cesium/writer_stream.go:110-133`, `cesium/control.go`, `cesium/internal/virtual`, `cesium/internal/meta`. The framer runs sessions, the relay, virtual channels, and control                    |
@@ -321,6 +349,7 @@ binary skip a record it does not know. Without the bit, that binary refuses to o
 | Drop (7)      | 0        | 8    | `uint32` each | Key, then zero                                                                                                          |
 | Restart (8)   | -        | 0    | -             | No body. Replay seals every open segment at its committed length                                                        |
 | Check (9)     | 0        | 8    | `uint64`      | Version 0 segment that now has a check file                                                                             |
+| Intent (10)   | 0        | 8    | `uint32` each | Key, then zero. A delete intent (§4.1); the key's Drop clears it                                                        |
 
 - **Commit**: One clock write is one Commit: 32 bytes plus 16 per channel. Its clock key
   is that of the segments in its slots. A Commit extends the newest pointer of a segment
