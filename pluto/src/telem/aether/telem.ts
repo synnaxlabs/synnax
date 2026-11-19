@@ -59,6 +59,12 @@ export type SinkSpec<V extends string> = z.infer<typeof sinkSpecZ> & {
   valueType: V;
 };
 
+/**
+ * How bounds that end at the newest sample move as samples arrive: rolling bounds keep
+ * their span, and growing bounds keep their start.
+ */
+export type Edge = "rolling" | "growing";
+
 export interface ValueProps {
   /**
    * The span of x the caller shows. A source that reads by span returns data for it,
@@ -95,11 +101,8 @@ export interface Result<V> {
   aggregation?: Aggregation;
   /** True when the samples of each series in data ascend. */
   sorted?: boolean;
-  /**
-   * True when the bounds in data end at the newest sample and span a window that moves
-   * as samples arrive.
-   */
-  rolling?: boolean;
+  /** Set when the bounds in data end at the newest sample. */
+  edge?: Edge;
   /** The time of the newest sample. */
   time?: TimeStamp;
   /**
@@ -199,14 +202,18 @@ export type StringSink = Sink<string>;
 export const stringSinkSpecZ = sinkSpecZ.extend({ valueType: z.literal("string") });
 export type StringSinkSpec = z.infer<typeof stringSinkSpecZ>;
 
-export abstract class Base<P extends z.ZodType> extends observe.BaseObserver<void> {
+export abstract class Base<P extends z.ZodType> implements observe.Observable<void> {
+  protected readonly observer = new observe.Observer<void>();
   private props_: z.infer<P> | undefined = undefined;
   private readonly uProps_: unknown | undefined = undefined;
   abstract schema: P;
 
   constructor(props: unknown) {
-    super();
     this.uProps_ = props;
+  }
+
+  onChange(handler: observe.Handler<void>): destructor.Destructor {
+    return this.observer.onChange(handler);
   }
 
   get props(): z.infer<P> {

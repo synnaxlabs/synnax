@@ -17,6 +17,7 @@ import {
 import { List } from "@synnaxlabs/lyra/list";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { Text } from "@synnaxlabs/lyra/text";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -44,7 +45,6 @@ import {
   createConsoleWrapper,
   createTestStore,
   resolveFocusedTab,
-  uniqueName,
 } from "@/testutil";
 
 const CORE = createCore("test");
