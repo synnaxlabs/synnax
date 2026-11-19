@@ -1,0 +1,104 @@
+{
+  "description": "Integer, unsigned, and boolean labels convert to their values, and an unsigned field falls back to its default.",
+  "messages": [
+    {
+      "name": "reading",
+      "payload": {
+        "format": "json",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "mode",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/mode",
+            "type": "integer",
+            "enum_values": [
+              {
+                "label": "AUTO",
+                "value": 2
+              }
+            ]
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000002",
+            "name": "level",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/level",
+            "type": "unsigned",
+            "default": "3",
+            "enum_values": [
+              {
+                "label": "HIGH",
+                "value": 7
+              }
+            ]
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000003",
+            "name": "on",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/on",
+            "type": "boolean",
+            "enum_values": [
+              {
+                "label": "YES",
+                "value": true
+              },
+              {
+                "label": "NO",
+                "value": false
+              }
+            ]
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "int64"
+        },
+        {
+          "field": "00000000-0000-4000-8000-000000000002",
+          "data_type": "uint64"
+        },
+        {
+          "field": "00000000-0000-4000-8000-000000000003",
+          "data_type": "uint8"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "document": {
+        "mode": "AUTO",
+        "level": "HIGH",
+        "on": "YES"
+      },
+      "message": "reading",
+      "samples": [2, 7, 1]
+    },
+    {
+      "document": {
+        "mode": 5,
+        "on": "NO"
+      },
+      "message": "reading",
+      "samples": [5, 3, 0]
+    },
+    {
+      "document": {
+        "mode": 1e999,
+        "level": 1,
+        "on": "YES"
+      },
+      "error": "field mode: invalid number \"1e999\": validation error"
+    }
+  ]
+}

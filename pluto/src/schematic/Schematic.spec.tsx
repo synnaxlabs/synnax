@@ -7,19 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
+import { DataType, type schematic } from "@synnaxlabs/client";
 import { createTestClient, spyOnSend } from "@synnaxlabs/client/testutil";
 import { mockBoundingClientRect } from "@synnaxlabs/lyra/testutil";
-import { uuid, xy } from "@synnaxlabs/x";
-import { act, fireEvent, render, waitFor } from "@testing-library/react";
+import { id, uuid, xy } from "@synnaxlabs/x";
+import { act, fireEvent, render, waitFor, within } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 
+import { aether } from "@/aether/aether";
 import { Errors } from "@/errors";
 import { Schematic } from "@/schematic";
+import { control } from "@/telem/control/aether";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 import { diagram } from "@/vis/diagram/aether";
+import { latestSample } from "@/vis/latestSample/aether";
 import { canvasTest } from "@/vis/render/testutil";
+import { Staleness } from "@/vis/staleness";
+import { toggle } from "@/vis/toggle/aether";
 
 const client = createTestClient();
 
@@ -45,8 +51,15 @@ const PUMP: schematic.New["nodes"] = [
   },
 ];
 
+interface RenderOptions {
+  editable?: boolean;
+  badged?: boolean;
+  registry?: aether.ComponentRegistry;
+}
+
 const renderSchematic = async (
   nodes: schematic.New["nodes"] = PUMP,
+  { editable = true, badged = false, registry = {} }: RenderOptions = {},
 ): Promise<{
   key: string;
   utils: ReturnType<typeof render>;
@@ -59,26 +72,28 @@ const renderSchematic = async (
   });
   const wrapper = await createAsyncSynnaxWrapper({
     client,
-    additionalRegistry: diagram.REGISTRY,
+    additionalRegistry: { ...diagram.REGISTRY, ...registry },
     renderContext: canvasTest.record(),
     telemFactories: [],
   });
   const View = (): ReactElement => (
     <Errors.SuspenseBoundary loading={null}>
       <Schematic.Suspended schematicKey={key}>
-        <Schematic.Schematic
-          editable
-          visible
-          viewport={{ position: xy.ZERO, zoom: 1 }}
-          onViewportChange={() => {}}
-          onEditableChange={() => {}}
-          fitViewOnResize={false}
-          setFitViewOnResize={() => {}}
-          viewportMode="zoom"
-          onViewportModeChange={() => {}}
-          selected={[]}
-          onSelectionChange={() => {}}
-        />
+        <Staleness.Provider badged={badged}>
+          <Schematic.Schematic
+            editable={editable}
+            visible
+            viewport={{ position: xy.ZERO, zoom: 1 }}
+            onViewportChange={() => {}}
+            onEditableChange={() => {}}
+            fitViewOnResize={false}
+            setFitViewOnResize={() => {}}
+            viewportMode="zoom"
+            onViewportModeChange={() => {}}
+            selected={[]}
+            onSelectionChange={() => {}}
+          />
+        </Staleness.Provider>
       </Schematic.Suspended>
     </Errors.SuspenseBoundary>
   );
@@ -87,6 +102,41 @@ const renderSchematic = async (
     utils = render(<View />, { wrapper });
   });
   return { key, utils };
+};
+
+// Stand in for the worker components of a toggle and its tooltip. The toggle reports
+// its source as stale.
+class StaleToggle extends aether.Leaf<typeof toggle.toggleStateZ> {
+  static readonly TYPE = toggle.Toggle.TYPE;
+  schema = toggle.toggleStateZ;
+
+  afterUpdate(): void {
+    if (!this.state.stale) this.setState((s) => ({ ...s, stale: true }));
+  }
+}
+
+const looseZ = z.object({}).loose();
+
+class StubChip extends aether.Leaf<typeof looseZ> {
+  static readonly TYPE = control.Chip.TYPE;
+  schema = looseZ;
+}
+
+class StubIndicator extends aether.Leaf<typeof looseZ> {
+  static readonly TYPE = control.Indicator.TYPE;
+  schema = looseZ;
+}
+
+class StubLatestSample extends aether.Leaf<typeof looseZ> {
+  static readonly TYPE = latestSample.LatestSample.TYPE;
+  schema = looseZ;
+}
+
+const STALE_REGISTRY: aether.ComponentRegistry = {
+  [StaleToggle.TYPE]: StaleToggle,
+  [StubChip.TYPE]: StubChip,
+  [StubIndicator.TYPE]: StubIndicator,
+  [StubLatestSample.TYPE]: StubLatestSample,
 };
 
 describe("Schematic", () => {
@@ -159,5 +209,35 @@ describe("Schematic", () => {
       expect(box?.style.width).toBe("140px");
       expect(box?.style.height).toBe("120px");
     });
+  });
+
+  it("should keep the tooltip over the stale badge and close it over the chip", async () => {
+    const command = await client.channels.create({
+      name: id.create(),
+      dataType: DataType.UINT8,
+      virtual: true,
+    });
+    const { utils } = await renderSchematic(
+      [
+        {
+          key: "v1",
+          position: xy.ZERO,
+          config: { variant: "valve", commandChannel: command.key },
+        },
+      ],
+      { editable: false, badged: true, registry: STALE_REGISTRY },
+    );
+    // React Flow hides unmeasured nodes, so role queries cannot see the badge.
+    const badge = await waitFor(() => {
+      const el = utils.container.querySelector<HTMLElement>(".pluto-stale-badge");
+      if (el == null) throw new Error("no stale badge yet");
+      return el;
+    });
+    fireEvent.mouseMove(badge);
+    await utils.findByText(command.name, undefined, { timeout: 3000 });
+    const slot = badge.closest<HTMLElement>(".pluto-control-state");
+    if (slot == null) throw new Error("the badge is not in the control slot");
+    fireEvent.mouseMove(within(slot).getAllByRole("button", { hidden: true })[0]);
+    await waitFor(() => expect(utils.queryByText(command.name)).toBeNull());
   });
 });

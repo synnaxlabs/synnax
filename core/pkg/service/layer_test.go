@@ -13,13 +13,16 @@ import (
 	"context"
 	"encoding/json/v2"
 	"fmt"
+	"slices"
 	"time"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/security"
@@ -41,6 +44,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ni/device"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
+	pagerdutyv1 "github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions/v1"
+	pagerdutyv2 "github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	panelversions "github.com/synnaxlabs/synnax/pkg/service/panel/versions"
 	panelv0 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v0"
@@ -49,15 +54,20 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	schematicv0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
 	tablev0 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	taskversions "github.com/synnaxlabs/synnax/pkg/service/task/versions"
 	taskv0 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v0"
+	taskv2 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
+	taskv3 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	userv0 "github.com/synnaxlabs/synnax/pkg/service/user/versions/v0"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/telem"
@@ -270,6 +280,109 @@ var _ = Describe("Layer", func() {
 			Where(task.MatchNames("Live")).
 			Exists(ctx, node.DB)).To(BeTrue())
 	})
+
+	// The snapshot gets no secret, because the task chain deletes it before the secret
+	// step runs.
+	DescribeTable(
+		"Should move a stored PagerDuty routing key into a secret after the task chain",
+		func(
+			ctx SpecContext,
+			lastApplied string,
+			storeTask func(context.Context, *gorp.DB, uuid.UUID, string, bool) error,
+		) {
+			node := testutil.NewNode(ctx)
+			db := node.DB
+			chain := lo.Map(
+				taskversions.NewMigrations(taskversions.MigrationsConfig{}),
+				func(m gorp.Migration, _ int) string { return m.Key() },
+			)
+			Expect(chain).To(ContainElement(lastApplied))
+			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+				DB:        db,
+				Namespace: "Task",
+				Migrations: lo.Map(
+					chain[:slices.Index(chain, lastApplied)+1],
+					func(key string, _ int) gorp.Migration {
+						return migrate.New(
+							key,
+							func(context.Context, gorp.Tx, alamos.Instrumentation) error {
+								return nil
+							},
+						)
+					},
+				),
+			})).To(Succeed())
+			store := func(name string, snapshot bool) uuid.UUID {
+				GinkgoHelper()
+				key := uuid.New()
+				Expect(storeTask(ctx, db, key, name, snapshot)).To(Succeed())
+				Expect(gorp.WrapWriter[uuid.UUID, pagerdutyv1.TaskConfig](db).Set(
+					ctx,
+					pagerdutyv1.TaskConfig{Key: key, RoutingKey: "rk"},
+				)).To(Succeed())
+				return key
+			}
+			live := store("Live", false)
+			snapshot := store("Snapshot", true)
+			layer := MustOpen(svctestutil.OpenLayer(ctx, node))
+			var secrets []secret.Secret
+			Expect(layer.Secret.NewRetrieve().Entries(&secrets).Exec(ctx, db)).
+				To(Succeed())
+			Expect(secrets).To(HaveLen(1))
+			Expect(secrets[0].Base().Name).To(Equal("Live routing key"))
+			key := secrets[0].Base().Key
+			Expect(layer.Secret.Reveal(ctx, db, key)).
+				To(Equal(map[secret.Key][]byte{key: []byte("rk")}))
+			data := MustSucceed(layer.PagerDuty.Alert.Read(ctx, db, live))
+			Expect(data).To(HaveKeyWithValue("routing_key", key.String()))
+			for _, k := range []uuid.UUID{live, snapshot} {
+				Expect(db.Get(pagerdutyv2.PlainRoutingKeyKVKey(k))).Error().
+					To(MatchError(query.ErrNotFound))
+			}
+		},
+		Entry(
+			"from Core v0.60, which stored task v2",
+			"v60_require_name",
+			func(
+				ctx context.Context,
+				db *gorp.DB,
+				key uuid.UUID,
+				name string,
+				snapshot bool,
+			) error {
+				return gorp.WrapWriter[taskv2.Key, taskv2.Task](
+					db,
+				).Set(ctx, taskv2.Task{
+					Key:      key,
+					Name:     name,
+					Type:     pagerduty.AlertTaskType,
+					Snapshot: snapshot,
+				})
+			},
+		),
+		Entry(
+			"from Core v0.61, which stored task v3",
+			"v61_task_range",
+			func(
+				ctx context.Context,
+				db *gorp.DB,
+				key uuid.UUID,
+				name string,
+				snapshot bool,
+			) error {
+				t := taskv3.Task{
+					Key:      key,
+					Name:     name,
+					Type:     pagerduty.AlertTaskType,
+					Snapshot: snapshot,
+				}
+				if snapshot {
+					t.Range = new(uuid.New())
+				}
+				return gorp.WrapWriter[taskv3.Key, taskv3.Task](db).Set(ctx, t)
+			},
+		),
+	)
 
 	It(
 		"Should end root sessions only when the root password changes",
@@ -497,12 +610,19 @@ var _ = Describe("Workspace-era upgrade", func() {
 					log.ResourceID(lg.Key),
 					table.ResourceID(tbl.Key),
 				}
-				resources = []ontology.Resource{{ID: wsID}, {ID: groupedID}}
-				edges     = []ontology.Relationship{{
-					From: groupID,
-					Type: ontology.RelationshipTypeParentOf,
-					To:   groupedID,
-				}}
+				resources = append(
+					make([]ontology.Resource, 0, 2+len(owned)),
+					ontology.Resource{ID: wsID},
+					ontology.Resource{ID: groupedID},
+				)
+				edges = append(
+					make([]ontology.Relationship, 0, 1+len(owned)),
+					ontology.Relationship{
+						From: groupID,
+						Type: ontology.RelationshipTypeParentOf,
+						To:   groupedID,
+					},
+				)
 			)
 			for _, id := range owned {
 				resources = append(resources, ontology.Resource{ID: id})
@@ -574,6 +694,7 @@ var _ = Describe("Resource search", Ordered, func() {
 		Entry("Channel", resource.TypeChannel),
 		Entry("Color", resource.TypeColor),
 		Entry("Device", resource.TypeDevice),
+		Entry("Enumeration", resource.TypeEnumeration),
 		Entry("Group", resource.TypeGroup),
 		Entry("Label", resource.TypeLabel),
 		Entry("Lineplot", resource.TypeLineplot),

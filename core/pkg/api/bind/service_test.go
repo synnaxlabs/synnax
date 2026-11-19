@@ -35,9 +35,9 @@ var _ = Describe("ServiceConfig", func() {
 
 		DescribeTable(
 			"Should fail when a field is missing",
-			func(clear func(*bind.ServiceConfig), msg string) {
+			func(unset func(*bind.ServiceConfig), msg string) {
 				cfg := full()
-				clear(&cfg)
+				unset(&cfg)
 				Expect(cfg.Validate()).To(MatchError(msg))
 			},
 			Entry(

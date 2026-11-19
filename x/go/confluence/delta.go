@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"sync"
 	"time"
 
 	"github.com/samber/lo"
@@ -76,8 +77,16 @@ type DynamicDeltaMultiplier[V Value] struct {
 	UnarySink[V]
 	connections    chan []Inlet[V]
 	disconnections chan []Inlet[V]
-	Source         AbstractMultiSource[V]
-	timeout        time.Duration
+	// stopped closes when the routine started by Flow exits for good.
+	stopped chan struct{}
+	Source  AbstractMultiSource[V]
+	timeout time.Duration
+	mu      struct {
+		// Connect and Disconnect hold a read lock, so no connection lands after stop
+		// drains the pending ones.
+		sync.RWMutex
+		stopped bool
+	}
 }
 
 // NewDynamicDeltaMultiplier creates a new DynamicDeltaMultiplier with the specified
@@ -93,20 +102,73 @@ func NewDynamicDeltaMultiplier[V Value](
 		Instrumentation: instrumentation,
 		connections:     make(chan []Inlet[V], buf),
 		disconnections:  make(chan []Inlet[V], buf),
+		stopped:         make(chan struct{}),
 		timeout:         timeout,
 	}
 }
 
 // Connect adds one or more inlets to the DynamicDeltaMultiplier's output streams.
 // The inlets will receive values from the input stream until they are disconnected.
+// Once the DynamicDeltaMultiplier stops, Connect closes the inlets instead.
 func (d *DynamicDeltaMultiplier[V]) Connect(inlets ...Inlet[V]) {
-	d.connections <- inlets
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	if d.mu.stopped {
+		closeUnconnected(inlets)
+		return
+	}
+	select {
+	case d.connections <- inlets:
+	case <-d.stopped:
+		closeUnconnected(inlets)
+	}
 }
 
 // Disconnect removes one or more inlets from the DynamicDeltaMultiplier's output
-// streams. The inlets will no longer receive values from the input stream.
+// streams. The inlets will no longer receive values from the input stream. Once the
+// DynamicDeltaMultiplier stops, Disconnect returns at once, since stopping closes
+// every inlet.
 func (d *DynamicDeltaMultiplier[V]) Disconnect(inlets ...Inlet[V]) {
-	d.disconnections <- inlets
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	if d.mu.stopped {
+		return
+	}
+	select {
+	case d.disconnections <- inlets:
+	case <-d.stopped:
+	}
+}
+
+// Stopped returns a channel that closes once the routine started by Flow exits for
+// good. A panic that the routine retries does not close it.
+func (d *DynamicDeltaMultiplier[V]) Stopped() <-chan struct{} { return d.stopped }
+
+// stop closes every inlet, including those whose connection is still pending, and
+// makes later calls to Connect and Disconnect return at once. Stopped closes before
+// any inlet does.
+func (d *DynamicDeltaMultiplier[V]) stop() {
+	close(d.stopped)
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.mu.stopped = true
+	for {
+		select {
+		case inlets := <-d.connections:
+			closeUnconnected(inlets)
+		case <-d.disconnections:
+		default:
+			d.disconnectAll()
+			return
+		}
+	}
+}
+
+func closeUnconnected[V Value](inlets []Inlet[V]) {
+	for _, inlet := range inlets {
+		inlet.Acquire(1)
+		inlet.Close()
+	}
 }
 
 // Flow implements the Segment interface. It continuously reads values from the input
@@ -116,45 +178,56 @@ func (d *DynamicDeltaMultiplier[V]) Disconnect(inlets ...Inlet[V]) {
 // streams through the connections and disconnections channels.
 func (d *DynamicDeltaMultiplier[v]) Flow(ctx signal.Context, opts ...Option) {
 	o := NewOptions(opts)
+	o.Signal = append(o.Signal, signal.Defer(d.stop, signal.WithKey("stop")))
 	ctx.Go(func(ctx context.Context) error {
 		var timer *time.Timer
 		if d.timeout > 0 {
 			timer = time.NewTimer(d.timeout)
 		}
+		panicked := true
 		defer func() {
 			if timer != nil && !timer.Stop() {
 				<-timer.C
 			}
-			d.disconnectAll()
+			// The routine may run again, so drop the inlets but do not stop.
+			if panicked {
+				d.disconnectAll()
+			}
 		}()
-		for {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case inlets := <-d.connections:
-				d.connect(inlets)
-			case inlets := <-d.disconnections:
-				d.disconnect(inlets)
-			case res, ok := <-d.In.Outlet():
-				if !ok {
-					return nil
+		err := d.run(ctx, timer)
+		panicked = false
+		return err
+	}, o.Signal...)
+}
+
+func (d *DynamicDeltaMultiplier[V]) run(ctx context.Context, timer *time.Timer) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case inlets := <-d.connections:
+			d.connect(inlets)
+		case inlets := <-d.disconnections:
+			d.disconnect(inlets)
+		case res, ok := <-d.In.Outlet():
+			if !ok {
+				return nil
+			}
+			var err error
+			if timer != nil {
+				timer.Reset(d.timeout)
+				err = d.Source.SendToEachWithTimeout(ctx, res, d.timeout, timer)
+			} else {
+				err = d.Source.SendToEach(ctx, res)
+			}
+			if err != nil {
+				if !errors.Is(err, timeout.ErrTimeout) {
+					return err
 				}
-				var err error
-				if timer != nil {
-					timer.Reset(d.timeout)
-					err = d.Source.SendToEachWithTimeout(ctx, res, d.timeout, timer)
-				} else {
-					err = d.Source.SendToEach(ctx, res)
-				}
-				if err != nil {
-					if !errors.Is(err, timeout.ErrTimeout) {
-						return err
-					}
-					d.L.Warn(fmt.Sprintf("delta: %s", err))
-				}
+				d.L.Warn(fmt.Sprintf("delta: %s", err))
 			}
 		}
-	}, o.Signal...)
+	}
 }
 
 // disconnectAll closes all connected inlets and clears the output streams.

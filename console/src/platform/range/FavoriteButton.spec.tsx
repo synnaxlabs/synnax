@@ -47,9 +47,8 @@ describe("Range.FavoriteButton", () => {
       client,
       preloadedState: {
         [Session.Range.SLICE_NAME]: {
-          version: 0,
+          ...Session.Range.ZERO_SLICE_STATE,
           ranges: Session.Range.fromClient(range),
-          staticKeysRewritten: false,
         },
       },
     });

@@ -183,7 +183,7 @@ var _ = Describe("MigrateLinePlot", func() {
 			out := migrate(ctx, v7.LinePlot{Ranges: v7.Ranges{
 				X1: []string{"custom"},
 				Custom: &v7.CustomRange{
-					Variant: v7.DynamicCustomRange{Span: telem.TimeSpan(telem.Hour)},
+					Variant: v7.DynamicCustomRange{Span: telem.Hour},
 				},
 			}})
 			Expect(out.Ranges).To(Equal([]ranger.Ref{dynamicRef(telem.Hour)}))

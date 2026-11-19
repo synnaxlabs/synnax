@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type MiddlewareAPI } from "@reduxjs/toolkit";
-import { TimeSpan, unique } from "@synnaxlabs/x";
+import { sleep, TimeSpan, unique } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
@@ -756,7 +756,7 @@ describe("Persist.open", () => {
         onError.mock.calls.filter(([e]) => e.message === "failed to persist state");
       chain({ type: "work/edit" });
       await vi.waitFor(() => expect(failedSaves()).toHaveLength(1));
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await sleep.sleep(TimeSpan.milliseconds(100));
       expect(failedSaves()).toHaveLength(1);
     });
   });
@@ -1166,7 +1166,7 @@ describe("Persist.middleware", () => {
     );
     // A concurrent flush would reach the store within this window; a queued one
     // cannot move until the gate opens.
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    await sleep.sleep(TimeSpan.milliseconds(20));
     release?.();
     await driver.settle();
     expect(maxInFlight).toBe(1);

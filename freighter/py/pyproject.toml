@@ -12,7 +12,7 @@ name = "synnax-freighter"
 version = "0.0.0"
 readme = "README.md"
 authors = [{ name = "Emiliano Bonilla", email = "ebonilla@synnaxlabs.com" }]
-requires-python = ">=3.12,<4"
+requires-python = ">=3.13,<4"
 dependencies = [
     "alamos",
     "synnax-x",
@@ -37,9 +37,11 @@ packages = ["freighter"]
 
 [tool.ruff]
 line-length = 88
-target-version = "py312"
+target-version = "py313"
 
 [tool.ruff.lint]
+preview = true
+explicit-preview-rules = true
 select = [
     "F",
     "I",
@@ -49,6 +51,8 @@ select = [
     "E7",
     "E9",
     "PLE",
+    "PLR1722",
+    "PLW1514",
     "UP",
     "SIM",
     "C4",
@@ -56,6 +60,7 @@ select = [
     "PIE",
     "PERF",
     "RUF",
+    "S110",
     "PT",
 ]
 ignore = ["UP040", "UP046", "UP047", "SIM105", "SIM115", "SIM117", "PT012", "RUF001"]
@@ -65,7 +70,7 @@ known-first-party = ["freighter", "alamos", "x"]
 combine-as-imports = true
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.13"
 plugins = ["pydantic.mypy"]
 strict = true
 warn_unreachable = true

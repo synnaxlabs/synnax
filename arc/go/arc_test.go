@@ -624,7 +624,11 @@ flag -> select() => {
 }
 `}
 			Expect(arc.CompileText(ctx, t, root)).Error().To(
-				MatchError(ContainSubstring("'=>' cannot feed a routing table")),
+				MatchError(
+					ContainSubstring(
+						"[E5006]: invalid flow operator: '=>' cannot feed a routing table",
+					),
+				),
 			)
 		},
 	)
@@ -1090,7 +1094,7 @@ var _ = DescribeTable(
 	Entry(
 		"zero interval period",
 		"import time\n\ntime.interval(period=0ms) -> out",
-		"period must be positive, got 0s",
+		"[E3005]: invalid argument value: period must be positive, got 0s",
 	),
 	Entry(
 		"negative interval period",

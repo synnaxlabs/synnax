@@ -15,6 +15,9 @@ import { status } from "@/status/aether";
 
 const CONTEXT_KEY = "pluto-theming-context";
 
+// A ligature in Geist Mono is one cell wide, so it breaks a fixed character grid.
+const DESCRIPTORS: FontFaceDescriptors = { featureSettings: '"liga" 0' };
+
 export const fontSpecZ = z.object({
   name: z.string(),
   url: z.string(),
@@ -46,7 +49,7 @@ export class Provider extends aether.Composite<typeof providerStateZ> {
     if (typeof FontFace === "undefined") return;
     await Promise.all(
       this.state.fontURLs.map(async ({ name, url }) => {
-        const face = new FontFace(name, `url(${url})`);
+        const face = new FontFace(name, `url(${url})`, DESCRIPTORS);
         try {
           await face.load();
           // @ts-expect-error - font loading

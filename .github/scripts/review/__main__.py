@@ -13,6 +13,9 @@
     python3 -m review post <review.json>
     python3 -m review carry
     python3 -m review dismiss
+    python3 -m review restore
+    python3 -m review judge <judgments.json>
+    python3 -m review rule <judgments.json>
     python3 -m review compare <days>
 
 Run it from `.github/scripts`. Environment: GH_TOKEN, GITHUB_REPOSITORY, PR, HEAD_SHA,
@@ -27,12 +30,24 @@ policy commit, the usage, the review, and each pass before the join. `post` post
 review in a record. `carry` gives the head the newest review of the pull request when
 the diff did not change, completes CHECK_RUN with it, and prints `true` if it did. It
 also takes KEY, the external ID of the check run, `<pr>:<base ref>`. `dismiss` answers
-COMMENT, a reply that mentions the bot on the thread of one of its findings, or a
-comment that dismisses a finding outside the diff: a member's `@sedosaur dismiss`
+COMMENT, a reply on the thread of one of the bot's findings, or a comment that dismisses
+a finding outside the diff: an `@sedosaur dismiss` from someone with write access
 dismisses the finding, and scores the head 5/5 when no finding of its review is left.
-It also takes KEY. `compare` takes only GH_TOKEN and GITHUB_REPOSITORY, runs in a clone
-with full history, and prints a Markdown comparison of the records of the last days
-with Greptile's reviews of the same commits.
+It also takes KEY, and prints `true` when a rebuttal on a thread waits for `judge`.
+`restore` takes KEY, and puts the summary that the bot wrote last back in the pull
+request body when an edit dropped or changed it. It writes the body with WRITE_TOKEN,
+asks Claude Code nothing, and fails when the head has no successful review.
+`judge` takes POLICY_DIR, HEAD_DIR, and CLAUDE_CODE_OAUTH_TOKEN as `run` does, judges
+each rebuttal with Claude Code, and writes the judgments. It fails after it writes them
+when one rebuttal could not be judged. `rule` posts them, and takes KEY. `compare`
+takes only GH_TOKEN and GITHUB_REPOSITORY, runs in a clone with full history, and
+prints a Markdown comparison of the records of the last days with Greptile's reviews
+of the same commits. It reads each record from the check run that `post` completed.
+
+When Claude Code stops at the usage limit of its login, `run` and `judge` write the
+reset time, in Unix seconds, as the `limited-until` step output. When Claude rejects the
+token of the login, they write the time Claude Code started as `login-broken`. Both then
+fail.
 """
 
 import contextlib
@@ -43,23 +58,31 @@ import re
 import subprocess
 import sys
 import tempfile
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from review import (
+    GH,
+    Judgment,
+    LoginRejected,
     PullRequest,
     Target,
+    Unrestorable,
+    UsageLimit,
+    authority,
     carry,
     compare,
     dismiss,
     dismissals,
     gh,
+    judge,
     load,
     outside_findings,
-    parse,
     post,
+    restore,
     reviewed,
+    rule,
     run,
     threads,
 )
@@ -105,7 +128,7 @@ def claude(args: list[str], stdin: str, cwd: Path) -> Iterator[str]:
 def review(target: Target, path: Path, *, replay: bool) -> None:
     config = load(Path(os.environ["POLICY_DIR"]))
     head = Path(os.environ["HEAD_DIR"]).resolve()
-    excluded = [f":(glob,exclude){g}" for g in config.excluded]
+    excluded = _excluded(config.excluded)
     diff = _diff(head, target.base, target.head, excluded)
     earlier = [c for c in reviewed(target, gh) if c != target.head]
     since = next((c for c in earlier if _before(head, c, target.head)), None)
@@ -156,7 +179,9 @@ def review(target: Target, path: Path, *, replay: bool) -> None:
         head=head,
         diff=diff,
         open={(th.path, th.title) for th in found if not th.resolved} | held,
-        dismissed=[] if replay else dismissals(target, gh, found),
+        dismissed=[]
+        if replay
+        else dismissals(target, gh, found, authority(target, gh)),
         new=new,
         dropped=dropped,
         reviewed=since is not None or rewritten,
@@ -174,6 +199,29 @@ def review(target: Target, path: Path, *, replay: bool) -> None:
         "passes": [dataclasses.asdict(p) for p in passes],
     }
     path.write_text(json.dumps(record))
+
+
+def judgments(target: Target, path: Path) -> None:
+    config = load(Path(os.environ["POLICY_DIR"]))
+    head = Path(os.environ["HEAD_DIR"]).resolve()
+    diff = _diff(head, target.base, target.head, _excluded(config.excluded))
+    with tempfile.TemporaryDirectory() as workdir:
+        found, failed = judge(
+            config,
+            target,
+            gh,
+            head=head,
+            diff=diff,
+            claude=claude,
+            workdir=Path(workdir),
+        )
+    path.write_text(json.dumps([dataclasses.asdict(j) for j in found]))
+    if failed:
+        raise ExceptionGroup("some rebuttals could not be judged", failed)
+
+
+def _excluded(globs: list[str]) -> list[str]:
+    return [f":(glob,exclude){g}" for g in globs]
 
 
 def _diff(head: Path, base: str, commit: str, excluded: list[str]) -> str:
@@ -236,17 +284,68 @@ def _before(head: Path, commit: str, tip: str) -> bool:
     return subprocess.run(check, capture_output=True).returncode == 0
 
 
+def _leaves[E: BaseException](g: BaseExceptionGroup[E]) -> Sequence[E]:
+    return [
+        leaf
+        for e in g.exceptions
+        for leaf in (_leaves(e) if isinstance(e, BaseExceptionGroup) else [e])
+    ]
+
+
+def _output(name: str, value: int) -> None:
+    with Path(os.environ["GITHUB_OUTPUT"]).open("a") as f:
+        f.write(f"{name}={value}\n")
+
+
+def _claude(target: Target, command: str, path: Path) -> None:
+    try:
+        if command == "judge":
+            judgments(target, path)
+        else:
+            review(target, path, replay=os.environ.get("REPLAY") == "true")
+    except* UsageLimit as g:
+        _output("limited-until", max(e.until for e in _leaves(g)))
+        raise
+    except* LoginRejected as g:
+        _output("login-broken", min(e.started for e in _leaves(g)))
+        raise
+
+
+def _writer(token: str) -> GH:
+    def run(*args: str, stdin: str | None = None) -> str:
+        return subprocess.run(
+            ["gh", *args],
+            input=stdin,
+            stdout=subprocess.PIPE,
+            text=True,
+            check=True,
+            env=os.environ | {"GH_TOKEN": token},
+        ).stdout
+
+    return run
+
+
 def main(argv: list[str]) -> None:
-    args = {"run": 2, "post": 2, "carry": 1, "dismiss": 1, "compare": 2}
+    args = {
+        "run": 2,
+        "post": 2,
+        "carry": 1,
+        "dismiss": 1,
+        "restore": 1,
+        "judge": 2,
+        "rule": 2,
+        "compare": 2,
+    }
     if not argv or args.get(argv[0]) != len(argv):
         sys.exit(__doc__)
     env = os.environ
     if argv[0] == "compare":
         since = datetime.now(UTC) - timedelta(days=int(argv[1]))
         repo = env["GITHUB_REPOSITORY"]
-        recs = compare.records(gh, repo, since)
-        ps = compare.pairs(gh, compare.git, repo, recs)
-        print(compare.report(ps, recs, since=since))
+        # GitHub's GraphQL API answers a 5xx now and then.
+        read = compare.retrying(gh)
+        ps = compare.pairs(read, compare.git, repo, since)
+        print(compare.report(ps, compare.limits(read, repo, since), since=since))
         return
     target = Target(
         repo=env["GITHUB_REPOSITORY"],
@@ -261,13 +360,25 @@ def main(argv: list[str]) -> None:
         print(str(carry(target, gh, key=env["KEY"])).lower())
         return
     if argv[0] == "dismiss":
-        dismiss(target, gh, comment=int(env["COMMENT"]), key=env["KEY"])
+        waits = dismiss(target, gh, comment=int(env["COMMENT"]), key=env["KEY"])
+        print(str(waits).lower())
+        return
+    if argv[0] == "restore":
+        writer = _writer(env["WRITE_TOKEN"])
+        try:
+            done = restore(target, gh, key=env["KEY"], writer=writer)
+        except Unrestorable as e:
+            sys.exit(f"::error::{e}")
+        print("Restored the summary." if done else "The body holds the summary.")
         return
     path = Path(argv[1])
-    if argv[0] == "run":
-        review(target, path, replay=env.get("REPLAY") == "true")
+    if argv[0] in ("judge", "run"):
+        _claude(target, argv[0], path)
+    elif argv[0] == "rule":
+        found = [Judgment(**j) for j in json.loads(path.read_text())]
+        rule(target, gh, found, key=env["KEY"])
     else:
-        post(parse(json.loads(path.read_text())["review"]), target=target, gh=gh)
+        post(json.loads(path.read_text()), target=target, gh=gh)
 
 
 if __name__ == "__main__":

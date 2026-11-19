@@ -33,7 +33,10 @@ var _ = Describe("Request", func() {
 			}
 		}
 		fields := func(r *plugin.Request) []resolution.Field {
-			return r.Resolutions.MustGet("auth.Session").Form.(resolution.StructForm).Fields
+			form, ok := r.Resolutions.MustGet("auth.Session").
+				Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
+			return form.Fields
 		}
 
 		It("Should drop the fields omitted in the languages", func() {

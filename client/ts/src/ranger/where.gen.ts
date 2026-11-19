@@ -31,6 +31,8 @@ export interface Lines {
     ((record: Payload, value: NonNullable<Where["overlaps"]>) => boolean) | null;
   labels: ((record: Payload, value: NonNullable<Where["labels"]>) => boolean) | null;
   parents: ((record: Payload, value: NonNullable<Where["parents"]>) => boolean) | null;
+  ancestors:
+    ((record: Payload, value: NonNullable<Where["ancestors"]>) => boolean) | null;
   nested: ((record: Payload, value: NonNullable<Where["nested"]>) => boolean) | null;
   labeled: ((record: Payload, value: NonNullable<Where["labeled"]>) => boolean) | null;
   stages: ((record: Payload, value: NonNullable<Where["stages"]>) => boolean) | null;
@@ -62,6 +64,10 @@ export const matches = (lines: Lines, record: Payload, where?: Where): boolean =
   if (where.parents != null) {
     if (lines.parents == null) throw new Error("only the Core can check parents");
     if (!lines.parents(record, where.parents)) return false;
+  }
+  if (where.ancestors != null) {
+    if (lines.ancestors == null) throw new Error("only the Core can check ancestors");
+    if (!lines.ancestors(record, where.ancestors)) return false;
   }
   if (where.nested != null) {
     if (lines.nested == null) throw new Error("only the Core can check nested");
@@ -95,6 +101,7 @@ export const serverComputed = (lines: Lines, where?: Where): boolean =>
     (where.overlaps != null && lines.overlaps == null) ||
     (where.labels != null && lines.labels == null) ||
     (where.parents != null && lines.parents == null) ||
+    (where.ancestors != null && lines.ancestors == null) ||
     (where.nested != null && lines.nested == null) ||
     (where.labeled != null && lines.labeled == null) ||
     (where.stages != null && lines.stages == null) ||
@@ -111,6 +118,8 @@ const inputs = {
   labels: filter.listInputZ(label.keyZ).exactOptional(),
   /** parents matches the ranges nested in any of the given ranges. */
   parents: filter.listInputZ(keyZ).exactOptional(),
+  /** ancestors matches the ranges nested at any depth in any of the given ranges. */
+  ancestors: filter.listInputZ(keyZ).exactOptional(),
   /** nested matches the ranges nested in a range, or top-level ranges when false. */
   nested: z.boolean().exactOptional(),
   /** labeled matches ranges that have a label, or ranges with none when false. */
@@ -168,6 +177,7 @@ export const retrieveInputZ = <O extends z.core.$ZodShape>(options: O) =>
         "overlaps",
         "labels",
         "parents",
+        "ancestors",
         "nested",
         "labeled",
         "stages",

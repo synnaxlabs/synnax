@@ -141,15 +141,18 @@ var _ = Describe("Dispatch", func() {
 	It("Should encode each action as JSON that decodes to the same action", func(
 		ctx SpecContext,
 	) {
-		translator := transport.DeviceDispatch.(*fgrpc.UnaryServer[
+		server, ok := transport.DeviceDispatch.(*fgrpc.UnaryServer[
 			device.DispatchRequest,
 			*grpcdevice.DispatchRequest,
 			struct{},
 			*emptypb.Empty,
-		]).RequestTranslator.(fgrpc.Translator[
+		])
+		Expect(ok).To(BeTrue())
+		translator, ok := server.RequestTranslator.(fgrpc.Translator[
 			device.DispatchRequest,
 			*grpcdevice.DispatchRequest,
 		])
+		Expect(ok).To(BeTrue())
 		req := device.DispatchRequest{
 			Key:         "dev1",
 			DispatchKey: "dk",

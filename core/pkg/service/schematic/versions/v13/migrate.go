@@ -13,6 +13,7 @@ import (
 	"context"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"fmt"
 	"math"
 	"reflect"
 	"slices"
@@ -23,6 +24,8 @@ import (
 	color "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
+	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
 
 // MigrateSchematic lifts a v12 schematic to v13. Every color alpha becomes a 0-255
@@ -244,38 +247,181 @@ var Migration = migrate.NewEntry("v62_color_bytes_configs_on_nodes", MigrateSche
 
 // MigrateNodeConfig lifts a v12 node config to v13. See MigrateSchematic for colors. A
 // stroke width rounds to whole pixels up to 20. A width above 0, and every line width,
-// keeps at least 1 pixel. A NaN width counts as 0.
+// keeps at least 1 pixel. A NaN line width counts as 0, and a NaN box, circle, or
+// polygon width becomes absent. A button label migrates as in MigrateLabelConfig,
+// except that a width of 150, which did not wrap in v12, becomes 65535. Other pixel
+// sizes round and clamp to 0 through 65535, and a NaN size takes the default. An inline
+// size, circle radius, polygon side, or gauge bar width keeps at least 1 pixel. A NaN
+// box border radius becomes absent. A polygon keeps 3 through 255 sides. A click delay
+// in milliseconds becomes a span. A scale of 0 or less becomes 1. A tank's numeric and
+// staleness fields migrate as in MigrateNumericTelemConfig and MigrateStalenessConfig.
+// Renamed fields keep their values. An absent channel becomes 0, an absent page links
+// to no page, and an absent position, dimensions, or control state takes its default.
 func MigrateNodeConfig(ctx context.Context, old v12.NodeConfig) (NodeConfig, error) {
 	cfg, err := autoMigrateNodeConfig(ctx, old)
 	if err != nil {
 		return NodeConfig{}, err
 	}
-	switch o := old.Variant.(type) {
-	case v12.BoxNodeConfig:
-		n := cfg.Variant.(BoxNodeConfig)
-		n.StrokeWidth = migrateStrokeWidth(o.StrokeWidth)
-		cfg.Variant = n
-	case v12.CircleNodeConfig:
-		n := cfg.Variant.(CircleNodeConfig)
-		n.StrokeWidth = migrateStrokeWidth(o.StrokeWidth)
-		cfg.Variant = n
-	case v12.LineNodeConfig:
-		n := cfg.Variant.(LineNodeConfig)
-		n.StrokeWidth = max(migrateStrokeWidth(o.StrokeWidth), 1)
-		cfg.Variant = n
-	case v12.PolygonNodeConfig:
-		n := cfg.Variant.(PolygonNodeConfig)
-		n.StrokeWidth = migrateStrokeWidth(o.StrokeWidth)
-		cfg.Variant = n
-	}
+	cfg.Variant = migrateNodeVariant(old.Variant, cfg.Variant)
 	clearThemeColors(reflect.ValueOf(&cfg).Elem())
+	resetScales(reflect.ValueOf(&cfg).Elem())
 	return cfg, nil
+}
+
+// migrateNodeVariant applies the hand-written v13 rules for old's variant to migrated,
+// the generated copy of it.
+func migrateNodeVariant(
+	old v12.NodeConfigVariant,
+	migrated NodeConfigVariant,
+) NodeConfigVariant {
+	if n, ok := migrateStaticVariant(old, migrated); ok {
+		return n
+	}
+	if n, ok := migrateControlVariant(old, migrated); ok {
+		return n
+	}
+	return migrateDisplayVariant(old, migrated)
+}
+
+func migrateStaticVariant(
+	old v12.NodeConfigVariant,
+	migrated NodeConfigVariant,
+) (NodeConfigVariant, bool) {
+	switch o := old.(type) {
+	case v12.BoxNodeConfig:
+		n := as[BoxNodeConfig](migrated)
+		n.StrokeWidth = migrateShapeStrokeWidth(o.StrokeWidth)
+		n.BorderRadius = migrateOptionalPixels(o.BorderRadius)
+		return n, true
+	case v12.CircleNodeConfig:
+		n := as[CircleNodeConfig](migrated)
+		n.StrokeWidth = migrateShapeStrokeWidth(o.StrokeWidth)
+		n.Radius = migrateSize(o.Radius, 20)
+		return n, true
+	case v12.LineNodeConfig:
+		n := as[LineNodeConfig](migrated)
+		n.StrokeWidth = max(migrateStrokeWidth(o.StrokeWidth), 1)
+		return n, true
+	case v12.PolygonNodeConfig:
+		n := as[PolygonNodeConfig](migrated)
+		n.StrokeWidth = migrateShapeStrokeWidth(o.StrokeWidth)
+		n.NumSides = migrateNumSides(o.NumSides)
+		n.SideLength = migrateSize(o.SideLength, 20)
+		n.BorderRadius = migratePixels(o.CornerRounding, 0)
+		return n, true
+	case v12.TextBoxNodeConfig:
+		n := as[TextBoxNodeConfig](migrated)
+		n.InlineSize = migrateSize(o.Width, 75)
+		return n, true
+	case v12.OffPageReferenceNodeConfig:
+		n := as[OffPageReferenceNodeConfig](migrated)
+		n.DoubleClickNavigationDisabled = o.DblClickNavDisabled
+		n.Page = valueOr(o.Page, Page{Type: PageTypeSchematic})
+		return n, true
+	}
+	return migrated, false
+}
+
+func migrateControlVariant(
+	old v12.NodeConfigVariant,
+	migrated NodeConfigVariant,
+) (NodeConfigVariant, bool) {
+	switch o := old.(type) {
+	case v12.ButtonNodeConfig:
+		n := as[ButtonNodeConfig](migrated)
+		n.CommandChannel = valueOr(o.CommandChannel, 0)
+		n.Control = migrateControl(o.Control)
+		n.OnClickDelay = migrateOnClickDelay(o.OnClickDelay)
+		n.Label.MaxInlineSize = migrateButtonMaxInlineSize(o.Label.MaxInlineSize)
+		return n, true
+	case v12.InputNodeConfig:
+		n := as[InputNodeConfig](migrated)
+		n.CommandChannel = valueOr(o.CommandChannel, 0)
+		n.StateChannel = valueOr(o.StateChannel, 0)
+		n.Dimensions = valueOr(o.Dimensions, spatial.Dimensions{})
+		n.Control = migrateControl(o.Control)
+		n.InlineSize = migrateSize(o.InlineSize, 150)
+		n.OnClickDelay = migrateOnClickDelay(o.OnClickDelay)
+		return n, true
+	case v12.SelectNodeConfig:
+		n := as[SelectNodeConfig](migrated)
+		n.CommandChannel = valueOr(o.CommandChannel, 0)
+		n.StateChannel = valueOr(o.StateChannel, 0)
+		n.Control = migrateControl(o.Control)
+		n.InlineSize = migrateSize(o.InlineSize, 100)
+		n.OnClickDelay = migrateOnClickDelay(o.OnClickDelay)
+		return n, true
+	case v12.SetpointNodeConfig:
+		n := as[SetpointNodeConfig](migrated)
+		n.CommandChannel = valueOr(o.CommandChannel, 0)
+		n.StateChannel = valueOr(o.StateChannel, 0)
+		n.Dimensions = valueOr(o.Dimensions, spatial.Dimensions{})
+		n.Control = migrateControl(o.Control)
+		n.InlineSize = migrateSize(o.InlineSize, 100)
+		n.OnClickDelay = migrateOnClickDelay(o.OnClickDelay)
+		return n, true
+	}
+	return migrated, false
+}
+
+func migrateDisplayVariant(
+	old v12.NodeConfigVariant,
+	migrated NodeConfigVariant,
+) NodeConfigVariant {
+	switch o := old.(type) {
+	case v12.StateIndicatorNodeConfig:
+		n := as[StateIndicatorNodeConfig](migrated)
+		n.Channel = valueOr(o.Channel, 0)
+		n.InlineSize = migrateSize(o.InlineSize, 100)
+		return n
+	case v12.TankNodeConfig:
+		// A tank declares its numeric and staleness fields inline, so the generated
+		// copy skips the fields whose types changed.
+		n := as[TankNodeConfig](migrated)
+		n.Channel = valueOr(o.Channel, 0)
+		n.Position = valueOr(o.Position, spatial.XY{})
+		n.BorderRadius = &o.BorderRadius
+		n.RollingAverage = migrateRollingAverage(o.RollingAverage)
+		n.StalenessTimeout = migrateStalenessTimeout(o.StalenessTimeout)
+		return n
+	case v12.LightNodeConfig:
+		n := as[LightNodeConfig](migrated)
+		n.Channel = valueOr(o.Channel, 0)
+		return n
+	case v12.ScaleNodeConfig:
+		n := as[ScaleNodeConfig](migrated)
+		n.Position = valueOr(o.Position, spatial.XY{})
+		return n
+	case v12.GaugeNodeConfig:
+		n := as[GaugeNodeConfig](migrated)
+		n.Position = valueOr(o.Position, spatial.XY{})
+		n.BarWidth = migrateSize(o.BarWidth, 10)
+		return n
+	case v12.StringDisplayNodeConfig:
+		n := as[StringDisplayNodeConfig](migrated)
+		n.Channel = valueOr(o.Channel, 0)
+		n.InlineSize = migrateSize(o.InlineSize, 100)
+		return n
+	case v12.ValueNodeConfig:
+		n := as[ValueNodeConfig](migrated)
+		n.Position = valueOr(o.Position, spatial.XY{})
+		n.InlineSize = migrateSize(o.InlineSize, 70)
+		return n
+	}
+	return migrated
 }
 
 const (
 	defaultStrokeWidth = 2
 	maxStrokeWidth     = 20
 )
+
+func migrateShapeStrokeWidth(w float64) *uint8 {
+	if math.IsNaN(w) {
+		return nil
+	}
+	return new(migrateStrokeWidth(w))
+}
 
 func migrateStrokeWidth(w float64) uint8 {
 	if math.IsNaN(w) || w <= 0 {
@@ -294,6 +440,46 @@ func MigrateEdgeConfig(ctx context.Context, old v12.EdgeConfig) (EdgeConfig, err
 	return cfg, nil
 }
 
+// MigrateLabeledConfig lifts a v12 labeled config to v13.
+func MigrateLabeledConfig(
+	ctx context.Context,
+	old v12.LabeledConfig,
+) (LabeledConfig, error) {
+	return autoMigrateLabeledConfig(ctx, old)
+}
+
+// MigrateLabelConfig lifts a v12 label config to v13 and keeps the label's v12 layout.
+// It rounds the wrap width to whole pixels and clamps it to 1 through 65535. A NaN
+// width becomes 150, a width of 0 becomes 1, and a negative width, which did not wrap,
+// becomes 65535.
+func MigrateLabelConfig(ctx context.Context, old v12.LabelConfig) (LabelConfig, error) {
+	cfg, err := autoMigrateLabelConfig(ctx, old)
+	if err != nil {
+		return LabelConfig{}, err
+	}
+	cfg.MaxInlineSize = migrateMaxInlineSize(old.MaxInlineSize)
+	return cfg, nil
+}
+
+const defaultMaxInlineSize = 150
+
+func migrateMaxInlineSize(w float64) uint16 {
+	if math.IsNaN(w) {
+		return defaultMaxInlineSize
+	}
+	if w < 0 {
+		return math.MaxUint16
+	}
+	return uint16(min(max(math.Round(w), 1), math.MaxUint16))
+}
+
+func migrateButtonMaxInlineSize(w float64) uint16 {
+	if w == defaultMaxInlineSize {
+		return math.MaxUint16
+	}
+	return migrateMaxInlineSize(w)
+}
+
 // MigrateStaticSymbolConfig lifts a v12 static symbol config to v13.
 func MigrateStaticSymbolConfig(
 	ctx context.Context,
@@ -310,12 +496,91 @@ func MigrateToggleSymbolConfig(
 	return autoMigrateToggleSymbolConfig(ctx, old)
 }
 
-// MigrateStalenessConfig lifts a v12 staleness config to v13.
+// MigrateStalenessConfig lifts a v12 staleness config to v13. It converts the timeout
+// from seconds to a span. A timeout under 1 second becomes 1 second. A NaN timeout, or
+// one of 0 or less, becomes 5 seconds.
 func MigrateStalenessConfig(
 	ctx context.Context,
 	old v12.StalenessConfig,
 ) (StalenessConfig, error) {
-	return autoMigrateStalenessConfig(ctx, old)
+	cfg, err := autoMigrateStalenessConfig(ctx, old)
+	if err != nil {
+		return StalenessConfig{}, err
+	}
+	cfg.StalenessTimeout = migrateStalenessTimeout(old.StalenessTimeout)
+	return cfg, nil
+}
+
+// MigrateNumericTelemConfig lifts a v12 numeric telemetry config to v13. It clamps the
+// rolling average to 1 through 65535. An absent channel becomes 0.
+func MigrateNumericTelemConfig(
+	ctx context.Context,
+	old v12.NumericTelemConfig,
+) (NumericTelemConfig, error) {
+	cfg, err := autoMigrateNumericTelemConfig(ctx, old)
+	if err != nil {
+		return NumericTelemConfig{}, err
+	}
+	cfg.Channel = valueOr(old.Channel, 0)
+	cfg.RollingAverage = migrateRollingAverage(old.RollingAverage)
+	return cfg, nil
+}
+
+func migrateRollingAverage(n *int32) uint16 {
+	if n == nil {
+		return 1
+	}
+	return uint16(min(max(*n, 1), math.MaxUint16))
+}
+
+const defaultStalenessTimeout = 5 * telem.Second
+
+func migrateStalenessTimeout(seconds float64) telem.TimeSpan {
+	if math.IsNaN(seconds) || seconds <= 0 {
+		return defaultStalenessTimeout
+	}
+	return migrateSpan(max(seconds, 1), telem.Second)
+}
+
+// maxOnClickDelay is the longest delay, in milliseconds, that a browser timer waits.
+const maxOnClickDelay = math.MaxInt32
+
+func migrateOnClickDelay(ms float64) telem.TimeSpan {
+	if math.IsNaN(ms) || ms <= 0 {
+		return 0
+	}
+	return migrateSpan(min(ms, maxOnClickDelay), telem.Millisecond)
+}
+
+// maxSpan is the largest span a JavaScript number holds exactly, so a client can send
+// a migrated span back to the Core unchanged.
+const maxSpan telem.TimeSpan = 1<<53 - 1
+
+func migrateSpan(v float64, unit telem.TimeSpan) telem.TimeSpan {
+	return telem.TimeSpan(min(math.Round(v*float64(unit)), float64(maxSpan)))
+}
+
+func migrateSize(v float64, def uint16) uint16 { return max(migratePixels(v, def), 1) }
+
+func migrateOptionalPixels(v float64) *uint16 {
+	if math.IsNaN(v) {
+		return nil
+	}
+	return new(migratePixels(v, 0))
+}
+
+func migratePixels(v float64, def uint16) uint16 {
+	if math.IsNaN(v) {
+		return def
+	}
+	return uint16(min(max(math.Round(v), 0), math.MaxUint16))
+}
+
+func migrateNumSides(n float64) uint8 {
+	if math.IsNaN(n) {
+		return 6
+	}
+	return uint8(min(max(math.Round(n), 3), math.MaxUint8))
 }
 
 // MigrateStateMapping lifts a v12 state mapping to v13.
@@ -342,12 +607,67 @@ func MigrateDummyToggleSymbolConfig(
 	return autoMigrateDummyToggleSymbolConfig(ctx, old)
 }
 
-// MigrateToggleConfig lifts a v12 toggle config to v13.
+// MigrateToggleConfig lifts a v12 toggle config to v13. It converts the click delay
+// from milliseconds to a span. A NaN or negative delay becomes 0. A delay longer than
+// 2^31 - 1 ms, the longest that a browser timer waits, takes that length. An absent
+// channel becomes 0, and an absent control state takes its schema defaults.
 func MigrateToggleConfig(
 	ctx context.Context,
 	old v12.ToggleConfig,
 ) (ToggleConfig, error) {
-	return autoMigrateToggleConfig(ctx, old)
+	cfg, err := autoMigrateToggleConfig(ctx, old)
+	if err != nil {
+		return ToggleConfig{}, err
+	}
+	cfg.OnClickDelay = migrateOnClickDelay(old.OnClickDelay)
+	cfg.StateChannel = valueOr(old.StateChannel, 0)
+	cfg.CommandChannel = valueOr(old.CommandChannel, 0)
+	cfg.Control = migrateControl(old.Control)
+	return cfg, nil
+}
+
+func valueOr[T any](v *T, def T) T {
+	if v == nil {
+		return def
+	}
+	return *v
+}
+
+func migrateControl(old *v12.ControlStateConfig) ControlStateConfig {
+	if old != nil {
+		return *old
+	}
+	var cfg ControlStateConfig
+	cfg.SetDefaults()
+	return cfg
+}
+
+// resetScales sets each scale under v that is 0 or less, NaN, or infinite to 1. v must
+// be settable.
+func resetScales(v reflect.Value) {
+	switch v.Kind() {
+	case reflect.Interface:
+		if v.IsNil() {
+			return
+		}
+		c := reflect.New(v.Elem().Type()).Elem()
+		c.Set(v.Elem())
+		resetScales(c)
+		v.Set(c)
+	case reflect.Struct:
+		if s, ok := reflect.TypeAssert[ScaledConfig](v); ok {
+			if nonFinite(s.Scale) || s.Scale <= 0 {
+				v.Set(reflect.ValueOf(ScaledConfig{Scale: 1}))
+			}
+			return
+		}
+		for _, f := range v.Fields() {
+			if f.CanSet() {
+				resetScales(f)
+			}
+		}
+	default:
+	}
 }
 
 // MigrateSegmentedEdgeConfig lifts a v12 segmented edge config to v13 with the default
@@ -363,3 +683,25 @@ func MigrateSegmentedEdgeConfig(
 	cfg.StrokeWidth = defaultStrokeWidth
 	return cfg, nil
 }
+
+// as returns a migrated variant as a T. It panics when v is not a T, since a generated
+// migration keeps each variant's kind.
+func as[T any](v any) T {
+	t, ok := v.(T)
+	if !ok {
+		panic(fmt.Sprintf("migrated variant is a %T, not a %T", v, t))
+	}
+	return t
+}
+
+// NameMigration names each stored schematic that has an empty name "Schematic <key>",
+// where <key> is the first eight characters of its key.
+var NameMigration = migrate.NewEntry(
+	"v62_require_name",
+	func(_ context.Context, s Schematic) (Schematic, error) {
+		if s.Name == "" {
+			s.Name = "Schematic " + s.Key.String()[:8]
+		}
+		return s, nil
+	},
+)

@@ -2,10 +2,11 @@
 name: pr-status
 description:
   Report where the session's PRs stand as one short board. Use when the user invokes
-  /pr-status, asks for the status of the PRs, asks what is blocking them, or asks if a
-  stack is backmerged. Gives each PR's link, a one-sentence description, CI, Sedosaur
-  and human review, and merge conflicts, in categories, with stack order and backmerge
-  health.
+  /pr-status, asks for the status of the PRs, asks what is blocking them, asks which are
+  queued, merged, or drafts, or asks if a stack is backmerged. Gives each PR's link,
+  state (open, draft, auto-merge, queued, merged, or closed), a one-sentence
+  description, CI, Sedosaur and human review, and merge conflicts, in categories, with
+  stack order and backmerge health.
 ---
 
 # PR status
@@ -26,6 +27,7 @@ Read every value from GitHub now. Never repeat a status from earlier in the sess
 ```bash
 Q='query($n:Int!){repository(owner:"synnaxlabs",name:"synnax"){pullRequest(number:$n){
   number url title state isDraft mergeable headRefName baseRefName mergeCommit{oid}
+  mergeQueueEntry{position state} autoMergeRequest{enabledAt}
   commits(last:1){nodes{commit{status{context(name:"Review gate"){state description}}}}}
   labels(first:20){nodes{name}}
   stack{number entries(first:50){nodes{position pullRequest{
@@ -38,6 +40,7 @@ for n in $PRS; do
   gh api graphql -f query="$Q" -F n="$n" --jq '.data.repository.pullRequest | {
     number, url, title, state, draft: .isDraft, mergeable,
     head: .headRefName, base: .baseRefName, mergeCommit: .mergeCommit.oid,
+    queue: .mergeQueueEntry, autoMerge: (.autoMergeRequest != null),
     tier: ([.labels.nodes[].name | select(startswith("review/"))] | first),
     gate: .commits.nodes[0].commit.status.context,
     humans: [.latestOpinionatedReviews.nodes[]
@@ -64,8 +67,21 @@ PR again before you report it as unknown.
 
 ## Step 3: Work out each field
 
-Start each status with ✅ when it is good, ❌ when it blocks the PR, or ⏳ when it is
-waiting.
+**State.** Use the first row that matches. The colors are GitHub's.
+
+| Result                 | State                   |
+| ---------------------- | ----------------------- |
+| `state` is `MERGED`    | 🟣 Merged               |
+| `state` is `CLOSED`    | 🔴 Closed               |
+| `queue` is set         | 🟡 Queued at `position` |
+| `autoMerge` is true    | 🔵 Auto-merge           |
+| `draft` is true        | ⚪ Draft                |
+| None of the rows above | 🟢 Open                 |
+
+When `queue.state` is `UNMERGEABLE`, add `, unmergeable`: the queue failed the PR.
+
+Start each other status with ✅ when it is good, ❌ when it blocks the PR, or ⏳ when it
+is waiting.
 
 **CI.** `OK` is the last job of the CI workflow, and it fails if any selected check
 fails. Ignore Vercel and other workflows.
@@ -141,26 +157,26 @@ Group the PRs by feature or area. Each stack is its own group, bottom PR first. 
 headings if one group would hold every PR.
 
 Each group is one table. Write the description yourself from the PR, as one sentence
-that starts with a verb, in 12 words or less. Do not copy the title. Mark a draft with
-`draft` after the link.
+that starts with a verb, in 12 words or less. Do not copy the title.
 
 ```markdown
 **Driver**
 
-| PR                         | What                                           | CI         | Review                          | Conflicts |
-| -------------------------- | ---------------------------------------------- | ---------- | ------------------------------- | --------- |
-| [#4167](https://github...) | Refuses a second LabJack stream on one device. | ✅ Passing | ✅ Sedosaur 5/5                 | ✅ None   |
-| [#4166](https://github...) | Exits the Driver with the Core on Windows.     | ⏳ Running | ⏳ Sedosaur 4/5, 2 open threads | ✅ None   |
+| PR                         | State          | What                                           | CI         | Review                          | Conflicts |
+| -------------------------- | -------------- | ---------------------------------------------- | ---------- | ------------------------------- | --------- |
+| [#4167](https://github...) | 🟡 Queued at 2 | Refuses a second LabJack stream on one device. | ✅ Passing | ✅ Sedosaur 5/5                 | ✅ None   |
+| [#4166](https://github...) | 🟢 Open        | Exits the Driver with the Core on Windows.     | ⏳ Running | ⏳ Sedosaur 4/5, 2 open threads | ✅ None   |
 
 **NI ports stack**, bottom to top
 
 ❌ #4124 is 1 commit behind #4122. #4122 is 54 commits behind `main`.
 
-| PR  | What | CI  | Review | Conflicts |
-| --- | ---- | --- | ------ | --------- |
+| PR  | State | What | CI  | Review | Conflicts |
+| --- | ----- | ---- | --- | ------ | --------- |
 ```
 
 The line above a stack's table starts with ✅ `Backmerged.` or lists each broken pair
-with ❌. Put merged or closed PRs in one line at the end: `Merged: #4105, #4106.`
+with ❌. Put merged or closed PRs in one line at the end, with their state icon:
+`🟣 Merged: #4105, #4106. 🔴 Closed: #4110.`
 
 Stop after the board. No summary and no next steps.

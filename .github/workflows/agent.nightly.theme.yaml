@@ -1,0 +1,80 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Runs the agent for one theme of Agent - Nightly and saves its report as the
+# nightly-<theme> artifact. A matrix keeps the output of only one leg, so each leg saves
+# its own report for Agent - Nightly to post.
+
+name: Agent - Nightly theme
+
+on:
+  workflow_call:
+    inputs:
+      theme:
+        description: The theme the prompt is for
+        type: string
+        required: true
+      prompt:
+        description: The prompt for the agent
+        type: string
+        required: true
+    secrets:
+      CLAUDE_CODE_APP_PRIVATE_KEY:
+        required: false
+      CODEX_APP_PRIVATE_KEY:
+        required: false
+      SYNNAX_LICENSE_TOKEN:
+        required: false
+
+permissions: {}
+
+jobs:
+  agent:
+    name: Agent
+    permissions:
+      actions: read
+      contents: write
+      issues: write
+      pull-requests: write
+    uses: ./.github/workflows/agent.yaml
+    with:
+      prompt: ${{ inputs.prompt }}
+      agent: ${{ vars.AGENT_DEFAULT || 'claude' }}
+      output: report
+      timeout-minutes: 180
+    secrets:
+      CLAUDE_CODE_APP_PRIVATE_KEY: ${{ secrets.CLAUDE_CODE_APP_PRIVATE_KEY }}
+      CODEX_APP_PRIVATE_KEY: ${{ secrets.CODEX_APP_PRIVATE_KEY }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+
+  save:
+    name: Save the report
+    needs: agent
+    if: always()
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Write the report
+        env:
+          REPORT: ${{ needs.agent.outputs.report }}
+          RESULT: ${{ needs.agent.result }}
+          THEME: ${{ inputs.theme }}
+        run: |
+          if [ "$RESULT" != success ] || [ -z "$REPORT" ]; then
+            REPORT="The agent did not finish ($RESULT)."
+          fi
+          printf '*%s*\n%s\n' "$THEME" "$REPORT" > "$RUNNER_TEMP/report.md"
+
+      - name: Upload the report
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: nightly-${{ inputs.theme }}
+          path: ${{ runner.temp }}/report.md
+          overwrite: true
+          retention-days: 1

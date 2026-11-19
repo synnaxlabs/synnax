@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
@@ -64,6 +65,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	lineplotSvc = MustOpen(lineplot.OpenService(ctx, lineplot.ServiceConfig{
 		DB:   db,
 		ImEx: imex.NewService(),
+		Color: MustOpen(color.OpenService(ctx, color.ServiceConfig{
+			DB:    db,
+			Group: groupSvc,
+		})),
 	}))
 	logSvc = MustOpen(log.OpenService(ctx, log.ServiceConfig{
 		DB:   db,

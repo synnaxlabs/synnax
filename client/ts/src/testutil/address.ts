@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 /**
- * The Core that specs connect to: `SYNNAX_HOST` and `SYNNAX_PORT` when set, else
- * localhost:9090.
+ * The Core that specs connect to: `SYNNAX_TEST_HOST` and `SYNNAX_TEST_PORT` when set,
+ * else localhost:9090.
  */
 export const TEST_CORE_ADDRESS = {
-  host: process.env.SYNNAX_HOST ?? "localhost",
-  port: Number(process.env.SYNNAX_PORT ?? 9090),
+  host: process.env.SYNNAX_TEST_HOST ?? "localhost",
+  port: Number(process.env.SYNNAX_TEST_PORT ?? 9090),
 };

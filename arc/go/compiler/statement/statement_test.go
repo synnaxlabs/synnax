@@ -162,6 +162,57 @@ var _ = Describe("Statement Compiler", func() {
 	)
 
 	Describe("Stateful Variables", func() {
+		DescribeTable(
+			"Should convert the first value of a stateful variable to its unit",
+			func(bCtx SpecContext, source string, opcodes ...any) {
+				block := MustSucceed(parser.ParseBlock(source))
+				fn := MustSucceed(NewRoot(nil).Add(bCtx, symbol.Symbol{
+					Name: "f", Kind: symbol.KindFunction,
+					Type: types.Function(types.FunctionProperties{}),
+				}))
+				aCtx := acontext.NewRoot(bCtx, block, fn)
+				analyzer.AnalyzeBlock(aCtx)
+				Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
+				ctx := context.NewRoot(
+					bCtx,
+					aCtx.Scope,
+					aCtx.TypeMap,
+					resolve.NewResolver(),
+				)
+				diverged := MustSucceed(statement.CompileBlock(ctx.Child(block)))
+				Expect(diverged).To(BeFalse())
+				Expect(FinalizeContext(ctx)).To(MatchOpcodes(opcodes...))
+			},
+			Entry("an integer in a larger unit",
+				"{\nx i64 s := 5s\nd i64 ms $= x\n}",
+				OpI64Const, int64(5), OpLocalSet, 0,
+				OpI32Const, int32(1),
+				OpLocalGet, 0, OpI64Const, int64(1000), OpI64Mul,
+				OpCall, uint32(0), OpLocalSet, 1,
+			),
+			Entry("an integer in a smaller unit",
+				"{\nx i64 ms := 5000ms\nd i64 s $= x\n}",
+				OpI64Const, int64(5000), OpLocalSet, 0,
+				OpI32Const, int32(1),
+				OpLocalGet, 0, OpI64Const, int64(1000), OpI64DivS,
+				OpCall, uint32(0), OpLocalSet, 1,
+			),
+			Entry("a float",
+				"{\nx f64 kPa := 250.0kPa\nd f64 bar $= x\n}",
+				OpF64Const, float64(250), OpLocalSet, 0,
+				OpI32Const, int32(1),
+				OpLocalGet, 0, OpF64Const, float64(0.01), OpF64Mul,
+				OpCall, uint32(0), OpLocalSet, 1,
+			),
+			Entry("a value in the same unit",
+				"{\nx i64 ms := 5ms\nd i64 ms $= x\n}",
+				OpI64Const, int64(5), OpLocalSet, 0,
+				OpI32Const, int32(1),
+				OpLocalGet, 0,
+				OpCall, uint32(0), OpLocalSet, 1,
+			),
+		)
+
 		It(
 			"Should compile stateful variable declaration with explicit type",
 			func(bCtx SpecContext) {
@@ -944,7 +995,7 @@ var _ = Describe("Statement Compiler", func() {
 			OpF32Const, float32(3.14),
 			OpLocalSet, 0,
 			OpLocalGet, 0,
-			OpI32TruncF32S,
+			OpI32TruncSatF32S,
 			OpLocalSet, 1,
 		),
 		Entry("u32 variable to f32",
@@ -1211,9 +1262,11 @@ var _ = Describe("Statement Compiler", func() {
 					}
 					source := "test_ch = " + valueCode
 					bytecode := compileWithChannels(bCtx, source, resolver)
-					expected := []any{OpI32Const, int32(100)}
-					expected = append(expected, expectedValueOps...)
-					expected = append(expected, OpCall, uint32(0))
+					expected := slices.Concat(
+						[]any{OpI32Const, int32(100)},
+						expectedValueOps,
+						[]any{OpCall, uint32(0)},
+					)
 					Expect(bytecode).To(MatchOpcodes(expected...))
 				},
 				Entry("i8", "i8", types.I8(), "42", OpI32Const, int32(42)),
@@ -1839,7 +1892,13 @@ var _ = Describe("Statement Compiler", func() {
 	})
 
 	Describe("Chan-typed Input Parameter Operations", func() {
-		compileWithChanInput := func(bCtx SpecContext, source, inputName string, inputType types.Type) []byte {
+		// compileWithChanInput compiles source in a function with a chan-typed input
+		// "ch".
+		compileWithChanInput := func(
+			bCtx SpecContext,
+			source string,
+			inputType types.Type,
+		) []byte {
 			GinkgoHelper()
 			block := MustSucceed(parser.ParseBlock("{" + source + "}"))
 			aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
@@ -1852,7 +1911,7 @@ var _ = Describe("Statement Compiler", func() {
 			fn := MustSucceed(aCtx.Scope.Resolve(aCtx, "testFunc"))
 			aCtx.Scope = fn
 			MustSucceed(aCtx.Scope.Add(aCtx, symbol.Symbol{
-				Name: inputName,
+				Name: "ch",
 				Kind: symbol.KindInput,
 				Type: inputType,
 			}))
@@ -1874,7 +1933,7 @@ var _ = Describe("Statement Compiler", func() {
 			func(bCtx SpecContext) {
 				bytecode := compileWithChanInput(bCtx,
 					`ch = 77.0`,
-					"ch", types.Chan(types.F32()),
+					types.Chan(types.F32()),
 				)
 				Expect(bytecode).To(MatchOpcodes(
 					OpLocalGet, 0,
@@ -1889,7 +1948,7 @@ var _ = Describe("Statement Compiler", func() {
 			func(bCtx SpecContext) {
 				bytecode := compileWithChanInput(bCtx,
 					`ch = 3.14`,
-					"ch", types.Chan(types.F64()),
+					types.Chan(types.F64()),
 				)
 				Expect(bytecode).To(MatchOpcodes(
 					OpLocalGet, 0,
@@ -1904,7 +1963,7 @@ var _ = Describe("Statement Compiler", func() {
 			func(bCtx SpecContext) {
 				bytecode := compileWithChanInput(bCtx,
 					`ch = 42`,
-					"ch", types.Chan(types.I32()),
+					types.Chan(types.I32()),
 				)
 				Expect(bytecode).To(MatchOpcodes(
 					OpLocalGet, 0,
@@ -1919,7 +1978,7 @@ var _ = Describe("Statement Compiler", func() {
 			func(bCtx SpecContext) {
 				bytecode := compileWithChanInput(bCtx,
 					`x f32 := ch`,
-					"ch", types.Chan(types.F32()),
+					types.Chan(types.F32()),
 				)
 				Expect(bytecode).To(MatchOpcodes(
 					OpLocalGet, 0,
@@ -1935,7 +1994,7 @@ var _ = Describe("Statement Compiler", func() {
 				bytecode := compileWithChanInput(bCtx,
 					`value f64 := ch
 				ch = value * 2.0`,
-					"ch", types.Chan(types.F64()),
+					types.Chan(types.F64()),
 				)
 				Expect(bytecode).To(MatchOpcodes(
 					OpLocalGet, 0,

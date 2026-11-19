@@ -10,7 +10,8 @@
 import { type binary, errors, sleep, TimeSpan, url } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { EOF, ReceiveOverflow, StreamClosed } from "@/errors";
+import { type Connector, DEFAULT_CONNECTOR, type Socket } from "@/connector";
+import { EOF, ReceiveOverflow, StreamClosed, Unreachable } from "@/errors";
 import { CONTENT_TYPE_HEADER_KEY, FREIGHTER_METADATA_PREFIX } from "@/http";
 import { type Context, MiddlewareCollector } from "@/middleware";
 import { type Stream, type StreamClient } from "@/stream";
@@ -79,7 +80,7 @@ class WebSocketStream<
   private readonly codec: binary.Codec;
   private readonly reqSchema: RQ;
   private readonly messageZ: ReturnType<typeof messageZ<RS>>;
-  private readonly ws: WebSocket;
+  private readonly ws: Socket;
   private serverClosed: Error | null;
   private sendClosed: boolean;
   private readonly flowControl: FlowControl;
@@ -91,7 +92,7 @@ class WebSocketStream<
   private readonly resLabel: string;
 
   constructor(
-    ws: WebSocket,
+    ws: Socket,
     encoder: binary.Codec,
     target: string,
     reqSchema: RQ,
@@ -219,11 +220,11 @@ class WebSocketStream<
     this.ws.onclose = this.onClose.bind(this);
   }
 
-  private onMessage(ev: MessageEvent<ArrayBuffer>): void {
+  private onMessage(ev: { data: ArrayBuffer }): void {
     this.addMessage(ev.data);
   }
 
-  private onClose(ev: CloseEvent): void {
+  private onClose(ev: { code: number }): void {
     this.addMessage({
       type: "close",
       error: {
@@ -236,6 +237,53 @@ class WebSocketStream<
 
 const CLOSE_NORMAL = 1000;
 
+// The DOM, undici, Deno, and Bun error events carry the error in different fields.
+const eventCause = (ev: object): unknown =>
+  "error" in ev && ev.error != null ? ev.error : ev;
+
+const eventMessage = (ev: object): string =>
+  "message" in ev && typeof ev.message === "string" ? ev.message : "websocket error";
+
+const eventError = (ev: object): Error =>
+  new Error(eventMessage(ev), { cause: eventCause(ev) });
+
+// Bun and Deno name a failure from a server that answered: a TLS failure, or an upgrade
+// refused with an HTTP status. Node and browsers give no cause for a failed dial, so
+// these failures there become Unreachable.
+const ANSWERED_CODE = /CERT|SIGNATURE|^ERR_TLS_|^ERR_SSL_/;
+const ANSWERED_MESSAGE = /TLS handshake|invalid peer certificate|status code/;
+
+const isAnswered = (cause: unknown): boolean => {
+  if (typeof cause !== "object" || cause === null) return false;
+  if (
+    "code" in cause &&
+    typeof cause.code === "string" &&
+    ANSWERED_CODE.test(cause.code)
+  )
+    return true;
+  return (
+    "message" in cause &&
+    typeof cause.message === "string" &&
+    ANSWERED_MESSAGE.test(cause.message)
+  );
+};
+
+const AUTHORIZATION_HEADER_KEY = "Authorization";
+
+/** Configures a {@link WebSocketClient}. */
+export interface WebSocketClientConfig {
+  /** A base URL to use as a prefix for all requests. */
+  endpoint: url.URL;
+  /** Encodes messages and decodes responses. */
+  codec: binary.Codec;
+  /** Whether to connect over WSS. Defaults to false. */
+  secure?: boolean;
+  /** Overrides for the default flow control limits. */
+  flowControl?: Partial<FlowControl>;
+  /** Opens the WebSockets. Defaults to the global WebSocket. */
+  connector?: Connector;
+}
+
 /**
  * WebSocketClient is an implementation of StreamClient that is backed by websockets.
  */
@@ -244,34 +292,43 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
   encoder: binary.Codec;
   secure: boolean;
   flowControl: FlowControl;
+  private readonly connector: Connector;
 
   static readonly MESSAGE_TYPE = "arraybuffer";
 
-  /**
-   * @param encoder - The encoder to use for encoding messages and decoding responses.
-   * @param baseEndpoint - A base url to use as a prefix for all requests.
-   * @param flowControl - Overrides for the default flow control limits.
-   */
-  constructor(
-    baseEndpoint: url.URL,
-    encoder: binary.Codec,
+  constructor({
+    endpoint,
+    codec,
     secure = false,
-    flowControl: Partial<FlowControl> = {},
-  ) {
+    flowControl = {},
+    connector = DEFAULT_CONNECTOR,
+  }: WebSocketClientConfig) {
     super();
     this.secure = secure;
     this.flowControl = { ...DEFAULT_FLOW_CONTROL, ...flowControl };
-    this.baseUrl = baseEndpoint.replace({ protocol: secure ? "wss" : "ws" });
-    this.encoder = encoder;
+    this.baseUrl = endpoint.replace({ protocol: secure ? "wss" : "ws" });
+    this.encoder = codec;
+    this.connector = connector;
   }
 
   withCodec(codec: binary.Codec): WebSocketClient {
-    const c = new WebSocketClient(this.baseUrl, codec, this.secure, this.flowControl);
+    const c = new WebSocketClient({
+      endpoint: this.baseUrl,
+      codec,
+      secure: this.secure,
+      flowControl: this.flowControl,
+      connector: this.connector,
+    });
     c.use(...this.middleware);
     return c;
   }
 
-  /** Implements the StreamClient interface. */
+  /**
+   * Implements the StreamClient interface.
+   * @throws {Unreachable} if the socket fails or closes before it opens. A TLS failure
+   * or a refused upgrade that the runtime names (Bun and Deno) throws the runtime
+   * error instead.
+   */
   async stream<RQ extends z.ZodType, RS extends z.ZodType = RQ>(
     target: string,
     reqSchema: RQ,
@@ -281,7 +338,13 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
     await this.executeMiddleware(
       { target, protocol: "websocket", params: {}, role: "client" },
       async (ctx: Context): Promise<Context> => {
-        const ws = new WebSocket(this.buildURL(target, ctx));
+        const { [AUTHORIZATION_HEADER_KEY]: authorization, ...params } = ctx.params;
+        const ws =
+          authorization == null || this.connector.sendsHeaders !== true
+            ? await this.connector.dial(this.buildURL(target, ctx.params), {})
+            : await this.connector.dial(this.buildURL(target, params), {
+                [AUTHORIZATION_HEADER_KEY]: authorization,
+              });
         const outCtx: Context = { ...ctx, params: {} };
         ws.binaryType = WebSocketClient.MESSAGE_TYPE;
         stream = await this.wrapSocket(ws, target, reqSchema, resSchema);
@@ -291,25 +354,33 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
     return stream as Stream<RQ, RS>;
   }
 
-  private buildURL(target: string, ctx: Context): string {
+  private buildURL(target: string, params: Record<string, string>): string {
     const qs = url.buildQueryString(
-      {
-        [CONTENT_TYPE_HEADER_KEY]: this.encoder.contentType,
-        ...ctx.params,
-      },
+      { [CONTENT_TYPE_HEADER_KEY]: this.encoder.contentType, ...params },
       FREIGHTER_METADATA_PREFIX,
     );
     return this.baseUrl.child(target).toString() + qs;
   }
 
   private async wrapSocket<RQ extends z.ZodType, RS extends z.ZodType = RQ>(
-    ws: WebSocket,
+    ws: Socket,
     target: string,
     reqSchema: RQ,
     resSchema: RS,
   ): Promise<WebSocketStream<RQ, RS>> {
     return await new Promise((resolve, reject) => {
+      const unreachable = (cause: unknown) =>
+        reject(new Unreachable({ url: this.baseUrl.child(target), cause }));
+      ws.onclose = unreachable;
+      ws.onerror = (ev: object) => {
+        const cause = eventCause(ev);
+        if (isAnswered(cause)) reject(eventError(ev));
+        else unreachable(cause);
+      };
+      // Node fails a blocked port, such as 1, before the dial returns the socket.
+      if (ws.readyState === WebSocket.CLOSED) unreachable(undefined);
       ws.onopen = () => {
+        ws.onerror = (ev: object) => reject(eventError(ev));
         const oWs = new WebSocketStream<RQ, RS>(
           ws,
           this.encoder,
@@ -322,10 +393,6 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
           .receiveOpenAck()
           .then(() => resolve(oWs))
           .catch((err: unknown) => reject(errors.fromUnknown(err)));
-      };
-      ws.onerror = (ev: Event) => {
-        const ev_ = ev as ErrorEvent;
-        reject(new Error(ev_.message ?? "websocket error", { cause: ev_.error ?? ev }));
       };
     });
   }

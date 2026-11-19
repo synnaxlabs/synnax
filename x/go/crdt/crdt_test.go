@@ -10,6 +10,8 @@
 package crdt_test
 
 import (
+	"slices"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/crdt"
@@ -103,13 +105,8 @@ var _ = Describe("CRDT", func() {
 
 		It("Should not interleave concurrent backward typing", func() {
 			a, b := crdt.New(1), crdt.New(2)
-			var opsA, opsB []crdt.Insert
-			for _, r := range []string{"c", "b", "a"} {
-				opsA = append(opsA, a.Insert(0, r)...)
-			}
-			for _, r := range []string{"z", "y", "x"} {
-				opsB = append(opsB, b.Insert(0, r)...)
-			}
+			opsA := slices.Concat(a.Insert(0, "c"), a.Insert(0, "b"), a.Insert(0, "a"))
+			opsB := slices.Concat(b.Insert(0, "z"), b.Insert(0, "y"), b.Insert(0, "x"))
 			b.ApplyInsert(opsA...)
 			a.ApplyInsert(opsB...)
 			Expect(a.String()).To(Equal(b.String()))

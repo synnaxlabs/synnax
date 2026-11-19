@@ -9,9 +9,11 @@
 
 """Fails when the agent CLI of an agent seat is signed out.
 
-Asks each running seat for its sign-in state through the synnax-agent-seat-auth SSM
-document, and records the answer in the seat's auth and auth-checked tags. A stopped
-seat is not started: its tags give the state from when it last ran.
+Claude seats run on a shared login from `seat.sh token`, so only Codex seats have a
+CLI login to check. Asks each running Codex seat for its sign-in state through the
+synnax-agent-seat-auth SSM document, and records the answer in the seat's auth and
+auth-checked tags. A stopped seat is not started: its tags give the state from when it
+last ran.
 
 Usage: seat_auth.py. Needs AWS credentials and AWS_REGION.
 """
@@ -55,7 +57,7 @@ class Seat:
 
 
 def seats(aws: Aws) -> list[Seat]:
-    """The running and stopped seats, by name."""
+    """The running and stopped Codex seats, by name."""
     found = aws(
         [
             "ec2",
@@ -70,6 +72,8 @@ def seats(aws: Aws) -> list[Seat]:
     for reservation in found["Reservations"]:
         for i in reservation["Instances"]:
             tags = {t["Key"]: t["Value"] for t in i.get("Tags", [])}
+            if tags["agent"] == "claude":
+                continue
             result.append(
                 Seat(
                     id=i["InstanceId"],

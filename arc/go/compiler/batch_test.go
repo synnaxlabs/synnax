@@ -34,7 +34,7 @@ var _ = Describe("Batch wrapper", func() {
 		source, key string,
 	) (api.Module, api.Function) {
 		GinkgoHelper()
-		output := MustSucceed(compile(ctx, source, nil))
+		output := MustSucceed(compile(ctx, source))
 		mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 		return mod, mod.ExportedFunction(key + compiler.BatchSuffix)
 	}
@@ -192,7 +192,7 @@ var _ = Describe("Batch wrapper", func() {
 
 	DescribeTable("Should emit no wrapper for a non-vectorizable signature",
 		func(ctx SpecContext, source, key string) {
-			output := MustSucceed(compile(ctx, source, nil))
+			output := MustSucceed(compile(ctx, source))
 			compiled := MustSucceed(r.CompileModule(ctx, output.WASM))
 			DeferCleanup(compiled.Close)
 			Expect(compiled.ExportedFunctions()).

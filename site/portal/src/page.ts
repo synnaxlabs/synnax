@@ -7,13 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { errors, unique } from "@synnaxlabs/x";
 import { type APIContext } from "astro";
+import { z } from "zod";
 
 import { type Portal } from "@/portal";
 import { type Organization, type OrganizationKind } from "@/server/db/schema";
 import { ADMIN_ROLE } from "@/server/directory";
 import { badRequest, HTTPError } from "@/server/errors";
 import { isCategory, list, type Page, type Query } from "@/server/event";
+import {
+  listPage,
+  type Page as LicensePage,
+  type Query as LicenseQuery,
+} from "@/server/license/list";
+import { isStatus } from "@/server/license/status";
 import { organizationsFor, pick } from "@/server/organization";
 import { type Session } from "@/server/session";
 import { landing, scoped } from "@/shell";
@@ -33,7 +41,7 @@ export const load = async (context: APIContext): Promise<Loaded | Response> => {
     return { portal, session: await portal.session() };
   } catch (err) {
     if (!(err instanceof HTTPError) || err.status !== 401)
-      throw err instanceof Error ? err : new Error(String(err));
+      throw errors.fromUnknown(err);
     const back = context.url.pathname + context.url.search;
     return context.redirect(`/login?redirect_url=${encodeURIComponent(back)}`, 303);
   }
@@ -136,7 +144,7 @@ export const readActivity = async (
   const people = page.entries
     .filter(({ event: e }) => e.actor !== e.activation)
     .map(({ event: e }) => e.actor);
-  const actors = await directory.names([...new Set(people)]);
+  const actors = await directory.names(unique.unique(people));
   let olderHref: string | null = null;
   if (page.next != null) {
     const older = new URL(url);
@@ -144,4 +152,53 @@ export const readActivity = async (
     olderHref = `${older.pathname}${older.search}`;
   }
   return { page, actors, olderHref };
+};
+
+/** LicenseList is a page of the license list as the staff page shows it. */
+export interface LicenseList {
+  page: LicensePage;
+  /** query is the search, status, and page the URL asks for. */
+  query: LicenseQuery;
+  /** nextHref links the next page, or is null on the last one. */
+  nextHref: string | null;
+}
+
+/**
+ * readLicenses reads the page of every license that the URL's `search`, `status`,
+ * `after`, and `expiry` parameters ask for. Staff only.
+ * @throws {HTTPError} 400 for a parameter that is not valid.
+ */
+export const readLicenses = async (
+  { store, now }: Portal,
+  url: URL,
+): Promise<LicenseList> => {
+  const params = url.searchParams;
+  const query: LicenseQuery = {};
+  const search = params.get("search")?.trim();
+  if (search != null && search !== "") query.search = search;
+  const status = params.get("status");
+  if (status != null) {
+    if (!isStatus(status)) throw badRequest("Invalid status");
+    query.status = status;
+  }
+  const after = params.get("after");
+  if (after != null) {
+    if (!z.uuid().safeParse(after).success) throw badRequest("Invalid page");
+    query.after = { key: after };
+    if (query.status === "expiring") {
+      const expiry = new Date(Number(params.get("expiry") ?? NaN));
+      if (Number.isNaN(expiry.getTime())) throw badRequest("Invalid page");
+      query.after.expiresAt = expiry;
+    }
+  }
+  const page = await listPage(store.query, query, now());
+  let nextHref: string | null = null;
+  if (page.next != null) {
+    const next = new URL(url);
+    next.searchParams.set("after", page.next.key);
+    if (page.next.expiresAt != null)
+      next.searchParams.set("expiry", String(page.next.expiresAt.getTime()));
+    nextHref = `${next.pathname}${next.search}`;
+  }
+  return { page, query, nextHref };
 };

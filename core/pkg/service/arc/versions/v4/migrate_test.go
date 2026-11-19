@@ -191,6 +191,7 @@ func textOf(b v4.Base) text.Text {
 func migrateFromV3(ctx SpecContext, seed v3.Arc, cfgs ...parser.Config) v4.Arc {
 	GinkgoHelper()
 	db := DeferClose(gorp.Wrap(memkv.New()))
+	StartRun(db.Run)
 	MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v3.Key, v3.Arc]{DB: db}))
 	Expect(gorp.NewCreate[v3.Key, v3.Arc]().Entry(&seed).Exec(ctx, db)).To(Succeed())
 	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
@@ -208,6 +209,7 @@ func migrateFromV3(ctx SpecContext, seed v3.Arc, cfgs ...parser.Config) v4.Arc {
 var _ = Describe("NewRootMigration", func() {
 	It("Should put every Arc in no directory into the root", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		root, sub := uuid.New(), uuid.New()
 		table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v4.Key, v4.Arc]{
 			DB: db,
@@ -247,4 +249,38 @@ var _ = Describe("NewRootMigration", func() {
 		Expect(directoryOf(orphan.Base().Key)).To(HaveValue(Equal(root)))
 		Expect(directoryOf(placed.Base().Key)).To(HaveValue(Equal(sub)))
 	})
+})
+
+var _ = Describe("NameMigration", func() {
+	migrated := func(ctx SpecContext, in v4.Arc) v4.Arc {
+		GinkgoHelper()
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
+		Expect(gorp.NewCreate[v4.Key, v4.Arc]().Entry(&in).Exec(ctx, db)).
+			To(Succeed())
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:         db,
+			Namespace:  "Arc",
+			Migrations: []gorp.Migration{v4.NameMigration},
+		})).To(Succeed())
+		var out v4.Arc
+		Expect(gorp.NewRetrieve[v4.Key, v4.Arc]().
+			Where(gorp.MatchKeys[v4.Key, v4.Arc](in.GorpKey())).
+			Entry(&out).Exec(ctx, db)).To(Succeed())
+		return out
+	}
+	key := uuid.MustParse("1a2b3c4d-0000-0000-0000-000000000000")
+	DescribeTable(
+		"Should name only nameless Arcs",
+		func(ctx SpecContext, name, expected string) {
+			in := v4.Arc{Variant: v4.AutomationArc{Base: v4.Base{
+				Key:    key,
+				Name:   name,
+				Source: v4.Source{Variant: v4.TextSource{}},
+			}}}
+			Expect(migrated(ctx, in).Base().Name).To(Equal(expected))
+		},
+		Entry("empty name", "", "Arc 1a2b3c4d"),
+		Entry("named Arc", "Named", "Named"),
+	)
 })

@@ -17,11 +17,11 @@ from typing import IO, Any
 from urllib.parse import urlencode
 
 from urllib3 import PoolManager, Retry
-from urllib3.exceptions import MaxRetryError
+from urllib3.exceptions import MaxRetryError, ProtocolError, ReadTimeoutError
 from urllib3.response import BaseHTTPResponse
 
 from freighter.context import Context
-from freighter.exceptions import Unreachable
+from freighter.exceptions import Timeout, Unreachable
 from freighter.transport import RQ, RS, MiddlewareCollector
 from freighter.url import URL
 from x.codec import Codec
@@ -169,7 +169,7 @@ class HTTPClient(MiddlewareCollector):
     @contextmanager
     def stream(
         self, target: str, req: RQ, *, accept: str
-    ) -> Generator[Iterator[bytes], None, None]:
+    ) -> Generator[Iterator[bytes]]:
         """
         Sends req to target and returns a context manager over the response body, in
         chunks as they arrive. accept drives the encoding the server picks for the body.
@@ -258,11 +258,12 @@ class HTTPClient(MiddlewareCollector):
     ) -> tuple[BaseHTTPResponse, Context]:
         """Issues a POST to url and returns the response alongside an outgoing context.
 
-        Raises Unreachable on a transport failure and the decoded server error on a
-        non-2xx status. On success the response body has not been consumed; when
-        preload_content is False the caller owns release_conn. A retries value of None
-        defers to the pool default; pass Retry(total=0) to disable retries. Never pass
-        False: urllib3 then raises the raw connection error instead of MaxRetryError.
+        Raises Timeout when no response arrives in time, Unreachable on another
+        transport failure, and the decoded server error on a non-2xx status. On success
+        the response body has not been consumed; when preload_content is False the
+        caller owns release_conn. A retries value of None defers to the pool default;
+        pass Retry(total=0) to disable retries. Never pass False: urllib3 then raises
+        the raw connection error instead of MaxRetryError.
         """
         out_ctx = Context(protocol=self._endpoint.protocol, target=url, role="client")
         headers = {"Content-Type": content_type, "Accept": accept, **ctx.params}
@@ -277,6 +278,11 @@ class HTTPClient(MiddlewareCollector):
             )
         except MaxRetryError as e:
             raise Unreachable(target=url, message=e.url or "Unreachable") from e
+        # urllib3 never retries a read error on a POST, so it raises it unwrapped.
+        except ReadTimeoutError as e:
+            raise Timeout(str(e)) from e
+        except ProtocolError as e:
+            raise Unreachable(target=url, message=str(e)) from e
         out_ctx.params = http_res.headers
         if not 200 <= http_res.status < 300:
             try:

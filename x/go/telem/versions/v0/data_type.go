@@ -23,6 +23,8 @@ func (dt DataType) Density() Density {
 		return Bit8
 	case UUIDT:
 		return Bit128
+	case UnknownT, StringT, BytesT, JSONT:
+		fallthrough
 	default:
 		return UnknownDensity
 	}

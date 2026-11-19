@@ -29,7 +29,8 @@ const versionFile = "VERSION"
 var ErrRefused = errors.New("data refused")
 
 // UnknownVersion is the Backup.Version of data that no Core recorded a version for.
-const UnknownVersion = "unknown"
+// Cores before 0.61.0 did not record one.
+const UnknownVersion = "before-0.61.0"
 
 // checkVersion compares current, the version of the Core that opens the data, with the
 // recorded version. It refuses data that a newer Core opened. For data that an older

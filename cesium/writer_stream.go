@@ -15,6 +15,7 @@ import (
 
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/control"
+	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/cesium/internal/virtual"
@@ -42,11 +43,6 @@ const (
 	writerCommandSetAuthority
 	// writerCommandEndDomain represents a call to Writer.EndDomain.
 	writerCommandEndDomain
-)
-
-var validateWriterCommand = validate.NewInclusiveBoundsChecker(
-	WriterCommandWrite,
-	writerCommandEndDomain,
 )
 
 // WriterRequest is a request containing a frame to write to the DB.
@@ -114,14 +110,17 @@ type StreamWriter = confluence.Segment[WriterRequest, WriterResponse]
 type streamWriter struct {
 	confluence.UnarySink[WriterRequest]
 	confluence.AbstractUnarySource[WriterResponse]
-	relay          confluence.Inlet[relayResponse]
-	accumulatedErr error
-	errSent        bool
+	relay confluence.Inlet[relayResponse]
+	// relayStopped closes when the relay stops. Writes then skip the relay.
+	relayStopped    <-chan struct{}
+	validateCommand func(WriterCommand) error
+	accumulatedErr  error
+	errSent         bool
 	// writeRefused is true when a write was refused for no control since the last
 	// commit that reported it.
 	writeRefused       bool
 	virtual            *virtualWriter
-	updateDBControl    func(ctx context.Context, u ControlUpdate)
+	updateDBControl    func(u ControlUpdate)
 	authorizeEndDomain func(index ChannelKey, own map[ChannelKey]*unaryWriterState) error
 	internal           []*idxWriter
 	// keyToIdx maps every channel key the writer is responsible for to its owning
@@ -135,13 +134,7 @@ func (w *streamWriter) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	o := confluence.NewOptions(opts)
 	o.AttachClosables(w.Out)
 	sCtx.Go(func(ctx context.Context) (err error) {
-		defer func() {
-			// Call close in a deferral to make sure writer resources get released even
-			// if the context is canceled or the function panics. We need to pass in a
-			// new context here because the original context may have been canceled.
-			// Using context.TODO() is not ideal, but it is the best we can do here.
-			err = errors.Combine(err, w.close(context.TODO()))
-		}()
+		defer func() { err = errors.Combine(err, w.close()) }()
 		for {
 			select {
 			case <-ctx.Done():
@@ -174,17 +167,17 @@ func (w *streamWriter) process(
 	ctx context.Context,
 	req WriterRequest,
 ) (commitEnd telem.TimeStamp, authorized bool, err error) {
-	if err = validateWriterCommand(req.Command); err != nil {
+	if err = w.validateCommand(req.Command); err != nil {
 		return 0, false, err
 	}
 	switch req.Command {
 	case WriterCommandCommit:
 		return w.commit(ctx)
 	case writerCommandSetAuthority:
-		err = w.setAuthority(ctx, req.Config)
+		err = w.setAuthority(req.Config)
 	case writerCommandEndDomain:
 		err = w.endDomain(ctx, req.Config.Channels)
-	default:
+	case WriterCommandWrite:
 		err = w.write(ctx, req)
 	}
 	if err != nil {
@@ -193,9 +186,16 @@ func (w *streamWriter) process(
 	return 0, true, nil
 }
 
-func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) error {
+func (w *streamWriter) setAuthority(cfg WriterConfig) error {
 	if len(cfg.Authorities) == 0 {
 		return nil
+	}
+	if len(cfg.Authorities) != 1 &&
+		len(cfg.Authorities) != len(cfg.Channels) {
+		return errors.Wrap(
+			validate.ErrValidation,
+			"authority count must be 1 or equal to channel count",
+		)
 	}
 	cfg = w.propagateAuthority(cfg)
 	var (
@@ -234,7 +234,7 @@ func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) error
 	}
 
 	if len(u.Transfers) > 0 {
-		w.updateDBControl(ctx, u)
+		w.updateDBControl(u)
 	}
 	return nil
 }
@@ -309,9 +309,12 @@ func (w *streamWriter) write(ctx context.Context, req WriterRequest) error {
 		}
 	}
 	if w.Mode.Stream() {
-		w.relay.Inlet() <- relayResponse{
+		select {
+		case w.relay.Inlet() <- relayResponse{
 			frame: req.Frame.ExcludeKeys(excludeUnauthorized),
 			group: w.ControlSubject.Group,
+		}:
+		case <-w.relayStopped:
 		}
 	}
 	return accumulatedErr
@@ -463,7 +466,7 @@ func (w *streamWriter) endDomain(ctx context.Context, indexes []ChannelKey) erro
 	return unauthorized
 }
 
-func (w *streamWriter) close(ctx context.Context) error {
+func (w *streamWriter) close() error {
 	var err error
 	parentUpdate := ControlUpdate{
 		Transfers: make([]control.Transfer, 0, len(w.internal)),
@@ -486,14 +489,14 @@ func (w *streamWriter) close(ctx context.Context) error {
 	}
 
 	if len(parentUpdate.Transfers) > 0 {
-		w.updateDBControl(ctx, parentUpdate)
+		w.updateDBControl(parentUpdate)
 	}
 	return err
 }
 
 type unaryWriterState struct {
 	unary.Writer
-	timesWritten int
+	lastWriteCall int
 }
 
 // idxWriter is a writer to a set of channels that all share the same index.
@@ -541,6 +544,8 @@ type idxWriter struct {
 	// lastCommitEnd stores the end timestamp from the last successful commit,
 	// returned when Commit is called with no new data to commit.
 	lastCommitEnd telem.TimeStamp
+	// group shows every channel of a commit to readers in one step.
+	group domain.Group
 	// dataAuth tracks the most recent control authority for each data channel in this
 	// group (i.e. the keys of internal excluding the index itself). Populated when
 	// writingToIdx is true; updated by SetAuthority calls so that maxDataAuth can
@@ -610,13 +615,13 @@ func (w *idxWriter) broadcastDataAuth(auth xcontrol.Authority) {
 // maxDataAuth returns the maximum recorded authority across this group's data channels.
 // Returns 0 when the group has no data channels; propagateAuthority skips such groups.
 func (w *idxWriter) maxDataAuth() xcontrol.Authority {
-	var max xcontrol.Authority
+	var maxAuth xcontrol.Authority
 	for _, a := range w.dataAuth {
-		if a > max {
-			max = a
+		if a > maxAuth {
+			maxAuth = a
 		}
 	}
-	return max
+	return maxAuth
 }
 
 // resolveAlignment returns the alignment for the current write when no index series is
@@ -639,6 +644,16 @@ func (w *idxWriter) resolveAlignment() (telem.Alignment, error) {
 	return w.anchor.AddSamples(uint32(w.sampleCount)), nil
 }
 
+// indexWrite is what writing the index series of a frame establishes for the data
+// series of the frame.
+type indexWrite struct {
+	alignment telem.Alignment
+	timeRange telem.TimeRange
+	written   bool
+	// unauthorized is true when the writer does not control the index.
+	unauthorized bool
+}
+
 func (w *idxWriter) write(
 	excludeUnauthorized *[]ChannelKey,
 	fr Frame,
@@ -648,76 +663,31 @@ func (w *idxWriter) write(
 	if err != nil {
 		return fr, err
 	}
-	var (
-		incrementedSampleCount bool
-		accumulatedErr         error
-		alignment              telem.Alignment
-		alignmentSet           bool
-		idxUnauthorized        bool
-		idxTimeRange           telem.TimeRange
-		idxTimeRangeSet        bool
-	)
 	// Pass 1: the index channel establishes the alignment for the whole frame. Its
 	// sample position is the space every channel it indexes is expressed in, so it must
 	// be written before any of them.
-	if w.writingToIdx {
-		for i, key := range fr.RawKeys() {
-			if key != w.idx.ch.Key || fr.ShouldExcludeRaw(i) {
-				continue
-			}
-			series := fr.RawSeriesAt(i)
-			uWriter, ok := w.internal[key]
-			if series.Len() == 0 || !ok {
-				break
-			}
-			if err = w.updateHighWater(series); err != nil {
-				return fr, err
-			}
-			first := series.ValueAt[telem.TimeStamp](0)
-			uWriter.SetDomainStart(first)
-			if alignment, err = uWriter.Write(series); err != nil {
-				accumulatedErr = err
-				if !errors.Is(accumulatedErr, xcontrol.ErrUnauthorized) {
-					return fr, accumulatedErr
-				}
-				*excludeUnauthorized = append(*excludeUnauthorized, key)
-				idxUnauthorized = true
-				break
-			}
-			alignmentSet = true
-			w.sampleCount = int64(alignment.SampleIndex()) + series.Len()
-			incrementedSampleCount = true
-			w.hasUncommittedData = true
-			series.Alignment = alignment
-			// The index series carries the timestamps for the whole group, so data
-			// series can be stamped with a real time range without consulting the
-			// index on disk.
-			idxTimeRange = telem.TimeRange{Start: first, End: w.idx.highWaterMark + 1}
-			idxTimeRangeSet = true
-			series.TimeRange = idxTimeRange
-			fr.SetRawSeriesAt(i, series)
-			break
-		}
+	idx, err := w.writeIndex(excludeUnauthorized, fr)
+	if err != nil && !idx.unauthorized {
+		return fr, err
 	}
+	var (
+		accumulatedErr         = err
+		alignment              = idx.alignment
+		alignmentSet           = idx.written
+		incrementedSampleCount = idx.written
+	)
 	// Pass 2: every data channel is stamped with the index's alignment rather than its
 	// own position in its own domain. The alignment is resolved lazily so a frame that
 	// touches none of this group's data channels costs nothing.
 	for i, key := range fr.RawKeys() {
-		if key == w.idx.ch.Key || fr.ShouldExcludeRaw(i) {
-			continue
-		}
-		series := fr.RawSeriesAt(i)
-		if series.Len() == 0 {
-			continue
-		}
-		uWriter, ok := w.internal[key]
+		uWriter, series, ok := w.dataSeries(fr, i, key)
 		if !ok {
 			continue
 		}
 		// Losing control of the index means there is no position to express these
 		// samples against. Writing them anyway would stamp them in a controlling
 		// writer's space, so the whole group is held back instead.
-		if idxUnauthorized {
+		if idx.unauthorized {
 			*excludeUnauthorized = append(*excludeUnauthorized, key)
 			continue
 		}
@@ -727,8 +697,8 @@ func (w *idxWriter) write(
 			}
 			alignmentSet = true
 		}
-		if idxTimeRangeSet {
-			uWriter.SetDomainStart(idxTimeRange.Start)
+		if idx.written {
+			uWriter.SetDomainStart(idx.timeRange.Start)
 		}
 		if _, err := uWriter.WriteAt(series, alignment); err != nil {
 			accumulatedErr = err
@@ -739,20 +709,12 @@ func (w *idxWriter) write(
 			continue
 		}
 		if !incrementedSampleCount {
-			// A data channel's alignment is now expressed in its index's sample space,
-			// so it no longer reports a position measured from this writer's start.
-			// resolveCommitEnd needs that measurement, so the group counts its own.
-			if w.writingToIdx {
-				w.sampleCount = int64(alignment.SampleIndex()) + series.Len()
-			} else {
-				w.sampleCount += series.Len()
-			}
+			w.countSamples(alignment, series.Len())
 			incrementedSampleCount = true
-			w.hasUncommittedData = true
 		}
 		series.Alignment = alignment
-		if idxTimeRangeSet {
-			series.TimeRange = idxTimeRange
+		if idx.written {
+			series.TimeRange = idx.timeRange
 		}
 		fr.SetRawSeriesAt(i, series)
 	}
@@ -760,6 +722,84 @@ func (w *idxWriter) write(
 		w.hasUncommittedData = false
 	}
 	return fr, accumulatedErr
+}
+
+// dataSeries returns the series at raw position i of fr and the writer of its data
+// channel key. It returns false when the series is excluded or empty, or when the group
+// does not write key as a data channel.
+func (w *idxWriter) dataSeries(
+	fr Frame,
+	i int,
+	key ChannelKey,
+) (*unaryWriterState, telem.Series, bool) {
+	if key == w.idx.ch.Key || fr.ShouldExcludeRaw(i) {
+		return nil, telem.Series{}, false
+	}
+	series := fr.RawSeriesAt(i)
+	if series.Len() == 0 {
+		return nil, telem.Series{}, false
+	}
+	uWriter, ok := w.internal[key]
+	return uWriter, series, ok
+}
+
+// writeIndex writes the index series of fr when the group writes its index. When the
+// writer does not control the index, it adds the index to excludeUnauthorized and
+// returns the error with unauthorized set.
+func (w *idxWriter) writeIndex(
+	excludeUnauthorized *[]ChannelKey,
+	fr Frame,
+) (idx indexWrite, err error) {
+	if !w.writingToIdx {
+		return idx, nil
+	}
+	for i, key := range fr.RawKeys() {
+		if key != w.idx.ch.Key || fr.ShouldExcludeRaw(i) {
+			continue
+		}
+		series := fr.RawSeriesAt(i)
+		uWriter, ok := w.internal[key]
+		if series.Len() == 0 || !ok {
+			return idx, nil
+		}
+		if err = w.updateHighWater(series); err != nil {
+			return idx, err
+		}
+		first := series.ValueAt[telem.TimeStamp](0)
+		uWriter.SetDomainStart(first)
+		if idx.alignment, err = uWriter.Write(series); err != nil {
+			if !errors.Is(err, xcontrol.ErrUnauthorized) {
+				return idx, err
+			}
+			*excludeUnauthorized = append(*excludeUnauthorized, key)
+			idx.unauthorized = true
+			return idx, err
+		}
+		idx.written = true
+		w.sampleCount = int64(idx.alignment.SampleIndex()) + series.Len()
+		w.hasUncommittedData = true
+		series.Alignment = idx.alignment
+		// The index series carries the timestamps for the whole group, so data series
+		// can be stamped with a real time range without consulting the index on disk.
+		idx.timeRange = telem.TimeRange{Start: first, End: w.idx.highWaterMark + 1}
+		series.TimeRange = idx.timeRange
+		fr.SetRawSeriesAt(i, series)
+		return idx, nil
+	}
+	return idx, nil
+}
+
+// countSamples records the n samples of the first data series a write stamps with
+// alignment. A data channel's alignment is expressed in its index's sample space, so it
+// does not report a position measured from this writer's start. resolveCommitEnd needs
+// that measurement, so the group counts its own.
+func (w *idxWriter) countSamples(alignment telem.Alignment, n int64) {
+	if w.writingToIdx {
+		w.sampleCount = int64(alignment.SampleIndex()) + n
+	} else {
+		w.sampleCount += n
+	}
+	w.hasUncommittedData = true
 }
 
 func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
@@ -772,16 +812,20 @@ func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	}
 	// because the range is exclusive, we need to add 1 nanosecond to the end
 	end.Lower++
-	// A reader resolves a data domain through the index, so the index commits first.
+	// No reader sees a channel of the commit before every channel has committed, so no
+	// read finds an index sample without its data.
+	defer w.group.Publish()
+	// The index persists first: after a restart, a reader resolves a data domain
+	// through the index.
 	if w.writingToIdx {
-		err = w.internal[w.idx.ch.Key].CommitWithEnd(ctx, end.Lower)
+		err = w.internal[w.idx.ch.Key].CommitWithEnd(ctx, end.Lower, &w.group)
 	}
 	// Every channel shares the same end, so their errors repeat. Keep the first.
 	for key, chW := range w.internal {
 		if key == w.idx.ch.Key {
 			continue
 		}
-		if cErr := chW.CommitWithEnd(ctx, end.Lower); err == nil {
+		if cErr := chW.CommitWithEnd(ctx, end.Lower, &w.group); err == nil {
 			err = cErr
 		}
 	}
@@ -933,10 +977,10 @@ func (w *idxWriter) validateWrite(fr Frame) error {
 			}
 			lengthOfFrame = s.Len()
 		}
-		if uWriter.timesWritten == w.numWriteCalls {
+		if uWriter.lastWriteCall == w.numWriteCalls {
 			return oneSeriesPerChannelError(ch)
 		}
-		uWriter.timesWritten++
+		uWriter.lastWriteCall = w.numWriteCalls
 
 		if s.Len() != lengthOfFrame {
 			return sameLengthForAllSeriesError(ch, lengthOfFrame, s)
@@ -949,26 +993,38 @@ func (w *idxWriter) validateWrite(fr Frame) error {
 	}
 
 	if numChannelsWrittenTo != expectedChannels {
-		if numChannelsWrittenTo < expectedChannels {
-			keys := set.New(fr.KeysSlice()...)
-			for k, db := range w.internal {
-				if !keys.Contains(k) {
-					dataChannels := make([]Channel, 0, expectedChannels)
-					for otherK, other := range w.internal {
-						if otherK != k {
-							dataChannels = append(dataChannels, other.Channel)
-						}
-					}
-					return missingChannelError(w.idx.ch, db.Channel, dataChannels)
-				}
-			}
-		}
-		err := incorrectNumberOfSeriesError(expectedChannels, numChannelsWrittenTo)
-		zap.S().DPanic(err.Error())
-		return err
+		return w.seriesCountError(fr, numChannelsWrittenTo)
 	}
 
 	return nil
+}
+
+// seriesCountError returns the error for a frame fr that holds numChannelsWrittenTo
+// series for the group instead of one series per channel.
+func (w *idxWriter) seriesCountError(fr Frame, numChannelsWrittenTo int) error {
+	expectedChannels := len(w.internal)
+	if numChannelsWrittenTo < expectedChannels {
+		keys := set.New(fr.KeysSlice()...)
+		for k, db := range w.internal {
+			if !keys.Contains(k) {
+				return missingChannelError(w.idx.ch, db.Channel, w.channelsExcept(k))
+			}
+		}
+	}
+	err := incorrectNumberOfSeriesError(expectedChannels, numChannelsWrittenTo)
+	zap.S().DPanic(err.Error())
+	return err
+}
+
+// channelsExcept returns the channels of the group other than key.
+func (w *idxWriter) channelsExcept(key ChannelKey) []Channel {
+	channels := make([]Channel, 0, len(w.internal))
+	for k, other := range w.internal {
+		if k != key {
+			channels = append(channels, other.Channel)
+		}
+	}
+	return channels
 }
 
 func (w *idxWriter) updateHighWater(s telem.Series) error {
@@ -981,7 +1037,7 @@ func (w *idxWriter) updateHighWater(s telem.Series) error {
 
 // resolveCommitEnd returns the end timestamp for a commit. For an index channel, this
 // returns the high watermark. For a non-index channel, this returns a stamp to the
-// approximation of the end
+// approximation of the end.
 func (w *idxWriter) resolveCommitEnd(
 	ctx context.Context,
 ) (index.TimeStampApproximation, error) {

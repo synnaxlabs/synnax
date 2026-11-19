@@ -39,7 +39,7 @@ import { Reader, type RemoteReader } from "@/framer/cache/reader";
 import { Store, type StoreProps } from "@/framer/cache/store";
 import { MultiplexedStreamer } from "@/framer/cache/streamer";
 import { tileKey, TileReader } from "@/framer/cache/tile";
-import { AccessDeniedError, ValidationError } from "@/index";
+import { AccessDeniedError, UnsupportedError, ValidationError } from "@/index";
 import { SyntheticCore } from "@/testutil";
 
 // More points than any window here holds samples, so every sample draws.
@@ -90,6 +90,8 @@ const createPoints = (
     core.read(tr, keys, reduction),
   storeProps: StoreProps = {},
   pointsBreaker: breaker.Config = BREAKER,
+  readLatest: PointsProps["readLatest"] = async (keys, count, tr) =>
+    core.readLatest(keys, count, tr),
 ) => {
   const store = new Store({ now: core.now, ...storeProps });
   const joins = new Joins(store);
@@ -119,6 +121,7 @@ const createPoints = (
     streamer,
     joiner,
     retrieveChannels,
+    readLatest,
     now,
     breaker: pointsBreaker,
   };
@@ -330,6 +333,213 @@ describe("Points", () => {
     });
   });
 
+  describe("newest stored sample", () => {
+    const window = dynamicWindow(TimeSpan.seconds(30));
+    const END = START.add(TimeSpan.minutes(5));
+    // The end of the span of the last sample before END.
+    const LAST = END.sub(TimeSpan.milliseconds(10)).add(TimeSpan.nanoseconds(1));
+    // A Core whose writer stopped at END, an hour before its clock.
+    const createIdle = (end: TimeStamp = END): SyntheticCore =>
+      new SyntheticCore({
+        rate: Rate.hz(100),
+        start: START,
+        now: END.add(TimeSpan.hours(1)),
+        end,
+      });
+
+    it("should end a dynamic window's time at the newest stored sample", async () => {
+      const core = createIdle();
+      const { subscribe, close } = createPoints(core);
+      const points = subscribe(core.data[0].key, window, RAW);
+      try {
+        await expect.poll(() => points.value().status.variant, POLL).toBe("success");
+        expect(points.value().series.length).toBe(0);
+        expect(points.value().time?.valueOf()).toBe(LAST.valueOf());
+      } finally {
+        await close();
+      }
+    });
+
+    it("should report loading until the newest stored sample is read", async () => {
+      const core = createIdle();
+      let release = (): void => {};
+      const gate = new Promise<void>((resolve) => (release = resolve));
+      const { subscribe, close } = createPoints(
+        core,
+        undefined,
+        {},
+        BREAKER,
+        async (keys, count, tr) => {
+          await gate;
+          return core.readLatest(keys, count, tr);
+        },
+      );
+      const points = subscribe(core.data[0].key, window, RAW);
+      try {
+        await sleep.sleep(TimeSpan.milliseconds(50));
+        expect(points.value().status.variant).toBe("loading");
+        expect(points.value().time).toBeUndefined();
+        release();
+        await expect.poll(() => points.value().status.variant, POLL).toBe("success");
+        expect(points.value().time?.valueOf()).toBe(LAST.valueOf());
+      } finally {
+        await close();
+      }
+    });
+
+    it("should read the newest stored sample again after a history change", async () => {
+      const core = createIdle();
+      const { store, subscribe, close } = createPoints(core);
+      const key = core.data[0].key;
+      const points = subscribe(key, window, RAW);
+      try {
+        await expect
+          .poll(() => points.value().time?.valueOf(), POLL)
+          .toBe(LAST.valueOf());
+        const from = END.sub(TimeSpan.minutes(1));
+        core.truncate(from);
+        store.invalidate(key, new TimeRange(from, TimeStamp.MAX));
+        await expect
+          .poll(() => points.value().time?.valueOf(), POLL)
+          .toBe(LAST.sub(TimeSpan.minutes(1)).valueOf());
+      } finally {
+        await close();
+      }
+    });
+
+    it("should report no time for a channel that stores no samples", async () => {
+      const core = createIdle(START);
+      const { subscribe, close } = createPoints(core);
+      const points = subscribe(core.data[0].key, window, RAW);
+      try {
+        await expect.poll(() => points.value().status.variant, POLL).toBe("success");
+        expect(points.value().time).toBeUndefined();
+      } finally {
+        await close();
+      }
+    });
+
+    it("should not read the newest stored sample for a static window", async () => {
+      const core = createIdle();
+      let reads = 0;
+      const { subscribe, close } = createPoints(
+        core,
+        undefined,
+        {},
+        BREAKER,
+        async (keys, count, tr) => {
+          reads++;
+          return core.readLatest(keys, count, tr);
+        },
+      );
+      const range = new TimeRange(START, START.add(TimeSpan.minutes(1)));
+      const points = subscribe(core.data[0].key, staticWindow(range), TILED);
+      try {
+        await expect.poll(() => points.value().status.variant, POLL).toBe("success");
+        expect(points.value().time).toBeUndefined();
+        expect(reads).toBe(0);
+      } finally {
+        await close();
+      }
+    });
+
+    it("should read the newest stored sample when a static window turns dynamic", async () => {
+      const core = createIdle();
+      const { subscribe, close } = createPoints(core);
+      const range = new TimeRange(START, START.add(TimeSpan.minutes(1)));
+      const points = subscribe(core.data[0].key, staticWindow(range), RAW);
+      try {
+        await expect.poll(() => points.value().status.variant, POLL).toBe("success");
+        points.update(window, RAW);
+        await expect
+          .poll(() => points.value().time?.valueOf(), POLL)
+          .toBe(LAST.valueOf());
+      } finally {
+        await close();
+      }
+    });
+
+    it("should report no stored sample when the Core cannot read the channel", async () => {
+      const core = createIdle();
+      let reads = 0;
+      const { subscribe, close } = createPoints(
+        core,
+        undefined,
+        {},
+        BREAKER,
+        async () => {
+          reads++;
+          throw new UnsupportedError("cannot open iterator on virtual channel");
+        },
+      );
+      const points = subscribe(core.data[0].key, window, RAW);
+      try {
+        await expect.poll(() => points.value().status.variant, POLL).toBe("success");
+        expect(points.value().time).toBeUndefined();
+        await sleep.sleep(TimeSpan.milliseconds(100));
+        expect(reads).toBe(1);
+      } finally {
+        await close();
+      }
+    });
+
+    it("should clear the failure once a retried read lands", async () => {
+      const core = createIdle();
+      let release = (): void => {};
+      const gate = new Promise<void>((resolve) => (release = resolve));
+      let reads = 0;
+      const { subscribe, close } = createPoints(
+        core,
+        undefined,
+        {},
+        BREAKER,
+        async (keys, count, tr) => {
+          // The first read fails after every other read landed, so none clears it.
+          if (reads++ === 0) {
+            await gate;
+            throw new Error("connection reset");
+          }
+          return core.readLatest(keys, count, tr);
+        },
+      );
+      const points = subscribe(core.data[0].key, window, RAW);
+      try {
+        await sleep.sleep(TimeSpan.milliseconds(50));
+        release();
+        await expect.poll(() => reads, POLL).toBe(2);
+        await expect.poll(() => points.value().status.variant, POLL).toBe("success");
+        expect(points.value().time?.valueOf()).toBe(LAST.valueOf());
+      } finally {
+        await close();
+      }
+    });
+
+    it("should stop the channel when the read is denied", async () => {
+      const core = createIdle();
+      const { subscribe, close } = createPoints(
+        core,
+        undefined,
+        {},
+        BREAKER,
+        async () => {
+          throw new AccessDeniedError("no read access");
+        },
+      );
+      const points = subscribe(core.data[0].key, window, RAW);
+      try {
+        await expect
+          .poll(() => points.value().status, POLL)
+          .toMatchObject({
+            variant: "error",
+            message: "Failed to read channel data",
+            description: "You do not have permission to do that. no read access",
+          });
+      } finally {
+        await close();
+      }
+    });
+  });
+
   describe("long window", () => {
     it("should read raw samples only at the live edge", async () => {
       const core = new SyntheticCore({
@@ -506,6 +716,38 @@ describe("Points", () => {
         );
       } finally {
         stalls.forEach((resolve) => resolve());
+        await close();
+      }
+    });
+
+    it("should draw a data channel's samples the store drops until their tiles land", async () => {
+      const core = new SyntheticCore({
+        rate: Rate.hz(5000),
+        start: START,
+        now: START.add(TimeSpan.minutes(1)),
+      });
+      const { joins, subscribe, close } = createPoints(core);
+      const window = dynamicWindow(TimeSpan.seconds(30));
+      const index = core.index.key;
+      const data = core.data[0].key;
+      subscribe(index, window, TILED);
+      await expect.poll(() => joins.joined(index), POLL).toBe(true);
+      // A later join reads further, so the data channel's first series crosses a
+      // series edge of the index, where the floor moves.
+      core.advance(TimeSpan.milliseconds(20));
+      await sleep.sleep(TimeSpan.milliseconds(1));
+      const points = subscribe(data, window, TILED);
+      try {
+        await expect.poll(() => joins.joined(data), POLL).toBe(true);
+        let largest = 0n;
+        for (let i = 0; i < 90; i++) {
+          core.advance(TimeSpan.milliseconds(100));
+          await sleep.sleep(TimeSpan.milliseconds(1));
+          const gap = largestGap(points);
+          if (gap > largest) largest = gap;
+        }
+        expect(largest).toBeLessThanOrEqual(TimeSpan.milliseconds(10).valueOf());
+      } finally {
         await close();
       }
     });
@@ -775,7 +1017,7 @@ describe("Points", () => {
     const { start } = tileRange({ level, index });
     const home = new TimeRange(start, start.add(span));
     const pointLimit = tilePointLimit({
-      level,
+      tile: { level, index },
       view: home,
       points: TILED.count,
       drawn: TILED.aggregation,
@@ -821,6 +1063,35 @@ describe("Points", () => {
     }
   });
 
+  it("should reduce the tile that raw samples cut at the group size of the tile before it", async () => {
+    const core = new SyntheticCore({
+      rate: Rate.hz(5000),
+      start: START,
+      now: START.add(TimeSpan.minutes(4)),
+    });
+    const { joins, subscribe, close } = createPoints(core);
+    const key = core.data[0].key;
+    const points = subscribe(key, dynamicWindow(TimeSpan.minutes(4)), TILED);
+    try {
+      await expect.poll(() => joins.joined(key), POLL).toBe(true);
+      // Moves the floor into a raw block, so the tile before it is cut.
+      for (let i = 0; i < 150; i++) {
+        core.advance(TimeSpan.milliseconds(100));
+        await sleep.sleep(TimeSpan.milliseconds(1));
+      }
+      const [whole, cut] = points
+        .value()
+        .series.series.filter((s) => s.alignmentMultiple > 1n)
+        .sort((a, b) => TimeRange.sort(a.timeRange, b.timeRange))
+        .slice(-2);
+      expect(cut.timeRange.span.lessThan(tileSpan(RAW_LEVEL))).toBe(true);
+      const ratio = Number(cut.alignmentMultiple) / Number(whole.alignmentMultiple);
+      expect(ratio).toBeGreaterThan(0.9);
+    } finally {
+      await close();
+    }
+  });
+
   it("should never pin a cached tile for a cut tile at its position", async () => {
     const core = createCore();
     const { store, subscribe, unsubscribe, close } = createPoints(core);
@@ -831,7 +1102,7 @@ describe("Points", () => {
     const { start } = tileRange({ level, index });
     const home = new TimeRange(start, start.add(span));
     const pointLimit = tilePointLimit({
-      level,
+      tile: { level, index },
       view: home,
       points: TILED.count,
       drawn: TILED.aggregation,
@@ -849,8 +1120,17 @@ describe("Points", () => {
       await expect.poll(() => whole.value().status.variant, POLL).toBe("success");
       unsubscribe(whole);
       expect(store.get(uncut)?.pins).toBe(0);
-      const shift = TimeSpan.seconds(10);
+      const shift = TimeSpan.seconds(1);
       const shifted = new TimeRange(home.start.add(shift), home.end.add(shift));
+      // The cut keeps the whole tile's key, so only the cut check stops the pin.
+      const cutLimit = tilePointLimit({
+        tile: { level, index, start: shifted.start },
+        view: shifted,
+        points: TILED.count,
+        drawn: TILED.aggregation,
+        aggregation: TILED.aggregation,
+      });
+      expect(cutLimit).toBe(pointLimit);
       const cut = subscribe(key, staticWindow(shifted), TILED);
       await expect.poll(() => cut.value().status.variant, POLL).toBe("success");
       expect(store.get(uncut)?.pins).toBe(0);

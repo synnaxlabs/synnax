@@ -15,6 +15,7 @@ import (
 	"math"
 	"math/bits"
 	"slices"
+	"strings"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -178,11 +179,11 @@ func decodeTDMSTimeStamps(o tdmsObject) []telem.TimeStamp {
 }
 
 func tdmsPath(names ...string) string {
-	path := ""
+	var path strings.Builder
 	for _, name := range names {
-		path += fmt.Sprintf("/'%s'", name)
+		path.WriteString("/'" + name + "'")
 	}
-	return path
+	return path.String()
 }
 
 // tdmsObjectAt returns the object at path in seg.
@@ -267,10 +268,11 @@ var _ = Describe("TDMS", func() {
 			segments := parseTDMS(b)
 			Expect(segments).To(HaveLen(2))
 			Expect(segments[1].toc).To(Equal(tdmsTocData))
-			times := []byte(nil)
-			for _, secs := range []int64{1, 2, 3} {
-				times = append(times, tdmsTimeStamp(0, 2082844800+secs)...)
-			}
+			times := slices.Concat(
+				tdmsTimeStamp(0, 2082844800+1),
+				tdmsTimeStamp(0, 2082844800+2),
+				tdmsTimeStamp(0, 2082844800+3),
+			)
 			Expect(segments[1].objects).To(Equal([]tdmsObject{
 				{
 					path:     tdmsPath(index.Name, index.Name),

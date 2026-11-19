@@ -9,6 +9,7 @@
 
 export * from "@/color/Field";
 export * from "@/color/Input";
+export { type Library, type Named, type Palette } from "@/color/named";
 export * from "@/color/Picker";
 export * from "@/color/Provider";
 export * from "@/color/Swatch";

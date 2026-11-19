@@ -21,6 +21,7 @@ export { Channel } from "@/channel/client";
 export { isCalculated } from "@/channel/payload";
 export {
   type ConnectOptions,
+  type ConstructorParams,
   default as Synnax,
   type SynnaxParams,
   synnaxParamsZ,
@@ -29,6 +30,7 @@ export { color } from "@/color";
 export * from "@/connection";
 export { control } from "@/control";
 export { device } from "@/device";
+export { enumeration } from "@/enumeration";
 export {
   AccessDeniedError,
   AuthError,

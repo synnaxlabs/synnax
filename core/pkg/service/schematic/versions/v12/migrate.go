@@ -11,6 +11,7 @@ package v12
 
 import (
 	"context"
+	"fmt"
 	"math"
 
 	"github.com/synnaxlabs/gorp/migrate"
@@ -29,7 +30,12 @@ func MigrateSchematic(ctx context.Context, old v11.Schematic) (Schematic, error)
 	// precision whose type changed.
 	for k, cfg := range old.Configs {
 		if o, ok := cfg.Variant.(v10.TankElementConfig); ok {
-			n := out.Configs[k].Variant.(TankElementConfig)
+			n, ok := out.Configs[k].Variant.(TankElementConfig)
+			if !ok {
+				panic(fmt.Sprintf(
+					"migrated tank config is a %T", out.Configs[k].Variant,
+				))
+			}
 			n.Precision = migratePrecision(o.Precision)
 			out.Configs[k] = ElementConfig{Variant: n}
 		}

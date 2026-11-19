@@ -12,7 +12,7 @@ import {
   type Aggregation,
   type bounds,
   type color,
-  type destructor,
+  destructor,
   type MultiSeries,
   observe,
   TimeStamp,
@@ -76,6 +76,11 @@ export interface ValueProps {
 
 export interface Telem {
   cleanup?: () => void;
+  /**
+   * Takes the props of a new spec of the same type in place.
+   * @returns false when the telem cannot take them, so the caller creates it again.
+   */
+  update?: (props: unknown) => boolean;
 }
 
 /** The data of a source and the facts about it. */
@@ -90,6 +95,11 @@ export interface Result<V> {
   aggregation?: Aggregation;
   /** True when the samples of each series in data ascend. */
   sorted?: boolean;
+  /**
+   * True when the bounds in data end at the newest sample and span a window that moves
+   * as samples arrive.
+   */
+  rolling?: boolean;
   /** The time of the newest sample. */
   time?: TimeStamp;
   /**
@@ -200,10 +210,16 @@ export abstract class Base<P extends z.ZodType> extends observe.BaseObserver<voi
   }
 
   get props(): z.infer<P> {
-    this.props_ ??= zod.parse(this.schema, this.uProps_, {
-      label: "telemetry props",
-    });
+    this.props_ ??= this.parseProps(this.uProps_);
     return this.props_;
+  }
+
+  protected parseProps(props: unknown): z.infer<P> {
+    return zod.parse(this.schema, props, { label: "telemetry props" });
+  }
+
+  protected setProps(props: z.infer<P>): void {
+    this.props_ = props;
   }
 
   cleanup(): void {}
@@ -284,7 +300,7 @@ export abstract class MultiSourceTransformer<I, O, P extends z.ZodType>
         if (this.shouldNotify()) handler();
       }),
     );
-    return () => destructors.forEach((d) => d());
+    return () => destructor.unwind(...destructors);
   }
 
   setSources(sources: Record<string, Source<I>>): void {

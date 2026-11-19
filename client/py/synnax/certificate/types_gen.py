@@ -69,7 +69,7 @@ class Base(BaseModel):
     """
 
     key: Key = Field(default_factory=uuid4)
-    name: str
+    name: str = Field(min_length=1)
 
     @_override
     def __hash__(self) -> int:

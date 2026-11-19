@@ -59,7 +59,7 @@ dialog shows the error and keeps your entries.
 ```python
 from synnax import http
 
-rack = client.racks.retrieve_embedded_rack()
+rack = client.racks.retrieve_embedded_rack("http")
 device = client.devices.create(
     http.Device(
         name="Weather station",

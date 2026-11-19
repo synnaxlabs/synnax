@@ -24,8 +24,8 @@ func (s *Server) Definition(
 		return nil, nil
 	}
 
-	sym, err := doc.resolveSymbolAtPosition(ctx, params.Position)
-	if err != nil || sym == nil {
+	sym := doc.symbolAt(ctx, params.Position)
+	if sym == nil {
 		return nil, nil
 	}
 	location := s.symbolToLocation(params.TextDocument.URI, sym)

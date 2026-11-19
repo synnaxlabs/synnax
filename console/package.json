@@ -37,6 +37,7 @@
     "@tauri-apps/plugin-store": "catalog:",
     "@tauri-apps/plugin-updater": "catalog:",
     "fflate": "catalog:",
+    "fractional-indexing": "catalog:",
     "pluralize": "catalog:",
     "posthog-js": "catalog:",
     "proxy-memoize": "catalog:",

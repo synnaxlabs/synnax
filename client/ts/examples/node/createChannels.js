@@ -27,11 +27,14 @@ const client = new Synnax({
 const CHANNEL_COUNT = 100;
 
 // Create an index channel that will be used to store our timestamps.
-const timeChannel = await client.channels.create({
-  name: "create_channels_time",
-  dataType: DataType.TIMESTAMP,
-  isIndex: true,
-});
+const timeChannel = await client.channels.create(
+  {
+    name: "create_channels_time",
+    dataType: DataType.TIMESTAMP,
+    isIndex: true,
+  },
+  { retrieveIfNameExists: true },
+);
 
 // Create data channels to store our data. Since we did not call client.channels.create
 // here, the channels are not actually created in the Synnax cluster yet. We will do that
@@ -45,6 +48,8 @@ let dataChannels = Array.from({ length: CHANNEL_COUNT }, (_, i) => ({
 // Notice how we reassign the result of the create call to the dataChannels variable.
 // This means that all of the channels will have the correct key given to the channel by
 // the server.
-dataChannels = await client.channels.create(dataChannels);
+dataChannels = await client.channels.create(dataChannels, {
+  retrieveIfNameExists: true,
+});
 
 client.close();

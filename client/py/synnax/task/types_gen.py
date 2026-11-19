@@ -296,7 +296,7 @@ class Payload(BaseModel):
 
     key: Key = Field(default_factory=uuid4)
     rack: rack_.Key = Field(default=rack_.Key(0), ge=0, le=4294967295)
-    name: str
+    name: str = Field(min_length=1)
     type: str
     config: dict[str, JsonValue] = Field(default_factory=dict)
     config_hash: str = ""

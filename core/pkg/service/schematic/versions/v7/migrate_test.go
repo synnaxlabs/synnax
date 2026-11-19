@@ -13,6 +13,7 @@ import (
 	"embed"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -55,6 +56,7 @@ func jsonMap(raw string) msgpack.EncodedJSON {
 func migrateSeed(ctx SpecContext, seed v0.Schematic) v7.Schematic {
 	GinkgoHelper()
 	db := DeferClose(gorp.Wrap(memkv.New()))
+	StartRun(db.Run)
 	MustSucceed(gorp.OpenTable(
 		ctx, gorp.TableConfig[v0.Key, v0.Schematic]{DB: db},
 	))
@@ -89,12 +91,13 @@ func assertMigrated(fixture string, got v7.Schematic) {
 	)
 	pretty = append(pretty, '\n')
 	stem := strings.TrimSuffix(fixture, ".json")
-	p := filepath.Join("testdata", stem+".migrated.json")
+	name := stem + ".migrated.json"
+	p := filepath.Join("testdata", name)
 	if os.Getenv("UPDATE_MIGRATED") == "1" {
 		Expect(os.WriteFile(p, pretty, 0o644)).To(Succeed())
 		return
 	}
-	expected := MustSucceed(os.ReadFile(p))
+	expected := MustSucceed(fs.ReadFile(os.DirFS("testdata"), name))
 	Expect(pretty).To(MatchJSON(expected),
 		"%s drifted from its canonical migrated form — review the diff and rerun with UPDATE_MIGRATED=1 if intentional", fixture)
 }

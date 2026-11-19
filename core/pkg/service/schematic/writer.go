@@ -11,7 +11,6 @@ package schematic
 
 import (
 	"context"
-	"reflect"
 	"slices"
 	"uuid"
 
@@ -44,11 +43,6 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 // that holds the group. Create returns an error wrapping validate.ErrValidation when a
 // schematic with s.Key exists.
 func (w Writer) Create(ctx context.Context, s *Schematic) error {
-	return w.create(ctx, s, nil)
-}
-
-// create creates s. A copy passes its source, whose scales s may keep.
-func (w Writer) create(ctx context.Context, s, source *Schematic) error {
 	if s.Key == uuid.Nil() {
 		s.Key = uuid.New()
 	}
@@ -60,13 +54,6 @@ func (w Writer) create(ctx context.Context, s, source *Schematic) error {
 		s.Project = proj
 	}
 	if err := s.Validate(); err != nil {
-		return err
-	}
-	var stored []Node
-	if source != nil {
-		stored = source.Nodes
-	}
-	if err := validateScales(stored, *s); err != nil {
 		return err
 	}
 	if err := validateParents(*s); err != nil {
@@ -140,11 +127,10 @@ func (w Writer) Copy(
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	source := *result
 	result.Key = uuid.New()
 	result.Name = name
 	result.Group = nil
-	return w.create(ctx, result, &source)
+	return w.Create(ctx, result)
 }
 
 // Delete deletes the schematics with the given keys.
@@ -167,8 +153,6 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 	var added []Action
 	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, Schematic](key)).
 		ChangeErr(func(_ gorp.Context, prev Schematic) (Schematic, error) {
-			// Reduce changes the node list in place, so keep the stored nodes.
-			stored := slices.Clone(prev.Nodes)
 			next, err := Reduce(prev, acts...)
 			if err != nil {
 				return Schematic{}, err
@@ -189,9 +173,6 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 			if err = next.Validate(); err != nil {
 				return Schematic{}, err
 			}
-			if err = validateScales(stored, next); err != nil {
-				return Schematic{}, err
-			}
 			if err = validateParents(next); err != nil {
 				return Schematic{}, err
 			}
@@ -201,34 +182,6 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 	}
 	w.dispatcher.Attach(w.tx, key, slices.Concat(acts, added)...)
 	return added, nil
-}
-
-// validateScales returns an error wrapping validate.ErrValidation when a node config
-// of next carries a scale that is not positive and differs from the scale of the stored
-// node. A zero scale sizes a symbol to nothing. A stored scale that the write keeps
-// passes, so a stored zero does not block an edit to another field.
-func validateScales(stored []Node, next Schematic) error {
-	for i, n := range next.Nodes {
-		scale, ok := scaleOf(n.Config.Variant)
-		if !ok || scale > 0 {
-			continue
-		}
-		if j := slices.IndexFunc(
-			stored,
-			func(s Node) bool { return s.Key == n.Key },
-		); j >= 0 {
-			if old, had := scaleOf(stored[j].Config.Variant); had && old == scale {
-				continue
-			}
-		}
-		return errors.Wrapf(
-			validate.ErrValidation,
-			"nodes.%d.config.scale: must be positive, got %v",
-			i,
-			scale,
-		)
-	}
-	return nil
 }
 
 // validateParents returns an error wrapping validate.ErrValidation when the parent of a
@@ -265,21 +218,4 @@ func validateParents(s Schematic) error {
 		}
 	}
 	return nil
-}
-
-// scaleOf returns the scale that a node config variant carries, and false when it has
-// none.
-func scaleOf(variant NodeConfigVariant) (float64, bool) {
-	v := reflect.ValueOf(variant)
-	if v.Kind() == reflect.Pointer {
-		v = v.Elem()
-	}
-	if v.Kind() != reflect.Struct {
-		return 0, false
-	}
-	f := v.FieldByName("Scale")
-	if !f.IsValid() || f.Kind() != reflect.Float64 {
-		return 0, false
-	}
-	return f.Float(), true
 }

@@ -295,21 +295,18 @@ export const buildInsertionPlan = <T extends numeric.Value>(
   const _bounds = bounds.map((b) => construct<T>(b));
   const _target = construct(value);
   if (_bounds.length === 0) return ZERO_PLAN;
+  if (_bounds.some((b) => contains(b, _target))) return null;
   const lower = findInsertPosition<T>(_bounds, _target.lower);
   const upper = findInsertPosition<T>(_bounds, _target.upper);
   // Target starts past every bound.
   if (lower.index === bounds.length) return { ...ZERO_PLAN, insertInto: bounds.length };
-  // Target ends before every bound.
-  if (upper.index === 0) return { ...ZERO_PLAN, removeAfter: upper.position };
-  if (lower.index === upper.index) {
-    if (lower.position !== 0 && upper.position !== 0) return null;
+  if (lower.index === upper.index)
     return {
       removeAfter: upper.position,
-      removeBefore: lower.position,
+      removeBefore: 0,
       insertInto: lower.index,
       deleteInBetween: 0,
     };
-  }
   let deleteInBetween = upper.index - lower.index;
   let insertInto = lower.index;
   let removeBefore = math.sub(Number(span(_bounds[lower.index])), lower.position);
@@ -323,92 +320,4 @@ export const buildInsertionPlan = <T extends numeric.Value>(
     insertInto,
     deleteInBetween,
   };
-};
-
-/**
- * Walks `dist` from `start` through an ordered, non-overlapping array of bounds,
- * skipping the values between them. A negative distance walks backwards. A start
- * outside every bound resumes from the nearest one in the direction of travel.
- * Running out of bounds stops at the last value in that direction.
- *
- * @example traverse([[0, 10], [20, 30]], 5, 10) // => 25
- */
-export const traverse = <T extends numeric.Value = number>(
-  bounds: Array<Crude<T>>,
-  start: T,
-  dist: T,
-): T => {
-  const _bounds = bounds.map((b) => construct(b));
-
-  const dir = dist > 0 ? 1 : dist < 0 ? -1 : 0;
-
-  if (dir === 0) return start;
-
-  let remainingDist = dist;
-  let currentPosition = start;
-
-  while (math.equal(remainingDist, 0) === false) {
-    const index = _bounds.findIndex((b) => {
-      if (dir > 0) return currentPosition >= b.lower && currentPosition < b.upper;
-      return currentPosition > b.lower && currentPosition <= b.upper;
-    });
-
-    if (index !== -1) {
-      const b = _bounds[index];
-      let distanceInBound: T;
-      if (dir > 0) distanceInBound = math.sub(b.upper, currentPosition);
-      else distanceInBound = math.sub(currentPosition, b.lower);
-
-      if (distanceInBound > (0 as T)) {
-        const moveDist = math.min(math.abs(remainingDist), distanceInBound);
-        currentPosition = math.add(currentPosition, dir > 0 ? moveDist : -moveDist);
-        remainingDist = math.sub<T>(remainingDist, dir > 0 ? moveDist : -moveDist);
-
-        if (math.equal(remainingDist, 0)) return currentPosition;
-        continue;
-      }
-    }
-
-    if (dir > 0) {
-      const nextBounds = _bounds.filter((b) => b.lower > currentPosition);
-      if (nextBounds.length > 0) currentPosition = nextBounds[0].lower;
-      else return currentPosition;
-    } else {
-      const prevBounds = _bounds.filter((b) => b.upper < currentPosition);
-      if (prevBounds.length > 0)
-        currentPosition = prevBounds[prevBounds.length - 1].upper;
-      else return currentPosition;
-    }
-  }
-  return currentPosition;
-};
-
-/**
- * @returns the count of values between a and b that fall inside an ordered,
- * non-overlapping array of bounds, skipping the values between them.
- *
- * @example distance([[0, 10], [20, 30]], 5, 25) // => 10
- */
-export const distance = <T extends numeric.Value = number>(
-  bounds: Array<Crude<T>>,
-  a: T,
-  b: T,
-): T => {
-  const _bounds = bounds.map((b) => construct<T>(b));
-
-  if (a === b) return math.zero(a);
-
-  const interval = a < b ? construct([a, b]) : construct([b, a]);
-
-  let totalDistance: T = math.zero(a);
-
-  for (const bound of _bounds) {
-    const overlapLower = bound.lower > interval.lower ? bound.lower : interval.lower;
-    const overlapUpper = bound.upper < interval.upper ? bound.upper : interval.upper;
-
-    if (overlapLower < overlapUpper)
-      totalDistance = math.add(totalDistance, math.sub(overlapUpper, overlapLower));
-  }
-
-  return totalDistance;
 };

@@ -9,5 +9,6 @@
 
 export * from "@/header/Actions";
 export * from "@/header/ButtonTitle";
+export * from "@/header/Group";
 export * from "@/header/Header";
 export * from "@/header/Title";

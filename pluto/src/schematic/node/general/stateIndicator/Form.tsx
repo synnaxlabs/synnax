@@ -27,7 +27,7 @@ const StateIndicatorTelemForm = (): ReactElement => {
   const { value, onChange } = Base.useField(path);
 
   const handleSourceChange = (v: channel.Key | null): void =>
-    onChange({ ...value, channel: v ?? undefined });
+    onChange({ ...value, channel: v ?? 0 });
 
   return (
     <Base.Sections x>
@@ -35,7 +35,7 @@ const StateIndicatorTelemForm = (): ReactElement => {
         <Input.Item label="Channel" padHelpText={false}>
           <Channel.SelectSingle
             allowNone
-            value={value.channel ?? 0}
+            value={value.channel}
             onChange={handleSourceChange}
           />
         </Input.Item>

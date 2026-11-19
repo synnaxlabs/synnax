@@ -16,6 +16,7 @@ import {
   observe,
   type TimeStamp,
 } from "@synnaxlabs/x";
+import { z } from "zod";
 
 import {
   type BooleanSourceSpec,
@@ -30,12 +31,15 @@ import {
 } from "@/telem/aether/telem";
 import { registerInstance, TEST_SOURCE_TYPE } from "@/telem/aether/testutil/factory";
 
+const propsZ = z.object({ testId: z.string() });
+
 export class TestSource<V> extends observe.Observer<void> implements Source<V>, Telem {
   static readonly TYPE = TEST_SOURCE_TYPE;
   readonly id: string;
   status: status.Status = SUCCESS_STATUS;
   aggregation?: Aggregation;
   sorted?: boolean;
+  rolling?: boolean;
   time?: TimeStamp;
   appended?: number;
   private _value: V;
@@ -49,8 +53,8 @@ export class TestSource<V> extends observe.Observer<void> implements Source<V>, 
   }
 
   value(_props?: ValueProps): Result<V> {
-    const { status, aggregation, sorted, time, appended } = this;
-    return { data: this._value, status, aggregation, sorted, time, appended };
+    const { status, aggregation, sorted, rolling, time, appended } = this;
+    return { data: this._value, status, aggregation, sorted, rolling, time, appended };
   }
 
   setValue(v: V): void {
@@ -60,6 +64,11 @@ export class TestSource<V> extends observe.Observer<void> implements Source<V>, 
 
   cleanup(): void {
     this._destructor();
+  }
+
+  // Takes the props of a spec for the same test source.
+  update(props: unknown): boolean {
+    return propsZ.parse(props).testId === this.id;
   }
 }
 

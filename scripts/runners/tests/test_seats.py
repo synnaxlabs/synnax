@@ -7,25 +7,27 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, cast
-
+import pytest
 import synnax as sy
+from mypy_boto3_ec2.type_defs import TagTypeDef
 
-from aws import AWS
 from common import RECOMMAND_DELAY, Channels
-from conftest import Client, Secrets, core
+from conftest import Client, Secrets
 from log import Log
-from logins import PREFIX, Logins
-from seats import Seats, seat_labels
+from logins import MAX_HOLDERS, PREFIX, Logins
+from seats import FULL_AFTER, Seats, seat_labels
 
 JOB = {"self-hosted", "agent-claude"}
 CLAUDE = "i-0aaa"
 CLAUDE_2 = "i-0bbb"
 CODEX = "i-0ccc"
+CLAUDE_3 = "i-0eee"
 REVIEW = "i-0ddd"
 
 
 ROLE = "AROAROLE"
+# Long enough ago that no seat counts as booting.
+LAUNCHED = sy.TimeStamp(0)
 YEAR = 365 * 24 * sy.TimeSpan.HOUR
 
 
@@ -40,6 +42,8 @@ def seat(
     pool: str = "agent",
     login: str | None = None,
     until: sy.TimeStamp | None = None,
+    rejected: sy.TimeStamp | None = None,
+    launched: sy.TimeStamp = LAUNCHED,
 ) -> dict:
     # Review seats run Claude Code.
     agent = "claude" if pool == "review" else name.split("-")[0]
@@ -48,12 +52,14 @@ def seat(
         tags["login"] = login
     if until is not None:
         tags["limited-until"] = seconds(until)
-    return {"state": state, "region": "us-east-1", "tags": tags}
+    if rejected is not None:
+        tags["login-broken"] = seconds(rejected)
+    return {"state": state, "region": "us-east-1", "launched": launched, "tags": tags}
 
 
 class Instances:
-    """Stands in for AWS, recording what is started and the tags written. Starts fail
-    while failing is set."""
+    """Stands in for AWS, recording what is started and the tags written. Starts and
+    tag deletes fail while failing is set."""
 
     def __init__(self) -> None:
         self.started: list[str] = []
@@ -62,27 +68,29 @@ class Instances:
         self.failing = False
         self.ec2 = {"us-east-1": self}
 
-    def start_instances(self, InstanceIds: list[str]) -> None:
+    def start_instances(self, *, InstanceIds: list[str]) -> None:
         if self.failing:
             raise PermissionError("not authorized")
         self.started.extend(InstanceIds)
 
-    def create_tags(self, Resources: list[str], Tags: list[dict]) -> None:
+    def create_tags(self, *, Resources: list[str], Tags: list[TagTypeDef]) -> None:
         for iid in Resources:
             self.tags.setdefault(iid, {}).update({t["Key"]: t["Value"] for t in Tags})
 
-    def delete_tags(self, Resources: list[str], Tags: list[dict]) -> None:
+    def delete_tags(self, *, Resources: list[str], Tags: list[TagTypeDef]) -> None:
+        if self.failing:
+            raise PermissionError("not authorized")
         for iid in Resources:
             for t in Tags:
                 self.deleted.append((iid, t["Key"]))
                 self.tags.setdefault(iid, {}).pop(t["Key"], None)
 
 
-def secrets(*names: str) -> Secrets:
+def secrets(*names: str, stored: sy.TimeStamp | None = None) -> Secrets:
     """A store with a usable login of each name, for the agent its name starts
-    with."""
+    with, stored at stored or now."""
     store = Secrets()
-    expires = seconds(sy.TimeStamp.now() + YEAR)
+    expires = seconds((stored or sy.TimeStamp.now()) + YEAR)
     for name in names:
         store.tags[f"{PREFIX}{name}"] = {
             "agent": name.split("-")[0],
@@ -93,13 +101,13 @@ def secrets(*names: str) -> Secrets:
 
 def seats(client: Client, aws: Instances, store: Secrets | None = None) -> Seats:
     log = Log(
-        client=core(client),
-        channels=Channels(client=core(client), enabled=False),
+        client=client,
+        channels=Channels(client=client, enabled=False),
         channel="log",
     )
     store = store or secrets("claude-1", "claude-2")
-    logins = Logins(secrets=cast(Any, store), role=ROLE)
-    return Seats(aws=cast(AWS, aws), logins=logins, log=log)
+    logins = Logins(secrets=store, role=ROLE)
+    return Seats(aws=aws, logins=logins, log=log)
 
 
 class TestSeatLabels:
@@ -208,6 +216,53 @@ class TestSeats:
             s.step(queued=[JOB], found=found)
         assert aws.started == []
 
+    def test_should_start_another_seat_for_a_job_stuck_beside_a_busy_one(
+        self, client: Client
+    ) -> None:
+        aws = Instances()
+        found = {CLAUDE: seat("running"), CLAUDE_2: seat("stopped", name="claude-2")}
+        seats(client, aws).step(queued=[JOB], found=found, stuck=[JOB])
+        assert aws.started == [CLAUDE_2]
+
+    def test_should_not_start_a_seat_for_a_stuck_job_while_disconnected(
+        self, client: Client
+    ) -> None:
+        aws = Instances()
+        found = {CLAUDE: seat("running"), CLAUDE_2: seat("stopped", name="claude-2")}
+        seats(client, aws).step(queued=[JOB], found=found, stuck=[JOB], connected=False)
+        assert aws.started == []
+
+    def test_should_not_start_another_seat_for_a_stuck_job_while_one_boots(
+        self, client: Client
+    ) -> None:
+        aws = Instances()
+        found = {CLAUDE: seat("pending"), CLAUDE_2: seat("stopped", name="claude-2")}
+        seats(client, aws).step(queued=[JOB], found=found, stuck=[JOB])
+        assert aws.started == []
+
+    def test_should_give_a_seat_that_just_launched_time_to_take_a_stuck_job(
+        self, client: Client
+    ) -> None:
+        aws = Instances()
+        s = seats(client, aws)
+        up = seat("running", launched=sy.TimeStamp.now())
+        found = {CLAUDE: up, CLAUDE_2: seat("stopped", name="claude-2")}
+        s.step(queued=[JOB], found=found, stuck=[JOB])
+        assert aws.started == []
+        client.elapsed += FULL_AFTER
+        s.step(queued=[JOB], found=found, stuck=[JOB])
+        assert aws.started == [CLAUDE_2]
+
+    def test_should_start_one_seat_for_several_stuck_jobs(self, client: Client) -> None:
+        aws = Instances()
+        found = {
+            CLAUDE: seat("running"),
+            CLAUDE_2: seat("stopped", name="claude-2"),
+            CLAUDE_3: seat("stopped", name="claude-3"),
+        }
+        seats(client, aws).step(queued=[JOB, JOB], found=found, stuck=[JOB, JOB])
+        assert aws.started == [CLAUDE_2]
+
     def test_should_start_a_stopping_seat_once_it_has_stopped(
         self, client: Client
     ) -> None:
@@ -278,7 +333,10 @@ class TestSeats:
         aws = Instances()
         store = secrets("claude-1", "claude-2")
         store.tags[f"{PREFIX}claude-1"]["holders"] = f"{ROLE}:{CLAUDE_2}"
-        found = {CLAUDE: seat("stopped"), CLAUDE_2: seat("running", name="claude-2")}
+        found = {
+            CLAUDE: seat("stopped"),
+            CLAUDE_2: seat("running", name="claude-2", login="claude-1"),
+        }
         seats(client, aws, store).step(queued=[{"seat-claude-1"}], found=found)
         assert aws.tags[CLAUDE] == {"login": "claude-2"}
 
@@ -364,6 +422,7 @@ class TestSeats:
     ) -> None:
         aws = Instances()
         store = secrets("claude-1")
+        store.tags[f"{PREFIX}claude-1"]["holders"] = f"{ROLE}:{CLAUDE}"
         store.failing = True
         until = sy.TimeStamp.now() + sy.TimeSpan.HOUR
         found = {CLAUDE: seat("running", login="claude-1", until=until)}
@@ -372,6 +431,26 @@ class TestSeats:
         assert client.written("log") == [
             ["[ERROR] login claude-1 limit failed: PermissionError: not authorized"]
         ]
+
+    def test_should_keep_a_stopped_seat_on_its_login_until_its_limit_moves(
+        self, client: Client
+    ) -> None:
+        aws = Instances()
+        store = secrets("claude-1")
+        name = f"{PREFIX}claude-1"
+        store.tags[name]["holders"] = f"{ROLE}:{CLAUDE}"
+        store.failing = True
+        until = sy.TimeStamp.now() + sy.TimeSpan.HOUR
+        found = {CLAUDE: seat("stopped", login="claude-1", until=until)}
+        s = seats(client, aws, store)
+        s.step(queued=[], found=found)
+        assert store.tags[name]["holders"] == f"{ROLE}:{CLAUDE}"
+        assert aws.deleted == []
+        store.failing = False
+        s.step(queued=[], found=found)
+        assert store.tags[name]["limited-until"] == seconds(until)
+        assert "holders" not in store.tags[name]
+        assert aws.deleted == [(CLAUDE, "limited-until"), (CLAUDE, "login")]
 
     def test_should_not_lower_the_limit_of_a_login(self, client: Client) -> None:
         aws = Instances()
@@ -413,6 +492,91 @@ class TestSeats:
         seats(client, aws).step(queued=[], found={CLAUDE: seat("stopped", until=until)})
         assert aws.deleted == [(CLAUDE, "limited-until")]
 
+    def test_should_mark_the_login_of_a_seat_with_a_rejected_token_broken(
+        self, client: Client
+    ) -> None:
+        aws = Instances()
+        now = sy.TimeStamp.now()
+        store = secrets("claude-1", stored=now - sy.TimeSpan.HOUR)
+        rejected = now - sy.TimeSpan.MINUTE
+        found = {CLAUDE: seat("running", login="claude-1", rejected=rejected)}
+        seats(client, aws, store).step(queued=[], found=found)
+        assert store.tags[f"{PREFIX}claude-1"]["broken"] == seconds(rejected)
+        assert aws.deleted == [(CLAUDE, "login-broken")]
+        assert client.written("log") == [
+            ["login claude-1: token rejected, marked broken"]
+        ]
+
+    def test_should_ignore_a_rejection_of_a_job_started_before_the_token_was_stored(
+        self, client: Client
+    ) -> None:
+        aws = Instances()
+        now = sy.TimeStamp.now()
+        store = secrets("claude-1", stored=now - sy.TimeSpan.MINUTE)
+        rejected = now - sy.TimeSpan.HOUR
+        found = {CLAUDE: seat("running", login="claude-1", rejected=rejected)}
+        seats(client, aws, store).step(queued=[], found=found)
+        assert "broken" not in store.tags[f"{PREFIX}claude-1"]
+        assert aws.deleted == [(CLAUDE, "login-broken")]
+
+    @pytest.mark.parametrize("value", ["soon", "-1", "99999999999"])
+    def test_should_ignore_a_rejection_that_is_not_a_past_time(
+        self, client: Client, value: str
+    ) -> None:
+        aws = Instances()
+        store = secrets("claude-1", stored=sy.TimeStamp.now() - sy.TimeSpan.HOUR)
+        found = {CLAUDE: seat("running", login="claude-1")}
+        found[CLAUDE]["tags"]["login-broken"] = value
+        seats(client, aws, store).step(queued=[], found=found)
+        assert "broken" not in store.tags[f"{PREFIX}claude-1"]
+        assert aws.deleted == [(CLAUDE, "login-broken")]
+
+    def test_should_keep_the_rejected_token_on_the_seat_when_the_login_write_fails(
+        self, client: Client
+    ) -> None:
+        aws = Instances()
+        now = sy.TimeStamp.now()
+        store = secrets("claude-1", stored=now - sy.TimeSpan.HOUR)
+        store.tags[f"{PREFIX}claude-1"]["holders"] = f"{ROLE}:{CLAUDE}"
+        store.failing = True
+        rejected = now - sy.TimeSpan.MINUTE
+        found = {CLAUDE: seat("running", login="claude-1", rejected=rejected)}
+        seats(client, aws, store).step(queued=[], found=found)
+        assert aws.deleted == []
+        assert client.written("log") == [
+            ["[ERROR] login claude-1 reject failed: PermissionError: not authorized"]
+        ]
+
+    def test_should_clear_a_rejected_token_of_a_login_already_broken(
+        self, client: Client
+    ) -> None:
+        aws = Instances()
+        now = sy.TimeStamp.now()
+        store = secrets("claude-1", stored=now - sy.TimeSpan.HOUR)
+        store.tags[f"{PREFIX}claude-1"]["broken"] = "1"
+        store.failing = True
+        rejected = now - sy.TimeSpan.MINUTE
+        found = {CLAUDE: seat("stopped", login="claude-1", rejected=rejected)}
+        seats(client, aws, store).step(queued=[], found=found)
+        assert store.tags[f"{PREFIX}claude-1"]["broken"] == "1"
+        assert (CLAUDE, "login-broken") in aws.deleted
+
+    def test_should_start_another_seat_while_one_is_on_a_broken_login(
+        self, client: Client
+    ) -> None:
+        aws = Instances()
+        now = sy.TimeStamp.now()
+        store = secrets("claude-1", "claude-2", stored=now - sy.TimeSpan.HOUR)
+        found = {
+            CLAUDE: seat(
+                "running", login="claude-1", rejected=now - sy.TimeSpan.MINUTE
+            ),
+            CLAUDE_2: seat("stopped", name="claude-2"),
+        }
+        seats(client, aws, store).step(queued=[JOB], found=found)
+        assert aws.started == [CLAUDE_2]
+        assert aws.tags[CLAUDE_2] == {"login": "claude-2"}
+
     def test_should_drop_a_seat_that_is_not_up_from_the_holders(
         self, client: Client
     ) -> None:
@@ -430,6 +594,148 @@ class TestSeats:
         found[CLAUDE]["state"] = "stopped"
         s.step(queued=[], found=found)
         assert "holders" not in store.tags[name]
+
+    def test_should_keep_a_started_seat_that_ec2_still_reports_stopped(
+        self, client: Client
+    ) -> None:
+        aws = Instances()
+        store = secrets("claude-1")
+        name = f"{PREFIX}claude-1"
+        s = seats(client, aws, store)
+        s.step(queued=[JOB], found={CLAUDE: seat("stopped")})
+        assert store.tags[name]["holders"] == f"{ROLE}:{CLAUDE}"
+        client.elapsed += 3 * sy.TimeSpan.SECOND
+        s.step(queued=[], found={CLAUDE: seat("stopped", login="claude-1")})
+        assert store.tags[name]["holders"] == f"{ROLE}:{CLAUDE}"
+        assert aws.tags[CLAUDE] == {"login": "claude-1"}
+
+    def test_should_drop_a_started_seat_still_stopped_after_the_delay(
+        self, client: Client
+    ) -> None:
+        aws = Instances()
+        store = secrets("claude-1")
+        name = f"{PREFIX}claude-1"
+        s = seats(client, aws, store)
+        s.step(queued=[JOB], found={CLAUDE: seat("stopped")})
+        client.elapsed += RECOMMAND_DELAY
+        s.step(queued=[], found={CLAUDE: seat("stopped", login="claude-1")})
+        assert "holders" not in store.tags[name]
+        assert aws.deleted == [(CLAUDE, "login")]
+
+    def test_should_drop_a_stopped_seat_and_delete_its_login_tag(
+        self, client: Client
+    ) -> None:
+        aws = Instances()
+        store = secrets("claude-1")
+        name = f"{PREFIX}claude-1"
+        store.tags[name]["holders"] = f"{ROLE}:{CLAUDE}"
+        found = {CLAUDE: seat("stopped", login="claude-1")}
+        seats(client, aws, store).step(queued=[], found=found)
+        assert "holders" not in store.tags[name]
+        assert aws.deleted == [(CLAUDE, "login")]
+
+    def test_should_log_a_failed_holders_write_and_still_delete_the_login_tag(
+        self, client: Client
+    ) -> None:
+        aws = Instances()
+        store = secrets("claude-1")
+        name = f"{PREFIX}claude-1"
+        store.tags[name]["holders"] = f"{ROLE}:{CLAUDE}"
+        store.failing = True
+        found = {CLAUDE: seat("stopped", login="claude-1")}
+        seats(client, aws, store).step(queued=[], found=found)
+        assert store.tags[name]["holders"] == f"{ROLE}:{CLAUDE}"
+        assert aws.deleted == [(CLAUDE, "login")]
+        assert client.written("log") == [
+            ["[ERROR] login claude-1 hold failed: PermissionError: not authorized"]
+        ]
+
+    def test_should_log_each_failed_login_tag_delete_and_go_on(
+        self, client: Client
+    ) -> None:
+        aws = Instances()
+        aws.failing = True
+        store = secrets("claude-1", "claude-2")
+        store.tags[f"{PREFIX}claude-1"]["holders"] = f"{ROLE}:{CLAUDE}"
+        store.tags[f"{PREFIX}claude-2"]["holders"] = f"{ROLE}:{CLAUDE_2}"
+        found = {
+            CLAUDE: seat("stopped", login="claude-1"),
+            CLAUDE_2: seat("stopped", name="claude-2", login="claude-2"),
+        }
+        seats(client, aws, store).step(queued=[], found=found)
+        assert "holders" not in store.tags[f"{PREFIX}claude-1"]
+        assert "holders" not in store.tags[f"{PREFIX}claude-2"]
+        assert client.written("log") == [
+            [
+                "[ERROR] seat claude-1 login clear failed: "
+                "PermissionError: not authorized"
+            ],
+            [
+                "[ERROR] seat claude-2 login clear failed: "
+                "PermissionError: not authorized"
+            ],
+        ]
+
+    def test_should_not_add_a_seat_started_without_a_login_tag(
+        self, client: Client
+    ) -> None:
+        aws = Instances()
+        store = secrets("claude-1")
+        name = f"{PREFIX}claude-1"
+        store.tags[name]["holders"] = f"{ROLE}:{CLAUDE}"
+        found = {
+            CLAUDE: seat("running", login="claude-1"),
+            CLAUDE_2: seat("running", name="claude-2"),
+        }
+        seats(client, aws, store).step(queued=[], found=found)
+        assert store.tags[name]["holders"] == f"{ROLE}:{CLAUDE}"
+        assert aws.deleted == []
+
+    def test_should_cap_the_holders_and_delete_the_login_tag_of_the_rest(
+        self, client: Client
+    ) -> None:
+        aws = Instances()
+        store = secrets("claude-1")
+        name = f"{PREFIX}claude-1"
+        iids = [f"i-{n:04d}" for n in range(MAX_HOLDERS + 2)]
+        store.tags[name]["holders"] = f"{ROLE}:{iids[-1]}"
+        found = {
+            iid: seat("running", name=f"claude-{n}", login="claude-1")
+            for n, iid in enumerate(iids)
+        }
+        seats(client, aws, store).step(queued=[], found=found)
+        kept = [iids[-1], *iids[: MAX_HOLDERS - 1]]
+        assert store.tags[name]["holders"] == " ".join(f"{ROLE}:{i}" for i in kept)
+        assert aws.deleted == [(iid, "login") for iid in iids[MAX_HOLDERS - 1 : -1]]
+
+    def test_should_add_an_up_seat_missing_from_the_holders_of_its_login(
+        self, client: Client
+    ) -> None:
+        aws = Instances()
+        store = secrets("claude-1", "claude-2")
+        store.tags[f"{PREFIX}claude-1"]["holders"] = f"{ROLE}:{CLAUDE}"
+        found = {
+            CLAUDE: seat("running", login="claude-1"),
+            CLAUDE_2: seat("pending", name="claude-2", login="claude-1"),
+            REVIEW: seat("running", name="review-1", pool="review", login="claude-2"),
+        }
+        seats(client, aws, store).step(queued=[], found=found)
+        assert (
+            store.tags[f"{PREFIX}claude-1"]["holders"]
+            == f"{ROLE}:{CLAUDE} {ROLE}:{CLAUDE_2}"
+        )
+        assert store.tags[f"{PREFIX}claude-2"]["holders"] == f"{ROLE}:{REVIEW}"
+
+    def test_should_drop_a_seat_from_a_login_its_tag_does_not_name(
+        self, client: Client
+    ) -> None:
+        aws = Instances()
+        store = secrets("claude-1", "claude-2")
+        store.tags[f"{PREFIX}claude-1"]["holders"] = f"{ROLE}:{CLAUDE}"
+        found = {CLAUDE: seat("running", login="claude-2")}
+        seats(client, aws, store).step(queued=[], found=found)
+        assert "holders" not in store.tags[f"{PREFIX}claude-1"]
+        assert store.tags[f"{PREFIX}claude-2"]["holders"] == f"{ROLE}:{CLAUDE}"
 
     def test_should_start_another_seat_while_one_is_at_its_limit(
         self, client: Client

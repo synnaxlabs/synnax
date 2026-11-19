@@ -634,7 +634,7 @@ describe("queries", () => {
 
   describe("useResultList", () => {
     it("should search channels and follow a new match", async () => {
-      const token = `rl${Math.random().toString(36).slice(2)}`;
+      const token = `rl${id.create()}`;
       const first = await client.channels.create({
         name: `${token}_a`,
         dataType: DataType.FLOAT32,

@@ -260,7 +260,7 @@ const channelDataPropsZ = z.object({
   useIndexOfChannel: z.boolean().default(false),
   /** The line's x channel, or zero when x is the index of the line's y channel. */
   xChannel: z.number().or(z.string()).default(0),
-  /** The home view: a fixed range, or a span that ends now for a live line. */
+  /** The home view: a fixed range, or a span that ends at the newest sample. */
   window: windowZ,
   aggregation: aggregationZ.default("min_max"),
 });
@@ -270,8 +270,15 @@ export type ChannelDataProps = z.input<typeof channelDataPropsZ>;
 // The points a line draws before a read gives its own.
 const DEFAULT_POINTS = 1000;
 
-const viewRange = ({ lower, upper }: bounds.Bounds): TimeRange =>
-  new TimeRange(BigInt(Math.max(Math.floor(lower), 0)), BigInt(Math.ceil(upper)));
+// Returns the time range of a view, or undefined for a view with no finite span.
+const viewRange = (view: bounds.Bounds): TimeRange | undefined => {
+  if (!bounds.isFinite(view) || bounds.span(view) <= 0) return undefined;
+  const { lower, upper } = view;
+  return new TimeRange(
+    BigInt(Math.max(Math.floor(lower), 0)),
+    BigInt(Math.ceil(upper)),
+  );
+};
 
 /**
  * A series source that draws a channel across the view passed to value(), or across
@@ -286,7 +293,6 @@ export class ChannelData
   schema = channelDataPropsZ;
 
   private readonly client: Client | null;
-  private readonly now: () => TimeStamp;
   private readonly onStatusChange?: status.Adder;
   private generation = 0;
   private valid = false;
@@ -300,11 +306,12 @@ export class ChannelData
   private drawStatus?: cstatus.Status;
   private bounds: framer.Subscription | null = null;
   private boundsStatus?: cstatus.Status;
-  // The view, points, and settling of the draw's last request, and the points of the
-  // bounds' last request. An equal read sends no request.
+  // The view, points, and settling of the draw's last request, and the view and points
+  // of the bounds' last request. An equal read sends no request.
   private drawView?: bounds.Bounds;
   private drawPoints = 0;
   private drawSettling = false;
+  private boundsView?: bounds.Bounds;
   private boundsPoints = 0;
   // boundsRead is true when a bounds read ran since the last draw.
   private boundsRead = false;
@@ -321,15 +328,34 @@ export class ChannelData
     client: Client | null,
     props: unknown,
     options?: CreateOptions,
-    now: () => TimeStamp = client?.now ?? (() => TimeStamp.now()),
     breakerConfig?: breaker.Config,
   ) {
     super(props);
     this.client = client;
-    this.now = now;
     this.onStatusChange = options?.onStatusChange;
     this.failures = new FailureReporter(options?.onStatusChange);
     this.breaker = framer.retry.createBreaker(this.retryNotifier, breakerConfig);
+  }
+
+  /**
+   * Takes props that draw the same channels in place, so the line keeps its samples
+   * while those of a new window or aggregation load.
+   */
+  update(props: unknown): boolean {
+    const next = this.parseProps(props);
+    const { channel, useIndexOfChannel, xChannel } = this.props;
+    if (
+      next.channel !== channel ||
+      next.useIndexOfChannel !== useIndexOfChannel ||
+      next.xChannel !== xChannel
+    )
+      return false;
+    this.setProps(next);
+    const key = this.channel?.key;
+    if (key == null) return true;
+    this.draw?.update(this.drawRequest(key, this.drawView, this.drawSettling));
+    this.bounds?.update(this.boundsRequest(key, this.boundsView));
+    return true;
   }
 
   private get live(): boolean {
@@ -352,16 +378,18 @@ export class ChannelData
       };
     const { series, time } =
       extremesKept && !this.xy
-        ? this.readBounds(client, ch.key)
+        ? this.readBounds(client, ch.key, view)
         : this.readDraw(client, ch.key, view, points != null);
     const status = this.status();
     this.failures.observe(status);
+    const timestamps = ch.dataType.equals(DataType.TIMESTAMP) && !this.xy;
     // Cesium finds time in an index channel by binary search, so its samples ascend.
     return {
-      data: [this.dataBounds(ch, series, time), series],
+      data: [timestamps ? this.windowBounds(time) : series.bounds, series],
       status,
       aggregation: this.aggregation(),
       sorted: ch.isIndex,
+      rolling: timestamps && this.live,
     };
   }
 
@@ -425,29 +453,33 @@ export class ChannelData
       count: this.points,
       aggregation,
     };
-    if (view != null && bounds.isFinite(view) && bounds.span(view) > 0)
-      limit.view = viewRange(view);
+    const range = view == null ? undefined : viewRange(view);
+    if (range != null) limit.view = range;
     if (settling) limit.settling = true;
     return { keys: [key], window, limit };
   }
 
   // Reads the samples that bound the home view, reduced with min_max so they keep the
-  // extremes that other aggregations drop. The draw serves until the first ones load.
-  private readBounds(client: Client, key: channel.Key): framer.Snapshot {
+  // extremes that other aggregations drop. A live window ends at the newest sample of
+  // every line on its axis, so it bounds the view the caller passes instead. The draw
+  // serves until the first ones load.
+  private readBounds(
+    client: Client,
+    key: channel.Key,
+    view: bounds.Bounds | undefined,
+  ): framer.Snapshot {
     this.boundsRead = true;
-    if (this.bounds == null || this.points !== this.boundsPoints) {
-      const request: framer.PointsRequest = {
-        keys: [key],
-        window: this.props.window,
-        limit: {
-          variant: "points",
-          count: this.points,
-          aggregation: this.props.aggregation,
-          extremesKept: true,
-        },
-      };
+    const range = this.live && view != null ? viewRange(view) : undefined;
+    const target = range == null ? undefined : view;
+    if (
+      this.bounds == null ||
+      this.points !== this.boundsPoints ||
+      !bounds.equals(target, this.boundsView)
+    ) {
+      const request = this.boundsRequest(key, target);
       if (this.bounds == null) this.bounds = this.subscribe(client, request);
       else this.bounds.update(request);
+      this.boundsView = target && { ...target };
       this.boundsPoints = this.points;
     }
     let snapshot = this.bounds.value(key);
@@ -455,6 +487,21 @@ export class ChannelData
       snapshot = this.draw?.value(key) ?? snapshot;
     this.boundsStatus = snapshot.status;
     return snapshot;
+  }
+
+  private boundsRequest(
+    key: channel.Key,
+    view: bounds.Bounds | undefined,
+  ): framer.PointsRequest {
+    const limit: framer.PointsLimit = {
+      variant: "points",
+      count: this.points,
+      aggregation: this.props.aggregation,
+      extremesKept: true,
+    };
+    const range = view == null ? undefined : viewRange(view);
+    if (range != null) limit.view = range;
+    return { keys: [key], window: this.props.window, limit };
   }
 
   private closeBounds(): void {
@@ -487,16 +534,11 @@ export class ChannelData
     return this.xy ? "decimate" : this.props.aggregation;
   }
 
-  private dataBounds(
-    ch: SelectedChannelProperties,
-    series: MultiSeries,
-    time: TimeStamp | undefined,
-  ): bounds.Bounds {
-    if (!ch.dataType.equals(DataType.TIMESTAMP) || this.xy) return series.bounds;
-    const home = resolveWindow(this.props.window, this.now());
-    if (!this.live) return home.numericBounds;
-    const upper = Number((time ?? home.end).valueOf());
-    return { lower: upper - Number(home.span.valueOf()), upper };
+  // A live window ends at the channel's newest sample, so a live channel with none has
+  // no bounds. A static window resolves the same at any time.
+  private windowBounds(time: TimeStamp | undefined): bounds.Bounds {
+    if (this.live && time == null) return bounds.INVALID;
+    return resolveWindow(this.props.window, time ?? TimeStamp.ZERO).numericBounds;
   }
 
   /**

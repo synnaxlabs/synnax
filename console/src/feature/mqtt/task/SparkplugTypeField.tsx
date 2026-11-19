@@ -13,31 +13,31 @@ import { Select } from "@synnaxlabs/lyra/select";
 
 import { type SparkplugDataType } from "@/feature/mqtt/task/types";
 
-const renderSelect = Component.renderProp(
-  (
-    p: Omit<Select.SingleSimpleProps<SparkplugDataType>, "children" | "resourceName">,
-  ) => (
-    <Select.Simple<SparkplugDataType>
-      {...p}
-      resourceName="Sparkplug B type"
-      location="bottom"
-    >
-      <Select.Item itemKey="int8">Int8</Select.Item>
-      <Select.Item itemKey="int16">Int16</Select.Item>
-      <Select.Item itemKey="int32">Int32</Select.Item>
-      <Select.Item itemKey="int64">Int64</Select.Item>
-      <Select.Item itemKey="uint8">UInt8</Select.Item>
-      <Select.Item itemKey="uint16">UInt16</Select.Item>
-      <Select.Item itemKey="uint32">UInt32</Select.Item>
-      <Select.Item itemKey="uint64">UInt64</Select.Item>
-      <Select.Item itemKey="float">Float</Select.Item>
-      <Select.Item itemKey="double">Double</Select.Item>
-      <Select.Item itemKey="boolean">Boolean</Select.Item>
-      <Select.Item itemKey="string">String</Select.Item>
-      <Select.Item itemKey="date_time">DateTime</Select.Item>
-    </Select.Simple>
-  ),
+const SelectDataType = (
+  p: Omit<Select.SingleSimpleProps<SparkplugDataType>, "children" | "resourceName">,
+) => (
+  <Select.Simple<SparkplugDataType>
+    {...p}
+    resourceName="Sparkplug B type"
+    location="bottom"
+  >
+    <Select.Item itemKey="int8">Int8</Select.Item>
+    <Select.Item itemKey="int16">Int16</Select.Item>
+    <Select.Item itemKey="int32">Int32</Select.Item>
+    <Select.Item itemKey="int64">Int64</Select.Item>
+    <Select.Item itemKey="uint8">UInt8</Select.Item>
+    <Select.Item itemKey="uint16">UInt16</Select.Item>
+    <Select.Item itemKey="uint32">UInt32</Select.Item>
+    <Select.Item itemKey="uint64">UInt64</Select.Item>
+    <Select.Item itemKey="float">Float</Select.Item>
+    <Select.Item itemKey="double">Double</Select.Item>
+    <Select.Item itemKey="boolean">Boolean</Select.Item>
+    <Select.Item itemKey="string">String</Select.Item>
+    <Select.Item itemKey="date_time">DateTime</Select.Item>
+  </Select.Simple>
 );
+
+const renderSelect = Component.renderProp(SelectDataType);
 
 export interface SparkplugTypeFieldProps extends Omit<
   PForm.FieldProps<SparkplugDataType>,

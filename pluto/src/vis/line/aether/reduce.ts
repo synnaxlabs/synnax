@@ -12,6 +12,7 @@ import {
   bounds,
   math,
   type NumberArray,
+  POINTS_PER_GROUP,
   Series,
   TimeRange,
 } from "@synnaxlabs/x";
@@ -42,30 +43,58 @@ export interface View {
   width: number;
 }
 
+const xBounds = ({ x, xOffset, count }: DrawOperation): bounds.Bounds =>
+  x.boundsFor(xOffset, xOffset + count);
+
 /**
- * @returns the samples per group that draws the full-resolution ops at groupsPerColumn
- * groups per pixel column of the view: their samples per x unit times the x units per
- * pixel, rounded up to a power of two. Returns 1, meaning no reduction, when that is
- * below 2 or a span is zero or not finite.
+ * @returns the samples per group that reduces the full-resolution ops. It is the group
+ * size of the reduced op with the largest alignment multiple, so the line draws at one
+ * density, when the full-resolution samples are within two times the density of that
+ * op's samples. A tile cut short can reduce at a smaller size. When previous, the size
+ * the line last reduced with, is POINTS_PER_GROUP times a whole multiple of at least 2
+ * that is within one of that op's, it stays at previous: tiles of one level differ by
+ * one multiple when they hold one sample more or less. Otherwise, it is the samples of
+ * the ops per pixel column of the view over groupsPerColumn, rounded down to a power of
+ * two. Returns 1, meaning no reduction, when that is below 2 or a span is zero or not
+ * finite.
  */
 export const groupSize = (
   ops: DrawOperation[],
   view: View,
   groupsPerColumn: number,
+  aggregation: Aggregation,
+  previous: number,
 ): number => {
   let count = 0;
   let lower = Infinity;
   let upper = -Infinity;
+  let reduced: DrawOperation | null = null;
   for (const op of ops) {
-    if (!isFullResolution(op)) continue;
+    if (!isFullResolution(op)) {
+      if (reduced == null || op.x.alignmentMultiple > reduced.x.alignmentMultiple)
+        reduced = op;
+      continue;
+    }
     count += op.count;
-    const b = op.x.boundsFor(op.xOffset, op.xOffset + op.count);
+    const b = xBounds(op);
     lower = Math.min(lower, b.lower);
     upper = Math.max(upper, b.upper);
   }
-  const samplesPerPixel =
-    (count / (upper - lower)) * (bounds.span(view.bounds) / view.width);
-  const size = 2 ** Math.ceil(Math.log2(samplesPerPixel / groupsPerColumn));
+  const density = count / (upper - lower);
+  if (reduced != null) {
+    const multiple = Number(reduced.x.alignmentMultiple);
+    const reducedDensity = (reduced.count * multiple) / bounds.span(xBounds(reduced));
+    const ratio = density / reducedDensity;
+    if (ratio >= 1 / 2 && ratio <= 2) {
+      const group = POINTS_PER_GROUP[aggregation];
+      const held = previous / group;
+      if (Number.isInteger(held) && held >= 2 && Math.abs(held - multiple) <= 1)
+        return previous;
+      return multiple * group;
+    }
+  }
+  const samplesPerPixel = density * (bounds.span(view.bounds) / view.width);
+  const size = 2 ** Math.floor(Math.log2(samplesPerPixel / groupsPerColumn));
   return Number.isFinite(size) && size >= 2 ? size : 1;
 };
 
@@ -80,7 +109,7 @@ const cut = (op: DrawOperation, lo: number, hi: number): DrawOperation =>
 
 // Returns the op index of the first sample whose x is at least value.
 const indexOf = ({ x, xOffset, count }: DrawOperation, value: number): number =>
-  Math.min(Math.max(x.binarySearch(value) - xOffset, 0), count);
+  bounds.clamp({ lower: 0, upper: count }, x.binarySearch(value) - xOffset);
 
 const xAt = ({ x, xOffset }: DrawOperation, i: number): number =>
   Number(x.at(xOffset + i, true));

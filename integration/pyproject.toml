@@ -10,7 +10,7 @@
 [project]
 name = "synnax-test-framework"
 version = "0.0.0"
-requires-python = ">=3.12,<4"
+requires-python = ">=3.13,<4"
 dependencies = [
     "synnax",
     "synnax-freighter",
@@ -47,7 +47,7 @@ packages = ["console", "framework", "tests"]
 
 [tool.ruff]
 line-length = 88
-target-version = "py312"
+target-version = "py313"
 
 [tool.ruff.lint]
 select = [
@@ -59,6 +59,7 @@ select = [
     "E7",
     "E9",
     "PLE",
+    "PLR1722",
     "UP",
     "SIM",
     "C4",
@@ -66,16 +67,18 @@ select = [
     "PIE",
     "PERF",
     "RUF",
+    "S110",
     "TID251",
 ]
 ignore = ["UP040", "UP046", "UP047", "SIM105", "SIM115", "SIM117", "PT012", "RUF001"]
 
-# Tests wait with bounded polling helpers. Any other sleep keeps a noqa with its reason.
+# Tests wait with bounded polling helpers, or with framework.utils.hold for a fixed
+# window.
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
-"time.sleep".msg = "Wait with a polling helper, such as wait_for_eq."
-"synnax.sleep".msg = "Wait with a polling helper, such as wait_for_eq."
-"synnax.timing.sleep".msg = "Wait with a polling helper, such as wait_for_eq."
-"x.timing.sleep".msg = "Wait with a polling helper, such as wait_for_eq."
+"time.sleep".msg = "Wait with a polling helper, such as wait_for_eq, or hold."
+"synnax.sleep".msg = "Wait with a polling helper, such as wait_for_eq, or hold."
+"synnax.timing.sleep".msg = "Wait with a polling helper, such as wait_for_eq, or hold."
+"x.timing.sleep".msg = "Wait with a polling helper, such as wait_for_eq, or hold."
 
 [tool.ruff.lint.isort]
 known-first-party = ["synnax", "alamos", "freighter", "x"]

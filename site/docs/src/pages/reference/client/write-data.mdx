@@ -361,6 +361,9 @@ Each write that leaves out the index channel gets the time at which the Core rec
 it. The samples in one write are 1 nanosecond apart. When the writer is also open on the
 index channel, a write that includes it uses your timestamps.
 
+These timestamps always increase and never repeat. Do not use this for a write that
+holds many samples taken over time.
+
 <Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">

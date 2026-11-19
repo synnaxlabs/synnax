@@ -11,6 +11,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
+import { record } from "@synnaxlabs/x";
 import { type ReactElement, useId } from "react";
 
 import { type Activity as ActivityData } from "@/page";
@@ -26,7 +27,7 @@ const CATEGORY_LABELS: Record<Category, string> = {
   organizations: "Organizations",
 };
 
-const CATEGORIES = Object.keys(CATEGORY_LABELS) as Category[];
+const CATEGORIES = record.keys(CATEGORY_LABELS);
 
 export interface ActivityFilter {
   category: Category | null;
