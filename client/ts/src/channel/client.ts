@@ -395,11 +395,11 @@ export class Client extends query.Retriever<
         },
       }),
     );
-    // The built-in keys arrive once per connection. Until then, the Core checks the
-    // internal line.
+    // The built-in keys arrive with the first connection, and the Core checks the
+    // internal line until then. A reconnect fetches them again and keeps the last keys
+    // until the answer lands, since a list that checks the line itself needs them.
     let builtIns: Set<Key> | null = null;
     cache.onEpoch(() => {
-      builtIns = null;
       this.retrieveBuiltIns()
         .then((keys) => {
           builtIns = new Set(keys);
