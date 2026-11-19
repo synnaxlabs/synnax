@@ -232,7 +232,7 @@ export interface UseReturn {
    * Makes a source that reads one message read a message of any ICD, and each field of
    * it that can share one index. When the message has one timestamp field, and that
    * field has no default, the source takes its time from it. The message that the
-   * source read stays in its ICD.
+   * source read leaves its ICD when it has no fields and no other source reads it.
    */
   setMessage: (source: string, icdKey: icd.Key, message: icd.Message) => void;
 }
@@ -317,6 +317,21 @@ export const use = <S extends Source>({
     const timestamps = fields.filter(({ type }) => type === "timestamp");
     const index =
       timestamps.length === 1 && isIndexable(timestamps[0]) ? timestamps[0] : undefined;
+    const priorFormat = formatOf(formats, source.icd);
+    const held = priorFormat.value().messages.find(({ key }) => key === prior.message);
+    const readElsewhere = ctx
+      .get(sources)
+      .value.some(
+        (s) =>
+          s.key !== sourceKey &&
+          sourceOf(s)?.messages.some((m) => m.message === prior.message),
+      );
+    if (
+      held?.payload.format === "json" &&
+      held.payload.fields.length === 0 &&
+      !readElsewhere
+    )
+      priorFormat.remove(PICD.formPath.messages[prior.message]);
     ctx.batch(() => {
       ctx.set(path.icd, icdKey);
       ctx.set(path.messages, [{ message: message.key, bindings: [] }]);

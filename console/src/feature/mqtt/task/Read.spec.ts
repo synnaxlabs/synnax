@@ -941,20 +941,40 @@ describe("MQTT read form", () => {
       expect(messages.map(({ key }) => key)).toEqual([entry.messages[0].message]);
     });
 
-    it("should keep an empty message that a topic stops reading in its ICD", async () => {
+    it("should delete an empty message that a topic stops reading from its ICD", async () => {
       const entry = await createEntry({ fields: [] });
-      const { shared, message } = await createShared([
-        createField("pressure", "float"),
-      ]);
-      const { draft } = await renderRead({ entries: [entry] });
+      const { message } = await createShared([createField("pressure", "float")]);
+      await renderRead({ entries: [entry] });
       await openTopic();
       await pickFormat(TOPIC, message.name);
       await waitFor(async () =>
-        expect(plainOf((await retrieveEntries(draft.key))[0]).icd).toBe(shared.key),
+        expect((await client.icds.retrieve({ key: entry.icd })).messages).toEqual([]),
       );
-      const { messages } = await client.icds.retrieve({ key: entry.icd });
-      expect(messages.map(({ key }) => key)).toEqual([entry.messages[0].message]);
     });
+
+    it.each([
+      { name: "fields", fields: [createField("temperature", "float")], others: [] },
+      { name: "another topic that reads it", fields: [], others: ["plant/stove"] },
+    ])(
+      "should keep a message with $name in its ICD when a topic stops reading it",
+      async ({ fields, others }) => {
+        const entry = await createEntry({ fields });
+        const readers = others.map((topic) =>
+          mqtt.plainReadEntryZ.parse({ ...entry, key: uuid.create(), topic }),
+        );
+        const { shared, message } = await createShared([
+          createField("pressure", "float"),
+        ]);
+        const { draft } = await renderRead({ entries: [entry, ...readers] });
+        await openTopic();
+        await pickFormat(TOPIC, message.name);
+        await waitFor(async () =>
+          expect(plainOf((await retrieveEntries(draft.key))[0]).icd).toBe(shared.key),
+        );
+        const { messages } = await client.icds.retrieve({ key: entry.icd });
+        expect(messages.map(({ key }) => key)).toEqual([entry.messages[0].message]);
+      },
+    );
 
     it.each([
       { name: "one timestamp field", times: ["time"], indexed: true },
