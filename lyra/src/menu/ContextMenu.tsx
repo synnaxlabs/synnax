@@ -33,6 +33,7 @@ import {
   CONTEXT_SELECTED,
   CONTEXT_TARGET,
 } from "@/menu/types";
+import { Portal } from "@/portal";
 import { position } from "@/position";
 import { Triggers } from "@/triggers";
 import { FOCUSABLE } from "@/util";
@@ -317,6 +318,7 @@ const Surface = ({
 }: ContextMenuProps): ReactNode => {
   const filter = useFilter();
   const combinedRef = useCombinedRefs(ref, filter.ref);
+  const portalTarget = Portal.useTarget();
   const menuStyle = { ...xy.css(position), ...style };
   return createPortal(
     <Flex.Box
@@ -354,7 +356,7 @@ const Surface = ({
         {menu?.({ keys, visible, position, cursor, target })}
       </Filtered>
     </Flex.Box>,
-    document.body,
+    portalTarget ?? document.body,
   );
 };
 
