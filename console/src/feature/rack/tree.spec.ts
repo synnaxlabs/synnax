@@ -15,6 +15,7 @@ import {
   NotFoundError,
   rack,
   type resource,
+  status,
   type Synnax as Client,
   task,
 } from "@synnaxlabs/client";
@@ -62,7 +63,7 @@ const createArcRack = async () =>
 const createNIRackWithScanner = async () => {
   const r = await client.racks.create({
     name: uniqueName("ni_rack"),
-    integrations: ["ni", Arc.INTEGRATION_KEY],
+    integrations: ["ni"],
   });
   const scanTask = await r.createTask(
     {
@@ -106,13 +107,13 @@ const renderMenu = async (
 
 /**
  * A client that may rename racks and read everything the menu touches, differing only
- * in the type it may create.
+ * in the types it may create.
  */
-const createRackWriter = async (creatable: resource.ID) =>
+const createRackWriter = async (...creatable: resource.ID[]) =>
   await createTestClientWithGrants(client, {
     retrieve: [rack.TYPE_RESOURCE_ID, task.TYPE_RESOURCE_ID, arc.TYPE_RESOURCE_ID],
     update: [rack.TYPE_RESOURCE_ID],
-    create: [creatable],
+    create: creatable,
   });
 
 describe("rack tree item", () => {
@@ -320,7 +321,7 @@ describe("copy properties", () => {
 
 describe("permission to write the rack", () => {
   it("should withhold rename, arc creation, and delete from a viewer", async () => {
-    const r = await createRack();
+    const r = await createArcRack();
     await renderMenu([r], await roles.get("Viewer"));
     expect(await screen.findByText("Copy properties")).toBeTruthy();
     expect(screen.queryByText("Rename")).toBeNull();
@@ -338,15 +339,35 @@ describe("permission to write the rack", () => {
   it("should withhold the scanner toggle from a subject who cannot create tasks", async () => {
     const { rack: r } = await createNIRackWithScanner();
     await renderMenu([r], await createRackWriter(arc.TYPE_RESOURCE_ID));
-    expect(await screen.findByText("Create Arc automation")).toBeTruthy();
+    expect(await screen.findByText("Rename")).toBeTruthy();
     expect(screen.queryByText("Toggle NI device scanner")).toBeNull();
   });
 
   it("should withhold Connect device from a subject who cannot create devices", async () => {
+    const r = await createRack();
+    await renderMenu([r], await createRackWriter(arc.TYPE_RESOURCE_ID));
+    expect(await screen.findByText("Rename")).toBeTruthy();
+    expect(screen.queryByText("Connect device")).toBeNull();
+  });
+
+  it("should withhold arc creation from a subject who cannot create tasks", async () => {
     const r = await createArcRack();
     await renderMenu([r], await createRackWriter(arc.TYPE_RESOURCE_ID));
+    expect(await screen.findByText("Rename")).toBeTruthy();
+    expect(screen.queryByText("Create Arc automation")).toBeNull();
+  });
+
+  it("should offer arc creation to a subject who may create Arcs, tasks, and statuses", async () => {
+    const r = await createArcRack();
+    await renderMenu(
+      [r],
+      await createRackWriter(
+        arc.TYPE_RESOURCE_ID,
+        task.TYPE_RESOURCE_ID,
+        status.TYPE_RESOURCE_ID,
+      ),
+    );
     expect(await screen.findByText("Create Arc automation")).toBeTruthy();
-    expect(screen.queryByText("Connect device")).toBeNull();
   });
 
   it("should offer Connect device to a subject who may create devices", async () => {

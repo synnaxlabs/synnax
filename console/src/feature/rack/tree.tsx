@@ -9,7 +9,15 @@
 
 import "@/feature/rack/tree.css";
 
-import { arc, device, group, rack, type resource } from "@synnaxlabs/client";
+import {
+  arc,
+  device,
+  group,
+  rack,
+  type resource,
+  status,
+  task,
+} from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -71,6 +79,13 @@ const useDelete = Tree.createUseDelete({
   convertKey: Number,
 });
 
+/** Creating an automation on a Driver creates an Arc, a task, and a status. */
+const BOUND_ARC_TYPES = [
+  arc.TYPE_RESOURCE_ID,
+  task.TYPE_RESOURCE_ID,
+  status.TYPE_RESOURCE_ID,
+];
+
 interface IntegrationItemsProps {
   rackKey: rack.Key;
 }
@@ -79,7 +94,7 @@ interface IntegrationItemsProps {
 const IntegrationItems = ({ rackKey }: IntegrationItemsProps): ReactElement => {
   Rack.useEnsure({ key: rackKey });
   const keys = Rack.useIntegrations({ key: rackKey });
-  const hasArcCreatePermission = Access.useCreateGranted(arc.TYPE_RESOURCE_ID);
+  const hasArcCreatePermission = Access.useCreateGranted(BOUND_ARC_TYPES);
   const createArc = Arc.useCreate({ rack: rackKey });
   return (
     <>
