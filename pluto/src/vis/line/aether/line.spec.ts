@@ -56,7 +56,7 @@ describe("line", () => {
 
     const createSource = (data: Series[]) =>
       telemTest.source<[bounds.Bounds, MultiSeries]>([
-        bounds.max(data.map((s) => s.bounds)),
+        bounds.union(data.map((s) => s.bounds)),
         new MultiSeries(data),
       ]);
 

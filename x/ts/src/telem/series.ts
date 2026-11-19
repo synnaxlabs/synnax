@@ -1314,6 +1314,9 @@ const isTelemValue = (value: unknown): value is TelemValue => {
   );
 };
 
+const roundToBigInt = (value: numeric.Value): bigint =>
+  typeof value === "bigint" ? value : BigInt(Math.round(value.valueOf()));
+
 const convertDataType = (
   source: DataType,
   target: DataType,
@@ -1324,7 +1327,7 @@ const convertDataType = (
   if (source.usesBigInt && !target.usesBigInt)
     return Number(BigInt(value.valueOf()) - BigInt(offset.valueOf()));
   if (!source.usesBigInt && target.usesBigInt)
-    return BigInt(value.valueOf()) - BigInt(offset.valueOf());
+    return roundToBigInt(value) - roundToBigInt(offset);
   return math.sub(value, offset);
 };
 
@@ -1630,7 +1633,7 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
 
   /** Returns the bounds containing the minimum and maximum values across all series. */
   get bounds(): bounds.Bounds {
-    return bounds.max(this.series.map((s) => s.bounds));
+    return bounds.union(this.series.map((s) => s.bounds));
   }
 
   /** Returns the sum of the byte lengths of all series. */
