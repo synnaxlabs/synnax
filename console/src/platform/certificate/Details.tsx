@@ -9,7 +9,7 @@
 
 import "@/platform/certificate/Details.css";
 
-import { type certificate } from "@synnaxlabs/client";
+import { type certificate, type rack } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Description } from "@synnaxlabs/lyra/description";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
@@ -23,6 +23,7 @@ import { type ReactElement, useState } from "react";
 
 import { leafDER } from "@/platform/certificate/pem";
 import { CSS } from "@/platform/css";
+import { Picker } from "@/platform/picker";
 import { Runtime } from "@/platform/runtime";
 import { Secret } from "@/platform/secret";
 
@@ -175,32 +176,35 @@ export interface DetailsProps {
   certificate: certificate.Certificate;
   /** The time the validity reads against. */
   now: TimeStamp;
+  /** The rack of the device. A file certificate of another rack shows an error. */
+  rack: rack.Key;
 }
 
 /**
  * The validity and file path of a certificate on one line, with a button that shows its
  * full details. A stored certificate also downloads.
  */
-export const Details = ({ certificate: c, now }: DetailsProps): ReactElement => {
+export const Details = ({ certificate: c, now, rack }: DetailsProps): ReactElement => {
   const [visible, setVisible] = useState(false);
-  const validity =
-    c.details == null ? null : Secret.Validity.describeCertificate(c, now);
+  let state: Picker.Description | null = null;
+  if (c.source === "file" && c.rack !== rack) state = Secret.OTHER_RACK_DESCRIPTION;
+  else if (c.details != null) state = Secret.Validity.describeCertificate(c, now);
   const path = c.source === "file" ? c.certificatePath : null;
   return (
     <Flex.Box y gap="small">
-      <Flex.Box x align="center" className={CSS.BE("certificate-field", "summary")}>
+      <Picker.Line>
         <Text.Text
           level="small"
           color={9}
           overflow="fade"
           className={CSS.BE("certificate-field", "summary-text")}
         >
-          {validity != null && (
-            <Text.Text el="span" color={9} status={validity.status}>
-              {validity.text}
+          {state != null && (
+            <Text.Text el="span" color={9} status={state.status}>
+              {state.text}
             </Text.Text>
           )}
-          {validity != null && path != null && <span>·</span>}
+          {state != null && path != null && <span>·</span>}
           {path != null && <span>{path}</span>}
         </Text.Text>
         <Button.Button
@@ -211,7 +215,7 @@ export const Details = ({ certificate: c, now }: DetailsProps): ReactElement => 
         >
           {visible ? "Hide details" : "Details"}
         </Button.Button>
-      </Flex.Box>
+      </Picker.Line>
       {visible && <Card certificate={c} now={now} />}
     </Flex.Box>
   );

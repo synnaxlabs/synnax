@@ -8,9 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type rack, secret } from "@synnaxlabs/client";
+import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { type Input } from "@synnaxlabs/lyra/input";
+import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Secret } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
@@ -49,23 +51,34 @@ const Control = ({ value, defaultName, rack, ...rest }: ControlProps): ReactElem
   const result = Secret.useResult(primitive.isZero(value) ? null : { key: value });
   const canCreate = Access.useCreateGranted(secret.TYPE_RESOURCE_ID);
   const openCreate = useCreateModal();
-  const describeOnRack = (s: secret.Secret): Picker.Description =>
-    s.source === "file" && s.rack !== rack ? OTHER_RACK_DESCRIPTION : describe(s);
+  const onOtherRack =
+    result.variant === "success" &&
+    result.data.source === "file" &&
+    result.data.rack !== rack;
   return (
-    <Picker.Select<secret.Key, secret.Secret>
-      value={value}
-      resourceName="secret"
-      icon={Icon.Secret}
-      describe={describeOnRack}
-      list={list}
-      result={result}
-      onCreate={
-        canCreate
-          ? (name) => openCreate({ name: name === "" ? defaultName : name, rack })
-          : undefined
-      }
-      {...rest}
-    />
+    <Flex.Box y gap="small" grow>
+      <Picker.Select<secret.Key, secret.Secret>
+        value={value}
+        resourceName="secret"
+        icon={Icon.Secret}
+        describe={describe}
+        list={list}
+        result={result}
+        onCreate={
+          canCreate
+            ? (name) => openCreate({ name: name === "" ? defaultName : name, rack })
+            : undefined
+        }
+        {...rest}
+      />
+      {onOtherRack && (
+        <Picker.Line>
+          <Text.Text level="small" status={OTHER_RACK_DESCRIPTION.status}>
+            {OTHER_RACK_DESCRIPTION.text}
+          </Text.Text>
+        </Picker.Line>
+      )}
+    </Flex.Box>
   );
 };
 

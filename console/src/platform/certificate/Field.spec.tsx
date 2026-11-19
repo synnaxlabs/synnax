@@ -517,7 +517,7 @@ describe("Certificate.Field", () => {
     await findDialogTriggerByText(c.name);
   });
 
-  it("shows a held file certificate of another rack as an error", async () => {
+  it("shows a held file certificate of another rack as an error before its path", async () => {
     const [own, other] = await Promise.all([
       client.racks.create({ name: uniqueName("rack") }),
       client.racks.create({ name: uniqueName("rack") }),
@@ -530,11 +530,14 @@ describe("Certificate.Field", () => {
     });
     created.push(c.key);
     const { setRack } = await renderField(c.key, { rack: own.key });
-    await findDialogTriggerByText(c.name);
+    const trigger = await findDialogTriggerByText(c.name);
     expect(screen.queryByText("File on another rack")).toBeNull();
     setRack(other.key);
     const shown = await screen.findByText("File on another rack");
     expect(shown.classList).toContain("lyra--status-error");
+    expect(trigger.contains(shown)).toBe(false);
+    screen.getByText("·");
+    screen.getByText("/etc/synnax/client.crt");
   });
 
   it("offers no file to a field with no rack", async () => {
