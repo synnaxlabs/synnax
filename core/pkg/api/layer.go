@@ -878,7 +878,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.CertificateDelete.BindHandler(bind.Write(l.binder, l.Certificate.Delete))
 	t.CertificateDispatch.BindHandler(bind.Write(l.binder, l.Certificate.Dispatch))
 	t.CertificateRefresh.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Certificate.Refresh),
+		bind.WriteUnchecked(db, l.Certificate.Refresh),
 	)
 
 	// ARC
