@@ -1877,6 +1877,17 @@ describe("actions.Controller", () => {
       expect(controller.hasPending("k")).toBe(false);
       expect(docs.get("k")).toBeUndefined();
     });
+
+    it("does not hold a doc that was cached after the batch first applied", () => {
+      const { docs, controller } = setupStore();
+      const req = controller.request("/e", "k", [set("a", 1)], resZ);
+      req.apply?.();
+      prime(docs, "k", { a: 1 });
+      req.apply?.();
+      req.applyResponse?.({ actions: [] });
+      expect(controller.hasPending("k")).toBe(false);
+      expect(docs.get("k")).toEqual({ values: { a: 1 } });
+    });
   });
 
   describe("markRemoteTouched", () => {
