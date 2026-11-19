@@ -14,7 +14,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Telem } from "@synnaxlabs/pluto";
-import { DataType, deep, type xy } from "@synnaxlabs/x";
+import { DataType, deep, strings, type xy } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 import { z } from "zod";
 
@@ -162,7 +162,6 @@ const describeImport = ({
   unwritableCount,
   modeCommands,
 }: StartupCommands): status.Status => {
-  const plural = parameters.length === 1 ? "" : "s";
   const notes: string[] = [];
   if (modeCommands.length > 0)
     notes.push(
@@ -172,7 +171,7 @@ const describeImport = ({
     notes.push(`Skipped ${unwritableCount} that the Driver cannot write.`);
   return status.create({
     variant: "success",
-    message: `Imported ${parameters.length} startup parameter${plural} for ${device}`,
+    message: `Imported ${strings.count(parameters.length, "startup parameter")} for ${device}`,
     description: notes.join(" "),
   });
 };

@@ -22,7 +22,6 @@ import { Select } from "@/feature/opcua/device/Select";
 import {
   type Device,
   MAKE,
-  migrateProperties,
   type Properties as DeviceProperties,
   SCHEMAS,
 } from "@/feature/opcua/device/types";
@@ -242,12 +241,11 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (
   config,
   name,
 ) => {
-  const previous = await client.devices.retrieve({
+  const device = await client.devices.retrieve({
     key: config.device,
     schemas: SCHEMAS,
   });
-  const before = deep.copy(previous.properties);
-  const device = { ...previous, properties: migrateProperties(previous.properties) };
+  const before = deep.copy(device.properties);
 
   const index = await determineIndexChannel({
     client,
