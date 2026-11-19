@@ -88,25 +88,18 @@ export const receive = async (
   code: string,
   signal?: AbortSignal,
 ): Promise<string | null> => {
-  // AbortSignal.any would merge the two signals, but the Console's targets lack it.
-  const request = new AbortController();
-  const abort = (): void => request.abort();
-  signal?.addEventListener("abort", abort);
-  const timer = setTimeout(abort, RECEIVE_TIMEOUT.milliseconds);
+  const timeout = AbortSignal.timeout(RECEIVE_TIMEOUT.milliseconds);
   let res: Response;
   try {
     res = await fetch(HANDOFF_URL, {
       method: "POST",
       headers: { authorization: `Bearer ${code}` },
-      signal: request.signal,
+      signal: signal == null ? timeout : AbortSignal.any([signal, timeout]),
     });
   } catch (e) {
-    if (request.signal.aborted && signal?.aborted !== true)
+    if (timeout.aborted && signal?.aborted !== true)
       throw new TypeError("The hub did not answer in time", { cause: e });
     throw errors.fromUnknown(e);
-  } finally {
-    clearTimeout(timer);
-    signal?.removeEventListener("abort", abort);
   }
   if (res.status === 204) return null;
   if (res.ok) return keyZ.parse(await res.json()).key;

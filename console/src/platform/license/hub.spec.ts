@@ -144,6 +144,22 @@ describe("hub", () => {
         "Could not get the license key: Log in first",
       );
     });
+
+    it("should stop the request when the caller aborts", async () => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(
+          async (_: string, { signal }: RequestInit) =>
+            await new Promise<Response>((_resolve, reject) =>
+              signal?.addEventListener("abort", () => reject(new Error("Aborted"))),
+            ),
+        ),
+      );
+      const controller = new AbortController();
+      const result = License.receive("abc", controller.signal);
+      controller.abort();
+      await expect(result).rejects.toThrow("Aborted");
+    });
   });
 
   describe("activateURL", () => {
