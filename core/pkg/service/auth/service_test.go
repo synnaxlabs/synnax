@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -239,12 +240,21 @@ var _ = Describe("Service", func() {
 		It("Should end a session whose method is turned off", func(ctx SpecContext) {
 			other := DeferClose(gorp.Wrap(memkv.New()))
 			StartRun(other.Run)
+			otherUsers := MustOpen(gorp.OpenTable(
+				ctx,
+				gorp.TableConfig[user.Key, user.User]{
+					DB:   other,
+					Name: string(resource.TypeUser),
+				},
+			))
+			u := user.User{Key: uuid.New(), Name: "subject"}
+			Expect(otherUsers.NewCreate().Entry(&u).Exec(ctx, other)).To(Succeed())
 			otherPw := MustOpen(password.OpenService(ctx, password.ServiceConfig{
 				DB: other,
 			}))
 			Expect(other.WithTx(ctx, func(tx gorp.Tx) error {
 				return otherPw.NewWriter(tx).
-					Set(ctx, alice, username, hash(otherPw, "secret"))
+					Set(ctx, u.ResourceID(), username, hash(otherPw, "secret"))
 			})).To(Succeed())
 			on := MustSucceed(auth.OpenService(ctx, auth.ServiceConfig{
 				DB: other,
