@@ -1397,7 +1397,7 @@ var _ = Describe("Iterator Behavior", func() {
 						if backward {
 							Expect(i.SeekLast()).To(BeTrue())
 							for i.Prev(cesium.AutoSpan) {
-								var batch []int64
+								batch := make([]int64, 0, i.Value().Len())
 								for _, s := range i.Value().RawSeries() {
 									batch = append(batch, s.Unmarshal[int64]()...)
 								}
@@ -1464,7 +1464,7 @@ var _ = Describe("Iterator Behavior", func() {
 						if backward {
 							Expect(i.SeekLast()).To(BeTrue())
 							for i.Prev(cesium.AutoSpan) {
-								var batch []float64
+								batch := make([]float64, 0, i.Value().Len())
 								for _, s := range i.Value().RawSeries() {
 									batch = append(batch, s.Unmarshal[float64]()...)
 								}
