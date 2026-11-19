@@ -143,8 +143,8 @@ class Codec {
 
         State() = default;
         /// @brief builds the state of the given keys and their data types, in any
-        /// order. The data types are the encoder's agreed types; the decoder reads
-        /// its own from the first frame of the state.
+        /// order. The data types are the encoder's agreed types; the decoder reads its
+        /// own from the first frame of the state.
         State(
             const std::vector<channel::Key> &keys,
             const std::vector<x::telem::DataType> &data_types

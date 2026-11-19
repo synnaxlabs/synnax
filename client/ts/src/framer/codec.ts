@@ -488,8 +488,8 @@ export class Codec {
   }
 
   /**
-   * Decodes a frame. A frame that fails to decode drops its state, so every later
-   * frame of the state fails.
+   * Decodes a frame. A frame that fails to decode drops its state, so every later frame
+   * of the state fails.
    */
   decode(data: Uint8Array | ArrayBuffer, offset: number = 0): Payload {
     this.throwIfNotUpdated("decode");

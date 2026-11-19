@@ -237,9 +237,9 @@ Codec::Codec(
 }
 
 namespace {
-/// @brief the extension flags, type codes, overrides, and declared clocks of one
-/// frame. clocks holds values only when the frame has overrides, and declared and all
-/// only when it declares clocks, so a steady frame allocates nothing.
+/// @brief the extension flags, type codes, overrides, and declared clocks of one frame.
+/// clocks holds values only when the frame has overrides, and declared and all only
+/// when it declares clocks, so a steady frame allocates nothing.
 struct Plan {
     std::uint8_t ext = 0;
     std::vector<std::uint8_t> codes;
