@@ -290,6 +290,12 @@ describe("SugaredOffscreenCanvasRenderingContext2D", () => {
       expect(fake.lineTo).toHaveBeenCalledWith(6, 12);
     });
 
+    it("should scale the points of a linear gradient", () => {
+      const [ctx, fake] = create(doubled);
+      ctx.createLinearGradient(1, 2, 3, 4);
+      expect(fake.createLinearGradient).toHaveBeenCalledWith(2, 6, 6, 12);
+    });
+
     it("should scale every line dash segment", () => {
       const [ctx, fake] = create(doubled);
       ctx.setLineDash([1, 2, 3]);
