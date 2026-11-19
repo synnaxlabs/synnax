@@ -12,8 +12,8 @@ import {
   deep,
   type destructor,
   id,
-  migrate,
   observe,
+  semver,
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
@@ -283,11 +283,7 @@ const isDev = (version: string): boolean => version.startsWith("0.0.");
 const isCompatible = (nodeVersion: string, clientVersion: string): boolean =>
   isDev(nodeVersion) ||
   isDev(clientVersion) ||
-  migrate.versionsEqual(clientVersion, nodeVersion, {
-    checkMajor: true,
-    checkMinor: true,
-    checkPatch: false,
-  });
+  semver.equal(clientVersion, nodeVersion, { patchIgnored: true });
 
 const checkFacts = (info: Info, config: Config): Partial<StatusDetails> => ({
   clusterKey: info.clusterKey,

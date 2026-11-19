@@ -11,7 +11,7 @@ import { type ranger } from "@synnaxlabs/client";
 import { useNow } from "@synnaxlabs/lyra/hooks";
 import { Store } from "@synnaxlabs/lyra/store";
 import { Flux, Ranger } from "@synnaxlabs/pluto";
-import { array, TimeStamp, unique } from "@synnaxlabs/x";
+import { array, map, TimeStamp, unique } from "@synnaxlabs/x";
 import { useState } from "react";
 
 import { Session } from "@/session";
@@ -37,11 +37,7 @@ export const forest = (ranges: ranger.Range[]): Forest => {
   const children = new Map<ranger.Key, ranger.Range[]>();
   for (const r of ranges)
     if (r.parent == null || !keys.has(r.parent)) roots.push(r);
-    else {
-      const siblings = children.get(r.parent) ?? [];
-      siblings.push(r);
-      children.set(r.parent, siblings);
-    }
+    else map.getOrInsert(children, r.parent, () => []).push(r);
   return { roots, children };
 };
 

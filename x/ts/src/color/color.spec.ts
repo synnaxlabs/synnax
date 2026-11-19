@@ -52,6 +52,17 @@ describe("color.Color", () => {
     test("rejects a fractional tuple alpha", () => {
       expect(() => color.construct([255, 0, 0, 0.5])).toThrow(zod.ParseError);
     });
+    test("rejects an RGBA tuple with a value outside 0 to 255", () => {
+      expect(() => color.construct([256, 0, 0, 255])).toThrow(zod.ParseError);
+      expect(() => color.construct([0, -1, 0, 255])).toThrow(zod.ParseError);
+      expect(() => color.construct([0, 0, 0, 256])).toThrow(zod.ParseError);
+    });
+    test("returns a copy of a valid RGBA tuple", () => {
+      const rgba: color.RGBA = [122, 44, 38, 128];
+      const c = color.construct(rgba);
+      expect(c).toEqual(rgba);
+      expect(c).not.toBe(rgba);
+    });
 
     test.each<[string, unknown]>([
       ["the empty string", ""],

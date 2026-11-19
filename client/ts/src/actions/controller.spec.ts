@@ -376,7 +376,7 @@ describe("actions.Controller", () => {
       const r = controller.prepareUndo("k");
       // The merged inverse should restore to the pre-first-push state.
       // First inverse runs the latest's inverse (a:1), then the prior's (a:0).
-      expect(r?.actions[r.actions.length - 1]).toEqual({
+      expect(r?.actions.at(-1)).toEqual({
         type: "set",
         key: "a",
         value: 0,
@@ -424,6 +424,14 @@ describe("actions.Controller", () => {
       await expect.poll(() => calls.length).toBe(1);
       docs.trim(docs.size);
       expect(docs.trim(0)).toEqual(["other"]);
+    });
+
+    it("trims a doc that only remote frames changed", () => {
+      const { docs, controller } = setupStore();
+      prime(docs, "k");
+      controller.applyRemote("k", 1, "remote", [set("a", 1)]);
+      docs.trim(docs.size);
+      expect(docs.trim(0)).toEqual(["k"]);
     });
   });
 
@@ -618,6 +626,27 @@ describe("actions.Controller", () => {
       expect(send).toHaveBeenCalledTimes(1);
       expect(await done).toBe(true);
       expect(send.mock.calls[0][1]).toEqual([set("a", 1)]);
+    });
+
+    it("sends nothing for no actions", async () => {
+      const { docs, controller, send } = setupStore();
+      prime(docs, "k", { a: 0 });
+      await controller.send("k", []);
+      expect(send).not.toHaveBeenCalled();
+      expect(controller.hasPending("k")).toBe(false);
+    });
+
+    it("holds the actions the Core added once a send resolves", async () => {
+      const { docs, controller, send } = setupStore({
+        send: async () => [set("b", 9)],
+      });
+      prime(docs, "k", { a: 0 });
+      await controller.send("k", [set("a", 1)]);
+      expect(docs.get("k")).toEqual({ values: { a: 1, b: 9 } });
+      const [[, , dispatchKey]] = send.mock.calls;
+      controller.applyRemote("k", 1, dispatchKey, [set("a", 1), set("b", 9)]);
+      expect(controller.hasPending("k")).toBe(false);
+      expect(docs.get("k")).toEqual({ values: { a: 1, b: 9 } });
     });
 
     it("sends dispatches made during an in-flight send as one batch after it settles", async () => {
@@ -1123,7 +1152,7 @@ describe("actions.Controller", () => {
         done = true;
       });
       return async () => {
-        await scheduler.flushTaskQueue();
+        await scheduler.nextTask();
         return done;
       };
     };

@@ -61,7 +61,7 @@ describe("Account.Guard in the tauri engine", () => {
     mocks.label = "some-child-window";
     await renderGuard();
     // Async effects start after a task queue flush, so wait one out before asserting.
-    await act(async () => await scheduler.flushTaskQueue());
+    await act(async () => await scheduler.nextTask());
     expect(screen.getByText("licensed content")).toBeTruthy();
     expect(mocks.onOpenUrl).not.toHaveBeenCalled();
   });

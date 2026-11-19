@@ -175,10 +175,8 @@ export const holdResponses = (
   const matches = typeof target === "string" ? (t: string) => t === target : target;
   const { unary } = client[field];
   const send = unary.send.bind(unary);
-  let respond = (): void => {};
-  const responded = new Promise<void>((resolve) => (respond = resolve));
-  let release = (): void => {};
-  const released = new Promise<void>((resolve) => (release = resolve));
+  const { promise: responded, resolve: respond } = Promise.withResolvers<void>();
+  const { promise: released, resolve: release } = Promise.withResolvers<void>();
   let sent = 0;
   const spy = vi.spyOn(unary, "send").mockImplementation(async (...args) => {
     const held = matches(args[0], args[1]);

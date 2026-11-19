@@ -10,6 +10,7 @@
 import "@/feature/mqtt/task/Form.css";
 
 import { channel, mqtt } from "@synnaxlabs/client";
+import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
@@ -45,7 +46,6 @@ import {
   type WriteSchemas,
   type WriteTarget,
 } from "@/feature/mqtt/task/types";
-import { Button as PlatformButton } from "@/platform/button";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
 import { Empty } from "@/platform/empty";
@@ -295,12 +295,9 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
           emptyContent={EMPTY_TARGETS}
           footer={
             !isPreview && (
-              <PlatformButton.CreateListItem
-                size="small"
-                onClick={() => void handleAdd()}
-              >
+              <Button.CreateListItem size="small" onClick={() => void handleAdd()}>
                 Add targets
-              </PlatformButton.CreateListItem>
+              </Button.CreateListItem>
             )
           }
           createChannels={duplicateTargets}
