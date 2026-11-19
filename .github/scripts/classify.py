@@ -16,8 +16,9 @@ head, a report is missing, or a trust check fails. A surface the head predates r
 skipped, which does not raise the tier. Otherwise the author picks the tier, so the
 script adds no label. The script only raises: it never removes review/human. It reads
 the pull request number from PR, or else <results-dir>/pr/number, and refuses it
-unless the pull request's head is HEAD_SHA. Environment: GH_TOKEN, GITHUB_REPOSITORY,
-HEAD_SHA, and optionally PR.
+unless the pull request's head is HEAD_SHA. When it raises a pull request that a bot
+opened, it requests a review from REVIEWER, if set, since no author will. Environment:
+GH_TOKEN, GITHUB_REPOSITORY, HEAD_SHA, and optionally PR and REVIEWER.
 """
 
 import json
@@ -268,6 +269,16 @@ def main() -> None:
             "-X",
             "DELETE",
             f"repos/{repo}/issues/{number}/labels/{quote(label, safe='')}",
+        )
+    reviewer = os.environ.get("REVIEWER", "")
+    if HUMAN in add and reviewer and pull.get("user", {}).get("type") == "Bot":
+        gh(
+            "api",
+            "-X",
+            "POST",
+            f"repos/{repo}/pulls/{number}/requested_reviewers",
+            "-f",
+            f"reviewers[]={reviewer}",
         )
     kept = bool(current & HUMAN_TIERS)
     write_comment(

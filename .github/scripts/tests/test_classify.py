@@ -207,6 +207,7 @@ class FakeGH:
         self.heads = ["abc", "abc"]
         self.files = ["core/main.go"]
         self.labels: list[str] = []
+        self.author = "User"
         self.comments: list[dict[str, Any]] = []
         self.writes: list[tuple[tuple[str, ...], str | None]] = []
 
@@ -215,7 +216,10 @@ class FakeGH:
             same = {"repo": {"full_name": REPO}}
             head = {**same, "sha": self.heads.pop(0)}
             labels = [{"name": n} for n in self.labels]
-            return json.dumps({"head": head, "base": same, "labels": labels})
+            user = {"type": self.author}
+            return json.dumps(
+                {"head": head, "base": same, "labels": labels, "user": user}
+            )
         if f"repos/{REPO}/pulls/5/files" in args:
             return "".join(json.dumps(file(name)) + "\n" for name in self.files)
         if args[:3] == ("api", "--paginate", COMMENTS):
@@ -285,6 +289,26 @@ class TestMain:
                 "-",
             ),
         ]
+
+    def test_requests_the_reviewer_when_it_raises_a_bot_pull_request(
+        self, gh: FakeGH, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        gh.author = "Bot"
+        monkeypatch.setenv("REVIEWER", "someone")
+        (tmp_path / "surface-core" / "status").unlink()
+        classify.main()
+        reviewers = f"repos/{REPO}/pulls/5/requested_reviewers"
+        assert [args for args, _ in gh.writes if reviewers in args] == [
+            ("api", "-X", "POST", reviewers, "-f", "reviewers[]=someone")
+        ]
+
+    def test_requests_no_reviewer_when_it_raises_a_person_pull_request(
+        self, gh: FakeGH, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("REVIEWER", "someone")
+        (tmp_path / "surface-core" / "status").unlink()
+        classify.main()
+        assert not any("requested_reviewers" in str(args) for args, _ in gh.writes)
 
     def test_adds_no_label_when_only_the_ui_changed(self, gh: FakeGH) -> None:
         gh.files = ["console/a.tsx"]

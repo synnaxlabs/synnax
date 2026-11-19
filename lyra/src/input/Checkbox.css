@@ -131,8 +131,9 @@
         --pluto-checkbox-target-size: var(--pluto-height-huge);
     }
 
-    /* In a field, the box starts at the edge of its label. */
-    .lyra-input__item & {
+    /* In a field, the box starts at the edge of its label. A table cell keeps it
+       centered. */
+    .lyra-input__item &:not(td *) {
         justify-content: flex-start;
 
         .lyra-input__checkbox-input {
