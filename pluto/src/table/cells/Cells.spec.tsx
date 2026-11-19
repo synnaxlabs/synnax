@@ -68,6 +68,78 @@ describe("Cells.Value", () => {
       ),
     );
   });
+
+  it("should send and repaint its named text, fill, and staleness colors", async () => {
+    const client = createTestClient();
+    const wrapper = await createAsyncSynnaxWrapper({
+      client,
+      additionalRegistry: { [CapturingValue.TYPE]: CapturingValue },
+    });
+    await waitForStreamLive(client.connection);
+    const [text, fill, stale] = await Promise.all(
+      ["#111111", "#222222", "#333333"].map(
+        async (light) =>
+          await client.colors.create({ name: `value-${id.create()}`, light }),
+      ),
+    );
+    render(
+      <table>
+        <tbody>
+          <tr>
+            <Cell.Value
+              {...table.valueCellConfigZ.parse({
+                variant: "value",
+                textColor: { type: "named", key: text.key },
+                fillColor: { type: "named", key: fill.key },
+                stalenessColor: { type: "named", key: stale.key },
+              })}
+              cellKey="c1"
+              box={box.construct(0, 0, 100, 20)}
+              selected={false}
+              editable={false}
+              onSelect={vi.fn()}
+              onChange={vi.fn()}
+            />
+          </tr>
+        </tbody>
+      </table>,
+      { wrapper },
+    );
+    const hex = (c: unknown): string | undefined => {
+      const parsed = xcolor.crudeZ.safeParse(c);
+      return parsed.success ? xcolor.hex(parsed.data) : undefined;
+    };
+    const hexes = (cs: string[]): string[] => cs.map((c) => xcolor.hex(c));
+    const sent = (): Array<string | undefined> => {
+      const state = CapturingValue.states.at(-1);
+      const background = z
+        .object({ props: z.unknown() })
+        .safeParse(state?.backgroundTelem);
+      return [
+        hex(state?.color),
+        hex(background.success ? background.data.props : undefined),
+        hex(state?.stalenessColor),
+      ];
+    };
+    await waitFor(() =>
+      expect(sent()).toEqual(hexes(["#111111", "#222222", "#333333"])),
+    );
+    await Promise.all(
+      [text, fill, stale].map(
+        async ({ key }, i) =>
+          await client.colors.dispatch(
+            key,
+            color.set({
+              path: ["light"],
+              value: xcolor.construct(["#444444", "#555555", "#666666"][i]),
+            }),
+          ),
+      ),
+    );
+    await waitFor(() =>
+      expect(sent()).toEqual(hexes(["#444444", "#555555", "#666666"])),
+    );
+  });
 });
 
 describe("Cells.Text", () => {

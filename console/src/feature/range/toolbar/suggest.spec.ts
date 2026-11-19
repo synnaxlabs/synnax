@@ -10,10 +10,10 @@
 import { NotFoundError, type ranger } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { color, TimeRange, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { describe, expect, it, vi } from "vitest";
 
 import { suggest } from "@/feature/range/toolbar/suggest";
-import { uniqueRangeName } from "@/platform/range/testutil";
 
 const client = createTestClient();
 
@@ -38,12 +38,12 @@ const createAt = async (
 
 /** Creates a campaign with a run whose phases are Chill, Ignition, then Mainstage. */
 const createCampaign = async () => {
-  const campaign = await createAt(uniqueRangeName("campaign"), 0);
-  const first = await createAt(uniqueRangeName("run"), 1, campaign.key);
+  const campaign = await createAt(uniqueName("campaign"), 0);
+  const first = await createAt(uniqueName("run"), 1, campaign.key);
   const chill = await createAt("Chill", 2, first.key, "#3774D0");
   const ignition = await createAt("Ignition", 3, first.key, "#DC4F2B");
   await createAt("Mainstage", 4, first.key, "#7A4FDB");
-  const second = await createAt(uniqueRangeName("run"), 10, campaign.key);
+  const second = await createAt(uniqueName("run"), 10, campaign.key);
   return { campaign, chill, ignition, second };
 };
 
@@ -66,7 +66,7 @@ describe("suggest", () => {
   });
 
   it("should add one to a trailing number and keep its width and color", async () => {
-    const parent = await createAt(uniqueRangeName("parent"), 0);
+    const parent = await createAt(uniqueName("parent"), 0);
     const last = await createAt("HF-09", 1, parent.key, "#3774D0");
     expect(await suggest(client, parent.key)).toEqual({
       name: "HF-10",
@@ -75,7 +75,7 @@ describe("suggest", () => {
   });
 
   it("should suggest no name for a last child with no trailing number", async () => {
-    const parent = await createAt(uniqueRangeName("parent"), 0);
+    const parent = await createAt(uniqueName("parent"), 0);
     await createAt("Hotfire", 1, parent.key);
     expect(await suggest(client, parent.key)).toEqual({ name: "" });
   });

@@ -9,6 +9,7 @@
 
 import { type ranger, type Synnax } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -20,11 +21,7 @@ import {
   renderModalOpener,
 } from "@/platform/modals/testutil";
 import { Range } from "@/platform/range";
-import {
-  createOffPageTestRange,
-  createTestRange,
-  uniqueRangeName,
-} from "@/platform/range/testutil";
+import { createOffPageTestRange, createTestRange } from "@/platform/range/testutil";
 import { Session } from "@/session";
 
 const client = createTestClient();
@@ -71,7 +68,7 @@ describe("Range.useCreateModal", () => {
   });
 
   it("should create the range on the Core without adding it to the favorites", async () => {
-    const name = uniqueRangeName("persisted");
+    const name = uniqueName("persisted");
     const { store } = await openModal(
       { name, timeRange: { start: 1, end: 2 } },
       { client },
@@ -86,7 +83,7 @@ describe("Range.useCreateModal", () => {
   });
 
   it("should resolve with the key of the range it creates", async () => {
-    const name = uniqueRangeName("prompted");
+    const name = uniqueName("prompted");
     const { result } = await openModal(
       { name, timeRange: { start: 1, end: 2 } },
       { client },
@@ -99,7 +96,7 @@ describe("Range.useCreateModal", () => {
   it("should report the range it saved to the Core", async () => {
     const analytics = createTestSink();
     await openModal(
-      { name: uniqueRangeName("reported"), timeRange: { start: 1, end: 2 } },
+      { name: uniqueName("reported"), timeRange: { start: 1, end: 2 } },
       { client, analytics },
     );
     await clickWhenEnabled("Create");
@@ -110,7 +107,7 @@ describe("Range.useCreateModal", () => {
 
   it("should close on save after the prefilled parent is cleared", async () => {
     const parent = await createOffPageTestRange(client);
-    const name = uniqueRangeName("orphaned");
+    const name = uniqueName("orphaned");
     await openModal(
       {
         name,
@@ -130,10 +127,10 @@ describe("Range.useCreateModal", () => {
   it("should attach the parent and labels", async () => {
     const parent = await createTestRange(client);
     const label = await client.labels.create({
-      name: uniqueRangeName("label"),
+      name: uniqueName("label"),
       color: { type: "fixed", value: "#E774D0" },
     });
-    const childName = uniqueRangeName("child");
+    const childName = uniqueName("child");
     await openModal(
       {
         name: childName,

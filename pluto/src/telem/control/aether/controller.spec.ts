@@ -195,8 +195,7 @@ const interceptWrites = (
  * in flight.
  */
 const gateWriter = () => {
-  let finishOpen!: () => void;
-  const gate = new Promise<void>((resolve) => (finishOpen = resolve));
+  const { promise: gate, resolve: finishOpen } = Promise.withResolvers<void>();
   let writes = 0;
   let closes = 0;
   const openWriter: OpenWriter = async (client, config) => {

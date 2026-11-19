@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -15,7 +16,7 @@ import { renderPalette } from "@/feature/command/testutil";
 import { Import } from "@/feature/import";
 import { createActiveState } from "@/platform/project/testutil";
 import { Session } from "@/session";
-import { interceptFilePicker, uniqueName } from "@/testutil";
+import { interceptFilePicker } from "@/testutil";
 
 const client = createTestClient();
 const roles = new RoleClients(client);

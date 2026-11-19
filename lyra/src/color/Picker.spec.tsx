@@ -21,6 +21,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
+import { Menu } from "@/menu";
 import { Theming } from "@/theming";
 import { Triggers } from "@/triggers";
 
@@ -540,6 +541,15 @@ describe("Picker", () => {
         );
       };
 
+      const EditMenu = (): ReactElement => {
+        const { open } = Dialog.useViews();
+        return (
+          <Menu.Menu onChange={() => open("Edit color", <span>view body</span>)}>
+            <Menu.Item itemKey="edit">Edit</Menu.Item>
+          </Menu.Menu>
+        );
+      };
+
       const renderSlots = (
         library: Partial<Color.Library>,
         props: Partial<Color.PickerProps> = {},
@@ -680,6 +690,18 @@ describe("Picker", () => {
         );
         fireEvent.click(c.getByText("linked Ocean"));
         expect(onNamedChange).toHaveBeenCalledExactlyOnceWith("moss");
+      });
+
+      it("should focus the swatch after Back from a view its menu opened", () => {
+        const c = renderSlots({ named: "ocean", swatchMenu: <EditMenu /> });
+        const alarm = c.getByLabelText("Alarm");
+        act(() => alarm.focus());
+        fireEvent.contextMenu(alarm);
+        fireEvent.click(c.getByRole("menuitem", { name: "Edit" }));
+        expect(c.queryByRole("menu")).toBeNull();
+        expect(document.activeElement).toBe(c.getByLabelText("Back"));
+        fireEvent.click(c.getByLabelText("Back"));
+        expect(document.activeElement).toBe(alarm);
       });
     });
 

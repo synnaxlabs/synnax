@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, mqtt, type task } from "@synnaxlabs/client";
-import { json, payload, record } from "@synnaxlabs/x";
+import { json, payload, record, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { sparkplugIDZ } from "@/feature/mqtt/device/types";
@@ -73,8 +73,6 @@ export interface PlainReadEntry extends mqtt.PlainReadEntry {}
 export interface SparkplugReadEntry extends mqtt.SparkplugReadEntry {}
 
 export type ReadEntry = PlainReadEntry | SparkplugReadEntry;
-
-export interface ReadBinding extends mqtt.ReadBinding {}
 
 const DEPLOY_SPARKPLUG_TAG_SHAPE = {
   group: sparkplugIDZ("Group").min(1, "Group is required"),
@@ -258,9 +256,7 @@ const deployEdgeTagZ = mqtt.edgeTagZ.extend({
   channel: channel.keyZ.refine((key) => key !== 0, "A channel is required"),
 });
 
-// Two enabled tags may publish one channel under two names, so only the name is
-// checked for duplicates.
-const validateEdgeTags = (ctx: z.core.ParsePayload<EdgeTag[]>) => {
+const validateAnyTagEnabled = (ctx: z.core.ParsePayload<EdgeTag[]>) => {
   if (ctx.value.every(({ disabled }) => disabled))
     ctx.issues.push({
       continue: true,
@@ -269,26 +265,23 @@ const validateEdgeTags = (ctx: z.core.ParsePayload<EdgeTag[]>) => {
       message: "At least one tag must be enabled",
       path: [],
     });
-  const seen = new Set<string>();
-  ctx.value.forEach(({ disabled, name }, i) => {
-    if (disabled || name === "") return;
-    if (seen.has(name))
-      ctx.issues.push({
-        continue: true,
-        code: "custom",
-        input: ctx.value,
-        message: `Duplicate name "${name}"`,
-        path: [i, "name"],
-      });
-    else seen.add(name);
-  });
 };
+
+// Two enabled tags may publish one channel under two names, so only the name is
+// checked for duplicates.
+const validateTagNames = zod.uniqueBy<EdgeTag, "name">(
+  "name",
+  (name) => `Duplicate name "${name}"`,
+  ({ disabled, name }) => disabled || name === "",
+);
 
 export const deployEdgeConfigZ = mqtt.edgeConfigZ.extend({
   device: Task.deviceKeyZ,
   group: sparkplugIDZ("Group").min(1, "Group is required"),
   edgeNode: sparkplugIDZ("Edge node").min(1, "Edge node is required"),
-  tags: mqtt.edgeTagZ.array().check(validateEnabled(deployEdgeTagZ), validateEdgeTags),
+  tags: mqtt.edgeTagZ
+    .array()
+    .check(validateEnabled(deployEdgeTagZ), validateAnyTagEnabled, validateTagNames),
 });
 
 export const EDGE_SCHEMAS = {

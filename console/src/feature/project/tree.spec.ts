@@ -18,6 +18,7 @@ import {
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { type Haul } from "@synnaxlabs/lyra/haul";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
+import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -31,11 +32,9 @@ import {
 } from "@/platform/tree/testutil";
 import { Session } from "@/session";
 import {
-  assertDefined,
   captureBrowserDownloads,
   createTestStore,
   resolveFocusedTab,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();

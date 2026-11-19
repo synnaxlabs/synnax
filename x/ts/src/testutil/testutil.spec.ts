@@ -11,7 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { sleep } from "@/sleep";
 import { TimeSpan } from "@/telem";
-import { expectAlways, toString } from "@/testutil";
+import { assertDefined, expectAlways, toString, uniqueName } from "@/testutil";
 
 describe("testutil", () => {
   describe("toString", () => {
@@ -193,6 +193,35 @@ describe("testutil", () => {
       } finally {
         clearInterval(incrementer);
       }
+    });
+  });
+
+  describe("assertDefined", () => {
+    it("should pass a defined value through", () => {
+      const value: number | undefined = 0;
+      assertDefined(value);
+      expect(value).toBe(0);
+    });
+    it("should throw the default message for null or undefined", () => {
+      expect(() => assertDefined(undefined)).toThrow("expected value to be defined");
+      expect(() => assertDefined(null)).toThrow("expected value to be defined");
+    });
+    it("should throw the given message", () => {
+      expect(() => assertDefined(undefined, "button not found")).toThrow(
+        "button not found",
+      );
+    });
+  });
+
+  describe("uniqueName", () => {
+    it("should join the prefix and a unique id with an underscore", () => {
+      expect(uniqueName("ch")).toMatch(/^ch_[a-zA-Z][a-zA-Z0-9]{10}$/);
+    });
+    it("should default the prefix to test", () => {
+      expect(uniqueName()).toMatch(/^test_/);
+    });
+    it("should return a new name each call", () => {
+      expect(uniqueName()).not.toEqual(uniqueName());
     });
   });
 });
