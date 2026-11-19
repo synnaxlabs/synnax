@@ -2382,6 +2382,15 @@ describe("Density", () => {
 });
 
 describe("DataType", () => {
+  describe("isInt64Like", () => {
+    it("should hold only int64 and timestamp", () => {
+      expect(DataType.INT64.isInt64Like).toBe(true);
+      expect(DataType.TIMESTAMP.isInt64Like).toBe(true);
+      expect(DataType.UINT64.isInt64Like).toBe(false);
+      expect(DataType.FLOAT64.isInt64Like).toBe(false);
+    });
+  });
+
   describe("widen", () => {
     // The vectors are shared with the Python implementation.
     const VECTORS_URL = new URL("../../../testdata/telem/widen.json", import.meta.url);

@@ -3414,6 +3414,16 @@ describe("MultiSeries", () => {
       expect(Array.from(multiSeries.data as Float64Array)).toEqual([2 ** 53, 0.5]);
     });
 
+    it("should check the type of each series when reinterpreted", () => {
+      const multiSeries = new MultiSeries([
+        new Series({ data: [1n], dataType: DataType.INT64 }),
+        new Series({ data: [2], dataType: DataType.FLOAT64 }),
+      ]);
+      expect(() => multiSeries.as("bigint")).toThrow(
+        "cannot convert series of type float64 to bigint",
+      );
+    });
+
     it("should throw on text against numbers", () => {
       const multiSeries = new MultiSeries([
         new Series({ data: ["a"], dataType: DataType.STRING }),

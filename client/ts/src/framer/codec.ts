@@ -108,14 +108,11 @@ interface CodecState {
   dec: Agreement;
 }
 
-const isInt64Like = (dt: DataType): boolean =>
-  dt.equals(DataType.INT64) || dt.equals(DataType.TIMESTAMP);
-
 const needsTypeOverride = (agreed: DataType, dt: DataType): boolean =>
-  !agreed.equals(dt) && (!isInt64Like(agreed) || !isInt64Like(dt));
+  !agreed.equals(dt) && (!agreed.isInt64Like || !dt.isInt64Like);
 
 const isOwnClock = (key: channel.Key, s: SeriesPayload): boolean =>
-  (s.clock ?? 0) === key && isInt64Like(s.dataType);
+  (s.clock ?? 0) === key && s.dataType.isInt64Like;
 
 // Returns the ascending union of a and b, which are ascending and disjoint.
 const union = (a: channel.Key[], b: channel.Key[]): channel.Key[] => {

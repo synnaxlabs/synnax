@@ -1476,8 +1476,9 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
   readonly series: Array<Series<T>>;
 
   /**
-   * The MultiSeries constructor accepts an optional array of Series instances. The
-   * series can hold different data types.
+   * The MultiSeries constructor accepts an optional array of Series instances, which
+   * can hold different data types. Reads of one series keep its exact type, and reads
+   * of the whole collection widen to its dataType.
    *
    * @example
    * // Create an empty MultiSeries
@@ -1507,9 +1508,6 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
    * const ms6 = new MultiSeries([s1]);
    * const ms7 = new MultiSeries([s2]);
    * ms6.push(ms7);
-   *
-   * The series can hold different data types. Reads of one series keep its exact type,
-   * and reads of the whole collection widen to its dataType.
    */
   constructor(series: Array<Series<T>> = []) {
     this.series = series;
@@ -1541,7 +1539,8 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
   as(jsType: "boolean"): MultiSeries<boolean>;
 
   as<T extends TelemValue>(jsType: JSType): MultiSeries<T> {
-    checkAsType(jsType, this.dataType);
+    if (this.series.length === 0) checkAsType(jsType, DataType.UNKNOWN);
+    this.series.forEach((s) => checkAsType(jsType, s.dataType));
     return this as unknown as MultiSeries<T>;
   }
 

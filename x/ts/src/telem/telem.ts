@@ -1670,6 +1670,14 @@ export class DataType
   }
 
   /**
+   * @returns true for INT64 and TIMESTAMP, which hold the same samples. Widening and
+   * the frame codecs count them as one type.
+   */
+  get isInt64Like(): boolean {
+    return this.equals(DataType.INT64) || this.equals(DataType.TIMESTAMP);
+  }
+
+  /**
    * @returns true if the data type can be cast to the other data type without loss of
    * precision.
    */
@@ -1736,7 +1744,7 @@ export class DataType
   widen(other: DataType): DataType {
     if (this.equals(other)) return this;
     const pair = [this, other];
-    if (pair.every((dt) => isInt64Like(dt))) return DataType.INT64;
+    if (pair.every((dt) => dt.isInt64Like)) return DataType.INT64;
     const [a, b] = pair.map(numberKind);
     if (b != null && this.equals(DataType.BOOLEAN)) return other;
     if (a != null && other.equals(DataType.BOOLEAN)) return this;
@@ -2236,27 +2244,11 @@ export const isTelemValue = (value: unknown): value is TelemValue => {
   );
 };
 
-const isInt64Like = (dt: DataType): boolean =>
-  dt.equals(DataType.INT64) || dt.equals(DataType.TIMESTAMP);
-
 interface NumberKind {
   kind: "int" | "uint" | "float";
   size: number;
   dataType: DataType;
 }
-
-const NUMBER_KINDS: Array<[DataType, NumberKind["kind"]]> = [
-  [DataType.INT8, "int"],
-  [DataType.INT16, "int"],
-  [DataType.INT32, "int"],
-  [DataType.INT64, "int"],
-  [DataType.UINT8, "uint"],
-  [DataType.UINT16, "uint"],
-  [DataType.UINT32, "uint"],
-  [DataType.UINT64, "uint"],
-  [DataType.FLOAT32, "float"],
-  [DataType.FLOAT64, "float"],
-];
 
 const SIGNED_BY_SIZE: Record<number, DataType> = {
   2: DataType.INT16,
@@ -2266,9 +2258,12 @@ const SIGNED_BY_SIZE: Record<number, DataType> = {
 
 // Returns the kind and byte size of a number type, or undefined for any other type.
 const numberKind = (dt: DataType): NumberKind | undefined => {
-  const entry = NUMBER_KINDS.find(([t]) => t.equals(dt));
-  if (entry == null) return undefined;
-  return { kind: entry[1], size: dt.density.valueOf(), dataType: dt };
+  let kind: NumberKind["kind"];
+  if (dt.isFloat) kind = "float";
+  else if (dt.isSignedInteger) kind = "int";
+  else if (dt.isUnsignedInteger) kind = "uint";
+  else return undefined;
+  return { kind, size: dt.density.valueOf(), dataType: dt };
 };
 
 export const convertDataType = (
