@@ -11,13 +11,17 @@ package telem_test
 
 import (
 	"encoding/binary"
+	"unsafe"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/encoding"
+	"github.com/synnaxlabs/x/encoding/json"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/unsafe"
+	xunsafe "github.com/synnaxlabs/x/unsafe"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -1049,7 +1053,7 @@ var _ = Describe("Series", func() {
 			s := telem.NewSeriesV[int64](1, 2, 3, 4, 5)
 			values := make([]int64, 0, 5)
 			for sample := range s.Samples() {
-				values = append(values, MustSucceed(unsafe.CastBytes[int64](sample)))
+				values = append(values, MustSucceed(xunsafe.CastBytes[int64](sample)))
 			}
 			Expect(values).To(Equal([]int64{1, 2, 3, 4, 5}))
 		})
@@ -1068,7 +1072,7 @@ var _ = Describe("Series", func() {
 			values := make([]int64, 0, 3)
 			count := 0
 			for sample := range s.Samples() {
-				values = append(values, MustSucceed(unsafe.CastBytes[int64](sample)))
+				values = append(values, MustSucceed(xunsafe.CastBytes[int64](sample)))
 				count++
 				if count > 2 {
 					break
@@ -1317,5 +1321,61 @@ var _ = Describe("Series", func() {
 			Expect(dst.DataType).To(Equal(telem.StringT))
 			Expect(dst.Unmarshal[string]()).To(Equal([]string{"foo", "bar"}))
 		})
+	})
+
+	Describe("Clock", func() {
+		It("Should keep the series at 72 bytes", func() {
+			Expect(unsafe.Sizeof(telem.Series{})).To(Equal(uintptr(72)))
+		})
+
+		DescribeTable("Should carry the clock into a derived series",
+			func(derive func(telem.Series) telem.Series) {
+				s := telem.NewSeriesV[int64](1, 2, 3, 4)
+				s.Clock = 5
+				Expect(derive(s).Clock).To(Equal(uint32(5)))
+			},
+			Entry("Last", telem.Series.Last),
+			Entry("DeepCopy", telem.Series.DeepCopy),
+			Entry("Resized", func(s telem.Series) telem.Series { return s.Resized(2) }),
+			Entry("Downsample", func(s telem.Series) telem.Series {
+				return s.Downsample(2)
+			}),
+			Entry("Downsample of a variable series", func(s telem.Series) telem.Series {
+				v := telem.NewSeriesV("a", "b", "c")
+				v.Clock = s.Clock
+				return v.Downsample(2)
+			}),
+			Entry("CopiedFrom", func(s telem.Series) telem.Series {
+				return telem.Series{}.CopiedFrom(s)
+			}),
+			Entry("ReduceCut", func(s telem.Series) telem.Series {
+				reduced, _, _ := s.ReduceCut(telem.AggregationMinMax, 2)
+				return reduced
+			}),
+		)
+
+		DescribeTable("Should leave a zero clock out of the encoded form",
+			func(codec encoding.Codec, key string) {
+				encoded := MustSucceed(codec.Encode(telem.NewSeriesV[int64](1)))
+				Expect(string(encoded)).ToNot(ContainSubstring(key))
+			},
+			Entry("JSON", json.Codec, `"clock"`),
+			Entry("msgpack", msgpack.Codec, "clock"),
+		)
+
+		DescribeTable("Should carry a set clock through the encoded form",
+			func(codec encoding.Codec) {
+				s := telem.NewSeriesV[int64](1)
+				s.Clock = 5
+				var decoded telem.Series
+				Expect(codec.Decode(
+					MustSucceed(codec.Encode(s)),
+					&decoded,
+				)).To(Succeed())
+				Expect(decoded).To(telem.MatchSeries(s))
+			},
+			Entry("JSON", json.Codec),
+			Entry("msgpack", msgpack.Codec),
+		)
 	})
 })
