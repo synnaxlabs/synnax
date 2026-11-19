@@ -20,6 +20,11 @@
     }
 }
 
+/* The "#" is text, which sets its own font. */
+.lyra-color-hex-text .lyra-input__start-content {
+    font-family: var(--pluto-code-font-family);
+}
+
 /* The name of a linked color is text, not a hex code. */
 .lyra-color-hex-text.lyra--named input {
     font-family: var(--pluto-font-family);
