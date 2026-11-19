@@ -35,6 +35,7 @@ import {
 } from "@/menu/types";
 import { position } from "@/position";
 import { Triggers } from "@/triggers";
+import { FOCUSABLE } from "@/util";
 
 interface ContextMenuState {
   visible: boolean;
@@ -62,9 +63,10 @@ export interface UseContextMenuReturn extends ContextMenuState {
   close: () => void;
   /**
    * Gives the focus back as a chosen item does, while the focus is in the menu: to the
-   * element that had it when the menu opened, or to the target the menu opened over if
-   * that was the body. The menu stays open. The menu surface calls it in the capture
-   * phase of an item click, so the item acts with the focus already back.
+   * target the menu opened over if the target can take the focus and the element that
+   * had the focus when the menu opened holds it, else to that element. The menu stays
+   * open. The menu surface calls it in the capture phase of an item click, so the item
+   * acts with the focus already back.
    */
   returnFocus: () => void;
   open: ContextMenuOpen;
@@ -132,8 +134,9 @@ export const useContextMenu = (): UseContextMenuReturn => {
   // Where the focus was when the menu opened. The menu takes the focus from there, and
   // gives it back there when it closes.
   const foundRef = useRef<HTMLElement | null>(null);
-  // Where a chosen item gives the focus back. A right click in WebKit focuses no button
-  // and leaves the focus on the body, so the target the menu opened over takes it.
+  // Where a chosen item gives the focus back. A right click in WebKit focuses no
+  // button. The focus stays on the body, or on a box around the button that a click can
+  // focus, so a focusable target that the menu opened over takes it.
   const chosenRef = useRef<HTMLElement | null>(null);
   // Whether the focus showed its ring when the menu opened. Closing the menu with a key
   // would show the ring, so the menu gives it back as it found it.
@@ -167,7 +170,10 @@ export const useContextMenu = (): UseContextMenuReturn => {
     const active = document.activeElement;
     if (active instanceof HTMLElement && menuRef.current?.contains(active) !== true) {
       foundRef.current = active;
-      chosenRef.current = active === document.body ? (opened ?? active) : active;
+      chosenRef.current =
+        opened?.matches(FOCUSABLE) === true && active.contains(opened)
+          ? opened
+          : active;
       ringRef.current = active.matches(":focus-visible");
     }
     setMenuState({ visible: true, keys, position: p, cursor: p, target: opened });
