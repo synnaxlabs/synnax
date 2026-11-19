@@ -10,6 +10,7 @@
 import { type z } from "zod";
 
 import { caseconv } from "@/caseconv";
+import { csv } from "@/csv";
 import { narrow } from "@/narrow";
 import { zod } from "@/zod";
 
@@ -82,13 +83,27 @@ export class JSONCodec implements Codec {
   }
 }
 
-/** CSVCodec is a CSV implementation of Codec. */
+// An empty cell decodes to null so that every column keeps one entry per row.
+const parseCSVField = (field: string | undefined): unknown => {
+  if (field == null || field.length === 0) return null;
+  const num = Number(field);
+  return isNaN(num) || field.trim().length === 0 ? field : num;
+};
+
+/**
+ * CSVCodec is a CSV implementation of Codec. It encodes an array of objects into rows,
+ * and decodes rows into a record of columns keyed by the header row.
+ */
 export class CSVCodec implements Codec {
   contentType = "text/csv";
 
   encode(payload: unknown): Uint8Array<ArrayBuffer> {
-    const csvString = this.encodeString(payload);
-    return new TextEncoder().encode(csvString);
+    if (!Array.isArray(payload) || payload.length === 0 || !narrow.isObject(payload[0]))
+      throw new Error("Payload must be an array of objects");
+    const keys = Object.keys(payload[0]);
+    const rows = [keys, ...payload.map((item) => keys.map((key) => item[key]))];
+    const text = rows.map((row) => row.map(csv.formatValue).join(",")).join("\n");
+    return new TextEncoder().encode(text);
   }
 
   decode<P extends z.ZodType>(
@@ -96,23 +111,7 @@ export class CSVCodec implements Codec {
     schema?: P,
     opts?: zod.ParseOptions,
   ): z.infer<P> {
-    const csvString = new TextDecoder().decode(data);
-    return this.decodeString(csvString, schema, opts);
-  }
-
-  encodeString(payload: unknown): string {
-    if (!Array.isArray(payload) || payload.length === 0 || !narrow.isObject(payload[0]))
-      throw new Error("Payload must be an array of objects");
-
-    const keys = Object.keys(payload[0]);
-    const csvRows = [keys.join(",")];
-
-    payload.forEach((item) => {
-      const values = keys.map((key) => JSON.stringify(item[key] ?? ""));
-      csvRows.push(values.join(","));
-    });
-
-    return csvRows.join("\n");
+    return this.decodeString(new TextDecoder().decode(data), schema, opts);
   }
 
   decodeString<P extends z.ZodType>(
@@ -120,40 +119,14 @@ export class CSVCodec implements Codec {
     schema?: P,
     opts?: zod.ParseOptions,
   ): z.infer<P> {
-    const label = opts?.label ?? "CSV data";
-    const [headerLine, ...lines] = data
-      .trim()
-      .split("\n")
-      .map((line) => line.trim());
-    if (headerLine.length === 0)
-      return schema != null ? zod.parse(schema, {}, { label }) : ({} as z.infer<P>);
-    const headers = headerLine.split(",").map((header) => header.trim());
-    const result: { [key: string]: unknown[] } = {};
-
-    headers.forEach((header) => {
-      result[header] = [];
+    const [headers = [], ...rows] = csv.parseBlock(data, ",");
+    const result: Record<string, unknown[]> = {};
+    headers.forEach((header, i) => {
+      result[header] = rows.map((row) => parseCSVField(row[i]));
     });
-
-    lines.forEach((line) => {
-      const values = line.split(",").map((value) => value.trim());
-      headers.forEach((header, index) => {
-        const v = this.parseValue(values[index]);
-        if (v == null) return;
-        result[header].push(v);
-      });
-    });
-
     return schema != null
-      ? zod.parse(schema, result, { label })
+      ? zod.parse(schema, result, { label: opts?.label ?? "CSV data" })
       : (result as z.infer<P>);
-  }
-
-  private parseValue(value?: string): unknown {
-    if (value == null || value.length === 0) return null;
-    const num = Number(value);
-    if (!isNaN(num)) return num;
-    if (value.startsWith('"') && value.endsWith('"')) return value.slice(1, -1);
-    return value;
   }
 }
 
@@ -181,5 +154,3 @@ export class TextCodec implements Codec {
 export const JSON_CODEC = new JSONCodec();
 export const CSV_CODEC = new CSVCodec();
 export const TEXT_CODEC = new TextCodec();
-
-export const ENCODERS: Codec[] = [JSON_CODEC];

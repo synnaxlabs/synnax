@@ -283,19 +283,14 @@ const createConverter = (
       return v;
     });
   };
-  const converter = <V>(obj: V, opt: Options = defaultOptions): V => {
+  const converter = <V>(obj: V, opt: Options = {}): V => {
     if (typeof obj === "string") return f(obj) as V;
     if (Array.isArray(obj)) {
       const encode = encoderOf(opt.schema);
       if (encode != null) return encode(obj) as V;
       const decode = decoderOf(opt.schema);
       if (decode != null) return decode(obj) as V;
-      const elementSchema = getArrayElementSchema(opt.schema);
-      const elemOpt: Options = {
-        recursive: opt.recursive,
-        recursiveInArray: opt.recursiveInArray,
-        schema: elementSchema,
-      };
+      const elemOpt: Options = { schema: getArrayElementSchema(opt.schema) };
       return obj.map((v) => converter(v, elemOpt)) as V;
     }
     if (!isValidObject(obj)) return obj;
@@ -304,11 +299,7 @@ const createConverter = (
 
     if (opt.schema != null && hasPreserveKeysMarker(opt.schema)) {
       const valueSchema = getRecordValueSchema(opt.schema);
-      const childOpt: Options = {
-        recursive: opt.recursive,
-        recursiveInArray: opt.recursiveInArray,
-        schema: valueSchema,
-      };
+      const childOpt: Options = { schema: valueSchema };
       const res: record.Unknown = {};
       const anyObj = obj as record.Unknown;
       const decode = decoderOf(valueSchema);
@@ -322,11 +313,7 @@ const createConverter = (
           const encode = encoderOf(valueSchema);
           if (encode != null) value = encode(value);
           else {
-            const elemOpt: Options = {
-              recursive: opt.recursive,
-              recursiveInArray: opt.recursiveInArray,
-              schema: getArrayElementSchema(valueSchema),
-            };
+            const elemOpt: Options = { schema: getArrayElementSchema(valueSchema) };
             value = (value as unknown[]).map((v) =>
               isValidObject(v) && !isPreservedType(v) ? converter(v, elemOpt) : v,
             );
@@ -337,8 +324,6 @@ const createConverter = (
       return res as V;
     }
 
-    const recursive = opt.recursive ?? true;
-    const recursiveInArray = opt.recursiveInArray ?? recursive;
     const schema = opt.schema;
     const res: record.Unknown = {};
     const anyObj = obj as record.Unknown;
@@ -349,7 +334,7 @@ const createConverter = (
     // A record has no shape, so its values encode through its value schema.
     const recordEncode =
       encodes && shape == null ? encoderOf(getRecordValueSchema(schema)) : undefined;
-    const childOpt: Options = { recursive, recursiveInArray, schema: undefined };
+    const childOpt: Options = { schema: undefined };
     const keys = Object.keys(anyObj);
     for (let i = 0; i < keys.length; i++) {
       const key = keys[i];
@@ -369,20 +354,19 @@ const createConverter = (
 
       if (decode != null && (typeof value === "string" || Array.isArray(value)))
         value = decode(value);
-      else if (recursive)
-        if (isValidObject(value)) {
-          if (!isPreservedType(value)) {
-            childOpt.schema = propSchema;
-            value = converter(value, childOpt);
-          }
-        } else if (recursiveInArray && Array.isArray(value)) {
-          const encode = encoderOf(propSchema) ?? recordEncode;
-          if (encode != null) value = encode(value);
-          else {
-            childOpt.schema = getArrayElementSchema(propSchema);
-            value = mapArray(value as unknown[], childOpt);
-          }
+      else if (isValidObject(value)) {
+        if (!isPreservedType(value)) {
+          childOpt.schema = propSchema;
+          value = converter(value, childOpt);
         }
+      } else if (Array.isArray(value)) {
+        const encode = encoderOf(propSchema) ?? recordEncode;
+        if (encode != null) value = encode(value);
+        else {
+          childOpt.schema = getArrayElementSchema(propSchema);
+          value = mapArray(value as unknown[], childOpt);
+        }
+      }
 
       res[nkey] = value;
     }
@@ -582,85 +566,13 @@ export const camelToSnakePath = createPathConverter(
   true,
 );
 
-/** Capitalizes the first character of the given string. */
-export const capitalize = (str: string): string => {
-  if (str.length === 0) return str;
-  return str[0].toUpperCase() + str.slice(1);
-};
-
 export interface Options {
-  recursive?: boolean;
-  recursiveInArray?: boolean;
+  /** The schema that the value converts with. */
   schema?: z.ZodType;
 }
-
-const defaultOptions: Options = {
-  recursive: true,
-  recursiveInArray: true,
-  schema: undefined,
-};
 
 const isValidObject = (obj: unknown): boolean =>
   obj != null && typeof obj === "object" && !Array.isArray(obj);
 
 const isPreservedType = (obj: unknown): boolean =>
   obj instanceof Uint8Array || obj instanceof Number || obj instanceof String;
-
-/** Converts a string to kebab-case, splitting on spaces, camelCase, and capitals. */
-const toKebabStr = (str: string): string =>
-  str
-    .replace(/[\s_]+/g, "-")
-    .replace(
-      /([a-z0-9])([A-Z])/g,
-      (_, p1: string, p2: string) => `${p1}-${p2.toLowerCase()}`,
-    )
-    .toLowerCase();
-
-/** Converts a string to kebab-case, splitting on spaces, camelCase, and capitals. */
-export const toKebab = createConverter(toKebabStr);
-
-/** Splits snake_case, kebab-case, camelCase, and PascalCase into spaced words. */
-const splitWords = (str: string): string => {
-  let result = str.replace(/[_-]/g, " ");
-
-  // Insert spaces before capital letters (for camelCase/PascalCase)
-  // but not at the start or when there are consecutive capitals
-  result = result.replace(
-    /([a-z0-9])([A-Z])/g,
-    (_, p1: string, p2: string) => `${p1} ${p2}`,
-  );
-
-  // Handle consecutive capitals (e.g., "XMLParser" -> "XML Parser")
-  result = result.replace(
-    /([A-Z]+)([A-Z][a-z])/g,
-    (_, p1: string, p2: string) => `${p1} ${p2}`,
-  );
-
-  return result.replace(/\s+/g, " ").trim();
-};
-
-const toProperNounStr = (str: string): string => {
-  if (str.length === 0) return str;
-  return splitWords(str).replace(/\b\w/g, (char) => char.toUpperCase());
-};
-
-/** Converts a string to proper noun format, capitalizing every word. */
-export const toProperNoun = createConverter(toProperNounStr);
-
-// Matches acronym and version tokens ("XML", "V2") that keep their casing.
-const ACRONYM_REGEX = /^[A-Z0-9]{2,}$/;
-
-const toSentenceStr = (str: string): string => {
-  if (str.length === 0) return str;
-  const words = splitWords(str).split(" ");
-  return words
-    .map((word, i) => {
-      if (ACRONYM_REGEX.test(word)) return word;
-      const lower = word.toLowerCase();
-      return i === 0 ? lower[0].toUpperCase() + lower.slice(1) : lower;
-    })
-    .join(" ");
-};
-
-/** Converts a string to sentence case. Acronyms keep their casing. */
-export const toSentence = createConverter(toSentenceStr);

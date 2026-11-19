@@ -98,7 +98,7 @@ export class Uses<K extends record.Key, R extends Used<K>, Q extends Params & Re
     // The Core announces no change to uses. Refetches run outside the change stream and
     // one at a time, so an older reply cannot overwrite a newer one. A change that
     // arrives while a refetch waits joins it.
-    const mu = sync.newMutex({ waiting: false });
+    const mu = sync.createMutex({ waiting: false });
     this.refetch = () => {
       if (mu.waiting) return;
       mu.waiting = true;

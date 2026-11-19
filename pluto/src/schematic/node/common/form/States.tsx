@@ -77,8 +77,10 @@ const Options = ({ path, colorDisabled, preview }: OptionsProps): ReactElement =
       preview={preview}
       abnormalDisabled
       colorDisabled={colorDisabled}
-      onSet={(entry) =>
-        write((current) => current.map((e) => (e.key === entry.key ? entry : e)))
+      onSet={(changed) =>
+        write((current) =>
+          current.map((e) => changed.find((c) => c.key === e.key) ?? e),
+        )
       }
       onAdd={(added) => write((current) => [...current, ...added])}
       onRemove={(i) => write((current) => current.filter((_, j) => j !== i))}
