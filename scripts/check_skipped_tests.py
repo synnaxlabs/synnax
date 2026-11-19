@@ -88,7 +88,8 @@ _RUNS_ON = {
 }
 _TS_HELPER = "platformExcludes("
 _TS_LINE = (
-    "`...platformExcludes()` from `@synnaxlabs/vite-plugin` to each `test.exclude`"
+    "`...platformExcludes()` from `@synnaxlabs/vite-plugin` to each `test.exclude`, "
+    "after `...configDefaults.exclude` from `vitest/config`"
 )
 _PY_LINE = (
     '`collect_ignore_glob = [f"*_{p}.py" for p in {"darwin", "linux", "win32"} - '
