@@ -20,7 +20,7 @@ import { Select as Base } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Flux } from "@synnaxlabs/pluto";
 import { type record, strings } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { type ReactElement, type ReactNode } from "react";
 
 import { CSS } from "@/platform/css";
 
@@ -81,6 +81,7 @@ interface TriggerProps<E extends record.Unknown> {
   resourceName: string;
   result: Flux.Result<E>;
   preview?: boolean;
+  renderEndContent?: (entry: E) => ReactNode;
 }
 
 const Trigger = <K extends record.Key, E extends Entry<K>>({
@@ -88,8 +89,11 @@ const Trigger = <K extends record.Key, E extends Entry<K>>({
   resourceName,
   result,
   preview,
+  renderEndContent,
 }: TriggerProps<E>): ReactElement => {
   const itemStatus = Input.useItemStatus({});
+  const endContent =
+    result.variant === "success" ? renderEndContent?.(result.data) : undefined;
   const content =
     result.variant === "success" ? (
       <Text.Text el="span" overflow="fade" className={CSS.BE("picker", "text")}>
@@ -111,6 +115,9 @@ const Trigger = <K extends record.Key, E extends Entry<K>>({
     >
       <ItemIcon className={CSS.BE("picker", "icon")} />
       {content}
+      {endContent != null && (
+        <span className={CSS.BE("picker", "end")}>{endContent}</span>
+      )}
     </Dialog.Trigger>
   );
 };
@@ -130,6 +137,8 @@ export interface SelectProps<K extends record.Key, E extends Entry<K>>
    */
   onCreate?: (name: string) => Promise<K | null>;
   preview?: boolean;
+  /** Renders content from the held entry at the end of the trigger, such as a badge. */
+  renderEndContent?: (entry: E) => ReactNode;
 }
 
 /**
@@ -147,6 +156,7 @@ export const Select = <K extends record.Key, E extends Entry<K>>({
   result,
   onCreate,
   preview,
+  renderEndContent,
 }: SelectProps<K, E>): ReactElement => {
   const { data, getItem, subscribe, status, more, search } = list;
   const handleCreate =
@@ -172,6 +182,7 @@ export const Select = <K extends record.Key, E extends Entry<K>>({
           resourceName={resourceName}
           result={result}
           preview={preview}
+          renderEndContent={renderEndContent}
         />
         <Base.Dialog className={CSS.BE("picker", "dialog")}>
           <Base.Body<K>

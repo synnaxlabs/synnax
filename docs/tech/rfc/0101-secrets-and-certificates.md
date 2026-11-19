@@ -272,11 +272,11 @@ shared fields:
 - **Secret field**: Shows the name. Its list shows "Set on <date>" for a stored secret
   and "Read from <file>" for a file secret. It picks from the list, or adds a secret
   from a typed value.
-- **Certificate field**: Shows the name, with the expiry and the path of a file
-  certificate on a line under it. Details shows the subject, issuer, expiry, and SHA-256
-  fingerprint, with Download. It picks from the list, or adds a certificate from a
-  dropped file (`console/src/platform/fs/DropZone.tsx`), pasted PEM, or the file browser
-  on the device's rack, with an optional key file.
+- **Certificate field**: Shows the name, with the expiry in a badge at its end. A line
+  under it shows the path of a file certificate. Details shows the subject, issuer,
+  expiry, and SHA-256 fingerprint, with Download. It picks from the list, or adds a
+  certificate from a dropped file (`console/src/platform/fs/DropZone.tsx`), pasted PEM,
+  or the file browser on the device's rack, with an optional key file.
 
 Phase 9 adds the certificate field without the file browser, and phase 10 adds the file
 browser to both fields. From phase 10, both fields list only the file items of the

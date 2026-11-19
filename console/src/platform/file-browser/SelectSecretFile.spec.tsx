@@ -104,9 +104,9 @@ describe("FileBrowser.SelectSecretFile", () => {
     await findDialogTriggerByText("No file");
   });
 
-  it("should say when the rack has no secrets folder", async () => {
+  it("should say when the Driver has no secrets folder", async () => {
     await renderSelect([createListing()], true);
-    const trigger = await findDialogTriggerByText("The rack has no secrets folder");
+    const trigger = await findDialogTriggerByText("The Driver has no secrets folder");
     expect(trigger.getAttribute("aria-disabled")).toBe("true");
   });
 

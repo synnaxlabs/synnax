@@ -14,9 +14,14 @@ import { type PropsWithChildren, type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 
+export interface LineProps extends PropsWithChildren {
+  /** Where the content sits along the line. Defaults to the start. */
+  justify?: Flex.Justification;
+}
+
 /** A line under a select, such as the state of its entry, inset to its trigger. */
-export const Line = ({ children }: PropsWithChildren): ReactElement => (
-  <Flex.Box x align="center" className={CSS.BE("picker", "line")}>
+export const Line = ({ children, justify }: LineProps): ReactElement => (
+  <Flex.Box x align="center" justify={justify} className={CSS.BE("picker", "line")}>
     {children}
   </Flex.Box>
 );
