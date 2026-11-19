@@ -20,6 +20,8 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
+from agent.agent import refusal
+
 from review.findings import SCHEMA, SEVERITIES, Dismissal, Finding, Review, parse
 from review.render import fence
 
@@ -32,6 +34,25 @@ REST = "rest.diff"
 NEW = "new.diff"
 """The file in the working directory that holds the changes since the last review when
 they are too long to show."""
+
+
+class UsageLimit(RuntimeError):
+    """Claude Code stopped at the usage limit of its login, which resets at until, in
+    Unix seconds."""
+
+    def __init__(self, until: int) -> None:
+        super().__init__(f"usage limit until {until}")
+        self.until = until
+
+
+class LoginRejected(RuntimeError):
+    """Claude rejected the token of the login. Claude Code started at started, in Unix
+    seconds."""
+
+    def __init__(self, started: int) -> None:
+        super().__init__("Claude rejected the token of the login")
+        self.started = started
+
 
 _HUNK = re.compile(r"@@ -\d+(?:,\d+)? \+(\d+)")
 _FILE = re.compile(r"^diff --git a/.* b/(.*)$", re.M)
@@ -442,7 +463,8 @@ def _merge(
     by end line when the titles share a third of their words. Two findings that end on
     one line with titles less alike stay apart, since they can be two problems. The
     review keeps the more severe of joined findings, then the one that continues an open
-    thread. The verdict and summary come from the pass with the lowest score."""
+    thread. The verdict and summary come from the pass with the lowest score. The
+    review keeps each earlier finding that any pass marks fixed."""
 
     def rank(f: Finding) -> tuple[int, bool]:
         return SEVERITIES.index(f.severity), (f.path, f.title) not in open
@@ -474,7 +496,16 @@ def _merge(
     found = join(found, lambda k, f: k.line == f.line and _alike(k.title, f.title))
     scored = [_score(r, caps) for r in reviews]
     lead = min(scored, key=lambda r: r.score)
-    return replace(lead, findings=[f for _, f in found])
+    # A pass that reports a finding again outranks a pass that calls it fixed, even when
+    # a join renames the report.
+    again = {(f.path, f.title) for r in reviews for f in r.findings}
+    fixed = {
+        (x.path, x.title): x
+        for r in reviews
+        for x in r.fixed
+        if (x.path, x.title) not in again
+    }
+    return replace(lead, findings=[f for _, f in found], fixed=list(fixed.values()))
 
 
 def _pass(
@@ -508,8 +539,11 @@ def _stream(
     """Runs Claude Code, and returns its structured output and what it cost. Sets
     started, if given, once the first response begins.
 
-    :raises RuntimeError: If Claude Code ends with an error.
+    :raises UsageLimit: If Claude Code stops at the usage limit of its login.
+    :raises LoginRejected: If Claude rejects the token of the login.
+    :raises RuntimeError: If Claude Code ends with another error.
     """
+    begun = int(time.time())
     messages: list[dict[str, Any]] = []
     try:
         for line in claude(command, text, workdir):
@@ -521,6 +555,7 @@ def _stream(
             elif started and m["event"]["type"] == "message_start":
                 started.set()
     except subprocess.CalledProcessError as e:
+        _refused(messages, started=begun)
         # The last message tells why Claude Code exited: a usage limit, an API error.
         last = json.dumps(messages[-1]) if messages else "no message"
         raise RuntimeError(
@@ -528,9 +563,18 @@ def _stream(
         ) from e
     [out] = [m for m in messages if m["type"] == "result"]
     if out["is_error"]:
+        _refused(messages, started=begun)
         raise RuntimeError(f"claude ended with {out['subtype']}: {out.get('result')}")
     structured: dict[str, Any] = out["structured_output"]
     return structured, Usage.of(out, messages)
+
+
+def _refused(messages: list[dict[str, Any]], *, started: int) -> None:
+    until, rejected = refusal(messages)
+    if until is not None:
+        raise UsageLimit(until)
+    if rejected:
+        raise LoginRejected(started)
 
 
 def run(
@@ -544,7 +588,9 @@ def run(
 
     :param claude: Called from one thread for each pass when the lenses run.
     :param workdir: An empty directory that Claude Code starts in and can read.
-    :raises RuntimeError: If Claude Code ends with an error.
+    :raises UsageLimit: If Claude Code stops at the usage limit of its login.
+    :raises LoginRejected: If Claude rejects the token of the login.
+    :raises RuntimeError: If Claude Code ends with another error.
     """
     shown, rest = _cut(_numbered(pr.diff), config.diff_chars)
     if rest:

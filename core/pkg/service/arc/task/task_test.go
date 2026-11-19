@@ -1502,6 +1502,84 @@ var _ = Describe("Task", Ordered, func() {
 				Consistently(oneRange).Should(Succeed())
 			},
 		)
+
+		It("Should name a range from a format string input", func(ctx SpecContext) {
+			trig := createVirtualCh(ctx, "fmt_range_trig", telem.Uint8T)
+			name := "fmt_range_" + uuid.New().String()[:8]
+			prog := arc.Text{Raw: fmt.Sprintf(`
+				import ranges
+
+				n := 7
+				%s -> ranges.create(name=f"%s {n}")
+			`, trig.Name, name)}
+
+			svcTask := task.Task{
+				Key:    uuid.New(),
+				Name:   "test-fmt-range-name",
+				Type:   arctask.Type,
+				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+			}
+			createTask(ctx, svcTask)
+			t := MustSucceed(
+				newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
+			)
+			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+			defer func() { Expect(t.Stop(true)).To(Succeed()) }()
+
+			time.Sleep(20 * time.Millisecond)
+			w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+				Keys:  []channel.Key{trig.Key()},
+				Start: telem.Now(),
+			}))
+			Expect(
+				w.Write(frame.NewUnary(trig.Key(), telem.NewSeriesV[uint8](1))),
+			).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+
+			Eventually(func(g Gomega) {
+				g.Expect(rangerSvc.NewRetrieve().
+					Where(ranger.MatchNames(name+" 7")).
+					Count(ctx, db)).To(Equal(1))
+			}).Should(Succeed())
+		})
+
+		It(
+			"Should name a range from a format string that reads a computed variable in a call",
+			func(ctx SpecContext) {
+				name := "fmt_call_range_" + uuid.New().String()[:8]
+				prog := arc.Text{Raw: fmt.Sprintf(`
+					import (
+					    ranges
+					    time
+					)
+					a := "da" + "y"
+
+					true => sequence {
+					    key := ranges.create(f"%s ({time.format(time.now(), a)})")
+					    time.wait(5s)
+					}
+				`, name)}
+
+				svcTask := task.Task{
+					Key:    uuid.New(),
+					Name:   "test-fmt-call-range-name",
+					Type:   arctask.Type,
+					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+				}
+				createTask(ctx, svcTask)
+				t := MustSucceed(
+					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
+				)
+				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
+
+				Eventually(func(g Gomega) {
+					g.Expect(rangerSvc.NewRetrieve().
+						Where(ranger.MatchNames(name+" (day)")).
+						Count(ctx, db)).To(Equal(1))
+				}).Should(Succeed())
+			},
+		)
 	})
 
 	Describe("Routing entry host calls", func() {

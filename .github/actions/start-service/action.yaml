@@ -48,6 +48,12 @@ runs:
       run: |
         docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin <<< "$TOKEN"
         docker rm --force "$NAME" 2> /dev/null || true
+        # Pulls from GitHub Container Registry sometimes drop the connection.
+        for attempt in 1 2 3 4 5; do
+          if docker pull --quiet "$IMAGE"; then break; fi
+          if [ "$attempt" = 5 ]; then exit 1; fi
+          sleep $((attempt * 10))
+        done
         args=()
         for variable in $VARIABLES; do args+=(--env "$variable"); done
         docker run --detach --name "$NAME" --publish "$PORT:$PORT" "${args[@]}" "$IMAGE"
