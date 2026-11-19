@@ -202,39 +202,69 @@ func (r *run) afterEvent(event int) {
 // snapshot takes the crash image behind the event. The counter does not change while it
 // runs.
 func (r *run) snapshot(event int) *snapshot {
-	image, err := r.disk.Crash(r.plan.crash(event))
+	image, err := r.disk.Crash(r.plan.crash(event, false))
 	if err == nil {
 		var rules rules
 		if rules, err = r.plan.spoil(image, r.counter, event); err == nil {
 			return &snapshot{image: image, rules: rules, event: event}
 		}
 	}
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if r.err == nil {
-		r.err = err
-	}
+	r.abort(err)
 	return nil
 }
 
-// check opens the engine on the image of s two times, and applies the oracle to what it
-// recovers each time. The second time finds a recovery that harms the disk.
+// check opens the engine on the image of s, and applies the oracle to what it recovers.
+// Then it crashes the disk of that recovery and opens the engine again, which finds a
+// recovery that harms the disk. The second recovery must not refuse, and must keep what
+// the first held.
 func (r *run) check(s *snapshot, attempts []attempt) {
 	if s == nil || r.stopped() {
 		return
 	}
-	for range 2 {
-		records, err := r.recover(s.image)
-		if err != nil {
-			refused := s.rules.refusalAllowed && r.cfg.Corrupt != nil &&
-				r.cfg.Corrupt(err)
-			r.unlessAtf(refused, s.event, R4, "the engine did not recover: %v", err)
-			return
-		}
-		if b := checkRecovered(attempts, records, s.rules); b != nil {
-			r.fail(b, s.event)
-			return
-		}
+	first, err := r.recover(s.image)
+	if err != nil {
+		refused := s.rules.refusalAllowed && r.cfg.Corrupt != nil &&
+			r.cfg.Corrupt(err)
+		r.unlessAtf(refused, s.event, R4, "the engine did not recover: %v", err)
+		return
+	}
+	if b := checkRecovered(attempts, first, s.rules); b != nil {
+		r.fail(b, s.event)
+		return
+	}
+	again, err := s.image.Crash(r.plan.crash(s.event, true))
+	if err != nil {
+		r.abort(err)
+		return
+	}
+	second, err := r.recover(again)
+	r.unlessAtf(
+		err == nil,
+		s.event,
+		R4,
+		"the engine did not recover after a crash in recovery: %v",
+		err,
+	)
+	if err != nil {
+		return
+	}
+	rules := s.rules
+	rules.refusalAllowed = false
+	b := checkRecovered(attempts, second, rules)
+	if b == nil {
+		b = checkKept(first, second)
+	}
+	if b != nil {
+		r.fail(b, s.event)
+	}
+}
+
+// abort ends the run with err, an error of the harness.
+func (r *run) abort(err error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.err == nil {
+		r.err = err
 	}
 }
 

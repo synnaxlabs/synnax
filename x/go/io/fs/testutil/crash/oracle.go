@@ -123,3 +123,29 @@ func checkRecovered(attempts []attempt, records []Record, r rules) *broken {
 	}
 	return nil
 }
+
+// checkKept applies R1 to a second recovery, after a crash in the first: it holds each
+// commit that the first held, and reads each one that the first read.
+func checkKept(first, second []Record) *broken {
+	again := make(map[uint64]Record, len(second))
+	for _, rec := range second {
+		again[rec.ID] = rec
+	}
+	for _, rec := range first {
+		got, ok := again[rec.ID]
+		switch {
+		case !ok:
+			return &broken{R1, fmt.Sprintf(
+				"commit %d of the first recovery is missing after a crash in recovery",
+				rec.ID,
+			)}
+		case got.Unreadable && !rec.Unreadable:
+			return &broken{R1, fmt.Sprintf(
+				"commit %d of the first recovery is unreadable after a crash in "+
+					"recovery",
+				rec.ID,
+			)}
+		}
+	}
+	return nil
+}

@@ -89,7 +89,9 @@ const (
 	// opens, takes each commit with a Visible or a Durable ack, and closes. It shows
 	// each commit that it acked.
 	R0 Rule = "R0"
-	// R1 says that each commit with a Durable ack is in the recovered list.
+	// R1 says that each commit with a Durable ack is in the recovered list. After a
+	// crash in the recovery, the list holds each commit that the first recovery held
+	// again, and each one that the first could read is readable.
 	R1 Rule = "R1"
 	// R2 says that the recovered list holds only commits of the workload, each once, in
 	// commit order, each with its whole payload.
@@ -97,9 +99,9 @@ const (
 	// R3 says that the recovered list has no hole: when an acked commit is missing, no
 	// later commit is in the list, acked or not.
 	R3 Rule = "R3"
-	// R4 says that the engine opens, reads, and closes on each crash image, two times
-	// in a row. It can refuse only an image that OldCorruption or NewCorruption
-	// changed, and only with its corruption error.
+	// R4 says that the engine opens, reads, and closes on each crash image, and again
+	// after a crash in that recovery. Only the first open can refuse, only an image
+	// that OldCorruption or NewCorruption changed, and only with the corruption error.
 	R4 Rule = "R4"
 )
 

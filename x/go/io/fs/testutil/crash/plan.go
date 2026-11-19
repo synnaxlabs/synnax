@@ -60,10 +60,14 @@ func newPlan(cfg Config) plan {
 	return p
 }
 
-// crash returns the config of the crash image behind the event.
-func (p plan) crash(event int) fault.CrashConfig {
+// crash returns the config of the crash image behind the event, or with again, of the
+// crash in the recovery from that image.
+func (p plan) crash(event int, again bool) fault.CrashConfig {
 	cfg := p.survival
 	cfg.RunKey, cfg.Image = p.runKey^uint64(event)<<32, p.image
+	if again {
+		cfg.RunKey ^= 1 << 63
+	}
 	return cfg
 }
 
@@ -162,7 +166,8 @@ type span struct {
 	from, to int64
 }
 
-// change opens the file of s in image and lets edit change the bytes of s.
+// change opens the file of s in image, lets edit change the bytes of s, and makes them
+// durable.
 func change(image *fault.FS, s span, edit func(b []byte)) (err error) {
 	f, err := image.Open(s.path, os.O_RDWR)
 	if err != nil {
@@ -174,8 +179,10 @@ func change(image *fault.FS, s span, edit func(b []byte)) (err error) {
 		return err
 	}
 	edit(b)
-	_, err = f.WriteAt(b, s.from)
-	return err
+	if _, err = f.WriteAt(b, s.from); err != nil {
+		return err
+	}
+	return f.Sync()
 }
 
 // flip flips one bit in a byte of spans, and reports if spans hold a byte.
