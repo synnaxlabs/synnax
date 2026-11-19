@@ -52,7 +52,7 @@ class EnumerationClient(ResourceClient):
         self._add_entries(name, entries)
         return self.wait_for(
             name,
-            lambda e: len(e.entries) == len(entries),
+            lambda e: [x.name for x in e.entries] == entries,
             f"The Core did not add the entries of {name}",
         )
 

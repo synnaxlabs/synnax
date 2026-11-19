@@ -104,10 +104,9 @@ class EnumerationLifecycle(ConsoleCase):
         enums.add_entry(self.name, added)
         stored = enums.wait_for(
             self.name,
-            lambda e: len(e.entries) == 4,
+            lambda e: [x.name for x in e.entries] == [*self.entries, added],
             f"The Core did not add {added}",
         )
-        assert stored.entries[3].name == added
         assert stored.entries[3].value == 6
         enums.remove_entry(self.name, added)
         enums.wait_for(
