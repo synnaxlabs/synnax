@@ -778,7 +778,7 @@ export class Points {
       this.live == null
         ? []
         : this.props.joins
-            .held(this.key)
+            .held(this.key, tr.end)
             .filter((s) => s.timeRange.isZero || s.timeRange.overlapsWith(tr))
             // A writer can fill an earlier span after later samples streamed.
             .sort((a, b) => TimeRange.sort(a.timeRange, b.timeRange));

@@ -881,6 +881,58 @@ describe("Feed.subscribe", () => {
       }
     });
 
+    it("should hold no sample past its end in a join's held samples", async () => {
+      const core = createCore();
+      let held = false;
+      const waiting: Array<() => void> = [];
+      const feed = core.openFeed({
+        ...OPTIONS,
+        readRemote: async (tr, keys, reduction) => {
+          if (held) await new Promise<void>((resolve) => waiting.push(resolve));
+          return core.read(tr, keys, reduction);
+        },
+      });
+      const index = core.index.key;
+      const data = core.data[0].key;
+      const end = core.now().add(TimeSpan.seconds(5));
+      const sub = feed.subscribe({
+        keys: [index, data],
+        window: staticWindow(new TimeRange(core.now().sub(TimeSpan.seconds(10)), end)),
+        limit: { variant: "points", count: EXACT, aggregation: "min_max" },
+      });
+      const last = end.valueOf() - PERIOD;
+      const lastValue = Math.sin(
+        Number((last - START.valueOf()) / PERIOD) / 1000 + data,
+      );
+      const drawnTo = (key: channel.Key): bigint =>
+        sub.value(key).time?.valueOf() ?? 0n;
+      try {
+        await expect.poll(() => sub.value(index).status.variant, POLL).toBe("success");
+        await expect.poll(() => sub.value(data).status.variant, POLL).toBe("success");
+        core.advance(TimeSpan.milliseconds(100));
+        await expect.poll(() => drawnTo(index), POLL).toBe(newestOf(core) + 1n);
+        await expect.poll(() => drawnTo(data), POLL).toBe(newestOf(core) + 1n);
+        held = true;
+        // A gap in the stream sends the join back to wait for a catch-up read, which
+        // hangs, so the join holds the samples streamed after it.
+        core.advance(TimeSpan.seconds(1), false);
+        core.advance(TimeSpan.milliseconds(4400));
+        await expect.poll(() => drawnTo(index) >= last, POLL).toBe(true);
+        await expect.poll(() => drawnTo(data) >= last, POLL).toBe(true);
+        expect(drawnTo(index)).toBe(end.valueOf());
+        expect(drawnTo(data)).toBe(end.valueOf());
+        expect(timesOf(sub.value(index)).at(-1)).toBe(last);
+        const values = Array.from(sub.value(data).series, Number);
+        expect(values.length).toBe(timesOf(sub.value(index)).length);
+        expect(values.at(-1)).toBeCloseTo(lastValue, 5);
+      } finally {
+        held = false;
+        waiting.forEach((resolve) => resolve());
+        sub.close();
+        await feed.close();
+      }
+    });
+
     it("should serve the stored samples stamped after now", async () => {
       // The writer's clock runs two minutes ahead of the Core's.
       const core = createCore({ lag: TimeSpan.minutes(-2) });
