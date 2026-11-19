@@ -269,6 +269,14 @@ func Newf(format string, args ...any) error { return errors.Newf(format, args...
 // type to which target points.
 func As(err error, target any) bool { return errors.As(err, target) }
 
+// AsType finds the first error in err's chain that matches E, by the same rules as As,
+// and returns it. It returns the zero value of E and false if no error matches.
+func AsType[E error](err error) (E, bool) {
+	var target E
+	ok := errors.As(err, &target)
+	return target, ok
+}
+
 // CheapIs is a zero-allocation alternative to Is for cases where the reference error is
 // a known sentinel value (package-level var). It uses the standard library's errors.Is
 // which walks the Unwrap chain with pointer comparison and Is() method delegation, but

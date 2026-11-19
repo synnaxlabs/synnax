@@ -1337,7 +1337,7 @@ while true; do sleep 1; done
     async fn gives_up_on_a_core_that_hangs_after_each_start_despite_a_long_stop() {
         let calls = Arc::new(AtomicUsize::new(0));
         let probe: probe::Probe = Arc::new(move |_| {
-            let ok = calls.fetch_add(1, Ordering::SeqCst) % 4 == 0;
+            let ok = calls.fetch_add(1, Ordering::SeqCst).is_multiple_of(4);
             Box::pin(async move { ok })
         });
         let mut f = Fixture::new(STUBBORN, probe);
