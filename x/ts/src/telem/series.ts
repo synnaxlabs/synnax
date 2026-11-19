@@ -13,7 +13,6 @@ import { array } from "@/array";
 import { binary } from "@/binary";
 import { caseconv } from "@/caseconv";
 import { id } from "@/id";
-import { instance } from "@/instance";
 import { math } from "@/math";
 import { type numeric } from "@/numeric";
 import { primitive } from "@/primitive";
@@ -123,14 +122,7 @@ const EMPTY_RANGES: readonly bounds.Bounds[] = [];
 /** Samples summarized per cached min/max block in boundsFor. */
 const BOUNDS_BLOCK_SIZE = 4096;
 
-const stringArrayZ = z.string().transform(
-  (s) =>
-    new Uint8Array(
-      atob(s)
-        .split("")
-        .map((c) => c.charCodeAt(0)),
-    ).buffer,
-);
+const stringArrayZ = z.string().transform((s) => binary.decodeBase64(s).buffer);
 
 const nullArrayZ = z
   .union([z.null(), z.undefined()])
@@ -155,9 +147,7 @@ const SERIES_DISCRIMINATOR = "sy_x_telem_series";
  * Series is a strongly typed array of telemetry samples backed by an underlying binary
  * buffer.
  */
-export class Series<T extends TelemValue = TelemValue>
-  implements instance.Discriminated
-{
+export class Series<T extends TelemValue = TelemValue> {
   /**
    * A unique identifier for the series. If specified by the user, it is their
    * responsibility to ensure that it is unique. If not specified, a new ID will be
@@ -890,7 +880,7 @@ export class Series<T extends TelemValue = TelemValue>
 
   private atUUID(index: number, required: boolean): string | undefined {
     if (index < 0) index = this.length + index;
-    const uuidString = uuid.parse(
+    const uuidString = uuid.fromBytes(
       this.data as Uint8Array,
       index * this.dataType.density.valueOf(),
     );
@@ -1314,6 +1304,9 @@ const isTelemValue = (value: unknown): value is TelemValue => {
   );
 };
 
+const roundToBigInt = (value: numeric.Value): bigint =>
+  typeof value === "bigint" ? value : BigInt(Math.round(value.valueOf()));
+
 const convertDataType = (
   source: DataType,
   target: DataType,
@@ -1324,7 +1317,7 @@ const convertDataType = (
   if (source.usesBigInt && !target.usesBigInt)
     return Number(BigInt(value.valueOf()) - BigInt(offset.valueOf()));
   if (!source.usesBigInt && target.usesBigInt)
-    return BigInt(value.valueOf()) - BigInt(offset.valueOf());
+    return roundToBigInt(value) - roundToBigInt(offset);
   return math.sub(value, offset);
 };
 
@@ -1341,8 +1334,16 @@ const isCrudeSeries = (value: unknown): value is CrudeSeries => {
   return isTelemValue(value);
 };
 
-/** @returns true if the given value is an instance of the series class. */
-const isSeries = instance.createMatcher<Series>(SERIES_DISCRIMINATOR, Series);
+/**
+ * @returns true if the given value is an instance of the series class, or carries its
+ * discriminator because a bundler duplicated the class.
+ */
+const isSeries = (value: unknown): value is Series =>
+  value instanceof Series ||
+  (typeof value === "object" &&
+    value !== null &&
+    "discriminator" in value &&
+    value.discriminator === SERIES_DISCRIMINATOR);
 
 class StringSeriesIterator implements Iterator<string> {
   private readonly series: Series;
@@ -1410,7 +1411,7 @@ class UUIDSeriesIterator implements Iterator<string> {
 
   next(): IteratorResult<string> {
     if (this.index >= this.series.length) return { done: true, value: undefined };
-    const uuidString = uuid.parse(this.data, this.index * this.density);
+    const uuidString = uuid.fromBytes(this.data, this.index * this.density);
     this.index++;
     return { done: false, value: uuidString };
   }

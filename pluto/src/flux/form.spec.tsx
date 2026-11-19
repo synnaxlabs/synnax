@@ -40,7 +40,7 @@ const Wrapper = createSynnaxWrapper({ client });
 
 const DEBOUNCE = TimeSpan.milliseconds(100);
 // Long enough that a debounced save would have landed by now.
-const SETTLE = 500;
+const SETTLE = TimeSpan.milliseconds(500);
 
 describe("useForm", () => {
   let controller: AbortController;
@@ -537,8 +537,7 @@ describe("useForm", () => {
   it("should run one save at a time", async () => {
     const events: string[] = [];
     const gates = [Promise.withResolvers<void>(), Promise.withResolvers<void>()];
-    let enter = (): void => {};
-    const entered = new Promise<void>((resolve) => (enter = resolve));
+    const { promise: entered, resolve: enter } = Promise.withResolvers<void>();
     let calls = 0;
     const { result } = renderHook(
       () =>
@@ -570,10 +569,8 @@ describe("useForm", () => {
   // Holds the first save open, so every save issued after it queues behind it.
   const renderHeldForm = () => {
     const saved: string[] = [];
-    let enter = (): void => {};
-    let release = (): void => {};
-    const entered = new Promise<void>((resolve) => (enter = resolve));
-    const held = new Promise<void>((resolve) => (release = resolve));
+    const { promise: entered, resolve: enter } = Promise.withResolvers<void>();
+    const { promise: held, resolve: release } = Promise.withResolvers<void>();
     const { result } = renderHook(
       () =>
         Flux.createForm<Params, typeof formSchema>({
@@ -627,10 +624,8 @@ describe("useForm", () => {
       "2": { key: "2", name: "Banana Cat", age: 12 },
     };
     const saved: string[] = [];
-    let enter = (): void => {};
-    let release = (): void => {};
-    const entered = new Promise<void>((resolve) => (enter = resolve));
-    const held = new Promise<void>((resolve) => (release = resolve));
+    const { promise: entered, resolve: enter } = Promise.withResolvers<void>();
+    const { promise: held, resolve: release } = Promise.withResolvers<void>();
     const useForm = Flux.createForm<Params, typeof formSchema>({
       initialValues: { key: "", name: "", age: 0 },
       schema: formSchema,
@@ -865,10 +860,8 @@ describe("useForm", () => {
 
     it("should abort a save already running when the record is abandoned", async () => {
       const { update, useForm, abandon } = createAbandonableForm();
-      let enter = (): void => {};
-      let release = (): void => {};
-      const entered = new Promise<void>((resolve) => (enter = resolve));
-      const held = new Promise<void>((resolve) => (release = resolve));
+      const { promise: entered, resolve: enter } = Promise.withResolvers<void>();
+      const { promise: held, resolve: release } = Promise.withResolvers<void>();
       const { result } = renderHook(
         () =>
           useForm({

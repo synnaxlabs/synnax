@@ -9,7 +9,7 @@
 
 import { query, table } from "@synnaxlabs/client";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
-import { uuid } from "@synnaxlabs/x";
+import { strings, uuid } from "@synnaxlabs/x";
 import { type ClipboardEventHandler } from "react";
 
 import { Synnax } from "@/synnax";
@@ -36,8 +36,7 @@ interface Payload {
   cells: CellPayload[];
 }
 
-const describe = (p: Payload): string =>
-  `${p.cells.length} cell${p.cells.length === 1 ? "" : "s"}`;
+const describe = (p: Payload): string => strings.count(p.cells.length, "cell");
 
 export interface UseClipboardParams {
   key: table.Key;
@@ -114,7 +113,7 @@ export const useClipboard = ({
     }
     if (payload.version !== VERSION || payload.cells.length === 0) return;
     const sel = selectedRef.current;
-    const anchorKey = sel[sel.length - 1] ?? null;
+    const anchorKey = sel.at(-1) ?? null;
     if (anchorKey == null) return;
     const t = getTable();
     if (t == null) return;
