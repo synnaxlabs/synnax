@@ -119,6 +119,9 @@ class EnumerationClient(ResourceClient):
         modal = self.page.locator(self.layout.MODAL_SELECTOR)
         modal.wait_for(state="visible", timeout=5000)
         modal.get_by_role("button", name="Replace with", exact=True).click()
+        self.page.get_by_placeholder("Search enumerations...", exact=True).fill(
+            with_name
+        )
         self.page.get_by_role("option", name=with_name, exact=True).click()
         modal.get_by_role("button", name="Replace", exact=True).click()
         modal.wait_for(state="hidden", timeout=5000)

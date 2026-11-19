@@ -20,6 +20,13 @@ export interface UseParams {
 }
 
 /**
+ * @param key - The enumeration that the node names, if any.
+ * @returns whether the node draws its own options, which it does when it names no
+ * enumeration.
+ */
+export const drawn = (key?: enumeration.Key): key is undefined => key == null;
+
+/**
  * Returns the states that a node draws: the entries of its enumeration, or its options
  * when it names none. Returns no states while the enumeration loads.
  */
@@ -28,8 +35,8 @@ export const use = ({
   options,
 }: UseParams): schematic.StateMapping[] => {
   const resolve = Color.useResolve();
-  const { data } = Enumeration.useResultMultiple({ keys: key == null ? [] : [key] });
-  if (key == null) return options;
+  const { data } = Enumeration.useResultMultiple({ keys: drawn(key) ? [] : [key] });
+  if (drawn(key)) return options;
   return (data?.[0]?.entries ?? []).map(({ color, ...entry }) => ({
     key: entry.key,
     name: entry.name,
