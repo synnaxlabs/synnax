@@ -1,0 +1,456 @@
+---
+title: "Version 0.62 release notes"
+---
+
+import { Hero } from "@/components/hero";
+import { Releases } from "@/components/releases";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { mdxOverrides } from "@/components/mdxOverrides";
+
+export const components = mdxOverrides;
+
+<Releases.Release
+    version="0.62.0"
+    desktopVersion="1.2.0"
+    breakingChanges
+    title="Ranges for each run, uploads to Sift, and EtherCAT at 10 kHz"
+>
+
+<Hero.Hero still="console/ranges/hero" layout="bleed" tone="deep" palette="blue-pink" />
+
+Synnax v0.62 builds ranges around the run. Start a test from the ranges toolbar, step
+through its phases with **Next**, and watch the running range grow on your plots.
+
+Send a range to Sift from its menu. EtherCAT reads on USB adapters keep 99.4% of their
+samples at 10 kHz, and a lost module no longer stops the others. Settings, secrets, and
+named colors share one Settings tab, and scripts connect with no address or key in code.
+
+Some client calls, Arc unit rules, and Console features changed. Read the
+[breaking changes](#breaking-changes-in-062) before you upgrade.
+
+<Divider.Divider x />
+
+### Ranges built around the run
+
+Before, the ranges toolbar showed only your favorites. To mark a test phase, you created
+a range in a dialog and typed its times. A running range plotted to the year 2262, so
+its data sat in one pixel column.
+
+Now the toolbar shows what runs now, what you starred, and what ended last. Click
+**Start range**, type `HF-302`, and press Enter. Click **Start child range** for the
+chill phase, then **Next** to end it and start the next phase at the same instant.
+**Next** suggests the name and color from the last test, so Ignition follows Chill.
+
+- **Plots that follow the run** -> a running range plots from its start to its newest
+  sample. The strip above the plot shows a pulsing bar with `T+0:42:07`.
+- **One range menu** -> the toolbar, the explorer, the overview, and the plot strip open
+  the same menu. It acts on several ranges at once, and sets labels, color, and parent.
+- **Find any range** -> the range explorer shows ranges as a tree, a list, or a
+  timeline, with filters for labels, stage, time, and parent. Save a view, and each user
+  of the Core sees it.
+
+With 50,000 ranges, the toolbar finds the running ranges in 54% less time. See
+[Find ranges](/reference/ranges/find).
+
+<Divider.Divider x />
+
+### Send data to Sift
+
+Before, test data went to Sift through an export and a script of your own.
+
+Now the Core sends it. Right-click a range, select **Upload to Sift**, pick the asset
+and the channels, and click **Upload**. The **Sift uploads** section of the range
+overview shows the progress. You can also upload a region of a line plot, or stream live
+data with a Sift stream task. After a stop, a stream task sends the data that Synnax
+stored while it was stopped, and range labels become the tags of Sift runs.
+
+Sift runs in the Core of Synnax Desktop and Synnax Enterprise, with no Driver. See
+[Send data to Sift](/reference/ranges/sift).
+
+<Divider.Divider x />
+
+### EtherCAT that keeps its samples
+
+Before, a USB network adapter that held a frame back for a moment cost a sample. On the
+USB adapter of our test rig, a 1 kHz read missed 197 to 223 samples in 30 seconds. A
+module that dropped off the bus stopped every task on its port.
+
+Now the Driver waits for late frames. The same read misses 2 samples in 30 seconds. At 5
+kHz it loses 0.15% of its samples, and at 10 kHz 0.56%.
+
+- **A lost module stops nothing else** -> the other modules on the bus keep their tasks
+  running.
+- **Modules keep their device** -> Synnax finds each module by its serial number, so a
+  moved cable does not swap two devices.
+- **See each start step** -> the task status shows the start as it runs, such as "1 of 7
+  modules in OP". A Stop during a 40 second IgH start takes 0.1 seconds, not 37.
+- **IgH** -> modules with distributed clocks now start. A task can change module
+  settings while other tasks run the bus.
+
+See [EtherCAT](/reference/hardware/ethercat/configure-device).
+
+<Divider.Divider x />
+
+### Settings in one place
+
+Before, users, labels, the license, and the Core version each had their own toolbar or
+dialog.
+
+Now the gear in the top bar opens one Settings tab, with **Account**, **Console**, and
+**Core** sections. It opens in a draft panel that only you see. Each page shows only to
+users who can use it.
+
+- **Secrets** -> keep an API key or a routing key as a named secret. The Core stores it
+  encrypted and never sends it back. You see where each secret is used, and you replace
+  its value in one place. The PagerDuty **Routing key** and the Sift **API key** use
+  secrets.
+- **Certificates** -> see the certificates that the Core stores, and when each one
+  expires.
+- **Users** -> the users toolbar moved here. Pick a role for each user, and right-click
+  a user to rename it, delete it, or **Manage sign-in**.
+
+<Divider.Divider x />
+
+### Named colors for line plots
+
+Before, each line had its own hex color. To change a color, you edited every plot.
+
+Now line plots use named colors in palettes, each with a light and a dark value. Edit a
+color in **Settings** > **Colors**, and each plot that uses it changes. A new line gets
+the series color that its plot uses least. The Core stores that color, so the plot looks
+the same in every Console.
+
+The 16 built-in series colors have 3:1 contrast on each theme, and the first 8 stay
+apart under each kind of color blindness. In a line color picker, **Library** links a
+named color and **Custom** sets a fixed one. Saved plots keep their colors.
+
+<Divider.Divider x />
+
+### Arc automations that cannot hang
+
+Before, a loop that never ended held its automation, and **Stop** never returned. On a
+Driver, one divide by zero stopped the automation.
+
+Now a cycle that runs more than 100,000,000 loop iterations and function calls stops
+with **Program ran too long**, and **Stop** ends a running program at once. On a Driver,
+a failing node shows the **Node failed** warning and the automation keeps running, as on
+the Core. A node that fails each cycle logs each error at most once in 5 seconds.
+
+- **Units that convert** -> a value keeps its unit, and converts where it meets another
+  unit of the same dimension. `1s + 5ms` is 1005 ms, and `tank_pt > 300psi` compares
+  with 300. Before, it compared with 2,068,428.
+- **A code for each problem** -> each error and warning has a code, such as `E3001`, and
+  the [errors page](/reference/control/arc/reference/errors) explains it. New quick
+  fixes add casts, units, and `math.is_nan`.
+
+See [units](/reference/control/arc/reference/types#units).
+
+<Divider.Divider x />
+
+### Connect scripts with no address or key in code
+
+Before, a script held the host and the API key in its code, or used `sy login` on a
+computer with a keychain. CI jobs, Docker containers, and SSH sessions had no clean way
+in. The TypeScript client could not find Synnax Desktop or trust a private CA.
+
+Now both clients read `SYNNAX_HOST`, `SYNNAX_PORT`, `SYNNAX_API_KEY`, `SYNNAX_SECURE`,
+and `SYNNAX_CA_CERT`. Set them as secrets of a CI job, and one test script runs there
+and on a laptop with Synnax Desktop, with no change:
+
+```python
+client = sy.Synnax()
+```
+
+- **One order for each option** -> the argument, then the `SYNNAX_*` variable, then the
+  Core that `sy login` saved (Python only), then Synnax Desktop, then the default.
+- **Synnax Desktop from TypeScript** -> `new Synnax()` with no host connects to Synnax
+  Desktop in Node.js, Bun, and Deno.
+- **A private CA** -> TypeScript takes the PEM text in `caCert`, or a file path in
+  `SYNNAX_CA_CERT`. `synnax-driver login --ca-cert <file>` does the same for a Driver.
+- **Tokens out of logs** -> the TypeScript client no longer puts its session token in
+  stream URLs, so proxy and access logs do not record it.
+
+See [Connect to a Core](/reference/client/connect).
+
+<Divider.Divider x />
+
+### More in this release
+
+#### ICDs for MQTT
+
+An interface control document (ICD) describes the messages that a device sends: their
+topics, fields, and types. Create one in the **ICDs** toolbar, or import a DBC, CSV, or
+XLSX file with **Import ICD**. MQTT read tasks read their messages from an ICD, and the
+read form shows one tree of topics, messages, and fields. The update makes one ICD for
+each MQTT read task, so your tasks keep running.
+
+#### Stop a task while it starts
+
+Before, a Stop waited behind a slow start, such as an EtherCAT bus start. Now **Stop**
+works while a task starts, and cancels the start. A long step shows "Still working after
+1m." instead of a false failure. **Start** works again after "No response", and an
+auto-start task no longer starts twice.
+
+- **Tare** works on each float channel of every read task while it runs.
+- **Plot** in the task menu opens a plot of the task's channels.
+- Select several EtherCAT modules or NI devices to create one task for all of them.
+- A delete asks one time, and can also delete the channels that the task created.
+
+#### A Python client that starts fast and installs small
+
+On Python 3.15, `import synnax` loads only what the script uses, and pandas loads only
+when the script makes a DataFrame:
+
+| Case                         | 0.61   | 0.62   |
+| ---------------------------- | ------ | ------ |
+| `import synnax`, Python 3.15 | 0.81 s | 0.04 s |
+| Install size                 | 161 MB | 87 MB  |
+
+Python 3.13 and 3.14 import at the same speed as before. The client also runs on
+free-threaded Python 3.14t, so control loops in threads run in parallel.
+
+#### The TypeScript client in Deno, Bun, and browsers
+
+The client loads in a browser with no bundler, through an import map. CI tests it in
+Node.js, Deno, Bun, Chromium, Firefox, and WebKit. Where the runtime has `Temporal`,
+such as Node.js 26, Deno, and Bun, `TimeStamp.now()` reads microseconds, so a loop
+faster than 1 kHz no longer writes equal timestamps. See
+[TypeScript client support](/reference/client).
+
+#### Menus you can type into
+
+Type in any context menu to filter its items, also inside submenus: "copy link" finds
+**Copy** > **Link**. Esc clears the search, then closes the menu.
+
+#### Synnax Desktop 1.2
+
+- When the Core cannot start, the failure screen comes at once and says why. Before, it
+  came after six restarts and said only "exit status 1".
+- A reopen while the last session stops waits for it, instead of showing an error.
+- The API key for scripts moves from `~/.synnax/desktop.json` into the OS keychain.
+- Devices and tasks start as soon as a license activates. Before, they could wait up to
+  a minute.
+
+<Divider.Divider x />
+
+### Minor improvements and bug fixes
+
+- The Driver waits for its Core with no time limit. Before, it stopped its tasks and
+  exited after about 2.8 hours. It also finds a lost network link in about 30 seconds,
+  not 6 minutes.
+- Live plots end at the newest sample, and move only when new samples arrive. A plot of
+  8 channels at 5 kHz no longer blanks part of a line every 13 seconds.
+- Without WebGL 2, plots and schematics show "GPU required" in their tab, not an error
+  over the whole Console. On macOS, the Console no longer asks for Accessibility access.
+- A drag shows a tile with the name of the item, and a symbol shows its drawing at the
+  size where it will land.
+- Schematic pipes take a **Stroke width** from 1 to 20 px. A Viewer who presses a valve
+  no longer sees "Failed to acquire control".
+- New labels start gray, not black, so they show on the dark theme.
+- LabJack reads no longer stall for 100 ms. Modbus **Stop** takes 100 ms, not up to 60
+  seconds, and NI and Modbus tasks stop while a read is blocked.
+- NI task forms suggest device identifiers from the NI MAX name, and check channel
+  ranges and sample rates against the device. A rejected NI write no longer blocks later
+  writes.
+- Sparkplug B Int64 values in `int_value` keep their sign. A Kafka task that stops after
+  a consumer failure no longer reports a failed stop.
+- On IgH, the first start waits for each module's CoE dictionary, so entries get their
+  full names.
+- Arc: a sequence step that writes 0 or `false` to a variable moves on, an f-string
+  written to a variable gives the value, and `x ^ n` with a large exponent no longer
+  hangs a Driver automation.
+- Garbage collection no longer loses a data file that Windows holds open, and a read
+  during a write no longer returns timestamps with no values.
+- A Core whose embedded Driver cannot start names the Driver's error, such as a missing
+  GLIBC version.
+- An update from a data folder of Core 0.47 to 0.60 shows every device and document.
+  Before, one record with an empty name hid the whole list.
+- The npm and PyPI packages publish with provenance that ties each file to the workflow
+  that built it.
+
+<Divider.Divider x />
+
+### Breaking changes in 0.62
+
+#### Before you upgrade a Core
+
+- Upgrade the Drivers, the desktop Consoles, and the Python and TypeScript clients with
+  the Core. A 0.61 client cannot get channels from a 0.62 Core, and a 0.62 client cannot
+  get them from a 0.61 Core, so reads, writes, and streams fail.
+- After 0.62.0, Synnax signs updates with a new key. A Console from before 0.62 cannot
+  install them: install the Console again from the download page. A Core from before
+  0.62 must update to 0.62.0 first.
+- The Console drops the local ranges that a 0.61 Console kept only in its own storage.
+  Before you upgrade, right-click each one in 0.61 and select **Save to Core**.
+- On its first start, the Core writes `secrets.key` to its data directory. Back it up
+  with the data. A Core with a different key does not start.
+
+#### Console
+
+- The active range is gone, with **Set as active range** and **Add to active plot**. New
+  plots open on the last 30 seconds. Use **Add to plot** in the range menu, or drag a
+  range onto **Ranges**.
+- The users toolbar is gone. Manage users in **Settings** > **Users**. The Console can
+  no longer rename or delete roles. **Manage credentials** is now **Manage sign-in**.
+- The text of schematic buttons, inputs, selects, setpoints, and state indicators
+  follows the size picker, so saved text can grow one step. A select at its saved width
+  can cut its text.
+- MQTT: the Console cannot edit the enum values or the defaults of a field. The update
+  keeps the values that a task stored.
+
+#### Records that the update deletes
+
+The update to 0.62 deletes:
+
+- every range alias
+- every task snapshot, with its statuses and configuration
+- every schematic snapshot
+- every schematic, line plot, log, table, and panel that a range owns
+
+`synnax update undo` puts back the metadata that the update backed up, these records
+included. Metadata changes made after the update are lost. Telemetry stays. See
+[go back to an earlier version](/reference/enterprise/upgrade#go-back-to-an-earlier-version).
+
+The client APIs for these records are removed:
+
+- Python: `Range.set_alias`, `Range.snapshots()`, `Channel.alias`, `Task.range`,
+  `Schematic.snapshot`, `Schematic.range`, the `range_key` argument of
+  `channels.retrieve`, the `snapshot` argument of `tasks.retrieve`, the `ranges`
+  argument of `tasks.retrieve` and `schematics.retrieve`, and the `snapshot` and range
+  arguments of `tasks.copy` and `schematics.copy`. `rng["tank_pt"]` and `rng.tank_pt`
+  find channels by name only, not by alias.
+- TypeScript: the `rangeKey` option of `channels.retrieve`, the alias methods of `Range`
+  (`setAlias`, `deleteAlias`, `listAliases`, `resolveAlias`) and of `client.ranges`,
+  `Channel.alias`, `Task.snapshot`, `Task.snapshottedTo()`, and the snapshot and range
+  arguments of `tasks.copy` and `schematics.copy`.
+
+#### Clients
+
+- Python: the client needs Python 3.13 or newer. On Python 3.12, `pip install -U synnax`
+  keeps the 0.61 client and shows no error, and that client cannot read a 0.62 Core.
+  Upgrade Python first.
+- TypeScript: `@synnaxlabs/client`, `@synnaxlabs/x`, `@synnaxlabs/freighter`, and
+  `@synnaxlabs/alamos` need Node.js 22.12 or newer. npm only shows a warning on an older
+  version.
+- Python: `sy login` is the only CLI command. `sy ingest`, `sy tsconvert`, and
+  `sy check-timing` are removed, and so are the `synnax.io` and `synnax.ingest`
+  packages. The client no longer installs matplotlib.
+- Python: a request with no response in time raises `freighter.Timeout`, and a reset
+  connection raises `freighter.Unreachable`. TypeScript throws `Unreachable` when a
+  streamer or writer cannot connect. Before, these were raw network errors.
+- TypeScript: `new TimeStamp()` no longer means now. Use `TimeStamp.now()`. Text that
+  `TimeStamp` cannot read throws, and text with no time zone reads as UTC. The unit
+  constants of `TimeStamp`, such as `TimeStamp.SECOND`, are removed: use
+  `TimeSpan.SECOND`. `Rate.khz` is removed.
+- TypeScript: `@synnaxlabs/x` renames and removes many helpers.
+- The schematic `*ElementConfig` types and `Schematic.configs` are removed. Each node
+  and edge holds its own config: use the `*NodeConfig` type of a symbol, such as
+  `ValveNodeConfig`, or the `*EdgeConfig` type of a connection, such as
+  `PipeEdgeConfig`.
+- The HTTP and MQTT modules no longer export `EnumEntry`, `TimeFormat`, `JSONType`, and
+  `GeneratorType`. Import them from `payload`: `from x import payload` in Python, or
+  `payload` from `@synnaxlabs/x` in TypeScript.
+- MQTT read tasks in code take an ICD: `mqtt.ReadField` is removed, and each entry takes
+  an `icd` key and its `messages`. The update converts stored tasks.
+- PagerDuty: `routing_key` and `routingKey` take the key of a secret, not the routing
+  key itself. Create the secret first with `client.secrets.set`. The update converts
+  stored tasks.
+- Python: a task with no rack and no device goes on the embedded rack that runs its
+  integration. Before, it went on the first embedded rack, so a PagerDuty or Kafka task
+  made this way never ran. With no such rack, the call raises `NotFoundError`.
+  `tasks.list()` with no rack lists the tasks of every embedded rack, and
+  `retrieve_embedded_rack` takes an integration.
+- TypeScript: the Freighter `HTTPClient` and `WebSocketClient` take one config object,
+  such as `{ endpoint, codec, secure }`.
+
+#### Colors
+
+- Python and TypeScript: a color given as an array of numbers, such as a Python tuple or
+  list, has an alpha from 0 to 255, not from 0 to 1. In Python, so does a dict or the
+  `a` argument. `(255, 0, 0, 1)` is now almost transparent. Use `(255, 0, 0, 255)` or
+  `(255, 0, 0)`. A fraction such as `0.5` is an error. CSS strings such as
+  `rgba(255, 0, 0, 1)` use 0 to 1. The update converts stored colors.
+- TypeScript: a color object, such as `{ r, g, b, a }` or `{ rgba255 }`, is an error.
+  Use an array or a string.
+
+#### Client connections
+
+- The clients now read the `SYNNAX_*` variables. A variable left set in a shell changes
+  which Core or key a script uses. Unset the variables that point to a different Core.
+- The clients get the Synnax Desktop API key from Synnax Desktop 1.2, not from
+  `~/.synnax/desktop.json`. With an older Synnax Desktop, the client raises an error.
+  Update Synnax Desktop and open it.
+- A CA certificate with no `secure` turns TLS on, in all clients and the Driver. Before,
+  Python raised `ValueError`.
+- A CA certificate with `secure` set to false from the same source is an error, such as
+  `SYNNAX_SECURE=false` with `SYNNAX_CA_CERT`. Remove one of the two.
+- `secure` and the CA certificate come as a pair from the first source that sets one of
+  them. `secure=True` with no CA certificate uses the CA certificates of the computer,
+  also when `SYNNAX_CA_CERT` is set.
+- Driver: `SYNNAX_DRIVER_SECURE` must be `true`, `false`, `1`, or `0`, in any case. An
+  empty or other value, such as `yes`, is an error. Unset the variable to use the saved
+  value.
+
+#### Arc
+
+- A unit literal keeps its number as written. Next to a value with no unit, such as a
+  channel value, `volts > 500mV` compares `volts` with 500, not 0.5. See
+  [units](/reference/control/arc/reference/types#units).
+- A variable, parameter, or result with no unit refuses a value with a unit (`E2011`).
+  Change its type to take the unit, such as `i64 s`, or cast the value, such as
+  `i64(t)`.
+- A cast with no unit drops the unit: `i64(5s)` is 5.
+- A write between units of one dimension converts: with `d := 1min`, `120s -> d` makes
+  `d` 2. A write across dimensions, such as `5psi -> d`, is an error.
+- A function, sequence, or stage variable cannot use the name of a top-level variable
+  declared later in the file (`E4005`).
+- A float cast to an integer that overflows gives the nearest value, and NaN gives 0.
+  Before, the node failed.
+- A sequence step that writes to a variable with `->`, such as
+  `pressure > 100 -> ready`, completes on the first value, also when the value is false.
+  To wait for the condition, use `=>`. This sequence sets `vent_cmd` only after
+  `pressure` is above 100:
+
+  ```arc
+  sequence fill {
+      ready := false
+      pressure > 100 => ready
+      1 -> vent_cmd
+  }
+  ```
+
+#### Writes and streams
+
+- A write to an index channel with timestamps that go back, such as `[10, 12, 11]`, or
+  that start before the last stored sample, fails with "index out of order". Equal
+  timestamps are still allowed. Before, Synnax stored them.
+- One write, which is one stream message, can be at most 256 MiB after encoding. The
+  Core closes a stream that sends a larger message. In TypeScript, the writer fails with
+  `StreamClosed`. Split a large write into smaller writes.
+
+#### Driver
+
+- HTTP: a task adds the path of the device location, such as `/v2` in
+  `api.example.com/v2`, to each endpoint path. Before, it dropped that path. If your
+  endpoint paths repeat it, remove it from one of the two.
+- On macOS, when the Driver service is not installed, `sudo synnax-driver login`,
+  `start --standalone`, and `clear` fail with "Run synnax-driver without sudo". Run
+  these commands without sudo.
+- `--enable-integrations` runs only the integrations it names, as it does on the Core.
+  Before, it added them to the ones the Driver already ran. The Driver fails to start
+  when `--enable-integrations` and `--disable-integrations` are both given.
+- On NI Linux RT, the Driver log and PID files are no longer writable by every local
+  user.
+
+#### Core
+
+- A Core that runs without its embedded Driver, with `--no-driver` or a build without
+  the Driver, creates no rack for it. A rack from an earlier start stays with no
+  integrations and shows "Driver disabled", and so do its tasks and devices. You can
+  delete that rack.
+- The Core fails to start when `--enable-integrations` and `--disable-integrations` are
+  both given, also when they come from different sources, such as a config file and an
+  environment variable.
+- The Core fails to start when `--task-worker-count` is outside 0 to 255.
+
+</Releases.Release>
