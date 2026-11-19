@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret/grant"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/secret/grant/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/telem"
@@ -246,5 +247,34 @@ var _ = Describe("Service", func() {
 				Expect(succeeded).To(Equal(1))
 			},
 		)
+	})
+})
+
+var _ = Describe("OpenService", func() {
+	It("Should give each stored v0 grant an empty command", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
+		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Grant]{DB: db}))
+		old := v0.Grant{
+			Key:       uuid.New(),
+			Subject:   rack.Key(1).ResourceID(),
+			Secrets:   []uuid.UUID{uuid.New()},
+			ExpiresAt: 5,
+		}
+		Expect(gorp.NewCreate[v0.Key, v0.Grant]().Entry(&old).Exec(ctx, db)).
+			To(Succeed())
+		MustOpen(grant.OpenService(ctx, grant.ServiceConfig{DB: db}))
+		var got grant.Grant
+		Expect(gorp.NewRetrieve[grant.Key, grant.Grant]().
+			Where(gorp.MatchKeys[grant.Key, grant.Grant](old.Key)).
+			Entry(&got).
+			Exec(ctx, db)).To(Succeed())
+		Expect(got).To(Equal(grant.Grant{
+			Key:       old.Key,
+			Subject:   old.Subject,
+			Secrets:   old.Secrets,
+			Command:   task.Command{Args: msgpack.EncodedJSON{}},
+			ExpiresAt: old.ExpiresAt,
+		}))
 	})
 })

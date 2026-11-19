@@ -154,8 +154,9 @@ const ACRONYM_REGEX = /^[A-Z0-9]{2,}$/;
 
 /** Converts a string to sentence case. Acronyms keep their casing. */
 export const toSentence = (str: string): string => {
-  if (str.length === 0) return str;
-  const words = splitWords(str).split(" ");
+  const spaced = splitWords(str);
+  if (spaced.length === 0) return spaced;
+  const words = spaced.split(" ");
   return words
     .map((word, i) => {
       if (ACRONYM_REGEX.test(word)) return word;

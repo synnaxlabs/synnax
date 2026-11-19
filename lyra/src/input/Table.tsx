@@ -17,6 +17,7 @@ import {
   type KeyboardEvent,
   type ReactElement,
   type ReactNode,
+  type SyntheticEvent,
   useEffect,
   useRef,
   useState,
@@ -165,6 +166,10 @@ const MOVES: Partial<Record<string, Move>> = {
   ArrowUp: (dims, from) => grid.move(dims, from, { x: 0, y: -1 }),
 };
 
+// A dialog that a cell opens portals out of the table and keeps its own events.
+const inTable = (e: SyntheticEvent): boolean =>
+  e.target instanceof Node && e.currentTarget.contains(e.target);
+
 type ColumnElement = ReactElement<TableColumnProps>;
 
 export interface TableProps
@@ -177,6 +182,11 @@ export interface TableProps
   preview?: boolean;
   /** Labels a row's gutter cell. Omitted, no gutter column renders. */
   rowLabel?: (index: number) => string;
+  /**
+   * Identifies a row, so the state of its cells, such as an open dialog, stays with it
+   * when the rows above it change. Defaults to the index.
+   */
+  rowKey?: (index: number) => string;
   /**
    * Builds each new row: the one the add button appends, and each one a paste adds.
    * Defaults to the column default values.
@@ -227,6 +237,7 @@ export const Table = ({
   children,
   preview = false,
   rowLabel,
+  rowKey,
   createRow,
   resourceName = "row",
   cellStatus,
@@ -240,6 +251,8 @@ export const Table = ({
   const initial = useRef<Initial | null>(null);
   // Set once Esc puts a cell back, so the next Esc leaves the cell.
   const restored = useRef(false);
+  // Set by a block paste, which commits: Esc then puts back what the paste wrote.
+  const pasted = useRef(false);
   // The row that takes focus once an add or a remove renders.
   const pendingFocus = useRef<number | null>(null);
   const table = useRef<HTMLTableElement>(null);
@@ -277,7 +290,7 @@ export const Table = ({
   };
 
   const handlePaste = (e: ClipboardEvent) => {
-    if (preview) return;
+    if (preview || !inTable(e)) return;
     const block = parseBlock(
       e.clipboardData.getData("text/plain"),
       columns,
@@ -286,6 +299,7 @@ export const Table = ({
     if (block == null) return;
     e.preventDefault();
     restored.current = false;
+    pasted.current = true;
     const plan = grid.plan(dims, anchor.current, block);
     const next = value.map((row) => [...row]);
     for (let row = dims.height; row < plan.dimensions.height; row++)
@@ -318,6 +332,15 @@ export const Table = ({
     ]?.querySelector<HTMLInputElement>("input") ?? null;
 
   useEffect(() => {
+    if (!pasted.current) return;
+    pasted.current = false;
+    const at = anchor.current;
+    const input = cellAt(at);
+    if (input == null || input !== document.activeElement) return;
+    initial.current = { value: value[at.y]?.[at.x], text: input.value };
+  });
+
+  useEffect(() => {
     if (pendingFocus.current == null) return;
     const y = Math.min(pendingFocus.current, value.length - 1);
     pendingFocus.current = null;
@@ -345,6 +368,7 @@ export const Table = ({
   };
 
   const handleCellFocus = (e: FocusEvent<HTMLTableCellElement>, at: xy.XY) => {
+    if (!inTable(e)) return;
     anchor.current = at;
     if (initial.current != null || !(e.target instanceof HTMLInputElement)) return;
     initial.current = { value: value[at.y]?.[at.x], text: e.target.value };
@@ -352,13 +376,14 @@ export const Table = ({
   };
 
   const handleCellBlur = (e: FocusEvent<HTMLTableCellElement>) => {
-    if (!e.currentTarget.contains(e.relatedTarget)) initial.current = null;
+    if (inTable(e) && !e.currentTarget.contains(e.relatedTarget))
+      initial.current = null;
   };
 
   // Runs before the cell, which blurs on an Esc that is not prevented and discards
   // any text it has not committed.
   const handleKeyDownCapture = (e: KeyboardEvent) => {
-    if (e.key !== "Escape") return;
+    if (e.key !== "Escape" || !inTable(e)) return;
     if (!(e.target instanceof HTMLInputElement) || initial.current == null) return;
     const { value: was, text } = initial.current;
     const at = anchor.current;
@@ -370,6 +395,7 @@ export const Table = ({
   };
 
   const handleKeyDown = (e: KeyboardEvent) => {
+    if (!inTable(e)) return;
     // Enter on the add and remove buttons must reach their native activation.
     if (!(e.target instanceof HTMLInputElement)) return;
     // An Esc that put a cell back stops here, so it does not close a parent dialog.
@@ -398,7 +424,9 @@ export const Table = ({
         onKeyDown={handleKeyDown}
         onKeyDownCapture={handleKeyDownCapture}
         // Any edit after a restore lets the next Esc restore again.
-        onInput={() => (restored.current = false)}
+        onInput={(e) => {
+          if (inTable(e)) restored.current = false;
+        }}
         {...rest}
       >
         <colgroup>
@@ -425,7 +453,7 @@ export const Table = ({
         )}
         <tbody>
           {value.map((row, i) => (
-            <tr key={i}>
+            <tr key={rowKey?.(i) ?? i}>
               {hasGutter && (
                 <th scope="row" className={CSS.BE("input", "table-gutter")}>
                   <Text.Text level="small" color={9}>
