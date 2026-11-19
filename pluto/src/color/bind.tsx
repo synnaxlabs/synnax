@@ -14,7 +14,7 @@ import { useState } from "react";
 
 import { Access } from "@/access";
 import { CreatePalette, CreateSwatch } from "@/color/Create";
-import { EditAction } from "@/color/Edit";
+import { SwatchMenu } from "@/color/Edit";
 import { usePalettes, useResolve } from "@/color/library";
 
 /** The props that bind a Lyra color control to a stored color reference. */
@@ -56,7 +56,7 @@ export const useBinding = (
                 onFocus={() => setCreated(undefined)}
               />
             ) : undefined,
-            swatchActions: <EditAction />,
+            swatchMenu: <SwatchMenu />,
             footer:
               canCreate && canCreatePalette ? (
                 <CreatePalette onCreate={setCreated} />
