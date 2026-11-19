@@ -34,7 +34,8 @@ const Content = ({ panel: key }: ContentProps): ReactElement => {
   Panel.useEnsure({ key });
   const icon = Panel.useIcon({ key });
   const { dispatch } = Panel.useDispatch();
-  const color = Color.useBinding(Panel.useColor({ key }), (next) =>
+  const ref = Panel.useColor({ key });
+  const binding = Color.useBinding(ref, (next) =>
     dispatch({ key, actions: panel.setColor({ color: next }) }),
   );
   const handleIconChange = (next?: string) =>
@@ -42,11 +43,11 @@ const Content = ({ panel: key }: ContentProps): ReactElement => {
   return (
     <Appearance.Picker
       icon={icon}
-      color={color.value}
-      library={color.library}
+      color={binding.value}
+      library={binding.library}
       fallback={Icon.Panel}
       onIconChange={handleIconChange}
-      onColorChange={color.onChange}
+      onColorChange={binding.onChange}
     />
   );
 };
