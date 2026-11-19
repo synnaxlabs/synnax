@@ -22,6 +22,7 @@ import {
   type Sink,
   type Source,
   type Spec,
+  type Telem,
   type ValueProps,
 } from "@/telem/aether/telem";
 
@@ -76,12 +77,12 @@ export const useChildContext = (
   return next;
 };
 
-class Memoized<V> {
-  private readonly spec: Spec;
-  readonly wrapped: V;
+class Memoized<T extends Telem> {
+  private spec: Spec;
+  readonly wrapped: T;
   private readonly prevProv: Context;
 
-  constructor(wrapped: V, prevProv: Context, prevSpec: Spec) {
+  constructor(wrapped: T, prevProv: Context, prevSpec: Spec) {
     this.wrapped = wrapped;
     this.spec = prevSpec;
     this.prevProv = prevProv;
@@ -89,6 +90,23 @@ class Memoized<V> {
 
   shouldUpdate(prov: Context, spec: Spec): boolean {
     return this.prevProv.key !== prov.key || !deep.equal(this.spec, spec);
+  }
+
+  /**
+   * Gives the props of a spec of the same type and provider to the wrapped telem.
+   * @returns true when the wrapped telem took them in place.
+   */
+  updateInPlace(prov: Context, spec: Spec): boolean {
+    const { type, variant } = this.spec;
+    if (
+      prov.key !== this.prevProv.key ||
+      spec.type !== type ||
+      spec.variant !== variant
+    )
+      return false;
+    if (this.wrapped.update?.(spec.props) !== true) return false;
+    this.spec = spec;
+    return true;
   }
 }
 
@@ -124,7 +142,7 @@ export const useSource = <V, S extends Source<V> = Source<V>>(
 ): MemoizedSource<V, S> => {
   const prov = useContext(ctx);
   if (prev instanceof MemoizedSource) {
-    if (!prev.shouldUpdate(prov, spec)) return prev;
+    if (!prev.shouldUpdate(prov, spec) || prev.updateInPlace(prov, spec)) return prev;
     prev.cleanup?.();
   }
   return new MemoizedSource<V, S>(prov.create(spec, options), prov, spec);
@@ -138,7 +156,7 @@ export const useSink = <V>(
 ): MemoizedSink<V> => {
   const prov = useContext(ctx);
   if (prev instanceof MemoizedSink) {
-    if (!prev.shouldUpdate(prov, spec)) return prev;
+    if (!prev.shouldUpdate(prov, spec) || prev.updateInPlace(prov, spec)) return prev;
     prev.cleanup?.();
   }
   return new MemoizedSink<V>(prov.create(spec, options), prov, spec);
