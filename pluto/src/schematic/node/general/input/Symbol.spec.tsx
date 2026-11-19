@@ -8,8 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Component } from "@synnaxlabs/lyra/component";
 import { Haul } from "@synnaxlabs/lyra/haul";
+import { sleep, TimeSpan } from "@synnaxlabs/x";
 import { act, render, type RenderResult, waitFor } from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
 import { type ReactElement } from "react";
@@ -115,6 +117,13 @@ const staleUI = (badged: boolean): ReactElement => (
   </StaleWrapper>
 );
 
+const IdleWrapper = createSynnaxWrapper({
+  client: createTestClient(),
+  additionalRegistry: { ...stringValue.REGISTRY, ...input.REGISTRY },
+  telemFactories: [],
+  renderContext: canvasTest.record(),
+});
+
 describe("Input.Symbol staleness", () => {
   beforeEach(() => staleColorHidden.mockClear());
 
@@ -131,6 +140,32 @@ describe("Input.Symbol staleness", () => {
     await findByRole("img", { name: "Stale" });
     rerender(staleUI(false));
     await waitFor(() => expect(staleColorHidden).toHaveBeenLastCalledWith(false));
+    expect(queryByRole("img", { name: "Stale" })).toBeNull();
+  });
+
+  // The readback runs with no state channel. Its source never sends, so it never goes
+  // stale.
+  it("should never show the stale indicator with no state channel", async () => {
+    const { queryByRole } = render(
+      <IdleWrapper>
+        <Staleness.Provider badged sweepInterval={50}>
+          <ReactFlowProvider>
+            <Haul.Provider>
+              <Input.spec.Node
+                nodeKey={NODE_KEY}
+                selected={false}
+                onConfigChange={vi.fn()}
+                config={schematic.inputNodeConfigZ.parse({
+                  variant: "input",
+                  stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
+                })}
+              />
+            </Haul.Provider>
+          </ReactFlowProvider>
+        </Staleness.Provider>
+      </IdleWrapper>,
+    );
+    await act(async () => await sleep.sleep(TimeSpan.milliseconds(1500)));
     expect(queryByRole("img", { name: "Stale" })).toBeNull();
   });
 });
