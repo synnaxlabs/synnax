@@ -24,7 +24,7 @@ import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Settings as PlatformSettings } from "@/platform/settings";
 
-const COLUMNS: List.Column[] = [{ name: "Name", width: "1fr" }];
+const COLUMNS: List.Column[] = [{ name: "Name", width: "minmax(24rem, 1fr)" }];
 
 const path = Label.createFormPath;
 

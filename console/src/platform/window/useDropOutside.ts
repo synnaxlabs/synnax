@@ -41,8 +41,7 @@ const useWindowsContain = (): ((cursor: xy.XY) => boolean) => {
     );
 };
 
-// A drag that started in another window never called start() on this window's haul
-// provider, so its local dragging ref is empty. Only the source window acts.
+// The drag's source window tears it out, so callers pass the drag this window started.
 const useResolve = ({ canDrop, onDrop }: UseDropOutsideProps) => {
   const windowsContain = useWindowsContain();
   const propsRef = useSyncedRef({ canDrop, onDrop });
@@ -60,7 +59,6 @@ const useResolve = ({ canDrop, onDrop }: UseDropOutsideProps) => {
 // the button is down.
 const useMacOS = (props: UseDropOutsideProps): void => {
   const ctx = Haul.useContext();
-  const dragging = Haul.useDraggingRef();
   const resolveRef = useSyncedRef(useResolve(props));
   const handleError = Status.useErrorHandler();
   useEffect(() => {
@@ -70,7 +68,8 @@ const useMacOS = (props: UseDropOutsideProps): void => {
       handleError(async () => {
         const [x, y] = await invoke<[number, number]>("mouse_release");
         if (controller.signal.aborted) return;
-        const dropped = resolveRef.current(dragging.current, xy.construct(x, y));
+        const cursor = xy.construct(x, y);
+        const dropped = resolveRef.current(ctx.startedRef.current, cursor);
         if (dropped != null) ctx.drop(dropped);
       }, "Failed to drop outside the window");
     window.addEventListener("dragstart", handleDragStart, {

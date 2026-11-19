@@ -556,14 +556,18 @@ describe("range/explorer/Explorer", () => {
       );
       for (const input of await screen.findAllByPlaceholderText("Search ranges..."))
         fireEvent.change(input, { target: { value: rng.name } });
-      const copies = await waitFor(() => {
-        const found = screen.getAllByRole("listitem", { name: rng.name });
-        expect(found).toHaveLength(2);
-        return found;
-      });
-      await openContextMenu(() => copies[1]);
+      // A list can replace the node of a line as its reads land, so each step finds the
+      // second copy again.
+      const second = (): HTMLElement => {
+        const copies = screen.getAllByRole("listitem", { name: rng.name });
+        expect(copies).toHaveLength(2);
+        return copies[1];
+      };
+      await waitFor(second);
+      await openContextMenu(second);
       fireEvent.click(await menuItem("Rename"));
-      expect(copies[1].contains(await awaitTextEditingElement())).toBe(true);
+      const editing = await awaitTextEditingElement();
+      expect(second().contains(editing)).toBe(true);
     });
 
     it("should start a planned range now with no end", async () => {
