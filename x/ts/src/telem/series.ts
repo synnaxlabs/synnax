@@ -1630,7 +1630,7 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
 
   /** Returns the bounds containing the minimum and maximum values across all series. */
   get bounds(): bounds.Bounds {
-    return bounds.max(this.series.map((s) => s.bounds));
+    return bounds.union(this.series.map((s) => s.bounds));
   }
 
   /** Returns the sum of the byte lengths of all series. */

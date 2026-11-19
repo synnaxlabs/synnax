@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array, bounds, Series, TimeRange, TimeStamp } from "@synnaxlabs/x";
+import { array, Series, TimeRange, TimeStamp } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
 import { type Dynamic } from "@/framer/cache/dynamic";
 import { index as tileIndex, tileRange } from "@/framer/cache/grid";
+import { buildInsertionPlan } from "@/framer/cache/insertion";
 
 /** The grid level of raw blocks: 2^16 milliseconds, about 65.5 seconds. */
 export const RAW_LEVEL = 16;
@@ -354,7 +355,7 @@ export class RawBlock implements Block {
   }
 
   private insert(series: Series): void {
-    const plan = bounds.buildInsertionPlan(
+    const plan = buildInsertionPlan(
       this._fetched.map((s) => s.alignmentBounds),
       series.alignmentBounds,
     );
