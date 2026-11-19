@@ -11,6 +11,7 @@ package fs_test
 
 import (
 	"io"
+	"maps"
 	"os"
 	"syscall"
 
@@ -20,11 +21,17 @@ import (
 	xfs "github.com/synnaxlabs/x/io/fs"
 	invariants "github.com/synnaxlabs/x/io/fs/internal/invariants"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
+	"github.com/synnaxlabs/x/io/fs/testutil/fault"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("FS", func() {
-	for fsName, openFS := range FileSystems {
+	fileSystems := maps.Clone(FileSystems)
+	fileSystems["faultFS"] = func() xfs.FS {
+		GinkgoHelper()
+		return MustSucceed(fault.New().Sub("testdata"))
+	}
+	for fsName, openFS := range fileSystems {
 		var fs xfs.FS
 		Context("FS: "+fsName, Ordered, func() {
 			BeforeEach(func() { fs = openFS() })
