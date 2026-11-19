@@ -167,11 +167,13 @@ const run = async <
 ): Promise<boolean> => {
   const rollbacks: destructor.Destructor[] = [];
   const runRollbacks = () => {
-    try {
-      rollbacks.reverse().forEach((rollback) => rollback());
-    } catch (error) {
-      console.error(`failed to rollback changes to ${name}`, error);
-    }
+    rollbacks.reverse().forEach((rollback) => {
+      try {
+        rollback();
+      } catch (error) {
+        console.error(`failed to rollback changes to ${name}`, error);
+      }
+    });
   };
 
   if (client == null) {

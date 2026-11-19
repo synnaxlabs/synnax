@@ -322,7 +322,7 @@ interface ChipsOptions {
   preview?: boolean;
   haulType?: string;
   // A drag that runs while the trigger shows.
-  dragging?: Haul.DraggingState;
+  dragging?: Haul.State;
 }
 
 interface ChipsProps extends ChipsOptions {
@@ -924,6 +924,7 @@ describe("Select", () => {
         initial: ["Pass"],
         haulType: "label",
         dragging: {
+          key: "drag",
           source: { key: "list", type: "label" },
           items: [{ key: "New", type: "label" }],
         },

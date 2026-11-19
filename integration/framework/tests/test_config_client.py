@@ -236,6 +236,20 @@ class TestConfigClient:
         with pytest.raises(ValueError, match="timeout"):
             config_client.ConfigClient(tests_dir=cases_dir).load(target_filter)
 
+    def test_sequence_filter_with_case_filter(self, cases_dir: Path) -> None:
+        """Should skip the sequences that do not match the sequence filter."""
+        sequences = []
+        for name in ("alpha", "beta"):
+            case = f"config_client_spec/selected_{name}"
+            write_case(cases_dir, case=case, source=named_case(name.title()))
+            sequences.append({"sequence_name": name, "tests": [{"case": case}]})
+        (cases_dir / "spec_tests.json").write_text(json.dumps({"sequences": sequences}))
+        target_filter = TargetFilter(
+            file_filter=["spec"], sequence_filter="alpha", case_filter=["selected"]
+        )
+        loaded, _ = config_client.ConfigClient(tests_dir=cases_dir).load(target_filter)
+        assert [s.name for s in loaded] == ["alpha"]
+
     def test_sequence_not_an_object(self, cases_dir: Path) -> None:
         """Should fail on a sequence entry that is not an object."""
         cases_dir.mkdir(parents=True)
