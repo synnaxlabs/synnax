@@ -3791,6 +3791,10 @@ var _ = Describe("Task", Ordered, func() {
 					Entry(&stat).Exec(ctx, db)).To(Succeed())
 				g.Expect(stat.Variant).To(Equal(status.VariantError))
 				g.Expect(stat.Message).To(Equal("Program ran too long"))
+				g.Expect(stat.Description).To(Equal(
+					"The program ran more than 1000 loop iterations and function " +
+						"calls in one cycle.",
+				))
 				g.Expect(stat.Details.Running).To(BeFalse())
 			}).Should(Succeed())
 			Expect(t.Stop(false)).To(MatchError(runtime.ErrLoopBudget))
