@@ -134,6 +134,10 @@ describe("groupSize", () => {
       expect(groupSize([reduced(300n), dense], VIEW, 1 / 2, "average", 302)).toBe(300);
     });
 
+    it("should not keep a previous size that the aggregation cannot use", () => {
+      expect(size([reduced(150n), dense], VIEW, 1 / 2, 301)).toBe(300);
+    });
+
     it("should take the size from the view for samples over two times sparser", () => {
       expect(size([reduced(300n, 4), dense])).toBe(16);
       expect(size([reduced(300n, 1.9), dense])).toBe(600);

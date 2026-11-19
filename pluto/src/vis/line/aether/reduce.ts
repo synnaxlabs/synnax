@@ -50,12 +50,12 @@ const xBounds = ({ x, xOffset, count }: DrawOperation): bounds.Bounds =>
  * @returns the samples per group that reduces the full-resolution ops. It is the
  * largest group size of the reduced ops when the full-resolution samples are within two
  * times the density of that op's samples, so the line draws at one density. A tile cut
- * short can reduce at a smaller size. When that size is within POINTS_PER_GROUP samples
- * of previous, the size the line last reduced with, it stays at previous: tiles of one
- * level differ by that much when they hold one sample more or less. Otherwise, it is
- * the samples of the ops per pixel column of the view over groupsPerColumn, rounded
- * down to a power of two. Returns 1, meaning no reduction, when that is below 2 or a
- * span is zero or not finite.
+ * short can reduce at a smaller size. It stays at previous, the size the line last
+ * reduced with, when previous is a multiple of POINTS_PER_GROUP within that many
+ * samples of it: tiles of one level differ by that much when they hold one sample more
+ * or less. Otherwise, it is the samples of the ops per pixel column of the view over
+ * groupsPerColumn, rounded down to a power of two. Returns 1, meaning no reduction,
+ * when that is below 2 or a span is zero or not finite.
  */
 export const groupSize = (
   ops: DrawOperation[],
@@ -87,7 +87,8 @@ export const groupSize = (
     if (ratio >= 1 / 2 && ratio <= 2) {
       const group = POINTS_PER_GROUP[aggregation];
       const size = multiple * group;
-      return Math.abs(size - previous) <= group ? previous : size;
+      const held = Math.abs(size - previous) <= group && previous % group === 0;
+      return held ? previous : size;
     }
   }
   const samplesPerPixel = density * (bounds.span(view.bounds) / view.width);
