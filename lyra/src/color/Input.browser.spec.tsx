@@ -73,6 +73,29 @@ describe("Input", () => {
     expect(fontOf("Linked")).toEqual(fontOf("Fixed"));
   });
 
+  it("should draw the # in the code font of the digits", async () => {
+    await renderThemed(
+      <Triggers.Provider>
+        <Color.Input
+          aria-label="Fixed"
+          value={RED}
+          fallback={RED}
+          onChange={() => {}}
+        />
+        <Input.Text aria-label="Plain" value="" onChange={() => {}} />
+      </Triggers.Provider>,
+    );
+    const hash = page
+      .getByRole("textbox", { name: "Fixed" })
+      .element()
+      .closest(`.${CSS.B("color-hex-text")}`)
+      ?.querySelector(`.${CSS.BE("input", "start-content")}`);
+    assert(hash != null);
+    expect(hash.textContent).toBe("#");
+    expect(getComputedStyle(hash).fontFamily).toBe(fontOf("Fixed").fontFamily);
+    expect(fontOf("Fixed").fontFamily).not.toBe(fontOf("Plain").fontFamily);
+  });
+
   it("should take one width while fixed, linked, Auto, or mixed", async () => {
     await renderThemed(
       <Triggers.Provider>
