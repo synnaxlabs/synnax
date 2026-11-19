@@ -155,13 +155,15 @@ func run(
 	ack crash.Ack,
 	profile crash.Profile,
 	runKey uint64,
+	ordered bool,
 ) error {
 	_, err := crash.Run(ctx, crash.Config{
-		RunKey:  runKey,
-		Open:    openCrashEngine(ack),
-		Commits: 8,
-		Stride:  1,
-		Profile: profile,
+		RunKey:         runKey,
+		Open:           openCrashEngine(ack),
+		Commits:        8,
+		Stride:         1,
+		Profile:        profile,
+		EntriesOrdered: ordered,
 	})
 	return err
 }
@@ -177,7 +179,7 @@ var _ = DescribeTable("Crash harness",
 		cause string,
 	) {
 		var v *crash.Violation
-		err := run(ctx, ack, profile, runKey)
+		err := run(ctx, ack, profile, runKey, false)
 		Expect(errors.As(err, &v)).To(BeTrue(), "no violation: %v", err)
 		Expect(v.Rule).To(Equal(rule))
 		Expect(v.Detail).To(ContainSubstring(cause))
@@ -214,11 +216,38 @@ var _ = DescribeTable("Crash harness",
 		"error decoding meta"),
 )
 
+// With the directory changes in order, as ext4, XFS, APFS, and NTFS journals keep them,
+// Cesium breaks the same rules: it syncs no directory, so a crash still keeps a channel
+// directory and loses its meta file.
+var _ = DescribeTable("Crash harness, ordered entries",
+	func(
+		ctx SpecContext,
+		ack crash.Ack,
+		profile crash.Profile,
+		rule crash.Rule,
+		cause string,
+	) {
+		var v *crash.Violation
+		err := run(ctx, ack, profile, 0, true)
+		Expect(errors.As(err, &v)).To(BeTrue(), "no violation: %v", err)
+		Expect(v.Rule).To(Equal(rule))
+		Expect(v.Detail).To(ContainSubstring(cause))
+	},
+	Entry("Durable, Partial: R4", crash.Durable, crash.Partial, crash.R4,
+		"data_type: required"),
+	Entry("Visible, Partial: R4", crash.Visible, crash.Partial, crash.R4,
+		"data_type: required"),
+	Entry("Durable, Mixed: R4", crash.Durable, crash.Mixed, crash.R4,
+		"error decoding meta"),
+	Entry("Visible, Mixed: R4", crash.Visible, crash.Mixed, crash.R4,
+		"error decoding meta"),
+)
+
 // Each entry holds only because Cesium syncs nothing: each crash image is empty, so the
 // harness checks only R0.
 var _ = DescribeTable("Crash harness, holding",
 	func(ctx SpecContext, ack crash.Ack, profile crash.Profile, runKey uint64) {
-		Expect(run(ctx, ack, profile, runKey)).To(Succeed())
+		Expect(run(ctx, ack, profile, runKey, false)).To(Succeed())
 	},
 	Entry("Visible, Strict", crash.Visible, crash.Strict, uint64(0)),
 	Entry("Visible, SyncErrors", crash.Visible, crash.SyncErrors, uint64(0)),
