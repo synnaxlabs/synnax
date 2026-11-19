@@ -92,7 +92,7 @@ export const synnaxParamsZ = z.object({
     })
     .optional(),
   name: z.string().optional(),
-  retry: breaker.breakerConfigZ.optional(),
+  retry: breaker.configZ.optional(),
   cache: z.boolean().default(true),
   /**
    * Receives cache errors that have no caller to throw to (listener fan-out, streamer

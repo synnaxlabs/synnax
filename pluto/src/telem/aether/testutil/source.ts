@@ -34,7 +34,8 @@ import { registerInstance, TEST_SOURCE_TYPE } from "@/telem/aether/testutil/fact
 
 const propsZ = z.object({ testId: z.string() });
 
-export class TestSource<V> extends observe.Observer<void> implements Source<V>, Telem {
+export class TestSource<V> implements Source<V>, Telem {
+  private readonly observer = new observe.Observer<void>();
   static readonly TYPE = TEST_SOURCE_TYPE;
   readonly id: string;
   status: status.Status = SUCCESS_STATUS;
@@ -47,10 +48,13 @@ export class TestSource<V> extends observe.Observer<void> implements Source<V>, 
   private _destructor: destructor.Destructor;
 
   constructor(initialValue: V) {
-    super();
     this.id = id.create();
     this._value = initialValue;
     this._destructor = registerInstance(this.id, this);
+  }
+
+  onChange(handler: observe.Handler<void>): destructor.Destructor {
+    return this.observer.onChange(handler);
   }
 
   value(_props?: ValueProps): Result<V> {
@@ -60,7 +64,7 @@ export class TestSource<V> extends observe.Observer<void> implements Source<V>, 
 
   setValue(v: V): void {
     this._value = v;
-    this.notify();
+    this.observer.notify();
   }
 
   cleanup(): void {

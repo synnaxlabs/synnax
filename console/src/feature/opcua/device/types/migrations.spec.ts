@@ -15,7 +15,7 @@ import { SERVER_CERTIFICATE } from "@/feature/opcua/testutil";
 
 interface TestCase {
   description: string;
-  input: OPCUA.Device.AnyProperties;
+  input: v0.Properties | v1.Properties | v2.Properties;
   output: v2.Properties;
 }
 
@@ -110,6 +110,6 @@ const TEST_RECORD: TestCase[] = [
 describe("migrations", () =>
   TEST_RECORD.forEach(({ description, input, output }) =>
     it(description, () =>
-      expect(OPCUA.Device.migrateProperties(input)).toEqual(output),
+      expect(OPCUA.Device.propertiesZ.parse(input)).toEqual(output),
     ),
   ));
