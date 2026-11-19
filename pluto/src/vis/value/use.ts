@@ -25,8 +25,6 @@ export interface UseProps extends z.input<typeof basePropsZ> {
 
 export interface UseReturn {
   width: number;
-  /** True while the source's channel is deleted. The value is not drawn. */
-  deleted: boolean;
 }
 
 export const use = ({
@@ -73,5 +71,5 @@ export const use = ({
     initialState: memoProps,
   });
   useEffect(() => setState((prev) => ({ ...prev, ...memoProps })), [memoProps]);
-  return { width: state.width ?? state.minWidth, deleted: state.deleted };
+  return { width: state.width ?? state.minWidth };
 };

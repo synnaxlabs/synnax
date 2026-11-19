@@ -13,6 +13,7 @@ import { type schematic } from "@synnaxlabs/client";
 import { box, dimensions, location, xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
+import { Channel } from "@/channel";
 import { CSS } from "@/css";
 import { Deleted } from "@/schematic/node/common/deleted";
 import { Grid } from "@/schematic/node/common/grid";
@@ -46,7 +47,7 @@ export const Symbol = ({
     box: box.construct(position ?? xy.ZERO, outer),
     direction: dir,
   });
-  const deleted = Deleted.use([channel]);
+  const deleted = Channel.useDeleted(channel);
   // The bar has one orientation per axis, so rotating it toggles between them.
   const handleRotate = (): void =>
     onConfigChange({

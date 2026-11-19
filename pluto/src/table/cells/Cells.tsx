@@ -15,9 +15,9 @@ import { Text as BaseText } from "@synnaxlabs/lyra/text";
 import { type border, box, color, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
+import { Channel } from "@/channel";
 import { CSS } from "@/css";
 import { Cell as Base } from "@/table/cells/Cell";
-import { telem } from "@/telem/aether";
 import { Value as BaseValue } from "@/vis/value";
 
 export const textConfigZ = table.textCellConfigZ;
@@ -110,7 +110,7 @@ export const Value = ({
 }: CellProps<ValueConfig>) => {
   const t = BaseValue.stringSource({ channel, rollingAverage, precision, notation });
   const backgroundTelem = BaseValue.backgroundTelem(t, redline, fillColor);
-  const { deleted } = BaseValue.use({
+  BaseValue.use({
     aetherKey: cellKey,
     box: b,
     telem: t,
@@ -123,6 +123,7 @@ export const Value = ({
     clip: true,
     borderRadius,
   });
+  const deleted = Channel.useDeleted(channel);
   const handleSelect = (e: React.MouseEvent) => onSelect(cellKey, e);
   // Use the column-driven box width, not BaseValue's natural text width: when
   // row indicators are hidden, the first data row determines column widths via
@@ -144,11 +145,7 @@ export const Value = ({
         CSS.BEM("table", "cell", "value"),
       )}
     >
-      {deleted && (
-        <BaseText.Text level="small" color={9} overflow="fade">
-          {telem.DELETED_STATUS.message}
-        </BaseText.Text>
-      )}
+      {deleted && <Channel.Deleted />}
     </Base>
   );
 };

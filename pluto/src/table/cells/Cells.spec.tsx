@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { table } from "@synnaxlabs/client";
-import { box, TimeSpan } from "@synnaxlabs/x";
+import { DataType, table } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
+import { box, id, TimeSpan } from "@synnaxlabs/x";
 import { render, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -16,6 +17,9 @@ import { z } from "zod";
 import { Aether } from "@/aether";
 import { aether } from "@/aether/aether";
 import { Cell } from "@/table/cells";
+import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { canvasTest } from "@/vis/render/testutil";
+import { value } from "@/vis/value/aether";
 
 const valueState = z.object({ stalenessTimeout: z.number().optional() }).loose();
 
@@ -31,29 +35,23 @@ class CapturingValue extends aether.Leaf<typeof valueState> {
   }
 }
 
-const deletedState = z.object({ deleted: z.boolean().default(false) }).loose();
+const client = createTestClient();
 
-// Stands in for the value worker component of a deleted channel.
-class DeletedValue extends aether.Leaf<typeof deletedState> {
-  static readonly TYPE = "value";
-  schema = deletedState;
-
-  afterUpdate(): void {
-    if (!this.state.deleted) this.setState((s) => ({ ...s, deleted: true }));
-  }
-}
-
-const renderValue = (registry: aether.ComponentRegistry) => {
-  const [workerSide, mainSide] = aether.createMockPair();
-  aether.render({ worker: workerSide, registry });
+const renderLiveValue = async (channel: number) => {
+  const Providers = await createAsyncSynnaxWrapper({
+    client,
+    additionalRegistry: value.REGISTRY,
+    telemFactories: [],
+    renderContext: canvasTest.record(),
+  });
   return render(
-    <Aether.Provider worker={mainSide}>
+    <Providers>
       <table>
         <tbody>
           <tr>
             <Cell.Value
-              {...table.valueCellConfigZ.parse({ variant: "value" })}
-              cellKey="c1"
+              {...table.valueCellConfigZ.parse({ variant: "value", channel })}
+              cellKey={id.create()}
               box={box.construct(0, 0, 100, 20)}
               selected={false}
               editable={false}
@@ -63,19 +61,30 @@ const renderValue = (registry: aether.ComponentRegistry) => {
           </tr>
         </tbody>
       </table>
-    </Aether.Provider>,
+    </Providers>,
   );
 };
 
 describe("Cells.Value deleted channel", () => {
-  it("should say Deleted channel when its worker reports the channel deleted", async () => {
-    const { findByText } = renderValue({ [DeletedValue.TYPE]: DeletedValue });
+  it("should say Deleted channel for a channel the Core deleted", async () => {
+    const ch = await client.channels.create({
+      name: `cell_${id.create()}`,
+      dataType: DataType.FLOAT32,
+      virtual: true,
+    });
+    await client.channels.delete(ch.key);
+    const { findByText } = await renderLiveValue(ch.key);
     expect(await findByText("Deleted channel")).toBeTruthy();
   });
 
   it("should say nothing while its channel exists", async () => {
-    const { queryByText } = renderValue({ [CapturingValue.TYPE]: CapturingValue });
-    await waitFor(() => expect(CapturingValue.states.length).toBeGreaterThan(0));
+    const ch = await client.channels.create({
+      name: `cell_${id.create()}`,
+      dataType: DataType.FLOAT32,
+      virtual: true,
+    });
+    const { container, queryByText } = await renderLiveValue(ch.key);
+    await waitFor(() => expect(container.querySelector("td")).not.toBeNull());
     expect(queryByText("Deleted channel")).toBeNull();
   });
 });

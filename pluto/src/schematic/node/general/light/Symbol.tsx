@@ -11,6 +11,7 @@ import { type schematic } from "@synnaxlabs/client";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { type ReactElement } from "react";
 
+import { Channel } from "@/channel";
 import { Deleted } from "@/schematic/node/common/deleted";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
@@ -44,7 +45,7 @@ export const Symbol = ({
     source,
     stalenessTimeout,
   });
-  const deleted = Deleted.use([channel]);
+  const deleted = Channel.useDeleted(channel);
   return (
     <Grid.Grid
       orientation={orientation}

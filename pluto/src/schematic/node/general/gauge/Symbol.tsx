@@ -13,6 +13,7 @@ import { type schematic } from "@synnaxlabs/client";
 import { box, dimensions, type text, xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
+import { Channel } from "@/channel";
 import { CSS } from "@/css";
 import { Deleted } from "@/schematic/node/common/deleted";
 import { Grid } from "@/schematic/node/common/grid";
@@ -69,7 +70,7 @@ export const Symbol = ({
     stalenessColor,
     stalenessTimeout,
   });
-  const deleted = Deleted.use([channel]);
+  const deleted = Channel.useDeleted(channel);
   return (
     <Grid.Grid editable={selected} nodeKey={nodeKey} allowRotate={false}>
       <Label.Label config={label} onChange={onConfigChange} />

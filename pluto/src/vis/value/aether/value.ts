@@ -48,9 +48,6 @@ const valueState = staleness.configZ.extend({
   // borderRadius rounds the clip region, in px. Set it when the host has rounded
   // corners, so the background fill does not square them off.
   borderRadius: border.crudeRadiusZ.optional(),
-  // deleted is true while the source's channel is deleted. The value is not drawn, and
-  // the width holds.
-  deleted: z.boolean().default(false),
 });
 
 const CANVAS_VARIANTS: render.Canvas2DVariant[] = ["upper2d", "lower2d"];
@@ -169,23 +166,15 @@ export class Value
   }
 
   render({ viewportScale = scale.XY.IDENTITY }): void {
-    const {
-      renderCtx,
-      telem: source,
-      backgroundTelem,
-      fontString,
-      requestRender,
-    } = this.internal;
+    const { renderCtx, telem, backgroundTelem, fontString, requestRender } =
+      this.internal;
     const { location, box: b } = this.state;
     if (box.areaIsZero(b)) return;
     const bTopLeft = box.topLeft(b);
     const bWidth = box.width(b);
     const bHeight = box.height(b);
     const canvas = renderCtx.upper2d.applyScale(viewportScale);
-    const result = source.value();
-    const deleted = result.status === telem.DELETED_STATUS;
-    if (deleted !== this.state.deleted) this.setState((p) => ({ ...p, deleted }));
-    let value = deleted ? "" : result.data;
+    let value = telem.value().data;
     canvas.font = fontString;
     canvas.textAlign = "left";
     canvas.textBaseline = "alphabetic";
@@ -199,7 +188,7 @@ export class Value
     const height = dims.height;
     if (requestRender == null) renderCtx.erase(box.construct(this.prevState.box));
 
-    if (!deleted) this.maybeUpdateWidth(width);
+    this.maybeUpdateWidth(width);
     const labelOffset = { ...xy.ZERO };
     if (location.x === "left") labelOffset.x = 6 + fontHeight * 0.75;
     else if (location.x === "center") labelOffset.x = bWidth / 2 - width / 2;

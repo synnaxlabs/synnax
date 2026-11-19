@@ -22,7 +22,6 @@ import { type ReactElement, type ReactNode, useEffect, useState } from "react";
 import { Channel } from "@/channel";
 import { CSS } from "@/css";
 import { type Node } from "@/schematic/node";
-import { Deleted } from "@/schematic/node/common/deleted";
 import { Synnax } from "@/synnax";
 import { LatestSample } from "@/vis/latestSample";
 import { Staleness } from "@/vis/staleness";
@@ -152,7 +151,7 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
           label={
             <>
               <RoleIcon />
-              {Deleted.TEXT}
+              {Channel.DELETED_TEXT}
             </>
           }
           value={undefined}

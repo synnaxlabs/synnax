@@ -11,6 +11,7 @@ import { type schematic } from "@synnaxlabs/client";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { type ReactElement } from "react";
 
+import { Channel } from "@/channel";
 import { Control } from "@/schematic/node/common/control";
 import { Deleted } from "@/schematic/node/common/deleted";
 import { Grid } from "@/schematic/node/common/grid";
@@ -54,7 +55,9 @@ export const Symbol = ({
     options,
     stalenessTimeout,
   });
-  const deleted = Deleted.use([stateChannel, commandChannel]);
+  const stateDeleted = Channel.useDeleted(stateChannel);
+  const commandDeleted = Channel.useDeleted(commandChannel);
+  const deleted = stateDeleted || commandDeleted;
   const readback = options.find((o) => o.key === readbackKey);
   const resize = Grid.useInlineResize(inlineSize, (inlineSize) =>
     onConfigChange({ inlineSize }),

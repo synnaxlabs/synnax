@@ -11,6 +11,7 @@ import { type schematic } from "@synnaxlabs/client";
 import { border, box, type dimensions, primitive, xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
+import { Channel } from "@/channel";
 import { Border } from "@/schematic/node/common/border";
 import { Deleted } from "@/schematic/node/common/deleted";
 import { Grid } from "@/schematic/node/common/grid";
@@ -95,7 +96,7 @@ export const Symbol = ({
     borderRadius,
     channel,
   } = config;
-  const deleted = Deleted.use([channel]);
+  const deleted = Channel.useDeleted(channel);
   return (
     <Grid.Grid
       allowCenter

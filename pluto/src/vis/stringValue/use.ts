@@ -18,18 +18,13 @@ export interface UseProps extends z.input<typeof stringValue.stateZ> {
   aetherKey: string;
 }
 
-export interface UseReturn {
-  /** True while the source's channel is deleted. The text is not drawn. */
-  deleted: boolean;
-}
-
 /**
  * use draws the latest value of a string source into a box on the canvas. The worker
  * draws each sample, so a sample never re-renders the calling component.
  */
-export const use = ({ aetherKey, ...rest }: UseProps): UseReturn => {
+export const use = ({ aetherKey, ...rest }: UseProps): void => {
   const memoProps = useMemoDeepEqual(rest);
-  const [, state, setState] = Aether.use({
+  const { setState } = Aether.useLifecycle({
     aetherKey,
     type: stringValue.StringValue.TYPE,
     schema: stringValue.stateZ,
@@ -39,5 +34,4 @@ export const use = ({ aetherKey, ...rest }: UseProps): UseReturn => {
     () => setState((state) => ({ ...state, ...memoProps })),
     [memoProps, setState],
   );
-  return { deleted: state.deleted };
 };

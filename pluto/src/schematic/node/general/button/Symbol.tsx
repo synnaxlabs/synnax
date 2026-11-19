@@ -10,6 +10,7 @@
 import { type schematic } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
+import { Channel } from "@/channel";
 import { Control } from "@/schematic/node/common/control";
 import { Deleted } from "@/schematic/node/common/deleted";
 import { Grid } from "@/schematic/node/common/grid";
@@ -30,7 +31,7 @@ export const Symbol = ({
     sink,
     mode,
   });
-  const deleted = Deleted.use([commandChannel]);
+  const deleted = Channel.useDeleted(commandChannel);
   return (
     <Grid.Grid
       orientation={orientation}

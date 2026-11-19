@@ -11,6 +11,7 @@ import { schematic } from "@synnaxlabs/client";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { type FC, memo, type ReactElement } from "react";
 
+import { Channel } from "@/channel";
 import { Control } from "@/schematic/node/common/control";
 import { Deleted } from "@/schematic/node/common/deleted";
 import { Grid } from "@/schematic/node/common/grid";
@@ -63,7 +64,9 @@ export const createToggle = <C extends ToggleConfig>(
       sink,
       stalenessTimeout,
     });
-    const deleted = Deleted.use([stateChannel, commandChannel]);
+    const stateDeleted = Channel.useDeleted(stateChannel);
+    const commandDeleted = Channel.useDeleted(commandChannel);
+    const deleted = stateDeleted || commandDeleted;
     const scaleResize = Grid.useScaleResize(config, onConfigChange);
     return (
       <Grid.Grid

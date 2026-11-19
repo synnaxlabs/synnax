@@ -9,7 +9,6 @@
 
 import { theme } from "@synnaxlabs/lyra/theme";
 import { box, color, type destructor, scale, text, xy } from "@synnaxlabs/x";
-import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { telem } from "@/telem/aether";
@@ -27,8 +26,6 @@ export const stateZ = staleness.configZ.extend({
   // color is the text color. Absent, the text takes the theme's text color.
   color: color.colorZ.optional(),
   stalenessColor: color.colorZ.optional(),
-  // deleted is true while the source's channel is deleted. The text is not drawn.
-  deleted: z.boolean().default(false),
 });
 
 const CANVAS_VARIANTS: render.Canvas2DVariant[] = ["upper2d", "lower2d"];
@@ -114,11 +111,8 @@ export class StringValue
     canvas.font = fontString;
     canvas.textAlign = "left";
     canvas.textBaseline = "middle";
-    const result = source.value();
-    const deleted = result.status === telem.DELETED_STATUS;
-    if (deleted !== this.state.deleted) this.setState((p) => ({ ...p, deleted }));
     canvas.fillStyle = color.hex(this.textColor);
-    const value = deleted ? "" : result.data;
+    const value = source.value().data;
     if (value.length === 0) return;
     const position = xy.construct(box.left(b), box.center(b).y);
     const width = box.width(b);

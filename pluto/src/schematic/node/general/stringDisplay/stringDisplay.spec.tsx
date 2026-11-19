@@ -7,21 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { schematic } from "@synnaxlabs/client";
+import { DataType, schematic } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Form } from "@synnaxlabs/lyra/form";
+import { id } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
 import { createRef, type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
-import { z } from "zod";
 
-import { aether } from "@/aether/aether";
 import { CSS } from "@/css";
 import { Node } from "@/schematic/node";
 import { GROUP } from "@/schematic/node/general/group";
 import { StringDisplayForm } from "@/schematic/node/general/stringDisplay/Form";
 import { StringDisplay as Primitive } from "@/schematic/node/general/stringDisplay/Primitive";
-import { createSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil/Synnax";
+import { canvasTest } from "@/vis/render/testutil";
 import { stringValue } from "@/vis/stringValue/aether";
 
 const SynnaxWrapper = createSynnaxWrapper({ client: null });
@@ -105,23 +106,21 @@ describe("StringDisplay", () => {
   });
 });
 
-const deletedState = z.object({ deleted: z.boolean().default(false) }).loose();
-
-// Stands in for the string value worker component, reporting its channel as deleted.
-class DeletedStringValue extends aether.Leaf<typeof deletedState> {
-  static readonly TYPE = stringValue.StringValue.TYPE;
-  schema = deletedState;
-
-  afterUpdate(): void {
-    if (!this.state.deleted) this.setState((s) => ({ ...s, deleted: true }));
-  }
-}
+const client = createTestClient();
 
 describe("StringDisplay.Symbol deleted channel", () => {
   it("should say Deleted channel inside its box, with no badge below", async () => {
-    const Wrapper = createSynnaxWrapper({
-      client: null,
-      additionalRegistry: { [DeletedStringValue.TYPE]: DeletedStringValue },
+    const ch = await client.channels.create({
+      name: `display_${id.create()}`,
+      dataType: DataType.STRING,
+      virtual: true,
+    });
+    await client.channels.delete(ch.key);
+    const Wrapper = await createAsyncSynnaxWrapper({
+      client,
+      additionalRegistry: stringValue.REGISTRY,
+      telemFactories: [],
+      renderContext: canvasTest.record(),
     });
     const Display = Node.resolveSpec("string_display").Node;
     const { findByText, container } = render(
@@ -131,7 +130,7 @@ describe("StringDisplay.Symbol deleted channel", () => {
             nodeKey="s1"
             selected={false}
             onConfigChange={() => {}}
-            config={Node.createConfig({ variant: "string_display", channel: 7 })}
+            config={Node.createConfig({ variant: "string_display", channel: ch.key })}
           />
         </ReactFlowProvider>
       </Wrapper>,

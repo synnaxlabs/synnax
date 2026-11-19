@@ -12,7 +12,7 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { box, text, xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Deleted } from "@/schematic/node/common/deleted";
+import { Channel } from "@/channel";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { LEVEL_SIZES } from "@/schematic/node/common/size";
@@ -49,7 +49,7 @@ export const Symbol = ({
   const valueBoxHeight = Component.HEIGHTS[LEVEL_SIZES[level]];
   const t = BaseValue.stringSource({ channel, rollingAverage, precision, notation });
   const backgroundTelem = BaseValue.backgroundTelem(t, redline, fillColor);
-  const { width: oWidth, deleted } = BaseValue.use({
+  const { width: oWidth } = BaseValue.use({
     aetherKey: nodeKey,
     color: textColor,
     level,
@@ -67,6 +67,7 @@ export const Symbol = ({
     valueBackgroundOverScan: VALUE_BACKGROUND_OVERSCAN,
     valueBackgroundShift: VALUE_BACKGROUND_SHIFT,
   });
+  const deleted = Channel.useDeleted(channel);
   // The text can widen the box past inlineSize, so a drag starts from the drawn width.
   const resize = Grid.useInlineResize(oWidth, (inlineSize) =>
     onConfigChange({ inlineSize }),
@@ -83,7 +84,7 @@ export const Symbol = ({
         units={units}
         unitsLevel={text.downLevel(level)}
       >
-        {deleted && <Deleted.Text />}
+        {deleted && <Channel.Deleted />}
       </Value>
     </Grid.Grid>
   );
