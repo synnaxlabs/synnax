@@ -12,6 +12,7 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Haul } from "@synnaxlabs/lyra/haul";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { scheduler } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -29,7 +30,6 @@ import {
   getIconButton,
   getIconButtons,
   HaulProvider,
-  uniqueName,
   withControlHeld,
 } from "@/testutil";
 

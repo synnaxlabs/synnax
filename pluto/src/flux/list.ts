@@ -238,12 +238,13 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
     itemQuery,
   });
   // A window keeps the records that a change leaves, so a reader renders again only for
-  // its own record.
-  const readers = useInitializerRef(() => new Set<() => void>());
+  // its own record. A list change calls a reader of many keys, such as Store.useItems,
+  // once and not once per key.
+  const readers = useInitializerRef(() => new Map<() => void, number>());
   const membersByWindow = useInitializerRef(
     () => new WeakMap<query.Window<E, unknown>, Map<K, E>>(),
   );
-  const notifyReaders = () => readers.current.forEach((read) => read());
+  const notifyReaders = () => readers.current.forEach((_, read) => read());
   useEffect(() => {
     if (list == null) return;
     return list.onChange(notifyReaders);
@@ -279,17 +280,18 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
 
   const subscribe = (callback: () => void, key: K): destructor.Destructor => {
     if (retriever == null || primitive.isZero(key)) return destructor.NOOP;
-    const read = () => callback();
-    readers.current.add(read);
+    readers.current.set(callback, (readers.current.get(callback) ?? 0) + 1);
     const live = retriever.watch(itemQuery(key));
-    const release = live.onChange(read);
+    const release = live.onChange(() => callback());
     if (live.getCached() === undefined)
       live.retrieve().then(callback, (error: unknown) => {
         // The subscriber reads a missing record from getItem.
         if (!NotFoundError.matches(error)) console.error(error);
       });
     return () => {
-      readers.current.delete(read);
+      const count = readers.current.get(callback) ?? 0;
+      if (count <= 1) readers.current.delete(callback);
+      else readers.current.set(callback, count - 1);
       release();
     };
   };

@@ -12,12 +12,13 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Text } from "@synnaxlabs/lyra/text";
 import { deep, TimeStamp } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Task } from "@/platform/task";
 import { renderInTaskForm, renderInTaskFormWithClient } from "@/platform/task/testutil";
-import { awaitTextEditing, commitTextEdit, uniqueName } from "@/testutil";
+import { awaitTextEditing, commitTextEdit } from "@/testutil";
 
 const path = deep.path<{ config: { name: string }; name: string; channel: number }>();
 

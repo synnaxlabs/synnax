@@ -12,7 +12,7 @@ import { createTestClient, spyOnSend } from "@synnaxlabs/client/testutil";
 import { mockBoundingClientRect } from "@synnaxlabs/lyra/testutil";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { type border, box, type scale, xy } from "@synnaxlabs/x";
+import { type border, box, type scale, scheduler, xy } from "@synnaxlabs/x";
 import { act, fireEvent, render, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -521,11 +521,7 @@ describe("Table", () => {
     };
 
     // Moves are coalesced and delivered on the next animation frame.
-    const frame = async (): Promise<void> =>
-      await act(
-        async () =>
-          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
-      );
+    const frame = async (): Promise<void> => await act(scheduler.nextFrame);
 
     const CELLS = [
       ["00", "01", "02"],
