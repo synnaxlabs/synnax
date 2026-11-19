@@ -9,7 +9,17 @@
 
 import { scheduler } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
-import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  assert,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type Mock,
+  onTestFinished,
+  vi,
+} from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { Button } from "@/button";
@@ -549,7 +559,9 @@ const renderMenuEntry = renderProp((props: List.ItemProps<string>) => (
   </Select.Item>
 ));
 
-const MenuSingle = (): ReactElement => {
+const MenuSingle = ({
+  hasMenu,
+}: Pick<Select.SingleProps<string, MenuEntry>, "hasMenu">): ReactElement => {
   const { data, getItem } = List.useStaticData<string, MenuEntry>({
     data: MENU_ENTRIES,
   });
@@ -563,6 +575,7 @@ const MenuSingle = (): ReactElement => {
         onChange={setValue}
         resourceName="Entry"
         initialHover={1}
+        hasMenu={hasMenu}
         menu={({ keys }) => (
           <Menu.Menu>
             <Menu.Item itemKey="edit">{`menu for ${keys.join(",")}`}</Menu.Item>
@@ -575,8 +588,10 @@ const MenuSingle = (): ReactElement => {
   );
 };
 
-const openMenuSingle = async (): Promise<void> => {
-  await renderThemed(<MenuSingle />);
+const openMenuSingle = async (
+  props: Pick<Select.SingleProps<string, MenuEntry>, "hasMenu"> = {},
+): Promise<void> => {
+  await renderThemed(<MenuSingle {...props} />);
   await userEvent.click(page.getByRole("button", { name: "Entry" }));
   await expect.element(page.getByRole("option", { name: "Second" })).toBeVisible();
 };
@@ -657,14 +672,15 @@ describe("Select", () => {
   });
 
   describe("menu surface", () => {
-    it("should pick with the arrow keys and Enter, and not filter as the user types", async () => {
+    // Opens a select of two stages on the surface, and returns its onChange.
+    const openStage = async (surface: "dialog" | "menu"): Promise<Mock> => {
       const onChange = vi.fn();
       await renderThemed(
         <Triggers.Provider>
           <Dialog.Frame variant="floating">
             <Dialog.Trigger>Stage</Dialog.Trigger>
             <Select.Frame<string, undefined> multiple value={[]} onChange={onChange}>
-              <Select.Dialog surface="menu" aria-label="Stage">
+              <Select.Dialog surface={surface} aria-label="Stage">
                 <Select.List>
                   {["alpha", "beta"].map((key) => (
                     <Select.Item<string> key={key} itemKey={key}>
@@ -680,11 +696,33 @@ describe("Select", () => {
       await userEvent.click(page.getByText("Stage"));
       const dialog = page.getByRole("dialog", { name: "Stage" });
       await expect.poll(() => computed(dialog.element(), "opacity")).toBe("1");
+      return onChange;
+    };
+
+    const viewsPacked = (): boolean | undefined =>
+      page
+        .getByRole("dialog", { name: "Stage" })
+        .element()
+        .querySelector(".lyra-views")
+        ?.classList.contains("lyra--pack");
+
+    it("should pick with the arrow keys and Enter, and not filter as the user types", async () => {
+      const onChange = await openStage("menu");
       await userEvent.keyboard("b");
       expect(document.querySelector(".lyra-menu-filter")).toBeNull();
       await userEvent.keyboard("{ArrowDown}{Enter}");
       await expect.poll(() => onChange).toHaveBeenCalledOnce();
       expect(onChange.mock.calls[0][0]).toEqual(["alpha"]);
+    });
+
+    it("should not pack the options, as a menu does not", async () => {
+      await openStage("menu");
+      expect(viewsPacked()).toBe(false);
+    });
+
+    it("should pack the options on the dialog surface", async () => {
+      await openStage("dialog");
+      expect(viewsPacked()).toBe(true);
     });
   });
 
@@ -1311,6 +1349,22 @@ describe("Select", () => {
       await expect
         .element(page.getByRole("menuitem", { name: "menu for 2" }))
         .toBeVisible();
+    });
+
+    it("should leave an option that hasMenu refuses to the platform", async () => {
+      const prevented = vi.fn();
+      const record = (e: MouseEvent): void => prevented(e.defaultPrevented);
+      window.addEventListener("contextmenu", record);
+      onTestFinished(() => window.removeEventListener("contextmenu", record));
+      await openMenuSingle({ hasMenu: (key) => key !== "2" });
+      const second = page.getByRole("option", { name: "Second" });
+      await userEvent.click(second, { button: "right" });
+      await userEvent.keyboard("{Shift>}{F10}{/Shift}");
+      expect(prevented).toHaveBeenCalledWith(false);
+      expect(prevented).not.toHaveBeenCalledWith(true);
+      // With no menu open, Escape closes the dialog.
+      await userEvent.keyboard("{Escape}");
+      await expect.element(second).not.toBeInTheDocument();
     });
   });
 });

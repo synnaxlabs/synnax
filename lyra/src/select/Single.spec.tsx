@@ -656,6 +656,24 @@ describe("Select.Single", () => {
       expect(c.queryByRole("menu")).toBeNull();
     });
 
+    it("should leave an option that hasMenu refuses to the platform", () => {
+      const { c } = openDialog({
+        menu,
+        hasMenu: (key) => key !== "2",
+        initialHover: 1,
+      });
+      const textbox = c.getByRole("textbox");
+      const second = c.getByRole("option", { name: "Second Item Option" });
+      expect(fireEvent.contextMenu(second)).toBe(true);
+      expect(fireEvent.keyDown(textbox, SHIFT_F10)).toBe(true);
+      expect(fireEvent.keyDown(textbox, MENU_KEY)).toBe(true);
+      expect(fireEvent.keyUp(textbox, MENU_KEY)).toBe(true);
+      expect(c.queryByRole("menu")).toBeNull();
+      const first = c.getByRole("option", { name: "First Item Option" });
+      expect(fireEvent.contextMenu(first)).toBe(false);
+      expect(c.getByText("menu for 1")).toBeTruthy();
+    });
+
     it("should not move the hover on an arrow key in the open menu", () => {
       const { c, onChange } = openDialog({ menu, initialHover: 1 });
       fireEvent.keyDown(c.getByRole("textbox"), SHIFT_F10);

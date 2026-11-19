@@ -44,6 +44,8 @@ export interface SingleProps<
    * the Menu key while it holds the hover. It gets the key of that option only.
    */
   menu?: DialogProps["menu"];
+  /** Whether the option with the key opens `menu`. Defaults to every option. */
+  hasMenu?: DialogProps["hasMenu"];
 }
 
 /**
@@ -78,6 +80,7 @@ export const Single = <K extends record.Key, E extends record.Keyed<K> | undefin
   dialogProps,
   triggerProps,
   menu,
+  hasMenu,
   virtual = true,
   closeDialogOnSelect = true,
   autoSelectOnNone,
@@ -121,7 +124,7 @@ export const Single = <K extends record.Key, E extends record.Keyed<K> | undefin
           preview={preview}
           {...triggerProps}
         />
-        <SelectDialog {...dialogProps} menu={menu}>
+        <SelectDialog {...dialogProps} menu={menu} hasMenu={hasMenu}>
           <Body<K>
             onSearch={onSearch}
             resourceName={resourceName}
