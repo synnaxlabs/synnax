@@ -1097,6 +1097,32 @@ describe("Input.Table", () => {
       ]);
     });
 
+    it("should keep each cell's input when the table leaves preview", () => {
+      const value: Input.TableCell[][] = [
+        [1, true],
+        [2, false],
+      ];
+      const props = { value, onChange: vi.fn(), onMove: vi.fn(), rowKey: String };
+      const columns = [
+        <Input.TableColumn key="raw" name="Raw" />,
+        <Input.TableColumn key="on" name="On" type="boolean" />,
+      ];
+      const { rerender } = render(
+        <Haul.Provider>
+          <Input.Table {...props} preview>
+            {columns}
+          </Input.Table>
+        </Haul.Provider>,
+      );
+      const on = cell("On", "1");
+      rerender(
+        <Haul.Provider>
+          <Input.Table {...props}>{columns}</Input.Table>
+        </Haul.Provider>,
+      );
+      expect(cell("On", "1")).toBe(on);
+    });
+
     it("should not move the first row up or the last row down", () => {
       const onMove = vi.fn();
       renderTable({ value: ROWS, onMove });

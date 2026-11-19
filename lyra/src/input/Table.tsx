@@ -272,7 +272,8 @@ interface RowProps extends PropsWithChildren {
   haulType: string;
   /** Renders the preview of the row while it drags. */
   haulPreview: () => ReactNode;
-  onMove: (from: number, to: number) => void;
+  /** Omitted while the table is in preview, so the row takes no drop. */
+  onMove?: (from: number, to: number) => void;
 }
 
 /** A body row that drags by its handle and takes drops of its table's other rows. */
@@ -295,7 +296,7 @@ const Row = ({
   const { startDrag, onDragEnd, onDragOver, onDrop } = Haul.useDragAndDrop({
     type: haulType,
     key: rowKey,
-    canDrop: Haul.canDropOfType(haulType),
+    canDrop: (state) => onMove != null && Haul.canDropOfType(haulType)(state),
     onDragOver: ({ items }) => {
       const from = draggedIndex(items);
       if (from == null || from === index) setOver(null);
@@ -304,7 +305,7 @@ const Row = ({
     onDrop: ({ items }) => {
       setOver(null);
       const from = draggedIndex(items);
-      if (from != null && from !== index) onMove(from, index);
+      if (from != null && from !== index) onMove?.(from, index);
       return items;
     },
   });
@@ -770,7 +771,8 @@ export const Table = ({
                 </td>
               </>
             );
-            if (!movable) return <tr key={keys[i]}>{cells}</tr>;
+            // A preview keeps the row, so its inputs and focus stay when it changes.
+            if (onMove == null) return <tr key={keys[i]}>{cells}</tr>;
             return (
               <Row
                 key={keys[i]}
@@ -779,7 +781,7 @@ export const Table = ({
                 indexOf={(key) => keys.indexOf(key)}
                 haulType={haulType}
                 haulPreview={() => haulPreview(i)}
-                onMove={handleMove}
+                onMove={movable ? handleMove : undefined}
               >
                 {cells}
               </Row>
