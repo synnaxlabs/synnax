@@ -198,7 +198,8 @@ public:
     };
 
     mutable std::vector<Slave> slaves;
-    /// @brief guards the slaves while send() reads their states on the cycle thread.
+    /// @brief guards the slaves, as the contract specs run send() on a cycle thread
+    /// while the test thread polls the states of the slaves.
     mutable std::mutex mu;
     /// @brief the domains, in creation order.
     mutable std::vector<Domain> domains;
