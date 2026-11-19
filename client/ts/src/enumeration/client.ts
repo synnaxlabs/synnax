@@ -101,6 +101,7 @@ export class Client extends query.Retriever<
   readonly store: query.Table<Key, Enumeration>;
   private readonly unary: UnaryClient;
   private readonly dispatcher: actions.Controller<Key, Enumeration, Action>;
+  private readonly uses: query.Uses<Key, Enumeration, RetrieveRequest>;
 
   constructor({ unary, cache, usesChannels }: ClientConfig) {
     const store = cache.createTable<Key, Enumeration>({
@@ -150,6 +151,7 @@ export class Client extends query.Retriever<
     this.unary = unary;
     this.store = store;
     this.dispatcher = dispatcher;
+    this.uses = uses;
   }
 
   async create(
@@ -168,12 +170,14 @@ export class Client extends query.Retriever<
     const optimistic = array
       .toArray(enumerations)
       .map((e) => zod.parse(enumerationZ, e, { label: "enumeration" }));
+    const keys = optimistic.map(({ key }) => key);
     const res = await query.optimistic({
-      rollbacks: [this.store.set(optimistic)],
+      // The uses land first, so a query that asks for them lists each new record.
+      rollbacks: [this.uses.created(keys), this.store.set(optimistic)],
       onOptimistic: () => opts.onOptimistic?.(optimistic),
       commit: async () =>
         await this.dispatcher.create(
-          optimistic.map(({ key }) => key),
+          keys,
           async (dispatchKey) =>
             await this.unary.send(
               "/enumeration/create",
