@@ -20,6 +20,7 @@ func (lv Link) EncodeOrc(w *orc.Writer) error {
 		return err
 	}
 	w.String(lv.Provider)
+	w.String(lv.Issuer)
 	w.String(lv.Account)
 	return nil
 }
@@ -34,6 +35,9 @@ func (lv *Link) DecodeOrc(r *orc.Reader) error {
 		return err
 	}
 	if lv.Provider, err = r.String(); err != nil {
+		return err
+	}
+	if lv.Issuer, err = r.String(); err != nil {
 		return err
 	}
 	if lv.Account, err = r.String(); err != nil {

@@ -36,6 +36,7 @@ func (w writer) create(
 		Key:      uuid.New(),
 		Subject:  subject,
 		Provider: acc.Provider,
+		Issuer:   acc.Issuer,
 		Account:  acc.ID,
 	}
 	if err := l.Validate(); err != nil {

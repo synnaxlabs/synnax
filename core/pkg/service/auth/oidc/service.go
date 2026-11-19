@@ -117,8 +117,8 @@ type Service struct {
 
 var _ auth.Authenticator = (*Service)(nil)
 
-// discoveryTimeout bounds one read of a provider's discovery document.
-const discoveryTimeout = 10 * time.Second
+// requestTimeout bounds one request to a provider.
+const requestTimeout = 10 * time.Second
 
 // provider reads its discovery document on first use, so a provider that is down when
 // the Core starts does not stop the Core. Concurrent logins share one read, and a
@@ -143,12 +143,12 @@ func (p *provider) discover(ctx context.Context) (*gooidc.Provider, error) {
 	read := p.reads.DoChan("", func() (any, error) {
 		readCtx, cancel := context.WithTimeout(
 			context.WithoutCancel(ctx),
-			discoveryTimeout,
+			requestTimeout,
 		)
 		defer cancel()
 		readCtx = gooidc.ClientContext(
 			readCtx,
-			&http.Client{Timeout: discoveryTimeout},
+			&http.Client{Timeout: requestTimeout},
 		)
 		d, err := gooidc.NewProvider(readCtx, p.Issuer)
 		if err != nil {
@@ -210,6 +210,8 @@ func (s *Service) newWriter(tx gorp.Tx) writer {
 type account struct {
 	// Provider is the name of the provider.
 	Provider string
+	// Issuer is the issuer URL of the provider.
+	Issuer string
 	// ID is the provider's permanent ID for the account, its `sub` claim.
 	ID string
 	// Name is the person's display name, its `name` claim. It can be empty.
@@ -245,7 +247,16 @@ func (s *Service) verify(
 		Endpoint:     discovered.Endpoint(),
 		RedirectURL:  creds.RedirectURI,
 	}
-	tok, err := oauth.Exchange(ctx, creds.Code, oauth2.VerifierOption(creds.Verifier))
+	exchangeCtx := context.WithValue(
+		ctx,
+		oauth2.HTTPClient,
+		&http.Client{Timeout: requestTimeout},
+	)
+	tok, err := oauth.Exchange(
+		exchangeCtx,
+		creds.Code,
+		oauth2.VerifierOption(creds.Verifier),
+	)
 	if err != nil {
 		var rejected *oauth2.RetrieveError
 		if errors.As(err, &rejected) {
@@ -268,13 +279,19 @@ func (s *Service) verify(
 	if err = idToken.Claims(&claims); err != nil {
 		return account{}, auth.ErrInvalidCredentials
 	}
-	return account{Provider: p.Name, ID: idToken.Subject, Name: claims.Name}, nil
+	return account{
+		Provider: p.Name,
+		Issuer:   p.Issuer,
+		ID:       idToken.Subject,
+		Name:     claims.Name,
+	}, nil
 }
 
 // Authenticate implements [auth.Authenticator]. The first login of an unlinked account
 // creates a user with the new user role and links the account to it, unless the
 // provider disables user creation, in which case it returns
-// [auth.ErrInvalidCredentials].
+// [auth.ErrInvalidCredentials]. An account whose link holds another issuer than the
+// provider's also returns [auth.ErrInvalidCredentials].
 func (s *Service) Authenticate(
 	ctx context.Context,
 	proof auth.Proof,
@@ -298,6 +315,9 @@ func (s *Service) Authenticate(
 			Where(MatchAccounts(acc.ID)).
 			Entry(&link).
 			Exec(ctx, tx)
+		if err == nil && link.Issuer != acc.Issuer {
+			return auth.ErrInvalidCredentials
+		}
 		if !errors.Is(err, query.ErrNotFound) {
 			return err
 		}
@@ -314,7 +334,7 @@ func (s *Service) Authenticate(
 }
 
 // Version implements [auth.Authenticator]. A link keeps one version for life. A link
-// whose provider is not in the config is not found, so its sessions end.
+// whose provider or issuer is not in the config is not found, so its sessions end.
 func (s *Service) Version(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -327,11 +347,12 @@ func (s *Service) Version(
 		Exec(ctx, snap); err != nil {
 		return 0, err
 	}
-	if _, ok := s.providers[link.Provider]; !ok {
+	if p, ok := s.providers[link.Provider]; !ok || p.Issuer != link.Issuer {
 		return 0, errors.Wrapf(
 			query.ErrNotFound,
-			"provider %q is not in the config",
+			"provider %q with issuer %q is not in the config",
 			link.Provider,
+			link.Issuer,
 		)
 	}
 	return 0, nil

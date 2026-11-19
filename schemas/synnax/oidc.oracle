@@ -32,6 +32,10 @@ Link struct {
         @index lookup
         @validate required
     }
+    issuer   string      {
+        @doc value         "is the issuer URL of the provider that proved the account."
+        @validate required
+    }
     account  string      {
         @doc value         """
             is the provider's permanent ID for the account, its `sub` claim.

@@ -24,6 +24,9 @@ Link struct {
     provider string      {
         @doc value "is the name of the provider in the Core's settings."
     }
+    issuer   string      {
+        @doc value "is the issuer URL of the provider that proved the account."
+    }
     account  string      {
         @doc value "is the provider's permanent ID for the account, its `sub` claim."
     }

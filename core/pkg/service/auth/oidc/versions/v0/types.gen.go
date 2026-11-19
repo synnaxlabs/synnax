@@ -30,6 +30,8 @@ type Link struct {
 	Subject resource.ID `json:"subject" msgpack:"subject"`
 	// Provider is the name of the provider in the Core's settings.
 	Provider string `json:"provider" msgpack:"provider"`
+	// Issuer is the issuer URL of the provider that proved the account.
+	Issuer string `json:"issuer" msgpack:"issuer"`
 	// Account is the provider's permanent ID for the account, its `sub` claim.
 	Account string `json:"account" msgpack:"account"`
 }
@@ -39,6 +41,7 @@ type Link struct {
 func (l Link) Validate() error {
 	v := validate.New("Link")
 	v.NotEmptyString("provider", l.Provider)
+	v.NotEmptyString("issuer", l.Issuer)
 	v.NotEmptyString("account", l.Account)
 	v.Exec(func() error { return validate.PathedError(l.Subject.Validate(), "subject") })
 	return v.Error()
