@@ -12,6 +12,7 @@ package start
 import (
 	"context"
 	"fmt"
+	"math"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -189,6 +190,15 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
 			return CoreConfig{}, errors.Wrapf(err, "invalid --%s", FlagSecretsKey)
 		}
 	}
+	taskWorkerCount := viper.GetInt(FlagTaskWorkerCount)
+	if taskWorkerCount < 0 || taskWorkerCount > math.MaxUint8 {
+		return CoreConfig{}, errors.Wrapf(
+			validate.ErrValidation,
+			"--%s %d is out of range",
+			FlagTaskWorkerCount,
+			taskWorkerCount,
+		)
+	}
 	return defaultCoreConfig().Override(CoreConfig{
 		Instrumentation:     ins,
 		insecure:            new(viper.GetBool(FlagInsecure)),
@@ -213,7 +223,7 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
 		taskOpTimeout:        viper.GetDuration(FlagTaskOpTimeout),
 		taskPollInterval:     viper.GetDuration(FlagTaskPollInterval),
 		taskShutdownTimeout:  viper.GetDuration(FlagTaskShutdownTimeout),
-		taskWorkerCount:      viper.GetUint8(FlagTaskWorkerCount),
+		taskWorkerCount:      uint8(taskWorkerCount),
 		certFactoryConfig:    factoryCfg,
 		enabledIntegrations:  viper.GetStringSlice(FlagEnableIntegrations),
 		disabledIntegrations: viper.GetStringSlice(FlagDisableIntegrations),
