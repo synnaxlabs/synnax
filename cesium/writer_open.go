@@ -231,8 +231,6 @@ func (db *DB) assembleWriter(
 	w := &Writer{
 		WriterConfig:       cfg,
 		internal:           make([]*idxWriter, 0, len(domainWriters)),
-		relay:              db.relay.inlet,
-		relayStopped:       db.relay.delta.Stopped(),
 		virtual:            &virtualWriter{internal: virtualWriters},
 		keyToIdx:           keyToIdx,
 		authorizeEndDomain: db.authorizeEndDomain,

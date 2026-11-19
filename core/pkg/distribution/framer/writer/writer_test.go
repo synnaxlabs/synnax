@@ -263,11 +263,11 @@ var _ = Describe("Writer", func() {
 		})
 	})
 
-	Describe("Free Write Group Propagation", func() {
-		It(
+	Describe("Write Group Propagation", func() {
+		DescribeTable(
 			"Should propagate the writer's group to the streamer response",
-			func(ctx SpecContext) {
-				s := DeferClose(freeWriterScenario(ctx))
+			func(ctx SpecContext, open func(context.Context) scenario) {
+				s := DeferClose(open(ctx))
 				streamer := MustSucceed(s.dist.Framer.NewStreamer(framer.StreamerConfig{
 					Keys:        s.keys,
 					SendOpenAck: new(true),
@@ -295,11 +295,13 @@ var _ = Describe("Writer", func() {
 				Eventually(out.Outlet()).Should(Receive(&res))
 				Expect(res.Group).To(Equal(uint32(42)))
 			},
+			Entry("Storage", storageScenario),
+			Entry("Free", freeWriterScenario),
 		)
-		It(
+		DescribeTable(
 			"Should set group to zero when the writer has no group",
-			func(ctx SpecContext) {
-				s := DeferClose(freeWriterScenario(ctx))
+			func(ctx SpecContext, open func(context.Context) scenario) {
+				s := DeferClose(open(ctx))
 				streamer := MustSucceed(s.dist.Framer.NewStreamer(framer.StreamerConfig{
 					Keys:        s.keys,
 					SendOpenAck: new(true),
@@ -326,6 +328,8 @@ var _ = Describe("Writer", func() {
 				Eventually(out.Outlet()).Should(Receive(&res))
 				Expect(res.Group).To(Equal(uint32(0)))
 			},
+			Entry("Storage", storageScenario),
+			Entry("Free", freeWriterScenario),
 		)
 	})
 
@@ -779,6 +783,38 @@ var _ = Describe("Writer", func() {
 				Eventually(committed).Should(BeClosed())
 				Expect(w.Close()).To(MatchError(ContainSubstring("index out of order")))
 			},
+		)
+		DescribeTable(
+			"Should not stream the writes of a persist-only writer",
+			func(ctx SpecContext, open func(context.Context) scenario) {
+				s := DeferClose(open(ctx))
+				streamer := MustSucceed(s.dist.Framer.NewStreamer(framer.StreamerConfig{
+					Keys:        s.keys,
+					SendOpenAck: new(true),
+				}))
+				_, out := confluence.Attach(streamer, 10)
+				sCtx, cancel := signal.WithCancel(ctx)
+				defer cancel()
+				streamer.Flow(sCtx)
+				Eventually(out.Outlet()).Should(Receive())
+				w := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
+					Keys:  s.keys,
+					Start: 10 * telem.SecondTS,
+					Mode:  cesium.WriterModePersistOnly,
+					Sync:  new(true),
+				}))
+				Expect(w.Write(frame.NewMulti(
+					s.keys,
+					[]telem.Series{
+						telem.NewSeriesV[int64](1, 2, 3),
+						telem.NewSeriesV[int64](3, 4, 5),
+						telem.NewSeriesV[int64](5, 6, 7),
+					},
+				))).To(BeTrue())
+				Consistently(out.Outlet()).ShouldNot(Receive())
+			},
+			Entry("Storage", storageScenario),
+			Entry("Free", freeWriterScenario),
 		)
 	})
 

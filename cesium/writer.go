@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/cesium/internal/virtual"
-	"github.com/synnaxlabs/x/confluence"
 	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
@@ -43,8 +42,6 @@ type Writer struct {
 	// keyToIdx maps every channel key the writer is responsible for to its owning
 	// idxWriter.
 	keyToIdx           map[ChannelKey]*idxWriter
-	relay              confluence.Inlet[relayResponse]
-	relayStopped       <-chan struct{}
 	updateDBControl    func(u ControlUpdate)
 	authorizeEndDomain func(index ChannelKey, own map[ChannelKey]*unaryWriterState) error
 	// err is the error that broke the writer.
@@ -211,14 +208,7 @@ func (w *Writer) Write(ctx context.Context, fr Frame) (Frame, error) {
 			unauthorized = err
 		}
 	}
-	fr = fr.ExcludeKeys(excludeUnauthorized)
-	if w.Mode.Stream() {
-		select {
-		case w.relay.Inlet() <- relayResponse{frame: fr, group: w.ControlSubject.Group}:
-		case <-w.relayStopped:
-		}
-	}
-	return fr, unauthorized
+	return fr.ExcludeKeys(excludeUnauthorized), unauthorized
 }
 
 // propagateAuthority synchronizes each idxWriter's per-data-channel authority tracking

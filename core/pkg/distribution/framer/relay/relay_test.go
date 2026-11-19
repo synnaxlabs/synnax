@@ -1004,6 +1004,46 @@ var _ = Describe("Relay", func() {
 				confluence.Drain(validRes)
 			},
 		)
+
+		It(
+			"Should deliver frames for valid keys after a key update adds an unknown key",
+			func(ctx SpecContext) {
+				keys := channel.KeysFromChannels(newUniqueChannels(ctx, 1))
+				unknown := channel.NewKey(node.KeyBootstrapper, 0xFFFFD)
+
+				reader := MustSucceed(svc.Framer.NewStreamer(relay.StreamerConfig{
+					SendOpenAck: new(true),
+				}))
+				sCtx, cancel := signal.Isolated()
+				defer cancel()
+				req, res := confluence.Attach(reader, 10)
+				reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+				var ack relay.Response
+				Eventually(res.Outlet()).Should(Receive(&ack))
+				Expect(ack.Frame.Empty()).To(BeTrue())
+
+				req.Inlet() <- relay.Request{
+					Keys:         append(channel.Keys{unknown}, keys...),
+					AckRequested: true,
+				}
+				Eventually(res.Outlet()).Should(Receive(&ack))
+				Expect(ack.Ack).To(BeTrue())
+
+				w := MustOpen(svc.Framer.OpenWriter(ctx, writer.Config{
+					Keys:  keys,
+					Start: 10 * telem.SecondTS,
+				}))
+				Expect(w.Write(frame.NewMulti(keys, []telem.Series{
+					telem.NewSeriesV[int64](1, 2, 3),
+				}))).To(BeTrue())
+
+				var got relay.Response
+				Eventually(res.Outlet()).Should(Receive(&got))
+				Expect(got.Frame.KeysSlice()).To(ConsistOf(keys))
+				req.Close()
+				confluence.Drain(res)
+			},
+		)
 	})
 })
 

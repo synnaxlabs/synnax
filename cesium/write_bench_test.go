@@ -107,8 +107,8 @@ func BenchmarkCommit(b *testing.B) {
 				for i := range stamps {
 					stamps[i] = start + telem.TimeStamp(i)
 				}
-				// The relay can hold a frame after Write returns, so each write gets
-				// its own series slice and stamps.
+				// Write returns its frame to the caller, who may keep it, so each
+				// write gets its own series slice and stamps.
 				series := make([]telem.Series, len(keys))
 				for i := range series {
 					series[i] = data

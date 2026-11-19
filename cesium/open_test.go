@@ -64,11 +64,6 @@ var _ = Describe("Options", func() {
 				To(MatchError(ContainSubstring(message)))
 		},
 		Entry(
-			"a non-positive slow consumer timeout",
-			cesium.WithSlowConsumerTimeout(0),
-			"slow_consumer_timeout: must be positive",
-		),
-		Entry(
 			"a non-positive chunk size",
 			cesium.WithChunkSize(0),
 			"chunk_size: must be positive",

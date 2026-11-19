@@ -30,12 +30,10 @@ import (
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
-	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
-	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	timetestutil "github.com/synnaxlabs/x/time/testutil"
@@ -109,6 +107,135 @@ var _ = Describe("Writer Behavior", func() {
 						).To(Equal((10 * telem.SecondTS).Range(13*telem.SecondTS + 1)))
 					})
 
+					It(
+						"Should return the written series with its alignment and time range",
+						func(ctx SpecContext) {
+							key := GenerateChannelKey()
+							By("Creating a channel")
+							Expect(db.CreateChannel(
+								ctx,
+								cesium.Channel{
+									Key:      key,
+									Name:     "Planck",
+									DataType: telem.TimestampT,
+									IsIndex:  true,
+								},
+							)).To(Succeed())
+							w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+								Channels: []cesium.ChannelKey{key},
+								Start:    10 * telem.SecondTS,
+							}))
+
+							d := telem.NewSeriesSecondsTSV(10, 11, 12)
+							f := MustSucceed(w.Write(ctx, telem.MultiFrame(
+								[]cesium.ChannelKey{key},
+								[]telem.Series{d},
+							)))
+							Expect(f.Count()).To(Equal(1))
+							d.Alignment = telem.LeadingAlignment(1, 0)
+							d.TimeRange = (10 * telem.SecondTS).Range(
+								12*telem.SecondTS + 1,
+							)
+							Expect(f.SeriesAt(0)).To(Equal(d))
+							Expect(w.Close()).To(Succeed())
+						},
+					)
+
+					Context("Time Range Stamping", func() {
+						It(
+							"Should stamp written series with the index series' time range",
+							func(ctx SpecContext) {
+								idx := GenerateChannelKey()
+								data := GenerateChannelKey()
+								Expect(db.CreateChannel(
+									ctx,
+									cesium.Channel{
+										Key:      idx,
+										Name:     "Noether",
+										DataType: telem.TimestampT,
+										IsIndex:  true,
+									},
+									cesium.Channel{
+										Key:      data,
+										Name:     "Germain",
+										DataType: telem.Float32T,
+										Index:    idx,
+									},
+								)).To(Succeed())
+								w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+									Channels: []cesium.ChannelKey{idx, data},
+									Start:    10 * telem.SecondTS,
+								}))
+								res := MustSucceed(w.Write(ctx, telem.MultiFrame(
+									[]cesium.ChannelKey{idx, data},
+									[]telem.Series{
+										telem.NewSeriesSecondsTSV(10, 11, 12),
+										telem.NewSeriesV[float32](1, 2, 3),
+									},
+								)))
+								expected := (10 * telem.SecondTS).Range(
+									12*telem.SecondTS + 1,
+								)
+								Expect(
+									res.Get(idx).Series[0].TimeRange,
+								).To(Equal(expected))
+								Expect(
+									res.Get(data).Series[0].TimeRange,
+								).To(Equal(expected))
+								Expect(w.Close()).To(Succeed())
+							},
+						)
+
+						It(
+							"Should leave series unstamped when the frame does not carry the index",
+							func(ctx SpecContext) {
+								idx := GenerateChannelKey()
+								data := GenerateChannelKey()
+								Expect(db.CreateChannel(
+									ctx,
+									cesium.Channel{
+										Key:      idx,
+										Name:     "Franklin",
+										DataType: telem.TimestampT,
+										IsIndex:  true,
+									},
+									cesium.Channel{
+										Key:      data,
+										Name:     "Meitner",
+										DataType: telem.Float32T,
+										Index:    idx,
+									},
+								)).To(Succeed())
+								idxW := MustSucceed(
+									db.OpenWriter(ctx, cesium.WriterConfig{
+										Channels: []cesium.ChannelKey{idx},
+										Start:    10 * telem.SecondTS,
+									}),
+								)
+								MustSucceed(idxW.Write(ctx, telem.MultiFrame(
+									[]cesium.ChannelKey{idx},
+									[]telem.Series{
+										telem.NewSeriesSecondsTSV(10, 11, 12),
+									},
+								)))
+								MustSucceed(idxW.Commit(ctx))
+								Expect(idxW.Close()).To(Succeed())
+								w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+									Channels: []cesium.ChannelKey{data},
+									Start:    10 * telem.SecondTS,
+								}))
+								res := MustSucceed(w.Write(ctx, telem.MultiFrame(
+									[]cesium.ChannelKey{data},
+									[]telem.Series{telem.NewSeriesV[float32](1, 2, 3)},
+								)))
+								Expect(res.Get(data).Series[0].TimeRange).To(
+									Equal(telem.TimeRangeZero),
+								)
+								Expect(w.Close()).To(Succeed())
+							},
+						)
+					})
+
 					Context("Disjoint Domain Alignment", func() {
 						It(
 							"Should keep streaming alignment values consistent even when the index has more domains than the data channel",
@@ -135,28 +262,12 @@ var _ = Describe("Writer Behavior", func() {
 									},
 								)).To(Succeed())
 
-								By(
-									"Opening a streamer over the index and data channels",
-								)
-								s := MustSucceed(
-									db.NewStreamer(cesium.StreamerConfig{
-										Channels: []cesium.ChannelKey{
-											basic1,
-											basic1Index,
-										},
-									}),
-								)
-								i, o := confluence.Attach(s, 2)
-								sCtx, cancel := signal.WithCancel(ctx)
-								defer cancel()
-								s.Flow(sCtx)
-
 								By("Writing to the Index Channel")
 								w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 									Channels: []cesium.ChannelKey{basic1Index},
 									Start:    10 * telem.SecondTS,
 								}))
-								MustSucceed(w.Write(ctx, telem.MultiFrame(
+								fIdx := MustSucceed(w.Write(ctx, telem.MultiFrame(
 									[]cesium.ChannelKey{basic1Index},
 									[]telem.Series{
 										telem.NewSeriesSecondsTSV(10, 11, 12, 13),
@@ -165,33 +276,24 @@ var _ = Describe("Writer Behavior", func() {
 								end := MustSucceed(w.Commit(ctx))
 								Expect(w.Close()).To(Succeed())
 								Expect(end).To(Equal(13*telem.SecondTS + 1))
-								// Drain the index-only frame so the next receive
-								// observes
-								// the co-write.
-								var fIdx cesium.StreamerResponse
-								Eventually(o.Outlet()).Should(Receive(&fIdx))
-								Expect(fIdx.Frame.Count()).To(Equal(1))
+								Expect(fIdx.Count()).To(Equal(1))
 
 								By("Co-writing the index and data channels")
 								w = MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 									Channels: []cesium.ChannelKey{basic1, basic1Index},
 									Start:    14 * telem.SecondTS,
 								}))
-								MustSucceed(w.Write(ctx, telem.MultiFrame(
+								f := MustSucceed(w.Write(ctx, telem.MultiFrame(
 									[]cesium.ChannelKey{basic1, basic1Index},
 									[]telem.Series{
 										telem.NewSeriesV[int64](1, 2),
 										telem.NewSeriesSecondsTSV(14, 15),
 									},
 								)))
-								var f cesium.StreamerResponse
-								Eventually(o.Outlet()).Should(Receive(&f))
-								Expect(f.Frame.Count()).To(Equal(2))
-								basic1Alignment := f.Frame.SeriesAt(0).Alignment
-								basicIndex1Alignment := f.Frame.SeriesAt(1).Alignment
+								Expect(f.Count()).To(Equal(2))
+								basic1Alignment := f.SeriesAt(0).Alignment
+								basicIndex1Alignment := f.SeriesAt(1).Alignment
 								Expect(basicIndex1Alignment).To(Equal(basic1Alignment))
-								i.Close()
-								Expect(sCtx.Wait()).To(Succeed())
 								Expect(w.Close()).To(Succeed())
 							},
 						)
@@ -223,19 +325,6 @@ var _ = Describe("Writer Behavior", func() {
 								)).To(Succeed())
 
 								By(
-									"Opening a streamer over the index and data channels",
-								)
-								s := MustSucceed(
-									db.NewStreamer(cesium.StreamerConfig{
-										Channels: []cesium.ChannelKey{idx, data},
-									}),
-								)
-								in, out := confluence.Attach(s, 2)
-								sCtx, cancel := signal.WithCancel(ctx)
-								defer cancel()
-								s.Flow(sCtx)
-
-								By(
 									"Writing the index and data together to seed the index's alignment authority",
 								)
 								wA := MustSucceed(
@@ -244,7 +333,7 @@ var _ = Describe("Writer Behavior", func() {
 										Start:    10 * telem.SecondTS,
 									}),
 								)
-								MustSucceed(wA.Write(ctx, telem.MultiFrame(
+								fA := MustSucceed(wA.Write(ctx, telem.MultiFrame(
 									[]cesium.ChannelKey{idx, data},
 									[]telem.Series{
 										telem.NewSeriesSecondsTSV(10, 11),
@@ -253,12 +342,7 @@ var _ = Describe("Writer Behavior", func() {
 								)))
 								MustSucceed(wA.Commit(ctx))
 								Expect(wA.Close()).To(Succeed())
-								// Drain wA's frame so the next receives observe wB,
-								// then
-								// wC.
-								var fA cesium.StreamerResponse
-								Eventually(out.Outlet()).Should(Receive(&fA))
-								Expect(fA.Frame.Count()).To(Equal(2))
+								Expect(fA.Count()).To(Equal(2))
 
 								By(
 									"Writing index-only samples to push the index domain further ahead",
@@ -269,7 +353,7 @@ var _ = Describe("Writer Behavior", func() {
 										Start:    20 * telem.SecondTS,
 									}),
 								)
-								MustSucceed(wB.Write(ctx, telem.MultiFrame(
+								fB := MustSucceed(wB.Write(ctx, telem.MultiFrame(
 									[]cesium.ChannelKey{idx},
 									[]telem.Series{
 										telem.NewSeriesSecondsTSV(20, 21, 22, 23),
@@ -277,10 +361,7 @@ var _ = Describe("Writer Behavior", func() {
 								)))
 								MustSucceed(wB.Commit(ctx))
 								Expect(wB.Close()).To(Succeed())
-
-								var fB cesium.StreamerResponse
-								Eventually(out.Outlet()).Should(Receive(&fB))
-								idxDomain := fB.Frame.Get(idx).Series[0].Alignment
+								idxDomain := fB.Get(idx).Series[0].Alignment
 
 								By("Writing the data channel alone, without its index")
 								wC := MustSucceed(
@@ -289,22 +370,17 @@ var _ = Describe("Writer Behavior", func() {
 										Start:    20 * telem.SecondTS,
 									}),
 								)
-								MustSucceed(wC.Write(ctx, telem.MultiFrame(
+								fC := MustSucceed(wC.Write(ctx, telem.MultiFrame(
 									[]cesium.ChannelKey{data},
 									[]telem.Series{telem.NewSeriesV[int64](5, 6)},
 								)))
-
-								var fC cesium.StreamerResponse
-								Eventually(out.Outlet()).Should(Receive(&fC))
-								dataDomain := fC.Frame.Get(data).Series[0].Alignment
+								dataDomain := fC.Get(data).Series[0].Alignment
 
 								Expect(
 									dataDomain.DomainIndex(),
 								).To(BeNumerically(">", idxDomain.DomainIndex()),
 									"a data channel written without its index must draw a domain from the "+
 										"index's authority, not regress onto its own counter")
-								in.Close()
-								Expect(sCtx.Wait()).To(Succeed())
 								Expect(wC.Close()).To(Succeed())
 							},
 						)
@@ -333,17 +409,6 @@ var _ = Describe("Writer Behavior", func() {
 									},
 								)).To(Succeed())
 
-								By("Opening a streamer over the data channel")
-								s := MustSucceed(
-									db.NewStreamer(cesium.StreamerConfig{
-										Channels: []cesium.ChannelKey{data},
-									}),
-								)
-								in, out := confluence.Attach(s, 2)
-								sCtx, cancel := signal.WithCancel(ctx)
-								defer cancel()
-								s.Flow(sCtx)
-
 								By("Seeding the index and data channels together")
 								wSeed := MustSucceed(
 									db.OpenWriter(ctx, cesium.WriterConfig{
@@ -351,7 +416,7 @@ var _ = Describe("Writer Behavior", func() {
 										Start:    10 * telem.SecondTS,
 									}),
 								)
-								MustSucceed(wSeed.Write(ctx, telem.MultiFrame(
+								fSeed := MustSucceed(wSeed.Write(ctx, telem.MultiFrame(
 									[]cesium.ChannelKey{idx, data},
 									[]telem.Series{
 										telem.NewSeriesSecondsTSV(10, 11),
@@ -360,14 +425,8 @@ var _ = Describe("Writer Behavior", func() {
 								)))
 								MustSucceed(wSeed.Commit(ctx))
 								Expect(wSeed.Close()).To(Succeed())
-								// Drain the seed frame; the index-only write below
-								// emits
-								// none since the streamer only subscribes to the data
-								// channel.
-								var fSeed cesium.StreamerResponse
-								Eventually(out.Outlet()).Should(Receive(&fSeed))
 								Expect(
-									fSeed.Frame.Get(data).Series[0],
+									fSeed.Get(data).Series[0],
 								).To(telem.MatchSeriesDataV[int64](1, 2))
 
 								By("Extending the index to cover the index-less writes")
@@ -408,13 +467,11 @@ var _ = Describe("Writer Behavior", func() {
 											) * telem.SecondTS,
 										}),
 									)
-									MustSucceed(wR.Write(ctx, telem.MultiFrame(
+									f := MustSucceed(wR.Write(ctx, telem.MultiFrame(
 										[]cesium.ChannelKey{data},
 										[]telem.Series{telem.NewSeriesV(int64(i))},
 									)))
-									var f cesium.StreamerResponse
-									Eventually(out.Outlet()).Should(Receive(&f))
-									a := f.Frame.Get(data).Series[0].Alignment
+									a := f.Get(data).Series[0].Alignment
 									Expect(a).To(BeNumerically(">", lastRogue),
 										"each index-less session must stream above the previous one")
 									lastRogue = a
@@ -428,21 +485,17 @@ var _ = Describe("Writer Behavior", func() {
 										Start:    30 * telem.SecondTS,
 									}),
 								)
-								MustSucceed(wF.Write(ctx, telem.MultiFrame(
+								fF := MustSucceed(wF.Write(ctx, telem.MultiFrame(
 									[]cesium.ChannelKey{idx, data},
 									[]telem.Series{
 										telem.NewSeriesSecondsTSV(30, 31),
 										telem.NewSeriesV[int64](9, 10),
 									},
 								)))
-								var fF cesium.StreamerResponse
-								Eventually(out.Outlet()).Should(Receive(&fF))
 								Expect(
-									fF.Frame.Get(data).Series[0].Alignment,
+									fF.Get(data).Series[0].Alignment,
 								).To(BeNumerically(">", lastRogue),
 									"a co-write resumed after index-less sessions must stay above their alignments")
-								in.Close()
-								Expect(sCtx.Wait()).To(Succeed())
 								Expect(wF.Close()).To(Succeed())
 							},
 						)
@@ -471,17 +524,6 @@ var _ = Describe("Writer Behavior", func() {
 									},
 								)).To(Succeed())
 
-								By("Opening a streamer over the data channel")
-								s := MustSucceed(
-									db.NewStreamer(cesium.StreamerConfig{
-										Channels: []cesium.ChannelKey{data},
-									}),
-								)
-								in, out := confluence.Attach(s, 2)
-								sCtx, cancel := signal.WithCancel(ctx)
-								defer cancel()
-								s.Flow(sCtx)
-
 								By("Co-writing the index and data channels")
 								wA := MustSucceed(
 									db.OpenWriter(ctx, cesium.WriterConfig{
@@ -489,16 +531,14 @@ var _ = Describe("Writer Behavior", func() {
 										Start:    10 * telem.SecondTS,
 									}),
 								)
-								MustSucceed(wA.Write(ctx, telem.MultiFrame(
+								fA := MustSucceed(wA.Write(ctx, telem.MultiFrame(
 									[]cesium.ChannelKey{idx, data},
 									[]telem.Series{
 										telem.NewSeriesSecondsTSV(10, 11, 12),
 										telem.NewSeriesV[int64](1, 2, 3),
 									},
 								)))
-								var fA cesium.StreamerResponse
-								Eventually(out.Outlet()).Should(Receive(&fA))
-								seed := fA.Frame.Get(data).Series[0].Alignment
+								seed := fA.Get(data).Series[0].Alignment
 								MustSucceed(wA.Commit(ctx))
 								Expect(wA.Close()).To(Succeed())
 
@@ -525,18 +565,14 @@ var _ = Describe("Writer Behavior", func() {
 										Start:    13 * telem.SecondTS,
 									}),
 								)
-								MustSucceed(wR.Write(ctx, telem.MultiFrame(
+								fR := MustSucceed(wR.Write(ctx, telem.MultiFrame(
 									[]cesium.ChannelKey{data},
 									[]telem.Series{telem.NewSeriesV[int64](4)},
 								)))
-								var fR cesium.StreamerResponse
-								Eventually(out.Outlet()).Should(Receive(&fR))
 								Expect(
-									fR.Frame.Get(data).Series[0].Alignment,
+									fR.Get(data).Series[0].Alignment,
 								).To(BeNumerically(">", seed),
 									"an index-less session must stream above the channel's previous alignment")
-								in.Close()
-								Expect(sCtx.Wait()).To(Succeed())
 								Expect(wR.Close()).To(Succeed())
 							},
 						)
@@ -565,17 +601,6 @@ var _ = Describe("Writer Behavior", func() {
 									},
 								)).To(Succeed())
 
-								By("Opening a streamer over the data channel")
-								s := MustSucceed(
-									db.NewStreamer(cesium.StreamerConfig{
-										Channels: []cesium.ChannelKey{data},
-									}),
-								)
-								in, out := confluence.Attach(s, 2)
-								sCtx, cancel := signal.WithCancel(ctx)
-								defer cancel()
-								s.Flow(sCtx)
-
 								By(
 									"Writing the data channel first, before any index data exists",
 								)
@@ -586,13 +611,11 @@ var _ = Describe("Writer Behavior", func() {
 										EnableAutoCommit: new(false),
 									}),
 								)
-								MustSucceed(wR.Write(ctx, telem.MultiFrame(
+								fR := MustSucceed(wR.Write(ctx, telem.MultiFrame(
 									[]cesium.ChannelKey{data},
 									[]telem.Series{telem.NewSeriesV[int64](1)},
 								)))
-								var fR cesium.StreamerResponse
-								Eventually(out.Outlet()).Should(Receive(&fR))
-								first := fR.Frame.Get(data).Series[0].Alignment
+								first := fR.Get(data).Series[0].Alignment
 								Expect(wR.Close()).To(Succeed())
 
 								By("Co-writing the index and data channels afterward")
@@ -602,21 +625,17 @@ var _ = Describe("Writer Behavior", func() {
 										Start:    20 * telem.SecondTS,
 									}),
 								)
-								MustSucceed(wF.Write(ctx, telem.MultiFrame(
+								fF := MustSucceed(wF.Write(ctx, telem.MultiFrame(
 									[]cesium.ChannelKey{idx, data},
 									[]telem.Series{
 										telem.NewSeriesSecondsTSV(20, 21),
 										telem.NewSeriesV[int64](2, 3),
 									},
 								)))
-								var fF cesium.StreamerResponse
-								Eventually(out.Outlet()).Should(Receive(&fF))
 								Expect(
-									fF.Frame.Get(data).Series[0].Alignment,
+									fF.Get(data).Series[0].Alignment,
 								).To(BeNumerically(">", first),
 									"a co-write after a virgin index-less session must stream above it")
-								in.Close()
-								Expect(sCtx.Wait()).To(Succeed())
 								Expect(wF.Close()).To(Succeed())
 							},
 						)
@@ -652,17 +671,6 @@ var _ = Describe("Writer Behavior", func() {
 									},
 								)).To(Succeed())
 
-								By("Opening a streamer over both data channels")
-								s := MustSucceed(
-									db.NewStreamer(cesium.StreamerConfig{
-										Channels: []cesium.ChannelKey{d1, d2},
-									}),
-								)
-								in, out := confluence.Attach(s, 2)
-								sCtx, cancel := signal.WithCancel(ctx)
-								defer cancel()
-								s.Flow(sCtx)
-
 								By("Co-writing the index and both data channels")
 								wSeed := MustSucceed(
 									db.OpenWriter(ctx, cesium.WriterConfig{
@@ -670,7 +678,7 @@ var _ = Describe("Writer Behavior", func() {
 										Start:    10 * telem.SecondTS,
 									}),
 								)
-								MustSucceed(wSeed.Write(ctx, telem.MultiFrame(
+								fS := MustSucceed(wSeed.Write(ctx, telem.MultiFrame(
 									[]cesium.ChannelKey{idx, d1, d2},
 									[]telem.Series{
 										telem.NewSeriesSecondsTSV(10, 11),
@@ -678,10 +686,8 @@ var _ = Describe("Writer Behavior", func() {
 										telem.NewSeriesV[int64](1, 2),
 									},
 								)))
-								var fS cesium.StreamerResponse
-								Eventually(out.Outlet()).Should(Receive(&fS))
-								seed1 := fS.Frame.Get(d1).Series[0].Alignment
-								seed2 := fS.Frame.Get(d2).Series[0].Alignment
+								seed1 := fS.Get(d1).Series[0].Alignment
+								seed2 := fS.Get(d2).Series[0].Alignment
 								MustSucceed(wSeed.Commit(ctx))
 								Expect(wSeed.Close()).To(Succeed())
 
@@ -717,17 +723,15 @@ var _ = Describe("Writer Behavior", func() {
 										Start:    13 * telem.SecondTS,
 									}),
 								)
-								MustSucceed(w1.Write(ctx, telem.MultiFrame(
+								f1 := MustSucceed(w1.Write(ctx, telem.MultiFrame(
 									[]cesium.ChannelKey{d1, d2},
 									[]telem.Series{
 										telem.NewSeriesV[int64](3),
 										telem.NewSeriesV[int64](3),
 									},
 								)))
-								var f1 cesium.StreamerResponse
-								Eventually(out.Outlet()).Should(Receive(&f1))
-								a1 := f1.Frame.Get(d1).Series[0].Alignment
-								b1 := f1.Frame.Get(d2).Series[0].Alignment
+								a1 := f1.Get(d1).Series[0].Alignment
+								b1 := f1.Get(d2).Series[0].Alignment
 								Expect(a1).To(Equal(b1),
 									"sibling data channels in one index-less writer must share a domain")
 								Expect(a1).To(BeNumerically(">", seed1))
@@ -741,22 +745,18 @@ var _ = Describe("Writer Behavior", func() {
 										Start:    15 * telem.SecondTS,
 									}),
 								)
-								MustSucceed(w2.Write(ctx, telem.MultiFrame(
+								f2 := MustSucceed(w2.Write(ctx, telem.MultiFrame(
 									[]cesium.ChannelKey{d1, d2},
 									[]telem.Series{
 										telem.NewSeriesV[int64](4),
 										telem.NewSeriesV[int64](4),
 									},
 								)))
-								var f2 cesium.StreamerResponse
-								Eventually(out.Outlet()).Should(Receive(&f2))
-								a2 := f2.Frame.Get(d1).Series[0].Alignment
-								b2 := f2.Frame.Get(d2).Series[0].Alignment
+								a2 := f2.Get(d1).Series[0].Alignment
+								b2 := f2.Get(d2).Series[0].Alignment
 								Expect(a2).To(Equal(b2))
 								Expect(a2).To(BeNumerically(">", a1),
 									"a later index-less session must stream above the previous one")
-								in.Close()
-								Expect(sCtx.Wait()).To(Succeed())
 								Expect(w2.Close()).To(Succeed())
 							},
 						)
@@ -783,16 +783,6 @@ var _ = Describe("Writer Behavior", func() {
 										DataType: telem.Int64T,
 									},
 								)).To(Succeed())
-
-								s := MustSucceed(
-									db.NewStreamer(cesium.StreamerConfig{
-										Channels: []cesium.ChannelKey{idx, data},
-									}),
-								)
-								in, out := confluence.Attach(s, 4)
-								sCtx, cancel := signal.WithCancel(ctx)
-								defer cancel()
-								s.Flow(sCtx)
 
 								By(
 									"Opening an index-less writer on the data channel and leaving it open",
@@ -827,7 +817,7 @@ var _ = Describe("Writer Behavior", func() {
 										},
 									}),
 								)
-								MustSucceed(wBoth.Write(ctx, telem.MultiFrame(
+								fr := MustSucceed(wBoth.Write(ctx, telem.MultiFrame(
 									[]cesium.ChannelKey{idx, data},
 									[]telem.Series{
 										telem.NewSeriesSecondsTSV(10, 11, 12),
@@ -836,14 +826,10 @@ var _ = Describe("Writer Behavior", func() {
 								)))
 								MustSucceed(wBoth.Commit(ctx))
 
-								var fr cesium.StreamerResponse
-								Eventually(out.Outlet()).Should(Receive(&fr))
-								Expect(fr.Frame.Get(idx).Series[0].Alignment).
-									To(Equal(fr.Frame.Get(data).Series[0].Alignment),
+								Expect(fr.Get(idx).Series[0].Alignment).
+									To(Equal(fr.Get(data).Series[0].Alignment),
 										"an index and the data written alongside it must share an alignment "+
 											"even when the data channel's control region was opened by someone else")
-								in.Close()
-								Expect(sCtx.Wait()).To(Succeed())
 								Expect(wBoth.Close()).To(Succeed())
 							},
 						)
@@ -878,15 +864,7 @@ var _ = Describe("Writer Behavior", func() {
 									},
 								)).To(Succeed())
 
-								o, out, shutdown := openObservedStreamer(
-									ctx,
-									db,
-									idx,
-									d0,
-									d1,
-								)
-								defer shutdown()
-
+								o := newAlignmentObserver()
 								rng := rand.New(rand.NewPCG(alignmentSeed, 0))
 								ts := 10 * telem.SecondTS
 								for range 8 {
@@ -914,15 +892,16 @@ var _ = Describe("Writer Behavior", func() {
 											floats[j] = float32(j)
 											ts += telem.SecondTS
 										}
-										MustSucceed(w.Write(ctx, telem.MultiFrame(
-											[]cesium.ChannelKey{idx, d0, d1},
-											[]telem.Series{
-												telem.NewSeriesV(stamps...),
-												telem.NewSeriesV(ints...),
-												telem.NewSeriesV(floats...),
-											},
-										)))
-										o.drain(out)
+										o.observe(
+											MustSucceed(w.Write(ctx, telem.MultiFrame(
+												[]cesium.ChannelKey{idx, d0, d1},
+												[]telem.Series{
+													telem.NewSeriesV(stamps...),
+													telem.NewSeriesV(ints...),
+													telem.NewSeriesV(floats...),
+												},
+											))),
+										)
 									}
 									MustSucceed(w.Commit(ctx))
 									Expect(w.Close()).To(Succeed())
@@ -965,14 +944,7 @@ var _ = Describe("Writer Behavior", func() {
 									},
 								)).To(Succeed())
 
-								o, out, shutdown := openObservedStreamer(
-									ctx,
-									db,
-									idx,
-									d0,
-									d1,
-								)
-								defer shutdown()
+								o := newAlignmentObserver()
 
 								By(
 									"Opening two groups that share one index and contend for its region",
@@ -1001,7 +973,11 @@ var _ = Describe("Writer Behavior", func() {
 								)
 
 								ts := 10 * telem.SecondTS
-								write := func(w *cesium.Writer, data cesium.ChannelKey, n int) {
+								write := func(
+									w *cesium.Writer,
+									data cesium.ChannelKey,
+									n int,
+								) cesium.Frame {
 									GinkgoHelper()
 									stamps := make([]telem.TimeStamp, n)
 									ints := make([]int64, n)
@@ -1010,7 +986,7 @@ var _ = Describe("Writer Behavior", func() {
 										ints[j] = int64(j)
 										ts += telem.SecondTS
 									}
-									MustSucceed(w.Write(ctx, telem.MultiFrame(
+									return MustSucceed(w.Write(ctx, telem.MultiFrame(
 										[]cesium.ChannelKey{idx, data},
 										[]telem.Series{
 											telem.NewSeriesV(stamps...),
@@ -1022,18 +998,15 @@ var _ = Describe("Writer Behavior", func() {
 								By(
 									"Advancing the index under the higher-authority group",
 								)
-								write(wB, d1, 3)
-								o.drain(out)
-								write(wB, d1, 4)
-								o.drain(out)
+								o.observe(write(wB, d1, 3))
+								o.observe(write(wB, d1, 4))
 								MustSucceed(wB.Commit(ctx))
 								Expect(wB.Close()).To(Succeed())
 
 								By(
 									"Letting the other group take over the same index region",
 								)
-								write(wA, d0, 2)
-								o.drain(out)
+								o.observe(write(wA, d0, 2))
 								MustSucceed(wA.Commit(ctx))
 								Expect(wA.Close()).To(Succeed())
 								Expect(o.paired).To(BeNumerically(">", 0),
@@ -1072,14 +1045,11 @@ var _ = Describe("Writer Behavior", func() {
 								)).To(Succeed())
 
 								const writes = 24
-								o, out, shutdown := openObservedStreamer(
-									ctx,
-									db,
-									idx,
-									d0,
-									d1,
+								var (
+									o          = newAlignmentObserver()
+									idxFrames  = make([]cesium.Frame, writes)
+									dataFrames = make([]cesium.Frame, writes)
 								)
-								defer shutdown()
 
 								wIdx := MustSucceed(
 									db.OpenWriter(ctx, cesium.WriterConfig{
@@ -1116,30 +1086,36 @@ var _ = Describe("Writer Behavior", func() {
 										ts := 10*telem.SecondTS + telem.TimeStamp(
 											i,
 										)*telem.SecondTS
-										MustSucceed(wIdx.Write(ctx, telem.MultiFrame(
-											[]cesium.ChannelKey{idx, d0},
-											[]telem.Series{
-												telem.NewSeriesV(ts),
-												telem.NewSeriesV(int64(i)),
-											},
-										)))
+										idxFrames[i] = MustSucceed(
+											wIdx.Write(ctx, telem.MultiFrame(
+												[]cesium.ChannelKey{idx, d0},
+												[]telem.Series{
+													telem.NewSeriesV(ts),
+													telem.NewSeriesV(int64(i)),
+												},
+											)),
+										)
 									}
 								}()
 								go func() {
 									defer GinkgoRecover()
 									defer wg.Done()
 									for i := range writes {
-										MustSucceed(wData.Write(ctx, telem.MultiFrame(
-											[]cesium.ChannelKey{d1},
-											[]telem.Series{telem.NewSeriesV(int64(i))},
-										)))
+										dataFrames[i] = MustSucceed(
+											wData.Write(ctx, telem.MultiFrame(
+												[]cesium.ChannelKey{d1},
+												[]telem.Series{
+													telem.NewSeriesV(int64(i)),
+												},
+											)),
+										)
 									}
 								}()
 								wg.Wait()
 
-								By("Checking every streamed frame held its alignment")
-								for range writes * 2 {
-									o.drain(out)
+								By("Checking every written frame held its alignment")
+								for _, fr := range slices.Concat(idxFrames, dataFrames) {
+									o.observe(fr)
 								}
 								Expect(o.paired).To(BeNumerically(">", 0),
 									"the observer never saw a multi-channel frame, so it asserted nothing")
@@ -2531,14 +2507,7 @@ var _ = Describe("Writer Behavior", func() {
 								},
 							)).To(Succeed())
 
-							o, out, shutdown := openObservedStreamer(
-								ctx,
-								db2,
-								index,
-								basic,
-							)
-							defer shutdown()
-
+							o := newAlignmentObserver()
 							ts := 10 * telem.SecondTS
 							write := func(w *cesium.Writer) {
 								GinkgoHelper()
@@ -2549,14 +2518,13 @@ var _ = Describe("Writer Behavior", func() {
 									ints[j] = int64(j)
 									ts += telem.SecondTS
 								}
-								MustSucceed(w.Write(ctx, telem.MultiFrame(
+								o.observe(MustSucceed(w.Write(ctx, telem.MultiFrame(
 									[]cesium.ChannelKey{index, basic},
 									[]telem.Series{
 										telem.NewSeriesV(stamps...),
 										telem.NewSeriesV(ints...),
 									},
-								)))
-								o.drain(out)
+								))))
 							}
 
 							By("Writing past the file cap so the domain rolls over")
@@ -3787,30 +3755,17 @@ var _ = Describe("Writer Behavior", func() {
 					"Should stream the next samples in a new alignment domain",
 					func(ctx SpecContext) {
 						live := openLive(ctx)
-						_, outlet, closer := openStreamer(
-							ctx,
-							db,
-							cesium.StreamerConfig{
-								Channels:    keys,
-								SendOpenAck: true,
-							},
-						)
-						defer func() { Expect(closer.Close()).To(Succeed()) }()
-						Eventually(outlet.Outlet()).Should(Receive())
-						MustSucceed(live.Write(ctx, frame(10, 11)))
-						var first, second cesium.StreamerResponse
-						Eventually(outlet.Outlet()).Should(Receive(&first))
+						first := MustSucceed(live.Write(ctx, frame(10, 11)))
 						Expect(live.EndDomain(ctx, idx)).To(Succeed())
-						MustSucceed(live.Write(ctx, frame(20)))
-						Eventually(outlet.Outlet()).Should(Receive(&second))
-						before := first.Frame.Get(idx).Series[0].Alignment
-						after := second.Frame.Get(idx).Series[0].Alignment
+						second := MustSucceed(live.Write(ctx, frame(20)))
+						before := first.Get(idx).Series[0].Alignment
+						after := second.Get(idx).Series[0].Alignment
 						Expect(
 							after.DomainIndex(),
 						).To(BeNumerically(">", before.DomainIndex()))
 						Expect(after.SampleIndex()).To(BeZero())
 						Expect(
-							second.Frame.Get(data).Series[0].Alignment,
+							second.Get(data).Series[0].Alignment,
 						).To(Equal(after))
 						Expect(live.Close()).To(Succeed())
 					},
@@ -4972,39 +4927,50 @@ var _ = Describe("Writer Behavior", func() {
 							Channels: []cesium.ChannelKey{key},
 							Start:    10 * telem.SecondTS,
 						}))
-						s := MustSucceed(db.NewStreamer(cesium.StreamerConfig{
-							Channels: []cesium.ChannelKey{key},
-						}))
-						sCtx, cancel := signal.Isolated()
-						defer cancel()
-						i, o := confluence.Attach(s, 2)
-						s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
-
-						MustSucceed(
+						res := MustSucceed(
 							w.Write(
 								ctx,
 								telem.UnaryFrame(key, telem.NewSeriesV[int64](1, 2, 3)),
 							),
 						)
-						var res cesium.StreamerResponse
-						Eventually(o.Outlet()).Should(Receive(&res))
 						Expect(
-							res.Frame.SeriesAt(0).Alignment,
+							res.SeriesAt(0).Alignment,
 						).To(Equal(telem.LeadingAlignment(1, 0)))
 
-						MustSucceed(
+						res = MustSucceed(
 							w.Write(
 								ctx,
 								telem.UnaryFrame(key, telem.NewSeriesV[int64](4, 5)),
 							),
 						)
-						Eventually(o.Outlet()).Should(Receive(&res))
 						Expect(
-							res.Frame.SeriesAt(0).Alignment,
+							res.SeriesAt(0).Alignment,
 						).To(Equal(telem.LeadingAlignment(1, 3)))
 
-						i.Close()
-						Expect(sCtx.Wait()).To(Succeed())
+						Expect(w.Close()).To(Succeed())
+					},
+				)
+
+				It(
+					"Should return the written series of a virtual channel with its alignment",
+					func(ctx SpecContext) {
+						key := GenerateChannelKey()
+						Expect(
+							db.CreateChannel(ctx, virtualChannel(key, "Heisenberg")),
+						).To(Succeed())
+						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+							Channels: []cesium.ChannelKey{key},
+							Start:    10 * telem.SecondTS,
+						}))
+
+						written := telem.NewSeriesV[int64](1, 2, 3)
+						res := MustSucceed(w.Write(ctx, telem.MultiFrame(
+							[]cesium.ChannelKey{key},
+							[]telem.Series{written},
+						)))
+						Expect(res.Count()).To(Equal(1))
+						written.Alignment = telem.LeadingAlignment(1, 0)
+						Expect(res.SeriesAt(0)).To(Equal(written))
 						Expect(w.Close()).To(Succeed())
 					},
 				)
@@ -5723,13 +5689,13 @@ func (f persistHookFile) Truncate(size int64) error {
 // make failures unreproducible, so the sequence is identical on every run.
 const alignmentSeed = 0x5EED
 
-// alignmentObserver watches streamed frames and enforces the invariants live consumers
-// depend on. Leading alignment is a self-contained coordinate system: it is
-// deliberately
-// not comparable to the alignment the same sample resolves to once persisted, so every
-// assertion here is relative to other streamed samples rather than to stored state.
+// alignmentObserver checks the frames that Write returns against the invariants live
+// consumers depend on. Leading alignment is a self-contained coordinate system: it is
+// deliberately not comparable to the alignment the same sample resolves to once
+// persisted, so every assertion here is relative to other written samples rather than
+// to stored state.
 type alignmentObserver struct {
-	// upper records, per channel, the alignment one past the last streamed sample.
+	// upper records, per channel, the alignment one past the last observed sample.
 	upper map[cesium.ChannelKey]telem.Alignment
 	// paired counts the sibling comparisons made, guarding against a spec that streams
 	// only single-channel frames and therefore asserts nothing.
@@ -5741,7 +5707,7 @@ func newAlignmentObserver() *alignmentObserver {
 }
 
 // observe asserts that every channel in fr carries the same alignment and that no
-// channel regressed below what has already been streamed for it.
+// channel regressed below what has already been observed for it.
 func (o *alignmentObserver) observe(fr cesium.Frame) {
 	GinkgoHelper()
 	var (
@@ -5767,57 +5733,3 @@ func (o *alignmentObserver) observe(fr cesium.Frame) {
 		o.upper[key] = ser.AlignmentBounds().Upper
 	}
 }
-
-// drain reads exactly one relayed frame and hands it to observe.
-func (o *alignmentObserver) drain(out confluence.Outlet[cesium.StreamerResponse]) {
-	GinkgoHelper()
-	var res cesium.StreamerResponse
-	Eventually(out.Outlet()).Should(Receive(&res))
-	o.observe(res.Frame)
-}
-
-// openObservedStreamer attaches a streamer over keys and returns the observer, the
-// outlet to drain, and a shutdown func that must run before the spec ends.
-func openObservedStreamer(
-	ctx SpecContext,
-	db *cesium.DB,
-	keys ...cesium.ChannelKey,
-) (*alignmentObserver, confluence.Outlet[cesium.StreamerResponse], func()) {
-	GinkgoHelper()
-	s := MustSucceed(db.NewStreamer(cesium.StreamerConfig{Channels: keys}))
-	in, out := confluence.Attach(s, len(keys)*64)
-	sCtx, cancel := signal.WithCancel(ctx)
-	s.Flow(sCtx)
-	return newAlignmentObserver(), out, func() {
-		in.Close()
-		Expect(sCtx.Wait()).To(Succeed())
-		cancel()
-	}
-}
-
-var _ = Describe("Writer after Run stops", func() {
-	It("Should not block a write once the relay stops", func(ctx SpecContext) {
-		db := DeferClose(openDBOnFS(
-			ctx,
-			FileSystems["memFS"](),
-			cesium.WithRelayBufferSize(1),
-		))
-		stop := StartRun(db.Run)
-		key := GenerateChannelKey()
-		Expect(db.CreateChannel(ctx, virtualChannel(key, "boulder"))).To(Succeed())
-		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-			Channels: []cesium.ChannelKey{key},
-		}))
-		stop()
-		written := make(chan struct{})
-		go func() {
-			defer GinkgoRecover()
-			defer close(written)
-			for v := range int64(4) {
-				MustSucceed(w.Write(ctx, telem.UnaryFrame(key, telem.NewSeriesV(v))))
-			}
-			Expect(w.Close()).To(Succeed())
-		}()
-		Eventually(written).Should(BeClosed())
-	})
-})

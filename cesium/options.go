@@ -25,31 +25,26 @@ import (
 
 type Option func(*options)
 
+// defaultChunkSize keeps a chunk of a fixed-span read at about 64 MB of 8-byte samples.
+const defaultChunkSize = 1 << 23
+
 type options struct {
 	alamos.Instrumentation
-	fs               xfs.FS
-	metaCodec        encoding.Codec
-	dirname          string
-	gcCfg            GCConfig
-	fileSize         telem.Size
-	relayBufferSize  int
-	streamBufferSize int
-	// slowConsumerTimeout bounds how long the relay waits for a streamer to receive a
-	// frame before dropping it.
-	slowConsumerTimeout time.Duration
-	chunkSize           int64
-	clock               xtime.Clock
+	fs        xfs.FS
+	metaCodec encoding.Codec
+	dirname   string
+	gcCfg     GCConfig
+	fileSize  telem.Size
+	chunkSize int64
+	clock     xtime.Clock
 }
 
 func (o *options) Report() alamos.Report { return alamos.Report{"dirname": o.dirname} }
 
 func newOptions(dirname string, opts ...Option) (*options, error) {
 	o := &options{
-		dirname:             dirname,
-		relayBufferSize:     defaultRelayBufferSize,
-		streamBufferSize:    defaultStreamBufferSize,
-		slowConsumerTimeout: defaultSlowConsumerTimeout,
-		chunkSize:           defaultChunkSize,
+		dirname:   dirname,
+		chunkSize: defaultChunkSize,
 	}
 	for _, opt := range opts {
 		opt(o)
@@ -80,9 +75,6 @@ func mergeAndValidateOptions(o *options) error {
 	o.gcCfg = gcCfg
 	o.fileSize = override.Numeric(1*telem.Gigabyte, o.fileSize)
 	v := validate.New("cesium.options")
-	v.Positive("relay_buffer_size", o.relayBufferSize)
-	v.Positive("stream_buffer_size", o.streamBufferSize)
-	v.Positive("slow_consumer_timeout", o.slowConsumerTimeout)
 	v.Positive("chunk_size", o.chunkSize)
 	return v.Error()
 }
@@ -107,25 +99,6 @@ func WithInstrumentation(i alamos.Instrumentation) Option {
 // commits. Defaults to 1GB.
 func WithFileSizeCap(size telem.Size) Option {
 	return func(o *options) { o.fileSize = size }
-}
-
-// WithRelayBufferSize sets the buffer size, in frames, of the relay's main pipe. Every
-// written frame moves through this pipe, and writers block when it fills. Defaults to
-// 1000 frames.
-func WithRelayBufferSize(size int) Option {
-	return func(o *options) { o.relayBufferSize = size }
-}
-
-// WithStreamBufferSize sets the buffer size, in frames, of each streamer's connection
-// to the relay pipe. Defaults to 100 frames.
-func WithStreamBufferSize(size int) Option {
-	return func(o *options) { o.streamBufferSize = size }
-}
-
-// WithSlowConsumerTimeout sets the maximum amount of time the relay will wait for a
-// streamer to receive a frame before dropping it. Defaults to 20ms.
-func WithSlowConsumerTimeout(timeout time.Duration) Option {
-	return func(o *options) { o.slowConsumerTimeout = timeout }
 }
 
 // WithChunkSize sets the most samples, summed over an iterator's channels, that one

@@ -16,12 +16,10 @@ import (
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
-	"github.com/synnaxlabs/x/confluence"
 	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/observe"
-	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -989,8 +987,6 @@ var _ = Describe("Control", func() {
 						indexChKey, dataChKey, virtualChKey cesium.ChannelKey
 						w1                                  *cesium.Writer
 						w2                                  *cesium.Writer
-						dataStreamerIn                      confluence.Inlet[cesium.StreamerRequest]
-						dataStreamerOut                     confluence.Outlet[cesium.StreamerResponse]
 						controlUpdates                      <-chan cesium.ControlUpdate
 						disconnectControl                   observe.Disconnect
 					)
@@ -1043,29 +1039,6 @@ var _ = Describe("Control", func() {
 							Authorities:       []xcontrol.Authority{0},
 							ErrOnUnauthorized: new(false),
 						}))
-						dataStreamer := MustSucceed(
-							db.NewStreamer(cesium.StreamerConfig{
-								Channels: []cesium.ChannelKey{
-									virtualChKey,
-									indexChKey,
-									dataChKey,
-								},
-								SendOpenAck: true,
-							}),
-						)
-						sCtx, cancel := signal.Isolated()
-						DeferClose(signal.NewHardShutdown(sCtx, cancel))
-						dataStreamerIn, dataStreamerOut = confluence.Attach(
-							dataStreamer,
-							2,
-						)
-						dataStreamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
-						DeferCleanup(func() {
-							dataStreamerIn.Close()
-							Eventually(dataStreamerOut.Outlet()).Should(BeClosed())
-						})
-						Eventually(dataStreamerOut.Outlet()).Should(Receive())
-
 						controlUpdates, disconnectControl = observeControl(db)
 						DeferCleanup(disconnectControl)
 					})
@@ -1086,7 +1059,7 @@ var _ = Describe("Control", func() {
 						"One Virtual, One Persisted, Different Authorities, Partial Contention",
 						func(ctx SpecContext) {
 							By("Writing to the first writer")
-							MustSucceed(w1.Write(ctx, telem.MultiFrame(
+							fr := MustSucceed(w1.Write(ctx, telem.MultiFrame(
 								[]cesium.ChannelKey{
 									virtualChKey,
 									indexChKey,
@@ -1098,9 +1071,7 @@ var _ = Describe("Control", func() {
 									telem.NewSeriesV[int16](2),
 								},
 							)))
-
-							var fr cesium.StreamerResponse
-							Eventually(dataStreamerOut.Outlet()).Should(Receive(&fr))
+							Expect(fr.Count()).To(Equal(3))
 
 							Expect(w2.SetAuthority(cesium.WriterConfig{
 								Authorities: []xcontrol.Authority{200},
@@ -1110,13 +1081,11 @@ var _ = Describe("Control", func() {
 							Eventually(controlUpdates).Should(Receive())
 
 							By("Writing to the first writer")
-							MustSucceed(w1.Write(ctx, telem.MultiFrame(
+							r := MustSucceed(w1.Write(ctx, telem.MultiFrame(
 								[]cesium.ChannelKey{virtualChKey},
 								[]telem.Series{telem.NewSeriesV[uint8](1)},
 							)))
-
-							var r cesium.StreamerResponse
-							Eventually(dataStreamerOut.Outlet()).Should(Receive(&r))
+							Expect(r.Count()).To(Equal(1))
 						},
 					)
 
@@ -1126,7 +1095,7 @@ var _ = Describe("Control", func() {
 							Expect(w2.SetAuthority(cesium.WriterConfig{
 								Authorities: []xcontrol.Authority{200},
 							})).To(Succeed())
-							expectUnauthorized(w1.Write(ctx, telem.MultiFrame(
+							r, err := w1.Write(ctx, telem.MultiFrame(
 								[]cesium.ChannelKey{
 									virtualChKey,
 									indexChKey,
@@ -1137,13 +1106,11 @@ var _ = Describe("Control", func() {
 									telem.NewSeriesSecondsTSV(11),
 									telem.NewSeriesV[int16](2),
 								},
-							)))
-
-							var r cesium.StreamerResponse
-							Eventually(dataStreamerOut.Outlet()).Should(Receive(&r))
-							Expect(r.Frame.Count()).To(Equal(1))
+							))
+							Expect(err).To(MatchError(xcontrol.ErrUnauthorized))
+							Expect(r.Count()).To(Equal(1))
 							Expect(
-								r.Frame.Get(virtualChKey).Series[0],
+								r.Get(virtualChKey).Series[0],
 							).To(telem.MatchSeriesDataV[uint8](1))
 						},
 					)

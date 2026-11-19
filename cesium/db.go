@@ -46,7 +46,6 @@ type DB struct {
 	// removals tracks the background removals of deleted channel data.
 	removals sync.WaitGroup
 	*options
-	relay *relay
 	// controlUpdates notifies subscribers of every control transfer the DB arbitrates.
 	controlUpdates controlObserver
 	historyChanges observe.Observer[HistoryChange]
@@ -155,11 +154,9 @@ const (
 	runStopped
 )
 
-// Run runs the relay that feeds writes to streamers, and the garbage collector, until
-// ctx ends. It then waits for them to stop and returns the first error that either
-// returned. Writes block once the relay buffer fills while Run is not running, and
-// streamers do not start. Call Run once, after Open and before Close. A second Run
-// returns an error, and a Run after Close returns ErrDBClosed.
+// Run runs the garbage collector until ctx ends. It then waits for it to stop and
+// returns its error. Call Run once, after Open and before Close. A second Run returns
+// an error, and a Run after Close returns ErrDBClosed.
 func (db *DB) Run(ctx context.Context) error {
 	db.lifecycle.Lock()
 	if db.closed.Load() {
@@ -182,7 +179,6 @@ func (db *DB) Run(ctx context.Context) error {
 		signal.WithInstrumentation(db.Instrumentation),
 	)
 	defer cancel()
-	db.relay.flow(sCtx)
 	db.startGC(sCtx, db.options)
 	return errors.Skip(sCtx.Wait(), context.Canceled)
 }
@@ -190,8 +186,6 @@ func (db *DB) Run(ctx context.Context) error {
 // Close closes the database. Call it only after Run returns: while Run runs, Close
 // returns an error wrapping resource.ErrOpen and closes nothing. Close is not safe to
 // call with any other DB methods concurrently.
-//
-// Writers still open after Run returns stop sending to streamers.
 //
 // If there is an error in closing the cesium database, the database will be marked as
 // closed regardless of whether an error occurred.

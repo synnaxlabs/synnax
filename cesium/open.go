@@ -30,7 +30,7 @@ import (
 // Open opens a Cesium database on the specified directory. If the directory is not
 // empty, Open attempts to parse its subdirectories into Cesium channels. If any of the
 // subdirectories are not in the Cesium format, an error is logged and Open continues
-// execution. ctx covers only the open. Writes and streamers need DB.Run to run.
+// execution. ctx covers only the open.
 func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 	o, err := newOptions(dirname, opts...)
 	if err != nil {
@@ -82,7 +82,6 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 		}
 	}
 
-	db.relay = newRelay(o)
 	db.removeDirs(detached...)
 	return db, nil
 }

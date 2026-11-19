@@ -15,8 +15,6 @@ import (
 	"fmt"
 	"slices"
 	"strings"
-	"sync"
-	"sync/atomic"
 	"time"
 	"uuid"
 
@@ -24,7 +22,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
@@ -32,7 +29,6 @@ import (
 	apiproject "github.com/synnaxlabs/synnax/pkg/api/project"
 	apitask "github.com/synnaxlabs/synnax/pkg/api/task"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
@@ -644,71 +640,6 @@ func streamCommands(ctx SpecContext) <-chan task.Command {
 	return commands
 }
 
-// stallWrites leaves storage streamers that never read on the Core, then parks writers
-// behind them. Storage holds each write until every one of its streamers takes the
-// frame or a slow-consumer timeout passes, so a new write waits behind the parked ones.
-func stallWrites(ctx SpecContext) {
-	GinkgoHelper()
-	ch := channel.Channel{
-		Name:     "stall_" + strings.ReplaceAll(uuid.New().String(), "-", "_"),
-		DataType: telem.Float64T,
-		Virtual:  true,
-	}
-	Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		return svc.Channel.NewWriter(tx).Create(ctx, &ch)
-	})).To(Succeed())
-	sCtx, cancel := signal.Isolated()
-	shutdown := signal.NewHardShutdown(sCtx, cancel)
-	const streamerCount = 16
-	var (
-		requests  = make([]confluence.Inlet[cesium.StreamerRequest], streamerCount)
-		responses = make([]confluence.Outlet[cesium.StreamerResponse], streamerCount)
-	)
-	for i := range streamerCount {
-		streamer := MustSucceed(node.Storage.TS.NewStreamer(cesium.StreamerConfig{
-			Channels: []cesium.ChannelKey{uint32(ch.Key())},
-		}))
-		requests[i], responses[i] = confluence.Attach(streamer, 1)
-		streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
-	}
-	var (
-		written atomic.Int64
-		stopped atomic.Bool
-		parked  sync.WaitGroup
-	)
-	for range 128 {
-		// Ginkgo cancels ctx when the spec ends, which is before the cleanup stops the
-		// writers.
-		w := MustSucceed(svc.Framer.OpenWriter(sCtx, framer.WriterConfig{
-			Keys:  channel.Keys{ch.Key()},
-			Start: telem.Now(),
-		}))
-		parked.Go(func() {
-			defer GinkgoRecover()
-			for !stopped.Load() {
-				fr := frame.NewUnary(ch.Key(), telem.NewSeriesV(1.0))
-				Expect(w.Write(fr)).To(BeTrue())
-				written.Add(1)
-			}
-			Expect(w.Close()).To(Succeed())
-		})
-	}
-	Eventually(func(g Gomega) {
-		before := written.Load()
-		time.Sleep(100 * time.Millisecond)
-		g.Expect(written.Load() - before).To(BeNumerically("<", 10))
-	}).WithTimeout(30 * time.Second).Should(Succeed())
-	DeferCleanup(func() {
-		stopped.Store(true)
-		for i := range streamerCount {
-			requests[i].Close()
-			confluence.Drain(responses[i])
-		}
-		parked.Wait()
-		Expect(shutdown.Close()).To(Succeed())
-	})
-}
-
 var _ = Describe("Delete", func() {
 	var u user.User
 	BeforeEach(func(ctx SpecContext) { u = createUser(ctx) })
@@ -842,21 +773,6 @@ var _ = Describe("Delete", func() {
 			expectGone(ctx, key)
 		}
 	})
-	It(
-		"Should return within the timeout when a stop cannot be written",
-		func(ctx SpecContext) {
-			const timeout = 200 * time.Millisecond
-			t := createRunningTask(ctx, true)
-			grantAll(ctx, u, deleteNeeds(t)...)
-			stallWrites(ctx)
-			start := time.Now()
-			Expect(deleteWith(timeout)(
-				AuthedCtx(ctx, u), apitask.DeleteRequest{Keys: []task.Key{t.Key}},
-			)).Error().ToNot(HaveOccurred())
-			Expect(time.Since(start)).To(BeNumerically("<", 2*timeout))
-			expectGone(ctx, t.Key)
-		},
-	)
 	It("Should stop only the requested task", func(ctx SpecContext) {
 		target := createRunningTask(ctx, true)
 		createRunningTask(ctx, true)
