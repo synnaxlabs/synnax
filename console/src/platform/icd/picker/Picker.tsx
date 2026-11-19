@@ -25,6 +25,7 @@ import { type PropsWithChildren, type ReactElement, useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
+import { HintContext } from "@/platform/icd/picker/hint";
 
 const [ActiveContext, useActiveContext] = context.create<string>({
   displayName: "Picker.ActiveContext",
@@ -39,6 +40,8 @@ const [FrameContext, useFrameContext] = context.create<string>({
 export interface RootProps extends PropsWithChildren {
   /** The key of the frame that shows. */
   value: string;
+  /** Says what a pick becomes, under the title of each pane. */
+  hint: string;
   className?: string;
 }
 
@@ -46,12 +49,14 @@ export interface RootProps extends PropsWithChildren {
  * The frame of the dialog. Shows one {@link Frame} at a time and puts its
  * {@link Status} in the {@link Bar}.
  */
-export const Root = ({ value, className, children }: RootProps): ReactElement => (
+export const Root = ({ value, hint, className, children }: RootProps): ReactElement => (
   <Portal.Context>
     <ActiveContext value={value}>
-      <Modal.Frame className={CSS.cls(CSS.B("icd-picker"), className)}>
-        {children}
-      </Modal.Frame>
+      <HintContext value={hint}>
+        <Modal.Frame className={CSS.cls(CSS.B("icd-picker"), className)}>
+          {children}
+        </Modal.Frame>
+      </HintContext>
     </ActiveContext>
   </Portal.Context>
 );
@@ -202,7 +207,7 @@ export interface FooterProps extends PropsWithChildren {
   onCancel: () => void;
 }
 
-/** The footer of the dialog: its children, then Cancel and the add button. */
+/** The footer of the dialog: a summary of the picks, then Cancel and the add button. */
 export const Footer = ({
   counts,
   idle,
@@ -210,7 +215,7 @@ export const Footer = ({
   onCancel,
   children,
 }: FooterProps): ReactElement => (
-  <Modal.Footer>
+  <Modal.Footer bordered className={CSS.BE("icd-picker", "footer")}>
     <Nav.Bar.Start>{children}</Nav.Bar.Start>
     <Nav.Bar.End x align="center" gap="small">
       <Button.Button variant="outlined" onClick={onCancel}>

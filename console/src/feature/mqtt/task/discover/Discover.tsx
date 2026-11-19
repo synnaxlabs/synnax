@@ -36,7 +36,7 @@ export interface Picks {
 export interface Kind<E extends HeldEntry> {
   /** Names the dialog. */
   title: string;
-  /** Says what a pick becomes. It shows while nothing is picked. */
+  /** Says what a pick becomes. It shows under the title of each pane. */
   hint: string;
   /** Names what one picked value of a topic adds, such as "field". */
   noun: string;
@@ -77,17 +77,16 @@ const Discover = <E extends HeldEntry>({
     kind.create({ topics: topicPicks, tags: tagPicks }, entries);
 
   const values = [...topicPicks.values()].reduce((n, p) => n + p.pointers.size, 0);
-  const count = values + tagPicks.size;
   const parts: string[] = [];
   if (values > 0) {
     const topics = pluralize("topic", topicPicks.size, true);
     parts.push(`${pluralize("value", values, true)} from ${topics}`);
   }
   if (tagPicks.size > 0) parts.push(pluralize("Sparkplug B tag", tagPicks.size, true));
-  const summary = parts.length === 0 ? kind.hint : `${parts.join(" and ")} selected`;
+  const summary = parts.length === 0 ? null : `${parts.join(" and ")} selected`;
 
   return (
-    <ICD.Picker.Root value={mode} className={CSS.B("mqtt-discover")}>
+    <ICD.Picker.Root value={mode} hint={kind.hint} className={CSS.B("mqtt-discover")}>
       <Modal.Header icon={<Icon.Logo.MQTT />}>{[kind.title, device.name]}</Modal.Header>
       <ICD.Picker.Bar>
         {createTag != null && (
@@ -127,9 +126,11 @@ const Discover = <E extends HeldEntry>({
         onAdd={() => close(picked())}
         onCancel={() => close()}
       >
-        <Text.Text level="small" color={count > 0 ? 10 : 9}>
-          {summary}
-        </Text.Text>
+        {summary != null && (
+          <Text.Text level="small" color={10}>
+            {summary}
+          </Text.Text>
+        )}
       </ICD.Picker.Footer>
     </ICD.Picker.Root>
   );

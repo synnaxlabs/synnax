@@ -47,6 +47,9 @@ export type Result = { topic: string } & (
 
 const FRAME = "records";
 
+const HINT =
+  "Select the fields to read. Records that hold the same fields share a message.";
+
 const INDEX: ICD.Picker.Lock = { checked: true, label: "Index" };
 
 /** @returns the value at a JSON pointer of a document, or undefined for none. */
@@ -267,7 +270,7 @@ const Content = ({
     status += ", some unread";
 
   return (
-    <ICD.Picker.Root value={FRAME} className={CSS.B("kafka-add-data")}>
+    <ICD.Picker.Root value={FRAME} hint={HINT} className={CSS.B("kafka-add-data")}>
       <Modal.Header icon={<Icon.Logo.Kafka />}>Add data</Modal.Header>
       <ICD.Picker.Bar>
         <Input.Text
@@ -302,11 +305,11 @@ const Content = ({
         onAdd={() => close({ topic, variant: "picks", shapes, picks })}
         onCancel={() => close()}
       >
-        <Text.Text level="small" color={count > 0 ? 10 : 9}>
-          {count > 0
-            ? `${pluralize("field", count, true)} selected`
-            : "Select the fields to read. Records that hold the same fields share a message."}
-        </Text.Text>
+        {count > 0 && (
+          <Text.Text level="small" color={10}>
+            {`${pluralize("field", count, true)} selected`}
+          </Text.Text>
+        )}
       </ICD.Picker.Footer>
     </ICD.Picker.Root>
   );
