@@ -34,7 +34,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	svcarc "github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/ranges"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -1500,6 +1499,84 @@ var _ = Describe("Task", Ordered, func() {
 				}
 				Expect(w.Close()).To(Succeed())
 				Consistently(oneRange).Should(Succeed())
+			},
+		)
+
+		It("Should name a range from a format string input", func(ctx SpecContext) {
+			trig := createVirtualCh(ctx, "fmt_range_trig", telem.Uint8T)
+			name := "fmt_range_" + uuid.New().String()[:8]
+			prog := arc.Text{Raw: fmt.Sprintf(`
+				import ranges
+
+				n := 7
+				%s -> ranges.create(name=f"%s {n}")
+			`, trig.Name, name)}
+
+			svcTask := task.Task{
+				Key:    uuid.New(),
+				Name:   "test-fmt-range-name",
+				Type:   arctask.Type,
+				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+			}
+			createTask(ctx, svcTask)
+			t := MustSucceed(
+				newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
+			)
+			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+			defer func() { Expect(t.Stop(true)).To(Succeed()) }()
+
+			time.Sleep(20 * time.Millisecond)
+			w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+				Keys:  []channel.Key{trig.Key()},
+				Start: telem.Now(),
+			}))
+			Expect(
+				w.Write(frame.NewUnary(trig.Key(), telem.NewSeriesV[uint8](1))),
+			).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+
+			Eventually(func(g Gomega) {
+				g.Expect(rangerSvc.NewRetrieve().
+					Where(ranger.MatchNames(name+" 7")).
+					Count(ctx, db)).To(Equal(1))
+			}).Should(Succeed())
+		})
+
+		It(
+			"Should name a range from a format string that reads a computed variable in a call",
+			func(ctx SpecContext) {
+				name := "fmt_call_range_" + uuid.New().String()[:8]
+				prog := arc.Text{Raw: fmt.Sprintf(`
+					import (
+					    ranges
+					    time
+					)
+					a := "da" + "y"
+
+					true => sequence {
+					    key := ranges.create(f"%s ({time.format(time.now(), a)})")
+					    time.wait(5s)
+					}
+				`, name)}
+
+				svcTask := task.Task{
+					Key:    uuid.New(),
+					Name:   "test-fmt-call-range-name",
+					Type:   arctask.Type,
+					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+				}
+				createTask(ctx, svcTask)
+				t := MustSucceed(
+					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
+				)
+				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
+
+				Eventually(func(g Gomega) {
+					g.Expect(rangerSvc.NewRetrieve().
+						Where(ranger.MatchNames(name+" (day)")).
+						Count(ctx, db)).To(Equal(1))
+				}).Should(Succeed())
 			},
 		)
 	})
@@ -3713,9 +3790,16 @@ var _ = Describe("Task", Ordered, func() {
 					Entry(&stat).Exec(ctx, db)).To(Succeed())
 				g.Expect(stat.Variant).To(Equal(status.VariantError))
 				g.Expect(stat.Message).To(Equal("Program ran too long"))
+				g.Expect(stat.Description).To(Equal(
+					"The program ran more than 1000 loop iterations and function " +
+						"calls in one cycle.",
+				))
 				g.Expect(stat.Details.Running).To(BeFalse())
 			}).Should(Succeed())
-			Expect(t.Stop(false)).To(MatchError(runtime.ErrLoopBudget))
+			Expect(t.Stop(false)).To(MatchError(
+				"The program ran more than 1000 loop iterations and function calls in " +
+					"one cycle.",
+			))
 		},
 			Entry("one looping node", `
 				func spin() {

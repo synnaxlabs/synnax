@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { caseconv, type record } from "@synnaxlabs/x";
+import { type record, strings } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Dialog as BaseDialog } from "@/dialog";
@@ -77,6 +77,15 @@ export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undef
   dialogProps,
   variant = "connected",
   preview,
+  itemHeight,
+  closeDialogOnSelect,
+  autoSelectOnNone,
+  initialHover,
+  enableTriggers,
+  cursor,
+  moveX,
+  pinned,
+  overscan,
   ...rest
 }: MultipleProps<K, E>): ReactElement => {
   const placeholder = usePlaceholder(plural(resourceName));
@@ -93,6 +102,15 @@ export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undef
         allowNone={allowNone}
         replaceOnSingle={replaceOnSingle}
         virtual={virtual}
+        itemHeight={itemHeight}
+        closeDialogOnSelect={closeDialogOnSelect}
+        autoSelectOnNone={autoSelectOnNone}
+        initialHover={initialHover}
+        enableTriggers={enableTriggers}
+        cursor={cursor}
+        moveX={moveX}
+        pinned={pinned}
+        overscan={overscan}
         selectedFirst
       >
         <MultipleTrigger<K, E>
@@ -100,7 +118,7 @@ export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undef
           createHaulItem={createHaulItem}
           icon={icon}
           placeholder={placeholder}
-          aria-label={caseconv.capitalize(plural(resourceName))}
+          aria-label={strings.capitalize(plural(resourceName))}
           resourceName={resourceName}
           disabled={disabled}
           preview={preview}

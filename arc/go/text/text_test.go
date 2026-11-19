@@ -2118,9 +2118,9 @@ var _ = Describe("Text", func() {
 				},
 			}, varResolver...)
 
-			findByTypePrefix := func(inter ir.IR, prefix string) (ir.Node, bool) {
+			findExpression := func(inter ir.IR) (ir.Node, bool) {
 				for _, n := range inter.Nodes {
-					if strings.HasPrefix(n.Type, prefix) {
+					if strings.HasPrefix(n.Type, "expression_") {
 						return n, true
 					}
 				}
@@ -2161,9 +2161,7 @@ var _ = Describe("Text", func() {
 				}`)
 					vars := variableNodes(inter)
 					Expect(vars).To(HaveLen(1))
-					fmtNode := MustBeOk(
-						findByTypePrefix(inter, compiler.FmtStrSyntheticPrefix),
-					)
+					fmtNode := MustBeOk(findExpression(inter))
 					p := MustBeOk(fmtNode.Inputs.Get("k"))
 					Expect(p.Type.Kind).To(Equal(types.KindVarRef))
 					Expect(p.Type.Name).To(Equal(vars[0].Key))
@@ -2192,7 +2190,7 @@ var _ = Describe("Text", func() {
 				}`)
 					vars := variableNodes(inter)
 					Expect(vars).To(HaveLen(1))
-					exprNode := MustBeOk(findByTypePrefix(inter, "expression_"))
+					exprNode := MustBeOk(findExpression(inter))
 					p := MustBeOk(exprNode.Inputs.Get("k"))
 					Expect(p.Type.Kind).To(Equal(types.KindVarRef))
 					Expect(p.Type.Name).To(Equal(vars[0].Key))
@@ -2219,7 +2217,7 @@ var _ = Describe("Text", func() {
 						func(f ir.Function, _ int) bool {
 							return strings.HasPrefix(
 								f.Key,
-								compiler.FmtStrSyntheticPrefix,
+								"expression_",
 							)
 						},
 					)
@@ -2245,9 +2243,7 @@ var _ = Describe("Text", func() {
 				}`)
 					vars := variableNodes(inter)
 					Expect(vars).To(HaveLen(1))
-					fmtNode := MustBeOk(
-						findByTypePrefix(inter, compiler.FmtStrSyntheticPrefix),
-					)
+					fmtNode := MustBeOk(findExpression(inter))
 					p := MustBeOk(fmtNode.Inputs.Get("k"))
 					Expect(p.Type.Kind).To(Equal(types.KindI64))
 					Expect(edgeInto(inter, fmtNode.Key, "k")).To(BeTrue(),
@@ -2270,9 +2266,7 @@ var _ = Describe("Text", func() {
 					vars := variableNodes(inter)
 					Expect(vars).To(HaveLen(1))
 					Expect(vars[0].Type).To(Equal("stateful_variable"))
-					fmtNode := MustBeOk(
-						findByTypePrefix(inter, compiler.FmtStrSyntheticPrefix),
-					)
+					fmtNode := MustBeOk(findExpression(inter))
 					p := MustBeOk(fmtNode.Inputs.Get("acc"))
 					Expect(p.Type.Kind).To(Equal(types.KindVarRef))
 					Expect(p.Type.Name).To(Equal(vars[0].Key))
@@ -2291,9 +2285,7 @@ var _ = Describe("Text", func() {
 				}`)
 					vars := variableNodes(inter)
 					Expect(vars).To(HaveLen(1))
-					fmtNode := MustBeOk(
-						findByTypePrefix(inter, compiler.FmtStrSyntheticPrefix),
-					)
+					fmtNode := MustBeOk(findExpression(inter))
 					p := MustBeOk(fmtNode.Inputs.Get("r"))
 					Expect(p.Type.Kind).ToNot(Equal(types.KindVarRef))
 					Expect(edgeInto(inter, fmtNode.Key, "r")).To(BeTrue(),
@@ -2315,9 +2307,7 @@ var _ = Describe("Text", func() {
 						src = backup_f
 					}
 				}`)
-					fmtNode := MustBeOk(
-						findByTypePrefix(inter, compiler.FmtStrSyntheticPrefix),
-					)
+					fmtNode := MustBeOk(findExpression(inter))
 					p := MustBeOk(fmtNode.Inputs.Get("src"))
 					Expect(p.Type.Kind).To(Equal(types.KindF64))
 					Expect(edgeInto(inter, fmtNode.Key, "src")).To(BeTrue(),
@@ -2342,9 +2332,7 @@ var _ = Describe("Text", func() {
 				}`)
 					vars := variableNodes(inter)
 					Expect(vars).To(HaveLen(2))
-					fmtNode := MustBeOk(
-						findByTypePrefix(inter, compiler.FmtStrSyntheticPrefix),
-					)
+					fmtNode := MustBeOk(findExpression(inter))
 					pa := MustBeOk(fmtNode.Inputs.Get("a"))
 					pb := MustBeOk(fmtNode.Inputs.Get("b"))
 					Expect(pa.Type.Kind).To(Equal(types.KindVarRef))
@@ -2368,9 +2356,7 @@ var _ = Describe("Text", func() {
 						k = 9
 					}
 				}`)
-					fmtNode := MustBeOk(
-						findByTypePrefix(inter, compiler.FmtStrSyntheticPrefix),
-					)
+					fmtNode := MustBeOk(findExpression(inter))
 					p := MustBeOk(fmtNode.Inputs.Get("k"))
 					Expect(p.Type.Kind).To(Equal(types.KindVarRef))
 					Expect(edgeInto(inter, fmtNode.Key, "k")).To(BeFalse())
@@ -2390,7 +2376,7 @@ var _ = Describe("Text", func() {
 				}`)
 					vars := variableNodes(inter)
 					Expect(vars).To(HaveLen(1))
-					exprNode := MustBeOk(findByTypePrefix(inter, "expression_"))
+					exprNode := MustBeOk(findExpression(inter))
 					p := MustBeOk(exprNode.Inputs.Get("counter"))
 					Expect(p.Type.Kind).To(Equal(types.KindVarRef))
 					Expect(p.Type.Name).To(Equal(vars[0].Key))
@@ -2410,9 +2396,7 @@ var _ = Describe("Text", func() {
 					}
 				}`)
 					Expect(variableNodes(inter)).To(BeEmpty())
-					fmtNode := MustBeOk(
-						findByTypePrefix(inter, compiler.FmtStrSyntheticPrefix),
-					)
+					fmtNode := MustBeOk(findExpression(inter))
 					_, ok := fmtNode.Inputs.Get("k")
 					Expect(ok).To(BeFalse(), "a folded read must not become a param")
 				},
@@ -9313,7 +9297,7 @@ time.wait(duration=500ms) -> output`
 
 	Describe("Synthesized Format-String Functions", func() {
 		It(
-			"Registers a fmt$ function for a flow-form format string with a single placeholder",
+			"Registers an expression function for a flow-form format string with a single placeholder",
 			func(ctx SpecContext) {
 				resolver := []symbol.Symbol{
 					{
@@ -9339,11 +9323,11 @@ time.wait(duration=500ms) -> output`
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				synth := lo.Filter(inter.Functions, func(f ir.Function, _ int) bool {
-					return strings.HasPrefix(f.Key, compiler.FmtStrSyntheticPrefix)
+					return strings.HasPrefix(f.Key, "expression_")
 				})
 				Expect(synth).To(HaveLen(1))
 				f := synth[0]
-				Expect(f.Body.Raw).To(Equal("v={sensor}"))
+				Expect(f.Body.Raw).To(Equal(`f"v={sensor}"`))
 				Expect(f.Inputs).To(BeEmpty())
 				Expect(f.Inputs).To(BeEmpty())
 				Expect(f.Outputs).To(HaveLen(1))
@@ -9359,7 +9343,7 @@ time.wait(duration=500ms) -> output`
 		)
 
 		It(
-			"Registers a fmt$ function whose Channels.Read covers every placeholder channel",
+			"Registers an expression function whose Channels.Read covers every placeholder channel",
 			func(ctx SpecContext) {
 				resolver := []symbol.Symbol{
 					{
@@ -9391,11 +9375,11 @@ time.wait(duration=500ms) -> output`
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				synth := lo.Filter(inter.Functions, func(f ir.Function, _ int) bool {
-					return strings.HasPrefix(f.Key, compiler.FmtStrSyntheticPrefix)
+					return strings.HasPrefix(f.Key, "expression_")
 				})
 				Expect(synth).To(HaveLen(1))
 				f := synth[0]
-				Expect(f.Body.Raw).To(Equal("v={sensor} t={t}"))
+				Expect(f.Body.Raw).To(Equal(`f"v={sensor} t={t}"`))
 				Expect(f.Channels.Read).To(HaveKeyWithValue(uint32(100), "sensor"))
 				Expect(f.Channels.Read).To(HaveKeyWithValue(uint32(102), "t"))
 			},
@@ -9428,7 +9412,7 @@ time.wait(duration=500ms) -> output`
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				synth := lo.Filter(inter.Functions, func(f ir.Function, _ int) bool {
-					return strings.HasPrefix(f.Key, compiler.FmtStrSyntheticPrefix)
+					return strings.HasPrefix(f.Key, "expression_")
 				})
 				Expect(synth).To(HaveLen(1))
 				Expect(synth[0].Channels.Read).To(HaveKey(uint32(100)))
@@ -9436,7 +9420,7 @@ time.wait(duration=500ms) -> output`
 		)
 
 		It(
-			"Does not synthesize a fmt$ function for a literal format string with no placeholders",
+			"Does not synthesize a function for a literal format string with no placeholders",
 			func(ctx SpecContext) {
 				resolver := []symbol.Symbol{
 					{
@@ -9463,15 +9447,15 @@ time.wait(duration=500ms) -> output`
 
 				for _, f := range inter.Functions {
 					Expect(
-						strings.HasPrefix(f.Key, compiler.FmtStrSyntheticPrefix),
+						strings.HasPrefix(f.Key, "expression_"),
 					).To(BeFalse(),
-						"unexpected fmt$ synthetic %q for placeholder-free literal", f.Key)
+						"unexpected synthetic %q for placeholder-free literal", f.Key)
 				}
 			},
 		)
 
 		It(
-			"Registers a fmt$ function for an rf-prefixed multi-line format string preserving backslashes across newlines",
+			"Registers an expression function for an rf-prefixed multi-line format string preserving backslashes across newlines",
 			func(ctx SpecContext) {
 				resolver := []symbol.Symbol{
 					{
@@ -9503,18 +9487,18 @@ time.wait(duration=500ms) -> output`
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				synth := lo.Filter(inter.Functions, func(f ir.Function, _ int) bool {
-					return strings.HasPrefix(f.Key, compiler.FmtStrSyntheticPrefix)
+					return strings.HasPrefix(f.Key, "expression_")
 				})
 				Expect(synth).To(HaveLen(1))
 				f := synth[0]
-				Expect(f.Body.Raw).To(Equal("path\\to: {sensor}\nt={t}"))
+				Expect(f.Body.Raw).To(Equal("rf`path\\to: {sensor}\nt={t}`"))
 				Expect(f.Channels.Read).To(HaveKeyWithValue(uint32(100), "sensor"))
 				Expect(f.Channels.Read).To(HaveKeyWithValue(uint32(102), "t"))
 			},
 		)
 
 		It(
-			"Registers a fmt$ function for an rf-prefixed format string preserving backslashes",
+			"Registers an expression function for an rf-prefixed format string preserving backslashes",
 			func(ctx SpecContext) {
 				resolver := []symbol.Symbol{
 					{
@@ -9540,17 +9524,17 @@ time.wait(duration=500ms) -> output`
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				synth := lo.Filter(inter.Functions, func(f ir.Function, _ int) bool {
-					return strings.HasPrefix(f.Key, compiler.FmtStrSyntheticPrefix)
+					return strings.HasPrefix(f.Key, "expression_")
 				})
 				Expect(synth).To(HaveLen(1))
 				f := synth[0]
-				Expect(f.Body.Raw).To(Equal(`path\to: {sensor}`))
+				Expect(f.Body.Raw).To(Equal(`rf"path\to: {sensor}"`))
 				Expect(f.Channels.Read).To(HaveKeyWithValue(uint32(100), "sensor"))
 			},
 		)
 
 		It(
-			"Registers a fmt$ function for a multi-line format string with placeholders across newlines",
+			"Registers an expression function for a multi-line format string with placeholders across newlines",
 			func(ctx SpecContext) {
 				resolver := []symbol.Symbol{
 					{
@@ -9582,11 +9566,11 @@ time.wait(duration=500ms) -> output`
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				synth := lo.Filter(inter.Functions, func(f ir.Function, _ int) bool {
-					return strings.HasPrefix(f.Key, compiler.FmtStrSyntheticPrefix)
+					return strings.HasPrefix(f.Key, "expression_")
 				})
 				Expect(synth).To(HaveLen(1))
 				f := synth[0]
-				Expect(f.Body.Raw).To(Equal("v={sensor}\nt={t}"))
+				Expect(f.Body.Raw).To(Equal("f`v={sensor}\nt={t}`"))
 				Expect(f.Channels.Read).To(HaveKeyWithValue(uint32(100), "sensor"))
 				Expect(f.Channels.Read).To(HaveKeyWithValue(uint32(102), "t"))
 			},
@@ -9918,16 +9902,6 @@ time.wait(duration=500ms) -> output`
 			}
 			return false
 		}
-		findByTypePrefix := func(inter ir.IR, prefix string) ir.Node {
-			GinkgoHelper()
-			for _, n := range inter.Nodes {
-				if strings.HasPrefix(n.Type, prefix) {
-					return n
-				}
-			}
-			Fail("expected a node whose type starts with " + prefix)
-			return ir.Node{}
-		}
 		// orderOf returns the positions of the given keys within refs.
 		orderOf := func(refs []string, keys ...string) []int {
 			out := make([]int, len(keys))
@@ -9954,7 +9928,9 @@ time.wait(duration=500ms) -> output`
 				order := orderOf(scopeNodeRefs(inter.Root), init.Key, register.Key)
 				Expect(order[0]).To(BeNumerically(">=", 0))
 				Expect(order[0]).To(BeNumerically("<", order[1]))
-				fmtNode := findByTypePrefix(inter, compiler.FmtStrSyntheticPrefix)
+				fmtNode := MustBeOk(lo.Find(inter.Nodes, func(n ir.Node) bool {
+					return strings.HasPrefix(n.Type, "expression_") && n.Key != init.Key
+				}))
 				p := MustBeOk(fmtNode.Inputs.Get("x"))
 				Expect(p.Type.Kind).To(Equal(types.KindVarRef))
 				Expect(p.Type.Name).To(Equal(register.Key))

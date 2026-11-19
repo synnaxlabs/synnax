@@ -144,6 +144,15 @@ Config quick_start_config() {
     return cfg;
 }
 
+/// @brief returns a config whose failed start waits a minute before it tries again.
+Config slow_retry_config() {
+    auto cfg = quick_start_config();
+    cfg.start_retry.base_interval = x::telem::MINUTE;
+    cfg.start_retry.max_interval = x::telem::MINUTE;
+    cfg.start_timeout = x::telem::HOUR;
+    return cfg;
+}
+
 /// @brief an engine configuration whose slave settings disable slave.
 Config disabling(const slave::Properties &slave) {
     Config cfg;
@@ -1137,7 +1146,10 @@ TEST_F(EngineTest, UnmappedEntryIsRejected) {
         this->engine->begin_start(this->cancel)
     );
     ASSERT_OCCURRED_AS(res.second, errors::PDO_NOT_MAPPED);
-    EXPECT_EQ(res.second.data, "PDO 0x9999:01 is not in the process image of slave 0.");
+    EXPECT_EQ(
+        res.second.data,
+        "PDO 0x9999:01 is not in the process image of module 0."
+    );
     EXPECT_FALSE(this->engine->running());
 }
 
@@ -1152,7 +1164,7 @@ TEST_F(EngineTest, EntryLongerThanItsPDOIsRejected) {
     ASSERT_OCCURRED_AS(res.second, errors::PDO_MAPPING_ERROR);
     EXPECT_EQ(
         res.second.data,
-        "PDO 0x6000:04 on slave 0 is 4 bits, not 32. Scan the network again."
+        "PDO 0x6000:04 on module 0 is 4 bits, not 32. Scan the network again."
     );
     EXPECT_FALSE(this->engine->running());
 }
@@ -1225,7 +1237,7 @@ TEST_F(EngineTest, EntryOffTheRunningImageAsksForARestartOfTheTasks) {
     ASSERT_OCCURRED_AS(err, errors::PDO_NOT_MAPPED);
     EXPECT_EQ(
         err.data,
-        "PDO 0x6000:01 is not in the process image of slave 1. Stop every task on "
+        "PDO 0x6000:01 is not in the process image of module 1. Stop every task on "
         "Ethernet 2, then start them again."
     );
     EXPECT_TRUE(this->engine->running());
@@ -1635,8 +1647,8 @@ TEST_F(EngineTest, StartFailsAConflictWhoseSerialStaysUnread) {
     ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
     EXPECT_EQ(
         err.data,
-        "Slave1 (serial 7) and Slave1 (serial 8) are both saved for slave 1 on eth0 "
-        "with different settings, and the slave did not give its serial number: no "
+        "Slave1 (serial 7) and Slave1 (serial 8) are both saved for module 1 on eth0 "
+        "with different settings, and the module did not give its serial number: no "
         "answer."
     );
     EXPECT_GT(this->master->call_count("scan"), 1);
@@ -1662,8 +1674,8 @@ TEST_F(EngineTest, StartFailsAConflictOfASlaveThatStaysStarting) {
     ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
     EXPECT_EQ(
         err.data,
-        "Slave1 (serial 7) and Slave1 (serial 8) are both saved for slave 1 on eth0 "
-        "with different settings, and the slave did not give its serial number: it is "
+        "Slave1 (serial 7) and Slave1 (serial 8) are both saved for module 1 on eth0 "
+        "with different settings, and the module did not give its serial number: it is "
         "still starting up."
     );
     EXPECT_GT(this->master->call_count("scan"), 1);
@@ -1722,7 +1734,7 @@ TEST_F(EngineTest, StartFailsAConflictOfDevicesWithNoSerialAtOnce) {
     ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
     EXPECT_EQ(
         err.data,
-        "Other and Slave1 are both saved for slave 1 on eth0 with different settings. "
+        "Other and Slave1 are both saved for module 1 on eth0 with different settings. "
         "Give them the same settings, or delete the device that is no longer on the "
         "bus."
     );
@@ -1839,7 +1851,7 @@ TEST_F(EngineTest, WritesNoSettingsToASharedSlaveOnStart) {
     EXPECT_TRUE(this->master->config(1).startup_parameters.empty());
     EXPECT_EQ(
         reader->unapplied(),
-        "Slave 1 (Slave1) is set up for DewesoftX, so Synnax did not apply its 2 "
+        "Module 1 (Slave1) is set up for DewesoftX, so Synnax did not apply its 2 "
         "startup settings. Remove them, or switch the device to Synnax in Configure."
     );
 }
@@ -1901,7 +1913,7 @@ TEST_F(EngineTest, WritesNoSettingsToASharedSlaveOnARunningBus) {
         }
     ));
     EXPECT_TRUE(this->master->written().empty());
-    const std::string one = "Slave 1 (Slave1) is set up for DewesoftX, so Synnax did "
+    const std::string one = "Module 1 (Slave1) is set up for DewesoftX, so Synnax did "
                             "not apply its 1 startup setting. Remove it, or switch the "
                             "device to Synnax in Configure.";
     EXPECT_EQ(first->unapplied(), "");
@@ -1909,7 +1921,7 @@ TEST_F(EngineTest, WritesNoSettingsToASharedSlaveOnARunningBus) {
     EXPECT_EQ(replacing->unapplied(), one);
     EXPECT_EQ(
         third->unapplied(),
-        "Slave 1 (Slave1) is set up for DewesoftX, so Synnax did not apply its 2 "
+        "Module 1 (Slave1) is set up for DewesoftX, so Synnax did not apply its 2 "
         "startup settings. Remove them, or switch the device to Synnax in Configure."
     );
 }
@@ -2262,7 +2274,7 @@ TEST_F(EngineTest, ReaderOnASlaveThatRefusedDCSyncGetsAdvice) {
     );
     EXPECT_EQ(
         res.second.data,
-        "Slave 1 (Slave1) is left out of the network: it refused SAFE-OP: Invalid DC "
+        "Module 1 (Slave1) is left out of the network: it refused SAFE-OP: Invalid DC "
         "SYNC configuration. Fix the device, then stop every task on the network to "
         "try it again. To fix \"Invalid DC SYNC configuration\", right-click the "
         "device, select Configure, and pick another sync mode."
@@ -2287,7 +2299,7 @@ TEST_F(EngineTest, ReaderOnASlaveSetUpForAnotherProgramGetsSwitchAdvice) {
     );
     EXPECT_EQ(
         res.second.data,
-        "Slave 1 (Slave1) is left out of the network: it refused SAFE-OP: Invalid DC "
+        "Module 1 (Slave1) is left out of the network: it refused SAFE-OP: Invalid DC "
         "SYNC configuration. Fix the device, then stop every task on the network to "
         "try it again. The device is set up for DewesoftX. In Configure, switch the "
         "device to Synnax."
@@ -2312,7 +2324,7 @@ TEST_F(EngineTest, ReaderOnASlaveOnlyReadByAnotherProgramGetsSwitchAdvice) {
     );
     EXPECT_EQ(
         res.second.data,
-        "Slave 1 (Slave1) is left out of the network: it refused SAFE-OP: Invalid DC "
+        "Module 1 (Slave1) is left out of the network: it refused SAFE-OP: Invalid DC "
         "SYNC configuration. Fix the device, then stop every task on the network to "
         "try it again. The device is set up for DewesoftX. In Configure, switch the "
         "device to Synnax."
@@ -2348,7 +2360,7 @@ TEST_F(EngineTest, ReaderOnASharedSlaveWithAPickedSyncModeGetsBothAdvices) {
     );
     EXPECT_EQ(
         res.second.data,
-        "Slave 1 (Slave1) is left out of the network: it refused SAFE-OP: Invalid DC "
+        "Module 1 (Slave1) is left out of the network: it refused SAFE-OP: Invalid DC "
         "SYNC configuration. Fix the device, then stop every task on the network to "
         "try it again. " +
             slave::DC_SYNC_ADVICE +
@@ -2378,7 +2390,7 @@ TEST_F(EngineTest, ReaderOnASwitchedSlaveGetsPowerRestartAdvice) {
     );
     EXPECT_EQ(
         res.second.data,
-        "Slave 1 (Slave1) is left out of the network: it refused SAFE-OP: Invalid DC "
+        "Module 1 (Slave1) is left out of the network: it refused SAFE-OP: Invalid DC "
         "SYNC configuration. Fix the device, then stop every task on the network to "
         "try it again. Restart the power of the device."
     );
@@ -2398,8 +2410,9 @@ TEST_F(EngineTest, ReaderOnALeftOutSlaveFails) {
     );
     EXPECT_EQ(
         res.second.data,
-        "Slave 1 (Slave1) is left out of the network: it refused SAFE-OP: Inconsistent "
-        "settings. Fix the device, then stop every task on the network to try it again."
+        "Module 1 (Slave1) is left out of the network: it refused SAFE-OP: "
+        "Inconsistent settings. Fix the device, then stop every task on the network to "
+        "try it again."
     );
     ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_REFUSED);
     EXPECT_FALSE(this->engine->running());
@@ -2422,7 +2435,7 @@ TEST_F(EngineTest, FailedStartGivesTheLeftOutSlaves) {
     );
     EXPECT_EQ(
         res.second.data,
-        "Failed to reach OP. The Driver left out slave 1 because it refused SAFE-OP: "
+        "Failed to reach OP. The Driver left out module 1 because it refused SAFE-OP: "
         "Inconsistent settings."
     );
     ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_ERROR);
@@ -2446,7 +2459,7 @@ TEST_F(EngineTest, FailedStartGivesTheDCSyncAdviceOfALeftOutSlave) {
     );
     EXPECT_EQ(
         res.second.data,
-        "Failed to reach OP. The Driver left out slave 1 because it refused SAFE-OP: "
+        "Failed to reach OP. The Driver left out module 1 because it refused SAFE-OP: "
         "Invalid DC SYNC configuration. " +
             std::string(slave::DC_SYNC_ADVICE)
     );
@@ -2472,8 +2485,8 @@ TEST_F(EngineTest, FailedStartGivesTheDCSyncAdviceOnce) {
     );
     EXPECT_EQ(
         res.second.data,
-        "Failed to reach OP. The Driver left out slave 1 because it refused SAFE-OP: "
-        "Invalid DC SYNC configuration. The Driver left out slave 2 because it "
+        "Failed to reach OP. The Driver left out module 1 because it refused SAFE-OP: "
+        "Invalid DC SYNC configuration. The Driver left out module 2 because it "
         "refused SAFE-OP: Invalid DC SYNC configuration. " +
             std::string(slave::DC_SYNC_ADVICE)
     );
@@ -2505,9 +2518,9 @@ TEST_F(EngineTest, FailedStartGivesEachDistinctAdvice) {
     );
     EXPECT_EQ(
         res.second.data,
-        "Failed to reach OP. The Driver left out slave 1 because it refused SAFE-OP: "
-        "Invalid DC SYNC configuration. The Driver left out slave 2 because it "
-        "refused SAFE-OP: Invalid output configuration. The Driver left out slave 3 "
+        "Failed to reach OP. The Driver left out module 1 because it refused SAFE-OP: "
+        "Invalid DC SYNC configuration. The Driver left out module 2 because it "
+        "refused SAFE-OP: Invalid output configuration. The Driver left out module 3 "
         "because it refused SAFE-OP: Invalid DC SYNC configuration. " +
             std::string(slave::DC_SYNC_ADVICE) + " " +
             std::string(slave::MODE_RESTART_ADVICE)
@@ -2604,7 +2617,7 @@ TEST_F(EngineTest, LeavesOutASlaveThatRefusesAStaleLayoutTwice) {
     );
     EXPECT_EQ(
         res.second.data,
-        "Slave 1 (Slave1) is left out of the network: it refused SAFE-OP: Invalid "
+        "Module 1 (Slave1) is left out of the network: it refused SAFE-OP: Invalid "
         "input configuration. Fix the device, then stop every task on the network to "
         "try it again. If the mode of the device changed, restart its power."
     );
@@ -2742,7 +2755,7 @@ TEST_F(EngineTest, StartLeavesOutNoSlaveAfterTheStartTimeout) {
     EXPECT_EQ(
         res.second.data,
         "Failed to reach SAFE-OP: refused SAFE-OP: Invalid input configuration. The "
-        "Driver left out slave 1 because it refused SAFE-OP: Invalid input "
+        "Driver left out module 1 because it refused SAFE-OP: Invalid input "
         "configuration. If the mode of the device changed, restart its power."
     );
     // The pass that leaves out slave 1 ends at 50 s, so one more try would end at 75 s.
@@ -2781,43 +2794,78 @@ TEST_F(EngineTest, StartGetsTheRestOfTheStartTimeout) {
     EXPECT_EQ(this->master->call_count("activate"), 1);
 }
 
-/// @brief it should fail an open that still waits for the start of another task at the
-/// start timeout.
-TEST_F(EngineTest, OpenBehindAStartFailsAtTheStartTimeout) {
-    Config cfg;
-    cfg.start_timeout = x::telem::MILLISECOND * 100;
-    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
-    this->master->hold_activate();
-    std::thread opener([this] {
-        auto [reader, err] = this->engine->open_reader(
+/// @brief opens a reader on engine in a thread whose start fails, and returns once the
+/// start waits to try again. The start holds the bus, but brings no slaves to OP, until
+/// cancel stops.
+std::thread
+open_retrying(const std::shared_ptr<Engine> &engine, x::breaker::Breaker &cancel) {
+    auto retrying = std::make_shared<std::promise<void>>();
+    auto waiting = retrying->get_future();
+    auto log = std::make_shared<StepLog>();
+    log->on_step = [retrying](const Engine::Step &step) {
+        if (step.message == "Retrying the start") retrying->set_value();
+    };
+    std::thread opener([engine, &cancel, log] {
+        auto [reader, err] = engine->open_reader(
             {IN_I16},
             x::telem::Rate(100),
             1,
-            this->engine->begin_start(this->cancel)
+            engine->begin_start(cancel, log->report())
         );
     });
-    this->master->wait_until_activating();
-    const auto res = this->engine->open_reader(
-        {IN_I16},
-        x::telem::Rate(100),
-        1,
-        this->engine->begin_start(this->cancel)
+    waiting.wait();
+    return opener;
+}
+
+/// @brief it should fail an open that waits for another start at the start timeout,
+/// when that start brings no slaves to OP.
+TEST_F(EngineTest, OpenBehindAStartFailsAtTheStartTimeout) {
+    this->engine = std::make_shared<Engine>("eth0", this->master, slow_retry_config());
+    this->master->inject_activate_error(
+        x::errors::Error(errors::ACTIVATION_ERROR, "activate failed")
     );
-    this->master->release_activate();
+    x::breaker::Breaker retrying;
+    retrying.start();
+    auto opener = open_retrying(this->engine, retrying);
+    auto start = this->engine->begin_start(this->cancel);
+    start.deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(100);
+    const auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, start);
+    retrying.stop();
     opener.join();
     ASSERT_OCCURRED_AS(res.second, errors::ACTIVATION_ERROR);
     EXPECT_EQ(res.second.data, "Another task is still using eth0.");
 }
 
-/// @brief it should fail a writer that still waits for the start of another task at the
-/// start timeout.
+/// @brief it should fail a writer that waits for another start at the start timeout,
+/// when that start brings no slaves to OP.
 TEST_F(EngineTest, WriterBehindAStartFailsAtTheStartTimeout) {
+    this->engine = std::make_shared<Engine>("eth0", this->master, slow_retry_config());
+    this->master->inject_activate_error(
+        x::errors::Error(errors::ACTIVATION_ERROR, "activate failed")
+    );
+    x::breaker::Breaker retrying;
+    retrying.start();
+    auto opener = open_retrying(this->engine, retrying);
+    auto start = this->engine->begin_start(this->cancel);
+    start.deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(100);
+    const auto res = this->engine
+                         ->open_writer({{OUT_I16, 0}}, x::telem::Rate(100), start);
+    retrying.stop();
+    opener.join();
+    ASSERT_OCCURRED_AS(res.second, errors::ACTIVATION_ERROR);
+    EXPECT_EQ(res.second.data, "Another task is still using eth0.");
+}
+
+/// @brief it should keep an open waiting past the start timeout while another start
+/// brings the slaves to OP.
+TEST_F(EngineTest, OpenBehindAStartWaitsWhileTheSlavesReachOP) {
     Config cfg;
     cfg.start_timeout = x::telem::MILLISECOND * 100;
     this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
     this->master->hold_activate();
-    std::thread opener([this] {
-        auto [reader, err] = this->engine->open_reader(
+    std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> first;
+    std::thread opener([this, &first] {
+        first = this->engine->open_reader(
             {IN_I16},
             x::telem::Rate(100),
             1,
@@ -2825,15 +2873,20 @@ TEST_F(EngineTest, WriterBehindAStartFailsAtTheStartTimeout) {
         );
     });
     this->master->wait_until_activating();
-    const auto res = this->engine->open_writer(
-        {{OUT_I16, 0}},
+    std::thread releaser([this] {
+        std::this_thread::sleep_for(std::chrono::milliseconds(300));
+        this->master->release_activate();
+    });
+    auto second = this->engine->open_reader(
+        {IN_I16},
         x::telem::Rate(100),
+        1,
         this->engine->begin_start(this->cancel)
     );
-    this->master->release_activate();
+    releaser.join();
     opener.join();
-    ASSERT_OCCURRED_AS(res.second, errors::ACTIVATION_ERROR);
-    EXPECT_EQ(res.second.data, "Another task is still using eth0.");
+    ASSERT_NIL(first.second);
+    ASSERT_NIL_P(std::move(second));
 }
 
 /// @brief it should end the wait of an open for the start of another task when its
@@ -2862,9 +2915,92 @@ TEST_F(EngineTest, OpenBehindAStartEndsWhenCanceled) {
     EXPECT_EQ(res.second.data, "The Driver stopped the start on eth0.");
 }
 
-/// @brief it should fail an open that reads the slave settings while another open does,
-/// when that other open still starts the bus at the deadline.
-TEST_F(EngineTest, OpenBehindAStartAfterItsSettingsReadFailsAtTheDeadline) {
+/// @brief it should end a start with no retry when its cancel stops while the slaves
+/// reach OP.
+TEST_F(EngineTest, StartEndsWhenCanceledWhileTheSlavesReachOP) {
+    this->master->hold_activate();
+    x::breaker::Breaker cancel;
+    cancel.start();
+    StepLog log;
+    std::atomic<bool> finished = false;
+    std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> res;
+    std::thread opener([this, &cancel, &log, &finished, &res] {
+        res = this->engine->open_reader(
+            {IN_I16},
+            x::telem::Rate(100),
+            1,
+            this->engine->begin_start(cancel, log.report())
+        );
+        finished = true;
+    });
+    this->master->wait_until_activating();
+    cancel.stop();
+    for (int i = 0; i < 5000 && !finished.load(); ++i)
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    EXPECT_TRUE(finished.load());
+    this->master->release_activate();
+    opener.join();
+    ASSERT_OCCURRED_AS(res.second, x::errors::CANCELLED);
+    EXPECT_EQ(res.second.data, "The Driver stopped the start on eth0.");
+    const auto steps = log.snapshot();
+    ASSERT_EQ(steps.size(), 1);
+    EXPECT_EQ(steps[0].message, "Starting eth0");
+}
+
+/// @brief it should keep the error of a try that fails for its own reason when its
+/// cancel stops during the try.
+TEST_F(EngineTest, StartKeepsTheErrorOfATryThatFailsWhileCanceled) {
+    this->master->inject_activate_error(
+        x::errors::Error(
+            errors::STARTUP_PARAMETER_REJECTED,
+            "module 1 rejected 0x5FFE:00"
+        )
+    );
+    x::breaker::Breaker cancel;
+    cancel.start();
+    StepLog log;
+    log.on_step = [&cancel](const Engine::Step &step) {
+        if (step.description.starts_with("Bringing")) cancel.stop();
+    };
+    const auto res = this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(cancel, log.report())
+    );
+    ASSERT_OCCURRED_AS(res.second, errors::STARTUP_PARAMETER_REJECTED);
+    EXPECT_EQ(res.second.data, "Module 1 rejected 0x5FFE:00.");
+    EXPECT_EQ(this->master->call_count("activate"), 1);
+}
+
+/// @brief it should end a start at once, with no retry, when its cancel stops during a
+/// try that fails with an error that a retry can clear.
+TEST_F(EngineTest, StartEndsWhenCanceledDuringATryThatARetryCanClear) {
+    this->master->inject_activate_error(
+        x::errors::Error(errors::STATE_CHANGE_ERROR, "module 1 did not reach OP")
+    );
+    x::breaker::Breaker cancel;
+    cancel.start();
+    StepLog log;
+    log.on_step = [&cancel](const Engine::Step &step) {
+        if (step.description.starts_with("Bringing")) cancel.stop();
+    };
+    const auto res = this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(cancel, log.report())
+    );
+    ASSERT_OCCURRED_AS(res.second, x::errors::CANCELLED);
+    EXPECT_EQ(res.second.data, "The Driver stopped the start on eth0.");
+    EXPECT_EQ(this->master->call_count("activate"), 1);
+    for (const auto &step: log.snapshot())
+        EXPECT_NE(step.message, "Retrying the start");
+}
+
+/// @brief it should keep an open that reads the slave settings while another open does
+/// waiting past the start timeout while that other open brings the slaves to OP.
+TEST_F(EngineTest, OpenAfterItsSettingsReadWaitsWhileTheSlavesReachOP) {
     Config cfg;
     cfg.start_timeout = x::telem::MILLISECOND * 100;
     const auto second_reads = std::make_shared<std::promise<void>>();
@@ -2882,30 +3018,27 @@ TEST_F(EngineTest, OpenBehindAStartAfterItsSettingsReadFailsAtTheDeadline) {
     this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
     this->master->hold_activate();
     std::atomic<int> finished = 0;
-    std::array<x::errors::Error, 2> errs;
-    const auto open = [&](x::errors::Error &err) {
-        err = this->engine
-                  ->open_reader(
-                      {IN_I16},
-                      x::telem::Rate(100),
-                      1,
-                      this->engine->begin_start(this->cancel)
-                  )
-                  .second;
-        finished++;
-    };
-    std::thread first(open, std::ref(errs[0]));
-    std::thread second(open, std::ref(errs[1]));
-    for (int i = 0; i < 5000 && finished.load() == 0; ++i)
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    EXPECT_EQ(finished.load(), 1);
+    std::array<std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error>, 2> opens;
+    const auto open =
+        [&](std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> &res) {
+            res = this->engine->open_reader(
+                {IN_I16},
+                x::telem::Rate(100),
+                1,
+                this->engine->begin_start(this->cancel)
+            );
+            finished++;
+        };
+    std::thread first(open, std::ref(opens[0]));
+    std::thread second(open, std::ref(opens[1]));
+    this->master->wait_until_activating();
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+    EXPECT_EQ(finished.load(), 0);
     this->master->release_activate();
     first.join();
     second.join();
-    const auto &failed = errs[0] ? errs[0] : errs[1];
-    ASSERT_OCCURRED_AS(failed, errors::ACTIVATION_ERROR);
-    EXPECT_EQ(failed.data, "Another task is still using eth0.");
-    EXPECT_NIL(errs[0] ? errs[1] : errs[0]);
+    EXPECT_NIL(opens[0].second);
+    EXPECT_NIL(opens[1].second);
 }
 
 /// @brief it should fail a start whose deadline passed in the read of the slave
@@ -3044,7 +3177,7 @@ TEST_F(EngineTest, StartReportsTheScanAndTheStart) {
     EXPECT_EQ(steps[0].description, "");
     EXPECT_EQ(steps[0].limit, x::telem::SECOND * 10);
     EXPECT_EQ(steps[1].message, "Starting eth0");
-    EXPECT_EQ(steps[1].description, "Bringing 2 slaves to OP.");
+    EXPECT_EQ(steps[1].description, "Bringing 2 modules to OP.");
     EXPECT_EQ(steps[1].limit, x::telem::SECOND * 30);
 }
 
@@ -3059,7 +3192,7 @@ TEST_F(EngineTest, StartStepCountsOneSlave) {
     ));
     const auto steps = log.snapshot();
     ASSERT_EQ(steps.size(), 1);
-    EXPECT_EQ(steps[0].description, "Bringing 1 slave to OP.");
+    EXPECT_EQ(steps[0].description, "Bringing 1 module to OP.");
 }
 
 /// @brief it should report no steps for a start that joins a running bus.
@@ -3092,7 +3225,7 @@ TEST_F(EngineTest, StartReportsTheResetOfASlaveThatRefusedAStaleLayout) {
     const auto steps = log.snapshot();
     ASSERT_EQ(steps.size(), 3);
     EXPECT_EQ(steps[0].message, "Starting eth0");
-    EXPECT_EQ(steps[1].message, "Resetting slave 1 (Slave1)");
+    EXPECT_EQ(steps[1].message, "Resetting module 1 (Slave1)");
     EXPECT_EQ(
         steps[1].description,
         "It refused SAFE-OP: Invalid input configuration. Starting eth0 again with it "
@@ -3100,7 +3233,7 @@ TEST_F(EngineTest, StartReportsTheResetOfASlaveThatRefusedAStaleLayout) {
     );
     EXPECT_EQ(steps[1].limit, x::telem::SECOND * 10);
     EXPECT_EQ(steps[2].message, "Starting eth0");
-    EXPECT_EQ(steps[2].description, "Bringing 2 slaves to OP.");
+    EXPECT_EQ(steps[2].description, "Bringing 2 modules to OP.");
 }
 
 /// @brief it should report the wait before a retry with the error of the failed try.
@@ -3151,6 +3284,29 @@ TEST_F(EngineTest, RetryStepOfAnErrorWithNoTextGivesOnlyTheWait) {
         steps[1].description,
         "Trying again in " + Config().start_retry.interval(1).to_string() + "."
     );
+}
+
+/// @brief it should report each slave that reaches OP as a step of the start, so the
+/// step limit counts from the latest slave.
+TEST_F(EngineTest, StartReportsEachSlaveThatReachesOP) {
+    this->master->add_slave(io_slave(1));
+    this->master->report_op_progress();
+    StepLog log;
+    ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel, log.report())
+    ));
+    const auto steps = log.snapshot();
+    ASSERT_EQ(steps.size(), 3);
+    EXPECT_EQ(steps[0].description, "Bringing 2 modules to OP.");
+    for (size_t i = 1; i < steps.size(); ++i) {
+        EXPECT_EQ(steps[i].message, "Starting eth0");
+        EXPECT_EQ(steps[i].limit, x::telem::SECOND * 30);
+    }
+    EXPECT_EQ(steps[1].description, "1 of 2 modules in OP.");
+    EXPECT_EQ(steps[2].description, "2 of 2 modules in OP.");
 }
 
 /// @brief it should report the wait of a start behind the start of another task.
@@ -3274,9 +3430,9 @@ TEST_F(EngineTest, WorkingCounterWarningNamesTheSlavesOutOfOP) {
     EXPECT_EQ(this->read_times(*reader, 1).size(), 1);
     EXPECT_EQ(
         reader->warning(),
-        "Bus cycles failed: working counter mismatch: expected 9, got 3. Slave 1 "
-        "(Slave1) is not in OP: not responding. Slave 2 (Slave2) is not in OP: SAFE-OP "
-        "+ ERROR: Sync manager watchdog."
+        "Bus cycles failed: working counter mismatch: expected 9, got 3. Module 1 "
+        "(Slave1) is not in OP: not responding. Module 2 (Slave2) is not in OP: "
+        "SAFE-OP + ERROR: Sync manager watchdog."
     );
 }
 
@@ -3308,7 +3464,7 @@ TEST_F(EngineTest, ShortCycleDropsOnlyTheSamplesOfALostSlave) {
     );
     EXPECT_EQ(kept->warning(), "");
     ASSERT_EVENTUALLY_EQ(this->read_times(*lost, 1).size(), 0);
-    EXPECT_EQ(lost->warning(), "Lost contact with slave 1 (Slave1).");
+    EXPECT_EQ(lost->warning(), "Lost contact with module 1 (Slave1).");
     this->master->set_shortfall(std::nullopt);
     this->master->set_slave_lost(1, false);
     ASSERT_EVENTUALLY_EQ(this->read_times(*lost, 1).size(), 1);
@@ -3401,12 +3557,12 @@ TEST_F(EngineTest, WriterWarnsWhileItsSlaveIsOutOfOP) {
     EXPECT_EQ(writer->warning(), "");
     this->master->set_slave_lost(1, true);
     ASSERT_EVENTUALLY_EQ(changes.load(), 1);
-    EXPECT_EQ(writer->warning(), "Lost contact with slave 1 (Slave1).");
+    EXPECT_EQ(writer->warning(), "Lost contact with module 1 (Slave1).");
     this->master->set_slave_lost(1, false);
     ASSERT_EVENTUALLY_EQ(changes.load(), 2);
     EXPECT_EQ(
         writer->warning(),
-        "Slave 1 (Slave1) returned and took the last commanded values."
+        "Module 1 (Slave1) returned and took the last commanded values."
     );
     { const auto tx = writer->open_tx(); }
     EXPECT_EQ(writer->warning(), "");
@@ -3444,10 +3600,10 @@ TEST_F(EngineTest, WriterNamesAResponsiveSlaveOutOfOP) {
     this->master->set_slave_transition_failure(1, slave::State::OP);
     this->master->set_slave_state(1, slave::State::SAFE_OP);
     ASSERT_EVENTUALLY_EQ(changes.load(), 1);
-    EXPECT_EQ(writer->warning(), "Slave 1 (Slave1) is not in OP.");
+    EXPECT_EQ(writer->warning(), "Module 1 (Slave1) is not in OP.");
     this->master->set_slave_lost(1, true);
     ASSERT_EVENTUALLY_EQ(changes.load(), 2);
-    EXPECT_EQ(writer->warning(), "Lost contact with slave 1 (Slave1).");
+    EXPECT_EQ(writer->warning(), "Lost contact with module 1 (Slave1).");
 }
 
 /// @brief it should warn a writer that opens while its slave is out of OP.
@@ -3468,7 +3624,7 @@ TEST_F(EngineTest, WriterOpenedWhileItsSlaveIsOutOfOPWarns) {
         x::telem::Rate(100),
         this->engine->begin_start(this->cancel)
     ));
-    EXPECT_EQ(writer->warning(), "Lost contact with slave 1 (Slave1).");
+    EXPECT_EQ(writer->warning(), "Lost contact with module 1 (Slave1).");
 }
 
 /// @brief it should name a slave that responds out of OP by its state, not as lost.
@@ -3488,7 +3644,7 @@ TEST_F(EngineTest, ShortCycleNamesAResponsiveSlaveOutOfOP) {
     );
     this->master->set_shortfall(2);
     ASSERT_EVENTUALLY_EQ(this->read_times(*reader, 1).size(), 0);
-    EXPECT_EQ(reader->warning(), "Slave 1 (Slave1) is not in OP.");
+    EXPECT_EQ(reader->warning(), "Module 1 (Slave1) is not in OP.");
 }
 
 /// @brief it should drop the samples of a slave out of OP on a full cycle, since a
@@ -3514,7 +3670,7 @@ TEST_F(EngineTest, FullCycleDropsTheSamplesOfASlaveOutOfOP) {
         this->engine->health()[1].state == slave::State::INIT
     );
     ASSERT_EVENTUALLY_EQ(this->read_times(*reader, 1).size(), 0);
-    EXPECT_EQ(reader->warning(), "Slave 1 (Slave1) is not in OP.");
+    EXPECT_EQ(reader->warning(), "Module 1 (Slave1) is not in OP.");
     EXPECT_EQ(this->read_times(*kept, 1).size(), 1);
     EXPECT_EQ(kept->warning(), "");
 }
@@ -3539,7 +3695,7 @@ TEST_F(EngineTest, FullCycleDropsASlaveBelowSafeOpBeforeTheSupervisorSeesIt) {
     this->master->set_slave_transition_failure(2, slave::State::OP);
     this->master->set_slave_state(2, slave::State::INIT);
     ASSERT_EVENTUALLY_EQ(this->read_times(*reader, 1).size(), 0);
-    EXPECT_EQ(reader->warning(), "Slave 2 (Slave2) is not in OP.");
+    EXPECT_EQ(reader->warning(), "Module 2 (Slave2) is not in OP.");
     EXPECT_EQ(this->engine->health()[2].state, slave::State::OP);
 }
 
@@ -3570,7 +3726,7 @@ TEST_F(EngineTest, ShortCycleDropsASlaveBelowSafeOpBeforeTheSupervisorSeesIt) {
     this->master->set_slave_state(2, slave::State::INIT);
     const auto short_since = x::telem::TimeStamp::now();
     ASSERT_EVENTUALLY_EQ(this->read_times(*reader, 1).size(), 0);
-    EXPECT_EQ(reader->warning(), "Slave 2 (Slave2) is not in OP.");
+    EXPECT_EQ(reader->warning(), "Module 2 (Slave2) is not in OP.");
     ASSERT_EVENTUALLY_TRUE(
         x::telem::TimeStamp(this->read_times(*kept, 1).at<int64_t>(0)) > short_since
     );
@@ -3605,7 +3761,7 @@ TEST_F(EngineTest, ShortCycleDropsALostSlaveBeforeTheSupervisorSeesIt) {
     this->master->set_shortfall(5);
     const auto short_since = x::telem::TimeStamp::now();
     ASSERT_EVENTUALLY_EQ(this->read_times(*reader, 1).size(), 0);
-    EXPECT_EQ(reader->warning(), "Slave 2 (Slave2) is not in OP.");
+    EXPECT_EQ(reader->warning(), "Module 2 (Slave2) is not in OP.");
     ASSERT_EVENTUALLY_TRUE(
         x::telem::TimeStamp(this->read_times(*kept, 1).at<int64_t>(0)) > short_since
     );
@@ -3668,7 +3824,7 @@ TEST_F(EngineTest, OtherReadersKeepTheirSamplesWhileAFailedClockRestoreRetries) 
     EXPECT_EQ(kept->warning(), "");
     this->master->set_shortfall(std::nullopt);
     ASSERT_EVENTUALLY_EQ(this->read_times(*reader, 1).size(), 0);
-    EXPECT_EQ(reader->warning(), "Slave 1 (Slave1) is not in OP.");
+    EXPECT_EQ(reader->warning(), "Module 1 (Slave1) is not in OP.");
 }
 
 /// @brief it should drop the samples of every reader when the working counter falls
@@ -3695,7 +3851,7 @@ TEST_F(EngineTest, ShortCycleBeyondTheLostSlavesFailsEveryReader) {
     ASSERT_OCCURRED_AS(err, errors::CYCLE_FAILED);
     EXPECT_EQ(
         err.data,
-        "Every bus cycle failed: short by 4. Slave 1 (Slave1) is not in OP: not "
+        "Every bus cycle failed: short by 4. Module 1 (Slave1) is not in OP: not "
         "responding."
     );
 }
@@ -3862,7 +4018,7 @@ TEST_F(EngineTest, LostSlaveWarningHoldsForTenSeconds) {
     this->master->set_shortfall(3);
     this->master->step();
     this->master->wait_until_stalled();
-    const std::string lost = "Lost contact with slave 1 (Slave1).";
+    const std::string lost = "Lost contact with module 1 (Slave1).";
     EXPECT_EQ(reader->warning(), lost);
     clock.sleep(x::telem::SECOND * 10 - x::telem::MILLISECOND);
     EXPECT_EQ(reader->warning(), lost);
@@ -4058,7 +4214,7 @@ TEST_F(EngineTest, RefusesANewRateWhileASlaveRunsDCSync) {
     ASSERT_OCCURRED_AS(res.second, errors::RATE_MISMATCH);
     EXPECT_EQ(
         res.second.data,
-        "The bus on eth0 cycles at 100 Hz while a slave runs DC sync, and the rate "
+        "The bus on eth0 cycles at 100 Hz while a module runs DC sync, and the rate "
         "cannot change until every task on the port stops. Use a sample rate that 100 "
         "Hz is a multiple of, or an execution rate of at most 100 Hz."
     );
@@ -4091,7 +4247,7 @@ TEST_F(EngineTest, RefusesAReaderAtANewRateWhileASlaveRunsDCSync) {
     ASSERT_OCCURRED_AS(res.second, errors::RATE_MISMATCH);
     EXPECT_EQ(
         res.second.data,
-        "The bus on eth0 cycles at 100 Hz while a slave runs DC sync, and the rate "
+        "The bus on eth0 cycles at 100 Hz while a module runs DC sync, and the rate "
         "cannot change until every task on the port stops. Use a sample rate that 100 "
         "Hz is a multiple of, or an execution rate of at most 100 Hz."
     );
@@ -4485,6 +4641,54 @@ TEST_F(EngineTest, RunningBusCountsASlaveBackInInitOrBootAsRestarted) {
     EXPECT_GT(slaves[1].restarted_at.value(), first);
 }
 
+/// @brief it should read a slave that was starting when the bus started again once it
+/// leaves INIT, and read no slave again while none is starting.
+TEST_F(EngineTest, RunningBusReadsAStartingSlaveAgain) {
+    this->master->add_slave(io_slave(1));
+    this->master->set_starting(1, true);
+    const auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    EXPECT_TRUE(ASSERT_NIL_P(this->engine->discover())[1].status.starting);
+    this->master->set_starting(1, false);
+    EXPECT_FALSE(ASSERT_NIL_P(this->engine->rediscover())[1].status.starting);
+    const auto scans = this->master->call_count("scan");
+    EXPECT_FALSE(ASSERT_NIL_P(this->engine->discover())[1].status.starting);
+    EXPECT_EQ(this->master->call_count("scan"), scans);
+}
+
+/// @brief it should count a slave that it read again after it was starting as
+/// restarted when its power restarts while the bus runs.
+TEST_F(EngineTest, RunningBusCountsARestartOfASlaveThatItReadAgain) {
+    this->master->add_slave(io_slave(1));
+    this->master->set_starting(1, true);
+    const auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    this->master->set_slave_serial(1, 7);
+    this->master->set_starting(1, false);
+    auto slaves = ASSERT_NIL_P(this->engine->discover());
+    ASSERT_EQ(slaves[1].properties.serial, 7);
+    const auto first = slaves[1].restarted_at.value();
+    this->master->set_slave_lost(1, true);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 2 && this->engine->health()[1].lost
+    );
+    this->master->set_slave_state(1, slave::State::INIT);
+    this->master->set_slave_lost(1, false);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 2 && this->engine->health()[1].operational()
+    );
+    slaves = ASSERT_NIL_P(this->engine->discover());
+    EXPECT_GT(slaves[1].restarted_at.value(), first);
+}
+
 /// @brief it should count a left-out slave that restarts while the bus runs as
 /// restarted once the bus stops.
 TEST_F(EngineTest, StopCountsALeftOutSlaveThatRestartedAsRestarted) {
@@ -4569,7 +4773,7 @@ TEST_F(EngineTest, StopWithTheWholeBusOffGivesEachSlaveANewRestartTime) {
     ));
     this->master->remove_slave(1);
     this->master->inject_scan_error(
-        x::errors::Error(errors::NO_SLAVES_FOUND, "No EtherCAT slaves found on eth0.")
+        x::errors::Error(errors::NO_SLAVES_FOUND, "No EtherCAT modules found on eth0.")
     );
     reader.reset();
     ASSERT_EVENTUALLY_FALSE(this->engine->running());
@@ -4588,7 +4792,7 @@ TEST_F(EngineTest, DiscoverAfterAnEmptyBusGivesEachSlaveANewRestartTime) {
     this->master->add_slave(io_slave(1));
     ASSERT_NIL_P(this->engine->discover());
     this->master->inject_scan_error(
-        x::errors::Error(errors::NO_SLAVES_FOUND, "No EtherCAT slaves found on eth0.")
+        x::errors::Error(errors::NO_SLAVES_FOUND, "No EtherCAT modules found on eth0.")
     );
     ASSERT_OCCURRED_AS_P(this->engine->discover(), errors::NO_SLAVES_FOUND);
     const auto back = x::telem::TimeStamp::now();
@@ -4606,7 +4810,7 @@ TEST_F(EngineTest, BlockedRepliesKeepTheRestartTimes) {
     ASSERT_NIL_P(this->engine->discover());
     const auto seen = x::telem::TimeStamp::now();
     this->master->inject_scan_error(
-        x::errors::Error(errors::REPLIES_BLOCKED, "No EtherCAT slaves found on eth0.")
+        x::errors::Error(errors::REPLIES_BLOCKED, "No EtherCAT modules found on eth0.")
     );
     ASSERT_OCCURRED_AS_P(this->engine->discover(), errors::REPLIES_BLOCKED);
     this->master->clear_injected_errors();

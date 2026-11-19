@@ -165,15 +165,11 @@ func emitKindCast[ASTNode antlr.ParserRuleContext](
 		}
 		return nil
 	}
-	opCode := convertOpcode(
-		fromWasm, toWasm, from.IsSignedInteger(), to.IsSignedInteger(),
-	)
-	if lower, upper, ok := narrowBounds(to); ok && from.IsFloat() {
-		emitClamp(ctx, fromWasm, lower, upper)
-		ctx.Writer.WriteOpcode(opCode)
+	if from.IsFloat() && (toWasm == wasm.I32 || toWasm == wasm.I64) {
+		emitFloatToInt(ctx, fromWasm, toWasm, to)
 		return nil
 	}
-	ctx.Writer.WriteOpcode(opCode)
+	ctx.Writer.WriteOpcode(convertOpcode(fromWasm, toWasm, from.IsSignedInteger()))
 	ctx.Writer.WriteNarrow(to)
 	return nil
 }
@@ -205,8 +201,8 @@ func emitStringCast[ASTNode antlr.ParserRuleContext](
 }
 
 // convertOpcode returns the opcode that converts between two different WASM value
-// types.
-func convertOpcode(from, to wasm.ValueType, fromSigned, toSigned bool) wasm.Opcode {
+// types, except for float to integer conversions.
+func convertOpcode(from, to wasm.ValueType, fromSigned bool) wasm.Opcode {
 	switch from {
 	case wasm.I32:
 		switch to {
@@ -232,28 +228,64 @@ func convertOpcode(from, to wasm.ValueType, fromSigned, toSigned bool) wasm.Opco
 		}
 	case wasm.F32:
 		switch to {
-		case wasm.I32:
-			return lo.Ternary(toSigned, wasm.OpI32TruncF32S, wasm.OpI32TruncF32U)
-		case wasm.I64:
-			return lo.Ternary(toSigned, wasm.OpI64TruncF32S, wasm.OpI64TruncF32U)
 		case wasm.F64:
 			return wasm.OpF64PromoteF32
+		case wasm.I32, wasm.I64:
+			panic("float to integer casts saturate through emitFloatToInt")
 		case wasm.F32:
 			panic("cast between equal wasm types")
 		}
 	case wasm.F64:
 		switch to {
-		case wasm.I32:
-			return lo.Ternary(toSigned, wasm.OpI32TruncF64S, wasm.OpI32TruncF64U)
-		case wasm.I64:
-			return lo.Ternary(toSigned, wasm.OpI64TruncF64S, wasm.OpI64TruncF64U)
 		case wasm.F32:
 			return wasm.OpF32DemoteF64
+		case wasm.I32, wasm.I64:
+			panic("float to integer casts saturate through emitFloatToInt")
 		case wasm.F64:
 			panic("cast between equal wasm types")
 		}
 	}
 	return 0
+}
+
+// emitFloatToInt truncates the float on the stack toward zero and saturates it at the
+// bounds of to.
+func emitFloatToInt[ASTNode antlr.ParserRuleContext](
+	ctx context.Context[ASTNode],
+	fromWasm, toWasm wasm.ValueType,
+	to types.Type,
+) {
+	if lower, upper, ok := narrowBounds(to); ok {
+		emitClamp(ctx, fromWasm, lower, upper)
+	}
+	var op wasm.TruncSatOpcode
+	switch {
+	case toWasm == wasm.I32 && fromWasm == wasm.F32:
+		op = lo.Ternary(
+			to.IsSignedInteger(),
+			wasm.OpI32TruncSatF32S,
+			wasm.OpI32TruncSatF32U,
+		)
+	case toWasm == wasm.I32:
+		op = lo.Ternary(
+			to.IsSignedInteger(),
+			wasm.OpI32TruncSatF64S,
+			wasm.OpI32TruncSatF64U,
+		)
+	case fromWasm == wasm.F32:
+		op = lo.Ternary(
+			to.IsSignedInteger(),
+			wasm.OpI64TruncSatF32S,
+			wasm.OpI64TruncSatF32U,
+		)
+	default:
+		op = lo.Ternary(
+			to.IsSignedInteger(),
+			wasm.OpI64TruncSatF64S,
+			wasm.OpI64TruncSatF64U,
+		)
+	}
+	ctx.Writer.WriteTruncSat(op)
 }
 
 // emitClamp clamps the float on the stack to [lower, upper].

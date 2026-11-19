@@ -180,15 +180,14 @@ func rhsTracksChannel[T antlr.ParserRuleContext](
 	if expr == nil {
 		return false
 	}
-	childCtx := ctx.Child(expr)
-	if isLiteralExpression(childCtx) {
+	if literal.IsConstant(expr) {
 		return false
 	}
 	if bound, bare := rhsBindsChannel(ctx, expr); bare {
 		return bound
 	}
 	// A compound expression that reads one or more channels is channel-read.
-	flow.AnalyzeSingleExpression(childCtx)
+	flow.AnalyzeSingleExpression(ctx.Child(expr))
 	synth, err := ctx.Scope.Root().GetChildByParserRule(expr)
 	return err == nil && len(synth.Channels.Read) > 0
 }
@@ -264,7 +263,7 @@ func synthReadsChannel[T antlr.ParserRuleContext](
 	if len(synth.Channels.Read) > 0 {
 		return true
 	}
-	for _, pe := range parser.CollectNamedPrimaries(expr) {
+	for _, pe := range parser.CollectNamedPrimaries(expr, ctx.FmtStrings) {
 		head, tail := parser.PrimaryNameParts(pe)
 		if ref, err := synth.ResolveMember(ctx, head, tail); err == nil &&
 			ref.IsReactive() {
@@ -279,7 +278,7 @@ func rhsReadsVariable[T antlr.ParserRuleContext](
 	ctx context.Context[T],
 	expr parser.IExpressionContext,
 ) bool {
-	for _, pe := range parser.CollectNamedPrimaries(expr) {
+	for _, pe := range parser.CollectNamedPrimaries(expr, ctx.FmtStrings) {
 		head, tail := parser.PrimaryNameParts(pe)
 		sym, err := ctx.Scope.ResolveMember(ctx, head, tail)
 		if err != nil {

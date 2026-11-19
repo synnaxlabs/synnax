@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { caseconv } from "@synnaxlabs/x";
+import { strings } from "@synnaxlabs/x";
 
 import { MAKE, SLAVE_MODEL } from "@/feature/ethercat/device/types";
 import { Device } from "@/platform/device";
@@ -34,21 +34,21 @@ export const findClash = <D extends Holder>(
   return devices.find((d) => d.key !== slave.key && Device.channelPrefix(d) === prefix);
 };
 
-/** @returns "slave <name> in slot <position>" for a slave, else "device <name>". */
+/** @returns "module <name> in slot <position>" for a slave, else "device <name>". */
 const nameOf = (d: Holder): string => {
   const position = d.properties?.position;
   if (d.make === MAKE && d.model === SLAVE_MODEL && typeof position === "number")
-    return `slave ${d.name} in slot ${position}`;
+    return `module ${d.name} in slot ${position}`;
   return `device ${d.name}`;
 };
 
 /** @returns why the slave cannot start while the other device has its identifier. */
 export const clashProblem = (slave: Holder, other: Holder): string =>
-  `${caseconv.capitalize(nameOf(other))} has an identifier that gives the same ` +
+  `${strings.capitalize(nameOf(other))} has an identifier that gives the same ` +
   `channel names as ${nameOf(slave)}. In Configure, change the identifier of one of ` +
   "them.";
 
 /** @returns why a slave cannot take an identifier that the other device has. */
 export const clashMessage = (other: Holder): string =>
-  `${caseconv.capitalize(nameOf(other))} has an identifier that gives the same ` +
+  `${strings.capitalize(nameOf(other))} has an identifier that gives the same ` +
   "channel names. Pick another identifier.";

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type query, type Synnax as Client } from "@synnaxlabs/client";
+import { query, type Synnax as Client } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import {
   useDebouncedCallback,
@@ -19,7 +19,6 @@ import {
   type CrudeTimeSpan,
   deep,
   type destructor,
-  type record,
   state,
   TimeSpan,
 } from "@synnaxlabs/x";
@@ -45,10 +44,12 @@ import {
 } from "@/flux/result";
 import {
   fulfilled,
+  invalidate,
   type LocalCache,
   localFor,
   promiseFor,
   type RetrieveParams,
+  subscribeReader,
   useMemoQuery,
   usePendingFetch,
 } from "@/flux/suspend";
@@ -187,16 +188,18 @@ const ABSENT = Symbol("absent");
  * value that holds it is gone.
  */
 const readLive = (live: unknown, path: string): unknown => {
-  if (deep.has(live, path)) return deep.get(live, path);
-  const split = path.lastIndexOf(deep.SEPARATOR);
-  const parentPath = split === -1 ? "" : path.slice(0, split);
-  const parent = deep.get<record.Unknown, unknown>(live, parentPath, {
-    optional: true,
-  });
-  return parent == null ? ABSENT : deep.defaultGetter(parent, path.slice(split + 1));
+  const found = deep.resolve(live, path);
+  if (found != null) return found.value;
+  const cut = path.lastIndexOf(deep.SEPARATOR);
+  const parent = cut === -1 ? live : deep.get(live, path.slice(0, cut));
+  return parent == null ? ABSENT : undefined;
 };
 
-/** @returns the value to write at the path, with live values kept at pending paths. */
+/**
+ * @returns the value to write at the path, with live values kept at pending paths. A
+ * pending path into a list entry the value no longer holds is dropped, unless it also
+ * reads as a path into a kept entry, as `a.b` does when the list keeps `a`.
+ */
 const keepPending = <V>(
   live: unknown,
   path: string,
@@ -208,8 +211,10 @@ const keepPending = <V>(
     if (!deep.pathsMatch(p, path)) continue;
     const current = readLive(live, p);
     if (current === ABSENT) continue;
+    const at = path === "" ? p : p.slice(path.length + 1);
+    if (!deep.canSet(kept, at)) continue;
     if (kept === value) kept = deep.copy(value);
-    deep.set(kept, path === "" ? p : p.slice(path.length + 1), current);
+    deep.set(kept, at, current);
   }
   return kept;
 };
@@ -273,7 +278,7 @@ const persist = async <
     }
     const setStatus = (setter: state.SetArg<ResultStatus<never>>) =>
       setResult((p) => {
-        const nextStatus = state.executeSetter(setter, p.status);
+        const nextStatus = state.resolve(setter, p.status);
         return {
           ...p,
           status: nextStatus,
@@ -317,6 +322,16 @@ export const createForm = <
   normalizeQuery,
 }: CreateFormParams<Query, Schema>): UseForm<Query, Schema> => {
   const locals = new WeakMap<Client, LocalCache<z.infer<Schema>>>();
+  // The last form to unmount drops the settled answer, so a later mount reads again.
+  const holdSettled = (client: Client, q: Query): (() => void) => {
+    const local = localFor(locals, client);
+    const hash = query.hash(q);
+    const release = subscribeReader(local, hash, () => {});
+    return () => {
+      release();
+      if (!local.listeners.has(hash)) invalidate(local, hash);
+    };
+  };
   const useForm = ({
     query,
     initialValues,
@@ -488,6 +503,12 @@ export const createForm = <
       [],
     );
     useEffect(() => () => debouncedSave.flush(), [debouncedSave]);
+
+    // Nothing keeps the settled answer current once no form shows it.
+    useEffect(() => {
+      if (client == null || memoQuery == null) return;
+      return holdSettled(client, memoQuery);
+    }, [client, memoQuery]);
 
     const abandon = () => {
       abandonedRef.current = true;

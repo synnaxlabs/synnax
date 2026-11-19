@@ -822,6 +822,9 @@ func numberChecks(
 	if rules.Max != nil {
 		checks = append(checks, check("le", numberLiteral(rules.Max)))
 	}
+	if rules.Finite {
+		checks = append(checks, check("finite", ""))
+	}
 	return checks
 }
 

@@ -17,8 +17,8 @@
  * umbrella issue, and the release that removes it.
  */
 export const FLAGS = {
-  // Owner: Emiliano Bonilla. Umbrella: SY-5913. Removed in 0.62.
-  ethercatReplace: IS_DEV || import.meta.env.VITE_FLAGS_ENABLED === "true",
+  // Owner: Emiliano Bonilla. Umbrella: SY-4970. Removed in 0.63.
+  icds: IS_DEV || import.meta.env.VITE_FLAGS_ENABLED === "true",
   // Owner: Emiliano Bonilla. Umbrella: SY-6226. Removed in 0.63.
   staleBadges: IS_DEV || import.meta.env.VITE_FLAGS_ENABLED === "true",
 } as const satisfies Record<string, boolean>;

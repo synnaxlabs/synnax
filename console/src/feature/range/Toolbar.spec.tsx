@@ -14,11 +14,12 @@ import {
   ranger,
   type Synnax as Client,
 } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createTestClient, holdResponses } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
 import { sleep, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { renderLinePlot } from "@/feature/lineplot/testutil";
 import { Toolbar as LinePlotToolbar } from "@/feature/lineplot/toolbar";
@@ -26,7 +27,6 @@ import { Range } from "@/feature/range";
 import { type Analytics } from "@/platform/analytics";
 import { createTestSink, wrapWithSink } from "@/platform/analytics/testutil";
 import { Modals } from "@/platform/modals";
-import { uniqueRangeName } from "@/platform/range/testutil";
 import { Session } from "@/session";
 import {
   createConsoleWrapper,
@@ -55,10 +55,10 @@ const renderToolbar = async ({
     store.dispatch(Session.Range.add({ variant: "persisted", key })),
   );
   const content = (
-    <>
+    <HaulProvider>
       {Range.TOOLBAR.content}
       <Modals.Stack />
-    </>
+    </HaulProvider>
   );
   const { unmount } = render(content, { wrapper });
   const remount = () => {
@@ -88,6 +88,13 @@ const createRunning = async (
     parent,
   );
 
+const endRange = async (r: ranger.Range, end: TimeStamp): Promise<void> => {
+  const value = { start: r.timeRange.start.valueOf(), end: end.valueOf() };
+  expect(
+    await client.ranges.dispatch(r.key, ranger.set({ path: ["timeRange"], value })),
+  ).toBe(true);
+};
+
 /** Reads the one range with this name from the Core. */
 const readRange = async (name: string): Promise<ranger.Range> => {
   const found = await reader.ranges.retrieve([name]);
@@ -95,20 +102,49 @@ const readRange = async (name: string): Promise<ranger.Range> => {
   return found[0];
 };
 
+// The groups hold hundreds of lines on a shared Core. Role queries over them are slow
+// enough to starve the toolbar's reads, so the specs find groups and lines by label.
 const groupOf = (title: string): HTMLElement =>
-  screen.getByRole("region", { name: title });
-
-// The toolbar's first fetch can outlast the default 1 s wait on a busy runner.
-const findLine = async (title: string, name: string): Promise<HTMLElement> =>
-  await waitFor(() => within(groupOf(title)).getByRole("listitem", { name }), {
-    timeout: 10_000,
-  });
+  screen.getByLabelText(title, { selector: "section" });
 
 /** Running shows only while a range runs, so its group can be absent. */
 const queryLine = (title: string, name: string): HTMLElement | null => {
-  const group = screen.queryByRole("region", { name: title });
-  return group == null ? null : within(group).queryByRole("listitem", { name });
+  const group = screen.queryByLabelText(title, { selector: "section" });
+  return group == null
+    ? null
+    : within(group).queryByLabelText(name, { selector: '[role="listitem"]' });
 };
+
+const queryShowMore = (title: string): HTMLElement | null => {
+  const group = screen.queryByLabelText(title, { selector: "section" });
+  return group == null
+    ? null
+    : within(group).queryByText("Show more", { selector: "button" });
+};
+
+// The toolbar's first fetch can outlast the default 1 s wait on a busy runner.
+const waitForLine = async (title: string, name: string): Promise<HTMLElement> =>
+  await waitFor(
+    () => {
+      const line = queryLine(title, name);
+      if (line == null) throw new Error(`${title} has no line named ${name}`);
+      return line;
+    },
+    { timeout: 10_000 },
+  );
+
+/** Clicks Show more until the line loads, since other specs can fill the first page. */
+const findLine = async (title: string, name: string): Promise<HTMLElement> =>
+  await waitFor(
+    () => {
+      const line = queryLine(title, name);
+      if (line != null) return line;
+      const more = queryShowMore(title);
+      if (more != null) fireEvent.click(more);
+      throw new Error(`${title} has no line named ${name}`);
+    },
+    { timeout: 10_000 },
+  );
 
 const draftInput = async (): Promise<HTMLInputElement> =>
   await screen.findByPlaceholderText<HTMLInputElement>("Range name");
@@ -126,6 +162,18 @@ const expectBefore = (first: HTMLElement, second: HTMLElement): void =>
     first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING,
   ).toBeTruthy();
 
+/**
+ * Holds the answers to the toolbar's list reads until release. The reads of the next
+ * range to start or end ask for one range, so they go through.
+ */
+const holdListReads = () =>
+  holdResponses(
+    client,
+    (target, req) =>
+      target === "/range/retrieve" &&
+      (ranger.retrieveRequestZ.parse(req).limit ?? 0) > 1,
+  );
+
 const expectFocusedRange = async (store: TestStore, key: string): Promise<void> => {
   const tab = await resolveFocusedTab(store, client);
   if (tab.variant !== "resource") throw new Error("focused tab is not a resource");
@@ -135,7 +183,7 @@ const expectFocusedRange = async (store: TestStore, key: string): Promise<void> 
 describe("range/Toolbar", () => {
   describe("groups", () => {
     it("should list a running range in Running with its elapsed time", async () => {
-      const rng = await createRunning(uniqueRangeName("running"), {
+      const rng = await createRunning(uniqueName("running"), {
         since: TimeSpan.seconds(65),
       });
       await renderToolbar();
@@ -143,26 +191,88 @@ describe("range/Toolbar", () => {
       expect(line.textContent).toMatch(/1m \d\ds/);
     });
 
-    it("should move ranges from Running to Recent as they end, newest end first", async () => {
-      const start = TimeStamp.now().sub(TimeSpan.SECOND);
-      const first = await createRange(
-        uniqueRangeName("first"),
-        new TimeRange(start, TimeStamp.now().add(TimeSpan.milliseconds(1500))),
+    it("should show a running range behind a page of newer ones after Show more, and keep the pages as others start", async () => {
+      const oldest = await createRunning(uniqueName("oldest"), {
+        since: TimeSpan.minutes(5),
+      });
+      const newer = await client.ranges.create(
+        Array.from({ length: 120 }, () => ({
+          name: uniqueName("newer"),
+          timeRange: new TimeRange(TimeStamp.now().sub(TimeSpan.SECOND), TimeStamp.MAX),
+        })),
       );
-      const second = await createRange(
-        uniqueRangeName("second"),
-        new TimeRange(start, TimeStamp.now().add(TimeSpan.seconds(2))),
+      onTestFinished(async () => await client.ranges.delete(newer.map((r) => r.key)));
+      await renderToolbar();
+      await waitFor(() => expect(queryShowMore("Running")).not.toBeNull(), {
+        timeout: 10_000,
+      });
+      expect(queryLine("Running", oldest.name)).toBeNull();
+      expect(within(groupOf("Running")).getByText(/^\d+\+$/)).toBeTruthy();
+      // A read for a range that ends keeps Show more enabled.
+      const reads = holdListReads();
+      await endRange(newer[0], TimeStamp.now().add(TimeSpan.milliseconds(300)));
+      const busy = groupOf("Running").closest<HTMLElement>('[role="list"]');
+      await waitFor(() => expect(busy?.getAttribute("aria-busy")).toBe("true"), {
+        timeout: 10_000,
+      });
+      expect(queryShowMore("Running")?.getAttribute("aria-disabled")).toBeNull();
+      reads.release();
+      expect(await findLine("Running", oldest.name)).toBeTruthy();
+      // A range that starts later joins Running only through the read for its start.
+      const starting = await createRange(
+        uniqueName("starting"),
+        new TimeRange(TimeStamp.now().add(TimeSpan.SECOND), TimeStamp.MAX),
       );
+      onTestFinished(async () => await client.ranges.delete(starting.key));
+      await waitForLine("Running", starting.name);
+      // Both lists read for the new start at once, and a busy list shows held keys.
+      const list = groupOf("Running").closest<HTMLElement>('[role="list"]');
+      await waitFor(() => expect(list?.getAttribute("aria-busy")).toBe("false"), {
+        timeout: 10_000,
+      });
+      // Other specs can push this range past the loaded pages, so the count checks that
+      // the pages stayed.
+      const count = within(groupOf("Running")).getByText(/^\d+\+?$/).textContent ?? "";
+      expect(parseInt(count, 10)).toBeGreaterThan(100);
+    });
+
+    it("should read a later start or end only after the reads in flight land", async () => {
+      const first = await createRunning(uniqueName("first"));
+      const second = await createRunning(uniqueName("second"));
       await renderToolbar();
       await findLine("Running", first.name);
       await findLine("Running", second.name);
-      const [firstLine, secondLine] = await waitFor(
-        () => [
-          within(groupOf("Recent")).getByRole("listitem", { name: first.name }),
-          within(groupOf("Recent")).getByRole("listitem", { name: second.name }),
-        ],
-        { timeout: 10_000 },
+      const list = groupOf("Running").closest<HTMLElement>('[role="list"]');
+      await waitFor(() => expect(list?.getAttribute("aria-busy")).toBe("false"), {
+        timeout: 10_000,
+      });
+      const reads = holdListReads();
+      const firstEnd = TimeStamp.now().add(TimeSpan.milliseconds(300));
+      const secondEnd = firstEnd.add(TimeSpan.milliseconds(300));
+      await endRange(first, firstEnd);
+      await endRange(second, secondEnd);
+      // The first end reads each list once, and the second end comes while they read.
+      await waitFor(() => expect(reads.sent()).toBe(2), { timeout: 10_000 });
+      await sleep.sleep(
+        new TimeRange(TimeStamp.now(), secondEnd).span.add(TimeSpan.SECOND),
       );
+      expect(reads.sent()).toBe(2);
+      reads.release();
+      await waitForLine("Recent", second.name);
+      expect(queryLine("Recent", first.name)).not.toBeNull();
+    });
+
+    it("should move ranges from Running to Recent as they end, newest end first", async () => {
+      const first = await createRunning(uniqueName("first"));
+      const second = await createRunning(uniqueName("second"));
+      await renderToolbar();
+      await findLine("Running", first.name);
+      await findLine("Running", second.name);
+      // An end set at creation can pass before the toolbar's first fetch lands.
+      await endRange(first, TimeStamp.now().add(TimeSpan.milliseconds(500)));
+      await endRange(second, TimeStamp.now().add(TimeSpan.SECOND));
+      const firstLine = await waitForLine("Recent", first.name);
+      const secondLine = await waitForLine("Recent", second.name);
       expectBefore(secondLine, firstLine);
       expect(queryLine("Running", first.name)).toBeNull();
       expect(queryLine("Running", second.name)).toBeNull();
@@ -170,11 +280,11 @@ describe("range/Toolbar", () => {
 
     it("should list favorites in star order and show a hint with none", async () => {
       const a = await createRange(
-        uniqueRangeName("a"),
+        uniqueName("a"),
         TimeStamp.now().spanRange(TimeSpan.seconds(10)),
       );
       const b = await createRange(
-        uniqueRangeName("b"),
+        uniqueName("b"),
         TimeStamp.now().spanRange(TimeSpan.seconds(10)),
       );
       const { store } = await renderToolbar();
@@ -189,11 +299,11 @@ describe("range/Toolbar", () => {
     });
 
     it("should show a finished phase of a running run in Recent, then nest it once the run ends", async () => {
-      const run = await createRunning(uniqueRangeName("run"), {
+      const run = await createRunning(uniqueName("run"), {
         since: TimeSpan.seconds(10),
       });
       const phase = await createRange(
-        uniqueRangeName("phase"),
+        uniqueName("phase"),
         new TimeRange(
           TimeStamp.now().sub(TimeSpan.seconds(5)),
           TimeStamp.now().add(TimeSpan.SECOND),
@@ -201,18 +311,18 @@ describe("range/Toolbar", () => {
         run.key,
       );
       await renderToolbar();
-      const finished = await waitFor(
-        () => within(groupOf("Recent")).getByRole("listitem", { name: phase.name }),
-        {
-          timeout: 10_000,
-        },
-      );
+      const finished = await waitForLine("Recent", phase.name);
       expect(within(finished).getByText(run.name)).toBeTruthy();
-      fireEvent.click(
-        await within(await findLine("Running", run.name)).findByRole("button", {
-          name: "Stop",
-        }),
-      );
+      // "should stop a running range" covers Stop, so the run ends through the client.
+      expect(
+        await client.ranges.dispatch(
+          run.key,
+          ranger.set({
+            path: ["timeRange"],
+            value: new TimeRange(run.timeRange.start, TimeStamp.now()).numeric,
+          }),
+        ),
+      ).toBe(true);
       const ended = await findLine("Recent", run.name);
       await waitFor(() => expect(queryLine("Recent", phase.name)).toBeNull());
       fireEvent.click(within(ended).getByRole("button", { name: "Expand" }));
@@ -234,7 +344,7 @@ describe("range/Toolbar", () => {
 
   describe("start", () => {
     it("should start a range at the click time on Enter", async () => {
-      const name = uniqueRangeName("started");
+      const name = uniqueName("started");
       await renderToolbar();
       const before = TimeStamp.now();
       fireEvent.click(await screen.findByRole("button", { name: "Start range" }));
@@ -251,14 +361,14 @@ describe("range/Toolbar", () => {
       const analytics = createTestSink();
       await renderToolbar({ analytics });
       fireEvent.click(await screen.findByRole("button", { name: "Start range" }));
-      await typeDraft(uniqueRangeName("reported"));
+      await typeDraft(uniqueName("reported"));
       await waitFor(() =>
         expect(analytics.capture).toHaveBeenCalledWith("range_created", {}),
       );
     });
 
     it("should close the draft and start nothing on Escape", async () => {
-      const name = uniqueRangeName("canceled");
+      const name = uniqueName("canceled");
       await renderToolbar();
       fireEvent.click(await screen.findByRole("button", { name: "Start range" }));
       const input = await draftInput();
@@ -271,8 +381,8 @@ describe("range/Toolbar", () => {
     });
 
     it("should start a child range under the range", async () => {
-      const parent = await createRunning(uniqueRangeName("parent"));
-      const name = uniqueRangeName("child");
+      const parent = await createRunning(uniqueName("parent"));
+      const name = uniqueName("child");
       await renderToolbar();
       const line = await findLine("Running", parent.name);
       fireEvent.click(
@@ -285,8 +395,8 @@ describe("range/Toolbar", () => {
     });
 
     it("should start a child range from the menu of a running range", async () => {
-      const parent = await createRunning(uniqueRangeName("parent"));
-      const name = uniqueRangeName("child");
+      const parent = await createRunning(uniqueName("parent"));
+      const name = uniqueName("child");
       await renderToolbar();
       const line = await findLine("Running", parent.name);
       await openContextMenu(() => line);
@@ -300,7 +410,7 @@ describe("range/Toolbar", () => {
 
     it("should open the create form for a child of a range that is not running", async () => {
       const rng = await createRange(
-        uniqueRangeName("ended"),
+        uniqueName("ended"),
         new TimeRange(TimeStamp.now().sub(TimeSpan.minutes(2)), TimeStamp.now()),
       );
       await renderToolbar({ favorites: [rng] });
@@ -324,8 +434,8 @@ describe("range/Toolbar", () => {
 
   describe("next", () => {
     it("should stop a range and start the next one with the suggested name", async () => {
-      const token = uniqueRangeName("run");
-      const campaign = await createRunning(uniqueRangeName("campaign"));
+      const token = uniqueName("run");
+      const campaign = await createRunning(uniqueName("campaign"));
       const run = await createRunning(`${token} 7`, { parent: campaign.key });
       await renderToolbar();
       const line = await findLine("Running", run.name);
@@ -347,10 +457,10 @@ describe("range/Toolbar", () => {
     });
 
     it("should stop the running ranges below the range too", async () => {
-      const campaign = await createRunning(uniqueRangeName("campaign"));
-      const run = await createRunning(uniqueRangeName("run"), { parent: campaign.key });
-      const phase = await createRunning(uniqueRangeName("phase"), { parent: run.key });
-      const name = uniqueRangeName("next");
+      const campaign = await createRunning(uniqueName("campaign"));
+      const run = await createRunning(uniqueName("run"), { parent: campaign.key });
+      const phase = await createRunning(uniqueName("phase"), { parent: run.key });
+      const name = uniqueName("next");
       await renderToolbar();
       const line = await findLine("Running", run.name);
       fireEvent.click(
@@ -366,8 +476,8 @@ describe("range/Toolbar", () => {
     });
 
     /** Creates a running run under a running campaign and shows it in Running. */
-    const renderRun = async (name = uniqueRangeName("run")) => {
-      const campaign = await createRunning(uniqueRangeName("campaign"));
+    const renderRun = async (name = uniqueName("run")) => {
+      const campaign = await createRunning(uniqueName("campaign"));
       const run = await createRunning(name, { parent: campaign.key });
       await renderToolbar();
       return { campaign, run, line: await findLine("Running", run.name) };
@@ -375,7 +485,7 @@ describe("range/Toolbar", () => {
 
     it("should start the next range from the menu", async () => {
       const { campaign, run, line } = await renderRun();
-      const name = uniqueRangeName("next");
+      const name = uniqueName("next");
       await openContextMenu(() => line);
       fireEvent.click(await screen.findByRole("menuitem", { name: "Next" }));
       await typeDraft(name);
@@ -414,8 +524,8 @@ describe("range/Toolbar", () => {
     });
 
     it("should leave the range running when the next one fails to start", async () => {
-      const campaign = await createRunning(uniqueRangeName("campaign"));
-      const run = await createRunning(uniqueRangeName("run"), { parent: campaign.key });
+      const campaign = await createRunning(uniqueName("campaign"));
+      const run = await createRunning(uniqueName("run"), { parent: campaign.key });
       const subject = await createTestClientWithGrants(client, {
         create: [ranger.TYPE_RESOURCE_ID],
         update: [ranger.TYPE_RESOURCE_ID],
@@ -439,7 +549,7 @@ describe("range/Toolbar", () => {
       await client.access.policies.delete(
         policies.filter((p) => p.actions.includes("create")).map((p) => p.key),
       );
-      const name = uniqueRangeName("refused");
+      const name = uniqueName("refused");
       fireEvent.change(input, { target: { value: name } });
       fireEvent.keyDown(input, { key: "Enter" });
       // Long enough for the refused create to answer and for any stop to land.
@@ -449,7 +559,7 @@ describe("range/Toolbar", () => {
     });
 
     it("should keep a newer draft when an earlier suggestion answers late", async () => {
-      const token = uniqueRangeName("run");
+      const token = uniqueName("run");
       const { line } = await renderRun(`${token} 7`);
       fireEvent.click(
         await within(line).findByRole("button", { name: "Stop and start next" }),
@@ -465,7 +575,7 @@ describe("range/Toolbar", () => {
 
   describe("line", () => {
     it("should stop a running range", async () => {
-      const rng = await createRunning(uniqueRangeName("stop"));
+      const rng = await createRunning(uniqueName("stop"));
       await renderToolbar();
       const line = await findLine("Running", rng.name);
       fireEvent.click(await within(line).findByRole("button", { name: "Stop" }));
@@ -477,7 +587,7 @@ describe("range/Toolbar", () => {
 
     it("should remove a favorite with its star", async () => {
       const rng = await createRange(
-        uniqueRangeName("star"),
+        uniqueName("star"),
         TimeStamp.now().spanRange(TimeSpan.seconds(10)),
       );
       const { store } = await renderToolbar({ favorites: [rng] });
@@ -488,7 +598,7 @@ describe("range/Toolbar", () => {
     });
 
     it("should rename the line that the menu opened over", async () => {
-      const rng = await createRunning(uniqueRangeName("rename"));
+      const rng = await createRunning(uniqueName("rename"));
       await renderToolbar({ favorites: [rng] });
       await findLine("Running", rng.name);
       const line = await findLine("Favorites", rng.name);
@@ -505,7 +615,7 @@ describe("range/Toolbar", () => {
 
     it("should open the overview of the range on a click", async () => {
       const rng = await createRange(
-        uniqueRangeName("open"),
+        uniqueName("open"),
         TimeStamp.now().spanRange(TimeSpan.seconds(10)),
       );
       const { store } = await renderToolbar({ favorites: [rng] });
@@ -533,9 +643,23 @@ describe("range/Toolbar", () => {
   });
 
   describe("drag", () => {
+    it("should picture a dragged line as its range", async () => {
+      const rng = await createRange(
+        uniqueName("picture"),
+        TimeStamp.now().spanRange(TimeSpan.seconds(10)),
+      );
+      await renderToolbar({ favorites: [rng] });
+      fireEvent.dragStart(await findLine("Favorites", rng.name));
+      const preview = document.querySelector(".lyra-haul__layer .lyra-haul-preview");
+      expect(preview?.querySelector(".lyra-haul-preview__name")?.textContent).toBe(
+        rng.name,
+      );
+      expect(preview?.querySelector(".lyra-icon--range")).toBeInstanceOf(Element);
+    });
+
     it("should add a range dropped on the range picker of a line plot", async () => {
       const rng = await createRange(
-        uniqueRangeName("drag"),
+        uniqueName("drag"),
         TimeStamp.now().spanRange(TimeSpan.seconds(10)),
       );
       const { key } = await renderLinePlot(
@@ -578,8 +702,8 @@ describe("range/Toolbar", () => {
       });
 
     const renderRun = async (grants: Grants): Promise<HTMLElement> => {
-      const campaign = await createRunning(uniqueRangeName("campaign"));
-      const run = await createRunning(uniqueRangeName("run"), { parent: campaign.key });
+      const campaign = await createRunning(uniqueName("campaign"));
+      const run = await createRunning(uniqueName("run"), { parent: campaign.key });
       await renderToolbar({ as: await createSubject(grants) });
       // The same policy read answers every grant, so the explorer button shows that it
       // landed.

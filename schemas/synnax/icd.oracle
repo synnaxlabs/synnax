@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/channel"
 import "schemas/x/filter"
 import "schemas/x/patch"
 import "schemas/x/payload"
@@ -26,6 +27,31 @@ MessageKey = uuid {
 
 FieldKey = uuid {
     @doc value "is a unique identifier for a field within a message."
+}
+
+ImportFormat enum {
+    dbc  = "dbc" {
+        @doc value "is a Vector CAN database file."
+    }
+    csv  = "csv" {
+        @doc value """
+            is a field table in comma-separated values. The first row is a header that
+            names each column, in any case: message, id, extended, length, field,
+            start_bit, bit_length, byte_order, kind, scale, offset, units, min, and max.
+            The message, field, start_bit, and bit_length columns are required. A kind
+            is float, integer, or unsigned, and defaults to unsigned. Each other row is
+            one binary field, and the rows of one message form one message, with a CAN
+            identifier when an id is present.
+        """
+    }
+    xlsx = "xlsx" {
+        @doc value """
+            is a field table, laid out as for csv, in the first sheet of an Excel
+            workbook. A numeric cell is read as its value, whatever its number format.
+        """
+    }
+
+    @doc value "is the file format of an ICD that an import reads."
 }
 
 ByteOrder enum {
@@ -302,7 +328,7 @@ JSONMatch union on type extends JSONBaseMatch {
     @go marshal
 }
 
-Payload union on format {
+Payload union on format payload.Format {
     binary {
         length     uint16?       {
             @doc value """
@@ -428,4 +454,44 @@ Where filter ICD {
 
     @doc value         "is a filter that selects ICDs."
     @go request_output "core/pkg/api/icd"
+}
+
+ReadBinding struct {
+    field     FieldKey       {
+        @doc value "is the key of the message field to read."
+    }
+    channel   channel.Key = 0 {
+        @doc value     "is the channel the value of the field is written to."
+        @ref kind      use
+        @ref on_delete restrict
+    }
+    data_type telem.DataType = "" {
+        @doc value """
+            is the data type of the channel that a client creates for the field. Empty
+            takes the default of the field's kind. The Core ignores it once the channel
+            exists.
+        """
+        @ts type   "string"
+    }
+
+    @doc value  "writes the value of one message field to a channel."
+    @go marshal
+}
+
+ReadMessage struct {
+    message  MessageKey    {
+        @doc value "is the key of the ICD message to read."
+    }
+    index    FieldKey?     {
+        @doc value """
+            is the key of the field whose channel indexes the others. Absent when the
+            task stamps samples on arrival.
+        """
+    }
+    bindings ReadBinding[] = [] {
+        @doc value "are the fields the task reads. A field with no binding is not read."
+    }
+
+    @doc value  "reads the documents of one ICD message."
+    @go marshal
 }

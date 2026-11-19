@@ -7,12 +7,12 @@ description:
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-The Console and the Driver call an EtherCAT module a slave, so error messages say
-"slave" where these pages say "module". For errors about one channel of a task, see the
+For errors about one channel of a task, see the
 [read task](/reference/hardware/ethercat/read-task#troubleshooting) and the
 [write task](/reference/hardware/ethercat/write-task#troubleshooting).
 
@@ -46,11 +46,20 @@ DewesoftX adds a network filter, **EthercatDAQ Filter**, to each Ethernet port. 
 DewesoftX starts, the filter stops the replies of the modules before they get to the
 Driver. This continues after you close DewesoftX, and a restart of the port does not
 stop it. The scan finds no modules and shows
-`The DewesoftX "EthercatDAQ Filter" on this adapter blocks EtherCAT replies`, with the
-name of the adapter.
+`The DewesoftX network filter on this adapter blocks EtherCAT replies`, with the name of
+the adapter.
 
 </Problem.Cause>
 <Problem.Fix>
+
+In the devices toolbar of the Console, click <Icon.Add /> and select **EtherCAT
+network**. Next to the error, click **Turn off DewesoftX filter**, then click **Turn
+off**. If the Driver does not run as administrator, Windows asks for administrator
+access on the computer that runs the Driver. Click **Yes**. The modules show in the
+devices toolbar in 35 seconds or less. You do not need to restart the Driver. If you
+click **No**, the error shows again in 35 seconds or less.
+
+If the Console cannot turn off the filter, do it in Windows:
 
 1. In Windows Settings, go to **Network & internet** > **Advanced network settings** >
    **More network adapter options**. You can also press Windows + R and enter
@@ -59,9 +68,8 @@ name of the adapter.
    Windows asks for administrator access.
 3. Clear **EthercatDAQ Filter**, then select **OK**.
 
-The modules show in the devices toolbar in 30 seconds or less. You do not need to
-restart the Driver. From an administrator PowerShell, this command does the same, with
-the name of the port from step 2:
+The modules show in the devices toolbar in 30 seconds or less. From an administrator
+PowerShell, this command does the same, with the name of the port from step 2:
 
 ```powershell
 Disable-NetAdapterBinding -Name "Ethernet 2" -ComponentID DW_EthcatDAQ
@@ -74,7 +82,7 @@ select **EthercatDAQ Filter** again.
 </Problem.Fix>
 </Problem.Body>
 
-### `No EtherCAT slaves found on ...`
+### `No EtherCAT modules found on ...`
 
 <Problem.Body>
 <Problem.Cause>
@@ -194,7 +202,7 @@ Install Npcap on Windows. On Linux, give the Driver CAP_NET_RAW. See
 </Problem.Fix>
 </Problem.Body>
 
-### `No module answered on ...` or `Slave ... on ... gives no identity`
+### `No module answered on ...` or `Module ... on ... gives no identity`
 
 <Problem.Body>
 <Problem.Cause>
@@ -222,10 +230,11 @@ restart its power.
 
 A module did not move to SAFE-OP or OP in time when the network started, or every module
 refused the change, so no task on the port starts. The built-in master waits 10 seconds
-for SAFE-OP and 10 seconds for OP. IgH waits up to 10 seconds for OP. When every module
-below OP refuses the change, IgH tries them once more and then stops waiting. The error
-names each module and its state. When a module refuses the change, the error also gives
-the error text of the module, such as "Invalid output configuration".
+for SAFE-OP and 10 seconds for OP. IgH waits for OP while modules keep reaching it, and
+stops when no module reaches OP for 10 seconds. When every module below OP refuses the
+change, IgH tries them once more and then stops waiting. The error names each module and
+its state. When a module refuses the change, the error also gives the error text of the
+module, such as "Invalid output configuration".
 
 </Problem.Cause>
 <Problem.Fix>
@@ -238,7 +247,7 @@ then start the tasks again. If the error contains "Invalid DC SYNC configuration
 </Problem.Fix>
 </Problem.Body>
 
-### `Slave ... is left out of the network`
+### `Module ... is left out of the network`
 
 <Problem.Body>
 <Problem.Cause>
@@ -255,7 +264,7 @@ Fix the module, then stop every task on the port and start them again.
 </Problem.Fix>
 </Problem.Body>
 
-### `All slaves must be on the same network`
+### `All modules must be on the same network`
 
 <Problem.Body>
 <Problem.Cause>
@@ -270,7 +279,7 @@ Create one task for each port.
 </Problem.Fix>
 </Problem.Body>
 
-### `... is not on the bus` or `Slave ...: expected ..., found ...`
+### `... is not on the bus` or `Module ...: expected ..., found ...`
 
 <Problem.Body>
 <Problem.Cause>
@@ -283,13 +292,17 @@ error.
 </Problem.Cause>
 <Problem.Fix>
 
-Check the cables and the power of the module. If you replaced the module, edit the
-channels of the task to use the new module.
+Check the cables and the power of the module. If you replaced the module with one of the
+same model, the Console asks if the new module is your old one. Select **Yes**, or the
+old module by its position, to move the new module into the old device, so the task
+keeps working. Synnax first stops the EtherCAT tasks on the network. Start them again
+after the move. If you select **No**, edit the channels of the task to use the new
+module.
 
 </Problem.Fix>
 </Problem.Body>
 
-### `... and ... are both saved as slave ...`
+### `... and ... are both saved as module ...`
 
 <Problem.Body>
 <Problem.Cause>
@@ -305,7 +318,7 @@ Wait a few seconds for the next scan, then configure the task again.
 </Problem.Fix>
 </Problem.Body>
 
-### `Slaves ... and ... are both at position ... on ...`
+### `Modules ... and ... are both at position ... on ...`
 
 <Problem.Body>
 <Problem.Cause>
@@ -324,7 +337,7 @@ deleted module loses its saved settings.
 </Problem.Fix>
 </Problem.Body>
 
-### `Slaves ... and ... have the same serial number ...`
+### `Modules ... and ... have the same serial number ...`
 
 <Problem.Body>
 <Problem.Cause>
@@ -341,7 +354,7 @@ deleted module loses its saved settings.
 </Problem.Fix>
 </Problem.Body>
 
-### `Slave ... maps ... input and ... output bits, but its discovered PDO entries hold ... and ...`
+### `Module ... maps ... input and ... output bits, but its discovered PDO entries hold ... and ...`
 
 <Problem.Body>
 <Problem.Cause>
@@ -412,7 +425,7 @@ mode can fail to start.
 </Problem.Fix>
 </Problem.Body>
 
-### `Slave ... cannot run its DC mode at a bus cycle of ...`
+### `Module ... cannot run its DC mode at a bus cycle of ...`
 
 <Problem.Body>
 <Problem.Cause>
@@ -434,7 +447,7 @@ more.
 </Problem.Fix>
 </Problem.Body>
 
-### `Slave ... cannot use its chosen mode`
+### `Module ... cannot use its chosen mode`
 
 <Problem.Body>
 <Problem.Cause>
@@ -458,7 +471,7 @@ module cannot start, so no task on the port starts. The error gives the reason:
 </Problem.Fix>
 </Problem.Body>
 
-### `The clock of slave ... is ... off the reference clock`
+### `The clock of module ... is ... off the reference clock`
 
 <Problem.Body>
 <Problem.Cause>
@@ -474,7 +487,7 @@ Check the cables and the power of the modules, then start the task again.
 </Problem.Fix>
 </Problem.Body>
 
-### `The bus on ... cycles at ... Hz while a slave runs DC sync`
+### `The bus on ... cycles at ... Hz while a module runs DC sync`
 
 <Problem.Body>
 <Problem.Cause>

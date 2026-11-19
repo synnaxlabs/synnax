@@ -131,7 +131,7 @@ class SecretClient(_Page):
         self._used_by_popover().get_by_text(resource, exact=True).click()
 
     def _used_by_popover(self) -> Locator:
-        return self.page.locator(".console-secret-settings__popover")
+        return self.page.locator(".console-settings-used-by__popover")
 
 
 class CertificateClient(_Page):

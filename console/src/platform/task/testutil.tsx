@@ -26,6 +26,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { id, sync, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
+import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import {
   act,
   fireEvent,
@@ -52,7 +53,6 @@ import { type Registry, RegistryProvider } from "@/platform/task/registry";
 import { type CreateParams, type UseCreate } from "@/platform/task/useCreate";
 import { Session } from "@/session";
 import {
-  assertDefined,
   CaptureStatuses,
   createConsoleWrapper,
   createTestClientWithGrants,
@@ -64,7 +64,6 @@ import {
   renderWithConsole,
   type RenderWithConsoleOptions,
   type TestStore,
-  uniqueName,
 } from "@/testutil";
 
 const defaultClient = createTestClient();
@@ -550,6 +549,28 @@ export const findChannelListItem = async (text: string): Promise<HTMLElement> =>
     assertDefined(match, `channel list item showing "${text}" not found`);
     return match;
   });
+
+/** Finds the note under the channel list that shows the message, and its variant. */
+export const findChannelListNote = async (
+  message: string,
+): Promise<{ note: HTMLElement; variant?: "error" | "warning" | "info" }> => {
+  const text = await screen.findByText(message);
+  const note = text.closest<HTMLElement>(".console-channel-list__status");
+  assertDefined(note, `channel list note showing "${message}" not found`);
+  const variant = (["error", "warning", "info"] as const).find((v) =>
+    note.classList.contains(`lyra--${v}`),
+  );
+  return { note, variant };
+};
+
+/** @returns the status that a channel list item shows, or undefined for none. */
+export const getChannelItemStatus = (
+  item: HTMLElement,
+): "error" | "warning" | undefined => {
+  if (item.classList.contains("console-channel-item--error")) return "error";
+  if (item.classList.contains("console-channel-item--warning")) return "warning";
+  return undefined;
+};
 
 /**
  * Opens the dialog select whose trigger currently shows triggerText and clicks the

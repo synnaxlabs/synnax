@@ -12,6 +12,11 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Device } from "@synnaxlabs/pluto";
 import { useRef } from "react";
 
+import { HARDWARE } from "@/feature/device/integrations";
+
+const modelName = ({ make, model }: device.Device): string =>
+  HARDWARE.find((h) => h.make === make)?.modelNames?.[model] ?? model;
+
 export const useListenForChanges = () => {
   const addStatus = Status.useAdder();
   const alreadyNotified = useRef<Set<device.Key>>(new Set());
@@ -21,7 +26,7 @@ export const useListenForChanges = () => {
     addStatus<ReturnType<typeof device.deviceZ>>({
       variant: "info",
       name: dev.name,
-      message: `New ${dev.model} connected`,
+      message: `${modelName(dev)} connected`,
       details: dev,
     });
   };

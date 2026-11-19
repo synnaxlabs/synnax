@@ -13,6 +13,7 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
 import { deep } from "@synnaxlabs/x";
+import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -20,10 +21,10 @@ import { describe, expect, it, vi } from "vitest";
 import { Task } from "@/platform/task";
 import {
   awaitTare,
+  findChannelListNote,
   renderInTaskForm,
   renderInTaskFormWithClient,
 } from "@/platform/task/testutil";
-import { uniqueName } from "@/testutil";
 
 const path = deep.path<{ config: { channels: Task.Channel[] } }>();
 
@@ -115,17 +116,26 @@ describe("ChannelList", () => {
     await waitFor(() => expect(screen.getByText("Nothing here")).toBeTruthy());
   });
 
-  it("should show the list's error under the list", async () => {
-    const { form } = await renderInTaskForm(<Harness />, { values: twoChannels });
-    act(() =>
-      form.current?.setStatus(path.config.channels, {
-        key: "config.channels",
-        variant: "error",
-        message: "List error",
-      }),
-    );
-    expect(await screen.findByText("List error")).toBeTruthy();
-  });
+  it.each(["error", "warning"] as const)(
+    "should show a list %s in a note under the channels",
+    async (variant) => {
+      const { form } = await renderInTaskForm(<Harness />, { values: twoChannels });
+      act(() =>
+        form.current?.setStatus(path.config.channels, {
+          key: "config.channels",
+          variant,
+          message: "List problem",
+        }),
+      );
+      const note = await findChannelListNote("List problem");
+      expect(note.variant).toBe(variant);
+      const last = screen.getAllByRole("option").at(-1);
+      assertDefined(last, "no channel option");
+      expect(
+        last.compareDocumentPosition(note.note) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    },
+  );
 
   it("should select the clicked channel", async () => {
     const onSelect = vi.fn();

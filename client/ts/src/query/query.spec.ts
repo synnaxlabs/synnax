@@ -951,8 +951,7 @@ describe("Answers", () => {
     it("joins a subscriber's fetch from a read", async () => {
       const table = newTable();
       table.set(rec("a", 0));
-      let release = (): void => {};
-      const held = new Promise<void>((resolve) => (release = resolve));
+      const { promise: held, resolve: release } = Promise.withResolvers<void>();
       const fetch = vi.fn(async () => {
         await held;
         return ["a"];
@@ -1033,7 +1032,7 @@ describe("Answers", () => {
     it("leaves an entry written during a fetch to that fetch", async () => {
       const table = newTable();
       const fetch = vi.fn(async () => {
-        await scheduler.flushTaskQueue();
+        await scheduler.nextTask();
         table.set(rec("a", 0));
         return ["a"];
       });
@@ -1520,8 +1519,7 @@ describe("Answers", () => {
       const table = newTable();
       table.set("a", rec("a", 5));
       let members = [rec("a", 5)];
-      let release!: () => void;
-      const gate = new Promise<void>((resolve) => (release = resolve));
+      const { promise: gate, resolve: release } = Promise.withResolvers<void>();
       const fetch = vi.fn(async () => {
         const read = members;
         await gate;
@@ -1557,8 +1555,7 @@ describe("Answers", () => {
       const table = newTable();
       table.set("a", rec("a", 5));
       let members = [rec("a", 5)];
-      let release!: () => void;
-      const gate = new Promise<void>((resolve) => (release = resolve));
+      const { promise: gate, resolve: release } = Promise.withResolvers<void>();
       const fetch = vi.fn(async () => {
         const read = members;
         await gate;
@@ -2083,8 +2080,7 @@ describe("Answers", () => {
       const answers = limitSpace(table, fetch);
       answers.onChange({ min: 3, limit: 2 }, vi.fn());
       await answers.retrieve({ min: 3, limit: 2 });
-      let release = (): void => {};
-      const gate = new Promise<void>((resolve) => (release = resolve));
+      const { promise: gate, resolve: release } = Promise.withResolvers<void>();
       fetch.mockImplementationOnce(async () => {
         await gate;
         return ["b"];
@@ -2125,6 +2121,55 @@ describe("Answers", () => {
       table.set("b", rec("b", 2));
       refetched.resolve(["a", "b"]);
       await expect.poll(() => answers.getCached({ min: 3 })).toEqual([rec("a", 5)]);
+    });
+
+    describe("reconnect during the first fetch", () => {
+      const setup = () => {
+        const table = newTable();
+        const fetches: Array<PromiseWithResolvers<string[]>> = [];
+        let bump = (_: number): void => {};
+        const answers = new Space<LimitQ, Rec[], string, Rec>(
+          {
+            name: "things",
+            table,
+            fetch: async () => {
+              const fetched = Promise.withResolvers<string[]>();
+              fetches.push(fetched);
+              return await fetched.promise;
+            },
+            compose: (records) => records,
+            matches: (r, q) => r.value >= q.min,
+          },
+          { onEpoch: (callback) => ((bump = callback), () => {}) },
+        );
+        const handler = vi.fn();
+        answers.onChange({ min: 3 }, handler);
+        const pending = answers.retrieve({ min: 3 });
+        bump(1);
+        table.set("a", rec("a", 5));
+        return { answers, fetches, handler, pending };
+      };
+
+      it("refetches after the first fetch settles", async () => {
+        const { answers, fetches, handler, pending } = setup();
+        fetches[0].resolve([]);
+        expect(await pending).toEqual([rec("a", 5)]);
+        await expect.poll(() => fetches.length).toBe(2);
+        fetches[1].resolve(["a"]);
+        await expect.poll(() => handler.mock.calls.length).toBe(2);
+        expect(handler).toHaveBeenLastCalledWith([rec("a", 5)]);
+        expect(answers.getCached({ min: 3 })).toEqual([rec("a", 5)]);
+      });
+
+      it("refetches after the first fetch fails", async () => {
+        const { answers, fetches, handler, pending } = setup();
+        fetches[0].reject(new Error("unreachable"));
+        await expect(pending).rejects.toThrow("unreachable");
+        await expect.poll(() => fetches.length).toBe(2);
+        fetches[1].resolve(["a"]);
+        await expect.poll(() => answers.getCached({ min: 3 })).toEqual([rec("a", 5)]);
+        expect(handler).toHaveBeenLastCalledWith([rec("a", 5)]);
+      });
     });
 
     it("ignores a change to a record that never matched", async () => {
@@ -2227,7 +2272,7 @@ describe("Answers", () => {
       table.set("z", rec("z", 10));
       await expect.poll(() => fetch.mock.calls.length).toBe(3);
       older.resolve(["b"]);
-      await scheduler.flushTaskQueue();
+      await scheduler.nextTask();
       expect(answers.getCached({ searchTerm: "x" })).toEqual([rec("a", 1)]);
       newer.resolve(["c"]);
       await expect

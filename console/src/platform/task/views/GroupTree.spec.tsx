@@ -13,6 +13,7 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Form } from "@synnaxlabs/lyra/form";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { deep, id } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { Profiler } from "react";
 import { describe, expect, it } from "vitest";
@@ -23,7 +24,7 @@ import {
   renderInTaskForm,
   renderInTaskFormWithClient,
 } from "@/platform/task/testutil";
-import { CaptureStatuses, getIconButtons, uniqueName } from "@/testutil";
+import { CaptureStatuses, getIconButtons } from "@/testutil";
 
 type Field = Task.Views.GroupField;
 
@@ -248,6 +249,14 @@ describe("GroupTree", () => {
     fireEvent.contextMenu(screen.getAllByText("/value")[0]);
     fireEvent.click(await screen.findByText("Remove"));
     await screen.findByText("details-for-config.groups.e");
+  });
+
+  it("should not move the selection onto a field of a removed group", async () => {
+    await renderTree([EMPTY_GROUP, GROUP, { ...EMPTY_GROUP, key: "f" }]);
+    fireEvent.click((await screen.findAllByText("group-g"))[0]);
+    fireEvent.contextMenu(screen.getAllByText("group-g")[0]);
+    fireEvent.click(await screen.findByText("Remove"));
+    await screen.findByText("details-for-config.groups.f");
   });
 
   it("should duplicate a group with fresh fields and a remapped index", async () => {

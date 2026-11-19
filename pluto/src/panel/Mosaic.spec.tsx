@@ -18,7 +18,7 @@ import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { mockBoundingClientRect } from "@synnaxlabs/lyra/testutil";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { TimeSpan, uuid } from "@synnaxlabs/x";
+import { map, TimeSpan, uuid } from "@synnaxlabs/x";
 import {
   act,
   fireEvent,
@@ -482,7 +482,7 @@ describe("Panel.Mosaic", () => {
     const tabRenders = new Map<string, number>();
     const TabNameCounter = (): ReactElement => {
       const tabKey = Panel.TabScope.use();
-      tabRenders.set(tabKey, (tabRenders.get(tabKey) ?? 0) + 1);
+      map.increment(tabRenders, tabKey);
       return <span>{`name:${tabKey}`}</span>;
     };
     const countingTabName: Panel.MosaicProps["tabName"] = () => <TabNameCounter />;
@@ -858,10 +858,8 @@ describe("Panel.Mosaic", () => {
   });
 
   describe("cross-panel drag", () => {
-    // jsdom has no DragEvent, and testing-library's fallback drops the coordinate
-    // init the leaf's location resolution reads. A MouseEvent carries it.
     const drop = (el: Element): boolean =>
-      fireEvent(el, new MouseEvent("drop", { bubbles: true, clientX: 0, clientY: 0 }));
+      fireEvent.drop(el, { clientX: 0, clientY: 0 });
 
     // Two mosaics under one Haul.Provider stand in for two windows: drift mirrors
     // the dragging state across real windows, so both see the same haul.

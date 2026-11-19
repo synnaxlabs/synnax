@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Synnax } from "@synnaxlabs/client";
-import { TimeSpan } from "@synnaxlabs/pluto";
+import { TimeSpan } from "@synnaxlabs/x";
 
 import { retrieveScanTask } from "@/feature/mqtt/device/retrieveScanTask";
 import { type Device } from "@/feature/mqtt/device/types";
@@ -20,6 +20,8 @@ import {
 
 /** How long the Core listens to the broker for one browse. */
 export const BROWSE_DURATION = TimeSpan.seconds(3);
+
+export const LISTENING = `Listening for ${BROWSE_DURATION.seconds} seconds`;
 
 // The Core listens for up to 20 s before it replies.
 const BROWSE_TIMEOUT = TimeSpan.seconds(25);

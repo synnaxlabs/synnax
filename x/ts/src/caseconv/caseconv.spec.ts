@@ -126,81 +126,6 @@ describe("caseconv", () => {
       });
     });
   });
-  describe("toKebab", () => {
-    const SPECS: [string, string][] = [
-      ["fooBar", "foo-bar"],
-      ["fooBarBaz", "foo-bar-baz"],
-      ["foo bar", "foo-bar"],
-      ["foo bar baz", "foo-bar-baz"],
-      ["foo.bar", "foo.bar"],
-      ["foo.bar.baz", "foo.bar.baz"],
-      ["Foo Bar", "foo-bar"],
-      ["foo_bar", "foo-bar"],
-      ["foo_bar_baz", "foo-bar-baz"],
-    ];
-    SPECS.forEach(([input, expected]) => {
-      it(`should convert ${input} to ${expected}`, () => {
-        expect(caseconv.toKebab(input)).toBe(expected);
-      });
-    });
-  });
-  describe("toProperNoun", () => {
-    const SPECS: [string, string][] = [
-      ["fooBar", "Foo Bar"],
-      ["foo_bar", "Foo Bar"],
-      ["foo-bar", "Foo Bar"],
-      ["FooBar", "Foo Bar"],
-      ["foo_bar_baz", "Foo Bar Baz"],
-      ["fooBarBaz", "Foo Bar Baz"],
-      ["foo-bar-baz", "Foo Bar Baz"],
-      ["XMLParser", "XML Parser"],
-      ["parseXMLDocument", "Parse XML Document"],
-      ["IODevice", "IO Device"],
-      ["temperature_sensor", "Temperature Sensor"],
-      ["pressure-gauge", "Pressure Gauge"],
-      ["flowMeter", "Flow Meter"],
-      ["my_custom_symbol", "My Custom Symbol"],
-      ["valve-actuator-v2", "Valve Actuator V2"],
-      ["PIDController", "PID Controller"],
-      ["", ""],
-      ["a", "A"],
-      ["ABC", "ABC"],
-      ["test123value", "Test123value"],
-      ["test_123_value", "Test 123 Value"],
-    ];
-    SPECS.forEach(([input, expected]) => {
-      it(`should convert ${input} to ${expected}`, () => {
-        expect(caseconv.toProperNoun(input)).toBe(expected);
-      });
-    });
-  });
-
-  describe("toSentence", () => {
-    const SPECS: [string, string][] = [
-      ["sampleRate", "Sample rate"],
-      ["state_update_rate", "State update rate"],
-      ["data-type", "Data type"],
-      ["FooBar", "Foo bar"],
-      ["name", "Name"],
-      ["XMLParser", "XML parser"],
-      ["parseXMLDocument", "Parse XML document"],
-      ["IODevice", "IO device"],
-      ["apiKey", "Api key"],
-      ["cjcSource", "Cjc source"],
-      ["PIDController", "PID controller"],
-      ["valve-actuator-v2", "Valve actuator v2"],
-      ["", ""],
-      ["a", "A"],
-      ["ABC", "ABC"],
-      ["test_123_value", "Test 123 value"],
-    ];
-    SPECS.forEach(([input, expected]) => {
-      it(`should convert ${input} to ${expected}`, () => {
-        expect(caseconv.toSentence(input)).toBe(expected);
-      });
-    });
-  });
-
   describe("preserveKeys", () => {
     const configZ = z.object({
       variant: z.string(),
@@ -483,6 +408,90 @@ describe("caseconv", () => {
           [1, 2],
           [3, 4],
         ]);
+      });
+    });
+
+    describe("discriminated unions", () => {
+      const pairZ = caseconv.encodeWith(
+        z
+          .union([z.tuple([z.number(), z.number()]), z.string()])
+          .transform((v) => (typeof v === "string" ? v.split(":").map(Number) : v)),
+        ([a, b]) => `${a}:${b}`,
+      );
+      const plainZ = z.object({ variant: z.literal("plain"), fillColor: pairZ });
+      const refZ = z.object({
+        variant: z.literal("ref"),
+        fillColor: z.object({ type: z.string(), value: z.string() }),
+      });
+      const docZ = z.object({
+        config: z.discriminatedUnion("variant", [refZ, z.lazy(() => plainZ)]),
+      });
+      const ref = { type: "fixed", value: "#ff0000" };
+
+      it("Should decode a field at a path by the option the data selects", () => {
+        const { convert } = caseconv.snakeToCamelPath(["config", "fill_color"], {
+          schema: docZ,
+          data: { config: { variant: "ref" } },
+        });
+        expect(convert(ref)).toEqual(ref);
+      });
+
+      it("Should decode a marked field at a path of the option that marks it", () => {
+        const { convert } = caseconv.snakeToCamelPath(["config", "fill_color"], {
+          schema: docZ,
+          data: { config: { variant: "plain" } },
+        });
+        expect(convert("1:2")).toEqual([1, 2]);
+      });
+
+      it("Should select an option by a discriminator ahead of the data", () => {
+        const { convert } = caseconv.snakeToCamelPath(["config", "fill_color"], {
+          schema: docZ,
+          data: { config: { variant: "plain" } },
+          discriminators: [{ path: ["config", "variant"], value: "ref" }],
+        });
+        expect(convert(ref)).toEqual(ref);
+      });
+
+      it("Should match a discriminator path in the case of the input path", () => {
+        const nestedZ = z.object({ nodeConfig: docZ.shape.config });
+        const { convert } = caseconv.snakeToCamelPath(["node_config", "fill_color"], {
+          schema: nestedZ,
+          data: { nodeConfig: { variant: "plain" } },
+          discriminators: [{ path: ["node_config", "variant"], value: "ref" }],
+        });
+        expect(convert(ref)).toEqual(ref);
+      });
+
+      it("Should select an option by a boolean discriminator", () => {
+        const flagZ = z.object({
+          config: z.discriminatedUnion("plain", [
+            refZ.omit({ variant: true }).extend({ plain: z.literal(false) }),
+            plainZ.omit({ variant: true }).extend({ plain: z.literal(true) }),
+          ]),
+        });
+        const { convert } = caseconv.snakeToCamelPath(["config", "fill_color"], {
+          schema: flagZ,
+          data: { config: { plain: true } },
+        });
+        expect(convert("1:2")).toEqual([1, 2]);
+      });
+
+      it("Should encode only the marked fields of the option an object selects", () => {
+        expect(
+          caseconv.camelToSnake(
+            { config: { variant: "ref", fillColor: { type: "fixed", value: [1, 2] } } },
+            { schema: docZ },
+          ),
+        ).toEqual({
+          config: { variant: "ref", fill_color: { type: "fixed", value: [1, 2] } },
+        });
+        expect(
+          caseconv.camelToSnake(
+            { config: { variant: "plain", fillColor: [1, 2] } },
+            { schema: docZ },
+          ),
+        ).toEqual({ config: { variant: "plain", fill_color: "1:2" } });
       });
     });
 

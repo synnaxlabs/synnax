@@ -10,7 +10,7 @@
 import { device, type ethercat } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
-import { TimeStamp } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -22,6 +22,7 @@ import {
   createReachedStatus,
   createSettingsDescription,
   createSlaveDevice,
+  createWarningStatus,
   STATUS_ENTRY,
   STRAIN_ENTRY,
   STRAIN_SAMPLE_ENTRY,
@@ -38,12 +39,7 @@ import {
   reportTaskRunning,
   reportTaskStopped,
 } from "@/platform/task/testutil";
-import {
-  CaptureStatuses,
-  fakePickedFile,
-  interceptFilePicker,
-  uniqueName,
-} from "@/testutil";
+import { CaptureStatuses, fakePickedFile, interceptFilePicker } from "@/testutil";
 
 const client = createTestClient();
 
@@ -254,7 +250,7 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
     fireEvent.change(identifierInput(), { target: { value: `${base}_a` } });
     await save();
     await screen.findByText(
-      `Slave ${other.name} in slot 4 has an identifier that gives the same channel ` +
+      `Module ${other.name} in slot 4 has an identifier that gives the same channel ` +
         "names. Pick another identifier.",
     );
     const unchanged = await retrieve(slave.key);
@@ -696,6 +692,23 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
         );
       });
 
+      it("should skip a complete access command written as true", async () => {
+        await setup({ productCode: 0x67, revision: 1 });
+        const command = initCmd(
+          "PS",
+          "#x1c12",
+          "0",
+          "01001a16",
+          "PDO assignment",
+          ' CompleteAccess="true"',
+        );
+        importFile("complete.xml", esiOf([`<CoE>${command}</CoE>`]));
+        await screen.findByText(/^Imported 0 startup parameters /);
+        expect(
+          screen.getByText("Skipped 1 that the Driver cannot write."),
+        ).toBeTruthy();
+      });
+
       it("should read a file in the encoding that its declaration names", async () => {
         const slave = await setup({ productCode: 0x67, revision: 1 });
         const command = initCmd("PS", "#x8050", "1", "01", "Offset in °C");
@@ -1062,6 +1075,9 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
       expect(
         await screen.findByText("Only DewesoftX can use this device"),
       ).toBeTruthy();
+      expect(
+        screen.getByText("Switch it to Synnax before you use it in a task."),
+      ).toBeTruthy();
       expect(findButton("Switch to Synnax")).toBeTruthy();
     });
 
@@ -1106,23 +1122,6 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
     });
 
     const SWITCHED_AT = 1_763_070_000_000_000_000;
-
-    /** Sets a warning as the status of the slave, as a scan of the Driver does. */
-    const setDeviceStatus = async (
-      slave: EtherCAT.Device.SlaveDevice,
-      message: string,
-      description: string,
-      connected = true,
-    ) =>
-      await client.statuses.set({
-        owner: device.resourceID(slave.key),
-        name: slave.name,
-        variant: "warning",
-        message,
-        description,
-        time: TimeStamp.now(),
-        details: { rack: slave.rack, connected },
-      });
 
     /** Returns the settings with a catalog that marks no entry. */
     const unmarked = (
@@ -1222,7 +1221,12 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
       const description =
         "Synnax cannot tell if the switch took effect until the device restarts. " +
         "Restart the power of the device.";
-      await setDeviceStatus(slave, "Waiting for a power restart", description);
+      await createWarningStatus(
+        client,
+        slave,
+        "Waiting for a power restart",
+        description,
+      );
       await scanSwitched(slave, unmarked(createDewesoftXSettings(false)));
       expect(await screen.findByText("Waiting for a power restart")).toBeTruthy();
       expect(screen.getByText(description)).toBeTruthy();
@@ -1250,7 +1254,7 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
       const description =
         "The device was switched to Synnax at 2025-11-13 21:40 UTC, and then went to " +
         "another mode. Switch it to Synnax again in Configure.";
-      await setDeviceStatus(slave, "Left Synnax mode", description);
+      await createWarningStatus(client, slave, "Left Synnax mode", description);
       expect(await screen.findByText("Left Synnax mode")).toBeTruthy();
       expect(screen.getByText(description)).toBeTruthy();
       expect(findButton("Switch to Synnax")).toBeTruthy();
@@ -1274,7 +1278,7 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
         inputs: [STRAIN_ENTRY],
         switchedAt: SWITCHED_AT,
       });
-      await setDeviceStatus(slave, "Device disconnected", "", false);
+      await createWarningStatus(client, slave, "Device disconnected", "", false);
       expect(await screen.findByText("Device disconnected")).toBeTruthy();
       expect(screen.queryByText("Switch to Synnax")).toBeNull();
     });
@@ -1285,7 +1289,7 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
         inputs: [STRAIN_ENTRY, STRAIN_SAMPLE_ENTRY],
       });
       expect(findButton("Switch to Synnax")).toBeTruthy();
-      await setDeviceStatus(slave, "Device disconnected", "", false);
+      await createWarningStatus(client, slave, "Device disconnected", "", false);
       await waitFor(() => expect(screen.queryByText("Switch to Synnax")).toBeNull());
       expect(screen.getByText("Only DewesoftX can use this device")).toBeTruthy();
     });
@@ -1301,7 +1305,8 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
         settings: createDewesoftXSettings(false),
         inputs: [STRAIN_ENTRY, STRAIN_SAMPLE_ENTRY],
       });
-      await setDeviceStatus(
+      await createWarningStatus(
+        client,
         slave,
         "Waiting for a power restart",
         "Restart the power of the device.",
@@ -1332,7 +1337,12 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
       );
       const description =
         "Connect Synnax to EtherCAT bus 1 IN, then restart the power of the device.";
-      await setDeviceStatus(slave, "Waiting for a power restart", description);
+      await createWarningStatus(
+        client,
+        slave,
+        "Waiting for a power restart",
+        description,
+      );
       await scanSwitched(slave, createDewesoftXSettings(false, 2));
       expect(await screen.findByText("Waiting for a power restart")).toBeTruthy();
       expect(screen.getByText(description)).toBeTruthy();

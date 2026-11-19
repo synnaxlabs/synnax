@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { array } from "@/array";
 import { type Delete, type ID, type Insert } from "@/crdt/types.gen";
-import { type spatial } from "@/spatial";
+import { map } from "@/map";
+import { type location } from "@/spatial";
 
 const ROOT_ID: ID = { replica: 0, counter: 0 };
 
@@ -68,14 +70,11 @@ const hasRight = (e: Element, off: number): boolean =>
   off < e.chars.length - 1 || e.right.length > 0;
 
 const sortedInsert = (children: Element[], e: Element): void => {
-  let lo = 0;
-  let hi = children.length;
-  while (lo < hi) {
-    const mid = (lo + hi) >> 1;
-    if (idLess(children[mid].id, e.id)) lo = mid + 1;
-    else hi = mid;
-  }
-  children.splice(lo, 0, e);
+  const at = array.partitionPoint(
+    children.length,
+    (i) => !idLess(children[i].id, e.id),
+  );
+  children.splice(at, 0, e);
 };
 
 /** Text is a replicated text document owned by a single replica, identified at
@@ -119,7 +118,7 @@ export class Text {
   snapshot(): { inserts: Insert[]; deletes: Delete[] } {
     const inserts: Insert[] = [];
     const deletes: Delete[] = [];
-    const stack: Array<{ node: Element; origin: ID; side: spatial.XLocation }> = [
+    const stack: Array<{ node: Element; origin: ID; side: location.X }> = [
       { node: this.root, origin: ROOT_ID, side: "right" },
     ];
     while (stack.length > 0) {
@@ -206,13 +205,10 @@ export class Text {
   private findRun(id: ID): [Element, number] | null {
     const runs = this.index.get(id.replica);
     if (runs == null) return null;
-    let lo = 0;
-    let hi = runs.length;
-    while (lo < hi) {
-      const mid = (lo + hi) >> 1;
-      if (runs[mid].id.counter <= id.counter) lo = mid + 1;
-      else hi = mid;
-    }
+    const lo = array.partitionPoint(
+      runs.length,
+      (i) => runs[i].id.counter > id.counter,
+    );
     if (lo === 0) return null;
     const e = runs[lo - 1];
     const off = id.counter - e.id.counter;
@@ -221,19 +217,12 @@ export class Text {
   }
 
   private indexInsert(e: Element): void {
-    let runs = this.index.get(e.id.replica);
-    if (runs == null) {
-      runs = [];
-      this.index.set(e.id.replica, runs);
-    }
-    let lo = 0;
-    let hi = runs.length;
-    while (lo < hi) {
-      const mid = (lo + hi) >> 1;
-      if (runs[mid].id.counter < e.id.counter) lo = mid + 1;
-      else hi = mid;
-    }
-    runs.splice(lo, 0, e);
+    const runs = map.getOrInsert(this.index, e.id.replica, () => []);
+    const at = array.partitionPoint(
+      runs.length,
+      (i) => runs[i].id.counter >= e.id.counter,
+    );
+    runs.splice(at, 0, e);
   }
 
   /** splitAfter splits e after character offset k (0 <= k < length-1) and returns the
@@ -335,7 +324,7 @@ export class Text {
     const ops: Insert[] = [];
     for (const ch of chars) {
       let origin: ID;
-      let side: spatial.XLocation;
+      let side: location.X;
       if (rightID != null && hasRight(left, leftOff)) {
         origin = rightID;
         side = "left";
