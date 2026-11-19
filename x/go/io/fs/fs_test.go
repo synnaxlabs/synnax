@@ -25,6 +25,16 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+var _ = Describe("CopyFile", func() {
+	It("Should sync the copy, so its bytes stay after a power loss", func() {
+		src, dst := xfs.NewMem(), fault.New()
+		Expect(xfs.WriteFile(src, "f.txt", []byte("tacocat"))).To(Succeed())
+		Expect(xfs.CopyFile(src, dst, "f.txt")).To(Succeed())
+		Expect(dst.SyncDir("")).To(Succeed())
+		Expect(xfs.ReadFile(dst.Crash(), "f.txt")).To(Equal([]byte("tacocat")))
+	})
+})
+
 var _ = Describe("FS", func() {
 	fileSystems := maps.Clone(FileSystems)
 	fileSystems["faultFS"] = func() xfs.FS {
