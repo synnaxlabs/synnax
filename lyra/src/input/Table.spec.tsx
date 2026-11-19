@@ -950,6 +950,15 @@ describe("Input.Table", () => {
       expect(marked(cell("Raw", "2"))).toBe(false);
     });
 
+    it("should not take a remove after a refused move as the move", () => {
+      render(<Movable initial={ROWS} refused />);
+      paste(cell("Raw", "3"), "x\t31");
+      fireEvent.keyDown(handle("2"), { key: "ArrowUp" });
+      fireEvent.click(screen.getByRole("button", { name: "Remove row 1" }));
+      expect(marked(cell("Raw", "2"))).toBe(true);
+      expect(marked(cell("Raw", "1"))).toBe(false);
+    });
+
     it("should move a mark with its row on a drop", () => {
       render(<Movable initial={ROWS} />);
       paste(cell("Raw", "1"), "x\t11");
