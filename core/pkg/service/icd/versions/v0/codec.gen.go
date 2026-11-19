@@ -12,6 +12,7 @@
 package v0
 
 import (
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
 	payload "github.com/synnaxlabs/x/payload/versions/v0"
@@ -1167,6 +1168,96 @@ func (p *Payload) DecodeOrc(r *orc.Reader) error {
 		p.Variant = v
 	default:
 		return errors.Newf("Payload: unknown variant %q", tag)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (rb ReadBinding) EncodeOrc(w *orc.Writer) error {
+	w.Write(rb.Field[:])
+	w.Uint32(uint32(rb.Channel))
+	w.String(string(rb.DataType))
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (rb *ReadBinding) DecodeOrc(r *orc.Reader) error {
+	if _, err := r.Read(rb.Field[:]); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		rb.Channel = channel.Key(rawV)
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		rb.DataType = telem.DataType(rawV)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (rm ReadMessage) EncodeOrc(w *orc.Writer) error {
+	w.Write(rm.Message[:])
+	if rm.Index != nil {
+		w.Bool(true)
+		w.Write((*rm.Index)[:])
+	} else {
+		w.Bool(false)
+	}
+	w.Bool(rm.Bindings != nil)
+	if rm.Bindings != nil {
+		w.Uint32(uint32(len(rm.Bindings)))
+		for i := range rm.Bindings {
+			if err := rm.Bindings[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (rm *ReadMessage) DecodeOrc(r *orc.Reader) error {
+	if _, err := r.Read(rm.Message[:]); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv FieldKey
+			if _, err := r.Read(hv[:]); err != nil {
+				return err
+			}
+			rm.Index = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			rm.Bindings = make([]ReadBinding, n)
+			for i := range rm.Bindings {
+				if err = rm.Bindings[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
 	}
 	return nil
 }

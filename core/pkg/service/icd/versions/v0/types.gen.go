@@ -18,6 +18,7 @@ import (
 	"strconv"
 	"uuid"
 
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	"github.com/synnaxlabs/x/errors"
 	payload "github.com/synnaxlabs/x/payload/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
@@ -1486,4 +1487,27 @@ func (ic ICD) Validate() error {
 		v.Exec(func() error { return validate.PathedError(ic.Messages[i].Validate(), "messages", strconv.Itoa(i)) })
 	}
 	return v.Error()
+}
+
+// ReadBinding writes the value of one message field to a channel.
+type ReadBinding struct {
+	// Field is the key of the message field to read.
+	Field FieldKey `json:"field" msgpack:"field"`
+	// Channel is the channel the value of the field is written to.
+	Channel channel.Key `json:"channel" msgpack:"channel"`
+	// DataType is the data type of the channel that a client creates for the field.
+	// Empty takes the default of the field's kind. The Core ignores it once the channel
+	// exists.
+	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
+}
+
+// ReadMessage reads the documents of one ICD message.
+type ReadMessage struct {
+	// Message is the key of the ICD message to read.
+	Message MessageKey `json:"message" msgpack:"message"`
+	// Index is the key of the field whose channel indexes the others. Absent when the
+	// task stamps samples on arrival.
+	Index *FieldKey `json:"index,omitzero" msgpack:"index,omitempty"`
+	// Bindings are the fields the task reads. A field with no binding is not read.
+	Bindings []ReadBinding `json:"bindings" msgpack:"bindings"`
 }
