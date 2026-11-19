@@ -1,0 +1,28 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+[advisories]
+ignore = [
+    # chrono is unmaintained. It is an optional dependency of serde_with that no build
+    # turns on, so it is in Cargo.lock but never compiled.
+    "RUSTSEC-2026-0543",
+    # glib 0.18 is unsound in VariantStrIter, and proc-macro-error is unmaintained.
+    # Tauri links gtk-rs 0.18 on Linux. Remove these when Tauri moves to gtk-rs 0.19.
+    "RUSTSEC-2024-0429",
+    "RUSTSEC-2024-0370",
+    # zvariant, zvariant_derive, and zbus_names merged into zbus 6. keyring's Secret
+    # Service store and tauri-plugin-single-instance still use zbus 5.
+    "RUSTSEC-2026-0370",
+    "RUSTSEC-2026-0371",
+    "RUSTSEC-2026-0372",
+]
+
+[output]
+deny = ["unmaintained", "unsound", "yanked"]
+quiet = false
