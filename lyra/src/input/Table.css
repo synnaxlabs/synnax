@@ -9,16 +9,14 @@
  * included in the file licenses/APL.txt.
  */
 
-/* A table wider than its container scrolls. A scroll box clips on both axes, so the
-   padding keeps a 1px focus ring inside it and the margin cancels the padding. */
+/* A table wider than its container scrolls. A scroll box clips an outset ring, so
+   rings in it draw inset. */
 .lyra-input__table-scroll {
-    --ring-reach: calc(var(--pluto-focus-ring-offset) + 1px);
+    --pluto-focus-ring-offset: var(--pluto-focus-ring-inset);
 
     width: 100%;
     min-width: 0;
     overflow-x: auto;
-    padding-block: var(--ring-reach);
-    margin-block: calc(-1 * var(--ring-reach));
 }
 
 /* A ruled grid. The data cells join into one box with shared lines. Row labels and
