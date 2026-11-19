@@ -29,7 +29,11 @@ export const osZ = z
   );
 export type OS = (typeof OPERATING_SYSTEMS)[number];
 
-const evalOS = (): OS | undefined => {
+/**
+ * @returns the OS that the user agent names, or undefined outside a browser or when the
+ * user agent names none.
+ */
+export const getOS = (): OS | undefined => {
   if (typeof window === "undefined") return undefined;
   const userAgent = window.navigator.userAgent.toLowerCase();
   if (userAgent.includes("mac")) return "macOS";
@@ -37,30 +41,3 @@ const evalOS = (): OS | undefined => {
   if (userAgent.includes("linux")) return "Linux";
   return undefined;
 };
-
-export interface RequiredGetOSProps {
-  force?: OS;
-  default?: OS;
-}
-
-export interface OptionalGetOSProps {
-  force?: OS;
-  default: OS;
-}
-
-export type GetOSProps = RequiredGetOSProps | OptionalGetOSProps;
-
-let os: OS | undefined;
-
-export interface GetOS {
-  (props?: RequiredGetOSProps): OS;
-  (props?: OptionalGetOSProps): OS | undefined;
-}
-
-export const getOS: GetOS = ((props = {}) => {
-  const { force, default: default_ } = props;
-  if (force != null) return force;
-  if (os != null) return os;
-  os = evalOS();
-  return os ?? default_;
-}) as GetOS;

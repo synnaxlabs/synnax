@@ -24,6 +24,7 @@ import {
   uuid,
   type Window,
 } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -41,7 +42,6 @@ import {
   getIconButton,
   readBlob,
   removeSaveFilePicker,
-  uniqueName,
 } from "@/testutil";
 
 const roles = new RoleClients(client);

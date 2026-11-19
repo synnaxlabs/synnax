@@ -201,7 +201,6 @@ const runHelper = (system: System, helper: string): Run | null => {
 
 const readKey = (system: System, helper: string, address: url.URL): string => {
   const out = runHelper(system, helper);
-  // The helper of an AppImage goes away with its mount when Synnax Desktop closes.
   if (out == null) throw new Unreachable({ message: NOT_RUNNING_MSG, url: address });
   if (out.status !== 0)
     throw new ValidationError(
@@ -293,8 +292,7 @@ export const nodeSystem = (): System | undefined => {
  * cannot be read, if ~/.synnax/desktop.json cannot be read, if Synnax Desktop is too
  * old, or if its key helper fails. In Deno, a missing permission to read
  * ~/.synnax/desktop.json is the same as no file.
- * @throws {Unreachable} If the key helper of Synnax Desktop is gone, as for a closed
- * AppImage.
+ * @throws {Unreachable} If the key helper of Synnax Desktop is gone.
  */
 export const resolveParams = <P extends Given>(
   params: P,

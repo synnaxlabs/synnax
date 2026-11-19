@@ -9,7 +9,7 @@
 
 import { type channel, type device, type task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { caseconv } from "@synnaxlabs/x";
+import { strings } from "@synnaxlabs/x";
 
 import { EtherCAT } from "@/feature/ethercat";
 import { HTTP } from "@/feature/http";
@@ -52,7 +52,7 @@ export const parseType = (type: string): string => {
   const [first, ...rest] = type.split("_");
   const name =
     INTEGRATIONS.find(({ prefix }) => prefix === first)?.name ??
-    caseconv.capitalize(first);
+    strings.capitalize(first);
   return `${[name, ...rest].join(" ")} task`;
 };
 
