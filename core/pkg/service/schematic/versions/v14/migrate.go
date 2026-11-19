@@ -11,6 +11,7 @@ package v14
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp/migrate"
@@ -40,15 +41,25 @@ func MigrateNodeConfig(ctx context.Context, old v13.NodeConfig) (NodeConfig, err
 	}
 	switch o := old.Variant.(type) {
 	case v13.CustomActuatorNodeConfig:
-		n := cfg.Variant.(CustomActuatorNodeConfig)
+		n := as[CustomActuatorNodeConfig](cfg.Variant)
 		n.StateOverrides = migrateStateOverrides(o.StateOverrides)
 		cfg.Variant = n
 	case v13.CustomStaticNodeConfig:
-		n := cfg.Variant.(CustomStaticNodeConfig)
+		n := as[CustomStaticNodeConfig](cfg.Variant)
 		n.StateOverrides = migrateStateOverrides(o.StateOverrides)
 		cfg.Variant = n
 	}
 	return cfg, nil
+}
+
+// as returns a migrated variant as a T. It panics when v is not a T, since a generated
+// migration keeps each variant's kind.
+func as[T any](v any) T {
+	t, ok := v.(T)
+	if !ok {
+		panic(fmt.Sprintf("migrated variant is a %T, not a %T", v, t))
+	}
+	return t
 }
 
 func migrateStateOverrides(old []symbolv4.State) []symbol.StateOverride {
