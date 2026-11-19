@@ -84,7 +84,9 @@ const (
 type Rule string
 
 const (
-	// R0 says that the engine, before a crash, holds each commit that it acked.
+	// R0 says that the engine works before a crash. On a disk that fails no call, it
+	// opens, takes each commit with a Visible or a Durable ack, and closes. It shows
+	// each commit that it acked.
 	R0 Rule = "R0"
 	// R1 says that each commit with a Durable ack is in the recovered list.
 	R1 Rule = "R1"
@@ -92,10 +94,11 @@ const (
 	// commit order, each with its whole payload.
 	R2 Rule = "R2"
 	// R3 says that the recovered list has no hole: when an acked commit is missing, no
-	// later commit is in the list.
+	// later commit is in the list, acked or not.
 	R3 Rule = "R3"
-	// R4 says that the engine opens and reads on each crash image. It can refuse only
-	// under OldCorruption and NewCorruption, and only with its corruption error.
+	// R4 says that the engine opens, reads, and closes on each crash image, two times
+	// in a row. It can refuse only an image that OldCorruption or NewCorruption
+	// changed, and only with its corruption error.
 	R4 Rule = "R4"
 )
 

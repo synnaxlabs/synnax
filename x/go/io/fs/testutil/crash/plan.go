@@ -11,6 +11,7 @@ package crash
 
 import (
 	"maps"
+	"math"
 	"math/rand/v2"
 	"os"
 	"slices"
@@ -29,9 +30,6 @@ type plan struct {
 	survival fault.CrashConfig
 	runKey   uint64
 	profile  Profile
-	// faulty is true when the workload disk has faults, so a call of the engine can
-	// fail.
-	faulty bool
 }
 
 func newPlan(cfg Config) plan {
@@ -58,7 +56,6 @@ func newPlan(cfg Config) plan {
 		p.image.MisdirectedReadRate = rate(0.05, 0.2, 0.5)
 	}
 	p.workload.RunKey, p.image.RunKey = cfg.RunKey, cfg.RunKey
-	p.faulty = p.workload.SyncErrorRate > 0 || p.workload.Capacity > 0
 	return p
 }
 
@@ -79,9 +76,9 @@ func (p plan) spoil(image *fault.FS, c *counter, event int) (rules, error) {
 		rng    = rand.New(rand.NewPCG(p.runKey, uint64(event)))
 		newest = c.grown[c.last]
 		r      = rules{
-			exemptFrom: strictRules.exemptFrom,
-			refusal:    true,
-			unreadable: true,
+			exemptFrom:        math.MaxInt,
+			refusalAllowed:    true,
+			unreadableAllowed: true,
 		}
 		changed bool
 		err     error
@@ -132,8 +129,7 @@ func clip(image *fault.FS, spans []span) (total int64, err error) {
 	return total, nil
 }
 
-// change opens the file of s in image, lets edit change the bytes of s, and makes the
-// change durable.
+// change opens the file of s in image and lets edit change the bytes of s.
 func change(image *fault.FS, s span, edit func(b []byte)) (err error) {
 	f, err := image.Open(s.path, os.O_RDWR)
 	if err != nil {
@@ -145,10 +141,8 @@ func change(image *fault.FS, s span, edit func(b []byte)) (err error) {
 		return err
 	}
 	edit(b)
-	if _, err = f.WriteAt(b, s.from); err != nil {
-		return err
-	}
-	return f.Sync()
+	_, err = f.WriteAt(b, s.from)
+	return err
 }
 
 // flip flips one bit in a byte of spans, and reports if image holds such a byte.

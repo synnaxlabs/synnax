@@ -36,8 +36,8 @@ var errCorrupt = errors.New("reflog: corrupt log")
 
 // bugs holds the known bugs of the canaries. The zero value is the correct engine.
 type bugs struct {
-	skipDirSync, ackBeforeSync, trustRetriedSync, truncateOnAnyError bool
-	skipChecksum, skipBadRecord, refuseTornTail, ignoreWriteError    bool
+	dirSyncSkipped, ackedBeforeSync, retriedSyncTrusted, cutOnAnyError    bool
+	checksumSkipped, badRecordSkipped, tornTailRefused, writeErrorIgnored bool
 }
 
 // refLog is a small log store: records in slots of segment files, a checksum that binds
@@ -86,12 +86,18 @@ func checksum(segment, slot int, body []byte) uint32 {
 var castagnoli = crc32.MakeTable(crc32.Castagnoli)
 
 // read returns the record in the slot of f, and the durable count that it carries. It
-// reads a bad slot a second time before it gives up.
-func (l *refLog) read(f xfs.File, segment, slot int) (crash.Record, uint64, bool) {
+// reads a bad slot a second time before it calls the slot bad.
+func (l *refLog) read(
+	f xfs.File,
+	segment, slot int,
+) (r crash.Record, synced uint64, ok bool, err error) {
 	for range 2 {
 		buf := make([]byte, slotSize)
 		n, err := f.ReadAt(buf, int64(slot)*slotSize)
-		if err != nil && !errors.Is(err, io.EOF) || n < headerSize {
+		if err != nil && !errors.Is(err, io.EOF) {
+			return crash.Record{}, 0, false, err
+		}
+		if n < headerSize {
 			continue
 		}
 		size := int(binary.LittleEndian.Uint32(buf[4:]))
@@ -99,14 +105,14 @@ func (l *refLog) read(f xfs.File, segment, slot int) (crash.Record, uint64, bool
 			continue
 		}
 		body := buf[4 : headerSize+size]
-		if !l.bugs.skipChecksum &&
+		if !l.bugs.checksumSkipped &&
 			binary.LittleEndian.Uint32(buf) != checksum(segment, slot, body) {
 			continue
 		}
-		r := crash.Record{ID: binary.LittleEndian.Uint64(buf[8:]), Payload: body[20:]}
-		return r, binary.LittleEndian.Uint64(buf[16:]), true
+		r = crash.Record{ID: binary.LittleEndian.Uint64(buf[8:]), Payload: body[20:]}
+		return r, binary.LittleEndian.Uint64(buf[16:]), true, nil
 	}
-	return crash.Record{}, 0, false
+	return crash.Record{}, 0, false, nil
 }
 
 // recover reads each segment. A bad record that a later record proves durable, or that
@@ -145,20 +151,27 @@ func (l *refLog) scan(name string, later []string) (cut bool, err error) {
 	}
 	info, err := l.file.Stat()
 	if err != nil {
-		return false, err
+		return false, errors.Combine(err, l.file.Close())
 	}
 	count := int((info.Size() + slotSize - 1) / slotSize)
 	for l.next = 0; l.next < count; l.next++ {
-		r, _, ok := l.read(l.file, l.segment, l.next)
+		r, _, ok, err := l.read(l.file, l.segment, l.next)
+		if err != nil {
+			return false, errors.Combine(err, l.file.Close())
+		}
 		if ok {
 			l.records = append(l.records, r)
 			continue
 		}
-		if l.bugs.skipBadRecord {
+		if l.bugs.badRecordSkipped {
 			continue
 		}
-		corrupt := len(later) > 0 || l.promised(count) || l.bugs.refuseTornTail
-		if corrupt && !l.bugs.truncateOnAnyError {
+		promised, err := l.promised(count)
+		if err != nil {
+			return false, errors.Combine(err, l.file.Close())
+		}
+		corrupt := len(later) > 0 || promised || l.bugs.tornTailRefused
+		if corrupt && !l.bugs.cutOnAnyError {
 			return false, errors.Combine(errCorrupt, l.file.Close())
 		}
 		return true, l.cut(later)
@@ -170,14 +183,17 @@ func (l *refLog) scan(name string, later []string) (cut bool, err error) {
 }
 
 // promised reports if a record after the slot next says that the slot was durable.
-func (l *refLog) promised(count int) bool {
+func (l *refLog) promised(count int) (bool, error) {
 	for slot := l.next + 1; slot < count; slot++ {
-		_, synced, ok := l.read(l.file, l.segment, slot)
+		_, synced, ok, err := l.read(l.file, l.segment, slot)
+		if err != nil {
+			return false, err
+		}
 		if ok && synced > uint64(l.segment*slots+l.next) {
-			return true
+			return true, nil
 		}
 	}
-	return false
+	return false, nil
 }
 
 // cut drops the torn tail from the slot next, and each segment after it.
@@ -203,7 +219,7 @@ func (l *refLog) open(n int) (err error) {
 	if l.file, err = l.fs.Open(segmentName(n), os.O_CREATE|os.O_RDWR); err != nil {
 		return err
 	}
-	if l.bugs.skipDirSync {
+	if l.bugs.dirSyncSkipped {
 		return nil
 	}
 	return l.fs.SyncDir("")
@@ -235,7 +251,7 @@ func (l *refLog) Commit(
 		}
 	}
 	_, err := l.file.WriteAt(l.encode(r), int64(l.next)*slotSize)
-	if err != nil && !l.bugs.ignoreWriteError {
+	if err != nil && !l.bugs.writeErrorIgnored {
 		return 0, err
 	}
 	l.next++
@@ -243,9 +259,9 @@ func (l *refLog) Commit(
 		l.records = append(l.records, r)
 		return crash.Visible, nil
 	}
-	if !l.bugs.ackBeforeSync {
+	if !l.bugs.ackedBeforeSync {
 		err := l.file.Sync()
-		if err != nil && l.bugs.trustRetriedSync {
+		if err != nil && l.bugs.retriedSyncTrusted {
 			err = l.file.Sync()
 		}
 		if l.dead = err; err != nil {

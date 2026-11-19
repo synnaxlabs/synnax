@@ -14,15 +14,19 @@ import (
 	"path"
 	"strings"
 	"sync"
+	"syscall"
 
+	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 )
 
 // counter counts the calls that change a disk. It lets one such call run at a time, so
-// the disk does not change while after runs.
+// the disk does not change while before and after run.
 type counter struct {
-	// after runs behind each event, with mu held.
-	after func(event int)
+	// before runs at the start of each call that can change the disk, and after runs
+	// behind each call that did. Both run with mu held.
+	before func()
+	after  func(event int)
 	// grown says, for each file by path, how its durable length reached its newest
 	// block.
 	grown map[string]growth
@@ -32,6 +36,9 @@ type counter struct {
 	last string
 	// events is the count of calls that changed the disk.
 	events int
+	// faults is the count of calls that the disk failed with a sync error or with no
+	// space.
+	faults int
 	mu     sync.Mutex
 }
 
@@ -46,15 +53,27 @@ type growth struct {
 	block int64
 	// before is the durable length of the file before the first Sync into block.
 	before int64
-	// event is the count of events before that Sync.
+	// event is the number of that Sync among the events.
 	event int
 }
 
-func (c *counter) event() {
-	c.events++
-	if c.after != nil {
+// begin starts a call that can change the disk.
+func (c *counter) begin() {
+	c.mu.Lock()
+	c.before()
+}
+
+// end ends a call that began. It notes a fault of the disk in err, and counts the call
+// as an event when it changed the disk.
+func (c *counter) end(err error, changed bool) {
+	if errors.Is(err, syscall.EIO) || errors.Is(err, syscall.ENOSPC) {
+		c.faults++
+	}
+	if changed {
+		c.events++
 		c.after(c.events)
 	}
+	c.mu.Unlock()
 }
 
 // forget drops what the counter knows of the path p and of each path under it.
@@ -70,7 +89,7 @@ func (c *counter) forget(p string) {
 func (c *counter) synced(p string, size int64) {
 	g, ok := c.grown[p]
 	if block := max(size-1, 0) / blockSize; !ok || block != g.block {
-		g.block, g.before, g.event = block, g.size, c.events
+		g.block, g.before, g.event = block, g.size, c.events+1
 	}
 	if size > g.size {
 		c.last = p
@@ -89,37 +108,33 @@ type countedFS struct {
 
 var _ xfs.FS = (*countedFS)(nil)
 
-func (f *countedFS) Open(name string, flag int) (xfs.File, error) {
-	f.c.mu.Lock()
-	defer f.c.mu.Unlock()
+func (f *countedFS) Open(name string, flag int) (file xfs.File, err error) {
+	changed := false
+	f.c.begin()
+	defer func() { f.c.end(err, changed) }()
 	existed, err := f.inner.Exists(name)
 	if err != nil {
 		return nil, err
 	}
-	file, err := f.inner.Open(name, flag)
-	if err != nil {
+	if file, err = f.inner.Open(name, flag); err != nil {
 		return nil, err
 	}
-	if !existed || flag&os.O_TRUNC != 0 {
-		f.c.event()
-	}
+	changed = !existed || flag&os.O_TRUNC != 0
 	return &countedFile{File: file, c: f.c, path: path.Join(f.dir, name)}, nil
 }
 
-func (f *countedFS) Sub(name string) (xfs.FS, error) {
-	f.c.mu.Lock()
-	defer f.c.mu.Unlock()
+func (f *countedFS) Sub(name string) (sub xfs.FS, err error) {
+	changed := false
+	f.c.begin()
+	defer func() { f.c.end(err, changed) }()
 	existed, err := f.inner.Exists(name)
 	if err != nil {
 		return nil, err
 	}
-	sub, err := f.inner.Sub(name)
-	if err != nil {
+	if sub, err = f.inner.Sub(name); err != nil {
 		return nil, err
 	}
-	if !existed {
-		f.c.event()
-	}
+	changed = !existed
 	return &countedFS{inner: sub, c: f.c, dir: path.Join(f.dir, name)}, nil
 }
 
@@ -133,27 +148,24 @@ func (f *countedFS) Stat(name string) (xfs.FileInfo, error) {
 	return f.inner.Stat(name)
 }
 
-func (f *countedFS) Remove(name string) error {
-	f.c.mu.Lock()
-	defer f.c.mu.Unlock()
-	defer f.c.event()
+func (f *countedFS) Remove(name string) (err error) {
+	f.c.begin()
+	defer func() { f.c.end(err, true) }()
 	f.c.forget(path.Join(f.dir, name))
 	return f.inner.Remove(name)
 }
 
-func (f *countedFS) Rename(oldPath, newPath string) error {
-	f.c.mu.Lock()
-	defer f.c.mu.Unlock()
-	defer f.c.event()
+func (f *countedFS) Rename(oldPath, newPath string) (err error) {
+	f.c.begin()
+	defer func() { f.c.end(err, true) }()
 	f.c.forget(path.Join(f.dir, oldPath))
 	f.c.forget(path.Join(f.dir, newPath))
 	return f.inner.Rename(oldPath, newPath)
 }
 
-func (f *countedFS) SyncDir(name string) error {
-	f.c.mu.Lock()
-	defer f.c.mu.Unlock()
-	defer f.c.event()
+func (f *countedFS) SyncDir(name string) (err error) {
+	f.c.begin()
+	defer func() { f.c.end(err, true) }()
 	return f.inner.SyncDir(name)
 }
 
@@ -164,40 +176,34 @@ type countedFile struct {
 	path string
 }
 
-func (f *countedFile) Write(p []byte) (int, error) {
-	f.c.mu.Lock()
-	defer f.c.mu.Unlock()
-	defer f.c.event()
+func (f *countedFile) Write(p []byte) (n int, err error) {
+	f.c.begin()
+	defer func() { f.c.end(err, true) }()
 	return f.File.Write(p)
 }
 
-func (f *countedFile) WriteAt(p []byte, off int64) (int, error) {
-	f.c.mu.Lock()
-	defer f.c.mu.Unlock()
-	defer f.c.event()
+func (f *countedFile) WriteAt(p []byte, off int64) (n int, err error) {
+	f.c.begin()
+	defer func() { f.c.end(err, true) }()
 	return f.File.WriteAt(p, off)
 }
 
-func (f *countedFile) Truncate(size int64) error {
-	f.c.mu.Lock()
-	defer f.c.mu.Unlock()
-	defer f.c.event()
+func (f *countedFile) Truncate(size int64) (err error) {
+	f.c.begin()
+	defer func() { f.c.end(err, true) }()
 	return f.File.Truncate(size)
 }
 
-func (f *countedFile) Sync() error {
-	f.c.mu.Lock()
-	defer f.c.mu.Unlock()
-	defer f.c.event()
-	if err := f.File.Sync(); err != nil {
+func (f *countedFile) Sync() (err error) {
+	f.c.begin()
+	defer func() { f.c.end(err, true) }()
+	if err = f.File.Sync(); err != nil {
 		return err
 	}
 	info, err := f.Stat()
 	if err != nil {
 		return err
 	}
-	if !info.IsDir() {
-		f.c.synced(f.path, info.Size())
-	}
+	f.c.synced(f.path, info.Size())
 	return nil
 }

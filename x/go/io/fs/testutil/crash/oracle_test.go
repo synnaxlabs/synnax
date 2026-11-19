@@ -382,7 +382,8 @@ func (s *stepper) Recovered(context.Context) ([]crash.Record, error) {
 func (s *stepper) Close() error { return s.file.Close() }
 
 var _ = Describe("Events", func() {
-	DescribeTable("Should take one crash image for each stride of disk changes",
+	DescribeTable(
+		"Should open each crash image two times: the empty disk, each stride, and the end",
 		func(ctx SpecContext, stride, images int) {
 			var opens atomic.Int64
 			Expect(crash.Run(ctx, crash.Config{
@@ -391,9 +392,9 @@ var _ = Describe("Events", func() {
 				Stride:  stride,
 				Profile: crash.Strict,
 			})).To(Succeed())
-			Expect(opens.Load()).To(BeEquivalentTo(1 + images))
+			Expect(opens.Load()).To(BeEquivalentTo(1 + 2*images))
 		},
-		Entry("each change: a directory, a file, and five writes and syncs", 1, 12),
-		Entry("each fifth change", 5, 2),
+		Entry("each change: a directory, a file, and five writes and syncs", 1, 13),
+		Entry("each fifth change", 5, 4),
 	)
 })

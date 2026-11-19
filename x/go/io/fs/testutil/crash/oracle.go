@@ -29,12 +29,12 @@ type attempt struct {
 
 // rules sets what the oracle accepts from an engine that recovers.
 type rules struct {
-	// exemptFrom is the event from which a Durable ack does not bind R1.
+	// exemptFrom is the number of the event from which a Durable ack does not bind R1.
 	exemptFrom int
-	// refusal is true when the engine can refuse with its corruption error.
-	refusal bool
-	// unreadable is true when a record can be unreadable.
-	unreadable bool
+	// refusalAllowed is true when the engine can refuse with its corruption error.
+	refusalAllowed bool
+	// unreadableAllowed is true when a record can be unreadable.
+	unreadableAllowed bool
 }
 
 var strictRules = rules{exemptFrom: math.MaxInt}
@@ -63,7 +63,7 @@ func held(attempts []attempt, records []Record, r rules) (set.Set[uint64], *brok
 				R2,
 				fmt.Sprintf("commit %d is after commit %d", rec.ID, last),
 			}
-		case rec.Unreadable && !r.unreadable:
+		case rec.Unreadable && !r.unreadableAllowed:
 			return nil, &broken{R2, fmt.Sprintf("commit %d is unreadable", rec.ID)}
 		case !rec.Unreadable && !bytes.Equal(rec.Payload, want):
 			return nil, &broken{

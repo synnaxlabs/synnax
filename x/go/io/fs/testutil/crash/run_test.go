@@ -85,25 +85,25 @@ var _ = Describe("Run", func() {
 			Expect(broke(run(ctx, b, profile, runKey))).To(Equal(rule))
 		},
 		Entry("skips a directory sync",
-			bugs{skipDirSync: true}, crash.Strict, uint64(0), crash.R1),
+			bugs{dirSyncSkipped: true}, crash.Strict, uint64(0), crash.R1),
 		Entry("acks before the log sync",
-			bugs{ackBeforeSync: true}, crash.Strict, uint64(0), crash.R1),
+			bugs{ackedBeforeSync: true}, crash.Strict, uint64(0), crash.R1),
 		Entry("trusts a retried fsync",
-			bugs{trustRetriedSync: true}, crash.SyncErrors, uint64(0), crash.R1),
+			bugs{retriedSyncTrusted: true}, crash.SyncErrors, uint64(0), crash.R1),
 		Entry("truncates on any checksum error",
-			bugs{truncateOnAnyError: true}, crash.OldCorruption, uint64(0), crash.R1),
+			bugs{cutOnAnyError: true}, crash.OldCorruption, uint64(0), crash.R1),
 		Entry("skips the checksum on read",
-			bugs{skipChecksum: true}, crash.OneTimeReadFaults, uint64(0), crash.R2),
+			bugs{checksumSkipped: true}, crash.OneTimeReadFaults, uint64(0), crash.R2),
 		Entry("skips a bad record and goes on",
-			bugs{skipBadRecord: true}, crash.Partial, uint64(0), crash.R3),
+			bugs{badRecordSkipped: true}, crash.Partial, uint64(0), crash.R3),
 		Entry("refuses a torn tail",
-			bugs{refuseTornTail: true}, crash.Partial, uint64(0), crash.R4),
+			bugs{tornTailRefused: true}, crash.Partial, uint64(0), crash.R4),
 		Entry("ignores a failed write",
-			bugs{ignoreWriteError: true}, crash.FullDisk, uint64(1), crash.R1),
+			bugs{writeErrorIgnored: true}, crash.FullDisk, uint64(1), crash.R1),
 	)
 
 	It("Should give the same violation for the same run key", func(ctx SpecContext) {
-		b := bugs{skipBadRecord: true}
+		b := bugs{badRecordSkipped: true}
 		first := run(ctx, b, crash.Partial, 7)
 		Expect(broke(first)).To(Equal(crash.R3))
 		Expect(run(ctx, b, crash.Partial, 7)).To(MatchError(first.Error()))
