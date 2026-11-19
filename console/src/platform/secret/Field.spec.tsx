@@ -168,14 +168,14 @@ describe("Secret.Field", () => {
     expect(screen.queryByText(s.name)).toBeNull();
   });
 
-  it("sets the value to the key of the picked secret", async () => {
+  it("sets the value to the key of the picked secret and shows only its name", async () => {
     const s = await createSecret(client, created);
     const { onChange } = await renderField();
     await open("Select a secret");
     fireEvent.click(await findOption("secret", s.name));
     await waitFor(() => expect(onChange).toHaveBeenLastCalledWith(s.key));
     const trigger = await findDialogTriggerByText(s.name);
-    within(trigger).getByText(Validity.describeSecret(s));
+    expect(trigger.textContent).toBe(s.name);
   });
 
   it("opens the create dialog with the default name and focuses the value", async () => {

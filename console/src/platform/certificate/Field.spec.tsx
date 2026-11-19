@@ -213,8 +213,13 @@ const readDetails = (): Record<string, string> => {
   );
 };
 
+const showDetails = async (): Promise<void> => {
+  fireEvent.click(await screen.findByRole("button", { name: "Details" }));
+  await screen.findAllByRole("term");
+};
+
 const openDownload = async (): Promise<void> => {
-  await screen.findByText("SHA-256");
+  await showDetails();
   fireEvent.click(getIconButton(document.body, "download"));
 };
 
@@ -252,20 +257,40 @@ describe("Certificate.Field", () => {
     expect(screen.queryByText(c.name)).toBeNull();
   });
 
-  it("sets the value to the key of the picked certificate and shows its details", async () => {
+  it("sets the value to the key of the picked certificate and shows only its name", async () => {
     const c = await createStored();
     const { onChange } = await renderField();
     await open("Select a certificate");
     fireEvent.click(await findOption("certificate", c.name));
     await waitFor(() => expect(onChange).toHaveBeenLastCalledWith(c.key));
-    await findDialogTriggerByText(c.name);
-    await screen.findByText("Subject");
+    const trigger = await findDialogTriggerByText(c.name);
+    expect(trigger.textContent).toBe(c.name);
+  });
+
+  it("shows the validity of a stored certificate under the field with no path", async () => {
+    const c = await createStored();
+    await renderField(c.key);
+    await screen.findByText(
+      Secret.Validity.describeCertificate(c, TimeStamp.now()).text,
+    );
+    expect(screen.queryByText("·")).toBeNull();
+  });
+
+  it("shows the details of the certificate only while they are open", async () => {
+    const c = await createStored();
+    await renderField(c.key);
+    await screen.findByRole("button", { name: "Details" });
+    expect(screen.queryByRole("term")).toBeNull();
+    await showDetails();
     expect(readDetails()).toEqual({
       Subject: c.details.subject,
       Issuer: c.details.issuer,
       Validity: Secret.Validity.describeCertificate(c, TimeStamp.now()).text,
       "SHA-256": fingerprintOf(c),
     });
+    fireEvent.click(screen.getByRole("button", { name: "Hide details" }));
+    expect(screen.queryByRole("term")).toBeNull();
+    screen.getByRole("button", { name: "Details" });
   });
 
   it("downloads the chain as PEM", async () => {
@@ -291,7 +316,7 @@ describe("Certificate.Field", () => {
     expect(bytes).toEqual(DER);
   });
 
-  it("shows the path of a file certificate and offers no download", async () => {
+  it("shows the path of a file certificate under the field and offers no download", async () => {
     const r = await client.racks.create({ name: uniqueName("rack") });
     const c = await client.certificates.set({
       name: uniqueName("file"),
@@ -301,7 +326,8 @@ describe("Certificate.Field", () => {
     });
     created.push(c.key);
     await renderField(c.key, { rack: r.key });
-    await screen.findByRole("term");
+    await screen.findByText("/etc/synnax/client.crt");
+    await showDetails();
     expect(readDetails()).toEqual({ Path: "/etc/synnax/client.crt" });
     expect(queryIconButton(document.body, "download")).toBeNull();
   });
