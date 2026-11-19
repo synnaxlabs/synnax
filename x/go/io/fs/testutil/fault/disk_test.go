@@ -165,6 +165,32 @@ var _ = Describe("Read corruption", func() {
 		Expect(flipped(buf, whole)).To(BeZero())
 	})
 
+	It("Should draw again for each read when the faults repeat", func() {
+		fs := faulty(fault.Config{ReadCorruptionRate: 1, ReadFaultsRepeated: true})
+		f := MustOpen(fs.Open("f.txt", os.O_RDONLY))
+		buf := make([]byte, 7)
+		for range 3 {
+			Expect(f.ReadAt(buf, 0)).To(Equal(7))
+			Expect(flipped(buf, "tacocat")).To(Equal(1))
+		}
+	})
+
+	It("Should list each block that a read fault hit, in order", func() {
+		fs := MustSucceed(fault.New(fault.Config{ReadCorruptionRate: 1}))
+		write(fs, "f.bin", strings.Repeat("a", 2*4096))
+		f := MustOpen(fs.Open("f.bin", os.O_RDONLY))
+		stat, ok := MustSucceed(f.Stat()).Sys().(fault.Stat)
+		Expect(ok).To(BeTrue())
+		buf := make([]byte, 2*4096)
+		Expect(f.ReadAt(buf[:4096], 4096)).To(Equal(4096))
+		Expect(f.ReadAt(buf, 0)).To(Equal(2 * 4096))
+		Expect(f.ReadAt(buf, 0)).To(Equal(2 * 4096))
+		want := []fault.Fault{{File: stat.ID, Block: 1}, {File: stat.ID, Block: 0}}
+		Expect(fs.ReadFaults()).To(Equal(want))
+		fs.ReadFaults()[0].Block = 9
+		Expect(fs.ReadFaults()).To(Equal(want))
+	})
+
 	It("Should give a good second read of a record read in two calls", func() {
 		want := make([]byte, 2*4096)
 		for i := range want {

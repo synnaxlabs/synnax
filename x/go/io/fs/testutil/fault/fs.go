@@ -63,6 +63,9 @@ type Config struct {
 	// the read, so a write to another file can change the bytes that come back, but not
 	// the blocks that the fault hits.
 	MisdirectedReadRate float64
+	// ReadFaultsRepeated gives each read of a block the chance of a read fault, also
+	// after the first fault. Then a second read of the same bytes can fault again.
+	ReadFaultsRepeated bool
 	// Capacity is the size of the disk in bytes, which the lengths of its files fill. A
 	// removed file fills it until its last handle closes. Zero is no limit. A write
 	// past it writes the bytes that fit and fails with ENOSPC.
@@ -77,6 +80,14 @@ func (c Config) validate() error {
 	validateRate(v, "misdirected_read_rate", c.MisdirectedReadRate)
 	v.GreaterThanEq("capacity", c.Capacity, 0)
 	return v.Error()
+}
+
+// ReadFaults returns a fault for each block that a read fault hit on the disk of f, in
+// the order of the faults. A block that two reads got with a fault is in it two times.
+func (f *FS) ReadFaults() []Fault {
+	f.d.mu.Lock()
+	defer f.d.mu.Unlock()
+	return slices.Clone(f.d.faults)
 }
 
 // New returns an empty FS with the faults of cfg. The error matches

@@ -224,8 +224,8 @@ func (d *disk) usedUnder(n *node, seen set.Set[*node]) int64 {
 
 // spoil applies the read faults to p, the bytes that a read of the file n at off
 // returns. Until the disk gives its first read fault, each read of a block draws a
-// fault. After it, only the first read of a block does, so a second read of bytes that
-// a read got before is good.
+// fault. After it, only the first read of a block does, unless the faults repeat. So a
+// second read of bytes that a read got before is good.
 func (d *disk) spoil(p []byte, n *node, off int64) {
 	if len(p) == 0 || d.cfg.ReadCorruptionRate == 0 && d.cfg.MisdirectedReadRate == 0 {
 		return
@@ -235,14 +235,15 @@ func (d *disk) spoil(p []byte, n *node, off int64) {
 		at := place{file: n.id, block: block}
 		nth := d.reads[at]
 		d.reads[at] = nth + 1
-		if d.faulted && nth > 0 {
+		if len(d.faults) > 0 && nth > 0 && !d.cfg.ReadFaultsRepeated {
 			continue
 		}
 		from := max(off, block*blockSize)
 		part := p[from-off : min(end, (block+1)*blockSize)-off]
 		misdirected := d.misdirect(part, n, at, nth, from)
-		corrupted := d.corrupt(part, at, nth)
-		d.faulted = d.faulted || misdirected || corrupted
+		if corrupted := d.corrupt(part, at, nth); misdirected || corrupted {
+			d.faults = append(d.faults, Fault{File: n.id, Block: block})
+		}
 	}
 }
 

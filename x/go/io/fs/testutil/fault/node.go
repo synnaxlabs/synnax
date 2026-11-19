@@ -29,10 +29,10 @@ type disk struct {
 	// calls counts the calls of each kind at each path and offset. The count is a part
 	// of each draw, so a second call gets its own draw.
 	calls map[call]uint64
-	// reads counts the reads of each block. After the first read fault of the disk,
-	// faulted, only the first read of a block can get a fault.
-	reads   map[place]uint64
-	faulted bool
+	// reads counts the reads of each block. After the first of the read faults, only
+	// the first read of a block can get one, unless the faults repeat.
+	reads  map[place]uint64
+	faults []Fault
 	// open counts the handles on each node. A removed file holds its space until it has
 	// none.
 	open map[*node]int
@@ -201,6 +201,12 @@ type half struct {
 type place struct {
 	file  ID
 	block int64
+}
+
+// Fault is a read fault: the 4 KiB block of a file that it hit.
+type Fault struct {
+	File  ID
+	Block int64
 }
 
 type call struct {
