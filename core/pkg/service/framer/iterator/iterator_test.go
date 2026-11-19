@@ -82,6 +82,48 @@ var _ = Describe("StreamIterator", Ordered, func() {
 		iteratorSvc, channelSvc = openServices(ctx, node)
 	})
 	Describe("Basic Iteration", func() {
+		It("Should set the clock of each series to its channel's index", func(
+			ctx SpecContext,
+		) {
+			idx := &channel.Channel{
+				Name:     "clock_index",
+				DataType: telem.TimestampT,
+				IsIndex:  true,
+			}
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, idx)
+			})).To(Succeed())
+			data := &channel.Channel{
+				Name:       "clock_data",
+				DataType:   telem.Float32T,
+				LocalIndex: idx.LocalKey,
+			}
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, data)
+			})).To(Succeed())
+			keys := channel.Keys{idx.Key(), data.Key()}
+			w := MustSucceed(node.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Start: telem.SecondTS,
+				Keys:  keys,
+			}))
+			Expect(w.Write(frame.NewMulti(keys, []telem.Series{
+				telem.NewSeriesSecondsTSV(1, 2),
+				telem.NewSeriesV[float32](1, 2),
+			}))).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+			iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
+				Keys:   keys,
+				Bounds: telem.TimeRangeMax,
+			}))
+			Expect(iter.SeekFirst()).To(BeTrue())
+			Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
+			for _, key := range keys {
+				Expect(iter.Value().Frame.Get(key).Series[0].Clock).
+					To(Equal(uint32(idx.Key())))
+			}
+			Expect(iter.Close()).To(Succeed())
+		})
+
 		It("Should read written frames correctly", func(ctx SpecContext) {
 			ch := &channel.Channel{
 				Name:     "Matt",
