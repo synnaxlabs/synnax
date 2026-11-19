@@ -33,10 +33,10 @@ type counter struct {
 	// to confirm, so it does not count.
 	unit []fault.Span
 	last fault.ID
-	// lossFrom is the number, among the events, of the first Sync that changed the
-	// first block of unit. A stale block of unit can take each commit from that Sync
-	// on.
-	lossFrom int
+	// lossFrom holds, for each range of unit, the number among the events of the first
+	// Sync that changed the first block of the range. A stale block of the range can
+	// take each commit from that Sync on.
+	lossFrom []int
 	// events is the count of calls that changed the disk.
 	events int
 	// faults is the count of calls that the disk failed with a sync error or with no
@@ -93,8 +93,10 @@ func (c *counter) synced(stat fault.Stat) {
 			}
 		}
 	}
-	c.unit, c.last = stat.Synced, stat.ID
-	c.lossFrom = file.first[stat.Synced[0].From/blockSize]
+	c.unit, c.last, c.lossFrom = stat.Synced, stat.ID, c.lossFrom[:0]
+	for _, s := range stat.Synced {
+		c.lossFrom = append(c.lossFrom, file.first[s.From/blockSize])
+	}
 }
 
 // statOf returns what a fault disk says of the file of info.

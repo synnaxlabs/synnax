@@ -13,10 +13,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"hash/crc32"
+	"io"
+	"math"
 	"os"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/io/fs/testutil/crash"
@@ -401,3 +405,118 @@ var _ = Describe("Targets of lasting corruption", func() {
 		Expect(s.zeroed).To(BeNumerically(">", 0))
 	})
 })
+
+// headedLog is a log in one file: a header block, which each commit writes again with
+// the count of records, and the records from 4096 on. So each Sync changes two ranges:
+// the header and the newest record. Recovery keeps the records before a bad one, or
+// with dropped, keeps none.
+type headedLog struct {
+	f       xfs.File
+	records []crash.Record
+	off     int64
+	dropped bool
+}
+
+const headedStart = 4096
+
+func openHeadedLog(dropped bool) func(context.Context, xfs.FS) (crash.Engine, error) {
+	return func(_ context.Context, fs xfs.FS) (crash.Engine, error) {
+		exists, err := fs.Exists("log")
+		if err != nil {
+			return nil, err
+		}
+		f, err := fs.Open("log", os.O_CREATE|os.O_RDWR)
+		if err != nil {
+			return nil, err
+		}
+		l := &headedLog{f: f, off: headedStart, dropped: dropped}
+		if exists {
+			err = l.scan()
+		} else {
+			err = fs.SyncDir("")
+		}
+		if err != nil {
+			return nil, errors.Combine(err, f.Close())
+		}
+		return l, nil
+	}
+}
+
+func (l *headedLog) scan() error {
+	data, err := io.ReadAll(io.NewSectionReader(l.f, 0, math.MaxInt64))
+	if err != nil {
+		return err
+	}
+	for int(l.off)+plainHeader <= len(data) {
+		rec := data[l.off:]
+		n := plainHeader + int(binary.LittleEndian.Uint32(rec[4:]))
+		if n > len(rec) || binary.LittleEndian.Uint32(rec) != crc32.Checksum(
+			rec[4:n],
+			castagnoli,
+		) {
+			if l.dropped {
+				l.records = nil
+			}
+			return nil
+		}
+		id := binary.LittleEndian.Uint64(rec[8:])
+		l.records = append(l.records, crash.Record{ID: id, Payload: rec[plainHeader:n]})
+		l.off += int64(n)
+	}
+	return nil
+}
+
+func (l *headedLog) Commit(
+	_ context.Context,
+	r crash.Record,
+	want crash.Ack,
+) (crash.Ack, error) {
+	rec := make([]byte, plainHeader+len(r.Payload))
+	binary.LittleEndian.PutUint32(rec[4:], uint32(len(r.Payload)))
+	binary.LittleEndian.PutUint64(rec[8:], r.ID)
+	copy(rec[plainHeader:], r.Payload)
+	binary.LittleEndian.PutUint32(rec, crc32.Checksum(rec[4:], castagnoli))
+	count := binary.LittleEndian.AppendUint64(nil, uint64(len(l.records)+1))
+	if _, err := l.f.WriteAt(rec, l.off); err != nil {
+		return 0, err
+	}
+	if _, err := l.f.WriteAt(count, 0); err != nil {
+		return 0, err
+	}
+	if err := l.f.Sync(); err != nil {
+		return 0, err
+	}
+	l.off += int64(len(rec))
+	l.records = append(l.records, r)
+	return want, nil
+}
+
+func (l *headedLog) Recovered(context.Context) ([]crash.Record, error) {
+	return l.records, nil
+}
+
+func (l *headedLog) Close() error { return l.f.Close() }
+
+var _ = DescribeTable("Should bound a loss by the written range of the stale block",
+	func(ctx SpecContext, dropped bool, caught types.GomegaMatcher) {
+		var found []string
+		for runKey := range uint64(32) {
+			err := violation(ctx, crash.Config{
+				RunKey:  runKey,
+				Open:    openHeadedLog(dropped),
+				Commits: 40,
+				Stride:  1,
+				Profile: crash.NewCorruption,
+			})
+			if err != nil {
+				Expect(broke(err)).To(Equal(crash.R1))
+				found = append(found, err.Error())
+			}
+		}
+		Expect(found).To(caught)
+	},
+	Entry("and pass a log that keeps the records before a stale block",
+		false, BeEmpty()),
+	Entry("and catch a log that drops every record at a stale block",
+		true, Not(BeEmpty())),
+)

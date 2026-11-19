@@ -98,8 +98,9 @@ func (p plan) spoil(image *fault.FS, c *counter, event int) (rules, error) {
 	if p.profile == NewCorruption {
 		// One block of the unit is zeros, as a block that the disk never wrote is. The
 		// engine can lose each commit from the first Sync that changed the first block
-		// of the unit.
-		s := c.unit[rng.IntN(len(c.unit))]
+		// of the range that holds it.
+		i := rng.IntN(len(c.unit))
+		s := c.unit[i]
 		block := s.From/blockSize + rng.Int64N((s.To-1)/blockSize-s.From/blockSize+1)
 		stale := span{
 			path: last.path,
@@ -109,7 +110,7 @@ func (p plan) spoil(image *fault.FS, c *counter, event int) (rules, error) {
 		if stale.to <= stale.from {
 			return strictRules, nil
 		}
-		r.exemptFrom = c.lossFrom
+		r.exemptFrom = c.lossFrom[i]
 		return r, change(image, stale, func(b []byte) { clear(b) })
 	}
 	for _, file := range slices.Sorted(maps.Keys(held)) {

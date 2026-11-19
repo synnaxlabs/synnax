@@ -75,7 +75,8 @@ const (
 	// NewCorruption makes one 4 KiB block of the unit zeros for good, as a block that
 	// the disk never wrote is. No later Sync confirms the unit. The engine can lose
 	// each commit whose Durable ack came after the first Sync that changed the first
-	// block of the unit. It can also refuse with its corruption error.
+	// block of the written range that holds the stale block. It can also refuse with
+	// its corruption error.
 	NewCorruption
 	// Mixed joins the faults of Partial, SyncErrors, FullDisk, and OneTimeReadFaults.
 	Mixed
