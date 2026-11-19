@@ -9,10 +9,10 @@
 
 import { type device, type rack, type Synnax } from "@synnaxlabs/client";
 import { deep } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 
 import { MAKE, type Properties, ZERO_PROPERTIES } from "@/feature/http/device/types";
 import { createTestDevice } from "@/platform/device/testutil";
-import { uniqueName } from "@/testutil";
 
 export interface CreateHTTPDeviceOptions {
   configured?: boolean;

@@ -10,6 +10,7 @@
 import { type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -25,7 +26,7 @@ import {
   deployAndAwaitTask,
   findChannelListItem,
 } from "@/platform/task/testutil";
-import { getIconButton, uniqueName } from "@/testutil";
+import { getIconButton } from "@/testutil";
 
 const client = createTestClient();
 

@@ -10,6 +10,7 @@
 import {
   array,
   type destructor,
+  map,
   type record,
   type TimeSpan,
   TimeStamp,
@@ -237,17 +238,12 @@ export class Lists<
       rest.searchTerm === "" ? { ...rest, searchTerm: undefined } : rest
     ) as Q;
     const entry = this.ensure(base);
-    let list = entry.lists.get(limit);
-    if (list == null) {
-      list = {
-        retrieve: async (options) => await this.retrieve(entry, limit, options),
-        more: async (n, options) => await this.more(entry, n, options),
-        getCached: () => this.cachedOf(entry),
-        onChange: (handler) => this.subscribe(entry, limit, handler),
-      };
-      entry.lists.set(limit, list);
-    }
-    return list;
+    return map.getOrInsert(entry.lists, limit, () => ({
+      retrieve: async (options) => await this.retrieve(entry, limit, options),
+      more: async (n, options) => await this.more(entry, n, options),
+      getCached: () => this.cachedOf(entry),
+      onChange: (handler) => this.subscribe(entry, limit, handler),
+    }));
   }
 
   /**
@@ -314,10 +310,9 @@ export class Lists<
 
   private ensure(query: Q): Entry<Q, K, D, V, C> {
     const hashed = hash(query);
-    let entry = this.entries.get(hashed);
-    if (entry == null) {
+    return map.getOrInsert(this.entries, hashed, () => {
       const { matches, serverComputed } = this.config;
-      entry = {
+      return {
         query,
         ranked:
           matches == null ||
@@ -334,9 +329,7 @@ export class Lists<
         ingesting: false,
         stale: false,
       };
-      this.entries.set(hashed, entry);
-    }
-    return entry;
+    });
   }
 
   private async retrieve(
