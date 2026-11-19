@@ -362,8 +362,8 @@ interface PaletteSectionProps extends Pick<Library, "paletteEnd" | "swatchMenu">
 
 /**
  * A palette under its title, which names the color of an open swatch menu, else the
- * hovered or focused color, else the linked one. A hovered name stays until the pointer
- * or the focus leaves the palette.
+ * hovered color, else the focused color, else the linked one. A hovered name stays
+ * until the pointer leaves the palette, and a focused name until the focus leaves it.
  */
 const PaletteSection = ({
   palette,
@@ -375,13 +375,16 @@ const PaletteSection = ({
 }: PaletteSectionProps): ReactElement => {
   const t = Theming.use();
   const [hovered, setHovered] = useState<string>();
+  const [focusedSwatch, setFocusedSwatch] = useState<string>();
   const menu = Menu.useContextMenu();
-  const leave = (): void => setHovered(undefined);
   const find = (key?: string): Named | undefined =>
     key == null ? undefined : colors.find((c) => c.key === key);
   // The menu takes the focus, so the title names its swatch while it is open.
   const shown =
-    find(menu.visible ? menu.keys[0] : undefined) ?? find(hovered) ?? find(linked);
+    find(menu.visible ? menu.keys[0] : undefined) ??
+    find(hovered) ??
+    find(focusedSwatch) ??
+    find(linked);
   const menuProps =
     swatchMenu == null
       ? {}
@@ -409,9 +412,9 @@ const PaletteSection = ({
           name={shown?.name}
           role="group"
           aria-label={palette.name}
-          onPointerLeave={leave}
+          onPointerLeave={() => setHovered(undefined)}
           onBlur={(e) => {
-            if (!e.currentTarget.contains(e.relatedTarget)) leave();
+            if (!e.currentTarget.contains(e.relatedTarget)) setFocusedSwatch(undefined);
           }}
         >
           {colors.map((c) => (
@@ -427,7 +430,7 @@ const PaletteSection = ({
               data-menu-key={c.key}
               onClick={() => onPick(c.key)}
               onPointerEnter={() => setHovered(c.key)}
-              onFocus={() => setHovered(c.key)}
+              onFocus={() => setFocusedSwatch(c.key)}
               aria-label={c.name}
               {...menuProps}
             />
