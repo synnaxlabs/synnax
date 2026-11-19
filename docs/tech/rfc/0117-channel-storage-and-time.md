@@ -41,7 +41,9 @@ channel, and the Core makes missing channels at task save.
 - **Producer**: What writes a clock (§4.0). A clock belongs to one producer.
 - **Declared type**: The `data_type` on the channel record: the type of new writes.
 - **Agreed type**, **agreed clock**: The defaults that both sides of one codec state
-  hold for a key. A **steady-state** frame holds only series that match both.
+  hold for a key. A **steady-state** frame holds only series that match both, and the
+  time series of each clock that its data names (§4.5). A frame that leaves out a key of
+  the state, requested or declared, takes the keyed form, as today.
 
 ## 3 Principles
 
