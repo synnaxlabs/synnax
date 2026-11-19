@@ -113,8 +113,15 @@ class SelectStateIndicatorEnumeration(ConsoleCase):
         self.log("Renaming 'Shut' to 'Sealed' from the State Indicator")
         indicator.rename_entry(2, "Sealed")
         indicator.wait_for_label("Sealed")
-        names = [e.name for e in client.enumerations.retrieve(key=valve.key).entries]
-        assert names == ["Open", "Sealed"], f"Core holds entries {names}"
+
+        def renamed() -> list[str] | None:
+            names = [
+                e.name for e in client.enumerations.retrieve(key=valve.key).entries
+            ]
+            return names if names == ["Open", "Sealed"] else None
+
+        names = sy.poll(renamed, timeout=5, interval=0.25)
+        assert names is not None, "The Core never held the renamed entry"
 
         offset = indicator.used_by_offset()
         assert abs(offset) < 1, f"Used by starts {offset} px right of the picker"
