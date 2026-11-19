@@ -18,6 +18,7 @@ import { ENTRY, transpile } from "./transpile.js";
 export { reactCompiler } from "./compiler.js";
 export { type Layer, layers, lyraLayers, plutoLayers } from "./layers.js";
 export { discoverModules, moduleExports, packageExports } from "./modules.js";
+export { platformExcludes } from "./platform.js";
 
 export interface Options {
   name: string;

@@ -30,7 +30,10 @@ import sys
 import tokenize
 from collections.abc import Callable
 from dataclasses import dataclass
+from functools import cache
 from pathlib import Path
+
+import yaml
 
 _GO = (
     re.compile(
@@ -65,6 +68,32 @@ _REGEX_KEYWORDS = {
     "do", "yield", "await",
 }  # fmt: skip
 _CPP_RAW = {"R", "u8R", "uR", "UR", "LR"}
+_PLATFORM_FILE = {
+    "ts": re.compile(r"\.(darwin|linux|win32|posix)\.(?:spec|test)\.tsx?$"),
+    "py": re.compile(r"^test_\w*_(darwin|linux|win32|posix)\.py$"),
+}
+_CI = ".github/workflows/ci.yaml"
+_WORKFLOWS = {"ts": "/test.ts.yaml", "py": "/test.py.yaml"}
+# The input of a test job that runs it on a platform, and the default of the input.
+_INPUTS = {
+    "darwin": ("macos", False),
+    "linux": ("ubuntu", True),
+    "win32": ("windows", False),
+}
+_RUNS_ON = {
+    "darwin": ("darwin",),
+    "linux": ("linux",),
+    "win32": ("win32",),
+    "posix": ("darwin", "linux"),
+}
+_TS_HELPER = "platformExcludes("
+_TS_LINE = (
+    "`...platformExcludes()` from `@synnaxlabs/vite-plugin` to each `test.exclude`"
+)
+_PY_LINE = (
+    '`collect_ignore_glob = [f"*_{p}.py" for p in {"darwin", "linux", "win32"} - '
+    '{sys.platform}] + (["*_posix.py"] if sys.platform == "win32" else [])`'
+)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -386,13 +415,103 @@ def check(*, root: Path, base: str) -> list[Finding]:
     ]
 
 
+@dataclass(frozen=True, kw_only=True)
+class _Job:
+    name: str
+    directory: str
+    inputs: dict[str, object]
+
+    def runs(self, platform: str) -> bool:
+        """Reports if the job tests on platform. An expression can be true, so it
+        counts as a run."""
+        name, default = _INPUTS[platform]
+        return self.inputs.get(name, default) is not False
+
+
+@cache
+def _jobs(root: Path) -> dict[str, list[_Job]]:
+    """Returns the test jobs of ci.yaml, by the language that they test."""
+    workflow = yaml.safe_load((root / _CI).read_text(encoding="utf-8"))
+    jobs: dict[str, list[_Job]] = {lang: [] for lang in _WORKFLOWS}
+    for name, job in workflow["jobs"].items():
+        for lang, file in _WORKFLOWS.items():
+            if job.get("uses", "").endswith(file):
+                inputs = job["with"]
+                jobs[lang].append(
+                    _Job(name=name, directory=inputs["directory"], inputs=inputs)
+                )
+    return jobs
+
+
+def _config(root: Path, lang: str, job: _Job, path: str) -> tuple[str, bool]:
+    """Returns the config file of the package that must exclude the platform file at
+    path, and if it does."""
+    if lang == "ts":
+        names = [f"{job.directory}/vite.config.ts", f"{job.directory}/vitest.config.ts"]
+        config = next((n for n in names if (root / n).exists()), names[1])
+        held = (root / config).exists() and _TS_HELPER in (root / config).read_text()
+        return config, held
+    dirs = [Path(path).parent, *Path(path).parent.parents]
+    package = dirs[: dirs.index(Path(job.directory)) + 1]
+    conftests = [
+        d / "conftest.py" for d in package if (root / d / "conftest.py").exists()
+    ]
+    for conftest in conftests:
+        text = (root / conftest).read_text()
+        if "collect_ignore_glob" in text and "sys.platform" in text:
+            return conftest.as_posix(), True
+    return (conftests[0] if conftests else dirs[0] / "conftest.py").as_posix(), False
+
+
+def platforms(*, root: Path) -> list[Finding]:
+    """Returns a finding for each platform test file, such as a.darwin.spec.ts or
+    test_a_win32.py, that no job of ci.yaml tests, that no CI platform runs, or that
+    the test config of its package runs on every platform."""
+    findings: list[Finding] = []
+    for path in _git(root, "ls-files", "-z").split("\0"):
+        lang = {"ts": "ts", "py": "py", "integration": "py"}.get(language(path) or "")
+        match = _PLATFORM_FILE[lang].search(path.rsplit("/", 1)[-1]) if lang else None
+        if lang is None or match is None:
+            continue
+        jobs = [j for j in _jobs(root)[lang] if path.startswith(j.directory + "/")]
+        if not jobs:
+            findings.append(
+                Finding(path=path, line=0, message=f"no job of {_CI} tests it")
+            )
+            continue
+        deepest = max(len(j.directory) for j in jobs)
+        jobs = [j for j in jobs if len(j.directory) == deepest]
+        suffix = match.group(1)
+        if not any(j.runs(p) for j in jobs for p in _RUNS_ON[suffix]):
+            inputs = " or ".join(f"`{_INPUTS[p][0]}`" for p in _RUNS_ON[suffix])
+            findings.append(
+                Finding(
+                    path=path,
+                    line=0,
+                    message=f"no CI platform runs a {suffix} test: set {inputs} on "
+                    f"the `{jobs[0].name}` job of {_CI}",
+                )
+            )
+        config, held = _config(root, lang, jobs[0], path)
+        if not held:
+            line = _TS_LINE if lang == "ts" else _PY_LINE
+            findings.append(
+                Finding(
+                    path=path,
+                    line=0,
+                    message=f"{config} runs it on every platform: add {line}",
+                )
+            )
+    return findings
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--base", required=True, help="the commit to compare with")
     args = parser.parse_args()
     if not args.base:
         parser.error("--base names no commit")
-    findings = check(root=Path(), base=args.base)
+    findings = check(root=Path(), base=args.base) + platforms(root=Path())
     for f in findings:
         print(f"{f.path}:{f.line}: {f.message}")
     return 1 if findings else 0

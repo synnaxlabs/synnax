@@ -16,7 +16,7 @@ from pathlib import Path
 import pytest
 from conftest import GitRepo
 
-from check_skipped_tests import check, language, markers
+from check_skipped_tests import check, language, markers, platforms
 
 GO = 'package a\n\nvar _ = It("a", func() {})\n'
 TS = 'it("a", () => {});\n'
@@ -334,3 +334,116 @@ class TestFailLoud:
     def test_should_raise_on_an_unknown_language(self) -> None:
         with pytest.raises(KeyError):
             markers("GTEST_SKIP()\n", "rust")
+
+
+CI = """jobs:
+  web:
+    uses: ./.github/workflows/test.ts.yaml
+    with:
+      directory: web
+      macos: ${{ inputs.full == true }}
+  web-lowest:
+    uses: ./.github/workflows/test.ts.yaml
+    with:
+      directory: web
+  lib:
+    uses: ./.github/workflows/test.py.yaml
+    with:
+      directory: lib
+      ubuntu: false
+      macos: true
+"""
+EXCLUDES = "export default { test: { exclude: [...platformExcludes()] } };\n"
+IGNORES = "import sys\n\ncollect_ignore_glob = [] if sys.platform else []\n"
+
+
+def _platforms(repo: GitRepo, files: Mapping[str, str]) -> list[str]:
+    """Commits ci.yaml and files, and returns the path and message of each finding of
+    the platform check."""
+    repo.commit({".github/workflows/ci.yaml": CI, **files})
+    return [f"{f.path}: {f.message}" for f in platforms(root=repo.path)]
+
+
+class TestPlatforms:
+    """The platform test files that no CI platform runs, or that run everywhere."""
+
+    def test_should_pass_a_platform_file_that_its_package_excludes(
+        self, git_repo: GitRepo
+    ) -> None:
+        files = {"web/vite.config.ts": EXCLUDES, "web/src/a.darwin.spec.ts": TS}
+        assert _platforms(git_repo, files) == []
+
+    def test_should_name_the_config_and_the_line_to_add(
+        self, git_repo: GitRepo
+    ) -> None:
+        files = {
+            "web/vite.config.ts": "export default {};\n",
+            "web/a.posix.spec.ts": TS,
+        }
+        assert _platforms(git_repo, files) == [
+            "web/a.posix.spec.ts: web/vite.config.ts runs it on every platform: add "
+            "`...platformExcludes()` from `@synnaxlabs/vite-plugin` to each "
+            "`test.exclude`"
+        ]
+
+    def test_should_name_a_new_vitest_config_for_a_package_with_none(
+        self, git_repo: GitRepo
+    ) -> None:
+        findings = _platforms(git_repo, {"web/a.darwin.test.tsx": TS})
+        assert findings == [
+            "web/a.darwin.test.tsx: web/vitest.config.ts runs it on every platform: "
+            "add `...platformExcludes()` from `@synnaxlabs/vite-plugin` to each "
+            "`test.exclude`"
+        ]
+
+    def test_should_fail_a_suffix_that_no_ci_platform_runs(
+        self, git_repo: GitRepo
+    ) -> None:
+        files = {"web/vite.config.ts": EXCLUDES, "web/a.win32.spec.ts": TS}
+        assert _platforms(git_repo, files) == [
+            "web/a.win32.spec.ts: no CI platform runs a win32 test: set `windows` on "
+            "the `web` job of .github/workflows/ci.yaml"
+        ]
+
+    def test_should_fail_a_platform_file_that_no_job_tests(
+        self, git_repo: GitRepo
+    ) -> None:
+        assert _platforms(git_repo, {"other/a.linux.spec.ts": TS}) == [
+            "other/a.linux.spec.ts: no job of .github/workflows/ci.yaml tests it"
+        ]
+
+    def test_should_take_another_word_as_a_plain_name(self, git_repo: GitRepo) -> None:
+        assert _platforms(git_repo, {"web/a.macOS.spec.ts": TS}) == []
+
+    def test_should_pass_a_python_file_that_a_conftest_ignores(
+        self, git_repo: GitRepo
+    ) -> None:
+        files = {"lib/tests/conftest.py": IGNORES, "lib/tests/x/test_a_darwin.py": PY}
+        assert _platforms(git_repo, files) == []
+
+    def test_should_name_the_nearest_conftest_of_a_python_file(
+        self, git_repo: GitRepo
+    ) -> None:
+        files = {"lib/tests/conftest.py": "", "lib/tests/x/test_a_darwin.py": PY}
+        (finding,) = _platforms(git_repo, files)
+        assert finding.startswith(
+            "lib/tests/x/test_a_darwin.py: lib/tests/conftest.py runs it on every "
+            "platform: add `collect_ignore_glob = "
+        )
+
+    def test_should_fail_a_python_suffix_with_no_platform(
+        self, git_repo: GitRepo
+    ) -> None:
+        files = {"lib/tests/conftest.py": IGNORES, "lib/tests/test_a_linux.py": PY}
+        assert _platforms(git_repo, files) == [
+            "lib/tests/test_a_linux.py: no CI platform runs a linux test: set "
+            "`ubuntu` on the `lib` job of .github/workflows/ci.yaml"
+        ]
+
+    def test_should_raise_on_a_test_job_with_no_directory(
+        self, git_repo: GitRepo
+    ) -> None:
+        ci = "jobs:\n  web:\n    uses: ./.github/workflows/test.ts.yaml\n    with: {}\n"
+        git_repo.commit({".github/workflows/ci.yaml": ci, "web/a.darwin.spec.ts": TS})
+        with pytest.raises(KeyError):
+            platforms(root=git_repo.path)

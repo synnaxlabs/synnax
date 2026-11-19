@@ -2654,6 +2654,9 @@ dev = [
 name = "synnax-scripts"
 version = "0.0.0"
 source = { virtual = "scripts" }
+dependencies = [
+    { name = "pyyaml" },
+]
 
 [package.dev-dependencies]
 dev = [
@@ -2665,9 +2668,11 @@ dev = [
     { name = "ruff" },
     { name = "synnax" },
     { name = "synnax-scripts-common" },
+    { name = "types-pyyaml" },
 ]
 
 [package.metadata]
+requires-dist = [{ name = "pyyaml", specifier = ">=6.0.2,<7" }]
 
 [package.metadata.requires-dev]
 dev = [
@@ -2679,6 +2684,7 @@ dev = [
     { name = "ruff", specifier = ">=0.17.1,<1" },
     { name = "synnax", editable = "client/py" },
     { name = "synnax-scripts-common", editable = "scripts/common" },
+    { name = "types-pyyaml", specifier = ">=6.0.12.20260906,<7" },
 ]
 
 [[package]]
