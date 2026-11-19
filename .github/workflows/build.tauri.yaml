@@ -241,7 +241,8 @@ jobs:
 
       - name: Install PostHog CLI
         if: inputs.stage != 'bundle' && steps.config.outputs.release == 'true'
-        run: npm install -g @posthog/cli@0.18.9
+        # An exact version, so no lockfile is needed.
+        run: npm install -g @posthog/cli@0.18.9 # zizmor: ignore[adhoc-packages]
 
       - name: Set up trusted-signing-cli
         if:

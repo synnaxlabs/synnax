@@ -339,7 +339,7 @@ jobs:
       # Code. The runners on one machine review at the same time, so each review gets
       # its own copy in the temporary directory, which the runner empties after the job.
       - name: Install Claude Code
-        run: |
+        run: | # zizmor: ignore[adhoc-packages]
           npm install --no-save --prefix "$RUNNER_TEMP/claude" \
             @anthropic-ai/claude-code@latest
           echo "$RUNNER_TEMP/claude/node_modules/.bin" >> "$GITHUB_PATH"

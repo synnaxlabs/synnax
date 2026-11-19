@@ -24,7 +24,8 @@ on:
     types:
       - opened
       - ready_for_review
-  issue_comment:
+  # The job runs only for members and our bots, on scripts from the default branch.
+  issue_comment: # zizmor: ignore[dangerous-triggers]
     types:
       - created
   pull_request_review_comment:

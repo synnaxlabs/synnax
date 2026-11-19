@@ -63,4 +63,6 @@ runs:
 
     - name: Add trusted-signing-cli to the PATH
       shell: bash
-      run: echo "$GITHUB_WORKSPACE\.trusted-signing-cli\bin" >> "$GITHUB_PATH"
+      # The directory holds only the binary this action built or restored.
+      run: | # zizmor: ignore[github-env]
+        echo "$GITHUB_WORKSPACE\.trusted-signing-cli\bin" >> "$GITHUB_PATH"
