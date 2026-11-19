@@ -42,38 +42,15 @@ dev = [
 packages = ["x"]
 
 [tool.ruff]
-line-length = 88
-target-version = "py313"
+extend = "../../pyproject.toml"
 
 [tool.ruff.lint]
 preview = true
 explicit-preview-rules = true
-select = [
-    "F",
-    "I",
-    "B",
-    "DTZ",
-    "E501",
-    "E7",
-    "E9",
-    "PLE",
-    "PLR1722",
-    "PLW1514",
-    "UP",
-    "SIM",
-    "C4",
-    "RET",
-    "PIE",
-    "PERF",
-    "RUF",
-    "S110",
-    "PT",
-]
-ignore = ["UP040", "UP046", "UP047", "SIM105", "SIM115", "SIM117", "PT012", "RUF001"]
+extend-select = ["PLW1514"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["x"]
-combine-as-imports = true
 
 [tool.mypy]
 python_version = "3.13"
