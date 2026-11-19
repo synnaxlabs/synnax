@@ -93,6 +93,7 @@ warn_required_dynamic_aliases = true
 [tool.pytest.ini_options]
 strict = true
 timeout = 60
+asyncio_default_fixture_loop_scope = "function"
 markers = [
     "http: mark test as an http test",
     "sync: mark test as a sync test",
