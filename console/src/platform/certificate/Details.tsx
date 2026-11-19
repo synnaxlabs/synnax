@@ -19,7 +19,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type TimeStamp } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { type ReactElement, useState } from "react";
 
 import { leafDER } from "@/platform/certificate/pem";
 import { CSS } from "@/platform/css";
@@ -137,17 +137,12 @@ const Fingerprint = ({ certificate: c, sha256 }: FingerprintProps): ReactElement
   );
 };
 
-export interface DetailsProps {
+interface CardProps {
   certificate: certificate.Certificate;
-  /** The time the validity reads against. */
   now: TimeStamp;
 }
 
-/**
- * The subject, issuer, validity, and SHA-256 fingerprint of a certificate. A stored
- * certificate also downloads.
- */
-export const Details = ({ certificate: c, now }: DetailsProps): ReactElement => {
+const Card = ({ certificate: c, now }: CardProps): ReactElement => {
   const { details } = c;
   const validity = Secret.Validity.describeCertificate(c, now);
   return (
@@ -172,6 +167,52 @@ export const Details = ({ certificate: c, now }: DetailsProps): ReactElement => 
           </>
         )}
       </Description.List>
+    </Flex.Box>
+  );
+};
+
+export interface DetailsProps {
+  certificate: certificate.Certificate;
+  /** The time the validity reads against. */
+  now: TimeStamp;
+}
+
+/**
+ * The validity and file path of a certificate on one line, with a button that shows its
+ * full details. A stored certificate also downloads.
+ */
+export const Details = ({ certificate: c, now }: DetailsProps): ReactElement => {
+  const [visible, setVisible] = useState(false);
+  const validity =
+    c.details == null ? null : Secret.Validity.describeCertificate(c, now);
+  const path = c.source === "file" ? c.certificatePath : null;
+  return (
+    <Flex.Box y gap="small">
+      <Flex.Box x align="center" className={CSS.BE("certificate-field", "summary")}>
+        <Text.Text
+          level="small"
+          color={9}
+          overflow="fade"
+          className={CSS.BE("certificate-field", "summary-text")}
+        >
+          {validity != null && (
+            <Text.Text el="span" color={9} status={validity.status}>
+              {validity.text}
+            </Text.Text>
+          )}
+          {validity != null && path != null && <span>·</span>}
+          {path != null && <span>{path}</span>}
+        </Text.Text>
+        <Button.Button
+          variant="text"
+          size="small"
+          textColor={9}
+          onClick={() => setVisible(!visible)}
+        >
+          {visible ? "Hide details" : "Details"}
+        </Button.Button>
+      </Flex.Box>
+      {visible && <Card certificate={c} now={now} />}
     </Flex.Box>
   );
 };

@@ -20,3 +20,15 @@
     min-width: 0;
     overflow-wrap: anywhere;
 }
+
+/* The line starts under the content of the trigger, as far in as the button text. */
+.console-certificate-field__summary {
+    padding-left: 1.5rem;
+}
+
+/* A long path fades before the button. Without containment, its width would widen the
+   form's grid column. */
+.console-certificate-field__summary-text {
+    flex-grow: 1;
+    contain: inline-size;
+}
