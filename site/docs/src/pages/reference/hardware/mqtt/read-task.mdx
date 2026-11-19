@@ -2,7 +2,8 @@
 layout: "@/layouts/Reference.astro"
 title: "MQTT read task"
 description:
-  "Subscribe to MQTT topics and record the values in their payloads in channels."
+  "Subscribe to MQTT topics, read their payloads as the messages of an ICD, and record
+  the values in channels."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
@@ -11,6 +12,7 @@ import { Fragment } from "react";
 import { Client } from "@/components/client";
 import { Video } from "@/components/media/Media";
 import { Problem } from "@/components/problem";
+import { Rule } from "@/components/rule";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -21,23 +23,31 @@ payloads in channels. One task reads any number of topics, and it can also read
 
 <Divider.Divider x />
 
-## Entries and fields
+## Message formats
 
-An entry is one topic. A field is one value in its payload, found by a
-[JSON pointer](https://datatracker.ietf.org/doc/html/rfc6901) such as `/temperature`,
-and recorded in one channel.
+An [interface control document (ICD)](/reference/hardware/icds) holds the messages that
+a system sends, and the format of each one. For an MQTT topic, a message is the format
+of a JSON payload: a list of fields. A field finds one value by a
+[JSON pointer](https://datatracker.ietf.org/doc/html/rfc6901), such as `/temperature`,
+and gives its type.
 
-- **Bare values** -> an empty pointer reads a topic that carries a bare number or
-  string, such as `42.7`. The **Add data** dialog shows it as **Whole payload**.
-- **Text labels** -> the **Enum mapping** of a field maps text, such as `ON`, to a
-  channel value.
-- **All or nothing** -> the task writes all fields of a payload or none. A payload that
-  lacks a field, or holds a value that the channel cannot store, is skipped. In code, a
-  field's `default` is written in place of a missing value.
+The task reads each topic as a message of an ICD. You choose the fields that the task
+reads and the channel that records each one. The task does not read a field with no
+channel.
 
-A topic can be in a task once, and it cannot hold the wildcards `+` or `#`. The fields
-of one message share one index channel. Two messages cannot share an index channel, and
-two topics cannot write to the same channel.
+- **Bare values** -> a field with an empty pointer reads the whole payload, such as
+  `42.7`. A payload that is not JSON, such as `ON`, reads as a string.
+- **All or nothing** -> the task writes all fields of a payload or none. It skips a
+  payload that has no value for a field with no
+  [default](/reference/hardware/icds/reference#defaults), or a value that the channel
+  cannot hold.
+- **Topics** -> a topic can be in a task once, and it cannot hold the wildcards `+` or
+  `#`. Two topics cannot write to the same channel.
+- **Shared formats** -> an ICD is not part of a task, so more than one task can read it.
+  You cannot delete an ICD while a task reads it.
+
+When you upgrade the Core, it moves the fields of each read task from an earlier version
+into a new ICD named after the task, with one message for each topic.
 
 <Divider.Divider x />
 
@@ -48,16 +58,32 @@ two topics cannot write to the same channel.
 
 1. In the devices toolbar, right-click the broker and select **Create read task**. You
    can also run the "Create MQTT read task" command.
-2. Click **Add data**. The dialog listens to the broker for a few seconds and lists the
+2. Click **Add data**. The dialog listens to the broker for 3 seconds and lists the
    topics that it saw.
 3. Select a topic to see the last value and the type of each field, then select the
-   fields to record. For a topic that publishes rarely, click **Add a topic by name**.
-4. Click **Add** _N_ **fields**. Each field becomes a channel.
-5. Select a field. Its **Field** section edits the field in the message format, such as
-   its **Pointer**. Its **Channel** section sets the channel name and **Data type**.
-6. Click <Icon.Play /> (**Start**).
+   values to read. For a topic that publishes rarely, click **Add a topic by name**.
+4. Click **Add** _N_ **fields**. Each value becomes a field of the message format of its
+   topic.
+5. The fields of each topic are under it in the list. Select a field, and under
+   **Field**, check its **Pointer** and **Type**.
+6. Under **Channel**, set the **Data type** of the field's channel.
+7. Click the dot of a field to turn it on or off. The task does not read a field that is
+   crossed out.
+8. To add a value that the dialog did not show, select the topic and click **Add
+   field**.
+9. Click <Icon.Play /> (**Start**).
 
-The Console creates a channel for each field and an index channel for each topic.
+The first topic makes an ICD named after the task. Each topic gets a message in it,
+named after the topic. Click **Open in editor** to see the ICD in the ICD editor.
+
+The Console creates a channel for each field that the task reads, and an index channel
+for each message. It names them after the broker, the topic, and the field. To change
+the name of a new channel, rename its field. After the task creates the channel, select
+the field and type a new name in **Channel** to rename the channel.
+
+A string, JSON, or bytes field reads into a
+[virtual channel](/reference/channels#virtual-channels), which stores no data. So these
+fields cannot share a message with number, boolean, or timestamp fields.
 
 <Video id="hardware/mqtt/read-task" />
 
@@ -125,14 +151,67 @@ task.start()
 
 <Divider.Divider x />
 
+## Set a default or an enum mapping
+
+The options of a field read values that its type alone cannot:
+
+- **Default** -> the task writes the default when the payload has no value for the
+  field. Scale and offset apply to the default as they do to a payload value. No value
+  means that the pointer finds nothing. Except on a JSON channel, `null` is also no
+  value, and so is `""` on a channel that is not a string or bytes channel. With no
+  default, the task skips the payload.
+- **Enum mapping** -> maps a text label in the payload, such as `ON`, to a value of the
+  field's type, such as `1`.
+
+Number, string, and boolean fields have options.
+
+<Client.Tabs exclude={["typescript"]}>
+  <Fragment slot="console">
+
+1. Select the field.
+2. To set a default, turn on **Optional**, then enter the **Default**.
+3. To map a label, click **Add mapping** next to **Enum mapping**, then enter the
+   **Label** and the **Value**.
+
+  </Fragment>
+  <Fragment slot="python">
+
+```python
+from x import payload
+
+# The payload is {"state": "running", "level": 0.8}
+state = sy.icd.UnsignedJSONField(
+    name="state",
+    pointer="/state",
+    enum_values=[
+        payload.UnsignedEntry(label="idle", value=payload.Unsigned(0)),
+        payload.UnsignedEntry(label="running", value=payload.Unsigned(1)),
+    ],
+)
+level = sy.icd.FloatJSONField(
+    name="level", pointer="/level", default=payload.Float(0)
+)
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
 ## Timestamps
 
-The **Source** of an entry sets the timestamps of its samples:
+Each message takes the timestamps of its samples from one of two sources:
 
 - **Arrival time** -> the time at which the payload arrives at the Core. The default.
-- **Payload value** -> a time in the payload, at a **Pointer**, in a **Format**: ISO
-  8601, or Unix time in seconds, milliseconds, microseconds, or nanoseconds. The value
-  goes to the index channel of the topic.
+- **Payload value** -> a timestamp field of the message. The
+  [type](/reference/hardware/icds/reference#types) of the field sets its format, and a
+  field with a default cannot be the source. The value goes to the index channel of the
+  message.
+
+To read the time from the payload in the Console, set the **Type** of the field to a
+timestamp type, such as **Timestamp (ms)**. Then, under **Timestamp**, set **Source** to
+**Payload value** and select the **Field**. The list does not show the field, and
+**Channel** under **Timestamp** names its index channel.
 
 Timestamps in an index channel must increase. The task skips a payload whose timestamp
 is not after the last one it wrote. A broker can send such a payload when it delivers a
@@ -162,6 +241,128 @@ read = sy.icd.ReadMessage(
 
 <Divider.Divider x />
 
+## Read several messages from one topic
+
+A device can publish more than one kind of payload on one topic, such as readings and
+events, and mark each kind with a value such as `"type"`. Give each kind its own message
+in the ICD, with a match rule that tells the task which message a payload is.
+
+<Client.Tabs exclude={["typescript"]}>
+  <Fragment slot="console">
+
+1. Select the topic. Next to **Subscription**, click **Add message**. You can also
+   right-click the topic and select **Add message**.
+2. The topic now shows each of its messages, with the fields of each one under it.
+   Select the new message.
+3. Under **Documents**, set **Match** to the type of the value, then enter the
+   **Pointer** and the **Value**. A new message tests the pointer of the other rules of
+   the topic.
+4. Next to **Message**, click **Add field** to add each field of the message.
+5. Select the first message, and give it a match rule too, or leave it on **Any
+   document** to read each payload that meets no rule.
+
+To stop reading a message, right-click it and select **Remove**. The message stays in
+the ICD. A topic always reads at least one message.
+
+The Console creates an index channel for each message. From the second message on, a
+channel name also holds the name of its message, such as
+`broker_plant_line1_all_event_code`.
+
+  </Fragment>
+  <Fragment slot="python">
+
+```python
+# Readings are {"type": "reading", "temp": 21.4}.
+# Events are {"type": "event", "code": 7}.
+temp = sy.icd.FloatJSONField(name="temp", pointer="/temp")
+reading = sy.icd.Message(
+    name="reading",
+    payload=sy.icd.JSONPayload(
+        match=sy.icd.StringJSONMatch(pointer="/type", value="reading"),
+        fields=[temp],
+    ),
+)
+code = sy.icd.UnsignedJSONField(name="code", pointer="/code")
+event = sy.icd.Message(
+    name="event",
+    payload=sy.icd.JSONPayload(
+        match=sy.icd.StringJSONMatch(pointer="/type", value="event"),
+        fields=[code],
+    ),
+)
+line1 = client.icds.create(name="Line 1", messages=[reading, event])
+
+# temperature and event_code are on different index channels.
+entry = mqtt.PlainReadEntry(
+    topic="plant/line1/all",
+    icd=line1.key,
+    messages=[
+        sy.icd.ReadMessage(
+            message=reading.key,
+            bindings=[sy.icd.ReadBinding(field=temp.key, channel=temperature.key)],
+        ),
+        sy.icd.ReadMessage(
+            message=event.key,
+            bindings=[sy.icd.ReadBinding(field=code.key, channel=event_code.key)],
+        ),
+    ],
+)
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<Rule.List>
+<Rule.Item title="A payload is read as the message whose rule it meets">
+
+A match rule names a pointer and a string, boolean, or number value. A payload meets the
+rule when its value at the pointer is equal to the value of the rule.
+
+</Rule.Item>
+<Rule.Item title="Each rule of a topic tests the same pointer">
+
+The messages of one topic cannot test different pointers.
+
+</Rule.Item>
+<Rule.Item title="Two rules cannot match the same value">
+
+The numbers `1` and `1.0` are the same value.
+
+</Rule.Item>
+<Rule.Item title="One message can have no rule">
+
+It reads each payload that meets no rule.
+
+</Rule.Item>
+<Rule.Item title="A payload that matches no message is skipped">
+
+The task warns with `the payload matches no message`.
+
+</Rule.Item>
+<Rule.Item title="Each message writes to its own channels">
+
+Two messages cannot write to the same channel, an index channel included.
+
+</Rule.Item>
+</Rule.List>
+
+<Divider.Divider x />
+
+## Edit the message format of a running task
+
+The message format belongs to the ICD, not to the task. An edit to it, in the task tab
+or in the ICD editor, saves at once. A running task keeps the format that it started
+with, and its task tab shows **Redeploy**. To read with the new format,
+[redeploy the task](/reference/hardware/start-and-stop-tasks#apply-edits-to-a-running-task).
+In Python, call `task.start()` again.
+
+An edit can give a field a type that its channel cannot hold. On **Redeploy** in the
+task tab, the Console gives the field a new channel. In Python, `client.tasks.configure`
+raises a validation error, and `task.start()` fails with **Failed to configure task**.
+See [troubleshooting](#troubleshooting).
+
+<Divider.Divider x />
+
 ## Retained messages
 
 When the task subscribes, the broker sends the retained message of each topic, if it has
@@ -182,9 +383,9 @@ The task has no sample rate. It writes each payload when it arrives.
 
 <Divider.Divider x />
 
-## Entry and field reference
+## Topic reference
 
-An entry has these settings:
+A topic has these settings:
 
 | Setting                                           | Default      | Notes                                                     |
 | ------------------------------------------------- | ------------ | --------------------------------------------------------- |
@@ -194,45 +395,13 @@ An entry has these settings:
 | Source <small>`index`</small>                     | Arrival time | The key of the timestamp field, on each `ReadMessage`.    |
 | <small>`icd`</small>                              |              | The key of the ICD that holds the messages of the topic.  |
 
-In code, an entry is `PlainReadEntry`, of type `"plain"`. The `qos` values are
+In code, a topic is `PlainReadEntry`, of type `"plain"`. The `qos` values are
 `"at_most_once"`, `"at_least_once"`, and `"exactly_once"`. Its `messages` are each an
 `sy.icd.ReadMessage`, with the key of the `message`, its `index`, and its `bindings`. An
 `sy.icd.ReadBinding` gives the key of a `field` and the `channel` that records it.
 
-A field of a message has these settings:
-
-| Setting                                   | Default | Notes                                                       |
-| ----------------------------------------- | ------- | ----------------------------------------------------------- |
-| Name <small>`name`</small>                |         | Unique in its message. The Console names channels after it. |
-| Pointer <small>`pointer`</small>          | Empty   | Such as `/motor/speed`. Empty reads the whole payload.      |
-| Type <small>`type`</small>                | Float   | See [field types](#field-types).                            |
-| Scale <small>`scale`</small>              | 1       | Multiplies the value. Needs a float channel.                |
-| Offset <small>`offset`</small>            | 0       | Added after the scale. Needs a float channel.               |
-| Units <small>`units`</small>              | Empty   | The engineering unit of the value.                          |
-| Default <small>`default`</small>          | None    | Written when the payload has no value. Set in **Optional**. |
-| Enum mapping <small>`enum_values`</small> | None    | Maps text labels to values of the type.                     |
-
-### Field types
-
-The data type is that of a new channel. A float channel also reads signed, unsigned, and
-boolean fields. A signed integer channel also reads unsigned and boolean fields, and an
-unsigned channel also reads boolean fields. The **Data type** menu lists only the data
-types that fit.
-
-| Type             | Python class         | Data type   | Notes                                            |
-| ---------------- | -------------------- | ----------- | ------------------------------------------------ |
-| Float            | `FloatJSONField`     | `float64`   | A number.                                        |
-| Signed integer   | `IntegerJSONField`   | `int64`     | An integer.                                      |
-| Unsigned integer | `UnsignedJSONField`  | `uint64`    | An integer of 0 or more.                         |
-| Boolean          | `BooleanJSONField`   | `uint8`     | `true` or `false`, as 1 or 0.                    |
-| String           | `StringJSONField`    | `string`    | A string.                                        |
-| JSON             | `JSONJSONField`      | `json`      | Any JSON value.                                  |
-| UUID             | `UuidJSONField`      | `uuid`      | A UUID in a string.                              |
-| Bytes (base64)   | `BytesJSONField`     | `bytes`     | Base64 text in a string. Needs a pointer.        |
-| Timestamp        | `TimestampJSONField` | `timestamp` | ISO 8601 text, or Unix time in s, ms, µs, or ns. |
-
-In code, the `time_format` of a timestamp field is `"iso8601"`, `"unix_sec"`,
-`"unix_ms"`, `"unix_us"`, or `"unix_ns"`.
+The [ICD reference](/reference/hardware/icds/reference) lists the properties of a
+message and its fields, and the data types that each field type can write to.
 
 <Divider.Divider x />
 
@@ -244,15 +413,15 @@ In code, the `time_format` of a timestamp field is `"iso8601"`, `"unix_sec"`,
 <Problem.Cause>
 
 The task read some messages that it cannot record. The description gives the topic and
-the reason for the last one, such as `field ...: no value at /temperature`, or a
-timestamp that is not after the last one written. The warning clears 5 seconds after the
-last skip.
+the reason for the last one, such as `field temp: no value at /temp`, a payload that
+matches no message, or a timestamp that is not after the last one written. The warning
+clears 5 seconds after the last skip.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Check the pointers and data types against a payload from the topic. Pointers start with
-`/` and are case sensitive.
+Check the pointers and types of the message format against a payload from the topic.
+Pointers start with `/` and are case sensitive.
 
 </Problem.Fix>
 </Problem.Item>
@@ -295,7 +464,84 @@ warning clears when the connection returns.
 </Problem.Cause>
 </Problem.Item>
 
-<Problem.Item message={["entries: topic ... appears more than once", "entries: ... and ... write to the same channel ..."]}>
+<Problem.Item symptom="The task reads with the old message format">
+<Problem.Cause>
+
+A running task keeps the message format that it started with. An edit to the format
+saves at once, but the task uses it only after a redeploy.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Click **Redeploy** in the task tab. In Python, call `task.start()` again.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={["field ... of kind ... cannot read into channel ... of data type ...", "cannot write ... values to ... channels", "a scaled field requires a float channel, not ..."]}>
+<Problem.Cause>
+
+The type of a field does not fit the data type of its channel. A field with a **Scale**
+or an **Offset** needs a float channel.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Change the **Type** of the field, or read it into a channel of a data type that fits.
+See [types](/reference/hardware/icds/reference#types). After an edit of the type,
+**Redeploy** in the Console gives the field a new channel.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={["the index field ... must be a timestamp field", "the index field ... cannot take a default", "the index field ... must write to an index channel", "only the index field can write to index channel ..."]}>
+<Problem.Cause>
+
+The `index` of a message names a field that cannot give timestamps, or a field other
+than the index writes to an index channel. An index field cannot have a default, because
+each sample needs the time from its own payload.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Set `index` to a timestamp field with no default, and bind it to the index channel. Bind
+each other field to a data channel. To remove a default in the Console, open the field's
+**Options** in the ICD editor and turn off **Optional**.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={["The task reads no fields of ...", "topic ... reads no messages", "message ... binds no fields"]}>
+<Problem.Cause>
+
+A topic, or a message of a topic, reads no field.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Turn on a field of the topic or the message. Or disable the topic, or remove the
+message.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={["messages ... and ... both have no match rule", "messages ... and ... match at different pointers ... and ...", "messages ... and ... match the same value ..."]}>
+<Problem.Cause>
+
+The match rules of a topic cannot tell its payloads apart. Only one message of a topic
+can have no rule, each rule must test the same pointer, and no two rules can match the
+same value.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Select each message of the topic and change its **Match**. See
+[read several messages from one topic](#read-several-messages-from-one-topic).
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={["entries: topic ... appears more than once", "entries: ... and ... write to the same channel ...", "channel ... is also written by ..."]}>
 <Problem.Cause>
 
 Two entries read the same topic, or two fields write to the same channel.
@@ -303,7 +549,21 @@ Two entries read the same topic, or two fields write to the same channel.
 </Problem.Cause>
 <Problem.Fix>
 
-Move the fields of a topic into one entry, and give each field its own channel.
+Read each topic once, and give each field its own channel. Give each message of a topic
+its own index channel.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"cannot delete icd ... because task ... uses it"}>
+<Problem.Cause>
+
+A read task reads the ICD, also from a disabled topic.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Delete the task, or remove its topics that read the ICD, then delete the ICD.
 
 </Problem.Fix>
 </Problem.Item>

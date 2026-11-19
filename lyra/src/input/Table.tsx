@@ -352,6 +352,11 @@ export interface TableProps
    */
   rowLabel?: (index: number) => string;
   /**
+   * Identifies a row, so the state of its cells, such as an open dialog, stays with it
+   * when the rows above it change. Defaults to the index.
+   */
+  rowKey?: (index: number) => string;
+  /**
    * Builds each new row: the one the add button appends, and each one a paste adds.
    * Defaults to the column default values.
    */
@@ -422,6 +427,7 @@ export const Table = ({
   preview = false,
   autoFocus = false,
   rowLabel,
+  rowKey,
   createRow,
   resourceName = "row",
   cellStatus,
@@ -437,6 +443,8 @@ export const Table = ({
   const initial = useRef<Initial | null>(null);
   // Set once Esc puts a cell back, so the next Esc leaves the cell.
   const restored = useRef(false);
+  // Set by a block paste, which commits: Esc then puts back what the paste wrote.
+  const pasted = useRef(false);
   // The row that takes focus once an add or a remove renders, or the mount.
   const pendingFocus = useRef<number | null>(autoFocus ? 0 : null);
   const haulType = `${CSS.BE("input", "table-row")}-${useId()}`;
@@ -507,6 +515,7 @@ export const Table = ({
       return;
     e.preventDefault();
     restored.current = false;
+    pasted.current = true;
     const plan = grid.plan(dims, anchor.current, block);
     const next = value.map((row) => [...row]);
     for (let row = dims.height; row < plan.dimensions.height; row++)
@@ -537,6 +546,15 @@ export const Table = ({
     table.current?.tBodies[0]?.rows[y]?.cells[
       x + (hasGutter ? 1 : 0)
     ]?.querySelector<HTMLInputElement>("input") ?? null;
+
+  useEffect(() => {
+    if (!pasted.current) return;
+    pasted.current = false;
+    const at = anchor.current;
+    const input = cellAt(at);
+    if (input == null || input !== document.activeElement) return;
+    initial.current = { value: value[at.y]?.[at.x], text: input.value };
+  });
 
   useEffect(() => {
     if (pendingFocus.current == null) return;
@@ -601,13 +619,14 @@ export const Table = ({
   };
 
   const handleCellBlur = (e: FocusEvent<HTMLTableCellElement>) => {
-    if (!e.currentTarget.contains(e.relatedTarget)) initial.current = null;
+    if (inTable(e) && !e.currentTarget.contains(e.relatedTarget))
+      initial.current = null;
   };
 
   // Runs before the cell, which blurs on an Esc that is not prevented and discards
   // any text it has not committed.
   const handleKeyDownCapture = (e: KeyboardEvent) => {
-    if (e.key !== "Escape") return;
+    if (e.key !== "Escape" || !inTable(e)) return;
     if (!(e.target instanceof HTMLInputElement) || initial.current == null) return;
     const { value: was, text } = initial.current;
     const at = anchor.current;
@@ -648,7 +667,9 @@ export const Table = ({
         onKeyDown={handleKeyDown}
         onKeyDownCapture={handleKeyDownCapture}
         // Any edit after a restore lets the next Esc restore again.
-        onInput={() => (restored.current = false)}
+        onInput={(e) => {
+          if (inTable(e)) restored.current = false;
+        }}
         {...rest}
       >
         <colgroup>
@@ -676,7 +697,7 @@ export const Table = ({
         <tbody>
           {value.map((row, i) => (
             <Row
-              key={i}
+              key={rowKey?.(i) ?? i}
               index={i}
               haulType={haulType}
               haulPreview={() => haulPreview(i)}
