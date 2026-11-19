@@ -149,7 +149,7 @@ var _ = Describe("Read corruption", func() {
 		Expect(flipped(buf[:3], "cat")).To(BeZero())
 	})
 
-	It("Should give no fault to a read over a block that gave one before", func() {
+	It("Should give a fault to each block on the first read that covers it", func() {
 		fs := MustSucceed(fault.New(fault.Config{ReadCorruptionRate: 1}))
 		whole := strings.Repeat("a", 2*4096)
 		write(fs, "f.bin", whole)
@@ -159,25 +159,123 @@ var _ = Describe("Read corruption", func() {
 		Expect(flipped(buf, whole[4096:])).To(Equal(1))
 		buf = make([]byte, 2*4096)
 		Expect(f.ReadAt(buf, 0)).To(Equal(2 * 4096))
+		Expect(flipped(buf[:4096], whole[:4096])).To(Equal(1))
+		Expect(flipped(buf[4096:], whole[4096:])).To(BeZero())
+		Expect(f.ReadAt(buf, 0)).To(Equal(2 * 4096))
 		Expect(flipped(buf, whole)).To(BeZero())
 	})
 
-	It("Should draw again for each read of a place that gave no fault", func() {
+	It("Should give a good second read of a record read in two calls", func() {
+		want := make([]byte, 2*4096)
+		for i := range want {
+			want[i] = byte(i * 7)
+		}
+		base := MustSucceed(fault.New(fault.Config{}))
+		save(base, "f.bin", string(want))
+		Expect(base.SyncDir("")).To(Succeed())
+		// The record is a header at the end of block 0 and a body in block 1.
+		read := func(f xfs.File) []byte {
+			GinkgoHelper()
+			record := make([]byte, 120)
+			Expect(f.ReadAt(record[:16], 4080)).To(Equal(16))
+			Expect(f.ReadAt(record[16:], 4096)).To(Equal(104))
+			return record
+		}
+		bad := 0
+		for runKey := range uint64(64) {
+			cfg := fault.Config{RunKey: runKey, ReadCorruptionRate: 0.5}
+			image := MustSucceed(base.Crash(fault.CrashConfig{Image: cfg}))
+			f := MustOpen(image.Open("f.bin", os.O_RDONLY))
+			if !bytes.Equal(read(f), want[4080:4200]) {
+				bad++
+				Expect(read(f)).To(Equal(want[4080:4200]), "run key %d", runKey)
+			}
+		}
+		Expect(bad).To(BeNumerically(">", 0))
+	})
+
+	It("Should draw again for each read of a block until the first fault", func() {
 		firsts := set.Set[int]{}
 		for runKey := range uint64(32) {
 			cfg := fault.Config{RunKey: runKey, ReadCorruptionRate: 0.5}
 			f := MustOpen(faulty(cfg).Open("f.txt", os.O_RDONLY))
 			buf := make([]byte, 7)
+			faulted := false
 			for i := range 8 {
 				Expect(f.ReadAt(buf, 0)).To(Equal(7))
-				if flipped(buf, "tacocat") == 1 {
+				if faulted {
+					Expect(flipped(buf, "tacocat")).To(BeZero())
+				} else if flipped(buf, "tacocat") == 1 {
 					firsts.Add(i)
-					break
+					faulted = true
 				}
 			}
 		}
 		Expect(len(firsts)).To(BeNumerically(">", 2))
 	})
+
+	It("Should give a good second read of bytes in another file after a fault",
+		func() {
+			for runKey := range uint64(32) {
+				base := MustSucceed(fault.New(fault.Config{}))
+				save(base, "a.txt", "tacocat")
+				save(base, "b.txt", "burrito")
+				Expect(base.SyncDir("")).To(Succeed())
+				cfg := fault.Config{RunKey: runKey, ReadCorruptionRate: 0.5}
+				image := MustSucceed(base.Crash(fault.CrashConfig{Image: cfg}))
+				a := MustOpen(image.Open("a.txt", os.O_RDONLY))
+				b := MustOpen(image.Open("b.txt", os.O_RDONLY))
+				buf := make([]byte, 7)
+				// A record of two files, read until both files read whole.
+				for try := 0; ; try++ {
+					Expect(a.ReadAt(buf, 0)).To(Equal(7))
+					good := flipped(buf, "tacocat") == 0
+					Expect(b.ReadAt(buf, 0)).To(Equal(7))
+					if good && flipped(buf, "burrito") == 0 {
+						break
+					}
+					Expect(try).To(BeZero(), "run key %d", runKey)
+				}
+			}
+		},
+	)
+
+	It(
+		"Should fix the fault of a first read by the run key and the block, not by "+
+			"the order of reads",
+		func() {
+			const blocks = 8
+			whole := strings.Repeat("a", blocks*4096)
+			// faulty says, for each block, if its first read had a flipped bit.
+			faulty := func(runKey uint64, rising bool) []bool {
+				GinkgoHelper()
+				base := MustSucceed(fault.New(fault.Config{}))
+				save(base, "f.bin", whole)
+				Expect(base.SyncDir("")).To(Succeed())
+				cfg := fault.Config{RunKey: runKey, ReadCorruptionRate: 0.5}
+				image := MustSucceed(base.Crash(fault.CrashConfig{Image: cfg}))
+				f := MustOpen(image.Open("f.bin", os.O_RDONLY))
+				out := make([]bool, blocks)
+				for i := range blocks {
+					block := i
+					if !rising {
+						block = blocks - 1 - i
+					}
+					buf := make([]byte, 4096)
+					Expect(f.ReadAt(buf, int64(block)*4096)).To(Equal(4096))
+					out[block] = flipped(buf, whole[:4096]) == 1
+				}
+				return out
+			}
+			for runKey := range uint64(8) {
+				Expect(faulty(runKey, true)).To(Equal(faulty(runKey, false)))
+				Expect(
+					faulty(runKey, true),
+				).To(And(ContainElement(true), ContainElement(false)))
+			}
+			Expect(faulty(0, true)).ToNot(Equal(faulty(1, true)))
+		},
+	)
 
 	It("Should fix the reads that it corrupts by the run key", func() {
 		// results has the count of flipped bits in the first read of 32 disks, whose

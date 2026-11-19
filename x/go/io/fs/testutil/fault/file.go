@@ -74,7 +74,7 @@ func (f *file) Read(p []byte) (int, error) {
 		return 0, io.EOF
 	}
 	n := copy(p, f.n.data[f.rpos:])
-	f.d.spoil(p[:n], f.n, f.path, f.rpos)
+	f.d.spoil(p[:n], f.n, f.rpos)
 	f.rpos += int64(n)
 	return n, nil
 }
@@ -90,7 +90,7 @@ func (f *file) ReadAt(p []byte, off int64) (int, error) {
 		return 0, io.EOF
 	}
 	n := copy(p, f.n.data[off:])
-	f.d.spoil(p[:n], f.n, f.path, off)
+	f.d.spoil(p[:n], f.n, off)
 	if n < len(p) {
 		return n, io.EOF
 	}
@@ -222,35 +222,38 @@ func (d *disk) usedUnder(n *node, seen set.Set[*node]) int64 {
 	return total
 }
 
-// spoil applies the read faults to p, the bytes that a read of the file n at path and
-// off returns. A read gets a fault only when no block that it covers gave one before,
-// and the fault hits the first block of the read. So the next read of the same bytes is
-// good.
-func (d *disk) spoil(p []byte, n *node, path string, off int64) {
+// spoil applies the read faults to p, the bytes that a read of the file n at off
+// returns. Until the disk gives its first read fault, each read of a block draws a
+// fault. After it, only the first read of a block does, so a second read of bytes that
+// a read got before is good.
+func (d *disk) spoil(p []byte, n *node, off int64) {
 	if len(p) == 0 || d.cfg.ReadCorruptionRate == 0 && d.cfg.MisdirectedReadRate == 0 {
 		return
 	}
-	first, end := off/blockSize, off+int64(len(p))
-	for block := first; block*blockSize < end; block++ {
-		if d.spoiled.Contains(place{path: path, block: block}) {
-			return
+	end := off + int64(len(p))
+	for block := off / blockSize; block*blockSize < end; block++ {
+		at := place{file: n.id, block: block}
+		nth := d.reads[at]
+		d.reads[at] = nth + 1
+		if d.faulted && nth > 0 {
+			continue
 		}
-	}
-	part := p[:min(end, (first+1)*blockSize)-off]
-	misdirected := d.misdirect(part, n, path, off)
-	if d.corrupt(part, path, off) || misdirected {
-		d.spoiled.Add(place{path: path, block: first})
+		from := max(off, block*blockSize)
+		part := p[from-off : min(end, (block+1)*blockSize)-off]
+		misdirected := d.misdirect(part, n, at, nth, from)
+		corrupted := d.corrupt(part, at, nth)
+		d.faulted = d.faulted || misdirected || corrupted
 	}
 }
 
-// corrupt flips one bit of p, the bytes of one block that a read of path returns from
-// off, at the read corruption rate. It reports if it did.
-func (d *disk) corrupt(p []byte, path string, off int64) bool {
-	file, at, nth := hashPath(path), uint64(off), d.next(drawRead, path, off)
-	if d.draw(drawRead, file, at, nth) >= d.cfg.ReadCorruptionRate {
+// corrupt flips one bit of p, the bytes that the read nth of the block at gets, at the
+// read corruption rate. It reports if it did.
+func (d *disk) corrupt(p []byte, at place, nth uint64) bool {
+	file, block := uint64(at.file), uint64(at.block)
+	if d.draw(drawRead, file, block, nth) >= d.cfg.ReadCorruptionRate {
 		return false
 	}
-	bit := int(d.draw(drawReadBit, file, at, nth) * float64(len(p)*8))
+	bit := int(d.draw(drawReadBit, file, block, nth) * float64(len(p)*8))
 	p[bit/8] ^= 1 << (bit % 8)
 	return true
 }

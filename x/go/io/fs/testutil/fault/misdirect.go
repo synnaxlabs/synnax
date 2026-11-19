@@ -14,24 +14,24 @@ import (
 	"slices"
 )
 
-// misdirect replaces p with the bytes at the same place of another block of the disk,
-// at the misdirected read rate, and reports if it did. p holds the bytes of one block
-// that a read of the file n at path returns from off.
-func (d *disk) misdirect(p []byte, n *node, path string, off int64) bool {
-	file, at, nth := hashPath(path), uint64(off), d.next(drawMisdirect, path, off)
-	if d.draw(drawMisdirect, file, at, nth) >= d.cfg.MisdirectedReadRate {
+// misdirect replaces p, the bytes that the read nth of the block at gets, at the
+// misdirected read rate. The new bytes come from the same offset in another block that
+// the disk holds: a block of the file n, or of another file. off is the offset of p in
+// the file. It reports if it replaced p.
+func (d *disk) misdirect(p []byte, n *node, at place, nth uint64, off int64) bool {
+	file, block := uint64(at.file), uint64(at.block)
+	if d.draw(drawMisdirect, file, block, nth) >= d.cfg.MisdirectedReadRate {
 		return false
 	}
-	victim := off / blockSize
 	files := d.files(d.root, nil)
 	others := int64(-1)
 	for _, f := range files {
 		others += blockCount(f)
 	}
-	source := int64(d.draw(drawMisdirectSource, file, at, nth) * float64(others))
+	source := int64(d.draw(drawMisdirectSource, file, block, nth) * float64(others))
 	for _, f := range files {
 		count := blockCount(f)
-		if f == n && source >= victim {
+		if f == n && source >= at.block {
 			source++
 		}
 		if source >= count {
@@ -39,7 +39,7 @@ func (d *disk) misdirect(p []byte, n *node, path string, off int64) bool {
 			continue
 		}
 		clear(p)
-		if start := (source-victim)*blockSize + off; start < int64(len(f.data)) {
+		if start := (source-at.block)*blockSize + off; start < int64(len(f.data)) {
 			copy(p, f.data[start:])
 		}
 		return true

@@ -50,16 +50,18 @@ type Config struct {
 	// reads its durable bytes from then on. Otherwise the block reads its new bytes
 	// until a crash.
 	EvictionRate float64
-	// ReadCorruptionRate is the chance, from 0 to 1, that a read returns one flipped
-	// bit. The bytes on the disk do not change. A read fault of either kind hits the
-	// first 4 KiB block of a read, and only when no block of the read gave a fault
-	// before. So the next read of the same bytes is good.
+	// ReadCorruptionRate is the chance, from 0 to 1, that a read gets one flipped bit
+	// in a 4 KiB block of a file. The bytes on the disk do not change. Until the disk
+	// gives its first read fault of either kind, each read of a block has the chance.
+	// After it, only the first read of a block has it, so a second read of bytes that a
+	// read got before is good.
 	ReadCorruptionRate float64
-	// MisdirectedReadRate is the chance, from 0 to 1, that a read gets one 4 KiB block
-	// from the wrong place: another block of the file, or a block of another file. The
-	// bytes on the disk do not change. The wrong block is one that the disk holds at
+	// MisdirectedReadRate is the chance, from 0 to 1, that a read gets a 4 KiB block of
+	// a file from the wrong place: another block of the file, or a block of another
+	// file. The bytes on the disk do not change, and the rule of ReadCorruptionRate
+	// sets which reads have the chance. The wrong block is one that the disk holds at
 	// the read, so a write to another file can change the bytes that come back, but not
-	// the read and the block that the fault hits.
+	// the blocks that the fault hits.
 	MisdirectedReadRate float64
 	// Capacity is the size of the disk in bytes, which the lengths of its files fill. A
 	// removed file fills it until its last handle closes. Zero is no limit. A write

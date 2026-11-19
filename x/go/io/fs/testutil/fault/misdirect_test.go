@@ -52,24 +52,20 @@ var _ = Describe("Misdirected reads", func() {
 	}
 	always := fault.Config{MisdirectedReadRate: 1}
 
-	It(
-		"Should return one whole block from another place, and then a good read",
+	It("Should misdirect each block on its first read, and then give good reads",
 		func() {
 			whole := strings.Repeat("a", blockSize) + strings.Repeat("b", blockSize)
 			sources := set.Set[string]{}
 			for runKey := range uint64(32) {
 				fs := open(fault.Config{RunKey: runKey, MisdirectedReadRate: 1})
 				first := readAt(fs, 0, 2*blockSize)
-				Expect(first[blockSize:]).To(Equal(whole[blockSize:]))
 				Expect(readAt(fs, 0, 2*blockSize)).To(Equal(whole))
-				second := readAt(fs, blockSize, blockSize)
 				Expect(readAt(fs, blockSize, blockSize)).To(Equal(whole[blockSize:]))
-				for _, block := range []string{first[:blockSize], second} {
+				for i, block := range []string{first[:blockSize], first[blockSize:]} {
 					Expect(block).To(Equal(strings.Repeat(block[:1], blockSize)))
+					Expect(block[:1]).ToNot(Equal(whole[i*blockSize : i*blockSize+1]))
 					sources.Add(block[:1])
 				}
-				Expect(first[:1]).ToNot(Equal("a"))
-				Expect(second[:1]).ToNot(Equal("b"))
 			}
 			Expect(sources.Slice()).To(ConsistOf("a", "b", "c", "d"))
 			Expect(read(strict(open(always)), "f.bin")).To(Equal(whole))
