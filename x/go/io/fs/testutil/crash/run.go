@@ -263,12 +263,7 @@ func (r *run) check(s *snapshot, attempts []attempt) {
 		)
 		return
 	}
-	b, lost := checkRecovered(attempts, second, rules)
-	if b == nil {
-		var dropped bool
-		b, dropped = checkKept(first, second, faulted)
-		lost = lost || dropped
-	}
+	b, lost := checkSecond(attempts, first, second, rules, faulted)
 	r.held(b, lost, s.event, faults)
 }
 

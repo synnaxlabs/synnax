@@ -161,3 +161,19 @@ func checkKept(first, second []Record, faulted bool) (*broken, bool) {
 	}
 	return nil, lost
 }
+
+// checkSecond applies R1 to R3 and the keep rule to a second recovery, after a crash in
+// the first. It reports if the engine lost a commit that the rules free.
+func checkSecond(
+	attempts []attempt,
+	first, second []Record,
+	r rules,
+	faulted bool,
+) (*broken, bool) {
+	b, lost := checkRecovered(attempts, second, r)
+	if b != nil {
+		return b, false
+	}
+	b, dropped := checkKept(first, second, faulted)
+	return b, lost || dropped
+}
