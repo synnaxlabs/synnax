@@ -10,14 +10,12 @@
 import { channel, type icd, type Synnax, ValidationError } from "@synnaxlabs/client";
 import { DataType } from "@synnaxlabs/x";
 
-import { bindingDataType, converts } from "@/platform/icd/dataType";
+import { bindingDataType, converts, DEFAULT_DATA_TYPES } from "@/platform/icd/dataType";
 import {
   isIndexable,
   type Messages,
-  mixMessage,
   readFields,
   type ReadSource,
-  variableAmongFixed,
 } from "@/platform/icd/read";
 import { Task } from "@/platform/task";
 
@@ -65,8 +63,6 @@ export const boundMessage = <S extends ReadSource>(
     );
   if (fields.length === 0)
     throw new ValidationError(`The task reads no fields of ${where}`);
-  const mixed = variableAmongFixed(fields);
-  if (mixed.length > 0) throw new ValidationError(`In ${where}, ${mixMessage(mixed)}`);
   return { source, read, message, fields };
 };
 
@@ -94,21 +90,38 @@ export const configureMessage = async (
       dataType: "",
     };
   const reused = fields.map((f) => bindingOf(f).channel || (held[f.pointer] ?? 0));
+  const storedKeys = fields.map(({ pointer }) => held[pointer] ?? 0);
   const live = new Map(
-    (await client.channels.retrieve(reused)).map((ch) => [ch.key, ch]),
+    (await client.channels.retrieve([...reused, ...storedKeys])).map((ch) => [
+      ch.key,
+      ch,
+    ]),
   );
+  // A message stores every field on one index when it has an index field, a stored
+  // channel, or a fixed-density field that needs a new channel. Else it streams them.
+  const indexed =
+    index != null ||
+    fields.some((f, i) => {
+      const ch = live.get(reused[i]);
+      if (ch != null && !ch.virtual) return true;
+      if (ch != null && converts(f.type, ch.dataType.toString())) return false;
+      return !new DataType(DEFAULT_DATA_TYPES[f.type]).isVariable;
+    });
+  // An edit of the field's kind or index role since the last deploy, or a streamed
+  // field that the message now stores, needs a new channel.
+  const stale = (f: icd.JSONField, ch?: channel.Channel): ch is channel.Channel =>
+    ch != null &&
+    (!converts(f.type, ch.dataType.toString()) ||
+      ch.isIndex !== (f.key === index) ||
+      (indexed && ch.virtual));
   const channels = fields.map((f, i) => {
     const binding = bindingOf(f);
     const isIndex = f.key === index;
     const suited = binding.dataType !== "" && converts(f.type, binding.dataType);
     const dataType = suited ? binding.dataType : "";
     const ch = live.get(reused[i]);
-    // An edit of the field's kind or index role since the last deploy needs a new
-    // channel.
-    const stale =
-      ch != null &&
-      (!converts(f.type, ch.dataType.toString()) || ch.isIndex !== isIndex);
-    if (stale && held[f.pointer] === ch.key) delete held[f.pointer];
+    const replaced = stale(f, ch);
+    if (stale(f, live.get(storedKeys[i]))) delete held[f.pointer];
     return {
       key: f.key,
       pointer: f.pointer,
@@ -116,7 +129,8 @@ export const configureMessage = async (
       dataType: isIndex
         ? DataType.TIMESTAMP.toString()
         : bindingDataType({ dataType }, f.type),
-      channel: stale ? 0 : binding.channel,
+      channel: replaced ? 0 : binding.channel,
+      replaces: replaced ? ch.key : 0,
       binding: { ...binding, dataType },
     };
   });
@@ -126,6 +140,7 @@ export const configureMessage = async (
     fields: channels,
     namePrefix: prefix,
     indexKey: index ?? "",
+    indexed: () => indexed,
   });
   source.messages[r] = {
     message: read.message,

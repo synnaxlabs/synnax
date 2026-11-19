@@ -62,6 +62,8 @@ export interface ReadChannelField {
   dataType: string;
   /** A disabled field gets no channel. */
   disabled?: boolean;
+  /** The channel that a new channel of the field replaces, as it no longer suits it. */
+  replaces?: channel.Key;
 }
 
 /** Where a device stores the channels of one read source. */
@@ -78,7 +80,7 @@ export interface ConfigureReadChannelsArgs<F extends ReadChannelField> {
   stored?: StoredChannels;
   /** The fields of the source. Each enabled one gets its channel in place. */
   fields: F[];
-  /** Prefix of a generated channel name. The index is named `${namePrefix}_time`. */
+  /** Prefix of a generated channel name. A new index is named `${namePrefix}_time`. */
   namePrefix: string;
   /** Key of the field whose channel is the index. */
   indexKey: string;
@@ -93,11 +95,36 @@ const isFixed = (field: ReadChannelField): boolean =>
   !new DataType(field.dataType).isVariable;
 
 /**
+ * @returns each of names, or the first of `${name}_2`, `${name}_3`, and so on that no
+ * channel on the Core and no earlier name holds.
+ */
+const freeNames = async (client: Client, names: string[]): Promise<string[]> => {
+  const taken = new Set(
+    (await client.channels.retrieve(names)).map(({ name }) => name),
+  );
+  const free: string[] = [];
+  for (const name of names) {
+    let candidate = name;
+    for (let n = 2; taken.has(candidate); n++) {
+      candidate = `${name}_${n}`;
+      if ((await client.channels.retrieve([candidate])).length > 0)
+        taken.add(candidate);
+    }
+    taken.add(candidate);
+    free.push(candidate);
+  }
+  return free;
+};
+
+/**
  * Gives every enabled field of a read source a channel: the one it has, the one the
  * device stores for its pointer, or a new one, which it adds to stored. The index field
  * or a new indexed channel gets the stored index. When that is gone, it gets the index
  * of a live channel of the source, or a new one. A source that needs no new channel
- * gets no entry in stored.
+ * gets no entry in stored. A new channel whose name is taken gets a number, such as
+ * `_2`, and fields claim their names before a new index. A replaced channel that holds
+ * the name of its replacement moves to a numbered name first, so the replacement keeps
+ * the plain one.
  */
 export const configureReadChannels = async <F extends ReadChannelField>({
   client,
@@ -129,29 +156,44 @@ export const configureReadChannels = async <F extends ReadChannelField>({
     if (field !== indexField && !(await bind(field))) unbound.push(field);
   const needsIndex =
     enabled.some(indexed) && (indexField != null || unbound.some(indexed));
+  let createsIndex = false;
   if (needsIndex && !(await channelExists(client, props.index))) {
     props.index = await recoverIndex(client, live, props);
-    if (!primitive.isNonZero(props.index)) {
-      const indexCh = await client.channels.create({
-        name: `${namePrefix}_time`,
-        dataType: "timestamp",
-        isIndex: true,
-      });
-      props.index = indexCh.key;
-    }
+    createsIndex = !primitive.isNonZero(props.index);
     save();
   }
-  if (indexField != null && primitive.isNonZero(props.index))
-    indexField.channel = props.index;
-  else if (indexField != null && !(await bind(indexField))) unbound.push(indexField);
-  for (const field of unbound) {
-    const name = primitive.isNonZero(field.name)
+  const takesIndex = createsIndex || primitive.isNonZero(props.index);
+  if (indexField != null && !takesIndex && !(await bind(indexField)))
+    unbound.push(indexField);
+  const planned = unbound.map((field) =>
+    primitive.isNonZero(field.name)
       ? field.name
-      : `${namePrefix}${channel.escapeInvalidName(field.pointer)}`;
+      : `${namePrefix}${channel.escapeInvalidName(field.pointer)}`,
+  );
+  for (const [i, field] of unbound.entries()) {
+    const old = await retrieveChannel(client, field.replaces ?? 0);
+    if (old == null || old.name !== planned[i]) continue;
+    const [numbered] = await freeNames(client, [old.name]);
+    await client.channels.rename(old.key, numbered);
+  }
+  const names = await freeNames(client, [
+    ...planned,
+    ...(createsIndex ? [`${namePrefix}_time`] : []),
+  ]);
+  if (createsIndex) {
+    const indexCh = await client.channels.create({
+      name: names[unbound.length],
+      dataType: "timestamp",
+      isIndex: true,
+    });
+    props.index = indexCh.key;
+  }
+  if (indexField != null && takesIndex) indexField.channel = props.index;
+  for (const [i, field] of unbound.entries()) {
     const ch = await client.channels.create({
-      name,
+      name: names[i],
       dataType: field.dataType,
-      ...(isFixed(field) ? { index: props.index } : { virtual: true }),
+      ...(indexed(field) ? { index: props.index } : { virtual: true }),
     });
     field.channel = ch.key;
     props.channels[field.pointer] = ch.key;

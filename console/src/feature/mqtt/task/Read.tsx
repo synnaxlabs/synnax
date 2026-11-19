@@ -105,8 +105,6 @@ interface Draft {
   type: "plain";
   topic: string;
   fields: icd.JSONField[];
-  /** The keys of the fields that the task reads. */
-  bound: string[];
 }
 
 /** What the discovery dialog adds: topics to read and Sparkplug B tags. */
@@ -116,16 +114,17 @@ const isDraft = (addition: Addition): addition is Draft => addition.type === "pl
 
 const createDraft = (topic: string, leaves: Leaf[] = []): Draft => {
   const names = ICD.fieldNames(leaves.map(({ pointer }) => pointer));
-  const fields = leaves.map((leaf, i) =>
-    icd.jsonFieldZ.parse({
-      name: names[i],
-      pointer: leaf.pointer,
-      type: SAMPLE_KINDS[leaf.type],
-    }),
-  );
-  // A disabled leaf would mix a variable-length channel among fixed ones.
-  const bound = fields.filter((_, i) => !leaves[i].disabled).map(({ key }) => key);
-  return { type: "plain", topic, fields, bound };
+  return {
+    type: "plain",
+    topic,
+    fields: leaves.map((leaf, i) =>
+      icd.jsonFieldZ.parse({
+        name: names[i],
+        pointer: leaf.pointer,
+        type: SAMPLE_KINDS[leaf.type],
+      }),
+    ),
+  };
 };
 
 const DISCOVER_KIND: Kind<Addition> = {
@@ -684,12 +683,8 @@ const Entries: FC<EntriesProps> = ({
     const drafts = additions.filter(isDraft);
     const tags = additions.filter((a): a is SparkplugReadEntry => !isDraft(a));
     const written = writtenChannels(entries);
-    const bind: Bind = ({ topic, bound }, fields, message) =>
-      bindingsOf(
-        topicChannels(stored, topic, message),
-        fields.filter(({ key }) => bound.includes(key)),
-        written,
-      );
+    const bind: Bind = ({ topic }, fields, message) =>
+      bindingsOf(topicChannels(stored, topic, message), fields, written);
     const { added, held: grown } =
       drafts.length === 0
         ? { added: [], held: [] }
