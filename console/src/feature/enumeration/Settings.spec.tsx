@@ -82,7 +82,7 @@ const storedNames = async (key: enumeration.Key): Promise<string[]> =>
 // The delete dialog enables its button once it knows what uses the enumeration.
 const clickWhenEnabled = async (name: string): Promise<void> => {
   const button = await screen.findByRole("button", { name });
-  await waitFor(() => expect(button).toHaveProperty("disabled", false));
+  await waitFor(() => expect(button.getAttribute("aria-disabled")).toBeNull());
   await act(async () => {
     fireEvent.click(button);
   });
