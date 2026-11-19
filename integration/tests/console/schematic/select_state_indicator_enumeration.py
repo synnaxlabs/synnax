@@ -24,6 +24,20 @@ class SelectStateIndicatorEnumeration(ConsoleCase):
     into a new enumeration from its picker.
     """
 
+    created: list[str]
+
+    def setup(self) -> None:
+        super().setup()
+        self.created = []
+
+    def teardown(self) -> None:
+        # The Core refuses to delete an enumeration that a schematic uses, so the
+        # schematic and its project go first.
+        super().teardown()
+        stale = self.client.enumerations.retrieve(names=self.created)
+        if stale:
+            self.client.enumerations.delete([e.key for e in stale])
+
     def run(self) -> None:
         console = self.console
         client = self.client
@@ -45,8 +59,9 @@ class SelectStateIndicatorEnumeration(ConsoleCase):
         )
 
         self.log("Creating enumeration")
+        self.created.append(f"valve_state_{random_name()}")
         valve = client.enumerations.create(
-            name=f"valve_state_{random_name()}",
+            name=self.created[-1],
             entries=[
                 enumeration.Entry(key="open", value=1, name="Open"),
                 enumeration.Entry(key="closed", value=2, name="Closed"),
@@ -106,6 +121,7 @@ class SelectStateIndicatorEnumeration(ConsoleCase):
 
         self.log("Moving the options of a new State Indicator into an enumeration")
         PUMP_NAME = f"pump_state_{random_name()}"
+        self.created.append(PUMP_NAME)
         pump = StateIndicator(
             label="Pump Display",
             channel_name=CHANNEL_NAME,
