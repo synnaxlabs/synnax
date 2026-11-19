@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ranger, type Synnax } from "@synnaxlabs/client";
-import { bounds, box, type scale, TimeRange, xy } from "@synnaxlabs/x";
+import { bounds, box, type scale, TimeRange, TimeStamp, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -55,6 +55,9 @@ interface InternalState {
   requestRender: render.Requestor;
   draw: Draw2D;
   runAsync: status.ErrorHandler;
+  // The timer that draws a running range again, and its period in milliseconds.
+  timer?: ReturnType<typeof setInterval>;
+  period?: number;
 }
 
 export interface ProviderProps {
@@ -62,6 +65,8 @@ export interface ProviderProps {
   viewport: box.Box;
   region: box.Box;
   timeRange: TimeRange;
+  /** The newest sample, when the x axis ends at it. */
+  newest?: TimeStamp;
 }
 
 /**
@@ -91,6 +96,11 @@ const covers = (window: TimeRange, viewport: TimeRange): boolean =>
   window.contains(viewport) &&
   window.span.valueOf() <= 2n * WINDOW_SPANS * viewport.span.valueOf();
 
+// A running range draws again each second, so its elapsed time stays current, and at
+// this period while its head shows, so the head pulses.
+const CLOCK_PERIOD = 1000;
+const HEAD_PERIOD = 33;
+
 export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> {
   static readonly TYPE = "range-provider";
   static readonly stateZ = providerStateZ;
@@ -114,10 +124,21 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
 
   afterDelete(): void {
     this.internal.retrieve.close();
+    this.schedule(undefined);
+  }
+
+  // Draws the strip again at each period, or stops when the period is undefined.
+  private schedule(period: number | undefined): void {
+    const { internal: i } = this;
+    if (period === i.period) return;
+    clearInterval(i.timer);
+    i.timer =
+      period == null ? undefined : setInterval(() => i.requestRender("tool"), period);
+    i.period = period;
   }
 
   render(props: ProviderProps): void {
-    const { dataToDecimalScale, region, viewport, timeRange } = props;
+    const { dataToDecimalScale, region, viewport, timeRange, newest } = props;
     const { internal: i } = this;
     if (i.window == null || !covers(i.window, timeRange)) i.window = pad(timeRange);
     if (i.client != null)
@@ -126,6 +147,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
         limit: FETCH_LIMIT,
       });
     const { draw } = i;
+    const now = TimeStamp.now();
     const fetched = i.retrieve.value ?? [];
     const start = timeRange.start.valueOf();
     const end = timeRange.end.valueOf();
@@ -141,6 +163,8 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
       region,
       (v) => regionScale.pos(v),
       draw.theme,
+      now,
+      newest,
     );
     const bars = packed.filter(
       (b) => b.end >= box.left(region) && b.start <= box.right(region),
@@ -148,6 +172,11 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
     const count = packed.length;
     const height = stripHeight(lanes);
     const { cursor, visible, menuOpen, hovered: shown } = this.state;
+    const running = visible ? bars.filter((b) => b.running) : [];
+    let period: number | undefined;
+    if (running.some((b) => b.end <= box.right(region))) period = HEAD_PERIOD;
+    else if (running.length > 0) period = CLOCK_PERIOD;
+    this.schedule(period);
     // The range of an open menu stays hovered while a live plot slides it away from the
     // cursor, so the menu keeps acting on the range the user clicked.
     let hovered: Bar | null = null;
@@ -162,13 +191,18 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
         ),
       );
       drawFills(draw, bars, region, hovered);
-      drawBars(draw, bars, region, lanes, hovered);
+      drawBars(draw, bars, region, lanes, hovered, now);
       clearScissor();
       if (hovered != null && cursor != null && !menuOpen)
-        drawTooltip(draw, hovered, cursor, region);
+        drawTooltip(draw, hovered, cursor, region, now);
     }
     const viewportScale = dataToDecimalScale.scale(box.xBounds(viewport));
     const r = hovered?.range;
+    // A running range zooms to its newest sample, where the axis ends.
+    const zoomEnd =
+      r == null || !hovered?.running
+        ? r?.timeRange.end
+        : TimeStamp.min(r.timeRange.end, timeRange.end);
     const hoveredState: SelectedState | null =
       r == null
         ? null
@@ -182,7 +216,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
             hasChildren: r.hasChildren,
             viewport: {
               lower: viewportScale.pos(Number(r.timeRange.start.valueOf())),
-              upper: viewportScale.pos(Number(r.timeRange.end.valueOf())),
+              upper: viewportScale.pos(Number((zoomEnd ?? r.timeRange.end).valueOf())),
             },
           };
     if (hoveredState != null) this.setState((s) => ({ ...s, hovered: hoveredState }));

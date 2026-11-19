@@ -72,7 +72,10 @@ A range that is still running shows from its start to its newest sample, and the
 grows as new samples arrive.
 
 The plot shows each range in Synnax that overlaps the visible time as a bar in a strip
-above the plot. Only ranges that have a color show.
+above the plot. Only ranges that have a color show. The end of a bar shows the length of
+the range, such as `10min`. A range that is still running shows `T+` and the time since
+it started, such as `T+0:42:07`, and its bar ends at the newest sample with a bright
+edge that pulses. A bar that goes past the edge of the plot fades out.
 
 - **Hover over a bar** -> see the name, start, end, and duration of the range.
 - **Click a bar** -> zoom to the range and pause the plot. Click the bar again to go

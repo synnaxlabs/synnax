@@ -753,7 +753,14 @@ says why in a sentence, then gives the raw error.
   name. Up to four more are 4 px, with no name.
 - A bar is its range color tinted over the background, with a 1 px border in the color.
   The name is in the range hue, centered on its cap height, and fades at its end. A side
-  cut by the plot edge has square corners, and the name stays at the edge.
+  cut by the plot edge has square corners and fades out over 40 px, and the name stays
+  at the edge. A fade means only "more of this range is outside the view".
+- The time sits at the bar's end in the code font: `T+h:mm:ss` for a running range, and
+  the short length (`10min`) for any other. The name gets the room first.
+- A running bar ends at the newest sample of a live plot, or at now. Its end is a 2 px
+  cap in the range color that bends around the corners, with a glow that pulses every
+  1.6 s. Rejected: a fade, a dot, stripes, or a hollow bar for "running", and elapsed
+  time after the name.
 - In the plot, each range draws its start and end lines. Only a range that holds no
   other range gets a fill, so fills do not stack. A range with no color is not drawn.
 - Hover fills the range, dims the others, and shows its name, start, end, and duration.

@@ -445,4 +445,127 @@ describe("Provider", () => {
       retrieve.mockRestore();
     }
   });
+
+  describe("running ranges", () => {
+    // A minute before now, so few ranges that other specs create near now overlap it.
+    const createRunning = async (now: TimeStamp) =>
+      await createTestClient().ranges.create({
+        name: `running-${id.create()}`,
+        timeRange: new TimeRange(
+          now.sub(TimeSpan.seconds(90)),
+          now.add(TimeSpan.hours(1)),
+        ),
+        color: "#7C3AED",
+      });
+    const lastMinute = (now: TimeStamp): TimeRange =>
+      new TimeRange(now.sub(TimeSpan.seconds(120)), now.sub(TimeSpan.seconds(60)));
+
+    it("should show the time since its start at the end of its bar", async () => {
+      const now = TimeStamp.now();
+      const rng = await createRunning(now);
+      try {
+        const recorder = canvasTest.record();
+        const provider = mount(recorder);
+        const props = renderProps(lastMinute(now));
+        const texts = (): string[] => {
+          recorder.upper2d.calls.length = 0;
+          provider.render(props);
+          return recorder.upper2d.calls
+            .filter((c) => c.op === "fillText")
+            .map((c) => c.args[0] as string);
+        };
+        await expect.poll(texts).toContain(rng.name);
+        expect(texts().some((t) => /^T\+0:0[1-9]:\d\d$/.test(t))).toBe(true);
+        provider.setState((s) => ({ ...s, cursor: { x: 800, y: -14 } }));
+        provider.render(props);
+        expect(provider.state.hovered?.key).toEqual(rng.key);
+        expect(texts().some((t) => t.startsWith("Running for "))).toBe(true);
+      } finally {
+        await createTestClient().ranges.delete(rng.key);
+      }
+    });
+
+    it("should end its bar at the newest sample of a live plot", async () => {
+      const now = TimeStamp.now();
+      const rng = await createRunning(now);
+      try {
+        const recorder = canvasTest.record();
+        const provider = mount(recorder);
+        const props = {
+          ...renderProps(lastMinute(now)),
+          newest: now.sub(TimeSpan.seconds(75)),
+        };
+        await expect
+          .poll(() => {
+            provider.render(props);
+            return provider.state.count;
+          })
+          .toBeGreaterThan(0);
+        recorder.upper2d.calls.length = 0;
+        provider.render(props);
+        // The range starts at 500 px, and the newest sample sits at 750 px.
+        const bar = recorder.upper2d.calls.find(
+          (c) => c.op === "roundRect" && Math.abs((c.args[0] as number) - 500) < 0.01,
+        );
+        if (bar == null) throw new Error("no bar drawn from 500 px");
+        const [x, , width] = bar.args as number[];
+        expect(x + width).toBeCloseTo(750);
+      } finally {
+        await createTestClient().ranges.delete(rng.key);
+      }
+    });
+  });
+
+  it("should show the length of an ended range at the end of its bar", async () => {
+    const start = TimeStamp.now().add(TimeSpan.days(17155));
+    const [rng] = await createRanges(start, [[2, 6]]);
+    try {
+      const recorder = canvasTest.record();
+      const provider = mount(recorder);
+      const props = renderProps(new TimeRange(start, start.add(TimeSpan.seconds(10))));
+      const texts = (): unknown[] => {
+        recorder.upper2d.calls.length = 0;
+        provider.render(props);
+        return recorder.upper2d.calls
+          .filter((c) => c.op === "fillText")
+          .map((c) => c.args[0]);
+      };
+      await expect.poll(texts).toContain(rng.name);
+      expect(texts()).toContain("4s");
+    } finally {
+      await createTestClient().ranges.delete(rng.key);
+    }
+  });
+
+  it("should fade only the bars that the plot edge cuts", async () => {
+    const start = TimeStamp.now().add(TimeSpan.days(17520));
+    const ranges = await createRanges(start, [
+      [0, 5],
+      [6, 9],
+    ]);
+    try {
+      const recorder = canvasTest.record();
+      const provider = mount(recorder);
+      const props = renderProps(
+        new TimeRange(start, start.add(TimeSpan.seconds(10))),
+        new TimeRange(start.add(TimeSpan.seconds(2)), start.add(TimeSpan.seconds(10))),
+      );
+      await expect
+        .poll(() => {
+          provider.render(props);
+          return provider.state.count;
+        })
+        .toEqual(2);
+      recorder.upper2d.calls.length = 0;
+      provider.render(props);
+      const gradients = recorder.upper2d.calls.filter(
+        (c) => c.op === "createLinearGradient",
+      );
+      // The 0 to 5 second range runs from the left edge to 375 px.
+      expect(gradients.length).toBeGreaterThan(0);
+      gradients.forEach((g) => expect(g.args).toEqual([0, 0, 375, 0]));
+    } finally {
+      await createTestClient().ranges.delete(ranges.map((r) => r.key));
+    }
+  });
 });

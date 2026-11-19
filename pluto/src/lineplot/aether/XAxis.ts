@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, type scale, TimeRange } from "@synnaxlabs/x";
+import { bounds, type scale, TimeRange, TimeStamp } from "@synnaxlabs/x";
 
 import { type AxisRenderProps, BaseAxis, baseAxisStateZ } from "@/lineplot/aether/axis";
 import { YAxis, type YAxisProps } from "@/lineplot/aether/YAxis";
@@ -115,12 +115,17 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
     const bound = this.bounds(props.hold);
     const clampedBounds = bounds.intersection([bound, TimeRange.MAX.numericBounds]);
     const timeRange = new TimeRange(clampedBounds.lower, clampedBounds.upper);
+    const edges = this.dataBounds()
+      .filter((d) => d.edge != null && bounds.isFinite(d.bounds))
+      .map((d) => d.bounds.upper);
+    const newest = edges.length === 0 ? undefined : new TimeStamp(Math.max(...edges));
     this.ranges.forEach((el) =>
       el.render({
         dataToDecimalScale: xDataToDecimalScale,
         region: props.plot,
         viewport: props.viewport,
         timeRange,
+        newest,
       }),
     );
   }
