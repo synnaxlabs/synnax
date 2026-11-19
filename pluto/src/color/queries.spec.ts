@@ -296,26 +296,6 @@ describe("queries", () => {
     });
   });
 
-  describe("useRestore", () => {
-    it("should write the shipped values back onto an edited built-in", async () => {
-      const shipped = (await client.colors.retrieveBuiltins()).at(-1);
-      if (shipped == null) throw new Error("the Core ships no named colors");
-      await remote.colors.retrieve(shipped.key);
-      await remote.colors.dispatch(
-        shipped.key,
-        color.set({ path: ["light"], value: xcolor.construct("#123456") }),
-      );
-      const { result } = renderHook(Color.useRestore, { wrapper });
-      await act(async () => {
-        await result.current.updateAsync(shipped);
-      });
-      expect(result.current.variant).toEqual("success");
-      const stored = await createTestClient().colors.retrieve(shipped.key);
-      expect(stored.light).toEqual(shipped.light);
-      expect(stored.dark).toEqual(shipped.dark);
-    });
-  });
-
   describe("useDeletePalette", () => {
     it("should delete a palette and its named colors", async () => {
       const palette = await createPalette();

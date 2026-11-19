@@ -83,7 +83,25 @@ export default defineConfig({
           environment: "jsdom",
           setupFiles: ["src/testutil/setup.ts"],
           include: ["src/**/*.spec.{ts,tsx}"],
-          exclude: ["**/node_modules/**", "**/dist/**", "src/**/*.browser.spec.tsx"],
+          exclude: [
+            "**/node_modules/**",
+            "**/dist/**",
+            "src/**/*.browser.spec.tsx",
+            "src/**/*.builtins.spec.{ts,tsx}",
+          ],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          // Every spec file shares the built-in records of one Core, so the specs that
+          // edit them run one file at a time, after every other spec.
+          name: "builtins",
+          environment: "jsdom",
+          setupFiles: ["src/testutil/setup.ts"],
+          include: ["src/**/*.builtins.spec.{ts,tsx}"],
+          fileParallelism: false,
+          sequence: { groupOrder: 1 },
         },
       },
       {

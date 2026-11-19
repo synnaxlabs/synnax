@@ -19,7 +19,13 @@ import { type FC, type ReactElement, useEffect } from "react";
 
 import { converts } from "@/platform/icd/dataType";
 import { useFormats } from "@/platform/icd/Formats";
-import { isReadable, jsonFields, type ReadSource, suit } from "@/platform/icd/read";
+import {
+  isReadable,
+  jsonFields,
+  type ReadSource,
+  suit,
+  type TreeField,
+} from "@/platform/icd/read";
 import { Task } from "@/platform/task";
 
 export interface MessageLabelProps {
@@ -50,7 +56,7 @@ const UNREADABLE_TOOLTIP =
 
 export interface ReadCheckboxProps {
   bindings: deep.Target<icd.ReadBinding[]>;
-  field: icd.JSONField;
+  field: TreeField;
   /** Starts or stops reading the field. */
   onChange: (on: boolean) => void;
 }

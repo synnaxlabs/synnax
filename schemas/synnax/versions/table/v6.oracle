@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/versions/channel/v0"
-import "schemas/synnax/versions/color/v0"
 import "schemas/synnax/versions/group/v1"
 import "schemas/synnax/versions/project/v3"
 import "schemas/synnax/versions/ranger/v1"
@@ -20,43 +19,7 @@ Key = v0.Key
 
 FlexAlignment = v2.FlexAlignment
 
-CellConfig union on variant extends v2.CellConfig {
-    text {
-        fill_color color.Ref? {
-            @doc value """
-                is the background color of the cell, a named color or a fixed color.
-                When absent the theme picks the fill; a fully transparent value paints
-                nothing.
-            """
-        }
-        text_color color.Ref? {
-            @doc value """
-                is the color of the cell text, a named color or a fixed color. When
-                absent the theme picks the color.
-            """
-        }
-    }
-    value {
-        fill_color      color.Ref? {
-            @doc value """
-                is the fill behind the value where no redline band paints, a named color
-                or a fixed color. When absent the cell paints no fill.
-            """
-        }
-        text_color      color.Ref? {
-            @doc value """
-                is the color of the displayed text, a named color or a fixed color. When
-                absent the value renders with a theme-derived legible color.
-            """
-        }
-        staleness_color color.Ref? {
-            @doc value """
-                is the color applied when the value is stale, a named color or a fixed
-                color. When absent the value renders with the theme warning color.
-            """
-        }
-    }
-}
+CellConfig union on variant extends v2.CellConfig {}
 
 Cell struct {
     key    string     {
