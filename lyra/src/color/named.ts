@@ -53,6 +53,8 @@ export interface Library {
    * in it takes the same box.
    */
   footer?: ReactNode;
+  /** Shown under the custom editor, as `footer` is under the palettes. */
+  customFooter?: ReactNode;
 }
 
 /** @returns the named color with the key, or undefined when no palette holds it. */

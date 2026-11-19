@@ -675,6 +675,22 @@ describe("Picker", () => {
         expect(c.getByText("Create palette")).toBeTruthy();
       });
 
+      it("should end the custom editor with customFooter, and show Library on a link", () => {
+        const Linker = (): ReactElement => {
+          const { onNamedChange: link } = Color.usePicker();
+          return <button onClick={() => link("moss")}>link Moss</button>;
+        };
+        const c = renderSlots(
+          { named: "ocean", customFooter: <Linker /> },
+          { value: "#3e8bff" },
+        );
+        expect(c.queryByText("link Moss")).toBeNull();
+        fireEvent.click(c.getByText("Custom"));
+        fireEvent.click(c.getByText("link Moss"));
+        expect(c.queryByLabelText("Hex")).toBeNull();
+        expect(document.activeElement).toBe(c.getByLabelText("Moss"));
+      });
+
       it("should give slots the fallback while the value is absent", () => {
         const c = renderSlots({ footer: <ViewOpener /> }, { fallback: "#123456" });
         expect(c.getByText("open from #123456")).toBeTruthy();

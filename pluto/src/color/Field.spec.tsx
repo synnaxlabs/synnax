@@ -228,6 +228,22 @@ describe("Color.Field", () => {
       );
     });
 
+    it("should save a custom color to the library and link the field", async () => {
+      await createInPalette();
+      const { result, values } = renderField();
+      openPicker(result);
+      fireEvent.click(await screen.findByText("Custom"));
+      fireEvent.change(screen.getByLabelText("Hex"), { target: { value: "0000ff" } });
+      fireEvent.click(screen.getByRole("button", { name: "Save to library" }));
+      const name = `saved-${id.create()}`;
+      enterColorName(name);
+      const created = await createdColor(values);
+      expect(created.name).toBe(name);
+      expect(xcolor.hex(created.light)).toBe("#0000ff");
+      const swatch = await screen.findByRole("button", { name });
+      await waitFor(() => expect(document.activeElement).toBe(swatch));
+    });
+
     it("should refuse a blank name and keep the view", async () => {
       const { palette } = await createInPalette();
       const { result, values } = renderField();

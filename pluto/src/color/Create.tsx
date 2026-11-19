@@ -111,8 +111,11 @@ const NameEntry = ({
 };
 
 interface NewColorProps {
-  /** The palette that the new color starts in. */
-  palette: group.Key;
+  /**
+   * The palette that the new color starts in. Defaults to the first palette that the
+   * user can add to.
+   */
+  palette?: group.Key;
 }
 
 /**
@@ -128,9 +131,10 @@ const NewColor = ({ palette: initialPalette }: NewColorProps): ReactElement => {
   const palettes = usePalettes().filter(
     ({ key }) =>
       key !== color.SERIES_PALETTE &&
-      (key === "" || Access.updateGranted({ client, id: group.resourceID(key) })),
+      key !== "" &&
+      Access.updateGranted({ client, id: group.resourceID(key) }),
   );
-  const [palette, setPalette] = useState(initialPalette);
+  const [palette, setPalette] = useState(initialPalette ?? palettes[0]?.key ?? "");
   const methods = Form.use<typeof createFormSchema>({
     schema: createFormSchema,
     values: {
@@ -176,6 +180,12 @@ const NewColor = ({ palette: initialPalette }: NewColorProps): ReactElement => {
             onChange={(key: group.Key | undefined) => key != null && setPalette(key)}
             triggerProps={{ size: "small" }}
             grow
+            footer={
+              <Select.Item<group.Key> itemKey="" textValue="No palette">
+                <Icon.None />
+                No palette
+              </Select.Item>
+            }
           >
             {palettes.map(({ key, name }) => (
               <Select.Item key={key} itemKey={key}>
@@ -261,6 +271,22 @@ export const CreateSwatch = ({
     <Add focused={focused} onFocus={onFocus} />
   ) : (
     <PaletteAdd palette={palette.key} focused={focused} onFocus={onFocus} />
+  );
+};
+
+/**
+ * Ends the Custom tab of a color picker. It opens a view that creates a named color
+ * from the custom color.
+ */
+export const SaveColor = (): ReactElement => {
+  const { open } = Dialog.useViews();
+  return (
+    <Button.CreateListItem
+      size="small"
+      onClick={(e) => open("New color", <NewColor />, e.currentTarget)}
+    >
+      Save to library
+    </Button.CreateListItem>
   );
 };
 

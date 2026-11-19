@@ -64,7 +64,8 @@ export interface PickerContextValue {
   linked?: Named;
   /**
    * Links the value to the named color with the key, as a click on its swatch does.
-   * The search clears, and the focus moves to the swatch, at once or when it renders.
+   * The Library tab shows with no search, and the focus moves to the swatch, at once or
+   * when it renders.
    */
   onNamedChange: (key: string) => void;
   /** Clears the search, so that every palette and color shows. */
@@ -167,6 +168,7 @@ const Tabbed = ({
     swatchMenu,
     hasSwatchMenu,
     footer,
+    customFooter,
   },
   className,
   ...rest
@@ -196,6 +198,7 @@ const Tabbed = ({
     value: color.construct(value ?? fallback ?? color.TRANSPARENT),
     linked,
     onNamedChange: (key) => {
+      setTab("library");
       setSearch("");
       onNamedChange(key);
       const swatch = swatches.current.get(key);
@@ -280,31 +283,38 @@ const Tabbed = ({
             )}
           </>
         ) : (
-          <Flex.Box y gap="medium" className={CSS.BE("color-picker", "custom")}>
-            <Editor
-              value={value ?? fallback ?? color.TRANSPARENT}
-              onChange={handleChange}
-            />
-            {frequent.length > 0 && (
-              <Section title="Recent">
-                {frequent.map((c) => (
-                  <BaseSwatch
-                    key={color.hex(c)}
-                    value={c}
-                    size="tiny"
-                    draggable={false}
-                    className={CSS.cls(
-                      CSS.selected(
-                        linked == null && value != null && color.equals(value, c),
-                      ),
-                    )}
-                    onClick={() => handleChange(color.construct(c))}
-                    aria-label={color.hex(c)}
-                  />
-                ))}
-              </Section>
+          <>
+            <Flex.Box y gap="medium" className={CSS.BE("color-picker", "custom")}>
+              <Editor
+                value={value ?? fallback ?? color.TRANSPARENT}
+                onChange={handleChange}
+              />
+              {frequent.length > 0 && (
+                <Section title="Recent">
+                  {frequent.map((c) => (
+                    <BaseSwatch
+                      key={color.hex(c)}
+                      value={c}
+                      size="tiny"
+                      draggable={false}
+                      className={CSS.cls(
+                        CSS.selected(
+                          linked == null && value != null && color.equals(value, c),
+                        ),
+                      )}
+                      onClick={() => handleChange(color.construct(c))}
+                      aria-label={color.hex(c)}
+                    />
+                  ))}
+                </Section>
+              )}
+            </Flex.Box>
+            {customFooter != null && (
+              <Flex.Box y empty className={CSS.BE("color-picker", "footer")}>
+                {customFooter}
+              </Flex.Box>
             )}
-          </Flex.Box>
+          </>
         )}
       </Dialog.Views>
     </PickerContext>
