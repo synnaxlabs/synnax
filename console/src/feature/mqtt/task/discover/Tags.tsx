@@ -11,7 +11,7 @@ import { status } from "@synnaxlabs/client";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Status } from "@synnaxlabs/lyra/status";
 import { type Tree } from "@synnaxlabs/lyra/tree";
-import { id } from "@synnaxlabs/x";
+import { id, map } from "@synnaxlabs/x";
 import pluralize from "pluralize";
 import { type ReactNode, useEffect, useState } from "react";
 
@@ -175,8 +175,7 @@ export const TagPicker = ({
       .map((t) => toTag(node, t))
       .filter((t) => !taken.has(tagKey(t)));
   const byKey = new Map(nodes.map((n) => [nodeKey(n), n]));
-  const groups = new Map<string, BrowsedSparkplugNode[]>();
-  for (const n of nodes) groups.set(n.group, [...(groups.get(n.group) ?? []), n]);
+  const groups = Map.groupBy(nodes, (n) => n.group);
   const treeNodes: Tree.Node[] = [...groups].map(([group, members]) => ({
     key: group,
     children: members.map((n) => ({ key: nodeKey(n) })),
@@ -274,9 +273,9 @@ export const TagPicker = ({
     const byDevice = new Map<string, ICD.Picker.Value[]>();
     for (const t of list) {
       const key = tagKey(toTag(node, t));
-      byDevice.set(t.device, [
-        ...(byDevice.get(t.device) ?? []),
-        {
+      map
+        .getOrInsert(byDevice, t.device, () => [])
+        .push({
           key,
           name: t.name,
           sample: t.value,
@@ -286,8 +285,7 @@ export const TagPicker = ({
             : t.supported
               ? undefined
               : { checked: false, label: "Not supported" },
-        },
-      ]);
+        });
     }
     const free = freeTags(node, list);
     const picked = pickedIn(value, node).map(tagKey);

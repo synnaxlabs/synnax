@@ -11,6 +11,7 @@ import { device, NotFoundError, rack as clientRack, task } from "@synnaxlabs/cli
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Device as PDevice } from "@synnaxlabs/pluto";
 import { id, TimeStamp } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -29,7 +30,7 @@ import {
   type CommandAnswer,
   reportTaskRunning,
 } from "@/platform/task/testutil";
-import { createAsyncSynnaxWrapper, uniqueName } from "@/testutil";
+import { createAsyncSynnaxWrapper } from "@/testutil";
 
 const client = createTestClient();
 
