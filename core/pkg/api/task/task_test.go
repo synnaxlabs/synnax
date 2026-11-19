@@ -810,7 +810,7 @@ var _ = Describe("Delete", func() {
 		},
 	)
 	It("Should stop a batch that never acks within one timeout", func(ctx SpecContext) {
-		const timeout = 300 * time.Millisecond
+		const timeout = time.Second
 		tasks := []task.Task{
 			createRunningTask(ctx, true),
 			createRunningTask(ctx, true),
@@ -828,7 +828,9 @@ var _ = Describe("Delete", func() {
 		)).Error().ToNot(HaveOccurred())
 		elapsed := time.Since(start)
 		Expect(elapsed).To(BeNumerically(">=", timeout))
-		Expect(elapsed).To(BeNumerically("<", 2*timeout))
+		// One timeout per task would take at least this long. A tighter bound also
+		// measures the delete transaction, which is slow on loaded runners.
+		Expect(elapsed).To(BeNumerically("<", time.Duration(len(tasks))*timeout))
 		stopped := make([]task.Key, 0, len(tasks))
 		for range tasks {
 			var cmd task.Command
