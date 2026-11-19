@@ -15,7 +15,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v1"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v4"
 	v5 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v5"
@@ -26,10 +25,6 @@ import (
 )
 
 func root() v1.Node { return v1.Node{Variant: v1.LeafNode{Tabs: []v1.Tab{}}} }
-
-func fixed(c colorv2.Color) *servicecolor.Ref {
-	return &servicecolor.Ref{Variant: servicecolor.FixedRef{Value: c}}
-}
 
 var _ = Describe("Migration", func() {
 	migrate := func(ctx SpecContext, old v4.Panel) v5.Panel {
@@ -49,7 +44,7 @@ var _ = Describe("Migration", func() {
 		return got
 	}
 
-	DescribeTable("Should store the icon color as a fixed color with a byte alpha",
+	DescribeTable("Should store the icon color alpha as a byte",
 		func(ctx SpecContext, a float64, expected uint8) {
 			old := v4.Panel{
 				Key:   uuid.New(),
@@ -58,7 +53,7 @@ var _ = Describe("Migration", func() {
 				Color: &color.Color{R: 1, G: 2, B: 3, A: a},
 			}
 			Expect(migrate(ctx, old).Color).
-				To(Equal(fixed(colorv2.Color{R: 1, G: 2, B: 3, A: expected})))
+				To(HaveValue(Equal(colorv2.Color{R: 1, G: 2, B: 3, A: expected})))
 		},
 		Entry("a transparent alpha", 0.0, uint8(0)),
 		Entry("a faint alpha", 0.003, uint8(1)),
@@ -72,11 +67,11 @@ var _ = Describe("Migration", func() {
 })
 
 var _ = Describe("MigratePanel", func() {
-	It("Should store the icon color as a fixed color", func(ctx SpecContext) {
+	It("Should store the icon color alpha as a byte", func(ctx SpecContext) {
 		out := MustSucceed(v5.MigratePanel(ctx, v4.Panel{
 			Root: root(), Color: &color.Color{R: 1, A: 0.5},
 		}))
-		Expect(out.Color).To(Equal(fixed(colorv2.Color{R: 1, A: 128})))
+		Expect(out.Color).To(Equal(&colorv2.Color{R: 1, A: 128}))
 	})
 })
 
