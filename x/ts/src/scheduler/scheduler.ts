@@ -13,3 +13,7 @@ export const nextMicrotask = (): Promise<void> => Promise.resolve();
 /** @returns A promise that resolves on the next task, after pending microtasks run. */
 export const nextTask = (): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, 0));
+
+/** @returns A promise that resolves on the next animation frame. */
+export const nextFrame = (): Promise<void> =>
+  new Promise((resolve) => requestAnimationFrame(() => resolve()));

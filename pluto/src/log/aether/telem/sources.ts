@@ -18,6 +18,8 @@ import {
   bounds,
   type breaker,
   DataType,
+  map,
+  math,
   type Series,
   staticWindow,
   sync,
@@ -322,7 +324,10 @@ export class StreamMultiChannelLog
       this.pageFailure = failed;
       this.reading = false;
       this.observer.notify();
-      if ((await this.pageBreaker.wait()) && !signal.aborted) this.paging = false;
+      if ((await this.pageBreaker.wait()) && !signal.aborted) {
+        this.paging = false;
+        this.observer.notify();
+      }
       return null;
     }
     [this.paging, this.reading, this.pageFailure] = [false, false, undefined];
@@ -344,7 +349,7 @@ export class StreamMultiChannelLog
           span.counts.get(key) ?? 0,
         ) + 1,
       ]);
-    const size = (): number => [...span.counts.values()].reduce((a, b) => a + b, 0);
+    const size = (): number => math.sum(span.counts.values());
     const before = size();
     const range = new TimeRange(
       new TimeStamp(span.start + 1n),
@@ -399,7 +404,7 @@ export class StreamMultiChannelLog
     const { skipped } = this;
     // A pull adds its groups one channel at a time.
     skipped.sort((a, b) => compareTimes(a[0], b[0]));
-    let lines = groups.reduce((total, group) => total + group.length, 0);
+    let lines = math.sum(groups.map((group) => group.length));
     let joined = 0;
     while (
       joined < skipped.length &&
@@ -688,7 +693,7 @@ export class StreamMultiChannelLog
       const span =
         time > last.start ? last : this.unread.find(({ end }) => time <= end)!;
       if (time > span.end) span.end = time;
-      span.counts.set(channelKey, (span.counts.get(channelKey) ?? 0) + 1);
+      map.increment(span.counts, channelKey);
       span.lines = (span.lines ?? 0) + group.length;
     }
     let excess = 0;
@@ -826,7 +831,7 @@ export class StreamMultiChannelLog
     const counts = new Map<channel.Key, number>();
     for (const { channelKey, continuation } of evicted)
       if (continuation !== true && this.metas.get(channelKey)?.stored === true)
-        counts.set(channelKey, (counts.get(channelKey) ?? 0) + 1);
+        map.increment(counts, channelKey);
     const start = time(at - 1);
     // A channel with no entries left reads older samples from below the unread span.
     this.metas.forEach((m) => {

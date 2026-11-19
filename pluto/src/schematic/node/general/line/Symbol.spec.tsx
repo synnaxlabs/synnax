@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { type xy } from "@synnaxlabs/x";
+import { scheduler, type xy } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
 import { type Node, ReactFlowProvider, useStoreApi } from "@xyflow/react";
 import { describe, expect, it, vi } from "vitest";
@@ -54,14 +54,11 @@ const nodePosition = (store: Store): xy.XY | undefined =>
 
 const POINTER = { pointerId: 1, button: 0, isPrimary: true };
 
-// Moves are coalesced and delivered on the next animation frame.
-const frame = async (): Promise<void> =>
-  await new Promise((resolve) => requestAnimationFrame(() => resolve()));
-
 const drag = async (el: HTMLElement, by: xy.XY, shiftKey = false): Promise<void> => {
   fireEvent.pointerDown(el, { ...POINTER, clientX: 0, clientY: 0 });
   fireEvent.pointerMove(window, { ...POINTER, shiftKey, clientX: by.x, clientY: by.y });
-  await frame();
+  // Moves are coalesced and delivered on the next animation frame.
+  await scheduler.nextFrame();
   fireEvent.pointerUp(window, { ...POINTER, clientX: by.x, clientY: by.y });
 };
 

@@ -164,3 +164,21 @@ export const toSentence = (str: string): string => {
     })
     .join(" ");
 };
+
+/**
+ * Formats a count with a noun that agrees with it.
+ *
+ * @param n - The count.
+ * @param noun - The singular noun.
+ * @param plural - The plural noun. Defaults to the noun with an "s" added.
+ * @returns the count followed by the noun, singular only when the count is 1.
+ *
+ * @example
+ * ```typescript
+ * count(1, "cell"); // "1 cell"
+ * count(3, "cell"); // "3 cells"
+ * count(0, "entry", "entries"); // "0 entries"
+ * ```
+ */
+export const count = (n: number, noun: string, plural: string = `${noun}s`): string =>
+  `${n} ${n === 1 ? noun : plural}`;
