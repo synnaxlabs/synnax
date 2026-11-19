@@ -39,6 +39,8 @@ on:
   workflow_dispatch:
     inputs: *inputs
 
+permissions: {}
+
 jobs:
   prompt:
     name: Write the audit prompt

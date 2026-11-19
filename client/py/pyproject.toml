@@ -20,9 +20,9 @@ dependencies = [
     "synnax-freighter",
     "synnax-x",
     "keyring>=25.7.0,<26",
-    "numpy>=2.5.4,<3",
-    "pandas>=3.0.6,<4",
-    "pydantic>=2.14.1,<3",
+    "numpy>=2.5.5,<3",
+    "pandas>=3.1.1,<4",
+    "pydantic>=2.14.4,<3",
     "urllib3>=2.8.0,<3",
 ]
 
@@ -37,20 +37,20 @@ Repository = "https://github.com/synnaxlabs/synnax"
 dev = [
     "asyncua>=2.1.0,<3",
     "flask>=3.1.3,<4",
-    "mypy>=2.4.0,<3",
-    "ruff>=0.17.1,<1",
-    "pandas-stubs>=3.0.5.260914,<4",
-    "pymodbus[serial]>=3.16.1,<4",
-    "pytest>=9.1.1,<10",
-    "pytest-asyncio>=1.4.0,<2",
+    "mypy>=2.4.1,<3",
+    "ruff>=0.17.6,<1",
+    "pandas-stubs>=3.1.0.261029,<4",
+    "pymodbus[serial]>=3.16.2,<4",
+    "pytest>=9.2.0,<10",
+    "pytest-asyncio>=1.5.0,<2",
     "pytest-cov>=7.1.0,<8",
     "pytest-timeout>=2.4.0,<3",
     "scipy>=1.18.1,<2",
     "scipy-stubs>=1.18.1.1,<2",
-    "types-pyserial>=3.5.0.20260712,<4",
+    "types-pyserial>=3.5.0.20261104,<4",
     "protobuf>=7.36.2,<8",
     "types-protobuf>=7.35.1.20260906,<8",
-    "nptdms>=1.13.0,<2",
+    "nptdms>=1.14.0,<2",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -124,6 +124,7 @@ warn_required_dynamic_aliases = true
 [tool.pytest.ini_options]
 strict = true
 timeout = 60
+asyncio_default_fixture_loop_scope = "function"
 markers = [
     "access: mark test as an access test",
     "arc: mark test as an arc test",
@@ -189,5 +190,5 @@ omit = ["*/actions_gen.py", "*/types_gen.py"]
 patch = ["subprocess"]
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.33.0,<2"]
 build-backend = "hatchling.build"
