@@ -14,7 +14,7 @@ import {
   ranger,
   type Synnax as Client,
 } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createTestClient, holdResponses } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
 import { sleep, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
@@ -102,29 +102,49 @@ const readRange = async (name: string): Promise<ranger.Range> => {
   return found[0];
 };
 
+// The groups hold hundreds of lines on a shared Core. Role queries over them are slow
+// enough to starve the toolbar's reads, so the specs find groups and lines by label.
 const groupOf = (title: string): HTMLElement =>
-  screen.getByRole("region", { name: title });
+  screen.getByLabelText(title, { selector: "section" });
+
+/** Running shows only while a range runs, so its group can be absent. */
+const queryLine = (title: string, name: string): HTMLElement | null => {
+  const group = screen.queryByLabelText(title, { selector: "section" });
+  return group == null
+    ? null
+    : within(group).queryByLabelText(name, { selector: '[role="listitem"]' });
+};
+
+const queryShowMore = (title: string): HTMLElement | null => {
+  const group = screen.queryByLabelText(title, { selector: "section" });
+  return group == null
+    ? null
+    : within(group).queryByText("Show more", { selector: "button" });
+};
 
 // The toolbar's first fetch can outlast the default 1 s wait on a busy runner.
+const waitForLine = async (title: string, name: string): Promise<HTMLElement> =>
+  await waitFor(
+    () => {
+      const line = queryLine(title, name);
+      if (line == null) throw new Error(`${title} has no line named ${name}`);
+      return line;
+    },
+    { timeout: 10_000 },
+  );
+
 /** Clicks Show more until the line loads, since other specs can fill the first page. */
 const findLine = async (title: string, name: string): Promise<HTMLElement> =>
   await waitFor(
     () => {
-      const group = groupOf(title);
-      const line = within(group).queryByRole("listitem", { name });
+      const line = queryLine(title, name);
       if (line != null) return line;
-      const more = within(group).queryByRole("button", { name: "Show more" });
+      const more = queryShowMore(title);
       if (more != null) fireEvent.click(more);
       throw new Error(`${title} has no line named ${name}`);
     },
     { timeout: 10_000 },
   );
-
-/** Running shows only while a range runs, so its group can be absent. */
-const queryLine = (title: string, name: string): HTMLElement | null => {
-  const group = screen.queryByRole("region", { name: title });
-  return group == null ? null : within(group).queryByRole("listitem", { name });
-};
 
 const draftInput = async (): Promise<HTMLInputElement> =>
   await screen.findByPlaceholderText<HTMLInputElement>("Range name");
@@ -141,6 +161,18 @@ const expectBefore = (first: HTMLElement, second: HTMLElement): void =>
   expect(
     first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING,
   ).toBeTruthy();
+
+/**
+ * Holds the answers to the toolbar's list reads until release. The reads of the next
+ * range to start or end ask for one range, so they go through.
+ */
+const holdListReads = () =>
+  holdResponses(
+    client,
+    (target, req) =>
+      target === "/range/retrieve" &&
+      (ranger.retrieveRequestZ.parse(req).limit ?? 0) > 1,
+  );
 
 const expectFocusedRange = async (store: TestStore, key: string): Promise<void> => {
   const tab = await resolveFocusedTab(store, client);
@@ -171,12 +203,20 @@ describe("range/Toolbar", () => {
       );
       onTestFinished(async () => await client.ranges.delete(newer.map((r) => r.key)));
       await renderToolbar();
-      await waitFor(
-        () => within(groupOf("Running")).getByRole("button", { name: "Show more" }),
-        { timeout: 10_000 },
-      );
+      await waitFor(() => expect(queryShowMore("Running")).not.toBeNull(), {
+        timeout: 10_000,
+      });
       expect(queryLine("Running", oldest.name)).toBeNull();
       expect(within(groupOf("Running")).getByText(/^\d+\+$/)).toBeTruthy();
+      // A read for a range that ends keeps Show more enabled.
+      const reads = holdListReads();
+      await endRange(newer[0], TimeStamp.now().add(TimeSpan.milliseconds(300)));
+      const busy = groupOf("Running").closest<HTMLElement>('[role="list"]');
+      await waitFor(() => expect(busy?.getAttribute("aria-busy")).toBe("true"), {
+        timeout: 10_000,
+      });
+      expect(queryShowMore("Running")?.getAttribute("aria-disabled")).toBeNull();
+      reads.release();
       expect(await findLine("Running", oldest.name)).toBeTruthy();
       // A range that starts later joins Running only through the read for its start.
       const starting = await createRange(
@@ -184,10 +224,7 @@ describe("range/Toolbar", () => {
         new TimeRange(TimeStamp.now().add(TimeSpan.SECOND), TimeStamp.MAX),
       );
       onTestFinished(async () => await client.ranges.delete(starting.key));
-      await waitFor(
-        () => within(groupOf("Running")).getByRole("listitem", { name: starting.name }),
-        { timeout: 10_000 },
-      );
+      await waitForLine("Running", starting.name);
       // Both lists read for the new start at once, and a busy list shows held keys.
       const list = groupOf("Running").closest<HTMLElement>('[role="list"]');
       await waitFor(() => expect(list?.getAttribute("aria-busy")).toBe("false"), {
@@ -199,6 +236,32 @@ describe("range/Toolbar", () => {
       expect(parseInt(count, 10)).toBeGreaterThan(100);
     });
 
+    it("should read a later start or end only after the reads in flight land", async () => {
+      const first = await createRunning(uniqueName("first"));
+      const second = await createRunning(uniqueName("second"));
+      await renderToolbar();
+      await findLine("Running", first.name);
+      await findLine("Running", second.name);
+      const list = groupOf("Running").closest<HTMLElement>('[role="list"]');
+      await waitFor(() => expect(list?.getAttribute("aria-busy")).toBe("false"), {
+        timeout: 10_000,
+      });
+      const reads = holdListReads();
+      const firstEnd = TimeStamp.now().add(TimeSpan.milliseconds(300));
+      const secondEnd = firstEnd.add(TimeSpan.milliseconds(300));
+      await endRange(first, firstEnd);
+      await endRange(second, secondEnd);
+      // The first end reads each list once, and the second end comes while they read.
+      await waitFor(() => expect(reads.sent()).toBe(2), { timeout: 10_000 });
+      await sleep.sleep(
+        new TimeRange(TimeStamp.now(), secondEnd).span.add(TimeSpan.SECOND),
+      );
+      expect(reads.sent()).toBe(2);
+      reads.release();
+      await waitForLine("Recent", second.name);
+      expect(queryLine("Recent", first.name)).not.toBeNull();
+    });
+
     it("should move ranges from Running to Recent as they end, newest end first", async () => {
       const first = await createRunning(uniqueName("first"));
       const second = await createRunning(uniqueName("second"));
@@ -208,13 +271,8 @@ describe("range/Toolbar", () => {
       // An end set at creation can pass before the toolbar's first fetch lands.
       await endRange(first, TimeStamp.now().add(TimeSpan.milliseconds(500)));
       await endRange(second, TimeStamp.now().add(TimeSpan.SECOND));
-      const [firstLine, secondLine] = await waitFor(
-        () => [
-          within(groupOf("Recent")).getByRole("listitem", { name: first.name }),
-          within(groupOf("Recent")).getByRole("listitem", { name: second.name }),
-        ],
-        { timeout: 10_000 },
-      );
+      const firstLine = await waitForLine("Recent", first.name);
+      const secondLine = await waitForLine("Recent", second.name);
       expectBefore(secondLine, firstLine);
       expect(queryLine("Running", first.name)).toBeNull();
       expect(queryLine("Running", second.name)).toBeNull();
@@ -253,12 +311,7 @@ describe("range/Toolbar", () => {
         run.key,
       );
       await renderToolbar();
-      const finished = await waitFor(
-        () => within(groupOf("Recent")).getByRole("listitem", { name: phase.name }),
-        {
-          timeout: 10_000,
-        },
-      );
+      const finished = await waitForLine("Recent", phase.name);
       expect(within(finished).getByText(run.name)).toBeTruthy();
       // "should stop a running range" covers Stop, so the run ends through the client.
       expect(
