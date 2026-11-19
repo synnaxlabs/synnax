@@ -917,14 +917,7 @@ const Plans = ({ device, children }: PlansProps): ReactElement => {
     })),
   ];
   const plans = Task.useChannelPlans<SourcePlan>(sources, async (client, signal) => {
-    const plan = await planRead(
-      client,
-      device,
-      bound,
-      tags,
-      writtenChannels(entries),
-      signal,
-    );
+    const plan = await planRead(client, device, bound, tags, written, signal);
     return [
       ...plan.messages.map((p): SourcePlan => ({ type: "message", plan: p })),
       ...plan.tags.map((p): SourcePlan => ({ type: "tag", plan: p })),
@@ -1013,19 +1006,20 @@ interface ReadPlan {
 
 /**
  * Plans the channels of each message and then each tag, in deploy order with one
- * namer. A message plans with the channels that earlier ones keep added to written, so
- * it leaves a stored channel that another binding writes. Reads from the Core alone.
- * Throws between sources once signal aborts.
+ * namer. A message plans with written and the channels that earlier ones keep, so it
+ * leaves a stored channel that another binding writes. Reads from the Core alone, and
+ * changes no argument. Throws between sources once signal aborts.
  */
 const planRead = async (
   client: Synnax,
   dev: Pick<Device, "name" | "properties">,
   bound: ICD.BoundMessage<PlainReadEntry>[],
   tags: SparkplugReadEntry[],
-  written: Set<channel.Key>,
+  written: ReadonlySet<channel.Key>,
   signal?: AbortSignal,
 ): Promise<ReadPlan> => {
   const namer = Task.createNamer(client);
+  const kept = new Set(written);
   const messages: ICD.MessagePlan[] = [];
   for (const b of bound) {
     signal?.throwIfAborted();
@@ -1035,9 +1029,9 @@ const planRead = async (
       namer,
       b,
       messagePrefix(dev.name, entry.topic, r, message.name),
-      storedProps(dev.properties.read, entry.topic, b, written),
+      storedProps(dev.properties.read, entry.topic, b, kept),
     );
-    ICD.keptChannels(plan).forEach((ch) => written.add(ch));
+    ICD.keptChannels(plan).forEach((ch) => kept.add(ch));
     messages.push(plan);
   }
   const plans: Task.ReadChannelPlan[] = [];
