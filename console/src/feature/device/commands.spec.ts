@@ -10,13 +10,13 @@
 import { device, rack } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Access } from "@synnaxlabs/pluto";
+import { assertDefined } from "@synnaxlabs/x/testutil";
 import { waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Device } from "@/feature/device";
 import { findCommand } from "@/platform/command/testutil";
 import {
-  assertDefined,
   createTestClientWithGrants,
   type Grants,
   renderHookWithConsole,

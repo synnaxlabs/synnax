@@ -9,12 +9,12 @@
 
 import { rack } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { findButton, findDismissButton, openModal } from "@/platform/modals/testutil";
 import { Rack } from "@/platform/rack";
-import { uniqueName } from "@/testutil";
 
 describe("useCreateModal", () => {
   it("should create a rack with a key and show the key once", async () => {
@@ -26,9 +26,7 @@ describe("useCreateModal", () => {
     });
     fireEvent.click(findButton("Create"));
     const shown = await screen.findByText(/^syk_/);
-    const [created] = (await client.racks.retrieve({ names: [name] })).filter(
-      (r) => r.name === name,
-    );
+    const created = await client.racks.retrieve({ name });
     const keys = await client.auth.retrieveKeys([rack.resourceID(created.key)]);
     expect(keys).toHaveLength(1);
     expect(shown.textContent?.startsWith("syk_")).toBe(true);

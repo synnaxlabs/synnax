@@ -44,9 +44,7 @@ const Create = (_: Modals.ContentProps<Record<never, never>, void>): ReactElemen
   Modals.useBusy(creating);
   return (
     <Modal.Frame>
-      <Modal.Header icon={<Icon.Rack />}>
-        Rack.Create
-      </Modal.Header>
+      <Modal.Header icon={<Icon.Rack />}>Rack.Create</Modal.Header>
       <Modal.Body>
         <Flex.Box y>
           <Input.Text

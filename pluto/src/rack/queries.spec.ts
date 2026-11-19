@@ -333,7 +333,7 @@ describe("queries", () => {
       await act(async () => {
         expect(await result.current.updateAsync({ name })).toBe(true);
       });
-      const [created] = await client.racks.retrieve({ names: [name] });
+      const created = await client.racks.retrieve({ name });
       const keys = await client.auth.retrieveKeys([rack.resourceID(created.key)]);
       expect(keys).toHaveLength(1);
       expect(token?.startsWith("syk_")).toBe(true);
