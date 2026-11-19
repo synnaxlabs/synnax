@@ -47,11 +47,19 @@ var _ = Describe("Translator", func() {
 		Expect(pb.RetrieveResponseFromPB(translated)).To(Equal(res))
 	})
 
-	It("Should reject a cursor key that is not a UUID", func() {
-		Expect(pb.CursorFromPB(&pb.Cursor{Key: "rig"})).Error().
-			To(MatchError("invalid uuid"))
-		Expect(pb.RetrieveRequestFromPB(&pb.RetrieveRequest{
-			After: &pb.Cursor{Key: "rig"},
-		})).Error().To(MatchError("invalid uuid"))
-	})
+	DescribeTable("Should reject a cursor key that is not a UUID",
+		func(translate func() error) {
+			Expect(translate()).To(MatchError("invalid uuid"))
+		},
+		Entry("in a cursor", func() error {
+			_, err := pb.CursorFromPB(&pb.Cursor{Key: "rig"})
+			return err
+		}),
+		Entry("in a retrieve request", func() error {
+			_, err := pb.RetrieveRequestFromPB(&pb.RetrieveRequest{
+				After: &pb.Cursor{Key: "rig"},
+			})
+			return err
+		}),
+	)
 })

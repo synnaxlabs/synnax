@@ -240,15 +240,22 @@ var _ = Describe("Translator", func() {
 		Expect(MustSucceed(pb.UuidSetFromPB(empty)).In).ToNot(BeNil())
 	})
 
-	It("Should reject a key set that holds a value that is not a UUID", func() {
-		Expect(
-			pb.UuidSetFromPB(&pb.UuidSet{In: &pb.UuidList{Values: []string{"rig"}}}),
-		).
-			Error().
-			To(MatchError("invalid uuid"))
-		Expect(pb.WhereFromPB(&pb.Where{Key: &pb.UuidSet{Eq: new("rig")}})).
-			Error().To(MatchError("invalid uuid"))
-	})
+	DescribeTable(
+		"Should reject a key that is not a UUID",
+		func(translate func() error) {
+			Expect(translate()).To(MatchError("invalid uuid"))
+		},
+		Entry("in a key set", func() error {
+			_, err := pb.UuidSetFromPB(
+				&pb.UuidSet{In: &pb.UuidList{Values: []string{"rig"}}},
+			)
+			return err
+		}),
+		Entry("in a filter", func() error {
+			_, err := pb.WhereFromPB(&pb.Where{Key: &pb.UuidSet{Eq: new("rig")}})
+			return err
+		}),
+	)
 
 	It("Should reject a message key that is not a UUID", func() {
 		Expect(pb.MessageFromPB(&pb.Message{Key: "engine"})).Error().

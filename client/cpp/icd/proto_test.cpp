@@ -236,31 +236,44 @@ TEST(Where, RoundTripsEmptyProto) {
     expect_request_round_trips<Where>(x::json::json::object());
 }
 
-/// @brief it should round trip a filter of one key and of several keys through
-/// protobuf.
-TEST(Where, RoundTripsKeysProto) {
+/// @brief it should round trip a filter of one key through protobuf.
+TEST(Where, RoundTripsOneKeyProto) {
     expect_request_round_trips<Where>({{"key", {{"eq", KEY_A}}}});
+}
+
+/// @brief it should round trip a filter of several keys through protobuf.
+TEST(Where, RoundTripsKeySetProto) {
     expect_request_round_trips<Where>({{"key", {{"in", {KEY_A, KEY_B}}}}});
 }
 
-/// @brief it should keep an empty key set apart from an absent one through protobuf.
+/// @brief it should round trip a filter of no keys through protobuf, apart from an
+/// absent key set.
 TEST(Where, RoundTripsEmptyKeySetProto) {
     expect_request_round_trips<Where>({{"key", {{"in", x::json::json::array()}}}});
+}
+
+/// @brief it should round trip a key set with no operators through protobuf.
+TEST(Where, RoundTripsAbsentKeySetProto) {
     expect_request_round_trips<Where>({{"key", x::json::json::object()}});
 }
 
-/// @brief it should round trip nested and empty clause lists through protobuf.
-TEST(Where, RoundTripsClausesProto) {
+/// @brief it should round trip nested clauses through protobuf.
+TEST(Where, RoundTripsNestedClausesProto) {
     expect_request_round_trips<Where>({
         {"and", {{{"key", {{"eq", KEY_A}}}}, {{"not", {{"key", {{"in", {KEY_B}}}}}}}}},
         {"or", {{{"key", {{"eq", KEY_B}}}}}},
     });
+}
+
+/// @brief it should round trip empty clause lists through protobuf.
+TEST(Where, RoundTripsEmptyClausesProto) {
     expect_request_round_trips<Where>(
         {{"and", x::json::json::array()}, {"or", x::json::json::array()}}
     );
 }
 
-/// @brief it should round trip a retrieve request through protobuf.
+/// @brief it should round trip a retrieve request that filters, searches, and pages
+/// through protobuf.
 TEST(RetrieveRequest, RoundTripsProto) {
     expect_request_round_trips<RetrieveRequest>({
         {"where", {{"key", {{"in", {KEY_A}}}}}},
@@ -268,6 +281,11 @@ TEST(RetrieveRequest, RoundTripsProto) {
         {"after", {{"key", KEY_B}}},
         {"limit", 10},
     });
+}
+
+/// @brief it should round trip a retrieve request that selects every ICD through
+/// protobuf.
+TEST(RetrieveRequest, RoundTripsEmptyProto) {
     expect_request_round_trips<RetrieveRequest>({{"search_term", ""}});
 }
 
