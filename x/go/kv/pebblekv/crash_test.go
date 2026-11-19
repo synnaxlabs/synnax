@@ -14,6 +14,7 @@ import (
 	"encoding/binary"
 	"os"
 	"slices"
+	"strings"
 
 	"github.com/cockroachdb/pebble/v2"
 	. "github.com/onsi/ginkgo/v2"
@@ -135,8 +136,8 @@ func run(ctx context.Context, profile crash.Profile, runKey uint64) error {
 	return err
 }
 
-// Each entry is what the harness finds in Pebble, as the Core configures its commits,
-// and why.
+// Each entry is what the harness finds in Pebble, at FormatNewest and with durable
+// commits as the Core opens it, and why.
 var _ = DescribeTable("Crash harness",
 	func(
 		ctx SpecContext,
@@ -151,8 +152,10 @@ var _ = DescribeTable("Crash harness",
 		Expect(v.Rule).To(Equal(rule))
 		Expect(v.Detail).To(ContainSubstring(cause))
 	},
-	// A crash in the first open can keep the marker of the manifest and lose the
-	// manifest, so the database does not open again.
+	// Pebble syncs the directory once, after it creates both the manifest and its
+	// marker. A crash before that sync can keep the marker and lose the manifest, so
+	// the database does not open again. The journals of ext4 and XFS keep the two
+	// creates in order, so only a file system without that order loses the manifest.
 	Entry("Partial: R4", crash.Partial, uint64(0), crash.R4,
 		"could not open manifest file"),
 	Entry("Mixed: R4", crash.Mixed, uint64(0), crash.R4,
@@ -163,8 +166,9 @@ var _ = DescribeTable("Crash harness",
 		"malformed manifest file"),
 	Entry("RepeatedReadFaults: R4", crash.RepeatedReadFaults, uint64(0), crash.R4,
 		"invalid key=value syntax"),
-	// A flipped bit in an older record of the WAL ends the replay there, so Pebble
-	// loses each durable commit from that record on, with no error.
+	// The first WAL of a new store has no synced offsets, because Pebble creates it
+	// before it raises the format. A flipped bit in an older record of that WAL ends
+	// the replay there, so Pebble loses each later durable commit with no error.
 	Entry("OldCorruption: R1", crash.OldCorruption, uint64(0), crash.R1,
 		"durable commit 3 is missing"),
 )
@@ -181,26 +185,58 @@ var _ = DescribeTable("Crash harness, holding",
 	Entry("Mixed, run key 1", crash.Mixed, uint64(1)),
 )
 
+// flipped commits n durable records, crashes, and flips one bit at the offset at of the
+// newest WAL in the crash image, which it returns. A reopened store opens once before
+// the commits, so its WAL has synced offsets.
+func flipped(ctx context.Context, reopened bool, n uint64, at int64) *fault.FS {
+	GinkgoHelper()
+	disk := MustSucceed(fault.New(fault.Config{}))
+	if reopened {
+		Expect(MustSucceed(openCrashEngine(ctx, disk)).Close()).To(Succeed())
+	}
+	e := MustSucceed(openCrashEngine(ctx, disk))
+	for id := range n {
+		record := crash.Record{ID: id + 1, Payload: make([]byte, 500)}
+		Expect(e.Commit(ctx, record, crash.Durable)).To(Equal(crash.Durable))
+	}
+	image := MustSucceed(disk.Crash(fault.CrashConfig{}))
+	Expect(e.Close()).To(Succeed())
+	var wal string
+	for _, info := range MustSucceed(image.List("kv")) {
+		if strings.HasSuffix(info.Name(), ".log") {
+			wal = max(wal, info.Name())
+		}
+	}
+	f := MustSucceed(image.Open("kv/"+wal, os.O_RDWR))
+	b := make([]byte, 1)
+	Expect(f.ReadAt(b, at)).To(Equal(1))
+	b[0] ^= 1
+	Expect(f.WriteAt(b, at)).To(Equal(1))
+	Expect(errors.Join(f.Sync(), f.Close())).To(Succeed())
+	return image
+}
+
 var _ = Describe("Crash adapter", func() {
-	It("Should lose each commit from a flipped bit in the WAL on, with no error",
+	DescribeTable(
+		"Should lose each commit from a flipped bit in the WAL on, with no error",
+		func(ctx SpecContext, reopened bool, n uint64, at int64, kept int) {
+			e := MustSucceed(openCrashEngine(ctx, flipped(ctx, reopened, n, at)))
+			Expect(MustSucceed(e.Recovered(ctx))).To(HaveLen(kept))
+			Expect(e.Close()).To(Succeed())
+		},
+		Entry("in the first WAL of a new store", false, uint64(10), int64(2500), 4),
+		Entry("in the first block of the first WAL of a new store",
+			false, uint64(100), int64(2500), 4),
+		Entry("in the last block of a WAL with synced offsets",
+			true, uint64(100), int64(40000), 73),
+	)
+
+	It(
+		"Should fail the open on a flipped bit in an earlier block of a WAL with synced "+
+			"offsets",
 		func(ctx SpecContext) {
-			disk := MustSucceed(fault.New(fault.Config{}))
-			e := MustSucceed(openCrashEngine(ctx, disk))
-			for id := uint64(1); id <= 10; id++ {
-				record := crash.Record{ID: id, Payload: make([]byte, 500)}
-				Expect(e.Commit(ctx, record, crash.Durable)).To(Equal(crash.Durable))
-			}
-			image := MustSucceed(disk.Crash(fault.CrashConfig{}))
-			Expect(e.Close()).To(Succeed())
-			f := MustSucceed(image.Open("kv/000002.log", os.O_RDWR))
-			b := make([]byte, 1)
-			Expect(f.ReadAt(b, 2500)).To(Equal(1))
-			b[0] ^= 1
-			Expect(f.WriteAt(b, 2500)).To(Equal(1))
-			Expect(errors.Join(f.Sync(), f.Close())).To(Succeed())
-			e = MustSucceed(openCrashEngine(ctx, image))
-			Expect(MustSucceed(e.Recovered(ctx))).To(HaveLen(4))
-			Expect(e.Close()).To(Succeed())
+			Expect(openCrashEngine(ctx, flipped(ctx, true, 100, 2500))).Error().
+				To(MatchError(ContainSubstring("pebble/record: invalid chunk")))
 		},
 	)
 
