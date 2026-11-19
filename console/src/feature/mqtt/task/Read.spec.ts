@@ -11,6 +11,7 @@ import { icd, mqtt, type rack } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { DataType, type payload, uuid } from "@synnaxlabs/x";
+import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -22,7 +23,7 @@ import {
   deployAndAwaitTask,
   renderTaskFormTab,
 } from "@/platform/task/testutil";
-import { assertDefined, findDialogTriggerByText, uniqueName } from "@/testutil";
+import { findDialogTriggerByText } from "@/testutil";
 
 const client = createTestClient();
 
@@ -260,7 +261,7 @@ const addMessage = async (
     }),
   );
   const bindings = fields.map(({ key }) => ({ field: key, channel: 0, dataType: "" }));
-  entry.messages.push(mqtt.readMessageZ.parse({ message: message.key, bindings }));
+  entry.messages.push(icd.readMessageZ.parse({ message: message.key, bindings }));
   return message;
 };
 
@@ -1458,6 +1459,46 @@ describe("MQTT read form", () => {
       expect(await retrieveRead(dev.key)).toEqual({
         [`${TOPIC}#${entry.messages[0].message}`]: stored,
       });
+    });
+
+    it("should give a new entry the stored channel that only a disabled entry binds", async () => {
+      const time = await createTimeChannel();
+      const ch = await client.channels.create({
+        name: uniqueName("temperature"),
+        dataType: DataType.FLOAT64,
+        index: time.key,
+      });
+      const temperature = createField("temperature", "float");
+      const disabled = await createEntry({
+        fields: [temperature],
+        bound: { [temperature.key]: ch.key },
+      });
+      disabled.disabled = true;
+      const entry = {
+        ...disabled,
+        key: uuid.create(),
+        disabled: false,
+        messages: disabled.messages.map((read) => ({
+          ...read,
+          bindings: read.bindings.map((b) => ({ ...b, channel: 0 })),
+        })),
+      };
+      const { message } = entry.messages[0];
+      const { container, draft } = await renderRead({
+        entries: [disabled, entry],
+        properties: {
+          read: {
+            [`${TOPIC}#${message}`]: {
+              index: time.key,
+              channels: { "/temperature": ch.key },
+            },
+          },
+        },
+      });
+      const created = await deploy(container, draft.key);
+      expect(plainOf(created.config.entries[1]).messages[0].bindings[0].channel).toBe(
+        ch.key,
+      );
     });
 
     it("should create an index and a data channel for each tag", async () => {

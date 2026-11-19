@@ -15,7 +15,7 @@ import { Color } from "@synnaxlabs/lyra/color";
 import { context } from "@synnaxlabs/lyra/context";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { Header } from "@synnaxlabs/lyra/header";
-import { useNow } from "@synnaxlabs/lyra/hooks";
+import { useNow, useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
@@ -29,6 +29,7 @@ import {
   type CSSProperties,
   Fragment,
   type KeyboardEvent,
+  memo,
   type MouseEvent,
   type ReactElement,
   type ReactNode,
@@ -227,8 +228,6 @@ interface DraftContextValue {
   draft: DraftState | null;
   onSave: (draft: DraftState, name: string, color: DraftState["color"]) => void;
   onCancel: () => void;
-  onNext: (range: ranger.Range, below: ranger.Range[]) => void;
-  onStartChild: (range: ranger.Range) => void;
 }
 
 const [DraftContext, useDraftContext] = context.create<DraftContextValue>({
@@ -236,17 +235,23 @@ const [DraftContext, useDraftContext] = context.create<DraftContextValue>({
   providerName: "Range.DraftContext",
 });
 
-const RunningActions = ({
-  range,
-  onNext,
-}: {
-  range: ranger.Range;
-  onNext?: () => void;
-}): ReactElement => {
-  const { onStartChild } = useDraftContext("Range.RunningActions");
+// Kept apart from the draft, so a line re-renders only when its own range changes.
+interface ActionsContextValue {
+  onNext: (range: ranger.Range) => void;
+  onStartChild: (range: ranger.Range) => void;
+}
+
+const [ActionsContext, useActionsContext] = context.create<ActionsContextValue>({
+  displayName: "Range.ActionsContext",
+  providerName: "Range.ActionsContext",
+});
+
+const RunningActions = ({ range }: { range: ranger.Range }): ReactElement => {
+  const { onStartChild, onNext } = useActionsContext("Range.RunningActions");
   const canCreate = Access.useCreateGranted(ranger.TYPE_RESOURCE_ID);
   const canUpdate = Access.useUpdateGranted(ranger.resourceID(range.key));
-  const next = canCreate && canUpdate ? onNext : undefined;
+  const next =
+    canCreate && canUpdate && range.parent != null ? () => onNext(range) : undefined;
   return (
     <>
       <span className={CSS.BE(B, "more")}>
@@ -388,12 +393,15 @@ const Group = ({
   id,
   title,
   count,
+  partial = false,
   children,
   icon,
 }: {
   id: Session.Range.Group;
   title: string;
   count?: number;
+  /** Whether more records exist than count, which then shows a plus. */
+  partial?: boolean;
   children: ReactNode;
   icon?: ReactNode;
 }): ReactElement => {
@@ -414,6 +422,7 @@ const Group = ({
         {count != null && count > 0 && (
           <Text.Text level="tiny" color={9}>
             {count}
+            {partial && "+"}
           </Text.Text>
         )}
       </Header.Group>
@@ -425,6 +434,25 @@ const Group = ({
 const runningBelow = (key: ranger.Key, tree: Forest): ranger.Range[] =>
   (tree.children.get(key) ?? []).flatMap((c) => [c, ...runningBelow(c.key, tree)]);
 
+interface RunningLineProps {
+  range: ranger.Range;
+  depth: number;
+  ending: boolean;
+}
+
+const RunningLine = memo(({ range, depth, ending }: RunningLineProps): ReactElement => (
+  <Line
+    range={range}
+    depth={depth}
+    path={depth === 0}
+    live
+    ending={ending}
+    meta={<Elapsed start={startOf(range)} />}
+    actions={<RunningActions range={range} />}
+  />
+));
+RunningLine.displayName = "Range.RunningLine";
+
 const RunningLines = ({
   nodes,
   tree,
@@ -434,7 +462,7 @@ const RunningLines = ({
   tree: Forest;
   depth: number;
 }): ReactElement => {
-  const { draft, onNext } = useDraftContext("Range.RunningLines");
+  const { draft } = useDraftContext("Range.RunningLines");
   return (
     <>
       {nodes.map((r) => {
@@ -442,23 +470,10 @@ const RunningLines = ({
         const follows = draft?.after?.key === r.key;
         return (
           <Fragment key={r.key}>
-            <Line
+            <RunningLine
               range={r}
               depth={depth}
-              path={depth === 0}
-              live
               ending={draft?.stops?.some((stop) => stop.key === r.key) ?? false}
-              meta={<Elapsed start={startOf(r)} />}
-              actions={
-                <RunningActions
-                  range={r}
-                  onNext={
-                    r.parent == null
-                      ? undefined
-                      : () => onNext(r, runningBelow(r.key, tree))
-                  }
-                />
-              }
             />
             <RunningLines nodes={children} tree={tree} depth={depth + 1} />
             {follows && (
@@ -475,6 +490,28 @@ const RunningLines = ({
 };
 
 const RECENT_LIMIT = 10;
+
+interface RecentLineProps {
+  range: ranger.Range;
+  depth: number;
+  parent: boolean;
+  expanded: boolean;
+  onToggle: (key: ranger.Key) => void;
+}
+
+const RecentLine = memo(
+  ({ range, depth, parent, expanded, onToggle }: RecentLineProps): ReactElement => (
+    <Line
+      range={range}
+      depth={depth}
+      path={depth === 0}
+      caret={parent ? { expanded, onToggle: () => onToggle(range.key) } : null}
+      meta={<Ago end={endOf(range)} />}
+      actions={<Star range={range} />}
+    />
+  ),
+);
+RecentLine.displayName = "Range.RecentLine";
 
 const RecentLines = ({
   nodes,
@@ -495,17 +532,12 @@ const RecentLines = ({
       const open = expanded.has(r.key);
       return (
         <Fragment key={r.key}>
-          <Line
+          <RecentLine
             range={r}
             depth={depth}
-            path={depth === 0}
-            caret={
-              kids.length === 0
-                ? null
-                : { expanded: open, onToggle: () => onToggle(r.key) }
-            }
-            meta={<Ago end={endOf(r)} />}
-            actions={<Star range={r} />}
+            parent={kids.length > 0}
+            expanded={open}
+            onToggle={onToggle}
           />
           {open && (
             <RecentLines
@@ -524,12 +556,13 @@ const RecentLines = ({
 
 const useExpanded = (): [Set<ranger.Key>, (key: ranger.Key) => void] => {
   const [expanded, setExpanded] = useState<Set<ranger.Key>>(() => new Set());
-  const toggle = (key: ranger.Key) => {
-    const next = new Set(expanded);
-    if (next.has(key)) next.delete(key);
-    else next.add(key);
-    setExpanded(next);
-  };
+  const toggle = (key: ranger.Key) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
   return [expanded, toggle];
 };
 
@@ -550,7 +583,7 @@ const AllRanges = (): ReactElement => {
   );
 };
 
-const FavoriteLine = ({ range }: { range: ranger.Range }): ReactElement => {
+const FavoriteLine = memo(({ range }: { range: ranger.Range }): ReactElement => {
   const now = Ranger.useClock(range.timeRange);
   const live = Ranger.getStage(range.timeRange, now) === "in_progress";
   return (
@@ -571,7 +604,8 @@ const FavoriteLine = ({ range }: { range: ranger.Range }): ReactElement => {
       actions={<Star range={range} />}
     />
   );
-};
+});
+FavoriteLine.displayName = "Range.FavoriteLine";
 
 const FavoriteLines = ({ favorites }: { favorites: ranger.Range[] }): ReactElement => {
   if (favorites.length === 0)
@@ -591,7 +625,8 @@ const FavoriteLines = ({ favorites }: { favorites: ranger.Range[] }): ReactEleme
 };
 
 const Body = ({ groups }: { groups: Groups }): ReactElement => {
-  const { draft, onNext, onStartChild } = useDraftContext("Range.Body");
+  const { draft } = useDraftContext("Range.Body");
+  const { onNext, onStartChild } = useActionsContext("Range.Body");
   const menuProps = Menu.useContextMenu();
   const [expanded, toggle] = useExpanded();
   const running = forest(groups.running);
@@ -605,27 +640,36 @@ const Body = ({ groups }: { groups: Groups }): ReactElement => {
     <List.Frame data={keys} getItem={groups.getItem} subscribe={groups.subscribe}>
       <Menu.ContextMenu
         menu={(p) => (
-          <Tree.ContextMenu
-            {...p}
-            onStartChild={onStartChild}
-            onNext={(r) => onNext(r, runningBelow(r.key, running))}
-          />
+          <Tree.ContextMenu {...p} onStartChild={onStartChild} onNext={onNext} />
         )}
         {...menuProps}
       />
       <div className={CSS.BE(B, "frame")} onContextMenu={menuProps.open}>
-        <div className={CSS.B(B)} role="list">
+        <div className={CSS.B(B)} role="list" aria-busy={groups.reading}>
           {(running.roots.length > 0 || draft != null) && (
             <Group
               id="running"
               title="Running"
               count={groups.running.length}
+              partial={!groups.runningComplete}
               icon={<Icon.InProgress />}
             >
               {draft != null && draft.parent == null && (
                 <Draft key={draft.startedAt.toString()} draft={draft} />
               )}
               <RunningLines nodes={running.roots} tree={running} depth={0} />
+              {!groups.runningComplete && (
+                <Button.Button
+                  variant="text"
+                  size="small"
+                  textColor={9}
+                  className={CSS.BE(B, "show-more")}
+                  disabled={groups.paging}
+                  onClick={groups.moreRunning}
+                >
+                  Show more
+                </Button.Button>
+              )}
             </Group>
           )}
           <Group
@@ -664,11 +708,15 @@ export const Content = (): ReactElement => {
   const { capture } = Analytics.use();
   const { updateAsync: create } = Ranger.useCreate();
   const { update: setTimeRange } = Ranger.useSetTimeRange();
-  const isRunning = (key: ranger.Key) => groups.running.some((r) => r.key === key);
+  // The line actions read the running ranges through a ref, so they keep their identity
+  // across reads.
+  const runningRef = useSyncedRef(groups.running);
+  const isRunning = (running: ranger.Range[], key: ranger.Key) =>
+    running.some((r) => r.key === key);
   // A draft shows under the range that it follows or starts in, so it closes when that
   // range stops.
   const anchor = draft?.after?.key ?? draft?.parent;
-  if (anchor != null && !isRunning(anchor)) setDraft(null);
+  if (anchor != null && !isRunning(groups.running, anchor)) setDraft(null);
   const open = (next: DraftState) => {
     dispatch(Session.Range.setGroupCollapsed({ group: "running", collapsed: false }));
     setDraft(next);
@@ -705,16 +753,19 @@ export const Content = (): ReactElement => {
           });
       });
     },
-    onNext: (range, below) =>
+  };
+  const actions: ActionsContextValue = {
+    onNext: (range) =>
       openSuggested({
         startedAt: TimeStamp.now(),
         parent: range.parent,
         after: range,
-        stops: [range, ...below],
+        stops: [range, ...runningBelow(range.key, forest(runningRef.current))],
       }),
     onStartChild: (range) => {
       // The child starts now, so only a running range takes it in place.
-      if (!isRunning(range.key)) return openCreate({ parent: range.key });
+      if (!isRunning(runningRef.current, range.key))
+        return void openCreate({ parent: range.key });
       openSuggested({ startedAt: TimeStamp.now(), parent: range.key });
     },
   };
@@ -724,7 +775,7 @@ export const Content = (): ReactElement => {
   };
   const addPast = () => {
     const now = TimeStamp.now();
-    openCreate({
+    void openCreate({
       timeRange: { start: now.sub(TimeSpan.HOUR).nanoseconds, end: now.nanoseconds },
     });
   };
@@ -758,9 +809,11 @@ export const Content = (): ReactElement => {
         </Toolbar.Actions>
       </Toolbar.Header>
       <Toolbar.Body>
-        <DraftContext value={drafts}>
-          <Body groups={groups} />
-        </DraftContext>
+        <ActionsContext value={actions}>
+          <DraftContext value={drafts}>
+            <Body groups={groups} />
+          </DraftContext>
+        </ActionsContext>
       </Toolbar.Body>
     </Toolbar.Content>
   );

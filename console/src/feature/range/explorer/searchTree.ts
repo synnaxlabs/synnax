@@ -10,7 +10,7 @@
 import { type ranger } from "@synnaxlabs/client";
 import { Store } from "@synnaxlabs/lyra/store";
 import { Ranger } from "@synnaxlabs/pluto";
-import { compare, deep, type destructor, TimeStamp, unique } from "@synnaxlabs/x";
+import { compare, deep, type destructor, map, TimeStamp, unique } from "@synnaxlabs/x";
 import { useState } from "react";
 
 /** The most matches a search shows in a tree. */
@@ -68,7 +68,7 @@ const place = (
       roots.push(key);
       return;
     }
-    children.set(parent, [...(children.get(parent) ?? []), key]);
+    map.getOrInsert(children, parent, () => []).push(key);
     visit(parent);
   };
   matches.forEach(visit);

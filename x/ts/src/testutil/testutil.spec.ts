@@ -11,7 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { sleep } from "@/sleep";
 import { TimeSpan } from "@/telem";
-import { expectAlways, toString } from "@/testutil";
+import { assertDefined, expectAlways, toString, uniqueName } from "@/testutil";
 
 describe("testutil", () => {
   describe("toString", () => {
@@ -84,6 +84,18 @@ describe("testutil", () => {
 
     it("should call the function once per interval over the duration", async () => {
       const fn = vi.fn();
+      const done = expectAlways(
+        fn,
+        TimeSpan.milliseconds(100),
+        TimeSpan.milliseconds(20),
+      );
+      await vi.runAllTimersAsync();
+      await done;
+      expect(fn).toHaveBeenCalledTimes(5);
+    });
+
+    it("should read bare numbers as milliseconds", async () => {
+      const fn = vi.fn();
       const done = expectAlways(fn, 100, 20);
       await vi.runAllTimersAsync();
       await done;
@@ -97,7 +109,11 @@ describe("testutil", () => {
         calls.push(Date.now() - start);
         await sleep.sleep(TimeSpan.milliseconds(30));
       };
-      const done = expectAlways(asyncFn, 100, 20);
+      const done = expectAlways(
+        asyncFn,
+        TimeSpan.milliseconds(100),
+        TimeSpan.milliseconds(20),
+      );
       await vi.runAllTimersAsync();
       await done;
       expect(calls).toEqual([0, 50]);
@@ -107,7 +123,9 @@ describe("testutil", () => {
       const errorFn = vi.fn(() => {
         throw new Error("Test error");
       });
-      await expect(expectAlways(errorFn, 50, 20)).rejects.toThrow("Test error");
+      await expect(
+        expectAlways(errorFn, TimeSpan.milliseconds(50), TimeSpan.milliseconds(20)),
+      ).rejects.toThrow("Test error");
       expect(errorFn).toHaveBeenCalledTimes(1);
     });
 
@@ -115,9 +133,13 @@ describe("testutil", () => {
       const asyncErrorFn = vi.fn(async () => {
         throw new Error("Async test error");
       });
-      await expect(expectAlways(asyncErrorFn, 50, 20)).rejects.toThrow(
-        "Async test error",
-      );
+      await expect(
+        expectAlways(
+          asyncErrorFn,
+          TimeSpan.milliseconds(50),
+          TimeSpan.milliseconds(20),
+        ),
+      ).rejects.toThrow("Async test error");
       expect(asyncErrorFn).toHaveBeenCalledTimes(1);
     });
 
@@ -132,7 +154,11 @@ describe("testutil", () => {
     it("should sleep for the interval between calls", async () => {
       const fn = vi.fn();
       const start = Date.now();
-      const done = expectAlways(fn, 100, 30);
+      const done = expectAlways(
+        fn,
+        TimeSpan.milliseconds(100),
+        TimeSpan.milliseconds(30),
+      );
       await vi.runAllTimersAsync();
       await done;
       expect(Date.now() - start).toBe(120);
@@ -145,7 +171,9 @@ describe("testutil", () => {
         callCount++;
         if (callCount < 3) throw new Error("Not ready yet");
       });
-      await expect(expectAlways(fn, 80, 20)).rejects.toThrow("Not ready yet");
+      await expect(
+        expectAlways(fn, TimeSpan.milliseconds(80), TimeSpan.milliseconds(20)),
+      ).rejects.toThrow("Not ready yet");
       expect(fn).toHaveBeenCalledTimes(1);
     });
 
@@ -154,13 +182,46 @@ describe("testutil", () => {
       const incrementer = setInterval(() => value++, 10);
       try {
         const rejects = expect(
-          expectAlways(() => expect(value).toBeLessThan(3), 100, 20),
+          expectAlways(
+            () => expect(value).toBeLessThan(3),
+            TimeSpan.milliseconds(100),
+            TimeSpan.milliseconds(20),
+          ),
         ).rejects.toThrow();
         await vi.advanceTimersByTimeAsync(100);
         await rejects;
       } finally {
         clearInterval(incrementer);
       }
+    });
+  });
+
+  describe("assertDefined", () => {
+    it("should pass a defined value through", () => {
+      const value: number | undefined = 0;
+      assertDefined(value);
+      expect(value).toBe(0);
+    });
+    it("should throw the default message for null or undefined", () => {
+      expect(() => assertDefined(undefined)).toThrow("expected value to be defined");
+      expect(() => assertDefined(null)).toThrow("expected value to be defined");
+    });
+    it("should throw the given message", () => {
+      expect(() => assertDefined(undefined, "button not found")).toThrow(
+        "button not found",
+      );
+    });
+  });
+
+  describe("uniqueName", () => {
+    it("should join the prefix and a unique id with an underscore", () => {
+      expect(uniqueName("ch")).toMatch(/^ch_[a-zA-Z][a-zA-Z0-9]{10}$/);
+    });
+    it("should default the prefix to test", () => {
+      expect(uniqueName()).toMatch(/^test_/);
+    });
+    it("should return a new name each call", () => {
+      expect(uniqueName()).not.toEqual(uniqueName());
     });
   });
 });
