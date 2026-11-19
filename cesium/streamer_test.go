@@ -83,7 +83,7 @@ var _ = Describe("Streamer Behavior", func() {
 						})
 
 						d := telem.NewSeriesSecondsTSV(10, 11, 12)
-						MustSucceed(w.Write(telem.MultiFrame(
+						MustSucceed(w.Write(ctx, telem.MultiFrame(
 							[]cesium.ChannelKey{basic1},
 							[]telem.Series{d},
 						)))
@@ -124,7 +124,7 @@ var _ = Describe("Streamer Behavior", func() {
 						}
 						write := func(key cesium.ChannelKey) {
 							GinkgoHelper()
-							MustSucceed(writers[key].Write(telem.MultiFrame(
+							MustSucceed(writers[key].Write(ctx, telem.MultiFrame(
 								[]cesium.ChannelKey{key},
 								[]telem.Series{telem.NewSeriesV[int64](1)},
 							)))
@@ -195,7 +195,7 @@ var _ = Describe("Streamer Behavior", func() {
 					})
 
 					d := telem.NewSeriesSecondsTSV(10, 11, 12)
-					MustSucceed(w.Write(telem.MultiFrame(
+					MustSucceed(w.Write(ctx, telem.MultiFrame(
 						[]cesium.ChannelKey{basic2},
 						[]telem.Series{d},
 					)))
@@ -230,7 +230,7 @@ var _ = Describe("Streamer Behavior", func() {
 						})
 
 						written := telem.NewSeriesV[int64](1, 2, 3)
-						MustSucceed(w.Write(telem.MultiFrame(
+						MustSucceed(w.Write(ctx, telem.MultiFrame(
 							[]cesium.ChannelKey{basic2},
 							[]telem.Series{written},
 						)))
@@ -273,7 +273,7 @@ var _ = Describe("Streamer Behavior", func() {
 						_, o, closer := openStreamer(ctx, db, cesium.StreamerConfig{
 							Channels: []cesium.ChannelKey{idx, data},
 						})
-						MustSucceed(w.Write(telem.MultiFrame(
+						MustSucceed(w.Write(ctx, telem.MultiFrame(
 							[]cesium.ChannelKey{idx, data},
 							[]telem.Series{
 								telem.NewSeriesSecondsTSV(10, 11, 12),
@@ -322,7 +322,7 @@ var _ = Describe("Streamer Behavior", func() {
 						_, o, closer := openStreamer(ctx, db, cesium.StreamerConfig{
 							Channels: []cesium.ChannelKey{idx, data},
 						})
-						MustSucceed(w.Write(telem.MultiFrame(
+						MustSucceed(w.Write(ctx, telem.MultiFrame(
 							[]cesium.ChannelKey{data},
 							[]telem.Series{telem.NewSeriesV[float32](1, 2, 3)},
 						)))
@@ -367,11 +367,11 @@ var _ = Describe("Streamer Behavior", func() {
 							Channels: []cesium.ChannelKey{idx},
 							Start:    10 * telem.SecondTS,
 						}))
-						MustSucceed(idxW.Write(telem.MultiFrame(
+						MustSucceed(idxW.Write(ctx, telem.MultiFrame(
 							[]cesium.ChannelKey{idx},
 							[]telem.Series{telem.NewSeriesSecondsTSV(10, 11, 12)},
 						)))
-						MustCommit(idxW)
+						MustSucceed(idxW.Commit(ctx))
 						Expect(idxW.Close()).To(Succeed())
 						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 							Channels: []cesium.ChannelKey{data},
@@ -380,7 +380,7 @@ var _ = Describe("Streamer Behavior", func() {
 						_, o, closer := openStreamer(ctx, db, cesium.StreamerConfig{
 							Channels: []cesium.ChannelKey{data},
 						})
-						MustSucceed(w.Write(telem.MultiFrame(
+						MustSucceed(w.Write(ctx, telem.MultiFrame(
 							[]cesium.ChannelKey{data},
 							[]telem.Series{telem.NewSeriesV[float32](1, 2, 3)},
 						)))
@@ -421,10 +421,10 @@ var _ = Describe("Streamer Behavior", func() {
 							Channels: []cesium.ChannelKey{groupCh},
 						})
 
-						Expect(w.Write(telem.MultiFrame(
+						MustSucceed(w.Write(ctx, telem.MultiFrame(
 							[]cesium.ChannelKey{groupCh},
 							[]telem.Series{telem.NewSeriesV[int64](1, 2, 3)},
-						))).To(BeTrue())
+						)))
 						var res cesium.StreamerResponse
 						Eventually(o.Outlet()).Should(Receive(&res))
 						Expect(res.Group).To(Equal(uint32(42)))
@@ -455,10 +455,10 @@ var _ = Describe("Streamer Behavior", func() {
 							Channels: []cesium.ChannelKey{noGroupCh},
 						})
 
-						Expect(w.Write(telem.MultiFrame(
+						MustSucceed(w.Write(ctx, telem.MultiFrame(
 							[]cesium.ChannelKey{noGroupCh},
 							[]telem.Series{telem.NewSeriesV[int64](4, 5, 6)},
-						))).To(BeTrue())
+						)))
 						var res cesium.StreamerResponse
 						Eventually(o.Outlet()).Should(Receive(&res))
 						Expect(res.Group).To(Equal(uint32(0)))
@@ -500,8 +500,9 @@ var _ = Describe("Streamer Behavior", func() {
 						ts := telem.TimeStamp(10)
 						Eventually(func(g Gomega) {
 							g.Expect(w.Write(
+								ctx,
 								telem.UnaryFrame(key, telem.NewSeriesSecondsTSV(ts)),
-							)).To(BeTrue())
+							)).Error().ToNot(HaveOccurred())
 							ts++
 							g.Expect(o.Outlet()).To(Receive(&res))
 						}).Should(Succeed())
@@ -552,9 +553,12 @@ var _ = Describe("Streamer Behavior", func() {
 						DeferClose(closer)
 
 						for v := range frameCount {
-							Expect(
-								w.Write(telem.UnaryFrame(key, telem.NewSeriesV(v))),
-							).To(BeTrue())
+							MustSucceed(
+								w.Write(
+									ctx,
+									telem.UnaryFrame(key, telem.NewSeriesV(v)),
+								),
+							)
 						}
 						for v := range frameCount {
 							var res cesium.StreamerResponse
@@ -615,7 +619,7 @@ var _ = Describe("Virtual Channel Streaming", func() {
 				})
 
 				d := telem.NewSeriesV[int64](1, 2, 3)
-				Expect(w.Write(telem.UnaryFrame(key, d))).To(BeTrue())
+				MustSucceed(w.Write(ctx, telem.UnaryFrame(key, d)))
 
 				var res cesium.StreamerResponse
 				Eventually(o.Outlet()).Should(Receive(&res))

@@ -109,23 +109,13 @@ type StreamWriter = confluence.Segment[WriterRequest, WriterResponse]
 type streamWriter struct {
 	confluence.UnarySink[WriterRequest]
 	confluence.AbstractUnarySource[WriterResponse]
-	relay confluence.Inlet[relayResponse]
-	// relayStopped closes when the relay stops. Writes then skip the relay.
-	relayStopped    <-chan struct{}
+	w               *Writer
 	validateCommand func(WriterCommand) error
 	accumulatedErr  error
 	errSent         bool
 	// writeRefused is true when a write was refused for no control since the last
 	// commit that reported it.
-	writeRefused       bool
-	virtual            *virtualWriter
-	updateDBControl    func(u ControlUpdate)
-	authorizeEndDomain func(index ChannelKey, own map[ChannelKey]*unaryWriterState) error
-	internal           []*idxWriter
-	// keyToIdx maps every channel key the writer is responsible for to its owning
-	// idxWriter.
-	keyToIdx map[ChannelKey]*idxWriter
-	WriterConfig
+	writeRefused bool
 }
 
 // Flow implements the confluence.Flow interface.
@@ -133,7 +123,7 @@ func (w *streamWriter) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	o := confluence.NewOptions(opts)
 	o.AttachClosables(w.Out)
 	sCtx.Go(func(ctx context.Context) (err error) {
-		defer func() { err = errors.Combine(err, w.close()) }()
+		defer func() { err = errors.Combine(err, w.w.release()) }()
 		for {
 			select {
 			case <-ctx.Done():
@@ -162,6 +152,8 @@ func (w *streamWriter) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	}, o.Signal...)
 }
 
+// process runs req on the writer. A refusal for no control is not an error of the
+// stream: it returns authorized false and a nil error.
 func (w *streamWriter) process(
 	ctx context.Context,
 	req WriterRequest,
@@ -171,13 +163,28 @@ func (w *streamWriter) process(
 	}
 	switch req.Command {
 	case WriterCommandCommit:
-		return w.commit(ctx)
+		commitEnd, err = w.w.Commit(ctx)
+		authorized = !w.writeRefused
+		w.writeRefused = false
+		if errors.Is(err, xcontrol.ErrUnauthorized) {
+			return 0, false, nil
+		}
+		if err != nil {
+			return 0, false, err
+		}
+		return commitEnd, authorized, nil
 	case writerCommandSetAuthority:
-		err = w.setAuthority(req.Config)
+		err = w.w.SetAuthority(req.Config)
 	case writerCommandEndDomain:
-		err = w.endDomain(ctx, req.Config.Channels)
+		err = w.w.EndDomain(ctx, req.Config.Channels...)
 	case WriterCommandWrite:
-		err = w.write(ctx, req)
+		_, err = w.w.Write(ctx, req.Frame)
+		if errors.Is(err, xcontrol.ErrUnauthorized) {
+			w.writeRefused = true
+		}
+	}
+	if errors.Is(err, xcontrol.ErrUnauthorized) {
+		return 0, false, nil
 	}
 	if err != nil {
 		return 0, false, err
@@ -185,16 +192,46 @@ func (w *streamWriter) process(
 	return 0, true, nil
 }
 
-func (w *streamWriter) setAuthority(cfg WriterConfig) error {
+func (w *streamWriter) maybeSendRes(
+	ctx context.Context,
+	req WriterRequest,
+	end telem.TimeStamp,
+	authorized bool,
+) error {
+	res := WriterResponse{
+		Command:    req.Command,
+		SeqNum:     req.SeqNum,
+		End:        end,
+		Authorized: authorized,
+		Err:        w.accumulatedErr,
+	}
+	if req.Command == WriterCommandWrite &&
+		!*w.w.Sync &&
+		(res.Err == nil || w.errSent) {
+		return nil
+	}
+	if res.Err != nil {
+		w.errSent = true
+	}
+	return signal.SendUnderContext(ctx, w.Out.Inlet(), res)
+}
+
+// SetAuthority sets the control authority of the writer over its channels. Naming a
+// data channel also moves its written index to the max across that index's data
+// channels, unless the index is named explicitly.
+func (w *Writer) SetAuthority(cfg WriterConfig) error {
+	if err := w.check(); err != nil {
+		return err
+	}
 	if len(cfg.Authorities) == 0 {
 		return nil
 	}
 	if len(cfg.Authorities) != 1 &&
 		len(cfg.Authorities) != len(cfg.Channels) {
-		return errors.Wrap(
+		return w.fail(errors.Wrap(
 			validate.ErrValidation,
 			"authority count must be 1 or equal to channel count",
-		)
+		))
 	}
 	cfg = w.propagateAuthority(cfg)
 	var (
@@ -240,85 +277,55 @@ func (w *streamWriter) setAuthority(cfg WriterConfig) error {
 	return nil
 }
 
-func (w *streamWriter) maybeSendRes(
-	ctx context.Context,
-	req WriterRequest,
-	end telem.TimeStamp,
-	authorized bool,
-) error {
-	res := WriterResponse{
-		Command:    req.Command,
-		SeqNum:     req.SeqNum,
-		End:        end,
-		Authorized: authorized,
+// Write writes fr and returns it with the alignment and time range of each written
+// series set. When the writer lacks control of some channels, Write writes the others
+// and returns the frame without the refused channels, with an error that wraps
+// control.ErrUnauthorized.
+func (w *Writer) Write(ctx context.Context, fr Frame) (Frame, error) {
+	if err := w.check(); err != nil {
+		return Frame{}, err
 	}
-	if w.accumulatedErr != nil &&
-		errors.Is(w.accumulatedErr, xcontrol.ErrUnauthorized) {
-		if req.Command == WriterCommandWrite {
-			w.writeRefused = true
-		}
-		w.accumulatedErr = nil
-		w.errSent = false
-		res.Authorized = false
-	}
-	res.Err = w.accumulatedErr
-	if req.Command == WriterCommandWrite && !*w.Sync && (res.Err == nil || w.errSent) {
-		return nil
-	}
-	if res.Err != nil {
-		w.errSent = true
-	}
-	return signal.SendUnderContext(ctx, w.Out.Inlet(), res)
-}
-
-func (w *streamWriter) write(ctx context.Context, req WriterRequest) error {
 	if *w.AutoIndex {
-		req.Frame = w.autoStamp(req.Frame)
+		fr = w.autoStamp(fr)
 	}
 	var (
-		accumulatedErr      error
+		unauthorized        error
 		err                 error
 		excludeUnauthorized []ChannelKey
 	)
 	for _, idx := range w.internal {
-		if req.Frame, err = idx.write(&excludeUnauthorized, req.Frame); err != nil {
-			accumulatedErr = err
-			if !errors.Is(accumulatedErr, xcontrol.ErrUnauthorized) {
-				return accumulatedErr
+		if fr, err = idx.write(&excludeUnauthorized, fr); err != nil {
+			if !errors.Is(err, xcontrol.ErrUnauthorized) {
+				return Frame{}, w.fail(err)
 			}
+			unauthorized = err
 			continue
 		}
-
 		if *w.EnableAutoCommit {
 			if _, err = idx.Commit(ctx); err != nil {
-				accumulatedErr = err
-				if !errors.Is(accumulatedErr, xcontrol.ErrUnauthorized) {
-					return accumulatedErr
+				if !errors.Is(err, xcontrol.ErrUnauthorized) {
+					return Frame{}, w.fail(err)
 				}
+				unauthorized = err
 			}
 		}
 	}
 	if w.virtual.internal != nil {
-		if req.Frame, err = w.virtual.write(
-			&excludeUnauthorized,
-			req.Frame,
-		); err != nil {
-			accumulatedErr = err
-			if !errors.Is(accumulatedErr, xcontrol.ErrUnauthorized) {
-				return accumulatedErr
+		if fr, err = w.virtual.write(&excludeUnauthorized, fr); err != nil {
+			if !errors.Is(err, xcontrol.ErrUnauthorized) {
+				return Frame{}, w.fail(err)
 			}
+			unauthorized = err
 		}
 	}
+	fr = fr.ExcludeKeys(excludeUnauthorized)
 	if w.Mode.Stream() {
 		select {
-		case w.relay.Inlet() <- relayResponse{
-			frame: req.Frame.ExcludeKeys(excludeUnauthorized),
-			group: w.ControlSubject.Group,
-		}:
+		case w.relay.Inlet() <- relayResponse{frame: fr, group: w.ControlSubject.Group}:
 		case <-w.relayStopped:
 		}
 	}
-	return accumulatedErr
+	return fr, unauthorized
 }
 
 // autoStamp injects a TimeStamp series for each idxWriter whose index channel is
@@ -327,7 +334,7 @@ func (w *streamWriter) write(ctx context.Context, req WriterRequest) error {
 // O(1) and records whether that group's index is present and the length of any data
 // channel for the group. A subsequent pass over idxWriters counts how many stamps are
 // needed, grows fr by exactly that amount, and performs the appends.
-func (w *streamWriter) autoStamp(fr Frame) Frame {
+func (w *Writer) autoStamp(fr Frame) Frame {
 	for _, idx := range w.internal {
 		idx.resetAutoStampScan()
 	}
@@ -377,11 +384,10 @@ func (w *streamWriter) autoStamp(fr Frame) Frame {
 // state is refreshed so the next per-channel call computes correctly. Indexes the
 // caller explicitly included in cfg.Channels are left untouched.
 //
-// propagateAuthority may append to cfg.Channels and cfg.Authorities. The streamWriter
-// treats a dequeued WriterRequest as exclusively owned, so callers must not retain or
-// share the underlying arrays of req.Config.Channels / req.Config.Authorities once the
-// request has been sent.
-func (w *streamWriter) propagateAuthority(cfg WriterConfig) WriterConfig {
+// propagateAuthority may append to cfg.Channels and cfg.Authorities, so a caller of
+// SetAuthority must not retain or share the underlying arrays of cfg.Channels and
+// cfg.Authorities.
+func (w *Writer) propagateAuthority(cfg WriterConfig) WriterConfig {
 	if len(cfg.Channels) == 0 {
 		for _, idx := range w.internal {
 			idx.broadcastDataAuth(cfg.Authorities[0])
@@ -423,35 +429,48 @@ func (w *streamWriter) propagateAuthority(cfg WriterConfig) WriterConfig {
 	return cfg
 }
 
-func (w *streamWriter) commit(
-	ctx context.Context,
-) (end telem.TimeStamp, authorized bool, err error) {
+// Commit makes the written samples available to reads and returns the end of the
+// commit. When the writer lacks control of a channel with samples to commit, Commit
+// returns an error that wraps control.ErrUnauthorized and a zero end, and the writer
+// stays open so that it can regain control.
+func (w *Writer) Commit(ctx context.Context) (telem.TimeStamp, error) {
+	if err := w.check(); err != nil {
+		return 0, err
+	}
 	var (
 		maxTS        = telem.TimeStampMin
-		lacksControl bool
+		unauthorized error
 	)
 	for _, idxW := range w.internal {
 		ts, err := idxW.Commit(ctx)
 		if errors.Is(err, xcontrol.ErrUnauthorized) {
-			lacksControl = true
+			unauthorized = err
 			continue
 		}
 		if err != nil {
-			return 0, false, err
+			return 0, w.fail(err)
 		}
 		if ts > maxTS {
 			maxTS = ts
 		}
 	}
-	authorized = !w.writeRefused
-	w.writeRefused = false
-	if lacksControl {
-		return 0, false, nil
+	if unauthorized != nil {
+		return 0, unauthorized
 	}
-	return maxTS, authorized, nil
+	return maxTS, nil
 }
 
-func (w *streamWriter) endDomain(ctx context.Context, indexes []ChannelKey) error {
+// EndDomain commits the writer, then ends the domains of the given indexes and of the
+// data channels they index. The next write to an index starts a new domain at its first
+// timestamp, which frees the time before that timestamp for another writer. Indexes the
+// writer does not write are ignored, and an index with no data keeps its domains.
+// EndDomain returns an error that wraps control.ErrUnauthorized if another writer
+// controls an index or one of its data channels. The index then keeps its domain, and
+// some of its data channels may end theirs.
+func (w *Writer) EndDomain(ctx context.Context, indexes ...ChannelKey) error {
+	if err := w.check(); err != nil {
+		return err
+	}
 	var unauthorized error
 	for _, idx := range w.internal {
 		if !idx.writingToIdx || !slices.Contains(indexes, idx.idx.ch.Key) {
@@ -459,40 +478,12 @@ func (w *streamWriter) endDomain(ctx context.Context, indexes []ChannelKey) erro
 		}
 		if err := idx.endDomain(ctx, w.authorizeEndDomain); err != nil {
 			if !errors.Is(err, xcontrol.ErrUnauthorized) {
-				return err
+				return w.fail(err)
 			}
 			unauthorized = err
 		}
 	}
 	return unauthorized
-}
-
-func (w *streamWriter) close() error {
-	var err error
-	parentUpdate := ControlUpdate{
-		Transfers: make([]xcontrol.Transfer[ChannelKey], 0, len(w.internal)),
-	}
-	for _, idx := range w.internal {
-		u, errClose := idx.Close()
-		if errClose != nil {
-			err = errors.Join(err, errClose)
-		} else {
-			parentUpdate.Transfers = append(parentUpdate.Transfers, u.Transfers...)
-		}
-	}
-	if w.virtual.internal != nil {
-		u, errClose := w.virtual.Close()
-		if errClose != nil {
-			err = errors.Join(err, errClose)
-		} else {
-			parentUpdate.Transfers = append(parentUpdate.Transfers, u.Transfers...)
-		}
-	}
-
-	if len(parentUpdate.Transfers) > 0 {
-		w.updateDBControl(parentUpdate)
-	}
-	return err
 }
 
 type unaryWriterState struct {
@@ -554,17 +545,17 @@ type idxWriter struct {
 	// channels.
 	dataAuth map[ChannelKey]xcontrol.Authority
 	// scanIdxPresent is a transient scratch field set during the single frame scan in
-	// streamWriter.autoStamp. True when the caller's frame already contains this
+	// Writer.autoStamp. True when the caller's frame already contains this
 	// idxWriter's index key (in which case no stamping is needed). Reset to false at
 	// the start of every autoStamp call.
 	scanIdxPresent bool
 	// scanDataLen is a transient scratch field set during the single frame scan in
-	// streamWriter.autoStamp. Holds the length of the first non-empty data channel
+	// Writer.autoStamp. Holds the length of the first non-empty data channel
 	// observed for this group (the size of the auto-stamped series). Reset to zero at
 	// the start of every autoStamp call.
 	scanDataLen int64
 	// setAuthExplicit is a transient scratch field used during the per-channel scan in
-	// streamWriter.propagateAuthority. True when the caller explicitly named this
+	// Writer.propagateAuthority. True when the caller explicitly named this
 	// idxWriter's index key in the SetAuthority config, in which case the index
 	// authority is left untouched. Reset to false at the start of every
 	// propagateAuthority call.
@@ -592,8 +583,8 @@ func (w *idxWriter) appendAutoStamp(fr Frame, now telem.TimeStamp) Frame {
 }
 
 // setDataAuth records auth as the authority for k if k is one of this group's data
-// channels and returns true. Returns false if k is not in this group (the streamWriter
-// is expected to try the next idxWriter in that case).
+// channels and returns true. Returns false if k is not in this group (the Writer is
+// expected to try the next idxWriter in that case).
 func (w *idxWriter) setDataAuth(k ChannelKey, auth xcontrol.Authority) bool {
 	if _, isData := w.dataAuth[k]; !isData {
 		return false

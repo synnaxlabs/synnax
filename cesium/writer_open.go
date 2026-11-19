@@ -188,7 +188,17 @@ func (db *DB) NewStreamWriter(
 	}
 	db.mu.RLock()
 	defer db.mu.RUnlock()
-	return db.newStreamWriter(ctx, cfgs...)
+	w, err := db.newWriter(ctx, cfgs...)
+	if err != nil {
+		return nil, err
+	}
+	return &streamWriter{
+		w: w,
+		validateCommand: validate.NewInclusiveBoundsChecker(
+			WriterCommandWrite,
+			writerCommandEndDomain,
+		),
+	}, nil
 }
 
 // OpenWriter implements DB.
@@ -198,17 +208,13 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (*Writer, er
 	}
 	db.mu.RLock()
 	defer db.mu.RUnlock()
-	iw, err := db.newStreamWriter(ctx, cfgs...)
-	if err != nil {
-		return nil, err
-	}
-	return wrapStreamWriter(iw.WriterConfig, iw), nil
+	return db.newWriter(ctx, cfgs...)
 }
 
-func (db *DB) newStreamWriter(
+func (db *DB) newWriter(
 	ctx context.Context,
 	cfgs ...WriterConfig,
-) (w *streamWriter, err error) {
+) (w *Writer, err error) {
 	cfg, err := config.New(WriterConfig{
 		ControlSubject:           xcontrol.Subject{Key: uuid.New().String()},
 		Authorities:              []xcontrol.Authority{xcontrol.AuthorityAbsolute},
@@ -266,25 +272,21 @@ func (db *DB) newStreamWriter(
 		db.controlUpdates.notify(controlUpdate)
 	}
 
-	return db.assembleStreamWriter(cfg, domainWriters, virtualWriters, keyToIdx), nil
+	return db.assembleWriter(cfg, domainWriters, virtualWriters, keyToIdx), nil
 }
 
-// assembleStreamWriter returns a streamWriter over the opened writers.
-func (db *DB) assembleStreamWriter(
+// assembleWriter returns a Writer over the opened writers.
+func (db *DB) assembleWriter(
 	cfg WriterConfig,
 	domainWriters map[ChannelKey]*idxWriter,
 	virtualWriters map[ChannelKey]*virtual.Writer,
 	keyToIdx map[ChannelKey]*idxWriter,
-) *streamWriter {
-	w := &streamWriter{
-		WriterConfig: cfg,
-		internal:     make([]*idxWriter, 0, len(domainWriters)),
-		relay:        db.relay.inlet,
-		relayStopped: db.relay.delta.Stopped(),
-		validateCommand: validate.NewInclusiveBoundsChecker(
-			WriterCommandWrite,
-			writerCommandEndDomain,
-		),
+) *Writer {
+	w := &Writer{
+		WriterConfig:       cfg,
+		internal:           make([]*idxWriter, 0, len(domainWriters)),
+		relay:              db.relay.inlet,
+		relayStopped:       db.relay.delta.Stopped(),
 		virtual:            &virtualWriter{internal: virtualWriters},
 		keyToIdx:           keyToIdx,
 		authorizeEndDomain: db.authorizeEndDomain,

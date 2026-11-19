@@ -70,7 +70,7 @@ func benchmarkReadDomains(b *testing.B, count int, open bool) {
 				b.Error(err)
 			}
 		}()
-		if _, err := w.Write(fr); err != nil {
+		if _, err := w.Write(ctx, fr); err != nil {
 			b.Fatal(err)
 		}
 	}

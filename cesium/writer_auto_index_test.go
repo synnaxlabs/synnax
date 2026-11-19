@@ -67,13 +67,14 @@ var _ = Describe("Writer AutoIndex", func() {
 						}))
 						MustSucceed(
 							w.Write(
+								ctx,
 								telem.UnaryFrame(
 									data,
 									telem.NewSeriesV[float64](1, 2, 3),
 								),
 							),
 						)
-						MustCommit(w)
+						MustSucceed(w.Commit(ctx))
 						after := telem.Now()
 
 						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx))
@@ -115,6 +116,7 @@ var _ = Describe("Writer AutoIndex", func() {
 						}))
 						MustSucceed(
 							w.Write(
+								ctx,
 								telem.UnaryFrame(
 									data,
 									telem.NewSeriesV[float64](1, 2, 3),
@@ -123,13 +125,14 @@ var _ = Describe("Writer AutoIndex", func() {
 						)
 						MustSucceed(
 							w.Write(
+								ctx,
 								telem.UnaryFrame(
 									data,
 									telem.NewSeriesV[float64](4, 5, 6),
 								),
 							),
 						)
-						MustCommit(w)
+						MustSucceed(w.Commit(ctx))
 
 						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx))
 						ts := f.SeriesAt(0).Unmarshal[telem.TimeStamp]()
@@ -170,14 +173,14 @@ var _ = Describe("Writer AutoIndex", func() {
 							Sync:      new(true),
 							Start:     100 * telem.SecondTS,
 						}))
-						MustSucceed(w.Write(telem.MultiFrame(
+						MustSucceed(w.Write(ctx, telem.MultiFrame(
 							[]cesium.ChannelKey{idx, data},
 							[]telem.Series{
 								telem.NewSeriesSecondsTSV(100, 101, 102),
 								telem.NewSeriesV[float64](1, 2, 3),
 							},
 						)))
-						MustCommit(w)
+						MustSucceed(w.Commit(ctx))
 
 						f := MustSucceed(
 							db.Read(
@@ -223,7 +226,7 @@ var _ = Describe("Writer AutoIndex", func() {
 							AutoIndex: new(true),
 							Sync:      new(true),
 						}))
-						MustSucceed(w.Write(telem.MultiFrame(
+						MustSucceed(w.Write(ctx, telem.MultiFrame(
 							[]cesium.ChannelKey{idx, data},
 							[]telem.Series{
 								telem.NewSeriesV(future),
@@ -232,6 +235,7 @@ var _ = Describe("Writer AutoIndex", func() {
 						)))
 						Expect(
 							w.Write(
+								ctx,
 								telem.UnaryFrame(data, telem.NewSeriesV[float64](2)),
 							),
 						).
@@ -269,21 +273,22 @@ var _ = Describe("Writer AutoIndex", func() {
 							Sync:      new(true),
 						}))
 						explicit := telem.Now() + 10*telem.MillisecondTS
-						Expect(w.Write(telem.MultiFrame(
+						MustSucceed(w.Write(ctx, telem.MultiFrame(
 							[]cesium.ChannelKey{idx, data},
 							[]telem.Series{
 								telem.NewSeriesV(explicit),
 								telem.NewSeriesV[float64](1),
 							},
-						))).To(BeTrue())
+						)))
 						Eventually(telem.Now).Should(BeNumerically(">", explicit))
 						afterExplicit := telem.Now()
-						Expect(
+						MustSucceed(
 							w.Write(
+								ctx,
 								telem.UnaryFrame(data, telem.NewSeriesV[float64](2)),
 							),
-						).To(BeTrue())
-						MustCommit(w)
+						)
+						MustSucceed(w.Commit(ctx))
 
 						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx))
 						ts := f.SeriesAt(0).Unmarshal[telem.TimeStamp]()
@@ -330,14 +335,14 @@ var _ = Describe("Writer AutoIndex", func() {
 							AutoIndex: new(true),
 							Sync:      new(true),
 						}))
-						MustSucceed(w.Write(telem.MultiFrame(
+						MustSucceed(w.Write(ctx, telem.MultiFrame(
 							[]cesium.ChannelKey{data, virtual},
 							[]telem.Series{
 								telem.NewSeriesV[float64](1, 2, 3),
 								telem.NewSeriesV[int64](10, 20, 30),
 							},
 						)))
-						MustCommit(w)
+						MustSucceed(w.Commit(ctx))
 
 						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx))
 						ts := f.SeriesAt(0).Unmarshal[telem.TimeStamp]()
@@ -382,14 +387,14 @@ var _ = Describe("Writer AutoIndex", func() {
 							AutoIndex: new(true),
 							Sync:      new(true),
 						}))
-						MustSucceed(w.Write(telem.MultiFrame(
+						MustSucceed(w.Write(ctx, telem.MultiFrame(
 							[]cesium.ChannelKey{data1, data2},
 							[]telem.Series{
 								telem.NewSeriesV[float64](1, 2, 3),
 								telem.NewSeriesV[float64](4, 5, 6),
 							},
 						)))
-						MustCommit(w)
+						MustSucceed(w.Commit(ctx))
 
 						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx))
 						ts := f.SeriesAt(0).Unmarshal[telem.TimeStamp]()
@@ -441,14 +446,14 @@ var _ = Describe("Writer AutoIndex", func() {
 							AutoIndex: new(true),
 							Sync:      new(true),
 						}))
-						MustSucceed(w.Write(telem.MultiFrame(
+						MustSucceed(w.Write(ctx, telem.MultiFrame(
 							[]cesium.ChannelKey{data1, data2},
 							[]telem.Series{
 								telem.NewSeriesV[float64](1, 2, 3),
 								telem.NewSeriesV[float64](10, 20, 30, 40),
 							},
 						)))
-						MustCommit(w)
+						MustSucceed(w.Commit(ctx))
 
 						ts1 := MustSucceed(
 							db.Read(ctx, telem.TimeRangeMax, idx1),
@@ -506,14 +511,14 @@ var _ = Describe("Writer AutoIndex", func() {
 							AutoIndex: new(true),
 							Sync:      new(true),
 						}))
-						MustSucceed(w.Write(telem.MultiFrame(
+						MustSucceed(w.Write(ctx, telem.MultiFrame(
 							[]cesium.ChannelKey{data1, data2},
 							[]telem.Series{
 								telem.NewSeriesV[float64](1, 2, 3),
 								telem.NewSeriesV[float64](4, 5, 6),
 							},
 						)))
-						MustCommit(w)
+						MustSucceed(w.Commit(ctx))
 
 						ts1 := MustSucceed(
 							db.Read(ctx, telem.TimeRangeMax, idx1),
@@ -568,7 +573,7 @@ var _ = Describe("Writer AutoIndex", func() {
 							AutoIndex: new(true),
 							Sync:      new(true),
 						}))
-						MustSucceed(w.Write(telem.MultiFrame(
+						MustSucceed(w.Write(ctx, telem.MultiFrame(
 							[]cesium.ChannelKey{idx1, data1, data2},
 							[]telem.Series{
 								telem.NewSeriesSecondsTSV(100, 101),
@@ -576,7 +581,7 @@ var _ = Describe("Writer AutoIndex", func() {
 								telem.NewSeriesV[float64](3, 4),
 							},
 						)))
-						MustCommit(w)
+						MustSucceed(w.Commit(ctx))
 
 						ts1 := MustSucceed(
 							db.Read(
@@ -631,13 +636,14 @@ var _ = Describe("Writer AutoIndex", func() {
 						}))
 						MustSucceed(
 							w.Write(
+								ctx,
 								telem.UnaryFrame(
 									data,
 									telem.NewSeriesV[float64](1, 2, 3),
 								),
 							),
 						)
-						MustCommit(w)
+						MustSucceed(w.Commit(ctx))
 
 						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx))
 						ts := f.SeriesAt(0).Unmarshal[telem.TimeStamp]()
@@ -674,14 +680,14 @@ var _ = Describe("Writer AutoIndex", func() {
 							AutoIndex: new(true),
 							Sync:      new(true),
 						}))
-						MustSucceed(w.Write(telem.MultiFrame(
+						MustSucceed(w.Write(ctx, telem.MultiFrame(
 							[]cesium.ChannelKey{idx, data},
 							[]telem.Series{
 								telem.NewSeriesSecondsTSV(1),
 								telem.NewSeriesV[float64](1),
 							},
 						)))
-						MustCommit(w)
+						MustSucceed(w.Commit(ctx))
 						Expect(w.Close()).To(Succeed())
 						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx))
 						Expect(f.SeriesAt(0)).To(telem.MatchSeriesData(
@@ -717,14 +723,14 @@ var _ = Describe("Writer AutoIndex", func() {
 						Sync:      new(true),
 						Start:     50 * telem.SecondTS,
 					}))
-					MustSucceed(w.Write(telem.MultiFrame(
+					MustSucceed(w.Write(ctx, telem.MultiFrame(
 						[]cesium.ChannelKey{idx, data},
 						[]telem.Series{
 							telem.NewSeriesSecondsTSV(100, 101),
 							telem.NewSeriesV[float64](1, 2),
 						},
 					)))
-					MustCommit(w)
+					MustSucceed(w.Commit(ctx))
 					Expect(w.Close()).To(Succeed())
 
 					f := MustSucceed(
@@ -772,6 +778,7 @@ var _ = Describe("Writer AutoIndex", func() {
 						}))
 						Expect(
 							w.Write(
+								ctx,
 								telem.UnaryFrame(data, telem.NewSeriesV[float64](1, 2)),
 							),
 						).
@@ -822,24 +829,22 @@ var _ = Describe("Writer AutoIndex", func() {
 							ControlSubject: control.Subject{Key: "wB"},
 						}))
 
-						authorized := MustSucceed(
+						MustSucceed(
 							wB.Write(
+								ctx,
 								telem.UnaryFrame(idx, telem.NewSeriesSecondsTSV(10)),
 							),
 						)
-						Expect(authorized).To(BeTrue())
 
 						Expect(wA.SetAuthority(cesium.WriterConfig{
 							Channels:    []cesium.ChannelKey{data},
 							Authorities: []control.Authority{control.Authority(200)},
 						})).To(Succeed())
 
-						authorized = MustSucceed(
-							wB.Write(
-								telem.UnaryFrame(idx, telem.NewSeriesSecondsTSV(11)),
-							),
-						)
-						Expect(authorized).To(BeFalse())
+						expectUnauthorized(wB.Write(
+							ctx,
+							telem.UnaryFrame(idx, telem.NewSeriesSecondsTSV(11)),
+						))
 					},
 				)
 
@@ -892,25 +897,25 @@ var _ = Describe("Writer AutoIndex", func() {
 							ControlSubject: control.Subject{Key: "wB_max"},
 						}))
 
-						Expect(MustSucceed(wB.Write(telem.UnaryFrame(
+						MustSucceed(wB.Write(ctx, telem.UnaryFrame(
 							idx, telem.NewSeriesSecondsTSV(10),
-						)))).To(BeTrue())
+						)))
 
 						Expect(wA.SetAuthority(cesium.WriterConfig{
 							Channels:    []cesium.ChannelKey{data1},
 							Authorities: []control.Authority{control.Authority(100)},
 						})).To(Succeed())
-						Expect(MustSucceed(wB.Write(telem.UnaryFrame(
+						MustSucceed(wB.Write(ctx, telem.UnaryFrame(
 							idx, telem.NewSeriesSecondsTSV(11),
-						)))).To(BeTrue())
+						)))
 
 						Expect(wA.SetAuthority(cesium.WriterConfig{
 							Channels:    []cesium.ChannelKey{data2},
 							Authorities: []control.Authority{control.Authority(200)},
 						})).To(Succeed())
-						Expect(MustSucceed(wB.Write(telem.UnaryFrame(
+						expectUnauthorized(wB.Write(ctx, telem.UnaryFrame(
 							idx, telem.NewSeriesSecondsTSV(12),
-						)))).To(BeFalse())
+						)))
 					},
 				)
 
@@ -963,18 +968,18 @@ var _ = Describe("Writer AutoIndex", func() {
 							ControlSubject: control.Subject{Key: "wB_bcast"},
 						}))
 
-						Expect(MustSucceed(wB.Write(telem.UnaryFrame(
+						MustSucceed(wB.Write(ctx, telem.UnaryFrame(
 							idx, telem.NewSeriesSecondsTSV(10),
-						)))).To(BeTrue())
+						)))
 
 						Expect(wA.SetAuthority(cesium.WriterConfig{
 							Channels:    []cesium.ChannelKey{data1, data2},
 							Authorities: []control.Authority{control.Authority(200)},
 						})).To(Succeed())
 
-						Expect(MustSucceed(wB.Write(telem.UnaryFrame(
+						expectUnauthorized(wB.Write(ctx, telem.UnaryFrame(
 							idx, telem.NewSeriesSecondsTSV(11),
-						)))).To(BeFalse())
+						)))
 					},
 				)
 
@@ -1027,9 +1032,9 @@ var _ = Describe("Writer AutoIndex", func() {
 							ControlSubject: control.Subject{Key: "wB_lower"},
 						}))
 
-						Expect(MustSucceed(wB.Write(telem.UnaryFrame(
+						expectUnauthorized(wB.Write(ctx, telem.UnaryFrame(
 							idx, telem.NewSeriesSecondsTSV(10),
-						)))).To(BeFalse())
+						)))
 
 						Expect(wA.SetAuthority(cesium.WriterConfig{
 							Channels: []cesium.ChannelKey{data1, data2},
@@ -1039,9 +1044,9 @@ var _ = Describe("Writer AutoIndex", func() {
 							},
 						})).To(Succeed())
 
-						Expect(MustSucceed(wB.Write(telem.UnaryFrame(
+						MustSucceed(wB.Write(ctx, telem.UnaryFrame(
 							idx, telem.NewSeriesSecondsTSV(11),
-						)))).To(BeTrue())
+						)))
 					},
 				)
 
@@ -1091,9 +1096,9 @@ var _ = Describe("Writer AutoIndex", func() {
 							ControlSubject: control.Subject{Key: "wB_chain"},
 						}))
 
-						Expect(MustSucceed(wB.Write(telem.UnaryFrame(
+						MustSucceed(wB.Write(ctx, telem.UnaryFrame(
 							idx, telem.NewSeriesSecondsTSV(10),
-						)))).To(BeTrue())
+						)))
 
 						Expect(wA.SetAuthority(cesium.WriterConfig{
 							Authorities: []control.Authority{control.Authority(100)},
@@ -1104,9 +1109,9 @@ var _ = Describe("Writer AutoIndex", func() {
 							Authorities: []control.Authority{control.Authority(200)},
 						})).To(Succeed())
 
-						Expect(MustSucceed(wB.Write(telem.UnaryFrame(
+						expectUnauthorized(wB.Write(ctx, telem.UnaryFrame(
 							idx, telem.NewSeriesSecondsTSV(11),
-						)))).To(BeFalse())
+						)))
 					},
 				)
 
@@ -1149,9 +1154,9 @@ var _ = Describe("Writer AutoIndex", func() {
 							ControlSubject: control.Subject{Key: "wB_explicit"},
 						}))
 
-						Expect(MustSucceed(wB.Write(telem.UnaryFrame(
+						MustSucceed(wB.Write(ctx, telem.UnaryFrame(
 							idx, telem.NewSeriesSecondsTSV(10),
-						)))).To(BeTrue())
+						)))
 
 						Expect(wA.SetAuthority(cesium.WriterConfig{
 							Channels: []cesium.ChannelKey{data, idx},
@@ -1161,9 +1166,9 @@ var _ = Describe("Writer AutoIndex", func() {
 							},
 						})).To(Succeed())
 
-						Expect(MustSucceed(wB.Write(telem.UnaryFrame(
+						MustSucceed(wB.Write(ctx, telem.UnaryFrame(
 							idx, telem.NewSeriesSecondsTSV(11),
-						)))).To(BeTrue())
+						)))
 					},
 				)
 			})
@@ -1207,9 +1212,9 @@ var _ = Describe("Writer AutoIndex", func() {
 							Sync:           new(true),
 							ControlSubject: control.Subject{Key: "open_wLow"},
 						}))
-						Expect(MustSucceed(wLow.Write(telem.UnaryFrame(
+						expectUnauthorized(wLow.Write(ctx, telem.UnaryFrame(
 							idx, telem.NewSeriesSecondsTSV(10),
-						)))).To(BeFalse())
+						)))
 
 						wHigh := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
 							Channels:       []cesium.ChannelKey{idx},
@@ -1217,9 +1222,9 @@ var _ = Describe("Writer AutoIndex", func() {
 							Sync:           new(true),
 							ControlSubject: control.Subject{Key: "open_wHigh"},
 						}))
-						Expect(MustSucceed(wHigh.Write(telem.UnaryFrame(
+						MustSucceed(wHigh.Write(ctx, telem.UnaryFrame(
 							idx, telem.NewSeriesSecondsTSV(11),
-						)))).To(BeTrue())
+						)))
 					},
 				)
 
@@ -1271,9 +1276,9 @@ var _ = Describe("Writer AutoIndex", func() {
 							Sync:           new(true),
 							ControlSubject: control.Subject{Key: "open_max_wBetween"},
 						}))
-						Expect(MustSucceed(wBetween.Write(telem.UnaryFrame(
+						expectUnauthorized(wBetween.Write(ctx, telem.UnaryFrame(
 							idx, telem.NewSeriesSecondsTSV(10),
-						)))).To(BeFalse())
+						)))
 
 						wAbove := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
 							Channels:       []cesium.ChannelKey{idx},
@@ -1281,9 +1286,9 @@ var _ = Describe("Writer AutoIndex", func() {
 							Sync:           new(true),
 							ControlSubject: control.Subject{Key: "open_max_wAbove"},
 						}))
-						Expect(MustSucceed(wAbove.Write(telem.UnaryFrame(
+						MustSucceed(wAbove.Write(ctx, telem.UnaryFrame(
 							idx, telem.NewSeriesSecondsTSV(11),
-						)))).To(BeTrue())
+						)))
 					},
 				)
 
@@ -1342,9 +1347,9 @@ var _ = Describe("Writer AutoIndex", func() {
 							Sync:           new(true),
 							ControlSubject: control.Subject{Key: "open_perindex_wIdx1"},
 						}))
-						Expect(MustSucceed(wIdx1.Write(telem.UnaryFrame(
+						MustSucceed(wIdx1.Write(ctx, telem.UnaryFrame(
 							idx1, telem.NewSeriesSecondsTSV(10),
-						)))).To(BeTrue())
+						)))
 
 						wIdx2 := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
 							Channels:       []cesium.ChannelKey{idx2},
@@ -1352,9 +1357,9 @@ var _ = Describe("Writer AutoIndex", func() {
 							Sync:           new(true),
 							ControlSubject: control.Subject{Key: "open_perindex_wIdx2"},
 						}))
-						Expect(MustSucceed(wIdx2.Write(telem.UnaryFrame(
+						expectUnauthorized(wIdx2.Write(ctx, telem.UnaryFrame(
 							idx2, telem.NewSeriesSecondsTSV(10),
-						)))).To(BeFalse())
+						)))
 					},
 				)
 			})

@@ -81,15 +81,18 @@ func (db *DB) Write(ctx context.Context, start telem.TimeStamp, frame Frame) err
 	if err != nil {
 		return span.Error(err)
 	}
-	if _, err = w.Write(frame); err != nil {
-		return err
+	// A write refused for no control still writes the channels the writer controls,
+	// so they commit.
+	if _, err = w.Write(
+		ctx,
+		frame,
+	); err == nil ||
+		errors.Is(err, xcontrol.ErrUnauthorized) {
+		_, commitErr := w.Commit(ctx)
+		err = errors.Combine(err, commitErr)
 	}
-	_, authorized, err := w.Commit()
-	if err != nil {
-		return err
-	}
-	if !authorized {
-		err = errors.Wrap(xcontrol.ErrUnauthorized, "another writer controls the frame")
+	if errors.Is(err, xcontrol.ErrUnauthorized) {
+		err = errors.Wrap(err, "another writer controls the frame")
 	}
 	return span.Error(errors.Combine(err, w.Close()))
 }

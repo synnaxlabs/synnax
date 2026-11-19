@@ -278,7 +278,7 @@ var _ = Describe("Open after a crash", func() {
 					Sync:                     new(true),
 					AutoIndexPersistInterval: telem.Hour,
 				})))
-				MustSucceed(w.Write(telem.MultiFrame(
+				MustSucceed(w.Write(ctx, telem.MultiFrame(
 					keys,
 					[]telem.Series{
 						telem.NewSeriesSecondsTSV(10, 11, 12),
@@ -291,7 +291,7 @@ var _ = Describe("Open after a crash", func() {
 					keys,
 					(1 * telem.SecondTS).Range(2*telem.SecondTS),
 				)).To(Succeed())
-				MustSucceed(w.Write(telem.MultiFrame(
+				MustSucceed(w.Write(ctx, telem.MultiFrame(
 					keys,
 					[]telem.Series{
 						telem.NewSeriesSecondsTSV(13, 14, 15),

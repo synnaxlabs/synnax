@@ -459,7 +459,7 @@ var _ = Describe("Delete", func() {
 								}))
 
 								By("Writing data to the channel")
-								MustSucceed(w.Write(telem.MultiFrame(
+								MustSucceed(w.Write(ctx, telem.MultiFrame(
 									[]cesium.ChannelKey{
 										dataChannelKey,
 										indexChannelKey,
@@ -470,7 +470,7 @@ var _ = Describe("Delete", func() {
 									},
 								),
 								))
-								MustCommit(w)
+								MustSucceed(w.Commit(ctx))
 								Expect(w.Close()).To(Succeed())
 
 								// Before deletion:
@@ -964,7 +964,7 @@ var _ = Describe("Delete", func() {
 						}))
 
 						By("Writing data to the channel")
-						MustSucceed(w.Write(telem.MultiFrame(
+						MustSucceed(w.Write(ctx, telem.MultiFrame(
 							[]cesium.ChannelKey{basic1, basic1Index},
 							[]telem.Series{
 								telem.NewSeriesV[int64](0, 1, 2, 3, 4, 5, 6, 7, 8, 9),
@@ -983,7 +983,7 @@ var _ = Describe("Delete", func() {
 							},
 						),
 						))
-						MustCommit(w)
+						MustSucceed(w.Commit(ctx))
 						Expect(w.Close()).To(Succeed())
 
 						// Before deletion:
@@ -1058,7 +1058,7 @@ var _ = Describe("Delete", func() {
 							}))
 
 							By("Writing data to the channel")
-							MustSucceed(w.Write(telem.MultiFrame(
+							MustSucceed(w.Write(ctx, telem.MultiFrame(
 								[]cesium.ChannelKey{basic2Index},
 								[]telem.Series{
 									telem.NewSeriesSecondsTSV(
@@ -1076,7 +1076,7 @@ var _ = Describe("Delete", func() {
 								},
 							),
 							))
-							MustCommit(w)
+							MustSucceed(w.Commit(ctx))
 							Expect(w.Close()).To(Succeed())
 
 							// Before deletion:
@@ -1162,7 +1162,7 @@ var _ = Describe("Delete", func() {
 								}))
 
 								By("Writing data to the channel")
-								MustSucceed(w.Write(telem.MultiFrame(
+								MustSucceed(w.Write(ctx, telem.MultiFrame(
 									[]cesium.ChannelKey{basic3, basic3Index},
 									[]telem.Series{
 										telem.NewSeriesV[int64](100, 101, 102),
@@ -1170,7 +1170,7 @@ var _ = Describe("Delete", func() {
 									},
 								),
 								))
-								MustCommit(w)
+								MustSucceed(w.Commit(ctx))
 								Expect(w.Close()).To(Succeed())
 
 								// Before deletion:
@@ -1227,7 +1227,7 @@ var _ = Describe("Delete", func() {
 							}))
 
 							By("Writing data to the channel")
-							MustSucceed(w.Write(telem.MultiFrame(
+							MustSucceed(w.Write(ctx, telem.MultiFrame(
 								[]cesium.ChannelKey{index1, basic1, basic2},
 								[]telem.Series{
 									telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14),
@@ -1312,7 +1312,7 @@ var _ = Describe("Delete", func() {
 								Channels: []cesium.ChannelKey{index1, basic1, basic2},
 								Start:    11 * telem.SecondTS,
 							}))
-							MustSucceed(w.Write(telem.MultiFrame(
+							MustSucceed(w.Write(ctx, telem.MultiFrame(
 								[]cesium.ChannelKey{index1, basic1, basic2},
 								[]telem.Series{
 									telem.NewSeriesSecondsTSV(11, 12, 13, 14),

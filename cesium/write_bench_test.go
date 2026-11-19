@@ -62,7 +62,7 @@ func benchmarkWrite(b *testing.B, mem, contended bool) {
 	b.ReportAllocs()
 	start := telem.SecondTS
 	for b.Loop() {
-		if _, err := w.Write(benchFrame(keys, start)); err != nil {
+		if _, err := w.Write(b.Context(), benchFrame(keys, start)); err != nil {
 			b.Fatal(err)
 		}
 		start += benchFrameSamples
@@ -118,7 +118,10 @@ func BenchmarkCommit(b *testing.B) {
 				for i := 0; i < len(series); i += perIndex + 1 {
 					series[i] = time
 				}
-				if _, err := w.Write(telem.MultiFrame(keys, series)); err != nil {
+				if _, err := w.Write(
+					b.Context(),
+					telem.MultiFrame(keys, series),
+				); err != nil {
 					b.Fatal(err)
 				}
 				start += telem.TimeStamp(c.samples)
@@ -226,7 +229,10 @@ func retryWrites(b *testing.B, w *cesium.Writer, keys []cesium.ChannelKey) func(
 				return
 			default:
 			}
-			if _, err := w.Write(f); err != nil {
+			if _, err := w.Write(
+				b.Context(),
+				f,
+			); err != nil && !errors.Is(err, control.ErrUnauthorized) {
 				b.Error(err)
 				return
 			}

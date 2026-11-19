@@ -453,14 +453,14 @@ var _ = Describe("Iterator Behavior", func() {
 						Channels: []cesium.ChannelKey{idxKey, dataKey},
 						Start:    1 * telem.SecondTS,
 					}))
-					MustSucceed(w.Write(telem.MultiFrame(
+					MustSucceed(w.Write(ctx, telem.MultiFrame(
 						[]cesium.ChannelKey{idxKey, dataKey},
 						[]telem.Series{
 							telem.NewSeriesSecondsTSV(4, 6, 8, 10, 12),
 							telem.NewSeriesV[int64](0, 1, 2, 3, 4),
 						},
 					)))
-					MustCommit(w)
+					MustSucceed(w.Commit(ctx))
 					Expect(w.Close()).To(Succeed())
 				})
 
@@ -689,11 +689,11 @@ var _ = Describe("Iterator Behavior", func() {
 							Channels: []cesium.ChannelKey{idxKey, dataKey},
 							Start:    start,
 						}))
-						MustSucceed(w.Write(telem.MultiFrame(
+						MustSucceed(w.Write(ctx, telem.MultiFrame(
 							[]cesium.ChannelKey{idxKey, dataKey},
 							[]telem.Series{ts, vals},
 						)))
-						MustCommit(w)
+						MustSucceed(w.Commit(ctx))
 						Expect(w.Close()).To(Succeed())
 					}
 					write(
@@ -831,11 +831,11 @@ var _ = Describe("Iterator Behavior", func() {
 							Channels: []cesium.ChannelKey{idxKey, dataKey},
 							Start:    start,
 						}))
-						MustSucceed(w.Write(telem.MultiFrame(
+						MustSucceed(w.Write(ctx, telem.MultiFrame(
 							[]cesium.ChannelKey{idxKey, dataKey},
 							[]telem.Series{ts, vals},
 						)))
-						MustCommit(w)
+						MustSucceed(w.Commit(ctx))
 						Expect(w.Close()).To(Succeed())
 					}
 					write(

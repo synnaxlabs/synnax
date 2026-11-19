@@ -10,136 +10,95 @@
 package cesium
 
 import (
-	"io"
-
 	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/x/confluence"
+	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/signal"
-	"github.com/synnaxlabs/x/telem"
 )
 
+// Writer writes frames to a set of channels and commits them. A Writer is not safe for
+// concurrent use.
+//
+// The first error that is not control.ErrUnauthorized breaks the writer: every later
+// call returns that error, and Close returns it after it releases the writer. An error
+// that wraps control.ErrUnauthorized leaves the writer open, so that it can regain
+// control.
 type Writer struct {
-	requests  confluence.Inlet[WriterRequest]
-	responses confluence.Outlet[WriterResponse]
-	shutdown  io.Closer
-	closeErr  error
-	cfg       WriterConfig
+	WriterConfig
+	internal []*idxWriter
+	virtual  *virtualWriter
+	// keyToIdx maps every channel key the writer is responsible for to its owning
+	// idxWriter.
+	keyToIdx           map[ChannelKey]*idxWriter
+	relay              confluence.Inlet[relayResponse]
+	relayStopped       <-chan struct{}
+	updateDBControl    func(u ControlUpdate)
+	authorizeEndDomain func(index ChannelKey, own map[ChannelKey]*unaryWriterState) error
+	// err is the error that broke the writer.
+	err    error
+	closed bool
 }
 
+// ErrWriterClosed is returned by a call to a Writer that is closed.
 var ErrWriterClosed = resource.NewClosedError("cesium.writer")
 
-func wrapStreamWriter(cfg WriterConfig, internal StreamWriter) *Writer {
-	sCtx, cancel := signal.Isolated()
-	req := confluence.NewStream[WriterRequest](1)
-	res := confluence.NewStream[WriterResponse](1)
-	internal.InFrom(req)
-	internal.OutTo(res)
-	internal.Flow(
-		sCtx,
-		confluence.CloseOutputInletsOnExit(),
-		confluence.RecoverWithErrOnPanic(),
-	)
-	return &Writer{
-		cfg:       cfg,
-		requests:  req,
-		responses: res,
-		shutdown:  signal.NewHardShutdown(sCtx, cancel),
+// check returns the error that a call to the writer must return before it runs.
+func (w *Writer) check() error {
+	if w.err != nil {
+		return w.err
 	}
+	if w.closed {
+		return ErrWriterClosed
+	}
+	return nil
 }
 
-func (w *Writer) Write(frame Frame) (authorized bool, err error) {
-	res, err := w.exec(
-		WriterRequest{Frame: frame, Command: WriterCommandWrite},
-		*w.cfg.Sync,
-	)
-	if err != nil {
-		return false, err
+// fail breaks the writer with err unless err wraps control.ErrUnauthorized, and
+// returns err.
+func (w *Writer) fail(err error) error {
+	if err != nil && !errors.Is(err, xcontrol.ErrUnauthorized) && w.err == nil {
+		w.err = err
 	}
-	authorized = !*w.cfg.Sync || res.Authorized
-	return authorized, err
-}
-
-// Commit makes the written samples available to reads and returns the end of the
-// commit. authorized is false if the writer lacks control of a channel with samples to
-// commit, and the end is then zero. authorized is also false if a write since the last
-// commit was refused for no control, but the commit applies and returns its end. The
-// writer stays open so that it can regain control.
-func (w *Writer) Commit() (end telem.TimeStamp, authorized bool, err error) {
-	res, err := w.exec(WriterRequest{Command: WriterCommandCommit}, true)
-	if err != nil {
-		return 0, false, err
-	}
-	return res.End, res.Authorized, nil
-}
-
-// SetAuthority is synchronous. Naming a data channel also moves its written index to
-// the max across that index's data channels, unless the index is named explicitly.
-func (w *Writer) SetAuthority(cfg WriterConfig) error {
-	_, err := w.exec(
-		WriterRequest{Config: cfg, Command: writerCommandSetAuthority},
-		true,
-	)
 	return err
 }
 
-// EndDomain commits the writer, then ends the domains of the given indexes and of the
-// data channels they index. The next write to an index starts a new domain at its first
-// timestamp, which frees the time before that timestamp for another writer. Indexes the
-// writer does not write are ignored, and an index with no data keeps its domains.
-// EndDomain is synchronous. It returns false if another writer controls an index or one
-// of its data channels. The index then keeps its domain, and some of its data channels
-// may end theirs.
-func (w *Writer) EndDomain(indexes ...ChannelKey) (authorized bool, err error) {
-	res, err := w.exec(
-		WriterRequest{
-			Config:  WriterConfig{Channels: indexes},
-			Command: writerCommandEndDomain,
-		},
-		true,
+// Close releases the writer. It does not commit. It returns the error that broke the
+// writer, if any, joined with any error from the release. A second Close returns the
+// same error.
+func (w *Writer) Close() error {
+	if !w.closed {
+		w.err = errors.Combine(w.err, w.release())
+	}
+	return w.err
+}
+
+// release closes the internal writers and returns only the errors from closing them.
+func (w *Writer) release() error {
+	w.closed = true
+	var (
+		err    error
+		update = ControlUpdate{
+			Transfers: make([]xcontrol.Transfer[ChannelKey], 0, len(w.internal)),
+		}
 	)
-	if err != nil {
-		return false, err
-	}
-	return res.Authorized, nil
-}
-
-func (w *Writer) exec(req WriterRequest, sync bool) (res WriterResponse, err error) {
-	if w.closeErr != nil {
-		return res, w.closeErr
-	}
-	select {
-	case res := <-w.responses.Outlet():
-		return res, w.close(res.Err)
-	case w.requests.Inlet() <- req:
-	}
-	if !sync {
-		return res, err
-	}
-	for res = range w.responses.Outlet() {
-		if res.Err != nil {
-			return res, w.close(res.Err)
-		}
-		if res.Command == req.Command {
-			return res, nil
+	for _, idx := range w.internal {
+		u, errClose := idx.Close()
+		if errClose != nil {
+			err = errors.Join(err, errClose)
+		} else {
+			update.Transfers = append(update.Transfers, u.Transfers...)
 		}
 	}
-	return res, w.close(nil)
-}
-
-func (w *Writer) Close() error { return w.close(nil) }
-
-func (w *Writer) close(err error) error {
-	if w.closeErr != nil {
-		return errors.Skip(w.closeErr, ErrWriterClosed)
+	if w.virtual.internal != nil {
+		u, errClose := w.virtual.Close()
+		if errClose != nil {
+			err = errors.Join(err, errClose)
+		} else {
+			update.Transfers = append(update.Transfers, u.Transfers...)
+		}
 	}
-	w.closeErr = err
-	w.requests.Close()
-	confluence.Drain(w.responses)
-	w.closeErr = errors.Combine(w.closeErr, w.shutdown.Close())
-	if w.closeErr != nil {
-		return w.closeErr
+	if len(update.Transfers) > 0 {
+		w.updateDBControl(update)
 	}
-	w.closeErr = ErrWriterClosed
-	return nil
+	return err
 }
