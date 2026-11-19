@@ -22,6 +22,7 @@ import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { binary } from "@synnaxlabs/x";
+import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, type RenderOptions, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -42,7 +43,7 @@ import {
   renderLiveTree,
   renderTreeContextMenu,
 } from "@/platform/tree/testutil";
-import { assertDefined, createTestClientWithGrants, uniqueName } from "@/testutil";
+import { createTestClientWithGrants } from "@/testutil";
 
 const client = createTestClient();
 const roles = new RoleClients(client);

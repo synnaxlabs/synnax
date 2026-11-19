@@ -150,11 +150,14 @@ export class Points {
   private memo: Memo | null = null;
   // grown is true when the stream grew the newest raw series since the last value.
   private grown = false;
-  // stored is the end of the newest stored sample's span for a dynamic window, null
-  // when the channel stores none, and undefined until the first read lands. A read
+  // stored is the end of the newest stored sample's span for a window that streams: of
+  // any sample for a dynamic window, and of one in the window for a static one. It is
+  // null when there is none, and undefined until the first read lands. A read
   // supersedes the reads before it.
   private stored?: TimeStamp | null;
   private storedRead = 0;
+  // storedFailure counts only while the window streams, as stored does.
+  private storedFailure: status.Status | null = null;
   // tileKeys holds what tilesOf gave for the limit since the last rebuild or boundary
   // move, so a view that slides works out its tiles once per update.
   private tileKeys: string | null = null;
@@ -173,7 +176,7 @@ export class Points {
       this.held.forEach((h) => {
         if (tileRange(h.spec).overlapsWith(tr)) h.stale = true;
       });
-      if (this.dynamic && this.index != null) void this.readStored();
+      if (this.streaming && this.index != null) void this.readStored();
       this.changed();
     });
     void this.resolve();
@@ -218,7 +221,12 @@ export class Points {
     if (this.index == null) return;
     this.stream(this.index);
     if (moved) this.moveBoundary();
-    if (this.dynamic && !wasDynamic) void this.readStored();
+    // A dynamic window reads the newest sample of any time, which a new span keeps.
+    if (moved && this.streaming && !(wasDynamic && this.dynamic)) {
+      this.stored = undefined;
+      this.storedFailure = null;
+      void this.readStored();
+    }
   }
 
   /**
@@ -241,7 +249,8 @@ export class Points {
     // The rebuild cuts the stream's buffer at a static window's end.
     if (!this.dynamic && time?.after(this.home().end)) return this.rebuild(now);
     this.grown = false;
-    memo.snapshot = { series: memo.snapshot.series, status, time };
+    const { series, streaming } = memo.snapshot;
+    memo.snapshot = { series, status, time, streaming };
     return memo.snapshot;
   }
 
@@ -252,7 +261,11 @@ export class Points {
     this.tileKeys = null;
     const epoch = this.props.store.epoch(this.key);
     if (this.index == null) {
-      const snapshot = { series: new MultiSeries([]), status: this.status() };
+      const snapshot = {
+        series: new MultiSeries([]),
+        status: this.status(),
+        streaming: this.streaming,
+      };
       this.memo = { snapshot, epoch, validUntil: TimeStamp.MAX.valueOf() };
       return snapshot;
     }
@@ -286,6 +299,7 @@ export class Points {
       series: new MultiSeries(series),
       status: this.status(),
       time: this.time(tail),
+      streaming: this.streaming,
     };
     // A restart reads every tile again, so the next value rebuilds.
     this.memo = retyped
@@ -345,10 +359,16 @@ export class Points {
     return resolveWindow(this.window, this.props.now());
   }
 
+  // Returns the view of the limit, or the home view when it has none. Tiles stop at
+  // the commit point, so a static window that streams sizes them by its span up to
+  // now.
   private view(home: TimeRange, limit: PointsLimit = this.limit): TimeRange {
     const { view } = limit;
-    if (view == null || !view.start.before(view.end)) return home;
-    return view;
+    if (view != null && view.start.before(view.end)) return view;
+    if (this.dynamic || !this.streaming) return home;
+    const now = this.props.now();
+    if (!home.start.before(now)) return home;
+    return new TimeRange(home.start, TimeStamp.min(home.end, now));
   }
 
   // Returns the keys of the tiles a rebuild draws and advances to under the view of the
@@ -385,7 +405,7 @@ export class Points {
         this.index = index;
         this.moveBoundary();
         this.stream(index);
-        if (this.dynamic) void this.readStored();
+        if (this.streaming) void this.readStored();
         this.breaker.reset();
         this.readFailure = null;
         this.changed();
@@ -400,33 +420,37 @@ export class Points {
       }
   }
 
-  // Reads the end of the newest stored sample's span. A failure that is definitive or
-  // outlasts the breaker stops the channel for good. A failure leaves loading as it is,
-  // since tiles and raw samples load apart from this read.
+  // Reads the end of the newest stored sample's span, of any time for a dynamic window
+  // and in the window for a static one. The read stops once a newer one starts or the
+  // window stops streaming. A failure that is definitive or outlasts the breaker stops
+  // the channel for good.
   private async readStored(): Promise<void> {
     const read = ++this.storedRead;
+    const current = (): boolean => read === this.storedRead && this.streaming;
     const brk = createBreaker(this.notifier, this.props.breaker);
-    while (read === this.storedRead)
+    const tr = this.dynamic ? TimeRange.MAX : this.home();
+    while (current())
       try {
-        const frame = await this.props.readLatest([this.key], 1, TimeRange.MAX);
-        if (read !== this.storedRead) return;
+        const frame = await this.props.readLatest([this.key], 1, tr);
+        if (!current()) return;
         const newest = frame.get(this.key).series.findLast((s) => !s.timeRange.isZero);
         this.stored = newest?.timeRange.end ?? null;
-        this.readFailure = null;
+        this.storedFailure = null;
         this.changed();
         return;
       } catch (e) {
-        if (read !== this.storedRead) return;
+        if (!current()) return;
         // The Core stores no samples for a calculation over virtual channels.
         if (UnsupportedError.matches(e)) {
           this.stored = null;
+          this.storedFailure = null;
           this.changed();
           return;
         }
-        this.readFailure = status.fromException(e, READ_FAILED);
+        this.storedFailure = status.fromException(e, READ_FAILED);
         this.changed();
         if (isDefinitive(e) || !(await brk.wait())) {
-          this.parked = this.readFailure;
+          this.parked = this.storedFailure;
           return;
         }
       }
@@ -845,10 +869,10 @@ export class Points {
   }
 
   // Returns the end of the newest sample's span: the newest drawn, or the newest stored
-  // when a dynamic window has a newer one.
+  // when a window that streams has a newer one.
   private time(tail: Series[] = []): TimeStamp | undefined {
     const drawn = this.drawnTime(tail);
-    const stored = this.dynamic ? this.stored : null;
+    const stored = this.streaming ? this.stored : null;
     if (stored == null) return drawn;
     return drawn == null ? stored : TimeStamp.max(drawn, stored);
   }
@@ -869,6 +893,7 @@ export class Points {
       this.parked,
       this.rejection,
       this.readFailure,
+      this.streaming ? this.storedFailure : null,
       this.props.joiner.status(this.key),
       ...(live?.keys.map((k) => live.demand.status(k)) ?? []),
     );
@@ -876,7 +901,7 @@ export class Points {
     const loading =
       this.loading ||
       this.pending.size > 0 ||
-      (this.dynamic && this.stored === undefined);
+      (this.streaming && this.stored === undefined);
     return loading ? this.statuses.loading : this.statuses.success;
   }
 

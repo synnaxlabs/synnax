@@ -212,7 +212,7 @@ const Internal = ({
   const [selected, setSelected, selectedRef] = useCombinedStateAndRef<string[]>([]);
 
   const handleExpandedChange = (arg: xstate.SetArg<string[]>) =>
-    store.setExpanded(xstate.executeSetter(arg, store.getExpanded()));
+    store.setExpanded(xstate.resolve(arg, store.getExpanded()));
 
   useEffect(() => store.start(), [store]);
 

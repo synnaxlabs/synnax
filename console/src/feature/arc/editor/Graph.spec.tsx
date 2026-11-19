@@ -10,6 +10,7 @@
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Arc } from "@synnaxlabs/pluto";
 import { canvas } from "@synnaxlabs/pluto/ether";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { screen } from "@testing-library/react";
 import { Suspense } from "react";
 import { describe, expect, it } from "vitest";
@@ -21,7 +22,6 @@ import {
   findIconButton,
   installMissingGPU,
   renderSuspended,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();
