@@ -19,25 +19,38 @@ import (
 )
 
 var _ = Describe("Steady state", func() {
-	It("Should add no bytes to a frame that changes no agreed value", func(
-		ctx SpecContext,
-	) {
-		newCodec := func() *codec.Codec {
-			return codec.NewStatic(channel.Keys{6}, []telem.DataType{telem.Float32T})
-		}
-		data := keyed{6, clocked(telem.NewSeriesV[float32](2), 5)}
-		baseline := newCodec()
-		MustSucceed(baseline.Encode(ctx, multi(keyed{6, clocked(
-			telem.NewSeriesV[float32](1), 5,
-		)})))
-		want := MustSucceed(baseline.Encode(ctx, multi(data)))
-		Expect(want).To(Equal(frameBytes("3F 01000000 01000000 00000040")))
-
-		enc := newCodec()
+	// declared returns a codec whose state declared clock 5 for key 6 in its first
+	// frame.
+	declared := func(ctx SpecContext) *codec.Codec {
+		enc := codec.NewStatic(channel.Keys{6}, []telem.DataType{telem.Float32T})
 		MustSucceed(enc.Encode(ctx, multi(
 			keyed{5, timestamps(5, 1)},
 			keyed{6, clocked(telem.NewSeriesV[float32](1), 5)},
 		)))
-		Expect(MustSucceed(enc.Encode(ctx, multi(data)))).To(Equal(want))
+		return enc
+	}
+
+	It("Should add no bytes to a frame that carries its clock with its data", func(
+		ctx SpecContext,
+	) {
+		enc := declared(ctx)
+		closed := MustSucceed(enc.Encode(ctx, multi(
+			keyed{5, timestamps(5, 1)},
+			keyed{6, clocked(telem.NewSeriesV[float32](2), 5)},
+		)))
+		// Flags, the sequence number, the shared length, and the data of the two
+		// series: no extension byte and no key.
+		Expect(closed).To(HaveLen(1 + 4 + 4 + 8 + 4))
+		Expect(closed[0] & 0x80).To(BeZero())
+	})
+
+	It("Should key each series of a frame that leaves out a declared clock", func(
+		ctx SpecContext,
+	) {
+		enc := declared(ctx)
+		open := MustSucceed(enc.Encode(ctx, multi(
+			keyed{6, clocked(telem.NewSeriesV[float32](2), 5)},
+		)))
+		Expect(open).To(Equal(frameBytes("3E 01000000 01000000 06000000 00000040")))
 	})
 })
