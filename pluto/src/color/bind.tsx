@@ -10,6 +10,7 @@
 import { color, group } from "@synnaxlabs/client";
 import { type Color } from "@synnaxlabs/lyra/color";
 import { type color as xcolor } from "@synnaxlabs/x";
+import { useState } from "react";
 
 import { Access } from "@/access";
 import { CreatePalette, CreateSwatch } from "@/color/Create";
@@ -37,6 +38,8 @@ export const useBinding = (
   const resolve = useResolve();
   const canCreate = Access.useCreateGranted(color.TYPE_RESOURCE_ID);
   const canCreatePalette = Access.useCreateGranted(group.TYPE_RESOURCE_ID);
+  // A palette that the picker just created. Its "+" takes the focus once it renders.
+  const [created, setCreated] = useState<group.Key>();
   return {
     value: resolve(value),
     onChange: (c) => onChange(c == null ? undefined : { type: "fixed", value: c }),
@@ -47,9 +50,17 @@ export const useBinding = (
             palettes,
             named: value?.type === "named" ? value.key : undefined,
             onNamedChange: (key) => onChange({ type: "named", key }),
-            paletteEnd: canCreate ? <CreateSwatch /> : undefined,
+            paletteEnd: canCreate ? (
+              <CreateSwatch
+                focusedPalette={created}
+                onFocus={() => setCreated(undefined)}
+              />
+            ) : undefined,
             swatchActions: <EditAction />,
-            footer: canCreate && canCreatePalette ? <CreatePalette /> : undefined,
+            footer:
+              canCreate && canCreatePalette ? (
+                <CreatePalette onCreate={setCreated} />
+              ) : undefined,
           },
   };
 };
