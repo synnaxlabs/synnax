@@ -21,7 +21,7 @@ const SIFT_PORT = 50551;
 const SIFT_URI = `localhost:${SIFT_PORT}`;
 
 /** The name of the Sift connection that `siftScript` creates. */
-const CONNECTION = "Sift";
+export const CONNECTION = "Sift";
 
 /** The Sift asset the videos send data to. */
 export const ASSET = "TPC";
