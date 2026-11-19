@@ -14,6 +14,7 @@ import { createPortal } from "react-dom";
 import { describe, expect, it, vi } from "vitest";
 
 import { Input } from "@/input";
+import { Select } from "@/select";
 import { type Status } from "@/status";
 
 const COLUMNS = [
@@ -28,6 +29,27 @@ const parseHex = (text: string): number | null =>
 const HEX_COLUMNS = [
   <Input.TableColumn key="hex" name="Hex" parse={parseHex} />,
   <Input.TableColumn key="raw" name="Raw" />,
+];
+
+// A field with a picker beside it, as a color cell has.
+const UNIT_COLUMNS = [
+  <Input.TableColumn key="raw" name="Raw" />,
+  <Input.TableColumn key="unit" name="Unit" type="string">
+    {({ value, onChange, "aria-label": ariaLabel }) => (
+      <>
+        <Input.Text value={value} onChange={onChange} aria-label={ariaLabel} />
+        <Select.Simple<string>
+          value={value}
+          onChange={onChange}
+          resourceName="unit"
+          triggerProps={{ "aria-label": `Pick ${ariaLabel}` }}
+        >
+          <Select.Item itemKey="volts">Volts</Select.Item>
+          <Select.Item itemKey="amps">Amps</Select.Item>
+        </Select.Simple>
+      </>
+    )}
+  </Input.TableColumn>,
 ];
 
 interface RenderOptions {
@@ -476,6 +498,70 @@ describe("Input.Table", () => {
       fireEvent.change(portal, { target: { value: "typed" } });
       fireEvent.keyDown(portal, { key: "Escape" });
       expect(onParentKeyDown).toHaveBeenCalled();
+    });
+  });
+
+  describe("dialog", () => {
+    /** Opens the unit select of the first row and returns its search. */
+    const openUnitSearch = (onChange = vi.fn()): HTMLInputElement => {
+      render(
+        <Input.Table
+          value={[
+            [1, "volts"],
+            [2, "amps"],
+          ]}
+          onChange={onChange}
+        >
+          {UNIT_COLUMNS}
+        </Input.Table>,
+      );
+      fireEvent.click(screen.getByLabelText("Pick Unit 1"));
+      const search = screen.getByPlaceholderText<HTMLInputElement>("Search units...");
+      search.focus();
+      return search;
+    };
+
+    it("should leave Enter in a dialog that a cell opens to the dialog", () => {
+      const search = openUnitSearch();
+      fireEvent.keyDown(search, { key: "Enter" });
+      expect(document.activeElement).toBe(search);
+    });
+
+    it("should leave Escape in a dialog that a cell opens to the dialog", () => {
+      render(<Stateful initial={[[1, "volts"]]}>{UNIT_COLUMNS}</Stateful>);
+      fireEvent.click(screen.getByLabelText("Pick Unit 1"));
+      const search = screen.getByPlaceholderText<HTMLInputElement>("Search units...");
+      act(() => search.focus());
+      fireEvent.change(search, { target: { value: "am" } });
+      fireEvent.keyDown(search, { key: "Escape" });
+      expect(search.closest(".lyra-select__dialog")?.classList).toContain(
+        "lyra--hidden",
+      );
+      const input = cell("Unit", "1");
+      act(() => input.focus());
+      fireEvent.change(input, { target: { value: "changed" } });
+      fireEvent.keyDown(input, { key: "Escape" });
+      expect(input.value).toBe("volts");
+    });
+
+    it("should leave the cell on Esc after Escape closes the cell's dialog", () => {
+      render(<Stateful initial={[[1, "volts"]]}>{UNIT_COLUMNS}</Stateful>);
+      fireEvent.click(screen.getByLabelText("Pick Unit 1"));
+      const search = screen.getByPlaceholderText<HTMLInputElement>("Search units...");
+      act(() => search.focus());
+      fireEvent.change(search, { target: { value: "am" } });
+      fireEvent.keyDown(search, { key: "Escape" });
+      const input = cell("Unit", "1");
+      act(() => input.focus());
+      fireEvent.keyDown(input, { key: "Escape" });
+      expect(document.activeElement).not.toBe(input);
+    });
+
+    it("should leave a paste in a dialog that a cell opens to the dialog", () => {
+      const onChange = vi.fn();
+      const search = openUnitSearch(onChange);
+      paste(search, "volts\namps");
+      expect(onChange).not.toHaveBeenCalled();
     });
   });
 

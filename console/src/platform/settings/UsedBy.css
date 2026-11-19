@@ -9,28 +9,27 @@
  * included in the file licenses/APL.txt.
  */
 
-/* The popover is portaled, so it cannot nest under the page block. */
-.console-secret-settings__popover {
+.console-settings-used-by__popover {
     min-width: 30rem;
     max-width: 50rem;
     padding: 1rem;
     overscroll-behavior: contain;
 }
 
-.console-secret-settings__label {
+.console-settings-used-by__label {
     padding: 0.5rem 1rem 0.75rem;
 }
 
-.console-secret-settings__unused {
+.console-settings-used-by__unused {
     padding: 0 1rem 0.5rem;
 }
 
 /* The popover has a max height, so a long list of uses scrolls below its label. */
-.console-secret-settings__resources {
+.console-settings-used-by__resources {
     min-height: 0;
     overflow-y: auto;
 }
 
-.console-secret-settings__resource {
+.console-settings-used-by__resource {
     min-width: 0;
 }
