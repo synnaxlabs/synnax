@@ -173,9 +173,7 @@ class TestLoadDesktopOptions:
             load_desktop_options(desktop_file, FakeHelper())
 
     def test_missing_helper(self, desktop_file: Path, tmp_path: Path) -> None:
-        """Should say that Synnax Desktop is not running when its helper is gone, as
-        an AppImage helper is after Synnax Desktop closes.
-        """
+        """Should say that Synnax Desktop is not running when its helper is gone."""
         write_desktop_file(desktop_file, port=4321, helper=tmp_path / "missing")
         with pytest.raises(Unreachable, match=DESKTOP_NOT_RUNNING_MSG) as e:
             load_desktop_options(desktop_file)

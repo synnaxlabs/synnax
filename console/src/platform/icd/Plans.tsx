@@ -42,7 +42,7 @@ interface Store {
 
 const createStore = (): Store => {
   const plans = new Map<string, MessagePlan>();
-  const changes = new observe.BaseObserver<void>();
+  const changes = new observe.Observer<void>();
   return {
     get: (read) => plans.get(read),
     set: (read, plan) => {

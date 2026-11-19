@@ -66,7 +66,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await page.reload();
 
   const addCore = page
-    .locator(".console-create-list-item")
+    .locator(".lyra-create-list-item")
     .filter({ hasText: "Add a Core" })
     .first();
   await session.waitFor(addCore);
