@@ -133,7 +133,7 @@
 
     /* In a field, the box starts at the edge of its label. A table cell keeps it
        centered. */
-    .lyra-input__item &:not(td *) {
+    .lyra-input__item &:not(.lyra-input__table *) {
         justify-content: flex-start;
 
         .lyra-input__checkbox-input {
