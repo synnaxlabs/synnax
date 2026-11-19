@@ -127,6 +127,24 @@ var _ = Describe("Misdirected reads", func() {
 		Expect(hits(true)).To(And(ContainElement(true), ContainElement(false)))
 	})
 
+	It("Should draw again for each read of a block until the first fault", func() {
+		firsts := set.Set[int]{}
+		for runKey := range uint64(32) {
+			fs := open(fault.Config{RunKey: runKey, MisdirectedReadRate: 0.5})
+			faulted := false
+			for i := range 8 {
+				got := readAt(fs, 0, blockSize)
+				if faulted {
+					Expect(got).To(Equal(strings.Repeat("a", blockSize)))
+				} else if got[:1] != "a" {
+					firsts.Add(i)
+					faulted = true
+				}
+			}
+		}
+		Expect(len(firsts)).To(BeNumerically(">", 2))
+	})
+
 	It("Should leave the read of a disk with one block as it is", func() {
 		base := MustSucceed(fault.New(fault.Config{}))
 		save(base, "f.bin", "tacocat")

@@ -54,7 +54,7 @@ type node struct {
 	// dirty holds each block whose bytes or length changed since the last Sync.
 	dirty blocks
 	// written holds the ranges that writes and changes of the length put in the file
-	// since the last Sync.
+	// since the last Sync that did not fail.
 	written []Span
 	// synced holds, in rising order, the part of written that was in the blocks that
 	// the newest Sync with a changed block made durable. syncs counts those Syncs.

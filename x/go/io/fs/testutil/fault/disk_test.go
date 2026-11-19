@@ -437,7 +437,7 @@ var _ = Describe("Sync state", func() {
 		Expect(stat().Synced).To(Equal([]fault.Span{{0, 10}}))
 	})
 
-	It("Should forget the writes of a failed Sync", func() {
+	It("Should not count a failed Sync", func() {
 		fs = MustSucceed(fault.New(fault.Config{SyncErrorRate: 1}))
 		f = MustOpen(fs.Open("f.bin", os.O_CREATE|os.O_RDWR))
 		put(ones(10), 0)
@@ -445,6 +445,39 @@ var _ = Describe("Sync state", func() {
 		Expect(stat().Syncs).To(BeZero())
 		Expect(f.Sync()).To(Succeed())
 		Expect(stat().Syncs).To(BeZero())
+	})
+
+	It("Should keep the writes of a failed Sync for the next Sync of their block",
+		func() {
+			found := false
+			for runKey := range uint64(64) {
+				cfg := fault.Config{RunKey: runKey, SyncErrorRate: 0.5}
+				fs = MustSucceed(fault.New(cfg))
+				f = MustOpen(fs.Open("f.bin", os.O_CREATE|os.O_RDWR))
+				put(ones(10), 0)
+				if f.Sync() == nil {
+					continue
+				}
+				put([]byte{2}, 100)
+				if f.Sync() != nil {
+					continue
+				}
+				// The write at 100 also adds zeros from 10 on.
+				Expect(stat().Synced).To(Equal([]fault.Span{{0, 101}}))
+				found = true
+				break
+			}
+			Expect(found).To(BeTrue())
+		},
+	)
+
+	It("Should cut a range at the end of a changed block", func() {
+		put(ones(3*blockSize), 0)
+		Expect(f.Sync()).To(Succeed())
+		changed := append(bytes.Repeat([]byte{2}, 96), ones(blockSize+100)...)
+		put(changed, blockSize-96)
+		Expect(f.Sync()).To(Succeed())
+		Expect(stat().Synced).To(Equal([]fault.Span{{blockSize - 96, blockSize}}))
 	})
 
 	It("Should start a crash image with no Sync state", func() {

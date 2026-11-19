@@ -126,7 +126,8 @@ func (n *node) writtenIn(changed blocks, size int64) []Span {
 }
 
 // drop loses the dirty blocks of the file n, as a failed Sync does. Each block keeps
-// its new bytes for a read, or at the eviction rate goes back to its durable bytes.
+// its new bytes for a read, or at the eviction rate goes back to its durable bytes. The
+// written ranges stay: a later Sync of their block makes them durable.
 func (d *disk) drop(n *node, file, nth uint64) {
 	size := int64(len(n.data))
 	for b := range n.dirty.all() {
@@ -141,7 +142,7 @@ func (d *disk) drop(n *node, file, nth uint64) {
 			copy(block, n.durable[from:])
 		}
 	}
-	n.dirty, n.written = nil, nil
+	n.dirty = nil
 }
 
 // entry names one directory entry.
