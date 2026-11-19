@@ -9,12 +9,14 @@
 
 import { capture, fixtures } from "@/index";
 
+import { controls } from "./common/sample";
+
 export const viewport = { width: 1280, height: 800 };
 
 /**
  * Still for the hero of docs page `reference/control/arc`: the TPC stand's Ox Coldflow
  * sequence alone in the Automations panel's text editor while it runs on the Core, with
- * the Arc toolbar open to show it running.
+ * the Arc toolbar open.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   const world = await fixtures.testStand({ now: () => session.now() });
@@ -25,8 +27,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     const editor = page.locator(".pluto-mosaic__leaf:visible .monaco-editor").first();
     await session.waitFor(editor);
     await capture.openToolbar(session, "arc");
-    const toolbar = page.locator(".console-arc-toolbar").first();
-    await session.waitFor(toolbar.getByText("Running", { exact: true }).first());
+    await session.waitFor(controls(page).getByText("Started task", { exact: true }));
     // On the empty part of the main nav, so nothing on screen shows its hover state.
     await session.moveTo({ x: 26, y: 600 });
     await session.settleWall(1500);
