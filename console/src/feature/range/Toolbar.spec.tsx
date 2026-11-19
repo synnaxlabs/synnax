@@ -14,7 +14,7 @@ import {
   ranger,
   type Synnax as Client,
 } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createTestClient, holdResponses } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
 import { sleep, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -162,6 +162,18 @@ const expectBefore = (first: HTMLElement, second: HTMLElement): void =>
     first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING,
   ).toBeTruthy();
 
+/**
+ * Holds the answers to the toolbar's list reads until release. The reads of the next
+ * range to start or end ask for one range, so they go through.
+ */
+const holdListReads = () =>
+  holdResponses(
+    client,
+    (target, req) =>
+      target === "/range/retrieve" &&
+      (ranger.retrieveRequestZ.parse(req).limit ?? 0) > 1,
+  );
+
 const expectFocusedRange = async (store: TestStore, key: string): Promise<void> => {
   const tab = await resolveFocusedTab(store, client);
   if (tab.variant !== "resource") throw new Error("focused tab is not a resource");
@@ -196,6 +208,15 @@ describe("range/Toolbar", () => {
       });
       expect(queryLine("Running", oldest.name)).toBeNull();
       expect(within(groupOf("Running")).getByText(/^\d+\+$/)).toBeTruthy();
+      // A read for a range that ends keeps Show more enabled.
+      const reads = holdListReads();
+      await endRange(newer[0], TimeStamp.now().add(TimeSpan.milliseconds(300)));
+      const busy = groupOf("Running").closest<HTMLElement>('[role="list"]');
+      await waitFor(() => expect(busy?.getAttribute("aria-busy")).toBe("true"), {
+        timeout: 10_000,
+      });
+      expect(queryShowMore("Running")?.getAttribute("aria-disabled")).toBeNull();
+      reads.release();
       expect(await findLine("Running", oldest.name)).toBeTruthy();
       // A range that starts later joins Running only through the read for its start.
       const starting = await createRange(
@@ -215,70 +236,30 @@ describe("range/Toolbar", () => {
       expect(parseInt(count, 10)).toBeGreaterThan(100);
     });
 
-    it("should page and settle while ranges end faster than the toolbar reads", async () => {
-      const oldest = await createRunning(uniqueRangeName("oldest"), {
-        since: TimeSpan.minutes(5),
-      });
-      const create = async (
-        length: number,
-        timeRange: (i: number) => TimeRange,
-      ): Promise<ranger.Range[]> => {
-        const created = await client.ranges.create(
-          Array.from({ length }, (_, i) => ({
-            name: uniqueRangeName("load"),
-            timeRange: timeRange(i),
-          })),
-        );
-        onTestFinished(
-          async () => await client.ranges.delete(created.map((r) => r.key)),
-        );
-        return created;
-      };
-      const now = TimeStamp.now();
-      await create(120, () => new TimeRange(now.sub(TimeSpan.SECOND), TimeStamp.MAX));
-      // Finished ranges fill Recent, so each read renders hundreds of lines.
-      await create(
-        250,
-        () => new TimeRange(now.sub(TimeSpan.minutes(2)), now.sub(TimeSpan.minutes(1))),
-      );
+    it("should read a later start or end only after the reads in flight land", async () => {
+      const first = await createRunning(uniqueRangeName("first"));
+      const second = await createRunning(uniqueRangeName("second"));
       await renderToolbar();
-      await waitFor(() => expect(queryShowMore("Running")).not.toBeNull(), {
-        timeout: 10_000,
-      });
-      // Until the spec stops it, a range ends every 25 ms, far faster than one read.
-      // Batches overlap, so the ends keep coming while Show more pages.
-      let producing = true;
-      const ending: ranger.Range[] = [];
-      const produce = async (): Promise<void> => {
-        while (producing) {
-          const from = TimeStamp.now();
-          const batch = await create(
-            40,
-            (i) =>
-              new TimeRange(
-                from.sub(TimeSpan.SECOND),
-                from.add(TimeSpan.milliseconds(250 + 25 * i)),
-              ),
-          );
-          ending.push(...batch);
-          await sleep.sleep(TimeSpan.milliseconds(500));
-        }
-      };
-      const producer = produce();
-      try {
-        expect(await findLine("Running", oldest.name)).toBeTruthy();
-      } finally {
-        producing = false;
-        await producer;
-      }
-      const last = ending.reduce((a, b) =>
-        b.timeRange.end.after(a.timeRange.end) ? b : a,
-      );
-      await waitForLine("Recent", last.name);
-      const list = groupOf("Recent").closest<HTMLElement>('[role="list"]');
+      await findLine("Running", first.name);
+      await findLine("Running", second.name);
+      const list = groupOf("Running").closest<HTMLElement>('[role="list"]');
       await waitFor(() => expect(list?.getAttribute("aria-busy")).toBe("false"), {
         timeout: 10_000,
       });
+      const reads = holdListReads();
+      const firstEnd = TimeStamp.now().add(TimeSpan.milliseconds(300));
+      const secondEnd = firstEnd.add(TimeSpan.milliseconds(300));
+      await endRange(first, firstEnd);
+      await endRange(second, secondEnd);
+      // The first end reads each list once, and the second end comes while they read.
+      await waitFor(() => expect(reads.sent()).toBe(2), { timeout: 10_000 });
+      await sleep.sleep(
+        new TimeRange(TimeStamp.now(), secondEnd).span.add(TimeSpan.SECOND),
+      );
+      expect(reads.sent()).toBe(2);
+      reads.release();
+      await waitForLine("Recent", second.name);
+      expect(queryLine("Recent", first.name)).not.toBeNull();
     });
 
     it("should move ranges from Running to Recent as they end, newest end first", async () => {
