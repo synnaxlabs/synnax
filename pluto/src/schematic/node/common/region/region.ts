@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic, ValidationError } from "@synnaxlabs/client";
-import { color, type dimensions, id, map, unique } from "@synnaxlabs/x";
+import { color, type dimensions, map, unique } from "@synnaxlabs/x";
 import DOMPurify from "dompurify";
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
@@ -242,15 +242,67 @@ const setPaint = (el: SVGElement, attr: "fill" | "stroke", value: string | null)
   if (el.getAttribute("style") === "") el.removeAttribute("style");
 };
 
-const addRegionIDs = (el: Element) => {
+const takenRegionIDs = (root: Element): Set<string> =>
+  new Set(
+    Array.from(
+      root.querySelectorAll(`[${REGION_ID_ATTRIBUTE}]`),
+      (el) => el.getAttribute(REGION_ID_ATTRIBUTE) ?? "",
+    ),
+  );
+
+const hasName = (el: Element): boolean =>
+  el.id.length > 0 || el.hasAttribute(REGION_ID_ATTRIBUTE);
+
+// addRegionID gives an unnamed el region-N, with the smallest N that no shape takes.
+// The Core's symbol migration names shapes the same way.
+const addRegionID = (el: Element, taken: Set<string>): void => {
+  if (el.tagName === "svg" || hasName(el)) return;
+  for (let n = 1; ; n++) {
+    const regionID = `region-${n}`;
+    if (taken.has(regionID)) continue;
+    taken.add(regionID);
+    el.setAttribute(REGION_ID_ATTRIBUTE, regionID);
+    return;
+  }
+};
+
+const addRegionIDs = (el: Element, taken: Set<string>) => {
   if (!(el instanceof SVGElement)) return;
-  if (
-    el.tagName !== "svg" &&
-    el.id.length === 0 &&
-    !el.hasAttribute(REGION_ID_ATTRIBUTE)
-  )
-    el.setAttribute(REGION_ID_ATTRIBUTE, `region-${id.create()}`);
-  Array.from(el.children).forEach(addRegionIDs);
+  addRegionID(el, taken);
+  Array.from(el.children).forEach((child) => addRegionIDs(child, taken));
+};
+
+/** Named is a drawing's markup and a selector that names one of its shapes. */
+export interface Named {
+  markup: string;
+  selector: string;
+}
+
+/**
+ * Names a shape of markup with a data-region-id when it has no id or data-region-id.
+ * @param drawing - The element that useRender built from markup.
+ * @param shape - A shape inside drawing.
+ * @returns markup with the new name, and a selector that names the shape. The markup
+ * is as given when the shape already has a name.
+ */
+export const name = (markup: string, drawing: Element, shape: Element): Named => {
+  const root = parseSVG(markup);
+  if (root == null) throw new Error("the markup of the drawing does not parse");
+  const place: number[] = [];
+  for (let el = shape; el !== drawing;) {
+    const parent = el.parentElement;
+    if (parent == null) throw new Error("the shape is not inside the drawing");
+    place.unshift(Array.from(parent.children).indexOf(el));
+    el = parent;
+  }
+  const target = place.reduce<Element>((el, i) => el.children[i], root);
+  if (!(target instanceof SVGElement)) throw new Error("the drawing is not the markup");
+  if (hasName(target)) return { markup, selector: selector(target) };
+  addRegionID(target, takenRegionIDs(root));
+  return {
+    markup: new XMLSerializer().serializeToString(root),
+    selector: selector(target),
+  };
 };
 
 /// normalizeElement rewrites an SVG in place into the canonical symbol form: every
@@ -275,7 +327,8 @@ export const normalizeElement = (
     setPaint(el, "stroke", stroke);
   });
   svg.querySelectorAll("style").forEach((styleEl) => styleEl.remove());
-  Array.from(svg.children).forEach(addRegionIDs);
+  const taken = takenRegionIDs(svg);
+  Array.from(svg.children).forEach((child) => addRegionIDs(child, taken));
 };
 
 const paintToAttribute = (computed: string): string | null => {

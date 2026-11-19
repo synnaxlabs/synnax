@@ -53,25 +53,31 @@ const reaches = (look: Look, part: string, value: number): boolean =>
 const setsNothing = ({ fill, stroke, hidden, motion, blink }: Look): boolean =>
   fill == null && stroke == null && hidden == null && motion == null && blink == null;
 
+const withActive = (states: Spec["states"]): Spec["states"] =>
+  states.some((s) => s.key === STATE) ? states : [...states, createState()];
+
 /**
- * @returns looks in which part shows c in field at value. It sets the field on the
+ * @returns spec in which part shows c in field at value. It sets the field on the
  * part's look for value alone, or adds a look when that look is missing or a later look
- * sets the field. With no c, it clears the field on that look, so the other looks or
- * the drawing color the part. Looks that other parts or values read stay as they are.
+ * sets the field, and adds the state when spec lacks it. With no c, it clears the field
+ * on that look, so the other looks or the drawing color the part. Looks that other
+ * parts or values read stay as they are.
  */
 export const setColor = (
-  looks: Look[],
+  spec: Spec,
   part: string,
   value: number,
   field: Field,
   c?: color.Color,
-): Look[] => {
+): Spec => {
+  const { looks } = spec;
   const i = looks.findLastIndex((l) => only(l, part, value));
   if (c == null) {
-    if (i < 0) return looks;
+    if (i < 0) return spec;
     const cleared = { ...looks[i], [field]: undefined };
-    if (setsNothing(cleared)) return looks.filter((_, j) => j !== i);
-    return looks.map((l, j) => (j === i ? cleared : l));
+    if (setsNothing(cleared))
+      return { ...spec, looks: looks.filter((_, j) => j !== i) };
+    return { ...spec, looks: looks.map((l, j) => (j === i ? cleared : l)) };
   }
   const paint: schematic.symbol.Paint = {
     type: "color",
@@ -80,17 +86,26 @@ export const setColor = (
   const overridden = looks
     .slice(i + 1)
     .some((l) => reaches(l, part, value) && l[field] != null);
+  const states = withActive(spec.states);
   if (i >= 0 && !overridden)
-    return looks.map((l, j) => (j === i ? { ...l, [field]: paint } : l));
-  return [
-    ...looks,
-    {
-      key: `look-${id.create()}`,
-      part,
-      when: { type: "equals", state: STATE, values: [value] },
-      [field]: paint,
-    },
-  ];
+    return {
+      ...spec,
+      states,
+      looks: looks.map((l, j) => (j === i ? { ...l, [field]: paint } : l)),
+    };
+  return {
+    ...spec,
+    states,
+    looks: [
+      ...looks,
+      {
+        key: `look-${id.create()}`,
+        part,
+        when: { type: "equals", state: STATE, values: [value] },
+        [field]: paint,
+      },
+    ],
+  };
 };
 
 /** @returns spec without part and the looks on it. */
@@ -119,14 +134,10 @@ export const toggleSelector = (
   });
 };
 
-const withState = (spec: Spec, match: schematic.symbol.Matcher): Spec["states"] => {
-  const states = spec.states.some((s) => s.key === STATE)
-    ? spec.states
-    : [...spec.states, createState()];
-  return states.map((s) =>
+const withState = (spec: Spec, match: schematic.symbol.Matcher): Spec["states"] =>
+  withActive(spec.states).map((s) =>
     s.key === STATE && s.type === "enumeration" ? { ...s, match } : s,
   );
-};
 
 /**
  * @returns spec as variant. An actuator gets the Base looks again on Active, `within`
