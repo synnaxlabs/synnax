@@ -186,6 +186,29 @@ private:
         time_range(other.time_range),
         alignment(other.alignment) {}
 
+    /// @brief division that throws on an integer zero divisor.
+    struct Divide {
+        template<typename A, typename B>
+        auto operator()(A a, B b) const {
+            if constexpr (std::is_integral_v<A>)
+                if (b == 0) throw std::runtime_error("division by zero");
+            return a / b;
+        }
+    };
+
+    /// @brief modulo that throws on an integer zero divisor and uses fmod for
+    /// floating-point types.
+    struct Modulo {
+        template<typename A, typename B>
+        auto operator()(A a, B b) const {
+            if constexpr (std::is_integral_v<A>) {
+                if (b == 0) throw std::runtime_error("modulo by zero");
+                return a % b;
+            } else
+                return std::fmod(a, b);
+        }
+    };
+
     template<typename SourceType, typename TargetType, typename Op>
 #ifdef _MSC_VER
     __declspec(noinline)
@@ -1361,7 +1384,7 @@ public:
     template<typename T>
     void divide_inplace(const T &rhs) const {
         if (rhs == 0) throw std::runtime_error("division by zero");
-        cast_and_apply_numeric_op(rhs, std::divides<>());
+        cast_and_apply_numeric_op(rhs, Divide());
     }
 
     /// @brief replaces each value v with f(v). f takes and returns a double, and the
@@ -1454,7 +1477,7 @@ public:
     template<typename T>
     Series operator/(T scalar) const {
         if (scalar == 0) throw std::runtime_error("division by zero");
-        return apply_scalar_op(scalar, std::divides<>());
+        return apply_scalar_op(scalar, Divide());
     }
 
     /// @brief Series % scalar operator. Returns a new Series.
@@ -1463,12 +1486,7 @@ public:
     template<typename T>
     Series operator%(T scalar) const {
         if (scalar == 0) throw std::runtime_error("modulo by zero");
-        return apply_scalar_op(scalar, [](auto a, auto b) {
-            if constexpr (std::is_integral_v<decltype(a)>)
-                return a % b;
-            else
-                return std::fmod(a, b);
-        });
+        return apply_scalar_op(scalar, Modulo());
     }
 
     /// @brief scalar + Series operator (commutative). Returns a new Series.
@@ -1492,19 +1510,14 @@ public:
     /// @brief scalar / Series operator. Computes (scalar / element) for each element.
     template<typename T>
     friend Series operator/(T scalar, const Series &s) {
-        return s.apply_reverse_scalar_op(scalar, std::divides<>());
+        return s.apply_reverse_scalar_op(scalar, Divide());
     }
 
     /// @brief scalar % Series operator. Computes (scalar % element) for each element.
     /// Uses % for integer types, std::fmod for floating-point types.
     template<typename T>
     friend Series operator%(T scalar, const Series &s) {
-        return s.apply_reverse_scalar_op(scalar, [](auto a, auto b) {
-            if constexpr (std::is_integral_v<decltype(a)>)
-                return a % b;
-            else
-                return std::fmod(a, b);
-        });
+        return s.apply_reverse_scalar_op(scalar, Modulo());
     }
 
     /// @brief Series > Series comparison. Returns BOOLEAN_T Series with 0/1 values.
