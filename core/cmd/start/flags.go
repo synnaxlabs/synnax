@@ -139,7 +139,7 @@ func AddFlags(cmd *cobra.Command) {
 	cmd.Flags().String(
 		FlagSecretsDir,
 		"",
-		"Folder that holds the file secrets of the Core's rack",
+		"Folder that holds the file secrets of the Core and its embedded Driver",
 	)
 	cmd.Flags().String(FlagLicenseKey, "", "License key")
 	cmd.Flags().String(
