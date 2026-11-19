@@ -33,6 +33,10 @@ type CrashConfig struct {
 	// rename that no SyncDir made durable reaches the disk. A rename reaches it as a
 	// whole or not at all, and a change that depends on a lost change is lost too.
 	EntrySurvivalRate float64
+	// EntriesOrdered makes the changes that reach the disk a prefix of the changes in
+	// the order they were made, as a metadata journal keeps them. Each change then
+	// draws only when each earlier change reached the disk.
+	EntriesOrdered bool
 	// Image sets the faults of the FS that Crash returns.
 	Image Config
 }
@@ -62,6 +66,8 @@ func (f *FS) Crash(cfg CrashConfig) (*FS, error) {
 	for _, ch := range d.pending {
 		if draw(cfg.RunKey, drawEntry, ch.key) < cfg.EntrySurvivalRate {
 			c.apply(ch)
+		} else if cfg.EntriesOrdered {
+			break
 		}
 	}
 	image := newDisk(cfg.Image, c.image(d.root, "/"), d.clock, d.ids)

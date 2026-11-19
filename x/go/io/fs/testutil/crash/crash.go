@@ -171,6 +171,10 @@ type Config struct {
 	Stride int
 	// Profile sets the faults and the rules.
 	Profile Profile
+	// EntriesOrdered makes the directory changes that a crash keeps a prefix of the
+	// changes in the order they were made, as a metadata journal keeps them. Only
+	// Partial and Mixed lose directory changes, so it changes only those profiles.
+	EntriesOrdered bool
 }
 
 func (c Config) validate() error {

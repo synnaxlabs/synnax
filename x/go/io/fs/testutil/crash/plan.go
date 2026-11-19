@@ -43,6 +43,7 @@ func newPlan(cfg Config) plan {
 			DataSurvivalRate:  rate(0.25, 0.5, 0.75),
 			TornRate:          rate(0.25, 0.5, 0.75),
 			EntrySurvivalRate: rate(0.25, 0.5, 0.75),
+			EntriesOrdered:    cfg.EntriesOrdered,
 		}
 	}
 	if cfg.Profile == SyncErrors || mixed {

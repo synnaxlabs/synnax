@@ -124,14 +124,20 @@ func (e *crashEngine) Close() (err error) {
 }
 
 // run runs the harness on Pebble with one fault profile and one run key.
-func run(ctx context.Context, profile crash.Profile, runKey uint64) error {
+func run(
+	ctx context.Context,
+	profile crash.Profile,
+	runKey uint64,
+	ordered bool,
+) error {
 	_, err := crash.Run(ctx, crash.Config{
-		RunKey:  runKey,
-		Open:    openCrashEngine,
-		Corrupt: func(err error) bool { return errors.Is(err, pebble.ErrCorruption) },
-		Commits: 20,
-		Stride:  1,
-		Profile: profile,
+		RunKey:         runKey,
+		Open:           openCrashEngine,
+		Corrupt:        func(err error) bool { return errors.Is(err, pebble.ErrCorruption) },
+		Commits:        20,
+		Stride:         1,
+		Profile:        profile,
+		EntriesOrdered: ordered,
 	})
 	return err
 }
@@ -147,7 +153,7 @@ var _ = DescribeTable("Crash harness",
 		cause string,
 	) {
 		var v *crash.Violation
-		err := run(ctx, profile, runKey)
+		err := run(ctx, profile, runKey, false)
 		Expect(errors.As(err, &v)).To(BeTrue(), "no violation: %v", err)
 		Expect(v.Rule).To(Equal(rule))
 		Expect(v.Detail).To(ContainSubstring(cause))
@@ -175,7 +181,7 @@ var _ = DescribeTable("Crash harness",
 
 var _ = DescribeTable("Crash harness, holding",
 	func(ctx SpecContext, profile crash.Profile, runKey uint64) {
-		Expect(run(ctx, profile, runKey)).To(Succeed())
+		Expect(run(ctx, profile, runKey, false)).To(Succeed())
 	},
 	Entry("Strict", crash.Strict, uint64(0)),
 	Entry("SyncErrors", crash.SyncErrors, uint64(0)),
@@ -183,6 +189,16 @@ var _ = DescribeTable("Crash harness, holding",
 	Entry("NewCorruption", crash.NewCorruption, uint64(0)),
 	Entry("Partial, run key 1", crash.Partial, uint64(1)),
 	Entry("Mixed, run key 1", crash.Mixed, uint64(1)),
+)
+
+// With the directory changes in order, as ext4, XFS, APFS, and NTFS journals keep them,
+// a crash keeps the manifest whenever it keeps the marker.
+var _ = DescribeTable("Crash harness, ordered entries, holding",
+	func(ctx SpecContext, profile crash.Profile, runKey uint64) {
+		Expect(run(ctx, profile, runKey, true)).To(Succeed())
+	},
+	Entry("Partial", crash.Partial, uint64(0)),
+	Entry("Mixed", crash.Mixed, uint64(0)),
 )
 
 // flipped commits n durable records, crashes, and flips one bit at the offset at of the

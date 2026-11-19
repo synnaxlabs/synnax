@@ -311,11 +311,15 @@ var _ = Describe("Crash", func() {
 		}
 		// outcomes returns each distinct list that 32 crashes give when a change has
 		// one chance in two to survive.
-		outcomes := func() []string {
+		outcomes := func(ordered bool) []string {
 			GinkgoHelper()
 			seen := set.Set[string]{}
 			for runKey := range uint64(32) {
-				cfg := fault.CrashConfig{RunKey: runKey, EntrySurvivalRate: 0.5}
+				cfg := fault.CrashConfig{
+					RunKey:            runKey,
+					EntrySurvivalRate: 0.5,
+					EntriesOrdered:    ordered,
+				}
 				seen.Add(list(MustSucceed(fs.Crash(cfg))))
 			}
 			return seen.Slice()
@@ -337,15 +341,26 @@ var _ = Describe("Crash", func() {
 			save(fs, "a.txt", "a")
 			save(fs, "b.txt", "b")
 			Expect(
-				outcomes(),
+				outcomes(false),
 			).To(ConsistOf("", "a.txt=a", "b.txt=b", "a.txt=a b.txt=b"))
 		})
+
+		It("Should keep a prefix of the changes in order when the entries are ordered",
+			func() {
+				save(fs, "a.txt", "a")
+				save(fs, "b.txt", "b")
+				Expect(fs.Rename("a.txt", "c.txt")).To(Succeed())
+				Expect(outcomes(true)).To(ConsistOf(
+					"", "a.txt=a", "a.txt=a b.txt=b", "b.txt=b c.txt=a",
+				))
+			},
+		)
 
 		It("Should keep a rename whole", func() {
 			save(fs, "a.txt", "tacocat")
 			Expect(fs.SyncDir("")).To(Succeed())
 			Expect(fs.Rename("a.txt", "b.txt")).To(Succeed())
-			Expect(outcomes()).To(ConsistOf("a.txt=tacocat", "b.txt=tacocat"))
+			Expect(outcomes(false)).To(ConsistOf("a.txt=tacocat", "b.txt=tacocat"))
 		})
 
 		It("Should keep a rename onto a file whole", func() {
@@ -354,14 +369,14 @@ var _ = Describe("Crash", func() {
 			Expect(fs.SyncDir("")).To(Succeed())
 			Expect(fs.Rename("tmp.txt", "final.txt")).To(Succeed())
 			Expect(
-				outcomes(),
+				outcomes(false),
 			).To(ConsistOf("final.txt=old tmp.txt=new", "final.txt=new"))
 		})
 
 		It("Should lose a change with the change that it depends on", func() {
 			save(fs, "a.txt", "tacocat")
 			Expect(fs.Rename("a.txt", "b.txt")).To(Succeed())
-			Expect(outcomes()).To(ConsistOf("", "a.txt=tacocat", "b.txt=tacocat"))
+			Expect(outcomes(false)).To(ConsistOf("", "a.txt=tacocat", "b.txt=tacocat"))
 		})
 
 		It("Should not replace a file whose remove was lost", func() {
@@ -369,7 +384,7 @@ var _ = Describe("Crash", func() {
 			Expect(fs.SyncDir("")).To(Succeed())
 			Expect(fs.Remove("f.txt")).To(Succeed())
 			save(fs, "f.txt", "new")
-			Expect(outcomes()).To(ConsistOf("f.txt=old", "", "f.txt=new"))
+			Expect(outcomes(false)).To(ConsistOf("f.txt=old", "", "f.txt=new"))
 		})
 
 		Describe("Rename across directories", func() {

@@ -105,3 +105,17 @@ var _ = Describe("Clusters", func() {
 			[]fault.Fault{at(1, 0, 100), at(1, 200, 300), at(1, 50, 250)}, []int{3}, 3),
 	)
 })
+
+var _ = Describe("Plan", func() {
+	DescribeTable("Should give each crash the order of directory changes",
+		func(profile Profile, ordered bool) {
+			p := newPlan(Config{RunKey: 1, Profile: profile, EntriesOrdered: ordered})
+			cfg := p.crash(3)
+			Expect(cfg.EntrySurvivalRate).To(BeNumerically(">", 0))
+			Expect(cfg.EntriesOrdered).To(Equal(ordered))
+		},
+		Entry("Partial, ordered", Partial, true),
+		Entry("Partial", Partial, false),
+		Entry("Mixed, ordered", Mixed, true),
+	)
+})
