@@ -11,6 +11,7 @@ package fs_test
 
 import (
 	"os"
+	"syscall"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -34,6 +35,64 @@ var _ = Describe("Mem", func() {
 				&os.PathError{Op: "sync", Path: "a/b/missing", Err: os.ErrNotExist},
 			))
 		})
+	})
+
+	Describe("Current directory elements", func() {
+		// Each backend is a root FS with no subFS, so no path.Join cleans a name. The
+		// string is the prefix that puts a relative name under the root.
+		backends := map[string]func() (fs.FS, string){
+			"memFS": func() (fs.FS, string) { return fs.NewMem(), "" },
+			"osFS": func() (fs.FS, string) {
+				return fs.Default, GinkgoT().TempDir() + "/"
+			},
+		}
+		for name, open := range backends {
+			Context(name, func() {
+				var (
+					fsys fs.FS
+					root string
+				)
+				BeforeEach(func() {
+					fsys, root = open()
+					MustSucceed(fsys.Sub(root + "a"))
+				})
+				It(
+					"Should stat a directory named with a trailing . like SyncDir",
+					func() {
+						Expect(fsys.SyncDir(root + "a/.")).To(Succeed())
+						info := MustSucceed(fsys.Stat(root + "a/."))
+						Expect(info.IsDir()).To(BeTrue())
+						Expect(fsys.Exists(root + "a/.")).To(BeTrue())
+					},
+				)
+				It("Should not create a file named . in a directory", func() {
+					Expect(fsys.Open(root+"a/.", os.O_CREATE|os.O_WRONLY)).Error().
+						To(HaveOccurred())
+					Expect(fsys.List(root + "a")).To(BeEmpty())
+				})
+				It(
+					"Should keep a file reachable after a rename onto a trailing .",
+					func() {
+						sub := MustSucceed(fsys.Sub(root + "x"))
+						f := MustSucceed(sub.Open("f.txt", os.O_CREATE|os.O_WRONLY))
+						Expect(f.Close()).To(Succeed())
+						renamed := fsys.Rename(root+"x", root+"a/.") == nil
+						at := root + "x/f.txt"
+						if renamed {
+							at = root + "a/./f.txt"
+						}
+						Expect(fsys.Exists(at)).To(BeTrue(), "renamed: %v", renamed)
+					},
+				)
+				It("Should return ENOTDIR from SyncDir for a file under a .", func() {
+					f := MustSucceed(fsys.Open(root+"a/./f.txt", os.O_CREATE))
+					Expect(f.Close()).To(Succeed())
+					Expect(fsys.SyncDir(root + "a/./f.txt")).
+						To(MatchError(syscall.ENOTDIR))
+					Expect(fsys.Exists(root + "a/f.txt")).To(BeTrue())
+				})
+			})
+		}
 	})
 
 	It("Should advance the modification time on every write", func() {
