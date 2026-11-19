@@ -174,3 +174,14 @@ jobs:
         run:
           python3 .github/scripts/security_report.py "$RUNNER_TEMP/security" --agents
           --publish
+
+  relay-failure:
+    name: Relay the failure
+    needs: [authn, api, tls, files, driver, console, ci, scan]
+    if:
+      always() && github.event_name == 'schedule' && contains(needs.*.result, 'failure')
+    permissions:
+      actions: write
+    uses: ./.github/workflows/relay.failure.yaml
+    with:
+      report: true

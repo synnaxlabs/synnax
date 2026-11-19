@@ -126,3 +126,14 @@ jobs:
         with:
           name: fuzz-crashes-${{ matrix.artifact }}-${{ matrix.shard }}
           path: ${{ matrix.module }}/**/testdata/fuzz/
+
+  relay-failure:
+    name: Relay the failure
+    needs: [fuzz]
+    if:
+      always() && github.event_name == 'schedule' && contains(needs.*.result, 'failure')
+    permissions:
+      actions: write
+    uses: ./.github/workflows/relay.failure.yaml
+    with:
+      report: true

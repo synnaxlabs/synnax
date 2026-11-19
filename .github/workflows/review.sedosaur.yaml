@@ -534,3 +534,13 @@ jobs:
           BASE_SHA: ${{ steps.pr.outputs.base }}
           KEY: ${{ steps.pr.outputs.key }}
         run: python3 -m review restore
+
+  relay-failure:
+    name: Relay the failure
+    needs: [start, react, decline, review, unwatch, end, restore]
+    if: always() && contains(needs.*.result, 'failure')
+    permissions:
+      actions: write
+    uses: ./.github/workflows/relay.failure.yaml
+    with:
+      requeue: true
