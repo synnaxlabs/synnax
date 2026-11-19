@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type rack, status, type Synnax as Client } from "@synnaxlabs/client";
+import { Divider } from "@synnaxlabs/lyra/divider";
 import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { type Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
@@ -34,11 +36,14 @@ const listNames = async (client: Client, rack: rack.Key): Promise<State> => {
   };
 };
 
+// A file name never holds a slash, so this key names no file.
+const NONE = "/";
+
 export interface SelectSecretFileProps extends Input.Control<string> {
   /** The rack whose secrets folder the select lists. */
   rack: rack.Key;
-  /** The text of an empty value, such as "None" for an optional file. */
-  placeholder?: string;
+  /** Whether no file is a valid value. It adds a "No file" option. */
+  allowNone?: boolean;
 }
 
 /**
@@ -49,7 +54,7 @@ export const SelectSecretFile = ({
   rack,
   value,
   onChange,
-  placeholder = "Select a file",
+  allowNone = false,
 }: SelectSecretFileProps): ReactElement => {
   const client = Synnax.use();
   const [state, setState] = useState<State>({ variant: "loading" });
@@ -72,6 +77,9 @@ export const SelectSecretFile = ({
   );
   const names = state.variant === "success" ? state.names : [];
   const options = unique.unique([...names, value]).filter((n) => n !== "");
+  const folderMissing = state.variant === "none";
+  const empty = allowNone && !folderMissing ? NONE : undefined;
+  const selected = value === "" ? empty : value;
   let emptyContent: ReactElement | string = "Listing files";
   if (state.variant === "error")
     emptyContent = <Status.Summary level="small" status={state.status} />;
@@ -81,15 +89,26 @@ export const SelectSecretFile = ({
   return (
     <Select.Simple<string>
       resourceName="file"
-      value={value === "" ? undefined : value}
-      onChange={(next: string | null) => onChange(next ?? "")}
-      allowNone
-      disabled={state.variant === "none"}
+      value={selected}
+      onChange={(next: string | null) =>
+        onChange(next == null || next === NONE ? "" : next)
+      }
+      disabled={folderMissing}
       emptyContent={emptyContent}
       triggerProps={{
-        placeholder:
-          state.variant === "none" ? "The rack has no secrets folder" : placeholder,
+        placeholder: folderMissing ? "The rack has no secrets folder" : "Select a file",
       }}
+      footer={
+        allowNone && (
+          <>
+            <Divider.Divider x />
+            <Select.Item itemKey={NONE} textValue="No file">
+              <Icon.None />
+              No file
+            </Select.Item>
+          </>
+        )
+      }
       grow
     >
       {options.map((n) => (

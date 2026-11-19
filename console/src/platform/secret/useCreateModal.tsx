@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type rack, secret, status } from "@synnaxlabs/client";
+import { type rack, type secret, status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -25,21 +25,23 @@ import { FileBrowser } from "@/platform/file-browser";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 
-const formZ = z
-  .object({
-    name: z.string().trim().min(1, "Name is required"),
-    source: secret.sourceZ,
-    value: z.string(),
-    fileName: z.string(),
-  })
-  .check(({ value: v, issues }) => {
-    const [field, message] =
-      v.source === "stored"
-        ? (["value", "Value is required"] as const)
-        : (["fileName", "File is required"] as const);
-    if (v[field] !== "") return;
-    issues.push({ code: "custom", message, path: [field], input: v[field] });
-  });
+// The form holds the fields of both sources, so a switch keeps what was entered.
+const fieldsZ = z.object({
+  name: z.string().trim().min(1, "Name is required"),
+  value: z.string(),
+  fileName: z.string(),
+});
+
+const formZ = z.discriminatedUnion("source", [
+  fieldsZ.extend({
+    source: z.literal("stored"),
+    value: z.string().min(1, "Value is required"),
+  }),
+  fieldsZ.extend({
+    source: z.literal("file"),
+    fileName: z.string().min(1, "File is required"),
+  }),
+]);
 
 const valueFormZ = z.object({ value: z.string().min(1, "Value is required") });
 

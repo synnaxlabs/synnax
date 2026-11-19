@@ -434,9 +434,11 @@ describe("Certificate.Field", () => {
     expect(getPEMInput("Private key")).toHaveProperty("value", "");
   });
 
-  it("requires a certificate before it saves", async () => {
+  it("marks the certificate as required and requires it before it saves", async () => {
     const { onChange } = await renderField();
     await openCreate();
+    expect(screen.getByRole("textbox", { name: "Certificate *" })).toBeDefined();
+    expect(screen.getByRole("textbox", { name: "Private key" })).toBeDefined();
     fireEvent.click(findButton("Create"));
     await screen.findByText("Certificate is required");
     expect(onChange).not.toHaveBeenCalled();
@@ -530,7 +532,7 @@ describe("Certificate.Field", () => {
     fireEvent.doubleClick(await screen.findByText("/"));
     fireEvent.doubleClick(await screen.findByText("client.crt"));
     await screen.findByText(new RegExp(`^${stored.details.subject} · Expires `));
-    await open("None");
+    await open("No file");
     fireEvent.click(await screen.findByRole("option", { name: "client.key" }));
     fireEvent.click(findButton("Create"));
     const key = await waitFor(() => {
@@ -573,12 +575,13 @@ describe("Certificate.Field", () => {
     expect(c.privateKeyFile).toBeUndefined();
   });
 
-  it("requires a certificate file for a file certificate", async () => {
+  it("marks the certificate file as required and requires it for a file certificate", async () => {
     const files = await createFileRack(client);
     await serveListings(client, files, [createListing({ secretsDir: SECRETS_DIR })]);
     const { onChange } = await renderField("", { rack: files.rack.key });
     await openCreate();
     fireEvent.click(await screen.findByText("File on rack"));
+    await screen.findByRole("textbox", { name: "Certificate file *" });
     fireEvent.click(findButton("Create"));
     await screen.findByText("Certificate file is required");
     expect(onChange).not.toHaveBeenCalled();

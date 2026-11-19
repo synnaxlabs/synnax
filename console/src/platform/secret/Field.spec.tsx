@@ -195,6 +195,15 @@ describe("Secret.Field", () => {
     );
   });
 
+  it("marks the value as required and requires it before it saves", async () => {
+    const { onChange } = await renderField();
+    await openCreate("Select a secret");
+    await screen.findByLabelText("Value *");
+    fireEvent.click(findButton("Create"));
+    await screen.findByText("Value is required");
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   it("offers no new secret to a user who cannot create secrets", async () => {
     const s = await createSecret(client, created);
     const reader = await createTestClientWithGrants(client, {
@@ -319,12 +328,13 @@ describe("Secret.Field", () => {
     );
   });
 
-  it("requires a file for a file secret", async () => {
+  it("marks the file as required and requires it for a file secret", async () => {
     const files = await createFileRack(client);
     await serveListings(client, files, [createListing({ secretsDir: SECRETS_DIR })]);
     const { onChange } = await renderField("", { rack: files.rack.key });
     await openCreate("Select a secret");
     fireEvent.click(await screen.findByText("File on rack"));
+    expect((await screen.findByText("File")).textContent).toBe("File *");
     fireEvent.click(findButton("Create"));
     await screen.findByText("File is required");
     expect(onChange).not.toHaveBeenCalled();
