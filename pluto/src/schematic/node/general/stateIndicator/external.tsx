@@ -10,7 +10,7 @@
 import { type schematic } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
-import { StateIndicatorForm } from "@/schematic/node/general/stateIndicator/Form";
+import { NAME, StateIndicatorForm } from "@/schematic/node/general/stateIndicator/Form";
 import { StateIndicator } from "@/schematic/node/general/stateIndicator/Primitive";
 import { Symbol } from "@/schematic/node/general/stateIndicator/Symbol";
 import { type Spec } from "@/schematic/node/spec";
@@ -29,7 +29,7 @@ const Preview = ({
 
 export const spec: Spec<"state_indicator", schematic.StateIndicatorNodeConfig> = {
   key: "state_indicator",
-  name: "State indicator",
+  name: NAME,
   Form: StateIndicatorForm,
   Node: Symbol,
   Preview,

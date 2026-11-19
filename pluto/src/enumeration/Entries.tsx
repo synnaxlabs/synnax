@@ -181,7 +181,7 @@ export interface Edit {
   removed: string[];
 }
 
-export interface TableProps {
+export interface TableProps extends Pick<Input.TableProps, "autoFocus"> {
   value: enumeration.Entry[];
   /** Called once per edit, since a swap of two values is valid only as a whole. */
   onChange: (edit: Edit) => void;
@@ -192,8 +192,6 @@ export interface TableProps {
   abnormalHidden?: boolean;
   /** Leaves out the Color column, for entries whose color draws nowhere. */
   colorHidden?: boolean;
-  /** Focuses the first Name cell on mount, or Add entry when there are no entries. */
-  autoFocus?: boolean;
 }
 
 /**
@@ -409,10 +407,8 @@ export const Table = ({
   );
 };
 
-export interface EntriesProps {
+export interface EntriesProps extends Pick<TableProps, "autoFocus"> {
   enumeration: enumeration.Key;
-  /** Focuses the first Name cell on mount, or Add entry when there are no entries. */
-  autoFocus?: boolean;
 }
 
 /**

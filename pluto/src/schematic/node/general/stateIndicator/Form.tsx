@@ -21,6 +21,9 @@ import { type FormProps } from "@/schematic/node/spec";
 import { Properties } from "@/vis/properties";
 import { Staleness } from "@/vis/staleness";
 
+/** The name of the symbol. */
+export const NAME = "State indicator";
+
 const path = deep.path<schematic.StateIndicatorNodeConfig>();
 
 const StateIndicatorTelemForm = (): ReactElement => {
@@ -78,7 +81,7 @@ export const StateIndicatorForm = ({ tab, onTabChange }: FormProps): ReactElemen
         enumeration={path.enumeration}
         options={path.options}
         label={path.label.label}
-        symbolName="State indicator"
+        symbolName={NAME}
       />
     </Tabs.Content>
   </Properties.Tabs>
