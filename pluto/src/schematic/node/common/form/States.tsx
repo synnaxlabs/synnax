@@ -72,7 +72,7 @@ const Options = ({ path, colorDisabled }: OptionsProps): ReactElement => {
       value={entries}
       abnormalDisabled
       colorDisabled={colorDisabled}
-      onSet={(i, entry) => write(entries.map((e, j) => (j === i ? entry : e)))}
+      onSet={(entry) => write(entries.map((e) => (e.key === entry.key ? entry : e)))}
       onAdd={(added) => write([...entries, ...added])}
       onRemove={(i) => write(entries.filter((_, j) => j !== i))}
       onMove={(from, to) => {

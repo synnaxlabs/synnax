@@ -19,6 +19,10 @@ def pick(page: Page, swatch: Locator, *, hex_color: str) -> None:
     swatch.click()
     picker = page.locator(".lyra-color-picker")
     picker.wait_for(state="visible", timeout=2000)
+    # A swatch with a library of named colors opens on its Library tab.
+    custom = picker.get_by_text("Custom", exact=True)
+    if custom.count() > 0:
+        custom.click()
     hex_input = picker.get_by_label("Hex", exact=True)
     hex_input.click(click_count=3)
     hex_input.fill(hex_color.lstrip("#"))
