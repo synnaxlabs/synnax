@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { License } from "@/platform/license";
 
@@ -145,7 +145,7 @@ describe("hub", () => {
       );
     });
 
-    it("should stop the request when the caller aborts", async () => {
+    const answerNever = (): void => {
       vi.stubGlobal(
         "fetch",
         vi.fn(
@@ -155,6 +155,29 @@ describe("hub", () => {
             ),
         ),
       );
+    };
+
+    describe("when the hub does not answer in ten seconds", () => {
+      beforeEach(() => vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] }));
+      afterEach(() => vi.useRealTimers());
+
+      it("should throw a TypeError", async () => {
+        answerNever();
+        const result = License.receive("abc");
+        vi.advanceTimersByTime(10_000);
+        await expect(result).rejects.toThrow(TypeError);
+      });
+
+      it("should throw a TypeError when the caller signal is not aborted", async () => {
+        answerNever();
+        const result = License.receive("abc", new AbortController().signal);
+        vi.advanceTimersByTime(10_000);
+        await expect(result).rejects.toThrow(TypeError);
+      });
+    });
+
+    it("should stop the request when the caller aborts", async () => {
+      answerNever();
       const controller = new AbortController();
       const result = License.receive("abc", controller.signal);
       controller.abort();
