@@ -37,9 +37,11 @@ is done.
   download page to get updates. Desktop needs no bridge per train: every Desktop install
   updates to the highest stable Desktop on any train, so it reaches the bridge of
   step 3.
-- A Console from before step 2 trusts only the old key, however it was installed. The
-  update feed offers only the latest release, so the Console can update to the bridge
-  until the first release after step 4. After that, its user reinstalls from the
+- A Console from before step 2 trusts only the old key, however it was installed. Its
+  update source offers one Console: the Console that its connected Core embeds, or the
+  highest stable Console on the docs site. So the Console can update to the bridge while
+  that source offers it: until its Core moves past the step 2 release, or until a higher
+  stable Console publishes after step 4. After that, its user reinstalls from the
   download page.
 - A Console offers the Console of an older Core's minor as a downgrade when it connects
   to that Core over TLS. Before step 4 the old key signs that downgrade, so a Console
