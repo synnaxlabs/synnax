@@ -19,7 +19,8 @@ const readPlotChannels: Task.PlotChannels = (config) =>
   Task.enabledChannels(
     kafka.readConfigZ
       .parse(config)
-      .records.filter(({ disabled }) => !disabled)
+      .topics.flatMap(({ records }) => records)
+      .filter(({ disabled }) => !disabled)
       .flatMap(({ messages }) =>
         messages.flatMap(({ bindings }) =>
           bindings.map(({ channel }) => ({ channel, disabled: false })),

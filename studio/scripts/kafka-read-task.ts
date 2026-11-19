@@ -11,33 +11,27 @@ import { capture } from "@/index";
 
 import { pickValues, submitPicks } from "./common/picker";
 import { KAFKA, serverTaskScript } from "./common/server";
-import { setText } from "./common/task";
 
 export const driver = true;
 export const integrations = ["modbus"];
 
 /**
- * Docs `reference/hardware/kafka/read-task` (Create a Kafka read task): enter the
- * topic, open Add data, select the oven records and two of their fields, add them, and
- * start the task. The fake broker publishes these records, so the task reads real
- * values.
+ * Docs `reference/hardware/kafka/read-task` (Create a Kafka read task): open Add data,
+ * enter the topic, select the oven records and two of their fields, add them, and start
+ * the task. The fake broker publishes these records, so the task reads real values.
  */
 export default serverTaskScript(KAFKA, {
   item: "Create read task",
-  properties: async (session, form) => {
-    await setText(session, form, "Topic", "sensor-readings");
-  },
   channels: async (session, form) => {
     const { page } = session;
     await session.click(form.getByRole("button", { name: "Add data", exact: true }));
-    const dialog = page
-      .locator(capture.MODAL)
-      .filter({
-        has: page.getByRole("button", { name: "Add an empty record", exact: true }),
-      })
-      .first();
+    const topic = page.getByRole("textbox", { name: "Topic", exact: true });
+    const dialog = page.locator(capture.MODAL).filter({ has: topic }).first();
     await session.waitFor(dialog);
     await session.zoom(dialog);
+    await session.click(dialog.getByRole("textbox", { name: "Topic", exact: true }));
+    await session.type("sensor-readings");
+    await session.press("Enter");
     const oven = dialog.getByRole("treeitem").getByText("oven", { exact: true });
     await session.waitFor(oven);
     await session.hold(1200);

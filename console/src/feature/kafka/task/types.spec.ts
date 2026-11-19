@@ -21,21 +21,55 @@ describe("Kafka Task Types", () => {
       icd: ICD,
       messages: [],
     });
-    const valid = { device: "dev", topic: "t", records: [createRecord("")] };
+    const createTopic = (name: string, records = [createRecord("")]) => ({
+      key: name === "" ? "empty" : name,
+      name,
+      records,
+    });
+    const valid = { device: "dev", topics: [createTopic("t")] };
 
     it("should accept a complete config", () => {
       expect(Kafka.Task.deployReadConfigZ.safeParse(valid).success).toBe(true);
     });
 
     it("should reject an empty topic", () => {
-      const result = Kafka.Task.deployReadConfigZ.safeParse({ ...valid, topic: "" });
-      expect(result.error?.issues[0].message).toBe("Topic is required");
+      const result = Kafka.Task.deployReadConfigZ.safeParse({
+        ...valid,
+        topics: [createTopic("")],
+      });
+      expect(result.error?.issues).toEqual([
+        expect.objectContaining({
+          message: "Topic is required",
+          path: ["topics", 0, "name"],
+        }),
+      ]);
+    });
+
+    it("should reject two topics with one name", () => {
+      const result = Kafka.Task.deployReadConfigZ.safeParse({
+        ...valid,
+        topics: [createTopic("t"), { ...createTopic("t"), key: "b" }],
+      });
+      expect(result.error?.issues).toEqual([
+        expect.objectContaining({
+          message: 'Topic "t" is listed more than once',
+          path: ["topics", 1, "name"],
+        }),
+      ]);
+    });
+
+    it("should accept a topic with no records beside one that reads", () => {
+      const result = Kafka.Task.deployReadConfigZ.safeParse({
+        ...valid,
+        topics: [createTopic("t"), createTopic("u", [])],
+      });
+      expect(result.success).toBe(true);
     });
 
     it("should reject a config with every record disabled", () => {
       const result = Kafka.Task.deployReadConfigZ.safeParse({
         ...valid,
-        records: [createRecord("", true)],
+        topics: [createTopic("t", [createRecord("", true)]), createTopic("u", [])],
       });
       expect(result.error?.issues[0].message).toBe(
         "At least one record must be enabled",
@@ -48,17 +82,41 @@ describe("Kafka Task Types", () => {
     ])("should reject two enabled records with the key %j", (recordKey, message) => {
       const result = Kafka.Task.deployReadConfigZ.safeParse({
         ...valid,
-        records: [createRecord(recordKey), { ...createRecord(recordKey), key: "b" }],
+        topics: [
+          createTopic("t", [
+            createRecord(recordKey),
+            { ...createRecord(recordKey), key: "b" },
+          ]),
+        ],
       });
       expect(result.error?.issues).toEqual([
-        expect.objectContaining({ message, path: ["records", 1, "recordKey"] }),
+        expect.objectContaining({
+          message,
+          path: ["topics", 0, "records", 1, "recordKey"],
+        }),
       ]);
+    });
+
+    it("should accept one record key in two topics", () => {
+      const result = Kafka.Task.deployReadConfigZ.safeParse({
+        ...valid,
+        topics: [
+          createTopic("t", [createRecord("pump")]),
+          createTopic("u", [{ ...createRecord("pump"), key: "b" }]),
+        ],
+      });
+      expect(result.success).toBe(true);
     });
 
     it("should accept a disabled record that shares a key with an enabled one", () => {
       const result = Kafka.Task.deployReadConfigZ.safeParse({
         ...valid,
-        records: [createRecord("pump"), { ...createRecord("pump", true), key: "b" }],
+        topics: [
+          createTopic("t", [
+            createRecord("pump"),
+            { ...createRecord("pump", true), key: "b" },
+          ]),
+        ],
       });
       expect(result.success).toBe(true);
     });

@@ -9,6 +9,7 @@
 
 import { type kafka } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
@@ -24,23 +25,25 @@ import {
   shapeKey,
 } from "@/feature/kafka/task/additions";
 import { sampleTopic } from "@/feature/kafka/task/sample";
-import { type ReadRecord } from "@/feature/kafka/task/types";
+import { type ReadRecord, type ReadTopic } from "@/feature/kafka/task/types";
 import { CSS } from "@/platform/css";
 import { ICD } from "@/platform/icd";
 import { Modals } from "@/platform/modals";
 
 interface Params {
   device: Device;
+  /** The topic that the dialog reads first, or "" for none. */
   topic: string;
-  /** The records that the task holds now. */
-  records: ReadRecord[];
+  /** The topics that the task holds now. */
+  topics: ReadTopic[];
   /** Names the Kafka key of a record, such as "Any key" for the empty key. */
   label: (recordKey: string) => string;
 }
 
-/** What the dialog adds: the fields picked from a sample, or one empty record. */
-export type Result =
-  { variant: "picks"; shapes: json.Shape[]; picks: Picks } | { variant: "record" };
+/** What the dialog adds to a topic: the fields picked from a sample, or one record. */
+export type Result = { topic: string } & (
+  { variant: "picks"; shapes: json.Shape[]; picks: Picks } | { variant: "record" }
+);
 
 const FRAME = "records";
 
@@ -171,11 +174,13 @@ const SKELETON: ICD.Picker.SkeletonItem[] = [
 
 const Content = ({
   device,
-  topic,
-  records,
+  topic: initial,
+  topics,
   label,
   close,
 }: Modals.ContentProps<Params, Result>) => {
+  const [topic, setTopic] = useState(initial);
+  const records: ReadRecord[] = topics.find((t) => t.name === topic)?.records ?? [];
   const { result, listen } = ICD.Picker.useListen(
     async (client) => (topic === "" ? null : await sampleTopic(client, device, topic)),
     [device.key, topic],
@@ -214,9 +219,7 @@ const Content = ({
       />
     );
   else if (topic === "")
-    list = (
-      <ICD.Picker.Notice message="Set the topic of the task to read its records." />
-    );
+    list = <ICD.Picker.Notice message="Enter a topic to read its records." />;
   else if (sample == null) list = <ICD.Picker.TreeSkeleton items={SKELETON} />;
   else if (shapes.length === 0 && sample.error !== "")
     list = (
@@ -265,22 +268,38 @@ const Content = ({
 
   return (
     <ICD.Picker.Root value={FRAME} className={CSS.B("kafka-add-data")}>
-      <Modal.Header icon={<Icon.Logo.Kafka />}>{["Add data", topic]}</Modal.Header>
-      <ICD.Picker.Bar />
+      <Modal.Header icon={<Icon.Logo.Kafka />}>Add data</Modal.Header>
+      <ICD.Picker.Bar>
+        <Input.Text
+          value={topic}
+          onChange={(v) => {
+            setTopic(v.trim());
+            setPicks(new Map());
+            setSelected(null);
+          }}
+          onlyChangeOnBlur
+          autoFocus={initial === ""}
+          size="small"
+          aria-label="Topic"
+          placeholder="Topic"
+        />
+      </ICD.Picker.Bar>
       <ICD.Picker.Frame itemKey={FRAME}>
         <ICD.Picker.Status status={status} loading={loading} onListen={listen} />
         <ICD.Picker.Side>
           <ICD.Picker.SideList>{list}</ICD.Picker.SideList>
-          <ICD.Picker.SideAction onClick={() => close({ variant: "record" })}>
-            Add an empty record
-          </ICD.Picker.SideAction>
+          {topic !== "" && (
+            <ICD.Picker.SideAction onClick={() => close({ topic, variant: "record" })}>
+              Add an empty record
+            </ICD.Picker.SideAction>
+          )}
         </ICD.Picker.Side>
         <ICD.Picker.Pane>{pane}</ICD.Picker.Pane>
       </ICD.Picker.Frame>
       <ICD.Picker.Footer
         counts={[["field", count]]}
         idle="field"
-        onAdd={() => close({ variant: "picks", shapes, picks })}
+        onAdd={() => close({ topic, variant: "picks", shapes, picks })}
         onCancel={() => close()}
       >
         <Text.Text level="small" color={count > 0 ? 10 : 9}>
@@ -294,8 +313,8 @@ const Content = ({
 };
 
 /**
- * Opens a dialog that reads records of the task's topic, so the user can pick the
- * fields of each shape of their values. It resolves with the picks, or null when the
+ * Opens a dialog that reads records of a topic, so the user can pick the fields of each
+ * shape of their values. It resolves with the topic and the picks, or null when the
  * user closes it.
  */
 export const useAddDataModal = Modals.createPrompt<Result, Params>(Content);

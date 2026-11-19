@@ -29,20 +29,14 @@ export const READ_TYPE = `${PREFIX}_read`;
 
 export interface ReadRecord extends kafka.ReadRecord {}
 
+export interface ReadTopic extends kafka.ReadTopic {}
+
 export type StartOffset = kafka.StartOffset;
 
 // The Core skips disabled records, so they may share a key with an enabled one.
 const validateRecords = (
   ctx: z.core.ParsePayload<Pick<ReadRecord, "disabled" | "recordKey">[]>,
 ) => {
-  if (ctx.value.every(({ disabled }) => disabled))
-    ctx.issues.push({
-      continue: true,
-      code: "custom",
-      input: ctx.value,
-      message: "At least one record must be enabled",
-      path: [],
-    });
   const seen = new Set<string>();
   ctx.value.forEach(({ disabled, recordKey }, i) => {
     if (disabled) return;
@@ -63,10 +57,42 @@ const validateRecords = (
   });
 };
 
+const validateTopics = (
+  ctx: z.core.ParsePayload<Pick<ReadTopic, "name" | "records">[]>,
+) => {
+  if (ctx.value.every(({ records }) => records.every(({ disabled }) => disabled)))
+    ctx.issues.push({
+      continue: true,
+      code: "custom",
+      input: ctx.value,
+      message: "At least one record must be enabled",
+      path: [],
+    });
+  const seen = new Set<string>();
+  ctx.value.forEach(({ name }, i) => {
+    if (!seen.has(name)) {
+      seen.add(name);
+      return;
+    }
+    ctx.issues.push({
+      continue: true,
+      code: "custom",
+      input: ctx.value,
+      message: `Topic "${name}" is listed more than once`,
+      path: [i, "name"],
+    });
+  });
+};
+
 export const deployReadConfigZ = kafka.readConfigZ.extend({
   device: Task.deviceKeyZ,
-  topic: topicZ,
-  records: kafka.readRecordZ.array().check(validateRecords),
+  topics: kafka.readTopicZ
+    .extend({
+      name: topicZ,
+      records: kafka.readRecordZ.array().check(validateRecords),
+    })
+    .array()
+    .check(validateTopics),
 });
 
 export const READ_SCHEMAS = {

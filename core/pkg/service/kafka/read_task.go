@@ -34,6 +34,7 @@ import (
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -170,19 +171,19 @@ func (f *factory) buildReadRecords(
 	ctx context.Context,
 	cfg ReadConfig,
 ) (map[string]map[string]*readRecord, []*readGroup, error) {
-	names := make(map[string]bool, len(cfg.Topics))
+	names := make(set.Set[string], len(cfg.Topics))
 	for i, topic := range cfg.Topics {
 		if topic.Name == "" {
 			return nil, nil, errors.Wrapf(
 				validate.ErrValidation, "topics.%d.name: must not be empty", i,
 			)
 		}
-		if names[topic.Name] {
+		if names.Contains(topic.Name) {
 			return nil, nil, errors.Wrapf(
 				validate.ErrValidation, "topic %q: listed more than once", topic.Name,
 			)
 		}
-		names[topic.Name] = true
+		names.Add(topic.Name)
 	}
 	type topicRecord struct {
 		topic string
