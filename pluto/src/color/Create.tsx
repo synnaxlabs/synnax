@@ -27,9 +27,8 @@ import {
 } from "react";
 
 import { Access } from "@/access";
-import { useAppend } from "@/color/queries";
+import { useAppend, useCreatePalette } from "@/color/queries";
 import { CSS } from "@/css";
-import { Group } from "@/group";
 
 interface NameEntryProps {
   placeholder: string;
@@ -220,7 +219,7 @@ export interface CreatePaletteProps {
 export const CreatePalette = ({ onCreate }: CreatePaletteProps): ReactElement => {
   const [naming, setNaming] = useState(false);
   const [cancelled, setCancelled] = useState(false);
-  const { updateAsync: create } = Group.useCreate();
+  const { updateAsync: create } = useCreatePalette();
   if (!naming)
     return (
       <Button.Button
@@ -241,7 +240,7 @@ export const CreatePalette = ({ onCreate }: CreatePaletteProps): ReactElement =>
     );
   const handleSave = async (name: string): Promise<boolean> => {
     const key = uuid.create();
-    const created = await create({ key, name, scope: color.TYPE_RESOURCE_ID.type });
+    const created = await create({ key, name });
     if (!created) return false;
     setNaming(false);
     onCreate?.(key);

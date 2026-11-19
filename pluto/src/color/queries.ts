@@ -15,8 +15,8 @@ import type z from "zod";
 import { Flux } from "@/flux";
 import { flux } from "@/flux/aether";
 
-const RESOURCE_NAME = "named color";
-const PLURAL_RESOURCE_NAME = "named colors";
+const RESOURCE_NAME = "color";
+const PLURAL_RESOURCE_NAME = "colors";
 
 export type RetrieveQuery = color.RetrieveSingleParams;
 
@@ -68,7 +68,7 @@ export const { useResult: useResultBuiltins } = Flux.createRetrieve<
   Record<string, never>,
   color.Named[]
 >({
-  name: "built-in named colors",
+  name: "built-in colors",
   retrieve: async ({ client }) => await client.colors.retrieveBuiltins(),
 });
 
@@ -195,6 +195,21 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
     await client.colors.delete(data, {
       onOptimistic: async () => await onOptimisticComplete(data),
     });
+    return data;
+  },
+});
+
+export interface CreatePaletteParams {
+  key: group.Key;
+  name: string;
+}
+
+/** Creates a palette with no colors. */
+export const { useUpdate: useCreatePalette } = Flux.createUpdate<CreatePaletteParams>({
+  name: "palette",
+  verbs: verbs.CREATE,
+  update: async ({ client, data }) => {
+    await client.groups.create({ ...data, scope: color.TYPE_RESOURCE_ID.type });
     return data;
   },
 });
