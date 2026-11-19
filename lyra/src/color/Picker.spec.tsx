@@ -516,6 +516,23 @@ describe("Picker", () => {
         expect(c.getByText("Moss")).toBeTruthy();
       });
 
+      it("should keep the focused color after the pointer leaves the palette", () => {
+        const c = renderLibrary({ value: "#3e8bff", named: "ocean" });
+        fireEvent.focus(c.getByLabelText("Moss"));
+        fireEvent.pointerLeave(c.getByRole("group", { name: "Series" }));
+        expect(c.getByText("Moss")).toBeTruthy();
+      });
+
+      it("should keep the hovered color after the focus leaves the palette", () => {
+        const c = renderLibrary({ value: "#3e8bff", named: "ocean" });
+        fireEvent.pointerEnter(c.getByLabelText("Moss"));
+        fireEvent.focus(c.getByLabelText("Moss"));
+        fireEvent.blur(c.getByLabelText("Moss"), {
+          relatedTarget: c.getByLabelText("Alarm"),
+        });
+        expect(c.getByText("Moss")).toBeTruthy();
+      });
+
       it("should return to the linked color when the focus leaves the palette", () => {
         const c = renderLibrary({ value: "#3e8bff", named: "ocean" });
         fireEvent.focus(c.getByLabelText("Moss"));
