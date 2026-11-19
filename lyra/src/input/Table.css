@@ -155,10 +155,12 @@
         background: var(--pluto-fill-rest);
     }
 
-    /* A cell's content fills it, whether a bare input or a container. */
+    /* A cell's content fills it, whether a bare input or a container. At the top, a
+       control whose baseline is not its text adds no space below it. */
     & tbody td:not(:last-child) > * {
         width: 100%;
         border-radius: 0;
+        vertical-align: top;
     }
 
     /* The box corners. A cell input in a corner curves with it. */
