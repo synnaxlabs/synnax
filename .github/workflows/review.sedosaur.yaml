@@ -476,7 +476,7 @@ jobs:
             ${{ needs.start.result != 'success' && needs.start.result ||
             needs.review.result }}
         # GitHub does not document whether an output without text keeps the old text,
-        # so the record that the review wrote is sent back.
+        # so the text that the review wrote is sent back.
         run: |
           run="repos/$GITHUB_REPOSITORY/check-runs/$CHECK_RUN"
           text=$(gh api "$run" --jq '.output.text // ""')
