@@ -7,8 +7,9 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Version updates for the pinned GitHub Actions only. Security updates for every
-# ecosystem come from the repository settings and do not use this file.
+# Version updates for the pinned GitHub Actions and the uv, Go, and Cargo dependencies.
+# Security updates are on in the repository settings, but they obey the ignore rules
+# here.
 
 version: 2
 
@@ -32,6 +33,88 @@ updates:
       prefix: "[ci] "
     # A bump changes code that runs in CI, and the classifier marks a change to
     # .github/actions/ for human review, so a person merges these.
+    labels:
+      - dependencies
+      - review/human
+
+  # The root lockfile pins the Python packages and the scripts that run in CI with
+  # secrets. The runner controller runs daily on main with AWS credentials. A person
+  # merges these.
+  - package-ecosystem: uv
+    directories:
+      - /
+      - /scripts/runners
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    # Keeps the dependency ranges that the published Python packages declare.
+    versioning-strategy: lockfile-only
+    groups:
+      python:
+        patterns:
+          - "*"
+    open-pull-requests-limit: 1
+    commit-message:
+      prefix: "[ci] "
+    labels:
+      - dependencies
+      - review/human
+
+  # A bump changes the code that the Core releases build from.
+  - package-ecosystem: gomod
+    directories:
+      - /alamos/go
+      - /arc/go
+      - /cesium
+      - /core
+      - /freighter/go
+      - /freighter/integration
+      - /gorp
+      - /oracle
+      - /x/go
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    # A module that is direct in one go.mod is often indirect in the siblings that
+    # replace it, so every pin must move together or go mod tidy fails.
+    allow:
+      - dependency-type: all
+    # Sibling modules come from replace directives.
+    ignore:
+      - dependency-name: github.com/synnaxlabs/*
+    groups:
+      go:
+        patterns:
+          - "*"
+    open-pull-requests-limit: 1
+    commit-message:
+      prefix: "[ci] "
+    labels:
+      - dependencies
+      - review/human
+
+  # A bump changes the code that the Console releases build from.
+  - package-ecosystem: cargo
+    directory: /console/src-tauri
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    # Tauri crates must match the minor version of their @tauri-apps package in the
+    # pnpm catalog, so only patches update here. A dependency can still pull in a new
+    # minor, and the Tauri CLI then fails the build, so a person bumps both sides.
+    ignore:
+      - dependency-name: "tauri*"
+        update-types: [version-update:semver-major, version-update:semver-minor]
+    groups:
+      rust:
+        patterns:
+          - "*"
+    open-pull-requests-limit: 1
+    commit-message:
+      prefix: "[ci] "
     labels:
       - dependencies
       - review/human

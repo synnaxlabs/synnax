@@ -533,7 +533,7 @@ class Overview(Surface):
         """
         item = self.get_child_range(name)
         item.wait_for(state="visible", timeout=5000)
-        self.ctx_menu.action(item, "Copy link")
+        self.ctx_menu.sub_action(item, "Copy", "Link")
 
     def delete_child_range(self, name: str) -> None:
         """Delete a child range via context menu with confirmation."""

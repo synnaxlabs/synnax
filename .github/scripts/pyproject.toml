@@ -43,6 +43,7 @@ select = [
     "E7",
     "E9",
     "PLE",
+    "PLR1722",
     "UP",
     "SIM",
     "C4",
@@ -50,6 +51,7 @@ select = [
     "PIE",
     "PERF",
     "RUF",
+    "S110",
     "PT",
 ]
 ignore = ["UP040", "UP046", "UP047", "SIM105", "SIM115", "SIM117", "PT012", "RUF001"]
@@ -59,9 +61,11 @@ combine-as-imports = true
 
 [tool.mypy]
 strict = true
+# The review module shares the agent wrapper's reading of the Claude Code stream.
+mypy_path = "../../scripts"
 
 [tool.pytest.ini_options]
-pythonpath = ["."]
+pythonpath = [".", "../../scripts"]
 
 [tool.coverage.run]
 omit = ["tests/*"]
