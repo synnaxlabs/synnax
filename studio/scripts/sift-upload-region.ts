@@ -19,7 +19,7 @@ const CHANNELS = ["ox_pt_1", "ox_pt_2"];
 /**
  * Docs `reference/ranges/sift` (Upload data): select a region of the coldflow pressure
  * plot, upload two of its channels to a Sift asset from the context menu of the
- * selection, and find the finished upload in the status list.
+ * selection, and search the status explorer for the finished upload.
  */
 export default siftScript(async (session) => {
   const { page } = session;
@@ -57,10 +57,31 @@ export default siftScript(async (session) => {
   await session.settleWall(1500);
   await session.hold(800);
 
+  const nav = page
+    .locator("button.console-main-nav__item")
+    .filter({ has: page.locator("svg.lyra-icon--status") })
+    .first();
+  await capture.zoomCenter(session, nav, 1.6);
   await capture.openToolbar(session, "status");
-  const sent = page.getByText(new RegExp(`^Sent .+ to asset ${ASSET}\\.$`)).first();
-  await session.waitFor(sent);
-  await session.zoom(page.locator(".console-nav__drawer.lyra--location-left").first());
+  const explorer = page.getByText("Open status explorer", { exact: true }).first();
+  await session.waitFor(explorer);
+  await session.hold(600);
+  await session.click(explorer, { text: true, zoom: false });
+  session.endZoom();
+  const search = page.getByPlaceholder(/^Search statuses/).first();
+  await session.waitFor(search);
+  await session.hold(600);
+  await session.click(search);
+  // The status of an upload with no range takes the name of its asset.
+  await session.type(ASSET);
+  const upload = page
+    .locator(".lyra-list__item")
+    .filter({ hasText: ASSET })
+    .filter({ hasText: "Uploaded to Sift" })
+    .first();
+  await session.waitFor(upload);
+  await session.hold(800);
+  await session.zoom(upload, 1.6);
   await session.hold(3000);
   session.endZoom();
   await session.hold(1500);

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fixtures } from "@/index";
+import { capture, fixtures } from "@/index";
 
 import { CORE_RACK } from "./common/server";
 import { ASSET, CONNECTION, siftScript } from "./common/sift";
@@ -21,11 +21,12 @@ const LABEL = "Coldflow";
 /**
  * Docs `reference/ranges/sift` (Stream live data): create a stream task from the Sift
  * connection in the devices toolbar, pick the asset, three live channels, and the label
- * that makes a range a Sift run, and start the task.
+ * that makes a range a Sift run, start the task, and watch its progress grow.
  */
 export default siftScript(async (session) => {
   await fixtures.resetLabels([{ name: LABEL, color: "#3B7DDB" }]);
   const { page } = session;
+  await capture.clearPanel(session);
   await recordTask(session, {
     device: CONNECTION,
     rack: CORE_RACK,
@@ -46,8 +47,28 @@ export default siftScript(async (session) => {
       }
       await page.keyboard.press("Escape");
       await session.hold(500);
-      await choose(session, form, "Labels", LABEL);
+      const labels = form.getByText("Select labels", { exact: true }).first();
+      await session.click(labels, { text: true });
+      const option = page
+        .locator(".lyra-list__item:not(.lyra-tree__item)")
+        .filter({ has: page.getByText(LABEL, { exact: true }) })
+        .first();
+      await session.waitFor(option);
+      await session.hold(500);
+      await session.click(option.getByText(LABEL, { exact: true }).first(), {
+        text: true,
+      });
+      await session.hold(400);
       await page.keyboard.press("Escape");
     },
   });
+  const progress = page
+    .locator(".console-task-configure")
+    .getByText(new RegExp(`^Sent .+ to asset ${ASSET} since the task started\\.$`))
+    .first();
+  await session.waitFor(progress);
+  await session.zoom(progress, 1.8);
+  await session.hold(3500);
+  session.endZoom();
+  await session.hold(1000);
 });
