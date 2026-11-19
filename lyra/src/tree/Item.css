@@ -93,9 +93,25 @@
             outline-offset: -1px;
         }
 
+        /* A run of contiguous selected items shares one ring, so only the run's ends
+           draw a top or bottom edge. */
         & .lyra-tree__item.lyra--selected {
-            outline: 1px solid var(--pluto-primary-z);
-            outline-offset: -1px;
+            &::before {
+                content: "";
+                position: absolute;
+                inset: 0;
+                border: 1px solid var(--pluto-primary-z);
+                border-radius: inherit;
+                pointer-events: none;
+            }
+
+            & + .lyra-tree__item.lyra--selected::before {
+                border-top-width: 0;
+            }
+
+            &:has(+ .lyra-tree__item.lyra--selected)::before {
+                border-bottom-width: 0;
+            }
         }
     }
 }
