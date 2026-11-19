@@ -8,12 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { findButton, renderModalOpener } from "@/platform/modals/testutil";
 import { Status } from "@/platform/status";
-import { findDialogTrigger, uniqueName } from "@/testutil";
+import { findDialogTrigger } from "@/testutil";
 
 const client = createTestClient();
 

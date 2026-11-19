@@ -8,12 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Project } from "@/feature/project";
 import { Session } from "@/session";
-import { createConsoleWrapper, renderWithConsole, uniqueName } from "@/testutil";
+import { createConsoleWrapper, renderWithConsole } from "@/testutil";
 
 const client = createTestClient();
 

@@ -12,6 +12,7 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { Device as PDevice } from "@synnaxlabs/pluto";
 import { strings } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, renderHook, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -23,7 +24,7 @@ import {
   renderMenuItem,
 } from "@/platform/device/testutil";
 import { createSelection } from "@/platform/tree/testutil";
-import { awaitGranted, CaptureStatuses, uniqueName } from "@/testutil";
+import { awaitGranted, CaptureStatuses } from "@/testutil";
 
 const client = createTestClient();
 

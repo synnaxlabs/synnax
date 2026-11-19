@@ -11,19 +11,19 @@ import { label, lineplot, panel, project, query, ranger } from "@synnaxlabs/clie
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { color, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { assert, describe, expect, it, onTestFinished } from "vitest";
 
 import { Range } from "@/feature/range";
 import { CORE, renderOverview } from "@/feature/range/overview/testutil";
-import { createTestRange, uniqueRangeName } from "@/platform/range/testutil";
+import { createTestRange } from "@/platform/range/testutil";
 import {
   createTestClientWithGrants,
   findTagCloseButton,
   type Grants,
   queryIconButton,
   resolveFocusedTab,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();
@@ -31,7 +31,7 @@ const client = createTestClient();
 const TAB = Range.Overview.TABS[ranger.TYPE_RESOURCE_ID.type];
 
 const createChild = async (parent: ranger.Range): Promise<ranger.Range> =>
-  await createTestRange(client, { name: uniqueRangeName("child"), parent: parent.key });
+  await createTestRange(client, { name: uniqueName("child"), parent: parent.key });
 
 /** @returns the text of the tooltip that a hover on the element shows. */
 const hoverTip = async (el: HTMLElement): Promise<string> => {
@@ -45,7 +45,7 @@ const createChildAt = async (
   start: TimeStamp,
 ): Promise<ranger.Range> =>
   await client.ranges.create({
-    name: uniqueRangeName("child"),
+    name: uniqueName("child"),
     timeRange: new TimeRange(start, start.add(TimeSpan.seconds(1))),
     parent: parent.key,
   });
@@ -56,7 +56,7 @@ describe("range/overview", () => {
       const rng = await createTestRange(client);
       await renderOverview(rng.key);
       const name = await screen.findByDisplayValue(rng.name);
-      const renamed = uniqueRangeName("renamed");
+      const renamed = uniqueName("renamed");
       fireEvent.change(name, { target: { value: renamed } });
       fireEvent.blur(name);
       await waitFor(async () =>
@@ -336,7 +336,7 @@ describe("range/overview", () => {
     it("should show the children of a range that has not started on a timeline", async () => {
       const now = TimeStamp.now();
       const parent = await client.ranges.create({
-        name: uniqueRangeName("planned"),
+        name: uniqueName("planned"),
         timeRange: new TimeRange(now.add(TimeSpan.days(3)), TimeStamp.MAX),
       });
       // A range that has not started sorts above every other in the explorer.
@@ -350,7 +350,7 @@ describe("range/overview", () => {
     it("should list the children of an open child newest first in the tree", async () => {
       const end = TimeStamp.now();
       const parent = await client.ranges.create({
-        name: uniqueRangeName("campaign"),
+        name: uniqueName("campaign"),
         timeRange: new TimeRange(end.sub(TimeSpan.days(2)), end),
       });
       const child = await createChildAt(parent, end.sub(TimeSpan.hours(2)));
