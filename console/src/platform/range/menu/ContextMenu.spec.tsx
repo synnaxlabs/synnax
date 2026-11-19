@@ -11,6 +11,7 @@ import { type label, ranger, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { color, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, onTestFinished } from "vitest";
 
@@ -18,17 +19,12 @@ import { type Analytics } from "@/platform/analytics";
 import { createTestSink, wrapWithSink } from "@/platform/analytics/testutil";
 import { Modals } from "@/platform/modals";
 import { Range } from "@/platform/range";
-import {
-  createPlannedTestRange,
-  createTestRange,
-  uniqueRangeName,
-} from "@/platform/range/testutil";
+import { createPlannedTestRange, createTestRange } from "@/platform/range/testutil";
 import {
   createConsoleWrapper,
   createTestClientWithGrants,
   openSubmenu,
   renderSuspended,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();
@@ -67,13 +63,13 @@ const createSiblings = async (): Promise<{
   top: ranger.Range;
   ranges: ranger.Range[];
 }> => {
-  const top = await createTestRange(client, { name: uniqueRangeName("top") });
+  const top = await createTestRange(client, { name: uniqueName("top") });
   const start = TimeStamp.now().sub(TimeSpan.minutes(2));
   const ranges = await Promise.all(
     [0, 30].map(
       async (offset) =>
         await client.ranges.create({
-          name: uniqueRangeName("moved"),
+          name: uniqueName("moved"),
           timeRange: new TimeRange(
             start.add(TimeSpan.seconds(offset)),
             start.add(TimeSpan.seconds(offset + 10)),
@@ -107,10 +103,10 @@ describe("Range.ContextMenu", () => {
         color: "#000000",
       });
       const held = await createTestRange(client, {
-        name: uniqueRangeName("held"),
+        name: uniqueName("held"),
         labels: [lbl.key],
       });
-      const bare = await createTestRange(client, { name: uniqueRangeName("bare") });
+      const bare = await createTestRange(client, { name: uniqueName("bare") });
       await renderMenu([held, bare]);
       const labels = await openSubmenu("Labels");
       searchIn(labels, "Search labels...", lbl.name);
@@ -127,7 +123,7 @@ describe("Range.ContextMenu", () => {
     });
 
     it("should create a label named after the search text and add it to the ranges", async () => {
-      const rng = await createTestRange(client, { name: uniqueRangeName("create") });
+      const rng = await createTestRange(client, { name: uniqueName("create") });
       await renderMenu([rng]);
       const labels = await openSubmenu("Labels");
       const name = uniqueName("created");
@@ -149,8 +145,8 @@ describe("Range.ContextMenu", () => {
 
     it("should open New label and add the label it creates to every range", async () => {
       const ranges = [
-        await createTestRange(client, { name: uniqueRangeName("first") }),
-        await createTestRange(client, { name: uniqueRangeName("second") }),
+        await createTestRange(client, { name: uniqueName("first") }),
+        await createTestRange(client, { name: uniqueName("second") }),
       ];
       await renderMenu(ranges);
       fireEvent.click(within(await openSubmenu("Labels")).getByText("New label"));
@@ -173,10 +169,10 @@ describe("Range.ContextMenu", () => {
 
   describe("parent", () => {
     it("should move the ranges under the picked range", async () => {
-      const target = await createTestRange(client, { name: uniqueRangeName("target") });
+      const target = await createTestRange(client, { name: uniqueName("target") });
       const ranges = [
-        await createTestRange(client, { name: uniqueRangeName("moved") }),
-        await createTestRange(client, { name: uniqueRangeName("moved") }),
+        await createTestRange(client, { name: uniqueName("moved") }),
+        await createTestRange(client, { name: uniqueName("moved") }),
       ];
       await renderMenu(ranges);
       const parent = await openSubmenu("Parent");
@@ -188,9 +184,9 @@ describe("Range.ContextMenu", () => {
     });
 
     it("should move the ranges to the top level on No parent", async () => {
-      const top = await createTestRange(client, { name: uniqueRangeName("top") });
+      const top = await createTestRange(client, { name: uniqueName("top") });
       const child = await createTestRange(client, {
-        name: uniqueRangeName("child"),
+        name: uniqueName("child"),
         parent: top.key,
       });
       await renderMenu([child]);
@@ -227,16 +223,16 @@ describe("Range.ContextMenu", () => {
         return { timeRange: new TimeRange(from, from.add(TimeSpan.microseconds(1))) };
       };
       const other = await createTestRange(client, {
-        name: uniqueRangeName("other"),
+        name: uniqueName("other"),
         ...at(-1),
       });
       const self = await createTestRange(client, {
-        name: uniqueRangeName("self"),
+        name: uniqueName("self"),
         ...at(0),
       });
       const nested = await client.ranges.create(
         Array.from({ length: 60 }, (_, i) => ({
-          name: uniqueRangeName("nested"),
+          name: uniqueName("nested"),
           parent: self.key,
           ...at(i + 1),
         })),
@@ -285,7 +281,7 @@ describe("Range.ContextMenu", () => {
       const top = await createTestRange(client, { name: `${token} top` });
       const sibling = await createTestRange(client, { name: `${token} sibling` });
       const child = await createTestRange(client, {
-        name: uniqueRangeName("child"),
+        name: uniqueName("child"),
         parent: top.key,
       });
       await renderMenu([child]);
@@ -296,9 +292,9 @@ describe("Range.ContextMenu", () => {
     });
 
     it("should hide Create range while the search matches the current parent", async () => {
-      const top = await createTestRange(client, { name: uniqueRangeName("top") });
+      const top = await createTestRange(client, { name: uniqueName("top") });
       const child = await createTestRange(client, {
-        name: uniqueRangeName("child"),
+        name: uniqueName("child"),
         parent: top.key,
       });
       await renderMenu([child]);
@@ -309,9 +305,7 @@ describe("Range.ContextMenu", () => {
     });
 
     it("should list New range above No parent under the divider", async () => {
-      await renderMenu([
-        await createTestRange(client, { name: uniqueRangeName("order") }),
-      ]);
+      await renderMenu([await createTestRange(client, { name: uniqueName("order") })]);
       const options = within(await openSubmenu("Parent")).getAllByRole("option");
       expect(options.slice(-2).map((o) => o.textContent)).toEqual([
         "New range",
@@ -323,7 +317,7 @@ describe("Range.ContextMenu", () => {
       const { top, ranges } = await createSiblings();
       await renderMenu(ranges);
       const parent = await openSubmenu("Parent");
-      const name = uniqueRangeName("group");
+      const name = uniqueName("group");
       searchIn(parent, "Search ranges...", name);
       fireEvent.click(await within(parent).findByText(`Create range "${name}"`));
       const created = await findCreated(name);
@@ -339,12 +333,12 @@ describe("Range.ContextMenu", () => {
         ranges: [started],
       } = await createSiblings();
       const planned = await client.ranges.create({
-        name: uniqueRangeName("planned"),
+        name: uniqueName("planned"),
         timeRange: new TimeRange(TimeStamp.MAX, TimeStamp.MAX),
       });
       await renderMenu([started, planned]);
       const parent = await openSubmenu("Parent");
-      const name = uniqueRangeName("group");
+      const name = uniqueName("group");
       searchIn(parent, "Search ranges...", name);
       fireEvent.click(await within(parent).findByText(`Create range "${name}"`));
       const created = await findCreated(name);
@@ -355,10 +349,10 @@ describe("Range.ContextMenu", () => {
       const {
         ranges: [nested],
       } = await createSiblings();
-      const loose = await createTestRange(client, { name: uniqueRangeName("loose") });
+      const loose = await createTestRange(client, { name: uniqueName("loose") });
       await renderMenu([nested, loose]);
       const parent = await openSubmenu("Parent");
-      const name = uniqueRangeName("group");
+      const name = uniqueName("group");
       searchIn(parent, "Search ranges...", name);
       fireEvent.click(await within(parent).findByText(`Create range "${name}"`));
       const created = await findCreated(name);
@@ -370,12 +364,11 @@ describe("Range.ContextMenu", () => {
 
     it("should report a range created from the search text", async () => {
       const analytics = createTestSink();
-      await renderMenu(
-        [await createTestRange(client, { name: uniqueRangeName("moved") })],
-        { analytics },
-      );
+      await renderMenu([await createTestRange(client, { name: uniqueName("moved") })], {
+        analytics,
+      });
       const parent = await openSubmenu("Parent");
-      const name = uniqueRangeName("group");
+      const name = uniqueName("group");
       searchIn(parent, "Search ranges...", name);
       fireEvent.click(await within(parent).findByText(`Create range "${name}"`));
       await waitFor(() =>
@@ -384,10 +377,8 @@ describe("Range.ContextMenu", () => {
     });
 
     it("should hide Create range while the search matches a range name in any case", async () => {
-      const target = await createTestRange(client, { name: uniqueRangeName("named") });
-      await renderMenu([
-        await createTestRange(client, { name: uniqueRangeName("moved") }),
-      ]);
+      const target = await createTestRange(client, { name: uniqueName("named") });
+      await renderMenu([await createTestRange(client, { name: uniqueName("moved") })]);
       const parent = await openSubmenu("Parent");
       searchIn(parent, "Search ranges...", target.name.toUpperCase());
       await within(parent).findByText(target.name);
@@ -398,7 +389,7 @@ describe("Range.ContextMenu", () => {
       const { top, ranges } = await createSiblings();
       await renderMenu(ranges);
       fireEvent.click(within(await openSubmenu("Parent")).getByText("New range"));
-      const name = uniqueRangeName("group");
+      const name = uniqueName("group");
       fireEvent.change(await screen.findByPlaceholderText("Range name"), {
         target: { value: name },
       });
@@ -415,7 +406,7 @@ describe("Range.ContextMenu", () => {
     });
 
     it("should withhold New range from a subject who cannot create ranges", async () => {
-      const rng = await createTestRange(client, { name: uniqueRangeName("guarded") });
+      const rng = await createTestRange(client, { name: uniqueName("guarded") });
       const as = await createTestClientWithGrants(client, {
         retrieve: [ranger.TYPE_RESOURCE_ID],
         update: [ranger.TYPE_RESOURCE_ID],
@@ -430,8 +421,8 @@ describe("Range.ContextMenu", () => {
   describe("color", () => {
     it("should set the color of every range when the submenu closes", async () => {
       const ranges = [
-        await createTestRange(client, { name: uniqueRangeName("colored") }),
-        await createTestRange(client, { name: uniqueRangeName("colored") }),
+        await createTestRange(client, { name: uniqueName("colored") }),
+        await createTestRange(client, { name: uniqueName("colored") }),
       ];
       await renderMenu(ranges);
       const dialog = await openSubmenu("Color");
@@ -453,7 +444,7 @@ describe("Range.ContextMenu", () => {
 
   describe("copy", () => {
     it("should offer no time range for a range planned with no times", async () => {
-      const planned = await createPlannedTestRange(client, uniqueRangeName("planned"));
+      const planned = await createPlannedTestRange(client, uniqueName("planned"));
       await renderMenu([planned]);
       const copy = await openSubmenu("Copy");
       within(copy).getByRole("menuitem", { name: "Name" });
@@ -463,8 +454,8 @@ describe("Range.ContextMenu", () => {
     it("should copy the names of every range, one per line", async () => {
       const writeText = stubClipboardWriteText();
       const ranges = [
-        await createTestRange(client, { name: uniqueRangeName("copied") }),
-        await createTestRange(client, { name: uniqueRangeName("copied") }),
+        await createTestRange(client, { name: uniqueName("copied") }),
+        await createTestRange(client, { name: uniqueName("copied") }),
       ];
       await renderMenu(ranges);
       const copy = await openSubmenu("Copy");
