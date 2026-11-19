@@ -121,6 +121,7 @@ class SelectStateIndicatorEnumeration(ConsoleCase):
 
         self.log("Moving the options of a new State Indicator into an enumeration")
         PUMP_NAME = f"pump_state_{random_name()}"
+        self.created.append(PUMP_NAME)
         pump = StateIndicator(
             label="Pump Display",
             channel_name=CHANNEL_NAME,
