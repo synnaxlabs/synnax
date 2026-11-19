@@ -185,7 +185,10 @@ var _ = Describe("Read corruption", func() {
 		Expect(f.ReadAt(buf[:4096], 4096)).To(Equal(4096))
 		Expect(f.ReadAt(buf, 0)).To(Equal(2 * 4096))
 		Expect(f.ReadAt(buf, 0)).To(Equal(2 * 4096))
-		want := []fault.Fault{{File: stat.ID, Block: 1}, {File: stat.ID, Block: 0}}
+		want := []fault.Fault{
+			{File: stat.ID, Block: 1, Read: fault.Span{From: 4096, To: 2 * 4096}},
+			{File: stat.ID, Block: 0, Read: fault.Span{From: 0, To: 2 * 4096}},
+		}
 		Expect(fs.ReadFaults()).To(Equal(want))
 		fs.ReadFaults()[0].Block = 9
 		Expect(fs.ReadFaults()).To(Equal(want))

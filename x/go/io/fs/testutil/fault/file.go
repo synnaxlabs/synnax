@@ -242,7 +242,8 @@ func (d *disk) spoil(p []byte, n *node, off int64) {
 		part := p[from-off : min(end, (block+1)*blockSize)-off]
 		misdirected := d.misdirect(part, n, at, nth, from)
 		if corrupted := d.corrupt(part, at, nth); misdirected || corrupted {
-			d.faults = append(d.faults, Fault{File: n.id, Block: block})
+			read := Span{From: off, To: end}
+			d.faults = append(d.faults, Fault{File: n.id, Block: block, Read: read})
 		}
 	}
 }

@@ -203,8 +203,10 @@ type place struct {
 	block int64
 }
 
-// Fault is a read fault: the 4 KiB block of a file that it hit.
+// Fault is a read fault: the 4 KiB block of a file that it hit, and the bytes of the
+// read that got it.
 type Fault struct {
+	Read  Span
 	File  ID
 	Block int64
 }
