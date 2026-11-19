@@ -1148,7 +1148,7 @@ var _ = Describe("WriteUnchecked", func() {
 			func(ctx context.Context, tx gorp.Tx, l label.Label) (label.Label, error) {
 				return l, svc.Label.NewWriter(tx).Create(ctx, &l)
 			},
-		)(ctx, label.Label{Name: "label"}))
+		)(ctx, label.Label{Name: "label", Color: labelColor}))
 		Expect(labelExists(ctx, l.Key)).To(BeTrue())
 	})
 	It("Should roll back the writes and return a zero response on an error", func(
@@ -1166,7 +1166,7 @@ var _ = Describe("WriteUnchecked", func() {
 				created = l
 				return l, failed
 			},
-		)(ctx, label.Label{Name: "label"})).Error().To(MatchError(failed))
+		)(ctx, label.Label{Name: "label", Color: labelColor})).Error().To(MatchError(failed))
 		Expect(created.Key).ToNot(BeZero())
 		Expect(labelExists(ctx, created.Key)).To(BeFalse())
 	})
