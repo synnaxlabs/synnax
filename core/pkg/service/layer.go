@@ -1077,6 +1077,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			l.Group.BuiltinDeleteMigration(),
 			rangeAliasDropMigration,
 			l.PagerDuty.SecretMigration(taskNames(l.Task)),
+			ClearUnissuedChannelLinks(l.Schematic, l.Table),
 		),
 	}); !ok(err, nil) {
 		return nil, err
