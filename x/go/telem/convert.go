@@ -21,8 +21,8 @@ import (
 // ErrOutOfRange is the cause of each OutOfRangeError.
 var ErrOutOfRange = errors.New("sample out of range")
 
-// OutOfRangeError is returned by Convert for a sample that a data type cannot hold. It
-// wraps ErrOutOfRange.
+// OutOfRangeError is returned by Convert and ValueAs for a sample that a data type
+// cannot hold. It wraps ErrOutOfRange.
 type OutOfRangeError struct {
 	// Value is the sample.
 	Value any
@@ -100,6 +100,44 @@ func Convert(s Series, dt DataType) (Series, error) {
 	}
 	s.DataType, s.Data = dt, data
 	return s, nil
+}
+
+// ValueAs returns sample i of s as T, converted as Convert converts it, with no
+// allocation. A negative i counts from the end. It returns the errors that Convert
+// returns.
+func ValueAs[T NumericSample](s Series, i int) (T, error) {
+	dt := InferDataType[T]()
+	if s.DataType == dt {
+		return s.ValueAt[T](i), nil
+	}
+	t, ok := targetOf(dt)
+	if !ok {
+		return 0, convertError(s.DataType, dt)
+	}
+	switch s.DataType {
+	case Uint8T, BooleanT:
+		return valueAs[uint8, T](s.ValueAt[uint8](i), s.DataType, t)
+	case Uint16T:
+		return valueAs[uint16, T](s.ValueAt[uint16](i), s.DataType, t)
+	case Uint32T:
+		return valueAs[uint32, T](s.ValueAt[uint32](i), s.DataType, t)
+	case Uint64T:
+		return valueAs[uint64, T](s.ValueAt[uint64](i), s.DataType, t)
+	case Int8T:
+		return valueAs[int8, T](s.ValueAt[int8](i), s.DataType, t)
+	case Int16T:
+		return valueAs[int16, T](s.ValueAt[int16](i), s.DataType, t)
+	case Int32T:
+		return valueAs[int32, T](s.ValueAt[int32](i), s.DataType, t)
+	case Int64T, TimestampT:
+		return valueAs[int64, T](s.ValueAt[int64](i), s.DataType, t)
+	case Float32T:
+		return valueAs[float32, T](s.ValueAt[float32](i), s.DataType, t)
+	case Float64T:
+		return valueAs[float64, T](s.ValueAt[float64](i), s.DataType, t)
+	case UnknownT, UUIDT, StringT, BytesT, JSONT:
+	}
+	return 0, convertError(s.DataType, dt)
 }
 
 func convertError(from, to DataType) error {
@@ -208,6 +246,13 @@ func holds[S NumericSample](t target, v S, from DataType) bool {
 
 func outOfRange[S NumericSample](v S, from DataType, t target) error {
 	return OutOfRangeError{Value: v, From: from, To: t.dataType}
+}
+
+func valueAs[S, T NumericSample](v S, from DataType, t target) (T, error) {
+	if !holds(t, v, from) {
+		return 0, outOfRange(v, from, t)
+	}
+	return T(v), nil
 }
 
 func convertFrom[S NumericSample](

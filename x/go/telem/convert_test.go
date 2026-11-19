@@ -11,6 +11,7 @@ package telem_test
 
 import (
 	"math"
+	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -172,5 +173,47 @@ var _ = Describe("Convert", func() {
 		values := converted.Unmarshal[float32]()
 		Expect(math.IsNaN(float64(values[0]))).To(BeTrue())
 		Expect(math.IsInf(float64(values[1]), 1)).To(BeTrue())
+	})
+
+	Describe("ValueAs", func() {
+		It("Should return a sample converted to the type", func() {
+			Expect(
+				MustSucceed(
+					telem.ValueAs[float64](telem.NewSeriesV[int32](1, 300), -1),
+				),
+			).
+				To(Equal(300.0))
+			Expect(MustSucceed(telem.ValueAs[int32](telem.NewSeriesV(2.9, -2.9), 1))).
+				To(Equal(int32(-2)))
+		})
+
+		It("Should return a sample of the same type as it is", func() {
+			Expect(MustSucceed(telem.ValueAs[int16](telem.NewSeriesV[int16](-7), 0))).
+				To(Equal(int16(-7)))
+		})
+
+		It("Should fail on a sample out of range", func() {
+			Expect(telem.ValueAs[uint8](telem.NewSeriesV[int16](300), 0)).Error().
+				To(SatisfyAll(
+					MatchError(telem.ErrOutOfRange),
+					MatchError(ContainSubstring(
+						"value 300 of an int16 series is out of range of uint8",
+					)),
+				))
+		})
+
+		It("Should fail on text", func() {
+			Expect(telem.ValueAs[float32](telem.NewSeriesV("a"), 0)).Error().
+				To(MatchError("cannot convert a string series to float32"))
+		})
+
+		It("Should convert a sample with no allocation", func() {
+			s := telem.NewSeriesV[int16](1, 300)
+			var err error
+			Expect(testing.AllocsPerRun(100, func() {
+				_, err = telem.ValueAs[float64](s, -1)
+			})).To(BeZero())
+			Expect(err).To(Succeed())
+		})
 	})
 })
