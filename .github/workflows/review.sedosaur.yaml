@@ -388,7 +388,7 @@ jobs:
           echo "::error::Claude rejected the token of the seat's login. Store a new" \
             "one with infra/agent-runner/seat.sh token <login>."
 
-      # A replay has no check run to keep its record in.
+      # A replay posts nothing, so this artifact is its only output.
       - name: Keep the record of the replay
         if: ${{ inputs.replay }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
