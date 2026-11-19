@@ -396,7 +396,7 @@ class TestDismissedFindings:
                 "external_id": "7:main",
                 "started_at": "2026-11-08T05:00:00Z",
                 "conclusion": "success",
-                "output": render.check(review(finding()), record(finding())),
+                "output": render.check(review(finding())),
             }
         ]
         post(record(finding()), target=TARGET, gh=gh)
@@ -544,7 +544,7 @@ class TestSummary:
             ("a.go", "Nit"),
         }
 
-    def test_should_record_before_linking_and_complete_last(self, gh: FakeGH) -> None:
+    def test_should_write_the_output_before_linking(self, gh: FakeGH) -> None:
         post(record(finding()), target=TARGET, gh=gh)
         patches = [(at, p) for m, at, p in gh.writes if m == "PATCH"]
         run, body = f"repos/{REPO}/check-runs/55", f"repos/{REPO}/pulls/7"
@@ -552,28 +552,6 @@ class TestSummary:
         assert list(patches[0][1]) == ["output"]
         assert patches[2][1] == {"status": "completed", "conclusion": "success"}
         assert gh.writes[0][:2] == ("PATCH", run)
-
-    def test_should_keep_the_record_in_the_check_run(self, gh: FakeGH) -> None:
-        rec = record(finding(body="Use ```` in `x`.\n<!-- /sedosaur_record -->"))
-        post(rec, target=TARGET, gh=gh)
-        [recorded, _] = gh.written("PATCH", "check-runs/55")
-        text = recorded["output"]["text"]
-        assert render.recorded(text) == rec
-        assert render.listed(text) == {("a.go", "Samples return old data")}
-        assert "<details><summary>Record</summary>" in text
-
-    def test_should_omit_a_record_that_does_not_fit(
-        self, gh: FakeGH, capsys: pytest.CaptureFixture[str]
-    ) -> None:
-        post(record(finding(body="x" * render.TEXT_CHARS)), target=TARGET, gh=gh)
-        [recorded, _] = gh.written("PATCH", "check-runs/55")
-        text = recorded["output"]["text"]
-        assert render.recorded(text) is None
-        assert render.listed(text) == {("a.go", "Samples return old data")}
-        assert "::warning::Omitted the record from" in capsys.readouterr().err
-
-    def test_should_read_no_record_from_a_text_without_one(self) -> None:
-        assert render.recorded(render.RULES) is None
 
 
 class TestListing:

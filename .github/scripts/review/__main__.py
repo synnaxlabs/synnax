@@ -16,7 +16,6 @@
     python3 -m review restore
     python3 -m review judge <judgments.json>
     python3 -m review rule <judgments.json>
-    python3 -m review compare <days>
 
 Run it from `.github/scripts`. Environment: GH_TOKEN, GITHUB_REPOSITORY, PR, HEAD_SHA,
 BASE_SHA, CHECK_RUN, RUN_URL, and BOT, the slug of the GitHub App the review posts as.
@@ -39,10 +38,7 @@ request body when an edit dropped or changed it. It writes the body with WRITE_T
 asks Claude Code nothing, and fails when the head has no successful review.
 `judge` takes POLICY_DIR, HEAD_DIR, and CLAUDE_CODE_OAUTH_TOKEN as `run` does, judges
 each rebuttal with Claude Code, and writes the judgments. It fails after it writes them
-when one rebuttal could not be judged. `rule` posts them, and takes KEY. `compare`
-takes only GH_TOKEN and GITHUB_REPOSITORY, runs in a clone with full history, and
-prints a Markdown comparison of the records of the last days with Greptile's reviews
-of the same commits. It reads each record from the check run that `post` completed.
+when one rebuttal could not be judged. `rule` posts them, and takes KEY.
 
 When Claude Code stops at the usage limit of its login, `run` and `judge` write the
 reset time, in Unix seconds, as the `limited-until` step output. When Claude rejects the
@@ -59,7 +55,7 @@ import subprocess
 import sys
 import tempfile
 from collections.abc import Iterator, Sequence
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
 
 from review import (
@@ -72,7 +68,6 @@ from review import (
     UsageLimit,
     authority,
     carry,
-    compare,
     dismiss,
     dismissals,
     gh,
@@ -334,19 +329,10 @@ def main(argv: list[str]) -> None:
         "restore": 1,
         "judge": 2,
         "rule": 2,
-        "compare": 2,
     }
     if not argv or args.get(argv[0]) != len(argv):
         sys.exit(__doc__)
     env = os.environ
-    if argv[0] == "compare":
-        since = datetime.now(UTC) - timedelta(days=int(argv[1]))
-        repo = env["GITHUB_REPOSITORY"]
-        # GitHub's GraphQL API answers a 5xx now and then.
-        read = compare.retrying(gh)
-        ps = compare.pairs(read, compare.git, repo, since)
-        print(compare.report(ps, compare.limits(read, repo, since), since=since))
-        return
     target = Target(
         repo=env["GITHUB_REPOSITORY"],
         pr=int(env["PR"]),
