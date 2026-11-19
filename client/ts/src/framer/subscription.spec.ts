@@ -812,6 +812,8 @@ describe("Feed.subscribe", () => {
         await expect.poll(newest, POLL).toBe(end.valueOf() - PERIOD);
         core.advance(TimeSpan.seconds(2));
         await expect.poll(() => (sub.value(key), core.streams(key)), POLL).toBe(false);
+        // Raw samples streamed past the end stand in until the tiles of the end land.
+        await expect.poll(newest, POLL).toBe(end.valueOf() - PERIOD);
         const times = timesOf(sub.value(key));
         expect(times[0] <= start.valueOf()).toBe(true);
         expectComplete(times);

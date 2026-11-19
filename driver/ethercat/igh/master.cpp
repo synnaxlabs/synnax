@@ -283,10 +283,13 @@ read_sii(const API &api, const unsigned int master_index, const uint16_t positio
         return api.sii_read(master_index, position, offset, words);
     };
     for (uint32_t offset = sii::CATEGORIES;;) {
-        std::array<uint16_t, 2> header{};
-        int ret = read(offset, header);
-        const auto [type, size] = header;
+        // The SII that IgH holds ends at the type word of the end marker, and IgH logs
+        // a kernel error for each read past its end.
+        uint16_t type = 0;
+        uint16_t size = 0;
+        int ret = read(offset, std::span(&type, 1));
         if (ret == 0 && type == sii::END) break;
+        if (ret == 0) ret = read(offset + 1, std::span(&size, 1));
         std::vector<uint16_t> words;
         if (ret == 0 &&
             (type == sii::STRINGS || type == sii::DC || type == sii::GENERAL)) {
@@ -749,9 +752,11 @@ std::pair<master::Change, x::errors::Error> Master::changed() {
     return {{}, x::errors::NIL};
 }
 
-x::errors::Error
-Master::download(const slave::Properties &slave, const slave::StartupParameter &param) {
-    const auto data = param.bytes();
+x::errors::Error Master::download(
+    const slave::Properties &slave,
+    const slave::StartupParameter &param,
+    const std::span<const uint8_t> data
+) {
     uint32_t abort_code = 0;
     const int ret = this->api->master_sdo_download(
         this->ec_master,
@@ -785,9 +790,22 @@ x::errors::Error Master::write(
     const auto &slave = this->cached_slaves[position - 1].properties;
     if (!this->activated) {
         for (const auto &param: parameters)
-            if (auto err = this->download(slave, param)) return err;
+            if (auto err = this->download(slave, param, param.bytes())) return err;
         return x::errors::NIL;
     }
+    const auto config = std::ranges::find(
+        this->slave_configs,
+        position,
+        &std::pair<uint16_t, ec_slave_config_t *>::first
+    );
+    const auto conflict = [&](const slave::StartupParameter &param) {
+        return x::errors::Error(
+            errors::SETTING_CONFLICT,
+            "the IgH master cannot change " + param.to_string() + " of module " +
+                std::to_string(position) + " (" + slave.name +
+                ") while other tasks run the bus. Stop them, then start this task first"
+        );
+    };
     for (const auto &param: parameters) {
         const auto want = param.bytes();
         std::vector<uint8_t> held(want.size());
@@ -810,14 +828,33 @@ x::errors::Error Master::write(
                     ") failed to read startup parameter " + param.to_string() + ": " +
                     sdo_failure(ret, abort_code).reason()
             );
-        if (size != want.size() || held != want)
-            return x::errors::Error(
-                errors::SETTING_CONFLICT,
-                "the IgH master cannot change " + param.to_string() + " of module " +
-                    std::to_string(position) + " (" + slave.name +
-                    ") while other tasks run the bus. Stop them, then start this "
-                    "task first"
-            );
+        held.resize(size);
+        const bool holds = held == want;
+        if (config == this->slave_configs.end()) {
+            if (!holds) return conflict(param);
+            continue;
+        }
+        auto &kept = this->startup_values[{position, param.index, param.sub_index}];
+        auto &added = this->running_additions[position];
+        if (kept != want && added >= RUNNING_ADDITION_LIMIT) return conflict(param);
+        if (!holds)
+            if (auto err = this->download(slave, param, want)) return err;
+        if (kept == want) continue;
+        // IgH documents config SDOs for use before activation, but IgH 1.6 takes one on
+        // a running bus under the master lock and writes it when the slave restarts.
+        if (this->api->slave_config_sdo(
+                config->second,
+                param.index,
+                param.sub_index,
+                want.data(),
+                want.size()
+            ) < 0) {
+            if (!holds)
+                if (auto err = this->download(slave, param, held)) return err;
+            return conflict(param);
+        }
+        kept = want;
+        added++;
     }
     return x::errors::NIL;
 }
@@ -839,7 +876,7 @@ x::errors::Error Master::add_startup_parameters(
         const auto data = param.bytes();
         // IgH reports a rejected config SDO only as a slave stuck in PRE-OP, so a
         // direct write first gets the abort code.
-        if (auto err = this->download(slave, param)) return err;
+        if (auto err = this->download(slave, param, data)) return err;
         if (this->api->slave_config_sdo(
                 sc,
                 param.index,
@@ -852,6 +889,7 @@ x::errors::Error Master::add_startup_parameters(
                 "failed to add startup parameter " + param.to_string() + " to module " +
                     std::to_string(slave.position) + " (" + slave.name + ")"
             );
+        this->startup_values[{slave.position, param.index, param.sub_index}] = data;
     }
     return x::errors::NIL;
 }
@@ -1026,11 +1064,13 @@ master::Activation Master::activate(
     // The IgH master moves the slaves to OP on its own while the caller cycles.
     start_cycle(image);
     if (!unidentified.empty()) return refuse_unidentified();
-    return this->wait_for_op();
+    return this->wait_for_op(plan);
 }
 
-master::Activation Master::wait_for_op() {
-    const auto deadline = this->cfg.clock.steady() + this->cfg.op_timeout.chrono();
+master::Activation Master::wait_for_op(const master::Plan &plan) {
+    auto deadline = this->cfg.clock.steady() + this->cfg.op_timeout.chrono();
+    const size_t total = this->slave_configs.size();
+    size_t waiting = total;
     std::optional<std::chrono::steady_clock::time_point> reset_at;
     while (true) {
         std::vector<uint16_t> pending;
@@ -1040,8 +1080,21 @@ master::Activation Master::wait_for_op() {
                 state.operational == 0)
                 pending.push_back(pos);
         }
+        const bool advanced = pending.size() < waiting;
+        if (advanced) {
+            waiting = pending.size();
+            if (plan.progress) plan.progress(total - waiting, total);
+        }
         if (pending.empty()) return {};
+        if (plan.cancel != nullptr && !plan.cancel->running())
+            return {
+                .err = x::errors::Error(
+                    x::errors::CANCELLED,
+                    "the start stopped before the slaves reached OP"
+                ),
+            };
         const auto now = this->cfg.clock.steady();
+        if (advanced) deadline = now + this->cfg.op_timeout.chrono();
         if (now >= deadline) return this->op_error(pending, true);
         if (this->refusing(pending)) {
             if (!reset_at) {
@@ -1113,8 +1166,10 @@ Master::op_error(const std::vector<uint16_t> &pending, const bool timed_out) {
         activation.refusals.empty() ? errors::STATE_CHANGE_ERROR
                                     : errors::STATE_CHANGE_REFUSED,
         "failed to reach OP" +
-            (timed_out ? " within " + this->cfg.op_timeout.to_string() : "") + ": " +
-            msg
+            (timed_out ? " (no module reached OP for " +
+                             this->cfg.op_timeout.to_string() + ")"
+                       : "") +
+            ": " + msg
     );
     return activation;
 }
@@ -1134,6 +1189,8 @@ void Master::deactivate() {
     this->activated = false;
     this->initialized = false;
     this->slave_configs.clear();
+    this->startup_values.clear();
+    this->running_additions.clear();
     this->cached_slaves.clear();
     this->dictionaries.clear();
     this->domains.clear();

@@ -1044,9 +1044,77 @@ TEST_F(IGHMasterTest, ActivateFailsWhenASlaveStaysBelowOP) {
     ASSERT_OCCURRED_AS(activation.err, errors::STATE_CHANGE_ERROR);
     EXPECT_EQ(
         activation.err.data,
-        "failed to reach OP within 10s: module 1 (TestSlave) is in SAFE-OP"
+        "failed to reach OP (no module reached OP for 10s): module 1 (TestSlave) is in "
+        "SAFE-OP"
     );
     EXPECT_TRUE(activation.refusals.empty());
+}
+
+/// @brief it should keep waiting while the slaves reach OP one at a time, as IgH moves
+/// them, for longer than the OP timeout in all.
+TEST_F(IGHMasterTest, ActivateWaitsWhileTheSlavesReachOPOneAtATime) {
+    for (int i = 1; i <= 3; ++i)
+        this->api->add_slave().reads_to_reach = 700 * i;
+    ASSERT_NIL_P(this->master.scan());
+    const auto started = this->clock.steady();
+    ASSERT_NIL(this->activate().err);
+    EXPECT_GE(this->clock.steady() - started, std::chrono::seconds(21));
+}
+
+/// @brief it should report each slave that reaches OP.
+TEST_F(IGHMasterTest, ActivateReportsEachSlaveThatReachesOP) {
+    for (int i = 1; i <= 3; ++i)
+        this->api->add_slave().reads_to_reach = 700 * i;
+    ASSERT_NIL_P(this->master.scan());
+    std::vector<std::pair<size_t, size_t>> reports;
+    ASSERT_NIL(this->master
+                   .activate(
+                       {
+                           .period = PERIOD,
+                           .slaves = this->configs,
+                           .progress = [&reports](
+                                           const size_t operational,
+                                           const size_t total
+                                       ) { reports.emplace_back(operational, total); },
+                       },
+                       [](const master::Image &) {}
+                   )
+                   .err);
+    const std::vector<std::pair<size_t, size_t>> expected{{1, 3}, {2, 3}, {3, 3}};
+    EXPECT_EQ(reports, expected);
+}
+
+/// @brief it should fail once no slave has reached OP for the OP timeout, counted from
+/// the latest slave that reached OP.
+TEST_F(IGHMasterTest, ActivateFailsOnceNoSlaveReachesOPForTheTimeout) {
+    this->api->add_slave().reads_to_reach = 700;
+    this->api->add_slave().reaches = EC_AL_STATE_SAFEOP;
+    ASSERT_NIL_P(this->master.scan());
+    const auto started = this->clock.steady();
+    const auto activation = this->activate();
+    ASSERT_OCCURRED_AS(activation.err, errors::STATE_CHANGE_ERROR);
+    EXPECT_EQ(
+        activation.err.data,
+        "failed to reach OP (no module reached OP for 10s): module 2 (TestSlave) is in "
+        "SAFE-OP"
+    );
+    const auto elapsed = this->clock.steady() - started;
+    EXPECT_GE(elapsed, std::chrono::seconds(17));
+    EXPECT_LT(elapsed, std::chrono::seconds(18));
+}
+
+/// @brief it should stop waiting for OP once the cancel of the plan stops.
+TEST_F(IGHMasterTest, ActivateEndsWhenCanceled) {
+    this->api->add_slave().reaches = EC_AL_STATE_SAFEOP;
+    ASSERT_NIL_P(this->master.scan());
+    x::breaker::Breaker cancel;
+    cancel.start();
+    const auto activation = this->master.activate(
+        {.period = PERIOD, .slaves = this->configs, .cancel = &cancel},
+        [&cancel](const master::Image &) { cancel.stop(); }
+    );
+    ASSERT_OCCURRED_AS(activation.err, x::errors::CANCELLED);
+    EXPECT_EQ(activation.err.data, "the start stopped before the slaves reached OP");
 }
 
 /// @brief it should start when a slave whose configuration state it cannot read is in
@@ -1072,8 +1140,8 @@ TEST_F(IGHMasterTest, ActivateReportsASlaveWhoseStateItCannotRead) {
     ASSERT_OCCURRED_AS(activation.err, errors::STATE_CHANGE_ERROR);
     EXPECT_EQ(
         activation.err.data,
-        "failed to reach OP within 10s: module 1 (TestSlave): failed to read its "
-        "state: Input/output error"
+        "failed to reach OP (no module reached OP for 10s): module 1 (TestSlave): "
+        "failed to read its state: Input/output error"
     );
 }
 
@@ -1115,8 +1183,8 @@ TEST_F(IGHMasterTest, ActivateWaitsForASlaveBelowOPWithNoErrorFlag) {
     ASSERT_OCCURRED_AS(activation.err, errors::STATE_CHANGE_REFUSED);
     EXPECT_EQ(
         activation.err.data,
-        "failed to reach OP within 10s: module 1 (EL4002) is in PRE-OP with an AL "
-        "error; module 2 (EL1008) is in SAFE-OP"
+        "failed to reach OP (no module reached OP for 10s): module 1 (EL4002) is in "
+        "PRE-OP with an AL error; module 2 (EL1008) is in SAFE-OP"
     );
     const std::map<uint16_t, slave::Refusal> refusals{
         {1, {.reason = "refused SAFE-OP"}},
@@ -1149,6 +1217,16 @@ TEST_F(IGHMasterTest, ScanReadsTheModesOfEachSlaveFromItsSII) {
     const auto slaves = ASSERT_NIL_P(this->master.scan());
     EXPECT_EQ(slaves[0].properties.op_modes, (std::vector{FREE_RUN, DC_SYNC}));
     EXPECT_TRUE(slaves[1].properties.op_modes.empty());
+}
+
+/// @brief it should read no word past the end marker of an SII, as IgH logs a kernel
+/// error for each such read.
+TEST_F(IGHMasterTest, ScanReadsNoWordPastTheEndOfTheSII) {
+    create_dc(this->api->add_slave(), {FREE_RUN, DC_SYNC});
+    const auto slaves = ASSERT_NIL_P(this->master.scan());
+    ASSERT_EQ(slaves.size(), 1);
+    EXPECT_EQ(slaves[0].properties.op_modes, (std::vector{FREE_RUN, DC_SYNC}));
+    EXPECT_EQ(this->api->slaves[0].sii_overreads, 0);
 }
 
 /// @brief it should fail the scan when it cannot read the SII of a slave.
@@ -1577,32 +1655,92 @@ TEST_F(IGHMasterTest, ReadReturnsTheAbortOfAMissingObject) {
     ASSERT_OCCURRED_AS_P(this->master.read(1, 0x8040, 0x15), coe::OBJECT_MISSING);
 }
 
-/// @brief it should accept a value that the slave holds on the running bus, and write
-/// nothing.
-TEST_F(IGHMasterTest, WriteAcceptsAValueThatTheSlaveHolds) {
+/// @brief it should write nothing on the running bus for a value that the slave holds,
+/// but add it to the startup parameters, so the slave gets it back when it restarts.
+TEST_F(IGHMasterTest, WriteKeepsAValueThatTheSlaveHolds) {
     this->api->add_slave().objects[{0x8000, 0x15}] = 3;
     ASSERT_NIL(this->scan_and_activate());
     ASSERT_NIL(this->master.write(1, {FILTER}));
     EXPECT_TRUE(this->api->slaves[0].downloads.empty());
+    const std::vector<MockAPI::SDO> expected{{0x8000, 0x15, {0x03, 0x00}}};
+    EXPECT_EQ(this->api->slaves[0].startup_sdos, expected);
 }
 
-/// @brief it should refuse a value that the slave does not hold on the running bus,
-/// since IgH writes its startup parameters again each time the slave restarts.
-TEST_F(IGHMasterTest, WriteRefusesAValueThatTheSlaveDoesNotHold) {
+/// @brief it should add nothing on the running bus for a value that the startup
+/// parameters already end with.
+TEST_F(IGHMasterTest, WriteAddsNoStartupParameterThatIgHAlreadyHolds) {
+    this->api->add_slave();
+    this->configs = {{1, {.startup_parameters = {FILTER}}}};
+    ASSERT_NIL(this->scan_and_activate());
+    ASSERT_NIL(this->master.write(1, {FILTER}));
+    const std::vector<MockAPI::SDO> expected{{0x8000, 0x15, {0x03, 0x00}}};
+    EXPECT_EQ(this->api->slaves[0].downloads, expected);
+    EXPECT_EQ(this->api->slaves[0].startup_sdos, expected);
+}
+
+/// @brief it should write a value that the slave does not hold on the running bus, and
+/// add it to the startup parameters, which IgH writes again when the slave restarts.
+TEST_F(IGHMasterTest, WriteChangesAValueOnTheRunningBus) {
     this->api->add_slave();
     this->configs = {{1, {.startup_parameters = {FILTER}}}};
     ASSERT_NIL(this->scan_and_activate());
     auto changed = FILTER;
     changed.value = 4;
-    const auto err = this->master.write(1, {changed});
+    ASSERT_NIL(this->master.write(1, {changed}));
+    const std::vector<MockAPI::SDO> expected{
+        {0x8000, 0x15, {0x03, 0x00}},
+        {0x8000, 0x15, {0x04, 0x00}},
+    };
+    EXPECT_EQ(this->api->slaves[0].downloads, expected);
+    EXPECT_EQ(this->api->slaves[0].startup_sdos, expected);
+}
+
+/// @brief it should refuse a value on the running bus that IgH does not add to the
+/// startup parameters, and put back the value that the slave held.
+TEST_F(IGHMasterTest, WriteRefusesAValueThatIgHCannotKeep) {
+    this->api->add_slave().objects[{0x8000, 0x15}] = 0;
+    ASSERT_NIL(this->scan_and_activate());
+    this->api->config_sdo_fails = true;
+    const auto err = this->master.write(1, {FILTER});
     ASSERT_OCCURRED_AS(err, errors::SETTING_CONFLICT);
     EXPECT_EQ(
         err.data,
         "the IgH master cannot change 0x8000:15 (Filter) of module 1 (TestSlave) while "
         "other tasks run the bus. Stop them, then start this task first"
     );
-    const std::vector<MockAPI::SDO> expected{{0x8000, 0x15, {0x03, 0x00}}};
+    const std::vector<MockAPI::SDO> expected{
+        {0x8000, 0x15, {0x03, 0x00}},
+        {0x8000, 0x15, {0x00, 0x00}},
+    };
     EXPECT_EQ(this->api->slaves[0].downloads, expected);
+    EXPECT_EQ(this->api->slaves[0].objects.at({0x8000, 0x15}), 0);
+}
+
+/// @brief it should refuse a change on the running bus once the slave has the most
+/// startup parameters that IgH can add, and write nothing.
+TEST_F(IGHMasterTest, WriteRefusesAChangeAtTheRunningAdditionLimit) {
+    this->api->add_slave().objects[{0x8000, 0x15}] = 0;
+    ASSERT_NIL(this->scan_and_activate());
+    auto changed = FILTER;
+    for (size_t i = 0; i < RUNNING_ADDITION_LIMIT; i++) {
+        changed.value = 3 + static_cast<int>(i % 2);
+        ASSERT_NIL(this->master.write(1, {changed}));
+    }
+    changed.value = 5;
+    ASSERT_OCCURRED_AS(this->master.write(1, {changed}), errors::SETTING_CONFLICT);
+    EXPECT_EQ(this->api->slaves[0].downloads.size(), RUNNING_ADDITION_LIMIT);
+    EXPECT_EQ(this->api->slaves[0].startup_sdos.size(), RUNNING_ADDITION_LIMIT);
+}
+
+/// @brief it should refuse a value on the running bus for a slave that the bus does not
+/// configure, and write nothing.
+TEST_F(IGHMasterTest, WriteRefusesAValueForASlaveWithNoConfiguration) {
+    this->api->add_slave();
+    this->api->add_slave().objects[{0x8000, 0x15}] = 0;
+    this->configs = {{2, {.enabled = false}}};
+    ASSERT_NIL(this->scan_and_activate());
+    ASSERT_OCCURRED_AS(this->master.write(2, {FILTER}), errors::SETTING_CONFLICT);
+    EXPECT_TRUE(this->api->slaves[1].downloads.empty());
 }
 
 /// @brief it should return the reason a slave on the running bus fails to read a

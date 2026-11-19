@@ -29,7 +29,34 @@ When CI failed on the head:
    `main`), change nothing. For a flake, put the line `<!-- agent:rerun -->` in your
    last message. The workflow then reruns the failed jobs.
 
-## 3. Address every review finding
+## 3. Fix CodeQL alerts
+
+The CodeQL check failed on the head. Each `codeql` line in the work is an open alert
+that blocks the merge, with its file, line, rule, and message. The list can include
+alerts this pull request did not add. Fix only the alerts on lines it changed.
+
+1. Fix the code at each alert so that the analysis can see the code is safe. CodeQL does
+   not take a bound in a `switch` case as a guard. Use an `if`.
+2. Never dismiss an alert or add a suppression.
+
+## 4. Fix a merge queue removal
+
+When the merge queue removed the pull request after its last commit, a check failed on
+the pull request merged with its base branch. The gate gives the failed `merge_group`
+run when it found one. The removal cancels the run, so it can show as cancelled.
+
+1. Without a run, find it yourself:
+   `gh run list --event merge_group --limit 500 --json databaseId,headBranch,conclusion`,
+   and pick a run on `gh-readonly-queue/<base>/pr-<number>-`.
+2. Read the failed jobs: `gh run view <run> --log-failed`.
+3. Merge the base branch as in step 1. Fix what the merged tree breaks, in one place.
+   Run the failed check locally when you can.
+4. When the failure does not come from this pull request, change no code. For a flake,
+   when the pull request has the `review/bot` label, put it back in the queue:
+   `gh pr merge <number> --auto --squash`. Otherwise, or for a break on the base branch,
+   name the failure in your last message for a person.
+
+## 5. Address every review finding
 
 A Sedosaur score of 5/5 does not mean the work is done. Every open Sedosaur finding, P2
 and style findings included, gets a fix or a reply that gives the reason.
