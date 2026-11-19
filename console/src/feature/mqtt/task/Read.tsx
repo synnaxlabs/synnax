@@ -93,6 +93,8 @@ const SAMPLE_KINDS = {
 } as const satisfies Record<payload.JSONType, payload.Kind>;
 
 const TOPIC_INPUT_PROPS = { placeholder: "plant/line1/telemetry" } as const;
+// A topic added by name has no topic yet, so its details open on the topic.
+const EMPTY_TOPIC_INPUT_PROPS = { ...TOPIC_INPUT_PROPS, autoFocus: true } as const;
 
 /** @returns the messages of the entries' ICDs, reading the open one from its form. */
 const readMessages = async (
@@ -122,14 +124,17 @@ const isDraft = (addition: Addition): addition is Draft => addition.type === "pl
 
 const createDraft = (topic: string, leaves: Leaf[] = []): Draft => {
   const names = ICD.fieldNames(leaves.map(({ pointer }) => pointer));
-  const fields = leaves.map((leaf, i) =>
-    icd.jsonFieldZ.parse({
-      name: names[i],
-      pointer: leaf.pointer,
-      type: SAMPLE_KINDS[leaf.type],
-    }),
-  );
-  return { type: "plain", topic, fields };
+  return {
+    type: "plain",
+    topic,
+    fields: leaves.map((leaf, i) =>
+      icd.jsonFieldZ.parse({
+        name: names[i],
+        pointer: leaf.pointer,
+        type: SAMPLE_KINDS[leaf.type],
+      }),
+    ),
+  };
 };
 
 const DISCOVER_KIND: Kind<Addition> = {
@@ -152,14 +157,19 @@ const DISCOVER_KIND: Kind<Addition> = {
 
 const useDiscoverModal = createDiscoverModal(DISCOVER_KIND);
 
-/** @returns the channels that the bindings and tags of entries write. */
+/**
+ * @returns the channels that the bindings and tags of the enabled entries write. The
+ * Core skips disabled entries.
+ */
 const writtenChannels = (entries: ReadEntry[]): Set<channel.Key> => {
   const written = new Set(
-    entries.flatMap((e) =>
-      isPlain(e)
-        ? e.messages.flatMap(({ bindings }) => bindings.map((b) => b.channel))
-        : [e.channel],
-    ),
+    entries
+      .filter(({ disabled }) => !disabled)
+      .flatMap((e) =>
+        isPlain(e)
+          ? e.messages.flatMap(({ bindings }) => bindings.map((b) => b.channel))
+          : [e.channel],
+      ),
   );
   written.delete(0);
   return written;
@@ -520,6 +530,7 @@ const TopicDetails: FC<TopicDetailsProps> = ({
   onAddMessage,
 }) => {
   const isPreview = Task.useIsPreview();
+  const topic = PForm.useFieldValue(path.topic);
   const reads = PForm.useFieldValue(path.messages);
   const encoding = PForm.useFieldValue(
     PICD.formPath.messages[reads.length === 1 ? reads[0].message : ""].payload.format,
@@ -546,7 +557,7 @@ const TopicDetails: FC<TopicDetailsProps> = ({
             path={path.topic}
             label="Topic"
             padHelpText={false}
-            inputProps={TOPIC_INPUT_PROPS}
+            inputProps={topic === "" ? EMPTY_TOPIC_INPUT_PROPS : TOPIC_INPUT_PROPS}
           />
           <QoSField path={path.qos} />
           <PForm.CheckboxField

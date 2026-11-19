@@ -3183,6 +3183,69 @@ var _ = Describe("Writer Behavior", func() {
 				})
 
 				Describe("Write Authority", func() {
+					DescribeTable(
+						"Should reject an authority count that does not match the channels",
+						func(
+							ctx SpecContext,
+							channels func(idx, d1, d2 cesium.ChannelKey) []cesium.ChannelKey,
+							authorities []control.Authority,
+						) {
+							idx := GenerateChannelKey()
+							d1, d2 := GenerateChannelKey(), GenerateChannelKey()
+							Expect(db.CreateChannel(
+								ctx,
+								cesium.Channel{
+									Key:      idx,
+									Name:     "Byrd",
+									IsIndex:  true,
+									DataType: telem.TimestampT,
+								},
+								cesium.Channel{
+									Key:      d1,
+									Name:     "Balchen",
+									Index:    idx,
+									DataType: telem.Int64T,
+								},
+								cesium.Channel{
+									Key:      d2,
+									Name:     "Siple",
+									Index:    idx,
+									DataType: telem.Int64T,
+								},
+							)).To(Succeed())
+							w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+								Channels: []cesium.ChannelKey{idx, d1, d2},
+								Start:    10 * telem.SecondTS,
+							}))
+							Expect(w.SetAuthority(cesium.WriterConfig{
+								Channels:    channels(idx, d1, d2),
+								Authorities: authorities,
+							})).To(MatchError(validate.ErrValidation))
+							Expect(w.Close()).To(MatchError(validate.ErrValidation))
+						},
+						Entry(
+							"fewer authorities than channels",
+							func(idx, d1, d2 cesium.ChannelKey) []cesium.ChannelKey {
+								return []cesium.ChannelKey{idx, d1, d2}
+							},
+							[]control.Authority{10, 200},
+						),
+						Entry(
+							"more authorities than channels",
+							func(idx, d1, d2 cesium.ChannelKey) []cesium.ChannelKey {
+								return []cesium.ChannelKey{idx, d1}
+							},
+							[]control.Authority{10, 200, 30},
+						),
+						Entry(
+							"several authorities with no channels",
+							func(idx, d1, d2 cesium.ChannelKey) []cesium.ChannelKey {
+								return nil
+							},
+							[]control.Authority{10, 200},
+						),
+					)
+
 					It("Should set the authority of writers", func(ctx SpecContext) {
 						var (
 							key  = GenerateChannelKey()
@@ -4391,6 +4454,61 @@ var _ = Describe("Writer Behavior", func() {
 						),
 					)
 				})
+
+				Specify(
+					"Frame with duplicate channels after a frame without them",
+					func(ctx SpecContext) {
+						otherIdx, otherData := GenerateChannelKey(), GenerateChannelKey()
+						Expect(db.CreateChannel(
+							ctx,
+							cesium.Channel{
+								Name:     "Ross",
+								Key:      otherIdx,
+								IsIndex:  true,
+								DataType: telem.TimestampT,
+							},
+							cesium.Channel{
+								Name:     "Weddell",
+								Key:      otherData,
+								Index:    otherIdx,
+								DataType: telem.Int64T,
+							},
+						)).To(Succeed())
+						w := MustSucceed(db.OpenWriter(
+							ctx,
+							cesium.WriterConfig{
+								Channels: []cesium.ChannelKey{
+									idx,
+									data,
+									otherIdx,
+									otherData,
+								},
+								Start: 10 * telem.SecondTS,
+							},
+						))
+						MustSucceed(w.Write(telem.MultiFrame(
+							[]cesium.ChannelKey{otherIdx, otherData},
+							[]telem.Series{
+								telem.NewSeriesSecondsTSV(10, 11),
+								telem.NewSeriesV[int64](1, 2),
+							},
+						)))
+						MustSucceed(w.Write(telem.MultiFrame(
+							[]cesium.ChannelKey{idx, idx},
+							[]telem.Series{
+								telem.NewSeriesSecondsTSV(10, 11),
+								telem.NewSeriesSecondsTSV(12, 13),
+							},
+						)))
+						Expect(
+							w.Commit(),
+						).Error().
+							To(MatchError(validate.ErrValidation))
+						Expect(w.Close()).To(MatchError(ContainSubstring(
+							"frame must have exactly one series per channel",
+						)))
+					},
+				)
 
 				It(
 					"Should return no end from a partly applied commit",

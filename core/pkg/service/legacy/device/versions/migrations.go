@@ -35,6 +35,8 @@ func NewMigrations(cfg MigrationsConfig) []gorp.Migration {
 			v2.SplitGroupsMigration,
 			v2.MembersMigration,
 			v2.ParentMigration,
+			v2.MakeModelMigration,
+			v2.KafkaSecureMigration,
 		},
 	)
 }

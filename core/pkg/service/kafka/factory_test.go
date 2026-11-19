@@ -370,7 +370,7 @@ var _ = Describe("Factory", func() {
 					expectSuccess(
 						testConnection(ctx, kafka.Properties{
 							Brokers:       brokers,
-							TLS:           true,
+							Secure:        true,
 							CaCertificate: caPEM,
 						}),
 					)
@@ -382,7 +382,7 @@ var _ = Describe("Factory", func() {
 					expectFailure(
 						testConnection(
 							ctx,
-							kafka.Properties{Brokers: brokers, TLS: true},
+							kafka.Properties{Brokers: brokers, Secure: true},
 						),
 						"Certificate not trusted",
 					)
@@ -400,7 +400,7 @@ var _ = Describe("Factory", func() {
 				"Should fail the TLS stage of a broker without TLS",
 				func(ctx SpecContext) {
 					props := clusterProperties()
-					props.TLS = true
+					props.Secure = true
 					expectFailure(
 						testConnection(ctx, props),
 						"TLS handshake failed",
@@ -411,7 +411,7 @@ var _ = Describe("Factory", func() {
 			It("Should reject a CA certificate that is not PEM", func(ctx SpecContext) {
 				expectInvalid(testConnection(ctx, kafka.Properties{
 					Brokers:       brokers,
-					TLS:           true,
+					Secure:        true,
 					CaCertificate: "not a certificate",
 				}), "PEM-encoded certificate")
 			})

@@ -36,7 +36,7 @@ import (
 // as the data type of a new channel. The returned data type is empty for any other
 // field. An index field lifts to the timestamp kind, and so does a field with a time
 // format, no entries, and the default or an unknown data type. An entry that the kind
-// cannot hold is dropped.
+// cannot hold is dropped, and a time format that is not valid becomes ISO 8601.
 func liftField(
 	old ReadField,
 	index bool,
@@ -72,6 +72,15 @@ func liftField(
 			*old.TimeFormat,
 			kind,
 		)
+	}
+	if kind == payload.KindTimestamp && old.TimeFormat != nil &&
+		!old.TimeFormat.IsValid() {
+		note(
+			"time format %q is not valid and became %s",
+			*old.TimeFormat,
+			payload.TimeFormatISO8601,
+		)
+		old.TimeFormat = nil
 	}
 	field := liftRead(old, kind, base, enumFilter{seen: set.New[string](), note: note})
 	numeric := kind == payload.KindFloat || kind == payload.KindInteger ||
