@@ -7,10 +7,11 @@ Contributor License Agreement. This agreement is for your protection as a contri
 well as the protection of Synnax Labs and its users. It does not change your rights to
 use your own contributions for any other purpose.
 
-You accept and agree to the following terms and conditions for your present and future
-contributions submitted to Synnax Labs. Except for the licenses granted in this
-agreement to Synnax Labs and to recipients of software distributed by Synnax Labs, you
-reserve all right, title, and interest in and to your contributions.
+You accept and agree to the following terms and conditions for your past, present, and
+future contributions submitted to Synnax Labs, including those submitted before You
+signed this agreement. Except for the licenses granted in this agreement to Synnax Labs
+and to recipients of software distributed by Synnax Labs, you reserve all right, title,
+and interest in and to your contributions.
 
 ## 1. Definitions
 
