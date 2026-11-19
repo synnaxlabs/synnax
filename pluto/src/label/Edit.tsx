@@ -58,10 +58,12 @@ export const OptionMenu = ({
 };
 
 /**
- * @returns whether the option of the label with the key opens {@link OptionMenu}: only
- * when the user can update the label.
+ * @param data - the keys of the labels in the select.
+ * @returns whether the option with the key opens {@link OptionMenu}: only when it is a
+ * label in `data` that the user can update.
  */
-export const useHasOptionMenu = (): ((key: label.Key) => boolean) => {
+export const useHasOptionMenu = (data: label.Key[]): ((key: label.Key) => boolean) => {
   const client = Synnax.use();
-  return (key) => Access.updateGranted({ client, id: label.resourceID(key) });
+  return (key) =>
+    data.includes(key) && Access.updateGranted({ client, id: label.resourceID(key) });
 };

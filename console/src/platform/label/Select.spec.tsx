@@ -336,6 +336,21 @@ describe("Label.Select edit", () => {
       .toEqual({ type: "named", key: named.key });
   });
 
+  it("should open no menu on the create option", async () => {
+    await renderSelect(<Label.SelectMultiple value={[]} onChange={vi.fn()} />);
+    const token = uniqueToken();
+    await openAndSearch(token);
+    const name = `Create label "${token}"`;
+    await hoverOnly(name);
+    expect(fireEvent.contextMenu(screen.getByRole("option", { name }))).toBe(true);
+    const search = screen.getByPlaceholderText("Search labels...");
+    const shiftF10 = { key: "F10", code: "F10", shiftKey: true };
+    expect(fireEvent.keyDown(search, shiftF10)).toBe(true);
+    fireEvent.keyUp(search, shiftF10);
+    await act(async () => {});
+    expect(screen.queryByRole("menu")).toBeNull();
+  });
+
   it("should leave a label the subject may not update to the platform", async () => {
     const editable = await createListed();
     const fixed = await createListed();

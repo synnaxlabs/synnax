@@ -78,11 +78,13 @@ const SELECT_MULTIPLE_TRIGGER_PROPS: Select.MultipleTriggerProps<
 
 interface BaseProps extends Omit<
   Select.MultipleProps<label.Key, label.Label | undefined>,
-  "resourceName" | "children"
-> {}
+  "resourceName" | "children" | "data"
+> {
+  data: label.Key[];
+}
 
 const Base = (props: BaseProps): ReactElement => {
-  const hasMenu = useHasOptionMenu();
+  const hasMenu = useHasOptionMenu(props.data);
   return (
     <Select.Multiple<label.Key, label.Label | undefined>
       haulType={HAUL_TYPE}
@@ -163,7 +165,7 @@ export const SelectSingle = ({
     (client: Synnax) => client.labels,
     { name: "labels", query, filter },
   );
-  const hasMenu = useHasOptionMenu();
+  const hasMenu = useHasOptionMenu(data);
   return (
     <Select.Single<label.Key, label.Label | undefined>
       getItem={getItem}
