@@ -484,6 +484,13 @@ TEST_F(EtherCATReadTest, InvalidSlaveDevice) {
     };
     auto second = cfg["channels"][0];
     second["sub_index"] = 2;
+    auto second_ch = ASSERT_NIL_P(this->client->channels.create(
+        make_unique_channel_name("analog"),
+        x::telem::INT16_T,
+        this->index_channel.key,
+        false
+    ));
+    second["channel"] = second_ch.key;
     cfg["channels"].push_back(second);
 
     auto parser = x::json::Parser(cfg);
@@ -511,10 +518,16 @@ TEST_F(EtherCATReadTest, SlaveOnAnotherNetworkIsInvalid) {
     cfg["channels"].push_back(
         this->create_input_channel_config(data_ch, 0x6000, 1, "int16")
     );
-    auto off_network = this->create_input_channel_config(data_ch, 0x6000, 1, "int16");
+    auto off_network = this->create_input_channel_config(
+        this->create_data_channel("analog", x::telem::INT16_T),
+        0x6000,
+        1,
+        "int16"
+    );
     off_network["device"] = other.key;
     cfg["channels"].push_back(off_network);
     off_network["sub_index"] = 2;
+    off_network["channel"] = this->create_data_channel("analog", x::telem::INT16_T).key;
     cfg["channels"].push_back(off_network);
 
     auto parser = x::json::Parser(cfg);
