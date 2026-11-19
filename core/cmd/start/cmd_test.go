@@ -11,6 +11,7 @@ package start_test
 
 import (
 	"encoding/base64"
+	"fmt"
 	"io/fs"
 	"path/filepath"
 	"time"
@@ -25,6 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/cmd/start"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
 	"github.com/synnaxlabs/synnax/pkg/security/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -198,7 +200,7 @@ var _ = Describe("GetCoreConfigFromViper", func() {
 	})
 
 	Describe("OIDC providers", func() {
-		It("Should accept a list of providers", func() {
+		It("Should map each setting to its provider field", func() {
 			viper.Set(start.FlagOIDCProviders, []any{map[string]any{
 				"name":                   "idp",
 				"issuer":                 "https://idp.example.com",
@@ -206,7 +208,19 @@ var _ = Describe("GetCoreConfigFromViper", func() {
 				"client-secret":          "secret",
 				"user-creation-disabled": true,
 			}})
-			MustSucceed(start.GetCoreConfigFromViper(alamos.Instrumentation{}))
+			cfg := MustSucceed(start.GetCoreConfigFromViper(alamos.Instrumentation{}))
+			// the provider list is unexported, so the spec reads it from the config's
+			// printed form
+			Expect(fmt.Sprintf("%+v", cfg)).To(ContainSubstring(fmt.Sprintf(
+				"oidcProviders:[%+v]",
+				oidc.Provider{
+					Name:                 "idp",
+					Issuer:               "https://idp.example.com",
+					ClientID:             "synnax",
+					ClientSecret:         "secret",
+					UserCreationDisabled: true,
+				},
+			)))
 		})
 
 		It("Should reject a value that is not a list", func() {
