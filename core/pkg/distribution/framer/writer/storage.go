@@ -12,50 +12,23 @@ package writer
 import (
 	"context"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium"
-	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/confluence"
-	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/types"
 )
 
-const (
-	storageRequestsAddr  address.Address = "requests"
-	storageResponsesAddr address.Address = "responses"
-	storageTSWriterAddr  address.Address = "ts_writer"
-)
-
-// newStorage opens a StreamWriter that writes to the storage engine.
+// newStorage opens the session that writes the stored channels of cfg.
 func (s *Service) newStorage(ctx context.Context, cfg Config) (StreamWriter, error) {
 	storageCfg := cfg.toStorage()
 	virtual, err := virtualKeys(ctx, s.cfg.TS, storageCfg.Channels)
 	if err != nil {
 		return nil, err
 	}
-	w, err := s.cfg.TS.NewStreamWriter(ctx, storageCfg)
+	w, err := s.cfg.TS.OpenWriter(ctx, storageCfg)
 	if err != nil {
 		return nil, err
 	}
-	pipe := plumber.New()
-	pipe.SetSegment(storageTSWriterAddr, w)
-	reqT := &confluence.LinearTransform[Request, cesium.WriterRequest]{}
-	reqT.Transform = newRequestTranslator(virtual)
-	resT := &confluence.LinearTransform[cesium.WriterResponse, Response]{}
-	resT.Transform = translateResponse
-	pipe.SetSegment(storageRequestsAddr, reqT)
-	pipe.SetSegment(storageResponsesAddr, resT)
-	pipe.MustConnect[cesium.WriterRequest](storageRequestsAddr, storageTSWriterAddr, 1)
-	pipe.MustConnect[cesium.WriterResponse](
-		storageTSWriterAddr,
-		storageResponsesAddr,
-		1,
-	)
-	seg := &plumber.Segment[Request, Response]{Pipeline: pipe}
-	lo.Must0(seg.RouteInletTo(storageRequestsAddr))
-	lo.Must0(seg.RouteOutletFrom(storageResponsesAddr))
-	return seg, nil
+	return newSession(w, virtual, *cfg.Sync), nil
 }
 
 // virtualKeys returns the keys of the virtual channels among keys.
@@ -121,35 +94,4 @@ func (st *unindexedStamper[K]) stamp(fr telem.Frame[K]) {
 		slot.frame, slot.end = st.frame, s.TimeRange.End
 		fr.SetRawSeriesAt(rawI, s)
 	}
-}
-
-func newRequestTranslator(
-	virtual []cesium.ChannelKey,
-) func(ctx context.Context, in Request) (cesium.WriterRequest, bool, error) {
-	st := newUnindexedStamper(virtual)
-	return func(ctx context.Context, in Request) (cesium.WriterRequest, bool, error) {
-		fr := in.Frame.ToStorage()
-		if in.Command == CommandWrite {
-			st.stamp(fr)
-		}
-		return cesium.WriterRequest{
-			Command: cesium.WriterCommand(in.Command),
-			Frame:   fr,
-			Config:  in.Config.toStorage(),
-			SeqNum:  in.SeqNum,
-		}, true, nil
-	}
-}
-
-func translateResponse(
-	_ context.Context,
-	in cesium.WriterResponse,
-) (Response, bool, error) {
-	return Response{
-		Command:    Command(in.Command),
-		SeqNum:     in.SeqNum,
-		End:        in.End,
-		Authorized: in.Authorized,
-		Err:        in.Err,
-	}, true, nil
 }

@@ -10,10 +10,6 @@
 package cesium_test
 
 import (
-	"context"
-	"runtime"
-	"time"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
@@ -93,7 +89,6 @@ var _ = Describe("Control", func() {
 						Start:          10 * telem.SecondTS,
 						Channels:       keys,
 						Authorities:    []xcontrol.Authority{authority},
-						Sync:           new(true),
 					}))
 				}
 				persistConfig := func(start telem.TimeStamp) cesium.WriterConfig {
@@ -108,7 +103,6 @@ var _ = Describe("Control", func() {
 						Authorities: []xcontrol.Authority{
 							xcontrol.AuthorityAbsolute,
 						},
-						Sync: new(true),
 					}
 				}
 				frame := func(seconds ...telem.TimeStamp) telem.Frame[cesium.ChannelKey] {
@@ -228,7 +222,6 @@ var _ = Describe("Control", func() {
 							Authorities: []xcontrol.Authority{
 								xcontrol.AuthorityAbsolute,
 							},
-							Sync: new(true),
 						}))
 						expectUnauthorized(live.Write(ctx, frame(20)))
 						MustSucceed(operator.Write(ctx, frame(21, 22)))
@@ -275,7 +268,6 @@ var _ = Describe("Control", func() {
 							Start:          1 * telem.SecondTS,
 							Channels:       []cesium.ChannelKey{cmd},
 							Authorities:    []xcontrol.Authority{1},
-							Sync:           new(true),
 						}))
 						cfg := persistConfig(1 * telem.SecondTS)
 						cfg.Channels = append(keys, cmd)
@@ -320,7 +312,6 @@ var _ = Describe("Control", func() {
 						Channels:         keys,
 						Authorities:      []xcontrol.Authority{authority},
 						EnableAutoCommit: new(false),
-						Sync:             new(true),
 					}))
 				}
 				createIndex := func(ctx SpecContext) cesium.ChannelKey {
@@ -380,23 +371,20 @@ var _ = Describe("Control", func() {
 						Expect(low.Close()).To(Succeed())
 					},
 				)
-				DescribeTable(
+				It(
 					"Should report a refused write once and keep the end of a commit with control",
-					func(ctx SpecContext, sync bool) {
+					func(ctx SpecContext) {
 						low := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 							ControlSubject:   xcontrol.Subject{Key: "low"},
 							Start:            10 * telem.SecondTS,
 							Channels:         []cesium.ChannelKey{idx},
 							Authorities:      []xcontrol.Authority{1},
 							EnableAutoCommit: new(false),
-							Sync:             new(sync),
 						}))
 						MustSucceed(low.Write(ctx, frame(10)))
 						MustSucceed(low.Commit(ctx))
 						high := open(ctx, "high", 2, idx)
 						expectUnauthorized(low.Write(ctx, frame(11)))
-						// A synchronous command orders the write before control
-						// returns.
 						Expect(low.SetAuthority(cesium.WriterConfig{
 							Authorities: []xcontrol.Authority{1},
 						})).To(Succeed())
@@ -413,8 +401,6 @@ var _ = Describe("Control", func() {
 						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx))
 						Expect(f.Get(idx).Len()).To(Equal(int64(3)))
 					},
-					Entry("sync", true),
-					Entry("async", false),
 				)
 				It(
 					"Should report commits on a virtual channel without control",
@@ -537,7 +523,6 @@ var _ = Describe("Control", func() {
 									xcontrol.AuthorityAbsolute - 2,
 								},
 								ErrOnUnauthorized: new(false),
-								Sync:              new(true),
 							}))
 							By("Opening the second writer")
 							w2 := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
@@ -551,7 +536,6 @@ var _ = Describe("Control", func() {
 									xcontrol.AuthorityAbsolute - 2,
 								},
 								ErrOnUnauthorized: new(false),
-								Sync:              new(true),
 							}))
 							updates, disconnect := observeControl(db)
 							defer disconnect()
@@ -596,154 +580,6 @@ var _ = Describe("Control", func() {
 							By("Shutting down the writers")
 							Expect(w1.Close()).To(Succeed())
 							Expect(w2.Close()).To(Succeed())
-
-							By("Reading the data")
-							f := MustSucceed(db.Read(
-								ctx,
-								start.SpanRange(10*telem.Second),
-								dataChKey,
-							))
-							Expect(f.Count()).To(Equal(1))
-							Expect(
-								f.SeriesAt(0).Data,
-							).To(Equal(telem.NewSeriesV[int16](1, 2, 3, 4, 5, 6).Data))
-						},
-					)
-
-					It(
-						"Should correctly hand off control authority when a writer is force closed via context cancellation",
-						func(ctx SpecContext) {
-							var (
-								indexChKey = GenerateChannelKey()
-								dataChKey  = GenerateChannelKey()
-							)
-							Expect(db.CreateChannel(
-								ctx,
-								cesium.Channel{
-									Name:     "Cat",
-									Key:      indexChKey,
-									DataType: telem.TimestampT,
-									IsIndex:  true,
-								},
-								cesium.Channel{
-									Name:     "Mouse",
-									Key:      dataChKey,
-									DataType: telem.Int16T,
-									Index:    indexChKey,
-								},
-							)).To(Succeed())
-							start := telem.SecondTS * 10
-
-							updates, disconnect := observeControl(db)
-							defer disconnect()
-							ctx2, cancel2 := signal.Isolated()
-							defer cancel2()
-
-							By("Opening the first writer")
-							w1 := MustSucceed(
-								db.NewStreamWriter(ctx, cesium.WriterConfig{
-									ControlSubject: xcontrol.Subject{
-										Name: "Writer One",
-									},
-									Start: start,
-									Channels: []cesium.ChannelKey{
-										indexChKey,
-										dataChKey,
-									},
-									Authorities: []xcontrol.Authority{
-										xcontrol.AuthorityAbsolute - 2,
-									},
-									ErrOnUnauthorized: new(false),
-									Sync:              new(true),
-								}),
-							)
-
-							By("Opening the second writer")
-							w2 := MustSucceed(
-								db.NewStreamWriter(ctx, cesium.WriterConfig{
-									Start: start,
-									ControlSubject: xcontrol.Subject{
-										Name: "Writer Two",
-									},
-									Channels: []cesium.ChannelKey{
-										indexChKey,
-										dataChKey,
-									},
-									Authorities: []xcontrol.Authority{
-										xcontrol.AuthorityAbsolute - 3,
-									},
-									ErrOnUnauthorized: new(false),
-									Sync:              new(true),
-								}),
-							)
-
-							ctx1, cancel1 := signal.Isolated()
-
-							w1In, _ := confluence.Attach(w1, 2)
-							w2In, w2Out := confluence.Attach(w2, 2)
-
-							w1.Flow(ctx1, confluence.CloseOutputInletsOnExit())
-							w2.Flow(ctx2, confluence.CloseOutputInletsOnExit())
-
-							runtime.Gosched()
-							time.Sleep(1 * time.Millisecond)
-
-							By("Writing to the first writer")
-							w1In.Inlet() <- cesium.WriterRequest{
-								Command: cesium.WriterCommandWrite,
-								Frame: telem.MultiFrame(
-									[]cesium.ChannelKey{indexChKey, dataChKey},
-									[]telem.Series{
-										telem.NewSeriesSecondsTSV(10, 11, 12),
-										telem.NewSeriesV[int16](1, 2, 3),
-									},
-								),
-							}
-
-							var d cesium.ControlUpdate
-							Eventually(updates).Should(Receive(&d))
-							Expect(d.Transfers).To(HaveLen(2))
-							Expect(d.Transfers[0].To).ToNot(BeNil())
-							Expect(
-								d.Transfers[0].To.Subject.Name,
-							).To(Equal("Writer One"))
-
-							By(
-								"Force closing the first writer through context cancellation",
-							)
-							cancel1()
-							Expect(ctx1.Wait()).To(MatchError(context.Canceled))
-
-							By("Propagating the control transfer")
-							Eventually(updates).Should(Receive(&d))
-							Expect(d.Transfers).To(HaveLen(2))
-							Expect(d.Transfers[0].To).ToNot(BeNil())
-							Expect(
-								d.Transfers[0].To.Subject.Name,
-							).To(Equal("Writer Two"))
-
-							By("Writing to the second writer")
-							w2In.Inlet() <- cesium.WriterRequest{
-								Command: cesium.WriterCommandWrite,
-								Frame: telem.MultiFrame(
-									[]cesium.ChannelKey{indexChKey, dataChKey},
-									[]telem.Series{
-										telem.NewSeriesSecondsTSV(13, 14, 15),
-										telem.NewSeriesV[int16](4, 5, 6),
-									},
-								),
-							}
-
-							By("Committing the second writer")
-							w2In.Inlet() <- cesium.WriterRequest{
-								Command: cesium.WriterCommandCommit,
-							}
-							var r cesium.WriterResponse
-							Eventually(w2Out.Outlet()).Should(Receive(&r))
-
-							By("Shutting down the second writer")
-							w2In.Close()
-							Expect(ctx2.Wait()).To(Succeed())
 
 							By("Reading the data")
 							f := MustSucceed(db.Read(
@@ -844,7 +680,6 @@ var _ = Describe("Control", func() {
 									xcontrol.Authority(0),
 								},
 								Start:             10 * telem.SecondTS,
-								Sync:              new(true),
 								ErrOnUnauthorized: new(false),
 								ControlSubject:    xcontrol.Subject{Key: "seq_1"},
 							}))
@@ -856,7 +691,6 @@ var _ = Describe("Control", func() {
 										xcontrol.Authority(1),
 									},
 									Start:             10 * telem.SecondTS,
-									Sync:              new(true),
 									ErrOnUnauthorized: new(false),
 									ControlSubject: xcontrol.Subject{
 										Key: "operator_1",
@@ -927,7 +761,6 @@ var _ = Describe("Control", func() {
 									xcontrol.Authority(0),
 								},
 								Start:             10 * telem.SecondTS,
-								Sync:              new(true),
 								ErrOnUnauthorized: new(false),
 								ControlSubject:    xcontrol.Subject{Key: "seq_2"},
 							}))
@@ -939,7 +772,6 @@ var _ = Describe("Control", func() {
 										xcontrol.Authority(1),
 									},
 									Start:             10 * telem.SecondTS,
-									Sync:              new(true),
 									ErrOnUnauthorized: new(false),
 									ControlSubject: xcontrol.Subject{
 										Key: "operator_2",
@@ -1025,7 +857,6 @@ var _ = Describe("Control", func() {
 									xcontrol.Authority(0),
 								},
 								Start:             10 * telem.SecondTS,
-								Sync:              new(true),
 								ErrOnUnauthorized: new(false),
 								ControlSubject:    xcontrol.Subject{Key: "seq_4"},
 							}))
@@ -1037,7 +868,6 @@ var _ = Describe("Control", func() {
 										xcontrol.Authority(1),
 									},
 									Start:             10 * telem.SecondTS,
-									Sync:              new(true),
 									ErrOnUnauthorized: new(false),
 									ControlSubject: xcontrol.Subject{
 										Key: "operator_4",
@@ -1120,7 +950,6 @@ var _ = Describe("Control", func() {
 									xcontrol.Authority(0),
 								},
 								Start:             10 * telem.SecondTS,
-								Sync:              new(true),
 								ErrOnUnauthorized: new(false),
 								ControlSubject:    xcontrol.Subject{Key: "seq_3"},
 							}))
@@ -1130,7 +959,6 @@ var _ = Describe("Control", func() {
 									xcontrol.Authority(50),
 								},
 								Start:             10 * telem.SecondTS,
-								Sync:              new(true),
 								ErrOnUnauthorized: new(false),
 								ControlSubject: xcontrol.Subject{
 									Key: "operator_3",
@@ -1203,7 +1031,6 @@ var _ = Describe("Control", func() {
 							},
 							Authorities:       []xcontrol.Authority{100},
 							ErrOnUnauthorized: new(false),
-							Sync:              new(true),
 						}))
 						By("Opening the second writer")
 						w2 = MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
@@ -1215,7 +1042,6 @@ var _ = Describe("Control", func() {
 							},
 							Authorities:       []xcontrol.Authority{0},
 							ErrOnUnauthorized: new(false),
-							Sync:              new(true),
 						}))
 						dataStreamer := MustSucceed(
 							db.NewStreamer(cesium.StreamerConfig{

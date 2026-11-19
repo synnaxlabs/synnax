@@ -275,7 +275,6 @@ var _ = Describe("Open after a crash", func() {
 					Channels:                 keys,
 					Start:                    10 * telem.SecondTS,
 					Mode:                     cesium.WriterModePersistStream,
-					Sync:                     new(true),
 					AutoIndexPersistInterval: telem.Hour,
 				})))
 				MustSucceed(w.Write(ctx, telem.MultiFrame(

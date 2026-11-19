@@ -61,14 +61,6 @@ type WriterConfig struct {
 	//
 	// [OPTIONAL] - Defaults to true.
 	EnableAutoCommit *bool
-	// Sync sets whether the writer should acknowledge all write requests with a
-	// corresponding writer response. Defaults to false, in which the writer will
-	// acknowledge Commit() and SetAuthority() commands, but not Write commands. Using
-	// sync mode is useful for acknowledging writes, but can clobber performance as the
-	// next write cannot be started before the previous write is completed.
-	//
-	// [OPTIONAL] - Defaults to false.
-	Sync *bool
 	// Name sets the human-readable name for the writer, which is useful for identifying
 	// it in control transfer scenarios.
 	//
@@ -129,7 +121,6 @@ func (c WriterConfig) Validate() error {
 	v := validate.New("cesium.writer_config")
 	v.NotEmptySlice("channels", c.Channels)
 	v.NotNil("err_on_unauthorized_open", c.ErrOnUnauthorized)
-	v.NotNil("sync", c.Sync)
 	v.NotNil("auto_index", c.AutoIndex)
 	v.Exec(c.ControlSubject.Validate)
 	v.Ternary(
@@ -148,7 +139,6 @@ func (c WriterConfig) Override(other WriterConfig) WriterConfig {
 	c.ControlSubject = c.ControlSubject.Override(other.ControlSubject)
 	c.ErrOnUnauthorized = override.Nil(c.ErrOnUnauthorized, other.ErrOnUnauthorized)
 	c.Mode = override.Numeric(c.Mode, other.Mode)
-	c.Sync = override.Nil(c.Sync, other.Sync)
 	c.EnableAutoCommit = override.Nil(c.EnableAutoCommit, other.EnableAutoCommit)
 	c.AutoIndexPersistInterval = override.Zero(
 		c.AutoIndexPersistInterval,
@@ -178,29 +168,6 @@ func (c WriterConfig) authority(i int) xcontrol.Authority {
 	return c.Authorities[i]
 }
 
-// NewStreamWriter implements DB.
-func (db *DB) NewStreamWriter(
-	ctx context.Context,
-	cfgs ...WriterConfig,
-) (StreamWriter, error) {
-	if db.closed.Load() {
-		return nil, ErrDBClosed
-	}
-	db.mu.RLock()
-	defer db.mu.RUnlock()
-	w, err := db.newWriter(ctx, cfgs...)
-	if err != nil {
-		return nil, err
-	}
-	return &streamWriter{
-		w: w,
-		validateCommand: validate.NewInclusiveBoundsChecker(
-			WriterCommandWrite,
-			writerCommandEndDomain,
-		),
-	}, nil
-}
-
 // OpenWriter implements DB.
 func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (*Writer, error) {
 	if db.closed.Load() {
@@ -222,7 +189,6 @@ func (db *DB) newWriter(
 		Mode:                     WriterModePersistStream,
 		EnableAutoCommit:         new(true),
 		AutoIndexPersistInterval: 1 * telem.Second,
-		Sync:                     new(false),
 		AutoIndex:                new(false),
 	}, cfgs...)
 	if err != nil {

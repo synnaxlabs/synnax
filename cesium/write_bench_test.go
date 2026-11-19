@@ -94,7 +94,6 @@ func BenchmarkCommit(b *testing.B) {
 			w, err := db.OpenWriter(b.Context(), cesium.WriterConfig{
 				Channels:                 keys,
 				Start:                    telem.SecondTS,
-				Sync:                     new(true),
 				AutoIndexPersistInterval: cesium.AlwaysIndexPersistOnAutoCommit,
 			})
 			if err != nil {
@@ -206,7 +205,6 @@ func openBenchWriter(
 		Channels:    keys,
 		Start:       telem.SecondTS,
 		Authorities: []control.Authority{a},
-		Sync:        new(true),
 	})
 	if err != nil {
 		b.Fatal(err)

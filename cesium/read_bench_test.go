@@ -60,7 +60,6 @@ func benchmarkReadDomains(b *testing.B, count int, open bool) {
 		w, err := db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: keys,
 			Start:    start,
-			Sync:     new(true),
 		})
 		if err != nil {
 			b.Fatal(err)

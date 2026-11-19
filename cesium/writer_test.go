@@ -2419,7 +2419,6 @@ var _ = Describe("Writer Behavior", func() {
 											Start:                    10 * telem.SecondTS,
 											Mode:                     cesium.WriterModePersistStream,
 											AutoIndexPersistInterval: 200 * telem.Millisecond,
-											Sync:                     new(true),
 										}),
 									)
 									write := func(seconds ...telem.TimeStamp) {
@@ -3275,7 +3274,6 @@ var _ = Describe("Writer Behavior", func() {
 								control.Authority(100),
 								control.Authority(110),
 							},
-							Sync: new(true),
 						}))
 
 						w2 := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
@@ -3285,7 +3283,6 @@ var _ = Describe("Writer Behavior", func() {
 								control.Authority(110),
 								control.Authority(100),
 							},
-							Sync: new(true),
 						}))
 
 						expectUnauthorized(w1.Write(ctx, telem.MultiFrame(
@@ -3341,7 +3338,6 @@ var _ = Describe("Writer Behavior", func() {
 								Channels:    []cesium.ChannelKey{key},
 								Start:       10 * telem.SecondTS,
 								Authorities: []control.Authority{100},
-								Sync:        new(true),
 							}))
 							started := make(chan struct{})
 							stopped := make(chan struct{})
@@ -3371,7 +3367,6 @@ var _ = Describe("Writer Behavior", func() {
 								Channels:    []cesium.ChannelKey{key},
 								Start:       20 * telem.SecondTS,
 								Authorities: []control.Authority{200},
-								Sync:        new(true),
 							}))
 							for i := range telem.TimeStamp(10) {
 								MustSucceed(w2.Write(ctx, telem.UnaryFrame(
@@ -3480,7 +3475,6 @@ var _ = Describe("Writer Behavior", func() {
 						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 							Channels: []cesium.ChannelKey{idx1, data1, idx2, data2},
 							Start:    105 * telem.SecondTS,
-							Sync:     new(true),
 						}))
 						Expect(writePair(
 							ctx,
@@ -3612,7 +3606,6 @@ var _ = Describe("Writer Behavior", func() {
 						func(ctx SpecContext) {
 							w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 								Channels: []cesium.ChannelKey{idx, data},
-								Sync:     new(true),
 							}))
 							Expect(writePair(
 								ctx,
@@ -3714,7 +3707,6 @@ var _ = Describe("Writer Behavior", func() {
 						Channels:       channels,
 						Start:          start,
 						Authorities:    []control.Authority{authority},
-						Sync:           new(true),
 					}
 				}
 				openLive := func(ctx SpecContext) *cesium.Writer {
@@ -4736,7 +4728,6 @@ var _ = Describe("Writer Behavior", func() {
 						return MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 							Channels:       keys,
 							Start:          start,
-							Sync:           new(true),
 							ControlSubject: control.Subject{Key: subject},
 							Authorities:    []control.Authority{auth},
 						}))
@@ -4833,7 +4824,6 @@ var _ = Describe("Writer Behavior", func() {
 						cesium.WriterConfig{
 							Channels: []cesium.ChannelKey{dtErrKey},
 							Start:    10 * telem.SecondTS,
-							Sync:     new(true),
 						},
 					))
 					Expect(w.Write(ctx, telem.MultiFrame(
@@ -4954,7 +4944,6 @@ var _ = Describe("Writer Behavior", func() {
 					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels: []cesium.ChannelKey{key},
 						Start:    10 * telem.SecondTS,
-						Sync:     new(true),
 					}))
 					Expect(
 						w.Write(
@@ -5369,7 +5358,7 @@ var _ = Describe("Writer Behavior", func() {
 				)
 
 				It(
-					"Should not allow opening an iterator on a closed db",
+					"Should not allow opening a writer on a closed db",
 					func(ctx SpecContext) {
 						sub := MustSucceed(fs.Sub("closed-fs"))
 						key := cesium.ChannelKey(1)
@@ -5394,35 +5383,6 @@ var _ = Describe("Writer Behavior", func() {
 							},
 						)).Error().To(MatchError(cesium.ErrDBClosed))
 
-						Expect(fs.Remove("closed-fs")).To(Succeed())
-					},
-				)
-
-				It(
-					"Should not allow opening a stream iterator on a closed db",
-					func(ctx SpecContext) {
-						sub := MustSucceed(fs.Sub("closed-fs"))
-						key := cesium.ChannelKey(1)
-						subDB := openDBOnFS(ctx, sub)
-						Expect(
-							subDB.CreateChannel(
-								ctx,
-								cesium.Channel{
-									Name:     "Our",
-									Key:      key,
-									DataType: telem.TimestampT,
-									IsIndex:  true,
-								},
-							),
-						).To(Succeed())
-						Expect(subDB.Close()).To(Succeed())
-						Expect(subDB.NewStreamWriter(
-							ctx,
-							cesium.WriterConfig{
-								Start:    0,
-								Channels: []cesium.ChannelKey{key},
-							},
-						)).Error().To(MatchError(cesium.ErrDBClosed))
 						Expect(fs.Remove("closed-fs")).To(Succeed())
 					},
 				)
