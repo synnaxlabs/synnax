@@ -388,7 +388,7 @@ jobs:
           echo "::error::Claude rejected the token of the seat's login. Store a new" \
             "one with infra/agent-runner/seat.sh token <login>."
 
-      # A replay has no check run to keep its record in.
+      # A replay posts nothing, so this artifact is its only output.
       - name: Keep the record of the replay
         if: ${{ inputs.replay }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
@@ -476,7 +476,7 @@ jobs:
             ${{ needs.start.result != 'success' && needs.start.result ||
             needs.review.result }}
         # GitHub does not document whether an output without text keeps the old text,
-        # so the record that the review wrote is sent back.
+        # so the text that the review wrote is sent back.
         run: |
           run="repos/$GITHUB_REPOSITORY/check-runs/$CHECK_RUN"
           text=$(gh api "$run" --jq '.output.text // ""')

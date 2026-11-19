@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { DataType, log } from "@synnaxlabs/client";
-import { aether } from "@synnaxlabs/pluto/ether";
+import { aether, canvas } from "@synnaxlabs/pluto/ether";
 import { id } from "@synnaxlabs/x";
 import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -16,6 +16,8 @@ import { z } from "zod";
 
 import { Log } from "@/feature/log/Log";
 import { client, renderLog } from "@/feature/log/toolbar/testutil";
+import { Vis } from "@/platform/vis";
+import { installMissingGPU } from "@/testutil";
 
 const stateZ = z.looseObject({});
 
@@ -48,5 +50,25 @@ describe("log/Log", () => {
     });
     expect(await screen.findByText("No data received yet")).toBeDefined();
     expect(screen.queryByText("Configure channels")).toBeNull();
+  });
+
+  describe("when the canvas has no GPU", () => {
+    installMissingGPU();
+
+    it("shows a placeholder in place of the log", async () => {
+      const InCanvas = () => (
+        <Vis.Canvas>
+          <Log />
+        </Vis.Canvas>
+      );
+      await renderLog(InCanvas, { additionalRegistry: canvas.REGISTRY });
+      expect(await screen.findByText("GPU required")).toBeDefined();
+      expect(
+        screen.getByText(
+          "Logs need a GPU to render. Run the Console on a machine with a GPU.",
+        ),
+      ).toBeDefined();
+      expect(screen.queryByText("No channels configured")).toBeNull();
+    });
   });
 });
