@@ -154,8 +154,7 @@ var Codec = xjson.NewCodec(decodeOptions)
 func (e *Envelope) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	raw, err := dec.ReadValue()
 	if err != nil {
-		var syntactic *jsontext.SyntacticError
-		if errors.As(err, &syntactic) {
+		if _, ok := errors.AsType[*jsontext.SyntacticError](err); ok {
 			return errors.Wrapf(validate.ErrValidation, "invalid JSON: %s", err)
 		}
 		return err
