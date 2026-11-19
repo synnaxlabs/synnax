@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import re
 import time
 from collections.abc import Callable
 
@@ -19,7 +20,7 @@ from console.layout import LayoutClient
 from synnax import enumeration
 
 _HEADING_SELECTOR = ".console-enumeration-settings__heading"
-_ITEM_SELECTOR = ".console-enumeration-settings__item"
+_NAME_LABEL = re.compile(r"^Name \d+$")
 _SEARCH_PLACEHOLDER = "Search enumerations"
 _POLL_MS = 100
 _CORE_TIMEOUT_S = 5
@@ -35,7 +36,7 @@ class EnumerationClient(ResourceClient):
         self.client = client
 
     def create(self, name: str, *, entries: list[str]) -> enumeration.Enumeration:
-        """Create an enumeration, then add entries in the form that opens under it.
+        """Create an enumeration, then add entries in the grid under it.
 
         :param name: The name of the new enumeration.
         :param entries: The names of the entries to add, in order.
@@ -48,7 +49,7 @@ class EnumerationClient(ResourceClient):
         item.wait_for(state="hidden", timeout=5000)
         self.wait_for(name, lambda _: True, f"The Core did not create {name}")
         self.search(name)
-        self._add_entries(entries)
+        self._add_entries(name, entries)
         return self.wait_for(
             name,
             lambda e: len(e.entries) == len(entries),
@@ -56,16 +57,13 @@ class EnumerationClient(ResourceClient):
         )
 
     def add_entry(self, enumeration_name: str, name: str) -> None:
-        """Add an entry with the add button on the heading of an enumeration.
+        """Add an entry with the Add entry button under an enumeration.
 
         :param enumeration_name: The name of the enumeration.
         :param name: The name of the new entry.
         """
         self.search(enumeration_name)
-        self.page.get_by_role(
-            "button", name=f"Add an entry to {enumeration_name}", exact=True
-        ).click()
-        self._add_entries([name])
+        self._add_entries(enumeration_name, [name])
 
     def rename(self, *, old_name: str, new_name: str) -> None:
         """Rename an enumeration from the menu of its heading."""
@@ -75,33 +73,39 @@ class EnumerationClient(ResourceClient):
     def rename_entry(
         self, enumeration_name: str, *, old_name: str, new_name: str
     ) -> None:
-        """Rename an entry of a shown enumeration from the menu of the entry."""
-        self.layout.rename_in_place(self.entry(old_name), new_name)
+        """Rename an entry of a shown enumeration in its Name cell."""
+        self._commit(self.cell(enumeration_name, "Name", old_name), new_name)
         self.wait_for(
             enumeration_name,
             lambda e: any(x.name == new_name for x in e.entries),
             f"The Core did not rename {old_name}",
         )
 
-    def set_value(self, entry_name: str, value: int) -> None:
+    def set_value(self, enumeration_name: str, entry_name: str, value: int) -> None:
         """Type a value into an entry of a shown enumeration and commit it."""
-        field = self.entry(entry_name).get_by_label("Value", exact=True)
-        field.fill(str(value))
-        field.press("Enter")
+        self._commit(self.cell(enumeration_name, "Value", entry_name), str(value))
 
-    def toggle_abnormal(self, entry_name: str) -> None:
+    def toggle_abnormal(self, enumeration_name: str, entry_name: str) -> None:
         """Flip the Abnormal switch of an entry of a shown enumeration."""
-        self.entry(entry_name).get_by_label("Abnormal", exact=True).click()
+        self.cell(enumeration_name, "Abnormal", entry_name).click()
 
-    def set_color(self, entry_name: str, hex_color: str) -> None:
+    def set_color(self, enumeration_name: str, entry_name: str, hex_color: str) -> None:
         """Pick a fixed color for an entry of a shown enumeration."""
-        swatch = self.entry(entry_name).get_by_label("Entry color", exact=True)
+        row = self._row(enumeration_name, entry_name)
+        swatch = self.section(enumeration_name).get_by_role(
+            "button", name=f"Pick color {row}", exact=True
+        )
         pick_color(self.page, swatch, hex_color=hex_color)
 
-    def remove_entry(self, entry_name: str) -> None:
-        """Remove an entry of a shown enumeration from the menu of the entry."""
-        self.ctx_menu.action(self.entry(entry_name), "Remove")
-        expect(self.entry(entry_name)).to_have_count(0, timeout=5000)
+    def remove_entry(self, enumeration_name: str, entry_name: str) -> None:
+        """Remove an entry of a shown enumeration with its Remove button."""
+        names = self._names(enumeration_name)
+        count = names.count()
+        row = self._row(enumeration_name, entry_name)
+        self.section(enumeration_name).get_by_role(
+            "button", name=f"Remove entry {row}", exact=True
+        ).click()
+        expect(names).to_have_count(count - 1, timeout=5000)
 
     def restore(self, name: str) -> None:
         """Restore a built-in enumeration from the menu of its heading."""
@@ -142,10 +146,15 @@ class EnumerationClient(ResourceClient):
             has=self.page.get_by_text(name, exact=True)
         )
 
-    def entry(self, name: str) -> Locator:
-        """The line of the shown entry named name."""
-        return self.page.locator(_ITEM_SELECTOR).and_(
-            self.page.get_by_role("option", name=name, exact=True)
+    def section(self, name: str) -> Locator:
+        """The heading and entries of the shown enumeration named name."""
+        return self.page.get_by_role("region", name=name, exact=True)
+
+    def cell(self, enumeration_name: str, column: str, entry_name: str) -> Locator:
+        """The cell of a column in the row of the shown entry named entry_name."""
+        row = self._row(enumeration_name, entry_name)
+        return self.section(enumeration_name).get_by_label(
+            f"{column} {row}", exact=True
         )
 
     def wait_for(
@@ -177,15 +186,31 @@ class EnumerationClient(ResourceClient):
                 raise PlaywrightTimeoutError(f"The Core did not delete {name}")
             self.page.wait_for_timeout(_POLL_MS)
 
-    def _add_entries(self, names: list[str]) -> None:
-        """Type each name into the open new entry form, then close the form."""
-        field = self.page.get_by_placeholder("Entry name", exact=True)
+    def _names(self, enumeration_name: str) -> Locator:
+        """The Name cells of the shown enumeration, in order."""
+        return self.section(enumeration_name).get_by_label(_NAME_LABEL)
+
+    def _entry_names(self, enumeration_name: str) -> list[str]:
+        names = self._names(enumeration_name)
+        return [names.nth(i).input_value() for i in range(names.count())]
+
+    def _row(self, enumeration_name: str, entry_name: str) -> int:
+        """The row of the shown entry named entry_name, from 1."""
+        return self._entry_names(enumeration_name).index(entry_name) + 1
+
+    def _add_entries(self, enumeration_name: str, names: list[str]) -> None:
+        """Add an entry for each name with the Add entry button, then name it."""
+        section = self.section(enumeration_name)
         for name in names:
-            field.fill(name)
-            field.press("Enter")
-            expect(field).to_have_value("", timeout=5000)
-        field.press("Escape")
-        expect(field).to_have_count(0, timeout=5000)
+            row = self._names(enumeration_name).count() + 1
+            section.get_by_role("button", name="Add entry", exact=True).click()
+            self._commit(section.get_by_label(f"Name {row}", exact=True), name)
+
+    @staticmethod
+    def _commit(cell: Locator, text: str) -> None:
+        """Type into a cell of the entries grid, then blur it to commit the text."""
+        cell.fill(text)
+        cell.blur()
 
     def _show_page(self) -> None:
         """Show the Enumerations page of Settings."""
