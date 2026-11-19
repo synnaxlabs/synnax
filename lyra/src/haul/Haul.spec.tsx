@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
+  act,
   fireEvent,
   render,
   renderHook,
@@ -21,6 +22,7 @@ import {
   type ReactElement,
   type ReactNode,
   useEffect,
+  useState,
 } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -29,7 +31,8 @@ import { mockBoundingClientRect } from "@/testutil";
 
 const ITEMS: Haul.Item[] = [{ type: "cat", key: "whiskers" }];
 // A drag that another window started reaches this window only through the state.
-const MIRRORED: Haul.DraggingState = {
+const MIRRORED: Haul.State = {
+  key: "drag",
   source: { type: "cat", key: "basket" },
   items: ITEMS,
 };
@@ -182,6 +185,53 @@ const fireDragEnd = (element: HTMLElement, screenX: number, screenY: number): vo
 };
 
 const passthroughDrop = () => vi.fn(({ items }: Haul.OnDropProps) => items);
+
+interface WindowProps extends PropsWithChildren {
+  index: number;
+}
+
+// Sibling providers share their state the way Drift mirrors the Console's haul slice:
+// the writing window applies a change at once, and the others get it on flush.
+const createWindows = () => {
+  const setters = new Map<number, (state: Haul.State) => void>();
+  const queue: Array<{ from: number; state: Haul.State }> = [];
+  const Window = ({ index, children }: WindowProps): ReactElement => {
+    const [value, setValue] = useState<Haul.State>(Haul.ZERO_STATE);
+    useEffect(() => {
+      setters.set(index, setValue);
+    }, [index]);
+    const handleChange = (state: Haul.State) => {
+      setValue(state);
+      queue.push({ from: index, state });
+    };
+    return (
+      <Haul.Provider value={value} onChange={handleChange}>
+        {children}
+      </Haul.Provider>
+    );
+  };
+  const flush = () =>
+    act(() => {
+      for (let next = queue.shift(); next != null; next = queue.shift()) {
+        const { from, state } = next;
+        setters.forEach((set, index) => {
+          if (index !== from) set(state);
+        });
+      }
+    });
+  return { Window, flush };
+};
+
+// The source's dragend runs before the drop reaches it through the shared state.
+const dropInOtherWindow = (flush: () => void, testId = "target"): void => {
+  beginDrag();
+  flush();
+  fireEvent.drop(screen.getByTestId(testId));
+  fireEvent.dragEnd(screen.getByTestId("source"), {
+    dataTransfer: { dropEffect: "move" },
+  });
+  flush();
+};
 
 const Watcher = ({ onResolve }: { onResolve: Haul.OnResolve }): null => {
   Haul.useOnResolve(onResolve);
@@ -706,6 +756,120 @@ describe("Haul", () => {
       beginDrag();
       fireDragEnd(screen.getByTestId("source"), 1, 1);
       expect(onResolve).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("across windows", () => {
+    it("should tell the source window about a drop that another window took", () => {
+      const { Window, flush } = createWindows();
+      const onSuccessfulDrop = vi.fn<(props: Haul.OnSuccessfulDropProps) => void>();
+      render(
+        <>
+          <Window index={0}>
+            <Source onSuccessfulDrop={onSuccessfulDrop} />
+          </Window>
+          <Window index={1}>
+            <Target testId="target" onDrop={passthroughDrop()} />
+          </Window>
+        </>,
+      );
+      dropInOtherWindow(flush);
+      expect(onSuccessfulDrop.mock.calls).toEqual([
+        [
+          {
+            target: { type: "test-target", key: "target" },
+            dropped: ITEMS,
+            hauled: ITEMS,
+          },
+        ],
+      ]);
+    });
+
+    it("should report a drop in another window as landed once in every window", () => {
+      const { Window, flush } = createWindows();
+      const resolves = [
+        vi.fn<Haul.OnResolve>(),
+        vi.fn<Haul.OnResolve>(),
+        vi.fn<Haul.OnResolve>(),
+      ];
+      render(
+        <>
+          <Window index={0}>
+            <Source />
+            <Watcher onResolve={resolves[0]} />
+          </Window>
+          <Window index={1}>
+            <Target testId="target" onDrop={passthroughDrop()} />
+            <Watcher onResolve={resolves[1]} />
+          </Window>
+          <Window index={2}>
+            <Watcher onResolve={resolves[2]} />
+          </Window>
+        </>,
+      );
+      dropInOtherWindow(flush);
+      resolves.forEach((onResolve) => expect(onResolve.mock.calls).toEqual([[true]]));
+    });
+
+    it("should report a cancelled drag as not landed in every window", () => {
+      const { Window, flush } = createWindows();
+      const resolves = [vi.fn<Haul.OnResolve>(), vi.fn<Haul.OnResolve>()];
+      render(
+        <>
+          <Window index={0}>
+            <Source />
+            <Watcher onResolve={resolves[0]} />
+          </Window>
+          <Window index={1}>
+            <Watcher onResolve={resolves[1]} />
+          </Window>
+        </>,
+      );
+      beginDrag();
+      flush();
+      fireDragEnd(screen.getByTestId("source"), 1, 1);
+      flush();
+      resolves.forEach((onResolve) => expect(onResolve.mock.calls).toEqual([[false]]));
+    });
+
+    it("should end a drag that another window dropped where no target took it", () => {
+      const { Window, flush } = createWindows();
+      const onSuccessfulDrop = vi.fn<(props: Haul.OnSuccessfulDropProps) => void>();
+      const resolves = [vi.fn<Haul.OnResolve>(), vi.fn<Haul.OnResolve>()];
+      render(
+        <>
+          <Window index={0}>
+            <Source onSuccessfulDrop={onSuccessfulDrop} />
+            <Watcher onResolve={resolves[0]} />
+          </Window>
+          <Window index={1}>
+            <Target testId="refuser" canDrop={() => false} onDrop={passthroughDrop()} />
+            <Watcher onResolve={resolves[1]} />
+          </Window>
+        </>,
+      );
+      dropInOtherWindow(flush, "refuser");
+      expect(onSuccessfulDrop).not.toHaveBeenCalled();
+      resolves.forEach((onResolve) => expect(onResolve.mock.calls).toEqual([[false]]));
+    });
+
+    it("should end a drag that no window reported on the next mouse move", () => {
+      const { Window, flush } = createWindows();
+      const onResolve = vi.fn<Haul.OnResolve>();
+      render(
+        <Window index={0}>
+          <Source />
+          <Watcher onResolve={onResolve} />
+        </Window>,
+      );
+      beginDrag();
+      fireEvent.dragEnd(screen.getByTestId("source"), {
+        dataTransfer: { dropEffect: "move" },
+      });
+      flush();
+      expect(onResolve).not.toHaveBeenCalled();
+      fireEvent.mouseMove(document, { screenX: 1, screenY: 1 });
+      expect(onResolve.mock.calls).toEqual([[false]]);
     });
   });
 

@@ -41,8 +41,7 @@ const useWindowsContain = (): ((cursor: xy.XY) => boolean) => {
     );
 };
 
-// A drag that started in another window never called start() on this window's haul
-// provider, so its local dragging ref is empty. Only the source window acts.
+// The drag's source window tears it out, so callers pass the drag this window started.
 const useResolve = ({ canDrop, onDrop }: UseDropOutsideProps) => {
   const windowsContain = useWindowsContain();
   const propsRef = useSyncedRef({ canDrop, onDrop });
