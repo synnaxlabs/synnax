@@ -74,8 +74,7 @@ func (f *file) Read(p []byte) (int, error) {
 		return 0, io.EOF
 	}
 	n := copy(p, f.n.data[f.rpos:])
-	f.d.misdirect(p[:n], f.n, f.path, f.rpos)
-	f.d.corrupt(p[:n], f.path, f.rpos)
+	f.d.spoil(p[:n], f.n, f.path, f.rpos)
 	f.rpos += int64(n)
 	return n, nil
 }
@@ -91,8 +90,7 @@ func (f *file) ReadAt(p []byte, off int64) (int, error) {
 		return 0, io.EOF
 	}
 	n := copy(p, f.n.data[off:])
-	f.d.misdirect(p[:n], f.n, f.path, off)
-	f.d.corrupt(p[:n], f.path, off)
+	f.d.spoil(p[:n], f.n, f.path, off)
 	if n < len(p) {
 		return n, io.EOF
 	}
@@ -223,17 +221,33 @@ func (d *disk) usedUnder(n *node, seen set.Set[*node]) int64 {
 	return total
 }
 
-// corrupt flips one bit of p, the bytes that a read of path at off returns, at the read
-// corruption rate.
-func (d *disk) corrupt(p []byte, path string, off int64) {
-	if d.cfg.ReadCorruptionRate == 0 || len(p) == 0 {
+// spoil applies the read faults to p, the bytes that a read of the file n at path and
+// off returns. A fault never hits the read that follows a faulted read of the same
+// place, so a second read is good.
+func (d *disk) spoil(p []byte, n *node, path string, off int64) {
+	if len(p) == 0 || d.cfg.ReadCorruptionRate == 0 && d.cfg.MisdirectedReadRate == 0 {
 		return
 	}
-	file, at, nth := hashPath(path), uint64(off), d.next(drawRead, path, off)
-	if d.draw(drawRead, file, at, nth) < d.cfg.ReadCorruptionRate {
-		bit := int(d.draw(drawReadBit, file, at, nth) * float64(len(p)*8))
-		p[bit/8] ^= 1 << (bit % 8)
+	at := place{path: path, off: off}
+	if d.spoiled.Contains(at) {
+		d.spoiled.Remove(at)
+		return
 	}
+	misdirected := d.misdirect(p, n, path, off)
+	if d.corrupt(p, path, off) || misdirected {
+		d.spoiled.Add(at)
+	}
+}
+
+// corrupt flips one bit of p at the read corruption rate, and reports if it did.
+func (d *disk) corrupt(p []byte, path string, off int64) bool {
+	file, at, nth := hashPath(path), uint64(off), d.next(drawRead, path, off)
+	if d.draw(drawRead, file, at, nth) >= d.cfg.ReadCorruptionRate {
+		return false
+	}
+	bit := int(d.draw(drawReadBit, file, at, nth) * float64(len(p)*8))
+	p[bit/8] ^= 1 << (bit % 8)
+	return true
 }
 
 // resize sets the length of the file n to size, and fills new bytes with zeros.

@@ -15,15 +15,12 @@ import (
 )
 
 // misdirect replaces the bytes of one block in p with the bytes of another block of the
-// disk, at the misdirected read rate. p holds the bytes that a read of the file n at
-// path and off returns.
-func (d *disk) misdirect(p []byte, n *node, path string, off int64) {
-	if d.cfg.MisdirectedReadRate == 0 || len(p) == 0 {
-		return
-	}
+// disk, at the misdirected read rate, and reports if it did. p holds the bytes that a
+// read of the file n at path and off returns.
+func (d *disk) misdirect(p []byte, n *node, path string, off int64) bool {
 	file, at, nth := hashPath(path), uint64(off), d.next(drawMisdirect, path, off)
 	if d.draw(drawMisdirect, file, at, nth) >= d.cfg.MisdirectedReadRate {
-		return
+		return false
 	}
 	first, last := off/blockSize, (off+int64(len(p))-1)/blockSize
 	span := float64(last - first + 1)
@@ -50,8 +47,9 @@ func (d *disk) misdirect(p []byte, n *node, path string, off int64) {
 		if start < int64(len(f.data)) {
 			copy(block, f.data[start:])
 		}
-		return
+		return true
 	}
+	return false
 }
 
 func blockCount(n *node) int64 {

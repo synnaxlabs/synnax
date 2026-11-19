@@ -124,16 +124,26 @@ func flipped(got []byte, want string) int {
 }
 
 var _ = Describe("Read corruption", func() {
-	It("Should flip one bit of each read and leave the disk as it was", func() {
+	It("Should flip one bit of a read and leave the disk as it was", func() {
 		fs := faulty(fault.Config{ReadCorruptionRate: 1})
 		f := MustOpen(fs.Open("f.txt", os.O_RDONLY))
 		buf := make([]byte, 7)
-		Expect(f.ReadAt(buf, 0)).To(Equal(7))
-		Expect(flipped(buf, "tacocat")).To(Equal(1))
 		Expect(f.Read(buf)).To(Equal(7))
 		Expect(flipped(buf, "tacocat")).To(Equal(1))
 		Expect(f.Read(buf)).Error().To(MatchError(io.EOF))
 		Expect(read(strict(fs), "f.txt")).To(Equal("tacocat"))
+	})
+
+	It("Should give a good read after a faulted read of the same place", func() {
+		fs := faulty(fault.Config{ReadCorruptionRate: 1, MisdirectedReadRate: 1})
+		f := MustOpen(fs.Open("f.txt", os.O_RDONLY))
+		buf := make([]byte, 7)
+		for _, want := range []int{1, 0, 1, 0} {
+			Expect(f.ReadAt(buf, 0)).To(Equal(7))
+			Expect(flipped(buf, "tacocat")).To(Equal(want))
+		}
+		Expect(f.ReadAt(buf[:3], 4)).To(Equal(3))
+		Expect(flipped(buf[:3], "cat")).To(Equal(1))
 	})
 
 	It("Should fix the reads that it corrupts by the run key", func() {

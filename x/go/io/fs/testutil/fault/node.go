@@ -18,6 +18,7 @@ import (
 	"time"
 
 	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/set"
 )
 
 // disk is the state that an FS shares with every FS from its Sub.
@@ -28,6 +29,8 @@ type disk struct {
 	// calls counts the calls of each kind at each path and offset. The count is a part
 	// of each draw, so a second call gets its own draw.
 	calls map[call]uint64
+	// spoiled holds each place whose last read got a read fault.
+	spoiled set.Set[place]
 	// open counts the handles on each node. A removed file holds its space until it has
 	// none.
 	open map[*node]int
@@ -156,6 +159,12 @@ type half struct {
 	name          string
 }
 
+// place is an offset in the file at a path.
+type place struct {
+	path string
+	off  int64
+}
+
 type call struct {
 	path string
 	kind uint64
@@ -164,11 +173,12 @@ type call struct {
 
 func newDisk(cfg Config, root *node, clock int64) *disk {
 	return &disk{
-		cfg:   cfg,
-		root:  root,
-		clock: clock,
-		calls: map[call]uint64{},
-		open:  map[*node]int{},
+		cfg:     cfg,
+		root:    root,
+		clock:   clock,
+		calls:   map[call]uint64{},
+		open:    map[*node]int{},
+		spoiled: set.Set[place]{},
 	}
 }
 

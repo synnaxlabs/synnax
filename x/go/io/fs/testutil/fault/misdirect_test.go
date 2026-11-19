@@ -55,8 +55,10 @@ var _ = Describe("Misdirected reads", func() {
 	It("Should return one whole block from another place", func() {
 		fs := open(always)
 		sources := set.Set[string]{}
+		whole := strings.Repeat("a", blockSize) + strings.Repeat("b", blockSize)
 		for range 32 {
 			got := readAt(fs, 0, 2*blockSize)
+			Expect(readAt(fs, 0, 2*blockSize)).To(Equal(whole))
 			first, second := got[:blockSize], got[blockSize:]
 			for _, block := range []string{first, second} {
 				Expect(block).To(Equal(strings.Repeat(block[:1], blockSize)))

@@ -51,7 +51,8 @@ type Config struct {
 	// until a crash.
 	EvictionRate float64
 	// ReadCorruptionRate is the chance, from 0 to 1, that a read returns one flipped
-	// bit. The bytes on the disk do not change.
+	// bit. The bytes on the disk do not change. A read fault of either kind never hits
+	// the read that follows a faulted read of the same place, so a second read is good.
 	ReadCorruptionRate float64
 	// MisdirectedReadRate is the chance, from 0 to 1, that a read gets one 4 KiB block
 	// from the wrong place: another block of the file, or a block of another file. The
