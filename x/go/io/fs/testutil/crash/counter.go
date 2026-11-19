@@ -49,15 +49,11 @@ func (c *counter) event() {
 	}
 }
 
-// moved gives the synced lengths of the path from, and of each path under it, to the
-// path to.
-func (c *counter) moved(from, to string) {
-	for p, size := range c.synced {
-		if p == from || strings.HasPrefix(p, from+"/") {
-			delete(c.synced, p)
-			if to != "" {
-				c.synced[to+strings.TrimPrefix(p, from)] = size
-			}
+// forget drops the synced lengths of the path p and of each path under it.
+func (c *counter) forget(p string) {
+	for name := range c.synced {
+		if name == p || strings.HasPrefix(name, p+"/") {
+			delete(c.synced, name)
 		}
 	}
 }
@@ -120,7 +116,7 @@ func (f *countedFS) Remove(name string) error {
 	f.c.mu.Lock()
 	defer f.c.mu.Unlock()
 	defer f.c.event()
-	f.c.moved(path.Join(f.dir, name), "")
+	f.c.forget(path.Join(f.dir, name))
 	return f.inner.Remove(name)
 }
 
@@ -128,11 +124,9 @@ func (f *countedFS) Rename(oldPath, newPath string) error {
 	f.c.mu.Lock()
 	defer f.c.mu.Unlock()
 	defer f.c.event()
-	err := f.inner.Rename(oldPath, newPath)
-	if err == nil {
-		f.c.moved(path.Join(f.dir, oldPath), path.Join(f.dir, newPath))
-	}
-	return err
+	f.c.forget(path.Join(f.dir, oldPath))
+	f.c.forget(path.Join(f.dir, newPath))
+	return f.inner.Rename(oldPath, newPath)
 }
 
 func (f *countedFS) SyncDir(name string) error {

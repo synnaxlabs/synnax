@@ -72,33 +72,33 @@ var _ = Describe("Run", func() {
 		}
 	})
 
-	DescribeTable(
-		"Should catch an engine that",
-		func(ctx SpecContext, b bugs, profile crash.Profile, rule crash.Rule) {
-			Expect(broke(run(ctx, b, profile, 0))).To(Equal(rule))
+	// Each entry keeps the first run key that caught its bug.
+	DescribeTable("Should catch an engine that",
+		func(
+			ctx SpecContext,
+			b bugs,
+			profile crash.Profile,
+			runKey uint64,
+			rule crash.Rule,
+		) {
+			Expect(broke(run(ctx, b, profile, runKey))).To(Equal(rule))
 		},
-		Entry(
-			"skips a directory sync",
-			bugs{skipDirSync: true},
-			crash.Strict,
-			crash.R1,
-		),
+		Entry("skips a directory sync",
+			bugs{skipDirSync: true}, crash.Strict, uint64(0), crash.R1),
 		Entry("acks before the log sync",
-			bugs{ackBeforeSync: true}, crash.Strict, crash.R1),
+			bugs{ackBeforeSync: true}, crash.Strict, uint64(0), crash.R1),
 		Entry("trusts a retried fsync",
-			bugs{trustRetriedSync: true}, crash.SyncErrors, crash.R1),
+			bugs{trustRetriedSync: true}, crash.SyncErrors, uint64(0), crash.R1),
 		Entry("truncates on any checksum error",
-			bugs{truncateOnAnyError: true}, crash.OldCorruption, crash.R1),
+			bugs{truncateOnAnyError: true}, crash.OldCorruption, uint64(0), crash.R1),
 		Entry("skips the checksum on read",
-			bugs{skipChecksum: true}, crash.OneTimeReadFaults, crash.R2),
+			bugs{skipChecksum: true}, crash.OneTimeReadFaults, uint64(0), crash.R2),
 		Entry("skips a bad record and goes on",
-			bugs{skipBadRecord: true}, crash.Partial, crash.R3),
-		Entry(
-			"refuses a torn tail",
-			bugs{refuseTornTail: true},
-			crash.Partial,
-			crash.R4,
-		),
+			bugs{skipBadRecord: true}, crash.Partial, uint64(0), crash.R3),
+		Entry("refuses a torn tail",
+			bugs{refuseTornTail: true}, crash.Partial, uint64(0), crash.R4),
+		Entry("ignores a failed write",
+			bugs{ignoreWriteError: true}, crash.FullDisk, uint64(1), crash.R1),
 	)
 
 	It("Should give the same violation for the same run key", func(ctx SpecContext) {

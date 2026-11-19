@@ -37,7 +37,7 @@ var errCorrupt = errors.New("reflog: corrupt log")
 // bugs holds the known bugs of the canaries. The zero value is the correct engine.
 type bugs struct {
 	skipDirSync, ackBeforeSync, trustRetriedSync, truncateOnAnyError bool
-	skipChecksum, skipBadRecord, refuseTornTail                      bool
+	skipChecksum, skipBadRecord, refuseTornTail, ignoreWriteError    bool
 }
 
 // refLog is a small log store: records in slots of segment files, a checksum that binds
@@ -234,7 +234,8 @@ func (l *refLog) Commit(
 			return 0, l.dead
 		}
 	}
-	if _, err := l.file.WriteAt(l.encode(r), int64(l.next)*slotSize); err != nil {
+	_, err := l.file.WriteAt(l.encode(r), int64(l.next)*slotSize)
+	if err != nil && !l.bugs.ignoreWriteError {
 		return 0, err
 	}
 	l.next++
