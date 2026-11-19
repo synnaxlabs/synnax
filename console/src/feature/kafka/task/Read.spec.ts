@@ -665,6 +665,94 @@ describe("Kafka read form", () => {
       dialog.getByRole("button", { name: "Add 2 fields" });
     });
 
+    it("should give each number field the type of its inferred data type", async () => {
+      const { draft, dev } = await renderRead();
+      const pump = {
+        sources: ["pump"],
+        fields: [
+          createInferredField("/count", "int64", "number"),
+          createInferredField("/id", "uint64", "number"),
+          createInferredField("/level", "float64", "number"),
+        ],
+        index: -1,
+        count: 2,
+      };
+      const dialog = await openAddData(dev, { data: sampleOf(pump) });
+      fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
+      fireEvent.click(dialog.getByRole("button", { name: "Add 3 fields" }));
+      const [rec] = await waitFor(async () => {
+        const next = await retrieveRecords(draft.key);
+        expect(next).toHaveLength(1);
+        return next;
+      });
+      const { messages } = await client.icds.retrieve(rec.icd);
+      expect(messages[0].payload).toMatchObject({
+        fields: [
+          { pointer: "/count", type: "integer" },
+          { pointer: "/id", type: "unsigned" },
+          { pointer: "/level", type: "float" },
+        ],
+      });
+    });
+
+    it("should name fields apart when their pointers give one name", async () => {
+      const { draft, dev } = await renderRead();
+      const pump = {
+        sources: ["pump"],
+        fields: [
+          createInferredField("/a/b", "float64", "number"),
+          createInferredField("/a_b", "float64", "number"),
+        ],
+        index: -1,
+        count: 2,
+      };
+      const dialog = await openAddData(dev, { data: sampleOf(pump) });
+      fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
+      fireEvent.click(dialog.getByRole("button", { name: "Add 2 fields" }));
+      const [rec] = await waitFor(async () => {
+        const next = await retrieveRecords(draft.key);
+        expect(next).toHaveLength(1);
+        return next;
+      });
+      const { messages } = await client.icds.retrieve(rec.icd);
+      expect(messages[0].payload).toMatchObject({
+        fields: [{ name: "a_b" }, { name: "a_b_2" }],
+      });
+    });
+
+    it("should move the picks onto a new sample on Listen again", async () => {
+      const { draft, dev } = await renderRead();
+      const pump = {
+        sources: ["pump-1"],
+        fields: [createInferredField("/pressure", "int64", "number")],
+        index: -1,
+        count: 2,
+      };
+      const dialog = await openAddData(dev, { data: sampleOf(OVEN_SHAPE, pump) });
+      fireEvent.click(await dialog.findByText("pump-1"));
+      fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
+      const scan = await client.tasks.retrieve({
+        type: Kafka.Task.SCAN_TYPE,
+        rack: dev.rack,
+        one: true,
+      });
+      const grown = { ...pump, sources: ["pump-1", "pump-2"] };
+      const again = await answerNextCommand(client, scan, {
+        data: sampleOf(grown, OVEN_SHAPE),
+      });
+      fireEvent.click(dialog.getByRole("button", { name: "Listen again" }));
+      await again.answered;
+      await dialog.findAllByText("pump-1, pump-2");
+      dialog.getByText("1 field selected");
+      fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
+      const records = await waitFor(async () => {
+        const next = await retrieveRecords(draft.key);
+        expect(next).toHaveLength(2);
+        return next;
+      });
+      expect(records.map(({ recordKey }) => recordKey)).toEqual(["pump-1", "pump-2"]);
+    });
+
     it("should show each field's value from the newest record that holds it", async () => {
       const { dev } = await renderRead();
       const record = (offset: number, value: object) => ({
