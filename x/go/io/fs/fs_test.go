@@ -23,6 +23,12 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+var _ = Describe("Default", func() {
+	It("Should sync the working directory for an empty name", func() {
+		Expect(xfs.Default.SyncDir("")).To(Succeed())
+	})
+})
+
 var _ = Describe("FS", func() {
 	for fsName, openFS := range FileSystems {
 		var fs xfs.FS
