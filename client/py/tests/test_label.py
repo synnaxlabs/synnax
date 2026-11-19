@@ -15,6 +15,7 @@ import pytest
 import synnax as sy
 from synnax import label
 from x.strings import random_name
+from x.testutil import untyped
 
 
 @pytest.fixture
@@ -168,17 +169,19 @@ class TestLabelClient:
     def test_retrieve_one_with_limit(self, client: sy.Synnax) -> None:
         """Should reject one beside a limit, since a page could hide a match."""
         with pytest.raises(sy.ValidationError, match="cannot set a limit"):
-            client.labels.retrieve(name={"starts_with": "a"}, one=True, limit=1)  # type: ignore[call-overload]
+            untyped(client.labels.retrieve)(
+                name={"starts_with": "a"}, one=True, limit=1
+            )
 
     def test_retrieve_none_field(self, client: sy.Synnax) -> None:
         """Should reject a field set to None, since it would select every label."""
         with pytest.raises(sy.ValidationError, match="name is None"):
-            client.labels.retrieve(name=None)  # type: ignore[call-overload]
+            untyped(client.labels.retrieve)(name=None)
 
     def test_retrieve_unknown_field(self, client: sy.Synnax) -> None:
         """Should reject a field that is not a label filter line."""
         with pytest.raises(pydantic.ValidationError, match="nme"):
-            client.labels.retrieve(nme="a")  # type: ignore[call-overload]
+            untyped(client.labels.retrieve)(nme="a")
 
     def test_delete(self, client: sy.Synnax) -> None:
         """Should delete a label."""

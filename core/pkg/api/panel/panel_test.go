@@ -771,8 +771,10 @@ var _ = Describe("OwnedTables and OwnedPlaces", func() {
 			Owner:   &u.Key,
 		}
 		Expect(panelSvc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
-		var tables, places []string
-		for _, c := range gorp.ChangesOf(tx) {
+		changes := gorp.ChangesOf(tx)
+		tables := make([]string, 0, len(changes))
+		var places []string
+		for _, c := range changes {
 			tables = append(tables, c.Record.Table)
 			for _, l := range c.Added {
 				if l.Kind == gorp.Place {

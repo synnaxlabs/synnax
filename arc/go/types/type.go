@@ -161,6 +161,18 @@ func Function(props FunctionProperties) Type {
 	return Type{Kind: KindFunction, FunctionProperties: props}
 }
 
+// Concrete returns t with the type of an untyped literal resolved to i64 or f64.
+func Concrete(t Type) Type {
+	if t.Kind != KindVariable {
+		return t
+	}
+	kind := KindF64
+	if c := t.Constraint; c != nil && c.Kind == KindIntegerConstant {
+		kind = KindI64
+	}
+	return Type{Kind: kind, Unit: t.Unit}
+}
+
 // StructuralMatch returns true if both types have the same wrapper structure.
 func StructuralMatch(t1, t2 Type) bool {
 	return (t1.Kind == KindSeries) == (t2.Kind == KindSeries) &&
@@ -256,9 +268,9 @@ func FromTelem(t telem.DataType) Type {
 		return String()
 	case telem.TimestampT:
 		return TimeStamp()
-	default:
-		return Type{Kind: KindInvalid}
+	case telem.UnknownT, telem.BytesT:
 	}
+	return Type{Kind: KindInvalid}
 }
 
 // Zero returns the value a Param carries for the zero of t: 0 for numeric kinds,
@@ -289,7 +301,10 @@ func Zero(t Type) any {
 		return ""
 	case KindBool:
 		return false
-	default:
+	case KindInvalid, KindChan, KindSeries, KindVariable, KindNumericConstant,
+		KindIntegerConstant, KindFloatConstant, KindExactIntegerFloatConstant,
+		KindFunction, KindSequence, KindStage, KindVarRef:
 		return nil
 	}
+	panic("unknown type kind " + t.Kind.String())
 }

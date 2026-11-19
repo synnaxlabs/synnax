@@ -193,7 +193,7 @@ func (s *Server) publishDiagnostics(
 	filePath := strings.TrimPrefix(string(docURI), "file://")
 	table := resolution.NewTable()
 	analyzeDiag := analyzer.AnalyzeSeeded(
-		ctx, content, filePath, namespace, noopLoader{}, table,
+		content, filePath, namespace, noopLoader{}, table,
 	)
 	if analyzeDiag != nil {
 		flat := analyzeDiag.Flat()

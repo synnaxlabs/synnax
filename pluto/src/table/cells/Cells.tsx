@@ -12,7 +12,7 @@ import "@/table/cells/Cells.css";
 import { table } from "@synnaxlabs/client";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text as BaseText } from "@synnaxlabs/lyra/text";
-import { type border, box, color } from "@synnaxlabs/x";
+import { type border, box, color, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
@@ -115,7 +115,7 @@ export const Value = ({
     telem: t,
     level,
     color: textColor,
-    stalenessTimeout,
+    stalenessTimeout: TimeSpan.seconds(stalenessTimeout).nanoseconds,
     stalenessColor,
     backgroundTelem,
     location: { x: "center", y: "center" },

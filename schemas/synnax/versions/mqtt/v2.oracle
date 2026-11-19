@@ -1,0 +1,191 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/channel/v0"
+import "schemas/synnax/versions/device/v0"
+import "schemas/synnax/versions/icd/v0"
+import "schemas/synnax/versions/task/v2"
+import "schemas/x/versions/telem/v0"
+
+QoS = v1.QoS
+
+SparkplugDataType = v1.SparkplugDataType
+
+ReadField = v1.ReadField
+
+BaseReadEntry = v1.BaseReadEntry
+
+ReadBinding struct {
+    field     icd.FieldKey   {
+        @doc value "is the key of the message field to read."
+    }
+    channel   channel.Key = 0 {
+        @doc value "is the channel the value of the field is written to."
+    }
+    data_type telem.DataType = "" {
+        @doc value """
+            is the data type of the channel that a client creates for the field. Empty
+            takes the default of the field's kind. The Core ignores it once the channel
+            exists.
+        """
+    }
+
+    @doc value  "writes the value of one message field to a channel."
+    @go marshal
+}
+
+ReadMessage struct {
+    message  icd.MessageKey {
+        @doc value "is the key of the ICD message to read."
+    }
+    index    icd.FieldKey?  {
+        @doc value """
+            is the key of the field whose channel indexes the others. Absent when the
+            task stamps samples on arrival.
+        """
+    }
+    bindings ReadBinding[] = [] {
+        @doc value "are the fields the task reads. A field with no binding is not read."
+    }
+
+    @doc value  "reads the documents of one ICD message."
+    @go marshal
+}
+
+InlineEntry struct extends BaseReadEntry {
+    at               uint32 = 0 {
+        @doc value "is the index of the entry in the entries of its config."
+    }
+    topic            string = "" {
+        @doc value "is the topic to subscribe to."
+    }
+    qos              QoS = at_most_once {
+        @doc value "is the quality of service of the subscription."
+    }
+    retained_ignored bool = false {
+        @doc value "is true when the task drops the retained message on subscribe."
+    }
+    fields           ReadField[] = [] {
+        @doc value "are the fields of the entry."
+    }
+    index            string = "" {
+        @doc value "is the key of the index field. Empty for arrival timing."
+    }
+
+    @doc value "is a plain entry from before ICDs, which held its fields inline."
+}
+
+InlineRead struct {
+    entries InlineEntry[] = [] {
+        @doc value "are the plain entries that hold their fields inline."
+    }
+
+    @doc value "holds the plain entries of a read config from before ICDs."
+}
+
+ReadEntry union on type extends BaseReadEntry {
+    plain {
+        topic            string = "" {
+            @doc value "is the topic to subscribe to. It holds no wildcards."
+        }
+        qos              QoS = at_most_once {
+            @doc value "is the quality of service of the subscription."
+        }
+        retained_ignored bool = false {
+            @doc value """
+                is true when the task drops the retained message that the broker sends
+                on subscribe.
+            """
+        }
+        icd              icd.Key       {
+            @doc value "is the key of the ICD that holds the messages of the topic."
+        }
+        messages         ReadMessage[] = [] {
+            @doc value """
+                are the messages the topic carries. Each payload is read as the message
+                whose match rule it meets.
+            """
+        }
+
+        @doc value "reads the JSON payloads of one topic as the messages of an ICD."
+    }
+    sparkplug {
+        group     string = "" {
+            @doc value "is the Sparkplug group ID of the edge node."
+        }
+        edge_node string = "" {
+            @doc value "is the Sparkplug edge node ID."
+        }
+        device    string = "" {
+            @doc value "is the Sparkplug device ID. Empty for a tag of the edge node."
+        }
+        tag       string = "" {
+            @doc value "is the name of the tag."
+        }
+        channel   channel.Key = 0 {
+            @doc value "is the Synnax channel the tag value is written to."
+        }
+        name      string = "" {
+            @doc value "is the human-readable name of the channel."
+        }
+        data_type telem.DataType = "float64" {
+            @doc value "is the data type of the channel."
+        }
+
+        @doc value "reads one Sparkplug B tag."
+    }
+
+    @doc value  """
+        is a single source of an MQTT read task. The type field selects a plain topic
+        with a JSON payload or a Sparkplug B tag.
+    """
+    @go marshal
+}
+
+ReadConfig struct extends task.PersistConfig {
+    device  device.Key = "" {
+        @doc value "is the key of the broker device to read from."
+    }
+    entries ReadEntry[] {
+        @doc value "contains the topics and tags to read."
+    }
+    inline  InlineRead? {
+        @doc value  """
+            holds the plain entries of a config from before ICDs. A write moves their
+            fields into a new ICD, adds the entries, and clears it.
+        """
+        @go marshal omit
+    }
+
+    @doc value  """
+        configures an MQTT read task, which subscribes to topics and Sparkplug B tags on
+        a broker device and writes their values to Synnax channels.
+    """
+    @go imex    body
+    @go marshal
+    @go migrate
+}
+
+ChannelField = v1.ChannelField
+
+BaseWriteField = v1.BaseWriteField
+
+WriteField = v1.WriteField
+
+BaseWriteTarget = v1.BaseWriteTarget
+
+WriteTarget = v1.WriteTarget
+
+WriteConfig = v1.WriteConfig
+
+ScanConfig = v1.ScanConfig
+
+EdgeTag = v1.EdgeTag
+
+EdgeConfig = v1.EdgeConfig

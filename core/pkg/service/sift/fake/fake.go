@@ -114,6 +114,9 @@ func Open(cfg Config) (*Server, error) {
 		points:   make(map[channelKey]map[time.Time]any),
 	}
 	s.grpc = grpc.NewServer(
+		// A fixed window stops gRPC from growing it, so a paused stream backs up its
+		// client after 64 KiB.
+		grpc.InitialWindowSize(64<<10),
 		grpc.ChainUnaryInterceptor(s.authorizeUnary),
 		grpc.ChainStreamInterceptor(s.authorizeStream),
 	)
@@ -450,7 +453,7 @@ func (s *Server) IngestWithConfigDataStream(
 			return err
 		}
 		req, err := stream.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {

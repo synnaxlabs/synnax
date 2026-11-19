@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
 func (db *DB) OpenIterator(cfg IteratorConfig) (*Iterator, error) {
@@ -81,7 +82,11 @@ func (db *DB) newStreamIterator(cfg IteratorConfig) (si *streamIterator, err err
 	}
 	_, limited := cfg.Reduction.Variant.(telem.LimitReduction)
 	return &streamIterator{
-		internal:  internal,
+		internal: internal,
+		validateCommand: validate.NewInclusiveBoundsChecker(
+			IteratorCommandNext,
+			IteratorCommandSetBounds,
+		),
 		cache:     cache,
 		limited:   limited,
 		chunkSize: db.chunkSize,

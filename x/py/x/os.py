@@ -82,7 +82,7 @@ def _get_linux_distribution(
         )
         if result.returncode == 0:
             return result.stdout.split("\t")[1].strip()
-    with os_release.open() as f:
+    with os_release.open(encoding="utf-8") as f:
         for line in f:
             if line.startswith("PRETTY_NAME="):
                 return line.split("=")[1].strip().strip('"')
@@ -107,7 +107,7 @@ def get_memory_info() -> str:
             return f"{mem_bytes // (1024**3)}GB RAM"
 
     elif system == "Linux":
-        with open("/proc/meminfo") as f:
+        with open("/proc/meminfo", encoding="utf-8") as f:
             for line in f:
                 if line.startswith("MemTotal:"):
                     mem_kb = int(line.split()[1])

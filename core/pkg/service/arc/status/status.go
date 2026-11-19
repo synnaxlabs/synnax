@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
@@ -250,7 +251,7 @@ func checkVariantLiteral(
 	if !ok || status.Variant(value).IsValid() {
 		return
 	}
-	diags.Add(diagnostics.Errorf(expr,
+	diags.Add(codes.FuncArgValue.Atf(expr,
 		"%q is not a valid status variant: [%s]",
 		value, allowedVariantsList,
 	))

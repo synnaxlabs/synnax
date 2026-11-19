@@ -44,6 +44,7 @@ const Create = ({ close, statusKey }: Modals.ContentProps<CreateModalParams, voi
     },
     afterSave: () => close(),
   });
+  Modals.useBusy(variant === "loading");
 
   return (
     <Modal.Frame>
@@ -71,7 +72,7 @@ const Create = ({ close, statusKey }: Modals.ContentProps<CreateModalParams, voi
             inputProps={{ placeholder: "Message" }}
           />
           <Form.Field path={deep.present(path.labels)}>
-            {(p) => <Label.SelectMultiple zIndex={100} {...p} />}
+            {(p) => <Label.SelectMultiple {...p} />}
           </Form.Field>
         </Form.Form>
       </Modal.Body>

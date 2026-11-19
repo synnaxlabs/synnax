@@ -20,6 +20,7 @@ import { Notifications } from "@/app/notifications";
 import { Triggers } from "@/app/triggers";
 import { Guard } from "@/app/window/Guard";
 import { Device } from "@/feature/device";
+import { EtherCAT } from "@/feature/ethercat";
 import { Panel } from "@/feature/panel";
 import { Persist } from "@/feature/persist";
 import { CSS } from "@/platform/css";
@@ -27,6 +28,7 @@ import { Session } from "@/session";
 
 const SideEffect = (): null => {
   Device.useListenForChanges();
+  EtherCAT.Device.useListenForReplacements();
   Notifications.useForward();
   Link.useDeep();
   Persist.useStoreStatus();

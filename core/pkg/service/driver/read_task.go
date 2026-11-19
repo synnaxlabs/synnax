@@ -199,10 +199,12 @@ func (t *ReadTask) run(ctx context.Context, r Reader) (err error) {
 	}()
 	// stopped returns the error of a run whose reads are cancelled: nil for a stop.
 	stopped := func() error {
-		if ctx.Err() != nil {
+		select {
+		case <-ctx.Done():
 			return nil
+		default:
+			return context.Cause(readCtx)
 		}
-		return context.Cause(readCtx)
 	}
 	brk, err := breaker.NewBreaker(t.cfg.Breaker)
 	if err != nil {

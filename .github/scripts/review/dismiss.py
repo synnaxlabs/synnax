@@ -12,7 +12,6 @@ finding on a pull request, with a reply of `@sedosaur dismiss` on the thread of 
 finding, or with a comment of `@sedosaur dismiss` and its title on the pull request."""
 
 import re
-from typing import Any
 
 from review.post import (
     GH,
@@ -22,11 +21,16 @@ from review.post import (
     answer,
     answers,
     authority,
+    by_bot,
     command,
     comments,
     issue_comment,
     outside_findings,
+    pending,
+    rebutted,
+    reply,
     rescore,
+    resolve,
     threads,
     write,
 )
@@ -43,28 +47,23 @@ UNNAMED = (
 REFUSED = "Only someone with write access to the repository can dismiss a finding."
 DONE = "Dismissed. Later reviews of this pull request will not report it."
 PASSED = (
-    " Every finding of the review of the head is dismissed, so the head scores 5/5."
+    " Every finding of the review of the head is dismissed or withdrawn, so the head "
+    "scores 5/5."
 )
 _QUOTES = "\"'\u201c\u201d\u2018\u2019"
 _PATH = re.compile(r"(?:^|\s)path:(\S+)")
-_REPLY = """mutation($t: ID!, $b: String!) {
-  addPullRequestReviewThreadReply(input: {pullRequestReviewThreadId: $t, body: $b}) {
-    comment { id }
-  }
-}"""
-_RESOLVE = """mutation($t: ID!) {
-  resolveReviewThread(input: {threadId: $t}) { thread { id } }
-}"""
 
 
-def dismiss(t: Target, gh: GH, *, comment: int, key: str) -> None:
-    """Answers a comment that mentions the bot: a reply on the thread of one of its
-    findings, or a comment on the pull request. Then answers each `@sedosaur dismiss` on
-    the pull request that has no answer yet, so a run also does the work of a run that
-    never finished. A writer's reply dismisses the finding of its thread. A writer's
-    comment binds to the one open finding its title names, and the answer records that
-    finding. Each dismissal resolves the finding's thread. When every finding of the
-    newest review of the head is then dismissed, a new check run scores the head 5/5.
+def dismiss(t: Target, gh: GH, *, comment: int, key: str) -> bool:
+    """Answers a reply on the thread of one of the bot's findings, or a comment on the
+    pull request, and each reply and comment on the pull request that has no answer
+    yet, so a run also does the work of a run that never finished. A writer's
+    `@sedosaur dismiss` reply dismisses the finding of its thread. A rebuttal waits for
+    `judge`. An open thread with other replies gets the usage once. A writer's comment
+    binds to the one open finding its title names, and the answer records that finding.
+    Each dismissal resolves the finding's thread. When every finding of the newest
+    review of the head is then dismissed, a new check run scores the head 5/5. Returns
+    whether a rebuttal waits for `judge`.
 
     :param comment: The database ID of the reply or the comment.
     :param key: The external ID of the review's check run, `<pr>:<base ref>`.
@@ -72,31 +71,46 @@ def dismiss(t: Target, gh: GH, *, comment: int, key: str) -> None:
         comment on the pull request.
     """
     found = threads(t, gh)
-    hits = [(th, c) for th in found for c in th.replies if c["databaseId"] == comment]
-    if not hits and issue_comment(t, gh, comment) is None:
+    hit = any(c["databaseId"] == comment for th in found for c in th.replies)
+    if not hit and issue_comment(t, gh, comment) is None:
         raise ValueError(f"comment {comment} is not on pull request {t.pr}")
-    for thread, reply in hits:
-        if command(reply["body"]) is None:
-            _reply(gh, thread, USAGE)
     can = authority(t, gh)
     _sweep_threads(t, gh, found, can)
     _sweep_comments(t, gh, found, can)
     if rescore(t, gh, found, key, can):
         _comment(t, gh, PASSED.strip())
+    return any(rebutted(t, th, can) for th in threads(t, gh))
 
 
 def _sweep_threads(t: Target, gh: GH, found: list[Thread], can: Authority) -> None:
-    """Answers each dismissal reply that no reply of the bot follows."""
+    """Answers each dismissal reply that no reply of the bot follows, and gives the
+    usage to each open thread that has other replies only and no rebuttal."""
     for th in found:
+        if not th.resolved and _needs_usage(t, th, can):
+            reply(gh, th, USAGE)
         for i, r in enumerate(th.replies):
             later = th.replies[i + 1 :]
-            if command(r["body"]) is None or any(_by(t, c) for c in later):
+            if (
+                by_bot(t, r)
+                or command(r["body"]) is None
+                or any(by_bot(t, c) for c in later)
+            ):
                 continue
             if not can(r):
-                _reply(gh, th, REFUSED)
+                reply(gh, th, REFUSED)
                 continue
-            _reply(gh, th, DONE)
-            _resolve(gh, th)
+            reply(gh, th, DONE)
+            resolve(gh, th)
+
+
+def _needs_usage(t: Target, th: Thread, can: Authority) -> bool:
+    replies = pending(t, th)
+    return (
+        bool(replies)
+        and all(command(r["body"]) is None for r in replies)
+        and not rebutted(t, th, can)
+        and not any(by_bot(t, r) and r["body"] == USAGE for r in th.replies)
+    )
 
 
 def _sweep_comments(t: Target, gh: GH, found: list[Thread], can: Authority) -> None:
@@ -119,15 +133,7 @@ def _sweep_comments(t: Target, gh: GH, found: list[Thread], can: Authority) -> N
             record = {"comment": c["id"], "path": path, "title": title}
             _comment(t, gh, answer(record | {"reason": reason}, DONE))
             if (th := still.get((path, title))) is not None:
-                _resolve(gh, th)
-
-
-def _by(t: Target, reply: dict[str, Any]) -> bool:
-    return (reply["author"] or {}).get("login") == t.bot
-
-
-def _resolve(gh: GH, thread: Thread) -> None:
-    gh("api", "graphql", "-f", f"query={_RESOLVE}", "-f", f"t={thread.id}")
+                resolve(gh, th)
 
 
 def _named(
@@ -152,16 +158,3 @@ def _named(
 
 def _comment(t: Target, gh: GH, body: str) -> None:
     write(gh, "POST", f"repos/{t.repo}/issues/{t.pr}/comments", {"body": body})
-
-
-def _reply(gh: GH, thread: Thread, body: str) -> None:
-    gh(
-        "api",
-        "graphql",
-        "-f",
-        f"query={_REPLY}",
-        "-f",
-        f"t={thread.id}",
-        "-f",
-        f"b={body}",
-    )

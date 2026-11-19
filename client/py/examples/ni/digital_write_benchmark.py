@@ -73,7 +73,7 @@ tsk = sy.ni.DigitalWriteTask(
 # is correct.
 client.tasks.configure(tsk)
 
-durations = []
+durations: list[sy.TimeSpan] = []
 
 # Start the task.
 with (
@@ -86,40 +86,20 @@ with (
     ) as ctrl,
 ):
     for _ in range(2500):
+        timer = sy.Timer()
         ctrl["do_1_cmd"] = 1
-        start = sy.TimeStamp.now()
         ctrl.wait_until(lambda c: c["do_1_state"] == 1)
-        durations.append(sy.TimeSpan.since(start))
+        durations.append(timer.elapsed())
         ctrl["do_1_cmd"] = 0
         ctrl.wait_until(lambda c: c["do_1_state"] == 0)
 
 client.tasks.delete(tsk.key)
 
-import matplotlib.pyplot as plt
 import numpy as np
 
-amortized = np.array([dur.milliseconds for dur in durations]) / 2
-# remove the outliers
-amortized = amortized[amortized < 2]
-
-# Get the P99 latency
-p99 = np.percentile(amortized, 99)
-print(f"P99 latency: {p99} ms")
-p95 = np.percentile(amortized, 95)
-print(f"P95 latency: {p95} ms")
-p50 = np.percentile(amortized, 50)
-print(f"P50 latency: {p50} ms")
-
-# make the line skinnier and the plot wider
-plt.plot(amortized, linewidth=0.5)
-# plot the average for every 50 requests in red
-plt.plot(np.convolve(amortized, np.ones(50) / 50, mode="valid"), color="red")
-
-
-plt.xlabel("Request #")
-plt.ylabel("Latency (ms)")
-plt.savefig("latency.png")
-
-jitter = np.std(amortized)
-
-print(f"Jitter: {jitter} ms")
+# Each duration runs from the command to the state that confirms it.
+latencies = np.array([dur.milliseconds for dur in durations])
+for p in [50, 95, 99]:
+    print(f"P{p} latency: {np.percentile(latencies, p):.3f} ms")
+print(f"Max latency: {latencies.max():.3f} ms")
+print(f"Jitter: {np.std(latencies):.3f} ms")

@@ -34,6 +34,7 @@ const GAUGE_BAR_WIDTH_INPUT_PROPS: Partial<Input.NumericProps> = {
   step: 1,
   bounds: { lower: 1, upper: 50 },
   endContent: "px",
+  integer: true,
   dragScale: { x: 0.1, y: 0.1 },
 };
 

@@ -56,6 +56,8 @@ export interface Spec<
   name: string;
   /** The text written into the symbol's label on creation. Defaults to name. */
   label?: string;
+  /** The text written into the symbol's value field on creation, if it has one. */
+  value?: string;
   Form: FC<FormProps>;
   Node: Node<Config>;
   Preview: FC<PreviewProps<Config>>;

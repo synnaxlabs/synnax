@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 
 import { type Event, type License } from "@/server/db/schema";
 import { LICENSE, NOW } from "@/server/license/testutil";
-import { clock, describeEvent, expiry, standing, statusOf } from "@/ui/format";
+import { clock, describeEvent, expiry, standing } from "@/ui/format";
 
 const licenseOf = (overrides: Partial<License>): License => ({
   ...LICENSE,
@@ -19,34 +19,6 @@ const licenseOf = (overrides: Partial<License>): License => ({
 });
 
 const days = (n: number): Date => new Date(NOW.getTime() + n * 24 * 60 * 60 * 1000);
-
-describe("format.statusOf", () => {
-  it("should call a revoked license revoked whatever its expiry", () => {
-    const lic = licenseOf({ revokedAt: NOW, expiresAt: days(90) });
-    expect(statusOf(lic, NOW)).toBe("revoked");
-  });
-
-  it("should call a perpetual license active", () => {
-    expect(statusOf(licenseOf({ expiresAt: null }), NOW)).toBe("active");
-  });
-
-  it("should call a license past its expiry expired", () => {
-    expect(statusOf(licenseOf({ expiresAt: days(-1) }), NOW)).toBe("expired");
-  });
-
-  it("should call a license inside the renewal window expiring", () => {
-    expect(statusOf(licenseOf({ expiresAt: days(29) }), NOW)).toBe("expiring");
-  });
-
-  it("should call a license outside the renewal window active", () => {
-    expect(statusOf(licenseOf({ expiresAt: days(31) }), NOW)).toBe("active");
-  });
-
-  it("should not warn on a Desktop license, which renews itself", () => {
-    const lic = licenseOf({ edition: "desktop", expiresAt: days(2) });
-    expect(statusOf(lic, NOW)).toBe("active");
-  });
-});
 
 describe("format.standing", () => {
   it("should sum seats and capacity over usable licenses only", () => {

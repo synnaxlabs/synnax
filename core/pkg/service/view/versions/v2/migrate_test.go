@@ -29,6 +29,7 @@ var _ = Describe("Migration", func() {
 	migrateViews := func(ctx SpecContext, views ...v1.View) map[v2.Key]v2.View {
 		GinkgoHelper()
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v1.Key, v1.View]{DB: db}))
 		Expect(gorp.NewCreate[v1.Key, v1.View]().Entries(&views).Exec(ctx, db)).
 			To(Succeed())

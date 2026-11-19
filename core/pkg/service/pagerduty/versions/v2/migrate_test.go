@@ -79,6 +79,7 @@ var _ = Describe("Migrate", func() {
 		It("Should point the routing key at a secret that its write creates",
 			func(ctx SpecContext) {
 				db := DeferClose(gorp.Wrap(memkv.New()))
+				StartRun(db.Run)
 				cfg := v2.TaskConfig{PlainRoutingKey: new("plain")}
 				write := v2.ResolveTaskConfig(create, "Pump", &cfg)
 				Expect(made).To(BeEmpty())
@@ -103,6 +104,7 @@ var _ = Describe("Migrate", func() {
 			ctx SpecContext,
 		) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
 			fail := func(context.Context, gorp.Tx, secret.Key, string, []byte) error {
 				return errors.New("create failed")
 			}
@@ -126,6 +128,7 @@ var _ = Describe("Migrate", func() {
 			ctx SpecContext,
 		) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
 			var withKey, withoutKey v1.TaskConfig
 			withKey.Key, withoutKey.Key = uuid.New(), uuid.New()
 			withKey.RoutingKey = "0123456789abcdef0123456789abcdef"

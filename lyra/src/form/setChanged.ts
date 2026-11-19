@@ -11,9 +11,6 @@ import { array, deep, narrow } from "@synnaxlabs/x";
 
 import { type ContextValue } from "@/form/Context";
 
-const sameKeys = (a: string[], b: string[]): boolean =>
-  a.length === b.length && a.every((key, i) => key === b[i]);
-
 type Writer = Pick<ContextValue, "batch" | "set">;
 
 const write = (
@@ -26,7 +23,7 @@ const write = (
   if (array.isKeyed(prev) && array.isKeyed(next)) {
     const keys = next.map(({ key }) => key);
     if (
-      sameKeys(
+      array.equal(
         prev.map(({ key }) => key),
         keys,
       )
@@ -37,7 +34,7 @@ const write = (
   }
   if (narrow.isPlainObject(prev) && narrow.isPlainObject(next)) {
     const keys = Object.keys(next);
-    if (sameKeys(Object.keys(prev).sort(), [...keys].sort())) {
+    if (array.equal(Object.keys(prev).sort(), [...keys].sort())) {
       keys.forEach((key) => write(ctx, path[key], prev[key], next[key]));
       return;
     }

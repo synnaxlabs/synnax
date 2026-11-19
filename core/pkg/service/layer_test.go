@@ -610,12 +610,19 @@ var _ = Describe("Workspace-era upgrade", func() {
 					log.ResourceID(lg.Key),
 					table.ResourceID(tbl.Key),
 				}
-				resources = []ontology.Resource{{ID: wsID}, {ID: groupedID}}
-				edges     = []ontology.Relationship{{
-					From: groupID,
-					Type: ontology.RelationshipTypeParentOf,
-					To:   groupedID,
-				}}
+				resources = append(
+					make([]ontology.Resource, 0, 2+len(owned)),
+					ontology.Resource{ID: wsID},
+					ontology.Resource{ID: groupedID},
+				)
+				edges = append(
+					make([]ontology.Relationship, 0, 1+len(owned)),
+					ontology.Relationship{
+						From: groupID,
+						Type: ontology.RelationshipTypeParentOf,
+						To:   groupedID,
+					},
+				)
 			)
 			for _, id := range owned {
 				resources = append(resources, ontology.Resource{ID: id})
@@ -687,6 +694,7 @@ var _ = Describe("Resource search", Ordered, func() {
 		Entry("Channel", resource.TypeChannel),
 		Entry("Color", resource.TypeColor),
 		Entry("Device", resource.TypeDevice),
+		Entry("Enumeration", resource.TypeEnumeration),
 		Entry("Group", resource.TypeGroup),
 		Entry("Label", resource.TypeLabel),
 		Entry("Lineplot", resource.TypeLineplot),

@@ -21,13 +21,13 @@ import (
 	xtestutil "github.com/synnaxlabs/x/testutil"
 )
 
-func UnarySuite(
-	deps func() (
-		freighter.UnaryServer[Request, Response],
-		freighter.UnaryClient[Request, Response],
-		address.Address,
-	),
-) {
+type unaryDeps = func() (
+	freighter.UnaryServer[Request, Response],
+	freighter.UnaryClient[Request, Response],
+	address.Address,
+)
+
+func UnarySuite(deps unaryDeps) {
 	ginkgo.Describe("Normal Operation", func() {
 		ginkgo.It("should send a request", func(ctx ginkgo.SpecContext) {
 			server, client, addr := deps()
@@ -60,81 +60,95 @@ func UnarySuite(
 		)
 	})
 
-	ginkgo.Describe("Middleware", func() {
-		ginkgo.It("Should correctly call the middleware", func(ctx ginkgo.SpecContext) {
-			server, client, addr := deps()
-			c := 0
-			server.Use(freighter.MiddlewareFunc(func(
-				ctx freighter.Context,
-				next freighter.Next,
-			) (freighter.Context, error) {
-				c++
-				oMd, err := next(ctx)
-				c++
-				return oMd, err
-			}))
-			server.BindHandler(
-				func(ctx context.Context, req Request) (Response, error) {
-					return Response{}, nil
-				},
-			)
-			gomega.Expect(client.Send(
-				ctx,
-				addr,
-				Request{ID: 1, Message: "hello"},
-			)).Error().ToNot(gomega.HaveOccurred())
-			gomega.Expect(c).To(gomega.Equal(2))
-		})
-		ginkgo.It(
-			"Should give the middleware the client's address",
-			func(ctx ginkgo.SpecContext) {
-				server, client, addr := deps()
-				var remote address.Address
-				server.Use(freighter.MiddlewareFunc(func(
-					ctx freighter.Context,
-					next freighter.Next,
-				) (freighter.Context, error) {
-					remote = ctx.Remote
-					return next(ctx)
-				}))
-				server.BindHandler(
-					func(ctx context.Context, req Request) (Response, error) {
-						return Response{ID: req.ID}, nil
-					},
-				)
-				gomega.Expect(client.Send(ctx, addr, Request{ID: 1})).
-					To(gomega.Equal(Response{ID: 1}))
-				host, _ := xtestutil.MustSucceed2(net.SplitHostPort(string(remote)))
-				ip := net.ParseIP(host)
-				gomega.Expect(ip).ToNot(gomega.BeNil())
-				gomega.Expect(ip.IsLoopback()).To(gomega.BeTrue())
+	ginkgo.Describe("Middleware", func() { unaryMiddlewareSpecs(deps) })
+}
+
+func unaryMiddlewareSpecs(deps unaryDeps) {
+	ginkgo.It("Should correctly call the middleware", callUnaryMiddleware(deps))
+	ginkgo.It(
+		"Should give the middleware the client's address",
+		passRemoteToUnaryMiddleware(deps),
+	)
+	ginkgo.It(
+		"Should return the error when a middleware rejects with a zero context",
+		rejectUnaryWithZeroContext(deps),
+	)
+}
+
+func callUnaryMiddleware(deps unaryDeps) func(ctx ginkgo.SpecContext) {
+	return func(ctx ginkgo.SpecContext) {
+		server, client, addr := deps()
+		c := 0
+		server.Use(freighter.MiddlewareFunc(func(
+			ctx freighter.Context,
+			next freighter.Next,
+		) (freighter.Context, error) {
+			c++
+			oMd, err := next(ctx)
+			c++
+			return oMd, err
+		}))
+		server.BindHandler(
+			func(ctx context.Context, req Request) (Response, error) {
+				return Response{}, nil
 			},
 		)
-		ginkgo.It(
-			"Should return the error when a middleware rejects with a zero context",
-			func(ctx ginkgo.SpecContext) {
-				server, client, addr := deps()
-				server.BindHandler(
-					func(ctx context.Context, req Request) (Response, error) {
-						return Response{}, nil
-					},
-				)
-				// the server outlives this spec, so the middleware must stop rejecting
-				var rejecting atomic.Bool
-				rejecting.Store(true)
-				ginkgo.DeferCleanup(func() { rejecting.Store(false) })
-				server.Use(freighter.MiddlewareFunc(func(
-					ctx freighter.Context,
-					next freighter.Next,
-				) (freighter.Context, error) {
-					if !rejecting.Load() {
-						return next(ctx)
-					}
-					return freighter.Context{}, ErrCustom
-				}))
-				gomega.Expect(client.Send(ctx, addr, Request{ID: 1})).Error().
-					To(gomega.MatchError(ErrCustom))
+		gomega.Expect(client.Send(
+			ctx,
+			addr,
+			Request{ID: 1, Message: "hello"},
+		)).Error().ToNot(gomega.HaveOccurred())
+		gomega.Expect(c).To(gomega.Equal(2))
+	}
+}
+
+func passRemoteToUnaryMiddleware(deps unaryDeps) func(ctx ginkgo.SpecContext) {
+	return func(ctx ginkgo.SpecContext) {
+		server, client, addr := deps()
+		var remote address.Address
+		server.Use(freighter.MiddlewareFunc(func(
+			ctx freighter.Context,
+			next freighter.Next,
+		) (freighter.Context, error) {
+			remote = ctx.Remote
+			return next(ctx)
+		}))
+		server.BindHandler(
+			func(ctx context.Context, req Request) (Response, error) {
+				return Response{ID: req.ID}, nil
 			},
 		)
-	})
+		gomega.Expect(client.Send(ctx, addr, Request{ID: 1})).
+			To(gomega.Equal(Response{ID: 1}))
+		host, _ := xtestutil.MustSucceed2(net.SplitHostPort(string(remote)))
+		ip := net.ParseIP(host)
+		gomega.Expect(ip).ToNot(gomega.BeNil())
+		gomega.Expect(ip.IsLoopback()).To(gomega.BeTrue())
+	}
+}
+
+func rejectUnaryWithZeroContext(deps unaryDeps) func(ctx ginkgo.SpecContext) {
+	return func(ctx ginkgo.SpecContext) {
+		server, client, addr := deps()
+		server.BindHandler(
+			func(ctx context.Context, req Request) (Response, error) {
+				return Response{}, nil
+			},
+		)
+		// the server outlives this spec, so the middleware must stop rejecting
+		var rejecting atomic.Bool
+		rejecting.Store(true)
+		ginkgo.DeferCleanup(func() { rejecting.Store(false) })
+		server.Use(freighter.MiddlewareFunc(func(
+			ctx freighter.Context,
+			next freighter.Next,
+		) (freighter.Context, error) {
+			if !rejecting.Load() {
+				return next(ctx)
+			}
+			return freighter.Context{}, ErrCustom
+		}))
+		gomega.Expect(client.Send(ctx, addr, Request{ID: 1})).Error().
+			To(gomega.MatchError(ErrCustom))
+	}
 }

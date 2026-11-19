@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { EOF } from "@synnaxlabs/freighter";
+import { sleep, TimeSpan } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
 import { type framer } from "@/framer";
@@ -32,7 +33,7 @@ export class PushStreamer implements framer.Streamer {
     while (!this.done) {
       const frame = this.frames.shift();
       if (frame != null) return { done: false, value: frame };
-      await new Promise((resolve) => setTimeout(resolve, 5));
+      await sleep.sleep(TimeSpan.milliseconds(5));
     }
     return { done: true, value: undefined };
   }

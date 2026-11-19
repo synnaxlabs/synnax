@@ -201,6 +201,18 @@ TEST(RuntimeLifecycleTest, StopReturnsTrueWhenRunning) {
     EXPECT_EQ(loop->wake_count, 1);
 }
 
+/// @brief it should report running from a start until the stop that follows it.
+TEST(RuntimeLifecycleTest, RunningFollowsStartAndStop) {
+    auto [runtime, loop] = create_lifecycle_runtime(
+        std::make_unique<testutil::MockLoop>()
+    );
+    EXPECT_FALSE(runtime->running());
+    ASSERT_TRUE(runtime->start());
+    EXPECT_TRUE(runtime->running());
+    ASSERT_TRUE(runtime->stop());
+    EXPECT_FALSE(runtime->running());
+}
+
 /// @brief Test that runtime can be restarted after stop.
 TEST(RuntimeLifecycleTest, RestartSameInstanceSucceeds) {
     auto [runtime, loop] = create_lifecycle_runtime(

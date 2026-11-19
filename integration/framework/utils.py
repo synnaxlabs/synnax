@@ -121,6 +121,23 @@ def get_fixture_path(filename: str) -> str:
     return path
 
 
+def hold(duration: sy.CrudeTimeSpan, *, reason: str) -> None:
+    """Block for a fixed duration.
+
+    This is the one sleep that tests may call. Use it only when a test needs the time
+    itself: to check that nothing changes over a window, to pace writes, or to sample
+    for a set period. To wait for a condition, poll with a helper such as wait_for_eq.
+
+    :param duration: The time to block. A float or int is a number of seconds.
+    :param reason: Why the test needs a fixed time and not a condition. It is required
+        so that every fixed wait states its purpose where a reviewer reads the call.
+    :raises ValueError: If reason is blank.
+    """
+    if not reason.strip():
+        raise ValueError("hold needs a reason")
+    sy.sleep(duration)
+
+
 def read_latest_value(client: sy.Synnax, channel_name: str) -> float | None:
     """Read the latest sample written to a channel, or None if none arrived.
 

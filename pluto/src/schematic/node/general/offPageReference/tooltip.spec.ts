@@ -26,10 +26,6 @@ describe("offPageReferenceTooltip", () => {
     expect(offPageReferenceTooltip(PAGE, false)).toBe("Double-click to navigate");
   });
 
-  it("should return undefined when page is undefined", () => {
-    expect(offPageReferenceTooltip(undefined)).toBeUndefined();
-  });
-
   it("should return undefined when the page key is empty", () => {
     expect(offPageReferenceTooltip({ type: "schematic", key: "" })).toBeUndefined();
   });

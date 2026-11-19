@@ -7,9 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { uuid } from "@synnaxlabs/x";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { failure, load, loadScoped, readActivity, type Scoped } from "@/page";
+import {
+  failure,
+  load,
+  loadScoped,
+  readActivity,
+  readLicenses,
+  type Scoped,
+} from "@/page";
 import { event, type EventKind, type Organization } from "@/server/db/schema";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import { HTTPError } from "@/server/errors";
@@ -25,6 +33,8 @@ import {
 } from "@/testutil";
 
 const ACME = { clerkOrgID: "org_acme", name: "Acme", role: "org:member" };
+
+const PAGE_SIZE = 50;
 
 describe("page", () => {
   let store: Memory;
@@ -124,7 +134,7 @@ describe("page", () => {
       signInWithTeam();
       const context = createAPIContext(harness.portal, {
         method: "GET",
-        path: `/?org=${crypto.randomUUID()}`,
+        path: `/?org=${uuid.create()}`,
       });
       const res = await loadScoped(context);
       if (!(res instanceof Response)) throw new Error("expected a redirect");
@@ -261,6 +271,83 @@ describe("page", () => {
 
     it("should refuse a page that is not a number", async () => {
       await expect(read("?before=abc")).rejects.toThrow(
+        new HTTPError(400, "Invalid page"),
+      );
+    });
+  });
+
+  describe("readLicenses", () => {
+    let org: Organization;
+    beforeEach(async () => {
+      org = await createOrganization(store, { kind: "team", clerkOrgID: "org_a" });
+    });
+
+    const read = async (search = "") =>
+      await readLicenses(
+        harness.portal,
+        new URL(`https://p.test/admin/licenses${search}`),
+      );
+
+    it("should read the search and status the URL asks for", async () => {
+      const match = await createLicense(store, {
+        organization: org.key,
+        label: "Bench",
+      });
+      await createLicense(store, {
+        organization: org.key,
+        label: "Bench",
+        revokedAt: NOW,
+      });
+      await createLicense(store, { organization: org.key, label: "Rig" });
+      const list = await read("?search=+bench+&status=active");
+      expect(list.query).toEqual({ search: "bench", status: "active" });
+      expect(list.page.entries.map((e) => e.license)).toEqual([match]);
+      expect(list.page.total).toBe(1);
+      expect(list.nextHref).toBeNull();
+    });
+
+    it("should link the next page, keeping the filter", async () => {
+      for (let i = 0; i < PAGE_SIZE + 1; i++)
+        await createLicense(store, { organization: org.key });
+      const first = await read("?status=active");
+      expect(first.page.entries).toHaveLength(PAGE_SIZE);
+      const next = first.page.next?.key ?? "";
+      expect(first.nextHref).toBe(`/admin/licenses?status=active&after=${next}`);
+      const second = await read(`?status=active&after=${next}`);
+      expect(second.query.after).toEqual({ key: next });
+      expect(second.page.entries).toHaveLength(1);
+      expect(second.nextHref).toBeNull();
+    });
+
+    it("should carry the expiry of the next page's cursor when expiring", async () => {
+      const expiresAt = new Date(NOW.getTime() + 24 * 60 * 60 * 1000);
+      for (let i = 0; i < PAGE_SIZE + 1; i++)
+        await createLicense(store, { organization: org.key, expiresAt });
+      const first = await read("?status=expiring");
+      const next = first.page.next?.key ?? "";
+      const ms = expiresAt.getTime();
+      expect(first.nextHref).toBe(
+        `/admin/licenses?status=expiring&after=${next}&expiry=${ms}`,
+      );
+      const second = await read(`?status=expiring&after=${next}&expiry=${ms}`);
+      expect(second.query.after).toEqual({ key: next, expiresAt });
+      expect(second.page.entries).toHaveLength(1);
+    });
+
+    it("should refuse an expiring page without an expiry", async () => {
+      await expect(read(`?status=expiring&after=${uuid.create()}`)).rejects.toThrow(
+        new HTTPError(400, "Invalid page"),
+      );
+    });
+
+    it("should refuse a status it does not know", async () => {
+      await expect(read("?status=toString")).rejects.toThrow(
+        new HTTPError(400, "Invalid status"),
+      );
+    });
+
+    it("should refuse a page that is not a license key", async () => {
+      await expect(read("?after=abc")).rejects.toThrow(
         new HTTPError(400, "Invalid page"),
       );
     });

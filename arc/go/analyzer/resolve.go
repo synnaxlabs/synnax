@@ -12,6 +12,7 @@ package analyzer
 import (
 	"fmt"
 
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/constraints"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/ir"
@@ -35,44 +36,7 @@ func ResolveNodeTypes(
 	diag *diagnostics.Diagnostics,
 ) bool {
 	for _, edge := range edges {
-		sourceNode, ok := nodes.Find(edge.Source.Node)
-		if !ok {
-			diag.Add(diagnostics.Errorf(nil,
-				"edge source node '%s' not found", edge.Source.Node))
-			return false
-		}
-		sourceParam, ok := sourceNode.Outputs.Get(edge.Source.Param)
-		if !ok {
-			diag.Add(diagnostics.Errorf(nil,
-				"output '%s' not found in node '%s' (%s)",
-				edge.Source.Param, edge.Source.Node, sourceNode.Type))
-			return false
-		}
-		targetNode, ok := nodes.Find(edge.Target.Node)
-		if !ok {
-			diag.Add(diagnostics.Errorf(nil,
-				"edge target node '%s' not found", edge.Target.Node))
-			return false
-		}
-		targetParam, ok := targetNode.Inputs.Get(edge.Target.Param)
-		if !ok {
-			continue
-		}
-		edgeDesc := fmt.Sprintf(
-			"edge from '%s' output '%s' to '%s' input '%s'",
-			sourceNode.Type,
-			edge.Source.Param,
-			targetNode.Type,
-			edge.Target.Param,
-		)
-		if err := atypes.Check(
-			cs,
-			targetParam.Type,
-			sourceParam.Type,
-			nil,
-			edgeDesc,
-		); err != nil {
-			diag.Add(diagnostics.Error(err, nil))
+		if !checkEdgeType(nodes, edge, cs, diag) {
 			return false
 		}
 	}
@@ -88,11 +52,73 @@ func ResolveNodeTypes(
 			nodes[idx].Inputs[j].Type = cs.ApplySubstitutions(p.Type)
 		}
 	}
+	inputsSatisfied := checkRequiredInputs(nodes, edges, diag)
+	return checkStableInputs(nodes, diag) && inputsSatisfied
+}
+
+// checkEdgeType checks that the edge's source output fits its target input. It returns
+// false when an endpoint is missing or the types do not match.
+func checkEdgeType(
+	nodes ir.Nodes,
+	edge ir.Edge,
+	cs *constraints.System,
+	diag *diagnostics.Diagnostics,
+) bool {
+	sourceNode, ok := nodes.Find(edge.Source.Node)
+	if !ok {
+		diag.Add(diagnostics.Errorf(nil,
+			"edge source node '%s' not found", edge.Source.Node))
+		return false
+	}
+	sourceParam, ok := sourceNode.Outputs.Get(edge.Source.Param)
+	if !ok {
+		diag.Add(diagnostics.Errorf(nil,
+			"output '%s' not found in node '%s' (%s)",
+			edge.Source.Param, edge.Source.Node, sourceNode.Type))
+		return false
+	}
+	targetNode, ok := nodes.Find(edge.Target.Node)
+	if !ok {
+		diag.Add(diagnostics.Errorf(nil,
+			"edge target node '%s' not found", edge.Target.Node))
+		return false
+	}
+	targetParam, ok := targetNode.Inputs.Get(edge.Target.Param)
+	if !ok {
+		return true
+	}
+	edgeDesc := fmt.Sprintf(
+		"edge from '%s' output '%s' to '%s' input '%s'",
+		sourceNode.Type,
+		edge.Source.Param,
+		targetNode.Type,
+		edge.Target.Param,
+	)
+	if err := atypes.Check(
+		cs,
+		targetParam.Type,
+		sourceParam.Type,
+		nil,
+		edgeDesc,
+	); err != nil {
+		diag.Add(diagnostics.Error(err, nil))
+		return false
+	}
+	return true
+}
+
+// checkRequiredInputs reports each input that has no edge and no default value, and
+// clears the default value of each edge-fed input.
+func checkRequiredInputs(
+	nodes ir.Nodes,
+	edges ir.Edges,
+	diag *diagnostics.Diagnostics,
+) bool {
 	connected := set.New[ir.Handle]()
 	for _, edge := range edges {
 		connected.Add(edge.Target)
 	}
-	missingRequiredInput := false
+	satisfied := true
 	for ni := range nodes {
 		for pi := range nodes[ni].Inputs {
 			p := nodes[ni].Inputs[pi]
@@ -109,17 +135,17 @@ func ResolveNodeTypes(
 			if p.Value != nil {
 				continue
 			}
-			diag.Add(diagnostics.Errorf(
+			diag.Add(codes.FlowConnection.Atf(
 				nil,
 				"node '%s' (%s) missing required input '%s'",
 				nodes[ni].Key,
 				nodes[ni].Type,
 				p.Name,
 			))
-			missingRequiredInput = true
+			satisfied = false
 		}
 	}
-	return checkStableInputs(nodes, diag) && !missingRequiredInput
+	return satisfied
 }
 
 // checkStableInputs rejects stable.for nodes whose resolved input is not a
@@ -135,7 +161,7 @@ func checkStableInputs(nodes ir.Nodes, diag *diagnostics.Diagnostics) bool {
 			continue
 		}
 		if t := p.Type.Unwrap(); !t.IsNumeric() && !t.IsBool() {
-			diag.Add(diagnostics.Errorf(
+			diag.Add(codes.TypeMismatch.Atf(
 				nil,
 				"stable.for input must be a numeric or bool type, got %s",
 				t,

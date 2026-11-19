@@ -7,12 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { color } from "@synnaxlabs/client";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import {
   client,
   createPreloadedState,
+  pickNamedColor,
   renderLinePlot,
 } from "@/feature/lineplot/testutil";
 import { Toolbar } from "@/feature/lineplot/toolbar";
@@ -74,6 +76,18 @@ describe("lineplot/toolbar/Annotations", () => {
     await waitFor(async () => {
       const plot = await client.lineplots.retrieve(key);
       expect(plot.rules[0].label).toBe("Max Pressure");
+    });
+  });
+
+  it("persists a series color picked from a palette as a named color", async () => {
+    const series = (
+      await client.colors.retrieve({ groups: [color.SERIES_PALETTE] })
+    ).sort(color.compare);
+    const { key, result } = await createRule();
+    await pickNamedColor(result.container, series[2].name);
+    await waitFor(async () => {
+      const plot = await client.lineplots.retrieve(key);
+      expect(plot.rules[0].color).toEqual({ type: "named", key: series[2].key });
     });
   });
 

@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x";
-import { fireEvent, render, type RenderResult } from "@testing-library/react";
+import { color, TimeSpan } from "@synnaxlabs/x";
+import { act, fireEvent, render, type RenderResult } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -17,6 +17,7 @@ import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { mockBoundingClientRect } from "@/testutil";
 import { Theming } from "@/theming";
+import { Tooltip } from "@/tooltip";
 import { Triggers } from "@/triggers";
 
 const RED = "#ff0000";
@@ -247,6 +248,36 @@ describe("Swatch", () => {
       expect(onChange).not.toHaveBeenCalled();
     });
 
+    it("should drop a pending color when the user picks a named color", () => {
+      const onChange = vi.fn();
+      const onNamedChange = vi.fn();
+      const c = render(
+        <Color.Swatch
+          value={RED}
+          onChange={onChange}
+          onlyChangeOnBlur
+          library={{
+            palettes: [
+              {
+                key: "series",
+                name: "Series",
+                colors: [{ key: "ocean", name: "Ocean", light: "#3e8bff" }],
+              },
+            ],
+            onNamedChange,
+          }}
+        />,
+        { wrapper: Wrapper },
+      );
+      fireEvent.click(swatchOf(c));
+      pick(c, GREEN);
+      fireEvent.click(c.getByText("Library"));
+      fireEvent.click(c.getByLabelText("Ocean"));
+      closePicker(c);
+      expect(onNamedChange).toHaveBeenCalledExactlyOnceWith("ocean");
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
     it("should drop a pending change when the swatch unmounts", () => {
       const onChange = vi.fn();
       const c = render(
@@ -285,6 +316,59 @@ describe("Swatch", () => {
         expect(onChange).toHaveBeenCalledOnce();
         expect(color.hex(onChange.mock.calls[0][0])).toEqual(`#${BLUE}`);
       });
+    });
+  });
+
+  describe("library", () => {
+    const PALETTES: Color.Palette[] = [
+      {
+        key: "series",
+        name: "Series",
+        colors: [{ key: "ocean", name: "Ocean", light: "#3e8bff" }],
+      },
+    ];
+
+    it("should name the linked color in its tooltip", () => {
+      vi.useFakeTimers();
+      const delay = TimeSpan.milliseconds(100);
+      const c = render(
+        <Tooltip.Config delay={delay} skipDelay={delay}>
+          <Color.Swatch
+            value="#3e8bff"
+            onChange={vi.fn()}
+            library={{ palettes: PALETTES, named: "ocean", onNamedChange: vi.fn() }}
+          />
+        </Tooltip.Config>,
+        { wrapper: Wrapper },
+      );
+      const swatch = swatchOf(c);
+      swatch.getBoundingClientRect = mockBoundingClientRect(0, 0, 20, 20);
+      fireEvent.pointerOver(swatch, { pointerType: "mouse" });
+      act(() => {
+        vi.advanceTimersByTime(200);
+      });
+      expect(document.querySelector(`.${CSS.B("tooltip")}`)?.textContent).toEqual(
+        "Ocean. Click to change.",
+      );
+      vi.useRealTimers();
+    });
+
+    it("should show a pending edit as unlinked", () => {
+      const c = render(
+        <Color.Swatch
+          value="#3e8bff"
+          onChange={vi.fn()}
+          onlyChangeOnBlur
+          library={{ palettes: PALETTES, named: "ocean", onNamedChange: vi.fn() }}
+        />,
+        { wrapper: Wrapper },
+      );
+      fireEvent.click(swatchOf(c));
+      expect(c.getByLabelText("Ocean").className).toContain(CSS.M("selected"));
+      fireEvent.click(c.getByText("Custom"));
+      pick(c, GREEN);
+      fireEvent.click(c.getByText("Library"));
+      expect(c.getByLabelText("Ocean").className).not.toContain(CSS.M("selected"));
     });
   });
 
@@ -351,7 +435,12 @@ describe("Swatch", () => {
 
       const Source = ({ items }: { items: Haul.Item[] }): ReactElement => {
         const { startDrag } = Haul.useDrag({ type: "source" });
-        return <div data-testid="source" onDragStart={() => startDrag(items)} />;
+        return (
+          <div
+            data-testid="source"
+            onDragStart={(event) => startDrag({ event, items, preview: null })}
+          />
+        );
       };
 
       const renderSource = (items: Haul.Item[], onChange = vi.fn()): RenderResult => {

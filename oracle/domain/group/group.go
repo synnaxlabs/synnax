@@ -58,7 +58,7 @@ func Extract(table *resolution.Table) (*Data, error) {
 			continue
 		}
 		// An extending type inherits the field, so only the declaring type counts.
-		for _, f := range typ.Form.(resolution.StructForm).Fields {
+		for _, f := range resolution.MustForm[resolution.StructForm](typ).Fields {
 			domain, ok := f.Domains["group"]
 			if !ok {
 				continue
@@ -197,7 +197,7 @@ func keyName(typ resolution.Type, table *resolution.Table) string {
 
 // enumMember returns the member of enum whose value is value.
 func enumMember(enum resolution.Type, value string) (resolution.EnumValue, bool) {
-	form := enum.Form.(resolution.EnumForm)
+	form := resolution.MustForm[resolution.EnumForm](enum)
 	i := slices.IndexFunc(form.Values, func(v resolution.EnumValue) bool {
 		return v.StringValue() == value
 	})

@@ -51,18 +51,20 @@ The README in each folder gives the steps.
   <Fragment slot="typescript">
 
 The TypeScript examples connect to `localhost:9090` with the username `synnax` and the
-password `seldon`. Replace these values in the script. For Synnax Desktop, use the
-`host`, `port`, and `apiKey` from the **Connect from code** dialog, see
+password `seldon`. Replace these values in the script. For Synnax Desktop, remove the
+arguments, so that `new Synnax()` finds it. See
 [Connect to Synnax Desktop](/reference/client/connect#connect-to-synnax-desktop). For a
 Core in Synnax Enterprise, use its address and your credentials.
 
-From the `client/ts/examples/node` folder, install the client that matches the version
-of your Core, then run a script. Change `0.61` to the major and minor version of your
-Core:
+The scripts on `main` can use client features that your Core does not have. Copy the
+scripts from the `core/vX.Y.Z` Git tag of your Core version into a new folder. In that
+folder, install the client for the major and minor version of your Core, then run a
+script. Replace `X.Y` with the major and minor version of your Core:
 
 ```bash
-npm install
-npm install @synnaxlabs/client@~0.61.0
+npm init -y
+npm pkg set type=module
+npm install @synnaxlabs/client@~X.Y.0
 node basicReadWrite.js
 ```
 
@@ -84,13 +86,12 @@ first, in a second terminal.
 Write, read, and work with data. See [Write data](/reference/client/write-data) and
 [Read data](/reference/client/read-data).
 
-| Example                                                                                                        | Shows how to                                                   |
-| -------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| [basic_read_write.py](https://github.com/synnaxlabs/synnax/blob/main/client/py/examples/basic_read_write.py)   | Create channels, write samples, read them back, and plot them. |
-| [read_latest.py](https://github.com/synnaxlabs/synnax/blob/main/client/py/examples/read_latest.py)             | Read the latest samples of a channel.                          |
-| [series_and_frames.py](https://github.com/synnaxlabs/synnax/blob/main/client/py/examples/series_and_frames.py) | Work with series and frames.                                   |
-| [export_to_csv.py](https://github.com/synnaxlabs/synnax/blob/main/client/py/examples/export_to_csv.py)         | Export samples to a CSV file.                                  |
-| [plot.py](https://github.com/synnaxlabs/synnax/blob/main/client/py/examples/plot.py)                           | Plot samples with Matplotlib.                                  |
+| Example                                                                                                        | Shows how to                                        |
+| -------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| [basic_read_write.py](https://github.com/synnaxlabs/synnax/blob/main/client/py/examples/basic_read_write.py)   | Create channels, write samples, and read them back. |
+| [read_latest.py](https://github.com/synnaxlabs/synnax/blob/main/client/py/examples/read_latest.py)             | Read the latest samples of a channel.               |
+| [series_and_frames.py](https://github.com/synnaxlabs/synnax/blob/main/client/py/examples/series_and_frames.py) | Work with series and frames.                        |
+| [export_to_csv.py](https://github.com/synnaxlabs/synnax/blob/main/client/py/examples/export_to_csv.py)         | Export samples to a CSV file.                       |
 
 Stream data. See [Stream data](/reference/client/stream-data). The scripts that read
 live samples need `stream_write.py` to run in a second terminal.

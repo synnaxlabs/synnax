@@ -85,9 +85,6 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		return nil, err
 	}
 
-	pbPathFunc := func(typ resolution.Type, table *resolution.Table) string {
-		return enum.FindPBOutputPath(typ, table)
-	}
 	err := structCollector.ForEach(
 		func(outputPath string, structs []resolution.Type) error {
 			namespace := ""
@@ -102,7 +99,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 					outputPath,
 					req.Resolutions,
 					"pb",
-					pbPathFunc,
+					enum.FindPBOutputPath,
 				),
 			)
 			var unions []resolution.Type
@@ -194,7 +191,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 					outputPath,
 					req.Resolutions,
 					"pb",
-					pbPathFunc,
+					enum.FindPBOutputPath,
 				),
 			)
 			content, err := p.generateFile(
@@ -245,11 +242,12 @@ func (p *Plugin) generateFile(
 	repoRoot string,
 ) ([]byte, error) {
 	var namespace, filePath string
-	if len(structs) > 0 {
+	switch {
+	case len(structs) > 0:
 		namespace, filePath = structs[0].Namespace, structs[0].FilePath
-	} else if len(unions) > 0 {
+	case len(unions) > 0:
 		namespace, filePath = unions[0].Namespace, unions[0].FilePath
-	} else if len(enums) > 0 {
+	case len(enums) > 0:
 		namespace, filePath = enums[0].Namespace, enums[0].FilePath
 	}
 
@@ -378,6 +376,7 @@ func (p *Plugin) processStruct(
 	if err := p.processFields(
 		&md,
 		resolution.UnifiedFields(entry, data.table),
+		entry.Domains,
 		data,
 	); err != nil {
 		return messageData{}, errors.Wrapf(err, "struct %q", entry.Name)
@@ -388,15 +387,49 @@ func (p *Plugin) processStruct(
 func (p *Plugin) processFields(
 	md *messageData,
 	fields []resolution.Field,
+	domains map[string]resolution.Domain,
 	data *templateData,
 ) error {
 	md.Fields = make([]fieldData, 0, len(fields))
-	var reserved []string
+	reserved, err := pbInts(domains, "reserved")
+	if err != nil {
+		return err
+	}
+	owners := make(map[int]string, len(fields))
+	for _, n := range reserved {
+		owners[n] = ""
+	}
 	for i, field := range fields {
 		number := i + 1
+		pinned, err := pbInts(field.Domains, "number")
+		if err != nil {
+			return errors.Wrapf(err, "field %q", field.Name)
+		}
+		if len(pinned) > 1 {
+			return errors.Newf("field %q: @pb number takes one number", field.Name)
+		}
+		if len(pinned) == 1 {
+			number = pinned[0]
+		}
+		if owner, taken := owners[number]; taken {
+			if owner == "" {
+				return errors.Newf(
+					"field %q: protobuf number %d is reserved",
+					field.Name,
+					number,
+				)
+			}
+			return errors.Newf(
+				"fields %q and %q share protobuf number %d",
+				owner,
+				field.Name,
+				number,
+			)
+		}
+		owners[number] = field.Name
 		// An omitted field keeps its number, reserved, so later fields never shift.
 		if omit.IsField(field, "pb") {
-			reserved = append(reserved, strconv.Itoa(number))
+			reserved = append(reserved, number)
 			continue
 		}
 		fd, err := p.processField(field, number, data)
@@ -405,8 +438,35 @@ func (p *Plugin) processFields(
 		}
 		md.Fields = append(md.Fields, fd)
 	}
-	md.Reserved = strings.Join(reserved, ", ")
+	slices.Sort(reserved)
+	md.Reserved = strings.Join(lo.Map(reserved, func(n, _ int) string {
+		return strconv.Itoa(n)
+	}), ", ")
 	return nil
+}
+
+// pbInts returns the positive integer values of the @pb expression of the given name.
+func pbInts(domains map[string]resolution.Domain, name string) ([]int, error) {
+	d, ok := domains["pb"]
+	if !ok {
+		return nil, nil
+	}
+	var ints []int
+	for _, expr := range d.Expressions {
+		if expr.Name != name {
+			continue
+		}
+		if len(expr.Values) == 0 {
+			return nil, errors.Newf("@pb %s needs a number", name)
+		}
+		for _, v := range expr.Values {
+			if v.Kind != resolution.ValueKindInt || v.IntValue < 1 {
+				return nil, errors.Newf("@pb %s takes positive integers", name)
+			}
+			ints = append(ints, int(v.IntValue))
+		}
+	}
+	return ints, nil
 }
 
 // addInstance adds the message of inst to the file once and returns its name. It fails
@@ -429,7 +489,8 @@ func (p *Plugin) addInstance(
 	}
 	data.instances[inst.Name] = use
 	md := messageData{Name: inst.Name, Doc: doc.Get(inst.Generic.Domains)}
-	if err := p.processFields(&md, inst.Fields, data); err != nil {
+	err := p.processFields(&md, inst.Fields, inst.Generic.Domains, data)
+	if err != nil {
 		return "", errors.Wrapf(err, "instance %q", inst.Name)
 	}
 	data.Messages = append(data.Messages, md)
@@ -699,7 +760,7 @@ func (p *Plugin) processUnion(
 	entry resolution.Type,
 	data *templateData,
 ) (messageData, error) {
-	form := entry.Form.(resolution.UnionForm)
+	form := resolution.MustForm[resolution.UnionForm](entry)
 	name := getPBName(entry)
 	if name == "" {
 		name = entry.Name
@@ -885,7 +946,7 @@ func (d *templateData) Imports() []string {
 type messageData struct {
 	Name string
 	Doc  string
-	// Reserved lists the numbers of omitted fields, comma-separated.
+	// Reserved lists the reserved field numbers, comma-separated.
 	Reserved string
 	Fields   []fieldData
 	Oneof    *oneofData

@@ -52,6 +52,51 @@ path of the computer, when the path of the computer holds no login yet.
 The `--state-file` flag of `start --standalone`, `login`, and `clear` sets a different
 path. The service always uses the default path.
 
+On Linux and macOS, the Driver creates a missing state directory with mode `0700` and a
+missing state file with mode `0600`. From Driver 0.61.5, `start` and `clear` do not
+change the mode or owner of a state directory or state file that exists. When root runs
+`start` or `clear` at the default path on Linux and a `synnax` user exists, they give a
+state directory that they create to root and the `synnax` group with mode `0751`, and a
+state file that they create to the `synnax` user with mode `0600`, as `install` does.
+`start`, `login`, and `clear` fail when:
+
+- Other users can read the state file. To fix it, run `chmod 600` on the file. In
+  Kubernetes, `fsGroup` with the default `fsGroupChangePolicy` makes the file readable
+  by the group at each mount. Set the policy to `OnRootMismatch`, or remove `fsGroup`,
+  then run `chmod 600` on the file once.
+- A different user owns the state file. The user that runs the Driver must own it. When
+  root runs the Driver, the `synnax` user can also own it.
+- The state directory or the state file is a symbolic link, such as a file in a mounted
+  Kubernetes Secret.
+
+The Driver does not examine the mode of the state directory. A relative `--state-file`
+path starts at the working directory.
+
+Only `install` and `login` change the owners and modes of existing paths, and only when
+root runs them:
+
+- At the default path on Linux, when a `synnax` user exists, they give the directory to
+  root and the `synnax` group with mode `0751`. They give the state file to the `synnax`
+  user with mode `0600`. They create the `opcua` directory if it is missing and give it
+  to the `synnax` user with mode `0700`.
+- At the default path without a `synnax` user, such as on macOS, they set a state
+  directory that root owns to `0700`. They replace a state file that another user owns
+  with a copy that root owns, with mode `0600`.
+- At a `--state-file` path on Linux, when a `synnax` user exists, `login` gives only the
+  state file to the `synnax` user with mode `0600`. It does not change its directory.
+
+A root `login` makes the checks above before it makes these changes. It makes the
+changes also when a check fails, and then fails.
+
+On macOS without the service, run `login` without `sudo` if the Driver runs as your
+user: a `sudo` login leaves the state file, and a state directory that it creates, to
+root, and `start` fails until you give them back with `chown`.
+
+From Driver 0.61.0 to 0.61.4, `start`, `login`, and `clear` also change the owners and
+modes of existing paths at each run. They set the state file to mode `0600` at any path,
+and at the default path they also change the directory. They replace the values that a
+setup step, such as an init container, gives these paths.
+
 To remove the saved login, run `synnax-driver clear`. Run `login` again before the next
 start.
 
@@ -161,7 +206,19 @@ a key is saved, the Driver ignores a username and password and logs a warning.
 </Field.Item>
 
 <Field.Item name="secure" default="false">
-  Connect to the Core over TLS.
+  Connect to the Core over TLS. With `ca_cert` set and `secure` not set, the Driver uses
+  TLS. With `ca_cert` set and `secure` false in the same source, the Driver fails to
+  connect.
+</Field.Item>
+
+<Field.Item name="ca_cert">
+  The path to a PEM file of the CA certificates that sign the certificate of the Core.
+  Without it, the Driver uses the system trust store. `secure` and `ca_cert` go
+  together: the first source that sets either one, in the order command line,
+  environment, config file, and saved state, gives both. When the Driver enrolls, it
+  saves both with the API key, so a CA stays in use after you remove it from a higher
+  source. To stop using a saved CA, set `secure` in a higher source, run `login` again,
+  or run [`clear`](/reference/enterprise/driver/cli-reference#clear).
 </Field.Item>
 
 <Field.Item name="correct_skew" default="true">

@@ -23,7 +23,7 @@ type CompileError struct {
 
 func (e CompileError) Error() string { return e.Diagnostics }
 
-func encode(err error) (errors.Payload, bool) {
+func encode(_ *errors.Codec, err error) (errors.Payload, bool) {
 	var ce CompileError
 	if errors.As(err, &ce) {
 		return errors.Payload{Type: errorType, Data: ce.Diagnostics}, true
@@ -31,11 +31,14 @@ func encode(err error) (errors.Payload, bool) {
 	return errors.Payload{}, false
 }
 
-func decode(p errors.Payload) (error, bool) {
+func decode(_ *errors.Codec, p errors.Payload) (error, bool) {
 	if p.Type != errorType {
 		return nil, false
 	}
 	return CompileError{Diagnostics: p.Data}, true
 }
 
-func init() { errors.Register(encode, decode) }
+// ErrorProvider encodes and decodes Arc compile errors for an errors.Codec.
+func ErrorProvider() errors.Provider {
+	return errors.Provider{Encode: encode, Decode: decode}
+}

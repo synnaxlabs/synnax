@@ -31,9 +31,9 @@
 /* While the search has the focus, the first match is lit, unless the pointer lights
    another item. Enter picks the lit item. */
 :is(.lyra-menu-dialog, .lyra-menu-context):has(> .lyra-menu-filter:focus-within):not(
-        :has(.lyra-menu-item:not([aria-disabled="true"]):hover)
+        :has([role="menuitem"]:not([aria-disabled="true"]):hover)
     )
-    .lyra-menu-item.lyra-btn[data-highlighted] {
+    .lyra-btn[role="menuitem"][data-highlighted] {
     --pluto-btn-bg: var(--pluto-hover-bg);
     --pluto-btn-border-color: var(--pluto-hover-border-color);
 }
@@ -50,11 +50,14 @@
     display: none;
 }
 
-/* A divider shows only between items that match. */
+/* A divider shows only between items that match. A hidden element counts as nothing. */
+.lyra-menu-filter ~ [hidden],
 .lyra-menu-filter + .lyra-menu__divider,
+.lyra-menu-filter + [hidden] + .lyra-menu__divider,
+.lyra-menu-filter ~ .lyra-menu__divider + [hidden] + .lyra-menu__divider,
 .lyra-menu-filter
     ~ .lyra-menu__divider:not(
-        :has(~ :not(.lyra-menu__divider, .lyra-menu-filter__empty))
+        :has(~ :not(.lyra-menu__divider, .lyra-menu-filter__empty, [hidden]))
     ) {
     display: none;
 }

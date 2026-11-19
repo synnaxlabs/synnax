@@ -39,6 +39,6 @@ describe("EtherCAT.Device.HARDWARE", () => {
 
   it("should show the location of a slave from a Driver that names no network", async () => {
     await find({ position: 3 });
-    expect(screen.getByText("test-location")).toBeTruthy();
+    expect(screen.getByText("soem:eth0.Slot 3")).toBeTruthy();
   });
 });

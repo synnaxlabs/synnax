@@ -76,7 +76,8 @@ var _ = Describe("Writer", func() {
 			Expect(e.write(ctx, func(w secret.Writer) error {
 				return w.Set(ctx, &s, nil)
 			})).To(Succeed())
-			file := e.retrieve(ctx, s.Base().Key).Variant.(secret.FileSecret)
+			file, ok := e.retrieve(ctx, s.Base().Key).Variant.(secret.FileSecret)
+			Expect(ok).To(BeTrue())
 			Expect(file.FileName).To(Equal("key.pem"))
 		})
 		It(

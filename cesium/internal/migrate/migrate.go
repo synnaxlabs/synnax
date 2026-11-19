@@ -31,10 +31,8 @@ type DBState struct {
 
 type migration func(state DBState) DBState
 
-var migrations = []migration{
-	migrateV0toV1,
-	migrateV1toV2,
-	migrateV2toV3,
+func migrations() []migration {
+	return []migration{migrateV0toV1, migrateV1toV2, migrateV2toV3}
 }
 
 func migrateV0toV1(state DBState) DBState {
@@ -69,8 +67,9 @@ func migrateV2toV3(state DBState) DBState {
 // channel's current version up to the latest. It runs on every open of a channel whose
 // stored version is behind, so a migration must be idempotent and must not write.
 func Migrate(state DBState) DBState {
-	for i := int(state.Channel.Version); i < len(migrations); i++ {
-		state = migrations[i](state)
+	all := migrations()
+	for i := int(state.Channel.Version); i < len(all); i++ {
+		state = all[i](state)
 	}
 	return state
 }

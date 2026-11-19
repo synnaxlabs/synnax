@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -101,6 +102,17 @@ func resolveDetails(s *status.Status[any]) error {
 		}
 	case resource.TypeChannel:
 		_, err = decodeDetails[struct{}](s.Details)
+	case resource.TypeArc, resource.TypeBuiltin, resource.TypeFramer,
+		resource.TypeGroup, resource.TypeLabel, resource.TypeLineplot, resource.TypeLog,
+		resource.TypeNode, resource.TypePanel, resource.TypePolicy,
+		resource.TypeProject, resource.TypeRange, resource.TypeRangeAlias,
+		resource.TypeRole, resource.TypeSchematic, resource.TypeSchematicSymbol,
+		resource.TypeStatus, resource.TypeTable, resource.TypeUser, resource.TypeView,
+		resource.TypeEthercatMaster, resource.TypeEthercatSlave,
+		resource.TypeHTTPServer, resource.TypeLabjackDevice, resource.TypeModbusServer,
+		resource.TypeNiChassis, resource.TypeNiDevice, resource.TypeOpcuaServer,
+		resource.TypeArcDirectory, resource.TypeSecret, resource.TypeCertificate,
+		resource.TypeColor, resource.TypeICD, resource.TypeEnumeration:
 	}
 	return err
 }
@@ -152,6 +164,9 @@ type SetByKeyOrNameRequest struct {
 	Message string `json:"message" msgpack:"message"`
 	// Variant is the new status variant.
 	Variant status.Variant `json:"variant" msgpack:"variant"`
+	// Time is when the status was set. A zero time or a time later than now means now.
+	// A set older than the stored status does not replace it.
+	Time telem.TimeStamp `json:"time" msgpack:"time"`
 }
 
 // SetByKeyOrNameResponse is a response to a SetByKeyOrNameRequest.
@@ -160,6 +175,14 @@ type SetByKeyOrNameResponse struct {
 	Key status.Key `json:"key" msgpack:"key"`
 	// MultipleMatches reports whether multiple statuses matched by name.
 	MultipleMatches bool `json:"multiple_matches" msgpack:"multiple_matches"`
+}
+
+var _ bind.Returns = SetByKeyOrNameResponse{}
+
+// Returned implements bind.Returns, so a set that does not replace a newer status needs
+// retrieve on it.
+func (r SetByKeyOrNameResponse) Returned() []resource.ID {
+	return []resource.ID{status.ResourceID(r.Key)}
 }
 
 // SetByKeyOrName upserts a status by key or by name.
@@ -178,14 +201,21 @@ func (s *Service) SetByKeyOrName(
 	if err != nil {
 		return SetByKeyOrNameResponse{}, err
 	}
-	st := status.SetTarget(matches, req.KeyOrName, req.Message, string(req.Variant))
+	st, newer := status.SetTarget(
+		matches,
+		req.KeyOrName,
+		req.Message,
+		string(req.Variant),
+		req.Time,
+	)
+	res := SetByKeyOrNameResponse{Key: st.Key, MultipleMatches: len(matches) > 1}
+	if !newer {
+		return res, nil
+	}
 	if err := s.internal.NewWriter(tx).Set(ctx, &st); err != nil {
 		return SetByKeyOrNameResponse{}, err
 	}
-	return SetByKeyOrNameResponse{
-		Key:             st.Key,
-		MultipleMatches: len(matches) > 1,
-	}, nil
+	return res, nil
 }
 
 var _ bind.Named = RetrieveRequest{}

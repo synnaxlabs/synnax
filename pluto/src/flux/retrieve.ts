@@ -16,8 +16,8 @@ import {
   UnexpectedError,
 } from "@synnaxlabs/client";
 import {
+  array,
   caseconv,
-  compare,
   type destructor,
   sleep,
   type state,
@@ -104,7 +104,7 @@ export interface CreateRetrieveParams<
 // which would otherwise spin useSyncExternalStore forever.
 const answersEqual = <Data>(prev: Data, next: Data): boolean =>
   Array.isArray(prev) && Array.isArray(next)
-    ? compare.arraysEqual(prev, next)
+    ? array.equal(prev, next)
     : Object.is(prev, next);
 
 /**

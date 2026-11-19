@@ -122,8 +122,8 @@ const isDisabled = (opt: Option, disabled: Preference[]): boolean =>
   disabled.some((d) => {
     const targetLoc = parseLocationOptions(d.targetCorner);
     const dialogLoc = parseLocationOptions(d.dialogCorner);
-    // If dialogCorner is CENTER (from normalization), only match on target corner
-    if (location.xyEquals(d.dialogCorner as location.XY, location.CENTER))
+    // A CENTER dialog corner matches on the target corner alone.
+    if (location.xyEquals(dialogLoc as location.XY, location.CENTER))
       return location.xyMatches(opt.targetCorner, targetLoc);
 
     return (

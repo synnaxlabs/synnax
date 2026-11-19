@@ -71,7 +71,7 @@ var _ = Describe("Metrics", func() {
 				HostKey: dist.Identity.HostKey,
 			})).Error().To(MatchError(ContainSubstring("storage: must be non-nil")))
 		})
-		It("Should apply default collection interval", func(ctx SpecContext) {
+		It("Should apply default collection interval", func() {
 			cfg := metrics.DefaultServiceConfig.Override(metrics.ServiceConfig{
 				Channel: channelSvc,
 				Framer:  framerSvc,
@@ -353,7 +353,7 @@ var _ = Describe("Metrics", func() {
 			requests, responses = confluence.Attach(streamer)
 			streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 		})
-		AfterEach(func(ctx SpecContext) {
+		AfterEach(func() {
 			requests.Close()
 			Eventually(responses.Outlet()).Should(BeClosed())
 		})

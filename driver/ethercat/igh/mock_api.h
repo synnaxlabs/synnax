@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <cstring>
 #include <map>
+#include <optional>
 #include <span>
 #include <string>
 #include <utility>
@@ -27,10 +28,8 @@ namespace driver::ethercat::igh {
 /// Positions count from 0, as IgH counts them.
 class MockAPI final : public API {
     static constexpr uintptr_t CONFIG_BASE = 0x100;
+    static constexpr uintptr_t DOMAIN_BASE = 0x10000;
     ec_master_t *const handle = reinterpret_cast<ec_master_t *>(0x1);
-    ec_domain_t *const output_domain = reinterpret_cast<ec_domain_t *>(0x2);
-    ec_domain_t *const input_domain = reinterpret_cast<ec_domain_t *>(0x3);
-    mutable int domains_created = 0;
     mutable bool activated = false;
 
 public:
@@ -66,12 +65,30 @@ public:
         bool operator==(const SDO &) const = default;
     };
 
+    /// @brief the DC sync of a slave config, as ecrt_slave_config_dc takes it.
+    struct DC {
+        uint16_t assign_activate;
+        uint32_t sync0_cycle;
+        int32_t sync0_shift;
+        uint32_t sync1_cycle;
+        int32_t sync1_shift;
+
+        bool operator==(const DC &) const = default;
+    };
+
     /// @brief a process data domain.
     struct Domain {
         /// @brief the size in bytes, which grows with each registered entry.
         size_t size = 0;
         std::vector<uint8_t> data;
         ec_domain_state_t state{.working_counter = 0, .wc_state = EC_WC_COMPLETE};
+    };
+
+    /// @brief an object of the CoE dictionary that IgH read, with its entries by
+    /// sub-index.
+    struct DictionaryObject {
+        ObjectInfo info;
+        std::map<uint8_t, EntryInfo> entries;
     };
 
     /// @brief a slave on the bus.
@@ -84,15 +101,34 @@ public:
         /// @brief the object dictionary, keyed by index and sub-index. A download
         /// writes to it, and an upload of a missing object aborts.
         std::map<std::pair<uint16_t, uint8_t>, uint32_t> objects;
+        /// @brief objects of 8 bytes. An upload with less room fails with ENOBUFS, as
+        /// in IgH.
+        std::map<std::pair<uint16_t, uint8_t>, uint64_t> wide_objects;
+        /// @brief the error code that an upload of each object fails with, with no
+        /// abort code.
+        std::map<std::pair<uint16_t, uint8_t>, int> upload_errors;
         /// @brief abort codes for objects that reject downloads. A code of 0 makes the
         /// download time out.
         std::map<std::pair<uint16_t, uint8_t>, uint32_t> download_aborts;
+        /// @brief how many more reads of a slave in INIT find it in INIT before IgH
+        /// moves it to PRE-OP, or -1 to keep it in INIT.
+        int reads_to_pre_op = -1;
         /// @brief whether master_get_slave fails for the slave.
         bool unreadable = false;
         /// @brief whether slave_config_state fails for the slave.
         bool state_unreadable = false;
         /// @brief whether master_get_pdo fails for the slave.
         bool layout_unreadable = false;
+        /// @brief the CoE dictionary that IgH read from the slave, in list order.
+        std::vector<DictionaryObject> dictionary;
+        /// @brief how many entries entry_info looked up.
+        mutable size_t entry_reads = 0;
+        /// @brief the SII from word 0.
+        std::vector<uint16_t> sii;
+        /// @brief what sii_read returns for the slave, when not 0.
+        int sii_result = 0;
+        /// @brief the DC sync that the config sets up, or nullopt for none.
+        std::optional<DC> dc;
         bool online = true;
         /// @brief the state the slave reaches after activation.
         uint8_t reaches = EC_AL_STATE_OP;
@@ -102,6 +138,14 @@ public:
         /// @brief how many state reads after activation the slave takes to reach its
         /// state.
         int reads_to_reach = 0;
+        /// @brief whether a master reset makes the slave reach OP.
+        bool recovers_on_reset = false;
+        /// @brief how many state reads after a master reset the slave takes to reach
+        /// its state again, as IgH configures it again.
+        int reads_to_reconfigure = 0;
+        /// @brief how many state reads remain before a master reset takes effect, or -1
+        /// with no reset pending.
+        int reads_to_reset = -1;
         bool configured = false;
         bool settled = false;
         /// @brief the SDO downloads, in call order.
@@ -112,6 +156,8 @@ public:
         std::map<uint8_t, std::vector<PDO>> assigned;
         /// @brief the index and sub-index of each registered entry, in call order.
         std::vector<std::pair<uint16_t, uint8_t>> registered;
+        /// @brief the index of the domain that holds the entries of the slave.
+        std::optional<size_t> domain;
 
         /// @brief returns the PDOs of every sync manager after configuration.
         [[nodiscard]] std::vector<PDO> layout() const {
@@ -139,13 +185,23 @@ public:
     };
 
     mutable std::vector<Slave> slaves;
-    mutable Domain outputs;
-    mutable Domain inputs;
+    /// @brief the domains, in creation order.
+    mutable std::vector<Domain> domains;
     x::errors::Error check_device_err = x::errors::NIL;
-    bool request_master_fails = false;
+    bool open_master_fails = false;
+    /// @brief the result of master_reserve, and whether the master holds a reservation.
+    /// IgH refuses to configure or activate a master with none.
+    int reserve_result = 0;
+    mutable bool reserved = false;
     int master_info_result = 0;
-    bool output_domain_fails = false;
-    bool input_domain_fails = false;
+    /// @brief whether the network port of the master has a link.
+    bool link_up = true;
+    /// @brief how many more master info reads find IgH scanning the bus.
+    mutable int scan_reads = 0;
+    /// @brief whether the master scans the bus again, as after a slave loses power.
+    /// During the scan, every slave config reads as offline.
+    bool scanning = false;
+    bool domain_fails = false;
     int activate_result = 0;
     bool slave_config_fails = false;
     bool config_sdo_fails = false;
@@ -156,8 +212,31 @@ public:
     int domain_process_result = 0;
     int domain_queue_result = 0;
     int domain_state_result = 0;
+    /// @brief the domain queues, in call order.
+    mutable std::vector<size_t> queued;
+    /// @brief the result of master_reset, and how many state reads of a slave pass
+    /// before a reset takes effect, as IgH resets in the background.
+    int reset_result = 0;
+    int reset_lag = 0;
+    /// @brief how many times the master asked for a reset, failed or not.
+    mutable int resets = 0;
     mutable bool released = false;
     mutable bool deactivated = false;
+    /// @brief the times that master_application_time got, in call order.
+    mutable std::vector<uint64_t> app_times;
+    /// @brief the times that master_sync_reference_clock_to got, in call order.
+    mutable std::vector<uint64_t> reference_syncs;
+    /// @brief how many times master_sync_slave_clocks ran.
+    mutable int slave_syncs = 0;
+    /// @brief what master_reference_clock_time reads, and its result.
+    uint32_t reference_clock_time = 0;
+    int reference_clock_result = 0;
+    /// @brief the result of master_sync_reference_clock_to and
+    /// master_sync_slave_clocks.
+    int clock_sync_result = 0;
+    /// @brief the results of slave_config_dc and master_application_time.
+    int dc_config_result = 0;
+    int app_time_result = 0;
 
     MockAPI(): API(MockTag{}) {}
 
@@ -176,29 +255,44 @@ public:
         return slave;
     }
 
+    /// @brief returns the domain that holds the entries of slave.
+    Domain &domain_of(const Slave &slave) const {
+        return this->domains.at(slave.domain.value());
+    }
+
     [[nodiscard]] x::errors::Error check_device(unsigned int) const override {
         return this->check_device_err;
     }
 
-    [[nodiscard]] ec_master_t *request_master(unsigned int) const override {
-        return this->request_master_fails ? nullptr : this->handle;
+    [[nodiscard]] ec_master_t *open_master(unsigned int) const override {
+        return this->open_master_fails ? nullptr : this->handle;
+    }
+
+    int master_reserve(ec_master_t *) const override {
+        if (this->reserve_result < 0) return this->reserve_result;
+        this->reserved = true;
+        return 0;
     }
 
     void release_master(ec_master_t *) const override {
         this->released = true;
-        this->domains_created = 0;
+        this->reserved = false;
+        this->domains.clear();
         this->activated = false;
         for (auto &slave: this->slaves) {
             slave.configured = false;
             slave.settled = false;
+            slave.dc.reset();
+            slave.domain.reset();
         }
     }
 
     int master_activate(ec_master_t *) const override {
+        if (!this->reserved) return -EPERM;
         if (this->activate_result < 0) return this->activate_result;
         this->activated = true;
-        this->outputs.data.resize(this->outputs.size);
-        this->inputs.data.resize(this->inputs.size);
+        for (auto &domain: this->domains)
+            domain.data.resize(domain.size);
         return 0;
     }
 
@@ -207,10 +301,18 @@ public:
         return 0;
     }
 
+    int master_reset(ec_master_t *) const override {
+        this->resets++;
+        if (this->reset_result < 0) return this->reset_result;
+        for (auto &slave: this->slaves)
+            if (slave.configured) slave.reads_to_reset = this->reset_lag;
+        return 0;
+    }
+
     ec_domain_t *master_create_domain(ec_master_t *) const override {
-        if (++this->domains_created == 1)
-            return this->output_domain_fails ? nullptr : this->output_domain;
-        return this->input_domain_fails ? nullptr : this->input_domain;
+        if (!this->reserved || this->domain_fails) return nullptr;
+        this->domains.emplace_back();
+        return reinterpret_cast<ec_domain_t *>(DOMAIN_BASE + this->domains.size() - 1);
     }
 
     size_t domain_size(const ec_domain_t *domain) const override {
@@ -226,7 +328,10 @@ public:
         return this->domain_process_result;
     }
 
-    int domain_queue(ec_domain_t *) const override { return this->domain_queue_result; }
+    int domain_queue(ec_domain_t *domain) const override {
+        this->queued.push_back(this->index(domain));
+        return this->domain_queue_result;
+    }
 
     int
     domain_state(const ec_domain_t *domain, ec_domain_state_t *state) const override {
@@ -241,6 +346,9 @@ public:
     int master(ec_master_t *, ec_master_info_t *info) const override {
         if (this->master_info_result < 0) return this->master_info_result;
         info->slave_count = static_cast<unsigned int>(this->slaves.size());
+        info->link_up = this->link_up ? 1 : 0;
+        info->scan_busy = this->scanning || this->scan_reads > 0 ? 1 : 0;
+        if (this->scan_reads > 0) this->scan_reads--;
         return 0;
     }
 
@@ -251,9 +359,12 @@ public:
     ) const override {
         if (position >= this->slaves.size() || this->slaves[position].unreadable)
             return -EIO;
-        const auto &slave = this->slaves[position];
+        auto &slave = this->slaves[position];
+        if (slave.reads_to_pre_op == 0) slave.info.al_state = EC_AL_STATE_PREOP;
+        if (slave.reads_to_pre_op >= 0) slave.reads_to_pre_op--;
         *info = slave.info;
         info->sync_count = static_cast<uint8_t>(slave.syncs.size());
+        info->sdo_count = static_cast<uint16_t>(slave.dictionary.size());
         return 0;
     }
 
@@ -264,7 +375,9 @@ public:
         uint32_t,
         uint32_t
     ) const override {
-        if (this->slave_config_fails || position >= this->slaves.size()) return nullptr;
+        if (!this->reserved || this->slave_config_fails ||
+            position >= this->slaves.size())
+            return nullptr;
         this->slaves[position].configured = true;
         return reinterpret_cast<ec_slave_config_t *>(CONFIG_BASE + position);
     }
@@ -275,6 +388,24 @@ public:
     ) const override {
         auto &slave = this->slave(sc);
         if (slave.state_unreadable) return -EIO;
+        if (this->scanning) {
+            *state = {};
+            return 0;
+        }
+        if (slave.reads_to_reset > 0)
+            slave.reads_to_reset--;
+        else if (slave.reads_to_reset == 0) {
+            slave.reads_to_reset = -1;
+            // IgH configures a faulted slave again from INIT.
+            if (slave.info.error_flag != 0) slave.info.al_state = EC_AL_STATE_INIT;
+            slave.info.error_flag = 0;
+            slave.settled = false;
+            slave.reads_to_reach = slave.reads_to_reconfigure;
+            if (slave.recovers_on_reset) {
+                slave.reaches = EC_AL_STATE_OP;
+                slave.refuses = false;
+            }
+        }
         if (this->activated && !slave.settled) {
             if (slave.reads_to_reach > 0)
                 slave.reads_to_reach--;
@@ -304,6 +435,7 @@ public:
             for (const auto &entry: pdo.entries) {
                 if (entry.index != index || entry.sub_index != sub_index) continue;
                 slave.registered.emplace_back(index, sub_index);
+                slave.domain = this->index(domain);
                 auto &d = this->domain(domain);
                 const auto offset = d.size;
                 d.size += (entry.bit_length + 7) / 8;
@@ -403,9 +535,21 @@ public:
         size_t *result_size,
         uint32_t *abort_code
     ) const override {
-        const auto &objects = this->slaves.at(position).objects;
-        const auto it = objects.find({index, sub_index});
-        if (it == objects.end()) {
+        const auto &slave = this->slaves.at(position);
+        const std::pair key{index, sub_index};
+        if (const auto err = slave.upload_errors.find(key);
+            err != slave.upload_errors.end())
+            return err->second;
+        if (const auto wide = slave.wide_objects.find(key);
+            wide != slave.wide_objects.end()) {
+            if (target_size < sizeof(wide->second)) return -ENOBUFS;
+            for (size_t i = 0; i < sizeof(wide->second); i++)
+                target[i] = static_cast<uint8_t>(wide->second >> (8 * i));
+            *result_size = sizeof(wide->second);
+            return 0;
+        }
+        const auto it = slave.objects.find(key);
+        if (it == slave.objects.end()) {
             *abort_code = 0x06020000;
             return -EIO;
         }
@@ -467,9 +611,100 @@ public:
         return 0;
     }
 
+    int slave_config_dc(
+        ec_slave_config_t *sc,
+        const uint16_t assign_activate,
+        const uint32_t sync0_cycle,
+        const int32_t sync0_shift,
+        const uint32_t sync1_cycle,
+        const int32_t sync1_shift
+    ) const override {
+        this->slave(sc).dc = DC{
+            assign_activate,
+            sync0_cycle,
+            sync0_shift,
+            sync1_cycle,
+            sync1_shift
+        };
+        return this->dc_config_result;
+    }
+
+    int master_application_time(ec_master_t *, const uint64_t app_time) const override {
+        this->app_times.push_back(app_time);
+        return this->app_time_result;
+    }
+
+    int master_sync_reference_clock_to(
+        ec_master_t *,
+        const uint64_t sync_time
+    ) const override {
+        this->reference_syncs.push_back(sync_time);
+        return this->clock_sync_result;
+    }
+
+    int master_sync_slave_clocks(ec_master_t *) const override {
+        this->slave_syncs++;
+        return this->clock_sync_result;
+    }
+
+    int
+    master_reference_clock_time(const ec_master_t *, uint32_t *time) const override {
+        *time = this->reference_clock_time;
+        return this->reference_clock_result;
+    }
+
+    int sii_read(
+        unsigned int,
+        const uint16_t position,
+        const uint16_t offset,
+        const std::span<uint16_t> words
+    ) const override {
+        const auto &slave = this->slaves.at(position);
+        if (slave.sii_result != 0) return slave.sii_result;
+        if (words.empty() || offset + words.size() > slave.sii.size()) return -EINVAL;
+        std::copy_n(slave.sii.begin() + offset, words.size(), words.begin());
+        return 0;
+    }
+
+    int object_info(
+        unsigned int,
+        const uint16_t position,
+        const uint16_t list_position,
+        ObjectInfo &info
+    ) const override {
+        const auto &dictionary = this->slaves.at(position).dictionary;
+        if (list_position >= dictionary.size()) return -EINVAL;
+        info = dictionary[list_position].info;
+        return 0;
+    }
+
+    int entry_info(
+        unsigned int,
+        const uint16_t position,
+        const uint16_t index,
+        const uint8_t sub_index,
+        EntryInfo &info
+    ) const override {
+        const auto &slave = this->slaves.at(position);
+        slave.entry_reads++;
+        const auto object = std::ranges::find_if(
+            slave.dictionary,
+            [index](const DictionaryObject &o) { return o.info.index == index; }
+        );
+        if (object == slave.dictionary.end()) return -EINVAL;
+        const auto entry = object->entries.find(sub_index);
+        if (entry == object->entries.end()) return -EINVAL;
+        info = entry->second;
+        return 0;
+    }
+
 private:
+    static size_t index(const ec_domain_t *domain) {
+        return reinterpret_cast<uintptr_t>(domain) - DOMAIN_BASE;
+    }
+
     Domain &domain(const ec_domain_t *domain) const {
-        return domain == this->output_domain ? this->outputs : this->inputs;
+        return this->domains.at(index(domain));
     }
 
     Slave &slave(const ec_slave_config_t *sc) const {

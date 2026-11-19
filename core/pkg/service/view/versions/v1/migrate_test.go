@@ -32,6 +32,7 @@ var _ = Describe("Migration", func() {
 	var db *gorp.DB
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.View]{DB: db}))
 	})
 

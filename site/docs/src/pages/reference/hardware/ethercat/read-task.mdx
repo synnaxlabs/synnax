@@ -39,12 +39,12 @@ sample rate of each read task, from 100 Hz to 10 kHz. If no such rate exists, fo
 example for read tasks at 3 kHz and 4 kHz, the task does not start. See
 [how the Driver runs a network](/reference/hardware/ethercat/configure-device#how-the-driver-runs-a-network).
 
-Each sample has the time of the network cycle that read it. Without IgH, if a module on
-the network has a distributed clock, the Driver measures that time with the distributed
-clock. The timestamps then show when the EtherCAT frame passed the modules, without the
-jitter of the computer clock, and they stay in line with the computer clock. When the
-computer is busy, a cycle can still run late, and its timestamp shows the delay. See
-[timing](/reference/hardware/tasks#timing).
+Each sample has the time of the network cycle that read it. If a module on the network
+has a distributed clock, the Driver measures that time with the distributed clock. With
+IgH, a module must also run in a DC sync mode. The timestamps then show when the
+EtherCAT frame passed the modules, without the jitter of the computer clock, and they
+stay in line with the computer clock. When the computer is busy, a cycle can still run
+late, and its timestamp shows the delay. See [timing](/reference/hardware/tasks#timing).
 
 <Divider.Divider x />
 
@@ -56,7 +56,9 @@ computer is busy, a cycle can still run late, and its timestamp shows the delay.
 1. In the devices toolbar, right-click a module and select **Create read task**. The
    task starts with a channel for each input of the module. On a module whose settings
    Synnax knows, such as a Dewesoft module, it starts with the measurement inputs only.
-   To remove a channel, right-click it and select **Remove**.
+   To read several modules of one network in one task, select them first. The Console
+   configures each module that is not configured yet. To remove a channel, right-click
+   it and select **Remove**.
 2. Set **Sample rate** and **Stream rate**.
 3. Click <Icon.Play /> (**Start**).
 
@@ -202,6 +204,17 @@ one of them, pass the name of the PDO that holds the entry as the third argument
 
   </Fragment>
 </Client.Tabs>
+
+<Divider.Divider x />
+
+## Tare channels
+
+Tare sets the current value of a `float32` or `float64` channel to zero, such as a
+[scaled](#scales) channel. The task must be running.
+
+1. In the channel list, click **Tare** on a float channel. To tare several channels,
+   select them, right-click, and select **Tare**.
+2. The values of those channels start from zero.
 
 <Divider.Divider x />
 
@@ -380,7 +393,7 @@ Right-click the module, select **Configure**, and click **Save**.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"Entry ... on slave ... sends data that only ... reads."}>
+<Problem.Item message={"Entry ... on module ... sends data that only ... reads."}>
 <Problem.Cause>
 
 The module runs the setup of another program, such as DewesoftX, and only that program
@@ -395,21 +408,22 @@ restart the power of the module, or select another entry.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"Slave ... is set up for .... Switch it to Synnax before you start the task."}>
+<Problem.Item message={"... sets up this device"}>
 <Problem.Cause>
 
-Another program, such as DewesoftX, sets up the module.
+Another program, such as DewesoftX, sets up the module. The channel list marks each
+channel on the module in yellow, and the details of the channel show this warning.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Switch the module to Synnax in the Configure dialog. If the message tells you to set up
-the module in the other program, do that.
+Click **Switch to Synnax** in the warning. If the warning tells you to set up the module
+in the other program, do that.
 
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"Another task sets ... of slave ... to ..."}>
+<Problem.Item message={"Another task sets ... of module ... to ..."}>
 <Problem.Cause>
 
 Two read tasks write different values to one setting of a module.
@@ -422,7 +436,7 @@ Give both tasks the same value, or stop the other task.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"Slave ... has no input entry at ..."}>
+<Problem.Item message={"Module ... has no input entry at ..."}>
 <Problem.Cause>
 
 The module has no input entry at the address of the channel.
@@ -507,7 +521,7 @@ Right-click one of the modules, select **Configure**, and change its
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={["Slave ... uses the index channel ...", "A channel named ... already exists and is not an index"]}>
+<Problem.Item message={["Module ... uses the index channel ...", "A channel named ... already exists and is not an index"]}>
 <Problem.Cause>
 
 The index channel name `<identifier>_time` belongs to another module, or to a channel
@@ -580,7 +594,7 @@ Check the cable to the first module and the power of the modules.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={["Lost contact with slave ... (...).", "Slave ... (...) is not in OP."]}>
+<Problem.Item message={["Lost contact with module ... (...).", "Module ... (...) is not in OP."]}>
 <Problem.Cause>
 
 The task shows **Dropped samples**. A module of the task stopped responding or left OP.
@@ -644,5 +658,5 @@ See
 </Problem.List>
 
 For errors that stop every task on a port, such as `Failed to reach SAFE-OP` or
-`No EtherCAT slaves found on ...`, see
+`No EtherCAT modules found on ...`, see
 [Troubleshoot EtherCAT](/reference/hardware/ethercat/troubleshooting).

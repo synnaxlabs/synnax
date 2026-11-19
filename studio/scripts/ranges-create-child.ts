@@ -20,8 +20,8 @@ const LABELS = [
 
 /**
  * Docs `client/ranges/create-child`: right-click a range in the range explorer, select
- * Start child range, name the child, and save it to the Core. The dialog fills in the
- * parent, and the child appears under it in the range explorer.
+ * Start child range, name the child, and create it. The dialog fills in the parent, and
+ * the child appears under it in the range explorer.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   const { page } = session;
@@ -35,8 +35,10 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await capture.login(session);
   await capture.openToolbar(session, "range");
   await capture.resizeToolbar(session, 400);
-  await page.getByText("Open range explorer", { exact: true }).first().click();
-  const parent = page.getByRole("listitem", { name: PARENT, exact: true }).first();
+  await page.getByRole("button", { name: "Open range explorer", exact: true }).click();
+  // The parent runs, so the toolbar lists it too.
+  const explorer = page.locator(".console-range-tree__list").first();
+  const parent = explorer.getByRole("listitem", { name: PARENT, exact: true }).first();
   await session.waitFor(parent);
   await session.settle(500);
   await session.moveTo({ x: 800, y: 450 });
@@ -73,13 +75,13 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.click(item, { text: true });
   await session.hold(1000);
 
-  await capture.clickButton(session, "Save to Core");
+  await capture.clickButton(session, "Create");
   session.endZoom();
   await session.waitForHidden(name);
   // The child lands under its parent, which stays closed.
   await session.click(parent.getByRole("button", { name: "Expand" }));
   await session.waitFor(
-    page.getByRole("listitem", { name: CHILD, exact: true }).first(),
+    explorer.getByRole("listitem", { name: CHILD, exact: true }).first(),
   );
   await session.hold(3000);
 };

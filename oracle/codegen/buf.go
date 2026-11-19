@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/synnaxlabs/oracle/format"
+	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	"golang.org/x/sync/errgroup"
@@ -122,7 +123,7 @@ func bufOutputStamp(ctx context.Context, repoRoot string) (string, error) {
 			if err := gctx.Err(); err != nil {
 				return err
 			}
-			b, err := os.ReadFile(p)
+			b, err := paths.ReadFile(p, repoRoot)
 			if err != nil {
 				return errors.Wrapf(err, "read %s", p)
 			}
@@ -151,11 +152,7 @@ func bufOutputStamp(ctx context.Context, repoRoot string) (string, error) {
 // repoRoot. We hash the file contents (not just mtimes) so a `git checkout` of
 // identical bytes doesn't trigger an unnecessary regeneration.
 func bufInputStamp(ctx context.Context, repoRoot string) (string, error) {
-	configs, err := readIfExists(
-		filepath.Join(repoRoot, "buf.yaml"),
-		filepath.Join(repoRoot, "buf.gen.yaml"),
-		filepath.Join(repoRoot, "buf.lock"),
-	)
+	configs, err := readIfExists(repoRoot, "buf.yaml", "buf.gen.yaml", "buf.lock")
 	if err != nil {
 		return "", err
 	}
@@ -173,7 +170,7 @@ func bufInputStamp(ctx context.Context, repoRoot string) (string, error) {
 			if err := gctx.Err(); err != nil {
 				return err
 			}
-			b, err := os.ReadFile(p)
+			b, err := paths.ReadFile(p, repoRoot)
 			if err != nil {
 				return errors.Wrapf(err, "read %s", p)
 			}
@@ -202,10 +199,10 @@ func bufInputStamp(ctx context.Context, repoRoot string) (string, error) {
 	return hex.EncodeToString(rollup.Sum(nil)), nil
 }
 
-func readIfExists(paths ...string) ([][]byte, error) {
-	out := make([][]byte, len(paths))
-	for i, p := range paths {
-		b, err := os.ReadFile(p)
+func readIfExists(repoRoot string, names ...string) ([][]byte, error) {
+	out := make([][]byte, len(names))
+	for i, p := range names {
+		b, err := paths.ReadFile(p, repoRoot)
 		if err != nil {
 			if os.IsNotExist(err) {
 				continue
@@ -255,7 +252,7 @@ func walkExtensions(
 				return err
 			}
 			if d.IsDir() {
-				if skipDir.Contains(d.Name()) {
+				if path != repoRoot && skipDir.Contains(d.Name()) {
 					return filepath.SkipDir
 				}
 				return nil
@@ -305,7 +302,7 @@ func FormatBufOutputs(
 
 	batch := make([]format.File, len(files))
 	for i, path := range files {
-		raw, err := os.ReadFile(path)
+		raw, err := paths.ReadFile(path, repoRoot)
 		if err != nil {
 			return 0, errors.Wrapf(err, "read %s", path)
 		}

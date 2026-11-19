@@ -48,6 +48,7 @@ var _ = Describe("Where", Ordered, func() {
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		whereDB = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(whereDB.Run)
 		MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: whereDB}))
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: whereDB}))
 		stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: whereDB}))

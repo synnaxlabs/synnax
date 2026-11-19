@@ -732,6 +732,36 @@ describe("position", () => {
         expect(position.position(params)).toEqual(expected)),
     );
 
+    describe("disable without a dialog corner", () => {
+      const PARAMS = {
+        container: box.construct(0, 0, 100, 100),
+        target: box.construct(40, 40, 10, 10),
+        dialog: box.construct(0, 0, 20, 20),
+      };
+
+      it("should return the left target corner with nothing disabled", () => {
+        expect(position.position(PARAMS).targetCorner.x).toEqual("left");
+      });
+
+      it("should accept a bare location as a disabled preference", () => {
+        const res = position.position({ ...PARAMS, disable: "left" });
+        expect(res.targetCorner.x).not.toEqual("left");
+      });
+
+      it("should accept a bare vertical location as a disabled preference", () => {
+        const res = position.position({ ...PARAMS, disable: "top" });
+        expect(res.targetCorner.y).not.toEqual("top");
+      });
+
+      it("should accept a preference with only a target corner", () => {
+        const res = position.position({
+          ...PARAMS,
+          disable: { targetCorner: { x: "left" } },
+        });
+        expect(res.targetCorner.x).not.toEqual("left");
+      });
+    });
+
     describe("prefer without a dialog corner", () => {
       const PARAMS = {
         container: box.construct(0, 0, 1000, 1000),
@@ -762,11 +792,11 @@ describe("position", () => {
         { x: "left", y: "top" },
         { x: "left", y: "top" },
       ],
-      [{}, { x: undefined, y: undefined }],
+      [{}, {}],
     ];
     TESTS.forEach(([arg, expected]) => {
       it(`should return ${toString(expected)} for ${toString(arg)}`, () => {
-        expect(position.parseLocationOptions(arg)).toEqual(expected);
+        expect(position.parseLocationOptions(arg)).toStrictEqual(expected);
       });
     });
   });

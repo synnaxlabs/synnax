@@ -66,7 +66,7 @@ std::string Engine::Writer::warning() const {
             );
         else if (slave.returned.load(std::memory_order_relaxed))
             sentence = std::format(
-                "Slave {} ({}) returned and took the last commanded values.",
+                "Module {} ({}) returned and took the last commanded values.",
                 slave.position,
                 slave.name
             );

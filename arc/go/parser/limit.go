@@ -10,9 +10,8 @@
 package parser
 
 import (
-	"fmt"
-
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/x/diagnostics"
 	"go.lsp.dev/protocol"
 )
@@ -45,24 +44,19 @@ func (l *depthLimit) EnterEveryRule(ctx antlr.ParserRuleContext) {
 func (l *depthLimit) ExitEveryRule(antlr.ParserRuleContext) { l.depth-- }
 
 func sizeDiagnostic(source string) diagnostics.Diagnostic {
-	return diagnostics.Diagnostic{
-		Severity: protocol.DiagnosticSeverityError,
-		Message: fmt.Sprintf(
-			"source is %d bytes, more than the limit of %d",
-			len(source),
-			maxSourceSize,
-		),
-	}
+	return codes.SourceLimit.Atf(
+		nil,
+		"source is %d bytes, more than the limit of %d",
+		len(source),
+		maxSourceSize,
+	)
 }
 
 func (d depthExceeded) diagnostic() diagnostics.Diagnostic {
 	line, column := uint32(d.token.GetLine()-1), uint32(d.token.GetColumn())
-	return diagnostics.Diagnostic{
-		Severity: protocol.DiagnosticSeverityError,
-		Range: protocol.Range{
-			Start: protocol.Position{Line: line, Character: column},
-			End:   protocol.Position{Line: line, Character: column + 1},
-		},
-		Message: "nesting is deeper than the parser allows",
-	}
+	return codes.SourceLimit.Atf(nil, "nesting is deeper than the parser allows").
+		WithRange(
+			protocol.Position{Line: line, Character: column},
+			protocol.Position{Line: line, Character: column + 1},
+		)
 }

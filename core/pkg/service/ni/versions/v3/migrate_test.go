@@ -37,6 +37,7 @@ var _ = Describe("ScanMigration", func() {
 				IgnoredModels: []string{"^cRIO.*", "^nown.*"},
 			}
 			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
 			MustSucceed(gorp.OpenTable(
 				ctx,
 				gorp.TableConfig[uuid.UUID, v2.ScanConfig]{DB: db},
@@ -215,7 +216,9 @@ var _ = Describe("MigrateCIChannel", func() {
 			got := MustSucceed(v3.MigrateCIChannel(ctx, v2.CIChannel{
 				Variant: v2.CIFrequencyChannel{Divisor: divisor},
 			}))
-			Expect(got.Variant.(v3.CIFrequencyChannel).Divisor).To(Equal(want))
+			ch, ok := got.Variant.(v3.CIFrequencyChannel)
+			Expect(ok).To(BeTrue())
+			Expect(ch.Divisor).To(Equal(want))
 		},
 		Entry("absent", int32(0), uint32(4)),
 		Entry("negative", int32(-5), uint32(1)),
@@ -226,7 +229,9 @@ var _ = Describe("MigrateCIChannel", func() {
 		got := MustSucceed(v3.MigrateCIChannel(ctx, v2.CIChannel{
 			Variant: v2.CIPeriodChannel{Divisor: -1},
 		}))
-		Expect(got.Variant.(v3.CIPeriodChannel).Divisor).To(Equal(uint32(1)))
+		ch, ok := got.Variant.(v3.CIPeriodChannel)
+		Expect(ok).To(BeTrue())
+		Expect(ch.Divisor).To(Equal(uint32(1)))
 	})
 
 	DescribeTable("Should clamp and truncate pulses per revolution",
@@ -234,8 +239,9 @@ var _ = Describe("MigrateCIChannel", func() {
 			got := MustSucceed(v3.MigrateCIChannel(ctx, v2.CIChannel{
 				Variant: v2.CIPositionAngularChannel{PulsesPerRev: pulses},
 			}))
-			Expect(got.Variant.(v3.CIPositionAngularChannel).PulsesPerRev).
-				To(Equal(want))
+			ch, ok := got.Variant.(v3.CIPositionAngularChannel)
+			Expect(ok).To(BeTrue())
+			Expect(ch.PulsesPerRev).To(Equal(want))
 		},
 		Entry("absent", 0.0, uint32(24)),
 		Entry("below 1", 0.5, uint32(1)),
@@ -248,8 +254,9 @@ var _ = Describe("MigrateCIChannel", func() {
 		got := MustSucceed(v3.MigrateCIChannel(ctx, v2.CIChannel{
 			Variant: v2.CIVelocityAngularChannel{PulsesPerRev: -3},
 		}))
-		Expect(got.Variant.(v3.CIVelocityAngularChannel).PulsesPerRev).
-			To(Equal(uint32(1)))
+		ch, ok := got.Variant.(v3.CIVelocityAngularChannel)
+		Expect(ok).To(BeTrue())
+		Expect(ch.PulsesPerRev).To(Equal(uint32(1)))
 	})
 
 	DescribeTable("Should clamp and truncate the initial count",
@@ -257,7 +264,9 @@ var _ = Describe("MigrateCIChannel", func() {
 			got := MustSucceed(v3.MigrateCIChannel(ctx, v2.CIChannel{
 				Variant: v2.CIEdgeCountChannel{InitialCount: count},
 			}))
-			Expect(got.Variant.(v3.CIEdgeCountChannel).InitialCount).To(Equal(want))
+			ch, ok := got.Variant.(v3.CIEdgeCountChannel)
+			Expect(ok).To(BeTrue())
+			Expect(ch.InitialCount).To(Equal(want))
 		},
 		Entry("negative", -5.0, uint32(0)),
 		Entry("a fraction", 3.7, uint32(3)),
@@ -279,11 +288,13 @@ var _ = Describe("MigrateAnalogReadConfig", func() {
 					}},
 				},
 			}))
-			tc := got.Channels[0].Variant.(v3.AIThermocoupleChannel)
+			tc, ok := got.Channels[0].Variant.(v3.AIThermocoupleChannel)
+			Expect(ok).To(BeTrue())
 			Expect(tc.Disabled).To(BeTrue())
 			Expect(tc.Port).To(Equal(uint32(1)))
 			Expect(tc.Cjc.Variant).To(Equal(v3.ChanCJC{Port: 0}))
-			v := got.Channels[1].Variant.(v3.AIVoltageChannel)
+			v, ok := got.Channels[1].Variant.(v3.AIVoltageChannel)
+			Expect(ok).To(BeTrue())
 			Expect(v.Disabled).To(BeFalse())
 		},
 	)
@@ -300,6 +311,7 @@ var _ = Describe("DigitalReadMigration", func() {
 				},
 			}
 			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
 			MustSucceed(gorp.OpenTable(
 				ctx,
 				gorp.TableConfig[uuid.UUID, v2.DigitalReadConfig]{DB: db},
@@ -350,6 +362,7 @@ var _ = Describe("CounterReadMigration", func() {
 			}}},
 		}
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		MustSucceed(gorp.OpenTable(
 			ctx,
 			gorp.TableConfig[uuid.UUID, v2.CounterReadConfig]{DB: db},
@@ -370,13 +383,15 @@ var _ = Describe("CounterReadMigration", func() {
 		Expect(gorp.NewRetrieve[uuid.UUID, v3.CounterReadConfig]().
 			Where(gorp.MatchKeys[uuid.UUID, v3.CounterReadConfig](stored.Key)).
 			Entry(&got).Exec(ctx, db)).To(Succeed())
-		ch := got.Channels[0].Variant.(v3.CIPositionAngularChannel)
+		ch, ok := got.Channels[0].Variant.(v3.CIPositionAngularChannel)
+		Expect(ok).To(BeTrue())
 		Expect(ch.PulsesPerRev).To(Equal(uint32(1)))
 		Expect(ch.Port).To(BeZero())
 		Expect(ch.Disabled).To(BeTrue())
-		fields := []any{}
-		for _, e := range logs.FilterMessage("narrowed an NI channel field").All() {
-			fields = append(fields, e.ContextMap()["field"])
+		logged := logs.FilterMessage("narrowed an NI channel field").All()
+		fields := make([]any, len(logged))
+		for i, e := range logged {
+			fields[i] = e.ContextMap()["field"]
 		}
 		Expect(fields).To(ConsistOf("Port", "PulsesPerRev", "Disabled"))
 	})
@@ -412,6 +427,7 @@ var _ = Describe("AnalogReadMigration", func() {
 			}}},
 		}
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		MustSucceed(gorp.OpenTable(
 			ctx,
 			gorp.TableConfig[uuid.UUID, v2.AnalogReadConfig]{DB: db},
@@ -428,9 +444,10 @@ var _ = Describe("AnalogReadMigration", func() {
 			Namespace:       "ni_analog_read_config",
 			Migrations:      []gorp.Migration{v3.AnalogReadMigration},
 		})).To(Succeed())
-		fields := []any{}
-		for _, e := range logs.FilterMessage("narrowed an NI channel field").All() {
-			fields = append(fields, e.ContextMap()["field"])
+		logged := logs.FilterMessage("narrowed an NI channel field").All()
+		fields := make([]any, len(logged))
+		for i, e := range logged {
+			fields[i] = e.ContextMap()["field"]
 		}
 		Expect(fields).To(ConsistOf("Cjc.Port", "Disabled"))
 	})
@@ -452,6 +469,151 @@ var _ = Describe("AnalogReadMigration", func() {
 			Expect(fields).To(Equal([]any{"Port", "Disabled"}))
 		},
 	)
+
+	base := v2.BaseAIChannel{Key: "ch", Port: -1}
+	DescribeTable(
+		"Should log a clamped port of each analog input variant",
+		func(ctx SpecContext, variant v2.AIChannelVariant) {
+			_, fields := runStored[v2.AnalogReadConfig, v3.AnalogReadConfig](
+				ctx,
+				"ni_analog_read_config",
+				v3.AnalogReadMigration,
+				v2.AnalogReadConfig{
+					Key:      uuid.New(),
+					Channels: []v2.AIChannel{{Variant: variant}},
+				},
+			)
+			Expect(fields).To(Equal([]any{"Port", "Disabled"}))
+		},
+		Entry(
+			"AIVoltageChannel",
+			v2.AIVoltageChannel{BaseAIChannel: base, CustomScale: noScale},
+		),
+		Entry(
+			"AIAccelChannel",
+			v2.AIAccelChannel{BaseAIChannel: base, CustomScale: noScale},
+		),
+		Entry(
+			"AIBridgeChannel",
+			v2.AIBridgeChannel{BaseAIChannel: base, CustomScale: noScale},
+		),
+		Entry(
+			"AICurrentChannel",
+			v2.AICurrentChannel{BaseAIChannel: base, CustomScale: noScale},
+		),
+		Entry(
+			"AIForceBridgeTableChannel",
+			v2.AIForceBridgeTableChannel{BaseAIChannel: base, CustomScale: noScale},
+		),
+		Entry(
+			"AIForceBridgeTwoPointLinChannel",
+			v2.AIForceBridgeTwoPointLinChannel{
+				BaseAIChannel: base,
+				CustomScale:   noScale,
+			},
+		),
+		Entry(
+			"AIForceIEPEChannel",
+			v2.AIForceIEPEChannel{BaseAIChannel: base, CustomScale: noScale},
+		),
+		Entry(
+			"AIMicrophoneChannel",
+			v2.AIMicrophoneChannel{BaseAIChannel: base, CustomScale: noScale},
+		),
+		Entry(
+			"AIPressureBridgeTableChannel",
+			v2.AIPressureBridgeTableChannel{BaseAIChannel: base, CustomScale: noScale},
+		),
+		Entry(
+			"AIPressureBridgeTwoPointLinChannel",
+			v2.AIPressureBridgeTwoPointLinChannel{
+				BaseAIChannel: base,
+				CustomScale:   noScale,
+			},
+		),
+		Entry(
+			"AIResistanceChannel",
+			v2.AIResistanceChannel{BaseAIChannel: base, CustomScale: noScale},
+		),
+		Entry("AIRTDChannel", v2.AIRTDChannel{BaseAIChannel: base}),
+		Entry(
+			"AIStrainGaugeChannel",
+			v2.AIStrainGaugeChannel{BaseAIChannel: base, CustomScale: noScale},
+		),
+		Entry(
+			"AIThermocoupleChannel",
+			v2.AIThermocoupleChannel{
+				BaseAIChannel: base,
+				Cjc:           v2.CJC{Variant: v2.BuiltInCJC{}},
+			},
+		),
+		Entry(
+			"AITorqueBridgeTableChannel",
+			v2.AITorqueBridgeTableChannel{BaseAIChannel: base, CustomScale: noScale},
+		),
+		Entry(
+			"AITorqueBridgeTwoPointLinChannel",
+			v2.AITorqueBridgeTwoPointLinChannel{
+				BaseAIChannel: base,
+				CustomScale:   noScale,
+			},
+		),
+		Entry(
+			"AIVelocityIEPEChannel",
+			v2.AIVelocityIEPEChannel{BaseAIChannel: base, CustomScale: noScale},
+		),
+		Entry(
+			"AIAccel4WireDCVoltageChannel",
+			v2.AIAccel4WireDCVoltageChannel{BaseAIChannel: base, CustomScale: noScale},
+		),
+		Entry(
+			"AIAccelChargeChannel",
+			v2.AIAccelChargeChannel{BaseAIChannel: base, CustomScale: noScale},
+		),
+		Entry(
+			"AIChargeChannel",
+			v2.AIChargeChannel{BaseAIChannel: base, CustomScale: noScale},
+		),
+		Entry(
+			"AICurrentRMSChannel",
+			v2.AICurrentRMSChannel{BaseAIChannel: base, CustomScale: noScale},
+		),
+		Entry(
+			"AIForceBridgePolynomialChannel",
+			v2.AIForceBridgePolynomialChannel{
+				BaseAIChannel: base,
+				CustomScale:   noScale,
+			},
+		),
+		Entry(
+			"AIFreqVoltageChannel",
+			v2.AIFreqVoltageChannel{BaseAIChannel: base, CustomScale: noScale},
+		),
+		Entry(
+			"AIPressureBridgePolynomialChannel",
+			v2.AIPressureBridgePolynomialChannel{
+				BaseAIChannel: base,
+				CustomScale:   noScale,
+			},
+		),
+		Entry("AIThermistorIexChannel", v2.AIThermistorIexChannel{BaseAIChannel: base}),
+		Entry("AIThermistorVexChannel", v2.AIThermistorVexChannel{BaseAIChannel: base}),
+		Entry(
+			"AITorqueBridgePolynomialChannel",
+			v2.AITorqueBridgePolynomialChannel{
+				BaseAIChannel: base,
+				CustomScale:   noScale,
+			},
+		),
+		Entry(
+			"AIVoltageRMSChannel",
+			v2.AIVoltageRMSChannel{BaseAIChannel: base, CustomScale: noScale},
+		),
+		Entry(
+			"AIVoltageWithExcitChannel",
+			v2.AIVoltageWithExcitChannel{BaseAIChannel: base, CustomScale: noScale},
+		),
+	)
 })
 
 // runStored stores old under namespace, runs migration over it, and returns the
@@ -464,6 +626,7 @@ func runStored[I, O gorp.Entry[uuid.UUID]](
 ) (O, []any) {
 	GinkgoHelper()
 	db := DeferClose(gorp.Wrap(memkv.New()))
+	StartRun(db.Run)
 	MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, I]{DB: db}))
 	Expect(gorp.NewCreate[uuid.UUID, I]().Entry(&old).Exec(ctx, db)).To(Succeed())
 	core, logs := observer.New(zapcore.WarnLevel)
@@ -480,9 +643,10 @@ func runStored[I, O gorp.Entry[uuid.UUID]](
 	Expect(gorp.NewRetrieve[uuid.UUID, O]().
 		Where(gorp.MatchKeys[uuid.UUID, O](old.GorpKey())).
 		Entry(&got).Exec(ctx, db)).To(Succeed())
-	fields := []any{}
-	for _, e := range logs.FilterMessage("narrowed an NI channel field").All() {
-		fields = append(fields, e.ContextMap()["field"])
+	logged := logs.FilterMessage("narrowed an NI channel field").All()
+	fields := make([]any, len(logged))
+	for i, e := range logged {
+		fields[i] = e.ContextMap()["field"]
 	}
 	return got, fields
 }
@@ -496,7 +660,8 @@ var _ = Describe("MigrateAnalogWriteConfig", func() {
 				BaseAOChannel: v2.BaseAOChannel{Key: "ao", Port: -1},
 			}}},
 		}))
-		ch := got.Channels[0].Variant.(v3.AOVoltageChannel)
+		ch, ok := got.Channels[0].Variant.(v3.AOVoltageChannel)
+		Expect(ok).To(BeTrue())
 		Expect(ch.Port).To(BeZero())
 		Expect(ch.Disabled).To(BeTrue())
 	})
@@ -507,8 +672,9 @@ var _ = Describe("MigrateCounterReadConfig", func() {
 		got := MustSucceed(v3.MigrateCounterReadConfig(ctx, v2.CounterReadConfig{
 			Channels: []v2.CIChannel{{Variant: v2.CIFrequencyChannel{Divisor: -2}}},
 		}))
-		Expect(got.Channels[0].Variant.(v3.CIFrequencyChannel).Divisor).
-			To(Equal(uint32(1)))
+		ch, ok := got.Channels[0].Variant.(v3.CIFrequencyChannel)
+		Expect(ok).To(BeTrue())
+		Expect(ch.Divisor).To(Equal(uint32(1)))
 	})
 })
 
@@ -518,7 +684,7 @@ var _ = Describe("MigrateDigitalReadConfig", func() {
 			Device:   "dev",
 			Channels: []v2.DIChannel{{Key: "a", Line: 33}},
 		}))
-		Expect(string(got.Device)).To(Equal("dev"))
+		Expect(got.Device).To(Equal("dev"))
 		Expect(got.Channels).To(Equal([]v3.DIChannel{
 			{Key: "a", Line: 31, Disabled: true},
 		}))
@@ -550,7 +716,8 @@ var _ = Describe("AnalogWriteMigration", func() {
 				}}},
 			},
 		)
-		ch := got.Channels[0].Variant.(v3.AOVoltageChannel)
+		ch, ok := got.Channels[0].Variant.(v3.AOVoltageChannel)
+		Expect(ok).To(BeTrue())
 		Expect(ch.Port).To(BeZero())
 		Expect(ch.Disabled).To(BeTrue())
 		Expect(fields).To(ConsistOf("Port", "Disabled"))

@@ -16,9 +16,9 @@ import (
 )
 
 const (
-	// TimeStampMin represents the minimum value for a TimeStamp
+	// TimeStampMin represents the minimum value for a TimeStamp.
 	TimeStampMin TimeStamp = versions.TimeStampMin
-	// TimeStampMax represents the maximum value for a TimeStamp
+	// TimeStampMax represents the maximum value for a TimeStamp.
 	TimeStampMax TimeStamp = versions.TimeStampMax
 	// NanosecondTS is a TimeStamp 1 nanosecond after the unix epoch.
 	NanosecondTS TimeStamp = versions.NanosecondTS

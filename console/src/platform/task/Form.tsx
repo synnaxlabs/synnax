@@ -21,8 +21,8 @@ import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Access, Synnax as PSynnax, Task as PTask } from "@synnaxlabs/pluto";
-import { deep, primitive } from "@synnaxlabs/x";
-import { type FC, useRef, useState } from "react";
+import { deep, narrow, primitive } from "@synnaxlabs/x";
+import { createContext, type FC, useContext, useEffect, useRef, useState } from "react";
 import { type z } from "zod";
 
 import { Analytics } from "@/platform/analytics";
@@ -42,9 +42,34 @@ export interface OnConfigure<Config extends z.ZodType = z.ZodType> {
   ): Promise<[z.infer<Config>, rack.Key]>;
 }
 
+/** Sends the edits that a form holds. Resolves false when an edit stays unsent. */
+type Flush = () => Promise<boolean>;
+
+const FlushesContext = createContext<Set<Flush> | null>(null);
+FlushesContext.displayName = "Task.FlushesContext";
+
+/**
+ * Sends the edits of a form nested in a task form before each save and deploy of the
+ * task, so the Core holds what the task names. An edit that stays unsent stops the
+ * deploy.
+ */
+export const useFlushFirst = (flush: Flush): void => {
+  const flushes = useContext(FlushesContext);
+  if (flushes == null)
+    throw new Error("useFlushFirst must be called inside a task form");
+  useEffect(() => {
+    flushes.add(flush);
+    return () => {
+      flushes.delete(flush);
+    };
+  }, [flushes, flush]);
+};
+
 export interface getInitialValuesParams {
   client: Synnax;
   deviceKey?: device.Key;
+  /** The devices the task starts on, deviceKey included. */
+  deviceKeys: device.Key[];
   config?: unknown;
 }
 
@@ -59,6 +84,28 @@ export interface FormTabProps {
 }
 
 export interface Forms extends Record<string, FC<FormTabProps>> {}
+
+// Puts each class instance of original, such as a DataType, back in copy, where
+// structuredClone made it a plain object.
+const keepInstances = (original: unknown, copy: unknown): void => {
+  const keep = (v: unknown, set: (v: unknown) => void, next: unknown): void => {
+    if (narrow.isObject(v) && !narrow.isPlainObject(v)) set(v);
+    else keepInstances(v, next);
+  };
+  if (Array.isArray(original) && Array.isArray(copy))
+    original.forEach((v, i) => keep(v, (c) => (copy[i] = c), copy[i]));
+  else if (narrow.isPlainObject(original) && narrow.isPlainObject(copy))
+    Object.entries(original).forEach(([k, v]) => {
+      if (k === "__proto__" || k === "constructor" || k === "prototype") return;
+      keep(v, (c) => (copy[k] = c), copy[k]);
+    });
+};
+
+const copyConfig = <T,>(config: T): T => {
+  const copy = deep.copy(config);
+  keepInstances(config, copy);
+  return copy;
+};
 
 export interface WrapFormParams<S extends task.Schemas = task.Schemas> {
   Properties?: FC<{}>;
@@ -119,7 +166,11 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
     const client = PSynnax.use();
     const handleError = Status.useErrorHandler();
     const { capture } = Analytics.use();
-    const { form, flush } = useForm({ query: { key: taskKey } });
+    const [nested] = useState(() => new Set<Flush>());
+    const { form, flush } = useForm({
+      query: { key: taskKey },
+      beforeSend: async () => await Promise.all([...nested].map((f) => f())),
+    });
 
     // The form saves on every edit, so a subject who cannot write the task gets it
     // read-only rather than fields that revert once the save is refused.
@@ -144,7 +195,8 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
     const deploy = async () => {
       if (client == null) throw new DisconnectedError();
       if (canEdit) {
-        if (!(await flush())) return;
+        const flushed = await Promise.all([flush(), ...[...nested].map((f) => f())]);
+        if (!flushed.every(Boolean)) return;
         if (!deployChecked.current) {
           form.addCheck(formPath.config, deployConfigZ);
           deployChecked.current = true;
@@ -163,7 +215,11 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
         }
         const { config, name, rack } = form.value();
         // The form's values are the cached task, and onConfigure changes its config.
-        const [newConfig, newRack] = await onConfigure(client, deep.copy(config), name);
+        const [newConfig, newRack] = await onConfigure(
+          client,
+          copyConfig(config),
+          name,
+        );
         // Another client can edit the task while onConfigure runs, so only the
         // values onConfigure changed are written.
         form.batch(() => {
@@ -219,7 +275,9 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
               empty
             >
               <Errors.SuspenseBoundary>
-                <Form />
+                <FlushesContext value={nested}>
+                  <Form />
+                </FlushesContext>
               </Errors.SuspenseBoundary>
             </Section.Section>
             {showControls && (

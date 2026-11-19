@@ -7,10 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <cstdint>
 #include <mutex>
+
+#ifdef _MSC_VER
+#include <intrin.h>
+#endif
 
 #include "absl/log/globals.h"
 #include "gtest/gtest.h"
@@ -95,6 +101,16 @@ x::breaker::Config fast_breaker(const int max_retries) {
     };
 }
 
+/// @brief returns an address in the caller's stack frame. Calls from the same stack
+/// depth return the same address.
+std::uintptr_t stack_address() {
+#ifdef _MSC_VER
+    return reinterpret_cast<std::uintptr_t>(_AddressOfReturnAddress());
+#else
+    return reinterpret_cast<std::uintptr_t>(__builtin_frame_address(0));
+#endif
+}
+
 /// @brief a writer factory that fails each open or each close until an outage ends.
 class OutageWriterFactory final : public WriterFactory {
     /// @brief whether the outage fails opens instead of closes.
@@ -106,6 +122,10 @@ public:
     /// @brief the frames written after the outage.
     const std::shared_ptr<x::sync::List<x::telem::Frame>>
         writes = std::make_shared<x::sync::List<x::telem::Frame>>();
+    /// @brief the lowest stack address of an open.
+    std::uintptr_t stack_min = UINTPTR_MAX;
+    /// @brief the highest stack address of an open.
+    std::uintptr_t stack_max = 0;
 
     /// @param on_open whether the outage fails opens instead of closes.
     /// @param retries the number of retries the outage lasts.
@@ -114,6 +134,9 @@ public:
 
     std::pair<std::unique_ptr<Writer>, x::errors::Error>
     open_writer(const synnax::framer::WriterConfig &) override {
+        const auto address = stack_address();
+        this->stack_min = std::min(this->stack_min, address);
+        this->stack_max = std::max(this->stack_max, address);
         if (this->remaining == 0)
             return {std::make_unique<testutil::Writer>(this->writes), x::errors::NIL};
         this->remaining--;
@@ -125,20 +148,19 @@ public:
     }
 };
 
-/// @brief expects the pipeline to write a frame after an outage that would overflow
-/// the thread's stack if each retry grew it.
+/// @brief expects the pipeline to write a frame after an outage, and to open the
+/// writer at the same stack depth on each retry.
 void expect_writes_after_long_outage(const bool on_open) {
     absl::SetMinLogLevel(absl::LogSeverityAtLeast::kInfinity);
     x::defer::defer restore([] {
         absl::SetMinLogLevel(absl::LogSeverityAtLeast::kInfo);
     });
-    const auto factory = std::make_shared<OutageWriterFactory>(on_open, 100'000);
+    const auto factory = std::make_shared<OutageWriterFactory>(on_open, 1'000);
     auto pipeline = Acquisition(
         factory,
         synnax::framer::WriterConfig(),
         std::make_shared<ScriptedSource>(std::vector<x::errors::Error>{}),
-        // Windows can round any nonzero wait up to a timer tick, so 100,000 of them can
-        // take minutes.
+        // Windows can round any nonzero wait up to a timer tick.
         x::breaker::Config{
             .name = "pipeline",
             .base_interval = x::telem::TimeSpan::ZERO(),
@@ -153,6 +175,7 @@ void expect_writes_after_long_outage(const bool on_open) {
         std::chrono::milliseconds(1)
     );
     ASSERT_TRUE(pipeline.stop());
+    ASSERT_EQ(factory->stack_min, factory->stack_max);
 }
 
 /// @brief it should retry opening the writer through a long outage.

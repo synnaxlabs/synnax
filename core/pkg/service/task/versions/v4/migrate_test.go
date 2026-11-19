@@ -26,6 +26,7 @@ import (
 var _ = Describe("Migration", func() {
 	It("Should lift a stored v3 task to v4", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v3.Key, v3.Task]{
 			DB:   db,
 			Name: string(resource.TypeTask),

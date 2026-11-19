@@ -7,19 +7,19 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, cast
+from typing import Any
 
 import pytest
 
 from conftest import Secrets
-from logins import MAX_HOLDERS, PREFIX, Login, Logins
+from logins import LIFETIME, MAX_HOLDERS, PREFIX, Login, Logins
 
 NOW = 1_800_000_000
 YEAR = 365 * 24 * 3600
 
 
 def logins(secrets: Secrets) -> Logins:
-    return Logins(secrets=cast(Any, secrets), role="AROAROLE")
+    return Logins(secrets=secrets, role="AROAROLE")
 
 
 def login(**fields: Any) -> Login:
@@ -46,6 +46,9 @@ class TestLogin:
     def test_should_not_be_usable_with_the_most_holders(self) -> None:
         full = login(expires=NOW + YEAR, holders=["h"] * MAX_HOLDERS)
         assert not full.usable(now=NOW)
+
+    def test_should_be_stored_a_lifetime_before_it_expires(self) -> None:
+        assert login(expires=NOW + LIFETIME).stored == NOW
 
 
 class TestLogins:
@@ -125,6 +128,16 @@ class TestLogins:
         assert secrets.tags[name]["limited-until"] == str(NOW + 60)
         assert found.limited_until == NOW + 60
 
+    def test_should_record_a_rejected_token(self) -> None:
+        secrets = Secrets()
+        name = f"{PREFIX}claude-1"
+        secrets.tags[name] = {"agent": "claude", "expires": str(NOW)}
+        logs = logins(secrets)
+        found = logs.read()["claude-1"]
+        logs.reject(found, at=NOW - 60)
+        assert secrets.tags[name]["broken"] == str(NOW - 60)
+        assert found.broken
+
     def test_should_keep_the_login_when_a_write_fails(self) -> None:
         secrets = Secrets()
         secrets.tags[f"{PREFIX}claude-1"] = {"agent": "claude", "expires": str(NOW)}
@@ -135,5 +148,8 @@ class TestLogins:
             logs.hold(found, holders=["AROAROLE:i-1"])
         with pytest.raises(PermissionError):
             logs.limit(found, until=NOW + 60)
+        with pytest.raises(PermissionError):
+            logs.reject(found, at=NOW - 60)
         assert found.holders == []
         assert found.limited_until == 0
+        assert not found.broken

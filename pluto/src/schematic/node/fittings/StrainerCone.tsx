@@ -10,13 +10,20 @@
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { Handle } from "@/schematic/node/common/handle";
+import { Custom } from "@/schematic/node/common/custom";
 import { Primitive } from "@/schematic/node/common/primitive";
+import svg from "@/schematic/node/fittings/StrainerCone.svg?raw";
 
 export interface StrainerConeProps
   extends Primitive.DivProps, Primitive.SVGBasedProps {}
 
-const DIMENSIONS = { width: 33, height: 69 };
+const SPEC = Custom.createBuiltIn({
+  svg,
+  handles: [
+    { key: "1", position: { x: 0.0606, y: 0.5 }, orientation: "left" },
+    { key: "2", position: { x: 0.9304, y: 0.5 }, orientation: "right" },
+  ],
+});
 
 export const StrainerCone = ({
   strokeColor,
@@ -26,16 +33,12 @@ export const StrainerCone = ({
   ...rest
 }: StrainerConeProps): ReactElement => (
   <Primitive.Div {...rest} className={CSS.cls(CSS.B("strainer"), className)}>
-    <Handle.Linear orientation={orientation} left={6.06} right={93.04} />
-    <Primitive.SVG
-      dimensions={DIMENSIONS}
+    <Custom.Drawing
+      spec={SPEC}
+      builtIn
       strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
-    >
-      <Primitive.Rect x="2" y="2" width="29" height="65" rx="1" />
-      <Primitive.Path d="M31 34.5L2.30611 2.33992" strokeDasharray="6 6" />
-      <Primitive.Path d="M31 34.5L2.30611 66.6601" strokeDasharray="6 6" />
-    </Primitive.SVG>
+    />
   </Primitive.Div>
 );

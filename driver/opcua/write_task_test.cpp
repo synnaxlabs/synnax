@@ -298,7 +298,7 @@ protected:
 
     /// @brief creates a command channel, and a device for the secured server that
     /// presents server_cert.
-    void create_secured_device(const certificate::Certificate &server_cert) {
+    void create_secured_device(const x::x509::Certificate &server_cert) {
         this->secured_cmd_channel = ASSERT_NIL_P(ctx->client->channels.create(
             make_unique_channel_name("secured_cmd"),
             x::telem::UINT32_T,

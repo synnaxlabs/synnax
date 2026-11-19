@@ -36,7 +36,7 @@ func NewPersistenceGate(warningsAsErrors bool) Checker {
 func (persistenceGate) Name() string { return "persistence" }
 
 func (g persistenceGate) Run(
-	ctx context.Context,
+	_ context.Context,
 	res *pipeline.Result,
 	_ Env,
 ) GateReport {
@@ -51,7 +51,7 @@ func (g persistenceGate) Run(
 		severity = SeverityError
 	}
 	closure := gotypes.PersistedClosure(res.Resolutions)
-	entries, members, err := gotypes.Survey(ctx, res.Resolutions, res.Versions)
+	entries, members, err := gotypes.Survey(res.Resolutions, res.Versions)
 	if err != nil {
 		r.fail(Finding{Severity: SeverityError, Message: err.Error()})
 		r.Elapsed = telem.Since(start)

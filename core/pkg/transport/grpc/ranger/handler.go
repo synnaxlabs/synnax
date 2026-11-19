@@ -230,29 +230,33 @@ func (dispatchRequestTranslator) Backward(
 	}, nil
 }
 
-func New(t *api.Transport) grpc.BindableTransport {
+func New(t *api.Transport, errs *errors.Codec) grpc.BindableTransport {
 	create := &createServer{
 		RequestTranslator:  createRequestTranslator{},
 		ResponseTranslator: createResponseTranslator{},
 		ServiceDesc:        &RangeCreateService_ServiceDesc,
+		Errors:             errs,
 	}
 	t.RangeCreate = create
 	retrieve := &retrieveServer{
 		RequestTranslator:  retrieveRequestTranslator{},
 		ResponseTranslator: retrieveResponseTranslator{},
 		ServiceDesc:        &RangeRetrieveService_ServiceDesc,
+		Errors:             errs,
 	}
 	t.RangeRetrieve = retrieve
 	rangeDelete := &deleteServer{
 		RequestTranslator:  deleteRequestTranslator{},
 		ResponseTranslator: grpc.EmptyTranslator{},
 		ServiceDesc:        &RangeDeleteService_ServiceDesc,
+		Errors:             errs,
 	}
 	t.RangeDelete = rangeDelete
 	dispatch := &dispatchServer{
 		RequestTranslator:  dispatchRequestTranslator{},
 		ResponseTranslator: grpc.EmptyTranslator{},
 		ServiceDesc:        &RangeDispatchService_ServiceDesc,
+		Errors:             errs,
 	}
 	t.RangeDispatch = dispatch
 	return grpc.CompoundBindableTransport{
