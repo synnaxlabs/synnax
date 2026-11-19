@@ -100,8 +100,10 @@ export const useGroups = (): Groups => {
     .sort(latestEndFirst);
   const upcoming = Ranger.useNextRanges(STAGES, at);
   const crossing = Ranger.nextCrossing(STAGES, upcoming, at);
-  const now = useNow(() => crossing);
-  if (crossing != null && !now.before(crossing)) setAt(now);
+  // A new `at` restarts both reads, so crossings wait for the reads in flight to land.
+  // Otherwise crossings that come faster than a read keep the lists from ever landing.
+  const now = useNow(() => (reading ? null : crossing));
+  if (!reading && crossing != null && !now.before(crossing)) setAt(now);
   const favoriteKeys = Session.Range.useSelectFavoriteKeys();
   const { data: favoriteData } = Ranger.useResultMultiple(
     favoriteKeys.length === 0 ? null : { keys: favoriteKeys },
