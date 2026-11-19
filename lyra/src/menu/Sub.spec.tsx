@@ -21,10 +21,11 @@ const OPTIONS = ["alpha", "beta"];
 interface OptionsProps {
   name: string;
   search?: boolean;
+  onCreate?: (name: string) => void;
 }
 
 /** The content of a submenu: a selection, with a search or without one. */
-const Options = ({ name, search = false }: OptionsProps): ReactElement => {
+const Options = ({ name, search = false, onCreate }: OptionsProps): ReactElement => {
   const [value, setValue] = useState<string[]>([]);
   if (search)
     return (
@@ -35,7 +36,13 @@ const Options = ({ name, search = false }: OptionsProps): ReactElement => {
         onChange={setValue}
       >
         <Select.Dialog surface="menu" aria-label={name}>
-          <Select.Body<string> resourceName="label" onSearch={() => {}}>
+          <Select.Body<string>
+            resourceName="label"
+            onSearch={() => {}}
+            footer={
+              onCreate && <Select.CreateItem resourceName="label" onCreate={onCreate} />
+            }
+          >
             {({ key, ...p }) => (
               <Select.Item key={key} {...p}>
                 {key}
@@ -62,6 +69,7 @@ const Options = ({ name, search = false }: OptionsProps): ReactElement => {
 
 interface ItemsProps {
   onPick?: (key: string) => void;
+  onCreate?: (name: string) => void;
 }
 
 /** A submenu that holds menu items. */
@@ -77,11 +85,11 @@ const Move = ({ onPick }: ItemsProps): ReactElement => (
   </Menu.Sub>
 );
 
-const Items = ({ onPick }: ItemsProps): ReactElement => (
+const Items = ({ onPick, onCreate }: ItemsProps): ReactElement => (
   <Menu.Menu>
     <Menu.Sub itemKey="labels" textValue="Labels">
       <Menu.SubTrigger>Labels</Menu.SubTrigger>
-      <Options name="Labels" search />
+      <Options name="Labels" search onCreate={onCreate} />
     </Menu.Sub>
     <Menu.Sub itemKey="stage" textValue="Stage">
       <Menu.SubTrigger>Stage</Menu.SubTrigger>
@@ -105,10 +113,13 @@ const Dropdown = (): ReactElement => (
   </Dialog.Frame>
 );
 
-const ContextMenu = ({ onPick }: ItemsProps): ReactElement => {
+const ContextMenu = ({ onPick, onCreate }: ItemsProps): ReactElement => {
   const ctx = Menu.useContextMenu();
   return (
-    <Menu.ContextMenu menu={() => <Items onPick={onPick} />} {...ctx}>
+    <Menu.ContextMenu
+      menu={() => <Items onPick={onPick} onCreate={onCreate} />}
+      {...ctx}
+    >
       <button onContextMenu={ctx.open}>Opener</button>
     </Menu.ContextMenu>
   );
@@ -375,6 +386,27 @@ describe("Menu.Sub", () => {
       fireEvent.click(screen.getByText("alpha"));
       expect(screen.getByRole("menu")).toBeTruthy();
       expect(content("Labels")).toBeTruthy();
+    });
+
+    it("should close once a submenu option that leaves the menu is picked", () => {
+      const onCreate = vi.fn();
+      openContextMenu(<ContextMenu onCreate={onCreate} />);
+      fireEvent.click(closed("Labels"));
+      fireEvent.click(screen.getByRole("option", { name: "New label" }));
+      expect(onCreate).toHaveBeenCalledExactlyOnceWith("");
+      expect(screen.queryByRole("menu")).toBeNull();
+    });
+
+    it("should stay open once a submenu option creates from the search", () => {
+      const onCreate = vi.fn();
+      openContextMenu(<ContextMenu onCreate={onCreate} />);
+      fireEvent.click(closed("Labels"));
+      fireEvent.change(screen.getByPlaceholderText("Search labels..."), {
+        target: { value: "gamma" },
+      });
+      fireEvent.click(screen.getByRole("option", { name: 'Create label "gamma"' }));
+      expect(onCreate).toHaveBeenCalledExactlyOnceWith("gamma");
+      expect(screen.getByRole("menu")).toBeTruthy();
     });
 
     it("should close and give the focus back once an item of a submenu is picked", () => {

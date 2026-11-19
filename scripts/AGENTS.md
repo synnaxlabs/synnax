@@ -50,7 +50,13 @@ Prettier (TS) and Ruff (Python) run via each toolchain's own CLI, not a repo scr
 - `pack_ts.sh <package> <dir>` — builds and packs `@synnaxlabs/<package>` and its Synnax
   dependencies, then installs it in a new project in `<dir>`.
   `check_declarations_ts.sh <package> <dir>` then runs `tsc` on that project with
-  `skipLibCheck` off, with `bundler` and `nodenext` resolution.
+  `skipLibCheck` off, with `bundler` and `nodenext` resolution, and with the oldest
+  supported TypeScript (pinned in the script) and the repo's TypeScript. With
+  `--window`, it only fails if the pin is out of the two-year window (Nightly runs it).
+- `check_wheels_py.sh <dir> <python>...` — builds the Python packages as the release
+  does (`.github/scripts/build_py.sh`), then installs the wheels in a new virtual
+  environment per Python. In each, it imports every module, runs `sy --help`, and runs
+  strict mypy on a script that uses the installed `synnax`.
 
 ## Copyright headers
 

@@ -794,7 +794,7 @@ describe("Tabs", () => {
       return (
         <button
           data-testid="drag-source"
-          onClick={() => startDrag(items)}
+          onDragStart={(event) => startDrag({ event, items, preview: null })}
           onDragEnd={onDragEnd}
         />
       );
@@ -834,7 +834,7 @@ describe("Tabs", () => {
     );
 
     const beginDrag = (): void => {
-      fireEvent.click(screen.getByTestId("drag-source"));
+      fireEvent.dragStart(screen.getByTestId("drag-source"));
       stubStripRects(screen.getByRole("tablist"));
     };
 
@@ -872,7 +872,7 @@ describe("Tabs", () => {
           </Tabs.Frame>
         </Haul.Provider>,
       );
-      fireEvent.click(screen.getByTestId("drag-source"));
+      fireEvent.dragStart(screen.getByTestId("drag-source"));
       fireStripDrag("dragOver", 150);
       expect(ghost()?.style.left).toEqual("12px");
       expect(ghost()?.style.width).toEqual("");
