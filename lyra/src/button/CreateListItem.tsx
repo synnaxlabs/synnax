@@ -17,10 +17,7 @@ import { Icon } from "@/icon";
 
 /** Props for {@link CreateListItem}. */
 export interface CreateListItemProps extends Omit<ButtonProps, "size"> {
-  /**
-   * Item scale matching the list the button sits under. A small item is a small
-   * button.
-   */
+  /** The scale of the list the button sits under. A small item is a small button. */
   size?: "small" | "medium" | "large";
 }
 
