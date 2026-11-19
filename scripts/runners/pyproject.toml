@@ -55,6 +55,7 @@ pythonpath = ["."]
 omit = ["tests/*"]
 
 [tool.mypy]
+python_version = "3.13"
 check_untyped_defs = true
 
 [[tool.mypy.overrides]]

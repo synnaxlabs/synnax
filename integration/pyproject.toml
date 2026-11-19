@@ -94,6 +94,7 @@ combine-as-imports = true
 "framework/test_case.py" = ["B027"]
 
 [tool.mypy]
+python_version = "3.13"
 mypy_path = "stubs"
 plugins = ["pydantic.mypy"]
 strict = true
