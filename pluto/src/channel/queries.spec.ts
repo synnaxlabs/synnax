@@ -801,7 +801,7 @@ describe("queries", () => {
       });
     });
 
-    it("should fail to delete an internal channel", async () => {
+    it("should fail to delete a built-in channel", async () => {
       const [internal] = await client.channels.retrieve({ internal: true });
       const { result } = renderHook(() => Channel.useDelete(), { wrapper });
       await act(async () => {
@@ -809,7 +809,7 @@ describe("queries", () => {
       });
       expect(result.current.variant).toEqual("error");
       expect(result.current.status.description).toContain(
-        `can't delete internal channel "${internal.name}"`,
+        `can't delete built-in channel "${internal.name}"`,
       );
       await expect(client.channels.retrieve(internal.key)).resolves.toBeDefined();
     });

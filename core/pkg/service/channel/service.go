@@ -116,9 +116,11 @@ type Service struct {
 	renames *gorp.Attachment[rename]
 	mu      struct {
 		sync.RWMutex
-		// externalNonVirtualSet holds the keys of external (non-internal, non-virtual)
-		// channels, which count toward the channel limit.
+		// externalNonVirtualSet holds the keys of the non-virtual channels that are not
+		// built-in, which count toward the channel limit.
 		externalNonVirtualSet set.Integer[Key]
+		// builtIns holds the keys that Writer.Declare declared.
+		builtIns set.Set[Key]
 	}
 }
 
@@ -139,6 +141,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		state:   actions.NewState[Key, Action](cfg.DB),
 		renames: gorp.NewAttachment[rename](),
 	}
+	s.mu.builtIns = set.New[Key]()
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Channel]{
@@ -155,14 +158,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}); !ok(err, s.table) {
 		return nil, err
 	}
-	// Seed the external/non-virtual key set by scanning the table once at startup. This
-	// is the only call site that unavoidably walks the table — there is no index for
-	// (Internal, Virtual) and the cost is bounded by how many channels the Core has
-	// accumulated.
+	// The channel limit counts each non-virtual channel. Declare takes the built-ins
+	// out
+	// after the scan. This is the only walk of the table, as no index holds Virtual.
 	var externalNonVirtualChannels []Channel
 	if err = s.table.NewRetrieve().
 		Where(gorp.Match(func(_ gorp.Context, c *Channel) (bool, error) {
-			return !c.Internal && !c.Virtual, nil
+			return !c.Virtual, nil
 		})).
 		Entries(&externalNonVirtualChannels).
 		Exec(ctx, cfg.DB); !ok(err, nil) {

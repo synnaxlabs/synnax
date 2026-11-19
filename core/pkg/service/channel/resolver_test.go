@@ -45,15 +45,14 @@ var _ = Describe("NewArcSymbolResolver", func() {
 		Expect(sym.Renameable).To(BeTrue())
 	})
 
-	It("Should mark internal channels as not Renameable", func(ctx SpecContext) {
+	It("Should mark built-in channels as not Renameable", func(ctx SpecContext) {
 		ch := &channel.Channel{
 			Name:     "resolver_internal_ch",
 			Virtual:  true,
-			Internal: true,
 			DataType: telem.Float32T,
 		}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return svc.NewWriter(tx).Create(ctx, ch)
+			return svc.NewWriter(tx).Declare(ctx, ch)
 		})).To(Succeed())
 
 		sym := MustSucceed(

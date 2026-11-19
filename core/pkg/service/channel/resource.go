@@ -23,7 +23,7 @@ func (s *Service) Resources() *resource.TableProvider[Key, Channel] {
 		ID:     ResourceID,
 		Key:    func(id resource.ID) (Key, error) { return ParseKey(id.Key) },
 		Name:   func(c *Channel) string { return c.Name },
-		Hidden: func(c *Channel) bool { return c.Internal },
+		Hidden: func(c *Channel) bool { return s.IsBuiltIn(c.Key()) },
 	})
 }
 

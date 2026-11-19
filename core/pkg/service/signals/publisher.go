@@ -13,7 +13,6 @@ import (
 	"context"
 	"io"
 
-	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
@@ -131,6 +130,67 @@ func (c ObservablePublisherConfig) Override(
 	return c
 }
 
+// declareObserved declares the set and delete channels of cfg that have a name, fills
+// them with the stored channels, and returns their keys.
+func (p *Provider) declareObserved(
+	ctx context.Context,
+	cfg *ObservablePublisherConfig,
+) (channel.Keys, error) {
+	var channels []*channel.Channel
+	for _, ch := range []*channel.Channel{&cfg.SetChannel, &cfg.DeleteChannel} {
+		if ch.Name != "" {
+			channels = append(channels, ch)
+		}
+	}
+	declared := make([]channel.Channel, len(channels))
+	for i, ch := range channels {
+		declared[i] = *ch
+	}
+	if err := p.declare(ctx, declared); err != nil {
+		return nil, err
+	}
+	for i, ch := range channels {
+		*ch = declared[i]
+	}
+	return channel.KeysFromChannels(declared), nil
+}
+
+// frameOf returns the transform that writes changes to the set and delete
+// channels of cfg, dropping the changes of a disabled channel.
+func frameOf(
+	cfg ObservablePublisherConfig,
+	setEnabled, deleteEnabled bool,
+) func(context.Context, []Change) (framer.WriterRequest, bool, error) {
+	return func(_ context.Context, changes []Change) (framer.WriterRequest, bool, error) {
+		var (
+			frame   framer.Frame
+			sets    = telem.Series{DataType: cfg.SetChannel.DataType}
+			deletes = telem.Series{DataType: cfg.DeleteChannel.DataType}
+		)
+		for _, ch := range changes {
+			switch {
+			case ch.Deleted && deleteEnabled:
+				deletes.Data = append(deletes.Data, ch.Sample...)
+			case !ch.Deleted && setEnabled:
+				sets.Data = append(sets.Data, ch.Sample...)
+			}
+		}
+		if len(sets.Data) > 0 {
+			frame = frame.Append(cfg.SetChannel.Key(), sets)
+		}
+		if len(deletes.Data) > 0 {
+			frame = frame.Append(cfg.DeleteChannel.Key(), deletes)
+		}
+		if len(sets.Data) == 0 && len(deletes.Data) == 0 {
+			return framer.WriterRequest{}, false, nil
+		}
+		return framer.WriterRequest{
+			Command: framer.WriterCommandWrite,
+			Frame:   frame,
+		}, true, nil
+	}
+}
+
 // PublishFromObservable opens a new Signals pipeline that subscribes to the configured
 // ObservableSubscriber and writes changes to the configured channels. The returned
 // io.Closer can be used to close the pipeline when done.
@@ -144,24 +204,10 @@ func (p *Provider) PublishFromObservable(
 	}
 	setEnabled := cfg.SetChannel.Name != ""
 	deleteEnabled := cfg.DeleteChannel.Name != ""
-	var channels []channel.Channel
-	if setEnabled {
-		channels = append(channels, cfg.SetChannel)
-	}
-	if deleteEnabled {
-		channels = append(channels, cfg.DeleteChannel)
-	}
-	if err = p.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		return p.cfg.Channel.NewWriter(tx).CreateMany(
-			ctx,
-			&channels,
-			channel.RetrieveIfNameExists(),
-			channel.OverwriteIfNameExistsAndDifferentProperties(),
-		)
-	}); err != nil {
+	keys, err := p.declareObserved(ctx, &cfg)
+	if err != nil {
 		return nil, err
 	}
-	keys := channel.KeysFromChannels(channels)
 	w, err := p.cfg.Framer.NewStreamWriter(ctx, framer.WriterConfig{
 		Keys:        keys,
 		Start:       telem.Now(),
@@ -170,55 +216,10 @@ func (p *Provider) PublishFromObservable(
 	if err != nil {
 		return nil, err
 	}
-	for _, ch := range channels {
-		switch ch.Name {
-		case cfg.SetChannel.Name:
-			cfg.SetChannel = ch
-		case cfg.DeleteChannel.Name:
-			cfg.DeleteChannel = ch
-		}
-	}
 	t := &confluence.ObservableTransformPublisher[[]Change, framer.WriterRequest]{
 		Instrumentation: p.cfg.Instrumentation,
 		Observable:      cfg.Observable,
-		Transform: func(
-			_ context.Context, changes []Change,
-		) (framer.WriterRequest, bool, error) {
-			if len(changes) == 0 {
-				return framer.WriterRequest{}, false, nil
-			}
-			var (
-				frame   framer.Frame
-				sets    = telem.Series{DataType: cfg.SetChannel.DataType}
-				deletes = telem.Series{DataType: cfg.DeleteChannel.DataType}
-			)
-			for _, ch := range changes {
-				if ch.Deleted {
-					if !deleteEnabled {
-						continue
-					}
-					deletes.Data = append(deletes.Data, ch.Sample...)
-				} else {
-					if !setEnabled {
-						continue
-					}
-					sets.Data = append(sets.Data, ch.Sample...)
-				}
-			}
-			if len(sets.Data) > 0 {
-				frame = frame.Append(cfg.SetChannel.Key(), sets)
-			}
-			if len(deletes.Data) > 0 {
-				frame = frame.Append(cfg.DeleteChannel.Key(), deletes)
-			}
-			if len(sets.Data) == 0 && len(deletes.Data) == 0 {
-				return framer.WriterRequest{}, false, nil
-			}
-			return framer.WriterRequest{
-				Command: framer.WriterCommandWrite,
-				Frame:   frame,
-			}, true, nil
-		},
+		Transform:       frameOf(cfg, setEnabled, deleteEnabled),
 	}
 	pl := plumber.New()
 	pl.SetSource("source", t)

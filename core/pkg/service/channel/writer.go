@@ -108,13 +108,7 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 	if err = next.Validate(); err != nil {
 		return nil, err
 	}
-	if err = group.CheckMember(
-		ctx,
-		w.tx,
-		next.Group,
-		resource.TypeChannel,
-		nil,
-	); err != nil {
+	if err = w.checkGroup(ctx, prev, next); err != nil {
 		return nil, err
 	}
 	if next.Expression != prev.Expression ||
@@ -153,6 +147,19 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 	}
 	w.dispatcher.Attach(w.tx, key, slices.Concat(acts, computed)...)
 	return computed, nil
+}
+
+// checkGroup checks that next, an edit of prev, sits in a group that holds channels,
+// and that a built-in channel stays in its group.
+func (w Writer) checkGroup(ctx context.Context, prev, next Channel) error {
+	if !sameGroup(prev.Group, next.Group) && w.svc.IsBuiltIn(prev.Key()) {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"can't move built-in channel %q",
+			prev.Name,
+		)
+	}
+	return group.CheckMember(ctx, w.tx, next.Group, resource.TypeChannel, nil)
 }
 
 // regroupIndex moves the index of ch, the calculated channel with key, to the group of
@@ -945,10 +952,10 @@ func (w Writer) delete(ctx context.Context, keys Keys, allowInternal bool) error
 	if err := w.svc.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Channel](keys...)).
 		Guard(func(_ gorp.Context, c Channel) error {
-			if c.Internal && !allowInternal {
+			if !allowInternal && w.svc.IsBuiltIn(c.Key()) {
 				return errors.Wrapf(
 					validate.ErrValidation,
-					"can't delete internal channel %q",
+					"can't delete built-in channel %q",
 					c.Name,
 				)
 			}
@@ -993,13 +1000,12 @@ func (w Writer) rename(
 	if err := w.svc.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Channel](keys...)).
 		ChangeErr(func(_ gorp.Context, c Channel) (Channel, error) {
-			if c.Internal && !allowInternal {
-				return Channel{},
-					errors.Wrapf(
-						validate.ErrValidation,
-						"cannot rename internal channel %v",
-						c,
-					)
+			if !allowInternal && w.svc.IsBuiltIn(c.Key()) {
+				return Channel{}, errors.Wrapf(
+					validate.ErrValidation,
+					"can't rename built-in channel %q",
+					c.Name,
+				)
 			}
 			c.Name = renameMap[c.Key()]
 			if err := c.Validate(); err != nil {

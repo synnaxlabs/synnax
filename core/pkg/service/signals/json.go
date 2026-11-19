@@ -92,10 +92,6 @@ func (p *Provider) PublishJSON[V any](
 	return p.PublishFromObservable(ctx, ObservablePublisherConfig{
 		Name:       cfg.Name,
 		Observable: obs,
-		SetChannel: channel.Channel{
-			Name:     cfg.SetName,
-			DataType: telem.JSONT,
-			Internal: true,
-		},
+		SetChannel: channel.Channel{Name: cfg.SetName, DataType: telem.JSONT},
 	})
 }

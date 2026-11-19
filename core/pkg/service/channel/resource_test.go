@@ -25,15 +25,13 @@ import (
 )
 
 var _ = Describe("Resources", func() {
-	create := func(ctx SpecContext, name string, internal bool) channel.Channel {
+	create := func(ctx SpecContext, name string, builtIn bool) channel.Channel {
 		GinkgoHelper()
-		ch := channel.Channel{
-			Name:     name,
-			DataType: telem.Float32T,
-			Virtual:  true,
-			Internal: internal,
-		}
+		ch := channel.Channel{Name: name, DataType: telem.Float32T, Virtual: true}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			if builtIn {
+				return svc.NewWriter(tx).Declare(ctx, &ch)
+			}
 			return svc.NewWriter(tx).Create(ctx, &ch)
 		})).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
@@ -44,7 +42,7 @@ var _ = Describe("Resources", func() {
 		return ch
 	}
 
-	It("Should leave internal channels out of a search", func(ctx SpecContext) {
+	It("Should leave built-in channels out of a search", func(ctx SpecContext) {
 		create(ctx, "hydrazine", true)
 		tank := create(ctx, "hydrazine_tank", false)
 		Expect(MustSucceed(svc.Resources().Search(
@@ -54,7 +52,7 @@ var _ = Describe("Resources", func() {
 		)).Keys).To(Equal([]resource.ID{tank.ResourceID()}))
 	})
 
-	It("Should leave internal channels out of a list", func(ctx SpecContext) {
+	It("Should leave built-in channels out of a list", func(ctx SpecContext) {
 		hidden := create(ctx, "hydrazine", true)
 		tank := create(ctx, "hydrazine_tank", false)
 		ids := lo.Map(

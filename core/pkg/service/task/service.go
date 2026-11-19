@@ -243,21 +243,11 @@ func (s *Service) registerImEx() error {
 	return nil
 }
 
-// createCommandChannel creates the task command channel unless it exists, and returns
-// its key.
+// createCommandChannel declares the built-in task command channel and returns its key.
 func (s *Service) createCommandChannel(ctx context.Context) (channel.Key, error) {
-	cmdCh := channel.Channel{
-		Name:     "sy_task_cmd",
-		DataType: telem.JSONT,
-		Virtual:  true,
-		Internal: true,
-	}
+	cmdCh := channel.Channel{Name: "sy_task_cmd", DataType: telem.JSONT, Virtual: true}
 	if err := s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.cfg.Channel.NewWriter(tx).Create(
-			ctx,
-			&cmdCh,
-			channel.RetrieveIfNameExists(),
-		)
+		return s.cfg.Channel.NewWriter(tx).Declare(ctx, &cmdCh)
 	}); err != nil {
 		return 0, err
 	}
