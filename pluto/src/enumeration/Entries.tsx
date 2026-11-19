@@ -34,6 +34,14 @@ const ABNORMAL = 3;
 
 const HEX = /^#?([0-9a-f]{6}(?:[0-9a-f]{2})?)$/i;
 
+/** Reads a fixed color from a hex code, Auto from empty text, or null from the rest. */
+const parseColor = (text: string): color.Ref | undefined | null => {
+  const trimmed = text.trim();
+  if (trimmed === "") return undefined;
+  const hex = HEX.exec(trimmed)?.[1];
+  return hex == null ? null : { type: "fixed", value: xcolor.construct(`#${hex}`) };
+};
+
 const toRow = (e: enumeration.Entry): Input.TableCell[] => [
   e.name,
   e.value,
@@ -135,15 +143,13 @@ const ColorCell = ({
         fallback={xcolor.TRANSPARENT}
         disabled={preview}
         size="small"
-        className={CSS.BE("entries", "swatch")}
         aria-label={`Pick ${label.toLowerCase()}`}
       />
     }
     endContent={warnings.length > 0 ? <Warnings warnings={warnings} /> : undefined}
     onChange={(next) => {
-      if (next.trim() === "") return onChange(undefined);
-      const hex = HEX.exec(next.trim())?.[1];
-      if (hex != null) onChange({ type: "fixed", value: xcolor.construct(`#${hex}`) });
+      const ref = parseColor(next);
+      if (ref !== null) onChange(ref);
     }}
   />
 );
@@ -318,6 +324,7 @@ export const Table = ({
           name="Color"
           type="custom"
           empty={undefined}
+          parse={parseColor}
           width={24}
         >
           {(props) => (

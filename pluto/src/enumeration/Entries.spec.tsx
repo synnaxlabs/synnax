@@ -319,6 +319,36 @@ describe("Enumeration.Table", () => {
       expect(onSet).toHaveBeenCalledWith(expect.not.objectContaining({ color: fixed }));
     });
 
+    it("should set a fixed color from a pasted hex code", () => {
+      const onSet = vi.fn();
+      renderTable({ initial: [createEntry("Off", 0)], onSet });
+      paste(input("Name 1"), "Open\t0\t#2E7D32\tfalse");
+      expect(onSet).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: "Open",
+          color: { type: "fixed", value: color.construct("#2e7d32") },
+        }),
+      );
+      expect(marked(input("Color 1"))).toBe(false);
+    });
+
+    it("should clear a color to Auto from a pasted empty cell", () => {
+      const onSet = vi.fn();
+      const fixed = { type: "fixed" as const, value: color.construct("#2e7d32") };
+      renderTable({ initial: [createEntry("Off", 0, { color: fixed })], onSet });
+      paste(input("Name 1"), "Open\t0\t\tfalse");
+      expect(onSet).toHaveBeenCalledOnce();
+      const [sent] = onSet.mock.calls[0];
+      expect(sent.name).toBe("Open");
+      expect(sent).not.toHaveProperty("color");
+    });
+
+    it("should mark a pasted color that is not a hex code", () => {
+      renderTable({ initial: [createEntry("Off", 0)] });
+      paste(input("Name 1"), "Open\t0\tgreen\tfalse");
+      expect(marked(input("Color 1"))).toBe(true);
+    });
+
     it("should show an entry's warnings on its color cell, not as a mark", () => {
       renderTable({ initial: [createEntry("", 0)] });
       expect(screen.getByLabelText(/It has no name/)).toBeTruthy();
@@ -334,6 +364,43 @@ describe("Enumeration.Table", () => {
       const fixed = { type: "fixed" as const, value: color.construct("#ffffff") };
       renderTable({ initial: [createEntry("Off", 0, { color: fixed })] });
       expect(screen.getByLabelText(/hard to see in the light theme/)).toBeTruthy();
+    });
+
+    it("should warn about a named color hard to see in the dark theme", async () => {
+      const palette = await client.groups.create({
+        scope: "color",
+        name: `palette-${id.create()}`,
+      });
+      const named = await client.colors.create({
+        name: `color-${id.create()}`,
+        light: "#2e7d32",
+        dark: "#101010",
+        group: palette.key,
+      });
+      renderTable({
+        initial: [createEntry("Off", 0, { color: { type: "named", key: named.key } })],
+      });
+      expect(
+        await screen.findByLabelText(/hard to see in the dark theme/),
+      ).toBeTruthy();
+      expect(screen.queryByLabelText(/hard to see in the light theme/)).toBeNull();
+    });
+
+    it("should name the entry whose color looks the same with color blindness", () => {
+      const fixed = (hex: string) => ({
+        type: "fixed" as const,
+        value: color.construct(hex),
+      });
+      renderTable({
+        initial: [
+          createEntry("Open", 0, { color: fixed("#388e3c") }),
+          createEntry("Running", 1, { color: fixed("#00838f") }),
+        ],
+      });
+      expect(
+        screen.getByLabelText(/With color blindness, its color looks like Running/),
+      ).toBeTruthy();
+      expect(screen.queryByLabelText(/almost the color of/)).toBeNull();
     });
 
     it("should name the entry whose color is almost the same", () => {
