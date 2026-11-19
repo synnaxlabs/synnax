@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/pb"
+	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -202,6 +203,51 @@ var _ = Describe("Translator", func() {
 		id := icd.Identifier{Variant: icd.FieldIdentifier{Field: uuid.New(), Value: -2}}
 		translated := MustSucceed(pb.IdentifierToPB(id))
 		Expect(pb.IdentifierFromPB(translated)).To(Equal(id))
+	})
+
+	DescribeTable(
+		"Should round trip a filter",
+		func(w icd.Where) {
+			translated := MustSucceed(pb.WhereToPB(w))
+			Expect(pb.WhereFromPB(translated)).To(Equal(w))
+		},
+		Entry("with no clauses", icd.Where{}),
+		Entry("of one key", icd.Where{Key: &filter.Set[icd.Key]{Eq: new(uuid.New())}}),
+		Entry("of several keys", icd.Where{
+			Key: &filter.Set[icd.Key]{In: []icd.Key{uuid.New(), uuid.New()}},
+		}),
+		Entry("of no keys", icd.Where{Key: &filter.Set[icd.Key]{In: []icd.Key{}}}),
+		Entry("of nested clauses", icd.Where{
+			And: []icd.Where{
+				{Key: &filter.Set[icd.Key]{Eq: new(uuid.New())}},
+				{Not: &icd.Where{Key: &filter.Set[icd.Key]{In: []icd.Key{uuid.New()}}}},
+			},
+			Or: []icd.Where{{Key: &filter.Set[icd.Key]{Eq: new(uuid.New())}}},
+		}),
+		Entry(
+			"of empty clause lists",
+			icd.Where{And: []icd.Where{}, Or: []icd.Where{}},
+		),
+	)
+
+	It("Should keep an absent key set apart from an empty one", func() {
+		absent := MustSucceed(pb.UuidSetToPB(filter.Set[icd.Key]{}))
+		Expect(absent.In).To(BeNil())
+		Expect(MustSucceed(pb.UuidSetFromPB(absent)).In).To(BeNil())
+		empty := MustSucceed(pb.UuidSetToPB(filter.Set[icd.Key]{In: []icd.Key{}}))
+		Expect(empty.In).ToNot(BeNil())
+		Expect(MustSucceed(pb.UuidSetFromPB(empty)).In).To(BeEmpty())
+		Expect(MustSucceed(pb.UuidSetFromPB(empty)).In).ToNot(BeNil())
+	})
+
+	It("Should reject a key set that holds a value that is not a UUID", func() {
+		Expect(
+			pb.UuidSetFromPB(&pb.UuidSet{In: &pb.UuidList{Values: []string{"rig"}}}),
+		).
+			Error().
+			To(MatchError("invalid uuid"))
+		Expect(pb.WhereFromPB(&pb.Where{Key: &pb.UuidSet{Eq: new("rig")}})).
+			Error().To(MatchError("invalid uuid"))
 	})
 
 	It("Should reject a message key that is not a UUID", func() {
