@@ -26,14 +26,13 @@ const FILL_TEXT_OPTIONS: FillTextOptions = { useAtlas: true };
 // a legible gray.
 const MIN_LEGIBLE_CONTRAST = 1.5;
 
-const valueState = staleness.configZ.extend({
+const valueState = staleness.drawnStateZ.extend({
   box: box.box,
   telem: telem.stringSourceSpecZ.default(telem.noopStringSourceSpec),
   backgroundTelem: telem.colorSourceSpecZ.default(telem.noopColorSourceSpec),
   level: text.levelZ.default("p"),
   color: color.colorZ.optional(),
   precision: z.number().default(2),
-  stalenessColor: color.colorZ.optional(),
   minWidth: z.number().default(60),
   width: z.number().optional(),
   notation: notation.notationZ.default("standard"),
@@ -67,8 +66,6 @@ interface InternalState {
   textColor: color.Color;
   fontString: string;
   staleness: staleness.Registration;
-  // Staleness stays on the worker here, which draws the value itself.
-  stale: boolean;
 }
 
 export class Value
@@ -85,12 +82,8 @@ export class Value
     i.theme = theming.use(ctx);
 
     i.telem = telem.useSource(ctx, this.state.telem, i.telem);
-    i.staleness = staleness.useInternalRegistration(
-      ctx,
-      i.staleness,
-      this,
-      i.telem,
-      () => this.requestRender(),
+    i.staleness = staleness.useStateRegistration(ctx, i.staleness, this, i.telem, () =>
+      this.requestRender(),
     );
     i.stopListening?.();
     i.stopListening = i.telem.onChange(() => {
@@ -151,8 +144,8 @@ export class Value
 
   private getTextColor(): color.Color {
     const { theme } = this.internal;
-    if (this.internal.stale)
-      return staleness.resolveColor(this.state.stalenessColor, theme);
+    const staleColor = staleness.drawnColor(this.state, theme);
+    if (staleColor != null) return staleColor;
 
     // gray.l0 is the background the text renders on; gray.l11 is the
     // high-contrast end of the scale, legible against it in both themes.
