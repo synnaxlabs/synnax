@@ -42,8 +42,8 @@ Some client calls, Arc unit rules, and Console features changed. Read the
 <Video id="releases/0-62-0/ranges" />
 
 Every test now has a home in the ranges toolbar. Click **Start range**, type
-`Coldflow 12`, and press Enter: the range starts at that instant, and it grows on each
-plot as the data comes in. The strip above a plot shows the running range with its
+`Coldflow 12`, and press Enter: the range starts at the click, and it grows on each plot
+as the data comes in. The strip above a plot shows the running range with its
 `T+0:42:07` time.
 
 Step through the phases of the test as you run them. **Start child range** opens the
@@ -61,7 +61,7 @@ Pressurization, Flow, and Safing needs no typing.
   timeline, filtered by label, stage, time, or parent. Save a view, and each user of the
   Core sees it.
 - **Ready for long campaigns** -> with 50,000 ranges, the toolbar finds the running
-  ranges in half the time.
+  ranges in 54% less time.
 
 See [Find ranges](/reference/ranges/find).
 
@@ -126,8 +126,8 @@ users who can use it.
   encrypted and never sends it back. **Used by** names each task and device that uses a
   secret, so you replace a key in one place. PagerDuty alerts and Sift use secrets.
 - **Certificates** -> see each certificate that the Core stores, and when it expires.
-- **Users** -> pick the role of each user, and right-click a user to rename it or
-  **Manage sign-in**.
+- **Users** -> pick the role of each user, and right-click a user to rename it, delete
+  it, or **Manage sign-in**.
 
 <Divider.Divider x />
 
@@ -207,7 +207,7 @@ MQTT read task, so your tasks keep running.
 
 **Stop** now works while a task starts, and cancels the start. A long start step, such
 as an EtherCAT bus start, shows "Still working after 1m.", and a start after "No
-response" works with no reload.
+response" works with no reload. An auto-start task starts one time.
 
 - **Tare** works on each float channel of every read task while it runs.
 - **Plot** in the task menu opens a plot of the task's channels.
@@ -254,22 +254,29 @@ Type in any context menu to filter its items, also inside submenus: "copy link" 
 
 - The Driver waits for its Core through an outage of any length, and finds a lost
   network link in about 30 seconds.
-- Live plots end at the newest sample, and move as new samples arrive.
+- Live plots end at the newest sample, and move as new samples arrive. A plot of 8
+  channels at 5 kHz keeps each line whole, with no gap every 13 seconds.
 - Without WebGL 2, plot and schematic tabs show "GPU required", and the rest of the
   Console keeps working. On macOS, the Console needs no Accessibility access.
 - A drag shows a tile with the name of the item, and a symbol shows its drawing at the
   size where it will land.
-- Schematic pipes take a **Stroke width** from 1 to 20 px.
+- Schematic pipes take a **Stroke width** from 1 to 20 px. A Viewer who presses a valve
+  sees no "Failed to acquire control" error.
 - New labels start gray, so they show on both themes.
 - LabJack stream reads are steadier: the longest gap between reads went from 105 ms to
   14 ms. Modbus **Stop** takes 100 ms, and NI and Modbus tasks stop during a blocked
   read.
 - NI task forms suggest device identifiers from the NI MAX name, and check channel
-  ranges and sample rates against the device.
-- Sparkplug B Int64 values in `int_value` keep their sign.
+  ranges and sample rates against the device. After the device rejects an NI write,
+  later writes go through.
+- Sparkplug B Int64 values in `int_value` keep their sign. A Kafka task that stops after
+  a consumer failure reports a clean stop.
 - On IgH, each module's CoE entries get their full names on the first start.
-- Arc: a sequence step that writes 0 or `false` to a variable moves on, and an f-string
-  written to a variable gives the value.
+- Arc: a sequence step that writes 0 or `false` to a variable moves on, an f-string
+  written to a variable gives the value, and a Driver automation computes `x ^ n` with a
+  large exponent with no hang.
+- Garbage collection keeps a data file that Windows holds open, and a read during a
+  write returns a value for each timestamp.
 - When the embedded Driver cannot start, the Core names its error, such as a missing
   GLIBC version.
 - An update from a data folder of Core 0.47 to 0.60 shows every device and document.
@@ -284,7 +291,7 @@ Type in any context menu to filter its items, also inside submenus: "copy link" 
 
 - Upgrade the Drivers, the desktop Consoles, and the Python and TypeScript clients with
   the Core. A 0.61 client cannot get channels from a 0.62 Core, and a 0.62 client cannot
-  get them from a 0.61 Core.
+  get them from a 0.61 Core, so reads, writes, and streams fail.
 - After 0.62.0, Synnax signs updates with a new key. A Console from before 0.62 cannot
   install them: install the Console again from the download page. A Core from before
   0.62 must update to 0.62.0 first.
@@ -298,8 +305,8 @@ Type in any context menu to filter its items, also inside submenus: "copy link" 
 - The active range is gone, with **Set as active range** and **Add to active plot**. New
   plots open on the last 30 seconds. Use **Add to plot** in the range menu, or drag a
   range onto **Ranges**.
-- The users toolbar moved to **Settings** > **Users**. The Console can no longer rename
-  or delete roles. **Manage credentials** is now **Manage sign-in**.
+- The users toolbar is gone. Manage users in **Settings** > **Users**. The Console can
+  no longer rename or delete roles. **Manage credentials** is now **Manage sign-in**.
 - The text of schematic buttons, inputs, selects, setpoints, and state indicators
   follows the size picker, so saved text can grow one step. A select at its saved width
   can cut its text.
@@ -333,8 +340,8 @@ The client APIs for these records are removed:
 #### Clients
 
 - Python: the client needs Python 3.13 or newer. On Python 3.12, `pip install -U synnax`
-  keeps the 0.61 client with no error, and that client cannot read a 0.62 Core. Upgrade
-  Python first.
+  keeps the 0.61 client and shows no error, and that client cannot read a 0.62 Core.
+  Upgrade Python first.
 - TypeScript: `@synnaxlabs/client`, `@synnaxlabs/x`, `@synnaxlabs/freighter`, and
   `@synnaxlabs/alamos` need Node.js 22.12 or newer. npm only shows a warning on an older
   version.
@@ -343,7 +350,7 @@ The client APIs for these records are removed:
   packages. The client no longer installs matplotlib.
 - Python: a request with no response in time raises `freighter.Timeout`, and a reset
   connection raises `freighter.Unreachable`. TypeScript throws `Unreachable` when a
-  streamer or writer cannot connect.
+  streamer or writer cannot connect. Before, these were raw network errors.
 - TypeScript: `new TimeStamp()` no longer means now. Use `TimeStamp.now()`. Text that
   `TimeStamp` cannot read throws, and text with no time zone reads as UTC. The unit
   constants of `TimeStamp`, such as `TimeStamp.SECOND`, are removed: use
@@ -362,9 +369,10 @@ The client APIs for these records are removed:
   key itself. Create the secret first with `client.secrets.set`. The update converts
   stored tasks.
 - Python: a task with no rack and no device goes on the embedded rack that runs its
-  integration, not on the first embedded rack. With no such rack, the call raises
-  `NotFoundError`. `tasks.list()` with no rack lists the tasks of every embedded rack,
-  and `retrieve_embedded_rack` takes an integration.
+  integration. Before, it went on the first embedded rack, so a PagerDuty or Kafka task
+  made this way never ran. With no such rack, the call raises `NotFoundError`.
+  `tasks.list()` with no rack lists the tasks of every embedded rack, and
+  `retrieve_embedded_rack` takes an integration.
 - TypeScript: the Freighter `HTTPClient` and `WebSocketClient` take one config object,
   such as `{ endpoint, codec, secure }`.
 
@@ -386,7 +394,8 @@ The client APIs for these records are removed:
   `~/.synnax/desktop.json`. With an older Synnax Desktop, the client raises an error.
   Update Synnax Desktop and open it. On its first start, Synnax Desktop 1.2 replaces the
   1.1 key with a new one, so code that holds the old key needs the new key.
-- A CA certificate with no `secure` turns TLS on, in all clients and the Driver.
+- A CA certificate with no `secure` turns TLS on, in all clients and the Driver. Before,
+  Python raised `ValueError`.
 - A CA certificate with `secure` set to false from the same source is an error, such as
   `SYNNAX_SECURE=false` with `SYNNAX_CA_CERT`. Remove one of the two.
 - `secure` and the CA certificate come as a pair from the first source that sets one of
@@ -410,6 +419,7 @@ The client APIs for these records are removed:
 - A function, sequence, or stage variable cannot use the name of a top-level variable
   declared later in the file (`E4005`).
 - A float cast to an integer that overflows gives the nearest value, and NaN gives 0.
+  Before, the node failed.
 - A sequence step that writes to a variable with `->`, such as
   `pressure > 100 -> ready`, completes on the first value, also when the value is false.
   To wait for the condition, use `=>`. This sequence sets `vent_cmd` only after
@@ -427,23 +437,24 @@ The client APIs for these records are removed:
 
 - A write to an index channel with timestamps that go back, such as `[10, 12, 11]`, or
   that come before the start of the writer or its last written sample, fails with "index
-  out of order". Equal timestamps are still allowed.
+  out of order". Equal timestamps are still allowed. Before, Synnax stored them.
 - One write, which is one stream message, can be at most 256 MiB after encoding. The
   Core closes a stream that sends a larger message. In TypeScript, the writer fails with
   `StreamClosed`. Split a large write into smaller writes.
 
 #### Driver
 
-- HTTP: a task joins the path of the device location, such as `/v2` in
-  `api.example.com/v2`, to each endpoint path. If your endpoint paths repeat it, remove
-  it from one of the two.
+- HTTP: a task adds the path of the device location, such as `/v2` in
+  `api.example.com/v2`, to each endpoint path. Before, it dropped that path. If your
+  endpoint paths repeat it, remove it from one of the two.
 - On macOS, when the Driver service is not installed, `sudo synnax-driver login`,
   `start --standalone`, and `clear` fail with "Run synnax-driver without sudo". Run
   these commands without sudo.
 - `--enable-integrations` runs only the integrations it names, as it does on the Core.
-  The Driver fails to start when `--enable-integrations` and `--disable-integrations`
-  are both given.
-- On NI Linux RT, only the Driver can write its log and PID files.
+  Before, it added them to the ones the Driver already ran. The Driver fails to start
+  when `--enable-integrations` and `--disable-integrations` are both given.
+- On NI Linux RT, the Driver log and PID files are no longer writable by every local
+  user.
 
 #### Core
 
