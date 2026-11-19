@@ -52,6 +52,29 @@ const fromRow = (row: Input.TableCell[], key: string): enumeration.Entry => {
   };
 };
 
+/**
+ * @returns the indices of the entries that must hold their shown value unsent. An entry
+ * whose shown value differs from its stored one holds when another entry shows that
+ * value, or stores it and holds too. A swap that clashes with no other entry holds
+ * neither entry, so both save.
+ */
+const holding = (shown: number[], stored: (number | undefined)[]): Set<number> => {
+  const held = new Set<number>();
+  for (let grew = true; grew;) {
+    grew = false;
+    shown.forEach((v, i) => {
+      if (held.has(i) || v === stored[i]) return;
+      const clash = shown.some(
+        (w, j) => j !== i && (w === v || (held.has(j) && stored[j] === v)),
+      );
+      if (!clash) return;
+      held.add(i);
+      grew = true;
+    });
+  }
+  return held;
+};
+
 /** @returns the least whole number above every value of the rows, or 0. */
 const nextValue = (rows: Input.TableCell[][]): number =>
   rows.length === 0
@@ -178,9 +201,15 @@ export const Table = ({
     v: number,
   ): enumeration.Entry | undefined =>
     entries.find((e) => e.key !== key && e.value === v);
-  // A hold lasts only while another entry has its value. Another user can free it.
+  const stored = value.map((e) => e.value);
+  // A hold lasts only while it clashes. Another user can free it.
+  const asHeld = withHeld(held);
+  const lasting = holding(
+    asHeld.map((e) => e.value),
+    stored,
+  );
   const holds = new Map(
-    [...held].filter(([key, v]) => holderIn(withHeld(held), key, v) != null),
+    asHeld.filter((_, i) => lasting.has(i)).map((e) => [e.key, e.value]),
   );
   const shown = withHeld(holds);
   // Counts stored values too, since a held entry shows a value it does not store.
@@ -192,21 +221,23 @@ export const Table = ({
     const nextHeld = new Map<string, number>();
     // An edit can free a value that another row holds, so each row checks the rows as
     // they show after the edit.
-    const taken = (i: number, v: number): boolean =>
-      rows.some((row, j) => j !== i && Number(row[VALUE]) === v);
+    const clashing = holding(
+      rows.map((row) => Number(row[VALUE])),
+      rows.map((_, i) => value.at(i)?.value),
+    );
     rows.forEach((row, i) => {
       const prev = value.at(i);
       let next = fromRow(row, prev?.key ?? id.create());
       if (prev == null) {
         // A pasted entry saves with a free value and holds the one it repeats.
-        if (taken(i, next.value)) {
+        if (clashing.has(i)) {
           nextHeld.set(next.key, next.value);
           next = { ...next, value: freeValue([...rows, ...added.map(toRow)]) };
         }
         added.push(next);
         return;
       }
-      if (next.value !== prev.value && taken(i, next.value)) {
+      if (clashing.has(i)) {
         nextHeld.set(prev.key, next.value);
         next = { ...next, value: prev.value };
       }
@@ -219,13 +250,16 @@ export const Table = ({
   const handleRemove = (i: number): void => {
     onRemove(i);
     const rest = shown.filter((_, j) => j !== i);
+    const still = holding(
+      rest.map((e) => e.value),
+      stored.filter((_, j) => j !== i),
+    );
     const nextHeld = new Map<string, number>();
-    for (const [key, v] of holds) {
-      const entry = rest.find((e) => e.key === key);
-      if (entry == null) continue;
-      if (holderIn(rest, key, v) == null) onSet(entry);
-      else nextHeld.set(key, v);
-    }
+    rest.forEach((entry, j) => {
+      if (!holds.has(entry.key)) return;
+      if (still.has(j)) nextHeld.set(entry.key, entry.value);
+      else onSet(entry);
+    });
     setHeld(nextHeld);
   };
 
@@ -235,7 +269,9 @@ export const Table = ({
     const v = entry.value;
     // Node options from before enumerations can store a value twice.
     const repeated = holds.has(entry.key) || holderIn(value, entry.key, v) != null;
-    const other = holderIn(shown, entry.key, v);
+    const other = shown.find(
+      (e, j) => j !== y && (e.value === v || (holds.has(e.key) && stored[j] === v)),
+    );
     if (!repeated || other == null) return undefined;
     const name = other.name.trim() === "" ? "Another entry" : other.name;
     return {
