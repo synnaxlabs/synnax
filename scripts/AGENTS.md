@@ -43,6 +43,10 @@ Prettier (TS) and Ruff (Python) run via each toolchain's own CLI, not a repo scr
   `# pyright: ignore` comments, file-level directives such as `# ruff: noqa` and
   `# mypy: ignore-errors`, `typing.cast` calls under any name, and any use of
   `TYPE_CHECKING`. It skips generated files. The `suppressions-py` CI job runs it.
+- `uv run --project scripts scripts/check_skipped_tests.py --base <commit>` reports each
+  test file in Go, TypeScript, Python, or C++ whose count of skip markers rose since the
+  commit (the default is the merge base with `origin/main`). The `skipped-tests` CI job
+  runs it on each pull request and merge group; it has no escape.
 - `python3 scripts/check_exports_ts.py` — reports TypeScript exports that only their own
   module or test code use. It runs Knip in production mode, then traces each finding. An
   export that only other modules' tests use is allowed only in a test utility directory

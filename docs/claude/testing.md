@@ -11,6 +11,9 @@ in `tests/` (Python).
 - Fast (unit tests <100ms), deterministic (no flaky tests, no random data), independent
   (no inter-test dependencies).
 - Mock via interfaces / dependency injection, not by patching internals.
+- Never add a skipped or pending test: the `skipped-tests` CI job fails a change that
+  adds one (`scripts/check_skipped_tests.py`). A platform case uses a build tag or a
+  platform file.
 
 ## Live-Core tests
 
