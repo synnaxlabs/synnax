@@ -9,7 +9,7 @@
 
 import "@/input/Table.css";
 
-import { caseconv, csv, deep, type dimensions, grid, xy } from "@synnaxlabs/x";
+import { csv, deep, type dimensions, grid, strings, xy } from "@synnaxlabs/x";
 import {
   type ClipboardEvent,
   type ComponentPropsWithRef,
@@ -567,7 +567,7 @@ export const Table = ({
 
   const haulPreview = (index: number): ReactNode =>
     renderHaulPreview?.(index) ?? (
-      <Haul.Preview name={`${caseconv.capitalize(resourceName)} ${rowName(index)}`} />
+      <Haul.Preview name={`${strings.capitalize(resourceName)} ${rowName(index)}`} />
     );
 
   const handleCellFocus = (e: FocusEvent<HTMLTableCellElement>, at: xy.XY) => {
