@@ -1054,7 +1054,7 @@ describe("MQTT read form", () => {
       });
       const temperature = createField("temperature", "float");
       const entry = await createEntry({
-        fields: [temperature],
+        fields: [temperature, createField("pressure", "float")],
         bound: { [temperature.key]: ch.key },
       });
       // A new client has no channels cached, so the form fetches the stored one.
@@ -1084,6 +1084,10 @@ describe("MQTT read form", () => {
       expect(addField.getAttribute("aria-disabled")).toBe("true");
       expect(format.getAttribute("aria-disabled")).toBe("true");
       expect(read.disabled).toBe(true);
+      const pressure = () => screen.findByRole("treeitem", { name: /^pressure/ });
+      fireEvent.contextMenu(await pressure());
+      await screen.findByText("Remove");
+      expect(screen.queryByText("Enable")).toBeNull();
       release();
       await waitFor(() => {
         expect(add.getAttribute("aria-disabled")).toBeNull();
@@ -1091,6 +1095,8 @@ describe("MQTT read form", () => {
         expect(format.getAttribute("aria-disabled")).toBeNull();
         expect(read.disabled).toBe(false);
       });
+      fireEvent.contextMenu(await pressure());
+      await screen.findByText("Enable");
     });
 
     it("should give a new channel to a pointer whose new field does not fit its data type", async () => {

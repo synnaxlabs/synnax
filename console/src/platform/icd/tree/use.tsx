@@ -442,6 +442,7 @@ export const use = <S extends Source>({
     const switchable = chosen.filter(
       (n): n is SourceNode | FieldNode => n.kind !== "message",
     );
+    const off = switchable.filter((n) => !isEnabled(n));
     const [only] = chosen;
     const source =
       chosen.length === 1 && only.kind === "source" && readsMessages(only.source)
@@ -470,7 +471,7 @@ export const use = <S extends Source>({
         keys={keys}
         onRemove={onRemove}
         onEnable={
-          switchable.some((n) => !isEnabled(n))
+          off.length > 0 && !(bindDisabled && off.some(({ kind }) => kind === "field"))
             ? () => setEnabled(switchable, true)
             : undefined
         }
