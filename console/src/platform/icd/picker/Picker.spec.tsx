@@ -34,6 +34,20 @@ describe("ICD.Picker.PaneHeader", () => {
   });
 });
 
+describe("ICD.Picker.PaneSkeleton", () => {
+  it("should show the hint of the dialog while values load", async () => {
+    await renderWithConsole(
+      <Dialog.Frame variant="modal" visible onVisibleChange={() => {}}>
+        <ICD.Picker.Root value="topics" hint="Select the values to read.">
+          <ICD.Picker.PaneSkeleton noun="Field" title="plant/oven" />
+        </ICD.Picker.Root>
+      </Dialog.Frame>,
+    );
+    expect(screen.getByText("plant/oven")).toBeTruthy();
+    expect(screen.getByText("Select the values to read.")).toBeTruthy();
+  });
+});
+
 describe("ICD.Picker.Footer", () => {
   it("should name each picked noun with its count, adding the counts of a noun", async () => {
     await renderWithConsole(

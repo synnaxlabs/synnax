@@ -190,6 +190,10 @@ A new line takes the first series color in that order that no other line uses.
   (4 rem) above the other fields.
 - Footer: no divider. Cancel, then the primary button, at the trailing edge. The leading
   edge holds only Back, a mode switch ("Create more"), or a status summary.
+- A two-pane modal with a bar under its header, such as Add data (`ICD.Picker`), is the
+  exception: a gray step 6 divider sits above the bar and above the footer, so the side
+  list ends on a line. Its hint sits under each pane title, above the values it
+  explains, and the footer's leading edge holds only the summary of the picks.
 - Esc closes the modal from any field. Validation never changes the status of the
   primary button; errors show at their fields.
 - Every step of the device connect flow is 930 px (155 rem) wide

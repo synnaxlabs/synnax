@@ -1371,7 +1371,7 @@ describe("MQTT read form", () => {
       expect(screen.getAllByRole("treeitem", { name: /flow/ })).toHaveLength(1);
     });
 
-    it("should count picked fields and tags apart on the add button", async () => {
+    it("should count picked fields and tags in the button and summary", async () => {
       const { dev } = await renderRead();
       const scanner = await openScanner(client, dev.rack);
       const dialog = await openAddData();
@@ -1382,9 +1382,12 @@ describe("MQTT read form", () => {
         retained: true,
       };
       await scanner.answer({ data: { topics: [topic], truncated: false } });
-      fireEvent.click(
-        await dialog.findByRole("checkbox", { name: "Record temperature" }),
-      );
+      const temperature = await dialog.findByRole("checkbox", {
+        name: "Record temperature",
+      });
+      expect(dialog.queryByText(/selected$/)).toBeNull();
+      fireEvent.click(temperature);
+      dialog.getByText("1 value from 1 topic selected");
       fireEvent.click(dialog.getByRole("button", { name: "Sparkplug B" }));
       expect(dialog.getByRole("button", { name: "Add 1 field" })).toBeTruthy();
       await scanner.answer({
@@ -1398,6 +1401,7 @@ describe("MQTT read form", () => {
       expect(
         dialog.getByRole("button", { name: "Add 1 field and 1 tag" }),
       ).toBeTruthy();
+      dialog.getByText("1 value from 1 topic and 1 Sparkplug B tag selected");
       scanner.close();
     });
 
