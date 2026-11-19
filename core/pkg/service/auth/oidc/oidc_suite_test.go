@@ -18,16 +18,13 @@ import (
 	"sync"
 	"testing"
 	"time"
-	"uuid"
 
 	"github.com/go-jose/go-jose/v4"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -71,34 +68,6 @@ func openUsers(ctx SpecContext, db *gorp.DB) (*user.Service, role.Key) {
 		return roleSvc.NewWriter(tx, false).Create(ctx, &r)
 	})).To(Succeed())
 	return users, r.Key
-}
-
-// createUser creates a user with the viewer role and returns its resource ID.
-func createUser(ctx SpecContext) resource.ID {
-	GinkgoHelper()
-	var u user.User
-	Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
-		u, err = userSvc.NewWriter(tx).Create(
-			ctx,
-			user.User{Name: uuid.New().String(), Role: viewer},
-		)
-		return err
-	})).To(Succeed())
-	return u.ResourceID()
-}
-
-// link links account to subject in its own transaction.
-func link(
-	ctx SpecContext,
-	svc *oidc.Service,
-	subject resource.ID,
-	account oidc.Account,
-) (l oidc.Link, err error) {
-	err = db.WithTx(ctx, func(tx gorp.Tx) (err error) {
-		l, err = svc.NewWriter(tx).Create(ctx, subject, account)
-		return err
-	})
-	return l, err
 }
 
 const clientID = "synnax"

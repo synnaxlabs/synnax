@@ -19,33 +19,31 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Writer creates and deletes links in one transaction. It makes no identity check and
-// ends no sessions: the caller authorizes the change and revokes the sessions of
-// deleted links.
-type Writer struct {
+// writer creates links in one transaction. It makes no identity check.
+type writer struct {
 	svc *Service
 	tx  gorp.Tx
 }
 
-// Create links account to subject and returns the link. It returns a validation error
-// when the account is already linked or subject already has a link for the provider.
-func (w Writer) Create(
+// create links acc to subject and returns the link. It returns a validation error when
+// the account is already linked or subject already has a link for the provider.
+func (w writer) create(
 	ctx context.Context,
 	subject resource.ID,
-	account Account,
+	acc account,
 ) (Link, error) {
 	l := Link{
 		Key:      uuid.New(),
 		Subject:  subject,
-		Provider: account.Provider,
-		Account:  account.ID,
+		Provider: acc.Provider,
+		Account:  acc.ID,
 	}
 	if err := l.Validate(); err != nil {
 		return Link{}, err
 	}
-	linked, err := w.svc.NewRetrieve().
-		Where(MatchProviders(account.Provider)).
-		Where(Or(MatchAccounts(account.ID), MatchSubjects(subject))).
+	linked, err := w.svc.newRetrieve().
+		Where(MatchProviders(acc.Provider)).
+		Where(Or(MatchAccounts(acc.ID), MatchSubjects(subject))).
 		Exists(ctx, w.tx)
 	if err != nil {
 		return Link{}, err
@@ -54,18 +52,11 @@ func (w Writer) Create(
 		return Link{}, errors.Wrapf(
 			validate.ErrValidation,
 			"a %q account is already linked to this user, or this account to another",
-			account.Provider,
+			acc.Provider,
 		)
 	}
 	if err = w.svc.table.NewCreate().Entry(&l).Exec(ctx, w.tx); err != nil {
 		return Link{}, err
 	}
 	return l, nil
-}
-
-// Delete removes the links with the given keys. Unknown keys are ignored.
-func (w Writer) Delete(ctx context.Context, keys ...LinkKey) error {
-	return w.svc.table.NewDelete().
-		Where(gorp.MatchKeys[LinkKey, Link](keys...)).
-		Exec(ctx, w.tx)
 }

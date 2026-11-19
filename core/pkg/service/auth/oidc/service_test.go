@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -125,58 +124,51 @@ var _ = Describe("Service", func() {
 		)
 	})
 
-	Describe("Verify", func() {
-		It("Should return the account the ID token names", func(ctx SpecContext) {
-			provider.grant("verify", grant{
-				sub: "ada", name: "Ada Lovelace", verifier: "v", redirect: redirect,
-			})
-			Expect(
-				svc.Verify(ctx, credentials("idp", "verify", "v")),
-			).To(Equal(oidc.Account{
-				Provider: "idp",
-				ID:       "ada",
-				Name:     "Ada Lovelace",
-			}))
-		})
+	Describe("Provider exchange", func() {
 		It("Should reject an unknown provider", func(ctx SpecContext) {
-			Expect(svc.Verify(ctx, credentials("nope", "c", "v"))).Error().
+			Expect(svc.Authenticate(ctx, proof(credentials("nope", "c", "v")))).Error().
 				To(MatchError(validate.ErrValidation))
 		})
 		It("Should reject incomplete credentials", func(ctx SpecContext) {
-			Expect(svc.Verify(ctx, auth.OIDCCredentials{Provider: "idp"})).Error().
-				To(MatchError(ContainSubstring("code")))
+			Expect(svc.Authenticate(ctx, proof(auth.OIDCCredentials{Provider: "idp"}))).
+				Error().To(MatchError(ContainSubstring("code")))
 		})
 		It("Should reject a code the provider does not know", func(ctx SpecContext) {
-			Expect(svc.Verify(ctx, credentials("idp", "unknown", "v"))).Error().
-				To(MatchError(auth.ErrInvalidCredentials))
+			Expect(svc.Authenticate(ctx, proof(credentials("idp", "unknown", "v")))).
+				Error().To(MatchError(auth.ErrInvalidCredentials))
 		})
 		It("Should reject a verifier that does not match", func(ctx SpecContext) {
 			provider.grant("pkce", grant{sub: "ada", verifier: "v", redirect: redirect})
-			Expect(svc.Verify(ctx, credentials("idp", "pkce", "other"))).Error().
-				To(MatchError(auth.ErrInvalidCredentials))
+			Expect(svc.Authenticate(ctx, proof(credentials("idp", "pkce", "other")))).
+				Error().To(MatchError(auth.ErrInvalidCredentials))
 		})
 		It("Should reject an ID token for another client", func(ctx SpecContext) {
 			provider.grant("aud", grant{
 				sub: "ada", verifier: "v", redirect: redirect, audience: "other",
 			})
-			Expect(svc.Verify(ctx, credentials("idp", "aud", "v"))).Error().
-				To(MatchError(auth.ErrInvalidCredentials))
+			Expect(svc.Authenticate(ctx, proof(credentials("idp", "aud", "v")))).
+				Error().To(MatchError(auth.ErrInvalidCredentials))
 		})
 		It("Should reject a token response without an ID token", func(ctx SpecContext) {
 			provider.grant("bare", grant{
 				sub: "ada", verifier: "v", redirect: redirect, noIDToken: true,
 			})
-			Expect(svc.Verify(ctx, credentials("idp", "bare", "v"))).Error().
-				To(MatchError(auth.ErrInvalidCredentials))
+			Expect(svc.Authenticate(ctx, proof(credentials("idp", "bare", "v")))).
+				Error().To(MatchError(auth.ErrInvalidCredentials))
 		})
 		It("Should report a provider it cannot reach", func(ctx SpecContext) {
-			down := open(ctx, oidc.Provider{
-				Name:     "down",
-				Issuer:   "http://127.0.0.1:1",
-				ClientID: clientID,
-			})
-			Expect(down.Verify(ctx, credentials("down", "c", "v"))).Error().
-				To(MatchError(ContainSubstring(`discover provider "down"`)))
+			other := DeferClose(gorp.Wrap(memkv.New()))
+			otherUsers, otherViewer := openUsers(ctx, other)
+			down := MustOpen(oidc.OpenService(ctx, oidc.ServiceConfig{
+				DB:          other,
+				User:        otherUsers,
+				NewUserRole: otherViewer,
+				Providers: []oidc.Provider{
+					{Name: "down", Issuer: "http://127.0.0.1:1", ClientID: clientID},
+				},
+			}))
+			Expect(down.Authenticate(ctx, proof(credentials("down", "c", "v")))).
+				Error().To(MatchError(ContainSubstring(`discover provider "down"`)))
 		})
 	})
 
@@ -193,14 +185,7 @@ var _ = Describe("Service", func() {
 					Exec(ctx, db)).To(Succeed())
 				Expect(u.Name).To(Equal("Ada Lovelace"))
 				Expect(u.Role).To(Equal(viewer))
-				var link oidc.Link
-				Expect(svc.NewRetrieve().
-					Where(oidc.MatchKeys(identity.Credential)).
-					Entry(&link).
-					Exec(ctx, db)).To(Succeed())
-				Expect(link.Provider).To(Equal("idp"))
-				Expect(link.Account).To(Equal(sub))
-				Expect(link.Subject).To(Equal(identity.Subject))
+				Expect(svc.Version(ctx, db, identity.Credential)).To(BeZero())
 			},
 		)
 		It("Should log a linked account in as its user", func(ctx SpecContext) {
@@ -208,27 +193,14 @@ var _ = Describe("Service", func() {
 			first := MustSucceed(login(svc, ctx, "idp", sub))
 			Expect(login(svc, ctx, "idp", sub)).To(Equal(first))
 		})
-		It("Should log in a linked account when user creation is off", func(
-			ctx SpecContext,
-		) {
-			subject := createUser(ctx)
-			l := MustSucceed(link(ctx, svc, subject, oidc.Account{
-				Provider: "closed",
-				ID:       "grace",
-			}))
-			Expect(login(svc, ctx, "closed", "grace")).To(Equal(auth.Identity{
-				Subject:    subject,
-				Credential: l.Key,
-			}))
-		})
 		It("Should refuse an unlinked account when user creation is off", func(
 			ctx SpecContext,
 		) {
 			sub := uuid.New().String()
 			Expect(login(svc, ctx, "closed", sub)).Error().
 				To(MatchError(auth.ErrInvalidCredentials))
-			Expect(svc.NewRetrieve().Where(oidc.MatchAccounts(sub)).Exists(ctx, db)).
-				To(BeFalse())
+			Expect(login(svc, ctx, "closed", sub)).Error().
+				To(MatchError(auth.ErrInvalidCredentials))
 		})
 		It("Should open a session through the auth service", func(ctx SpecContext) {
 			authSvc := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
@@ -244,13 +216,10 @@ var _ = Describe("Service", func() {
 				authSvc.Login(ctx, proof(credentials("idp", code, "v"))),
 			)
 			Expect(token).ToNot(BeEmpty())
-			var link oidc.Link
-			Expect(svc.NewRetrieve().
-				Where(oidc.MatchAccounts(sub)).
-				Entry(&link).
-				Exec(ctx, db)).To(Succeed())
-			Expect(session.Subject).To(Equal(link.Subject))
-			Expect(session.Credential).To(Equal(link.Key))
+			Expect(login(svc, ctx, "idp", sub)).To(Equal(auth.Identity{
+				Subject:    session.Subject,
+				Credential: session.Credential,
+			}))
 		})
 		It("Should reject a proof of another method", func(ctx SpecContext) {
 			Expect(svc.Authenticate(ctx, auth.Proof{Variant: auth.APIKeyProof{}})).
@@ -262,71 +231,14 @@ var _ = Describe("Service", func() {
 		})
 	})
 
-	Describe("Writer", func() {
-		var subject resource.ID
-		BeforeEach(func(ctx SpecContext) { subject = createUser(ctx) })
-		It("Should refuse a second link to one account", func(ctx SpecContext) {
-			account := oidc.Account{Provider: "idp", ID: uuid.New().String()}
-			MustSucceed(link(ctx, svc, subject, account))
-			Expect(link(ctx, svc, createUser(ctx), account)).Error().
-				To(MatchError(validate.ErrValidation))
-		})
-		It("Should refuse a second link from one user to a provider", func(
-			ctx SpecContext,
-		) {
-			MustSucceed(link(ctx, svc, subject, oidc.Account{
-				Provider: "idp", ID: uuid.New().String(),
-			}))
-			Expect(link(ctx, svc, subject, oidc.Account{
-				Provider: "idp", ID: uuid.New().String(),
-			})).Error().To(MatchError(validate.ErrValidation))
-		})
-		It("Should reject a link without an account", func(ctx SpecContext) {
-			Expect(link(ctx, svc, subject, oidc.Account{Provider: "idp"})).Error().
-				To(MatchError(ContainSubstring("account")))
-		})
-		It("Should delete links by key", func(ctx SpecContext) {
-			l := MustSucceed(link(ctx, svc, subject, oidc.Account{
-				Provider: "idp", ID: uuid.New().String(),
-			}))
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).Delete(ctx, l.Key)
-			})).To(Succeed())
-			Expect(svc.NewRetrieve().Where(oidc.MatchKeys(l.Key)).Entry(&oidc.Link{}).
-				Exec(ctx, db)).To(MatchError(query.ErrNotFound))
-		})
-		It("Should delete every link of a deleted user", func(ctx SpecContext) {
-			for _, p := range []string{"idp", "closed"} {
-				MustSucceed(link(ctx, svc, subject, oidc.Account{
-					Provider: p, ID: uuid.New().String(),
-				}))
-			}
-			key := MustSucceed(user.KeyFromResourceID(subject))
+	Describe("Version", func() {
+		It("Should not find the link of a deleted user", func(ctx SpecContext) {
+			identity := MustSucceed(login(svc, ctx, "idp", uuid.New().String()))
+			key := MustSucceed(user.KeyFromResourceID(identity.Subject))
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return userSvc.NewWriter(tx).Delete(ctx, key)
 			})).To(Succeed())
-			Expect(
-				svc.NewRetrieve().Where(oidc.MatchSubjects(subject)).Exists(ctx, db),
-			).
-				To(BeFalse())
-		})
-	})
-
-	Describe("Version", func() {
-		var l oidc.Link
-		BeforeEach(func(ctx SpecContext) {
-			l = MustSucceed(link(ctx, svc, createUser(ctx), oidc.Account{
-				Provider: "idp", ID: uuid.New().String(),
-			}))
-		})
-		It("Should return the fixed version of a link", func(ctx SpecContext) {
-			Expect(svc.Version(ctx, db, l.Key)).To(BeZero())
-		})
-		It("Should not find a deleted link", func(ctx SpecContext) {
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).Delete(ctx, l.Key)
-			})).To(Succeed())
-			Expect(svc.Version(ctx, db, l.Key)).Error().
+			Expect(svc.Version(ctx, db, identity.Credential)).Error().
 				To(MatchError(query.ErrNotFound))
 		})
 		It("Should end the sessions of a removed provider", func(ctx SpecContext) {

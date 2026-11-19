@@ -198,18 +198,16 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 // Close closes the service and releases its resources.
 func (s *Service) Close() error { return s.table.Close() }
 
-// NewRetrieve opens a query for stored links.
-func (s *Service) NewRetrieve() Retrieve {
+func (s *Service) newRetrieve() Retrieve {
 	return Retrieve{gorp: s.table.NewRetrieve(), indexes: s.indexes}
 }
 
-// NewWriter opens a [Writer] that runs in tx.
-func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	return Writer{svc: s, tx: tx}
+func (s *Service) newWriter(tx gorp.Tx) writer {
+	return writer{svc: s, tx: tx}
 }
 
-// Account is a provider account that proved itself at the provider.
-type Account struct {
+// account is a provider account that proved itself at the provider.
+type account struct {
 	// Provider is the name of the provider.
 	Provider string
 	// ID is the provider's permanent ID for the account, its `sub` claim.
@@ -218,20 +216,20 @@ type Account struct {
 	Name string
 }
 
-// Verify exchanges the authorization code in creds with its provider and returns the
+// verify exchanges the authorization code in creds with its provider and returns the
 // account that the provider's ID token names. It returns a validation error for an
 // unknown provider and [auth.ErrInvalidCredentials] when the provider rejects the code
 // or issues an ID token that fails verification. Every provider token is discarded.
-func (s *Service) Verify(
+func (s *Service) verify(
 	ctx context.Context,
 	creds auth.OIDCCredentials,
-) (Account, error) {
+) (account, error) {
 	if err := creds.Validate(); err != nil {
-		return Account{}, err
+		return account{}, err
 	}
 	p, ok := s.providers[creds.Provider]
 	if !ok {
-		return Account{}, errors.Wrapf(
+		return account{}, errors.Wrapf(
 			validate.ErrValidation,
 			"unknown provider %q",
 			creds.Provider,
@@ -239,7 +237,7 @@ func (s *Service) Verify(
 	}
 	discovered, err := p.discover(ctx)
 	if err != nil {
-		return Account{}, err
+		return account{}, err
 	}
 	oauth := oauth2.Config{
 		ClientID:     p.ClientID,
@@ -251,26 +249,26 @@ func (s *Service) Verify(
 	if err != nil {
 		var rejected *oauth2.RetrieveError
 		if errors.As(err, &rejected) {
-			return Account{}, auth.ErrInvalidCredentials
+			return account{}, auth.ErrInvalidCredentials
 		}
-		return Account{}, err
+		return account{}, err
 	}
 	raw, ok := tok.Extra("id_token").(string)
 	if !ok {
-		return Account{}, auth.ErrInvalidCredentials
+		return account{}, auth.ErrInvalidCredentials
 	}
 	idToken, err := discovered.Verifier(&gooidc.Config{ClientID: p.ClientID}).
 		Verify(ctx, raw)
 	if err != nil {
-		return Account{}, auth.ErrInvalidCredentials
+		return account{}, auth.ErrInvalidCredentials
 	}
 	var claims struct {
 		Name string `json:"name"`
 	}
 	if err = idToken.Claims(&claims); err != nil {
-		return Account{}, auth.ErrInvalidCredentials
+		return account{}, auth.ErrInvalidCredentials
 	}
-	return Account{Provider: p.Name, ID: idToken.Subject, Name: claims.Name}, nil
+	return account{Provider: p.Name, ID: idToken.Subject, Name: claims.Name}, nil
 }
 
 // Authenticate implements [auth.Authenticator]. The first login of an unlinked account
@@ -289,24 +287,24 @@ func (s *Service) Authenticate(
 			proof.Variant,
 		)
 	}
-	account, err := s.Verify(ctx, creds.OIDCCredentials)
+	acc, err := s.verify(ctx, creds.OIDCCredentials)
 	if err != nil {
 		return auth.Identity{}, err
 	}
 	var link Link
 	err = s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		err := s.NewRetrieve().
-			Where(MatchProviders(account.Provider)).
-			Where(MatchAccounts(account.ID)).
+		err := s.newRetrieve().
+			Where(MatchProviders(acc.Provider)).
+			Where(MatchAccounts(acc.ID)).
 			Entry(&link).
 			Exec(ctx, tx)
 		if !errors.Is(err, query.ErrNotFound) {
 			return err
 		}
-		if s.providers[account.Provider].UserCreationDisabled {
+		if s.providers[acc.Provider].UserCreationDisabled {
 			return auth.ErrInvalidCredentials
 		}
-		link, err = s.createUser(ctx, tx, account)
+		link, err = s.createUser(ctx, tx, acc)
 		return err
 	})
 	if err != nil {
@@ -323,7 +321,7 @@ func (s *Service) Version(
 	credential uuid.UUID,
 ) (telem.TimeStamp, error) {
 	var link Link
-	if err := s.NewRetrieve().
+	if err := s.newRetrieve().
 		Where(MatchKeys(credential)).
 		Entry(&link).
 		Exec(ctx, snap); err != nil {
@@ -342,10 +340,10 @@ func (s *Service) Version(
 func (s *Service) createUser(
 	ctx context.Context,
 	tx gorp.Tx,
-	account Account,
+	acc account,
 ) (Link, error) {
 	// a provider need not send a name claim
-	name := lo.Ternary(account.Name != "", account.Name, "Unnamed user")
+	name := lo.Ternary(acc.Name != "", acc.Name, "Unnamed user")
 	u, err := s.cfg.User.NewWriter(tx).Create(
 		ctx,
 		user.User{Name: name, Role: s.cfg.NewUserRole},
@@ -353,5 +351,5 @@ func (s *Service) createUser(
 	if err != nil {
 		return Link{}, err
 	}
-	return s.NewWriter(tx).Create(ctx, u.ResourceID(), account)
+	return s.newWriter(tx).create(ctx, u.ResourceID(), acc)
 }
