@@ -28,7 +28,10 @@ type disk struct {
 	// calls counts the calls of each kind at each path and offset. The count is a part
 	// of each draw, so a second call gets its own draw.
 	calls map[call]uint64
-	cfg   Config
+	// open counts the handles on each node. A removed file holds its space until it has
+	// none.
+	open map[*node]int
+	cfg  Config
 	// clock counts the changes to the disk. It gives each one a later mod time.
 	clock int64
 	// mu guards every field of the disk, its nodes, and its open files.
@@ -145,8 +148,6 @@ type change struct {
 type half struct {
 	dir, from, to *node
 	name          string
-	// durable is true when a SyncDir of dir came after the change.
-	durable bool
 }
 
 type call struct {
@@ -156,8 +157,17 @@ type call struct {
 }
 
 func newDisk(cfg Config, root *node, clock int64) *disk {
-	return &disk{cfg: cfg, root: root, clock: clock, calls: map[call]uint64{}}
+	return &disk{
+		cfg:   cfg,
+		root:  root,
+		clock: clock,
+		calls: map[call]uint64{},
+		open:  map[*node]int{},
+	}
 }
+
+// draw is a draw with the run key of the disk.
+func (d *disk) draw(parts ...uint64) float64 { return draw(d.cfg.RunKey, parts...) }
 
 // next counts a call of kind at the path p and the offset off, and returns how many
 // came before it.

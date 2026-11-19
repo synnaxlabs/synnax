@@ -12,8 +12,6 @@ package fault
 import (
 	"maps"
 	"slices"
-
-	"github.com/synnaxlabs/x/set"
 )
 
 // misdirect replaces the bytes of one block in p with the bytes of another block of the
@@ -24,64 +22,49 @@ func (d *disk) misdirect(p []byte, n *node, path string, off int64) {
 		return
 	}
 	file, at, nth := hashPath(path), uint64(off), d.next(drawMisdirect, path, off)
-	if draw(d.cfg.RunKey, drawMisdirect, file, at, nth) >= d.cfg.MisdirectedReadRate {
+	if d.draw(drawMisdirect, file, at, nth) >= d.cfg.MisdirectedReadRate {
 		return
 	}
 	first, last := off/blockSize, (off+int64(len(p))-1)/blockSize
-	pick := draw(d.cfg.RunKey, drawMisdirectBlock, file, at, nth)
-	victim := first + int64(pick*float64(last-first+1))
-	files := d.files(d.root, nil, set.Set[*node]{})
+	span := float64(last - first + 1)
+	victim := first + int64(d.draw(drawMisdirectBlock, file, at, nth)*span)
+	files := d.files(d.root, nil)
 	others := int64(-1)
 	for _, f := range files {
 		others += blockCount(f)
 	}
-	source := int64(
-		draw(d.cfg.RunKey, drawMisdirectSource, file, at, nth) * float64(others),
-	)
+	source := int64(d.draw(drawMisdirectSource, file, at, nth) * float64(others))
 	for _, f := range files {
 		count := blockCount(f)
 		if f == n && source >= victim {
 			source++
 		}
-		if source < count {
-			from, to := max(
-				off,
-				victim*blockSize,
-			), min(
-				off+int64(len(p)),
-				(victim+1)*blockSize,
-			)
-			block := p[from-off : to-off]
-			clear(block)
-			if start := source*blockSize + from - victim*blockSize; start < int64(
-				len(f.data),
-			) {
-				copy(block, f.data[start:])
-			}
-			return
+		if source >= count {
+			source -= count
+			continue
 		}
-		source -= count
+		from := max(off, victim*blockSize)
+		block := p[from-off : min(off+int64(len(p)), (victim+1)*blockSize)-off]
+		clear(block)
+		start := source*blockSize + from - victim*blockSize
+		if start < int64(len(f.data)) {
+			copy(block, f.data[start:])
+		}
+		return
 	}
 }
 
-func blockCount(
-	n *node,
-) int64 {
+func blockCount(n *node) int64 {
 	return (int64(len(n.data)) + blockSize - 1) / blockSize
 }
 
-// files adds each file under the directory n that is not in seen to out, in the order
-// of the names.
-func (d *disk) files(n *node, out []*node, seen set.Set[*node]) []*node {
-	if seen.Contains(n) {
-		return out
-	}
-	seen.Add(n)
+// files adds each file under the directory n to out, in the order of the names.
+func (d *disk) files(n *node, out []*node) []*node {
 	if !n.dir {
 		return append(out, n)
 	}
 	for _, name := range slices.Sorted(maps.Keys(n.entries)) {
-		out = d.files(n.entries[name], out, seen)
+		out = d.files(n.entries[name], out)
 	}
 	return out
 }

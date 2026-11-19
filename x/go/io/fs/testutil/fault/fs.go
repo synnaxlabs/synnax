@@ -24,8 +24,9 @@ import (
 )
 
 // FS is a disk in memory. Only a Sync makes the bytes of a file durable, and only a
-// SyncDir makes the entries of a directory durable. Crash returns what a power loss
-// keeps. It is safe for concurrent use, and each call is atomic.
+// SyncDir makes the entries of a directory durable. A rename between two directories is
+// one change: a SyncDir of either makes it durable in both. Crash returns what a power
+// loss keeps. It is safe for concurrent use, and each call is atomic.
 type FS struct {
 	d *disk
 	// root is the cleaned absolute path of the directory that names resolve against.
@@ -39,8 +40,9 @@ type Config struct {
 	// RunKey fixes every random choice of the FS.
 	RunKey uint64
 	// SyncErrorRate is the chance, from 0 to 1, that a Sync or a SyncDir with changes
-	// to make durable fails with EIO. A failed Sync drops its changes as Linux does: no
-	// later Sync makes them durable, and the next Sync succeeds. A failed SyncDir keeps
+	// to make durable fails with EIO. A failed Sync drops its changes as Linux does:
+	// its blocks are clean again, so a later Sync writes one of them only after a new
+	// write to that block, and a Sync with nothing new succeeds. A failed SyncDir keeps
 	// its changes for the next SyncDir.
 	SyncErrorRate float64
 	// EvictionRate is the chance, from 0 to 1, that a block dropped by a failed Sync
@@ -52,11 +54,13 @@ type Config struct {
 	ReadCorruptionRate float64
 	// MisdirectedReadRate is the chance, from 0 to 1, that a read gets one 4 KiB block
 	// from the wrong place: another block of the file, or a block of another file. The
-	// bytes on the disk do not change.
+	// bytes on the disk do not change. The wrong block is one that the disk holds at
+	// the read, so a write to another file can change the bytes that come back, but not
+	// the read and the block that the fault hits.
 	MisdirectedReadRate float64
-	// Capacity is the size of the disk in bytes, which the lengths of its files fill.
-	// Zero is no limit. A write past it writes the bytes that fit and fails with
-	// ENOSPC.
+	// Capacity is the size of the disk in bytes, which the lengths of its files fill. A
+	// removed file fills it until its last handle closes. Zero is no limit. A write
+	// past it writes the bytes that fit and fails with ENOSPC.
 	Capacity int64
 }
 
@@ -71,7 +75,8 @@ func (c Config) validate() error {
 }
 
 // New returns an empty FS with the faults of cfg. The error matches
-// validate.ErrValidation when a rate of cfg is not from 0 to 1.
+// validate.ErrValidation when a rate of cfg is not from 0 to 1, or its capacity is
+// under zero.
 func New(cfg Config) (*FS, error) {
 	if err := cfg.validate(); err != nil {
 		return nil, err
@@ -109,13 +114,14 @@ func (f *FS) Open(name string, flag int) (xfs.File, error) {
 	default:
 		return nil, err
 	}
+	d.open[n]++
 	return &file{
-		d:      d,
-		n:      n,
-		path:   p,
-		read:   flag&os.O_WRONLY == 0,
-		write:  flag&(os.O_WRONLY|os.O_RDWR) != 0,
-		append: flag&os.O_APPEND != 0,
+		d:         d,
+		n:         n,
+		path:      p,
+		readable:  flag&os.O_WRONLY == 0,
+		writable:  flag&(os.O_WRONLY|os.O_RDWR) != 0,
+		appending: flag&os.O_APPEND != 0,
 	}, nil
 }
 

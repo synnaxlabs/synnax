@@ -25,8 +25,8 @@ type file struct {
 	n    *node
 	path string
 	// rpos and wpos are the offsets of the next Read and the next Write.
-	rpos, wpos                  int64
-	read, write, append, closed bool
+	rpos, wpos                            int64
+	readable, writable, appending, closed bool
 }
 
 var _ xfs.File = (*file)(nil)
@@ -55,6 +55,9 @@ func (f *file) Close() error {
 		return pathError("close", f.path, os.ErrClosed)
 	}
 	f.closed = true
+	if f.d.open[f.n]--; f.d.open[f.n] == 0 {
+		delete(f.d.open, f.n)
+	}
 	return nil
 }
 
@@ -62,7 +65,7 @@ func (f *file) Close() error {
 func (f *file) Read(p []byte) (int, error) {
 	f.d.mu.Lock()
 	defer f.d.mu.Unlock()
-	if err := f.check("read", f.read, 0); err != nil {
+	if err := f.check("read", f.readable, 0); err != nil {
 		return 0, err
 	}
 	if f.rpos >= int64(len(f.n.data)) {
@@ -79,7 +82,7 @@ func (f *file) Read(p []byte) (int, error) {
 func (f *file) ReadAt(p []byte, off int64) (int, error) {
 	f.d.mu.Lock()
 	defer f.d.mu.Unlock()
-	if err := f.check("read", f.read, off); err != nil {
+	if err := f.check("read", f.readable, off); err != nil {
 		return 0, err
 	}
 	if off >= int64(len(f.n.data)) {
@@ -98,10 +101,10 @@ func (f *file) ReadAt(p []byte, off int64) (int, error) {
 func (f *file) Write(p []byte) (int, error) {
 	f.d.mu.Lock()
 	defer f.d.mu.Unlock()
-	if err := f.check("write", f.write, 0); err != nil {
+	if err := f.check("write", f.writable, 0); err != nil {
 		return 0, err
 	}
-	if f.append {
+	if f.appending {
 		f.wpos = int64(len(f.n.data))
 	}
 	n, err := f.d.write(f.n, p, f.wpos, f.path)
@@ -113,7 +116,7 @@ func (f *file) Write(p []byte) (int, error) {
 func (f *file) WriteAt(p []byte, off int64) (int, error) {
 	f.d.mu.Lock()
 	defer f.d.mu.Unlock()
-	if err := f.check("write", f.write, off); err != nil {
+	if err := f.check("write", f.writable, off); err != nil {
 		return 0, err
 	}
 	return f.d.write(f.n, p, off, f.path)
@@ -123,7 +126,7 @@ func (f *file) WriteAt(p []byte, off int64) (int, error) {
 func (f *file) Truncate(size int64) error {
 	f.d.mu.Lock()
 	defer f.d.mu.Unlock()
-	if err := f.check("truncate", f.write, size); err != nil {
+	if err := f.check("truncate", f.writable, size); err != nil {
 		return err
 	}
 	if f.d.fit(f.n, size) < size {
@@ -185,20 +188,30 @@ func (d *disk) fit(n *node, size int64) int64 {
 	if d.cfg.Capacity == 0 || size <= int64(len(n.data)) {
 		return size
 	}
-	free := max(d.cfg.Capacity-d.used(d.root, set.Set[*node]{}), 0)
-	return min(size, int64(len(n.data))+free)
+	return min(size, int64(len(n.data))+max(d.cfg.Capacity-d.used(), 0))
 }
 
-// used returns the length of every file under the directory n that is not in seen, and
-// adds each node to seen.
-func (d *disk) used(n *node, seen set.Set[*node]) int64 {
+// used returns the bytes that the disk holds: each file under the root, and each
+// removed file that is still open.
+func (d *disk) used() int64 {
+	seen := set.Set[*node]{}
+	total := d.usedUnder(d.root, seen)
+	for n := range d.open {
+		total += d.usedUnder(n, seen)
+	}
+	return total
+}
+
+// usedUnder returns the length of every file under n that is not in seen, and adds each
+// node to seen.
+func (d *disk) usedUnder(n *node, seen set.Set[*node]) int64 {
 	if seen.Contains(n) {
 		return 0
 	}
 	seen.Add(n)
 	total := int64(len(n.data))
 	for _, child := range n.entries {
-		total += d.used(child, seen)
+		total += d.usedUnder(child, seen)
 	}
 	return total
 }
@@ -209,18 +222,10 @@ func (d *disk) corrupt(p []byte, path string, off int64) {
 	if d.cfg.ReadCorruptionRate == 0 || len(p) == 0 {
 		return
 	}
-	file, nth := hashPath(path), d.next(drawRead, path, off)
-	if draw(d.cfg.RunKey, drawRead, file, uint64(off), nth) < d.cfg.ReadCorruptionRate {
-		bit := draw(
-			d.cfg.RunKey,
-			drawReadBit,
-			file,
-			uint64(off),
-			nth,
-		) * float64(
-			len(p)*8,
-		)
-		p[int(bit)/8] ^= 1 << (int(bit) % 8)
+	file, at, nth := hashPath(path), uint64(off), d.next(drawRead, path, off)
+	if d.draw(drawRead, file, at, nth) < d.cfg.ReadCorruptionRate {
+		bit := int(d.draw(drawReadBit, file, at, nth) * float64(len(p)*8))
+		p[bit/8] ^= 1 << (bit % 8)
 	}
 }
 

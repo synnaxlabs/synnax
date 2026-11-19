@@ -15,6 +15,8 @@ import (
 	"math/bits"
 	"slices"
 	"syscall"
+
+	"github.com/synnaxlabs/x/set"
 )
 
 // blockSize is the unit of file data that reaches the disk, or does not, as a whole.
@@ -63,7 +65,7 @@ func resized(data []byte, size int64) []byte {
 func (d *disk) sync(n *node, p string) error {
 	if len(n.dirty) > 0 {
 		file, nth := hashPath(p), d.next(drawSync, p, 0)
-		if draw(d.cfg.RunKey, drawSync, file, nth) < d.cfg.SyncErrorRate {
+		if d.draw(drawSync, file, nth) < d.cfg.SyncErrorRate {
 			d.drop(n, file, nth)
 			return pathError("sync", p, syscall.EIO)
 		}
@@ -86,13 +88,7 @@ func (d *disk) drop(n *node, file, nth uint64) {
 	size := int64(len(n.data))
 	for b := range n.dirty.all() {
 		from := b * blockSize
-		evicted := draw(
-			d.cfg.RunKey,
-			drawEvict,
-			file,
-			nth,
-			uint64(b),
-		) < d.cfg.EvictionRate
+		evicted := d.draw(drawEvict, file, nth, uint64(b)) < d.cfg.EvictionRate
 		if from >= size || !evicted {
 			continue
 		}
@@ -105,23 +101,51 @@ func (d *disk) drop(n *node, file, nth uint64) {
 	n.dirty = nil
 }
 
-// syncDir makes the entries of the directory n at the path p durable.
+// entry names one directory entry.
+type entry struct {
+	dir  *node
+	name string
+}
+
+// syncDir makes the entries of the directory n at the path p durable. A rename between
+// n and another directory becomes durable in both, as one journal change does, and so
+// does each earlier change to an entry that such a change reads.
 func (d *disk) syncDir(n *node, p string) error {
 	if !maps.Equal(n.entries, n.durableEntries) {
 		nth := d.next(drawSync, p, 0)
-		if draw(d.cfg.RunKey, drawSync, hashPath(p), nth) < d.cfg.SyncErrorRate {
+		if d.draw(drawSync, hashPath(p), nth) < d.cfg.SyncErrorRate {
 			return pathError("sync", p, syscall.EIO)
 		}
 	}
-	n.durableEntries = maps.Clone(n.entries)
-	d.pending = slices.DeleteFunc(d.pending, func(c *change) bool {
-		durable := true
-		for i := range c.halves {
-			h := &c.halves[i]
-			h.durable = h.durable || h.dir == n
-			durable = durable && h.durable
+	// A change is durable now when it changes n, or when a later durable change changes
+	// one of its entries. The walk goes from the newest change to the oldest.
+	durable, needed := make([]bool, len(d.pending)), set.Set[entry]{}
+	for i := len(d.pending) - 1; i >= 0; i-- {
+		halves := d.pending[i].halves
+		durable[i] = slices.ContainsFunc(halves, func(h half) bool {
+			return h.dir == n || needed.Contains(entry{dir: h.dir, name: h.name})
+		})
+		for _, h := range halves {
+			if durable[i] {
+				needed.Add(entry{dir: h.dir, name: h.name})
+			}
 		}
-		return durable
-	})
+	}
+	kept := d.pending[:0]
+	for i, c := range d.pending {
+		if !durable[i] {
+			kept = append(kept, c)
+			continue
+		}
+		for _, h := range c.halves {
+			if h.to == nil {
+				delete(h.dir.durableEntries, h.name)
+			} else {
+				h.dir.durableEntries[h.name] = h.to
+			}
+		}
+	}
+	d.pending = kept
+	n.durableEntries = maps.Clone(n.entries)
 	return nil
 }

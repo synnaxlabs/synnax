@@ -49,7 +49,8 @@ func (c CrashConfig) validate() error {
 // Crash returns the disk as a power loss leaves it now. The new FS holds the bytes that
 // a Sync made durable, the directory entries that a SyncDir made durable, and the part
 // of the other state that cfg keeps. Crash does not change f, and files open on f stay
-// on f. The error matches validate.ErrValidation when a rate of cfg is not from 0 to 1.
+// on f. The error matches validate.ErrValidation when a rate of cfg is not from 0 to 1,
+// or a capacity is under zero.
 func (f *FS) Crash(cfg CrashConfig) (*FS, error) {
 	if err := cfg.validate(); err != nil {
 		return nil, err
@@ -57,11 +58,7 @@ func (f *FS) Crash(cfg CrashConfig) (*FS, error) {
 	d := f.d
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	c := crash{
-		cfg:     cfg,
-		copies:  map[*node]*node{},
-		entries: map[*node]map[string]*node{},
-	}
+	c := crash{cfg: cfg, entries: map[*node]map[string]*node{}}
 	for _, ch := range d.pending {
 		if draw(cfg.RunKey, drawEntry, ch.key) < cfg.EntrySurvivalRate {
 			c.apply(ch)
@@ -71,8 +68,6 @@ func (f *FS) Crash(cfg CrashConfig) (*FS, error) {
 }
 
 type crash struct {
-	// copies maps each node to its image, so two names of one node keep one node.
-	copies map[*node]*node
 	// entries holds the entries that the crash leaves in each directory it changed.
 	entries map[*node]map[string]*node
 	cfg     CrashConfig
@@ -92,16 +87,14 @@ func (c *crash) dir(n *node) map[string]*node {
 // still holds what it held before ch. A change whose base was lost is lost too.
 func (c *crash) apply(ch *change) {
 	for _, h := range ch.halves {
-		if !h.durable && c.dir(h.dir)[h.name] != h.from {
+		if c.dir(h.dir)[h.name] != h.from {
 			return
 		}
 	}
 	for _, h := range ch.halves {
-		switch {
-		case h.durable:
-		case h.to == nil:
+		if h.to == nil {
 			delete(c.dir(h.dir), h.name)
-		default:
+		} else {
 			c.dir(h.dir)[h.name] = h.to
 		}
 	}
@@ -109,11 +102,7 @@ func (c *crash) apply(ch *change) {
 
 // image returns the node that the crash leaves in place of n, which is at the path p.
 func (c *crash) image(n *node, p string) *node {
-	if out, ok := c.copies[n]; ok {
-		return out
-	}
 	out := &node{dir: n.dir, modTime: n.modTime}
-	c.copies[n] = out
 	if !n.dir {
 		out.data = c.data(n, hashPath(p))
 		out.durable = slices.Clone(out.data)
