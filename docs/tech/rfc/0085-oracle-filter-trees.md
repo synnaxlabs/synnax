@@ -61,7 +61,9 @@ Where filter Range {
 - **Typed line**: Calls a matcher written by hand in the target's service package. The
   generated Go calls `MatchOverlaps(telem.TimeRange)`, and a `T[]` line calls a variadic
   matcher: `MatchLabels(...label.Key)`. A missing or mistyped function fails the Core
-  build.
+  build. _(Amended by RFC 0116 §4.0: a typed line whose type is a filter operator type,
+  such as `internal filter.Bool`, generates like a bare line in every client, with the
+  same shorthand input, and only its Go matcher is written by hand.)_
 - **Target**: A struct or a union in the same schema (`Where filter View`). A schema
   declares at most one filter.
 
