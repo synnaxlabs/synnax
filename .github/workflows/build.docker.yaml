@@ -54,9 +54,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # The tag hashes the Git objects of every path the Dockerfile copies, the files
-      # that drive the build, and the digests of the base images. Two commits with the
-      # same sources share an image until a base image moves.
+      # The tag hashes the Git objects of every path the Dockerfile copies and the files
+      # that drive the build. The Dockerfile pins each base image by digest, so two
+      # commits with the same sources share an image.
       - name: Tag the image
         id: tag
         env:
@@ -65,28 +65,16 @@ jobs:
         run: |
           dockerfile="$MODULE/Dockerfile"
           go_version=$(awk '$1 == "go" { print $2 }' "$MODULE/go.mod")
+          if ! grep -qF "FROM golang:$go_version@sha256:" "$dockerfile"; then
+            echo "::error file=$dockerfile::Pin golang:$go_version to match go.mod"
+            exit 1
+          fi
           sources=$(awk '$1 == "COPY" && $2 !~ /^--/ { $1 = $NF = ""; print }' \
             "$dockerfile")
           read -ra paths <<< "${sources//$'\n'/ } $dockerfile .dockerignore \
             .github/workflows/build.docker.yaml"
           objects=$(git rev-parse "${paths[@]/#/HEAD:}")
-          stages=$(awk '$1 == "FROM" && $3 == "AS" { print $4 }' "$dockerfile")
-          bases=$(awk '$1 == "FROM" { print $2 }' "$dockerfile" |
-            sed "s/\${GO_VERSION}/$go_version/" | grep -vxF "$stages")
-          digests=""
-          # Docker Hub returns a rare 5xx, so each inspect gets three attempts.
-          for base in $bases; do
-            for attempt in 1 2 3; do
-              digest=$(docker buildx imagetools inspect "$base" \
-                --format '{{json .Manifest.Digest}}') && break
-              [ "$attempt" -lt 3 ] || exit 1
-              echo "Inspect attempt $attempt of $base failed"
-              sleep 10
-            done
-            digests+=$digest
-          done
-          hash=$(sha256sum <<< "$objects $digests" | cut -c1-32)
-          echo "go_version=$go_version" >> "$GITHUB_OUTPUT"
+          hash=$(sha256sum <<< "$objects" | cut -c1-32)
           echo "image=$REPOSITORY:src-$hash" >> "$GITHUB_OUTPUT"
 
       # A failed inspect also builds, which is always correct.
@@ -115,7 +103,6 @@ jobs:
           tags: ${{ steps.tag.outputs.image }}
           cache-from: type=gha,scope=synnax-docker-${{ inputs.module }}
           cache-to: type=gha,mode=max,scope=synnax-docker-${{ inputs.module }}
-          build-args: GO_VERSION=${{ steps.tag.outputs.go_version }}
 
       - name: Resolve the digest
         id: digest
