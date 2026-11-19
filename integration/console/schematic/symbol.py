@@ -353,19 +353,6 @@ class Symbol(ABC):
         if search.is_visible():
             search.press("Escape")
 
-    def used_by_offset(self) -> float:
-        """Return how far right of the enumeration picker's left edge the Used by value
-        starts. The values of the Options tab share that edge.
-        """
-        self.open_options_tab()
-        picker = self.page.get_by_role("button", name=re.compile(r"^Enumeration\b"))
-        used_by = self.page.get_by_text(re.compile(r"^\d+ schematics?$"))
-        picker_box = picker.bounding_box()
-        used_by_box = used_by.bounding_box()
-        if picker_box is None or used_by_box is None:
-            raise RuntimeError("The Options tab shows no picker or no Used by value")
-        return box_left(used_by_box) - box_left(picker_box)
-
     def _commit(self, label: str, text: str) -> None:
         """Type into a cell of the entries grid, then blur it to commit the text."""
         cell = self.page.get_by_label(label, exact=True)
