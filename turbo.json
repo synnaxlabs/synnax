@@ -51,12 +51,12 @@
     "fix": { "cache": false },
     "test": {
       "dependsOn": ["^build"],
-      "env": ["GITHUB_RUN_ID", "GITHUB_RUN_ATTEMPT"],
+      "env": ["SYNNAX_TEST_CACHE_KEY"],
       "passThroughEnv": ["SYNNAX_TEST_HOST", "SYNNAX_TEST_PORT"]
     },
     "cov": {
       "dependsOn": ["^build"],
-      "env": ["GITHUB_RUN_ID", "GITHUB_RUN_ATTEMPT"],
+      "env": ["SYNNAX_TEST_CACHE_KEY"],
       "outputs": ["coverage/**"],
       "passThroughEnv": ["SYNNAX_TEST_HOST", "SYNNAX_TEST_PORT"]
     },
