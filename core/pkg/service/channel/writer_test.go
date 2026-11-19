@@ -12,6 +12,7 @@ package channel_test
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -2072,6 +2073,82 @@ var _ = Describe("Writer", func() {
 			db = dist.DB
 			svc = openService(ctx, dist)
 		})
+		It(
+			"Should keep the storage of a channel whose delete was refused in a "+
+				"transaction that commits",
+			func(ctx SpecContext) {
+				ch := channel.Channel{
+					Name:        UniqueChannelName(),
+					DataType:    telem.TimestampT,
+					IsIndex:     true,
+					Internal:    true,
+					Leaseholder: 1,
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &ch)
+				})).To(Succeed())
+				stored(ctx, ch)
+				tx := db.OpenTx()
+				Expect(svc.NewWriter(tx).Delete(ctx, ch.Key(), false)).
+					To(MatchError(ContainSubstring("can't delete internal channel")))
+				Expect(tx.Commit(ctx)).To(Succeed())
+				Expect(tx.Close()).To(Succeed())
+				Expect(svc.NewRetrieve().
+					Where(channel.MatchKeys(ch.Key())).
+					Exists(ctx, db)).To(BeTrue())
+				Consistently(func() error {
+					_, err := dist.Storage.TS.RetrieveChannel(ctx, uint32(ch.Key()))
+					return err
+				}).WithTimeout(500 * time.Millisecond).Should(Succeed())
+			},
+		)
+		It(
+			"Should keep the storage of an index whose delete a restrict link refused "+
+				"in a transaction that writes another record",
+			func(ctx SpecContext) {
+				idx := channel.Channel{
+					Name:        UniqueChannelName(),
+					DataType:    telem.TimestampT,
+					IsIndex:     true,
+					Leaseholder: 1,
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &idx)
+				})).To(Succeed())
+				data := channel.Channel{
+					Name:        UniqueChannelName(),
+					DataType:    telem.Float64T,
+					LocalIndex:  idx.LocalKey,
+					Leaseholder: 1,
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &data)
+				})).To(Succeed())
+				other := channel.Channel{
+					Name:        UniqueChannelName(),
+					DataType:    telem.TimestampT,
+					IsIndex:     true,
+					Leaseholder: 1,
+				}
+				tx := db.OpenTx()
+				Expect(svc.NewWriter(tx).Delete(ctx, idx.Key(), false)).
+					To(MatchError(gorp.RestrictError{
+						Target:    gorp.NewTarget("channel", idx.Key()),
+						Holder:    gorp.NewTarget("channel", data.Key()),
+						Reference: "index",
+					}))
+				Expect(svc.NewWriter(tx).Create(ctx, &other)).To(Succeed())
+				Expect(tx.Commit(ctx)).To(Succeed())
+				Expect(tx.Close()).To(Succeed())
+				Expect(svc.NewRetrieve().
+					Where(channel.MatchKeys(idx.Key(), other.Key())).
+					Count(ctx, db)).To(Equal(2))
+				Consistently(func() error {
+					_, err := dist.Storage.TS.RetrieveChannel(ctx, uint32(idx.Key()))
+					return err
+				}).WithTimeout(500 * time.Millisecond).Should(Succeed())
+			},
+		)
 		It(
 			"Should create the storage channel when the transaction commits",
 			func(ctx SpecContext) {

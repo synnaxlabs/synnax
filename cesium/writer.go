@@ -135,7 +135,7 @@ func (w *Writer) Close() error {
 	if len(update.Transfers) > 0 {
 		w.updateDBControl(update)
 	}
-	w.err = errors.Combine(w.err, err)
+	w.err = errors.Join(w.err, err)
 	return w.err
 }
 

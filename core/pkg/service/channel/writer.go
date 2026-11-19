@@ -948,19 +948,6 @@ func (w Writer) delete(ctx context.Context, keys Keys, allowInternal bool) error
 	if err != nil {
 		return err
 	}
-	// The storage drops only once the delete of the records is durable, so a crash
-	// never leaves a record whose data is gone.
-	gorp.AfterEnd(w.tx, func(committed bool) {
-		if !committed {
-			release()
-			return
-		}
-		w.svc.mu.Lock()
-		w.svc.mu.externalNonVirtualSet.Remove(keys...)
-		w.svc.mu.Unlock()
-		dropCtx := context.WithoutCancel(ctx)
-		w.svc.cfg.DropExecutor(func() { w.svc.dropStorage(dropCtx, stored, release) })
-	})
 	if err := w.svc.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Channel](keys...)).
 		Guard(func(_ gorp.Context, c Channel) error {
@@ -974,8 +961,22 @@ func (w Writer) delete(ctx context.Context, keys Keys, allowInternal bool) error
 			return nil
 		}).
 		Exec(ctx, w.tx); err != nil {
+		release()
 		return err
 	}
+	// The storage drops only once the delete of the records is durable, so a crash
+	// never leaves a record whose data is gone.
+	gorp.AfterEnd(w.tx, func(committed bool) {
+		if !committed {
+			release()
+			return
+		}
+		w.svc.mu.Lock()
+		w.svc.mu.externalNonVirtualSet.Remove(keys...)
+		w.svc.mu.Unlock()
+		dropCtx := context.WithoutCancel(ctx)
+		w.svc.cfg.DropExecutor(func() { w.svc.dropStorage(dropCtx, stored, release) })
+	})
 	return nil
 }
 

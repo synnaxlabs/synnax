@@ -109,8 +109,8 @@ func (s *session) run(ctx context.Context) error {
 	}
 }
 
-// close releases the Cesium writer. It returns the first error of the session or of
-// the Cesium writer, joined with any error of the release, and otherwise cause.
+// close closes the Cesium writer and releases the hold of the session on its channels.
+// It returns the first error of the session or of the close, and otherwise cause.
 func (s *session) close(cause error) error {
 	err := errors.Combine(s.err, s.w.Close())
 	s.release()

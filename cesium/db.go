@@ -89,12 +89,12 @@ func (db *DB) Write(ctx context.Context, start telem.TimeStamp, frame Frame) err
 	); err == nil ||
 		errors.Is(err, xcontrol.ErrUnauthorized) {
 		_, commitErr := w.Commit(ctx)
-		err = errors.Combine(err, commitErr)
+		err = errors.Join(err, commitErr)
 	}
 	if errors.Is(err, xcontrol.ErrUnauthorized) {
 		err = errors.Wrap(err, "another writer controls the frame")
 	}
-	return span.Error(errors.Combine(err, w.Close()))
+	return span.Error(errors.Join(err, w.Close()))
 }
 
 // WriteSeries writes a series into the specified channel at the specified start time.
