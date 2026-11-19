@@ -181,8 +181,10 @@ var _ = Describe("Service", func() {
 			},
 		)
 		It("Should refuse a user while passwords are off", func(ctx SpecContext) {
+			other := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(other.Run)
 			keysOnly := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
-				DB: DeferClose(gorp.Wrap(memkv.New())),
+				DB: other,
 				Authenticators: map[auth.Method]auth.Authenticator{
 					auth.MethodAPIKey: passwordSvc,
 				},

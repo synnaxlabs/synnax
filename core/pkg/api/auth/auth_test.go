@@ -168,8 +168,10 @@ var _ = Describe("Disabled methods", func() {
 			auth.MethodAPIKey:   apiKeySvc,
 		}
 		delete(authenticators, method)
+		other := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(other.Run)
 		svc := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
-			DB:             DeferClose(gorp.Wrap(memkv.New())),
+			DB:             other,
 			Authenticators: authenticators,
 		}))
 		return MustSucceed(apiauth.NewService(apiauth.ServiceConfig{
