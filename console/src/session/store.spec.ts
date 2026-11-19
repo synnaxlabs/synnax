@@ -16,7 +16,8 @@ import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { Session } from "@/session";
 import { createTestStore, MemoryKV, type TestStore } from "@/testutil";
 
-const HAULED: Haul.DraggingState = {
+const HAULED: Haul.State = {
+  key: "drag",
   source: { key: "file", type: "file" },
   items: [{ key: "a", type: "b" }],
 };
