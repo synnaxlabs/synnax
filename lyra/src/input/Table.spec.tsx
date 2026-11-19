@@ -978,4 +978,42 @@ describe("Input.Table", () => {
       expect(onChange).toHaveBeenCalledWith([["a", { x: 2, y: 3 }]]);
     });
   });
+
+  describe("select cells", () => {
+    const ORDERS = ["big", "little"];
+
+    const renderOrders = (parse?: (text: string) => string | null) => {
+      const onChange = vi.fn();
+      render(
+        <Input.Table value={[["big"]]} onChange={onChange}>
+          <Input.TableColumn name="Byte order" type="string" parse={parse}>
+            {({ value, "aria-label": label }) => (
+              <button aria-label={label}>{value}</button>
+            )}
+          </Input.TableColumn>
+        </Input.Table>,
+      );
+      const order = screen.getByRole("button", { name: "Byte order 1" });
+      return { onChange, order };
+    };
+
+    const pasteOn = (el: HTMLElement, text: string): void => {
+      fireEvent.focus(el);
+      fireEvent.paste(el, { clipboardData: { getData: () => text } });
+    };
+
+    it("should leave one value pasted on a select whose column has no parse", () => {
+      const { onChange, order } = renderOrders();
+      pasteOn(order, "foo");
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("should read a single value pasted on a select with its column's parse", () => {
+      const { onChange, order } = renderOrders((text) =>
+        ORDERS.includes(text) ? text : null,
+      );
+      pasteOn(order, "little");
+      expect(onChange).toHaveBeenCalledWith([["little"]]);
+    });
+  });
 });
