@@ -24,12 +24,235 @@ Pass one ref as both --base and --head for an A/A run, which measures the noise 
 host. The io suite puts its files in --io-dir, the disk to measure.
 """
 
+import argparse
 import csv
 import io
-from dataclasses import dataclass
+import os
+import platform
+import re
+import subprocess
+import sys
+import tempfile
+from collections.abc import Sequence
+from dataclasses import dataclass, field, replace
+from pathlib import Path
 
+ROOT = Path(__file__).resolve().parent.parent
+BENCHSTAT = (
+    "go",
+    "run",
+    "golang.org/x/perf/cmd/benchstat@v0.0.0-20261117185222-4febdb082b2c",
+)
 SIDES = ("base", "head")
+BENCHMARK = re.compile(r"^Benchmark", re.MULTILINE)
+ALPHA = 0.05
 MAX_TIME_RISE = 0.05
+
+
+@dataclass(frozen=True)
+class Step:
+    """A command and the repo-relative directory it runs in.
+
+    `{bin}` in an argument is the directory that holds the builds of the ref.
+    """
+
+    directory: str
+    argv: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class Group:
+    """One benchmark process of the gate, and the steps that build it."""
+
+    name: str
+    suite: str
+    build: tuple[Step, ...]
+    run: Step
+    control: bool = False
+
+
+def go(
+    name: str, suite: str, package: str, pattern: str, control: bool = False
+) -> Group:
+    """Returns the group for the Go benchmarks of package that match pattern."""
+    binary = "{bin}/" + package.replace("/", "-") + ".test"
+    return Group(
+        name,
+        suite,
+        (Step(package, ("go", "test", "-c", "-o", binary, ".")),),
+        Step(
+            package,
+            (
+                binary,
+                "-test.run=^$",
+                f"-test.bench={pattern}",
+                "-test.benchmem",
+                "-test.timeout=0",
+            ),
+        ),
+        control,
+    )
+
+
+FRAMER = "core/pkg/service/framer"
+GROUPS: tuple[Group, ...] = (
+    go("cesium/write", "cpu", "cesium", "^BenchmarkWrite$/^fs=mem$"),
+    go("cesium/write-os", "io", "cesium", "^BenchmarkWrite$/^fs=os$"),
+    go(
+        "cesium/read",
+        "cpu",
+        "cesium",
+        "^Benchmark(ReadDomains|ReadSamples|StreamFixedSpan)$",
+    ),
+    go(
+        "framer/writer",
+        "cpu",
+        "core/pkg/distribution/framer/writer",
+        "^Benchmark(Write|Open)$",
+    ),
+    go(
+        "framer/codec",
+        "cpu",
+        "core/pkg/distribution/framer/codec",
+        "^Benchmark(Encode|Decode)$",
+    ),
+    go("api/stream", "cpu", "core/pkg/api/framer", "^BenchmarkStreamKeyChange$"),
+    go("iterator/calc", "cpu", f"{FRAMER}/iterator", "^BenchmarkIteratorCalc_"),
+    go(
+        "calculator", "cpu", f"{FRAMER}/calculation/calculator", "^BenchmarkCalculator_"
+    ),
+)
+
+HOST_FACTS: dict[str, tuple[tuple[str, ...], ...]] = {
+    "Linux": (
+        ("uname", "-srm"),
+        ("lscpu",),
+        ("go", "version"),
+        ("findmnt", "-T", "{dir}"),
+        ("lsblk", "-o", "NAME,MODEL,SIZE,ROTA"),
+    ),
+    "Darwin": (
+        ("uname", "-srm"),
+        ("sysctl", "-n", "machdep.cpu.brand_string"),
+        ("go", "version"),
+        ("df", "-h", "{dir}"),
+    ),
+}
+
+
+@dataclass(frozen=True)
+class Config:
+    """The inputs of one comparison."""
+
+    base: str
+    head: str
+    out: Path
+    rounds: int = 10
+    suite: str = "cpu"
+    # The directory the benchmarks put their files in. The io suite needs it.
+    io_dir: Path | None = None
+    # Limits the run to the groups whose name it matches.
+    only: str = ""
+    repo: Path = ROOT
+    groups: tuple[Group, ...] = GROUPS
+    benchstat: tuple[str, ...] = BENCHSTAT
+    host_facts: tuple[tuple[str, ...], ...] = field(
+        default_factory=lambda: HOST_FACTS[platform.system()]
+    )
+
+    def selected(self) -> tuple[Group, ...]:
+        """Returns the groups of the suite that match only."""
+        return tuple(
+            g
+            for g in self.groups
+            if g.suite == self.suite and re.search(self.only, g.name)
+        )
+
+    def source(self, side: str) -> Path:
+        return self.out / "src" / side
+
+    def binaries(self, side: str) -> Path:
+        return self.out / "bin" / side
+
+    def results(self, side: str, control: bool) -> Path:
+        return self.out / (f"control-{side}.txt" if control else f"{side}.txt")
+
+
+def order(round_: int) -> tuple[str, str]:
+    """Returns the sides in the order round_ runs them."""
+    return SIDES if round_ % 2 == 0 else (SIDES[1], SIDES[0])
+
+
+def run(cfg: Config, side: str, step: Step) -> str:
+    """Runs step in the worktree of side and returns what it printed."""
+    argv = [a.replace("{bin}", str(cfg.binaries(side))) for a in step.argv]
+    env = dict(os.environ)
+    if cfg.io_dir is not None:
+        env["TMPDIR"] = str(cfg.io_dir)
+    result = subprocess.run(
+        argv,
+        cwd=cfg.source(side) / step.directory,
+        env=env,
+        stdout=subprocess.PIPE,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        sys.stderr.write(result.stdout)
+        result.check_returncode()
+    return result.stdout
+
+
+def record_host(cfg: Config, moment: str) -> None:
+    """Appends the load average and, at the start, the host facts to host.txt."""
+    directory = str(cfg.io_dir or tempfile.gettempdir())
+    with (cfg.out / "host.txt").open("a") as f:
+        f.write(f"load at {moment}: {os.getloadavg()}\n")
+        f.flush()
+        if moment != "start":
+            return
+        for fact in cfg.host_facts:
+            argv = [a.replace("{dir}", directory) for a in fact]
+            subprocess.run(argv, stdout=f, check=True)
+
+
+def measure(cfg: Config) -> None:
+    """Builds both refs, then appends the results of each round to the result files."""
+    groups = cfg.selected()
+    record_host(cfg, "start")
+    refs = dict(zip(SIDES, (cfg.base, cfg.head), strict=True))
+    for side, ref in refs.items():
+        subprocess.run(
+            ["git", "worktree", "add", "--detach", str(cfg.source(side)), ref],
+            cwd=cfg.repo,
+            check=True,
+        )
+    try:
+        for side in SIDES:
+            cfg.binaries(side).mkdir(parents=True)
+            for step in dict.fromkeys(s for g in groups for s in g.build):
+                run(cfg, side, step)
+        for round_ in range(cfg.rounds):
+            for group in groups:
+                for side in order(round_):
+                    print(
+                        f"round {round_ + 1}/{cfg.rounds} {group.name} {side}",
+                        flush=True,
+                    )
+                    results = run(cfg, side, group.run)
+                    # Base can lack a benchmark that head adds.
+                    if side == SIDES[1] and not BENCHMARK.search(results):
+                        raise RuntimeError(f"{group.name} ran no benchmark on head")
+                    with cfg.results(side, group.control).open("a") as f:
+                        f.write(results)
+        record_host(cfg, "end")
+    finally:
+        for side in SIDES:
+            subprocess.run(
+                ["git", "worktree", "remove", "--force", str(cfg.source(side))],
+                cwd=cfg.repo,
+                check=True,
+            )
 
 
 @dataclass(frozen=True)
@@ -73,3 +296,74 @@ def judge(table: str) -> list[Finding]:
             detail = f"{before:g} to {after:g} allocs/op"
             findings.append(Finding("allocations", package, name, detail))
     return findings
+
+
+def benchstat(cfg: Config, control: bool, *flags: str) -> str:
+    files = [f"{side}={cfg.results(side, control)}" for side in SIDES]
+    # benchstat prints a note on stderr for each cell it cannot compare.
+    result = subprocess.run(
+        [*cfg.benchstat, "-alpha", str(ALPHA), *flags, *files],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"benchstat failed: {result.stderr}")
+    return result.stdout
+
+
+def report(cfg: Config) -> bool:
+    """Prints the comparison and each finding. Returns whether the gate passes."""
+    passed = True
+    for control in (False, True):
+        if not cfg.results(SIDES[0], control).exists():
+            continue
+        text = benchstat(cfg, control)
+        with (cfg.out / "report.txt").open("a") as f:
+            f.write(text)
+        print(text)
+        for finding in judge(benchstat(cfg, control, "-format", "csv")):
+            label = finding.kind
+            if finding.kind != "new" and control:
+                label = "noisy control"
+            elif finding.kind != "new":
+                label = f"FAIL {finding.kind}"
+                passed = False
+            print(label, finding.package, finding.benchmark, finding.detail)
+    print(f"verdict: {'pass' if passed else 'fail'}, results in {cfg.out}")
+    return passed
+
+
+def parse(argv: Sequence[str] | None) -> Config:
+    parser = argparse.ArgumentParser(description=__doc__.split("\n", maxsplit=1)[0])
+    parser.add_argument("--base", required=True, help="the Git ref to compare against")
+    parser.add_argument("--head", required=True, help="the Git ref under test")
+    parser.add_argument("--rounds", type=int, default=10)
+    parser.add_argument("--suite", choices=("cpu", "io"), default="cpu")
+    parser.add_argument(
+        "--io-dir", type=Path, help="a directory on the disk to measure"
+    )
+    parser.add_argument("--only", default="", help="a regex on the group names")
+    parser.add_argument("--out", type=Path, help="a new directory for the results")
+    args = parser.parse_args(argv)
+    if args.suite == "io" and args.io_dir is None:
+        parser.error("the io suite needs --io-dir")
+    cfg = Config(
+        args.base, args.head, Path(), args.rounds, args.suite, args.io_dir, args.only
+    )
+    if not cfg.selected():
+        parser.error(f"no {args.suite} group matches {args.only!r}")
+    if args.out is None:
+        return replace(cfg, out=Path(tempfile.mkdtemp(prefix="benchmarks-")))
+    args.out.mkdir(parents=True)
+    return replace(cfg, out=args.out)
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    cfg = parse(argv)
+    measure(cfg)
+    return 0 if report(cfg) else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

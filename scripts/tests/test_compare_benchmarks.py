@@ -7,6 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import subprocess
+import sys
+from dataclasses import replace
+from pathlib import Path
+
 import pytest
 
 import compare_benchmarks as cb
@@ -65,3 +70,230 @@ def test_judge_names_the_package_of_each_table() -> None:
         cb.Finding("slower", "example.com/a", "Write-8", "+100.00%"),
         cb.Finding("allocations", PACKAGE, "Write-8", "1 to 2 allocs/op"),
     ]
+
+
+def test_order_flips_on_odd_rounds() -> None:
+    assert [cb.order(r) for r in range(3)] == [
+        ("base", "head"),
+        ("head", "base"),
+        ("base", "head"),
+    ]
+
+
+BENCH = """import os, sys
+value = open(sys.argv[1]).read().strip()
+if value != "0":
+    print(f"BenchmarkX 1 {value} ns/op")
+with open(sys.argv[2], "a") as log:
+    log.write(f"{value} {os.environ['TMPDIR']}\\n")
+"""
+BUILD = "import shutil, sys; shutil.copy('value.txt', sys.argv[1])"
+BENCHSTAT = """import sys
+csv = "-format" in sys.argv
+print(open(sys.argv[1]).read() if csv and "control" not in sys.argv[-1] else "table")
+"""
+SLOWER = table("sec/op", "X,1e-07,0%,2e-07,0%,+100.00%,p=0.000 n=3")
+
+
+class Repo:
+    """A Git repository where base and head each print their own benchmark value."""
+
+    def __init__(self, path: Path) -> None:
+        self.path = path
+        self.root = path / "repo"
+        self.root.mkdir()
+        self.log = path / "log.txt"
+        self.io_dir = path / "io"
+        self.io_dir.mkdir()
+        self.csv = path / "benchstat.csv"
+        self.csv.write_text("")
+        (path / "benchstat.py").write_text(BENCHSTAT)
+        self.git("init", "-q", "-b", "main")
+        (self.root / "bench.py").write_text(BENCH)
+        self.commit("100", "base")
+        self.commit("200", "head")
+
+    def git(self, *args: str) -> str:
+        identity = ["-c", "user.name=test", "-c", "user.email=test@example.com"]
+        return subprocess.run(
+            ["git", *identity, *args],
+            cwd=self.root,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+
+    def commit(self, value: str, tag: str) -> None:
+        (self.root / "value.txt").write_text(value)
+        self.git("add", ".")
+        self.git("commit", "-q", "-m", tag)
+        self.git("tag", tag)
+
+    def group(self, name: str, *, control: bool = False, code: int = 0) -> cb.Group:
+        """Returns a group whose run exits with code after it prints its value."""
+        build = cb.Step(".", (sys.executable, "-c", BUILD, "{bin}/built.txt"))
+        bench = f"exec(open('bench.py').read()); sys.exit({code})"
+        argv = (sys.executable, "-c", bench, "{bin}/built.txt", str(self.log))
+        return cb.Group(name, "io", (build,), cb.Step(".", argv), control)
+
+    def config(self, *groups: cb.Group) -> cb.Config:
+        out = self.path / "out"
+        out.mkdir()
+        return cb.Config(
+            base="base",
+            head="head",
+            out=out,
+            rounds=3,
+            suite="io",
+            io_dir=self.io_dir,
+            repo=self.root,
+            groups=groups,
+            benchstat=(sys.executable, str(self.path / "benchstat.py"), str(self.csv)),
+            host_facts=((sys.executable, "-c", "print('disk {dir}')"),),
+        )
+
+    def worktrees(self) -> list[str]:
+        return self.git("worktree", "list", "--porcelain").split("\n\n")[:-1]
+
+
+@pytest.fixture
+def repo(tmp_path: Path) -> Repo:
+    return Repo(tmp_path)
+
+
+def test_measure_runs_each_ref_once_per_round_in_flipped_order(repo: Repo) -> None:
+    cfg = repo.config(repo.group("x"))
+    cb.measure(cfg)
+    assert cfg.results("base", False).read_text() == "BenchmarkX 1 100 ns/op\n" * 3
+    assert cfg.results("head", False).read_text() == "BenchmarkX 1 200 ns/op\n" * 3
+    values = ("100", "200", "200", "100", "100", "200")
+    assert repo.log.read_text().splitlines() == [f"{v} {repo.io_dir}" for v in values]
+    assert len(repo.worktrees()) == 1
+
+
+def test_measure_keeps_control_results_apart(repo: Repo) -> None:
+    cfg = repo.config(repo.group("x"), repo.group("floor", control=True))
+    cb.measure(cfg)
+    assert cfg.results("base", True).read_text() == "BenchmarkX 1 100 ns/op\n" * 3
+    assert cfg.results("base", False).read_text() == "BenchmarkX 1 100 ns/op\n" * 3
+
+
+def test_measure_records_the_host(repo: Repo) -> None:
+    cfg = repo.config(repo.group("x"))
+    cb.measure(cfg)
+    start, disk, end = (cfg.out / "host.txt").read_text().splitlines()
+    assert start.startswith("load at start: (")
+    assert disk == f"disk {repo.io_dir}"
+    assert end.startswith("load at end: (")
+
+
+def test_measure_accepts_a_group_with_no_benchmark_on_base(repo: Repo) -> None:
+    repo.commit("0", "empty")
+    cfg = replace(repo.config(repo.group("x")), base="empty")
+    cb.measure(cfg)
+    assert cfg.results("base", False).read_text() == ""
+    assert cfg.results("head", False).read_text() == "BenchmarkX 1 200 ns/op\n" * 3
+
+
+def test_measure_fails_on_a_group_with_no_benchmark_on_head(repo: Repo) -> None:
+    repo.commit("0", "empty")
+    cfg = replace(repo.config(repo.group("x")), head="empty")
+    with pytest.raises(RuntimeError, match=r"^x ran no benchmark on head$"):
+        cb.measure(cfg)
+    assert len(repo.worktrees()) == 1
+
+
+def test_measure_removes_the_worktrees_when_a_benchmark_fails(repo: Repo) -> None:
+    cfg = repo.config(repo.group("x", code=3))
+    with pytest.raises(subprocess.CalledProcessError) as error:
+        cb.measure(cfg)
+    assert error.value.returncode == 3
+    assert len(repo.worktrees()) == 1
+
+
+def test_report_fails_on_a_finding(
+    repo: Repo, capsys: pytest.CaptureFixture[str]
+) -> None:
+    cfg = repo.config(repo.group("x"))
+    cb.measure(cfg)
+    repo.csv.write_text(SLOWER)
+    assert not cb.report(cfg)
+    assert f"FAIL slower {PACKAGE} X +100.00%" in capsys.readouterr().out
+    assert (cfg.out / "report.txt").read_text() == "table\n"
+
+
+def test_report_fails_when_benchstat_fails(repo: Repo) -> None:
+    cfg = repo.config(repo.group("x"))
+    cb.measure(cfg)
+    (repo.path / "benchstat.py").write_text("import sys; sys.exit('no such file')")
+    with pytest.raises(RuntimeError, match=r"^benchstat failed: no such file$"):
+        cb.report(cfg)
+
+
+def test_report_passes_with_no_finding(repo: Repo) -> None:
+    cfg = repo.config(repo.group("x"))
+    cb.measure(cfg)
+    assert cb.report(cfg)
+
+
+def test_report_passes_on_a_new_benchmark(
+    repo: Repo, capsys: pytest.CaptureFixture[str]
+) -> None:
+    cfg = repo.config(repo.group("x"))
+    cb.measure(cfg)
+    repo.csv.write_text(table("sec/op", "New-8,,,5e-09,0%"))
+    assert cb.report(cfg)
+    assert f"new {PACKAGE} New-8" in capsys.readouterr().out
+
+
+def test_report_never_fails_on_a_control(
+    repo: Repo, capsys: pytest.CaptureFixture[str]
+) -> None:
+    cfg = repo.config(repo.group("floor", control=True))
+    cb.measure(cfg)
+    (repo.path / "benchstat.py").write_text(BENCHSTAT.replace("not in", "in"))
+    repo.csv.write_text(SLOWER)
+    assert cb.report(cfg)
+    assert f"noisy control {PACKAGE} X +100.00%" in capsys.readouterr().out
+
+
+def test_parse_selects_the_groups_of_the_suite(tmp_path: Path) -> None:
+    cfg = cb.parse(["--base", "a", "--head", "b", "--out", str(tmp_path / "out")])
+    assert (cfg.base, cfg.head, cfg.rounds) == ("a", "b", 10)
+    assert cfg.selected()
+    assert {g.suite for g in cfg.selected()} == {"cpu"}
+    only = cb.parse(["--base", "a", "--head", "b", "--only", "^cesium/"])
+    assert [g.name for g in only.selected()] == ["cesium/write", "cesium/read"]
+
+
+@pytest.mark.parametrize(
+    ("args", "message"),
+    [
+        (["--suite", "io"], "the io suite needs --io-dir"),
+        (["--only", "nothing"], "no cpu group matches 'nothing'"),
+    ],
+)
+def test_parse_rejects(
+    args: list[str], message: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    with pytest.raises(SystemExit) as error:
+        cb.parse(["--base", "a", "--head", "b", *args])
+    assert error.value.code == 2
+    assert message in capsys.readouterr().err
+
+
+def test_parse_refuses_an_existing_out_directory(tmp_path: Path) -> None:
+    with pytest.raises(FileExistsError):
+        cb.parse(["--base", "a", "--head", "b", "--out", str(tmp_path)])
+
+
+def test_go_builds_one_binary_per_package() -> None:
+    group = cb.go("cesium/write", "cpu", "cesium", "^BenchmarkWrite$")
+    assert group.build == (
+        cb.Step("cesium", ("go", "test", "-c", "-o", "{bin}/cesium.test", ".")),
+    )
+    assert group.run.argv[:3] == (
+        "{bin}/cesium.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkWrite$",
+    )
