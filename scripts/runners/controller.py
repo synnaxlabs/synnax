@@ -75,8 +75,9 @@ idle when it is drained or its instance is up longer than --boot-grace (4 min).
 runner_scaler_enabled beats the state, runner_scaler_log carries its log.
 
 Seats (seats.py): starts a stopped agent or review seat when a job that asks for its
-labels queues, on a login it picks (logins.py). The scaler switch holds these starts
-too, and they log to runner_scaler_log.
+labels queues, or when such a job waits FULL_AFTER while every up seat is busy, on a
+login it picks (logins.py). The scaler switch holds these starts too, and they log to
+runner_scaler_log.
 
 Gate (gate.py): fans global_gh_cmd out to every <runner>_gh_cmd, disconnecting the
 fleet from GitHub without stopping instances. --gh sets the start state (enabled);
@@ -153,7 +154,7 @@ from pools import (
 from publisher import Publisher, on_change
 from registry import RunnerRegistry
 from scaler import SCALER_CMD, SCALER_ENABLED, SCALER_LOG, Scaler
-from seats import Seats
+from seats import FULL_AFTER, Seats
 from subscription import Subscription
 from uptime import Uptime
 from webhook import Webhook
@@ -251,6 +252,16 @@ class Controller:
             report=log.error,
         )
 
+    def start_seats(self, found: dict[str, dict]) -> None:
+        """Starts the seats that the queued jobs wait for, given the instances found."""
+        self.seats.step(
+            queued=[job.labels for job in self.jobs.queued.values()],
+            found=found,
+            enabled=self.scaler.enabled,
+            stuck=self.jobs.stuck(after=FULL_AFTER),
+            connected=self.gate.enabled,
+        )
+
     def cycle(self, timer: sy.Timer) -> None:
         (listed, labels), found = self.fetch()
         self.runners.add(labels)
@@ -304,11 +315,7 @@ class Controller:
             # An unread queue looks empty, which would stop runners jobs wait for.
             stops=self.jobs.ready,
         )
-        self.seats.step(
-            queued=[job.labels for job in self.jobs.queued.values()],
-            found=found,
-            enabled=self.scaler.enabled,
-        )
+        self.start_seats(found)
         now = sy.TimeStamp.now()
         self.pool_report.step(
             ready=self.jobs.ready,

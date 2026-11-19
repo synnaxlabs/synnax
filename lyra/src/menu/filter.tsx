@@ -10,6 +10,8 @@
 import "@/menu/filter.css";
 
 import {
+  Children,
+  Fragment,
   isValidElement,
   type KeyboardEvent,
   type PropsWithChildren,
@@ -39,11 +41,38 @@ const [FilterContext, useFilterContext] = context.create<string>({
 
 export { FilterContext };
 
+// The names of the submenus whose items show in their menu while it filters.
+const [PathContext, usePath] = context.create<string[]>({
+  defaultValue: [],
+  displayName: "Menu.PathContext",
+});
+
+export { PathContext, usePath };
+
 const MENU_ITEMS = '[role="menuitem"]:not([aria-disabled="true"])';
 
 const SURFACES = `[role="menu"], .${CSS.B("menu-dialog")}`;
 
 const HIGHLIGHTED = "data-highlighted";
+
+/**
+ * @returns whether a key typed in a submenu goes to the filter of its menu: a printable
+ * key other than Space, typed outside a field.
+ */
+export const isFilterKey = (e: KeyboardEvent<HTMLElement>): boolean => {
+  const { target } = e;
+  return (
+    e.key.length === 1 &&
+    e.key !== " " &&
+    !e.altKey &&
+    !e.ctrlKey &&
+    !e.metaKey &&
+    target instanceof HTMLElement &&
+    !(target instanceof HTMLInputElement) &&
+    !(target instanceof HTMLTextAreaElement) &&
+    !target.isContentEditable
+  );
+};
 
 /** @returns the strings and numbers in a node, read through element children. */
 export const nodeText = (node: ReactNode): string => {
@@ -53,13 +82,67 @@ export const nodeText = (node: ReactNode): string => {
   return "";
 };
 
+const words = (text: string): string[] =>
+  text
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((word) => word !== "");
+
 /**
- * @returns whether an item with the given text shows under the filter of its menu.
+ * @returns whether an item with the given text shows under the filter of its menu: each
+ * word of the filter is in the item's text or in the names of the submenus it is in.
  * @param text - The item's text.
  */
 export const useMatches = (text: string): boolean => {
   const term = useFilterContext();
-  return term === "" || text.toLowerCase().includes(term.toLowerCase());
+  const path = usePath();
+  const searched = [...path, text].join(" ").toLowerCase();
+  return words(term).every((word) => searched.includes(word));
+};
+
+/**
+ * @returns the words of the filter of the menu that the names of the submenus do not
+ * hold, which the items in those submenus must match.
+ */
+export const useItemTerm = (): string => {
+  const names = usePath().join(" ").toLowerCase();
+  const term = useFilterContext();
+  return words(term)
+    .filter((word) => !names.includes(word))
+    .join(" ");
+};
+
+/**
+ * @returns the children of an item, with the names of the submenus it is in after its
+ * icon while its menu shows it outside them.
+ * @param children - The item's children. An element first is its icon.
+ * @param icon - The icon to lead with when the children have none.
+ */
+export const usePathChildren = (
+  children: ReactNode,
+  icon?: ReactElement,
+): ReactNode => {
+  const path = usePath();
+  if (path.length === 0) return children;
+  const [first, ...rest] = Children.toArray(children);
+  const names = (
+    <Text.Text
+      key="path"
+      el="span"
+      color={9}
+      gap="tiny"
+      className={CSS.BE("menu-item", "path")}
+    >
+      {path.map((name) => (
+        <Fragment key={name}>
+          {name}
+          <Icon.Caret.Right />
+        </Fragment>
+      ))}
+    </Text.Text>
+  );
+  if (isValidElement(first)) return [first, names, ...rest];
+  return [icon, names, first, ...rest];
 };
 
 /** What a menu surface needs to filter its items as the user types. */
@@ -79,8 +162,8 @@ export interface Filter {
  * mounts only while the menu is open. The surface takes the focus when it mounts,
  * unless the focus is already in it. The first printable key opens a search at the
  * top. While the search has the focus, the first match is lit and Enter picks it.
- * Escape closes the search, then the menu. Keys from another field or a submenu keep
- * their own meaning.
+ * Escape closes the search, then the menu. Keys from another field keep their own
+ * meaning, and so do keys from a submenu other than {@link isFilterKey} keys.
  */
 export const useFilter = (): Filter => {
   const [term, setTerm] = useState<string | null>(null);
@@ -131,7 +214,10 @@ export const useFilter = (): Filter => {
     if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
     const surface = e.currentTarget;
     const target = e.target as HTMLElement;
-    if (target !== surface && target.closest(SURFACES) !== surface) return;
+    if (target !== surface && target.closest(SURFACES) !== surface) {
+      if (isFilterKey(e)) edit(e, (term ?? "") + e.key);
+      return;
+    }
     if (target !== surface && !target.matches(MENU_ITEMS)) return;
     if (term != null && (e.key === "Escape" || e.key === "Backspace"))
       return edit(e, e.key === "Escape" ? null : term.slice(0, -1));

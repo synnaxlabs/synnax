@@ -34,8 +34,9 @@ import { useTriggerHold } from "@/feature/lineplot/useTriggerHold";
 import { Sift } from "@/feature/sift";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
-import { Panel } from "@/platform/panel";
+import { type Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
+import { Vis } from "@/platform/vis";
 import { Session } from "@/session";
 
 const CLEAR_OVERSCAN: xy.XY = { x: 5, y: 5 };
@@ -43,7 +44,7 @@ const VIEWPORT_DEBOUNCE = TimeSpan.milliseconds(100);
 
 interface RangeAnnotationContextMenuProps {
   lines: DownloadLine[];
-  range: ranger.Payload;
+  range: Base.Range.MenuProps;
 }
 
 const RangeAnnotationContextMenu = ({
@@ -51,33 +52,26 @@ const RangeAnnotationContextMenu = ({
   range,
 }: RangeAnnotationContextMenuProps): ReactElement => {
   const downloadAsCSV = useDownloadAsCSV();
-  const handleDownloadAsCSV = () =>
-    downloadAsCSV({ timeRanges: [range.timeRange], lines, name: range.name });
-  const addRangeToNewPlot = Range.useAddToNewPlot();
-  const handleOpenInNewPlot = () => addRangeToNewPlot([range.key]);
-  const openTab = Panel.useOpenTab();
-  const handleViewDetails = () => {
-    openTab({ variant: "resource", resource: ranger.resourceID(range.key) });
-  };
   return (
-    <ContextMenu.Menu>
-      <Menu.Item itemKey="metadata" onClick={handleViewDetails}>
-        <Icon.Annotate />
-        View details
-      </Menu.Item>
-      <Menu.Item itemKey="line-plot" onClick={handleOpenInNewPlot}>
-        <Icon.LinePlot />
-        Open in new plot
-      </Menu.Item>
-      <Menu.Divider />
-      <Menu.Item itemKey="download" onClick={handleDownloadAsCSV}>
-        <Icon.CSV />
-        Download as CSV
-      </Menu.Item>
-      <Sift.Range.UploadMenuItem rangeKey={range.key} rangeName={range.name} />
-      <Menu.Divider />
-      <ContextMenu.ReloadConsoleItem />
-    </ContextMenu.Menu>
+    <Range.ContextMenu
+      keys={[range.key]}
+      primaryMenuItems={
+        <Menu.Item itemKey="zoom" onClick={range.onZoom}>
+          {range.zoomed ? <Icon.Expand /> : <Icon.Zoom />}
+          {range.zoomed ? "Zoom out" : "Zoom to range"}
+        </Menu.Item>
+      }
+      onDownloadCSV={(ranges) =>
+        downloadAsCSV({
+          timeRanges: ranges.map((r) => r.timeRange),
+          lines,
+          name: range.name,
+        })
+      }
+      extraMenuItems={
+        <Sift.Range.UploadMenuItem rangeKey={range.key} rangeName={range.name} />
+      }
+    />
   );
 };
 
@@ -111,7 +105,7 @@ const ContextMenuContent = ({
   const handleCreateRange = () =>
     handleError(async () => {
       const tr = await getTimeRange();
-      openCreateRange({ timeRange: tr.numeric });
+      await openCreateRange({ timeRange: tr.numeric });
     }, "Failed to create range from selection");
   const handleDownloadCSV = () =>
     handleError(async () => {
@@ -245,7 +239,7 @@ const Internal = (): ReactElement => {
   const rangeProviderProps = {
     visible: vis.annotations.visible,
     onHasAnnotationsChange: setHasAnnotations,
-    menu: (p: ranger.Payload) => (
+    menu: (p: Base.Range.MenuProps) => (
       <RangeAnnotationContextMenu lines={csvLines} range={p} />
     ),
   };
@@ -295,8 +289,10 @@ const Internal = (): ReactElement => {
 export const LinePlot: Panel.Content = () => {
   const { key } = PlutoPanel.useTabResource();
   return (
-    <Base.Suspended linePlotKey={key}>
-      <Internal />
-    </Base.Suspended>
+    <Vis.GPUBoundary name="Line plots">
+      <Base.Suspended linePlotKey={key}>
+        <Internal />
+      </Base.Suspended>
+    </Vis.GPUBoundary>
   );
 };

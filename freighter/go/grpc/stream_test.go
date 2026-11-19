@@ -18,6 +18,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gleak"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
@@ -239,4 +240,20 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 			Expect(stream.CloseSend()).To(Succeed())
 		},
 	)
+
+	It("Should release the stream when a server middleware rejects it", func() {
+		server, client, addr := startPair()
+		server.Use(freighter.MiddlewareFunc(func(
+			ctx freighter.Context,
+			_ freighter.Next,
+		) (freighter.Context, error) {
+			return ctx, errors.New("rejected")
+		}))
+		before := gleak.Goroutines()
+		// A context that never ends, so only the client can release the stream.
+		Expect(client.Stream(context.Background(), addr)).
+			Error().
+			To(MatchError(ContainSubstring("rejected")))
+		Eventually(gleak.Goroutines).ShouldNot(gleak.HaveLeaked(before))
+	})
 })

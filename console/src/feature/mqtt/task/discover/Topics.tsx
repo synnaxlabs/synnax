@@ -14,25 +14,24 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type Tree } from "@synnaxlabs/lyra/tree";
-import { id, search, unique } from "@synnaxlabs/x";
+import { compare, id, search, unique } from "@synnaxlabs/x";
 import pluralize from "pluralize";
 import { type ReactNode, useState } from "react";
 
-import { browseTopics, type KeyedTopic } from "@/feature/mqtt/device/browse";
-import { type Device } from "@/feature/mqtt/device/types";
-import { Picker } from "@/feature/mqtt/task/discover/picker";
 import {
-  PaneHeader,
-  PaneSkeleton,
-  type Value,
-  Values,
-} from "@/feature/mqtt/task/discover/Values";
+  BROWSE_DURATION,
+  browseTopics,
+  type KeyedTopic,
+  LISTENING,
+} from "@/feature/mqtt/device/browse";
+import { type Device } from "@/feature/mqtt/device/types";
 import { leavesOf, pointerLabel, sampleAt } from "@/feature/mqtt/task/entries";
 import { type Leaf } from "@/feature/mqtt/task/leaves";
 import { isSparkplugTopic } from "@/feature/mqtt/task/sparkplug";
 import { type HeldEntry } from "@/feature/mqtt/task/types";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
+import { ICD } from "@/platform/icd";
 
 const prettyPayload = (payload: string): string => {
   try {
@@ -90,7 +89,7 @@ const buildFolders = (topics: ListedTopic[]): Folder[] => {
     node.topic = t;
   }
   const finish = (nodes: Folder[]) => {
-    nodes.sort((a, b) => a.name.localeCompare(b.name));
+    nodes.sort(compare.by((n) => n.name));
     for (const n of nodes) {
       finish(n.children);
       n.topics = [
@@ -178,7 +177,7 @@ const toItem = (
   { name, path, topic, topics }: Folder,
   picks: TopicPicks,
   taken: Taken,
-): Picker.TreeItem => {
+): ICD.Picker.TreeItem => {
   const pickable = topics.filter((t) => freeCount(t, taken) > 0);
   const all = pickable.length > 0 && pickable.every((t) => picks.has(t.topic));
   const values = topics.reduce(
@@ -189,7 +188,7 @@ const toItem = (
   if (values > 0) meta = `${values} selected`;
   else if (topic != null && taken.has(topic.topic)) meta = "In task";
   else if (topic == null) meta = String(topics.length);
-  let picked: Picker.TreeItem["picked"] = "none";
+  let picked: ICD.Picker.TreeItem["picked"] = "none";
   if (all) picked = "all";
   else if (values > 0) picked = "some";
   return {
@@ -206,8 +205,8 @@ const toItems = (
   folders: Folder[],
   picks: TopicPicks,
   taken: Taken,
-  into: Picker.TreeItem[] = [],
-): Picker.TreeItem[] => {
+  into: ICD.Picker.TreeItem[] = [],
+): ICD.Picker.TreeItem[] => {
   for (const f of folders) {
     into.push(toItem(f, picks, taken));
     toItems(f.children, picks, taken, into);
@@ -227,7 +226,7 @@ const TopicValues = ({ topic, value, taken, single, onChange }: TopicValuesProps
   const [raw, setRaw] = useState(false);
   const { leaves } = topic;
   const free = leaves.filter((l) => !taken.has(l.pointer)).map((l) => l.pointer);
-  const values: Value[] = leaves.map((l) => ({
+  const values: ICD.Picker.Value[] = leaves.map((l) => ({
     key: l.pointer,
     name: pointerLabel(l.pointer),
     sample: sampleAt(topic, l.pointer),
@@ -236,7 +235,7 @@ const TopicValues = ({ topic, value, taken, single, onChange }: TopicValuesProps
   }));
   return (
     <>
-      <PaneHeader
+      <ICD.Picker.PaneHeader
         title={topic.topic}
         note={topic.retained ? "Retained" : undefined}
         free={free.length}
@@ -244,7 +243,7 @@ const TopicValues = ({ topic, value, taken, single, onChange }: TopicValuesProps
         onPickAll={single ? undefined : () => onChange(new Set(free))}
         onClear={() => onChange(new Set())}
       />
-      <Values
+      <ICD.Picker.Values
         noun="Field"
         groups={[{ values }]}
         value={[...value]}
@@ -272,7 +271,7 @@ const NOTHING_PUBLISHED =
   "Nothing published while Synnax listened. Add a rarely published topic by name.";
 
 // Two folders of topics.
-const SKELETON: Picker.SkeletonItem[] = [
+const SKELETON: ICD.Picker.SkeletonItem[] = [
   [0, "12ch"],
   [1, "17ch"],
   [1, "10ch"],
@@ -306,7 +305,7 @@ export const TopicPicker = ({
   const [scope, setScope] = useState("");
   const [scopeDraft, setScopeDraft] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
-  const { result, listen } = Picker.useListen<Listing>(
+  const { result, listen } = ICD.Picker.useListen<Listing>(
     async (client) => {
       const r = await browseTopics(client, device, toFilter(scope));
       const topics = r.topics
@@ -351,7 +350,7 @@ export const TopicPicker = ({
   let tree: ReactNode;
   if (listing != null)
     tree = (
-      <Picker.Tree
+      <ICD.Picker.Tree
         key={listing.key}
         nodes={nodes}
         items={items}
@@ -370,12 +369,12 @@ export const TopicPicker = ({
       />
     );
   else if (result.variant === "loading")
-    tree = <Picker.TreeSkeleton items={SKELETON} />;
+    tree = <ICD.Picker.TreeSkeleton items={SKELETON} />;
   else tree = <Status.Summary center status={result.status} />;
 
   const loading = result.variant === "loading";
   let statusText = pluralize("topic", topics.length, true);
-  if (loading) statusText = Picker.LISTENING;
+  if (loading) statusText = LISTENING;
   else if (listing?.truncated === true) statusText += ", list is full";
 
   let pane: ReactNode;
@@ -395,7 +394,7 @@ export const TopicPicker = ({
         }}
       />
     );
-  else if (listing == null && loading) pane = <PaneSkeleton noun="Field" />;
+  else if (listing == null && loading) pane = <ICD.Picker.PaneSkeleton noun="Field" />;
   else
     pane = (
       <Empty.Action
@@ -406,8 +405,13 @@ export const TopicPicker = ({
 
   return (
     <>
-      <Picker.Status status={statusText} loading={loading} onListen={listen} />
-      <Picker.Side>
+      <ICD.Picker.Status
+        duration={BROWSE_DURATION}
+        status={statusText}
+        loading={loading}
+        onListen={listen}
+      />
+      <ICD.Picker.Side>
         <Input.Text
           value={term}
           onChange={setTerm}
@@ -451,8 +455,8 @@ export const TopicPicker = ({
           <Icon.Add />
           {trimmed === "" ? "Add a topic by name" : `Add “${trimmed}” as a topic`}
         </Button.Button>
-      </Picker.Side>
-      <Picker.Pane>{pane}</Picker.Pane>
+      </ICD.Picker.Side>
+      <ICD.Picker.Pane>{pane}</ICD.Picker.Pane>
     </>
   );
 };

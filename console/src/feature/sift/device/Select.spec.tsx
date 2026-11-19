@@ -28,6 +28,14 @@ describe("Sift.Device.Select", () => {
     await waitFor(() => expect(trigger.textContent).toContain(dev.name));
   });
 
+  it("should ask for a connection, not a device", async () => {
+    await renderWithDeviceForm(<Sift.Device.Select />, { deviceKey: "", client });
+    const trigger = await findDialogTrigger();
+    expect(trigger.textContent).toContain("Select connection");
+    fireEvent.click(trigger);
+    expect(await screen.findByPlaceholderText("Search connections...")).toBeTruthy();
+  });
+
   it("should open the connect modal from the footer", async () => {
     await renderWithDeviceForm(
       <>
