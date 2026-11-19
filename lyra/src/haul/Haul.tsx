@@ -9,7 +9,7 @@
 
 import "@/haul/Haul.css";
 
-import { type destructor, type optional, type record, xy } from "@synnaxlabs/x";
+import { type destructor, id, type optional, type record, xy } from "@synnaxlabs/x";
 import {
   type DragEvent,
   type DragEventHandler,
@@ -67,6 +67,20 @@ export const ZERO_ITEM: Item = { key: "", type: "" };
 /** Empty {@link DraggingState}, used as a zero value. */
 export const ZERO_DRAGGING_STATE: DraggingState = { source: ZERO_ITEM, items: [] };
 
+/**
+ * The drag state that the providers of different windows share. `drop` is absent while
+ * the drag is in flight. Once the drag ends, it holds the drop that took the drag, or
+ * null when nothing took it.
+ */
+export interface State extends DraggingState {
+  /** Identifies the drag, so a window can match an ended drag to the one it saw. */
+  key: string;
+  drop?: OnSuccessfulDropProps | null;
+}
+
+/** Empty {@link State}, used as a zero value. */
+export const ZERO_STATE: State = { ...ZERO_DRAGGING_STATE, key: "" };
+
 /** The drop target and the items that landed on it. */
 export interface DropProps {
   target: Item;
@@ -114,8 +128,11 @@ export interface ContextValue {
     items: Item[],
     onSuccessfulDrop?: (props: OnSuccessfulDropProps) => void,
   ) => void;
-  /** Ends the drag at `cursor`, running bound interceptors to resolve any drop. */
-  end: (cursor: xy.XY) => void;
+  /**
+   * Ends the drag at `cursor`, running bound interceptors to resolve any drop. Set
+   * `dropped` when the browser reports a drop: the window it happened in ends the drag.
+   */
+  end: (cursor: xy.XY, dropped?: boolean) => void;
   /** Finalizes a drop, invoking the drag's `onSuccessfulDrop` callback. */
   drop: (props: DropProps) => void;
   /** Registers an interceptor `end` consults to resolve drops outside a drop target. */
@@ -132,8 +149,13 @@ export interface ContextValue {
   claimDragEvent: (event: Event) => boolean;
   /** Shows `preview` at the pointer for the drag that `event` starts. */
   setPreview: (event: DragEvent, preview: ReactNode, anchor?: PreviewAnchor) => void;
-  /** A live ref to the current dragging state, readable at event time. */
+  /**
+   * A live ref to the current dragging state, readable at event time. It also holds a
+   * drag that another window started.
+   */
   stateRef: RefObject<DraggingState>;
+  /** A live ref to the drag this window started. It is empty in every other window. */
+  startedRef: RefObject<DraggingState>;
 }
 
 /**
@@ -170,19 +192,17 @@ const [StateContext, useStateContext] = context.create<DraggingState>({
 
 /** Props for {@link Provider}. */
 export interface ProviderProps extends PropsWithChildren {
-  /** The drag state. Set it, with `onChange`, to let the caller own it. */
-  value?: DraggingState;
-  onChange?: (state: DraggingState) => void;
+  /**
+   * The drag state. Set it, with `onChange`, to let the caller own it. Share one value
+   * between the providers of several windows to let a drag cross between them.
+   */
+  value?: State;
+  onChange?: (state: State) => void;
 }
 
-interface ProviderRef extends DraggingState {
+interface Started extends State {
   onSuccessfulDrop?: (props: OnSuccessfulDropProps) => void;
 }
-
-const HAUL_REF: ProviderRef = {
-  ...ZERO_DRAGGING_STATE,
-  onSuccessfulDrop: () => {},
-};
 
 /** Provides haul drag-and-drop state to descendants. */
 export const Provider = memo(
@@ -190,11 +210,14 @@ export const Provider = memo(
     const ctx = useContext();
 
     const [dragging, setDragging] = state.usePurePassthrough({
-      initialValue: ZERO_DRAGGING_STATE,
+      initialValue: ZERO_STATE,
       value,
       onChange,
     });
-    const ref = useRef<ProviderRef>(HAUL_REF);
+    // The drag this window started, until it ends.
+    const ref = useRef<Started>(ZERO_STATE);
+    const resolvedKey = useRef(dragging.key);
+    const stateRef = useSyncedRef(dragging);
     const interceptors = useRef<Set<DragEndInterceptor>>(new Set());
     const watchers = useRef<Set<OnResolve>>(new Set());
     const handledEvents = useRef<WeakSet<Event>>(new WeakSet());
@@ -227,36 +250,74 @@ export const Provider = memo(
       return true;
     };
 
-    const start: ContextValue["start"] = (source, items, onSuccessfulDrop) => {
-      ref.current = { source, items, onSuccessfulDrop };
-      setDragging({ source, items });
+    const resolve = (key: string, landed: boolean) => {
+      if (resolvedKey.current === key) return;
+      resolvedKey.current = key;
+      watchers.current.forEach((watcher) => watcher(landed));
     };
 
-    const resolve = (landed: boolean) =>
-      watchers.current.forEach((watcher) => watcher(landed));
+    const start: ContextValue["start"] = (source, items, onSuccessfulDrop) => {
+      const key = id.create();
+      ref.current = { key, source, items, onSuccessfulDrop };
+      setDragging({ key, source, items });
+    };
+
+    const finish = (key: string, result: OnSuccessfulDropProps | null) => {
+      const started = ref.current;
+      if (started.key === key) {
+        ref.current = ZERO_STATE;
+        if (result != null) started.onSuccessfulDrop?.(result);
+      }
+      resolve(key, result != null);
+    };
+
+    const cancel = (key: string) => {
+      setDragging({ ...ZERO_STATE, key, drop: null });
+      finish(key, null);
+    };
 
     const drop: ContextValue["drop"] = ({ target, dropped }) => {
-      const hauled = ref.current.items;
-      ref.current.onSuccessfulDrop?.({ target, dropped, hauled });
-      ref.current = HAUL_REF;
-      setDragging(ZERO_DRAGGING_STATE);
-      resolve(true);
+      // A drag that another window started reaches this one only in the shared state.
+      const current =
+        stateRef.current.items.length > 0 ? stateRef.current : ref.current;
+      const props = { target, dropped, hauled: current.items };
+      setDragging({ ...ZERO_STATE, key: current.key, drop: props });
+      finish(current.key, props);
     };
 
-    const end: ContextValue["end"] = (cursor: xy.XY) => {
-      // A drag already finalized by a drop leaves nothing to resolve: dragend still
-      // fires after it, and the drag must be reported exactly once.
-      const active = ref.current.items.length > 0;
-      let dropped: DropProps | null = null;
+    const end: ContextValue["end"] = (cursor, dropped = false) => {
+      // A drag already finalized by a drop leaves nothing to end: dragend still fires
+      // after it.
+      if (ref.current.items.length === 0) return;
+      let claimed: DropProps | null = null;
       interceptors.current.forEach((interceptor) => {
-        if (dropped != null) return;
-        dropped = interceptor(ref.current, cursor);
+        if (claimed != null) return;
+        claimed = interceptor(ref.current, cursor);
       });
-      if (dropped != null) return drop(dropped);
-      ref.current = HAUL_REF;
-      setDragging(ZERO_DRAGGING_STATE);
-      if (active) resolve(false);
+      if (claimed != null) return drop(claimed);
+      if (!dropped) cancel(ref.current.key);
     };
+
+    // Only the shared state tells this window that another window ended a drag.
+    useEffect(() => {
+      if (dragging.drop !== undefined) finish(dragging.key, dragging.drop);
+    }, [dragging]);
+
+    // Only the window under the cursor sees a drop. A drop that no target took there
+    // still ends the drag.
+    useEffect(() => {
+      const { key, items, drop } = dragging;
+      if (items.length === 0 || drop !== undefined) return;
+      const controller = new AbortController();
+      window.addEventListener(
+        "drop",
+        (event) => {
+          if (!event.defaultPrevented) cancel(key);
+        },
+        { signal: controller.signal },
+      );
+      return () => controller.abort();
+    }, [dragging]);
 
     const bind: ContextValue["bind"] = (interceptor) => {
       interceptors.current.add(interceptor);
@@ -276,7 +337,8 @@ export const Provider = memo(
       watch,
       claimDragEvent,
       setPreview,
-      stateRef: ref,
+      stateRef,
+      startedRef: ref,
     };
     // A nested Provider reuses the outer one's contexts, which are already in scope,
     // so it renders children without re-providing.
@@ -379,7 +441,7 @@ export const useDrag = ({ type, key }: UseDragProps): UseDragReturn => {
     onSuccessfulDrop,
   }) => {
     if (ctx == null) return;
-    const { start, end, stateRef, setPreview } = ctx;
+    const { start, end, startedRef, setPreview } = ctx;
     start(source, items, onSuccessfulDrop);
     setPreview(event, preview, anchor);
     dimSources(event.currentTarget);
@@ -389,14 +451,18 @@ export const useDrag = ({ type, key }: UseDragProps): UseDragReturn => {
     document.addEventListener(
       "mousemove",
       (e) => {
-        if (stateRef.current.items.length === 0) return;
+        if (startedRef.current.items.length === 0) return;
         end(xy.construct({ x: e.screenX, y: e.screenY }));
       },
       { once: true },
     );
   };
+  // Dragend reports a drop effect when a drop happened, maybe in another window.
   const onDragEnd = (e: DragEvent | MouseEvent) =>
-    ctx?.end(xy.construct({ x: e.screenX, y: e.screenY }));
+    ctx?.end(
+      xy.construct({ x: e.screenX, y: e.screenY }),
+      "dataTransfer" in e && e.dataTransfer.dropEffect !== "none",
+    );
   return { startDrag, onDragEnd };
 };
 

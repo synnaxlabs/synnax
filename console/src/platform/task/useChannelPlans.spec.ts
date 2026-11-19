@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { TimeStamp } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -36,6 +37,23 @@ describe("useChannelPlans", () => {
     expect(result.current).toEqual(["plan a", undefined]);
     act(() => resolve(["plan a2", "plan c"]));
     await waitFor(() => expect(result.current).toEqual(["plan a2", "plan c"]));
+  });
+
+  it("should plan again when a timestamp in a source changes", async () => {
+    const store = await createTestStore();
+    const { wrapper } = await createConsoleWrapper({ client, store });
+    const { result, rerender } = renderHook(
+      ({ at }: { at: TimeStamp }) =>
+        Task.useChannelPlans([{ default: at }], async () => [at.toString()]),
+      { wrapper, initialProps: { at: TimeStamp.seconds(1) } },
+    );
+    await waitFor(() =>
+      expect(result.current).toEqual([TimeStamp.seconds(1).toString()]),
+    );
+    rerender({ at: TimeStamp.seconds(2) });
+    await waitFor(() =>
+      expect(result.current).toEqual([TimeStamp.seconds(2).toString()]),
+    );
   });
 
   it("should abort the plan in flight when the sources change", async () => {

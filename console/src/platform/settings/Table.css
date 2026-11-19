@@ -9,8 +9,19 @@
  * included in the file licenses/APL.txt.
  */
 
+/* The create button wraps under the search when the search has less than 30rem. */
 .console-settings-table__search {
-    width: 72rem;
+    flex: 1 1 30rem;
+}
+
+/* Columns that do not fit scroll sideways, with their headings and the create item. */
+.console-settings-table__scroll {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+}
+
+.console-settings-table__columns {
+    min-width: min-content;
 }
 
 .console-settings-table__empty {
