@@ -65,7 +65,7 @@ type browsedField struct {
 	Type string `json:"type"`
 	// Sample is the start of the JSON text of the scalar.
 	Sample string `json:"sample"`
-	// Kind is the kind of a payload field that holds every value heard at Pointer.
+	// Kind is the kind of a payload field that holds most values heard at Pointer.
 	// Empty when the topic holds more fields than inference keeps.
 	Kind payload.Kind `json:"kind"`
 	// TimeFormat is the format of a timestamp field. Nil for any other field.
