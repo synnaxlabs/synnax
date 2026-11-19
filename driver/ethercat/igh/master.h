@@ -259,8 +259,12 @@ private:
     /// x::errors::CANCELLED once the cancel of plan stops.
     master::Activation wait_for_op(const master::Plan &plan);
 
+    /// @brief reads the CoE objects of each starting slave that has reached PRE-OP.
+    /// Returns how many slaves are still starting.
+    size_t read_started();
+
     /// @brief waits up to Config::pre_op_timeout for each slave that was starting at
-    /// the scan to reach PRE-OP, then reads its CoE objects.
+    /// the scan to reach PRE-OP, and reads its CoE objects once it does.
     void read_starting();
 
     /// @brief waits until IgH has read the CoE dictionary of each of slaves, as IgH

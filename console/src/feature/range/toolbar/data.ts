@@ -51,6 +51,8 @@ export interface Groups {
   moreRunning: () => void;
   /** Whether a list reads. The groups keep the last answers until it lands. */
   reading: boolean;
+  /** Whether Running reads the page that moreRunning asked for. */
+  paging: boolean;
   getItem: ReturnType<typeof Flux.useList<ranger.Key, ranger.Range>>["getItem"];
   subscribe: ReturnType<typeof Flux.useList<ranger.Key, ranger.Range>>["subscribe"];
 }
@@ -96,8 +98,10 @@ export const useGroups = (): Groups => {
     .sort(latestEndFirst);
   const upcoming = Ranger.useNextRanges(STAGES, at);
   const crossing = Ranger.nextCrossing(STAGES, upcoming, at);
-  const now = useNow(() => crossing);
-  if (crossing != null && !now.before(crossing)) setAt(now);
+  // A new `at` restarts both reads, so crossings wait for the reads in flight to land.
+  // Otherwise crossings that come faster than a read keep the lists from ever landing.
+  const now = useNow(() => (reading ? null : crossing));
+  if (!reading && crossing != null && !now.before(crossing)) setAt(now);
   const favoriteKeys = Session.Range.useSelectFavoriteKeys();
   const { data: favoriteData } = Ranger.useResultMultiple(
     favoriteKeys.length === 0 ? null : { keys: favoriteKeys },
@@ -113,6 +117,11 @@ export const useGroups = (): Groups => {
     runningComplete: runningList.complete,
     moreRunning: () => setRunningSize((size) => size + RUNNING_PAGE),
     reading,
+    // Show more grows the size past the answer shown, so a crossing's read never pages.
+    paging:
+      runningList.variant === "loading" &&
+      !runningList.complete &&
+      runningList.data.length < runningSize,
     getItem: runningList.getItem,
     subscribe: runningList.subscribe,
   };

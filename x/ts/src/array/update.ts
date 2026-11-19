@@ -26,7 +26,7 @@ export const remove = (<V>(
 ): V[] | undefined => {
   if (prev == null) return undefined;
   if (Array.isArray(deletes)) return prev.filter((v) => !deletes.includes(v));
-  return prev.filter((v) => v != deletes);
+  return prev.filter((v) => v !== deletes);
 }) as Remove;
 
 export interface RemoveKeyed {
