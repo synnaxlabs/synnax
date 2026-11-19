@@ -13,7 +13,7 @@ its review as a check run, inline threads, and a summary in the pull request bod
 from review import compare
 from review.carry import carry
 from review.dismiss import dismiss
-from review.findings import SEVERITIES, Dismissal, Finding, Review, parse
+from review.findings import SEVERITIES, Dismissal, Finding, Fix, Review, parse
 from review.judge import Judgment, judge, rule
 from review.post import (
     GH,
@@ -54,6 +54,7 @@ __all__ = [
     "Dismissal",
     "Doc",
     "Finding",
+    "Fix",
     "Judgment",
     "Lens",
     "LoginRejected",
