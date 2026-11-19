@@ -12,6 +12,7 @@ import { assert, describe, expect, it } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { Button } from "@/button";
+import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
@@ -162,6 +163,29 @@ describe("Input", () => {
       const { button, input } = await renderSlotButton();
       await userEvent.click(button);
       expect(document.activeElement).not.toBe(input);
+    });
+
+    it("should leave a press in a dialog that a slot button opens to the dialog", async () => {
+      const { getByRole } = await renderThemed(
+        <Triggers.Provider>
+          <Input.Text
+            value=""
+            onChange={() => {}}
+            placeholder="Name"
+            startContent={
+              <Color.Swatch
+                value="#ff0000"
+                onChange={() => {}}
+                aria-label="Pick color"
+              />
+            }
+          />
+        </Triggers.Provider>,
+      );
+      await userEvent.click(getByRole("button", { name: "Pick color" }));
+      const hex = page.getByRole("textbox", { name: "Hex" });
+      await userEvent.click(hex);
+      expect(document.activeElement).toBe(hex.element());
     });
   });
 
