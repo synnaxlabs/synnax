@@ -69,6 +69,34 @@ export interface Region {
   width: number;
 }
 
+export type StillShotProps = {
+  /** source is the still, in the public dir, that the shot shows. */
+  source: string;
+  /** width is the width of the still in CSS pixels. */
+  width: number;
+  /** region is the box to show, in CSS pixels of the still. */
+  region: Region;
+};
+
+/** StillShot draws a region of a hero still. */
+export const StillShot = ({ source, width, region }: StillShotProps): ReactElement => {
+  const scale = SHOT.width / region.width;
+  return (
+    <AbsoluteFill style={{ overflow: "hidden" }}>
+      <Img
+        src={staticFile(source)}
+        style={{
+          position: "absolute",
+          left: -region.x * scale,
+          top: -region.y * scale,
+          width: width * scale,
+          maxWidth: "none",
+        }}
+      />
+    </AbsoluteFill>
+  );
+};
+
 export type ShotProps = StudioVideoProps & { region: Region };
 
 /** Shot draws a region of a directed video frame, at the full capture resolution. */
