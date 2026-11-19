@@ -119,6 +119,16 @@ describe("Settings.Frame", () => {
     expect(nav.classList.contains(RAIL)).toBe(false);
   });
 
+  it("should keep the names of the sections while its tab is hidden", async () => {
+    const groups: Settings.Group[] = [
+      { key: "first", name: "First", sections: [createSection("Alpha")] },
+    ];
+    await renderWithConsole(<Settings.Frame groups={groups} />);
+    const nav = screen.getByRole("navigation", { name: "Settings" });
+    width.set(0);
+    expect(nav.classList.contains(RAIL)).toBe(false);
+  });
+
   it("should collapse the section list to its icons and expand it again", async () => {
     const groups: Settings.Group[] = [
       { key: "first", name: "First", sections: [createSection("Alpha")] },

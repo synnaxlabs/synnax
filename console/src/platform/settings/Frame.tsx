@@ -57,9 +57,14 @@ export const Frame = ({ groups }: FrameProps): ReactElement => {
   const dispatch = Session.useDispatch();
   const [narrow, setNarrow] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
-  const ref = useResize<HTMLDivElement>((b) => setNarrow(box.width(b) < NARROW_WIDTH), {
-    triggers: ["x"],
-  });
+  const ref = useResize<HTMLDivElement>(
+    (b) => {
+      const width = box.width(b);
+      // A hidden tab measures 0, which is not a narrow pane.
+      if (width > 0) setNarrow(width < NARROW_WIDTH);
+    },
+    { triggers: ["x"] },
+  );
   const rail = narrow || collapsed;
   const toggleLabel = collapsed ? "Expand sidebar" : "Collapse sidebar";
   const setSelected = (section: string): void => {
