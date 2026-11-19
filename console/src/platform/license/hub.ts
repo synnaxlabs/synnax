@@ -88,18 +88,23 @@ export const receive = async (
   code: string,
   signal?: AbortSignal,
 ): Promise<string | null> => {
-  const timeout = AbortSignal.timeout(RECEIVE_TIMEOUT.milliseconds);
+  // A timer, not AbortSignal.timeout, so fake timers can drive the timeout in specs.
+  const timeout = new AbortController();
+  const timer = setTimeout(() => timeout.abort(), RECEIVE_TIMEOUT.milliseconds);
   let res: Response;
   try {
     res = await fetch(HANDOFF_URL, {
       method: "POST",
       headers: { authorization: `Bearer ${code}` },
-      signal: signal == null ? timeout : AbortSignal.any([signal, timeout]),
+      signal:
+        signal == null ? timeout.signal : AbortSignal.any([signal, timeout.signal]),
     });
   } catch (e) {
-    if (timeout.aborted && signal?.aborted !== true)
+    if (timeout.signal.aborted && signal?.aborted !== true)
       throw new TypeError("The hub did not answer in time", { cause: e });
     throw errors.fromUnknown(e);
+  } finally {
+    clearTimeout(timer);
   }
   if (res.status === 204) return null;
   if (res.ok) return keyZ.parse(await res.json()).key;
