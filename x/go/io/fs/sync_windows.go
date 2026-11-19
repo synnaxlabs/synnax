@@ -11,11 +11,12 @@ package fs
 
 import (
 	"os"
+	"path/filepath"
 	"syscall"
 )
 
 func syncDir(name string) error {
-	info, err := os.Stat(name)
+	info, err := os.Stat(filepath.Clean(name))
 	if err != nil {
 		return err
 	}

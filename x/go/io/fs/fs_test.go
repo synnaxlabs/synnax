@@ -25,6 +25,12 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+var _ = Describe("Default", func() {
+	It("Should sync the working directory for an empty name", func() {
+		Expect(xfs.Default.SyncDir("")).To(Succeed())
+	})
+})
+
 var _ = Describe("CopyFile", func() {
 	It("Should sync the copy, so its bytes stay after a power loss", func() {
 		src, dst := xfs.NewMem(), fault.New()
