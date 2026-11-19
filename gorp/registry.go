@@ -53,8 +53,16 @@ type registeredReference interface {
 	linkKind() LinkKind
 	referenceTag() uint8
 	targetTables() []string
-	// dependents returns the text keys of the entries that hold target.
-	dependents(ctx context.Context, snap Snapshot, target Target) ([]string, error)
+	// dependents returns, at each position of targets, the text keys of the entries
+	// that hold that target, or nil when no entry holds any of targets. keys is nil or
+	// a slice of the keys of targets, which a reference whose values have that type
+	// reads instead of parsing targets.
+	dependents(
+		ctx context.Context,
+		snap Snapshot,
+		targets []Target,
+		keys any,
+	) ([][]string, error)
 }
 
 // detachOp removes or inlines target in the reference at index ref of an entry.
@@ -224,25 +232,53 @@ func (r *registry) referencesTo(table string) []registeredReference {
 	return slices.Clone(r.referencing[table])
 }
 
-// dependents returns the entries that hold target through any registered reference.
+// dependents returns, at each position of targets, the entries that hold that target
+// through any registered reference. Every target is an entry of the table named table,
+// and keys is a slice of their keys, in order.
 func (r *registry) dependents(
 	ctx context.Context,
 	snap Snapshot,
-	target Target,
-) ([]Dependent, error) {
-	var out []Dependent
-	for _, ref := range r.referencesTo(target.Table) {
-		keys, err := ref.dependents(ctx, snap, target)
+	table string,
+	targets []Target,
+	keys any,
+) ([][]Dependent, error) {
+	type found struct {
+		ref     registeredReference
+		holders [][]string
+	}
+	var (
+		all    []found
+		counts = make([]int, len(targets))
+	)
+	for _, ref := range r.referencesTo(table) {
+		holders, err := ref.dependents(ctx, snap, targets, keys)
 		if err != nil {
 			return nil, err
 		}
-		for _, k := range keys {
-			out = append(out, Dependent{
-				Holder:    Target{Table: ref.ownerTable(), Key: k},
-				Reference: ref.referenceName(),
-				Kind:      ref.linkKind(),
-				Tag:       ref.referenceTag(),
-			})
+		if holders == nil {
+			continue
+		}
+		all = append(all, found{ref: ref, holders: holders})
+		for i, held := range holders {
+			counts[i] += len(held)
+		}
+	}
+	out := make([][]Dependent, len(targets))
+	for i, n := range counts {
+		if n > 0 {
+			out[i] = make([]Dependent, 0, n)
+		}
+	}
+	for _, f := range all {
+		for i, held := range f.holders {
+			for _, k := range held {
+				out[i] = append(out[i], Dependent{
+					Holder:    Target{Table: f.ref.ownerTable(), Key: k},
+					Reference: f.ref.referenceName(),
+					Kind:      f.ref.linkKind(),
+					Tag:       f.ref.referenceTag(),
+				})
+			}
 		}
 	}
 	return out, nil
@@ -278,11 +314,11 @@ func (r *registry) targetSet(
 		if err != nil {
 			return err
 		}
-		keys, err := ref.dependents(ctx, tx, target)
-		if err != nil {
+		keys, err := ref.dependents(ctx, tx, []Target{target}, nil)
+		if err != nil || keys == nil {
 			return err
 		}
-		for _, k := range keys {
+		for _, k := range keys[0] {
 			if err = owner.targetSet(ctx, tx, k, target.Table); err != nil {
 				return err
 			}
@@ -366,11 +402,14 @@ func (r *registry) plan(
 		target := w.queue[0]
 		w.queue = w.queue[1:]
 		for _, ref := range r.referencesTo(target.Table) {
-			deps, err := ref.dependents(ctx, tx, target)
+			deps, err := ref.dependents(ctx, tx, []Target{target}, nil)
 			if err != nil {
 				return nil, err
 			}
-			for _, k := range deps {
+			if deps == nil {
+				continue
+			}
+			for _, k := range deps[0] {
 				dep := Target{Table: ref.ownerTable(), Key: k}
 				if err := w.visit(ref, dep, target); err != nil {
 					return nil, err

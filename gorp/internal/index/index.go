@@ -248,6 +248,29 @@ func committingKeys[S Scope, K, V comparable](
 	return keys
 }
 
+// committingEach returns, at each position of values, the keys that committing scopes
+// map to that value. It returns nil when no scope is committing.
+func committingEach[S Scope, K, V comparable](
+	o *overlay[S, *delta[K, V]],
+	values []V,
+) [][]K {
+	o.mu.RLock()
+	defer o.mu.RUnlock()
+	var out [][]K
+	for scope, d := range o.deltas {
+		if !scope.Committing() {
+			continue
+		}
+		if out == nil {
+			out = make([][]K, len(values))
+		}
+		for i, v := range values {
+			out[i] = d.forward[v].appendTo(out[i])
+		}
+	}
+	return out
+}
+
 // holdersSetSize is the number of holders past which holders switches from a slice to
 // a set. Most values have few holders, and a slice costs far less memory than a map.
 const holdersSetSize = 32

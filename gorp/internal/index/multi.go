@@ -116,6 +116,43 @@ func (m *Multi[S, K, V]) Get(scope S, values ...V) ([]K, error) {
 	return mergeValues(&m.overlay, scope, committed, values), nil
 }
 
+// GetEach returns, at each position of values, the keys that hold that value, as Get
+// does for one value, under one wait and one lock. A position whose value no key holds
+// is nil, and GetEach returns nil when no key holds any of values.
+func (m *Multi[S, K, V]) GetEach(scope S, values []V) ([][]K, error) {
+	<-m.population.done
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if err := m.population.err; err != nil {
+		return nil, err
+	}
+	var out [][]K
+	d, staged := m.overlay.get(scope)
+	for i, v := range values {
+		h, held := m.forward[v]
+		if !staged && !held {
+			continue
+		}
+		if out == nil {
+			out = make([][]K, len(values))
+		}
+		if !staged {
+			out[i] = h.appendTo(nil)
+			continue
+		}
+		committed := set.New[K]()
+		h.addTo(committed)
+		out[i] = d.merge(committed, values[i:i+1])
+	}
+	return out, nil
+}
+
+// CommittingEach returns, at each position of values, the keys that a transaction in
+// its commit maps to that value. See Lookup.Committing for its contract.
+func (m *Multi[S, K, V]) CommittingEach(values []V) [][]K {
+	return committingEach(&m.overlay, values)
+}
+
 // Committing returns the keys that a transaction in its commit maps to any of values.
 // See Lookup.Committing for its contract.
 func (m *Multi[S, K, V]) Committing(values ...V) []K {

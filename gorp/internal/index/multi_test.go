@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp/internal/index"
 	"github.com/synnaxlabs/x/set"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Multi", func() {
@@ -83,6 +84,50 @@ var _ = Describe("Multi", func() {
 		txn.end(false)
 		Expect(m.Get(nil, "a")).To(ConsistOf(1))
 		Expect(m.Get(txn, "a")).To(ConsistOf(1))
+	})
+
+	Describe("GetEach", func() {
+		It("Should return the keys that hold each value at its position", func() {
+			Expect(m.GetEach(nil, []string{"a", "b", "z"})).To(Equal([][]int{
+				{1},
+				{1, 2},
+				nil,
+			}))
+		})
+
+		It("Should return nil when no key holds any value", func() {
+			Expect(m.GetEach(nil, []string{"y", "z"})).To(BeNil())
+		})
+
+		It("Should show staged changes only to their scope", func() {
+			m.Stage(txn, 3, []string{"a"})
+			m.StageDelete(txn, 1)
+			each := MustSucceed(m.GetEach(txn, []string{"a", "b"}))
+			Expect(each[0]).To(ConsistOf(3))
+			Expect(each[1]).To(ConsistOf(2))
+			Expect(m.GetEach(nil, []string{"a"})).To(Equal([][]int{{1}}))
+		})
+
+		It("Should return the load error", func() {
+			failed := index.NewMulti[*scope, int, string]()
+			_, finish := failed.Populate()
+			finish(errLoad)
+			Expect(failed.GetEach(nil, []string{"a"})).Error().To(MatchError(errLoad))
+		})
+	})
+
+	Describe("CommittingEach", func() {
+		It(
+			"Should return the keys that a scope in its commit maps to each value",
+			func() {
+				m.Stage(txn, 3, []string{"a"})
+				Expect(m.CommittingEach([]string{"a", "b"})).To(BeNil())
+				txn.committing = true
+				Expect(
+					m.CommittingEach([]string{"a", "b"}),
+				).To(Equal([][]int{{3}, nil}))
+			},
+		)
 	})
 
 	Describe("Holding", func() {

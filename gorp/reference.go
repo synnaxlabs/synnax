@@ -594,21 +594,54 @@ func (r *reference[K, E, T]) FilterAs[F Entry[K]](targets ...T) Filter[K, F] {
 func (r *reference[K, E, T]) dependents(
 	ctx context.Context,
 	snap Snapshot,
-	target Target,
-) ([]string, error) {
-	t, ok := r.parse(target)
-	if !ok {
-		return nil, nil
-	}
-	keys, err := probe(ctx, r.store, snap, []T{t})
-	if err != nil {
+	targets []Target,
+	typed any,
+) ([][]string, error) {
+	values, positions := r.values(targets, typed)
+	keys, err := probeEach(ctx, r.store, snap, values)
+	if err != nil || keys == nil {
 		return nil, err
 	}
-	out := make([]string, len(keys))
-	for i, k := range keys {
-		out[i] = FormatKey(k)
+	out := make([][]string, len(targets))
+	formatted := make(map[K]string)
+	for j, held := range keys {
+		if len(held) == 0 {
+			continue
+		}
+		texts := make([]string, len(held))
+		for i, k := range held {
+			text, ok := formatted[k]
+			if !ok {
+				text = FormatKey(k)
+				formatted[k] = text
+			}
+			texts[i] = text
+		}
+		at := j
+		if positions != nil {
+			at = positions[j]
+		}
+		out[at] = texts
 	}
 	return out, nil
+}
+
+// values returns the values of targets that the reference can hold, and the position
+// in targets of each, or nil positions when every target is a value. It reads typed
+// when it holds values of type T.
+func (r *reference[K, E, T]) values(targets []Target, typed any) ([]T, []int) {
+	if vs, ok := typed.([]T); ok {
+		return vs, nil
+	}
+	values := make([]T, 0, len(targets))
+	positions := make([]int, 0, len(targets))
+	for i, target := range targets {
+		if t, ok := r.parse(target); ok {
+			values = append(values, t)
+			positions = append(positions, i)
+		}
+	}
+	return values, positions
 }
 
 func (r *reference[K, E, T]) ownerTable() string       { return r.owner }

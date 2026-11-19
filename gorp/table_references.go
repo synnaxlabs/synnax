@@ -231,7 +231,25 @@ func (t *Table[K, E]) Dependents(
 	snap Snapshot,
 	k K,
 ) ([]Dependent, error) {
-	return t.db.registry.dependents(ctx, snap, Target{Table: t.name, Key: FormatKey(k)})
+	deps, err := t.DependentsMany(ctx, snap, []K{k})
+	if err != nil {
+		return nil, err
+	}
+	return deps[0], nil
+}
+
+// DependentsMany returns, at each position of keys, the dependents of the entry with
+// that key, as Dependents does. It probes each reference once for all of keys.
+func (t *Table[K, E]) DependentsMany(
+	ctx context.Context,
+	snap Snapshot,
+	keys []K,
+) ([][]Dependent, error) {
+	targets := make([]Target, len(keys))
+	for i, k := range keys {
+		targets[i] = Target{Table: t.name, Key: FormatKey(k)}
+	}
+	return t.db.registry.dependents(ctx, snap, t.name, targets, keys)
 }
 
 // check validates the references e holds against tx.

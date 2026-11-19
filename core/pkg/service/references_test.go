@@ -203,7 +203,9 @@ var _ = Describe("References", Ordered, func() {
 				}
 				return layer.Log.NewWriter(tx).Create(ctx, &lg)
 			})).To(Succeed())
-			Expect(layer.Channel.Uses(ctx, db, ch.Key())).To(ConsistOf(
+			uses := MustSucceed(layer.Channel.Uses(ctx, db, []channel.Key{ch.Key()}))
+			Expect(uses).To(HaveLen(1))
+			Expect(uses[0]).To(ConsistOf(
 				channel.Use{
 					Holder:    gorp.NewTarget("modbus_read_config", tsk.Key),
 					Direction: channel.DirectionWrite,

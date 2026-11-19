@@ -38,21 +38,28 @@ type Use struct {
 	Direction Direction
 }
 
-// Uses returns each record that reads or writes the channel with key k, as seen by
-// snap, once for each direction. A deleted channel keeps the uses of its weak
-// references. It blocks and fails as gorp.Table.Dependents does.
-func (s *Service) Uses(ctx context.Context, snap gorp.Snapshot, k Key) ([]Use, error) {
-	deps, err := s.table.Dependents(ctx, snap, k)
+// Uses returns, at each position of keys, each record that reads or writes the channel
+// with that key, as seen by snap, once for each direction. A deleted channel keeps the
+// uses of its weak references. It blocks and fails as gorp.Table.Dependents does.
+func (s *Service) Uses(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	keys []Key,
+) ([][]Use, error) {
+	deps, err := s.table.DependentsMany(ctx, snap, keys)
 	if err != nil {
 		return nil, err
 	}
-	uses := make([]Use, 0, len(deps))
-	for _, d := range deps {
-		dir, ok := tagDirections[d.Tag]
-		u := Use{Holder: d.Holder, Direction: dir}
-		if ok && !slices.Contains(uses, u) {
-			uses = append(uses, u)
+	out := make([][]Use, len(keys))
+	for i, held := range deps {
+		out[i] = make([]Use, 0, len(held))
+		for _, d := range held {
+			dir, ok := tagDirections[d.Tag]
+			u := Use{Holder: d.Holder, Direction: dir}
+			if ok && !slices.Contains(out[i], u) {
+				out[i] = append(out[i], u)
+			}
 		}
 	}
-	return uses, nil
+	return out, nil
 }

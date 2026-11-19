@@ -251,15 +251,28 @@ func (s *Service) fillUses(
 	snap bind.Snapshot,
 	channels []Channel,
 ) error {
+	keys := lo.Map(channels, func(ch Channel, _ int) channel.Key { return ch.Key })
+	uses, err := s.internal.Uses(ctx, snap, keys)
+	if err != nil {
+		return err
+	}
+	type holder struct {
+		id      resource.ID
+		allowed bool
+	}
+	holders := make(map[gorp.Target]holder)
 	for i := range channels {
-		uses, err := s.internal.Uses(ctx, snap, channels[i].Key)
-		if err != nil {
-			return err
-		}
-		channels[i].Uses = lo.FilterMap(uses, func(u channel.Use, _ int) (Use, bool) {
-			id, ok := snap.Holder(u.Holder)
-			return Use{ID: id, Direction: u.Direction}, ok
-		})
+		channels[i].Uses = lo.FilterMap(
+			uses[i],
+			func(u channel.Use, _ int) (Use, bool) {
+				h, ok := holders[u.Holder]
+				if !ok {
+					h.id, h.allowed = snap.Holder(u.Holder)
+					holders[u.Holder] = h
+				}
+				return Use{ID: h.id, Direction: u.Direction}, h.allowed
+			},
+		)
 	}
 	return nil
 }
