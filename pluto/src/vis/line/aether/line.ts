@@ -539,21 +539,15 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       ops: digests(ops),
     }));
     const regionTransform = ctx.renderCtx.scaleRegion(props.region).transform;
-    // Each op draws with the program of its y GL data type.
-    const glDataTypes: DataType[] = [];
-    for (const { y } of ops)
-      if (!glDataTypes.some((dt) => dt.equals(y.glDataType)))
-        glDataTypes.push(y.glDataType);
-    for (const dt of glDataTypes) {
-      const prog = ctx.getProgram(dt);
-      const clearProg = prog.setAsActive();
-      const instances = prog.bindState(this.state);
-      for (const op of ops) {
-        if (!op.y.glDataType.equals(dt)) continue;
-        prog.bindScale(offsetScale(dataToDecimalScale, op).transform, regionTransform);
-        prog.draw(op, instances);
-      }
-      clearProg();
+    // Each op draws with the program of its y GL data type, one pass per type.
+    const first = ops[0].y.glDataType;
+    this.drawPass(ctx, ops, first, dataToDecimalScale, regionTransform);
+    for (let i = 1; i < ops.length; i++) {
+      const dt = ops[i].y.glDataType;
+      if (dt.equals(first)) continue;
+      let drawn = false;
+      for (let j = 1; j < i && !drawn; j++) drawn = ops[j].y.glDataType.equals(dt);
+      if (!drawn) this.drawPass(ctx, ops, dt, dataToDecimalScale, regionTransform);
     }
     const bridges = bridgeVertices(ops, dataToDecimalScale);
     if (bridges.length === 0) return;
@@ -563,6 +557,26 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     bridgeProg.bindScale(scale.XY.IDENTITY.transform, regionTransform);
     bridgeProg.segments(bridges, bridgeInstances);
     clearBridgeProg();
+  }
+
+  // Draws the ops whose y data has the GL data type dt.
+  private drawPass(
+    ctx: Context,
+    ops: DrawOperation[],
+    dt: DataType,
+    dataToDecimalScale: scale.XY,
+    regionTransform: scale.XYTransformT,
+  ): void {
+    const prog = ctx.getProgram(dt);
+    const clearProg = prog.setAsActive();
+    const instances = prog.bindState(this.state);
+    for (let i = 0; i < ops.length; i++) {
+      const op = ops[i];
+      if (!op.y.glDataType.equals(dt)) continue;
+      prog.bindScale(offsetScale(dataToDecimalScale, op).transform, regionTransform);
+      prog.draw(op, instances);
+    }
+    clearProg();
   }
 }
 
