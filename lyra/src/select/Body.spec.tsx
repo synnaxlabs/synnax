@@ -94,6 +94,30 @@ describe("Select.Single dialog body", () => {
     expect(c.getByText("No results discovered")).toBeTruthy();
   });
 
+  it("should not deny a match while a fixed option matches the search", () => {
+    const c = render(
+      <Select.Single
+        visible
+        data={[]}
+        onChange={vi.fn()}
+        onSearch={vi.fn()}
+        resourceName="result"
+        fixedItems={
+          <Select.Item itemKey="stage" textValue="Stage">
+            Stage
+          </Select.Item>
+        }
+      >
+        {() => <div>Hello</div>}
+      </Select.Single>,
+    );
+    fireEvent.change(c.getByPlaceholderText("Search results..."), {
+      target: { value: "stage" },
+    });
+    expect(c.getByText("Stage")).toBeTruthy();
+    expect(c.queryByText(/^No results/)).toBeNull();
+  });
+
   it("should ignore spaces around a search term", () => {
     const c = render(
       <Select.Single
