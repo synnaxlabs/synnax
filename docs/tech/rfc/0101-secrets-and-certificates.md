@@ -200,8 +200,9 @@ names a missing item, and keeps a reverse index. A delete of an item in use fail
 `gorp.RestrictError`, which `core/pkg/api/restrict.go` rewrites to name the task or
 device. A task config lives in its own table, so the API maps it to its task with
 `config.TaskOf` (`core/pkg/service/task/config/config.go`). The Console's "Used by" list
-and the rack rule (§3.3) read the index through `resource.Dependents`. A certificate is
-a union on its source, and Oracle reads `@ref` inside a union variant (#4920).
+and the rack rule (§3.3) read the index through `resource.Uses`, which lists only use
+links, so the status that a certificate owns is not a use. A certificate is a union on
+its source, and Oracle reads `@ref` inside a union variant (#4920).
 
 ### 3.5 File items and the file integration
 
