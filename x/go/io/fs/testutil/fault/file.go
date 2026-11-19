@@ -24,6 +24,8 @@ type file struct {
 	d    *disk
 	n    *node
 	path string
+	// syncErrors is the count of failed Syncs of the file that the handle has seen.
+	syncErrors uint64
 	// rpos and wpos are the offsets of the next Read and the next Write.
 	rpos, wpos                            int64
 	readable, writable, appending, closed bool
@@ -156,7 +158,12 @@ func (f *file) Sync() error {
 	if f.n.dir {
 		return f.d.syncDir(f.n, f.path)
 	}
-	return f.d.sync(f.n, f.path)
+	f.d.sync(f.n, f.path)
+	if f.syncErrors != f.n.syncErrors {
+		f.syncErrors = f.n.syncErrors
+		return pathError("sync", f.path, syscall.EIO)
+	}
+	return nil
 }
 
 // write copies p into the file n at off, and fills a gap before off with zeros. On a

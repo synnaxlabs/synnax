@@ -46,7 +46,10 @@ type node struct {
 	data, durable           []byte
 	// dirty holds each block whose bytes or length changed since the last Sync.
 	dirty blocks
-	dir   bool
+	// syncErrors counts the failed Syncs of the file. Each handle reports a count that
+	// it has not seen, once.
+	syncErrors uint64
+	dir        bool
 }
 
 func newDir() *node {
@@ -132,7 +135,10 @@ func (d *disk) parent(op, p string) (*node, string, error) {
 	}
 	dir, base := path.Split(p)
 	n, err := d.lookupDir(op, path.Clean(dir))
-	return n, base, err
+	if err != nil {
+		return nil, "", err
+	}
+	return n, base, nil
 }
 
 // change is one change to directory entries that is not durable. A create or a remove

@@ -45,6 +45,20 @@ var _ = Describe("Sync errors", func() {
 		Expect(read(strict(fs), "f.txt")).To(Equal("tacocat"))
 	})
 
+	It("Should give the error of a failed Sync once to each open handle", func() {
+		fs := faulty(always)
+		writer := MustOpen(fs.Open("f.txt", os.O_WRONLY))
+		syncer := MustOpen(fs.Open("f.txt", os.O_WRONLY))
+		Expect(writer.WriteAt([]byte("burrito"), 0)).To(Equal(7))
+		Expect(syncer.Sync()).To(MatchError(syscall.EIO))
+		Expect(writer.Sync()).To(MatchError(syscall.EIO))
+		Expect(writer.Sync()).To(Succeed())
+		Expect(syncer.Sync()).To(Succeed())
+		late := MustOpen(fs.Open("f.txt", os.O_WRONLY))
+		Expect(late.Sync()).To(Succeed())
+		Expect(read(strict(fs), "f.txt")).To(Equal("tacocat"))
+	})
+
 	It("Should draw again for a Sync that follows a new write", func() {
 		fs := faulty(always)
 		f := MustOpen(fs.Open("f.txt", os.O_WRONLY))
@@ -125,6 +139,23 @@ var _ = Describe("Sync errors", func() {
 		image := MustSucceed(fs.Crash(fault.CrashConfig{EntrySurvivalRate: 1}))
 		Expect(image.Exists("g.txt")).To(BeTrue())
 	})
+
+	It(
+		"Should fail a SyncDir that makes a rename out of the directory durable",
+		func() {
+			base := MustSucceed(fault.New(fault.Config{}))
+			MustSucceed(base.Sub("a"))
+			MustSucceed(base.Sub("b"))
+			Expect(base.SyncDir("")).To(Succeed())
+			fs := MustSucceed(base.Crash(fault.CrashConfig{Image: always}))
+			write(fs, "a/tmp", "burrito")
+			Expect(fs.Rename("a/tmp", "b/tmp")).To(Succeed())
+			Expect(fs.SyncDir("a")).To(MatchError(syscall.EIO))
+			Expect(strict(fs).Exists("b/tmp")).To(BeFalse())
+			image := MustSucceed(fs.Crash(fault.CrashConfig{EntrySurvivalRate: 1}))
+			Expect(image.Exists("b/tmp")).To(BeTrue())
+		},
+	)
 
 	It("Should let a SyncDir that failed succeed on a later try", func() {
 		for runKey := range uint64(64) {

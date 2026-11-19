@@ -43,8 +43,8 @@ type Config struct {
 	// SyncErrorRate is the chance, from 0 to 1, that a Sync or a SyncDir with changes
 	// to make durable fails with EIO. A failed Sync drops its changes as Linux does:
 	// its blocks are clean again, so a later Sync writes one of them only after a new
-	// write to that block, and a Sync with nothing new succeeds. A failed SyncDir keeps
-	// its changes for the next SyncDir.
+	// write to that block. Each handle that is open on the file gets the error from its
+	// next Sync, once. A failed SyncDir keeps its changes for the next SyncDir.
 	SyncErrorRate float64
 	// EvictionRate is the chance, from 0 to 1, that a block dropped by a failed Sync
 	// reads its durable bytes from then on. Otherwise the block reads its new bytes
@@ -117,12 +117,13 @@ func (f *FS) Open(name string, flag int) (xfs.File, error) {
 	}
 	d.open[n]++
 	return &file{
-		d:         d,
-		n:         n,
-		path:      p,
-		readable:  flag&os.O_WRONLY == 0,
-		writable:  flag&(os.O_WRONLY|os.O_RDWR) != 0,
-		appending: flag&os.O_APPEND != 0,
+		d:          d,
+		n:          n,
+		path:       p,
+		readable:   flag&os.O_WRONLY == 0,
+		writable:   flag&(os.O_WRONLY|os.O_RDWR) != 0,
+		appending:  flag&os.O_APPEND != 0,
+		syncErrors: n.syncErrors,
 	}, nil
 }
 

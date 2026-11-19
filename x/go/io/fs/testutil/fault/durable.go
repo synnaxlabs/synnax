@@ -11,7 +11,6 @@ package fault
 
 import (
 	"iter"
-	"maps"
 	"math/bits"
 	"slices"
 	"syscall"
@@ -61,13 +60,14 @@ func resized(data []byte, size int64) []byte {
 }
 
 // sync makes the bytes and the length of the file n at the path p durable. It copies
-// only the dirty blocks. A sync that fails drops them.
-func (d *disk) sync(n *node, p string) error {
+// only the dirty blocks. A sync that fails drops them and counts one sync error on n.
+func (d *disk) sync(n *node, p string) {
 	if len(n.dirty) > 0 {
 		file, nth := hashPath(p), d.next(drawSync, p, 0)
 		if d.draw(drawSync, file, nth) < d.cfg.SyncErrorRate {
 			d.drop(n, file, nth)
-			return pathError("sync", p, syscall.EIO)
+			n.syncErrors++
+			return
 		}
 	}
 	size := int64(len(n.data))
@@ -79,7 +79,6 @@ func (d *disk) sync(n *node, p string) error {
 		}
 	}
 	n.dirty = nil
-	return nil
 }
 
 // drop loses the dirty blocks of the file n, as a failed Sync does. Each block keeps
@@ -111,25 +110,13 @@ type entry struct {
 // n and another directory becomes durable in both, as one journal change does, and so
 // does each earlier change to an entry that such a change reads.
 func (d *disk) syncDir(n *node, p string) error {
-	if !maps.Equal(n.entries, n.durableEntries) {
-		nth := d.next(drawSync, p, 0)
-		if d.draw(drawSync, hashPath(p), nth) < d.cfg.SyncErrorRate {
-			return pathError("sync", p, syscall.EIO)
-		}
+	durable := d.durableWith(n)
+	if !slices.Contains(durable, true) {
+		return nil
 	}
-	// A change is durable now when it changes n, or when a later durable change changes
-	// one of its entries. The walk goes from the newest change to the oldest.
-	durable, needed := make([]bool, len(d.pending)), set.Set[entry]{}
-	for i := len(d.pending) - 1; i >= 0; i-- {
-		halves := d.pending[i].halves
-		durable[i] = slices.ContainsFunc(halves, func(h half) bool {
-			return h.dir == n || needed.Contains(entry{dir: h.dir, name: h.name})
-		})
-		for _, h := range halves {
-			if durable[i] {
-				needed.Add(entry{dir: h.dir, name: h.name})
-			}
-		}
+	nth := d.next(drawSync, p, 0)
+	if d.draw(drawSync, hashPath(p), nth) < d.cfg.SyncErrorRate {
+		return pathError("sync", p, syscall.EIO)
 	}
 	kept := d.pending[:0]
 	for i, c := range d.pending {
@@ -147,4 +134,22 @@ func (d *disk) syncDir(n *node, p string) error {
 	}
 	d.pending = kept
 	return nil
+}
+
+// durableWith reports, for each pending change, if a SyncDir of the directory n makes
+// it durable: the change is to n, or a later durable change is to one of its entries.
+func (d *disk) durableWith(n *node) []bool {
+	durable, needed := make([]bool, len(d.pending)), set.Set[entry]{}
+	for i := len(d.pending) - 1; i >= 0; i-- {
+		halves := d.pending[i].halves
+		durable[i] = slices.ContainsFunc(halves, func(h half) bool {
+			return h.dir == n || needed.Contains(entry{dir: h.dir, name: h.name})
+		})
+		for _, h := range halves {
+			if durable[i] {
+				needed.Add(entry{dir: h.dir, name: h.name})
+			}
+		}
+	}
+	return durable
 }
