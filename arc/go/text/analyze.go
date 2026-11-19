@@ -489,7 +489,8 @@ func analyzeIdentifierByRole(
 	isFirst, isSink bool,
 ) (flowNodeResult, bool) {
 	name := parser.IdentifierName(ctx.AST)
-	sym, err := ctx.ResolveQualified(parser.IdentifierParts(ctx.AST))
+	var buf [2]string
+	sym, err := ctx.ResolveQualified(parser.AppendIdentifierParts(buf[:0], ctx.AST))
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return flowNodeResult{}, false
@@ -1020,7 +1021,8 @@ func lowerAliasRebind(
 	if register == nil {
 		return nil, nil, true
 	}
-	parts := parser.ExpressionNameParts(expr)
+	var buf [2]string
+	parts := parser.AppendExpressionNameParts(buf[:0], expr)
 	if len(parts) == 0 {
 		return nil, nil, true
 	}
@@ -1328,7 +1330,8 @@ func analyzeFunctionNode(
 	shell *shellBuilder,
 	triggered bool,
 ) (nodeResult, bool) {
-	parts := parser.FunctionNameParts(ctx.AST)
+	var buf [2]string
+	parts := parser.AppendFunctionNameParts(buf[:0], ctx.AST)
 	name := strings.Join(parts, ".")
 	sym, err := ctx.ResolveQualified(parts)
 	if err != nil {
@@ -1959,7 +1962,8 @@ func headVarReads[T antlr.ParserRuleContext](
 	var nodes []*ir.Node
 	for _, arg := range symbol.FunctionArguments(fn) {
 		for _, pe := range parser.CollectNamedPrimaries(arg.Expr, ctx.FmtStrings) {
-			parts := parser.PrimaryNameParts(pe)
+			var buf [2]string
+			parts := parser.AppendPrimaryNameParts(buf[:0], pe)
 			sym, err := ctx.Scope.ResolveMember(ctx, parts)
 			if err != nil || !isExprReadVar(sym) {
 				continue
@@ -2315,7 +2319,8 @@ func (p *inputParser) parse(
 	// Top-level literal variables cannot be reassigned, so they inline; so
 	// does any literal variable with no write sites in the source. Any
 	// other value variable stamps a var ref to its node instead.
-	if parts := parser.ExpressionNameParts(expr); len(parts) > 0 {
+	var buf [2]string
+	if parts := parser.AppendExpressionNameParts(buf[:0], expr); len(parts) > 0 {
 		if value, typ, ok, done := p.parseName(
 			expr, parts, paramType, paramName,
 		); done {

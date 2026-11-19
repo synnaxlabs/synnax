@@ -114,7 +114,8 @@ func channelRebindTarget[T antlr.ParserRuleContext](
 	if expr == nil {
 		return nil, false
 	}
-	parts := parser.ExpressionNameParts(expr)
+	var buf [2]string
+	parts := parser.AppendExpressionNameParts(buf[:0], expr)
 	if len(parts) == 0 {
 		return nil, false
 	}

@@ -291,7 +291,8 @@ func compileBody(
 			)
 		}
 	case parser.IFunctionContext:
-		parts := parser.FunctionNameParts(body)
+		var buf [2]string
+		parts := parser.AppendFunctionNameParts(buf[:0], body)
 		if _, err := expression.CompileCall(
 			ctx.Child(body), parts, symbol.FunctionArguments(body),
 		); err != nil {

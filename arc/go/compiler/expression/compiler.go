@@ -148,7 +148,8 @@ func compilePostfix(
 		call, isCall = ops[0].(parser.IFunctionCallSuffixContext)
 	}
 	if isCall && parser.PrimaryName(primary) != "" {
-		parts := parser.PrimaryNameParts(primary)
+		var buf [2]string
+		parts := parser.AppendPrimaryNameParts(buf[:0], primary)
 		currentType, err = CompileCall(ctx, parts, symbol.CallArguments(call))
 		ops = ops[1:]
 	} else {
@@ -465,7 +466,8 @@ func compilePrimary(
 	if lit := ctx.AST.Literal(); lit != nil {
 		return compileLiteral(ctx.Child(lit))
 	}
-	if parts := parser.PrimaryNameParts(ctx.AST); len(parts) > 0 {
+	var buf [2]string
+	if parts := parser.AppendPrimaryNameParts(buf[:0], ctx.AST); len(parts) > 0 {
 		return compileIdentifier(ctx, parts)
 	}
 	if ctx.AST.LPAREN() != nil && ctx.AST.Expression() != nil {

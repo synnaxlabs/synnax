@@ -70,7 +70,8 @@ func primaryLiteralOnly[N antlr.ParserRuleContext](
 		return lit.NumericLiteral() != nil
 	}
 	if qid := prim.QualifiedIdentifier(); qid != nil {
-		parts := parser.QualifiedNameParts(qid)
+		var buf [2]string
+		parts := parser.AppendQualifiedNameParts(buf[:0], qid)
 		scope, err := ctx.Scope.Resolve(ctx, parts[0])
 		if err != nil {
 			return false

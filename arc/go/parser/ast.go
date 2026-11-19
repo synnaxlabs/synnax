@@ -224,15 +224,16 @@ func isNumericLiteral(node antlr.ParserRuleContext) bool {
 	return false
 }
 
-// ExpressionNameParts returns the parts of the name expr reads when expr is a lone
-// name, and nil otherwise. A call or an index is not a lone name.
-func ExpressionNameParts(expr IExpressionContext) []string {
+// AppendExpressionNameParts appends the parts of the name expr reads to dst and returns
+// the result. It returns dst unchanged when expr is not a lone name. A call or an index
+// is not a lone name.
+func AppendExpressionNameParts(dst []string, expr IExpressionContext) []string {
 	postfix := getPostfixExpression(expr)
 	if postfix == nil || len(postfix.AllFunctionCallSuffix()) > 0 ||
 		len(postfix.AllIndexOrSlice()) > 0 || postfix.PrimaryExpression() == nil {
-		return nil
+		return dst
 	}
-	return PrimaryNameParts(postfix.PrimaryExpression())
+	return AppendPrimaryNameParts(dst, postfix.PrimaryExpression())
 }
 
 // CollectNamedPrimaries returns the primary expressions in expr that read a name,
@@ -362,11 +363,11 @@ func isFloatType(t ITypeContext) bool {
 	return primitive.NumericType().FloatType() != nil
 }
 
-// QualifiedNameParts returns the two parts of a qualified identifier, "math" and "avg"
-// for `math.avg`. A part can be a lexer keyword (AUTHORITY on the left, FOR on the
-// right) as well as an IDENTIFIER.
-func QualifiedNameParts(qid IQualifiedIdentifierContext) []string {
-	return []string{terminalText(qid, 0), terminalText(qid, 2)}
+// AppendQualifiedNameParts appends the two parts of a qualified identifier to dst,
+// "math" and "avg" for `math.avg`, and returns the result. A part can be a lexer
+// keyword (AUTHORITY on the left, FOR on the right) as well as an IDENTIFIER.
+func AppendQualifiedNameParts(dst []string, qid IQualifiedIdentifierContext) []string {
+	return append(dst, terminalText(qid, 0), terminalText(qid, 2))
 }
 
 func terminalText(qid IQualifiedIdentifierContext, i int) string {
@@ -377,53 +378,56 @@ func terminalText(qid IQualifiedIdentifierContext, i int) string {
 	return node.GetText()
 }
 
-// FunctionNameParts returns the parts of a function context's name: one part for a bare
-// function (set_authority()), two for a qualified one (math.avg()).
-func FunctionNameParts(fn IFunctionContext) []string {
+// AppendFunctionNameParts appends the parts of a function context's name to dst and
+// returns the result: one part for a bare function (set_authority()), two for a
+// qualified one (math.avg()).
+func AppendFunctionNameParts(dst []string, fn IFunctionContext) []string {
 	if qid := fn.QualifiedIdentifier(); qid != nil {
-		return QualifiedNameParts(qid)
+		return AppendQualifiedNameParts(dst, qid)
 	}
-	return []string{fn.IDENTIFIER().GetText()}
+	return append(dst, fn.IDENTIFIER().GetText())
 }
 
-// FunctionName extracts the joined name from a function context. For
-// resolution use FunctionNameParts.
+// FunctionName extracts the joined name from a function context. For resolution use
+// AppendFunctionNameParts.
 func FunctionName(fn IFunctionContext) string {
-	return strings.Join(FunctionNameParts(fn), ".")
+	var buf [2]string
+	return strings.Join(AppendFunctionNameParts(buf[:0], fn), ".")
 }
 
-// IdentifierParts returns the parts of a flow identifier: one part for a bare
-// identifier, two for a qualified one (m.f).
-func IdentifierParts(id IIdentifierContext) []string {
+// AppendIdentifierParts appends the parts of a flow identifier to dst and returns the
+// result: one part for a bare identifier, two for a qualified one (m.f).
+func AppendIdentifierParts(dst []string, id IIdentifierContext) []string {
 	if qid := id.QualifiedIdentifier(); qid != nil {
-		return QualifiedNameParts(qid)
+		return AppendQualifiedNameParts(dst, qid)
 	}
-	return []string{id.IDENTIFIER().GetText()}
+	return append(dst, id.IDENTIFIER().GetText())
 }
 
 // IdentifierName extracts the joined name from a flow identifier.
 func IdentifierName(id IIdentifierContext) string {
-	return strings.Join(IdentifierParts(id), ".")
+	var buf [2]string
+	return strings.Join(AppendIdentifierParts(buf[:0], id), ".")
 }
 
-// PrimaryNameParts returns the parts of a primary expression's identifier: one part for
-// a bare one (x), two for a qualified one (math.avg). It returns nil when the primary
-// is not an identifier.
-func PrimaryNameParts(primary IPrimaryExpressionContext) []string {
+// AppendPrimaryNameParts appends the parts of a primary expression's identifier to dst
+// and returns the result: one part for a bare one (x), two for a qualified one
+// (math.avg). It returns dst unchanged when the primary is not an identifier.
+func AppendPrimaryNameParts(dst []string, primary IPrimaryExpressionContext) []string {
 	if qid := primary.QualifiedIdentifier(); qid != nil {
-		return QualifiedNameParts(qid)
+		return AppendQualifiedNameParts(dst, qid)
 	}
 	if id := primary.IDENTIFIER(); id != nil {
-		return []string{id.GetText()}
+		return append(dst, id.GetText())
 	}
-	return nil
+	return dst
 }
 
-// PrimaryName extracts the joined name from a primary expression. For
-// resolution use PrimaryNameParts. Returns "" if the primary is not an
-// identifier.
+// PrimaryName extracts the joined name from a primary expression. For resolution use
+// AppendPrimaryNameParts. Returns "" if the primary is not an identifier.
 func PrimaryName(primary IPrimaryExpressionContext) string {
-	return strings.Join(PrimaryNameParts(primary), ".")
+	var buf [2]string
+	return strings.Join(AppendPrimaryNameParts(buf[:0], primary), ".")
 }
 
 // ImportEntry is one collected import. Path is the dotted source path

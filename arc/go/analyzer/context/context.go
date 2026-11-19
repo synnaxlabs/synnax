@@ -228,7 +228,8 @@ func (c Context[AST]) FloatConstant(node antlr.Tree) (float64, bool) {
 	if primary == nil || primary.QualifiedIdentifier() == nil {
 		return 0, false
 	}
-	parts := parser.QualifiedNameParts(primary.QualifiedIdentifier())
+	var buf [2]string
+	parts := parser.AppendQualifiedNameParts(buf[:0], primary.QualifiedIdentifier())
 	headSym, err := c.Scope.Resolve(c, parts[0])
 	if err != nil {
 		return 0, false

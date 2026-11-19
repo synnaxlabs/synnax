@@ -364,7 +364,8 @@ func checkNaNComparison[T, O antlr.ParserRuleContext](
 		}
 		primary, _ := parser.SoleOperand(operand)
 		qid := primary.QualifiedIdentifier()
-		head := parser.QualifiedNameParts(qid)[0]
+		var buf [2]string
+		head := parser.AppendQualifiedNameParts(buf[:0], qid)[0]
 		check, imported := "is_nan from the math module", false
 		if module, err := ctx.Scope.Resolve(ctx, head); err == nil {
 			if _, err := module.Resolve(ctx, "is_nan"); err == nil {
@@ -570,7 +571,8 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 		return
 	}
 	primary := ctx.AST.PrimaryExpression()
-	parts := parser.PrimaryNameParts(primary)
+	var buf [2]string
+	parts := parser.AppendPrimaryNameParts(buf[:0], primary)
 	funcName := parser.PrimaryName(primary)
 	scope, err := ctx.ResolveQualified(parts)
 	if err != nil {
@@ -711,7 +713,8 @@ func recordChannelRead(scope, resolved *symbol.Symbol) {
 }
 
 func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
-	if parts := parser.PrimaryNameParts(ctx.AST); len(parts) > 0 {
+	var buf [2]string
+	if parts := parser.AppendPrimaryNameParts(buf[:0], ctx.AST); len(parts) > 0 {
 		resolved, err := ctx.ResolveQualified(parts)
 		if err != nil {
 			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
@@ -840,7 +843,8 @@ func resolveChannelArg[T antlr.ParserRuleContext](
 	ctx context.Context[T],
 	expr parser.IExpressionContext,
 ) (uint32, string, bool) {
-	parts := parser.ExpressionNameParts(expr)
+	var buf [2]string
+	parts := parser.AppendExpressionNameParts(buf[:0], expr)
 	if len(parts) == 0 {
 		return 0, "", false
 	}
