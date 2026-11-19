@@ -661,7 +661,7 @@ var _ = Describe("JSONEncoder", func() {
 		Expect(dst).To(MatchJSON(`{"id":7,"temp":40,"count":3,"state":"run"}`))
 	})
 
-	It("Should write a now and a random default without allocating", func() {
+	It("Should write a now default without allocating", func() {
 		enc := MustSucceed(codec.NewJSONEncoder(message([]icd.JSONField{
 			{Variant: icd.TimestampJSONField{
 				Key:        uuid.New(),
@@ -671,6 +671,19 @@ var _ = Describe("JSONEncoder", func() {
 				TimeFormat: payload.TimeFormatISO8601,
 				Default:    &icd.TimestampDefault{Variant: icd.NowTimestampDefault{}},
 			}},
+		})))
+		dst := make([]byte, 0, 256)
+		var err error
+		encode := func() { dst, err = enc.Encode(dst[:0], nil) }
+		Expect(testing.AllocsPerRun(100, encode)).To(BeZero())
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("Should write a random default without allocating", func() {
+		if raceEnabled {
+			Skip("uuid.NewV4 allocates under the race detector")
+		}
+		enc := MustSucceed(codec.NewJSONEncoder(message([]icd.JSONField{
 			{Variant: icd.UuidJSONField{
 				Key:     uuid.New(),
 				Name:    "id",
