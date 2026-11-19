@@ -256,15 +256,43 @@ describe("Form.States", () => {
       );
     });
 
-    it("should name a linked node's new enumeration after its label", async () => {
+    it("should ask for the name of a linked node's new enumeration", async () => {
       const linked = await client.enumerations.create({
         name: id.create(),
         entries: [],
       });
-      const label = `Pump ${id.create()}`;
-      const c = renderStates({ enumeration: linked.key, label: { label } });
+      const c = renderStates({ enumeration: linked.key, label: { label: "Pump" } });
       await openCreate(c);
-      expect((await created(c.value, linked.key)).name).toBe(label);
+      const field = await screen.findByLabelText("Enumeration name");
+      expect(c.value(path.enumeration)).toBe(linked.key);
+      const name = `Pump ${id.create()}`;
+      fireEvent.change(field, { target: { value: name } });
+      fireEvent.click(screen.getByRole("button", { name: "Create" }));
+      const e = await created(c.value, linked.key);
+      expect(e.name).toBe(name);
+      expect(e.entries).toEqual([]);
+      await waitFor(() =>
+        expect(document.activeElement).toBe(
+          c.getByRole("button", { name: "Add entry" }),
+        ),
+      );
+      expect(screen.queryByLabelText("Enumeration name")).toBeNull();
+    });
+
+    it("should make no copy on a second click of a typed create", async () => {
+      const linked = await client.enumerations.create({
+        name: id.create(),
+        entries: [],
+      });
+      const term = `Pump ${id.create()}`;
+      const c = renderStates({ enumeration: linked.key });
+      await openCreate(c, term);
+      expect(c.queryByRole("option", { name: createName(term) })).toBeNull();
+      await created(c.value, linked.key);
+      const named = (await client.enumerations.retrieve({ searchTerm: term })).filter(
+        (e) => e.name === term,
+      );
+      expect(named).toHaveLength(1);
     });
   });
 

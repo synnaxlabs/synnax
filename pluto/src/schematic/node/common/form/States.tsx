@@ -10,14 +10,18 @@
 import "@/schematic/node/common/form/States.css";
 
 import { type color as colorRef, enumeration, schematic } from "@synnaxlabs/client";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Menu } from "@synnaxlabs/lyra/menu";
+import { Modal } from "@synnaxlabs/lyra/modal";
+import { Nav } from "@synnaxlabs/lyra/nav";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { color, type deep, uuid } from "@synnaxlabs/x";
-import { type ReactElement, useState } from "react";
+import { type KeyboardEvent, type ReactElement, useState } from "react";
 
 import { Access } from "@/access";
 import { Color } from "@/color";
@@ -110,6 +114,65 @@ const UsedBy = ({ enumeration: key }: UsedByProps): ReactElement | null => {
   );
 };
 
+interface CreateModalProps {
+  onCreate: (name: string) => void;
+  onClose: () => void;
+  loading: boolean;
+}
+
+/** Asks for the name of a new enumeration. */
+const CreateModal = ({
+  onCreate,
+  onClose,
+  loading,
+}: CreateModalProps): ReactElement => {
+  const [name, setName] = useState("");
+  const trimmed = name.trim();
+  const handleCreate = (): void => {
+    if (trimmed !== "" && !loading) onCreate(trimmed);
+  };
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>): void => {
+    if (e.key === "Enter") handleCreate();
+  };
+  return (
+    <Dialog.Frame
+      variant="modal"
+      visible
+      onVisibleChange={(visible) => !visible && onClose()}
+      background={0}
+    >
+      <Modal.Frame>
+        <Modal.Header icon={<Icon.Enumeration />}>Enumeration.Create</Modal.Header>
+        <Modal.Body>
+          <Input.Text
+            value={name}
+            onChange={setName}
+            onKeyDown={handleKeyDown}
+            placeholder="Enumeration name"
+            aria-label="Enumeration name"
+            variant="text"
+            autoFocus
+            level="h3"
+            full="x"
+          />
+        </Modal.Body>
+        <Modal.Footer>
+          <Nav.Bar.End>
+            <Button.Button
+              variant="filled"
+              status={loading ? "loading" : undefined}
+              disabled={trimmed === ""}
+              onClick={handleCreate}
+            >
+              Create
+            </Button.Button>
+          </Nav.Bar.End>
+        </Modal.Footer>
+      </Modal.Frame>
+    </Dialog.Frame>
+  );
+};
+
 export interface StatesProps {
   /** Path to the enumeration that the node names. */
   enumeration: deep.Path<enumeration.Key | undefined>;
@@ -126,7 +189,8 @@ export interface StatesProps {
 /**
  * Picks the enumeration that a node draws and edits its entries, or edits the node's
  * own options when it names none. Creating an enumeration moves the options into it. A
- * node that names one gets a new empty enumeration, with focus in its entries.
+ * node that names one gets a new empty enumeration, with focus in its entries, and asks
+ * for its name when the search is empty.
  */
 export const States = ({
   enumeration: enumerationPath,
@@ -141,13 +205,12 @@ export const States = ({
   const { updateAsync, variant } = Enumeration.useCreate();
   // The enumeration just created for a node that named one, whose entries take focus.
   const [focused, setFocused] = useState<enumeration.Key>();
+  const [naming, setNaming] = useState(false);
   const handleChange = (next: enumeration.Key | undefined): void => {
     if (next == null || next === NONE) remove(enumerationPath);
     else set(enumerationPath, next);
   };
-  const handleCreate = (term: string): void => {
-    const name =
-      [term, get(label).value].map((n) => n.trim()).find((n) => n !== "") ?? symbolName;
+  const create = (name: string): void => {
     const created = uuid.create();
     // A node that names an enumeration hides its own options, so none move.
     const entries =
@@ -155,8 +218,15 @@ export const States = ({
     void (async () => {
       if ((await updateAsync({ key: created, name, entries })) === false) return;
       set(enumerationPath, created);
+      setNaming(false);
       if (key != null) setFocused(created);
     })();
+  };
+  const handleCreate = (term: string): void => {
+    if (term === "" && key != null) return setNaming(true);
+    create(
+      [term, get(label).value].map((n) => n.trim()).find((n) => n !== "") ?? symbolName,
+    );
   };
   const footer = (
     <>
@@ -207,6 +277,13 @@ export const States = ({
           )}
         </Input.Item>
       </Form.Section>
+      {naming && (
+        <CreateModal
+          onCreate={create}
+          onClose={() => setNaming(false)}
+          loading={variant === "loading"}
+        />
+      )}
     </Form.Sections>
   );
 };
