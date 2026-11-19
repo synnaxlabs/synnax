@@ -227,7 +227,9 @@ Type in any context menu to filter its items, also inside submenus: "copy link" 
 - When the Core cannot start, the failure screen comes at once and says why. Before, it
   came after six restarts and said only "exit status 1".
 - A reopen while the last session stops waits for it, instead of showing an error.
-- The API key for scripts moves from `~/.synnax/desktop.json` into the OS keychain.
+- The API key for scripts is in the OS keychain, not in `~/.synnax/desktop.json`. On its
+  first start, Synnax Desktop 1.2 deletes the 1.1 key and makes a new one. Code that
+  holds the old key needs the new key.
 - Devices and tasks start as soon as a license activates. Before, they could wait up to
   a minute.
 
@@ -422,8 +424,8 @@ The client APIs for these records are removed:
 #### Writes and streams
 
 - A write to an index channel with timestamps that go back, such as `[10, 12, 11]`, or
-  that start before the last stored sample, fails with "index out of order". Equal
-  timestamps are still allowed. Before, Synnax stored them.
+  that come before the start of the writer or its last written sample, fails with "index
+  out of order". Equal timestamps are still allowed. Before, Synnax stored them.
 - One write, which is one stream message, can be at most 256 MiB after encoding. The
   Core closes a stream that sends a larger message. In TypeScript, the writer fails with
   `StreamClosed`. Split a large write into smaller writes.
@@ -451,6 +453,5 @@ The client APIs for these records are removed:
 - The Core fails to start when `--enable-integrations` and `--disable-integrations` are
   both given, also when they come from different sources, such as a config file and an
   environment variable.
-- The Core fails to start when `--task-worker-count` is outside 0 to 255.
 
 </Releases.Release>
