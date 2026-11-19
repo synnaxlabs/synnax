@@ -13,6 +13,7 @@ import { type ReactElement } from "react";
 
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
+import { Stale } from "@/schematic/node/common/stale";
 import { Telem } from "@/schematic/node/common/telem";
 import { Light, WIDTH_PER_SCALE } from "@/schematic/node/general/light/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
@@ -53,11 +54,7 @@ export const Symbol = ({
       onResize={({ width }) => onConfigChange({ scale: width / WIDTH_PER_SCALE })}
     >
       <Label.Label config={label} onChange={onConfigChange} />
-      {stale && badged && (
-        <Grid.Item itemKey="stale" location="bottom">
-          <Staleness.Badge />
-        </Grid.Item>
-      )}
+      {stale && badged && <Stale.Indicator />}
       <Light
         enabled={enabled}
         orientation={orientation}
