@@ -159,7 +159,7 @@ func install(autoStart bool) error {
 // returns the ID of its group.
 func createUser() (int, error) {
 	u, err := user.Lookup(name)
-	if errors.As(err, new(user.UnknownUserError)) {
+	if _, unknown := errors.AsType[user.UnknownUserError](err); unknown {
 		if out, err := exec.Command(
 			"useradd",
 			"--system",
@@ -246,7 +246,7 @@ func Lookup() (Installation, bool, error) {
 func systemdOffline() (bool, error) {
 	out, err := exec.Command("systemctl", "is-system-running").Output()
 	// The command exits with an error in every state but running.
-	if err != nil && !errors.As(err, new(*exec.ExitError)) {
+	if _, exited := errors.AsType[*exec.ExitError](err); err != nil && !exited {
 		return false, err
 	}
 	return strings.TrimSpace(string(out)) == "offline", nil

@@ -22,14 +22,6 @@ cc_library(
     name = "testutil",
     srcs = ["server.cpp"],
     hdrs = ["server.h"],
-    copts = select({
-        # cpp-httplib >= 0.46 hard-errors unless _WIN32_WINNT targets Windows 10+.
-        "@platforms//os:windows": [
-            "/wd4191",
-            "/D_WIN32_WINNT=0x0A00",
-        ],
-        "//conditions:default": [],
-    }),
     defines = [
         "CPPHTTPLIB_OPENSSL_SUPPORT",
         # The default backlog of 5 drops connects when tests open more at once and the
@@ -56,14 +48,6 @@ cc_library(
 cc_test(
     name = "server_test",
     srcs = ["server_test.cpp"],
-    copts = select({
-        # cpp-httplib >= 0.46 hard-errors unless _WIN32_WINNT targets Windows 10+.
-        "@platforms//os:windows": [
-            "/wd4191",
-            "/D_WIN32_WINNT=0x0A00",
-        ],
-        "//conditions:default": [],
-    }),
     data = [
         "test_cert.pem",
         "test_key.pem",

@@ -9,11 +9,13 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-import { useCreateAnalogRead } from "@/feature/ni/task/AnalogRead";
-import { useCreateAnalogWrite } from "@/feature/ni/task/AnalogWrite";
-import { useCreateCounterRead } from "@/feature/ni/task/CounterRead";
-import { useCreateDigitalRead } from "@/feature/ni/task/DigitalRead";
-import { useCreateDigitalWrite } from "@/feature/ni/task/DigitalWrite";
+import {
+  useCreateAnalogRead,
+  useCreateAnalogWrite,
+  useCreateCounterRead,
+  useCreateDigitalRead,
+  useCreateDigitalWrite,
+} from "@/feature/ni/task/create";
 import { Task } from "@/platform/task";
 
 const CreateAnalogReadCommand = Task.createCommand({

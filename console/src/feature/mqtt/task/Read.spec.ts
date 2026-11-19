@@ -124,7 +124,7 @@ const renderRead = async ({
   );
   await beforeRender?.(dev);
   const statuses: Status.NotificationSpec[] = [];
-  const result = await renderTaskFormTab(MQTT.Task.Read, {
+  const result = await renderTaskFormTab(MQTT.Task.FORMS[MQTT.Task.READ_TYPE], {
     client,
     taskKey: draft.key,
     onStatuses: (next) => {
@@ -2233,7 +2233,7 @@ describe("MQTT read form", () => {
         { name: "MQTT read task", type: MQTT.Task.READ_TYPE, config },
         MQTT.Task.READ_SCHEMAS,
       );
-      const rendered = await renderTaskFormTab(MQTT.Task.Read, {
+      const rendered = await renderTaskFormTab(MQTT.Task.FORMS[MQTT.Task.READ_TYPE], {
         client,
         taskKey: second.key,
       });

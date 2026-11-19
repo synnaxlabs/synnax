@@ -19,5 +19,5 @@ export const nullToUndefined = <Z extends z.ZodType>(
 > =>
   schema
     .nullable()
-    .transform((s) => (s === null ? undefined : s))
+    .transform((s) => s ?? undefined)
     .optional();
