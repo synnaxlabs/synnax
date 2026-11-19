@@ -47,13 +47,11 @@ export const ColorField = ({
   onChange,
   palettesHidden = false,
 }: ColorFieldProps): ReactElement => {
-  const resolve = Color.useResolve();
   const [first] = values;
-  const painted = (v: ColorValue): xcolor.Crude => resolve(v.value) ?? v.fallback;
   const mixed = values.some(
     (v) =>
       refID(v.value) !== refID(first.value) ||
-      !xcolor.equals(painted(v), painted(first)),
+      (v.value == null && !xcolor.equals(v.fallback, first.fallback)),
   );
   const binding = Color.useBinding(mixed ? undefined : first.value, onChange);
   return (
@@ -140,7 +138,8 @@ const GroupSwatch = ({
   ...rest
 }: GroupSwatchProps): ReactElement | null => {
   const binding = Color.useBinding(value, (c) => {
-    if (c != null) onChange(c);
+    if (c == null) throw new Error("[multiedit] - Auto from a swatch with no fallback");
+    onChange(c);
   });
   // A named color shows once the named colors load.
   if (binding.value == null) return null;
