@@ -344,6 +344,8 @@ Phases 3 and 4 are independent after Phase 2 and can land in either order.
   bare file names were rejected too. The costs are one bundle encoding per
   reference-carrying type and renames that rewrite referring members; in exchange, a
   missed reference names an absent file and errors instead of dangling silently.
+  _(Amended by RFC 0116 §4.6: a reference to a channel is the channel's full path on the
+  Core, not a path from the bundle root. A channel is not a bundle member.)_
 - **6.5 One envelope file per panel.** A single `PANELS.json` was rejected as a
   special-cased blob. Panels are bundle-internal and never leaf-registered.
 - **6.6 Inferred membership.** A declared `members` list was rejected: it duplicates the
@@ -387,7 +389,8 @@ Phases 3 and 4 are independent after Phase 2 and can land in either order.
   channels and ranges through raw key fields that cannot hold a path, so a bundle
   carries the source cluster's keys, which resolve correctly only there. This is a
   standing gap, not a regression; decide before strongly typed tasks or channels join a
-  project bundle.
+  project bundle. _(Amended by RFC 0116 §4.6: resolved for channels. A file names each
+  channel by its full path. Range references stay open.)_
 - **Re-import as update**: Stable identity and idempotent re-import need a cross-cluster
   identity design, excluded here as in RFC 0039 §6.6.
 - **Bundle size limits**: Beyond transport defaults.

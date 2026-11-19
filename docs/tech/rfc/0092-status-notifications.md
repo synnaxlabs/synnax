@@ -222,7 +222,9 @@ to match, and the statuses page in the docs
   not clear it. The Core now writes the error when it starts or changes, and a good
   status on the first good frame after it. The calculation graph writes a good status
   where it now deletes one (`core/pkg/service/channel/calculation/graph/graph.go:180`,
-  :410), so the clear window covers calculations.
+  :410), so the clear window covers calculations. _(Amended by RFC 0116 §4.4: the
+  calculation record owns this status, not the channel, and the graph moves to
+  `core/pkg/service/calculation`.)_
 - **No repeat writes**: `AlertEveryNChecks` is deleted. The rack's description no longer
   states a duration, because it is written once. The problems view shows the duration
   from `since`.
@@ -319,7 +321,8 @@ Phases 8 to 12 change the status shape, the toast model, and the UI.
 10. **Clear a calculation with a good status, not a delete**: A delete loses `cleared`,
     so each failure of a flapping calculation would toast. The channel tree shows only
     warnings and errors (`console/src/feature/channel/tree.tsx:216`). The trade is real:
-    each calculated channel that has failed keeps one stored status.
+    each calculated channel that has failed keeps one stored status. _(Amended by RFC
+    0116 §4.4: the status belongs to the calculation record.)_
 11. **Delay changes, not drop only repeats**: PR #2045 added the filter because a task
     sent a warning on every read, about 68 times a second. A filter that drops only
     repeats would bring those writes back for a task that changes state on each read.

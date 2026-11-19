@@ -44,7 +44,9 @@ Binding a rack to a module is a validation error, and so is importing an automat
   every new Arc under it.
 - **Directories**: A group below "Arcs" is a directory. A module may sit directly under
   "Arcs" or in a group at any depth (§5.0, §5.1).
-- **Names**: Group and module names are validated like channel names.
+- **Names**: Group and module names are validated like channel names. _(Amended by RFC
+  0116 §4.1: channel names are now free text. Directory and module names stay Arc
+  identifiers.)_
 - **Resolution**: A path walks `parent_of` down from "Arcs", one segment per level, and
   matches the last segment against a module's name. An import binds the last segment:
 
@@ -176,7 +178,10 @@ config snapshot, which duplicates Driver-held state. A hash is one string, kept 
 **5.6 A rename breaks its importers.** An import names a path, so a renamed or moved
 module fails the compile of each importer. Rewriting importers on a rename needs a
 rename engine in the Core and a merge into open editors
-([SY-5173](https://linear.app/synnax/issue/SY-5173)).
+([SY-5173](https://linear.app/synnax/issue/SY-5173)). _(Amended by RFC 0116 §4.5: an Arc
+now follows a rename or move of a channel, and of a folder above a channel. The Arc
+service observes the change and rewrites the names in its own text after the rename
+commits. This decision stands for module renames.)_
 
 **5.7 Standard module names are reserved at depth 1.** A user `time` there would share
 the path of the standard `time`. If a later release adds a standard module that a user
@@ -187,4 +192,5 @@ renames the module.
 
 Parameterized sequences and stages, `=> name` inside imported code, modules in graph
 mode, Arc programs following renames, bundle import and export of modules (RFC 0052),
-access control on modules, and the Console beyond Phase 1's explorer work.
+access control on modules, and the Console beyond Phase 1's explorer work. _(Amended by
+RFC 0116 §4.5: Arc programs follow channel renames. Module renames stay out.)_

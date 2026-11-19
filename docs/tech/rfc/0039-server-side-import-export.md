@@ -684,6 +684,11 @@ deployment where those keys do not exist, the import succeeds and leaves referen
 unresolved. Missing channels appear as "not found" in the UI. The user fixes them.
 Import should not fail for a problem the user can fix after the fact.
 
+_(Superseded by RFC 0116 §4.6: an exported file names each channel by its full path.
+Import resolves each path to a key once and fails, with every path that matches nothing,
+unless the file makes that channel. A file from 0.61 that holds raw keys imports with
+the behavior above.)_
+
 ### 6.4 Authentication and authorization inherited from writer path
 
 Import calls through the existing Writer, which already enforces RBAC via the API auth

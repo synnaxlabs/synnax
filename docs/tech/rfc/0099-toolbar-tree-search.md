@@ -178,7 +178,9 @@ term now gets what it asked for. The palette is the only such caller.
    for each. A Channels-only build makes the next toolbar copy the path code.
 2. **The Core returns ancestors as links**: The other option was a path option on each
    domain search, which every API and every client language would carry. The Console now
-   makes one extra request for channel matches; the trade is real but small.
+   makes one extra request for channel matches; the trade is real but small. _(Amended
+   by RFC 0116 §4.2: the channel API gains a path option, `include_path`, because a
+   channel name is now unique only in its folder.)_
 3. **Groups match by their own name**: Matching a channel by any group in its path needs
    a Core index of path text that changes on each move or group rename.
 4. **The ontology search honors `types`, `limit`, `offset`, and `root`**: A

@@ -100,6 +100,10 @@ Status struct {
 - `unique`: At most one dependent per target. A field that holds no target is exempt.
 - `acyclic`: A chain of references in one table must not come back to its start.
 
+_(Amended by RFC 0116 §4.3: `on_delete` gains `weak`, which keeps the dependent
+unchanged when its target is deleted. A channel reference may also declare
+`direction read | write`, which Oracle reads and Gorp does not.)_
+
 A nil value, an empty array, and a zero scalar with a zero default (`= 0`, `= ""`) hold
 no target. A new reference uses `X?`. The zero rule exists for the stored task configs
 that use zero for "none" (§6).
@@ -146,7 +150,9 @@ stored entry already holds, so a rename reads no targets. Only queries that a `T
 builds are checked. Package-level queries such as `gorp.NewCreate` skip the checks, as
 they skip indexes. `Table.NewUncheckedWriter` keeps the indexes current and skips the
 checks and the delete plan. It is for migrations that write before their target tables
-open.
+open. _(Amended by RFC 0116 §4.3: Gorp does not check that the target of a `weak`
+reference exists. It checks only that the key was issued, through an optional predicate
+of the target table, so the reference can hold a deleted target.)_
 
 **Reverse index**: Each reference keeps an in-memory index from target to dependents,
 with one entry per array element, and a set of the entries that hold no target
@@ -402,4 +408,5 @@ PagerDuty `status` key) and `channel.index`. Each phase stacks on the one before
 - Template bindings. A later RFC builds them on these references.
 - Channel keys held in schematic symbol props, table cells, Arc programs,
   `alias.channel`, calculated channel expressions, and device property maps. Each stays
-  unchecked.
+  unchecked. _(Amended by RFC 0116 §4.3: schematic symbols, table cells, Arc programs,
+  and calculations now hold tracked references to channels.)_
