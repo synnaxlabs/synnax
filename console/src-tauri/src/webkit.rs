@@ -16,8 +16,10 @@ use std::path::Path;
 
 use tauri::Runtime;
 use tauri::plugin::{Builder, TauriPlugin};
-use webkit2gtk::glib::translate::ToGlibPtr;
-use webkit2gtk::{Settings, WebViewExt};
+use webkit2gtk::glib::subclass::SignalId;
+use webkit2gtk::glib::translate::{FromGlibPtrBorrow, IntoGlib, ToGlibPtr};
+use webkit2gtk::glib::{self, Cast, Class, StaticType, gobject_ffi};
+use webkit2gtk::{Settings, WebView, WebViewExt};
 
 #[repr(C)]
 struct FeatureList([u8; 0]);
@@ -60,9 +62,11 @@ fn has_render_node(dri: &Path) -> bool {
     })
 }
 
+type Features = Vec<(&'static CStr, bool)>;
+
 /// The features to set on each webview, for a WebKitGTK of the given major and minor
 /// version.
-fn features(render_node: bool, version: (u32, u32)) -> Vec<(&'static CStr, bool)> {
+fn features(render_node: bool, version: (u32, u32)) -> Features {
     if !render_node {
         return Vec::new();
     }
@@ -103,30 +107,67 @@ fn set(settings: &Settings, features: &[(&CStr, bool)]) {
     }
 }
 
+unsafe extern "C" fn on_parent_set(
+    _hint: *mut gobject_ffi::GSignalInvocationHint,
+    _n_params: u32,
+    params: *const gobject_ffi::GValue,
+    features: glib::ffi::gpointer,
+) -> glib::ffi::gboolean {
+    // SAFETY: the first parameter holds the widget that emits the signal, and the hook
+    // owns the features.
+    let (widget, features) = unsafe {
+        (
+            glib::Object::from_glib_borrow(gobject_ffi::g_value_get_object(params)),
+            &*features.cast::<Features>(),
+        )
+    };
+    let view = widget.downcast_ref::<WebView>();
+    if let Some(settings) = view.and_then(|v| v.settings()) {
+        set(&settings, features);
+    }
+    glib::ffi::GTRUE
+}
+
+unsafe extern "C" fn drop_features(features: glib::ffi::gpointer) {
+    // SAFETY: the pointer comes from the Box::into_raw in init.
+    drop(unsafe { Box::from_raw(features.cast::<Features>()) });
+}
+
 /// Sets the WebKitGTK features that Pluto needs on each webview the app creates. The
 /// app panics when it creates a webview if WebKitGTK lacks one of the features.
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
-    // SAFETY: the functions only read constants.
-    let version = unsafe {
-        (
-            webkit2gtk::ffi::webkit_get_major_version(),
-            webkit2gtk::ffi::webkit_get_minor_version(),
-        )
-    };
-    let features = features(has_render_node(Path::new("/dev/dri")), version);
     Builder::new("webkit")
-        .on_webview_ready(move |webview| {
-            let result = webview.with_webview({
-                let features = features.clone();
-                move |platform| {
-                    if let Some(settings) = platform.inner().settings() {
-                        set(&settings, &features);
-                    }
-                }
-            });
-            if let Err(e) = result {
-                eprintln!("failed to set the WebKitGTK features: {e}");
+        .setup(|_, _| {
+            // SAFETY: the functions only read constants.
+            let version = unsafe {
+                (
+                    webkit2gtk::ffi::webkit_get_major_version(),
+                    webkit2gtk::ffi::webkit_get_minor_version(),
+                )
+            };
+            let features = features(has_render_node(Path::new("/dev/dri")), version);
+            if features.is_empty() {
+                return Ok(());
             }
+            // WebKitGTK reads the features only when a webview starts its web process,
+            // on its first page load. wry adds each webview to its window just before
+            // that load, so a hook on parent-set reaches every webview in time.
+            let class = Class::<WebView>::from_type(WebView::static_type())
+                .expect("failed to load the WebKitGTK webview class");
+            let signal = SignalId::lookup("parent-set", class.type_())
+                .expect("GTK has no parent-set signal");
+            // SAFETY: GTK emits the signal on this thread, and drop_features frees the
+            // features only when the hook goes away.
+            unsafe {
+                gobject_ffi::g_signal_add_emission_hook(
+                    signal.into_glib(),
+                    0,
+                    Some(on_parent_set),
+                    Box::into_raw(Box::new(features)).cast(),
+                    Some(drop_features),
+                );
+            }
+            Ok(())
         })
         .build()
 }
