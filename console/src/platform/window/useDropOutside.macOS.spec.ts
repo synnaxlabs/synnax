@@ -59,6 +59,18 @@ describe("useDropOutside on macOS", () => {
     expect(onDrop).not.toHaveBeenCalled();
   });
 
+  it("should leave a drag that another window started to that window", async () => {
+    const { release } = interceptRelease();
+    const { onDrop } = await renderDropOutside({
+      key: "drag",
+      source: SOURCE,
+      items: [ITEM],
+    });
+    fireEvent.dragStart(document.body);
+    await act(async () => release(RELEASE));
+    expect(onDrop).not.toHaveBeenCalled();
+  });
+
   it("should not read the cursor until a drag starts", async () => {
     const { mouseRelease } = interceptRelease();
     await renderDropOutside();
