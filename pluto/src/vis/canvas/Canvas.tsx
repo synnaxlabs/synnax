@@ -40,7 +40,10 @@ type HTMLDivProps = DetailedHTMLProps<
   HTMLDivElement
 >;
 
-const ZERO_PROPS = { region: box.ZERO, dpr: 1, os: runtime.getOS() };
+// The render context needs an OS, so a user agent that names none draws as Windows.
+const getOS = (): runtime.OS => runtime.getOS() ?? "Windows";
+
+const ZERO_PROPS = { region: box.ZERO, dpr: 1, os: getOS() };
 
 interface Canvases {
   gl: HTMLCanvasElement | null;
@@ -102,7 +105,7 @@ const withRegion = (p: State, region: box.Box): State => ({
   gpuMissing: p.gpuMissing,
   region,
   dpr: window.devicePixelRatio,
-  os: runtime.getOS({ default: "Windows" }),
+  os: getOS(),
 });
 
 const DEFAULT_RESIZE_DEBOUNCE = TimeSpan.milliseconds(100);
@@ -195,7 +198,7 @@ export const Canvas = ({
       bootstrapped: false,
       region: box.construct(gl),
       dpr: window.devicePixelRatio,
-      os: runtime.getOS({ default: "Windows" }),
+      os: getOS(),
     };
     if (handoff === "bitmap") {
       const { port1, port2 } = new MessageChannel();

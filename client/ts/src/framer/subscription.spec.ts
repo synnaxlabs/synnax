@@ -268,8 +268,7 @@ describe("Feed.subscribe", () => {
 
     it("should draw streamed samples while the first history read runs", async () => {
       const core = createCore();
-      let release = (): void => {};
-      const released = new Promise<void>((resolve) => (release = resolve));
+      const { promise: released, resolve: release } = Promise.withResolvers<void>();
       const feed = core.openFeed({
         ...OPTIONS,
         readRemote: async (tr, keys, reduction) => {
@@ -1149,12 +1148,10 @@ describe("Feed.subscribe", () => {
       const key = core.index.key;
       let held = true;
       let entered = false;
-      let release = (): void => {};
-      const released = new Promise<void>((resolve) => (release = resolve));
+      const { promise: released, resolve: release } = Promise.withResolvers<void>();
       let read = false;
       let opens = 0;
-      let reopen = (): void => {};
-      const reopened = new Promise<void>((resolve) => (reopen = resolve));
+      const { promise: reopened, resolve: reopen } = Promise.withResolvers<void>();
       const feed = core.openFeed({
         ...OPTIONS,
         readRemote: async (tr, keys, reduction) => {
@@ -2247,8 +2244,7 @@ describe("Feed.subscribe", () => {
       core: SyntheticCore,
       held: (tr: TimeRange, keys: channel.Key[]) => boolean,
     ) => {
-      let release: () => void = () => {};
-      const released = new Promise<void>((resolve) => (release = resolve));
+      const { promise: released, resolve: release } = Promise.withResolvers<void>();
       let reads = 0;
       const feed = core.openFeed({
         ...OPTIONS,
