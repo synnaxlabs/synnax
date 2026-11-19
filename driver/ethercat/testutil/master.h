@@ -484,13 +484,6 @@ public:
         this->slave(position).status.state = state;
     }
 
-    /// @brief sets whether the slave at position is below PRE-OP for the next read of
-    /// it.
-    void set_slave_starting(const uint16_t position, const bool starting) {
-        std::lock_guard lock(this->mu);
-        this->slave(position).status.starting = starting;
-    }
-
     /// @brief sets the serial number that the next read of the slave at position
     /// gives.
     void set_slave_serial(const uint16_t position, const uint64_t serial) {
