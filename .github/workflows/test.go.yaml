@@ -118,6 +118,7 @@ jobs:
         with:
           fetch-depth: 0
           filter: blob:none
+          persist-credentials: false
 
       - name: Check that the module has no OS-specific code
         if: ${{ !inputs.os_specific && matrix.goos == 'linux' && matrix.shard == 1 }}
@@ -326,6 +327,8 @@ jobs:
 
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       # Go keeps its caches and build scratch on the OS disk (C:), whose ~14GB of
       # free space a --race --cover build of a large module overflows. RUNNER_TEMP
