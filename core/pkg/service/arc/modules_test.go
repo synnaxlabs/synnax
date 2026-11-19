@@ -223,7 +223,7 @@ um_link_trig == 1 => um_link_m.s
 				}
 			}
 		}
-		Expect(scopes).To(ContainElement("um_link_m.s"))
+		Expect(scopes).To(ContainElement("$um_link_m.s_0"))
 		Expect(result.Program.WASM).ToNot(BeEmpty())
 	})
 })

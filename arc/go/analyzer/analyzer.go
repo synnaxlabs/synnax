@@ -308,12 +308,10 @@ func bodyUses(
 ) {
 	var use antlr.ParserRuleContext
 	switch n := node.(type) {
-	case parser.ISequenceDeclarationContext, parser.IStageDeclarationContext:
-		if own, err := scope.GetChildByParserRule(
-			n.(antlr.ParserRuleContext),
-		); err == nil {
-			scope = own
-		}
+	case parser.ISequenceDeclarationContext:
+		scope = declaredScope(scope, n)
+	case parser.IStageDeclarationContext:
+		scope = declaredScope(scope, n)
 	case parser.IFunctionContext:
 		use = n
 	case parser.IFlowNodeContext:
@@ -333,6 +331,15 @@ func bodyUses(
 	for i := range node.GetChildCount() {
 		bodyUses(ctx, scope, node.GetChild(i), visit)
 	}
+}
+
+// declaredScope returns the scope that decl declares under scope, or scope when it
+// declares none.
+func declaredScope(scope *symbol.Symbol, decl antlr.ParserRuleContext) *symbol.Symbol {
+	if own, err := scope.GetChildByParserRule(decl); err == nil {
+		return own
+	}
+	return scope
 }
 
 // findCycleInSCC finds a simple cycle within the SCC for error reporting and returns

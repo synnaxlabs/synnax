@@ -1809,10 +1809,50 @@ var _ = Describe("Calls between sequences with parameters", func() {
 		))
 	})
 
-	It("Should allow a path back through a sequence with no parameters", func(
-		bCtx SpecContext,
-	) {
-		analyzeAndExpectWithResolver(bCtx, `
+	DescribeTable("Should reject a stage or sequence that uses itself",
+		func(bCtx SpecContext, source, message string) {
+			ctx := analyzeAndExpectErrorWithResolver(bCtx, source, chResolver)
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Message).To(MatchRegexp(message))
+		},
+		Entry("a sequence that names itself", `
+			sequence main {
+				main
+			}
+		`, `^circular function call: sequence 'main' cannot call itself$`),
+		Entry("a stage that names itself", `
+			stage hold {
+				hold
+			}
+		`, `^circular function call: stage 'hold' cannot call itself$`),
+		Entry("two stages that name each other", `
+			stage one {
+				two
+			}
+			stage two {
+				one
+			}
+		`, `^circular function call: stage '(one|two)' cannot call itself$`),
+		Entry("a sequence that names itself after a trigger", `
+			sequence main {
+				stage run {
+					ch > 0 => main
+				}
+			}
+		`, `^circular function call: sequence 'main' cannot call itself$`),
+		Entry("two sequences that name each other after a trigger", `
+			sequence main {
+				stage run {
+					ch > 0 => abort
+				}
+			}
+			sequence abort {
+				stage safe {
+					ch > 0 => main
+				}
+			}
+		`, `^circular function call: sequence '(main|abort)' cannot call itself$`),
+		Entry("a name and a call", `
 			sequence fill(valve chan f32) {
 				stage open {
 					ch > 0 => idle
@@ -1822,6 +1862,33 @@ var _ = Describe("Calls between sequences with parameters", func() {
 				stage wait {
 					ch > 0 => fill(ch)
 				}
+			}
+		`, `^circular function call: sequence '(fill|idle)' cannot call itself$`),
+		Entry("a name in an anonymous sequence", `
+			sequence main {
+				stage run {
+					ch > 0 => sequence {
+						main
+					}
+				}
+			}
+		`, `^circular function call: sequence 'main' cannot call itself$`),
+	)
+
+	It("Should allow a step with the name of a stage that uses the sequence", func(
+		bCtx SpecContext,
+	) {
+		analyzeAndExpectWithResolver(bCtx, `
+			sequence main {
+				sequence inner {
+					stage abort {}
+					stage run {
+						ch > 0 => abort
+					}
+				}
+			}
+			stage abort {
+				main
 			}
 		`, chResolver)
 	})

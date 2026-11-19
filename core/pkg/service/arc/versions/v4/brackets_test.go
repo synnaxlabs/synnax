@@ -269,9 +269,9 @@ median3(pt_1, pt_2, pt_3) -> tank_pt`)
 			got := v4.SwapBrackets(old)
 			Expect(got).To(Equal(want))
 			prog := MustSucceed(parser.Parse(got))
-			stage := prog.TopLevelItem(0).SequenceDeclaration().SequenceItem(0).
+			stage := prog.TopLevelItem(0).SequenceDeclaration().Body().BodyItem(0).
 				StageDeclaration()
-			Expect(stage.StageBody().AllStageItem()).To(HaveLen(2))
+			Expect(stage.Body().AllBodyItem()).To(HaveLen(2))
 		},
 		Entry(
 			"after a declaration",

@@ -12,8 +12,10 @@ package symbol_test
 import (
 	"context"
 
+	"github.com/antlr4-go/antlr/v4"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
@@ -396,6 +398,34 @@ var _ = Describe("Sequence parameters", func() {
 				Type: types.Function(types.FunctionProperties{Inputs: inputs}),
 			},
 			false),
+	)
+
+	DescribeTable("IsTemplate",
+		func(bCtx SpecContext, source string, nested, template bool) {
+			item := MustSucceed(parser.Parse(source)).TopLevelItem(0)
+			var ast antlr.ParserRuleContext = item.StageDeclaration()
+			if sequence := item.SequenceDeclaration(); sequence != nil {
+				ast = sequence
+			}
+			parent := symbol.NewRoot(nil, nil)
+			if nested {
+				parent = MustSucceed(parent.Add(bCtx, symbol.Symbol{
+					Name: "outer",
+					Kind: symbol.KindSequence,
+				}))
+			}
+			sym := MustSucceed(parent.Add(bCtx, symbol.Symbol{
+				Name: "main",
+				Kind: symbol.KindSequence,
+				Type: types.Sequence(),
+				AST:  ast,
+			}))
+			Expect(sym.IsTemplate()).To(Equal(template))
+		},
+		Entry("a named sequence at the top level", "sequence main {}", false, true),
+		Entry("a named stage at the top level", "stage main {}", false, true),
+		Entry("an anonymous sequence at the top level", "sequence {}", false, false),
+		Entry("a named sequence inside a sequence", "sequence main {}", true, false),
 	)
 
 	DescribeTable(

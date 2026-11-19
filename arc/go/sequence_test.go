@@ -650,7 +650,7 @@ var _ = Describe("Sequence", func() {
 		)
 
 		It(
-			"Hands off to a top-level scope from inside a nested sequence",
+			"Moves the parent on when a named sequence in a nested sequence completes",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(
 					map[string]channelDef{"log": {types.String(), 101}},
@@ -676,8 +676,8 @@ var _ = Describe("Sequence", func() {
 				settle(h, ctx)
 				out, _ := h.Flush()
 				Expect(drainStrings(out, 101)).To(
-					Equal([]string{"ramp", "abort"}),
-					"the cross-scope jump hands control away; hold must not run",
+					Equal([]string{"ramp", "abort", "hold"}),
+					"abort is the last step of ramp, so ramp completes with it",
 				)
 			},
 		)
@@ -1664,8 +1664,8 @@ var _ = Describe("Sequence", func() {
 			    }
 			}
 			1 => main`
-			// A later cmd == 2 reaches hold only while main is still running.
-			crossScope = `
+			// The copy of abort runs inside flight, so a later cmd == 2 reaches hold.
+			named = `
 			sequence main {
 			    stage flight {
 			        "flight" -> log
@@ -1731,20 +1731,20 @@ var _ = Describe("Sequence", func() {
 			Entry("next, ->, false", next, "->", uint8(0), []string{"a", "b"}),
 			Entry("next, ->, true", next, "->", uint8(1), []string{"a", "b"}),
 			Entry(
-				"cross-scope, =>, false",
-				crossScope, "=>", uint8(0), []string{"flight", "hold"},
+				"named body, =>, false",
+				named, "=>", uint8(0), []string{"flight", "hold"},
 			),
 			Entry(
-				"cross-scope, =>, true",
-				crossScope, "=>", uint8(1), []string{"flight", "abort"},
+				"named body, =>, true",
+				named, "=>", uint8(1), []string{"flight", "abort", "hold"},
 			),
 			Entry(
-				"cross-scope, ->, false",
-				crossScope, "->", uint8(0), []string{"flight", "abort"},
+				"named body, ->, false",
+				named, "->", uint8(0), []string{"flight", "abort", "abort", "hold"},
 			),
 			Entry(
-				"cross-scope, ->, true",
-				crossScope, "->", uint8(1), []string{"flight", "abort"},
+				"named body, ->, true",
+				named, "->", uint8(1), []string{"flight", "abort", "abort", "hold"},
 			),
 			Entry("root, =>, false", root, "=>", uint8(0), []string(nil)),
 			Entry("root, =>, true", root, "=>", uint8(1), []string{"main"}),
@@ -1757,9 +1757,8 @@ var _ = Describe("Sequence", func() {
 		)
 	})
 
-	// A jump to a top-level scope acts only when it is the first true jump in source
-	// order. It stops the whole top-level scope that holds it, then starts its target.
-	Describe("Jumps to a top-level scope", func() {
+	// A line that names a top-level stage or sequence starts a copy of it.
+	Describe("Names of a stage or sequence", func() {
 		const (
 			start uint32 = iota + 100
 			a
@@ -1855,7 +1854,7 @@ var _ = Describe("Sequence", func() {
 			}
 		}
 
-		const twoJumpsToAbort = `
+		const twoUsesOfAbort = `
 		sequence main {
 		    stage armed {
 		        "main" -> log
@@ -1869,19 +1868,19 @@ var _ = Describe("Sequence", func() {
 		start == 1 => main`
 
 		DescribeTable(
-			"Should start the target from each jump to it",
-			func(ctx SpecContext, jump string) {
-				p := open(ctx, twoJumpsToAbort)
+			"Should start a copy from each line that names the body",
+			func(ctx SpecContext, line string) {
+				p := open(ctx, twoUsesOfAbort)
 				p.write("start")
-				p.write(jump)
+				p.write(line)
 				Expect(p.phase()).To(Equal(phase{log: []string{"main", "abort"}}))
 			},
-			Entry("first jump", "a"),
-			Entry("second jump", "b"),
+			Entry("first line", "a"),
+			Entry("second line", "b"),
 		)
 
 		It(
-			"Should start the target from a jump and from an entry point",
+			"Should start a copy from a stage and from the top level",
 			func(ctx SpecContext) {
 				p := open(ctx, `
 			sequence main {
@@ -1902,7 +1901,7 @@ var _ = Describe("Sequence", func() {
 		)
 
 		DescribeTable(
-			"Should start a scope from each entry point to it",
+			"Should start a copy from each top-level flow",
 			func(ctx SpecContext, entry string) {
 				p := open(ctx, `
 				sequence main {
@@ -1913,19 +1912,19 @@ var _ = Describe("Sequence", func() {
 				p.write(entry)
 				Expect(p.phase()).To(Equal(phase{log: []string{"main"}}))
 			},
-			Entry("first entry point", "a"),
-			Entry("second entry point", "b"),
+			Entry("first flow", "a"),
+			Entry("second flow", "b"),
 		)
 
 		DescribeTable(
-			"Should act only on the first true jump in source order",
-			func(ctx SpecContext, source string, expected []string) {
+			"Should start each body whose line is true in the same cycle",
+			func(ctx SpecContext, source string) {
 				p := open(ctx, source)
 				p.write("start")
 				p.write("a", "b")
-				Expect(p.phase()).To(Equal(phase{log: expected}))
+				Expect(p.phase().log).To(ConsistOf("abort", "flight"))
 			},
-			Entry("two jumps in one stage", `
+			Entry("two lines in a stage of a sequence", `
 			sequence main {
 			    stage armed {
 			        a == 1 => abort
@@ -1934,195 +1933,21 @@ var _ = Describe("Sequence", func() {
 			}
 			sequence abort { stage s { "abort" -> log } }
 			sequence flight { stage f { "flight" -> log } }
-			start == 1 => main`, []string{"abort"}),
-			Entry("two jumps in a top-level stage", `
+			start == 1 => main`),
+			Entry("two lines in a top-level stage", `
 			stage armed {
 			    a == 1 => abort
 			    b == 1 => flight
 			}
 			sequence abort { stage s { "abort" -> log } }
 			sequence flight { stage f { "flight" -> log } }
-			start == 1 => armed`, []string{"abort"}),
-			Entry("a next before a jump", `
-			sequence main {
-			    stage armed {
-			        b == 1 => next
-			        a == 1 => abort
-			    }
-			    stage hold { "hold" -> log }
-			}
-			sequence abort { stage s { "abort" -> log } }
-			start == 1 => main`, []string{"hold"}),
-			Entry("a stage jump before a jump in its inline sequence", `
-			sequence main {
-			    stage armed {
-			        a == 1 => abort
-			        sequence { stage r { b == 1 => flight } }
-			    }
-			}
-			sequence abort { stage s { "abort" -> log } }
-			sequence flight { stage f { "flight" -> log } }
-			start == 1 => main`, []string{"abort"}),
-			Entry("a jump in an inline sequence before a stage jump", `
-			sequence main {
-			    stage armed {
-			        sequence { stage r { b == 1 => flight } }
-			        a == 1 => abort
-			    }
-			}
-			sequence abort { stage s { "abort" -> log } }
-			sequence flight { stage f { "flight" -> log } }
-			start == 1 => main`, []string{"flight"}),
+			start == 1 => armed`),
 		)
 
-		DescribeTable(
-			"Should act on an inner transition before the jump",
-			func(ctx SpecContext, source string) {
-				p := open(ctx, source)
-				p.write("start")
-				p.write("a", "b")
-				Expect(p.phase()).To(Equal(phase{log: []string{"r2", "abort"}}))
-			},
-			Entry("the jump in the enclosing stage", `
-			sequence main {
-			    stage armed {
-			        a == 1 => abort
-			        sequence {
-			            stage r { b == 1 => next }
-			            stage r2 { "r2" -> log }
-			        }
-			    }
-			}
-			sequence abort { stage s { "abort" -> log } }
-			start == 1 => main`),
-			Entry("the jump in the inner stage", `
-			sequence main {
-			    stage armed {
-			        sequence {
-			            stage r {
-			                a == 1 => abort
-			                b == 1 => next
-			            }
-			            stage r2 { "r2" -> log }
-			        }
-			    }
-			}
-			sequence abort { stage s { "abort" -> log } }
-			start == 1 => main`),
-		)
-
-		const flight = `
-		sequence flight {
-		    stage f {
-		        "flight" -> log
-		        probe -> alive_flight
-		    }
-		}`
-
-		DescribeTable(
-			"Should stop the whole top-level scope that holds the jump",
-			func(ctx SpecContext, source, name string) {
-				p := open(ctx, source+flight)
-				p.write("start")
-				p.write("a")
-				Expect(p.phase()).To(Equal(phase{log: []string{name, "flight"}}))
-				p.write("probe")
-				Expect(p.phase()).To(Equal(phase{alive: []string{"alive_flight"}}))
-				p.write("start")
-				Expect(p.phase()).To(Equal(phase{log: []string{name}}))
-			},
-			Entry("a stage of a sequence", `
-			sequence main {
-			    stage armed {
-			        "main" -> log
-			        probe -> alive_main
-			        a == 1 => flight
-			    }
-			}
-			start == 1 => main`, "main"),
-			Entry("an inline sequence in a stage", `
-			sequence main {
-			    stage armed {
-			        "main" -> log
-			        probe -> alive_main
-			        sequence {
-			            stage release {
-			                probe -> alive_inner
-			                a == 1 => flight
-			            }
-			        }
-			    }
-			}
-			start == 1 => main`, "main"),
-			Entry("a sequence that is a step", `
-			sequence main {
-			    sequence ramp {
-			        stage r {
-			            "main" -> log
-			            probe -> alive_inner
-			            a == 1 => flight
-			        }
-			    }
-			    stage hold { "hold" -> log }
-			}
-			start == 1 => main`, "main"),
-			Entry("a top-level stage", `
-			stage idle {
-			    "idle" -> log
-			    probe -> alive_main
-			    a == 1 => flight
-			}
-			start == 1 => idle`, "idle"),
-			Entry("an inline sequence in a top-level stage", `
-			stage idle {
-			    "idle" -> log
-			    probe -> alive_main
-			    sequence {
-			        stage release {
-			            probe -> alive_inner
-			            a == 1 => flight
-			        }
-			    }
-			}
-			start == 1 => idle`, "idle"),
-		)
-
-		It("Should restart a sequence that jumps to itself", func(ctx SpecContext) {
+		It("Should not act on a losing transition after its stage restarts", func(
+			ctx SpecContext,
+		) {
 			p := open(ctx, `
-			sequence main {
-			    stage armed {
-			        "main" -> log
-			        probe -> alive_main
-			        a == 1 => main
-			    }
-			}
-			start == 1 => main`)
-			p.write("start")
-			p.write("a")
-			Expect(p.phase()).To(Equal(phase{log: []string{"main", "main"}}))
-			p.write("probe")
-			Expect(p.phase()).To(Equal(phase{alive: []string{"alive_main"}}))
-		})
-
-		DescribeTable(
-			"Should not act on a losing transition after its scope restarts",
-			func(ctx SpecContext, source string, log []string) {
-				p := open(ctx, source)
-				p.write("start")
-				p.write("a", "b")
-				Expect(p.phase()).To(Equal(phase{log: log}))
-			},
-			Entry("a self-jump to a top-level scope", `
-			sequence main {
-			    stage armed {
-			        "main" -> log
-			        a == 1 => main
-			        b == 1 => flight
-			    }
-			}
-			sequence flight { stage f { "flight" -> log } }
-			start == 1 => main`, []string{"main", "main"}),
-			Entry("a stage that transitions to itself", `
 			sequence main {
 			    stage s {
 			        "s" -> log
@@ -2131,38 +1956,30 @@ var _ = Describe("Sequence", func() {
 			    }
 			    stage t { "t" -> log }
 			}
-			start == 1 => main`, []string{"s", "s"}),
-		)
+			start == 1 => main`)
+			p.write("start")
+			p.write("a", "b")
+			Expect(p.phase()).To(Equal(phase{log: []string{"s", "s"}}))
+		})
 
-		It(
-			"Should not restart a target that is already running",
-			func(ctx SpecContext) {
-				p := open(ctx, `
-			sequence main {
-			    stage armed {
-			        "main" -> log
-			        a == 1 => abort
-			    }
-			}
+		It("Should not start a copy again while it runs", func(ctx SpecContext) {
+			p := open(ctx, `
 			sequence abort {
 			    stage s {
 			        "abort" -> log
 			        probe -> alive_flight
 			    }
 			}
-			start == 1 => main
 			b == 1 => abort`)
-				p.write("b")
-				p.write("start")
-				p.write("a")
-				Expect(p.phase()).To(Equal(phase{log: []string{"abort", "main"}}))
-				p.write("probe")
-				Expect(p.phase()).To(Equal(phase{alive: []string{"alive_flight"}}))
-			},
-		)
+			p.write("b")
+			p.write("b")
+			Expect(p.phase()).To(Equal(phase{log: []string{"abort"}}))
+			p.write("probe")
+			Expect(p.phase()).To(Equal(phase{alive: []string{"alive_flight"}}))
+		})
 
 		DescribeTable(
-			"Should start the target in the cycle of the jump",
+			"Should start a copy in the cycle of the flow that starts it",
 			func(ctx SpecContext, source string) {
 				p := open(ctx, source)
 				p.write("start")
@@ -2170,13 +1987,13 @@ var _ = Describe("Sequence", func() {
 				p.writeOnce("a")
 				Expect(p.phase()).To(Equal(phase{log: []string{"flight"}}))
 			},
-			Entry("target declared after the source", `
+			Entry("a body declared after the flow", `
 			sequence main {
 			    stage armed { a == 1 => flight }
 			}
 			sequence flight { stage f { "flight" -> log } }
 			start == 1 => main`),
-			Entry("target declared before the source", `
+			Entry("a body declared before the flow", `
 			sequence flight { stage f { "flight" -> log } }
 			sequence main {
 			    stage armed { a == 1 => flight }
@@ -2184,32 +2001,12 @@ var _ = Describe("Sequence", func() {
 			start == 1 => main`),
 		)
 
-		DescribeTable(
+		It(
 			"Should not run a triggered body of a stage that left and entered again",
-			func(ctx SpecContext, source string, log []string) {
-				p := open(ctx, source)
-				p.write("start")
-				p.write("b")
-				p.write("a")
-				p.write("start")
-				Expect(p.phase()).To(Equal(phase{log: log}))
-				p.write("probe")
-				Expect(p.phase()).To(Equal(phase{}))
-				p.write("b")
-				p.write("probe")
-				Expect(p.phase()).To(Equal(phase{alive: []string{"alive_inner"}}))
-			},
-			Entry("left through a jump to a top-level scope", `
-			sequence main {
-			    stage armed {
-			        "armed" -> log
-			        b == 1 => stage { probe -> alive_inner }
-			        a == 1 => flight
-			    }
-			}
-			sequence flight { stage f { "flight" -> log } }
-			start == 1 => main`, []string{"armed", "flight", "armed"}),
-			Entry("left through a transition to another stage", `
+			func(
+				ctx SpecContext,
+			) {
+				p := open(ctx, `
 			sequence main {
 			    stage armed {
 			        "armed" -> log
@@ -2218,7 +2015,18 @@ var _ = Describe("Sequence", func() {
 			    }
 			    stage hold { start == 1 => armed }
 			}
-			start == 1 => main`, []string{"armed", "armed"}),
+			start == 1 => main`)
+				p.write("start")
+				p.write("b")
+				p.write("a")
+				p.write("start")
+				Expect(p.phase()).To(Equal(phase{log: []string{"armed", "armed"}}))
+				p.write("probe")
+				Expect(p.phase()).To(Equal(phase{}))
+				p.write("b")
+				p.write("probe")
+				Expect(p.phase()).To(Equal(phase{alive: []string{"alive_inner"}}))
+			},
 		)
 	})
 
@@ -10327,17 +10135,19 @@ var _ = Describe("Sequence", func() {
 			outA
 			outB
 			log
+			override
 		)
 		resolver := channelSymbols(map[string]channelDef{
-			"start_a": {types.U8(), int(startA)},
-			"start_b": {types.U8(), int(startB)},
-			"tank":    {types.F32(), int(tank)},
-			"gate":    {types.U8(), int(gate)},
-			"valve_a": {types.U8(), int(valveA)},
-			"valve_b": {types.U8(), int(valveB)},
-			"out_a":   {types.F32(), int(outA)},
-			"out_b":   {types.F32(), int(outB)},
-			"log":     {types.String(), int(log)},
+			"start_a":  {types.U8(), int(startA)},
+			"start_b":  {types.U8(), int(startB)},
+			"tank":     {types.F32(), int(tank)},
+			"gate":     {types.U8(), int(gate)},
+			"valve_a":  {types.U8(), int(valveA)},
+			"valve_b":  {types.U8(), int(valveB)},
+			"out_a":    {types.F32(), int(outA)},
+			"out_b":    {types.F32(), int(outB)},
+			"log":      {types.String(), int(log)},
+			"override": {types.F32(), int(override)},
 		})
 		open := func(ctx SpecContext, source string) *runtimeHarness {
 			GinkgoHelper()
@@ -10351,6 +10161,7 @@ var _ = Describe("Sequence", func() {
 				channels.Digest{Key: outA, DataType: telem.Float32T},
 				channels.Digest{Key: outB, DataType: telem.Float32T},
 				channels.Digest{Key: log, DataType: telem.StringT},
+				channels.Digest{Key: override, DataType: telem.Float32T},
 			)
 			DeferCleanup(func() { h.Close(ctx) })
 			return h
@@ -10918,31 +10729,6 @@ var _ = Describe("Sequence", func() {
 			Expect(drainStrings(out, log)).To(Equal([]string{"limit 10", "limit 20"}))
 		})
 
-		It("Should jump from an instance to a sequence with no parameters", func(
-			ctx SpecContext,
-		) {
-			h := open(ctx, `
-			sequence fill(limit f32, valve chan u8) {
-			    stage open {
-			        1 -> valve
-			        tank > limit => vent
-			    }
-			}
-			sequence vent {
-			    stage all {
-			        0 -> valve_a
-			        0 -> valve_b
-			    }
-			}
-			start_a == 1 => fill(10, valve_a)`)
-			trigger(h, ctx, startA)
-			h.Flush()
-			level(h, ctx, 15)
-			out, _ := h.Flush()
-			Expect(lastU8(out, valveA)).To(Equal(uint8(0)))
-			Expect(lastU8(out, valveB)).To(Equal(uint8(0)))
-		})
-
 		It("Should take a top-level variable computed at run time", func(
 			ctx SpecContext,
 		) {
@@ -10957,25 +10743,22 @@ var _ = Describe("Sequence", func() {
 			Expect(lastU8(out, valveA)).To(Equal(uint8(0)))
 		})
 
-		// arm makes call on gate. A second start_a, then start_b, sets l to 20.
-		arm := func(call string) string {
+		// arm holds line in a stage that writes override to its variable l.
+		arm := func(line string) string {
 			return `
-			sequence arm {
-			    l f32 $= 10
-			    stage wait {
-			        start_b == 1 => raise
-			        gate == 1 => ` + call + `
-			    }
-			    stage raise {
-			        20 -> l
-			    }
+			stage arm {
+			    l f32 := 10
+			    override -> l
+			    ` + line + `
 			}
 			start_a == 1 => arm`
 		}
-		// raise sets l to 20 while the instance that reads it runs.
+		// raise sets l to 20 while the copy that reads it runs.
 		raise := func(h *runtimeHarness, ctx SpecContext) {
-			trigger(h, ctx, startA)
-			trigger(h, ctx, startB)
+			h.Ingest(override, telem.NewSeriesV[float32](20))
+			for range 5 {
+				advance(h, ctx, telem.Millisecond)
+			}
 		}
 
 		DescribeTable("Should follow a variable of the caller while the instance runs",
@@ -10995,9 +10778,10 @@ var _ = Describe("Sequence", func() {
 				out, _ = h.Flush()
 				Expect(lastU8(out, valveA)).To(Equal(uint8(0)))
 			},
-			Entry("as the argument", fill+arm("fill(l, valve_a)"), float32(1)),
+			Entry("as the argument",
+				fill+arm("gate == 1 => fill(l, valve_a)"), float32(1)),
 			Entry("in an expression argument",
-				fill+arm("fill(l * 2, valve_a)"), float32(2)),
+				fill+arm("gate == 1 => fill(l * 2, valve_a)"), float32(2)),
 			Entry("in the same expression in the body", `
 			sequence fill(limit f32, valve chan u8) {
 			    stage open {
@@ -11007,7 +10791,11 @@ var _ = Describe("Sequence", func() {
 			    stage close {
 			        0 -> valve
 			    }
-			}`+arm("fill(l, valve_a)"), float32(2)),
+			}`+arm("gate == 1 => fill(l, valve_a)"), float32(2)),
+			Entry("in a bare call", fill+arm("fill(l, valve_a)"), float32(1)),
+			Entry("in a routing table entry", fill+arm(`gate == 1 -> select() -> {
+			        true: true => fill(l, valve_a)
+			    }`), float32(1)),
 		)
 
 		DescribeTable("Should follow a variable of the caller through a nested call",
@@ -11017,7 +10805,7 @@ var _ = Describe("Sequence", func() {
 				    stage wait {
 				        gate == 1 => `+call+`
 				    }
-				}`+arm("relay(l, valve_a)"))
+				}`+arm("gate == 1 => relay(l, valve_a)"))
 				trigger(h, ctx, startA)
 				trigger(h, ctx, gate)
 				trigger(h, ctx, gate)
@@ -11035,6 +10823,301 @@ var _ = Describe("Sequence", func() {
 			},
 			Entry("as the argument", "fill(limit, valve)", float32(1)),
 			Entry("in an expression argument", "fill(limit * 2, valve)", float32(2)),
+		)
+
+		// form is a stage or a sequence, with the text that uses it.
+		type form struct{ name, declaration, use string }
+		// forms returns items as each kind of stage or sequence, where limit is 10.
+		forms := func(keyword, items string) []form {
+			var (
+				body    = " {\n" + items + "\n}"
+				literal = strings.ReplaceAll(body, "limit", "10")
+			)
+			return []form{
+				{"a " + keyword, keyword + " watch" + literal, "watch"},
+				{
+					"a " + keyword + " with parameters",
+					keyword + " watch(limit f32)" + body,
+					"watch(10)",
+				},
+				{"an anonymous " + keyword, "", keyword + literal},
+			}
+		}
+		// both returns items as each kind of stage, and of sequence with one stage.
+		both := func(items string) []form {
+			return append(
+				forms("stage", items),
+				forms("sequence", "stage run {\n"+items+"\n}")...,
+			)
+		}
+		// uses returns an entry for each form.
+		uses := func(forms []form) []TableEntry {
+			entries := make([]TableEntry, len(forms))
+			for i, f := range forms {
+				entries[i] = Entry(f.name, f.declaration, f.use)
+			}
+			return entries
+		}
+		// starts returns an entry for each form with each way to start it.
+		starts := func(forms []form) []TableEntry {
+			entries := make([]TableEntry, 0, 3*len(forms))
+			for _, f := range forms {
+				entries = append(entries,
+					Entry(f.name+" with no trigger", f.declaration, f.use),
+					Entry(f.name+" on true", f.declaration, "true => "+f.use),
+					Entry(f.name+" on a trigger", f.declaration, "gate == 1 => "+f.use),
+				)
+			}
+			return entries
+		}
+		// watch is a body that writes tank plus 10 to out_a.
+		const watch = "tank + limit -> out_a"
+
+		DescribeTable("Should run a body inside the stage that holds it",
+			func(ctx SpecContext, declaration, use string) {
+				h := open(ctx, declaration+`
+				stage main {
+				    `+use+`
+				    tank -> out_b
+				}
+				start_a == 1 => main`)
+				trigger(h, ctx, startA)
+				trigger(h, ctx, gate)
+				level(h, ctx, 5)
+				out, _ := h.Flush()
+				Expect(lastF32(out, outA)).To(Equal(float32(15)))
+				Expect(lastF32(out, outB)).To(Equal(float32(5)))
+			},
+			starts(both(watch)),
+		)
+
+		DescribeTable("Should run a body as a step of the sequence that holds it",
+			func(ctx SpecContext, declaration, use string) {
+				h := open(ctx, declaration+`
+				sequence main {
+				    `+use+`
+				    1 -> valve_b
+				}
+				start_a == 1 => main`)
+				trigger(h, ctx, startA)
+				trigger(h, ctx, gate)
+				level(h, ctx, 5)
+				out, _ := h.Flush()
+				Expect(lastF32(out, outA)).To(Equal(float32(15)))
+				Expect(written(out, valveB)).To(BeFalse())
+			},
+			starts(both(watch)),
+		)
+
+		// stops runs line in a stage, then leaves the stage on start_b.
+		stops := func(ctx SpecContext, declaration, line string) {
+			GinkgoHelper()
+			h := open(ctx, declaration+`
+			sequence outer {
+			    stage main {
+			        `+line+`
+			        start_b == 1 => next
+			    }
+			    stage after {
+			        1 -> valve_b
+			    }
+			}
+			start_a == 1 => outer`)
+			trigger(h, ctx, startA)
+			trigger(h, ctx, gate)
+			level(h, ctx, 5)
+			out, _ := h.Flush()
+			Expect(lastF32(out, outA)).To(Equal(float32(15)))
+
+			trigger(h, ctx, startB)
+			out, _ = h.Flush()
+			Expect(lastU8(out, valveB)).To(Equal(uint8(1)))
+
+			level(h, ctx, 5)
+			out, _ = h.Flush()
+			Expect(written(out, outA)).To(BeFalse())
+		}
+
+		DescribeTable("Should stop a body when the stage that holds it stops",
+			func(ctx SpecContext, declaration, use string) {
+				stops(ctx, declaration, use)
+			},
+			starts(both(watch)),
+		)
+
+		DescribeTable("Should stop a body when the sequence that holds it stops",
+			func(ctx SpecContext, declaration, use string) {
+				stops(ctx, declaration, "sequence {\n"+use+"\n}")
+			},
+			starts(both(watch)),
+		)
+
+		// copies returns a program that uses each form two times, in each place.
+		copies := func() []TableEntry {
+			var (
+				stages    = forms("stage", "limit -> out_a")
+				sequences = forms("sequence", "limit -> out_a")
+				entries   = make([]TableEntry, 0, 2*len(stages)+3*len(sequences))
+			)
+			for _, f := range append(stages, sequences...) {
+				lines := "start_a == 1 => " + f.use + "\nstart_b == 1 => " + f.use
+				entries = append(entries,
+					Entry(f.name+" at the top level", f.declaration, lines),
+					Entry(f.name+" in a stage", f.declaration,
+						"stage main {\n"+lines+"\n}\ngate == 1 => main"),
+				)
+			}
+			for _, f := range sequences {
+				entries = append(entries, Entry(f.name+" in a sequence", f.declaration,
+					"sequence main {\nstart_a == 1 => "+f.use+
+						"\nstart_b == 1 => "+f.use+"\n}\ngate == 1 => main"))
+			}
+			return entries
+		}
+
+		DescribeTable("Should give each use its own copy",
+			func(ctx SpecContext, declaration, program string) {
+				h := open(ctx, declaration+"\n"+program)
+				trigger(h, ctx, gate)
+				trigger(h, ctx, startA)
+				out, _ := h.Flush()
+				Expect(lastF32(out, outA)).To(Equal(float32(10)))
+
+				trigger(h, ctx, startB)
+				out, _ = h.Flush()
+				Expect(lastF32(out, outA)).To(Equal(float32(10)))
+			},
+			copies(),
+		)
+
+		DescribeTable("Should not start a body again while it runs",
+			func(ctx SpecContext, declaration, use string) {
+				h := open(ctx, declaration+`
+				stage main {
+				    gate == 1 => `+use+`
+				}
+				start_a == 1 => main`)
+				trigger(h, ctx, startA)
+				trigger(h, ctx, gate)
+				out, _ := h.Flush()
+				Expect(lastF32(out, outA)).To(Equal(float32(10)))
+
+				trigger(h, ctx, gate)
+				out, _ = h.Flush()
+				Expect(written(out, outA)).To(BeFalse())
+			},
+			uses(both("limit -> out_a")),
+		)
+
+		DescribeTable("Should start a sequence again after it completes",
+			func(ctx SpecContext, declaration, use string) {
+				h := open(ctx, declaration+`
+				stage main {
+				    gate == 1 => `+use+`
+				}
+				start_a == 1 => main`)
+				trigger(h, ctx, startA)
+				for range 2 {
+					trigger(h, ctx, gate)
+					out, _ := h.Flush()
+					Expect(lastF32(out, outA)).To(Equal(float32(10)))
+				}
+			},
+			uses(forms("sequence", "limit -> out_a")),
+		)
+
+		DescribeTable(
+			"Should move a sequence to its next step when a body completes",
+			func(ctx SpecContext, declaration, use string) {
+				h := open(ctx, declaration+`
+				sequence main {
+				    `+use+`
+				    1 -> valve_b
+				}
+				start_a == 1 => main`)
+				trigger(h, ctx, startA)
+				trigger(h, ctx, gate)
+				level(h, ctx, 5)
+				out, _ := h.Flush()
+				Expect(written(out, valveB)).To(BeFalse())
+
+				level(h, ctx, 15)
+				level(h, ctx, 15)
+				out, _ = h.Flush()
+				Expect(lastU8(out, valveA)).To(Equal(uint8(1)))
+				Expect(lastU8(out, valveB)).To(Equal(uint8(1)))
+			},
+			starts(
+				forms(
+					"sequence",
+					"stage hold {\ntank > limit => next\n}\n1 -> valve_a",
+				),
+			),
+		)
+
+		DescribeTable("Should move a sequence to its next step on next in a stage",
+			func(ctx SpecContext, declaration, use string) {
+				h := open(ctx, declaration+`
+				sequence main {
+				    `+use+`
+				    1 -> valve_b
+				}
+				start_a == 1 => main`)
+				trigger(h, ctx, startA)
+				trigger(h, ctx, gate)
+				level(h, ctx, 5)
+				out, _ := h.Flush()
+				Expect(written(out, valveB)).To(BeFalse())
+
+				level(h, ctx, 15)
+				out, _ = h.Flush()
+				Expect(lastU8(out, valveB)).To(Equal(uint8(1)))
+			},
+			starts(forms("stage", "tank > limit => next")),
+		)
+
+		DescribeTable("Should end a body on next and keep its stage active",
+			func(ctx SpecContext, declaration, use string) {
+				h := open(ctx, declaration+`
+				stage main {
+				    `+use+`
+				    tank -> out_b
+				}
+				start_a == 1 => main`)
+				trigger(h, ctx, startA)
+				trigger(h, ctx, gate)
+				level(h, ctx, 5)
+				out, _ := h.Flush()
+				Expect(lastF32(out, outA)).To(Equal(float32(15)))
+
+				level(h, ctx, 25)
+				h.Flush()
+				level(h, ctx, 5)
+				out, _ = h.Flush()
+				Expect(written(out, outA)).To(BeFalse())
+				Expect(lastF32(out, outB)).To(Equal(float32(5)))
+			},
+			starts(both(watch+"\ntank > limit * 2 => next")),
+		)
+
+		DescribeTable("Should start a stage again after next ends it",
+			func(ctx SpecContext, declaration, use string) {
+				h := open(ctx, declaration+`
+				stage main {
+				    gate == 1 => `+use+`
+				}
+				start_a == 1 => main`)
+				trigger(h, ctx, startA)
+				for range 2 {
+					trigger(h, ctx, gate)
+					level(h, ctx, 5)
+					out, _ := h.Flush()
+					Expect(lastF32(out, outA)).To(Equal(float32(15)))
+					level(h, ctx, 25)
+					h.Flush()
+				}
+			},
+			uses(forms("stage", watch+"\ntank > limit * 2 => next")),
 		)
 
 		DescribeTable("Should take a variable that its sequence writes before the call",

@@ -1238,6 +1238,9 @@ trigger_ch -> emit_period(period=1s)
 sequence main {
 	r := count_ch + 1
 	r = count_ch + 2
+}
+stage {
+    main
 }`
 			h := newTextHarness(ctx, source, chans,
 				channels.Digest{Key: 100, DataType: telem.Int64T},

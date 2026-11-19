@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from dataclasses import dataclass
+from itertools import product
 from string import Template
 
 import synnax as sy
@@ -35,12 +37,14 @@ export stage hold(out chan f32, value f32) {
 }
 """
 
-# No flow calls the sequence, and its last stage has no stage after it.
+# No flow calls the sequence, and it starts a sequence that has no steps.
 UNCALLED_SOURCE = """
+sequence empty {}
+
 export sequence drain(valve chan bool) {
     stage open {
         true -> valve
-        pb_mod_go => next
+        pb_mod_go => empty
     }
 }
 """
@@ -60,6 +64,88 @@ export stage hold(valve chan bool = false) {
 }
 """,
 }
+
+# The text in front of a use for each way to start it.
+STARTS = {"bare": "", "true": "true => ", "trigger": "pb_matrix_go => "}
+
+
+def _marks(kind: str, out: str) -> str:
+    """Returns the braces of a stage or sequence that marks out when it starts."""
+    if kind == "stage":
+        return f"{{\n    true -> {out}\n}}"
+    return f"{{\n    stage run {{\n        true -> {out}\n    }}\n}}"
+
+
+@dataclass(frozen=True)
+class Use:
+    """One use of a stage or sequence in a stage or sequence that holds it."""
+
+    kind: str
+    form: str
+    holder: str
+    start: str
+
+    @property
+    def channel(self) -> str:
+        """The channel that the body marks when it starts."""
+        return f"pb_m_{self.kind}_{self.form}_{self.holder}_{self.start}"
+
+    @property
+    def after(self) -> str:
+        """The channel that the step after the body marks."""
+        return f"{self.channel}_after"
+
+    @property
+    def body(self) -> str:
+        """The name of the body with no parameters that this use has for its own."""
+        return self.channel.removeprefix("pb_")
+
+    @property
+    def line(self) -> str:
+        """The line of the holder that uses the body."""
+        text = {
+            "named": self.body,
+            "call": f"mark_{self.kind}({self.channel})",
+            "anonymous": f"{self.kind} {_marks(self.kind, self.channel)}",
+        }[self.form]
+        return STARTS[self.start] + text
+
+
+MATRIX = [
+    Use(*vector)
+    for vector in product(
+        ("stage", "sequence"),
+        ("named", "call", "anonymous"),
+        ("stage", "sequence"),
+        STARTS,
+    )
+]
+
+
+def _matrix_source() -> str:
+    """Returns the Arc source that holds each use of the matrix."""
+    parts = [
+        "stage mark_stage(out chan bool) " + _marks("stage", "out"),
+        "sequence mark_sequence(out chan bool) " + _marks("sequence", "out"),
+    ]
+    parts += [
+        f"{use.kind} {use.body} {_marks(use.kind, use.channel)}"
+        for use in MATRIX
+        if use.form == "named"
+    ]
+    held = "\n".join(use.line for use in MATRIX if use.holder == "stage")
+    parts.append(
+        "stage matrix {\npb_matrix_probe -> pb_matrix_alive\n"
+        f"{held}\n}}\npb_start => matrix"
+    )
+    parts += [
+        f"sequence {use.body}_holder {{\n{use.line}\ntrue -> {use.after}\n}}\n"
+        f"pb_start => {use.body}_holder"
+        for use in MATRIX
+        if use.holder == "sequence"
+    ]
+    return "\n".join(parts)
+
 
 # pb_start starts every instance, and each instance marks its readiness on entry.
 AUTOMATION_SOURCE = Template("""
@@ -345,6 +431,23 @@ pb_auth_go => take_seq(
     pb_auth_seq_high_b,
     pb_auth_seq_other_b
 )
+
+// ──── copies at the top level ────
+stage note_stage {
+    true -> pb_copy_stage
+}
+sequence note_sequence {
+    stage run {
+        true -> pb_copy_sequence
+    }
+}
+pb_copy_a => note_stage
+pb_copy_b => note_stage
+pb_copy_a => note_sequence
+pb_copy_b => note_sequence
+
+// ──── each form, holder, and start ────
+$matrix
 """)
 
 BOOL = sy.DataType.BOOLEAN
@@ -369,6 +472,10 @@ INPUTS: dict[str, sy.DataType] = {
     "pb_unit_go": BOOL,
     "pb_rescale_src": F32,
     "pb_rescale_go": BOOL,
+    "pb_copy_a": BOOL,
+    "pb_copy_b": BOOL,
+    "pb_matrix_go": BOOL,
+    "pb_matrix_probe": BOOL,
 }
 
 # The automation writes these channels, and the case reads them.
@@ -429,7 +536,10 @@ OUTPUTS: dict[str, sy.DataType] = {
     "pb_mod_b": F32,
     "pb_mod_hold_a": F32,
     "pb_mod_hold_b": F32,
+    "pb_matrix_alive": BOOL,
 }
+OUTPUTS |= {use.channel: BOOL for use in MATRIX}
+OUTPUTS |= {use.after: BOOL for use in MATRIX if use.holder == "sequence"}
 
 # The case holds the low and other channels at 220 and the high channels at 240, above
 # the automation at 200. Each name is pb_auth_<stage or seq>_<channel>_<instance>.
@@ -446,6 +556,9 @@ STAMPED: list[str] = [
     f"pb_wait_{body}_{edge}" for body in ("seq", "stage") for edge in ("begin", "end")
 ]
 
+# Each of these has an index, so the case can count the samples that the copies wrote.
+COUNTED: list[str] = ["pb_copy_stage", "pb_copy_sequence"]
+
 
 class ParameterizedBodies(ArcCase):
     """Each call of a sequence or stage with parameters runs as its own instance.
@@ -460,7 +573,7 @@ class ParameterizedBodies(ArcCase):
        string.
     6. The body passes a value parameter to a function input.
     7. An instance calls a second sequence with its own parameters. That instance
-       jumps to a sequence with no parameters.
+       starts a sequence with no parameters by its name.
     8. An inline body in the sequence belongs to one instance.
     9. The automation calls a sequence and a stage that a module exports, two times
        each. The sequence calls one that the module does not export.
@@ -479,17 +592,22 @@ class ParameterizedBodies(ArcCase):
     16. A sequence and a stage wait for a parameter in milliseconds that gets an
         argument of 1 s. The Driver stamps a sample before and after the wait, and
         the case fails if the two are less than 500 ms apart.
+    17. Two top-level flows start one stage, and two start one sequence. Each flow
+        starts its own copy.
+    18. A stage and a sequence hold each kind of body: a stage or a sequence, with
+        a name, with parameters, or anonymous. Each one starts with no trigger, on
+        true, and on a trigger. The holder keeps running.
     """
 
     arc_source = AUTOMATION_SOURCE.template
     arc_name_prefix = "ArcParameterizedBodies"
     start_cmd_channel = "pb_start"
-    subscribe_channels = [*OUTPUTS, *STAMPED]
+    subscribe_channels = [*OUTPUTS, *STAMPED, *COUNTED]
     start: sy.TimeStamp
 
     def setup(self) -> None:
         create_virtual_channels(self.client, list((INPUTS | OUTPUTS).items()))
-        for name in STAMPED:
+        for name in [*STAMPED, *COUNTED]:
             create_indexed_pair(self.client, name, data_type=BOOL)
         self.start = sy.TimeStamp.now()
         super().setup()
@@ -499,7 +617,7 @@ class ParameterizedBodies(ArcCase):
         self._retrieve_rack()
         library = self.load_module(LIBRARY_SOURCE, name_prefix="pb_library")
         self.arc_name = self.load_arc(
-            AUTOMATION_SOURCE.substitute(library=library),
+            AUTOMATION_SOURCE.substitute(library=library, matrix=_matrix_source()),
             name_prefix=self.arc_name_prefix,
             trigger=self.start_cmd_channel,
         )
@@ -528,6 +646,8 @@ class ParameterizedBodies(ArcCase):
         self._verify_uncalled_declaration(uncalled)
         self._verify_channel_default(defaults)
         self._verify_parameter_wait()
+        self._verify_copies_at_the_top_level()
+        self._verify_matrix()
 
     def _wait_for_ready(self, *channels: str) -> None:
         for channel in channels:
@@ -590,7 +710,7 @@ class ParameterizedBodies(ArcCase):
         self.writer.write("pb_go", 1)
         self.wait_for_eq("pb_pulse_a", 1)
         self.wait_for_eq("pb_pulse_b", 1)
-        self.log("Writing pb_stop=1 for the pulse instances to jump to safe")
+        self.log("Writing pb_stop=1 for the pulse instances to start safe")
         self.writer.write("pb_stop", 1)
         self.wait_for_eq("pb_safe", 1)
 
@@ -694,7 +814,7 @@ class ParameterizedBodies(ArcCase):
     def _verify_uncalled_declaration(self, path: str) -> None:
         self.log("The module with an error in a sequence that no flow calls")
         status = self.wait_for_module_status(path, "error", 10 * sy.TimeSpan.SECOND)
-        assert "'next' in last stage 'open'" in status.description, status
+        assert "sequence 'empty' has no steps" in status.description, status
 
     def _verify_channel_default(self, paths: dict[str, str]) -> None:
         for body, path in paths.items():
@@ -703,3 +823,40 @@ class ParameterizedBodies(ArcCase):
             assert (
                 "channel parameter 'valve' cannot have a default" in status.description
             ), status
+
+    def _verify_copies_at_the_top_level(self) -> None:
+        span = sy.TimeRange(self.start, sy.TimeStamp.MAX)
+        for trigger, count in (("pb_copy_a", 1), ("pb_copy_b", 2)):
+            self.log(f"Writing {trigger}=1 for copy {count} of each body to start")
+            self.writer.write(trigger, 1)
+            for name in COUNTED:
+
+                def written(name: str = name, count: int = count) -> bool | None:
+                    return len(self.client.read(span, name)) == count or None
+
+                if (
+                    sy.poll(written, timeout=5 * sy.TimeSpan.SECOND, interval=0.05)
+                    is None
+                ):
+                    self.fail(f"{name} does not hold {count} samples after {trigger}")
+
+    def _verify_matrix(self) -> None:
+        self.log("Each body with no trigger and each body on true must run")
+        for use in MATRIX:
+            if use.start != "trigger":
+                self.wait_for_eq(use.channel, 1)
+        self.log("No body on a trigger can run before the trigger")
+        for use in MATRIX:
+            if use.start == "trigger" and self.read_tlm(use.channel) is not None:
+                self.fail(f"{use.channel} ran before pb_matrix_go")
+        self.log("Writing pb_matrix_go=1 for each body on a trigger to start")
+        self.writer.write("pb_matrix_go", 1)
+        for use in MATRIX:
+            self.wait_for_eq(use.channel, 1)
+        self.log("Writing pb_matrix_probe=1 for the stage that holds the bodies")
+        self.writer.write("pb_matrix_probe", 1)
+        self.wait_for_eq("pb_matrix_alive", 1)
+        self.log("No sequence that holds a body can move to its next step")
+        for use in MATRIX:
+            if use.holder == "sequence" and self.read_tlm(use.after) is not None:
+                self.fail(f"{use.after} ran, so the sequence left {use.channel}")

@@ -10,6 +10,7 @@
 package flow_test
 
 import (
+	"github.com/antlr4-go/antlr/v4"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
@@ -139,6 +140,48 @@ var _ = Describe("Calls of a sequence or stage with parameters", func() {
 				low: true => main(20.0, valve_b)
 			}
 		`),
+		Entry("a call as a step of a sequence", `
+			sequence outer {
+				main(50.0, valve_a)
+			}
+		`),
+		Entry("a call as an item of a stage", `
+			stage outer {
+				main(50.0, valve_a)
+			}
+		`),
+		Entry("the name of a sequence as a step of a sequence", `
+			sequence plain {
+				1.0 -> valve_a
+			}
+			sequence outer {
+				plain
+			}
+		`),
+		Entry("the name of a stage as a step of a sequence", `
+			stage plain {
+				1.0 -> valve_a
+			}
+			sequence outer {
+				plain
+			}
+		`),
+		Entry("the name of a sequence as an item of a stage", `
+			sequence plain {
+				1.0 -> valve_a
+			}
+			stage outer {
+				plain
+			}
+		`),
+		Entry("the name of a stage as an item of a stage", `
+			stage plain {
+				1.0 -> valve_a
+			}
+			stage outer {
+				plain
+			}
+		`),
 	)
 
 	DescribeTable(
@@ -257,11 +300,24 @@ var _ = Describe("Calls of a sequence or stage with parameters", func() {
 				low: true => main(20.0, valve_b)
 			}
 		`, "invalid transition target: plain has no parameters"),
-		Entry("a call as a step", `
+		Entry("the name of a sequence with parameters as a step", `
 			sequence outer {
-				main(50.0, valve_a)
+				main
 			}
-		`, "main is not a function"),
+		`, "invalid transition target: main has parameters"),
+		Entry("a missing argument in a call that is a step", `
+			sequence outer {
+				main(50.0)
+			}
+		`, "missing required argument: parameter 'valve' of sequence 'main'"),
+		Entry("parentheses on a sequence that is a step", `
+			sequence plain {
+				1.0 -> valve_a
+			}
+			sequence outer {
+				plain()
+			}
+		`, "invalid transition target: plain has no parameters"),
 	)
 
 	It("Should take a module constant as a value argument", func(bCtx SpecContext) {
@@ -353,5 +409,110 @@ var _ = Describe("BodyNoun", func() {
 			To(Equal("sequence"))
 		Expect(flow.BodyNoun(MustSucceed(ctx.Scope.Resolve(bCtx, "hold")))).
 			To(Equal("stage"))
+	})
+})
+
+var _ = Describe("Uses of a stage or sequence by name", func() {
+	const declarations = `
+		sequence main(limit f64) {
+			stage press {
+			}
+		}
+		stage hold {
+		}
+	`
+	// analyze returns the context of declarations and source, with its syntax tree.
+	analyze := func(
+		bCtx SpecContext,
+		source string,
+	) (context.Context[parser.IProgramContext], parser.IProgramContext) {
+		GinkgoHelper()
+		ast := MustSucceed(parser.Parse(declarations + source))
+		ctx := context.NewRoot(bCtx, ast, NewRoot(nil, symbol.Symbol{
+			Name: "start",
+			Kind: symbol.KindChannel,
+			Type: types.Chan(types.Bool()),
+			ID:   1,
+		}))
+		analyzer.AnalyzeProgram(ctx)
+		return ctx, ast
+	}
+	// item returns the expression that is the first item of the third declaration.
+	item := func(ast parser.IProgramContext) parser.IExpressionContext {
+		return ast.TopLevelItem(2).StageDeclaration().Body().BodyItem(0).
+			SingleInvocation().Expression()
+	}
+
+	Describe("UsedBody", func() {
+		It("Should find a call, a name in a flow, and a name that is an item", func(
+			bCtx SpecContext,
+		) {
+			ctx, ast := analyze(bCtx, `
+				sequence outer {
+					stage press {
+					}
+					stage run {
+						start => main(1.0)
+						start => hold
+						start => press
+						hold
+					}
+				}
+			`)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			outer := MustSucceed(ctx.Scope.Resolve(bCtx, "outer"))
+			run := ctx.WithScope(MustSucceed(outer.Resolve(bCtx, "run")))
+			var found []string
+			var walk func(node antlr.Tree)
+			walk = func(node antlr.Tree) {
+				var use antlr.ParserRuleContext
+				switch n := node.(type) {
+				case parser.IIdentifierContext:
+					use = n
+				case parser.IFunctionContext:
+					use = n
+				case parser.IExpressionContext:
+					use = n
+				}
+				if use != nil && flow.UsedBody(run, use) != nil {
+					found = append(found, use.GetText())
+				}
+				for i := range node.GetChildCount() {
+					walk(node.GetChild(i))
+				}
+			}
+			walk(ast.TopLevelItem(2))
+			Expect(found).To(Equal([]string{"main(1.0)", "hold", "hold"}))
+		})
+	})
+
+	Describe("AnalyzeBodyName", func() {
+		It("Should accept the name of a stage with no parameters", func(
+			bCtx SpecContext,
+		) {
+			ctx, ast := analyze(bCtx, "stage holder {\nhold\n}")
+			Expect(flow.AnalyzeBodyName(ctx.Child(item(ast)))).To(BeTrue())
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		})
+
+		It("Should report the name of a sequence with parameters", func(
+			bCtx SpecContext,
+		) {
+			ctx, ast := analyze(bCtx, "stage holder {\nmain\n}")
+			Expect(flow.AnalyzeBodyName(ctx.Child(item(ast)))).To(BeTrue())
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			d := (*ctx.Diagnostics)[0]
+			Expect(
+				d.Message,
+			).To(Equal("invalid transition target: main has parameters"))
+			Expect(d.Notes[0].Message).To(Equal("use main()"))
+		})
+
+		It("Should leave an expression that names no stage or sequence", func(
+			bCtx SpecContext,
+		) {
+			ctx, ast := analyze(bCtx, "stage holder {\nstart\n}")
+			Expect(flow.AnalyzeBodyName(ctx.Child(item(ast)))).To(BeFalse())
+		})
 	})
 })

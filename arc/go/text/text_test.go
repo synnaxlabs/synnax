@@ -76,19 +76,32 @@ func countNodesByType(nodes ir.Nodes, nodeType string) int {
 	return count
 }
 
-// findTopLevelScope returns the top-level Scope member whose key matches.
-// Fails the spec if no such member exists. Top-level scopes are always
-// members of the root scope's first stratum.
+// runMain is a stage that runs the stage or sequence main from the start.
+const runMain = "\nstage {\nmain\n}"
+
+// findTopLevelScope returns the scope keyed key, or the first copy of the stage or
+// sequence named key. Fails the spec if the program holds neither.
 func findTopLevelScope(prog ir.IR, key string) ir.Scope {
 	GinkgoHelper()
-	for _, stratum := range prog.Root.Strata {
-		for _, m := range stratum {
-			if m.Scope != nil && m.Scope.Key == key {
-				return *m.Scope
+	var find func(s ir.Scope) *ir.Scope
+	find = func(s ir.Scope) *ir.Scope {
+		for _, m := range slices.Concat(slices.Concat(s.Strata...), s.Steps) {
+			if m.Scope == nil {
+				continue
+			}
+			if m.Scope.Key == key || strings.HasPrefix(m.Scope.Key, "$"+key+"_") {
+				return m.Scope
+			}
+			if found := find(*m.Scope); found != nil {
+				return found
 			}
 		}
+		return nil
 	}
-	Fail("expected top-level scope '" + key + "' to exist")
+	if found := find(prog.Root); found != nil {
+		return *found
+	}
+	Fail("expected scope '" + key + "' to exist")
 	return ir.Scope{}
 }
 
@@ -259,6 +272,9 @@ var _ = Describe("Text", func() {
 					count_ch -> counter
 					counter -> out_ch
 				}
+			}
+			stage {
+			    main
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(
@@ -293,6 +309,9 @@ var _ = Describe("Text", func() {
 				stage s1 {
 					count_ch -> r
 				}
+			}
+			stage {
+			    main
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diagnostics := text.Analyze(
@@ -316,6 +335,9 @@ var _ = Describe("Text", func() {
 				stage s1 {
 					k -> out_ch
 				}
+			}
+			stage {
+			    main
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(
@@ -365,6 +387,9 @@ var _ = Describe("Text", func() {
 				stage s1 {
 					count_ch -> k
 				}
+			}
+			stage {
+			    main
 			}`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			_, diagnostics := text.Analyze(
@@ -387,6 +412,9 @@ var _ = Describe("Text", func() {
 				stage s1 {
 					count_ch -> total
 				}
+			}
+			stage {
+			    main
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(
@@ -411,6 +439,9 @@ var _ = Describe("Text", func() {
 				stage s1 {
 					p = out_ch
 				}
+			}
+			stage {
+			    main
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(
@@ -496,6 +527,9 @@ var _ = Describe("Text", func() {
 				stage s2 {
 					p = backup_f
 				}
+			}
+			stage {
+			    main
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(
@@ -538,7 +572,7 @@ var _ = Describe("Text", func() {
 			"Should convert a literal to the unit of the variable it is written to",
 			func(ctx SpecContext, declaration, write string, expected any) {
 				source := "sequence main {\n" + declaration + "\nstage s1 {\n" + write +
-					" -> d\n}\n}"
+					" -> d\n}\n}" + runMain
 				inter, diagnostics := analyzeText(ctx, source)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 				value := MustBeOk(
@@ -567,7 +601,7 @@ var _ = Describe("Text", func() {
 			"Should convert a variable written to a variable of another unit",
 			func(ctx SpecContext, declarations, write, from, to string) {
 				source := "sequence main {\n" + declarations + "\nstage s1 {\n" + write +
-					"\ncount_ch -> f\"{d} {other}\" -> msg_ch\n}\n}"
+					"\ncount_ch -> f\"{d} {other}\" -> msg_ch\n}\n}" + runMain
 				resolver := append([]symbol.Symbol{{
 					Name: "msg_ch",
 					Kind: symbol.KindChannel,
@@ -1163,6 +1197,9 @@ var _ = Describe("Text", func() {
 			        d = 6s
 			        count_ch -> hold(x=d) -> count_ch
 			    }
+			}
+			stage {
+			    main
 			}`
 			inter, diagnostics := analyzeText(ctx, source)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1195,6 +1232,9 @@ var _ = Describe("Text", func() {
 			        d = 6s
 			        count_ch -> wait(duration=d) -> flag_ch
 			    }
+			}
+			stage {
+			    main
 			}`
 			inter, diagnostics := analyzeText(ctx, source)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1250,6 +1290,9 @@ var _ = Describe("Text", func() {
 					1 -> stamp(tag="seed") -> fp
 					flag_ch -> stamp(tag=fp) -> out_str
 				}
+			}
+			stage {
+			    main
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(
@@ -1307,6 +1350,9 @@ var _ = Describe("Text", func() {
 					span_ch -> d
 					flag_ch -> wait(duration=d) -> done_ch
 				}
+			}
+			stage {
+			    main
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(
@@ -1351,6 +1397,9 @@ var _ = Describe("Text", func() {
 				stage s1 {
 					flag_ch -> stamp(tag=k) -> out_str
 				}
+			}
+			stage {
+			    main
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(
@@ -1384,6 +1433,9 @@ var _ = Describe("Text", func() {
 					count_ch -> acc
 					flag_ch -> my_func(tag=acc) -> out_ch
 				}
+			}
+			stage {
+			    main
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(
@@ -1435,6 +1487,9 @@ var _ = Describe("Text", func() {
 					span_ch -> d
 					flag_ch -> wait(duration=d) -> done_ch
 				}
+			}
+			stage {
+			    main
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(
@@ -1472,6 +1527,9 @@ var _ = Describe("Text", func() {
 				stage s1 {
 					flag_ch -> my_func(tag=acc) -> out_ch
 				}
+			}
+			stage {
+			    main
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(
@@ -1508,6 +1566,9 @@ var _ = Describe("Text", func() {
 				stage s1 {
 					flag_ch -> wait(duration=d) -> done_ch
 				}
+			}
+			stage {
+			    main
 			}`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			inter, diagnostics := text.Analyze(
@@ -1552,6 +1613,9 @@ var _ = Describe("Text", func() {
 					span_ch -> d
 					flag_ch -> wait(duration=d) -> done_ch
 				}
+			}
+			stage {
+			    main
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(
@@ -1587,6 +1651,9 @@ var _ = Describe("Text", func() {
 				stage s1 {
 					flag_ch -> my_func(tag=k) -> out_ch
 				}
+			}
+			stage {
+			    main
 			}`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			inter, diagnostics := text.Analyze(
@@ -1619,6 +1686,9 @@ var _ = Describe("Text", func() {
 				stage s1 {
 					flag_ch -> my_func(tag=k) -> out_ch
 				}
+			}
+			stage {
+			    main
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(
@@ -1648,6 +1718,9 @@ var _ = Describe("Text", func() {
 				stage s1 {
 					flag_ch -> my_func(tag=r) -> out_ch
 				}
+			}
+			stage {
+			    main
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(
@@ -1677,6 +1750,9 @@ var _ = Describe("Text", func() {
 				stage s1 {
 					reader(channel=r) -> out_ch
 				}
+			}
+			stage {
+			    main
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diagnostics := text.Analyze(
@@ -1712,6 +1788,9 @@ var _ = Describe("Text", func() {
 				stage s1 {
 					flag_ch -> wait(duration=r) -> done_ch
 				}
+			}
+			stage {
+			    main
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(
@@ -1778,6 +1857,9 @@ var _ = Describe("Text", func() {
 						str_ch -> t
 						flag_ch -> t -> out_str
 					}
+				}
+				stage {
+				    main
 				}`
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 					inter, diagnostics := text.Analyze(
@@ -1819,6 +1901,9 @@ var _ = Describe("Text", func() {
 					stage s2 {
 						k = 9
 					}
+				}
+				stage {
+				    main
 				}`
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 					inter, diagnostics := text.Analyze(
@@ -1853,6 +1938,9 @@ var _ = Describe("Text", func() {
 						count_ch -> k
 						k -> out_ch
 					}
+				}
+				stage {
+				    main
 				}`
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 					inter, diagnostics := text.Analyze(
@@ -1888,6 +1976,9 @@ var _ = Describe("Text", func() {
 					stage s1 {
 						flag_ch -> t -> out_str
 					}
+				}
+				stage {
+				    main
 				}`
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 					inter, diagnostics := text.Analyze(
@@ -1920,6 +2011,9 @@ var _ = Describe("Text", func() {
 						flag_ch -> k -> out_ch
 						flag_ch -> k -> sink_ch
 					}
+				}
+				stage {
+				    main
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(
@@ -1950,6 +2044,9 @@ var _ = Describe("Text", func() {
 						count_ch -> acc
 						flag_ch -> acc -> out_ch
 					}
+				}
+				stage {
+				    main
 				}`
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 					inter, diagnostics := text.Analyze(
@@ -1983,6 +2080,9 @@ var _ = Describe("Text", func() {
 						count_ch -> k
 						flag_ch -> k -> double() -> out_ch
 					}
+				}
+				stage {
+				    main
 				}`
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 					inter, diagnostics := text.Analyze(
@@ -2069,6 +2169,9 @@ var _ = Describe("Text", func() {
 					stage s2 {
 						k = 9
 					}
+				}
+				stage {
+				    main
 				}`)
 					vars := variableNodes(inter)
 					Expect(vars).To(HaveLen(1))
@@ -2098,6 +2201,9 @@ var _ = Describe("Text", func() {
 					stage s2 {
 						k = 9
 					}
+				}
+				stage {
+				    main
 				}`)
 					vars := variableNodes(inter)
 					Expect(vars).To(HaveLen(1))
@@ -2122,6 +2228,9 @@ var _ = Describe("Text", func() {
 					stage s2 {
 						k = 9
 					}
+				}
+				stage {
+				    main
 				}`)
 					synth := lo.Filter(
 						inter.Functions,
@@ -2151,6 +2260,9 @@ var _ = Describe("Text", func() {
 					stage s2 {
 						k = 9
 					}
+				}
+				stage {
+				    main
 				}`)
 					vars := variableNodes(inter)
 					Expect(vars).To(HaveLen(1))
@@ -2173,6 +2285,9 @@ var _ = Describe("Text", func() {
 						count_ch -> acc
 						flag_ch -> f"a={acc}" -> msg_ch
 					}
+				}
+				stage {
+				    main
 				}`)
 					vars := variableNodes(inter)
 					Expect(vars).To(HaveLen(1))
@@ -2193,6 +2308,9 @@ var _ = Describe("Text", func() {
 					stage s1 {
 						flag_ch -> f"r={r}" -> msg_ch
 					}
+				}
+				stage {
+				    main
 				}`)
 					vars := variableNodes(inter)
 					Expect(vars).To(HaveLen(1))
@@ -2217,6 +2335,9 @@ var _ = Describe("Text", func() {
 					stage s2 {
 						src = backup_f
 					}
+				}
+				stage {
+				    main
 				}`)
 					fmtNode := MustBeOk(findExpression(inter))
 					p := MustBeOk(fmtNode.Inputs.Get("src"))
@@ -2240,6 +2361,9 @@ var _ = Describe("Text", func() {
 						a = 3
 						b = 4
 					}
+				}
+				stage {
+				    main
 				}`)
 					vars := variableNodes(inter)
 					Expect(vars).To(HaveLen(2))
@@ -2266,6 +2390,9 @@ var _ = Describe("Text", func() {
 					stage s2 {
 						k = 9
 					}
+				}
+				stage {
+				    main
 				}`)
 					fmtNode := MustBeOk(findExpression(inter))
 					p := MustBeOk(fmtNode.Inputs.Get("k"))
@@ -2284,6 +2411,9 @@ var _ = Describe("Text", func() {
 						counter i64 := 0
 						1 => counter + 1 => counter
 					}
+				}
+				stage {
+				    main
 				}`)
 					vars := variableNodes(inter)
 					Expect(vars).To(HaveLen(1))
@@ -2305,6 +2435,9 @@ var _ = Describe("Text", func() {
 					stage s1 {
 						flag_ch -> f"v={k}" -> msg_ch
 					}
+				}
+				stage {
+				    main
 				}`)
 					Expect(variableNodes(inter)).To(BeEmpty())
 					fmtNode := MustBeOk(findExpression(inter))
@@ -2327,6 +2460,9 @@ var _ = Describe("Text", func() {
 					r = count_ch * 2
 					flag_ch -> my_func(tag=r) -> out_ch
 				}
+			}
+			stage {
+			    main
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(
@@ -2356,6 +2492,9 @@ var _ = Describe("Text", func() {
 					r = count_ch * 2
 					reader(channel=r) -> out_ch
 				}
+			}
+			stage {
+			    main
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diagnostics := text.Analyze(
@@ -2380,6 +2519,9 @@ var _ = Describe("Text", func() {
 				stage s1 {
 					flag_ch -> my_func(tag=r + 1) -> out_ch
 				}
+			}
+			stage {
+			    main
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(
@@ -2421,6 +2563,9 @@ var _ = Describe("Text", func() {
 				stage s1 {
 					flag_ch -> my_func(tag=w) -> out_ch
 				}
+			}
+			stage {
+			    main
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diagnostics := text.Analyze(
@@ -2445,6 +2590,9 @@ var _ = Describe("Text", func() {
 				stage s1 {
 					reader(channel=a) -> out_ch
 				}
+			}
+			stage {
+			    main
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(
@@ -2491,6 +2639,9 @@ var _ = Describe("Text", func() {
 				stage s1 {
 					count_ch -> writer(channel=w)
 				}
+			}
+			stage {
+			    main
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(
@@ -2526,6 +2677,9 @@ var _ = Describe("Text", func() {
 					a = sink_ch
 					reader(channel=a) -> out_ch
 				}
+			}
+			stage {
+			    main
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diagnostics := text.Analyze(
@@ -2552,6 +2706,9 @@ var _ = Describe("Text", func() {
 				stage s2 {
 					a = sink_ch
 				}
+			}
+			stage {
+			    main
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(
@@ -2597,6 +2754,9 @@ var _ = Describe("Text", func() {
 				stage s2 {
 					w = cmd2_ch
 				}
+			}
+			stage {
+			    main
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(
@@ -2625,6 +2785,9 @@ var _ = Describe("Text", func() {
 				stage s1 {
 					reader(channel=d) -> out_ch
 				}
+			}
+			stage {
+			    main
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diagnostics := text.Analyze(
@@ -2649,6 +2812,9 @@ var _ = Describe("Text", func() {
 				stage s1 {
 					reader(channel=d) -> out_ch
 				}
+			}
+			stage {
+			    main
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diagnostics := text.Analyze(
@@ -2671,6 +2837,9 @@ var _ = Describe("Text", func() {
 				stage s1 {
 					flag_ch -> my_func(tag=p) -> out_ch
 				}
+			}
+			stage {
+			    main
 			}`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			_, diagnostics := text.Analyze(
@@ -2696,15 +2865,15 @@ var _ = Describe("Text", func() {
 			},
 			Entry("top-level source", "y := 1 + 2\ny -> out_ch"),
 			Entry("stage source",
-				"sequence main {\nstage a {\ny := 1 + 2\ny -> out_ch\n}\n}"),
+				"sequence main {\nstage a {\ny := 1 + 2\ny -> out_ch\n}\n}"+runMain),
 			Entry("stage sink",
-				"sequence main {\nstage a {\ny := 1 + 2\ncount_ch -> y\n}\n}"),
+				"sequence main {\nstage a {\ny := 1 + 2\ncount_ch -> y\n}\n}"+runMain),
 			Entry("derived from a reactive variable",
 				"sequence main {\na i64 := count_ch + 1\ny i64 := a + 2\n"+
-					"stage s {\ny -> sink_ch\n}\n}"),
+					"stage s {\ny -> sink_ch\n}\n}"+runMain),
 			Entry("written and read in a sequence",
 				"sequence main {\ny := 1 + 2\nstage a {\ncount_ch -> y\n"+
-					"y -> out_ch\n}\n}"),
+					"y -> out_ch\n}\n}"+runMain),
 		)
 
 		DescribeTable("Should lower reactive re-expression and alias rebind",
@@ -2724,6 +2893,9 @@ var _ = Describe("Text", func() {
 					stage s1 {
 						r = count_ch + 2
 					}
+				}
+				stage {
+				    main
 				}`),
 			Entry("channel read/write alias rebound to another channel", `
 				sequence main {
@@ -2734,6 +2906,9 @@ var _ = Describe("Text", func() {
 					stage s2 {
 						p = out_ch
 					}
+				}
+				stage {
+				    main
 				}`),
 			Entry("alias drives a flow after rebind", `
 				sequence main {
@@ -2741,6 +2916,9 @@ var _ = Describe("Text", func() {
 					stage s1 {
 						p -> sink_ch
 					}
+				}
+				stage {
+				    main
 				}`),
 			Entry("reactive variable reassigned across two stages", `
 				sequence main {
@@ -2752,6 +2930,9 @@ var _ = Describe("Text", func() {
 					stage s2 {
 						r = count_ch + 3
 					}
+				}
+				stage {
+				    main
 				}`),
 			Entry("alias rebound in two stages", `
 				sequence main {
@@ -2763,6 +2944,9 @@ var _ = Describe("Text", func() {
 					stage s2 {
 						p = sink_ch
 					}
+				}
+				stage {
+				    main
 				}`),
 			Entry("reactive variable feeds a flow and is reassigned", `
 				sequence main {
@@ -2771,6 +2955,9 @@ var _ = Describe("Text", func() {
 						r -> out_ch
 						r = count_ch + 2
 					}
+				}
+				stage {
+				    main
 				}`),
 			Entry("alias is written by a flow", `
 				sequence main {
@@ -2778,6 +2965,9 @@ var _ = Describe("Text", func() {
 					stage s1 {
 						out_ch -> p
 					}
+				}
+				stage {
+				    main
 				}`),
 			Entry("alias written by a flow then rebound", `
 				sequence main {
@@ -2789,6 +2979,9 @@ var _ = Describe("Text", func() {
 					stage s2 {
 						p = sink_ch
 					}
+				}
+				stage {
+				    main
 				}`),
 			Entry("value variable written then read in a flow", `
 				sequence main {
@@ -2797,6 +2990,9 @@ var _ = Describe("Text", func() {
 						count_ch -> v
 						v -> out_ch
 					}
+				}
+				stage {
+				    main
 				}`),
 			Entry("reactive variable reassigned across three stages", `
 				sequence main {
@@ -2812,6 +3008,9 @@ var _ = Describe("Text", func() {
 					stage s3 {
 						r = count_ch + 4
 					}
+				}
+				stage {
+				    main
 				}`),
 			Entry("alias read in a transition then written", `
 				sequence main {
@@ -2822,6 +3021,9 @@ var _ = Describe("Text", func() {
 					}
 					stage s2 {
 					}
+				}
+				stage {
+				    main
 				}`),
 			Entry("value variable initialized then reassigned to a literal", `
 				sequence main {
@@ -2832,6 +3034,9 @@ var _ = Describe("Text", func() {
 					stage s2 {
 						level = 10
 					}
+				}
+				stage {
+				    main
 				}`),
 			Entry("value variable copied from another value variable", `
 				sequence main {
@@ -2841,6 +3046,9 @@ var _ = Describe("Text", func() {
 						count_ch -> v
 						w = v
 					}
+				}
+				stage {
+				    main
 				}`),
 			Entry("alias read in an expression in a later stage", `
 				sequence main {
@@ -2851,6 +3059,9 @@ var _ = Describe("Text", func() {
 					stage s2 {
 						p + 1 -> out_ch
 					}
+				}
+				stage {
+				    main
 				}`),
 			Entry("reactive variable copied to a value variable", `
 				sequence main {
@@ -2859,6 +3070,9 @@ var _ = Describe("Text", func() {
 					stage s1 {
 						m = r
 					}
+				}
+				stage {
+				    main
 				}`),
 		)
 
@@ -2882,6 +3096,9 @@ var _ = Describe("Text", func() {
 				stage s1 {
 					f"count={count_ch}" -> msg_ch
 				}
+			}
+			stage {
+			    main
 			}`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, res...))
@@ -2893,7 +3110,7 @@ var _ = Describe("Text", func() {
 				// A never-reassigned variable lowers to no node; reassign with
 				// the same literal so the register exists.
 				lit := strings.SplitN(decl, ":= ", 2)[1]
-				source := "sequence main {\n" + decl + "\na = " + lit + "\n}"
+				source := "sequence main {\n" + decl + "\na = " + lit + "\n}" + runMain
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(
 					ctx,
@@ -2919,6 +3136,9 @@ var _ = Describe("Text", func() {
 			sequence main {
 				r := count_ch + 1
 				count_ch -> r
+			}
+			stage {
+			    main
 			}`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			_, diagnostics := text.Analyze(
@@ -2939,6 +3159,9 @@ var _ = Describe("Text", func() {
 			sequence main {
 				msg := "hello"
 				msg = "world"
+			}
+			stage {
+			    main
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(
@@ -2975,6 +3198,9 @@ var _ = Describe("Text", func() {
 			sequence main {
 				r := count_ch + 1
 				r = count_ch + 2
+			}
+			stage {
+			    main
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(
@@ -3046,6 +3272,9 @@ var _ = Describe("Text", func() {
 				r := count_ch + 1
 				k = 6
 				r = count_ch + 2
+			}
+			stage {
+			    main
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(
@@ -3084,6 +3313,9 @@ var _ = Describe("Text", func() {
 				a := count_ch
 				a = out_ch
 				a -> sink_ch
+			}
+			stage {
+			    main
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(
@@ -3146,6 +3378,9 @@ var _ = Describe("Text", func() {
 			sequence main {
 				a := count_ch
 				a = missing_ch
+			}
+			stage {
+			    main
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diagnostics := text.Analyze(
@@ -3168,6 +3403,9 @@ var _ = Describe("Text", func() {
 				a := count_ch
 				k := 5
 				a = k
+			}
+			stage {
+			    main
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diagnostics := text.Analyze(
@@ -3189,6 +3427,9 @@ var _ = Describe("Text", func() {
 			sequence main {
 				a := count_ch
 				a = flag_ch
+			}
+			stage {
+			    main
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diagnostics := text.Analyze(
@@ -3263,6 +3504,9 @@ var _ = Describe("Text", func() {
 			sequence main {
 				c i64 := 0
 				c += 1
+			}
+			stage {
+			    main
 			}`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			_, diagnostics := text.Analyze(
@@ -3283,6 +3527,9 @@ var _ = Describe("Text", func() {
 			sequence main {
 				c i64 := 0
 				c i64 := 1
+			}
+			stage {
+			    main
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diagnostics := text.Analyze(
@@ -3304,6 +3551,9 @@ var _ = Describe("Text", func() {
 			sequence main {
 				c i64 := 0
 				c = "hello"
+			}
+			stage {
+			    main
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diagnostics := text.Analyze(
@@ -3329,6 +3579,9 @@ var _ = Describe("Text", func() {
 				stage s2 {
 					x -> out_ch
 				}
+			}
+			stage {
+			    main
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diagnostics := text.Analyze(
@@ -3347,6 +3600,9 @@ var _ = Describe("Text", func() {
 				source := `
 			sequence main {
 				c i64 $= count_ch
+			}
+			stage {
+			    main
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diagnostics := text.Analyze(
@@ -3367,6 +3623,9 @@ var _ = Describe("Text", func() {
 				source := `
 			sequence main {
 				c i64 $= count_ch + 1
+			}
+			stage {
+			    main
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diagnostics := text.Analyze(
@@ -3390,6 +3649,9 @@ var _ = Describe("Text", func() {
 			}
 			func readRaw() {} i64 {
 				return count_ch
+			}
+			stage {
+			    main
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diagnostics := text.Analyze(
@@ -3414,6 +3676,9 @@ var _ = Describe("Text", func() {
 				stage s1 {
 					y -> out_ch
 				}
+			}
+			stage {
+			    main
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diagnostics := text.Analyze(
@@ -3467,6 +3732,9 @@ var _ = Describe("Text", func() {
 			sequence main {
 				s i64 $= 0
 				y := s
+			}
+			stage {
+			    main
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diagnostics := text.Analyze(
@@ -3496,6 +3764,10 @@ var _ = Describe("Text", func() {
 				stage s1 {
 					count_ch -> y
 				}
+			}
+			stage {
+			    a
+			    b
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(
@@ -3522,6 +3794,9 @@ var _ = Describe("Text", func() {
 				}
 				stage s2 {
 				}
+			}
+			stage {
+			    main
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(
@@ -3545,6 +3820,9 @@ var _ = Describe("Text", func() {
 					count_ch -> counter
 					counter -> out_ch
 				}
+			}
+			stage {
+			    main
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(
@@ -3583,6 +3861,9 @@ var _ = Describe("Text", func() {
 					y i64 := 0
 					count_ch -> y
 				}
+			}
+			stage {
+			    main
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(
@@ -6342,6 +6623,9 @@ time.wait(duration=500ms) -> output`
 				            }
 				        }
 				    }
+				}
+				stage {
+				    main
 				}`
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 					inter, diagnostics := text.Analyze(
@@ -6353,7 +6637,7 @@ time.wait(duration=500ms) -> output`
 
 					main := findTopLevelScope(inter, "main")
 					hold := findMember(main, "hold").Scope
-					synth := findMember(*hold, "__inline_0").Scope
+					synth := findMember(*hold, "$main_0.__inline_0").Scope
 					Expect(synth.Liveness).To(Equal(ir.LivenessGated))
 					Expect(synth.Activations).To(HaveLen(1))
 					Expect(synth.Activations[0].On.Param).To(Equal("yes"))
@@ -6401,6 +6685,9 @@ time.wait(duration=500ms) -> output`
 				            }
 				        }
 				    }
+				}
+				stage {
+				    main
 				}`
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 					inter, diagnostics := text.Analyze(
@@ -6412,7 +6699,7 @@ time.wait(duration=500ms) -> output`
 
 					main := findTopLevelScope(inter, "main")
 					hold := findMember(main, "hold").Scope
-					synth := findMember(*hold, "__inline_0").Scope
+					synth := findMember(*hold, "$main_0.__inline_0").Scope
 					Expect(synth.Mode).To(Equal(ir.ScopeModeSequential))
 					Expect(synth.Steps).To(HaveLen(2))
 				},
@@ -6457,6 +6744,9 @@ time.wait(duration=500ms) -> output`
 				            no: stage { 1 -> no_ch }
 				        }
 				    }
+				}
+				stage {
+				    main
 				}`
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 					inter, diagnostics := text.Analyze(
@@ -6468,8 +6758,8 @@ time.wait(duration=500ms) -> output`
 
 					main := findTopLevelScope(inter, "main")
 					hold := findMember(main, "hold").Scope
-					yesBody := findMember(*hold, "__inline_0").Scope
-					noBody := findMember(*hold, "__inline_1").Scope
+					yesBody := findMember(*hold, "$main_0.__inline_0").Scope
+					noBody := findMember(*hold, "$main_0.__inline_1").Scope
 					params := []string{
 						yesBody.Activations[0].On.Param,
 						noBody.Activations[0].On.Param,
@@ -6511,6 +6801,9 @@ time.wait(duration=500ms) -> output`
 				            no: "no_chain" -> log
 				        }
 				    }
+				}
+				stage {
+				    main
 				}`
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 					inter, diagnostics := text.Analyze(
@@ -6522,13 +6815,13 @@ time.wait(duration=500ms) -> output`
 
 					main := findTopLevelScope(inter, "main")
 					hold := findMember(main, "hold").Scope
-					synth := findMember(*hold, "__inline_0").Scope
+					synth := findMember(*hold, "$main_0.__inline_0").Scope
 					Expect(synth.Activations[0].On.Param).To(Equal("yes"))
 					inlineCount := 0
 					for _, stratum := range hold.Strata {
 						for _, m := range stratum {
 							if m.Scope != nil &&
-								strings.HasPrefix(m.Scope.Key, ir.InlinePrefix) {
+								strings.Contains(m.Scope.Key, ir.InlinePrefix) {
 								inlineCount++
 							}
 						}
@@ -6560,6 +6853,9 @@ time.wait(duration=500ms) -> output`
 				        true: stage { "true_branch" -> log_str },
 				        false: stage { "false_branch" -> log_str }
 				    }
+				}
+				stage {
+				    main
 				}`
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 					inter, diagnostics := text.Analyze(
@@ -6573,10 +6869,10 @@ time.wait(duration=500ms) -> output`
 					Expect(main.Mode).To(Equal(ir.ScopeModeParallel))
 					Expect(main.Steps).To(BeEmpty())
 					Expect(
-						findMember(main, "__inline_0").Scope.Activations,
+						findMember(main, "$main_0.__inline_0").Scope.Activations,
 					).To(HaveLen(1))
 					Expect(
-						findMember(main, "__inline_1").Scope.Activations,
+						findMember(main, "$main_0.__inline_1").Scope.Activations,
 					).To(HaveLen(1))
 				},
 			)
@@ -6611,6 +6907,9 @@ time.wait(duration=500ms) -> output`
 				    trigger -> gate() -> {
 				        yes: stage { 1 -> ch_a }
 				    }
+				}
+				stage {
+				    main
 				}`
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 					inter, diagnostics := text.Analyze(
@@ -6665,6 +6964,9 @@ time.wait(duration=500ms) -> output`
 				    stage second {
 				        1 -> second_out
 				    }
+				}
+				stage {
+				    main
 				}`
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 					inter, diagnostics := text.Analyze(
@@ -6978,6 +7280,9 @@ time.wait(duration=500ms) -> output`
 				stage main {
 				    flag -> stage { "true_branch" -> log_str }
 				    other -> stage { "false_branch" -> log_str }
+				}
+				stage {
+				    main
 				}`
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 					inter, diagnostics := text.Analyze(
@@ -6991,10 +7296,10 @@ time.wait(duration=500ms) -> output`
 					Expect(main.Mode).To(Equal(ir.ScopeModeParallel))
 					Expect(main.Steps).To(BeEmpty())
 					Expect(
-						findMember(main, "__inline_0").Scope.Activations,
+						findMember(main, "$main_0.__inline_0").Scope.Activations,
 					).To(HaveLen(1))
 					Expect(
-						findMember(main, "__inline_1").Scope.Activations,
+						findMember(main, "$main_0.__inline_1").Scope.Activations,
 					).To(HaveLen(1))
 				},
 			)
@@ -7019,6 +7324,9 @@ time.wait(duration=500ms) -> output`
 					source := `
 				sequence main {
 				    trigger -> stage { 1 -> ch_a }
+				}
+				stage {
+				    main
 				}`
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 					inter, diagnostics := text.Analyze(
@@ -7071,6 +7379,9 @@ time.wait(duration=500ms) -> output`
 				    stage second {
 				        1 -> second_out
 				    }
+				}
+				stage {
+				    main
 				}`
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 					inter, diagnostics := text.Analyze(
@@ -7169,9 +7480,8 @@ time.wait(duration=500ms) -> output`
 				},
 			)
 
-			It(
-				"Should reject `=> next` inside an inline routing case body",
-				func(ctx SpecContext) {
+			DescribeTable("Should end a body that a flow starts on `next`",
+				func(ctx SpecContext, line string) {
 					resolver := []symbol.Symbol{
 						{
 							Name: "flag",
@@ -7189,156 +7499,45 @@ time.wait(duration=500ms) -> output`
 					source := `
 				sequence main {
 				    stage first {
-				        flag -> select() -> {
+				        ` + line + `
+				    }
+				    stage second {
+				        1 -> second_out
+				    }
+				}` + runMain
+					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+					inter, diagnostics := text.Analyze(
+						ctx,
+						parsedText,
+						NewRoot(nil, resolver...),
+					)
+					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+					main := findTopLevelScope(inter, "main")
+					Expect(main.Transitions).To(BeEmpty())
+					first := findMember(main, "first").Scope
+					body := findMember(*first, "$main_0.__inline_0").Scope
+					Expect(body.Transitions).To(HaveLen(1))
+					Expect(
+						body.Transitions[0].Target.Variant,
+					).To(Equal(ir.ExitTarget{}))
+				},
+				Entry("a stage in a routing table", `flag -> select() -> {
 				            true: stage {
 				                flag => next
 				            }
-				        }
-				    }
-				    stage second {
-				        1 -> second_out
-				    }
-				}`
-					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-					_, diagnostics := text.Analyze(
-						ctx,
-						parsedText,
-						NewRoot(nil, resolver...),
-					)
-					Expect(diagnostics.Ok()).To(BeFalse(),
-						"`=> next` from an inline routing case body must be rejected")
-					Expect(diagnostics.String()).To(ContainSubstring(
-						"'next' is not valid inside an inline routing case body",
-					))
-				},
-			)
-
-			It(
-				"Should reject `=> next` that escapes an inline sequence routing case body",
-				func(ctx SpecContext) {
-					resolver := []symbol.Symbol{
-						{
-							Name: "flag",
-							Kind: symbol.KindChannel,
-							Type: types.Chan(types.Bool()),
-							ID:   30091,
-						},
-						{
-							Name: "second_out",
-							Kind: symbol.KindChannel,
-							Type: types.Chan(types.U8()),
-							ID:   30092,
-						},
-					}
-					source := `
-				sequence main {
-				    stage first {
-				        flag -> select() -> {
+				        }`),
+				Entry("a sequence in a routing table", `flag -> select() -> {
 				            true: sequence {
 				                flag => next
 				            }
-				        }
-				    }
-				    stage second {
-				        1 -> second_out
-				    }
-				}`
-					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-					_, diagnostics := text.Analyze(
-						ctx,
-						parsedText,
-						NewRoot(nil, resolver...),
-					)
-					Expect(diagnostics.Ok()).To(BeFalse(),
-						"`=> next` escaping an inline sequence body must be rejected")
-					Expect(diagnostics.String()).To(ContainSubstring(
-						"'next' is not valid inside an inline routing case body",
-					))
-				},
-			)
-
-			It(
-				"Should reject `=> next` inside an inline stage flow target",
-				func(ctx SpecContext) {
-					resolver := []symbol.Symbol{
-						{
-							Name: "flag",
-							Kind: symbol.KindChannel,
-							Type: types.Chan(types.Bool()),
-							ID:   31081,
-						},
-						{
-							Name: "second_out",
-							Kind: symbol.KindChannel,
-							Type: types.Chan(types.U8()),
-							ID:   31082,
-						},
-					}
-					source := `
-				sequence main {
-				    stage first {
-				        flag -> stage {
+				        }`),
+				Entry("a stage in a flow", `flag -> stage {
 				            flag => next
-				        }
-				    }
-				    stage second {
-				        1 -> second_out
-				    }
-				}`
-					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-					_, diagnostics := text.Analyze(
-						ctx,
-						parsedText,
-						NewRoot(nil, resolver...),
-					)
-					Expect(diagnostics.Ok()).To(BeFalse(),
-						"`=> next` from an inline stage flow target must be rejected")
-					Expect(diagnostics.String()).To(ContainSubstring(
-						"'next' is not valid inside an inline routing case body",
-					))
-				},
-			)
-
-			It(
-				"Should reject `=> next` that escapes an inline sequence flow target",
-				func(ctx SpecContext) {
-					resolver := []symbol.Symbol{
-						{
-							Name: "flag",
-							Kind: symbol.KindChannel,
-							Type: types.Chan(types.Bool()),
-							ID:   31091,
-						},
-						{
-							Name: "second_out",
-							Kind: symbol.KindChannel,
-							Type: types.Chan(types.U8()),
-							ID:   31092,
-						},
-					}
-					source := `
-				sequence main {
-				    stage first {
-				        flag -> sequence {
+				        }`),
+				Entry("a sequence in a flow", `flag -> sequence {
 				            flag => next
-				        }
-				    }
-				    stage second {
-				        1 -> second_out
-				    }
-				}`
-					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-					_, diagnostics := text.Analyze(
-						ctx,
-						parsedText,
-						NewRoot(nil, resolver...),
-					)
-					Expect(diagnostics.Ok()).To(BeFalse(),
-						"`=> next` escaping an inline sequence flow target must be rejected")
-					Expect(diagnostics.String()).To(ContainSubstring(
-						"'next' is not valid inside an inline routing case body",
-					))
-				},
+				        }`),
 			)
 
 			It(
@@ -7407,7 +7606,7 @@ time.wait(duration=500ms) -> output`
 				},
 			)
 			DescribeTable(
-				"Should record the arrow kind on every scope jump",
+				"Should record the arrow kind on every start and transition",
 				func(ctx SpecContext, arrow string, kind ir.EdgeKind) {
 					resolver := []symbol.Symbol{{
 						Name: "cmd",
@@ -7437,10 +7636,11 @@ time.wait(duration=500ms) -> output`
 					main := findTopLevelScope(inter, "main")
 					Expect(main.Activations).To(HaveLen(1))
 					Expect(main.Activations[0].Kind).To(Equal(kind))
-					Expect(main.Transitions).To(HaveLen(2))
-					for _, t := range main.Transitions {
-						Expect(t.Kind).To(Equal(kind), t.String())
-					}
+					Expect(main.Transitions).To(HaveLen(1))
+					Expect(main.Transitions[0].Kind).To(Equal(kind))
+					abort := findTopLevelScope(inter, "abort")
+					Expect(abort.Activations).To(HaveLen(1))
+					Expect(abort.Activations[0].Kind).To(Equal(kind))
 				},
 				Entry("=>", "=>", ir.EdgeKindConditional),
 				Entry("->", "->", ir.EdgeKindContinuous),
@@ -7465,6 +7665,9 @@ time.wait(duration=500ms) -> output`
 				        input > 10 => second
 				    }
 				    stage second {}
+				}
+				stage {
+				    main
 				}`
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 					inter, diagnostics := text.Analyze(
@@ -7521,6 +7724,9 @@ time.wait(duration=500ms) -> output`
 				    stage second {
 				        1 -> ch
 				    }
+				}
+				stage {
+				    main
 				}`
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 					inter, diagnostics := text.Analyze(
@@ -7582,6 +7788,9 @@ time.wait(duration=500ms) -> output`
 				    sequence target {
 				        1 -> ch
 				    }
+				}
+				stage {
+				    outer
 				}`
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 					inter, diagnostics := text.Analyze(
@@ -7644,6 +7853,9 @@ time.wait(duration=500ms) -> output`
 				    stage second {
 				        1 -> ch
 				    }
+				}
+				stage {
+				    main
 				}`
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 					inter, diagnostics := text.Analyze(
@@ -7665,7 +7877,7 @@ time.wait(duration=500ms) -> output`
 			)
 
 			It(
-				"Should record a jump to a top-level scope on the scope that holds it",
+				"Should place a copy of a named sequence in the step that starts it",
 				func(ctx SpecContext) {
 					resolver := []symbol.Symbol{
 						{
@@ -7687,6 +7899,9 @@ time.wait(duration=500ms) -> output`
 				}
 				sequence other {
 				    1 -> ch
+				}
+				stage {
+				    main
 				}`
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 					inter, diagnostics := text.Analyze(
@@ -7696,13 +7911,17 @@ time.wait(duration=500ms) -> output`
 					)
 					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-					Expect(findTopLevelScope(inter, "other").Activations).To(BeEmpty())
 					main := findTopLevelScope(inter, "main")
+					other := findMember(
+						*findMember(main, "step_0").Scope,
+						"$other_0",
+					).Scope
+					Expect(other.Activations).To(HaveLen(1))
+					Expect(other.Activations[0].On.Node).To(HavePrefix("on_trigger"))
 					Expect(main.Transitions).To(HaveLen(1))
-					Expect(main.Transitions[0].On.Node).To(HavePrefix("on_trigger"))
 					Expect(
 						main.Transitions[0].Target.Variant,
-					).To(Equal(ir.ScopeTarget{Key: "other"}))
+					).To(Equal(ir.ExitTarget{}))
 				},
 			)
 		})
@@ -7725,6 +7944,9 @@ time.wait(duration=500ms) -> output`
 				        1 -> a
 				    }
 				    stage after {}
+				}
+				stage {
+				    main
 				}`
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 					inter, diagnostics := text.Analyze(
@@ -7771,6 +7993,9 @@ time.wait(duration=500ms) -> output`
 				    sequence tail {
 				        1 -> b
 				    }
+				}
+				stage {
+				    main
 				}`
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 					inter, diagnostics := text.Analyze(
@@ -7816,6 +8041,9 @@ time.wait(duration=500ms) -> output`
 				        }
 				    }
 				    stage after {}
+				}
+				stage {
+				    main
 				}`
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 					inter, diagnostics := text.Analyze(
@@ -7859,6 +8087,9 @@ time.wait(duration=500ms) -> output`
 				            1 -> a
 				        }
 				    }
+				}
+				stage {
+				    main
 				}`
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 					inter, diagnostics := text.Analyze(
@@ -7915,6 +8146,9 @@ time.wait(duration=500ms) -> output`
 				    stage skip {
 				        1 -> b
 				    }
+				}
+				stage {
+				    main
 				}`
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 					inter, diagnostics := text.Analyze(
@@ -7999,7 +8233,7 @@ time.wait(duration=500ms) -> output`
 				sequence main {
 				    `+step+`
 				    stage after {}
-				}`)
+				}`+runMain)
 					main := findTopLevelScope(inter, "main")
 					Expect(main.Transitions).To(HaveLen(1))
 					t := main.Transitions[0]
@@ -8040,6 +8274,9 @@ time.wait(duration=500ms) -> output`
 				sequence main {
 				    produce()
 				    notify("done")
+				}
+				stage {
+				    main
 				}`)
 					main := findTopLevelScope(inter, "main")
 					Expect(main.Transitions).To(HaveLen(2))
@@ -8062,6 +8299,9 @@ time.wait(duration=500ms) -> output`
 				        notify("one")
 				    }
 				    stage after {}
+				}
+				stage {
+				    main
 				}`)
 					main := findTopLevelScope(inter, "main")
 					Expect(main.Transitions).To(HaveLen(1))
@@ -8088,6 +8328,9 @@ time.wait(duration=500ms) -> output`
 				            notify("one")
 				        }
 				    }
+				}
+				stage {
+				    main
 				}`)
 					main := findTopLevelScope(inter, "main")
 					Expect(main.Transitions).To(BeEmpty())
@@ -8216,9 +8459,9 @@ time.wait(duration=500ms) -> output`
 				},
 			)
 
-			It(
-				"Should compile a named top-level sequence as LivenessGated with no activation when nothing targets it",
-				func(ctx SpecContext) {
+			DescribeTable(
+				"Should add nothing to the program for a named body that no line uses",
+				func(ctx SpecContext, source string) {
 					resolver := []symbol.Symbol{
 						{
 							Name: "ch",
@@ -8227,73 +8470,30 @@ time.wait(duration=500ms) -> output`
 							ID:   11010,
 						},
 					}
-					source := `
+					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+					inter, diagnostics := text.Analyze(
+						ctx,
+						parsedText,
+						NewRoot(nil, resolver...),
+					)
+					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+					Expect(inter.Root.Strata).To(BeEmpty())
+					Expect(inter.Nodes).To(BeEmpty())
+				},
+				Entry("a sequence", `
 				sequence main {
 				    stage s {
 				        1 -> ch
 				    }
-				}`
-					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-					inter, diagnostics := text.Analyze(
-						ctx,
-						parsedText,
-						NewRoot(nil, resolver...),
-					)
-					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-					Expect(inter.Root.Strata).To(HaveLen(1))
-					var scopeMembers []ir.Member
-					for _, m := range inter.Root.Strata[0] {
-						if m.Scope != nil {
-							scopeMembers = append(scopeMembers, m)
-						}
-					}
-					Expect(scopeMembers).To(HaveLen(1))
-					s := scopeMembers[0].Scope
-					Expect(s.Key).To(Equal("main"))
-					Expect(s.Liveness).To(Equal(ir.LivenessGated))
-					Expect(s.Activations).To(BeEmpty())
-				},
-			)
-
-			It(
-				"Should compile a named top-level stage as LivenessGated with no activation when nothing targets it",
-				func(ctx SpecContext) {
-					resolver := []symbol.Symbol{
-						{
-							Name: "ch",
-							Kind: symbol.KindChannel,
-							Type: types.Chan(types.U8()),
-							ID:   11011,
-						},
-					}
-					source := `
+				}`),
+				Entry("a stage", `
 				stage main {
 				    1 -> ch
-				}`
-					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-					inter, diagnostics := text.Analyze(
-						ctx,
-						parsedText,
-						NewRoot(nil, resolver...),
-					)
-					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-					Expect(inter.Root.Strata).To(HaveLen(1))
-					var scopeMembers []ir.Member
-					for _, m := range inter.Root.Strata[0] {
-						if m.Scope != nil {
-							scopeMembers = append(scopeMembers, m)
-						}
-					}
-					Expect(scopeMembers).To(HaveLen(1))
-					s := scopeMembers[0].Scope
-					Expect(s.Key).To(Equal("main"))
-					Expect(s.Liveness).To(Equal(ir.LivenessGated))
-					Expect(s.Activations).To(BeEmpty())
-				},
+				}`),
 			)
 
 			It(
-				"Should compile a named top-level sequence as LivenessGated with an activation handle when `trigger => name` targets it",
+				"Should compile a copy of a named sequence as LivenessGated with an activation when `trigger => name` starts it",
 				func(ctx SpecContext) {
 					resolver := []symbol.Symbol{
 						{
@@ -8324,22 +8524,14 @@ time.wait(duration=500ms) -> output`
 						NewRoot(nil, resolver...),
 					)
 					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-					var main *ir.Scope
-					for _, stratum := range inter.Root.Strata {
-						for _, m := range stratum {
-							if m.Scope != nil && m.Scope.Key == "main" {
-								main = m.Scope
-							}
-						}
-					}
-					Expect(main).ToNot(BeNil())
+					main := findTopLevelScope(inter, "main")
 					Expect(main.Liveness).To(Equal(ir.LivenessGated))
 					Expect(main.Activations).To(HaveLen(1))
 				},
 			)
 
 			It(
-				"Should compile named nested scopes as LivenessGated at every depth",
+				"Should compile the named scopes inside a copy as LivenessGated at every depth",
 				func(ctx SpecContext) {
 					resolver := []symbol.Symbol{
 						{
@@ -8358,6 +8550,9 @@ time.wait(duration=500ms) -> output`
 				            }
 				        }
 				    }
+				}
+				stage {
+				    outer
 				}`
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 					inter, diagnostics := text.Analyze(
@@ -8366,16 +8561,8 @@ time.wait(duration=500ms) -> output`
 						NewRoot(nil, resolver...),
 					)
 					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-					var outer *ir.Scope
-					for _, stratum := range inter.Root.Strata {
-						for _, m := range stratum {
-							if m.Scope != nil && m.Scope.Key == "outer" {
-								outer = m.Scope
-							}
-						}
-					}
-					Expect(outer).ToNot(BeNil())
-					Expect(outer.Liveness).To(Equal(ir.LivenessGated))
+					outer := findTopLevelScope(inter, "outer")
+					Expect(outer.Liveness).To(Equal(ir.LivenessAlways))
 					Expect(outer.Steps).To(HaveLen(1))
 					stageS := outer.Steps[0].Scope
 					Expect(stageS).ToNot(BeNil())
@@ -8479,6 +8666,9 @@ time.wait(duration=500ms) -> output`
 				            }
 				        }
 				    }
+				}
+				stage {
+				    main
 				}`
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 					inter, diagnostics := text.Analyze(
@@ -8487,16 +8677,8 @@ time.wait(duration=500ms) -> output`
 						NewRoot(nil, resolver...),
 					)
 					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-					var main *ir.Scope
-					for _, stratum := range inter.Root.Strata {
-						for _, m := range stratum {
-							if m.Scope != nil && m.Scope.Key == "main" {
-								main = m.Scope
-							}
-						}
-					}
-					Expect(main).ToNot(BeNil())
-					Expect(main.Liveness).To(Equal(ir.LivenessGated))
+					main := findTopLevelScope(inter, "main")
+					Expect(main.Liveness).To(Equal(ir.LivenessAlways))
 					Expect(main.Steps).To(HaveLen(1))
 					first := main.Steps[0].Scope
 					Expect(first).ToNot(BeNil())
@@ -8534,6 +8716,9 @@ time.wait(duration=500ms) -> output`
 				    stage second {
 				        0 -> output
 				    }
+				}
+				stage {
+				    main
 				}`
 					resolver := []symbol.Symbol{
 						{
@@ -8566,6 +8751,72 @@ time.wait(duration=500ms) -> output`
 				},
 			)
 
+			DescribeTable("Should record what `next` ends",
+				func(ctx SpecContext, source, holder string, target ir.TargetVariant) {
+					resolver := []symbol.Symbol{
+						{
+							Name: "input",
+							Kind: symbol.KindChannel,
+							Type: types.Chan(types.F32()),
+							ID:   10091,
+						},
+					}
+					parsedText := MustSucceed(
+						text.Parse(text.Text{Raw: source + runMain}),
+					)
+					inter, diag := text.Analyze(
+						ctx,
+						parsedText,
+						NewRoot(nil, resolver...),
+					)
+					Expect(diag.Ok()).To(BeTrue(), diag.String())
+					// holders maps the key of each scope with a transition to its
+					// transitions.
+					holders := map[string][]ir.Transition{}
+					var walk func(s ir.Scope)
+					walk = func(s ir.Scope) {
+						if len(s.Transitions) > 0 {
+							holders[s.Key] = s.Transitions
+						}
+						for _, m := range slices.Concat(slices.Concat(s.Strata...), s.Steps) {
+							if m.Scope != nil {
+								walk(*m.Scope)
+							}
+						}
+					}
+					walk(inter.Root)
+					Expect(holders).To(HaveLen(1))
+					for key, transitions := range holders {
+						Expect(key).To(HavePrefix(holder))
+						Expect(transitions).To(HaveLen(1))
+						Expect(transitions[0].Target.Variant).To(Equal(target))
+					}
+				},
+				Entry("the last stage of a sequence, which completes the sequence", `
+				sequence main {
+				    stage only {
+				        input > 10 => next
+				    }
+				}`, "$main_0", ir.ExitTarget{}),
+				Entry("a stage of a sequence, which moves to the next stage", `
+				sequence main {
+				    stage first {
+				        input > 10 => next
+				    }
+				    stage second {}
+				}`, "$main_0", ir.StepTarget{Key: "second"}),
+				Entry("a stage that is not a step, which ends the stage", `
+				stage main {
+				    input > 10 => next
+				}`, "$main_0", ir.ExitTarget{}),
+				Entry("a stage in a stage, which ends the inner stage", `
+				stage main {
+				    stage {
+				        input > 10 => next
+				    }
+				}`, "stage_", ir.ExitTarget{}),
+			)
+
 			DescribeTable(
 				"next keyword error cases",
 				func(ctx SpecContext, source string, chans []symbol.Symbol, expectedError string) {
@@ -8579,23 +8830,6 @@ time.wait(duration=500ms) -> output`
 					Expect(diag).To(MatchError(ContainSubstring(expectedError)))
 					Expect(diag.Ok()).To(BeFalse())
 				},
-				Entry("next in last stage",
-					`
-					sequence main {
-					    stage only {
-					        input > 10 => next
-					    }
-					}`,
-					[]symbol.Symbol{
-						{
-							Name: "input",
-							Kind: symbol.KindChannel,
-							Type: types.Chan(types.F32()),
-							ID:   10081,
-						},
-					},
-					"no next stage",
-				),
 				Entry(
 					"next as the first node of a flow",
 					`
@@ -8605,6 +8839,9 @@ time.wait(duration=500ms) -> output`
 					    }
 					    stage second {
 					    }
+					}
+					stage {
+					    main
 					}`,
 					[]symbol.Symbol{
 						{
@@ -8617,7 +8854,7 @@ time.wait(duration=500ms) -> output`
 					"[E5005]: invalid transition target: transition target requires a source",
 				),
 				Entry(
-					"next outside sequence",
+					"next outside a stage or sequence",
 					`input > 10 => next`,
 					[]symbol.Symbol{
 						{
@@ -8627,7 +8864,7 @@ time.wait(duration=500ms) -> output`
 							ID:   10081,
 						},
 					},
-					"[E5005]: invalid transition target: 'next' used outside of a sequence",
+					"[E5005]: invalid transition target: 'next' used outside of a stage or sequence",
 				),
 				Entry(
 					"a func that reads a top-level series",
@@ -8648,168 +8885,6 @@ time.wait(duration=500ms) -> output`
 						},
 					},
 					"[E5004]: invalid flow connection: function 'sink' has no output to connect in flow chain",
-				),
-				Entry("next inside inline routing stage body",
-					`
-					sequence main {
-					    stage first {
-					        flag -> select() -> {
-					            true: stage { 1 => next }
-					        }
-					    }
-					    stage second { 1 -> sink }
-					}`,
-					[]symbol.Symbol{
-						{
-							Name: "flag",
-							Kind: symbol.KindChannel,
-							Type: types.Chan(types.Bool()),
-							ID:   10082,
-						},
-						{
-							Name: "sink",
-							Kind: symbol.KindChannel,
-							Type: types.Chan(types.U8()),
-							ID:   10083,
-						},
-					},
-					"not valid inside an inline routing case body",
-				),
-				Entry("next on last step of inline routing sequence body",
-					`
-					sequence main {
-					    stage first {
-					        flag -> select() -> {
-					            true: sequence {
-					                1 -> sink,
-					                2 => next
-					            }
-					        }
-					    }
-					    stage second { 1 -> sink }
-					}`,
-					[]symbol.Symbol{
-						{
-							Name: "flag",
-							Kind: symbol.KindChannel,
-							Type: types.Chan(types.Bool()),
-							ID:   10082,
-						},
-						{
-							Name: "sink",
-							Kind: symbol.KindChannel,
-							Type: types.Chan(types.U8()),
-							ID:   10083,
-						},
-					},
-					"not valid inside an inline routing case body",
-				),
-				Entry("next inside doubly-nested inline routing stage body",
-					`
-					sequence main {
-					    stage first {
-					        flag -> select() -> {
-					            true: stage {
-					                flag -> select() -> {
-					                    true: stage { 1 => next }
-					                }
-					            }
-					        }
-					    }
-					    stage second { 1 -> sink }
-					}`,
-					[]symbol.Symbol{
-						{
-							Name: "flag",
-							Kind: symbol.KindChannel,
-							Type: types.Chan(types.Bool()),
-							ID:   10082,
-						},
-						{
-							Name: "sink",
-							Kind: symbol.KindChannel,
-							Type: types.Chan(types.U8()),
-							ID:   10083,
-						},
-					},
-					"not valid inside an inline routing case body",
-				),
-				Entry("next inside inline stage flow target",
-					`
-					sequence main {
-					    stage first {
-					        flag -> stage { 1 => next }
-					    }
-					    stage second { 1 -> sink }
-					}`,
-					[]symbol.Symbol{
-						{
-							Name: "flag",
-							Kind: symbol.KindChannel,
-							Type: types.Chan(types.Bool()),
-							ID:   10082,
-						},
-						{
-							Name: "sink",
-							Kind: symbol.KindChannel,
-							Type: types.Chan(types.U8()),
-							ID:   10083,
-						},
-					},
-					"not valid inside an inline routing case body",
-				),
-				Entry("next on last step of inline sequence flow target",
-					`
-					sequence main {
-					    stage first {
-					        flag -> sequence {
-					            1 -> sink,
-					            2 => next
-					        }
-					    }
-					    stage second { 1 -> sink }
-					}`,
-					[]symbol.Symbol{
-						{
-							Name: "flag",
-							Kind: symbol.KindChannel,
-							Type: types.Chan(types.Bool()),
-							ID:   10082,
-						},
-						{
-							Name: "sink",
-							Kind: symbol.KindChannel,
-							Type: types.Chan(types.U8()),
-							ID:   10083,
-						},
-					},
-					"not valid inside an inline routing case body",
-				),
-				Entry("next inside doubly-nested inline stage flow target",
-					`
-					sequence main {
-					    stage first {
-					        flag -> stage {
-					            flag -> stage { 1 => next }
-					        }
-					    }
-					    stage second { 1 -> sink }
-					}`,
-					[]symbol.Symbol{
-						{
-							Name: "flag",
-							Kind: symbol.KindChannel,
-							Type: types.Chan(types.Bool()),
-							ID:   10082,
-						},
-						{
-							Name: "sink",
-							Kind: symbol.KindChannel,
-							Type: types.Chan(types.U8()),
-							ID:   10083,
-						},
-					},
-					"not valid inside an inline routing case body",
 				),
 			)
 		})
@@ -9031,6 +9106,9 @@ time.wait(duration=500ms) -> output`
 				        sensor > 100 => next
 				    }
 				    stage alarm {}
+				}
+				stage {
+				    main
 				}`
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 					inter, diagnostics := text.Analyze(
@@ -9151,6 +9229,9 @@ time.wait(duration=500ms) -> output`
 				    stage start {
 				        f("x")
 				    }
+				}
+				stage {
+				    main
 				}`
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 					inter, diagnostics := text.Analyze(
@@ -9563,6 +9644,9 @@ time.wait(duration=500ms) -> output`
 			    stage start {
 			        setup()
 			    }
+			}
+			stage {
+			    main
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil))
@@ -9584,6 +9668,9 @@ time.wait(duration=500ms) -> output`
 			    stage start {
 			        1 + 2
 			    }
+			}
+			stage {
+			    main
 			}`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil))
@@ -9630,6 +9717,9 @@ time.wait(duration=500ms) -> output`
 			        trigger => increment(ch=counter) => next
 			    }
 			    stage second {}
+			}
+			stage {
+			    main
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diagnostics := text.Analyze(
@@ -9654,6 +9744,9 @@ time.wait(duration=500ms) -> output`
 			    stage start {
 			        initialize()
 			    }
+			}
+			stage {
+			    main
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil))
@@ -10748,14 +10841,20 @@ var _ = Describe("Sequences and stages with parameters", func() {
 			}
 		}
 	`
-	const lastStageNext = `
-		sequence main(out chan f64) {
-			stage vent {
-				0.0 -> out
-				pressure > 5.0 => next
+	// faulty is a declaration with an error that only the lowering reports.
+	const (
+		faulty = `
+		func scale(k f64) {v f64} f64 {
+			return v * k
+		}
+		sequence main(src chan f64, out chan f64) {
+			stage run {
+				pressure -> scale(k=src) -> out
 			}
 		}
 	`
+		faultyMessage = "input value for 'k' cannot be a channel"
+	)
 	analyze := func(ctx SpecContext, source string) ir.IR {
 		GinkgoHelper()
 		parsed := MustSucceed(text.Parse(text.Text{Raw: source}))
@@ -10856,24 +10955,15 @@ var _ = Describe("Sequences and stages with parameters", func() {
 			Expect(diagnostics.Errors()).To(HaveLen(1), diagnostics.String())
 			Expect(diagnostics.Errors()[0].Message).To(Equal(message))
 		},
-		Entry("with no call of a sequence", lastStageNext,
-			"invalid transition target: 'next' in last stage 'vent' has no next stage"),
+		Entry("with no call of a sequence", faulty, faultyMessage),
 		Entry("with no call of a stage", `
-			stage hold(out chan f64) {
-				0.0 -> out
-				pressure > 5.0 => next
-			}
-		`, "invalid transition target: 'next' used outside of a sequence"),
-		Entry("with no call, for a channel parameter as a value input", `
 			func scale(k f64) {v f64} f64 {
 				return v * k
 			}
-			sequence main(src chan f64, out chan f64) {
-				stage run {
-					pressure -> scale(k=src) -> out
-				}
+			stage hold(src chan f64, out chan f64) {
+				pressure -> scale(k=src) -> out
 			}
-		`, "input value for 'k' cannot be a channel"),
+		`, faultyMessage),
 		Entry("with no call, for a target with no steps", `
 			sequence empty {}
 			sequence main(out chan f64) {
@@ -10883,16 +10973,24 @@ var _ = Describe("Sequences and stages with parameters", func() {
 				}
 			}
 		`, "empty sequence: sequence 'empty' has no steps"),
-		Entry("with a call after the declaration", lastStageNext+`
-			start => main(valve)
-		`, "invalid transition target: 'next' in last stage 'vent' has no next stage"),
+		Entry("with no use of a sequence with no parameters", `
+			sequence empty {}
+			sequence main {
+				stage run {
+					pressure > 5.0 => empty
+				}
+			}
+		`, "empty sequence: sequence 'empty' has no steps"),
+		Entry("with a call after the declaration", faulty+`
+			start => main(valve, valve_b)
+		`, faultyMessage),
 		Entry("with a call before the declaration", `
-			start => main(valve)
-		`+lastStageNext, "invalid transition target: 'next' in last stage 'vent' has no next stage"),
-		Entry("with two calls", lastStageNext+`
-			start => main(valve)
-			start => main(valve_b)
-		`, "invalid transition target: 'next' in last stage 'vent' has no next stage"),
+			start => main(valve, valve_b)
+		`+faulty, faultyMessage),
+		Entry("with two calls", faulty+`
+			start => main(valve, valve_b)
+			start => main(valve_b, valve)
+		`, faultyMessage),
 	)
 
 	It("Should add nothing to the program for a declaration with no call", func(
@@ -10920,7 +11018,7 @@ var _ = Describe("Sequences and stages with parameters", func() {
 		Expect(beside.Root).To(Equal(alone.Root))
 	})
 
-	It("Should still lower a sequence with no parameters beside one", func(
+	It("Should lower one copy for a use of a sequence with no parameters", func(
 		ctx SpecContext,
 	) {
 		parsed := MustSucceed(text.Parse(text.Text{Raw: `
@@ -10946,7 +11044,7 @@ var _ = Describe("Sequences and stages with parameters", func() {
 				}
 			}
 		}
-		Expect(keys).To(Equal([]string{"plain"}))
+		Expect(keys).To(Equal([]string{"$plain_0"}))
 		Expect(findTopLevelScope(inter, "plain").Activations).To(HaveLen(1))
 	})
 
@@ -11437,20 +11535,62 @@ var _ = Describe("Sequences and stages with parameters", func() {
 		}
 	})
 
-	It("Should jump from a sequence to the instance", func(ctx SpecContext) {
-		inter := analyze(ctx, declaration+`
-			sequence outer {
-				stage idle {
-					start => main(50.0, valve)
+	// places returns a program that uses a named body in each place, and where its copy
+	// is.
+	places := func() []TableEntry {
+		uses := []struct{ name, use, key string }{
+			{"a call", "main(50.0, valve)", "$main_0"},
+			{"a name", "plain", "$plain_0"},
+		}
+		entries := make([]TableEntry, 0, 5*len(uses))
+		for _, u := range uses {
+			entries = append(entries,
+				Entry(u.name+" in a flow of a stage",
+					"stage holder {\nstart => "+u.use+"\n}\nstart => holder",
+					[]string{"$holder_0", u.key}, ir.LivenessGated, 1),
+				Entry(u.name+" as an item of a stage",
+					"stage holder {\n"+u.use+"\n}\nstart => holder",
+					[]string{"$holder_0", u.key}, ir.LivenessAlways, 0),
+				Entry(u.name+" as a step of a sequence",
+					"sequence holder {\n"+u.use+"\n}\nstart => holder",
+					[]string{"$holder_0", "step_0"}, ir.LivenessGated, 0),
+				Entry(u.name+" in a flow that is a step of a sequence",
+					"sequence holder {\nstart => "+u.use+"\n}\nstart => holder",
+					[]string{"$holder_0", "step_0", u.key}, ir.LivenessGated, 1),
+				Entry(u.name+" in a flow at the top level",
+					"start => "+u.use,
+					[]string{u.key}, ir.LivenessGated, 1),
+			)
+		}
+		return entries
+	}
+
+	DescribeTable("Should place a copy in the scope that holds its use",
+		func(
+			ctx SpecContext,
+			source string,
+			path []string,
+			liveness ir.Liveness,
+			activations int,
+		) {
+			inter := analyze(ctx, declaration+`
+			sequence plain {
+				stage vent {
+					0.0 -> valve
 				}
 			}
-		`)
-		outer := findTopLevelScope(inter, "outer")
-		Expect(outer.Transitions).To(HaveLen(1))
-		Expect(outer.Transitions[0].Target.Variant).
-			To(Equal(ir.ScopeTarget{Key: "$main_0"}))
-		Expect(findTopLevelScope(inter, "$main_0").Activations).To(BeEmpty())
-	})
+			`+source)
+			scope := inter.Root
+			for _, key := range path {
+				// The use does not end the scope that holds it.
+				Expect(scope.Transitions).To(BeEmpty())
+				scope = *findMember(scope, key).Scope
+			}
+			Expect(scope.Liveness).To(Equal(liveness))
+			Expect(scope.Activations).To(HaveLen(activations))
+		},
+		places(),
+	)
 
 	It("Should key an inline body by its instance", func(ctx SpecContext) {
 		inter := analyze(ctx, `
