@@ -9,11 +9,12 @@
 
 from pathlib import Path
 
+import pytest
 import synnax as sy
 
 from common import Channels, channel_name
 from conftest import ChannelStore, Client, Streamer
-from dispatch import REFRESH, Handlers, Listener
+from dispatch import READ_TIMEOUT, REFRESH, Handlers, Listener
 from log import Log
 from registry import RunnerRegistry
 
@@ -65,6 +66,14 @@ def listener(client: Core, *, registry: Path, commands: Handlers) -> Listener:
     )
 
 
+@pytest.fixture
+def sleeps(monkeypatch: pytest.MonkeyPatch) -> list[sy.TimeSpan]:
+    """The spans the listener sleeps for, which take no time."""
+    spans: list[sy.TimeSpan] = []
+    monkeypatch.setattr(sy, "sleep", spans.append)
+    return spans
+
+
 class TestListener:
     """Tests for streaming the runners' command channels and dispatching each write."""
 
@@ -91,7 +100,7 @@ class TestListener:
         assert stopped == [SECOND]
 
     def test_should_log_the_first_refresh_with_no_channels(
-        self, tmp_path: Path
+        self, tmp_path: Path, sleeps: list[sy.TimeSpan]
     ) -> None:
         client = Core()
         registry = RunnerRegistry(tmp_path / "registry.json")
@@ -100,3 +109,4 @@ class TestListener:
         listening.step(0.0)
         assert client.written("log") == [["listening on 0/1 channels"]]
         assert client.opened == []
+        assert sleeps == [READ_TIMEOUT]
