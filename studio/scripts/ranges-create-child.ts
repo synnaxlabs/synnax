@@ -83,5 +83,6 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.waitFor(
     explorer.getByRole("listitem", { name: CHILD, exact: true }).first(),
   );
+  await session.moveTo({ x: 1000, y: 600 });
   await session.hold(3000);
 };

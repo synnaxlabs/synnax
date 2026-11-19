@@ -23,12 +23,12 @@ export default taskScript({
     const grid = form.getByRole("group", { name: `${NI_DAQ.name} ports` });
     await session.waitFor(grid);
     await session.hold(1500);
-    const port = (index: number) => grid.locator("button").nth(index);
-    await session.click(port(2));
+    const port = (name: string) => grid.getByRole("button", { name, exact: true });
+    await session.click(port("ai2"));
     await session.hold(1000);
-    await session.click(port(5));
+    await session.click(port("ai5"));
     await session.hold(1000);
-    await session.click(port(2));
+    await session.click(port("ai2"));
     await session.hold(1500);
     await session.click(view("List"), { text: true });
     await session.hold(800);

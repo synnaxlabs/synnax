@@ -11,6 +11,7 @@ import {
   array,
   type destructor,
   errors,
+  map,
   primitive,
   type record,
   type state,
@@ -630,17 +631,12 @@ export class Space<
 
   private ensure(params: P): Query<P, K, D, V> {
     const hashed = hash(params);
-    let query = this.queries.get(hashed);
-    if (query == null) {
-      query = {
-        params,
-        state: { variant: "unfetched" },
-        handlers: new Set(),
-        generation: 0,
-      };
-      this.queries.set(hashed, query);
-    }
-    return query;
+    return map.getOrInsert(this.queries, hashed, (): Query<P, K, D, V> => ({
+      params,
+      state: { variant: "unfetched" },
+      handlers: new Set(),
+      generation: 0,
+    }));
   }
 
   private report(
@@ -701,15 +697,15 @@ export class Space<
       perTombstone = new Map();
       this.corpses.set(tombstone, perTombstone);
     }
-    let deleted = perTombstone.get(hashed);
-    if (deleted == null) {
-      deleted = new Deleted(
-        this.config.compose([tombstone.corpse], params),
-        tombstone.deletedAt,
-      );
-      perTombstone.set(hashed, deleted);
-    }
-    return deleted;
+    return map.getOrInsert(
+      perTombstone,
+      hashed,
+      () =>
+        new Deleted(
+          this.config.compose([tombstone.corpse], params),
+          tombstone.deletedAt,
+        ),
+    );
   }
 
   /** Notifies subscribers when any of the keys is a member of the ready
