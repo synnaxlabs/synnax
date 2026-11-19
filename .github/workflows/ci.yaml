@@ -470,7 +470,7 @@ jobs:
       contains(fromJSON(needs.changes.outputs.ci), 'core')
     uses: ./.github/workflows/test.go.yaml
     with:
-      cached: ${{ github.event_name == 'pull_request' }}
+      cached: ${{ !inputs.full }}
       coverage_flag: core
       directory: core
       os_specific: true
