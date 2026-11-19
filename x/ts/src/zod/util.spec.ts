@@ -73,6 +73,9 @@ describe("zod", () => {
     it("should return null for invalid path and optional is true", () => {
       expect(zod.getFieldSchema(schema, "a.b.c.d", { optional: true })).toBeNull();
     });
+    it("should return null for a field named after an Object.prototype key", () => {
+      expect(zod.getFieldSchema(schema, "constructor", { optional: true })).toBeNull();
+    });
     describe("wrappers", () => {
       const schema = z.object({
         a: z.object({ b: z.number() }).optional(),

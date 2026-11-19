@@ -75,7 +75,7 @@ interface RenderParams extends Partial<RecordParams> {
    * Runs after the task is saved, before the form opens. The Core saves no task that an
    * ICD edit here would make invalid.
    */
-  beforeRender?: () => Promise<unknown>;
+  beforeRender?: (dev: device.Device) => Promise<unknown>;
   /** The client the form runs as. */
   as?: Synnax;
 }
@@ -130,7 +130,7 @@ const renderRead = async ({
     { name: "Kafka read task", type: Kafka.Task.READ_TYPE, config },
     Kafka.Task.READ_SCHEMAS,
   );
-  await beforeRender?.();
+  await beforeRender?.(dev);
   const statuses: Status.NotificationSpec[] = [];
   const result = await renderTaskFormTab(Kafka.Task.Read, {
     client,
@@ -872,6 +872,22 @@ describe("Kafka read form", () => {
     });
   });
 
+  describe("channel name preview", () => {
+    it("should preview a numbered name for a new channel whose name is taken", async () => {
+      const { dev } = await renderRead({
+        fields: [createField("temperature", "float")],
+        beforeRender: async ({ name }) =>
+          await client.channels.create({
+            name: `${name}_oven_temperature`,
+            dataType: DataType.FLOAT64,
+            virtual: true,
+          }),
+      });
+      await selectField("temperature");
+      await screen.findByDisplayValue(`${dev.name}_oven_temperature_2`);
+    });
+  });
+
   describe("deploying against a live Core", () => {
     it("should reuse the channels of a deploy that failed partway", async () => {
       const rec = await createRecord({ fields: [createField("temperature", "float")] });
@@ -1035,20 +1051,17 @@ describe("Kafka read form", () => {
       expect(a.index).not.toBe(b.index);
     });
 
-    it("should refuse a read that mixes string and number fields", async () => {
-      const { container, statuses } = await renderRead({
+    it("should store a string field on the index of a number field", async () => {
+      const { container, draft } = await renderRead({
         fields: [createField("mode", "string"), createField("temperature", "float")],
       });
-      await screen.findByText(/mode: a string, JSON, or bytes field cannot share/);
-      await clickDeploy(container);
-      await waitFor(() =>
-        expect(statuses).toContainEqual(
-          expect.objectContaining({
-            message: "Failed to start task",
-            description: expect.stringContaining("In record Any key, mode: a string"),
-          }),
-        ),
-      );
+      const created = await deploy(container, draft.key);
+      const [mode, temperature] = created.config.records[0].messages[0].bindings;
+      const modeCh = await client.channels.retrieve(mode.channel);
+      expect(modeCh.virtual).toBe(false);
+      expect(modeCh.dataType.equals(DataType.STRING)).toBe(true);
+      const temperatureCh = await client.channels.retrieve(temperature.channel);
+      expect(modeCh.index).toBe(temperatureCh.index);
     });
 
     it("should refuse a record that reads no fields", async () => {

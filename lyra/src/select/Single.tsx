@@ -74,6 +74,13 @@ export const Single = <K extends record.Key, E extends record.Keyed<K> | undefin
   triggerProps,
   virtual = true,
   closeDialogOnSelect = true,
+  autoSelectOnNone,
+  initialHover,
+  enableTriggers,
+  cursor,
+  moveX,
+  pinned,
+  overscan,
   ...rest
 }: SingleProps<K, E>): ReactElement => {
   const placeholder = usePlaceholder(resourceName);
@@ -90,6 +97,13 @@ export const Single = <K extends record.Key, E extends record.Keyed<K> | undefin
         itemHeight={itemHeight}
         virtual={virtual}
         closeDialogOnSelect={closeDialogOnSelect}
+        autoSelectOnNone={autoSelectOnNone}
+        initialHover={initialHover}
+        enableTriggers={enableTriggers}
+        cursor={cursor}
+        moveX={moveX}
+        pinned={pinned}
+        overscan={overscan}
       >
         <SingleTrigger
           haulType={haulType}

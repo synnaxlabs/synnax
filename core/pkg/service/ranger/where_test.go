@@ -12,17 +12,37 @@ package ranger_test
 import (
 	"encoding/json/v2"
 	"math"
+	"sync/atomic"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/testutil/vectors"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/validate"
 )
+
+// failArmedDB fails the first iterator that the DB opens once armed, which is the scan
+// that populates the indexes of a table opened next.
+type failArmedDB struct {
+	kv.DB
+	armed atomic.Bool
+}
+
+func (f *failArmedDB) OpenIterator(opts kv.IteratorOptions) (kv.Iterator, error) {
+	if f.armed.CompareAndSwap(true, false) {
+		return nil, errors.New("populate failed")
+	}
+	return f.DB.OpenIterator(opts)
+}
 
 var _ = Describe("Where", func() {
 	v := MustSucceed(vectors.Read[ranger.Range, ranger.Where]("ranges"))
@@ -46,6 +66,20 @@ var _ = Describe("Where", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
 		}
 	})
+
+	retrieve := func(ctx SpecContext, f ranger.Filter) []string {
+		GinkgoHelper()
+		var res []ranger.Range
+		Expect(svc.NewRetrieve().Where(f).Entries(&res).Exec(ctx, tx)).To(Succeed())
+		return lo.FilterMap(res, func(r ranger.Range, _ int) (string, bool) {
+			return r.Name, keys[r.Key] == ""
+		})
+	}
+
+	match := func(ctx SpecContext, w ranger.Where) []string {
+		GinkgoHelper()
+		return retrieve(ctx, MustSucceed(ranger.MatchWhere(w)))
+	}
 
 	DescribeTable(
 		"Should match the case",
@@ -86,18 +120,6 @@ var _ = Describe("Where", func() {
 				Expect(svc.NewWriter(tx).Create(ctx, r)).To(Succeed())
 			}
 		})
-
-		match := func(ctx SpecContext, w ranger.Where) []string {
-			GinkgoHelper()
-			var res []ranger.Range
-			Expect(svc.NewRetrieve().
-				Where(MustSucceed(ranger.MatchWhere(w))).
-				Entries(&res).
-				Exec(ctx, tx)).To(Succeed())
-			return lo.FilterMap(res, func(r ranger.Range, _ int) (string, bool) {
-				return r.Name, keys[r.Key] == ""
-			})
-		}
 
 		DescribeTable(
 			"Should match the ranges in the stages when the query opens",
@@ -183,6 +205,106 @@ var _ = Describe("Where", func() {
 		It("Should panic on an invalid stage from Go", func() {
 			Expect(func() { ranger.MatchStages("paused")(svc.NewRetrieve()) }).
 				To(PanicWith(`ranger: invalid stage "paused"`))
+		})
+	})
+
+	Describe("MatchAncestors", func() {
+		var named map[string]ranger.Key
+		BeforeEach(func(ctx SpecContext) {
+			named = map[string]ranger.Key{}
+			create := func(name, parent string) {
+				GinkgoHelper()
+				r := ranger.Range{
+					Name:      name,
+					TimeRange: telem.SecondTS.SpanRange(telem.Second),
+				}
+				if parent != "" {
+					r.Parent = new(named[parent])
+				}
+				Expect(svc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
+				named[name] = r.Key
+			}
+			create("Root", "")
+			create("Other", "")
+			create("Child", "Root")
+			create("Grandchild", "Child")
+		})
+
+		keysOf := func(names []string) []ranger.Key {
+			return lo.Map(names, func(n string, _ int) ranger.Key { return named[n] })
+		}
+
+		DescribeTable(
+			"Should match the ranges nested at any depth in the given ranges",
+			func(ctx SpecContext, given, expected []string) {
+				Expect(retrieve(ctx, ranger.MatchAncestors(keysOf(given)...))).
+					To(ConsistOf(expected))
+			},
+			Entry(
+				"a top-level range",
+				[]string{"Root"},
+				[]string{"Child", "Grandchild"},
+			),
+			Entry("a nested range", []string{"Child"}, []string{"Grandchild"}),
+			Entry(
+				"a range nested in another given range",
+				[]string{"Root", "Child"},
+				[]string{"Child", "Grandchild"},
+			),
+			Entry("a range with no children", []string{"Other"}, []string{}),
+			Entry("no ranges", []string{}, []string{}),
+		)
+
+		It("Should leave out the nested ranges under not", func(ctx SpecContext) {
+			Expect(match(ctx, ranger.Where{
+				Not: &ranger.Where{Ancestors: keysOf([]string{"Root"})},
+			})).To(ConsistOf("Root", "Other"))
+		})
+
+		It(
+			"Should scan when the parent index failed to populate",
+			func(ctx SpecContext) {
+				kvDB := &failArmedDB{DB: memkv.New()}
+				db := DeferClose(gorp.Wrap(kvDB))
+				StartRun(db.Run)
+				cfg := ranger.ServiceConfig{
+					DB: db,
+					Group: MustOpen(
+						group.OpenService(ctx, group.ServiceConfig{DB: db}),
+					),
+				}
+				written := MustSucceed(ranger.OpenService(ctx, cfg))
+				tr := telem.SecondTS.SpanRange(telem.Second)
+				root := ranger.Range{Name: "Root", TimeRange: tr}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					w := written.NewWriter(tx)
+					if err := w.Create(ctx, &root); err != nil {
+						return err
+					}
+					return w.Create(ctx, &ranger.Range{
+						Name:      "Child",
+						TimeRange: tr,
+						Parent:    &root.Key,
+					})
+				})).To(Succeed())
+				Expect(written.Close()).To(Succeed())
+				kvDB.armed.Store(true)
+				reader := MustOpen(ranger.OpenService(ctx, cfg))
+				var res []ranger.Range
+				Expect(reader.NewRetrieve().
+					Where(ranger.MatchAncestors(root.Key)).
+					Entries(&res).
+					Exec(ctx, db)).To(Succeed())
+				Expect(res).To(HaveExactElements(HaveField("Name", "Child")))
+			},
+		)
+
+		It("Should see a range moved in the same transaction", func(ctx SpecContext) {
+			Expect(svc.NewWriter(tx).Apply(ctx, named["Other"], ranger.NewSetAction(
+				ranger.SetPayload{Path: []string{"parent"}, Value: named["Grandchild"]},
+			))).To(Succeed())
+			Expect(retrieve(ctx, ranger.MatchAncestors(named["Root"]))).
+				To(ConsistOf("Child", "Grandchild", "Other"))
 		})
 	})
 
