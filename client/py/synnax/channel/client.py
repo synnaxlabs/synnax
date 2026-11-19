@@ -27,8 +27,10 @@ from synnax.channel.types_gen import (
     Operation,
     Order,
     Payload,
+    RetrieveBuiltInsResponse,
     RetrieveRequest,
     Status,
+    Use,
     Where,
     WhereInput,
     resource_id,
@@ -75,6 +77,7 @@ class Channel(Payload):
         concurrency: control.Concurrency = control.Concurrency.exclusive,
         status: Status | None = None,
         group: group_.Key | None = None,
+        uses: list[Use] | None = None,
         _frame_client: framer.Client | None = None,
         _client: Client | None = None,
     ) -> None:
@@ -101,6 +104,8 @@ class Channel(Payload):
         include aggregations like min, max, avg over a time duration or triggered by
         a reset channel.
         :param group: The group the channel sits in, if any.
+        :param uses: The records that read or write the channel, set only when a
+            retrieve asks for them.
         :returns: The created channel.
         :param _frame_client: The backing client for reading and writing data to and
         from the channel. This is provided by the Synnax py during calls to
@@ -124,6 +129,7 @@ class Channel(Payload):
             concurrency=concurrency,
             status=status,
             group=group,
+            uses=uses,
         )
         self._cached_frame_client = _frame_client
         self._client = _client
@@ -240,6 +246,19 @@ class Client:
     def delete(self, channels: Params) -> None:
         """Deletes on or more channels from the cluster"""
         self._creator.delete(channels)
+
+    def retrieve_built_ins(self) -> list[Key]:
+        """Retrieves the keys of the built-in channels, which Core services declare
+        for their own work. Any caller may retrieve them.
+
+        :returns: The keys of the built-in channels.
+        """
+        return send_required(
+            self._client,
+            "/channel/retrieve-built-ins",
+            Empty(),
+            RetrieveBuiltInsResponse,
+        ).keys
 
     def count_limited(self) -> int:
         """Retrieves how many channels count against the license channel limit (not
@@ -379,6 +398,7 @@ class Client:
         node_key: node.Key | None = ...,
         search_term: str = ...,
         include_status: bool = ...,
+        include_uses: bool = ...,
         one: bool = ...,
     ) -> Channel: ...
 
@@ -401,6 +421,7 @@ class Client:
         where: Where | None = ...,
         search_term: str = ...,
         include_status: bool = ...,
+        include_uses: bool = ...,
         one: bool = ...,
     ) -> Channel: ...
 
@@ -423,6 +444,7 @@ class Client:
         where: Where | None = ...,
         search_term: str = ...,
         include_status: bool = ...,
+        include_uses: bool = ...,
         one: bool = ...,
     ) -> Channel: ...
 
@@ -449,6 +471,7 @@ class Client:
         node_key: node.Key | None = ...,
         search_term: str = ...,
         include_status: bool = ...,
+        include_uses: bool = ...,
         one: Literal[True],
     ) -> Channel: ...
 
@@ -478,6 +501,7 @@ class Client:
         order: Order | None = ...,
         after: Cursor | None = ...,
         include_status: bool = ...,
+        include_uses: bool = ...,
         one: Literal[False] = ...,
     ) -> list[Channel]: ...
 
@@ -494,6 +518,7 @@ class Client:
         order: Order | None = None,
         after: Cursor | None = None,
         include_status: bool = False,
+        include_uses: bool = False,
         one: bool = False,
         **fields: Any,
     ) -> Channel | list[Channel]:
@@ -533,6 +558,8 @@ class Client:
             the last channel of the page before, and its value of the order field.
         :param include_status: Attaches each channel's status. A channel with no
             status gets None.
+        :param include_uses: Attaches the records that read or write each channel
+            and that the caller can retrieve. A task config shows as its task.
         :param one: Returns one channel for any filter.
         :returns: One channel when one is wanted, otherwise a list of channels. The
             list leaves out keys that do not exist.
@@ -574,6 +601,7 @@ class Client:
             order=order,
             after=after,
             include_status=include_status,
+            include_uses=include_uses,
         )
         res = self._retriever.filter(req)
         sug = self._sugar(res)

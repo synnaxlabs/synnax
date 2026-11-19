@@ -15,7 +15,8 @@ import pydantic
 import pytest
 
 import synnax as sy
-from x import filter
+from synnax import schematic
+from x import filter, spatial
 from x.strings import random_name
 from x.telem import seconds_linspace
 from x.testutil import assert_eventually, untyped
@@ -1104,3 +1105,43 @@ class TestChannelGroup:
         assert client.channels.retrieve(ch.key).group == g.key
         client.channels.set_group(ch.key)
         assert client.channels.retrieve(ch.key).group is None
+
+
+@pytest.mark.channel
+class TestChannelUses:
+    def test_include_uses(self, client: sy.Synnax) -> None:
+        """Should list a schematic that reads the channel."""
+        ch = client.channels.create(
+            name=channel_name(), virtual=True, data_type=sy.DataType.FLOAT32
+        )
+        project = client.projects.create(name=f"uses-{channel_name()}")
+        diagram = client.schematics.create(
+            sy.Schematic(
+                project=project.key,
+                name="Uses",
+                nodes=[
+                    schematic.Node(
+                        key="value",
+                        position=spatial.XY(x=0, y=0),
+                        config=schematic.ValueNodeConfig(channel=ch.key),
+                    )
+                ],
+            )
+        )
+        res = client.channels.retrieve(ch.key, include_uses=True)
+        assert res.uses is not None
+        assert [(u.id.type, u.id.key, u.direction) for u in res.uses] == [
+            ("schematic", str(diagram.key), "read")
+        ]
+
+    def test_uses_not_asked(self, client: sy.Synnax) -> None:
+        """Should leave uses out when the retrieve does not ask for them."""
+        ch = client.channels.create(
+            name=channel_name(), virtual=True, data_type=sy.DataType.FLOAT32
+        )
+        assert client.channels.retrieve(ch.key).uses is None
+
+    def test_retrieve_built_ins(self, client: sy.Synnax) -> None:
+        """Should retrieve the keys of the built-in channels."""
+        cmd = client.channels.retrieve("sy_task_cmd")
+        assert cmd.key in client.channels.retrieve_built_ins()

@@ -18,6 +18,7 @@ import {
   type destructor,
   filter,
   type MultiSeries,
+  sync,
   type TypedArray,
   zod,
 } from "@synnaxlabs/x";
@@ -43,11 +44,13 @@ import {
   type Payload,
   payloadZ,
   resourceID,
+  retrieveBuiltInsResponseZ,
   type RetrieveRequest,
   retrieveRequestZ,
   statusZ,
+  type Use,
 } from "@/channel/types.gen";
-import { LINES } from "@/channel/where";
+import { createLines } from "@/channel/where";
 import {
   compareCursors,
   cursor,
@@ -57,7 +60,7 @@ import {
   shortcutZ,
 } from "@/channel/where.gen";
 import { type Writer } from "@/channel/writer";
-import { ValidationError } from "@/errors";
+import { isConnectionError, ValidationError } from "@/errors";
 import { type framer } from "@/framer";
 import { group } from "@/group";
 import { query } from "@/query";
@@ -123,6 +126,11 @@ export class Channel {
   readonly status?: status.Status;
   /** The group the channel sits in, if any. */
   readonly group?: group.Key;
+  /**
+   * The records that read or write the channel and that the caller can retrieve, set
+   * only when a retrieve asks for them.
+   */
+  readonly uses?: Use[];
 
   constructor({
     dataType,
@@ -139,7 +147,8 @@ export class Channel {
     operations = [],
     concurrency = control.Concurrency.exclusive,
     group: groupKey,
-  }: New & { frameClient?: framer.Client }) {
+    uses,
+  }: New & { frameClient?: framer.Client; uses?: Use[] }) {
     this.key = zod.parse(keyZ, key, { label: "channel key" });
     this.name = name;
     this.dataType = new DataType(dataType);
@@ -154,6 +163,7 @@ export class Channel {
     });
     this.concurrency = concurrency;
     this.group = groupKey;
+    this.uses = uses;
     if (argsStatus != null)
       this.status = zod.parse(statusZ, argsStatus, { label: "channel status" });
     this.frameClient = frameClient ?? null;
@@ -187,6 +197,7 @@ export class Channel {
         operations: this.operations,
         concurrency: this.concurrency,
         group: this.group,
+        uses: this.uses,
       },
       { label: "channel payload" },
     );
@@ -236,8 +247,17 @@ type OneParams = query.OneInput<typeof retrieveParamsZ>;
 const isOneParams = (params: object): params is RetrieveSingleParams | OneParams =>
   query.addressesOne(params);
 
-/** Statuses are composed from their store on read. */
-const stripComposed = ({ status: _status, ...rest }: Payload): Payload => rest;
+/** Statuses and uses are composed from their stores on read. */
+const stripComposed = ({ status: _status, uses: _uses, ...rest }: Payload): Payload =>
+  rest;
+
+/** The records that use a channel, keyed by the channel. */
+interface Uses {
+  key: Key;
+  uses?: Use[];
+}
+
+const toUses = ({ key, uses }: Payload): Uses => ({ key, uses });
 
 const singleParamsZ = z.union([
   z.strictObject({ key: z.uint32() }),
@@ -271,6 +291,11 @@ export interface ClientConfig {
   statuses: status.Client;
   cache: query.Cache;
   batch: batch.Client;
+  /**
+   * The channels that announce changes to records that can use a channel. A change on
+   * one refetches the uses the client holds.
+   */
+  usesChannels: string[];
 }
 
 /**
@@ -292,6 +317,9 @@ export class Client extends query.Retriever<
   /** Builds requests that move channels between groups. */
   readonly setGroupRequest: group.MoveRequest<Key>;
   private readonly byName: query.LookupIndex<Key, Channel>;
+  private readonly usesStore: query.Table<Key, Uses>;
+  private readonly usesChanges: { count: number };
+  private readonly refetchUses: () => void;
 
   constructor(cfg: ClientConfig) {
     const { writer, statuses, cache } = cfg;
@@ -318,13 +346,70 @@ export class Client extends query.Retriever<
     const composed = cache.derive<Key, Channel, Channel>({
       name: "channel.composed",
       source: store,
-      compose: (record) => this.compose(record.payload),
+      compose: (record) => this.compose(record.payload, { status: true, uses: false }),
       equal: (a, b) => deep.equal(a.payload, b.payload),
       triggers: [
         query.deriveTrigger(statusStore, (event) => affectedChannelKeys(event)),
       ],
     });
     statuses.holdOwned(store, resourceID);
+    // The channel table never holds uses. A retrieve that asks for them reads this one.
+    const usesStore = cache.createTable<Key, Uses>({
+      name: "channel.uses",
+      fetch: async (keys) =>
+        (
+          await this.execRetrieve({ ...query.keysRequest(keys), includeUses: true })
+        ).map(toUses),
+    });
+    // An answer that holds a channel composes its uses too.
+    usesStore.hold({ held: () => store.held() });
+    store.subscribe((event) => {
+      if (event.variant === "delete") usesStore.evict(event.key);
+    });
+    // The Core announces no change to uses. Refetches run one at a time, so an older
+    // reply cannot overwrite a newer one. A change that arrives while a refetch waits
+    // joins it.
+    const refetchMu = sync.newMutex({ waiting: false });
+    const refetchUses = () => {
+      if (refetchMu.waiting) return;
+      refetchMu.waiting = true;
+      refetchMu
+        .runExclusive(async () => {
+          refetchMu.waiting = false;
+          await usesStore.reconcile();
+        })
+        .catch((exc: unknown) => {
+          // The reconcile after the next reconnect fetches the uses again.
+          if (isConnectionError(exc)) return;
+          cache.onError(new Error("failed to refetch channel uses", { cause: exc }));
+        });
+    };
+    const usesChanges = { count: 0 };
+    cfg.usesChannels.forEach((channel) =>
+      cache.listen({
+        channel,
+        schema: z.unknown(),
+        onChange: () => {
+          usesChanges.count++;
+          refetchUses();
+        },
+      }),
+    );
+    // The built-in keys arrive once per connection. Until then, the Core checks the
+    // internal line.
+    let builtIns: Set<Key> | null = null;
+    cache.onEpoch(() => {
+      builtIns = null;
+      this.retrieveBuiltIns()
+        .then((keys) => {
+          builtIns = new Set(keys);
+        })
+        .catch((exc: unknown) => {
+          if (isConnectionError(exc)) return;
+          cache.onError(new Error("failed to fetch built-in channels", { cause: exc }));
+        });
+    });
+    const lines = createLines(() => builtIns);
     const single = cache.queries<RetrieveSingleParams, Channel, Key, Channel>({
       name: "channel",
       table: composed,
@@ -342,8 +427,12 @@ export class Client extends query.Retriever<
         list: { cursor, compare: compareCursors },
         schema: retrieveParamsZ,
         fetch: async (query) => await this.fetchRequest(query),
-        matches: (ch, query) => matches(LINES, ch, query.where),
-        serverComputed: (query) => serverComputed(LINES, query.where),
+        // A channel whose uses the client does not hold fetches the query again.
+        matches: (ch, query) =>
+          query.includeUses === true && usesStore.get(ch.key) == null
+            ? null
+            : matches(lines, ch, query.where),
+        serverComputed: (query) => serverComputed(lines, query.where),
         triggers: [
           query.trigger(
             statusStore,
@@ -351,12 +440,22 @@ export class Client extends query.Retriever<
               query.includeStatus === true ? affectedChannelKeys(event) : null,
             { contentOnly: true },
           ),
+          query.trigger(
+            usesStore,
+            (event, query: RetrieveRequest) =>
+              query.includeUses === true ? [event.key] : null,
+            { contentOnly: true },
+          ),
         ],
       },
-      compose: (ch, query) =>
-        (query as RetrieveRequest).includeStatus === true
-          ? this.compose(ch.payload)
-          : ch,
+      compose: (ch, query) => {
+        const { includeStatus, includeUses } = query as RetrieveRequest;
+        if (includeStatus !== true && includeUses !== true) return ch;
+        return this.compose(ch.payload, {
+          status: includeStatus === true,
+          uses: includeUses === true,
+        });
+      },
       single: { schema: singleParamsZ, space: single },
     });
     this.cfg = cfg;
@@ -367,6 +466,9 @@ export class Client extends query.Retriever<
       return () => rollbacks.forEach((rollback) => rollback());
     });
     this.byName = byName;
+    this.usesStore = usesStore;
+    this.usesChanges = usesChanges;
+    this.refetchUses = refetchUses;
   }
 
   /**
@@ -542,6 +644,20 @@ export class Client extends query.Retriever<
     return count;
   }
 
+  /**
+   * Retrieves the keys of the built-in channels, which Core services declare for their
+   * own work. Any caller may retrieve them.
+   */
+  async retrieveBuiltIns(): Promise<Key[]> {
+    const { keys } = await this.cfg.unary.send(
+      "/channel/retrieve-built-ins",
+      {},
+      z.object({}),
+      retrieveBuiltInsResponseZ,
+    );
+    return keys;
+  }
+
   /** Renames the channels in one transaction, giving each key the name at its index. */
   async rename(key: Key, name: string, opts?: query.WriteOptions): Promise<void>;
   async rename(keys: Key[], names: string[], opts?: query.WriteOptions): Promise<void>;
@@ -627,15 +743,19 @@ export class Client extends query.Retriever<
     return new Channel({ ...payloads, frameClient });
   }
 
-  /** Rebuilds a cached channel with its cached status attached. */
-  private compose(payload: Payload): Channel {
-    const next: Payload = { ...payload, status: undefined };
-    if (isCalculated(payload)) {
+  /** Rebuilds a cached channel with its cached status or uses attached. */
+  private compose(
+    payload: Payload,
+    { status, uses }: { status: boolean; uses: boolean },
+  ): Channel {
+    const next: Payload = { ...payload, status: undefined, uses: undefined };
+    if (status && isCalculated(payload)) {
       const parsed = statusZ.safeParse(
         this.cfg.statuses.ownedBy(resourceID(payload.key)),
       );
       if (parsed.success) next.status = parsed.data;
     }
+    if (uses) next.uses = this.usesStore.get(payload.key)?.uses;
     return this.sugar(next);
   }
 
@@ -696,9 +816,20 @@ export class Client extends query.Retriever<
   }
 
   private async fetchRequest(req: RetrieveRequest): Promise<Channel[]> {
+    if (req.includeUses === true) return await this.fetchUses(req);
     const names = onlyNames(req);
     const resolved = names != null ? this.resolveNames(names) : null;
     if (resolved != null) return resolved;
     return (await this.execRetrieve(req)).map((p) => this.sugar(stripComposed(p)));
+  }
+
+  /** Fetches the channels of req with their uses, which it saves to the uses table. */
+  private async fetchUses(req: RetrieveRequest): Promise<Channel[]> {
+    const changes = this.usesChanges.count;
+    const payloads = await this.execRetrieve(req);
+    this.usesStore.set(payloads.map(toUses));
+    // A refetch that a change started can miss these keys or land first.
+    if (this.usesChanges.count !== changes) this.refetchUses();
+    return payloads.map((p) => this.sugar(stripComposed(p)));
   }
 }

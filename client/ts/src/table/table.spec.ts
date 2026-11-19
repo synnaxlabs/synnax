@@ -112,6 +112,11 @@ describe("Table", () => {
 
   describe("cell config round-trip", () => {
     test("round-trips a fully-populated value cell config", async () => {
+      const ch = await client.channels.create({
+        name: `cell_${id.create()}`,
+        dataType: "float32",
+        virtual: true,
+      });
       const proj = await client.projects.create({ name: "ConfigTest" });
       const t = await client.tables.create({
         project: proj.key,
@@ -123,7 +128,7 @@ describe("Table", () => {
                 key: "a",
                 config: {
                   variant: "value",
-                  channel: 42,
+                  channel: ch.key,
                   rollingAverage: 5,
                   precision: 3,
                   notation: "scientific",
@@ -152,7 +157,7 @@ describe("Table", () => {
       const cfg = configOf(retrieved, "a");
       expect(cfg?.variant).toEqual("value");
       if (cfg?.variant !== "value") return;
-      expect(cfg.channel).toEqual(42);
+      expect(cfg.channel).toEqual(ch.key);
       expect(cfg.rollingAverage).toEqual(5);
       expect(cfg.precision).toEqual(3);
       expect(cfg.notation).toEqual("scientific");
