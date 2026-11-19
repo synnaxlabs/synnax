@@ -58,13 +58,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB: db,
 	}))
+	MustOpen(enumeration.OpenService(ctx, enumeration.ServiceConfig{DB: db}))
 	schematicSvc = MustOpen(schematic.OpenService(ctx, schematic.ServiceConfig{
 		DB:    db,
 		Group: groupSvc,
 		ImEx:  imex.NewService(),
-		Enumeration: MustOpen(enumeration.OpenService(ctx, enumeration.ServiceConfig{
-			DB: db,
-		})),
 	}))
 	lineplotSvc = MustOpen(lineplot.OpenService(ctx, lineplot.ServiceConfig{
 		DB:   db,
