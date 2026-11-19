@@ -263,13 +263,16 @@ func readCertificate(path string) *certificate.Details {
 }
 
 // readHead returns at most the first maxCertificateSize+1 bytes of the file at path.
-func readHead(path string) (data []byte, err error) {
+func readHead(path string) ([]byte, error) {
 	f, err := os.Open(filepath.Clean(path))
 	if err != nil {
 		return nil, err
 	}
-	defer func() { err = errors.Combine(err, f.Close()) }()
-	return io.ReadAll(io.LimitReader(f, maxCertificateSize+1))
+	data, err := io.ReadAll(io.LimitReader(f, maxCertificateSize+1))
+	if err = errors.Combine(err, f.Close()); err != nil {
+		return nil, err
+	}
+	return data, nil
 }
 
 func (b browser) top() (listing, error) {
