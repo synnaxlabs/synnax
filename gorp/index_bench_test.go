@@ -584,3 +584,91 @@ func BenchmarkComposeNestedAnd(b *testing.B) {
 		})
 	}
 }
+
+// --- Dependents ---
+
+type dependentsBenchHolder struct {
+	Key     int32
+	Targets []int32
+}
+
+func (h dependentsBenchHolder) GorpKey() int32 { return h.Key }
+
+// dependentsBenchRefs is the number of references that point at the target table, the
+// count a channel has across its holder tables.
+const dependentsBenchRefs = 30
+
+// newDependentsBenchRefs returns dependentsBenchRefs weak references to the target
+// table. Holder h holds its targets through reference h % dependentsBenchRefs.
+func newDependentsBenchRefs() []gorp.Reference[int32, dependentsBenchHolder] {
+	refs := make([]gorp.Reference[int32, dependentsBenchHolder], dependentsBenchRefs)
+	for i := range refs {
+		ref := int32(i)
+		refs[i] = gorp.NewKeyReference(
+			gorp.KeyReferenceConfig[int32, dependentsBenchHolder, int32]{
+				Name:     "targets_" + strconv.Itoa(i),
+				Table:    "target",
+				OnDelete: gorp.Weak,
+				Kind:     gorp.Use,
+				Targets: func(h *dependentsBenchHolder) []int32 {
+					if h.Key%dependentsBenchRefs != ref {
+						return nil
+					}
+					return h.Targets
+				},
+			},
+		)
+	}
+	return refs
+}
+
+// BenchmarkDependents measures Dependents for a page of 100 targets that
+// dependentsBenchRefs weak references point at. Each target has 3 holders, and each
+// holder holds through one reference. Compare it against
+// BenchmarkRetrieveByKeys/int32_key/n=100.
+func BenchmarkDependents(b *testing.B) {
+	const (
+		pageSize = 100
+		holders  = 3 * pageSize
+	)
+	db := openBenchDB(b)
+	ctx := b.Context()
+	targets, err := gorp.OpenTable(ctx, gorp.TableConfig[int32, benchEntry]{
+		DB:     db,
+		Name:   "target",
+		Issued: func(int32) bool { return true },
+	})
+	if err != nil {
+		b.Fatal(err)
+	}
+	holderTable, err := gorp.OpenTable(
+		ctx,
+		gorp.TableConfig[int32, dependentsBenchHolder]{
+			DB:         db,
+			Name:       "holder",
+			References: newDependentsBenchRefs(),
+		},
+	)
+	if err != nil {
+		b.Fatal(err)
+	}
+	entries := make([]dependentsBenchHolder, holders)
+	for i := range entries {
+		entries[i] = dependentsBenchHolder{
+			Key:     int32(i),
+			Targets: []int32{int32(i % pageSize)},
+		}
+	}
+	if err = holderTable.NewCreate().Entries(&entries).Exec(ctx, db); err != nil {
+		b.Fatal(err)
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for range b.N {
+		for k := range int32(pageSize) {
+			if _, err = targets.Dependents(ctx, db, k); err != nil {
+				b.Fatal(err)
+			}
+		}
+	}
+}

@@ -41,13 +41,13 @@ func (t *Table[K, E]) register(named bool) error {
 // registerReferences adds the table's references to its indexes and to its DB's
 // registry. Call it after the table's migrations: a delete that follows a reference
 // waits for its index to populate, which starts only after them.
-func (t *Table[K, E]) registerReferences() {
+func (t *Table[K, E]) registerReferences() error {
 	refs := make([]registeredReference, len(t.references))
 	for i, r := range t.references {
 		refs[i] = r
 		t.indexes = append(t.indexes, r)
 	}
-	t.db.registry.addReferences(refs)
+	return t.db.registry.addReferences(refs)
 }
 
 // unregister removes the table and its references from its DB's registry.
@@ -113,6 +113,18 @@ func (t *Table[K, E]) deleteKeys(ctx context.Context, tx Tx, keys []string) erro
 	w := t.writer(tx, false)
 	w.derived = true
 	return w.Delete(ctx, pks...)
+}
+
+// issues implements registeredTable.
+func (t *Table[K, E]) issues() bool { return t.issuedKey != nil }
+
+// issued implements registeredTable.
+func (t *Table[K, E]) issued(k string) (bool, error) {
+	pk, err := key.Parse[K](k)
+	if err != nil {
+		return false, err
+	}
+	return t.issuedKey(pk), nil
 }
 
 // detach implements registeredTable.
@@ -198,14 +210,27 @@ func (t *Table[K, E]) targetSet(
 	return t.onTargetSet[table](ctx, tx, e)
 }
 
+// Dependent is an entry that holds a reference to another entry.
+type Dependent struct {
+	// Holder is the entry that holds the reference.
+	Holder Target
+	// Reference is the name of the reference.
+	Reference string
+	// Kind is the kind of the link.
+	Kind LinkKind
+	// Tag is the Tag of the reference's config.
+	Tag uint8
+}
+
 // Dependents returns the entries of every open table that hold a reference to the entry
-// with key k, as seen by snap. It waits for each reference's index to populate, or for
+// with key k, as seen by snap, once for each reference that holds it. A Weak reference
+// holds k after k is deleted. It waits for each reference's index to populate, or for
 // ctx to end, and returns ErrIndexInvalid if one failed to populate.
 func (t *Table[K, E]) Dependents(
 	ctx context.Context,
 	snap Snapshot,
 	k K,
-) ([]Target, error) {
+) ([]Dependent, error) {
 	return t.db.registry.dependents(ctx, snap, Target{Table: t.name, Key: FormatKey(k)})
 }
 

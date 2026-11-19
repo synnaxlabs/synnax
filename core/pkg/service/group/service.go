@@ -408,7 +408,8 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 				return err
 			}
 			for _, d := range deps {
-				if d.Table == string(resource.TypeGroup) && named.Contains(d.Key) {
+				if d.Holder.Table == string(resource.TypeGroup) &&
+					named.Contains(d.Holder.Key) {
 					continue
 				}
 				return errors.Wrapf(

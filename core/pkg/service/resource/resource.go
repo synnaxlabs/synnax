@@ -68,7 +68,7 @@ func Dependents[K gorp.Key, E gorp.Entry[K]](
 	if err != nil {
 		return nil, err
 	}
-	return lo.Map(deps, func(d gorp.Target, _ int) ID {
-		return ID{Type: Type(d.Table), Key: d.Key}
+	return lo.Map(deps, func(d gorp.Dependent, _ int) ID {
+		return ID{Type: Type(d.Holder.Table), Key: d.Holder.Key}
 	}), nil
 }
