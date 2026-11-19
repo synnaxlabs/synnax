@@ -15,13 +15,13 @@ import { openProject } from "./desktop";
 import { CORE_RACK, type Server } from "./server";
 
 /** The port of the fake Sift server. */
-export const SIFT_PORT = 50551;
+const SIFT_PORT = 50551;
 
 /** The URI of the fake Sift server, as a Sift connection gives it. */
-export const SIFT_URI = `localhost:${SIFT_PORT}`;
+const SIFT_URI = `localhost:${SIFT_PORT}`;
 
 /** The name of the Sift connection that `siftScript` creates. */
-export const CONNECTION = "Sift";
+const CONNECTION = "Sift";
 
 /** The Sift asset the videos send data to. */
 export const ASSET = "TPC";
