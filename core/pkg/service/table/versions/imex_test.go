@@ -15,8 +15,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/table/versions"
+	"github.com/synnaxlabs/x/color"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -68,6 +70,33 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		}))
 		Expect(t.Columns).To(Equal([]versions.Column{{Key: "col-0", Size: 100}}))
 		Expect(text(cell(t, "c1")).Value).To(Equal("hi"))
+	})
+
+	It("Should decode a v0.62 export with its colors as fixed colors", func(
+		ctx SpecContext,
+	) {
+		t := decode(ctx, "testdata/import_v6.json")
+		fixed := func(r uint8) *servicecolor.Ref {
+			return &servicecolor.Ref{Variant: servicecolor.FixedRef{
+				Value: color.Color{R: r, G: 29, B: 29, A: 255},
+			}}
+		}
+		Expect(t.Name).To(Equal("Test Table V6"))
+		Expect(layout(t)).To(Equal([]rowLayout{
+			{key: "r0", size: 32, cells: []string{"text", "value"}},
+		}))
+		txt := text(cell(t, "text"))
+		Expect(txt.Value).To(Equal("Pressure"))
+		Expect(txt.FillColor).To(Equal(fixed(1)))
+		Expect(txt.TextColor).To(BeNil())
+		value, ok := cell(t, "value").Variant.(versions.ValueCellConfig)
+		Expect(ok).To(BeTrue())
+		Expect(value.FillColor).To(Equal(fixed(3)))
+		Expect(value.TextColor).To(Equal(fixed(4)))
+		Expect(value.StalenessColor).To(Equal(fixed(5)))
+		Expect(value.Redline.Bands).To(HaveLen(1))
+		Expect(value.Redline.Bands[0].Color).
+			To(Equal(color.Color{R: 6, G: 29, B: 29, A: 255}))
 	})
 
 	It("Should key the rows and columns of a v2 envelope", func(ctx SpecContext) {

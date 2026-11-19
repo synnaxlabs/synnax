@@ -18,11 +18,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
-	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/table/versions/v6"
-	xcolor "github.com/synnaxlabs/x/color/versions/v2"
+	color "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
 	"github.com/synnaxlabs/x/testutil"
@@ -48,12 +47,18 @@ var _ = Describe("Codec", func() {
 					Level:  text.Level("h1"),
 					Weight: 5.5,
 					Align:  v6.FlexAlignment("start"),
-					FillColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
-						Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
-					}}),
-					TextColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
-						Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780a"),
-					}}),
+					FillColor: new(color.Color{
+						R: 9,
+						G: 10,
+						B: 11,
+						A: 12,
+					}),
+					TextColor: new(color.Color{
+						R: 14,
+						G: 15,
+						B: 16,
+						A: 17,
+					}),
 				}},
 			}),
 			Entry("zero values", v6.Cell{
@@ -85,41 +90,56 @@ var _ = Describe("Codec", func() {
 				Level:  text.Level("h1"),
 				Weight: 3.5,
 				Align:  v6.FlexAlignment("start"),
-				FillColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
-					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"),
-				}}),
-				TextColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
-					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
-				}}),
+				FillColor: new(color.Color{
+					R: 7,
+					G: 8,
+					B: 9,
+					A: 10,
+				}),
+				TextColor: new(color.Color{
+					R: 12,
+					G: 13,
+					B: 14,
+					A: 15,
+				}),
 			}}),
 			Entry("value variant", v6.CellConfig{Variant: v6.ValueCellConfig{
 				Channel:        channel.Key(2),
 				RollingAverage: 3,
 				Precision:      new(int32(4)),
 				Notation:       notation.Notation("standard"),
-				Redline: xcolor.Scale{
-					Bands: []xcolor.Band{
+				Redline: color.Scale{
+					Bands: []color.Band{
 						{
 							Key:       "test_7",
 							Threshold: 8.5,
-							Color:     xcolor.Color{},
+							Color:     color.Color{},
 							Flashing:  false,
 						},
 					},
 					Smooth: true,
 				},
-				FillColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
-					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780d"),
-				}}),
+				FillColor: new(color.Color{
+					R: 14,
+					G: 15,
+					B: 16,
+					A: 17,
+				}),
 				Level: text.Level("h1"),
-				TextColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
-					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567810"),
-				}}),
-				Units:            "test_17",
-				StalenessTimeout: 18.5,
-				StalenessColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
-					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"),
-				}}),
+				TextColor: new(color.Color{
+					R: 20,
+					G: 21,
+					B: 22,
+					A: 23,
+				}),
+				Units:            "test_23",
+				StalenessTimeout: 24.5,
+				StalenessColor: new(color.Color{
+					R: 27,
+					G: 28,
+					B: 29,
+					A: 30,
+				}),
 			}}),
 		)
 	})
@@ -145,12 +165,18 @@ var _ = Describe("Codec", func() {
 							Level:  text.Level("h1"),
 							Weight: 8.5,
 							Align:  v6.FlexAlignment("start"),
-							FillColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
-								Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b"),
-							}}),
-							TextColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
-								Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780d"),
-							}}),
+							FillColor: new(color.Color{
+								R: 12,
+								G: 13,
+								B: 14,
+								A: 15,
+							}),
+							TextColor: new(color.Color{
+								R: 17,
+								G: 18,
+								B: 19,
+								A: 20,
+							}),
 						}},
 					},
 				},
@@ -193,8 +219,8 @@ var _ = Describe("Codec", func() {
 									Level:     text.Level("h1"),
 									Weight:    11.5,
 									Align:     v6.FlexAlignment("start"),
-									FillColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{}}),
-									TextColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{}}),
+									FillColor: new(color.Color{}),
+									TextColor: new(color.Color{}),
 								}},
 							},
 						},
@@ -232,12 +258,18 @@ func BenchmarkEncodeDecodeCell(b *testing.B) {
 			Level:  text.Level("h1"),
 			Weight: 5.5,
 			Align:  v6.FlexAlignment("start"),
-			FillColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
-				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
-			}}),
-			TextColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
-				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780a"),
-			}}),
+			FillColor: new(color.Color{
+				R: 9,
+				G: 10,
+				B: 11,
+				A: 12,
+			}),
+			TextColor: new(color.Color{
+				R: 14,
+				G: 15,
+				B: 16,
+				A: 17,
+			}),
 		}},
 	}
 	w := orc.NewWriter(0)
@@ -261,12 +293,18 @@ func BenchmarkEncodeDecodeCellConfig(b *testing.B) {
 		Level:  text.Level("h1"),
 		Weight: 3.5,
 		Align:  v6.FlexAlignment("start"),
-		FillColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
-			Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"),
-		}}),
-		TextColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
-			Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
-		}}),
+		FillColor: new(color.Color{
+			R: 7,
+			G: 8,
+			B: 9,
+			A: 10,
+		}),
+		TextColor: new(color.Color{
+			R: 12,
+			G: 13,
+			B: 14,
+			A: 15,
+		}),
 	}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -295,12 +333,18 @@ func BenchmarkEncodeDecodeRow(b *testing.B) {
 					Level:  text.Level("h1"),
 					Weight: 8.5,
 					Align:  v6.FlexAlignment("start"),
-					FillColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
-						Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b"),
-					}}),
-					TextColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
-						Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780d"),
-					}}),
+					FillColor: new(color.Color{
+						R: 12,
+						G: 13,
+						B: 14,
+						A: 15,
+					}),
+					TextColor: new(color.Color{
+						R: 17,
+						G: 18,
+						B: 19,
+						A: 20,
+					}),
 				}},
 			},
 		},
@@ -336,8 +380,8 @@ func BenchmarkEncodeDecodeTable(b *testing.B) {
 							Level:     text.Level("h1"),
 							Weight:    11.5,
 							Align:     v6.FlexAlignment("start"),
-							FillColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{}}),
-							TextColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{}}),
+							FillColor: new(color.Color{}),
+							TextColor: new(color.Color{}),
 						}},
 					},
 				},
@@ -371,12 +415,18 @@ func FuzzDecodeCell(f *testing.F) {
 				Level:  text.Level("h1"),
 				Weight: 5.5,
 				Align:  v6.FlexAlignment("start"),
-				FillColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
-					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
-				}}),
-				TextColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
-					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780a"),
-				}}),
+				FillColor: new(color.Color{
+					R: 9,
+					G: 10,
+					B: 11,
+					A: 12,
+				}),
+				TextColor: new(color.Color{
+					R: 14,
+					G: 15,
+					B: 16,
+					A: 17,
+				}),
 			}},
 		}
 		w := orc.NewWriter(0)
@@ -432,12 +482,18 @@ func FuzzDecodeCellConfig(f *testing.F) {
 			Level:  text.Level("h1"),
 			Weight: 3.5,
 			Align:  v6.FlexAlignment("start"),
-			FillColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
-				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"),
-			}}),
-			TextColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
-				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
-			}}),
+			FillColor: new(color.Color{
+				R: 7,
+				G: 8,
+				B: 9,
+				A: 10,
+			}),
+			TextColor: new(color.Color{
+				R: 12,
+				G: 13,
+				B: 14,
+				A: 15,
+			}),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -451,29 +507,38 @@ func FuzzDecodeCellConfig(f *testing.F) {
 			RollingAverage: 3,
 			Precision:      new(int32(4)),
 			Notation:       notation.Notation("standard"),
-			Redline: xcolor.Scale{
-				Bands: []xcolor.Band{
+			Redline: color.Scale{
+				Bands: []color.Band{
 					{
 						Key:       "test_7",
 						Threshold: 8.5,
-						Color:     xcolor.Color{},
+						Color:     color.Color{},
 						Flashing:  false,
 					},
 				},
 				Smooth: true,
 			},
-			FillColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
-				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780d"),
-			}}),
+			FillColor: new(color.Color{
+				R: 14,
+				G: 15,
+				B: 16,
+				A: 17,
+			}),
 			Level: text.Level("h1"),
-			TextColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
-				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567810"),
-			}}),
-			Units:            "test_17",
-			StalenessTimeout: 18.5,
-			StalenessColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
-				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"),
-			}}),
+			TextColor: new(color.Color{
+				R: 20,
+				G: 21,
+				B: 22,
+				A: 23,
+			}),
+			Units:            "test_23",
+			StalenessTimeout: 24.5,
+			StalenessColor: new(color.Color{
+				R: 27,
+				G: 28,
+				B: 29,
+				A: 30,
+			}),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -516,12 +581,18 @@ func FuzzDecodeRow(f *testing.F) {
 						Level:  text.Level("h1"),
 						Weight: 8.5,
 						Align:  v6.FlexAlignment("start"),
-						FillColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
-							Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b"),
-						}}),
-						TextColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
-							Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780d"),
-						}}),
+						FillColor: new(color.Color{
+							R: 12,
+							G: 13,
+							B: 14,
+							A: 15,
+						}),
+						TextColor: new(color.Color{
+							R: 17,
+							G: 18,
+							B: 19,
+							A: 20,
+						}),
 					}},
 				},
 			},
@@ -595,8 +666,8 @@ func FuzzDecodeTable(f *testing.F) {
 								Level:     text.Level("h1"),
 								Weight:    11.5,
 								Align:     v6.FlexAlignment("start"),
-								FillColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{}}),
-								TextColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{}}),
+								FillColor: new(color.Color{}),
+								TextColor: new(color.Color{}),
 							}},
 						},
 					},
