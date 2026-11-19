@@ -98,6 +98,7 @@ FRAMER = "core/pkg/service/framer"
 GROUPS: tuple[Group, ...] = (
     go("cesium/write", "cpu", "cesium", "^BenchmarkWrite$/^fs=mem$"),
     go("cesium/write-os", "io", "cesium", "^BenchmarkWrite$/^fs=os$"),
+    go("cesium/commit", "io", "cesium", "^BenchmarkCommit$"),
     go(
         "cesium/read",
         "cpu",
@@ -121,6 +122,8 @@ GROUPS: tuple[Group, ...] = (
     go(
         "calculator", "cpu", f"{FRAMER}/calculation/calculator", "^BenchmarkCalculator_"
     ),
+    go("floors/cpu", "cpu", "cesium", "^BenchmarkFloor(Copy|CRC32C)$", control=True),
+    go("floors", "io", "cesium", "^BenchmarkFloor", control=True),
 )
 
 HOST_FACTS: dict[str, tuple[tuple[str, ...], ...]] = {
