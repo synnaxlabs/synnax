@@ -1069,14 +1069,13 @@ describe("range/explorer/Explorer", () => {
     });
 
     it("should give a reader's labels the room of the labels column", async () => {
-      const { labeled } = await createLabeled(uniqueToken());
+      const token = uniqueToken();
+      const { labeled } = await createLabeled(token);
       await renderExplorer(await createReader());
-      const item = (await screen.findByText(labeled.name)).closest(
-        ".console-range-item",
-      );
-      expect(item).not.toBeNull();
+      await search(token);
+      const item = await findItem(labeled.name);
       expect(
-        item?.querySelector(".console-range-item__labels > .console-range-item__tags"),
+        item.querySelector(".console-range-item__labels > .console-range-item__tags"),
       ).not.toBeNull();
     });
   });
