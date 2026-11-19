@@ -48,6 +48,7 @@ require (
 	go.lsp.dev/protocol v1.0.1
 	go.lsp.dev/uri v1.0.1
 	go.uber.org/zap v1.28.0
+	go.yaml.in/yaml/v4 v4.0.0
 	golang.org/x/crypto v0.59.0
 	golang.org/x/mod v0.43.0
 	golang.org/x/net v0.62.0
@@ -57,7 +58,6 @@ require (
 	google.golang.org/grpc v1.85.0
 	google.golang.org/protobuf v1.36.12
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
-	gopkg.in/yaml.v3 v3.0.1
 	tailscale.com v1.104.6
 )
 
@@ -174,4 +174,5 @@ require (
 	golang.zx2c4.com/wireguard/windows v1.1.1 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20261026165753-2ffab32bce7e // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20261019180522-ce908d29299b // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
