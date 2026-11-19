@@ -63,6 +63,8 @@ type registeredReference interface {
 		targets []Target,
 		keys any,
 	) ([][]string, error)
+	// dependentsOf returns the text keys of the entries that hold target.
+	dependentsOf(ctx context.Context, snap Snapshot, target Target) ([]string, error)
 }
 
 // detachOp removes or inlines target in the reference at index ref of an entry.
@@ -314,14 +316,11 @@ func (r *registry) targetSet(
 		if err != nil {
 			return err
 		}
-		keys, err := ref.dependents(ctx, tx, []Target{target}, nil)
+		keys, err := ref.dependentsOf(ctx, tx, target)
 		if err != nil {
 			return err
 		}
-		if keys == nil {
-			continue
-		}
-		for _, k := range keys[0] {
+		for _, k := range keys {
 			if err = owner.targetSet(ctx, tx, k, target.Table); err != nil {
 				return err
 			}
@@ -405,14 +404,11 @@ func (r *registry) plan(
 		target := w.queue[0]
 		w.queue = w.queue[1:]
 		for _, ref := range r.referencesTo(target.Table) {
-			deps, err := ref.dependents(ctx, tx, []Target{target}, nil)
+			deps, err := ref.dependentsOf(ctx, tx, target)
 			if err != nil {
 				return nil, err
 			}
-			if deps == nil {
-				continue
-			}
-			for _, k := range deps[0] {
+			for _, k := range deps {
 				dep := Target{Table: ref.ownerTable(), Key: k}
 				if err := w.visit(ref, dep, target); err != nil {
 					return nil, err

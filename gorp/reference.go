@@ -626,6 +626,27 @@ func (r *reference[K, E, T]) dependents(
 	return out, nil
 }
 
+// dependentsOf implements registeredReference.
+func (r *reference[K, E, T]) dependentsOf(
+	ctx context.Context,
+	snap Snapshot,
+	target Target,
+) ([]string, error) {
+	t, ok := r.parse(target)
+	if !ok {
+		return nil, nil
+	}
+	keys, err := probeEach(ctx, r.store, snap, []T{t})
+	if err != nil || keys == nil {
+		return nil, err
+	}
+	out := make([]string, len(keys[0]))
+	for i, k := range keys[0] {
+		out[i] = FormatKey(k)
+	}
+	return out, nil
+}
+
 // values returns the values of targets that the reference can hold, and the position
 // in targets of each, or nil positions when every target is a value. It reads typed
 // when it holds values of type T.
