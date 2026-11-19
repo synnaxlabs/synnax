@@ -58,7 +58,7 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	ImEx *imex.Service
-	// Enumeration holds the enumerations that selects and state indicators draw.
+	// Enumeration holds the enumerations that symbol states show.
 	//
 	// [REQUIRED]
 	Enumeration *enumeration.Service

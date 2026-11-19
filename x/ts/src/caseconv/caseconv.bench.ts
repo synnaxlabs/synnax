@@ -12,6 +12,7 @@ import { z } from "zod";
 
 import { caseconv } from "@/caseconv";
 import { record } from "@/record";
+import { strings } from "@/strings";
 
 test("caseconv string conversion", async ({ bench }) => {
   const longSnake = Array.from({ length: 20 }, (_, i) => `segment_${i}`).join("_");
@@ -47,19 +48,19 @@ test("caseconv string conversion", async ({ bench }) => {
     }),
 
     bench("toKebab - from camelCase", () => {
-      caseconv.toKebab("channelKeyName");
+      strings.toKebab("channelKeyName");
     }),
 
     bench("toKebab - from snake_case", () => {
-      caseconv.toKebab("channel_key_name");
+      strings.toKebab("channel_key_name");
     }),
 
     bench("toProperNoun - from snake_case", () => {
-      caseconv.toProperNoun("temperature_sensor_value");
+      strings.toProperNoun("temperature_sensor_value");
     }),
 
     bench("toProperNoun - consecutive capitals", () => {
-      caseconv.toProperNoun("XMLParserDocument");
+      strings.toProperNoun("XMLParserDocument");
     }),
   );
 });
