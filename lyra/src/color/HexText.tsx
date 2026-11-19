@@ -51,7 +51,8 @@ export interface HexTextProps extends Omit<
 /**
  * A text box for a hex color. A complete 6 or 8 digit hex applies as the user types,
  * a paste applies at once, and anything else applies on Enter or blur. With
- * `onlyChangeOnBlur`, everything applies on Enter or blur. Escape discards the edit.
+ * `onlyChangeOnBlur`, everything applies on Enter or blur. Escape discards an edit that
+ * has not applied yet.
  */
 export const HexText = ({
   text,
