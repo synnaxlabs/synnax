@@ -12,10 +12,8 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
-import { Menu } from "@synnaxlabs/lyra/menu";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
-import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers as PTriggers } from "@synnaxlabs/lyra/triggers";
@@ -31,16 +29,6 @@ const NO_USERS: resource.ID[] = [];
 const IN_USE = "Each of these moves to the enumeration you pick.";
 const NOT_IN_USE = "Nothing uses it.";
 const TRIGGER_PROPS = { "aria-label": "Replace with" };
-const NONE = "none";
-const NO_REPLACEMENT = (
-  <>
-    <Menu.Divider />
-    <Select.Item<enumeration.Key> itemKey={NONE} textValue="No enumeration">
-      <Icon.None />
-      No enumeration
-    </Select.Item>
-  </>
-);
 
 interface UserProps {
   resource: resource.Resource;
@@ -83,11 +71,9 @@ const Delete = ({
   const { update: remove } = Enumeration.useDelete({ afterSuccess: () => close() });
   const { update: replace } = Enumeration.useReplace({ afterSuccess: () => close() });
   const inUse = users.length > 0;
-  const handleChange = (next: enumeration.Key | undefined): void =>
-    setReplacement(next === NONE ? undefined : next);
   const handleConfirm = () => {
-    if (replacement == null) remove(e.key);
-    else replace({ from: e.key, to: replacement });
+    if (inUse && replacement != null) replace({ from: e.key, to: replacement });
+    else remove(e.key);
   };
   return (
     <Modal.Frame className={CSS.B("confirm")}>
@@ -105,20 +91,20 @@ const Delete = ({
           </Text.Text>
         )}
         {inUse && (
-          <Suspense>
-            <Users ids={users} />
-          </Suspense>
+          <>
+            <Suspense>
+              <Users ids={users} />
+            </Suspense>
+            <Input.Item label="Replace with">
+              <Enumeration.SelectSingle
+                triggerProps={TRIGGER_PROPS}
+                value={replacement}
+                onChange={setReplacement}
+                filter={(other) => other.key !== e.key}
+              />
+            </Input.Item>
+          </>
         )}
-        <Input.Item label="Replace with">
-          <Enumeration.SelectSingle
-            triggerProps={TRIGGER_PROPS}
-            value={replacement}
-            onChange={handleChange}
-            filter={(other) => other.key !== e.key}
-            allowNone
-            footer={NO_REPLACEMENT}
-          />
-        </Input.Item>
       </Modal.Body>
       <Modal.Footer>
         <Nav.Bar.End x align="center">
@@ -139,7 +125,7 @@ const Delete = ({
             }
             onClick={handleConfirm}
           >
-            {replacement == null ? "Delete" : "Replace"}
+            {inUse ? "Replace" : "Delete"}
           </Button.Button>
         </Nav.Bar.End>
       </Modal.Footer>
@@ -147,5 +133,5 @@ const Delete = ({
   );
 };
 
-/** Opens a dialog that deletes an enumeration, or replaces it with another first. */
+/** Opens a dialog that deletes an unused enumeration, or replaces one in use. */
 export const useDeleteModal = Modals.create(Delete);
