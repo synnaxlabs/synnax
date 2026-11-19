@@ -1140,3 +1140,34 @@ var _ = Describe("WritePrepared", func() {
 		Expect(applied).To(BeFalse())
 	})
 })
+
+var _ = Describe("WriteUnchecked", func() {
+	It("Should commit the writes of apply", func(ctx SpecContext) {
+		l := MustSucceed(bind.WriteUnchecked(
+			db,
+			func(ctx context.Context, tx gorp.Tx, l label.Label) (label.Label, error) {
+				return l, svc.Label.NewWriter(tx).Create(ctx, &l)
+			},
+		)(ctx, label.Label{Name: "label"}))
+		Expect(labelExists(ctx, l.Key)).To(BeTrue())
+	})
+	It("Should roll back the writes and return a zero response on an error", func(
+		ctx SpecContext,
+	) {
+		failed := errors.New("failed")
+		var created label.Label
+		// Error also asserts that the response is zero.
+		Expect(bind.WriteUnchecked(
+			db,
+			func(ctx context.Context, tx gorp.Tx, l label.Label) (label.Label, error) {
+				if err := svc.Label.NewWriter(tx).Create(ctx, &l); err != nil {
+					return l, err
+				}
+				created = l
+				return l, failed
+			},
+		)(ctx, label.Label{Name: "label"})).Error().To(MatchError(failed))
+		Expect(created.Key).ToNot(BeZero())
+		Expect(labelExists(ctx, created.Key)).To(BeFalse())
+	})
+})
