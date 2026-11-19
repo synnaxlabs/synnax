@@ -48,9 +48,15 @@ unsafe extern "C" {
 ///
 /// Call it before any other thread starts.
 pub unsafe fn set_env() {
-    if std::env::var_os("APPIMAGE").is_some() {
-        // SAFETY: the caller guarantees that no other thread runs.
-        unsafe { std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1") };
+    // SAFETY: the caller guarantees that no other thread runs.
+    unsafe {
+        // A GPU painting thread frees its GL context when the web process exits, at
+        // the same time as the NVIDIA driver unloads, and crashes. The main thread
+        // paints instead and frees its context before the driver unloads.
+        std::env::set_var("WEBKIT_SKIA_GPU_PAINTING_THREADS", "0");
+        if std::env::var_os("APPIMAGE").is_some() {
+            std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+        }
     }
 }
 
