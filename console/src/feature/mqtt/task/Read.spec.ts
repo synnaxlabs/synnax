@@ -1510,6 +1510,28 @@ describe("MQTT read form", () => {
       expect(stored.index).toBe(index);
     });
 
+    it("should not fall back to a stored streamed channel once its message reads a number", async () => {
+      const [boundCh, storedCh] = await client.channels.create([
+        { name: uniqueName("mode"), dataType: DataType.STRING, virtual: true },
+        { name: uniqueName("mode"), dataType: DataType.STRING, virtual: true },
+      ]);
+      const mode = createField("mode", "string");
+      const temperature = createField("temperature", "float");
+      const { container, dev, draft } = await renderRead({
+        fields: [mode, temperature],
+        bound: { [mode.key]: boundCh.key, [temperature.key]: 0 },
+        properties: {
+          read: { [TOPIC]: { index: 0, channels: { "/mode": storedCh.key } } },
+        },
+      });
+      await deploy(container, draft.key);
+      const { index, channels } = await retrieveStored(dev.key, firstMessage(draft));
+      const stored = await client.channels.retrieve(channels["/mode"]);
+      expect(stored.virtual).toBe(false);
+      expect(stored.index).toBe(index);
+      expect((await retrieveBindings(draft.key))[0].channel).toBe(stored.key);
+    });
+
     it("should keep a number field bound to a virtual channel", async () => {
       const temperature = createField("temperature", "float");
       const streamed = await client.channels.create({
