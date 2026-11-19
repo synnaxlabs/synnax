@@ -126,6 +126,14 @@
         white-space: nowrap;
     }
 
+    /* A button in a slot, such as a color swatch, takes its own press. In a preview,
+       neither the input nor the button takes one. */
+    &:not(.lyra-btn--preview)
+        :is(.lyra-input__start-content, .lyra-input__end-content)
+        .lyra-btn:not(.lyra-btn--preview) {
+        pointer-events: auto;
+    }
+
     .lyra-input__placeholder {
         position: absolute;
         padding-left: 1.5rem;
