@@ -20,6 +20,7 @@ import { useDropdownFocus } from "@/dialog/useDropdownFocus";
 import { useFocusTrap } from "@/dialog/useFocusTrap";
 import { Flex } from "@/flex";
 import { useCombinedRefs } from "@/hooks";
+import { Portal } from "@/portal";
 import { getRootElement } from "@/util/rootElement";
 
 /** Props for {@link Dialog}. */
@@ -52,6 +53,7 @@ export const Dialog = ({
   const { visible, variant, close } = useContext();
   const modal = variant === "modal";
   const surfaceRef = useRef<HTMLDivElement>(null);
+  const portalTarget = Portal.useTarget();
   const trap = useFocusTrap(surfaceRef, modal && visible);
   const dropdown = useDropdownFocus(!modal, trigger, close);
   const combinedRef = useCombinedRefs(propsRef, ref, surfaceRef, dropdown.ref);
@@ -98,5 +100,5 @@ export const Dialog = ({
         {dialog}
       </Background>
     );
-  return createPortal(dialog, getRootElement());
+  return createPortal(dialog, portalTarget ?? getRootElement());
 };
