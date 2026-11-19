@@ -90,11 +90,13 @@ rename (`core/pkg/distribution/channel/create.go:66`, `rename.go:27`).
    Today Cesium checks, with no hold (`cesium/delete.go:133-153`).
 2. The service deletes the records and commits the Gorp transaction.
 3. After the commit, a worker of the channel service calls `DB.Drop` with the keys, then
-   releases the claim. A public hook over `txState.OnCleanup` (`gorp/gorp.go:347`, NEW)
-   only queues the keys, because it runs while Gorp holds its write lock, and the
-   transaction may belong to a caller. `Drop` never refuses. It logs one Drop record per
-   key and, after the log sync, removes the segments of the key when reader pins drop.
-   An error of `Drop` raises a status.
+   releases the claim. A public hook, `gorp.AfterEnd` (NEW), queues the keys. It runs
+   once, after the store commit returns, so the record delete is durable before `Drop`
+   can run, and it reports whether the transaction committed. It is not built on
+   `txState.OnCleanup` (`gorp/gorp.go:347`), which runs when the writes become visible,
+   before the WAL sync (`x/go/kv/pebblekv/pebblekv.go:112`). `Drop` never refuses. It
+   logs one Drop record per key and, after the log sync, removes the segments of the key
+   when reader pins drop. An error of `Drop` raises a status.
 4. A crash between steps 2 and 3, or a failed `Drop`, leaves storage with no record. At
    start, before a writer opens, the Core calls `DB.Sweep` with each key of the table.
 
