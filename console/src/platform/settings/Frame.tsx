@@ -9,10 +9,14 @@
 
 import "@/platform/settings/Frame.css";
 
+import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { useResize } from "@synnaxlabs/lyra/hooks";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement } from "react";
+import { box } from "@synnaxlabs/x";
+import { type ReactElement, useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { useCardBackground } from "@/platform/settings/background";
@@ -32,6 +36,9 @@ const useVisibleGroups = (groups: Group[]): Group[] => {
     .filter((group) => group.sections.length > 0);
 };
 
+// Below this width, the section list always shows only its icons.
+const NARROW_WIDTH = 800;
+
 export interface FrameProps {
   /** A module-level constant, since each section's visibility hook runs in order. */
   groups: Group[];
@@ -48,21 +55,46 @@ export const Frame = ({ groups }: FrameProps): ReactElement => {
   const selected = Session.Nav.useSelectSettingsSection();
   const background = useCardBackground();
   const dispatch = Session.useDispatch();
+  const [narrow, setNarrow] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+  const ref = useResize<HTMLDivElement>((b) => setNarrow(box.width(b) < NARROW_WIDTH), {
+    triggers: ["x"],
+  });
+  const rail = narrow || collapsed;
+  const toggleLabel = collapsed ? "Expand sidebar" : "Collapse sidebar";
   const setSelected = (section: string): void => {
     dispatch(Session.Nav.selectSettingsSection({ section }));
   };
   const section = sections.find(({ key }) => key === selected) ?? sections[0];
   return (
-    <Flex.Box x full empty className={CSS.B("settings")}>
+    <Flex.Box x full empty ref={ref} className={CSS.B("settings")}>
       <Flex.Box
         el="nav"
         aria-label="Settings"
         empty
         bordered
-        rounded="huge"
+        rounded={rail ? "medium" : "huge"}
         background={background}
-        className={CSS.BE("settings", "nav")}
+        className={CSS.cls(
+          CSS.BE("settings", "nav"),
+          narrow && CSS.BEM("settings", "nav", "narrow"),
+          rail && CSS.BEM("settings", "nav", "rail"),
+        )}
       >
+        {!narrow && (
+          <Button.Button
+            variant="text"
+            size="small"
+            aria-label={toggleLabel}
+            tooltip={toggleLabel}
+            tooltipLocation="right"
+            aria-expanded={!collapsed}
+            onClick={() => setCollapsed((prev) => !prev)}
+            className={CSS.BE("settings", "toggle")}
+          >
+            <Icon.Sidebar />
+          </Button.Button>
+        )}
         <Menu.Menu value={section?.key} onChange={setSelected}>
           {visible.map(({ key, name, sections }) => (
             <Flex.Box
@@ -79,9 +111,18 @@ export const Frame = ({ groups }: FrameProps): ReactElement => {
                 {name}
               </Text.Text>
               {sections.map(({ key, name, icon }) => (
-                <Menu.Item key={key} itemKey={key} gap="medium">
+                <Menu.Item
+                  key={key}
+                  itemKey={key}
+                  gap="medium"
+                  aria-label={name}
+                  tooltip={name}
+                  tooltipLocation="right"
+                  hideTooltip={!rail}
+                  className={CSS.BE("settings", "nav-item")}
+                >
                   {icon}
-                  {name}
+                  <span className={CSS.BE("settings", "nav-name")}>{name}</span>
                 </Menu.Item>
               ))}
             </Flex.Box>
