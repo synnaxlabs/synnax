@@ -30,7 +30,9 @@ describe("useCreateModal", () => {
     const keys = await client.auth.retrieveKeys([rack.resourceID(created.key)]);
     expect(keys).toHaveLength(1);
     expect(shown.textContent?.startsWith("syk_")).toBe(true);
-    expect(findButton("Create").getAttribute("aria-disabled")).toBe("true");
+    expect(screen.queryByPlaceholderText("Rack name")).toBeNull();
+    fireEvent.click(findButton("Done"));
+    await waitFor(() => expect(screen.queryByText(/^syk_/)).toBeNull());
   });
 
   it("should block closing while the key is being created", async () => {
