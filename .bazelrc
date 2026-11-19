@@ -66,7 +66,7 @@ build:linux --copt=-Wno-sign-compare
 # The Windows build bots run jobs as SYSTEM but install Rust for Administrator. The
 # wasmtime genrule finds cargo there only through the host PATH.
 build:windows --action_env=PATH
-# MSVC has no /std:c++23, so /std:c++latest turns on C++23.
+# Note: MSVC uses /std:c++latest for C++23 features (not /std:c++23)
 build:windows --enable_runfiles
 build:windows --cxxopt=/std:c++latest
 build:windows --host_cxxopt=/std:c++latest
