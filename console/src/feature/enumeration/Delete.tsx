@@ -28,6 +28,7 @@ import { Triggers } from "@/platform/triggers";
 const NO_USERS: resource.ID[] = [];
 const IN_USE = "Each of these moves to the enumeration you pick.";
 const NOT_IN_USE = "Nothing uses it.";
+const REPLACEMENT_REQUIRED = "Replacement is required";
 const TRIGGER_PROPS = { "aria-label": "Replace with" };
 
 interface UserProps {
@@ -37,10 +38,10 @@ interface UserProps {
 const User = ({ resource: r }: UserProps): ReactElement => {
   const Item = Tree.useItems()[r.id.type] ?? Tree.DefaultItem;
   return (
-    <Flex.Box x align="center" gap="small">
+    <Text.Text overflow="fade">
       {Item.icon(r)}
-      <Text.Text overflow="fade">{r.name}</Text.Text>
-    </Flex.Box>
+      {r.name}
+    </Text.Text>
   );
 };
 
@@ -68,12 +69,18 @@ const Delete = ({
   const dependents = Enumeration.useResultDependents({ key: e.key });
   const users = dependents.data ?? NO_USERS;
   const [replacement, setReplacement] = useState<enumeration.Key>();
+  const [error, setError] = useState<string>();
   const { update: remove } = Enumeration.useDelete({ afterSuccess: () => close() });
   const { update: replace } = Enumeration.useReplace({ afterSuccess: () => close() });
   const inUse = users.length > 0;
+  const handleReplacementChange = (key: enumeration.Key | undefined): void => {
+    setReplacement(key);
+    setError(undefined);
+  };
   const handleConfirm = () => {
-    if (replacement == null) remove(e.key);
-    else replace({ from: e.key, to: replacement });
+    if (!inUse) return remove(e.key);
+    if (replacement == null) return setError(REPLACEMENT_REQUIRED);
+    replace({ from: e.key, to: replacement });
   };
   return (
     <Modal.Frame className={CSS.B("confirm")}>
@@ -91,19 +98,25 @@ const Delete = ({
           </Text.Text>
         )}
         {inUse && (
-          <Suspense>
-            <Users ids={users} />
-          </Suspense>
+          <>
+            <Suspense>
+              <Users ids={users} />
+            </Suspense>
+            <Input.Item
+              label="Replace with"
+              helpText={error}
+              status={error == null ? undefined : "error"}
+              padHelpText
+            >
+              <Enumeration.SelectSingle
+                triggerProps={TRIGGER_PROPS}
+                value={replacement}
+                onChange={handleReplacementChange}
+                filter={(other) => other.key !== e.key}
+              />
+            </Input.Item>
+          </>
         )}
-        <Input.Item label="Replace with">
-          <Enumeration.SelectSingle
-            triggerProps={TRIGGER_PROPS}
-            value={replacement}
-            onChange={setReplacement}
-            filter={(other) => other.key !== e.key}
-            allowNone
-          />
-        </Input.Item>
       </Modal.Body>
       <Modal.Footer>
         <Nav.Bar.End x align="center">
@@ -119,12 +132,10 @@ const Delete = ({
             status="error"
             trigger={Triggers.SAVE}
             triggerIndicator
-            disabled={
-              dependents.variant !== "success" || (inUse && replacement == null)
-            }
+            disabled={dependents.variant !== "success"}
             onClick={handleConfirm}
           >
-            {replacement == null ? "Delete" : "Replace"}
+            {inUse ? "Replace" : "Delete"}
           </Button.Button>
         </Nav.Bar.End>
       </Modal.Footer>
@@ -132,5 +143,5 @@ const Delete = ({
   );
 };
 
-/** Opens a dialog that deletes an enumeration, or replaces it with another first. */
+/** Opens a dialog that deletes an unused enumeration, or replaces one in use. */
 export const useDeleteModal = Modals.create(Delete);

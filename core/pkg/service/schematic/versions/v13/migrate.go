@@ -18,11 +18,7 @@ import (
 	"reflect"
 	"slices"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp/migrate"
-	symbolv2 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
-	symbolv4 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v4"
-	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v5"
 	v12 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v12"
 	colorv0 "github.com/synnaxlabs/x/color/versions/v0"
 	color "github.com/synnaxlabs/x/color/versions/v2"
@@ -265,26 +261,6 @@ func MigrateNodeConfig(ctx context.Context, old v12.NodeConfig) (NodeConfig, err
 	cfg, err := autoMigrateNodeConfig(ctx, old)
 	if err != nil {
 		return NodeConfig{}, err
-	}
-	switch o := old.Variant.(type) {
-	case v12.CustomActuatorNodeConfig:
-		n := as[CustomActuatorNodeConfig](cfg.Variant)
-		if n.StateOverrides, err = migrateStateOverrides(
-			ctx,
-			o.StateOverrides,
-		); err != nil {
-			return NodeConfig{}, err
-		}
-		cfg.Variant = n
-	case v12.CustomStaticNodeConfig:
-		n := as[CustomStaticNodeConfig](cfg.Variant)
-		if n.StateOverrides, err = migrateStateOverrides(
-			ctx,
-			o.StateOverrides,
-		); err != nil {
-			return NodeConfig{}, err
-		}
-		cfg.Variant = n
 	}
 	cfg.Variant = migrateNodeVariant(old.Variant, cfg.Variant)
 	clearThemeColors(reflect.ValueOf(&cfg).Elem())
@@ -716,17 +692,6 @@ func as[T any](v any) T {
 		panic(fmt.Sprintf("migrated variant is a %T, not a %T", v, t))
 	}
 	return t
-}
-
-// migrateStateOverrides stores each override color alpha as a byte, as symbol v4 does.
-func migrateStateOverrides(
-	ctx context.Context,
-	old []symbolv2.State,
-) ([]symbol.StateOverride, error) {
-	return lo.MapErr(old, func(o symbolv2.State, _ int) (symbol.StateOverride, error) {
-		s, err := symbolv4.MigrateState(ctx, o)
-		return symbol.StateOverride{Key: s.Key, Name: s.Name, Regions: s.Regions}, err
-	})
 }
 
 // NameMigration names each stored schematic that has an empty name "Schematic <key>",

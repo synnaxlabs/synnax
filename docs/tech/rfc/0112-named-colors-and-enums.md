@@ -259,8 +259,9 @@ rows), and #5632 (`on_delete inline` in Oracle) are merged.
 Phases 9, 16, and 20, and the node picker of RFC 0114 phase 4, ship without a flag.
 Phase 21 and RFC 0114 phase 4 come after phases 16 and 20, so the Console never loses a
 way to edit states. Phases 10 and 11 ship in one release, and phase 21 in one release
-with RFC 0114 phase 4. RFC 0114 phase 1 needs phases 13 to 15, phases 19 and 21 need RFC
-0114 phase 1, and RFC 0114 phase 4 needs phase 22.
+with RFC 0114 phase 4. RFC 0114 phase 1 needs phases 13 to 15. Besides phase 20, phase
+21 needs RFC 0114 phase 1, which adds the function that it calls. RFC 0114 phase 4 needs
+phase 22.
 
 | Phase | Scope                                                      | Touches                                                                                                                                | Depends on     |
 | ----- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | -------------- |

@@ -15,6 +15,8 @@ import (
 	"context"
 
 	"github.com/samber/lo"
+	symbolv2 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
+	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v4"
 	v12 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v12"
 	color "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/errors"
@@ -1287,19 +1289,33 @@ func autoMigrateNodeConfig(ctx context.Context, old v12.NodeConfig) (NodeConfig,
 		if err != nil {
 			return NodeConfig{}, err
 		}
+		stateOverrides, err := lo.MapErr(variant.StateOverrides, func(v symbolv2.State, _ int) (symbol.State, error) {
+			return symbol.MigrateState(ctx, v)
+		})
+		if err != nil {
+			return NodeConfig{}, err
+		}
 		return NodeConfig{Variant: CustomActuatorNodeConfig{
-			ToggleConfig: toggleConfig,
-			SpecKey:      variant.SpecKey,
+			ToggleConfig:   toggleConfig,
+			SpecKey:        variant.SpecKey,
+			StateOverrides: stateOverrides,
 		}}, nil
 	case v12.CustomStaticNodeConfig:
 		labeledConfig, err := MigrateLabeledConfig(ctx, variant.LabeledConfig)
 		if err != nil {
 			return NodeConfig{}, err
 		}
+		stateOverrides, err := lo.MapErr(variant.StateOverrides, func(v symbolv2.State, _ int) (symbol.State, error) {
+			return symbol.MigrateState(ctx, v)
+		})
+		if err != nil {
+			return NodeConfig{}, err
+		}
 		return NodeConfig{Variant: CustomStaticNodeConfig{
-			LabeledConfig: labeledConfig,
-			ScaledConfig:  variant.ScaledConfig,
-			SpecKey:       variant.SpecKey,
+			LabeledConfig:  labeledConfig,
+			ScaledConfig:   variant.ScaledConfig,
+			SpecKey:        variant.SpecKey,
+			StateOverrides: stateOverrides,
 		}}, nil
 	case v12.GroupBoxNodeConfig:
 		return NodeConfig{Variant: GroupBoxNodeConfig{
