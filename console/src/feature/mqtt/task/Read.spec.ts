@@ -1043,6 +1043,50 @@ describe("MQTT read form", () => {
       expect(await messageKeys(entry.icd)).toEqual([entry.messages[0].message]);
     });
 
+    it("should delete a message with no fields from Add message when its topic stops reading it", async () => {
+      const entry = await createEntry({
+        fields: [createField("temperature", "float")],
+      });
+      const { message } = await createShared([createField("pressure", "float")]);
+      const { draft } = await renderRead({ entries: [entry] });
+      fireEvent.contextMenu(
+        await screen.findByRole("treeitem", { name: /JSON.*plant\/oven/ }),
+      );
+      fireEvent.click(await screen.findByRole("menuitem", { name: "Add message" }));
+      fireEvent.contextMenu(await screen.findByRole("treeitem", { name: TOPIC }));
+      fireEvent.click(await screen.findByText("Remove"));
+      await waitFor(async () => {
+        const { messages } = plainOf((await retrieveEntries(draft.key))[0]);
+        expect(messages).toHaveLength(1);
+        expect(messages[0].message).not.toBe(entry.messages[0].message);
+      });
+      await openTopic();
+      await pickFormat(`${TOPIC} 2`, message.name);
+      await waitFor(async () =>
+        expect(await messageKeys(entry.icd)).toEqual([entry.messages[0].message]),
+      );
+    });
+
+    it("should delete a message with no fields from Add data for a topic whose message is gone", async () => {
+      const entry = await createEntry({
+        fields: [createField("temperature", "float")],
+      });
+      const { message } = await createShared([createField("pressure", "float")]);
+      await renderRead({ entries: [entry], beforeRender: () => removeMessage(entry) });
+      await screen.findByText("Message not found");
+      const dialog = await openAddData();
+      fireEvent.change(dialog.getByPlaceholderText("Search topics"), {
+        target: { value: TOPIC },
+      });
+      fireEvent.click(
+        await dialog.findByRole("button", { name: `Add “${TOPIC}” as a topic` }),
+      );
+      await waitFor(async () => expect(await messageKeys(entry.icd)).toHaveLength(1));
+      await openTopic();
+      await pickFormat(TOPIC, message.name);
+      await waitFor(async () => expect(await messageKeys(entry.icd)).toEqual([]));
+    });
+
     it.each([
       { name: "one timestamp field", times: ["time"], indexed: true },
       { name: "no timestamp field", times: [], indexed: false },
