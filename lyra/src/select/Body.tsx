@@ -8,15 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { type record } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode } from "react";
+import { type ReactElement, type ReactNode, useState } from "react";
 import { type z } from "zod";
 
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
+import { List } from "@/list";
 import { Items, type ItemsProps } from "@/select/Items";
 import { List as SelectList } from "@/select/List";
 import { plural, searchPlaceholder } from "@/select/placeholder";
-import { useTerm } from "@/select/registry";
+import { useTerm, useVisibleCount } from "@/select/registry";
+import { ShownContext, useInline } from "@/select/scope";
 import { Search, type SearchProps } from "@/select/Search";
 import { Status } from "@/status";
 
@@ -52,6 +54,9 @@ export const EmptyContent = ({
   emptyContent,
 }: EmptyContentProps): ReactNode => {
   const term = useTerm().trim();
+  const fixed = useVisibleCount();
+  // A fixed option that matches the search is a match, so no message denies it.
+  if (term !== "" && fixed > 0) return null;
   if (term === "" && emptyContent != null && typeof emptyContent !== "string")
     return emptyContent;
   let text = emptyContent ?? `No ${plural(resourceName)} found`;
@@ -94,6 +99,28 @@ export const BorderedList = ({ footer, children }: BorderedListProps): ReactElem
     </Flex.Box>
   );
 
+// In the menu, only the matching options show: no field, footer, or empty content.
+const InlineBody = <K extends record.Key>({
+  onSearch,
+  children,
+}: Pick<BodyProps<K>, "onSearch" | "children">): ReactElement => {
+  const { data } = List.useData();
+  const [shown, setShown] = useState(0);
+  return (
+    <>
+      {onSearch != null && <Search onSearch={onSearch} />}
+      {data.length > 0 && (
+        // Hidden with no option to show, so the menu dividers pass over it.
+        <SelectList role="group" full="x" hidden={shown === 0}>
+          <ShownContext value={setShown}>
+            <Items<K>>{children}</Items>
+          </ShownContext>
+        </SelectList>
+      )}
+    </>
+  );
+};
+
 /**
  * The search field, list, and empty and error content of a data-driven selection. Use
  * it inside `Select.Dialog` when a select needs its own trigger.
@@ -108,8 +135,10 @@ export const Body = <K extends record.Key>({
   footer,
   fixedItems,
 }: BodyProps<K>): ReactElement => {
+  const inline = useInline();
   const loading = status?.variant === "loading";
   const hasSearch = onSearch != null;
+  if (inline) return <InlineBody<K> onSearch={onSearch}>{children}</InlineBody>;
   let empty: ReactNode;
   if (loading) empty = hasSearch ? null : <Status.Loading />;
   else if (status != null && status.variant !== "success")

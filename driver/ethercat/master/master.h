@@ -63,6 +63,12 @@ struct Plan {
     /// @brief the settings of each slave, keyed by position. A slave missing from it
     /// uses the defaults of slave::Config.
     std::map<uint16_t, slave::Config> slaves;
+    /// @brief ends activate() early with x::errors::CANCELLED once it stops, or
+    /// nullptr. A master whose wait for OP has no fixed length must obey it.
+    const x::breaker::Breaker *cancel = nullptr;
+    /// @brief called in activate() with the number of slaves in OP and the number of
+    /// slaves each time more reach OP, or nullptr. A master need not call it.
+    std::function<void(size_t operational, size_t total)> progress;
 };
 
 /// @brief what one slave adds to the working counter of a full cycle.

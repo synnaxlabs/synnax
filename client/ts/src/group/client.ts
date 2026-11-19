@@ -156,23 +156,19 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Gr
 
   /**
    * Builds one batch entry per group that moves it under the parent, or to the top
-   * level when the parent is null or undefined. The cache write of each entry moves its
-   * cached group.
+   * level when the parent is null or undefined. The group's controller holds each move
+   * as pending until its echo arrives.
    */
   setParentRequest(
     keys: Key | Key[],
     parent?: resource.ID | null,
-  ): batch.Request<actions.DispatchPayload<Key, Action>>[] {
+  ): batch.Request<Required<actions.DispatchPayload<Key, Action>>>[] {
     const action = setParent({ parent: parent ?? undefined });
-    return array.toArray(keys).map((key) => ({
-      endpoint: "/group/dispatch",
-      payload: { key, actions: [action] },
-      apply: () => {
-        const prev = this.store.get(key)?.parent;
-        query.partialUpdate(this.store, key, { parent: parent ?? undefined });
-        return () => query.partialUpdate(this.store, key, { parent: prev });
-      },
-    }));
+    return array
+      .toArray(keys)
+      .map((key) =>
+        this.dispatcher.request("/group/dispatch", key, [action], dispatchResZ),
+      );
   }
 
   /**

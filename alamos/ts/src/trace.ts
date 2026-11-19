@@ -127,7 +127,15 @@ export class Tracer {
     if (skip) return f(new NoopSpan(key)) as ReturnType<F>;
     return this.otelTracer.startActiveSpan(key, (otelSpan) => {
       const span = new _Span(key, otelSpan);
-      const result = f(span);
+      span.start();
+      let result: unknown;
+      try {
+        result = f(span);
+      } finally {
+        if (!(result instanceof Promise)) span.end();
+      }
+      if (result instanceof Promise)
+        return result.finally(() => span.end()) as ReturnType<F>;
       return result as ReturnType<F>;
     });
   }
@@ -172,6 +180,7 @@ export interface Span {
 export class _Span implements Span {
   key: string;
   private readonly otel: OtelSpan;
+  private startTime = 0;
 
   constructor(key: string, span: OtelSpan) {
     this.key = key;
@@ -189,22 +198,12 @@ export class _Span implements Span {
   }
 
   start(): void {
-    performance.mark(`alamos.trace.start.${this.key}`);
+    this.startTime = performance.now();
   }
 
   end(): void {
-    try {
-      performance.mark(`alamos.trace.end.${this.key}`);
-      const duration = performance.measure(
-        `alamos.trace.duration.${this.key}`,
-        `alamos.trace.start.${this.key}`,
-        `alamos.trace.end.${this.key}`,
-      );
-      this.set("duration", duration.duration);
-      this.otel.end();
-    } catch (e) {
-      console.error(e);
-    }
+    this.set("duration", performance.now() - this.startTime);
+    this.otel.end();
   }
 }
 
