@@ -24,6 +24,7 @@ export class MockRuntime<
   hasClosed: string[] = [];
   emissions: Array<Event<S, A>> = [];
   hasCreated: Record<string, Omit<WindowProps, "key">> = {};
+  createErrors: Record<string, Error> = {};
   subscribeCallback: (event: Event<S, A>) => void = () => {};
   requestClosure: () => void = () => {};
   props: WindowProps;
@@ -62,6 +63,7 @@ export class MockRuntime<
   }
 
   async create(label: string, props: Omit<WindowProps, "key">): Promise<void> {
+    if (label in this.createErrors) throw this.createErrors[label];
     this.hasCreated[label] = props;
     return await Promise.resolve();
   }

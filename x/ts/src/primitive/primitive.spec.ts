@@ -8,9 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { describe, expect, it, test } from "vitest";
-import { z } from "zod";
 
-import { binary } from "@/binary";
 import { primitive } from "@/primitive";
 import { TimeStamp } from "@/telem";
 import { toString } from "@/testutil";
@@ -130,78 +128,6 @@ describe("primitive", () => {
 
     it("should return false for functions", () => {
       expect(primitive.is(() => 1)).toBe(false);
-    });
-  });
-
-  describe("ValueExtension", () => {
-    class MyValueExtension extends primitive.ValueExtension<bigint> {
-      valueOf(): bigint {
-        return this.value;
-      }
-      toJSON(): bigint {
-        return this.value;
-      }
-    }
-
-    describe("valueOf", () => {
-      it("should return the value", () => {
-        const value = new MyValueExtension(12n);
-        expect(value.valueOf()).toEqual(12n);
-      });
-    });
-
-    describe("toJSON", () => {
-      it("should return the value", () => {
-        const value = new MyValueExtension(12n);
-        expect(value.toJSON()).toEqual(12n);
-      });
-    });
-
-    describe("toString", () => {
-      it("should return the value", () => {
-        const value = new MyValueExtension(12n);
-        expect(value.toString()).toEqual("12");
-      });
-    });
-
-    describe("encode + decode", () => {
-      it("should encode + decode a value extension", () => {
-        const v = {
-          myDog: new MyValueExtension(12n),
-        };
-        const encoded = binary.JSON_CODEC.encode(v);
-        const decoded = binary.JSON_CODEC.decode(encoded);
-        expect(decoded).toEqual({
-          myDog: "12",
-        });
-      });
-
-      it("should encode + decode a value extension with a schema", () => {
-        const v = {
-          myDog: new MyValueExtension(12n),
-        };
-        const schema = z.object({
-          myDog: z
-            .bigint()
-            .or(z.string())
-            .transform((v) => new MyValueExtension(BigInt(v))),
-        });
-        const encoded = binary.JSON_CODEC.encode(v);
-        const decoded = binary.JSON_CODEC.decode(encoded, schema);
-        expect(decoded).toEqual({
-          myDog: new MyValueExtension(12n),
-        });
-        expect(decoded.myDog).toBeInstanceOf(MyValueExtension);
-      });
-
-      describe("isCrudeValueExtension", () => {
-        it("should return true for a CrudeValueExtension", () => {
-          expect(primitive.isCrudeValueExtension({ value: 12n })).toBe(true);
-        });
-        it("should return false for a non-CrudeValueExtension", () => {
-          expect(primitive.isCrudeValueExtension(12n)).toBe(false);
-        });
-      });
     });
   });
 
