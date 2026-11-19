@@ -32,7 +32,7 @@ const EditView = ({ itemKey }: EditViewProps): ReactElement => (
       Changes every use of this color.
     </Text.Text>
     <Form.Field<string> path={formPath.name} label="Name" padHelpText={false}>
-      {(p) => <Input.Text {...p} placeholder="Color name" onlyChangeOnBlur />}
+      {(p) => <Input.Text {...p} placeholder="Color name" />}
     </Form.Field>
     <Flex.Box x gap="large">
       <Input.Item label="Light" padHelpText={false}>

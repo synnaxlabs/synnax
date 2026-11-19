@@ -242,6 +242,21 @@ describe("Color.Field", () => {
         .toBe("#0000ff");
     });
 
+    it("should keep a rename when Back closes the view before a blur", async () => {
+      const { named } = await createInPalette();
+      const { result } = renderField({ type: "named", key: named.key });
+      openPicker(result);
+      await openEdit(named.name);
+      const name = `renamed-${id.create()}`;
+      fireEvent.change(await screen.findByDisplayValue(named.name), {
+        target: { value: name },
+      });
+      fireEvent.click(screen.getByLabelText("Back"));
+      await expect
+        .poll(async () => (await other.colors.retrieve(named.key)).name)
+        .toBe(name);
+    });
+
     describe("focus", () => {
       const plusOf = (palette: string): HTMLElement =>
         screen.getByRole("button", { name: `Create a color in ${palette}` });
