@@ -104,7 +104,7 @@ describe("planMessage", () => {
     expect((await client.channels.retrieve(key)).name).toBe(`${prefix}_temp`);
   });
 
-  it("should replace every channel on an index that another message writes", async () => {
+  it("should keep its index when another message borrows a channel that it stores", async () => {
     const prefix = uniqueName("src");
     const index = await createIndex(`${prefix}_time`);
     const createStored = async (name: string) =>
@@ -138,7 +138,7 @@ describe("planMessage", () => {
         async ({ channel }) => await client.channels.retrieve(channel),
       ),
     );
-    expect(time.key).not.toBe(index.key);
+    expect(time.key).toBe(index.key);
     expect(data.map(({ index }) => index)).toEqual([time.key, time.key, time.key]);
     expect(data.map(({ name }) => name)).toEqual([
       `${prefix}_temp_2`,
@@ -146,6 +146,44 @@ describe("planMessage", () => {
       `${prefix}_flow`,
     ]);
     expect((await client.channels.retrieve(shared.key)).name).toBe(`${prefix}_temp`);
+  });
+
+  it("should leave an index that another message writes when its bindings write nothing on it", async () => {
+    const prefix = uniqueName("src");
+    const index = await createIndex(`${prefix}_time`);
+    const createStored = async (name: string) =>
+      await client.channels.create({
+        name: `${prefix}_${name}`,
+        dataType: "float64",
+        index: index.key,
+      });
+    const shared = await createStored("temp");
+    const stored = await createStored("pressure");
+    const bound = createBound({ time: 0, temp: 0, pressure: 0 }, "time");
+    const props = {
+      index: index.key,
+      channels: { "/temp": shared.key, "/pressure": stored.key },
+    };
+    const plan = await ICD.planMessage(
+      client,
+      Task.createNamer(client),
+      bound,
+      prefix,
+      props,
+      new Set([shared.key]),
+    );
+    await ICD.applyMessage(client, bound, plan);
+    const [time, ...data] = await Promise.all(
+      bound.source.messages[0].bindings.map(
+        async ({ channel }) => await client.channels.retrieve(channel),
+      ),
+    );
+    expect(time.key).not.toBe(index.key);
+    expect(data.map(({ index }) => index)).toEqual([time.key, time.key]);
+    expect(data.map(({ name }) => name)).toEqual([
+      `${prefix}_temp_2`,
+      `${prefix}_pressure`,
+    ]);
   });
 
   it("should leave a stored index that another message writes", async () => {

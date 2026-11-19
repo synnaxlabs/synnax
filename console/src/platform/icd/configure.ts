@@ -89,7 +89,8 @@ export interface MessagePlan {
  * @param prefix - The prefix of the names of the channels it creates.
  * @param props - What the device stores for the message.
  * @param written - The channels that bindings write, which no field takes from props.
- * When another message writes one, its index and every channel on it are replaced.
+ * When another message writes one, its index and every channel on it are replaced. A
+ * channel that props store keeps the index when the message's own bindings write it.
  */
 export const planMessage = async (
   client: Synnax,
@@ -115,9 +116,25 @@ export const planMessage = async (
     .map(({ pointer }) => pointer);
   const own = new Set(read.bindings.map(({ channel }) => channel));
   const elsewhere = [...written].filter((key) => !own.has(key));
+  const bound =
+    elsewhere.length === 0
+      ? []
+      : await client.channels.retrieve(
+          [...elsewhere, ...own].filter(primitive.isNonZero),
+        );
+  const indexOf = (ch: channel.Channel): channel.Key =>
+    ch.isIndex ? ch.key : ch.index;
+  const ownIndexes = new Set(bound.filter((ch) => own.has(ch.key)).map(indexOf));
+  const stored = new Set(Object.values(props?.channels ?? {}));
+  // The message that wrote the index keeps it, and the one that borrowed its channel
+  // moves.
   const taken = new Set(
-    (elsewhere.length === 0 ? [] : await client.channels.retrieve(elsewhere))
-      .map((ch) => (ch.isIndex ? ch.key : ch.index))
+    bound
+      .filter(
+        (ch) =>
+          !own.has(ch.key) && !(stored.has(ch.key) && ownIndexes.has(indexOf(ch))),
+      )
+      .map(indexOf)
       .filter(primitive.isNonZero),
   );
   skipped.forEach((p) => delete held[p]);
