@@ -10,7 +10,7 @@
 import { CDN } from "@/components/media/cdn";
 import { type Check } from "@/util/checks/check";
 import { locate } from "@/util/checks/crawl";
-import { attrValues } from "@/util/checks/html";
+import { attrOf, attrValues } from "@/util/checks/html";
 
 interface Ref {
   route: string;
@@ -28,7 +28,29 @@ const needle = (url: string): string =>
         .replace(/(\/[0-9a-f]{12})?(-light|-dark)?\.\w+$/, "")
     : url;
 
-// Verifies every image, video, and poster a page references loads.
+interface Unnamed {
+  /** The source URL of the image or the first source of the video. */
+  url: string;
+  problem: string;
+}
+
+const unnamed = (html: string): Unnamed[] => [
+  ...[...html.matchAll(/<img\b[^>]*>/g)]
+    .filter(([tag]) => attrOf(tag, "alt") == null)
+    .map(([tag]) => ({
+      url: attrOf(tag, "src") ?? "",
+      problem: "image has no alt text",
+    })),
+  ...[...html.matchAll(/<video\b[^>]*>/g)]
+    .filter(([tag]) => attrOf(tag, "aria-label") == null)
+    .map(({ index }) => {
+      const source = /<source\b[^>]*>/.exec(html.slice(index))?.[0] ?? "";
+      return { url: attrOf(source, "src") ?? "", problem: "video has no label" };
+    }),
+];
+
+// Verifies every image, video, and poster a page references loads, and that each image
+// and video has a name for screen readers.
 export const media = (fullCrawl: boolean): Check => {
   const refs: Ref[] = [];
   return {
@@ -44,7 +66,9 @@ export const media = (fullCrawl: boolean): Check => {
       // A media fragment such as #t=0.001 seeks the video; it names no anchor.
       for (const url of urls)
         refs.push({ route, url: url.replace(/#.*$/, ""), needle: needle(url) });
-      return [];
+      return unnamed(html).map(
+        ({ url, problem }) => `${locate(route, needle(url))} - ${problem}: ${url}`,
+      );
     },
     finish: async (ctx, report, progress) => {
       // Canary for the media markup silently matching nothing.

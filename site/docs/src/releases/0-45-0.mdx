@@ -24,6 +24,7 @@ export const components = mdxOverrides;
   layout="framed"
   tone="soft"
   palette="violet-pink"
+  alt="The create symbol dialog with a solenoid valve"
 />
 
 Synnax v0.45 adds the ability to create, edit, and import custom symbols for schematics.
@@ -57,7 +58,12 @@ We've added metrics channels to the Core, which allow for monitoring the CPU and
 usage of the Core.
 
 <Flex.Box x justify="center">
-  <Image id="releases/0-45-0/metrics" extension="webp" themed={false} />
+  <Image
+    id="releases/0-45-0/metrics"
+    extension="webp"
+    themed={false}
+    alt="A line plot of the CPU and memory use of the Core"
+  />
 </Flex.Box>
 
 These new channels are called `sy_node_x_cpu_percentage` and `sy_node_x_mem_percentage`,
@@ -79,6 +85,7 @@ the value form.
     extension="webp"
     themed={false}
     style={{ width: 350 }}
+    alt="A schematic value in the stale color"
   />
 </Flex.Box>
 

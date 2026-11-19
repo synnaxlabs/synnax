@@ -51,9 +51,14 @@ const clock = (seconds: number): string => {
   return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
 };
 
-// An image's text alternative names it best. Otherwise the heading of its section does.
+// The text alternative of an image or the label of a video names it best. A decorative
+// image has neither, so the heading of its section names it.
 const caption = (media: Media): string => {
-  if (media instanceof HTMLImageElement && media.alt !== "") return media.alt;
+  const name =
+    media instanceof HTMLImageElement
+      ? media.alt
+      : (media.getAttribute("aria-label") ?? "");
+  if (name !== "") return name;
   const headings = [...document.querySelectorAll("article :is(h1, h2, h3)")].filter(
     (h) => h.compareDocumentPosition(media) & Node.DOCUMENT_POSITION_FOLLOWING,
   );
