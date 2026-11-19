@@ -45,9 +45,7 @@ const Control = ({
   const openCreate = useCreateModal();
   const now = useNow(nextMinute);
   const describe = (c: certificate.Certificate): Picker.Description =>
-    c.source === "file" && c.rack !== rack
-      ? Secret.OTHER_RACK_DESCRIPTION
-      : Secret.Validity.describeCertificate(c, now);
+    Secret.Validity.describeCertificate(c, now);
   // A cleared field holds the zero key, as one never set does.
   const selection = allowNone
     ? {
@@ -72,7 +70,9 @@ const Control = ({
         preview={preview}
         {...selection}
       />
-      {result.variant === "success" && <Details certificate={result.data} now={now} />}
+      {result.variant === "success" && (
+        <Details certificate={result.data} now={now} rack={rack} />
+      )}
     </Flex.Box>
   );
 };

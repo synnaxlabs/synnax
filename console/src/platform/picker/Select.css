@@ -23,13 +23,6 @@
     min-width: 0;
 }
 
-.console-picker__description {
-    flex-shrink: 0;
-    margin-left: auto;
-    padding-left: 1rem;
-    white-space: nowrap;
-}
-
 .console-picker__dialog {
     min-width: 40rem;
 }
