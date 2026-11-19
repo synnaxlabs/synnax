@@ -615,12 +615,11 @@ are Pebble's (v2.1.7, measured on the crash harness). Lasting corruption of the 
 KiB block of a WAL loses the commits in that block with no error, as fault 5d does here;
 in an earlier block, Pebble refuses to open. A WAL written before the store's format
 reaches `FormatWALSyncChunks` has no synced offsets, so corruption anywhere in it cuts
-the log with no error, and a new store's first WAL is one (SY-6432): the Core rotates
-the WAL of a new store once before it serves (Phase 6). On a file system that does not
-keep directory operations in order, a crash while Pebble moves its manifest marker can
-leave a store that does not open; ext4, XFS, APFS, and NTFS keep that order. Pebble
-reads MANIFEST and OPTIONS once, so a one-time read fault there fails one start, and the
-next start opens.
+the log with no error, and a new store's first WAL is one (SY-6432). On a file system
+that does not keep directory operations in order, a crash while Pebble moves its
+manifest marker can leave a store that does not open; ext4, XFS, APFS, and NTFS keep
+that order. Pebble reads MANIFEST and OPTIONS once, so a one-time read fault there fails
+one start, and the next start opens.
 
 ## 7 Determinism
 
