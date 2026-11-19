@@ -957,12 +957,16 @@ describe("wrapForm", () => {
       const redeploy = await screen.findByRole("button", { name: "Redeploy" });
       await act(async () => fireEvent.click(redeploy));
       await screen.findByText("Failed to deploy changes");
+      expect(
+        screen.getByText(
+          "The task still runs its last deployed config. The device has no port 7",
+        ),
+      ).toBeTruthy();
       expect(statuses).toContainEqual(
         expect.objectContaining({
           name: "New Test Task",
           message: "Failed to deploy changes",
-          description:
-            "The task still runs its last deployed config. The device has no port 7",
+          description: "The device has no port 7",
         }),
       );
     });

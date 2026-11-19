@@ -168,7 +168,6 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
   const Wrapped: FC<FormTabProps> = ({ taskKey }) => {
     const client = PSynnax.use();
     const handleError = Status.useErrorHandler();
-    const addStatus = Status.useAdder();
     const { capture } = Analytics.use();
     const [nested] = useState(() => new Set<Flush>());
     const { form, flush } = useForm({
@@ -195,12 +194,13 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
       } catch (e) {
         const { name, status: current } = form.value();
         const running = current?.details.running === true;
-        const failed = status.fromException(e, {
+        const heading = {
           name,
           message: running ? "Failed to deploy changes" : "Failed to start task",
-        });
+        };
+        handleError(e, heading);
+        const failed = status.fromException(e, heading);
         if (running) failed.description = `${STILL_RUNS} ${failed.description}`;
-        addStatus(failed);
         setFailure({ status: failed, statusTime: current?.time });
       }
       setConfiguring(false);
