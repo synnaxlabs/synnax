@@ -821,12 +821,16 @@ describe("remote", () => {
           window: dynamicWindow(TimeSpan.minutes(1)),
         });
         await settle(x);
-        expect(x.value().rolling).toBe(true);
+        expect(x.value().edge).toBe("rolling");
         const stopped = new TimeRange(core.now().sub(TimeSpan.minutes(1)), core.now());
         expect(x.update({ ...props, window: staticWindow(stopped) })).toBe(true);
-        const { data, rolling } = x.value();
-        expect(rolling).toBe(false);
-        expect(data[0]).toEqual(stopped.numericBounds);
+        // The window still streams until its end passes the commit point.
+        const { data, edge } = x.value();
+        expect(edge).toBe("growing");
+        expect(data[0]).toEqual({
+          lower: ns(stopped.start),
+          upper: ns(newest(core, props.channel).timeRange.end),
+        });
         expect(data[1].length).toBeGreaterThan(0);
       });
 
