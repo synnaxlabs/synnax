@@ -10,12 +10,14 @@
 package crash_test
 
 import (
+	"bytes"
 	"context"
 	"os"
 	"sync/atomic"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/io/fs/testutil/crash"
@@ -76,6 +78,9 @@ var _ = Describe("Oracle", func() {
 		},
 		Entry("holds a commit twice", func(r []crash.Record) []crash.Record {
 			return append(r, r...)
+		}),
+		Entry("holds the last commit twice", func(r []crash.Record) []crash.Record {
+			return append(r, r[max(len(r)-1, 0):]...)
 		}),
 		Entry("holds a commit that is not in the workload",
 			func(r []crash.Record) []crash.Record {
@@ -151,6 +156,106 @@ var _ = Describe("Oracle", func() {
 			Entry("under NewCorruption", crash.NewCorruption),
 		)
 	})
+})
+
+// spy is an engine that appends each payload to one file and syncs it. On a crash image
+// it finds the byte that differs from what it wrote, and notes if the last Sync made
+// that byte durable. It refuses an image with such a byte.
+type spy struct {
+	file xfs.File
+	*spied
+}
+
+// spied is the state that the engines of one run share.
+type spied struct {
+	// written holds the bytes of each commit, in order.
+	written []crash.Record
+	// newest and older count the images with a flipped byte in the bytes of the last
+	// synced commit, and in the bytes before them.
+	newest, older int
+}
+
+func (s *spied) open(_ context.Context, fs xfs.FS) (crash.Engine, error) {
+	file, err := fs.Open("log", os.O_CREATE|os.O_RDWR)
+	if err != nil {
+		return nil, err
+	}
+	got, err := xfs.ReadFile(fs, "log")
+	if err != nil {
+		return nil, err
+	}
+	end := 0
+	for _, r := range s.written {
+		start := end
+		if end += len(r.Payload); end > len(got) {
+			break
+		}
+		if !bytes.Equal(got[start:end], r.Payload) {
+			if end == len(got) {
+				s.newest++
+			} else {
+				s.older++
+			}
+			return nil, errors.Combine(errCorrupt, file.Close())
+		}
+	}
+	return &spy{file: file, spied: s}, fs.SyncDir("")
+}
+
+func (s *spy) Commit(
+	_ context.Context,
+	r crash.Record,
+	_ crash.Ack,
+) (crash.Ack, error) {
+	s.written = append(s.written, r)
+	if _, err := s.file.Write(r.Payload); err != nil {
+		return 0, err
+	}
+	return crash.Durable, s.file.Sync()
+}
+
+func (s *spy) Recovered(context.Context) ([]crash.Record, error) {
+	info, err := s.file.Stat()
+	if err != nil {
+		return nil, err
+	}
+	var out []crash.Record
+	for end, i := 0, 0; i < len(s.written); i++ {
+		if end += len(s.written[i].Payload); int64(end) > info.Size() {
+			break
+		}
+		out = append(out, s.written[i])
+	}
+	return out, nil
+}
+
+func (s *spy) Close() error { return s.file.Close() }
+
+var _ = Describe("Lasting corruption", func() {
+	DescribeTable(
+		"Should flip a bit only in the bytes that the profile names",
+		func(
+			ctx SpecContext,
+			profile crash.Profile,
+			newest, older types.GomegaMatcher,
+		) {
+			s := &spied{}
+			Expect(crash.Run(ctx, crash.Config{
+				Open:    s.open,
+				Corrupt: func(err error) bool { return errors.Is(err, errCorrupt) },
+				Commits: 12,
+				Stride:  1,
+				Profile: profile,
+			})).To(Succeed())
+			Expect(s.newest).To(newest)
+			Expect(s.older).To(older)
+		},
+		Entry("the newest synced bytes",
+			crash.NewCorruption, BeNumerically(">", 0), BeZero()),
+		Entry("the bytes that were durable before",
+			crash.OldCorruption, BeZero(), BeNumerically(">", 0)),
+		Entry("no byte under Strict", crash.Strict, BeZero(), BeZero()),
+	)
 })
 
 // stepper is an engine that makes a known count of disk changes: a directory and a file

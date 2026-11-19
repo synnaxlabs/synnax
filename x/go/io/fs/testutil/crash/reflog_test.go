@@ -109,8 +109,8 @@ func (l *refLog) read(f xfs.File, segment, slot int) (crash.Record, uint64, bool
 	return crash.Record{}, 0, false
 }
 
-// recover reads each segment. A bad record that a later record proves durable, or
-// that is in a sealed segment, is corruption. Any other bad record is a torn tail.
+// recover reads each segment. A bad record that a later record proves durable, or that
+// is in a sealed segment, is corruption. Any other bad record is a torn tail.
 func (l *refLog) recover() error {
 	infos, err := l.fs.List("")
 	if err != nil {

@@ -12,6 +12,7 @@ package crash_test
 import (
 	"context"
 	"fmt"
+	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -127,3 +128,19 @@ var _ = Describe("Run", func() {
 		Entry("has an unknown profile", func(cfg *crash.Config) { cfg.Profile = 9 }),
 	)
 })
+
+// BenchmarkRun measures one pass of 200 commits on the reference engine, with a crash
+// image and a recovery after each disk change.
+func BenchmarkRun(b *testing.B) {
+	cfg := crash.Config{
+		Open:    openRefLog(bugs{}),
+		Commits: 200,
+		Stride:  1,
+		Profile: crash.Strict,
+	}
+	for b.Loop() {
+		if err := crash.Run(b.Context(), cfg); err != nil {
+			b.Fatal(err)
+		}
+	}
+}

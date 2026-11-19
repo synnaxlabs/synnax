@@ -50,12 +50,14 @@ type broken struct {
 func held(attempts []attempt, records []Record, r rules) (set.Set[uint64], *broken) {
 	present, last := make(set.Set[uint64], len(records)), uint64(0)
 	for _, rec := range records {
-		switch {
-		case rec.ID == 0 || rec.ID > uint64(len(attempts)):
+		if rec.ID == 0 || rec.ID > uint64(len(attempts)) {
 			return nil, &broken{
 				R2,
 				fmt.Sprintf("commit %d is not in the workload", rec.ID),
 			}
+		}
+		want := attempts[rec.ID-1].record.Payload
+		switch {
 		case rec.ID <= last:
 			return nil, &broken{
 				R2,
@@ -63,7 +65,7 @@ func held(attempts []attempt, records []Record, r rules) (set.Set[uint64], *brok
 			}
 		case rec.Unreadable && !r.unreadable:
 			return nil, &broken{R2, fmt.Sprintf("commit %d is unreadable", rec.ID)}
-		case !rec.Unreadable && !bytes.Equal(rec.Payload, attempts[rec.ID-1].record.Payload):
+		case !rec.Unreadable && !bytes.Equal(rec.Payload, want):
 			return nil, &broken{
 				R2,
 				fmt.Sprintf("commit %d has a wrong payload", rec.ID),
