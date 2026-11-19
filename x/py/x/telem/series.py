@@ -38,7 +38,7 @@ from typing import (
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
-from pydantic import BaseModel, GetCoreSchemaHandler, JsonValue, TypeAdapter
+from pydantic import BaseModel, Field, GetCoreSchemaHandler, JsonValue, TypeAdapter
 from pydantic_core import core_schema
 
 from x.interop import ArrayOperators
@@ -247,7 +247,7 @@ class _Payload(BaseModel):
     data: bytes
     alignment: Alignment = Alignment(0, 0)
     alignment_multiple: int = 1
-    clock: int = 0
+    clock: int = Field(default=0, exclude_if=lambda c: c == 0)
 
 
 def _from_payload(p: _Payload) -> Series:

@@ -349,6 +349,14 @@ class TestSeries:
         ]
         assert [d.clock for d in derived] == [5] * len(derived)
 
+    def test_clock_left_out_when_zero(self) -> None:
+        """Should leave the clock out of a payload when it is zero"""
+        adapter = TypeAdapter(telem.Series)
+        unclocked = telem.Series([1], data_type=telem.DataType.INT8)
+        assert "clock" not in adapter.dump_python(unclocked, mode="json")
+        clocked = telem.Series([1], data_type=telem.DataType.INT8, clock=5)
+        assert adapter.dump_python(clocked, mode="json")["clock"] == 5
+
     def test_clock_argument_wins(self) -> None:
         """Should prefer an explicit clock to the source's clock"""
         s1 = telem.Series([1, 2], data_type=telem.DataType.INT8, clock=5)
