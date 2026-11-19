@@ -26,6 +26,11 @@ on:
         description: Image repository to push to (e.g. ghcr.io/synnaxlabs/synnax)
         required: true
         type: string
+      unused_by_forks:
+        description: Whether no test of a fork loads the image, so a fork keeps no copy
+        required: false
+        type: boolean
+        default: false
     outputs:
       image:
         description: The image, pinned by digest, or by tag when a fork built it
@@ -132,13 +137,13 @@ jobs:
 
       - name: Name the artifact of the image
         id: artifact
-        if: env.FORK == 'true'
+        if: env.FORK == 'true' && !inputs.unused_by_forks
         env:
           IMAGE: ${{ steps.tag.outputs.image }}
         run: echo "name=image-${IMAGE##*:}" >> "$GITHUB_OUTPUT"
 
       - name: Upload the image
-        if: env.FORK == 'true'
+        if: env.FORK == 'true' && !inputs.unused_by_forks
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: ${{ steps.artifact.outputs.name }}

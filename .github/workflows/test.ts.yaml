@@ -326,9 +326,10 @@ jobs:
         with:
           bun-version: ${{ inputs.latest_runtimes && 'latest' || '1.4.4' }}
 
-      # The smoke test needs the Core, which only the Linux runner has.
+      # The smoke test needs the Core, which only the Linux runner has, and not for a
+      # fork.
       - name: Smoke-test the packed package
-        if: inputs.runtimes && matrix.lint
+        if: inputs.runtimes && matrix.lint && env.FORK != 'true'
         shell: bash
         timeout-minutes: 10
         env:
