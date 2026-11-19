@@ -12,12 +12,14 @@ package pebblefs_test
 import (
 	"fmt"
 	"io"
+	"os"
 	"slices"
+	"strconv"
 
-	"github.com/cockroachdb/errors/oserror"
 	"github.com/cockroachdb/pebble/v2/vfs"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io/fs/testutil/fault"
 	"github.com/synnaxlabs/x/io/fs/testutil/pebblefs"
 	. "github.com/synnaxlabs/x/testutil"
@@ -61,9 +63,9 @@ func errClass(err error) string {
 	switch {
 	case err == nil:
 		return "nil"
-	case oserror.IsNotExist(err):
+	case errors.Is(err, os.ErrNotExist):
 		return "not exist"
-	case oserror.IsExist(err):
+	case errors.Is(err, os.ErrExist):
 		return "exist"
 	}
 	return "error"
@@ -198,8 +200,7 @@ var _ = Describe("Pebble FS against the memory FS of Pebble", func() {
 			Expect(f.Sync()).To(Succeed())
 			Expect(f.Close()).To(Succeed())
 			d := MustSucceed(t.fs.OpenDir("r"))
-			_, err := d.SyncTo(0)
-			Expect(err).ToNot(HaveOccurred())
+			MustSucceed(d.SyncTo(0))
 			Expect(d.Close()).To(Succeed())
 			names := MustSucceed(t.crash().List("r"))
 			slices.Sort(names)
@@ -213,7 +214,7 @@ var _ = Describe("Pebble FS against the memory FS of Pebble", func() {
 			writeFile(t, "LOCK", "taco")
 			lock := MustSucceed(t.fs.Lock(t.path("LOCK")))
 			Expect(lock.Close()).To(Succeed())
-			return fmt.Sprint(MustSucceed(t.fs.Stat(t.path("LOCK"))).Size())
+			return strconv.FormatInt(MustSucceed(t.fs.Stat(t.path("LOCK"))).Size(), 10)
 		})
 		Expect(r).To(HaveKeyWithValue("pebblefs", r["mem"]))
 	})
@@ -309,7 +310,14 @@ var _ = Describe("Pebble FS against the memory FS of Pebble", func() {
 			n2, err2 := f.ReadAt(make([]byte, 8), 2)
 			n3, err3 := f.ReadAt(make([]byte, 2), 2)
 			Expect(f.Close()).To(Succeed())
-			return fmt.Sprint(n1, err1 == io.EOF, n2, err2 == io.EOF, n3, err3)
+			return fmt.Sprint(
+				n1,
+				errors.Is(err1, io.EOF),
+				n2,
+				errors.Is(err2, io.EOF),
+				n3,
+				err3,
+			)
 		}),
 		Entry("Read to the end", func(t target) string {
 			writeFile(t, "a", "taco")
@@ -318,7 +326,7 @@ var _ = Describe("Pebble FS against the memory FS of Pebble", func() {
 			n2, err2 := f.Read(make([]byte, 3))
 			n3, err3 := f.Read(make([]byte, 3))
 			Expect(f.Close()).To(Succeed())
-			return fmt.Sprint(n1, err1, n2, err2, n3, err3 == io.EOF)
+			return fmt.Sprint(n1, err1, n2, err2, n3, errors.Is(err3, io.EOF))
 		}),
 		Entry("WriteAt past the end fills zeros", func(t target) string {
 			f := MustSucceed(t.fs.Create(t.path("a"), vfs.WriteCategoryUnspecified))
@@ -332,13 +340,13 @@ var _ = Describe("Pebble FS against the memory FS of Pebble", func() {
 			Expect(lock.Close()).To(Succeed())
 			again := MustSucceed(t.fs.Lock(t.path("LOCK")))
 			Expect(again.Close()).To(Succeed())
-			return fmt.Sprint(err != nil)
+			return strconv.FormatBool(err != nil)
 		}),
 		Entry("MkdirAll on an existing directory and on a file", func(t target) string {
 			Expect(t.fs.MkdirAll(t.path("d"), 0o755)).To(Succeed())
 			Expect(t.fs.MkdirAll(t.path("d"), 0o755)).To(Succeed())
 			writeFile(t, "a", "taco")
-			return fmt.Sprint(t.fs.MkdirAll(t.path("a/b"), 0o755) != nil)
+			return strconv.FormatBool(t.fs.MkdirAll(t.path("a/b"), 0o755) != nil)
 		}),
 		Entry("Paths with trailing slashes", func(t target) string {
 			return fmt.Sprint(
