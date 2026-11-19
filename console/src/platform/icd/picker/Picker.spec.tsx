@@ -15,17 +15,19 @@ import { ICD } from "@/platform/icd";
 import { renderWithConsole } from "@/testutil";
 
 describe("ICD.Picker.PaneHeader", () => {
-  it("should show the hint of the dialog under the title", async () => {
+  it("should show the hint of the frame under the title", async () => {
     await renderWithConsole(
       <Dialog.Frame variant="modal" visible onVisibleChange={() => {}}>
-        <ICD.Picker.Root value="topics" hint="Select the values to read.">
-          <ICD.Picker.PaneHeader
-            title="plant/oven"
-            free={2}
-            picked={0}
-            onPickAll={() => {}}
-            onClear={() => {}}
-          />
+        <ICD.Picker.Root value="topics">
+          <ICD.Picker.Frame itemKey="topics" hint="Select the values to read.">
+            <ICD.Picker.PaneHeader
+              title="plant/oven"
+              free={2}
+              picked={0}
+              onPickAll={() => {}}
+              onClear={() => {}}
+            />
+          </ICD.Picker.Frame>
         </ICD.Picker.Root>
       </Dialog.Frame>,
     );
@@ -35,11 +37,13 @@ describe("ICD.Picker.PaneHeader", () => {
 });
 
 describe("ICD.Picker.PaneSkeleton", () => {
-  it("should show the hint of the dialog while values load", async () => {
+  it("should show the hint of the frame while values load", async () => {
     await renderWithConsole(
       <Dialog.Frame variant="modal" visible onVisibleChange={() => {}}>
-        <ICD.Picker.Root value="topics" hint="Select the values to read.">
-          <ICD.Picker.PaneSkeleton noun="Field" title="plant/oven" />
+        <ICD.Picker.Root value="topics">
+          <ICD.Picker.Frame itemKey="topics" hint="Select the values to read.">
+            <ICD.Picker.PaneSkeleton noun="Field" title="plant/oven" />
+          </ICD.Picker.Frame>
         </ICD.Picker.Root>
       </Dialog.Frame>,
     );

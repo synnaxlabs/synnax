@@ -1398,6 +1398,7 @@ describe("MQTT read form", () => {
         data: { nodes: [], tags: [{ ...tag, supported: true }] },
       });
       fireEvent.click(await dialog.findByRole("checkbox", { name: "Record flow" }));
+      dialog.getByText("Select the tags to read. Each one becomes a channel.");
       expect(
         dialog.getByRole("button", { name: "Add 1 field and 1 tag" }),
       ).toBeTruthy();

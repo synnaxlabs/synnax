@@ -270,7 +270,7 @@ const Content = ({
     status += ", some unread";
 
   return (
-    <ICD.Picker.Root value={FRAME} hint={HINT} className={CSS.B("kafka-add-data")}>
+    <ICD.Picker.Root value={FRAME} className={CSS.B("kafka-add-data")}>
       <Modal.Header icon={<Icon.Logo.Kafka />}>Add data</Modal.Header>
       <ICD.Picker.Bar>
         <Input.Text
@@ -287,7 +287,7 @@ const Content = ({
           placeholder="Topic"
         />
       </ICD.Picker.Bar>
-      <ICD.Picker.Frame itemKey={FRAME}>
+      <ICD.Picker.Frame itemKey={FRAME} hint={HINT}>
         <ICD.Picker.Status status={status} loading={loading} onListen={listen} />
         <ICD.Picker.Side>
           <ICD.Picker.SideList>{list}</ICD.Picker.SideList>

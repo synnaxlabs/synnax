@@ -9,8 +9,8 @@
 
 import { context } from "@synnaxlabs/lyra/context";
 
-/** Says what a pick of the dialog becomes. */
+/** Says what a pick of the frame becomes. */
 export const [HintContext, useHint] = context.create<string>({
   displayName: "Picker.HintContext",
-  providerName: "Picker.Root",
+  providerName: "Picker.Frame",
 });
