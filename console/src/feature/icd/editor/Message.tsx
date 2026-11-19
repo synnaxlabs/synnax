@@ -12,7 +12,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
-import { type CrudeTimeSpan, deep, TimeSpan } from "@synnaxlabs/x";
+import { type CrudeTimeSpan, deep, type payload, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { FormattedField, parseInteger } from "@/feature/icd/editor/FormattedField";
@@ -20,7 +20,7 @@ import { Identifier, IdentifierFields } from "@/feature/icd/editor/Identifier";
 import { CSS } from "@/platform/css";
 import { ICD } from "@/platform/icd";
 
-const createPayload = (format: icd.PayloadType): icd.Payload => {
+const createPayload = (format: payload.Format): icd.Payload => {
   switch (format) {
     case "binary":
       return { format, fields: [] };
@@ -87,7 +87,7 @@ export const Message = ({ path }: MessageProps): ReactElement => {
   const json = deep.variant(payloadPath, "format", "json");
   const { set, mode } = Form.useContext();
   const format = Form.useFieldValue(payloadPath.format);
-  const handleFormatChange = (next: icd.PayloadType) => {
+  const handleFormatChange = (next: payload.Format) => {
     if (next !== format) set(payloadPath, createPayload(next));
   };
   return (
@@ -96,14 +96,14 @@ export const Message = ({ path }: MessageProps): ReactElement => {
         <Flex.Box x>
           <Form.TextField path={path.name} label="Name" />
           <Input.Item label="Format" padHelpText>
-            <Select.Buttons<icd.PayloadType>
+            <Select.Buttons<payload.Format>
               value={format}
               onChange={handleFormatChange}
               preview={mode === "preview"}
             >
-              <Select.Item<icd.PayloadType> itemKey="binary">Binary</Select.Item>
-              <Select.Item<icd.PayloadType> itemKey="text">Text</Select.Item>
-              <Select.Item<icd.PayloadType> itemKey="json">JSON</Select.Item>
+              <Select.Item<payload.Format> itemKey="binary">Binary</Select.Item>
+              <Select.Item<payload.Format> itemKey="text">Text</Select.Item>
+              <Select.Item<payload.Format> itemKey="json">JSON</Select.Item>
             </Select.Buttons>
           </Input.Item>
         </Flex.Box>

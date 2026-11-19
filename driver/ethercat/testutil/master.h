@@ -337,7 +337,8 @@ public:
         this->recover_cv.notify_all();
     }
 
-    /// @brief makes activate() wait for release_activate(), which holds a bus start.
+    /// @brief makes activate() wait for release_activate() or the cancel of its plan,
+    /// which holds a bus start.
     void hold_activate() {
         std::lock_guard lock(this->activate_mu);
         this->activate_held = true;
@@ -629,7 +630,18 @@ public:
             std::unique_lock lock(this->activate_mu);
             this->activating = this->activate_held;
             this->activate_cv.notify_all();
-            this->activate_cv.wait(lock, [this] { return !this->activate_held; });
+            while (this->activate_held) {
+                if (plan.cancel != nullptr && !plan.cancel->running()) {
+                    this->activating = false;
+                    return {
+                        .err = x::errors::Error(
+                            x::errors::CANCELLED,
+                            "activate canceled"
+                        )
+                    };
+                }
+                this->activate_cv.wait_for(lock, std::chrono::milliseconds(1));
+            }
             this->activating = false;
         }
         size_t sent = 0;

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, Series, TimeRange, TimeStamp } from "@synnaxlabs/x";
+import { array, bounds, Series, TimeRange, TimeStamp } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
@@ -123,15 +123,8 @@ export const align = (
  * @returns the position of the first sample of the timestamp series at or after t,
  * searching from lo.
  */
-export const search = (s: Series, t: bigint, lo = 0): number => {
-  let hi = s.length;
-  while (lo < hi) {
-    const mid = (lo + hi) >>> 1;
-    if (BigInt(s.data[mid]) < t) lo = mid + 1;
-    else hi = mid;
-  }
-  return lo;
-};
+export const search = (s: Series, t: bigint, lo = 0): number =>
+  lo + array.partitionPoint(s.length - lo, (i) => BigInt(s.data[lo + i]) >= t);
 
 /** @returns the number of samples of the timestamp series stamped before ts. */
 export const countBefore = (timestamps: Series[], ts: TimeStamp): number =>

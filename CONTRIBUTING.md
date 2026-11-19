@@ -92,17 +92,17 @@ either tier. A pull request Dependabot opened and wrote every commit of passes t
 without a review. `OK` is the CI workflow's last job: it fails when any check the PR's
 paths select failed. A merge into `main` goes through a merge queue, which reruns CI
 with the integration suite added before the branch moves. A queue entry's CI builds
-`main` with the entries ahead of it and the entry itself, but selects checks from the
-entry's own changes. An entry that changes only unit tests skips the integration suite.
-Each entry merges only when its own CI passes: an entry that fails leaves the queue, and
-GitHub rebuilds the entries behind it. GitHub refuses a queue on a wildcard branch
+`main` with the entries ahead of it and the entry itself, and selects checks from every
+change since `main`. An entry skips the integration suite only when it and the entries
+ahead of it change only unit tests. The queue merges a group when its last entry passes,
+even when an entry ahead of it failed. GitHub refuses a queue on a wildcard branch
 pattern, so a `release/**` merge goes in directly, and CI runs again on the pushed
-commit. The queue also runs the gate again. A release runs the integration suite itself.
-Nobody bypasses the rules on `main`: when Sedosaur is down, pull requests wait for it.
-The gate script is `.github/scripts/check_review.sh`, the rulesets
-`.github/rulesets/main.json` and `.github/rulesets/release.json`. An admin applies a
-changed ruleset file by hand; the `Check - Rulesets` workflow fails each day until
-GitHub matches the files.
+commit. The queue also runs the gate again, on every pull request in the group. A
+release runs the integration suite itself. Nobody bypasses the rules on `main`: when
+Sedosaur is down, pull requests wait for it. The gate script is
+`.github/scripts/check_review.sh`, the rulesets `.github/rulesets/main.json` and
+`.github/rulesets/release.json`. An admin applies a changed ruleset file by hand; the
+`Check - Rulesets` workflow fails each day until GitHub matches the files.
 
 A pull request into `main` also cannot merge while CodeQL finds a new alert in its
 changes with a security severity of medium or higher, or a severity of error. Alerts

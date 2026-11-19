@@ -10,7 +10,7 @@
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { useUniqueKey } from "@synnaxlabs/lyra/hooks";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type optional } from "@synnaxlabs/x";
+import { compare, type optional } from "@synnaxlabs/x";
 import { memo, type ReactElement } from "react";
 
 import { type LineSpec, useContext, useGridEntry } from "@/lineplot/Frame";
@@ -49,7 +49,7 @@ const groupLines = (lines: LineSpec[]): Base.GroupData[] => {
     name: key,
     data,
   }));
-  groups.sort((a, b) => a.name.localeCompare(b.name));
+  groups.sort(compare.by((g) => g.name));
   return groups;
 };
 
@@ -105,8 +105,9 @@ const Fixed = ({
     );
   return (
     <Flex.Box align="center" justify="start" x style={gridStyle} gap="huge">
-      <FocusedGroup name="Y1" data={groups[0].data} {...handlers} />
-      <FocusedGroup name="Y2" data={groups[1].data} {...handlers} />
+      {groups.map(({ key: groupKey, name, data }) => (
+        <FocusedGroup key={groupKey} name={name} data={data} {...handlers} />
+      ))}
     </Flex.Box>
   );
 };

@@ -10,6 +10,7 @@
 package versions_test
 
 import (
+	"slices"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -32,7 +33,10 @@ var _ = Describe("Migrations", func() {
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
 			StartRun(db.Run)
-			v2Chain := versions.Migrations[:len(versions.Migrations)-7]
+			last := slices.IndexFunc(versions.Migrations, func(m gorp.Migration) bool {
+				return m.Key() == v2.Migration.Key()
+			})
+			v2Chain := versions.Migrations[:last+1]
 			MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v2.Key, v2.Table]{
 				DB:         db,
 				Migrations: v2Chain,
@@ -123,6 +127,7 @@ var _ = Describe("Migrations", func() {
 			"v62_table_delete_range_owned",
 			"v62_table_drop_range",
 			"v62_color_bytes_cells_in_rows",
+			"v62_require_name",
 		}))
 	})
 })

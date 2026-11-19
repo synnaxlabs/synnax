@@ -286,3 +286,17 @@ GeneratorType enum {
 
     @doc value "is the kind of value produced for a generated write field."
 }
+
+Format enum {
+    json   = "json" {
+        @doc value "is one JSON value."
+    }
+    text   = "text" {
+        @doc value "is UTF-8 text."
+    }
+    binary = "binary" {
+        @doc value "is raw bytes."
+    }
+
+    @doc value "is the encoding of a whole payload."
+}

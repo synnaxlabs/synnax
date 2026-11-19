@@ -56,6 +56,8 @@ export interface ListAndDetailsChannelItemProps<
   stateDefaultName?: string;
   /** Deploying the task does not create the channels, because they are disabled. */
   skipped?: boolean;
+  /** Marks the channel with a warning, which its details explain. */
+  warned?: boolean;
   path: deep.Target<ItemChannel>;
   /** Shows a tare button for a float channel. */
   tareable?: boolean;
@@ -87,6 +89,7 @@ export const ListAndDetailsChannelItem = <K extends string>({
   stateChannel,
   stateDefaultName,
   skipped,
+  warned = false,
   nameDirection = "x",
   ...rest
 }: ListAndDetailsChannelItemProps<K>) => {
@@ -96,18 +99,19 @@ export const ListAndDetailsChannelItem = <K extends string>({
   const item = deep.widen(path);
   const disabled = Form.useFieldValue(item.disabled);
   const failed = Form.useStatuses(path).some(({ variant }) => variant === "error");
+  const variant = failed ? "error" : warned ? "warning" : undefined;
   const channelNameProps = getChannelNameProps(hasIcon);
   const portStyle: CSSProperties = { width: `${portMaxChars * 1.25}rem` };
   return (
     <Select.Item
       {...rest}
-      status={failed ? "error" : undefined}
+      status={variant}
       justify="between"
       align="center"
       className={CSS.cls(
         CSS.B("channel-item"),
         disabled && CSS.BM("channel-item", "disabled"),
-        failed && CSS.BM("channel-item", "error"),
+        variant != null && CSS.BM("channel-item", variant),
       )}
     >
       <Flex.Box

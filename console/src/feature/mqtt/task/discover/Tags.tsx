@@ -18,15 +18,12 @@ import { id } from "@synnaxlabs/x";
 import pluralize from "pluralize";
 import { type ReactNode, useEffect, useState } from "react";
 
-import { browseSparkplug } from "@/feature/mqtt/device/browse";
-import { type Device } from "@/feature/mqtt/device/types";
-import { Picker } from "@/feature/mqtt/task/discover/picker";
 import {
-  PaneHeader,
-  PaneSkeleton,
-  type Value,
-  Values,
-} from "@/feature/mqtt/task/discover/Values";
+  BROWSE_DURATION,
+  browseSparkplug,
+  LISTENING,
+} from "@/feature/mqtt/device/browse";
+import { type Device } from "@/feature/mqtt/device/types";
 import {
   type BrowsedSparkplugNode,
   type BrowsedSparkplugTag,
@@ -37,6 +34,7 @@ import {
 } from "@/feature/mqtt/task/types";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
+import { ICD } from "@/platform/icd";
 
 export type TagPicks = Map<string, SparkplugTag>;
 
@@ -90,12 +88,15 @@ const replaceNodePicks = (
   return next;
 };
 
-const pickedOf = (picked: number, free: number | null): Picker.TreeItem["picked"] => {
+const pickedOf = (
+  picked: number,
+  free: number | null,
+): ICD.Picker.TreeItem["picked"] => {
   if (picked === 0) return "none";
   return free != null && picked >= free ? "all" : "some";
 };
 
-const SKELETON: Picker.SkeletonItem[] = [
+const SKELETON: ICD.Picker.SkeletonItem[] = [
   [0, "12ch"],
   [1, "17ch"],
   [1, "14ch"],
@@ -125,7 +126,7 @@ export const TagPicker = ({
   }));
   // handlePick reads the picks made while it waits for tags.
   const valueRef = useSyncedRef(value);
-  const { result, listen, follow } = Picker.useListen<Listing>(
+  const { result, listen, follow } = ICD.Picker.useListen<Listing>(
     async (client) => {
       const { nodes } = await browseSparkplug(client, device, ALL_NODES);
       return { key: id.create(), nodes };
@@ -186,14 +187,14 @@ export const TagPicker = ({
     children: members.map((n) => ({ key: nodeKey(n) })),
   }));
   const initialExpanded = [...groups.keys()];
-  const items: Picker.TreeItem[] = [...groups].flatMap(([group, members]) => [
+  const items: ICD.Picker.TreeItem[] = [...groups].flatMap(([group, members]) => [
     {
       key: group,
       name: group,
       meta: pluralize("edge node", members.length, true),
       folder: true,
     },
-    ...members.map((node): Picker.TreeItem => {
+    ...members.map((node): ICD.Picker.TreeItem => {
       const key = nodeKey(node);
       const state = tags.nodes.get(key);
       const picked = pickedIn(value, node).length;
@@ -230,13 +231,13 @@ export const TagPicker = ({
   const loading = result.variant === "loading";
   const asking = nodes.find((n) => tags.nodes.get(nodeKey(n))?.loading === true);
   let statusText = pluralize("edge node", nodes.length, true);
-  if (loading) statusText = Picker.LISTENING;
+  if (loading) statusText = LISTENING;
   else if (asking != null) statusText = `Asking ${asking.edgeNode} for its tags`;
 
   let tree: ReactNode;
   if (listing != null)
     tree = (
-      <Picker.Tree
+      <ICD.Picker.Tree
         key={listing.key}
         nodes={treeNodes}
         items={items}
@@ -252,14 +253,14 @@ export const TagPicker = ({
         }
       />
     );
-  else if (loading) tree = <Picker.TreeSkeleton items={SKELETON} />;
+  else if (loading) tree = <ICD.Picker.TreeSkeleton items={SKELETON} />;
   else tree = <Status.Summary center status={result.status} />;
 
   let pane: ReactNode;
   if (activeNode == null)
     pane =
       listing == null && loading ? (
-        <PaneSkeleton noun="Tag" />
+        <ICD.Picker.PaneSkeleton noun="Tag" />
       ) : (
         <Empty.Action
           message="Select an edge node to see its tags."
@@ -268,7 +269,10 @@ export const TagPicker = ({
       );
   else if (activeTags == null || activeTags.loading)
     pane = (
-      <PaneSkeleton noun="Tag" title={`${activeNode.group} / ${activeNode.edgeNode}`} />
+      <ICD.Picker.PaneSkeleton
+        noun="Tag"
+        title={`${activeNode.group} / ${activeNode.edgeNode}`}
+      />
     );
   else if (activeTags.tags == null)
     pane = <Status.Summary center status={activeTags.error} />;
@@ -278,7 +282,7 @@ export const TagPicker = ({
     const tagsByKey = new Map(
       list.map((t) => [tagKey(toTag(node, t)), toTag(node, t)]),
     );
-    const byDevice = new Map<string, Value[]>();
+    const byDevice = new Map<string, ICD.Picker.Value[]>();
     for (const t of list) {
       const key = tagKey(toTag(node, t));
       byDevice.set(t.device, [
@@ -297,14 +301,14 @@ export const TagPicker = ({
     const picked = pickedIn(value, node).map(tagKey);
     pane = (
       <>
-        <PaneHeader
+        <ICD.Picker.PaneHeader
           title={`${node.group} / ${node.edgeNode}`}
           free={free.length}
           picked={picked.length}
           onPickAll={() => onChange(replaceNodePicks(value, node, free))}
           onClear={() => onChange(replaceNodePicks(value, node, []))}
         />
-        <Values
+        <ICD.Picker.Values
           noun="Tag"
           groups={[...byDevice].map(([owner, values]) => ({
             title: owner === "" ? "Edge node" : owner,
@@ -330,12 +334,13 @@ export const TagPicker = ({
 
   return (
     <>
-      <Picker.Status
+      <ICD.Picker.Status
+        duration={BROWSE_DURATION}
         status={statusText}
         loading={loading || asking != null}
         onListen={listen}
       />
-      <Picker.Side>
+      <ICD.Picker.Side>
         <Flex.Box y empty className={CSS.BE("mqtt-discover", "tree")}>
           {tree}
         </Flex.Box>
@@ -348,8 +353,8 @@ export const TagPicker = ({
           <Icon.Add />
           Add a tag by name
         </Button.Button>
-      </Picker.Side>
-      <Picker.Pane>{pane}</Picker.Pane>
+      </ICD.Picker.Side>
+      <ICD.Picker.Pane>{pane}</ICD.Picker.Pane>
     </>
   );
 };

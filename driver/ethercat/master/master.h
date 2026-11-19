@@ -63,6 +63,9 @@ struct Plan {
     /// @brief the settings of each slave, keyed by position. A slave missing from it
     /// uses the defaults of slave::Config.
     std::map<uint16_t, slave::Config> slaves;
+    /// @brief ends activate() early with x::errors::CANCELLED once it stops, or
+    /// nullptr. A master whose wait for OP has no fixed length must obey it.
+    const x::breaker::Breaker *cancel = nullptr;
 };
 
 /// @brief what one slave adds to the working counter of a full cycle.
@@ -165,9 +168,9 @@ public:
     /// Valid after scan().
     /// @returns errors::SLAVE_CONFIG_ERROR when the DC mode of a slave gives values its
     /// registers cannot hold at the period, or errors::STATE_CHANGE_REFUSED when a
-    /// slave refuses SAFE-OP or OP. The SOEM master returns errors::ACTIVATION_ERROR
-    /// with a refusal for a used slave with no identity, after start_cycle only when
-    /// another slave has process data.
+    /// slave refuses SAFE-OP or OP. errors::ACTIVATION_ERROR with a refusal for a used
+    /// slave with no identity, after start_cycle only when another slave has process
+    /// data.
     [[nodiscard]] virtual Activation activate(
         const Plan &plan,
         const std::function<void(const Image &)> &start_cycle
