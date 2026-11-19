@@ -11,175 +11,175 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
+import "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v1"
 
 // Key is a unique identifier for an ICD.
-type Key = v0.Key
+type Key = v1.Key
 
 // MessageKey is a unique identifier for a message within an ICD.
-type MessageKey = v0.MessageKey
+type MessageKey = v1.MessageKey
 
 // FieldKey is a unique identifier for a field within a message.
-type FieldKey = v0.FieldKey
+type FieldKey = v1.FieldKey
 
 // ByteOrder is the byte order of a multi-byte binary field.
-type ByteOrder = v0.ByteOrder
+type ByteOrder = v1.ByteOrder
 
 const (
-	ByteOrderLittleEndian ByteOrder = v0.ByteOrderLittleEndian
-	ByteOrderBigEndian    ByteOrder = v0.ByteOrderBigEndian
+	ByteOrderLittleEndian ByteOrder = v1.ByteOrderLittleEndian
+	ByteOrderBigEndian    ByteOrder = v1.ByteOrderBigEndian
 )
 
 // Identifier selects which frames on a bus belong to a binary message.
-type Identifier = v0.Identifier
+type Identifier = v1.Identifier
 
 // IdentifierVariant is implemented by every Identifier variant.
-type IdentifierVariant = v0.IdentifierVariant
+type IdentifierVariant = v1.IdentifierVariant
 
 // IdentifierType is the "type" value that selects a variant of Identifier.
-type IdentifierType = v0.IdentifierType
+type IdentifierType = v1.IdentifierType
 
 const (
 	// CanIdentifierType matches a CAN frame by arbitration identifier.
-	CanIdentifierType IdentifierType = v0.CanIdentifierType
+	CanIdentifierType IdentifierType = v1.CanIdentifierType
 	// FieldIdentifierType matches a binary frame by the raw value of one of its fields.
-	FieldIdentifierType IdentifierType = v0.FieldIdentifierType
+	FieldIdentifierType IdentifierType = v1.FieldIdentifierType
 )
 
 // CanIdentifier matches a CAN frame by arbitration identifier.
-type CanIdentifier = v0.CanIdentifier
+type CanIdentifier = v1.CanIdentifier
 
 // FieldIdentifier matches a binary frame by the raw value of one of its fields.
-type FieldIdentifier = v0.FieldIdentifier
+type FieldIdentifier = v1.FieldIdentifier
 
 // BaseField carries the parts every message field shares.
-type BaseField = v0.BaseField
+type BaseField = v1.BaseField
 
 // BinaryField is a field read from a bit range of a binary payload.
-type BinaryField = v0.BinaryField
+type BinaryField = v1.BinaryField
 
 // TextField is a field read from a text line.
-type TextField = v0.TextField
+type TextField = v1.TextField
 
 // TextFieldVariant is implemented by every TextField variant.
-type TextFieldVariant = v0.TextFieldVariant
+type TextFieldVariant = v1.TextFieldVariant
 
 // TextFieldType is the "encoding" value that selects a variant of TextField.
-type TextFieldType = v0.TextFieldType
+type TextFieldType = v1.TextFieldType
 
 const (
 	// DelimitedTextFieldType is a field read from one item of a delimited text line.
-	DelimitedTextFieldType TextFieldType = v0.DelimitedTextFieldType
+	DelimitedTextFieldType TextFieldType = v1.DelimitedTextFieldType
 	// TaggedTextFieldType is a field read from the text that follows a tag.
-	TaggedTextFieldType TextFieldType = v0.TaggedTextFieldType
+	TaggedTextFieldType TextFieldType = v1.TaggedTextFieldType
 )
 
 // DelimitedTextField is a field read from one item of a delimited text line.
-type DelimitedTextField = v0.DelimitedTextField
+type DelimitedTextField = v1.DelimitedTextField
 
 // TaggedTextField is a field read from the text that follows a tag.
-type TaggedTextField = v0.TaggedTextField
+type TaggedTextField = v1.TaggedTextField
 
 // JSONBaseField carries the parts every JSON field shares.
-type JSONBaseField = v0.JSONBaseField
+type JSONBaseField = v1.JSONBaseField
 
 // JSONField is a field read from a JSON document.
-type JSONField = v0.JSONField
+type JSONField = v1.JSONField
 
 // JSONFieldVariant is implemented by every JSONField variant.
-type JSONFieldVariant = v0.JSONFieldVariant
+type JSONFieldVariant = v1.JSONFieldVariant
 
 // FloatJSONField is a JSON number read as a float.
-type FloatJSONField = v0.FloatJSONField
+type FloatJSONField = v1.FloatJSONField
 
 // IntegerJSONField is a JSON number read as a signed integer.
-type IntegerJSONField = v0.IntegerJSONField
+type IntegerJSONField = v1.IntegerJSONField
 
 // UnsignedJSONField is a JSON number read as an unsigned integer.
-type UnsignedJSONField = v0.UnsignedJSONField
+type UnsignedJSONField = v1.UnsignedJSONField
 
 // StringJSONField is a JSON string.
-type StringJSONField = v0.StringJSONField
+type StringJSONField = v1.StringJSONField
 
 // BooleanJSONField is a JSON boolean.
-type BooleanJSONField = v0.BooleanJSONField
+type BooleanJSONField = v1.BooleanJSONField
 
 // TimestampJSONField is a timestamp held in a JSON number or string.
-type TimestampJSONField = v0.TimestampJSONField
+type TimestampJSONField = v1.TimestampJSONField
 
 // JSONJSONField is any JSON value.
-type JSONJSONField = v0.JSONJSONField
+type JSONJSONField = v1.JSONJSONField
 
 // UuidJSONField is a UUID held in a JSON string.
-type UuidJSONField = v0.UuidJSONField
+type UuidJSONField = v1.UuidJSONField
 
 // BytesJSONField is base64 text held in a JSON string.
-type BytesJSONField = v0.BytesJSONField
+type BytesJSONField = v1.BytesJSONField
 
 // JSONBaseMatch carries the parts every JSON match rule shares.
-type JSONBaseMatch = v0.JSONBaseMatch
+type JSONBaseMatch = v1.JSONBaseMatch
 
 // JSONMatch selects the JSON documents that belong to a message.
-type JSONMatch = v0.JSONMatch
+type JSONMatch = v1.JSONMatch
 
 // JSONMatchVariant is implemented by every JSONMatch variant.
-type JSONMatchVariant = v0.JSONMatchVariant
+type JSONMatchVariant = v1.JSONMatchVariant
 
 // JSONMatchType is the "type" value that selects a variant of JSONMatch.
-type JSONMatchType = v0.JSONMatchType
+type JSONMatchType = v1.JSONMatchType
 
 const (
 	// FloatJSONMatchType matches a JSON number equal to a float.
-	FloatJSONMatchType JSONMatchType = v0.FloatJSONMatchType
+	FloatJSONMatchType JSONMatchType = v1.FloatJSONMatchType
 	// IntegerJSONMatchType matches a JSON number equal to a signed integer.
-	IntegerJSONMatchType JSONMatchType = v0.IntegerJSONMatchType
+	IntegerJSONMatchType JSONMatchType = v1.IntegerJSONMatchType
 	// UnsignedJSONMatchType matches a JSON number equal to an unsigned integer.
-	UnsignedJSONMatchType JSONMatchType = v0.UnsignedJSONMatchType
+	UnsignedJSONMatchType JSONMatchType = v1.UnsignedJSONMatchType
 	// StringJSONMatchType matches an equal JSON string.
-	StringJSONMatchType JSONMatchType = v0.StringJSONMatchType
+	StringJSONMatchType JSONMatchType = v1.StringJSONMatchType
 	// BooleanJSONMatchType matches an equal JSON boolean.
-	BooleanJSONMatchType JSONMatchType = v0.BooleanJSONMatchType
+	BooleanJSONMatchType JSONMatchType = v1.BooleanJSONMatchType
 )
 
 // FloatJSONMatch matches a JSON number equal to a float.
-type FloatJSONMatch = v0.FloatJSONMatch
+type FloatJSONMatch = v1.FloatJSONMatch
 
 // IntegerJSONMatch matches a JSON number equal to a signed integer.
-type IntegerJSONMatch = v0.IntegerJSONMatch
+type IntegerJSONMatch = v1.IntegerJSONMatch
 
 // UnsignedJSONMatch matches a JSON number equal to an unsigned integer.
-type UnsignedJSONMatch = v0.UnsignedJSONMatch
+type UnsignedJSONMatch = v1.UnsignedJSONMatch
 
 // StringJSONMatch matches an equal JSON string.
-type StringJSONMatch = v0.StringJSONMatch
+type StringJSONMatch = v1.StringJSONMatch
 
 // BooleanJSONMatch matches an equal JSON boolean.
-type BooleanJSONMatch = v0.BooleanJSONMatch
+type BooleanJSONMatch = v1.BooleanJSONMatch
 
 // Payload is the layout of a message's payload.
-type Payload = v0.Payload
+type Payload = v1.Payload
 
 // PayloadVariant is implemented by every Payload variant.
-type PayloadVariant = v0.PayloadVariant
+type PayloadVariant = v1.PayloadVariant
 
 // BinaryPayload is a payload of raw bytes.
-type BinaryPayload = v0.BinaryPayload
+type BinaryPayload = v1.BinaryPayload
 
 // TextPayload is a payload of one text line.
-type TextPayload = v0.TextPayload
+type TextPayload = v1.TextPayload
 
 // JSONPayload is a payload of one JSON document.
-type JSONPayload = v0.JSONPayload
+type JSONPayload = v1.JSONPayload
 
 // Message is the layout of one message a system sends or receives.
-type Message = v0.Message
+type Message = v1.Message
 
 // ICD is an interface control document: the messages a system sends and receives, and
 // how to parse each one.
-type ICD = v0.ICD
+type ICD = v1.ICD
 
 // ReadBinding writes the value of one message field to a channel.
-type ReadBinding = v0.ReadBinding
+type ReadBinding = v1.ReadBinding
 
 // ReadMessage reads the documents of one ICD message.
-type ReadMessage = v0.ReadMessage
+type ReadMessage = v1.ReadMessage

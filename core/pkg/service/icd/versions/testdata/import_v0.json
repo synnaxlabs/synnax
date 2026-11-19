@@ -1,0 +1,30 @@
+{
+  "version": 0,
+  "type": "icd",
+  "key": "00000000-0000-4000-8000-000000000fff",
+  "name": "Engine",
+  "messages": [
+    {
+      "key": "00000000-0000-4000-8000-000000000001",
+      "name": "Status",
+      "payload": {
+        "format": "binary",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-00000000000a",
+            "name": "rpm",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 0,
+            "bit_length": 16,
+            "byte_order": "little_endian",
+            "kind": "unsigned"
+          }
+        ],
+        "length": 2
+      }
+    }
+  ]
+}

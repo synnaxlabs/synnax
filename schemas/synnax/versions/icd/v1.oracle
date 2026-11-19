@@ -1,0 +1,51 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/x/versions/telem/v0"
+
+Key = v0.Key
+
+MessageKey = v0.MessageKey
+
+FieldKey = v0.FieldKey
+
+ByteOrder = v0.ByteOrder
+
+Identifier = v0.Identifier
+
+BaseField = v0.BaseField
+
+BinaryField = v0.BinaryField
+
+TextField = v0.TextField
+
+JSONBaseField = v0.JSONBaseField
+
+JSONField = v0.JSONField
+
+JSONBaseMatch = v0.JSONBaseMatch
+
+JSONMatch = v0.JSONMatch
+
+Payload = v0.Payload
+
+Message struct extends v0.Message {
+    cycle_time telem.TimeSpan? {
+        @doc value """
+            is the send cycle that the protocol states for the message. When absent the
+            protocol states none.
+        """
+    }
+}
+
+ICD struct extends v0.ICD {}
+
+ReadBinding = v0.ReadBinding
+
+ReadMessage = v0.ReadMessage

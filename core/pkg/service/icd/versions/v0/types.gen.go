@@ -1453,9 +1453,6 @@ type Message struct {
 	Name string `json:"name" msgpack:"name"`
 	// Payload is the layout of the message's payload.
 	Payload Payload `json:"payload" msgpack:"payload"`
-	// CycleTime is the send cycle that the protocol states for the message. When absent
-	// the protocol states none.
-	CycleTime *telem.TimeSpan `json:"cycle_time,omitzero" msgpack:"cycle_time,omitempty"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

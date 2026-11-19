@@ -944,12 +944,6 @@ func (mv Message) EncodeOrc(w *orc.Writer) error {
 	if err := mv.Payload.EncodeOrc(w); err != nil {
 		return err
 	}
-	if mv.CycleTime != nil {
-		w.Bool(true)
-		w.Int64(int64(*mv.CycleTime))
-	} else {
-		w.Bool(false)
-	}
 	return nil
 }
 
@@ -964,23 +958,6 @@ func (mv *Message) DecodeOrc(r *orc.Reader) error {
 	}
 	if err = mv.Payload.DecodeOrc(r); err != nil {
 		return err
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			var hv telem.TimeSpan
-			{
-				rawV, err := r.Int64()
-				if err != nil {
-					return err
-				}
-				hv = telem.TimeSpan(rawV)
-			}
-			mv.CycleTime = &hv
-		}
 	}
 	return nil
 }
