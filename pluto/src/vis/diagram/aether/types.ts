@@ -11,7 +11,7 @@ import { type box, id, type location, xy } from "@synnaxlabs/x";
 import type * as rf from "@xyflow/react";
 import { MarkerType } from "@xyflow/react";
 import type React from "react";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 export const viewportZ = z.object({
   position: xy.xyZ,

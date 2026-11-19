@@ -87,6 +87,11 @@ const GENERATED_X_NAMESPACES = {
     "Generated code alone imports these namespaces. Use the hand-written names, such as bounds.Bounds or TimeSpan.",
 };
 
+const ZOD_SUBPATH = {
+  name: "zod/v4",
+  message: 'Import Zod from "zod".',
+};
+
 const RESTRICTED_SYNTAX = [
   {
     selector: "JSXAttribute > JSXExpressionContainer > Literal.expression[value=true]",
@@ -230,7 +235,10 @@ const config: Linter.Config[] = [
       "jsdoc/no-types": "error",
       "jsdoc/require-hyphen-before-param-description": ["error", "always"],
       "no-restricted-syntax": ["error", ...RESTRICTED_SYNTAX],
-      "no-restricted-imports": ["error", { paths: [GENERATED_X_NAMESPACES] }],
+      "no-restricted-imports": [
+        "error",
+        { paths: [GENERATED_X_NAMESPACES, ZOD_SUBPATH] },
+      ],
       "@eslint-react/no-missing-component-display-name": "error",
       "@eslint-react/no-missing-context-display-name": "error",
       "@eslint-react/jsx-no-useless-fragment": "error",
@@ -358,7 +366,7 @@ const config: Linter.Config[] = [
       "no-restricted-imports": [
         "error",
         {
-          paths: [GENERATED_X_NAMESPACES],
+          paths: [GENERATED_X_NAMESPACES, ZOD_SUBPATH],
           patterns: [
             {
               group: ["*.css"],
