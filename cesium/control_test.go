@@ -674,7 +674,7 @@ var _ = Describe("Control", func() {
 
 							ctx1, cancel1 := signal.Isolated()
 
-							w1In, _ := confluence.Attach(w1, 2)
+							w1In, w1Out := confluence.Attach(w1, 2)
 							w2In, w2Out := confluence.Attach(w2, 2)
 
 							w1.Flow(ctx1, confluence.CloseOutputInletsOnExit())
@@ -694,6 +694,10 @@ var _ = Describe("Control", func() {
 									},
 								),
 							}
+							w1In.Inlet() <- cesium.WriterRequest{
+								Command: cesium.WriterCommandCommit,
+							}
+							Eventually(w1Out.Outlet()).Should(Receive())
 
 							var d cesium.ControlUpdate
 							Eventually(updates).Should(Receive(&d))
