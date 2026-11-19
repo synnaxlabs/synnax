@@ -59,6 +59,8 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await capture.contextMenu(session, run, "Upload to Sift");
     const modal = page.locator(capture.MODAL).last();
     await session.waitFor(modal.getByText(`Upload ${RUN} to Sift`));
+    // The modal zooms in as it opens, and the camera frames its box at the start.
+    await session.settle(300);
     await session.zoom(modal);
     const asset = modal.getByText("Select asset", { exact: true }).first();
     await session.waitFor(asset);
@@ -78,7 +80,9 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       await session.hold(250);
     }
     await page.keyboard.press("Escape");
-    await session.hold(600);
+    // The camera followed the clicks in the channel list, so frame the modal again.
+    await session.zoom(modal);
+    await session.hold(900);
     await session.click(modal.getByRole("button", { name: "Upload", exact: true }));
     session.endZoom();
     await session.settleWall(1500);
