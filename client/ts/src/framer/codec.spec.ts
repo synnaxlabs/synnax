@@ -10,7 +10,7 @@
 import { readFileSync } from "node:fs";
 
 import { type WebsocketMessage } from "@synnaxlabs/freighter";
-import { DataType, Series, TimeStamp } from "@synnaxlabs/x";
+import { DataType, Series, TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -594,8 +594,11 @@ describe("encoder", () => {
     interface VectorSeries {
       key: number;
       data_type: string;
+      decoded_data_type?: string;
       data: string;
       clock?: number;
+      time_range?: [number, number];
+      alignment?: number;
     }
     interface VectorCase {
       name: string;
@@ -610,6 +613,8 @@ describe("encoder", () => {
       new Uint8Array(h.match(/../g)?.map((b) => parseInt(b, 16)) ?? []);
     const toHex = (b: Uint8Array): string =>
       Array.from(b, (v) => v.toString(16).padStart(2, "0")).join("");
+    const timeRangeOf = ({ time_range: tr = [0, 0] }: VectorSeries): TimeRange =>
+      new TimeRange(BigInt(tr[0]), BigInt(tr[1]));
     const frameOf = (series: VectorSeries[]): framer.Frame =>
       new framer.Frame(
         series.map((s) => s.key),
@@ -619,6 +624,8 @@ describe("encoder", () => {
               data: fromHex(s.data).buffer,
               dataType: s.data_type,
               clock: s.clock ?? 0,
+              timeRange: timeRangeOf(s),
+              alignment: BigInt(s.alignment ?? 0),
             }),
         ),
       );
@@ -637,8 +644,12 @@ describe("encoder", () => {
           expect(decoded.keys, f.name).toEqual(f.series.map((s) => s.key));
           decoded.series.forEach((s, i) => {
             const want = f.series[i];
-            expect(s.dataType.toString(), f.name).toEqual(want.data_type);
+            expect(s.dataType.toString(), f.name).toEqual(
+              want.decoded_data_type ?? want.data_type,
+            );
             expect(s.clock, f.name).toEqual(want.clock ?? 0);
+            expect(s.timeRange, f.name).toEqual(timeRangeOf(want));
+            expect(s.alignment, f.name).toEqual(BigInt(want.alignment ?? 0));
             expect(toHex(new Uint8Array(s.buffer)), f.name).toEqual(want.data);
           });
         });

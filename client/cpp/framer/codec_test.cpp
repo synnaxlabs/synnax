@@ -470,13 +470,38 @@ std::string to_hex(const uint8_t *data, const size_t size) {
     return out;
 }
 
+/// @brief returns the time range of a golden series, or a zero range when it has none.
+x::telem::TimeRange time_range_of(const nlohmann::json &s) {
+    const auto tr = s.value("time_range", std::vector<int64_t>{0, 0});
+    return x::telem::TimeRange(x::telem::TimeStamp(tr[0]), x::telem::TimeStamp(tr[1]));
+}
+
+/// @brief returns a series of the golden series' data, which holds each variable sample
+/// after its 4-byte little-endian length.
+x::telem::Series
+data_of(const x::telem::DataType &dt, const std::vector<uint8_t> &data) {
+    if (!dt.is_variable()) {
+        const size_t count = data.size() / dt.density();
+        auto ser = x::telem::Series(dt, count);
+        ser.write(data.data(), count);
+        return ser;
+    }
+    std::vector<std::string> samples;
+    for (size_t at = 0; at + 4 <= data.size();) {
+        const size_t n = data[at] | data[at + 1] << 8 | data[at + 2] << 16 |
+                         data[at + 3] << 24;
+        samples.emplace_back(reinterpret_cast<const char *>(data.data() + at + 4), n);
+        at += 4 + n;
+    }
+    return x::telem::Series(samples, dt);
+}
+
 x::telem::Series series_of(const nlohmann::json &s) {
     const x::telem::DataType dt(s["data_type"].get<std::string>());
-    const auto data = from_hex(s["data"].get<std::string>());
-    const size_t cap = dt.is_variable() ? data.size() : data.size() / dt.density();
-    auto ser = x::telem::Series(dt, cap);
-    ser.write(data.data(), cap);
+    auto ser = data_of(dt, from_hex(s["data"].get<std::string>()));
     ser.clock = s.value("clock", 0U);
+    ser.time_range = time_range_of(s);
+    ser.alignment = x::telem::Alignment(s.value("alignment", std::uint64_t{0}));
     return ser;
 }
 
@@ -532,9 +557,19 @@ TEST(CodecTests, GoldenFrames) {
                 const auto &got = decoded.series->at(i);
                 ASSERT_EQ(decoded.channels->at(i), want["key"].get<channel::Key>())
                     << name;
-                ASSERT_EQ(got.data_type().name(), want["data_type"].get<std::string>())
-                    << name;
+                ASSERT_EQ(
+                    got.data_type().name(),
+                    want.value(
+                        "decoded_data_type",
+                        want["data_type"].get<std::string>()
+                    )
+                ) << name;
                 ASSERT_EQ(got.clock, want.value("clock", 0U)) << name;
+                ASSERT_EQ(got.time_range, time_range_of(want)) << name;
+                ASSERT_EQ(
+                    got.alignment.uint64(),
+                    want.value("alignment", std::uint64_t{0})
+                ) << name;
                 ASSERT_EQ(
                     to_hex(
                         reinterpret_cast<const uint8_t *>(got.data()),
