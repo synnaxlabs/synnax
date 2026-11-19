@@ -27,9 +27,6 @@ type compound struct {
 	nth          int
 }
 
-// isName reports whether c selects shapes by a name that the drawing carries.
-func (c compound) isName() bool { return c.tag == "" && c.nth == 0 }
-
 // parseSelector parses a selector of compounds joined by " > ".
 func parseSelector(sel string) ([]compound, error) {
 	var (

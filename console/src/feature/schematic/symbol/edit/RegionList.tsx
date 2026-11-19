@@ -56,8 +56,8 @@ const RegionListItem = ({
   if (part == null) return null;
   const paintField = (field: Spec.Field, c?: color.Color) =>
     set(
-      path.data.looks,
-      Spec.setColor(get(path.data.looks).value, itemKey, selectedValue, field, c),
+      path.data,
+      Spec.setColor(get(path.data).value, itemKey, selectedValue, field, c),
     );
   return (
     <Select.Item

@@ -112,24 +112,20 @@ const Editor = ({
   const [selectedHandle, setSelectedHandle] = useState<string | undefined>(undefined);
 
   const addNewRegion = () => {
-    const parts = form.get(path.data.parts).value;
+    const spec = form.get(path.data).value;
     const part: schematic.symbol.Part = {
       key: `reg-${id.create()}`,
-      name: `Region ${parts.length + 1}`,
+      name: `Region ${spec.parts.length + 1}`,
       selectors: [],
     };
     const value = selectedValueRef.current;
-    let looks = form.get(path.data.looks).value;
-    looks = Spec.setColor(looks, part.key, value, "stroke", theme.colors.gray.l10);
-    looks = Spec.setColor(
-      looks,
-      part.key,
-      value,
-      "fill",
-      color.setOpacity(theme.colors.gray.l10, 0),
+    const stroke = theme.colors.gray.l10;
+    const withPart = { ...spec, parts: [...spec.parts, part] };
+    const stroked = Spec.setColor(withPart, part.key, value, "stroke", stroke);
+    form.set(
+      path.data,
+      Spec.setColor(stroked, part.key, value, "fill", color.setOpacity(stroke, 0)),
     );
-    form.set(path.data.parts, [...parts, part]);
-    form.set(path.data.looks, looks);
     setSelectedRegion(part.key);
   };
 

@@ -13,6 +13,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
+	v4 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v4"
+	v5 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v5"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -230,4 +232,31 @@ var _ = Describe("Checks", func() {
 			symbol.SetPayload{Path: []string{"data"}, Value: data},
 		))).To(MatchError(ContainSubstring(`data.looks.0.part: "lid" names no part`)))
 	})
+})
+
+var _ = Describe("Migrated selectors", func() {
+	DescribeTable(
+		"Should pass the checks of a v4 name selector that they refuse",
+		func(ctx SpecContext, markup, sel string) {
+			data := MustSucceed(v5.MigrateSpec(ctx, v4.Spec{
+				SVG:     markup,
+				Variant: "static",
+				Scale:   1,
+				States: []v4.State{{Key: "off", Name: "Off", Regions: []v4.Region{
+					{Key: "r", Name: "r", Selectors: []string{sel}},
+				}}},
+			}))
+			sym := symbol.Symbol{Name: "Migrated", Data: data}
+			tx := DeferClose(db.OpenTx())
+			Expect(svc.NewWriter(tx).Create(ctx, &sym)).To(Succeed())
+		},
+		Entry("an id that starts with a digit", `<svg><rect id="1a"/></svg>`, "#1a"),
+		Entry("an id with a comma", `<svg><rect id="a,b"/></svg>`, "#a,b"),
+		Entry(
+			"a class that starts with a digit",
+			`<svg><rect class="1a"/></svg>`,
+			".1a",
+		),
+		Entry("a name that selects no shape", `<svg><rect/></svg>`, "#a,b"),
+	)
 })
