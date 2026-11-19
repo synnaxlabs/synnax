@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/gorp/migrate"
 	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	v13 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v13"
-	color "github.com/synnaxlabs/x/color/versions/v2"
+	xcolor "github.com/synnaxlabs/x/color/versions/v2"
 )
 
 // MigrateSchematic lifts a v13 schematic to v14, which stores each stroke, fill, text,
@@ -190,7 +190,7 @@ func as[T any](v any) T {
 	return t
 }
 
-func fixed(c *color.Color) *servicecolor.Ref {
+func fixed(c *xcolor.Color) *servicecolor.Ref {
 	if c == nil {
 		return nil
 	}
