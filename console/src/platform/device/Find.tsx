@@ -28,7 +28,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Steps } from "@synnaxlabs/lyra/steps";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Device as PDevice, Rack, Synnax, Task } from "@synnaxlabs/pluto";
-import { compare } from "@synnaxlabs/x";
+import { compare, strings } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useState } from "react";
 
 import { CSS } from "@/platform/css";
@@ -154,7 +154,7 @@ const isScanning = (r: rack.Rack, scanner: task.Task | undefined): boolean =>
 
 const connectedText = (count: number, name: string): string => {
   if (count === 0) return `No ${name} devices connected.`;
-  return `${count} ${name} device${count === 1 ? "" : "s"} connected.`;
+  return `${strings.count(count, `${name} device`)} connected.`;
 };
 
 interface ScanResultProps {
@@ -245,7 +245,7 @@ const RackCard = ({
       <Header.Actions>
         {devices.length > 0 && (
           <Text.Text level="small" color={9}>
-            {devices.length === 1 ? "1 device" : `${devices.length} devices`}
+            {strings.count(devices.length, "device")}
           </Text.Text>
         )}
         <Rack.StatusIndicator status={r.status} />
