@@ -71,13 +71,12 @@
 
         /* A create item keeps its own margin from the sides and the bottom, so the
            footer adds the same space under its hairline. What replaces the item, such
-           as a name entry, takes the same box, so the footer keeps its height. */
+           as a name entry, takes the same margin. */
         & > .lyra-color-picker__footer {
             padding-top: 1rem;
             border-top: var(--pluto-border);
 
             & > :not(.lyra-create-list-item) {
-                min-height: 5.5rem;
                 margin: 0 1rem 1rem;
             }
         }
