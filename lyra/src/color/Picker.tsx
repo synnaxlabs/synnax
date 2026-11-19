@@ -64,12 +64,17 @@ export interface PickerContextValue {
   /** The named color that the value links to. */
   linked?: Named;
   /**
-   * Links the value to the named color with the key, as a click on its swatch does.
-   * The search clears, and the focus moves to the swatch, at once or when it renders.
+   * Links the value to the named color with the key, as a click on its swatch does. The
+   * search clears, and the focus moves to the swatch, at once or when it renders.
    */
-  onNamedChange: (key: string) => void;
+  link: (key: string) => void;
   /** Clears the search, so that every palette and color shows. */
   clearSearch: () => void;
+  /**
+   * Moves the focus into the `paletteEnd` slot of the palette with the key, once that
+   * palette renders. The slot reads `focused` from `usePalette` and takes the focus.
+   */
+  focusPalette: (key: string) => void;
   /**
    * Shows the view in place of the tabs, under a back button and the title. Back
    * returns to the tabs as they were, with the focus on the element that opened the
@@ -96,6 +101,11 @@ export interface PaletteContextValue {
   palette: Palette;
   /** In `swatchMenu`, the color of the swatch that the menu opened on. */
   swatch?: Named;
+  /**
+   * In `paletteEnd`, true if the slot takes the focus. It stays true until the focus
+   * enters the palette.
+   */
+  focused: boolean;
 }
 
 const [PaletteContext, usePaletteContext] = context.create<PaletteContextValue>({
@@ -191,6 +201,7 @@ const Tabbed = ({
   const swatches = useRef(new Map<string, HTMLElement>());
   // The key of a linked swatch that takes the focus when it renders.
   const focusing = useRef<string>(undefined);
+  const [focusedPalette, setFocusedPalette] = useState<string>();
   const registerSwatch = (key: string, swatch: HTMLElement | null): void => {
     if (swatch == null) {
       swatches.current.delete(key);
@@ -205,7 +216,7 @@ const Tabbed = ({
   const ctx: PickerContextValue = {
     value: color.construct(value ?? fallback ?? color.TRANSPARENT),
     linked,
-    onNamedChange: (key) => {
+    link: (key) => {
       setSearch("");
       onNamedChange(key);
       const swatch = swatches.current.get(key);
@@ -213,6 +224,7 @@ const Tabbed = ({
       else swatch.focus();
     },
     clearSearch: () => setSearch(""),
+    focusPalette: setFocusedPalette,
     openView: (title, content, clicked) => {
       const active = document.activeElement;
       if (!(active instanceof HTMLElement)) opener.current = clicked ?? null;
@@ -325,6 +337,8 @@ const Tabbed = ({
               linked={linked?.key}
               onPick={onNamedChange}
               registerSwatch={registerSwatch}
+              focusedPalette={focusedPalette}
+              onPaletteFocus={() => setFocusedPalette(undefined)}
               {...slots}
             />
           </>
@@ -396,6 +410,10 @@ interface PaletteSectionProps extends Pick<
   onPick: (key: string) => void;
   /** Records the swatch of a named color when it renders, and null when it goes. */
   registerSwatch: (key: string, swatch: HTMLElement | null) => void;
+  /** If true, the `paletteEnd` slot takes the focus. */
+  focused: boolean;
+  /** Called when the focus enters the palette while it is focused. */
+  onFocus: () => void;
 }
 
 /**
@@ -409,6 +427,8 @@ const PaletteSection = ({
   linked,
   onPick,
   registerSwatch,
+  focused,
+  onFocus,
   paletteEnd,
   swatchMenu,
   hasSwatchMenu,
@@ -438,12 +458,16 @@ const PaletteSection = ({
     };
   };
   return (
-    <PaletteContext value={{ palette }}>
+    <PaletteContext value={{ palette, focused }}>
       <Menu.ContextMenu
         {...menu}
         menu={({ keys }) => (
           <PaletteContext
-            value={{ palette, swatch: palette.colors.find((c) => c.key === keys[0]) }}
+            value={{
+              palette,
+              swatch: palette.colors.find((c) => c.key === keys[0]),
+              focused: false,
+            }}
           >
             {swatchMenu}
           </PaletteContext>
@@ -455,6 +479,9 @@ const PaletteSection = ({
           role="group"
           aria-label={palette.name}
           onPointerLeave={leave}
+          onFocus={() => {
+            if (focused) onFocus();
+          }}
           onBlur={(e) => {
             if (!e.currentTarget.contains(e.relatedTarget)) leave();
           }}
@@ -494,6 +521,10 @@ interface PalettesProps
   /** The key of the named color that the value follows. */
   linked?: string;
   onPick: (key: string) => void;
+  /** The key of the palette whose `paletteEnd` slot takes the focus. */
+  focusedPalette?: string;
+  /** Called when the focus enters the focused palette. */
+  onPaletteFocus: () => void;
 }
 
 /** The palettes, filtered by color name, palette name, or the hex a swatch shows. */
@@ -503,6 +534,8 @@ const Palettes = ({
   linked,
   onPick,
   registerSwatch,
+  focusedPalette,
+  onPaletteFocus,
   paletteEnd,
   swatchMenu,
   hasSwatchMenu,
@@ -540,6 +573,8 @@ const Palettes = ({
           linked={linked}
           onPick={onPick}
           registerSwatch={registerSwatch}
+          focused={palette.key === focusedPalette}
+          onFocus={onPaletteFocus}
           paletteEnd={paletteEnd}
           swatchMenu={swatchMenu}
           hasSwatchMenu={hasSwatchMenu}
