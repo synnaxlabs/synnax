@@ -125,7 +125,7 @@ interface CreateTabProps {
  * selection head re-renders the button alone: focus moving between leaves must not
  * re-render either leaf's tabs.
  */
-const CreateTab = memo(({ selected, onAdd }: CreateTabProps): ReactElement => {
+const CreateTab = ({ selected, onAdd }: CreateTabProps): ReactElement => {
   // Create acts on the panel's focused tab, so only the leaf holding that tab may
   // advertise the shortcut. An empty leaf holds none, and "" matches no tab.
   const { head } = Select.useItemState(selected ?? "");
@@ -141,66 +141,64 @@ const CreateTab = memo(({ selected, onAdd }: CreateTabProps): ReactElement => {
       <Icon.Add color={9} />
     </Button.Button>
   );
-});
+};
 CreateTab.displayName = "Panel.Mosaic.CreateTab";
 
-const Leaf = memo(
-  ({
-    nodeKey,
-    onAdd,
-    onContextMenu,
-    emptyContent,
-    canEdit,
-    ...rest
-  }: NodeProps): ReactElement => {
-    const { tabs } = useLeafNode({ nodeKey });
-    const selected = Select.useSelectedAmong(tabs) ?? tabs[0];
-    const { onSelect } = Select.useContext();
-    const handleAdd = () => onAdd(nodeKey);
-    const handleSelectContent = () => onSelect(selected);
-    const selectorDropProps = Base.useSelectorDropProps({ nodeKey, tabKeys: tabs });
-    return (
-      <Base.Leaf nodeKey={nodeKey} grow>
-        <Tabs.Frame grow>
-          <Tabs.Selector
-            align="start"
-            {...selectorDropProps}
-            onContextMenu={onContextMenu}
-          >
-            {tabs.map((tabKey) => (
-              <Tab key={tabKey} tabKey={tabKey} canEdit={canEdit} {...rest} />
-            ))}
-            <Flex.Box grow />
-            {canEdit && (
-              <Flex.Box
-                align="center"
-                justify="center"
-                className={CSS.BE("panel-mosaic", "cap")}
-              >
-                <CreateTab selected={selected} onAdd={handleAdd} />
-              </Flex.Box>
-            )}
-          </Tabs.Selector>
-          <Tabs.Content grow>
-            {selected != null ? (
-              <Portal.Out
-                itemKey={selected}
-                className={CSS.BE("panel-mosaic", "portal-out")}
-                onClickCapture={handleSelectContent}
-              />
-            ) : (
-              emptyContent
-            )}
-            <Base.Shield />
-          </Tabs.Content>
-        </Tabs.Frame>
-      </Base.Leaf>
-    );
-  },
-);
+const Leaf = ({
+  nodeKey,
+  onAdd,
+  onContextMenu,
+  emptyContent,
+  canEdit,
+  ...rest
+}: NodeProps): ReactElement => {
+  const { tabs } = useLeafNode({ nodeKey });
+  const selected = Select.useSelectedAmong(tabs) ?? tabs[0];
+  const { onSelect } = Select.useContext();
+  const handleAdd = () => onAdd(nodeKey);
+  const handleSelectContent = () => onSelect(selected);
+  const selectorDropProps = Base.useSelectorDropProps({ nodeKey, tabKeys: tabs });
+  return (
+    <Base.Leaf nodeKey={nodeKey} grow>
+      <Tabs.Frame grow>
+        <Tabs.Selector
+          align="start"
+          {...selectorDropProps}
+          onContextMenu={onContextMenu}
+        >
+          {tabs.map((tabKey) => (
+            <Tab key={tabKey} tabKey={tabKey} canEdit={canEdit} {...rest} />
+          ))}
+          <Flex.Box grow />
+          {canEdit && (
+            <Flex.Box
+              align="center"
+              justify="center"
+              className={CSS.BE("panel-mosaic", "cap")}
+            >
+              <CreateTab selected={selected} onAdd={handleAdd} />
+            </Flex.Box>
+          )}
+        </Tabs.Selector>
+        <Tabs.Content grow>
+          {selected != null ? (
+            <Portal.Out
+              itemKey={selected}
+              className={CSS.BE("panel-mosaic", "portal-out")}
+              onClickCapture={handleSelectContent}
+            />
+          ) : (
+            emptyContent
+          )}
+          <Base.Shield />
+        </Tabs.Content>
+      </Tabs.Frame>
+    </Base.Leaf>
+  );
+};
 Leaf.displayName = "Panel.Mosaic.Leaf";
 
-const Split = memo(({ nodeKey, ...rest }: NodeProps): ReactElement => {
+const Split = ({ nodeKey, ...rest }: NodeProps): ReactElement => {
   const { direction, size } = useSplitNode({ nodeKey });
   return (
     <Base.Split nodeKey={nodeKey} direction={direction} size={size}>
@@ -208,13 +206,13 @@ const Split = memo(({ nodeKey, ...rest }: NodeProps): ReactElement => {
       <Node nodeKey={panel.childNodeKey(nodeKey, "last")} {...rest} />
     </Base.Split>
   );
-});
+};
 Split.displayName = "Panel.Mosaic.Split";
 
-const Node = memo(({ nodeKey, ...rest }: NodeProps): ReactElement => {
+const Node = ({ nodeKey, ...rest }: NodeProps): ReactElement => {
   const C = useNodeVariant({ nodeKey }) == "split" ? Split : Leaf;
   return <C nodeKey={nodeKey} {...rest} />;
-});
+};
 Node.displayName = "Panel.Mosaic.Node";
 
 /** Enters a tab's overlaid (focused) state. Escape is the way out, so the exit
@@ -330,20 +328,20 @@ PortalIn.displayName = "Panel.Mosaic.PortalIn";
 // Content renders into portaled elements hosted from each leaf, so moving a tab around
 // the mosaic does not remount it: the destination leaf's Out re-parents the same
 // element, preserving DOM state and expensive resources like WebGL contexts.
-const PortaledContents = memo(
-  ({ children }: Pick<MosaicProps, "children">): ReactElement => {
-    const keys = useTabKeys();
-    return (
-      <>
-        {keys.map((key) => (
-          <PortalIn key={key} itemKey={key}>
-            {children}
-          </PortalIn>
-        ))}
-      </>
-    );
-  },
-);
+const PortaledContents = ({
+  children,
+}: Pick<MosaicProps, "children">): ReactElement => {
+  const keys = useTabKeys();
+  return (
+    <>
+      {keys.map((key) => (
+        <PortalIn key={key} itemKey={key}>
+          {children}
+        </PortalIn>
+      ))}
+    </>
+  );
+};
 PortaledContents.displayName = "Panel.Mosaic.PortaledContents";
 
 export const Mosaic = ({
