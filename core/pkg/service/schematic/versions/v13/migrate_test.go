@@ -20,7 +20,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
-	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	symbolv2 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
 	symbolv4 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v4"
 	v12 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v12"
@@ -131,12 +130,12 @@ var _ = Describe("Migration", func() {
 			Expect(capCfg.StrokeColor).To(Equal(n(1)))
 			pipeCfg, ok := configOf(got, "pipe").(v13.PipeEdgeConfig)
 			Expect(ok).To(BeTrue())
-			Expect(fixedOf(pipeCfg.StrokeColor)).To(Equal(n(2)))
+			Expect(pipeCfg.StrokeColor).To(Equal(n(2)))
 			value, ok := configOf(got, "value").(v13.ValueNodeConfig)
 			Expect(ok).To(BeTrue())
-			Expect(fixedOf(value.StrokeColor)).To(Equal(n(3)))
-			Expect(fixedOf(value.TextColor)).To(Equal(n(4)))
-			Expect(fixedOf(value.FillColor)).To(Equal(n(5)))
+			Expect(value.StrokeColor).To(Equal(n(3)))
+			Expect(value.TextColor).To(Equal(n(4)))
+			Expect(value.FillColor).To(Equal(n(5)))
 			Expect(
 				value.Redline.Bands,
 			).To(Equal([]colorv2.Band{{Key: "b", Color: *n(6)}}))
@@ -197,7 +196,7 @@ var _ = Describe("Migrate functions", func() {
 			}))
 			cfg, ok := out.Variant.(v13.PipeEdgeConfig)
 			Expect(ok).To(BeTrue())
-			return fixedOf(cfg.StrokeColor)
+			return cfg.StrokeColor
 		}),
 		Entry("MigrateStaticSymbolConfig", func(ctx context.Context) *colorv2.Color {
 			GinkgoHelper()
@@ -225,9 +224,9 @@ var _ = Describe("Migrate functions", func() {
 		}),
 		Entry("MigrateScaleIndicatorConfig", func(ctx context.Context) *colorv2.Color {
 			GinkgoHelper()
-			return fixedOf(MustSucceed(v13.MigrateScaleIndicatorConfig(
+			return MustSucceed(v13.MigrateScaleIndicatorConfig(
 				ctx, v12.ScaleIndicatorConfig{LevelColor: half()},
-			)).LevelColor)
+			)).LevelColor
 		}),
 		Entry(
 			"MigrateDummyToggleSymbolConfig",
@@ -246,9 +245,9 @@ var _ = Describe("Migrate functions", func() {
 		}),
 		Entry("MigrateSegmentedEdgeConfig", func(ctx context.Context) *colorv2.Color {
 			GinkgoHelper()
-			return fixedOf(MustSucceed(v13.MigrateSegmentedEdgeConfig(
+			return MustSucceed(v13.MigrateSegmentedEdgeConfig(
 				ctx, v12.SegmentedEdgeConfig{StrokeColor: half()},
-			)).StrokeColor)
+			)).StrokeColor
 		}),
 	)
 	DescribeTable("Should make a zero color that meant the theme absent",
@@ -270,7 +269,7 @@ var _ = Describe("Migrate functions", func() {
 		}, func(v any) []*colorv2.Color {
 			c, ok := v.(v13.ValueNodeConfig)
 			Expect(ok).To(BeTrue())
-			return []*colorv2.Color{c.StalenessColor, fixedOf(c.TextColor)}
+			return []*colorv2.Color{c.StalenessColor, c.TextColor}
 		}),
 		Entry("a gauge", v12.GaugeElementConfig{
 			StalenessColor: &color.Color{},
@@ -278,7 +277,7 @@ var _ = Describe("Migrate functions", func() {
 		}, func(v any) []*colorv2.Color {
 			c, ok := v.(v13.GaugeNodeConfig)
 			Expect(ok).To(BeTrue())
-			return []*colorv2.Color{c.StalenessColor, fixedOf(c.StrokeColor)}
+			return []*colorv2.Color{c.StalenessColor, c.StrokeColor}
 		}),
 		Entry("a scale", v12.ScaleElementConfig{
 			StalenessColor: &color.Color{},
@@ -290,9 +289,9 @@ var _ = Describe("Migrate functions", func() {
 			Expect(ok).To(BeTrue())
 			return []*colorv2.Color{
 				c.StalenessColor,
-				fixedOf(c.LevelColor),
-				fixedOf(c.AxisColor),
-				fixedOf(c.TextColor),
+				c.LevelColor,
+				c.AxisColor,
+				c.TextColor,
 			}
 		}),
 		Entry("a tank", v12.TankElementConfig{
@@ -305,9 +304,9 @@ var _ = Describe("Migrate functions", func() {
 			Expect(ok).To(BeTrue())
 			return []*colorv2.Color{
 				c.StalenessColor,
-				fixedOf(c.LevelColor),
-				fixedOf(c.AxisColor),
-				fixedOf(c.TextColor),
+				c.LevelColor,
+				c.AxisColor,
+				c.TextColor,
 			}
 		}),
 	)
@@ -322,7 +321,7 @@ var _ = Describe("Migrate functions", func() {
 			})))
 			valueCfg, ok := configOf(out, "n").(v13.ValueNodeConfig)
 			Expect(ok).To(BeTrue())
-			Expect(fixedOf(valueCfg.TextColor)).To(Equal(&colorv2.Color{A: 255}))
+			Expect(valueCfg.TextColor).To(Equal(&colorv2.Color{A: 255}))
 		},
 		Entry("NaN", math.NaN()),
 		Entry("positive infinity", math.Inf(1)),
@@ -336,7 +335,7 @@ var _ = Describe("Migrate functions", func() {
 		})))
 		valueCfg, ok := configOf(out, "n").(v13.ValueNodeConfig)
 		Expect(ok).To(BeTrue())
-		Expect(fixedOf(valueCfg.StrokeColor)).To(HaveValue(Equal(colorv2.Color{})))
+		Expect(valueCfg.StrokeColor).To(HaveValue(Equal(colorv2.Color{})))
 	})
 	It("Should keep a zero color that painted transparent", func(ctx SpecContext) {
 		zero := &color.Color{}
@@ -355,7 +354,7 @@ var _ = Describe("Migrate functions", func() {
 		Expect(capCfg.StrokeColor).To(HaveValue(Equal(colorv2.Color{})))
 		pipeCfg, ok := configOf(out, "pipe").(v13.PipeEdgeConfig)
 		Expect(ok).To(BeTrue())
-		Expect(fixedOf(pipeCfg.StrokeColor)).To(HaveValue(Equal(colorv2.Color{})))
+		Expect(pipeCfg.StrokeColor).To(HaveValue(Equal(colorv2.Color{})))
 	})
 	It("Should keep a zero region color in a state override", func(ctx SpecContext) {
 		out := MustSucceed(v13.MigrateSchematic(ctx, withElements(v12.Schematic{
@@ -573,7 +572,7 @@ var _ = Describe("MigrateSchematic config move", func() {
 			Expect(polygon.SideLength).To(Equal(uint16(30)))
 			Expect(polygon.Rotation).To(BeZero())
 			Expect(polygon.StrokeWidth).To(HaveValue(Equal(uint8(2))))
-			Expect(fixedOf(polygon.StrokeColor)).To(Equal(&colorv2.Color{R: 1, A: 255}))
+			Expect(polygon.StrokeColor).To(Equal(&colorv2.Color{R: 1, A: 255}))
 			pipeCfg, ok := configOf(s, "e1").(v13.PipeEdgeConfig)
 			Expect(ok).To(BeTrue())
 			Expect(pipeCfg.Segments).To(Equal([]v13.Segment{{}}))
@@ -696,96 +695,6 @@ var _ = Describe("MigrateSchematic group parents", func() {
 		}))
 		Expect(s.Nodes[0].Config.Variant).To(Equal(v13.GroupBoxNodeConfig{}))
 	})
-})
-
-var _ = Describe("MigrateNodeConfig look colors", func() {
-	shade := func(r uint8) *color.Color { return &color.Color{R: r, A: 1} }
-	// Each entry gives its nth field the red value n, so a swapped field fails.
-	DescribeTable(
-		"Should store each look color as a fixed color reference",
-		func(ctx SpecContext, old v12.NodeConfigVariant, fields ...string) {
-			out := MustSucceed(v13.MigrateNodeConfig(ctx, v12.NodeConfig{Variant: old}))
-			for i, f := range fields {
-				want := colorv2.Color{R: uint8(i + 1), A: 255}
-				Expect(out.Variant).To(HaveField(f, Equal(&servicecolor.Ref{
-					Variant: servicecolor.FixedRef{Value: want},
-				})))
-			}
-		},
-		Entry(
-			"a box",
-			v12.BoxNodeConfig{StrokeColor: shade(1), FillColor: shade(2)},
-			"StrokeColor",
-			"FillColor",
-		),
-		Entry(
-			"a circle",
-			v12.CircleNodeConfig{StrokeColor: shade(1), FillColor: shade(2)},
-			"StrokeColor",
-			"FillColor",
-		),
-		Entry(
-			"a cylinder",
-			v12.CylinderNodeConfig{StrokeColor: shade(1), FillColor: shade(2)},
-			"StrokeColor",
-			"FillColor",
-		),
-		Entry("a line", v12.LineNodeConfig{StrokeColor: shade(1)}, "StrokeColor"),
-		Entry(
-			"a polygon",
-			v12.PolygonNodeConfig{StrokeColor: shade(1), FillColor: shade(2)},
-			"StrokeColor",
-			"FillColor",
-		),
-		Entry("a text box", v12.TextBoxNodeConfig{TextColor: shade(1)}, "TextColor"),
-		Entry(
-			"an off page reference",
-			v12.OffPageReferenceNodeConfig{FillColor: shade(1)},
-			"FillColor",
-		),
-		Entry("a button", v12.ButtonNodeConfig{FillColor: shade(1)}, "FillColor"),
-		Entry("an input", v12.InputNodeConfig{FillColor: shade(1)}, "FillColor"),
-		Entry("a select", v12.SelectNodeConfig{FillColor: shade(1)}, "FillColor"),
-		Entry("a setpoint", v12.SetpointNodeConfig{FillColor: shade(1)}, "FillColor"),
-		Entry(
-			"a state indicator",
-			v12.StateIndicatorNodeConfig{StrokeColor: shade(1)},
-			"StrokeColor",
-		),
-		Entry(
-			"a tank",
-			v12.TankNodeConfig{
-				StrokeColor: shade(1),
-				FillColor:   shade(2),
-				LevelColor:  shade(3),
-				AxisColor:   shade(4),
-				TextColor:   shade(5),
-			},
-			"StrokeColor",
-			"FillColor",
-			"LevelColor",
-			"AxisColor",
-			"TextColor",
-		),
-		Entry("a gauge", v12.GaugeNodeConfig{StrokeColor: shade(1)}, "StrokeColor"),
-		Entry(
-			"a string display",
-			v12.StringDisplayNodeConfig{StrokeColor: shade(1), TextColor: shade(2)},
-			"StrokeColor",
-			"TextColor",
-		),
-		Entry(
-			"a value",
-			v12.ValueNodeConfig{
-				StrokeColor: shade(1),
-				TextColor:   shade(2),
-				FillColor:   shade(3),
-			},
-			"StrokeColor",
-			"TextColor",
-			"FillColor",
-		),
-	)
 })
 
 var _ = Describe("MigrateNodeConfig stroke widths", func() {
@@ -1382,17 +1291,6 @@ var _ = Describe("MigrateNodeConfig whole numbers and renames", func() {
 		Expect(configOf(got, "t")).To(HaveField("InlineSize", BeEquivalentTo(120)))
 	})
 })
-
-// fixedOf returns the color of a fixed color reference, or nil for an absent one.
-func fixedOf(r *servicecolor.Ref) *colorv2.Color {
-	GinkgoHelper()
-	if r == nil {
-		return nil
-	}
-	f, ok := r.Variant.(servicecolor.FixedRef)
-	Expect(ok).To(BeTrue())
-	return &f.Value
-}
 
 var _ = Describe("NameMigration", func() {
 	migrated := func(ctx SpecContext, in v13.Schematic) v13.Schematic {
