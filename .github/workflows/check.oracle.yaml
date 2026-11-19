@@ -16,7 +16,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: oracle-${{ github.workflow }}-${{ github.ref }}
+  group:
+    oracle-${{ github.workflow }}-${{ github.event.merge_group.head_sha || github.ref }}
   cancel-in-progress: true
 
 # The proxy drops streams at times, so a failed fetch falls back to the source.

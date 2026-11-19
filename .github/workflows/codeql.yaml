@@ -23,10 +23,14 @@ on:
     - cron: "0 6 * * 1" # 6am UTC on Monday
   workflow_dispatch:
 
-# A new push to a pull request cancels the scan it replaces.
+# A new push to a pull request cancels the scan it replaces. Pushes to a branch scan one
+# at a time, and a newer push replaces the one that waits, so a burst of merges scans
+# only the first and last commit.
 concurrency:
-  group: codeql-${{ github.event.pull_request.number || github.run_id }}
-  cancel-in-progress: true
+  group:
+    codeql-${{ github.event.pull_request.number || github.event_name == 'push' &&
+    github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
