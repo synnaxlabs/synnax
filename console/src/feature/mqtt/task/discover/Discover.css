@@ -10,13 +10,6 @@
  */
 
 .console-mqtt-discover {
-    .console-mqtt-discover__search {
-        flex-shrink: 0;
-        align-self: stretch;
-        width: auto;
-        margin: 2rem 2rem 0;
-    }
-
     .console-mqtt-discover__scope {
         flex-shrink: 0;
         padding: 2rem;

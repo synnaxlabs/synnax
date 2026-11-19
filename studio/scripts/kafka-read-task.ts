@@ -17,25 +17,25 @@ export const integrations = ["modbus"];
 
 /**
  * Docs `reference/hardware/kafka/read-task` (Create a Kafka read task): open Add data,
- * enter the topic, select the oven records and two of their fields, add them, and start
- * the task. The fake broker publishes these records, so the task reads real values.
+ * select the topic in the list, select two fields of its oven records, add them, and
+ * start the task. The fake broker publishes these records, so the task reads real
+ * values.
  */
 export default serverTaskScript(KAFKA, {
   item: "Create read task",
   channels: async (session, form) => {
     const { page } = session;
     await session.click(form.getByRole("button", { name: "Add data", exact: true }));
-    const topic = page.getByRole("textbox", { name: "Topic", exact: true });
-    const dialog = page.locator(capture.MODAL).filter({ has: topic }).first();
+    const search = page.getByPlaceholder("Search topics", { exact: true });
+    const dialog = page.locator(capture.MODAL).filter({ has: search }).first();
     await session.waitFor(dialog);
     await session.zoom(dialog);
-    await session.click(dialog.getByRole("textbox", { name: "Topic", exact: true }));
-    await session.type("sensor-readings");
-    await session.press("Enter");
-    const oven = dialog.getByRole("treeitem").getByText("oven", { exact: true });
-    await session.waitFor(oven);
+    const topic = dialog
+      .getByRole("treeitem")
+      .getByText("sensor-readings", { exact: true });
+    await session.waitFor(topic);
     await session.hold(1200);
-    await session.click(oven, { text: true });
+    await session.click(topic, { text: true });
     await pickValues(session, dialog, ["/temperature", "/pressure"]);
     await submitPicks(session, dialog, form, "Add 2 fields");
   },

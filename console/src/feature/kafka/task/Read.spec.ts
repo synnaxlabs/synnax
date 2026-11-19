@@ -26,6 +26,7 @@ import {
   type payload,
   sleep,
   TimeSpan,
+  TimeStamp,
   uuid,
 } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -36,7 +37,7 @@ import { createKafkaDevice } from "@/feature/kafka/testutil";
 import { Device } from "@/platform/device";
 import { startRackHeartbeat } from "@/platform/device/testutil";
 import {
-  answerNextCommand,
+  answerCommandsUntil,
   clickDeploy,
   type CommandAnswer,
   deployAndAwaitTask,
@@ -322,23 +323,43 @@ const OVEN_SHAPE = {
   count: 2,
 };
 
-/** Answers the next command of the scan task of the rack of dev. */
-const answerScan = async (
-  dev: device.Device,
-  answer: Omit<CommandAnswer, "type"> = {},
-) => {
+/** Creates a Kafka scan task on the rack of dev, with a heartbeat. */
+const createScanTask = async (dev: device.Device) => {
   const rck = await client.racks.retrieve({ key: dev.rack });
   await startRackHeartbeat(client, rck);
-  const scan = await rck.createTask({
+  return await rck.createTask({
     name: uniqueName("kafka_scan"),
     type: Kafka.Task.SCAN_TYPE,
     config: {},
   });
-  return await answerNextCommand(client, scan, answer);
+};
+
+/** @returns a topic of a cluster as a browse lists it, holding ten JSON records. */
+const listTopic = (name: string, overrides: object = {}) => ({
+  name,
+  partitions: 1,
+  records: 10,
+  compacted: false,
+  rate: 0,
+  newest: 0,
+  format: "json",
+  readable: true,
+  error: "",
+  ...overrides,
+});
+
+/** @returns the data of a browse that lists the topics. */
+const browseOf = (...topics: object[]) => ({ topics, truncated: false });
+
+/** Clicks Add data. @returns queries scoped to the dialog. */
+const clickAddData = async () => {
+  fireEvent.click(await screen.findByRole("button", { name: "Add data" }));
+  return within(await screen.findByRole("dialog"));
 };
 
 /**
- * Opens the Add data dialog of the task on dev, and answers its sample command.
+ * Opens the Add data dialog of the task on dev, answers its browse with browse, then
+ * answers the sample of the topic that it shows first.
  * @param topic - The topic that the dialog samples first.
  * @returns queries scoped to the dialog.
  */
@@ -346,12 +367,17 @@ const openAddData = async (
   dev: device.Device,
   answer: Omit<CommandAnswer, "type"> = {},
   topic = TOPIC,
+  browse = browseOf(listTopic(topic)),
 ) => {
-  const { answered } = await answerScan(dev, answer);
-  fireEvent.click(await screen.findByRole("button", { name: "Add data" }));
-  const dialog = within(await screen.findByRole("dialog"));
-  const cmd = await answered;
-  expect(cmd.args).toEqual({ device: dev.key, topics: [topic] });
+  const scan = await createScanTask(dev);
+  const { answered } = await answerCommandsUntil(client, [scan], "sample", {
+    browse: { data: browse },
+    sample: answer,
+  });
+  const dialog = await clickAddData();
+  const [listed, sampled] = await answered;
+  expect(listed).toMatchObject({ type: "browse", args: { device: dev.key } });
+  expect(sampled.args).toEqual({ device: dev.key, topics: [topic] });
   return dialog;
 };
 
@@ -396,33 +422,151 @@ describe("Kafka read form", () => {
       await screen.findByText("Add data to read the records of a topic");
     });
 
-    it("should add the picks of an entered topic as a new topic", async () => {
+    it("should pick fields from two topics in one dialog", async () => {
       const { draft, dev } = await renderRead({ empty: true });
       await screen.findByText("No topics");
-      const { answered } = await answerScan(dev, {
-        data: sampleOfTopic("plant", OVEN_SHAPE),
+      const scan = await createScanTask(dev);
+      const first = await answerCommandsUntil(client, [scan], "sample", {
+        browse: { data: browseOf(listTopic("kiln"), listTopic("plant")) },
+        sample: { data: sampleOfTopic("kiln", OVEN_SHAPE) },
       });
-      fireEvent.click(await screen.findByRole("button", { name: "Add data" }));
-      const dialog = within(await screen.findByRole("dialog"));
-      await dialog.findByText("Enter a topic to read its records.");
-      expect(dialog.queryByRole("button", { name: "Add an empty record" })).toBeNull();
-      const input = dialog.getByRole("textbox", { name: "Topic" });
-      fireEvent.change(input, { target: { value: "plant" } });
-      fireEvent.blur(input);
-      expect((await answered).args).toEqual({ device: dev.key, topics: ["plant"] });
+      const dialog = await clickAddData();
+      expect((await first.answered)[1].args.topics).toEqual(["kiln"]);
       fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
-      fireEvent.click(dialog.getByRole("button", { name: "Add 2 fields" }));
+      const pump = {
+        sources: ["pump"],
+        fields: [createInferredField("/pressure", "int64", "number")],
+        index: -1,
+        count: 1,
+      };
+      const second = await answerCommandsUntil(client, [scan], "sample", {
+        sample: { data: sampleOfTopic("plant", pump) },
+      });
+      fireEvent.click(dialog.getByRole("checkbox", { name: "Pick plant" }));
+      expect((await second.answered)[0].args.topics).toEqual(["plant"]);
+      await dialog.findByText("3 fields selected");
+      fireEvent.click(dialog.getByRole("button", { name: "Add 3 fields" }));
+      const topics = await waitFor(async () => {
+        const next = await retrieveTopics(draft.key);
+        expect(next).toHaveLength(2);
+        return next;
+      });
+      expect(
+        topics.map(({ name, records }) => [name, records.map((r) => r.recordKey)]),
+      ).toEqual([
+        ["kiln", ["oven-1", "oven-2"]],
+        ["plant", ["pump"]],
+      ]);
+      const icds = new Set(topics.flatMap(({ records }) => records.map((r) => r.icd)));
+      expect(icds.size).toBe(1);
+      const { messages } = await client.icds.retrieve([...icds][0]);
+      expect(messages.map(({ name }) => name)).toEqual(["oven-1", "pump"]);
+      await screen.findByRole("treeitem", { name: /Topic.*kiln/ });
+      await screen.findByRole("treeitem", { name: /Topic.*plant/ });
+    });
+
+    it("should describe the topic and group its fields by record", async () => {
+      const { dev } = await renderRead();
+      const newest = Number(TimeStamp.now().sub(TimeSpan.seconds(4)).valueOf());
+      const topic = listTopic(TOPIC, {
+        partitions: 3,
+        rate: 2,
+        compacted: true,
+        newest,
+      });
+      const dialog = await openAddData(
+        dev,
+        { data: sampleOf(OVEN_SHAPE) },
+        TOPIC,
+        browseOf(topic),
+      );
+      await dialog.findByText(
+        /^3 partitions · 2\.0\/s · JSON · compacted · newest \d+s ago$/,
+      );
+      dialog.getByText("oven-1, oven-2 · 2 records");
+    });
+
+    it("should open a new task on the first topic that holds records", async () => {
+      const { dev } = await renderRead({ empty: true });
+      await screen.findByText("No topics");
+      const browse = browseOf(listTopic("alarms", { records: 0 }), listTopic("plant"));
+      const dialog = await openAddData(dev, { data: sampleOf() }, "plant", browse);
+      await dialog.findByText(/holds no JSON records/);
+    });
+
+    it("should add an empty record to a topic that holds no records", async () => {
+      const { draft, dev } = await renderRead({ empty: true });
+      await screen.findByText("No topics");
+      const scan = await createScanTask(dev);
+      const { answered } = await answerCommandsUntil(client, [scan], "browse", {
+        browse: { data: browseOf(listTopic("plant", { records: 0 })) },
+      });
+      const dialog = await clickAddData();
+      await answered;
+      await dialog.findByText(/The topic holds no records/);
+      expect(dialog.getByRole("checkbox", { name: "Pick plant" })).toHaveProperty(
+        "disabled",
+        true,
+      );
+      fireEvent.click(dialog.getByRole("button", { name: "Add an empty record" }));
       const topics = await waitFor(async () => {
         const next = await retrieveTopics(draft.key);
         expect(next).toHaveLength(1);
         return next;
       });
-      expect(topics[0].name).toBe("plant");
-      expect(topics[0].records.map(({ recordKey }) => recordKey)).toEqual([
-        "oven-1",
-        "oven-2",
+      expect(topics[0]).toMatchObject({ name: "plant", records: [{ recordKey: "" }] });
+    });
+
+    it("should not offer a topic that Synnax may not read", async () => {
+      const { dev } = await renderRead({ empty: true });
+      await screen.findByText("No topics");
+      const scan = await createScanTask(dev);
+      const { answered } = await answerCommandsUntil(client, [scan], "browse", {
+        browse: { data: browseOf(listTopic("audit", { readable: false })) },
+      });
+      const dialog = await clickAddData();
+      await answered;
+      await dialog.findByText("The cluster does not let Synnax read this topic.");
+      dialog.getByText("No access");
+      expect(dialog.queryByRole("button", { name: "Add an empty record" })).toBeNull();
+    });
+
+    it("should list and read the topics again on Listen again", async () => {
+      const { dev } = await renderRead();
+      const scan = await createScanTask(dev);
+      const first = await answerCommandsUntil(client, [scan], "sample", {
+        browse: { data: browseOf(listTopic(TOPIC)) },
+        sample: { data: sampleOf() },
+      });
+      const dialog = await clickAddData();
+      await first.answered;
+      await dialog.findByText(/holds no JSON records/);
+      const second = await answerCommandsUntil(client, [scan], "sample", {
+        browse: { data: browseOf(listTopic(TOPIC), listTopic("plant")) },
+        sample: { data: sampleOf(OVEN_SHAPE) },
+      });
+      fireEvent.click(dialog.getByRole("button", { name: "Listen again" }));
+      expect((await second.answered).map(({ type }) => type)).toEqual([
+        "browse",
+        "sample",
       ]);
-      await screen.findByRole("treeitem", { name: /Topic.*plant/ });
+      await dialog.findByRole("checkbox", { name: "Pick plant" });
+      await dialog.findByRole("checkbox", { name: "Record /temperature" });
+    });
+
+    it("should list only the topics that match the search", async () => {
+      const { dev } = await renderRead();
+      const browse = browseOf(listTopic(TOPIC), listTopic("plant"));
+      const dialog = await openAddData(dev, { data: sampleOf() }, TOPIC, browse);
+      await dialog.findByRole("checkbox", { name: "Pick plant" });
+      const search = dialog.getByPlaceholderText("Search topics");
+      fireEvent.change(search, { target: { value: "pla" } });
+      await waitFor(() =>
+        expect(dialog.queryByRole("checkbox", { name: `Pick ${TOPIC}` })).toBeNull(),
+      );
+      dialog.getByRole("checkbox", { name: "Pick plant" });
+      fireEvent.change(search, { target: { value: "boiler" } });
+      await dialog.findByText("No topic matches “boiler”.");
     });
 
     it("should open Add data on the topic of the selected record", async () => {
@@ -431,7 +575,13 @@ describe("Kafka read form", () => {
         topics: [await createTopic("plant", [createField("pressure", "float")])],
       });
       fireEvent.click(await screen.findByRole("treeitem", { name: /^pressure/ }));
-      const dialog = await openAddData(dev, { data: sampleOfTopic("plant") }, "plant");
+      const browse = browseOf(listTopic(TOPIC), listTopic("plant"));
+      const dialog = await openAddData(
+        dev,
+        { data: sampleOfTopic("plant") },
+        "plant",
+        browse,
+      );
       await dialog.findByText(/holds no JSON records/);
     });
 
@@ -703,7 +853,6 @@ describe("Kafka read form", () => {
       expect(
         await dialog.findByRole("checkbox", { name: "Record /temperature" }),
       ).toHaveProperty("disabled", false);
-      fireEvent.click(dialog.getByText("pump"));
       fireEvent.click(
         await dialog.findByRole("checkbox", { name: "Record /pressure" }),
       );
