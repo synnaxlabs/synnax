@@ -281,9 +281,9 @@ bound, a log precision, or the line plot X channel.
   the setting. They stay, read-only, when the footer hides the start button.
 - A deploy that fails before its start command goes out shows in the task footer, not
   only in a toast, until the next deploy or a new task status. On a running task the
-  message is "Failed to deploy changes", and the description starts with "The task still
-  runs its last deployed config." Rejected: "Failed to start task" there, which reads as
-  if the task stopped.
+  message is "Failed to deploy changes", and the footer description starts with "The
+  task still runs its last deployed config." Rejected: "Failed to start task" there,
+  which reads as if the task stopped.
 - The header stays compact: the rack name hangs under the utility buttons and adds no
   height.
 - A disabled channel dims to half strength. Its enabled dot stays at full strength, as

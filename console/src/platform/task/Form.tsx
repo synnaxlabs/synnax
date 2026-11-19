@@ -201,7 +201,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
         handleError(e, heading);
         const failed = status.fromException(e, heading);
         if (running) failed.description = `${STILL_RUNS} ${failed.description}`;
-        setFailure({ status: failed, statusTime: current?.time });
+        setFailure({ status: failed, taskStatusTime: current?.time });
       }
       setConfiguring(false);
     };

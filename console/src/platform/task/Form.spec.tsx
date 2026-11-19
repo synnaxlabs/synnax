@@ -26,6 +26,7 @@ import { Task } from "@/platform/task";
 import {
   awaitCommand,
   clickDeploy,
+  clickRedeploy,
   commitFieldInput,
   createTaskStatus,
   renderTaskFormTab,
@@ -54,6 +55,9 @@ const DeviceProbe: FC = () => (
   <div>{`device:${PForm.useFieldValue(path.config.device)}`}</div>
 );
 DeviceProbe.displayName = "DeviceProbe";
+
+const DeviceField: FC = () => <PForm.Field path={path.config.device} />;
+DeviceField.displayName = "DeviceField";
 
 interface MakeRendererParams {
   showControls?: boolean;
@@ -291,8 +295,6 @@ describe("wrapForm", () => {
     });
 
     it("should leave an error to the field that shows it", async () => {
-      const DeviceField: FC = () => <PForm.Field path={path.config.device} />;
-      DeviceField.displayName = "DeviceField";
       const client = createTestClient();
       const draft = await client.tasks.create({ ...INITIAL_VALUES, rack: 0 });
       const statuses: Status.NotificationSpec[] = [];
@@ -936,6 +938,7 @@ describe("wrapForm", () => {
       });
       await clickDeploy(container);
       await screen.findByText("Failed to start task");
+      expect(screen.getByText("The device has no port 7")).toBeTruthy();
       await reportTaskRunning(client, draft);
       await screen.findByText("Running smoothly");
       expect(screen.queryByText("Failed to start task")).toBeNull();
@@ -954,8 +957,7 @@ describe("wrapForm", () => {
         },
       });
       await reportTaskRunning(client, draft, "stale");
-      const redeploy = await screen.findByRole("button", { name: "Redeploy" });
-      await act(async () => fireEvent.click(redeploy));
+      await clickRedeploy();
       await screen.findByText("Failed to deploy changes");
       expect(
         screen.getByText(
@@ -972,8 +974,6 @@ describe("wrapForm", () => {
     });
 
     it("should clear a failed deploy from the footer on the next deploy", async () => {
-      const DeviceField: FC = () => <PForm.Field path={path.config.device} />;
-      DeviceField.displayName = "DeviceField";
       const client = createTestClient();
       const draft = await client.tasks.create({ ...INITIAL_VALUES, rack: 0 });
       let offline = false;

@@ -84,7 +84,7 @@ const Settings = () => {
 export interface DeployFailure {
   status: status.Status;
   /** The time of the task status when the deploy failed. Absent for no status. */
-  statusTime?: TimeStamp;
+  taskStatusTime?: TimeStamp;
 }
 
 export interface ControlsProps extends Flex.BoxProps {
@@ -131,7 +131,7 @@ export const Controls = ({
     });
   else if (
     failure != null &&
-    failure.statusTime?.valueOf() === taskStatus?.time.valueOf()
+    failure.taskStatusTime?.valueOf() === taskStatus?.time.valueOf()
   )
     shownStatus = failure.status;
   let startStopVariant = status.keepVariants(taskStatus?.variant, "loading");
