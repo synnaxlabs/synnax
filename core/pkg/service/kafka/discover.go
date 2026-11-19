@@ -121,7 +121,7 @@ func browseTopics(ctx context.Context, props Properties) ([]browsedTopic, error)
 	// A client that may not describe the configs of a topic cannot tell whether it is
 	// compacted.
 	configs, err := adm.DescribeTopicConfigs(ctx, readable...)
-	if authErr := (*kadm.AuthError)(nil); errors.As(err, &authErr) {
+	if _, ok := errors.AsType[*kadm.AuthError](err); ok {
 		configs = nil
 	} else if err != nil {
 		return nil, err

@@ -106,7 +106,6 @@ gorp: &gorp
 freighter_go: &freighter_go
   - *alamos_go
   - *go
-  - *gorp
   - *x_go
   - freighter/go/**
 
@@ -247,6 +246,13 @@ www:
   - *ts
   - .github/workflows/build.site.yaml
   - site/www/**
+
+studio:
+  - *client_ts
+  - *lyra
+  - *ts
+  - *x_ts
+  - studio/**
 
 knip:
   - *arc_ts
@@ -425,6 +431,11 @@ suppressions_py:
 runners:
   - *py
   - scripts/runners/**
+
+console_deps:
+  - console/src-tauri/.cargo/audit.toml
+  - console/src-tauri/Cargo.lock
+  - console/src-tauri/Cargo.toml
 
 console_build: &console_build
   - *console

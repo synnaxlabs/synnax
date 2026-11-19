@@ -10,8 +10,8 @@
 import { kafka } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 
+import { WriteSelectable } from "@/feature/kafka/task/create";
 import { PREFIX, READ_TYPE } from "@/feature/kafka/task/types";
-import { WriteSelectable } from "@/feature/kafka/task/Write";
 import { Task } from "@/platform/task";
 
 const readPlotChannels: Task.PlotChannels = (config) =>

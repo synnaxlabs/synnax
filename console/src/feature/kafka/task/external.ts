@@ -8,12 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { WRITE_TYPE } from "@/feature/kafka/task/types";
-import { Write } from "@/feature/kafka/task/Write";
+import { Panel } from "@/platform/panel";
 import { type Task } from "@/platform/task";
 
 export * from "@/feature/kafka/task/commands";
+export * from "@/feature/kafka/task/create";
 export * from "@/feature/kafka/task/integration";
 export * from "@/feature/kafka/task/types";
-export * from "@/feature/kafka/task/Write";
 
-export const FORMS: Task.Forms = { [WRITE_TYPE]: Write };
+export const FORMS: Task.Forms = {
+  [WRITE_TYPE]: Panel.lazyComponent(
+    () => import("@/feature/kafka/task/Write"),
+    "Write",
+  ),
+};
