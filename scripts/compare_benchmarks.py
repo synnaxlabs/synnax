@@ -27,15 +27,17 @@ host. The io suite puts its files in --io-dir, the disk to measure.
 import argparse
 import csv
 import io
+import json
 import os
 import platform
 import re
 import subprocess
 import sys
 import tempfile
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field, replace
 from pathlib import Path
+from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
 BENCHSTAT = (
@@ -53,7 +55,8 @@ MAX_TIME_RISE = 0.05
 class Step:
     """A command and the repo-relative directory it runs in.
 
-    `{bin}` in an argument is the directory that holds the builds of the ref.
+    `{bin}` in an argument is the directory that holds the builds of the ref, and
+    `{json}` is the file that a run writes its JSON report to.
     """
 
     directory: str
@@ -69,6 +72,8 @@ class Group:
     build: tuple[Step, ...]
     run: Step
     control: bool = False
+    # The key in FORMATS of the results that the run gives.
+    format: str = "go"
 
 
 def go(
@@ -91,6 +96,50 @@ def go(
             ),
         ),
         control,
+    )
+
+
+def vitest(name: str, *files: str) -> Group:
+    """Returns the group for the vitest benchmark files of the TypeScript client."""
+    return Group(
+        name,
+        "cpu",
+        (
+            Step(".", ("pnpm", "install", "--frozen-lockfile")),
+            Step(".", ("pnpm", "build:client")),
+        ),
+        Step(
+            "client/ts",
+            (
+                "pnpm",
+                "vitest",
+                "bench",
+                "--run",
+                "--config=vitest.bench.config.ts",
+                "--reporter=json",
+                "--outputFile={json}",
+                *files,
+            ),
+        ),
+        format="vitest",
+    )
+
+
+def gbench(name: str, package: str, binary: str) -> Group:
+    """Returns the group for a Google Benchmark binary that Bazel builds."""
+    return Group(
+        name,
+        "cpu",
+        (Step(".", ("bazel", "build", "-c", "opt", f"//{package}:{binary}")),),
+        Step(
+            ".",
+            (
+                f"bazel-bin/{package}/{binary}",
+                "--benchmark_out={json}",
+                "--benchmark_out_format=json",
+            ),
+        ),
+        format="gbench",
     )
 
 
@@ -122,6 +171,8 @@ GROUPS: tuple[Group, ...] = (
     go(
         "calculator", "cpu", f"{FRAMER}/calculation/calculator", "^BenchmarkCalculator_"
     ),
+    vitest("ts/codec", "src/framer/codec.bench.ts"),
+    vitest("ts/cache", "src/framer/cache/"),
     go("floors/cpu", "cpu", "cesium", "^BenchmarkFloor(Copy|CRC32C)$", control=True),
     go("floors", "io", "cesium", "^BenchmarkFloor", control=True),
 )
@@ -177,8 +228,56 @@ class Config:
     def binaries(self, side: str) -> Path:
         return self.out / "bin" / side
 
+    @property
+    def report(self) -> Path:
+        return self.out / "run.json"
+
     def results(self, side: str, control: bool) -> Path:
         return self.out / (f"control-{side}.txt" if control else f"{side}.txt")
+
+
+def from_vitest(report: Any) -> str:
+    """Returns the Go benchmark lines for a vitest JSON report."""
+    lines = []
+    for file in report["testResults"]:
+        stem = Path(file["name"]).name.removesuffix(".bench.ts")
+        for test in file["assertionResults"]:
+            for benchmark in test.get("benchmarks", ()):
+                for task in benchmark["tasks"]:
+                    name = "/".join((stem, test["fullName"], task["name"]))
+                    latency = task["latency"]
+                    lines.append(
+                        f"BenchmarkTS/{'_'.join(name.split())} "
+                        f"{latency['samplesCount']} {latency['mean'] * 1e6} ns/op"
+                    )
+    return "".join(f"{line}\n" for line in lines)
+
+
+TIME_UNITS = {"ns": 1, "us": 1e3, "ms": 1e6, "s": 1e9}
+
+
+def from_gbench(report: Any) -> str:
+    """Returns the Go benchmark lines for a Google Benchmark JSON report."""
+    lines = []
+    for benchmark in report["benchmarks"]:
+        if benchmark["run_type"] != "iteration":
+            continue
+        name = benchmark["name"].removeprefix("BM_")
+        time = benchmark["real_time"] * TIME_UNITS[benchmark["time_unit"]]
+        line = f"Benchmark{name} {benchmark['iterations']} {time} ns/op"
+        if "allocs/op" in benchmark:
+            line += f" {benchmark['allocs/op']} allocs/op"
+        lines.append(line)
+    return "".join(f"{line}\n" for line in lines)
+
+
+# Each format turns what a run printed and the JSON report it wrote into Go benchmark
+# lines.
+FORMATS: dict[str, Callable[[str, Path], str]] = {
+    "go": lambda printed, _: printed,
+    "vitest": lambda _, report: from_vitest(json.loads(report.read_text())),
+    "gbench": lambda _, report: from_gbench(json.loads(report.read_text())),
+}
 
 
 def order(round_: int) -> tuple[str, str]:
@@ -188,7 +287,10 @@ def order(round_: int) -> tuple[str, str]:
 
 def run(cfg: Config, side: str, step: Step) -> str:
     """Runs step in the worktree of side and returns what it printed."""
-    argv = [a.replace("{bin}", str(cfg.binaries(side))) for a in step.argv]
+    paths = {"{bin}": cfg.binaries(side), "{json}": cfg.report}
+    argv = list(step.argv)
+    for placeholder, path in paths.items():
+        argv = [a.replace(placeholder, str(path)) for a in argv]
     env = dict(os.environ)
     if cfg.io_dir is not None:
         env["TMPDIR"] = str(cfg.io_dir)
@@ -242,12 +344,14 @@ def measure(cfg: Config) -> None:
                         f"round {round_ + 1}/{cfg.rounds} {group.name} {side}",
                         flush=True,
                     )
-                    results = run(cfg, side, group.run)
+                    printed = run(cfg, side, group.run)
+                    results = FORMATS[group.format](printed, cfg.report)
                     # Base can lack a benchmark that head adds.
                     if side == SIDES[1] and not BENCHMARK.search(results):
                         raise RuntimeError(f"{group.name} ran no benchmark on head")
+                    # A Go test binary prints its own pkg line, which then applies.
                     with cfg.results(side, group.control).open("a") as f:
-                        f.write(results)
+                        f.write(f"pkg: {group.name}\n{results}")
         record_host(cfg, "end")
     finally:
         for side in SIDES:

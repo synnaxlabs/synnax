@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import json
 import subprocess
 import sys
 from dataclasses import replace
@@ -80,6 +81,74 @@ def test_order_flips_on_odd_rounds() -> None:
     ]
 
 
+GBENCH = {
+    "context": {"num_cpus": 8},
+    "benchmarks": [
+        {
+            "name": "BM_Decode/100/10",
+            "run_type": "iteration",
+            "iterations": 5,
+            "real_time": 1.5,
+            "cpu_time": 1.4,
+            "time_unit": "us",
+            "allocs/op": 2.0,
+            "bytes/op": 64.0,
+        },
+        {
+            "name": "BM_Decode/100/10_mean",
+            "run_type": "aggregate",
+            "iterations": 3,
+            "real_time": 1.5,
+            "time_unit": "us",
+        },
+        {
+            "name": "BM_Encode",
+            "run_type": "iteration",
+            "iterations": 7,
+            "real_time": 20.0,
+            "time_unit": "ns",
+        },
+    ],
+}
+VITEST = {
+    "testResults": [
+        {
+            "name": "/work/src/head/client/ts/src/framer/codec.bench.ts",
+            "assertionResults": [
+                {
+                    "fullName": "decode one channel",
+                    "benchmarks": [
+                        {
+                            "name": "decode one channel",
+                            "tasks": [
+                                {
+                                    "name": "100ser x 10smp",
+                                    "latency": {"mean": 0.0625, "samplesCount": 16},
+                                }
+                            ],
+                        }
+                    ],
+                },
+                {"fullName": "a skipped test"},
+            ],
+        }
+    ]
+}
+
+
+def test_from_gbench_keeps_iteration_runs_in_nanoseconds() -> None:
+    assert cb.from_gbench(GBENCH) == (
+        "BenchmarkDecode/100/10 5 1500.0 ns/op 2.0 allocs/op\n"
+        "BenchmarkEncode 7 20.0 ns/op\n"
+    )
+
+
+def test_from_vitest_names_each_task_by_file_and_test() -> None:
+    assert cb.from_vitest(VITEST) == (
+        "BenchmarkTS/codec/decode_one_channel/100ser_x_10smp 16 62500.0 ns/op\n"
+    )
+
+
 BENCH = """import os, sys
 value = open(sys.argv[1]).read().strip()
 if value != "0":
@@ -93,6 +162,11 @@ csv = "-format" in sys.argv
 print(open(sys.argv[1]).read() if csv and "control" not in sys.argv[-1] else "table")
 """
 SLOWER = table("sec/op", "X,1e-07,0%,2e-07,0%,+100.00%,p=0.000 n=3")
+
+
+def lines(group: str, value: int) -> str:
+    """Returns what one run of a group in Repo adds to a result file."""
+    return f"pkg: {group}\nBenchmarkX 1 {value} ns/op\n"
 
 
 class Repo:
@@ -164,8 +238,8 @@ def repo(tmp_path: Path) -> Repo:
 def test_measure_runs_each_ref_once_per_round_in_flipped_order(repo: Repo) -> None:
     cfg = repo.config(repo.group("x"))
     cb.measure(cfg)
-    assert cfg.results("base", False).read_text() == "BenchmarkX 1 100 ns/op\n" * 3
-    assert cfg.results("head", False).read_text() == "BenchmarkX 1 200 ns/op\n" * 3
+    assert cfg.results("base", False).read_text() == lines("x", 100) * 3
+    assert cfg.results("head", False).read_text() == lines("x", 200) * 3
     values = ("100", "200", "200", "100", "100", "200")
     assert repo.log.read_text().splitlines() == [f"{v} {repo.io_dir}" for v in values]
     assert len(repo.worktrees()) == 1
@@ -174,8 +248,8 @@ def test_measure_runs_each_ref_once_per_round_in_flipped_order(repo: Repo) -> No
 def test_measure_keeps_control_results_apart(repo: Repo) -> None:
     cfg = repo.config(repo.group("x"), repo.group("floor", control=True))
     cb.measure(cfg)
-    assert cfg.results("base", True).read_text() == "BenchmarkX 1 100 ns/op\n" * 3
-    assert cfg.results("base", False).read_text() == "BenchmarkX 1 100 ns/op\n" * 3
+    assert cfg.results("base", True).read_text() == lines("floor", 100) * 3
+    assert cfg.results("base", False).read_text() == lines("x", 100) * 3
 
 
 def test_measure_records_the_host(repo: Repo) -> None:
@@ -191,8 +265,8 @@ def test_measure_accepts_a_group_with_no_benchmark_on_base(repo: Repo) -> None:
     repo.commit("0", "empty")
     cfg = replace(repo.config(repo.group("x")), base="empty")
     cb.measure(cfg)
-    assert cfg.results("base", False).read_text() == ""
-    assert cfg.results("head", False).read_text() == "BenchmarkX 1 200 ns/op\n" * 3
+    assert cfg.results("base", False).read_text() == "pkg: x\n" * 3
+    assert cfg.results("head", False).read_text() == lines("x", 200) * 3
 
 
 def test_measure_fails_on_a_group_with_no_benchmark_on_head(repo: Repo) -> None:
@@ -200,6 +274,31 @@ def test_measure_fails_on_a_group_with_no_benchmark_on_head(repo: Repo) -> None:
     cfg = replace(repo.config(repo.group("x")), head="empty")
     with pytest.raises(RuntimeError, match=r"^x ran no benchmark on head$"):
         cb.measure(cfg)
+    assert len(repo.worktrees()) == 1
+
+
+def test_measure_converts_the_report_of_a_run(repo: Repo) -> None:
+    write = "import sys; open(sys.argv[1], 'w').write(open('report.json').read())"
+    group = cb.Group(
+        "gb",
+        "io",
+        (),
+        cb.Step(".", (sys.executable, "-c", write, "{json}")),
+        False,
+        "gbench",
+    )
+    (repo.root / "report.json").write_text(json.dumps(GBENCH))
+    repo.commit("300", "report")
+    cfg = replace(repo.config(group), base="report", head="report", rounds=1)
+    cb.measure(cfg)
+    want = "pkg: gb\n" + cb.from_gbench(GBENCH)
+    assert cfg.results("head", False).read_text() == want
+
+
+def test_measure_fails_on_an_unknown_format(repo: Repo) -> None:
+    group = replace(repo.group("x"), format="tap")
+    with pytest.raises(KeyError, match="tap"):
+        cb.measure(repo.config(group))
     assert len(repo.worktrees()) == 1
 
 
@@ -285,6 +384,38 @@ def test_parse_rejects(
 def test_parse_refuses_an_existing_out_directory(tmp_path: Path) -> None:
     with pytest.raises(FileExistsError):
         cb.parse(["--base", "a", "--head", "b", "--out", str(tmp_path)])
+
+
+def test_vitest_writes_a_json_report() -> None:
+    group = cb.vitest("ts/codec", "src/framer/codec.bench.ts")
+    assert (group.suite, group.format, group.run.directory) == (
+        "cpu",
+        "vitest",
+        "client/ts",
+    )
+    assert group.run.argv[-3:] == (
+        "--reporter=json",
+        "--outputFile={json}",
+        "src/framer/codec.bench.ts",
+    )
+
+
+def test_gbench_runs_the_binary_that_bazel_builds() -> None:
+    group = cb.gbench("cpp/codec", "client/cpp/framer", "codec_bench")
+    assert group.build == (
+        cb.Step(
+            ".", ("bazel", "build", "-c", "opt", "//client/cpp/framer:codec_bench")
+        ),
+    )
+    assert group.format == "gbench"
+    assert group.run == cb.Step(
+        ".",
+        (
+            "bazel-bin/client/cpp/framer/codec_bench",
+            "--benchmark_out={json}",
+            "--benchmark_out_format=json",
+        ),
+    )
 
 
 def test_go_builds_one_binary_per_package() -> None:
