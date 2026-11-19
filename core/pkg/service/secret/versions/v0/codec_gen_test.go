@@ -17,7 +17,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/secret/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
@@ -69,11 +68,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("stored variant", v0.Secret{Variant: v0.StoredSecret{Base: fullyPopulatedBase, Value: []byte{1, 2, 3}}}),
-			Entry("file variant", v0.Secret{Variant: v0.FileSecret{
-				Base:     fullyPopulatedBase,
-				FileName: "test_1",
-				Rack:     rack.Key(3),
-			}}),
+			Entry("file variant", v0.Secret{Variant: v0.FileSecret{Base: fullyPopulatedBase, FileName: "test_1"}}),
 		)
 	})
 })
@@ -177,11 +172,7 @@ func FuzzDecodeSecret(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.Secret{Variant: v0.FileSecret{
-			Base:     fullyPopulatedBase,
-			FileName: "test_1",
-			Rack:     rack.Key(3),
-		}}
+		seed := v0.Secret{Variant: v0.FileSecret{Base: fullyPopulatedBase, FileName: "test_1"}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)

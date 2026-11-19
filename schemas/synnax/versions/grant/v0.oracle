@@ -9,7 +9,6 @@
 
 import "schemas/synnax/versions/resource/v0"
 import "schemas/synnax/versions/secret/v0"
-import "schemas/synnax/versions/task/v4"
 import "schemas/x/versions/telem/v0"
 
 Key = uuid {
@@ -26,12 +25,6 @@ Grant struct {
     }
     secrets    secret.Key[]    {
         @doc value "are the secrets the subject may read."
-    }
-    command    task.Command    {
-        @doc value """
-            is the command the subject runs with the secrets. Its task is on the subject
-            rack, and answers on the key of the command that carries the grant.
-        """
     }
     expires_at telem.TimeStamp {
         @doc value "is when the grant stops working, if no read has used it."

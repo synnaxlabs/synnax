@@ -7,28 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package gorp_test
+package versions_test
 
 import (
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/gorp"
-	. "github.com/synnaxlabs/gorp/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func TestGorp(t *testing.T) {
+func TestGrantVersions(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Freighter Gorp Suite", SuiteConfig())
+	RunSpecs(t, "Service Secret Grant Versions Suite", SuiteConfig())
 }
-
-var db *gorp.DB
-
-var _ = BeforeSuite(func() {
-	ShouldNotLeakGoroutines()
-	db = DeferClose(OpenGorpMsgpackDB())
-})
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

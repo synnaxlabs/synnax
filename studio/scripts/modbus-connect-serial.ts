@@ -59,10 +59,13 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.click(port);
   await session.type("/dev/ttyUSB0");
   await session.hold(400);
-  await choose(session, modal, "Baud rate", "19200");
-  await choose(session, modal, "Parity", "Even");
+  // The dialog starts at 19200 baud, even parity, and 1 stop bit.
+  await choose(session, modal, "Baud rate", "9600");
+  await choose(session, modal, "Parity", "None");
+  await choose(session, modal, "Stop bits", "2");
   await session.waitFor(fieldItem(modal, "Connect from").getByText(DRIVER));
-  await session.hold(3000);
+  await session.hold(2500);
   session.endZoom();
-  await session.hold(1500);
+  await session.moveTo({ x: 1420, y: 800 });
+  await session.hold(2000);
 };

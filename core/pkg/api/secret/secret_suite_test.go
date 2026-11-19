@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
-	fgorp "github.com/synnaxlabs/freighter/gorp"
 	"github.com/synnaxlabs/gorp"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
@@ -77,7 +76,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	retrieve = bind.Read(binder, apiSvc.Retrieve)
 	del = bind.Write(binder, apiSvc.Delete)
 	dispatch = bind.Write(binder, apiSvc.Dispatch)
-	createGrant = fgorp.CreateWriteUnaryHandler(node.DB, apiSvc.CreateGrant)
+	createGrant = bind.WriteUnchecked(node.DB, apiSvc.CreateGrant)
 	resolve = apiSvc.Resolve
 })
 

@@ -27,6 +27,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/certificate/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
@@ -60,9 +61,17 @@ type env struct {
 
 func newEnv(ctx SpecContext, interval telem.TimeSpan) *env {
 	GinkgoHelper()
+	e := newStore(ctx)
+	e.open(ctx, interval)
+	return e
+}
+
+// newStore returns an env with the services that a certificate service needs, and no
+// certificate service.
+func newStore(ctx SpecContext) *env {
+	GinkgoHelper()
 	e := &env{}
 	e.now.Store(int64(telem.NewTimeStamp(start)))
-	clock := func() telem.TimeStamp { return telem.TimeStamp(e.now.Load()) }
 	e.db = DeferClose(gorp.Wrap(memkv.New()))
 	StartRun(e.db.Run)
 	e.status = MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: e.db}))
@@ -79,19 +88,27 @@ func newEnv(ctx SpecContext, interval telem.TimeSpan) *env {
 	e.secrets = MustOpen(secret.OpenService(ctx, secret.ServiceConfig{
 		DB:            e.db,
 		Grant:         grants,
-		Now:           clock,
+		Now:           e.clock,
 		EncryptionKey: secret.NewEncryptionKey(),
 		Rack:          coreRack,
 	}))
+	return e
+}
+
+// open opens the certificate service of e, which updates expiry statuses each interval.
+func (e *env) open(ctx SpecContext, interval telem.TimeSpan) {
+	GinkgoHelper()
 	e.svc = MustOpen(certificate.OpenService(ctx, certificate.ServiceConfig{
 		DB:                  e.db,
 		Secret:              e.secrets,
 		Status:              e.status,
-		Now:                 clock,
+		Now:                 e.clock,
 		ExpiryCheckInterval: interval,
+		Rack:                coreRack,
 	}))
-	return e
 }
+
+func (e *env) clock() telem.TimeStamp { return telem.TimeStamp(e.now.Load()) }
 
 func (e *env) advance(span telem.TimeSpan) { e.now.Add(int64(span)) }
 
@@ -252,12 +269,40 @@ func (e *env) keyName(ctx SpecContext, c certificate.Certificate) string {
 }
 
 var _ = Describe("Service", func() {
-	It("Should require the secret and status services", func(ctx SpecContext) {
+	It("Should require the secret and status services and the rack", func(
+		ctx SpecContext,
+	) {
 		Expect(certificate.OpenService(ctx, certificate.ServiceConfig{})).Error().
 			To(SatisfyAll(
 				MatchError(ContainSubstring("secret: must be non-nil")),
 				MatchError(ContainSubstring("status: must be non-nil")),
+				MatchError(ContainSubstring("rack: must be non-zero")),
 			))
+	})
+	It("Should move each stored v0 file certificate to the Core's rack", func(
+		ctx SpecContext,
+	) {
+		e := newStore(ctx)
+		old := MustSucceed(gorp.OpenTable(
+			ctx,
+			gorp.TableConfig[v0.Key, v0.Certificate]{DB: e.db, Name: "certificate"},
+		))
+		base := v0.Base{Key: uuid.New(), Name: "Plant"}
+		Expect(gorp.NewCreate[v0.Key, v0.Certificate]().
+			Entry(&v0.Certificate{Variant: v0.FileCertificate{
+				Base:            base,
+				CertificatePath: "/c.pem",
+			}}).
+			Exec(ctx, e.db)).To(Succeed())
+		Expect(old.Close()).To(Succeed())
+		e.open(ctx, telem.Hour)
+		Expect(e.retrieve(ctx, base.Key)).To(Equal(certificate.Certificate{
+			Variant: certificate.FileCertificate{
+				Base:            base,
+				CertificatePath: "/c.pem",
+				Rack:            coreRack,
+			},
+		}))
 	})
 
 	Describe("NewRetrieve", func() {

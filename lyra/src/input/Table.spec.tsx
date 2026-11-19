@@ -10,9 +10,11 @@
 import { type xy } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { type ReactElement, useState } from "react";
+import { createPortal } from "react-dom";
 import { describe, expect, it, vi } from "vitest";
 
 import { Input } from "@/input";
+import { Select } from "@/select";
 import { type Status } from "@/status";
 
 const COLUMNS = [
@@ -27,6 +29,27 @@ const parseHex = (text: string): number | null =>
 const HEX_COLUMNS = [
   <Input.TableColumn key="hex" name="Hex" parse={parseHex} />,
   <Input.TableColumn key="raw" name="Raw" />,
+];
+
+// A field with a picker beside it, as a color cell has.
+const UNIT_COLUMNS = [
+  <Input.TableColumn key="raw" name="Raw" />,
+  <Input.TableColumn key="unit" name="Unit" type="string">
+    {({ value, onChange, "aria-label": ariaLabel }) => (
+      <>
+        <Input.Text value={value} onChange={onChange} aria-label={ariaLabel} />
+        <Select.Simple<string>
+          value={value}
+          onChange={onChange}
+          resourceName="unit"
+          triggerProps={{ "aria-label": `Pick ${ariaLabel}` }}
+        >
+          <Select.Item itemKey="volts">Volts</Select.Item>
+          <Select.Item itemKey="amps">Amps</Select.Item>
+        </Select.Simple>
+      </>
+    )}
+  </Input.TableColumn>,
 ];
 
 interface RenderOptions {
@@ -352,6 +375,28 @@ describe("Input.Table", () => {
       expect(document.activeElement).toBe(input);
     });
 
+    it("should keep each cell of a block paste on Esc", () => {
+      render(<Stateful initial={[["a", "b"]]}>{TEXT_COLUMNS}</Stateful>);
+      const input = cell("Name", "1");
+      input.focus();
+      paste(input, "x\ty\nz\tw");
+      fireEvent.keyDown(input, { key: "Escape" });
+      expect(cell("Name", "1").value).toBe("x");
+      expect(cell("Name", "2").value).toBe("z");
+      expect(document.activeElement).not.toBe(input);
+    });
+
+    it("should put back the pasted value of a cell typed into after a block paste", () => {
+      render(<Stateful initial={[["a", "b"]]}>{TEXT_COLUMNS}</Stateful>);
+      const input = cell("Name", "1");
+      input.focus();
+      paste(input, "x\ty\nz\tw");
+      fireEvent.change(input, { target: { value: "typed" } });
+      fireEvent.keyDown(input, { key: "Escape" });
+      expect(input.value).toBe("x");
+      expect(document.activeElement).toBe(input);
+    });
+
     it("should leave an unchanged cell on the first Esc", () => {
       render(<Stateful initial={[["a", "b"]]}>{TEXT_COLUMNS}</Stateful>);
       const input = cell("Name", "1");
@@ -382,6 +427,141 @@ describe("Input.Table", () => {
       fireEvent.change(input, { target: { value: "changed" } });
       fireEvent.keyDown(input, { key: "Escape" });
       expect(onParentKeyDown).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("row key", () => {
+    // Holds a flag that a click sets, as an open dialog does.
+    const Toggle = ({ label }: { label: string }): ReactElement => {
+      const [on, setOn] = useState(false);
+      return (
+        <button aria-label={label} onClick={() => setOn(true)}>
+          {on ? "on" : "off"}
+        </button>
+      );
+    };
+    const TOGGLE_COLUMNS = [
+      <Input.TableColumn key="name" name="Name" type="string">
+        {({ value }) => <Toggle label={value} />}
+      </Input.TableColumn>,
+    ];
+
+    it("should keep the state of a cell with its row when a row above leaves", () => {
+      const { rerender } = render(
+        <Input.Table value={[["a"], ["b"]]} onChange={vi.fn()} rowKey={(i) => "ab"[i]}>
+          {TOGGLE_COLUMNS}
+        </Input.Table>,
+      );
+      fireEvent.click(screen.getByLabelText("b"));
+      rerender(
+        <Input.Table value={[["b"]]} onChange={vi.fn()} rowKey={() => "b"}>
+          {TOGGLE_COLUMNS}
+        </Input.Table>,
+      );
+      expect(screen.getByLabelText("b").textContent).toBe("on");
+    });
+  });
+
+  describe("portal", () => {
+    // A cell that opens a portal, as an options dialog does.
+    const PORTAL_COLUMNS = [
+      <Input.TableColumn key="name" name="Name" type="string">
+        {(props) => (
+          <>
+            <Input.Text {...props} />
+            {createPortal(<input aria-label="Portal" />, document.body)}
+          </>
+        )}
+      </Input.TableColumn>,
+    ];
+
+    it("should ignore a paste into a portal that a cell opens", () => {
+      const onChange = vi.fn();
+      render(
+        <Input.Table value={[["a"]]} onChange={onChange}>
+          {PORTAL_COLUMNS}
+        </Input.Table>,
+      );
+      paste(screen.getByLabelText("Portal"), "x\ny\nz");
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("should let an Esc in a portal that a cell opens reach a parent", () => {
+      const onParentKeyDown = vi.fn();
+      render(
+        <div onKeyDown={onParentKeyDown}>
+          <Stateful initial={[["a"]]}>{PORTAL_COLUMNS}</Stateful>
+        </div>,
+      );
+      const portal = screen.getByLabelText("Portal");
+      fireEvent.focus(portal);
+      fireEvent.change(portal, { target: { value: "typed" } });
+      fireEvent.keyDown(portal, { key: "Escape" });
+      expect(onParentKeyDown).toHaveBeenCalled();
+    });
+  });
+
+  describe("dialog", () => {
+    /** Opens the unit select of the first row and returns its search. */
+    const openUnitSearch = (onChange = vi.fn()): HTMLInputElement => {
+      render(
+        <Input.Table
+          value={[
+            [1, "volts"],
+            [2, "amps"],
+          ]}
+          onChange={onChange}
+        >
+          {UNIT_COLUMNS}
+        </Input.Table>,
+      );
+      fireEvent.click(screen.getByLabelText("Pick Unit 1"));
+      const search = screen.getByPlaceholderText<HTMLInputElement>("Search units...");
+      search.focus();
+      return search;
+    };
+
+    it("should leave Enter in a dialog that a cell opens to the dialog", () => {
+      const search = openUnitSearch();
+      fireEvent.keyDown(search, { key: "Enter" });
+      expect(document.activeElement).toBe(search);
+    });
+
+    it("should leave Escape in a dialog that a cell opens to the dialog", () => {
+      render(<Stateful initial={[[1, "volts"]]}>{UNIT_COLUMNS}</Stateful>);
+      fireEvent.click(screen.getByLabelText("Pick Unit 1"));
+      const search = screen.getByPlaceholderText<HTMLInputElement>("Search units...");
+      act(() => search.focus());
+      fireEvent.change(search, { target: { value: "am" } });
+      fireEvent.keyDown(search, { key: "Escape" });
+      expect(search.closest(".lyra-select__dialog")?.classList).toContain(
+        "lyra--hidden",
+      );
+      const input = cell("Unit", "1");
+      act(() => input.focus());
+      fireEvent.change(input, { target: { value: "changed" } });
+      fireEvent.keyDown(input, { key: "Escape" });
+      expect(input.value).toBe("volts");
+    });
+
+    it("should leave the cell on Esc after Escape closes the cell's dialog", () => {
+      render(<Stateful initial={[[1, "volts"]]}>{UNIT_COLUMNS}</Stateful>);
+      fireEvent.click(screen.getByLabelText("Pick Unit 1"));
+      const search = screen.getByPlaceholderText<HTMLInputElement>("Search units...");
+      act(() => search.focus());
+      fireEvent.change(search, { target: { value: "am" } });
+      fireEvent.keyDown(search, { key: "Escape" });
+      const input = cell("Unit", "1");
+      act(() => input.focus());
+      fireEvent.keyDown(input, { key: "Escape" });
+      expect(document.activeElement).not.toBe(input);
+    });
+
+    it("should leave a paste in a dialog that a cell opens to the dialog", () => {
+      const onChange = vi.fn();
+      const search = openUnitSearch(onChange);
+      paste(search, "volts\namps");
+      expect(onChange).not.toHaveBeenCalled();
     });
   });
 
