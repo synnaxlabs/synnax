@@ -30,6 +30,7 @@ export interface SingleProps<
     >,
     Omit<Dialog.FrameProps, "onChange" | "children" | "variant">,
     Pick<SingleTriggerProps, "disabled" | "icon" | "haulType">,
+    Pick<DialogProps, "menu" | "hasMenu">,
     Pick<List.ItemsProps<K>, "children"> {
   /** Singular name of the thing being selected. It builds the placeholder and the
    * empty and error content. */
@@ -39,13 +40,6 @@ export interface SingleProps<
   preview?: boolean;
   triggerProps?: SingleTriggerProps;
   dialogProps?: Dialog.FrameProps;
-  /**
-   * The context menu of an option, opened by a right click on it, or by Shift+F10 or
-   * the Menu key while it holds the hover. It gets the key of that option only.
-   */
-  menu?: DialogProps["menu"];
-  /** Whether the option with the key opens `menu`. Defaults to every option. */
-  hasMenu?: DialogProps["hasMenu"];
 }
 
 /**

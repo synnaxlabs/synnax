@@ -70,13 +70,13 @@ const Closed = ({ children }: PropsWithChildren): ReactNode => {
 };
 
 interface ViewsProps extends PropsWithChildren, Pick<DialogProps, "menu" | "hasMenu"> {
-  /** Whether the dialog is open, so that the menu keys act. */
+  /** Whether the dialog is open. Only an open dialog has an option menu. */
   open: boolean;
   /** Packs the views as the dialog packs, so the options join as they would in it. */
   pack: boolean;
 }
 
-interface MenuViewsProps extends ViewsProps {
+interface MenuViewsProps extends Omit<ViewsProps, "open"> {
   menu: NonNullable<DialogProps["menu"]>;
 }
 
@@ -84,14 +84,8 @@ const optionKey = (option: HTMLElement): string => option.dataset.menuKey ?? opt
 
 // Like the hover's Enter, the menu keys act anywhere in the window while the dialog is
 // open.
-const MenuViews = ({
-  menu,
-  hasMenu,
-  open,
-  pack,
-  children,
-}: MenuViewsProps): ReactNode => {
-  const setViewing = useViewingContext();
+const MenuViews = ({ menu, hasMenu, pack, children }: MenuViewsProps): ReactNode => {
+  const setViewing = useViewingContext("Select.Dialog");
   const [viewing, setLocalViewing] = useState(false);
   const contextMenu = Menu.useContextMenu();
   const { getState } = useContext();
@@ -105,7 +99,7 @@ const MenuViews = ({
     return hovered != null && opens(hovered) ? hovered : undefined;
   });
   useEffect(() => {
-    if (!open || viewing) return;
+    if (viewing) return;
     const handleKeyDown = (e: KeyboardEvent): void => {
       const target = targetRef.current();
       if (target != null) menuKeyDown(e, () => openContextMenu(target));
@@ -120,7 +114,7 @@ const MenuViews = ({
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
     };
-  }, [open, viewing]);
+  }, [viewing]);
   const handleContextMenu = (e: MouseEvent<HTMLDivElement>): void => {
     if (viewing || !(e.target instanceof Element)) return;
     const option = e.target.closest<HTMLElement>(`.${CONTEXT_TARGET}`);
@@ -133,7 +127,7 @@ const MenuViews = ({
       pack={pack}
       onViewingChange={(next) => {
         setLocalViewing(next);
-        setViewing?.(next);
+        setViewing(next);
       }}
       onContextMenu={handleContextMenu}
     >
@@ -153,10 +147,10 @@ const MenuViews = ({
 };
 
 const Views = ({ menu, hasMenu, open, pack, children }: ViewsProps): ReactNode => {
-  const setViewing = useViewingContext();
-  if (menu != null)
+  const setViewing = useViewingContext("Select.Dialog");
+  if (menu != null && open)
     return (
-      <MenuViews menu={menu} hasMenu={hasMenu} open={open} pack={pack}>
+      <MenuViews menu={menu} hasMenu={hasMenu} pack={pack}>
         {children}
       </MenuViews>
     );
