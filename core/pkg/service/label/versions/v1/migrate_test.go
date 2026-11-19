@@ -15,7 +15,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/label/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/label/versions/v1"
 	color "github.com/synnaxlabs/x/color/versions/v0"
@@ -25,7 +24,7 @@ import (
 )
 
 var _ = Describe("Migration", func() {
-	DescribeTable("Should store the color as a fixed color with a byte alpha",
+	DescribeTable("Should store the color alpha as a byte",
 		func(ctx SpecContext, a float64, expected uint8) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
 			StartRun(db.Run)
@@ -45,7 +44,7 @@ var _ = Describe("Migration", func() {
 			Expect(got).To(Equal(v1.Label{
 				Key:   old.Key,
 				Name:  "l",
-				Color: fixed(colorv2.Color{R: 1, G: 2, B: 3, A: expected}),
+				Color: colorv2.Color{R: 1, G: 2, B: 3, A: expected},
 			}))
 		},
 		Entry("a transparent alpha", 0.0, uint8(0)),
@@ -56,17 +55,10 @@ var _ = Describe("Migration", func() {
 })
 
 var _ = Describe("MigrateLabel", func() {
-	It(
-		"Should store the color as a fixed color with a byte alpha",
-		func(ctx SpecContext) {
-			out := MustSucceed(v1.MigrateLabel(ctx, v0.Label{
-				Name: "l", Color: color.Color{R: 1, A: 0.5},
-			}))
-			Expect(out.Color).To(Equal(fixed(colorv2.Color{R: 1, A: 128})))
-		},
-	)
+	It("Should store the color alpha as a byte", func(ctx SpecContext) {
+		out := MustSucceed(v1.MigrateLabel(ctx, v0.Label{
+			Name: "l", Color: color.Color{R: 1, A: 0.5},
+		}))
+		Expect(out.Color).To(Equal(colorv2.Color{R: 1, A: 128}))
+	})
 })
-
-func fixed(c colorv2.Color) servicecolor.Ref {
-	return servicecolor.Ref{Variant: servicecolor.FixedRef{Value: c}}
-}

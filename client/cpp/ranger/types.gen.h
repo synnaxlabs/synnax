@@ -64,14 +64,14 @@ struct Range {
     /// @brief color is an optional display color for visual identification of the range
     /// in user interfaces, a named color or a fixed color.
     std::optional<::synnax::color::Ref> color;
-    /// @brief has_children is true when a range is nested in the range, derived on read
-    /// and not persisted.
-    bool has_children = false;
     /// @brief labels are the keys of the labels attached to the range.
     std::vector<::synnax::label::Key> labels = {};
     /// @brief parent is the key of the range this range is nested in. Empty for a
     /// top-level range.
     std::optional<Key> parent;
+    /// @brief has_children is true when a range is nested in the range, derived on read
+    /// and not persisted.
+    bool has_children = false;
 
     static Range parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

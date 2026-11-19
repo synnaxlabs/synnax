@@ -15,7 +15,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v3"
 	color "github.com/synnaxlabs/x/color/versions/v0"
@@ -44,16 +43,15 @@ var _ = Describe("Migration", func() {
 		return got
 	}
 
-	DescribeTable("Should store the color as a fixed color with a byte alpha",
+	DescribeTable("Should store the color alpha as a byte",
 		func(ctx SpecContext, a float64, expected uint8) {
 			old := v2.Range{
 				Key: uuid.New(), Name: "r", Color: &color.Color{R: 1, G: 2, B: 3, A: a},
 			}
 			got := migrate(ctx, old)
 			Expect(got.Name).To(Equal("r"))
-			Expect(
-				got.Color,
-			).To(Equal(fixed(colorv2.Color{R: 1, G: 2, B: 3, A: expected})))
+			Expect(got.Color).
+				To(HaveValue(Equal(colorv2.Color{R: 1, G: 2, B: 3, A: expected})))
 		},
 		Entry("a transparent alpha", 0.0, uint8(0)),
 		Entry("a faint alpha", 0.003, uint8(1)),
@@ -79,7 +77,7 @@ var _ = Describe("Migration", func() {
 			Key:       old.Key,
 			Name:      old.Name,
 			TimeRange: old.TimeRange,
-			Color:     fixed(colorv2.Color{R: 1, G: 2, B: 3, A: 255}),
+			Color:     &colorv2.Color{R: 1, G: 2, B: 3, A: 255},
 			Parent:    old.Parent,
 			Labels:    old.Labels,
 		}))
@@ -87,20 +85,13 @@ var _ = Describe("Migration", func() {
 })
 
 var _ = Describe("MigrateRange", func() {
-	It(
-		"Should store the color as a fixed color with a byte alpha",
-		func(ctx SpecContext) {
-			out := MustSucceed(
-				v3.MigrateRange(ctx, v2.Range{Color: &color.Color{R: 1, A: 0.5}}),
-			)
-			Expect(out.Color).To(Equal(fixed(colorv2.Color{R: 1, A: 128})))
-		},
-	)
+	It("Should store the color alpha as a byte", func(ctx SpecContext) {
+		out := MustSucceed(
+			v3.MigrateRange(ctx, v2.Range{Color: &color.Color{R: 1, A: 0.5}}),
+		)
+		Expect(out.Color).To(Equal(&colorv2.Color{R: 1, A: 128}))
+	})
 })
-
-func fixed(c colorv2.Color) *servicecolor.Ref {
-	return &servicecolor.Ref{Variant: servicecolor.FixedRef{Value: c}}
-}
 
 var _ = Describe("MigrateWhere", func() {
 	It("Should keep each line through every branch", func(ctx SpecContext) {
