@@ -707,6 +707,44 @@ TEST(AcquisitionPipeline, ForwardsAuthorityChanges) {
     EXPECT_EQ(change.authorities[1], 200);
 }
 
+class InvalidAuthoritySource final : public Source {
+public:
+    x::errors::Error stopped_err = x::errors::NIL;
+
+    x::errors::Error read(
+        x::breaker::Breaker &,
+        x::telem::Frame &fr,
+        Authorities &authorities
+    ) override {
+        std::this_thread::sleep_for(std::chrono::microseconds(100));
+        fr.emplace(1, x::telem::Series(x::telem::TimeStamp::now()));
+        authorities = Authorities{.keys = {1, 2}, .authorities = {1, 2, 3}};
+        return x::errors::NIL;
+    }
+
+    void stopped_with_err(const x::errors::Error &err) override {
+        this->stopped_err = err;
+    }
+};
+
+/// @brief it should report invalid authorities from the source as the error that
+/// stopped the pipeline.
+TEST(AcquisitionPipeline, ReportsInvalidAuthorities) {
+    auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
+    const auto factory = std::make_shared<testutil::WriterFactory>(writes);
+    const auto source = std::make_shared<InvalidAuthoritySource>();
+    auto pipe = Acquisition(
+        factory,
+        synnax::framer::WriterConfig(),
+        source,
+        x::breaker::Config()
+    );
+    ASSERT_TRUE(pipe.start());
+    ASSERT_EVENTUALLY_FALSE(pipe.running());
+    pipe.stop();
+    ASSERT_OCCURRED_AS(source->stopped_err, x::errors::VALIDATION);
+}
+
 class MultiAuthoritySource final : public Source {
     x::telem::TimeStamp start_ts;
     std::vector<Authorities> pending;
