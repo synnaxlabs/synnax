@@ -46,10 +46,10 @@ refresh the gate on an idle pull request, run
 `gh workflow run check.review.yaml -f pr=<number>`.
 
 A maintainer, a person with write access, reads the diff of each new head before any
-code runs. Then they approve the CI runs on the pull request and comment
-`@sedosaur review` to start the review. Sedosaur never reviews a fork by itself. The
-gate passes a fork once the author signs the CLA, a maintainer approves the head, and
-Sedosaur scores the head 5/5.
+code runs. Then they approve the pull request, approve its CI runs, and comment
+`@sedosaur review`. Sedosaur reviews only a head that a maintainer approved, so a push
+needs a new approval. The gate passes a fork once the author signs the CLA, a maintainer
+approves the head, and Sedosaur scores the head 5/5.
 
 ## Review tiers
 

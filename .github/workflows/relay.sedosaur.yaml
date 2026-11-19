@@ -14,7 +14,7 @@
 # findings, with or without a mention, so it can take a dismissal or judge a rebuttal,
 # and a comment that dismisses a finding outside the diff. Both hold secrets, so they
 # run from the default branch through a dispatch. A fork's token cannot dispatch, so a
-# fork gets a review only when a maintainer asks for one.
+# fork gets a review only when a member asks, and only of a head a maintainer approved.
 
 name: Relay - Sedosaur
 run-name: ${{ github.event.pull_request.number || github.event.issue.number }}

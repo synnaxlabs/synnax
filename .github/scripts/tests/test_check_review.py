@@ -263,6 +263,14 @@ class TestFork:
         self.verdicts(harness, verdict(), verdict(state="CHANGES_REQUESTED"))
         assert harness.run()[0] == "pending"
 
+    def test_takes_the_last_verdict_across_pages(self, harness: Harness) -> None:
+        harness.gh.serve(
+            "api */pulls/42/reviews*",
+            [verdict()],
+            [verdict(state="CHANGES_REQUESTED")],
+        )
+        assert harness.run()[0] == "pending"
+
     def test_ignores_a_comment_after_an_approval(self, harness: Harness) -> None:
         self.verdicts(harness, verdict(), verdict(state="COMMENTED"))
         assert harness.run()[0] == "success"

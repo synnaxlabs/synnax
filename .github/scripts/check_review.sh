@@ -49,31 +49,13 @@ case "$TIER" in
     *) report pending "waiting for one label: review/bot or review/human" ;;
 esac
 
-# A maintainer is a person with write access. Only the last verdict of each on the head
-# counts.
 if [ "$FORK" = true ]; then
     CLA=$("$GH_API" "repos/${REPO}/commits/${HEAD}/status" \
         --jq '[.statuses[] | select(.context == "license/cla")][0].state // "none"')
     if [ "$CLA" != success ]; then
         report pending "waiting for the contributor license agreement"
     fi
-    export HEAD
-    APPROVERS=$("$GH_API" "repos/${REPO}/pulls/${PR}/reviews?per_page=100" --paginate \
-        --jq '[.[] | select(.commit_id == env.HEAD and .user.type == "User"
-            and (.state == "APPROVED" or .state == "CHANGES_REQUESTED"))]
-            | group_by(.user.login)[] | last | select(.state == "APPROVED")
-            | .user.login')
-    APPROVED=false
-    for login in $APPROVERS; do
-        case $("$GH_API" "repos/${REPO}/collaborators/${login}/permission" \
-            --jq .permission) in
-            admin | write)
-                APPROVED=true
-                break
-                ;;
-        esac
-    done
-    if [ "$APPROVED" != true ]; then
+    if [ "$("$(dirname "$0")/fork_approved.sh" "$PR" "$HEAD")" != true ]; then
         report pending "waiting for a maintainer to approve the head"
     fi
 fi
