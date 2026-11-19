@@ -12,13 +12,13 @@ package fs
 import (
 	"fmt"
 	"io"
-	"maps"
 	"os"
 	"slices"
 	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/synnaxlabs/x/errors"
@@ -68,7 +68,6 @@ func (y *MemFS) Open(fullName string, flag int) (File, error) {
 
 			ret = &memFile{
 				n:     n,
-				fs:    y,
 				read:  flag&os.O_WRONLY == 0,
 				write: flag&os.O_WRONLY != 0 || flag&os.O_RDWR != 0,
 				wpos:  writeOffset,
@@ -84,7 +83,6 @@ func (y *MemFS) Open(fullName string, flag int) (File, error) {
 		dir.children[frag] = node
 		ret = &memFile{
 			n:     node,
-			fs:    y,
 			read:  flag&os.O_WRONLY == 0,
 			write: flag&os.O_WRONLY != 0 || flag&os.O_RDWR != 0,
 		}
@@ -211,6 +209,12 @@ func (y *MemFS) Rename(oldName, newName string) error {
 	})
 }
 
+// SyncDir implements FS.SyncDir. A MemFS holds nothing durable, so SyncDir only checks
+// name.
+func (y *MemFS) SyncDir(name string) error {
+	return y.walk(name+sep, func(*memNode, string, bool) error { return nil })
+}
+
 // List returns a list of files in the directory sorted by file name.
 func (y *MemFS) List(dirname string) ([]os.FileInfo, error) {
 	if !strings.HasSuffix(dirname, sep) {
@@ -253,21 +257,18 @@ func (y *MemFS) Stat(name string) (stats os.FileInfo, err error) {
 
 // memNode holds a file's data or a directory's children, and implements os.FileInfo.
 type memNode struct {
-	children       map[string]*memNode
-	syncedChildren map[string]*memNode
-	name           string
+	children map[string]*memNode
+	name     string
 	// Mutable state.
 	//
-	// - For a file: data, syncedDate, modTime. A file is only being mutated by a single
-	//   goroutine, but there can be concurrent readers e.g. DB.Checkpoint() which can
-	//   read WAL or MANIFEST files that are being written to. Additionally Sync() calls
-	//   can be concurrent with writing.
-	// - For a directory: children and syncedChildren. Concurrent writes are possible,
-	//   and these are protected using MemFS.mu.
+	// - For a file: data, modTime. A file is only being mutated by a single goroutine,
+	//   but there can be concurrent readers e.g. DB.Checkpoint() which can read WAL or
+	//   MANIFEST files that are being written to.
+	// - For a directory: children. Concurrent writes are possible, and these are
+	//   protected using MemFS.mu.
 	mu struct {
-		modTime    time.Time
-		data       []byte
-		syncedData []byte
+		modTime time.Time
+		data    []byte
 		sync.Mutex
 	}
 	refs  atomic.Int32
@@ -375,7 +376,7 @@ func (y *MemFS) walkLocked(
 			return &os.PathError{
 				Op:   "open",
 				Path: fullname,
-				Err:  errors.New("memfs: not a directory"),
+				Err:  syscall.ENOTDIR,
 			}
 		}
 		dir, fullname = child, remaining
@@ -386,7 +387,6 @@ func (y *MemFS) walkLocked(
 // memFile is a reader or writer of a node's data, and implements File.
 type memFile struct {
 	n           *memNode
-	fs          *MemFS // nil for a standalone memFile
 	rpos        int
 	wpos        int
 	read, write bool
@@ -525,19 +525,5 @@ func (f *memFile) Truncate(size int64) error {
 
 func (f *memFile) Stat() (os.FileInfo, error) { return f.n, nil }
 
-func (f *memFile) Sync() error {
-	if f.fs == nil {
-		return nil
-	}
-	f.fs.mu.Lock()
-	defer f.fs.mu.Unlock()
-	if f.n.isDir {
-		f.n.syncedChildren = make(map[string]*memNode)
-		maps.Copy(f.n.syncedChildren, f.n.children)
-		return nil
-	}
-	f.n.mu.Lock()
-	f.n.mu.syncedData = slices.Clone(f.n.mu.data)
-	f.n.mu.Unlock()
-	return nil
-}
+// Sync does nothing: a MemFS holds nothing durable.
+func (f *memFile) Sync() error { return nil }

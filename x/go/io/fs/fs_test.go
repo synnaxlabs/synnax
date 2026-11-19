@@ -12,6 +12,7 @@ package fs_test
 import (
 	"io"
 	"os"
+	"syscall"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -388,6 +389,26 @@ var _ = Describe("FS", func() {
 					l := MustSucceed(fs.List(""))
 					Expect(l).To(HaveLen(1))
 					Expect(l[0].Name()).To(Equal("sub1"))
+				})
+			})
+			Describe("SyncDir", func() {
+				It("Should sync a directory", func() {
+					MustSucceed(fs.Sub("dir"))
+					Expect(fs.SyncDir("dir")).To(Succeed())
+				})
+				It("Should sync the root of the FS for an empty name", func() {
+					sub := MustSucceed(fs.Sub("dir"))
+					Expect(sub.SyncDir("")).To(Succeed())
+					Expect(fs.Remove("dir")).To(Succeed())
+					Expect(sub.SyncDir("")).To(MatchError(os.ErrNotExist))
+				})
+				It("Should return os.ErrNotExist for a missing directory", func() {
+					Expect(fs.SyncDir("missing")).To(MatchError(os.ErrNotExist))
+				})
+				It("Should return ENOTDIR for a file", func() {
+					f := MustSucceed(fs.Open("f.txt", os.O_CREATE))
+					Expect(f.Close()).To(Succeed())
+					Expect(fs.SyncDir("f.txt")).To(MatchError(syscall.ENOTDIR))
 				})
 			})
 			Describe("CopyFile", func() {
