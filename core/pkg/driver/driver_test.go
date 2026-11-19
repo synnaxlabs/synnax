@@ -321,6 +321,16 @@ var _ = Describe("Open", func() {
 			},
 		)
 
+		It("Should refuse a secrets folder that is not an absolute path", func(
+			ctx SpecContext,
+		) {
+			logger, _ := newTestLogger()
+			cfgs := []driver.Config{mockConfig(logger), {SecretsDir: "secrets"}}
+			Expect(driver.Open(ctx, cfgs...)).Error().To(MatchError(
+				ContainSubstring("secrets_dir: must be an absolute path"),
+			))
+		})
+
 		It("Should return a non-nil driver when disabled", func(ctx SpecContext) {
 			logger, _ := newTestLogger()
 			d := MustSucceed(driver.Open(ctx, driver.Config{
@@ -485,6 +495,32 @@ var _ = Describe("Open", func() {
 				"GRPC_DEFAULT_SSL_ROOTS_FILE_PATH=" + anchorFile,
 			))
 			Expect(d.Close()).To(Succeed())
+		})
+
+		It("Should give the Driver the secrets folder of its rack", func(
+			ctx SpecContext,
+		) {
+			logger, _ := newTestLogger()
+			dir := GinkgoT().TempDir()
+			secrets := GinkgoT().TempDir()
+			d := openMockDriver(ctx, logger, driver.Config{
+				ParentDirname: dir,
+				SecretsDir:    secrets,
+			})
+			cfg := readDriverConfig(dir)
+			Expect(d.Close()).To(Succeed())
+			Expect(cfg).To(HaveKeyWithValue("secrets_dir", secrets))
+		})
+
+		It("Should give the Driver no secrets folder when none is set", func(
+			ctx SpecContext,
+		) {
+			logger, _ := newTestLogger()
+			dir := GinkgoT().TempDir()
+			d := openMockDriver(ctx, logger, driver.Config{ParentDirname: dir})
+			cfg := readDriverConfig(dir)
+			Expect(d.Close()).To(Succeed())
+			Expect(cfg).ToNot(HaveKey("secrets_dir"))
 		})
 
 		It("Should give the Driver an API key for its rack", func(ctx SpecContext) {
@@ -719,15 +755,22 @@ func readSavedKey(keyDir string) string {
 	return string(MustSucceed(fs.ReadFile(os.DirFS(keyDir), "embedded-driver-key")))
 }
 
-// readDriverConnection returns the connection block of the config file the Driver was
-// started with. It must be called while the Driver is running, since the file is
-// removed once the process exits.
-func readDriverConnection(parentDirname string) map[string]any {
+// readDriverConfig returns the config file the Driver was started with. It must be
+// called while the Driver is running, since the file is removed once the process
+// exits.
+func readDriverConfig(parentDirname string) map[string]any {
 	GinkgoHelper()
 	b := MustSucceed(fs.ReadFile(os.DirFS(parentDirname), "driver/config.json"))
 	var cfg map[string]any
 	Expect(json.Unmarshal(b, &cfg)).To(Succeed())
-	conn, ok := cfg["connection"].(map[string]any)
+	return cfg
+}
+
+// readDriverConnection returns the connection block of the config file the Driver was
+// started with, under the same rule as readDriverConfig.
+func readDriverConnection(parentDirname string) map[string]any {
+	GinkgoHelper()
+	conn, ok := readDriverConfig(parentDirname)["connection"].(map[string]any)
 	Expect(ok).To(BeTrue())
 	return conn
 }

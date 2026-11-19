@@ -297,6 +297,12 @@ func BootupCore(
 		return errors.Mark(err, validate.ErrValidation)
 	}
 
+	if cfg.secretsDir != "" {
+		if cfg.secretsDir, err = filepath.Abs(cfg.secretsDir); !ok(err, nil) {
+			return errors.Wrap(err, "failed to resolve secrets folder")
+		}
+	}
+
 	cacheDir, err := os.UserCacheDir()
 	if !ok(err, nil) {
 		return errors.Wrap(err, "failed to resolve cache directory")
@@ -466,6 +472,7 @@ func BootupCore(
 			Keys:                serviceLayer.APIKey,
 			DB:                  distributionLayer.DB,
 			KeyDirname:          lo.Ternary(*cfg.memBacked, "", cfg.dataPath),
+			SecretsDir:          cfg.secretsDir,
 			Debug:               cfg.debug,
 			TrustAnchorsPEM:     driverTrustAnchors,
 			ParentDirname:       workDir,
