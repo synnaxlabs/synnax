@@ -93,13 +93,14 @@ export const STEPS: Step[] = [
   toolbar("device", "Devices", "D"),
   toolbar("task", "Tasks", "T"),
   toolbar("arc", "Arcs", "A"),
+  toolbar("icd", "ICDs", "L"),
   toolbar("status", "Statuses", "S"),
   toolbar("component", "Component toolbar", "V", "component"),
   part("panels", "Panel selector", "top"),
   {
     ...part("help", "Help and updates", "top", "getting-help"),
-    regions: ["help", "code"],
-    hotspots: { code: "Connect from code" },
+    regions: ["help", "settings", "code"],
+    hotspots: { settings: "Settings", code: "Connect from code" },
   },
 ];
 

@@ -1,5 +1,5 @@
 {
-  "version": "7f4810932399",
+  "version": "a9674f703cb3",
   "width": 1440,
   "height": 900,
   "stills": {
@@ -82,6 +82,12 @@
         "width": 32,
         "height": 32
       },
+      "icd": {
+        "x": 9.5,
+        "y": 358,
+        "width": 32,
+        "height": 32
+      },
       "status": {
         "x": 9.5,
         "y": 399,
@@ -102,6 +108,12 @@
       },
       "help": {
         "x": 1377,
+        "y": 9,
+        "width": 24,
+        "height": 24
+      },
+      "settings": {
+        "x": 1407,
         "y": 9,
         "width": 24,
         "height": 24
@@ -206,6 +218,12 @@
         "width": 32,
         "height": 32
       },
+      "icd": {
+        "x": 9.5,
+        "y": 358,
+        "width": 32,
+        "height": 32
+      },
       "status": {
         "x": 9.5,
         "y": 399,
@@ -226,6 +244,12 @@
       },
       "help": {
         "x": 1377,
+        "y": 9,
+        "width": 24,
+        "height": 24
+      },
+      "settings": {
+        "x": 1407,
         "y": 9,
         "width": 24,
         "height": 24
@@ -322,6 +346,12 @@
         "width": 32,
         "height": 32
       },
+      "icd": {
+        "x": 9.5,
+        "y": 358,
+        "width": 32,
+        "height": 32
+      },
       "status": {
         "x": 9.5,
         "y": 399,
@@ -342,6 +372,12 @@
       },
       "help": {
         "x": 1377,
+        "y": 9,
+        "width": 24,
+        "height": 24
+      },
+      "settings": {
+        "x": 1407,
         "y": 9,
         "width": 24,
         "height": 24
@@ -438,6 +474,12 @@
         "width": 32,
         "height": 32
       },
+      "icd": {
+        "x": 9.5,
+        "y": 358,
+        "width": 32,
+        "height": 32
+      },
       "status": {
         "x": 9.5,
         "y": 399,
@@ -458,6 +500,12 @@
       },
       "help": {
         "x": 1377,
+        "y": 9,
+        "width": 24,
+        "height": 24
+      },
+      "settings": {
+        "x": 1407,
         "y": 9,
         "width": 24,
         "height": 24
@@ -554,6 +602,12 @@
         "width": 32,
         "height": 32
       },
+      "icd": {
+        "x": 9.5,
+        "y": 358,
+        "width": 32,
+        "height": 32
+      },
       "status": {
         "x": 9.5,
         "y": 399,
@@ -574,6 +628,12 @@
       },
       "help": {
         "x": 1377,
+        "y": 9,
+        "width": 24,
+        "height": 24
+      },
+      "settings": {
+        "x": 1407,
         "y": 9,
         "width": 24,
         "height": 24
@@ -670,6 +730,12 @@
         "width": 32,
         "height": 32
       },
+      "icd": {
+        "x": 9.5,
+        "y": 358,
+        "width": 32,
+        "height": 32
+      },
       "status": {
         "x": 9.5,
         "y": 399,
@@ -690,6 +756,12 @@
       },
       "help": {
         "x": 1377,
+        "y": 9,
+        "width": 24,
+        "height": 24
+      },
+      "settings": {
+        "x": 1407,
         "y": 9,
         "width": 24,
         "height": 24
@@ -786,6 +858,12 @@
         "width": 32,
         "height": 32
       },
+      "icd": {
+        "x": 9.5,
+        "y": 358,
+        "width": 32,
+        "height": 32
+      },
       "status": {
         "x": 9.5,
         "y": 399,
@@ -806,6 +884,140 @@
       },
       "help": {
         "x": 1377,
+        "y": 9,
+        "width": 24,
+        "height": 24
+      },
+      "settings": {
+        "x": 1407,
+        "y": 9,
+        "width": 24,
+        "height": 24
+      },
+      "code": {
+        "x": 1347,
+        "y": 9,
+        "width": 24,
+        "height": 24
+      },
+      "drawer": {
+        "x": 51,
+        "y": 42,
+        "width": 300,
+        "height": 852
+      }
+    },
+    "icd": {
+      "mosaic": {
+        "x": 357,
+        "y": 42,
+        "width": 1077,
+        "height": 852
+      },
+      "schematic": {
+        "x": 358,
+        "y": 43,
+        "width": 600.06,
+        "height": 551.5
+      },
+      "lineplot": {
+        "x": 959.06,
+        "y": 43,
+        "width": 473.92,
+        "height": 414.3
+      },
+      "editor": {
+        "x": 959.06,
+        "y": 458.3,
+        "width": 473.92,
+        "height": 434.69
+      },
+      "project": {
+        "x": 8.5,
+        "y": 12,
+        "width": 34,
+        "height": 34
+      },
+      "search": {
+        "x": 9.5,
+        "y": 71,
+        "width": 32,
+        "height": 32
+      },
+      "toolbars": {
+        "x": 9.5,
+        "y": 112,
+        "width": 32,
+        "height": 319
+      },
+      "channel": {
+        "x": 9.5,
+        "y": 112,
+        "width": 32,
+        "height": 32
+      },
+      "range": {
+        "x": 9.5,
+        "y": 153,
+        "width": 32,
+        "height": 32
+      },
+      "workspace": {
+        "x": 9.5,
+        "y": 194,
+        "width": 32,
+        "height": 32
+      },
+      "device": {
+        "x": 9.5,
+        "y": 235,
+        "width": 32,
+        "height": 32
+      },
+      "task": {
+        "x": 9.5,
+        "y": 276,
+        "width": 32,
+        "height": 32
+      },
+      "arc": {
+        "x": 9.5,
+        "y": 317,
+        "width": 32,
+        "height": 32
+      },
+      "icd": {
+        "x": 9.5,
+        "y": 358,
+        "width": 32,
+        "height": 32
+      },
+      "status": {
+        "x": 9.5,
+        "y": 399,
+        "width": 32,
+        "height": 32
+      },
+      "component": {
+        "x": 9.5,
+        "y": 850,
+        "width": 32,
+        "height": 32
+      },
+      "panels": {
+        "x": 60,
+        "y": 7,
+        "width": 1120,
+        "height": 28
+      },
+      "help": {
+        "x": 1377,
+        "y": 9,
+        "width": 24,
+        "height": 24
+      },
+      "settings": {
+        "x": 1407,
         "y": 9,
         "width": 24,
         "height": 24
@@ -902,6 +1114,12 @@
         "width": 32,
         "height": 32
       },
+      "icd": {
+        "x": 9.5,
+        "y": 358,
+        "width": 32,
+        "height": 32
+      },
       "status": {
         "x": 9.5,
         "y": 399,
@@ -922,6 +1140,12 @@
       },
       "help": {
         "x": 1377,
+        "y": 9,
+        "width": 24,
+        "height": 24
+      },
+      "settings": {
+        "x": 1407,
         "y": 9,
         "width": 24,
         "height": 24
@@ -1018,6 +1242,12 @@
         "width": 32,
         "height": 32
       },
+      "icd": {
+        "x": 9.5,
+        "y": 358,
+        "width": 32,
+        "height": 32
+      },
       "status": {
         "x": 9.5,
         "y": 399,
@@ -1038,6 +1268,12 @@
       },
       "help": {
         "x": 1377,
+        "y": 9,
+        "width": 24,
+        "height": 24
+      },
+      "settings": {
+        "x": 1407,
         "y": 9,
         "width": 24,
         "height": 24
