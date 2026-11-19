@@ -46,12 +46,12 @@ class FakeCanvas extends EventTarget {
 
 const teardowns: (() => void)[] = [];
 
-const mount = (os: runtime.OS = "macOS") => {
-  const returns: Record<string, () => unknown> = {};
-  const { gl, calls } = canvasTest.createGL(returns);
+const bootstrap = (gl: unknown, os: runtime.OS = "macOS") => {
   const glCanvas = new FakeCanvas(gl);
   const recorder = canvasTest.record();
-  const stack = buildStack({ registry: canvas.REGISTRY });
+  const stack = buildStack({
+    registry: { ...canvas.REGISTRY, [aetherTest.Leaf.TYPE]: aetherTest.Leaf },
+  });
   teardowns.push(() => stack.driver.delete([aetherTest.ROOT_KEY]));
   const path = [...stack.basePath, "canvas"];
   stack.driver.update(path, canvas.Canvas.TYPE, {
@@ -63,9 +63,16 @@ const mount = (os: runtime.OS = "macOS") => {
     dpr: 1,
     os,
   });
+  const statuses = () => stack.providers.status?.state.statuses ?? [];
+  return { glCanvas, recorder, stack, path, statuses };
+};
+
+const mount = (os: runtime.OS = "macOS") => {
+  const returns: Record<string, () => unknown> = {};
+  const { gl, calls } = canvasTest.createGL(returns);
+  const { glCanvas, recorder, stack, path, statuses } = bootstrap(gl, os);
   const { renderCtx } = stack.driver.find<canvas.Canvas>(path);
   assert(renderCtx != null);
-  const statuses = () => stack.providers.status?.state.statuses ?? [];
   const count = (op: string) => calls.filter((c) => c.op === op).length;
   const lose = (): Event => {
     const event = new Event("webglcontextlost", { cancelable: true });
@@ -93,6 +100,22 @@ describe("render.Context", () => {
     teardowns.length = 0;
     vi.useRealTimers();
     vi.unstubAllGlobals();
+  });
+
+  describe("when the canvas gives no WebGL context", () => {
+    it("should bootstrap the canvas without a render context", () => {
+      const { stack, path } = bootstrap(null);
+      const c = stack.driver.find<canvas.Canvas>(path);
+      expect(c.state).toMatchObject({ bootstrapped: true, gpuMissing: true });
+      expect(c.renderCtx).toBeNull();
+    });
+
+    it("should still update its children", () => {
+      const { stack, path } = bootstrap(null);
+      const child = [...path, "child"];
+      stack.driver.update(child, aetherTest.Leaf.TYPE, { value: 1 });
+      expect(stack.driver.find<aetherTest.Leaf>(child).state).toEqual({ value: 1 });
+    });
   });
 
   describe("resize", () => {

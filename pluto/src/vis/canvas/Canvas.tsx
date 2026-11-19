@@ -18,16 +18,21 @@ import {
 import { box, type CrudeTimeSpan, runtime, scale, TimeSpan, xy } from "@synnaxlabs/x";
 import {
   type CanvasHTMLAttributes,
+  createContext,
   type DetailedHTMLProps,
   type ReactElement,
   type RefCallback,
+  use,
   useEffect,
   useRef,
 } from "react";
+import { type z } from "zod";
 
 import { Aether } from "@/aether";
 import { CSS } from "@/css";
 import { canvas } from "@/vis/canvas/aether";
+
+type State = z.infer<typeof canvas.canvasStateZ>;
 
 type HTMLDivProps = DetailedHTMLProps<
   CanvasHTMLAttributes<HTMLDivElement>,
@@ -50,6 +55,23 @@ const ZERO_CANVASES: Canvases = {
   bootstrapped: false,
 };
 
+const Context = createContext(false);
+Context.displayName = "Canvas.Context";
+
+/** @returns true when the enclosing canvas has no GPU to draw visualizations with. */
+export const useGPUMissing = (): boolean => use(Context);
+
+// The worker owns the bootstrap fields, so a region change keeps them and never sends
+// the transferred canvases again.
+const withRegion = (p: State, region: box.Box): State => ({
+  bootstrap: false,
+  bootstrapped: p.bootstrapped,
+  gpuMissing: p.gpuMissing,
+  region,
+  dpr: window.devicePixelRatio,
+  os: runtime.getOS({ default: "Windows" }),
+});
+
 const DEFAULT_RESIZE_DEBOUNCE = TimeSpan.milliseconds(100);
 
 export interface CanvasProps extends Omit<HTMLDivProps, "ref"> {
@@ -62,7 +84,7 @@ export const Canvas = ({
   className,
   ...rest
 }: CanvasProps): ReactElement => {
-  const [{ path }, { bootstrapped, dpr }, setState] = Aether.use({
+  const [{ path }, { bootstrapped, gpuMissing, dpr }, setState] = Aether.use({
     type: canvas.Canvas.TYPE,
     schema: canvas.canvasStateZ,
     initialState: ZERO_PROPS,
@@ -74,12 +96,7 @@ export const Canvas = ({
 
   const handleResize = (region: box.Box) => {
     if (canvases.current.bootstrapped) {
-      setState(() => ({
-        bootstrapped: true,
-        region,
-        dpr: window.devicePixelRatio,
-        os: runtime.getOS({ default: "Windows" }),
-      }));
+      setState((p) => withRegion(p, region));
       initialResizeComplete.current = true;
     }
   };
@@ -98,14 +115,10 @@ export const Canvas = ({
         elRef.current == null
       )
         return;
-      setState((p) => ({
-        ...p,
-        // We need to explicitly construct the region here because this callback
-        // may race against the `useResize` callback and cause a stale region to
-        // be used in state.
-        region: box.construct(elRef.current ?? box.ZERO),
-        dpr: window.devicePixelRatio,
-      }));
+      // We need to explicitly construct the region here because this callback may
+      // race against the `useResize` callback and cause a stale region to be used in
+      // state.
+      setState((p) => withRegion(p, box.construct(elRef.current ?? box.ZERO)));
     };
     const query = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
     query.addEventListener("change", handleChange, { once: true });
@@ -117,16 +130,10 @@ export const Canvas = ({
   useEffect(() => {
     const handler = () => {
       if (!canvases.current.bootstrapped || elRef.current == null) return;
-      setState((p) => ({
-        ...p,
-        // We need to explicitly construct the region here because this callback
-        // may race against the `useResize` callback and cause a stale region to
-        // be used in state.
-        region: box.construct(elRef.current ?? box.ZERO),
-        glCanvas: undefined,
-        upper2dCanvas: undefined,
-        lower2dCanvas: undefined,
-      }));
+      // We need to explicitly construct the region here because this callback may
+      // race against the `useResize` callback and cause a stale region to be used in
+      // state.
+      setState((p) => withRegion(p, box.construct(elRef.current ?? box.ZERO)));
     };
     window.addEventListener("focus", handler);
     window.addEventListener("blur", handler);
@@ -183,7 +190,9 @@ export const Canvas = ({
         ref={refCallback}
         className={CSS.cls(CSS.B("canvas"), CSS.BM("canvas", "upper2d"))}
       />
-      <Aether.Composite path={path}>{bootstrapped && children}</Aether.Composite>
+      <Context value={gpuMissing}>
+        <Aether.Composite path={path}>{bootstrapped && children}</Aether.Composite>
+      </Context>
     </div>
   );
 };

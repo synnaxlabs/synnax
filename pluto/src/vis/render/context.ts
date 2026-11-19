@@ -41,6 +41,13 @@ const applyDefaultCanvasOpts = <T extends OffscreenCanvasRenderingContext2D>(
   return canvas;
 };
 
+const WEBGL_OPTS: WebGLContextAttributes = {
+  preserveDrawingBuffer: true,
+  powerPreference: "high-performance",
+  stencil: false,
+  depth: false,
+};
+
 /**
  * A hybrid rendering context containing both 2D and WebGL canvases and contexts.
  * Implements several utility methods for correctly scaling the canvas, restricting
@@ -78,15 +85,22 @@ export class Context {
   private readonly restore2DHandlers = new Set<() => void>();
   private readonly atlases = new text.AtlasRegistry();
 
+  /**
+   * Creates a render context and sets it on ctx.
+   * @returns null when the canvas gives no WebGL2 context.
+   */
   static create(
     ctx: aether.Context,
     glCanvas: OffscreenCanvas,
     lower2dCanvas: OffscreenCanvas,
     upper2dCanvas: OffscreenCanvas,
     os: runtime.OS,
-  ): Context {
+  ): Context | null {
+    const gl = glCanvas.getContext("webgl2", WEBGL_OPTS);
+    if (gl == null) return null;
     const instrumentation = alamos.useInstrumentation(ctx, "render_context");
     const render = new Context(
+      gl,
       glCanvas,
       lower2dCanvas,
       upper2dCanvas,
@@ -100,6 +114,7 @@ export class Context {
   }
 
   private constructor(
+    gl: WebGL2RenderingContext,
     glCanvas: OffscreenCanvas,
     lower2dCanvas: OffscreenCanvas,
     upper2dCanvas: OffscreenCanvas,
@@ -128,14 +143,6 @@ export class Context {
       new SugaredOffscreenCanvasRenderingContext2D(upperCtx, this.atlases, this.dpr),
     );
 
-    const webGlOpts: WebGLContextAttributes = {
-      preserveDrawingBuffer: true,
-      powerPreference: "high-performance",
-      stencil: false,
-      depth: false,
-    };
-    const gl = this.glCanvas.getContext("webgl2", webGlOpts);
-    if (gl == null) throw new Error("Could not get WebGL context");
     this.gl = gl;
     this.configureGL();
 
