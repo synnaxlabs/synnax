@@ -35,7 +35,7 @@ import { useDebouncedCallback } from "@/hooks";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { Menu } from "@/menu";
-import { keyboardMenuKey, openContextMenu } from "@/menu/keyboard";
+import { menuKeyDown, menuKeyUp, openContextMenu } from "@/menu/keyboard";
 import { Select } from "@/select";
 import { Status } from "@/status";
 import { Text } from "@/text";
@@ -168,15 +168,7 @@ const Tabbed = ({
   value,
   onChange,
   fallback,
-  library: {
-    palettes,
-    named,
-    onNamedChange,
-    paletteEnd,
-    swatchMenu,
-    hasSwatchMenu,
-    footer,
-  },
+  library: { palettes, named, onNamedChange, ...slots },
   className,
   ...rest
 }: TabbedProps): ReactElement => {
@@ -333,10 +325,7 @@ const Tabbed = ({
               linked={linked?.key}
               onPick={onNamedChange}
               registerSwatch={registerSwatch}
-              paletteEnd={paletteEnd}
-              swatchMenu={swatchMenu}
-              hasSwatchMenu={hasSwatchMenu}
-              footer={footer}
+              {...slots}
             />
           </>
         ) : (
@@ -441,15 +430,10 @@ const PaletteSection = ({
         if (opens()) menu.open(e);
       },
       onKeyDown: (e: KeyboardEvent<HTMLElement>) => {
-        const menuKey = keyboardMenuKey(e);
-        if (menuKey == null || !opens()) return;
-        e.preventDefault();
-        if (menuKey === "F10" && !e.repeat) openContextMenu(e.currentTarget);
+        if (opens()) menuKeyDown(e, () => openContextMenu(e.currentTarget));
       },
       onKeyUp: (e: KeyboardEvent<HTMLElement>) => {
-        if (keyboardMenuKey(e) !== "ContextMenu" || !opens()) return;
-        e.preventDefault();
-        openContextMenu(e.currentTarget);
+        if (opens()) menuKeyUp(e, () => openContextMenu(e.currentTarget));
       },
     };
   };
