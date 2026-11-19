@@ -759,9 +759,11 @@ not a key (`cesium/open.go:69-78`).
 Phases 1 to 4 build the test base: `SyncDir`, the fault file system with the faults of
 §6, the crash harness with its durable-ack oracle (run first on today's Cesium), Pebble
 on the same event counter, decoder fuzz tests, and an invariants build. Phase 5 builds
-§4 on the old layout, except that `CreateChannel` stays and `OpenWriter` keeps the key
-set of today; one clock per writer arrives with Phase 6. Phase 6 builds the log, heads,
-`Sync` and the framer's call to it, recovery, the state owner, the handle budget,
+§4 on the old layout, except that `CreateChannel` stays, `OpenWriter` keeps the key set
+of today, and a writer that opens inside a live claim joins it, as today, with no
+authority in Cesium: the framer gates each session per channel. One clock per writer and
+the refusal of an overlapping writer (§5.8) arrive with Phase 6. Phase 6 builds the log,
+heads, `Sync` and the framer's call to it, recovery, the state owner, the handle budget,
 version 1 segments, and replay from a run key, behind a Cesium open option that keeps
 the old layout the default. Phase 7 builds parts, versions 0 and 2, tombstones,
 compaction, the conversion with a crash test at each of its steps, and the backup
