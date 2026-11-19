@@ -19,6 +19,13 @@
     padding: 2rem 2.5rem;
 }
 
+/* Too narrow for three values side by side, so the stats stack. */
+@container (width < 96rem) {
+    .console-license-info__stats {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
 .console-license-info__detail {
     overflow-wrap: anywhere;
     -webkit-user-select: text;
