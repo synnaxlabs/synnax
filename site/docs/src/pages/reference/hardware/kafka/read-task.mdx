@@ -352,15 +352,16 @@ that has read the topic.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"record key ...: claimed by more than one record"}>
+<Problem.Item message={"topic ...: record key ...: claimed by more than one record"}>
 <Problem.Cause>
 
-Two records of the task have the same record key.
+Two records of one topic have the same record key. Records of different topics can share
+a key.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Give each record its own key, or move the fields into one record.
+Give each record of the topic its own key, or move the fields into one record.
 
 </Problem.Fix>
 </Problem.Item>
