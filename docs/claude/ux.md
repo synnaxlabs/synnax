@@ -413,6 +413,15 @@ bound, a log precision, or the line plot X channel.
   (`Icon.None`), such as "No parent". It is pinned under the list, below a divider, and
   it shows during a search. A click on the current value to clear it is not sufficient,
   because users do not find it.
+- A select of things users make, such as labels or ranges, creates them in place. With
+  an empty search, a pinned "New <noun>" opens the create modal. While the user types,
+  it changes to "Create <noun> "text"", which creates the item at once and picks it. An
+  item that needs a choice from the user opens the create modal with the text as its
+  name: a label asks for its color. The Console never picks a color for the user. The
+  option hides when the text matches a name in any case, and after a click until the
+  text changes, so a second click makes no copy. It needs create permission. A filter
+  never creates. A new parent range covers the ranges that move into it. Under the
+  divider, the create option comes first, then "No <noun>".
 - In a group, all items have an icon or none do.
 - "Copy" puts data on the clipboard. "Duplicate" makes a new resource. A menu never
   calls a duplicate "Copy".

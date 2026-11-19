@@ -532,6 +532,17 @@ def current(run: dict[str, Any]) -> bool:
 def reviewed(t: Target, gh: GH) -> list[str]:
     """Returns each commit that the bot reviewed, newest first, from the revisions of
     the pull request body."""
+    commits: list[str] = []
+    for block in summaries(t, gh):
+        found = re.findall(r"/commit/([0-9a-f]{40})", block)
+        if found and found[-1] not in commits:
+            commits.append(found[-1])
+    return commits
+
+
+def summaries(t: Target, gh: GH) -> list[str]:
+    """Returns each summary that the bot wrote in the pull request body, newest first,
+    from the revisions of the body."""
     owner, name = t.repo.split("/")
     out = gh(
         "api",
@@ -548,16 +559,13 @@ def reviewed(t: Target, gh: GH) -> list[str]:
         "--jq",
         ".data.repository.pullRequest.userContentEdits.nodes[] | tojson",
     )
-    commits: list[str] = []
+    blocks: list[str] = []
     for line in out.splitlines():
         e = json.loads(line)
         block = _SUMMARY.search(e["diff"] or "")
-        if (e["editor"] or {}).get("login") != t.bot or block is None:
-            continue
-        found = re.findall(r"/commit/([0-9a-f]{40})", block[0])
-        if found and found[-1] not in commits:
-            commits.append(found[-1])
-    return commits
+        if (e["editor"] or {}).get("login") == t.bot and block is not None:
+            blocks.append(block[0])
+    return blocks
 
 
 def _anchor(f: Finding) -> dict[str, Any]:
