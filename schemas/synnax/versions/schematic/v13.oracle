@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/versions/channel/v0"
-import "schemas/synnax/versions/enumeration/v0"
 import "schemas/synnax/versions/group/v1"
 import "schemas/synnax/versions/project/v3"
 import "schemas/synnax/versions/ranger/v1"
@@ -46,7 +45,9 @@ Segment = v9.Segment
 
 SegmentedEdgeConfig struct extends v9.SegmentedEdgeConfig {
     stroke_width uint8 = 2 {
-        @doc value "is the stroke width of the edge in pixels."
+        @doc value    "is the stroke width of the edge in pixels."
+        @validate max 20
+        @validate min 1
     }
 }
 
@@ -308,13 +309,6 @@ NodeConfig union on variant extends v10.NodeConfig {
             @validate max 2147483647000000
             @validate min 0
         }
-        options
-        enumeration     enumeration.Key?   {
-            @doc value """
-                is the enumeration whose entries the select offers in place of its
-                options.
-            """
-        }
     }
     setpoint {
         command_channel channel.Key = 0 {
@@ -360,13 +354,6 @@ NodeConfig union on variant extends v10.NodeConfig {
         inline_size uint16 = 100 {
             @doc value    "is the inline size of the indicator in pixels."
             @validate min 1
-        }
-        options
-        enumeration enumeration.Key? {
-            @doc value """
-                is the enumeration whose entries the indicator shows in place of its
-                options.
-            """
         }
     }
     string_display {

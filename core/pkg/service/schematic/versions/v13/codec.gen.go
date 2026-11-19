@@ -13,7 +13,6 @@ package v13
 
 import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
-	enumeration "github.com/synnaxlabs/synnax/pkg/service/enumeration/versions/v0"
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
 	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v5"
@@ -742,12 +741,6 @@ func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
 				}
 			}
 		}
-		if v.Enumeration != nil {
-			w.Bool(true)
-			w.Write((*v.Enumeration)[:])
-		} else {
-			w.Bool(false)
-		}
 		w.Bool(v.Disabled)
 		w.Int64(int64(v.OnClickDelay))
 		if err := v.Control.EncodeOrc(w); err != nil {
@@ -822,12 +815,6 @@ func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
 					return err
 				}
 			}
-		}
-		if v.Enumeration != nil {
-			w.Bool(true)
-			w.Write((*v.Enumeration)[:])
-		} else {
-			w.Bool(false)
 		}
 		w.String(string(v.Size))
 	case StringDisplayNodeConfig:
@@ -2049,19 +2036,6 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				}
 			}
 		}
-		{
-			present, err := r.Bool()
-			if err != nil {
-				return err
-			}
-			if present {
-				var hv enumeration.Key
-				if _, err := r.Read(hv[:]); err != nil {
-					return err
-				}
-				v.Enumeration = &hv
-			}
-		}
 		if v.Disabled, err = r.Bool(); err != nil {
 			return err
 		}
@@ -2203,19 +2177,6 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 						return err
 					}
 				}
-			}
-		}
-		{
-			present, err := r.Bool()
-			if err != nil {
-				return err
-			}
-			if present {
-				var hv enumeration.Key
-				if _, err := r.Read(hv[:]); err != nil {
-					return err
-				}
-				v.Enumeration = &hv
 			}
 		}
 		{

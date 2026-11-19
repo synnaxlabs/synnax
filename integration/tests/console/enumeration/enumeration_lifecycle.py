@@ -10,8 +10,8 @@
 from playwright.sync_api import expect
 
 from console.case import ConsoleCase
-from synnax import enumeration
-from x import random_name
+from synnax import enumeration, project, schematic
+from x import random_name, spatial
 
 # A built-in that no other test edits.
 _BUILTIN = "Switch"
@@ -24,15 +24,35 @@ class EnumerationLifecycle(ConsoleCase):
     name: str
     entries: list[str]
     replaced: str
+    users: project.Project
 
     def setup(self) -> None:
         super().setup()
         self.name = random_name()
         self.entries = [random_name() for _ in range(3)]
         self.replaced = random_name()
-        self.client.enumerations.create(enumeration.Enumeration(name=self.replaced))
+        replaced = self.client.enumerations.create(
+            enumeration.Enumeration(name=self.replaced)
+        )
+        # A select that uses the enumeration makes its delete ask for a replacement.
+        self.users = self.client.projects.create(name=random_name())
+        select = schematic.SelectNodeConfig(enumeration=replaced.key)
+        self.client.schematics.create(
+            schematic.Schematic(
+                name=random_name(),
+                project=self.users.key,
+                nodes=[
+                    schematic.Node(
+                        key="select", position=spatial.XY(x=0, y=0), config=select
+                    )
+                ],
+            )
+        )
 
     def teardown(self) -> None:
+        # The select in the project uses an enumeration until test_replace runs, and the
+        # Core refuses to delete an enumeration in use.
+        self.client.projects.delete(self.users.key)
         stale = self.client.enumerations.retrieve(names=[self.name, self.replaced])
         if stale:
             self.client.enumerations.delete([e.key for e in stale])
@@ -145,10 +165,12 @@ class EnumerationLifecycle(ConsoleCase):
         expect(heading.get_by_text("Edited", exact=True)).to_have_count(0)
 
     def test_replace(self) -> None:
-        """Test deleting an enumeration with Replace with in its delete dialog."""
+        """Test that deleting an enumeration in use moves its select to the pick."""
         self.log("Testing: Replace an enumeration")
         self.console.enumerations.search(self.replaced)
-        self.console.enumerations.replace(self.replaced, with_name=self.name)
+        # The built-in takes the select, so the enumeration that test_delete deletes
+        # stays unused.
+        self.console.enumerations.replace(self.replaced, with_name=_BUILTIN)
 
     def test_delete(self) -> None:
         """Test deleting an enumeration from the menu of its heading."""
