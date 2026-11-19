@@ -35,7 +35,7 @@ export const Tooltip = ({ aetherKey, ...rest }: TooltipProps): ReactElement | nu
     const canvas = document.querySelector(".pluto-canvas-container");
     if (canvas == null) return;
     const topLeft = box.topLeft(canvas);
-    setState({ position: xy.translation(topLeft, xy.construct(e)) });
+    setState({ position: xy.sub(xy.construct(e), topLeft) });
   };
 
   const handleLeave = (): void => setState({ position: null });
