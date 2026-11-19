@@ -407,6 +407,24 @@ describe("Color.Field", () => {
       ).toBeNull();
     });
 
+    it("should focus Create palette when a new palette gets no +", async () => {
+      const limited = await createLimitedWrapper("create");
+      const { result } = renderField(undefined, limited);
+      openPicker(result);
+      fireEvent.click(await screen.findByRole("button", { name: "Create palette" }));
+      const name = `palette-${id.create()}`;
+      enterName("Palette name", name);
+      expect(await screen.findByRole("group", { name })).toBeTruthy();
+      await waitFor(() =>
+        expect(document.activeElement).toBe(
+          screen.getByRole("button", { name: "Create palette" }),
+        ),
+      );
+      expect(
+        screen.queryByRole("button", { name: `Create a color in ${name}` }),
+      ).toBeNull();
+    });
+
     it("should let a user who cannot update colors create one in no palette", async () => {
       await client.colors.create({ name: `loose-${id.create()}`, light: "#00FF00" });
       const limited = await createLimitedWrapper("create");

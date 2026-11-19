@@ -208,19 +208,23 @@ export const CreateSwatch = ({
 };
 
 export interface CreatePaletteProps {
-  /** Called with the key of a created palette. */
+  /** Called with the key of a created palette that ends with a "+", for its focus. */
   onCreate?: (key: group.Key) => void;
 }
 
 /**
  * Ends the palettes of a color picker. It creates a palette after asking its name, and
- * clears the search so that the palette shows. A cancel moves the focus back to the
- * button that opened the entry.
+ * clears the search so that the palette shows. A create moves the focus to the "+" of
+ * the new palette. A cancel, or a create for a user who cannot add to the palette,
+ * moves it back to the button that opened the entry.
  */
 export const CreatePalette = ({ onCreate }: CreatePaletteProps): ReactElement => {
   const { clearSearch } = Color.usePicker();
+  // No policy can name the key of a new palette, so only a grant on every palette gives
+  // it a "+".
+  const extendable = Access.useUpdateGranted(group.TYPE_RESOURCE_ID);
   const [naming, setNaming] = useState(false);
-  const [cancelled, setCancelled] = useState(false);
+  const [focused, setFocused] = useState(false);
   const { updateAsync: create } = useCreatePalette();
   if (!naming)
     return (
@@ -230,9 +234,9 @@ export const CreatePalette = ({ onCreate }: CreatePaletteProps): ReactElement =>
         textColor={9}
         justify="start"
         className={CSS.B("color-create-palette")}
-        autoFocus={cancelled}
+        autoFocus={focused}
         onClick={() => {
-          setCancelled(false);
+          setFocused(false);
           setNaming(true);
         }}
       >
@@ -246,7 +250,8 @@ export const CreatePalette = ({ onCreate }: CreatePaletteProps): ReactElement =>
     if (!created) return false;
     setNaming(false);
     clearSearch();
-    onCreate?.(key);
+    if (extendable) onCreate?.(key);
+    else setFocused(true);
     return true;
   };
   return (
@@ -254,7 +259,7 @@ export const CreatePalette = ({ onCreate }: CreatePaletteProps): ReactElement =>
       placeholder="Palette name"
       onSave={handleSave}
       onCancel={() => {
-        setCancelled(true);
+        setFocused(true);
         setNaming(false);
       }}
     />
