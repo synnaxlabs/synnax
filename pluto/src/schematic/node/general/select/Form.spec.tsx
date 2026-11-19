@@ -37,7 +37,7 @@ describe("SelectForm", () => {
     });
   });
 
-  it("should show the options without colors until an enumeration is picked", async () => {
+  it("should show a Color column only once an enumeration is picked", async () => {
     const created = await client.enumerations.create({
       name: `select-${id.create()}`,
       entries: [{ key: id.create(), name: "Primed", value: 0, abnormal: false }],
@@ -54,9 +54,10 @@ describe("SelectForm", () => {
     const input = async (label: string): Promise<HTMLInputElement> =>
       await screen.findByLabelText<HTMLInputElement>(label);
     const name = async (): Promise<string> => (await input("Name 1")).value;
-    const color = async (): Promise<boolean> => (await input("Color 1")).disabled;
+    const columns = (): string[] =>
+      screen.getAllByRole("columnheader").flatMap((h) => h.textContent || []);
     expect(await name()).toBe("Open");
-    expect(await color()).toBe(true);
+    expect(columns()).toEqual(["Name", "Value"]);
     fireEvent.click(await findByRole("button", { name: "Enumeration" }));
     fireEvent.change(getByPlaceholderText("Search enumerations..."), {
       target: { value: created.name },
@@ -64,10 +65,11 @@ describe("SelectForm", () => {
     fireEvent.click(await findByRole("option", { name: created.name }));
     await waitFor(() => expect(value(path.enumeration)).toBe(created.key));
     await waitFor(async () => expect(await name()).toBe("Primed"));
-    expect(await color()).toBe(false);
+    expect(columns()).toEqual(["Name", "Value", "Color", "Abnormal"]);
     fireEvent.click(await findByLabelText(`Clear ${created.name}`));
     await waitFor(() => expect(value(path.enumeration)).toBeUndefined());
     await waitFor(async () => expect(await name()).toBe("Open"));
+    expect(columns()).toEqual(["Name", "Value"]);
   });
 
   it("should unbind and disable the command channel when it is cleared", async () => {
