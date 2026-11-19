@@ -45,9 +45,13 @@
     "zod": "catalog:"
   },
   "peerDependencies": {
+    "undici": "catalog:node22",
     "vitest": "catalog:"
   },
   "peerDependenciesMeta": {
+    "undici": {
+      "optional": true
+    },
     "vitest": {
       "optional": true
     }
