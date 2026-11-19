@@ -10,11 +10,12 @@
 import { act, fireEvent, render, type RenderResult } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { type ReactElement, useState } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { Dialog } from "@/dialog";
 import { List } from "@/list";
 import { Select } from "@/select";
+import { mockGeometry } from "@/testutil/dom";
 import { createRenderCounter } from "@/testutil/renders";
 import { Triggers } from "@/triggers";
 
@@ -467,5 +468,158 @@ describe("Select render isolation", () => {
       expect(onChange).not.toHaveBeenCalled();
       expect(checkbox(c, "alpha").checked).toBe(false);
     });
+  });
+});
+
+describe("Select.CreateItem", () => {
+  beforeAll(() => mockGeometry(100, 100));
+
+  interface Fruit {
+    key: string;
+    name: string;
+  }
+
+  const FRUITS: Fruit[] = [{ key: "apple", name: "Apple Pie" }];
+
+  interface CreatableProps {
+    modal?: boolean;
+    onCreate: (name: string) => void;
+    onChange?: (key: string | undefined) => void;
+    onVisibleChange?: Select.SingleProps<string, Fruit>["onVisibleChange"];
+  }
+
+  const Creatable = ({
+    modal,
+    onCreate,
+    onChange = vi.fn(),
+    onVisibleChange,
+  }: CreatableProps): ReactElement => {
+    const { data, getItem, search } = List.useStaticData<string, Fruit>({
+      data: FRUITS,
+    });
+    return (
+      <Select.Single<string, Fruit>
+        visible
+        onVisibleChange={onVisibleChange}
+        data={data}
+        getItem={getItem}
+        value={undefined}
+        onChange={onChange}
+        resourceName="fruit"
+        onSearch={search}
+        fixedItems={
+          <Select.Item<string> itemKey="pear" textValue="Pear">
+            Pear
+          </Select.Item>
+        }
+        footer={
+          <Select.CreateItem<string, Fruit>
+            resourceName="fruit"
+            modal={modal}
+            onCreate={onCreate}
+          />
+        }
+      >
+        {({ key, ...p }): ReactElement => (
+          <Select.Item key={key} {...p}>
+            {getItem?.(p.itemKey)?.name}
+          </Select.Item>
+        )}
+      </Select.Single>
+    );
+  };
+
+  const renderCreatable = (props: CreatableProps): RenderResult =>
+    render(<Creatable {...props} />, { wrapper: Triggers.Provider });
+
+  const type = (c: RenderResult, term: string): void => {
+    fireEvent.change(c.getByPlaceholderText("Search fruits..."), {
+      target: { value: term },
+    });
+  };
+
+  it("should read New and the noun with an empty search", () => {
+    const c = renderCreatable({ onCreate: vi.fn() });
+    expect(c.getByRole("option", { name: "New fruit" })).toBeTruthy();
+  });
+
+  it("should name the trimmed search text while the user types", () => {
+    const c = renderCreatable({ onCreate: vi.fn() });
+    type(c, "  Kiwi ");
+    expect(c.getByRole("option", { name: 'Create fruit "Kiwi"' })).toBeTruthy();
+  });
+
+  it("should hide while an option has the search text as its name, in any case", () => {
+    const c = renderCreatable({ onCreate: vi.fn() });
+    type(c, "apple pie");
+    expect(c.getByRole("option", { name: "Apple Pie" })).toBeTruthy();
+    expect(c.queryByText(/^Create fruit/)).toBeNull();
+  });
+
+  it("should hide while a fixed option has the search text as its name", () => {
+    const c = renderCreatable({ onCreate: vi.fn() });
+    type(c, "PEAR");
+    expect(c.getByRole("option", { name: "Pear" })).toBeTruthy();
+    expect(c.queryByText(/^Create fruit/)).toBeNull();
+  });
+
+  it("should pass the trimmed search text to onCreate and leave the selection alone", () => {
+    const onCreate = vi.fn();
+    const onChange = vi.fn();
+    const c = renderCreatable({ onCreate, onChange });
+    type(c, "Kiwi ");
+    fireEvent.click(c.getByRole("option", { name: 'Create fruit "Kiwi"' }));
+    expect(onCreate).toHaveBeenCalledWith("Kiwi");
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("should hide a picked name until the search changes", () => {
+    const onCreate = vi.fn();
+    const c = renderCreatable({ onCreate });
+    type(c, "Kiwi");
+    fireEvent.click(c.getByRole("option", { name: 'Create fruit "Kiwi"' }));
+    expect(c.queryByText(/^Create fruit/)).toBeNull();
+    type(c, "Kiw");
+    expect(c.getByRole("option", { name: 'Create fruit "Kiw"' })).toBeTruthy();
+    expect(onCreate).toHaveBeenCalledExactlyOnceWith("Kiwi");
+  });
+
+  it("should close the dialog and pass an empty name to onCreate from New", () => {
+    const onCreate = vi.fn();
+    const onVisibleChange = vi.fn();
+    const c = renderCreatable({ onCreate, onVisibleChange });
+    fireEvent.click(c.getByRole("option", { name: "New fruit" }));
+    expect(onCreate).toHaveBeenCalledWith("");
+    expect(onVisibleChange).toHaveBeenCalledWith(false);
+  });
+
+  it("should keep the dialog open when it creates from the search text", () => {
+    const onVisibleChange = vi.fn();
+    const c = renderCreatable({ onCreate: vi.fn(), onVisibleChange });
+    type(c, "Kiwi");
+    fireEvent.click(c.getByRole("option", { name: 'Create fruit "Kiwi"' }));
+    expect(onVisibleChange).not.toHaveBeenCalled();
+  });
+
+  it("should close the dialog and keep the option on a modal create from the search", () => {
+    const onCreate = vi.fn();
+    const onVisibleChange = vi.fn();
+    const c = renderCreatable({ modal: true, onCreate, onVisibleChange });
+    type(c, "Kiwi");
+    fireEvent.click(c.getByRole("option", { name: 'Create fruit "Kiwi"' }));
+    expect(onCreate).toHaveBeenCalledExactlyOnceWith("Kiwi");
+    expect(onVisibleChange).toHaveBeenCalledWith(false);
+    expect(c.getByRole("option", { name: 'Create fruit "Kiwi"' })).toBeTruthy();
+  });
+
+  it("should create on Enter once the arrow keys reach it", () => {
+    const onCreate = vi.fn();
+    const c = renderCreatable({ onCreate });
+    type(c, "Kiwi");
+    act(() => {
+      fireEvent.keyDown(window, { code: "ArrowDown" });
+      fireEvent.keyDown(window, { code: "Enter" });
+    });
+    expect(onCreate).toHaveBeenCalledWith("Kiwi");
   });
 });
