@@ -370,8 +370,6 @@ type RetrieveRequest struct {
 	Limit *uint32 `protobuf:"varint,5,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
 	// include_status includes the status of each record.
 	IncludeStatus bool `protobuf:"varint,6,opt,name=include_status,json=includeStatus,proto3" json:"include_status,omitempty"`
-	// include_uses includes the uses of each record.
-	IncludeUses   bool `protobuf:"varint,7,opt,name=include_uses,json=includeUses,proto3" json:"include_uses,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -444,13 +442,6 @@ func (x *RetrieveRequest) GetLimit() uint32 {
 func (x *RetrieveRequest) GetIncludeStatus() bool {
 	if x != nil {
 		return x.IncludeStatus
-	}
-	return false
-}
-
-func (x *RetrieveRequest) GetIncludeUses() bool {
-	if x != nil {
-		return x.IncludeUses
 	}
 	return false
 }
@@ -535,7 +526,7 @@ const file_core_pkg_api_channel_pb_channel_proto_rawDesc = "" +
 	"\x05field\x18\x01 \x01(\x0e2\x1a.api.channel.pb.OrderFieldR\x05field\x12\x1e\n" +
 	"\n" +
 	"descending\x18\x02 \x01(\bR\n" +
-	"descending\"\xda\x02\n" +
+	"descending\"\xbd\x02\n" +
 	"\x0fRetrieveRequest\x124\n" +
 	"\x05where\x18\x01 \x01(\v2\x19.service.channel.pb.WhereH\x00R\x05where\x88\x01\x01\x12\x1f\n" +
 	"\vsearch_term\x18\x02 \x01(\tR\n" +
@@ -543,12 +534,11 @@ const file_core_pkg_api_channel_pb_channel_proto_rawDesc = "" +
 	"\x05order\x18\x03 \x01(\v2\x15.api.channel.pb.OrderH\x01R\x05order\x88\x01\x01\x121\n" +
 	"\x05after\x18\x04 \x01(\v2\x16.api.channel.pb.CursorH\x02R\x05after\x88\x01\x01\x12\x19\n" +
 	"\x05limit\x18\x05 \x01(\rH\x03R\x05limit\x88\x01\x01\x12%\n" +
-	"\x0einclude_status\x18\x06 \x01(\bR\rincludeStatus\x12!\n" +
-	"\finclude_uses\x18\a \x01(\bR\vincludeUsesB\b\n" +
+	"\x0einclude_status\x18\x06 \x01(\bR\rincludeStatusB\b\n" +
 	"\x06_whereB\b\n" +
 	"\x06_orderB\b\n" +
 	"\x06_afterB\b\n" +
-	"\x06_limit\"G\n" +
+	"\x06_limitJ\x04\b\a\x10\b\"G\n" +
 	"\x10RetrieveResponse\x123\n" +
 	"\bchannels\x18\x01 \x03(\v2\x17.api.channel.pb.ChannelR\bchannels*\"\n" +
 	"\n" +

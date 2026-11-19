@@ -241,8 +241,6 @@ struct RetrieveOptions {
     std::optional<std::uint32_t> limit;
     /// @brief include_status includes the status of each record.
     bool include_status = false;
-    /// @brief include_uses includes the uses of each record.
-    bool include_uses = false;
 };
 
 /// @brief RetrieveRequest is a request to retrieve channels.
@@ -260,8 +258,6 @@ struct RetrieveRequest {
     std::optional<std::uint32_t> limit;
     /// @brief include_status includes the status of each record.
     bool include_status = false;
-    /// @brief include_uses includes the uses of each record.
-    bool include_uses = false;
 
     /// @brief returns a request for the records that where selects.
     static RetrieveRequest from(Where where, const RetrieveOptions &options = {}) {
@@ -272,7 +268,6 @@ struct RetrieveRequest {
             .after = options.after,
             .limit = options.limit,
             .include_status = options.include_status,
-            .include_uses = options.include_uses,
         };
     }
 

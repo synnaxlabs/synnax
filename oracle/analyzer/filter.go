@@ -528,12 +528,15 @@ func synthesizeRetrieveTypes(c *analysisCtx) {
 	}
 	for _, f := range records {
 		if _, ok := f.Domains["include"]; ok {
-			request = append(request, defaultField(
+			flag := defaultField(
 				"include_"+f.Name,
 				resolution.TypeRef{Name: "bool"},
 				fmt.Sprintf("includes the %s of each record.", f.Name),
 				resolution.ExpressionValue{Kind: resolution.ValueKindBool},
-			))
+			)
+			// A language that omits the field has no use for its flag.
+			flag.Domains = layDomains(flag.Domains, f.Domains, "omit")
+			request = append(request, flag)
 		}
 	}
 	// A client takes lines and retrieve options side by side, so no line may share a

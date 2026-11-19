@@ -18,6 +18,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/internal/casing"
@@ -109,11 +110,13 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	unversionedResp, err := g.generator(
+	unversionedGen := g.generator(
 		g.pattern,
 		&goFileGenerator{embedded: embedded},
 		func(outputPath string) bool { return !g.isVersioned(outputPath) },
-	).Generate(req)
+	)
+	unversionedGen.FilterEnums = ownedEnums
+	unversionedResp, err := unversionedGen.Generate(req)
 	if err != nil {
 		return nil, err
 	}
@@ -236,6 +239,15 @@ func (g generation) versionedRoots(files []plugin.File) ([]plugin.File, error) {
 		return nil, err
 	}
 	return append(files, selectorResp.Files...), nil
+}
+
+// ownedEnums drops the enums that declare another Go output path than outputPath. A
+// struct refers to such an enum in its own package.
+func ownedEnums(enums []resolution.Type, outputPath string) []resolution.Type {
+	return lo.Filter(enums, func(e resolution.Type, _ int) bool {
+		path := output.GetPath(e, "go")
+		return path == "" || path == outputPath
+	})
 }
 
 // localEnums returns the enums whose Go output path is outputPath.

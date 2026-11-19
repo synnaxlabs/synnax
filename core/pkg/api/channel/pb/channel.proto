@@ -85,6 +85,7 @@ message Order {
 
 // RetrieveRequest is a request to retrieve channels.
 message RetrieveRequest {
+  reserved 7;
   // where selects the channels to retrieve. An absent where selects all of them.
   optional .service.channel.pb.Where where = 1;
   // search_term keeps the channels that match the term, closest match first.
@@ -97,8 +98,6 @@ message RetrieveRequest {
   optional uint32 limit = 5;
   // include_status includes the status of each record.
   bool include_status = 6;
-  // include_uses includes the uses of each record.
-  bool include_uses = 7;
 }
 
 // RetrieveResponse holds the channels a RetrieveRequest selects.

@@ -21,6 +21,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/go/types"
@@ -503,6 +504,45 @@ var _ = Describe("Go Types Plugin", func() {
 		})
 
 		Context("enums", func() {
+			It("Should declare an enum only in its own Go output", func() {
+				source := `
+				Direction enum {
+					read = "read"
+					write = "write"
+
+					@go output "core/service/channel"
+				}
+
+				Holder struct {
+					key string
+
+					@go output "core/service/channel"
+				}
+
+				Use struct {
+					direction Direction
+
+					@go output "core/api/channel"
+				}
+			`
+				table, diag := Analyze(source, "channel", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+				req := &plugin.Request{Resolutions: table}
+				resp := MustSucceed(goPlugin.Generate(req))
+				files := lo.SliceToMap(
+					resp.Files,
+					func(f plugin.File) (string, string) {
+						return f.Path, string(f.Content)
+					},
+				)
+				api := files["core/api/channel/types.gen.go"]
+				Expect(api).To(ContainSubstring("type Use struct"))
+				Expect(api).NotTo(ContainSubstring("type Direction string"))
+				Expect(api).To(ContainSubstring("channel.Direction"))
+				Expect(files["core/service/channel/types.gen.go"]).
+					To(ContainSubstring("type Direction string"))
+			})
+
 			It("Should generate string enum type and constants", func() {
 				source := `
 				@go output "core/status"

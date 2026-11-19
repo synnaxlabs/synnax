@@ -86,27 +86,6 @@ func (c Channel) Validate() error {
 	return v.Error()
 }
 
-// Direction is how a record uses a channel.
-type Direction string
-
-const (
-	// DirectionRead is a record that reads the channel.
-	DirectionRead Direction = "read"
-	// DirectionWrite is a record that writes the channel.
-	DirectionWrite Direction = "write"
-)
-
-// IsValid reports whether d is one of the defined Direction
-// values.
-func (d Direction) IsValid() bool {
-	switch d {
-	case DirectionRead, DirectionWrite:
-		return true
-	default:
-		return false
-	}
-}
-
 // Use is a record that reads or writes a channel.
 type Use struct {
 	// ID is the record that uses the channel.
