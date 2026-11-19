@@ -22,7 +22,3 @@ export const kindOf = (dataType: CrudeDataType): Kind | undefined => {
   const parsed = kindZ.safeParse(dt.toString());
   return parsed.success ? parsed.data : undefined;
 };
-
-/** @returns true when the kind is float, integer, or unsigned. */
-export const isNumeric = (kind: Kind): kind is "float" | "integer" | "unsigned" =>
-  kind === "float" || kind === "integer" || kind === "unsigned";

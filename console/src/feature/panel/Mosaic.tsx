@@ -21,7 +21,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Access, Errors, Flux, Panel, Synnax } from "@synnaxlabs/pluto";
-import { caseconv } from "@synnaxlabs/x";
+import { strings } from "@synnaxlabs/x";
 import { memo, type PropsWithChildren, type ReactElement, useState } from "react";
 import { useDispatch } from "react-redux";
 
@@ -200,7 +200,7 @@ const LiveContent = (): ReactElement => {
       y
       full
       empty
-      className={CSS.cls(CSS.B(caseconv.toKebab(tabType)), CSS.BE("panel", "tab"))}
+      className={CSS.cls(CSS.B(strings.toKebab(tabType)), CSS.BE("panel", "tab"))}
     >
       <Triggers.Scope active={triggersActive}>
         <Errors.SuspenseBoundary loading={loading} FallbackComponent={ContentFallback}>

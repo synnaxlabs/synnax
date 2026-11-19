@@ -16,7 +16,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Telem } from "@synnaxlabs/lyra/telem";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { Tooltip as Base } from "@synnaxlabs/lyra/tooltip";
-import { caseconv, type color, primitive, TimeSpan } from "@synnaxlabs/x";
+import { type color, primitive, strings, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useEffect, useState } from "react";
 
 import { Channel } from "@/channel";
@@ -179,7 +179,7 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
     return (
       <Row
         key={field}
-        label={label ?? caseconv.toSentence(field)}
+        label={label ?? strings.toSentence(field)}
         value={text}
         valueColor={field === "stalenessTimeout" ? stalenessColor : undefined}
       />

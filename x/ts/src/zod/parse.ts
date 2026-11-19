@@ -9,10 +9,10 @@
 
 import { type z } from "zod";
 
-import { deep } from "@/deep";
 import { errors } from "@/errors";
-import { fmt } from "@/fmt";
 import { primitive } from "@/primitive";
+import { atKeys } from "@/zod/atKeys";
+import { type FormatOptions, formatPath, formatValue } from "@/zod/fmt";
 
 const DEFAULT_LABEL = "value";
 const PARSE_ERROR_TYPE = "zod.parse";
@@ -24,15 +24,14 @@ export interface ParseOptions {
   context?: Record<string, unknown>;
 }
 
-// Tight defaults for sibling context values rendered inline in a parent view.
-// Callers can override any individual field via `ParseOptions.formatOptions`; the
-// faithful version of the input lives on `err.input` and in
-// `toStatus().details.input` for callers that need the full structure.
-const DEFAULT_PARENT_VIEW_OPTIONS: fmt.Options = {
+// Tight limits for sibling context values rendered inline in a parent view. The
+// faithful version of the input lives on `err.input` and in `toStatus().details.input`
+// for callers that need the full structure.
+const PARENT_VIEW_OPTIONS = {
   maxStringLength: 60,
   maxArrayLength: 3,
   maxDepth: 3,
-};
+} satisfies FormatOptions;
 
 const parentPath = (path: ReadonlyArray<PropertyKey>): ReadonlyArray<PropertyKey> =>
   path.slice(0, -1);
@@ -77,12 +76,8 @@ const describeCore = (issue: z.core.$ZodIssue): string => {
  * the failing value. Only reached for path-less issues since `expandUnrecognizedKeys`
  * pushes any `unrecognized_keys` issues into the parent-view path before this runs.
  */
-const describeFlat = (
-  issue: z.core.$ZodIssue,
-  root: unknown,
-  options: fmt.Options,
-): string => {
-  const received = JSON.stringify(fmt.value(root, options));
+const describeFlat = (issue: z.core.$ZodIssue, root: unknown): string => {
+  const received = JSON.stringify(formatValue(root));
   return `${describeCore(issue)}, received ${received}`;
 };
 
@@ -208,13 +203,10 @@ const renderParentView = (
   parent: unknown,
   marks: Map<string, Mark>,
   baseIndent: string,
-  callerOptions: fmt.Options,
 ): string[] => {
   const inner = `${baseIndent}  `;
   const marked = `${baseIndent + MARKER} `;
-
-  // Merge tight parent-view defaults with any caller overrides; caller fields win.
-  let options: fmt.Options = { ...DEFAULT_PARENT_VIEW_OPTIONS, ...callerOptions };
+  let options: FormatOptions = PARENT_VIEW_OPTIONS;
 
   // For array parents, ensure the truncation window includes all marked indices
   // so the ✗ lines aren't silently dropped when a bad entry lies past the
@@ -225,13 +217,13 @@ const renderParentView = (
       const idx = Number(key);
       if (Number.isInteger(idx) && idx > maxIdx) maxIdx = idx;
     }
-    const effectiveMax = options.maxArrayLength ?? 3;
-    if (maxIdx >= effectiveMax) options = { ...options, maxArrayLength: maxIdx + 2 };
+    if (maxIdx >= PARENT_VIEW_OPTIONS.maxArrayLength)
+      options = { ...options, maxArrayLength: maxIdx + 2 };
   }
 
-  // Pass the parent through fmt.value so depth / array / string truncation is
+  // Pass the parent through formatValue so depth / array / string truncation is
   // applied consistently to the rendered siblings.
-  const sanitized = fmt.value(parent, options);
+  const sanitized = formatValue(parent, options);
 
   // Fallback for non-container parents. Only reachable when the union flattener
   // picks a branch whose parent path doesn't exist in the input at all: we still
@@ -310,14 +302,13 @@ const ROOT_GROUP = "__root__";
 const renderIssues = (
   issues: ReadonlyArray<z.core.$ZodIssue>,
   root: unknown,
-  options: fmt.Options,
 ): string => {
   // Group issues by parent path. Map iteration order is insertion order, which
   // preserves zod's traversal order without a parallel index array.
   const groups = new Map<string, z.core.$ZodIssue[]>();
   for (const issue of issues) {
     const key =
-      issue.path.length === 0 ? ROOT_GROUP : `::${fmt.path(parentPath(issue.path))}`;
+      issue.path.length === 0 ? ROOT_GROUP : `::${formatPath(parentPath(issue.path))}`;
     const existing = groups.get(key);
     if (existing != null) existing.push(issue);
     else groups.set(key, [issue]);
@@ -327,21 +318,19 @@ const renderIssues = (
   for (const [key, group] of groups) {
     // Root-level issues (path.length === 0): flat bullets, no parent view.
     if (key === ROOT_GROUP) {
-      blocks.push(group.map((i) => `  × ${describeFlat(i, root, options)}`).join("\n"));
+      blocks.push(group.map((i) => `  × ${describeFlat(i, root)}`).join("\n"));
       continue;
     }
 
     const parentArr = parentPath(group[0].path);
-    const { present, value: parent } = deep.atKeys(root, parentArr);
+    const { present, value: parent } = atKeys(root, parentArr);
 
     // If the union flattener picked a branch whose parent doesn't exist in the
     // input, we can't render a parent view. Fall back to a flat at/× block.
     if (!present) {
       blocks.push(
         group
-          .map(
-            (i) => `  at ${fmt.path(i.path)}\n    × ${describeFlat(i, root, options)}`,
-          )
+          .map((i) => `  at ${formatPath(i.path)}\n    × ${describeFlat(i, root)}`)
           .join("\n"),
       );
       continue;
@@ -352,7 +341,7 @@ const renderIssues = (
     const marks = new Map<string, Mark>();
     for (const issue of group) {
       const lastKey = String(issue.path[issue.path.length - 1]);
-      const found = deep.atKeys(root, issue.path);
+      const found = atKeys(root, issue.path);
       marks.set(lastKey, {
         reason: describeCore(issue),
         missing: !found.present,
@@ -361,24 +350,21 @@ const renderIssues = (
 
     const isRootParent = parentArr.length === 0;
     const baseIndent = isRootParent ? "  " : "    ";
-    const viewLines = renderParentView(parent, marks, baseIndent, options);
+    const viewLines = renderParentView(parent, marks, baseIndent);
     if (isRootParent) blocks.push(viewLines.join("\n"));
-    else blocks.push([`  at ${fmt.path(parentArr)}`, ...viewLines].join("\n"));
+    else blocks.push([`  at ${formatPath(parentArr)}`, ...viewLines].join("\n"));
   }
 
   return blocks.join("\n\n");
 };
 
-const formatContextLine = (
-  context: Record<string, unknown>,
-  options: fmt.Options,
-): string => {
+const formatContextLine = (context: Record<string, unknown>): string => {
   const entries = Object.entries(context);
   if (entries.every(([, v]) => primitive.is(v)))
     return entries
       .map(([k, v]) => `${k}=${typeof v === "string" ? v : String(v)}`)
       .join(", ");
-  return fmt.stringify(context, options);
+  return JSON.stringify(formatValue(context), null, 2);
 };
 
 interface FormatParams {
@@ -386,23 +372,15 @@ interface FormatParams {
   input: unknown;
   label: string;
   context?: Record<string, unknown>;
-  formatOptions?: fmt.Options;
 }
 
-const format = ({
-  issues,
-  input,
-  label,
-  context,
-  formatOptions,
-}: FormatParams): string => {
-  const opts = formatOptions ?? {};
+const format = ({ issues, input, label, context }: FormatParams): string => {
   const flat = expandUnrecognizedKeys(flattenIssues(issues));
   const count = flat.length === 1 ? "1 issue" : `${flat.length} issues`;
   const parts: string[] = [`Failed to parse ${label} (${count})`];
-  parts.push(renderIssues(flat, input, opts));
+  parts.push(renderIssues(flat, input));
   if (context != null && Object.keys(context).length > 0)
-    parts.push(`  context: ${formatContextLine(context, opts)}`);
+    parts.push(`  context: ${formatContextLine(context)}`);
   return parts.join("\n\n");
 };
 
@@ -412,7 +390,6 @@ export interface ParseErrorParams {
   label: string;
   context?: Record<string, unknown>;
   cause?: unknown;
-  formatOptions?: fmt.Options;
 }
 
 /**
@@ -432,15 +409,8 @@ export class ParseError extends errors.createTyped(PARSE_ERROR_TYPE) {
   readonly label: string;
   readonly context?: Record<string, unknown>;
 
-  constructor({
-    issues,
-    input,
-    label,
-    context,
-    cause,
-    formatOptions,
-  }: ParseErrorParams) {
-    super(format({ issues, input, label, context, formatOptions }), { cause });
+  constructor({ issues, input, label, context, cause }: ParseErrorParams) {
+    super(format({ issues, input, label, context }), { cause });
     this.issues = issues;
     this.input = input;
     this.label = label;
@@ -449,7 +419,7 @@ export class ParseError extends errors.createTyped(PARSE_ERROR_TYPE) {
 
   toStatus() {
     const details: Record<string, unknown> = {
-      input: fmt.value(this.input),
+      input: formatValue(this.input),
       issues: this.issues,
     };
     if (this.context != null) details.context = this.context;
@@ -476,7 +446,7 @@ errors.register({
       label: pe.label,
       context: pe.context,
       issues: pe.issues,
-      input: fmt.value(pe.input),
+      input: formatValue(pe.input),
     };
     const data = JSON.stringify(payload, (_, v) =>
       typeof v === "bigint" ? v.toString() : v,

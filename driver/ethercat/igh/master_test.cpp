@@ -2070,6 +2070,59 @@ TEST_F(IGHMasterTest, SendFailsWhenADomainCannotBeQueued) {
     EXPECT_EQ(err.data, "failed to queue a domain: Input/output error");
 }
 
+/// @brief it should not read or write the process data of a slave that IgH reports
+/// below SAFE-OP, and report the slave as inputless until it reaches SAFE-OP.
+TEST_F(IGHMasterTest, SendSkipsTheProcessDataOfASlaveBelowSafeOp) {
+    create_io(this->api->add_slave());
+    create_io(this->api->add_slave());
+    ASSERT_NIL(this->scan_and_activate());
+    this->api->slaves[1].info.al_state = EC_AL_STATE_PREOP;
+    ASSERT_NIL(this->master.send());
+    EXPECT_EQ(this->api->queued, (std::vector<size_t>{0}));
+    const auto err = this->master.receive();
+    ASSERT_OCCURRED_AS(err, errors::WORKING_COUNTER_ERROR);
+    EXPECT_EQ(err.data, "incomplete working counter: 3 of 6");
+    EXPECT_EQ(
+        std::vector(this->master.inputless().begin(), this->master.inputless().end()),
+        (std::vector<uint16_t>{2})
+    );
+    this->api->slaves[1].info.al_state = EC_AL_STATE_SAFEOP;
+    this->api->queued.clear();
+    ASSERT_NIL(this->master.send());
+    EXPECT_EQ(this->api->queued, (std::vector<size_t>{0, 1}));
+    ASSERT_NIL(this->master.receive());
+}
+
+/// @brief it should keep the process data of a slave while IgH scans the bus and
+/// reports no state.
+TEST_F(IGHMasterTest, SendKeepsTheProcessDataOfASlaveWhileIgHScans) {
+    create_io(this->api->add_slave());
+    ASSERT_NIL(this->scan_and_activate());
+    this->api->scanning = true;
+    ASSERT_NIL(this->master.send());
+    EXPECT_EQ(this->api->queued, (std::vector<size_t>{0}));
+}
+
+/// @brief it should not read the state of a slave whose latest cycle was full.
+TEST_F(IGHMasterTest, SendReadsNoStateOfASlaveWithAFullCycle) {
+    create_io(this->api->add_slave());
+    ASSERT_NIL(this->scan_and_activate());
+    ASSERT_NIL(this->master.receive());
+    this->api->slaves[0].state_unreadable = true;
+    ASSERT_NIL(this->master.send());
+}
+
+/// @brief it should fail when it cannot read the state of a slave that missed a full
+/// cycle.
+TEST_F(IGHMasterTest, SendFailsWhenTheStateOfASlaveCannotBeRead) {
+    create_io(this->api->add_slave());
+    ASSERT_NIL(this->scan_and_activate());
+    this->api->slaves[0].state_unreadable = true;
+    const auto err = this->master.send();
+    ASSERT_OCCURRED_AS(err, errors::CYCLIC_ERROR);
+    EXPECT_EQ(err.data, "failed to read the state of module 1: Input/output error");
+}
+
 /// @brief it should report a slave whose state or info it cannot read as lost.
 TEST_F(IGHMasterTest, CheckReportsASlaveItCannotReadAsLost) {
     this->api->add_slave();
