@@ -29,6 +29,7 @@ import { usePath } from "@/menu/filter";
 import { menuKeyDown, menuKeyUp, openContextMenu } from "@/menu/keyboard";
 import { CONTEXT_TARGET } from "@/menu/types";
 import { useContext } from "@/select/Context";
+import { useRegistryContext } from "@/select/registry";
 import { ClosedContext, InlineContext, useViewingContext } from "@/select/scope";
 import { useGetElement } from "@/select/use";
 
@@ -55,7 +56,7 @@ export interface DialogProps extends BaseDialog.DialogProps {
   /**
    * Whether the option with the key opens `menu`, asked when the menu would open. A
    * refused option leaves the right click and the keys to the platform. Defaults to
-   * every option.
+   * every option. A pinned option, such as one in the footer, never opens `menu`.
    */
   hasMenu?: (key: string) => boolean;
 }
@@ -90,7 +91,9 @@ const MenuViews = ({ menu, hasMenu, pack, children }: MenuViewsProps): ReactNode
   const contextMenu = Menu.useContextMenu();
   const { getState } = useContext();
   const getElement = useGetElement();
-  const opens = (option: HTMLElement): boolean => hasMenu?.(optionKey(option)) ?? true;
+  const registry = useRegistryContext("Select.Dialog");
+  const opens = (option: HTMLElement): boolean =>
+    !registry.isPinned(option) && (hasMenu?.(optionKey(option)) ?? true);
   // The hovered option, when it opens a menu.
   const targetRef = useSyncedRef((): HTMLElement | undefined => {
     if (contextMenu.visible) return undefined;
