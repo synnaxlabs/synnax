@@ -112,5 +112,6 @@
   "releases/0-61-0/ethercat-sync": "b0d596491301",
   "releases/0-61-0/logs": "d520cc1efb06",
   "releases/0-61-0/mqtt": "b9a4d9672628",
-  "releases/0-62-0/sift": "b2dcd46d4476"
+  "releases/0-62-0/ranges": "ddb1f0028bee",
+  "releases/0-62-0/sift": "a9a0c68ef76a"
 }
