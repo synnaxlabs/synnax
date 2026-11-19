@@ -133,7 +133,7 @@ const pickReplacement = async (dialog: Queries, name: string): Promise<void> => 
 // The delete dialog enables its button once it knows what uses the enumeration.
 const clickWhenEnabled = async (dialog: Queries, name: string): Promise<void> => {
   const button = await dialog.findByRole("button", { name });
-  await waitFor(() => expect(button).toHaveProperty("disabled", false));
+  await waitFor(() => expect(button.getAttribute("aria-disabled")).toBeNull());
   await act(async () => {
     fireEvent.click(button);
   });
@@ -232,20 +232,6 @@ describe("Enumeration.Settings", () => {
     expect(screen.queryByText("Delete")).toBeNull();
   });
 
-  it("should replace an enumeration with the one picked on delete", async () => {
-    const [from, to] = await Promise.all([createEnumeration(), createEnumeration()]);
-    await renderEnumerations();
-    const dialog = await openDelete(from.name);
-    expect(await dialog.findByText(/Nothing uses it/)).toBeTruthy();
-    await pickReplacement(dialog, to.name);
-    await clickWhenEnabled(dialog, "Replace");
-    await waitForDialogToClose();
-    await expect(client.enumerations.retrieve(from.key)).rejects.toThrow(
-      "enumeration was deleted",
-    );
-    expect((await client.enumerations.retrieve(to.key)).name).toBe(to.name);
-  });
-
   it("should move a select to the enumeration picked on delete", async () => {
     const [from, to] = await Promise.all([createEnumeration(), createEnumeration()]);
     const user = await createSelectUser(from.key);
@@ -254,6 +240,8 @@ describe("Enumeration.Settings", () => {
     expect(
       await within(await dialog.findByLabelText("Users")).findByText(user.name),
     ).toBeTruthy();
+    const replace = dialog.getByRole("button", { name: "Replace" });
+    expect(replace.getAttribute("aria-disabled")).toBe("true");
     await pickReplacement(dialog, to.name);
     await clickWhenEnabled(dialog, "Replace");
     await waitForDialogToClose();
@@ -275,7 +263,7 @@ describe("Enumeration.Settings", () => {
     expect(message.parentElement?.classList).toContain("console-confirm__body");
   });
 
-  it("should delete an enumeration after confirming", async () => {
+  it("should delete an unused enumeration with no replace field", async () => {
     const e = await createEnumeration();
     await renderEnumerations();
     await openContextMenu(e.name);
@@ -287,6 +275,7 @@ describe("Enumeration.Settings", () => {
     const dialog = dialogOf(screen.getByText(/This action cannot be undone/));
     expect(dialog.queryByText(/Nothing uses it/)).toBeNull();
     expect(await dialog.findByText(/Nothing uses it/)).toBeTruthy();
+    expect(dialog.queryByRole("button", { name: /Replace with/ })).toBeNull();
     await clickWhenEnabled(dialog, "Delete");
     await waitForDialogToClose();
     await expect(client.enumerations.retrieve(e.key)).rejects.toThrow(
