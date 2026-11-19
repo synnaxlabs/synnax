@@ -28,14 +28,9 @@ import { type ReactElement, useState } from "react";
 import { HandleList } from "@/feature/schematic/symbol/edit/HandleList";
 import { Preview } from "@/feature/schematic/symbol/edit/Preview";
 import { RegionList } from "@/feature/schematic/symbol/edit/RegionList";
-import {
-  createState,
-  enumerationKey,
-  setColor,
-  toggleSelector,
-} from "@/feature/schematic/symbol/edit/spec";
 import { StateList } from "@/feature/schematic/symbol/edit/StateList";
 import { SelectVariantField } from "@/feature/schematic/symbol/SelectVariant";
+import { Spec } from "@/feature/schematic/symbol/spec";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
@@ -67,7 +62,7 @@ interface StatesProps {
 // States lists the values of the state, named by the entries of its enumeration.
 const States = ({ value, onChange }: StatesProps): ReactElement | null => {
   const spec = Form.useFieldValue(path.data);
-  const key = enumerationKey(spec);
+  const key = Spec.enumerationKey(spec);
   const res = Enumeration.useResult(key == null ? null : { key });
   const entries = res.variant === "success" ? res.data.entries : undefined;
   return (
@@ -100,7 +95,7 @@ const Editor = ({
         handles: [],
         variant: "static",
         strokeScaled: false,
-        states: [createState()],
+        states: [Spec.createState()],
         commands: [],
         looks: [],
         interactions: [],
@@ -125,8 +120,8 @@ const Editor = ({
     };
     const value = selectedValueRef.current;
     let looks = form.get(path.data.looks).value;
-    looks = setColor(looks, part.key, value, "stroke", theme.colors.gray.l10);
-    looks = setColor(
+    looks = Spec.setColor(looks, part.key, value, "stroke", theme.colors.gray.l10);
+    looks = Spec.setColor(
       looks,
       part.key,
       value,
@@ -163,7 +158,7 @@ const Editor = ({
   const handleElementClick = (selector: string) =>
     form.set(
       path.data.parts,
-      toggleSelector(
+      Spec.toggleSelector(
         form.get(path.data.parts).value,
         selectedRegionRef.current,
         selector,

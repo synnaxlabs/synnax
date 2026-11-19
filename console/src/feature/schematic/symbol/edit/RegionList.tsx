@@ -24,7 +24,7 @@ import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Schematic } from "@synnaxlabs/pluto";
 import { type color } from "@synnaxlabs/x";
 
-import { type Field, removePart, setColor } from "@/feature/schematic/symbol/edit/spec";
+import { Spec } from "@/feature/schematic/symbol/spec";
 import { CSS } from "@/platform/css";
 
 const path = Schematic.Symbol.formPath;
@@ -54,10 +54,10 @@ const RegionListItem = ({
   const { get, set } = Form.useContext();
   const paint = Schematic.Node.Region.paint(svg, part?.selectors ?? []);
   if (part == null) return null;
-  const paintField = (field: Field, c?: color.Color) =>
+  const paintField = (field: Spec.Field, c?: color.Color) =>
     set(
       path.data.looks,
-      setColor(get(path.data.looks).value, itemKey, selectedValue, field, c),
+      Spec.setColor(get(path.data.looks).value, itemKey, selectedValue, field, c),
     );
   return (
     <Select.Item
@@ -94,7 +94,7 @@ const RegionListItem = ({
           size="small"
         />
         <Button.Button
-          onClick={() => set(path.data, removePart(get(path.data).value, itemKey))}
+          onClick={() => set(path.data, Spec.removePart(get(path.data).value, itemKey))}
           size="small"
           variant="text"
           reveal

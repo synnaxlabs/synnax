@@ -13,7 +13,7 @@ import { type Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Schematic } from "@synnaxlabs/pluto";
 
-import { setVariant } from "@/feature/schematic/symbol/edit/spec";
+import { Spec } from "@/feature/schematic/symbol/spec";
 
 const path = Schematic.Symbol.formPath;
 
@@ -45,7 +45,7 @@ export const SelectVariantField = ({ onSelectValue }: SelectVariantFieldProps) =
     onChange={(next, { get, set }) => {
       if (get(path.data.variant).value === next) return;
       if (next === "static") onSelectValue(0);
-      set(path.data, setVariant(get(path.data).value, next));
+      set(path.data, Spec.setVariant(get(path.data).value, next));
     }}
   >
     {({ onChange, value }) => <SelectVariant value={value} onChange={onChange} />}

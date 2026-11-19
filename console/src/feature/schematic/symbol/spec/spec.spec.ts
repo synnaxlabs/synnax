@@ -11,15 +11,9 @@ import { type schematic } from "@synnaxlabs/client";
 import { color } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import {
-  createState,
-  removePart,
-  setColor,
-  setVariant,
-  toggleSelector,
-} from "@/feature/schematic/symbol/edit/spec";
+import { Spec } from "@/feature/schematic/symbol/spec";
 
-const STATE = createState().key;
+const STATE = Spec.createState().key;
 const RED = color.construct("#ff0000");
 const BLUE = color.construct("#0000ff");
 
@@ -43,7 +37,7 @@ const createSpec = (
     { key: "seat", name: "Seat", selectors: ["#seat"] },
   ],
   handles: [],
-  states: [createState()],
+  states: [Spec.createState()],
   commands: [],
   looks: [],
   interactions: [],
@@ -59,7 +53,7 @@ describe("symbol editor spec", () => {
       const looks: schematic.symbol.Look[] = [
         { key: "a", part: "body", when: equals(0), fill: fixed(BLUE) },
       ];
-      expect(setColor(looks, "body", 0, "stroke", RED)).toEqual([
+      expect(Spec.setColor(looks, "body", 0, "stroke", RED)).toEqual([
         {
           key: "a",
           part: "body",
@@ -74,7 +68,7 @@ describe("symbol editor spec", () => {
       const looks: schematic.symbol.Look[] = [
         { key: "a", part: "body", when: equals(1), stroke: fixed(BLUE) },
       ];
-      const next = setColor(looks, "body", 0, "stroke", RED);
+      const next = Spec.setColor(looks, "body", 0, "stroke", RED);
       expect(next).toHaveLength(2);
       expect(next[0]).toEqual(looks[0]);
       expect(next[1]).toMatchObject({
@@ -94,7 +88,7 @@ describe("symbol editor spec", () => {
           stroke: { type: "entry", state: STATE },
         },
       ];
-      const next = setColor(looks, "body", 0, "stroke", RED);
+      const next = Spec.setColor(looks, "body", 0, "stroke", RED);
       expect(next.slice(0, 2)).toEqual(looks);
       expect(next[2]).toMatchObject({ part: "body", stroke: fixed(RED) });
     });
@@ -104,7 +98,7 @@ describe("symbol editor spec", () => {
         { key: "a", part: "body", when: equals(0), stroke: fixed(RED) },
         { key: "b", part: "seat", when: equals(0), stroke: fixed(RED) },
       ];
-      expect(setColor(looks, "body", 0, "stroke")).toEqual([looks[1]]);
+      expect(Spec.setColor(looks, "body", 0, "stroke")).toEqual([looks[1]]);
     });
 
     it("should keep the other fields of a look when it clears one", () => {
@@ -117,7 +111,7 @@ describe("symbol editor spec", () => {
           fill: fixed(BLUE),
         },
       ];
-      expect(setColor(looks, "body", 0, "stroke")).toEqual([
+      expect(Spec.setColor(looks, "body", 0, "stroke")).toEqual([
         {
           key: "a",
           part: "body",
@@ -137,7 +131,7 @@ describe("symbol editor spec", () => {
           { key: "b", part: "seat", stroke: fixed(RED) },
         ],
       });
-      const next = removePart(spec, "body");
+      const next = Spec.removePart(spec, "body");
       expect(next.parts.map((p) => p.key)).toEqual(["seat"]);
       expect(next.looks.map((l) => l.key)).toEqual(["b"]);
     });
@@ -145,7 +139,7 @@ describe("symbol editor spec", () => {
 
   describe("toggleSelector", () => {
     it("should move a selector to the part from the other parts", () => {
-      const next = toggleSelector(createSpec().parts, "body", "#seat");
+      const next = Spec.toggleSelector(createSpec().parts, "body", "#seat");
       expect(next).toEqual([
         { key: "body", name: "Body", selectors: ["#body", "#seat"] },
         { key: "seat", name: "Seat", selectors: [] },
@@ -153,7 +147,7 @@ describe("symbol editor spec", () => {
     });
 
     it("should remove a selector that the part already has", () => {
-      const next = toggleSelector(createSpec().parts, "body", "#body");
+      const next = Spec.toggleSelector(createSpec().parts, "body", "#body");
       expect(next[0].selectors).toEqual([]);
     });
   });
@@ -163,7 +157,7 @@ describe("symbol editor spec", () => {
       const spec = createSpec({
         looks: [{ key: "a", part: "body", when: equals(0), stroke: fixed(RED) }],
       });
-      const next = setVariant(spec, "actuator");
+      const next = Spec.setVariant(spec, "actuator");
       expect(next.variant).toBe("actuator");
       expect(next.states[0]).toMatchObject({
         match: { type: "within", bounds: { lower: 0.9, upper: 1.1 } },
@@ -184,7 +178,7 @@ describe("symbol editor spec", () => {
     });
 
     it("should take the Active looks, commands, and clicks from a static symbol", () => {
-      const actuator = setVariant(
+      const actuator = Spec.setVariant(
         createSpec({
           looks: [
             { key: "a", part: "body", when: equals(0), stroke: fixed(RED) },
@@ -193,7 +187,7 @@ describe("symbol editor spec", () => {
         }),
         "actuator",
       );
-      const next = setVariant(actuator, "static");
+      const next = Spec.setVariant(actuator, "static");
       expect(next.looks.map((l) => l.key)).toEqual(["a", "b"]);
       expect(next.commands).toEqual([]);
       expect(next.interactions).toEqual([]);
