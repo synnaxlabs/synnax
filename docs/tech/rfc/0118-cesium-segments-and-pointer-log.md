@@ -73,9 +73,11 @@ last segment is dropped. `CreateChannel`, `RetrieveChannels`, and `RenameChannel
 (`cesium/channel.go:24`, `:40`, `:83`), and so do the calls to storage on create and
 rename (`core/pkg/distribution/channel/create.go:66`, `rename.go:27`).
 
-- **Channel lookup**: The framer reads channels from Cesium today. Its config gains an
-  injected lookup (NEW) that the channel service provides: for a key, the declared type
-  (RFC 0117), the live-only flag, and the index key until RFC 0117 retires it.
+- **Channel lookup**: The framer reads channels from Cesium today. It gains a lookup
+  that the channel service provides: for a key, the declared type (RFC 0117), the
+  live-only flag, and the index key until RFC 0117 retires it. The framer opens before
+  the channel service, so the lookup arrives through the existing late-bound seam
+  (`core/pkg/distribution/framer/service.go:178`), not through the framer's config.
 - **Errors carry keys**: A Cesium error carries the key, never a name
   (`cesium/internal/channel/errors.go:30` today). The framer passes the error up
   unchanged. The service layer and the API map a key to a channel path.
@@ -83,13 +85,16 @@ rename (`core/pkg/distribution/channel/create.go:66`, `rename.go:27`).
 ### 4.1 Delete order, `Sweep`, and the Core guard
 
 1. The channel service takes a delete claim on the keys from the framer (NEW). The claim
-   fails while a writer holds one of the keys, and it blocks writer opens on them while
-   it is held. Today Cesium checks, with no hold (`cesium/delete.go:133-153`).
+   is released when the transaction ends without a commit. The claim fails while a
+   writer holds one of the keys, and it blocks writer opens on them while it is held.
+   Today Cesium checks, with no hold (`cesium/delete.go:133-153`).
 2. The service deletes the records and commits the Gorp transaction.
-3. After the commit it calls `DB.Drop` with the keys, then releases the claim. The hook
-   is NEW: a public helper over `txState.OnCleanup` (`gorp/gorp.go:347`). `Drop` never
-   refuses. It logs one Drop record per key and, after the log sync, removes the
-   segments of the key when reader pins drop. An error of `Drop` raises a status.
+3. After the commit, a worker of the channel service calls `DB.Drop` with the keys, then
+   releases the claim. A public hook over `txState.OnCleanup` (`gorp/gorp.go:347`, NEW)
+   only queues the keys, because it runs while Gorp holds its write lock, and the
+   transaction may belong to a caller. `Drop` never refuses. It logs one Drop record per
+   key and, after the log sync, removes the segments of the key when reader pins drop.
+   An error of `Drop` raises a status.
 4. A crash between steps 2 and 3, or a failed `Drop`, leaves storage with no record. At
    start, before a writer opens, the Core calls `DB.Sweep` with each key of the table.
 
@@ -97,9 +102,10 @@ One rule serves both calls: stamps stay while a kept segment of another key name
 key as its clock. `Drop` keeps such stamps of a dropped key. `Sweep` drops every key
 that is not in its set and that no segment of another key in the set names.
 `DeleteTimeRange` refuses a clock key while a live pointer of another key names it, as
-today (`cesium/delete.go:265-279`). On the old layout (Phase 5), `Drop` is today's
-removal (`:93`), and `Sweep` removes each directory of a key that is not in the set and
-is not the index of a channel in the set.
+today (`cesium/delete.go:265-279`). On the old layout (Phase 5), `Drop` keeps the same
+contract: it marks the key gone at once, so a new writer or iterator on it fails, and
+removes the files of the key when its last open iterator closes. `Sweep` removes each
+directory of a key that is not in the set and is not the index of a channel in the set.
 
 ### 4.2 The Cesium API
 
@@ -734,7 +740,8 @@ not a key (`cesium/open.go:69-78`).
 Phases 1 to 4 build the test base: `SyncDir`, the fault file system with the faults of
 §6, the crash harness with its durable-ack oracle (run first on today's Cesium), Pebble
 on the same event counter, decoder fuzz tests, and an invariants build. Phase 5 builds
-§4 on the old layout, except that `CreateChannel` stays. Phase 6 builds the log, heads,
+§4 on the old layout, except that `CreateChannel` stays and `OpenWriter` keeps the key
+set of today; one clock per writer arrives with Phase 6. Phase 6 builds the log, heads,
 `Sync` and the framer's call to it, recovery, the state owner, the handle budget,
 version 1 segments, and replay from a run key, behind a Cesium open option that keeps
 the old layout the default. Phase 7 builds parts, versions 0 and 2, tombstones,
