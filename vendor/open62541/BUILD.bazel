@@ -57,6 +57,8 @@ GENERATED = "src_generated/open62541/"
 py_library(
     name = "nodeset_compiler_lib",
     srcs = glob(["open62541/tools/nodeset_compiler/*.py"]),
+    # The compiler reads the standard schema from beside its own source.
+    data = ["open62541/tools/schema/Opc.Ua.Types.bsd"],
     imports = [
         "open62541/tools",
         "open62541/tools/nodeset_compiler",
