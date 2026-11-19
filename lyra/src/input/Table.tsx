@@ -317,7 +317,10 @@ export interface TableProps
   children: ColumnElement | ColumnElement[];
   /** Hides the add and remove buttons and makes every cell read-only. */
   preview?: boolean;
-  /** Labels a row's gutter cell. Omitted, no gutter column renders. */
+  /**
+   * Labels each row's gutter cell. A row's move handle takes the place of its label and
+   * carries it in its name. With no label and no handle, no gutter column renders.
+   */
   rowLabel?: (index: number) => string;
   /**
    * Builds each new row: the one the add button appends, and each one a paste adds.
@@ -433,7 +436,8 @@ export const Table = ({
   );
   const dims: dimensions.Dimensions = { width: columns.length, height: value.length };
   const emptyRow = (): TableCell[] => columns.map(emptyCell);
-  const hasGutter = rowLabel != null || onMove != null;
+  const movable = onMove != null && !preview;
+  const hasGutter = rowLabel != null || movable;
   // Accessible row names survive without a gutter.
   const rowName = (index: number): string =>
     rowLabel?.(index) ?? (index + 1).toString();
@@ -636,11 +640,11 @@ export const Table = ({
               index={i}
               haulType={haulType}
               haulPreview={() => haulPreview(i)}
-              onMove={onMove == null || preview ? undefined : handleMove}
+              onMove={movable ? handleMove : undefined}
             >
               {hasGutter && (
                 <th scope="row" className={CSS.BE("input", "table-gutter")}>
-                  {onMove != null && !preview ? (
+                  {movable ? (
                     <Button.Button
                       variant="text"
                       size="small"

@@ -920,10 +920,15 @@ describe("Input.Table", () => {
       expect(marked(cell("Raw", "1"))).toBe(false);
     });
 
-    it("should show no handles and no row numbers in preview", () => {
+    it("should show no gutter in preview", () => {
       renderTable({ value: ROWS, onMove: vi.fn(), preview: true });
       expect(screen.queryByRole("button", { name: "Move row 1" })).toBeNull();
-      expect(screen.queryByRole("rowheader", { name: "1" })).toBeNull();
+      expect(screen.queryAllByRole("rowheader")).toHaveLength(0);
+    });
+
+    it("should name a handle after its row's label", () => {
+      renderTable({ value: ROWS, onMove: vi.fn(), rowLabel: (i) => `c${i}` });
+      expect(screen.getByRole("button", { name: "Move row c0" })).toBeTruthy();
     });
 
     it("should keep focus in the cell being edited after a refused move", () => {
