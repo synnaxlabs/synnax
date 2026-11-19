@@ -12,6 +12,7 @@ import { memo } from "react";
 
 import { Triggers } from "@/app/triggers";
 import { Embedded } from "@/feature/embedded";
+import { FLAGS } from "@/flags";
 import { Core } from "@/platform/core";
 import { Session } from "@/session";
 
@@ -21,6 +22,7 @@ export interface ContextProps extends Pick<
 > {}
 
 const ALAMOS_PROPS: Alamos.ProviderProps = { level: "info" };
+const STALENESS_PROPS: Pluto.ProviderProps["staleness"] = { badged: FLAGS.staleBadges };
 
 const useConnParams = DESKTOP ? Embedded.useConnParams : Core.useConnParams;
 
@@ -37,6 +39,7 @@ export const Context = memo((props: ContextProps) => {
       haul={haulProps}
       color={colorProps}
       alamos={ALAMOS_PROPS}
+      staleness={STALENESS_PROPS}
       theming={themingProps}
       {...props}
     />

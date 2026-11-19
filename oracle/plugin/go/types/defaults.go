@@ -49,6 +49,8 @@ type enumCheckData struct {
 	FieldName string
 	// Optional is true for an optional field, which the check reads only when present.
 	Optional bool
+	// MapKey is true for a map keyed by the enum, whose check reads each key.
+	MapKey bool
 }
 
 // goDefaultFills returns the fills for a field's static default. A scalar default
@@ -213,7 +215,7 @@ func zeroFill(goName string, v resolution.ExpressionValue) (defaultFillData, boo
 		lit = "false"
 	case resolution.ValueKindArray:
 		lit = "nil"
-	default:
+	case resolution.ValueKindIdent, resolution.ValueKindStruct:
 		return defaultFillData{}, false
 	}
 	return defaultFillData{GoName: goName, Expr: lit}, true
@@ -258,15 +260,8 @@ func unionLiteral(
 	if !ok {
 		return nil, "", false
 	}
-	var variant resolution.UnionVariant
-	found := false
-	for _, comp := range val.Fields {
-		if comp.Name == form.Discriminator {
-			variant, found = form.Variant(comp.Value.StringValue)
-			break
-		}
-	}
-	if !found {
+	variant, ok := literalVariant(form, val)
+	if !ok {
 		return nil, "", false
 	}
 	fields := resolution.UnifiedVariantFields(resolved, variant, data.table)
@@ -280,21 +275,56 @@ func unionLiteral(
 	defaulted := variantSetsDefaults(form, variant, data)
 	groups := variantHasGroups(form, variant, data)
 	setup = append(setup, literalDefaultsSetup(variable, defaulted, groups)...)
+	comps := lo.Filter(val.Fields, func(comp resolution.StructFieldValue, _ int) bool {
+		return comp.Name != form.Discriminator
+	})
+	lines, ok := fieldAssignments(variable, fields, comps, defaulted, data, next)
+	if !ok {
+		return nil, "", false
+	}
+	setup = append(setup, lines...)
+	if groups {
+		setup = append(setup, variable+".DefaultGroups()")
+	}
+	return setup, variable, true
+}
+
+// literalVariant returns the variant of form that the discriminator of the union
+// literal val names.
+func literalVariant(
+	form resolution.UnionForm, val resolution.ExpressionValue,
+) (resolution.UnionVariant, bool) {
 	for _, comp := range val.Fields {
 		if comp.Name == form.Discriminator {
-			continue
+			return form.Variant(comp.Value.StringValue)
 		}
+	}
+	return resolution.UnionVariant{}, false
+}
+
+// fieldAssignments renders the statements that assign each of comps to its field of the
+// value at selector. defaulted reports whether SetDefaults filled that value.
+func fieldAssignments(
+	selector string,
+	fields []resolution.Field,
+	comps []resolution.StructFieldValue,
+	defaulted bool,
+	data *templateData,
+	next *int,
+) ([]string, bool) {
+	var lines []string
+	for _, comp := range comps {
 		f, ok := lo.Find(fields, func(f resolution.Field) bool {
 			return f.Name == comp.Name
 		})
 		if !ok {
-			return nil, "", false
+			return nil, false
 		}
 		if !defaulted && isEmptyList(comp.Value) {
 			continue
 		}
-		lines, ok := literalAssignments(
-			variable+"."+naming.GetFieldName(f),
+		sub, ok := literalAssignments(
+			selector+"."+naming.GetFieldName(f),
 			f.Type,
 			f.Optional,
 			defaulted,
@@ -303,14 +333,11 @@ func unionLiteral(
 			next,
 		)
 		if !ok {
-			return nil, "", false
+			return nil, false
 		}
-		setup = append(setup, lines...)
+		lines = append(lines, sub...)
 	}
-	if groups {
-		setup = append(setup, variable+".DefaultGroups()")
-	}
-	return setup, variable, true
+	return lines, true
 }
 
 // literalDefaultsSetup returns the statement that sets the defaults of the literal
@@ -343,51 +370,9 @@ func literalAssignments(
 	goType := stripPointer(data.resolver.ResolveTypeRef(typeRef, data.ctx))
 	switch v.Kind {
 	case resolution.ValueKindStruct:
-		var lines []string
-		if optional {
-			lines = append(lines, selector+" = &"+goType+"{}")
-			defaulted = false
-		}
-		if setup, variable, ok := unionLiteral(typeRef, v, data, next); ok {
-			lines = append(lines, setup...)
-			return append(lines, selector+".Variant = "+variable), true
-		}
-		resolved, structRef, ok := resolution.Dealias(typeRef, data.table)
-		if !ok {
-			return nil, false
-		}
-		fields := resolution.UnifiedFields(resolved, data.table)
-		if form, ok := resolved.Form.(resolution.StructForm); ok && form.IsGeneric() {
-			fields = lo.Map(fields, func(f resolution.Field, _ int) resolution.Field {
-				f.Type = bindTypeArgs(f.Type, form.TypeParams, structRef.TypeArgs, data)
-				return f
-			})
-		}
-		for _, comp := range v.Fields {
-			f, ok := lo.Find(fields, func(f resolution.Field) bool {
-				return f.Name == comp.Name
-			})
-			if !ok {
-				return nil, false
-			}
-			if !defaulted && isEmptyList(comp.Value) {
-				continue
-			}
-			sub, ok := literalAssignments(
-				selector+"."+naming.GetFieldName(f),
-				f.Type,
-				f.Optional,
-				defaulted,
-				comp.Value,
-				data,
-				next,
-			)
-			if !ok {
-				return nil, false
-			}
-			lines = append(lines, sub...)
-		}
-		return lines, true
+		return structLiteralAssignments(
+			selector, goType, typeRef, optional, defaulted, v, data, next,
+		)
 	case resolution.ValueKindArray:
 		if len(v.Elements) == 0 {
 			// The literal overrides a default list that SetDefaults set.
@@ -398,24 +383,16 @@ func literalAssignments(
 			return nil, false
 		}
 		return append(setup, selector+" = "+expr), true
-	}
-	if v.Kind == resolution.ValueKindIdent {
-		if expr, defaulted, ok := emptyVariant(v.IdentValue, typeRef, data); ok {
-			var lines []string
-			if defaulted {
-				variable := fmt.Sprintf("v%d", *next)
-				*next++
-				lines = []string{variable + " := " + expr, variable + ".SetDefaults()"}
-				expr = variable
-			}
-			if optional {
-				return append(
-					lines,
-					selector+" = &"+goType+"{Variant: "+expr+"}",
-				), true
-			}
-			return append(lines, selector+".Variant = "+expr), true
+	case resolution.ValueKindIdent:
+		if lines, ok := emptyVariantAssignments(
+			selector, goType, typeRef, optional, v, data, next,
+		); ok {
+			return lines, true
 		}
+	case resolution.ValueKindString,
+		resolution.ValueKindInt,
+		resolution.ValueKindFloat,
+		resolution.ValueKindBool:
 	}
 	lit, ok := goLiteral(typeRef, &v, data)
 	if !ok {
@@ -425,6 +402,74 @@ func literalAssignments(
 		return []string{selector + " = new(" + goType + "(" + lit + "))"}, true
 	}
 	return []string{selector + " = " + lit}, true
+}
+
+// structLiteralAssignments renders the statements that assign the struct or union
+// literal v to selector, whose Go type is goType.
+func structLiteralAssignments(
+	selector string,
+	goType string,
+	typeRef resolution.TypeRef,
+	optional bool,
+	defaulted bool,
+	v resolution.ExpressionValue,
+	data *templateData,
+	next *int,
+) ([]string, bool) {
+	var lines []string
+	if optional {
+		lines = append(lines, selector+" = &"+goType+"{}")
+		defaulted = false
+	}
+	if setup, variable, ok := unionLiteral(typeRef, v, data, next); ok {
+		lines = append(lines, setup...)
+		return append(lines, selector+".Variant = "+variable), true
+	}
+	resolved, structRef, ok := resolution.Dealias(typeRef, data.table)
+	if !ok {
+		return nil, false
+	}
+	fields := resolution.UnifiedFields(resolved, data.table)
+	if form, ok := resolved.Form.(resolution.StructForm); ok && form.IsGeneric() {
+		fields = lo.Map(fields, func(f resolution.Field, _ int) resolution.Field {
+			f.Type = bindTypeArgs(f.Type, form.TypeParams, structRef.TypeArgs, data)
+			return f
+		})
+	}
+	sub, ok := fieldAssignments(selector, fields, v.Fields, defaulted, data, next)
+	if !ok {
+		return nil, false
+	}
+	return append(lines, sub...), true
+}
+
+// emptyVariantAssignments renders the statements that assign the empty variant that
+// the identifier literal v names to selector. It returns ok=false when v names no
+// empty variant of typeRef.
+func emptyVariantAssignments(
+	selector string,
+	goType string,
+	typeRef resolution.TypeRef,
+	optional bool,
+	v resolution.ExpressionValue,
+	data *templateData,
+	next *int,
+) ([]string, bool) {
+	expr, defaulted, ok := emptyVariant(v.IdentValue, typeRef, data)
+	if !ok {
+		return nil, false
+	}
+	var lines []string
+	if defaulted {
+		variable := fmt.Sprintf("v%d", *next)
+		*next++
+		lines = []string{variable + " := " + expr, variable + ".SetDefaults()"}
+		expr = variable
+	}
+	if optional {
+		return append(lines, selector+" = &"+goType+"{Variant: "+expr+"}"), true
+	}
+	return append(lines, selector+".Variant = "+expr), true
 }
 
 // bindTypeArgs returns ref with each of params replaced by the type argument at its
@@ -549,7 +594,7 @@ func goLiteral(
 	case resolution.ValueKindString:
 		return strconv.Quote(v.StringValue), true
 	case resolution.ValueKindInt:
-		return fmt.Sprintf("%d", v.IntValue), true
+		return strconv.FormatInt(v.IntValue, 10), true
 	case resolution.ValueKindFloat:
 		return strconv.FormatFloat(v.FloatValue, 'g', -1, 64), true
 	case resolution.ValueKindBool:
@@ -560,6 +605,7 @@ func goLiteral(
 			return "", false
 		}
 		return enumConstRef(typeRef, ev, data), true
+	case resolution.ValueKindArray, resolution.ValueKindStruct:
 	}
 	return "", false
 }
@@ -589,7 +635,7 @@ func scalarFill(
 		}
 		return defaultFillData{
 			GoName: goName,
-			Expr:   fmt.Sprintf("%d", d.IntValue),
+			Expr:   strconv.FormatInt(d.IntValue, 10),
 		}, true
 	case resolution.ValueKindFloat:
 		if d.FloatValue == 0 {
@@ -627,6 +673,9 @@ func scalarFill(
 			GoName: goName,
 			Expr:   enumConstRef(typeRef, ev, data),
 		}, true
+	case resolution.ValueKindBool,
+		resolution.ValueKindArray,
+		resolution.ValueKindStruct:
 	}
 	return defaultFillData{}, false
 }
@@ -708,46 +757,73 @@ func goConstraintChecks(
 			Deref:     field.Optional,
 		}
 	}
+	required := rules.Required && !field.Optional
 	var checks []constraintCheckData
-	if base == "uuid" {
-		if rules.Required && !field.Optional {
+	switch {
+	case base == "uuid":
+		if required {
 			checks = append(checks, check("non_zero", ""))
 		}
-	} else if resolution.IsStringPrimitive(base) {
-		switch {
-		case rules.MinLength != nil && *rules.MinLength > 1:
-			checks = append(
-				checks,
-				check("min_len", strconv.FormatInt(*rules.MinLength, 10)),
-			)
-		case rules.Required && !field.Optional,
-			rules.MinLength != nil && *rules.MinLength == 1:
-			checks = append(checks, check("non_empty_string", ""))
-		}
-		if rules.MaxLength != nil {
-			checks = append(
-				checks,
-				check("max_len", strconv.FormatInt(*rules.MaxLength, 10)),
-			)
-		}
+	case resolution.IsStringPrimitive(base):
+		checks = stringChecks(rules, required, check)
 	}
 	if resolution.IsNumberPrimitive(base) {
-		if rules.Required && !field.Optional {
-			checks = append(checks, check("non_zero", ""))
-		}
-		if rules.Min != nil {
-			checks = append(checks, check("ge", numberLiteral(rules.Min)))
-		}
-		if rules.GT != nil {
-			checks = append(checks, check("gt", numberLiteral(rules.GT)))
-		}
-		if rules.Max != nil {
-			checks = append(checks, check("le", numberLiteral(rules.Max)))
-		}
+		checks = append(checks, numberChecks(rules, required, check)...)
 	}
 	if field.Optional && len(checks) > 0 {
 		checks[0].Opens = true
 		checks[len(checks)-1].Closes = true
+	}
+	return checks
+}
+
+// constraintCheck builds the check of one constraint kind with its argument.
+type constraintCheck func(kind, arg string) constraintCheckData
+
+// stringChecks returns the length checks of a string field. required reports whether
+// the field must be non-empty.
+func stringChecks(
+	rules *validation.Rules, required bool, check constraintCheck,
+) []constraintCheckData {
+	var checks []constraintCheckData
+	switch {
+	case rules.MinLength != nil && *rules.MinLength > 1:
+		checks = append(
+			checks,
+			check("min_len", strconv.FormatInt(*rules.MinLength, 10)),
+		)
+	case required, rules.MinLength != nil && *rules.MinLength == 1:
+		checks = append(checks, check("non_empty_string", ""))
+	}
+	if rules.MaxLength != nil {
+		checks = append(
+			checks,
+			check("max_len", strconv.FormatInt(*rules.MaxLength, 10)),
+		)
+	}
+	return checks
+}
+
+// numberChecks returns the zero and bound checks of a numeric field. required reports
+// whether the field must be non-zero.
+func numberChecks(
+	rules *validation.Rules, required bool, check constraintCheck,
+) []constraintCheckData {
+	var checks []constraintCheckData
+	if required {
+		checks = append(checks, check("non_zero", ""))
+	}
+	if rules.Min != nil {
+		checks = append(checks, check("ge", numberLiteral(rules.Min)))
+	}
+	if rules.GT != nil {
+		checks = append(checks, check("gt", numberLiteral(rules.GT)))
+	}
+	if rules.Max != nil {
+		checks = append(checks, check("le", numberLiteral(rules.Max)))
+	}
+	if rules.Finite {
+		checks = append(checks, check("finite", ""))
 	}
 	return checks
 }
@@ -760,10 +836,16 @@ func numberLiteral(n *validation.Number) string {
 	return strconv.FormatFloat(n.Float, 'g', -1, 64)
 }
 
-// goEnumCheck returns an enum-membership validation for a field whose type is an enum.
-// An optional field is checked only when present.
+// goEnumCheck returns an enum-membership validation for a field whose type is an enum,
+// or for each key of a map keyed by an enum. An optional field is checked only when
+// present.
 func goEnumCheck(field resolution.Field, data *templateData) (enumCheckData, bool) {
-	resolved, _, ok := resolution.Dealias(field.Type, data.table)
+	ref, mapKey := field.Type, false
+	m := unaliasContainer(field.Type, data)
+	if m.Name == "Map" && len(m.TypeArgs) == 2 {
+		ref, mapKey = m.TypeArgs[0], true
+	}
+	resolved, _, ok := resolution.Dealias(ref, data.table)
 	if !ok {
 		return enumCheckData{}, false
 	}
@@ -782,6 +864,7 @@ func goEnumCheck(field resolution.Field, data *templateData) (enumCheckData, boo
 		GoName:    naming.GetFieldName(field),
 		FieldName: field.Name,
 		Optional:  field.Optional,
+		MapKey:    mapKey,
 	}, true
 }
 
@@ -925,37 +1008,58 @@ func typeNeedsMethod(
 	}
 	switch form := resolved.Form.(type) {
 	case resolution.StructForm:
-		if form.IsGeneric() {
-			return false
-		}
-		probe := probeData(data)
-		for _, field := range resolution.UnifiedFields(resolved, data.table) {
-			if rule.skip(field, data) {
-				continue
-			}
-			if rule.hasOwn(field, probe) ||
-				typeNeedsMethod(field.Type, data, visited, rule) {
-				return true
-			}
-		}
+		return structNeedsMethod(resolved, form, data, visited, rule)
 	case resolution.UnionForm:
-		if rule.everyUnion {
-			return true
-		}
-		for _, base := range form.Extends {
-			if typeNeedsMethod(base, data, visited, rule) {
-				return true
-			}
-		}
-		for _, variant := range form.Variants {
-			if typeNeedsMethod(variant.Type, data, visited, rule) {
-				return true
-			}
-		}
+		return unionNeedsMethod(form, data, visited, rule)
 	case resolution.AliasForm:
 		return typeNeedsMethod(form.Target, data, visited, rule)
 	case resolution.DistinctForm:
 		return typeNeedsMethod(form.Base, data, visited, rule)
+	}
+	return false
+}
+
+func structNeedsMethod(
+	resolved resolution.Type,
+	form resolution.StructForm,
+	data *templateData,
+	visited set.Set[string],
+	rule methodRule,
+) bool {
+	if form.IsGeneric() {
+		return false
+	}
+	probe := probeData(data)
+	for _, field := range resolution.UnifiedFields(resolved, data.table) {
+		if rule.skip(field, data) {
+			continue
+		}
+		if rule.hasOwn(field, probe) ||
+			typeNeedsMethod(field.Type, data, visited, rule) {
+			return true
+		}
+	}
+	return false
+}
+
+func unionNeedsMethod(
+	form resolution.UnionForm,
+	data *templateData,
+	visited set.Set[string],
+	rule methodRule,
+) bool {
+	if rule.everyUnion {
+		return true
+	}
+	for _, base := range form.Extends {
+		if typeNeedsMethod(base, data, visited, rule) {
+			return true
+		}
+	}
+	for _, variant := range form.Variants {
+		if typeNeedsMethod(variant.Type, data, visited, rule) {
+			return true
+		}
 	}
 	return false
 }
@@ -1126,6 +1230,9 @@ func groupMember(f resolution.Field, data *templateData) (groupMemberData, bool)
 			return groupMemberData{}, false
 		}
 		return groupMemberData{GoName: name, ZeroLit: `""`}, true
+	case resolution.ValueKindBool,
+		resolution.ValueKindArray,
+		resolution.ValueKindStruct:
 	}
 	return groupMemberData{}, false
 }

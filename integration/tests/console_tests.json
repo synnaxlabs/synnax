@@ -20,6 +20,7 @@
       "independent": true,
       "tests": [
         { "case": "console/label/label_lifecycle" },
+        { "case": "console/enumeration/enumeration_lifecycle" },
         { "case": "console/secret/secret_lifecycle" },
         { "case": "console/rack/rack_lifecycle" },
         { "case": "console/device/devices_toolbar" },
@@ -46,8 +47,10 @@
         { "case": "console/plot/line_plot" },
         { "case": "console/range/range_explorer" },
         { "case": "console/range/range_details" },
+        { "case": "console/range/range_toolbar" },
         { "case": "console/schematic/schematic_lifecycle" },
         { "case": "console/schematic/set_output" },
+        { "case": "console/schematic/stale_indicator" },
         { "case": "console/schematic/hold_to_actuate" },
         { "case": "console/schematic/alignment" },
         { "case": "console/schematic/multi_edit" },

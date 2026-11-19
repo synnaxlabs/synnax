@@ -10,7 +10,6 @@
 import os
 import sys
 from pathlib import Path
-from typing import cast
 
 import pytest
 
@@ -104,13 +103,13 @@ class TestDrain:
 
     def test_should_stop_idle_runners_at_once(self) -> None:
         seat = Seat({UNIT.format(1): 0, UNIT.format(2): 3})
-        drain(cast(System, seat), sleep=seat.tick)
+        drain(seat, sleep=seat.tick)
         assert seat.stopped == [UNIT.format(1), UNIT.format(2)]
 
     def test_should_keep_a_runner_that_takes_a_job_during_the_stops(self) -> None:
         jobs = {UNIT.format(1): 0, UNIT.format(2): 0}
         seat = Seat(jobs, takes={UNIT.format(1): UNIT.format(2)})
-        drain(cast(System, seat), sleep=seat.tick)
+        drain(seat, sleep=seat.tick)
         assert seat.stopped == [UNIT.format(1), UNIT.format(2)]
 
     def test_should_power_off_once_every_job_finished(self) -> None:
@@ -120,6 +119,6 @@ class TestDrain:
             assert not seat.off
             seat.tick(seconds)
 
-        drain(cast(System, seat), sleep=tick)
+        drain(seat, sleep=tick)
         assert seat.off
         assert seat.stopped == [UNIT.format(1), UNIT.format(2)]

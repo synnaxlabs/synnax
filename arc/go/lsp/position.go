@@ -69,7 +69,7 @@ func isPositionInTokenRange(line, col int, start, stop antlr.Token) bool {
 	if line > startLine && line < stopLine {
 		return true
 	}
-	if line == startLine && line == stopLine {
+	if line == startLine && startLine == stopLine {
 		return col >= startCol && col <= stopCol
 	}
 	if line == startLine {

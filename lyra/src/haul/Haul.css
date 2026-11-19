@@ -13,3 +13,24 @@ html {
     --haul-background: var(--pluto-gray-l8-20);
     --haul-border-color: var(--pluto-gray-l8-50);
 }
+
+/* The browser pictures the layer once at dragstart. Its padding holds the shadow, and it
+   must stay in the viewport: WebKit cancels a drag whose picture is fully offscreen. */
+.lyra-haul__layer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 2147483647;
+    width: max-content;
+    padding: 3rem;
+    pointer-events: none;
+
+    &:empty {
+        display: none;
+    }
+}
+
+/* A source dims while it drags. */
+[data-haul-source] {
+    opacity: 0.4;
+}

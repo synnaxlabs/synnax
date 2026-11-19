@@ -11,11 +11,14 @@ package version
 
 import "github.com/spf13/cobra"
 
-var Cmd = &cobra.Command{
-	Use:   "version",
-	Short: "Print the version of Synnax",
-	Long:  "Print the version of Synnax.",
-	RunE: func(cmd *cobra.Command, _ []string) error {
-		return FPrint(cmd.OutOrStdout())
-	},
+// NewCmd returns the command that prints the version of Synnax.
+func NewCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "version",
+		Short: "Print the version of Synnax",
+		Long:  "Print the version of Synnax.",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return FPrint(cmd.OutOrStdout())
+		},
+	}
 }

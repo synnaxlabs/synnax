@@ -272,7 +272,7 @@ var _ = Describe("Factory", func() {
 				},
 			)
 
-			It("Should not write a status for an invalid config at boot",
+			It("Should write an error status for an invalid config at boot",
 				func(ctx context.Context) {
 					cfg := encodeConfig(pd.TaskConfig{
 						Alerts: []pd.Alert{{Status: "test-status"}},
@@ -286,7 +286,9 @@ var _ = Describe("Factory", func() {
 					var stat task.Status
 					Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 						Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
-						Entry(&stat).Exec(ctx, db)).To(MatchError(query.ErrNotFound))
+						Entry(&stat).Exec(ctx, db)).To(Succeed())
+					Expect(stat.Variant).To(BeEquivalentTo("error"))
+					Expect(stat.Message).To(Equal("Failed to configure task"))
 				},
 			)
 

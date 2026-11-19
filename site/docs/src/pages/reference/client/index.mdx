@@ -139,10 +139,41 @@ Each operation is a method on the client.
 
 ## Languages
 
-| Language   | Package                                                                         | Runs on                                                    |
-| ---------- | ------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| Python     | [`synnax`](https://pypi.org/project/synnax/) on PyPI                            | Python 3.12 or later                                       |
-| TypeScript | [`@synnaxlabs/client`](https://www.npmjs.com/package/@synnaxlabs/client) on npm | Node.js 22, Chrome 122, Firefox 127, Safari 17.4, or later |
+| Language   | Package                                                                         | Runs on                                          |
+| ---------- | ------------------------------------------------------------------------------- | ------------------------------------------------ |
+| Python     | [`synnax`](https://pypi.org/project/synnax/) on PyPI                            | Python 3.13 or later on Linux, macOS, or Windows |
+| TypeScript | [`@synnaxlabs/client`](https://www.npmjs.com/package/@synnaxlabs/client) on npm | Node.js 22.12 or later, a browser, Deno, or Bun  |
+
+The TypeScript client is an ES module only. It works the same in Node.js and in a
+browser.
+
+The Python client follows [SPEC 0](https://scientific-python.org/specs/spec-0000/), the
+support schedule of NumPy, pandas, and SciPy. Each Python version gets support for three
+years after its first release. The client supports Python 3.13, 3.14, and 3.15.
 
 Use a client with the same major and minor version as your Core, such as client 0.61
-with Core 0.61. The client prints a warning when the versions differ.
+with Core 0.61. The patch version can differ. When the major or minor version differs,
+the client prints a warning. When the TypeScript client cannot read the replies of the
+Core, its connection status shows
+[Core version not supported](/reference/client/troubleshooting#core-version-not-supported).
+
+The Python client is pure Python. It installs on each computer where its dependencies,
+such as numpy, pandas, and pydantic, have wheels. This includes Linux on ARM, such as a
+Raspberry Pi or an NVIDIA Jetson, where no Core or Driver runs.
+
+The Python client also runs on free-threaded Python 3.14t and later, which has no global
+interpreter lock, so its threads run in parallel.
+
+### TypeScript client support
+
+The TypeScript client supports:
+
+- **Node.js** -> each line in Active or Maintenance LTS: today 22, 24, and 26. On line
+  22, use 22.12 or later, the first release that can `require()` an ES module. When
+  Node.js ends support for a line, the next client release drops it.
+- **TypeScript** -> each version less than two years old. Set `moduleResolution` to
+  `bundler` or `nodenext`, and set `lib` and `target` to `ES2024` or later.
+- **Browsers** -> each version that is
+  [Baseline Widely available](https://web.dev/baseline), and at least Chrome 122,
+  Firefox 127, or Safari 17.4.
+- **Deno and Bun** -> the latest stable release. Deno needs the `--allow-net` flag.

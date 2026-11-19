@@ -9,9 +9,7 @@
 
 import warnings
 from collections.abc import Mapping
-from typing import Any, cast
-
-from pandas import DataFrame
+from typing import Any
 
 import synnax.channel.payload as channel
 from synnax.channel.retrieve import (
@@ -20,8 +18,9 @@ from synnax.channel.retrieve import (
 )
 from synnax.exceptions import PathError, ValidationError
 from synnax.framer.codec import Codec
-from synnax.framer.frame import CrudeFrame, Frame, FramePayload, K
+from synnax.framer.frame import CrudeFrame, Frame, FramePayload, K, is_dataframe
 from synnax.telem import CrudeSeries, DataType, LimitReduction, Reduction, Series
+from x.telem import is_crude_series
 
 
 class ReadFrameAdapter:
@@ -196,16 +195,22 @@ class WriteFrameAdapter:
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> Frame:
         frame = self._adapt(channels_or_data, series)
-        extra = set(frame.channels) - set(self.keys)
+        channels: list[channel.Payload] = []
+        extra: set[channel.Key | str] = set()
+        for col in frame.channels:
+            ch = self._channels.get(col) if isinstance(col, channel.Key) else None
+            if ch is None:
+                extra.add(col)
+            else:
+                channels.append(ch)
         if extra:
             raise PathError("keys", ValidationError(f"frame has extra keys {extra}"))
 
-        for i, (col, series) in enumerate(frame.items()):
-            ch = self._channels[cast(channel.Key, col)]
+        for i, (ch, series) in enumerate(zip(channels, frame.series, strict=True)):
             if series.data_type != ch.data_type:
                 if self._strict_data_types:
                     raise PathError(
-                        str(col),
+                        str(ch.key),
                         ValidationError(
                             f"Data type {ch.data_type} for channel {ch} does "
                             + f"not match series data type {series.data_type}.",
@@ -244,18 +249,15 @@ class WriteFrameAdapter:
                 but no data.
                 """
                 )
-            if isinstance(series, list) and len(series) > 1:
-                first = series[0]
-                if not isinstance(first, (float, int)):
-                    raise ValidationError(
-                        f"""
-                    Received a single channel {kind}
-                    but multiple series.
-                    """
-                    )
-
+            if not is_crude_series(series):
+                raise ValidationError(
+                    f"""
+                Received a single channel {kind}
+                but multiple series.
+                """
+                )
             key = self._adapt_to_key(channels_or_data)
-            return Frame([key], [Series(cast(CrudeSeries, series))])
+            return Frame([key], [Series(series)])
 
         if isinstance(channels_or_data, (list, tuple)):
             if series is None:
@@ -265,9 +267,7 @@ class WriteFrameAdapter:
                 """
                 )
             series_list: list[CrudeSeries] = (
-                [series]
-                if not isinstance(series, list)
-                else cast(list[CrudeSeries], series)
+                list(series) if isinstance(series, list) else [series]
             )
             channels: list[channel.Key] = []
             o_series: list[Series] = []
@@ -288,7 +288,7 @@ class WriteFrameAdapter:
         if isinstance(channels_or_data, FramePayload):
             channels_or_data = Frame(channels_or_data)
 
-        if isinstance(channels_or_data, (Frame, DataFrame)):
+        if isinstance(channels_or_data, Frame) or is_dataframe(channels_or_data):
             if isinstance(channels_or_data, Frame):
                 cols: list[channel.Key | str] = channels_or_data.channels
             else:
@@ -296,7 +296,7 @@ class WriteFrameAdapter:
             if self._adapter is None:
                 return (
                     Frame(channels_or_data)
-                    if isinstance(channels_or_data, DataFrame)
+                    if is_dataframe(channels_or_data)
                     else channels_or_data
                 )
             adapted_channels: list[channel.Key] = []

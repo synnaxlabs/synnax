@@ -58,9 +58,8 @@ because `Series.updateGLBuffer` rejects other types (`x/ts/src/telem/series.ts:9
 
 1. **Pixels stay above the port**: The visualization turns its width into a point count
    and owns its zoom timing. No pixel width, zoom level, or tile crosses `Source`.
-2. **Behind the Synnax source, the `Feed` owns time**: Tiles, block edges, the rolling
-   edge, sample identity, the commit margin, duplicates, and data type changes are
-   private to it.
+2. **Behind the Synnax source, the `Feed` owns time**: Tiles, block edges, sample
+   identity, the commit margin, duplicates, and data type changes are private to it.
 3. **The cache stores exact data**: Any conversion for rendering happens in the
    visualization, at GPU upload.
 4. **One of each**: One join of history and live data, one cache, one window type.
@@ -71,12 +70,12 @@ because `Series.updateGLBuffer` rejects other types (`x/ts/src/telem/series.ts:9
 
 ### 3.0 The stack
 
-| Layer         | Owns                                        | Never sees           |
-| ------------- | ------------------------------------------- | -------------------- |
-| Visualization | Range, points, zoom, home view, GPU data    | Tiles, blocks, seams |
-| `Source`      | An adapter from a spec to its data          | Pixels, tiles        |
-| `Feed`        | Exact data, blocks, live join, rolling edge | Pixels, GPU formats  |
-| Core          | Reads, streams, reductions, change signals  | Client state         |
+| Layer         | Owns                                                   | Never sees           |
+| ------------- | ------------------------------------------------------ | -------------------- |
+| Visualization | Range, points, zoom, home view, rolling edge, GPU data | Tiles, blocks, seams |
+| `Source`      | An adapter from a spec to its data                     | Pixels, tiles        |
+| `Feed`        | Exact data, blocks, live join, newest sample           | Pixels, GPU formats  |
+| Core          | Reads, streams, reductions, change signals             | Client state         |
 
 Only the Synnax source uses the `Feed`. Static sources, transformers, and sources
 outside Synnax implement the same port.
@@ -127,8 +126,10 @@ sub.onChange(() => requestRender());
 const { series, status, time: newest } = sub.value(pressure);
 ```
 
-- **`window`**: A `telem.Window` (`x/ts/src/telem/telem.ts:2089`). The `Feed` resolves a
-  `dynamic` window against its own clock, so the rolling edge has one owner.
+- **`window`**: A `telem.Window` (`x/ts/src/telem/telem.ts:2089`). A `dynamic` window
+  ends at the newest sample, which the snapshot's time reports (decision 13). The
+  visualization ends the window there and passes it as the `view`. The `Feed` still
+  holds and expires blocks against its own clock.
 - **`points` limit**: About `count` points across the drawn range: the `view`, or the
   whole window. A `view` may reach past a `static` window, as on a zoom out or a pan. A
   `settling` limit draws the `view` from the blocks held and reads none, so a fast zoom
@@ -138,11 +139,12 @@ const { series, status, time: newest } = sub.value(pressure);
 - **`latest` limit**: The newest `count` raw samples in the window, or across all time
   when the request has no window. A value asks for 1, and a log asks for its page size.
 - **Snapshot**: `value(key)` returns exact series over the drawn range, a status, and
-  the time of the newest sample. A `latest` snapshot also counts the samples appended to
-  the key, so a log appends only the samples past its last count. Statuses stay per key
-  (RFC 0055 §3, principle 2). Every series carries its block alignment (§3.4), so the x
-  and y sources of a line pair across requests. Series stay valid until the next `value`
-  or `close`.
+  the time of the newest sample. For a `dynamic` window, that sample can be stored
+  before the window. A `latest` snapshot also counts the samples appended to the key, so
+  a log appends only the samples past its last count. Statuses stay per key (RFC 0055
+  §3, principle 2). Every series carries its block alignment (§3.4), so the x and y
+  sources of a line pair across requests. Series stay valid until the next `value` or
+  `close`.
 - **Changes**: `onChange` carries no data. It tells the caller to pull again.
   `update(request)` replaces the request and does nothing for an equal one, and old
   tiles stand in until new ones land.
@@ -332,8 +334,9 @@ virtual channel. No phase changes a stored format.
     leave the cache.
 11. **A pulled handle, not a pushed result**: Pluto reads each source on every frame, so
     a pushed result needs a copy in each source to answer that read. A dynamic window
-    moves with the clock, so a push needs a timer in the `Feed` and sends results that
-    no frame draws. The trade is real: a caller that wants push wraps `onChange`.
+    holds blocks against the clock, so a push needs a timer in the `Feed` and sends
+    results that no frame draws. The trade is real: a caller that wants push wraps
+    `onChange`.
 12. **Values and logs read outside the join**: A value needs one sample and a log one
     page, but a join reads whole open blocks. At 1 kHz, 300 values would read about 20
     million samples to show 300. A `latest` request reads the newest samples from the
@@ -350,6 +353,18 @@ virtual channel. No phase changes a stored format.
     later samples stream, and the samples it reads again do not count as appended. Live
     samples show while that read fails, so a read that lands after them drops the
     samples written while the stream was down.
+13. **A live window ends at the newest sample**: Only new samples move a live plot, and
+    staleness marks show a stopped signal. The `Feed` reads each channel's newest stored
+    sample when a `dynamic` window subscribes and after a history change, and the stream
+    moves it after that. One x axis ends every live line at the newest sample across
+    them, so a stopped line does not stretch the axis. LabVIEW charts, PlotJuggler,
+    oscilloscopes, and Dewesoft advance on data. Grafana and Ignition follow the clock
+    because they query stored data. A clock edge is rejected: it moves a plot with no
+    new data, so a pan of a zoomed plot moves forward whatever the drag. An empty plot
+    until data arrives hides a finished test, and a reload loses an edge frozen at the
+    last sample seen. This revises RFC 0068 §3.0. The trade is real: each subscription
+    reads the Core once more, and a sample stamped in the future moves the edge there
+    until someone deletes it.
 
 ## 6 What this RFC does not cover
 

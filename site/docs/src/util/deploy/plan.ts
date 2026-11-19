@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { unique } from "@synnaxlabs/x";
+
 import { NEXT, resolve } from "@/util/version";
 
 /** Requests the newest train. */
@@ -69,7 +71,7 @@ export const plan = async (
     if (name === PREVIOUS) return trains.slice(1, 2);
     return [name];
   };
-  const names = [...new Set(requested.flatMap(expand))];
+  const names = unique.unique(requested.flatMap(expand));
   if (released != null && trains.includes(released) && !names.includes(released))
     names.push(released);
   if (ref != null && names.length !== 1)

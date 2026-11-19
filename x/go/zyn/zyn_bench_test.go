@@ -18,7 +18,7 @@ import (
 
 // --- Realistic schemas matching production usage ---
 
-// Channel: 9 fields, the largest real schema
+// Channel: 9 fields, the largest real schema.
 var channelSchema = zyn.Object(map[string]zyn.Schema{
 	"key":         zyn.Uint32().Coerce(),
 	"name":        zyn.String(),
@@ -31,13 +31,13 @@ var channelSchema = zyn.Object(map[string]zyn.Schema{
 	"expression":  zyn.String(),
 })
 
-// Workspace: 2 fields, the most common pattern (UUID + String)
+// Workspace: 2 fields, the most common pattern (UUID + String).
 var workspaceSchema = zyn.Object(map[string]zyn.Schema{
 	"key":  zyn.UUID(),
 	"name": zyn.String(),
 })
 
-// User: 5 fields with UUID + Strings + Bool
+// User: 5 fields with UUID + Strings + Bool.
 var userSchema = zyn.Object(map[string]zyn.Schema{
 	"key":        zyn.UUID(),
 	"username":   zyn.String(),
@@ -46,7 +46,7 @@ var userSchema = zyn.Object(map[string]zyn.Schema{
 	"root_user":  zyn.Bool(),
 })
 
-// Device: 7 fields, mix of String + Uint32 + Bool
+// Device: 7 fields, mix of String + Uint32 + Bool.
 var deviceSchema = zyn.Object(map[string]zyn.Schema{
 	"key":        zyn.String(),
 	"rack":       zyn.Uint32().Coerce(),
@@ -57,7 +57,7 @@ var deviceSchema = zyn.Object(map[string]zyn.Schema{
 	"configured": zyn.Bool(),
 })
 
-// Range: 4 fields with nested color + time_range objects (depth 2)
+// Range: 4 fields with nested color + time_range objects (depth 2).
 var colorSchema = zyn.Object(map[string]zyn.Schema{
 	"r": zyn.Number().Uint8().Coerce(),
 	"g": zyn.Number().Uint8().Coerce(),

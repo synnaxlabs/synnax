@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { compare, unique } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { DAY_MS } from "@/server/usage";
@@ -134,7 +135,7 @@ const join = ({ sessions, end }: Group): Visit => {
     end: new Date(end),
     version: sessions.find((s) => s.version != null)?.version ?? null,
     os: sessions.find((s) => s.os != null)?.os ?? null,
-    screens: [...new Set(sessions.flatMap((s) => s.screens))],
+    screens: unique.unique(sessions.flatMap((s) => s.screens)),
     actions,
     replay: sessions.reduce((a, b) => (span(b) > span(a) ? b : a)).id,
   };
@@ -143,8 +144,10 @@ const join = ({ sessions, end }: Group): Visit => {
 /** visitsIn joins each person's sessions into visits, and keeps those in [from, to). */
 const visitsIn = (sessions: Session[], from: Date, to: Date): Visit[] => {
   const sorted = [...sessions].sort(
-    (a, b) =>
-      a.distinctID.localeCompare(b.distinctID) || a.start.getTime() - b.start.getTime(),
+    compare.chain(
+      compare.by((s) => s.distinctID, compare.codePoints),
+      compare.by((s) => s.start.getTime(), compare.numbers),
+    ),
   );
   const groups: Group[] = [];
   for (const s of sorted) {

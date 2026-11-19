@@ -59,7 +59,8 @@ var _ = Describe("MigrateSchematic", func() {
 				},
 			}},
 		}))
-		value := out.Configs["n1"].Variant.(v12.ValueElementConfig)
+		value, ok := out.Configs["n1"].Variant.(v12.ValueElementConfig)
+		Expect(ok).To(BeTrue())
 		Expect(value.Precision).To(HaveValue(BeZero()))
 	})
 
@@ -71,7 +72,8 @@ var _ = Describe("MigrateSchematic", func() {
 				},
 			}},
 		}))
-		gauge := out.Configs["n1"].Variant.(v12.GaugeElementConfig)
+		gauge, ok := out.Configs["n1"].Variant.(v12.GaugeElementConfig)
+		Expect(ok).To(BeTrue())
 		Expect(gauge.Precision).To(HaveValue(BeEquivalentTo(3)))
 	})
 
@@ -81,7 +83,8 @@ var _ = Describe("MigrateSchematic", func() {
 				"n1": {Variant: v10.TankElementConfig{Precision: 4.4}},
 			},
 		}))
-		tank := out.Configs["n1"].Variant.(v12.TankElementConfig)
+		tank, ok := out.Configs["n1"].Variant.(v12.TankElementConfig)
+		Expect(ok).To(BeTrue())
 		Expect(tank.Precision).To(HaveValue(BeEquivalentTo(4)))
 	})
 
@@ -95,7 +98,8 @@ var _ = Describe("MigrateSchematic", func() {
 				},
 			}},
 		}))
-		scale := out.Configs["n1"].Variant.(v12.ScaleElementConfig)
+		scale, ok := out.Configs["n1"].Variant.(v12.ScaleElementConfig)
+		Expect(ok).To(BeTrue())
 		Expect(scale.Precision).To(HaveValue(BeEquivalentTo(5)))
 	})
 })
@@ -103,6 +107,7 @@ var _ = Describe("MigrateSchematic", func() {
 var _ = Describe("Migration", func() {
 	It("Should lift schematics that v0.61 stored to v13", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v11.Key, v11.Schematic]{
 			DB: db,
 		}))
@@ -165,16 +170,20 @@ var _ = Describe("Migration", func() {
 		Expect(got.Nodes[0].Key).To(Equal("value"))
 		Expect(got.Nodes[0].Position).To(Equal(spatial.XY{X: 10, Y: 20}))
 		Expect(got.Nodes[0].ZIndex).To(BeEquivalentTo(2))
-		value := got.Nodes[0].Config.Variant.(v13.ValueNodeConfig)
+		value, ok := got.Nodes[0].Config.Variant.(v13.ValueNodeConfig)
+		Expect(ok).To(BeTrue())
 		Expect(value.Precision).To(HaveValue(BeEquivalentTo(2)))
 		Expect(value.StrokeColor).
 			To(HaveValue(Equal(colorv2.Color{R: 1, G: 2, B: 3, A: 128})))
-		Expect(got.Nodes[1].Config.Variant.(v13.GaugeNodeConfig).Precision).
-			To(HaveValue(BeEquivalentTo(3)))
-		Expect(got.Nodes[2].Config.Variant.(v13.TankNodeConfig).Precision).
-			To(HaveValue(BeEquivalentTo(17)))
-		Expect(got.Nodes[3].Config.Variant.(v13.ScaleNodeConfig).Precision).
-			To(HaveValue(BeZero()))
+		gauge, ok := got.Nodes[1].Config.Variant.(v13.GaugeNodeConfig)
+		Expect(ok).To(BeTrue())
+		Expect(gauge.Precision).To(HaveValue(BeEquivalentTo(3)))
+		tank, ok := got.Nodes[2].Config.Variant.(v13.TankNodeConfig)
+		Expect(ok).To(BeTrue())
+		Expect(tank.Precision).To(HaveValue(BeEquivalentTo(17)))
+		scale, ok := got.Nodes[3].Config.Variant.(v13.ScaleNodeConfig)
+		Expect(ok).To(BeTrue())
+		Expect(scale.Precision).To(HaveValue(BeZero()))
 		Expect(got.Edges).To(HaveLen(1))
 		Expect(got.Edges[0].Key).To(Equal("pipe"))
 		Expect(got.Edges[0].Source).To(Equal(pipe.Source))

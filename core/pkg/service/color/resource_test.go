@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/color"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	xcolor "github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/search"
@@ -31,7 +32,11 @@ var _ = Describe("Resources", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
-		svc = MustOpen(color.OpenService(ctx, color.ServiceConfig{DB: db}))
+		StartRun(db.Run)
+		groups := MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
+		svc = MustOpen(
+			color.OpenService(ctx, color.ServiceConfig{DB: db, Group: groups}),
+		)
 	})
 	create := func(ctx SpecContext, name string) resource.Resource {
 		GinkgoHelper()
@@ -68,8 +73,7 @@ var _ = Describe("Resources", func() {
 
 	It("Should list each named color by its name", func(ctx SpecContext) {
 		r := create(ctx, "Breaker")
-		Expect(svc.Resources().List(ctx, db, 10, nil)).
-			To(Equal([]resource.Resource{r}))
+		Expect(svc.Resources().List(ctx, db, 100, nil)).To(ContainElement(r))
 	})
 
 	It("Should search named colors by name, closest first", func(ctx SpecContext) {

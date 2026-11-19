@@ -226,36 +226,11 @@ func (c *Color) DecodeMsgpack(dec *msgpack.Decoder) error {
 
 	if msgpcode.IsFixedArray(code) || code == msgpcode.Array16 ||
 		code == msgpcode.Array32 {
-		arrLen, err := dec.DecodeArrayLen()
+		parsed, err := decodeMsgpackArray(dec)
 		if err != nil {
 			return err
 		}
-		if arrLen < 3 || arrLen > 4 {
-			return errors.Newf("invalid color array length: %d", arrLen)
-		}
-		r, err := dec.DecodeUint8()
-		if err != nil {
-			return err
-		}
-		g, err := dec.DecodeUint8()
-		if err != nil {
-			return err
-		}
-		b, err := dec.DecodeUint8()
-		if err != nil {
-			return err
-		}
-		a := 1.0
-		if arrLen == 4 {
-			a, err = dec.DecodeFloat64()
-			if err != nil {
-				return err
-			}
-			if a, err = normalizeAlpha(a); err != nil {
-				return err
-			}
-		}
-		*c = Color{R: r, G: g, B: b, A: a}
+		*c = parsed
 		return nil
 	}
 
@@ -272,4 +247,38 @@ func (c *Color) DecodeMsgpack(dec *msgpack.Decoder) error {
 	obj.A = a
 	*c = Color(obj)
 	return nil
+}
+
+// decodeMsgpackArray decodes a color stored as an [r, g, b] or [r, g, b, a] array.
+func decodeMsgpackArray(dec *msgpack.Decoder) (Color, error) {
+	arrLen, err := dec.DecodeArrayLen()
+	if err != nil {
+		return Color{}, err
+	}
+	if arrLen < 3 || arrLen > 4 {
+		return Color{}, errors.Newf("invalid color array length: %d", arrLen)
+	}
+	r, err := dec.DecodeUint8()
+	if err != nil {
+		return Color{}, err
+	}
+	g, err := dec.DecodeUint8()
+	if err != nil {
+		return Color{}, err
+	}
+	b, err := dec.DecodeUint8()
+	if err != nil {
+		return Color{}, err
+	}
+	a := 1.0
+	if arrLen == 4 {
+		a, err = dec.DecodeFloat64()
+		if err != nil {
+			return Color{}, err
+		}
+		if a, err = normalizeAlpha(a); err != nil {
+			return Color{}, err
+		}
+	}
+	return Color{R: r, G: g, B: b, A: a}, nil
 }

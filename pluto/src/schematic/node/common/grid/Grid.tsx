@@ -144,7 +144,7 @@ export const useInlineResize = (
       onChange(
         Math.max(
           MIN_INLINE_SIZE,
-          start.current.inlineSize + width - start.current.width,
+          Math.round(start.current.inlineSize + width - start.current.width),
         ),
       ),
   };
@@ -209,8 +209,13 @@ const EditableSlot = ({ loc, nodeKey, items }: SlotProps) => {
       });
     },
   });
-  const onDragStart = (_: DragEvent<HTMLElement>, itemKey: string) => {
-    startDrag([{ key: itemKey, type: haulType }]);
+  const onDragStart = (event: DragEvent<HTMLElement>, itemKey: string) => {
+    startDrag({
+      event,
+      items: [{ key: itemKey, type: haulType }],
+      preview: <Haul.Copy of={event.currentTarget} />,
+      anchor: "grab",
+    });
     // The onDragEnd handler will not fire if the element is dragged into a
     // different grid slot before being released; this listener cleans up.
     document.addEventListener("mousemove", onDragEnd, { once: true });

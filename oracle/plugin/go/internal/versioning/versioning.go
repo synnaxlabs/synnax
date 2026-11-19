@@ -19,7 +19,6 @@
 package versioning
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -71,14 +70,14 @@ func VersionDirs(repoRoot, goPath string) ([]int, error) {
 // output path to its chain's current version, and members holds the qualified
 // name of every current-surface member. Both are empty without a resolver.
 func Survey(
-	ctx context.Context, table *resolution.Table, res *versions.Resolver,
+	table *resolution.Table, res *versions.Resolver,
 ) (entries map[string]int, members set.Set[string], err error) {
 	entries, members = make(map[string]int), make(set.Set[string])
 	if res == nil {
 		return entries, members, nil
 	}
 	for livePath, chain := range res.Chains() {
-		surf, err := res.Surface(ctx, livePath, chain.Current())
+		surf, err := res.Surface(livePath, chain.Current())
 		if err != nil {
 			return nil, nil, err
 		}
@@ -113,7 +112,7 @@ type Pins struct {
 // NewPins reads the pins of every chain's current surface. It returns the zero Pins
 // without a resolver, and the error from reading any surface or version file.
 func NewPins(
-	ctx context.Context, table *resolution.Table, res *versions.Resolver,
+	table *resolution.Table, res *versions.Resolver,
 ) (Pins, error) {
 	if res == nil {
 		return Pins{}, nil
@@ -136,14 +135,14 @@ func NewPins(
 		names[t.Name] = t.QualifiedName
 	}
 	for livePath, chain := range res.Chains() {
-		surf, err := res.Surface(ctx, livePath, chain.Current())
+		surf, err := res.Surface(livePath, chain.Current())
 		if err != nil {
 			return Pins{}, err
 		}
 		if len(surf) == 0 {
 			continue
 		}
-		cur, err := res.File(ctx, livePath, chain.Current())
+		cur, err := res.File(livePath, chain.Current())
 		if err != nil {
 			return Pins{}, err
 		}
@@ -153,7 +152,7 @@ func NewPins(
 			if !ok {
 				continue
 			}
-			definer, err := res.File(ctx, livePath, def.Version)
+			definer, err := res.File(livePath, def.Version)
 			if err != nil {
 				return Pins{}, err
 			}
@@ -190,9 +189,9 @@ func (p Pins) resolve(pins map[string]int, ref resolution.Type) (string, bool) {
 // rewritten to its current versions/vN sub-path, plus the applied path map keyed
 // by original path and the current-surface member set.
 func RewriteCurrent(
-	ctx context.Context, table *resolution.Table, res *versions.Resolver,
+	table *resolution.Table, res *versions.Resolver,
 ) (*resolution.Table, map[string]string, set.Set[string], error) {
-	entries, members, err := Survey(ctx, table, res)
+	entries, members, err := Survey(table, res)
 	if err != nil {
 		return nil, nil, nil, err
 	}

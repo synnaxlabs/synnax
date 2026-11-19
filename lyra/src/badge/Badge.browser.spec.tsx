@@ -35,6 +35,17 @@ describe("Badge", () => {
     expectColors(getByText("Word").element(), text, fill);
   });
 
+  it("should use the theme font inside a parent that sets none", async () => {
+    const { getByText } = await renderThemed(
+      <div>
+        <Badge.Badge>Dev3</Badge.Badge>
+      </div>,
+    );
+    expect(computed(getByText("Dev3").element(), "font-family")).toBe(
+      resolve("var(--pluto-font-family)", "font-family"),
+    );
+  });
+
   it("should color the auto badge violet", async () => {
     const { getByText } = await renderThemed(<Input.AutoBadge />);
     expectColors(getByText("Auto").element(), "--pluto-auto-text", "--pluto-auto-z-15");

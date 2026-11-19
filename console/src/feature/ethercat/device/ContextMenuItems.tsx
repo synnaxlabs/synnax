@@ -11,10 +11,11 @@ import { device } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access } from "@synnaxlabs/pluto";
+import { strings, unique } from "@synnaxlabs/x";
 
 import {
   useEnabledState,
-  useResultSlave,
+  useSlavesByKeys,
   useToggleEnabled,
 } from "@/feature/ethercat/device/queries";
 import { Task } from "@/feature/ethercat/task";
@@ -31,16 +32,23 @@ const ConfigureItem = ({ deviceKey, onConfigure }: ConfigureItemProps) => (
   </Menu.Item>
 );
 
+const CONFIGURE_MANY = {
+  zeroProperties: {},
+  suggestIdentifiers: ({ name }: device.Device) => strings.createShortIdentifiers(name),
+};
+
 const READ_TASK_ITEM = Device.createTaskContextMenuItem({
   itemKey: "ethercat.readTask",
   label: "Create read task",
   useCreate: Task.useCreateRead,
+  configureMany: CONFIGURE_MANY,
 });
 
 const WRITE_TASK_ITEM = Device.createTaskContextMenuItem({
   itemKey: "ethercat.writeTask",
   label: "Create write task",
   useCreate: Task.useCreateWrite,
+  configureMany: CONFIGURE_MANY,
 });
 
 export const ContextMenuItems = (props: Device.ContextMenuItemsProps) => {
@@ -49,12 +57,27 @@ export const ContextMenuItems = (props: Device.ContextMenuItemsProps) => {
   const { update: toggleEnabled } = useToggleEnabled();
 
   const { allDisabled, allEnabled } = useEnabledState({ keys });
-  const { data: first } = useResultSlave({ key: keys[0] });
-  const pdos = first?.properties.pdos;
-  const taskItems = [
-    ...(pdos != null && pdos.inputs.length > 0 ? [READ_TASK_ITEM] : []),
-    ...(pdos != null && pdos.outputs.length > 0 ? [WRITE_TASK_ITEM] : []),
-  ];
+  const slaves = useSlavesByKeys(keys) ?? [];
+  // A task takes only the slaves with entries on its side, all on one network.
+  const selectionOf = (side: Task.PDOType) => {
+    const used = slaves.filter(({ properties }) => properties.pdos[side].length > 0);
+    if (unique.unique(used.map(({ properties }) => properties.network)).length !== 1)
+      return null;
+    const usedKeys = new Set(used.map(({ key }) => key));
+    return {
+      ...props.selection,
+      ids: props.selection.ids.filter(({ key }) => usedKeys.has(key)),
+    };
+  };
+  const taskItems = (
+    [
+      [READ_TASK_ITEM, "inputs"],
+      [WRITE_TASK_ITEM, "outputs"],
+    ] as const
+  ).flatMap(([item, side]) => {
+    const selection = selectionOf(side);
+    return selection == null ? [] : [{ item, selection }];
+  });
 
   const handleDisable = () => {
     toggleEnabled({ keys, enabled: false });
@@ -72,7 +95,14 @@ export const ContextMenuItems = (props: Device.ContextMenuItemsProps) => {
       <Menu.Divider />
       {taskItems.length > 0 && (
         <>
-          <Device.TaskContextMenuItems {...props} items={taskItems} />
+          {taskItems.map(({ item, selection }) => (
+            <Device.TaskContextMenuItems
+              key={item.itemKey}
+              {...props}
+              selection={selection}
+              items={[item]}
+            />
+          ))}
           <Menu.Divider />
         </>
       )}

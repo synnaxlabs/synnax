@@ -15,6 +15,7 @@ import {
   box,
   color,
   DataType,
+  deep,
   type destructor,
   type direction,
   type MultiSeries,
@@ -110,6 +111,8 @@ export interface FindResult {
 export interface DataBounds {
   bounds: bounds.Bounds;
   loading: boolean;
+  /** True when the bounds end at the newest sample and move as samples arrive. */
+  rolling?: boolean;
 }
 
 export interface LineProps {
@@ -323,10 +326,12 @@ interface InternalState {
   // aggregation and loadingState come from the data the line last drew.
   aggregation?: Aggregation;
   loadingState?: LoadingState;
-  // loaded is true once both sources leave loading, until either source changes.
+  // loaded is true once both sources leave loading, until either source or spec
+  // changes.
   loaded?: boolean;
-  // drawn holds the ops of the last render.
+  // drawn holds the ops of the last render, and groupSize the size that reduced them.
   drawn: DrawOperation[];
+  groupSize: number;
 }
 
 export class Line extends aether.Leaf<typeof stateZ, InternalState> {
@@ -341,12 +346,21 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     const { xTelem, yTelem } = i;
     i.xTelem = telem.useSource(ctx, this.state.x, i.xTelem, createOptions);
     i.yTelem = telem.useSource(ctx, this.state.y, i.yTelem, createOptions);
-    if (i.xTelem !== xTelem || i.yTelem !== yTelem) i.loaded = false;
+    const { x, y } = this.state;
+    const prev = this.prevState;
+    if (
+      i.xTelem !== xTelem ||
+      i.yTelem !== yTelem ||
+      !deep.equal(x, prev.x) ||
+      !deep.equal(y, prev.y)
+    )
+      i.loaded = false;
     i.instrumentation = alamos.useInstrumentation(ctx, "line");
     i.lineCtx = Context.use(ctx);
     i.requestRender = render.useRequestor(ctx);
     i.reducer ??= new Reducer();
     i.drawn ??= [];
+    i.groupSize ??= 1;
     i.stopListeningXTelem?.();
     i.stopListeningYTelem?.();
     i.stopListeningXTelem = i.xTelem.onChange(() => i.requestRender("data"));
@@ -375,7 +389,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
 
   xBounds(): DataBounds {
     const x = this.internal.xTelem.value();
-    return { bounds: x.data[0], loading: isLoading(x) };
+    return { bounds: x.data[0], loading: isLoading(x), rolling: x.rolling };
   }
 
   /**
@@ -386,7 +400,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
    */
   yBounds(xWindow: bounds.Bounds): DataBounds {
     const { xTelem, yTelem } = this.internal;
-    const valueProps = { extremesKept: true };
+    const valueProps = { extremesKept: true, bounds: xWindow };
     const y = yTelem.value(valueProps);
     const [b, yData] = y.data;
     if (!bounds.isFinite(xWindow)) return { bounds: b, loading: isLoading(y) };
@@ -518,7 +532,8 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     // Full-resolution data reduces with the aggregation of the source's reduced reads.
     i.aggregation = y.aggregation ?? DEFAULT_AGGREGATION;
     const full = buildDrawOperations(x.data[1], y.data[1], DEFAULT_OVERLAP_THRESHOLD);
-    const size = groupSize(full, v, groupsPerColumn);
+    const size = groupSize(full, v, groupsPerColumn, i.aggregation, i.groupSize);
+    i.groupSize = size;
     const cut =
       x.sorted === true && bounds.isFinite(v.bounds)
         ? inView(full, v.bounds, size)
@@ -576,7 +591,10 @@ const nearest = (
   let distance = Infinity;
   for (const op of ops) {
     const { x, xOffset, count } = op;
-    const after = Math.min(Math.max(x.binarySearch(target) - xOffset, 0), count);
+    const after = bounds.clamp(
+      { lower: 0, upper: count },
+      x.binarySearch(target) - xOffset,
+    );
     for (const i of [after - 1, after]) {
       if (i < 0 || i >= count) continue;
       const d = Math.abs(Number(x.at(xOffset + i, true)) - target);
@@ -594,7 +612,7 @@ const nearest = (
 const THICKNESS_DIVISOR = 5000;
 
 const newTranslationBuffer = (aspect: number, strokeWidth: number): Float32Array =>
-  replicateBuffer(newDirectionBuffer(aspect), strokeWidth).map(
+  replicateBuffer(newDirectionBuffer(aspect), Math.ceil(strokeWidth)).map(
     (v, i) => Math.floor(i / DIRECTION_COUNT) * (1 / (THICKNESS_DIVISOR * aspect)) * v,
   );
 

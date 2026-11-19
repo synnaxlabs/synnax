@@ -16,7 +16,7 @@ from pydantic import JsonValue
 import synnax as sy
 from synnax import device
 from x import filter
-from x.testutil import assert_eventually
+from x.testutil import assert_eventually, untyped
 
 
 def basic_device(rack: sy.rack.Key, n: int) -> sy.Device:
@@ -316,12 +316,12 @@ class TestDevice:
     def test_retrieve_one_with_limit(self, client: sy.Synnax) -> None:
         """Should reject one beside a limit, since a page could hide a match."""
         with pytest.raises(sy.ValidationError, match="cannot set a limit"):
-            client.devices.retrieve(model="T7", one=True, limit=1)  # type: ignore[call-overload]
+            untyped(client.devices.retrieve)(model="T7", one=True, limit=1)
 
     def test_retrieve_none_field(self, client: sy.Synnax) -> None:
         """Should reject a field set to None, since it would select every device."""
         with pytest.raises(sy.ValidationError, match="model is None"):
-            client.devices.retrieve(model=None)  # type: ignore[call-overload]
+            untyped(client.devices.retrieve)(model=None)
 
     def test_retrieve_with_limit(self, client: sy.Synnax) -> None:
         """Should return at most the limit of the devices on a rack."""

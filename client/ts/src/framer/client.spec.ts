@@ -21,7 +21,7 @@ const client = createTestClient();
 describe("Client", () => {
   describe("openFeed", () => {
     it("should report each failed stream reconnect to onRetry", async () => {
-      const transport = new Transport(new url.URL(TEST_CORE_ADDRESS));
+      const transport = new Transport({ url: new url.URL(TEST_CORE_ADDRESS) });
       const retries: Error[] = [];
       const unreachable = new framer.Client({
         stream: transport.stream,
@@ -75,7 +75,7 @@ describe("Client", () => {
         dataType: "float64",
         index: time.key,
       });
-      await client.write(TimeStamp.SECOND, {
+      await client.write(TimeStamp.seconds(1), {
         [time.key]: secondsLinspace(1, 8),
         [data.key]: new Float64Array([4, 1, 3, 8, 5, 2, 6, 7]),
       });

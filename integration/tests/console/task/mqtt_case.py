@@ -65,7 +65,7 @@ class MQTTCase(ConsoleTaskCase):
             return [k for k in keys if k != 0]
         for source in _sources(task):
             if isinstance(source, mqtt.PlainReadEntry):
-                keys.extend(f.channel for f in source.fields)
+                keys.extend(b.channel for m in source.messages for b in m.bindings)
             elif isinstance(source, mqtt.PlainWriteTarget):
                 keys.append(source.channel.channel)
             else:
@@ -74,7 +74,8 @@ class MQTTCase(ConsoleTaskCase):
 
     @staticmethod
     def data_channel_keys(task: sy.Task) -> list[int]:
-        """Return the channels of the enabled entries and fields of a read task."""
+        """Return the channels of the enabled entries and bound fields of a read
+        task."""
         keys: list[int] = []
         for entry in mqtt.ReadTask(task).config.entries:
             if entry.disabled:
@@ -82,7 +83,7 @@ class MQTTCase(ConsoleTaskCase):
             if isinstance(entry, mqtt.SparkplugReadEntry):
                 keys.append(entry.channel)
                 continue
-            keys.extend(f.channel for f in entry.fields if not f.disabled)
+            keys.extend(b.channel for m in entry.messages for b in m.bindings)
         return [k for k in keys if k != 0]
 
     @staticmethod

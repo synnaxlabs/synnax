@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
@@ -37,6 +38,7 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 var (
 	db         *gorp.DB
 	channelSvc *channel.Service
+	colorSvc   *color.Service
 	groupSvc   *group.Service
 	proj       project.Project
 	projectSvc *project.Service
@@ -81,13 +83,18 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	for i, ch := range chs {
 		*ch = keys[i]
 	}
+	colorSvc = MustOpen(color.OpenService(ctx, color.ServiceConfig{
+		DB:    db,
+		Group: groupSvc,
+	}))
 	imexSvc = imex.NewService()
 	projectSvc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
 		DB: db,
 	}))
 	svc = MustOpen(lineplot.OpenService(ctx, lineplot.ServiceConfig{
-		DB:   db,
-		ImEx: imexSvc,
+		DB:    db,
+		ImEx:  imexSvc,
+		Color: colorSvc,
 	}))
 	proj.Name = "test-project"
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {

@@ -81,10 +81,7 @@ class TestCertificate:
         """Should reject a private key that does not match the certificate."""
         with pytest.raises(
             sy.PathError,
-            match=(
-                r"^private_key_pem: does not match the certificate: "
-                r"validation error$"
-            ),
+            match=r"^private_key_pem: does not match the certificate$",
         ):
             client.certificates.set(
                 certificate.NewStored(
@@ -168,7 +165,7 @@ class TestCertificate:
         with pytest.raises(
             sy.ValidationError,
             match=r"^cannot delete secret In use private key because certificate "
-            r"In use uses it as its private_key: validation error$",
+            r"In use uses it as its private_key$",
         ):
             client.secrets.delete(c.private_key)
         assert client.secrets.retrieve(key=c.private_key).key == c.private_key

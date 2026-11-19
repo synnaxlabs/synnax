@@ -59,6 +59,7 @@ var _ = Describe("Group migrations", func() {
 	) {
 		GinkgoHelper()
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		for k, name := range names {
 			g := groupv0.Group{Key: k, Name: name}
 			Expect(gorp.NewCreate[groupv0.Key, groupv0.Group]().
@@ -241,13 +242,13 @@ var _ = Describe("Group migrations", func() {
 	})
 
 	It(
-		"Should keep a device in a first group under its rack",
+		"Should keep a device of several groups in the first group by name",
 		func(ctx SpecContext) {
 			migrate(
 				ctx,
 				map[uuid.UUID]string{
 					devices: "Devices",
-					first:   "Rack",
+					first:   "Bench",
 					second:  "Loose",
 				},
 				both,
@@ -275,6 +276,15 @@ var _ = Describe("Group migrations", func() {
 		)
 		Expect(retrieveDevice(ctx, "a").Group).To(BeNil())
 		Expect(retrieveGroups(ctx)).To(HaveLen(2))
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			Expect(groupv1.RetrieveRemovals(ctx, tx)).To(ConsistOf(groupv1.Removal{
+				Group:     loose,
+				GroupName: "Loose",
+				Member:    deviceID("a"),
+				Reason:    groupv1.RemovedRackless,
+			}))
+			return nil
+		})).To(Succeed())
 	})
 
 	It("Should keep a split group that holds a child group", func(ctx SpecContext) {
@@ -298,4 +308,36 @@ var _ = Describe("Group migrations", func() {
 			"Parent": HaveValue(Equal(r1.ResourceID())),
 		}))
 	})
+})
+
+var _ = Describe("MakeModelMigration", func() {
+	migrated := func(ctx SpecContext, in v2.Device) v2.Device {
+		GinkgoHelper()
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
+		Expect(gorp.NewCreate[v2.Key, v2.Device]().Entry(&in).Exec(ctx, db)).
+			To(Succeed())
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:         db,
+			Namespace:  "Device",
+			Migrations: []gorp.Migration{v2.MakeModelMigration},
+		})).To(Succeed())
+		var out v2.Device
+		Expect(gorp.NewRetrieve[v2.Key, v2.Device]().
+			Where(gorp.MatchKeys[v2.Key, v2.Device](in.Key)).
+			Entry(&out).Exec(ctx, db)).To(Succeed())
+		return out
+	}
+	DescribeTable(
+		"Should fill only an empty make or model",
+		func(ctx SpecContext, mk, model, expectedMake, expectedModel string) {
+			d := migrated(ctx, v2.Device{Key: "dev", Make: mk, Model: model})
+			Expect(d.Make).To(Equal(expectedMake))
+			Expect(d.Model).To(Equal(expectedModel))
+		},
+		Entry("empty make and model", "", "", "unknown", "unknown"),
+		Entry("empty make", "", "PXI-6255", "unknown", "PXI-6255"),
+		Entry("empty model", "NI", "", "NI", "unknown"),
+		Entry("make and model", "NI", "PXI-6255", "NI", "PXI-6255"),
+	)
 })

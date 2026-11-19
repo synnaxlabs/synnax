@@ -12,6 +12,7 @@ package defaults
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/samber/lo"
@@ -48,11 +49,11 @@ func (r Renderer) Literal(
 	case resolution.ValueKindString:
 		return r.wrapDistinct(typeRef, fmt.Sprintf("%q", val.StringValue))
 	case resolution.ValueKindInt:
-		return r.wrapDistinct(typeRef, fmt.Sprintf("%d", val.IntValue))
+		return r.wrapDistinct(typeRef, strconv.FormatInt(val.IntValue, 10))
 	case resolution.ValueKindFloat:
 		return r.wrapDistinct(typeRef, fmt.Sprintf("%f", val.FloatValue))
 	case resolution.ValueKindBool:
-		return fmt.Sprintf("%t", val.BoolValue)
+		return strconv.FormatBool(val.BoolValue)
 	case resolution.ValueKindIdent:
 		if ev, ok := validation.ResolveEnumVariant(
 			val.IdentValue,

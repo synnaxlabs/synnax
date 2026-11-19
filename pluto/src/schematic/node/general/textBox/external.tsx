@@ -23,6 +23,7 @@ const Preview = ({
 export const spec: Spec<"text_box", schematic.TextBoxNodeConfig> = {
   key: "text_box",
   name: "Text box",
+  value: "Text box",
   Form: TextBoxForm,
   Node: Symbol,
   Preview,

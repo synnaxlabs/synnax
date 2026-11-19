@@ -9,9 +9,7 @@
 
 import { describe, expect, it, test } from "vitest";
 
-import { type numeric } from "@/numeric";
 import { bounds } from "@/spatial/bounds";
-import { toString } from "@/testutil";
 
 // More items than a call takes as arguments.
 const MANY = 200_000;
@@ -305,141 +303,50 @@ describe("Bounds", () => {
     });
   });
 
-  describe("traverse", () => {
-    interface Spec<T extends numeric.Value> {
-      bounds: Array<bounds.Crude<T>>;
-      start: T;
-      dist: T;
-      expected: T;
-    }
-
-    const SPECS: Spec<numeric.Value>[] = [
-      {
-        bounds: [
-          [0, 10],
-          [10, 20],
-        ],
-        start: 5,
-        dist: 5,
-        expected: 10,
-      },
-      {
-        bounds: [
-          [0, 10],
-          [15, 20],
-        ],
-        start: 12,
-        dist: 3,
-        expected: 18,
-      },
-      {
-        bounds: [
-          [0, 10],
-          [15, 20],
-        ],
-        start: 12,
-        dist: -3,
-        expected: 7,
-      },
-      {
-        bounds: [
-          [0, 10],
-          [15, 20],
-        ],
-        start: 10,
-        dist: -3,
-        expected: 7,
-      },
-      {
-        bounds: [
-          [0, 10],
-          [15, 20],
-        ],
-        start: 15,
-        dist: -3,
-        expected: 7,
-      },
-      {
-        bounds: [
-          [0, 10],
-          [15, 20],
-        ],
-        start: 16,
-        dist: -3,
-        expected: 8,
-      },
-      {
-        bounds: [
-          [0, 10],
-          [15, 20],
-        ],
-        start: 16,
-        dist: 12,
-        expected: 20,
-      },
-      {
-        bounds: [
-          [0, 10],
-          [15, 20],
-        ],
-        start: 16,
-        dist: -20,
-        expected: 0,
-      },
-      {
-        bounds: [[620n, 726n]],
-        start: 724n,
-        dist: -6n,
-        expected: 718n,
-      },
-    ];
-    SPECS.forEach(({ bounds: b, start, dist, expected }) => {
-      test(`should return ${expected} for ${toString(b)} and ${start} and ${dist}`, () => {
-        expect(bounds.traverse(b, start, dist)).toEqual(expected);
+  describe("buildInsertionPlan", () => {
+    it("should return null when the value lies inside the first bound", () => {
+      expect(bounds.buildInsertionPlan([[0, 10]], [2, 5])).toBeNull();
+    });
+    it("should return null when the value lies inside a later bound", () => {
+      expect(
+        bounds.buildInsertionPlan(
+          [
+            [0, 10],
+            [20, 30],
+          ],
+          [22, 25],
+        ),
+      ).toBeNull();
+    });
+    it("should return null when the value starts at a bound's lower edge", () => {
+      expect(bounds.buildInsertionPlan([[0, 10]], [0, 5])).toBeNull();
+      expect(
+        bounds.buildInsertionPlan(
+          [
+            [0, 10],
+            [20, 30],
+          ],
+          [20, 25],
+        ),
+      ).toBeNull();
+    });
+    it("should return null when the value ends at a bound's upper edge", () => {
+      expect(bounds.buildInsertionPlan([[0, 10]], [2, 10])).toBeNull();
+    });
+    it("should trim a value that ends inside the first bound", () => {
+      expect(bounds.buildInsertionPlan([[5, 10]], [0, 7])).toEqual({
+        removeBefore: 0,
+        removeAfter: 2,
+        insertInto: 0,
+        deleteInBetween: 0,
       });
     });
-  });
-
-  describe("distance", () => {
-    interface Spec<T extends numeric.Value> {
-      bounds: Array<bounds.Crude<T>>;
-      start: T;
-      end: T;
-      expected: T;
-    }
-
-    const SPECS: Spec<numeric.Value>[] = [
-      {
-        bounds: [
-          [0, 10],
-          [10, 20],
-        ],
-        start: 5,
-        end: 15,
-        expected: 10,
-      },
-      {
-        bounds: [
-          [0, 10],
-          [15, 20],
-        ],
-        start: 12,
-        end: 18,
-        expected: 3,
-      },
-      {
-        bounds: [
-          [0, 10],
-          [15, 20],
-        ],
-        start: 10,
-        end: 5,
-        expected: 5,
-      },
-    ];
-    SPECS.forEach(({ bounds: b, start, end, expected }) => {
-      test(`should return ${expected} for ${JSON.stringify(b)} and ${start} and ${end}`, () => {
-        expect(bounds.distance(b, start, end)).toEqual(expected);
+    it("should insert a value that ends before every bound", () => {
+      expect(bounds.buildInsertionPlan([[5, 10]], [0, 3])).toEqual({
+        removeBefore: 0,
+        removeAfter: 0,
+        insertInto: 0,
+        deleteInBetween: 0,
       });
     });
   });

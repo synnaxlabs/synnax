@@ -24,6 +24,7 @@ var _ = Describe("NameMigration", func() {
 	migrated := func(ctx SpecContext, in v0.Group) v0.Group {
 		GinkgoHelper()
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		Expect(gorp.NewCreate[v0.Key, v0.Group]().Entry(&in).Exec(ctx, db)).
 			To(Succeed())
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{

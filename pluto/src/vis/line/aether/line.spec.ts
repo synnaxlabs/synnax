@@ -133,6 +133,16 @@ describe("line", () => {
     const X2 = series([5, 6], 10n, { start: 100, end: 200 });
     const Y2 = series([40, 50], 10n, { start: 100, end: 200 });
 
+    it("should keep a source that takes the props of a new spec in place", () => {
+      const m = mount([X1], [Y1]);
+      m.line.render(PROPS);
+      const cleanup = vi.spyOn(m.xSource, "cleanup");
+      const x = sourceSpec(m.xSource);
+      m.update({ x: { ...x, props: { ...x.props, window: 1 } } });
+      m.line.render(PROPS);
+      expect(cleanup).not.toHaveBeenCalled();
+    });
+
     it("should pass the x range the region shows to its sources", () => {
       const m = mount([X1], [Y1]);
       const values = [vi.spyOn(m.xSource, "value"), vi.spyOn(m.ySource, "value")];
@@ -223,15 +233,16 @@ describe("line", () => {
       });
     });
 
-    it("should read its bounds with the extremes of every sample kept", () => {
+    it("should read its bounds across the x window with every extreme kept", () => {
       const m = mount([X1], [Y1]);
       const values = [vi.spyOn(m.xSource, "value"), vi.spyOn(m.ySource, "value")];
-      expect(m.line.yBounds({ lower: 0, upper: 2 })).toEqual({
+      const xWindow = { lower: 0, upper: 2 };
+      expect(m.line.yBounds(xWindow)).toEqual({
         bounds: { lower: 10, upper: 30 },
         loading: false,
       });
       values.forEach((value) =>
-        expect(value.mock.calls).toEqual([[{ extremesKept: true }]]),
+        expect(value.mock.calls).toEqual([[{ extremesKept: true, bounds: xWindow }]]),
       );
     });
 
@@ -279,6 +290,16 @@ describe("line", () => {
         const y = createSource([]);
         y.status = telem.LOADING_STATUS;
         m.update({ y: sourceSpec(y) });
+        m.line.render(PROPS);
+        expect([m.line.loading, m.line.fetching]).toEqual([true, false]);
+      });
+
+      it("should report loading for the first load of a spec a source takes in place", () => {
+        const m = mount([X1], []);
+        m.line.render(PROPS);
+        const y = sourceSpec(m.ySource);
+        m.ySource.status = telem.LOADING_STATUS;
+        m.update({ y: { ...y, props: { ...y.props, window: 1 } } });
         m.line.render(PROPS);
         expect([m.line.loading, m.line.fetching]).toEqual([true, false]);
       });
@@ -340,6 +361,15 @@ describe("line", () => {
           [canvasTest.GL_ENUMS.LINE_STRIP, 3],
           [canvasTest.GL_ENUMS.LINE_STRIP, 2],
         ]);
+      });
+
+      it("should draw a fractional stroke width as the next whole width", () => {
+        const m = mount([X1], [Y1], { strokeWidth: 1.5 });
+        m.line.render(PROPS);
+        const instances = m.calls
+          .filter((c) => c.op === "drawArraysInstanced")
+          .map((c) => c.args[3]);
+        expect(instances).toEqual([10]);
       });
 
       describe("non-finite samples", () => {
@@ -455,8 +485,8 @@ describe("line", () => {
       it("should draw a dense window at the group size of its pixel density", () => {
         const m = mount([ramp(N)], [waves(N)]);
         m.line.render(showing(0, N - 1));
-        // 10 samples per pixel at 2 pixels per group rounds up to groups of 32.
-        expect(m.strips()).toEqual([[0, 2 * (N / 32)]]);
+        // 10 samples per pixel at 2 pixels per group rounds down to groups of 16.
+        expect(m.strips()).toEqual([[0, 2 * (N / 16)]]);
         expect(uploads(m).every((u) => u.length < N)).toBe(true);
       });
 
@@ -468,7 +498,7 @@ describe("line", () => {
         expect(deletes(m)).toBe(2);
       });
 
-      it("should draw ops of reduced series unchanged", () => {
+      it("should draw ops of reduced series unchanged, and reduce the rest at their group size", () => {
         const reduced = (data: number[]) =>
           new Series({
             data: new Float32Array(data),
@@ -492,7 +522,7 @@ describe("line", () => {
         m.line.render(showing(-N, N - 1));
         expect(m.strips()).toEqual([
           [0, N / 2],
-          [0, 2 * (N / 64)],
+          [0, 2 * (N / 4)],
         ]);
       });
 
@@ -513,7 +543,7 @@ describe("line", () => {
         write(y, indexes(0, N / 2).map(wave));
         const m = mount([x], [y]);
         m.line.render(showing(0, N - 1));
-        expect(m.strips()).toEqual([[0, N / 32]]);
+        expect(m.strips()).toEqual([[0, N / 16]]);
         const before = uploads(m).length;
         // A complete group reduced again would upload the change.
         (y.data as Float32Array)[0] = 1000;
@@ -522,7 +552,7 @@ describe("line", () => {
         write(y, [...tail, -5]);
         m.line.render(showing(0, N - 1));
         expect(m.strips().slice(-2)).toEqual([
-          [0, N / 32],
+          [0, N / 16],
           [0, 3],
         ]);
         const top = N / 2 + tail.indexOf(Math.max(...tail));
@@ -530,8 +560,8 @@ describe("line", () => {
         // The tail starts at the last complete point.
         expect(xs).toEqual([Math.max(...uploads(m)[before - 2]), top, N / 2 + 9]);
         expect(ys.slice(1)).toEqual([Math.fround(Math.max(...tail)), -5]);
-        write(x, indexes(N / 2 + 10, N / 2 + 32));
-        write(y, indexes(N / 2 + 10, N / 2 + 32).map(wave));
+        write(x, indexes(N / 2 + 10, N / 2 + 16));
+        write(y, indexes(N / 2 + 10, N / 2 + 16).map(wave));
         const grown = uploads(m).length;
         m.line.render(showing(0, N - 1));
         expect(
@@ -553,10 +583,10 @@ describe("line", () => {
         const decimated = mount([ramp(N)], [waves(N)]);
         decimated.ySource.aggregation = "decimate";
         decimated.line.render(showing(0, N - 1));
-        expect(decimated.strips()).toEqual([[0, N / 32]]);
+        expect(decimated.strips()).toEqual([[0, N / 16]]);
         const fine = mount([ramp(N)], [waves(N)], { groupsPerColumn: 1 });
         fine.line.render(showing(0, N - 1));
-        expect(fine.strips()).toEqual([[0, 2 * (N / 16)]]);
+        expect(fine.strips()).toEqual([[0, 2 * (N / 8)]]);
       });
 
       it("should round down the averages of integer series", () => {
@@ -574,7 +604,7 @@ describe("line", () => {
         m.ySource.aggregation = "average";
         m.line.render(showing(0, N - 1));
         const [xs, ys] = uploads(m).slice(-2);
-        expect(xs.slice(0, 2)).toEqual([15, 47]);
+        expect(xs.slice(0, 2)).toEqual([7, 23]);
         expect(new Set(ys)).toEqual(new Set([0]));
       });
     });
@@ -961,7 +991,8 @@ describe("line", () => {
     it("should break a line where a writer restarted, live and read back", async () => {
       const keys = await createChannels();
       const count = 200;
-      const step = TimeSpan.milliseconds(1);
+      // Samples sparser than the read back's detail, so no tile of it reduces them.
+      const step = TimeSpan.milliseconds(4);
       const start = TimeStamp.now().sub(TimeSpan.seconds(10));
       const live = createWindowed(keys.data, dynamicWindow(TimeSpan.seconds(60)));
       await settle(live.x, live.y);

@@ -31,20 +31,26 @@ const client = new Synnax({
 });
 
 // Create an index channel that will be used to store our timestamps.
-const timeChannel = await client.channels.create({
-  name: "read_latest_time",
-  isIndex: true,
-  dataType: DataType.TIMESTAMP,
-});
+const timeChannel = await client.channels.create(
+  {
+    name: "read_latest_time",
+    isIndex: true,
+    dataType: DataType.TIMESTAMP,
+  },
+  { retrieveIfNameExists: true },
+);
 
 // Create a data channel that will be used to store our data.
-const dataChannel = await client.channels.create({
-  name: "read_latest_data",
-  // We need to specify the index channel that will be used to store the timestamps for
-  // this data channel.
-  index: timeChannel.key,
-  dataType: DataType.FLOAT32,
-});
+const dataChannel = await client.channels.create(
+  {
+    name: "read_latest_data",
+    // We need to specify the index channel that will be used to store the timestamps
+    // for this data channel.
+    index: timeChannel.key,
+    dataType: DataType.FLOAT32,
+  },
+  { retrieveIfNameExists: true },
+);
 
 const SAMPLE_COUNT = 100;
 
@@ -52,10 +58,7 @@ const SAMPLE_COUNT = 100;
 // just before the first timestamp we write.
 const start = TimeStamp.now();
 
-// We'll end our write 100 seconds later
-const end = start.add(TimeSpan.seconds(2));
-
-// Generate linearly spaced int64 timestamps
+// Generate int64 timestamps spaced linearly over 2 seconds
 const stamps = BigInt64Array.from({ length: SAMPLE_COUNT }, (_, i) =>
   start.add(TimeSpan.milliseconds((i * 2000) / SAMPLE_COUNT)).valueOf(),
 );

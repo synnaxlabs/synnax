@@ -18,14 +18,27 @@ import datetime as dt
 import json
 import math
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from concurrent.futures import Future, ThreadPoolExecutor
-from typing import Any
+from typing import Any, NotRequired, Protocol, TypedDict
 
 import synnax as sy
+from mypy_boto3_ce.literals import GranularityType, MetricType
+from mypy_boto3_ce.type_defs import (
+    DateIntervalTypeDef,
+    ExpressionTypeDef,
+    GroupDefinitionTypeDef,
+    MetricValueTypeDef,
+    ResultByTimeTypeDef,
+)
+from mypy_boto3_cloudwatch.type_defs import (
+    MetricDataQueryTypeDef,
+    MetricDataResultTypeDef,
+)
+from mypy_boto3_pricing.type_defs import FilterTypeDef
 
-from aws import AWS, REGIONS
-from common import channel_name, instance_for, instance_prefix, latest
+from aws import REGIONS
+from common import ReadsLatest, channel_name, instance_for, instance_prefix, latest
 from log import Log
 
 QUERY_TIME = "cost_query_time"
@@ -70,6 +83,90 @@ TYPE_CHANNEL = re.compile(r"^cost_([a-z]\d[a-z\d]*_[a-z\d]+)_365d$")
 OUR_REGIONS = {"Dimensions": {"Key": "REGION", "Values": list(REGIONS)}}
 USAGE_ONLY: Any = {"Dimensions": {"Key": "RECORD_TYPE", "Values": [USAGE_RECORD]}}
 
+
+class Products(TypedDict):
+    PriceList: list[str]
+
+
+class Forecast(TypedDict):
+    Total: MetricValueTypeDef
+
+
+class Usage(TypedDict):
+    ResultsByTime: list[ResultByTimeTypeDef]
+    NextPageToken: str
+
+
+class MetricData(TypedDict):
+    MetricDataResults: list[MetricDataResultTypeDef]
+    NextToken: NotRequired[str]
+
+
+class Lister(Protocol):
+    def retrieve(self, channels: list[str], /) -> list[sy.Channel]: ...
+
+
+class Core(ReadsLatest, Protocol):
+    """The part of the Core that the cost state reads."""
+
+    @property
+    def channels(self) -> Lister: ...
+
+
+class Pricing(Protocol):
+    def get_products(
+        self, *, ServiceCode: str, Filters: list[FilterTypeDef], MaxResults: int
+    ) -> Products: ...
+
+
+class Explorer(Protocol):
+    def get_cost_forecast(
+        self,
+        *,
+        TimePeriod: DateIntervalTypeDef,
+        Metric: MetricType,
+        Granularity: GranularityType,
+        Filter: ExpressionTypeDef,
+    ) -> Forecast: ...
+
+    def get_cost_and_usage(
+        self,
+        *,
+        TimePeriod: DateIntervalTypeDef,
+        Granularity: GranularityType,
+        Metrics: list[str],
+        GroupBy: list[GroupDefinitionTypeDef] = ...,
+        Filter: ExpressionTypeDef = ...,
+        NextPageToken: str = ...,
+    ) -> Usage: ...
+
+
+class Metrics(Protocol):
+    def get_metric_data(
+        self,
+        *,
+        MetricDataQueries: list[MetricDataQueryTypeDef],
+        StartTime: dt.datetime,
+        EndTime: dt.datetime,
+        NextToken: str = ...,
+    ) -> MetricData: ...
+
+
+class Account(Protocol):
+    """The AWS calls Cost makes, as aws.AWS has them."""
+
+    @property
+    def pricing(self) -> Pricing: ...
+
+    @property
+    def ce(self) -> Explorer: ...
+
+    @property
+    def cloudwatch(self) -> Mapping[str, Metrics]: ...
+
+    def volumes(self) -> dict[str, int]: ...
+
+
 Group = tuple[str, ...]
 # Runner to its instance, list price per hour, and volume share per hour.
 Priced = dict[str, tuple[str, float, float]]
@@ -109,8 +206,8 @@ def month_end(day: dt.date) -> dt.datetime:
 class Prices:
     """On-demand list prices, one GetProducts per distinct lookup, cached."""
 
-    def __init__(self, aws: AWS) -> None:
-        self.pricing = aws.pricing
+    def __init__(self, pricing: Pricing) -> None:
+        self.pricing = pricing
         self.cache: dict[tuple, float] = {}
 
     def usd(self, **filters: str) -> float:
@@ -222,10 +319,10 @@ def runner_names(known: list[str]) -> list[str]:
 
 
 class Cost:
-    def __init__(self, *, log: Log, aws: AWS) -> None:
+    def __init__(self, *, log: Log, aws: Account) -> None:
         self.log = log
         self.aws = aws
-        self.prices = Prices(aws)
+        self.prices = Prices(aws.pricing)
         # Runners with an instance behind them, as of the last step.
         self.known: list[str] = []
         # Instance types seen, from the Core at startup and from every fetch.
@@ -287,7 +384,7 @@ class Cost:
         )
         return out
 
-    def create_state(self, client: sy.Synnax, *, known: set[str]) -> None:
+    def create_state(self, client: Core, *, known: set[str]) -> None:
         """The types, the last values, and the last fetch time on the Core, so the
         fetch cadence and the live writes hold across a restart."""
         self.known = sorted(r for r in known if instance_prefix(r) is not None)

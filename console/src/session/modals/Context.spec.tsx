@@ -34,6 +34,16 @@ describe("Store", () => {
       expect(resolve).toHaveBeenCalledWith(42);
     });
 
+    it("should resolve a busy modal with the result passed to close", () => {
+      const store = new Modals.Store();
+      const resolve = vi.fn();
+      store.push(Noop, undefined, resolve);
+      store.getState()[0].setBusy(true);
+      closeOf(store)(42);
+      expect(store.isAnyOpen()).toBe(false);
+      expect(resolve).toHaveBeenCalledWith(42);
+    });
+
     it("should resolve null when the content closes without a result", () => {
       const store = new Modals.Store();
       const resolve = vi.fn();
@@ -85,6 +95,20 @@ describe("Store", () => {
       expect(store.isAnyOpen()).toBe(false);
       expect(resolve).toHaveBeenCalledWith(null);
     });
+
+    it("should do nothing while the modal is busy", () => {
+      const store = new Modals.Store();
+      const resolve = vi.fn();
+      store.push(Noop, undefined, resolve);
+      const [entry] = store.getState();
+      entry.setBusy(true);
+      entry.dismiss();
+      expect(store.isAnyOpen()).toBe(true);
+      expect(resolve).not.toHaveBeenCalled();
+      entry.setBusy(false);
+      entry.dismiss();
+      expect(resolve).toHaveBeenCalledWith(null);
+    });
   });
 
   describe("closeTop", () => {
@@ -118,6 +142,16 @@ describe("Store", () => {
       expect(store.isAnyOpen()).toBe(false);
       expect(resolveA).toHaveBeenCalledWith(null);
       expect(resolveB).toHaveBeenCalledWith(null);
+    });
+
+    it("should dismiss a busy modal", () => {
+      const store = new Modals.Store();
+      const resolve = vi.fn();
+      store.push(Noop, undefined, resolve);
+      store.getState()[0].setBusy(true);
+      store.clear();
+      expect(store.isAnyOpen()).toBe(false);
+      expect(resolve).toHaveBeenCalledWith(null);
     });
   });
 

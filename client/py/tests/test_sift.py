@@ -51,7 +51,9 @@ class TestSiftDevice:
     def test_properties(self) -> None:
         """Should hold the URI and the key of the API key secret."""
         key = sy.secret.Key("6f1c2a4e-8b3d-4c5f-9a7e-0d2b4c6e8f1a")
-        dev = sy.sift.Device(uri="localhost:50051", api_key=key, rack=1)
+        dev = sy.sift.Device(
+            name="Test Device", uri="localhost:50051", api_key=key, rack=1
+        )
         assert dev.make == sy.sift.MAKE
         assert dev.properties == {"uri": "localhost:50051", "api_key": str(key)}
         props = sy.sift.Properties.model_validate(dev.properties)

@@ -39,16 +39,26 @@ export interface UnreachableParams {
   /** Underlying error that caused the target to be unreachable (e.g. the original fetch
    * failure). Preserved on Error.cause for stack-trace continuity. */
   cause?: unknown;
+  /** True when the target received the request, so a resend could repeat it. */
+  delivered?: boolean;
 }
 
 /** Thrown when a network target is unreachable. */
 export class Unreachable extends FreighterError.sub("unreachable") {
   url: url.URL;
+  /** True when the target received the request, so a resend could repeat it. */
+  readonly delivered: boolean;
 
   constructor(params: UnreachableParams = {}) {
-    const { message = "Unreachable", url: endpoint = url.URL.UNKNOWN, cause } = params;
+    const {
+      message = "Unreachable",
+      url: endpoint = url.URL.UNKNOWN,
+      cause,
+      delivered = false,
+    } = params;
     super(message, cause !== undefined ? { cause } : undefined);
     this.url = endpoint;
+    this.delivered = delivered;
   }
 }
 

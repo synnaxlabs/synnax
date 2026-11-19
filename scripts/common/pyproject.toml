@@ -11,7 +11,7 @@
 name = "synnax-scripts-common"
 version = "0.0.0"
 description = "Test utilities for scripts and .github/scripts"
-requires-python = ">=3.12,<4"
+requires-python = ">=3.13,<4"
 classifiers = ["Private :: Do Not Upload"]
 
 [tool.hatch.build.targets.wheel]

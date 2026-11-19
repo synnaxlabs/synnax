@@ -17,7 +17,7 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, ConfigDict, Field
 
 from synnax.resource import ID
-from x import filter, payload as payload_
+from x import filter, payload as payload_, telem
 
 BYTE_ORDER_LITTLE_ENDIAN: Literal["little_endian"] = "little_endian"
 
@@ -26,11 +26,30 @@ BYTE_ORDER_BIG_ENDIAN: Literal["big_endian"] = "big_endian"
 
 ByteOrder = Literal["little_endian", "big_endian"]
 
+IMPORT_FORMAT_DBC: Literal["dbc"] = "dbc"
+
+IMPORT_FORMAT_CSV: Literal["csv"] = "csv"
+
+IMPORT_FORMAT_XLSX: Literal["xlsx"] = "xlsx"
+
+
+ImportFormat = Literal["dbc", "csv", "xlsx"]
+
 Key: TypeAlias = UUID
 
 MessageKey: TypeAlias = UUID
 
 FieldKey: TypeAlias = UUID
+
+
+class JSONBaseMatch(BaseModel):
+    """Carries the parts every JSON match rule shares.
+
+    Attributes:
+        pointer: Is the JSON Pointer to the value the rule tests.
+    """
+
+    pointer: str = ""
 
 
 class Where(BaseModel):
@@ -125,6 +144,52 @@ Identifier = Annotated[
 ]
 
 
+class FloatJSONMatch(JSONBaseMatch):
+    """Matches a JSON number equal to a float."""
+
+    type: Literal["float"] = "float"
+    value: payload_.Float
+
+
+class IntegerJSONMatch(JSONBaseMatch):
+    """Matches a JSON number equal to a signed integer."""
+
+    type: Literal["integer"] = "integer"
+    value: payload_.Integer = Field(ge=-9223372036854775808, le=9223372036854775807)
+
+
+class UnsignedJSONMatch(JSONBaseMatch):
+    """Matches a JSON number equal to an unsigned integer."""
+
+    type: Literal["unsigned"] = "unsigned"
+    value: payload_.Unsigned = Field(ge=0, le=18446744073709551615)
+
+
+class StringJSONMatch(JSONBaseMatch):
+    """Matches an equal JSON string."""
+
+    type: Literal["string"] = "string"
+    value: str
+
+
+class BooleanJSONMatch(JSONBaseMatch):
+    """Matches an equal JSON boolean."""
+
+    type: Literal["boolean"] = "boolean"
+    value: bool
+
+
+# Selects the JSON documents that belong to a message.
+JSONMatch = Annotated[
+    FloatJSONMatch
+    | IntegerJSONMatch
+    | UnsignedJSONMatch
+    | StringJSONMatch
+    | BooleanJSONMatch,
+    Field(discriminator="type"),
+]
+
+
 class RetrieveRequest(BaseModel):
     """Is a request to retrieve icds.
 
@@ -152,8 +217,8 @@ class BinaryField(BaseField):
             for big-endian fields.
         bit_length: Is the number of bits in the field, from 1 to 64.
         byte_order: Is the byte order of the field.
-        signed: Is true when the raw value is two's complement.
-        float: Is true when the raw bits are an IEEE 754 float of 32 or 64 bits.
+        kind: Is the kind of the raw bits: an IEEE 754 float of 32 or 64 bits, a two's
+            complement integer, or an unsigned integer. No other kind is valid.
         multiplexor: Is the key of the field that selects whether this field is present.
             When absent the field is always present.
         multiplex_values: Are the raw values of the multiplexor for which this field is
@@ -163,8 +228,7 @@ class BinaryField(BaseField):
     start_bit: int = Field(default=0, ge=0, le=65535)
     bit_length: int = Field(default=8, ge=1, le=64)
     byte_order: ByteOrder = "little_endian"
-    signed: bool = False
-    float: bool = False
+    kind: payload_.Kind = "unsigned"
     multiplexor: FieldKey | None = None
     multiplex_values: list[int] = Field(default_factory=list)
 
@@ -201,34 +265,89 @@ TextField = Annotated[
 ]
 
 
-class NumberJSONField(JSONBaseField):
-    """Is a JSON number."""
+class FloatJSONField(JSONBaseField):
+    """Is a JSON number read as a float."""
 
-    type: Literal["number"] = "number"
+    type: Literal["float"] = "float"
+    enum_values: list[payload_.FloatEntry] = Field(default_factory=list)
+    default: payload_.Float | None = None
+
+
+class IntegerJSONField(JSONBaseField):
+    """Is a JSON number read as a signed integer."""
+
+    type: Literal["integer"] = "integer"
+    enum_values: list[payload_.IntegerEntry] = Field(default_factory=list)
+    default: payload_.Integer | None = Field(
+        default=None, ge=-9223372036854775808, le=9223372036854775807
+    )
+
+
+class UnsignedJSONField(JSONBaseField):
+    """Is a JSON number read as an unsigned integer."""
+
+    type: Literal["unsigned"] = "unsigned"
+    enum_values: list[payload_.UnsignedEntry] = Field(default_factory=list)
+    default: payload_.Unsigned | None = Field(
+        default=None, ge=0, le=18446744073709551615
+    )
 
 
 class StringJSONField(JSONBaseField):
     """Is a JSON string."""
 
     type: Literal["string"] = "string"
+    enum_values: list[payload_.StringEntry] = Field(default_factory=list)
+    default: str | None = None
 
 
 class BooleanJSONField(JSONBaseField):
     """Is a JSON boolean."""
 
     type: Literal["boolean"] = "boolean"
+    enum_values: list[payload_.BooleanEntry] = Field(default_factory=list)
+    default: bool | None = None
 
 
 class TimestampJSONField(JSONBaseField):
     """Is a timestamp held in a JSON number or string."""
 
     type: Literal["timestamp"] = "timestamp"
-    format: payload_.TimeFormat
+    time_format: payload_.TimeFormat
+    default: telem.TimeStamp | None = Field(
+        default=None, ge=-9223372036854775808, le=9223372036854775807
+    )
+
+
+class JSONJSONField(JSONBaseField):
+    """Is any JSON value."""
+
+    type: Literal["json"] = "json"
+
+
+class UuidJSONField(JSONBaseField):
+    """Is a UUID held in a JSON string."""
+
+    type: Literal["uuid"] = "uuid"
+
+
+class BytesJSONField(JSONBaseField):
+    """Is base64 text held in a JSON string."""
+
+    type: Literal["bytes"] = "bytes"
 
 
 # Is a field read from a JSON document.
 JSONField = Annotated[
-    NumberJSONField | StringJSONField | BooleanJSONField | TimestampJSONField,
+    FloatJSONField
+    | IntegerJSONField
+    | UnsignedJSONField
+    | StringJSONField
+    | BooleanJSONField
+    | TimestampJSONField
+    | JSONJSONField
+    | UuidJSONField
+    | BytesJSONField,
     Field(discriminator="type"),
 ]
 
@@ -255,6 +374,7 @@ class JSONPayload(BaseModel):
     """Is a payload of one JSON document."""
 
     format: Literal["json"] = "json"
+    match: JSONMatch | None = None
     fields: list[JSONField] = Field(default_factory=list)
 
 

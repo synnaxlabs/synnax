@@ -44,14 +44,14 @@ func (r *recorder) handled() map[int]string {
 }
 
 var _ = Describe("Worker", func() {
-	It("Should fail without a Handle function", func() {
-		Expect(coalesce.Open[int, string]()).Error().
+	It("Should fail without a Handle function", func(ctx SpecContext) {
+		Expect(coalesce.Open[int, string](ctx)).Error().
 			To(MatchError(ContainSubstring("handle")))
 	})
 
-	It("Should handle every key that Add receives from many goroutines", func() {
+	It("Should handle every key added from many goroutines", func(ctx SpecContext) {
 		rec := &recorder{}
-		w := DeferClose(MustOpen(coalesce.Open(coalesce.Config[int, string]{
+		w := DeferClose(MustOpen(coalesce.Open(ctx, coalesce.Config[int, string]{
 			Handle: rec.handle,
 		})))
 		var wg sync.WaitGroup
@@ -70,13 +70,13 @@ var _ = Describe("Worker", func() {
 		Eventually(rec.handled).Should(Equal(want))
 	})
 
-	It("Should hand only the latest value of a key to Handle", func() {
+	It("Should hand only the latest value of a key to Handle", func(ctx SpecContext) {
 		var (
 			started = make(chan struct{})
 			release = make(chan struct{})
 			calls   = make(chan map[int]string, 2)
 		)
-		w := DeferClose(MustOpen(coalesce.Open(coalesce.Config[int, string]{
+		w := DeferClose(MustOpen(coalesce.Open(ctx, coalesce.Config[int, string]{
 			Handle: func(_ context.Context, latest map[int]string) {
 				if _, ok := latest[0]; ok {
 					close(started)
@@ -95,9 +95,9 @@ var _ = Describe("Worker", func() {
 		Eventually(calls).Should(Receive(Equal(map[int]string{1: "delete", 2: "set"})))
 	})
 
-	It("Should end the context of a running Handle when Close runs", func() {
+	It("Should end the context of a running Handle on Close", func(ctx SpecContext) {
 		started := make(chan struct{})
-		w := MustOpen(coalesce.Open(coalesce.Config[int, string]{
+		w := MustOpen(coalesce.Open(ctx, coalesce.Config[int, string]{
 			Handle: func(ctx context.Context, _ map[int]string) {
 				close(started)
 				<-ctx.Done()
@@ -108,9 +108,30 @@ var _ = Describe("Worker", func() {
 		Expect(w.Close()).To(Succeed())
 	})
 
-	It("Should not wait in Add while Handle runs", func() {
+	It("Should end the context of a running Handle when ctx ends", func(
+		ctx SpecContext,
+	) {
+		var (
+			started = make(chan struct{})
+			ended   = make(chan struct{})
+		)
+		parent, cancel := context.WithCancel(ctx)
+		w := DeferClose(MustOpen(coalesce.Open(parent, coalesce.Config[int, string]{
+			Handle: func(ctx context.Context, _ map[int]string) {
+				close(started)
+				<-ctx.Done()
+				close(ended)
+			},
+		})))
+		w.Add(1, "v")
+		Eventually(started).Should(BeClosed())
+		cancel()
+		Eventually(ended).Should(BeClosed())
+	})
+
+	It("Should not wait in Add while Handle runs", func(ctx SpecContext) {
 		release := make(chan struct{})
-		w := DeferClose(MustOpen(coalesce.Open(coalesce.Config[int, string]{
+		w := DeferClose(MustOpen(coalesce.Open(ctx, coalesce.Config[int, string]{
 			Handle: func(ctx context.Context, _ map[int]string) {
 				select {
 				case <-release:

@@ -90,7 +90,7 @@ func (s *scanner) browseSparkplug(
 			validate.ErrValidation, "invalid arguments: %s", err.Error(),
 		)
 	}
-	_, props, cfg, err := s.browseConfig(ctx, args.Device)
+	props, cfg, err := s.browseConfig(ctx, args.Device)
 	if err != nil {
 		return browseSparkplugResult{}, err
 	}
@@ -180,6 +180,12 @@ func browseNodes(
 	}
 	mu.Lock()
 	defer mu.Unlock()
+	return sortedNodes(nodes), nil
+}
+
+// sortedNodes returns the edge nodes in nodes, each with its sorted devices, sorted by
+// group and edge node.
+func sortedNodes(nodes map[sparkplug.NodeID]set.Set[string]) []browsedNode {
 	res := make([]browsedNode, 0, len(nodes))
 	for id, devices := range nodes {
 		n := browsedNode{
@@ -197,7 +203,7 @@ func browseNodes(
 		}
 		return res[i].EdgeNode < res[j].EdgeNode
 	})
-	return res, nil
+	return res
 }
 
 // browseTags asks node for a rebirth and lists the tags of the births that follow.
@@ -253,19 +259,36 @@ func browseTags(
 	)); err != nil {
 		return nil, err
 	}
-	var (
-		tags  = make(map[tagID]browsedTag)
-		born  = false
-		timer = time.NewTimer(duration)
-	)
+	tags, born, err := collectBirths(ctx, births, node, duration)
+	if err != nil {
+		return nil, err
+	}
+	if !born {
+		return nil, errors.Newf(
+			"edge node %s did not answer the rebirth request", node,
+		)
+	}
+	return sortedTags(tags), nil
+}
+
+// collectBirths returns the tags of the births of node, until duration passes with no
+// birth or birthQuiet passes after a birth. born is false when node sent no birth of
+// an edge node.
+func collectBirths(
+	ctx context.Context,
+	births <-chan sparkplug.Event,
+	node sparkplug.NodeID,
+	duration time.Duration,
+) (tags map[tagID]browsedTag, born bool, err error) {
+	tags = make(map[tagID]browsedTag)
+	timer := time.NewTimer(duration)
 	defer timer.Stop()
-listen:
 	for {
 		select {
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return nil, false, ctx.Err()
 		case <-timer.C:
-			break listen
+			return tags, born, nil
 		case ev := <-births:
 			if ev.Type == sparkplug.NBirth {
 				born = true
@@ -283,11 +306,10 @@ listen:
 			}
 		}
 	}
-	if !born {
-		return nil, errors.Newf(
-			"edge node %s did not answer the rebirth request", node,
-		)
-	}
+}
+
+// sortedTags returns the tags in tags sorted by device and name.
+func sortedTags(tags map[tagID]browsedTag) []browsedTag {
 	res := make([]browsedTag, 0, len(tags))
 	for _, t := range tags {
 		res = append(res, t)
@@ -298,7 +320,7 @@ listen:
 		}
 		return res[i].Name < res[j].Name
 	})
-	return res, nil
+	return res
 }
 
 func newBrowsedTag(device string, m sparkplug.Metric) browsedTag {

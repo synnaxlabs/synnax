@@ -29,8 +29,10 @@ If you did not select it, delete the folders `%LOCALAPPDATA%\com.synnaxlabs.desk
 `%APPDATA%\com.synnaxlabs.desktop`.
 
 The uninstaller does not delete `%USERPROFILE%\.synnax\desktop.json`, which holds the
-API key that scripts use. Delete it too. The `.synnax` folder also holds the settings
-that `sy login` saved, so delete the whole folder only if you no longer use them.
+address that scripts use. Delete it too. In Credential Manager, also remove the Windows
+credential `api_key@com.synnaxlabs.desktop`, which holds the API key that scripts use.
+The `.synnax` folder also holds the settings that `sy login` saved, so delete the whole
+folder only if you no longer use them.
 
 </Fragment>
 
@@ -44,9 +46,11 @@ that `sy login` saved, so delete the whole folder only if you no longer use them
    - `~/Library/Caches/com.synnaxlabs.desktop`
    - `~/Library/WebKit/com.synnaxlabs.desktop`
    - `~/Library/Preferences/com.synnaxlabs.desktop.plist`
-   - `~/.synnax/desktop.json`, which holds the API key that scripts use. The `~/.synnax`
+   - `~/.synnax/desktop.json`, which holds the address that scripts use. The `~/.synnax`
      folder also holds the settings that `sy login` saved, so delete the whole folder
      only if you no longer use them.
+4. In Keychain Access, delete the `com.synnaxlabs.desktop` password, which holds the API
+   key that scripts use.
 
 </Fragment>
 

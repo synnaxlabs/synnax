@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
-import { border, box, type dimensions, xy } from "@synnaxlabs/x";
+import { border, box, type dimensions, primitive, xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Border } from "@/schematic/node/common/border";
@@ -103,7 +103,7 @@ export const Symbol = ({
       onResize={(dimensions) => onConfigChange({ dimensions })}
     >
       <Label.Label config={label} onChange={onConfigChange} />
-      {channel != null && (
+      {primitive.isNonZero(channel) && (
         <Fill nodeKey={nodeKey} position={position} config={config} />
       )}
       <Tank

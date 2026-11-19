@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { unique } from "@synnaxlabs/x";
 import { type APIRoute } from "astro";
 
 import { blob, ordered, runs } from "@/util/reliability";
@@ -19,9 +20,9 @@ export const prerender = true;
  * and runs into the suites.
  */
 export const GET: APIRoute = () => {
-  const suites = [...new Set(runs.map((r) => r.suite))];
+  const suites = unique.unique(runs.map((r) => r.suite));
   const index = new Map(suites.map((s, i) => [s, i]));
-  const tags = [...new Set(ordered.map((t) => t.tags.join(" ")))];
+  const tags = unique.unique(ordered.map((t) => t.tags.join(" ")));
   const tagIndex = new Map(tags.map((t, i) => [t, i]));
   return new Response(
     JSON.stringify({

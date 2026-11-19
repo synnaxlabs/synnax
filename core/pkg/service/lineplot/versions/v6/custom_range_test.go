@@ -126,7 +126,7 @@ var _ = Describe("CustomRange", func() {
 				w := orc.NewWriter(0)
 				Expect(cr.EncodeOrc(w)).To(Succeed())
 				full := w.Bytes()
-				for i := range len(full) {
+				for i := range full {
 					r := orc.NewReader(nil)
 					r.ResetBytes(full[:i])
 					var decoded v6.CustomRange
@@ -154,7 +154,7 @@ var _ = Describe("Ranges custom window codec", func() {
 		rv := v6.Ranges{X1: []string{"custom"}, Custom: &dynamic}
 		Expect(rv.EncodeOrc(w)).To(Succeed())
 		full := w.Bytes()
-		for i := range len(full) {
+		for i := range full {
 			r := orc.NewReader(nil)
 			r.ResetBytes(full[:i])
 			var decoded v6.Ranges

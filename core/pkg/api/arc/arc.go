@@ -29,12 +29,16 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/diagnostics"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -62,6 +66,11 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
+	// Channel retrieves and compiles the calculated channels that an automation
+	// reads.
+	//
+	// [REQUIRED]
+	Channel *channel.Service
 	// RBAC reads the access of the subject of each LSP stream.
 	//
 	// [REQUIRED]
@@ -92,6 +101,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Arc = override.Nil(c.Arc, other.Arc)
 	c.Status = override.Nil(c.Status, other.Status)
+	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.DispatchChannel = override.Nil(c.DispatchChannel, other.DispatchChannel)
 	c.Stopper = override.Nil(c.Stopper, other.Stopper)
@@ -104,6 +114,7 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("db", c.DB)
 	v.NotNil("arc", c.Arc)
 	v.NotNil("status", c.Status)
+	v.NotNil("channel", c.Channel)
 	v.NotNil("rbac", c.RBAC)
 	v.NotNil("dispatch_channel", c.DispatchChannel)
 	v.NotNil("stopper", c.Stopper)
@@ -114,6 +125,7 @@ type Service struct {
 	db              *gorp.DB
 	internal        *arc.Service
 	status          *status.Service
+	channel         *channel.Service
 	rbac            *rbac.Service
 	dispatchChannel freighter.UnaryHandler[
 		apichannel.DispatchRequest,
@@ -133,6 +145,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		Instrumentation: cfg.Instrumentation,
 		internal:        cfg.Arc,
 		status:          cfg.Status,
+		channel:         cfg.Channel,
 		rbac:            cfg.RBAC,
 		dispatchChannel: cfg.DispatchChannel,
 		stopper:         cfg.Stopper,
@@ -320,8 +333,8 @@ func (s *Service) Retrieve(
 }
 
 // Compiled returns a handler that runs retrieve and then, when the request includes
-// programs, compiles each automation that retrieve returns. Compilation runs after
-// retrieve releases its snapshot.
+// programs, compiles each automation that retrieve returns and each calculated channel
+// that the automation reads. Compilation runs after retrieve releases its snapshot.
 func (s *Service) Compiled(
 	retrieve freighter.UnaryHandler[RetrieveRequest, RetrieveResponse],
 ) freighter.UnaryHandler[RetrieveRequest, RetrieveResponse] {
@@ -390,7 +403,7 @@ func (s *Service) includeStatus(
 	return nil
 }
 
-// LSPMessage represents a single JSON-RPC message for the LSP
+// LSPMessage represents a single JSON-RPC message for the LSP.
 type LSPMessage = arctransport.JSONRPCMessage
 
 // LSP serves the Arc language server over stream. The server treats the channels and
@@ -447,9 +460,9 @@ func materialize(a Arc) Arc {
 	return a
 }
 
-// compile compiles the source of an automation into its program, as
-// channel.RetryChanged does, and leaves a module as is. Returns an error if parsing,
-// analysis, or compilation fails.
+// compile compiles the source of an automation into its program and the calculated
+// channels that the program reads, as channel.RetryChanged does, and leaves a module as
+// is. Returns an error if parsing, analysis, or compilation fails.
 func (s *Service) compile(ctx context.Context, a *Arc) error {
 	automation, ok := a.Variant.(arc.AutomationArc)
 	if !ok {
@@ -478,9 +491,69 @@ func (s *Service) compile(ctx context.Context, a *Arc) error {
 	if err != nil {
 		return err
 	}
+	calculations, err := channel.RetryChanged(ctx, func() ([]arc.Calculation, error) {
+		return s.compileCalculations(ctx, prog)
+	})
+	if err != nil {
+		return err
+	}
 	automation.Program = &prog
+	automation.Calculations = calculations
 	a.Variant = automation
 	return nil
+}
+
+// compileCalculations compiles the calculated channels that prog reads and the ones
+// they read in turn, dependencies first. It leaves out a channel whose expression fails
+// analysis or that reads itself through other channels, and each channel that reads
+// it. The Core cannot compute such a channel either.
+func (s *Service) compileCalculations(
+	ctx context.Context,
+	prog arclang.Program,
+) ([]arc.Calculation, error) {
+	reads := make(set.Set[channel.Key])
+	for _, n := range prog.Nodes {
+		for key := range n.Channels.Read {
+			reads.Add(channel.Key(key))
+		}
+	}
+	if len(reads) == 0 {
+		return nil, nil
+	}
+	var channels []channel.Channel
+	if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return s.channel.NewRetrieve().
+			Entries(&channels).
+			Where(channel.MatchKeys(reads.Slice()...)).
+			Exec(ctx, snap)
+	}); err != nil {
+		return nil, err
+	}
+	g, err := graph.New(graph.Config{
+		Instrumentation: s.Instrumentation,
+		Channel:         s.channel,
+		DB:              s.db,
+	})
+	if err != nil {
+		return nil, err
+	}
+	for _, ch := range channels {
+		if !ch.IsCalculated() {
+			continue
+		}
+		err = g.Add(ctx, ch)
+		invalid := errors.As(err, new(*diagnostics.Diagnostics)) ||
+			errors.Is(err, graph.ErrCycle)
+		if err != nil && !invalid {
+			return nil, err
+		}
+	}
+	modules := g.CalculateFlat()
+	calculations := make([]arc.Calculation, len(modules))
+	for i, m := range modules {
+		calculations[i] = arc.Calculation{Channel: m.Channel.Key(), Program: m.Program}
+	}
+	return calculations, nil
 }
 
 // compileText compiles t against root, reporting parse and analysis failures as a

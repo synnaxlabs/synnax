@@ -57,12 +57,12 @@ func AddFlags(cmd *cobra.Command) {
 	)
 	cmd.Flags().Bool(
 		FlagAllowKeyReuse,
-		*cert.DefaultFactoryConfig.AllowKeyReuse,
+		*cert.DefaultFactoryConfig().AllowKeyReuse,
 		"Whether to allow the reuse of CA keys for certificate generation",
 	)
 	cmd.Flags().Int(
 		FlagKeySize,
-		cert.DefaultFactoryConfig.KeySize,
+		cert.DefaultFactoryConfig().KeySize,
 		"The size to use for certificate key generation",
 	)
 }

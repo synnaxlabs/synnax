@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { sleep, TimeSpan } from "@synnaxlabs/x";
 import { act, fireEvent, render } from "@testing-library/react";
 import { type ReactElement, useState } from "react";
 import { createRoot, hydrateRoot } from "react-dom/client";
@@ -487,7 +488,7 @@ describe("Select.Simple multiple", () => {
       });
       const root = createRoot(container);
       root.render(element);
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await sleep.sleep(TimeSpan.milliseconds(50));
       observer.disconnect();
       root.unmount();
       container.remove();
