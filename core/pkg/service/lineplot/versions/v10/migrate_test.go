@@ -14,12 +14,14 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	color "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	v10 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v10"
 	v9 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v9"
 	xcolorv0 "github.com/synnaxlabs/x/color/versions/v0"
 	xcolor "github.com/synnaxlabs/x/color/versions/v2"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 func fixed(c xcolor.Color) color.Ref {
@@ -136,5 +138,35 @@ var _ = Describe("Migrate", func() {
 			Expect(lp.Rules[1].Color).
 				To(HaveValue(Equal(fixed(xcolor.Color{G: 2, A: 255}))))
 		},
+	)
+})
+
+var _ = Describe("NameMigration", func() {
+	migrated := func(ctx SpecContext, in v10.LinePlot) v10.LinePlot {
+		GinkgoHelper()
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
+		Expect(gorp.NewCreate[v10.Key, v10.LinePlot]().Entry(&in).Exec(ctx, db)).
+			To(Succeed())
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:         db,
+			Namespace:  "LinePlot",
+			Migrations: []gorp.Migration{v10.NameMigration},
+		})).To(Succeed())
+		var out v10.LinePlot
+		Expect(gorp.NewRetrieve[v10.Key, v10.LinePlot]().
+			Where(gorp.MatchKeys[v10.Key, v10.LinePlot](in.Key)).
+			Entry(&out).Exec(ctx, db)).To(Succeed())
+		return out
+	}
+	key := uuid.MustParse("1a2b3c4d-0000-0000-0000-000000000000")
+	DescribeTable(
+		"Should name only nameless line plots",
+		func(ctx SpecContext, name, expected string) {
+			Expect(migrated(ctx, v10.LinePlot{Key: key, Name: name}).Name).
+				To(Equal(expected))
+		},
+		Entry("empty name", "", "Line plot 1a2b3c4d"),
+		Entry("named line plot", "Named", "Named"),
 	)
 })

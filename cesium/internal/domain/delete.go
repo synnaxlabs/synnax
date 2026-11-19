@@ -567,7 +567,10 @@ func validateDelete(start, end *deleteBound, idx *index) (bool, error) {
 		)
 	}
 
-	if (startPosition == endPosition-1 && *startOffset == endPtrLen && *endOffset == endPtrLen) ||
+	if startPosition > endPosition ||
+		(startPosition == endPosition-1 &&
+			*startOffset == startPtrLen &&
+			*endOffset == endPtrLen) ||
 		startPosition == endPosition && *startOffset+*endOffset == startPtrLen {
 		return false, nil
 	}

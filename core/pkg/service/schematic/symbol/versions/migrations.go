@@ -30,6 +30,7 @@ func Migrations(
 		v3.Migration,
 		v3.MembersMigration,
 		v4.Migration,
+		v4.NameMigration,
 		v5.NewMigration(newIntern, actuators),
 	}
 }

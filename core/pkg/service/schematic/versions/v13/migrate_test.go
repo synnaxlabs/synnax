@@ -1291,3 +1291,33 @@ var _ = Describe("MigrateNodeConfig whole numbers and renames", func() {
 		Expect(configOf(got, "t")).To(HaveField("InlineSize", BeEquivalentTo(120)))
 	})
 })
+
+var _ = Describe("NameMigration", func() {
+	migrated := func(ctx SpecContext, in v13.Schematic) v13.Schematic {
+		GinkgoHelper()
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
+		Expect(gorp.NewCreate[v13.Key, v13.Schematic]().Entry(&in).Exec(ctx, db)).
+			To(Succeed())
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:         db,
+			Namespace:  "Schematic",
+			Migrations: []gorp.Migration{v13.NameMigration},
+		})).To(Succeed())
+		var out v13.Schematic
+		Expect(gorp.NewRetrieve[v13.Key, v13.Schematic]().
+			Where(gorp.MatchKeys[v13.Key, v13.Schematic](in.Key)).
+			Entry(&out).Exec(ctx, db)).To(Succeed())
+		return out
+	}
+	key := uuid.MustParse("1a2b3c4d-0000-0000-0000-000000000000")
+	DescribeTable(
+		"Should name only nameless schematics",
+		func(ctx SpecContext, name, expected string) {
+			Expect(migrated(ctx, v13.Schematic{Key: key, Name: name}).Name).
+				To(Equal(expected))
+		},
+		Entry("empty name", "", "Schematic 1a2b3c4d"),
+		Entry("named schematic", "Named", "Named"),
+	)
+})

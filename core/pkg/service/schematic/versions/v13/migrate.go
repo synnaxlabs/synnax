@@ -728,3 +728,15 @@ func migrateStateOverrides(
 		return symbol.StateOverride{Key: s.Key, Name: s.Name, Regions: s.Regions}, err
 	})
 }
+
+// NameMigration names each stored schematic that has an empty name "Schematic <key>",
+// where <key> is the first eight characters of its key.
+var NameMigration = migrate.NewEntry(
+	"v62_require_name",
+	func(_ context.Context, s Schematic) (Schematic, error) {
+		if s.Name == "" {
+			s.Name = "Schematic " + s.Key.String()[:8]
+		}
+		return s, nil
+	},
+)

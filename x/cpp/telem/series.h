@@ -1790,6 +1790,11 @@ public:
     /// @returns the number of samples written
     /// @throws std::runtime_error if the data types don't match
     size_t write(const Series &other) {
+        if (other.data_type() != this->data_type())
+            throw std::runtime_error(
+                "cannot write a " + other.data_type().name() + " series to a " +
+                this->data_type().name() + " series"
+            );
         this->ensure_exclusive();
         const size_t byte_count = std::min(
             other.byte_size(),
