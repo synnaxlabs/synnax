@@ -55,10 +55,14 @@ type FieldIdentifier = v0.FieldIdentifier
 // BaseField carries the parts every message field shares.
 type BaseField = v0.BaseField
 
-// BinaryField is a field read from a bit range of a binary payload.
+// BinaryField is a field read from a bit range of a binary payload. With no default, a
+// write needs a channel.
 type BinaryField = v0.BinaryField
 
-// TextField is a field read from a text line.
+// TextBaseField carries the parts every text field shares.
+type TextBaseField = v0.TextBaseField
+
+// TextField is a field read from a text line. With no default, a write needs a channel.
 type TextField = v0.TextField
 
 // TextFieldVariant is implemented by every TextField variant.
@@ -80,10 +84,55 @@ type DelimitedTextField = v0.DelimitedTextField
 // TaggedTextField is a field read from the text that follows a tag.
 type TaggedTextField = v0.TaggedTextField
 
+// TimestampDefault is the default of a timestamp field.
+type TimestampDefault = v0.TimestampDefault
+
+// TimestampDefaultVariant is implemented by every TimestampDefault variant.
+type TimestampDefaultVariant = v0.TimestampDefaultVariant
+
+// TimestampDefaultType is the "type" value that selects a variant of TimestampDefault.
+type TimestampDefaultType = v0.TimestampDefaultType
+
+const (
+	// ConstantTimestampDefaultType is one fixed timestamp.
+	ConstantTimestampDefaultType TimestampDefaultType = v0.ConstantTimestampDefaultType
+	// NowTimestampDefaultType is the time of each read or write.
+	NowTimestampDefaultType TimestampDefaultType = v0.NowTimestampDefaultType
+)
+
+// ConstantTimestampDefault is one fixed timestamp.
+type ConstantTimestampDefault = v0.ConstantTimestampDefault
+
+// NowTimestampDefault is the time of each read or write.
+type NowTimestampDefault = v0.NowTimestampDefault
+
+// UUIDDefault is the default of a UUID field.
+type UUIDDefault = v0.UUIDDefault
+
+// UUIDDefaultVariant is implemented by every UUIDDefault variant.
+type UUIDDefaultVariant = v0.UUIDDefaultVariant
+
+// UUIDDefaultType is the "type" value that selects a variant of UUIDDefault.
+type UUIDDefaultType = v0.UUIDDefaultType
+
+const (
+	// ConstantUUIDDefaultType is one fixed UUID.
+	ConstantUUIDDefaultType UUIDDefaultType = v0.ConstantUUIDDefaultType
+	// RandomUUIDDefaultType is a new random UUID for each read or write.
+	RandomUUIDDefaultType UUIDDefaultType = v0.RandomUUIDDefaultType
+)
+
+// ConstantUUIDDefault is one fixed UUID.
+type ConstantUUIDDefault = v0.ConstantUUIDDefault
+
+// RandomUUIDDefault is a new random UUID for each read or write.
+type RandomUUIDDefault = v0.RandomUUIDDefault
+
 // JSONBaseField carries the parts every JSON field shares.
 type JSONBaseField = v0.JSONBaseField
 
-// JSONField is a field read from a JSON document.
+// JSONField is a field read from a JSON document. With no default, a read needs its
+// value and a write needs a channel.
 type JSONField = v0.JSONField
 
 // JSONFieldVariant is implemented by every JSONField variant.

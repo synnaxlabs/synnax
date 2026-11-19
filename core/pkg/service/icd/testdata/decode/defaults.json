@@ -55,7 +55,10 @@
             "pointer": "/ts",
             "type": "timestamp",
             "time_format": "unix_ms",
-            "default": "1000"
+            "default": {
+              "type": "constant",
+              "value": "1000"
+            }
           },
           {
             "key": "00000000-0000-4000-8000-000000000006",
@@ -65,6 +68,39 @@
             "units": "",
             "pointer": "/id",
             "type": "integer"
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000007",
+            "name": "device",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/device",
+            "type": "uuid",
+            "default": {
+              "type": "constant",
+              "value": "6f1c3a52-9a4e-4c1b-8d2e-0b7a1f3c5d90"
+            }
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000008",
+            "name": "config",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/config",
+            "type": "json",
+            "default": { "mode": "auto" }
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000009",
+            "name": "raw",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/raw",
+            "type": "bytes",
+            "default": "AQI="
           }
         ]
       },
@@ -92,6 +128,18 @@
         {
           "field": "00000000-0000-4000-8000-000000000006",
           "data_type": "int64"
+        },
+        {
+          "field": "00000000-0000-4000-8000-000000000007",
+          "data_type": "uuid"
+        },
+        {
+          "field": "00000000-0000-4000-8000-000000000008",
+          "data_type": "json"
+        },
+        {
+          "field": "00000000-0000-4000-8000-000000000009",
+          "data_type": "bytes"
         }
       ]
     }
@@ -102,7 +150,17 @@
         "id": 1
       },
       "message": "reading",
-      "samples": [42, 4, "idle", 1, 1000, 1]
+      "samples": [
+        42,
+        4,
+        "idle",
+        1,
+        1000,
+        1,
+        "6f1c3a52-9a4e-4c1b-8d2e-0b7a1f3c5d90",
+        { "mode": "auto" },
+        "AQI="
+      ]
     },
     {
       "document": {
@@ -111,10 +169,23 @@
         "state": "run",
         "armed": false,
         "ts": 5,
-        "id": 2
+        "id": 2,
+        "device": "0b9d2c41-7e3f-4a6b-9c1d-2e4f6a8b0c13",
+        "config": { "mode": "manual" },
+        "raw": "/w=="
       },
       "message": "reading",
-      "samples": [3, 2, "run", 0, 5000000, 2]
+      "samples": [
+        3,
+        2,
+        "run",
+        0,
+        5000000,
+        2,
+        "0b9d2c41-7e3f-4a6b-9c1d-2e4f6a8b0c13",
+        { "mode": "manual" },
+        "/w=="
+      ]
     },
     {
       "document": {

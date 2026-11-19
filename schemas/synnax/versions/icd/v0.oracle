@@ -120,7 +120,7 @@ BinaryField struct extends BaseField {
             complement integer, or an unsigned integer. No other kind is valid.
         """
     }
-    multiplexor      FieldKey?    {
+    multiplexor      FieldKey?      {
         @doc value """
             is the key of the field that selects whether this field is present. When
             absent the field is always present.
@@ -131,12 +131,33 @@ BinaryField struct extends BaseField {
             are the raw values of the multiplexor for which this field is present.
         """
     }
+    default          payload.Float? {
+        @doc value """
+            is the raw value, before scale and offset, when a read finds none or no
+            channel is bound. It is a whole number unless the kind is float.
+        """
+    }
 
-    @doc value  "is a field read from a bit range of a binary payload."
+    @doc value  """
+        is a field read from a bit range of a binary payload. With no default, a write
+        needs a channel.
+    """
     @go marshal
 }
 
-TextField union on encoding extends BaseField {
+TextBaseField struct extends BaseField {
+    default payload.Float? {
+        @doc value """
+            is the raw number, before scale and offset, when a read finds none or no
+            channel is bound.
+        """
+    }
+
+    @doc value  "carries the parts every text field shares."
+    @go marshal
+}
+
+TextField union on encoding extends TextBaseField {
     delimited {
         position uint32 = 0 {
             @doc value "is the zero-based item index after splitting on the delimiter."
@@ -152,7 +173,41 @@ TextField union on encoding extends BaseField {
         @doc value "is a field read from the text that follows a tag."
     }
 
-    @doc value  "is a field read from a text line."
+    @doc value  """
+        is a field read from a text line. With no default, a write needs a channel.
+    """
+    @go marshal
+}
+
+TimestampDefault union on type {
+    constant {
+        value telem.TimeStamp {
+            @doc value "is the timestamp that the default gives."
+        }
+
+        @doc value "is one fixed timestamp."
+    }
+    now {
+        @doc value "is the time of each read or write."
+    }
+
+    @doc value  "is the default of a timestamp field."
+    @go marshal
+}
+
+UUIDDefault union on type {
+    constant {
+        value uuid {
+            @doc value "is the UUID that the default gives."
+        }
+
+        @doc value "is one fixed UUID."
+    }
+    random {
+        @doc value "is a new random UUID for each read or write."
+    }
+
+    @doc value  "is the default of a UUID field."
     @go marshal
 }
 
@@ -174,7 +229,10 @@ JSONField union on type payload.Kind extends JSONBaseField {
             @doc value "maps text labels in the document to values."
         }
         default     payload.Float?       {
-            @doc value "is the value when the document has none. Absent requires one."
+            @doc value """
+                is the raw value, before scale and offset, when a read finds none or no
+                channel is bound.
+            """
         }
 
         @doc value "is a JSON number read as a float."
@@ -184,7 +242,10 @@ JSONField union on type payload.Kind extends JSONBaseField {
             @doc value "maps text labels in the document to values."
         }
         default     payload.Integer?       {
-            @doc value "is the value when the document has none. Absent requires one."
+            @doc value """
+                is the raw value, before scale and offset, when a read finds none or no
+                channel is bound.
+            """
         }
 
         @doc value "is a JSON number read as a signed integer."
@@ -194,7 +255,10 @@ JSONField union on type payload.Kind extends JSONBaseField {
             @doc value "maps text labels in the document to values."
         }
         default     payload.Unsigned?       {
-            @doc value "is the value when the document has none. Absent requires one."
+            @doc value """
+                is the raw value, before scale and offset, when a read finds none or no
+                channel is bound.
+            """
         }
 
         @doc value "is a JSON number read as an unsigned integer."
@@ -204,7 +268,7 @@ JSONField union on type payload.Kind extends JSONBaseField {
             @doc value "maps text labels in the document to values."
         }
         default     string?               {
-            @doc value "is the value when the document has none. Absent requires one."
+            @doc value "is the value when a read finds none or no channel is bound."
         }
 
         @doc value "is a JSON string."
@@ -214,7 +278,7 @@ JSONField union on type payload.Kind extends JSONBaseField {
             @doc value "maps text labels in the document to values."
         }
         default     bool?                  {
-            @doc value "is the value when the document has none. Absent requires one."
+            @doc value "is the value when a read finds none or no channel is bound."
         }
 
         @doc value "is a JSON boolean."
@@ -223,23 +287,44 @@ JSONField union on type payload.Kind extends JSONBaseField {
         time_format payload.TimeFormat {
             @doc value "is the encoding of the timestamp."
         }
-        default     telem.TimeStamp?   {
-            @doc value "is the value when the document has none. Absent requires one."
+        default     TimestampDefault?  {
+            @doc value "is the value when a read finds none or no channel is bound."
         }
 
         @doc value "is a timestamp held in a JSON number or string."
     }
     json {
+        default any? {
+            @doc value        """
+                is the value when a read finds none or no channel is bound.
+            """
+            @ts preserve_case
+        }
+
         @doc value "is any JSON value."
     }
     uuid {
+        default UUIDDefault? {
+            @doc value "is the value when a read finds none or no channel is bound."
+        }
+
         @doc value "is a UUID held in a JSON string."
     }
     bytes {
+        default string? {
+            @doc value """
+                is the base64 text of the value when a read finds none or no channel is
+                bound.
+            """
+        }
+
         @doc value "is base64 text held in a JSON string."
     }
 
-    @doc value  "is a field read from a JSON document."
+    @doc value  """
+        is a field read from a JSON document. With no default, a read needs its value
+        and a write needs a channel.
+    """
     @go marshal
 }
 

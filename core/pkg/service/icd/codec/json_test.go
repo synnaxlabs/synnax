@@ -225,6 +225,74 @@ var _ = Describe("JSON", func() {
 		))
 	})
 
+	Describe("Generated defaults", func() {
+		decoder := func(f icd.JSONField, dt telem.DataType) *codec.JSON {
+			GinkgoHelper()
+			return MustSucceed(codec.NewJSON([]codec.JSONMessage{{
+				Name:     "reading",
+				Payload:  icd.JSONPayload{Fields: []icd.JSONField{f}},
+				Bindings: []codec.Binding{{Field: f.Base().Key, DataType: dt}},
+			}}))
+		}
+
+		It("Should fill a missing timestamp with the time of the read", func() {
+			dec := decoder(icd.JSONField{Variant: icd.TimestampJSONField{
+				Key: uuid.New(), Name: "ts", Scale: 1, Pointer: "/ts",
+				TimeFormat: payload.TimeFormatUnixMs,
+				Default:    &icd.TimestampDefault{Variant: icd.NowTimestampDefault{}},
+			}}, telem.TimestampT)
+			samples := [][][]byte{make([][]byte, 1)}
+			before := telem.Now()
+			_, ok := MustSucceed2(dec.Decode([]byte(`{}`), samples))
+			after := telem.Now()
+			Expect(ok).To(BeTrue())
+			read := telem.TimeStamp(telem.ByteOrder.Uint64(samples[0][0]))
+			Expect(read).To(BeNumerically(">=", before))
+			Expect(read).To(BeNumerically("<=", after))
+		})
+
+		It("Should fill a missing UUID with a new random UUID on each read", func() {
+			dec := decoder(icd.JSONField{Variant: icd.UuidJSONField{
+				Key: uuid.New(), Name: "id", Scale: 1, Pointer: "/id",
+				Default: &icd.UUIDDefault{Variant: icd.RandomUUIDDefault{}},
+			}}, telem.UUIDT)
+			samples := [][][]byte{make([][]byte, 1)}
+			for range 2 {
+				_, ok := MustSucceed2(dec.Decode([]byte(`{}`), samples))
+				Expect(ok).To(BeTrue())
+			}
+			read := samples[0][0]
+			Expect(read).To(HaveLen(32))
+			first, second := uuid.UUID(read[:16]), uuid.UUID(read[16:])
+			Expect(first).ToNot(Equal(second))
+			Expect(first[6] >> 4).To(Equal(byte(4)))
+			Expect(second[6] >> 4).To(Equal(byte(4)))
+		})
+
+		DescribeTable("Should reject a default with no type",
+			func(f icd.JSONField, dt telem.DataType) {
+				Expect(codec.NewJSON([]codec.JSONMessage{{
+					Name:     "reading",
+					Payload:  icd.JSONPayload{Fields: []icd.JSONField{f}},
+					Bindings: []codec.Binding{{Field: f.Base().Key, DataType: dt}},
+				}})).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError("message reading: field v: default: type is required: "+
+						"validation error"),
+				))
+			},
+			Entry("for a timestamp", icd.JSONField{Variant: icd.TimestampJSONField{
+				Key: uuid.New(), Name: "v", Scale: 1, Pointer: "/v",
+				TimeFormat: payload.TimeFormatUnixMs,
+				Default:    &icd.TimestampDefault{},
+			}}, telem.TimestampT),
+			Entry("for a UUID", icd.JSONField{Variant: icd.UuidJSONField{
+				Key: uuid.New(), Name: "v", Scale: 1, Pointer: "/v",
+				Default: &icd.UUIDDefault{},
+			}}, telem.UUIDT),
+		)
+	})
+
 	It("Should append to the samples of earlier documents", func() {
 		key := uuid.New()
 		dec := MustSucceed(codec.NewJSON([]codec.JSONMessage{

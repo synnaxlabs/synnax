@@ -12,6 +12,8 @@
 package v0
 
 import (
+	"encoding/json/v2"
+
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
 	payload "github.com/synnaxlabs/x/payload/versions/v0"
@@ -123,6 +125,12 @@ func (bf BinaryField) EncodeOrc(w *orc.Writer) error {
 			w.Int32(int32(bf.MultiplexValues[i]))
 		}
 	}
+	if bf.Default != nil {
+		w.Bool(true)
+		w.Float64(float64(*bf.Default))
+	} else {
+		w.Bool(false)
+	}
 	return nil
 }
 
@@ -219,6 +227,23 @@ func (bf *BinaryField) DecodeOrc(r *orc.Reader) error {
 					return err
 				}
 			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv payload.Float
+			{
+				rawV, err := r.Float64()
+				if err != nil {
+					return err
+				}
+				hv = payload.Float(rawV)
+			}
+			bf.Default = &hv
 		}
 	}
 	return nil
@@ -544,7 +569,9 @@ func (jsonf JSONField) EncodeOrc(w *orc.Writer) error {
 		w.String(string(v.TimeFormat))
 		if v.Default != nil {
 			w.Bool(true)
-			w.Int64(int64(*v.Default))
+			if err := v.Default.EncodeOrc(w); err != nil {
+				return err
+			}
 		} else {
 			w.Bool(false)
 		}
@@ -553,15 +580,41 @@ func (jsonf JSONField) EncodeOrc(w *orc.Writer) error {
 		if err := v.JSONBaseField.EncodeOrc(w); err != nil {
 			return err
 		}
+		if v.Default != nil {
+			w.Bool(true)
+			{
+				b, err := json.Marshal(v.Default)
+				if err != nil {
+					return err
+				}
+				w.WriteWithLen(b)
+			}
+		} else {
+			w.Bool(false)
+		}
 	case UuidJSONField:
 		w.String("uuid")
 		if err := v.JSONBaseField.EncodeOrc(w); err != nil {
 			return err
 		}
+		if v.Default != nil {
+			w.Bool(true)
+			if err := v.Default.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
 	case BytesJSONField:
 		w.String("bytes")
 		if err := v.JSONBaseField.EncodeOrc(w); err != nil {
 			return err
+		}
+		if v.Default != nil {
+			w.Bool(true)
+			w.String(*v.Default)
+		} else {
+			w.Bool(false)
 		}
 	default:
 		return errors.Newf("JSONField: nil or unknown variant %T", jsonf.Variant)
@@ -791,13 +844,9 @@ func (jsonf *JSONField) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv telem.TimeStamp
-				{
-					rawV, err := r.Int64()
-					if err != nil {
-						return err
-					}
-					hv = telem.TimeStamp(rawV)
+				var hv TimestampDefault
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
 				}
 				v.Default = &hv
 			}
@@ -808,17 +857,60 @@ func (jsonf *JSONField) DecodeOrc(r *orc.Reader) error {
 		if err := v.JSONBaseField.DecodeOrc(r); err != nil {
 			return err
 		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				{
+					b, err := r.ReadWithLen()
+					if err != nil {
+						return err
+					}
+					if err = json.Unmarshal(b, &v.Default); err != nil {
+						return err
+					}
+				}
+			}
+		}
 		jsonf.Variant = v
 	case "uuid":
 		var v UuidJSONField
 		if err := v.JSONBaseField.DecodeOrc(r); err != nil {
 			return err
 		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv UUIDDefault
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.Default = &hv
+			}
+		}
 		jsonf.Variant = v
 	case "bytes":
 		var v BytesJSONField
 		if err := v.JSONBaseField.DecodeOrc(r); err != nil {
 			return err
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv string
+				if hv, err = r.String(); err != nil {
+					return err
+				}
+				v.Default = &hv
+			}
 		}
 		jsonf.Variant = v
 	default:
@@ -1149,17 +1241,109 @@ func (p *Payload) DecodeOrc(r *orc.Reader) error {
 }
 
 // EncodeOrc writes the value to w in the Orc binary format.
+func (tbf TextBaseField) EncodeOrc(w *orc.Writer) error {
+	w.Write(tbf.Key[:])
+	w.String(tbf.Name)
+	w.Float64(float64(tbf.Scale))
+	w.Float64(float64(tbf.Offset))
+	w.String(tbf.Units)
+	if tbf.Min != nil {
+		w.Bool(true)
+		w.Float64(float64(*tbf.Min))
+	} else {
+		w.Bool(false)
+	}
+	if tbf.Max != nil {
+		w.Bool(true)
+		w.Float64(float64(*tbf.Max))
+	} else {
+		w.Bool(false)
+	}
+	if tbf.Default != nil {
+		w.Bool(true)
+		w.Float64(float64(*tbf.Default))
+	} else {
+		w.Bool(false)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (tbf *TextBaseField) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if _, err := r.Read(tbf.Key[:]); err != nil {
+		return err
+	}
+	if tbf.Name, err = r.String(); err != nil {
+		return err
+	}
+	if tbf.Scale, err = r.Float64(); err != nil {
+		return err
+	}
+	if tbf.Offset, err = r.Float64(); err != nil {
+		return err
+	}
+	if tbf.Units, err = r.String(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv float64
+			if hv, err = r.Float64(); err != nil {
+				return err
+			}
+			tbf.Min = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv float64
+			if hv, err = r.Float64(); err != nil {
+				return err
+			}
+			tbf.Max = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv payload.Float
+			{
+				rawV, err := r.Float64()
+				if err != nil {
+					return err
+				}
+				hv = payload.Float(rawV)
+			}
+			tbf.Default = &hv
+		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
 func (tf TextField) EncodeOrc(w *orc.Writer) error {
 	switch v := tf.Variant.(type) {
 	case DelimitedTextField:
 		w.String("delimited")
-		if err := v.BaseField.EncodeOrc(w); err != nil {
+		if err := v.TextBaseField.EncodeOrc(w); err != nil {
 			return err
 		}
 		w.Uint32(uint32(v.Position))
 	case TaggedTextField:
 		w.String("tagged")
-		if err := v.BaseField.EncodeOrc(w); err != nil {
+		if err := v.TextBaseField.EncodeOrc(w); err != nil {
 			return err
 		}
 		w.String(v.Tag)
@@ -1178,7 +1362,7 @@ func (tf *TextField) DecodeOrc(r *orc.Reader) error {
 	switch string(tag) {
 	case "delimited":
 		var v DelimitedTextField
-		if err := v.BaseField.DecodeOrc(r); err != nil {
+		if err := v.TextBaseField.DecodeOrc(r); err != nil {
 			return err
 		}
 		if v.Position, err = r.Uint32(); err != nil {
@@ -1187,7 +1371,7 @@ func (tf *TextField) DecodeOrc(r *orc.Reader) error {
 		tf.Variant = v
 	case "tagged":
 		var v TaggedTextField
-		if err := v.BaseField.DecodeOrc(r); err != nil {
+		if err := v.TextBaseField.DecodeOrc(r); err != nil {
 			return err
 		}
 		if v.Tag, err = r.String(); err != nil {
@@ -1196,6 +1380,82 @@ func (tf *TextField) DecodeOrc(r *orc.Reader) error {
 		tf.Variant = v
 	default:
 		return errors.Newf("TextField: unknown variant %q", tag)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (td TimestampDefault) EncodeOrc(w *orc.Writer) error {
+	switch v := td.Variant.(type) {
+	case ConstantTimestampDefault:
+		w.String("constant")
+		w.Int64(int64(v.Value))
+	case NowTimestampDefault:
+		w.String("now")
+	default:
+		return errors.Newf("TimestampDefault: nil or unknown variant %T", td.Variant)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (td *TimestampDefault) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.StringBytes()
+	if err != nil {
+		return err
+	}
+	switch string(tag) {
+	case "constant":
+		var v ConstantTimestampDefault
+		{
+			rawV, err := r.Int64()
+			if err != nil {
+				return err
+			}
+			v.Value = telem.TimeStamp(rawV)
+		}
+		td.Variant = v
+	case "now":
+		var v NowTimestampDefault
+		td.Variant = v
+	default:
+		return errors.Newf("TimestampDefault: unknown variant %q", tag)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (uuidd UUIDDefault) EncodeOrc(w *orc.Writer) error {
+	switch v := uuidd.Variant.(type) {
+	case ConstantUUIDDefault:
+		w.String("constant")
+		w.Write(v.Value[:])
+	case RandomUUIDDefault:
+		w.String("random")
+	default:
+		return errors.Newf("UUIDDefault: nil or unknown variant %T", uuidd.Variant)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (uuidd *UUIDDefault) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.StringBytes()
+	if err != nil {
+		return err
+	}
+	switch string(tag) {
+	case "constant":
+		var v ConstantUUIDDefault
+		if _, err := r.Read(v.Value[:]); err != nil {
+			return err
+		}
+		uuidd.Variant = v
+	case "random":
+		var v RandomUUIDDefault
+		uuidd.Variant = v
+	default:
+		return errors.Newf("UUIDDefault: unknown variant %q", tag)
 	}
 	return nil
 }

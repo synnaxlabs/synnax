@@ -35,6 +35,7 @@ const createNew = (name: string = "ICD"): icd.New => ({
             kind: "integer",
             scale: 0.1,
             units: "degC",
+            default: 250,
           },
         ],
       },
@@ -87,6 +88,7 @@ describe("icd", () => {
         kind: "integer",
         scale: 0.1,
         units: "degC",
+        default: 250,
       });
       const keys = [msg.key, ...fields.map((f) => f.key)];
       expect(new Set(keys).size).toEqual(keys.length);
@@ -102,7 +104,7 @@ describe("icd", () => {
               format: "text",
               prefix: "$T",
               fields: [
-                { encoding: "delimited", name: "temp", position: 1 },
+                { encoding: "delimited", name: "temp", position: 1, default: 0.5 },
                 { encoding: "tagged", name: "rh", tag: "RH=" },
               ],
             },
@@ -116,7 +118,13 @@ describe("icd", () => {
           delimiter: ",",
           prefix: "$T",
           fields: [
-            { encoding: "delimited", name: "temp", position: 1, scale: 1 },
+            {
+              encoding: "delimited",
+              name: "temp",
+              position: 1,
+              scale: 1,
+              default: 0.5,
+            },
             { encoding: "tagged", name: "rh", tag: "RH=" },
           ],
         },
@@ -217,7 +225,38 @@ describe("icd", () => {
           name: "time",
           pointer: "/ts",
           timeFormat: "unix_ns",
-          default: new TimeStamp(2n ** 62n + 1n),
+          default: { type: "constant", value: new TimeStamp(2n ** 62n + 1n) },
+        },
+        {
+          type: "timestamp",
+          name: "sent",
+          pointer: "/sent",
+          timeFormat: "iso8601",
+          default: { type: "now" },
+        },
+        {
+          type: "json",
+          name: "config",
+          pointer: "/config",
+          default: { set_point: 1, modeName: "auto" },
+        },
+        {
+          type: "uuid",
+          name: "device",
+          pointer: "/device",
+          default: { type: "constant", value: uuid.create() },
+        },
+        {
+          type: "uuid",
+          name: "request",
+          pointer: "/request",
+          default: { type: "random" },
+        },
+        {
+          type: "bytes",
+          name: "raw",
+          pointer: "/raw",
+          default: "AQI=",
         },
       ];
       const ic = await client.icds.create({

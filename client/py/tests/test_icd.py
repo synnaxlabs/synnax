@@ -15,7 +15,7 @@ from pydantic import ValidationError
 
 import synnax as sy
 from x import payload
-from x.payload import Unsigned
+from x.payload import Float, Unsigned
 from x.testutil import assert_eventually
 
 DBC = b"""VERSION ""
@@ -46,6 +46,7 @@ def create_icd(name: str = "ICD") -> sy.ICD:
                             kind="integer",
                             scale=0.1,
                             units="degC",
+                            default=payload.Float(250),
                         ),
                     ],
                 ),
@@ -78,6 +79,7 @@ class TestICD:
         assert temp.kind == "integer"
         assert temp.scale == 0.1
         assert temp.units == "degC"
+        assert temp.default == Float(250)
         keys = [msg.key, *(f.key for f in payload.fields)]
         assert len(set(keys)) == len(keys)
 
@@ -163,8 +165,28 @@ class TestICD:
                 name="time",
                 pointer="/ts",
                 time_format="unix_ns",
-                default=sy.TimeStamp(2**62 + 1),
+                default=sy.icd.ConstantTimestampDefault(value=sy.TimeStamp(2**62 + 1)),
             ),
+            sy.icd.TimestampJSONField(
+                name="sent",
+                pointer="/sent",
+                time_format="iso8601",
+                default=sy.icd.NowTimestampDefault(),
+            ),
+            sy.icd.JSONJSONField(
+                name="config", pointer="/config", default={"mode": "auto"}
+            ),
+            sy.icd.UuidJSONField(
+                name="device",
+                pointer="/device",
+                default=sy.icd.ConstantUUIDDefault(value=uuid4()),
+            ),
+            sy.icd.UuidJSONField(
+                name="request",
+                pointer="/request",
+                default=sy.icd.RandomUUIDDefault(),
+            ),
+            sy.icd.BytesJSONField(name="raw", pointer="/raw", default="AQI="),
         ]
         ic = client.icds.create(
             name="Defaults",
@@ -191,7 +213,9 @@ class TestICD:
                         prefix="$",
                         fields=[
                             sy.icd.TaggedTextField(name="temp", tag="T="),
-                            sy.icd.DelimitedTextField(name="rh", position=2),
+                            sy.icd.DelimitedTextField(
+                                name="rh", position=2, default=Float(0.5)
+                            ),
                         ],
                     ),
                 )
@@ -204,7 +228,7 @@ class TestICD:
         assert isinstance(temp, sy.icd.TaggedTextField)
         assert (temp.name, temp.tag) == ("temp", "T=")
         assert isinstance(rh, sy.icd.DelimitedTextField)
-        assert (rh.name, rh.position) == ("rh", 2)
+        assert (rh.name, rh.position, rh.default) == ("rh", 2, 0.5)
 
     def test_reject_binary_field_in_text_payload(self) -> None:
         """Should not parse a binary field in a text payload."""

@@ -13,8 +13,10 @@ package codec
 
 import (
 	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"math"
 	"strconv"
+	"uuid"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
@@ -78,9 +80,11 @@ type jsonField struct {
 	scratch []byte
 	// sample converts a JSON value to a sample of the channel's data type.
 	sample *xjson.Decoder
-	// fallback is the sample used when a document has no value, or nil when the field
-	// requires one.
+	// fallback is the sample used when a document has no value.
 	fallback []byte
+	// generate appends a new sample when a document has no value. A field with no
+	// generate and no fallback requires a value.
+	generate func(dst []byte) []byte
 }
 
 // NewJSON returns a JSON decoder for messages that share one source of documents. A
@@ -204,8 +208,8 @@ type jsonVariant struct {
 	floatDefault *payload.Float
 }
 
-// readVariant sets the kind of f from the variant of jf, and the fallback of a
-// timestamp field. It returns the rest of what the variant sets.
+// readVariant sets the kind of f from the variant of jf, and the fallback or generator
+// of a timestamp or UUID field. It returns the rest of what the variant sets.
 func (f *jsonField) readVariant(jf icd.JSONField) (jsonVariant, error) {
 	out := jsonVariant{sample: xjson.Field{DataType: f.dataType, Enums: enumsOf(jf)}}
 	var err error
@@ -242,18 +246,56 @@ func (f *jsonField) readVariant(jf icd.JSONField) (jsonVariant, error) {
 			return jsonVariant{}, err
 		}
 		if v.Default != nil {
-			f.fallback = telem.ByteOrder.AppendUint64(nil, uint64(*v.Default))
+			switch d := v.Default.Variant.(type) {
+			case icd.ConstantTimestampDefault:
+				f.fallback = telem.ByteOrder.AppendUint64(nil, uint64(d.Value))
+			case icd.NowTimestampDefault:
+				f.generate = appendNow
+			case nil:
+				return jsonVariant{}, errUntypedDefault
+			}
 		}
 	case icd.JSONJSONField:
 		f.kind = payload.KindJSON
+		if v.Default != nil {
+			if out.fallback, err = json.Marshal(*v.Default); err != nil {
+				return jsonVariant{}, errors.Wrap(validate.ErrValidation, err.Error())
+			}
+		}
 	case icd.UuidJSONField:
 		f.kind = payload.KindUUID
+		if v.Default != nil {
+			switch d := v.Default.Variant.(type) {
+			case icd.ConstantUUIDDefault:
+				f.fallback = d.Value[:]
+			case icd.RandomUUIDDefault:
+				f.generate = appendRandomUUID
+			case nil:
+				return jsonVariant{}, errUntypedDefault
+			}
+		}
 	case icd.BytesJSONField:
 		f.kind = payload.KindBytes
+		if v.Default != nil {
+			if out.fallback, err = jsontext.AppendQuote(nil, *v.Default); err != nil {
+				return jsonVariant{}, errors.Wrap(validate.ErrValidation, err.Error())
+			}
+		}
 	default:
 		return jsonVariant{}, errors.Wrap(validate.ErrValidation, "type is required")
 	}
 	return out, nil
+}
+
+var errUntypedDefault = errors.Wrap(validate.ErrValidation, "default: type is required")
+
+func appendNow(dst []byte) []byte {
+	return telem.ByteOrder.AppendUint64(dst, uint64(telem.Now()))
+}
+
+func appendRandomUUID(dst []byte) []byte {
+	id := uuid.NewV4()
+	return append(dst, id[:]...)
 }
 
 // enumsOf returns the enum labels of jf.
@@ -397,12 +439,15 @@ func (m *jsonMessage) decode(samples [][]byte) error {
 		f := &m.fields[i]
 		var err error
 		if payload.Absent(m.values[i], f.dataType) {
-			if f.fallback == nil {
+			switch {
+			case f.generate != nil:
+				samples[i] = f.generate(samples[i])
+			case f.fallback != nil:
+				samples[i] = append(samples[i], f.fallback...)
+			default:
 				err = errors.Wrapf(
 					validate.ErrValidation, "no value at %s", f.pointer,
 				)
-			} else {
-				samples[i] = append(samples[i], f.fallback...)
 			}
 		} else {
 			var out []byte

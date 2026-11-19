@@ -14,7 +14,7 @@ from __future__ import annotations
 from typing import Annotated, Literal, TypeAlias, TypedDict, override as _override
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from synnax.resource import ID
 from x import filter, payload as payload_, telem
@@ -50,6 +50,46 @@ class JSONBaseMatch(BaseModel):
     """
 
     pointer: str = ""
+
+
+class ConstantTimestampDefault(BaseModel):
+    """Is one fixed timestamp."""
+
+    type: Literal["constant"] = "constant"
+    value: telem.TimeStamp = Field(ge=-9223372036854775808, le=9223372036854775807)
+
+
+class NowTimestampDefault(BaseModel):
+    """Is the time of each read or write."""
+
+    type: Literal["now"] = "now"
+
+
+# Is the default of a timestamp field.
+TimestampDefault = Annotated[
+    ConstantTimestampDefault | NowTimestampDefault,
+    Field(discriminator="type"),
+]
+
+
+class ConstantUUIDDefault(BaseModel):
+    """Is one fixed UUID."""
+
+    type: Literal["constant"] = "constant"
+    value: UUID
+
+
+class RandomUUIDDefault(BaseModel):
+    """Is a new random UUID for each read or write."""
+
+    type: Literal["random"] = "random"
+
+
+# Is the default of a UUID field.
+UUIDDefault = Annotated[
+    ConstantUUIDDefault | RandomUUIDDefault,
+    Field(discriminator="type"),
+]
 
 
 class Where(BaseModel):
@@ -209,7 +249,8 @@ class RetrieveRequest(BaseModel):
 
 
 class BinaryField(BaseField):
-    """Is a field read from a bit range of a binary payload.
+    """Is a field read from a bit range of a binary payload. With no default, a write
+    needs a channel.
 
     Attributes:
         start_bit: Is the bit where the field starts, numbered as in a DBC file: the
@@ -223,6 +264,8 @@ class BinaryField(BaseField):
             When absent the field is always present.
         multiplex_values: Are the raw values of the multiplexor for which this field is
             present.
+        default: Is the raw value, before scale and offset, when a read finds none or no
+            channel is bound. It is a whole number unless the kind is float.
     """
 
     start_bit: int = Field(default=0, ge=0, le=65535)
@@ -231,6 +274,18 @@ class BinaryField(BaseField):
     kind: payload_.Kind = "unsigned"
     multiplexor: FieldKey | None = None
     multiplex_values: list[int] = Field(default_factory=list)
+    default: payload_.Float | None = None
+
+
+class TextBaseField(BaseField):
+    """Carries the parts every text field shares.
+
+    Attributes:
+        default: Is the raw number, before scale and offset, when a read finds none or
+            no channel is bound.
+    """
+
+    default: payload_.Float | None = None
 
 
 class JSONBaseField(BaseField):
@@ -244,21 +299,21 @@ class JSONBaseField(BaseField):
     pointer: str = ""
 
 
-class DelimitedTextField(BaseField):
+class DelimitedTextField(TextBaseField):
     """Is a field read from one item of a delimited text line."""
 
     encoding: Literal["delimited"] = "delimited"
     position: int = Field(default=0, ge=0, le=4294967295)
 
 
-class TaggedTextField(BaseField):
+class TaggedTextField(TextBaseField):
     """Is a field read from the text that follows a tag."""
 
     encoding: Literal["tagged"] = "tagged"
     tag: str
 
 
-# Is a field read from a text line.
+# Is a field read from a text line. With no default, a write needs a channel.
 TextField = Annotated[
     DelimitedTextField | TaggedTextField,
     Field(discriminator="encoding"),
@@ -314,30 +369,32 @@ class TimestampJSONField(JSONBaseField):
 
     type: Literal["timestamp"] = "timestamp"
     time_format: payload_.TimeFormat
-    default: telem.TimeStamp | None = Field(
-        default=None, ge=-9223372036854775808, le=9223372036854775807
-    )
+    default: TimestampDefault | None = None
 
 
 class JSONJSONField(JSONBaseField):
     """Is any JSON value."""
 
     type: Literal["json"] = "json"
+    default: JsonValue | None = None
 
 
 class UuidJSONField(JSONBaseField):
     """Is a UUID held in a JSON string."""
 
     type: Literal["uuid"] = "uuid"
+    default: UUIDDefault | None = None
 
 
 class BytesJSONField(JSONBaseField):
     """Is base64 text held in a JSON string."""
 
     type: Literal["bytes"] = "bytes"
+    default: str | None = None
 
 
-# Is a field read from a JSON document.
+# Is a field read from a JSON document. With no default, a read needs its value
+# and a write needs a channel.
 JSONField = Annotated[
     FloatJSONField
     | IntegerJSONField

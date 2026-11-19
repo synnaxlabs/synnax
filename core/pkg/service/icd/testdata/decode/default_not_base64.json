@@ -1,0 +1,30 @@
+{
+  "description": "A bytes default is standard, padded base64.",
+  "messages": [
+    {
+      "name": "reading",
+      "payload": {
+        "format": "json",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "v",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/v",
+            "type": "bytes",
+            "default": "AQI"
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "bytes"
+        }
+      ]
+    }
+  ],
+  "error": "message reading: field v: default: illegal base64 data at input byte 0: validation error"
+}

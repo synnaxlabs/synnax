@@ -11,10 +11,12 @@ package codec
 
 import (
 	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"fmt"
 	"math"
 	"slices"
 	"strconv"
+	"uuid"
 
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/x/errors"
@@ -37,10 +39,16 @@ type JSONEncoder struct {
 type encodeSlots struct {
 	// fields holds the field of each binding.
 	fields []encodeField
-	// bindings holds the binding of each field of the template, or -1 for a literal.
+	// bindings holds the binding of each field of the template, or -1 for a default.
 	bindings []int
+	// generate holds, for each field of the template, the generator of a default that
+	// takes a new value at each encode, or nil.
+	generate []generator
 	samples  [][]byte
 }
+
+// generator appends a new JSON value to dst.
+type generator func(dst []byte) ([]byte, error)
 
 type encodeField struct {
 	name    string
@@ -108,14 +116,16 @@ func newJSONEncoder(m JSONMessage) (*JSONEncoder, error) {
 		}
 		fields = append(fields, f)
 		e.slots.bindings = append(e.slots.bindings, -1)
+		e.slots.generate = append(e.slots.generate, nil)
 	}
 	for _, f := range m.Payload.Fields {
-		tf, binding, err := e.templateField(m, f, bound)
+		tf, binding, gen, err := e.templateField(m, f, bound)
 		if err != nil {
 			return nil, errors.Wrapf(err, "field %s", f.Base().Name)
 		}
 		fields = append(fields, tf)
 		e.slots.bindings = append(e.slots.bindings, binding)
+		e.slots.generate = append(e.slots.generate, gen)
 	}
 	var err error
 	if e.template, err = xjson.NewTemplate(fields); err != nil {
@@ -125,31 +135,33 @@ func newJSONEncoder(m JSONMessage) (*JSONEncoder, error) {
 }
 
 // templateField returns the template field of f and its binding in m, or -1 when f
-// takes its default. It stores the encode field of a bound f in e.
+// takes its default. It returns the generator of a default that takes a new value at
+// each encode. It stores the encode field of a bound f in e.
 func (e *JSONEncoder) templateField(
 	m JSONMessage,
 	f icd.JSONField,
 	bound map[icd.FieldKey]int,
-) (xjson.TemplateField, int, error) {
+) (xjson.TemplateField, int, generator, error) {
 	b := f.Base()
 	pointer, err := memberPointer(b.Pointer)
 	if err != nil {
-		return xjson.TemplateField{}, 0, err
+		return xjson.TemplateField{}, 0, nil, err
 	}
 	tf := xjson.TemplateField{Label: "field " + b.Name, Pointer: pointer}
 	binding, ok := bound[b.Key]
 	if !ok {
-		if tf.Literal, err = defaultLiteral(f); err != nil {
-			return xjson.TemplateField{}, 0, err
+		var gen generator
+		if tf.Literal, gen, err = defaultOf(f); err != nil {
+			return xjson.TemplateField{}, 0, nil, err
 		}
-		return tf, -1, nil
+		return tf, -1, gen, nil
 	}
 	ef, err := newEncodeField(f, m.Bindings[binding].DataType)
 	if err != nil {
-		return xjson.TemplateField{}, 0, err
+		return xjson.TemplateField{}, 0, nil, err
 	}
 	e.slots.fields[binding] = ef
-	return tf, binding, nil
+	return tf, binding, nil, nil
 }
 
 // memberPointer parses text as a pointer that names object members. It returns an error
@@ -322,42 +334,104 @@ func matchLiteral(m icd.JSONMatch) (xjson.TemplateField, error) {
 	return f, nil
 }
 
-// defaultLiteral returns the JSON text of the default of jf.
-func defaultLiteral(jf icd.JSONField) ([]byte, error) {
+// defaultOf returns the JSON text of the default of jf, or the generator of a default
+// that takes a new value at each encode.
+func defaultOf(jf icd.JSONField) ([]byte, generator, error) {
 	switch v := jf.Variant.(type) {
 	case icd.FloatJSONField:
 		if v.Default != nil {
-			return xjson.AppendFloat(nil, float64(*v.Default))
+			text, err := xjson.AppendFloat(nil, float64(*v.Default))
+			return text, nil, err
 		}
 	case icd.IntegerJSONField:
 		if v.Default != nil {
-			return strconv.AppendInt(nil, int64(*v.Default), 10), nil
+			return strconv.AppendInt(nil, int64(*v.Default), 10), nil, nil
 		}
 	case icd.UnsignedJSONField:
 		if v.Default != nil {
-			return strconv.AppendUint(nil, uint64(*v.Default), 10), nil
+			return strconv.AppendUint(nil, uint64(*v.Default), 10), nil, nil
 		}
 	case icd.StringJSONField:
 		if v.Default != nil {
-			return quote(*v.Default)
+			text, err := quote(*v.Default)
+			return text, nil, err
 		}
 	case icd.BooleanJSONField:
 		if v.Default != nil {
-			return strconv.AppendBool(nil, *v.Default), nil
+			return strconv.AppendBool(nil, *v.Default), nil, nil
 		}
 	case icd.TimestampJSONField:
 		if v.Default != nil {
-			format, err := xjson.ParseTimeFormat(string(v.TimeFormat))
-			if err != nil {
-				return nil, err
-			}
-			return xjson.AppendTimeStamp(nil, *v.Default, format), nil
+			return timestampDefault(v)
 		}
-	case icd.JSONJSONField, icd.UuidJSONField, icd.BytesJSONField:
+	case icd.JSONJSONField:
+		if v.Default != nil {
+			text, err := json.Marshal(*v.Default)
+			if err != nil {
+				return nil, nil, errors.Wrap(validate.ErrValidation, err.Error())
+			}
+			return text, nil, nil
+		}
+	case icd.UuidJSONField:
+		if v.Default != nil {
+			return uuidDefault(*v.Default)
+		}
+	case icd.BytesJSONField:
+		if v.Default != nil {
+			text, err := bytesDefault(*v.Default)
+			return text, nil, err
+		}
 	case nil:
-		return nil, errors.Wrap(validate.ErrValidation, "type is required")
+		return nil, nil, errors.Wrap(validate.ErrValidation, "type is required")
 	}
-	return nil, errors.Wrap(validate.ErrValidation, "no channel and no default")
+	return nil, nil, errors.Wrap(validate.ErrValidation, "no channel and no default")
+}
+
+func timestampDefault(f icd.TimestampJSONField) ([]byte, generator, error) {
+	format, err := xjson.ParseTimeFormat(string(f.TimeFormat))
+	if err != nil {
+		return nil, nil, err
+	}
+	switch d := f.Default.Variant.(type) {
+	case icd.ConstantTimestampDefault:
+		return xjson.AppendTimeStamp(nil, d.Value, format), nil, nil
+	case icd.NowTimestampDefault:
+		return nil, func(dst []byte) ([]byte, error) {
+			return xjson.AppendTimeStamp(dst, telem.Now(), format), nil
+		}, nil
+	case nil:
+	}
+	return nil, nil, errUntypedDefault
+}
+
+func uuidDefault(d icd.UUIDDefault) ([]byte, generator, error) {
+	switch d := d.Variant.(type) {
+	case icd.ConstantUUIDDefault:
+		text, err := appendUUID(nil, d.Value)
+		return text, nil, err
+	case icd.RandomUUIDDefault:
+		return nil, func(dst []byte) ([]byte, error) {
+			return appendUUID(dst, uuid.NewV4())
+		}, nil
+	case nil:
+	}
+	return nil, nil, errUntypedDefault
+}
+
+// appendUUID appends id to dst as a JSON string.
+func appendUUID(dst []byte, id uuid.UUID) ([]byte, error) {
+	dst, err := id.AppendText(append(dst, '"'))
+	if err != nil {
+		return nil, err
+	}
+	return append(dst, '"'), nil
+}
+
+func bytesDefault(text string) ([]byte, error) {
+	if _, err := xjson.DecodeBase64(text); err != nil {
+		return nil, errors.Wrap(err, "default")
+	}
+	return quote(text)
 }
 
 func quote(s string) ([]byte, error) {
@@ -384,6 +458,9 @@ func (e *JSONEncoder) Encode(dst []byte, samples [][]byte) ([]byte, error) {
 
 // AppendSlot implements xjson.Slots.
 func (s *encodeSlots) AppendSlot(dst []byte, field int) ([]byte, error) {
+	if gen := s.generate[field]; gen != nil {
+		return gen(dst)
+	}
 	binding := s.bindings[field]
 	f := &s.fields[binding]
 	out, err := f.encode(dst, s.samples[binding])
