@@ -154,7 +154,7 @@ func put(f xfs.File, data []byte) error {
 
 var _ = Describe("Targets of lasting corruption", func() {
 	run := func(ctx context.Context, s *script) error {
-		return crash.Run(ctx, crash.Config{
+		return violation(ctx, crash.Config{
 			Open:    s.open,
 			Commits: 1,
 			Stride:  1,
@@ -295,7 +295,7 @@ var _ = Describe("Targets of lasting corruption", func() {
 			return e, nil
 		}
 		for runKey := range uint64(32) {
-			Expect(crash.Run(ctx, crash.Config{
+			Expect(violation(ctx, crash.Config{
 				RunKey:  runKey,
 				Open:    open,
 				Commits: 1,

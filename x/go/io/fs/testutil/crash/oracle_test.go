@@ -68,7 +68,7 @@ var _ = Describe("Oracle", func() {
 			cfg := alteredConfig(true, func(r []crash.Record) []crash.Record {
 				return r[:len(r)-1]
 			})
-			Expect(broke(crash.Run(ctx, cfg))).To(Equal(crash.R0))
+			Expect(broke(violation(ctx, cfg))).To(Equal(crash.R0))
 		},
 	)
 
@@ -76,7 +76,7 @@ var _ = Describe("Oracle", func() {
 		"Should catch a recovered list that",
 		func(ctx SpecContext, alter func([]crash.Record) []crash.Record) {
 			Expect(
-				broke(crash.Run(ctx, alteredConfig(false, alter))),
+				broke(violation(ctx, alteredConfig(false, alter))),
 			).To(Equal(crash.R2))
 		},
 		Entry("holds a commit twice", func(r []crash.Record) []crash.Record {
@@ -135,7 +135,7 @@ var _ = Describe("Oracle", func() {
 			}
 			return r
 		})
-		Expect(broke(crash.Run(ctx, cfg))).To(Equal(crash.R3))
+		Expect(broke(violation(ctx, cfg))).To(Equal(crash.R3))
 	})
 
 	It(
@@ -148,7 +148,7 @@ var _ = Describe("Oracle", func() {
 				return r
 			})
 			cfg.Profile = crash.OldCorruption
-			Expect(broke(crash.Run(ctx, cfg))).To(Equal(crash.R2))
+			Expect(broke(violation(ctx, cfg))).To(Equal(crash.R2))
 		},
 	)
 
@@ -170,7 +170,7 @@ var _ = Describe("Oracle", func() {
 			func(ctx SpecContext, profile crash.Profile, err error) {
 				cfg := refusing(err)
 				cfg.Profile = profile
-				Expect(broke(crash.Run(ctx, cfg))).To(Equal(crash.R4))
+				Expect(broke(violation(ctx, cfg))).To(Equal(crash.R4))
 			},
 			Entry("under Strict, with its corruption error", crash.Strict, errCorrupt),
 			Entry("under OneTimeReadFaults", crash.OneTimeReadFaults, errCorrupt),
@@ -334,7 +334,7 @@ func (s *spy) Close() error { return errors.Combine(s.file.Close(), s.meta.Close
 
 var _ = Describe("Lasting corruption", func() {
 	run := func(ctx context.Context, s *spied, profile crash.Profile) error {
-		return crash.Run(ctx, crash.Config{
+		return violation(ctx, crash.Config{
 			Open:    s.open,
 			Corrupt: func(err error) bool { return errors.Is(err, errCorrupt) },
 			Commits: 12,
@@ -468,7 +468,7 @@ var _ = Describe("Events", func() {
 		"Should open each crash image two times: the empty disk, each stride, and the end",
 		func(ctx SpecContext, stride, images int) {
 			var opens atomic.Int64
-			Expect(crash.Run(ctx, crash.Config{
+			Expect(violation(ctx, crash.Config{
 				Open:    openStepper(&opens),
 				Commits: 5,
 				Stride:  stride,
@@ -527,7 +527,7 @@ var _ = Describe("Events", func() {
 					f.Close(),
 				)
 			}
-			Expect(crash.Run(ctx, crash.Config{
+			Expect(violation(ctx, crash.Config{
 				Open:    open,
 				Commits: 1,
 				Stride:  1,

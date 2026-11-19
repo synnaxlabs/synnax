@@ -41,6 +41,8 @@ type plainOpts struct {
 	overcut bool
 	// halted makes Recovered fail after an error stopped the log.
 	halted bool
+	// wiped cuts the whole log at a record that is bad on two reads.
+	wiped bool
 	// bulk reads the whole log in one call, two times at most, and keeps the read with
 	// the longer good prefix. It checks the checksum of each record that starts before
 	// bulk.
@@ -155,6 +157,9 @@ func (l *plainLog) scan() error {
 	cut := l.off
 	if l.o.overcut && len(l.records) > 0 {
 		cut = last
+	}
+	if l.o.wiped && cut < info.Size() {
+		cut, l.off, l.records = 0, 0, nil
 	}
 	if cut == info.Size() {
 		return nil
@@ -315,7 +320,7 @@ var _ = Describe("Engines", func() {
 		GinkgoHelper()
 		var rules []crash.Rule
 		for runKey := range uint64(32) {
-			err := crash.Run(ctx, crash.Config{
+			err := violation(ctx, crash.Config{
 				RunKey:  runKey,
 				Open:    open,
 				Commits: 20,
@@ -341,6 +346,7 @@ var _ = Describe("Engines", func() {
 		Entry("under Mixed", plainOpts{}, crash.Mixed),
 		Entry("that reads a record in two calls, under OneTimeReadFaults",
 			plainOpts{split: true}, crash.OneTimeReadFaults),
+		Entry("under RepeatedReadFaults", plainOpts{}, crash.RepeatedReadFaults),
 		Entry("that reads the whole log in one call, under OneTimeReadFaults",
 			plainOpts{bulk: math.MaxInt64}, crash.OneTimeReadFaults),
 		Entry("that reads the whole log in one call, under Mixed",
@@ -423,6 +429,29 @@ var _ = Describe("Engines", func() {
 		),
 	)
 
+	It(
+		"Should catch a log that cuts more than read faults free",
+		func(ctx SpecContext) {
+			var found []string
+			for runKey := range uint64(32) {
+				err := violation(ctx, crash.Config{
+					RunKey:  runKey,
+					Open:    openPlainLog(plainOpts{wiped: true}),
+					Commits: 20,
+					Stride:  1,
+					Profile: crash.RepeatedReadFaults,
+				})
+				if err != nil {
+					Expect(broke(err)).To(Equal(crash.R1))
+					found = append(found, err.Error())
+				}
+			}
+			Expect(
+				found,
+			).To(ContainElement(MatchRegexp(`with ([2-9]|\d\d+) read faults`)))
+		},
+	)
+
 	It("Should catch a log that checks only the first block of a read of the whole log",
 		func(ctx SpecContext) {
 			rules := broken(
@@ -440,7 +469,7 @@ var _ = Describe("Engines", func() {
 		func(ctx SpecContext) {
 			found := make([]string, 0, 32)
 			for runKey := range uint64(32) {
-				err := crash.Run(ctx, crash.Config{
+				err := violation(ctx, crash.Config{
 					RunKey:  runKey,
 					Open:    openPlainLog(plainOpts{overcut: true}),
 					Commits: 20,
@@ -468,7 +497,7 @@ var _ = Describe("Engines", func() {
 	It(
 		"Should name the run, the event, and the rule in a violation",
 		func(ctx SpecContext) {
-			err := crash.Run(ctx, crash.Config{
+			err := violation(ctx, crash.Config{
 				RunKey:  7,
 				Open:    openPlainLog(plainOpts{lazy: true}),
 				Commits: 20,

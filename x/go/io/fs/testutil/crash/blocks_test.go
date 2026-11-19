@@ -188,7 +188,7 @@ var _ = Describe("Faults of a profile", func() {
 		GinkgoHelper()
 		rules := set.Set[crash.Rule]{}
 		for runKey := range uint64(32) {
-			err := crash.Run(ctx, crash.Config{
+			err := violation(ctx, crash.Config{
 				RunKey:  runKey,
 				Open:    open,
 				Commits: 12,
@@ -217,7 +217,7 @@ var _ = Describe("Faults of a profile", func() {
 	It("Should draw the blocks that survive again for each crash image",
 		func(ctx SpecContext) {
 			b := &looseBlocks{kept: set.Set[int]{}}
-			Expect(crash.Run(ctx, crash.Config{
+			Expect(violation(ctx, crash.Config{
 				Open:    b.open,
 				Commits: 20,
 				Stride:  1,

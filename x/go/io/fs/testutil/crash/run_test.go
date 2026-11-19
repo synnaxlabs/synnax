@@ -11,7 +11,6 @@ package crash_test
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -22,28 +21,31 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// violation returns the error of a run of cfg.
+func violation(ctx context.Context, cfg crash.Config) error {
+	_, err := crash.Run(ctx, cfg)
+	return err
+}
+
 var profiles = map[string]crash.Profile{
-	"Strict":            crash.Strict,
-	"Partial":           crash.Partial,
-	"SyncErrors":        crash.SyncErrors,
-	"FullDisk":          crash.FullDisk,
-	"OneTimeReadFaults": crash.OneTimeReadFaults,
-	"OldCorruption":     crash.OldCorruption,
-	"NewCorruption":     crash.NewCorruption,
-	"Mixed":             crash.Mixed,
+	"Strict":             crash.Strict,
+	"Partial":            crash.Partial,
+	"SyncErrors":         crash.SyncErrors,
+	"FullDisk":           crash.FullDisk,
+	"OneTimeReadFaults":  crash.OneTimeReadFaults,
+	"OldCorruption":      crash.OldCorruption,
+	"NewCorruption":      crash.NewCorruption,
+	"Mixed":              crash.Mixed,
+	"RepeatedReadFaults": crash.RepeatedReadFaults,
 }
 
-// runKeys returns one table entry for each of 32 run keys.
-func runKeys() []TableEntry {
-	entries := make([]TableEntry, 32)
-	for key := range entries {
-		entries[key] = Entry(fmt.Sprintf("run key %d", key), uint64(key))
-	}
-	return entries
-}
-
-// run runs the harness on a reference engine with the bugs b.
-func run(ctx context.Context, b bugs, profile crash.Profile, runKey uint64) error {
+// runRef runs the harness on a reference engine with the bugs b.
+func runRef(
+	ctx context.Context,
+	b bugs,
+	profile crash.Profile,
+	runKey uint64,
+) (crash.Result, error) {
 	return crash.Run(ctx, crash.Config{
 		RunKey:  runKey,
 		Open:    openRefLog(b),
@@ -52,6 +54,12 @@ func run(ctx context.Context, b bugs, profile crash.Profile, runKey uint64) erro
 		Stride:  1,
 		Profile: profile,
 	})
+}
+
+// run returns the error of runRef.
+func run(ctx context.Context, b bugs, profile crash.Profile, runKey uint64) error {
+	_, err := runRef(ctx, b, profile, runKey)
+	return err
 }
 
 // broke returns the rule that err says an engine broke.
@@ -65,11 +73,21 @@ func broke(err error) crash.Rule {
 var _ = Describe("Run", func() {
 	Describe("Reference engine", func() {
 		for name, profile := range profiles {
-			DescribeTable("Should hold under "+name,
-				func(ctx SpecContext, runKey uint64) {
-					Expect(run(ctx, bugs{}, profile, runKey)).To(Succeed())
+			It("Should hold under "+name+", and check a recovery in full",
+				func(ctx SpecContext) {
+					var total crash.Result
+					for runKey := range uint64(32) {
+						result, err := runRef(ctx, bugs{}, profile, runKey)
+						Expect(err).ToNot(HaveOccurred(), "run key %d", runKey)
+						total.Recoveries += result.Recoveries
+						total.Refusals += result.Refusals
+						total.Losses += result.Losses
+						total.ReadFaults += result.ReadFaults
+					}
+					GinkgoWriter.Printf("%s: %+v\n", name, total)
+					full := total.Recoveries - total.Refusals - total.Losses
+					Expect(full).To(BeNumerically(">", 0))
 				},
-				runKeys(),
 			)
 		}
 	})
@@ -101,6 +119,19 @@ var _ = Describe("Run", func() {
 			bugs{tornTailRefused: true}, crash.Partial, uint64(0), crash.R4),
 		Entry("ignores a failed write",
 			bugs{writeErrorIgnored: true}, crash.FullDisk, uint64(1), crash.R1),
+		Entry("trusts the retry of a read with no checksum",
+			bugs{retryTrusted: true}, crash.RepeatedReadFaults, uint64(1), crash.R2),
+	)
+
+	It("Should pass an engine that trusts its retry under OneTimeReadFaults",
+		func(ctx SpecContext) {
+			for runKey := range uint64(32) {
+				Expect(
+					run(ctx, bugs{retryTrusted: true}, crash.OneTimeReadFaults, runKey),
+				).
+					To(Succeed(), "run key %d", runKey)
+			}
+		},
 	)
 
 	It("Should give the same violation for the same run key", func(ctx SpecContext) {
@@ -120,7 +151,7 @@ var _ = Describe("Run", func() {
 				Profile: crash.Strict,
 			}
 			change(&cfg)
-			err := crash.Run(ctx, cfg)
+			err := violation(ctx, cfg)
 			Expect(err).To(MatchError(validate.ErrValidation))
 			Expect(err).To(MatchError(ContainSubstring(field)))
 		},
@@ -129,13 +160,13 @@ var _ = Describe("Run", func() {
 		Entry("has no stride", "stride", func(cfg *crash.Config) { cfg.Stride = 0 }),
 		Entry("has no profile", "profile", func(cfg *crash.Config) { cfg.Profile = 0 }),
 		Entry("has an unknown profile", "profile",
-			func(cfg *crash.Config) { cfg.Profile = 9 }),
+			func(cfg *crash.Config) { cfg.Profile = 10 }),
 	)
 
 	It("Should catch a skipped checksum on a disk of one block", func(ctx SpecContext) {
 		rules := set.Set[crash.Rule]{}
 		for runKey := range uint64(32) {
-			err := crash.Run(ctx, crash.Config{
+			err := violation(ctx, crash.Config{
 				RunKey:  runKey,
 				Open:    openRefLog(bugs{checksumSkipped: true}),
 				Commits: 2,
@@ -160,7 +191,7 @@ func BenchmarkRun(b *testing.B) {
 		Profile: crash.Strict,
 	}
 	for b.Loop() {
-		if err := crash.Run(b.Context(), cfg); err != nil {
+		if err := violation(b.Context(), cfg); err != nil {
 			b.Fatal(err)
 		}
 	}

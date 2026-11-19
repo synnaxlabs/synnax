@@ -236,7 +236,7 @@ var _ = Describe("A log that writes in place in a file of zeros", func() {
 		GinkgoHelper()
 		var rules []crash.Rule
 		for runKey := range uint64(32) {
-			err := crash.Run(ctx, crash.Config{
+			err := violation(ctx, crash.Config{
 				RunKey:  runKey,
 				Open:    openSlotLog(slotOpts{lenient: lenient}),
 				Corrupt: func(err error) bool { return errors.Is(err, errCorrupt) },
@@ -276,7 +276,7 @@ var _ = Describe("A recovery that harms the disk", func() {
 		GinkgoHelper()
 		var out []string
 		for runKey := range uint64(32) {
-			err := crash.Run(ctx, crash.Config{
+			err := violation(ctx, crash.Config{
 				RunKey:  runKey,
 				Open:    openSlotLog(o),
 				Corrupt: func(err error) bool { return errors.Is(err, errCorrupt) },

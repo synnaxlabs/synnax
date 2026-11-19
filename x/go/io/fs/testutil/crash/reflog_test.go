@@ -38,6 +38,8 @@ var errCorrupt = errors.New("reflog: corrupt log")
 type bugs struct {
 	dirSyncSkipped, ackedBeforeSync, retriedSyncTrusted, cutOnAnyError    bool
 	checksumSkipped, badRecordSkipped, tornTailRefused, writeErrorIgnored bool
+	// retryTrusted takes the second read of a bad slot with no checksum.
+	retryTrusted bool
 }
 
 // refLog is a small log store: records in slots of segment files, a checksum that binds
@@ -91,7 +93,7 @@ func (l *refLog) read(
 	f xfs.File,
 	segment, slot int,
 ) (r crash.Record, synced uint64, ok bool, err error) {
-	for range 2 {
+	for try := range 2 {
 		buf := make([]byte, slotSize)
 		n, err := f.ReadAt(buf, int64(slot)*slotSize)
 		if err != nil && !errors.Is(err, io.EOF) {
@@ -105,7 +107,8 @@ func (l *refLog) read(
 			continue
 		}
 		body := buf[4 : headerSize+size]
-		if !l.bugs.checksumSkipped &&
+		trusted := l.bugs.checksumSkipped || l.bugs.retryTrusted && try == 1
+		if !trusted &&
 			binary.LittleEndian.Uint32(buf) != checksum(segment, slot, body) {
 			continue
 		}
