@@ -1616,6 +1616,45 @@ var _ = Describe("C++ Types Plugin", func() {
 						)
 				},
 			)
+
+			It("Should include cstdint for a standalone int enum", func() {
+				source := `
+					@cpp output "x/cpp/telem"
+
+					Code enum {
+						unknown = 0
+						uint8 = 1
+					}
+				`
+				resp := MustGenerate(source, "telem", loader, cppPlugin)
+
+				ExpectContent(resp, "types.gen.h").
+					ToContain(
+						"#include <cstdint>",
+						"enum class Code : std::uint8_t {",
+					)
+			})
+
+			It("Should add the headers that an enum's includes name", func() {
+				source := `
+					@cpp output "x/cpp/telem"
+
+					Code enum {
+						unknown = 0
+
+						@cpp includes "x/cpp/telem/telem.h"
+						@cpp system_includes "string"
+					}
+				`
+				resp := MustGenerate(source, "telem", loader, cppPlugin)
+
+				ExpectContent(resp, "types.gen.h").
+					ToContain(
+						"#include <string>",
+						`#include "x/cpp/telem/telem.h"`,
+						"enum class Code : std::uint8_t {",
+					)
+			})
 		})
 
 		Describe("Cross-namespace enum references", func() {
