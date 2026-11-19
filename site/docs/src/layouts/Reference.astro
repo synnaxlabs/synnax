@@ -8,6 +8,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import type { MarkdownHeading } from "astro";
+import type { CollectionEntry } from "astro:content";
+
 import Article from "@/components/article/Article.astro";
 import { STORAGE_KEY } from "@/components/nav/collapse";
 import OnThisPage from "@/components/nav/OnThisPage.astro";
@@ -16,8 +19,17 @@ import PageNav from "@/components/nav/Page.astro";
 import { editionOf, groupOf, neighbors, type PageNavNode } from "@/components/nav/tree";
 import Main from "@/layouts/Root.astro";
 import { labelOf, REFERENCE_PAGES } from "@/pages/_nav";
-import { outlined } from "@/util/outline";
+import { type Entry, outlined } from "@/util/outline";
 import { normalizeRoute } from "@/util/route";
+
+interface Props {
+    frontmatter: CollectionEntry<"reference">["data"] & {
+        url: string;
+        outline?: Record<string, Entry>;
+    };
+    headings: MarkdownHeading[];
+}
+
 const { headings, frontmatter } = Astro.props;
 const {
     title,
@@ -26,7 +38,8 @@ const {
     url,
     clients,
     platforms,
-    showOnThisPage = true,
+    breadcrumbHidden,
+    onThisPageHidden,
 } = frontmatter;
 const { prev, next } = neighbors(REFERENCE_PAGES, Astro.url.pathname);
 const group = groupOf(REFERENCE_PAGES, Astro.url.pathname);
@@ -69,7 +82,7 @@ const shown = outlined(headings);
         href={`${normalizeRoute(Astro.url.pathname)}.md`}
     />
     <Fragment slot="subheader">
-        {showOnThisPage && (
+        {!onThisPageHidden && (
             <OutlineBar
                 headings={shown}
                 outline={frontmatter.outline}
@@ -84,6 +97,7 @@ const shown = outlined(headings);
             url={url}
             title={heading ?? title}
             description={description}
+            showBreadcrumb={!breadcrumbHidden}
             next={nextLink.title}
             prev={prevLink.title}
             nextURL={nextLink.href}
@@ -94,7 +108,7 @@ const shown = outlined(headings);
         >
             <slot />
         </Article>
-        {showOnThisPage && (
+        {!onThisPageHidden && (
             <OnThisPage
                 headings={shown}
                 outline={frontmatter.outline}
