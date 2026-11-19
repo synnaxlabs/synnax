@@ -333,9 +333,7 @@ describe("Group", () => {
       await expect(
         client.groups.setParent(parent.key, group.resourceID(child.key)),
       ).rejects.toThrow("would form a cycle");
-      expect(client.groups.watch(parent.key).getCached()).toEqual(
-        expect.objectContaining({ parent: undefined }),
-      );
+      expect(client.groups.watch(parent.key).getCached()?.parent).toBeUndefined();
     });
   });
   describe("moveRequests", () => {
