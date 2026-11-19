@@ -45,9 +45,9 @@ const ShippedContext = createContext<Map<enumeration.Key, enumeration.Enumeratio
 ShippedContext.displayName = "Enumeration.Shipped";
 
 const COLUMNS: List.Column[] = [
-  { name: "Name", width: "1fr" },
+  { name: "Name", width: "minmax(24rem, 1fr)" },
   { name: "Entries", width: "12rem" },
-  { name: "Used by", width: "20rem" },
+  { name: "Used by", width: "14rem" },
 ];
 
 /** Every enumeration with its uses, read in one request. */
