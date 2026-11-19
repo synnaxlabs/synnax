@@ -208,7 +208,8 @@ func (c *checker) checkJSONFields(
 	}
 }
 
-// checkEnumLabels finds each enum label that an earlier entry of the field uses.
+// checkEnumLabels finds each enum label that is empty or that an earlier entry of the
+// field uses.
 func (c *checker) checkEnumLabels(path []string, f JSONField) {
 	var labels []string
 	switch v := f.Variant.(type) {
@@ -235,12 +236,13 @@ func (c *checker) checkEnumLabels(path []string, f JSONField) {
 	}
 	seen := make(set.Set[string], len(labels))
 	for i, label := range labels {
+		labelPath := pathOf(path, "enum_values", strconv.Itoa(i), "label")
+		if label == "" {
+			c.addf(labelPath, "enum label is required")
+			continue
+		}
 		if seen.Contains(label) {
-			c.addf(
-				pathOf(path, "enum_values", strconv.Itoa(i), "label"),
-				"duplicate enum label %q",
-				label,
-			)
+			c.addf(labelPath, "duplicate enum label %q", label)
 		}
 		seen.Add(label)
 	}

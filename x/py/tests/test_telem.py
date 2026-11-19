@@ -150,7 +150,7 @@ class TestTimeStamp:
     def test_nat_datetime64(self) -> None:
         """Should raise a ValueError for a NaT np.datetime64"""
         with pytest.raises(ValueError, match="NaT"):
-            sy.TimeStamp(np.datetime64("NaT"))
+            sy.TimeStamp(np.datetime64("NaT", "ns"))
 
     def test_aware_datetime_microseconds(self) -> None:
         """Should convert an aware datetime with exact microseconds"""
