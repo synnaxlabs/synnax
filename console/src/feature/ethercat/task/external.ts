@@ -16,17 +16,13 @@ export * from "@/feature/ethercat/task/create";
 export * from "@/feature/ethercat/task/integration";
 export * from "@/feature/ethercat/task/types";
 
-export const Read = Panel.lazyComponent(
-  () => import("@/feature/ethercat/task/Read"),
-  "Read",
-);
-
-export const Write = Panel.lazyComponent(
-  () => import("@/feature/ethercat/task/Write"),
-  "Write",
-);
-
 export const FORMS: Task.Forms = {
-  [READ_TYPE]: Read,
-  [WRITE_TYPE]: Write,
+  [READ_TYPE]: Panel.lazyComponent(
+    () => import("@/feature/ethercat/task/Read"),
+    "Read",
+  ),
+  [WRITE_TYPE]: Panel.lazyComponent(
+    () => import("@/feature/ethercat/task/Write"),
+    "Write",
+  ),
 };

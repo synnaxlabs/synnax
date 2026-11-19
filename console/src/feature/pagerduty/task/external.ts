@@ -16,9 +16,9 @@ export * from "@/feature/pagerduty/task/create";
 export * from "@/feature/pagerduty/task/integration";
 export * from "@/feature/pagerduty/task/types";
 
-export const Alert = Panel.lazyComponent(
-  () => import("@/feature/pagerduty/task/Alert"),
-  "Alert",
-);
-
-export const FORMS: Task.Forms = { [ALERT_TYPE]: Alert };
+export const FORMS: Task.Forms = {
+  [ALERT_TYPE]: Panel.lazyComponent(
+    () => import("@/feature/pagerduty/task/Alert"),
+    "Alert",
+  ),
+};

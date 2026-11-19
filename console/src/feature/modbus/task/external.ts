@@ -16,17 +16,10 @@ export * from "@/feature/modbus/task/create";
 export * from "@/feature/modbus/task/integration";
 export * from "@/feature/modbus/task/types";
 
-export const Read = Panel.lazyComponent(
-  () => import("@/feature/modbus/task/Read"),
-  "Read",
-);
-
-export const Write = Panel.lazyComponent(
-  () => import("@/feature/modbus/task/Write"),
-  "Write",
-);
-
 export const FORMS: Task.Forms = {
-  [READ_TYPE]: Read,
-  [WRITE_TYPE]: Write,
+  [READ_TYPE]: Panel.lazyComponent(() => import("@/feature/modbus/task/Read"), "Read"),
+  [WRITE_TYPE]: Panel.lazyComponent(
+    () => import("@/feature/modbus/task/Write"),
+    "Write",
+  ),
 };

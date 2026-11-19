@@ -18,17 +18,10 @@ export * from "@/feature/labjack/task/SelectReadChannelTypeField";
 export * from "@/feature/labjack/task/SelectWriteChannelType";
 export * from "@/feature/labjack/task/types";
 
-export const Read = Panel.lazyComponent(
-  () => import("@/feature/labjack/task/Read"),
-  "Read",
-);
-
-export const Write = Panel.lazyComponent(
-  () => import("@/feature/labjack/task/Write"),
-  "Write",
-);
-
 export const FORMS: Task.Forms = {
-  [READ_TYPE]: Read,
-  [WRITE_TYPE]: Write,
+  [READ_TYPE]: Panel.lazyComponent(() => import("@/feature/labjack/task/Read"), "Read"),
+  [WRITE_TYPE]: Panel.lazyComponent(
+    () => import("@/feature/labjack/task/Write"),
+    "Write",
+  ),
 };

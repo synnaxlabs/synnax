@@ -16,23 +16,8 @@ export * from "@/feature/mqtt/task/create";
 export * from "@/feature/mqtt/task/integration";
 export * from "@/feature/mqtt/task/types";
 
-export const Read = Panel.lazyComponent(
-  () => import("@/feature/mqtt/task/Read"),
-  "Read",
-);
-
-export const Write = Panel.lazyComponent(
-  () => import("@/feature/mqtt/task/Write"),
-  "Write",
-);
-
-export const Edge = Panel.lazyComponent(
-  () => import("@/feature/mqtt/task/Edge"),
-  "Edge",
-);
-
 export const FORMS: Task.Forms = {
-  [READ_TYPE]: Read,
-  [WRITE_TYPE]: Write,
-  [EDGE_TYPE]: Edge,
+  [READ_TYPE]: Panel.lazyComponent(() => import("@/feature/mqtt/task/Read"), "Read"),
+  [WRITE_TYPE]: Panel.lazyComponent(() => import("@/feature/mqtt/task/Write"), "Write"),
+  [EDGE_TYPE]: Panel.lazyComponent(() => import("@/feature/mqtt/task/Edge"), "Edge"),
 };

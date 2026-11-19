@@ -23,35 +23,25 @@ export * from "@/feature/ni/task/integration";
 export * from "@/feature/ni/task/types";
 export * from "@/feature/ni/task/useToggleScanner";
 
-export const AnalogRead = Panel.lazyComponent(
-  () => import("@/feature/ni/task/AnalogRead"),
-  "AnalogRead",
-);
-
-export const AnalogWrite = Panel.lazyComponent(
-  () => import("@/feature/ni/task/AnalogWrite"),
-  "AnalogWrite",
-);
-
-export const CounterRead = Panel.lazyComponent(
-  () => import("@/feature/ni/task/CounterRead"),
-  "CounterRead",
-);
-
-export const DigitalRead = Panel.lazyComponent(
-  () => import("@/feature/ni/task/DigitalRead"),
-  "DigitalRead",
-);
-
-export const DigitalWrite = Panel.lazyComponent(
-  () => import("@/feature/ni/task/DigitalWrite"),
-  "DigitalWrite",
-);
-
 export const FORMS: Task.Forms = {
-  [ANALOG_READ_TYPE]: AnalogRead,
-  [ANALOG_WRITE_TYPE]: AnalogWrite,
-  [COUNTER_READ_TYPE]: CounterRead,
-  [DIGITAL_READ_TYPE]: DigitalRead,
-  [DIGITAL_WRITE_TYPE]: DigitalWrite,
+  [ANALOG_READ_TYPE]: Panel.lazyComponent(
+    () => import("@/feature/ni/task/AnalogRead"),
+    "AnalogRead",
+  ),
+  [ANALOG_WRITE_TYPE]: Panel.lazyComponent(
+    () => import("@/feature/ni/task/AnalogWrite"),
+    "AnalogWrite",
+  ),
+  [COUNTER_READ_TYPE]: Panel.lazyComponent(
+    () => import("@/feature/ni/task/CounterRead"),
+    "CounterRead",
+  ),
+  [DIGITAL_READ_TYPE]: Panel.lazyComponent(
+    () => import("@/feature/ni/task/DigitalRead"),
+    "DigitalRead",
+  ),
+  [DIGITAL_WRITE_TYPE]: Panel.lazyComponent(
+    () => import("@/feature/ni/task/DigitalWrite"),
+    "DigitalWrite",
+  ),
 };

@@ -16,14 +16,10 @@ export * from "@/feature/kafka/task/create";
 export * from "@/feature/kafka/task/integration";
 export * from "@/feature/kafka/task/types";
 
-export const Read = Panel.lazyComponent(
-  () => import("@/feature/kafka/task/Read"),
-  "Read",
-);
-
-export const Write = Panel.lazyComponent(
-  () => import("@/feature/kafka/task/Write"),
-  "Write",
-);
-
-export const FORMS: Task.Forms = { [READ_TYPE]: Read, [WRITE_TYPE]: Write };
+export const FORMS: Task.Forms = {
+  [READ_TYPE]: Panel.lazyComponent(() => import("@/feature/kafka/task/Read"), "Read"),
+  [WRITE_TYPE]: Panel.lazyComponent(
+    () => import("@/feature/kafka/task/Write"),
+    "Write",
+  ),
+};

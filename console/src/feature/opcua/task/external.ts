@@ -16,17 +16,10 @@ export * from "@/feature/opcua/task/create";
 export * from "@/feature/opcua/task/integration";
 export * from "@/feature/opcua/task/types";
 
-export const Read = Panel.lazyComponent(
-  () => import("@/feature/opcua/task/Read"),
-  "Read",
-);
-
-export const Write = Panel.lazyComponent(
-  () => import("@/feature/opcua/task/Write"),
-  "Write",
-);
-
 export const FORMS: Task.Forms = {
-  [READ_TYPE]: Read,
-  [WRITE_TYPE]: Write,
+  [READ_TYPE]: Panel.lazyComponent(() => import("@/feature/opcua/task/Read"), "Read"),
+  [WRITE_TYPE]: Panel.lazyComponent(
+    () => import("@/feature/opcua/task/Write"),
+    "Write",
+  ),
 };

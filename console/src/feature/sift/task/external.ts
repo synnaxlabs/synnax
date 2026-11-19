@@ -16,9 +16,9 @@ export * from "@/feature/sift/task/create";
 export * from "@/feature/sift/task/integration";
 export * from "@/feature/sift/task/types";
 
-export const Stream = Panel.lazyComponent(
-  () => import("@/feature/sift/task/Stream"),
-  "Stream",
-);
-
-export const FORMS: Task.Forms = { [STREAM_TYPE]: Stream };
+export const FORMS: Task.Forms = {
+  [STREAM_TYPE]: Panel.lazyComponent(
+    () => import("@/feature/sift/task/Stream"),
+    "Stream",
+  ),
+};
