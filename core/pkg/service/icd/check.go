@@ -78,8 +78,8 @@ func (c *checker) addSchema(err error) {
 		}
 		return
 	}
-	var p validate.PathError
-	if !errors.As(err, &p) {
+	p, ok := errors.AsType[validate.PathError](err)
+	if !ok {
 		p = validate.PathError{Err: err}
 	}
 	var field string

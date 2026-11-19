@@ -64,8 +64,8 @@ func importFile(
 func checkImport(t *testing.T, messages []icd.Message, err error) {
 	t.Helper()
 	if err != nil {
-		var pathErr validate.PathError
-		if !errors.As(err, &pathErr) || !slices.Equal(pathErr.Path, []string{"data"}) ||
+		pathErr, ok := errors.AsType[validate.PathError](err)
+		if !ok || !slices.Equal(pathErr.Path, []string{"data"}) ||
 			!errors.Is(pathErr.Err, validate.ErrValidation) {
 			t.Fatalf("not a validation error at the data path: %v", err)
 		}

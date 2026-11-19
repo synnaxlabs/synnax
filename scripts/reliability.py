@@ -112,6 +112,7 @@ UNLISTED = {
     "portal",
     "protobuf",
     "site-common",
+    "studio",
     "www",
 }
 

@@ -119,3 +119,14 @@ jobs:
         uses: actions/labeler@bf12e9b00b37c5c0ca2b87b79b2daf7891dbda13 # v7
         with:
           pr-number: ${{ needs.sweep.outputs.prs }}
+
+  relay-failure:
+    name: Relay the failure
+    needs: [sweep, label]
+    if:
+      always() && github.event_name == 'schedule' && contains(needs.*.result, 'failure')
+    permissions:
+      actions: write
+    uses: ./.github/workflows/relay.failure.yaml
+    with:
+      report: true

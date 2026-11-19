@@ -52,8 +52,7 @@ func parseCSV(data []byte) ([]Message, error) {
 	r.FieldsPerRecord = -1
 	rows, err := r.ReadAll()
 	if err != nil {
-		var perr *csv.ParseError
-		if errors.As(err, &perr) {
+		if perr, ok := errors.AsType[*csv.ParseError](err); ok {
 			return nil, dataErrorf("line %d: %s", perr.StartLine, perr.Err)
 		}
 		return nil, err
