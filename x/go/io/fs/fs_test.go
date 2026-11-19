@@ -37,7 +37,8 @@ var _ = Describe("CopyFile", func() {
 		Expect(xfs.WriteFile(src, "f.txt", []byte("tacocat"))).To(Succeed())
 		Expect(xfs.CopyFile(src, dst, "f.txt")).To(Succeed())
 		Expect(dst.SyncDir("")).To(Succeed())
-		Expect(xfs.ReadFile(dst.Crash(), "f.txt")).To(Equal([]byte("tacocat")))
+		image := MustSucceed(dst.Crash(fault.CrashConfig{}))
+		Expect(xfs.ReadFile(image, "f.txt")).To(Equal([]byte("tacocat")))
 	})
 })
 
