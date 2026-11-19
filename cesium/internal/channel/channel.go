@@ -83,12 +83,7 @@ type Channel struct {
 }
 
 // String implements fmt.Stringer to return nicely formatted channel info.
-func (c Channel) String() string {
-	if c.Name != "" {
-		return fmt.Sprintf("[%s]<%d>", c.Name, c.Key)
-	}
-	return fmt.Sprintf("<%d>", c.Key)
-}
+func (c Channel) String() string { return fmt.Sprintf("<%d>", c.Key) }
 
 // ValidateSeries ensures that a given series is compatible with the channel and returns
 // an error if it is not.
@@ -100,8 +95,7 @@ func (c Channel) ValidateSeries(series telem.Series) error {
 	if cDt != sDt && !isEquivalent {
 		return errors.Wrapf(
 			validate.ErrValidation,
-			"invalid data type for channel %v, expected %s, got %s",
-			c,
+			"invalid data type, expected %s, got %s",
 			cDt,
 			sDt,
 		)

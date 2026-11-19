@@ -1786,7 +1786,9 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				virtualErr := SatisfyAll(
 					MatchError(query.ErrUnsupported),
 					MatchError(
-						ContainSubstring("cannot open iterator on virtual channel"),
+						ContainSubstring(
+							"cannot open an iterator on a virtual channel",
+						),
 					),
 				)
 				create := func(ctx SpecContext, chs ...*channel.Channel) {

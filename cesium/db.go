@@ -29,6 +29,9 @@ type (
 	Channel    = channel.Channel
 	ChannelKey = channel.Key
 	Frame      = channel.Frame
+	// ChannelError is an error of one channel. It carries the key of the channel, never
+	// its name, so a caller that holds channel records can name it.
+	ChannelError = channel.Error
 )
 
 var (

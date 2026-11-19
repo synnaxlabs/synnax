@@ -50,7 +50,7 @@ var _ = Describe("Channel", Ordered, func() {
 					),
 					Entry(
 						"ChannelKey key already exists",
-						"cannot create channel [Isaac]<9992> because it already exists",
+						"channel <9992>: cannot create the channel because it already exists",
 						cesium.Channel{
 							Name:     "Bob",
 							Key:      9992,
@@ -112,7 +112,7 @@ var _ = Describe("Channel", Ordered, func() {
 					),
 					Entry(
 						"ChannelKey has index - provided index key is not an indexed channel",
-						"index: channel [Sarah]<9981> is not an index",
+						"index: channel <9981>: not an index",
 						cesium.Channel{
 							Name:     "Hemingway",
 							Key:      9980,

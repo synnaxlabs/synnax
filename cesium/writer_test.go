@@ -3391,8 +3391,8 @@ var _ = Describe("Writer Behavior", func() {
 						})).Error().To(And(
 							MatchError(validate.ErrValidation),
 							MatchError(ContainSubstring(
-								"writer needs a start to write channel [Noether]<%d> "+
-									"without its index [Noether index]<%d>",
+								"channel <%d>: writer needs a start to write the channel "+
+									"without its index <%d>",
 								data,
 								idx,
 							)),
@@ -4156,7 +4156,7 @@ var _ = Describe("Writer Behavior", func() {
 							Expect(err).To(MatchError(validate.ErrValidation))
 							Expect(err).To(MatchError(
 								ContainSubstring(fmt.Sprintf(
-									"frame must have exactly one series for each data channel associated with index [uneven 1]<%d>, but is missing a series for channel [uneven 2]<%d>",
+									"frame must have exactly one series for each data channel associated with index <%d>, but is missing a series for channel <%d>",
 									idx,
 									data,
 								)),
@@ -4188,7 +4188,7 @@ var _ = Describe("Writer Behavior", func() {
 							Expect(err).To(MatchError(validate.ErrValidation))
 							Expect(err).To(MatchError(
 								ContainSubstring(fmt.Sprintf(
-									"received no data for index channel [uneven 1]<%v> that must be provided when writing to related data channels [[uneven 2]<%v>]",
+									"received no data for index channel <%v> that must be provided when writing to related data channels [<%v>]",
 									idx,
 									data,
 								)),
@@ -4219,7 +4219,7 @@ var _ = Describe("Writer Behavior", func() {
 							MatchError(
 								ContainSubstring(
 									fmt.Sprintf(
-										"frame must have exactly one series per channel, found more than one for channel [uneven 1]<%v>: validation error",
+										"frame must have exactly one series per channel, found more than one for channel <%v>: validation error",
 										idx,
 									),
 								),

@@ -113,6 +113,7 @@ var _ = Describe("ReadTask", func() {
 			Source: src,
 			DB:     db, Status: statusSvc,
 			Framer:   framerSvc,
+			Channel:  channelSvc,
 			Channels: channel.Keys{idxCh.Key(), dataCh.Key()},
 			Task:     t,
 			Breaker:  brk,
@@ -134,10 +135,8 @@ var _ = Describe("ReadTask", func() {
 		return retrieveStatus[task.StatusDetails](ctx, t.ResourceID())
 	}
 
-	// name formats ch as an error message names it.
-	name := func(ch channel.Channel) string {
-		return fmt.Sprintf("[%s]<%d>", ch.Name, ch.Key())
-	}
+	// name formats ch as a task status names it.
+	name := func(ch channel.Channel) string { return fmt.Sprintf("%q", ch.Name) }
 
 	// written returns every sample committed to ch.
 	written := func(

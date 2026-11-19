@@ -117,11 +117,10 @@ func (db *DB) validateNewChannel(ch Channel) error {
 	_, unaryExists := db.mu.dbs.unary[ch.Key]
 	_, virtualExists := db.mu.dbs.virtual[ch.Key]
 	if unaryExists || virtualExists {
-		return errors.Wrapf(
+		return channel.Wrap(ch.Key, errors.Wrap(
 			validate.ErrValidation,
-			"cannot create channel %v because it already exists",
-			ch,
-		)
+			"cannot create the channel because it already exists",
+		))
 	}
 	if ch.Virtual {
 		return nil
@@ -133,10 +132,9 @@ func (db *DB) validateNewChannel(ch Channel) error {
 		}
 		if !indexDB.Channel().IsIndex {
 			return validate.PathedError(
-				errors.Wrapf(
-					validate.ErrValidation,
-					"channel %v is not an index",
-					indexDB.Channel(),
+				channel.Wrap(
+					indexDB.Channel().Key,
+					errors.Wrap(validate.ErrValidation, "not an index"),
 				),
 				"index",
 			)

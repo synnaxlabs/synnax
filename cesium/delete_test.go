@@ -1601,7 +1601,7 @@ var _ = Describe("Delete", func() {
 								ctx,
 								[]cesium.ChannelKey{index},
 								(8 * telem.SecondTS).Range(11*telem.SecondTS),
-							)).To(MatchError(ContainSubstring(fmt.Sprintf("cannot delete index channel %v with channel %v depending on it on the time range %v", channels[0], channels[1], (8 * telem.SecondTS).Range(11*telem.SecondTS)))))
+							)).To(MatchError(ContainSubstring(fmt.Sprintf("channel %v: cannot delete the index with channel %v depending on it on the time range %v", channels[0], channels[1], (8 * telem.SecondTS).Range(11*telem.SecondTS)))))
 						},
 					)
 					It(
@@ -1629,7 +1629,7 @@ var _ = Describe("Delete", func() {
 								ctx,
 								[]cesium.ChannelKey{index},
 								(8 * telem.SecondTS).Range(10*telem.SecondTS),
-							)).To(MatchError(ContainSubstring(fmt.Sprintf("cannot delete index channel %v with channel %v depending on it on the time range %v", channels[0], channels[1], (8 * telem.SecondTS).Range(10*telem.SecondTS)))))
+							)).To(MatchError(ContainSubstring(fmt.Sprintf("channel %v: cannot delete the index with channel %v depending on it on the time range %v", channels[0], channels[1], (8 * telem.SecondTS).Range(10*telem.SecondTS)))))
 
 							Expect(
 								db.DeleteTimeRange(
@@ -1678,7 +1678,7 @@ var _ = Describe("Delete", func() {
 								ctx,
 								[]cesium.ChannelKey{data, data2, index},
 								(11 * telem.SecondTS).Range(14*telem.SecondTS),
-							)).To(MatchError(ContainSubstring(fmt.Sprintf("cannot delete index channel %v with channel %v depending on it", channels[0], newChannels[1]))))
+							)).To(MatchError(ContainSubstring(fmt.Sprintf("channel %v: cannot delete the index with channel %v depending on it", channels[0], newChannels[1]))))
 						},
 					)
 				})

@@ -2030,7 +2030,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							faulty, db, iter := openFaulty(ctx)
 							Expect(iter.Close()).To(Succeed())
 							faulty.SetOptions(WithFailReadAt())
-							prefix := fmt.Sprintf("channel [Wild]<%d>:", data)
+							prefix := fmt.Sprintf("channel <%d>:", data)
 							Expect(
 								ReadUnary(ctx, db, telem.TimeRangeMax),
 							).Error().
@@ -2512,7 +2512,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Expect(i.Error()).To(MatchError(unary.ErrIteratorClosed))
 						Expect(
 							i.Error(),
-						).To(MatchError(ContainSubstring("[ludwig]<%d>", key)))
+						).To(MatchError(ContainSubstring("<%d>", key)))
 						Expect(i.Valid()).To(BeFalse())
 						Expect(i.Close()).To(Succeed())
 						Expect(db.Close()).To(Succeed())

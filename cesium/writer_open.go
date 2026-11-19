@@ -374,12 +374,11 @@ func (db *DB) openDataOnlyIdxWriter(
 		return nil, err
 	}
 	if cfg.Start.IsZero() {
-		return nil, errors.Wrapf(
+		return nil, channel.Wrap(ch.Key, errors.Wrapf(
 			validate.ErrValidation,
-			"writer needs a start to write channel %v without its index %v",
-			ch,
+			"writer needs a start to write the channel without its index %v",
 			idxW.idx.ch,
-		)
+		))
 	}
 	idxW.writingToIdx = false
 	return idxW, nil

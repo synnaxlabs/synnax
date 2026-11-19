@@ -257,13 +257,12 @@ func (db *DB) DeleteTimeRange(
 			}
 			hasOverlap, err := otherDB.HasDataFor(ctx, tr)
 			if err != nil || hasOverlap {
-				return errors.Newf(
-					"cannot delete index channel %v "+
-						"with channel %v depending on it on the time range %s",
-					idxDB.Channel(),
+				return channel.Wrap(ch, errors.Newf(
+					"cannot delete the index with channel %v depending on it on the "+
+						"time range %s",
 					otherDB.Channel(),
 					tr,
-				)
+				))
 			}
 		}
 		if err := idxDB.Delete(ctx, tr); err != nil {

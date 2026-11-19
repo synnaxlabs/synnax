@@ -1724,7 +1724,8 @@ var _ = Describe("Iterator Behavior", func() {
 						)
 						Expect(err).To(MatchError(query.ErrUnsupported))
 						Expect(err).To(MatchError(ContainSubstring(
-							"cannot open iterator on virtual channel",
+							"channel <%d>: cannot open an iterator on a virtual channel",
+							key,
 						)))
 					},
 				)

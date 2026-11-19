@@ -72,11 +72,10 @@ func (db *DB) newStreamIterator(cfg IteratorConfig) (si *streamIterator, err err
 			continue
 		}
 		if vdb, ok := db.mu.dbs.virtual[key]; ok {
-			return nil, errors.Wrapf(
+			return nil, channel.Wrap(vdb.Channel().Key, errors.Wrap(
 				query.ErrUnsupported,
-				"cannot open iterator on virtual channel %v",
-				vdb.Channel,
-			)
+				"cannot open an iterator on a virtual channel",
+			))
 		}
 		return nil, channel.NewNotFoundError(key)
 	}

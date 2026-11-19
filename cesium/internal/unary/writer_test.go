@@ -1001,7 +1001,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Start:   12 * telem.SecondTS,
 						Subject: control.Subject{Key: "foo"},
 					})).Error().To(And(
-						MatchError(ContainSubstring("channel [Maxwell]<%d>", data)),
+						MatchError(ContainSubstring("channel <%d>", data)),
 						MatchError(ContainSubstring("overlaps")),
 					))
 				})
@@ -1819,7 +1819,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						MustSucceed(w.Close())
 						Expect(w.Commit(ctx)).Error().To(SatisfyAll(
 							MatchError(unary.ErrWriterClosed),
-							MatchError(ContainSubstring("channel [gauss]<%d>", key)),
+							MatchError(ContainSubstring("channel <%d>", key)),
 						),
 						)
 						Expect(w.Write(telem.Series{Data: []byte{1, 2, 3}})).
@@ -1839,7 +1839,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(err).To(MatchError(unary.ErrDBClosed))
 						Expect(
 							err,
-						).To(MatchError(ContainSubstring("channel [gauss]<%d>", key)))
+						).To(MatchError(ContainSubstring("channel <%d>", key)))
 					},
 				)
 				It("Should not write on a closed database", func(ctx SpecContext) {

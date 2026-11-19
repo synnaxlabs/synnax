@@ -424,6 +424,7 @@ func (f *Factory) openRead(
 		DB:              f.cfg.DB,
 		Status:          f.cfg.Status,
 		Framer:          f.cfg.Framer,
+		Channel:         f.cfg.Channel,
 		Channels:        writerKeys,
 		Task:            t,
 		Mode:            mode,
