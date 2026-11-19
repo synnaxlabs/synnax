@@ -84,7 +84,7 @@ func Sorts(fields []Field, table *Table) ([]Sort, error) {
 // newSort returns sort with the type and textual flag of its leaf.
 func newSort(sort Sort, table *Table) (Sort, error) {
 	leaf := sort.Leaf()
-	if leaf.Optional {
+	if lo.ContainsBy(sort.Path, func(f Field) bool { return f.Optional }) {
 		return Sort{}, errors.Newf(
 			"%s: an optional field cannot be sorted",
 			sort.path(),

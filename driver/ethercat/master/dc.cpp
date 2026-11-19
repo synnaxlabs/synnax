@@ -32,7 +32,7 @@ resolve_dc(const std::vector<slave::DiscoveryResult> &slaves, const Plan &plan) 
                 x::errors::Error(
                     errors::SLAVE_CONFIG_ERROR,
                     std::format(
-                        "slave {} ({}) cannot use its chosen mode: {}",
+                        "module {} ({}) cannot use its chosen mode: {}",
                         props.position,
                         props.name,
                         select_err.data
@@ -51,7 +51,8 @@ resolve_dc(const std::vector<slave::DiscoveryResult> &slaves, const Plan &plan) 
                 x::errors::Error(
                     errors::SLAVE_CONFIG_ERROR,
                     std::format(
-                        "slave {} ({}) cannot run its DC mode at a bus cycle of {}: {}",
+                        "module {} ({}) cannot run its DC mode at a bus cycle of "
+                        "{}: {}",
                         props.position,
                         props.name,
                         period.to_string(),
@@ -65,7 +66,7 @@ resolve_dc(const std::vector<slave::DiscoveryResult> &slaves, const Plan &plan) 
         cycles.emplace_back(regs.sync0_cycle);
         if (!events.empty()) events += ", ";
         events += std::format(
-            "slave {} ({}) every {}",
+            "module {} ({}) every {}",
             props.position,
             props.name,
             cycles.back().to_string()

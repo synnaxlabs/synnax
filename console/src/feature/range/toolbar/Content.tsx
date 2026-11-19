@@ -137,9 +137,13 @@ const Line = ({
       <div
         id={range.key}
         draggable
-        onDragStart={() => {
+        onDragStart={(event) => {
           setDragging(true);
-          startDrag([Ranger.createHaulItem(range.payload)]);
+          startDrag({
+            event,
+            items: [Ranger.createHaulItem(range.payload)],
+            preview: <Ranger.HaulPreview range={range.payload} />,
+          });
         }}
         onDragEnd={(e) => {
           setDragging(false);
@@ -203,7 +207,7 @@ const Line = ({
 };
 
 const StopButton = ({ range }: { range: ranger.Range }): ReactElement => {
-  const stop = Tree.useStop();
+  const stop = Range.useStop();
   return (
     <Button.Button
       variant="text"
@@ -269,7 +273,7 @@ const RunningActions = ({
             className={CSS.BE(B, "next")}
             onClick={next}
           >
-            <Tree.NextIcon />
+            <Range.NextIcon />
           </Button.Button>
         )}
       </span>
@@ -710,7 +714,7 @@ export const Content = (): ReactElement => {
       }),
     onStartChild: (range) => {
       // The child starts now, so only a running range takes it in place.
-      if (!isRunning(range.key)) return openCreate({ parent: range.key });
+      if (!isRunning(range.key)) return void openCreate({ parent: range.key });
       openSuggested({ startedAt: TimeStamp.now(), parent: range.key });
     },
   };
@@ -720,7 +724,7 @@ export const Content = (): ReactElement => {
   };
   const addPast = () => {
     const now = TimeStamp.now();
-    openCreate({
+    void openCreate({
       timeRange: { start: now.sub(TimeSpan.HOUR).nanoseconds, end: now.nanoseconds },
     });
   };

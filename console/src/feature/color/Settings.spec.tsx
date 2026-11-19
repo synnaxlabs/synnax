@@ -9,7 +9,7 @@
 
 import { color, group, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { color as xcolor } from "@synnaxlabs/x";
+import { color as xcolor, compare } from "@synnaxlabs/x";
 import {
   act,
   fireEvent,
@@ -30,6 +30,8 @@ import {
   commitTextEdit,
   createConsoleWrapper,
   createTestClientWithGrants,
+  dragOnto,
+  HaulProvider,
   openContextMenu,
   uniqueName,
 } from "@/testutil";
@@ -57,7 +59,7 @@ const renderColors = async (as: Synnax = client): Promise<void> => {
   const { wrapper: Console } = await createConsoleWrapper({ client: as });
   const wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Console>
-      {children}
+      <HaulProvider>{children}</HaulProvider>
       <Modals.Stack />
     </Console>
   );
@@ -78,27 +80,11 @@ const deleted = async (retrieve: () => Promise<unknown>): Promise<boolean> => {
 const findColor = async (name: string): Promise<HTMLElement> =>
   await screen.findByRole("option", { name });
 
-/** Drags one color onto another. jsdom has no DataTransfer, so a map stands in. */
-const dragOnto = (from: HTMLElement, to: HTMLElement): void => {
-  const data = new Map<string, string>();
-  const dataTransfer = {
-    effectAllowed: "none",
-    get types() {
-      return [...data.keys()];
-    },
-    setData: (type: string, value: string) => data.set(type, value),
-    getData: (type: string) => data.get(type) ?? "",
-  };
-  fireEvent.dragStart(from, { dataTransfer });
-  fireEvent.dragOver(to, { dataTransfer });
-  fireEvent.drop(to, { dataTransfer });
-};
-
 /** Names the colors in the palette by position, with any that have none last. */
 const namesInOrder = async (palette: group.Group): Promise<string[]> =>
   (await client.colors.retrieve({ groups: [palette.key] }))
     .sort((a, b) => {
-      if (a.position === b.position) return a.name.localeCompare(b.name);
+      if (a.position === b.position) return compare.text(a.name, b.name);
       if (a.position == null) return 1;
       if (b.position == null) return -1;
       return a.position < b.position ? -1 : 1;
@@ -124,12 +110,11 @@ describe("Color.Settings", () => {
     const palette = await createPalette();
     const existing = await createColor(palette, "a0");
     await renderColors();
+    const create = await screen.findByRole("button", {
+      name: `Create a color in ${palette.name}`,
+    });
     await act(async () => {
-      fireEvent.click(
-        await screen.findByRole("button", {
-          name: `Create a color in ${palette.name}`,
-        }),
-      );
+      fireEvent.click(create);
     });
     const first = uniqueName("first");
     const second = uniqueName("second");
@@ -173,8 +158,9 @@ describe("Color.Settings", () => {
         "This also deletes its 2 colors. This action cannot be undone.",
       ),
     ).toBeTruthy();
+    const confirm = await screen.findByRole("button", { name: "Delete" });
     await act(async () => {
-      fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+      fireEvent.click(confirm);
     });
     await expect
       .poll(
@@ -213,6 +199,16 @@ describe("Color.Settings", () => {
       await screen.findByRole("button", { name: "Create a color in Series" }),
     ).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Create palette" })).toBeNull();
+  });
+
+  it("should picture a dragged color filled with its light value", async () => {
+    const shade = await createColor(await createPalette());
+    await renderColors();
+    fireEvent.dragStart(await findColor(shade.name));
+    const layer = document.querySelector(".lyra-haul__layer");
+    const tile = layer?.querySelector<HTMLElement>(".lyra-haul-preview__tile");
+    expect(tile?.style.background).toBe("rgb(0, 255, 0)");
+    expect(layer?.textContent).toBe(`${shade.name}Color`);
   });
 
   it("should move a dragged color before the one it drops on", async () => {
@@ -285,8 +281,9 @@ describe("Color.Settings", () => {
     expect(
       await screen.findByText(`Are you sure you want to delete ${custom.name}?`),
     ).toBeTruthy();
+    const confirm = await screen.findByRole("button", { name: "Delete" });
     await act(async () => {
-      fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+      fireEvent.click(confirm);
     });
     await expect
       .poll(async () => await deleted(() => client.colors.retrieve(custom.key)))
@@ -315,8 +312,9 @@ describe("Color.Settings", () => {
         "This also deletes its 2 colors. This action cannot be undone.",
       ),
     ).toBeTruthy();
+    const confirm = await screen.findByRole("button", { name: "Delete" });
     await act(async () => {
-      fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+      fireEvent.click(confirm);
     });
     await expect
       .poll(async () => await deleted(() => client.colors.retrieve(hidden.key)))

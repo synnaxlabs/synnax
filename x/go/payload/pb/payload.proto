@@ -50,6 +50,13 @@ enum GeneratorType {
   GENERATOR_TYPE_TIMESTAMP = 1;
 }
 
+// Format is the encoding of a whole payload.
+enum Format {
+  FORMAT_JSON = 0;
+  FORMAT_TEXT = 1;
+  FORMAT_BINARY = 2;
+}
+
 // FloatEntry maps a payload label to a float channel value.
 message FloatEntry {
   // label is the label in the payload.

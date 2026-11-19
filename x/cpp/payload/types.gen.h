@@ -61,6 +61,10 @@ constexpr const char *JSON_TYPE_BOOLEAN = "boolean";
 constexpr const char *GENERATOR_TYPE_UUID = "uuid";
 constexpr const char *GENERATOR_TYPE_TIMESTAMP = "timestamp";
 
+constexpr const char *FORMAT_JSON = "json";
+constexpr const char *FORMAT_TEXT = "text";
+constexpr const char *FORMAT_BINARY = "binary";
+
 /// @brief StringEntry maps a payload label to a string channel value.
 struct StringEntry {
     /// @brief label is the label in the payload.

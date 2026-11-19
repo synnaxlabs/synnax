@@ -165,9 +165,9 @@ public:
     /// Valid after scan().
     /// @returns errors::SLAVE_CONFIG_ERROR when the DC mode of a slave gives values its
     /// registers cannot hold at the period, or errors::STATE_CHANGE_REFUSED when a
-    /// slave refuses SAFE-OP or OP. The SOEM master returns errors::ACTIVATION_ERROR
-    /// with a refusal for a used slave with no identity, after start_cycle only when
-    /// another slave has process data.
+    /// slave refuses SAFE-OP or OP. errors::ACTIVATION_ERROR with a refusal for a used
+    /// slave with no identity, after start_cycle only when another slave has process
+    /// data.
     [[nodiscard]] virtual Activation activate(
         const Plan &plan,
         const std::function<void(const Image &)> &start_cycle

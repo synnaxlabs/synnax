@@ -252,7 +252,7 @@ export const { useUpdate: useSetStandalone } = Flux.createUpdate<
   SetStandaloneParams,
   SetStandaloneResult
 >({
-  name: "EtherCAT slave",
+  name: "EtherCAT module",
   verbs: SWITCH,
   update: async ({ client, data }) => {
     const { rack, key } = data.slave;
@@ -283,6 +283,41 @@ export const { useUpdate: useSetStandalone } = Flux.createUpdate<
     if (tasks.length === 0) return { ...data, answer: res };
     const description = `${res.description} Start your tasks again.`.trimStart();
     return { ...data, answer: { ...res, description } };
+  },
+});
+
+/** The scan task command that turns off the DewesoftX filter. */
+const DISABLE_DEWESOFT_FILTER_COMMAND = "disable_dewesoft_filter";
+
+const TURN_OFF: verbs.Verbs = {
+  present: "turn off",
+  past: "turned off",
+  participle: "turning off",
+};
+
+export interface DisableFilterParams {
+  /** The scan task of the rack whose Driver turns off the filter. */
+  scanner: task.Task;
+}
+
+/**
+ * Starts to turn off the DewesoftX filter on the adapters that the last scan found it
+ * blocks, and returns the answer of the Driver. Windows can ask for administrator
+ * access on the computer that runs the Driver, and the next scans show whether the
+ * filter is off.
+ */
+export const { useUpdate: useDisableFilter } = Flux.createUpdate<
+  DisableFilterParams,
+  task.Status
+>({
+  name: "the DewesoftX filter",
+  verbs: TURN_OFF,
+  update: async ({ data }) => {
+    const res = await data.scanner.executeCommandSync({
+      type: DISABLE_DEWESOFT_FILTER_COMMAND,
+    });
+    if (res.variant === "error") throw status.toError(res);
+    return res;
   },
 });
 
@@ -320,7 +355,7 @@ export const { useUpdate: useReplace } = Flux.createUpdate<
   ReplaceParams,
   ReplaceResult
 >({
-  name: "EtherCAT slave",
+  name: "EtherCAT module",
   verbs: REPLACE,
   update: async ({ client, data }) => {
     const [old, slave] = await Promise.all(

@@ -154,6 +154,33 @@ generator_type_from_pb(::x::payload::pb::GeneratorType pb) {
     }
 }
 
+inline std::pair<::x::payload::pb::Format, x::errors::Error>
+format_to_pb(const std::string &cpp) {
+    static const std::unordered_map<std::string, ::x::payload::pb::Format> kMap = {
+        {FORMAT_JSON, ::x::payload::pb::FORMAT_JSON},
+        {FORMAT_TEXT, ::x::payload::pb::FORMAT_TEXT},
+        {FORMAT_BINARY, ::x::payload::pb::FORMAT_BINARY},
+    };
+    auto it = kMap.find(cpp);
+    if (it == kMap.end())
+        return {{}, x::errors::Error("unrecognized Format value: " + cpp)};
+    return {it->second, x::errors::NIL};
+}
+
+inline std::pair<std::string, x::errors::Error>
+format_from_pb(::x::payload::pb::Format pb) {
+    switch (pb) {
+        case ::x::payload::pb::FORMAT_JSON:
+            return {FORMAT_JSON, x::errors::NIL};
+        case ::x::payload::pb::FORMAT_TEXT:
+            return {FORMAT_TEXT, x::errors::NIL};
+        case ::x::payload::pb::FORMAT_BINARY:
+            return {FORMAT_BINARY, x::errors::NIL};
+        default:
+            return {"", x::errors::Error("unrecognized Format protobuf value")};
+    }
+}
+
 inline std::pair<::x::payload::pb::FloatEntry, x::errors::Error>
 FloatEntry::to_proto() const {
     ::x::payload::pb::FloatEntry pb;
