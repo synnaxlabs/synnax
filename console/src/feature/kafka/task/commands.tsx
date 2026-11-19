@@ -11,8 +11,7 @@ import { task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access } from "@synnaxlabs/pluto";
 
-import { useCreateRead } from "@/feature/kafka/task/Read";
-import { useCreateWrite } from "@/feature/kafka/task/Write";
+import { useCreateRead, useCreateWrite } from "@/feature/kafka/task/create";
 import { Command } from "@/platform/command";
 
 const useVisible = () => Access.useCreateGranted(task.TYPE_RESOURCE_ID);

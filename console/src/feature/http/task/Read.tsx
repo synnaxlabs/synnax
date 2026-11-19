@@ -13,7 +13,6 @@ import { channel, http, type Synnax } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
-import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Channel } from "@synnaxlabs/pluto";
@@ -28,12 +27,11 @@ import {
 
 import { useFromConfig } from "@/feature/http/device/queries";
 import { Select as SelectDevice } from "@/feature/http/device/Select";
-import { MAKE, type Properties, SCHEMAS } from "@/feature/http/device/types";
+import { type Properties, SCHEMAS } from "@/feature/http/device/types";
 import { EndpointLabel } from "@/feature/http/task/EndpointLabel";
 import {
   deployReadConfigZ,
   READ_SCHEMAS,
-  READ_TYPE,
   type ReadEndpoint,
   type ReadField,
   type ReadSchemas,
@@ -41,7 +39,6 @@ import {
 import { CSS } from "@/platform/css";
 import { Device } from "@/platform/device";
 import { Form as PlatformForm } from "@/platform/form";
-import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const root = deep.path<Task.Values<ReadSchemas>>();
@@ -477,15 +474,6 @@ const Form: FC = () => {
   );
 };
 
-const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({
-  deviceKey,
-  config,
-}) => {
-  const cfg = READ_SCHEMAS.config.parse(config ?? {});
-  if (deviceKey != null) cfg.device = deviceKey;
-  return { name: "HTTP read task", type: READ_TYPE, config: cfg };
-};
-
 const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, config) => {
   const dev = await client.devices.retrieve({
     key: config.device,
@@ -517,16 +505,3 @@ export const Read = Task.wrapForm({
   type: "http_read",
   onConfigure,
 });
-
-export const useCreateRead = Task.createUseCreate({
-  getInitialValues,
-  deviceMake: MAKE,
-});
-
-export const ReadSelectable: Selector.Selectable = {
-  type: READ_TYPE,
-  title: "HTTP read task",
-  label: "Read",
-  icon: <Icon.Logo.HTTP />,
-  useOnSelect: useCreateRead,
-};

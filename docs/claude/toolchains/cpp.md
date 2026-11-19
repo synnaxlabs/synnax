@@ -16,8 +16,9 @@ bazel test //driver/...
 
 Platform-specific code uses `config_setting` + `select()` — prefer it over `#ifdef` —
 for sources (`daemon_linux.cpp` vs `daemon_darwin.cpp`), deps (Modbus excluded on NI
-Linux Real-Time), copts (`/DWIN32_LEAN_AND_MEAN`, `/DNOMINMAX`, `/D_WIN32_WINNT=0x0601`
-on Windows), and linkopts (`ws2_32.lib`, `Iphlpapi.lib`).
+Linux Real-Time), and linkopts (`ws2_32.lib`, `Iphlpapi.lib`). First-party targets set
+no `copts`: `.bazelrc` gives all workspace code `WIN32_LEAN_AND_MEAN`, `NOMINMAX`, and
+`_WIN32_WINNT=0x0A00` on Windows, so never define them in a target or a source file.
 
 ## Style
 

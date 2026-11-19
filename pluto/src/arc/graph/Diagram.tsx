@@ -28,6 +28,9 @@ export const nodeChangesToActions = (changes: Base.NodeChange[]): arc.Action[] =
         return;
       case "remove":
         actions.push(arc.removeNode({ key: ch.key }));
+        break;
+      case "select":
+        break;
     }
   });
   return actions;

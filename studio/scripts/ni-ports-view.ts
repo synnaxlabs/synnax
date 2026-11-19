@@ -10,9 +10,9 @@
 import { NI_DAQ, taskScript } from "./common/task";
 
 /**
- * Docs `reference/hardware/tasks` (Ports): in an NI analog read task, select Ports above
- * the channel list, click a free port to add a channel on it, click a used port to
- * select its channel, go back to the list, and start the task.
+ * Docs `reference/hardware/tasks` (Ports): in an NI analog read task, select Ports
+ * above the channel list, click a free port to add a channel on it, click a used port
+ * to select its channel, go back to the list, and start the task.
  */
 export default taskScript({
   device: NI_DAQ,

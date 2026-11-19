@@ -62,7 +62,7 @@ const renderCounterRead = async (
   config: task.Payload<NI.Task.CounterReadSchemas>["config"],
 ) => {
   const draft = await createDraft(config);
-  const rendered = await renderNITaskForm(NI.Task.CounterRead, {
+  const rendered = await renderNITaskForm(NI.Task.FORMS[NI.Task.COUNTER_READ_TYPE], {
     client,
     taskKey: draft.key,
   });
