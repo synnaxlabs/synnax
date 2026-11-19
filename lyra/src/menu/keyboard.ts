@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type KeyboardEvent } from "react";
+import { type KeyboardEvent as ReactKeyboardEvent } from "react";
 
 import { Triggers } from "@/triggers";
 
@@ -17,7 +17,7 @@ import { Triggers } from "@/triggers";
  * prevents the default of both, so the webview does not open its own menu.
  */
 export const keyboardMenuKey = (
-  e: KeyboardEvent<HTMLElement>,
+  e: KeyboardEvent | ReactKeyboardEvent,
 ): "F10" | "ContextMenu" | null => {
   if (e.altKey || e.ctrlKey || e.metaKey) return null;
   const key = Triggers.eventKey(e);

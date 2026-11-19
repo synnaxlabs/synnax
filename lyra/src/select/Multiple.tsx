@@ -13,7 +13,7 @@ import { type ReactElement } from "react";
 import { Dialog as BaseDialog } from "@/dialog";
 import { type List } from "@/list";
 import { Body, type BodyProps } from "@/select/Body";
-import { Dialog } from "@/select/Dialog";
+import { Dialog, type DialogProps } from "@/select/Dialog";
 import { Frame, type MultipleFrameProps } from "@/select/Frame";
 import { MultipleTrigger, type MultipleTriggerProps } from "@/select/MultipleTrigger";
 import { plural, usePlaceholder } from "@/select/placeholder";
@@ -42,6 +42,11 @@ export interface MultipleProps<
   renderTag?: MultipleTriggerProps<K, E>["children"];
   triggerProps?: MultipleTriggerProps<K, E>;
   dialogProps?: BaseDialog.FrameProps;
+  /**
+   * The context menu of an option, opened by a right click on it, or by Shift+F10 or
+   * the Menu key while it holds the hover. It gets the key of that option only.
+   */
+  menu?: DialogProps["menu"];
   variant?: BaseDialog.FrameProps["variant"];
   preview?: boolean;
 }
@@ -75,6 +80,7 @@ export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undef
   triggerProps,
   virtual = true,
   dialogProps,
+  menu,
   variant = "connected",
   preview,
   itemHeight,
@@ -126,7 +132,7 @@ export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undef
         >
           {renderTag}
         </MultipleTrigger>
-        <Dialog {...dialogProps}>
+        <Dialog {...dialogProps} menu={menu}>
           <Body<K>
             onSearch={onSearch}
             emptyContent={emptyContent}

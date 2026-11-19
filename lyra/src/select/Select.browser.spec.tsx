@@ -14,11 +14,13 @@ import { page, userEvent } from "vitest/browser";
 
 import { Button } from "@/button";
 import { type Component } from "@/component";
+import { renderProp } from "@/component/renderProp";
 import { Dialog } from "@/dialog";
 import { Haul } from "@/haul";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { List } from "@/list";
+import { Menu } from "@/menu";
 import { type position } from "@/position";
 import { Select } from "@/select";
 import { computed, renderThemed, resolve } from "@/styletest";
@@ -529,6 +531,54 @@ const openEditable = async (): Promise<void> => {
 const openView = async (): Promise<void> => {
   await userEvent.click(page.getByRole("button", { name: "Edit low" }));
   await expect.element(page.getByText("Editing low")).toBeVisible();
+};
+
+interface MenuEntry {
+  key: string;
+  name: string;
+}
+
+const MENU_ENTRIES: MenuEntry[] = [
+  { key: "1", name: "First" },
+  { key: "2", name: "Second" },
+];
+
+const renderMenuEntry = renderProp((props: List.ItemProps<string>) => (
+  <Select.Item {...props}>
+    <Text.Text>{MENU_ENTRIES.find((e) => e.key === props.itemKey)?.name}</Text.Text>
+  </Select.Item>
+));
+
+const MenuSingle = (): ReactElement => {
+  const { data, getItem } = List.useStaticData<string, MenuEntry>({
+    data: MENU_ENTRIES,
+  });
+  const [value, setValue] = useState<string>();
+  return (
+    <Triggers.Provider>
+      <Select.Single<string, MenuEntry>
+        data={data}
+        getItem={getItem}
+        value={value}
+        onChange={setValue}
+        resourceName="Entry"
+        initialHover={1}
+        menu={({ keys }) => (
+          <Menu.Menu>
+            <Menu.Item itemKey="edit">{`menu for ${keys.join(",")}`}</Menu.Item>
+          </Menu.Menu>
+        )}
+      >
+        {renderMenuEntry}
+      </Select.Single>
+    </Triggers.Provider>
+  );
+};
+
+const openMenuSingle = async (): Promise<void> => {
+  await renderThemed(<MenuSingle />);
+  await userEvent.click(page.getByRole("button", { name: "Entry" }));
+  await expect.element(page.getByRole("option", { name: "Second" })).toBeVisible();
 };
 
 describe("Select", () => {
@@ -1242,6 +1292,24 @@ describe("Select", () => {
       expect(list.getBoundingClientRect().top).toBe(
         search.getBoundingClientRect().bottom - 1,
       );
+    });
+  });
+
+  describe("option menu", () => {
+    it("should open the menu of the hovered option on Shift+F10", async () => {
+      await openMenuSingle();
+      await userEvent.keyboard("{Shift>}{F10}{/Shift}");
+      await expect
+        .element(page.getByRole("menuitem", { name: "menu for 2" }))
+        .toBeVisible();
+    });
+
+    it("should open the menu of the hovered option on the Menu key", async () => {
+      await openMenuSingle();
+      await userEvent.keyboard("{ContextMenu}");
+      await expect
+        .element(page.getByRole("menuitem", { name: "menu for 2" }))
+        .toBeVisible();
     });
   });
 });
