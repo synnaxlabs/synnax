@@ -352,7 +352,7 @@ interface Initial {
   text: string;
 }
 
-/** A move the table sent to its caller, with the row that moves. */
+/** A move that the table sent to its caller, held until the next value shows it. */
 interface PendingMove {
   from: number;
   to: number;
