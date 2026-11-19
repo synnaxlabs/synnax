@@ -33,7 +33,7 @@ var _ = Describe("Default", func() {
 
 var _ = Describe("CopyFile", func() {
 	It("Should sync the copy, so its bytes stay after a power loss", func() {
-		src, dst := xfs.NewMem(), fault.New()
+		src, dst := xfs.NewMem(), MustSucceed(fault.New(fault.Config{}))
 		Expect(xfs.WriteFile(src, "f.txt", []byte("tacocat"))).To(Succeed())
 		Expect(xfs.CopyFile(src, dst, "f.txt")).To(Succeed())
 		Expect(dst.SyncDir("")).To(Succeed())
@@ -46,7 +46,7 @@ var _ = Describe("FS", func() {
 	fileSystems := maps.Clone(FileSystems)
 	fileSystems["faultFS"] = func() xfs.FS {
 		GinkgoHelper()
-		return MustSucceed(fault.New().Sub("testdata"))
+		return MustSucceed(MustSucceed(fault.New(fault.Config{})).Sub("testdata"))
 	}
 	for fsName, openFS := range fileSystems {
 		var fs xfs.FS

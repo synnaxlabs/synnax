@@ -20,6 +20,7 @@ import (
 
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // FS is a disk in memory. It is safe for concurrent use, and each call is atomic.
@@ -31,9 +32,35 @@ type FS struct {
 
 var _ xfs.FS = (*FS)(nil)
 
-// New returns an empty FS.
-func New() *FS {
-	return &FS{d: newDisk(newDir(), 0), root: "/"}
+// Config sets the faults of an FS. The zero value is a disk with no faults.
+type Config struct {
+	// RunKey fixes every random choice of the FS.
+	RunKey uint64
+	// SyncErrorRate is the chance, from 0 to 1, that a Sync or a SyncDir with changes
+	// to make durable fails with EIO. A failed Sync drops its changes as Linux does: no
+	// later Sync makes them durable, and the next Sync succeeds. A failed SyncDir keeps
+	// its changes for the next SyncDir.
+	SyncErrorRate float64
+	// EvictionRate is the chance, from 0 to 1, that a block dropped by a failed Sync
+	// reads its durable bytes from then on. Otherwise the block reads its new bytes
+	// until a crash.
+	EvictionRate float64
+}
+
+func (c Config) validate() error {
+	v := validate.New("fault.Config")
+	validateRate(v, "sync_error_rate", c.SyncErrorRate)
+	validateRate(v, "eviction_rate", c.EvictionRate)
+	return v.Error()
+}
+
+// New returns an empty FS with the faults of cfg. The error matches
+// validate.ErrValidation when a rate of cfg is not from 0 to 1.
+func New(cfg Config) (*FS, error) {
+	if err := cfg.validate(); err != nil {
+		return nil, err
+	}
+	return &FS{d: newDisk(cfg, newDir(), 0), root: "/"}, nil
 }
 
 func (f *FS) abs(name string) string { return path.Join(f.root, name) }
@@ -48,6 +75,9 @@ func (f *FS) Open(name string, flag int) (xfs.File, error) {
 	case err == nil:
 		if flag&os.O_CREATE != 0 && flag&os.O_EXCL != 0 {
 			return nil, pathError("open", p, os.ErrExist)
+		}
+		if n.dir && flag&(os.O_WRONLY|os.O_RDWR) != 0 {
+			return nil, pathError("open", p, syscall.EISDIR)
 		}
 		if flag&os.O_TRUNC != 0 && !n.dir {
 			d.resize(n, 0)
@@ -188,6 +218,5 @@ func (f *FS) SyncDir(name string) error {
 	if err != nil {
 		return err
 	}
-	d.syncDir(n)
-	return nil
+	return d.syncDir(n, p)
 }

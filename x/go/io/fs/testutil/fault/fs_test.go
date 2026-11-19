@@ -36,7 +36,7 @@ func read(fs xfs.FS, name string) string {
 
 var _ = Describe("FS", func() {
 	var fs *fault.FS
-	BeforeEach(func() { fs = fault.New() })
+	BeforeEach(func() { fs = MustSucceed(fault.New(fault.Config{})) })
 
 	It("Should share one disk between an FS and its Sub", func() {
 		sub := MustSucceed(fs.Sub("a/b"))

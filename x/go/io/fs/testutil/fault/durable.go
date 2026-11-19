@@ -14,6 +14,7 @@ import (
 	"maps"
 	"math/bits"
 	"slices"
+	"syscall"
 )
 
 // blockSize is the unit of file data that reaches the disk, or does not, as a whole.
@@ -57,9 +58,16 @@ func resized(data []byte, size int64) []byte {
 	return data[:size]
 }
 
-// sync makes the bytes and the length of the file n durable. It copies only the dirty
-// blocks.
-func (d *disk) sync(n *node) {
+// sync makes the bytes and the length of the file n at the path p durable. It copies
+// only the dirty blocks. A sync that fails drops them.
+func (d *disk) sync(n *node, p string) error {
+	if len(n.dirty) > 0 {
+		file, nth := hashPath(p), d.next(drawSync, p, 0)
+		if draw(d.cfg.RunKey, drawSync, file, nth) < d.cfg.SyncErrorRate {
+			d.drop(n, file, nth)
+			return pathError("sync", p, syscall.EIO)
+		}
+	}
 	size := int64(len(n.data))
 	n.durable = resized(n.durable, size)
 	for b := range n.dirty.all() {
@@ -69,10 +77,42 @@ func (d *disk) sync(n *node) {
 		}
 	}
 	n.dirty = nil
+	return nil
 }
 
-// syncDir makes the entries of the directory n durable.
-func (d *disk) syncDir(n *node) {
+// drop loses the dirty blocks of the file n, as a failed Sync does. Each block keeps
+// its new bytes for a read, or at the eviction rate goes back to its durable bytes.
+func (d *disk) drop(n *node, file, nth uint64) {
+	size := int64(len(n.data))
+	for b := range n.dirty.all() {
+		from := b * blockSize
+		evicted := draw(
+			d.cfg.RunKey,
+			drawEvict,
+			file,
+			nth,
+			uint64(b),
+		) < d.cfg.EvictionRate
+		if from >= size || !evicted {
+			continue
+		}
+		block := n.data[from:min(from+blockSize, size)]
+		clear(block)
+		if from < int64(len(n.durable)) {
+			copy(block, n.durable[from:])
+		}
+	}
+	n.dirty = nil
+}
+
+// syncDir makes the entries of the directory n at the path p durable.
+func (d *disk) syncDir(n *node, p string) error {
+	if !maps.Equal(n.entries, n.durableEntries) {
+		nth := d.next(drawSync, p, 0)
+		if draw(d.cfg.RunKey, drawSync, hashPath(p), nth) < d.cfg.SyncErrorRate {
+			return pathError("sync", p, syscall.EIO)
+		}
+	}
 	n.durableEntries = maps.Clone(n.entries)
 	d.pending = slices.DeleteFunc(d.pending, func(c *change) bool {
 		durable := true
@@ -83,4 +123,5 @@ func (d *disk) syncDir(n *node) {
 		}
 		return durable
 	})
+	return nil
 }

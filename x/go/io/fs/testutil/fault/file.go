@@ -144,11 +144,9 @@ func (f *file) Sync() error {
 		return pathError("sync", f.path, os.ErrClosed)
 	}
 	if f.n.dir {
-		f.d.syncDir(f.n)
-	} else {
-		f.d.sync(f.n)
+		return f.d.syncDir(f.n, f.path)
 	}
-	return nil
+	return f.d.sync(f.n, f.path)
 }
 
 // write copies p into the file n at off, and fills a gap before off with zeros.

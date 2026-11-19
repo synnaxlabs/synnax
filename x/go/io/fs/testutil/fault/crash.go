@@ -33,6 +33,8 @@ type CrashConfig struct {
 	// rename that no SyncDir made durable reaches the disk. A rename reaches it as a
 	// whole or not at all, and a change that depends on a lost change is lost too.
 	EntrySurvivalRate float64
+	// Image sets the faults of the FS that Crash returns.
+	Image Config
 }
 
 func (c CrashConfig) validate() error {
@@ -40,6 +42,7 @@ func (c CrashConfig) validate() error {
 	validateRate(v, "data_survival_rate", c.DataSurvivalRate)
 	validateRate(v, "torn_rate", c.TornRate)
 	validateRate(v, "entry_survival_rate", c.EntrySurvivalRate)
+	v.Exec(c.Image.validate)
 	return v.Error()
 }
 
@@ -64,7 +67,7 @@ func (f *FS) Crash(cfg CrashConfig) (*FS, error) {
 			c.apply(ch)
 		}
 	}
-	return &FS{d: newDisk(c.image(d.root, "/"), d.clock), root: f.root}, nil
+	return &FS{d: newDisk(cfg.Image, c.image(d.root, "/"), d.clock), root: f.root}, nil
 }
 
 type crash struct {

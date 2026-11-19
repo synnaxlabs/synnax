@@ -25,8 +25,10 @@ type disk struct {
 	root *node
 	// pending holds the changes to directory entries that are not durable, in order.
 	pending []*change
-	// changes counts the changes at each path. The count fixes the draw of a change.
-	changes map[string]uint64
+	// calls counts the calls of each kind at each path and offset. The count is a part
+	// of each draw, so a second call gets its own draw.
+	calls map[call]uint64
+	cfg   Config
 	// clock counts the changes to the disk. It gives each one a later mod time.
 	clock int64
 	// mu guards every field of the disk, its nodes, and its open files.
@@ -147,8 +149,23 @@ type half struct {
 	durable bool
 }
 
-func newDisk(root *node, clock int64) *disk {
-	return &disk{root: root, clock: clock, changes: map[string]uint64{}}
+type call struct {
+	path string
+	kind uint64
+	off  int64
+}
+
+func newDisk(cfg Config, root *node, clock int64) *disk {
+	return &disk{cfg: cfg, root: root, clock: clock, calls: map[call]uint64{}}
+}
+
+// next counts a call of kind at the path p and the offset off, and returns how many
+// came before it.
+func (d *disk) next(kind uint64, p string, off int64) uint64 {
+	c := call{path: p, kind: kind, off: off}
+	n := d.calls[c]
+	d.calls[c] = n + 1
+	return n
 }
 
 // set binds name in dir to n, or to no entry when n is nil.
@@ -165,7 +182,6 @@ func (d *disk) set(dir *node, name string, n *node) half {
 
 // record adds the change at the path p to the changes that are not durable.
 func (d *disk) record(p string, halves ...half) {
-	d.changes[p]++
-	key := mix(hashPath(p) ^ d.changes[p])
+	key := mix(hashPath(p) ^ d.next(drawEntry, p, 0))
 	d.pending = append(d.pending, &change{halves: halves, key: key})
 }

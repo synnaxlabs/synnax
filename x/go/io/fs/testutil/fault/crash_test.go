@@ -42,7 +42,7 @@ func strict(fs *fault.FS) *fault.FS {
 
 var _ = Describe("Crash", func() {
 	var fs *fault.FS
-	BeforeEach(func() { fs = fault.New() })
+	BeforeEach(func() { fs = MustSucceed(fault.New(fault.Config{})) })
 
 	Describe("File data", func() {
 		BeforeEach(func() {
@@ -274,8 +274,9 @@ var _ = Describe("Crash", func() {
 		// list returns the names in the root of image, each file with its bytes.
 		list := func(image *fault.FS) string {
 			GinkgoHelper()
-			var parts []string
-			for _, info := range MustSucceed(image.List("")) {
+			infos := MustSucceed(image.List(""))
+			parts := make([]string, 0, len(infos))
+			for _, info := range infos {
 				part := info.Name()
 				if !info.IsDir() {
 					part += "=" + read(image, info.Name())
