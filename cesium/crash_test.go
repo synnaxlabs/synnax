@@ -140,7 +140,7 @@ const holds crash.Rule = ""
 // Visible, it promises only that a read sees it.
 var _ = DescribeTable("Crash harness",
 	func(ctx SpecContext, ack crash.Ack, profile crash.Profile, rule crash.Rule) {
-		err := crash.Run(ctx, crash.Config{
+		_, err := crash.Run(ctx, crash.Config{
 			Open:    openCrashEngine(ack),
 			Commits: 8,
 			Stride:  1,
@@ -171,6 +171,10 @@ var _ = DescribeTable("Crash harness",
 		crash.Durable, crash.OneTimeReadFaults, crash.R4),
 	Entry("Visible, OneTimeReadFaults",
 		crash.Visible, crash.OneTimeReadFaults, crash.R4),
+	Entry("Durable, RepeatedReadFaults",
+		crash.Durable, crash.RepeatedReadFaults, crash.R4),
+	Entry("Visible, RepeatedReadFaults",
+		crash.Visible, crash.RepeatedReadFaults, crash.R4),
 	Entry("Visible, Strict", crash.Visible, crash.Strict, holds),
 	Entry("Visible, SyncErrors", crash.Visible, crash.SyncErrors, holds),
 	Entry("Visible, FullDisk", crash.Visible, crash.FullDisk, holds),
