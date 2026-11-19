@@ -852,7 +852,9 @@ var _ = Describe("TDMS", func() {
 				},
 			)
 
-			It("Should fail a read where a typed column takes the name of a channel",
+			It(
+				"Should fail before the first byte a read where a typed column takes the "+
+					"name of a channel",
 				func(ctx SpecContext) {
 					index, channels := createIndexed(ctx, telem.Int16T, telem.Float32T)
 					write(
@@ -864,9 +866,11 @@ var _ = Describe("TDMS", func() {
 					)
 					channels[0].DataType = telem.Float64T
 					channels[1].Name = channels[0].Name + " (int16)"
-					Expect(framer.NewTDMSEncoder(ctx).Encode(
+					var body bytes.Buffer
+					Expect(framer.NewTDMSEncoder(ctx).EncodeStream(
+						&body,
 						read(ctx, index, channels...),
-					)).Error().To(And(
+					)).To(And(
 						MatchError(validate.ErrValidation),
 						MatchError(ContainSubstring(fmt.Sprintf(
 							"channels %s and %s both take the name %s in a TDMS file",
@@ -875,6 +879,7 @@ var _ = Describe("TDMS", func() {
 							channels[1].Name,
 						))),
 					))
+					Expect(body.Len()).To(BeZero())
 				},
 			)
 		})
