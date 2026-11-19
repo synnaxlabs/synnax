@@ -13,12 +13,10 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions"
-	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -60,7 +58,7 @@ func (s *Service) Decode(ctx context.Context, env imex.Envelope) (imex.Write, er
 			return resource.ID{}, err
 		}
 		sch.Group, sch.Project = opts.Group, &proj
-		if err = s.clearMissingEnumerations(ctx, tx, &sch); err != nil {
+		if _, err = s.table.DropDangling(ctx, tx, &sch); err != nil {
 			return resource.ID{}, err
 		}
 		if err = s.NewWriter(tx).Create(ctx, &sch); err != nil {
@@ -68,56 +66,4 @@ func (s *Service) Decode(ctx context.Context, env imex.Envelope) (imex.Write, er
 		}
 		return ResourceID(sch.Key), nil
 	}, nil
-}
-
-func (s *Service) clearMissingEnumerations(
-	ctx context.Context,
-	tx gorp.Tx,
-	sch *Schematic,
-) error {
-	var keys []enumeration.Key
-	for _, n := range sch.Nodes {
-		switch cfg := n.Config.Variant.(type) {
-		case SelectNodeConfig:
-			if cfg.Enumeration != nil {
-				keys = append(keys, *cfg.Enumeration)
-			}
-		case StateIndicatorNodeConfig:
-			if cfg.Enumeration != nil {
-				keys = append(keys, *cfg.Enumeration)
-			}
-		}
-	}
-	if len(keys) == 0 {
-		return nil
-	}
-	var found []enumeration.Enumeration
-	if err := s.cfg.Enumeration.NewRetrieve().
-		Where(enumeration.MatchKeys(keys...)).
-		SkipMissingKeys().
-		Entries(&found).
-		Exec(ctx, tx); err != nil {
-		return err
-	}
-	stored := make(set.Set[enumeration.Key], len(found))
-	for _, e := range found {
-		stored.Add(e.Key)
-	}
-	keep := func(k *enumeration.Key) *enumeration.Key {
-		if k == nil || !stored.Contains(*k) {
-			return nil
-		}
-		return k
-	}
-	for i, n := range sch.Nodes {
-		switch cfg := n.Config.Variant.(type) {
-		case SelectNodeConfig:
-			cfg.Enumeration = keep(cfg.Enumeration)
-			sch.Nodes[i].Config.Variant = cfg
-		case StateIndicatorNodeConfig:
-			cfg.Enumeration = keep(cfg.Enumeration)
-			sch.Nodes[i].Config.Variant = cfg
-		}
-	}
-	return nil
 }
