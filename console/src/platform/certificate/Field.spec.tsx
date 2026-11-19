@@ -197,6 +197,12 @@ const openDownload = async (): Promise<void> => {
   fireEvent.click(getIconButton(document.body, "download"));
 };
 
+const summaryOf = (c: certificate.Certificate): string => {
+  const summary = Secret.Validity.summarizeCertificate(c, TimeStamp.now());
+  if (summary == null) throw new Error(`${c.name} has no details`);
+  return summary.text;
+};
+
 const fingerprintOf = (c: certificate.Certificate): string => {
   assert(c.details != null);
   return c.details.sha256.toUpperCase().match(/.{2}/g)?.join(":") ?? "";
@@ -231,23 +237,22 @@ describe("Certificate.Field", () => {
     expect(screen.queryByText(c.name)).toBeNull();
   });
 
-  it("sets the value to the key of the picked certificate and shows only its name", async () => {
+  it("sets the value to the key of the picked certificate and shows its name and expiry", async () => {
     const c = await createStored();
     const { onChange } = await renderField();
     await open("Select a certificate");
     fireEvent.click(await findOption("certificate", c.name));
     await waitFor(() => expect(onChange).toHaveBeenLastCalledWith(c.key));
     const trigger = await findDialogTriggerByText(c.name);
-    expect(trigger.textContent).toBe(c.name);
+    expect(trigger.textContent).toBe(`${c.name}${summaryOf(c)}`);
   });
 
-  it("shows the validity of a stored certificate under the field with no path", async () => {
+  it("shows the expiry of a certificate in the trigger and not under the field", async () => {
     const c = await createStored();
     await renderField(c.key);
-    await screen.findByText(
-      Secret.Validity.describeCertificate(c, TimeStamp.now()).text,
-    );
-    expect(screen.queryByText("·")).toBeNull();
+    const trigger = await findDialogTriggerByText(c.name);
+    const badge = within(trigger).getByText(summaryOf(c));
+    expect(screen.getAllByText(summaryOf(c))).toEqual([badge]);
   });
 
   it("shows the details of the certificate only while they are open", async () => {
@@ -290,7 +295,7 @@ describe("Certificate.Field", () => {
     expect(bytes).toEqual(DER);
   });
 
-  it("shows the path of a file certificate under the field and offers no download", async () => {
+  it("shows the path of a file certificate under the field with no badge and no download", async () => {
     const r = await client.racks.create({ name: uniqueName("rack") });
     const c = await client.certificates.set({
       name: uniqueName("file"),
@@ -301,6 +306,7 @@ describe("Certificate.Field", () => {
     created.push(c.key);
     await renderField(c.key);
     await screen.findByText("/etc/synnax/client.crt");
+    expect((await findDialogTriggerByText(c.name)).textContent).toBe(c.name);
     await showDetails();
     expect(readDetails()).toEqual({ Path: "/etc/synnax/client.crt" });
     expect(queryIconButton(document.body, "download")).toBeNull();

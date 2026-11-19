@@ -178,31 +178,29 @@ export interface DetailsProps {
 }
 
 /**
- * The validity and file path of a certificate on one line, with a button that shows its
- * full details. A stored certificate also downloads.
+ * A line with the path of a file certificate and a button that shows the full details
+ * of the certificate. A stored certificate also downloads.
  */
 export const Details = ({ certificate: c, now }: DetailsProps): ReactElement => {
   const [visible, setVisible] = useState(false);
-  const validity =
-    c.details == null ? null : Secret.Validity.describeCertificate(c, now);
-  const path = c.source === "file" ? c.certificatePath : null;
   return (
     <Flex.Box y gap="small">
-      <Flex.Box x align="center" className={CSS.BE("certificate-field", "summary")}>
-        <Text.Text
-          level="small"
-          color={9}
-          overflow="fade"
-          className={CSS.BE("certificate-field", "summary-text")}
-        >
-          {validity != null && (
-            <Text.Text el="span" color={9} status={validity.status}>
-              {validity.text}
-            </Text.Text>
-          )}
-          {validity != null && path != null && <span>·</span>}
-          {path != null && <span>{path}</span>}
-        </Text.Text>
+      <Flex.Box
+        x
+        align="center"
+        justify="end"
+        className={CSS.BE("certificate-field", "summary")}
+      >
+        {c.source === "file" && (
+          <Text.Text
+            level="small"
+            color={9}
+            overflow="fade"
+            className={CSS.BE("certificate-field", "summary-text")}
+          >
+            {c.certificatePath}
+          </Text.Text>
+        )}
         <Button.Button
           variant="text"
           size="small"

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { certificate } from "@synnaxlabs/client";
+import { Badge } from "@synnaxlabs/lyra/badge";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { useNow } from "@synnaxlabs/lyra/hooks";
@@ -37,6 +38,11 @@ const Control = ({ value, defaultName, ...rest }: ControlProps): ReactElement =>
   const now = useNow(nextMinute);
   const describe = (c: certificate.Certificate): Picker.Description =>
     Secret.Validity.describeCertificate(c, now);
+  const renderValidity = (c: certificate.Certificate): ReactElement | null => {
+    const validity = Secret.Validity.summarizeCertificate(c, now);
+    if (validity == null) return null;
+    return <Badge.Badge status={validity.status}>{validity.text}</Badge.Badge>;
+  };
   return (
     <Flex.Box y gap="small" grow>
       <Picker.Select<certificate.Key, certificate.Certificate>
@@ -44,6 +50,7 @@ const Control = ({ value, defaultName, ...rest }: ControlProps): ReactElement =>
         resourceName="certificate"
         icon={Icon.Certificate}
         describe={describe}
+        renderEndContent={renderValidity}
         list={list}
         result={result}
         onCreate={

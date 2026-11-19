@@ -23,6 +23,12 @@
     min-width: 0;
 }
 
+.console-picker__end {
+    display: inline-flex;
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
 .console-picker__dialog {
     min-width: 40rem;
 }
