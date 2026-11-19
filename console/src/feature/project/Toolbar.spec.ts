@@ -8,12 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, onTestFinished } from "vitest";
 
 import { Project } from "@/feature/project";
 import { findTreeRow, renderToolbar } from "@/platform/tree/testutil";
-import { getIconButton, getIconButtons, uniqueName } from "@/testutil";
+import { getIconButton, getIconButtons } from "@/testutil";
 
 const client = createTestClient();
 const roles = new RoleClients(client);
