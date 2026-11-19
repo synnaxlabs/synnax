@@ -147,10 +147,16 @@ describe("lightbox", () => {
       ).not.toBeNull();
     });
 
-    it("should caption a video with the heading of its section", () => {
+    it("should caption a video with its label", () => {
       openVideo();
+      expect(control("caption").textContent).toBe("A video");
+      expect(dialog().getAttribute("aria-label")).toBe("A video");
+    });
+
+    it("should caption a decorative image with the heading of its section", () => {
+      show('<img class="docs-image" src="still.webp" alt="">');
+      find<HTMLElement>(".docs-image").click();
       expect(control("caption").textContent).toBe("Create a plot");
-      expect(dialog().getAttribute("aria-label")).toBe("Create a plot");
     });
 
     it("should caption an image with its text alternative", () => {
