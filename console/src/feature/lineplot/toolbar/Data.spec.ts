@@ -16,6 +16,7 @@ import {
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
+import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -23,11 +24,9 @@ import { client, renderLinePlot } from "@/feature/lineplot/testutil";
 import { Toolbar } from "@/feature/lineplot/toolbar";
 import { createTestRange } from "@/platform/range/testutil";
 import {
-  assertDefined,
   findDialogTriggerByText,
   findTagCloseButton,
   getInputItem,
-  uniqueName,
   uniqueToken,
 } from "@/testutil";
 

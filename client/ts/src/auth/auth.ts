@@ -13,7 +13,7 @@ import {
   type Next,
   type UnaryClient,
 } from "@synnaxlabs/freighter";
-import { errors, TimeStamp, uuid } from "@synnaxlabs/x";
+import { binary, errors, TimeStamp, uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
@@ -73,18 +73,16 @@ const API_KEY_LENGTH = 48;
  */
 export const apiKeyID = (token: string): APIKeyKey => {
   if (!token.startsWith(API_KEY_PREFIX)) throw new InvalidTokenError("not an API key");
-  const body = token
-    .slice(API_KEY_PREFIX.length)
-    .replaceAll("-", "+")
-    .replaceAll("_", "/");
   let raw: Uint8Array;
   try {
-    raw = Uint8Array.from(atob(body), (c) => c.charCodeAt(0));
+    raw = binary.decodeBase64(token.slice(API_KEY_PREFIX.length), {
+      alphabet: "base64url",
+    });
   } catch {
     throw new InvalidTokenError("malformed API key");
   }
   if (raw.length !== API_KEY_LENGTH) throw new InvalidTokenError("malformed API key");
-  return uuid.parse(raw);
+  return uuid.fromBytes(raw);
 };
 
 export interface NewAPIKey {

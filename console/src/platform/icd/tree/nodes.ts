@@ -10,8 +10,6 @@
 import { type icd } from "@synnaxlabs/client";
 import { type record } from "@synnaxlabs/x";
 
-import { type ReadMessage } from "@/platform/icd/read";
-
 /** A source of the task, such as a topic or a record, at the root of the tree. */
 export interface SourceNode {
   kind: "source";
@@ -50,7 +48,7 @@ export const fieldKey = (
 
 /** A source as the tree opens it. A source that reads no messages has none. */
 export interface InitialSource extends record.Keyed<string> {
-  messages?: ReadMessage[];
+  messages?: icd.ReadMessage[];
 }
 
 /**
