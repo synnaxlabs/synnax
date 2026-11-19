@@ -208,11 +208,7 @@ const AddDevice = ({ rack, exclude, onAdd }: AddDeviceProps): ReactElement => (
       variant: "text",
       icon: <Icon.Add />,
       hideCaret: true,
-      className: CSS.cls(
-        CSS.B("create-list-item"),
-        CSS.M("small"),
-        CSS.BE("ni-ports", "trigger"),
-      ),
+      className: CSS.BE("ni-ports", "trigger"),
     }}
   />
 );

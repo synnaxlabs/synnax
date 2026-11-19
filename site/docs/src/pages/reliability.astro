@@ -12,6 +12,7 @@ import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
+import { math, strings } from "@synnaxlabs/x";
 
 import Stat from "@/components/reliability/Stat.astro";
 import Subsystems from "@/components/reliability/Subsystems.astro";
@@ -45,7 +46,7 @@ const day = (iso: string) =>
         day: "numeric",
     });
 const date = day(run.started_at);
-const hardwareCount = Object.values(hardwareTotals).reduce((a, b) => a + b, 0);
+const hardwareCount = math.sum(Object.values(hardwareTotals));
 const REPO = "https://github.com/synnaxlabs/synnax";
 
 interface StatProps {
@@ -124,7 +125,7 @@ const tiles = products.map((product) => {
 
 const footer = ({ suites, counts }: (typeof products)[number]): string =>
     [
-        `${suites.length} ${suites.length === 1 ? "suite" : "suites"}`,
+        strings.count(suites.length, "suite"),
         counts.flaky > 0 && `${counts.flaky} flaky`,
         counts.skipped > 0 && `${counts.skipped} skipped`,
     ]

@@ -142,10 +142,10 @@ class TestMQTTReadTask:
                     qos="at_least_once",
                     icd=ic.key,
                     messages=[
-                        sy.mqtt.ReadMessage(
+                        sy.icd.ReadMessage(
                             message=message.key,
                             bindings=[
-                                sy.mqtt.ReadBinding(field=value.key, channel=1234)
+                                sy.icd.ReadBinding(field=value.key, channel=1234)
                             ],
                         )
                     ],
@@ -179,7 +179,7 @@ class TestMQTTReadTask:
                 sy.mqtt.PlainReadEntry(
                     topic="plant/line2",
                     icd=ic.key,
-                    messages=[sy.mqtt.ReadMessage(message=uuid4())],
+                    messages=[sy.icd.ReadMessage(message=uuid4())],
                 )
             ],
         )
