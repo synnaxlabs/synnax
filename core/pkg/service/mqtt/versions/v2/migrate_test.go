@@ -165,6 +165,19 @@ var _ = Describe("ResolveReadConfig", func() {
 		},
 	)
 
+	It("Should index the read with the field that the inline entry names",
+		func(ctx SpecContext) {
+			e := inlineEntry(0, "plant/a", storedField(telem.TimestampT))
+			e.Index = "f1"
+			cfg := inlineConfig(e)
+			ic := resolve(ctx, &cfg)
+			index := plainEntry(cfg.Entries[0]).Messages[0].Index
+			Expect(index).ToNot(BeNil())
+			Expect(*index).To(Equal(fields(ic.Messages[0])[0].Base().Key))
+			Expect(changes).To(BeEmpty())
+		},
+	)
+
 	It("Should keep the base and the subscription of an inline entry",
 		func(ctx SpecContext) {
 			e := inlineEntry(0, "plant/a", storedField(telem.Float64T))
