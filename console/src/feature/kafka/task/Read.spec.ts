@@ -211,7 +211,6 @@ const createICDReaderClient = async (): Promise<Synnax> => {
 
 /**
  * Adds a field to the message of a record, in a form whose client reads ICDs only.
- * @param onReader - Runs on the client before the form renders.
  */
 const addFieldAsICDReader = async () => {
   const temperature = createField("temperature", "float");
