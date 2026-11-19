@@ -142,7 +142,7 @@ jobs:
       # Every job installs the latest agent CLIs for itself, so an update never replaces
       # a CLI that another job on the same instance runs.
       - name: Install the agent CLIs
-        run: | # zizmor: ignore[adhoc-packages]
+        run: |
           npm install --prefix "$RUNNER_TEMP/cli" \
             @anthropic-ai/claude-code@latest @openai/codex@latest
           echo "$RUNNER_TEMP/cli/node_modules/.bin" >> "$GITHUB_PATH"

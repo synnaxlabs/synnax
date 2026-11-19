@@ -141,9 +141,8 @@ jobs:
           git fetch --no-tags origin "$BASE_SHA" "$HEAD_SHA"
           git worktree add --detach "$RUNNER_TEMP/head" "$HEAD_SHA"
 
-      # Each run installs the latest Claude Code.
       - name: Install Claude Code
-        run: | # zizmor: ignore[adhoc-packages]
+        run: |
           npm install --no-save --prefix "$RUNNER_TEMP/claude" \
             @anthropic-ai/claude-code@latest
           echo "$RUNNER_TEMP/claude/node_modules/.bin" >> "$GITHUB_PATH"

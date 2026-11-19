@@ -17,8 +17,7 @@
 name: Agent - Requeue
 
 on:
-  # No step checks out code or reads artifacts from the run.
-  workflow_run: # zizmor: ignore[dangerous-triggers]
+  workflow_run:
     workflows:
       - Agent - Bug hunt
       - Agent - Console QA
