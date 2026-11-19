@@ -17,7 +17,7 @@ import { type FC, type PropsWithChildren, type ReactElement, useState } from "re
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { Enumeration } from "@/enumeration";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
 
@@ -41,10 +41,7 @@ const marked = (el: HTMLInputElement): boolean =>
   el.getAttribute("aria-invalid") === "true";
 
 describe("Enumeration.Table", () => {
-  let wrapper: FC<PropsWithChildren>;
-  beforeAll(async () => {
-    wrapper = await createAsyncSynnaxWrapper({ client });
-  });
+  const wrapper = createSynnaxWrapper({ client: null });
 
   interface HarnessProps {
     initial: enumeration.Entry[];
@@ -74,8 +71,8 @@ describe("Enumeration.Table", () => {
     );
   };
 
-  const renderTable = (props: HarnessProps) =>
-    render(<Harness {...props} />, { wrapper });
+  const renderTable = (props: HarnessProps, as: FC<PropsWithChildren> = wrapper) =>
+    render(<Harness {...props} />, { wrapper: as });
 
   const paste = (el: HTMLInputElement, text: string): void => {
     fireEvent.focus(el);
@@ -264,25 +261,6 @@ describe("Enumeration.Table", () => {
       );
     });
 
-    it("should set a named color picked from the swatch", async () => {
-      const palette = await client.groups.create({
-        scope: "color",
-        name: `palette-${id.create()}`,
-      });
-      const named = await client.colors.create({
-        name: `color-${id.create()}`,
-        light: "#00FF00",
-        group: palette.key,
-      });
-      const onSet = vi.fn();
-      renderTable({ initial: [createEntry("Off", 0)], onSet });
-      fireEvent.click(screen.getByRole("button", { name: "Pick color 1" }));
-      fireEvent.click(await screen.findByRole("button", { name: named.name }));
-      expect(onSet).toHaveBeenCalledWith(
-        expect.objectContaining({ color: { type: "named", key: named.key } }),
-      );
-    });
-
     it("should set a fixed color with alpha from an eight digit hex code", () => {
       const onSet = vi.fn();
       renderTable({ initial: [createEntry("Off", 0)], onSet });
@@ -292,22 +270,6 @@ describe("Enumeration.Table", () => {
           color: { type: "fixed", value: color.construct("#f8514980") },
         }),
       );
-    });
-
-    it("should show a named color by its name", async () => {
-      const palette = await client.groups.create({
-        scope: "color",
-        name: `palette-${id.create()}`,
-      });
-      const named = await client.colors.create({
-        name: `color-${id.create()}`,
-        light: "#00FF00",
-        group: palette.key,
-      });
-      renderTable({
-        initial: [createEntry("Off", 0, { color: { type: "named", key: named.key } })],
-      });
-      await waitFor(() => expect(input("Color 1").value).toBe(named.name));
     });
 
     it("should clear a color to Auto when its text is erased", () => {
@@ -364,26 +326,6 @@ describe("Enumeration.Table", () => {
       const fixed = { type: "fixed" as const, value: color.construct("#ffffff") };
       renderTable({ initial: [createEntry("Off", 0, { color: fixed })] });
       expect(screen.getByLabelText(/hard to see in the light theme/)).toBeTruthy();
-    });
-
-    it("should warn about a named color hard to see in the dark theme", async () => {
-      const palette = await client.groups.create({
-        scope: "color",
-        name: `palette-${id.create()}`,
-      });
-      const named = await client.colors.create({
-        name: `color-${id.create()}`,
-        light: "#2e7d32",
-        dark: "#101010",
-        group: palette.key,
-      });
-      renderTable({
-        initial: [createEntry("Off", 0, { color: { type: "named", key: named.key } })],
-      });
-      expect(
-        await screen.findByLabelText(/hard to see in the dark theme/),
-      ).toBeTruthy();
-      expect(screen.queryByLabelText(/hard to see in the light theme/)).toBeNull();
     });
 
     it("should name the entry whose color looks the same with color blindness", () => {
@@ -468,6 +410,80 @@ describe("Enumeration.Table", () => {
       });
       expect(input("Abnormal 1").checked).toBe(true);
       expect(input("Abnormal 1").disabled).toBe(true);
+    });
+  });
+
+  // A live wrapper turns off React's act environment for the rest of the file, so these
+  // run last.
+  describe("named colors", () => {
+    let live: FC<PropsWithChildren>;
+    beforeAll(async () => {
+      live = await createAsyncSynnaxWrapper({ client });
+    });
+
+    it("should set a named color picked from the swatch", async () => {
+      const palette = await client.groups.create({
+        scope: "color",
+        name: `palette-${id.create()}`,
+      });
+      const named = await client.colors.create({
+        name: `color-${id.create()}`,
+        light: "#00FF00",
+        group: palette.key,
+      });
+      const onSet = vi.fn();
+      renderTable({ initial: [createEntry("Off", 0)], onSet }, live);
+      fireEvent.click(screen.getByRole("button", { name: "Pick color 1" }));
+      fireEvent.click(await screen.findByRole("button", { name: named.name }));
+      expect(onSet).toHaveBeenCalledWith(
+        expect.objectContaining({ color: { type: "named", key: named.key } }),
+      );
+    });
+
+    it("should show a named color by its name", async () => {
+      const palette = await client.groups.create({
+        scope: "color",
+        name: `palette-${id.create()}`,
+      });
+      const named = await client.colors.create({
+        name: `color-${id.create()}`,
+        light: "#00FF00",
+        group: palette.key,
+      });
+      renderTable(
+        {
+          initial: [
+            createEntry("Off", 0, { color: { type: "named", key: named.key } }),
+          ],
+        },
+        live,
+      );
+      await waitFor(() => expect(input("Color 1").value).toBe(named.name));
+    });
+
+    it("should warn about a named color hard to see in the dark theme", async () => {
+      const palette = await client.groups.create({
+        scope: "color",
+        name: `palette-${id.create()}`,
+      });
+      const named = await client.colors.create({
+        name: `color-${id.create()}`,
+        light: "#2e7d32",
+        dark: "#101010",
+        group: palette.key,
+      });
+      renderTable(
+        {
+          initial: [
+            createEntry("Off", 0, { color: { type: "named", key: named.key } }),
+          ],
+        },
+        live,
+      );
+      expect(
+        await screen.findByLabelText(/hard to see in the dark theme/),
+      ).toBeTruthy();
+      expect(screen.queryByLabelText(/hard to see in the light theme/)).toBeNull();
     });
   });
 });
