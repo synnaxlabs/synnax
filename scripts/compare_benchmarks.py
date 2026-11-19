@@ -176,6 +176,19 @@ GROUPS: tuple[Group, ...] = (
         "core/pkg/distribution/framer/codec",
         "^Benchmark(Encode|Decode)$",
     ),
+    go(
+        "framer/codec-shapes",
+        "cpu",
+        "core/pkg/distribution/framer/codec",
+        "^Benchmark(Encode|Decode)Shapes$",
+    ),
+    go(
+        "framer/codec-frames",
+        "cpu",
+        "core/pkg/distribution/framer/codec",
+        "^Benchmark(StreamerFrame|IteratorFrame)_",
+    ),
+    go("telem/msgpack", "cpu", "x/go/telem", "^BenchmarkEncodeMsgpack$"),
     go("api/stream", "cpu", "core/pkg/api/framer", "^BenchmarkStreamKeyChange$"),
     go("iterator/calc", "cpu", f"{FRAMER}/iterator", "^BenchmarkIteratorCalc_"),
     go(
