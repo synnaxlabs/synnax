@@ -181,9 +181,9 @@ WriteBinding struct {
     }
     data_type telem.DataType = "" {
         @doc value """
-            is the data type of the command channel that a client creates for the
-            field. Empty takes the default of the field's kind. The Core ignores it once
-            the channel exists.
+            is the data type of the command channel that a client creates for the field.
+            Empty takes the default of the field's kind. The Core ignores it once the
+            channel exists.
         """
     }
 
@@ -219,7 +219,7 @@ WriteTarget union on type extends BaseWriteTarget {
         retained bool = false {
             @doc value "is true when the broker retains the published message."
         }
-        icd      icd.Key       {
+        icd      icd.Key      {
             @doc value "is the key of the ICD that holds the message."
         }
         message  WriteMessage {
