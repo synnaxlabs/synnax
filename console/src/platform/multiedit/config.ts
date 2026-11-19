@@ -13,12 +13,6 @@ import { z } from "zod";
 
 import { fixedRef } from "@/platform/multiedit/fixed";
 
-const objectShape = (variant: string, schema: z.ZodType): z.ZodRawShape => {
-  if (!(schema instanceof z.ZodObject))
-    throw new Error(`[multiedit] - schema for ${variant} is not an object`);
-  return schema.shape;
-};
-
 /**
  * Maps each variant to the top-level fields its schema declares, so an element "has" a
  * field even while the field is absent from its stored config.
@@ -29,10 +23,11 @@ export const fieldsByVariant = (
   schemas: Record<string, z.ZodType>,
 ): Map<string, Set<string>> =>
   new Map(
-    Object.entries(schemas).map(([variant, schema]) => [
-      variant,
-      new Set(Object.keys(objectShape(variant, schema))),
-    ]),
+    Object.entries(schemas).map(([variant, schema]) => {
+      if (!(schema instanceof z.ZodObject))
+        throw new Error(`[multiedit] - schema for ${variant} is not an object`);
+      return [variant, new Set(Object.keys(schema.shape))];
+    }),
   );
 
 /** A color reference stored at a path in one element's config. */
@@ -54,12 +49,12 @@ export const colorRefs = (
   key: string,
   config: record.Unknown,
   fields: readonly string[],
-  valueFields: readonly string[] = [],
+  valueFields: Readonly<Record<string, true>> = {},
 ): ColorRef[] =>
   fields.flatMap((path): ColorRef[] => {
     const value = config[path];
     if (value == null) return [];
-    if (valueFields.includes(path))
+    if (valueFields[path] === true)
       return [
         { key, path, value: fixedRef(xcolor.colorZ.parse(value)), valueOnly: true },
       ];

@@ -67,7 +67,7 @@ export interface SelectionArgs<C extends { variant: string }> {
   /** The fields each variant declares, from fieldsByVariant. */
   fields: Map<string, Set<string>>;
   /** The color fields each variant stores as values instead of references. */
-  valueColorFields?: Partial<Record<string, readonly string[]>>;
+  valueColorFields?: Partial<Record<string, Readonly<Record<string, true>>>>;
   /** Called with every changed config. Never called empty. */
   onChange: (updates: Array<Update<C>>) => void;
 }
@@ -127,7 +127,7 @@ export const selection = <C extends { variant: string }>({
   const read = <V>(config: C, field: string): V | undefined =>
     (config as record.Unknown)[field] as V | undefined;
   const storesValue = (config: C, field: string): boolean =>
-    valueColorFields?.[config.variant]?.includes(field) ?? false;
+    valueColorFields?.[config.variant]?.[field] === true;
   const readColor = (config: C, field: string): color.Ref | undefined => {
     if (!storesValue(config, field)) return read<color.Ref>(config, field);
     const value = read<xcolor.Color>(config, field);

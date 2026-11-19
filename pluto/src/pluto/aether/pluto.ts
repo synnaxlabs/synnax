@@ -54,7 +54,7 @@ export const render = (): void => {
     ...lineplot.REGISTRY,
     ...range.REGISTRY,
     ...scale.REGISTRY,
-    ...color.series.REGISTRY,
+    ...color.REGISTRY,
     ...setpoint.REGISTRY,
     ...staleness.REGISTRY,
     ...stateIndicator.REGISTRY,

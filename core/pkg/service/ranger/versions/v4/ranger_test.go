@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	color "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v4"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
@@ -32,6 +33,21 @@ var _ = Describe("Range", func() {
 			Expect(v4.Range{Key: k}.ResourceID()).To(Equal(resource.ID{
 				Type: resource.TypeRange, Key: k.String(),
 			}))
+		})
+	})
+
+	Describe("Validate", func() {
+		It("Should accept a range with no color", func() {
+			Expect(v4.Range{Name: "Hot fire"}.Validate()).To(Succeed())
+		})
+
+		It("Should reject a color with no type", func() {
+			Expect(v4.Range{Name: "Hot fire", Color: &color.Ref{}}.Validate()).
+				To(MatchError(ContainSubstring("color.type: required")))
+		})
+
+		It("Should reject an empty name", func() {
+			Expect(v4.Range{}.Validate()).To(MatchError(ContainSubstring("name")))
 		})
 	})
 })

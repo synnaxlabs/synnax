@@ -95,7 +95,7 @@ export default defineConfig({
         extends: true,
         test: {
           // Every spec file shares the built-in records of one Core, so the specs that
-          // edit them run one file at a time, after every other spec.
+          // change them run one file at a time, after every other spec.
           name: "builtins",
           environment: "jsdom",
           setupFiles: ["src/testutil/setup.ts"],

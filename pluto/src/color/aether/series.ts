@@ -16,11 +16,11 @@ const CONTEXT_KEY = "pluto-color-series";
 
 const providerStateZ = z.object({ colors: z.array(color.colorZ) });
 
-/** Provider gives its descendants the series colors, resolved for the theme. */
-export class Provider extends aether.Composite<typeof providerStateZ> {
-  static readonly TYPE = "color.series.Provider";
+/** SeriesProvider gives its descendants the series colors, resolved for the theme. */
+export class SeriesProvider extends aether.Composite<typeof providerStateZ> {
+  static readonly TYPE = "color.SeriesProvider";
   static readonly z = providerStateZ;
-  schema = Provider.z;
+  schema = SeriesProvider.z;
 
   afterUpdate(ctx: aether.Context): void {
     ctx.set(CONTEXT_KEY, this.state.colors);
@@ -29,9 +29,11 @@ export class Provider extends aether.Composite<typeof providerStateZ> {
 
 /**
  * @returns the series colors in palette order. The list is empty until they load.
- * @throws {NotFoundError} if no {@link Provider} is above the component.
+ * @throws {NotFoundError} if no {@link SeriesProvider} is above the component.
  */
-export const use = (ctx: aether.Context): color.Color[] =>
+export const useSeries = (ctx: aether.Context): color.Color[] =>
   ctx.get<color.Color[]>(CONTEXT_KEY);
 
-export const REGISTRY: aether.ComponentRegistry = { [Provider.TYPE]: Provider };
+export const REGISTRY: aether.ComponentRegistry = {
+  [SeriesProvider.TYPE]: SeriesProvider,
+};

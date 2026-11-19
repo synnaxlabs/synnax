@@ -27,13 +27,14 @@ import {
 } from "react";
 
 import { Access } from "@/access";
-import { useAppend, useCreatePalette } from "@/color/queries";
+import { NO_PALETTE } from "@/color/library";
+import { useCreate, useCreatePalette } from "@/color/queries";
 import { CSS } from "@/css";
 
 interface NameEntryProps {
   placeholder: string;
-  /** Called with the trimmed name. Resolves to whether the create succeeded. */
-  onSave: (name: string) => Promise<boolean>;
+  /** Called with the trimmed name. */
+  onSave: (name: string) => Promise<void>;
   onCancel: () => void;
   /** If true, the create is saving, and nothing cancels it. */
   saving: boolean;
@@ -49,16 +50,11 @@ const NameEntry = ({
   children,
 }: NameEntryProps): ReactElement => {
   const [name, setName] = useState("");
-  // A ref, so that two key presses in one render cannot both save.
-  const savingRef = useRef(false);
   const save = (): void => {
-    if (savingRef.current) return;
+    if (saving) return;
     const trimmed = name.trim();
     if (trimmed === "") return onCancel();
-    savingRef.current = true;
-    void onSave(trimmed).then((ok) => {
-      if (!ok) savingRef.current = false;
-    });
+    void onSave(trimmed);
   };
   const handleKeyDown = (e: KeyboardEvent): void => {
     if (e.key === "Enter") {
@@ -109,23 +105,16 @@ const NameEntry = ({
   );
 };
 
-interface AddProps {
-  /** If true, the "+" takes the focus. */
-  focused?: boolean;
-  /** Called when the "+" takes the focus. */
-  onFocus?: () => void;
-}
-
 /**
  * The "+" that ends a palette, and the name entry that it opens. A create moves the
  * focus to the new swatch, and a cancel moves it back to the "+".
  */
-const Add = ({ focused = false, onFocus }: AddProps): ReactElement => {
-  const { palette } = Color.usePalette();
-  const { value, linked, onNamedChange } = Color.usePicker();
+const Add = (): ReactElement => {
+  const { palette, focused } = Color.usePalette();
+  const { value, linked, link } = Color.usePicker();
   const { dark } = Theming.use();
   const [naming, setNaming] = useState(false);
-  const { updateAsync: append, variant } = useAppend();
+  const { updateAsync: create, variant } = useCreate();
   const saving = variant === "loading";
   const plus = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -138,11 +127,10 @@ const Add = ({ focused = false, onFocus }: AddProps): ReactElement => {
   const add = (
     <Button.Button
       ref={plus}
-      onFocus={onFocus}
       variant="text"
       square
       textColor={9}
-      className={CSS.cls(CSS.B("color-create"), CSS.selected(naming))}
+      className={CSS.cls(CSS.selected(naming))}
       tooltip="Create color"
       aria-label={`Create a color in ${palette.name}`}
       disabled={saving}
@@ -152,19 +140,18 @@ const Add = ({ focused = false, onFocus }: AddProps): ReactElement => {
     </Button.Button>
   );
   if (!naming) return add;
-  const handleSave = async (name: string): Promise<boolean> => {
+  const handleSave = async (name: string): Promise<void> => {
     const key = uuid.create();
-    const created = await append({
+    const created = await create({
       key,
       name,
       light: linked?.light ?? value,
       dark: linked == null ? (dark ? value : undefined) : linked.dark,
-      ...(palette.key === "" ? {} : { group: palette.key }),
+      ...(palette.key === NO_PALETTE ? {} : { group: palette.key }),
     });
-    if (!created) return false;
+    if (!created) return;
     setNaming(false);
-    onNamedChange(key);
-    return true;
+    link(key);
   };
   return (
     <>
@@ -181,43 +168,22 @@ const Add = ({ focused = false, onFocus }: AddProps): ReactElement => {
   );
 };
 
-interface PaletteAddProps extends AddProps {
+interface PaletteAddProps {
   palette: group.Key;
 }
 
-const PaletteAdd = ({ palette, ...rest }: PaletteAddProps): ReactElement | null =>
-  Access.useUpdateGranted(group.resourceID(palette)) ? <Add {...rest} /> : null;
-
-export interface CreateSwatchProps extends Pick<AddProps, "onFocus"> {
-  /** The palette whose "+" takes the focus, such as a new palette. */
-  focusedPalette?: group.Key;
-}
+const PaletteAdd = ({ palette }: PaletteAddProps): ReactElement | null =>
+  Access.useUpdateGranted(group.resourceID(palette)) ? <Add /> : null;
 
 /**
- * Ends a palette of a color picker. It asks for a name in place, creates a named color
- * after the last positioned color of the palette, and links the value to it. The new
- * color copies the linked one, else the color that the picker shows in the current
- * theme. The Series palette gets none, because a copy of a series color would repeat
- * it. A palette that the user cannot update gets none, because a new color updates it.
+ * Ends a palette with a "+" that creates a named color at its end and links the value
+ * to it. The Series palette and palettes that the user cannot update get none.
  */
-export const CreateSwatch = ({
-  focusedPalette,
-  onFocus,
-}: CreateSwatchProps): ReactElement | null => {
+export const CreateSwatch = (): ReactElement | null => {
   const { palette } = Color.usePalette();
   if (palette.key === color.SERIES_PALETTE) return null;
-  const focused = palette.key === focusedPalette;
-  return palette.key === "" ? (
-    <Add focused={focused} onFocus={onFocus} />
-  ) : (
-    <PaletteAdd palette={palette.key} focused={focused} onFocus={onFocus} />
-  );
+  return palette.key === NO_PALETTE ? <Add /> : <PaletteAdd palette={palette.key} />;
 };
-
-export interface CreatePaletteProps {
-  /** Called with the key of a created palette that ends with a "+", for its focus. */
-  onCreate?: (key: group.Key) => void;
-}
 
 /**
  * Ends the palettes of a color picker. It creates a palette after asking its name, and
@@ -225,23 +191,22 @@ export interface CreatePaletteProps {
  * the new palette. A cancel, or a create for a user who cannot add to the palette,
  * moves it back to the button that opened the entry.
  */
-export const CreatePalette = ({ onCreate }: CreatePaletteProps): ReactElement => {
-  const { clearSearch } = Color.usePicker();
+export const CreatePalette = (): ReactElement => {
+  const { clearSearch, focusPalette } = Color.usePicker();
   // No policy can name the key of a new palette, so only a grant on every palette gives
   // it a "+".
   const extendable = Access.useUpdateGranted(group.TYPE_RESOURCE_ID);
   const [naming, setNaming] = useState(false);
   const [focused, setFocused] = useState(false);
   const { updateAsync: create, variant } = useCreatePalette();
-  const handleSave = async (name: string): Promise<boolean> => {
+  const handleSave = async (name: string): Promise<void> => {
     const key = uuid.create();
     const created = await create({ key, name });
-    if (!created) return false;
+    if (!created) return;
     setNaming(false);
     clearSearch();
-    if (extendable) onCreate?.(key);
+    if (extendable) focusPalette(key);
     else setFocused(true);
-    return true;
   };
   return naming ? (
     <NameEntry
