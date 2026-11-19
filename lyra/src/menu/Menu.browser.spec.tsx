@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, Suspense, use } from "react";
+import { type ReactElement, Suspense, use, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { page, userEvent } from "vitest/browser";
+import { page, server, userEvent } from "vitest/browser";
 
 import { Menu } from "@/menu";
 import { Select } from "@/select";
@@ -67,6 +67,67 @@ const ChooseMenu = ({
       {...ctx}
     >
       <button onContextMenu={ctx.open}>Opener</button>
+    </Menu.ContextMenu>
+  );
+};
+
+interface SubChooseMenuProps {
+  onChoose: (focused: Element | null) => void;
+  onCreate: (name: string) => void;
+}
+
+const SubChooseMenu = ({ onChoose, onCreate }: SubChooseMenuProps): ReactElement => {
+  const ctx = Menu.useContextMenu();
+  const [value, setValue] = useState<string[]>([]);
+  return (
+    <Menu.ContextMenu
+      menu={() => (
+        <Menu.Menu>
+          <Menu.Sub itemKey="move" textValue="Move">
+            <Menu.SubTrigger>Move</Menu.SubTrigger>
+            <Menu.Dialog aria-label="Move">
+              <Menu.Menu>
+                <Menu.Item
+                  itemKey="up"
+                  onClick={() => onChoose(document.activeElement)}
+                >
+                  Up
+                </Menu.Item>
+              </Menu.Menu>
+            </Menu.Dialog>
+          </Menu.Sub>
+          <Menu.Sub itemKey="labels" textValue="Labels">
+            <Menu.SubTrigger>Labels</Menu.SubTrigger>
+            <Select.Frame<string, undefined>
+              multiple
+              data={["alpha"]}
+              value={value}
+              onChange={setValue}
+            >
+              <Select.Dialog surface="menu" aria-label="Labels">
+                <Select.Body<string>
+                  resourceName="label"
+                  onSearch={() => {}}
+                  footer={
+                    <Select.CreateItem resourceName="label" modal onCreate={onCreate} />
+                  }
+                >
+                  {({ key, ...p }) => (
+                    <Select.Item key={key} {...p}>
+                      {key}
+                    </Select.Item>
+                  )}
+                </Select.Body>
+              </Select.Dialog>
+            </Select.Frame>
+          </Menu.Sub>
+        </Menu.Menu>
+      )}
+      {...ctx}
+    >
+      <button className={Menu.CONTEXT_TARGET} onContextMenu={ctx.open}>
+        Target
+      </button>
     </Menu.ContextMenu>
   );
 };
@@ -405,12 +466,60 @@ describe("Menu", () => {
       expect(target.matches(":focus-visible")).toBe(false);
     });
 
-    it("should keep the focus of a right click on Escape, with no ring", async () => {
+    it("should keep the focus of a right click on Escape", async () => {
       const { found } = await rightClick();
       await userEvent.keyboard("{Escape}");
       await expect.poll(() => document.querySelector('[role="menu"]')).toBeNull();
       expect(document.activeElement).toBe(found);
-      expect(document.activeElement?.matches(":focus-visible")).toBe(false);
+    });
+
+    // WebKit ignores focus({ focusVisible }).
+    it.runIf(server.browser === "chromium")(
+      "should show no ring after Escape closes a right-clicked menu",
+      async () => {
+        await rightClick();
+        await userEvent.keyboard("{Escape}");
+        await expect.poll(() => document.querySelector('[role="menu"]')).toBeNull();
+        expect(document.activeElement?.matches(":focus-visible")).toBe(false);
+      },
+    );
+
+    describe("submenu", () => {
+      const openSub = async (name: string) => {
+        const onChoose = vi.fn();
+        const onCreate = vi.fn();
+        const { getByText } = await renderThemed(
+          <Triggers.Provider>
+            <SubChooseMenu onChoose={onChoose} onCreate={onCreate} />
+          </Triggers.Provider>,
+        );
+        const target = getByText("Target").element();
+        await userEvent.click(target, { button: "right" });
+        await userEvent.click(getByText(name));
+        return { target, onChoose, onCreate, getByText };
+      };
+
+      it("should run an item of a submenu on a click", async () => {
+        const { target, onChoose, getByText } = await openSub("Move");
+        await userEvent.click(getByText("Up"));
+        await expect.poll(() => document.querySelector('[role="menu"]')).toBeNull();
+        expect(onChoose).toHaveBeenCalledExactlyOnceWith(target);
+      });
+
+      it("should run an item of a submenu on Enter", async () => {
+        const { target, onChoose } = await openSub("Move");
+        await expect.poll(() => document.activeElement?.textContent).toBe("Up");
+        await userEvent.keyboard("{Enter}");
+        await expect.poll(() => document.querySelector('[role="menu"]')).toBeNull();
+        expect(onChoose).toHaveBeenCalledExactlyOnceWith(target);
+      });
+
+      it("should run a create option of a selection in a submenu", async () => {
+        const { onCreate, getByText } = await openSub("Labels");
+        await userEvent.click(getByText("New label"));
+        await expect.poll(() => document.querySelector('[role="menu"]')).toBeNull();
+        expect(onCreate).toHaveBeenCalledExactlyOnceWith("");
+      });
     });
 
     it("should give the focus back before a clicked item acts", async () => {
