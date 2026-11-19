@@ -97,7 +97,8 @@ export const cover = (p: Position, end: TimeStamp, floor: number): Bounds[] => {
 };
 
 export interface PointLimitProps {
-  level: number;
+  /** The tile, which may be cut short at either end. */
+  tile: Bounds;
   /** The range the line shows. */
   view: TimeRange;
   /** About how many points the line draws across the view. */
@@ -109,21 +110,25 @@ export interface PointLimitProps {
 }
 
 /**
- * @returns the point limit of one tile at the level: its share of the line's groups
- * across the view, times the points per group of the tile's aggregation. The limit
- * rounds up to a power of two, so a resize of a few pixels keeps the same limit.
+ * @returns the point limit of the tile: its share of the line's groups across the view,
+ * times the points per group of the tile's aggregation. The limit of a whole tile
+ * rounds up to a power of two, so a resize of a few pixels keeps the same limit. A cut
+ * tile gets the part of that limit that it covers, so it reduces with the same group
+ * size.
  */
 export const pointLimit = ({
-  level,
+  tile,
   view,
   points,
   drawn,
   aggregation,
 }: PointLimitProps): number => {
   const groups = points / POINTS_PER_GROUP[drawn];
-  const share =
-    (Number(tileSpan(level).valueOf()) / Number(view.span.valueOf())) * groups;
-  return 2 ** Math.ceil(Math.log2(Math.max(share * POINTS_PER_GROUP[aggregation], 1)));
+  const span = Number(tileSpan(tile.level).valueOf());
+  const share = (span / Number(view.span.valueOf())) * groups;
+  const limit =
+    2 ** Math.ceil(Math.log2(Math.max(share * POINTS_PER_GROUP[aggregation], 1)));
+  return Math.ceil((limit * Number(tileRange(tile).span.valueOf())) / span);
 };
 
 /** @returns a key that identifies the position. */

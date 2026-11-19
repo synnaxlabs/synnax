@@ -509,7 +509,9 @@ describe("range/explorer/Explorer", () => {
 
     it("should show the first 100 matches and say so", async () => {
       const token = uniqueToken();
-      const start = TimeStamp.now();
+      // Ended long ago, so the ranges never crowd the running or recent ranges that
+      // specs in parallel read from the shared Core.
+      const start = TimeStamp.now().sub(TimeSpan.days(365));
       await client.ranges.create(
         Array.from({ length: 101 }, (_, i) => ({
           name: `${token} ${i}`,
