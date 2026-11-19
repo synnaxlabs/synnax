@@ -17,6 +17,7 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Enumeration } from "@/enumeration";
+import { Options } from "@/schematic/node/common/options";
 import { StateMappingForm } from "@/schematic/node/common/form/StateMapping";
 
 export interface StatesProps {
@@ -50,7 +51,7 @@ export const States = ({
             className={CSS.BE("states", "enumeration")}
           />
         </Input.Item>
-        {key == null && (
+        {Options.drawn(key) && (
           <Input.Item label="Custom options" padHelpText={false}>
             <StateMappingForm path={options} showColor={showColor} />
           </Input.Item>
