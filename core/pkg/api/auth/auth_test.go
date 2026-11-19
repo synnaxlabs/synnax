@@ -31,6 +31,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -168,7 +169,7 @@ var _ = Describe("Disabled methods", func() {
 		}
 		delete(authenticators, method)
 		svc := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
-			DB:             db,
+			DB:             DeferClose(gorp.Wrap(memkv.New())),
 			Authenticators: authenticators,
 		}))
 		return MustSucceed(apiauth.NewService(apiauth.ServiceConfig{

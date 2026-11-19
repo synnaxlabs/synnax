@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -181,7 +182,7 @@ var _ = Describe("Service", func() {
 		)
 		It("Should refuse a user while passwords are off", func(ctx SpecContext) {
 			keysOnly := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
-				DB: db,
+				DB: DeferClose(gorp.Wrap(memkv.New())),
 				Authenticators: map[auth.Method]auth.Authenticator{
 					auth.MethodAPIKey: passwordSvc,
 				},
