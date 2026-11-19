@@ -51,10 +51,10 @@ run when it found one. The removal cancels the run, so it can show as cancelled.
 2. Read the failed jobs: `gh run view <run> --log-failed`.
 3. Merge the base branch as in step 1. Fix what the merged tree breaks, in one place.
    Run the failed check locally when you can.
-4. When the failure does not come from this pull request (a flake, a break on the base
-   branch), change no code. When the pull request has the `review/bot` label, put it
-   back in the queue: `gh pr merge <number> --auto --squash`. Otherwise name the failure
-   in your last message for a person.
+4. When the failure does not come from this pull request, change no code. For a flake,
+   when the pull request has the `review/bot` label, put it back in the queue:
+   `gh pr merge <number> --auto --squash`. Otherwise, or for a break on the base branch,
+   name the failure in your last message for a person.
 
 ## 5. Address every review finding
 
