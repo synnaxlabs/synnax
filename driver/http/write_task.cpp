@@ -7,7 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <set>
+#include <tuple>
+#include <vector>
 
 #include "client/cpp/http/json.gen.h"
 #include "x/cpp/payload/types.gen.h"
@@ -20,6 +23,13 @@
 
 namespace driver::http {
 namespace {
+/// @returns true if a and b are the same pointer, or one holds the other.
+bool nested(const std::string &a, const std::string &b) {
+    if (a.empty() || b.empty()) return false;
+    const auto &[outer, inner] = a.size() <= b.size() ? std::tie(a, b) : std::tie(b, a);
+    return inner == outer || (inner.starts_with(outer) && inner[outer.size()] == '/');
+}
+
 /// @brief parses an x::json::Type from its string form.
 /// @param str the type string ("number", "string", "boolean").
 /// @returns the parsed type paired with an error when the string is unknown.
@@ -62,7 +72,7 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
     ) = ::synnax::http::WriteConfig::parse(parser);
     if (cfg.device.empty()) parser.field_err("device", "this field is required");
 
-    std::set<std::string> all_pointers;
+    std::vector<std::string> all_pointers;
 
     bool some_enabled = false;
     for (const auto &ep: cfg.endpoints) {
@@ -70,7 +80,7 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
 
         all_pointers.clear();
         validate_pointer(ep.channel.pointer, parser, "endpoints.channel.pointer");
-        all_pointers.insert(ep.channel.pointer);
+        all_pointers.push_back(ep.channel.pointer);
         if (auto [t, type_err] = parse_json_type(ep.channel.json_type); type_err)
             parser.field_err("endpoints.channel.json_type", type_err);
         if (ep.channel.channel == 0)
@@ -121,11 +131,15 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
                     "endpoints.fields.pointer",
                     "field pointer cannot be empty"
                 );
-            else if (!all_pointers.insert(*pointer).second)
+            else if (std::ranges::any_of(all_pointers, [&](const auto &used) {
+                         return nested(used, *pointer);
+                     }))
                 parser.field_err(
                     "endpoints.fields.pointer",
-                    "pointer '" + *pointer + "' is already used"
+                    "pointer '" + *pointer + "' is already used or overlaps one"
                 );
+            else
+                all_pointers.push_back(*pointer);
         }
 
         // Validate bare primitive: if channel pointer is root, no other fields.
