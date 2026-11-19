@@ -12,8 +12,8 @@
 package v1
 
 import (
-	color "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/label/versions/v0"
+	color "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -27,9 +27,8 @@ type Label struct {
 	Key Key `json:"key" msgpack:"key"`
 	// Name is a human-readable name for the label.
 	Name string `json:"name" msgpack:"name"`
-	// Color is the display color for visual identification of the label, a named color
-	// or a fixed color.
-	Color color.Ref `json:"color" msgpack:"color"`
+	// Color is the display color for visual identification of the label.
+	Color color.Color `json:"color" msgpack:"color"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -37,6 +36,5 @@ type Label struct {
 func (l Label) Validate() error {
 	v := validate.New("Label")
 	v.NotEmptyString("name", l.Name)
-	v.Exec(func() error { return validate.PathedError(l.Color.Validate(), "color") })
 	return v.Error()
 }
