@@ -253,3 +253,19 @@ export const dragOnto = (from: HTMLElement, to: HTMLElement): void => {
   fireEvent.drop(to, { dataTransfer });
   fireEvent.dragEnd(from, { dataTransfer });
 };
+
+/**
+ * Makes each canvas transfer to an offscreen canvas that gives no WebGL context, the
+ * way a machine without a GPU does. Call it inside the describe block that needs it.
+ */
+export const installMissingGPU = (): void => {
+  beforeEach(() => {
+    Object.defineProperty(HTMLCanvasElement.prototype, "transferControlToOffscreen", {
+      configurable: true,
+      value: () => ({ getContext: () => null }),
+    });
+  });
+  afterEach(() => {
+    Reflect.deleteProperty(HTMLCanvasElement.prototype, "transferControlToOffscreen");
+  });
+};
