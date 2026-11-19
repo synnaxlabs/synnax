@@ -208,6 +208,8 @@ type spied struct {
 	// tolerant makes an engine open a changed image and return the commits with changed
 	// bytes as unreadable.
 	tolerant bool
+	// lasting holds, for each open of a crash image, if it found a changed byte.
+	lasting []bool
 }
 
 const meta = "metadata"
@@ -245,6 +247,9 @@ func (s *spied) open(_ context.Context, root xfs.FS) (crash.Engine, error) {
 		return nil, errors.Combine(err, engine.Close())
 	}
 	changed := s.note(got, string(gotMeta))
+	if _, image := root.(*fault.FS); image {
+		s.lasting = append(s.lasting, changed)
+	}
 	if changed && !s.tolerant {
 		refusal := s.refusal
 		if refusal == nil {
@@ -375,6 +380,20 @@ var _ = Describe("Lasting corruption", func() {
 			BeZero(),
 			BeZero(),
 		),
+	)
+
+	DescribeTable("Should keep a change through the crash in the recovery",
+		func(ctx SpecContext, profile crash.Profile) {
+			s := &spied{tolerant: true}
+			Expect(run(ctx, s, profile)).To(Succeed())
+			Expect(len(s.lasting) % 2).To(BeZero())
+			for i := 0; i < len(s.lasting); i += 2 {
+				Expect(s.lasting[i+1]).To(Equal(s.lasting[i]), "image %d", i/2)
+			}
+			Expect(s.lasting).To(ContainElement(true))
+		},
+		Entry("under OldCorruption", crash.OldCorruption),
+		Entry("under NewCorruption", crash.NewCorruption),
 	)
 
 	It("Should break R4 when an engine refuses a changed image with another error",

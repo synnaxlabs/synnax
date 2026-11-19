@@ -60,14 +60,11 @@ func newPlan(cfg Config) plan {
 	return p
 }
 
-// crash returns the config of the crash image behind the event, or with again, of the
-// crash in the recovery from that image.
-func (p plan) crash(event int, again bool) fault.CrashConfig {
+// crash returns the config of the crash image behind the event, and of the crash in the
+// recovery from that image.
+func (p plan) crash(event int) fault.CrashConfig {
 	cfg := p.survival
 	cfg.RunKey, cfg.Image = p.runKey^uint64(event)<<32, p.image
-	if again {
-		cfg.RunKey ^= 1 << 63
-	}
 	return cfg
 }
 

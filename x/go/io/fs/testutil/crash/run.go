@@ -202,7 +202,7 @@ func (r *run) afterEvent(event int) {
 // snapshot takes the crash image behind the event. The counter does not change while it
 // runs.
 func (r *run) snapshot(event int) *snapshot {
-	image, err := r.disk.Crash(r.plan.crash(event, false))
+	image, err := r.disk.Crash(r.plan.crash(event))
 	if err == nil {
 		var rules rules
 		if rules, err = r.plan.spoil(image, r.counter, event); err == nil {
@@ -232,7 +232,7 @@ func (r *run) check(s *snapshot, attempts []attempt) {
 		r.fail(b, s.event)
 		return
 	}
-	again, err := s.image.Crash(r.plan.crash(s.event, true))
+	again, err := s.image.Crash(r.plan.crash(s.event))
 	if err != nil {
 		r.abort(err)
 		return

@@ -344,6 +344,40 @@ var _ = Describe("Targets of lasting corruption", func() {
 		},
 	)
 
+	It("Should not change a file that a Sync made shorter than the unit",
+		func(ctx SpecContext) {
+			var log, side xfs.File
+			s := &script{}
+			s.begin = func(fs xfs.FS) (err error) {
+				if log, err = fs.Open("log", os.O_CREATE|os.O_RDWR); err != nil {
+					return err
+				}
+				if side, err = fs.Open("side", os.O_CREATE|os.O_RDWR); err != nil {
+					return err
+				}
+				return errors.Join(
+					fs.SyncDir(""),
+					put(side, bytes.Repeat([]byte{1}, 8192)),
+				)
+			}
+			s.commit = func(_ xfs.FS, frame []byte) error { return put(log, frame) }
+			// The unit is the bytes at 8192 of the side file. Then a cut to 100 bytes
+			// changes no byte, so the unit stays past the end of the file.
+			s.end = func() error {
+				_, err := side.WriteAt([]byte{2}, 8192)
+				return errors.Join(
+					err,
+					side.Sync(),
+					side.Truncate(100),
+					side.Sync(),
+					side.Close(),
+					log.Close(),
+				)
+			}
+			Expect(run(ctx, s)).To(Succeed())
+		},
+	)
+
 	It("Should follow a file through a rename", func(ctx SpecContext) {
 		var log xfs.File
 		s := &script{}

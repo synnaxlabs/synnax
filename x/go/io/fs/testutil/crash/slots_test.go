@@ -56,7 +56,8 @@ const (
 	// rewritten copies the log to log.tmp with no Sync, renames the copy over the log,
 	// and syncs the directory.
 	rewritten harm = iota + 1
-	// marked leaves a durable mark, and refuses each open that finds one.
+	// marked leaves a durable mark when the log holds a record, and refuses each open
+	// that finds one.
 	marked
 	// spoiled flips a bit of the first slot for good, when a later slot holds a record.
 	spoiled
@@ -115,6 +116,9 @@ func (l *slotLog) damage() error {
 		l.f, err = l.fs.Open("log", os.O_RDWR)
 		return err
 	case marked:
+		if len(l.records) == 0 {
+			return nil
+		}
 		mark, err := l.fs.Open("mark", os.O_CREATE|os.O_RDWR)
 		if err != nil {
 			return err
