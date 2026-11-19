@@ -18,31 +18,21 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { ICD as PICD } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
-import {
-  createContext,
-  type FC,
-  type PropsWithChildren,
-  type ReactElement,
-  useContext,
-} from "react";
+import { type FC, type ReactElement } from "react";
 
 import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
-import {
-  type BoundMessage,
-  type MessagePlan,
-  planMessage,
-} from "@/platform/icd/configure";
+import { type MessagePlan } from "@/platform/icd/configure";
 import { DEFAULT_DATA_TYPES } from "@/platform/icd/dataType";
 import { FieldsStatus, JSONField } from "@/platform/icd/Fields";
 import { type FormatForm } from "@/platform/icd/Formats";
 import { Match } from "@/platform/icd/Match";
+import { usePlan } from "@/platform/icd/Plans";
 import {
   fieldsPath,
   hiddenDataTypes,
   isIndexable,
   jsonFields,
-  readFields,
   type ReadSource,
   reindex,
   type TreeField,
@@ -84,54 +74,6 @@ export const AddField = ({ onClick }: AddFieldProps): ReactElement | null => {
       Add field
     </Button.Button>
   );
-};
-
-/** @returns what the device stores for a message that a source reads. */
-export type PropsOf = (
-  bound: BoundMessage<ReadSource>,
-) => Task.ReadChannelProps | undefined;
-
-const PlanContext = createContext<MessagePlan | undefined>(undefined);
-PlanContext.displayName = "ICD.PlanContext";
-
-export interface PlanProviderProps extends PropsWithChildren {
-  path: deep.Path<ReadSource>;
-  /** The index of the message in the source's reads. */
-  read: number;
-  format: FormatForm;
-  /** The prefix of the names of the channels that deploying creates. */
-  prefix: string;
-  propsOf: PropsOf;
-}
-
-/**
- * Plans the channels that deploying gives a message that a source reads, for the panes
- * inside, which show the names it gives. Plans again when the source, its message, or
- * what the device stores change.
- */
-export const PlanProvider = ({
-  path,
-  read,
-  format,
-  prefix,
-  propsOf,
-  children,
-}: PlanProviderProps): ReactElement => {
-  const source = PForm.useFieldValue(path);
-  const readMessage = source.messages[read];
-  const message = PForm.useFieldValue(PICD.formPath.messages[readMessage.message], {
-    optional: true,
-    ctx: format,
-  });
-  const bound =
-    message == null
-      ? undefined
-      : { source, read, message, fields: readFields(jsonFields(message), readMessage) };
-  const props = bound == null ? undefined : propsOf(bound);
-  const plan = Task.useChannelPlan({ bound, prefix, props }, async (client) =>
-    bound == null ? undefined : await planMessage(client, bound, prefix, props),
-  );
-  return <PlanContext value={plan}>{children}</PlanContext>;
 };
 
 /**
@@ -287,7 +229,7 @@ export const FieldDetails: FC<FieldDetailsProps> = ({
   prefix,
 }) => {
   const readPath = path.messages[read];
-  const plan = useContext(PlanContext);
+  const plan = usePlan(path, read);
   const bindings = PForm.useFieldValue(readPath.bindings);
   const message = PForm.useFieldValue(readPath.message);
   const icdKey = PForm.useFieldValue(path.icd);
@@ -349,7 +291,7 @@ export const MessageSections: FC<MessageSectionsProps> = ({
   ...rest
 }) => {
   const { path, read } = rest;
-  const plan = useContext(PlanContext);
+  const plan = usePlan(path, read);
   const icdKey = PForm.useFieldValue(path.icd);
   const readMessage = PForm.useFieldValue(path.messages[read]);
   const message = PForm.useFieldValue(PICD.formPath.messages[readMessage.message], {

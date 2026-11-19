@@ -1562,6 +1562,71 @@ describe("MQTT read form", () => {
       expect((await client.channels.retrieve(streamed)).name).toBe(`${name}_2`);
     });
 
+    it("should show a new channel for a streamed field while its message reads a number", async () => {
+      const mode = createField("mode", "string");
+      const { container, dev, draft } = await renderRead({
+        fields: [
+          mode,
+          createField("label", "string"),
+          createField("temperature", "float"),
+        ],
+        bound: { [mode.key]: 0 },
+        beforeRender: async (dev) =>
+          await client.channels.create({
+            name: `${dev.name}_plant_oven_label`,
+            dataType: DataType.STRING,
+            virtual: true,
+          }),
+      });
+      await deploy(container, draft.key);
+      const isNew = () =>
+        within(screen.getByRole("treeitem", { name: /^mode/ })).queryByRole("img", {
+          name: "New channel",
+        });
+      // The form holds the deployed channel.
+      await waitFor(() => expect(isNew()).toBeNull());
+      const temperature = await screen.findByRole("checkbox", {
+        name: "Read temperature",
+      });
+      fireEvent.click(temperature);
+      await waitFor(() => expect(isNew()).not.toBeNull());
+      await selectField("mode");
+      const name = await screen.findByDisplayValue(`${dev.name}_plant_oven_mode`);
+      await waitFor(() => expect((name as HTMLInputElement).disabled).toBe(true));
+      fireEvent.click(temperature);
+      fireEvent.click(await screen.findByRole("checkbox", { name: "Read label" }));
+      await selectField("label");
+      // Only a finished plan numbers the taken name.
+      await screen.findByDisplayValue(`${dev.name}_plant_oven_label_2`);
+      expect(isNew()).toBeNull();
+    });
+
+    it("should keep a streamed channel when its message stops reading a number before a deploy", async () => {
+      const mode = createField("mode", "string");
+      const { container, dev, draft } = await renderRead({
+        fields: [mode, createField("temperature", "float")],
+        bound: { [mode.key]: 0 },
+      });
+      await deploy(container, draft.key);
+      const [{ channel: streamed }] = await retrieveBindings(draft.key);
+      const temperature = await screen.findByRole("checkbox", {
+        name: "Read temperature",
+      });
+      fireEvent.click(temperature);
+      await waitFor(async () =>
+        expect(await retrieveBindings(draft.key)).toHaveLength(2),
+      );
+      fireEvent.click(temperature);
+      await waitFor(async () =>
+        expect(await retrieveBindings(draft.key)).toHaveLength(1),
+      );
+      await deploy(container, draft.key);
+      expect((await retrieveBindings(draft.key))[0].channel).toBe(streamed);
+      const ch = await client.channels.retrieve(streamed);
+      expect(ch.virtual).toBe(true);
+      expect(ch.name).toBe(`${dev.name}_plant_oven_mode`);
+    });
+
     it("should keep storing a message that comes to read only strings", async () => {
       const temperature = createField("temperature", "float");
       const label = createField("label", "string");
