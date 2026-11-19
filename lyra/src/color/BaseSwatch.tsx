@@ -54,11 +54,13 @@ export const BaseSwatch = ({
 }: BaseSwatchProps): ReactElement => {
   const { gray } = Theming.use().colors;
   const hex = color.hex(value);
-  // A clear fill shows the surface, so its text takes the icon gray instead.
+  // A clear fill shows the surface, so its text takes the icon gray instead. The
+  // background shows through a translucent fill.
+  const opacity = color.opacity(value);
   const text =
-    color.opacity(value) === 0
+    opacity === 0
       ? gray.l9
-      : color.pickByContrast(value, gray.l0, gray.l11);
+      : color.pickByContrast(color.over(value, gray.l0, opacity), gray.l0, gray.l11);
   const dragging = Haul.useDraggingState();
   const canDrop: Haul.CanDrop = ({ items }) => {
     const [k] = filterHaulItems(items);
