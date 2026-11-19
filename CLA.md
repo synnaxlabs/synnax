@@ -14,14 +14,8 @@ reserve all right, title, and interest in and to your contributions.
 
 ## 1. Definitions
 
-"You" (or "Your") means the copyright owner or legal entity authorized by the copyright
-owner that is making this agreement with Synnax Labs. For legal entities, the entity
-making a contribution and all other entities that control, are controlled by, or are
-under common control with that entity are considered to be a single contributor. For the
-purposes of this definition, "control" means (i) the power, direct or indirect, to cause
-the direction or management of such entity, whether by contract or otherwise, or (ii)
-ownership of fifty percent (50%) or more of the outstanding shares, or (iii) beneficial
-ownership of such entity.
+"You" (or "Your") means the individual who makes this agreement with Synnax Labs and
+submits a Contribution.
 
 "Contribution" means any original work of authorship, including any modifications or
 additions to an existing work, that is intentionally submitted by You to Synnax Labs for
@@ -63,9 +57,8 @@ Contribution or Work shall terminate as of the date such litigation is filed.
 You represent that You are legally entitled to grant the above licenses. If Your
 employer(s) has rights to intellectual property that You create that includes Your
 Contributions, You represent that You have received permission to make Contributions on
-behalf of that employer, that Your employer has waived such rights for Your
-Contributions to Synnax Labs, or that Your employer has executed a separate corporate
-contributor license agreement with Synnax Labs.
+behalf of that employer, or that Your employer has waived such rights for Your
+Contributions to Synnax Labs.
 
 ## 5. Your original work
 
