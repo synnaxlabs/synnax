@@ -13,7 +13,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   createState,
-  listTabs,
   removePart,
   setColor,
   setVariant,
@@ -199,27 +198,6 @@ describe("symbol editor spec", () => {
       expect(next.commands).toEqual([]);
       expect(next.interactions).toEqual([]);
       expect(next.states[0]).toMatchObject({ match: { type: "exact" } });
-    });
-  });
-
-  describe("listTabs", () => {
-    it("should list the entries of the enumeration", () => {
-      const tabs = listTabs(createSpec(), [
-        { key: "closed", value: 0, name: "Closed", abnormal: false },
-        { key: "open", value: 1, name: "Open", abnormal: false },
-      ]);
-      expect(tabs).toEqual([
-        { value: 0, name: "Closed" },
-        { value: 1, name: "Open" },
-      ]);
-    });
-
-    it("should list Base, and Active on an actuator, with no enumeration", () => {
-      expect(listTabs(createSpec())).toEqual([{ value: 0, name: "Base" }]);
-      expect(listTabs(createSpec({ variant: "actuator" }))).toEqual([
-        { value: 0, name: "Base" },
-        { value: 1, name: "Active" },
-      ]);
     });
   });
 });

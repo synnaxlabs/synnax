@@ -13,12 +13,12 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { type Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
+import { type Schematic } from "@synnaxlabs/pluto";
 
-import { type Tab } from "@/feature/schematic/symbol/edit/spec";
 import { CSS } from "@/platform/css";
 
 interface StateListProps extends Input.Control<number> {
-  tabs: Tab[];
+  tabs: Schematic.Node.Custom.Value[];
 }
 
 interface StateListItemProps extends List.ItemRenderProps<number> {

@@ -32,6 +32,34 @@ const createSpec = (
     ...spec,
   });
 
+describe("Custom.listValues", () => {
+  const entries: enumeration.Entry[] = [
+    { key: "closed", value: 0, name: "Closed", abnormal: false },
+    { key: "open", value: 1, name: "Open", abnormal: false },
+  ];
+
+  it("should list Base and Active for an actuator", () => {
+    expect(Custom.listValues(createSpec({ variant: "actuator" }))).toEqual([
+      { key: "base", value: 0, name: "Base" },
+      { key: "active", value: 1, name: "Active" },
+    ]);
+  });
+
+  it("should list only Base for a static symbol, whatever its entries", () => {
+    expect(Custom.listValues(createSpec({ variant: "static" }), entries)).toEqual([
+      { key: "closed", value: 0, name: "Closed" },
+    ]);
+  });
+
+  it("should name each value after its entry", () => {
+    const one = entries.slice(0, 1);
+    expect(Custom.listValues(createSpec({ variant: "actuator" }), one)).toEqual([
+      { key: "closed", value: 0, name: "Closed" },
+      { key: "active", value: 1, name: "Active" },
+    ]);
+  });
+});
+
 describe("Custom.usePaints", () => {
   const client = createTestClient();
   let wrapper: FC<PropsWithChildren>;

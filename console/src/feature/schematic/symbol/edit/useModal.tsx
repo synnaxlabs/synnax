@@ -31,7 +31,6 @@ import { RegionList } from "@/feature/schematic/symbol/edit/RegionList";
 import {
   createState,
   enumerationKey,
-  listTabs,
   setColor,
   toggleSelector,
 } from "@/feature/schematic/symbol/edit/spec";
@@ -71,7 +70,13 @@ const States = ({ value, onChange }: StatesProps): ReactElement | null => {
   const key = enumerationKey(spec);
   const res = Enumeration.useResult(key == null ? null : { key });
   const entries = res.variant === "success" ? res.data.entries : undefined;
-  return <StateList value={value} onChange={onChange} tabs={listTabs(spec, entries)} />;
+  return (
+    <StateList
+      value={value}
+      onChange={onChange}
+      tabs={Schematic.Node.Custom.listValues(spec, entries)}
+    />
+  );
 };
 
 const Editor = ({

@@ -23,6 +23,7 @@ import { type ReactElement, useEffect, useState } from "react";
 
 import { CSS } from "@/css";
 import {
+  listValues,
   type PaintContext,
   resolveRegions,
   usePaintContext,
@@ -43,19 +44,18 @@ interface RegionControlsProps {
   original?: schematic.symbol.Region;
 }
 
-// defaultOverrides returns an override for each entry of the first enumeration state of
-// spec, with the colors that the looks give each part at the entry's value.
+// defaultOverrides returns an override for each value that the node of spec draws, with
+// the colors that the looks give each part at that value.
 const defaultOverrides = (
   spec: schematic.symbol.Spec,
   ctx: Omit<PaintContext, "value">,
 ): schematic.symbol.StateOverride[] => {
-  const state = spec.states.find(
-    (s): s is schematic.symbol.EnumerationState =>
-      s.type === "enumeration" && s.enumeration != null,
-  );
-  if (state?.enumeration == null) return [];
-  const entries = ctx.enumerations.get(state.enumeration)?.entries ?? [];
-  return entries.map(({ key, name, value }) => ({
+  const [state] = spec.states;
+  const entries =
+    state?.type === "enumeration" && state.enumeration != null
+      ? ctx.enumerations.get(state.enumeration)?.entries
+      : undefined;
+  return listValues(spec, entries).map(({ key, name, value }) => ({
     key,
     name,
     regions: resolveRegions(spec, { ...ctx, value }),

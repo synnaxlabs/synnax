@@ -19,14 +19,8 @@ const STATE = "active";
 /** Field is a paint field of a look. */
 export type Field = "stroke" | "fill";
 
-/** Tab is a value of the state, as the editor lists it. */
-export interface Tab {
-  value: number;
-  name: string;
-}
-
-const BASE: Tab = { value: 0, name: "Base" };
-const ACTIVE: Tab = { value: 1, name: "Active" };
+const BASE = 0;
+const ACTIVE = 1;
 const DEACTIVATE = "deactivate";
 const ACTIVATE = "activate";
 
@@ -38,16 +32,6 @@ export const createState = (): schematic.symbol.State => ({
   match: { type: "exact" },
   default: 0,
 });
-
-/**
- * @returns the values that the editor lists: the entries of the state's enumeration,
- * or Base, and Active on an actuator, when the state has none.
- */
-export const listTabs = (spec: Spec, entries?: enumeration.Entry[]): Tab[] => {
-  if (entries != null && entries.length > 0)
-    return entries.map(({ value, name }) => ({ value, name }));
-  return spec.variant === "actuator" ? [BASE, ACTIVE] : [BASE];
-};
 
 /** @returns the key of the enumeration of the state, if it has one. */
 export const enumerationKey = (spec: Spec): enumeration.Key | undefined => {
@@ -153,11 +137,11 @@ const withState = (spec: Spec, match: schematic.symbol.Matcher): Spec["states"] 
 export const setVariant = (spec: Spec, variant: string): Spec => {
   if (variant === "actuator") {
     const copies = spec.looks
-      .filter((l) => l.part != null && only(l, l.part, BASE.value))
+      .filter((l) => l.part != null && only(l, l.part, BASE))
       .map((l) => ({
         ...l,
         key: `look-${id.create()}`,
-        when: { type: "equals" as const, state: STATE, values: [ACTIVE.value] },
+        when: { type: "equals" as const, state: STATE, values: [ACTIVE] },
       }));
     return {
       ...spec,
@@ -172,13 +156,13 @@ export const setVariant = (spec: Spec, variant: string): Spec => {
           key: DEACTIVATE,
           name: "Off",
           state: STATE,
-          value: { type: "fixed", value: BASE.value },
+          value: { type: "fixed", value: BASE },
         },
         {
           key: ACTIVATE,
           name: "On",
           state: STATE,
-          value: { type: "fixed", value: ACTIVE.value },
+          value: { type: "fixed", value: ACTIVE },
         },
       ],
       interactions: [{ type: "next", key: "next", commands: [DEACTIVATE, ACTIVATE] }],
@@ -188,7 +172,7 @@ export const setVariant = (spec: Spec, variant: string): Spec => {
     ...spec,
     variant,
     states: withState(spec, { type: "exact" }),
-    looks: spec.looks.filter((l) => l.part == null || !only(l, l.part, ACTIVE.value)),
+    looks: spec.looks.filter((l) => l.part == null || !only(l, l.part, ACTIVE)),
     commands: [],
     interactions: [],
   };

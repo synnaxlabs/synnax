@@ -126,6 +126,34 @@ describe("StateOverrideForm", () => {
     ]);
   });
 
+  it("should override Base and Active on an actuator with no enumeration", async () => {
+    const look = (value: number, hex: string): schematic.symbol.Look => ({
+      key: `look-${value}`,
+      part: "main",
+      when: { type: "equals", state: "active", values: [value] },
+      stroke: { type: "color", value: fixed(hex) },
+    });
+    const symbol = await client.schematics.symbols.create({
+      name: "unnamed",
+      data: {
+        drawing: { type: "svg", markup: '<svg><rect class="main" /></svg>' },
+        parts: [{ key: "main", name: "Main", selectors: [".main"] }],
+        states: [{ type: "enumeration", key: "active", name: "Active" }],
+        looks: [look(0, "#333333"), look(1, "#00ff00")],
+        variant: "actuator",
+      },
+    });
+    const { getByText, form } = renderForm(symbol.key);
+    await waitFor(() => expect(getByText("Main")).toBeTruthy());
+    const overrides = form()
+      .value()
+      .stateOverrides.map(({ key, regions }) => [key, regions[0].strokeColor]);
+    expect(overrides).toEqual([
+      ["base", color.construct("#333333")],
+      ["active", color.construct("#00ff00")],
+    ]);
+  });
+
   it("should fall back to the first state when the selected one disappears", async () => {
     const symbol = await createSymbol();
     const { getByText, queryByText, form } = renderForm(symbol.key);

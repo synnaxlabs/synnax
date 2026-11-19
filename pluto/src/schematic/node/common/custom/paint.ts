@@ -146,6 +146,31 @@ export const resolveRegions = (
   });
 };
 
+/** Value is a value of a symbol's state that its node draws. */
+export interface Value {
+  key: string;
+  value: number;
+  name: string;
+}
+
+const UNNAMED: Value[] = [
+  { key: "base", value: 0, name: "Base" },
+  { key: "active", value: 1, name: "Active" },
+];
+
+/**
+ * @returns the values that the node of spec draws: Base and Active for an actuator, and
+ * Base for a static symbol. A value takes the key and name of its entry in entries.
+ */
+export const listValues = (
+  spec: schematic.symbol.Spec,
+  entries: enumeration.Entry[] = [],
+): Value[] =>
+  UNNAMED.slice(0, spec.variant === "actuator" ? 2 : 1).map((v) => {
+    const entry = entries.find((e) => e.value === v.value);
+    return entry == null ? v : { key: entry.key, value: v.value, name: entry.name };
+  });
+
 const enumerationKeys = (spec: schematic.symbol.Spec | undefined): enumeration.Key[] =>
   (spec?.states ?? []).flatMap((s) =>
     s.type === "enumeration" && s.enumeration != null ? [s.enumeration] : [],
