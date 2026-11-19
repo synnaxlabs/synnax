@@ -616,7 +616,11 @@ export class Lists<
     const releases = [
       table.subscribeBatch((events) => this.onEvents(entry, events)),
       ...triggers.map((t) =>
-        t.attach(entry.query, (result) => this.onTrigger(entry, t, result)),
+        t.attach(
+          entry.query,
+          (result) => this.onTrigger(entry, t, result),
+          () => entry.keys,
+        ),
       ),
     ];
     entry.teardown = () => releases.forEach((release) => release());

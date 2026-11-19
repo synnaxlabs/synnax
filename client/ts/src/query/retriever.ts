@@ -403,7 +403,8 @@ export abstract class Retriever<
                 : (query) => serverComputed(query as z.output<Z>),
             cursor: list.cursor,
             triggers: triggers?.map(({ attach, version, contentOnly }) => ({
-              attach: (query, onEvent) => attach(query as z.output<Z>, onEvent),
+              attach: (query, onEvent, members) =>
+                attach(query as z.output<Z>, onEvent, members),
               version,
               contentOnly,
             })),

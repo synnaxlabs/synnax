@@ -124,9 +124,15 @@ export interface Retrieves<P extends Params, D extends Data> {
  * events onto the space's primary keys. Build with {@link trigger}.
  */
 export interface Trigger<P extends Params, K extends record.Key> {
+  /**
+   * Starts delivering the table's events to a maintained answer.
+   * @param members - Returns the current members of the answer.
+   * @returns a destructor that stops delivery when the answer stops being maintained.
+   */
   attach: (
     params: P,
     onEvent: (result: K[] | "refetch") => void,
+    members: () => readonly K[],
   ) => destructor.Destructor;
   /** The foreign table's {@link Table.version}. */
   version: () => number;
@@ -312,6 +318,12 @@ type QueryState<K extends record.Key, D extends Data> =
   | { variant: "ready"; keys: K[] }
   | { variant: "error"; error: Error }
   | { variant: "deleted"; key: K };
+
+const membersOf = <K extends record.Key>({
+  state,
+}: {
+  state: QueryState<K, Data>;
+}): readonly K[] => (state.variant === "ready" ? state.keys : []);
 
 interface Query<
   P extends Params,
@@ -1007,11 +1019,15 @@ export class Space<
       );
       triggers?.forEach((t) =>
         teardown.push(
-          t.attach(params, (result) => {
-            if (result === "refetch") return this.scheduleRefetch(query);
-            if (t.contentOnly !== true) this.scheduleRefetch(query);
-            this.touchMembers(query, result);
-          }),
+          t.attach(
+            params,
+            (result) => {
+              if (result === "refetch") return this.scheduleRefetch(query);
+              if (t.contentOnly !== true) this.scheduleRefetch(query);
+              this.touchMembers(query, result);
+            },
+            () => membersOf(query),
+          ),
         ),
       );
       return;
@@ -1055,11 +1071,15 @@ export class Space<
       );
       triggers?.forEach((t) =>
         teardown.push(
-          t.attach(params, (result) => {
-            if (result === "refetch") return this.scheduleRefetch(query);
-            if (result.includes(key) && query.state.variant === "ready")
-              this.touch(query);
-          }),
+          t.attach(
+            params,
+            (result) => {
+              if (result === "refetch") return this.scheduleRefetch(query);
+              if (result.includes(key) && query.state.variant === "ready")
+                this.touch(query);
+            },
+            () => membersOf(query),
+          ),
         ),
       );
       return;
@@ -1076,10 +1096,14 @@ export class Space<
     );
     triggers?.forEach((t) =>
       teardown.push(
-        t.attach(params, (result) => {
-          if (result === "refetch") return this.scheduleRefetch(query);
-          void this.recheckMany(query, result);
-        }),
+        t.attach(
+          params,
+          (result) => {
+            if (result === "refetch") return this.scheduleRefetch(query);
+            void this.recheckMany(query, result);
+          },
+          () => membersOf(query),
+        ),
       ),
     );
   }
