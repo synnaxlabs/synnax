@@ -222,25 +222,23 @@ func (d *disk) usedUnder(n *node, seen set.Set[*node]) int64 {
 }
 
 // spoil applies the read faults to p, the bytes that a read of the file n at path and
-// off returns. A fault hits the first block of the read that gave no fault before. A
-// block gives one read fault at most, so a second read of it is good.
+// off returns. A read gets a fault only when no block that it covers gave one before,
+// and the fault hits the first block of the read. So the next read of the same bytes is
+// good.
 func (d *disk) spoil(p []byte, n *node, path string, off int64) {
 	if len(p) == 0 || d.cfg.ReadCorruptionRate == 0 && d.cfg.MisdirectedReadRate == 0 {
 		return
 	}
-	end := off + int64(len(p))
-	for block := off / blockSize; block*blockSize < end; block++ {
-		at := place{path: path, block: block}
-		if d.spoiled.Contains(at) {
-			continue
+	first, end := off/blockSize, off+int64(len(p))
+	for block := first; block*blockSize < end; block++ {
+		if d.spoiled.Contains(place{path: path, block: block}) {
+			return
 		}
-		from := max(off, block*blockSize)
-		part := p[from-off : min(end, (block+1)*blockSize)-off]
-		misdirected := d.misdirect(part, n, path, from)
-		if d.corrupt(part, path, from) || misdirected {
-			d.spoiled.Add(at)
-		}
-		return
+	}
+	part := p[:min(end, (first+1)*blockSize)-off]
+	misdirected := d.misdirect(part, n, path, off)
+	if d.corrupt(part, path, off) || misdirected {
+		d.spoiled.Add(place{path: path, block: first})
 	}
 }
 
