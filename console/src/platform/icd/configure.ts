@@ -122,6 +122,7 @@ export const planMessage = async (
   );
   skipped.forEach((p) => delete held[p]);
   const reused = fields.map((f) => bindingOf(f).channel || (held[f.pointer] ?? 0));
+  const storedKeys = fields.map(({ pointer }) => held[pointer] ?? 0);
   const live = new Map(
     (await client.channels.retrieve([...reused, ...Object.values(held)])).map((ch) => [
       ch.key,
@@ -145,23 +146,24 @@ export const planMessage = async (
       if (ch != null && converts(f.type, ch.dataType.toString())) return false;
       return !new DataType(DEFAULT_DATA_TYPES[f.type]).isVariable;
     });
+  // An edit of the field's kind or index role since the last deploy, or a streamed
+  // field that the message now stores, needs a new channel.
+  const stale = (f: icd.JSONField, ch?: channel.Channel): ch is channel.Channel =>
+    ch != null &&
+    (!converts(f.type, ch.dataType.toString()) ||
+      ch.isIndex !== (f.key === index) ||
+      (indexed && ch.virtual));
+  // A deleted channel needs a new channel too.
+  const gone = (key: channel.Key): boolean => key !== 0 && !live.has(key);
   const planned = fields.map((f, i): MessageField => {
     const binding = bindingOf(f);
     const isIndex = f.key === index;
     const suited = binding.dataType !== "" && converts(f.type, binding.dataType);
     const dataType = suited ? binding.dataType : "";
     const ch = live.get(reused[i]);
-    // A deleted channel, one on an index that another message writes, an edit of the
-    // field's kind or index role since the last deploy, or a streamed field that the
-    // message now stores, needs a new channel.
-    const stale =
-      reused[i] !== 0 &&
-      (ch == null ||
-        onTaken(ch) ||
-        !converts(f.type, ch.dataType.toString()) ||
-        ch.isIndex !== isIndex ||
-        (indexed && ch.virtual));
-    if (stale && held[f.pointer] === reused[i]) delete held[f.pointer];
+    const replaced = stale(f, ch) || gone(reused[i]) || (ch != null && onTaken(ch));
+    if (stale(f, live.get(storedKeys[i])) || gone(storedKeys[i]))
+      delete held[f.pointer];
     return {
       key: f.key,
       pointer: f.pointer,
@@ -169,8 +171,8 @@ export const planMessage = async (
       dataType: isIndex
         ? DataType.TIMESTAMP.toString()
         : bindingDataType({ dataType }, f.type),
-      channel: stale ? 0 : binding.channel,
-      replaces: stale && ch != null ? ch.key : 0,
+      channel: replaced ? 0 : binding.channel,
+      replaces: replaced && ch != null ? ch.key : 0,
       binding: { ...binding, dataType },
     };
   });
