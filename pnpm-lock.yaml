@@ -1676,6 +1676,9 @@ importers:
       '@types/html-escaper':
         specifier: 'catalog:'
         version: 3.0.4
+      '@types/jsdom':
+        specifier: 'catalog:'
+        version: 30.0.0
       '@types/react':
         specifier: 'catalog:'
         version: 19.3.0

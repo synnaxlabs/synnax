@@ -12,10 +12,12 @@ import mdx from "@astrojs/mdx";
 import react from "@astrojs/react";
 import vercel from "@astrojs/vercel";
 import { grammar as arcGrammar } from "@synnaxlabs/arc";
+import * as Common from "@synnaxlabs/site-common/csp";
 import { integration } from "@synnaxlabs/site-common/integration";
 import { symbols, theme } from "@synnaxlabs/site-common/shiki";
 import { defineConfig, envField } from "astro/config";
 
+import { HASHES } from "./src/inline";
 import { tokenSource } from "./src/util/githubApp";
 import { IMAGES } from "./src/util/images";
 import { inlineCode } from "./src/util/inlineCode";
@@ -33,6 +35,10 @@ const RELEASE_REDIRECTS = Object.fromEntries(
     `/releases/#${anchor}`,
   ]),
 );
+
+const { POSTHOG, VERCEL_LIVE } = Common;
+const ALGOLIA = "https://ywd9t0jxcs-dsn.algolia.net";
+const CDN = "https://synnax.nyc3.cdn.digitaloceanspaces.com";
 
 // One resolution serves every page, so a deployment never mixes statuses, and a page
 // that renders per request never asks GitHub for its version.
@@ -65,6 +71,26 @@ export default defineConfig({
   integrations: [integration(), react(), mdx()],
   adapter: vercel({ imageService: true, imagesConfig: IMAGES }),
   image: { domains: IMAGES.domains },
+  security: {
+    csp: {
+      directives: [
+        "default-src 'self'",
+        `connect-src 'self' ${ALGOLIA} ${POSTHOG} https://formspree.io ${VERCEL_LIVE}`,
+        `img-src 'self' data: ${CDN} ${VERCEL_LIVE} https://vercel.com`,
+        `media-src 'self' ${CDN}`,
+        `frame-src ${VERCEL_LIVE}`,
+        "object-src 'none'",
+        "base-uri 'self'",
+      ],
+      scriptDirective: {
+        resources: ["'self'", POSTHOG, VERCEL_LIVE],
+        hashes: [...Common.HASHES, ...HASHES],
+      },
+      // Shiki colors code with style attributes, and transitions add style elements
+      // that differ by page while the client router keeps the first page's policy.
+      styleDirective: { resources: ["'self'", "'unsafe-inline'"] },
+    },
+  },
   vite: {
     define: { __DOCS_VERSION__: JSON.stringify(version) },
   },

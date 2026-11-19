@@ -13,7 +13,7 @@ import { type Mode } from "./consent";
 const KEY = "phc_CaKeC8DVDWCYaiYSnUpEaWWXLrWptuXwgF7tTY3U6Q7t";
 
 /** Our own address for PostHog, which ad blockers do not know. */
-const API_HOST = "https://t.synnaxlabs.com";
+export const API_HOST = "https://t.synnaxlabs.com";
 
 /** The visitor's answer, in a cookie that every synnaxlabs.com site shares. */
 const CHOICE = "synnax_consent";
@@ -80,8 +80,8 @@ interface Recording {
 declare global {
   interface Window {
     /**
-     * Defined by the snippet in `Analytics.astro` before any page script runs. It
-     * queues calls until PostHog loads, then becomes PostHog, so read it at each call.
+     * Defined by `LOADER` in `csp.ts` before any page script runs. It queues calls
+     * until PostHog loads, then becomes PostHog, so read it at each call.
      */
     posthog: PostHog;
   }
