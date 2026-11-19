@@ -202,7 +202,7 @@ const renderBrowser = async () => {
   );
   await root.answered;
   await screen.findByText("TankPressure");
-  return { client, scan, container };
+  return { client, scan, container, dev };
 };
 
 describe("Browser search", () => {
@@ -249,7 +249,7 @@ describe("Browser search", () => {
   });
 
   it("should read the node of a node ID that the user enters", async () => {
-    const { client, scan } = await renderBrowser();
+    const { client, scan, dev } = await renderBrowser();
     const read = await answerNextCommand(client, scan, {
       type: OPCUA.Task.READ_NODE_COMMAND_TYPE,
       data: DETAILS,
@@ -257,10 +257,13 @@ describe("Browser search", () => {
     const input = screen.getByPlaceholderText("Filter, or enter a node ID");
     fireEvent.change(input, { target: { value: "ns=2;s=TankPressure" } });
     fireEvent.keyDown(input, { key: "Enter" });
-    expect((await read.answered).args).toMatchObject({
+    const { args } = await read.answered;
+    expect(args).toMatchObject({
+      device: dev.key,
       nodeId: "ns=2;s=TankPressure",
       field: "",
     });
+    expect(args).not.toHaveProperty("connection");
     await screen.findByText("Read, History");
   });
 
