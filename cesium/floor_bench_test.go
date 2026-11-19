@@ -91,20 +91,26 @@ func BenchmarkFloorSyncFiles(b *testing.B) {
 					}
 				}
 				b.StartTimer()
-				var wg sync.WaitGroup
-				for first := range concurrent {
-					wg.Go(func() {
-						for i := first; i < count; i += concurrent {
-							if err := files[i].Sync(); err != nil {
-								b.Error(err)
-							}
-						}
-					})
-				}
-				wg.Wait()
+				syncFiles(b, files, concurrent)
 			}
 		})
 	}
+}
+
+// syncFiles syncs every file, with the given number of syncs in flight.
+func syncFiles(b *testing.B, files []*os.File, concurrent int) {
+	b.Helper()
+	var wg sync.WaitGroup
+	for first := range concurrent {
+		wg.Go(func() {
+			for i := first; i < len(files); i += concurrent {
+				if err := files[i].Sync(); err != nil {
+					b.Error(err)
+				}
+			}
+		})
+	}
+	wg.Wait()
 }
 
 // BenchmarkFloorWrite writes a file of floorFileSize in 1 MiB blocks and syncs it, per

@@ -462,7 +462,6 @@ func advanceClock(f frame.Frame, span telem.TimeSpan) {
 // of a. With two clocks, b has its own index at 1 Hz, so one sample of b arrives before
 // every 100th frame of a.
 func BenchmarkCalculator_Clocks(b *testing.B) {
-	const framesPerSecond = 100
 	for _, c := range []struct {
 		name string
 		// samples is the number of samples of a in each frame.
@@ -473,88 +472,96 @@ func BenchmarkCalculator_Clocks(b *testing.B) {
 		{name: "clocks=2/rates=1kHz+1Hz", samples: 10, clocks: 2},
 		{name: "clocks=1/rate=10kHz", samples: 100, clocks: 1},
 	} {
-		b.Run(c.name, func(b *testing.B) {
-			env := newBenchEnv(b)
-			defer env.close(b)
-			indexes := make([]channel.Channel, c.clocks)
-			for i := range indexes {
-				indexes[i] = channel.Channel{
-					Name:     fmt.Sprintf("time_%d", i),
-					DataType: telem.TimestampT,
-					IsIndex:  true,
-				}
-			}
-			if err := env.node.DB.WithTx(env.ctx, func(tx gorp.Tx) error {
-				return env.channelSvc.NewWriter(tx).CreateMany(env.ctx, &indexes)
-			}); err != nil {
-				b.Fatalf("failed to create index channels: %v", err)
-			}
-			bases := []channel.Channel{
-				{Name: "a", DataType: telem.Float32T, LocalIndex: indexes[0].LocalKey},
-				{
-					Name:       "b",
-					DataType:   telem.Float32T,
-					LocalIndex: indexes[c.clocks-1].LocalKey,
-				},
-			}
-			calc := channel.Channel{
-				Name:       "sum",
-				DataType:   telem.Float32T,
-				Virtual:    true,
-				Expression: "return a + b",
-			}
-			calculator := env.openCalculator(b, bases, &calc)
-			defer func() {
-				if err := calculator.Close(); err != nil {
-					b.Errorf("failed to close calculator: %v", err)
-				}
-			}()
-			period := telem.Second / telem.TimeSpan(framesPerSecond*c.samples)
-			onFast := []channel.Key{bases[0].Key(), bases[1].Key()}
-			var slow frame.Frame
-			if c.clocks == 2 {
-				onFast = onFast[:1]
-				slow = clockFrame(
-					indexes[1].Key(),
-					[]channel.Key{bases[1].Key()},
-					1,
-					telem.Second,
-				)
-			}
-			fast := clockFrame(indexes[0].Key(), onFast, c.samples, period)
-			outputs := 0
-			next := func(f frame.Frame, span telem.TimeSpan) {
-				advanceClock(f, span)
-				out, changed, err := calculator.Next(env.ctx, f, frame.Frame{})
-				if err != nil {
-					b.Fatal(err)
-				}
-				if !changed {
-					return
-				}
-				for key, series := range out.Entries() {
-					if key == calc.Key() {
-						outputs += int(series.Len())
-					}
-				}
-			}
-			b.ReportAllocs()
-			frames := 0
-			for b.Loop() {
-				if c.clocks == 2 && frames%framesPerSecond == 0 {
-					next(slow, telem.Second)
-				}
-				next(fast, telem.Second/framesPerSecond)
-				frames++
-			}
-			if outputs == 0 {
-				b.Fatal("the calculator made no output")
-			}
-			b.ReportMetric(
-				float64(c.samples*frames)/b.Elapsed().Seconds(),
-				"samples/sec",
-			)
-			b.ReportMetric(float64(outputs)/float64(frames), "outputs/op")
-		})
+		b.Run(c.name, func(b *testing.B) { benchmarkClocks(b, c.samples, c.clocks) })
 	}
+}
+
+func benchmarkClocks(b *testing.B, samples, clocks int) {
+	b.Helper()
+	const framesPerSecond = 100
+	env := newBenchEnv(b)
+	defer env.close(b)
+	indexes, bases, calc := env.openClockCalculator(b, clocks)
+	defer func() {
+		if err := calc.Close(); err != nil {
+			b.Errorf("failed to close calculator: %v", err)
+		}
+	}()
+	onFast := []channel.Key{bases[0].Key(), bases[1].Key()}
+	var slow frame.Frame
+	if clocks == 2 {
+		onFast = onFast[:1]
+		slow = clockFrame(
+			indexes[1].Key(),
+			[]channel.Key{bases[1].Key()},
+			1,
+			telem.Second,
+		)
+	}
+	period := telem.Second / telem.TimeSpan(framesPerSecond*samples)
+	fast := clockFrame(indexes[0].Key(), onFast, samples, period)
+	output := calc.Channel().Key()
+	outputs := 0
+	next := func(f frame.Frame, span telem.TimeSpan) {
+		advanceClock(f, span)
+		out, changed, err := calc.Next(env.ctx, f, frame.Frame{})
+		if err != nil {
+			b.Fatal(err)
+		}
+		if !changed {
+			return
+		}
+		for key, series := range out.Entries() {
+			if key == output {
+				outputs += int(series.Len())
+			}
+		}
+	}
+	b.ReportAllocs()
+	frames := 0
+	for b.Loop() {
+		if clocks == 2 && frames%framesPerSecond == 0 {
+			next(slow, telem.Second)
+		}
+		next(fast, telem.Second/framesPerSecond)
+		frames++
+	}
+	if outputs == 0 {
+		b.Fatal("the calculator made no output")
+	}
+	b.ReportMetric(float64(samples*frames)/b.Elapsed().Seconds(), "samples/sec")
+	b.ReportMetric(float64(outputs)/float64(frames), "outputs/op")
+}
+
+// openClockCalculator creates the given number of index channels, the inputs a and b,
+// and a calculator for their sum. Input a is on the first index and b on the last.
+func (e *benchEnv) openClockCalculator(
+	b *testing.B,
+	clocks int,
+) (indexes, bases []channel.Channel, calc *calculator.Calculator) {
+	b.Helper()
+	indexes = make([]channel.Channel, clocks)
+	for i := range indexes {
+		indexes[i] = channel.Channel{
+			Name:     fmt.Sprintf("time_%d", i),
+			DataType: telem.TimestampT,
+			IsIndex:  true,
+		}
+	}
+	if err := e.node.DB.WithTx(e.ctx, func(tx gorp.Tx) error {
+		return e.channelSvc.NewWriter(tx).CreateMany(e.ctx, &indexes)
+	}); err != nil {
+		b.Fatalf("failed to create index channels: %v", err)
+	}
+	bases = []channel.Channel{
+		{Name: "a", DataType: telem.Float32T, LocalIndex: indexes[0].LocalKey},
+		{Name: "b", DataType: telem.Float32T, LocalIndex: indexes[clocks-1].LocalKey},
+	}
+	sum := channel.Channel{
+		Name:       "sum",
+		DataType:   telem.Float32T,
+		Virtual:    true,
+		Expression: "return a + b",
+	}
+	return indexes, bases, e.openCalculator(b, bases, &sum)
 }
