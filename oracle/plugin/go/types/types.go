@@ -262,6 +262,16 @@ type predecessor struct {
 	names map[string]string
 }
 
+// declares reports whether the package declares t. It declares no omitted type, and no
+// type hand-written in its own version. Hand is version-local, so a type aliased to the
+// predecessor declares its alias even when its definer is hand-written.
+func (p predecessor) declares(t resolution.Type) bool {
+	if omit.IsType(t, "go") {
+		return false
+	}
+	return !omit.IsHand(t, "go") || p.aliased.Contains(t.QualifiedName)
+}
+
 // AliasedTypes returns the qualified names of all types that alias their predecessor
 // version package instead of being defined at the current one. Sibling plugins
 // (go/marshal) use it to skip emission for aliased types.
@@ -531,7 +541,7 @@ func (f *goFile) render(
 	for _, d := range orderDecls(
 		f.table, f.order, f.typeDefs, f.enums, f.structs, f.unions,
 	) {
-		if omit.IsSkipped(d.typ, "go") ||
+		if !f.pred.declares(d.typ) ||
 			(d.kind == declEnum && d.typ.Namespace != data.Namespace) {
 			continue
 		}
