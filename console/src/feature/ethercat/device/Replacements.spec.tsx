@@ -146,9 +146,11 @@ describe("useListenForReplacements", () => {
         ).properties,
       ).toMatchObject({ serial: 77, position: 5 }),
     );
-    await expect(client.devices.retrieve({ key: slave.key })).rejects.toThrow(
-      NotFoundError,
-    );
+    await waitFor(async () => {
+      await expect(client.devices.retrieve({ key: slave.key })).rejects.toThrow(
+        NotFoundError,
+      );
+    });
   });
 
   it("should keep both slaves when the user says no", async () => {
