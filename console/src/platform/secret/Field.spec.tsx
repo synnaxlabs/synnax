@@ -200,21 +200,50 @@ describe("Secret.Field", () => {
     within(trigger).getByText(Validity.describeSecret(s));
   });
 
-  it("shows None for no secret when it allows none", async () => {
+  it("shows No secret for no secret when it allows none", async () => {
     await renderField("", { allowNone: true });
-    expect(await findDialogTriggerByText("None")).toBeTruthy();
+    expect(await findDialogTriggerByText("No secret")).toBeTruthy();
     expect(screen.queryByText("Select a secret")).toBeNull();
+    expect(screen.queryByLabelText("Clear selection")).toBeNull();
   });
 
   it("clears the picked secret from its trigger when it allows none", async () => {
     const s = await createSecret(client, created);
     const { onChange } = await renderField("", { allowNone: true });
-    await open("None");
+    await open("No secret");
     fireEvent.click(await findOption(s));
     await waitFor(() => expect(onChange).toHaveBeenLastCalledWith(s.key));
     fireEvent.click(await screen.findByLabelText(`Clear ${s.name}`));
     await waitFor(() => expect(onChange).toHaveBeenLastCalledWith(""));
-    expect(await findDialogTriggerByText("None")).toBeTruthy();
+    expect(await findDialogTriggerByText("No secret")).toBeTruthy();
+  });
+
+  it("clears the secret with the No secret option during a search", async () => {
+    const s = await createSecret(client, created);
+    const { onChange } = await renderField(s.key, { allowNone: true });
+    await open(s.name);
+    await findOption(s);
+    fireEvent.click(screen.getByRole("option", { name: "No secret" }));
+    await waitFor(() => expect(onChange).toHaveBeenLastCalledWith(""));
+    expect(await findDialogTriggerByText("No secret")).toBeTruthy();
+  });
+
+  it("marks No secret under the create option while it holds no secret", async () => {
+    await renderField("", { allowNone: true });
+    await open("No secret");
+    const create = await screen.findByRole("option", { name: "New secret" });
+    const none = screen.getByRole("option", { name: "No secret" });
+    expect(none.getAttribute("aria-selected")).toBe("true");
+    expect(
+      create.compareDocumentPosition(none) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("offers no No secret option when it does not allow none", async () => {
+    await renderField();
+    await open("Select a secret");
+    await screen.findByRole("option", { name: "New secret" });
+    expect(screen.queryByRole("option", { name: "No secret" })).toBeNull();
   });
 
   it("clears the secret on Delete when it allows none", async () => {

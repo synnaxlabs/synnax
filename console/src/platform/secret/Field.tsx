@@ -68,7 +68,7 @@ const Control = ({
       }
     : { value, onChange, allowNone: false as const };
   return (
-    <Picker.Select<secret.Key, secret.Secret>
+    <Picker.Select<secret.Secret>
       resourceName="secret"
       icon={Icon.Secret}
       describe={describeOnRack}

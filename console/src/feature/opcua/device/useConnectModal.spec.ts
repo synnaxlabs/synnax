@@ -800,13 +800,16 @@ describe("OPCUA.Device.useConnectModal", () => {
     fireEvent.change(await screen.findByLabelText("Username"), {
       target: { value: "operator" },
     });
-    fireEvent.click(await findDialogTriggerByText("None"));
-    // The list pages, so a search finds the secret however many the Core holds.
+    fireEvent.click(await findDialogTriggerByText("No secret"));
+    // The list pages, so a search finds the secret however many the Core holds. The
+    // create option names the search too, so the match skips it.
     fireEvent.change(await screen.findByPlaceholderText("Search secrets..."), {
       target: { value: password.name },
     });
     fireEvent.click(
-      await screen.findByRole("option", { name: new RegExp(password.name) }),
+      await screen.findByRole("option", {
+        name: (shown) => shown.includes(password.name) && !shown.startsWith("Create "),
+      }),
     );
     const { answered } = await answerNextCommand(client, scan, TEST_CONNECTION);
     pressSaveTrigger();
