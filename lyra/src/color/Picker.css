@@ -69,22 +69,11 @@
             padding: var(--pluto-color-picker-inset);
         }
 
-        /* The footer's create item matches "New label" in a select: it spans the
-           picker, in the plain text color and weight, with its "+" on the inset. The
-           keys rest on it as the pointer does, since the edge of the picker clips a
-           ring. */
-        & > .lyra-color-picker__footer > .lyra-create-list-item {
-            margin: 0;
-            padding-inline: var(--pluto-color-picker-inset);
-            color: var(--pluto-text-color);
-            font-weight: var(--pluto-p-weight);
-
-            &:focus-visible {
-                --pluto-btn-bg: var(--pluto-hover-bg);
-                --pluto-btn-border-color: var(--pluto-hover-border-color);
-
-                outline: none;
-            }
+        /* A create item keeps its own margin from the sides and the bottom, so the
+           footer adds the same space under its hairline. */
+        & > .lyra-color-picker__footer {
+            padding-top: 1rem;
+            border-top: var(--pluto-border);
         }
 
         & .lyra-color-picker__grid {

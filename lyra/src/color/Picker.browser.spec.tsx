@@ -16,9 +16,7 @@ import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { Icon } from "@/icon";
-import { List } from "@/list";
 import { Menu } from "@/menu";
-import { Select } from "@/select";
 import { renderThemed } from "@/styletest";
 import { Triggers } from "@/triggers";
 
@@ -69,31 +67,6 @@ const swatchRect = (i: number): DOMRect =>
 const CREATE = (
   <Button.CreateListItem size="small">Create palette</Button.CreateListItem>
 );
-
-interface Label {
-  key: string;
-  name: string;
-}
-
-/** A select whose footer holds its create option, "New label". */
-const LabelSelect = (): ReactElement => {
-  const { data, getItem } = List.useStaticData<string, Label>({ data: [] });
-  return (
-    <Select.Single<string, Label>
-      visible
-      data={data}
-      getItem={getItem}
-      value={undefined}
-      onChange={() => {}}
-      resourceName="label"
-      footer={
-        <Select.CreateItem<string, Label> resourceName="label" onCreate={() => {}} />
-      }
-    >
-      {({ key, ...p }): ReactElement => <Select.Item key={key} {...p} />}
-    </Select.Single>
-  );
-};
 
 const SwatchMenu = (): ReactElement | null => {
   const { swatch } = Color.usePalette();
@@ -195,63 +168,26 @@ describe("Picker", () => {
       expect(icon).toBeCloseTo(swatch, 0);
     });
 
-    it("should span the picker with the hairline and the create item of the footer", async () => {
+    it("should keep an equal edge around the footer's create item, under a hairline across the picker", async () => {
       const picker = (
         await renderLibrary(undefined, undefined, undefined, CREATE)
       ).getBoundingClientRect();
-      const hairline = rectOf(
-        `.${CSS.BE("color-picker", "footer")} > .${CSS.B("divider")}`,
-      );
+      const footer = document.querySelector(`.${CSS.BE("color-picker", "footer")}`);
+      assert(footer instanceof HTMLElement);
+      const f = footer.getBoundingClientRect();
+      const hairline = Number.parseFloat(getComputedStyle(footer).borderTopWidth);
+      expect(hairline).toBeGreaterThan(0);
+      expect(f.left).toBeCloseTo(picker.left, 0);
+      expect(f.right).toBeCloseTo(picker.right, 0);
       const item = page
         .getByRole("button", { name: "Create palette" })
         .element()
         .getBoundingClientRect();
-      expect(hairline.left).toBeCloseTo(picker.left, 0);
-      expect(hairline.right).toBeCloseTo(picker.right, 0);
-      expect(hairline.bottom).toBeLessThanOrEqual(item.top);
-      expect(item.left).toBeCloseTo(picker.left, 0);
-      expect(item.right).toBeCloseTo(picker.right, 0);
-      expect(item.bottom).toBeCloseTo(picker.bottom, 0);
-    });
-
-    it("should start the icon of the footer's create item on the inset of the swatches", async () => {
-      await renderLibrary(undefined, undefined, undefined, CREATE);
-      const icon = rectOf(`.${CSS.BE("color-picker", "footer")} svg`);
-      expect(icon.left).toBeCloseTo(swatchRect(0).left, 0);
-    });
-
-    it("should give the footer's create item the text of a select's create option", async () => {
-      await renderLibrary(undefined, undefined, undefined, CREATE);
-      await renderThemed(
-        <Triggers.Provider>
-          <LabelSelect />
-        </Triggers.Provider>,
-      );
-      const text = (name: string, role: "button" | "option"): string[] => {
-        const s = getComputedStyle(page.getByRole(role, { name }).element());
-        return [s.color, s.fontWeight];
-      };
-      expect(text("Create palette", "button")).toEqual(text("New label", "option"));
-    });
-
-    it("should paint the footer's create item on keyboard focus as on hover, with no ring", async () => {
-      await renderLibrary(undefined, undefined, undefined, CREATE);
-      const item = page.getByRole("button", { name: "Create palette" });
-      const el = item.element();
-      assert(el instanceof HTMLElement);
-      const paint = (): string[] => {
-        const s = getComputedStyle(el);
-        return [s.backgroundColor, s.color];
-      };
-      await userEvent.hover(item);
-      const hovered = paint();
-      await userEvent.unhover(item);
-      expect(paint()[0]).not.toBe(hovered[0]);
-      await userEvent.keyboard("{Tab}");
-      el.focus();
-      expect(el.matches(":focus-visible")).toBe(true);
-      expect(paint()).toEqual(hovered);
-      expect(getComputedStyle(el).outlineStyle).toBe("none");
+      const left = item.left - picker.left;
+      expect(left).toBeGreaterThan(0);
+      expect(picker.right - item.right).toBeCloseTo(left, 0);
+      expect(picker.bottom - item.bottom).toBeCloseTo(left, 0);
+      expect(item.top - (f.top + hairline)).toBeCloseTo(left, 0);
     });
   });
 });

@@ -275,7 +275,6 @@ const Tabbed = ({
             />
             {footer != null && (
               <Flex.Box y empty className={CSS.BE("color-picker", "footer")}>
-                <Divider.Divider x padded />
                 {footer}
               </Flex.Box>
             )}

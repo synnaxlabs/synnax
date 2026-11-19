@@ -14,8 +14,8 @@
     grid-column: 1 / -1;
 }
 
-/* The palette name entry keeps the height and inset of the create item it replaces. */
+/* The palette name entry takes the box of the create item it replaces. */
 .pluto-color-palette-name-entry {
     min-height: 5.5rem;
-    padding-inline: var(--pluto-color-picker-inset);
+    margin: 0 1rem 1rem;
 }
