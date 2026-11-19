@@ -445,6 +445,21 @@ o:
 				break o
 			case svc.Interrogate:
 				changes <- status
+			// The SCM sends only the commands in accepts, but user-defined control
+			// codes (128-255) always reach the handler.
+			case svc.Pause,
+				svc.Continue,
+				svc.ParamChange,
+				svc.NetBindAdd,
+				svc.NetBindRemove,
+				svc.NetBindEnable,
+				svc.NetBindDisable,
+				svc.DeviceEvent,
+				svc.HardwareProfileChange,
+				svc.PowerEvent,
+				svc.SessionChange,
+				svc.PreShutdown:
+				fallthrough
 			default:
 				s.ins.L.Warn("unhandled service control command", zap.Uint32("cmd", uint32(c.Cmd)))
 			}
