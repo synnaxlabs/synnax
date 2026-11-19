@@ -246,10 +246,7 @@ describe("menu filter", () => {
     });
 
     it("should light the first match of items that load after the search opens", async () => {
-      let load = (): void => {};
-      const items = new Promise<void>((resolve) => {
-        load = resolve;
-      });
+      const { promise: items, resolve: load } = Promise.withResolvers<void>();
       await openContextMenu(
         vi.fn(),
         <Menu.Menu>

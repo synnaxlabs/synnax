@@ -29,7 +29,8 @@ on:
         default: false
 
 concurrency:
-  group: docs-${{ github.workflow }}-${{ github.ref }}
+  group:
+    docs-${{ github.workflow }}-${{ github.event.merge_group.head_sha || github.ref }}
   cancel-in-progress: true
 
 permissions:

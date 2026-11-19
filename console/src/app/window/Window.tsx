@@ -39,7 +39,7 @@ const INSTALL_MIDDLEWARE = DESKTOP ? Embedded.installMiddleware : undefined;
 
 export const Window = memo((): ReactElement | null => {
   const isMain = Session.Runtime.isMainWindow();
-  const os = OS.use({ default: "Windows" });
+  const os = OS.use() ?? "Windows";
   const dispatch = Session.useDispatch();
   useEffect(() => {
     dispatch(

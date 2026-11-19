@@ -142,6 +142,8 @@ class Master final : public master::Master {
     std::function<void()> scan_hook;
     x::loop::HostClock clock;
     x::telem::TimeSpan activate_duration{0};
+    /// @brief whether activate() reports each slave that reaches OP to its plan.
+    bool op_progress{false};
     /// @brief how many more frames record_dc() asked for.
     size_t frames_to_record{0};
     std::vector<x::telem::TimeStamp> recorded;
@@ -307,6 +309,12 @@ public:
     written() const {
         std::lock_guard lock(this->mu);
         return this->writes;
+    }
+
+    /// @brief makes activate() report each slave that reaches OP, one at a time.
+    void report_op_progress() {
+        std::lock_guard lock(this->mu);
+        this->op_progress = true;
     }
 
     /// @brief makes each call to activate() take span on the clock of the master.
@@ -476,6 +484,13 @@ public:
         this->slave(position).status.state = state;
     }
 
+    /// @brief sets the serial number that the next read of the slave at position
+    /// gives.
+    void set_slave_serial(const uint16_t position, const uint64_t serial) {
+        std::lock_guard lock(this->mu);
+        this->slave(position).properties.serial = serial;
+    }
+
     /// @brief moves a slave to the state with the AL status error flag set and the
     /// given AL status text, as a slave does when its watchdog trips.
     void fault_slave(
@@ -562,7 +577,19 @@ public:
                     slave.properties.serial = 0;
                 }
             this->next_serial_errors.clear();
-        }
+        } else
+            for (auto &slave: this->scanned) {
+                if (!slave.status.starting) continue;
+                const auto live = std::ranges::find(
+                    this->slave_list,
+                    slave.properties.position,
+                    [](const slave::DiscoveryResult &s) {
+                        return s.properties.position;
+                    }
+                );
+                if (live != this->slave_list.end() && !live->status.starting)
+                    slave = *live;
+            }
         this->initialized = true;
         return {this->scanned, x::errors::NIL};
     }
@@ -727,6 +754,18 @@ public:
                                    ? slave::State::SAFE_OP
                                    : slave::State::OP;
         }
+        size_t total = 0;
+        if (this->op_progress)
+            total = static_cast<size_t>(std::ranges::count_if(
+                this->slave_list,
+                [this](const slave::DiscoveryResult &slave) {
+                    return this->on_bus(slave.properties.position);
+                }
+            ));
+        lock.unlock();
+        if (plan.progress)
+            for (size_t operational = 1; operational <= total; ++operational)
+                plan.progress(operational, total);
         return {};
     }
 
