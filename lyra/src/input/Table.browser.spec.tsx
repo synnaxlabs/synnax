@@ -85,6 +85,45 @@ const renderWide = async (widths: (number | undefined)[]): Promise<HTMLTableElem
     )
   ).container.querySelector("table")!;
 
+/** @returns the area that the outline of the element covers. */
+const outlineOf = (el: Element): DOMRect => {
+  const style = getComputedStyle(el);
+  const reach = parseFloat(style.outlineOffset) + parseFloat(style.outlineWidth);
+  const { x, y, width, height } = el.getBoundingClientRect();
+  return new DOMRect(x - reach, y - reach, width + 2 * reach, height + 2 * reach);
+};
+
+const expectWithin = (inner: DOMRect, outer: DOMRect): void => {
+  expect(inner.left).toBeGreaterThanOrEqual(outer.left);
+  expect(inner.top).toBeGreaterThanOrEqual(outer.top);
+  expect(inner.right).toBeLessThanOrEqual(outer.right);
+  expect(inner.bottom).toBeLessThanOrEqual(outer.bottom);
+};
+
+const GUTTERS: [string, Input.TableProps["rowLabel"]][] = [
+  ["without", undefined],
+  ["with", (i) => `c${i}`],
+];
+
+/** @returns the table and its scroll box, in a scrolling parent with no padding. */
+const renderInScroller = async (
+  rowLabel: Input.TableProps["rowLabel"],
+): Promise<{ parent: Element; scroll: Element; table: HTMLTableElement }> => {
+  const { container } = await renderThemed(
+    <div style={{ overflow: "auto", width: "600px" }}>
+      <Input.Table value={[[1], [2]]} onChange={() => {}} rowLabel={rowLabel}>
+        <Input.TableColumn />
+      </Input.Table>
+    </div>,
+  );
+  const table = container.querySelector("table")!;
+  return {
+    parent: container.firstElementChild!,
+    scroll: table.parentElement!,
+    table,
+  };
+};
+
 describe("Input.Table", () => {
   it("should hold the remove button as far off the box as a row label", async () => {
     const { container } = await renderThemed(
@@ -321,6 +360,35 @@ describe("Input.Table", () => {
       await expect
         .poll(() => frame(box))
         .toBe(resolve("var(--pluto-primary-z)", "outline-color"));
+    });
+  });
+
+  describe.each(GUTTERS)("focus ring %s a gutter", (_, rowLabel) => {
+    it("should keep the ring of the add button inside the scroll box", async () => {
+      const { scroll, table } = await renderInScroller(rowLabel);
+      const add = table.querySelector<HTMLButtonElement>("tfoot button")!;
+      // WebKit leaves buttons out of the tab order.
+      add.focus({ focusVisible: true });
+      expect(computed(add, "outline-style")).toBe("solid");
+      expectWithin(outlineOf(add), scroll.getBoundingClientRect());
+    });
+
+    it("should keep the frame of a first column cell inside the scroll box", async () => {
+      const { scroll, table } = await renderInScroller(rowLabel);
+      const frame = table.querySelector(`tbody .${CSS.BM("btn", "shadow")}`)!;
+      expectWithin(outlineOf(frame), scroll.getBoundingClientRect());
+    });
+
+    it("should take the space of the table and add no overflow", async () => {
+      const { parent, table } = await renderInScroller(rowLabel);
+      const box = parent.getBoundingClientRect();
+      const t = table.getBoundingClientRect();
+      expect(t.left).toBe(box.left);
+      expect(t.top).toBe(box.top);
+      expect(t.width).toBe(parent.clientWidth);
+      expect(t.height).toBe(parent.clientHeight);
+      expect(parent.scrollWidth).toBe(parent.clientWidth);
+      expect(parent.scrollHeight).toBe(parent.clientHeight);
     });
   });
 

@@ -37,10 +37,10 @@ interface UserProps {
 const User = ({ resource: r }: UserProps): ReactElement => {
   const Item = Tree.useItems()[r.id.type] ?? Tree.DefaultItem;
   return (
-    <Flex.Box x align="center" gap="small">
+    <Text.Text overflow="fade">
       {Item.icon(r)}
-      <Text.Text overflow="fade">{r.name}</Text.Text>
-    </Flex.Box>
+      {r.name}
+    </Text.Text>
   );
 };
 
