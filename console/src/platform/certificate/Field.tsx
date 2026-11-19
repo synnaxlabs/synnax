@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { certificate, type rack } from "@synnaxlabs/client";
+import { Badge } from "@synnaxlabs/lyra/badge";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { useNow } from "@synnaxlabs/lyra/hooks";
@@ -46,6 +47,11 @@ const Control = ({
   const now = useNow(nextMinute);
   const describe = (c: certificate.Certificate): Picker.Description =>
     Secret.Validity.describeCertificate(c, now);
+  const renderValidity = (c: certificate.Certificate): ReactElement | null => {
+    const validity = Secret.Validity.summarizeCertificate(c, now);
+    if (validity == null) return null;
+    return <Badge.Badge status={validity.status}>{validity.text}</Badge.Badge>;
+  };
   // A cleared field holds the zero key, as one never set does.
   const selection = allowNone
     ? {
@@ -60,6 +66,7 @@ const Control = ({
         resourceName="certificate"
         icon={Icon.Certificate}
         describe={describe}
+        renderEndContent={renderValidity}
         list={list}
         result={result}
         onCreate={

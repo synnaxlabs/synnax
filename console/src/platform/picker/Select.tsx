@@ -20,7 +20,7 @@ import { Select as Base } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Flux } from "@synnaxlabs/pluto";
 import { primitive, type record, strings } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { type ReactElement, type ReactNode } from "react";
 
 import { CSS } from "@/platform/css";
 
@@ -87,6 +87,7 @@ interface TriggerProps<E extends record.Unknown> {
   result: Flux.Result<E>;
   preview?: boolean;
   allowNone: boolean;
+  renderEndContent?: (entry: E) => ReactNode;
 }
 
 const Trigger = <E extends Entry>({
@@ -95,6 +96,7 @@ const Trigger = <E extends Entry>({
   result,
   preview,
   allowNone,
+  renderEndContent,
 }: TriggerProps<E>): ReactElement => {
   const itemStatus = Input.useItemStatus({});
   const clear = Base.useTriggerClear<string>({
@@ -102,6 +104,8 @@ const Trigger = <E extends Entry>({
     preview,
   });
   const icon = <ItemIcon className={CSS.BE("picker", "icon")} />;
+  const endContent =
+    result.variant === "success" ? renderEndContent?.(result.data) : undefined;
   const content =
     result.variant === "success" ? (
       <Text.Text el="span" overflow="fade" className={CSS.BE("picker", "text")}>
@@ -135,6 +139,9 @@ const Trigger = <E extends Entry>({
         icon
       )}
       {content}
+      {endContent != null && (
+        <span className={CSS.BE("picker", "end")}>{endContent}</span>
+      )}
     </Dialog.Trigger>
   );
 };
@@ -168,6 +175,8 @@ interface BaseSelectProps<E extends Entry> extends EntryProps<E> {
    */
   onCreate?: (name: string) => Promise<string | null>;
   preview?: boolean;
+  /** Renders content from the held entry at the end of the trigger, such as a badge. */
+  renderEndContent?: (entry: E) => ReactNode;
 }
 
 export type SelectProps<E extends Entry> = BaseSelectProps<E> &
@@ -179,7 +188,16 @@ export type SelectProps<E extends Entry> = BaseSelectProps<E> &
  * can end in an option that creates an entry.
  */
 export const Select = <E extends Entry>(props: SelectProps<E>): ReactElement => {
-  const { resourceName, icon, describe, list, result, onCreate, preview } = props;
+  const {
+    resourceName,
+    icon,
+    describe,
+    list,
+    result,
+    onCreate,
+    preview,
+    renderEndContent,
+  } = props;
   const { data, getItem, subscribe, status, more, search } = list;
   const selection =
     props.allowNone === true
@@ -212,6 +230,7 @@ export const Select = <E extends Entry>(props: SelectProps<E>): ReactElement => 
           result={result}
           preview={preview}
           allowNone={selection.allowNone}
+          renderEndContent={renderEndContent}
         />
         <Base.Dialog className={CSS.BE("picker", "dialog")}>
           <Base.Body<string>

@@ -99,8 +99,12 @@ func openEnv(ctx SpecContext) *env {
 
 // create creates a device named "Pump PLC" of make mk with the given connection
 // properties, on the embedded rack.
-func (e *env) create(ctx SpecContext, mk string, conn map[string]any) device.Device {
-	GinkgoHelper()
+// write creates a device of make mk with the given connection properties.
+func (e *env) write(
+	ctx SpecContext,
+	mk string,
+	conn map[string]any,
+) (device.Device, error) {
 	dev := device.Device{
 		Key:        uuid.New().String(),
 		Rack:       e.racks.EmbeddedKey,
@@ -110,10 +114,14 @@ func (e *env) create(ctx SpecContext, mk string, conn map[string]any) device.Dev
 		Name:       "Pump PLC",
 		Properties: msgpack.EncodedJSON{"connection": conn},
 	}
-	Expect(e.db.WithTx(ctx, func(tx gorp.Tx) error {
+	return dev, e.db.WithTx(ctx, func(tx gorp.Tx) error {
 		return e.devices.NewWriter(tx).Create(ctx, &dev)
-	})).To(Succeed())
-	return dev
+	})
+}
+
+func (e *env) create(ctx SpecContext, mk string, conn map[string]any) device.Device {
+	GinkgoHelper()
+	return MustSucceed(e.write(ctx, mk, conn))
 }
 
 // connection returns the stored connection of the device with key.

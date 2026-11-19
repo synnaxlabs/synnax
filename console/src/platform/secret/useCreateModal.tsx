@@ -171,7 +171,7 @@ const Create = ({ close, name: initialName, rack }: CreateProps): ReactElement =
                   </Select.Item>
                   <Select.Item itemKey="file">
                     <Icon.Rack />
-                    File on rack
+                    File on Driver
                   </Select.Item>
                 </Select.Buttons>
               )}

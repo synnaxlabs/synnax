@@ -181,32 +181,36 @@ export interface DetailsProps {
 }
 
 /**
- * The validity and file path of a certificate on one line, with a button that shows its
- * full details. A stored certificate also downloads.
+ * A line with the path of a file certificate and a button that shows the full details
+ * of the certificate. A stored certificate also downloads.
  */
 export const Details = ({ certificate: c, now, rack }: DetailsProps): ReactElement => {
   const [visible, setVisible] = useState(false);
-  let state: Picker.Description | null = null;
-  if (c.source === "file" && c.rack !== rack) state = Secret.OTHER_RACK_DESCRIPTION;
-  else if (c.details != null) state = Secret.Validity.describeCertificate(c, now);
-  const path = c.source === "file" ? c.certificatePath : null;
   return (
     <Flex.Box y gap="small">
-      <Picker.Line>
-        <Text.Text
-          level="small"
-          color={9}
-          overflow="fade"
-          className={CSS.BE("certificate-field", "summary-text")}
-        >
-          {state != null && (
-            <Text.Text el="span" color={9} status={state.status}>
-              {state.text}
-            </Text.Text>
-          )}
-          {state != null && path != null && <span>·</span>}
-          {path != null && <span>{path}</span>}
-        </Text.Text>
+      <Picker.Line justify="end">
+        {c.source === "file" && (
+          <Text.Text
+            level="small"
+            color={9}
+            overflow="fade"
+            className={CSS.BE("certificate-field", "summary-text")}
+          >
+            {c.rack !== rack && (
+              <>
+                <Text.Text
+                  el="span"
+                  color={9}
+                  status={Secret.OTHER_RACK_DESCRIPTION.status}
+                >
+                  {Secret.OTHER_RACK_DESCRIPTION.text}
+                </Text.Text>
+                <span>·</span>
+              </>
+            )}
+            <span>{c.certificatePath}</span>
+          </Text.Text>
+        )}
         <Button.Button
           variant="text"
           size="small"

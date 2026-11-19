@@ -96,7 +96,9 @@ export const SelectSecretFile = ({
       disabled={folderMissing}
       emptyContent={emptyContent}
       triggerProps={{
-        placeholder: folderMissing ? "The rack has no secrets folder" : "Select a file",
+        placeholder: folderMissing
+          ? "The Driver has no secrets folder"
+          : "Select a file",
       }}
       footer={
         allowNone && (

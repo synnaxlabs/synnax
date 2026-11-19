@@ -27,7 +27,7 @@ const describe = (s: secret.Secret): Picker.Description => ({
 
 /** Describes a held file item of another rack, which the device cannot read. */
 export const OTHER_RACK_DESCRIPTION: Picker.Description = {
-  text: "File on another rack",
+  text: "File on another Driver",
   status: "error",
 };
 

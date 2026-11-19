@@ -17,9 +17,11 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/opcua"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Password", func() {
@@ -120,6 +122,42 @@ var _ = Describe("Password", func() {
 			key := createSecret(ctx)
 			e.create(ctx, "modbus", map[string]any{"password": key.String()})
 			Expect(e.secrets.Uses(ctx, e.db, key)).To(BeEmpty())
+		})
+
+		It("Should keep the password from being deleted while the device exists", func(
+			ctx SpecContext,
+		) {
+			key := createSecret(ctx)
+			dev := e.create(ctx, opcMake, map[string]any{"password": key.String()})
+			Expect(e.db.WithTx(ctx, func(tx gorp.Tx) error {
+				return e.secrets.NewWriter(tx).Delete(ctx, key)
+			})).To(MatchError(ContainSubstring(
+				"because device " + dev.Key + " references it",
+			)))
+		})
+
+		It("Should refuse a file secret of another rack", func(ctx SpecContext) {
+			other := rack.Rack{Name: "Other Driver"}
+			Expect(e.db.WithTx(ctx, func(tx gorp.Tx) error {
+				return e.racks.NewWriter(tx).Create(ctx, &other)
+			})).To(Succeed())
+			s := secret.Secret{Variant: secret.FileSecret{
+				Base:     secret.Base{Name: "Pump password"},
+				FileName: "pump.txt",
+				Rack:     other.Key,
+			}}
+			Expect(e.db.WithTx(ctx, func(tx gorp.Tx) error {
+				return e.secrets.NewWriter(tx).Set(ctx, &s, nil)
+			})).To(Succeed())
+			_, err := e.write(
+				ctx,
+				opcMake,
+				map[string]any{"password": s.Base().Key.String()},
+			)
+			Expect(err).To(MatchError(validate.ErrValidation))
+			Expect(err).To(MatchError(ContainSubstring(
+				`properties.connection.password: secret "Pump password" is a file of`,
+			)))
 		})
 	})
 })

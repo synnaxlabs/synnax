@@ -253,7 +253,7 @@ const Create = ({
                   </Select.Item>
                   <Select.Item itemKey="file">
                     <Icon.Rack />
-                    File on rack
+                    File on Driver
                   </Select.Item>
                 </Select.Buttons>
               )}
