@@ -94,7 +94,7 @@ export const ContextMenu = ({
     if (onDownloadCSV != null) return onDownloadCSV(ranges);
     if (single == null) return;
     openCSV({
-      timeRange: single.timeRange.numeric,
+      timeRange: single.timeRange,
       name: single.name,
       channels: [],
       icon: <Icon.Range />,
@@ -175,7 +175,7 @@ export const ContextMenu = ({
           itemKey="startChild"
           onClick={() =>
             onStartChild == null
-              ? openCreate({ parent: single.key })
+              ? void openCreate({ parent: single.key })
               : onStartChild(single)
           }
         >

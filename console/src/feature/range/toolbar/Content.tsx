@@ -388,12 +388,15 @@ const Group = ({
   id,
   title,
   count,
+  partial = false,
   children,
   icon,
 }: {
   id: Session.Range.Group;
   title: string;
   count?: number;
+  /** Whether more records exist than count, which then shows a plus. */
+  partial?: boolean;
   children: ReactNode;
   icon?: ReactNode;
 }): ReactElement => {
@@ -414,6 +417,7 @@ const Group = ({
         {count != null && count > 0 && (
           <Text.Text level="tiny" color={9}>
             {count}
+            {partial && "+"}
           </Text.Text>
         )}
       </Header.Group>
@@ -614,18 +618,31 @@ const Body = ({ groups }: { groups: Groups }): ReactElement => {
         {...menuProps}
       />
       <div className={CSS.BE(B, "frame")} onContextMenu={menuProps.open}>
-        <div className={CSS.B(B)} role="list">
+        <div className={CSS.B(B)} role="list" aria-busy={groups.reading}>
           {(running.roots.length > 0 || draft != null) && (
             <Group
               id="running"
               title="Running"
               count={groups.running.length}
+              partial={!groups.runningComplete}
               icon={<Icon.InProgress />}
             >
               {draft != null && draft.parent == null && (
                 <Draft key={draft.startedAt.toString()} draft={draft} />
               )}
               <RunningLines nodes={running.roots} tree={running} depth={0} />
+              {!groups.runningComplete && (
+                <Button.Button
+                  variant="text"
+                  size="small"
+                  textColor={9}
+                  className={CSS.BE(B, "show-more")}
+                  disabled={groups.reading}
+                  onClick={groups.moreRunning}
+                >
+                  Show more
+                </Button.Button>
+              )}
             </Group>
           )}
           <Group
@@ -714,7 +731,7 @@ export const Content = (): ReactElement => {
       }),
     onStartChild: (range) => {
       // The child starts now, so only a running range takes it in place.
-      if (!isRunning(range.key)) return openCreate({ parent: range.key });
+      if (!isRunning(range.key)) return void openCreate({ parent: range.key });
       openSuggested({ startedAt: TimeStamp.now(), parent: range.key });
     },
   };
@@ -724,7 +741,7 @@ export const Content = (): ReactElement => {
   };
   const addPast = () => {
     const now = TimeStamp.now();
-    openCreate({
+    void openCreate({
       timeRange: { start: now.sub(TimeSpan.HOUR).nanoseconds, end: now.nanoseconds },
     });
   };

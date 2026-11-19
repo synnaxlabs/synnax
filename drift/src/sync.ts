@@ -13,6 +13,8 @@ import { dimensions, unique } from "@synnaxlabs/x";
 import { group, groupEnd, log } from "@/debug";
 import { type MainChecker, type Manager, type Properties } from "@/runtime";
 import {
+  closeWindow,
+  type CloseWindowPayload,
   runtimeSetWindowProps,
   type RuntimeSetWindowProsPayload,
   type SliceState,
@@ -25,6 +27,10 @@ import {
 } from "@/window";
 
 type RequiredRuntime = Manager & MainChecker & Properties;
+
+type SyncDispatch = Dispatch<
+  PayloadAction<RuntimeSetWindowProsPayload | CloseWindowPayload>
+>;
 
 const purgeWinStateToProps = (
   window: WindowState & { prerenderLabel?: string },
@@ -45,7 +51,7 @@ const purgeWinStateToProps = (
 
 export const syncInitial = async (
   state: SliceState,
-  dispatch: Dispatch<PayloadAction<RuntimeSetWindowProsPayload>>,
+  dispatch: SyncDispatch,
   runtime: RequiredRuntime,
   debug: boolean,
 ): Promise<void> => {
@@ -62,7 +68,7 @@ export const syncInitial = async (
   for (const label of allLabels)
     if (!runtimeLabels.includes(label) && runtime.isMain()) {
       log(debug, "state window not in runtime, creating", label);
-      await createRuntimeWindow(runtime, label, state.windows[label], debug);
+      await createRuntimeWindow(runtime, dispatch, label, state.windows[label], debug);
     } else if (!nonMain.includes(label)) {
       log(debug, "runtime window not in state, closing", label);
       // We're safe to close the window even if we're not in the main runtime
@@ -82,11 +88,12 @@ export const syncInitial = async (
 export const sync = async (
   prev: SliceState,
   next: SliceState,
+  dispatch: SyncDispatch,
   runtime: RequiredRuntime,
   debug: boolean,
 ): Promise<void> => {
   log(debug, "sync", prev, next);
-  if (runtime.isMain()) await syncMain(prev, next, runtime, debug);
+  if (runtime.isMain()) await syncMain(prev, next, dispatch, runtime, debug);
   const prevWin = prev.windows[runtime.label()];
   const nextWin = next.windows[runtime.label()];
   if (prevWin == null || nextWin == null) return;
@@ -253,6 +260,7 @@ const syncCurrent = async (
 const syncMain = async (
   prev: SliceState,
   next: SliceState,
+  dispatch: SyncDispatch,
   runtime: RequiredRuntime,
   debug: boolean,
 ): Promise<void> => {
@@ -275,17 +283,25 @@ const syncMain = async (
     }
   if (isMain && added.length > 0)
     for (const label of added)
-      await createRuntimeWindow(runtime, label, next.windows[label], debug);
+      await createRuntimeWindow(runtime, dispatch, label, next.windows[label], debug);
 };
 
+// A window that fails to create is logged and removed from state, so a later create
+// with the same key or a new prerender can replace it.
 const createRuntimeWindow = async (
   runtime: Manager,
+  dispatch: SyncDispatch,
   label: string,
   window: WindowState & { prerenderLabel?: string },
   debug: boolean,
 ): Promise<void> => {
   log(debug, "createWindow", window);
-  return await runtime.create(label, purgeWinStateToProps(window));
+  try {
+    await runtime.create(label, purgeWinStateToProps(window));
+  } catch (err) {
+    console.error(`failed to create window ${label}`, err);
+    dispatch(closeWindow({ key: label }));
+  }
 };
 
 const closeRuntimeWindow = async (
