@@ -77,7 +77,7 @@
             border-top: var(--pluto-border);
 
             & > :not(.lyra-create-list-item) {
-                min-height: 5.5rem;
+                min-height: var(--pluto-height-small);
                 margin: 0 1rem 1rem;
             }
         }

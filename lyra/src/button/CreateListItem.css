@@ -30,9 +30,9 @@
 
     &.lyra-create-list-item--small {
         margin: 0 1rem 1rem;
-        padding: 1rem 2rem;
-        min-height: 5.5rem;
+        padding: 0 1.5rem;
+        min-height: var(--pluto-height-small);
         border-radius: var(--pluto-border-radius-small);
-        gap: 1.5rem;
+        gap: 1rem;
     }
 }

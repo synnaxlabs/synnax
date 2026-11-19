@@ -427,7 +427,8 @@ bound, a log precision, or the line plot X channel.
 - A create button at the foot of a dialog, such as "New project" or "Create palette", is
   a `Button.CreateListItem` with its own margin: 1rem from the sides and the bottom of
   the dialog. Under a hairline, it keeps the same 1rem above, so its fill has an even
-  edge. A dialog never restyles it.
+  edge. A small one is a small button: 24 px, with 12 px text. A dialog never restyles
+  it.
 - In a group, all items have an icon or none do.
 - "Copy" puts data on the clipboard. "Duplicate" makes a new resource. A menu never
   calls a duplicate "Copy".
