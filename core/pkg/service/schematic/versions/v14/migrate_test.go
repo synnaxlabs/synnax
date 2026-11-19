@@ -16,9 +16,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
+	enumeration "github.com/synnaxlabs/synnax/pkg/service/enumeration/versions/v0"
 	v13 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v13"
 	v14 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v14"
 	"github.com/synnaxlabs/x/encoding/orc"
+	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -57,6 +60,63 @@ var _ = Describe("MigrateSchematic", func() {
 			Expect(ind.Enumeration).To(BeNil())
 			Expect(ind.Channel).To(BeEquivalentTo(1048578))
 			Expect(ind.Options).To(HaveLen(2))
+		},
+	)
+})
+
+var options = []v13.StateMapping{{Key: "open", Name: "Open", Value: 1}}
+
+var _ = Describe("MigrateNodeConfig", func() {
+	DescribeTable("Should keep the options and name no enumeration", func(
+		ctx SpecContext,
+		old v13.NodeConfigVariant,
+		read func(v14.NodeConfigVariant) ([]v14.StateMapping, *enumeration.Key),
+	) {
+		out := MustSucceed(v14.MigrateNodeConfig(ctx, v13.NodeConfig{Variant: old}))
+		opts, e := read(out.Variant)
+		Expect(opts).To(Equal(options))
+		Expect(e).To(BeNil())
+	},
+		Entry(
+			"select",
+			v13.SelectNodeConfig{Options: options},
+			func(v v14.NodeConfigVariant) ([]v14.StateMapping, *enumeration.Key) {
+				c := v.(v14.SelectNodeConfig)
+				return c.Options, c.Enumeration
+			},
+		),
+		Entry(
+			"state indicator",
+			v13.StateIndicatorNodeConfig{Options: options},
+			func(v v14.NodeConfigVariant) ([]v14.StateMapping, *enumeration.Key) {
+				c := v.(v14.StateIndicatorNodeConfig)
+				return c.Options, c.Enumeration
+			},
+		),
+	)
+})
+
+var _ = Describe("MigrateNode", func() {
+	It(
+		"Should keep the placement of a node and lift its config",
+		func(ctx SpecContext) {
+			out := MustSucceed(v14.MigrateNode(ctx, v13.Node{
+				Key:      "valve",
+				Position: spatial.XY{X: 10, Y: 20},
+				ZIndex:   3,
+				Parent:   lo.ToPtr("group"),
+				Config: v13.NodeConfig{
+					Variant: v13.SelectNodeConfig{Options: options},
+				},
+			}))
+			Expect(out.Key).To(Equal("valve"))
+			Expect(out.Position).To(Equal(spatial.XY{X: 10, Y: 20}))
+			Expect(out.ZIndex).To(BeEquivalentTo(3))
+			Expect(out.Parent).To(Equal(lo.ToPtr("group")))
+			sel, ok := out.Config.Variant.(v14.SelectNodeConfig)
+			Expect(ok).To(BeTrue())
+			Expect(sel.Options).To(Equal(options))
+			Expect(sel.Enumeration).To(BeNil())
 		},
 	)
 })
