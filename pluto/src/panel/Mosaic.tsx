@@ -144,61 +144,63 @@ const CreateTab = ({ selected, onAdd }: CreateTabProps): ReactElement => {
 };
 CreateTab.displayName = "Panel.Mosaic.CreateTab";
 
-const Leaf = ({
-  nodeKey,
-  onAdd,
-  onContextMenu,
-  emptyContent,
-  canEdit,
-  ...rest
-}: NodeProps): ReactElement => {
-  const { tabs } = useLeafNode({ nodeKey });
-  const selected = Select.useSelectedAmong(tabs) ?? tabs[0];
-  const { onSelect } = Select.useContext();
-  const handleAdd = () => onAdd(nodeKey);
-  const handleSelectContent = () => onSelect(selected);
-  const selectorDropProps = Base.useSelectorDropProps({ nodeKey, tabKeys: tabs });
-  return (
-    <Base.Leaf nodeKey={nodeKey} grow>
-      <Tabs.Frame grow>
-        <Tabs.Selector
-          align="start"
-          {...selectorDropProps}
-          onContextMenu={onContextMenu}
-        >
-          {tabs.map((tabKey) => (
-            <Tab key={tabKey} tabKey={tabKey} canEdit={canEdit} {...rest} />
-          ))}
-          <Flex.Box grow />
-          {canEdit && (
-            <Flex.Box
-              align="center"
-              justify="center"
-              className={CSS.BE("panel-mosaic", "cap")}
-            >
-              <CreateTab selected={selected} onAdd={handleAdd} />
-            </Flex.Box>
-          )}
-        </Tabs.Selector>
-        <Tabs.Content grow>
-          {selected != null ? (
-            <Portal.Out
-              itemKey={selected}
-              className={CSS.BE("panel-mosaic", "portal-out")}
-              onClickCapture={handleSelectContent}
-            />
-          ) : (
-            emptyContent
-          )}
-          <Base.Shield />
-        </Tabs.Content>
-      </Tabs.Frame>
-    </Base.Leaf>
-  );
-};
+const Leaf = memo(
+  ({
+    nodeKey,
+    onAdd,
+    onContextMenu,
+    emptyContent,
+    canEdit,
+    ...rest
+  }: NodeProps): ReactElement => {
+    const { tabs } = useLeafNode({ nodeKey });
+    const selected = Select.useSelectedAmong(tabs) ?? tabs[0];
+    const { onSelect } = Select.useContext();
+    const handleAdd = () => onAdd(nodeKey);
+    const handleSelectContent = () => onSelect(selected);
+    const selectorDropProps = Base.useSelectorDropProps({ nodeKey, tabKeys: tabs });
+    return (
+      <Base.Leaf nodeKey={nodeKey} grow>
+        <Tabs.Frame grow>
+          <Tabs.Selector
+            align="start"
+            {...selectorDropProps}
+            onContextMenu={onContextMenu}
+          >
+            {tabs.map((tabKey) => (
+              <Tab key={tabKey} tabKey={tabKey} canEdit={canEdit} {...rest} />
+            ))}
+            <Flex.Box grow />
+            {canEdit && (
+              <Flex.Box
+                align="center"
+                justify="center"
+                className={CSS.BE("panel-mosaic", "cap")}
+              >
+                <CreateTab selected={selected} onAdd={handleAdd} />
+              </Flex.Box>
+            )}
+          </Tabs.Selector>
+          <Tabs.Content grow>
+            {selected != null ? (
+              <Portal.Out
+                itemKey={selected}
+                className={CSS.BE("panel-mosaic", "portal-out")}
+                onClickCapture={handleSelectContent}
+              />
+            ) : (
+              emptyContent
+            )}
+            <Base.Shield />
+          </Tabs.Content>
+        </Tabs.Frame>
+      </Base.Leaf>
+    );
+  },
+);
 Leaf.displayName = "Panel.Mosaic.Leaf";
 
-const Split = ({ nodeKey, ...rest }: NodeProps): ReactElement => {
+const Split = memo(({ nodeKey, ...rest }: NodeProps): ReactElement => {
   const { direction, size } = useSplitNode({ nodeKey });
   return (
     <Base.Split nodeKey={nodeKey} direction={direction} size={size}>
@@ -206,13 +208,13 @@ const Split = ({ nodeKey, ...rest }: NodeProps): ReactElement => {
       <Node nodeKey={panel.childNodeKey(nodeKey, "last")} {...rest} />
     </Base.Split>
   );
-};
+});
 Split.displayName = "Panel.Mosaic.Split";
 
-const Node = ({ nodeKey, ...rest }: NodeProps): ReactElement => {
+const Node = memo(({ nodeKey, ...rest }: NodeProps): ReactElement => {
   const C = useNodeVariant({ nodeKey }) == "split" ? Split : Leaf;
   return <C nodeKey={nodeKey} {...rest} />;
-};
+});
 Node.displayName = "Panel.Mosaic.Node";
 
 /** Enters a tab's overlaid (focused) state. Escape is the way out, so the exit
