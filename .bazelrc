@@ -244,6 +244,13 @@ build:sanitize-ci --test_summary=detailed
 # when an earlier run left a read-only .gcno at that path. The sandbox drops the file.
 coverage:linux --strategy=CppCompile=sandboxed
 
+# ===== Linking =====
+#
+# gold fails with an internal error (set_xindex) on the section count of the LTO Driver,
+# which the prebuilt wasmtime raises. bfd links it, but has no --start-lib.
+build:linux --linkopt=-fuse-ld=bfd
+build:linux --features=-supports_start_end_lib
+
 # ===== clang-tidy =====
 #
 # bazel build --config=clang-tidy <targets> lints every C++ source and header in the
