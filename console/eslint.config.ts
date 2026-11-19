@@ -15,4 +15,6 @@ export default [
   ...cfg,
   reactCompiled,
   { rules: { "synnax/barrel-imports": "off" } },
+  // The Tauri shell is Rust; its JavaScript is test fixtures for WebKitGTK.
+  { ignores: ["src-tauri"] },
 ] as Linter.Config[];
