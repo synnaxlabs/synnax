@@ -117,6 +117,7 @@ var _ = Describe("Storage migration", func() {
 		func(ctx SpecContext) {
 			seed := decodeReleasedV5()
 			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
 			MustSucceed(gorp.OpenTable(
 				ctx, gorp.TableConfig[v5.Key, v5.LinePlot]{DB: db},
 			))

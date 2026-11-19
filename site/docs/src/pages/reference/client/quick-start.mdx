@@ -56,7 +56,8 @@ npm install @synnaxlabs/client tsx
 Install the client version that matches the major and minor version of your Core, such
 as client 0.61 for Core 0.61. The client prints a warning when the versions differ, and
 the TypeScript client can stop with an error. The **Connect from code** dialog of Synnax
-Desktop gives the install command that matches.
+Desktop gives the install command that matches. To open it, click the code button in the
+top bar of Synnax Desktop.
 
 ### Install without internet access
 
@@ -110,28 +111,31 @@ client = sy.Synnax(
 
   <Fragment slot="typescript">
 
-For Synnax Desktop, copy the `host`, `port`, and `apiKey` from the **Connect from code**
-dialog:
+With Synnax Desktop open, the TypeScript client finds its Core by itself:
 
 ```typescript
 import { DataType, Synnax, TimeSpan, TimeStamp } from "@synnaxlabs/client";
 
-const client = new Synnax({
-  host: "localhost",
-  port: 9090,
-  apiKey: "syk_...",
-});
+const client = new Synnax();
 ```
 
-For a Core in Synnax Enterprise, give its address and your credentials in place of
-`apiKey`: `username: "operator"` and `password: "secret"`.
+For a Core in Synnax Enterprise, give its address and your credentials:
+
+```typescript
+const client = new Synnax({
+  host: "core.example.com",
+  port: 9090,
+  username: "operator",
+  password: "secret",
+});
+```
 
   </Fragment>
 
 </Client.Tabs>
 
-To open the dialog, click the code button in the top bar of Synnax Desktop. For TLS, API
-keys, and other options, see [Connect to a Core](/reference/client/connect).
+For TLS, API keys, and other options, see
+[Connect to a Core](/reference/client/connect).
 
 <Divider.Divider x />
 
@@ -277,6 +281,9 @@ The script prints the five samples that it wrote:
 ```bash
 npx tsx quick_start.ts
 ```
+
+With Bun, run `bun quick_start.ts`. With Deno, run
+`deno run --allow-net quick_start.ts`.
 
 The script prints the five samples that it wrote:
 

@@ -90,6 +90,8 @@ class Master final : public master::Master {
     std::optional<uint32_t> cycle_shortfall;
     /// @brief what shortfall() returns.
     std::optional<uint32_t> latest_shortfall;
+    /// @brief what the latest receive() returns.
+    x::errors::Error received;
     /// @brief what inputless() returns.
     std::vector<uint16_t> latest_inputless;
     bool initialized{false};
@@ -136,6 +138,8 @@ class Master final : public master::Master {
     bool blocked{false};
     /// @brief whether the next receive() stalls, set by step().
     bool stall_next{false};
+    /// @brief runs at the start of each scan(), set by on_scan().
+    std::function<void()> scan_hook;
     x::loop::HostClock clock;
     x::telem::TimeSpan activate_duration{0};
     /// @brief how many more frames record_dc() asked for.
@@ -272,6 +276,12 @@ public:
         std::lock_guard lock(this->mu);
         for (auto &slave: this->slave_list)
             if (slave.properties.position == position) slave.status.starting = starting;
+    }
+
+    /// @brief runs fn at the start of each scan(), so a test can act during a scan.
+    void on_scan(std::function<void()> fn) {
+        std::lock_guard lock(this->mu);
+        this->scan_hook = std::move(fn);
     }
 
     /// @brief injects an error to be returned by scan().
@@ -530,6 +540,12 @@ public:
     }
 
     std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> scan() override {
+        std::function<void()> hook;
+        {
+            std::lock_guard lock(this->mu);
+            hook = this->scan_hook;
+        }
+        if (hook) hook();
         std::lock_guard lock(this->mu);
         this->calls.emplace_back("scan");
         if (this->inject_scan_err) return {{}, this->inject_scan_err};
@@ -718,7 +734,7 @@ public:
             slave.status.state = slave::State::INIT;
     }
 
-    x::errors::Error receive() override {
+    const x::errors::Error &receive() override {
         {
             std::unique_lock lock(this->stall_mu);
             if (std::exchange(this->stall_next, false)) this->stalled = true;
@@ -734,7 +750,10 @@ public:
         auto sent_at = this->last_sent;
         if (!this->frames.empty()) {
             if (this->frames.front().late && this->frames.size() == 1)
-                return x::errors::Error(errors::FRAME_IN_FLIGHT, "frame in flight");
+                return this->received = x::errors::Error(
+                           errors::FRAME_IN_FLIGHT,
+                           "frame in flight"
+                       );
             sent_at = this->frames.front().sent_at;
             this->frames.pop_front();
         }
@@ -749,13 +768,17 @@ public:
         }
         std::ranges::sort(this->latest_inputless);
         if (!this->activated)
-            return x::errors::Error(errors::CYCLIC_ERROR, "not activated");
+            return this->received = x::errors::Error(
+                       errors::CYCLIC_ERROR,
+                       "not activated"
+                   );
         const auto err = this->short_until_op ? x::errors::Error(
                                                     errors::WORKING_COUNTER_ERROR,
                                                     "expected 3, got 1"
                                                 )
                                               : this->inject_receive_err;
-        if (err && !err.matches(errors::WORKING_COUNTER_ERROR)) return err;
+        if (err && !err.matches(errors::WORKING_COUNTER_ERROR))
+            return this->received = err;
         if (this->dc_step) this->dc_now = this->dc_now + *this->dc_step;
         if (this->host_dc_rate && this->host_dc_start) {
             const auto elapsed = sent_at - *this->host_dc_start;
@@ -765,7 +788,7 @@ public:
             this->recorded.push_back(this->dc_now);
             if (--this->frames_to_record == 0) this->recorded_cv.notify_all();
         }
-        if (err) return err;
+        if (err) return this->received = err;
         std::memcpy(
             this->input_iomap.data(),
             this->pending_inputs.data(),
@@ -773,10 +796,10 @@ public:
         );
         if (!this->cycle_shortfall) return x::errors::NIL;
         this->latest_shortfall = this->cycle_shortfall;
-        return x::errors::Error(
-            errors::WORKING_COUNTER_ERROR,
-            "short by " + std::to_string(*this->cycle_shortfall)
-        );
+        return this->received = x::errors::Error(
+                   errors::WORKING_COUNTER_ERROR,
+                   "short by " + std::to_string(*this->cycle_shortfall)
+               );
     }
 
     std::optional<uint32_t> shortfall() const override {
@@ -1034,7 +1057,7 @@ private:
     slave::DiscoveryResult &slave(const uint16_t position) {
         for (auto &slave: this->slave_list)
             if (slave.properties.position == position) return slave;
-        throw std::out_of_range("no slave at position " + std::to_string(position));
+        throw std::out_of_range("no module at position " + std::to_string(position));
     }
 
     void cache_pdo_offsets() {

@@ -107,6 +107,7 @@ var _ = Describe("MigrateSchematic", func() {
 var _ = Describe("Migration", func() {
 	It("Should lift schematics that v0.61 stored to v13", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v11.Key, v11.Schematic]{
 			DB: db,
 		}))

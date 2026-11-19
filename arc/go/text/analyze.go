@@ -17,10 +17,11 @@ import (
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/authority"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
+	"github.com/synnaxlabs/arc/analyzer/expression"
 	"github.com/synnaxlabs/arc/analyzer/statement"
 	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/ir"
@@ -32,6 +33,7 @@ import (
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // keyGenerator produces globally unique IR node keys. It maintains a running
@@ -525,13 +527,13 @@ func analyzeIdentifierByRole(
 		symbol.KindLoop, symbol.KindLoopVariable, symbol.KindModule,
 		symbol.KindModuleAlias, symbol.KindAmbient:
 		if isSink && sym.Root().UserDefined && sym.Root() != ctx.Scope.Root() {
-			ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+			ctx.Diagnostics.Add(codes.ReadOnlyWrite.Atf(ctx.AST,
 				"cannot write to '%s': it belongs to an imported module", name))
 			return flowNodeResult{}, false
 		}
 		if rn := shell.varNodes[sym].readNode(sym); rn != nil {
 			if isSink && isExprReadVar(sym) {
-				ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+				ctx.Diagnostics.Add(codes.ReadOnlyWrite.Atf(ctx.AST,
 					"cannot write to channel-read variable '%s'", name))
 				return flowNodeResult{}, false
 			}
@@ -762,7 +764,7 @@ func lowerComputedDecl(
 	shell *shellBuilder,
 ) (varEntry, bool) {
 	if e.register == nil {
-		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+		ctx.Diagnostics.Add(codes.NotConstant.Atf(ctx.AST,
 			"variable '%s' of type %s cannot have a computed initializer",
 			sym.Name, sym.Type))
 		return varEntry{}, false
@@ -894,6 +896,26 @@ func varReadRef(vn *ir.Node) nodeResult {
 		node:   ir.Node{Outputs: vn.Outputs},
 		output: ir.Handle{Node: vn.Key, Param: ir.DefaultOutputParam},
 	}
+}
+
+// buildScaleNode builds the node that converts a value of type from to the unit of to.
+func buildScaleNode(from, to types.Type, kg *keyGenerator) nodeResult {
+	key := kg.generate("scale", "")
+	inputs := types.Params{{Name: "value", Type: from}}
+	outputs := types.Params{{Name: ir.DefaultOutputParam, Type: to}}
+	*kg.synthFuncs = append(*kg.synthFuncs, ir.Function{
+		Key:      compiler.ScaleSyntheticPrefix + key,
+		Inputs:   inputs,
+		Outputs:  outputs,
+		Channels: types.NewChannels(),
+	})
+	return newNodeResult(ir.Node{
+		Key:      key,
+		Type:     compiler.ScaleSyntheticPrefix + key,
+		Channels: types.NewChannels(),
+		Inputs:   inputs,
+		Outputs:  outputs,
+	}, "value", ir.DefaultOutputParam)
 }
 
 // varFeederRef appends a fresh feeder param to vn and returns a reference
@@ -1107,7 +1129,7 @@ func retargetEdges[T antlr.ParserRuleContext](
 		e.Target.Node = disp.Key
 		if prior, found := ir.Edges(kept).FindByTarget(e.Target); found {
 			if prior.Source != e.Source {
-				ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+				ctx.Diagnostics.Add(codes.TriggerBinding.Atf(ctx.AST,
 					"conflicting sources for dispatcher input %q", e.Target.Param))
 			}
 			continue
@@ -1188,7 +1210,7 @@ func analyzeNamedRef(
 	if isRootLevelScope(sym) {
 		if seqDecl, ok := sym.AST.(parser.ISequenceDeclarationContext); ok {
 			if len(seqDecl.AllSequenceItem()) == 0 {
-				ctx.Diagnostics.Add(diagnostics.Errorf(
+				ctx.Diagnostics.Add(codes.EmptySequence.Atf(
 					ctx.AST, "sequence '%s' has no steps", sym.Name,
 				))
 				return transitionIntent{}, false
@@ -1196,7 +1218,7 @@ func analyzeNamedRef(
 		}
 		return transitionIntent{activateKey: sym.QualifiedName()}, true
 	}
-	ctx.Diagnostics.Add(diagnostics.Errorf(
+	ctx.Diagnostics.Add(codes.TransitionTarget.Atf(
 		ctx.AST,
 		"'%s' is not reachable from here: it is neither a sibling within an "+
 			"enclosing sequence nor a top-level scope",
@@ -1277,19 +1299,19 @@ func analyzeNextToken(
 	shell *shellBuilder,
 ) (flowNodeResult, bool) {
 	if shell.inlineBoundaryBlocksNext() {
-		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+		ctx.Diagnostics.Add(codes.TransitionTarget.Atf(ctx.AST,
 			"'next' is not valid inside an inline routing case body"))
 		return flowNodeResult{}, false
 	}
 	frame := shell.top()
 	if frame == nil {
 		ctx.Diagnostics.Add(
-			diagnostics.Errorf(ctx.AST, "'next' used outside of a sequence"),
+			codes.TransitionTarget.Atf(ctx.AST, "'next' used outside of a sequence"),
 		)
 		return flowNodeResult{}, false
 	}
 	if frame.nextMember() == "" {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
+		ctx.Diagnostics.Add(codes.TransitionTarget.Atf(
 			ctx.AST,
 			"'next' in last stage '%s' has no next stage",
 			frame.memberKeys[frame.activeIdx],
@@ -1326,7 +1348,7 @@ func analyzeFunctionNode(
 		return lowerSynthNode(ctx, synth, kg, shell, triggered)
 	}
 	if sym.Type.Kind != types.KindFunction {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
+		ctx.Diagnostics.Add(codes.NotCallable.Atf(
 			ctx.AST,
 			"expected function type, got %s",
 			sym.Type,
@@ -1362,54 +1384,6 @@ func analyzeFunctionNode(
 	return res, true
 }
 
-// tryAnalyzeFmtStrLiteral handles the format-string-with-placeholders case by
-// emitting a synthetic function. handled=true means the literal was a format
-// string with placeholders and the result is authoritative; handled=false
-// means callers should fall through to other literal handling.
-func tryAnalyzeFmtStrLiteral(
-	ctx acontext.Context[parser.IExpressionContext],
-	sym *symbol.Symbol,
-	kg *keyGenerator,
-	shell *shellBuilder,
-	triggered bool,
-) (nodeResult, bool, bool) {
-	literalCtx := parser.GetLiteral(ctx.AST)
-	if literalCtx == nil {
-		return nodeResult{}, false, false
-	}
-	strTerm := parser.StringTerminal(literalCtx)
-	if strTerm == nil {
-		return nodeResult{}, false, false
-	}
-	if !lo.SomeBy(
-		ctx.FmtStrings[strTerm],
-		func(seg parser.FmtSegment) bool { return seg.Expr != nil },
-	) {
-		return nodeResult{}, false, false
-	}
-	outputType := ctx.Constraints.ApplySubstitutions(sym.Type.Outputs[0].Type)
-	body, _, _ := literal.StripQuotes(strTerm.GetText())
-	key := kg.generate("fmt", "")
-	synthKey := compiler.FmtStrSyntheticPrefix + key
-	*kg.synthFuncs = append(*kg.synthFuncs, ir.Function{
-		Key:      synthKey,
-		Body:     ir.Body{Raw: body, AST: literalCtx},
-		Inputs:   sym.Type.Inputs,
-		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: outputType}},
-		Channels: sym.Channels.Copy(),
-		Symbol:   sym,
-	})
-	n := ir.Node{
-		Key:      key,
-		Type:     synthKey,
-		Channels: sym.Channels.Copy(),
-		Inputs:   sym.Type.Inputs,
-		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: outputType}},
-	}
-	wireVarEdges(ctx, shell, kg, &n, triggered)
-	return newNodeResult(n, ir.DefaultInputParam, ir.DefaultOutputParam), true, true
-}
-
 // analyzeExpression lowers an expression into a node. triggered means the node
 // sits behind a flow trigger, so lifted value-variable params bind as VarRefs
 // sampled per fire rather than edges that wake the node on writes.
@@ -1423,18 +1397,6 @@ func analyzeExpression(
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return nodeResult{}, false
-	}
-
-	if sym.Kind == symbol.KindFunction && parser.IsLiteral(ctx.AST) {
-		if n, handled, ok := tryAnalyzeFmtStrLiteral(
-			ctx,
-			sym,
-			kg,
-			shell,
-			triggered,
-		); handled {
-			return n, ok
-		}
 	}
 
 	if sym.Kind == symbol.KindConstant {
@@ -1464,7 +1426,7 @@ func lowerSynthNode[T antlr.ParserRuleContext](
 	key := kg.generate(sym.Name, "")
 	freshType := types.Freshen(sym.Type, key)
 	if len(freshType.Outputs) == 0 || !freshType.Outputs[0].Type.IsValid() {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
+		ctx.Diagnostics.Add(codes.FlowConnection.Atf(
 			ctx.AST,
 			"%s has no output value",
 			ctx.AST.GetText(),
@@ -1647,10 +1609,6 @@ func collectFunctions(scope *symbol.Symbol) []ir.Function {
 	var fns []ir.Function
 	for _, c := range scope.Children() {
 		if c.Kind != symbol.KindFunction || c.AST == nil {
-			continue
-		}
-		// Format-string fns compile as fmt$ synthetics from the stored placeholders.
-		if expr, ok := c.AST.(parser.IExpressionContext); ok && parser.IsLiteral(expr) {
 			continue
 		}
 		bodyAst := c.AST
@@ -1999,7 +1957,7 @@ func headVarReads[T antlr.ParserRuleContext](
 	}
 	var nodes []*ir.Node
 	for _, arg := range symbol.FunctionArguments(fn) {
-		for _, pe := range parser.CollectNamedPrimaries(arg.Expr) {
+		for _, pe := range parser.CollectNamedPrimaries(arg.Expr, ctx.FmtStrings) {
 			head, tail := parser.PrimaryNameParts(pe)
 			sym, err := ctx.Scope.ResolveMember(ctx, head, tail)
 			if err != nil || !isExprReadVar(sym) {
@@ -2076,14 +2034,29 @@ func (p *flowChainProcessor) processFlowNode(flowNode parser.IFlowNodeContext) b
 	}
 
 	node := result.node
+	if isSink && node.node.Key == "" && len(p.nodes) == 0 && declaredAsStep(p.ctx.AST) {
+		p.readStepSource()
+	}
 	if p.prevNode != nil {
 		if len(p.prevNode.Outputs) == 0 {
-			p.ctx.Diagnostics.Add(diagnostics.Errorf(
+			p.ctx.Diagnostics.Add(codes.FlowConnection.Atf(
 				flowNode,
 				"function '%s' has no output to connect in flow chain",
 				p.prevNode.Type,
 			))
 			return false
+		}
+		// A value written to a variable of another unit converts on the way.
+		if from, to := p.prevNode.Outputs[0].Type, node.node.Outputs; isSink &&
+			len(to) > 0 && types.UnitsConvertible(from.Unit, to[0].Type.Unit) {
+			scale := buildScaleNode(from, to[0].Type, p.kg)
+			p.edges = append(p.edges, ir.Edge{
+				Source: p.prevOutput,
+				Target: scale.input,
+				Kind:   p.edgeKind(),
+			})
+			p.nodes = append(p.nodes, scale.node)
+			p.prevOutput = scale.output
 		}
 		p.edges = append(p.edges, ir.Edge{
 			Source: p.prevOutput,
@@ -2134,6 +2107,25 @@ func (p *flowChainProcessor) processFlowNode(flowNode parser.IFlowNodeContext) b
 	return true
 }
 
+// readStepSource reads the source variable of a variable-to-variable step through a
+// node in the step, so the step has an output to complete on.
+func (p *flowChainProcessor) readStepSource() {
+	t := p.prevNode.Outputs[0].Type
+	read := newConstNode(
+		p.kg.generate("read", ""),
+		types.VarRef(t, p.prevOutput.Node),
+		t,
+		types.Zero(t),
+	)
+	p.edges = append(p.edges, ir.Edge{
+		Source: p.prevOutput,
+		Target: ir.Handle{Node: read.Key, Param: ir.DefaultInputParam},
+		Kind:   ir.EdgeKindContinuous,
+	})
+	p.nodes = append(p.nodes, read)
+	p.prevOutput = ir.Handle{Node: read.Key, Param: ir.DefaultOutputParam}
+}
+
 // consumeTransition records a transition and/or activation for a flow chain
 // whose terminal token is `=> next`, `=> scope_name`, or a scope-valued
 // identifier. The firing handle is the previous node's output.
@@ -2142,13 +2134,13 @@ func (p *flowChainProcessor) consumeTransition(
 	ast parser.IFlowNodeContext,
 ) bool {
 	if p.prevNode == nil {
-		p.ctx.Diagnostics.Add(diagnostics.Errorf(
+		p.ctx.Diagnostics.Add(codes.TransitionTarget.Atf(
 			ast, "transition target requires a source",
 		))
 		return false
 	}
 	if len(p.prevNode.Outputs) == 0 {
-		p.ctx.Diagnostics.Add(diagnostics.Errorf(
+		p.ctx.Diagnostics.Add(codes.FlowConnection.Atf(
 			ast,
 			"function '%s' has no output to drive a transition",
 			p.prevNode.Type,
@@ -2168,7 +2160,7 @@ func (p *flowChainProcessor) consumeTransition(
 func (p *flowChainProcessor) processRoutingTable(rt parser.IRoutingTableContext) bool {
 	// SY-5483: a table with no node before it is an input table, which is unsupported.
 	if p.prevNode == nil {
-		p.ctx.Diagnostics.Add(diagnostics.Errorf(
+		p.ctx.Diagnostics.Add(codes.RoutingTable.Atf(
 			p.ctx.AST,
 			"input routing tables are not supported",
 		))
@@ -2334,7 +2326,7 @@ func (p *inputParser) parse(
 	}
 	// Any other expression becomes a node that fires with the call and is
 	// sampled through a var ref, so its value is the one at fire time.
-	if !parser.IsLiteral(expr) {
+	if !literal.IsConstant(expr) {
 		res, ok := analyzeExpression(p.ctx.Child(expr), p.kg, p.shell, true)
 		if !ok {
 			return nil, paramType, false
@@ -2365,15 +2357,14 @@ func (p *inputParser) parseName(
 		return nil, paramType, false, false
 	}
 	if sym.IsLiteral() || isExprReadVar(sym) {
-		if rn := p.shell.varNodes[sym].readNode(sym); rn != nil {
-			t := sym.Type.UnwrapChan()
-			return varValue(sym), types.VarRef(t, rn.Key), true, true
-		}
-		if !sym.Reassigned && sym.DefaultValue != nil {
-			return sym.DefaultValue, paramType, true, true
+		rn := p.shell.varNodes[sym].readNode(sym)
+		if rn != nil || (!sym.Reassigned && sym.DefaultValue != nil) {
+			value, typ, ok = p.parseVariable(expr, sym, rn, paramType)
+			return value, typ, ok, true
 		}
 	}
 	if sym.Type.Kind == types.KindChan {
+		// SY-5823: This error goes away when the fix lands, so it has no code.
 		p.ctx.Diagnostics.Add(diagnostics.Errorf(
 			expr,
 			"input value for '%s' cannot be a channel",
@@ -2382,6 +2373,52 @@ func (p *inputParser) parseName(
 		return nil, paramType, false, true
 	}
 	return nil, paramType, false, false
+}
+
+// parseVariable parses an input that reads the variable sym, in the unit of the
+// input. rn is the node that holds the variable, or nil for a variable that inlines.
+func (p *inputParser) parseVariable(
+	expr parser.IExpressionContext,
+	sym *symbol.Symbol,
+	rn *ir.Node,
+	paramType types.Type,
+) (any, types.Type, bool) {
+	t, value := sym.Type.UnwrapChan(), varValue(sym)
+	convertible := types.UnitsConvertible(t.Unit, paramType.Unit)
+	check := convertible && rn != nil
+	// A value that is not finite is text, the same in each unit.
+	_, nonFinite := sym.DefaultValue.(string)
+	if convertible && sym.DefaultValue != nil && !nonFinite {
+		parsed, err := literal.Convert(
+			telem.CastNumeric[float64](sym.DefaultValue), t.Unit, paramType,
+		)
+		if err != nil {
+			p.ctx.Diagnostics.Add(diagnostics.Error(err, expr))
+			return nil, paramType, false
+		}
+		value, check = parsed.Value, check || parsed.Truncated
+	}
+	if check {
+		expression.CheckUnits(p.ctx, expression.Write{
+			AST: expr, Source: sym.Type, Target: paramType,
+		})
+	}
+	if rn == nil {
+		return value, paramType, true
+	}
+	ref := types.VarRef(t, rn.Key)
+	if !convertible {
+		return value, ref, true
+	}
+	// A native node converts the register when it reads it. Any other node reads a
+	// scale node that fires with the call.
+	if p.fnSym.Exec != symbol.ExecFlow {
+		scale := buildScaleNode(ref, paramType, p.kg)
+		p.args = append(p.args, scale.node)
+		return value, types.VarRef(paramType, scale.node.Key), true
+	}
+	ref.Unit = paramType.Unit
+	return value, ref, true
 }
 
 func (p *inputParser) parseChannel(
@@ -2396,7 +2433,7 @@ func (p *inputParser) parseChannel(
 		return nil, paramType, false
 	}
 	if isExprReadVar(sym) {
-		p.ctx.Diagnostics.Add(diagnostics.Errorf(
+		p.ctx.Diagnostics.Add(codes.ChannelExpected.Atf(
 			expr,
 			"input value for '%s' must be a channel",
 			paramName,
@@ -2406,7 +2443,7 @@ func (p *inputParser) parseChannel(
 	if err := paramType.ChanDirection.CheckCompatibility(
 		sym.Type.ChanDirection,
 	); err != nil {
-		p.ctx.Diagnostics.Add(diagnostics.Error(err, expr))
+		p.ctx.Diagnostics.Add(codes.ReadOnlyWrite.Wrap(err, expr))
 		return nil, paramType, false
 	}
 	// Top-level channel aliases cannot be rebound, so they collapse into
@@ -2534,7 +2571,7 @@ func analyzeOutputRoutingTable(
 	for _, entry := range ctx.AST.AllRoutingEntry() {
 		outputName := entry.RoutingKey().GetText()
 		if !sourceNode.Outputs.Has(outputName) {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.Diagnostics.Add(codes.RoutingName.Atf(
 				entry,
 				"node '%s' does not have output '%s'",
 				sourceNode.Key,
@@ -2585,7 +2622,7 @@ func analyzeOutputRoutingTable(
 			target := node.input
 			if isLast && targetParamName != "" {
 				if !node.node.Inputs.Has(targetParamName) {
-					ctx.Diagnostics.Add(diagnostics.Errorf(
+					ctx.Diagnostics.Add(codes.RoutingName.Atf(
 						entry,
 						"node '%s' does not have input '%s'",
 						node.node.Key,
@@ -2685,14 +2722,19 @@ func addInlineMembers(scope *ir.Scope, members []ir.Member) {
 	scope.Strata[0] = append(scope.Strata[0], members...)
 }
 
-// autoWireTransition advances past a step, or completes a terminal one, when its
-// last node emits a truthy output, or ran without error if it has no outputs.
-func autoWireTransition(shell *shellBuilder, lastNode ir.Node, nextMemberKey string) {
+// autoWireTransition advances past a step, or completes a terminal one, when its last
+// node emits a value that passes kind, or runs with no outputs.
+func autoWireTransition(
+	shell *shellBuilder,
+	lastNode ir.Node,
+	nextMemberKey string,
+	kind ir.EdgeKind,
+) {
 	on := ir.Handle{Node: lastNode.Key, Param: ir.DoneParam}
-	kind := ir.EdgeKindContinuous
 	if len(lastNode.Outputs) > 0 {
 		on.Param = firstOutputParam(lastNode.Outputs)
-		kind = ir.EdgeKindConditional
+	} else {
+		kind = ir.EdgeKindContinuous
 	}
 	if nextMemberKey == "" {
 		shell.addCompletion(on, kind)
@@ -2819,7 +2861,13 @@ func analyzeSequence(
 			// firing-node's mark before the outer frame's evaluator sees
 			// it, preventing the cross-level jump from firing.
 			if !transitionEmitted && len(nodes) > 0 {
-				autoWireTransition(shell, nodes[len(nodes)-1], nextKey)
+				kind := ir.EdgeKindConditional
+				flowNodes := flowStmt.AllFlowNode()
+				if flowNodes[len(flowNodes)-1].Identifier() != nil {
+					ops := flowStmt.AllFlowOperator()
+					kind = flowOperatorEdgeKind(ops[len(ops)-1])
+				}
+				autoWireTransition(shell, nodes[len(nodes)-1], nextKey, kind)
 			}
 			continue
 		}
@@ -2838,7 +2886,9 @@ func analyzeSequence(
 			allNodes = append(allNodes, aNodes...)
 			allEdges = append(allEdges, aEdges...)
 			if len(aNodes) > 0 {
-				autoWireTransition(shell, aNodes[len(aNodes)-1], nextKey)
+				autoWireTransition(
+					shell, aNodes[len(aNodes)-1], nextKey, ir.EdgeKindContinuous,
+				)
 			}
 			continue
 		}
@@ -2855,7 +2905,9 @@ func analyzeSequence(
 			child := flowScope(si.key, nodes)
 			scope.Steps = append(scope.Steps, ir.Member{Scope: &child})
 			allNodes = append(allNodes, nodes...)
-			autoWireTransition(shell, nodes[len(nodes)-1], nextKey)
+			autoWireTransition(
+				shell, nodes[len(nodes)-1], nextKey, ir.EdgeKindConditional,
+			)
 			continue
 		}
 

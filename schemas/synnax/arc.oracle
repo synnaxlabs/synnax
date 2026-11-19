@@ -93,10 +93,11 @@ Arc union on type Type extends Base {
             @go marshal omit
             @include
         }
-        changes      Change[]?        {
+        changes      Change[]         {
             @doc value  "is what changed in the automation since its task was deployed."
             @go marshal omit
             @include
+            @pb number  4
         }
         calculations Calculation[]    {
             @doc value  """
@@ -106,7 +107,8 @@ Arc union on type Type extends Base {
             @go marshal omit
         }
 
-        @doc value "is an Arc that runs on a rack as a task."
+        @doc value   "is an Arc that runs on a rack as a task."
+        @pb reserved 2
     }
     module {
         status Status? {

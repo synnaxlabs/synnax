@@ -120,6 +120,7 @@ var _ = Describe("ParentMigration", func() {
 
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		names := map[uuid.UUID]string{
 			channels: "Channels", users: "Users", a: "A", b: "B", inUsers: "In Users",
 			inProj: "In Project", inRack: "In Rack", nested: "Nested", orphan: "Orphan",
@@ -373,6 +374,7 @@ var _ = Describe("MembersMigration", func() {
 
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		projTop.Parent = &project
 		projLeaf.Parent = new(groupID(projTop.Key))
 		groups := []v1.Group{root, top, projTop, projLeaf, chans}

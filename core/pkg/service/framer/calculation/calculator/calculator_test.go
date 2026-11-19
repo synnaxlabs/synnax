@@ -1441,7 +1441,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				telem.NewSeriesV[int64](1),
 			))).Error().To(MatchError(HavePrefix(
 				"WASM execution failed in node calculation at sample 0/1: " +
-					"wasm error: integer divide by zero",
+					"integer divide by zero",
 			)))
 			d := telem.NewSeriesV[int64](5)
 			d.Alignment = telem.NewAlignment(0, 1)

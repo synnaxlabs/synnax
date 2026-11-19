@@ -80,6 +80,8 @@ export interface SyntheticCoreProps {
    * stamps its samples late.
    */
   lag?: TimeSpan;
+  /** When the writer stops, as when a test ends. No sample at or after it exists. */
+  end?: TimeStamp;
 }
 
 // A span of a channel's samples rewritten with values moved by delta.
@@ -134,6 +136,7 @@ export class SyntheticCore {
   private readonly dataMisaligned: boolean;
   private readonly text: (i: number) => string;
   private readonly lag: TimeSpan;
+  private end?: TimeStamp;
   private readonly denied = new Set<channel.Key>();
 
   constructor({
@@ -148,6 +151,7 @@ export class SyntheticCore {
     dataMisaligned = false,
     text = (i) => String(i),
     lag = TimeSpan.ZERO,
+    end,
   }: SyntheticCoreProps) {
     this.start = start.valueOf();
     this.period = new Rate(rate).period.valueOf();
@@ -158,6 +162,7 @@ export class SyntheticCore {
     this.dataMisaligned = dataMisaligned;
     this.text = text;
     this.lag = lag;
+    this.end = end;
     this.index = new channel.Channel({
       key: INDEX_KEY,
       name: "time",
@@ -239,6 +244,15 @@ export class SyntheticCore {
       data: [[{ key, timeRange: tr }]],
       dataType: DataType.JSON,
     });
+    this.stream(new Frame(this.historyChange.key, signal));
+  }
+
+  /** Deletes every index and data sample from the time on, and streams the change. */
+  truncate(from: TimeStamp): void {
+    this.end = this.end == null ? from : TimeStamp.min(this.end, from);
+    const timeRange = new TimeRange(from, TimeStamp.MAX);
+    const changes = [this.index, ...this.data].map(({ key }) => ({ key, timeRange }));
+    const signal = new Series({ data: [changes], dataType: DataType.JSON });
     this.stream(new Frame(this.historyChange.key, signal));
   }
 
@@ -428,7 +442,9 @@ export class SyntheticCore {
   }
 
   private written(): number {
-    const elapsed = this.clock.valueOf() - this.lag.valueOf() - this.start;
+    let until = this.clock.valueOf() - this.lag.valueOf();
+    if (this.end != null && this.end.valueOf() < until) until = this.end.valueOf();
+    const elapsed = until - this.start;
     if (elapsed <= 0n) return 0;
     return Number((elapsed + this.period - 1n) / this.period);
   }

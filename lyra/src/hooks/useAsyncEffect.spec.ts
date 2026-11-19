@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { scheduler } from "@synnaxlabs/x";
+import { scheduler, sleep, TimeSpan } from "@synnaxlabs/x";
 import { renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -133,7 +133,7 @@ describe("useAsyncEffect", () => {
   it("should not finish running the effect if the hook is unmounted before the effect is finished", async () => {
     let state = 0;
     const effect = vi.fn(async (signal: AbortSignal) => {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await sleep.sleep(TimeSpan.milliseconds(1000));
       if (signal.aborted) return;
       state++;
     });

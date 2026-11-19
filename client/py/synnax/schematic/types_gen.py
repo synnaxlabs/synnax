@@ -1261,7 +1261,7 @@ class Schematic(BaseModel):
     """
 
     key: Key = Field(default_factory=uuid4)
-    name: str
+    name: str = Field(min_length=1)
     nodes: list[Node] = Field(default_factory=list)
     edges: list[Edge] = Field(default_factory=list)
     group: group_.Key | None = None

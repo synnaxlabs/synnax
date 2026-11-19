@@ -17,7 +17,7 @@
               "offset": 0,
               "units": "",
               "pointer": "",
-              "type": "number"
+              "type": "float"
             }
           ]
         }

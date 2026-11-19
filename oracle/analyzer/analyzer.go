@@ -42,6 +42,19 @@ type analysisCtx struct {
 	removals []removal
 }
 
+// owns reports whether the file under analysis declares typ. Two schemas can share a
+// namespace, so the namespace alone does not tell.
+func (c *analysisCtx) owns(typ resolution.Type) bool {
+	return typ.Namespace == c.namespace && typ.FilePath == c.filePath
+}
+
+// ownTypes returns the types that the file under analysis declares.
+func (c *analysisCtx) ownTypes() []resolution.Type {
+	return lo.Filter(c.table.Types, func(t resolution.Type, _ int) bool {
+		return c.owns(t)
+	})
+}
+
 // parsedRule is a parsed rule together with the parser that holds its tokens.
 type parsedRule interface {
 	antlr.ParserRuleContext
@@ -92,7 +105,9 @@ func Analyze(
 	detectRecursiveTypes(table)
 	validateDomainOmits(table, diag)
 	validateLengthRules(table, diag)
+	validateFiniteRules(table, diag)
 	validatePatternRules(table, diag)
+	validateRuleRanges(table, diag)
 	return table, diag
 }
 
@@ -127,7 +142,9 @@ func AnalyzeSeeded(
 	detectRecursiveTypes(table)
 	validateDomainOmits(table, diag)
 	validateLengthRules(table, diag)
+	validateFiniteRules(table, diag)
 	validatePatternRules(table, diag)
+	validateRuleRanges(table, diag)
 	return diag
 }
 
@@ -153,6 +170,39 @@ func defaultTokens(rules ...parsedRule) [][]antlr.Token {
 		out = append(out, toks)
 	}
 	return out
+}
+
+// UsedNamespaces returns the namespaces that a parsed file references, which are the
+// namespaces it must import.
+func UsedNamespaces(ast parser.ISchemaContext) set.Set[string] {
+	return usedNamespaces(ast, defaultTokens(ast))
+}
+
+// QualifiedNames returns each qualified name ("qualifier.member") that src references,
+// where src is any run of Oracle source, such as a declaration or one line of one.
+func QualifiedNames(src string) set.Set[string] {
+	lexer := parser.NewOracleLexer(antlr.NewInputStream(src))
+	lexer.RemoveErrorListeners()
+	var toks []antlr.Token
+	for {
+		t := lexer.NextToken()
+		if t.GetTokenType() == antlr.TokenEOF {
+			return usedQualifiedNames([][]antlr.Token{toks})
+		}
+		if t.GetChannel() == antlr.TokenDefaultChannel {
+			toks = append(toks, t)
+		}
+	}
+}
+
+// usedNamespaces returns the qualifiers that runs reference, plus the filter namespace
+// when ast declares a filter, whose bare lines read the filter schema's types.
+func usedNamespaces(ast parser.ISchemaContext, runs [][]antlr.Token) set.Set[string] {
+	used := usedQualifiers(runs)
+	if declaresFilter(ast) {
+		used.Add(resolution.FilterNamespace)
+	}
+	return used
 }
 
 // usedQualifiers collects the package qualifiers the token runs reference: every
@@ -201,10 +251,7 @@ type importUse struct {
 // declared file paths.
 func reportUnusedImports(c *analysisCtx, imports []importUse) {
 	runs := defaultTokens(append([]parsedRule{c.ast}, c.copied...)...)
-	qualifiers := usedQualifiers(runs)
-	if declaresFilter(c.ast) {
-		qualifiers.Add(resolution.FilterNamespace)
-	}
+	qualifiers := usedNamespaces(c.ast, runs)
 	names := usedQualifiedNames(runs)
 	byNS := make(map[string][]importUse)
 	for _, iu := range imports {
@@ -320,7 +367,7 @@ func analyze(c *analysisCtx) {
 	}
 	reportUnusedImports(c, imports)
 
-	types := c.table.TypesInNamespace(c.namespace)
+	types := c.ownTypes()
 	for i := range types {
 		typ := &types[i]
 		resolveTypeRefs(c, typ)
@@ -344,7 +391,7 @@ func analyze(c *analysisCtx) {
 	finalizeEnumExtensions(c)
 	finalizeUnionExtensions(c)
 
-	for _, typ := range c.table.TypesInNamespace(c.namespace) {
+	for _, typ := range c.ownTypes() {
 		validateExtends(c, typ)
 		validateActionExtends(c, typ)
 		validateActionAliases(c, typ)
@@ -375,7 +422,7 @@ func analyze(c *analysisCtx) {
 func desugarPartialOverrides(c *analysisCtx) {
 	for i := range c.table.Types {
 		typ := c.table.Types[i]
-		if typ.Namespace != c.namespace {
+		if !c.owns(typ) {
 			continue
 		}
 		form, ok := typ.Form.(resolution.StructForm)
@@ -475,7 +522,7 @@ func validateFieldOverrides(c *analysisCtx, typ resolution.Type) {
 // the table in place so downstream plugins read a fully populated member list just like
 // a plain enum's.
 func finalizeEnumExtensions(c *analysisCtx) {
-	for _, typ := range c.table.TypesInNamespace(c.namespace) {
+	for _, typ := range c.ownTypes() {
 		form, ok := typ.Form.(resolution.EnumForm)
 		if !ok || len(form.Extends) == 0 {
 			continue
@@ -617,7 +664,7 @@ func effectiveEnumValues(
 // plain, fully populated union; the union bases move to Included, where a renderer
 // reading the table back finds the declared form.
 func finalizeUnionExtensions(c *analysisCtx) {
-	for _, typ := range c.table.TypesInNamespace(c.namespace) {
+	for _, typ := range c.ownTypes() {
 		form, ok := typ.Form.(resolution.UnionForm)
 		if !ok || len(form.Extends) == 0 {
 			continue
@@ -2225,7 +2272,7 @@ func validateActionAliases(c *analysisCtx, typ resolution.Type) {
 // Domains unchanged.
 func finalizeActions(c *analysisCtx) {
 	for _, typ := range c.table.Types {
-		if typ.Namespace != c.namespace {
+		if !c.owns(typ) {
 			continue
 		}
 		// The slice shares its array with the table, so each update lands in place.
@@ -2572,9 +2619,9 @@ func validateVariantOmissions(
 	}
 }
 
-// reportCircularInheritance reports each struct in the namespace whose extends chain
-// reaches a cycle. It returns whether any struct in the table does, imported ones
-// included, since passes that read inherited fields would recurse without bound.
+// reportCircularInheritance reports each struct of the file whose extends chain reaches
+// a cycle. It returns whether any struct in the table does, imported ones included,
+// since passes that read inherited fields would recurse without bound.
 func reportCircularInheritance(c *analysisCtx) bool {
 	var found bool
 	for _, typ := range c.table.Types {
@@ -2583,7 +2630,7 @@ func reportCircularInheritance(c *analysisCtx) bool {
 			continue
 		}
 		found = true
-		if typ.Namespace != c.namespace {
+		if !c.owns(typ) {
 			continue
 		}
 		if slices.ContainsFunc(form.Extends, func(ref resolution.TypeRef) bool {
@@ -2620,7 +2667,7 @@ func hasCircularInheritance(
 		if !ok {
 			continue
 		}
-		if hasCircularInheritance(parent, table, visited) {
+		if hasCircularInheritance(parent, table, visited.Copy()) {
 			return true
 		}
 	}

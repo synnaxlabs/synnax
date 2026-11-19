@@ -39,6 +39,10 @@ const (
 	unaryProtocol      = "http"
 	streamProtocol     = "websocket"
 	freighterCtxPrefix = "freighterctx"
+	subprotocol        = "synnax.v1"
+	// authSubprotocolPrefix marks the subprotocol entry that holds the session token
+	// of a client that cannot set headers, such as a browser.
+	authSubprotocolPrefix = "synnax.token."
 )
 
 func isFreighterQueryStringParam(key string) bool {
@@ -85,8 +89,10 @@ func parseRequestCtx(
 	}
 	headers := fiberCtx.GetReqHeaders()
 	freighterCtx.Params = make(freighter.Params, len(headers)+1)
-	for k, v := range fiberCtx.GetReqHeaders() {
-		if len(v) > 0 {
+	for k, v := range headers {
+		// The subprotocol header can hold the session token, so it never becomes a
+		// param that middleware could log or echo.
+		if len(v) > 0 && !strings.EqualFold(k, fiber.HeaderSecWebSocketProtocol) {
 			freighterCtx.Params[k] = v[0]
 		}
 	}
@@ -100,7 +106,25 @@ func parseRequestCtx(
 			freighterCtx.Params[strings.TrimPrefix(k, freighterCtxPrefix)] = v
 		}
 	}
+	if stream {
+		header := fiberCtx.Get(fiber.HeaderSecWebSocketProtocol)
+		if token, ok := subprotocolToken(header); ok {
+			freighterCtx.Params[fiber.HeaderAuthorization] = "Bearer " + token
+		}
+	}
 	return freighterCtx
+}
+
+func subprotocolToken(header string) (string, bool) {
+	for entry := range strings.SplitSeq(header, ",") {
+		if token, ok := strings.CutPrefix(
+			strings.TrimSpace(entry),
+			authSubprotocolPrefix,
+		); ok {
+			return token, true
+		}
+	}
+	return "", false
 }
 
 func setRequestCtx(req *http.Request, ctx freighter.Context) {

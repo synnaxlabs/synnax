@@ -19,6 +19,7 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/payload"
 	"github.com/xuri/excelize/v2"
 )
 
@@ -32,8 +33,7 @@ const (
 	columnStartBit  = "start_bit"
 	columnBitLength = "bit_length"
 	columnByteOrder = "byte_order"
-	columnSigned    = "signed"
-	columnFloat     = "float"
+	columnKind      = "kind"
 	columnScale     = "scale"
 	columnOffset    = "offset"
 	columnUnits     = "units"
@@ -187,7 +187,7 @@ func parseTable(rows [][]string) ([]Message, error) {
 func (t *table) readHeader(cells []string) error {
 	known := []string{
 		columnMessage, columnID, columnExtended, columnLength, columnField,
-		columnStartBit, columnBitLength, columnByteOrder, columnSigned, columnFloat,
+		columnStartBit, columnBitLength, columnByteOrder, columnKind,
 		columnScale, columnOffset, columnUnits, columnMin, columnMax,
 	}
 	for i, cell := range cells {
@@ -286,6 +286,7 @@ func (t *table) readField(row int, cells []string) (BinaryField, error) {
 		Scale:     1,
 		Units:     t.cell(cells, columnUnits),
 		ByteOrder: ByteOrderLittleEndian,
+		Kind:      payload.KindUnsigned,
 	}
 	if f.Name == "" {
 		return BinaryField{}, rowErrorf(row, columnField, "is required")
@@ -295,15 +296,20 @@ func (t *table) readField(row int, cells []string) (BinaryField, error) {
 	if err != nil {
 		return BinaryField{}, err
 	}
-	if s := t.cell(cells, columnSigned); s != "" {
-		if f.Signed, err = parseBool(row, columnSigned, s); err != nil {
-			return BinaryField{}, err
-		}
-	}
-	if s := t.cell(cells, columnFloat); s != "" {
-		if f.Float, err = parseBool(row, columnFloat, s); err != nil {
-			return BinaryField{}, err
-		}
+	switch k := payload.Kind(strings.ToLower(t.cell(cells, columnKind))); k {
+	case "":
+	case payload.KindFloat, payload.KindInteger, payload.KindUnsigned:
+		f.Kind = k
+	case payload.KindString, payload.KindBoolean, payload.KindTimestamp,
+		payload.KindJSON, payload.KindUUID, payload.KindBytes:
+		fallthrough
+	default:
+		return BinaryField{}, rowErrorf(
+			row,
+			columnKind,
+			"invalid kind %q, not float, integer, or unsigned",
+			k,
+		)
 	}
 	scale, err := t.number(row, cells, columnScale)
 	if err != nil {

@@ -20,25 +20,23 @@ import ipaddress
 import json
 import urllib.request
 from collections.abc import Callable, Iterable
-from typing import TYPE_CHECKING, Protocol, TypedDict
+from typing import Protocol, TypedDict
 
 import boto3
+from mypy_boto3_ec2.type_defs import (
+    IpPermissionTypeDef,
+    IpRangeTypeDef,
+    Ipv6RangeTypeDef,
+    SecurityGroupTypeDef,
+)
 
 from aws import TIMEOUTS
 from controller import WEBHOOK_PORT
 from github import SSL_CONTEXT
 
-if TYPE_CHECKING:
-    from mypy_boto3_ec2.type_defs import (
-        IpPermissionTypeDef,
-        IpRangeTypeDef,
-        Ipv6RangeTypeDef,
-        SecurityGroupTypeDef,
-    )
-
 
 class Groups(TypedDict):
-    SecurityGroups: list["SecurityGroupTypeDef"]
+    SecurityGroups: list[SecurityGroupTypeDef]
 
 
 class Ingress(Protocol):
@@ -47,11 +45,11 @@ class Ingress(Protocol):
     def describe_security_groups(self, *, GroupIds: list[str]) -> Groups: ...
 
     def authorize_security_group_ingress(
-        self, *, GroupId: str, IpPermissions: list["IpPermissionTypeDef"]
+        self, *, GroupId: str, IpPermissions: list[IpPermissionTypeDef]
     ) -> object: ...
 
     def revoke_security_group_ingress(
-        self, *, GroupId: str, IpPermissions: list["IpPermissionTypeDef"]
+        self, *, GroupId: str, IpPermissions: list[IpPermissionTypeDef]
     ) -> object: ...
 
 
@@ -77,7 +75,7 @@ def _normal(cidr: str) -> str:
     return str(ipaddress.ip_network(cidr))
 
 
-def _permission(cidrs: Iterable[str], *, described: bool) -> "IpPermissionTypeDef":
+def _permission(cidrs: Iterable[str], *, described: bool) -> IpPermissionTypeDef:
     v4: list[IpRangeTypeDef] = []
     v6: list[Ipv6RangeTypeDef] = []
     for c in sorted(cidrs):

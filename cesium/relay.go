@@ -47,20 +47,23 @@ const (
 	defaultChunkSize = 1 << 23
 )
 
-func openRelay(sCtx signal.Context, o *options) *relay {
+func newRelay(o *options) *relay {
 	delta := confluence.NewDynamicDeltaMultiplier[relayResponse](
 		o.slowConsumerTimeout,
 		o.Instrumentation,
 	)
 	writes := confluence.NewStream[relayResponse](o.relayBufferSize)
 	delta.InFrom(writes)
-	delta.Flow(
+	return &relay{delta: delta, inlet: writes, streamBufferSize: o.streamBufferSize}
+}
+
+func (r *relay) flow(sCtx signal.Context) {
+	r.delta.Flow(
 		sCtx,
 		confluence.RecoverWithErrOnPanic(),
 		confluence.WithRetryOnPanic(),
 		confluence.WithAddress("relay"),
 	)
-	return &relay{delta: delta, inlet: writes, streamBufferSize: o.streamBufferSize}
 }
 
 func (r *relay) connect() (confluence.Outlet[relayResponse], func()) {

@@ -41,8 +41,8 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/lifetime"
 	"github.com/synnaxlabs/x/override"
-	xservice "github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
@@ -121,6 +121,11 @@ func (c CoreConfig) Validate() error {
 	v.NonZero("task_poll_interval", c.taskPollInterval)
 	v.NonZero("task_shutdown_timeout", c.taskShutdownTimeout)
 	v.NonZero("task_worker_count", c.taskWorkerCount)
+	v.Ternary(
+		"enable_integrations",
+		len(c.enabledIntegrations) > 0 && len(c.disabledIntegrations) > 0,
+		"cannot be used with disable_integrations",
+	)
 	v.NotNil("validate_channel_names", c.validateChannelNames)
 	v.Exec(c.certFactoryConfig.Validate)
 	return v.Error()
@@ -204,11 +209,19 @@ func (c CoreConfig) resolveSecretsKey() (secret.EncryptionKey, error) {
 	return secret.LoadEncryptionKey(filepath.Join(c.dataPath, secretsKeyFileName))
 }
 
+// storageStopTimeout bounds the wait for the storage layer to stop at shutdown.
+const storageStopTimeout = 20 * time.Second
+
 // BootupCore contains the most important Core startup logic. It does and should not
 // read any variables from viper, and instead should be called with  fully configured
 // CoreConfigs.
+//
+// The Core opens under stop and runs until stop ends or a component fails. It then
+// closes its components, and stops the storage layer last. The lifetime of the storage
+// layer derives from root, so it outlives stop.
 func BootupCore(
-	ctx context.Context,
+	root context.Context,
+	stop context.Context,
 	onServerStarted chan struct{},
 	cfgs ...CoreConfig,
 ) (err error) {
@@ -238,14 +251,39 @@ func BootupCore(
 	DisablePermissionBits()
 
 	var (
-		closer xio.MultiCloser
+		closer       xio.MultiCloser
+		storageLayer *storage.Layer
 		// update is the update of the data that this start did not commit yet.
-		update *storage.Update
+		update    *storage.Update
+		lifetimes = lifetime.NewStack()
 	)
-	cleanup, ok := xservice.NewOpener(ctx, &closer)
+	ok := func(err error, c io.Closer) bool {
+		if err != nil {
+			return false
+		}
+		if c != nil {
+			closer = append(closer, c)
+		}
+		return stop.Err() == nil
+	}
 	defer func() {
-		if err = cleanup(err); err != nil && update != nil {
-			err = update.Undo(ctx, err)
+		err = errors.Combine(err, closer.Close())
+		if storageLayer == nil {
+			return
+		}
+		ctx, cancel := context.WithTimeout(root, storageStopTimeout)
+		defer cancel()
+		stopErr := lifetimes.Stop(ctx)
+		// A failed run is the cause of the errors it leads to, so it comes first.
+		err = errors.Combine(stopErr, err)
+		// The storage layer may still run, so it stays open, and the next start undoes
+		// the update.
+		if errors.Is(stopErr, context.DeadlineExceeded) {
+			return
+		}
+		err = errors.Combine(err, storageLayer.Close())
+		if update != nil && (err != nil || stop.Err() != nil) {
+			err = update.Undo(stop, errors.Combine(err, stop.Err()))
 		}
 	}()
 
@@ -268,19 +306,21 @@ func BootupCore(
 	}
 	cfg.L.Info("using working directory", zap.String("dir", workDir))
 
-	storageLayer, err := storage.OpenLayer(ctx, storage.LayerConfig{
+	if storageLayer, err = storage.OpenLayer(stop, storage.LayerConfig{
 		Instrumentation:      cfg.Child("storage"),
 		InMemory:             cfg.memBacked,
 		Dirname:              cfg.dataPath,
 		Version:              vsn,
 		UpdateBackupDisabled: cfg.updateBackupDisabled,
-	})
-	if !ok(err, storageLayer) {
+	}); err == nil {
+		update = storageLayer.Update
+		lifetimes.Go(root, "storage", storageLayer.Run)
+	}
+	if !ok(err, nil) {
 		return err
 	}
-	update = storageLayer.Update
 
-	distributionLayer, err := distribution.OpenLayer(ctx, distribution.LayerConfig{
+	distributionLayer, err := distribution.OpenLayer(stop, distribution.LayerConfig{
 		Instrumentation:  cfg.Child("distribution"),
 		AdvertiseAddress: cfg.listeners.AdvertiseAddress(),
 		Storage:          storageLayer,
@@ -294,7 +334,7 @@ func BootupCore(
 		return err
 	}
 
-	serviceLayer, err := service.OpenLayer(ctx, service.LayerConfig{
+	serviceLayer, err := service.OpenLayer(stop, service.LayerConfig{
 		Instrumentation:    cfg.Child("service"),
 		Distribution:       distributionLayer,
 		Security:           securityProvider,
@@ -307,8 +347,9 @@ func BootupCore(
 			Version:  version.Get(),
 			Loopback: new(cfg.listeners.Loopback()),
 		},
-		ValidateChannelNames: cfg.validateChannelNames,
-		SecretsKey:           secretsKey,
+		ValidateChannelNames:   cfg.validateChannelNames,
+		SecretsKey:             secretsKey,
+		EmbeddedDriverDisabled: !cfg.driverEnabled() || !driver.Bundled(),
 	})
 	if !ok(err, serviceLayer) {
 		return err
@@ -342,8 +383,8 @@ func BootupCore(
 	}
 
 	var r *http.Router
-	// ctx ends when shutdown starts, before the server drains in-flight requests.
-	if r, err = http.NewRouter(context.WithoutCancel(ctx), http.RouterConfig{
+	// stop ends when shutdown starts, before the server drains in-flight requests.
+	if r, err = http.NewRouter(context.WithoutCancel(stop), http.RouterConfig{
 		Instrumentation:     cfg.Instrumentation,
 		Errors:              errs,
 		StreamWriteDeadline: cfg.slowConsumerTimeout,
@@ -407,7 +448,7 @@ func BootupCore(
 	licenseInfo := serviceLayer.License.Retrieve()
 	covered := licenseInfo.State == license.StateOk
 	if embeddedDriver, err := driver.Open(
-		ctx,
+		stop,
 		driver.Config{
 			Enabled:  new(!*cfg.noDriver),
 			Insecure: cfg.insecure,
@@ -472,8 +513,11 @@ func BootupCore(
 	if onServerStarted != nil {
 		onServerStarted <- struct{}{}
 	}
-	<-ctx.Done()
-	return err
+	select {
+	case <-stop.Done():
+	case <-lifetimes.Failed():
+	}
+	return nil
 }
 
 func openWorkDir(cacheDir string) (string, io.Closer, error) {
@@ -486,7 +530,7 @@ func openWorkDir(cacheDir string) (string, io.Closer, error) {
 
 func parseIntegrations(enabled, disabled []string) []string {
 	if len(enabled) > 0 {
-		return enabled
+		return lo.Uniq(enabled)
 	}
 	return lo.Filter(driver.AllIntegrations, func(integration string, _ int) bool {
 		return !lo.Contains(disabled, integration)

@@ -14,6 +14,7 @@ import (
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/constraints"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/units"
@@ -30,7 +31,9 @@ import (
 // descent.
 func InferFromExpression(ctx context.Context[parser.IExpressionContext]) types.Type {
 	if logicalOr := ctx.AST.LogicalOrExpression(); logicalOr != nil {
-		return inferLogicalOr(ctx.Child(logicalOr))
+		t := inferLogicalOr(ctx.Child(logicalOr))
+		ctx.TypeMap[ctx.AST] = t
+		return t
 	}
 	return types.Type{}
 }
@@ -93,18 +96,20 @@ func InferRelational(
 	ctx context.Context[parser.IRelationalExpressionContext],
 ) types.Type {
 	additives := ctx.AST.AllAdditiveExpression()
+	t := types.Type{}
 	if len(additives) > 1 {
+		t = types.Bool()
 		for _, a := range additives {
 			if InferAdditive(ctx.Child(a)).Kind == types.KindSeries {
-				return types.Series(types.Bool())
+				t = types.Series(types.Bool())
+				break
 			}
 		}
-		return types.Bool()
+	} else if len(additives) == 1 {
+		t = InferAdditive(ctx.Child(additives[0]))
 	}
-	if len(additives) == 1 {
-		return InferAdditive(ctx.Child(additives[0]))
-	}
-	return types.Type{}
+	ctx.TypeMap[ctx.AST] = t
+	return t
 }
 
 func inferBinaryType(elemType, nextElem types.Type) (types.Type, bool) {
@@ -153,20 +158,11 @@ func checkMinusSpacing(ctx context.Context[parser.IAdditiveExpressionContext]) {
 		if left.GetStop().GetStop()+1 == op.GetStart() ||
 			op.GetStop()+1 == right.GetStart().GetStart() {
 			col := op.GetColumn()
-			ctx.Diagnostics.Add(diagnostics.Diagnostic{
-				Severity: protocol.DiagnosticSeverityError,
-				Message:  "subtraction requires whitespace on both sides of '-'",
-				Range: protocol.Range{
-					Start: protocol.Position{
-						Line:      uint32(op.GetLine() - 1),
-						Character: uint32(col),
-					},
-					End: protocol.Position{
-						Line:      uint32(op.GetLine() - 1),
-						Character: uint32(col + len(op.GetText())),
-					},
-				},
-			})
+			line, end := uint32(op.GetLine()-1), uint32(col+len(op.GetText()))
+			ctx.Diagnostics.Add(codes.SubtractionSpacing.At(nil).WithRange(
+				protocol.Position{Line: line, Character: uint32(col)},
+				protocol.Position{Line: line, Character: end},
+			))
 		}
 	}
 }
@@ -176,38 +172,29 @@ func InferAdditive(ctx context.Context[parser.IAdditiveExpressionContext]) types
 	if len(multiplicatives) == 0 {
 		return types.Type{}
 	}
-	if len(multiplicatives) > 1 {
-		checkMinusSpacing(ctx)
-		firstType := InferMultiplicative(ctx.Child(multiplicatives[0]))
-		isSeries := firstType.Kind == types.KindSeries
-		elemType := firstType.Unwrap()
-
-		for i := 1; i < len(multiplicatives); i++ {
-			nextType := InferMultiplicative(ctx.Child(multiplicatives[i]))
-			if nextType.Kind == types.KindSeries {
-				isSeries = true
-				nextElem := nextType.Unwrap()
-				if nextElem.Kind != types.KindVariable {
-					elemType = nextElem
-				}
-				bothConcrete := elemType.Kind != types.KindVariable &&
-					nextElem.Kind != types.KindVariable
-				if bothConcrete && !Compatible(elemType, nextElem) {
-					break
-				}
-			} else {
-				var earlyReturn bool
-				elemType, earlyReturn = inferBinaryType(elemType, nextType.Unwrap())
-				if earlyReturn {
-					break
-				}
-			}
-		}
-		resultType := lo.Ternary(isSeries, types.Series(elemType), elemType)
+	if len(multiplicatives) == 1 {
+		resultType := InferMultiplicative(ctx.Child(multiplicatives[0]))
 		ctx.TypeMap[ctx.AST] = resultType
 		return resultType
 	}
-	resultType := InferMultiplicative(ctx.Child(multiplicatives[0]))
+	checkMinusSpacing(ctx)
+	firstType := InferMultiplicative(ctx.Child(multiplicatives[0]))
+	isSeries := firstType.Kind == types.KindSeries
+	elemType := firstType.Unwrap()
+	unit := elemType.Unit
+	for i := 1; i < len(multiplicatives); i++ {
+		nextType := InferMultiplicative(ctx.Child(multiplicatives[i]))
+		unit = types.CommonUnit(unit, nextType.Unwrap().Unit)
+		if nextType.Kind == types.KindSeries {
+			isSeries = true
+		}
+		var ok bool
+		if elemType, ok = mergeOperandType(elemType, nextType); !ok {
+			break
+		}
+	}
+	elemType.Unit = unit
+	resultType := lo.Ternary(isSeries, types.Series(elemType), elemType)
 	ctx.TypeMap[ctx.AST] = resultType
 	return resultType
 }
@@ -219,43 +206,65 @@ func InferMultiplicative(
 	if len(unaries) == 0 {
 		return types.Type{}
 	}
-	if len(unaries) > 1 {
-		firstType := InferFromUnaryExpression(ctx.Child(unaries[0]))
-		isSeries := firstType.Kind == types.KindSeries
-		elemType := firstType.Unwrap()
-
-		for i := 1; i < len(unaries); i++ {
-			nextType := InferFromUnaryExpression(ctx.Child(unaries[i]))
-			if nextType.Kind == types.KindSeries {
-				isSeries = true
-				nextElem := nextType.Unwrap()
-				if nextElem.Kind != types.KindVariable {
-					elemType = nextElem
-				}
-				bothConcrete := elemType.Kind != types.KindVariable &&
-					nextElem.Kind != types.KindVariable
-				if bothConcrete && !Compatible(elemType, nextElem) {
-					resultType := lo.Ternary(isSeries, types.Series(elemType), elemType)
-					ctx.TypeMap[ctx.AST] = resultType
-					return resultType
-				}
-			} else {
-				var earlyReturn bool
-				elemType, earlyReturn = inferBinaryType(elemType, nextType.Unwrap())
-				if earlyReturn {
-					resultType := lo.Ternary(isSeries, types.Series(elemType), elemType)
-					ctx.TypeMap[ctx.AST] = resultType
-					return resultType
-				}
-			}
-		}
-		resultType := lo.Ternary(isSeries, types.Series(elemType), elemType)
+	if len(unaries) == 1 {
+		resultType := InferFromUnaryExpression(ctx.Child(unaries[0]))
 		ctx.TypeMap[ctx.AST] = resultType
 		return resultType
 	}
-	resultType := InferFromUnaryExpression(ctx.Child(unaries[0]))
+	firstType := InferFromUnaryExpression(ctx.Child(unaries[0]))
+	isSeries := firstType.Kind == types.KindSeries
+	elemType := firstType.Unwrap()
+	unit := elemType.Unit
+	operators := multiplicativeOperators(ctx.AST)
+	for i := 1; i < len(unaries); i++ {
+		nextType := InferFromUnaryExpression(ctx.Child(unaries[i]))
+		switch nextUnit := nextType.Unwrap().Unit; operators[i-1] {
+		case parser.ArcLexerPERCENT:
+			unit = types.CommonUnit(unit, nextUnit)
+		case parser.ArcLexerSLASH:
+			unit = types.QuotientUnit(unit, nextUnit)
+		default:
+			unit = types.ProductUnit(unit, nextUnit)
+		}
+		if nextType.Kind == types.KindSeries {
+			isSeries = true
+		}
+		var ok bool
+		if elemType, ok = mergeOperandType(elemType, nextType); !ok {
+			break
+		}
+	}
+	elemType.Unit = unit
+	resultType := lo.Ternary(isSeries, types.Series(elemType), elemType)
 	ctx.TypeMap[ctx.AST] = resultType
 	return resultType
+}
+
+// mergeOperandType folds the type of the next operand of a binary chain into the
+// element type of the chain so far. It returns false when the chain stops.
+func mergeOperandType(elemType, nextType types.Type) (types.Type, bool) {
+	nextElem := nextType.Unwrap()
+	if nextType.Kind != types.KindSeries {
+		merged, earlyReturn := inferBinaryType(elemType, nextElem)
+		return merged, !earlyReturn
+	}
+	if nextElem.Kind != types.KindVariable {
+		elemType = nextElem
+	}
+	bothConcrete := elemType.Kind != types.KindVariable &&
+		nextElem.Kind != types.KindVariable
+	return elemType, !bothConcrete || Compatible(elemType, nextElem)
+}
+
+// multiplicativeOperators returns the token type of each operator of ast in order.
+func multiplicativeOperators(ast parser.IMultiplicativeExpressionContext) []int {
+	var operators []int
+	for _, child := range ast.GetChildren() {
+		if term, ok := child.(antlr.TerminalNode); ok {
+			operators = append(operators, term.GetSymbol().GetTokenType())
+		}
+	}
+	return operators
 }
 
 func inferPower(ctx context.Context[parser.IPowerExpressionContext]) types.Type {
@@ -271,8 +280,11 @@ func inferPower(ctx context.Context[parser.IPowerExpressionContext]) types.Type 
 		_ = InferFromUnaryExpression(ctx.Child(ctx.AST.UnaryExpression()))
 
 		// Power operation returns the unwrapped base type
-		// (e.g., chan f32 ^ i32 = f32, f64 ^ f64 = f64)
-		return baseType.Unwrap()
+		// (e.g., chan f32 ^ i32 = f32, f64 ^ f64 = f64). A power of a unit value has
+		// no unit.
+		t := baseType.Unwrap()
+		t.Unit = nil
+		return t
 	}
 	return types.Type{}
 }
@@ -280,16 +292,15 @@ func inferPower(ctx context.Context[parser.IPowerExpressionContext]) types.Type 
 func InferFromUnaryExpression(
 	ctx context.Context[parser.IUnaryExpressionContext],
 ) types.Type {
+	var t types.Type
 	if ctx.AST.UnaryExpression() != nil {
 		// Unwrap channels but keep series: not/- on a series stays a series.
-		return InferFromUnaryExpression(
-			ctx.Child(ctx.AST.UnaryExpression()),
-		).UnwrapChan()
+		t = InferFromUnaryExpression(ctx.Child(ctx.AST.UnaryExpression())).UnwrapChan()
+	} else if power := ctx.AST.PowerExpression(); power != nil {
+		t = inferPower(ctx.Child(power))
 	}
-	if power := ctx.AST.PowerExpression(); power != nil {
-		return inferPower(ctx.Child(power))
-	}
-	return types.Type{}
+	ctx.TypeMap[ctx.AST] = t
+	return t
 }
 
 func InferPostfix(
@@ -354,21 +365,23 @@ func inferPrimaryType(
 	if expr := ctx.AST.Expression(); expr != nil {
 		return InferFromExpression(ctx.Child(expr))
 	}
-	if typeCast := ctx.AST.TypeCast(); typeCast != nil {
-		if typeCtx := typeCast.Type_(); typeCtx != nil {
-			// bool conversions are rejected, so the cast has no type.
-			if prim := typeCtx.PrimitiveType(); prim != nil && prim.BOOL() != nil {
-				return types.Type{}
-			}
-			// Analysis reports a type that does not infer.
-			t, err := InferFromTypeContext(typeCtx)
-			if err != nil {
-				return types.Type{}
-			}
-			return t
-		}
+	if typeCast := ctx.AST.TypeCast(); typeCast != nil && typeCast.Type_() != nil {
+		return inferCastType(typeCast.Type_())
 	}
 	return types.Type{}
+}
+
+func inferCastType(typeCtx parser.ITypeContext) types.Type {
+	// bool conversions are rejected, so the cast has no type.
+	if prim := typeCtx.PrimitiveType(); prim != nil && prim.BOOL() != nil {
+		return types.Type{}
+	}
+	// Analysis reports a type that does not infer.
+	t, err := InferFromTypeContext(typeCtx)
+	if err != nil {
+		return types.Type{}
+	}
+	return t
 }
 
 // inferConstantType gives each reference to a module constant its own type variable,
@@ -411,19 +424,13 @@ func inferSeriesLiteralType(
 ) types.Type {
 	exprList := ctx.AST.ExpressionList()
 	if exprList == nil || len(exprList.AllExpression()) == 0 {
-		// An empty literal has no element to constrain its type, so the declared type
-		// can be any element type, numeric or not. Undeclared, it is f64.
-		elemType := types.Variable(ctx.ScopedKey("series_elem", ctx.AST), nil)
-		ctx.Constraints.AddDefault(elemType, types.F64())
-		t := types.Series(elemType)
-		ctx.TypeMap[ctx.AST] = t
-		return t
+		return inferEmptySeriesLiteralType(ctx)
 	}
-
 	exprs := exprList.AllExpression()
 	firstExpr := exprs[0]
 	elemType := InferFromExpression(ctx.Child(firstExpr)).UnwrapChan()
 	allLiterals := parser.IsNumericLiteral(firstExpr) || isUntypedNumber(elemType)
+	unit := elemType.Unit
 
 	for i := 1; i < len(exprs); i++ {
 		nextType := InferFromExpression(ctx.Child(exprs[i])).UnwrapChan()
@@ -435,8 +442,13 @@ func inferSeriesLiteralType(
 		} else {
 			allLiterals = false
 		}
+		if types.UnitsIncompatible(unit, nextType.Unit) {
+			compatible = false
+		} else {
+			unit = types.CommonUnit(unit, nextType.Unit)
+		}
 		if !compatible {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.Diagnostics.Add(codes.TypeMismatch.Atf(
 				exprs[i],
 				"series element %d has incompatible type %s, expected %s",
 				i+1,
@@ -464,7 +476,21 @@ func inferSeriesLiteralType(
 			elemType = nextType
 		}
 	}
+	elemType.Unit = unit
 
+	t := types.Series(elemType)
+	ctx.TypeMap[ctx.AST] = t
+	return t
+}
+
+// inferEmptySeriesLiteralType types an empty series literal. It has no element to
+// constrain its type, so the declared type can be any element type, numeric or not.
+// Undeclared, it is f64.
+func inferEmptySeriesLiteralType(
+	ctx context.Context[parser.ISeriesLiteralContext],
+) types.Type {
+	elemType := types.Variable(ctx.ScopedKey("series_elem", ctx.AST), nil)
+	ctx.Constraints.AddDefault(elemType, types.F64())
 	t := types.Series(elemType)
 	ctx.TypeMap[ctx.AST] = t
 	return t

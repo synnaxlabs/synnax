@@ -15,6 +15,7 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
@@ -78,6 +79,27 @@ var _ = Describe("Scope", func() {
 				Kind: symbol.KindVariable,
 			})).Error().To(MatchError(context.Canceled))
 		})
+
+		It(
+			"Should stop a program at the limit of local channels",
+			func(bCtx SpecContext) {
+				rootScope := symbol.NewRoot(nil, nil)
+				var err error
+				for range 1<<20 + 1 {
+					_, err = rootScope.Add(
+						bCtx,
+						symbol.Symbol{Kind: symbol.KindVariable},
+					)
+					if err != nil {
+						break
+					}
+				}
+				Expect(err).To(MatchError(ContainSubstring("program-local channels")))
+				Expect(
+					diagnostics.Error(err, nil).Code,
+				).To(Equal(codes.ChannelLimit.Code))
+			},
+		)
 
 		It("Should add a new variable scope", func(bCtx SpecContext) {
 			rootScope := symbol.NewRoot(nil, nil)
@@ -685,7 +707,7 @@ var _ = Describe("Scope", func() {
 			It("Should hide a member that is not exported", func(bCtx SpecContext) {
 				alias := buildAlias(bCtx, buildSourceModule())
 				Expect(alias.Resolve(bCtx, "h")).Error().
-					To(MatchError(`'h' is not exported by module "m"`))
+					To(MatchError(`not exported: 'h' in module "m"`))
 			})
 
 			It(
@@ -789,7 +811,7 @@ var _ = Describe("Scope", func() {
 						alias := buildAlias(bCtx, buildSourceModule())
 						Expect(alias.Parent.ResolveMember(
 							bCtx, "m", "h", symbol.IncludeInternal,
-						)).Error().To(MatchError(`'h' is not exported by module "m"`))
+						)).Error().To(MatchError(`not exported: 'h' in module "m"`))
 					},
 				)
 

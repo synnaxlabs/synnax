@@ -23,29 +23,24 @@ import (
 )
 
 // AnalyzeSingleExpression converts an inline expression into a synthetic function
-// node. Format-string placeholders are analyzed here; IR shape is chosen downstream.
+// node, or into a constant when its value is known at compile time.
 func AnalyzeSingleExpression(ctx acontext.Context[parser.IExpressionContext]) {
 	// Re-analyzing an already-registered expression would duplicate its synth.
 	if _, err := ctx.Scope.Root().GetChildByParserRule(ctx.AST); err == nil {
 		return
 	}
-	if parser.IsLiteral(ctx.AST) {
-		analyzeLiteralExpression(ctx)
+	if literal.IsConstant(ctx.AST) {
+		analyzeConstantExpression(ctx)
 		return
 	}
 	analyzeComputedExpression(ctx)
 }
 
-// analyzeLiteralExpression registers a literal as a KindConstant. A format string
-// with placeholders registers as a synthetic function instead, so placeholder channel
-// reads track on the right symbol.
-func analyzeLiteralExpression(ctx acontext.Context[parser.IExpressionContext]) {
+// analyzeConstantExpression registers a constant literal as a KindConstant.
+func analyzeConstantExpression(ctx acontext.Context[parser.IExpressionContext]) {
 	t := types.Function(types.FunctionProperties{})
 	exprType := atypes.InferFromExpression(ctx).UnwrapChan()
 	t.Outputs = types.Params{{Name: ir.DefaultOutputParam, Type: exprType}}
-	if analyzeFmtStrExpression(ctx, t) {
-		return
-	}
 	t.Inputs = append(t.Inputs, types.Param{Name: "value", Type: exprType})
 	scope, err := ctx.Scope.Root().Add(ctx, symbol.Symbol{
 		Kind: symbol.KindConstant,
@@ -53,53 +48,9 @@ func analyzeLiteralExpression(ctx acontext.Context[parser.IExpressionContext]) {
 		AST:  ctx.AST,
 	})
 	if err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-		return
+		panic(err)
 	}
 	scope.AutoName("constant_")
-}
-
-// analyzeFmtStrExpression reports whether it handled the literal: an invalid string,
-// or a format string with placeholders that it registers with type t.
-func analyzeFmtStrExpression(
-	ctx acontext.Context[parser.IExpressionContext],
-	t types.Type,
-) bool {
-	lit := parser.GetLiteral(ctx.AST)
-	if lit == nil {
-		return false
-	}
-	strTerm := parser.StringTerminal(lit)
-	if strTerm == nil {
-		return false
-	}
-	body, flags, ok := literal.StripQuotes(strTerm.GetText())
-	if !ok {
-		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
-			"invalid string literal: %s", strTerm.GetText()))
-		return true
-	}
-	if !flags.Format {
-		return false
-	}
-	segs, err := literal.FmtStrSplit(body, flags)
-	if err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-		return true
-	}
-	if !literal.FmtStrHasPlaceholder(segs) {
-		return false
-	}
-	fnScope, err := ctx.Scope.Root().
-		Add(ctx, symbol.Symbol{Kind: symbol.KindFunction, Type: t, AST: ctx.AST})
-	if err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-		return true
-	}
-	fnScope.AutoName("fmt_str_")
-	fnScope.SetLexicalResolver(ctx.Scope)
-	expression.AnalyzeFmtStrLiteral(ctx.WithScope(fnScope), strTerm)
-	return true
 }
 
 // analyzeComputedExpression registers a complex expression as a synthetic function.
@@ -112,8 +63,7 @@ func analyzeComputedExpression(ctx acontext.Context[parser.IExpressionContext]) 
 		AST:  ctx.AST,
 	})
 	if err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-		return
+		panic(err)
 	}
 	fnScope = fnScope.AutoName("expression_")
 	// Set on the function scope, not the block: the compiler resolves the
@@ -125,8 +75,7 @@ func analyzeComputedExpression(ctx acontext.Context[parser.IExpressionContext]) 
 		AST:  ctx.AST,
 	})
 	if err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-		return
+		panic(err)
 	}
 	// Inferring in the body's scope gives the output and the body one type variable.
 	body := ctx.WithScope(blockScope)
@@ -138,19 +87,15 @@ func analyzeComputedExpression(ctx acontext.Context[parser.IExpressionContext]) 
 }
 
 // AnalyzeComputedArgs registers a synthetic function for each instance argument
-// that is not a literal, a float constant, or a bare name, so lowering can sample it
-// per fire.
+// that is not a constant literal, a float constant, or a bare name, so lowering can
+// sample it per fire.
 func AnalyzeComputedArgs[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
 	args []symbol.Argument,
 ) {
 	for _, arg := range args {
-		if head, _ := parser.ExpressionNameParts(
-			arg.Expr,
-		); parser.IsLiteral(
-			arg.Expr,
-		) ||
-			head != "" {
+		head, _ := parser.ExpressionNameParts(arg.Expr)
+		if head != "" || literal.IsConstant(arg.Expr) {
 			continue
 		}
 		if _, ok := ctx.FloatConstant(arg.Expr); ok {
@@ -178,8 +123,7 @@ func analyzeWASMCall(
 		AST:  ctx.AST,
 	})
 	if err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-		return
+		panic(err)
 	}
 	fnScope = fnScope.AutoName("expression_")
 	fnScope.SetLexicalResolver(enclosing)
@@ -188,34 +132,11 @@ func analyzeWASMCall(
 		AST:  ctx.AST,
 	})
 	if err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-		return
+		panic(err)
 	}
 	blockCtx := ctx.WithScope(blockScope)
 	args := inputArguments(blockCtx, ctx.AST)
 	expression.AnalyzeCallSite(blockCtx, callee, name, freshType, args, ctx.AST)
-}
-
-// LiftFmtStrVarReads lifts reassigned-variable reads in a format string's
-// placeholders into input params. No-op for non-format literals.
-func LiftFmtStrVarReads[T antlr.ParserRuleContext](
-	ctx acontext.Context[T],
-	fn *symbol.Symbol,
-	expr parser.IExpressionContext,
-) {
-	lit := parser.GetLiteral(expr)
-	if lit == nil {
-		return
-	}
-	strTerm := parser.StringTerminal(lit)
-	if strTerm == nil {
-		return
-	}
-	for _, seg := range ctx.FmtStrings[strTerm] {
-		if seg.Expr != nil {
-			LiftVarReads(ctx, fn, seg.Expr)
-		}
-	}
 }
 
 // LiftVarReads lifts reassigned-variable reads in a synth expression into input
@@ -225,7 +146,7 @@ func LiftVarReads[T antlr.ParserRuleContext](
 	fn *symbol.Symbol,
 	expr parser.IExpressionContext,
 ) {
-	for _, pe := range parser.CollectNamedPrimaries(expr) {
+	for _, pe := range parser.CollectNamedPrimaries(expr, ctx.FmtStrings) {
 		name := parser.PrimaryName(pe)
 		if _, ok := fn.Type.Inputs.Get(name); ok {
 			continue
@@ -251,20 +172,20 @@ func LiftVarReads[T antlr.ParserRuleContext](
 			Internal: true,
 			AST:      expr,
 		}); err != nil {
-			ctx.Diagnostics.Add(diagnostics.Error(err, expr))
-			return
+			panic(err)
 		}
 		fn.Type.Inputs = append(fn.Type.Inputs, types.Param{Name: name, Type: t})
 	}
 }
 
-// BindOutput binds the untyped output of the node registered for expr to t, the type
-// of the variable it writes, so its literals take t.
+// BindOutput binds the output of the node registered for expr to t, the type of the
+// variable it writes.
 func BindOutput[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
 	expr parser.IExpressionContext,
 	t types.Type,
 ) {
+	expression.TakeUnit(ctx, expr, t.Unit)
 	synth, err := ctx.Scope.Root().GetChildByParserRule(expr)
 	if err != nil {
 		return

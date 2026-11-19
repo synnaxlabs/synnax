@@ -2829,8 +2829,10 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			)
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()
+				kv := DeferClose(memkv.New())
 				store := &storage.Layer{
-					KV: DeferClose(memkv.New()),
+					KV:   kv,
+					Gorp: gorp.Wrap(kv),
 					TS: DeferClose(MustSucceed(cesium.Open(
 						ctx,
 						"",
@@ -2838,6 +2840,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						cesium.WithChunkSize(14),
 					))),
 				}
+				StartRun(store.Run)
 				node = testutil.NewNode(ctx, distribution.LayerConfig{Storage: store})
 				iteratorSvc, channelSvc = openServices(ctx, node)
 				createSensor(ctx, node, channelSvc)
@@ -3101,10 +3104,13 @@ var _ = Describe("Read failure", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		faulty = WrapFaultyFS(xfs.NewMem())
+		kv := DeferClose(memkv.New())
 		store := &storage.Layer{
-			KV: DeferClose(memkv.New()),
-			TS: DeferClose(MustSucceed(ts.Open(ctx, ts.Config{FS: faulty}))),
+			KV:   kv,
+			Gorp: gorp.Wrap(kv),
+			TS:   DeferClose(MustSucceed(ts.Open(ctx, ts.Config{FS: faulty}))),
 		}
+		StartRun(store.Run)
 		node = testutil.NewNode(ctx, distribution.LayerConfig{Storage: store})
 		iteratorSvc, channelSvc = openServices(ctx, node)
 	})

@@ -36,8 +36,9 @@ if (-not (Test-Path (Join-Path $Dir 'uv.exe'))) {
     Expand-Archive -Path $zip -DestinationPath $Dir -Force
     Remove-Item $zip
 }
-# Every download ends before the first write, so a failure keeps the old install.
-$staging = Join-Path $env:TEMP 'runner-agent-install'
+# Every download ends before the first write, so a failure keeps the old install. Not
+# in the temp folder, which the CI cache cleanup empties.
+$staging = Join-Path $Dir 'install-staging'
 Remove-Item $staging -Recurse -Force -ErrorAction Ignore
 New-Item -ItemType Directory -Force -Path $staging | Out-Null
 foreach ($file in 'agent_boot.py', 'pyproject.toml', 'uv.lock', 'start-runner.ps1') {

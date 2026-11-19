@@ -112,10 +112,10 @@ class TestTaskClient:
             with pytest.raises(sy.NotFoundError):
                 client.tasks.retrieve(key=key)
 
-    def test_retrieve_by_type(self, client: sy.Synnax) -> None:
+    def test_retrieve_by_type(self, client: sy.Synnax, rack: sy.Rack) -> None:
         # Task types are a fixed, registered set, so the filter cannot be made unique
         # the way the name and model tests do. Assert membership instead of identity.
-        task = client.tasks.create(name="test", type="labjack_scan")
+        task = client.tasks.create(name="test", type="labjack_scan", rack=rack.key)
         res = client.tasks.retrieve(types=["labjack_scan"])
         assert all(t.type == "labjack_scan" for t in res)
         assert task.key in {t.key for t in res}
@@ -299,10 +299,10 @@ class TestTaskClient:
         t.join()
 
     def test_execute_command_sync_timeout_is_a_deadline(
-        self, client: sy.Synnax
+        self, client: sy.Synnax, rack: sy.Rack
     ) -> None:
         """A status answering nothing must not renew the wait for an answer."""
-        tsk = client.tasks.create(name="test", type="pagerduty_alert")
+        tsk = client.tasks.create(name="test", type="pagerduty_alert", rack=rack.key)
         stop = threading.Event()
 
         def noise() -> None:
@@ -406,11 +406,11 @@ class TestTaskClient:
         t.join()
 
     def test_execute_command_sync_waits_past_the_timeout_after_a_loading_reply(
-        self, client: sy.Synnax
+        self, client: sy.Synnax, rack: sy.Rack
     ) -> None:
         """A loading reply acknowledges the command, so the wait goes on until the
         final status even after the timeout."""
-        tsk = client.tasks.create(name="test", type="pagerduty_alert")
+        tsk = client.tasks.create(name="test", type="pagerduty_alert", rack=rack.key)
 
         def driver(ev: threading.Event) -> None:
             with client.open_streamer("sy_task_cmd") as s:
@@ -443,11 +443,11 @@ class TestTaskClient:
         t.join()
 
     def test_start_raises_when_the_driver_fails_the_start(
-        self, client: sy.Synnax
+        self, client: sy.Synnax, rack: sy.Rack
     ) -> None:
         """start() raises the error status that the driver sends."""
         tsk = sy.pagerduty.AlertTask(
-            client.tasks.create(name="test", type="pagerduty_alert")
+            client.tasks.create(name="test", type="pagerduty_alert", rack=rack.key)
         )
         ready = threading.Event()
         t = threading.Thread(
@@ -481,11 +481,11 @@ class TestTaskClient:
 
     @pytest.mark.parametrize("command", ["start", "stop"])
     def test_start_and_stop_return_when_the_driver_runs_the_command(
-        self, client: sy.Synnax, command: str
+        self, client: sy.Synnax, rack: sy.Rack, command: str
     ) -> None:
         """start() and stop() return when the driver sends a success status."""
         tsk = sy.pagerduty.AlertTask(
-            client.tasks.create(name="test", type="pagerduty_alert")
+            client.tasks.create(name="test", type="pagerduty_alert", rack=rack.key)
         )
         ready = threading.Event()
         t = threading.Thread(
@@ -498,14 +498,14 @@ class TestTaskClient:
         t.join()
 
     def test_execute_command_sync_ends_when_no_final_status_follows_a_loading_reply(
-        self, client: sy.Synnax, monkeypatch: pytest.MonkeyPatch
+        self, client: sy.Synnax, rack: sy.Rack, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """A Driver that restarts after a loading reply never sends the final status,
         so the wait ends at its limit."""
         monkeypatch.setattr(
             "synnax.task.client._FINAL_STATUS_TIMEOUT", sy.TimeSpan.SECOND
         )
-        tsk = client.tasks.create(name="test", type="pagerduty_alert")
+        tsk = client.tasks.create(name="test", type="pagerduty_alert", rack=rack.key)
 
         def driver(ev: threading.Event) -> None:
             with client.open_streamer("sy_task_cmd") as s:
@@ -534,14 +534,14 @@ class TestTaskClient:
         t.join()
 
     def test_execute_command_sync_waits_while_loading_statuses_arrive(
-        self, client: sy.Synnax, monkeypatch: pytest.MonkeyPatch
+        self, client: sy.Synnax, rack: sy.Rack, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Each loading status restarts the wait, so a command whose loading statuses
         span more than the limit still gets its final status."""
         monkeypatch.setattr(
             "synnax.task.client._FINAL_STATUS_TIMEOUT", sy.TimeSpan.SECOND
         )
-        tsk = client.tasks.create(name="test", type="pagerduty_alert")
+        tsk = client.tasks.create(name="test", type="pagerduty_alert", rack=rack.key)
 
         def driver(ev: threading.Event) -> None:
             with client.open_streamer("sy_task_cmd") as s:
@@ -637,11 +637,13 @@ class TestTaskClient:
     def test_task_converts_config_to_json(self) -> None:
         """Should convert a UUID in a Task config to a string."""
         ref = uuid4()
-        assert sy.Task(config={"ref": ref}).to_payload().config == {"ref": str(ref)}
+        assert sy.Task(name="Task", config={"ref": ref}).to_payload().config == {
+            "ref": str(ref)
+        }
 
     def test_task_converts_reassigned_config_to_json(self) -> None:
         """Should convert a UUID in a config set after construction to a string."""
-        tsk = sy.Task()
+        tsk = sy.Task(name="Task")
         ref = uuid4()
         tsk.config = {"ref": ref}
         assert tsk.to_payload().config == {"ref": str(ref)}
@@ -726,8 +728,14 @@ class TestTaskClient:
         that its first channel names."""
         rack = client.racks.create(name=str(uuid4()))
         dev = client.devices.create(_device(rack.key))
-        tsk = sy.ni.AnalogReadTask(name="test", channels=[])
-        client.tasks.configure(tsk)
+        tsk = sy.ni.AnalogReadTask(
+            client.tasks.create(
+                name="test",
+                type="ni_analog_read",
+                rack=client.racks.create(name=str(uuid4())).key,
+                config=sy.ni.AnalogReadTask(name="test", channels=[]).config,
+            )
+        )
         tsk.config.channels.append(_ai_channel(client, 0, device=dev.key))
         client.tasks.configure(tsk)
         assert client.tasks.retrieve(key=tsk.key).rack == rack.key
@@ -753,14 +761,25 @@ class TestTaskClient:
         self, client: sy.Synnax, create_routing_key: Callable[[], UUID]
     ) -> None:
         """Should configure a task whose config names no device onto the embedded
-        rack."""
+        rack that runs its integration."""
         tsk = sy.Task(
             name="test",
             type="pagerduty_alert",
             config={"routing_key": str(create_routing_key())},
         )
         client.tasks.configure(tsk)
-        assert tsk.rack == client.racks.retrieve_embedded_rack().key
+        assert tsk.rack == client.racks.retrieve_embedded_rack("pagerduty").key
+
+    def test_configure_rejects_task_no_embedded_rack_runs(
+        self, client: sy.Synnax
+    ) -> None:
+        """Should raise when no embedded rack runs the integration of a task that
+        names no device."""
+        tsk = sy.Task(name="test", type="missing_read")
+        with pytest.raises(
+            sy.NotFoundError, match="No embedded rack runs the missing integration"
+        ):
+            client.tasks.configure(tsk)
 
     def test_configure_puts_task_on_rack_of_device_over_set_rack(
         self, client: sy.Synnax

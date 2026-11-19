@@ -47,7 +47,9 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-const FmtStrSyntheticPrefix = "fmt$"
+// ScaleSyntheticPrefix marks a synthesized function that converts its input to the
+// unit of its output.
+const ScaleSyntheticPrefix = "scale$"
 
 type compiledFunction struct {
 	scopeName string
@@ -155,11 +157,11 @@ func compileSynthetic(
 	functions ir.Functions,
 ) (compiledFunction, bool, error) {
 	switch {
-	case strings.HasPrefix(fn.Key, FmtStrSyntheticPrefix):
-		cf, err := compileFmtStrSynthetic(rootCtx, fn)
-		return cf, true, err
 	case strings.HasPrefix(fn.Key, ir.DispatcherSyntheticPrefix):
 		cf, err := compileDispatcherSynthetic(rootCtx, fn, functions)
+		return cf, true, err
+	case strings.HasPrefix(fn.Key, ScaleSyntheticPrefix):
+		cf, err := compileScaleSynthetic(rootCtx, fn)
 		return cf, true, err
 	default:
 		return compiledFunction{}, false, nil
@@ -249,7 +251,7 @@ func compileItem(
 		ctx.Writer.WriteMemoryOp(wasm.OpI64Store, 3, 0)
 	}
 
-	if err = compileBody(ctx, key, body); err != nil {
+	if err = compileBody(ctx, key, body, results); err != nil {
 		return compiledFunction{}, err
 	}
 
@@ -265,6 +267,7 @@ func compileBody(
 	ctx ccontext.Context[antlr.ParserRuleContext],
 	key string,
 	body antlr.ParserRuleContext,
+	results types.Type,
 ) error {
 	switch body := body.(type) {
 	case parser.IBlockContext:
@@ -276,7 +279,11 @@ func compileBody(
 			)
 		}
 	case parser.IExpressionContext:
-		if err := compileExpression(ctx.Child(body)); err != nil {
+		t, err := expression.Compile(ctx.Child(body))
+		if err == nil && types.UnitsConvertible(t.Unit, results.Unit) {
+			err = expression.EmitCast(ctx, t, results)
+		}
+		if err != nil {
 			return errors.Wrapf(
 				err,
 				"failed to compile expression '%s'",
@@ -305,41 +312,33 @@ func functionScope(fn ir.Function) (*symbol.Symbol, error) {
 	return fn.Symbol, nil
 }
 
-func compileExpression(ctx ccontext.Context[parser.IExpressionContext]) error {
-	_, err := expression.Compile(ctx)
-	return err
-}
-
-// compileFmtStrSynthetic emits a WASM body returning the formatted string
-// handle for an analyzer-synthesized Function. Lifted variable reads arrive
-// as params.
-func compileFmtStrSynthetic(
+// compileScaleSynthetic emits a WASM body that returns its one input in the type and
+// unit of its output. An integer truncates toward zero.
+func compileScaleSynthetic(
 	rootCtx ccontext.Context[antlr.ParserRuleContext],
 	fn ir.Function,
 ) (compiledFunction, error) {
-	scope, err := functionScope(fn)
-	if err != nil {
-		return compiledFunction{}, err
-	}
-	ctx := rootCtx.WithScope(scope).WithNewWriter()
-	params := make([]wasm.ValueType, 0, len(fn.Inputs))
-	for _, p := range fn.Inputs {
-		params = append(params, wasm.ConvertType(p.Type))
-	}
-	funcT := wasm.FunctionType{
-		Params:  params,
-		Results: []wasm.ValueType{wasm.ConvertType(types.String())},
-	}
-	typeIdx := ctx.Module.AddType(funcT)
-	lit, ok := fn.Body.AST.(parser.ILiteralContext)
-	if !ok {
+	if len(fn.Inputs) != 1 || len(fn.Outputs) != 1 {
 		return compiledFunction{}, errors.Newf(
-			"format string %s has no literal",
-			fn.Key,
+			"unit conversion %s takes one input and one output", fn.Key,
 		)
 	}
-	strTerm := parser.StringTerminal(lit)
-	if _, err := expression.EmitFmtSegments(ctx, strTerm); err != nil {
+	in, out := fn.Inputs[0].Type, fn.Outputs[0].Type
+	if in.Kind == types.KindVarRef && in.Elem != nil {
+		in = *in.Elem
+	}
+	if !types.UnitsConvertible(in.Unit, out.Unit) {
+		return compiledFunction{}, errors.Newf(
+			"unit conversion %s cannot convert %s to %s", fn.Key, in, out,
+		)
+	}
+	ctx := rootCtx.WithNewWriter()
+	typeIdx := ctx.Module.AddType(wasm.FunctionType{
+		Params:  []wasm.ValueType{wasm.ConvertType(in)},
+		Results: []wasm.ValueType{wasm.ConvertType(out)},
+	})
+	ctx.Writer.WriteLocalGet(0)
+	if err := expression.EmitCast(ctx, in, out); err != nil {
 		return compiledFunction{}, err
 	}
 	return compiledFunction{

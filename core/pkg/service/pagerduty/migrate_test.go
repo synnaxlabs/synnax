@@ -42,6 +42,7 @@ var _ = Describe("SecretMigration", func() {
 	)
 	BeforeEach(func() {
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		names, asked = map[uuid.UUID]string{}, nil
 		lookup = func(
 			_ context.Context,

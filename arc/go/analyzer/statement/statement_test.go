@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"go.lsp.dev/protocol"
 )
@@ -1184,7 +1185,7 @@ var _ = Describe("Statement", func() {
 				Expect(warnings).To(HaveLen(len(fixes)))
 				for i, w := range warnings {
 					Expect(w.Message).To(Equal(
-						"non-boolean conditions are deprecated, use an explicit " +
+						"non-boolean condition: deprecated, use an explicit " +
 							"comparison like x != 0",
 					))
 					Expect(w.Code).To(Equal(codes.TruthyCondition.Code))
@@ -3423,6 +3424,7 @@ var _ = Describe("Statement", func() {
 				statement.Analyze(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("range()"))
+				Expect((*ctx.Diagnostics)[0].Code).To(Equal(codes.FuncArgMissing.Code))
 			})
 
 			It("should reject range with 4 arguments", func(bCtx SpecContext) {
@@ -3433,6 +3435,7 @@ var _ = Describe("Statement", func() {
 				statement.Analyze(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("range()"))
+				Expect((*ctx.Diagnostics)[0].Code).To(Equal(codes.FuncArgExtra.Code))
 			})
 
 			It("should reject an index after range", func(bCtx SpecContext) {
@@ -3768,4 +3771,59 @@ var _ = Describe("Computed initializers", func() {
 		}
 		Expect(outputs).To(ConsistOf(types.U8(), types.F32()))
 	})
+})
+
+var _ = Describe("Unit checks", func() {
+	DescribeTable("Should reject a statement whose value does not convert",
+		func(bCtx SpecContext, signature, body, message string) {
+			ast := MustSucceed(parser.Parse(
+				"func f(" + signature + " {\n" + body + "\n}",
+			))
+			ctx := context.NewRoot(bCtx, ast, symbol.NewRoot(nil, stl.NewSymbols()))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Errors()).To(HaveLen(1), ctx.Diagnostics.String())
+			Expect(ctx.Diagnostics.Errors()[0].Message).To(Equal(message))
+		},
+		Entry("a declaration", ")", "d i64 psi := 5s",
+			"incompatible dimensions: cannot write s to 'd' (psi)"),
+		Entry("a result", "x i64 s) i64 psi", "return x",
+			"incompatible dimensions: cannot write s to the result of 'f' (psi)"),
+		Entry("an assignment", "x i64 s)", "d i64 psi := 1psi\nd = x",
+			"incompatible dimensions: cannot write s to 'd' (psi)"),
+		Entry("a compound assignment", "x i64 s)", "d i64 psi := 1psi\nd += x",
+			"incompatible dimensions: cannot write s to 'd' (psi)"),
+		Entry("an element", "x i64 s)", "ys := [1psi]\nys[0] = x",
+			"incompatible dimensions: cannot write s to 'ys' (psi)"),
+		Entry("a compound assignment of an element",
+			"x i64 s)", "ys := [1psi]\nys[0] += x",
+			"incompatible dimensions: cannot write s to 'ys' (psi)"),
+		Entry("a compound assignment of a series", "x i64 s)", "ys := [1psi]\nys += x",
+			"incompatible dimensions: cannot write s to 'ys' (psi)"),
+		Entry("a compound product of an integer series by a factor that is not whole",
+			")", "xs := [5psi]\nxs *= 1Pa",
+			"invalid operand: a series of i64 in psi does not convert to Pa, use a "+
+				"float series or the same unit"),
+	)
+
+	DescribeTable(
+		"Should fold a cast of a literal to its value in the unit of the target",
+		func(bCtx SpecContext, source string, t types.Type, expected any) {
+			expr := MustSucceed(parser.ParseExpression(source))
+			ctx := context.NewRoot(bCtx, expr, symbol.NewRoot(nil, stl.NewSymbols()))
+			value := statement.CastConstValue(ctx, expr, t)
+			if expected == nil {
+				Expect(value).To(BeNil())
+				return
+			}
+			Expect(value).To(Equal(expected))
+		},
+		Entry("a cast with a larger unit", "i64 s(5)",
+			types.WithUnit(types.I64(), types.TimeSpan().Unit), telem.TimeSpan(5e9)),
+		Entry("a cast of a float with a larger unit", "f64 bar(2.5)",
+			types.WithUnit(types.F64(), &types.Unit{
+				Dimensions: types.DimPressure, Scale: 1e3, Name: "kPa",
+			}), float64(250)),
+		Entry("a cast with no unit", "i64(5)", types.I64(), int64(5)),
+		Entry("a cast of a value that is not a literal", "i64(x)", types.I64(), nil),
+	)
 })

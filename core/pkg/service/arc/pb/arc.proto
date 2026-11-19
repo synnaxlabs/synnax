@@ -110,14 +110,12 @@ message SourceGraphPayload {
   // graph is the visual dataflow graph representation of the module.
   .arc.graph.pb.Graph graph = 1;
 }
-message ChangeList {
-  repeated Change values = 1;
-}
 message ArcAutomationPayload {
+  reserved 2;
   // program is the compiled module output including IR and WebAssembly bytecode.
   optional .arc.program.pb.Program program = 1;
   // changes is what changed in the automation since its task was deployed.
-  ChangeList changes = 2;
+  repeated Change changes = 4;
   // calculations are the calculated channels that the program reads, nested ones
   // included. Dependencies come before the channels that read them.
   repeated Calculation calculations = 3;

@@ -666,8 +666,9 @@ var _ = Describe("Go Patch Plugin", func() {
 					`h.String("analog")`,
 					"func (p *Point) HashContent(h *content.Hash) {",
 					"h.Float(ac.Range.Min)",
+					"h.Uint(uint64(dc.Line))",
 				).
-				ToNotContain("h.Bytes(cv.Key[:])", "h.String(e.Key)")
+				ToNotContain("h.Bytes(cv.Key[:])", "h.String(e.Key)", "h.Int(")
 		})
 
 		It("Should leave the hash out for a document with @patch fields", func() {

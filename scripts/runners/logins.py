@@ -24,14 +24,13 @@ The controller never reads a token."""
 
 from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
+from typing import Literal, Protocol, TypedDict
 
-if TYPE_CHECKING:
-    from mypy_boto3_secretsmanager.type_defs import (
-        FilterTypeDef,
-        SecretListEntryTypeDef,
-        TagTypeDef,
-    )
+from mypy_boto3_secretsmanager.type_defs import (
+    FilterTypeDef,
+    SecretListEntryTypeDef,
+    TagTypeDef,
+)
 
 PREFIX = "synnax-agents/logins/"
 # The IAM role of every seat.
@@ -66,17 +65,17 @@ class Login:
 
 
 class Listed(TypedDict):
-    SecretList: list["SecretListEntryTypeDef"]
+    SecretList: list[SecretListEntryTypeDef]
 
 
 class Secret(TypedDict):
     ARN: str
     Name: str
-    Tags: list["TagTypeDef"]
+    Tags: list[TagTypeDef]
 
 
 class Pages(Protocol):
-    def paginate(self, *, Filters: list["FilterTypeDef"]) -> Iterable[Listed]: ...
+    def paginate(self, *, Filters: list[FilterTypeDef]) -> Iterable[Listed]: ...
 
 
 class Errors(Protocol):
@@ -94,7 +93,7 @@ class Secrets(Protocol):
 
     def describe_secret(self, *, SecretId: str) -> Secret: ...
 
-    def tag_resource(self, *, SecretId: str, Tags: list["TagTypeDef"]) -> object: ...
+    def tag_resource(self, *, SecretId: str, Tags: list[TagTypeDef]) -> object: ...
 
     def untag_resource(self, *, SecretId: str, TagKeys: list[str]) -> object: ...
 

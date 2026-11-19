@@ -14,7 +14,7 @@ import {
 } from "@synnaxlabs/client/testutil";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { type Status } from "@synnaxlabs/lyra/status";
-import { deep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { deep, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { type FC } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
@@ -164,6 +164,32 @@ describe("wrapForm", () => {
     expect(
       screen.getByRole("button", { name: "Start" }).getAttribute("aria-disabled"),
     ).toBeNull();
+  });
+
+  it("should save an edit once its nested forms send theirs", async () => {
+    const client = createTestClient();
+    const tsk = await createTask(client);
+    const gate = Promise.withResolvers<void>();
+    const flush = vi.fn(async () => {
+      await gate.promise;
+      return true;
+    });
+    const NestedForm: FC = () => {
+      Task.useFlushFirst(flush);
+      return null;
+    };
+    await renderTaskFormTab(createRenderer({ Form: NestedForm }), {
+      client,
+      taskKey: tsk.key,
+    });
+    const input = await waitFor(findNameInput);
+    await act(async () => commitFieldInput(input, "Renamed Test Task"));
+    await waitFor(() => expect(flush).toHaveBeenCalled());
+    // The form's client caches the edit before it sends, so another client reads.
+    const stored = async () => (await createTestClient().tasks.retrieve(tsk.key)).name;
+    expect(await stored()).toBe(tsk.name);
+    gate.resolve();
+    await waitFor(async () => expect(await stored()).toBe("Renamed Test Task"));
   });
 
   describe("rack", () => {
@@ -400,6 +426,60 @@ describe("wrapForm", () => {
       await waitFor(() => expect(configured).toBe(true));
     });
 
+    it("should flush a nested form before it configures", async () => {
+      const client = createTestClient();
+      const draft = await client.tasks.create({ ...INITIAL_VALUES, rack: 0 });
+      const order: string[] = [];
+      const NestedForm: FC = () => {
+        Task.useFlushFirst(async () => {
+          order.push("flush");
+          return true;
+        });
+        return null;
+      };
+      const Renderer = createRenderer({
+        Form: NestedForm,
+        deployConfigZ: z.unknown(),
+        onConfigure: async (_client, config) => {
+          order.push("configure");
+          return [config, 0];
+        },
+      });
+      const { container } = await renderTaskFormTab(Renderer, {
+        client,
+        taskKey: draft.key,
+      });
+      await clickDeploy(container);
+      // Writing the configured task flushes the nested form again.
+      await waitFor(() => expect(order.slice(0, 2)).toEqual(["flush", "configure"]));
+    });
+
+    it("should not deploy while a nested form holds an unsent edit", async () => {
+      const client = createTestClient();
+      const draft = await client.tasks.create({ ...INITIAL_VALUES, rack: 0 });
+      const flush = vi.fn(async () => false);
+      const NestedForm: FC = () => {
+        Task.useFlushFirst(flush);
+        return null;
+      };
+      const onConfigure = vi.fn<Task.OnConfigure<(typeof schemas)["config"]>>(
+        async (_client, config) => [config, 0],
+      );
+      const Renderer = createRenderer({
+        Form: NestedForm,
+        deployConfigZ: z.unknown(),
+        onConfigure,
+      });
+      const { container } = await renderTaskFormTab(Renderer, {
+        client,
+        taskKey: draft.key,
+      });
+      await clickDeploy(container);
+      await waitFor(() => expect(flush).toHaveBeenCalledOnce());
+      await act(async () => {});
+      expect(onConfigure).not.toHaveBeenCalled();
+    });
+
     it("should not deploy while a field holds a value that fails its schema", async () => {
       const client = createTestClient();
       const draft = await client.tasks.create({ ...INITIAL_VALUES, rack: 0 });
@@ -559,7 +639,7 @@ describe("wrapForm", () => {
         .onChange(seen);
       // Let the one-time setup renders settle, the permission grant among them, so the
       // count reflects only what the status change causes.
-      await act(async () => await new Promise((resolve) => setTimeout(resolve, 30)));
+      await act(async () => await sleep.sleep(TimeSpan.milliseconds(30)));
       const before = renders;
       await client.statuses.set({
         owner: device.resourceID(deviceKey),
@@ -570,7 +650,7 @@ describe("wrapForm", () => {
         details: { rack: rack.key },
       });
       await waitFor(() => expect(seen).toHaveBeenCalled());
-      await act(async () => await new Promise((resolve) => setTimeout(resolve, 30)));
+      await act(async () => await sleep.sleep(TimeSpan.milliseconds(30)));
       expect(renders).toBe(before);
       off();
     });

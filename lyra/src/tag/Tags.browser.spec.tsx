@@ -311,6 +311,32 @@ describe("Tags", () => {
     expect(await hovered(shown[shown.length - 1], true)).toEqual(full);
   });
 
+  it("should keep a capped name inside a stacked tag with no tag over it", async () => {
+    const { container } = await renderThemed(
+      <div data-testid="frame" style={{ display: "flex", width: "600px" }}>
+        <Tag.Tags>
+          {LABELS.map((label) => (
+            <Tag.Tag key={label} color="#3774d0">
+              {`${label} sensor metrics cpu percentage`}
+            </Tag.Tag>
+          ))}
+        </Tag.Tags>
+      </div>,
+    );
+    const frame = container.querySelector<HTMLElement>("[data-testid=frame]")!;
+    await expect.poll(() => stacked(frame)).toBe(true);
+    const inside = (tag: HTMLElement): boolean =>
+      tag.querySelector(`.${CSS.B("text")}`)!.getBoundingClientRect().right <=
+      tag.getBoundingClientRect().right;
+    const shown = visible(frame).filter(hasName);
+    const last = shown[shown.length - 1];
+    expect(last.hasAttribute("data-last")).toBe(true);
+    expect(inside(last)).toBe(true);
+    await userEvent.hover(shown[0]);
+    await expect.poll(() => shown[0].hasAttribute("data-lifted")).toBe(true);
+    expect(inside(shown[0])).toBe(true);
+  });
+
   it("should keep its width as it hides tags", async () => {
     const { container } = await renderThemed(
       <div style={{ display: "flex", width: "1000px" }}>

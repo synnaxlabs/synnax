@@ -282,15 +282,15 @@ No fix is necessary when the sensor streams. See
 <Problem.Body>
 <Problem.Cause>
 
-A runtime error, such as an index out of bounds. On a Driver, the status shows "Failed
-to run Arc program" with this text in the description, and the automation stops. On the
-Core, the status shows "Node failed", and the Core drops the cycle and keeps running.
+A runtime error, such as an index out of bounds. The status shows "Node failed" with
+this text in the description. The automation drops the output of that part for the cycle
+and keeps running.
 
 </Problem.Cause>
 <Problem.Fix>
 
 Fix the code. See
-[errors while it runs](/reference/control/arc/execution-model#errors-while-it-runs).
+[runtime errors](/reference/control/arc/execution-model#runtime-errors).
 
 </Problem.Fix>
 </Problem.Body>

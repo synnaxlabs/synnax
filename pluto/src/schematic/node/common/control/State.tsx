@@ -10,6 +10,7 @@
 import { type channel, schematic } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { control as xControl, direction, primitive } from "@synnaxlabs/x";
+import { type ReactNode } from "react";
 
 import { CSS } from "@/css";
 import { Grid } from "@/schematic/node/common/grid";
@@ -25,6 +26,8 @@ export interface State {
   config: StateConfig;
   channel: channel.Key;
   onChange?: (next: { control: StateConfig }) => void;
+  /** Shown after the chip and the indicator, even with no channel. */
+  children?: ReactNode;
 }
 
 interface InternalProps extends Flex.BoxProps {
@@ -35,8 +38,10 @@ interface InternalProps extends Flex.BoxProps {
 const Internal = ({
   config: { hidden, chipHidden, indicatorHidden, authority, orientation },
   channel,
+  children,
   ...rest
 }: InternalProps) => {
+  const controlShown = !hidden && primitive.isNonZero(channel);
   const chip = {
     source: control.authoritySource({ channel }),
     sink: control.acquireChannelControl({
@@ -53,26 +58,31 @@ const Internal = ({
       gap="small"
       {...rest}
     >
-      {!hidden && !chipHidden && <Control.Chip size="small" {...chip} />}
-      {!hidden && !indicatorHidden && <Control.Indicator {...indicator} />}
+      {controlShown && !chipHidden && <Control.Chip size="small" {...chip} />}
+      {controlShown && !indicatorHidden && <Control.Indicator {...indicator} />}
+      {children}
     </Flex.Box>
   );
 };
 
-export const State = Grid.createItem<State>(({ config, channel, onChange }) => {
-  // The chip and the indicator report control of the channel, so with no channel
-  // there is nothing to show.
-  if (!primitive.isNonZero(channel)) return null;
-  return (
-    <Grid.Item
-      itemKey="control"
-      location={config.orientation}
-      onLocationChange={(loc) =>
-        onChange?.({ control: { ...config, orientation: loc } })
-      }
-    >
-      <Internal config={config} channel={channel} />
-    </Grid.Item>
-  );
-});
+export const State = Grid.createItem<State>(
+  ({ config, channel, onChange, children }) => {
+    // The chip and the indicator report control of the channel, so with no channel
+    // only the children show.
+    if (!primitive.isNonZero(channel) && children == null) return null;
+    return (
+      <Grid.Item
+        itemKey="control"
+        location={config.orientation}
+        onLocationChange={(loc) =>
+          onChange?.({ control: { ...config, orientation: loc } })
+        }
+      >
+        <Internal config={config} channel={channel}>
+          {children}
+        </Internal>
+      </Grid.Item>
+    );
+  },
+);
 State.displayName = "Control.State";

@@ -11,6 +11,8 @@ import { spawn } from "node:child_process";
 import { once } from "node:events";
 import path from "node:path";
 
+import { breaker, TimeSpan } from "@synnaxlabs/x";
+
 import { portInUse } from "@/fixtures/core";
 
 const CLIENT_PY = path.resolve(import.meta.dirname, "../../../client/py");
@@ -23,6 +25,8 @@ const READY_TIMEOUT_MS = 30_000;
 const KAFKA_READY_TIMEOUT_MS = 180_000;
 
 const STOP_TIMEOUT_MS = 10_000;
+
+const POLL_MS = 200;
 
 /** The Python code that runs each server from `client/py/examples`. */
 const PROGRAMS = {
@@ -86,23 +90,26 @@ export const simulator = async ({
     process.kill(-proc.pid, "SIGTERM");
     await once(proc, "exit");
     // `go run` exits before the broker it started closes its port.
-    const stopDeadline = Date.now() + STOP_TIMEOUT_MS;
-    while (await portInUse(port)) {
-      if (Date.now() > stopDeadline)
+    const closing = new breaker.Breaker({
+      baseInterval: TimeSpan.milliseconds(POLL_MS),
+      maxRetries: STOP_TIMEOUT_MS / POLL_MS,
+    });
+    while (await portInUse(port))
+      if (!(await closing.wait()))
         throw new Error(`${protocol} server did not close port ${port} in time`);
-      await new Promise((resolve) => setTimeout(resolve, 200));
-    }
   };
-  const deadline =
-    Date.now() + (protocol === "kafka" ? KAFKA_READY_TIMEOUT_MS : READY_TIMEOUT_MS);
+  const timeout = protocol === "kafka" ? KAFKA_READY_TIMEOUT_MS : READY_TIMEOUT_MS;
+  const ready = new breaker.Breaker({
+    baseInterval: TimeSpan.milliseconds(POLL_MS),
+    maxRetries: timeout / POLL_MS,
+  });
   while (!(await portInUse(port))) {
     if (proc.exitCode != null)
       throw new Error(`${protocol} server exited with code ${proc.exitCode}`);
-    if (Date.now() > deadline) {
+    if (!(await ready.wait())) {
       await stop();
       throw new Error(`${protocol} server did not open port ${port} in time`);
     }
-    await new Promise((resolve) => setTimeout(resolve, 200));
   }
   return { stop };
 };

@@ -595,21 +595,22 @@ Channel struct {
 			To(MatchError(ContainSubstring("failed to parse")))
 	})
 
-	It("Should reject an ambiguous dependency namespace", func(ctx SpecContext) {
+	It("Should import two resources of one namespace that the surface references", func(
+		ctx SpecContext,
+	) {
 		write("schemas/x/versions/status/v0.oracle", "Code = int64\n")
 		write("schemas/synnax/status.oracle", "Info struct {\n\tmessage string\n}\n")
 		write("schemas/synnax/versions/channel/v0.oracle", `
 import "schemas/x/versions/status/v0"
 
-Channel struct {
-	key uuid @key
+Holder struct {
 	code status.Code
-
-	@go marshal
 }
 `)
 		write("schemas/synnax/versions/channel/v1.oracle", `
 import "schemas/synnax/status"
+
+Holder = v0.Holder
 
 Channel struct {
 	key uuid @key
@@ -621,8 +622,187 @@ Channel struct {
 }
 `)
 		r, chain := resolver()
-		Expect(versions.MergeLive(ctx, r, chain, "")).Error().
-			To(MatchError(ContainSubstring("namespace status is ambiguous")))
+		merged := MustSucceed(versions.MergeLive(ctx, r, chain, ""))
+		Expect(merged).To(ContainSubstring(`import "schemas/synnax/status"`))
+		Expect(merged).To(ContainSubstring(`import "schemas/x/status"`))
+	})
+
+	It("Should import each pin of one namespace that a version file imports", func(
+		ctx SpecContext,
+	) {
+		write("schemas/x/versions/status/v0.oracle", "Code = int64\n")
+		write("schemas/synnax/versions/status/v0.oracle", "Level = int32\n")
+		write("schemas/synnax/versions/channel/v0.oracle", `
+import "schemas/synnax/versions/status/v0"
+import "schemas/x/versions/status/v0"
+
+Channel struct {
+	key uuid @key
+	code status.Code
+	level status.Level
+
+	@go marshal
+}
+`)
+		r, chain := resolver()
+		merged := MustSucceed(versions.MergeLive(ctx, r, chain, ""))
+		Expect(merged).To(ContainSubstring(`import "schemas/synnax/status"`))
+		Expect(merged).To(ContainSubstring(`import "schemas/x/status"`))
+	})
+
+	It("Should import only the namespace the current surface references", func(
+		ctx SpecContext,
+	) {
+		write("schemas/x/versions/status/v0.oracle", "Code = int64\n")
+		write("schemas/x/status.oracle", "Code = int64\n")
+		write("schemas/synnax/versions/status/v0.oracle", "Level = int64\n")
+		write("schemas/synnax/status.oracle", "Level = int64\n")
+		write("schemas/synnax/versions/channel/v0.oracle", `
+import "schemas/x/versions/status/v0"
+
+Channel struct {
+	key uuid @key
+	code status.Code
+
+	@go marshal
+}
+`)
+		write("schemas/synnax/versions/channel/v1.oracle", `
+import "schemas/synnax/versions/status/v0"
+
+Channel struct extends v0.Channel {
+	code status.Level
+}
+`)
+		r, chain := resolver()
+		merged := MustSucceed(versions.MergeLive(ctx, r, chain, ""))
+		Expect(merged).To(ContainSubstring(`import "schemas/synnax/status"`))
+		Expect(merged).ToNot(ContainSubstring(`import "schemas/x/status"`))
+		Expect(merged).To(ContainSubstring("code status.Level"))
+	})
+
+	Describe("Live imports", func() {
+		BeforeEach(func() {
+			write("schemas/x/versions/status/v0.oracle", "Code = int64\n")
+			write("schemas/synnax/versions/status/v0.oracle", "Level = int64\n")
+			write("schemas/synnax/status.oracle", "Level = int64\n")
+			write("schemas/synnax/versions/channel/v0.oracle", `
+import "schemas/synnax/versions/status/v0"
+
+Channel struct {
+	key uuid @key
+	level status.Level
+
+	@go marshal
+}
+`)
+		})
+
+		It("Should replace a live import whose namespace a dependency now takes", func(
+			ctx SpecContext,
+		) {
+			live := `import "schemas/x/status"
+
+Channel struct {
+	key uuid @key
+	level status.Code
+}
+`
+			r, chain := resolver()
+			merged := MustSucceed(versions.MergeLive(ctx, r, chain, live))
+			Expect(merged).To(ContainSubstring(`import "schemas/synnax/status"`))
+			Expect(merged).ToNot(ContainSubstring(`import "schemas/x/status"`))
+		})
+
+		It("Should keep a live import that a live-only declaration uses", func(
+			ctx SpecContext,
+		) {
+			live := `import "schemas/x/label"
+import "schemas/x/telem"
+
+Channel struct {
+	key uuid @key
+}
+
+Wire struct {
+	span telem.TimeSpan
+}
+`
+			r, chain := resolver()
+			merged := MustSucceed(versions.MergeLive(ctx, r, chain, live))
+			Expect(merged).To(ContainSubstring(`import "schemas/x/telem"`))
+			Expect(merged).ToNot(ContainSubstring(`import "schemas/x/label"`))
+		})
+
+		It("Should keep two live imports of one namespace that live text uses", func(
+			ctx SpecContext,
+		) {
+			live := `import "schemas/x/telem"
+import "schemas/y/telem"
+
+Channel struct {
+	key uuid @key
+}
+
+Wire struct {
+	span telem.TimeSpan
+}
+`
+			r, chain := resolver()
+			merged := MustSucceed(versions.MergeLive(ctx, r, chain, live))
+			Expect(merged).To(ContainSubstring(`import "schemas/x/telem"`))
+			Expect(merged).To(ContainSubstring(`import "schemas/y/telem"`))
+		})
+
+		It(
+			"Should keep a live import that a live action uses in a taken namespace",
+			func(
+				ctx SpecContext,
+			) {
+				write("schemas/x/status.oracle", "Code = int64\n")
+				live := `import "schemas/x/status"
+
+Channel struct {
+	key uuid @key
+	level status.Level
+
+	action SetCode {
+		code status.Code
+	}
+
+	@go marshal
+}
+`
+				r, chain := resolver()
+				merged := MustSucceed(versions.MergeLive(ctx, r, chain, live))
+				Expect(merged).To(ContainSubstring(`import "schemas/synnax/status"`))
+				Expect(merged).To(ContainSubstring(`import "schemas/x/status"`))
+				Expect(merged).To(ContainSubstring("code status.Code"))
+			},
+		)
+
+		It("Should drop a live import whose live names the dependency declares", func(
+			ctx SpecContext,
+		) {
+			write("schemas/x/status.oracle", "Code = int64\n")
+			live := `import "schemas/x/status"
+
+Channel struct {
+	key uuid @key
+	level status.Level
+
+	action SetLevel {
+		level status.Level
+	}
+
+	@go marshal
+}
+`
+			r, chain := resolver()
+			merged := MustSucceed(versions.MergeLive(ctx, r, chain, live))
+			Expect(merged).To(ContainSubstring(`import "schemas/synnax/status"`))
+			Expect(merged).ToNot(ContainSubstring(`import "schemas/x/status"`))
+		})
 	})
 
 	It("Should carry live-owned enum value annotations", func(ctx SpecContext) {

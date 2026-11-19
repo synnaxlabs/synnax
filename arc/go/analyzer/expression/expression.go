@@ -224,7 +224,8 @@ func validateType[T, N antlr.ParserRuleContext](
 	if len(items) <= 1 {
 		return
 	}
-	firstType := infer(ctx.Child(items[0])).Unwrap()
+	first := infer(ctx.Child(items[0]))
+	firstType := first.Unwrap()
 
 	// If first operand is Invalid, skip validation - we can't check types we don't know
 	if firstType.Kind == basetypes.KindInvalid {
@@ -233,7 +234,7 @@ func validateType[T, N antlr.ParserRuleContext](
 
 	if !want.fits(ctx.Constraints, firstType, items[0]) {
 		ctx.Diagnostics.Add(
-			diagnostics.Errorf(
+			codes.InvalidOperand.Atf(
 				ctx.AST,
 				"cannot use %s in %s operation",
 				firstType,
@@ -244,7 +245,8 @@ func validateType[T, N antlr.ParserRuleContext](
 	}
 
 	for i := 1; i < len(items); i++ {
-		nextType := infer(ctx.Child(items[i]).WithTypeHint(firstType)).Unwrap()
+		next := infer(ctx.Child(items[i]).WithTypeHint(firstType))
+		nextType := next.Unwrap()
 
 		// Skip if this operand is Invalid - we can't check types we don't know
 		if nextType.Kind == basetypes.KindInvalid {
@@ -256,7 +258,8 @@ func validateType[T, N antlr.ParserRuleContext](
 		// Note: Power operations (^) are handled separately in analyzePower via
 		// ValidatePowerOp.
 		if firstType.Unit != nil || nextType.Unit != nil {
-			if !units.ValidateBinaryOp(ctx, opName, firstType, nextType) {
+			if !units.ValidateBinaryOp(ctx, opName, firstType, nextType) ||
+				!CheckOperandUnits(ctx, first, next) {
 				return
 			}
 		}
@@ -264,7 +267,7 @@ func validateType[T, N antlr.ParserRuleContext](
 		if firstType.Kind == basetypes.KindVariable ||
 			nextType.Kind == basetypes.KindVariable {
 			if !want.fits(ctx.Constraints, nextType, items[i]) {
-				ctx.Diagnostics.Add(diagnostics.Errorf(
+				ctx.Diagnostics.Add(codes.InvalidOperand.Atf(
 					ctx.AST,
 					"cannot use %s in %s operation",
 					nextType,
@@ -293,7 +296,7 @@ func validateType[T, N antlr.ParserRuleContext](
 		} else if !types.Compatible(firstType, nextType) {
 			// units.ValidateBinaryOp already checked unit compatibility.
 			ctx.Diagnostics.Add(
-				diagnostics.Errorf(
+				codes.TypeMismatch.Atf(
 					ctx.AST,
 					"type mismatch: cannot use %s and %s in %s operation",
 					firstType,
@@ -371,7 +374,14 @@ func checkNaNComparison[T, O antlr.ParserRuleContext](
 		if op == "!=" {
 			check = "not " + check
 		}
-		d := codes.NaNComparison.At(ctx.AST, op, qid.GetText(), op == "!=", check)
+		d := codes.NaNComparison.Atf(
+			ctx.AST,
+			"%s with %s is always %t, use %s instead",
+			op,
+			qid.GetText(),
+			op == "!=",
+			check,
+		)
 		if imported && len(operands) == 2 && (op == "==" || op == "!=") {
 			d = d.WithFix(ctx.AST, check+"("+sourceText(operands[1-i])+")")
 		}
@@ -440,7 +450,7 @@ func analyzePower(ctx context.Context[parser.IPowerExpressionContext]) {
 		expType := types.InferFromUnaryExpression(ctx.Child(exponent)).Unwrap()
 		for _, t := range []basetypes.Type{baseType, expType} {
 			if t.IsValid() && !t.IsNumeric() {
-				ctx.Diagnostics.Add(diagnostics.Errorf(
+				ctx.Diagnostics.Add(codes.InvalidOperand.Atf(
 					ctx.AST,
 					"cannot use %s in ^ operation",
 					t,
@@ -467,7 +477,7 @@ func analyzeUnary(ctx context.Context[parser.IUnaryExpressionContext]) {
 		if ctx.AST.MINUS() != nil {
 			if !types.Numeric(ctx.Constraints, operandType, ctx.AST) {
 				ctx.Diagnostics.Add(
-					diagnostics.Errorf(
+					codes.InvalidOperand.Atf(
 						ctx.AST,
 						"operator - not supported for type %s",
 						operandType,
@@ -478,7 +488,7 @@ func analyzeUnary(ctx context.Context[parser.IUnaryExpressionContext]) {
 		} else if ctx.AST.NOT() != nil {
 			if !types.Bool(ctx.Constraints, operandType, ctx.AST) {
 				ctx.Diagnostics.Add(
-					diagnostics.Errorf(
+					codes.InvalidOperand.Atf(
 						ctx.AST,
 						"operator 'not' requires boolean operand, received %s",
 						operandType,
@@ -507,7 +517,7 @@ func AnalyzeIndex[T antlr.ParserRuleContext](
 		return
 	}
 	if !resolveConstraint(t).IsInteger() {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
+		ctx.Diagnostics.Add(codes.TypeMismatch.Atf(
 			expr,
 			"series index must be an integer type, got %s",
 			t,
@@ -552,7 +562,7 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 		return
 	}
 	if call, callee := nonFunctionCall(ctx.AST); call != nil {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
+		ctx.Diagnostics.Add(codes.NotCallable.Atf(
 			call,
 			"cannot call non-function %s",
 			callee,
@@ -568,7 +578,7 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 		return
 	}
 	if scope.Kind != symbol.KindFunction {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
+		ctx.Diagnostics.Add(codes.NotCallable.Atf(
 			funcCalls[0],
 			"cannot call non-function %s of type %s",
 			funcName,
@@ -620,11 +630,10 @@ func AnalyzeCallSite[T antlr.ParserRuleContext](
 ) {
 	callerFn, err := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
 	if err != nil && !errors.Is(err, query.ErrNotFound) {
-		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-		return
+		panic(err)
 	}
 	if callerFn != nil && callee.Exec == symbol.ExecFlow {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
+		ctx.Diagnostics.Add(codes.NotCallable.Atf(
 			ctx.AST,
 			"function '%s' cannot be called inside a func block. Use it as a flow statement instead: %s()",
 			funcName,
@@ -645,11 +654,13 @@ func AnalyzeCallSite[T antlr.ParserRuleContext](
 			"",
 		)
 	case hasMultipleNamedOutputs(fnType):
-		ctx.Diagnostics.Add(diagnostics.Errorf(
-			site,
-			"cannot call function %s: functions with multiple named outputs are not callable",
-			funcName,
-		))
+		ctx.Diagnostics.Add(
+			codes.NotCallable.Atf(
+				site,
+				"not callable: function %s has more than one named output",
+				funcName,
+			),
+		)
 	default:
 		AnalyzeCall(ctx, funcName, fnType, args, callee.AnalyzeArguments, site, "")
 	}
@@ -672,6 +683,17 @@ func hasMultipleNamedOutputs(t basetypes.Type) bool {
 	return len(t.Outputs) > 1 || (len(t.Outputs) == 1 && !hasDefault)
 }
 
+// inDeclaredFunction reports whether scope is in the body of a func declaration. A flow
+// expression is also a function, but its variable reads become inputs.
+func inDeclaredFunction(scope *symbol.Symbol) bool {
+	fn, err := scope.ClosestAncestorOfKind(symbol.KindFunction)
+	if err != nil {
+		return false
+	}
+	_, ok := fn.AST.(parser.IFunctionDeclarationContext)
+	return ok
+}
+
 func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 	if head, tail := parser.PrimaryNameParts(ctx.AST); head != "" {
 		resolved, err := ctx.ResolveQualified(head, tail)
@@ -679,11 +701,17 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 			return
 		}
+		if resolved.Kind == symbol.KindVariable && resolved.AST != nil &&
+			resolved.IsComputed() && inDeclaredFunction(ctx.Scope) {
+			*ctx.VarReads = append(
+				*ctx.VarReads,
+				context.VarRead{Var: resolved, Site: ctx.AST},
+			)
+		}
 		if tracksChannelRead(resolved) {
 			fn, fnErr := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
 			if fnErr != nil && !errors.Is(fnErr, query.ErrNotFound) {
-				ctx.Diagnostics.Add(diagnostics.Error(fnErr, ctx.AST))
-				return
+				panic(fnErr)
 			}
 			if fn != nil {
 				// Use SourceID if available, otherwise use symbol's own ID
@@ -698,7 +726,7 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 	}
 	if lit := ctx.AST.Literal(); lit != nil {
 		if strTerm := parser.StringTerminal(lit); strTerm != nil {
-			AnalyzeFmtStrLiteral(ctx, strTerm)
+			analyzeFmtStrLiteral(ctx, strTerm)
 		}
 		if series := lit.SeriesLiteral(); series != nil &&
 			series.ExpressionList() != nil {
@@ -721,7 +749,7 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 				// bool casting is not allowed. User should explicitly define their
 				// numeric comparison. E.g. `x != 0` or `y == 1.0001`
 				if prim := typeCtx.PrimitiveType(); prim != nil && prim.BOOL() != nil {
-					ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+					ctx.Diagnostics.Add(codes.InvalidCast.Atf(ctx.AST,
 						"boolean conversions are not supported; define the "+
 							"comparison explicitly, e.g. x != 0 or abs(x - 1) < 0.01"))
 					return
@@ -733,7 +761,7 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 				}
 				if !isValidCast(sourceType, targetType) {
 					ctx.Diagnostics.Add(
-						diagnostics.Errorf(
+						codes.InvalidCast.Atf(
 							ctx.AST,
 							"cannot cast %s to %s",
 							sourceType,
@@ -743,7 +771,7 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 					return
 				}
 				if _, ok := ctx.FloatConstant(expr); ok && targetType.IsInteger() {
-					ctx.Diagnostics.Add(diagnostics.Errorf(
+					ctx.Diagnostics.Add(codes.InvalidCast.Atf(
 						ctx.AST,
 						"cannot cast %s to %s: NaN and infinity have no integer value",
 						expr.GetText(),
@@ -754,7 +782,12 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 				if sourceType.Kind == basetypes.KindBool &&
 					targetType.IsNumeric() &&
 					targetType.Kind != basetypes.KindU8 {
-					ctx.Diagnostics.Add(codes.BoolCast.At(ctx.AST, targetType).
+					ctx.Diagnostics.Add(codes.BoolCast.Atf(
+						ctx.AST,
+						"bool to %s is experimental; a future release may only allow "+
+							"bool to u8",
+						targetType,
+					).
 						WithFix(expr, "u8("+sourceText(expr)+")"))
 				}
 			}
@@ -896,7 +929,10 @@ func TruthyCondition(
 	if !known {
 		fix = sourceText(condition) + " != " + zero
 	}
-	return codes.TruthyCondition.At(condition).WithFix(condition, fix), true
+	return codes.TruthyCondition.Atf(
+		condition,
+		"non-boolean condition: deprecated, use an explicit comparison like x != 0",
+	).WithFix(condition, fix), true
 }
 
 // sourceText returns the source code of node.

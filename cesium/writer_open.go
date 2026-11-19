@@ -264,7 +264,7 @@ func (db *DB) newStreamWriter(
 	}
 
 	if len(controlUpdate.Transfers) > 0 {
-		db.controlUpdates.Notify(ctx, controlUpdate)
+		db.controlUpdates.notify(controlUpdate)
 	}
 
 	return db.assembleStreamWriter(cfg, domainWriters, virtualWriters, keyToIdx), nil
@@ -281,6 +281,7 @@ func (db *DB) assembleStreamWriter(
 		WriterConfig: cfg,
 		internal:     make([]*idxWriter, 0, len(domainWriters)),
 		relay:        db.relay.inlet,
+		relayStopped: db.relay.delta.Stopped(),
 		validateCommand: validate.NewInclusiveBoundsChecker(
 			WriterCommandWrite,
 			writerCommandEndDomain,
@@ -288,10 +289,10 @@ func (db *DB) assembleStreamWriter(
 		virtual:            &virtualWriter{internal: virtualWriters},
 		keyToIdx:           keyToIdx,
 		authorizeEndDomain: db.authorizeEndDomain,
-		updateDBControl: func(ctx context.Context, update ControlUpdate) {
+		updateDBControl: func(update ControlUpdate) {
 			db.mu.RLock()
 			defer db.mu.RUnlock()
-			db.controlUpdates.Notify(ctx, update)
+			db.controlUpdates.notify(update)
 		},
 	}
 	for _, idx := range domainWriters {

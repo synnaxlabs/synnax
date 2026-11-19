@@ -1,0 +1,126 @@
+{
+  "description": "A missing value takes the field's default, scaled like a document value, and a field with none fails.",
+  "messages": [
+    {
+      "name": "reading",
+      "payload": {
+        "format": "json",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "temp",
+            "scale": 2,
+            "offset": 1,
+            "units": "",
+            "pointer": "/temp",
+            "type": "float",
+            "default": 20.5
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000002",
+            "name": "count",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/count",
+            "type": "integer",
+            "default": "4"
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000003",
+            "name": "state",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/state",
+            "type": "string",
+            "default": "idle"
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000004",
+            "name": "armed",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/armed",
+            "type": "boolean",
+            "default": true
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000005",
+            "name": "time",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/ts",
+            "type": "timestamp",
+            "time_format": "unix_ms",
+            "default": "1000"
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000006",
+            "name": "id",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/id",
+            "type": "integer"
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "float64"
+        },
+        {
+          "field": "00000000-0000-4000-8000-000000000002",
+          "data_type": "int64"
+        },
+        {
+          "field": "00000000-0000-4000-8000-000000000003",
+          "data_type": "string"
+        },
+        {
+          "field": "00000000-0000-4000-8000-000000000004",
+          "data_type": "uint8"
+        },
+        {
+          "field": "00000000-0000-4000-8000-000000000005",
+          "data_type": "timestamp"
+        },
+        {
+          "field": "00000000-0000-4000-8000-000000000006",
+          "data_type": "int64"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "document": {
+        "id": 1
+      },
+      "message": "reading",
+      "samples": [42, 4, "idle", 1, 1000, 1]
+    },
+    {
+      "document": {
+        "temp": 1,
+        "count": 2,
+        "state": "run",
+        "armed": false,
+        "ts": 5,
+        "id": 2
+      },
+      "message": "reading",
+      "samples": [3, 2, "run", 0, 5000000, 2]
+    },
+    {
+      "document": {
+        "temp": 1
+      },
+      "error": "field id: no value at /id: validation error"
+    }
+  ]
+}

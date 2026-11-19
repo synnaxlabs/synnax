@@ -64,6 +64,8 @@ const UNREACHABLE_CODES = new Set([
   "UND_ERR_SOCKET",
 ]);
 
+const DENO_TCP_CONNECT_ERROR = "client error (Connect): tcp connect error";
+
 const shouldCastToUnreachable = (
   err: Error & { code?: unknown; errno?: unknown },
 ): boolean => {
@@ -74,6 +76,15 @@ const shouldCastToUnreachable = (
       : undefined;
   const code = causeCode ?? err.code ?? err.errno;
   if (typeof code === "string" && UNREACHABLE_CODES.has(code)) return true;
+
+  // Deno's fetch error has no code, so its cause message is the only signal. The text
+  // stops at "tcp connect error" so that TLS and DNS failures do not match.
+  if (
+    err.name === "TypeError" &&
+    err.cause instanceof Error &&
+    err.cause.message.includes(DENO_TCP_CONNECT_ERROR)
+  )
+    return true;
 
   // Browser/Safari fallback: detect canonical network-failure TypeError messages
   if (err.name === "TypeError") {
@@ -356,12 +367,32 @@ export class HTTPClient
     target: string,
     request: FetchInit,
   ): Promise<FetchResponse> {
-    try {
-      return await this.connector.fetch(target, request);
-    } catch (e) {
+    const cast = (e: unknown, delivered: boolean): Error => {
       const err = errors.fromUnknown(e);
-      throw shouldCastToUnreachable(err) ? new Unreachable({ url, cause: err }) : err;
+      return shouldCastToUnreachable(err)
+        ? new Unreachable({ url, cause: err, delivered })
+        : err;
+    };
+    let res: FetchResponse;
+    try {
+      res = await this.connector.fetch(target, request);
+    } catch (e) {
+      throw cast(e, false);
     }
+    // The connection can fail after the headers arrive, while the body is read.
+    return {
+      ok: res.ok,
+      status: res.status,
+      statusText: res.statusText,
+      body: res.body,
+      arrayBuffer: async () => {
+        try {
+          return await res.arrayBuffer();
+        } catch (e) {
+          throw cast(e, true);
+        }
+      },
+    };
   }
 
   private decodeError(

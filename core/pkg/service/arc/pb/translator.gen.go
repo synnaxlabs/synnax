@@ -550,11 +550,16 @@ func GraphSourcesFromPB(pbs []*SourceGraphPayload) ([]arc.GraphSource, error) {
 
 // AutomationArcToPB converts AutomationArc to ArcAutomationPayload.
 func AutomationArcToPB(r arc.AutomationArc) (*ArcAutomationPayload, error) {
+	changesVal, err := ChangesToPB(r.Changes)
+	if err != nil {
+		return nil, err
+	}
 	calculationsVal, err := CalculationsToPB(r.Calculations)
 	if err != nil {
 		return nil, err
 	}
 	pb := &ArcAutomationPayload{
+		Changes:      changesVal,
 		Calculations: calculationsVal,
 	}
 	if r.Program != nil {
@@ -563,13 +568,6 @@ func AutomationArcToPB(r arc.AutomationArc) (*ArcAutomationPayload, error) {
 		if err != nil {
 			return nil, err
 		}
-	}
-	if r.Changes != nil {
-		vals, err := ChangesToPB(r.Changes)
-		if err != nil {
-			return nil, err
-		}
-		pb.Changes = &ChangeList{Values: vals}
 	}
 	return pb, nil
 }
@@ -581,6 +579,10 @@ func AutomationArcFromPB(pb *ArcAutomationPayload) (arc.AutomationArc, error) {
 		return r, nil
 	}
 	var err error
+	r.Changes, err = ChangesFromPB(pb.Changes)
+	if err != nil {
+		return arc.AutomationArc{}, err
+	}
 	r.Calculations, err = CalculationsFromPB(pb.Calculations)
 	if err != nil {
 		return arc.AutomationArc{}, err
@@ -591,13 +593,6 @@ func AutomationArcFromPB(pb *ArcAutomationPayload) (arc.AutomationArc, error) {
 			return arc.AutomationArc{}, err
 		}
 		r.Program = &val
-	}
-	if pb.Changes != nil {
-		vals, err := ChangesFromPB(pb.Changes.Values)
-		if err != nil {
-			return arc.AutomationArc{}, err
-		}
-		r.Changes = xpb.ListValues(vals)
 	}
 	return r, nil
 }

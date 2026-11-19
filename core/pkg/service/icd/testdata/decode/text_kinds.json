@@ -1,0 +1,113 @@
+{
+  "description": "Strings, JSON values, UUIDs, and bytes decode to their channels.",
+  "messages": [
+    {
+      "name": "reading",
+      "payload": {
+        "format": "json",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "state",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/state",
+            "type": "string",
+            "enum_values": [
+              {
+                "label": "1",
+                "value": "ON"
+              }
+            ]
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000002",
+            "name": "doc",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/doc",
+            "type": "json"
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000003",
+            "name": "id",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/id",
+            "type": "uuid"
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000004",
+            "name": "blob",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/blob",
+            "type": "bytes"
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "string"
+        },
+        {
+          "field": "00000000-0000-4000-8000-000000000002",
+          "data_type": "json"
+        },
+        {
+          "field": "00000000-0000-4000-8000-000000000003",
+          "data_type": "uuid"
+        },
+        {
+          "field": "00000000-0000-4000-8000-000000000004",
+          "data_type": "bytes"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "document": {
+        "state": "run",
+        "doc": {
+          "a": [1, 2]
+        },
+        "id": "6ba7b810-9dad-41d1-80b4-00c04fd430c8",
+        "blob": "AQI="
+      },
+      "message": "reading",
+      "samples": [
+        "run",
+        {
+          "a": [1, 2]
+        },
+        "6ba7b810-9dad-41d1-80b4-00c04fd430c8",
+        "AQI="
+      ]
+    },
+    {
+      "document": {
+        "state": "1",
+        "doc": 1,
+        "id": "6ba7b810-9dad-41d1-80b4-00c04fd430c8",
+        "blob": ""
+      },
+      "message": "reading",
+      "samples": ["ON", 1, "6ba7b810-9dad-41d1-80b4-00c04fd430c8", ""]
+    },
+    {
+      "document": {
+        "state": "run",
+        "doc": 1,
+        "id": "nope",
+        "blob": ""
+      },
+      "error": "field id: invalid UUID \"nope\": validation error"
+    }
+  ]
+}

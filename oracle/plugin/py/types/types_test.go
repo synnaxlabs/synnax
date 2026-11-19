@@ -399,6 +399,49 @@ var _ = Describe("Python Types Plugin", func() {
 		})
 
 		It(
+			"Should refuse the zero value of a required string or unsigned field",
+			func() {
+				source := `
+				@py output "out"
+
+				Serial = uint32
+				Make = string
+				Name = string {
+					@validate required
+				}
+
+				Device struct {
+					key    uint32 {
+						@key
+						@validate required
+					}
+					name   string @validate required
+					make   Make @validate required
+					owner  uuid @validate required
+					serial Serial @validate required
+					count  uint16 @validate required
+					alias  Name?
+					label  string @validate {
+						required
+						min_length 3
+					}
+				}
+			`
+				resp := MustGenerate(source, "device", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").ToContain(
+					`key: int = Field(ge=0, le=4294967295)`,
+					`name: str = Field(min_length=1)`,
+					`make: Make = Field(min_length=1)`,
+					"owner: UUID\n",
+					`serial: Serial = Field(gt=0, le=4294967295)`,
+					`count: int = Field(gt=0, le=65535)`,
+					"alias: Name | None = None\n",
+					`label: str = Field(min_length=3)`,
+				)
+			},
+		)
+
+		It(
 			"Should apply validation rules with Field constraints",
 			func() {
 				source := `
@@ -498,6 +541,24 @@ var _ = Describe("Python Types Plugin", func() {
 				))
 			},
 		)
+
+		It("Should reject infinity and NaN on a float with a finite rule", func() {
+			source := `
+				@py output "out"
+
+				Entry struct {
+					value float64 @validate finite
+				}
+			`
+			table, diag := Analyze(source, "entry", loader)
+			Expect(diag.Ok()).To(BeTrue())
+			resp := MustSucceed(typesPlugin.Generate(
+				&plugin.Request{Resolutions: table},
+			))
+			Expect(string(resp.Files[0].Content)).To(ContainSubstring(
+				`value: float = Field(allow_inf_nan=False)`,
+			))
+		})
 
 		It(
 			"Should merge a field's rules with the rules of its type chain",

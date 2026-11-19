@@ -25,6 +25,7 @@ import {
 import { Device } from "@/platform/device";
 import {
   answerCommand,
+  answerCommandsUntil,
   type CommandAnswer,
   reportTaskRunning,
 } from "@/platform/task/testutil";
@@ -434,37 +435,26 @@ const createReadTask = async (r: clientRack.Rack, device: string) =>
     }),
   });
 
-/**
- * Answers each command sent to the tasks as a Driver does, with the answer that
- * answers holds for its type. Resolves with the commands once it answers one of the
- * type last.
- */
-const answerCommandsUntil = async (
-  tasks: task.Task[],
-  last: string,
-  answers: Record<string, Omit<CommandAnswer, "type">> = {},
-): Promise<{ answered: Promise<task.Command[]> }> => {
-  const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
-  const answer = async (): Promise<task.Command[]> => {
-    const commands: task.Command[] = [];
-    try {
-      for (;;) {
-        const frame = await streamer.read();
-        for (const sample of frame.get(task.COMMAND_CHANNEL_NAME)) {
-          const cmd = task.commandZ.parse(sample);
-          const tsk = tasks.find((t) => t.key === cmd.task);
-          if (tsk == null) continue;
-          commands.push(cmd);
-          await answerCommand(client, tsk, cmd, answers[cmd.type]);
-          if (cmd.type === last) return commands;
-        }
-      }
-    } finally {
-      streamer.close();
-    }
-  };
-  return { answered: answer() };
-};
+describe("useRestartTasks", () => {
+  it("should succeed when a task fails to start", async () => {
+    const r = await client.racks.create({ name: uniqueName("ecat_rack") });
+    const slave = await createSlaveDevice(r.key, { network: "eth0" });
+    const read = await createReadTask(r, slave.key);
+    await reportTaskRunning(client, read);
+    const driver = await answerCommandsUntil(client, [read], "start", {
+      start: { variant: "error", message: "Failed to start task" },
+    });
+    const { result } = renderHook(() => EtherCAT.Device.useRestartTasks(), {
+      wrapper,
+    });
+    await act(async () => {
+      expect(await result.current.updateAsync({ rack: r.key, network: "eth0" })).toBe(
+        true,
+      );
+    });
+    expect((await driver.answered).map((c) => c.type)).toEqual(["stop", "start"]);
+  });
+});
 
 describe("useSetStandalone", () => {
   it("should stop the running tasks on the network of the slave, then switch it", async () => {
@@ -490,6 +480,7 @@ describe("useSetStandalone", () => {
     for (const tsk of [readHere, writeHere, readElsewhere])
       await reportTaskRunning(client, tsk);
     const driver = await answerCommandsUntil(
+      client,
       [readHere, writeHere, readElsewhere, stoppedHere, scan],
       "set_standalone",
     );
@@ -526,7 +517,7 @@ describe("useSetStandalone", () => {
       config: {},
     });
     await reportTaskRunning(client, read);
-    const driver = await answerCommandsUntil([read, scan], "start", answers);
+    const driver = await answerCommandsUntil(client, [read, scan], "start", answers);
     const { result } = renderHook(() => EtherCAT.Device.useSetStandalone(), {
       wrapper,
     });
@@ -552,7 +543,7 @@ describe("useSetStandalone", () => {
       type: EtherCAT.Task.SCAN_TYPE,
       config: {},
     });
-    const driver = await answerCommandsUntil([scan], "scan");
+    const driver = await answerCommandsUntil(client, [scan], "scan");
     const { result } = renderHook(() => EtherCAT.Device.useSetStandalone(), {
       wrapper,
     });
@@ -573,7 +564,7 @@ describe("useSetStandalone", () => {
       config: {},
     });
     await reportTaskRunning(client, read);
-    const driver = await answerCommandsUntil([read, scan], "set_standalone", {
+    const driver = await answerCommandsUntil(client, [read, scan], "set_standalone", {
       set_standalone: {
         message: "Switched the card to Synnax only",
         description: "The device in slot 1 runs Synnax only now.",
@@ -714,7 +705,7 @@ describe("useReplace", () => {
     await createReachedStatus(client, slave);
     const read = await createReadTask(r, neighbor.key);
     await reportTaskRunning(client, read);
-    const driver = await answerCommandsUntil([read], "stop");
+    const driver = await answerCommandsUntil(client, [read], "stop");
     let stopped: task.Key[] = [];
     const { result } = renderHook(
       () =>
@@ -746,7 +737,7 @@ describe("useReplace", () => {
     await createReachedStatus(client, slave);
     const read = await createReadTask(r, old.key);
     await reportTaskRunning(client, read);
-    const driver = await answerCommandsUntil([read], "start", {
+    const driver = await answerCommandsUntil(client, [read], "start", {
       stop: { variant: "error", message: "Failed to stop" },
     });
     const { result } = renderHook(() => EtherCAT.Device.useReplace(), { wrapper });

@@ -11,6 +11,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { TimeStamp } from "@synnaxlabs/client";
+import { array, sleep, TimeSpan } from "@synnaxlabs/x";
 import {
   type Browser,
   type CDPSession,
@@ -492,7 +493,7 @@ export class CaptureSession {
     const boxes: Record<string, Rect> = {};
     for (const [region, targets] of Object.entries(regions)) {
       const rects = [];
-      for (const target of Array.isArray(targets) ? targets : [targets])
+      for (const target of array.toArray(targets))
         for (const el of await target.all()) {
           const box = await el.boundingBox();
           if (box != null && box.width > 0 && box.height > 0) rects.push(box);
@@ -552,7 +553,7 @@ export class CaptureSession {
    * uses this to let a plot's stream buffer fill before recording starts.
    */
   async settleWall(ms: number): Promise<void> {
-    await new Promise((resolve) => setTimeout(resolve, ms));
+    await sleep.sleep(TimeSpan.milliseconds(ms));
   }
 
   /**
@@ -755,7 +756,7 @@ export class CaptureSession {
     await this.page.mouse.down();
     await this.hold(120);
 
-    const stops = Array.isArray(to) ? to : [to];
+    const stops = array.toArray(to);
     for (const [i, stop] of stops.entries()) {
       if (i > 0) await this.hold(opts?.pauseMs ?? 120);
       const origin = this.cursor;

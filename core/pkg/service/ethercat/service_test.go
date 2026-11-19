@@ -166,6 +166,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
 			devices, _ := openDevices(ctx, db)
 			var read v1.ReadConfig
 			read.Key = uuid.New()
@@ -251,6 +252,7 @@ var _ = Describe("Service", func() {
 				Namespace:  "Device",
 				Migrations: applied,
 			})).To(Succeed())
+			StartRun(db.Run)
 			// The device a 0.59.2 Python ethercat.Device stored.
 			slave := device.Device{
 				Key:      "python",

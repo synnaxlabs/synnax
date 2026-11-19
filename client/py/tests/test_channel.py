@@ -11,6 +11,7 @@ import re
 from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
+import pydantic
 import pytest
 
 import synnax as sy
@@ -60,7 +61,7 @@ class TestChannel:
         """Should raise a validation error when creating an index channel without a
         name
         """
-        with pytest.raises(sy.ValidationError):
+        with pytest.raises(pydantic.ValidationError):
             client.channels.create(data_type=sy.DataType.TIMESTAMP, is_index=True)
 
     def test_create_indexed_pair(self, client: sy.Synnax) -> None:
@@ -92,7 +93,7 @@ class TestChannel:
         idx = client.channels.create(
             name=channel_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
         )
-        with pytest.raises(sy.ValidationError):
+        with pytest.raises(pydantic.ValidationError):
             client.channels.create(data_type=sy.DataType.FLOAT64, index=idx.key)
 
     def test_create_indexed_pair_no_data_type(self, client: sy.Synnax) -> None:
@@ -486,6 +487,7 @@ class TestChannel:
         task = client.tasks.create(
             name="read",
             type="modbus_read",
+            rack=rack.key,
             config={
                 "device": device.key,
                 "channels": [

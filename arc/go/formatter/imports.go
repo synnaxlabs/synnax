@@ -24,37 +24,9 @@ import (
 // AddImport returns the edits that import module into the file of root, or nil when
 // the file already imports it.
 func AddImport(root *symbol.Symbol, module string) []protocol.TextEdit {
-	var (
-		names []string
-		stmts []antlr.ParserRuleContext
-		seen  = set.New[antlr.ParserRuleContext]()
-	)
-	if root != nil {
-		for _, child := range root.Children() {
-			if child.Kind != symbol.KindModuleAlias || child.AST == nil {
-				continue
-			}
-			if child.Name == module {
-				return nil
-			}
-			item, ok := child.AST.(parser.IImportItemContext)
-			if !ok {
-				continue
-			}
-			name := item.ImportPath().GetText()
-			if name == module {
-				return nil
-			}
-			if item.AS() != nil {
-				name += " as " + item.IDENTIFIER().GetText()
-			}
-			names = append(names, name)
-			stmt := statementOf(item)
-			if !seen.Contains(stmt) {
-				seen.Add(stmt)
-				stmts = append(stmts, stmt)
-			}
-		}
+	names, stmts, imported := moduleImports(root, module)
+	if imported {
+		return nil
 	}
 	if len(stmts) == 0 {
 		return []protocol.TextEdit{{NewText: "import " + module + "\n\n"}}
@@ -80,6 +52,48 @@ func AddImport(root *symbol.Symbol, module string) []protocol.TextEdit {
 		edits = append(edits, removeStatement(stmt))
 	}
 	return edits
+}
+
+// moduleImports returns the import names and the import statements of the file of
+// root. It returns true when the file already imports module.
+func moduleImports(
+	root *symbol.Symbol,
+	module string,
+) ([]string, []antlr.ParserRuleContext, bool) {
+	if root == nil {
+		return nil, nil, false
+	}
+	var (
+		names []string
+		stmts []antlr.ParserRuleContext
+		seen  = set.New[antlr.ParserRuleContext]()
+	)
+	for _, child := range root.Children() {
+		if child.Kind != symbol.KindModuleAlias || child.AST == nil {
+			continue
+		}
+		if child.Name == module {
+			return nil, nil, true
+		}
+		item, ok := child.AST.(parser.IImportItemContext)
+		if !ok {
+			continue
+		}
+		name := item.ImportPath().GetText()
+		if name == module {
+			return nil, nil, true
+		}
+		if item.AS() != nil {
+			name += " as " + item.IDENTIFIER().GetText()
+		}
+		names = append(names, name)
+		stmt := statementOf(item)
+		if !seen.Contains(stmt) {
+			seen.Add(stmt)
+			stmts = append(stmts, stmt)
+		}
+	}
+	return names, stmts, false
 }
 
 // RemoveImport returns the edit that removes item, or its statement when it is alone.

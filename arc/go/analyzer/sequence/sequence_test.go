@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/sequence"
 	"github.com/synnaxlabs/arc/ir"
@@ -710,6 +711,26 @@ var _ = Describe("Sequence Analyzer", func() {
 			`),
 		)
 
+		It(
+			"Should give a named inline routing case body its code",
+			func(bCtx SpecContext) {
+				ast := MustSucceed(parser.Parse(`
+				sequence main {
+					stage hold {
+						start_cmd -> select() -> {
+							true: stage my_stage { 1 -> abort_btn }
+						}
+					}
+				}
+			`))
+				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
+				analyzer.AnalyzeProgram(ctx)
+				Expect(*ctx.Diagnostics).ToNot(BeEmpty())
+				Expect((*ctx.Diagnostics)[0].Code).
+					To(Equal(codes.NamedInlineBody.Code))
+			},
+		)
+
 		DescribeTable("Should reject named inline routing case bodies",
 			func(bCtx SpecContext, source, expectedError string) {
 				msg := analyzeAndExpectError(bCtx, source)
@@ -723,7 +744,7 @@ var _ = Describe("Sequence Analyzer", func() {
 						}
 					}
 				}
-			`, `inline routing case body stages must be anonymous; remove name "my_stage"`),
+			`, `an inline stage or sequence cannot have a name`),
 			Entry("named inline sequence", `
 				sequence main {
 					stage hold {
@@ -732,7 +753,7 @@ var _ = Describe("Sequence Analyzer", func() {
 						}
 					}
 				}
-			`, `inline routing case body sequences must be anonymous; remove name "my_seq"`),
+			`, `an inline stage or sequence cannot have a name`),
 		)
 	})
 
@@ -816,14 +837,14 @@ var _ = Describe("Sequence Analyzer", func() {
 						start_cmd -> stage my_stage { 1 -> abort_btn }
 					}
 				}
-			`, `inline routing case body stages must be anonymous; remove name "my_stage"`),
+			`, `an inline stage or sequence cannot have a name`),
 			Entry("named inline sequence", `
 				sequence main {
 					stage hold {
 						start_cmd -> sequence my_seq { 1 -> abort_btn }
 					}
 				}
-			`, `inline routing case body sequences must be anonymous; remove name "my_seq"`),
+			`, `an inline stage or sequence cannot have a name`),
 		)
 	})
 
@@ -834,7 +855,7 @@ var _ = Describe("Sequence Analyzer", func() {
 			sequence.RejectReactiveAssignment(&diag, stmt.Assignment())
 			Expect(diag).To(HaveLen(1))
 			Expect(diag[0].Message).
-				To(Equal("use '<value> -> valve' to write to 'valve'"))
+				To(Equal("invalid assignment: use '<value> -> valve' to write to 'valve'"))
 		})
 	})
 })

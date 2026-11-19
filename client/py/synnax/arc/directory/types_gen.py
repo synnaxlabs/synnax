@@ -50,7 +50,7 @@ class Directory(BaseModel):
     """
 
     key: Key
-    name: str
+    name: str = Field(min_length=1)
     parent: Key | None = None
 
     @_override

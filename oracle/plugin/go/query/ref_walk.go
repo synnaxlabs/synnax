@@ -628,22 +628,24 @@ func (rd *renderer) detachBody(ref *walkedRef) (string, error) {
 	return b.String(), nil
 }
 
-// inlineBody returns the code that replaces each union in e whose variant holds the
-// target t with the variant that the target's Inline method returns.
-func (rd *renderer) inlineBody(ref *walkedRef) (string, error) {
-	fail := func(reason string) (string, error) {
-		return "", errors.Newf(
+// variantLeaf names a union variant and its field that holds an inlined key.
+type variantLeaf struct{ variant, field string }
+
+// unionSites returns the paths from e to each union that holds the key of ref, the
+// variant fields that hold it, and whether every union sits in an optional field. It
+// returns an error when ref cannot inline.
+func (rd *renderer) unionSites(
+	ref *walkedRef,
+) (heads [][]refStep, leaves []variantLeaf, optional bool, err error) {
+	fail := func(reason string) ([][]refStep, []variantLeaf, bool, error) {
+		return nil, nil, false, errors.Newf(
 			"@ref field %s %s, so it cannot inline",
 			ref.path,
 			reason,
 		)
 	}
-	type variantLeaf struct{ variant, field string }
-	var (
-		heads  [][]refStep
-		union  string
-		leaves []variantLeaf
-	)
+	var union string
+	optional = true
 	for _, s := range ref.sites {
 		at := len(s.steps) - 2
 		if s.mode != leafRequired {
@@ -662,10 +664,22 @@ func (rd *renderer) inlineBody(ref *walkedRef) (string, error) {
 		if !slices.Contains(leaves, leaf) {
 			leaves = append(leaves, leaf)
 		}
+		holder := s.steps[at-1]
+		optional = optional && holder.kind == stepField && holder.optional
 		heads = append(
 			heads,
 			append(slices.Clone(s.steps[:at]), refStep{kind: stepLeaf}),
 		)
+	}
+	return heads, leaves, optional, nil
+}
+
+// inlineBody returns the code that replaces each union in e whose variant holds the
+// target t with the variant that the target's Inline method returns.
+func (rd *renderer) inlineBody(ref *walkedRef) (string, error) {
+	heads, leaves, _, err := rd.unionSites(ref)
+	if err != nil {
+		return "", err
 	}
 	var b strings.Builder
 	fmt.Fprintf(
@@ -696,6 +710,32 @@ func (rd *renderer) inlineBody(ref *walkedRef) (string, error) {
 		}
 	})
 	b.WriteString("return nil\n")
+	return b.String(), nil
+}
+
+// inlineDetachBody returns the code that clears each union in e whose variant holds
+// the target t, or nothing when a union sits in a required field and cannot clear.
+func (rd *renderer) inlineDetachBody(ref *walkedRef) (string, error) {
+	heads, leaves, optional, err := rd.unionSites(ref)
+	if err != nil || !optional {
+		return "", err
+	}
+	var b strings.Builder
+	rd.walk(&b, buildTree(heads), "e", true, func(b *strings.Builder, expr string) {
+		for _, l := range leaves {
+			v := rd.nextVar("v")
+			fmt.Fprintf(
+				b,
+				"if %s, ok := %s.Variant.(%s); ok && %s.%s == t {\n%s = nil\n}\n",
+				v,
+				expr,
+				l.variant,
+				v,
+				l.field,
+				expr,
+			)
+		}
+	})
 	return b.String(), nil
 }
 
@@ -774,6 +814,9 @@ func renderNestedRefs(
 		}
 		if info.OnDelete == "Inline" {
 			nr.InlineBody, err = rd.inlineBody(ref)
+			if err == nil {
+				nr.DetachBody, err = rd.inlineDetachBody(ref)
+			}
 		} else {
 			nr.DetachBody, err = rd.detachBody(ref)
 		}

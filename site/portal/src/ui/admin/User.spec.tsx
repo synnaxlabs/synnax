@@ -10,6 +10,7 @@
 // @vitest-environment jsdom
 
 import { ResizeObserver } from "@juggle/resize-observer";
+import { uuid } from "@synnaxlabs/x";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import {
   afterAll,
@@ -36,7 +37,7 @@ const ACCOUNT = {
 };
 
 const personalOf = (desktopChannels: number | null): Organization => ({
-  key: crypto.randomUUID(),
+  key: uuid.create(),
   kind: "personal",
   name: "Ada Lovelace",
   clerkOrgID: null,

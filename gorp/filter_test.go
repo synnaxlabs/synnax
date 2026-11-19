@@ -200,6 +200,20 @@ var _ = Describe("Filter Combinators", func() {
 			Expect(res).To(Equal([]entry{entries[0], entries[3]}))
 		})
 
+		It("Should match a repeated key once", func(ctx SpecContext) {
+			f := gorp.MatchKeysFunc[int32, entry](func(gorp.Context) ([]int32, error) {
+				return []int32{1, 1}, nil
+			})
+			var res []entry
+			Expect(gorp.NewRetrieve[int32, entry]().
+				Entries(&res).
+				Where(f).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(res).To(Equal([]entry{entries[1]}))
+			Expect(gorp.NewRetrieve[int32, entry]().Where(f).Count(ctx, tx)).
+				To(Equal(1))
+		})
+
 		It("Should propagate errors from the function", func(ctx SpecContext) {
 			var res []entry
 			Expect(gorp.NewRetrieve[int32, entry]().
@@ -612,8 +626,35 @@ var _ = Describe("Filter Combinators", func() {
 					10,
 					10,
 				),
+				Entry(
+					"Raw rejection on a key-bounded read yields no decodes",
+					gorp.And(
+						gorp.MatchKeys[int32, entry](1, 2, 3),
+						gorp.MatchRaw[int32, entry](alwaysFalseRaw),
+					),
+					0,
+					0,
+				),
 			)
 		})
+
+		It(
+			"Should pass the pebble key to a raw child on a key-bounded read",
+			func(ctx SpecContext) {
+				var res []entry
+				Expect(gorp.NewRetrieve[int32, entry]().
+					Entries(&res).
+					Where(gorp.MatchKeys[int32, entry](1, 2, 3)).
+					Where(gorp.Or(
+						gorp.MatchRaw[int32, entry](func(key, _ []byte) (bool, error) {
+							return bytes.HasSuffix(key, []byte{0, 0, 0, 2}), nil
+						}),
+						idEQ(3),
+					)).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(res).To(Equal([]entry{entries[2], entries[3]}))
+			},
+		)
 	})
 
 	Describe("Nested Composition", func() {
@@ -941,6 +982,35 @@ var _ = Describe("Filter Combinators", func() {
 				// inverted raw rejects all of them.
 				Expect(res).To(BeEmpty())
 			})
+
+			It(
+				"Should accept entries that the raw stage of a child rejects",
+				func(ctx SpecContext) {
+					var res []entry
+					Expect(gorp.NewRetrieve[int32, entry]().
+						Entries(&res).
+						Where(gorp.Not(matchEvalAndRaw(5, []byte("nonexistent")))).
+						Exec(ctx, tx)).To(Succeed())
+					Expect(res).To(HaveLen(10))
+				},
+			)
+		})
+
+		Describe("Or with a child carrying eval and raw", func() {
+			It(
+				"Should reject entries that the raw stage of the child rejects",
+				func(ctx SpecContext) {
+					var res []entry
+					Expect(gorp.NewRetrieve[int32, entry]().
+						Entries(&res).
+						Where(gorp.Or(
+							matchEvalAndRaw(5, []byte("nonexistent")),
+							idEQ(100),
+						)).
+						Exec(ctx, tx)).To(Succeed())
+					Expect(res).To(BeEmpty())
+				},
+			)
 		})
 	})
 

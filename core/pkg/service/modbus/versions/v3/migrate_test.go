@@ -265,6 +265,7 @@ var _ = Describe("MigrateReadConfig", func() {
 var _ = Describe("ReadMigration", func() {
 	It("Should clamp stored string lengths and log each clamp", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		str := func(key string, length int32) v2.ReadChannel {
 			return v2.ReadChannel{Variant: v2.InputRegisterReadChannel{
 				BaseReadChannel: v2.BaseReadChannel{Key: key},
@@ -351,6 +352,7 @@ var _ = Describe("MigrateWriteConfig", func() {
 var _ = Describe("WriteMigration", func() {
 	It("Should lift stored write configs in place", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		stored := v2.WriteConfig{
 			Key: uuid.New(),
 			Channels: []v2.WriteChannel{{Variant: v2.HoldingRegisterWriteChannel{

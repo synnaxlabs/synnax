@@ -17,7 +17,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Theming as Base } from "@synnaxlabs/lyra/theming";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Schematic, Theming, TimeSpan } from "@synnaxlabs/pluto";
-import { deep, dimensions, id } from "@synnaxlabs/x";
+import { bounds, deep, dimensions, id } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useRef, useState } from "react";
 
 import { FileDrop } from "@/feature/schematic/symbol/edit/FileDrop";
@@ -101,7 +101,10 @@ export const Preview = ({
   // rather than the one captured when the hold started.
   const stepZoom = (factor: number) => {
     const current = form.get<number>(ZOOM_PATH).value;
-    form.set(ZOOM_PATH, Math.min(Math.max(current * factor, MIN_ZOOM), MAX_ZOOM));
+    form.set(
+      ZOOM_PATH,
+      bounds.clamp({ lower: MIN_ZOOM, upper: MAX_ZOOM }, current * factor),
+    );
   };
 
   const handleZoomIn = () => stepZoom(ZOOM_STEP);

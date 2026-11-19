@@ -178,6 +178,7 @@ var _ = Describe("Dispatch", func() {
 var _ = Describe("Dispatch to a range", func() {
 	It("Should store a time range end above 2^53 exactly", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		groups := MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
 		svc := MustOpen(svcranger.OpenService(ctx, svcranger.ServiceConfig{
 			DB:    db,

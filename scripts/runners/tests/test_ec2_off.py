@@ -21,7 +21,7 @@ class Runners(GitHub):
         super().__init__("1", "")
         self.runner = {"name": RUNNER, "status": status, "busy": busy}
 
-    def get(self, path: str) -> dict:
+    def call(self, path: str, *, method: str = "GET") -> dict:
         assert path == PATH
         return {"runners": [self.runner]}
 

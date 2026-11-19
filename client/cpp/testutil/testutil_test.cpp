@@ -28,7 +28,7 @@ TEST_F(TestClientConfig, testDefaultsToLocalhost) {
     const auto cfg = test_client_config();
     EXPECT_EQ(cfg.host, "localhost");
     EXPECT_EQ(cfg.port, 9090);
-    EXPECT_FALSE(cfg.secure);
+    EXPECT_EQ(cfg.secure, std::nullopt);
 }
 
 /// @brief it should read the host and port from the environment.

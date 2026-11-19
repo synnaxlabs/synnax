@@ -116,7 +116,10 @@ protected:
         );
         testutil::wait_for_servers();
         this->hole = std::make_unique<Blackhole>(port);
-        this->pool = std::make_shared<Pool>(false, keepalive);
+        this->pool = std::make_shared<Pool>(
+            ::grpc::InsecureChannelCredentials(),
+            keepalive
+        );
         this->target = "127.0.0.1:" + std::to_string(this->hole->port);
     }
 

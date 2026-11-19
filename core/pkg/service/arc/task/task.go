@@ -51,6 +51,7 @@ import (
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/tetratelabs/wazero"
@@ -158,9 +159,87 @@ func (t *impl) start(ctx context.Context, cmdKey string) (err, answerErr error) 
 // open builds the Arc runtime and returns the function that flows it, which the caller
 // must call before it releases the runtime. It writes no statuses: start owns them.
 func (t *impl) open(ctx context.Context) (flow func(), err error) {
-	drt := dataRuntime{clock: telem.MonoClock{Source: t.factoryCfg.Now}}
+	drt, deps, err := t.newDataRuntime(ctx)
+	if err != nil {
+		return nil, err
+	}
+	closers := make(xio.MultiCloser, 0, 4)
+	defer func() {
+		if err != nil {
+			err = errors.Join(err, closers.Close())
+		}
+	}()
+	wasmRT := t.newWASMRuntime(ctx, &closers)
+	f, err := t.newFactory(ctx, wasmRT, &drt, &closers)
+	if err != nil {
+		return nil, err
+	}
+	if err = t.newScheduler(f, &drt); err != nil {
+		return nil, err
+	}
+	drt.startReading = timer.Now()
+	drt.writeKeys = deps.Writes.Slice()
+	pipeline := plumber.New()
+	ticker, err := t.newTicker(drt)
+	if err != nil {
+		return nil, err
+	}
+	pipeline.SetSegment(runtimeAddr, ticker)
+	in, err := t.openInput(ctx, deps.Reads)
+	if err != nil {
+		return nil, err
+	}
+	ticker.InFrom(in.responses)
+	sCtx, cancel := signal.Isolated(
+		signal.WithInstrumentation(t.factoryCfg.Instrumentation),
+	)
+	defer func() {
+		if err != nil {
+			err = errors.Join(err, signal.NewHardShutdown(sCtx, cancel).Close())
+		}
+	}()
+	opts := []confluence.Option{
+		confluence.CloseOutputInletsOnExit(),
+		confluence.RecoverWithErrOnPanic(),
+		confluence.CancelOnFail(),
+	}
+	if err = in.flow(ctx, sCtx, opts...); err != nil {
+		return nil, err
+	}
+	if err = t.connectWriter(ctx, pipeline, deps.Writes); err != nil {
+		return nil, err
+	}
+	t.sCtx = sCtx
+	closers = append(
+		closers,
+		signal.NewGracefulShutdown(sCtx, cancel),
+		in.closeSignal,
+	)
+	t.closer, closers = closers, nil
+	return func() { pipeline.Flow(sCtx, opts...) }, nil
+}
+
+// newWASMRuntime returns the WASM runtime of the program and adds its closer to
+// closers. It returns nil when the program has no WASM.
+func (t *impl) newWASMRuntime(
+	ctx context.Context,
+	closers *xio.MultiCloser,
+) wazero.Runtime {
+	if len(t.prog.Program.WASM) == 0 {
+		return nil
+	}
+	wasmRT := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigCompiler())
+	*closers = append(*closers, xio.CloserFunc(func() error {
+		return wasmRT.Close(ctx)
+	}))
+	return wasmRT
+}
+
+func (t *impl) newDataRuntime(
+	ctx context.Context,
+) (dataRuntime, runtime.Dependencies, error) {
 	var deps runtime.Dependencies
-	if err = t.factoryCfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+	if err := t.factoryCfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
 		deps, err = runtime.NewDependencies(
 			ctx,
 			snap,
@@ -169,75 +248,97 @@ func (t *impl) open(ctx context.Context) (flow func(), err error) {
 		)
 		return err
 	}); err != nil {
-		return nil, err
+		return dataRuntime{}, runtime.Dependencies{}, err
 	}
-
+	drt := dataRuntime{
+		clock: telem.MonoClock{Source: t.factoryCfg.Now},
+		errorLogs: &errorLogs{
+			nodes: make(map[string]*errorLog, len(t.prog.Program.Nodes)),
+		},
+	}
 	drt.state.nodes = node.New(t.prog.Program.IR)
 	drt.state.channel = channels.NewProgramState(deps.ChannelDigests)
 	drt.state.series = series.NewProgramState()
 	drt.state.strings = strings.NewProgramState()
 	drt.state.authority = &stlcontrol.ProgramState{}
+	return drt, deps, nil
+}
 
-	var closers xio.MultiCloser
-	defer func() {
-		if err != nil {
-			err = errors.Join(err, closers.Close())
-		}
-	}()
+// hosts are the STL modules that bind to the WASM runtime.
+type hosts struct {
+	time     *time.Host
+	channels *channels.Host
+	stateful *stateful.Host
+	strings  *strings.Host
+	math     *math.Host
+	errors   *stlerrors.Host
+}
 
-	var wasmRT wazero.Runtime
-	if len(t.prog.Program.WASM) > 0 {
-		wasmRT = wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigCompiler())
-		closers = append(closers, xio.CloserFunc(func() error {
-			return wasmRT.Close(ctx)
-		}))
-	}
-
+func (t *impl) newHosts(
+	ctx context.Context,
+	wasmRT wazero.Runtime,
+	drt *dataRuntime,
+) (h hosts, err error) {
 	report := t.reporter()
-	timeMod, err := time.NewHost(
+	if h.time, err = time.NewHost(
 		ctx,
 		wasmRT,
 		drt.state.strings,
 		func(ctx context.Context, message, description string) {
 			report(ctx, status.VariantWarning, message, description)
 		},
-	)
-	if err != nil {
-		return nil, err
+	); err != nil {
+		return hosts{}, err
 	}
-	channelMod, err := channels.NewHost(
+	if h.channels, err = channels.NewHost(
 		ctx,
 		wasmRT,
 		drt.state.channel,
 		drt.state.strings,
-	)
-	if err != nil {
-		return nil, err
+	); err != nil {
+		return hosts{}, err
 	}
-	statefulMod, err := stateful.NewHost(
+	if h.stateful, err = stateful.NewHost(
 		ctx,
 		wasmRT,
 		drt.state.series,
 		drt.state.strings,
-	)
-	if err != nil {
-		return nil, err
+	); err != nil {
+		return hosts{}, err
 	}
 	if _, err = series.NewHost(ctx, wasmRT, drt.state.series); err != nil {
-		return nil, err
+		return hosts{}, err
 	}
-	stringsMod, err := strings.NewHost(ctx, wasmRT, drt.state.strings, nil)
+	if h.strings, err = strings.NewHost(
+		ctx,
+		wasmRT,
+		drt.state.strings,
+		nil,
+	); err != nil {
+		return hosts{}, err
+	}
+	if h.math, err = math.NewHost(ctx, wasmRT); err != nil {
+		return hosts{}, err
+	}
+	if h.errors, err = stlerrors.NewHost(ctx, wasmRT, nil); err != nil {
+		return hosts{}, err
+	}
+	return h, nil
+}
+
+// newFactory returns the factory that creates the nodes of the program. It sets the
+// time module and loop budget of drt, and adds the closer of the WASM guest to closers.
+func (t *impl) newFactory(
+	ctx context.Context,
+	wasmRT wazero.Runtime,
+	drt *dataRuntime,
+	closers *xio.MultiCloser,
+) (node.CompoundFactory, error) {
+	h, err := t.newHosts(ctx, wasmRT, drt)
 	if err != nil {
 		return nil, err
 	}
-	mathMod, err := math.NewHost(ctx, wasmRT)
-	if err != nil {
-		return nil, err
-	}
-	errorsMod, err := stlerrors.NewHost(ctx, wasmRT, nil)
-	if err != nil {
-		return nil, err
-	}
+	drt.timeMod = h.time
 	statusMod, err := arcstatus.NewModule(ctx, arcstatus.ModuleConfig{
 		Status:   t.factoryCfg.Status,
 		Strings:  drt.state.strings,
@@ -257,11 +358,13 @@ func (t *impl) open(ctx context.Context) (flow func(), err error) {
 	if err != nil {
 		return nil, err
 	}
-
-	f := node.CompoundFactory{
-		channelMod,
-		statefulMod,
-		timeMod,
+	// One more slot holds the WASM guest when the program has one.
+	f := make(node.CompoundFactory, 0, 13)
+	f = append(
+		f,
+		h.channels,
+		h.stateful,
+		h.time,
 		selector.NewHost(),
 		constant.NewHost(),
 		variable.NewHost(),
@@ -270,78 +373,99 @@ func (t *impl) open(ctx context.Context) (flow func(), err error) {
 		statusMod,
 		rangesMod,
 		stlcontrol.NewHost(drt.state.authority),
-		mathMod,
+		h.math,
+	)
+	if len(t.prog.Program.WASM) == 0 {
+		return f, nil
 	}
-
-	if len(t.prog.Program.WASM) > 0 {
-		guest, guestErr := wasmRT.Instantiate(ctx, t.prog.Program.WASM)
-		if guestErr != nil {
-			return nil, guestErr
-		}
-		stringsMod.SetMemory(guest.Memory())
-		errorsMod.SetMemory(guest.Memory())
-		closers = append(closers, xio.CloserFunc(func() error {
-			return guest.Close(ctx)
-		}))
-		if drt.budget, err = runtime.NewBudget(
-			guest,
-			t.factoryCfg.LoopBudget,
-		); err != nil {
-			return nil, err
-		}
-		f = append(f, &wasm.Module{
-			Module:        guest,
-			Memory:        guest.Memory(),
-			Strings:       drt.state.strings,
-			NodeKeySetter: statefulMod,
-		})
+	guest, err := t.instantiate(ctx, wasmRT, h, drt, closers)
+	if err != nil {
+		return nil, err
 	}
+	return append(f, guest), nil
+}
 
+// instantiate instantiates the WASM guest of the program and adds its closer to
+// closers.
+func (t *impl) instantiate(
+	ctx context.Context,
+	wasmRT wazero.Runtime,
+	h hosts,
+	drt *dataRuntime,
+	closers *xio.MultiCloser,
+) (*wasm.Module, error) {
+	guest, err := wasmRT.Instantiate(ctx, t.prog.Program.WASM)
+	if err != nil {
+		return nil, err
+	}
+	h.strings.SetMemory(guest.Memory())
+	h.errors.SetMemory(guest.Memory())
+	*closers = append(*closers, xio.CloserFunc(func() error {
+		return guest.Close(ctx)
+	}))
+	if drt.budget, err = runtime.NewBudget(
+		guest,
+		t.factoryCfg.LoopBudget,
+	); err != nil {
+		return nil, err
+	}
+	return &wasm.Module{
+		Module:        guest,
+		Memory:        guest.Memory(),
+		Strings:       drt.state.strings,
+		NodeKeySetter: h.stateful,
+	}, nil
+}
+
+// newScheduler creates the nodes of the program with f and sets the scheduler of drt.
+func (t *impl) newScheduler(f node.CompoundFactory, drt *dataRuntime) error {
 	nodes := make(map[string]node.Node)
 	for _, irNode := range t.prog.Program.Nodes {
-		n, nodeErr := f.Create(node.Config{
+		n, err := f.Create(node.Config{
 			Node:    irNode,
 			Program: *t.prog.Program,
 			State:   drt.state.nodes.Node(irNode.Key),
 		})
-		if nodeErr != nil {
-			return nil, nodeErr
+		if err != nil {
+			return err
 		}
 		nodes[irNode.Key] = n
+		drt.errorLogs.nodes[irNode.Key] = &errorLog{}
 	}
-
 	sched, err := scheduler.New(t.prog.Program.IR, nodes)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	drt.scheduler = sched
-	drt.timeMod = timeMod
-
-	drt.scheduler.SetErrorHandler(
+	logs := drt.errorLogs
+	sched.SetErrorHandler(
 		scheduler.ErrorHandlerFunc(
 			func(ctx context.Context, nodeKey string, err error) {
-				t.factoryCfg.L.Warn("runtime error in arc node",
-					zap.String("node", nodeKey),
-					zap.Stringer("task", t.task.Key),
-					zap.Error(err),
-				)
-				t.setRuntimeError(ctx, nodeKey, err)
+				text := err.Error()
+				skipped, ok := logs.nodes[nodeKey].take(text, logs.now)
+				if ok {
+					t.factoryCfg.L.Warn("runtime error in arc node",
+						zap.String("node", nodeKey),
+						zap.Stringer("task", t.task.Key),
+						zap.Int("skipped", skipped),
+						zap.Error(err),
+					)
+				}
+				t.setRuntimeError(ctx, nodeKey, text)
 			},
 		),
 	)
+	drt.scheduler = sched
+	return nil
+}
 
-	drt.startReading = timer.Now()
-	drt.writeKeys = deps.Writes.Slice()
-
-	pipeline := plumber.New()
-
+func (t *impl) newTicker(drt dataRuntime) (*tickerRuntime, error) {
 	// The ticker's t=0 startup tick fires entry nodes; an input-driven program
 	// would otherwise not fire them until the first input is received.
 	spin, ok := spins[t.cfg.Performance]
 	if !ok {
 		return nil, errors.Newf("unknown performance %q", t.cfg.Performance)
 	}
-	ticker := &tickerRuntime{
+	return &tickerRuntime{
 		dataRuntime: drt,
 		spin:        spin,
 		overrun: func(ctx context.Context, err error) {
@@ -354,121 +478,136 @@ func (t *impl) open(ctx context.Context) (flow func(), err error) {
 				err.Error(),
 			)
 		},
-	}
-	pipeline.SetSegment(runtimeAddr, ticker)
+	}, nil
+}
 
+// input streams the channels that the runtime reads.
+type input struct {
+	// streamer is nil when the runtime reads no channels.
+	streamer  framer.Streamer
+	responses *confluence.Stream[framer.StreamerResponse]
+	// closeSignal tells the input to shut down.
+	closeSignal io.Closer
+}
+
+func (t *impl) openInput(
+	ctx context.Context,
+	reads set.Set[channel.Key],
+) (input, error) {
 	var (
-		streamer            framer.Streamer
-		streamerRequests    = confluence.NewStream[framer.StreamerRequest]()
-		streamerResponses   = confluence.NewStream[framer.StreamerResponse](10)
-		streamerCloseSignal = xio.NoFailCloserFunc(streamerResponses.Close)
+		requests  = confluence.NewStream[framer.StreamerRequest]()
+		responses = confluence.NewStream[framer.StreamerResponse](10)
 	)
-	ticker.InFrom(streamerResponses)
-	if len(deps.Reads) > 0 {
-		streamer, err = t.factoryCfg.Framer.NewStreamer(
-			ctx,
-			framer.StreamerConfig{Keys: deps.Reads.Slice(), SendOpenAck: true},
+	if len(reads) == 0 {
+		return input{
+			responses:   responses,
+			closeSignal: xio.NoFailCloserFunc(responses.Close),
+		}, nil
+	}
+	streamer, err := t.factoryCfg.Framer.NewStreamer(
+		ctx,
+		framer.StreamerConfig{Keys: reads.Slice(), SendOpenAck: true},
+	)
+	if err != nil {
+		return input{}, err
+	}
+	streamer.InFrom(requests)
+	streamer.OutTo(responses)
+	return input{
+		streamer:    streamer,
+		responses:   responses,
+		closeSignal: xio.NoFailCloserFunc(requests.Close),
+	}, nil
+}
+
+// flow flows the streamer and waits for its open ack, so the task reads every input
+// written after start returns. The runtime flows after this, so it never sees the ack.
+func (in input) flow(
+	ctx context.Context,
+	sCtx signal.Context,
+	opts ...confluence.Option,
+) error {
+	if in.streamer == nil {
+		return nil
+	}
+	in.streamer.Flow(sCtx, opts...)
+	select {
+	case <-ctx.Done():
+	case _, ok := <-in.responses.Outlet():
+		if !ok {
+			return errors.New("streamer exited before it opened")
+		}
+	}
+	return ctx.Err()
+}
+
+// connectWriter adds a writer of the channels in writes to pipeline, fed by the
+// runtime. It adds nothing when writes is empty.
+func (t *impl) connectWriter(
+	ctx context.Context,
+	pipeline *plumber.Pipeline,
+	writes set.Set[channel.Key],
+) error {
+	if len(writes) == 0 {
+		return nil
+	}
+	// Critical: ToSlice is extracted from a map, so we need to convert it to a slice
+	// ONCE in order go guarantee stable order.
+	writeKeys := writes.Slice()
+	writerCfg := framer.WriterConfig{
+		ControlSubject: control.Subject{
+			Name: t.prog.Name,
+			Key:  t.task.Key.String(),
+		},
+		Keys: writeKeys,
+	}
+	if authorities := buildAuthorities(
+		t.prog.Program.Authorities,
+		writeKeys,
+	); len(authorities) > 0 {
+		writerCfg.Authorities = authorities
+	}
+	wrt, err := t.factoryCfg.Framer.NewStreamWriter(ctx, writerCfg)
+	if err != nil {
+		return err
+	}
+	pipeline.SetSegment(writerAddr, wrt)
+	pipeline.MustConnect[framer.WriterRequest](runtimeAddr, writerAddr, 10)
+	pipeline.SetSink(writerResponsesAddr, &confluence.UnarySink[framer.WriterResponse]{
+		Sink: t.handleWriterResponse,
+	})
+	pipeline.MustConnect[framer.WriterResponse](writerAddr, writerResponsesAddr, 10)
+	return nil
+}
+
+func (t *impl) handleWriterResponse(
+	ctx context.Context,
+	res framer.WriterResponse,
+) error {
+	if res.Err != nil {
+		t.factoryCfg.L.Error("unexpected writer response error",
+			zap.Stringer("task", t.task),
+			zap.Int("seqNum", res.SeqNum),
+			zap.Error(res.Err),
 		)
-		if err != nil {
-			return nil, err
-		}
-		streamer.InFrom(streamerRequests)
-		streamer.OutTo(streamerResponses)
-		streamerCloseSignal = xio.NoFailCloserFunc(streamerRequests.Close)
+		t.setStatus(
+			ctx,
+			driver.NoCommand,
+			status.VariantError,
+			false,
+			"Failed to write channel data",
+			res.Err.Error(),
+		)
+		return res.Err
+	} else if !res.Authorized {
+		t.factoryCfg.L.Warn("unauthorized writer response",
+			zap.Stringer("task", t.task),
+			zap.Int("seqNum", res.SeqNum),
+			zap.Stringer("command", res.Command),
+			zap.Error(res.Err),
+		)
 	}
-
-	sCtx, cancel := signal.Isolated(
-		signal.WithInstrumentation(t.factoryCfg.Instrumentation),
-	)
-	defer func() {
-		if err != nil {
-			err = errors.Join(err, signal.NewHardShutdown(sCtx, cancel).Close())
-		}
-	}()
-	opts := []confluence.Option{
-		confluence.CloseOutputInletsOnExit(),
-		confluence.RecoverWithErrOnPanic(),
-		confluence.CancelOnFail(),
-	}
-	if streamer != nil {
-		// Wait for the open ack so the task reads every input written after start
-		// returns. The runtime flows after this, so it never sees the ack.
-		streamer.Flow(sCtx, opts...)
-		select {
-		case <-ctx.Done():
-		case _, ok := <-streamerResponses.Outlet():
-			if !ok {
-				return nil, errors.New("streamer exited before it opened")
-			}
-		}
-		if err = ctx.Err(); err != nil {
-			return nil, err
-		}
-	}
-
-	if len(deps.Writes) > 0 {
-		// Critical: ToSlice is extracted from a map, so we need to convert it to a
-		// slice ONCE in order go guarantee stable order.
-		writeKeys := deps.Writes.Slice()
-		writerCfg := framer.WriterConfig{
-			ControlSubject: control.Subject{
-				Name: t.prog.Name,
-				Key:  t.task.Key.String(),
-			},
-			Keys: writeKeys,
-		}
-		if authorities := buildAuthorities(
-			t.prog.Program.Authorities,
-			writeKeys,
-		); len(authorities) > 0 {
-			writerCfg.Authorities = authorities
-		}
-		var wrt framer.StreamWriter
-		wrt, err = t.factoryCfg.Framer.NewStreamWriter(ctx, writerCfg)
-		if err != nil {
-			return nil, err
-		}
-		pipeline.SetSegment(writerAddr, wrt)
-		pipeline.MustConnect[framer.WriterRequest](runtimeAddr, writerAddr, 10)
-		writerResponses := &confluence.UnarySink[framer.WriterResponse]{
-			Sink: func(ctx context.Context, res framer.WriterResponse) error {
-				if res.Err != nil {
-					t.factoryCfg.L.Error("unexpected writer response error",
-						zap.Stringer("task", t.task),
-						zap.Int("seqNum", res.SeqNum),
-						zap.Error(res.Err),
-					)
-					t.setStatus(
-						ctx,
-						driver.NoCommand,
-						status.VariantError,
-						false,
-						"Failed to write channel data",
-						res.Err.Error(),
-					)
-					return res.Err
-				} else if !res.Authorized {
-					t.factoryCfg.L.Warn("unauthorized writer response",
-						zap.Stringer("task", t.task),
-						zap.Int("seqNum", res.SeqNum),
-						zap.Stringer("command", res.Command),
-						zap.Error(res.Err),
-					)
-				}
-				return nil
-			},
-		}
-		pipeline.SetSink(writerResponsesAddr, writerResponses)
-		pipeline.MustConnect[framer.WriterResponse](writerAddr, writerResponsesAddr, 10)
-	}
-	t.sCtx = sCtx
-	closers = append(
-		closers,
-		signal.NewGracefulShutdown(sCtx, cancel),
-		streamerCloseSignal,
-	)
-	t.closer, closers = closers, nil
-	return func() { pipeline.Flow(sCtx, opts...) }, nil
+	return nil
 }
 
 func (t *impl) Stop(sendStatus bool) error {
@@ -549,14 +688,14 @@ func (t *impl) setStatus(
 	}
 }
 
-func (t *impl) setRuntimeError(ctx context.Context, nodeKey string, err error) {
+func (t *impl) setRuntimeError(ctx context.Context, nodeKey, text string) {
 	nodeType := nodeKey
 	if n, ok := t.prog.Program.Nodes.Find(nodeKey); ok {
 		nodeType = n.Type
 	}
 	if setErr := t.status.Warn(ctx, driver.Warning{
 		Message:     "Node failed",
-		Description: fmt.Sprintf("The %s node failed: %v", nodeType, err),
+		Description: fmt.Sprintf("The %s node failed: %s", nodeType, text),
 	}); setErr != nil {
 		t.factoryCfg.L.Error("failed to set error status", zap.Error(setErr))
 	}
@@ -586,6 +725,8 @@ type dataRuntime struct {
 	state     state
 	// budget limits the loop iterations and function calls of each cycle.
 	budget runtime.Budget
+	// errorLogs limits the log lines of each node.
+	errorLogs *errorLogs
 }
 
 func (d *dataRuntime) next(
@@ -600,6 +741,7 @@ func (d *dataRuntime) next(
 		Reason:  reason,
 	}
 	d.timeMod.SetNow(cycle.Now)
+	d.errorLogs.now = cycle.Now
 	d.budget.Reset()
 	d.clock.Advance(d.scheduler.Next(ctx, cycle))
 	if err := d.budget.Err(); err != nil {
@@ -685,51 +827,59 @@ func (r *tickerRuntime) Flow(sCtx signal.Context, opts ...confluence.Option) {
 			return err
 		}
 		defer func() { err = errors.Join(err, t.Close()) }()
-		// Fire right away, so timer nodes set their first deadline even when no
-		// streaming input is connected.
-		if err = t.Reset(0); err != nil {
+		return r.run(ctx, t)
+	}, o.Signal...)
+}
+
+// run runs a cycle on each wake of t and each channel input, until ctx ends or the
+// input closes.
+func (r *tickerRuntime) run(ctx context.Context, t *timer.Timer) error {
+	// Fire right away, so timer nodes set their first deadline even when no streaming
+	// input is connected.
+	if err := t.Reset(0); err != nil {
+		return err
+	}
+	var (
+		runReason node.RunReason
+		res       framer.StreamerResponse
+		ok        bool
+	)
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-t.C:
+			runReason = node.ReasonTimerTick
+		case res, ok = <-r.In.Outlet():
+			if !ok {
+				return nil
+			}
+			runReason = node.ReasonChannelInput
+			// A due timer fires on this cycle, not on a later timer wake.
+			if r.elapsed() >= r.scheduler.NextDeadline() {
+				runReason = node.ReasonTimerTick
+			}
+		}
+		if err := r.next(ctx, res, runReason); err != nil {
+			if errors.Is(err, runtime.ErrLoopBudget) {
+				r.overrun(ctx, err)
+			}
 			return err
 		}
-		arm := func() error {
-			deadline := r.scheduler.NextDeadline()
-			if deadline == telem.TimeSpanMax {
-				// No active timers, so the loop wakes only on channel input.
-				return t.Stop()
-			}
-			return t.Reset((deadline - r.elapsed()).Duration())
+		if err := r.arm(t); err != nil {
+			return err
 		}
-		var (
-			runReason node.RunReason
-			res       framer.StreamerResponse
-			ok        bool
-		)
-		for {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-t.C:
-				runReason = node.ReasonTimerTick
-			case res, ok = <-r.In.Outlet():
-				if !ok {
-					return nil
-				}
-				runReason = node.ReasonChannelInput
-				// A due timer fires on this cycle, not on a later timer wake.
-				if r.elapsed() >= r.scheduler.NextDeadline() {
-					runReason = node.ReasonTimerTick
-				}
-			}
-			if err = r.next(ctx, res, runReason); err != nil {
-				if errors.Is(err, runtime.ErrLoopBudget) {
-					r.overrun(ctx, err)
-				}
-				return err
-			}
-			if err = arm(); err != nil {
-				return err
-			}
-		}
-	}, o.Signal...)
+	}
+}
+
+// arm sets t to wake at the next deadline of the scheduler.
+func (r *tickerRuntime) arm(t *timer.Timer) error {
+	deadline := r.scheduler.NextDeadline()
+	if deadline == telem.TimeSpanMax {
+		// No active timers, so the loop wakes only on channel input.
+		return t.Stop()
+	}
+	return t.Reset((deadline - r.elapsed()).Duration())
 }
 
 const DefaultAuthority = control.AuthorityAbsolute

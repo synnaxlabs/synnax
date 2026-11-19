@@ -414,7 +414,7 @@ var _ = Describe("fmt command with file patterns", func() {
 		outside := filepath.Join(GinkgoT().TempDir(), "c.oracle")
 		Expect(os.WriteFile(outside, []byte(unformatted), 0o644)).To(Succeed())
 		Expect(fail("fmt", outside)).To(ContainSubstring("escapes"))
-		Expect(os.ReadFile(outside)).To(BeEquivalentTo(unformatted))
+		Expect(os.ReadFile(filepath.Clean(outside))).To(BeEquivalentTo(unformatted))
 	})
 })
 

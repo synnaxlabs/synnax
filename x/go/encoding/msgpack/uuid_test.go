@@ -28,6 +28,10 @@ var _ = Describe("UUID", func() {
 		0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10,
 	}
 
+	It("Should make msgpack.Marshal encode a UUID as its 16 raw bytes", func() {
+		xmsgpack.RegisterUUID()
+		Expect(msgpack.Marshal(key)).To(Equal(raw))
+	})
 	It("Should encode a UUID as its 16 raw bytes", func() {
 		Expect(xmsgpack.Codec.Encode(key)).To(Equal(raw))
 	})

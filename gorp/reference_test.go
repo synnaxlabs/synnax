@@ -184,11 +184,16 @@ var _ = Describe("Reference", func() {
 		ownerRef  *gorp.TargetReference[string, refStatus]
 		// onDetach is the detach hook of the device table. Nil runs no hook.
 		onDetach func(ctx context.Context, tx gorp.Tx, d refDevice) error
-		open     = func(ctx SpecContext, opts ...gorp.Option) {
+		// onTargetSet is the target hook of the device table. Nil runs no hook.
+		onTargetSet func(ctx context.Context, tx gorp.Tx, d refDevice) error
+		// watched names the tables whose writes onTargetSet watches.
+		watched []string
+		open    = func(ctx SpecContext, opts ...gorp.Option) {
 			GinkgoHelper()
 			db = DeferClose(
 				gorp.Wrap(memkv.New(), append(opts, gorp.WithCodec(msgpack.Codec))...),
 			)
+			StartRun(db.Run)
 			racks = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[uint32, refRack]{
 				DB:   db,
 				Name: "rack",
@@ -199,6 +204,16 @@ var _ = Describe("Reference", func() {
 			}))
 			deviceRef = newDeviceRefs()
 			onDetach = nil
+			onTargetSet = nil
+			hooks := make(map[string]func(context.Context, gorp.Tx, refDevice) error)
+			for _, table := range watched {
+				hooks[table] = func(ctx context.Context, tx gorp.Tx, d refDevice) error {
+					if onTargetSet == nil {
+						return nil
+					}
+					return onTargetSet(ctx, tx, d)
+				}
+			}
 			devices = MustOpen(
 				gorp.OpenTable(ctx, gorp.TableConfig[string, refDevice]{
 					DB:         db,
@@ -210,6 +225,7 @@ var _ = Describe("Reference", func() {
 						}
 						return onDetach(ctx, tx, d)
 					},
+					OnTargetSet: hooks,
 				}),
 			)
 			ownerRef = newOwnerRef()
@@ -934,6 +950,78 @@ var _ = Describe("Reference", func() {
 		})
 	})
 
+	Describe("OnTargetSet", func() {
+		var set []string
+		BeforeEach(func() {
+			watched = []string{"label", "rack"}
+			DeferCleanup(func() { watched = nil })
+		})
+		JustBeforeEach(func(ctx SpecContext) {
+			open(ctx)
+			createRack(ctx, 1)
+			createLabels(ctx, "l1", "l2")
+			Expect(createDevice(ctx, refDevice{
+				Key:    "d1",
+				Rack:   1,
+				Labels: []string{"l1", "l2"},
+			})).To(Succeed())
+			Expect(createDevice(ctx, refDevice{
+				Key:    "d2",
+				Rack:   1,
+				Labels: []string{"l2"},
+			})).To(Succeed())
+			set = nil
+			onTargetSet = func(ctx context.Context, tx gorp.Tx, d refDevice) error {
+				set = append(set, d.Key)
+				return racks.NewCreate().Entry(&refRack{Key: 7}).Exec(ctx, tx)
+			}
+		})
+
+		It(
+			"Should run the hook in the write's transaction for each entry that uses "+
+				"the target",
+			func(ctx SpecContext) {
+				tx := DeferClose(db.OpenTx())
+				Expect(labels.NewCreate().Entry(&refLabel{Key: "l2"}).Exec(ctx, tx)).
+					To(Succeed())
+				Expect(set).To(ConsistOf("d1", "d2"))
+				Expect(rackExists(ctx, 7)).To(BeFalse())
+				Expect(tx.Commit(ctx)).To(Succeed())
+				Expect(rackExists(ctx, 7)).To(BeTrue())
+			},
+		)
+
+		It("Should not run the hook for a target that no entry uses", func(
+			ctx SpecContext,
+		) {
+			createLabels(ctx, "l3")
+			Expect(set).To(BeEmpty())
+		})
+
+		It("Should not run the hook for a Place reference", func(ctx SpecContext) {
+			createRack(ctx, 1)
+			Expect(set).To(BeEmpty())
+		})
+
+		It("Should fail the write when the hook fails", func(ctx SpecContext) {
+			hookErr := errors.New("hook failed")
+			onTargetSet = func(context.Context, gorp.Tx, refDevice) error {
+				return hookErr
+			}
+			Expect(labels.NewCreate().Entry(&refLabel{Key: "l1"}).Exec(ctx, db)).
+				To(MatchError(hookErr))
+		})
+
+		Context("When the table does not watch the target's table", func() {
+			BeforeEach(func() { watched = []string{"rack"} })
+
+			It("Should not run the hook", func(ctx SpecContext) {
+				createLabels(ctx, "l1")
+				Expect(set).To(BeEmpty())
+			})
+		})
+	})
+
 	Describe("Delete size", func() {
 		BeforeEach(func(ctx SpecContext) { open(ctx, gorp.WithMaxDeleteSize(2)) })
 
@@ -1019,6 +1107,7 @@ var _ = Describe("Reference", func() {
 					Entry(&refDevice{Key: "d1", Rack: 1}).
 					Exec(ctx, pre)).To(Succeed())
 				db = DeferClose(gorp.Wrap(kvs, gorp.WithCodec(msgpack.Codec)))
+				StartRun(db.Run)
 				racks = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[uint32, refRack]{
 					DB:   db,
 					Name: "rack",
@@ -1039,6 +1128,7 @@ var _ = Describe("Reference", func() {
 			func(ctx SpecContext) {
 				kvs := &blockingDB{DB: memkv.New(), release: make(chan struct{})}
 				db = DeferClose(gorp.Wrap(kvs, gorp.WithCodec(msgpack.Codec)))
+				StartRun(db.Run)
 				racks = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[uint32, refRack]{
 					DB:   db,
 					Name: "rack",
@@ -1073,6 +1163,7 @@ var _ = Describe("Reference", func() {
 					&failOnceDB{DB: kvs, err: errors.New("populate boom")},
 					gorp.WithCodec(msgpack.Codec),
 				)
+				StartRun(db.Run)
 				deviceRef = newDeviceRefs()
 				devices = MustOpen(
 					gorp.OpenTable(ctx, gorp.TableConfig[string, refDevice]{
@@ -1283,6 +1374,7 @@ var _ = Describe("Reference closure", func() {
 		db = DeferClose(
 			gorp.Wrap(memkv.New(), append(opts, gorp.WithCodec(msgpack.Codec))...),
 		)
+		StartRun(db.Run)
 		projects = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, refProject]{
 			DB:   db,
 			Name: "project",
@@ -1383,6 +1475,7 @@ var _ = Describe("Reference migrations", func() {
 	var db *gorp.DB
 	BeforeEach(func() {
 		db = DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
+		StartRun(db.Run)
 	})
 
 	It(
@@ -1525,6 +1618,7 @@ var _ = Describe("DropDangling", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
+		StartRun(db.Run)
 		racks := MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[uint32, refRack]{
 			DB:   db,
 			Name: "rack",
@@ -1666,6 +1760,7 @@ var _ = Describe("Inline reference", func() {
 	BeforeEach(func(ctx SpecContext) {
 		inlineErr, rewritten = nil, nil
 		db = DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
+		StartRun(db.Run)
 		groups = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, refGroup]{
 			DB:   db,
 			Name: "group",

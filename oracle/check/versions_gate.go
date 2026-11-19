@@ -238,9 +238,9 @@ func propagateChanges(
 	}
 }
 
-// referencesAny reports whether t's fields, variants, or extended types name a type in
-// names. An inline variant's payload is part of its union, so its references count as
-// the union's.
+// referencesAny reports whether t's fields, variants, extended types, alias target, or
+// distinct base name a type in names. An inline variant's payload is part of its union,
+// so its references count as the union's.
 func referencesAny(
 	t resolution.Type,
 	names set.Set[string],
@@ -265,6 +265,10 @@ func referencesAny(
 				}
 			}
 			refs = append(refs, form.Extends...)
+		case resolution.AliasForm:
+			refs = append(refs, form.Target)
+		case resolution.DistinctForm:
+			refs = append(refs, form.Base)
 		}
 	}
 	collect(t.Form)
@@ -762,7 +766,8 @@ func localRefNames(ref resolution.TypeRef) []string {
 // namespace. pinAliasCurrent reports whether every referenced member of a lagging pin
 // resolves to the same defining version at both the pinned and current versions of the
 // dependency chain. When it does, the pinned and current shapes are one declaration and
-// the lag is nominal.
+// the lag is nominal. It skips a member that the pinned version does not carry, since
+// another import of the namespace declares it.
 func pinAliasCurrent(
 	resolver *versions.Resolver,
 	depLive string,
@@ -770,15 +775,12 @@ func pinAliasCurrent(
 	members []string,
 ) bool {
 	for _, member := range members {
-		curNS, _, ok := resolver.Definer(depLive, current, member)
-		if !ok {
-			return false
-		}
 		pinNS, _, ok := resolver.Definer(depLive, pinned, member)
 		if !ok {
-			return false
+			continue
 		}
-		if curNS != pinNS {
+		curNS, _, ok := resolver.Definer(depLive, current, member)
+		if !ok || curNS != pinNS {
 			return false
 		}
 	}

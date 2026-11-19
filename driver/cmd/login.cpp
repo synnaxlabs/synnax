@@ -12,6 +12,7 @@
 #include "x/cpp/args/args.h"
 #include "x/cpp/cli/cli.h"
 #include "x/cpp/log/log.h"
+#include "x/cpp/path/path.h"
 
 #include "driver/rack/rack.h"
 
@@ -26,7 +27,11 @@ int login(x::args::Parser &args) {
     synnax::Config config;
     config.host = x::cli::prompt("Host", "localhost");
     config.port = x::cli::prompt<uint16_t>("Port", static_cast<uint16_t>(9090));
-    config.secure = x::cli::confirm("Secure", false);
+    // The service runs in another directory, so a relative path must not be saved.
+    if (const auto ca = args.field("ca_cert", std::string()); !ca.empty())
+        config.ca_cert = x::path::resolve_relative(ca);
+    else
+        config.secure = x::cli::confirm("Secure", false);
     {
         const synnax::Synnax probe(config);
         const auto state = probe.connectivity->check();

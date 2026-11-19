@@ -20,6 +20,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
+	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -44,8 +45,7 @@ type expectedField struct {
 	StartBit        uint16        `json:"start_bit"`
 	BitLength       uint8         `json:"bit_length"`
 	ByteOrder       icd.ByteOrder `json:"byte_order"`
-	Signed          bool          `json:"signed"`
-	Float           bool          `json:"float"`
+	Kind            payload.Kind  `json:"kind"`
 	Scale           float64       `json:"scale"`
 	Offset          float64       `json:"offset"`
 	Units           string        `json:"units"`
@@ -113,8 +113,7 @@ func toExpected(messages []icd.Message) []expectedMessage {
 				StartBit:        f.StartBit,
 				BitLength:       f.BitLength,
 				ByteOrder:       f.ByteOrder,
-				Signed:          f.Signed,
-				Float:           f.Float,
+				Kind:            f.Kind,
 				Scale:           f.Scale,
 				Offset:          f.Offset,
 				Units:           f.Units,
@@ -167,7 +166,7 @@ BA_ "BusType" "CAN FD";
 BA_ "ProtocolType" "J1939";
 BA_ "VFrameFormat" BO_ 2364539904 3;
 `))
-	f.Fuzz(fuzzImport(f, icd.FormatDBC))
+	f.Fuzz(fuzzImport(f, icd.ImportFormatDBC))
 }
 
 const dbcHeader = `VERSION ""
@@ -185,7 +184,7 @@ var _ = Describe("Import DBC", func() {
 		"Should decode each message as cantools does",
 		func(ctx SpecContext, name string) {
 			data, want := readFixture(name)
-			messages := MustSucceed(importFile(ctx, icd.FormatDBC, data))
+			messages := MustSucceed(importFile(ctx, icd.ImportFormatDBC, data))
 			Expect(toExpected(messages)).To(Equal(want.Messages))
 		},
 		Entry("ids, byte orders, floats, and units", "basic"),
@@ -197,13 +196,13 @@ var _ = Describe("Import DBC", func() {
 		data, want := readFixture("extended_multiplexed")
 		crlf := bytes.ReplaceAll(data, []byte("\n"), []byte("\r\n"))
 		Expect(
-			toExpected(MustSucceed(importFile(ctx, icd.FormatDBC, crlf))),
+			toExpected(MustSucceed(importFile(ctx, icd.ImportFormatDBC, crlf))),
 		).To(Equal(want.Messages))
 	})
 
 	It("Should give every message and field a distinct key", func(ctx SpecContext) {
 		data, _ := readFixture("basic")
-		messages := MustSucceed(importFile(ctx, icd.FormatDBC, data))
+		messages := MustSucceed(importFile(ctx, icd.ImportFormatDBC, data))
 		keys := make(set.Set[icd.MessageKey])
 		for _, m := range messages {
 			keys.Add(m.Key)
@@ -223,14 +222,20 @@ BA_DEF_ BO_ "VFrameFormat" INT 0 15;
 BA_DEF_DEF_ "VFrameFormat" 0;
 BA_ "VFrameFormat" BO_ 256 14;
 `)
-		m := messageNamed(MustSucceed(importFile(ctx, icd.FormatDBC, data)), "Fast")
+		m := messageNamed(
+			MustSucceed(importFile(ctx, icd.ImportFormatDBC, data)),
+			"Fast",
+		)
 		Expect(canIdentifier(m).Fd).To(BeTrue())
 	})
 
 	DescribeTable("Should choose between CAN and CAN FD frames",
 		func(ctx SpecContext, body string, fd bool) {
 			data := []byte(dbcHeader + body)
-			m := messageNamed(MustSucceed(importFile(ctx, icd.FormatDBC, data)), "M")
+			m := messageNamed(
+				MustSucceed(importFile(ctx, icd.ImportFormatDBC, data)),
+				"M",
+			)
 			Expect(canIdentifier(m).Fd).To(Equal(fd))
 		},
 		Entry("FD for a message longer than 8 bytes with no VFrameFormat",
@@ -275,7 +280,7 @@ BO_ 257 Classic: 8 Ecu
  SG_ B : 0|8@1+ (1,0) [0|255] "" Ecu
 
 ` + body)
-			messages := MustSucceed(importFile(ctx, icd.FormatDBC, data))
+			messages := MustSucceed(importFile(ctx, icd.ImportFormatDBC, data))
 			Expect(canIdentifier(messageNamed(messages, "M")).BitrateSwitched).
 				To(Equal(switched))
 			Expect(canIdentifier(messageNamed(messages, "Classic")).BitrateSwitched).
@@ -305,7 +310,10 @@ BA_DEF_DEF_ "VFrameFormat" "J1939PG";
 	DescribeTable("Should match a J1939 message by its parameter group number",
 		func(ctx SpecContext, body string, id, mask uint32) {
 			data := []byte(dbcHeader + body)
-			m := messageNamed(MustSucceed(importFile(ctx, icd.FormatDBC, data)), "M")
+			m := messageNamed(
+				MustSucceed(importFile(ctx, icd.ImportFormatDBC, data)),
+				"M",
+			)
 			Expect(canIdentifier(m)).To(Equal(icd.CanIdentifier{
 				ID:       id,
 				Extended: true,
@@ -345,7 +353,10 @@ BA_ "ProtocolType" "J1939";
  SG_ A : 0|8@1+ (1,0) [0|255] "" Ecu
 
 ` + j1939Formats)
-			m := messageNamed(MustSucceed(importFile(ctx, icd.FormatDBC, data)), "M")
+			m := messageNamed(
+				MustSucceed(importFile(ctx, icd.ImportFormatDBC, data)),
+				"M",
+			)
 			Expect(canIdentifier(m)).To(Equal(icd.CanIdentifier{ID: 0x100}))
 		},
 	)
@@ -360,7 +371,10 @@ BA_DEF_ "ProtocolType" STRING ;
 ` + j1939Formats + `BA_ "ProtocolType" "J1939";
 BA_ "VFrameFormat" BO_ 2364539904 1;
 `)
-			m := messageNamed(MustSucceed(importFile(ctx, icd.FormatDBC, data)), "M")
+			m := messageNamed(
+				MustSucceed(importFile(ctx, icd.ImportFormatDBC, data)),
+				"M",
+			)
 			Expect(canIdentifier(m)).To(Equal(icd.CanIdentifier{
 				ID:       0x0CF00400,
 				Extended: true,
@@ -377,7 +391,7 @@ BO_ %d M2: 8 Ecu
  SG_ B : 0|8@1+ (1,0) [0|255] "" Ecu
 
 `, first|1<<31, second|1<<31) + j1939Formats)
-			messages := MustSucceed(importFile(ctx, icd.FormatDBC, data))
+			messages := MustSucceed(importFile(ctx, icd.ImportFormatDBC, data))
 			for name, id := range map[string]uint32{"M1": first, "M2": second} {
 				Expect(canIdentifier(messageNamed(messages, name))).To(Equal(
 					icd.CanIdentifier{ID: id, Extended: true, Mask: new(mask)},
@@ -400,7 +414,10 @@ BO_ %d M2: 8 Ecu
  SG_ B : 8|8@1- (0.5,-10) [-20|50] "" Ecu
  SG_ C : 16|8@1+ (1,0) [0|255] "" Ecu
 `)
-			m := messageNamed(MustSucceed(importFile(ctx, icd.FormatDBC, data)), "M")
+			m := messageNamed(
+				MustSucceed(importFile(ctx, icd.ImportFormatDBC, data)),
+				"M",
+			)
 			a, b, c := fieldNamed(m, "A"), fieldNamed(m, "B"), fieldNamed(m, "C")
 			Expect(a.Min).To(BeNil())
 			Expect(a.Max).To(BeNil())
@@ -421,10 +438,10 @@ SIG_GROUP_ 256 Group 1 : A;
 SIG_VALTYPE_ 256 A : 1;
 `)
 			m := messageNamed(
-				MustSucceed(importFile(ctx, icd.FormatDBC, data)),
+				MustSucceed(importFile(ctx, icd.ImportFormatDBC, data)),
 				"Engine",
 			)
-			Expect(binaryFields(m)[0].Float).To(BeTrue())
+			Expect(binaryFields(m)[0].Kind).To(Equal(payload.KindFloat))
 		},
 	)
 
@@ -441,7 +458,7 @@ and ends here.";
 			Expect(
 				binaryFields(
 					messageNamed(
-						MustSucceed(importFile(ctx, icd.FormatDBC, data)),
+						MustSucceed(importFile(ctx, icd.ImportFormatDBC, data)),
 						"Engine",
 					),
 				),
@@ -467,7 +484,7 @@ BA_ "SystemSignalLongSymbol" SG_ 256 Mode "Operating_Mode_Of_The_Engine_Control_
 BA_ "SystemSignalLongSymbol" SG_ 256 Gear "";
 BA_ "SystemSignalLongSymbol" SG_ 256 T "Multiplexor_Of_The_Engine_Status_Message";
 `)
-		messages := MustSucceed(importFile(ctx, icd.FormatDBC, data))
+		messages := MustSucceed(importFile(ctx, icd.ImportFormatDBC, data))
 		m := messageNamed(messages, "Engine_Status_From_The_Engine_Control_Unit")
 		fieldNamed(m, "Operating_Mode_Of_The_Engine_Control_Unit")
 		fieldNamed(m, "Rpm")
@@ -485,7 +502,7 @@ BA_ "SystemSignalLongSymbol" SG_ 256 T "Multiplexor_Of_The_Engine_Status_Message
  SG_ C : 7|16@0+ (1,0) [0|0] "" Ecu
 `)
 			Expect(binaryFields(messageNamed(
-				MustSucceed(importFile(ctx, icd.FormatDBC, data)),
+				MustSucceed(importFile(ctx, icd.ImportFormatDBC, data)),
 				"M",
 			))).To(HaveLen(3))
 		},
@@ -502,7 +519,10 @@ BA_ "SystemSignalLongSymbol" SG_ 256 T "Multiplexor_Of_The_Engine_Status_Message
 SG_MUL_VAL_ 2147483904 A T 1-1;
 SG_MUL_VAL_ 2147483904 T S 0-0;
 `)
-			m := messageNamed(MustSucceed(importFile(ctx, icd.FormatDBC, data)), "M")
+			m := messageNamed(
+				MustSucceed(importFile(ctx, icd.ImportFormatDBC, data)),
+				"M",
+			)
 			a, t, s := fieldNamed(m, "A"), fieldNamed(m, "T"), fieldNamed(m, "S")
 			Expect(a.Multiplexor).To(Equal(new(t.Key)))
 			Expect(a.MultiplexValues).To(Equal([]int32{1}))
@@ -520,7 +540,7 @@ SG_MUL_VAL_ 2147483904 T S 0-0;
 BO_ 256 M: 8 Ecu
  SG_ B : 0|8@1+ (1,0) [0|0] "" Ecu
 `)
-			messages := MustSucceed(importFile(ctx, icd.FormatDBC, data))
+			messages := MustSucceed(importFile(ctx, icd.ImportFormatDBC, data))
 			Expect(messages).To(HaveLen(1))
 			Expect(messages[0].Name).To(Equal("M"))
 		},
@@ -536,7 +556,7 @@ BO_ 256 M: 8 Ecu
 				HaveSuffix(": validation error"),
 			))
 			Expect(
-				importFile(ctx, icd.FormatDBC, []byte(dbcHeader+body)),
+				importFile(ctx, icd.ImportFormatDBC, []byte(dbcHeader+body)),
 			).Error().
 				To(err)
 		},

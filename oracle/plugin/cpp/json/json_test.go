@@ -705,6 +705,70 @@ var _ = Describe("C++ JSON Plugin", func() {
 				},
 			)
 			It(
+				"Should write the keys of a map keyed by a string enum as they are",
+				func() {
+					source := `
+					@cpp output "client/cpp/task"
+
+					Port enum {
+						ain0 = "AIN0"
+					}
+
+					Pair struct {
+						command uint32
+					}
+
+					Task struct {
+						channels map<Port, uint32>
+						pairs    map<Port, Pair>
+					}
+				`
+					resp := MustGenerate(source, "task", loader, jsonPlugin)
+
+					ExpectContent(resp, "json.gen.h").
+						ToContain(
+							`j["channels"] = this->channels;`,
+							`for (const auto& [key, item] : this->pairs) obj[key] = item.to_json();`,
+							`parser.field<std::unordered_map<std::string, std::uint32_t>>("channels")`,
+						)
+				},
+			)
+			It(
+				"Should refuse the zero value of a required string or number",
+				func() {
+					source := `
+					@cpp output "client/cpp/task"
+
+					Serial = uint32
+					Name = string {
+						@validate required
+					}
+
+					Device struct {
+						key      uint32 {
+							@key
+							@validate required
+						}
+						name     string @validate required
+						serial   Serial @validate required
+						alias    Name
+						label    string?
+						identity string = ""
+					}
+				`
+					resp := MustGenerate(source, "task", loader, jsonPlugin)
+					ExpectContent(resp, "json.gen.h").
+						ToContain(
+							`.key = parser.field<std::uint32_t>("key"),`,
+							`.name = parser.required_field<std::string>("name"),`,
+							`.serial = parser.required_field<Serial>("serial"),`,
+							`.alias = parser.required_field<Name>("alias"),`,
+							`.label = parser.field<std::optional<std::string>>("label"),`,
+							`.identity = parser.field<std::string>("identity", ""),`,
+						)
+				},
+			)
+			It(
 				"Should write the UUID keys of a map of scalars as strings",
 				func() {
 					source := `
@@ -778,9 +842,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						MatchError(validate.ErrValidation),
 					))
 				},
-				Entry("string enum with struct values", "Units", "Pair"),
 				Entry("float with struct values", "float64", "Pair"),
-				Entry("string enum with scalar values", "Units", "uint32"),
 				Entry("float with scalar values", "float64", "uint32"),
 			)
 			It(

@@ -572,8 +572,12 @@ public:
     x::telem::TimeStamp current_time{0};
     StableFor node;
 
-    explicit VarDuration(const x::telem::TimeSpan initial):
-        prog(build_ir(initial)),
+    explicit VarDuration(
+        const x::telem::TimeSpan initial,
+        const std::optional<types::Unit> &from = std::nullopt,
+        const std::optional<types::Unit> &to = std::nullopt
+    ):
+        prog(build_ir(initial, from, to)),
         state(
             runtime::state::Config{.ir = prog, .channels = {}},
             runtime::errors::noop_handler
@@ -611,7 +615,11 @@ public:
     }
 
 private:
-    static ir::IR build_ir(const x::telem::TimeSpan initial) {
+    static ir::IR build_ir(
+        const x::telem::TimeSpan initial,
+        const std::optional<types::Unit> &from,
+        const std::optional<types::Unit> &to
+    ) {
         types::Param source_out;
         source_out.name = ir::default_output_param;
         source_out.type = types::Type{.kind = types::Kind::U8};
@@ -623,6 +631,7 @@ private:
         types::Param var_out;
         var_out.name = ir::default_output_param;
         var_out.type = types::Type{.kind = types::Kind::I64};
+        var_out.type.unit = from;
         ir::Node v;
         v.key = "v";
         v.type = "variable";
@@ -633,8 +642,9 @@ private:
         duration.type = types::Type{
             .kind = types::Kind::VarRef,
             .name = "v",
-            .elem = x::mem::indirect<types::Type>(types::Type{.kind = types::Kind::I64})
+            .elem = x::mem::indirect<types::Type>(var_out.type)
         };
+        duration.type.unit = to;
         duration.value = initial.nanoseconds();
         types::Param in;
         in.name = ir::default_input_param;
@@ -671,6 +681,28 @@ TEST(StableForVarDurationTest, HonorsTheDeclaredInitialBeforeAnyWrite) {
     t.ingest(5, t.current_time);
     EXPECT_FALSE(t.next());
     t.current_time = x::telem::TimeStamp(2 * x::telem::SECOND);
+    t.ingest(5, t.current_time);
+    EXPECT_TRUE(t.next());
+}
+
+/// @brief it should convert a live duration to the unit of the input.
+TEST(StableForVarDurationTest, ConvertsALiveDurationToTheUnitOfTheInput) {
+    types::Unit s, ns;
+    s.dimensions.time = ns.dimensions.time = 1;
+    s.scale = 1e9;
+    s.name = "s";
+    ns.scale = 1;
+    ns.name = "ns";
+    VarDuration t(x::telem::SECOND, s, ns);
+    // The variable holds 2 in seconds.
+    t.set_duration(x::telem::TimeSpan(2));
+    t.ingest(5, x::telem::TimeStamp(x::telem::SECOND));
+    t.current_time = x::telem::TimeStamp(x::telem::SECOND);
+    EXPECT_FALSE(t.next());
+    t.current_time = x::telem::TimeStamp(2 * x::telem::SECOND + x::telem::SECOND / 2);
+    t.ingest(5, t.current_time);
+    EXPECT_FALSE(t.next());
+    t.current_time = x::telem::TimeStamp(3 * x::telem::SECOND);
     t.ingest(5, t.current_time);
     EXPECT_TRUE(t.next());
 }

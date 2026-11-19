@@ -169,6 +169,41 @@ var _ = Describe("SetDefaults and Validate generation", func() {
 	)
 
 	It(
+		"Should validate each key of a map keyed by an enum",
+		func() {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Port enum {
+				ain0 = "AIN0"
+			}
+
+			Ports = map<Port, uint32>
+
+			Cfg struct {
+				channels map<Port, uint32>
+				aliased  Ports
+			}
+
+			Shape union on type {
+				first { ports map<Port, uint32>? }
+			}
+		`
+			resp := MustGenerate(source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToBeValidGoSource().ToContain(
+				"func (c Cfg) Validate() error {",
+				"for key := range c.Channels {",
+				`v.Ternaryf("channels", !key.IsValid(), "invalid channels key: %v", key)`,
+				"for key := range c.Aliased {",
+				`v.Ternaryf("aliased", !key.IsValid(), "invalid aliased key: %v", key)`,
+				"func (f FirstShape) Validate() error {",
+				"for key := range f.Ports {",
+				`v.Ternaryf("ports", !key.IsValid(), "invalid ports key: %v", key)`,
+			)
+		},
+	)
+
+	It(
 		"Should widen the receiver when the type name would collide with the validator",
 		func() {
 			source := `
@@ -766,6 +801,22 @@ var _ = Describe("SetDefaults and Validate generation", func() {
 				)
 			},
 		)
+
+		It("Should refuse a non-finite value in a field with a finite rule", func() {
+			source := `
+				@go output "core/pkg/service/x"
+
+				Cfg struct {
+					value float64 { @validate finite }
+					limit float64? { @validate finite }
+				}
+			`
+			resp := MustGenerate(source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				`v.Finite("value", c.Value)`,
+				"if c.Limit != nil {\n\tv.Finite(\"limit\", *c.Limit)",
+			)
+		})
 
 		It(
 			"Should merge a field's rules with its type's rules",

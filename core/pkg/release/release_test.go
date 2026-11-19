@@ -89,9 +89,16 @@ var _ = Describe("Config", func() {
 		},
 		Entry("no URL", func(c *release.Config) { c.URL = "" }, "url"),
 		Entry(
+			"no public keys",
+			func(c *release.Config) { c.PublicKeys = nil },
+			"public_keys",
+		),
+		Entry(
 			"invalid public key",
-			func(c *release.Config) { c.PublicKey = "not a key" },
-			"public_key",
+			func(c *release.Config) {
+				c.PublicKeys = []string{c.PublicKeys[0], "not a key"}
+			},
+			"public_keys.1",
 		),
 		Entry(
 			"zero stall timeout",
@@ -105,17 +112,19 @@ var _ = Describe("Download", func() {
 	var (
 		files, dst string
 		signer     testutil.Signer
+		old        testutil.Signer
 		cfg        release.Config
 	)
 	BeforeEach(func() {
 		dir := GinkgoT().TempDir()
 		files = filepath.Join(dir, "files")
 		dst = filepath.Join(dir, "dst")
-		signer = testutil.NewSigner()
+		signer, old = testutil.NewSigner(), testutil.NewSigner()
 		server := httptest.NewServer(http.FileServer(http.Dir(files)))
 		DeferCleanup(server.Close)
 		cfg = release.DefaultConfig
-		cfg.URL, cfg.PublicKey = server.URL, signer.PublicKey
+		cfg.URL = server.URL
+		cfg.PublicKeys = []string{signer.PublicKey, old.PublicKey}
 	})
 
 	write := func(name string, data []byte) {
@@ -144,13 +153,20 @@ var _ = Describe("Download", func() {
 		Expect(MustSucceed(os.Stat(dst)).Mode().Perm()).To(Equal(mode))
 	})
 
+	It("Should download a file signed with any of its keys", func(ctx SpecContext) {
+		write(name, []byte("core"))
+		write(name+".sig", old.Sign(name, []byte("core")))
+		Expect(download(ctx)).To(Succeed())
+		Expect(os.ReadFile(filepath.Clean(dst))).To(Equal([]byte("core")))
+	})
+
 	It("Should check a signature that the Tauri signer wrote", func(ctx SpecContext) {
 		write(name, MustSucceed(fs.ReadFile(os.DirFS("testdata"), name)))
 		write(
 			name+".sig",
 			MustSucceed(fs.ReadFile(os.DirFS("testdata"), name+".sig")),
 		)
-		cfg.PublicKey = tauriPublicKey
+		cfg.PublicKeys = []string{tauriPublicKey}
 		Expect(download(ctx)).To(Succeed())
 	})
 
@@ -210,8 +226,8 @@ var _ = Describe("Download", func() {
 	)
 
 	It("Should return the error of an invalid config", func(ctx SpecContext) {
-		cfg.PublicKey = "not a key"
-		Expect(download(ctx)).To(MatchError(ContainSubstring("public_key")))
+		cfg.PublicKeys = []string{"not a key"}
+		Expect(download(ctx)).To(MatchError(ContainSubstring("public_keys")))
 	})
 
 	Describe("Stall", func() {

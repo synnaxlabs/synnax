@@ -133,6 +133,68 @@ var _ = Describe("Delta", func() {
 			Eventually(outputOne.Outlet()).Should(BeClosed())
 		})
 
+		It("Should not block a connection change once its context ends", func() {
+			delta := NewDynamicDeltaMultiplier[int](0, Instrumentation("dev"))
+			delta.InFrom(inputOne)
+			ctx, cancel := signal.Isolated()
+			delta.Flow(ctx)
+			delta.Connect(outputOne)
+			cancel()
+			Expect(ctx.Wait()).To(MatchError(context.Canceled))
+			Expect(delta.Stopped()).To(BeClosed())
+			delta.Disconnect(outputOne)
+			Expect(outputOne.Outlet()).To(BeClosed())
+			delta.Connect(outputTwo)
+			Expect(outputTwo.Outlet()).To(BeClosed())
+		})
+
+		It("Should release a connection that waits while the delta stops", func() {
+			delta := NewDynamicDeltaMultiplier[int](0, Instrumentation("dev"))
+			delta.InFrom(inputOne)
+			ctx, cancel := signal.Isolated()
+			delta.Flow(ctx)
+			delta.Connect(outputOne)
+			// Nothing reads outputOne, so the delta blocks on this send.
+			inputOne.Inlet() <- 1
+			connected := make(chan struct{})
+			go func() {
+				defer close(connected)
+				delta.Connect(outputTwo)
+			}()
+			cancel()
+			Expect(ctx.Wait()).To(MatchError(context.Canceled))
+			Eventually(connected).Should(BeClosed())
+			Expect(outputOne.Outlet()).To(BeClosed())
+			Expect(outputTwo.Outlet()).To(BeClosed())
+		})
+
+		It("Should accept connections after it recovers from a panic", func() {
+			delta := NewDynamicDeltaMultiplier[int](0, Instrumentation("dev"))
+			delta.InFrom(inputOne)
+			ctx, cancel := signal.Isolated()
+			defer cancel()
+			delta.Flow(ctx, RecoverWithErrOnPanic(), WithRetryOnPanic())
+			delta.Connect(outputOne)
+			// A send on the closed inlet panics.
+			outputOne.Close()
+			Eventually(inputOne.Inlet()).Should(BeSent(1))
+			Eventually(inputOne.Inlet()).Should(BeSent(2))
+			delta.Connect(outputTwo)
+			Eventually(inputOne.Inlet()).Should(BeSent(3))
+			Eventually(outputTwo.Outlet()).Should(Receive(Equal(3)))
+			Expect(delta.Stopped()).ToNot(BeClosed())
+		})
+
+		It("Should stop once its input closes", func() {
+			delta := NewDynamicDeltaMultiplier[int](0, Instrumentation("dev"))
+			delta.InFrom(inputOne)
+			ctx, cancel := signal.Isolated()
+			defer cancel()
+			delta.Flow(ctx)
+			inputOne.Close()
+			Eventually(delta.Stopped()).Should(BeClosed())
+		})
+
 		Describe("Timeout", func() {
 			It(
 				"Should allow the delta to operate normally if a consumer receives within the timeout",

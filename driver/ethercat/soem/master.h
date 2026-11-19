@@ -33,10 +33,11 @@
 #include "x/cpp/telem/telem.h"
 
 #include "driver/ethercat/dc/dc.h"
+#include "driver/ethercat/master/dc.h"
 #include "driver/ethercat/master/master.h"
 #include "driver/ethercat/pdo/pdo.h"
+#include "driver/ethercat/sii/sii.h"
 #include "driver/ethercat/soem/api.h"
-#include "driver/ethercat/soem/sii.h"
 #include "driver/ethercat/telem/telem.h"
 
 namespace driver::ethercat::soem {
@@ -101,12 +102,6 @@ class Master final : public master::Master {
     /// @brief last_dc_time and host_dc_offset before a frame carries a DC time.
     static constexpr int64_t NO_DC_FRAME = std::numeric_limits<int64_t>::min();
 
-    /// @brief the DC registers of one slave that runs in a DC mode.
-    struct DCSetup {
-        uint16_t position = 0;
-        dc::Registers registers;
-    };
-
     /// @brief the wait before the next clock restore of a slave whose restore failed.
     struct ClockRetry {
         /// @brief the Config::clock time of the next restore.
@@ -120,8 +115,8 @@ class Master final : public master::Master {
         /// @brief the Config::clock time of the send.
         std::chrono::steady_clock::time_point sent_at;
         /// @brief what receive() returns for a send that held process data back, or
-        /// NIL.
-        x::errors::Error held_err;
+        /// null.
+        const x::errors::Error *held_err = nullptr;
         /// @brief the number of process data frames of the send that went out.
         size_t frames = 0;
     };
@@ -150,7 +145,7 @@ class Master final : public master::Master {
         /// @brief whether the enabled slaves' frames carry the reference clock time.
         bool has_dc = false;
         /// @brief the DC setup of each enabled slave in a DC mode.
-        std::vector<DCSetup> dc_setups;
+        std::vector<master::DCSetup> dc_setups;
         /// @brief why each slave rejected a startup parameter at its latest move to
         /// SAFE-OP, keyed by position.
         std::map<uint16_t, x::errors::Error> startup_failures;
@@ -215,7 +210,7 @@ public:
 
     void deactivate() override;
 
-    x::errors::Error receive() override;
+    const x::errors::Error &receive() override;
 
     x::errors::Error send() override;
 
@@ -370,14 +365,6 @@ private:
     /// @returns errors::ACTIVATION_ERROR that names each slave that failed a write.
     x::errors::Error clear_dc_activation();
 
-    /// @brief returns the DC registers of each enabled slave that runs a DC mode, the
-    /// chosen mode or the one dc::select picks, at a bus cycle of period.
-    /// @returns errors::SLAVE_CONFIG_ERROR when a slave cannot use its chosen mode,
-    /// when a mode gives values the registers cannot hold, or when the SYNC0 cycles
-    /// that mark process data share no dc::MIN_EVENT_CYCLE grid or longer with the
-    /// period.
-    std::pair<std::vector<DCSetup>, x::errors::Error> resolve_dc() const;
-
     /// @brief waits until a frame carries the reference clock to the slaves, then until
     /// the clock of each slave at positions is within 10 µs of the reference clock.
     /// @param stopped returns true when the wait must end early.
@@ -392,7 +379,7 @@ private:
     /// @brief starts SYNC0 on a slave, with its first SYNC0 event on a whole SYNC0
     /// cycle of DC time at least 100 ms after its system time.
     /// @returns errors::ACTIVATION_ERROR when the slave does not take a write.
-    x::errors::Error start_sync(const DCSetup &setup);
+    x::errors::Error start_sync(const master::DCSetup &setup);
 
     /// @brief starts SYNC0 on each slave in dc_setups once their clocks settle. Call it
     /// while the bus cycles and before SAFE-OP.

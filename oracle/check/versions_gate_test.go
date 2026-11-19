@@ -261,6 +261,33 @@ Channel struct {
 		Expect(report.Status).To(Equal(check.StatusPass))
 	})
 
+	It("Should allow a lagging pin that shares its namespace with another pin", func() {
+		write("schemas/x/versions/status/v0.oracle", "Code = int64\n")
+		write(
+			"schemas/x/versions/status/v1.oracle",
+			"Code = v0.Code\n\nExtra = int32\n",
+		)
+		write("schemas/x/status.oracle", "Code = int64\nExtra = int32\n")
+		write("schemas/synnax/versions/status/v0.oracle", "Level = int32\n")
+		write("schemas/synnax/status.oracle", "Level = int32\n")
+		write("schemas/synnax/versions/channel/v0.oracle", `
+import "schemas/synnax/versions/status/v0"
+import "schemas/x/versions/status/v0"
+
+Channel struct {
+	key uuid @key
+	code status.Code
+	level status.Level
+
+	@go marshal
+}
+`)
+		p := analyzeLive(liveV0)
+		report := run(p)
+		Expect(report.Findings).To(BeEmpty())
+		Expect(report.Status).To(Equal(check.StatusPass))
+	})
+
 	It("Should walk stored references through every declaration form", func() {
 		write(
 			"schemas/x/versions/telem/v0.oracle",
@@ -921,6 +948,102 @@ Ranges struct {
 Channel struct {
 	key uuid @key
 	ranges Ranges
+}
+`)
+		Expect(aliasHints(run(p))).To(BeEmpty())
+	})
+
+	It("Should pass an unchanged alias that references a changed enum", func() {
+		write("schemas/synnax/versions/channel/v0.oracle", `
+Kind enum {
+	a = "a"
+}
+
+Kinds = Kind[]
+
+Channel struct {
+	key uuid @key
+	kinds Kinds
+
+	@go marshal
+}
+`)
+		write("schemas/synnax/versions/channel/v1.oracle", `
+Kind enum {
+	a = "a"
+	b = "b"
+}
+
+Kinds = Kind[]
+
+Channel struct {
+	key uuid @key
+	kinds Kinds
+
+	@go marshal
+}
+`)
+		p := analyzeLive(`
+@go output "core/pkg/service/channel"
+
+Kind enum {
+	a = "a"
+	b = "b"
+}
+
+Kinds = Kind[]
+
+Channel struct {
+	key uuid @key
+	kinds Kinds
+}
+`)
+		Expect(aliasHints(run(p))).To(BeEmpty())
+	})
+
+	It("Should pass an unchanged distinct type over a changed enum", func() {
+		write("schemas/synnax/versions/channel/v0.oracle", `
+Kind enum {
+	a = "a"
+}
+
+Kinds Kind[]
+
+Channel struct {
+	key uuid @key
+	kinds Kinds
+
+	@go marshal
+}
+`)
+		write("schemas/synnax/versions/channel/v1.oracle", `
+Kind enum {
+	a = "a"
+	b = "b"
+}
+
+Kinds Kind[]
+
+Channel struct {
+	key uuid @key
+	kinds Kinds
+
+	@go marshal
+}
+`)
+		p := analyzeLive(`
+@go output "core/pkg/service/channel"
+
+Kind enum {
+	a = "a"
+	b = "b"
+}
+
+Kinds Kind[]
+
+Channel struct {
+	key uuid @key
+	kinds Kinds
 }
 `)
 		Expect(aliasHints(run(p))).To(BeEmpty())

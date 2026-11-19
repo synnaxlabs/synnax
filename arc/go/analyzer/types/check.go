@@ -14,6 +14,7 @@ import (
 	"fmt"
 
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/constraints"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
@@ -50,29 +51,6 @@ func Check(
 		}
 	}
 
-	// Check for wrapped type mismatch (series vs scalar, chan vs scalar) Skip this
-	// check if either type is a variable - let the constraint system handle it
-	t1Wrapped := t1.Kind == types.KindChan || t1.Kind == types.KindSeries
-	t2Wrapped := t2.Kind == types.KindChan || t2.Kind == types.KindSeries
-	if t1Wrapped != t2Wrapped && t1.Kind != types.KindVariable &&
-		t2.Kind != types.KindVariable {
-		resolved1 := cs.ApplySubstitutions(t1)
-		resolved2 := cs.ApplySubstitutions(t2)
-		if reason != "" {
-			return errors.Newf(
-				"type mismatch in %s: cannot assign %v to %v",
-				reason,
-				resolved2,
-				resolved1,
-			)
-		}
-		return errors.Newf(
-			"type mismatch: cannot assign %v to %v",
-			resolved2,
-			resolved1,
-		)
-	}
-
 	if t1.Kind == types.KindVariable && t2.Kind == types.KindVariable &&
 		t2.Constraint != nil {
 		// The untyped value takes the target's type, and never changes it, so a later
@@ -103,19 +81,39 @@ func Check(
 	return nil
 }
 
+// CheckConverted checks actual against expected when the lowering converts between
+// their units. Two untyped types stay apart, so each keeps its own unit.
+func CheckConverted(
+	cs *constraints.System,
+	expected, actual types.Type,
+	source antlr.ParserRuleContext,
+	reason string,
+) error {
+	expected, actual = cs.ApplySubstitutions(expected), cs.ApplySubstitutions(actual)
+	expected.Unit, actual.Unit = nil, nil
+	if expected.Kind == types.KindVariable && actual.Kind == types.KindVariable {
+		if constrainedTo(expected, types.KindIntegerConstant) !=
+			constrainedTo(actual, types.KindIntegerConstant) {
+			return newTypeMismatchError(expected, actual, reason)
+		}
+		return nil
+	}
+	return Check(cs, expected, actual, source, reason)
+}
+
 // newTypeMismatchError creates a typeMismatchError for type mismatches.
 // If both types are numeric, it includes a cast suggestion hint.
 func newTypeMismatchError(
 	expected, actual types.Type,
 	reason string,
-) *typeMismatchError {
+) error {
 	var msg string
 	if reason != "" {
 		msg = fmt.Sprintf(
-			"type mismatch in %s: expected %v, got %v",
-			reason,
+			"type mismatch: expected %v, got %v in %s",
 			expected,
 			actual,
+			reason,
 		)
 	} else {
 		msg = fmt.Sprintf("type mismatch: expected %v, got %v", expected, actual)
@@ -131,7 +129,9 @@ func newTypeMismatchError(
 	} else if expected.IsBool() && actual.IsNumeric() {
 		hint = constraints.BoolHint
 	}
-	return &typeMismatchError{Message: msg, Hint: hint, Cast: cast}
+	return codes.TypeMismatch.Mark(
+		&typeMismatchError{Message: msg, Hint: hint, Cast: cast},
+	)
 }
 
 // CastOf returns the type that a cast of the value fixes err with, if there is one.

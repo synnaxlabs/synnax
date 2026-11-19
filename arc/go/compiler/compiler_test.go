@@ -2373,6 +2373,36 @@ var _ = Describe("Compiler", func() {
 			}`, float64(-2147483648)),
 		)
 
+		DescribeTable("an integer literal should compile at the bounds of its type",
+			narrowResult,
+			Entry("i8 minimum", `{
+				x i8 := -128
+				return i64(x)
+			}`, float64(-128)),
+			Entry("i32 minimum", `{
+				x i32 := -2147483648
+				return i64(x)
+			}`, float64(-2147483648)),
+			Entry("i64 minimum", `{
+				x i64 := -9223372036854775808
+				return x
+			}`, float64(math.MinInt64)),
+			Entry("u64 maximum", `{
+				x u64 := 18446744073709551615
+				return i64(x)
+			}`, float64(-1)),
+		)
+
+		DescribeTable("a negated literal should wrap in an unsigned cast",
+			narrowResult,
+			Entry("u8", `{
+				return i64(u8(-1))
+			}`, float64(255)),
+			Entry("u32", `{
+				return i64(u32(-1))
+			}`, float64(4294967295)),
+		)
+
 		DescribeTable("a stepped range loop should end at the bound of the type",
 			narrowResult,
 			Entry("u8 to the maximum", `{
@@ -2878,6 +2908,22 @@ var _ = Describe("Compiler", func() {
 				x f64 := -42.9
 				return i64(i8(x))
 			}`, float64(-42)),
+			Entry("f64 above the range to i32", `{
+				x f64 := 10000000000.0
+				return i64(i32(x))
+			}`, float64(math.MaxInt32)),
+			Entry("negative f64 to u32", `{
+				x f64 := -5.0
+				return i64(u32(x))
+			}`, float64(0)),
+			Entry("f64 below the range to i64", `{
+				x f64 := -100000000000000000000.0
+				return i64(x)
+			}`, float64(math.MinInt64)),
+			Entry("f32 above the range to i32", `{
+				x f32 := 10000000000.0
+				return i64(i32(x))
+			}`, float64(math.MaxInt32)),
 		)
 	})
 
@@ -3644,53 +3690,24 @@ var _ = Describe("Compiler", func() {
 	})
 
 	Describe("Unit Literals", func() {
-		It("Should compile unit literal with scale conversion", func(ctx SpecContext) {
-			output := MustSucceed(compile(ctx, `
-			func getMs() f64 {
-				return 300ms
-			}
-			`))
-
-			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-			getMs := mod.ExportedFunction("getMs")
-			Expect(getMs).ToNot(BeNil())
-
-			results := MustSucceed(getMs.Call(ctx))
-			Expect(results).To(HaveLen(1))
-			result := math.Float64frombits(results[0])
-			Expect(
-				result,
-			).To(BeNumerically("~", 300000000.0, 1))
-			// 300ms = 300 million ns
-		})
-
-		It("Should compile kilometer literal", func(ctx SpecContext) {
-			output := MustSucceed(compile(ctx, `
-			func getKm() f64 {
-				return 5km
-			}
-			`))
-
-			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-			getKm := mod.ExportedFunction("getKm")
-			results := MustSucceed(getKm.Call(ctx))
-			result := math.Float64frombits(results[0])
-			Expect(result).To(Equal(5000.0))
-		})
-
-		It("Should compile psi literal", func(ctx SpecContext) {
-			output := MustSucceed(compile(ctx, `
-			func getPsi() f64 {
-				return 100psi
-			}
-			`))
-
-			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-			getPsi := mod.ExportedFunction("getPsi")
-			results := MustSucceed(getPsi.Call(ctx))
-			result := math.Float64frombits(results[0])
-			Expect(result).To(BeNumerically("~", 689476.0, 1.0))
-		})
+		DescribeTable(
+			"Should compile a unit literal as the number in the unit of its target",
+			func(ctx SpecContext, result, literal string, expected float64) {
+				output := MustSucceed(compile(ctx, `
+				func get() `+result+` {
+					return `+literal+`
+				}
+				`))
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				results := MustSucceed(mod.ExportedFunction("get").Call(ctx))
+				Expect(results).To(HaveLen(1))
+				Expect(math.Float64frombits(results[0])).To(Equal(expected))
+			},
+			Entry("in the same unit", "f64 ms", "300ms", 300.0),
+			Entry("in a smaller unit", "f64 ns", "300ms", 300e6),
+			Entry("in a larger unit", "f64 km", "5000m", 5.0),
+			Entry("a pressure", "f64 psi", "100psi", 100.0),
+		)
 	})
 
 	Describe("String Operations", func() {
@@ -4598,6 +4615,125 @@ var _ = Describe("Compiler", func() {
 		)
 	})
 
+	Describe("Unit Conversion Synthetic Functions", func() {
+		BeforeEach(func(ctx SpecContext) { bindDefaultModules(ctx, r) })
+
+		// analyzeScale returns a program in which a flow writes other to d and d to
+		// each of sinks, and the index of its unit conversion function.
+		analyzeScale := func(
+			ctx SpecContext,
+			declarations string,
+			sinks ...symbol.Symbol,
+		) (ir.IR, int) {
+			GinkgoHelper()
+			var writes strings.Builder
+			writes.WriteString("other -> d\n")
+			for _, sink := range sinks {
+				writes.WriteString("d -> " + sink.Name + "\n")
+			}
+			prog := MustSucceed(text.Parse(text.Text{Raw: "sequence main {\n" +
+				declarations + "\nstage s1 {\n" + writes.String() + "}\n}"}))
+			inter, diag := text.Analyze(ctx, prog, NewRoot(nil, sinks...))
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			for i, f := range inter.Functions {
+				if strings.HasPrefix(f.Key, compiler.ScaleSyntheticPrefix) {
+					return inter, i
+				}
+			}
+			Fail("expected a unit conversion function")
+			return inter, 0
+		}
+		// expectScaled compiles inter and expects its unit conversion function i to
+		// return expected for input.
+		expectScaled := func(
+			ctx SpecContext,
+			inter ir.IR,
+			i int,
+			input, expected any,
+		) {
+			GinkgoHelper()
+			output := MustSucceed(compiler.Compile(ctx, inter))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			fn := mod.ExportedFunction(inter.Functions[i].Key)
+			Expect(fn).ToNot(BeNil())
+			arg := uint64(0)
+			switch v := input.(type) {
+			case int64:
+				arg = uint64(v)
+			case float64:
+				arg = math.Float64bits(v)
+			}
+			results := MustSucceed(fn.Call(ctx, arg))
+			Expect(results).To(HaveLen(1))
+			assertResult(results[0], expected)
+		}
+
+		DescribeTable("Should convert its input to the unit of its output",
+			func(ctx SpecContext, declarations string, input, expected any) {
+				inter, i := analyzeScale(ctx, declarations)
+				expectScaled(ctx, inter, i, input, expected)
+			},
+			Entry("to a larger unit",
+				"d := 1min\nother := 120s", int64(120), int64(2)),
+			Entry("to a larger unit with a remainder",
+				"d := 1min\nother := 120s", int64(90), int64(1)),
+			Entry("to a smaller unit",
+				"d i64 ms := 1s\nother i64 min := 2min", int64(2), int64(120000)),
+			Entry("a float",
+				"d := 1.0bar\nother := 250.0kPa", float64(250), float64(2.5)),
+		)
+
+		DescribeTable("Should convert its input to the kind of its output",
+			func(
+				ctx SpecContext,
+				declarations string,
+				sink types.Type,
+				input, expected any,
+			) {
+				inter, i := analyzeScale(ctx, declarations, symbol.Symbol{
+					Name: "sink",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(sink),
+					ID:   100,
+				})
+				fn := inter.Functions[i]
+				Expect(fn.Inputs[0].Type.Unwrap().Kind).ToNot(Equal(sink.Kind))
+				Expect(fn.Outputs[0].Type.Kind).To(Equal(sink.Kind))
+				expectScaled(ctx, inter, i, input, expected)
+			},
+			Entry("a 64-bit float to a 32-bit float",
+				"d := 1.0bar\nother := 250.0kPa",
+				types.F32(), float64(250), float32(2.5)),
+			Entry("a 64-bit integer to a 32-bit integer",
+				"d := 1min\nother := 120s", types.I32(), int64(120), int32(2)),
+			Entry("a 64-bit integer to a 32-bit integer with a remainder",
+				"d := 1min\nother := 90s", types.I32(), int64(90), int32(1)),
+		)
+
+		It("Should reject a conversion with more than one input", func(
+			ctx SpecContext,
+		) {
+			inter, i := analyzeScale(ctx, "d := 1min\nother := 120s")
+			fn := &inter.Functions[i]
+			fn.Inputs = append(fn.Inputs, fn.Inputs[0])
+			Expect(compiler.Compile(ctx, inter)).Error().To(MatchError(
+				ContainSubstring("takes one input and one output"),
+			))
+		})
+
+		It("Should reject a conversion between two dimensions", func(
+			ctx SpecContext,
+		) {
+			inter, i := analyzeScale(ctx, "d := 1min\nother := 120s")
+			inter.Functions[i].Outputs[0].Type.Unit = &types.Unit{
+				Dimensions: types.DimPressure, Scale: 1, Name: "Pa",
+			}
+			Expect(compiler.Compile(ctx, inter)).Error().To(MatchError(
+				ContainSubstring("cannot convert i64 s to i64 Pa"),
+			))
+		})
+	})
+
 	Describe("Format String Synthetic Functions", func() {
 		var strMod *stlstrings.Host
 		var strState *stlstrings.ProgramState
@@ -4605,38 +4741,6 @@ var _ = Describe("Compiler", func() {
 
 		BeforeEach(func(ctx SpecContext) {
 			strMod, strState, chanState = bindDefaultModules(ctx, r)
-		})
-
-		It("Should fail to compile a format function with no literal", func(
-			ctx SpecContext,
-		) {
-			resolver := []symbol.Symbol{
-				{
-					Name: "trig",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.U8()),
-					ID:   100,
-				},
-				{
-					Name: "log",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.String()),
-					ID:   101,
-				},
-			}
-			prog := MustSucceed(text.Parse(text.Text{Raw: `trig -> f"v={42}" -> log`}))
-			inter, diag := text.Analyze(ctx, prog, NewRoot(nil, resolver...))
-			Expect(diag.Ok()).To(BeTrue(), diag.String())
-			for i := range inter.Functions {
-				if strings.HasPrefix(
-					inter.Functions[i].Key,
-					compiler.FmtStrSyntheticPrefix,
-				) {
-					inter.Functions[i].Body.AST = nil
-				}
-			}
-			Expect(compiler.Compile(ctx, inter)).Error().
-				To(MatchError(ContainSubstring("has no literal")))
 		})
 
 		It(
@@ -4663,7 +4767,7 @@ var _ = Describe("Compiler", func() {
 				))
 				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 				strMod.SetMemory(mod.Memory())
-				synth := mod.ExportedFunction("fmt$fmt_0")
+				synth := mod.ExportedFunction("expression_0")
 				Expect(synth).ToNot(BeNil())
 				results := MustSucceed(synth.Call(ctx))
 				Expect(results).To(HaveLen(1))
@@ -4697,7 +4801,7 @@ var _ = Describe("Compiler", func() {
 			))
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			strMod.SetMemory(mod.Memory())
-			synth := mod.ExportedFunction("fmt$fmt_0")
+			synth := mod.ExportedFunction("expression_0")
 			Expect(synth).ToNot(BeNil())
 			results := MustSucceed(synth.Call(ctx))
 			handle := uint32(results[0])
@@ -4730,7 +4834,7 @@ var _ = Describe("Compiler", func() {
 				))
 				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 				strMod.SetMemory(mod.Memory())
-				synth := mod.ExportedFunction("fmt$fmt_0")
+				synth := mod.ExportedFunction("expression_0")
 				Expect(synth).ToNot(BeNil())
 				results := MustSucceed(synth.Call(ctx))
 				handle := uint32(results[0])
@@ -4764,7 +4868,7 @@ var _ = Describe("Compiler", func() {
 				))
 				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 				strMod.SetMemory(mod.Memory())
-				synth := mod.ExportedFunction("fmt$fmt_0")
+				synth := mod.ExportedFunction("expression_0")
 				Expect(synth).ToNot(BeNil())
 				results := MustSucceed(synth.Call(ctx))
 				handle := uint32(results[0])
@@ -4801,8 +4905,8 @@ var _ = Describe("Compiler", func() {
 			`, resolver))
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			strMod.SetMemory(mod.Memory())
-			Expect(mod.ExportedFunction("fmt$fmt_0")).ToNot(BeNil())
-			Expect(mod.ExportedFunction("fmt$fmt_1")).ToNot(BeNil())
+			Expect(mod.ExportedFunction("expression_0")).ToNot(BeNil())
+			Expect(mod.ExportedFunction("expression_1")).ToNot(BeNil())
 		})
 
 		It(
@@ -4838,7 +4942,7 @@ var _ = Describe("Compiler", func() {
 				chanState.Ingest(
 					telem.UnaryFrame[uint32](100, telem.NewSeriesV[float32](3.5)),
 				)
-				synth := mod.ExportedFunction("fmt$fmt_0")
+				synth := mod.ExportedFunction("expression_1")
 				Expect(synth).ToNot(BeNil())
 				handle := uint32(MustSucceed(synth.Call(ctx))[0])
 				str, ok := strState.Get(handle)
@@ -5711,7 +5815,7 @@ var _ = Describe("Compiler", func() {
 		It("Should execute time.now() via qualified name", func(ctx SpecContext) {
 			output := MustSucceed(compileWithHostImports(ctx, `
 			import time
-			func compute() i64 {
+			func compute() i64 ns {
 				return time.now()
 			}
 			`, nil))
@@ -5786,7 +5890,7 @@ var _ = Describe("Compiler", func() {
 		// Prefer time.now(). See "Should execute time.now() via qualified name" above.
 		It("Should execute bare now() (deprecated)", func(ctx SpecContext) {
 			output := MustSucceed(compileWithHostImports(ctx, `
-			func compute() i64 {
+			func compute() i64 ns {
 				return now()
 			}
 			`, nil))

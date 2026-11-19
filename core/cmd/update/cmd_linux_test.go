@@ -192,7 +192,7 @@ var _ = Describe("Update with a Core service", func() {
 			server := httptest.NewServer(http.FileServer(http.Dir(files)))
 			DeferCleanup(server.Close)
 			cfg = release.DefaultConfig
-			cfg.URL, cfg.PublicKey = server.URL, signer.PublicKey
+			cfg.URL, cfg.PublicKeys = server.URL, []string{signer.PublicKey}
 		})
 
 		// publish adds the Linux Core file and its signature to the release of version.
