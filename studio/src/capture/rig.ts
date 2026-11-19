@@ -160,6 +160,12 @@ const JUMP_STEP_MS = 100;
 /** Real time between jumpToWall steps, so requests answer before they time out. */
 const JUMP_PAUSE_MS = 20;
 
+/** Steps in a row without a new low in the lag after which jumpToWall gives up. */
+const JUMP_STALL_STEPS = 20;
+
+/** The step limit of jumpToWall, as a multiple of the steps the lag needs at best. */
+const JUMP_STEP_BUDGET = 10;
+
 /** How long a failed worker call waits for its worker to close before it throws. */
 const WORKER_CLOSE_GRACE_MS = 1000;
 
@@ -489,18 +495,25 @@ export class CaptureSession {
   /**
    * jumpToWall runs the virtual clock forward to wall time without capturing. Use it
    * before UI that compares the time now with samples stamped on wall time, which the
-   * virtual clock falls behind. Throws if the clock cannot catch up.
+   * virtual clock falls behind. Throws if the clock stops catching up or runs out of
+   * steps.
    */
   async jumpToWall(): Promise<void> {
     const lag = (): number => Date.now() - (this.origin0 + this.appMs);
-    let prev = lag();
-    while (prev > JUMP_STEP_MS) {
+    let current = lag();
+    let lowest = current;
+    let stalled = 0;
+    const budget = JUMP_STEP_BUDGET * Math.ceil(current / JUMP_STEP_MS);
+    for (let step = 0; current > JUMP_STEP_MS; step++) {
+      if (step >= budget || stalled >= JUMP_STALL_STEPS)
+        throw new Error("the virtual clock cannot catch up to wall time");
       await this.advance(JUMP_STEP_MS);
       await sleep.sleep(TimeSpan.milliseconds(JUMP_PAUSE_MS));
-      const next = lag();
-      if (next >= prev)
-        throw new Error("the virtual clock cannot catch up to wall time");
-      prev = next;
+      current = lag();
+      if (current < lowest) {
+        lowest = current;
+        stalled = 0;
+      } else stalled++;
     }
   }
 
