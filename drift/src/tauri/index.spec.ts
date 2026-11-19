@@ -96,7 +96,7 @@ describe("TauriRuntime", () => {
         beforeClose: async (label) => {
           // A timer fires after every pending microtask, so a close that does not
           // wait for the hook destroys the window first.
-          await scheduler.flushTaskQueue();
+          await scheduler.nextTask();
           commands.push(`before close ${label}`);
         },
       });

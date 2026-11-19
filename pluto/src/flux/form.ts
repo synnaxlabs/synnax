@@ -278,7 +278,7 @@ const persist = async <
     }
     const setStatus = (setter: state.SetArg<ResultStatus<never>>) =>
       setResult((p) => {
-        const nextStatus = state.executeSetter(setter, p.status);
+        const nextStatus = state.resolve(setter, p.status);
         return {
           ...p,
           status: nextStatus,
