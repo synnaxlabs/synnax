@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array, type destructor, type record } from "@synnaxlabs/x";
+import { array, type destructor, map, type record } from "@synnaxlabs/x";
 
 import { useInitializerRef } from "@/hooks";
 
@@ -47,11 +47,7 @@ export const useKeyedListeners = <
         unkeyed.delete(listener);
       };
     }
-    let listeners = keyed.get(key);
-    if (listeners == null) {
-      listeners = new Set();
-      keyed.set(key, listeners);
-    }
+    const listeners = map.getOrInsert(keyed, key, () => new Set());
     listeners.add(listener);
     return () => {
       listeners.delete(listener);

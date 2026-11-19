@@ -23,8 +23,7 @@ const quiet = (): void => {};
 describe("Synchronizer.use", () => {
   it("should run reconciles sequentially in declaration order", async () => {
     const calls: string[] = [];
-    let release: () => void = () => {};
-    const gate = new Promise<void>((resolve) => (release = resolve));
+    const { promise: gate, resolve: release } = Promise.withResolvers<void>();
     const { wrapper } = await createConsoleWrapper({ client });
     renderHook(
       () =>
@@ -59,8 +58,7 @@ describe("Synchronizer.use", () => {
 
   it("should stop a pass once the hook unmounts", async () => {
     const calls: string[] = [];
-    let release: () => void = () => {};
-    const gate = new Promise<void>((resolve) => (release = resolve));
+    const { promise: gate, resolve: release } = Promise.withResolvers<void>();
     const { wrapper } = await createConsoleWrapper({ client });
     const { unmount } = renderHook(
       () =>
@@ -96,8 +94,7 @@ describe("Synchronizer.use", () => {
 
   it("should tell a reconcile that its pass ended", async () => {
     const seen: boolean[] = [];
-    let release: () => void = () => {};
-    const gate = new Promise<void>((resolve) => (release = resolve));
+    const { promise: gate, resolve: release } = Promise.withResolvers<void>();
     const { wrapper } = await createConsoleWrapper({ client });
     const { unmount } = renderHook(
       () =>
@@ -126,8 +123,7 @@ describe("Synchronizer.use", () => {
     try {
       const closing = createTestClient();
       const calls: string[] = [];
-      let release: () => void = () => {};
-      const gate = new Promise<void>((resolve) => (release = resolve));
+      const { promise: gate, resolve: release } = Promise.withResolvers<void>();
       const { wrapper } = await createConsoleWrapper({ client: closing });
       renderHook(
         () =>
@@ -277,8 +273,7 @@ describe("Synchronizer.use", () => {
   });
 
   it("should report verified only after a full pass completes", async () => {
-    let release: () => void = () => {};
-    const gate = new Promise<void>((resolve) => (release = resolve));
+    const { promise: gate, resolve: release } = Promise.withResolvers<void>();
     const { wrapper } = await createConsoleWrapper({ client });
     const { result } = renderHook(
       () =>

@@ -99,9 +99,7 @@ export interface Entry extends Result {
  * results keep their order.
  */
 export const group = (results: Result[]): Entry[] => {
-  const sections = new Map<string, Result[]>();
-  for (const result of results)
-    sections.set(result.section, [...(sections.get(result.section) ?? []), result]);
+  const sections = Map.groupBy(results, (result) => result.section);
   return [...sections.values()].flatMap((members) =>
     members.map((result, i) => ({ ...result, first: i === 0 })),
   );
