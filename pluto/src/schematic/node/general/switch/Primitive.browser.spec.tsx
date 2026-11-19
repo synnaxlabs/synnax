@@ -75,6 +75,45 @@ const measureSymbol = async (scale: number, enabled: boolean): Promise<Geometry>
   };
 };
 
+interface Fills {
+  track: string;
+  knob: string;
+}
+
+const lyraFills = async (enabled: boolean, disabled: boolean): Promise<Fills> => {
+  const container = await renderInTheme(
+    <Input.Switch value={enabled} disabled={disabled} onChange={() => {}} />,
+  );
+  const track = find(container, ".lyra-input__switch-indicator");
+  return {
+    track: computed(track, "background-color"),
+    knob: getComputedStyle(track, "::before").getPropertyValue("background-color"),
+  };
+};
+
+const COLOR = color.construct("#3e8ef7");
+
+const renderFills = async (
+  props: { enabled?: boolean; disabled?: boolean; strokeColor?: color.Color } = {},
+): Promise<Fills & { at: (value: string) => string }> => {
+  const container = await renderInTheme(<Switch {...props} />);
+  const drawing = find(container, ".pluto-switch-symbol svg");
+  // A probe shape inside the drawing resolves a fill against its own variables.
+  const at = (value: string): string => {
+    const probe = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    probe.style.setProperty("fill", value);
+    drawing.appendChild(probe);
+    const fill = computed(probe, "fill");
+    probe.remove();
+    return fill;
+  };
+  return {
+    track: computed(find(container, ".pluto-switch-symbol__track"), "fill"),
+    knob: computed(find(container, ".pluto-switch-symbol__knob"), "fill"),
+    at,
+  };
+};
+
 const releaseHold = (): void => {
   document.dispatchEvent(new MouseEvent("mouseup"));
 };
@@ -119,6 +158,48 @@ describe("switch symbol in a browser", () => {
         const trackCenter = track.top + track.height / 2;
         if (side === "below") expect(knobCenter).toBeGreaterThan(trackCenter);
         else expect(knobCenter).toBeLessThan(trackCenter);
+      },
+    );
+  });
+
+  describe("fills", () => {
+    it.each([
+      [false, false],
+      [true, false],
+      [false, true],
+      [true, true],
+    ])(
+      "should fill an enabled of %s, disabled of %s switch as the Lyra switch does",
+      async (enabled, disabled) => {
+        const { track, knob } = await renderFills({ enabled, disabled });
+        expect({ track, knob }).toEqual(await lyraFills(enabled, disabled));
+      },
+    );
+
+    it("should fill an off colored switch with a tint of its color", async () => {
+      const { track, knob, at } = await renderFills({ strokeColor: COLOR });
+      expect(knob).toBe(at("var(--pluto-symbol-display)"));
+      expect(track).toBe(at("oklch(from var(--pluto-symbol-display) l c h / 25%)"));
+    });
+
+    it("should fill an on colored switch with its color", async () => {
+      const { track, knob, at } = await renderFills({
+        enabled: true,
+        strokeColor: COLOR,
+      });
+      expect(track).toBe(at("var(--pluto-symbol-display)"));
+      expect(knob).toBe(at("var(--pluto-gray-l1)"));
+    });
+
+    it.each([false, true])(
+      "should fill a disabled colored switch with an enabled of %s as a disabled one",
+      async (enabled) => {
+        const { track, knob } = await renderFills({
+          enabled,
+          disabled: true,
+          strokeColor: COLOR,
+        });
+        expect({ track, knob }).toEqual(await lyraFills(enabled, true));
       },
     );
   });
@@ -178,7 +259,7 @@ describe("switch symbol in a browser", () => {
       const tint = (container: HTMLElement): string =>
         computed(find(container, ".pluto-switch-symbol__tint"), "fill");
       expect(tint(await renderDelayed())).toBe(transparent);
-      const colored = await renderDelayed({ strokeColor: color.construct("#3e8ef7") });
+      const colored = await renderDelayed({ strokeColor: COLOR });
       expect(tint(colored)).not.toBe(transparent);
     });
   });
