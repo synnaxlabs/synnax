@@ -212,8 +212,8 @@ const rebase = (
 
 interface TopicValuesProps {
   name: string;
-  /** What the browse says of the topic. */
-  note: string;
+  /** What the browse says of the topic, when a browse answered. */
+  note?: string;
   /** Says what the browse or the sample could not read, or null for nothing. */
   warning: string | null;
   sample: kafka.SampledTopic;
@@ -404,7 +404,8 @@ const Content = ({
       sample?.variant === "success"
         ? countOf(defaultsOf(sample.data.shapes, recordsOf(name)))
         : null;
-    let meta = topic == null ? "Not listed" : formatRate(topic.rate);
+    let meta =
+      topic != null ? formatRate(topic.rate) : listing == null ? "" : "Not listed";
     if (picked > 0) meta = `${picked} selected`;
     else if (topic != null && !topic.readable) meta = "No access";
     else if (topic != null && !holdsRecords(topic)) meta = "Empty";
@@ -502,9 +503,11 @@ const Content = ({
         key={`${samples.listing}/${topic}`}
         name={topic}
         note={
-          activeTopic == null || listing == null
-            ? "Not listed by the cluster"
-            : describeTopic(activeTopic, listing.listedAt)
+          listing == null
+            ? undefined
+            : activeTopic == null
+              ? "Not listed by the cluster"
+              : describeTopic(activeTopic, listing.listedAt)
         }
         warning={warning === "" ? null : warning}
         sample={data}

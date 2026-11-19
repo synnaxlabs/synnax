@@ -619,6 +619,7 @@ describe("Kafka read form", () => {
       fireEvent.click(dialog.getByText(TOPIC));
       expect((await second.answered)[0].args.topics).toEqual([TOPIC]);
       await dialog.findByRole("checkbox", { name: "Record /temperature" });
+      expect(dialog.queryByText(/^Not listed/)).toBeNull();
     });
 
     it("should read a topic with partitions the browse did not measure", async () => {
