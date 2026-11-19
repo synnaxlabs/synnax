@@ -11,6 +11,7 @@ import { lineplot, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { LinePlot as PLinePlot, Panel as PlutoPanel } from "@synnaxlabs/pluto";
+import { type aether } from "@synnaxlabs/pluto/ether";
 import { id } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import {
@@ -72,6 +73,8 @@ export interface RenderLinePlotOptions {
   preloadedState?: (key: string) => ConsolePreloadedState;
   /** The client the component renders against; defaults to the root client. */
   as?: Client;
+  /** Extra Aether components, for a component that needs the worker. */
+  additionalRegistry?: aether.ComponentRegistry;
 }
 
 /** Opens the picker of the first color swatch in container and picks a named color. */
@@ -91,7 +94,12 @@ export const pickNamedColor = async (
 // result plus the Redux store and plot key.
 export const renderLinePlot = async (
   Component: ComponentType,
-  { linePlot: overrides, preloadedState, as = client }: RenderLinePlotOptions = {},
+  {
+    linePlot: overrides,
+    preloadedState,
+    as = client,
+    additionalRegistry,
+  }: RenderLinePlotOptions = {},
 ) => {
   const created = await client.lineplots.create({
     project: await project(),
@@ -101,6 +109,7 @@ export const renderLinePlot = async (
   const { wrapper: Wrapper, store } = await createConsoleWrapper({
     client: as,
     preloadedState: preloadedState?.(created.key),
+    additionalRegistry,
   });
   await loadLinePlot(Wrapper, created.key);
   const { panelKey, tabKey } = await createResourceTab(
