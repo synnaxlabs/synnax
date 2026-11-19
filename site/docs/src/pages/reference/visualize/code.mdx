@@ -105,8 +105,8 @@ row. See [choose a time range](/reference/visualize/line-plots#choose-a-time-ran
 
 ## Create a log
 
-Give each channel of the log a color. An alias of up to 64 characters shows in place of
-the channel name.
+Give each channel of the log a fixed color or a named color. An alias of up to 64
+characters shows in place of the channel name.
 
 <Client.Tabs exclude={["console"]}>
 
@@ -121,9 +121,13 @@ events = client.logs.create(
         name="Burn 2 events",
         project=project.key,
         channels=[
-            sy.log.ChannelEntry(channel=notes.key, color="#3774D0"),
             sy.log.ChannelEntry(
-                channel=state.key, color="#E8A530", alias="State"
+                channel=notes.key, color=sy.color.FixedRef(value="#3774D0")
+            ),
+            sy.log.ChannelEntry(
+                channel=state.key,
+                color=sy.color.FixedRef(value="#E8A530"),
+                alias="State",
             ),
         ],
     )
@@ -142,8 +146,12 @@ const events = await client.logs.create({
   name: "Burn 2 events",
   project: project.key,
   channels: [
-    { channel: notes.key, color: "#3774D0" },
-    { channel: state.key, color: "#E8A530", alias: "State" },
+    { channel: notes.key, color: { type: "fixed", value: "#3774D0" } },
+    {
+      channel: state.key,
+      color: { type: "fixed", value: "#E8A530" },
+      alias: "State",
+    },
   ],
 });
 ```
