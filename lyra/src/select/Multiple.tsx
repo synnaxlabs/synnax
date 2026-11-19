@@ -47,6 +47,8 @@ export interface MultipleProps<
    * the Menu key while it holds the hover. It gets the key of that option only.
    */
   menu?: DialogProps["menu"];
+  /** Whether the option with the key opens `menu`. Defaults to every option. */
+  hasMenu?: DialogProps["hasMenu"];
   variant?: BaseDialog.FrameProps["variant"];
   preview?: boolean;
 }
@@ -81,6 +83,7 @@ export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undef
   virtual = true,
   dialogProps,
   menu,
+  hasMenu,
   variant = "connected",
   preview,
   itemHeight,
@@ -132,7 +135,7 @@ export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undef
         >
           {renderTag}
         </MultipleTrigger>
-        <Dialog {...dialogProps} menu={menu}>
+        <Dialog {...dialogProps} menu={menu} hasMenu={hasMenu}>
           <Body<K>
             onSearch={onSearch}
             emptyContent={emptyContent}
