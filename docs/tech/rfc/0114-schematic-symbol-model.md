@@ -336,24 +336,22 @@ When it changes the type of a state, the confirm lists the node overrides of the
 type. When it gives a command a state, the confirm lists the `CommandBinding`s of that
 command. The Core removes them in the same transaction.
 
-An import brings the custom symbols that its schematics use, and the enumerations that
-those symbols and the node bindings name. It matches a bundled enumeration by its key:
-it reuses one that the Core has, with a warning status if the entries differ, and adds
-one that the Core lacks under that key. Every symbol import, alone, in a group, or in a
-schematic, follows one rule. When the Core already has a symbol with a bundled key, the
-import uses it and reports a warning status that names it if the two differ. The import
-then drops each node binding that names a state or command that the Core's copy lacks,
-each override of the wrong type, and each `CommandBinding` of a command that has a
-state, and the warning status names them. Otherwise it adds the bundled symbol under its
-bundled key, so a later import of the same file reuses it. A group import treats the
-group the same way, by the group key that a new manifest version carries. It uses or
-adds a group only when a new symbol joins it, and with an old manifest, which has no
-key, it adds a new group. It refuses a group that is not a top-level `schematic_symbol`
-group. The Core refuses an import that lacks any access that it needs: retrieve on a
-reused symbol, create on an added symbol, update on a reused group, create on an added
-group, retrieve on a reused enumeration, and create on an added enumeration. A reused
-symbol stays in its group. Phase 2 changes the symbol importer to keep keys, and copies
-that an import made before phase 2 stay separate symbols.
+An import brings the custom symbols that its schematics use. It keeps each enumeration
+key that the Core has and clears one that it lacks (RFC 0112 §4.2). Every symbol import,
+alone, in a group, or in a schematic, follows one rule. When the Core already has a
+symbol with a bundled key, the import uses it and reports a warning status that names it
+if the two differ. The import then drops each node binding that names a state or command
+that the Core's copy lacks, each override of the wrong type, and each `CommandBinding`
+of a command that has a state, and the warning status names them. Otherwise it adds the
+bundled symbol under its bundled key, so a later import of the same file reuses it. A
+group import treats the group the same way, by the group key that a new manifest version
+carries. It uses or adds a group only when a new symbol joins it, and with an old
+manifest, which has no key, it adds a new group. It refuses a group that is not a
+top-level `schematic_symbol` group. The Core refuses an import that lacks any access
+that it needs: retrieve on a reused symbol, create on an added symbol, update on a
+reused group, and create on an added group. A reused symbol stays in its group. Phase 2
+changes the symbol importer to keep keys, and copies that an import made before phase 2
+stay separate symbols.
 
 A custom symbol holds only shapes. It starts from an SVG upload or a blank canvas, and
 the editor's drawing tools save SVG markup. A part names its shapes by `#id`, `.class`,
