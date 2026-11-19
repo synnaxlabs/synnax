@@ -140,8 +140,8 @@ Binding struct {
   `leaseholder << 20 | local_key`. No key is reused: the counter write is its own synced
   commit before the record commits (`x/go/kv/counter.go:56-64`,
   `x/go/kv/pebblekv/pebblekv.go:92-94`, `:114-126`). From Phase 3, no code routes on key
-  bits (`core/pkg/distribution/channel/channel.go:52`), and the TS cache stops trusting
-  blocks by `leaseholder`. RFC 0117 owns the counter and its cap.
+  bits (`core/pkg/distribution/channel/channel.go:52`). RFC 0117 owns the counter and
+  its cap, and its Phase 4 makes the TS cache stop trusting blocks by `leaseholder`.
 - **`data_type`** and **`virtual`**: The type for new writes, stored as its name, and
   true for a channel whose samples are never stored. The framer reads both at writer
   open. `description` is free text for people. Computed on request: `path`, `uses`, and
