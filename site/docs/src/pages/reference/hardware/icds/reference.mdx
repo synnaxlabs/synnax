@@ -462,9 +462,7 @@ code, `client.icds.check` returns the problems of an ICD.
 
 <Problem.List>
 
-<Problem.Item
-  message={["name is required", "delimiter is required", "tag is required"]}
->
+<Problem.Item message={["name is required", "delimiter is required"]}>
   <Problem.Cause>A required property is empty.</Problem.Cause>
   <Problem.Fix>Give the property a value.</Problem.Fix>
 </Problem.Item>
@@ -594,6 +592,17 @@ code, `client.icds.check` returns the problems of an ICD.
 <Problem.Item message={"value must be finite"}>
   <Problem.Cause>The value of a float match rule is not a finite number.</Problem.Cause>
   <Problem.Fix>Enter a finite number.</Problem.Fix>
+</Problem.Item>
+
+</Problem.List>
+
+### Text
+
+<Problem.List>
+
+<Problem.Item message={"tag is required"}>
+  <Problem.Cause>A tagged field has no tag.</Problem.Cause>
+  <Problem.Fix>Enter the text that comes before the value, such as `T=`.</Problem.Fix>
 </Problem.Item>
 
 </Problem.List>
