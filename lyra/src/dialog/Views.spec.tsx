@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
+  act,
   fireEvent,
   render,
   renderHook,
@@ -110,6 +111,44 @@ describe("Views", () => {
     expect(onViewingChange.mock.calls).toEqual([[true]]);
     fireEvent.click(c.getByLabelText("Back"));
     expect(onViewingChange.mock.calls).toEqual([[true], [false]]);
+  });
+
+  it("should run the callback of back once the children show, not the focus return", () => {
+    let childrenShown: boolean | undefined;
+    const Done = (): ReactElement => {
+      const { back } = Dialog.useViews();
+      return (
+        <button
+          onClick={() =>
+            back(() => {
+              childrenShown = c.queryByText("done") == null;
+            })
+          }
+        >
+          done
+        </button>
+      );
+    };
+    const c = renderViews(<Opener content={<Done />} />);
+    const opener = c.getByText("open");
+    fireEvent.click(opener);
+    fireEvent.click(c.getByText("done"));
+    expect(childrenShown).toBe(true);
+    expect(document.activeElement).not.toBe(opener);
+  });
+
+  it("should run the callback of back at once from a view that closed", () => {
+    let back: ((then?: () => void) => void) | undefined;
+    const Late = (): ReactElement => {
+      back = Dialog.useViews().back;
+      return <span>view body</span>;
+    };
+    const c = renderViews(<Opener content={<Late />} />);
+    fireEvent.click(c.getByText("open"));
+    fireEvent.click(c.getByLabelText("Back"));
+    const then = vi.fn();
+    act(() => back?.(then));
+    expect(then).toHaveBeenCalledOnce();
   });
 
   it("should throw from useViews outside a Dialog.Views", () => {

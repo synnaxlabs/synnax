@@ -10,38 +10,21 @@
 import { type color } from "@synnaxlabs/client";
 import { Color } from "@synnaxlabs/lyra/color";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
-import { Flex } from "@synnaxlabs/lyra/flex";
-import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Input } from "@synnaxlabs/lyra/input";
 import { Menu } from "@synnaxlabs/lyra/menu";
-import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
-import { DarkInput, Editor, LightInput } from "@/color/Editor";
-import { formPath } from "@/color/queries";
+import { Editor } from "@/color/Editor";
+import { Fields } from "@/color/View";
 
 interface EditViewProps {
   itemKey: color.Key;
 }
 
-/** The named color editor of Settings, laid out for the inside of a picker. */
+/** Edits a named color from a view of the picker. Each edit saves at once. */
 const EditView = ({ itemKey }: EditViewProps): ReactElement => (
   <Editor itemKey={itemKey}>
-    <Text.Text level="small" color={9}>
-      Changes every use of this color.
-    </Text.Text>
-    <Form.Field<string> path={formPath.name} label="Name" padHelpText={false}>
-      {(p) => <Input.Text {...p} placeholder="Color name" />}
-    </Form.Field>
-    <Flex.Box x gap="large">
-      <Input.Item label="Light" padHelpText={false}>
-        <LightInput />
-      </Input.Item>
-      <Input.Item label="Dark" padHelpText={false}>
-        <DarkInput />
-      </Input.Item>
-    </Flex.Box>
+    <Fields note="Changes every use of this color." />
   </Editor>
 );
 

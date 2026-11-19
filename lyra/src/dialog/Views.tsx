@@ -26,6 +26,12 @@ export interface ViewsContextValue {
    * opener, since a click in WebKit focuses no button.
    */
   open: (title: string, content: ReactNode, opener?: HTMLElement) => void;
+  /**
+   * Returns to the children, as Back does. A given callback runs once the children
+   * show, in place of the return of the focus to the opener, or at once when they show
+   * already.
+   */
+  back: (then?: () => void) => void;
   /** If true, a view shows in place of the children. */
   viewing: boolean;
 }
@@ -67,8 +73,18 @@ export const Views = ({
   const [view, setView] = useState<View | null>(null);
   const root = useRef<HTMLDivElement>(null);
   const opener = useRef<HTMLElement | null>(null);
+  const after = useRef<(() => void) | undefined>(undefined);
+  // A ref, so that a callback from a view that closed sees the children show.
+  const viewing = useRef(false);
   useEffect(() => {
-    if (view != null || opener.current == null) return;
+    if (view != null) return;
+    const then = after.current;
+    after.current = undefined;
+    if (then != null) {
+      opener.current = null;
+      return then();
+    }
+    if (opener.current == null) return;
     if (opener.current.isConnected) opener.current.focus();
     else root.current?.focus();
     opener.current = null;
@@ -81,15 +97,19 @@ export const Views = ({
     else if (clicked != null && active.contains(clicked)) opener.current = clicked;
     else opener.current = active;
     const width = root.current?.getBoundingClientRect().width ?? 0;
+    viewing.current = true;
     setView({ title, content, width });
     onViewingChange?.(true);
   };
-  const back = (): void => {
+  const back = (then?: () => void): void => {
+    if (!viewing.current) return then?.();
+    viewing.current = false;
+    after.current = then;
     setView(null);
     onViewingChange?.(false);
   };
   return (
-    <ViewsContext value={{ open, viewing: view != null }}>
+    <ViewsContext value={{ open, back, viewing: view != null }}>
       <Flex.Box
         y
         gap={0}
@@ -116,7 +136,7 @@ export const Views = ({
                 size="small"
                 square
                 textColor={9}
-                onClick={back}
+                onClick={() => back()}
                 autoFocus
                 tooltip="Back"
                 aria-label="Back"

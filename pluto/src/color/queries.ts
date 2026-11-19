@@ -10,7 +10,7 @@
 import { color, type group } from "@synnaxlabs/client";
 import { color as xcolor, deep, verbs } from "@synnaxlabs/x";
 import { generateKeyBetween } from "fractional-indexing";
-import type z from "zod";
+import z from "zod";
 
 import { Flux } from "@/flux";
 import { flux } from "@/flux/aether";
@@ -72,7 +72,11 @@ export const { useResult: useResultBuiltins } = Flux.createRetrieve<
   retrieve: async ({ client }) => await client.colors.retrieveBuiltins(),
 });
 
-export const createFormSchema = color.namedZ.partial({ key: true });
+const nameZ = z.string().refine((name) => name.trim() !== "", "Name is required");
+
+export const createFormSchema = color.namedZ
+  .partial({ key: true })
+  .extend({ name: nameZ });
 
 export const createFormPath = deep.path<z.infer<typeof createFormSchema>>();
 
@@ -91,7 +95,9 @@ export const useCreateForm = Flux.createForm<null, typeof createFormSchema>({
   },
 });
 
-export const formSchema = color.namedZ.pick({ name: true, light: true, dark: true });
+export const formSchema = color.namedZ
+  .pick({ name: true, light: true, dark: true })
+  .extend({ name: nameZ });
 
 export const formPath = deep.path<z.infer<typeof formSchema>>();
 
