@@ -99,7 +99,7 @@ const setup = async (
   const setSeries = (colors: color.Color[]): void =>
     seriesProvider._updateState({
       path: [seriesProvider.key],
-      type: aetherColor.series.Provider.TYPE,
+      type: aetherColor.SeriesProvider.TYPE,
       state: { colors },
       create: () => {
         throw new Error("should not create");

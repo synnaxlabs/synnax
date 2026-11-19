@@ -703,7 +703,7 @@ describe("Select", () => {
       page
         .getByRole("dialog", { name: "Stage" })
         .element()
-        .querySelector(".lyra-views")
+        .querySelector(".lyra-dialog-views")
         ?.classList.contains("lyra--pack");
 
     it("should pick with the arrow keys and Enter, and not filter as the user types", async () => {
@@ -1324,7 +1324,9 @@ describe("Select", () => {
 
     it("should join the search and the list over one hairline", async () => {
       await renderEditable();
-      const views = document.querySelector(".lyra-select__dialog > .lyra-views")!;
+      const views = document.querySelector(
+        ".lyra-select__dialog > .lyra-dialog-views",
+      )!;
       const [search, list] = Array.from(views.children);
       expect(computed(search, "border-bottom-left-radius")).toBe("0px");
       expect(computed(list, "border-top-left-radius")).toBe("0px");

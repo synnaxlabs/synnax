@@ -9,22 +9,25 @@
  * included in the file licenses/APL.txt.
  */
 
-.lyra-views {
+.lyra-dialog-views {
     /* The box takes the focus, with no ring, when the opener of a view is gone. */
     outline: none;
 
     /* The children stay mounted under a view, so Back finds them as they were. */
-    &.lyra-views--viewing > :not(.lyra-views__header, .lyra-views__view) {
-        display: none;
+    &.lyra-dialog-views--viewing
+        > :not(.lyra-dialog-views__header, .lyra-dialog-views__view) {
+        /* stylelint-disable-next-line declaration-no-important -- a child's own display
+           rule, such as that of a Flex.Box, must not show it under a view. */
+        display: none !important;
     }
 
-    & > .lyra-views__header {
+    & > .lyra-dialog-views__header {
         flex-shrink: 0;
         padding: 1rem 1.5rem;
         border-bottom: var(--pluto-border-width) solid var(--pluto-gray-l6);
     }
 
-    & > .lyra-views__view {
+    & > .lyra-dialog-views__view {
         flex-shrink: 0;
         padding: 1.5rem;
     }

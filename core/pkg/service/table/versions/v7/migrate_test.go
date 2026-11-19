@@ -23,6 +23,40 @@ import (
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
+var _ = Describe("MigrateCellConfig", func() {
+	c := color.Color{R: 1, G: 2, A: 128}
+	fixed := &servicecolor.Ref{Variant: servicecolor.FixedRef{Value: c}}
+	DescribeTable("Should store each cell color as a fixed color",
+		func(ctx SpecContext, old v6.CellConfig, expected v7.CellConfig) {
+			Expect(v7.MigrateCellConfig(ctx, old)).To(Equal(expected))
+		},
+		Entry("text with colors",
+			v6.CellConfig{Variant: v6.TextCellConfig{
+				Value: "Pressure", FillColor: &c, TextColor: &c,
+			}},
+			v7.CellConfig{Variant: v7.TextCellConfig{
+				Value: "Pressure", FillColor: fixed, TextColor: fixed,
+			}},
+		),
+		Entry("value with colors",
+			v6.CellConfig{Variant: v6.ValueCellConfig{
+				Channel: 1, FillColor: &c, TextColor: &c, StalenessColor: &c,
+			}},
+			v7.CellConfig{Variant: v7.ValueCellConfig{
+				Channel: 1, FillColor: fixed, TextColor: fixed, StalenessColor: fixed,
+			}},
+		),
+		Entry("text with absent colors",
+			v6.CellConfig{Variant: v6.TextCellConfig{Value: "Pressure"}},
+			v7.CellConfig{Variant: v7.TextCellConfig{Value: "Pressure"}},
+		),
+		Entry("value with absent colors",
+			v6.CellConfig{Variant: v6.ValueCellConfig{Channel: 1}},
+			v7.CellConfig{Variant: v7.ValueCellConfig{Channel: 1}},
+		),
+	)
+})
+
 var _ = Describe("Migration", func() {
 	It("Should store each cell color of a table that v0.62 stored as a fixed color",
 		func(ctx SpecContext) {
