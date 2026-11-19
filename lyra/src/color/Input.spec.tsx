@@ -10,7 +10,7 @@
 import { color } from "@synnaxlabs/x";
 import { act, fireEvent, render, type RenderResult } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
-import { describe, expect, it, type Mock, vi } from "vitest";
+import { describe, expect, expectTypeOf, it, type Mock, vi } from "vitest";
 
 import { Color } from "@/color";
 import { CSS } from "@/css";
@@ -94,6 +94,10 @@ describe("Input", () => {
       fireEvent.keyDown(textOf(c), { key: "Escape" });
       expect(onChange).not.toHaveBeenCalled();
       expect(textOf(c).value).toEqual("Fault");
+    });
+
+    it("should take the link only from the library", () => {
+      expectTypeOf<Color.InputProps>().not.toHaveProperty("named");
     });
 
     it("should unlink when the user types a hex", () => {

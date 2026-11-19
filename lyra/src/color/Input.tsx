@@ -20,7 +20,10 @@ import { Flex } from "@/flex";
 
 export interface InputProps
   extends
-    Omit<HexTextProps, "text" | "alpha" | "onChange" | "onClear" | "startContent">,
+    Omit<
+      HexTextProps,
+      "text" | "named" | "alpha" | "onChange" | "onClear" | "startContent"
+    >,
     Pick<SwatchProps, "mixed" | "library"> {
   /** The picked color. Absent means the theme picks. */
   value?: color.Crude;
