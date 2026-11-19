@@ -55,9 +55,8 @@ interface InternalState {
   requestRender: render.Requestor;
   draw: Draw2D;
   runAsync: status.ErrorHandler;
-  // The timer that draws a running range again, and its period in milliseconds.
-  timer?: ReturnType<typeof setInterval>;
-  period?: number;
+  // Draws the strip again when it next changes on its own.
+  timer?: ReturnType<typeof setTimeout>;
 }
 
 export interface ProviderProps {
@@ -96,10 +95,12 @@ const covers = (window: TimeRange, viewport: TimeRange): boolean =>
   window.contains(viewport) &&
   window.span.valueOf() <= 2n * WINDOW_SPANS * viewport.span.valueOf();
 
-// Redraw periods in milliseconds: each second for T+, and 15 Hz while a head pulses. A
+// Redraw delays in milliseconds: each second for T+, and 15 Hz while a head pulses. A
 // faster pulse repaints the whole canvas more often for no visible gain.
 const CLOCK_PERIOD = 1000;
 const HEAD_PERIOD = 66;
+// The longest delay setTimeout accepts. It fires a longer one at once.
+const MAX_DELAY = 2 ** 31 - 1;
 
 export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> {
   static readonly TYPE = "range-provider";
@@ -124,17 +125,18 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
 
   afterDelete(): void {
     this.internal.retrieve.close();
-    this.schedule(undefined);
+    clearTimeout(this.internal.timer);
   }
 
-  // Draws the strip again at each period, or stops when the period is undefined.
-  private schedule(period: number | undefined): void {
+  // Draws the strip again after delay milliseconds, or never when delay is undefined.
+  // Each render sets it again, so the timer stops when the plot stops drawing.
+  private redrawIn(delay: number | undefined): void {
     const { internal: i } = this;
-    if (period === i.period) return;
-    clearInterval(i.timer);
+    clearTimeout(i.timer);
     i.timer =
-      period == null ? undefined : setInterval(() => i.requestRender("tool"), period);
-    i.period = period;
+      delay == null
+        ? undefined
+        : setTimeout(() => i.requestRender("tool"), Math.min(delay, MAX_DELAY));
   }
 
   render(props: ProviderProps): void {
@@ -172,11 +174,15 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
     const count = packed.length;
     const height = stripHeight(lanes);
     const { cursor, visible, menuOpen, hovered: shown } = this.state;
-    const running = visible ? bars.filter((b) => b.running) : [];
-    let period: number | undefined;
-    if (running.some((b) => b.end <= box.right(region))) period = HEAD_PERIOD;
-    else if (running.length > 0) period = CLOCK_PERIOD;
-    this.schedule(period);
+    const drawn = visible ? bars : [];
+    const running = drawn.filter((b) => b.running);
+    // A range in view that has not started becomes a running bar at its start.
+    const delays = drawn
+      .filter((b) => now.before(b.range.timeRange.start))
+      .map((b) => new TimeRange(now, b.range.timeRange.start).span.milliseconds);
+    if (running.some((b) => b.end <= box.right(region))) delays.push(HEAD_PERIOD);
+    else if (running.length > 0) delays.push(CLOCK_PERIOD);
+    this.redrawIn(delays.length === 0 ? undefined : Math.min(...delays));
     // The range of an open menu stays hovered while a live plot slides it away from the
     // cursor, so the menu keeps acting on the range the user clicked.
     let hovered: Bar | null = null;
@@ -200,9 +206,9 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
     let hoveredState: SelectedState | null = null;
     if (hovered != null) {
       const r = hovered.range;
-      // A running range zooms to the axis end, which follows the newest sample.
+      // A running range zooms to its newest sample, or to the axis end when not live.
       const end = hovered.running
-        ? TimeStamp.min(r.timeRange.end, timeRange.end)
+        ? TimeStamp.min(r.timeRange.end, newest ?? timeRange.end)
         : r.timeRange.end;
       hoveredState = {
         key: r.key,

@@ -518,45 +518,91 @@ describe("Provider", () => {
         const corners = recorder.upper2d.calls.filter((c) => c.op === "arcTo");
         expect(corners).toHaveLength(2);
         corners.forEach((c) => expect(c.args[0]).toBeCloseTo(749));
+        // Zoom to range ends where the bar ends.
+        provider.setState((s) => ({ ...s, cursor: { x: 600, y: -14 } }));
+        provider.render(props);
+        expect(provider.state.hovered?.key).toEqual(rng.key);
+        expect(provider.state.hovered?.viewport.upper).toBeCloseTo(750);
       } finally {
         await createTestClient().ranges.delete(rng.key);
       }
     });
-  });
 
-  it("should redraw while a head pulses, and stop when the strip hides", async () => {
-    const now = TimeStamp.now();
-    const [rng] = await createRanges(now.sub(TimeSpan.seconds(30)), [[0, 3600]]);
-    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
-    try {
-      const provider = mount();
-      const props = {
-        ...renderProps(new TimeRange(now.sub(TimeSpan.minutes(1)), now)),
-        newest: now.sub(TimeSpan.seconds(10)),
-      };
-      provider.setState((s) => ({ ...s, visible: false }));
-      await expect
-        .poll(() => {
-          provider.render(props);
-          return provider.state.count;
-        })
-        .toBeGreaterThan(0);
-      const redraws = (): number => {
+    it("should redraw as the strip changes, and stop when it hides", async () => {
+      const now = TimeStamp.now();
+      const rng = await createRunning(now);
+      try {
+        const provider = mount();
+        const live = {
+          ...renderProps(lastMinute(now)),
+          newest: now.sub(TimeSpan.seconds(75)),
+        };
+        let props: range.ProviderProps = live;
+        provider.setState((s) => ({ ...s, visible: false }));
+        await expect
+          .poll(() => {
+            provider.render(props);
+            return provider.state.count;
+          })
+          .toBeGreaterThan(0);
+        vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+        requested.mockImplementation(() => provider.render(props));
+        const redraws = (): number => {
+          requested.mockClear();
+          vi.advanceTimersByTime(1000);
+          return requested.mock.calls.length;
+        };
+        provider.render(props);
+        expect(redraws()).toEqual(0);
+        provider.setState((s) => ({ ...s, visible: true }));
+        provider.render(props);
+        expect(redraws()).toEqual(15);
+        // With no live samples the bar runs to now, past the view, so only T+ changes.
+        props = renderProps(lastMinute(now));
+        provider.render(props);
+        expect(redraws()).toEqual(1);
+        provider.setState((s) => ({ ...s, visible: false }));
+        provider.render(props);
+        expect(redraws()).toEqual(0);
+      } finally {
+        requested.mockReset();
+        vi.useRealTimers();
+        await createTestClient().ranges.delete(rng.key);
+      }
+    });
+
+    it("should redraw when a range in view starts", async () => {
+      const now = TimeStamp.now();
+      const rng = await createTestClient().ranges.create({
+        name: `planned-${id.create()}`,
+        timeRange: new TimeRange(
+          now.add(TimeSpan.seconds(5)),
+          now.add(TimeSpan.minutes(10)),
+        ),
+        color: "#7C3AED",
+      });
+      try {
+        const provider = mount();
+        const props = renderProps(new TimeRange(now, now.add(TimeSpan.minutes(20))));
+        await expect
+          .poll(() => {
+            provider.render(props);
+            return provider.state.count;
+          })
+          .toBeGreaterThan(0);
+        vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+        provider.render(props);
+        const wait = new TimeRange(TimeStamp.now(), rng.timeRange.start).span;
         requested.mockClear();
-        vi.advanceTimersByTime(1000);
-        return requested.mock.calls.length;
-      };
-      expect(redraws()).toEqual(0);
-      provider.setState((s) => ({ ...s, visible: true }));
-      provider.render(props);
-      expect(redraws()).toEqual(15);
-      provider.setState((s) => ({ ...s, visible: false }));
-      provider.render(props);
-      expect(redraws()).toEqual(0);
-    } finally {
-      vi.useRealTimers();
-      await createTestClient().ranges.delete(rng.key);
-    }
+        vi.advanceTimersByTime(wait.milliseconds - 100);
+        expect(requested).not.toHaveBeenCalled();
+        vi.advanceTimersByTime(200);
+        expect(requested).toHaveBeenCalledTimes(1);
+      } finally {
+        vi.useRealTimers();
+        await createTestClient().ranges.delete(rng.key);
+      }
+    });
   });
 
   it("should show the length of an ended range at the end of its bar", async () => {
