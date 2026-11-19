@@ -197,15 +197,16 @@ Check the path, the body fields, and the authentication of the server.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"Pointer ... is already used by another field"}>
+<Problem.Item message={"Pointer ... is already used by or overlaps another field"}>
 <Problem.Cause>
 
-Two fields in the body use the same pointer.
+Two fields in the body use the same pointer, or one pointer sits inside another, such
+as `/value` and `/value/unit`.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Give each field its own pointer.
+Give each field its own pointer that does not overlap another.
 
 </Problem.Fix>
 </Problem.Item>
