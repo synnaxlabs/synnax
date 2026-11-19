@@ -15,8 +15,11 @@
     --pluto-input-table-action-width: 5rem;
 }
 
-/* A table wider than its container scrolls. */
+/* A table wider than its container scrolls. A scroll box clips an outset ring, so
+   rings in it draw inset. */
 .lyra-input__table-scroll {
+    --pluto-focus-ring-offset: var(--pluto-focus-ring-inset);
+
     width: 100%;
     min-width: 0;
     overflow-x: auto;
