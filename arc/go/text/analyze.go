@@ -3337,10 +3337,8 @@ func lowerStageItem(
 	}
 	if decl := declarationOf(item); decl != nil {
 		scope, nodes, edges, ok := lowerDeclaration(ctx.Child(decl), kg, shell)
-		if !ok {
-			return nil, nil, nil, false
-		}
-		return ir.Members{{Scope: &scope}}, nodes, edges, true
+		scope.Liveness = ir.LivenessAlways
+		return ir.Members{{Scope: &scope}}, nodes, edges, ok
 	}
 	return nil, nil, nil, true
 }

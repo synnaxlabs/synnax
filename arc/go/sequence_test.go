@@ -10889,6 +10889,10 @@ var _ = Describe("Sequence", func() {
 				Expect(lastF32(out, outB)).To(Equal(float32(5)))
 			},
 			starts(both(watch)),
+			Entry("a stage declared in the stage", "",
+				"stage watch {\ntank + 10 -> out_a\n}"),
+			Entry("a sequence declared in the stage", "",
+				"sequence watch {\nstage run {\ntank + 10 -> out_a\n}\n}"),
 		)
 
 		DescribeTable("Should run a body as a step of the sequence that holds it",

@@ -44,10 +44,10 @@ See [steps of a sequence](/reference/control/arc/execution-model#steps-of-a-sequ
 ### Keep a test and its abort in one sequence
 
 Make each test one sequence of named stages, and reach the abort stage by name from each
-stage that needs it. This keeps the test and its safety actions together. A separate
-top-level abort also works: a transition to it stops the whole sequence that holds the
-transition. Never put the abort stage right after a write, a wait, or a gate step,
-because those steps move on to the next step in the code. See
+stage that needs it. This keeps the test and its safety actions together. An abort that
+is declared outside the sequence, or imported, runs inline in the stage that starts it,
+and does not stop the test. Never put the abort stage right after a write, a wait, or a
+gate step, because those steps move on to the next step in the code. See
 [write a test sequence](/reference/control/arc/test-sequences).
 
 ### Add a timeout to each stage that waits

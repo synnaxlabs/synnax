@@ -151,7 +151,7 @@ sequence main {
 start_cmd == 1 => main
 ```
 
-A transition from inside the test to a top-level abort stops the whole test, including
-any nested sequences. Its alarm checks stop too. To keep watching after an abort, put
-the monitoring flow at the top level. A top-level `=> abort` starts the abort and stops
-nothing else.
+A transition to the abort stage stops the stage that holds the transition, including any
+nested sequences/stages. Its alarm checks stop too. To keep watching after an abort, put
+the monitoring flow at the top level. An abort that is declared outside the sequence, or
+imported, runs inline and does not stop the test.

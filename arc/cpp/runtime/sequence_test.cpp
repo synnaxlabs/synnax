@@ -1984,6 +1984,7 @@ TEST(
     EXPECT_EQ(last<std::uint8_t>(out, h.key("out")), 60);
 }
 
+/// @brief it should re-point a channel-read variable from an anonymous sequence.
 TEST(VariableReassignmentTest, RePointsAChannelReadVariableFromAnAnonymousSequence) {
     Sequence h(
         R"(
@@ -3305,6 +3306,7 @@ class NameLineTest : public testing::TestWithParam<std::string> {};
 
 INSTANTIATE_TEST_SUITE_P(Names, NameLineTest, testing::Values("a", "b"));
 
+/// @brief it should start a copy from each line that names the body.
 TEST_P(NameLineTest, StartsACopyFromEachLineThatNamesTheBody) {
     using namespace names;
     Program p(TWO_USES_OF_ABORT);
@@ -3313,6 +3315,7 @@ TEST_P(NameLineTest, StartsACopyFromEachLineThatNamesTheBody) {
     EXPECT_EQ(p.phase(), (Phase{.log = {"main", "abort"}}));
 }
 
+/// @brief it should start a copy from a stage and from the top level.
 TEST(NameTest, StartsACopyFromAStageAndFromTheTopLevel) {
     using namespace names;
     Program p(R"(
@@ -3336,6 +3339,7 @@ class TopLevelFlowTest : public testing::TestWithParam<std::string> {};
 
 INSTANTIATE_TEST_SUITE_P(Names, TopLevelFlowTest, testing::Values("a", "b"));
 
+/// @brief it should start a copy from each top-level flow.
 TEST_P(TopLevelFlowTest, StartsACopyFromEachTopLevelFlow) {
     using namespace names;
     Program p(R"(
@@ -3382,6 +3386,7 @@ INSTANTIATE_TEST_SUITE_P(
     names::case_name
 );
 
+/// @brief it should start each body whose line is true in the same cycle.
 TEST_P(SameCycleTest, StartsEachBodyWhoseLineIsTrueInTheSameCycle) {
     using namespace names;
     Program p(GetParam().source);
@@ -3392,6 +3397,7 @@ TEST_P(SameCycleTest, StartsEachBodyWhoseLineIsTrueInTheSameCycle) {
     EXPECT_EQ(log, (std::vector<std::string>{"abort", "flight"}));
 }
 
+/// @brief it should not act on a losing transition after its stage restarts.
 TEST(NameTest, DoesNotActOnALosingTransitionAfterItsStageRestarts) {
     using namespace names;
     Program p(R"(
@@ -3409,6 +3415,7 @@ TEST(NameTest, DoesNotActOnALosingTransitionAfterItsStageRestarts) {
     EXPECT_EQ(p.phase(), (Phase{.log = {"s", "s"}}));
 }
 
+/// @brief it should not start a copy again while it runs.
 TEST(NameTest, DoesNotStartACopyAgainWhileItRuns) {
     using namespace names;
     Program p(R"(
@@ -3454,6 +3461,7 @@ INSTANTIATE_TEST_SUITE_P(
     names::case_name
 );
 
+/// @brief it should start a copy in the cycle of the flow that starts it.
 TEST_P(StartCycleTest, StartsACopyInTheCycleOfTheFlowThatStartsIt) {
     using namespace names;
     Program p(GetParam().source);
@@ -3463,6 +3471,7 @@ TEST_P(StartCycleTest, StartsACopyInTheCycleOfTheFlowThatStartsIt) {
     EXPECT_EQ(p.phase(), (Phase{.log = {"flight"}}));
 }
 
+/// @brief it should not run a triggered body of a stage that left and entered again.
 TEST(NameTest, DoesNotRunATriggeredBodyOfAStageThatLeftAndEnteredAgain) {
     using namespace names;
     Program p(R"(
@@ -5274,7 +5283,18 @@ TEST(ParametersTest, FollowsAVariableOfTheCallerWhileTheInstanceRuns) {
 /// @brief it should run a body inside the stage that holds it.
 TEST(ParametersTest, RunsABodyInsideTheStageThatHoldsIt) {
     using namespace parameters;
-    for (const auto &form: starts(both(WATCH))) {
+    auto forms = starts(both(WATCH));
+    forms.push_back({
+        "a stage declared in the stage",
+        "",
+        "stage watch {\n%tank% + 10 -> %out_a%\n}",
+    });
+    forms.push_back({
+        "a sequence declared in the stage",
+        "",
+        "sequence watch {\nstage run {\n%tank% + 10 -> %out_a%\n}\n}",
+    });
+    for (const auto &form: forms) {
         SCOPED_TRACE(form.name);
         auto h = new_h(
             form.declaration + "\nstage main {\n" + form.use +

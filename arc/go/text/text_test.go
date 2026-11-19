@@ -8531,7 +8531,7 @@ time.wait(duration=500ms) -> output`
 			)
 
 			It(
-				"Should compile the named scopes inside a copy as LivenessGated at every depth",
+				"Should compile each named step inside a copy as LivenessGated",
 				func(ctx SpecContext) {
 					resolver := []symbol.Symbol{
 						{
@@ -8577,7 +8577,7 @@ time.wait(duration=500ms) -> output`
 						}
 					}
 					Expect(inner).ToNot(BeNil())
-					Expect(inner.Liveness).To(Equal(ir.LivenessGated))
+					Expect(inner.Liveness).To(Equal(ir.LivenessAlways))
 					Expect(inner.Steps).To(HaveLen(1))
 					stageT := inner.Steps[0].Scope
 					Expect(stageT).ToNot(BeNil())
