@@ -10,7 +10,7 @@
 import { icd, mqtt, type rack } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
-import { DataType, type payload, uuid } from "@synnaxlabs/x";
+import { DataType, type payload, TimeStamp, uuid } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -469,6 +469,47 @@ describe("MQTT read form", () => {
     });
   });
 
+  it("should store the default and mapping set in the details of a field", async () => {
+    const { draft } = await renderRead({ fields: [createField("state", "integer")] });
+    await selectField("state");
+    fireEvent.click(await screen.findByRole("checkbox", { name: "Optional" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Add mapping" }));
+    for (const [label, value] of [
+      ["Label 1", "RUN"],
+      ["Value 1", "1"],
+    ]) {
+      const input = await screen.findByLabelText(label);
+      fireEvent.change(input, { target: { value } });
+      fireEvent.blur(input);
+    }
+    const { icd: icdKey } = plainOf((await retrieveEntries(draft.key))[0]);
+    await waitFor(async () =>
+      expect(jsonFieldsOf(await client.icds.retrieve(icdKey))[0]).toMatchObject({
+        default: "0",
+        enumValues: [{ label: "RUN", value: "1" }],
+      }),
+    );
+  });
+
+  it("should remove the default of a timestamp field in its details", async () => {
+    const at = TimeStamp.milliseconds(1_700_000_000_000);
+    const time = icd.jsonFieldZ.parse({
+      ...createTimeField(),
+      default: at,
+    });
+    const { draft } = await renderRead({ fields: [time], bound: { [time.key]: 0 } });
+    await selectField("time");
+    expect(await screen.findByText(at.toString("preciseDate", "local"))).toBeTruthy();
+    fireEvent.click(await screen.findByRole("checkbox", { name: "Optional" }));
+    const { icd: icdKey } = plainOf((await retrieveEntries(draft.key))[0]);
+    await waitFor(async () =>
+      expect(jsonFieldsOf(await client.icds.retrieve(icdKey))[0]).not.toHaveProperty(
+        "default",
+      ),
+    );
+    expect(screen.queryByRole("checkbox", { name: "Optional" })).toBeNull();
+  });
+
   it("should add fields to a topic in the ICD of its entry and read them", async () => {
     const kiln = await createEntry({
       topic: "plant/kiln",
@@ -671,6 +712,30 @@ describe("MQTT read form", () => {
     expect((box as HTMLInputElement).checked).toBe(false);
   });
 
+  it("should read the time only from a timestamp field with no default", async () => {
+    const started = icd.jsonFieldZ.parse({
+      name: "started",
+      pointer: "/started",
+      type: "timestamp",
+      timeFormat: "unix_ms",
+      default: TimeStamp.milliseconds(1_700_000_000_000),
+    });
+    const time = createTimeField();
+    const { draft } = await renderRead({ fields: [started, time] });
+    fireEvent.click(await screen.findByRole("button", { name: "Payload value" }));
+    await waitFor(async () =>
+      expect(plainOf((await retrieveEntries(draft.key))[0]).messages[0].index).toBe(
+        time.key,
+      ),
+    );
+    fireEvent.click(await screen.findByRole("button", { name: /^Field/ }));
+    const option = await screen.findByRole("option", { name: /^started/ });
+    expect(option.getAttribute("aria-disabled")).toBe("true");
+    expect(option.textContent).toContain(
+      "It has a default, so it cannot be the index.",
+    );
+  });
+
   describe("messages", () => {
     it("should list each message of a topic that reads several, with its fields", async () => {
       const entry = await createEntry({
@@ -826,6 +891,22 @@ describe("MQTT read form", () => {
         (await client.icds.retrieve(entry.icd)).messages.map(({ name }) => name),
       ).toEqual([TOPIC, `${TOPIC} 2`]),
     );
+  });
+
+  describe("field details", () => {
+    it("should show the scale, offset, and units only for a number type", async () => {
+      await renderRead({
+        fields: [createField("temperature", "float"), createField("mode", "string")],
+      });
+      await selectField("temperature");
+      await screen.findByText("Units");
+      expect(screen.getByText("Scale")).toBeTruthy();
+      expect(screen.getByText("Offset")).toBeTruthy();
+      await selectField("mode");
+      await waitFor(() => expect(screen.queryByText("Units")).toBeNull());
+      expect(screen.queryByText("Scale")).toBeNull();
+      expect(screen.getByText("Enum mapping")).toBeTruthy();
+    });
   });
 
   describe("channels", () => {
