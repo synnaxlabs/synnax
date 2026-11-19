@@ -329,7 +329,8 @@ The example value is 104 B. The Pebble key is `gorp.Calculation` and the 16 key 
 - **`operations`**: `none` goes: an empty list means no operation. A `derivative` has no
   window. `reset` and `primary` are keys, because a picker sets them (principle 3).
   `primary` is one of the bound channels, read by RFC 0117 §4.7. A save whose text stops
-  reading that channel fails and names the fix: clear `primary` or pick another.
+  reading that channel picks a primary again by the rule of RFC 0117 §4.7 and announces
+  it with a computed `Set`.
 - **Status**: `calculation` joins and `channel` leaves the owner types
   (`schemas/synnax/status.oracle:98-106`). The calculation graph stays the one writer. A
   rename of the output renames the status (`core/pkg/service/status/writer.go:90`).
