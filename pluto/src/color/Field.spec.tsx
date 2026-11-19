@@ -472,6 +472,49 @@ describe("Color.Field", () => {
       ).toBeNull();
     });
 
+    it("should open the swatch menu only on a color the user can update", async () => {
+      const { palette, named } = await createInPalette();
+      const locked = await client.colors.create({
+        name: `color-${id.create()}`,
+        light: "#0000FF",
+        group: palette.key,
+      });
+      const limited = await createTestClientWithPolicy(client, [
+        {
+          name: `policy-${id.create()}`,
+          objects: [
+            color.TYPE_RESOURCE_ID,
+            group.TYPE_RESOURCE_ID,
+            user.TYPE_RESOURCE_ID,
+            access.role.TYPE_RESOURCE_ID,
+            access.policy.TYPE_RESOURCE_ID,
+          ],
+          actions: ["retrieve"],
+        },
+        {
+          name: `policy-${id.create()}`,
+          objects: [color.resourceID(named.key)],
+          actions: ["update"],
+        },
+      ]);
+      const { result } = renderField(
+        { type: "named", key: named.key },
+        await createAsyncSynnaxWrapper({ client: limited }),
+      );
+      openPicker(result);
+      await openSwatchMenu(named.name);
+      expect(await screen.findByRole("menuitem", { name: "Edit" })).toBeTruthy();
+      fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape", code: "Escape" });
+      await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+      const swatch = screen.getByRole("button", { name: locked.name });
+      act(() => swatch.focus());
+      expect(fireEvent.contextMenu(swatch)).toBe(true);
+      fireEvent.keyDown(swatch, { key: "F10", code: "F10", shiftKey: true });
+      await act(async () => {});
+      expect(screen.queryByRole("menu")).toBeNull();
+      expect(document.activeElement).toBe(swatch);
+    });
+
     it("should focus Create palette when a new palette gets no +", async () => {
       const limited = await createLimitedWrapper("create");
       const { result } = renderField(undefined, limited);

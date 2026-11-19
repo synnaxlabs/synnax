@@ -13,6 +13,7 @@ import { color, TimeSpan } from "@synnaxlabs/x";
 import {
   type ComponentPropsWithoutRef,
   type KeyboardEvent,
+  type MouseEvent,
   type ReactElement,
   type ReactNode,
   useEffect,
@@ -167,7 +168,15 @@ const Tabbed = ({
   value,
   onChange,
   fallback,
-  library: { palettes, named, onNamedChange, paletteEnd, swatchMenu, footer },
+  library: {
+    palettes,
+    named,
+    onNamedChange,
+    paletteEnd,
+    swatchMenu,
+    hasSwatchMenu,
+    footer,
+  },
   className,
   ...rest
 }: TabbedProps): ReactElement => {
@@ -326,6 +335,7 @@ const Tabbed = ({
               registerSwatch={registerSwatch}
               paletteEnd={paletteEnd}
               swatchMenu={swatchMenu}
+              hasSwatchMenu={hasSwatchMenu}
               footer={footer}
             />
           </>
@@ -386,7 +396,10 @@ const Section = ({ title, name, children, ...rest }: SectionProps): ReactElement
   </Flex.Box>
 );
 
-interface PaletteSectionProps extends Pick<Library, "paletteEnd" | "swatchMenu"> {
+interface PaletteSectionProps extends Pick<
+  Library,
+  "paletteEnd" | "swatchMenu" | "hasSwatchMenu"
+> {
   palette: Palette;
   /** The colors of the palette that match the search. */
   colors: Named[];
@@ -409,6 +422,7 @@ const PaletteSection = ({
   registerSwatch,
   paletteEnd,
   swatchMenu,
+  hasSwatchMenu,
 }: PaletteSectionProps): ReactElement => {
   const t = Theming.use();
   const [hovered, setHovered] = useState<string>();
@@ -419,23 +433,26 @@ const PaletteSection = ({
   // The menu takes the focus, so the title names its swatch while it is open.
   const shown =
     find(menu.visible ? menu.keys[0] : undefined) ?? find(hovered) ?? find(linked);
-  const menuProps =
-    swatchMenu == null
-      ? {}
-      : {
-          onContextMenu: menu.open,
-          onKeyDown: (e: KeyboardEvent<HTMLElement>) => {
-            const key = keyboardMenuKey(e);
-            if (key == null) return;
-            e.preventDefault();
-            if (key === "F10" && !e.repeat) openContextMenu(e.currentTarget);
-          },
-          onKeyUp: (e: KeyboardEvent<HTMLElement>) => {
-            if (keyboardMenuKey(e) !== "ContextMenu") return;
-            e.preventDefault();
-            openContextMenu(e.currentTarget);
-          },
-        };
+  const menuPropsOf = (key: string) => {
+    if (swatchMenu == null) return {};
+    const opens = (): boolean => hasSwatchMenu?.(key) ?? true;
+    return {
+      onContextMenu: (e: MouseEvent<HTMLElement>) => {
+        if (opens()) menu.open(e);
+      },
+      onKeyDown: (e: KeyboardEvent<HTMLElement>) => {
+        const menuKey = keyboardMenuKey(e);
+        if (menuKey == null || !opens()) return;
+        e.preventDefault();
+        if (menuKey === "F10" && !e.repeat) openContextMenu(e.currentTarget);
+      },
+      onKeyUp: (e: KeyboardEvent<HTMLElement>) => {
+        if (keyboardMenuKey(e) !== "ContextMenu" || !opens()) return;
+        e.preventDefault();
+        openContextMenu(e.currentTarget);
+      },
+    };
+  };
   return (
     <PaletteContext value={{ palette }}>
       <Menu.ContextMenu
@@ -474,7 +491,7 @@ const PaletteSection = ({
               onPointerEnter={() => setHovered(c.key)}
               onFocus={() => setHovered(c.key)}
               aria-label={c.name}
-              {...menuProps}
+              {...menuPropsOf(c.key)}
             />
           ))}
           {paletteEnd}
@@ -486,7 +503,7 @@ const PaletteSection = ({
 
 interface PalettesProps
   extends
-    Pick<Library, "paletteEnd" | "swatchMenu" | "footer">,
+    Pick<Library, "paletteEnd" | "swatchMenu" | "hasSwatchMenu" | "footer">,
     Pick<PaletteSectionProps, "registerSwatch"> {
   palettes: Palette[];
   search: string;
@@ -504,6 +521,7 @@ const Palettes = ({
   registerSwatch,
   paletteEnd,
   swatchMenu,
+  hasSwatchMenu,
   footer,
 }: PalettesProps): ReactElement => {
   const t = Theming.use();
@@ -540,6 +558,7 @@ const Palettes = ({
           registerSwatch={registerSwatch}
           paletteEnd={paletteEnd}
           swatchMenu={swatchMenu}
+          hasSwatchMenu={hasSwatchMenu}
         />
       ))}
       {footer}
