@@ -89,6 +89,10 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             if (ch.errors->size() != errors_before) return;
             const auto &base = ::synnax::ethercat::base(parsed);
             if (base.disabled) return;
+            if (base.channel == 0) {
+                ch.field_err("channel", "channel must be specified");
+                return;
+            }
             if (!read_keys.insert(base.channel).second) {
                 ch.field_err("channel", "another channel in the task reads into it");
                 return;
