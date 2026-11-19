@@ -624,13 +624,22 @@ describe("Kafka read form", () => {
       const { draft, dev } = await renderRead({ empty: true });
       await screen.findByText("No topics");
       const browse = browseOf(listTopic("plant"));
+      const pump = {
+        sources: ["pump"],
+        fields: [createInferredField("/pressure", "int64", "number")],
+        index: -1,
+        count: 2,
+      };
       const dialog = await openAddData(
         dev,
-        { data: sampleOfTopic("plant", OVEN_SHAPE) },
+        { data: sampleOfTopic("plant", OVEN_SHAPE, pump) },
         "plant",
         browse,
       );
-      fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
+      for (const pointer of ["/temperature", "/state"])
+        fireEvent.click(
+          await dialog.findByRole("checkbox", { name: `Record ${pointer}` }),
+        );
       const scan = await client.tasks.retrieve({
         type: Kafka.Task.SCAN_TYPE,
         rack: dev.rack,
@@ -639,7 +648,7 @@ describe("Kafka read form", () => {
       const grown = { ...OVEN_SHAPE, sources: ["oven-1", "oven-2", "oven-3"] };
       const again = await answerCommandsUntil(client, [scan], "sample", {
         browse: { data: browse },
-        sample: { data: sampleOfTopic("plant", grown) },
+        sample: { data: sampleOfTopic("plant", pump, grown) },
       });
       fireEvent.click(dialog.getByRole("button", { name: "Listen again" }));
       await again.answered;
@@ -972,39 +981,6 @@ describe("Kafka read form", () => {
       expect(messages[0].payload).toMatchObject({
         fields: [{ name: "a_b" }, { name: "a_b_2" }],
       });
-    });
-
-    it("should move the picks onto a new sample on Listen again", async () => {
-      const { draft, dev } = await renderRead();
-      const pump = {
-        sources: ["pump-1"],
-        fields: [createInferredField("/pressure", "int64", "number")],
-        index: -1,
-        count: 2,
-      };
-      const dialog = await openAddData(dev, { data: sampleOf(OVEN_SHAPE, pump) });
-      fireEvent.click(await dialog.findByText("pump-1"));
-      fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
-      const scan = await client.tasks.retrieve({
-        type: Kafka.Task.SCAN_TYPE,
-        rack: dev.rack,
-        one: true,
-      });
-      const grown = { ...pump, sources: ["pump-1", "pump-2"] };
-      const again = await answerNextCommand(client, scan, {
-        data: sampleOf(grown, OVEN_SHAPE),
-      });
-      fireEvent.click(dialog.getByRole("button", { name: "Listen again" }));
-      await again.answered;
-      await dialog.findAllByText("pump-1, pump-2");
-      dialog.getByText("1 field selected");
-      fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
-      const records = await waitFor(async () => {
-        const next = await retrieveRecords(draft.key);
-        expect(next).toHaveLength(2);
-        return next;
-      });
-      expect(records.map(({ recordKey }) => recordKey)).toEqual(["pump-1", "pump-2"]);
     });
 
     it("should show each field's value from the newest record that holds it", async () => {
