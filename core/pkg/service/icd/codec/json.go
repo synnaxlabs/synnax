@@ -363,7 +363,8 @@ func (f *jsonField) appendFloat(dst []byte, v float64) ([]byte, error) {
 // order, and each entry holds one slice for each binding, in binding order. ok is
 // false, and Decode appends nothing, when doc belongs to no message. Decode returns an
 // error, appending nothing, when doc is not JSON, meets two match rules, or holds a
-// value that does not convert.
+// value that does not convert. The error names the field, and also the message when the
+// decoder holds more than one.
 func (j *JSON) Decode(
 	doc []byte,
 	samples [][][]byte,
@@ -374,7 +375,11 @@ func (j *JSON) Decode(
 	if message, ok, err = j.router.find(j.values[:j.routed]); err != nil || !ok {
 		return 0, false, err
 	}
-	if err := j.messages[message].decode(samples[message]); err != nil {
+	m := &j.messages[message]
+	if err := m.decode(samples[message]); err != nil {
+		if len(j.messages) > 1 {
+			err = errors.Wrapf(err, "message %s", m.name)
+		}
 		return 0, false, err
 	}
 	return message, true, nil
@@ -405,7 +410,7 @@ func (m *jsonMessage) decode(samples [][]byte) error {
 			for k := range samples {
 				samples[k] = samples[k][:m.lengths[k]]
 			}
-			return errors.Wrapf(err, "message %s: field %s", m.name, f.name)
+			return errors.Wrapf(err, "field %s", f.name)
 		}
 	}
 	return nil

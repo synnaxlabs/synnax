@@ -1240,6 +1240,11 @@ var _ = Describe("Function Analyzer", func() {
 						"default value of parameter x would be truncated",
 					),
 				),
+				Entry(
+					"format string with a placeholder",
+					`func foo(s str = f"{x}") str { return s }`,
+					ContainSubstring("is not a compile-time constant"),
+				),
 			)
 		})
 	})

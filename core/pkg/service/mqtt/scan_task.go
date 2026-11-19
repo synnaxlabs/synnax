@@ -65,7 +65,7 @@ type browsedField struct {
 	Type string `json:"type"`
 	// Sample is the start of the JSON text of the scalar.
 	Sample string `json:"sample"`
-	// Kind is the kind of a payload field that holds every value heard at Pointer.
+	// Kind is the kind of a payload field that holds most values heard at Pointer.
 	// Empty when the topic holds more fields than inference keeps.
 	Kind payload.Kind `json:"kind"`
 	// TimeFormat is the format of a timestamp field. Nil for any other field.
@@ -84,7 +84,7 @@ type browsedTopic struct {
 	// Payload is the start of the last payload. Empty when the payload is not text.
 	Payload string `json:"payload"`
 	// Format is the format of the whole last payload.
-	Format driver.Format `json:"format"`
+	Format payload.Format `json:"format"`
 	// Fields are the scalars of the whole last payload. Empty when it is not JSON.
 	Fields []browsedField `json:"fields"`
 	// Index is the pointer of the field in Fields that indexes the messages heard. It

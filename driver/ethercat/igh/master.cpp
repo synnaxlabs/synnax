@@ -145,6 +145,60 @@ void read_serial(
     slave.status.serial_error = err.data;
 }
 
+/// @brief names each entry of slave with the name and data type that the CoE
+/// dictionary of the slave at ring position gives. IgH reads the dictionary of
+/// object_count objects in the background after its scan, so an entry that it has not
+/// read yet keeps its name.
+void fill_dictionary_entries(
+    const API &api,
+    const unsigned int master_index,
+    const uint16_t position,
+    const uint16_t object_count,
+    slave::Properties &slave
+) {
+    std::vector<ObjectInfo> objects;
+    for (uint16_t i = 0; i < object_count; ++i) {
+        ObjectInfo object;
+        if (api.object_info(master_index, position, i, object) != 0) break;
+        objects.push_back(std::move(object));
+    }
+    // A lookup of an entry that IgH has not read writes an error to the kernel log. IgH
+    // reads the name of an object, then its entries, then the next object. IgH gives no
+    // sign that it has read the final object, so it counts once it has a name.
+    std::map<uint16_t, uint8_t> read;
+    for (size_t i = 0; i < objects.size(); ++i) {
+        const bool next_named = i + 1 < objects.size() ? !objects[i + 1].name.empty()
+                                                       : i + 1 == object_count;
+        if (!objects[i].name.empty() && next_named)
+            read[objects[i].index] = objects[i].max_sub_index;
+    }
+    const auto fill = [&](std::vector<pdo::Properties> &pdos) {
+        for (auto &pdo: pdos) {
+            const auto object = read.find(pdo.index);
+            if (pdo.is_padding() || object == read.end() ||
+                pdo.sub_index > object->second)
+                continue;
+            EntryInfo entry;
+            if (api.entry_info(
+                    master_index,
+                    position,
+                    pdo.index,
+                    pdo.sub_index,
+                    entry
+                ) != 0 ||
+                entry.name.empty())
+                continue;
+            pdo.name = std::move(entry.name);
+            pdo.data_type = telem::map_ethercat_to_synnax(
+                static_cast<telem::DataType>(entry.data_type),
+                pdo.bit_length
+            );
+        }
+    };
+    fill(slave.input_pdos);
+    fill(slave.output_pdos);
+}
+
 /// @brief reads the PDO layout that the slave at position assigns.
 std::pair<std::vector<pdo::Sync>, x::errors::Error>
 read_layout(const API &api, ec_master_t *master, const uint16_t position) {
@@ -160,6 +214,11 @@ std::string reason(const int ret) {
     return std::generic_category().message(-ret);
 }
 
+/// @brief how long the master waits for IgH to read more of a CoE dictionary. IgH
+/// starts to read the dictionary of a slave 3 s after the slave reaches PRE-OP.
+const auto DICTIONARY_TIMEOUT = x::telem::SECOND * 5;
+/// @brief the time between reads of the dictionaries while IgH reads them.
+const auto DICTIONARY_POLL_INTERVAL = x::telem::MILLISECOND * 100;
 /// @brief the time between reads of the slave states while the slaves move to OP.
 const auto OP_POLL_INTERVAL = x::telem::MILLISECOND * 10;
 /// @brief how long the master waits for IgH to finish a scan of the bus.
@@ -202,13 +261,18 @@ bool starting(const slave::State state) {
            state == slave::State::UNKNOWN;
 }
 
-/// @brief reads the DC modes from the SII of the slave at ring position.
-/// @returns the modes and 0, or the negative error code of a failed read.
-std::pair<std::vector<dc::OpMode>, int> read_op_modes(
-    const API &api,
-    const unsigned int master_index,
-    const uint16_t position
-) {
+/// @brief what the master reads from the SII of a slave.
+struct SII {
+    /// @brief the DC modes of the slave.
+    std::vector<dc::OpMode> op_modes;
+    /// @brief whether IgH reads the CoE dictionary of the slave.
+    bool dictionary = false;
+};
+
+/// @brief reads the SII of the slave at ring position.
+/// @returns the SII and 0, or the negative error code of a failed read.
+std::pair<SII, int>
+read_sii(const API &api, const unsigned int master_index, const uint16_t position) {
     std::map<uint16_t, std::vector<uint8_t>> categories;
     const auto read = [&](const uint32_t offset, std::span<uint16_t> words) {
         // IgH rejects a read of no words.
@@ -224,7 +288,8 @@ std::pair<std::vector<dc::OpMode>, int> read_op_modes(
         const auto [type, size] = header;
         if (ret == 0 && type == sii::END) break;
         std::vector<uint16_t> words;
-        if (ret == 0 && (type == sii::STRINGS || type == sii::DC)) {
+        if (ret == 0 &&
+            (type == sii::STRINGS || type == sii::DC || type == sii::GENERAL)) {
             words.resize(size);
             ret = read(offset + 2, words);
         }
@@ -238,11 +303,23 @@ std::pair<std::vector<dc::OpMode>, int> read_op_modes(
         }
         offset += 2 + size;
     }
+    std::array<uint16_t, 1> protocols{};
+    const int ret = read(sii::MAILBOX_PROTOCOLS, protocols);
+    // A SII too short to hold the protocols lists none.
+    if (ret != 0 && ret != -EINVAL) return {{}, ret};
+    const bool coe = ret == 0 && (protocols[0] & sii::COE) != 0;
+    const auto general = categories.find(sii::GENERAL);
     return {
-        sii::parse_op_modes(
-            categories[sii::DC],
-            sii::parse_strings(categories[sii::STRINGS])
-        ),
+        {
+            .op_modes = sii::parse_op_modes(
+                categories[sii::DC],
+                sii::parse_strings(categories[sii::STRINGS])
+            ),
+            // IgH reads the dictionary unless the general category turns off SDO
+            // information.
+            .dictionary = coe && (general == categories.end() ||
+                                  sii::parse_sdo_info(general->second)),
+        },
         0
     };
 }
@@ -367,9 +444,28 @@ Master::~Master() {
 }
 
 std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Master::scan() {
-    if (!this->initialized)
+    if (!this->initialized) {
         if (auto err = this->initialize()) return {{}, err};
+    } else
+        this->read_dictionaries();
     return {this->cached_slaves, x::errors::NIL};
+}
+
+void Master::read_dictionaries() {
+    for (auto &slave: this->cached_slaves) {
+        auto &props = slave.properties;
+        const auto pos = ring_position(props.position);
+        ec_slave_info_t info{};
+        if (this->api->master_get_slave(this->ec_master, pos, &info) != 0) continue;
+        fill_dictionary_entries(
+            *this->api,
+            this->master_index,
+            pos,
+            info.sdo_count,
+            props
+        );
+        esi::fill_known_entries(props);
+    }
 }
 
 x::errors::Error Master::initialize() {
@@ -414,6 +510,7 @@ x::errors::Error Master::initialize() {
 
     this->cached_slaves.clear();
     this->cached_slaves.reserve(master_info.slave_count);
+    this->dictionaries.clear();
     this->reference_clock.reset();
 
     for (unsigned int i = 0; i < master_info.slave_count; ++i) {
@@ -447,7 +544,7 @@ x::errors::Error Master::initialize() {
                 break;
             }
         esi::fill(result);
-        auto [modes, ret] = read_op_modes(
+        auto [sii, ret] = read_sii(
             *this->api,
             this->master_index,
             static_cast<uint16_t>(i)
@@ -460,10 +557,15 @@ x::errors::Error Master::initialize() {
                     reason(ret)
                 )
             );
-        result.properties.op_modes = std::move(modes);
-        if (!result.status.starting) this->read_coe(result);
+        result.properties.op_modes = std::move(sii.op_modes);
+        if (sii.dictionary) this->dictionaries.insert(result.properties.position);
         this->cached_slaves.push_back(std::move(result));
     }
+    std::vector<slave::DiscoveryResult *> started;
+    for (auto &slave: this->cached_slaves)
+        if (!slave.status.starting) started.push_back(&slave);
+    this->read_coe(started);
+    this->read_dictionaries();
     slave::clear_duplicate_serials(this->cached_slaves);
 
     this->initialized = true;
@@ -472,19 +574,100 @@ x::errors::Error Master::initialize() {
     return x::errors::NIL;
 }
 
-void Master::read_coe(slave::DiscoveryResult &slave) {
-    auto &props = slave.properties;
-    const auto pos = ring_position(props.position);
-    read_serial(*this->api, this->ec_master, pos, slave);
-    auto [settings, err] = esi::read_settings(
-        props.vendor_id,
-        props.product_code,
-        props.revision,
-        props.op_modes,
-        sdo_reader(*this->api, this->ec_master, pos)
-    );
-    slave.status.settings_error = err.data;
-    props.settings = std::move(settings);
+void Master::await_dictionaries(const std::vector<slave::DiscoveryResult *> &slaves) {
+    struct Progress {
+        uint16_t position;
+        uint16_t listed = 0;
+        uint16_t described = 0;
+        std::chrono::steady_clock::time_point next_lookup;
+        x::telem::TimeSpan lookup_gap = DICTIONARY_POLL_INTERVAL;
+    };
+    std::vector<Progress> pending;
+    for (const auto *slave: slaves)
+        if (this->dictionaries.contains(slave->properties.position))
+            pending.push_back({.position = ring_position(slave->properties.position)});
+    auto deadline = this->cfg.clock.steady() + DICTIONARY_TIMEOUT.chrono();
+    while (!pending.empty()) {
+        const auto now = this->cfg.clock.steady();
+        bool progressed = false;
+        // IgH lists the objects, then reads the description and then the entries of
+        // each. A description can hold no name, so an object counts as described once
+        // it or a later object has a name or sub-indices.
+        std::erase_if(pending, [&](Progress &read) {
+            ec_slave_info_t info{};
+            if (this->api->master_get_slave(this->ec_master, read.position, &info) != 0)
+                return false;
+            if (info.sdo_count != read.listed) {
+                read = {.position = read.position, .listed = info.sdo_count};
+                progressed = true;
+            }
+            ObjectInfo object;
+            for (uint16_t i = read.described; i < read.listed; ++i)
+                if (this->api->object_info(
+                        this->master_index,
+                        read.position,
+                        i,
+                        object
+                    ) == 0 &&
+                    (!object.name.empty() || object.max_sub_index != 0)) {
+                    read.described = i + 1;
+                    progressed = true;
+                }
+            if (read.listed == 0 || read.described < read.listed ||
+                now < read.next_lookup)
+                return false;
+            // IgH gives no sign that it has read the final entry, and it logs each
+            // lookup of an entry it has not read, so the lookups back off.
+            EntryInfo entry;
+            if (this->api->object_info(
+                    this->master_index,
+                    read.position,
+                    read.listed - 1,
+                    object
+                ) == 0 &&
+                this->api->entry_info(
+                    this->master_index,
+                    read.position,
+                    object.index,
+                    object.max_sub_index,
+                    entry
+                ) == 0) {
+                progressed = true;
+                return true;
+            }
+            read.next_lookup = now + read.lookup_gap.chrono();
+            read.lookup_gap = read.lookup_gap * 2;
+            return false;
+        });
+        if (pending.empty()) return;
+        if (progressed) deadline = now + DICTIONARY_TIMEOUT.chrono();
+        if (now >= deadline) {
+            for (const auto &read: pending)
+                LOG(WARNING) << "[ethercat.igh] IgH read no more of the CoE dictionary "
+                             << "of module " << read.position + 1 << " for "
+                             << DICTIONARY_TIMEOUT;
+            return;
+        }
+        this->cfg.clock.sleep(DICTIONARY_POLL_INTERVAL);
+    }
+}
+
+void Master::read_coe(const std::vector<slave::DiscoveryResult *> &slaves) {
+    this->await_dictionaries(slaves);
+    for (auto *slave: slaves) {
+        auto &props = slave->properties;
+        const auto pos = ring_position(props.position);
+        read_serial(*this->api, this->ec_master, pos, *slave);
+        auto [settings, err] = esi::read_settings(
+            props.vendor_id,
+            props.product_code,
+            props.revision,
+            props.op_modes,
+            sdo_reader(*this->api, this->ec_master, pos)
+        );
+        slave->status.settings_error = err.data;
+        props.settings = std::move(settings);
+    }
 }
 
 void Master::read_starting() {
@@ -494,6 +677,7 @@ void Master::read_starting() {
     if (pending.empty()) return;
     // IgH moves each slave to PRE-OP in the background while the master is open.
     const auto deadline = this->cfg.clock.steady() + this->cfg.pre_op_timeout.chrono();
+    std::vector<slave::DiscoveryResult *> ready;
     while (true) {
         std::vector<slave::DiscoveryResult *> still;
         for (auto *slave: pending) {
@@ -508,12 +692,13 @@ void Master::read_starting() {
             }
             slave->status.state = state;
             slave->status.starting = false;
-            this->read_coe(*slave);
+            ready.push_back(slave);
         }
         pending = std::move(still);
         if (pending.empty() || this->cfg.clock.steady() >= deadline) break;
         this->cfg.clock.sleep(OP_POLL_INTERVAL);
     }
+    this->read_coe(ready);
     slave::clear_duplicate_serials(this->cached_slaves);
 }
 
@@ -950,6 +1135,7 @@ void Master::deactivate() {
     this->initialized = false;
     this->slave_configs.clear();
     this->cached_slaves.clear();
+    this->dictionaries.clear();
     this->domains.clear();
     this->inputs.clear();
     this->outputs.clear();
@@ -1248,6 +1434,16 @@ Master::configure_assigned_pdos(const uint16_t position, ec_slave_config_t *sc) 
                 errors::PDO_MAPPING_ERROR,
                 "failed to clear the PDO mapping of " + slave_name
             );
+    if (ec_slave_info_t info{};
+        this->api->master_get_slave(this->ec_master, ring_position(position), &info) ==
+        0)
+        fill_dictionary_entries(
+            *this->api,
+            this->master_index,
+            ring_position(position),
+            info.sdo_count,
+            props
+        );
     esi::fill_known_entries(props);
     this->cached_slaves[position - 1].properties = std::move(props);
     return x::errors::NIL;

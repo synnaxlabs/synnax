@@ -662,7 +662,7 @@ var _ = Describe("Scan task", func() {
 					Count    int             `json:"count"`
 					Rate     float64         `json:"rate"`
 					LastSeen telem.TimeStamp `json:"last_seen"`
-					Format   driver.Format   `json:"format"`
+					Format   payload.Format  `json:"format"`
 				} `json:"topics"`
 			}
 			Expect(stat.Details.Data.Unmarshal(&res)).To(Succeed())
@@ -673,7 +673,7 @@ var _ = Describe("Scan task", func() {
 			Expect(a.LastSeen).ToNot(BeZero())
 			Expect(b.Count).To(BeNumerically(">", 1))
 			Expect(b.Rate).To(BeNumerically(">", 0))
-			Expect(b.Format).To(Equal(driver.FormatText))
+			Expect(b.Format).To(Equal(payload.FormatText))
 		})
 
 		It("Should leave out the topics that do not fit in the answer",
@@ -915,9 +915,9 @@ var _ = Describe("Scan task", func() {
 			Topics []struct {
 				Topic    string `json:"topic"`
 				Messages []struct {
-					Format   driver.Format `json:"format"`
-					Payload  string        `json:"payload"`
-					Retained bool          `json:"retained"`
+					Format   payload.Format `json:"format"`
+					Payload  string         `json:"payload"`
+					Retained bool           `json:"retained"`
 				} `json:"messages"`
 			} `json:"topics"`
 			Shapes    []xjson.Shape `json:"shapes"`
@@ -953,7 +953,7 @@ var _ = Describe("Scan task", func() {
 			Expect(res.Topics).To(HaveLen(2))
 			Expect(res.Topics[0].Topic).To(Equal("rig/1/temp"))
 			Expect(res.Topics[0].Messages[0].Retained).To(BeTrue())
-			Expect(res.Topics[0].Messages[0].Format).To(Equal(driver.FormatJSON))
+			Expect(res.Topics[0].Messages[0].Format).To(Equal(payload.FormatJSON))
 			Expect(res.Topics[0].Messages[0].Payload).
 				To(Equal(fmt.Sprintf(`{"value":1.5,"time":%d}`, now)))
 			Expect(res.Shapes).To(HaveLen(1))

@@ -343,6 +343,15 @@ describe("line", () => {
         ]);
       });
 
+      it("should draw a fractional stroke width as the next whole width", () => {
+        const m = mount([X1], [Y1], { strokeWidth: 1.5 });
+        m.line.render(PROPS);
+        const instances = m.calls
+          .filter((c) => c.op === "drawArraysInstanced")
+          .map((c) => c.args[3]);
+        expect(instances).toEqual([10]);
+      });
+
       describe("non-finite samples", () => {
         const RANGE = { start: 0, end: 100 };
         const strips = (x: number[], y: number[], yAlignment = 0n) => {

@@ -15,7 +15,7 @@
     python3 -m review dismiss
     python3 -m review judge <judgments.json>
     python3 -m review rule <judgments.json>
-    python3 -m review compare <days> <records>
+    python3 -m review compare <days>
 
 Run it from `.github/scripts`. Environment: GH_TOKEN, GITHUB_REPOSITORY, PR, HEAD_SHA,
 BASE_SHA, CHECK_RUN, RUN_URL, and BOT, the slug of the GitHub App the review posts as.
@@ -38,8 +38,12 @@ each rebuttal with Claude Code, and writes the judgments. It fails after it writ
 when one rebuttal could not be judged. `rule` posts them, and takes KEY. `compare`
 takes only GH_TOKEN and GITHUB_REPOSITORY, runs in a clone with full history, and
 prints a Markdown comparison of the records of the last days with Greptile's reviews
-of the same commits. It keeps each record it downloads in the records directory, and
-reads it from there on the next run.
+of the same commits. It reads each record from the check run that `post` completed.
+
+When Claude Code stops at the usage limit of its login, `run` and `judge` write the
+reset time, in Unix seconds, as the `limited-until` step output. When Claude rejects the
+token of the login, they write the time Claude Code started as `login-broken`. Both then
+fail.
 """
 
 import contextlib
@@ -50,14 +54,16 @@ import re
 import subprocess
 import sys
 import tempfile
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from review import (
     Judgment,
+    LoginRejected,
     PullRequest,
     Target,
+    UsageLimit,
     authority,
     carry,
     compare,
@@ -67,7 +73,6 @@ from review import (
     judge,
     load,
     outside_findings,
-    parse,
     post,
     reviewed,
     rule,
@@ -272,6 +277,33 @@ def _before(head: Path, commit: str, tip: str) -> bool:
     return subprocess.run(check, capture_output=True).returncode == 0
 
 
+def _leaves[E: BaseException](g: BaseExceptionGroup[E]) -> Sequence[E]:
+    return [
+        leaf
+        for e in g.exceptions
+        for leaf in (_leaves(e) if isinstance(e, BaseExceptionGroup) else [e])
+    ]
+
+
+def _output(name: str, value: int) -> None:
+    with Path(os.environ["GITHUB_OUTPUT"]).open("a") as f:
+        f.write(f"{name}={value}\n")
+
+
+def _claude(target: Target, command: str, path: Path) -> None:
+    try:
+        if command == "judge":
+            judgments(target, path)
+        else:
+            review(target, path, replay=os.environ.get("REPLAY") == "true")
+    except* UsageLimit as g:
+        _output("limited-until", max(e.until for e in _leaves(g)))
+        raise
+    except* LoginRejected as g:
+        _output("login-broken", min(e.started for e in _leaves(g)))
+        raise
+
+
 def main(argv: list[str]) -> None:
     args = {
         "run": 2,
@@ -280,7 +312,7 @@ def main(argv: list[str]) -> None:
         "dismiss": 1,
         "judge": 2,
         "rule": 2,
-        "compare": 3,
+        "compare": 2,
     }
     if not argv or args.get(argv[0]) != len(argv):
         sys.exit(__doc__)
@@ -288,9 +320,8 @@ def main(argv: list[str]) -> None:
     if argv[0] == "compare":
         since = datetime.now(UTC) - timedelta(days=int(argv[1]))
         repo = env["GITHUB_REPOSITORY"]
-        cache = Path(argv[2])
-        ps = compare.pairs(gh, compare.git, repo, since, cache)
-        print(compare.report(ps, compare.limits(gh, repo, since, cache), since=since))
+        ps = compare.pairs(gh, compare.git, repo, since)
+        print(compare.report(ps, compare.limits(gh, repo, since), since=since))
         return
     target = Target(
         repo=env["GITHUB_REPOSITORY"],
@@ -309,15 +340,13 @@ def main(argv: list[str]) -> None:
         print(str(waits).lower())
         return
     path = Path(argv[1])
-    if argv[0] == "judge":
-        judgments(target, path)
+    if argv[0] in ("judge", "run"):
+        _claude(target, argv[0], path)
     elif argv[0] == "rule":
         found = [Judgment(**j) for j in json.loads(path.read_text())]
         rule(target, gh, found, key=env["KEY"])
-    elif argv[0] == "run":
-        review(target, path, replay=env.get("REPLAY") == "true")
     else:
-        post(parse(json.loads(path.read_text())["review"]), target=target, gh=gh)
+        post(json.loads(path.read_text()), target=target, gh=gh)
 
 
 if __name__ == "__main__":

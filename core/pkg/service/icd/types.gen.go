@@ -172,18 +172,6 @@ type Payload = versions.Payload
 // PayloadVariant is implemented by every Payload variant.
 type PayloadVariant = versions.PayloadVariant
 
-// PayloadType is the "format" value that selects a variant of Payload.
-type PayloadType = versions.PayloadType
-
-const (
-	// BinaryPayloadType is a payload of raw bytes.
-	BinaryPayloadType PayloadType = versions.BinaryPayloadType
-	// TextPayloadType is a payload of one text line.
-	TextPayloadType PayloadType = versions.TextPayloadType
-	// JSONPayloadType is a payload of one JSON document.
-	JSONPayloadType PayloadType = versions.JSONPayloadType
-)
-
 // BinaryPayload is a payload of raw bytes.
 type BinaryPayload = versions.BinaryPayload
 
@@ -199,6 +187,36 @@ type Message = versions.Message
 // ICD is an interface control document: the messages a system sends and receives, and
 // how to parse each one.
 type ICD = versions.ICD
+
+// ImportFormat is the file format of an ICD that an import reads.
+type ImportFormat string
+
+const (
+	// ImportFormatDBC is a Vector CAN database file.
+	ImportFormatDBC ImportFormat = "dbc"
+	// ImportFormatCSV is a field table in comma-separated values. The first row is a
+	// header that names each column, in any case: message, id, extended, length, field,
+	// start_bit, bit_length, byte_order, kind, scale, offset, units, min, and max. The
+	// message, field, start_bit, and bit_length columns are required. A kind is float,
+	// integer, or unsigned, and defaults to unsigned. Each other row is one binary
+	// field, and the rows of one message form one message, with a CAN identifier when
+	// an id is present.
+	ImportFormatCSV ImportFormat = "csv"
+	// ImportFormatXLSX is a field table, laid out as for csv, in the first sheet of an
+	// Excel workbook. A numeric cell is read as its value, whatever its number format.
+	ImportFormatXLSX ImportFormat = "xlsx"
+)
+
+// IsValid reports whether i is one of the defined ImportFormat
+// values.
+func (i ImportFormat) IsValid() bool {
+	switch i {
+	case ImportFormatDBC, ImportFormatCSV, ImportFormatXLSX:
+		return true
+	default:
+		return false
+	}
+}
 
 // Where is a filter that selects ICDs.
 type Where struct {
