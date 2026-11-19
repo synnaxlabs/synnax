@@ -888,6 +888,26 @@ describe("Kafka read form", () => {
       await selectField("temperature");
       await screen.findByDisplayValue(`${dev.name}_oven_temperature_2`);
     });
+
+    it("should preview a name for each record that reads one message", async () => {
+      const first = await createRecord({
+        fields: [createField("temperature", "float")],
+      });
+      const second = kafka.readRecordZ.parse({
+        icd: first.icd,
+        recordKey: "",
+        messages: first.messages,
+      });
+      const { dev } = await renderRead({ records: [first, second] });
+      const items = await screen.findAllByRole("treeitem", { name: /^temperature/ });
+      expect(items).toHaveLength(2);
+      const name = `${dev.name}_oven_temperature`;
+      fireEvent.click(items[1]);
+      await screen.findByDisplayValue(`${name}_2`);
+      fireEvent.click(items[0]);
+      await screen.findByDisplayValue(name);
+      expect(screen.queryByDisplayValue(`${name}_2`)).toBeNull();
+    });
   });
 
   describe("deploying against a live Core", () => {
