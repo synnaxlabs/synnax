@@ -603,6 +603,22 @@ describe("HTTP Task Types", () => {
       expect(HTTP.Task.WRITE_SCHEMAS.config.validate(config)).toBe(false);
     });
 
+    it("should reject a field pointer nested inside the channel pointer", () => {
+      const config = {
+        device: "dev-001",
+        endpoints: [
+          {
+            key: "ep1",
+            method: "POST",
+            path: "/api",
+            channel: { pointer: "/value", jsonType: "number", channel: 1 },
+            fields: [{ type: "static", pointer: "/value/unit", value: "mm" }],
+          },
+        ],
+      };
+      expect(HTTP.Task.deployWriteConfigZ.validate(config)).toBe(false);
+    });
+
     it("should validate a channel field with enum values", () => {
       const config = {
         device: "dev-001",
