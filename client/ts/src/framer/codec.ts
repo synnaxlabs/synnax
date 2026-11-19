@@ -129,12 +129,12 @@ const union = (a: channel.Key[], b: channel.Key[]): channel.Key[] => {
 const keysEqual = (a: channel.Key[], b: channel.Key[]): boolean =>
   a.length === b.length && a.every((k, i) => k === b[i]);
 
-const invalid = (msg: string): ValidationError => new ValidationError(msg);
-
 const codeOf = (key: channel.Key, dt: DataType): number => {
   const { code } = dt;
   if (code === DataTypeCode.unknown)
-    throw invalid(`data type "${dt.toString()}" of channel ${key} has no type code`);
+    throw new ValidationError(
+      `data type "${dt.toString()}" of channel ${key} has no type code`,
+    );
   return code;
 };
 
@@ -181,7 +181,8 @@ class FrameReader {
   }
 
   private need(n: number): void {
-    if (n > this.remaining) throw invalid("remote sent a frame that ends early");
+    if (n > this.remaining)
+      throw new ValidationError("remote sent a frame that ends early");
   }
 
   uint8(): number {
@@ -214,7 +215,7 @@ class FrameReader {
     const code = this.uint8();
     const dt = DataType.fromCode(code);
     if (dt.equals(DataType.UNKNOWN))
-      throw invalid(
+      throw new ValidationError(
         `remote sent data type code ${code}, which this codec does not know`,
       );
     return dt;
@@ -502,7 +503,7 @@ export class Codec {
     // The remote never encodes with an older state again.
     for (; this.oldest < seqNum; this.oldest++) this.states.delete(this.oldest);
     if (state.dec.dropped)
-      throw invalid(
+      throw new ValidationError(
         `remote sent a frame for state ${seqNum} after a frame of it failed to decode`,
       );
     let decoded = false;
@@ -533,36 +534,38 @@ export class Codec {
     let ext = 0;
     if (bit(EXTENDED_FLAG_POS)) {
       ext = r.uint8();
-      if (ext === 0) throw invalid("remote sent extension flags of 0");
+      if (ext === 0) throw new ValidationError("remote sent extension flags of 0");
       if ((ext & RESERVED_EXTENSION_FLAGS) !== 0)
-        throw invalid(
+        throw new ValidationError(
           `remote sent extension flags ${formatBits(ext)}, which hold a reserved bit`,
         );
     }
     if ((ext & TYPES_DECLARED) === 0) {
       if (!ag.typesDeclared)
-        throw invalid(
+        throw new ValidationError(
           `remote sent no type declaration for state ${seqNum}, so it runs an older ` +
             "codec, which this codec does not support",
         );
     } else {
       if (ag.typesDeclared)
-        throw invalid(`remote declared the types of state ${seqNum} twice`);
+        throw new ValidationError(`remote declared the types of state ${seqNum} twice`);
       for (let i = 0; i < state.keys.length; i++) ag.dataTypes[i] = r.dataType();
       ag.typesDeclared = true;
     }
     if ((ext & CLOCKS_DECLARED) !== 0) {
       const n = r.uint32();
       if (n > Math.floor(r.remaining / KEY_SIZE))
-        throw invalid("remote sent a frame that ends early");
+        throw new ValidationError("remote sent a frame that ends early");
       const declared: channel.Key[] = [];
       for (let i = 0; i < n; i++) {
         const key = r.uint32();
         if (state.index.has(key))
-          throw invalid(`remote declared clock ${key}, which the request names`);
+          throw new ValidationError(
+            `remote declared clock ${key}, which the request names`,
+          );
         const prev = declared[i - 1];
         if (i > 0 && key <= prev)
-          throw invalid(
+          throw new ValidationError(
             `remote declared clock ${key} after clock ${prev}, so the list is not ascending`,
           );
         declared.push(key);
@@ -582,9 +585,11 @@ export class Codec {
     const readKinds = (): number => {
       const kinds = r.uint8();
       if (kinds === 0)
-        throw invalid(`remote sent override kinds of 0 for series ${ordinal}`);
+        throw new ValidationError(
+          `remote sent override kinds of 0 for series ${ordinal}`,
+        );
       if ((kinds & RESERVED_KINDS) !== 0)
-        throw invalid(
+        throw new ValidationError(
           `remote sent override kinds ${formatBits(kinds)} for series ${ordinal}, ` +
             "which hold a reserved bit",
         );
@@ -594,10 +599,13 @@ export class Codec {
     const agreementOf = (key: channel.Key): [DataType, number] => {
       const i = state.index.get(key);
       if (i == null) {
-        if (!ag.declared.includes(key)) throw invalid(`unknown channel key: ${key}`);
+        if (!ag.declared.includes(key))
+          throw new ValidationError(`unknown channel key: ${key}`);
         if (ordinal === next) {
           readKinds();
-          throw invalid(`remote sent an override for declared clock ${key}`);
+          throw new ValidationError(
+            `remote sent an override for declared clock ${key}`,
+          );
         }
         return [DataType.TIMESTAMP, key];
       }
@@ -608,7 +616,7 @@ export class Codec {
         if ((kinds & CLOCK_KIND) !== 0) ag.clocks[i] = r.uint32();
         next = r.uint32();
         if (next !== NO_OVERRIDE && next <= ordinal)
-          throw invalid(
+          throw new ValidationError(
             `remote sent next override ${next}, which is not after series ${ordinal}`,
           );
       }
@@ -620,7 +628,7 @@ export class Codec {
       const [dataType, clock] = agreementOf(key);
       ordinal++;
       if (sizeFlag && dataType.isVariable)
-        throw invalid(
+        throw new ValidationError(
           `remote sent variable data type ${dataType.toString()} under a shared length`,
         );
       const size = sizeFlag ? sharedLength : r.uint32();
@@ -649,10 +657,11 @@ export class Codec {
 
     if (channelFlag) {
       ag.all.forEach(decodeSeries);
-      if (r.remaining > 0) throw invalid("remote sent bytes after the last series");
+      if (r.remaining > 0)
+        throw new ValidationError("remote sent bytes after the last series");
     } else while (r.remaining > 0) decodeSeries(r.uint32());
     if (next !== NO_OVERRIDE)
-      throw invalid(
+      throw new ValidationError(
         `remote ended the frame with the override for series ${next} pending`,
       );
     return returnFrame;
