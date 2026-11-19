@@ -108,8 +108,8 @@ jobs:
           - os: ${{ !inputs.ubuntu && 'ubuntu-build-bot' }}
           - os: ${{ !inputs.windows && 'windows-build-bot' }}
     runs-on: ${{ matrix.os }}
-    # About 1.5x the slowest successful cold-cache job on each OS.
-    timeout-minutes: ${{ matrix.os == 'ubuntu-build-bot' && 75 || 30 }}
+    # A cold-cache build passes 30 minutes on every OS.
+    timeout-minutes: 75
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
