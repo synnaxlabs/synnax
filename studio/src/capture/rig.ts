@@ -11,7 +11,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { TimeStamp } from "@synnaxlabs/client";
-import { array, sleep, TimeSpan } from "@synnaxlabs/x";
+import { array, box, sleep, TimeSpan } from "@synnaxlabs/x";
 import {
   type Browser,
   type CDPSession,
@@ -249,12 +249,12 @@ interface Bounds {
   bottom: number;
 }
 
-const bounds = (rects: Rect[]): Bounds => ({
-  left: Math.min(...rects.map((r) => r.x)),
-  top: Math.min(...rects.map((r) => r.y)),
-  right: Math.max(...rects.map((r) => r.x + r.width)),
-  bottom: Math.max(...rects.map((r) => r.y + r.height)),
-});
+const bounds = (rects: Rect[]): Bounds => {
+  const { one, two } = box.bound(
+    rects.map(({ x, y, width, height }) => box.construct(x, y, width, height)),
+  );
+  return { left: one.x, top: one.y, right: two.x, bottom: two.y };
+};
 
 /**
  * CaptureSession drives the Console under a stepped virtual clock, saving one

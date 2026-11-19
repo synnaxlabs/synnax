@@ -228,8 +228,7 @@ describe("Latest", () => {
 
   it("should serve streamed samples while the read waits", async () => {
     const core = createCore();
-    let release: () => void = () => {};
-    const released = new Promise<void>((resolve) => (release = resolve));
+    const { promise: released, resolve: release } = Promise.withResolvers<void>();
     let waiting = false;
     const { open, close } = createLatest(core, async () => {
       waiting = true;
@@ -255,8 +254,7 @@ describe("Latest", () => {
 
   it("should keep samples streamed before a drop after the new read", async () => {
     const core = createCore();
-    let release: () => void = () => {};
-    const released = new Promise<void>((resolve) => (release = resolve));
+    const { promise: released, resolve: release } = Promise.withResolvers<void>();
     let waiting = 0;
     const { open, close } = createLatest(core, async () => {
       waiting++;
@@ -308,8 +306,7 @@ describe("Latest", () => {
   it("should keep samples it served under an error when a read lands", async () => {
     const core = createCore();
     let failed = false;
-    let release: () => void = () => {};
-    const released = new Promise<void>((resolve) => (release = resolve));
+    const { promise: released, resolve: release } = Promise.withResolvers<void>();
     const { open, close } = createLatest(core, async () => {
       if (!failed) {
         failed = true;
@@ -912,8 +909,7 @@ describe("Latest", () => {
 
     it("should keep each write's stamp when the load lands after it", async () => {
       const core = createCore(true);
-      let release: () => void = () => {};
-      const released = new Promise<void>((resolve) => (release = resolve));
+      const { promise: released, resolve: release } = Promise.withResolvers<void>();
       const { open, close } = createLatest(core, undefined, undefined, async () => {
         await released;
       });
