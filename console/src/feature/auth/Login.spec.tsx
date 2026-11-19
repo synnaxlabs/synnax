@@ -11,6 +11,7 @@ import { createServer } from "node:http";
 import { type AddressInfo } from "node:net";
 
 import {
+  auth,
   AuthError,
   connection,
   ExpiredTokenError,
@@ -43,16 +44,17 @@ const ALPHA = createCore("alpha", { name: "Alpha", port: 9098, username: "ada" }
 const BETA = createCore("beta", { name: "Beta", port: 9099, username: "grace" });
 
 // No test Core turns passwords off, so a local server answers the methods request.
+// Null methods answer 404, as a Core older than the methods endpoint does.
 const serveMethods = async (
-  methods: string[],
+  methods: string[] | null,
   onServed?: () => void,
 ): Promise<number> => {
   const server = createServer((req, res) => {
     req.resume();
     req.on("end", () => {
-      if (req.url?.endsWith("/auth/methods") !== true) {
+      if (methods == null || req.url?.endsWith("/auth/methods") !== true) {
         res.statusCode = 404;
-        res.end();
+        res.end(onServed);
         return;
       }
       res.setHeader("Content-Type", "application/json");
@@ -131,6 +133,25 @@ describe("auth/Login", () => {
     fireEvent.click(await screen.findByText(ALPHA.name));
     expect(await screen.findByText("Password login is off")).toBeTruthy();
     expect(screen.queryByPlaceholderText(USERNAME_PLACEHOLDER)).toBeNull();
+  });
+
+  it("should keep the password form when the Core has no methods endpoint", async () => {
+    let served!: () => void;
+    const answered = new Promise<void>((resolve) => (served = resolve));
+    const port = await serveMethods(null, () => served());
+    await renderLogin({ ...ALPHA, host: "127.0.0.1", port });
+    fireEvent.click(await screen.findByText(ALPHA.name));
+    await answered;
+    await expectAlways(() => {
+      expect(screen.queryByPlaceholderText(USERNAME_PLACEHOLDER)).not.toBeNull();
+      expect(screen.queryByText("Password login is off")).toBeNull();
+    });
+  });
+
+  it("should drop the methods the client does not know", async () => {
+    const port = await serveMethods(["api_key", "oidc"]);
+    const client = auth.createTokenlessClient({ host: "127.0.0.1", port });
+    expect(await auth.retrieveMethods(client)).toEqual(["api_key"]);
   });
 
   it("should return to the Core list from the credentials", async () => {
