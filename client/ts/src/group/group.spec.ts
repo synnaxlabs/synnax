@@ -85,13 +85,23 @@ describe("Group", () => {
       expect(client.groups.setParentRequest([KEY, KEY2], RACK)).toEqual([
         {
           endpoint: "/group/dispatch",
-          payload: { key: KEY, actions: [group.setParent({ parent: RACK })] },
+          payload: {
+            key: KEY,
+            dispatchKey: expect.any(String),
+            actions: [group.setParent({ parent: RACK })],
+          },
           apply: expect.any(Function),
+          applyResponse: expect.any(Function),
         },
         {
           endpoint: "/group/dispatch",
-          payload: { key: KEY2, actions: [group.setParent({ parent: RACK })] },
+          payload: {
+            key: KEY2,
+            dispatchKey: expect.any(String),
+            actions: [group.setParent({ parent: RACK })],
+          },
           apply: expect.any(Function),
+          applyResponse: expect.any(Function),
         },
       ]);
     });
