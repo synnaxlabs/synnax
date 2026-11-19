@@ -878,8 +878,6 @@ x::errors::Error Engine::start_locked(
                 this->stop_locked();
             else
                 this->master->deactivate();
-            if (!start.cancel.running())
-                return start_canceled_error(this->network_name);
             if (!refused.empty() && io_left) {
                 for (const auto &[pos, refusal]: leaving)
                     LOG(WARNING)
@@ -906,11 +904,14 @@ x::errors::Error Engine::start_locked(
         longest_try = std::max(longest_try, x::telem::TimeSpan(now - try_started));
         const auto wait = retry.interval(static_cast<size_t>(++failures));
         // A retry cannot clear a refused state, a setting a slave aborts, or a slave
-        // config that cannot run. A try that ends after the deadline hides its error
-        // behind the task timeout.
-        if (err.matches(errors::STATE_CHANGE_REFUSED) ||
-            err.matches(errors::STARTUP_PARAMETER_REJECTED) ||
-            err.matches(errors::SLAVE_CONFIG_ERROR) ||
+        // config that cannot run, so a stop keeps only such an error.
+        const bool lasting = err.matches(errors::STATE_CHANGE_REFUSED) ||
+                             err.matches(errors::STARTUP_PARAMETER_REJECTED) ||
+                             err.matches(errors::SLAVE_CONFIG_ERROR);
+        if (!lasting && !start.cancel.running())
+            return start_canceled_error(this->network_name);
+        // A try that ends after the deadline hides its error behind the task timeout.
+        if (lasting ||
             (retry.max_retries != x::breaker::RETRY_INFINITELY &&
              failures > retry.max_retries) ||
             now + (retry.max_interval + longest_try).chrono() > start.deadline)
