@@ -13,8 +13,8 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/override"
@@ -39,7 +39,7 @@ type ServiceConfig struct {
 	// TS is the storage-layer time-series database where channel storage is created.
 	//
 	// [REQUIRED]
-	TS *ts.DB
+	TS *cesium.DB
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}

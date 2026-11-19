@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -23,7 +24,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/storage"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
@@ -222,7 +222,7 @@ var _ = Describe("Read failure", func() {
 		store := &storage.Layer{
 			KV:   kv,
 			Gorp: gorp.Wrap(kv),
-			TS:   DeferClose(MustSucceed(ts.Open(ctx, ts.Config{FS: faulty}))),
+			TS:   DeferClose(MustSucceed(cesium.Open(ctx, "", cesium.WithFS(faulty)))),
 		}
 		StartRun(store.Run)
 		host := testutil.NewNode(ctx, distribution.LayerConfig{Storage: store})

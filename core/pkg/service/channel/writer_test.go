@@ -28,7 +28,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	storagetestutil "github.com/synnaxlabs/synnax/pkg/storage/testutil"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	xfstestutil "github.com/synnaxlabs/x/io/fs/testutil"
@@ -1354,7 +1353,7 @@ var _ = Describe("Writer", func() {
 						dist.Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey()),
 					).
 						Error().
-						To(MatchError(ts.ErrChannelNotFound))
+						To(MatchError(cesium.ErrChannelNotFound))
 				},
 			)
 		})
@@ -1436,10 +1435,12 @@ var _ = Describe("Writer", func() {
 						10*telem.SecondTS,
 						telem.NewSeriesSecondsTSV(10, 11, 12),
 					)).To(Succeed())
-					w := MustSucceed(dist.Storage.TS.OpenWriter(ctx, ts.WriterConfig{
-						Start:    20 * telem.SecondTS,
-						Channels: []ts.ChannelKey{open.StorageKey()},
-					}))
+					w := MustSucceed(
+						dist.Storage.TS.OpenWriter(ctx, cesium.WriterConfig{
+							Start:    20 * telem.SecondTS,
+							Channels: []cesium.ChannelKey{open.StorageKey()},
+						}),
+					)
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 						return svc.NewWriter(tx).DeleteMany(
 							ctx,
@@ -1760,7 +1761,7 @@ var _ = Describe("Writer", func() {
 						dist.Storage.TS.RetrieveChannel(ctx, keys[0].StorageKey()),
 					)
 					first, second := UniqueChannelName(), UniqueChannelName()
-					var between ts.Channel
+					var between cesium.Channel
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 						if err := svc.NewWriter(tx).
 							Rename(ctx, keys[0], first, false); err != nil {
@@ -2000,7 +2001,7 @@ var _ = Describe("Writer", func() {
 				// at the key it would have been allocated.
 				nextKey := distchannel.NewKey(1, channels[limit-1].LocalKey+1)
 				Expect(dist.Storage.TS.RetrieveChannels(ctx, nextKey.StorageKey())).
-					Error().To(MatchError(ts.ErrChannelNotFound))
+					Error().To(MatchError(cesium.ErrChannelNotFound))
 
 				// The rejected create must not burn a local key: after freeing
 				// capacity, the next create receives the next sequential key.
@@ -2075,7 +2076,7 @@ var _ = Describe("Writer", func() {
 				})).To(Succeed())
 				return ch
 			}
-			stored = func(ctx SpecContext, ch channel.Channel) ts.Channel {
+			stored = func(ctx SpecContext, ch channel.Channel) cesium.Channel {
 				GinkgoHelper()
 				return MustSucceed(
 					dist.Storage.TS.RetrieveChannel(ctx, ch.Key().StorageKey()),
@@ -2084,7 +2085,7 @@ var _ = Describe("Writer", func() {
 			expectNotStored = func(ctx SpecContext, ch channel.Channel) {
 				GinkgoHelper()
 				Expect(dist.Storage.TS.RetrieveChannel(ctx, ch.Key().StorageKey())).
-					Error().To(MatchError(ts.ErrChannelNotFound))
+					Error().To(MatchError(cesium.ErrChannelNotFound))
 			}
 		)
 		BeforeAll(func(ctx SpecContext) {

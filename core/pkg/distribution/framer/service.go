@@ -13,12 +13,12 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/io"
@@ -50,7 +50,7 @@ type ServiceConfig struct {
 	// telemetry.
 	//
 	// [REQUIRED]
-	TS *ts.DB
+	TS *cesium.DB
 	// Instrumentation is used for logging, tracing, etc.
 	//
 	// [OPTIONAL]

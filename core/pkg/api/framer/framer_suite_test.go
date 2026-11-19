@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
 	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
@@ -32,7 +33,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/storage"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
@@ -69,7 +69,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	store := &storage.Layer{
 		KV:   kv,
 		Gorp: gorp.Wrap(kv),
-		TS:   DeferClose(MustSucceed(ts.Open(ctx, ts.Config{FS: faultyFS}))),
+		TS:   DeferClose(MustSucceed(cesium.Open(ctx, "", cesium.WithFS(faultyFS)))),
 	}
 	StartRun(store.Run)
 	node := testutil.NewNode(ctx, distribution.LayerConfig{Storage: store})

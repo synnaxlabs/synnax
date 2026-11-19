@@ -15,8 +15,8 @@ import (
 	"strconv"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/types"
@@ -52,7 +52,7 @@ func (k Key) LocalKey() LocalKey { return LocalKey(k & 0xFFFFF) }
 func (k Key) Free() bool { return k.Lease() == node.KeyFree }
 
 // StorageKey returns the storage layer representation of the channel key.
-func (k Key) StorageKey() ts.ChannelKey { return ts.ChannelKey(k) }
+func (k Key) StorageKey() cesium.ChannelKey { return cesium.ChannelKey(k) }
 
 // String implements fmt.Stringer.
 func (k Key) String() string { return strconv.FormatUint(uint64(k), 10) }
@@ -77,7 +77,7 @@ func (k Keys) Uint32() []uint32 { return unsafe.ReinterpretSlice[Key, uint32](k)
 
 // Storage returns the storage layer representation of the channel keys. NOTE: This does
 // not copy the slice, it just reinterprets the memory.
-func (k Keys) Storage() []ts.ChannelKey { return k.Uint32() }
+func (k Keys) Storage() []cesium.ChannelKey { return k.Uint32() }
 
 // Contains returns true if the slice contains the given key, false otherwise.
 func (k Keys) Contains(key Key) bool { return slices.Contains(k, key) }
@@ -134,10 +134,11 @@ func (c Channel) String() string {
 }
 
 // Storage returns the storage layer representation of the channel for creation in the
-// storage ts.DB. Virtual channels are never persisted by the storage layer: they are
+// storage cesium.DB. Virtual channels are never persisted by the storage layer: they
+// are
 // registered at create time and re-registered from the channel table on boot.
-func (c Channel) Storage() ts.Channel {
-	return ts.Channel{
+func (c Channel) Storage() cesium.Channel {
+	return cesium.Channel{
 		Key:         c.Key().StorageKey(),
 		Name:        c.Name,
 		IsIndex:     c.IsIndex,

@@ -13,15 +13,15 @@ import (
 	"context"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 )
 
 func translateResponse(
 	_ context.Context,
-	res ts.IteratorResponse,
+	res cesium.IteratorResponse,
 ) (Response, bool, error) {
 	return Response{
 		Ack:     res.Ack,
@@ -36,11 +36,11 @@ func translateResponse(
 func newStorageRequestTranslator() func(
 	ctx context.Context,
 	in Request,
-) (ts.IteratorRequest, bool, error) {
+) (cesium.IteratorRequest, bool, error) {
 	seqNum := 0
-	return func(ctx context.Context, req Request) (ts.IteratorRequest, bool, error) {
-		oReq := ts.IteratorRequest{
-			Command: ts.IteratorCommand(req.Command),
+	return func(ctx context.Context, req Request) (cesium.IteratorRequest, bool, error) {
+		oReq := cesium.IteratorRequest{
+			Command: cesium.IteratorCommand(req.Command),
 			Span:    req.Span,
 			Stamp:   req.Stamp,
 			Bounds:  req.Bounds,
@@ -54,7 +54,7 @@ func newStorageRequestTranslator() func(
 func (s *Service) newStorage(
 	cfg Config,
 ) (confluence.Segment[Request, Response], error) {
-	iter, err := s.cfg.TS.NewStreamIterator(ts.IteratorConfig{
+	iter, err := s.cfg.TS.NewStreamIterator(cesium.IteratorConfig{
 		Bounds:        cfg.Bounds,
 		Channels:      cfg.Keys.Storage(),
 		AutoChunkSize: cfg.ChunkSize,
@@ -64,15 +64,15 @@ func (s *Service) newStorage(
 		return nil, err
 	}
 	pipe := plumber.New()
-	reqT := &confluence.LinearTransform[Request, ts.IteratorRequest]{}
+	reqT := &confluence.LinearTransform[Request, cesium.IteratorRequest]{}
 	reqT.Transform = newStorageRequestTranslator()
-	resT := &confluence.LinearTransform[ts.IteratorResponse, Response]{}
+	resT := &confluence.LinearTransform[cesium.IteratorResponse, Response]{}
 	resT.Transform = translateResponse
-	pipe.SetSegment[ts.IteratorRequest, ts.IteratorResponse]("storage", iter)
-	pipe.SetSegment[Request, ts.IteratorRequest]("requests", reqT)
-	pipe.SetSegment[ts.IteratorResponse, Response]("responses", resT)
-	pipe.MustConnect[ts.IteratorRequest]("requests", "storage", 1)
-	pipe.MustConnect[ts.IteratorResponse]("storage", "responses", 1)
+	pipe.SetSegment[cesium.IteratorRequest, cesium.IteratorResponse]("storage", iter)
+	pipe.SetSegment[Request, cesium.IteratorRequest]("requests", reqT)
+	pipe.SetSegment[cesium.IteratorResponse, Response]("responses", resT)
+	pipe.MustConnect[cesium.IteratorRequest]("requests", "storage", 1)
+	pipe.MustConnect[cesium.IteratorResponse]("storage", "responses", 1)
 	seg := &plumber.Segment[Request, Response]{Pipeline: pipe}
 	lo.Must0(seg.RouteInletTo("requests"))
 	lo.Must0(seg.RouteOutletFrom("responses"))

@@ -12,13 +12,13 @@ package channel
 import (
 	"context"
 
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
+	"github.com/synnaxlabs/cesium"
 )
 
 // Rename renames each storage channel keyed in renames to its corresponding new name.
 // Free channels have no storage registration and are skipped.
 func (s *Service) Rename(ctx context.Context, renames map[Key]string) error {
-	stored := make(map[ts.ChannelKey]string, len(renames))
+	stored := make(map[cesium.ChannelKey]string, len(renames))
 	for key, name := range renames {
 		if !key.Free() {
 			stored[key.StorageKey()] = name

@@ -20,6 +20,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
@@ -39,7 +40,6 @@ import (
 	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	storagetestutil "github.com/synnaxlabs/synnax/pkg/storage/testutil"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -78,7 +78,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	st := DeferClose(storagetestutil.OpenLayer(GinkgoT().Context()))
 	hookedKV = hookkv.Wrap(st.KV)
 	faultyFS = WrapFaultyFS(xfs.NewMem())
-	tsDB := DeferClose(MustSucceed(ts.Open(ctx, ts.Config{FS: faultyFS})))
+	tsDB := DeferClose(MustSucceed(cesium.Open(ctx, "", cesium.WithFS(faultyFS))))
 	StartRun(tsDB.Run)
 	hookedDB := gorp.Wrap(hookedKV)
 	StartRun(hookedDB.Run)

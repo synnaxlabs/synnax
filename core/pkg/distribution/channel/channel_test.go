@@ -12,9 +12,9 @@ package channel_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/math"
 	"github.com/synnaxlabs/x/telem"
@@ -53,7 +53,7 @@ var _ = Describe("Key", func() {
 	})
 	Describe("StorageKey", func() {
 		It("Should return the storage representation of the key", func() {
-			Expect(channel.Key(42).StorageKey()).To(Equal(ts.ChannelKey(42)))
+			Expect(channel.Key(42).StorageKey()).To(Equal(cesium.ChannelKey(42)))
 		})
 	})
 	DescribeTable("String", func(k channel.Key, expected string) {
@@ -105,7 +105,7 @@ var _ = Describe("Keys", func() {
 	Describe("Storage", func() {
 		It("Should correctly return the storage representation of the keys", func() {
 			keys := channel.Keys{1, 2, 3}
-			Expect(keys.Storage()).To(Equal([]ts.ChannelKey{1, 2, 3}))
+			Expect(keys.Storage()).To(Equal([]cesium.ChannelKey{1, 2, 3}))
 		})
 	})
 	Describe("Contains", func() {
@@ -173,12 +173,12 @@ var _ = Describe("Channel", func() {
 				Virtual:     true,
 				Concurrency: control.ConcurrencyShared,
 			}
-			Expect(c.Storage()).To(Equal(ts.Channel{
-				Key:         ts.ChannelKey(2),
+			Expect(c.Storage()).To(Equal(cesium.Channel{
+				Key:         cesium.ChannelKey(2),
 				Name:        "sensor",
 				IsIndex:     true,
 				DataType:    telem.Float32T,
-				Index:       ts.ChannelKey(3),
+				Index:       cesium.ChannelKey(3),
 				Virtual:     true,
 				Concurrency: control.ConcurrencyShared,
 			}))

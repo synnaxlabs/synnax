@@ -14,8 +14,8 @@ import (
 	"io"
 	"sync/atomic"
 
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/set"
@@ -195,7 +195,7 @@ func (t *tapper) startTap(
 // channels.
 func (t *tapper) tapIntoStorage(keys channel.Keys) (tap, error) {
 	str, err := t.TS.NewTranslatedStreamer(
-		ts.StreamerConfig{Channels: keys.Storage()},
+		cesium.StreamerConfig{Channels: keys.Storage()},
 		reqToStorage,
 		resFromStorage,
 	)

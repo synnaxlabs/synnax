@@ -28,7 +28,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/storage"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/confluence"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
@@ -3108,7 +3107,7 @@ var _ = Describe("Read failure", func() {
 		store := &storage.Layer{
 			KV:   kv,
 			Gorp: gorp.Wrap(kv),
-			TS:   DeferClose(MustSucceed(ts.Open(ctx, ts.Config{FS: faulty}))),
+			TS:   DeferClose(MustSucceed(cesium.Open(ctx, "", cesium.WithFS(faulty)))),
 		}
 		StartRun(store.Run)
 		node = testutil.NewNode(ctx, distribution.LayerConfig{Storage: store})

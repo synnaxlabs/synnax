@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/gorp"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
@@ -30,7 +31,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -341,7 +341,7 @@ var _ = Describe("Service", func() {
 				ctx, db, rbacSvc, userSvc, user.User{Name: uuid.New().String()},
 			))
 		})
-		stored := func(ctx SpecContext) ts.Channel {
+		stored := func(ctx SpecContext) cesium.Channel {
 			GinkgoHelper()
 			return MustSucceed(
 				dist.Storage.TS.RetrieveChannel(ctx, ch.Key().StorageKey()),
@@ -381,7 +381,7 @@ var _ = Describe("Service", func() {
 					Where(channel.MatchKeys(ch.Key())).
 					Exists(ctx, db)).To(BeFalse())
 				Expect(dist.Storage.TS.RetrieveChannel(ctx, ch.Key().StorageKey())).
-					Error().To(MatchError(ts.ErrChannelNotFound))
+					Error().To(MatchError(cesium.ErrChannelNotFound))
 			},
 		)
 		Describe("Dispatch", func() {

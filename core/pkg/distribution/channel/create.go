@@ -13,8 +13,8 @@ import (
 	"context"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 )
@@ -65,7 +65,7 @@ func (s *Service) Create(ctx context.Context, channels []Channel) error {
 	stored := lo.Reject(channels, func(c Channel, _ int) bool { return c.Key().Free() })
 	return s.cfg.TS.CreateChannel(
 		ctx,
-		lo.Map(stored, func(c Channel, _ int) ts.Channel { return c.Storage() })...,
+		lo.Map(stored, func(c Channel, _ int) cesium.Channel { return c.Storage() })...,
 	)
 }
 

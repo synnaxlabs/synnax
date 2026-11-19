@@ -24,6 +24,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
@@ -44,7 +45,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/zip"
@@ -661,12 +661,12 @@ func stallWrites(ctx SpecContext) {
 	shutdown := signal.NewHardShutdown(sCtx, cancel)
 	const streamerCount = 16
 	var (
-		requests  = make([]confluence.Inlet[ts.StreamerRequest], streamerCount)
-		responses = make([]confluence.Outlet[ts.StreamerResponse], streamerCount)
+		requests  = make([]confluence.Inlet[cesium.StreamerRequest], streamerCount)
+		responses = make([]confluence.Outlet[cesium.StreamerResponse], streamerCount)
 	)
 	for i := range streamerCount {
-		streamer := MustSucceed(node.Storage.TS.NewStreamer(ts.StreamerConfig{
-			Channels: []ts.ChannelKey{ch.Key().StorageKey()},
+		streamer := MustSucceed(node.Storage.TS.NewStreamer(cesium.StreamerConfig{
+			Channels: []cesium.ChannelKey{ch.Key().StorageKey()},
 		}))
 		requests[i], responses[i] = confluence.Attach(streamer, 1)
 		streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
