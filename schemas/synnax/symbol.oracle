@@ -502,6 +502,7 @@ Builtin struct {
     }
 
     @doc value "is a symbol that the Core ships. Pluto holds its drawing."
+    @py omit
 }
 
 Where filter Symbol {

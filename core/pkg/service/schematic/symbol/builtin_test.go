@@ -20,11 +20,9 @@ import (
 
 func builtin(name string) symbol.Builtin {
 	GinkgoHelper()
-	b, ok := lo.Find(symbol.Builtins(), func(b symbol.Builtin) bool {
+	return MustBeOk(lo.Find(symbol.Builtins(), func(b symbol.Builtin) bool {
 		return b.Name == name
-	})
-	Expect(ok).To(BeTrue(), name)
-	return b
+	}))
 }
 
 type shipped struct {

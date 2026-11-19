@@ -615,4 +615,20 @@ describe("Symbol Client", () => {
       });
     });
   });
+
+  describe("retrieveBuiltins", () => {
+    it("should return the symbols that the Core ships", async () => {
+      const builtins = await client.schematics.symbols.retrieveBuiltins();
+      expect(builtins).toHaveLength(85);
+      const valve = builtins.find((b) => b.name === "valve");
+      expect(valve?.states.map((s) => s.key)).toEqual(["active"]);
+      expect(valve?.commands.map((c) => [c.key, c.name])).toEqual([
+        ["deactivate", "Close"],
+        ["activate", "Open"],
+      ]);
+      const light = builtins.find((b) => b.name === "light");
+      expect(light?.states).toHaveLength(1);
+      expect(light?.commands).toEqual([]);
+    });
+  });
 });
