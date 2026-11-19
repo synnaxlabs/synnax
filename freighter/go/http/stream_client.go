@@ -11,6 +11,7 @@ package http
 
 import (
 	"context"
+	"io"
 	"net/http"
 
 	ws "github.com/fasthttp/websocket"
@@ -39,18 +40,24 @@ type StreamClientConfig struct {
 	//
 	// [REQUIRED]
 	Codec xhttp.Codec
+	// Errors decodes the errors that the server sends.
+	//
+	// [REQUIRED]
+	Errors *errors.Codec
 }
 
 // Validate implements config.Config.
 func (c StreamClientConfig) Validate() error {
 	v := validate.New("http.stream_client")
 	v.NotNil("codec", c.Codec)
+	v.NotNil("errors", c.Errors)
 	return v.Error()
 }
 
 // Override implements config.Config.
 func (c StreamClientConfig) Override(other StreamClientConfig) StreamClientConfig {
 	c.Codec = override.Nil(c.Codec, other.Codec)
+	c.Errors = override.Nil(c.Errors, other.Errors)
 	return c
 }
 
@@ -65,12 +72,13 @@ func NewStreamClient[RQ, RS freighter.Payload](
 	if err != nil {
 		return nil, err
 	}
-	return &streamClient[RQ, RS]{codec: cfg.Codec}, nil
+	return &streamClient[RQ, RS]{codec: cfg.Codec, errs: cfg.Errors}, nil
 }
 
 type streamClient[RQ, RS freighter.Payload] struct {
 	alamos.Instrumentation
 	codec  xhttp.Codec
+	errs   *errors.Codec
 	dialer ws.Dialer
 	freighter.MiddlewareCollector
 }
@@ -104,6 +112,10 @@ func (s *streamClient[RQ, RS]) Stream(
 			if err != nil {
 				return freighter.Context{Target: target}, err
 			}
+			if err = res.Body.Close(); err != nil {
+				err = errors.Combine(err, conn.Close())
+				return freighter.Context{Target: target}, err
+			}
 			oCtx := parseResponseCtx(res, target, true)
 			if res.StatusCode != fiber.StatusSwitchingProtocols {
 				return oCtx, errors.New("[ws] - unable to upgrade connection")
@@ -112,16 +124,17 @@ func (s *streamClient[RQ, RS]) Stream(
 				streamCoreConfig{
 					conn:            conn,
 					codec:           s.codec,
+					errs:            s.errs,
 					Instrumentation: s.Instrumentation,
 				},
 				ctx.Done(),
 			)
 			msg, err := core.receiveRaw()
-			if err != nil {
-				return oCtx, err
+			if err == nil && msg.Type != WSMessageTypeOpen {
+				err = s.errs.Decode(msg.Err)
 			}
-			if msg.Type != WSMessageTypeOpen {
-				return oCtx, errors.Decode(msg.Err)
+			if err != nil {
+				return oCtx, errors.Combine(err, core.close())
 			}
 			stream = &clientStream[RQ, RS]{streamCore: core}
 			return oCtx, nil
@@ -143,12 +156,13 @@ func ctxToHeaders(ctx freighter.Context) http.Header {
 type clientStream[RQ, RS freighter.Payload] struct {
 	streamCore[RS, RQ]
 	sendClosed bool
+	closed     bool
 }
 
 // Send implements the freighter.ClientStream interface.
 func (s *clientStream[RQ, RS]) Send(req RQ) error {
-	if s.peerCloseErr != nil {
-		return freighter.EOF
+	if s.peerClosed() {
+		return io.EOF
 	}
 	if s.sendClosed {
 		return freighter.ErrStreamClosed
@@ -159,15 +173,16 @@ func (s *clientStream[RQ, RS]) Send(req RQ) error {
 
 func (s *clientStream[RQ, RS]) Receive() (RS, error) {
 	pld, err := s.streamCore.Receive()
-	if err != nil {
-		return pld, errors.Combine(err, s.close())
+	if err == nil || s.closed {
+		return pld, err
 	}
-	return pld, nil
+	s.closed = true
+	return pld, errors.Combine(err, s.close())
 }
 
 // CloseSend implements the freighter.ClientStream interface.
 func (s *clientStream[RQ, RS]) CloseSend() error {
-	if s.peerCloseErr != nil || s.sendClosed {
+	if s.peerClosed() || s.sendClosed {
 		return nil
 	}
 	s.sendClosed = true

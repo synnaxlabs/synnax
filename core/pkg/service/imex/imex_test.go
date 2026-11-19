@@ -50,7 +50,7 @@ var _ = Describe("ImEx", func() {
 		Describe("UnmarshalJSONFrom", func() {
 			It(
 				"Should extract promoted headers and retain the body for typed decode",
-				func(ctx SpecContext) {
+				func() {
 					src := []byte(`{"version":54,"type":"log","name":"n","foo":1}`)
 					var env imex.Envelope
 					Expect(json.Unmarshal(src, &env)).To(Succeed())
@@ -156,9 +156,7 @@ var _ = Describe("ImEx", func() {
 
 			// Consoles before v0.57 exported with JSON.stringify, which writes a lone
 			// surrogate as an escape.
-			It("Should replace a lone surrogate a v0.56 Console exported", func(
-				ctx SpecContext,
-			) {
+			It("Should replace a lone surrogate a v0.56 Console exported", func() {
 				var env imex.Envelope
 				Expect(imex.Codec.Decode([]byte(
 					`{"version":1,"type":"log","name":"Tank \ud83d level"}`,
@@ -170,7 +168,7 @@ var _ = Describe("ImEx", func() {
 				Expect(p.Name).To(Equal("Tank \uFFFD level"))
 			})
 
-			It("Should replace invalid UTF-8", func(ctx SpecContext) {
+			It("Should replace invalid UTF-8", func() {
 				var env imex.Envelope
 				Expect(imex.Codec.Decode(
 					[]byte("{\"version\":1,\"name\":\"\xff\"}"), &env,
@@ -178,7 +176,7 @@ var _ = Describe("ImEx", func() {
 				Expect(env.Name).To(Equal("\uFFFD"))
 			})
 
-			It("Should reject a duplicate object name", func(ctx SpecContext) {
+			It("Should reject a duplicate object name", func() {
 				var env imex.Envelope
 				Expect(imex.Codec.Decode(
 					[]byte(`{"version":1,"name":"a","name":"b"}`), &env,
@@ -210,7 +208,7 @@ var _ = Describe("ImEx", func() {
 
 			It(
 				"Should preserve int64 precision on payload values past 2^53",
-				func(ctx SpecContext) {
+				func() {
 					// 1700000000000000000 is roughly a current Unix nanosecond
 					// timestamp, well past float64's 53-bit mantissa
 					// (9007199254740992). The previous float64-based decode lost the
@@ -281,7 +279,7 @@ var _ = Describe("ImEx", func() {
 		})
 
 		Describe("Decode", func() {
-			It("Should decode the body into the requested type", func(ctx SpecContext) {
+			It("Should decode the body into the requested type", func() {
 				src := []byte(
 					`{"version":1,"type":"log","name":"n","foo":42,"bar":"x"}`,
 				)
@@ -295,7 +293,7 @@ var _ = Describe("ImEx", func() {
 
 			It(
 				"Should error cleanly when called on an envelope with no codec bound",
-				func(ctx SpecContext) {
+				func() {
 					// Encode-side and hand-constructed envelopes have no codec bound;
 					// Decode must return a descriptive error rather than panicking on a
 					// nil-interface dispatch.
@@ -305,7 +303,7 @@ var _ = Describe("ImEx", func() {
 				},
 			)
 
-			It("Should fail on a type mismatch in the body", func(ctx SpecContext) {
+			It("Should fail on a type mismatch in the body", func() {
 				src := []byte(
 					`{"version":1,"type":"log","name":"n","foo":"not a number"}`,
 				)
@@ -830,7 +828,7 @@ var _ = Describe("ImEx", func() {
 		Describe("Round-trip", func() {
 			It(
 				"Should preserve nested content across Encode → Marshal → Unmarshal → Decode",
-				func(ctx SpecContext) {
+				func() {
 					type payload struct {
 						Name          string  `json:"name"`
 						Channels      []int64 `json:"channels"`

@@ -59,13 +59,26 @@ export interface CreateContextValue {
 const CreateContext = createContext<CreateContextValue | null>(null);
 CreateContext.displayName = "Settings.Create";
 
-/** Returns the callbacks of the create item. Throws outside the create of a Table. */
+/** Returns the callbacks of the create item. Throws outside a create item. */
 export const useCreate = (): CreateContextValue => {
   const ctx = use(CreateContext);
-  if (ctx == null)
-    throw new Error("Settings.useCreate must be inside the create of a Table");
+  if (ctx == null) throw new Error("Settings.useCreate must be inside a create item");
   return ctx;
 };
+
+export interface CreateProviderProps extends CreateContextValue, PropsWithChildren {}
+
+/**
+ * Gives its children the callbacks of a create item, for a create item that a page
+ * draws in its list instead of at the top of the {@link Table}.
+ */
+export const CreateProvider = ({
+  close,
+  created,
+  children,
+}: CreateProviderProps): ReactElement => (
+  <CreateContext value={{ close, created }}>{children}</CreateContext>
+);
 
 export interface TableProps<K extends record.Key, E extends record.Keyed<K>> {
   list: TableData<K, E>;
@@ -262,7 +275,7 @@ export const Table = <K extends record.Key, E extends record.Keyed<K>>({
       <Menu.ContextMenu menu={menu} {...menuProps} />
       <ScrollTo data={ordered} itemKey={initial} onShow={onShowSelected} />
       <Flex.Box y gap="medium" className={CSS.B("settings-table")}>
-        <Flex.Box x align="center" justify="between" gap="medium">
+        <Flex.Box x wrap align="center" justify="between" gap="medium">
           <Input.Text
             value={term}
             onChange={handleSearch}
@@ -282,57 +295,63 @@ export const Table = <K extends record.Key, E extends record.Keyed<K>>({
           )}
         </Flex.Box>
         <Card flush>
-          <List.Columns columns={columns}>
-            <List.Headings checkable />
-            {creating != null && create != null && (
-              <div
-                className={CSS.cls(
-                  CSS.BE("settings-table", "reveal"),
-                  creating === "closing" &&
-                    CSS.BEM("settings-table", "reveal", "closing"),
+          <div className={CSS.BE("settings-table", "scroll")}>
+            <div className={CSS.BE("settings-table", "columns")}>
+              <List.Columns columns={columns}>
+                <List.Headings checkable />
+                {creating != null && create != null && (
+                  <div
+                    className={CSS.cls(
+                      CSS.BE("settings-table", "reveal"),
+                      creating === "closing" &&
+                        CSS.BEM("settings-table", "reveal", "closing"),
+                    )}
+                    onAnimationEnd={(e) => {
+                      if (creating === "closing" && e.target === e.currentTarget)
+                        setCreating(null);
+                    }}
+                  >
+                    <div>
+                      <CreateContext
+                        value={{ close: handleClose, created: handleCreated }}
+                      >
+                        <Fragment key={round}>{create}</Fragment>
+                      </CreateContext>
+                    </div>
+                  </div>
                 )}
-                onAnimationEnd={(e) => {
-                  if (creating === "closing" && e.target === e.currentTarget)
-                    setCreating(null);
-                }}
-              >
-                <div>
-                  <CreateContext value={{ close: handleClose, created: handleCreated }}>
-                    <Fragment key={round}>{create}</Fragment>
-                  </CreateContext>
-                </div>
-              </div>
-            )}
-            <FreshContext value={freshSet}>
-              <List.Scroll onContextMenu={menuProps.open}>
-                <List.Items<K>
-                  emptyContent={
-                    query?.variant === "error" ? (
-                      <Status.Summary
-                        center
-                        status={query}
-                        className={CSS.BE("settings-table", "empty")}
-                      />
-                    ) : (
-                      answered &&
-                      creating == null && (
-                        <Status.Summary
-                          center
-                          variant="disabled"
-                          hideIcon
-                          className={CSS.BE("settings-table", "empty")}
-                        >
-                          No {noun}
-                        </Status.Summary>
-                      )
-                    )
-                  }
-                >
-                  {children}
-                </List.Items>
-              </List.Scroll>
-            </FreshContext>
-          </List.Columns>
+                <FreshContext value={freshSet}>
+                  <List.Scroll onContextMenu={menuProps.open}>
+                    <List.Items<K>
+                      emptyContent={
+                        query?.variant === "error" ? (
+                          <Status.Summary
+                            center
+                            status={query}
+                            className={CSS.BE("settings-table", "empty")}
+                          />
+                        ) : (
+                          answered &&
+                          creating == null && (
+                            <Status.Summary
+                              center
+                              variant="disabled"
+                              hideIcon
+                              className={CSS.BE("settings-table", "empty")}
+                            >
+                              No {noun}
+                            </Status.Summary>
+                          )
+                        )
+                      }
+                    >
+                      {children}
+                    </List.Items>
+                  </List.Scroll>
+                </FreshContext>
+              </List.Columns>
+            </div>
+          </div>
         </Card>
       </Flex.Box>
     </Select.Frame>

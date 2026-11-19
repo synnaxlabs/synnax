@@ -7,14 +7,13 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from collections.abc import Callable
-from typing import cast
 from uuid import uuid4 as uuid
 
 import pytest
 
 import synnax as sy
 from x import filter
+from x.testutil import untyped
 
 
 @pytest.fixture
@@ -83,13 +82,13 @@ class TestUserClient:
 
     def test_create_params_without_password(self, client: sy.Synnax) -> None:
         """Should reject a username with no password."""
-        create = cast(Callable[..., object], client.users.create)
+        create = untyped(client.users.create)
         with pytest.raises(ValueError, match="password is required"):
             create(username=str(uuid()))
 
     def test_create_params_without_role(self, client: sy.Synnax) -> None:
         """Should reject a username with no role."""
-        create = cast(Callable[..., object], client.users.create)
+        create = untyped(client.users.create)
         with pytest.raises(ValueError, match="role is required"):
             create(username=str(uuid()), password="test")
 
@@ -193,4 +192,4 @@ class TestUserClient:
     def test_retrieve_none_username(self, client: sy.Synnax) -> None:
         """Should reject a username set to None, since it would select every user."""
         with pytest.raises(sy.ValidationError, match="username is None"):
-            client.users.retrieve(username=None)  # type: ignore[call-overload]
+            untyped(client.users.retrieve)(username=None)

@@ -94,8 +94,8 @@ def outside(findings: list[Finding], *, blob: str) -> str:
     if not findings:
         return "\n".join([*lines, "No findings outside the diff remain."]) + "\n"
     lines += [
-        "These findings could not be posted inline. To dismiss one, a member comments "
-        "`@sedosaur dismiss`, its title, and a reason.",
+        "These findings could not be posted inline. To dismiss one, someone with write "
+        "access comments `@sedosaur dismiss`, its title, and a reason.",
         "",
     ]
     for f in findings:
@@ -180,7 +180,8 @@ def splice(body: str, block: str) -> str:
 
 def check(review: Review) -> dict[str, str]:
     """Renders the output of the review's check run. Its text carries RULES and lists
-    the findings, so a dismissal can tell when none is left."""
+    the findings so a dismissal can tell when none is left.
+    """
     counts = Counter(f.severity for f in review.findings)
     found = [f"{counts[s]} {s}" for s in SEVERITIES if counts[s]]
     return {

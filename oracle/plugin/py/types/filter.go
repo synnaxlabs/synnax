@@ -80,7 +80,7 @@ func addOperatorInput(
 	if len(params) > 0 {
 		args = "[" + value + "]"
 	} else {
-		eq, ok := typ.Form.(resolution.StructForm).Field("eq")
+		eq, ok := resolution.MustForm[resolution.StructForm](typ).Field("eq")
 		if !ok {
 			return errors.Newf("operator %s has no eq member", typ.QualifiedName)
 		}
@@ -114,7 +114,7 @@ func addWhereInput(
 	table *resolution.Table,
 	data *templateData,
 ) error {
-	form := typ.Form.(resolution.StructForm)
+	form := resolution.MustForm[resolution.StructForm](typ)
 	input := sd.PyName + "Input"
 	keys := []string{
 		fmt.Sprintf(`"and": list["%s"]`, input),
@@ -225,18 +225,19 @@ func typedDict(name string, fields []fieldData, params []string) string {
 			strings.Join(lines, "\n"),
 		)
 	}
+	// mypy reads an unquoted value such as list[T] as a runtime expression, where T is
+	// unbound. A quoted value is only a type, so the TypedDict stays generic.
 	keys := lo.Map(fields, func(f fieldData, _ int) string {
 		key := lo.Ternary(f.Alias != "", f.Alias, f.Name)
+		if len(params) > 0 {
+			return fmt.Sprintf("%q: %q", key, valueType(f))
+		}
 		return fmt.Sprintf("%q: %s", key, valueType(f))
 	})
-	// mypy checks the uses of a generic TypedDict in call syntax, but rejects its type
-	// variables at the declaration.
-	ignore := lo.Ternary(len(params) > 0, "  # type: ignore[valid-type]", "")
 	return fmt.Sprintf(
-		"%s = TypedDict(\n    %q,\n    {%s},%s\n    total=False,\n)",
+		"%s = TypedDict(\n    %q,\n    {%s},\n    total=False,\n)",
 		name,
 		name,
 		strings.Join(keys, ", "),
-		ignore,
 	)
 }

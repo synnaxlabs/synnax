@@ -35,7 +35,7 @@ func (b BoolZ) Validate(data any) error {
 	return b.Parse(data, &dest)
 }
 
-// validateDestination validates that the destination is compatible with boolean data
+// validateDestination validates that the destination is compatible with boolean data.
 func (b BoolZ) validateDestination(dest reflect.Value) error {
 	if dest.Kind() != reflect.Pointer || dest.IsNil() {
 		return NewInvalidDestinationTypeError(string(BoolT), dest)
@@ -87,9 +87,10 @@ func (b BoolZ) Dump(data any) (any, error) {
 		if err != nil {
 			return nil, invalidBooleanStringError(dataVal.String())
 		}
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
-		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		boolVal = dataVal.Int() != 0
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		boolVal = dataVal.Uint() != 0
 	case reflect.Float32, reflect.Float64:
 		boolVal = dataVal.Float() != 0
 	default:
@@ -129,8 +130,10 @@ func (b BoolZ) Parse(data, dest any) error {
 		if err != nil {
 			return invalidBooleanStringError(v)
 		}
-	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+	case int, int8, int16, int32, int64:
 		boolVal = reflect.ValueOf(v).Int() != 0
+	case uint, uint8, uint16, uint32, uint64:
+		boolVal = reflect.ValueOf(v).Uint() != 0
 	case float32, float64:
 		boolVal = reflect.ValueOf(v).Float() != 0
 	default:

@@ -115,10 +115,8 @@ var _ = Describe("Ladders", func() {
 				map[string]any{"type": "ci_edge_count", "initial_count": 3.7},
 			}},
 		))
-		Expect(cfg.Channels[0].Variant).To(BeAssignableToTypeOf(
-			versions.CIEdgeCountChannel{},
-		))
-		Expect(cfg.Channels[0].Variant.(versions.CIEdgeCountChannel).InitialCount).
-			To(Equal(uint32(3)))
+		ch, ok := cfg.Channels[0].Variant.(versions.CIEdgeCountChannel)
+		Expect(ok).To(BeTrue())
+		Expect(ch.InitialCount).To(Equal(uint32(3)))
 	})
 })

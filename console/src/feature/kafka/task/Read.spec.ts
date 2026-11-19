@@ -9,6 +9,7 @@
 
 import { kafka, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -21,7 +22,6 @@ import {
   type RenderTaskFormTabOptions,
   selectFromDropdown,
 } from "@/platform/task/testutil";
-import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -222,5 +222,24 @@ describe("Read", () => {
     expect(a.channel).toBe(existing.key);
     const bCh = await client.channels.retrieve(b.channel);
     expect(bCh.index).toBe(index.key);
+  });
+});
+
+describe("plotChannels", () => {
+  it("should find the enabled fields of every record", () => {
+    const plotChannels = Kafka.Task.INTEGRATION.plotChannels?.[Kafka.Task.READ_TYPE];
+    assertDefined(plotChannels, "read tasks have no channels to plot");
+    const config = {
+      records: [
+        {
+          fields: [
+            { channel: 1, disabled: false },
+            { channel: 2, disabled: true },
+          ],
+        },
+        { fields: [{ channel: 3, disabled: false }] },
+      ],
+    };
+    expect(plotChannels(config)).toEqual([1, 3]);
   });
 });

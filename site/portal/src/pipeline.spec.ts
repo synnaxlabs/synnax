@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { uuid } from "@synnaxlabs/x";
 import { type APIRoute, type MiddlewareHandler } from "astro";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -114,7 +115,7 @@ describe("pipeline", () => {
       const res = await send(handoffRoute, {
         path: "/api/handoff",
         headers: {
-          authorization: `Bearer ${crypto.randomUUID()}`,
+          authorization: `Bearer ${uuid.create()}`,
           origin: "http://localhost:9090",
           "sec-fetch-site": "cross-site",
         },

@@ -47,6 +47,7 @@ const Register = ({ close }: Modals.ContentProps<Record<never, never>, void>) =>
     query: null,
     afterSave: () => close(),
   });
+  Modals.useBusy(variant === "loading");
 
   return (
     <Modal.Frame>

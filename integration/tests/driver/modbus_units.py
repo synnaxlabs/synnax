@@ -17,6 +17,7 @@ from pydantic import BaseModel, ValidationError
 from pymodbus.client import ModbusTcpClient
 
 import synnax as sy
+from framework.utils import hold
 from tests.driver.simulator_case import SimulatorCase
 from tests.driver.task import (
     assert_streamed_values,
@@ -138,7 +139,7 @@ class ModbusUnits(SimulatorCase):
                 assert res.registers == [2], (
                     f"The gateway should have 2 connections, got {res.registers[0]}"
                 )
-                sy.sleep(0.2)  # noqa: TID251 hold: nothing may change
+                hold(0.2, reason="nothing may change")
 
     def test_silent_unit(self) -> None:
         self.log("Testing: A silent unit is demoted, and the others keep reading")

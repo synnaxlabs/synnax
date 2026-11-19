@@ -9,6 +9,7 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
+import { suggestIdentifiers } from "@/feature/labjack/device/identifier";
 import { INTEGRATION_KEY, MAKE, ZERO_PROPERTIES } from "@/feature/labjack/device/types";
 import { SCAN_TYPE } from "@/feature/labjack/task/types";
 import { Device } from "@/platform/device";
@@ -24,7 +25,11 @@ export const HARDWARE: Device.Hardware = {
   make: MAKE,
   scanType: SCAN_TYPE,
   location: { shape: "plain" },
-  Configure: Device.createConfigure({ icon: ICON, zeroProperties: ZERO_PROPERTIES }),
+  Configure: Device.createConfigure({
+    icon: ICON,
+    zeroProperties: ZERO_PROPERTIES,
+    suggestIdentifiers,
+  }),
   checks: [
     "LJM is installed on that computer. LabJack hardware needs Windows or macOS.",
     "Kipling and other LabJack programs are closed, because they hold the device.",

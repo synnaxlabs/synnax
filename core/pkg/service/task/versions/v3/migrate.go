@@ -115,72 +115,79 @@ func migrateConfigsToRecords(
 		removed []resource.ID
 	)
 	for _, t := range tasks {
-		id := resource.ID{Type: resource.TypeTask, Key: t.Key.String()}
-		if retiredTypes.Contains(t.Type) {
-			if err := retire(ctx, tx, ins, cfg.Status, t); err != nil {
-				return err
-			}
-			removed = append(removed, id)
-			continue
+		migrated, ok, err := migrateTask(ctx, tx, ins, cfg, t)
+		if err != nil {
+			return err
 		}
-		newType := t.Type
-		if renamed, ok := typeRenames[t.Type]; ok {
-			newType = renamed
-		}
-		store, ok := cfg.Configs.Store(newType)
 		if !ok {
-			if err := quarantine(
-				ctx, tx, ins, cfg.Status, t, "unknown task type "+t.Type,
-			); err != nil {
-				return err
-			}
-			removed = append(removed, id)
+			removed = append(
+				removed,
+				resource.ID{Type: resource.TypeTask, Key: t.Key.String()},
+			)
 			continue
 		}
-		// Stored blobs are all console-era, which every store's legacy rewrite
-		// handles as version 0.
-		converted, err := store.Normalize(ctx, tx, 0, t.Config)
-		if err != nil {
-			if err := quarantine(
-				ctx, tx, ins, cfg.Status, t, unconvertibleReason(err),
-			); err != nil {
-				return err
-			}
-			removed = append(removed, id)
-			continue
-		}
-		rec, err := store.Prepare(ctx, tx, t.Key, t.Name, converted)
-		if err == nil {
-			err = rec.Write(ctx, tx)
-		}
-		if err != nil {
-			// A write that the resolve hook ran stays, so the user keeps what it made,
-			// such as a secret.
-			if err := store.Delete(ctx, tx, t.Key); err != nil {
-				return err
-			}
-			if err := quarantine(
-				ctx, tx, ins, cfg.Status, t, unconvertibleReason(err),
-			); err != nil {
-				return err
-			}
-			removed = append(removed, id)
-			continue
-		}
-		stored, err := rec.Data()
-		if err != nil {
-			return err
-		}
-		hash, err := hashConfig(configContent(stored))
-		if err != nil {
-			return err
-		}
-		t.Type, t.Config, t.ConfigHash = newType, nil, hash
-		if err := rows.Set(ctx, t); err != nil {
+		if err = rows.Set(ctx, migrated); err != nil {
 			return err
 		}
 	}
 	return ontology.DeleteResources(ctx, tx, removed...)
+}
+
+// migrateTask writes the config of t to the record of its store and returns t with
+// the hash of the config in place of the config. ok is false when migrateTask retires
+// or quarantines t instead.
+func migrateTask(
+	ctx context.Context,
+	tx gorp.Tx,
+	ins alamos.Instrumentation,
+	cfg MigrationConfig,
+	t v2.Task,
+) (migrated v2.Task, ok bool, err error) {
+	if retiredTypes.Contains(t.Type) {
+		return v2.Task{}, false, retire(ctx, tx, ins, cfg.Status, t)
+	}
+	newType := t.Type
+	if renamed, renamedOK := typeRenames[t.Type]; renamedOK {
+		newType = renamed
+	}
+	store, ok := cfg.Configs.Store(newType)
+	if !ok {
+		return v2.Task{}, false, quarantine(
+			ctx, tx, ins, cfg.Status, t, "unknown task type "+t.Type,
+		)
+	}
+	// Stored blobs are all console-era, which every store's legacy rewrite handles as
+	// version 0.
+	converted, err := store.Normalize(ctx, tx, 0, t.Config)
+	if err != nil {
+		return v2.Task{}, false, quarantine(
+			ctx, tx, ins, cfg.Status, t, unconvertibleReason(err),
+		)
+	}
+	rec, err := store.Prepare(ctx, tx, t.Key, t.Name, converted)
+	if err == nil {
+		err = rec.Write(ctx, tx)
+	}
+	if err != nil {
+		// A write that the resolve hook ran stays, so the user keeps what it made, such
+		// as a secret.
+		if err := store.Delete(ctx, tx, t.Key); err != nil {
+			return v2.Task{}, false, err
+		}
+		return v2.Task{}, false, quarantine(
+			ctx, tx, ins, cfg.Status, t, unconvertibleReason(err),
+		)
+	}
+	stored, err := rec.Data()
+	if err != nil {
+		return v2.Task{}, false, err
+	}
+	hash, err := hashConfig(configContent(stored))
+	if err != nil {
+		return v2.Task{}, false, err
+	}
+	t.Type, t.Config, t.ConfigHash = newType, nil, hash
+	return t, true, nil
 }
 
 // stageAndRemove stages the JSON encoding of the legacy row in KV and removes the

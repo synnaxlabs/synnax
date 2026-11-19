@@ -18,10 +18,11 @@ variable "repository" {
   default     = "synnaxlabs/synnax"
 }
 
-# A seat is one Claude Max or ChatGPT login. A review seat's runners carry only the
-# `review` label, so agent jobs never land on them.
+# A seat is one machine. A Claude seat runs on a shared login that the fleet controller
+# gives it when it starts, and a Codex seat holds its own ChatGPT login. A review seat's
+# runners carry only the `review` label, so agent jobs never land on them.
 variable "seats" {
-  description = "Agent CLI logins by name, one instance each"
+  description = "Seats by name, one instance each"
   type = map(object({
     agent = string
     pool  = optional(string, "agent")
@@ -55,9 +56,9 @@ variable "pools" {
     runners       = number
   }))
   default = {
-    # Three agents build at once, so memory runs out before CPU.
+    # Five agents build at once at up to 11 GiB each, so memory runs out before CPU.
     agent = {
-      instance_type = "m7i.4xlarge", disk_gb = 400, idle_minutes = 20, runners = 3
+      instance_type = "r7i.4xlarge", disk_gb = 400, idle_minutes = 20, runners = 5
     }
     # Reviews only read code. The longer idle time spares most reviews in a workday
     # the wait for a stopped instance to boot.

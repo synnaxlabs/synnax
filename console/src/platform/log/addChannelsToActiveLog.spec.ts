@@ -9,10 +9,10 @@
 
 import { type channel, DataType, type log, type Synnax } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { addChannelsToActiveLog } from "@/platform/log/addChannelsToActiveLog";
-import { uniqueName } from "@/testutil";
 
 const client: Synnax = createTestClient();
 

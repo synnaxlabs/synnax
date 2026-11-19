@@ -26,6 +26,7 @@
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/mono_clock.h"
 #include "x/cpp/telem/telem.h"
+#include "x/cpp/x509/x509.h"
 
 #include "driver/opcua/certificate/certificate.h"
 #include "driver/opcua/certificate/store.h"
@@ -59,7 +60,7 @@ struct Config {
     std::string client_private_key;
     /// @brief the trusted server certificate. Empty trusts no certificate, unless
     /// the connection trusts the first one it receives.
-    std::optional<certificate::Certificate> server_certificate;
+    std::optional<x::x509::Certificate> server_certificate;
     /// @brief whether the connection accepts any server certificate.
     bool certificate_validation_disabled = false;
     /// @brief the SecureChannel lifetime in milliseconds. 0 selects 10 minutes.
@@ -91,8 +92,8 @@ struct Config {
         const auto server = parser.field<std::string>("server_certificate", "");
         // A value that is not PEM is a path from an earlier release, which had no
         // effect.
-        if (!certificate::Certificate::is_pem(server)) return;
-        auto [cert, err] = certificate::Certificate::parse(server);
+        if (!x::x509::Certificate::is_pem(server)) return;
+        auto [cert, err] = x::x509::Certificate::parse(server);
         if (err) {
             parser.field_err("server_certificate", err.data);
             return;
@@ -176,11 +177,11 @@ x::errors::Error lost(UA_Client *client);
 
 /// @returns the certificate that the server presented on the client's last
 /// connection attempt, or nothing if the connection is not secured.
-std::optional<certificate::Certificate> server_certificate(UA_Client *client);
+std::optional<x::x509::Certificate> server_certificate(UA_Client *client);
 
 /// @returns the server certificate that the client trusts: the configured one, or the
 /// first one the server presented. Nothing if the client trusts any certificate.
-std::optional<certificate::Certificate> trusted_certificate(UA_Client *client);
+std::optional<x::x509::Certificate> trusted_certificate(UA_Client *client);
 
 /// @brief what the Driver reads from a server at the start of each Session.
 struct Server {
@@ -392,7 +393,7 @@ private:
         bool connecting = false;
         /// @brief the trusted server certificate of the counted failures. A new
         /// one resets the count.
-        std::optional<certificate::Certificate> trusted;
+        std::optional<x::x509::Certificate> trusted;
         x::errors::Error last_error = x::errors::NIL;
 
         /// @returns the error for an acquire that the open breaker refuses. A

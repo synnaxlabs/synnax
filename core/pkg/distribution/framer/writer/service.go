@@ -253,7 +253,7 @@ type FreeIndexResolver interface {
 	// this map, and a free channel it leaves out counts its own alignments. Any error
 	// is propagated to the caller opening the writer.
 	ResolveFreeIndexes(
-		context.Context, channel.Keys,
+		ctx context.Context, keys channel.Keys,
 	) (map[channel.Key]channel.Key, error)
 }
 
@@ -356,17 +356,7 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		freeAlignments map[channel.Key]telem.Alignment
 	)
 	if hasFree {
-		rp := s.resolver.Load()
-		if rp == nil || *rp == nil {
-			return nil, errors.New(
-				"cannot open a writer on free channels: no free index resolver configured",
-			)
-		}
-		if freeIndexes, err = (*rp).ResolveFreeIndexes(ctx, freeKeys); err != nil {
-			return nil, err
-		}
-		freeAlignments, err = s.freeWriteAlignments.reserve(freeKeys, freeIndexes)
-		if err != nil {
+		if freeIndexes, freeAlignments, err = s.resolveFree(ctx, freeKeys); err != nil {
 			return nil, err
 		}
 	}
@@ -374,6 +364,7 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 	pipe.SetSegment(sequencerAddr, &sequencer{})
 	pipe.SetSegment(synchronizerAddr, newSynchronizer(
 		lo.Ternary(hasStorage, 1, 0)+lo.Ternary(hasFree, 1, 0),
+		*cfg.Sync,
 		s.cfg.Instrumentation,
 	))
 
@@ -403,6 +394,42 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 
 	if hasStorage && hasFree {
 		routeSequencerTo = switchAddr
+	}
+	return newSegment(pipe, receiverAddresses, routeSequencerTo), nil
+}
+
+// resolveFree resolves the indexes of the given free channels and reserves their write
+// alignments.
+func (s *Service) resolveFree(
+	ctx context.Context,
+	freeKeys channel.Keys,
+) (map[channel.Key]channel.Key, map[channel.Key]telem.Alignment, error) {
+	rp := s.resolver.Load()
+	if rp == nil || *rp == nil {
+		return nil, nil, errors.New(
+			"cannot open a writer on free channels: no free index resolver configured",
+		)
+	}
+	freeIndexes, err := (*rp).ResolveFreeIndexes(ctx, freeKeys)
+	if err != nil {
+		return nil, nil, err
+	}
+	freeAlignments, err := s.freeWriteAlignments.reserve(freeKeys, freeIndexes)
+	if err != nil {
+		return nil, nil, err
+	}
+	return freeIndexes, freeAlignments, nil
+}
+
+// newSegment connects the sequencer to routeSequencerTo and the receivers to the
+// synchronizer, then returns pipe as a segment from the sequencer to the synchronizer.
+// When routeSequencerTo is the switch, it also routes the switch to the receivers.
+func newSegment(
+	pipe *plumber.Pipeline,
+	receiverAddresses []address.Address,
+	routeSequencerTo address.Address,
+) *plumber.Segment[Request, Response] {
+	if routeSequencerTo == switchAddr {
 		pipe.SetSegment(
 			switchAddr,
 			&confluence.BatchSwitch[Request, Request]{Switch: switchFree},
@@ -414,18 +441,15 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 			Capacity:      len(receiverAddresses) * 5,
 		}.MustRoute(pipe)
 	}
-
 	pipe.MustConnect[Request](sequencerAddr, routeSequencerTo, 30)
-
 	plumber.MultiRouter[Response]{
 		SourceTargets: receiverAddresses,
 		SinkTargets:   []address.Address{synchronizerAddr},
 		Stitch:        plumber.StitchUnary,
 		Capacity:      len(receiverAddresses),
 	}.MustRoute(pipe)
-
 	seg := &plumber.Segment[Request, Response]{Pipeline: pipe}
 	lo.Must0(seg.RouteInletTo(sequencerAddr))
 	lo.Must0(seg.RouteOutletFrom(synchronizerAddr))
-	return seg, nil
+	return seg
 }

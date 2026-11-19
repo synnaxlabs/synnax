@@ -257,7 +257,8 @@ func (r *Reader) StringBytes() ([]byte, error) {
 
 // CollectionLen reads a uint32 element count and validates it against MaxCollectionLen.
 // Use this instead of Uint32 when the value controls a slice, map, or byte array
-// allocation.
+// allocation. Every element encodes to at least one byte, so in direct mode a count
+// above the number of unread bytes returns io.ErrUnexpectedEOF.
 func (r *Reader) CollectionLen() (uint32, error) {
 	n, err := r.Uint32()
 	if err != nil {
@@ -270,6 +271,9 @@ func (r *Reader) CollectionLen() (uint32, error) {
 			n,
 			MaxCollectionLen,
 		)
+	}
+	if r.data != nil && int(n) > len(r.data)-r.pos {
+		return 0, io.ErrUnexpectedEOF
 	}
 	return n, nil
 }

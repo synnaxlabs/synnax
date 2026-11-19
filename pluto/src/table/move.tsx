@@ -10,7 +10,7 @@
 import { Cursor } from "@synnaxlabs/lyra/cursor";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { type Triggers } from "@synnaxlabs/lyra/triggers";
-import { box, type direction, xy } from "@synnaxlabs/x";
+import { box, type direction, math, xy } from "@synnaxlabs/x";
 import {
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
@@ -71,7 +71,7 @@ interface Held {
 }
 
 const offsetOf = (sizes: number[], index: number): number =>
-  sizes.slice(0, index).reduce((a, s) => a + s, 0);
+  math.sum(sizes.slice(0, index));
 
 const indicesOf = (items: Item[], keys: string[]): number[] =>
   items.flatMap((item, i) => (keys.includes(item.key) ? [i] : []));
@@ -136,7 +136,7 @@ export const useMove = ({
       const sizes = items.map((item) => item.size);
       const indices = indicesOf(items, keys);
       const before = indices.filter((i) => i < pressed);
-      const edge = offsetOf(sizes, pressed) - before.reduce((a, i) => a + sizes[i], 0);
+      const edge = offsetOf(sizes, pressed) - math.sum(before.map((i) => sizes[i]));
       grabRef.current = start[dir] - originOf(ref.current, dir) - edge;
       heldRef.current = { keys, to: landing(sizes, indices, edge) };
       setHeld(heldRef.current);

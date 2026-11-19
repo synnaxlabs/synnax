@@ -9,7 +9,7 @@
 
 import "@/platform/view/View.css";
 
-import { UnexpectedError, view } from "@synnaxlabs/client";
+import { type panel, UnexpectedError, view } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -19,18 +19,27 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Access, Flux, View as PView } from "@synnaxlabs/pluto";
-import { caseconv, uuid } from "@synnaxlabs/x";
+import { Access, Flux, Panel as PPanel, View as PView } from "@synnaxlabs/pluto";
+import { strings, uuid } from "@synnaxlabs/x";
 import { plural } from "pluralize";
-import { Fragment, type PropsWithChildren, type ReactElement, useState } from "react";
+import {
+  Fragment,
+  type MouseEvent,
+  type PropsWithChildren,
+  type ReactElement,
+  useState,
+} from "react";
 
 import { Appearance } from "@/platform/appearance";
 import { ContextMenu as PlatformContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
+import { Panel } from "@/platform/panel";
 import {
   Context,
   type ContextValue,
+  SearchContext,
+  type SearchContextValue,
   type StaticView,
   useContext,
   type View,
@@ -42,6 +51,8 @@ import { useCreateModal } from "@/platform/view/useCreateModal";
 export interface FrameProps extends PropsWithChildren {
   resourceType: view.Type;
   icon: string;
+  /** The type of the explorer tab, which shows the static view. */
+  tabType: string;
 }
 
 const ZERO_VARIANTS: {
@@ -51,7 +62,41 @@ const ZERO_VARIANTS: {
   status: { type: "status" },
 };
 
-export const Frame = ({ resourceType, icon, children }: FrameProps): ReactElement => {
+/**
+ * Frame shows the views of a resource type above the open one. The panel stores the
+ * view a tab shows, so everyone who opens the panel sees it. Must render in an explorer
+ * tab of the given type, or in a tab of a saved view.
+ */
+export const Frame = (props: FrameProps): ReactElement => {
+  const tab = PPanel.useTab({});
+  if (tab.variant === "view") return <Body {...props} tab={tab.key} open={null} />;
+  return <SavedBody {...props} tab={tab.key} openKey={tab.resource.key} />;
+};
+
+interface BodyProps extends FrameProps {
+  tab: panel.TabKey;
+  open: view.View | null;
+}
+
+interface SavedBodyProps extends Omit<BodyProps, "open"> {
+  openKey: view.Key;
+}
+
+const SavedBody = ({ openKey, ...rest }: SavedBodyProps): ReactElement => {
+  const open = PView.use({ key: openKey });
+  return <Body {...rest} open={open} />;
+};
+
+const Body = ({
+  resourceType,
+  icon,
+  tabType,
+  tab,
+  open,
+  children,
+}: BodyProps): ReactElement => {
+  const openTab = Panel.useOpenTab();
+  const canChange = Panel.useCanOpenTab();
   const [searchTerm, setSearchTerm] = useState("");
   const [staticViewKey] = useState(() => uuid.create());
   const staticViews: StaticView[] = [
@@ -74,47 +119,52 @@ export const Frame = ({ resourceType, icon, children }: FrameProps): ReactElemen
   const { getItem } = combinedProps;
   if (getItem == null) throw new UnexpectedError("No item getter found");
   const staticViewKeys = staticViews.map((v) => v.key);
-  const [selected, setSelected] = useState(staticViews[0].key);
+  const selected = open?.key ?? staticViews[0].key;
+  const tabOf = (key: view.Key): panel.NewTab =>
+    staticViewKeys.includes(key)
+      ? { variant: "view", type: tabType }
+      : { variant: "resource", resource: view.resourceID(key) };
   const select = (key: view.Key) => {
-    setSelected(key);
+    // A user who may not change the panel keeps the view it stores.
+    if (!canChange) return;
+    // A view open in another tab of the panel focuses that tab instead.
+    openTab({ ...tabOf(key), key: tab });
     setSearchTerm("");
   };
+  const openInNewTab = (key: view.Key) => openTab(tabOf(key));
   const updateGranted = Access.useUpdateGranted(view.resourceID(selected));
   // A static view saves nothing, so everyone may change it.
   const editable = staticViewKeys.includes(selected) || updateGranted;
   const getInitialView = () => {
-    const view = getItem(selected);
+    const view = open ?? getItem(selected);
     if (view == null) throw new UnexpectedError("No view found");
     return view;
   };
-  const deleteSynchronizer = (key: view.Key) => {
-    if (key !== selected) return;
-    select(staticViews[0].key);
-  };
-  PView.useDeleteSynchronizer(deleteSynchronizer);
   const contextValue: ContextValue = {
     resourceType,
     selected,
     editable,
     staticViews: staticViewKeys,
     select,
+    openInNewTab: canChange ? openInNewTab : null,
     getInitialView,
-    searchTerm,
-    setSearchTerm,
   };
+  const searchValue: SearchContextValue = { term: searchTerm, setTerm: setSearchTerm };
 
   return (
     <Flex.Box full="y" empty>
       <Context value={contextValue}>
-        <Selector
-          icon={icon}
-          resourceType={resourceType}
-          onFetchMore={remoteProps.more}
-          onSelect={select}
-          listProps={combinedProps}
-          selected={selected}
-        />
-        <Fragment key={selected}>{children}</Fragment>
+        <SearchContext value={searchValue}>
+          <Selector
+            icon={icon}
+            resourceType={resourceType}
+            onFetchMore={remoteProps.more}
+            onSelect={select}
+            listProps={combinedProps}
+            selected={selected}
+          />
+          <Fragment key={selected}>{children}</Fragment>
+        </SearchContext>
       </Context>
     </Flex.Box>
   );
@@ -183,21 +233,31 @@ const Selector = ({
   );
 };
 
-const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null => {
-  const { selected, select, staticViews, resourceType } = useContext("View.Selector");
+// A panel shows a saved view in one tab at most, so the one this tab shows opens in no
+// other.
+const opensInNewTab = (
+  { openInNewTab, selected, staticViews }: ContextValue,
+  key: view.Key,
+): boolean => openInNewTab != null && (key !== selected || staticViews.includes(key));
+
+const ContextMenu = ({
+  keys,
+  target,
+}: Menu.ContextMenuMenuProps): ReactElement | null => {
+  const ctx = useContext("View.Selector");
+  const { openInNewTab, staticViews, resourceType } = ctx;
   const { getItem } = List.useUtilContext<view.Key, View>();
   if (getItem == null) throw new UnexpectedError("No item getter found");
   const editableKeys = keys.filter((key) => !staticViews.includes(key));
   const confirm = Modals.useConfirmDelete({
     icon: "View",
-    type: caseconv.capitalize(resourceType),
+    type: strings.capitalize(resourceType),
   });
   const { update: del } = PView.useDelete({
     beforeUpdate: async ({ data }: Flux.BeforeUpdateParams<PView.DeleteParams>) => {
       const views = getItem(keys);
       const confirmed = await confirm(views);
       if (!confirmed) return false;
-      if (keys.includes(selected)) select(staticViews[0]);
       return data;
     },
   });
@@ -205,11 +265,21 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null =
     Access.useUpdateGranted(view.resourceID(editableKeys)) && editableKeys.length === 1;
   const canDelete =
     Access.useDeleteGranted(view.resourceID(editableKeys)) && editableKeys.length > 0;
+  const canOpen = keys.length === 1 && opensInNewTab(ctx, keys[0]);
   return (
     <PlatformContextMenu.Menu>
+      {canOpen && (
+        <>
+          <Menu.Item itemKey="open-in-new-tab" onClick={() => openInNewTab?.(keys[0])}>
+            <Icon.OpenInNewWindow />
+            Open in new tab
+          </Menu.Item>
+          <Menu.Divider />
+        </>
+      )}
       {canRename && (
         <PlatformContextMenu.RenameItem
-          onClick={() => Text.edit(List.itemNameID(editableKeys[0]))}
+          onClick={() => Text.edit(List.itemNameID(editableKeys[0]), target)}
         />
       )}
       {canRename && (
@@ -270,14 +340,21 @@ interface ItemProps extends Pick<StripProps, "icon" | "onAnchorChange"> {
 
 const Item = ({ itemKey, icon, onAnchorChange }: ItemProps): ReactElement | null => {
   const item = List.useItem<view.Key, View>(itemKey);
+  const ctx = useContext("View.Item");
   const { update: rename } = PView.useRename();
   const canRename = Access.useUpdateGranted(view.resourceID(itemKey));
   const handleRename = (name: string) => rename({ key: itemKey, name });
   const handleRef = (tab: HTMLDivElement | null) => onAnchorChange(itemKey, tab);
+  // The capture runs before the tab selects itself.
+  const handleClickCapture = (e: MouseEvent) => {
+    if (!(e.ctrlKey || e.metaKey) || !opensInNewTab(ctx, itemKey)) return;
+    e.stopPropagation();
+    ctx.openInNewTab?.(itemKey);
+  };
   if (item == null) return null;
   const { name } = item;
   return (
-    <Tabs.Tab ref={handleRef} itemKey={itemKey}>
+    <Tabs.Tab ref={handleRef} itemKey={itemKey} onClickCapture={handleClickCapture}>
       {item.static === true
         ? Icon.resolve(icon)
         : Appearance.renderIcon({

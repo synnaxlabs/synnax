@@ -11,6 +11,8 @@ import { spawn } from "node:child_process";
 import { once } from "node:events";
 import path from "node:path";
 
+import { breaker, TimeSpan } from "@synnaxlabs/x";
+
 import { portInUse } from "@/fixtures/core";
 
 const CLIENT_PY = path.resolve(import.meta.dirname, "../../../client/py");
@@ -23,6 +25,8 @@ const READY_TIMEOUT_MS = 30_000;
 const KAFKA_READY_TIMEOUT_MS = 180_000;
 
 const STOP_TIMEOUT_MS = 10_000;
+
+const POLL_MS = 200;
 
 /** The Python code that runs each server from `client/py/examples`. */
 const PROGRAMS = {
@@ -38,10 +42,15 @@ const PROGRAMS = {
     "import asyncio\n" +
     "from examples.opcua.sim import run_server\n" +
     `asyncio.run(run_server(endpoint="opc.tcp://${host}:${port}"))`,
+  // The certificate shows on screen and names the machine, so the server makes a new
+  // one with a fixed host name instead of reusing the one the examples keep.
   "opcua-encrypted": (host: string, port: number) =>
-    "import asyncio\n" +
-    "from examples.opcua.sim import run_server\n" +
-    `asyncio.run(run_server(endpoint="opc.tcp://${host}:${port}", encrypted=True))`,
+    "import asyncio, socket, tempfile\n" +
+    "from pathlib import Path\n" +
+    "from examples.opcua import sim\n" +
+    'socket.gethostname = lambda: "opcua-server"\n' +
+    "sim.CERT_DIR = Path(tempfile.mkdtemp())\n" +
+    `asyncio.run(sim.run_server(endpoint="opc.tcp://${host}:${port}", encrypted=True))`,
   http: (host: string, port: number) =>
     "from examples.http_sim.server import run_server\n" +
     `run_server("${host}", ${port})`,
@@ -86,23 +95,26 @@ export const simulator = async ({
     process.kill(-proc.pid, "SIGTERM");
     await once(proc, "exit");
     // `go run` exits before the broker it started closes its port.
-    const stopDeadline = Date.now() + STOP_TIMEOUT_MS;
-    while (await portInUse(port)) {
-      if (Date.now() > stopDeadline)
+    const closing = new breaker.Breaker({
+      baseInterval: TimeSpan.milliseconds(POLL_MS),
+      maxRetries: STOP_TIMEOUT_MS / POLL_MS,
+    });
+    while (await portInUse(port))
+      if (!(await closing.wait()))
         throw new Error(`${protocol} server did not close port ${port} in time`);
-      await new Promise((resolve) => setTimeout(resolve, 200));
-    }
   };
-  const deadline =
-    Date.now() + (protocol === "kafka" ? KAFKA_READY_TIMEOUT_MS : READY_TIMEOUT_MS);
+  const timeout = protocol === "kafka" ? KAFKA_READY_TIMEOUT_MS : READY_TIMEOUT_MS;
+  const ready = new breaker.Breaker({
+    baseInterval: TimeSpan.milliseconds(POLL_MS),
+    maxRetries: timeout / POLL_MS,
+  });
   while (!(await portInUse(port))) {
     if (proc.exitCode != null)
       throw new Error(`${protocol} server exited with code ${proc.exitCode}`);
-    if (Date.now() > deadline) {
+    if (!(await ready.wait())) {
       await stop();
       throw new Error(`${protocol} server did not open port ${port} in time`);
     }
-    await new Promise((resolve) => setTimeout(resolve, 200));
   }
   return { stop };
 };

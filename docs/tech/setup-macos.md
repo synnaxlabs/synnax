@@ -105,10 +105,11 @@ Verify the installation by running
 uv --version
 ```
 
-The output should look something like
+The output should look something like the following. The workspace needs uv 0.13 or
+later.
 
 ```text
-uv 0.12.0
+uv 0.13.9
 ```
 
 ### 6.1 Install Python
@@ -226,7 +227,7 @@ You only need this section if you work on the [Driver](../../driver).
 ### 9.0 Install Bazel
 
 We build the Driver with [Bazel](https://bazel.build/). Install Bazelisk, which reads
-the Bazel version from `.bazeliskrc` and downloads it for you.
+the Bazel version from `.bazelversion` and downloads it for you.
 
 ```zsh
 brew install bazelisk

@@ -13,7 +13,7 @@ import { type ReactElement } from "react";
 
 import { type License, type Organization } from "@/server/db/schema";
 import { term } from "@/server/license/limits";
-import { statusOf } from "@/ui/format";
+import { statusOf } from "@/server/license/status";
 import { Licenses } from "@/ui/licenses";
 import { Row, Table } from "@/ui/Table";
 import { useClock } from "@/ui/useClock";

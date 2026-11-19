@@ -211,29 +211,9 @@ func generateFile(
 	req *plugin.Request,
 ) ([]byte, error) {
 	table := req.Resolutions
-	fail := func(format string, args ...any) ([]byte, error) {
-		return nil, errors.Newf(
-			"filter %s: "+format,
-			append([]any{where.QualifiedName}, args...)...,
-		)
-	}
-	target, _, ok := resolution.Dealias(where.Filter.Target, table)
-	if !ok {
-		return fail("unknown target %s", where.Filter.Target.Name)
-	}
-	if !plugindomain.HasDomainFromType(target, "retrieve") {
-		return fail(
-			"the target %s has no @retrieve, so it has no Retrieve or Filter to build on",
-			target.QualifiedName,
-		)
-	}
-	if got := output.GetPath(target, "go"); got != outputPath {
-		return fail(
-			"the target %s generates into %q, but the filter generates into %q",
-			target.QualifiedName,
-			got,
-			outputPath,
-		)
+	target, err := resolveTarget(where, outputPath, table)
+	if err != nil {
+		return nil, err
 	}
 	matchers, err := matcher.List(target, table)
 	if err != nil {
@@ -254,12 +234,83 @@ func generateFile(
 		Manager: imports.NewManager(),
 		Package: naming.DerivePackageName(outputPath),
 	}
+	if err := setTarget(&data, where, target); err != nil {
+		return nil, err
+	}
+	form := resolution.MustForm[resolution.StructForm](where)
+	for _, line := range where.Filter.Lines {
+		field := lo.Must(form.Field(line.Name))
+		var ld lineData
+		if line.HasType() {
+			ld, err = typedLine(where, line, field, funcs, table)
+		} else {
+			ld, err = bareLine(where, line, field, byField, table)
+		}
+		if err != nil {
+			return nil, err
+		}
+		data.Lines = append(data.Lines, ld)
+	}
+
+	addImports(data, req.RepoRoot)
+	var buf bytes.Buffer
+	if err := fileTemplate.Execute(&buf, data); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+// failf returns an error about the filter where.
+func failf(where resolution.Type, format string, args ...any) error {
+	return errors.Newf(
+		"filter %s: "+format,
+		append([]any{where.QualifiedName}, args...)...,
+	)
+}
+
+// resolveTarget returns the record type that where filters. The target must have a
+// Retrieve and generate into outputPath.
+func resolveTarget(
+	where resolution.Type,
+	outputPath string,
+	table *resolution.Table,
+) (resolution.Type, error) {
+	target, _, ok := resolution.Dealias(where.Filter.Target, table)
+	if !ok {
+		return resolution.Type{}, failf(
+			where,
+			"unknown target %s",
+			where.Filter.Target.Name,
+		)
+	}
+	if !plugindomain.HasDomainFromType(target, "retrieve") {
+		return resolution.Type{}, failf(
+			where,
+			"the target %s has no @retrieve, so it has no Retrieve or Filter to build on",
+			target.QualifiedName,
+		)
+	}
+	if got := output.GetPath(target, "go"); got != outputPath {
+		return resolution.Type{}, failf(
+			where,
+			"the target %s generates into %q, but the filter generates into %q",
+			target.QualifiedName,
+			got,
+			outputPath,
+		)
+	}
+	return target, nil
+}
+
+// setTarget sets the target type and its type parameters on data.
+func setTarget(data *templateData, where, target resolution.Type) error {
 	var params []string
 	for _, tp := range resolution.NonDefaultedTypeParams(
 		resolution.TypeParams(target.Form),
 	) {
 		if tp.Constraint != nil {
-			return fail(
+			return failf(
+				where,
 				"the type parameter %s of %s has a constraint, which the interpreter "+
 					"cannot declare",
 				tp.Name,
@@ -274,98 +325,130 @@ func generateFile(
 		data.TypeArgs = "[" + strings.Join(params, ", ") + "]"
 		data.Target += data.TypeArgs
 	}
+	return nil
+}
 
-	form := where.Form.(resolution.StructForm)
-	for _, line := range where.Filter.Lines {
-		field := lo.Must(form.Field(line.Name))
-		ld := lineData{Path: line.Name, GoName: naming.GetFieldName(field)}
-		if line.HasType() {
-			ld.Typed = true
-			ld.Func = "Match" + ld.GoName
-			// A `@go match` names a declared matcher that takes the line's value.
-			match := plugindomain.GetStringFromField(line, "go", "match")
-			if match != "" {
-				ld.Func = match
-			} else if funcs.Contains(ld.Func) {
-				return fail(
-					"typed line %s calls %s, which the generated code already "+
-						"declares; rename the line",
-					line.Name,
-					ld.Func,
-				)
-			}
-			ld.Variadic = arrays.IsArray(field.Type, table) &&
-				arrays.Size(field.Type, table) == nil
-			ld.Pointer = !typemap.Nilable(field.Type, table)
-			value := field.Type
-			if ld.Variadic {
-				value = field.Type.TypeArgs[0]
-			}
-			ld.Enum = isStringEnum(value, table)
-			data.Lines = append(data.Lines, ld)
-			continue
-		}
-		op, ok := table.Get(field.Type.Name)
-		if !ok {
-			return fail(
-				"line %s has the unknown operator %s",
-				line.Name,
-				field.Type.Name,
-			)
-		}
-		opForm, ok := op.Form.(resolution.StructForm)
-		if !ok || len(field.Type.TypeArgs) > 1 {
-			return fail("line %s: the operator %s is not a struct", line.Name, op.Name)
-		}
-		known, ok := resolution.OperatorMembers(op.QualifiedName)
-		if !ok {
-			return fail(
-				"line %s: go/filter has no interpreter for the operator %s",
-				line.Name,
-				op.QualifiedName,
-			)
-		}
-		ld.Members = lo.Map(opForm.Fields, func(f resolution.Field, _ int) string {
-			return f.Name
-		})
-		ld.Operators = lo.FilterMap(
-			opForm.Fields,
-			func(f resolution.Field, _ int) (string, bool) {
-				return naming.ToPascalCase(f.Name), f.Optional
-			},
+// typedLine returns the data of a line that calls a matcher with its value. funcs holds
+// the functions that the generated code declares.
+func typedLine(
+	where resolution.Type,
+	line, field resolution.Field,
+	funcs set.Set[string],
+	table *resolution.Table,
+) (lineData, error) {
+	ld := lineData{
+		Path:   line.Name,
+		GoName: naming.GetFieldName(field),
+		Typed:  true,
+	}
+	ld.Func = "Match" + ld.GoName
+	// A `@go match` names a declared matcher that takes the line's value.
+	match := plugindomain.GetStringFromField(line, "go", "match")
+	if match != "" {
+		ld.Func = match
+	} else if funcs.Contains(ld.Func) {
+		return lineData{}, failf(
+			where,
+			"typed line %s calls %s, which the generated code already declares; "+
+				"rename the line",
+			line.Name,
+			ld.Func,
 		)
-		for _, m := range ld.Members {
-			if !lo.Contains(known, m) {
-				return fail(
-					"line %s: go/filter cannot interpret the member %s of %s",
-					line.Name,
-					m,
-					op.Name,
-				)
-			}
-		}
-		ld.Text = op.QualifiedName == resolution.OperatorString
-		ld.Enum = len(field.Type.TypeArgs) == 1 &&
-			isStringEnum(field.Type.TypeArgs[0], table)
-		// The matcher list leaves out the key, which the service's MatchKeys matches.
-		m, ok := byField[line.Name]
-		if !ok {
-			ld.Func = "MatchKeys"
-			data.Lines = append(data.Lines, ld)
-			continue
-		}
-		ld.Func = m.Func
-		ld.Scalar = m.Kind.Scalar()
-		ld.Field = m.Access
-		data.Lines = append(data.Lines, ld)
 	}
+	ld.Variadic = arrays.IsArray(field.Type, table) &&
+		arrays.Size(field.Type, table) == nil
+	ld.Pointer = !typemap.Nilable(field.Type, table)
+	value := field.Type
+	if ld.Variadic {
+		value = field.Type.TypeArgs[0]
+	}
+	ld.Enum = isStringEnum(value, table)
+	return ld, nil
+}
 
-	addImports(data, req.RepoRoot)
-	var buf bytes.Buffer
-	if err := fileTemplate.Execute(&buf, data); err != nil {
-		return nil, err
+// bareLine returns the data of a line whose operator selects values of a target field.
+// byField holds the matcher of each target field.
+func bareLine(
+	where resolution.Type,
+	line, field resolution.Field,
+	byField map[string]matcher.Matcher,
+	table *resolution.Table,
+) (lineData, error) {
+	op, ok := table.Get(field.Type.Name)
+	if !ok {
+		return lineData{}, failf(
+			where,
+			"line %s has the unknown operator %s",
+			line.Name,
+			field.Type.Name,
+		)
 	}
-	return buf.Bytes(), nil
+	opForm, ok := op.Form.(resolution.StructForm)
+	if !ok || len(field.Type.TypeArgs) > 1 {
+		return lineData{}, failf(
+			where,
+			"line %s: the operator %s is not a struct",
+			line.Name,
+			op.Name,
+		)
+	}
+	ld := lineData{Path: line.Name, GoName: naming.GetFieldName(field)}
+	ld.Members = lo.Map(opForm.Fields, func(f resolution.Field, _ int) string {
+		return f.Name
+	})
+	ld.Operators = lo.FilterMap(
+		opForm.Fields,
+		func(f resolution.Field, _ int) (string, bool) {
+			return naming.ToPascalCase(f.Name), f.Optional
+		},
+	)
+	if err := checkMembers(where, line, op, ld.Members); err != nil {
+		return lineData{}, err
+	}
+	ld.Text = op.QualifiedName == resolution.OperatorString
+	ld.Enum = len(field.Type.TypeArgs) == 1 &&
+		isStringEnum(field.Type.TypeArgs[0], table)
+	// The matcher list leaves out the key, which the service's MatchKeys matches.
+	m, ok := byField[line.Name]
+	if !ok {
+		ld.Func = "MatchKeys"
+		return ld, nil
+	}
+	ld.Func = m.Func
+	ld.Scalar = m.Kind.Scalar()
+	ld.Field = m.Access
+	return ld, nil
+}
+
+// checkMembers returns an error when go/filter cannot interpret one of the members of
+// the operator op.
+func checkMembers(
+	where resolution.Type,
+	line resolution.Field,
+	op resolution.Type,
+	members []string,
+) error {
+	known, ok := resolution.OperatorMembers(op.QualifiedName)
+	if !ok {
+		return failf(
+			where,
+			"line %s: go/filter has no interpreter for the operator %s",
+			line.Name,
+			op.QualifiedName,
+		)
+	}
+	for _, m := range members {
+		if !lo.Contains(known, m) {
+			return failf(
+				where,
+				"line %s: go/filter cannot interpret the member %s of %s",
+				line.Name,
+				m,
+				op.Name,
+			)
+		}
+	}
+	return nil
 }
 
 type requestData struct {
@@ -426,54 +509,62 @@ func generateRequestFile(
 	)); n > 0 {
 		data.Args = "[" + strings.Join(slices.Repeat([]string{"any"}, n), ", ") + "]"
 	}
-	_, data.Search = request.Form.(resolution.StructForm).Field("search_term")
-	_, data.After = request.Form.(resolution.StructForm).Field("after")
-	fields, _ := resolution.RecordFields(target, req.Resolutions)
-	sorts, err := resolution.Sorts(fields, req.Resolutions)
+	requestForm := resolution.MustForm[resolution.StructForm](request)
+	_, data.Search = requestForm.Field("search_term")
+	_, data.After = requestForm.Field("after")
+	orders, err := requestOrders(where, target, req.Resolutions)
+	if err != nil {
+		return nil, err
+	}
+	data.Orders = orders
+	addRequestImports(data, req.RepoRoot)
+	var buf bytes.Buffer
+	if err := requestTemplate.Execute(&buf, data); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+// requestOrders returns the sorts that a request for the target of where can select.
+func requestOrders(
+	where, target resolution.Type,
+	table *resolution.Table,
+) ([]orderData, error) {
+	fields, _ := resolution.RecordFields(target, table)
+	sorts, err := resolution.Sorts(fields, table)
 	if err != nil {
 		return nil, errors.Wrapf(err, "filter %s", where.QualifiedName)
 	}
+	var orders []orderData
 	for _, sort := range sorts {
 		goName := naming.ToPascalCase(sort.Name)
-		data.Orders = append(data.Orders, orderData{
+		orders = append(orders, orderData{
 			Name:  sort.Name,
 			Const: "OrderField" + goName,
 			Field: goName,
 			Func:  "OrderBy" + goName,
 		})
 	}
+	return orders, nil
+}
+
+func addRequestImports(data requestData, repoRoot string) {
+	internal := func(name, path string) {
+		data.AddInternal(
+			name,
+			gomod.ResolveImportPath(path, repoRoot, gomod.DefaultModulePrefix),
+		)
+	}
 	data.AddExternal("encoding/json/jsontext")
 	data.AddExternal("encoding/json/v2")
 	data.AddExternal("github.com/vmihailenco/msgpack/v5")
-	data.AddInternal(
-		"validate",
-		gomod.ResolveImportPath(
-			"x/go/validate",
-			req.RepoRoot,
-			gomod.DefaultModulePrefix,
-		),
-	)
+	internal("validate", "x/go/validate")
 	if (data.Search && data.After) || len(data.Orders) > 0 {
-		data.AddInternal(
-			"errors",
-			gomod.ResolveImportPath(
-				"x/go/errors",
-				req.RepoRoot,
-				gomod.DefaultModulePrefix,
-			),
-		)
+		internal("errors", "x/go/errors")
 	}
 	if len(data.Orders) > 0 {
-		data.AddInternal(
-			"gorp",
-			gomod.ResolveImportPath("gorp", req.RepoRoot, gomod.DefaultModulePrefix),
-		)
+		internal("gorp", "gorp")
 	}
-	var buf bytes.Buffer
-	if err := requestTemplate.Execute(&buf, data); err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
 }
 
 func hasSearch(target resolution.Type, table *resolution.Table) bool {

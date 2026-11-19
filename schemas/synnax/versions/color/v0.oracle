@@ -15,21 +15,28 @@ Key = uuid {
 }
 
 Named struct {
-    key   Key = create {
+    key      Key = create {
         @doc value "is the key of the named color."
         @key
     }
-    name  string       {
+    name     string       {
         @doc value "is the name of the color."
     }
-    light color.Color  {
+    light    color.Color  {
         @doc value "is the color in the light theme."
     }
-    dark  color.Color? {
+    dark     color.Color? {
         @doc value "is the color in the dark theme. When absent, the theme derives it."
     }
-    group group.Key?   {
+    group    group.Key?   {
         @doc value "is the palette that holds the color, if any."
+    }
+    position string?      {
+        @doc value """
+            is where the color sits in its palette, as a fractional index. A palette
+            sorts its colors by position, compared by code point, and a color with none
+            comes last.
+        """
     }
 
     @doc value  """

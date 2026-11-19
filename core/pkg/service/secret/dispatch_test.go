@@ -20,6 +20,10 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+func set(path string, value any) secret.Action {
+	return secret.NewSetAction(secret.SetPayload{Path: []string{path}, Value: value})
+}
+
 var _ = Describe("Dispatch", func() {
 	type frame = actions.Scoped[secret.Key, secret.Action]
 	var (
@@ -30,11 +34,6 @@ var _ = Describe("Dispatch", func() {
 		return e.write(ctx, func(w secret.Writer) error {
 			return fn(w.WithDispatchKey("dk"))
 		})
-	}
-	set := func(path string, value any) secret.Action {
-		return secret.NewSetAction(
-			secret.SetPayload{Path: []string{path}, Value: value},
-		)
 	}
 	apply := func(ctx context.Context, acts ...secret.Action) error {
 		return write(ctx, func(w secret.Writer) error {
@@ -55,8 +54,11 @@ var _ = Describe("Dispatch", func() {
 		Expect(apply(ctx, set("name", "After"))).To(Succeed())
 		got := e.retrieve(ctx, s.Base().Key)
 		Expect(got.Base().Name).To(Equal("After"))
-		Expect(got.Variant.(secret.StoredSecret).Value).
-			To(Equal(s.Variant.(secret.StoredSecret).Value))
+		gotStored, ok := got.Variant.(secret.StoredSecret)
+		Expect(ok).To(BeTrue())
+		stored, ok := s.Variant.(secret.StoredSecret)
+		Expect(ok).To(BeTrue())
+		Expect(gotStored.Value).To(Equal(stored.Value))
 	})
 
 	DescribeTable(
@@ -122,7 +124,9 @@ var _ = Describe("Dispatch", func() {
 		Expect(frames[0].Actions).To(HaveLen(1))
 		payload := frames[0].Actions[0].Create.Secret
 		Expect(payload.Base()).To(Equal(created.Base()))
-		Expect(payload.Variant.(secret.StoredSecret).Value).To(BeNil())
+		stored, ok := payload.Variant.(secret.StoredSecret)
+		Expect(ok).To(BeTrue())
+		Expect(stored.Value).To(BeNil())
 	})
 
 	It(

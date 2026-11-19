@@ -11,12 +11,12 @@
 name = "synnax-scripts-common"
 version = "0.0.0"
 description = "Test utilities for scripts and .github/scripts"
-requires-python = ">=3.12,<4"
+requires-python = ">=3.13,<4"
 classifiers = ["Private :: Do Not Upload"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["scripts_common"]
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.33.0,<2"]
 build-backend = "hatchling.build"

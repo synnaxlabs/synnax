@@ -108,32 +108,15 @@ func putValue(dst []byte, density int, v uint64) {
 
 // runBatch computes the whole output series in one guest call, reporting false when
 // the node's series do not fit the wrapper's fixed-width layout.
-func (n *nodeImpl) runBatch(
-	ctx node.Context,
-	count int64,
-	inputTime telem.Series,
-	clockStamp bool,
-	clockStart telem.TimeStamp,
-) bool {
+func (n *nodeImpl) runBatch(ctx node.Context, count int64, stamps sampleStamps) bool {
 	b := n.batch
 	out := n.Output(0)
 	if int(out.DataType.Density()) != b.outDensity {
 		return false
 	}
-	size := align8(uint32(count) * uint32(b.outDensity))
-	for i := range n.ir.Inputs {
-		samples := uint32(1)
-		if n.batchEdgeFed(i) {
-			in := n.Input(i)
-			if int(in.DataType.Density()) != b.densities[i] {
-				return false
-			}
-			if in.Len() != 1 {
-				samples = uint32(count)
-			}
-		}
-		b.offsets[i], b.samples[i] = size, samples
-		size += align8(samples * uint32(b.densities[i]))
+	size, ok := n.layoutBatch(count)
+	if !ok {
+		return false
 	}
 	if size > b.capacity {
 		// Doubling bounds what a node abandons as its series grow: ever-longer batches
@@ -148,6 +131,58 @@ func (n *nodeImpl) runBatch(
 	if !ok {
 		return false
 	}
+	n.stageBatchInputs(buf, count)
+	b.stack[compiler.BatchCountParam] = uint64(count)
+	b.stack[compiler.BatchOutParam] = uint64(b.ptr)
+	if err := b.fn.CallWithStack(ctx.Context, b.stack); err != nil {
+		ctx.ReportError(errors.Wrapf(
+			trapCause(err),
+			"WASM execution failed in node %s over %d samples",
+			n.ir.Key,
+			count,
+		))
+		return true
+	}
+	copy(out.Data, buf[:uint32(count)*uint32(b.outDensity)])
+	outTime := n.OutputTime(0)
+	if stamps.clock {
+		for i := range count {
+			setValueAt(*outTime, int(i), stamps.at(i))
+		}
+	} else {
+		copy(outTime.Data, stamps.input.Data)
+	}
+	n.offsets[0] = int(count)
+	ctx.MarkDone()
+	return true
+}
+
+// layoutBatch places each input in the scratch region and returns the region's size,
+// reporting false when a streamed input's density does not match the wrapper's.
+func (n *nodeImpl) layoutBatch(count int64) (uint32, bool) {
+	b := n.batch
+	size := align8(uint32(count) * uint32(b.outDensity))
+	for i := range n.ir.Inputs {
+		samples := uint32(1)
+		if n.streamed(i) {
+			in := n.Input(i)
+			if int(in.DataType.Density()) != b.densities[i] {
+				return 0, false
+			}
+			if in.Len() != 1 {
+				samples = uint32(count)
+			}
+		}
+		b.offsets[i], b.samples[i] = size, samples
+		size += align8(samples * uint32(b.densities[i]))
+	}
+	return size, true
+}
+
+// stageBatchInputs copies each input into its place in buf and points the wrapper's
+// params at it. A single sample gets a zero stride, so the wrapper reuses it.
+func (n *nodeImpl) stageBatchInputs(buf []byte, count int64) {
+	b := n.batch
 	for i := range n.ir.Inputs {
 		var (
 			density = b.densities[i]
@@ -156,7 +191,7 @@ func (n *nodeImpl) runBatch(
 			stride  = uint64(density)
 		)
 		switch in := n.Input(i); {
-		case b.samples[i] == 1 && n.batchEdgeFed(i):
+		case b.samples[i] == 1 && n.streamed(i):
 			stride = 0
 			copy(dst, in.Data)
 		case b.samples[i] == 1:
@@ -173,31 +208,4 @@ func (n *nodeImpl) runBatch(
 		b.stack[compiler.BatchInputParam+2*i] = uint64(b.ptr + off)
 		b.stack[compiler.BatchInputParam+2*i+1] = stride
 	}
-	b.stack[compiler.BatchCountParam] = uint64(count)
-	b.stack[compiler.BatchOutParam] = uint64(b.ptr)
-	if err := b.fn.CallWithStack(ctx.Context, b.stack); err != nil {
-		ctx.ReportError(errors.Wrapf(
-			err,
-			"WASM execution failed in node %s over %d samples",
-			n.ir.Key,
-			count,
-		))
-		return true
-	}
-	copy(out.Data, buf[:uint32(count)*uint32(b.outDensity)])
-	outTime := n.OutputTime(0)
-	if clockStamp {
-		for i := range int(count) {
-			setValueAt(*outTime, i, uint64(clockStart)+uint64(i))
-		}
-	} else {
-		copy(outTime.Data, inputTime.Data)
-	}
-	n.offsets[0] = int(count)
-	ctx.MarkDone()
-	return true
-}
-
-func (n *nodeImpl) batchEdgeFed(i int) bool {
-	return n.ir.Inputs[i].Value == nil && !n.chanInputs[i] && !n.varInputs[i]
 }

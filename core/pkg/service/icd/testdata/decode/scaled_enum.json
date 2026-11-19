@@ -1,0 +1,73 @@
+{
+  "description": "An enum label on a scaled field writes its value unscaled, and a number is scaled.",
+  "messages": [
+    {
+      "name": "reading",
+      "payload": {
+        "format": "json",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "temp",
+            "scale": 0.5,
+            "offset": -10,
+            "units": "",
+            "pointer": "/temp",
+            "type": "float",
+            "enum_values": [
+              {
+                "label": "LOW",
+                "value": 1
+              }
+            ]
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000002",
+            "name": "count",
+            "scale": 2,
+            "offset": 0,
+            "units": "",
+            "pointer": "/count",
+            "type": "integer",
+            "enum_values": [
+              {
+                "label": "MAX",
+                "value": "9007199254740993"
+              }
+            ]
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "float64"
+        },
+        {
+          "field": "00000000-0000-4000-8000-000000000002",
+          "data_type": "float64"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "document": { "temp": "LOW", "count": "MAX" },
+      "message": "reading",
+      "samples": [1, 9007199254740992]
+    },
+    {
+      "document": { "temp": 4, "count": 3 },
+      "message": "reading",
+      "samples": [-8, 6]
+    },
+    {
+      "document": { "temp": "HIGH", "count": 3 },
+      "error": "field temp: unknown enum label \"HIGH\": validation error"
+    },
+    {
+      "document": { "temp": 4, "count": 1.5 },
+      "error": "field count: 1.5 is not an integer: validation error"
+    }
+  ]
+}

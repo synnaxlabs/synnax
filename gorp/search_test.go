@@ -61,6 +61,7 @@ var _ = Describe("SearchIndex", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(OpenGorpMsgpackDB())
+		StartRun(db.Run)
 		createIndexed(ctx, db, searchEntries...)
 		idx = newTextIndex()
 		table = DeferClose(openIndexedTable(ctx, db, idx))
@@ -260,6 +261,7 @@ var _ = Describe("SearchIndex", func() {
 				&failOnceDB{DB: DeferClose(memkv.New()), err: errors.New("boom")},
 				gorp.WithCodec(msgpack.Codec),
 			)
+			StartRun(failing.Run)
 			createIndexed(ctx, failing, searchEntries...)
 			failed = newTextIndex()
 			categories = gorp.NewLookupIndex(

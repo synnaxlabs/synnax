@@ -10,6 +10,7 @@
 import { type device, type status } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Status } from "@synnaxlabs/lyra/status";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
@@ -22,7 +23,7 @@ import { createTestDevice } from "@/platform/device/testutil";
 import { Modals } from "@/platform/modals";
 import { Notifications } from "@/platform/notifications";
 import { checkInUse } from "@/platform/notifications/testutil";
-import { createConsoleWrapper, installPortalRoot, uniqueName } from "@/testutil";
+import { createConsoleWrapper, installPortalRoot } from "@/testutil";
 
 const client = createTestClient();
 
@@ -31,7 +32,7 @@ type DeviceCrude = status.Crude<ReturnType<typeof device.deviceZ>>;
 const createCrude = (dev: device.Device): DeviceCrude => ({
   key: uniqueName("status"),
   variant: "info",
-  message: `New ${dev.model} connected`,
+  message: `${dev.model} connected`,
   details: dev,
 });
 
@@ -64,7 +65,7 @@ describe("device/notifications", () => {
       make: NI.Device.MAKE,
     });
     await addStatus(createCrude(dev));
-    expect(await screen.findByText(`New ${dev.model} connected`)).toBeTruthy();
+    expect(await screen.findByText(`${dev.model} connected`)).toBeTruthy();
     expect(screen.queryByText("Configure")).toBeNull();
   });
 
@@ -74,7 +75,7 @@ describe("device/notifications", () => {
       make: OPCUA.Device.MAKE,
     });
     await addStatus(createCrude(dev));
-    expect(await screen.findByText(`New ${dev.model} connected`)).toBeTruthy();
+    expect(await screen.findByText(`${dev.model} connected`)).toBeTruthy();
     expect(screen.queryByText("Configure")).toBeNull();
   });
 

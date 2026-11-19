@@ -11,12 +11,14 @@ package grpc_test
 
 import (
 	"context"
+	"io"
 	"strings"
 	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gleak"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
@@ -61,6 +63,7 @@ func startPair() (
 			RequestTranslator:  requestBackwardTranslator{},
 			ResponseTranslator: responseForwardTranslator{},
 			ServiceDesc:        &v1.TestStreamService_ServiceDesc,
+			Errors:             errorCodec(),
 			Internal:           true,
 		}
 		sServer.BindTo(reg)
@@ -74,6 +77,7 @@ func startPair() (
 			ResponseTranslator: responseTranslator{},
 			Pool:               pool,
 			ServiceDesc:        &v1.TestStreamService_ServiceDesc,
+			Errors:             errorCodec(),
 			ClientFunc: func(
 				ctx context.Context,
 				conn grpc.ClientConnInterface,
@@ -130,9 +134,9 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 			})
 			stream := MustSucceed(client.Stream(ctx, addr))
 			Expect(stream.CloseSend()).To(Succeed())
-			Eventually(errs).Should(Receive(MatchError(freighter.EOF)))
-			Eventually(errs).Should(Receive(MatchError(freighter.EOF)))
-			Expect(stream.Receive()).Error().To(MatchError(freighter.EOF))
+			Eventually(errs).Should(Receive(MatchError(io.EOF)))
+			Eventually(errs).Should(Receive(MatchError(io.EOF)))
+			Expect(stream.Receive()).Error().To(MatchError(io.EOF))
 		},
 	)
 
@@ -236,4 +240,20 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 			Expect(stream.CloseSend()).To(Succeed())
 		},
 	)
+
+	It("Should release the stream when a server middleware rejects it", func() {
+		server, client, addr := startPair()
+		server.Use(freighter.MiddlewareFunc(func(
+			ctx freighter.Context,
+			_ freighter.Next,
+		) (freighter.Context, error) {
+			return ctx, errors.New("rejected")
+		}))
+		before := gleak.Goroutines()
+		// A context that never ends, so only the client can release the stream.
+		Expect(client.Stream(context.Background(), addr)).
+			Error().
+			To(MatchError(ContainSubstring("rejected")))
+		Eventually(gleak.Goroutines).ShouldNot(gleak.HaveLeaked(before))
+	})
 })

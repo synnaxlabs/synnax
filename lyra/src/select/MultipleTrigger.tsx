@@ -9,8 +9,9 @@
 
 import "@/select/MultipleTrigger.css";
 
-import { array, type color, primitive, type record, unique } from "@synnaxlabs/x";
+import { array, color, primitive, type record, unique } from "@synnaxlabs/x";
 import {
+  type DragEvent,
   type KeyboardEvent,
   type MouseEvent,
   type ReactElement,
@@ -44,7 +45,7 @@ export interface MultipleTagProps<K extends record.Key> extends Omit<
   "onDragStart"
 > {
   itemKey: K;
-  onDragStart: (key: K) => void;
+  onDragStart: (key: K, event: DragEvent<HTMLElement>) => void;
   renderIcon?: (entry: unknown) => Icon.ReactElement | undefined;
 }
 
@@ -64,7 +65,7 @@ const MultipleTag = <K extends record.Key, E extends MultipleEntry<K>>({
     <Tag.Tag
       onClose={onSelect}
       onClick={onClick}
-      onDragStart={() => onDragStart(itemKey)}
+      onDragStart={(event) => onDragStart(itemKey, event)}
       draggable
       size="small"
       status={item == null && !fixed ? "error" : undefined}
@@ -90,6 +91,8 @@ export interface MultipleTriggerProps<
   haulType?: string;
   /** Builds the haul item for an entry dragged out of the trigger. */
   createHaulItem?: (entry: NonNullable<E>) => Haul.Item;
+  /** Renders the drag preview of an entry. It defaults to the entry's icon and name. */
+  renderHaulPreview?: (entry: unknown) => ReactNode;
   placeholder?: ReactNode;
   icon?: Icon.ReactElement;
   /** Names the trigger. The tags alone never say what they are. */
@@ -131,6 +134,7 @@ export const MultipleTrigger = <
 >({
   haulType = "",
   createHaulItem,
+  renderHaulPreview,
   disabled,
   placeholder = "Select",
   variant = "outlined",
@@ -165,14 +169,27 @@ export const MultipleTrigger = <
     setSelected(res);
   };
 
-  const onTagDragStart = (key: K) => {
-    if (createHaulItem != null && getItem != null) {
-      const entry = getItem(key);
+  const onTagDragStart = (key: K, event: DragEvent<HTMLElement>) => {
+    const entry = getItem?.(key);
+    let item: Haul.Item = { key, type: haulType };
+    if (createHaulItem != null) {
       if (entry == null) return;
-      startDrag([createHaulItem(entry)], handleSuccessfulDrop);
-      return;
+      item = createHaulItem(entry);
     }
-    startDrag([{ key, type: haulType }], handleSuccessfulDrop);
+    const named = entry as MultipleEntry<K> | undefined;
+    const name = primitive.isNonZero(named?.name) ? named.name : key.toString();
+    startDrag({
+      event,
+      items: [item],
+      preview: renderHaulPreview?.(entry) ?? (
+        <Haul.Preview
+          icon={renderIcon?.(entry) ?? named?.icon ?? icon}
+          swatch={color.cssString(named?.color)}
+          name={name}
+        />
+      ),
+      onSuccessfulDrop: handleSuccessfulDrop,
+    });
   };
   const dragging = Haul.useDraggingState();
   const showAddButton = variant === "text" && value.length !== 0 && preview !== true;

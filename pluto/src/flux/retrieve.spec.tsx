@@ -19,7 +19,7 @@ import {
   createTestClient,
   TEST_CLIENT_PARAMS,
 } from "@synnaxlabs/client/testutil";
-import { color, id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { array, color, id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import {
   act,
   cleanup,
@@ -556,9 +556,6 @@ describe("use", () => {
   });
 
   describe("equal", () => {
-    const sameNumbers = (a: number[], b: number[]): boolean =>
-      a.length === b.length && a.every((v, i) => v === b[i]);
-
     interface Harness {
       utils: ReturnType<typeof render>;
       seen: number[][];
@@ -579,7 +576,7 @@ describe("use", () => {
           return () => {};
         },
         getCached: () => [...source],
-        equal: sameNumbers,
+        equal: array.equal,
       });
 
       const seen: number[][] = [];
@@ -627,23 +624,23 @@ describe("use", () => {
 
     it("hands back the previous answer when the next one compares equal", async () => {
       const { utils, seen, push } = await renderProjection("equal-hold");
-      const before = seen[seen.length - 1];
+      const before = seen.at(-1);
       const renders = seen.length;
 
       await push([1, 2]);
 
       expect(utils.queryByTestId("error")).toBeNull();
       expect(seen.length).toEqual(renders);
-      expect(seen[seen.length - 1]).toBe(before);
+      expect(seen.at(-1)).toBe(before);
     });
 
     it("hands back the next answer when it compares unequal", async () => {
       const { utils, seen, push } = await renderProjection("equal-change");
-      const before = seen[seen.length - 1];
+      const before = seen.at(-1);
 
       await push([1, 2, 3]);
 
-      expect(seen[seen.length - 1]).not.toBe(before);
+      expect(seen.at(-1)).not.toBe(before);
       expect(utils.queryByTestId("value")?.textContent).toEqual("1,2,3");
     });
 
@@ -654,7 +651,7 @@ describe("use", () => {
         retrieve: async () => [1, 2],
         onChange: () => () => {},
         getCached: () => tombstone,
-        equal: sameNumbers,
+        equal: array.equal,
       });
 
       const Display = (): ReactElement => {
@@ -697,7 +694,7 @@ describe("use", () => {
           return () => {};
         },
         getCached: () => cached,
-        equal: sameNumbers,
+        equal: array.equal,
       });
 
       const Display = (): ReactElement => {
@@ -756,7 +753,7 @@ describe("use", () => {
       });
 
       expect(utils.queryByTestId("value")?.textContent).toEqual("4,5");
-      expect(seen[seen.length - 1]).toBe(cached);
+      expect(seen.at(-1)).toBe(cached);
     });
 
     it("settles a composed answer when no comparator is given", async () => {
@@ -788,7 +785,7 @@ describe("use", () => {
 
       expect(utils.queryByTestId("value")?.textContent).toEqual("4,5");
       expect(seen.length).toBeLessThan(10);
-      expect(seen[seen.length - 1]).toBe(seen[0]);
+      expect(seen.at(-1)).toBe(seen[0]);
     });
   });
 
@@ -1563,10 +1560,7 @@ describe("createSelector", () => {
 
   it("keeps the previous identity when the selected slice is equal", () => {
     const harness = createHarness({ name: "same", value: 1 });
-    const useNames = harness.createSelector(
-      (data) => [data.name],
-      (a, b) => a.length === b.length && a.every((v, i) => v === b[i]),
-    );
+    const useNames = harness.createSelector((data) => [data.name], array.equal);
     const { result } = renderHook(() => useNames({ key: "a" }), { wrapper: Wrapper });
     const first = result.current;
     act(() => harness.set({ name: "same", value: 2 }));
@@ -1817,7 +1811,7 @@ describe("createResultSelector", () => {
     const harness = createHarness({ name: "a,b", value: 1 });
     const useParts = harness.createResultSelector(
       (data) => data.name.split(","),
-      (a, b) => a.length === b.length && a.every((v, i) => v === b[i]),
+      array.equal,
     );
     const { result } = renderHook(() => useParts({ key: "a" }), { wrapper: Wrapper });
     const first = result.current;

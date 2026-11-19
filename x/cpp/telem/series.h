@@ -186,6 +186,29 @@ private:
         time_range(other.time_range),
         alignment(other.alignment) {}
 
+    /// @brief division that throws on an integer zero divisor.
+    struct Divide {
+        template<typename A, typename B>
+        auto operator()(A a, B b) const {
+            if constexpr (std::is_integral_v<A>)
+                if (b == 0) throw std::runtime_error("division by zero");
+            return a / b;
+        }
+    };
+
+    /// @brief modulo that throws on an integer zero divisor and uses fmod for
+    /// floating-point types.
+    struct Modulo {
+        template<typename A, typename B>
+        auto operator()(A a, B b) const {
+            if constexpr (std::is_integral_v<A>) {
+                if (b == 0) throw std::runtime_error("modulo by zero");
+                return a % b;
+            } else
+                return std::fmod(a, b);
+        }
+    };
+
     template<typename SourceType, typename TargetType, typename Op>
 #ifdef _MSC_VER
     __declspec(noinline)
@@ -1252,10 +1275,10 @@ public:
         const auto write_count = std::min(count, this->cap() - this->size());
         if (write_count == 0) return 0;
 
-        const auto adjusted_count = inclusive ? write_count - 1 : write_count;
+        const auto steps = inclusive ? count - 1 : count;
         const int64_t start_ns = start.nanoseconds();
         const int64_t step_ns = (end - start).nanoseconds() /
-                                static_cast<int64_t>(adjusted_count);
+                                static_cast<int64_t>(steps);
         auto *data_ptr = reinterpret_cast<int64_t *>(
             this->buffer.get() + this->size() * this->data_type().density()
         );
@@ -1345,23 +1368,23 @@ public:
 
     template<typename T>
     void add_inplace(const T &rhs) const noexcept {
-        cast_and_apply_numeric_op(rhs, std::plus<T>());
+        cast_and_apply_numeric_op(rhs, std::plus<>());
     }
 
     template<typename T>
     void sub_inplace(const T &rhs) const noexcept {
-        cast_and_apply_numeric_op(rhs, std::minus<T>());
+        cast_and_apply_numeric_op(rhs, std::minus<>());
     }
 
     template<typename T>
     void multiply_inplace(const T &rhs) const noexcept {
-        cast_and_apply_numeric_op(rhs, std::multiplies<T>());
+        cast_and_apply_numeric_op(rhs, std::multiplies<>());
     }
 
     template<typename T>
     void divide_inplace(const T &rhs) const {
         if (rhs == 0) throw std::runtime_error("division by zero");
-        cast_and_apply_numeric_op(rhs, std::divides<T>());
+        cast_and_apply_numeric_op(rhs, Divide());
     }
 
     /// @brief replaces each value v with f(v). f takes and returns a double, and the
@@ -1434,42 +1457,38 @@ public:
     /// @brief Series + scalar operator. Returns a new Series.
     template<typename T>
     Series operator+(T scalar) const {
-        return apply_scalar_op(scalar, std::plus<T>());
+        return apply_scalar_op(scalar, std::plus<>());
     }
 
     /// @brief Series - scalar operator. Returns a new Series.
     template<typename T>
     Series operator-(T scalar) const {
-        return apply_scalar_op(scalar, std::minus<T>());
+        return apply_scalar_op(scalar, std::minus<>());
     }
 
     /// @brief Series * scalar operator. Returns a new Series.
     template<typename T>
     Series operator*(T scalar) const {
-        return apply_scalar_op(scalar, std::multiplies<T>());
+        return apply_scalar_op(scalar, std::multiplies<>());
     }
 
     /// @brief Series / scalar operator. Returns a new Series.
-    /// @throws std::runtime_error if scalar is zero.
+    /// @throws std::runtime_error if scalar is zero, or if an integer series divides by
+    /// a scalar that truncates to zero.
     template<typename T>
     Series operator/(T scalar) const {
         if (scalar == 0) throw std::runtime_error("division by zero");
-        return apply_scalar_op(scalar, std::divides<T>());
+        return apply_scalar_op(scalar, Divide());
     }
 
     /// @brief Series % scalar operator. Returns a new Series.
     /// Uses % for integer types, std::fmod for floating-point types.
-    /// @throws std::runtime_error if scalar is zero.
+    /// @throws std::runtime_error if scalar is zero, or if an integer series takes the
+    /// modulo of a scalar that truncates to zero.
     template<typename T>
     Series operator%(T scalar) const {
         if (scalar == 0) throw std::runtime_error("modulo by zero");
-        if constexpr (std::is_integral_v<T>) {
-            return apply_scalar_op(scalar, std::modulus<T>());
-        } else {
-            return apply_scalar_op(scalar, [](auto a, auto b) {
-                return std::fmod(a, b);
-            });
-        }
+        return apply_scalar_op(scalar, Modulo());
     }
 
     /// @brief scalar + Series operator (commutative). Returns a new Series.
@@ -1487,26 +1506,22 @@ public:
     /// @brief scalar - Series operator. Computes (scalar - element) for each element.
     template<typename T>
     friend Series operator-(T scalar, const Series &s) {
-        return s.apply_reverse_scalar_op(scalar, std::minus<T>());
+        return s.apply_reverse_scalar_op(scalar, std::minus<>());
     }
 
     /// @brief scalar / Series operator. Computes (scalar / element) for each element.
+    /// @throws std::runtime_error if an element of an integer series is zero.
     template<typename T>
     friend Series operator/(T scalar, const Series &s) {
-        return s.apply_reverse_scalar_op(scalar, std::divides<T>());
+        return s.apply_reverse_scalar_op(scalar, Divide());
     }
 
     /// @brief scalar % Series operator. Computes (scalar % element) for each element.
     /// Uses % for integer types, std::fmod for floating-point types.
+    /// @throws std::runtime_error if an element of an integer series is zero.
     template<typename T>
     friend Series operator%(T scalar, const Series &s) {
-        if constexpr (std::is_integral_v<T>) {
-            return s.apply_reverse_scalar_op(scalar, std::modulus<T>());
-        } else {
-            return s.apply_reverse_scalar_op(scalar, [](auto a, auto b) {
-                return std::fmod(a, b);
-            });
-        }
+        return s.apply_reverse_scalar_op(scalar, Modulo());
     }
 
     /// @brief Series > Series comparison. Returns BOOLEAN_T Series with 0/1 values.
@@ -1790,6 +1805,11 @@ public:
     /// @returns the number of samples written
     /// @throws std::runtime_error if the data types don't match
     size_t write(const Series &other) {
+        if (other.data_type() != this->data_type())
+            throw std::runtime_error(
+                "cannot write a " + other.data_type().name() + " series to a " +
+                this->data_type().name() + " series"
+            );
         this->ensure_exclusive();
         const size_t byte_count = std::min(
             other.byte_size(),

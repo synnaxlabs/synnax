@@ -15,6 +15,7 @@ import {
   waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
 import { color } from "@synnaxlabs/x";
+import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -30,7 +31,7 @@ import {
 import { Toolbar } from "@/feature/table/Toolbar";
 import { Session } from "@/session";
 import { documentIn } from "@/session/window/testutil";
-import { assertDefined, getInputByItemLabel, uniqueName } from "@/testutil";
+import { getInputByItemLabel } from "@/testutil";
 
 interface RenderToolbarOptions {
   tableState?: Partial<Session.Table.State>;
@@ -313,6 +314,31 @@ describe("table/Toolbar", () => {
     });
     const t = await client.tables.retrieve(key);
     expect(configOf(t, "a")).not.toHaveProperty("precision");
+  });
+
+  it("stores a multi-cell staleness timeout in seconds", async () => {
+    const { key } = await renderTable(Toolbar, {
+      table: {
+        name: uniqueName("table"),
+        ...createCellRow({ a: { variant: "value" }, b: { variant: "value" } }),
+      },
+      preloadedState: (key) =>
+        createPreloadedState(key, { selectedCells: ["a", "b"], lastSelected: "b" }),
+    });
+    const input = (await screen.findByText("Timeout"))
+      .closest(".lyra-input__item")
+      ?.querySelector("input");
+    assertDefined(input);
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: "7s" } });
+    fireEvent.blur(input);
+    await waitFor(async () => {
+      const t = await client.tables.retrieve(key);
+      expect([configOf(t, "a"), configOf(t, "b")]).toMatchObject([
+        { stalenessTimeout: 7 },
+        { stalenessTimeout: 7 },
+      ]);
+    });
   });
 
   it("hides the value groups when only text cells are selected", async () => {

@@ -8,7 +8,8 @@
 # included in the file licenses/APL.txt.
 
 # Calls one agent per theme each night to improve the repo. The prompts in
-# .github/agents/nightly say when to open a PR and when to open none.
+# .github/agents/nightly say when to open a PR and when to open none. The reports of all
+# themes go to Slack in one message.
 
 name: Agent - Nightly
 
@@ -56,6 +57,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Find duplicated code
         if:
@@ -109,15 +112,48 @@ jobs:
       contents: write
       issues: write
       pull-requests: write
-    uses: ./.github/workflows/agent.yaml
+    uses: ./.github/workflows/agent.nightly.theme.yaml
     with:
+      theme: ${{ matrix.theme }}
       prompt: ${{ needs.prompt.outputs[matrix.theme] }}
-      agent: ${{ vars.AGENT_DEFAULT || 'claude' }}
-      output: report
-      timeout-minutes: 180
     secrets:
-      CLAUDE_CODE_APP_ID: ${{ secrets.CLAUDE_CODE_APP_ID }}
       CLAUDE_CODE_APP_PRIVATE_KEY: ${{ secrets.CLAUDE_CODE_APP_PRIVATE_KEY }}
-      CODEX_APP_ID: ${{ secrets.CODEX_APP_ID }}
       CODEX_APP_PRIVATE_KEY: ${{ secrets.CODEX_APP_PRIVATE_KEY }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+
+  report:
+    name: Post the reports
+    needs: [prompt, agent]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Download the reports
+        if: needs.agent.result != 'skipped'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          pattern: nightly-*
+          path: ${{ runner.temp }}/reports
+
+      - name: Post the reports to Slack
+        env:
+          THEMES: ${{ needs.prompt.outputs.themes || '[]' }}
+          RESULT: ${{ needs.agent.result }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NIGHTLY_WEBHOOK_URL }}
+        run: |
+          REPORT=$(jq --raw-output '.[]' <<< "$THEMES" | while read -r theme; do
+            f="$RUNNER_TEMP/reports/nightly-$theme/report.md"
+            if [ -f "$f" ]; then
+              cat "$f"
+            else
+              printf '*%s*\nDid not run.\n' "$theme"
+            fi
+            echo
+          done)
+          [ -n "$REPORT" ] || REPORT="No agent ran ($RESULT)."
+          printf '*Nightly agents*\n%s\n<%s|Run>\n' "$REPORT" \
+            "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" |
+            jq --raw-input --slurp '{text: .}' |
+            curl --fail --silent --show-error \
+              --header "Content-Type: application/json" \
+              --data @- "$SLACK_WEBHOOK_URL"

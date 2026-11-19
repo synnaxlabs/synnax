@@ -26,9 +26,11 @@ func DeepEqual(a, b any) bool {
 }
 
 // visit records a pair of references already under comparison, so a cyclic value
-// terminates.
+// terminates. n is the slice length, since slices of one backing array can differ in
+// length.
 type visit struct {
 	a, b uintptr
+	n    int
 	t    reflect.Type
 }
 
@@ -49,11 +51,21 @@ func deepEqual(a, b reflect.Value, seen set.Set[visit]) bool {
 			return a.IsNil() == b.IsNil()
 		}
 		key := visit{a: a.Pointer(), b: b.Pointer(), t: a.Type()}
+		if a.Kind() == reflect.Slice {
+			if a.Len() != b.Len() {
+				return false
+			}
+			key.n = a.Len()
+		}
 		if seen.Contains(key) {
 			return true
 		}
 		seen.Add(key)
 	}
+	return kindEqual(a, b, seen)
+}
+
+func kindEqual(a, b reflect.Value, seen set.Set[visit]) bool {
 	switch a.Kind() {
 	case reflect.Bool:
 		return a.Bool() == b.Bool()
@@ -70,26 +82,9 @@ func deepEqual(a, b reflect.Value, seen set.Set[visit]) bool {
 	case reflect.String:
 		return a.String() == b.String()
 	case reflect.Array, reflect.Slice:
-		if a.Len() != b.Len() {
-			return false
-		}
-		for i := range a.Len() {
-			if !deepEqual(a.Index(i), b.Index(i), seen) {
-				return false
-			}
-		}
-		return true
+		return elementsEqual(a, b, seen)
 	case reflect.Map:
-		if a.Len() != b.Len() {
-			return false
-		}
-		for iter := a.MapRange(); iter.Next(); {
-			bv := b.MapIndex(iter.Key())
-			if !bv.IsValid() || !deepEqual(iter.Value(), bv, seen) {
-				return false
-			}
-		}
-		return true
+		return mapsEqual(a, b, seen)
 	case reflect.Pointer:
 		return deepEqual(a.Elem(), b.Elem(), seen)
 	case reflect.Interface:
@@ -110,4 +105,29 @@ func deepEqual(a, b reflect.Value, seen set.Set[visit]) bool {
 		return a.Pointer() == b.Pointer()
 	}
 	return false
+}
+
+func elementsEqual(a, b reflect.Value, seen set.Set[visit]) bool {
+	if a.Len() != b.Len() {
+		return false
+	}
+	for i := range a.Len() {
+		if !deepEqual(a.Index(i), b.Index(i), seen) {
+			return false
+		}
+	}
+	return true
+}
+
+func mapsEqual(a, b reflect.Value, seen set.Set[visit]) bool {
+	if a.Len() != b.Len() {
+		return false
+	}
+	for iter := a.MapRange(); iter.Next(); {
+		bv := b.MapIndex(iter.Key())
+		if !bv.IsValid() || !deepEqual(iter.Value(), bv, seen) {
+			return false
+		}
+	}
+	return true
 }

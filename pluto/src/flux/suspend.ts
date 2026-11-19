@@ -9,7 +9,7 @@
 
 import { query, type Synnax as Client } from "@synnaxlabs/client";
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
-import { type destructor } from "@synnaxlabs/x";
+import { type destructor, map } from "@synnaxlabs/x";
 import { useLayoutEffect, useRef } from "react";
 
 export interface RetrieveParams<Query extends query.Params> {
@@ -90,8 +90,7 @@ export const subscribeReader = <Data>(
   hash: string,
   notify: () => void,
 ): destructor.Destructor => {
-  const readers = local.listeners.get(hash) ?? new Set<() => void>();
-  local.listeners.set(hash, readers);
+  const readers = map.getOrInsert(local.listeners, hash, () => new Set());
   readers.add(notify);
   return () => {
     readers.delete(notify);
@@ -117,7 +116,7 @@ export const invalidate = <Data>(local: LocalCache<Data>, hash: string): void =>
 };
 
 const holdGeneration = <Data>(local: LocalCache<Data>, hash: string): (() => void) => {
-  local.fetches.set(hash, (local.fetches.get(hash) ?? 0) + 1);
+  map.increment(local.fetches, hash);
   return () => {
     const remaining = (local.fetches.get(hash) ?? 1) - 1;
     if (remaining > 0) {

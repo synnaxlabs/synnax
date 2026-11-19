@@ -33,7 +33,7 @@ const (
 	// defaultRelayBufferSize is the default buffer size for the relay's main streaming
 	// pipe. All written frames are moved through this pipe, so the value is relatively
 	// large.
-	// 1000 * 72 bytes = 72kb
+	// 1000 * 72 bytes = 72kb.
 	defaultRelayBufferSize = 1000
 	// defaultStreamBufferSize is the default buffer size for each streamer's
 	// connection to the relay. A smaller buffer absorbs a brief consumer stall while
@@ -47,20 +47,23 @@ const (
 	defaultChunkSize = 1 << 23
 )
 
-func openRelay(sCtx signal.Context, o *options) *relay {
+func newRelay(o *options) *relay {
 	delta := confluence.NewDynamicDeltaMultiplier[relayResponse](
 		o.slowConsumerTimeout,
 		o.Instrumentation,
 	)
 	writes := confluence.NewStream[relayResponse](o.relayBufferSize)
 	delta.InFrom(writes)
-	delta.Flow(
+	return &relay{delta: delta, inlet: writes, streamBufferSize: o.streamBufferSize}
+}
+
+func (r *relay) flow(sCtx signal.Context) {
+	r.delta.Flow(
 		sCtx,
 		confluence.RecoverWithErrOnPanic(),
 		confluence.WithRetryOnPanic(),
 		confluence.WithAddress("relay"),
 	)
-	return &relay{delta: delta, inlet: writes, streamBufferSize: o.streamBufferSize}
 }
 
 func (r *relay) connect() (confluence.Outlet[relayResponse], func()) {

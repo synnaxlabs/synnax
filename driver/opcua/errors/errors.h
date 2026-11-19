@@ -34,8 +34,6 @@ const x::errors::Error COMMAND_REJECTED = TEMPORARY.sub("command_rejected");
 /// @brief security-related errors for certificate and encryption issues
 const x::errors::Error SECURITY = CRITICAL.sub("security");
 const x::errors::Error ENCRYPTION_CONFIG_FAILED = SECURITY.sub("encryption_config");
-/// @brief data that holds no X.509 certificate.
-const x::errors::Error INVALID_CERTIFICATE = SECURITY.sub("invalid_certificate");
 /// @brief client certificate files that cannot be read, or that do not match.
 const x::errors::Error CLIENT_CERTIFICATE_INVALID = SECURITY.sub(
     "client_certificate_invalid"

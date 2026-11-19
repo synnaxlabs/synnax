@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type record, type state } from "@synnaxlabs/x";
+import { map, type record, type state, unique } from "@synnaxlabs/x";
 
 /**
  * An exact-match secondary index over a table's live entries. `extract` reads one
@@ -35,8 +35,7 @@ export class LookupIndex<
    * and each entry once.
    */
   get(value: IndexValue | IndexValue[]): Value[] {
-    if (Array.isArray(value))
-      return Array.from(new Set(value)).flatMap((v) => this.get(v));
+    if (Array.isArray(value)) return unique.unique(value).flatMap((v) => this.get(v));
     const bucket = this.buckets.get(value);
     if (bucket == null) return [];
     return Array.from(bucket.values());
@@ -54,12 +53,7 @@ export class LookupIndex<
       this.indexed.delete(key);
       return;
     }
-    let bucket = this.buckets.get(next);
-    if (bucket == null) {
-      bucket = new Map();
-      this.buckets.set(next, bucket);
-    }
-    bucket.set(key, value);
+    map.getOrInsert(this.buckets, next, () => new Map()).set(key, value);
     this.indexed.set(key, next);
   }
 

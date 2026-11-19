@@ -52,9 +52,9 @@ func openWriter(
 	ctx SpecContext,
 	subject string,
 	keys ...channel.Key,
-) *framer.Writer {
+) {
 	GinkgoHelper()
-	return DeferClose(MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+	DeferClose(MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
 		Keys:           keys,
 		Start:          telem.SecondTS,
 		Sync:           new(true),

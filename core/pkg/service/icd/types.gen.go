@@ -92,22 +92,14 @@ type JSONField = versions.JSONField
 // JSONFieldVariant is implemented by every JSONField variant.
 type JSONFieldVariant = versions.JSONFieldVariant
 
-// JSONFieldType is the "type" value that selects a variant of JSONField.
-type JSONFieldType = versions.JSONFieldType
+// FloatJSONField is a JSON number read as a float.
+type FloatJSONField = versions.FloatJSONField
 
-const (
-	// NumberJSONFieldType is a JSON number.
-	NumberJSONFieldType JSONFieldType = versions.NumberJSONFieldType
-	// StringJSONFieldType is a JSON string.
-	StringJSONFieldType JSONFieldType = versions.StringJSONFieldType
-	// BooleanJSONFieldType is a JSON boolean.
-	BooleanJSONFieldType JSONFieldType = versions.BooleanJSONFieldType
-	// TimestampJSONFieldType is a timestamp held in a JSON number or string.
-	TimestampJSONFieldType JSONFieldType = versions.TimestampJSONFieldType
-)
+// IntegerJSONField is a JSON number read as a signed integer.
+type IntegerJSONField = versions.IntegerJSONField
 
-// NumberJSONField is a JSON number.
-type NumberJSONField = versions.NumberJSONField
+// UnsignedJSONField is a JSON number read as an unsigned integer.
+type UnsignedJSONField = versions.UnsignedJSONField
 
 // StringJSONField is a JSON string.
 type StringJSONField = versions.StringJSONField
@@ -118,23 +110,60 @@ type BooleanJSONField = versions.BooleanJSONField
 // TimestampJSONField is a timestamp held in a JSON number or string.
 type TimestampJSONField = versions.TimestampJSONField
 
+// JSONJSONField is any JSON value.
+type JSONJSONField = versions.JSONJSONField
+
+// UuidJSONField is a UUID held in a JSON string.
+type UuidJSONField = versions.UuidJSONField
+
+// BytesJSONField is base64 text held in a JSON string.
+type BytesJSONField = versions.BytesJSONField
+
+// JSONBaseMatch carries the parts every JSON match rule shares.
+type JSONBaseMatch = versions.JSONBaseMatch
+
+// JSONMatch selects the JSON documents that belong to a message.
+type JSONMatch = versions.JSONMatch
+
+// JSONMatchVariant is implemented by every JSONMatch variant.
+type JSONMatchVariant = versions.JSONMatchVariant
+
+// JSONMatchType is the "type" value that selects a variant of JSONMatch.
+type JSONMatchType = versions.JSONMatchType
+
+const (
+	// FloatJSONMatchType matches a JSON number equal to a float.
+	FloatJSONMatchType JSONMatchType = versions.FloatJSONMatchType
+	// IntegerJSONMatchType matches a JSON number equal to a signed integer.
+	IntegerJSONMatchType JSONMatchType = versions.IntegerJSONMatchType
+	// UnsignedJSONMatchType matches a JSON number equal to an unsigned integer.
+	UnsignedJSONMatchType JSONMatchType = versions.UnsignedJSONMatchType
+	// StringJSONMatchType matches an equal JSON string.
+	StringJSONMatchType JSONMatchType = versions.StringJSONMatchType
+	// BooleanJSONMatchType matches an equal JSON boolean.
+	BooleanJSONMatchType JSONMatchType = versions.BooleanJSONMatchType
+)
+
+// FloatJSONMatch matches a JSON number equal to a float.
+type FloatJSONMatch = versions.FloatJSONMatch
+
+// IntegerJSONMatch matches a JSON number equal to a signed integer.
+type IntegerJSONMatch = versions.IntegerJSONMatch
+
+// UnsignedJSONMatch matches a JSON number equal to an unsigned integer.
+type UnsignedJSONMatch = versions.UnsignedJSONMatch
+
+// StringJSONMatch matches an equal JSON string.
+type StringJSONMatch = versions.StringJSONMatch
+
+// BooleanJSONMatch matches an equal JSON boolean.
+type BooleanJSONMatch = versions.BooleanJSONMatch
+
 // Payload is the layout of a message's payload.
 type Payload = versions.Payload
 
 // PayloadVariant is implemented by every Payload variant.
 type PayloadVariant = versions.PayloadVariant
-
-// PayloadType is the "format" value that selects a variant of Payload.
-type PayloadType = versions.PayloadType
-
-const (
-	// BinaryPayloadType is a payload of raw bytes.
-	BinaryPayloadType PayloadType = versions.BinaryPayloadType
-	// TextPayloadType is a payload of one text line.
-	TextPayloadType PayloadType = versions.TextPayloadType
-	// JSONPayloadType is a payload of one JSON document.
-	JSONPayloadType PayloadType = versions.JSONPayloadType
-)
 
 // BinaryPayload is a payload of raw bytes.
 type BinaryPayload = versions.BinaryPayload
@@ -151,6 +180,42 @@ type Message = versions.Message
 // ICD is an interface control document: the messages a system sends and receives, and
 // how to parse each one.
 type ICD = versions.ICD
+
+// ReadBinding writes the value of one message field to a channel.
+type ReadBinding = versions.ReadBinding
+
+// ReadMessage reads the documents of one ICD message.
+type ReadMessage = versions.ReadMessage
+
+// ImportFormat is the file format of an ICD that an import reads.
+type ImportFormat string
+
+const (
+	// ImportFormatDBC is a Vector CAN database file.
+	ImportFormatDBC ImportFormat = "dbc"
+	// ImportFormatCSV is a field table in comma-separated values. The first row is a
+	// header that names each column, in any case: message, id, extended, length, field,
+	// start_bit, bit_length, byte_order, kind, scale, offset, units, min, and max. The
+	// message, field, start_bit, and bit_length columns are required. A kind is float,
+	// integer, or unsigned, and defaults to unsigned. Each other row is one binary
+	// field, and the rows of one message form one message, with a CAN identifier when
+	// an id is present.
+	ImportFormatCSV ImportFormat = "csv"
+	// ImportFormatXLSX is a field table, laid out as for csv, in the first sheet of an
+	// Excel workbook. A numeric cell is read as its value, whatever its number format.
+	ImportFormatXLSX ImportFormat = "xlsx"
+)
+
+// IsValid reports whether i is one of the defined ImportFormat
+// values.
+func (i ImportFormat) IsValid() bool {
+	switch i {
+	case ImportFormatDBC, ImportFormatCSV, ImportFormatXLSX:
+		return true
+	default:
+		return false
+	}
+}
 
 // Where is a filter that selects ICDs.
 type Where struct {

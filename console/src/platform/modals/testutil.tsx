@@ -104,6 +104,12 @@ export const renderModalHook = <T,>(
   return renderHook(useHandle, { wrapper: Wrapper });
 };
 
+/** Presses and releases Escape on the window, where the trigger provider listens. */
+export const pressEscape = (): void => {
+  fireEvent.keyDown(window, { code: "Escape" });
+  fireEvent.keyUp(window, { code: "Escape" });
+};
+
 /**
  * Pulls the close callback the store bound into the topmost modal's rendered content.
  */
@@ -249,7 +255,7 @@ export const findLastButton = (text: string): HTMLButtonElement => {
     .getAllByText(text)
     .map((el) => el.closest<HTMLButtonElement>("button"))
     .filter((b) => b != null);
-  const btn = buttons[buttons.length - 1];
+  const btn = buttons.at(-1);
   if (btn == null) throw new Error(`button with text ${text} not found`);
   return btn;
 };

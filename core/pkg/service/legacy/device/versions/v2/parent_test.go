@@ -43,6 +43,7 @@ var _ = Describe("ParentMigration", func() {
 
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		stored := []v2.Device{
 			{Key: "chassis", Rack: 65537},
 			{Key: "module", Rack: 65537},

@@ -142,14 +142,7 @@ func (h *Host) handle(m Message) Event {
 	)
 	switch topic.Type {
 	case NBirth:
-		bdSeq, bdSeqKnown := findBdSeq(p.Metrics)
-		ev.NewSession = !n.born || (bdSeqKnown && n.bdSeqKnown && bdSeq != n.bdSeq)
-		n.born, n.rebirth = true, false
-		n.nextSeq = uint8(p.GetSeq()) + 1
-		n.tables = map[string]tagTable{"": birthTable(p.Metrics)}
-		n.bdSeq, n.bdSeqKnown = bdSeq, bdSeqKnown
-		ev.Metrics = birthMetrics(p)
-		return ev
+		return n.birth(p, ev)
 	case NDeath:
 		// A death with another bdSeq belongs to an older session of the edge node.
 		if bdSeq, ok := findBdSeq(p.Metrics); ok && n.bdSeqKnown && bdSeq != n.bdSeq {
@@ -157,6 +150,7 @@ func (h *Host) handle(m Message) Event {
 		}
 		n.born, n.tables = false, nil
 		return ev
+	case DBirth, DDeath, NData, DData, NCmd, DCmd, State:
 	}
 	if !n.born {
 		dropped.Rebirth = true
@@ -176,14 +170,29 @@ func (h *Host) handle(m Message) Event {
 		ev.Metrics = birthMetrics(p)
 	case DDeath:
 		delete(n.tables, topic.Device)
-	default:
+	case NData, DData:
 		table, ok := n.tables[topic.Device]
 		if !ok {
 			dropped.Rebirth = true
 			return dropped
 		}
 		ev.Metrics, ev.Rebirth = dataMetrics(p, table)
+	case NBirth, NDeath, NCmd, DCmd, State:
+		panic("unexpected " + string(topic.Type) + " message")
 	}
+	return ev
+}
+
+// birth starts a session of the edge node with the birth payload p, and returns ev
+// with the metrics of the birth.
+func (n *nodeState) birth(p *pb.Payload, ev Event) Event {
+	bdSeq, bdSeqKnown := findBdSeq(p.Metrics)
+	ev.NewSession = !n.born || (bdSeqKnown && n.bdSeqKnown && bdSeq != n.bdSeq)
+	n.born, n.rebirth = true, false
+	n.nextSeq = uint8(p.GetSeq()) + 1
+	n.tables = map[string]tagTable{"": birthTable(p.Metrics)}
+	n.bdSeq, n.bdSeqKnown = bdSeq, bdSeqKnown
+	ev.Metrics = birthMetrics(p)
 	return ev
 }
 

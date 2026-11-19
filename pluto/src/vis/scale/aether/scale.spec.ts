@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { theme } from "@synnaxlabs/lyra/theme";
-import { box, color, xy } from "@synnaxlabs/x";
+import { box, color, TimeSpan, xy } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { telemTest } from "@/telem/aether/testutil";
@@ -179,6 +179,13 @@ describe("scale/aether/Scale", () => {
       expect(recorder.upper2d.calls.some(({ op }) => op === "fillText")).toBe(true);
       expect(recorder.lower2d.calls.some(({ op }) => op === "fillText")).toBe(false);
     });
+
+    it("should measure the fill from a stored lower above the upper", () => {
+      const reversed = setup({ bounds: { lower: 100, upper: 0 } }, 25);
+      const ordered = setup({ bounds: { lower: 0, upper: 100 } }, 75);
+      expect(fillRegions(reversed.recorder)).toEqual(fillRegions(ordered.recorder));
+      expect(fillRegions(ordered.recorder).length).toBeGreaterThan(0);
+    });
   });
 
   describe("staleness", () => {
@@ -192,7 +199,7 @@ describe("scale/aether/Scale", () => {
         color: ACCENT,
         showScale: false,
         showCaret: false,
-        stalenessTimeout: 1,
+        stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
       });
       source.setValue(50);
       expect(canvasStyles(recorder, "lower2d", "fillStyle")).not.toContain(STALE);
@@ -205,7 +212,7 @@ describe("scale/aether/Scale", () => {
         color: ACCENT,
         showScale: false,
         showCaret: false,
-        stalenessTimeout: 1,
+        stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
       });
       for (let i = 0; i < 5; i++) {
         source.setValue(50 + i);
@@ -219,7 +226,7 @@ describe("scale/aether/Scale", () => {
         color: ACCENT,
         showFill: false,
         showScale: false,
-        stalenessTimeout: 1,
+        stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
       });
       source.setValue(50);
       vi.advanceTimersByTime(2000);
@@ -231,7 +238,7 @@ describe("scale/aether/Scale", () => {
         color: ACCENT,
         showScale: false,
         showCaret: false,
-        stalenessTimeout: 1,
+        stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
       });
       source.setValue(50);
       vi.advanceTimersByTime(2000);

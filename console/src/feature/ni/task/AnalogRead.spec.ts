@@ -10,6 +10,7 @@
 import { type ni, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { assert, describe, expect, it } from "vitest";
 
@@ -21,19 +22,21 @@ import {
   renderNITaskForm,
 } from "@/feature/ni/task/testutil";
 import {
+  awaitTare,
   clickDeploy,
   commitFieldInput,
   createWithHook,
   deployAndAwaitTask,
   findChannelListItem,
+  reportTaskRunning,
   selectFromDropdown,
 } from "@/platform/task/testutil";
 import {
   findDialogTriggerByText,
+  findIconButton,
   getIconButton,
   getInputTable,
   getLabeledInput,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();
@@ -75,6 +78,30 @@ const renderAnalogRead = async (
 };
 
 describe("AnalogRead", () => {
+  it("should tare a float channel from its button while the task runs", async () => {
+    const dev = await createNIDevice(client);
+    const float = await client.channels.create({
+      name: uniqueName("tare"),
+      dataType: "float32",
+      virtual: true,
+    });
+    const draft = await createDraft({
+      ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
+      channels: [
+        createChannel("ai_voltage", 0, { device: dev.key, channel: float.key }),
+      ],
+    });
+    await reportTaskRunning(client, draft);
+    const args = await awaitTare(client, draft.key, async () => {
+      const { container } = await renderNITaskForm(NI.Task.AnalogRead, {
+        client,
+        taskKey: draft.key,
+      });
+      fireEvent.click(await findIconButton(container, "tare"));
+    });
+    expect(args).toEqual({ keys: [float.key] });
+  });
+
   it("should seed a voltage channel bound to the device on the task row", async () => {
     const dev = await createNIDevice(client);
     await renderAnalogRead({
@@ -438,6 +465,19 @@ describe("AnalogRead", () => {
       { deviceKey: dev.key },
     );
     expect(tsk.config.channels.map(({ device }) => device)).toEqual([dev.key]);
+  });
+
+  it("should create the task with a channel on each of the given devices", async () => {
+    const devices = [await createNIDevice(client), await createNIDevice(client)];
+    const keys = devices.map((d) => d.key);
+    const tsk = await createWithHook(
+      NI.Task.useCreateAnalogRead,
+      NI.Task.ANALOG_READ_SCHEMAS,
+      {
+        deviceKeys: keys,
+      },
+    );
+    expect(tsk.config.channels.map(({ device }) => device)).toEqual(keys);
   });
 });
 

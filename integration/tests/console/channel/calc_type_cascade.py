@@ -11,6 +11,7 @@ import numpy as np
 
 import synnax as sy
 from console.case import ConsoleCase
+from framework.utils import hold
 from x import random_name
 from x.telem import to_float
 
@@ -221,7 +222,7 @@ class CalcTypeCascade(ConsoleCase):
             combined_ch.key,
             f"return f32({self.calcs['scaled']}) + {self.raw['reference']}",
         )
-        sy.sleep(2)  # noqa: TID251 hold: checks that no error shows
+        hold(2, reason="checks that no error shows")
 
         notifs = self.console.notifications.check()
         error_notifs = [
@@ -246,7 +247,7 @@ class CalcTypeCascade(ConsoleCase):
                 calc_keys.append(ch.key)
                 if ch.index != 0:
                     calc_keys.append(ch.index)
-            except Exception:
+            except sy.NotFoundError:
                 pass
         if calc_keys:
             self.client.channels.delete(calc_keys)

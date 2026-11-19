@@ -10,6 +10,7 @@
 import { type Synnax, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { type z } from "zod";
@@ -31,10 +32,12 @@ import {
   answerNextCommand,
   awaitCommand,
   awaitEditableForm,
+  awaitTare,
   clickFailedDeploy,
   deployAndAwaitTask,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
+  reportTaskRunning,
   reportTaskStopped,
   START_FAILURE,
 } from "@/platform/task/testutil";
@@ -42,9 +45,9 @@ import {
   captureBrowserDownloads,
   fakePickedFile,
   findDialogTriggerByText,
+  findIconButton,
   getLabeledInput,
   interceptFilePicker,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();
@@ -162,6 +165,25 @@ const importCSV = async (rows: string[]) => {
 describe("Read", () => {
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it("should tare a float channel from its button while the task runs", async () => {
+    const dev = await createOPCDevice(client);
+    const float = await client.channels.create({
+      name: uniqueName("tare"),
+      dataType: "float32",
+      virtual: true,
+    });
+    const draft = await createDraft(
+      client,
+      createReadConfig(dev.key, [createReadChannel({ channel: float.key })]),
+    );
+    await reportTaskRunning(client, draft);
+    const args = await awaitTare(client, draft.key, async () => {
+      const { container } = await renderRead({ client, taskKey: draft.key });
+      fireEvent.click(await findIconButton(container, "tare"));
+    });
+    expect(args).toEqual({ keys: [float.key] });
   });
 
   it("should create channels under a new index on deploy", async () => {
@@ -583,7 +605,7 @@ describe("Read", () => {
     const { scan, draft } = await renderWithNode(folder, [held]);
     const variable = (path: string[]) => ({
       nodeId: `${folder.nodeId}.${path.join(".")}`,
-      name: path[path.length - 1],
+      name: path.at(-1),
       nodeClass: "Variable",
       dataType: "float64",
       isArray: false,

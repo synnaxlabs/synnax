@@ -13,7 +13,9 @@ on:
   workflow_call:
   workflow_dispatch:
 concurrency:
-  group: buildifier-${{ github.workflow }}-${{ github.ref }}
+  group:
+    buildifier-${{ github.workflow }}-${{ github.event.merge_group.head_sha ||
+    github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -29,6 +31,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:

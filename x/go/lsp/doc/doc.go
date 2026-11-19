@@ -11,7 +11,10 @@
 // documentation. It is used for hover docs, diagnostics, and other LSP features.
 package doc
 
-import "strings"
+import (
+	"slices"
+	"strings"
+)
 
 // Block represents a renderable documentation block.
 type Block interface {
@@ -28,9 +31,9 @@ func New(blocks ...Block) Doc {
 	return Doc{blocks: blocks}
 }
 
-// Add appends additional blocks to the document and returns the modified Doc.
-func (d *Doc) Add(blocks ...Block) *Doc {
-	d.blocks = append(d.blocks, blocks...)
+// With returns a copy of the document with blocks appended. It does not change d.
+func (d Doc) With(blocks ...Block) Doc {
+	d.blocks = append(slices.Clip(d.blocks), blocks...)
 	return d
 }
 

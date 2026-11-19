@@ -11,11 +11,18 @@
 
 from __future__ import annotations
 
-from typing import Any, Generic, Literal, TypeAlias, TypedDict, override as _override
+from typing import (
+    Any,
+    Generic,
+    Literal,
+    TypeAlias,
+    TypedDict,
+    TypeVar,
+    override as _override,
+)
 from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator
-from typing_extensions import TypeVar
 
 from synnax import label, resource
 from synnax.resource import ID

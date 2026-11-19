@@ -10,8 +10,6 @@
 package compiler_test
 
 import (
-	"fmt"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
@@ -135,7 +133,7 @@ var _ = Describe("Compile", func() {
 			Name:       UniqueChannelName(),
 			DataType:   telem.Float64T,
 			Virtual:    true,
-			Expression: fmt.Sprintf("return %s", base.Name),
+			Expression: "return " + base.Name,
 			Operations: []channel.Operation{{Type: "derivative"}},
 		}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {

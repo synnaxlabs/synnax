@@ -10,6 +10,7 @@
 package http
 
 import (
+	"fmt"
 	"net"
 	nethttp "net/http"
 	"time"
@@ -83,7 +84,10 @@ func sessionCookieMiddleware() freighter.Middleware {
 		if !ok {
 			return oCtx, err
 		}
-		cookie := v.(auth.SessionCookie)
+		cookie, ok := v.(auth.SessionCookie)
+		if !ok {
+			panic(fmt.Sprintf("session cookie param is a %T", v))
+		}
 		if cookie.Token == "" {
 			cookie.Token = fromCookie
 		}

@@ -24,7 +24,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Access, Label as PLabel, Ranger } from "@synnaxlabs/pluto";
-import { type TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { TimeSpan, type TimeStamp } from "@synnaxlabs/x";
 import {
   type CSSProperties,
   type MouseEvent,
@@ -48,29 +48,6 @@ const [CaretlessContext, useCaretless] = context.create<boolean>({
 });
 
 export { CaretlessContext, HighlightContext };
-
-/** Whether the time range has a start, and so a time to show. */
-export const scheduled = (timeRange: TimeRange): boolean =>
-  !timeRange.makeValid().start.equals(TimeStamp.MAX);
-
-/** Starts a planned range now. It keeps an end that is still ahead. */
-export const useStart = (): ((range: ranger.Range) => void) => {
-  const { update } = Ranger.useSetTimeRange();
-  return (range) =>
-    update({
-      key: range.key,
-      timeRange: Ranger.moveToStage(range.timeRange.numeric, "in_progress"),
-    });
-};
-
-export const useStop = (): ((range: ranger.Range) => void) => {
-  const { update } = Ranger.useSetTimeRange();
-  return (range) =>
-    update({
-      key: range.key,
-      timeRange: Ranger.moveToStage(range.timeRange.numeric, "completed"),
-    });
-};
 
 interface CaretProps {
   range: ranger.Range;
@@ -193,7 +170,6 @@ const Labels = ({ range, preview }: RangeProps): ReactElement | null => {
       )}
     >
       <Label.SelectMultiple
-        zIndex={100}
         location={RIGHT_EDGE}
         value={range.labels}
         onChange={handleChange}
@@ -315,7 +291,7 @@ const When = ({ range }: { range: ranger.Range }): ReactElement => {
         {start.span(end).toString("semantic")}
       </Text.Text>
     );
-  const hasStart = scheduled(range.timeRange);
+  const hasStart = Range.scheduled(range.timeRange);
   return (
     // Once the start column hides, the cell shows the start on hover.
     <Tooltip.Dialog hide={(when) => !hasStart || startShown(when)}>

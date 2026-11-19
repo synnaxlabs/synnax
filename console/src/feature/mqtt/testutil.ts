@@ -9,6 +9,8 @@
 
 import { type device, type rack, type Synnax, task } from "@synnaxlabs/client";
 import { deep, TimeStamp } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
+import { fireEvent, screen, within } from "@testing-library/react";
 
 import {
   MAKE,
@@ -19,7 +21,6 @@ import {
 import { SCAN_TYPE } from "@/feature/mqtt/task/types";
 import { createTestDevice, startRackHeartbeat } from "@/platform/device/testutil";
 import { awaitCommand } from "@/platform/task/testutil";
-import { uniqueName } from "@/testutil";
 
 export interface CreateBrokerOptions {
   configured?: boolean;
@@ -90,4 +91,10 @@ export const openScanner = async (
     },
     close: () => streamer.close(),
   };
+};
+
+/** Opens the Add data dialog of a task form, and returns queries scoped to it. */
+export const openAddData = async () => {
+  fireEvent.click(await screen.findByRole("button", { name: "Add data" }));
+  return within(await screen.findByRole("dialog"));
 };

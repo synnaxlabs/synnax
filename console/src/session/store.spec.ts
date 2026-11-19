@@ -16,7 +16,8 @@ import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { Session } from "@/session";
 import { createTestStore, MemoryKV, type TestStore } from "@/testutil";
 
-const HAULED: Haul.DraggingState = {
+const HAULED: Haul.State = {
+  key: "drag",
   source: { key: "file", type: "file" },
   items: [{ key: "a", type: "b" }],
 };
@@ -335,11 +336,13 @@ describe("createStore", () => {
     expect((await mainKeys()).length).toBeGreaterThan(0);
     store.dispatch(Drift.closeWindow({ key: MAIN_WINDOW }));
     // A later write must not prune the partition main will reuse on relaunch.
-    store.dispatch(Session.Range.select(Session.Range.RECENT_KEY));
+    store.dispatch(
+      Session.Range.setGroupCollapsed({ group: "recent", collapsed: true }),
+    );
     await waitForPersisted(
       db,
-      (p) => p.range?.selected === Session.Range.RECENT_KEY,
-      "range selection not persisted yet",
+      (p) => p.range?.toolbar.collapsed.includes("recent") === true,
+      "range group not persisted yet",
     );
     expect((await mainKeys()).length).toBeGreaterThan(0);
   });
@@ -360,11 +363,13 @@ describe("createStore", () => {
     );
     store.dispatch(Session.Project.select("6f7cd5f4-4b93-4a35-a55c-72ba9dae2c9d"));
     await waitForPersisted(db, (p) => p.project != null, "Core swap has not settled");
-    store.dispatch(Session.Range.select(Session.Range.RECENT_KEY));
+    store.dispatch(
+      Session.Range.setGroupCollapsed({ group: "recent", collapsed: true }),
+    );
     await waitForPersisted(
       db,
-      (p) => p.range?.selected === Session.Range.RECENT_KEY,
-      "range selection not persisted yet",
+      (p) => p.range?.toolbar.collapsed.includes("recent") === true,
+      "range group not persisted yet",
     );
     const slotKey = (await db.keys()).find(
       (key) => key.startsWith(`window.${CLUSTER_KEY}.`) && key.endsWith(".slot"),
@@ -414,7 +419,9 @@ describe("createStore", () => {
   it("stores ranges under the Core, not the project", async () => {
     const store = await createStore();
     await enterAndEdit(store, REMOTE_KEY, CLUSTER_KEY);
-    store.dispatch(Session.Range.select(Session.Range.RECENT_KEY));
+    store.dispatch(
+      Session.Range.setGroupCollapsed({ group: "recent", collapsed: true }),
+    );
     await waitForPersisted(db, (p) => p.range != null, "range not persisted yet");
     const holders = holdersOf("range");
     expect(holders.length).toBeGreaterThan(0);

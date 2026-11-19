@@ -83,7 +83,9 @@ class SymbolEditor:
                 const dropZone = document.querySelector('.console-file-drop');
                 if (!dropZone) throw new Error('Drop zone not found');
 
-                const fiberKey = Object.keys(dropZone).find(k => k.startsWith('__reactFiber$'));
+                const fiberKey = Object.keys(dropZone).find(
+                    k => k.startsWith('__reactFiber$'),
+                );
                 if (!fiberKey) throw new Error('React fiber not found');
 
                 let fiber = dropZone[fiberKey];
@@ -99,7 +101,7 @@ class SymbolEditor:
 
                 if (!onContentsChange) throw new Error('onContentsChange not found');
                 onContentsChange(svgContent, properName);
-            }""",  # noqa: E501
+            }""",
             [svg_content, proper_name],
         )
         self.wait_for_form_visible()

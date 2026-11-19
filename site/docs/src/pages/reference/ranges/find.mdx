@@ -48,29 +48,34 @@ cannot change a view can search it, but cannot change its filters, sort, or layo
 
 <Divider.Divider x />
 
-## Favorites
+## Ranges toolbar
 
-The ranges toolbar shows your favorite ranges. A range joins the ranges toolbar when you
-create it, add it to a plot, open it from the command palette or from a link, or drag it
-onto the toolbar. To add a range, click <Icon.StarOutlined /> beside it in the range
-explorer or on its range overview, or right-click it in the range explorer and select
-**Favorite**.
+The ranges toolbar has three groups:
 
-To remove a range from the ranges toolbar, right-click it and select **Unfavorite**.
-Unfavorite deletes a [local range](/reference/ranges/reference#saved-and-local-ranges),
-because the toolbar is the only place it lives.
+- **Running** -> the ranges that run now, with their child ranges under them.
+- **Favorites** -> the ranges that you star, in the order that you star them.
+- **Recent** -> the ranges that ended, with the last one to end first.
 
-<Divider.Divider x />
+A range that has not started shows in the toolbar only when you favorite it. Find it in
+the [range explorer](#range-explorer).
 
-## Active range
+Click a range to open its [range overview](#range-overview). Drag a range onto the
+**Ranges** field of a line plot to add it to the plot.
 
-A new line plot shows the active range instead of the last 30 seconds.
+To start a range now, click <Icon.Play /> in the toolbar, enter a name, and press
+**Enter**. On a running range, click <Icon.Stop /> to stop it, or click **Next** to stop
+it and start the next range under the same parent at the same time. The Console suggests
+a name and a color for the next range.
 
-To make a range active, click it in the ranges toolbar, or right-click it and select
-**Set as active range**. Opening a link to a range also makes it active. To clear it,
-right-click the active range and select **Clear active range**.
+### Favorites
 
-<Video id="console/ranges/active" />
+To add a range to Favorites, click <Icon.StarOutlined /> beside it in the ranges
+toolbar, the range explorer, or its range overview, or right-click it and select
+**Favorite**. Nothing else adds a favorite. A range that you create, plot, or open from
+the command palette or a link does not join Favorites.
+
+To remove a range from Favorites, click its star again, or right-click it and select
+**Unfavorite**.
 
 <Divider.Divider x />
 
@@ -80,8 +85,8 @@ The range overview shows all the information about one range. To open it, do one
 these steps:
 
 - Click the range in the range explorer.
-- Right-click the range in the ranges toolbar and select **View details**.
-- Right-click a range bar on a line plot and select **View details**.
+- Click the range in the ranges toolbar.
+- Right-click a range bar on a line plot and select **Open**.
 
 The range overview has these parts:
 

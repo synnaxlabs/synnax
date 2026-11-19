@@ -101,7 +101,6 @@ export default manifest.define([
   { id: "client/ranges/create-child", script: "scripts/ranges-create-child.ts" },
   { id: "client/ranges/set-metadata", script: "scripts/ranges-set-metadata.ts" },
   { id: "client/ranges/labels", script: "scripts/ranges-labels.ts" },
-  { id: "console/ranges/active", script: "scripts/ranges-active.ts" },
   { id: "console/workspaces/create", script: "scripts/projects-create.ts" },
   { id: "console/workspaces/load", script: "scripts/projects-load.ts" },
   { id: "console/users/register", script: "scripts/users-register.ts" },
@@ -142,7 +141,12 @@ export default manifest.define([
     },
   },
   { id: "get-started/first-run", script: "scripts/first-run.ts" },
-  { id: "client/connect/desktop", script: "scripts/connect-from-code.ts" },
+  // The browser snippet shows the Core's port, so it runs on the default port.
+  {
+    id: "client/connect/desktop",
+    script: "scripts/connect-from-code.ts",
+    port: 9090,
+  },
   {
     id: "desktop/troubleshooting/diagnostics",
     script: "scripts/desktop-diagnostics.ts",

@@ -9,8 +9,8 @@
 
 import { Component } from "@synnaxlabs/lyra/component";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { fireEvent, waitFor } from "@testing-library/react";
-import { type ReactElement, useState } from "react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { type ReactElement, type ReactNode, useState } from "react";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { render } from "@/testutil";
@@ -36,6 +36,7 @@ const VIEWPORT: Diagram.Viewport = { position: { x: 0, y: 0 }, zoom: 1 };
 const noop = () => {};
 
 interface HarnessProps {
+  children?: ReactNode;
   onSelectionChange: (selected: string[]) => void;
   onViewportChange: (viewport: Diagram.Viewport) => void;
   editable?: boolean;
@@ -47,6 +48,7 @@ interface HarnessProps {
 const Harness = ({
   onSelectionChange,
   onViewportChange,
+  children,
   editable = true,
   onPaste,
 }: HarnessProps): ReactElement => {
@@ -74,7 +76,9 @@ const Harness = ({
         viewportMode="zoom"
         onViewportModeChange={noop}
         visible
-      />
+      >
+        {children}
+      </Base>
     </Triggers.Provider>
   );
 };
@@ -104,7 +108,10 @@ class ImmediateResizeObserver {
   disconnect(): void {}
 }
 
-const renderDiagram = async (props: Partial<HarnessProps> = {}) => {
+const renderDiagram = async (
+  children?: ReactNode,
+  props: Pick<HarnessProps, "editable" | "onPaste"> = {},
+) => {
   const onSelectionChange = vi.fn<(selected: string[]) => void>();
   const onViewportChange = vi.fn<(viewport: Diagram.Viewport) => void>();
   render(
@@ -112,7 +119,9 @@ const renderDiagram = async (props: Partial<HarnessProps> = {}) => {
       onSelectionChange={onSelectionChange}
       onViewportChange={onViewportChange}
       {...props}
-    />,
+    >
+      {children}
+    </Harness>,
     { registry: diagram.REGISTRY, render: true },
   );
   await waitFor(() => expect(node("b")).not.toBeNull());
@@ -145,6 +154,15 @@ describe("Diagram", () => {
     canvas.remove();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+  });
+
+  describe("controls", () => {
+    it("names the fit view button for assistive technology", async () => {
+      await renderDiagram(<Diagram.Controls.FitView />);
+      expect(
+        screen.getByRole("button", { name: "Fit view to contents" }),
+      ).toBeDefined();
+    });
   });
 
   describe("selection", () => {
@@ -199,7 +217,7 @@ describe("Diagram", () => {
   describe("clipboard", () => {
     it("does not paste while the diagram is not editable", async () => {
       const onPaste = vi.fn();
-      await renderDiagram({ editable: false, onPaste });
+      await renderDiagram(undefined, { editable: false, onPaste });
       fireEvent.paste(document.querySelector(".pluto-diagram__container") as Element);
       expect(onPaste).not.toHaveBeenCalled();
     });

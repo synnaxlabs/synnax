@@ -12,21 +12,21 @@ name = "synnax-freighter"
 version = "0.0.0"
 readme = "README.md"
 authors = [{ name = "Emiliano Bonilla", email = "ebonilla@synnaxlabs.com" }]
-requires-python = ">=3.12,<4"
+requires-python = ">=3.13,<4"
 dependencies = [
     "alamos",
     "synnax-x",
-    "pydantic>=2.14.1,<3",
+    "pydantic>=2.14.4,<3",
     "urllib3>=2.8.0,<3",
-    "websockets>=17.3,<18",
+    "websockets>=17.4,<18",
 ]
 
 [dependency-groups]
 dev = [
-    "mypy>=2.4.0,<3",
-    "ruff>=0.17.1,<1",
-    "pytest>=9.1.1,<10",
-    "pytest-asyncio>=1.4.0,<2",
+    "mypy>=2.4.1,<3",
+    "ruff>=0.17.6,<1",
+    "pytest>=9.2.0,<10",
+    "pytest-asyncio>=1.5.0,<2",
     "pytest-cov>=7.1.0,<8",
     "pytest-timeout>=2.4.0,<3",
     "trustme>=1.2.1,<2",
@@ -36,36 +36,18 @@ dev = [
 packages = ["freighter"]
 
 [tool.ruff]
-line-length = 88
-target-version = "py312"
+extend = "../../pyproject.toml"
 
 [tool.ruff.lint]
-select = [
-    "F",
-    "I",
-    "B",
-    "DTZ",
-    "E501",
-    "E7",
-    "E9",
-    "PLE",
-    "UP",
-    "SIM",
-    "C4",
-    "RET",
-    "PIE",
-    "PERF",
-    "RUF",
-    "PT",
-]
-ignore = ["UP040", "UP046", "UP047", "SIM105", "SIM115", "SIM117", "PT012", "RUF001"]
+preview = true
+explicit-preview-rules = true
+extend-select = ["PLW1514"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["freighter", "alamos", "x"]
-combine-as-imports = true
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.13"
 plugins = ["pydantic.mypy"]
 strict = true
 warn_unreachable = true
@@ -88,6 +70,7 @@ warn_required_dynamic_aliases = true
 [tool.pytest.ini_options]
 strict = true
 timeout = 60
+asyncio_default_fixture_loop_scope = "function"
 markers = [
     "http: mark test as an http test",
     "sync: mark test as a sync test",
@@ -95,5 +78,5 @@ markers = [
 ]
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.33.0,<2"]
 build-backend = "hatchling.build"

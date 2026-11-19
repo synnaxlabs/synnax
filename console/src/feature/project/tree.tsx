@@ -30,7 +30,7 @@ import {
   Synnax,
   Table as PTable,
 } from "@synnaxlabs/pluto";
-import { array } from "@synnaxlabs/x";
+import { array, map } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { ContextMenu } from "@/platform/context-menu";
@@ -231,7 +231,7 @@ const drop: Tree.Drop = async ({ client, destination, items }) => {
   items.forEach(({ id }) => {
     if (id.type === "group") groups.push(id);
     else if (Base.isVisualizationType(id.type))
-      byType.set(id.type, [...(byType.get(id.type) ?? []), id.key]);
+      map.getOrInsert(byType, id.type, () => []).push(id.key);
     else throw new UnexpectedError(`a ${id.type} does not belong to a project`);
   });
   await client.batch.send([
@@ -245,6 +245,7 @@ const drop: Tree.Drop = async ({ client, destination, items }) => {
 const TreeItem = Tree.createItem({
   linkable: true,
   icon: <Icon.Project />,
+  typeName: "Project",
   useOnSelect,
   children,
   ContextMenu: TreeContextMenu,

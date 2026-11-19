@@ -12,11 +12,11 @@ name = "alamos"
 version = "0.0.0"
 readme = "README.md"
 authors = [{ name = "Emiliano Bonilla", email = "ebonilla@synnaxlabs.com" }]
-requires-python = ">=3.12,<4"
+requires-python = ">=3.13,<4"
 dependencies = [
-    "opentelemetry-api>=1.45.1,<2",
-    "opentelemetry-sdk>=1.45.1,<2",
-    "pydantic>=2.14.1,<3",
+    "opentelemetry-api>=1.45.2,<2",
+    "opentelemetry-sdk>=1.45.2,<2",
+    "pydantic>=2.14.4,<3",
 ]
 
 [project.optional-dependencies]
@@ -24,44 +24,26 @@ dev = ["uptrace>=1.45.0,<2"]
 
 [dependency-groups]
 dev = [
-    "mypy>=2.4.0,<3",
-    "ruff>=0.17.1,<1",
-    "pytest>=9.1.1,<10",
+    "mypy>=2.4.1,<3",
+    "ruff>=0.17.6,<1",
+    "pytest>=9.2.0,<10",
     "pytest-cov>=7.1.0,<8",
     "pytest-timeout>=2.4.0,<3",
 ]
 
 [tool.ruff]
-line-length = 88
-target-version = "py312"
+extend = "../../pyproject.toml"
 
 [tool.ruff.lint]
-select = [
-    "F",
-    "I",
-    "B",
-    "DTZ",
-    "E501",
-    "E7",
-    "E9",
-    "PLE",
-    "UP",
-    "SIM",
-    "C4",
-    "RET",
-    "PIE",
-    "PERF",
-    "RUF",
-    "PT",
-]
-ignore = ["UP040", "UP046", "UP047", "SIM105", "SIM115", "SIM117", "PT012", "RUF001"]
+preview = true
+explicit-preview-rules = true
+extend-select = ["PLW1514"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["alamos"]
-combine-as-imports = true
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.13"
 mypy_path = "stubs"
 plugins = ["pydantic.mypy"]
 strict = true
@@ -87,5 +69,5 @@ strict = true
 timeout = 60
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.33.0,<2"]
 build-backend = "hatchling.build"

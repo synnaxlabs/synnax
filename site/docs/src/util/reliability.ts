@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { compare } from "@synnaxlabs/x";
+
 export type State = "passed" | "flaky" | "failed" | "skipped" | "unknown";
 
 /** Worst first. A test takes the worst state of its runs. */
@@ -120,7 +122,7 @@ interface Raw {
 // train's data to its own key, so an older docs branch keeps the data its page code
 // understands. A refresh for a new release uploads its data first, then moves this to
 // that release's train, since the build fails while the key is missing.
-const TRAIN = "0.61";
+const TRAIN = "0.62";
 
 // Pages that read the data are prerendered, so only the docs build fetches it. The
 // origin URL skips the CDN's cached copy.
@@ -307,10 +309,11 @@ export const products: Product[] = data.products
     const suites = allSuites
       .filter((s) => s.product === key && s.count > 0)
       .sort(
-        (a, b) =>
-          Number(a.kind === "unit") - Number(b.kind === "unit") ||
-          jobSizes.get(b.job)! - jobSizes.get(a.job)! ||
-          a.job.localeCompare(b.job),
+        compare.chain(
+          compare.by((s) => Number(s.kind === "unit"), compare.numbers),
+          compare.reverse(compare.by((s) => jobSizes.get(s.job)!, compare.numbers)),
+          compare.by((s) => s.job),
+        ),
       );
     const order = new Map(suites.map((s, i) => [s, i]));
     const own = group(

@@ -266,21 +266,9 @@ func (s *Service) CalculationInputs(
 	for len(channels) > 0 {
 		var next Keys
 		for _, ch := range channels {
-			if !ch.IsCalculated() {
-				continue
-			}
-			result, err := analyzer.Analyze(ctx, ch)
-			if errors.As(err, new(*diagnostics.Diagnostics)) {
-				continue
-			}
+			reads, err := calculationReads(ctx, analyzer, ch)
 			if err != nil {
 				return nil, err
-			}
-			reads := result.Deps
-			for _, op := range ch.Operations {
-				if op.ResetChannel != 0 {
-					reads = append(reads, op.ResetChannel)
-				}
 			}
 			for _, k := range reads {
 				// A channel among channels that is not stored yet has no local key.
@@ -304,6 +292,33 @@ func (s *Service) CalculationInputs(
 		}
 	}
 	return inputs.Unique(), nil
+}
+
+// calculationReads returns the channels that ch reads, including the channels that
+// reset its operations. It returns none when ch is not calculated or its expression
+// fails analysis.
+func calculationReads(
+	ctx context.Context,
+	analyzer *CalculationAnalyzer,
+	ch Channel,
+) (Keys, error) {
+	if !ch.IsCalculated() {
+		return nil, nil
+	}
+	result, err := analyzer.Analyze(ctx, ch)
+	if _, ok := errors.AsType[*diagnostics.Diagnostics](err); ok {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	reads := result.Deps
+	for _, op := range ch.Operations {
+		if op.ResetChannel != 0 {
+			reads = append(reads, op.ResetChannel)
+		}
+	}
+	return reads, nil
 }
 
 // freeIndexResolver adapts the Service to the distribution framer writer's

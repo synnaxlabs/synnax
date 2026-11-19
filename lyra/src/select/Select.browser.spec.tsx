@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { scheduler } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
@@ -319,7 +320,7 @@ interface ChipsOptions {
   preview?: boolean;
   haulType?: string;
   // A drag that runs while the trigger shows.
-  dragging?: Haul.DraggingState;
+  dragging?: Haul.State;
 }
 
 interface ChipsProps extends ChipsOptions {
@@ -821,6 +822,7 @@ describe("Select", () => {
         initial: ["Pass"],
         haulType: "label",
         dragging: {
+          key: "drag",
           source: { key: "list", type: "label" },
           items: [{ key: "New", type: "label" }],
         },
@@ -834,7 +836,7 @@ describe("Select", () => {
       const trigger = await renderChips("text", 200, { preview: true });
       // A preview reads as disabled, which a user can still click.
       chip(trigger, "Pass").click();
-      await new Promise(requestAnimationFrame);
+      await scheduler.nextFrame();
       expect(document.querySelector(".lyra-dialog__dialog")).toBeNull();
     });
 
@@ -944,6 +946,52 @@ describe("Select", () => {
         label.getBoundingClientRect().width,
       );
       expect(computed(caret, "margin-left")).toBe("0px");
+    });
+  });
+
+  describe("clearable shadow single trigger", () => {
+    const renderClearable = async (
+      onChange: (key: string | null) => void,
+    ): Promise<HTMLElement> => {
+      const { container } = await renderThemed(
+        <Dialog.Frame>
+          <Select.Frame<string, undefined> value="time" onChange={onChange} allowNone>
+            <Select.SingleTrigger variant="shadow" placeholder="Pick" clearable />
+            <Select.Dialog>
+              <Select.Item itemKey="time">Time</Select.Item>
+            </Select.Dialog>
+          </Select.Frame>
+        </Dialog.Frame>,
+      );
+      const trigger = container.querySelector<HTMLElement>(".lyra-dialog__trigger");
+      assert(trigger != null);
+      return trigger;
+    };
+
+    const clearOf = (trigger: HTMLElement): HTMLElement => {
+      const clear = trigger.querySelector<HTMLElement>(
+        ".lyra-select-single-trigger__clear",
+      );
+      assert(clear != null);
+      return clear;
+    };
+
+    it("should show its clear button in place of its caret on hover", async () => {
+      const trigger = await renderClearable(vi.fn());
+      expect(computed(clearOf(trigger), "opacity")).toBe("0");
+      await userEvent.hover(trigger);
+      await expect.poll(() => computed(clearOf(trigger), "opacity")).toBe("1");
+      const caret = trigger.querySelector(".lyra-caret-animated");
+      assert(caret != null);
+      expect(computed(caret, "visibility")).toBe("hidden");
+    });
+
+    it("should clear the selection from the button on its caret", async () => {
+      const onChange = vi.fn();
+      const trigger = await renderClearable(onChange);
+      await userEvent.hover(trigger);
+      await userEvent.click(clearOf(trigger));
+      expect(onChange).toHaveBeenLastCalledWith(null, expect.anything());
     });
   });
 

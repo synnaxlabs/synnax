@@ -20,6 +20,7 @@ import synnax as sy
 # A notification expires on its own after a few seconds, so a button that is still
 # attached resolves at once.
 _SILENCE_TIMEOUT = 1000
+_CLOSE_ALL_TIMEOUT = 5 * sy.TimeSpan.SECOND
 
 _READ_JS = """(elements) => elements.map((el) => {
   const text = (selector) => el.querySelector(selector)?.innerText.trim() ?? "";
@@ -57,6 +58,9 @@ class NotificationsClient:
         """All visible notifications. Each notification carries role=status."""
         return self.page.get_by_role("status")
 
+    def _read(self) -> object:
+        return self._all().evaluate_all(_READ_JS)
+
     def check(
         self, *, timeout: sy.CrudeTimeSpan = 200 * sy.TimeSpan.MILLISECOND
     ) -> list[sy.Status]:
@@ -74,9 +78,7 @@ class NotificationsClient:
         while timer.elapsed() < timeout_span:
             # One call reads every notification, so a toast that arrives mid-read cannot
             # shift the others.
-            notifications = _NOTIFICATIONS.validate_python(
-                self._all().evaluate_all(_READ_JS)
-            )
+            notifications = _NOTIFICATIONS.validate_python(self._read())
             if len(notifications) > 0:
                 return notifications
             sy.sleep(poll_interval)
@@ -114,28 +116,32 @@ class NotificationsClient:
         control, and wait for them to clear.
 
         A notification that expires on its own before its click lands is already in
-        the wanted state, so it does not fail the call.
+        the wanted state, so it does not fail the call. A notification that arrives
+        during the call is silenced too. Raises if notifications still show after
+        five seconds.
         """
         buttons = self._all().get_by_role("button", name="Silence", exact=True)
         clear_all = self.page.locator(".console-notifications__controls").get_by_role(
             "button", name="Clear all", exact=True
         )
-        if clear_all.count() > 0:
-            try:
-                clear_all.dispatch_event("click", timeout=_SILENCE_TIMEOUT)
-            except PlaywrightTimeoutError:
-                # An expired toast can drop the count to four, which hides the control.
-                pass
-        # Last to first: a silenced toast unmounts and shifts the indexes after it.
-        for i in reversed(range(buttons.count())):
-            try:
-                buttons.nth(i).dispatch_event("click", timeout=_SILENCE_TIMEOUT)
-            except PlaywrightTimeoutError:
-                pass
-        try:
-            expect(buttons).to_have_count(0, timeout=2000)
-        except AssertionError:
-            pass
+        timer = sy.Timer()
+        while (count := buttons.count()) > 0:
+            if timer.elapsed() >= _CLOSE_ALL_TIMEOUT:
+                raise AssertionError(
+                    f"{count} notifications still show after {_CLOSE_ALL_TIMEOUT}"
+                )
+            if clear_all.count() > 0:
+                try:
+                    clear_all.dispatch_event("click", timeout=_SILENCE_TIMEOUT)
+                except PlaywrightTimeoutError:
+                    # An expired toast can drop the count to four and hide the control.
+                    pass
+            # Last to first: a silenced toast unmounts and shifts the indexes after it.
+            for i in reversed(range(buttons.count())):
+                try:
+                    buttons.nth(i).dispatch_event("click", timeout=_SILENCE_TIMEOUT)
+                except PlaywrightTimeoutError:
+                    pass
 
     def close_connection(self) -> bool:
         """Close the 'Connected to...' notification if present.

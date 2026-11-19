@@ -10,12 +10,20 @@
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { Handle } from "@/schematic/node/common/handle";
+import { Custom } from "@/schematic/node/common/custom";
 import { Primitive } from "@/schematic/node/common/primitive";
-import { Label } from "@/schematic/node/flowmeters/Label";
 import { type Props } from "@/schematic/node/flowmeters/props";
+import svg from "@/schematic/node/flowmeters/Turbine.svg?raw";
 
-const DIMENSIONS = { width: 71, height: 36 };
+const SPEC = Custom.createBuiltIn({
+  svg,
+  handles: [
+    { key: "1", position: { x: 0.04, y: 0.5 }, orientation: "left" },
+    { key: "2", position: { x: 0.98, y: 0.5 }, orientation: "right" },
+    { key: "3", position: { x: 0.5, y: 0.06 }, orientation: "top" },
+    { key: "4", position: { x: 0.5, y: 0.91 }, orientation: "bottom" },
+  ],
+});
 
 export const Turbine = ({
   id,
@@ -26,34 +34,12 @@ export const Turbine = ({
   ...rest
 }: Props): ReactElement => (
   <Primitive.Div {...rest} className={CSS.cls(CSS.B("flowmeter-Turbine"), className)}>
-    <Handle.Rectangle
-      orientation={orientation}
-      left={4}
-      top={6}
-      right={98}
-      bottom={91}
-    />
-    <Primitive.SVG
-      dimensions={DIMENSIONS}
+    <Custom.Drawing
+      spec={SPEC}
+      builtIn
       strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
-    >
-      <Primitive.Rect x="2" y="2" width="67" height="31" rx="2" />
-      <Primitive.Path d="M16.5 17.5H54.5" strokeLinecap="round" />
-      <Primitive.Path d="M32.5 9L35.4756 17.1753" strokeLinecap="round" />
-      <Primitive.Path d="M38.5 26L35.5244 17.8247" strokeLinecap="round" />
-      <Primitive.Path d="M32.5 26L35.4756 17.8247" strokeLinecap="round" />
-      <Primitive.Path d="M38.5 9L35.5244 17.1753" strokeLinecap="round" />
-      <Primitive.Path
-        d="M32.5 9C32.5 8.20435 32.8161 7.44129 33.3787 6.87868C33.9413 6.31607 34.7044 6 35.5 6C36.2956 6 37.0587 6.31607 37.6213 6.87868C38.1839 7.44129 38.5 8.20435 38.5 9"
-        strokeWidth="2"
-      />
-      <Primitive.Path
-        d="M38.5 26C38.5 26.7956 38.1839 27.5587 37.6213 28.1213C37.0587 28.6839 36.2956 29 35.5 29C34.7044 29 33.9413 28.6839 33.3787 28.1213C32.8161 27.5587 32.5 26.7956 32.5 26"
-        strokeWidth="2"
-      />
-      <Label strokeColor={strokeColor} />
-    </Primitive.SVG>
+    />
   </Primitive.Div>
 );

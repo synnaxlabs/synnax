@@ -10,6 +10,7 @@
 import { DataType } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { deep } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -18,7 +19,6 @@ import {
   renderInTaskFormWithClient,
   selectFromDropdown,
 } from "@/platform/task/testutil";
-import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -54,6 +54,23 @@ describe("DataTypeField", () => {
     await selectFromDropdown("float64", "uint8");
     await waitFor(() =>
       expect(form.current?.get(path.config.dataType).value).toBe("uint8"),
+    );
+  });
+
+  it("should show the default data type while the value is empty", async () => {
+    const { form } = await renderInTaskFormWithClient(
+      <Task.Payload.DataTypeField
+        path={path.config.dataType}
+        channel={0}
+        defaultDataType="int64"
+      />,
+      { client, values: { config: { dataType: "" } } },
+    );
+    await screen.findByText("int64");
+    expect(form.current?.get(path.config.dataType).value).toBe("");
+    await selectFromDropdown("int64", "int32");
+    await waitFor(() =>
+      expect(form.current?.get(path.config.dataType).value).toBe("int32"),
     );
   });
 });
