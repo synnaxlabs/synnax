@@ -14,8 +14,10 @@ import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
+import { Custom } from "@/schematic/node/common/custom";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
+import svg from "@/schematic/node/general/light/Light.svg?raw";
 
 interface RenderProps extends Partial<
   Pick<schematic.LightNodeConfig, "strokeColor" | "onColor" | "orientation" | "scale">
@@ -24,10 +26,11 @@ interface RenderProps extends Partial<
   enabled?: boolean;
 }
 
-const DIMENSIONS = { width: 64, height: 64 };
+const SPEC = Custom.createBuiltIn({ svg, handles: [] });
 
-// The SVG renders the base width scaled by BASE_SCALE, not at full size.
-export const WIDTH_PER_SCALE = DIMENSIONS.width * Primitive.BASE_SCALE;
+const ON_COLOR = CSS.variable("light-on-color");
+
+export const WIDTH_PER_SCALE = 64 * Primitive.BASE_SCALE;
 
 export const Light = ({
   className,
@@ -39,7 +42,13 @@ export const Light = ({
 }: RenderProps): ReactElement => (
   <Primitive.Div
     orientation={orientation}
-    className={CSS.cls(CSS.B("light"), enabled && CSS.M("enabled"), className)}
+    className={CSS.cls(
+      CSS.B("light"),
+      enabled && CSS.M("enabled"),
+      onColor != null && CSS.BM("light", "on-colored"),
+      className,
+    )}
+    style={onColor == null ? undefined : { [ON_COLOR]: color.rgbaString(onColor) }}
   >
     <Handle.Rectangle
       orientation={orientation}
@@ -48,22 +57,12 @@ export const Light = ({
       right={96.875}
       bottom={96.75}
     />
-    <Primitive.SVG
-      dimensions={DIMENSIONS}
+    <Custom.Drawing
+      spec={SPEC}
+      builtIn
       strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
-    >
-      <g
-        className={CSS.cls(CSS.symbolColored, CSS.BE("light", "lamp"))}
-        style={
-          onColor == null
-            ? undefined
-            : { [Primitive.SYMBOL_COLOR]: color.rgbaString(onColor) }
-        }
-      >
-        <Primitive.Circle cx="32" cy="32" r="30" />
-      </g>
-    </Primitive.SVG>
+    />
   </Primitive.Div>
 );

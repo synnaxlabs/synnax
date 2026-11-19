@@ -178,12 +178,6 @@
       "lyra-input"
     ],
     "pluto/src/schematic/node/general/stringDisplay/stringDisplay.css": ["lyra-text"],
-    "pluto/src/schematic/node/general/switch/switch.css": [
-      "lyra--disabled",
-      "lyra-btn",
-      "lyra-input__switch",
-      "lyra-input__switch-indicator"
-    ],
     "pluto/src/schematic/node/general/value/value.css": ["lyra-text"],
     "pluto/src/table/Table.css": ["lyra-text"],
     "pluto/src/table/cells/Cells.css": ["lyra-text--editable"],
