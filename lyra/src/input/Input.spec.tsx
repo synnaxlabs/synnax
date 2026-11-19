@@ -416,6 +416,35 @@ describe("Input", () => {
         fireEvent.keyDown(input, { key: "Escape", code: "Escape" });
         expect(c.queryByLabelText("Name")).toBeNull();
       });
+
+      it("should close only a dropdown in a modal on Escape from its search", () => {
+        const c = render(
+          <Triggers.Provider>
+            <Dialog.Frame variant="modal">
+              <Dialog.Trigger>Open</Dialog.Trigger>
+              <Dialog.Dialog>
+                <p>Modal content</p>
+                <Dialog.Frame variant="connected">
+                  <Dialog.Trigger>Pick</Dialog.Trigger>
+                  <Dialog.Dialog>
+                    <Input.Search value="" onChange={vi.fn()} aria-label="Search" />
+                  </Dialog.Dialog>
+                </Dialog.Frame>
+              </Dialog.Dialog>
+            </Dialog.Frame>
+          </Triggers.Provider>,
+        );
+        fireEvent.click(c.getByText("Open"));
+        fireEvent.click(c.getByText("Pick"));
+        const search = c.getByLabelText("Search");
+        act(() => search.focus());
+        fireEvent.keyDown(search, { key: "Escape", code: "Escape" });
+        fireEvent.keyUp(document.body, { key: "Escape", code: "Escape" });
+        expect(c.queryByLabelText("Search")).toBeNull();
+        expect(c.getByText("Modal content")).toBeTruthy();
+        fireEvent.keyDown(c.container, { key: "Escape", code: "Escape" });
+        expect(c.queryByText("Modal content")).toBeNull();
+      });
     });
 
     describe("custom color", () => {
