@@ -13,6 +13,7 @@ import {
   kafka,
   type resource,
   type Synnax,
+  task,
 } from "@synnaxlabs/client";
 import {
   createTestClient,
@@ -37,7 +38,9 @@ import { createKafkaDevice } from "@/feature/kafka/testutil";
 import { Device } from "@/platform/device";
 import { startRackHeartbeat } from "@/platform/device/testutil";
 import {
+  answerCommand,
   answerCommandsUntil,
+  awaitCommand,
   clickDeploy,
   type CommandAnswer,
   deployAndAwaitTask,
@@ -552,6 +555,22 @@ describe("Kafka read form", () => {
       ]);
       await dialog.findByRole("checkbox", { name: "Pick plant" });
       await dialog.findByRole("checkbox", { name: "Record /temperature" });
+    });
+
+    it("should disable Listen again while a topic reads", async () => {
+      const { dev } = await renderRead();
+      const scan = await createScanTask(dev);
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      onTestFinished(() => streamer.close());
+      const dialog = await clickAddData();
+      const browse = await awaitCommand(streamer, scan.key, "browse");
+      await answerCommand(client, scan, browse, { data: browseOf(listTopic(TOPIC)) });
+      const sample = await awaitCommand(streamer, scan.key, "sample");
+      const listen = () => dialog.getByRole("button", { name: "Listen again" });
+      await waitFor(() => expect(listen().getAttribute("aria-disabled")).toBe("true"));
+      await answerCommand(client, scan, sample, { data: sampleOf(OVEN_SHAPE) });
+      await dialog.findByRole("checkbox", { name: "Record /temperature" });
+      expect(listen().getAttribute("aria-disabled")).toBeNull();
     });
 
     it("should mark the topics that the task holds", async () => {
