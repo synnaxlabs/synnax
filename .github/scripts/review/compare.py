@@ -21,6 +21,7 @@ while its own is open.
 import json
 import re
 import subprocess
+import time
 from collections import defaultdict
 from collections.abc import Callable, Iterator
 from concurrent.futures import ThreadPoolExecutor
@@ -94,7 +95,6 @@ RECORDS = """query($o: String!, $r: String!, $app: Int!) {
 fragment Runs on Commit {
   checkSuites(first: 1, filterBy: {appId: $app}) {
     nodes {
-      app { slug }
       checkRuns(last: 10, filterBy: {checkName: "Sedosaur Review"}) {
         nodes { detailsUrl startedAt text }
       }
@@ -363,7 +363,6 @@ def records(
             runs[c] = [
                 r
                 for s in found[f"c{j}"]["checkSuites"]["nodes"]
-                if s["app"]["slug"] == SEDOSAUR
                 for r in s["checkRuns"]["nodes"]
             ]
     recs: dict[tuple[str, int], dict[str, Any]] = {}
@@ -405,6 +404,26 @@ def limits(gh: GH, repo: str, since: datetime) -> dict[str, Any] | None:
                 key=lambda r: datetime.fromisoformat(r["at"]),
             )
     return newest
+
+
+def retrying(
+    gh: GH, *, tries: int = 3, sleep: Callable[[float], None] = time.sleep
+) -> GH:
+    """Wraps gh so that a failed call runs again, up to tries times, after 2, 4, and
+    more seconds. Every call of the report only reads, so a repeat is safe.
+
+    :raises subprocess.CalledProcessError: If the last try fails.
+    """
+
+    def call(*args: str, **kwargs: Any) -> str:
+        for n in range(1, tries):
+            try:
+                return gh(*args, **kwargs)
+            except subprocess.CalledProcessError:
+                sleep(2**n)
+        return gh(*args, **kwargs)
+
+    return call
 
 
 def git(*args: str) -> str:
