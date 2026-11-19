@@ -44,6 +44,11 @@ jobs:
             shard: 1
             shards: 1
             fuzztime: 60s
+          - module: cesium
+            artifact: cesium
+            shard: 1
+            shards: 1
+            fuzztime: 60s
           - module: core
             artifact: core
             shard: 1
