@@ -9,7 +9,7 @@
 
 import { ni, type task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { bounds, type spatial } from "@synnaxlabs/x";
+import { bounds } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Task } from "@/platform/task";
@@ -119,8 +119,8 @@ export type AIChannel = ni.AIChannel;
 export type AIChannelType = ni.AIChannelType;
 export const AI_CHANNEL_SCHEMAS = ni.AI_CHANNEL_SCHEMAS;
 
-const widest = (ranges: spatial.Bounds[]): spatial.Bounds | undefined =>
-  ranges.reduce<spatial.Bounds | undefined>(
+const widest = (ranges: bounds.Bounds[]): bounds.Bounds | undefined =>
+  ranges.reduce<bounds.Bounds | undefined>(
     (w, r) => (w == null || bounds.span(r) > bounds.span(w) ? r : w),
     undefined,
   );
@@ -132,7 +132,7 @@ const widest = (ranges: spatial.Bounds[]): spatial.Bounds | undefined =>
 export const defaultAIRange = (
   type: AIChannelType,
   hardware?: ni.Hardware,
-): spatial.Bounds | undefined =>
+): bounds.Bounds | undefined =>
   type === "ai_current" ? widest(hardware?.aiCurrentRanges ?? []) : undefined;
 
 export const createAIChannel = (type: AIChannelType = "ai_voltage"): AIChannel =>
@@ -270,7 +270,7 @@ export const AO_CHANNEL_TYPES = ni.AO_CHANNEL_TYPES;
 export const defaultAORange = (
   type: AOChannelType,
   hardware?: ni.Hardware,
-): spatial.Bounds | undefined =>
+): bounds.Bounds | undefined =>
   type === "ao_current" ? widest(hardware?.aoCurrentRanges ?? []) : undefined;
 
 export const createAOChannel = (type: AOChannelType = "ao_voltage"): AOChannel =>

@@ -32,15 +32,19 @@ const WINDOW_PROPS: Record<string, unknown> = {
 describe("TauriRuntime", () => {
   let created: Record<string, unknown> | undefined;
   let commands: string[];
+  let createError: string | undefined;
   let responses: Record<string, unknown>;
   beforeEach(() => {
     created = undefined;
     commands = [];
+    createError = undefined;
     responses = { ...WINDOW_PROPS };
     mockWindows("main");
     mockIPC(
       (cmd, args) => {
         commands.push(cmd);
+        if (cmd === "plugin:webview|create_webview_window" && createError != null)
+          throw new Error(createError);
         if (cmd === "plugin:webview|create_webview_window")
           created = (args as { options: Record<string, unknown> }).options;
         return responses[cmd] ?? null;
@@ -66,6 +70,12 @@ describe("TauriRuntime", () => {
       const runtime = new TauriRuntime();
       await runtime.create("child", {});
       expect(created?.trafficLightPosition).toBeUndefined();
+    });
+
+    it("should reject when Tauri fails to create the window", async () => {
+      createError = "a webview with label `child` already exists";
+      const runtime = new TauriRuntime();
+      await expect(runtime.create("child", {})).rejects.toThrow();
     });
 
     it("should move a window off a HiDPI monitor back to the origin", async () => {

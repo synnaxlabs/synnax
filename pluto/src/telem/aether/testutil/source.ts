@@ -16,6 +16,7 @@ import {
   observe,
   type TimeStamp,
 } from "@synnaxlabs/x";
+import { z } from "zod";
 
 import {
   type BooleanSourceSpec,
@@ -29,6 +30,8 @@ import {
   type ValueProps,
 } from "@/telem/aether/telem";
 import { registerInstance, TEST_SOURCE_TYPE } from "@/telem/aether/testutil/factory";
+
+const propsZ = z.object({ testId: z.string() });
 
 export class TestSource<V> implements Source<V>, Telem {
   private readonly observer = new observe.Observer<void>();
@@ -65,6 +68,11 @@ export class TestSource<V> implements Source<V>, Telem {
 
   cleanup(): void {
     this._destructor();
+  }
+
+  // Takes the props of a spec for the same test source.
+  update(props: unknown): boolean {
+    return propsZ.parse(props).testId === this.id;
   }
 }
 

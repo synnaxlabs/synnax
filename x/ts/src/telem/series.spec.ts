@@ -12,7 +12,7 @@ import { z } from "zod";
 
 import { caseconv } from "@/caseconv";
 import { type GLBufferController } from "@/telem/gl";
-import { type CrudeSeries, isCrudeSeries, MultiSeries, Series } from "@/telem/series";
+import { type CrudeSeries, MultiSeries, Series } from "@/telem/series";
 import {
   type CrudeDataType,
   DataType,
@@ -104,18 +104,22 @@ const SAMPLE_UUID_BYTES = new Uint8Array([
 
 describe("Series", () => {
   describe("construction", () => {
-    const IS_CRUDE_SERIES_SPEC: Array<[unknown, boolean]> = [
-      [{}, false],
-      [{ constructor: {} }, false],
-      [1, true],
-      [[1, 2, 3], true],
-      [["a", "b", "c"], true],
-      [new Float32Array([12]), true],
+    const CRUDE_SPEC: Array<[CrudeSeries, number]> = [
+      [1, 1],
+      [[1, 2, 3], 3],
+      [["a", "b", "c"], 3],
+      [new Float32Array([12]), 1],
     ];
-    IS_CRUDE_SERIES_SPEC.forEach(([value, expected]) => {
-      it(`should return ${expected} for ${JSON.stringify(value)}`, () => {
-        expect(isCrudeSeries(value)).toEqual(expected);
+    CRUDE_SPEC.forEach(([value, length]) => {
+      it(`should read ${JSON.stringify(value)} as data`, () => {
+        expect(new Series(value).length).toEqual(length);
       });
+    });
+
+    it("should read a plain object as params", () => {
+      expect(() => new Series({})).toThrow(
+        "cannot infer data type from a zero length JS array",
+      );
     });
 
     describe("length", () => {
@@ -259,6 +263,15 @@ describe("Series", () => {
     it("should correctly interpret a Date object as a data type of timestamp", () => {
       const s = new Series(new Date());
       expect(s.dataType).toEqual(DataType.TIMESTAMP);
+    });
+
+    it("should correctly interpret an array of TimeSpans as a data type of timestamp", () => {
+      const s = new Series([TimeSpan.seconds(1), TimeSpan.seconds(2)]);
+      expect(s.dataType).toEqual(DataType.TIMESTAMP);
+      expect(Array.from(s)).toEqual([
+        TimeSpan.seconds(1).valueOf(),
+        TimeSpan.seconds(2).valueOf(),
+      ]);
     });
 
     it("should encode objects as JSON", () => {
@@ -828,6 +841,42 @@ describe("Series", () => {
       const b = a.convert(DataType.BOOLEAN);
       expect(b.dataType.equals(DataType.BOOLEAN)).toBe(true);
       expect(new Uint8Array(b.buffer)).toEqual(new Uint8Array([0, 1, 1, 1, 0]));
+    });
+
+    test("from float64 to boolean normalizes nonzero to 1", () => {
+      const a = new Series({ data: new Float64Array([5, 0, -0.5]) });
+      const b = a.convert(DataType.BOOLEAN);
+      expect(new Uint8Array(b.buffer)).toEqual(new Uint8Array([1, 0, 1]));
+    });
+
+    const OFFSET = 1778020940471336960n;
+
+    test("from int64 to float32 subtracts an offset above 2^53 exactly", () => {
+      const a = new Series({ data: new BigInt64Array([OFFSET + 137438953472n]) });
+      const b = a.convert(DataType.FLOAT32, OFFSET);
+      expect(b.data).toEqual(new Float32Array([137438953472]));
+      expect(b.sampleOffset).toBe(OFFSET);
+    });
+
+    test("from timestamp to float32 subtracts an offset above 2^53 exactly", () => {
+      const a = new Series({
+        data: new BigInt64Array([OFFSET + 1n]),
+        dataType: DataType.TIMESTAMP,
+      });
+      const b = a.convert(DataType.FLOAT32, OFFSET);
+      expect(b.data).toEqual(new Float32Array([1]));
+    });
+
+    test("from float32 to int64 subtracts the offset as a bigint", () => {
+      const a = new Series({ data: new Float32Array([100]) });
+      const b = a.convert(DataType.INT64, 10);
+      expect(b.data).toEqual(new BigInt64Array([90n]));
+    });
+
+    test("from float32 to float64 subtracts the offset", () => {
+      const a = new Series({ data: new Float32Array([5.5]) });
+      const b = a.convert(DataType.FLOAT64, 1.5);
+      expect(b.data).toEqual(new Float64Array([4]));
     });
   });
 
@@ -2122,148 +2171,6 @@ describe("Series", () => {
     });
   });
 
-  describe("subIter", () => {
-    it("should return an iterator over a sub-series", () => {
-      const s = new Series(new Float32Array([1, 2, 3, 4, 5]));
-      const iter = s.subIterator(1, 4);
-      expect(iter.next().value).toEqual(2);
-      expect(iter.next().value).toEqual(3);
-      expect(iter.next().value).toEqual(4);
-    });
-
-    it("should iterate over the whole series", () => {
-      const s = new Series(new Float32Array([1, 2, 3, 4, 5]));
-      const iter = s.subIterator(0, 6);
-      expect(iter.next().value).toEqual(1);
-      expect(iter.next().value).toEqual(2);
-      expect(iter.next().value).toEqual(3);
-      expect(iter.next().value).toEqual(4);
-      expect(iter.next().value).toEqual(5);
-      expect(iter.next().done).toBe(true);
-    });
-  });
-
-  describe("subAlignmentIterator", () => {
-    it("should return an iterator over a sub-series", () => {
-      const s = new Series({
-        data: new Float32Array([1, 2, 3, 4, 5]),
-        alignment: 2n,
-      });
-      const iter = s.subAlignmentIterator(3n, 5n);
-      expect(iter.next().value).toEqual(2);
-      expect(iter.next().value).toEqual(3);
-      expect(iter.next().done).toBe(true);
-    });
-
-    it("should clamp the bounds to the alignment", () => {
-      const s = new Series({
-        data: new Float32Array([1, 2, 3, 4, 5]), // 2n, 3n, 4n, 5n,
-        alignment: 2n,
-      });
-      const iter = s.subAlignmentIterator(1n, 5n);
-      expect(iter.next().value).toEqual(1);
-      expect(iter.next().value).toEqual(2);
-      expect(iter.next().value).toEqual(3);
-      expect(iter.next().done).toBe(true);
-    });
-
-    it("should handle series with alignment multiple", () => {
-      const s = new Series({
-        // 2n, 4n, 6n, 8n, 10n,
-        data: new Float32Array([1, 2, 3, 4, 5]),
-        alignment: 2n,
-        alignmentMultiple: 2n,
-      });
-      const iter = s.subAlignmentIterator(1n, 5n);
-      // (1n - 2n) / 2n = 0
-      // (5n - 2n) / 2n = 1
-      expect(iter.next().value).toEqual(1);
-      expect(iter.next().value).toEqual(2);
-      expect(iter.next().value).toBeUndefined();
-      expect(iter.next().done).toBe(true);
-    });
-
-    it("should correctly iterate over a series with alignmentMultiple > 1", () => {
-      const series = new Series({
-        data: new Float32Array([10, 20, 30, 40, 50]),
-        alignment: 100n,
-        alignmentMultiple: 10n,
-      });
-      const iter = series.subAlignmentIterator(110n, 140n);
-      expect(iter.next().value).toBe(20);
-      expect(iter.next().value).toBe(30);
-      expect(iter.next().value).toBe(40);
-      expect(iter.next().done).toBe(true);
-    });
-
-    it("should handle partial ranges with alignmentMultiple", () => {
-      const series = new Series({
-        data: new Float32Array([1, 2, 3, 4]),
-        alignment: 0n,
-        alignmentMultiple: 5n,
-      });
-      // Series covers alignments 0, 5, 10, 15
-      const iter = series.subAlignmentIterator(3n, 12n);
-      expect(iter.next().value).toBe(2); // alignment 5
-      expect(iter.next().value).toBe(3); // alignment 10
-      expect(iter.next().done).toBe(true);
-    });
-
-    it("should handle when start alignment doesn't align with the multiple grid", () => {
-      const series = new Series({
-        data: new Float32Array([100, 200, 300]),
-        alignment: 50n,
-        alignmentMultiple: 25n,
-      });
-      // Series covers alignments 50, 75, 100
-      const iter = series.subAlignmentIterator(60n, 95n);
-      expect(iter.next().value).toBe(200); // alignment 75
-      expect(iter.next().done).toBe(true);
-    });
-
-    it("should return empty iterator when range is outside series bounds", () => {
-      const series = new Series({
-        data: new Float32Array([1, 2, 3]),
-        alignment: 100n,
-        alignmentMultiple: 10n,
-      });
-      // Series covers alignments 100, 110, 120
-      const iter = series.subAlignmentIterator(200n, 300n);
-      expect(iter.next().done).toBe(true);
-    });
-
-    it("should handle decimation scenario with alignmentMultiple", () => {
-      // Simulating decimated data where every 4th sample is kept
-      const series = new Series({
-        data: new Float32Array([1, 5, 9, 13, 17]),
-        alignment: 0n,
-        alignmentMultiple: 4n,
-      });
-      // Series covers alignments 0, 4, 8, 12, 16
-      const iter = series.subAlignmentIterator(2n, 14n);
-      expect(iter.next().value).toBe(5); // alignment 4
-      expect(iter.next().value).toBe(9); // alignment 8
-      expect(iter.next().value).toBe(13); // alignment 12
-      expect(iter.next().done).toBe(true);
-    });
-
-    it("should handle averaging scenario with alignmentMultiple", () => {
-      // Simulating averaged data where each value represents 10 samples
-      const series = new Series({
-        data: new Float32Array([10, 20, 30]),
-        alignment: 1000n,
-        alignmentMultiple: 10n,
-      });
-      // Series covers alignments 1000-1009, 1010-1019, 1020-1029
-      const iter = series.subAlignmentIterator(1005n, 1025n);
-      // Math.ceil((1005 - 1000) / 10) = 1
-      // Math.ceil((1025 - 1000) / 10) = 3
-      expect(iter.next().value).toBe(20); // alignment 1010
-      expect(iter.next().value).toBe(30); // alignment 1020
-      expect(iter.next().done).toBe(true);
-    });
-  });
-
   describe("bounds", () => {
     it("should return the bounds of the series", () => {
       const series = new Series({
@@ -2659,206 +2566,6 @@ describe("MultiSeries", () => {
     });
   });
 
-  describe("subIterator", () => {
-    it("should return an iterator over a sub-series", () => {
-      const a = new Series(new Float32Array([1, 2, 3, 4, 5]));
-      const b = new Series(new Float32Array([6, 7, 8, 9, 10]));
-      const multi = new MultiSeries([a, b]);
-      const iter = multi.subIterator(1, 8);
-      expect(iter.next().value).toEqual(2);
-      expect(iter.next().value).toEqual(3);
-      expect(iter.next().value).toEqual(4);
-      expect(iter.next().value).toEqual(5);
-      expect(iter.next().value).toEqual(6);
-      expect(iter.next().value).toEqual(7);
-      expect(iter.next().value).toEqual(8);
-      expect(iter.next().done).toBe(true);
-    });
-  });
-
-  describe("subAlignmentIterator", () => {
-    it("should return an iterator over a sub-series", () => {
-      const a = new Series({
-        data: new Float32Array([1, 2, 3, 4, 5]),
-        alignment: 2n,
-      });
-      const b = new Series({
-        data: new Float32Array([6, 7, 8, 9, 10]),
-        alignment: 8n,
-      });
-      const multi = new MultiSeries([a, b]);
-      const iter = multi.subAlignmentIterator(3n, 9n);
-      expect(iter.next().value).toEqual(2);
-      expect(iter.next().value).toEqual(3);
-      expect(iter.next().value).toEqual(4);
-      expect(iter.next().value).toEqual(5);
-      expect(iter.next().value).toEqual(6);
-      expect(iter.next().done).toBe(true);
-    });
-
-    it("Should work correctly when starting at an alignment before the first series", () => {
-      const a = new Series({
-        data: new Float32Array([1, 2, 3, 4, 5]),
-        alignment: 2n,
-      });
-      const b = new Series({
-        data: new Float32Array([6, 7, 8, 9, 10]),
-        alignment: 8n,
-      });
-      const multi = new MultiSeries([a, b]);
-      const iter = multi.subAlignmentIterator(1n, 9n);
-      expect(iter.next().value).toEqual(1);
-      expect(iter.next().value).toEqual(2);
-      expect(iter.next().value).toEqual(3);
-      expect(iter.next().value).toEqual(4);
-      expect(iter.next().value).toEqual(5);
-      expect(iter.next().value).toEqual(6);
-      expect(iter.next().done).toBe(true);
-    });
-
-    it("should work correctly when staring at an alignment equal to the upper bound of the first series", () => {
-      const a = new Series({
-        data: new Float32Array([1, 2, 3, 4, 5]),
-        alignment: 2n,
-      });
-      const b = new Series({
-        data: new Float32Array([6, 7, 8, 9, 10]),
-        alignment: 8n,
-      });
-      const multi = new MultiSeries([a, b]);
-      const iter = multi.subAlignmentIterator(7n, 10n);
-      expect(iter.next().value).toEqual(6);
-      expect(iter.next().value).toEqual(7);
-      expect(iter.next().done).toBe(true);
-    });
-
-    it("should work correctly when the starting alignment is between two series", () => {
-      const a = new Series({
-        data: new Float32Array([1, 2, 3, 4, 5]),
-        alignment: 2n,
-      });
-      const b = new Series({
-        data: new Float32Array([6, 7, 8, 9, 10]),
-        alignment: 10n,
-      });
-      const multi = new MultiSeries([a, b]);
-      const iter = multi.subAlignmentIterator(7n, 12n);
-      expect(iter.next().value).toEqual(6);
-      expect(iter.next().value).toEqual(7);
-      expect(iter.next().done).toBe(true);
-    });
-
-    it("Should work correctly when ending at an alignment after the last series", () => {
-      const a = new Series({
-        data: new Float32Array([1, 2, 3, 4, 5]),
-        alignment: 2n,
-      });
-      const b = new Series({
-        data: new Float32Array([6, 7, 8, 9, 10]),
-        alignment: 8n,
-      });
-      const multi = new MultiSeries([a, b]);
-      const iter = multi.subAlignmentIterator(3n, 20n);
-      expect(iter.next().value).toEqual(2);
-      expect(iter.next().value).toEqual(3);
-      expect(iter.next().value).toEqual(4);
-      expect(iter.next().value).toEqual(5);
-      expect(iter.next().value).toEqual(6);
-      expect(iter.next().value).toEqual(7);
-      expect(iter.next().value).toEqual(8);
-      expect(iter.next().value).toEqual(9);
-      expect(iter.next().value).toEqual(10);
-      expect(iter.next().done).toBe(true);
-    });
-
-    describe("with alignmentMultiple", () => {
-      it("should work with MultiSeries having different alignmentMultiples", () => {
-        const s1 = new Series({
-          data: new Float32Array([1, 2, 3]),
-          alignment: 0n,
-          alignmentMultiple: 2n,
-        });
-        // s1 covers alignments 0, 2, 4
-
-        const s2 = new Series({
-          data: new Float32Array([10, 20, 30]),
-          alignment: 10n,
-          alignmentMultiple: 5n,
-        });
-        // s2 covers alignments 10, 15, 20
-
-        const multi = new MultiSeries([s1, s2]);
-        const iter = multi.subAlignmentIterator(3n, 18n);
-        expect(iter.next().value).toBe(3); // alignment 4 from s1
-        expect(iter.next().value).toBe(10); // alignment 10 from s2
-        expect(iter.next().value).toBe(20); // alignment 15 from s2
-        expect(iter.next().done).toBe(true);
-      });
-
-      it("should handle MultiSeries with gaps between series when using alignmentMultiple", () => {
-        const s1 = new Series({
-          data: new Float32Array([1, 2]),
-          alignment: 0n,
-          alignmentMultiple: 3n,
-        });
-        const s2 = new Series({
-          data: new Float32Array([100, 200]),
-          alignment: 100n,
-          alignmentMultiple: 50n,
-        });
-        const multi = new MultiSeries([s1, s2]);
-        const iter = multi.subAlignmentIterator(2n, 120n);
-        expect(iter.next().value).toBe(2);
-        expect(iter.next().value).toBe(100);
-        expect(iter.next().done).toBe(true);
-      });
-
-      it("should correctly calculate indices with very large alignmentMultiple values", () => {
-        const series = new Series({
-          data: new Float32Array([1, 2]),
-          alignment: 1000000000n,
-          alignmentMultiple: 1000000n,
-        });
-        const iter = series.subAlignmentIterator(1000500000n, 1001500000n);
-        expect(iter.next().value).toBe(2);
-        expect(iter.next().done).toBe(true);
-      });
-
-      it("should handle edge case where start equals end with alignmentMultiple", () => {
-        const series = new Series({
-          data: new Float32Array([1, 2, 3]),
-          alignment: 10n,
-          alignmentMultiple: 5n,
-        });
-        const iter = series.subAlignmentIterator(15n, 15n);
-        expect(iter.next().done).toBe(true);
-      });
-
-      it("should work correctly when iterating exactly one sample with alignmentMultiple", () => {
-        const series = new Series({
-          data: new Float32Array([10, 20, 30]),
-          alignment: 100n,
-          alignmentMultiple: 10n,
-        });
-        const iter = series.subAlignmentIterator(110n, 120n);
-        expect(iter.next().value).toBe(20);
-        expect(iter.next().done).toBe(true);
-      });
-
-      it("should handle negative start indices correctly with alignmentMultiple", () => {
-        const series = new Series({
-          data: new Float32Array([1, 2, 3]),
-          alignment: 50n,
-          alignmentMultiple: 10n,
-        });
-        const iter = series.subAlignmentIterator(40n, 65n);
-        expect(iter.next().value).toBe(1);
-        expect(iter.next().value).toBe(2);
-        expect(iter.next().done).toBe(true);
-      });
-    });
-  });
-
   describe("parseJSON", () => {
     it("should correctly parse a multi-series of JSON", () => {
       const a = new Series([
@@ -3099,92 +2806,6 @@ describe("MultiSeries", () => {
     });
   });
 
-  describe("subAlignmentSpanIterator", () => {
-    it("should return an empty iterator when start is beyond bounds", () => {
-      const s1 = new Series({ data: [1, 2, 3], alignment: 0n });
-      const s2 = new Series({ data: [4, 5, 6], alignment: 3n });
-      const ms = new MultiSeries([s1, s2]);
-      const iter = ms.subAlignmentSpanIterator(10n, 5);
-      expect(Array.from(iter)).toEqual([]);
-    });
-
-    it("should return an empty iterator when start is at upper bound", () => {
-      const s1 = new Series({ data: [1, 2, 3], alignment: 0n });
-      const s2 = new Series({ data: [4, 5, 6], alignment: 3n });
-      const ms = new MultiSeries([s1, s2]);
-      const iter = ms.subAlignmentSpanIterator(6n, 5);
-      expect(Array.from(iter)).toEqual([]);
-    });
-
-    it("should iterate over samples within a single series", () => {
-      const s1 = new Series({ data: [1, 2, 3], alignment: 0n });
-      const s2 = new Series({ data: [4, 5, 6], alignment: 3n });
-      const ms = new MultiSeries([s1, s2]);
-      const iter = ms.subAlignmentSpanIterator(1n, 2);
-      expect(Array.from(iter)).toEqual([2, 3]);
-    });
-
-    it("should iterate over samples across multiple series", () => {
-      const s1 = new Series({ data: [1, 2, 3], alignment: 0n });
-      const s2 = new Series({ data: [4, 5, 6], alignment: 3n });
-      const ms = new MultiSeries([s1, s2]);
-      const iter = ms.subAlignmentSpanIterator(2n, 3);
-      expect(Array.from(iter)).toEqual([3, 4, 5]);
-    });
-
-    it("should handle span that exceeds available data", () => {
-      const s1 = new Series({ data: [1, 2, 3], alignment: 0n });
-      const s2 = new Series({ data: [4, 5, 6], alignment: 3n });
-      const ms = new MultiSeries([s1, s2]);
-      const iter = ms.subAlignmentSpanIterator(4n, 10);
-      expect(Array.from(iter)).toEqual([5, 6]);
-    });
-
-    it("should handle span that exceeds available data with non-continuous spans", () => {
-      const s1 = new Series({ data: [1, 2, 3], alignment: 0n });
-      const s2 = new Series({ data: [4, 5, 6], alignment: 500000000n });
-      const ms = new MultiSeries([s1, s2]);
-      const iter = ms.subAlignmentSpanIterator(4n, 10000000000);
-      expect(Array.from(iter)).toEqual([4, 5, 6]);
-    });
-
-    it("should handle empty series", () => {
-      const ms = new MultiSeries();
-      const iter = ms.subAlignmentSpanIterator(0n, 5);
-      expect(Array.from(iter)).toEqual([]);
-    });
-
-    it("should handle start alignment before first series", () => {
-      const s1 = new Series({ data: [1, 2, 3], alignment: 2n });
-      const s2 = new Series({ data: [4, 5, 6], alignment: 5n });
-      const ms = new MultiSeries([s1, s2]);
-      const iter = ms.subAlignmentSpanIterator(0n, 4);
-      expect(Array.from(iter)).toEqual([1, 2, 3, 4]);
-    });
-  });
-
-  describe("traverseAlignment", () => {
-    it("should traverse alignment across multiple series", () => {
-      const a = new Series({
-        data: new Float32Array([1, 2, 3]),
-        alignment: 1n,
-      });
-      const b = new Series({
-        data: new Float32Array([5, 6, 7]),
-        alignment: 5n,
-      });
-      const multi = new MultiSeries([a, b]);
-      expect(multi.traverseAlignment(1n, 2n)).toEqual(3n);
-      expect(multi.traverseAlignment(2n, 4n)).toEqual(7n);
-      expect(multi.traverseAlignment(5n, 2n)).toEqual(7n);
-    });
-
-    it("should handle empty multi-series", () => {
-      const multi = new MultiSeries();
-      expect(multi.traverseAlignment(1n, 2n)).toEqual(1n);
-    });
-  });
-
   describe("acquire and release", () => {
     it("should acquire and release all series in the multi-series", () => {
       const a = new Series({
@@ -3214,38 +2835,6 @@ describe("MultiSeries", () => {
       const controller = new MockGLBufferController();
       multi.acquire(controller);
       multi.release();
-    });
-  });
-
-  describe("distance", () => {
-    it("should calculate distance between alignments across multiple series", () => {
-      const a = new Series({
-        data: new Float32Array([1, 2, 3]),
-        alignment: 1n,
-      });
-      const b = new Series({
-        data: new Float32Array([5, 6, 7]),
-        alignment: 5n,
-      });
-      const multi = new MultiSeries([a, b]);
-
-      expect(multi.distance(1n, 3n)).toEqual(2n);
-      expect(multi.distance(2n, 6n)).toEqual(3n);
-      expect(multi.distance(5n, 7n)).toEqual(2n);
-    });
-
-    it("should handle empty multi-series", () => {
-      const multi = new MultiSeries();
-      expect(multi.distance(1n, 2n)).toEqual(0n);
-    });
-
-    it("should handle zero distance", () => {
-      const a = new Series({
-        data: new Float32Array([1, 2, 3]),
-        alignment: 1n,
-      });
-      const multi = new MultiSeries([a]);
-      expect(multi.distance(1n, 1n)).toEqual(0n);
     });
   });
 

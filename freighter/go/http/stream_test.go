@@ -11,6 +11,7 @@ package http_test
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -25,6 +26,7 @@ import (
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/json"
+	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -119,9 +121,36 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 		)
 	})
 
+	Describe("Rejected stream", func() {
+		It("Should release the stream when a server middleware rejects it", func(
+			ctx SpecContext,
+		) {
+			router := MustSucceed(fhttp.NewRouter(ctx, fhttp.RouterConfig{
+				Errors:              errorCodec(),
+				StreamWriteDeadline: testutil.WriteDeadline,
+			}))
+			ownServer := router.NewStreamServer[testutil.Request, testutil.Response](
+				"/",
+			)
+			ownServer.Use(freighter.MiddlewareFunc(func(
+				ctx freighter.Context,
+				_ freighter.Next,
+			) (freighter.Context, error) {
+				return ctx, errors.New("rejected")
+			}))
+			ownApp, ownAddr := serveRouter(router)
+			DeferCleanup(func() { Expect(ownApp.Shutdown()).To(Succeed()) })
+			// A context that never ends, so only the client can release the stream.
+			Expect(client.Stream(context.Background(), ownAddr)).
+				Error().
+				To(MatchError(ContainSubstring("rejected")))
+		})
+	})
+
 	Describe("Receive after the stream ends", func() {
 		It("Should return the same error on every call", func(ctx SpecContext) {
-			router := MustSucceed(fhttp.NewRouter(fhttp.RouterConfig{
+			router := MustSucceed(fhttp.NewRouter(ctx, fhttp.RouterConfig{
+				Errors:              errorCodec(),
 				StreamWriteDeadline: testutil.WriteDeadline,
 			}))
 			ownServer := router.NewStreamServer[testutil.Request, testutil.Response](
@@ -136,8 +165,8 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 			ownApp, ownAddr := serveRouter(router)
 			DeferCleanup(func() { Expect(ownApp.Shutdown()).To(Succeed()) })
 			stream := MustSucceed(client.Stream(ctx, ownAddr))
-			Expect(stream.Receive()).Error().To(MatchError(freighter.EOF))
-			Expect(stream.Receive()).Error().To(MatchError(freighter.EOF))
+			Expect(stream.Receive()).Error().To(MatchError(io.EOF))
+			Expect(stream.Receive()).Error().To(MatchError(io.EOF))
 		})
 	})
 

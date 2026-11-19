@@ -922,7 +922,7 @@ var _ = Describe("Delete", func() {
 							tr,
 						)).To(Succeed())
 						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, data))
-						var got []int64
+						got := make([]int64, 0, f.Len())
 						for _, s := range f.RawSeries() {
 							got = append(got, s.Unmarshal[int64]()...)
 						}

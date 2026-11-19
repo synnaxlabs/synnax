@@ -76,6 +76,11 @@ export interface ValueProps {
 
 export interface Telem {
   cleanup?: () => void;
+  /**
+   * Takes the props of a new spec of the same type in place.
+   * @returns false when the telem cannot take them, so the caller creates it again.
+   */
+  update?: (props: unknown) => boolean;
 }
 
 /** The data of a source and the facts about it. */
@@ -209,10 +214,16 @@ export abstract class Base<P extends z.ZodType> implements observe.Observable<vo
   }
 
   get props(): z.infer<P> {
-    this.props_ ??= zod.parse(this.schema, this.uProps_, {
-      label: "telemetry props",
-    });
+    this.props_ ??= this.parseProps(this.uProps_);
     return this.props_;
+  }
+
+  protected parseProps(props: unknown): z.infer<P> {
+    return zod.parse(this.schema, props, { label: "telemetry props" });
+  }
+
+  protected setProps(props: z.infer<P>): void {
+    this.props_ = props;
   }
 
   cleanup(): void {}
