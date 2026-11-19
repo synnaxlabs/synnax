@@ -16,7 +16,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from synnax import color as color_
+from synnax import color as color_, resource
 from synnax.resource import ID
 from x import filter
 
@@ -116,11 +116,14 @@ class Enumeration(BaseModel):
         key: Is the key of the enumeration.
         name: Is the name of the enumeration.
         entries: Are the states of the enumeration.
+        uses: Are the resources that use the enumeration and that the caller can read,
+            filled only when a retrieve request asks for them.
     """
 
     key: Key = Field(default_factory=uuid4)
     name: str = Field(min_length=1)
     entries: list[Entry] = Field(default_factory=list)
+    uses: list[resource.ID] | None = None
 
     @_override
     def __hash__(self) -> int:
@@ -137,6 +140,7 @@ class RetrieveRequest(BaseModel):
         order: Sorts the enumerations. An absent order sorts them by key.
         after: Starts the enumerations strictly past this position in their order.
         limit: Is the most enumerations to return.
+        include_uses: Includes the uses of each record.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -146,6 +150,7 @@ class RetrieveRequest(BaseModel):
     order: Order | None = None
     after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
+    include_uses: bool = False
 
 
 class RetrieveResponse(BaseModel):
