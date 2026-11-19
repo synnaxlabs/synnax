@@ -865,7 +865,7 @@ void Scanner::set_standalone(const synnax::task::Command &cmd) {
     saved.name = dev.name;
     std::vector<slave::StartupParameter> written;
     uint16_t position = 0;
-    uint32_t serial = 0;
+    uint64_t serial = 0;
     std::string network;
     std::pair<uint16_t, uint8_t> mode_object;
     const auto err = engine->configure(

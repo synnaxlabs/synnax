@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { fireEvent, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, screen, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { Settings } from "@/platform/settings";
 import { Session } from "@/session";
-import { renderWithConsole } from "@/testutil";
+import { renderWithConsole, stubWidth, type Width } from "@/testutil";
 
 const createSection = (name: string, visible = true): Settings.Section => ({
   key: name.toLowerCase(),
@@ -23,7 +23,17 @@ const createSection = (name: string, visible = true): Settings.Section => ({
   useVisible: () => visible,
 });
 
+const RAIL = "console-settings__nav--rail";
+
 describe("Settings.Frame", () => {
+  let width: Width;
+
+  beforeEach(() => {
+    width = stubWidth("console-settings", 1200);
+  });
+
+  afterEach(() => width.restore());
+
   it("should show the page of the section the user selects", async () => {
     const groups: Settings.Group[] = [
       {
@@ -94,6 +104,64 @@ describe("Settings.Frame", () => {
     unmount();
     await renderWithConsole(<Settings.Frame groups={groups} />, { store });
     expect(screen.getByText("Shown page")).toBeTruthy();
+  });
+
+  it("should show only the icons of the sections in a narrow pane", async () => {
+    const groups: Settings.Group[] = [
+      { key: "first", name: "First", sections: [createSection("Alpha")] },
+    ];
+    await renderWithConsole(<Settings.Frame groups={groups} />);
+    const nav = screen.getByRole("navigation", { name: "Settings" });
+    expect(nav.classList.contains(RAIL)).toBe(false);
+    width.set(600);
+    expect(nav.classList.contains(RAIL)).toBe(true);
+    width.set(1200);
+    expect(nav.classList.contains(RAIL)).toBe(false);
+  });
+
+  it("should keep the names of the sections while its tab is hidden", async () => {
+    const groups: Settings.Group[] = [
+      { key: "first", name: "First", sections: [createSection("Alpha")] },
+    ];
+    await renderWithConsole(<Settings.Frame groups={groups} />);
+    const nav = screen.getByRole("navigation", { name: "Settings" });
+    width.set(0);
+    expect(nav.classList.contains(RAIL)).toBe(false);
+  });
+
+  it("should collapse the section list to its icons and expand it again", async () => {
+    const groups: Settings.Group[] = [
+      { key: "first", name: "First", sections: [createSection("Alpha")] },
+    ];
+    await renderWithConsole(<Settings.Frame groups={groups} />);
+    const nav = screen.getByRole("navigation", { name: "Settings" });
+    fireEvent.click(screen.getByRole("button", { name: "Collapse sidebar" }));
+    expect(nav.classList.contains(RAIL)).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Expand sidebar" }));
+    expect(nav.classList.contains(RAIL)).toBe(false);
+  });
+
+  it("should hide the collapse button in a narrow pane", async () => {
+    const groups: Settings.Group[] = [
+      { key: "first", name: "First", sections: [createSection("Alpha")] },
+    ];
+    await renderWithConsole(<Settings.Frame groups={groups} />);
+    expect(screen.getByRole("button", { name: "Collapse sidebar" })).toBeTruthy();
+    width.set(600);
+    expect(screen.queryByRole("button", { name: "Collapse sidebar" })).toBeNull();
+  });
+
+  it("should name each icon of a narrow section list in its tooltip", async () => {
+    const groups: Settings.Group[] = [
+      { key: "first", name: "First", sections: [createSection("Alpha")] },
+    ];
+    await renderWithConsole(<Settings.Frame groups={groups} />);
+    width.set(600);
+    fireEvent.pointerOver(screen.getByRole("menuitem", { name: "Alpha" }), {
+      pointerType: "mouse",
+    });
+    const tooltip = await screen.findByRole("tooltip");
+    expect(within(tooltip).getByText("Alpha")).toBeTruthy();
   });
 
   it("should drop the inner padding of a flush card", async () => {
