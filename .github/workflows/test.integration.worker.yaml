@@ -65,8 +65,8 @@ jobs:
 
       - name: Force quit existing Synnax processes (Windows)
         if: runner.os == 'Windows'
-        shell: cmd
-        run: integration/scripts/KillSynnaxProcesses.cmd
+        shell: powershell
+        run: integration/scripts/KillSynnaxProcesses.ps1
 
       - name: Force quit existing Synnax processes (Ubuntu)
         if: runner.os == 'Linux'
@@ -75,11 +75,11 @@ jobs:
 
       - name: Download and setup artifacts (Windows)
         if: runner.os == 'Windows'
-        shell: cmd
+        shell: powershell
         env:
           GH_TOKEN: ${{ github.token }}
           REF_RUN_ID: ${{ inputs.ref_run_id }}
-        run: integration/scripts/DownloadArtifacts.cmd
+        run: integration/scripts/DownloadArtifacts.ps1
 
       - name: Download and setup artifacts (Ubuntu)
         if: runner.os == 'Linux'
@@ -140,9 +140,8 @@ jobs:
         if: runner.os == 'Windows'
         id: test-conductor-win
         timeout-minutes: 30
-        # The self-hosted Windows test bots have no bash. !TC_ARGS! expands after cmd
-        # parses the line, so the flags cannot add commands.
-        shell: cmd
+        # Splitting TC_ARGS passes the flags as arguments, so they cannot add commands.
+        shell: powershell
         working-directory: integration
         # The Cores that --cores starts read the license from the conductor.
         env:
@@ -154,10 +153,10 @@ jobs:
             ${{ matrix.target && format('{0} {1}', matrix.target, matrix.args) ||
             inputs.flags }}
         run: |
-          setlocal EnableDelayedExpansion
-          uv run test-conductor --name tc_win ^
-            --core-binary "%USERPROFILE%\synnax-binaries\synnax.exe" ^
-            --driver-binary "%USERPROFILE%\synnax-binaries\synnax-driver.exe" !TC_ARGS!
+          $tcArgs = @("$env:TC_ARGS" -split '\s+' | Where-Object { $_ })
+          uv run test-conductor --name tc_win `
+            --core-binary "$env:USERPROFILE\synnax-binaries\synnax.exe" `
+            --driver-binary "$env:USERPROFILE\synnax-binaries\synnax-driver.exe" @tcArgs
 
       - name: Test conductor (Ubuntu)
         if: runner.os == 'Linux'
