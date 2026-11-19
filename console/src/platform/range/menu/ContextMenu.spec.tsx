@@ -62,13 +62,13 @@ const labelsOf = async (rng: ranger.Range): Promise<label.Key[]> =>
 const parentOf = async (rng: ranger.Range): Promise<ranger.Key | undefined> =>
   (await client.ranges.retrieve(rng.key)).parent;
 
-/** Two ranges under one parent, at different times. */
+/** Two ranges under one parent, at different times in the past. */
 const createSiblings = async (): Promise<{
   top: ranger.Range;
   ranges: ranger.Range[];
 }> => {
   const top = await createTestRange(client, { name: uniqueRangeName("top") });
-  const start = TimeStamp.now();
+  const start = TimeStamp.now().sub(TimeSpan.minutes(2));
   const ranges = await Promise.all(
     [0, 30].map(
       async (offset) =>
@@ -86,7 +86,7 @@ const createSiblings = async (): Promise<{
 };
 
 const spanOf = (ranges: ranger.Range[]): TimeRange =>
-  TimeRange.max(...ranges.map((r) => r.timeRange));
+  TimeRange.merge(...ranges.map((r) => r.timeRange));
 
 /** Waits for the Core to hold a range with the name, and returns it. */
 const findCreated = async (name: string): Promise<ranger.Range> =>

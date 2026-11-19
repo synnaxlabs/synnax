@@ -54,12 +54,30 @@ const styles = (recorder: canvasTest.Recorder, prop: string): string[] =>
     .filter((c) => c.op === `set:${prop}`)
     .map((c) => c.args[0] as string);
 
+// The end angle of the value arc, the last arc the gauge draws.
+const valueEnd = (recorder: canvasTest.Recorder): number =>
+  recorder.upper2d.calls.filter((c) => c.op === "arc").at(-1)?.args[4] as number;
+
 describe("gauge/aether/Gauge", () => {
   describe("color", () => {
     it("should stroke the arc with the first series color while its color is absent", () => {
       const first = color.construct("#20a4f3");
       const { recorder } = setup({ seriesColors: [first, STALE] });
       expect(styles(recorder, "strokeStyle")).toContain(color.hex(first));
+    });
+  });
+
+  describe("value arc", () => {
+    it("should measure the arc from a stored lower above the upper", () => {
+      const reversed = setup({
+        value: "25",
+        state: { bounds: { lower: 100, upper: 0 } },
+      });
+      const ordered = setup({
+        value: "75",
+        state: { bounds: { lower: 0, upper: 100 } },
+      });
+      expect(valueEnd(reversed.recorder)).toBeCloseTo(valueEnd(ordered.recorder));
     });
   });
 

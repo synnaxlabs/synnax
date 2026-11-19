@@ -157,7 +157,7 @@ export class NodeLayout {
     const nodeElBox = box.construct(nodeEl);
     const handles = Array.from(handleEls).map((el) => {
       const pos = box.center(box.construct(el));
-      const dist = xy.translation(box.topLeft(nodeElBox), pos);
+      const dist = xy.sub(pos, box.topLeft(nodeElBox));
       const orientation = el.className.match(/react-flow__handle-(\w+)/)?.[1];
       if (orientation == null || !location.isOuter(orientation))
         throw new Error(`[schematic] - cannot find handle orientation`);

@@ -463,7 +463,8 @@ def _merge(
     by end line when the titles share a third of their words. Two findings that end on
     one line with titles less alike stay apart, since they can be two problems. The
     review keeps the more severe of joined findings, then the one that continues an open
-    thread. The verdict and summary come from the pass with the lowest score."""
+    thread. The verdict and summary come from the pass with the lowest score. The
+    review keeps each earlier finding that any pass marks fixed."""
 
     def rank(f: Finding) -> tuple[int, bool]:
         return SEVERITIES.index(f.severity), (f.path, f.title) not in open
@@ -495,7 +496,16 @@ def _merge(
     found = join(found, lambda k, f: k.line == f.line and _alike(k.title, f.title))
     scored = [_score(r, caps) for r in reviews]
     lead = min(scored, key=lambda r: r.score)
-    return replace(lead, findings=[f for _, f in found])
+    # A pass that reports a finding again outranks a pass that calls it fixed, even when
+    # a join renames the report.
+    again = {(f.path, f.title) for r in reviews for f in r.findings}
+    fixed = {
+        (x.path, x.title): x
+        for r in reviews
+        for x in r.fixed
+        if (x.path, x.title) not in again
+    }
+    return replace(lead, findings=[f for _, f in found], fixed=list(fixed.values()))
 
 
 def _pass(
