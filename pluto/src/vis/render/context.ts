@@ -151,13 +151,8 @@ export class Context {
       handleError(() => this.restore(), "Failed to restore WebGL context"),
     );
 
-    const afterRender = () => {
-      this.gl.flush();
-      this.gl.finish();
-    };
-
     this.loop = new Loop({
-      afterRender,
+      afterRender: () => this.gl.flush(),
       instrumentation: this.instrumentation,
       handleError,
     });
