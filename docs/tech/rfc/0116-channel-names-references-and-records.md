@@ -153,8 +153,12 @@ Binding struct {
   (precedent: `core/pkg/service/task/service.go:248-265`). The delete and rename guards
   (`writer.go:948`, `:996`), a new guard that refuses a move of a built-in, Arc
   (`resolver.go:44`, `:82`), the `Hidden` hook (`resource.go:26`), and the `internal`
-  filter line read the set, and a read-only route serves it. `Declare` takes the key out
-  of the set that the license check counts (`service.go:119-121`).
+  filter line read the set, and a read-only route serves it. The line becomes a typed
+  line of an operator type, `internal filter.Bool`, which Oracle generates like a bare
+  line in every client, so `internal=False` and `{eq: false}` keep working. The
+  TypeScript cache checks it from the route's set, fetched once per connection.
+  `Declare` takes the key out of the set that the license check counts
+  (`service.go:119-121`).
 - **Name clash with a built-in**: `Declare` adopts a channel at the root with the same
   name, `data_type`, and `virtual`. Any other holder of the name is a user channel:
   `Declare` renames it with the first free suffix, writes a warning status, and creates
@@ -504,6 +508,8 @@ name fails where it picked one.
   symbols, table cells, Arc programs, and calculations leave the unchecked list.
 - **RFC 0092 §3.6, decision 10**: The calculation owns its status and has moved.
 - **RFC 0099 decision 2**: The channel API gains a path option, `include_path`.
+- **RFC 0085 §2.0**: A typed line whose type is a filter operator type generates like a
+  bare line in every client; only its Go matcher is written by hand.
 - **RFC 0088**: Not on `main`. When it lands, its Arc text inputs follow §4.5.
 
 ## 5 Implementation phases
