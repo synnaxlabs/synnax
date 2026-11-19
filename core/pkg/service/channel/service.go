@@ -114,7 +114,9 @@ type Service struct {
 	// renames holds the renames of each transaction. The hook of the last one sends all
 	// of them to storage in one call.
 	renames *gorp.Attachment[rename]
-	mu      struct {
+	// isBuiltIn is IsBuiltIn, bound once so that a retrieve allocates no method value.
+	isBuiltIn func(Key) bool
+	mu        struct {
 		sync.RWMutex
 		// externalNonVirtualSet holds the keys of the non-virtual channels that are not
 		// built-in, which count toward the channel limit.
@@ -142,6 +144,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		renames: gorp.NewAttachment[rename](),
 	}
 	s.mu.builtIns = set.New[Key]()
+	s.isBuiltIn = s.IsBuiltIn
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Channel]{
@@ -180,7 +183,7 @@ func (s *Service) newRetrieve() Retrieve {
 	return Retrieve{
 		gorp:    s.table.NewRetrieve(),
 		indexes: s.indexes,
-		builtIn: s.IsBuiltIn,
+		builtIn: s.isBuiltIn,
 	}
 }
 
@@ -203,7 +206,7 @@ func (s *Service) NewRetrieve() Retrieve {
 }
 
 // CountLimited returns how many channels count against the license channel limit (not
-// internal, not virtual).
+// built-in, not virtual).
 func (s *Service) CountLimited() uint32 {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
