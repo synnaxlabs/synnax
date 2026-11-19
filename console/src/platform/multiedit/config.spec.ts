@@ -66,7 +66,7 @@ describe("MultiEdit", () => {
         "a",
         { strokeColor: "#ff0000", fillColor: undefined },
         ["strokeColor", "fillColor"],
-        ["strokeColor"],
+        { strokeColor: true },
       );
       expect(refs).toEqual([
         {
@@ -80,12 +80,9 @@ describe("MultiEdit", () => {
 
     it("should throw when a value field holds a value that is not a color", () => {
       expect(() =>
-        MultiEdit.colorRefs(
-          "a",
-          { fillColor: { type: "named" } },
-          ["fillColor"],
-          ["fillColor"],
-        ),
+        MultiEdit.colorRefs("a", { fillColor: { type: "named" } }, ["fillColor"], {
+          fillColor: true,
+        }),
       ).toThrow(z.ZodError);
     });
   });

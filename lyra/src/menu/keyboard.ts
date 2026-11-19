@@ -11,18 +11,40 @@ import { type KeyboardEvent } from "react";
 
 import { Triggers } from "@/triggers";
 
-/**
- * @returns the key of the event if it opens a context menu, else null. Shift+F10 opens
- * the menu on its press, and the Menu key on its release, as on Windows. A caller
- * prevents the default of both, so the webview does not open its own menu.
- */
-export const keyboardMenuKey = (
+const keyboardMenuKey = (
   e: KeyboardEvent<HTMLElement>,
 ): "F10" | "ContextMenu" | null => {
   if (e.altKey || e.ctrlKey || e.metaKey) return null;
   const key = Triggers.eventKey(e);
   if (key === "ContextMenu" || (key === "F10" && e.shiftKey)) return key;
   return null;
+};
+
+/**
+ * Calls open on the first press of Shift+F10. Shift+F10 and the Menu key lose their
+ * default, so the webview does not open its own menu.
+ * @returns true if the key opens a context menu.
+ */
+export const menuKeyDown = (
+  e: KeyboardEvent<HTMLElement>,
+  open: () => void,
+): boolean => {
+  const key = keyboardMenuKey(e);
+  if (key == null) return false;
+  e.preventDefault();
+  if (key === "F10" && !e.repeat) open();
+  return true;
+};
+
+/**
+ * Calls open on the release of the Menu key, as on Windows.
+ * @returns true if the key opens a context menu.
+ */
+export const menuKeyUp = (e: KeyboardEvent<HTMLElement>, open: () => void): boolean => {
+  if (keyboardMenuKey(e) !== "ContextMenu") return false;
+  e.preventDefault();
+  open();
+  return true;
 };
 
 /** Opens the context menu of the element, as a right click on its bottom left would. */

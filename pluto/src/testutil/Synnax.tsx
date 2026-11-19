@@ -65,10 +65,10 @@ const ThemingSeed = ({ children }: PropsWithChildren): ReactElement => {
 const SERIES_COLORS = ["#dc136c", "#20a4f3", "#52ffb8"].map((c) => color.construct(c));
 
 // Fixed series colors, so a spec never depends on the colors stored in the Core.
-const SeriesSeed = ({ children }: PropsWithChildren): ReactElement => {
+const FixedSeries = ({ children }: PropsWithChildren): ReactElement => {
   const { path } = Aether.useLifecycle({
-    type: aetherColor.series.Provider.TYPE,
-    schema: aetherColor.series.Provider.z,
+    type: aetherColor.SeriesProvider.TYPE,
+    schema: aetherColor.SeriesProvider.z,
     initialState: { colors: SERIES_COLORS },
   });
   return <Aether.Composite path={path}>{children}</Aether.Composite>;
@@ -108,7 +108,7 @@ export const createSynnaxWrapper = ({
     ...status.REGISTRY,
     ...alamos.REGISTRY,
     ...theming.REGISTRY,
-    ...aetherColor.series.REGISTRY,
+    ...aetherColor.REGISTRY,
     ...staleness.REGISTRY,
     ...(renderContext != null
       ? { [canvasTest.RenderProvider.TYPE]: canvasTest.RenderProvider }
@@ -138,7 +138,7 @@ export const createSynnaxWrapper = ({
             <Synnax.TestProvider client={client} status={connectionStatus}>
               <Suspense fallback={null}>
                 <ThemingSeed>
-                  <SeriesSeed>{inner}</SeriesSeed>
+                  <FixedSeries>{inner}</FixedSeries>
                 </ThemingSeed>
               </Suspense>
             </Synnax.TestProvider>
