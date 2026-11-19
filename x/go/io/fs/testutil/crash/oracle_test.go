@@ -12,6 +12,7 @@ package crash_test
 import (
 	"bytes"
 	"context"
+	"io"
 	"os"
 	"sync/atomic"
 
@@ -107,7 +108,7 @@ var _ = Describe("Oracle", func() {
 	)
 
 	It(
-		"Should take unreadable commits under lasting corruption",
+		"Should not take an unreadable commit on an image with no corruption",
 		func(ctx SpecContext) {
 			cfg := alteredConfig(false, func(r []crash.Record) []crash.Record {
 				for i := range r {
@@ -116,7 +117,7 @@ var _ = Describe("Oracle", func() {
 				return r
 			})
 			cfg.Profile = crash.OldCorruption
-			Expect(crash.Run(ctx, cfg)).To(Succeed())
+			Expect(broke(crash.Run(ctx, cfg))).To(Equal(crash.R2))
 		},
 	)
 
@@ -144,62 +145,92 @@ var _ = Describe("Oracle", func() {
 			Entry("under OneTimeReadFaults", crash.OneTimeReadFaults, errCorrupt),
 			Entry("under OldCorruption, with another error",
 				crash.OldCorruption, os.ErrPermission),
-		)
-
-		DescribeTable("Should hold with its corruption error",
-			func(ctx SpecContext, profile crash.Profile) {
-				cfg := refusing(errCorrupt)
-				cfg.Profile = profile
-				Expect(crash.Run(ctx, cfg)).To(Succeed())
-			},
-			Entry("under OldCorruption", crash.OldCorruption),
-			Entry("under NewCorruption", crash.NewCorruption),
+			Entry("under OldCorruption, on an image with no corruption",
+				crash.OldCorruption, errCorrupt),
+			Entry("under NewCorruption, on an image with no corruption",
+				crash.NewCorruption, errCorrupt),
 		)
 	})
 })
 
-// spy is an engine that appends each payload to one file and syncs it. On a crash image
-// it finds the byte that differs from what it wrote, and notes if the last Sync made
-// that byte durable. It refuses an image with such a byte.
+// spy is an engine that appends each payload to a log file and syncs it. It also holds
+// a meta file that never grows, and syncs it after each commit. On a crash image it
+// finds the bytes that differ from what it wrote. It refuses an image with such a byte,
+// or it returns the commits of such bytes as unreadable.
 type spy struct {
-	file xfs.File
+	file, meta xfs.File
 	*spied
 }
 
 // spied is the state that the engines of one run share.
 type spied struct {
+	// refusal is the error of an engine that refuses a changed image. Nil is the
+	// corruption error.
+	refusal error
 	// written holds the bytes of each commit, in order.
-	written []crash.Record
-	// newest and older count the images with a flipped byte in the bytes of the last
-	// synced commit, and in the bytes before them.
-	newest, older int
+	written []byte
+	records []crash.Record
+	// newest and older count the images with a changed byte in the newest block of the
+	// log, and before that block. other counts the images with a changed byte in the
+	// meta file.
+	newest, older, other int
+	// tolerant makes an engine open a changed image and return the commits with changed
+	// bytes as unreadable.
+	tolerant bool
 }
 
+const meta = "metadata"
+
 func (s *spied) open(_ context.Context, fs xfs.FS) (crash.Engine, error) {
+	exists, err := fs.Exists("meta")
+	if err != nil {
+		return nil, err
+	}
+	fresh := !exists && len(s.written) == 0
+	if fresh {
+		if err = xfs.WriteFile(fs, "meta", []byte(meta)); err != nil {
+			return nil, err
+		}
+	}
+	metaFile, err := fs.Open("meta", os.O_RDWR)
+	if err != nil {
+		return nil, err
+	}
 	file, err := fs.Open("log", os.O_CREATE|os.O_RDWR)
 	if err != nil {
-		return nil, err
+		return nil, errors.Combine(err, metaFile.Close())
 	}
+	engine := &spy{file: file, meta: metaFile, spied: s}
 	got, err := xfs.ReadFile(fs, "log")
 	if err != nil {
-		return nil, err
+		return nil, errors.Combine(err, engine.Close())
 	}
-	end := 0
-	for _, r := range s.written {
-		start := end
-		if end += len(r.Payload); end > len(got) {
-			break
-		}
-		if !bytes.Equal(got[start:end], r.Payload) {
-			if end == len(got) {
-				s.newest++
-			} else {
-				s.older++
-			}
-			return nil, errors.Combine(errCorrupt, file.Close())
-		}
+	gotMeta, err := xfs.ReadFile(fs, "meta")
+	if err != nil {
+		return nil, errors.Combine(err, engine.Close())
 	}
-	return &spy{file: file, spied: s}, fs.SyncDir("")
+	block := max(len(got)-1, 0) / 4096 * 4096
+	if !bytes.Equal(got[:block], s.written[:block]) {
+		s.older++
+	}
+	if !bytes.Equal(got[block:], s.written[block:len(got)]) {
+		s.newest++
+	}
+	if string(gotMeta) != meta {
+		s.other++
+	}
+	changed := string(gotMeta) != meta || !bytes.Equal(got, s.written[:len(got)])
+	if changed && !s.tolerant {
+		refusal := s.refusal
+		if refusal == nil {
+			refusal = errCorrupt
+		}
+		return nil, errors.Combine(refusal, engine.Close())
+	}
+	if fresh {
+		err = errors.Combine(metaFile.Sync(), fs.SyncDir(""))
+	}
+	return engine, err
 }
 
 func (s *spy) Commit(
@@ -207,11 +238,14 @@ func (s *spy) Commit(
 	r crash.Record,
 	_ crash.Ack,
 ) (crash.Ack, error) {
-	s.written = append(s.written, r)
+	s.written, s.records = append(s.written, r.Payload...), append(s.records, r)
 	if _, err := s.file.Write(r.Payload); err != nil {
 		return 0, err
 	}
-	return crash.Durable, s.file.Sync()
+	if err := s.file.Sync(); err != nil {
+		return 0, err
+	}
+	return crash.Durable, s.meta.Sync()
 }
 
 func (s *spy) Recovered(context.Context) ([]crash.Record, error) {
@@ -219,42 +253,83 @@ func (s *spy) Recovered(context.Context) ([]crash.Record, error) {
 	if err != nil {
 		return nil, err
 	}
+	got := make([]byte, info.Size())
+	if _, err = s.file.ReadAt(got, 0); err != nil && !errors.Is(err, io.EOF) {
+		return nil, err
+	}
 	var out []crash.Record
-	for end, i := 0, 0; i < len(s.written); i++ {
-		if end += len(s.written[i].Payload); int64(end) > info.Size() {
+	for start, i := 0, 0; i < len(s.records); i++ {
+		r := s.records[i]
+		end := start + len(r.Payload)
+		if end > len(got) {
 			break
 		}
-		out = append(out, s.written[i])
+		if !bytes.Equal(got[start:end], r.Payload) {
+			r = crash.Record{ID: r.ID, Unreadable: true}
+		}
+		out, start = append(out, r), end
 	}
 	return out, nil
 }
 
-func (s *spy) Close() error { return s.file.Close() }
+func (s *spy) Close() error { return errors.Combine(s.file.Close(), s.meta.Close()) }
 
 var _ = Describe("Lasting corruption", func() {
-	DescribeTable(
-		"Should flip a bit only in the bytes that the profile names",
+	run := func(ctx context.Context, s *spied, profile crash.Profile) error {
+		return crash.Run(ctx, crash.Config{
+			Open:    s.open,
+			Corrupt: func(err error) bool { return errors.Is(err, errCorrupt) },
+			Commits: 12,
+			Stride:  1,
+			Profile: profile,
+		})
+	}
+
+	DescribeTable("Should change only the bytes that the profile names",
 		func(
 			ctx SpecContext,
 			profile crash.Profile,
-			newest, older types.GomegaMatcher,
+			newest, older, other types.GomegaMatcher,
 		) {
 			s := &spied{}
-			Expect(crash.Run(ctx, crash.Config{
-				Open:    s.open,
-				Corrupt: func(err error) bool { return errors.Is(err, errCorrupt) },
-				Commits: 12,
-				Stride:  1,
-				Profile: profile,
-			})).To(Succeed())
+			Expect(run(ctx, s, profile)).To(Succeed())
 			Expect(s.newest).To(newest)
 			Expect(s.older).To(older)
+			Expect(s.other).To(other)
 		},
-		Entry("the newest synced bytes",
-			crash.NewCorruption, BeNumerically(">", 0), BeZero()),
-		Entry("the bytes that were durable before",
-			crash.OldCorruption, BeZero(), BeNumerically(">", 0)),
-		Entry("no byte under Strict", crash.Strict, BeZero(), BeZero()),
+		Entry(
+			"the newest block of the file that grew last",
+			crash.NewCorruption,
+			BeNumerically(">", 0),
+			BeZero(),
+			BeNumerically("<", 5),
+		),
+		Entry(
+			"a durable byte of any file, but for that newest block",
+			crash.OldCorruption,
+			BeZero(),
+			BeNumerically(">", 0),
+			BeNumerically(">", 0),
+		),
+		Entry("no byte under Strict", crash.Strict, BeZero(), BeZero(), BeZero()),
+	)
+
+	It("Should break R4 when an engine refuses a changed image with another error",
+		func(ctx SpecContext) {
+			s := &spied{refusal: os.ErrPermission}
+			Expect(broke(run(ctx, s, crash.NewCorruption))).To(Equal(crash.R4))
+			Expect(s.newest + s.other).To(Equal(1))
+		},
+	)
+
+	DescribeTable("Should take the commits of changed bytes as unreadable",
+		func(ctx SpecContext, profile crash.Profile) {
+			s := &spied{tolerant: true}
+			Expect(run(ctx, s, profile)).To(Succeed())
+			Expect(s.newest + s.older).To(BeNumerically(">", 0))
+		},
+		Entry("under OldCorruption", crash.OldCorruption),
+		Entry("under NewCorruption", crash.NewCorruption),
 	)
 })
 

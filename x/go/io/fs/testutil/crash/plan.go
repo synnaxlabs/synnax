@@ -69,28 +69,43 @@ func (p plan) crash(event int) fault.CrashConfig {
 	return cfg
 }
 
-// spoil flips bits that stay flipped in the files of image, as the profile asks, and
-// returns the rules for the engine that recovers from it.
+// spoil corrupts the files of image for good, as the profile asks, and returns the
+// rules for the engine that recovers from it. The newest block of a file is the last 4
+// KiB block that holds durable bytes of the file that the newest Sync made longer. No
+// later block of that file can confirm it. An image that spoil did not change gets the
+// strict rules.
 func (p plan) spoil(image *fault.FS, c *counter, event int) (rules, error) {
-	rng := rand.New(rand.NewPCG(p.runKey, uint64(event)))
-	if p.profile == OldCorruption {
-		spans := make([]span, 0, len(c.synced))
-		for _, name := range slices.Sorted(maps.Keys(c.synced)) {
-			size := c.synced[name]
-			if name == c.last.path {
-				size = c.last.before
-			}
-			spans = append(spans, span{path: name, to: size})
+	var (
+		rng    = rand.New(rand.NewPCG(p.runKey, uint64(event)))
+		newest = c.grown[c.last]
+		r      = rules{
+			exemptFrom: strictRules.exemptFrom,
+			refusal:    true,
+			unreadable: true,
 		}
-		r := rules{exemptFrom: strictRules.exemptFrom, refusal: true, unreadable: true}
-		return r, flip(image, rng, spans)
+		changed bool
+		err     error
+	)
+	if p.profile == OldCorruption {
+		spans := make([]span, 0, len(c.grown))
+		for _, name := range slices.Sorted(maps.Keys(c.grown)) {
+			s := span{path: name, to: c.grown[name].size}
+			if name == c.last {
+				s.to = newest.before
+			}
+			spans = append(spans, s)
+		}
+		changed, err = flip(image, rng, spans)
 	}
 	if p.profile == NewCorruption {
-		newest := span{path: c.last.path, from: c.last.before, to: c.last.after}
-		r := rules{exemptFrom: c.last.event, refusal: true, unreadable: true}
-		return r, flip(image, rng, []span{newest})
+		r.exemptFrom = newest.event
+		stale := span{path: c.last, from: newest.block * blockSize, to: newest.size}
+		changed, err = zero(image, stale)
 	}
-	return strictRules, nil
+	if !changed {
+		r = strictRules
+	}
+	return r, err
 }
 
 // span is a range of bytes in the file at a path.
@@ -99,44 +114,68 @@ type span struct {
 	from, to int64
 }
 
-// flip flips one bit in a byte of spans that is in image, and makes it durable.
-func flip(image *fault.FS, rng *rand.Rand, spans []span) (err error) {
-	total := int64(0)
+// clip cuts each span to the bytes that its file holds in image, and returns the count
+// of bytes that are left.
+func clip(image *fault.FS, spans []span) (total int64, err error) {
 	for i := range spans {
-		info, statErr := image.Stat(spans[i].path)
-		if errors.Is(statErr, os.ErrNotExist) {
+		info, err := image.Stat(spans[i].path)
+		if errors.Is(err, os.ErrNotExist) {
 			spans[i].to = spans[i].from
 			continue
 		}
-		if statErr != nil {
-			return statErr
+		if err != nil {
+			return 0, err
 		}
-		spans[i].to = min(spans[i].to, info.Size())
-		total += max(spans[i].to-spans[i].from, 0)
+		spans[i].to = max(min(spans[i].to, info.Size()), spans[i].from)
+		total += spans[i].to - spans[i].from
 	}
-	if total == 0 {
-		return nil
+	return total, nil
+}
+
+// change opens the file of s in image, lets edit change the bytes of s, and makes the
+// change durable.
+func change(image *fault.FS, s span, edit func(b []byte)) (err error) {
+	f, err := image.Open(s.path, os.O_RDWR)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Combine(err, f.Close()) }()
+	b := make([]byte, s.to-s.from)
+	if _, err = f.ReadAt(b, s.from); err != nil {
+		return err
+	}
+	edit(b)
+	if _, err = f.WriteAt(b, s.from); err != nil {
+		return err
+	}
+	return f.Sync()
+}
+
+// flip flips one bit in a byte of spans, and reports if image holds such a byte.
+func flip(image *fault.FS, rng *rand.Rand, spans []span) (bool, error) {
+	total, err := clip(image, spans)
+	if err != nil || total == 0 {
+		return false, err
 	}
 	at := rng.Int64N(total)
 	for _, s := range spans {
-		if size := max(s.to-s.from, 0); at >= size {
+		if size := s.to - s.from; at >= size {
 			at -= size
 			continue
 		}
-		f, err := image.Open(s.path, os.O_RDWR)
-		if err != nil {
-			return err
-		}
-		defer func() { err = errors.Combine(err, f.Close()) }()
-		b := make([]byte, 1)
-		if _, err = f.ReadAt(b, s.from+at); err != nil {
-			return err
-		}
-		b[0] ^= 1 << rng.IntN(8)
-		if _, err = f.WriteAt(b, s.from+at); err != nil {
-			return err
-		}
-		return f.Sync()
+		s.from, s.to = s.from+at, s.from+at+1
+		return true, change(image, s, func(b []byte) { b[0] ^= 1 << rng.IntN(8) })
 	}
-	return nil
+	return false, nil
+}
+
+// zero makes the bytes of s zeros, as a block that the disk never wrote is, and reports
+// if image holds such a byte.
+func zero(image *fault.FS, s span) (bool, error) {
+	spans := []span{s}
+	total, err := clip(image, spans)
+	if err != nil || total == 0 {
+		return false, err
+	}
+	return true, change(image, spans[0], func(b []byte) { clear(b) })
 }

@@ -48,7 +48,7 @@ func Run(ctx context.Context, cfg Config) error {
 		return err
 	}
 	r.disk = disk
-	r.counter = &counter{synced: map[string]int64{}, after: r.afterEvent}
+	r.counter = &counter{grown: map[string]growth{}, after: r.afterEvent}
 	engine, err := cfg.Open(ctx, &countedFS{inner: disk, c: r.counter})
 	if err != nil && r.plan.faulty {
 		return nil

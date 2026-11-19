@@ -23,22 +23,30 @@ import (
 type counter struct {
 	// after runs behind each event, with mu held.
 	after func(event int)
-	// synced holds the length that the last Sync of each file made durable, by path.
-	synced map[string]int64
-	// last is the newest Sync that made a file longer. A Sync that makes no new byte
-	// durable gives the engine nothing new to confirm, so it does not count.
-	last lastSync
+	// grown says, for each file by path, how its durable length reached its newest
+	// block.
+	grown map[string]growth
+	// last is the path of the file that the newest Sync made longer. A Sync that makes
+	// no new byte durable gives the engine nothing new to confirm, so it does not
+	// count.
+	last string
 	// events is the count of calls that changed the disk.
 	events int
 	mu     sync.Mutex
 }
 
-// lastSync says what one Sync of a file made durable.
-type lastSync struct {
-	path string
-	// before and after are the durable lengths of the file around the Sync.
-	before, after int64
-	// event is the count of events before the Sync.
+// blockSize is the unit that a disk loses or keeps as a whole.
+const blockSize = 4096
+
+// growth says how the durable length of a file reached its newest block.
+type growth struct {
+	// size is the durable length of the file.
+	size int64
+	// block is the index of the newest block that holds durable bytes.
+	block int64
+	// before is the durable length of the file before the first Sync into block.
+	before int64
+	// event is the count of events before that Sync.
 	event int
 }
 
@@ -49,13 +57,26 @@ func (c *counter) event() {
 	}
 }
 
-// forget drops the synced lengths of the path p and of each path under it.
+// forget drops what the counter knows of the path p and of each path under it.
 func (c *counter) forget(p string) {
-	for name := range c.synced {
+	for name := range c.grown {
 		if name == p || strings.HasPrefix(name, p+"/") {
-			delete(c.synced, name)
+			delete(c.grown, name)
 		}
 	}
+}
+
+// synced notes that a Sync made the first size bytes of the file at the path p durable.
+func (c *counter) synced(p string, size int64) {
+	g, ok := c.grown[p]
+	if block := max(size-1, 0) / blockSize; !ok || block != g.block {
+		g.block, g.before, g.event = block, g.size, c.events
+	}
+	if size > g.size {
+		c.last = p
+	}
+	g.size = size
+	c.grown[p] = g
 }
 
 // countedFS passes each call to inner and counts the calls that change the disk.
@@ -175,16 +196,8 @@ func (f *countedFile) Sync() error {
 	if err != nil {
 		return err
 	}
-	if before, after := f.c.synced[f.path], info.Size(); after > before {
-		f.c.last = lastSync{
-			path:   f.path,
-			before: before,
-			after:  after,
-			event:  f.c.events,
-		}
-	}
 	if !info.IsDir() {
-		f.c.synced[f.path] = info.Size()
+		f.c.synced(f.path, info.Size())
 	}
 	return nil
 }
