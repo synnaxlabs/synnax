@@ -40,8 +40,6 @@ const [FrameContext, useFrameContext] = context.create<string>({
 export interface RootProps extends PropsWithChildren {
   /** The key of the frame that shows. */
   value: string;
-  /** Says what a pick becomes, under the title of each pane. */
-  hint: string;
   className?: string;
 }
 
@@ -49,14 +47,12 @@ export interface RootProps extends PropsWithChildren {
  * The frame of the dialog. Shows one {@link Frame} at a time and puts its
  * {@link Status} in the {@link Bar}.
  */
-export const Root = ({ value, hint, className, children }: RootProps): ReactElement => (
+export const Root = ({ value, className, children }: RootProps): ReactElement => (
   <Portal.Context>
     <ActiveContext value={value}>
-      <HintContext value={hint}>
-        <Modal.Frame className={CSS.cls(CSS.B("icd-picker"), className)}>
-          {children}
-        </Modal.Frame>
-      </HintContext>
+      <Modal.Frame className={CSS.cls(CSS.B("icd-picker"), className)}>
+        {children}
+      </Modal.Frame>
     </ActiveContext>
   </Portal.Context>
 );
@@ -73,27 +69,31 @@ export const Bar = ({ children }: PropsWithChildren): ReactElement => (
 
 export interface FrameProps extends PropsWithChildren {
   itemKey: string;
+  /** Says what a pick of the frame becomes, under the title of each pane. */
+  hint: string;
 }
 
 /**
  * The body of one tab. It mounts its children the first time it shows and keeps them
  * mounted while hidden, so a picker listens only once opened and keeps what it shows.
  */
-export const Frame = ({ itemKey, children }: FrameProps): ReactElement | null => {
+export const Frame = ({ itemKey, hint, children }: FrameProps): ReactElement | null => {
   const active = useActiveContext("Picker.Frame") === itemKey;
   const [opened, setOpened] = useState(active);
   if (active && !opened) setOpened(true);
   if (!opened) return null;
   return (
     <FrameContext value={itemKey}>
-      <Flex.Box
-        x
-        grow
-        empty
-        className={CSS.cls(CSS.BE("icd-picker", "frame"), !active && CSS.M("hidden"))}
-      >
-        {children}
-      </Flex.Box>
+      <HintContext value={hint}>
+        <Flex.Box
+          x
+          grow
+          empty
+          className={CSS.cls(CSS.BE("icd-picker", "frame"), !active && CSS.M("hidden"))}
+        >
+          {children}
+        </Flex.Box>
+      </HintContext>
     </FrameContext>
   );
 };

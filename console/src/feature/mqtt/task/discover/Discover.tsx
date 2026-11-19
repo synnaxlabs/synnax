@@ -36,8 +36,10 @@ export interface Picks {
 export interface Kind<E extends HeldEntry> {
   /** Names the dialog. */
   title: string;
-  /** Says what a pick becomes. It shows under the title of each pane. */
+  /** Says what a picked value of a topic becomes, under the title of each pane. */
   hint: string;
+  /** Says what a picked tag becomes. Defaults to hint. */
+  tagHint?: string;
   /** Names what one picked value of a topic adds, such as "field". */
   noun: string;
   /** Names what one picked tag adds. Defaults to noun. */
@@ -68,7 +70,7 @@ const Discover = <E extends HeldEntry>({
   close,
   kind,
 }: DiscoverProps<E>) => {
-  const { createTag, noun, tagNoun = noun } = kind;
+  const { createTag, noun, tagNoun = noun, hint, tagHint = hint } = kind;
   const [mode, setMode] = useState<Mode>("topics");
   const [topicPicks, setTopicPicks] = useState<TopicPicks>(() => new Map());
   const [tagPicks, setTagPicks] = useState<TagPicks>(() => new Map());
@@ -86,7 +88,7 @@ const Discover = <E extends HeldEntry>({
   const summary = parts.length === 0 ? null : `${parts.join(" and ")} selected`;
 
   return (
-    <ICD.Picker.Root value={mode} hint={kind.hint} className={CSS.B("mqtt-discover")}>
+    <ICD.Picker.Root value={mode} className={CSS.B("mqtt-discover")}>
       <Modal.Header icon={<Icon.Logo.MQTT />}>{[kind.title, device.name]}</Modal.Header>
       <ICD.Picker.Bar>
         {createTag != null && (
@@ -96,7 +98,7 @@ const Discover = <E extends HeldEntry>({
           </Select.Buttons>
         )}
       </ICD.Picker.Bar>
-      <ICD.Picker.Frame itemKey="topics">
+      <ICD.Picker.Frame itemKey="topics" hint={hint}>
         <TopicPicker
           device={device}
           entries={entries}
@@ -107,7 +109,7 @@ const Discover = <E extends HeldEntry>({
         />
       </ICD.Picker.Frame>
       {createTag != null && (
-        <ICD.Picker.Frame itemKey="sparkplug">
+        <ICD.Picker.Frame itemKey="sparkplug" hint={tagHint}>
           <TagPicker
             device={device}
             entries={entries}

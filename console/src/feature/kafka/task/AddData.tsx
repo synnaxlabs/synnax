@@ -545,10 +545,10 @@ const Content = ({
     );
 
   return (
-    <ICD.Picker.Root value={FRAME} hint={HINT} className={CSS.B("kafka-add-data")}>
+    <ICD.Picker.Root value={FRAME} className={CSS.B("kafka-add-data")}>
       <Modal.Header icon={<Icon.Logo.Kafka />}>Add data</Modal.Header>
       <ICD.Picker.Bar />
-      <ICD.Picker.Frame itemKey={FRAME}>
+      <ICD.Picker.Frame itemKey={FRAME} hint={HINT}>
         <ICD.Picker.Status
           status={statusText}
           loading={browsing || reading != null}
