@@ -95,7 +95,7 @@ class Device(device.Device):
         configured: bool = True,
     ):
         super().__init__(
-            key=key if key else str(uuid4()),
+            key=key or str(uuid4()),
             location=uri,
             rack=rack,
             name=name,

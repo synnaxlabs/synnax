@@ -1,0 +1,42 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+QoS = v1.QoS
+
+SparkplugDataType = v1.SparkplugDataType
+
+ReadField = v1.ReadField
+
+BaseReadEntry = v1.BaseReadEntry
+
+InlineEntry = v2.InlineEntry
+
+InlineRead = v2.InlineRead
+
+ReadEntry = v2.ReadEntry
+
+ReadConfig = v2.ReadConfig
+
+ChannelField = v1.ChannelField
+
+BaseWriteField = v1.BaseWriteField
+
+WriteField = v1.WriteField
+
+BaseWriteTarget = v1.BaseWriteTarget
+
+WriteTarget = v1.WriteTarget
+
+WriteConfig = v1.WriteConfig
+
+ScanConfig = v1.ScanConfig
+
+EdgeTag = v1.EdgeTag
+
+EdgeConfig = v1.EdgeConfig
