@@ -31,10 +31,21 @@ type disk struct {
 
 type node struct {
 	modTime time.Time
-	entries map[string]*node
-	name    string
-	data    []byte
-	dir     bool
+	// entries and data are what a call sees. durableEntries and durable are what a
+	// crash keeps.
+	entries, durableEntries map[string]*node
+	data, durable           []byte
+	// dirty holds each block whose bytes or length changed since the last Sync.
+	dirty blocks
+	dir   bool
+}
+
+func newDir() *node {
+	return &node{
+		dir:            true,
+		entries:        map[string]*node{},
+		durableEntries: map[string]*node{},
+	}
 }
 
 type info struct {
@@ -60,8 +71,8 @@ func (i info) Mode() os.FileMode {
 	return mode
 }
 
-func (n *node) info() info {
-	return info{name: n.name, size: int64(len(n.data)), modTime: n.modTime, dir: n.dir}
+func (n *node) info(name string) info {
+	return info{name: name, size: int64(len(n.data)), modTime: n.modTime, dir: n.dir}
 }
 
 func (d *disk) touch(n *node) {
@@ -117,7 +128,6 @@ func (d *disk) parent(op, p string) (*node, string, error) {
 
 func (d *disk) bind(dir *node, name string, n *node) {
 	dir.entries[name] = n
-	n.name = name
 	d.touch(dir)
 }
 

@@ -33,10 +33,7 @@ var _ xfs.FS = (*FS)(nil)
 
 // New returns an empty FS.
 func New() *FS {
-	return &FS{
-		d:    &disk{root: &node{name: "/", dir: true, entries: map[string]*node{}}},
-		root: "/",
-	}
+	return &FS{d: &disk{root: newDir()}, root: "/"}
 }
 
 func (f *FS) abs(name string) string { return path.Join(f.root, name) }
@@ -88,7 +85,7 @@ func (f *FS) Sub(name string) (xfs.FS, error) {
 		}
 		child, ok := n.entries[frag]
 		if !ok {
-			child = &node{dir: true, entries: map[string]*node{}}
+			child = newDir()
 			d.bind(n, frag, child)
 			d.touch(child)
 		} else if !child.dir {
@@ -110,7 +107,7 @@ func (f *FS) List(name string) ([]xfs.FileInfo, error) {
 	}
 	infos := make([]xfs.FileInfo, 0, len(n.entries))
 	for _, name := range slices.Sorted(maps.Keys(n.entries)) {
-		infos = append(infos, n.entries[name].info())
+		infos = append(infos, n.entries[name].info(name))
 	}
 	return infos, nil
 }
@@ -179,7 +176,7 @@ func (f *FS) Stat(name string) (xfs.FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	return n.info(), nil
+	return n.info(path.Base(p)), nil
 }
 
 // SyncDir implements fs.FS.
@@ -187,6 +184,10 @@ func (f *FS) SyncDir(name string) error {
 	p, d := f.abs(name), f.d
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	_, err := d.lookupDir("sync", p)
-	return err
+	n, err := d.lookupDir("sync", p)
+	if err != nil {
+		return err
+	}
+	d.syncDir(n)
+	return nil
 }

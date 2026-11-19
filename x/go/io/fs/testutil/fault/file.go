@@ -12,6 +12,7 @@ package fault
 import (
 	"io"
 	"os"
+	"path"
 	"syscall"
 
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -29,8 +30,8 @@ type file struct {
 
 var _ xfs.File = (*file)(nil)
 
-// check returns the error that stops a call on f. The call needs allowed to be true
-// and takes the offset or size off.
+// check returns the error that stops a call on f. The call needs allowed to be true and
+// takes the offset or size off.
 func (f *file) check(op string, allowed bool, off int64) error {
 	switch {
 	case f.closed:
@@ -132,7 +133,7 @@ func (f *file) Stat() (xfs.FileInfo, error) {
 	if f.closed {
 		return nil, pathError("stat", f.path, os.ErrClosed)
 	}
-	return f.n.info(), nil
+	return f.n.info(path.Base(f.path)), nil
 }
 
 // Sync implements fs.File.
@@ -141,6 +142,11 @@ func (f *file) Sync() error {
 	defer f.d.mu.Unlock()
 	if f.closed {
 		return pathError("sync", f.path, os.ErrClosed)
+	}
+	if f.n.dir {
+		f.d.syncDir(f.n)
+	} else {
+		f.d.sync(f.n)
 	}
 	return nil
 }
@@ -151,15 +157,14 @@ func (d *disk) write(n *node, p []byte, off int64) {
 		d.resize(n, end)
 	}
 	copy(n.data[off:], p)
+	n.dirty.mark(off, off+int64(len(p)))
 	d.touch(n)
 }
 
 // resize sets the length of the file n to size, and fills new bytes with zeros.
 func (d *disk) resize(n *node, size int64) {
-	if grow := size - int64(len(n.data)); grow > 0 {
-		n.data = append(n.data, make([]byte, grow)...)
-	} else {
-		n.data = n.data[:size]
-	}
+	old := int64(len(n.data))
+	n.data = resized(n.data, size)
+	n.dirty.mark(min(old, size), max(old, size))
 	d.touch(n)
 }
