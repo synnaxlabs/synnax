@@ -11,6 +11,7 @@ import { type channel as clientChannel } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Component } from "@synnaxlabs/lyra/component";
 import { deep } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -21,7 +22,7 @@ import {
   renderInTaskFormWithClient,
 } from "@/platform/task/testutil";
 import { type Channel } from "@/platform/task/types";
-import { queryIcon, queryIconButton, uniqueName } from "@/testutil";
+import { queryIcon, queryIconButton } from "@/testutil";
 
 const path = deep.path<{ config: { channels: Channel[] } }>();
 

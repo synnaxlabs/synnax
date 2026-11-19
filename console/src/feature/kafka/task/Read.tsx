@@ -279,7 +279,7 @@ const MessageDetails = ({
 };
 
 interface FieldDetailsProps extends MessagePanelProps {
-  field: ICD.FieldDetailsProps["field"];
+  field: ICD.TreeField;
 }
 
 const FieldDetails = ({ device, ...rest }: FieldDetailsProps) => {
