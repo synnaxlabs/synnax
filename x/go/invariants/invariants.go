@@ -9,5 +9,6 @@
 
 // Package invariants is the only home of the checks that run only in test builds. A
 // check inside `if invariants.Enabled { ... }` runs in a build with the invariants or
-// the race tag, as the Go tests of CI are, and a release build drops it.
+// the race tag, as the Go tests of Linux and Windows CI are, and a release build drops
+// it.
 package invariants
