@@ -183,13 +183,11 @@ const Tabbed = ({
     value: color.construct(value ?? fallback ?? color.TRANSPARENT),
     openView: (title, content, clicked) => {
       const active = document.activeElement;
-      const focused =
-        active instanceof HTMLElement &&
-        active !== document.body &&
-        active !== root.current
-          ? active
-          : null;
-      opener.current = focused ?? clicked ?? null;
+      if (!(active instanceof HTMLElement)) opener.current = clicked ?? null;
+      // A click in WebKit leaves the focus on the body or on a focusable box around the
+      // button.
+      else if (clicked != null && active.contains(clicked)) opener.current = clicked;
+      else opener.current = active;
       setView({ title, content });
     },
   };
