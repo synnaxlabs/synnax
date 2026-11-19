@@ -820,7 +820,8 @@ export class Series<T extends TelemValue = TelemValue> {
   atAlignment(alignment: bigint, required?: false): T | undefined;
 
   atAlignment(alignment: bigint, required?: boolean): T | undefined {
-    const index = Number((alignment - this.alignment) / this.alignmentMultiple);
+    const offset = alignment - this.alignment;
+    const index = offset < 0n ? -1 : Number(offset / this.alignmentMultiple);
     if (index < 0 || index >= this.length) {
       if (required === true) throw new Error(`[series] - no value at index ${index}`);
       return undefined;
