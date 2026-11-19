@@ -48,8 +48,9 @@ export interface Library {
    */
   hasSwatchMenu?: (key: string) => boolean;
   /**
-   * Shown under the palettes and a hairline, across the width of the picker. A
-   * `Button.CreateListItem` in it keeps the same edge on every side.
+   * Shown under the palettes and a hairline, across the width of the picker. A small
+   * `Button.CreateListItem` in it keeps the same edge on every side, and anything else
+   * in it takes the same box.
    */
   footer?: ReactNode;
 }

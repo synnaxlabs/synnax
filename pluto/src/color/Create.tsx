@@ -37,7 +37,6 @@ interface NameEntryProps {
   onCancel: () => void;
   /** If true, the create is saving, and nothing cancels it. */
   saving: boolean;
-  className?: string;
   children?: ReactNode;
 }
 
@@ -47,7 +46,6 @@ const NameEntry = ({
   onSave,
   onCancel,
   saving,
-  className,
   children,
 }: NameEntryProps): ReactElement => {
   const [name, setName] = useState("");
@@ -73,12 +71,7 @@ const NameEntry = ({
     }
   };
   return (
-    <Flex.Box
-      x
-      align="center"
-      gap="small"
-      className={CSS.cls(CSS.B("color-name-entry"), className)}
-    >
+    <Flex.Box x align="center" gap="small" className={CSS.B("color-name-entry")}>
       {children}
       <Input.Text
         value={name}
@@ -255,7 +248,6 @@ export const CreatePalette = ({ onCreate }: CreatePaletteProps): ReactElement =>
       placeholder="Palette name"
       onSave={handleSave}
       saving={variant === "loading"}
-      className={CSS.B("color-palette-name-entry")}
       onCancel={() => {
         setFocused(true);
         setNaming(false);

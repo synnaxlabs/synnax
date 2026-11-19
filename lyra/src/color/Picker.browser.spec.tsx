@@ -15,7 +15,9 @@ import { Button } from "@/button";
 import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
+import { Flex } from "@/flex";
 import { Icon } from "@/icon";
+import { Input } from "@/input";
 import { Menu } from "@/menu";
 import { renderThemed } from "@/styletest";
 import { Triggers } from "@/triggers";
@@ -32,7 +34,7 @@ const renderLibrary = async (
   swatchMenu?: ReactNode,
   footer?: ReactNode,
 ): Promise<HTMLElement> => {
-  await renderThemed(
+  const { container } = await renderThemed(
     <Triggers.Provider>
       <Color.Picker
         value={value}
@@ -47,7 +49,7 @@ const renderLibrary = async (
       />
     </Triggers.Provider>,
   );
-  const picker = document.querySelector(`.${CSS.B("color-picker")}`);
+  const picker = container.querySelector(`.${CSS.B("color-picker")}`);
   assert(picker instanceof HTMLElement);
   return picker;
 };
@@ -188,6 +190,28 @@ describe("Picker", () => {
       expect(picker.right - item.right).toBeCloseTo(left, 0);
       expect(picker.bottom - item.bottom).toBeCloseTo(left, 0);
       expect(item.top - (f.top + hairline)).toBeCloseTo(left, 0);
+    });
+
+    it("should give what replaces the footer's create item the same box", async () => {
+      const box = async (footer: ReactNode): Promise<number[]> => {
+        const picker = await renderLibrary(undefined, undefined, undefined, footer);
+        const p = picker.getBoundingClientRect();
+        const child = picker.querySelector(`.${CSS.BE("color-picker", "footer")} > *`);
+        assert(child instanceof HTMLElement);
+        const c = child.getBoundingClientRect();
+        return [c.left - p.left, p.right - c.right, p.bottom - c.bottom, c.height];
+      };
+      const entry = (
+        <Flex.Box x align="center">
+          <Input.Text
+            value=""
+            onChange={() => {}}
+            size="small"
+            aria-label="Palette name"
+          />
+        </Flex.Box>
+      );
+      expect(await box(entry)).toEqual(await box(CREATE));
     });
   });
 });
