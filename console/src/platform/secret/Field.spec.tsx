@@ -31,6 +31,7 @@ import {
 } from "@/platform/file-browser/testutil";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
+import { findOption } from "@/platform/picker/testutil";
 import { Secret } from "@/platform/secret";
 import { createSecret } from "@/platform/secret/testutil";
 import { Validity } from "@/platform/secret/validity";
@@ -135,20 +136,6 @@ const open = async (shown: string): Promise<void> => {
   fireEvent.click(await findDialogTriggerByText(shown));
 };
 
-// The list pages, so a search finds a secret however many the Core holds. The create
-// option names the search too, so the match skips it.
-const findOption = async (
-  s: secret.Secret,
-  term: string = s.name,
-): Promise<HTMLElement> => {
-  fireEvent.change(await screen.findByPlaceholderText("Search secrets..."), {
-    target: { value: term },
-  });
-  return await screen.findByRole("option", {
-    name: (shown) => shown.includes(s.name) && !shown.startsWith("Create "),
-  });
-};
-
 const openCreate = async (shown: string): Promise<void> => {
   await open(shown);
   fireEvent.click(await screen.findByText("New secret"));
@@ -159,7 +146,7 @@ describe("Secret.Field", () => {
     const s = await createSecret(client, created);
     await renderField();
     await open("Select a secret");
-    const option = await findOption(s);
+    const option = await findOption("secret", s.name);
     within(option).getByText(Validity.describeSecret(s));
   });
 
@@ -194,27 +181,56 @@ describe("Secret.Field", () => {
     const s = await createSecret(client, created);
     const { onChange } = await renderField();
     await open("Select a secret");
-    fireEvent.click(await findOption(s));
+    fireEvent.click(await findOption("secret", s.name));
     await waitFor(() => expect(onChange).toHaveBeenLastCalledWith(s.key));
     const trigger = await findDialogTriggerByText(s.name);
     within(trigger).getByText(Validity.describeSecret(s));
   });
 
-  it("shows None for no secret when it allows none", async () => {
+  it("shows No secret for no secret when it allows none", async () => {
     await renderField("", { allowNone: true });
-    expect(await findDialogTriggerByText("None")).toBeTruthy();
+    expect(await findDialogTriggerByText("No secret")).toBeTruthy();
     expect(screen.queryByText("Select a secret")).toBeNull();
+    expect(screen.queryByLabelText("Clear selection")).toBeNull();
   });
 
   it("clears the picked secret from its trigger when it allows none", async () => {
     const s = await createSecret(client, created);
     const { onChange } = await renderField("", { allowNone: true });
-    await open("None");
-    fireEvent.click(await findOption(s));
+    await open("No secret");
+    fireEvent.click(await findOption("secret", s.name));
     await waitFor(() => expect(onChange).toHaveBeenLastCalledWith(s.key));
     fireEvent.click(await screen.findByLabelText(`Clear ${s.name}`));
     await waitFor(() => expect(onChange).toHaveBeenLastCalledWith(""));
-    expect(await findDialogTriggerByText("None")).toBeTruthy();
+    expect(await findDialogTriggerByText("No secret")).toBeTruthy();
+  });
+
+  it("clears the secret with the No secret option during a search", async () => {
+    const s = await createSecret(client, created);
+    const { onChange } = await renderField(s.key, { allowNone: true });
+    await open(s.name);
+    await findOption("secret", s.name);
+    fireEvent.click(screen.getByRole("option", { name: "No secret" }));
+    await waitFor(() => expect(onChange).toHaveBeenLastCalledWith(""));
+    expect(await findDialogTriggerByText("No secret")).toBeTruthy();
+  });
+
+  it("marks No secret under the create option while it holds no secret", async () => {
+    await renderField("", { allowNone: true });
+    await open("No secret");
+    const create = await screen.findByRole("option", { name: "New secret" });
+    const none = screen.getByRole("option", { name: "No secret" });
+    expect(none.getAttribute("aria-selected")).toBe("true");
+    expect(
+      create.compareDocumentPosition(none) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("offers no No secret option when it does not allow none", async () => {
+    await renderField();
+    await open("Select a secret");
+    await screen.findByRole("option", { name: "New secret" });
+    expect(screen.queryByRole("option", { name: "No secret" })).toBeNull();
   });
 
   it("clears the secret on Delete when it allows none", async () => {
@@ -272,7 +288,7 @@ describe("Secret.Field", () => {
       target: { value: `${s.name}x` },
     });
     await screen.findByRole("option", { name: `Create secret "${s.name}x"` });
-    await findOption(s, s.name.toUpperCase());
+    await findOption("secret", s.name, s.name.toUpperCase());
     expect(screen.queryByRole("option", { name: /^Create secret/ })).toBeNull();
   });
 
@@ -284,7 +300,7 @@ describe("Secret.Field", () => {
     await awaitGranted(reader, secret.TYPE_RESOURCE_ID, "retrieve");
     await renderField("", { as: reader });
     await open("Select a secret");
-    await findOption(s);
+    await findOption("secret", s.name);
     expect(screen.queryByText("New secret")).toBeNull();
   });
 
@@ -432,7 +448,7 @@ describe("Secret.Field", () => {
     const stored = await createSecret(client, created);
     await renderField("", { rack: own.key });
     await open("Select a secret");
-    await findOption(stored);
+    await findOption("secret", stored.name);
     fireEvent.change(screen.getByPlaceholderText("Search secrets..."), {
       target: { value: prefix },
     });

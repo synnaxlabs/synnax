@@ -12,19 +12,22 @@ import "@/platform/picker/Select.css";
 import { NotFoundError } from "@synnaxlabs/client";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
-import { type Icon } from "@synnaxlabs/lyra/icon";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select as Base } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Flux } from "@synnaxlabs/pluto";
-import { caseconv, type record } from "@synnaxlabs/x";
+import { caseconv, primitive, type record } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 
-type Entry<K extends record.Key> = record.KeyedNamed<K> & record.Unknown;
+type Entry = record.KeyedNamed<string> & record.Unknown;
+
+// Entry keys are UUIDs, so no entry has this key.
+const NONE = "none";
 
 /** The line that describes an entry under its name. */
 export interface Description {
@@ -37,15 +40,14 @@ interface EntryProps<E> {
   describe: (entry: E) => Description;
 }
 
-interface ListItemProps<K extends record.Key, E>
-  extends List.ItemRenderProps<K>, EntryProps<E> {}
+interface ListItemProps<E> extends List.ItemRenderProps<string>, EntryProps<E> {}
 
-const ListItem = <K extends record.Key, E extends Entry<K>>({
+const ListItem = <E extends Entry>({
   icon: ItemIcon,
   describe,
   ...rest
-}: ListItemProps<K, E>): ReactElement | null => {
-  const entry = List.useItem<K, E>(rest.itemKey);
+}: ListItemProps<E>): ReactElement | null => {
+  const entry = List.useItem<string, E>(rest.itemKey);
   if (entry == null) return null;
   const { text, status } = describe(entry);
   return (
@@ -66,10 +68,12 @@ const placeholderOf = <E extends record.Unknown>(
   result: Flux.Result<E>,
   resourceName: string,
   preview: boolean,
-  clearable: boolean,
+  allowNone: boolean,
 ): string => {
-  if (result.variant === "disabled")
-    return preview || clearable ? "None" : `Select a ${resourceName}`;
+  if (result.variant === "disabled") {
+    if (allowNone) return `No ${resourceName}`;
+    return preview ? "None" : `Select a ${resourceName}`;
+  }
   if (result.variant !== "error") return "";
   const { error } = result.status.details;
   return Flux.DeletedError.matches(error) || NotFoundError.matches(error.cause)
@@ -81,25 +85,28 @@ interface TriggerProps<E extends record.Unknown> extends EntryProps<E> {
   resourceName: string;
   result: Flux.Result<E>;
   preview?: boolean;
-  clearable: boolean;
+  allowNone: boolean;
 }
 
-const Trigger = <K extends record.Key, E extends Entry<K>>({
+const Trigger = <E extends Entry>({
   icon: ItemIcon,
   describe,
   resourceName,
   result,
   preview,
-  clearable,
+  allowNone,
 }: TriggerProps<E>): ReactElement => {
   const itemStatus = Input.useItemStatus({});
-  const clear = Base.useTriggerClear<K>({ clearable, preview });
+  const clear = Base.useTriggerClear<string>({
+    clearable: allowNone && result.variant !== "disabled",
+    preview,
+  });
   let content: ReactElement;
   const icon = <ItemIcon className={CSS.BE("picker", "icon")} />;
   if (result.variant !== "success")
     content = (
       <Text.Text el="span" color={8} className={CSS.BE("picker", "text")}>
-        {placeholderOf(result, resourceName, preview === true, clearable)}
+        {placeholderOf(result, resourceName, preview === true, allowNone)}
       </Text.Text>
     );
   else {
@@ -148,29 +155,26 @@ const Trigger = <K extends record.Key, E extends Entry<K>>({
   );
 };
 
-interface RequiredProps<K extends record.Key> extends Input.Control<K> {
+interface RequiredProps extends Input.Control<string> {
   allowNone?: false;
 }
 
-interface AllowNoneProps<K extends record.Key> {
-  value: K;
+interface AllowNoneProps {
+  value: string;
   /** Gets null when the user clears the value. */
-  onChange: (value: K | null) => void;
+  onChange: (value: string | null) => void;
   /**
-   * Whether the trigger can clear the value: a button covers its icon on hover, and
-   * Delete or Backspace clears it.
+   * Whether the value can be empty. The list pins a "No <resourceName>" option, a
+   * button covers the trigger icon on hover, and Delete or Backspace clears it.
    */
   allowNone: true;
 }
 
-interface BaseSelectProps<
-  K extends record.Key,
-  E extends Entry<K>,
-> extends EntryProps<E> {
+interface BaseSelectProps<E extends Entry> extends EntryProps<E> {
   /** The singular name of what the select holds, such as "secret". */
   resourceName: string;
   /** The entries to pick from, from the domain's `useList`. */
-  list: Flux.UseListReturn<K, E>;
+  list: Flux.UseListReturn<string, E>;
   /** The held entry, from the domain's `useResult`. */
   result: Flux.Result<E>;
   /**
@@ -178,28 +182,27 @@ interface BaseSelectProps<
    * empty for an empty search. Resolves with its key, or null on cancel. Unset, the
    * list offers no create.
    */
-  onCreate?: (name: string) => Promise<K | null>;
+  onCreate?: (name: string) => Promise<string | null>;
   preview?: boolean;
 }
 
-export type SelectProps<K extends record.Key, E extends Entry<K>> = BaseSelectProps<
-  K,
-  E
-> &
-  (RequiredProps<K> | AllowNoneProps<K>);
+export type SelectProps<E extends Entry> = BaseSelectProps<E> &
+  (RequiredProps | AllowNoneProps);
 
 /**
  * Selects one stored entry by key. The trigger reads the held entry live and says when
  * it is missing or unavailable. The list can end in an option that creates an entry.
  */
-export const Select = <K extends record.Key, E extends Entry<K>>(
-  props: SelectProps<K, E>,
-): ReactElement => {
+export const Select = <E extends Entry>(props: SelectProps<E>): ReactElement => {
   const { resourceName, icon, describe, list, result, onCreate, preview } = props;
   const { data, getItem, subscribe, status, more, search } = list;
   const selection =
     props.allowNone === true
-      ? { value: props.value, onChange: props.onChange, allowNone: true as const }
+      ? {
+          value: primitive.isZero(props.value) ? NONE : props.value,
+          onChange: (key: string | null) => props.onChange(key === NONE ? null : key),
+          allowNone: true as const,
+        }
       : { value: props.value, onChange: props.onChange, allowNone: false as const };
   const handleCreate =
     onCreate == null
@@ -210,7 +213,7 @@ export const Select = <K extends record.Key, E extends Entry<K>>(
           });
   return (
     <Dialog.Frame variant="connected" grow>
-      <Base.Frame<K, E | undefined>
+      <Base.Frame<string, E | undefined>
         data={data}
         getItem={getItem}
         subscribe={subscribe}
@@ -218,34 +221,42 @@ export const Select = <K extends record.Key, E extends Entry<K>>(
         {...selection}
         closeDialogOnSelect
       >
-        <Trigger<K, E>
+        <Trigger<E>
           icon={icon}
           describe={describe}
           resourceName={resourceName}
           result={result}
           preview={preview}
-          clearable={selection.allowNone}
+          allowNone={selection.allowNone}
         />
         <Base.Dialog className={CSS.BE("picker", "dialog")}>
-          <Base.Body<K>
+          <Base.Body<string>
             resourceName={resourceName}
             onSearch={search}
             status={status}
             footer={
-              handleCreate != null && (
+              (handleCreate != null || selection.allowNone) && (
                 <>
                   <Menu.Divider />
-                  <Base.CreateItem<K, E>
-                    resourceName={resourceName}
-                    modal
-                    onCreate={handleCreate}
-                  />
+                  {handleCreate != null && (
+                    <Base.CreateItem<string, E>
+                      resourceName={resourceName}
+                      modal
+                      onCreate={handleCreate}
+                    />
+                  )}
+                  {selection.allowNone && (
+                    <Base.Item<string> itemKey={NONE} textValue={`No ${resourceName}`}>
+                      <Icon.None />
+                      No {resourceName}
+                    </Base.Item>
+                  )}
                 </>
               )
             }
           >
             {({ key, ...p }) => (
-              <ListItem<K, E> key={key} {...p} icon={icon} describe={describe} />
+              <ListItem<E> key={key} {...p} icon={icon} describe={describe} />
             )}
           </Base.Body>
         </Base.Dialog>

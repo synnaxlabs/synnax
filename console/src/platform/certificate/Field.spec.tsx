@@ -41,6 +41,7 @@ import {
 } from "@/platform/fs/testutil";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
+import { findOption } from "@/platform/picker/testutil";
 import { Secret } from "@/platform/secret";
 import {
   awaitGranted,
@@ -178,20 +179,6 @@ const open = async (shown: string): Promise<void> => {
   fireEvent.click(await findDialogTriggerByText(shown));
 };
 
-// The list pages, so a search finds a certificate however many the Core holds. The
-// create option names the search too, so the match skips it.
-const findOption = async (
-  c: certificate.Certificate,
-  term: string = c.name,
-): Promise<HTMLElement> => {
-  fireEvent.change(await screen.findByPlaceholderText("Search certificates..."), {
-    target: { value: term },
-  });
-  return await screen.findByRole("option", {
-    name: (shown) => shown.includes(c.name) && !shown.startsWith("Create "),
-  });
-};
-
 const openCreate = async (): Promise<void> => {
   await open("Select a certificate");
   fireEvent.click(await screen.findByText("New certificate"));
@@ -246,7 +233,7 @@ describe("Certificate.Field", () => {
     const c = await createStored();
     await renderField();
     await open("Select a certificate");
-    const option = await findOption(c);
+    const option = await findOption("certificate", c.name);
     within(option).getByText(
       Secret.Validity.describeCertificate(c, TimeStamp.now()).text,
     );
@@ -274,7 +261,7 @@ describe("Certificate.Field", () => {
     const c = await createStored();
     const { onChange } = await renderField();
     await open("Select a certificate");
-    fireEvent.click(await findOption(c));
+    fireEvent.click(await findOption("certificate", c.name));
     await waitFor(() => expect(onChange).toHaveBeenLastCalledWith(c.key));
     await findDialogTriggerByText(c.name);
     await screen.findByText("Subject");
@@ -363,7 +350,7 @@ describe("Certificate.Field", () => {
       target: { value: `${c.name}x` },
     });
     await screen.findByRole("option", { name: `Create certificate "${c.name}x"` });
-    await findOption(c, c.name.toUpperCase());
+    await findOption("certificate", c.name, c.name.toUpperCase());
     expect(screen.queryByRole("option", { name: /^Create certificate/ })).toBeNull();
   });
 
@@ -375,7 +362,7 @@ describe("Certificate.Field", () => {
     await awaitGranted(reader, certificate.TYPE_RESOURCE_ID, "retrieve");
     await renderField("", { as: reader });
     await open("Select a certificate");
-    await findOption(c);
+    await findOption("certificate", c.name);
     expect(screen.queryByText("New certificate")).toBeNull();
   });
 
@@ -664,7 +651,7 @@ describe("Certificate.Field", () => {
     const stored = await createStored();
     await renderField("", { rack: own.key });
     await open("Select a certificate");
-    await findOption(stored);
+    await findOption("certificate", stored.name);
     fireEvent.change(screen.getByPlaceholderText("Search certificates..."), {
       target: { value: prefix },
     });

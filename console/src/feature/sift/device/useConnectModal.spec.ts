@@ -16,6 +16,7 @@ import { createAPIKey, createSiftDevice } from "@/feature/sift/testutil";
 import { createTestSink } from "@/platform/analytics/testutil";
 import { createRunningRack } from "@/platform/device/testutil";
 import { pressSaveTrigger, renderModalOpener } from "@/platform/modals/testutil";
+import { findOption } from "@/platform/picker/testutil";
 import { answerNextCommand } from "@/platform/task/testutil";
 import { findDialogTriggerByText, uniqueName } from "@/testutil";
 
@@ -102,13 +103,7 @@ describe("Sift.Device.useConnectModal", () => {
       target: { value: "localhost:50051" },
     });
     fireEvent.click(await findDialogTriggerByText("Select a secret"));
-    // The list pages, so a search finds the key however many secrets the Core holds.
-    fireEvent.change(await screen.findByPlaceholderText("Search secrets..."), {
-      target: { value: apiKey.name },
-    });
-    fireEvent.click(
-      await screen.findByRole("option", { name: new RegExp(apiKey.name) }),
-    );
+    fireEvent.click(await findOption("secret", apiKey.name));
     const { answered } = await answerNextCommand(client, scan);
     pressSaveTrigger();
     await answered;

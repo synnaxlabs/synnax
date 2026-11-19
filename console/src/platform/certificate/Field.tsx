@@ -58,7 +58,7 @@ const Control = ({
     : { value, onChange, allowNone: false as const };
   return (
     <Flex.Box y gap="small" grow>
-      <Picker.Select<certificate.Key, certificate.Certificate>
+      <Picker.Select<certificate.Certificate>
         resourceName="certificate"
         icon={Icon.Certificate}
         describe={describe}
