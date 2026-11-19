@@ -28,6 +28,7 @@ import { Access } from "@/access";
 import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Enumeration } from "@/enumeration";
+import { Options } from "@/schematic/node/common/options";
 
 const NONE = "none";
 
@@ -51,13 +52,17 @@ const toOption = (
   return { key: e.key, value: e.value, name: e.name, ...(c != null && { color: c }) };
 };
 
-interface OptionsProps {
+interface OwnOptionsProps {
   path: deep.Path<schematic.StateMapping[]>;
   colorDisabled: boolean;
   preview: boolean;
 }
 
-const Options = ({ path, colorDisabled, preview }: OptionsProps): ReactElement => {
+const OwnOptions = ({
+  path,
+  colorDisabled,
+  preview,
+}: OwnOptionsProps): ReactElement => {
   const { set, get } = Form.useContext();
   const options = Form.useFieldValue<schematic.StateMapping[]>(path);
   const resolve = Color.useResolve();
@@ -243,8 +248,9 @@ export const States = ({
   const create = (name: string): void => {
     const created = uuid.create();
     // A node that names an enumeration hides its own options, so none move.
-    const entries =
-      key == null ? get<schematic.StateMapping[]>(options).value.map(toEntry) : [];
+    const entries = Options.drawn(key)
+      ? get<schematic.StateMapping[]>(options).value.map(toEntry)
+      : [];
     void (async () => {
       if ((await updateAsync({ key: created, name, entries })) === false) return;
       set(enumerationPath, created);
@@ -288,10 +294,10 @@ export const States = ({
         </Input.Item>
         {key != null && <UsedBy enumeration={key} />}
         <Input.Item label="Entries" padHelpText={false}>
-          {key == null ? (
+          {Options.drawn(key) ? (
             // The new enumeration takes the options as they are when the create
             // starts, so they lock until it ends.
-            <Options
+            <OwnOptions
               path={options}
               colorDisabled={colorDisabled}
               preview={variant === "loading"}
@@ -307,7 +313,7 @@ export const States = ({
       </Form.Section>
       {naming && (
         <CreateModal
-          initialName={key == null ? get(label).value.trim() || symbolName : ""}
+          initialName={Options.drawn(key) ? get(label).value.trim() || symbolName : ""}
           onCreate={create}
           onClose={() => setNaming(false)}
           loading={variant === "loading"}
