@@ -212,7 +212,12 @@ func (y *MemFS) Rename(oldName, newName string) error {
 // SyncDir implements FS.SyncDir. A MemFS holds nothing durable, so SyncDir only checks
 // name.
 func (y *MemFS) SyncDir(name string) error {
-	return y.walk(name+sep, func(*memNode, string, bool) error { return nil })
+	err := y.walk(name+sep, func(*memNode, string, bool) error { return nil })
+	var pathErr *os.PathError
+	if errors.As(err, &pathErr) {
+		pathErr.Op, pathErr.Path = "sync", name
+	}
+	return err
 }
 
 // List returns a list of files in the directory sorted by file name.
@@ -259,13 +264,8 @@ func (y *MemFS) Stat(name string) (stats os.FileInfo, err error) {
 type memNode struct {
 	children map[string]*memNode
 	name     string
-	// Mutable state.
-	//
-	// - For a file: data, modTime. A file is only being mutated by a single goroutine,
-	//   but there can be concurrent readers e.g. DB.Checkpoint() which can read WAL or
-	//   MANIFEST files that are being written to.
-	// - For a directory: children. Concurrent writes are possible, and these are
-	//   protected using MemFS.mu.
+	// mu guards the data and modTime of a file. MemFS.mu guards the children of a
+	// directory.
 	mu struct {
 		modTime time.Time
 		data    []byte
@@ -361,6 +361,10 @@ func (y *MemFS) walkLocked(
 			for len(remaining) > 0 && remaining[0] == sep[0] {
 				remaining = remaining[1:]
 			}
+		}
+		if !final && frag == "." {
+			fullname = remaining
+			continue
 		}
 		if err := f(dir, frag, final); err != nil {
 			return err
