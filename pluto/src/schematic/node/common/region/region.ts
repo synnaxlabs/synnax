@@ -246,8 +246,12 @@ const setPaint = (el: SVGElement, attr: "fill" | "stroke", value: string | null)
 };
 
 const addRegionIDs = (el: Element) => {
-  if (!(el instanceof SVGElement) || el.tagName === "svg") return;
-  if (el.id.length === 0 && el.getAttribute(REGION_ID_ATTRIBUTE) == null)
+  if (!(el instanceof SVGElement)) return;
+  if (
+    el.tagName !== "svg" &&
+    el.id.length === 0 &&
+    !el.hasAttribute(REGION_ID_ATTRIBUTE)
+  )
     el.setAttribute(REGION_ID_ATTRIBUTE, `region-${id.create()}`);
   Array.from(el.children).forEach(addRegionIDs);
 };

@@ -472,6 +472,15 @@ describe("Region.normalizeElement", () => {
       expect(svg.querySelector("rect")!.hasAttribute("data-region-id")).toBe(false);
     });
 
+    it("should tag the shapes inside a nested svg, but not the svg", () => {
+      const svg = parse('<svg><rect width="1" height="1"/></svg>');
+      Region.normalizeElement(svg, readResolver);
+      const nested = svg.querySelector("svg")!;
+      expect(nested.hasAttribute("data-region-id")).toBe(false);
+      const rect = nested.querySelector("rect")! as SVGElement;
+      expect(Region.selector(rect)).toMatch(/^\[data-region-id="region-.+"\]$/);
+    });
+
     it("should not overwrite an existing data-region-id", () => {
       const svg = parse('<rect data-region-id="region-fixed" width="1" height="1"/>');
       Region.normalizeElement(svg, readResolver);
