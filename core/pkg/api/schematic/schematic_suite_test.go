@@ -104,12 +104,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 			rbacSvc.Builtin.OwnerKey,
 		),
 	)
-	enumSvc := MustOpen(enumeration.OpenService(ctx, enumeration.ServiceConfig{DB: db}))
+	MustOpen(enumeration.OpenService(ctx, enumeration.ServiceConfig{DB: db}))
 	schematicSvc = MustOpen(schematic.OpenService(ctx, schematic.ServiceConfig{
-		DB:          db,
-		Group:       groupSvc,
-		ImEx:        imex.NewService(),
-		Enumeration: enumSvc,
+		DB:    db,
+		Group: groupSvc,
+		ImEx:  imex.NewService(),
 	}))
 	apiSvc = MustSucceed(apischematic.NewService(apischematic.ServiceConfig{
 		Schematic: schematicSvc,
