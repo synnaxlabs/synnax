@@ -119,41 +119,27 @@ input
 // sequence { 1 -> valve_cmd   wait(duration=2s)   0 -> valve_cmd }
 // sequence { 1 -> valve_cmd, wait(duration=2s), 0 -> valve_cmd }
 sequenceDeclaration
-    : SEQUENCE IDENTIFIER? (LPAREN inputList? RPAREN)?
-      LBRACE (sequenceItem (COMMA? sequenceItem)* COMMA?)? RBRACE
+    : SEQUENCE IDENTIFIER? (LPAREN inputList? RPAREN)? body
     ;
 
-// Items in a sequence body. Commas between items are optional; newlines and
-// whitespace work as separators too, matching stage body syntax.
-sequenceItem
+// stage precheck { items... }
+// stage { items... }
+stageDeclaration
+    : STAGE IDENTIFIER? (LPAREN inputList? RPAREN)? body
+    ;
+
+// The items of a stage or a sequence. A comma between two items is optional.
+body
+    : LBRACE (bodyItem (COMMA? bodyItem)* COMMA?)? RBRACE
+    ;
+
+bodyItem
     : stageDeclaration
     | sequenceDeclaration
     | variableDeclaration
     | assignment
     | flowStatement
     | singleInvocation
-    ;
-
-// stage precheck { items... }
-// stage { items... }
-stageDeclaration
-    : STAGE IDENTIFIER? (LPAREN inputList? RPAREN)? stageBody
-    ;
-
-// { reactive flows and transitions }
-// Items may be separated by newlines, commas, or both. This mirrors stageless
-// sequence bodies, which never required commas, and lets users inline flows
-// on one line with comma separators or lay them out vertically without.
-stageBody
-    : LBRACE (stageItem (COMMA? stageItem)* COMMA?)? RBRACE
-    ;
-
-stageItem
-    : variableDeclaration
-    | assignment
-    | flowStatement
-    | singleInvocation
-    | sequenceDeclaration
     ;
 
 singleInvocation

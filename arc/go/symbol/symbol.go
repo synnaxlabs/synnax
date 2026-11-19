@@ -167,6 +167,14 @@ func (s *Symbol) IsComputed() bool {
 	return errors.Is(err, query.ErrNotFound)
 }
 
+// IsTemplate reports whether s is a named stage or sequence at the top level of a
+// program or a module. Each use of its name is a copy of it.
+func (s *Symbol) IsTemplate() bool {
+	decl, ok := s.AST.(interface{ IDENTIFIER() antlr.TerminalNode })
+	return ok && s.Kind == KindSequence && s.Parent == s.Root() &&
+		decl.IDENTIFIER() != nil
+}
+
 // IsParameterized reports whether s is a sequence or a top-level stage with parameters.
 func (s *Symbol) IsParameterized() bool {
 	return s.Kind == KindSequence && len(s.Type.Inputs) > 0

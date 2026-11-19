@@ -255,7 +255,8 @@ func detectCallCycles(edges *[]acontext.CallEdge, diag *diagnostics.Diagnostics)
 	}
 }
 
-// rejectBodyCallCycles reports a sequence or stage with parameters that calls itself.
+// rejectBodyCallCycles reports a named stage or sequence that uses itself, directly
+// or through other named stages and sequences.
 func rejectBodyCallCycles(ctx acontext.Context[parser.IProgramContext]) {
 	var (
 		root      = ctx.Scope.Root()
@@ -264,22 +265,23 @@ func rejectBodyCallCycles(ctx acontext.Context[parser.IProgramContext]) {
 		nouns     = make(map[string]string)
 	)
 	for _, body := range root.Children() {
-		if !body.IsParameterized() {
+		if !body.IsTemplate() {
 			continue
 		}
 		nouns[body.Name] = flow.BodyNoun(body)
-		for _, call := range flowCalls(body.AST) {
-			head, tail := parser.FunctionNameParts(call)
-			callee, err := body.ResolveMember(ctx, head, tail)
-			if err != nil || !callee.IsParameterized() || callee.Parent != root {
-				continue
+		bodyUses(ctx, root, body.AST, func(
+			callee *symbol.Symbol,
+			site antlr.ParserRuleContext,
+		) {
+			if callee.Parent != root {
+				return
 			}
 			callGraph[body.Name] = append(
 				callGraph[body.Name],
-				callEdgeInfo{callee: callee.Name, callSite: call},
+				callEdgeInfo{callee: callee.Name, callSite: site},
 			)
 			adj[body.Name] = append(adj[body.Name], callee.Name)
-		}
+		})
 	}
 	for _, scc := range graph.TarjanSCC(adj) {
 		cycle, site := findCycleInSCC(scc, set.New(scc...), callGraph)
@@ -296,16 +298,41 @@ func rejectBodyCallCycles(ctx acontext.Context[parser.IProgramContext]) {
 	}
 }
 
-// flowCalls returns each call in a flow position under node, in source order.
-func flowCalls(node antlr.Tree) []parser.IFunctionContext {
-	var calls []parser.IFunctionContext
-	if call, ok := node.(parser.IFunctionContext); ok {
-		calls = append(calls, call)
+// bodyUses calls visit with each named stage or sequence that a line under node uses,
+// and the node of the use. A name resolves in the stage or sequence that holds it.
+func bodyUses(
+	ctx acontext.Context[parser.IProgramContext],
+	scope *symbol.Symbol,
+	node antlr.Tree,
+	visit func(callee *symbol.Symbol, site antlr.ParserRuleContext),
+) {
+	var use antlr.ParserRuleContext
+	switch n := node.(type) {
+	case parser.ISequenceDeclarationContext, parser.IStageDeclarationContext:
+		if own, err := scope.GetChildByParserRule(
+			n.(antlr.ParserRuleContext),
+		); err == nil {
+			scope = own
+		}
+	case parser.IFunctionContext:
+		use = n
+	case parser.IFlowNodeContext:
+		if id := n.Identifier(); id != nil {
+			use = id
+		}
+	case parser.ISingleInvocationContext:
+		if expr := n.Expression(); expr != nil {
+			use = expr
+		}
+	}
+	if use != nil {
+		if callee := flow.UsedBody(ctx.WithScope(scope), use); callee != nil {
+			visit(callee, use)
+		}
 	}
 	for i := range node.GetChildCount() {
-		calls = append(calls, flowCalls(node.GetChild(i))...)
+		bodyUses(ctx, scope, node.GetChild(i), visit)
 	}
-	return calls
 }
 
 // findCycleInSCC finds a simple cycle within the SCC for error reporting and returns

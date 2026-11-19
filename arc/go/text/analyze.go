@@ -105,20 +105,15 @@ func (f *seqFrame) nextMember() string {
 type shellBuilder struct {
 	stack       []*seqFrame
 	activations map[string][]ir.Activation
-	// jumps holds the transitions of the top-level scope being analyzed, so every
-	// jump inside it exits that whole scope. Nil outside a top-level scope.
-	jumps *[]ir.Transition
 	// inlineNodes accumulates the flat IR of every lowered inline body and instance.
 	inlineNodes []ir.Node
-	// instances holds the root-level scope of each lowered instance.
-	instances []ir.Scope
 	// instanceKey is the scope key of the instance being lowered, empty outside one.
 	instanceKey string
 	// args holds the constant or the channel of each parameter of the instance.
 	args map[*symbol.Symbol]argument
-	// inlineBodyBases records the stack length at the entry of each enclosing
-	// inline routing case body; `next` is rejected if no frame was pushed since.
-	inlineBodyBases []int
+	// exits holds the transitions of the stage being lowered when it is not a step,
+	// so `next` ends that stage. Nil in a step, where `next` completes the step.
+	exits *[]ir.Transition
 	// synthByAST maps each inline-body declaration to its synth scope, keyed by
 	// the declaration's parser node.
 	synthByAST map[antlr.ParserRuleContext]*symbol.Symbol
@@ -193,8 +188,7 @@ func (sb *shellBuilder) registerVar(sym *symbol.Symbol, e varEntry) {
 
 // enter starts the lowering of an instance and returns the function that ends it.
 func (s *shellBuilder) enter(key string, args map[*symbol.Symbol]argument) func() {
-	outer := *s
-	s.stack, s.jumps, s.inlineBodyBases = nil, nil, nil
+	outerKey, outerArgs, outerVars := s.instanceKey, s.args, s.varNodes
 	// The body reads the variables declared outside it through the copy.
 	s.instanceKey, s.varNodes = key, maps.Clone(s.varNodes)
 	s.args = make(map[*symbol.Symbol]argument, len(args))
@@ -206,10 +200,7 @@ func (s *shellBuilder) enter(key string, args map[*symbol.Symbol]argument) func(
 		// The body reads a parameter that can change as it reads a variable.
 		s.varNodes[param] = varEntry{register: arg.variable}
 	}
-	return func() {
-		s.stack, s.jumps, s.inlineBodyBases = outer.stack, outer.jumps, outer.inlineBodyBases
-		s.instanceKey, s.args, s.varNodes = outer.instanceKey, outer.args, outer.varNodes
-	}
+	return func() { s.instanceKey, s.args, s.varNodes = outerKey, outerArgs, outerVars }
 }
 
 // scopeKey returns the key of the inline body synth, unique for each instance.
@@ -252,23 +243,6 @@ func (s *shellBuilder) top() *seqFrame {
 		return nil
 	}
 	return s.stack[len(s.stack)-1]
-}
-
-// inlineBoundaryBlocksNext returns true inside an inline stage body (no own
-// frame) or at the last step of an inline sequence body (no further step).
-func (s *shellBuilder) inlineBoundaryBlocksNext() bool {
-	n := len(s.inlineBodyBases)
-	if n == 0 {
-		return false
-	}
-	base := s.inlineBodyBases[n-1]
-	if len(s.stack) == base {
-		return true
-	}
-	if len(s.stack) == base+1 && s.stack[len(s.stack)-1].nextMember() == "" {
-		return true
-	}
-	return false
 }
 
 // addTransition appends a transition to the innermost sequence frame. Panics
@@ -331,22 +305,17 @@ func (s *shellBuilder) registerActivation(key string, on ir.Handle, kind ir.Edge
 	s.activations[key] = append(s.activations[key], ir.Activation{On: on, Kind: kind})
 }
 
-// ownJumps makes jumps the destination for the jumps of the top-level scope being
-// analyzed, unless an enclosing top-level scope already owns them. It returns a
-// function that releases the ownership it took.
-func (s *shellBuilder) ownJumps(jumps *[]ir.Transition) func() {
-	if s.jumps != nil {
-		return func() {}
-	}
-	s.jumps = jumps
-	return func() { s.jumps = nil }
+// ownExits makes exits the destination of `next` and returns the function that
+// restores the destination before it.
+func (s *shellBuilder) ownExits(exits *[]ir.Transition) func() {
+	outer := s.exits
+	s.exits = exits
+	return func() { s.exits = outer }
 }
 
 // applyTransitionIntent records a transition or an activation against the shell
 // for a firing handle. Exactly one of isNext, memberKey, activateKey is honored,
-// in that priority; a zero intent is a no-op. A cross-scope intent inside a
-// top-level scope becomes a jump that exits that scope. Elsewhere, and for inline
-// bodies, it activates the target without leaving anything.
+// in that priority; a zero intent is a no-op.
 func (s *shellBuilder) applyTransitionIntent(
 	on ir.Handle,
 	kind ir.EdgeKind,
@@ -354,11 +323,14 @@ func (s *shellBuilder) applyTransitionIntent(
 ) {
 	switch {
 	case intent.isNext:
-		next := s.top().nextMember()
-		s.addTransition(ir.Transition{
+		if s.exits == nil {
+			s.addCompletion(on, kind)
+			return
+		}
+		*s.exits = append(*s.exits, ir.Transition{
 			On:     on,
 			Kind:   kind,
-			Target: ir.Target{Variant: ir.StepTarget{Key: next}},
+			Target: ir.Target{Variant: ir.ExitTarget{}},
 		})
 	case intent.memberKey != "":
 		frame := intent.targetFrame
@@ -374,15 +346,7 @@ func (s *shellBuilder) applyTransitionIntent(
 			},
 		)
 	case intent.activateKey != "":
-		if s.jumps == nil || intent.suppressExit {
-			s.registerActivation(intent.activateKey, on, kind)
-			return
-		}
-		*s.jumps = append(*s.jumps, ir.Transition{
-			On:     on,
-			Kind:   kind,
-			Target: ir.Target{Variant: ir.ScopeTarget{Key: intent.activateKey}},
-		})
+		s.registerActivation(intent.activateKey, on, kind)
 	}
 }
 
@@ -403,15 +367,13 @@ func newNodeResult(node ir.Node, inputParam, outputParam string) nodeResult {
 	}
 }
 
-// transitionIntent is emitted by `=> next` and `=> scope_name` targets. The
-// flow-chain processor consumes the intent and, rather than emitting a
-// dataflow edge, records a Transition on the enclosing sequence (for
-// intra-sequence jumps and `next`) and/or registers an activation on the
-// target scope (for cross-scope jumps).
+// transitionIntent is emitted by `=> next`, `=> step_name`, and a flow that starts a
+// stage or sequence. The flow-chain processor consumes the intent and, rather than
+// emitting a dataflow edge, records a Transition on the enclosing sequence or
+// registers an activation on the scope that the flow starts.
 type transitionIntent struct {
-	// isNext is true when the intent came from the `next` token. The target
-	// member is resolved against the innermost sequence frame at the time the
-	// intent is consumed.
+	// isNext is true when the intent came from the `next` token. It ends the stage
+	// that holds it, or completes the step that holds it.
 	isNext bool
 	// memberKey, when non-empty and isNext is false, names a sibling member
 	// to transition to. The transition lives on targetFrame (or shell.top()
@@ -422,11 +384,7 @@ type transitionIntent struct {
 	// deactivating the step stops every scope inside it.
 	targetFrame *seqFrame
 	// activateKey, when non-empty, names the scope the firing handle activates.
-	// Inside a top-level scope, it becomes a jump that exits that scope.
 	activateKey string
-	// suppressExit makes activateKey activate an inline body without leaving
-	// any scope.
-	suppressExit bool
 }
 
 // flowNodeResult is what analyzeFlowNode returns: either an actual IR node
@@ -435,8 +393,8 @@ type transitionIntent struct {
 type flowNodeResult struct {
 	node       nodeResult
 	transition *transitionIntent
-	// inlineScope is the lowered body of an inline stage/sequence flow target,
-	// to be placed as a member of the scope enclosing this flow.
+	// inlineScope is the stage or sequence that the flow starts, to be placed as a
+	// member of the scope enclosing this flow.
 	inlineScope *ir.Scope
 }
 
@@ -483,6 +441,9 @@ func analyzeFlowNode(
 	isFirst, isSink bool,
 ) (flowNodeResult, bool) {
 	if id := ctx.AST.Identifier(); id != nil {
+		if body := flow.UsedBody(ctx, id); body != nil {
+			return startBody(ctx.Child(id), body, kg, shell)
+		}
 		return analyzeIdentifierByRole(
 			ctx.Child(id),
 			kg,
@@ -492,8 +453,8 @@ func analyzeFlowNode(
 		)
 	}
 	if fn := ctx.AST.Function(); fn != nil {
-		if intent, called, ok := analyzeBodyCall(ctx.Child(fn), kg, shell); called {
-			return flowNodeResult{transition: &intent}, ok
+		if body := flow.UsedBody(ctx, fn); body != nil {
+			return startBody(ctx.Child(fn), body, kg, shell)
 		}
 		r, ok := analyzeFunctionNode(ctx.Child(fn), kg, shell, !isFirst)
 		return flowNodeResult{node: r}, ok
@@ -505,63 +466,83 @@ func analyzeFlowNode(
 	if ctx.AST.NEXT() != nil {
 		return analyzeNextToken(ctx, shell)
 	}
-	if s := ctx.AST.StageDeclaration(); s != nil {
-		return analyzeInlineBody(ctx, s, kg, shell)
-	}
-	if s := ctx.AST.SequenceDeclaration(); s != nil {
-		return analyzeInlineBody(ctx, s, kg, shell)
+	if decl := declarationOf(ctx.AST); decl != nil {
+		synth := shell.synthByAST[decl]
+		if synth == nil {
+			ctx.Diagnostics.Add(diagnostics.Errorf(decl,
+				"internal: synth scope not registered for inline body"))
+			return flowNodeResult{}, false
+		}
+		return startBody(ctx.Child(decl), synth, kg, shell)
 	}
 	return flowNodeResult{}, true
 }
 
-// analyzeInlineBody lowers an anonymous inline stage/sequence body used as a
-// flow target, returning an activation intent so the upstream handle gates it.
-func analyzeInlineBody(
-	ctx acontext.Context[parser.IFlowNodeContext],
-	decl antlr.ParserRuleContext,
+// declarationOf returns the stage or sequence that node declares, or nil.
+func declarationOf(node interface {
+	StageDeclaration() parser.IStageDeclarationContext
+	SequenceDeclaration() parser.ISequenceDeclarationContext
+},
+) identifierAST {
+	if stage := node.StageDeclaration(); stage != nil {
+		return stage
+	}
+	if sequence := node.SequenceDeclaration(); sequence != nil {
+		return sequence
+	}
+	return nil
+}
+
+// startBody lowers the stage or sequence that the flow node at ctx starts, and gates
+// it on the flow.
+func startBody[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	body *symbol.Symbol,
 	kg *keyGenerator,
 	shell *shellBuilder,
 ) (flowNodeResult, bool) {
-	synth := shell.synthByAST[decl]
-	if synth == nil {
-		ctx.Diagnostics.Add(diagnostics.Errorf(decl,
-			"internal: synth scope not registered for inline body"))
-		return flowNodeResult{}, false
-	}
-	scope, ok := processInlineBody(ctx, synth, kg, shell)
+	scope, ok := lowerUse(ctx, body, kg, shell)
 	if !ok {
 		return flowNodeResult{}, false
 	}
+	scope.Liveness = ir.LivenessGated
 	return flowNodeResult{
-		transition: &transitionIntent{
-			activateKey:  scope.Key,
-			suppressExit: true,
-		},
+		transition:  &transitionIntent{activateKey: scope.Key},
 		inlineScope: &scope,
 	}, true
 }
 
-// analyzeBodyCall lowers a call of a sequence or stage with parameters to an instance.
-func analyzeBodyCall(
-	ctx acontext.Context[parser.IFunctionContext],
+// lowerUse lowers body at the place of ctx. An anonymous body lowers in place. A named
+// body lowers to a copy, with the arguments of a call at ctx bound.
+func lowerUse[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	body *symbol.Symbol,
 	kg *keyGenerator,
 	shell *shellBuilder,
-) (intent transitionIntent, called, ok bool) {
-	head, tail := parser.FunctionNameParts(ctx.AST)
-	body, err := ctx.Scope.ResolveMember(ctx, head, tail)
-	if err != nil || !body.IsParameterized() {
-		return transitionIntent{}, false, false
+) (ir.Scope, bool) {
+	if !body.IsTemplate() {
+		scope, nodes, edges, ok := lowerBody(ctx, body, kg, shell)
+		scope.Key = shell.scopeKey(body)
+		shell.inlineNodes = append(shell.inlineNodes, nodes...)
+		shell.edges = append(shell.edges, edges...)
+		return scope, ok
 	}
-	args, ok := bindArgs(ctx, body, kg, shell)
-	if !ok {
-		return transitionIntent{}, true, false
+	if seq, ok := body.AST.(parser.ISequenceDeclarationContext); ok &&
+		len(parser.BodyItems(seq.Body())) == 0 {
+		ctx.Diagnostics.Add(codes.EmptySequence.Atf(
+			ctx.AST, "sequence '%s' has no steps", body.Name,
+		))
+		return ir.Scope{}, false
+	}
+	var args map[*symbol.Symbol]argument
+	if call, ok := any(ctx.AST).(parser.IFunctionContext); ok {
+		if args, ok = bindArgs(ctx.Child(call), body, kg, shell); !ok {
+			return ir.Scope{}, false
+		}
 	}
 	// A declared name has no "$", so the key cannot match one.
 	key := kg.generate("$"+body.QualifiedName(), "")
-	if !instantiate(ctx, body, args, key, kg, shell) {
-		return transitionIntent{}, true, false
-	}
-	return transitionIntent{activateKey: key}, true, true
+	return instantiate(ctx, body, args, key, kg, shell)
 }
 
 // bindArgs returns the argument that the call binds to each parameter of body.
@@ -743,7 +724,8 @@ func follow(
 	return argument{variable: variable}, true
 }
 
-// instantiate lowers body as a root-level scope keyed key, with args bound.
+// instantiate lowers a copy of the named stage or sequence body, keyed key, with args
+// bound.
 func instantiate[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
 	body *symbol.Symbol,
@@ -751,22 +733,22 @@ func instantiate[T antlr.ParserRuleContext](
 	key string,
 	kg *keyGenerator,
 	shell *shellBuilder,
-) bool {
+) (ir.Scope, bool) {
 	defer shell.enter(key, args)()
 	collectVarNodes(body, kg, shell)
 	scope, nodes, edges, ok := lowerBody(ctx, body, kg, shell)
 	if !ok {
-		return false
+		return ir.Scope{}, false
 	}
 	scope.Key = key
 	finishDispatchers(ctx.WithScope(body), bodyDispatchers(body, shell), kg, shell)
-	shell.instances = append(shell.instances, scope)
 	shell.inlineNodes = append(shell.inlineNodes, nodes...)
 	shell.edges = append(shell.edges, edges...)
-	return true
+	return scope, true
 }
 
-// checkDeclaration reports the errors of a sequence or stage that only a call lowers.
+// checkDeclaration reports the errors of a named stage or sequence that only a use
+// lowers.
 func checkDeclaration[T identifierAST](
 	ctx acontext.Context[T],
 	shell *shellBuilder,
@@ -784,7 +766,8 @@ func checkDeclaration[T identifierAST](
 	scratch := newShellBuilder(shell.synthByAST)
 	scratch.varNodes = detachDispatchers(shell.varNodes)
 	kg := newKeyGenerator(new(ir.Functions), "")
-	return instantiate(ctx, body, args, body.QualifiedName(), kg, scratch)
+	_, ok = instantiate(ctx, body, args, body.QualifiedName(), kg, scratch)
+	return ok
 }
 
 // detachDispatchers returns varNodes with its own copy of each dispatcher.
@@ -826,11 +809,12 @@ func lowerBody[T antlr.ParserRuleContext](
 	kg *keyGenerator,
 	shell *shellBuilder,
 ) (ir.Scope, []ir.Node, []ir.Edge, bool) {
+	step := declaredAsStep(ctx.AST)
 	switch decl := body.AST.(type) {
 	case parser.IStageDeclarationContext:
-		return lowerStage(ctx.Child(decl), body, kg, shell)
+		return lowerStage(ctx.Child(decl), body, step, kg, shell)
 	case parser.ISequenceDeclarationContext:
-		return lowerSequence(ctx.Child(decl), body, kg, shell)
+		return lowerSequence(ctx.Child(decl), body, step, kg, shell)
 	}
 	ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
 		"internal: '%s' declares no sequence or stage", body.Name))
@@ -972,8 +956,8 @@ func collectVarNodes(s *symbol.Symbol, kg *keyGenerator, shell *shellBuilder) {
 		if c.Kind == symbol.KindModuleAlias {
 			continue
 		}
-		// A sequence or stage with parameters gets its variable nodes in each instance.
-		if c.IsParameterized() {
+		// A named stage or sequence gets its variable nodes in each copy.
+		if c.IsTemplate() {
 			continue
 		}
 		if c.Reassigned && isConstVar(c) {
@@ -1583,45 +1567,15 @@ func buildVarConstNode(sym *symbol.Symbol, kg *keyGenerator) nodeResult {
 	return newNodeResult(n, ir.DefaultInputParam, ir.DefaultOutputParam)
 }
 
-// analyzeNamedRef builds a transition intent for `=> X` where X is a named
-// stage or sequence. Resolution is lexical:
-//
-//  1. Walk the shell stack innermost-first; the first enclosing sequence
-//     frame that has X as a direct member owns the transition (same-level
-//     sibling jump — works across any number of intermediate stages or
-//     nested sequences because deactivation cascades to nested scopes).
-//  2. If no enclosing frame owns X, X must be a top-level scope (declared
-//     directly under the file root). Register a cross-scope activation.
-//  3. Otherwise, X is unreachable — emit a diagnostic.
-//
-// An imported X is keyed by its module path, so no local scope binds it. The jump
-// or activation lands on the linked module scope.
-//
-// This rule makes sequences behave as black boxes from the outside: you can
-// jump around inside your own nesting, you can call a top-level neighbor at
-// its front door, but you cannot reach across a structural boundary to land
-// on some other sequence's internal step.
+// analyzeNamedRef builds a transition intent for `=> X` where X is a step of an
+// enclosing sequence. The innermost sequence that has the step X owns the transition.
 func analyzeNamedRef(
 	ctx acontext.Context[parser.IIdentifierContext],
 	sym *symbol.Symbol,
 	shell *shellBuilder,
 ) (transitionIntent, bool) {
-	if sym.Root() != ctx.Scope.Root() {
-		return transitionIntent{activateKey: sym.QualifiedName()}, true
-	}
 	if frame := shell.resolveTargetFrame(sym.Name); frame != nil {
 		return transitionIntent{memberKey: sym.Name, targetFrame: frame}, true
-	}
-	if isRootLevelScope(sym) {
-		if seqDecl, ok := sym.AST.(parser.ISequenceDeclarationContext); ok {
-			if len(seqDecl.AllSequenceItem()) == 0 {
-				ctx.Diagnostics.Add(codes.EmptySequence.Atf(
-					ctx.AST, "sequence '%s' has no steps", sym.Name,
-				))
-				return transitionIntent{}, false
-			}
-		}
-		return transitionIntent{activateKey: sym.QualifiedName()}, true
 	}
 	ctx.Diagnostics.Add(codes.TransitionTarget.Atf(
 		ctx.AST,
@@ -1630,22 +1584,6 @@ func analyzeNamedRef(
 		sym.Name,
 	))
 	return transitionIntent{}, false
-}
-
-// isRootLevelScope reports whether sym is declared directly under the file
-// root (i.e., a top-level sequence or stage). Uses a structural parent
-// check so anonymous/auto-named wrapper scopes don't misclassify. The
-// user program root's Parent is either nil (no ambient) or KindAmbient
-// (the STL prelude).
-func isRootLevelScope(sym *symbol.Symbol) bool {
-	if sym == nil || sym.Parent == nil {
-		return false
-	}
-	parent := sym.Parent
-	if parent.Parent != nil && parent.Parent.Kind != symbol.KindAmbient {
-		return false
-	}
-	return sym.Kind == symbol.KindSequence || sym.Kind == symbol.KindStage
 }
 
 func buildChannelReadNode(
@@ -1689,35 +1627,19 @@ func buildChannelWriteNode(
 	return newNodeResult(n, ir.DefaultInputParam, ir.DefaultOutputParam), true
 }
 
-// analyzeNextToken emits a transition intent that advances the enclosing
-// sequence to the next sibling member. The target member is resolved against
-// the innermost sequence frame at intent-consumption time.
+// analyzeNextToken emits the intent of `next`, which ends the stage that holds it or
+// completes the step that holds it.
 func analyzeNextToken(
 	ctx acontext.Context[parser.IFlowNodeContext],
 	shell *shellBuilder,
 ) (flowNodeResult, bool) {
-	if shell.inlineBoundaryBlocksNext() {
-		ctx.Diagnostics.Add(codes.TransitionTarget.Atf(ctx.AST,
-			"'next' is not valid inside an inline routing case body"))
-		return flowNodeResult{}, false
-	}
-	frame := shell.top()
-	if frame == nil {
-		ctx.Diagnostics.Add(
-			codes.TransitionTarget.Atf(ctx.AST, "'next' used outside of a sequence"),
-		)
-		return flowNodeResult{}, false
-	}
-	if frame.nextMember() == "" {
+	if shell.exits == nil && shell.top() == nil {
 		ctx.Diagnostics.Add(codes.TransitionTarget.Atf(
-			ctx.AST,
-			"'next' in last stage '%s' has no next stage",
-			frame.memberKeys[frame.activeIdx],
+			ctx.AST, "'next' used outside of a stage or sequence",
 		))
 		return flowNodeResult{}, false
 	}
-	intent := transitionIntent{isNext: true}
-	return flowNodeResult{transition: &intent}, true
+	return flowNodeResult{transition: &transitionIntent{isNext: true}}, true
 }
 
 func analyzeFunctionNode(
@@ -2009,9 +1931,6 @@ func analyzeUnit(
 	// still registers in the program's global node and edge lists.
 	i.Nodes = append(i.Nodes, shell.inlineNodes...)
 	appendDispatcherFunctions(aCtx, root, kg, shell)
-	for n := range shell.instances {
-		rootMembers = append(rootMembers, ir.Member{Scope: &shell.instances[n]})
-	}
 	rootMembers = appendRootNodes(&i, rootMembers, shell.rootNodes)
 	i.Edges = append(i.Edges, shell.edges...)
 
@@ -2021,7 +1940,7 @@ func analyzeUnit(
 
 	bound := set.New[string]()
 	bindActivations(&i.Root, shell.activations, bound)
-	link(&i, units, shell, bound)
+	link(&i, units)
 	checkActivationsBound(aCtx, shell.activations, bound)
 	if d := resolveAndStratify(aCtx, &i, deps, module); d != nil {
 		return unit{ir: i}, d
@@ -2078,10 +1997,8 @@ func appendRootNodes(i *ir.IR, members ir.Members, nodes []*ir.Node) ir.Members 
 	return members
 }
 
-// checkActivationsBound is a safety net: analyzeNamedRef should reject any `=> X`
-// whose X is neither an enclosing-sequence member nor a top-level scope, so every
-// registered activation should bind. If one does not, something upstream
-// registered an activation without going through analyzeNamedRef.
+// checkActivationsBound is a safety net: a flow that starts a stage or sequence
+// places its scope in the scope that holds the flow, so every activation binds.
 func checkActivationsBound(
 	aCtx acontext.Context[parser.IProgramContext],
 	activations map[string][]ir.Activation,
@@ -2091,8 +2008,7 @@ func checkActivationsBound(
 		if !bound.Contains(key) {
 			aCtx.Diagnostics.Add(diagnostics.Errorf(
 				aCtx.AST,
-				"internal: activation target '%s' did not bind to any "+
-					"scope; this should have been rejected by analyzeNamedRef",
+				"internal: activation target '%s' did not bind to any scope",
 				key,
 			))
 		}
@@ -2150,28 +2066,19 @@ func lowerTopLevelItem(
 		}
 		return append(members, inlineMembers...), nodes, edges, true
 	}
-	if seqDecl := item.SequenceDeclaration(); seqDecl != nil {
-		// A declaration with parameters adds nothing to the program here.
-		if seqDecl.InputList() != nil {
-			return nil, nil, nil, checkDeclaration(aCtx.Child(seqDecl), shell)
-		}
-		seqScope, nodes, edges, ok := analyzeSequence(aCtx.Child(seqDecl), kg, shell)
-		if !ok {
-			return nil, nil, nil, false
-		}
-		return ir.Members{{Scope: &seqScope}}, nodes, edges, true
+	decl := declarationOf(item)
+	if decl == nil {
+		return nil, nil, nil, true
 	}
-	if stageDecl := item.StageDeclaration(); stageDecl != nil {
-		if stageDecl.InputList() != nil {
-			return nil, nil, nil, checkDeclaration(aCtx.Child(stageDecl), shell)
-		}
-		stgScope, nodes, edges, ok := analyzeStage(aCtx.Child(stageDecl), kg, shell)
-		if !ok {
-			return nil, nil, nil, false
-		}
-		return ir.Members{{Scope: &stgScope}}, nodes, edges, true
+	// A named declaration is a template, and each use lowers a copy of it.
+	if decl.IDENTIFIER() != nil {
+		return nil, nil, nil, checkDeclaration(aCtx.Child(decl), shell)
 	}
-	return nil, nil, nil, true
+	scope, nodes, edges, ok := lowerDeclaration(aCtx.Child(decl), kg, shell)
+	if !ok {
+		return nil, nil, nil, false
+	}
+	return ir.Members{{Scope: &scope}}, nodes, edges, true
 }
 
 // appendDispatcherFunctions gives each reassigned variable's dispatcher in root its
@@ -2192,9 +2099,9 @@ func appendDispatcherFunctions(
 	finishDispatchers(aCtx, disps, kg, shell)
 }
 
-// bindActivations stamps each deferred activation (`trigger => main`, or an
-// inline body gated by its upstream handle) onto the matching scope member under
-// s, and adds the key of each bound scope to bound.
+// bindActivations stamps each deferred activation of a stage or sequence that a flow
+// starts onto the matching scope member under s, and adds the key of each bound
+// scope to bound.
 func bindActivations(
 	s *ir.Scope,
 	activations map[string][]ir.Activation,
@@ -2940,30 +2847,6 @@ func collectSynthByAST(root *symbol.Symbol) map[antlr.ParserRuleContext]*symbol.
 	return m
 }
 
-// processInlineBody lowers an inline stage/sequence body to IR with the current
-// shell stack live, returning the gated scope for the caller to place in its
-// lexically enclosing scope.
-func processInlineBody(
-	ctx acontext.Context[parser.IFlowNodeContext],
-	synth *symbol.Symbol,
-	kg *keyGenerator,
-	shell *shellBuilder,
-) (ir.Scope, bool) {
-	shell.inlineBodyBases = append(shell.inlineBodyBases, len(shell.stack))
-	defer func() {
-		shell.inlineBodyBases = shell.inlineBodyBases[:len(shell.inlineBodyBases)-1]
-	}()
-	scope, nodes, edges, ok := lowerBody(ctx, synth, kg, shell)
-	if !ok {
-		return ir.Scope{}, false
-	}
-	scope.Key = shell.scopeKey(synth)
-	scope.Liveness = ir.LivenessGated
-	shell.inlineNodes = append(shell.inlineNodes, nodes...)
-	shell.edges = append(shell.edges, edges...)
-	return scope, true
-}
-
 // flowOperatorEdgeKind maps a flow operator to its edge kind:
 // `=>` conditional, `->` continuous.
 func flowOperatorEdgeKind(op parser.IFlowOperatorContext) ir.EdgeKind {
@@ -3089,28 +2972,21 @@ func analyzeOutputRoutingTable(
 // stepInfo collects metadata about a step for computing member keys.
 type stepInfo struct {
 	key  string
-	item parser.ISequenceItemContext
+	item parser.IBodyItemContext
 }
 
 // collectStepKeys pre-scans a sequence's items to compute their member keys.
 // Named stages and nested sequences keep their source-level name; anonymous
 // flow and single-invocation steps receive a synthesized "step_N" key.
-func collectStepKeys(items []parser.ISequenceItemContext) []stepInfo {
+func collectStepKeys(items []parser.IBodyItemContext) []stepInfo {
 	steps := make([]stepInfo, 0, len(items))
 	for i, item := range items {
 		if item.VariableDeclaration() != nil {
 			continue
 		}
 		key := fmt.Sprintf("step_%d", i)
-		if stageDecl := item.StageDeclaration(); stageDecl != nil {
-			if id := stageDecl.IDENTIFIER(); id != nil {
-				key = id.GetText()
-			}
-		}
-		if nestedSeq := item.SequenceDeclaration(); nestedSeq != nil {
-			if id := nestedSeq.IDENTIFIER(); id != nil {
-				key = id.GetText()
-			}
+		if decl := declarationOf(item); decl != nil && decl.IDENTIFIER() != nil {
+			key = decl.IDENTIFIER().GetText()
 		}
 		steps = append(steps, stepInfo{key: key, item: item})
 	}
@@ -3175,12 +3051,12 @@ func autoWireTransition(
 	})
 }
 
-// declaredAsStep reports whether decl sits in a step position: its nearest
-// enclosing block is a sequence body rather than a stage body.
-func declaredAsStep(decl antlr.ParserRuleContext) bool {
-	for n := decl.GetParent(); n != nil; n = n.GetParent() {
+// declaredAsStep reports whether node sits in a step position: the nearest stage or
+// sequence that holds it is a sequence.
+func declaredAsStep(node antlr.ParserRuleContext) bool {
+	for n := node.GetParent(); n != nil; n = n.GetParent() {
 		switch n.(type) {
-		case parser.IStageBodyContext:
+		case parser.IStageDeclarationContext:
 			return false
 		case parser.ISequenceDeclarationContext:
 			return true
@@ -3189,24 +3065,25 @@ func declaredAsStep(decl antlr.ParserRuleContext) bool {
 	return false
 }
 
-// analyzeSequence resolves the scope of a sequence declaration and lowers it.
-func analyzeSequence(
-	ctx acontext.Context[parser.ISequenceDeclarationContext],
+// lowerDeclaration lowers the stage or sequence that ctx declares, in place.
+func lowerDeclaration[T identifierAST](
+	ctx acontext.Context[T],
 	kg *keyGenerator,
 	shell *shellBuilder,
 ) (ir.Scope, []ir.Node, []ir.Edge, bool) {
-	seqScope, ok := resolveDeclScope(ctx)
+	body, ok := resolveDeclScope(ctx)
 	if !ok {
 		return ir.Scope{}, nil, nil, false
 	}
-	return lowerSequence(ctx, seqScope, kg, shell)
+	return lowerBody(ctx, body, kg, shell)
 }
 
-// lowerSequence lowers a sequence declaration to a sequential scope. A sequence in a
-// step position escalates its completion to enclosing frames.
+// lowerSequence lowers a sequence declaration to a sequential scope. A sequence that
+// is a step escalates its completion to enclosing frames.
 func lowerSequence(
 	ctx acontext.Context[parser.ISequenceDeclarationContext],
 	seqScope *symbol.Symbol,
+	step bool,
 	kg *keyGenerator,
 	shell *shellBuilder,
 ) (ir.Scope, []ir.Node, []ir.Edge, bool) {
@@ -3225,7 +3102,7 @@ func lowerSequence(
 		allEdges []ir.Edge
 	)
 	ctx = ctx.WithScope(seqScope)
-	items := ctx.AST.AllSequenceItem()
+	items := parser.BodyItems(ctx.AST.Body())
 	for _, item := range items {
 		if decl := item.VariableDeclaration(); decl != nil {
 			e, ok := lowerVarDecl(ctx.Child(decl), kg, shell)
@@ -3247,9 +3124,9 @@ func lowerSequence(
 	}
 
 	frame := shell.pushSeq(seqName, memberKeys)
-	frame.escalatesCompletion = declaredAsStep(ctx.AST)
+	frame.escalatesCompletion = step
 	defer shell.popSeq()
-	defer shell.ownJumps(&frame.transitions)()
+	defer shell.ownExits(nil)()
 
 	for i, si := range steps {
 		frame.activeIdx = i
@@ -3274,37 +3151,23 @@ func lowerStep(
 	kg *keyGenerator,
 	shell *shellBuilder,
 ) (ir.Members, []ir.Node, []ir.Edge, bool) {
-	if stageDecl := si.item.StageDeclaration(); stageDecl != nil {
-		stgScope, nodes, edges, ok := analyzeStage(ctx.Child(stageDecl), kg, shell)
+	if decl := declarationOf(si.item); decl != nil {
+		scope, nodes, edges, ok := lowerDeclaration(ctx.Child(decl), kg, shell)
 		if !ok {
 			return nil, nil, nil, false
 		}
-		// Anonymous inline stages inherit the synthesized step key as
-		// their own Key so Member.Key() is derivable from the scope.
-		if stageDecl.IDENTIFIER() == nil {
-			stgScope.Key = si.key
+		// An anonymous step takes the key that the steps before it address.
+		if decl.IDENTIFIER() == nil {
+			scope.Key = si.key
 		}
-		return ir.Members{{Scope: &stgScope}}, nodes, edges, true
+		return ir.Members{{Scope: &scope}}, nodes, edges, true
 	}
-	if nestedSeqDecl := si.item.SequenceDeclaration(); nestedSeqDecl != nil {
-		nestedScope, nodes, edges, ok := analyzeSequence(
-			ctx.Child(nestedSeqDecl),
-			kg,
-			shell,
-		)
-		if !ok {
-			return nil, nil, nil, false
+	if single := si.item.SingleInvocation(); single != nil {
+		if use := useOf(single); flow.UsedBody(ctx, use) != nil {
+			scope, ok := lowerUse(ctx.Child(use), flow.UsedBody(ctx, use), kg, shell)
+			scope.Key = si.key
+			return ir.Members{{Scope: &scope}}, nil, nil, ok
 		}
-		// Anonymous inline nested sequences must use the outer's
-		// synthesized step key so autoWireTransition from the preceding
-		// flow step can address them; analyzeSequence otherwise stamps
-		// the scope.Key with an AutoName (seq_N) that does not match
-		// collectStepKeys' step_N. Named nested sequences keep their
-		// source-level name.
-		if nestedSeqDecl.IDENTIFIER() == nil {
-			nestedScope.Key = si.key
-		}
-		return ir.Members{{Scope: &nestedScope}}, nodes, edges, true
 	}
 	return lowerLeafStep(ctx, si, nextKey, kg, shell)
 }
@@ -3370,23 +3233,12 @@ func lowerLeafStep(
 	return nil, nil, nil, true
 }
 
-// analyzeStage resolves the scope of a stage declaration and lowers it.
-func analyzeStage(
-	ctx acontext.Context[parser.IStageDeclarationContext],
-	kg *keyGenerator,
-	shell *shellBuilder,
-) (ir.Scope, []ir.Node, []ir.Edge, bool) {
-	stageScope, ok := resolveDeclScope(ctx)
-	if !ok {
-		return ir.Scope{}, nil, nil, false
-	}
-	return lowerStage(ctx, stageScope, kg, shell)
-}
-
-// lowerStage lowers a stage declaration to a parallel scope.
+// lowerStage lowers a stage declaration to a parallel scope. A stage that is not a
+// step holds the exits that `next` makes.
 func lowerStage(
 	ctx acontext.Context[parser.IStageDeclarationContext],
 	stageScope *symbol.Symbol,
+	step bool,
 	kg *keyGenerator,
 	shell *shellBuilder,
 ) (ir.Scope, []ir.Node, []ir.Edge, bool) {
@@ -3405,15 +3257,13 @@ func lowerStage(
 		members []ir.Member
 	)
 
-	stageBody := ctx.AST.StageBody()
-	if stageBody == nil {
-		return scope, nodes, edges, true
+	var exits *[]ir.Transition
+	if !step {
+		exits = &scope.Transitions
 	}
-
-	var jumps []ir.Transition
-	defer shell.ownJumps(&jumps)()
+	defer shell.ownExits(exits)()
 	ctx = ctx.WithScope(stageScope)
-	for _, item := range stageBody.AllStageItem() {
+	for _, item := range parser.BodyItems(ctx.AST.Body()) {
 		itemMembers, itemNodes, itemEdges, ok := lowerStageItem(ctx, item, kg, shell)
 		if !ok {
 			return ir.Scope{}, nil, nil, false
@@ -3427,14 +3277,13 @@ func lowerStage(
 	if len(members) > 0 {
 		scope.Strata = []ir.Members{members}
 	}
-	scope.Transitions = jumps
 	return scope, nodes, edges, true
 }
 
 // lowerStageItem lowers one item of a stage body to its members, nodes, and edges.
 func lowerStageItem(
 	ctx acontext.Context[parser.IStageDeclarationContext],
-	item parser.IStageItemContext,
+	item parser.IBodyItemContext,
 	kg *keyGenerator,
 	shell *shellBuilder,
 ) (ir.Members, []ir.Node, []ir.Edge, bool) {
@@ -3471,6 +3320,12 @@ func lowerStageItem(
 		return members, aNodes, aEdges, true
 	}
 	if single := item.SingleInvocation(); single != nil {
+		if use := useOf(single); flow.UsedBody(ctx, use) != nil {
+			scope, ok := lowerUse(ctx.Child(use), flow.UsedBody(ctx, use), kg, shell)
+			// A body with no trigger runs while the stage that holds it runs.
+			scope.Liveness = ir.LivenessAlways
+			return ir.Members{{Scope: &scope}}, nil, nil, ok
+		}
 		nodes, ok := analyzeSingleInvocation(ctx.Child(single), kg, shell)
 		if !ok {
 			return nil, nil, nil, false
@@ -3480,18 +3335,22 @@ func lowerStageItem(
 		}
 		return members, nodes, nil, true
 	}
-	if nestedSeqDecl := item.SequenceDeclaration(); nestedSeqDecl != nil {
-		subScope, nodes, edges, ok := analyzeSequence(
-			ctx.Child(nestedSeqDecl),
-			kg,
-			shell,
-		)
+	if decl := declarationOf(item); decl != nil {
+		scope, nodes, edges, ok := lowerDeclaration(ctx.Child(decl), kg, shell)
 		if !ok {
 			return nil, nil, nil, false
 		}
-		return ir.Members{{Scope: &subScope}}, nodes, edges, true
+		return ir.Members{{Scope: &scope}}, nodes, edges, true
 	}
 	return nil, nil, nil, true
+}
+
+// useOf returns the name or the call of a bare item.
+func useOf(single parser.ISingleInvocationContext) antlr.ParserRuleContext {
+	if fn := single.Function(); fn != nil {
+		return fn
+	}
+	return single.Expression()
 }
 
 // analyzeSingleInvocation lowers a bare call or expression step, with its node last. A

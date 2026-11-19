@@ -67,17 +67,14 @@ type ArcParserListener interface {
 	// EnterSequenceDeclaration is called when entering the sequenceDeclaration production.
 	EnterSequenceDeclaration(c *SequenceDeclarationContext)
 
-	// EnterSequenceItem is called when entering the sequenceItem production.
-	EnterSequenceItem(c *SequenceItemContext)
-
 	// EnterStageDeclaration is called when entering the stageDeclaration production.
 	EnterStageDeclaration(c *StageDeclarationContext)
 
-	// EnterStageBody is called when entering the stageBody production.
-	EnterStageBody(c *StageBodyContext)
+	// EnterBody is called when entering the body production.
+	EnterBody(c *BodyContext)
 
-	// EnterStageItem is called when entering the stageItem production.
-	EnterStageItem(c *StageItemContext)
+	// EnterBodyItem is called when entering the bodyItem production.
+	EnterBodyItem(c *BodyItemContext)
 
 	// EnterSingleInvocation is called when entering the singleInvocation production.
 	EnterSingleInvocation(c *SingleInvocationContext)
@@ -301,17 +298,14 @@ type ArcParserListener interface {
 	// ExitSequenceDeclaration is called when exiting the sequenceDeclaration production.
 	ExitSequenceDeclaration(c *SequenceDeclarationContext)
 
-	// ExitSequenceItem is called when exiting the sequenceItem production.
-	ExitSequenceItem(c *SequenceItemContext)
-
 	// ExitStageDeclaration is called when exiting the stageDeclaration production.
 	ExitStageDeclaration(c *StageDeclarationContext)
 
-	// ExitStageBody is called when exiting the stageBody production.
-	ExitStageBody(c *StageBodyContext)
+	// ExitBody is called when exiting the body production.
+	ExitBody(c *BodyContext)
 
-	// ExitStageItem is called when exiting the stageItem production.
-	ExitStageItem(c *StageItemContext)
+	// ExitBodyItem is called when exiting the bodyItem production.
+	ExitBodyItem(c *BodyItemContext)
 
 	// ExitSingleInvocation is called when exiting the singleInvocation production.
 	ExitSingleInvocation(c *SingleInvocationContext)

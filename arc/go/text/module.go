@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/x/diagnostics"
-	"github.com/synnaxlabs/x/set"
 )
 
 // LoaderConfig configures a Loader.
@@ -144,20 +143,14 @@ func LoadedPaths(root *symbol.Symbol) []string {
 }
 
 // link appends each unit's program to i. A module's top-level members join the
-// root stratum, and a pending activation binds to the module scope it names.
-func link(i *ir.IR, units []*unit, shell *shellBuilder, bound set.Set[string]) {
+// root stratum.
+func link(i *ir.IR, units []*unit) {
 	for _, u := range units {
 		i.Functions = append(i.Functions, u.ir.Functions...)
 		i.Nodes = append(i.Nodes, u.ir.Nodes...)
 		i.Edges = append(i.Edges, u.ir.Edges...)
 		for _, stratum := range u.ir.Root.Strata {
 			for _, m := range stratum {
-				if m.Scope != nil {
-					if a, ok := shell.activations[m.Scope.Key]; ok {
-						m.Scope.Activations = a
-						bound.Add(m.Scope.Key)
-					}
-				}
 				if len(i.Root.Strata) == 0 {
 					i.Root.Strata = []ir.Members{nil}
 				}

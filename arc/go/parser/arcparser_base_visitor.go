@@ -84,19 +84,15 @@ func (v *BaseArcParserVisitor) VisitSequenceDeclaration(ctx *SequenceDeclaration
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseArcParserVisitor) VisitSequenceItem(ctx *SequenceItemContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
 func (v *BaseArcParserVisitor) VisitStageDeclaration(ctx *StageDeclarationContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseArcParserVisitor) VisitStageBody(ctx *StageBodyContext) interface{} {
+func (v *BaseArcParserVisitor) VisitBody(ctx *BodyContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseArcParserVisitor) VisitStageItem(ctx *StageItemContext) interface{} {
+func (v *BaseArcParserVisitor) VisitBodyItem(ctx *BodyItemContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 

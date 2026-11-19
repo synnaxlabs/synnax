@@ -131,29 +131,23 @@ func (s *BaseArcParserListener) EnterSequenceDeclaration(ctx *SequenceDeclaratio
 // ExitSequenceDeclaration is called when production sequenceDeclaration is exited.
 func (s *BaseArcParserListener) ExitSequenceDeclaration(ctx *SequenceDeclarationContext) {}
 
-// EnterSequenceItem is called when production sequenceItem is entered.
-func (s *BaseArcParserListener) EnterSequenceItem(ctx *SequenceItemContext) {}
-
-// ExitSequenceItem is called when production sequenceItem is exited.
-func (s *BaseArcParserListener) ExitSequenceItem(ctx *SequenceItemContext) {}
-
 // EnterStageDeclaration is called when production stageDeclaration is entered.
 func (s *BaseArcParserListener) EnterStageDeclaration(ctx *StageDeclarationContext) {}
 
 // ExitStageDeclaration is called when production stageDeclaration is exited.
 func (s *BaseArcParserListener) ExitStageDeclaration(ctx *StageDeclarationContext) {}
 
-// EnterStageBody is called when production stageBody is entered.
-func (s *BaseArcParserListener) EnterStageBody(ctx *StageBodyContext) {}
+// EnterBody is called when production body is entered.
+func (s *BaseArcParserListener) EnterBody(ctx *BodyContext) {}
 
-// ExitStageBody is called when production stageBody is exited.
-func (s *BaseArcParserListener) ExitStageBody(ctx *StageBodyContext) {}
+// ExitBody is called when production body is exited.
+func (s *BaseArcParserListener) ExitBody(ctx *BodyContext) {}
 
-// EnterStageItem is called when production stageItem is entered.
-func (s *BaseArcParserListener) EnterStageItem(ctx *StageItemContext) {}
+// EnterBodyItem is called when production bodyItem is entered.
+func (s *BaseArcParserListener) EnterBodyItem(ctx *BodyItemContext) {}
 
-// ExitStageItem is called when production stageItem is exited.
-func (s *BaseArcParserListener) ExitStageItem(ctx *StageItemContext) {}
+// ExitBodyItem is called when production bodyItem is exited.
+func (s *BaseArcParserListener) ExitBodyItem(ctx *BodyItemContext) {}
 
 // EnterSingleInvocation is called when production singleInvocation is entered.
 func (s *BaseArcParserListener) EnterSingleInvocation(ctx *SingleInvocationContext) {}

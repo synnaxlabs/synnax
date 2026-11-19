@@ -351,7 +351,7 @@ var _ = Describe("Context", func() {
 				analyzer.AnalyzeProgram(ctx)
 				seqDecl := ast.AllTopLevelItem()[0].SequenceDeclaration()
 				seqScope := MustSucceed(ctx.Scope.Resolve(ctx, "main"))
-				stageDecl := seqDecl.AllSequenceItem()[0].StageDeclaration()
+				stageDecl := seqDecl.Body().AllBodyItem()[0].StageDeclaration()
 				scope := MustSucceed(analyzerContext.ResolveOwnScope(
 					ctx.Child(stageDecl).WithScope(seqScope),
 				))

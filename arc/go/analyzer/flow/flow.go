@@ -40,6 +40,9 @@ func freshenKey(node antlr.ParserRuleContext, name string) string {
 }
 
 func AnalyzeSingleFunction(ctx context.Context[parser.IFunctionContext]) {
+	if analyzeBodyCall(ctx) {
+		return
+	}
 	funcType, name := resolveFunc(ctx, ctx.AST)
 	if funcType == nil {
 		return
@@ -423,10 +426,7 @@ func analyzeIdentifier(
 		return
 	}
 	if sym.IsParameterized() {
-		ctx.Diagnostics.Add(
-			codes.TransitionTarget.Atf(ctx.AST, "%s has parameters", name).
-				WithNote("use " + name + "()"),
-		)
+		ctx.Diagnostics.Add(needsCall(ctx.AST, name))
 		return
 	}
 	// Any other symbol would lower to a read or write of a channel that does not exist.

@@ -10,12 +10,14 @@
 package flow
 
 import (
+	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/expression"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/diagnostics"
 )
 
 // analyzeBodyCall checks a call of a sequence or stage, if ctx is one.
@@ -57,6 +59,51 @@ func analyzeBodyCall(ctx context.Context[parser.IFunctionContext]) bool {
 		expression.AnalyzeCall(ctx, noun, name, body.Type, args, nil, ctx.AST, "")
 	}
 	return true
+}
+
+// UsedBody returns the named stage or sequence that node uses, or nil. The node is a
+// name or a call, in a flow or as an item of a stage or sequence.
+func UsedBody[T antlr.ParserRuleContext](
+	ctx context.Context[T],
+	node antlr.ParserRuleContext,
+) *symbol.Symbol {
+	var head, tail string
+	switch n := node.(type) {
+	case parser.IIdentifierContext:
+		head, tail = parser.IdentifierParts(n)
+	case parser.IFunctionContext:
+		head, tail = parser.FunctionNameParts(n)
+	case parser.IExpressionContext:
+		head, tail = parser.ExpressionNameParts(n)
+	}
+	if head == "" {
+		return nil
+	}
+	// ResolveQualified would warn about a deprecated name a second time.
+	body, err := ctx.Scope.ResolveMember(ctx, head, tail)
+	if err != nil || !body.IsTemplate() {
+		return nil
+	}
+	return body
+}
+
+// AnalyzeBodyName checks a name that is an item of a stage or sequence, if it names a
+// stage or sequence.
+func AnalyzeBodyName(ctx context.Context[parser.IExpressionContext]) bool {
+	body := UsedBody(ctx, ctx.AST)
+	if body == nil {
+		return false
+	}
+	if body.IsParameterized() {
+		ctx.Diagnostics.Add(needsCall(ctx.AST, parser.GetExpressionText(ctx.AST)))
+	}
+	return true
+}
+
+// needsCall returns the diagnostic for the bare name of a body with parameters.
+func needsCall(node antlr.ParserRuleContext, name string) diagnostics.Diagnostic {
+	return codes.TransitionTarget.Atf(node, "%s has parameters", name).
+		WithNote("use " + name + "()")
 }
 
 // BodyNoun returns the word that names body in a diagnostic: "stage" or "sequence".

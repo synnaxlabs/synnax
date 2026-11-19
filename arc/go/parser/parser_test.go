@@ -810,8 +810,8 @@ any(ox_pt_1, ox_pt_2) -> average() -> ox_pt_avg`)
 
 		It("Should parse a stage item call as a function", func() {
 			prog := mustParseProgram(`stage s { time.wait(2s) }`)
-			body := prog.TopLevelItem(0).StageDeclaration().StageBody()
-			Expect(body.StageItem(0).SingleInvocation().Function()).NotTo(BeNil())
+			body := prog.TopLevelItem(0).StageDeclaration().Body()
+			Expect(body.BodyItem(0).SingleInvocation().Function()).NotTo(BeNil())
 		})
 
 		It("Should reject the brace instantiation form", func() {
@@ -2096,7 +2096,7 @@ sequence main(limit f64, valve chan f64) {
 				stage := prog.TopLevelItem(0).StageDeclaration()
 				Expect(stage.IDENTIFIER().GetText()).To(Equal("hold"))
 				Expect(stage.InputList().AllInput()).To(HaveLen(1))
-				Expect(stage.StageBody().AllStageItem()).To(HaveLen(1))
+				Expect(stage.Body().AllBodyItem()).To(HaveLen(1))
 			})
 
 			It("Should parse a default and a trailing comma", func() {
@@ -2178,7 +2178,7 @@ sequence seq {
 
 				stage := stages[0]
 				Expect(stage.IDENTIFIER().GetText()).To(Equal("hold"))
-				Expect(stage.StageBody().AllStageItem()).To(HaveLen(2))
+				Expect(stage.Body().AllBodyItem()).To(HaveLen(2))
 			})
 
 			It("Should parse stage with single transition", func() {
@@ -2191,8 +2191,8 @@ sequence seq {
 				seq := prog.TopLevelItem(0).SequenceDeclaration()
 				stages := allStageDecls(seq)
 				stage := stages[0]
-				body := stage.StageBody()
-				items := body.AllStageItem()
+				body := stage.Body()
+				items := body.AllBodyItem()
 				Expect(items).To(HaveLen(1))
 
 				// Check flow statement with transition operator
@@ -2222,7 +2222,7 @@ sequence seq {
 				stage := stages[0]
 				Expect(stage.IDENTIFIER().GetText()).To(Equal("test"))
 
-				items := stage.StageBody().AllStageItem()
+				items := stage.Body().AllBodyItem()
 				Expect(items).To(HaveLen(3))
 			})
 		})
@@ -2263,7 +2263,7 @@ sequence main {
 					stages := allStageDecls(seq)
 					Expect(stages).To(HaveLen(1))
 					Expect(
-						stages[0].StageBody().AllStageItem(),
+						stages[0].Body().AllBodyItem(),
 					).To(HaveLen(expectedItems))
 				},
 				Entry("newline-separated transitions, no commas", `
@@ -2325,7 +2325,7 @@ sequence seq {
 				func(code string, expectedItems int) {
 					prog := mustParseProgram(code)
 					seq := prog.TopLevelItem(0).SequenceDeclaration()
-					Expect(seq.AllSequenceItem()).To(HaveLen(expectedItems))
+					Expect(seq.Body().AllBodyItem()).To(HaveLen(expectedItems))
 				},
 				Entry("newline-separated, no commas (legacy form)", `
 sequence main {
@@ -2522,7 +2522,7 @@ func allStageDecls(
 	seq parser.ISequenceDeclarationContext,
 ) []parser.IStageDeclarationContext {
 	var stages []parser.IStageDeclarationContext
-	for _, item := range seq.AllSequenceItem() {
+	for _, item := range seq.Body().AllBodyItem() {
 		if s := item.StageDeclaration(); s != nil {
 			stages = append(stages, s)
 		}
