@@ -172,7 +172,7 @@ const RESOURCE_CHANNELS: Record<resource.Type, resource.Channels | null> = {
     certificate.ACTION_CHANNEL_NAME,
     certificate.DELETE_CHANNEL_NAME,
   ),
-  channel: changes(channel.SET_CHANNEL_NAME, channel.DELETE_CHANNEL_NAME),
+  channel: changes(channel.ACTION_CHANNEL_NAME, channel.DELETE_CHANNEL_NAME),
   color: changes(color.ACTION_CHANNEL_NAME, color.DELETE_CHANNEL_NAME),
   device: changes(device.ACTION_CHANNEL_NAME, device.DELETE_CHANNEL_NAME),
   enumeration: changes(
