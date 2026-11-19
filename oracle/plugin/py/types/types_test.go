@@ -173,6 +173,18 @@ var _ = Describe("Python Types Plugin", func() {
 					ToNotContain("field_validator")
 			})
 
+			It("Should take the operator input on a typed line of an operator", func() {
+				resp := MustGenerate(thing+`
+					Where filter Thing {
+						key
+						built_in filter.Bool
+					}
+				`, "thing", loader, typesPlugin)
+				ExpectContent(resp, "thing/types_gen.py").
+					ToContain("\"built_in\": filter.BoolInput},").
+					ToNotContain("field_validator")
+			})
+
 			It("Should read a typed list line from one value", func() {
 				resp := MustGenerate(thing+`
 					Where filter Thing {

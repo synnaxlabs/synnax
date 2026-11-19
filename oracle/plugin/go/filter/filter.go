@@ -241,10 +241,13 @@ func generateFile(
 	for _, line := range where.Filter.Lines {
 		field := lo.Must(form.Field(line.Name))
 		var ld lineData
-		if line.HasType() {
-			ld, err = typedLine(where, line, field, funcs, table)
-		} else {
+		switch {
+		case !line.HasType():
 			ld, err = bareLine(where, line, field, byField, table)
+		case resolution.IsOperator(line.Type):
+			ld, err = operatorLine(where, line, field, funcs, table)
+		default:
+			ld, err = typedLine(where, line, field, funcs, table)
 		}
 		if err != nil {
 			return nil, err
@@ -363,6 +366,35 @@ func typedLine(
 		value = field.Type.TypeArgs[0]
 	}
 	ld.Enum = isStringEnum(value, table)
+	return ld, nil
+}
+
+// operatorLine returns the data of a typed line of an operator type. It reads as a bare
+// line whose hand-written matcher takes one value of the operator, so each value of an
+// in or any ORs one call.
+func operatorLine(
+	where resolution.Type,
+	line, field resolution.Field,
+	funcs set.Set[string],
+	table *resolution.Table,
+) (lineData, error) {
+	typed, err := typedLine(where, line, field, funcs, table)
+	if err != nil {
+		return lineData{}, err
+	}
+	ld, err := bareLine(where, line, field, nil, table)
+	if err != nil {
+		return lineData{}, err
+	}
+	if ld.Text || len(ld.Comparisons()) > 0 {
+		return lineData{}, failf(
+			where,
+			"line %s: a hand-written matcher cannot interpret the operator %s",
+			line.Name,
+			field.Type.Name,
+		)
+	}
+	ld.Func, ld.Scalar = typed.Func, true
 	return ld, nil
 }
 

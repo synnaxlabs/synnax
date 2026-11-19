@@ -292,9 +292,10 @@ fields that a document reaches outside a list fails generation.
 ## Filters and sorted indexes
 
 A typed line of a `filter` calls `Match<Line>` in the Go package of its target, with the
-line's value. `@go match <Func>` on the line calls an existing matcher instead, such as
-`nested bool { @go match MatchHasParent }`. A line that takes an operator cannot carry
-it.
+line's value. A typed line of an operator type (`internal filter.Bool`) reads as a bare
+line in every client, and Go calls `Match<Line>` once per value of the operator.
+`@go match <Func>` on a typed line calls an existing matcher instead, such as
+`nested bool { @go match MatchHasParent }`. A bare line cannot carry it.
 
 `@index sorted` with several values on a struct field declares one sorted index per
 sub-field: `@index sorted start end` on `time_range` gives `OrderByTimeRangeStart` and

@@ -279,6 +279,41 @@ var _ = Describe("Go Filter Plugin", func() {
 				)
 		})
 
+		It("Should read a typed line of an operator type as a bare line", func() {
+			resp := MustGenerate(thing+`
+				Where filter Thing {
+					builtIn filter.Bool
+					owners  filter.Set<uuid> { @go match MatchHolders }
+				}
+			`, "thing", loader, p)
+			ExpectContent(resp, "where.gen.go").
+				ToBeValidGoSource().
+				ToContain(
+					`return nil, validate.PathedError(filter.ErrNoOperator, "builtIn")`,
+					"fs = append(fs, MatchBuiltIn(*l.Eq))",
+					"in[i] = MatchHolders(v)",
+					"fs = append(fs, Or(in...))",
+				).
+				ToNotContain("MatchBuiltIn(*l)", "MatchHolders(l.In...)")
+		})
+
+		DescribeTable(
+			"Should reject a typed line of an operator a hand matcher cannot read",
+			func(line, op string) {
+				req := MustGenerateRequest(thing+`
+				Where filter Thing {
+					label `+line+`
+				}
+			`, "thing", loader)
+				Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
+					"filter thing.Where: line label: a hand-written matcher cannot " +
+						"interpret the operator " + op,
+				)))
+			},
+			Entry("text", "filter.String", "filter.String"),
+			Entry("ordered values", "filter.Ordered<int32>", "filter.Ordered"),
+		)
+
 		It("Should call the matcher that a typed line names", func() {
 			resp := MustGenerate(thing+`
 				Where filter Thing {

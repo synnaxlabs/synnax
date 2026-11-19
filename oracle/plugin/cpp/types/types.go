@@ -1001,9 +1001,9 @@ func requestFilter(
 }
 
 // filterLineType returns the C++ type of a line of the filter entry, which takes a
-// plain value or a list in a designated initializer. A bare line holds an operator in
-// an x::filter::Field, and a typed list line is an x::filter::List. It returns false
-// for any other field.
+// plain value or a list in a designated initializer. A bare line, or a typed line of an
+// operator type, holds an operator in an x::filter::Field, and a typed list line is an
+// x::filter::List. It returns false for any other field.
 func (p *Plugin) filterLineType(
 	field resolution.Field,
 	entry resolution.Type,
@@ -1018,7 +1018,7 @@ func (p *Plugin) filterLineType(
 	if !ok {
 		return "", false
 	}
-	if !line.HasType() {
+	if !line.HasType() || resolution.IsOperator(line.Type) {
 		data.AddInternal("x/cpp/filter/field.h")
 		op := p.typeRefToCpp(field.Type, data)
 		return fmt.Sprintf("::x::filter::Field<%s>", op), true

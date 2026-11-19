@@ -161,15 +161,15 @@ func addWhereInput(
 }
 
 // lineInput returns the Python type that a line of a partial record takes: the input
-// of a bare line's operator, or a typed line's type, which a list line also takes as
-// one element.
+// of the operator of a bare line or of a typed line of an operator type, or any other
+// typed line's type, which a list line also takes as one element.
 func lineInput(
 	line resolution.Field,
 	field resolution.Field,
 	table *resolution.Table,
 	data *templateData,
 ) (string, error) {
-	if line.HasType() {
+	if line.HasType() && !resolution.IsOperator(line.Type) {
 		if isList(field.Type) {
 			elem := typeToPython(field.Type.TypeArgs[0], table, data)
 			return elem + " | list[" + elem + "]", nil
