@@ -139,9 +139,19 @@ jobs:
           HEAD_SHA: ${{ steps.pr.outputs.head }}
           KEY: ${{ steps.pr.outputs.key }}
           FORK: ${{ steps.pr.outputs.fork }}
+          COMMENT: ${{ inputs.comment }}
+          ACTOR: ${{ github.triggering_actor }}
           REPEAT: ${{ inputs.repeat }}
           REPLAY: ${{ inputs.replay }}
+        # The relay dispatches with its own token, so the comment names the person who
+        # asked. Only a fork needs to know.
         run: |
+          REQUESTER=$ACTOR
+          if [ "$FORK" = true ] && [ -n "$COMMENT" ]; then
+            REQUESTER=$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT" \
+              --jq .user.login)
+          fi
+          export REQUESTER
           skip=$(.github/scripts/sedosaur_skip.sh)
           echo "skip=$skip" >> "$GITHUB_OUTPUT"
 
@@ -234,7 +244,7 @@ jobs:
           FORK: ${{ needs.start.outputs.fork }}
         run: |
           if [ "$FORK" = true ]; then
-            body="Sedosaur does not review a pull request from a fork."
+            body="Sedosaur reviews a fork only when a maintainer asks."
           else
             body="Sedosaur already reviewed $HEAD_SHA under the current rules."
             body+=" To review it again, comment \`@sedosaur review repeat=true\`."

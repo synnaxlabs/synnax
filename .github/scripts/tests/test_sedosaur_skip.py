@@ -132,11 +132,31 @@ class TestRepeat:
 
 
 class TestFork:
-    def test_should_skip_a_fork_without_reading_the_reviews(
+    @pytest.fixture(autouse=True)
+    def maintainer(self, harness: Harness) -> None:
+        harness.gh.serve(
+            "api */collaborators/maintainer/permission", {"permission": "write"}
+        )
+        harness.gh.serve(
+            "api */collaborators/someone/permission", {"permission": "read"}
+        )
+
+    def test_should_review_a_fork_a_maintainer_asked_for(
         self, harness: Harness
     ) -> None:
-        assert harness.run(FORK="true")
-        assert harness.gh.calls() == []
+        assert not harness.run(FORK="true", REQUESTER="maintainer")
+
+    def test_should_skip_a_fork_a_maintainer_reviewed(self, harness: Harness) -> None:
+        harness.reviews(review(BEFORE))
+        assert harness.run(FORK="true", REQUESTER="maintainer")
+
+    @pytest.mark.parametrize("requester", ["", "someone", "synnax-claude-code[bot]"])
+    def test_should_skip_a_fork_no_maintainer_asked_for(
+        self, harness: Harness, requester: str
+    ) -> None:
+        harness.reviews()
+        assert harness.run(FORK="true", REQUESTER=requester, REPEAT="true")
+        assert all("check-runs" not in c[1] for c in harness.gh.calls())
 
 
 class TestReplay:

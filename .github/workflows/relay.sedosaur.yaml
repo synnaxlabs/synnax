@@ -13,8 +13,8 @@
 # Sedosaur each reply that a writer or an agent posts on the thread of one of its
 # findings, with or without a mention, so it can take a dismissal or judge a rebuttal,
 # and a comment that dismisses a finding outside the diff. Both hold secrets, so they
-# run from the default branch through a dispatch. A fork's token cannot dispatch, and
-# the review skips a fork.
+# run from the default branch through a dispatch. A fork's token cannot dispatch, so a
+# fork gets a review only when a maintainer asks for one.
 
 name: Relay - Sedosaur
 run-name: ${{ github.event.pull_request.number || github.event.issue.number }}

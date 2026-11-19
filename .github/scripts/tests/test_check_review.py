@@ -181,27 +181,103 @@ class TestScore:
         assert harness.run() == ("failure", "Sedosaur left no score on the head")
 
 
-class TestFork:
-    """Tests for pull requests from forks, which Sedosaur does not review."""
+def verdict(
+    login: str = "maintainer",
+    state: str = "APPROVED",
+    *,
+    sha: str = "head",
+    kind: str = "User",
+) -> dict[str, Any]:
+    """A review that a person left on a commit of the pull request."""
+    return {
+        "user": {"login": login, "type": kind},
+        "state": state,
+        "commit_id": sha,
+    }
 
-    def test_fails_a_fork(self, harness: Harness) -> None:
+
+class TestFork:
+    """Tests for pull requests from forks, which also need a signed CLA and a
+    maintainer's approval of the head."""
+
+    @pytest.fixture(autouse=True)
+    def fork(self, harness: Harness) -> None:
         harness.pull("someone", "review/human", fork=True)
-        harness.reviews("head")
-        assert harness.run() == (
-            "failure",
-            "Sedosaur does not review forks: reopen it from a branch here",
+        self.cla(harness, "success")
+        self.verdicts(harness, verdict())
+        self.permission(harness, "maintainer", "write")
+
+    @staticmethod
+    def cla(harness: Harness, state: str | None) -> None:
+        statuses = [] if state is None else [{"context": "license/cla", "state": state}]
+        harness.gh.serve("api */commits/head/status", {"statuses": statuses})
+
+    @staticmethod
+    def verdicts(harness: Harness, *reviews: dict[str, Any]) -> None:
+        harness.gh.serve("api */pulls/42/reviews*", list(reviews))
+
+    @staticmethod
+    def permission(harness: Harness, login: str, permission: str) -> None:
+        harness.gh.serve(
+            f"api */collaborators/{login}/permission", {"permission": permission}
         )
 
-    def test_fails_a_deleted_fork(self, harness: Harness) -> None:
-        harness.pull("someone", "review/human")
-        payload = {
-            "head": {"sha": "head", "repo": None},
-            "base": {"ref": "main", "repo": {"full_name": "synnaxlabs/synnax"}},
-            "user": {"login": "someone"},
-            "labels": [{"name": "review/human"}],
-        }
-        harness.gh.serve("api */pulls/42", payload)
-        assert harness.run()[0] == "failure"
+    def test_passes_a_signed_approved_reviewed_fork(self, harness: Harness) -> None:
+        assert harness.run() == ("success", "Sedosaur scored the head 5/5")
+
+    @pytest.mark.parametrize("state", [None, "pending", "failure"])
+    def test_pends_without_a_signed_cla(
+        self, harness: Harness, state: str | None
+    ) -> None:
+        self.cla(harness, state)
+        assert harness.run() == (
+            "pending",
+            "waiting for the contributor license agreement",
+        )
+
+    def test_pends_without_an_approval(self, harness: Harness) -> None:
+        self.verdicts(harness)
+        assert harness.run() == (
+            "pending",
+            "waiting for a maintainer to approve the head",
+        )
+
+    def test_rejects_an_approval_of_an_earlier_commit(self, harness: Harness) -> None:
+        self.verdicts(harness, verdict(sha="earlier"))
+        assert harness.run()[0] == "pending"
+
+    @pytest.mark.parametrize("permission", ["read", "none"])
+    def test_rejects_an_approval_without_write_access(
+        self, harness: Harness, permission: str
+    ) -> None:
+        self.permission(harness, "maintainer", permission)
+        assert harness.run()[0] == "pending"
+
+    def test_rejects_an_approval_from_a_bot(self, harness: Harness) -> None:
+        self.verdicts(harness, verdict(kind="Bot"))
+        assert harness.run()[0] == "pending"
+
+    def test_rejects_an_approval_the_maintainer_took_back(
+        self, harness: Harness
+    ) -> None:
+        self.verdicts(harness, verdict(), verdict(state="CHANGES_REQUESTED"))
+        assert harness.run()[0] == "pending"
+
+    def test_ignores_a_comment_after_an_approval(self, harness: Harness) -> None:
+        self.verdicts(harness, verdict(), verdict(state="COMMENTED"))
+        assert harness.run()[0] == "success"
+
+    def test_takes_any_maintainer_approval(self, harness: Harness) -> None:
+        self.verdicts(harness, verdict("reader"), verdict())
+        self.permission(harness, "reader", "read")
+        assert harness.run()[0] == "success"
+
+    def test_waits_for_the_sedosaur_review(self, harness: Harness) -> None:
+        harness.reviews("head")
+        assert harness.run() == (
+            "pending",
+            "waiting for the Sedosaur review of the head",
+        )
 
     def test_waits_for_a_tier_first(self, harness: Harness) -> None:
         harness.pull("someone", "core", fork=True)

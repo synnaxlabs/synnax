@@ -13,8 +13,8 @@
 # <pr_number>. Prints "<state>\t<description>" where state is pending, failure, or
 # success. A pull request needs one tier label and a Sedosaur 5/5 of the head. A pull
 # request Dependabot opened and wrote every commit of passes without a review. A fork
-# fails, since Sedosaur does not review one. Exits non-zero only when the GitHub API
-# fails.
+# also needs a signed contributor license agreement and a maintainer's approval of the
+# head. Exits non-zero only when the GitHub API fails.
 
 set -euo pipefail
 
@@ -49,8 +49,33 @@ case "$TIER" in
     *) report pending "waiting for one label: review/bot or review/human" ;;
 esac
 
+# A maintainer is a person with write access. Only the last verdict of each on the head
+# counts.
 if [ "$FORK" = true ]; then
-    report failure "Sedosaur does not review forks: reopen it from a branch here"
+    CLA=$("$GH_API" "repos/${REPO}/commits/${HEAD}/status" \
+        --jq '[.statuses[] | select(.context == "license/cla")][0].state // "none"')
+    if [ "$CLA" != success ]; then
+        report pending "waiting for the contributor license agreement"
+    fi
+    export HEAD
+    APPROVERS=$("$GH_API" "repos/${REPO}/pulls/${PR}/reviews?per_page=100" --paginate \
+        --jq '[.[] | select(.commit_id == env.HEAD and .user.type == "User"
+            and (.state == "APPROVED" or .state == "CHANGES_REQUESTED"))]
+            | group_by(.user.login)[] | last | select(.state == "APPROVED")
+            | .user.login')
+    APPROVED=false
+    for login in $APPROVERS; do
+        case $("$GH_API" "repos/${REPO}/collaborators/${login}/permission" \
+            --jq .permission) in
+            admin | write)
+                APPROVED=true
+                break
+                ;;
+        esac
+    done
+    if [ "$APPROVED" != true ]; then
+        report pending "waiting for a maintainer to approve the head"
+    fi
 fi
 
 # Only a review of the head counts. A push after the review needs a new request. When

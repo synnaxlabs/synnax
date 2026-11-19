@@ -43,10 +43,13 @@ classifier, the gate, and auto-merge and adds path labels for a fork or Dependab
 request that changed in the last hour, and for a fork without `review/human` that
 changed in the last day. The classifier always raises a fork to `review/human`. To
 refresh the gate on an idle pull request, run
-`gh workflow run check.review.yaml -f pr=<number>`. Sedosaur does not review a fork, so
-the gate fails it. To merge one, a maintainer first reads its diff, since CI runs the
-copy with repository secrets. The maintainer then pushes its head to a branch of this
-repository and opens a `review/human` pull request from that branch.
+`gh workflow run check.review.yaml -f pr=<number>`.
+
+A maintainer, a person with write access, reads the diff of each new head before any
+code runs. Then they approve the CI runs on the pull request and comment
+`@sedosaur review` to start the review. Sedosaur never reviews a fork by itself. The
+gate passes a fork once the author signs the CLA, a maintainer approves the head, and
+Sedosaur scores the head 5/5.
 
 ## Review tiers
 
