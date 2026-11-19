@@ -350,6 +350,7 @@ export const Table = ({
   };
 
   const handleCellFocus = (e: FocusEvent<HTMLTableCellElement>, at: xy.XY) => {
+    if (!inTable(e)) return;
     anchor.current = at;
     if (initial.current != null || !(e.target instanceof HTMLInputElement)) return;
     initial.current = { value: value[at.y]?.[at.x], text: e.target.value };

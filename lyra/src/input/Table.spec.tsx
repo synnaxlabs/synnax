@@ -433,6 +433,36 @@ describe("Input.Table", () => {
       expect(document.activeElement).toBe(search);
     });
 
+    it("should leave Escape in a dialog that a cell opens to the dialog", () => {
+      render(<Stateful initial={[[1, "volts"]]}>{UNIT_COLUMNS}</Stateful>);
+      fireEvent.click(screen.getByLabelText("Pick Unit 1"));
+      const search = screen.getByPlaceholderText<HTMLInputElement>("Search units...");
+      act(() => search.focus());
+      fireEvent.change(search, { target: { value: "am" } });
+      fireEvent.keyDown(search, { key: "Escape" });
+      expect(search.closest(".lyra-select__dialog")?.classList).toContain(
+        "lyra--hidden",
+      );
+      const input = cell("Unit", "1");
+      act(() => input.focus());
+      fireEvent.change(input, { target: { value: "changed" } });
+      fireEvent.keyDown(input, { key: "Escape" });
+      expect(input.value).toBe("volts");
+    });
+
+    it("should leave the cell on Esc after Escape closes the cell's dialog", () => {
+      render(<Stateful initial={[[1, "volts"]]}>{UNIT_COLUMNS}</Stateful>);
+      fireEvent.click(screen.getByLabelText("Pick Unit 1"));
+      const search = screen.getByPlaceholderText<HTMLInputElement>("Search units...");
+      act(() => search.focus());
+      fireEvent.change(search, { target: { value: "am" } });
+      fireEvent.keyDown(search, { key: "Escape" });
+      const input = cell("Unit", "1");
+      act(() => input.focus());
+      fireEvent.keyDown(input, { key: "Escape" });
+      expect(document.activeElement).not.toBe(input);
+    });
+
     it("should leave a paste in a dialog that a cell opens to the dialog", () => {
       const onChange = vi.fn();
       const search = openUnitSearch(onChange);
