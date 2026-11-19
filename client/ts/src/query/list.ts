@@ -68,7 +68,10 @@ export interface List<D extends Data, C> {
    * records. Fetches nothing when the window holds every match.
    */
   more: (n: number, options?: FetchOptions) => Promise<Window<D, C>>;
-  /** Returns the window without touching the network, or undefined before a fetch. */
+  /**
+   * Returns the window without touching the network, or undefined before a fetch or
+   * when a trigger does not cover the window.
+   */
   getCached: () => Window<D, C> | undefined;
   /**
    * Subscribes to changes in the window. The window is maintained while a subscriber
@@ -241,7 +244,10 @@ export class Lists<
     return map.getOrInsert(entry.lists, limit, () => ({
       retrieve: async (options) => await this.retrieve(entry, limit, options),
       more: async (n, options) => await this.more(entry, n, options),
-      getCached: () => this.cachedOf(entry),
+      getCached: () => {
+        const window = this.cachedOf(entry);
+        return window != null && this.triggersCover(entry) ? window : undefined;
+      },
       onChange: (handler) => this.subscribe(entry, limit, handler),
     }));
   }
@@ -651,6 +657,11 @@ export class Lists<
       versions: this.versions(),
       epoch: maintained && epoch !== 0 ? epoch : null,
     };
+  }
+
+  private triggersCover({ query, keys }: Entry<Q, K, D, V, C>): boolean {
+    const { triggers = [] } = this.config;
+    return triggers.every((t) => t.covers?.(query, keys) !== false);
   }
 
   /** The versions of the table and of each trigger's table. */

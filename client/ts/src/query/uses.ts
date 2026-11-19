@@ -54,16 +54,16 @@ export interface UsesConfig<
   request: (key: { eq: K } | { in: K[] }) => Q;
   /**
    * The channels that announce changes to the records that can use one. A change on
-   * one refetches the uses that a maintained query watches.
+   * one, or a reconnect, refetches the uses that a maintained query watches.
    */
   channels: string[];
 }
 
 /**
  * Holds the uses of records, which are the resources that use each one, apart from the
- * records. A query that asks for uses gets them composed onto its records. The client
- * keeps the uses of a record only while a maintained query that asks for uses holds
- * it, and a change on a channel of the config refetches only those.
+ * records. A query that asks for uses gets them composed onto its records. A change on
+ * a channel of the config, or a reconnect, refetches the uses that a maintained query
+ * watches and drops the rest.
  */
 export class Uses<K extends record.Key, R extends Used<K>, Q extends Params & Request> {
   /** Updates the queries that ask for uses when the uses of a record change. */
@@ -117,16 +117,17 @@ export class Uses<K extends record.Key, R extends Used<K>, Q extends Params & Re
         cache.onError(new Error(`failed to refetch ${name} uses`, { cause: exc }));
       });
     }, REFETCH_DEBOUNCE);
+    const onChange = (): void => {
+      this.changes.count++;
+      this.refetch();
+    };
     cfg.channels.forEach((channel) =>
-      cache.listen({
-        channel,
-        schema: z.unknown(),
-        onChange: () => {
-          this.changes.count++;
-          this.refetch();
-        },
-      }),
+      cache.listen({ channel, schema: z.unknown(), onChange }),
     );
+    // A reopened stream missed the changes made while it was down.
+    cache.onEpoch((epoch) => {
+      if (epoch > 1) onChange();
+    });
     const base = trigger(
       store,
       (event, q: Q | Single<K>) => (q.includeUses === true ? [event.key] : null),
@@ -141,9 +142,10 @@ export class Uses<K extends record.Key, R extends Used<K>, Q extends Params & Re
         return () => {
           detach();
           this.watchers.delete(members);
-          this.evictUnwatched();
         };
       },
+      covers: (params, members) =>
+        params.includeUses !== true || members.every((key) => store.get(key) != null),
     };
     const normalize = ({ key, includeUses }: Single<K>): Single<K> =>
       includeUses === true ? { key, includeUses } : { key };
