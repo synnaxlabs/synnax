@@ -17,10 +17,10 @@ import {
   removePart,
   setColor,
   setVariant,
-  STATE,
   toggleSelector,
 } from "@/feature/schematic/symbol/edit/spec";
 
+const STATE = createState().key;
 const RED = color.construct("#ff0000");
 const BLUE = color.construct("#0000ff");
 
