@@ -9,6 +9,7 @@
 
 import { array } from "@/array";
 import { type Delete, type ID, type Insert } from "@/crdt/types.gen";
+import { map } from "@/map";
 import { type location } from "@/spatial";
 
 const ROOT_ID: ID = { replica: 0, counter: 0 };
@@ -216,11 +217,7 @@ export class Text {
   }
 
   private indexInsert(e: Element): void {
-    let runs = this.index.get(e.id.replica);
-    if (runs == null) {
-      runs = [];
-      this.index.set(e.id.replica, runs);
-    }
+    const runs = map.getOrInsert(this.index, e.id.replica, () => []);
     const at = array.partitionPoint(
       runs.length,
       (i) => runs[i].id.counter >= e.id.counter,

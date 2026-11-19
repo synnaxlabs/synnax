@@ -14,6 +14,7 @@ import {
   destructor,
   errors,
   id,
+  map,
   type record,
   TimeSpan,
   TimeStamp,
@@ -61,7 +62,7 @@ const pushOnto = <A>(
   cap: number,
   remade: boolean,
 ): StackEntry<A>[] => {
-  const top = stack[stack.length - 1];
+  const top = stack.at(-1);
   const mergeable =
     top != null &&
     (remade
@@ -417,11 +418,13 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
    * the cached doc until their echo arrives. Unlike dispatch, it sends when the doc is
    * not cached and records no undo entry. When nothing is in flight for the document,
    * the actions go out at once. Otherwise they join the batch that goes out as one
-   * dispatch when the in-flight send settles.
+   * dispatch when the in-flight send settles. When the send resolves, the cached doc
+   * also holds the actions that the Core added. Sends nothing for no actions.
    * @throws {Error} if the cached doc cannot hold an action, before any send.
    * @throws {Error} if the send fails, after the actions roll back.
    */
   async send(key: Key, actions: Action[]): Promise<void> {
+    if (actions.length === 0) return;
     const made = (): Made<State, Action> => {
       const current = this.docs.get(key);
       return {
@@ -603,11 +606,10 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
    * applies the entry's latest actions last.
    */
   private track(key: Key, current: State, entry: Pending<Action>, next: State): void {
-    let r = this.rebases.get(key);
-    if (r == null) {
-      r = { base: current, pending: [] };
-      this.rebases.set(key, r);
-    }
+    const r = map.getOrInsert(this.rebases, key, () => ({
+      base: current,
+      pending: [],
+    }));
     const i = r.pending.indexOf(entry);
     if (i === -1) r.pending.push(entry);
     if (i === -1 || i === r.pending.length - 1) {
@@ -669,13 +671,26 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     if (r.pending.length === 0) this.release(key);
   }
 
-  /** Marks a pending entry as applied by the Core, which added the given actions. */
+  /**
+   * Marks a pending entry as applied by the Core, and writes the actions that the Core
+   * added to the cached doc.
+   */
   private accept(key: Key, dispatchKey: string, added: Action[]): void {
     const r = this.rebases.get(key);
     const p = r?.pending.find((p) => p.dispatchKey === dispatchKey);
     if (r == null || p == null) return;
     const echo = [...p.actions, ...added];
     p.echo = echo;
+    if (added.length > 0) {
+      const sent = p.actions;
+      p.actions = [...echo];
+      try {
+        this.write(key, r);
+      } catch {
+        // The settle of the echo reports the error and fetches the doc again.
+        p.actions = sent;
+      }
+    }
     // No echo arrives while the stream is down. The echo may also have been lost when
     // the epoch changed during the send.
     if (!this.live || p.epoch !== this.epoch) {
@@ -979,7 +994,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     key: Key,
     actions: A[],
     resZ: z.ZodType<{ actions: Action[] }>,
-  ): batch.Request<Required<DispatchPayload<Key, A>>> {
+  ): Required<batch.Request<Required<DispatchPayload<Key, A>>>> {
     const entry = this.createPending(id.create(), [...actions]);
     let applied = false;
     return {
@@ -1002,11 +1017,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
       },
       applyResponse: (res) => {
         const added = zod.parse(resZ, res, { label: "dispatch response" }).actions;
-        const r = this.rebases.get(key);
-        if (r == null || !r.pending.includes(entry)) return;
-        entry.actions.push(...added);
-        this.write(key, r);
-        this.accept(key, entry.dispatchKey, []);
+        this.accept(key, entry.dispatchKey, added);
       },
     };
   }
@@ -1067,7 +1078,8 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   }
 
   markRemoteTouched(key: Key, targets: readonly string[]): destructor.Destructor {
-    if (targets.length === 0) return destructor.NOOP;
+    // A touch matters only to existing entries, and writing a state would pin the doc.
+    if (targets.length === 0 || !this.undos.has(key)) return destructor.NOOP;
     const tick = ++this.tick;
     return this.updateUndo(key, (s) => {
       const remoteTouched = { ...s.remoteTouched };
@@ -1093,9 +1105,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   async settled(key: Key): Promise<void> {
     if (!this.rebases.has(key)) return;
     await new Promise<void>((resolve) => {
-      const waiting = this.settling.get(key);
-      if (waiting == null) this.settling.set(key, [resolve]);
-      else waiting.push(resolve);
+      map.getOrInsert(this.settling, key, () => []).push(resolve);
     });
   }
 

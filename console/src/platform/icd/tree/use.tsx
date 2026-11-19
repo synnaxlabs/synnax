@@ -13,7 +13,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Tree } from "@synnaxlabs/lyra/tree";
 import { ICD as PICD } from "@synnaxlabs/pluto";
-import { deep, type record, unique, uuid } from "@synnaxlabs/x";
+import { deep, map, type record, unique, uuid } from "@synnaxlabs/x";
 import {
   type Dispatch,
   type FC,
@@ -29,7 +29,6 @@ import { createMatch } from "@/platform/icd/Match";
 import {
   fieldsPath,
   isReadable,
-  type ReadBinding,
   type ReadSource,
   reindex,
   type TreeField,
@@ -57,7 +56,7 @@ const setRead = (
   read: number,
   field: TreeField,
   on: boolean,
-  bindingOf: () => ReadBinding,
+  bindingOf: () => icd.ReadBinding,
 ): void => {
   const bindings = path.messages[read].bindings;
   const value = ctx.get(bindings).value;
@@ -193,7 +192,7 @@ export interface UseArgs<S extends Source> {
   /** Renders the tree item of a source. */
   SourceItem: FC<Tree.ItemRenderProps<string>>;
   /** @returns the binding of a field that the task starts to read. */
-  bindingOf: (source: string, r: number, field: TreeField) => ReadBinding;
+  bindingOf: (source: string, r: number, field: TreeField) => icd.ReadBinding;
   /** @returns a name for a new message of a source that no message in held has. */
   messageName: (source: string, held: icd.Message[]) => string;
   /** The key of each selected tree item. */
@@ -384,8 +383,7 @@ export const use = <S extends Source>({
   const isRemovable = (chosen: Node[]): chosen is (SourceNode | MessageNode)[] => {
     if (chosen.some(({ kind }) => kind === "field")) return false;
     const counts = new Map<string, number>();
-    for (const n of chosen)
-      if (n.kind === "message") counts.set(n.source, (counts.get(n.source) ?? 0) + 1);
+    for (const n of chosen) if (n.kind === "message") map.increment(counts, n.source);
     return [...counts].every(
       ([source, count]) =>
         chosen.some((n) => n.kind === "source" && n.source === source) ||
