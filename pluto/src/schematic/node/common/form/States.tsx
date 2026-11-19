@@ -102,7 +102,7 @@ const UsedBy = ({ enumeration: key }: UsedByProps): ReactElement | null => {
   if (n === 0) return null;
   return (
     <Input.Item label="Used by" padHelpText={false}>
-      <Text.Text level="p">
+      <Text.Text level="p" className={CSS.BE("states", "value")}>
         <Icon.Schematic />
         {n} {n === 1 ? "schematic" : "schematics"}
       </Text.Text>
@@ -181,7 +181,10 @@ export const States = ({
             value={key}
             onChange={handleChange}
             allowNone
-            className={CSS.BE("states", "enumeration")}
+            className={CSS.cls(
+              CSS.BE("states", "enumeration"),
+              CSS.BE("states", "value"),
+            )}
             footer={footer}
           />
         </Input.Item>
