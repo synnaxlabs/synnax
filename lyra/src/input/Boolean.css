@@ -8,3 +8,15 @@
  * License, use of this software will be governed by the Apache License, Version 2.0,
  * included in the file licenses/APL.txt.
  */
+
+/* A shadow boolean has no frame at rest, and a frame on hover and on focus. It takes no
+   press, so the hover state of a button skips it. */
+:is(.lyra-input__checkbox, .lyra-input__switch).lyra-btn--shadow:not(.lyra--disabled) {
+    &:hover:not(:focus-within) {
+        --pluto-btn-border-color: var(--pluto-hover-border-color);
+    }
+
+    &:focus-within:not(.lyra--status-error, .lyra--status-warning) {
+        --pluto-btn-border-color: var(--pluto-primary-z);
+    }
+}
