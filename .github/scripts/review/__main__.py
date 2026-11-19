@@ -342,8 +342,10 @@ def main(argv: list[str]) -> None:
     if argv[0] == "compare":
         since = datetime.now(UTC) - timedelta(days=int(argv[1]))
         repo = env["GITHUB_REPOSITORY"]
-        ps = compare.pairs(gh, compare.git, repo, since)
-        print(compare.report(ps, compare.limits(gh, repo, since), since=since))
+        # GitHub's GraphQL API answers a 5xx now and then.
+        read = compare.retrying(gh)
+        ps = compare.pairs(read, compare.git, repo, since)
+        print(compare.report(ps, compare.limits(read, repo, since), since=since))
         return
     target = Target(
         repo=env["GITHUB_REPOSITORY"],
