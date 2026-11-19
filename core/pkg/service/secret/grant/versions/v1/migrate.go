@@ -11,6 +11,6 @@ package v1
 
 import "github.com/synnaxlabs/gorp/migrate"
 
-// Migration lifts stored grants from v0 to v1. A v0 grant gets an empty command, so no
-// task can spend it.
+// Migration lifts stored grants from v0 to v1. A v0 grant gets an empty command, which
+// no redeem can spend, because a redeem must name a task.
 var Migration = migrate.NewEntry("v63_grant_command", autoMigrateGrant)

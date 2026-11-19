@@ -225,6 +225,17 @@ var _ = Describe("Service", func() {
 				Expect(stored(ctx)).To(BeEmpty())
 			},
 		)
+		It("Should refuse a redeem that names no task and keep the grant",
+			func(ctx SpecContext) {
+				cmd = task.Command{}
+				g := create(ctx)
+				Expect(svc.Redeem(ctx, g.Key, rk, uuid.Nil())).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError("task: must be non-zero"),
+				))
+				Expect(stored(ctx)).To(HaveExactElements(HaveField("Key", g.Key)))
+			},
+		)
 		It("Should let only one of several concurrent redeems use a grant",
 			func(ctx SpecContext) {
 				g := create(ctx)
