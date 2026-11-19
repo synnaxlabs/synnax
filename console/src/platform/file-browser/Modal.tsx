@@ -15,7 +15,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { useAsyncEffect, useNow } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
-import { Modal as Base } from "@synnaxlabs/lyra/modal";
+import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
@@ -145,11 +145,11 @@ const Content = ({
   const loading = failure == null && loaded?.target !== target;
   const rackName = rackResult.variant === "success" ? rackResult.data.name : null;
   return (
-    <Base.Frame>
-      <Base.Header icon={<Icon.Folder />}>
+    <Modal.Frame>
+      <Modal.Header icon={<Icon.Folder />}>
         {rackName == null ? "Browse files" : ["Browse files", rackName]}
-      </Base.Header>
-      <Base.Body className={CSS.B("file-browser")}>
+      </Modal.Header>
+      <Modal.Body className={CSS.B("file-browser")}>
         <Flex.Box x align="center" gap="small">
           <Button.Button
             variant="text"
@@ -192,8 +192,8 @@ const Content = ({
             {`Shows the first ${entries.length} entries.`}
           </Text.Text>
         )}
-      </Base.Body>
-      <Base.Footer>
+      </Modal.Body>
+      <Modal.Footer>
         <Nav.Bar.End x align="center">
           <Button.Button
             variant="outlined"
@@ -214,8 +214,8 @@ const Content = ({
             Select
           </Button.Button>
         </Nav.Bar.End>
-      </Base.Footer>
-    </Base.Frame>
+      </Modal.Footer>
+    </Modal.Frame>
   );
 };
 
