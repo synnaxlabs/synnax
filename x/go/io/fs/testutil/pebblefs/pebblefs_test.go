@@ -10,22 +10,41 @@
 package pebblefs_test
 
 import (
+	"fmt"
 	"io"
 	"os"
+	"slices"
 	"syscall"
 
 	"github.com/cockroachdb/pebble/v2"
 	"github.com/cockroachdb/pebble/v2/vfs"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/io/fs/internal/invariants"
 	"github.com/synnaxlabs/x/io/fs/testutil/fault"
 	"github.com/synnaxlabs/x/io/fs/testutil/pebblefs"
-	"github.com/synnaxlabs/x/kv/pebblekv"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+// logger writes the log of Pebble to the GinkgoWriter and fails the spec on Fatalf.
+type logger struct{}
+
+func (logger) Infof(
+	format string,
+	args ...any,
+) {
+	GinkgoWriter.Printf(format+"\n", args...)
+}
+
+func (logger) Errorf(
+	format string,
+	args ...any,
+) {
+	GinkgoWriter.Printf(format+"\n", args...)
+}
+
+func (logger) Fatalf(format string, args ...any) { Fail(fmt.Sprintf(format, args...)) }
 
 // strict returns disk after a crash that keeps only its durable state.
 func strict(disk *fault.FS) *fault.FS {
@@ -38,20 +57,16 @@ func open(disk xfs.FS) *pebble.DB {
 	GinkgoHelper()
 	return MustSucceed(pebble.Open("db", &pebble.Options{
 		FS:     pebblefs.New(disk),
-		Logger: pebblekv.NewNoopLogger(),
+		Logger: logger{},
 	}))
 }
 
-// get returns the value of key in db, or nil when db has no such key.
+// get returns the value of key in db.
 func get(db *pebble.DB, key string) []byte {
 	GinkgoHelper()
-	value, closer, err := db.Get([]byte(key))
-	if errors.Is(err, pebble.ErrNotFound) {
-		return nil
-	}
-	Expect(err).ToNot(HaveOccurred())
+	value, closer := MustSucceed2(db.Get([]byte(key)))
 	defer func() { Expect(closer.Close()).To(Succeed()) }()
-	return append([]byte(nil), value...)
+	return slices.Clone(value)
 }
 
 var _ = Describe("Pebble FS", func() {
@@ -75,7 +90,7 @@ var _ = Describe("Pebble FS", func() {
 			Expect(db.Close()).To(Succeed())
 			db = open(image)
 			Expect(get(db, "taco")).To(Equal([]byte("cat")))
-			Expect(get(db, "burrito")).To(BeNil())
+			Expect(db.Get([]byte("burrito"))).Error().To(MatchError(pebble.ErrNotFound))
 			Expect(db.Close()).To(Succeed())
 		})
 
@@ -220,11 +235,11 @@ var _ = Describe("Pebble FS", func() {
 		It("Should stop a second Pebble on the same FS", func() {
 			db := MustSucceed(pebble.Open("db", &pebble.Options{
 				FS:     fs,
-				Logger: pebblekv.NewNoopLogger(),
+				Logger: logger{},
 			}))
 			Expect(pebble.Open("db", &pebble.Options{
 				FS:     fs,
-				Logger: pebblekv.NewNoopLogger(),
+				Logger: logger{},
 			})).Error().To(MatchError(syscall.EAGAIN))
 			Expect(db.Close()).To(Succeed())
 		})
