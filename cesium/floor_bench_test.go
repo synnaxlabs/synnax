@@ -74,7 +74,7 @@ func BenchmarkFloorSync(b *testing.B) {
 // iteration, with the given number of syncs in flight. The appends are not timed.
 func BenchmarkFloorSyncFiles(b *testing.B) {
 	const count = 1_000
-	for _, concurrent := range []int{1, 8, 64} {
+	for _, concurrent := range []int{1, 8, 32, 64} {
 		name := fmt.Sprintf("files=%d/concurrent=%d", count, concurrent)
 		b.Run(name, func(b *testing.B) {
 			dir := b.TempDir()
