@@ -53,6 +53,14 @@ validate_static_span(const x::telem::TimeSpan span, const types::Param &p) {
     );
 }
 
+/// @brief returns start + span, or TimeSpan::max() when the sum overflows.
+inline x::telem::TimeSpan
+due(const x::telem::TimeSpan start, const x::telem::TimeSpan span) {
+    if (start.nanoseconds() > 0 && span > x::telem::TimeSpan::max() - start)
+        return x::telem::TimeSpan::max();
+    return start + span;
+}
+
 /// @brief guards a live timer span against non-positive values. Reports the
 /// first offense only, so a parked node does not re-report on every pass.
 class SpanGuard {
@@ -128,19 +136,20 @@ public:
             this->last_fired = ctx.cycle.elapsed - period;
             this->started = true;
         }
+        const auto deadline = due(this->last_fired, period);
         // A timer never fires before its deadline. An early wake re-arms it.
         if (ctx.cycle.reason != runtime::node::RunReason::TimerTick ||
-            ctx.cycle.elapsed - this->last_fired < period) {
+            ctx.cycle.elapsed < deadline) {
             ctx.mark_self_changed();
-            ctx.set_deadline(this->last_fired + period, period);
+            ctx.set_deadline(deadline, period);
             return x::errors::NIL;
         }
         // Fires count from the schedule, so a late fire does not delay the fires after
         // it. A fire more than one period late skips the fires it missed.
-        const auto behind = ctx.cycle.elapsed - this->last_fired;
-        this->last_fired += behind - behind % period;
+        const auto late = ctx.cycle.elapsed - deadline;
+        this->last_fired = deadline + late - late % period;
         ctx.mark_self_changed();
-        ctx.set_deadline(this->last_fired + period, period);
+        ctx.set_deadline(due(this->last_fired, period), period);
         const auto &o = this->state.output(0);
         const auto &o_time = this->state.output_time(0);
         o->resize(1);
@@ -205,7 +214,7 @@ public:
         if (ctx.cycle.reason != runtime::node::RunReason::TimerTick ||
             ctx.cycle.elapsed - this->start_time < duration) {
             ctx.mark_self_changed();
-            ctx.set_deadline(this->start_time + duration, duration);
+            ctx.set_deadline(due(this->start_time, duration), duration);
             return x::errors::NIL;
         }
         this->fired = true;

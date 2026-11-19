@@ -352,6 +352,14 @@ func (g *spanGuard) usable(ctx node.Context, span telem.TimeSpan, label string) 
 
 func (g *spanGuard) reset() { g.reported = false }
 
+// due returns start + span, or telem.TimeSpanMax when the sum overflows.
+func due(start, span telem.TimeSpan) telem.TimeSpan {
+	if start > 0 && span > telem.TimeSpanMax-start {
+		return telem.TimeSpanMax
+	}
+	return start + span
+}
+
 // interval is a node that fires repeatedly at a specified period.
 type interval struct {
 	*node.State
@@ -376,18 +384,19 @@ func (i *interval) Next(ctx node.Context) {
 		i.lastFired = ctx.Elapsed - period
 		i.started = true
 	}
+	deadline := due(i.lastFired, period)
 	// A timer never fires before its deadline. An early wake re-arms it.
-	if ctx.Reason != node.ReasonTimerTick || ctx.Elapsed-i.lastFired < period {
+	if ctx.Reason != node.ReasonTimerTick || ctx.Elapsed < deadline {
 		ctx.MarkSelfChanged()
-		ctx.SetDeadline(i.lastFired + period)
+		ctx.SetDeadline(deadline)
 		return
 	}
 	// Fires count from the schedule, so a late fire does not delay the fires after
 	// it. A fire more than one period late skips the fires it missed.
-	behind := ctx.Elapsed - i.lastFired
-	i.lastFired += behind - behind%period
+	late := ctx.Elapsed - deadline
+	i.lastFired = deadline + late - late%period
 	ctx.MarkSelfChanged()
-	ctx.SetDeadline(i.lastFired + period)
+	ctx.SetDeadline(due(i.lastFired, period))
 	output := i.Output(0)
 	outputTime := i.OutputTime(0)
 	*output = output.Resized(1)
@@ -430,7 +439,7 @@ func (w *wait) Next(ctx node.Context) {
 	if ctx.Reason != node.ReasonTimerTick ||
 		ctx.Elapsed-w.startTime < duration {
 		ctx.MarkSelfChanged()
-		ctx.SetDeadline(w.startTime + duration)
+		ctx.SetDeadline(due(w.startTime, duration))
 		return
 	}
 	w.fired = true

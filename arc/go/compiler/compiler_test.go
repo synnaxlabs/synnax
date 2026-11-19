@@ -4691,19 +4691,11 @@ var _ = Describe("Compiler", func() {
 				"d := 1us\nother := 1khz", int64(2), int64(500)),
 			Entry("a negative rate",
 				"d := 1ns\nother := 10hz", int64(-4), int64(-250000000)),
+			Entry("a rate of zero to the maximum time span",
+				"d := 1ns\nother := 10hz", int64(0), int64(math.MaxInt64)),
 			Entry("a float rate",
 				"d := 1.0s\nother := 1.0hz", float64(4), float64(0.25)),
 		)
-
-		It("Should trap on a rate of zero for an integer time span", func(
-			ctx SpecContext,
-		) {
-			inter, i := analyzeScale(ctx, "d := 1ns\nother := 10hz")
-			output := MustSucceed(compiler.Compile(ctx, inter))
-			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-			Expect(mod.ExportedFunction(inter.Functions[i].Key).Call(ctx, 0)).Error().
-				To(MatchError(ContainSubstring("integer overflow")))
-		})
 
 		DescribeTable("Should convert its input to the kind of its output",
 			func(

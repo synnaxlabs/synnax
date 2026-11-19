@@ -9759,6 +9759,41 @@ var _ = Describe("Sequence", func() {
 			out, _ = h.Flush()
 			Expect(out.Get(349).Series).To(BeEmpty())
 		})
+
+		It("stops an interval while a rate from a channel is zero", func(
+			ctx SpecContext,
+		) {
+			resolver := channelSymbols(map[string]channelDef{
+				"rate_ch": {types.I64(), 350},
+				"tick_ch": {types.U8(), 351},
+			})
+			h := newRuntimeHarness(ctx,
+				`interval(period=i64 hz(rate_ch)) -> tick_ch`, resolver,
+				channels.Digest{Key: 350, DataType: telem.Int64T},
+				channels.Digest{Key: 351, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+			// fired reports whether the interval fires in the cycle at elapsed.
+			fired := func(elapsed telem.TimeSpan) bool {
+				advance(h, ctx, elapsed)
+				out, _ := h.Flush()
+				return len(out.Get(351).Series) > 0
+			}
+			h.Ingest(350, telem.NewSeriesV[int64](10))
+			Expect(fired(20 * telem.Millisecond)).To(BeTrue())
+			Expect(fired(130 * telem.Millisecond)).To(BeTrue())
+			h.Ingest(350, telem.NewSeriesV[int64](0))
+			Expect(fired(140 * telem.Millisecond)).To(BeFalse())
+			Expect(fired(3 * telem.Second)).To(BeFalse())
+			Expect(h.scheduler.NextDeadline()).To(Equal(telem.TimeSpanMax))
+			h.Ingest(350, telem.NewSeriesV[int64](10))
+			Expect(fired(3010 * telem.Millisecond)).To(BeTrue())
+			// The schedule keeps its phase from the fire at 120 ms.
+			Expect(fired(3019 * telem.Millisecond)).To(BeFalse())
+			Expect(fired(3020 * telem.Millisecond)).To(BeTrue())
+			Expect(fired(3119 * telem.Millisecond)).To(BeFalse())
+			Expect(fired(3120 * telem.Millisecond)).To(BeTrue())
+		})
 	})
 
 	// A triggered mid-chain variable read emits the variable's live value on

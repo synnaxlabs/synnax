@@ -951,10 +951,45 @@ TEST(IntervalDeadlineTest, SetsDeadlineAfterFiring) {
     EXPECT_EQ(tick(node, x::telem::SECOND).deadline, x::telem::SECOND * 2);
 }
 
+/// @brief A period that overflows the deadline should fire once and set no deadline.
+TEST(IntervalDeadlineTest, SetsNoDeadlineForAPeriodThatOverflowsIt) {
+    TestSetup setup("interval", "period", x::telem::TimeSpan::max().nanoseconds());
+    time::Interval node(setup.make_node());
+    auto checker = setup.make_node();
+    const auto &output = checker.output(0);
+    const auto r = tick(node, x::telem::SECOND * 5);
+    EXPECT_EQ(output->size(), 1);
+    EXPECT_EQ(r.deadline, x::telem::TimeSpan::max());
+}
+
+/// @brief A period that overflows should fire on the first tick after a channel input.
+TEST(IntervalDeadlineTest, FiresAPeriodThatOverflowsAfterAChannelInput) {
+    TestSetup setup("interval", "period", x::telem::TimeSpan::max().nanoseconds());
+    time::Interval node(setup.make_node());
+    auto checker = setup.make_node();
+    const auto &output = checker.output(0);
+    const auto input = tick(
+        node,
+        x::telem::SECOND * 5,
+        runtime::node::RunReason::ChannelInput
+    );
+    EXPECT_EQ(input.deadline, x::telem::SECOND * 5);
+    const auto r = tick(node, x::telem::SECOND * 6);
+    EXPECT_EQ(output->size(), 1);
+    EXPECT_EQ(r.deadline, x::telem::TimeSpan::max());
+}
+
 TEST(WaitDeadlineTest, SetsDeadlineToStartTimePlusDuration) {
     TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
     time::Wait node(setup.make_node());
     EXPECT_EQ(tick(node, x::telem::SECOND * 5).deadline, x::telem::SECOND * 6);
+}
+
+/// @brief A duration that overflows the deadline should set no deadline.
+TEST(WaitDeadlineTest, SetsNoDeadlineForADurationThatOverflowsIt) {
+    TestSetup setup("wait", "duration", x::telem::TimeSpan::max().nanoseconds());
+    time::Wait node(setup.make_node());
+    EXPECT_EQ(tick(node, x::telem::SECOND * 5).deadline, x::telem::TimeSpan::max());
 }
 
 TEST(WaitDeadlineTest, SetsDeadlineOnChannelInput) {

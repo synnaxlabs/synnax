@@ -117,6 +117,11 @@ func count_intervals_khz() {
     interval_count_khz = interval_count_khz + 1
 }
 time.interval(period=i64 ns(rate_khz)) -> count_intervals_khz()
+// A rate read from a channel. A rate of 0 stops the interval. A new rate starts it.
+func count_intervals_chan() {
+    interval_count_chan = interval_count_chan + 1
+}
+time.interval(period=i64 hz(interval_rate_in)) -> count_intervals_chan()
 // ──────────────────────────── time.wait ─────────────────────────────
 // Regression test: wait{3s} previously took 5-7s due to a runtime bug.
 // 3 seconds was chosen because it's long enough to measure accurately
@@ -503,6 +508,7 @@ class StlTime(ArcCase):
         "interval_count_rate_mod",
         "interval_count_hz",
         "interval_count_khz",
+        "interval_count_chan",
         "toggle_cmd",
         "toggle_cmd_mod",
         "toggle_cmd_var_s",
@@ -551,6 +557,8 @@ class StlTime(ArcCase):
                 ("interval_count_rate_mod", sy.DataType.INT64),
                 ("interval_count_hz", sy.DataType.INT64),
                 ("interval_count_khz", sy.DataType.INT64),
+                ("interval_rate_in", sy.DataType.INT64),
+                ("interval_count_chan", sy.DataType.INT64),
                 *((start_cmd, sy.DataType.UINT8) for start_cmd, _, _, _ in WAIT_CASES),
             ],
         )
@@ -701,13 +709,40 @@ class StlTime(ArcCase):
         baselines = {ch: self.read_tlm(ch, 0) for ch, _ in INTERVAL_CHANNELS}
         hold(1.0, reason="fixed window to count fires")
         for ch, label in INTERVAL_CHANNELS:
-            delta = self.read_tlm(ch, 0) - baselines[ch]
-            self.log(f"[{label}] {ch} fired {delta} times in 1s (expected ~10)")
-            if delta < 5 or delta > 15:
-                self.fail(
-                    f"[{label}] interval fired {delta} times in 1s, "
-                    f"expected 5-15 (nominal 10)"
-                )
+            self._assert_interval_rate(label, self.read_tlm(ch, 0) - baselines[ch])
+
+    def _assert_interval_rate(self, label: str, fires: int | float) -> None:
+        self.log(f"[{label}] fired {fires} times in 1s (expected ~10)")
+        if fires < 5 or fires > 15:
+            self.fail(
+                f"[{label}] interval fired {fires} times in 1s, "
+                f"expected 5-15 (nominal 10)"
+            )
+
+    def _test_interval_zero_rate(self) -> None:
+        self.log("=== time.interval at a rate of 0 ===")
+        counter = "interval_count_chan"
+        self.writer.write("interval_rate_in", 10)
+        self.wait_for_ge(counter, 3)
+        self.writer.write("interval_rate_in", 0)
+        hold(0.5, reason="the rate of 0 reaches the interval")
+        stopped = self.read_tlm(counter, 0)
+        running = self.read_tlm("interval_count", 0)
+        hold(1.0, reason="fixed window to count fires")
+        fires = self.read_tlm(counter, 0) - stopped
+        self.log(f"{counter} fired {fires} times in 1s at a rate of 0 (expected 0)")
+        if fires != 0:
+            self.fail(f"interval fired {fires} times in 1s at a rate of 0")
+        self._assert_interval_rate(
+            "next to a stopped interval", self.read_tlm("interval_count", 0) - running
+        )
+        self.writer.write("interval_rate_in", 10)
+        self.wait_for_gt(counter, stopped)
+        restarted = self.read_tlm(counter, 0)
+        hold(1.0, reason="fixed window to count fires")
+        self._assert_interval_rate(
+            "restarted from a rate of 0", self.read_tlm(counter, 0) - restarted
+        )
 
     def _assert_wait_duration(
         self, duration: sy.TimeSpan, label: str, expected: float
@@ -754,4 +789,5 @@ class StlTime(ArcCase):
         self._test_format_zones()
         self._test_format_zone_literal()
         self._test_interval_rate()
+        self._test_interval_zero_rate()
         self._test_wait_timing()
