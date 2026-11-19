@@ -9,4 +9,4 @@
 
 export * from "@/color/aether/queries";
 export * from "@/color/aether/resolve";
-export * as series from "@/color/aether/series";
+export * from "@/color/aether/series";

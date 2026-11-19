@@ -304,7 +304,7 @@ describe("Swatch", () => {
       const onChange = vi.fn();
       const onNamedChange = vi.fn();
       const Linker = (): ReactElement => {
-        const { onNamedChange: link } = Color.usePicker();
+        const { link } = Color.usePicker();
         return <button onClick={() => link("ocean")}>link Ocean</button>;
       };
       const c = render(

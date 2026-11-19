@@ -439,10 +439,10 @@ describe("Schematic toolbar Properties", () => {
       });
       await screen.findByText("Colors");
       const swatch = getSwatches("Stroke")[0];
-      // The swatch shows the value of the color for the theme of the test.
-      const values = [first.light, first.dark ?? first.light].map((c) => color.hex(c));
       await waitFor(() =>
-        expect(values).toContain(swatch.style.getPropertyValue("--pluto-swatch-color")),
+        expect(swatch.style.getPropertyValue("--pluto-swatch-color")).toBe(
+          color.hex(first.light),
+        ),
       );
     });
 

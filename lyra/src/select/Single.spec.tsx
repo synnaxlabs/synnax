@@ -672,6 +672,18 @@ describe("Select.Single", () => {
       expect(c.getByText("menu for pinned")).toBeTruthy();
     });
 
+    it("should leave a pinned option to the platform", () => {
+      const { c } = openDialog({
+        menu,
+        initialHover: 3,
+        footer: <Select.Item<string> itemKey="pinned">Pinned</Select.Item>,
+      });
+      const pinned = c.getByRole("option", { name: "Pinned" });
+      expect(fireEvent.contextMenu(pinned)).toBe(true);
+      expect(fireEvent.keyDown(c.getByRole("textbox"), SHIFT_F10)).toBe(true);
+      expect(c.queryByRole("menu")).toBeNull();
+    });
+
     it("should leave an option that hasMenu refuses to the platform", () => {
       const { c } = openDialog({
         menu,
@@ -728,6 +740,28 @@ describe("Select.Single", () => {
       fireEvent.contextMenu(c.getByRole("option", { name: "Second Item Option" }));
       fireEvent.click(c.getByText("Edit"));
       expect(c.getByText("editing 2")).toBeTruthy();
+    });
+
+    it("should open no menu while a view shows", () => {
+      const ViewMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
+        const { open } = Dialog.useViews();
+        return (
+          <Menu.Menu onChange={() => open("Edit", <span>{`editing ${keys[0]}`}</span>)}>
+            <Menu.Item itemKey="edit">Edit</Menu.Item>
+          </Menu.Menu>
+        );
+      };
+      const { c } = openDialog({
+        menu: (props) => <ViewMenu {...props} />,
+        initialHover: 1,
+      });
+      fireEvent.keyDown(c.getByRole("textbox"), SHIFT_F10);
+      fireEvent.click(c.getByText("Edit"));
+      const view = c.getByText("editing 2");
+      expect(fireEvent.keyDown(view, SHIFT_F10)).toBe(true);
+      const second = c.getByRole("option", { name: "Second Item Option" });
+      expect(fireEvent.contextMenu(second)).toBe(true);
+      expect(c.queryByRole("menu")).toBeNull();
     });
 
     it("should not select the hovered option on Enter in the open menu", () => {

@@ -9,9 +9,11 @@
 
 import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
 import { color, id } from "@synnaxlabs/x";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
+import { Access } from "@/access";
 import { Label } from "@/label";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
@@ -42,5 +44,36 @@ describe("Label.SelectMultiple", () => {
     });
     const option = await screen.findByRole("option", { name: lbl.name });
     await waitFor(() => expect(dotColor(option)).toBe(expected));
+  });
+});
+
+describe("Label.SelectSingle", () => {
+  it("should edit the label of an option from its context menu", async () => {
+    const wrapper = await createAsyncSynnaxWrapper({ client });
+    await waitForStreamLive(client.connection);
+    const lbl = await client.labels.create({
+      name: `edit-${id.create()}`,
+      color: { type: "fixed", value: "#123456" },
+    });
+    const Harness = (): ReactElement => {
+      // As in the Console, the select renders once the permissions load.
+      Access.useEnsurePermissions({});
+      return <Label.SelectSingle value={lbl.key} onChange={vi.fn()} virtual={false} />;
+    };
+    await act(async () => {
+      render(<Harness />, { wrapper });
+    });
+    fireEvent.click(await screen.findByText(lbl.name));
+    fireEvent.change(await screen.findByPlaceholderText("Search labels..."), {
+      target: { value: lbl.name },
+    });
+    const option = await screen.findByRole("option", { name: lbl.name });
+    expect(fireEvent.contextMenu(option)).toBe(false);
+    fireEvent.click(await screen.findByText("Edit"));
+    const name = await screen.findByLabelText("Label name");
+    fireEvent.change(name, { target: { value: `${lbl.name}-renamed` } });
+    await waitFor(async () =>
+      expect((await client.labels.retrieve(lbl.key)).name).toBe(`${lbl.name}-renamed`),
+    );
   });
 });

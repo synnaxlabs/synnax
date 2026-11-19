@@ -60,10 +60,11 @@ describe("Views", () => {
     );
     const box = getByText("open")
       .element()
-      .closest(`.${CSS.B("views")}`)!;
+      .closest(`.${CSS.B("dialog-views")}`)!;
     const before = box.getBoundingClientRect().width;
     await getByText("open").click();
     await expect.element(getByText("wide")).toBeVisible();
+    await expect.element(getByText("open")).not.toBeVisible();
     expect(box.getBoundingClientRect().width).toBe(before);
   });
 });

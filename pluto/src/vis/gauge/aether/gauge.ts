@@ -105,7 +105,7 @@ export class Gauge
     i.requestRender = render.useOptionalRequestor(ctx);
 
     i.strokeColor =
-      this.state.color ?? colorFallback(i.theme, aetherColor.series.use(ctx));
+      this.state.color ?? colorFallback(i.theme, aetherColor.useSeries(ctx));
 
     const b = this.state.box;
     const baseRadius = box.width(b) / 2;

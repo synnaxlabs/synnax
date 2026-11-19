@@ -12,8 +12,8 @@ import { color as xcolor, deep, verbs } from "@synnaxlabs/x";
 import { generateKeyBetween } from "fractional-indexing";
 import type z from "zod";
 
+import { color as aetherColor } from "@/color/aether";
 import { Flux } from "@/flux";
-import { flux } from "@/flux/aether";
 
 const RESOURCE_NAME = "color";
 const PLURAL_RESOURCE_NAME = "colors";
@@ -52,16 +52,13 @@ const { useEnsure } = Flux.createRetrieve<RetrieveQuery, color.Named>({
   getCached: ({ client, query: { key } }) => client.colors.watch(key).getCached(),
 });
 
-export type ListQuery = color.RetrieveMultipleParams;
+export type ListQuery = aetherColor.ListQuery;
 
 /** Every named color that the query matches, kept live. */
 export const { useResult: useResultList } = Flux.createRetrieve<
   ListQuery,
   color.Named[]
->({
-  name: PLURAL_RESOURCE_NAME,
-  ...flux.listReads(({ client, query }) => client.colors.watch(query)),
-});
+>(aetherColor.listDefinition);
 
 /** The named colors that the Core ships, with their shipped values. */
 export const { useResult: useResultBuiltins } = Flux.createRetrieve<
@@ -108,22 +105,15 @@ export const useForm = Flux.createDocumentForm<
   toValues: ({ name, light, dark }) => ({ name, light, dark }),
 });
 
+/**
+ * Creates a named color. With no position, it goes after every color of its palette
+ * that has a position, and the colors with no position stay after it.
+ */
 export const { useUpdate: useCreate } = Flux.createUpdate<color.New, color.Named>({
   name: RESOURCE_NAME,
   verbs: verbs.CREATE,
-  update: async ({ client, data }) => await client.colors.create(data),
-});
-
-export interface AppendParams extends Omit<color.New, "position"> {}
-
-/**
- * Creates a named color after every color of its palette that has a position. It
- * writes no other color, so colors with no position stay after it.
- */
-export const { useUpdate: useAppend } = Flux.createUpdate<AppendParams, color.Named>({
-  name: RESOURCE_NAME,
-  verbs: verbs.CREATE,
   update: async ({ client, data }) => {
+    if (data.position != null) return await client.colors.create(data);
     const where = data.group == null ? { grouped: false } : { groups: [data.group] };
     const last = (await client.colors.retrieve({ where }))
       .filter((c) => c.position != null)

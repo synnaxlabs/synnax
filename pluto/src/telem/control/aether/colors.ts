@@ -71,7 +71,7 @@ export class Colors extends aether.Composite<typeof colorsStateZ, InternalState>
 
   afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
-    i.palette = aetherColor.series.use(ctx);
+    i.palette = aetherColor.useSeries(ctx);
     i.defaultColor = theming.use(ctx).colors.gray.l9;
     ctx.set(CONTEXT_KEY, this);
     const nextClient = synnax.use(ctx);

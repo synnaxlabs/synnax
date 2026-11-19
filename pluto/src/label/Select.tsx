@@ -89,7 +89,7 @@ interface BaseProps extends Omit<
 }
 
 const Base = (props: BaseProps): ReactElement => {
-  const hasMenu = useHasOptionMenu(props.data);
+  const hasMenu = useHasOptionMenu();
   return (
     <Select.Multiple<label.Key, label.Label | undefined>
       haulType={HAUL_TYPE}
@@ -174,7 +174,7 @@ export const SelectSingle = ({
     (client: Synnax) => client.labels,
     { name: "labels", query, filter },
   );
-  const hasMenu = useHasOptionMenu(data);
+  const hasMenu = useHasOptionMenu();
   return (
     <Select.Single<label.Key, label.Label | undefined>
       getItem={getItem}

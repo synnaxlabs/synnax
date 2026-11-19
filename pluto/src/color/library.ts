@@ -16,7 +16,8 @@ import { color as aetherColor } from "@/color/aether";
 import { useResultList } from "@/color/queries";
 import { Group } from "@/group";
 
-const NO_PALETTE = "";
+/** The key of the palette that holds the named colors in no palette. */
+export const NO_PALETTE = "";
 
 const useAll = (): color.Named[] => {
   const list = useResultList({});
