@@ -784,7 +784,6 @@ impl Drop for Prober {
 mod tests {
     use super::*;
     use std::future::Future;
-    use std::os::unix::fs::PermissionsExt;
     use std::pin::Pin;
     use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
@@ -894,8 +893,16 @@ while true; do sleep 1; done
         fn new(script: &str, probe: probe::Probe) -> Self {
             let dir = tempfile::tempdir().unwrap();
             let program = dir.path().join("core");
-            std::fs::write(&program, script).unwrap();
-            std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
+            // On Linux, a fork on another test thread can inherit a write fd on the
+            // script until it execs, and then running the script fails with ETXTBSY. A
+            // child writes it, so this process never holds that fd.
+            let written = std::process::Command::new("/bin/sh")
+                .args(["-c", r#"printf '%s' "$1" > "$0" && chmod 755 "$0""#])
+                .arg(&program)
+                .arg(script)
+                .status()
+                .unwrap();
+            assert!(written.success());
             let cfg = Config {
                 start_timeout: Duration::from_secs(5),
                 stop_timeout: Duration::from_millis(300),
