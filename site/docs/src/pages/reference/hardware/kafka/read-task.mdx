@@ -6,10 +6,8 @@ description:
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
-import { Icon } from "@synnaxlabs/lyra/icon";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
-import { Video } from "@/components/media/Media";
 import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -37,8 +35,6 @@ The task reads a field into a channel only when the record binds the field to on
 - **Strings** -> a string channel records the text. The **Enum mapping** of a field maps
   text labels to channel values.
 
-The Console has no topic browser. Type the topic, the record keys, and the pointers.
-
 <Divider.Divider x />
 
 ## Create a Kafka read task
@@ -46,18 +42,7 @@ The Console has no topic browser. Type the topic, the record keys, and the point
 <Client.Tabs>
   <Fragment slot="console">
 
-1. In the devices toolbar, right-click the cluster and select **Create read task**. You
-   can also run the "Create Kafka read task" command.
-2. Enter the **Topic**, such as `sensor-readings`.
-3. Click **Add record**, then set **Record key**, or leave it empty for any key.
-4. Click **Add field** on the record, then set **Pointer** and **Data type**.
-5. Click <Icon.Play /> (**Start**).
-
-The Console creates a channel for each field and an index channel for each record. It
-names them from the cluster name, the record key, and the pointer. To choose a name, set
-**Channel** before you start.
-
-<Video id="hardware/kafka/read-task" />
+The Console cannot create a Kafka read task. Use Python or TypeScript.
 
   </Fragment>
   <Fragment slot="python">
