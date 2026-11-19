@@ -53,8 +53,8 @@ func (e *UndefinedSymbolError) Error() string {
 }
 
 func isUndefined(err error) bool {
-	var undefined *UndefinedSymbolError
-	return errors.Is(err, query.ErrNotFound) || errors.As(err, &undefined)
+	_, undefined := errors.AsType[*UndefinedSymbolError](err)
+	return undefined || errors.Is(err, query.ErrNotFound)
 }
 
 // GetHint implements the hint interface of diagnostics. It looks for two kinds of
