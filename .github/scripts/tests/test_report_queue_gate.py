@@ -180,10 +180,17 @@ class TestFailure:
         assert "state=failure" in post
         assert "description=could not judge pull request 42" in post
 
-    def test_posts_a_failure_when_the_ref_is_gone(self, harness: Harness) -> None:
-        harness.gh.fail("api */git/ref/heads/*", "gh: Not Found (HTTP 404)")
+    def test_posts_a_failure_when_the_ref_lookup_fails(self, harness: Harness) -> None:
+        harness.gh.fail("api */git/ref/heads/*", "gh: Forbidden (HTTP 403)")
         assert harness.run().returncode != 0
         assert "state=failure" in harness.statuses()[0]
+
+    def test_skips_a_destroyed_group(self, harness: Harness) -> None:
+        harness.gh.fail("api */git/ref/heads/*", "gh: Not Found (HTTP 404)")
+        result = harness.run()
+        assert result.returncode == 0
+        assert "destroyed merge group" in result.stdout
+        assert harness.statuses() == []
 
     @pytest.mark.parametrize(
         "ref",
