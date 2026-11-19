@@ -473,13 +473,20 @@ const Records: FC<RecordsProps> = ({
   const addData = useAddDataModal();
   const label = (recordKey: string) => recordLabel({ recordKey });
 
-  /** @returns the key of the topic named name, which it adds when the task has none. */
-  const topicNamed = (name: string): string => {
+  /**
+   * Adds records to the topic named name, or adds that topic with the records in one
+   * change when the task has none.
+   * @returns the key of the topic.
+   */
+  const pushRecords = (name: string, added: ReadRecord[]): string => {
     const held = ctx.get(root.config.topics).value.find((t) => t.name === name);
-    if (held != null) return held.key;
-    const added = kafka.readTopicZ.parse({ name });
-    PForm.fieldListUtils(ctx, root.config.topics).push(added);
-    return added.key;
+    if (held != null) {
+      PForm.fieldListUtils(ctx, topicPath(held.key).records).push(added);
+      return held.key;
+    }
+    const topic = kafka.readTopicZ.parse({ name, records: added });
+    PForm.fieldListUtils(ctx, root.config.topics).push(topic);
+    return topic.key;
   };
 
   /**
@@ -509,8 +516,7 @@ const Records: FC<RecordsProps> = ({
       });
     }
     const added = recordsOf(icdKey);
-    const key = topicNamed(topic);
-    PForm.fieldListUtils(ctx, topicPath(key).records).push(added);
+    const key = pushRecords(topic, added);
     onSelect([added[0].key]);
     onExpand((prev) => unique.unique([...prev, key, added[0].key]));
   };
