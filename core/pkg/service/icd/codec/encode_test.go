@@ -10,6 +10,7 @@
 package codec_test
 
 import (
+	"encoding/json/v2"
 	"math"
 	"strconv"
 	"testing"
@@ -194,11 +195,95 @@ var _ = Describe("JSONEncoder", func() {
 				Scale:      1,
 				Pointer:    "/v",
 				TimeFormat: payload.TimeFormatUnixNs,
-				Default:    new(telem.TimeStamp(1700000000000000000)),
+				Default: &icd.TimestampDefault{Variant: icd.ConstantTimestampDefault{
+					Value: 1700000000000000000,
+				}},
 			}},
 			`{"v":1700000000000000000}`,
 		),
+		Entry("any JSON value",
+			icd.JSONField{Variant: icd.JSONJSONField{
+				Key:     uuid.New(),
+				Name:    "v",
+				Scale:   1,
+				Pointer: "/v",
+				Default: new(any(map[string]any{"set_point": 1.5, "mode": "auto"})),
+			}},
+			`{"v":{"set_point":1.5,"mode":"auto"}}`,
+		),
+		Entry("a UUID",
+			icd.JSONField{Variant: icd.UuidJSONField{
+				Key:     uuid.New(),
+				Name:    "v",
+				Scale:   1,
+				Pointer: "/v",
+				Default: &icd.UUIDDefault{Variant: icd.ConstantUUIDDefault{
+					Value: uuid.MustParse("00000000-0000-4000-8000-0000000000aa"),
+				}},
+			}},
+			`{"v":"00000000-0000-4000-8000-0000000000aa"}`,
+		),
+		Entry("bytes as base64",
+			icd.JSONField{Variant: icd.BytesJSONField{
+				Key:     uuid.New(),
+				Name:    "v",
+				Scale:   1,
+				Pointer: "/v",
+				Default: new("AQI="),
+			}},
+			`{"v":"AQI="}`,
+		),
 	)
+
+	It("Should write the time of each encode for a now default", func() {
+		enc := MustSucceed(codec.NewJSONEncoder(message([]icd.JSONField{
+			{Variant: icd.TimestampJSONField{
+				Key:        uuid.New(),
+				Name:       "v",
+				Scale:      1,
+				Pointer:    "/v",
+				TimeFormat: payload.TimeFormatUnixNs,
+				Default:    &icd.TimestampDefault{Variant: icd.NowTimestampDefault{}},
+			}},
+		})))
+		timeOf := func() telem.TimeStamp {
+			doc := MustSucceed(enc.Encode(nil, nil))
+			var v struct {
+				V int64 `json:"v"`
+			}
+			Expect(json.Unmarshal(doc, &v)).To(Succeed())
+			return telem.TimeStamp(v.V)
+		}
+		before := telem.Now()
+		first := timeOf()
+		second := timeOf()
+		Expect(first).To(BeNumerically(">=", before))
+		Expect(second).To(BeNumerically(">=", first))
+		Expect(second).To(BeNumerically("<=", telem.Now()))
+	})
+
+	It("Should write a new UUID at each encode for a random default", func() {
+		enc := MustSucceed(codec.NewJSONEncoder(message([]icd.JSONField{
+			{Variant: icd.UuidJSONField{
+				Key:     uuid.New(),
+				Name:    "v",
+				Scale:   1,
+				Pointer: "/v",
+				Default: &icd.UUIDDefault{Variant: icd.RandomUUIDDefault{}},
+			}},
+		})))
+		idOf := func() uuid.UUID {
+			doc := MustSucceed(enc.Encode(nil, nil))
+			var v struct {
+				V string `json:"v"`
+			}
+			Expect(json.Unmarshal(doc, &v)).To(Succeed())
+			return MustSucceed(uuid.Parse(v.V))
+		}
+		first, second := idOf(), idOf()
+		Expect(first).ToNot(Equal(uuid.Nil()))
+		Expect(second).ToNot(Equal(first))
+	})
 
 	It("Should write a float before its scale and offset", func() {
 		key := uuid.New()
@@ -353,6 +438,39 @@ var _ = Describe("JSONEncoder", func() {
 			message([]icd.JSONField{floatField("temp", uuid.New(), 1, 0)}),
 			"message command: field temp: no channel and no default: validation error",
 		),
+		Entry(
+			"a bytes default that is not base64",
+			message([]icd.JSONField{{Variant: icd.BytesJSONField{
+				Key:     uuid.New(),
+				Name:    "blob",
+				Scale:   1,
+				Pointer: "/blob",
+				Default: new("AQI"),
+			}}}),
+			"message command: field blob: default: illegal base64 data at input byte 0: "+
+				"validation error",
+		),
+		Entry("a timestamp default with no type",
+			message([]icd.JSONField{{Variant: icd.TimestampJSONField{
+				Key:        uuid.New(),
+				Name:       "at",
+				Scale:      1,
+				Pointer:    "/at",
+				TimeFormat: payload.TimeFormatUnixNs,
+				Default:    &icd.TimestampDefault{},
+			}}}),
+			"message command: field at: default: type is required: validation error",
+		),
+		Entry("a UUID default with no type",
+			message([]icd.JSONField{{Variant: icd.UuidJSONField{
+				Key:     uuid.New(),
+				Name:    "id",
+				Scale:   1,
+				Pointer: "/id",
+				Default: &icd.UUIDDefault{},
+			}}}),
+			"message command: field id: default: type is required: validation error",
+		),
 		Entry("a binding to a field the message does not have",
 			message(
 				[]icd.JSONField{},
@@ -469,6 +587,31 @@ var _ = Describe("JSONEncoder", func() {
 		Expect(testing.AllocsPerRun(100, encode)).To(BeZero())
 		Expect(err).ToNot(HaveOccurred())
 		Expect(dst).To(MatchJSON(`{"id":7,"temp":40,"count":3,"state":"run"}`))
+	})
+
+	It("Should write a now and a random default without allocating", func() {
+		enc := MustSucceed(codec.NewJSONEncoder(message([]icd.JSONField{
+			{Variant: icd.TimestampJSONField{
+				Key:        uuid.New(),
+				Name:       "at",
+				Scale:      1,
+				Pointer:    "/at",
+				TimeFormat: payload.TimeFormatISO8601,
+				Default:    &icd.TimestampDefault{Variant: icd.NowTimestampDefault{}},
+			}},
+			{Variant: icd.UuidJSONField{
+				Key:     uuid.New(),
+				Name:    "id",
+				Scale:   1,
+				Pointer: "/id",
+				Default: &icd.UUIDDefault{Variant: icd.RandomUUIDDefault{}},
+			}},
+		})))
+		dst := make([]byte, 0, 256)
+		var err error
+		encode := func() { dst, err = enc.Encode(dst[:0], nil) }
+		Expect(testing.AllocsPerRun(100, encode)).To(BeZero())
+		Expect(err).ToNot(HaveOccurred())
 	})
 })
 
