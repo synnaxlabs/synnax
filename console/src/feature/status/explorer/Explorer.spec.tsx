@@ -18,6 +18,7 @@ import {
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -32,7 +33,6 @@ import {
   getBySelector,
   queryIconButton,
   renderSuspended,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();

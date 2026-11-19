@@ -15,23 +15,26 @@ import { capture, fixtures } from "@/index";
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   await fixtures.createUsers([
-    { username: "grace", firstName: "Grace", lastName: "Hopper", role: "Viewer" },
+    { username: "grace", name: "Grace Hopper", role: "Viewer" },
   ]);
   const { page } = session;
   await capture.login(session);
   await capture.openSettings(session, "Users");
-  const item = page.getByRole("option", { name: "grace", exact: true });
+  const item = page.getByRole("option", { name: "Grace Hopper", exact: true });
   await session.waitFor(item);
   await session.moveTo({ x: 756, y: 700 });
 
   session.startRecording();
   await session.hold(1800);
 
-  await session.zoom(item);
   await session.click(item.getByText("Viewer", { exact: true }), { text: true });
   // The list order is not deterministic; filter through the auto-focused
   // search so the role is at the top before clicking it.
-  await session.waitFor(page.getByPlaceholder("Search roles...").first());
+  const search = page.getByPlaceholder("Search roles...").first();
+  await session.waitFor(search);
+  // The dropdown runs past the right end of the row, so the zoom frames both.
+  const dropdown = page.locator(".lyra-dialog__dialog").filter({ has: search }).first();
+  await session.zoom([item, dropdown]);
   await session.hold(400);
   await session.type("Engineer");
   const option = page.getByRole("option", { name: /^Engineer/ }).first();
