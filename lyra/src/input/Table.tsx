@@ -44,13 +44,19 @@ export type TableCell = unknown;
 
 /** The props a {@link TableColumn} cell renderer receives. */
 export interface TableCellProps<V extends TableCell = TableCell> extends Control<V> {
-  /** The index of the cell's row. */
-  row: number;
   /** Whether the cell is read-only. */
   preview?: boolean;
   /** The edit-in-place chassis every cell shares. Spread it onto the input. */
   variant?: Variant;
   "aria-label": string;
+}
+
+/** The props a custom column's cell renderer receives. */
+export interface TableCustomCellProps<
+  V extends TableCell = TableCell,
+> extends TableCellProps<V> {
+  /** The index of the cell's row. */
+  row: number;
 }
 
 interface BaseTableColumnProps {
@@ -98,7 +104,7 @@ export type TableColumnProps<V = unknown> =
       empty: V;
       /** Reads pasted text, or returns null to refuse it. Omitted, pastes fail. */
       parse?: (text: string) => V | null;
-      children: RenderProp<TableCellProps<V>>;
+      children: RenderProp<TableCustomCellProps<V>>;
     });
 
 /**
@@ -111,21 +117,22 @@ export type TableColumnProps<V = unknown> =
  */
 export const TableColumn = <V,>(_: TableColumnProps<V>): null => null;
 
-// The default inputs take no row, which would land on the DOM.
+// Only a custom renderer gets the row. A typed column's renderer often spreads its
+// props onto an input, where the row would land on the DOM.
 const renderCell = (
   column: TableColumnProps,
-  props: Omit<TableCellProps, "row">,
+  props: TableCellProps,
   row: number,
 ): ReactNode => {
   switch (column.type) {
     case "string": {
       const cell = { ...props, value: String(props.value) };
-      if (column.children != null) return column.children({ ...cell, row });
+      if (column.children != null) return column.children(cell);
       return <InputText {...cell} />;
     }
     case "boolean": {
       const cell = { ...props, value: props.value === true };
-      if (column.children != null) return column.children({ ...cell, row });
+      if (column.children != null) return column.children(cell);
       // The grid draws the cell's frame, so the checkbox draws none of its own. A
       // read-only box still shows its state as a control.
       return (
@@ -136,7 +143,7 @@ const renderCell = (
       return column.children({ ...props, row });
   }
   const cell = { ...props, value: Number(props.value) };
-  if (column.children != null) return column.children({ ...cell, row });
+  if (column.children != null) return column.children(cell);
   return <Numeric {...cell} showDragHandle={false} />;
 };
 
