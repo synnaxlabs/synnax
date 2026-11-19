@@ -9,8 +9,14 @@
 
 import { type channel, schematic } from "@synnaxlabs/client";
 import { Haul } from "@synnaxlabs/lyra/haul";
-import { act, render, waitFor } from "@testing-library/react";
+import {
+  act,
+  render,
+  type RenderResult as RTLRenderResult,
+  waitFor,
+} from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
+import { type ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
@@ -22,6 +28,10 @@ import { Tank } from "@/schematic/node/vessels/tank";
 const state = z.object({ cornerRadii: z.unknown() }).loose();
 
 const updated = vi.fn();
+
+interface RenderResult extends Omit<RTLRenderResult, "rerender"> {
+  rerender: (channel: channel.Key) => void;
+}
 
 // Stands in for the scale worker component that draws the tank's fill.
 class StubScale extends aether.Leaf<typeof state> {
@@ -36,31 +46,34 @@ class StubScale extends aether.Leaf<typeof state> {
 const renderTank = async (
   channel: channel.Key,
   borderRadius?: schematic.TankNodeConfig["borderRadius"],
-): Promise<void> => {
+): Promise<RenderResult> => {
   const [workerSide, mainSide] = aether.createMockPair();
   aether.render({ worker: workerSide, registry: { [StubScale.TYPE]: StubScale } });
+  const ui = (channel: channel.Key): ReactElement => (
+    <Aether.Provider worker={mainSide}>
+      <ReactFlowProvider>
+        <Haul.Provider>
+          <div data-id="t1">
+            <Tank.spec.Node
+              nodeKey="t1"
+              selected={false}
+              onConfigChange={vi.fn()}
+              config={schematic.tankNodeConfigZ.parse({
+                variant: "tank",
+                channel,
+                borderRadius,
+              })}
+            />
+          </div>
+        </Haul.Provider>
+      </ReactFlowProvider>
+    </Aether.Provider>
+  );
+  let result!: RTLRenderResult;
   await act(async () => {
-    render(
-      <Aether.Provider worker={mainSide}>
-        <ReactFlowProvider>
-          <Haul.Provider>
-            <div data-id="t1">
-              <Tank.spec.Node
-                nodeKey="t1"
-                selected={false}
-                onConfigChange={vi.fn()}
-                config={schematic.tankNodeConfigZ.parse({
-                  variant: "tank",
-                  channel,
-                  borderRadius,
-                })}
-              />
-            </div>
-          </Haul.Provider>
-        </ReactFlowProvider>
-      </Aether.Provider>,
-    );
+    result = render(ui(channel));
   });
+  return { ...result, rerender: (next) => result.rerender(ui(next)) };
 };
 
 describe("Tank.Symbol", () => {
@@ -76,6 +89,19 @@ describe("Tank.Symbol", () => {
   it("should draw the fill when the tank reads a channel", async () => {
     await renderTank(7);
     await waitFor(() => expect(updated).toHaveBeenCalled());
+  });
+
+  // Reading a channel wraps the body in the fill, so React mounts the grid again.
+  it("should mount the grid again when a channel is first set", async () => {
+    const { container, rerender } = await renderTank(0);
+    const grid = container.querySelector(".pluto-drag-handle");
+    expect(grid).not.toBeNull();
+    rerender(7);
+    await waitFor(() => expect(updated).toHaveBeenCalled());
+    const next = container.querySelector(".pluto-drag-handle");
+    expect(next).not.toBeNull();
+    expect(next).not.toBe(grid);
+    expect(grid?.isConnected).toBe(false);
   });
 
   it("should clip the fill to the default radius when the radius is absent", async () => {
