@@ -160,7 +160,8 @@ public:
     /// its bindings into its samples.
     /// @returns the index of the message in create order, or nothing when doc belongs
     /// to no message.
-    /// @returns VALIDATION when doc is not JSON or a value does not convert.
+    /// @returns VALIDATION when doc is not JSON or a value does not convert. The error
+    /// names the field, and also the message when the decoder holds more than one.
     std::pair<std::optional<std::size_t>, x::errors::Error>
     decode(std::string_view doc);
 
