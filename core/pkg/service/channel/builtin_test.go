@@ -181,6 +181,36 @@ var _ = Describe("Built-in channels", func() {
 		Expect(renamed[0].Key()).To(Equal(other.Key()))
 	})
 
+	It(
+		"Should rename a channel of the same shape in a folder and create at the root",
+		func(
+			ctx SpecContext,
+		) {
+			g := group.Group{Name: "folder", Scope: resource.TypeChannel}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return groupSvc.NewWriter(tx).Create(ctx, &g)
+			})).To(Succeed())
+			held := command()
+			held.Group = &g.Key
+			create(ctx, &held)
+			ch := command()
+			ch.Name = held.Name
+			Expect(declare(ctx, &ch)).To(Succeed())
+			Expect(ch.Key()).ToNot(Equal(held.Key()))
+			Expect(ch.Group).To(BeNil())
+			renamed := retrieve(ctx, held.Name+"_2")
+			Expect(renamed).To(HaveLen(1))
+			Expect(renamed[0].Key()).To(Equal(held.Key()))
+			// The user can still empty the folder and delete it.
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				if err := svc.NewWriter(tx).Delete(ctx, held.Key(), false); err != nil {
+					return err
+				}
+				return groupSvc.NewWriter(tx).Delete(ctx, g.Key)
+			})).To(Succeed())
+		},
+	)
+
 	It("Should let a renamed user channel be deleted", func(ctx SpecContext) {
 		held := command()
 		held.DataType = telem.Float32T
