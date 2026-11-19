@@ -116,11 +116,8 @@ const renderCell = (column: TableColumnProps, props: TableCellProps): ReactNode 
     case "boolean": {
       const cell = { ...props, value: props.value === true };
       if (column.children != null) return column.children(cell);
-      // The grid draws the cell's frame, so the checkbox draws none of its own. A
-      // read-only box still shows its state as a control.
-      return (
-        <Checkbox {...cell} variant="text" preview={false} disabled={props.preview} />
-      );
+      // A read-only box still shows its state as a control.
+      return <Checkbox {...cell} preview={false} disabled={props.preview} />;
     }
     case "custom":
       return column.children(props);
