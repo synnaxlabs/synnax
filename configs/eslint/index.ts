@@ -79,6 +79,14 @@ const NAMESPACE_IMPORT = {
     "Import a local module's namespace from its barrel, which forms it with `export * as`.",
 };
 
+// Oracle emits X's generated types into these namespaces for generated code.
+const GENERATED_X_NAMESPACES = {
+  name: "@synnaxlabs/x",
+  importNames: ["spatial", "telem"],
+  message:
+    "Generated code alone imports these namespaces. Use the hand-written names, such as bounds.Bounds or TimeSpan.",
+};
+
 const RESTRICTED_SYNTAX = [
   {
     selector: "JSXAttribute > JSXExpressionContainer > Literal.expression[value=true]",
@@ -222,6 +230,7 @@ const config: Linter.Config[] = [
       "jsdoc/no-types": "error",
       "jsdoc/require-hyphen-before-param-description": ["error", "always"],
       "no-restricted-syntax": ["error", ...RESTRICTED_SYNTAX],
+      "no-restricted-imports": ["error", { paths: [GENERATED_X_NAMESPACES] }],
       "@eslint-react/no-missing-component-display-name": "error",
       "@eslint-react/no-missing-context-display-name": "error",
       "@eslint-react/jsx-no-useless-fragment": "error",
@@ -327,6 +336,7 @@ const config: Linter.Config[] = [
     files: ["**/*.gen.ts"],
     rules: {
       "@stylistic/max-len": "off",
+      "no-restricted-imports": "off",
       "no-restricted-syntax": [
         "error",
         ...RESTRICTED_SYNTAX.filter((r) => r !== NAMESPACE_IMPORT),
@@ -344,9 +354,11 @@ const config: Linter.Config[] = [
     // barrel's own body and drops any stylesheet it imports.
     files: ["**/index.ts", "**/index.tsx", "**/external.ts", "**/external.tsx"],
     rules: {
+      // This replaces the rule's whole option list, so it repeats the paths.
       "no-restricted-imports": [
         "error",
         {
+          paths: [GENERATED_X_NAMESPACES],
           patterns: [
             {
               group: ["*.css"],
