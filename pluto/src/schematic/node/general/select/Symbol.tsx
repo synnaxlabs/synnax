@@ -70,6 +70,7 @@ export const Symbol = ({
       >
         {!deleted && stale && badged ? <Staleness.Badge /> : null}
       </Control.State>
+      {deleted && <Deleted.Item />}
       <Label.Label config={label} onChange={onConfigChange} />
       <Select
         value={target}

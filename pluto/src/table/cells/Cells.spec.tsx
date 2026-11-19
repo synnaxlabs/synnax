@@ -31,6 +31,55 @@ class CapturingValue extends aether.Leaf<typeof valueState> {
   }
 }
 
+const deletedState = z.object({ deleted: z.boolean().default(false) }).loose();
+
+// Stands in for the value worker component of a deleted channel.
+class DeletedValue extends aether.Leaf<typeof deletedState> {
+  static readonly TYPE = "value";
+  schema = deletedState;
+
+  afterUpdate(): void {
+    if (!this.state.deleted) this.setState((s) => ({ ...s, deleted: true }));
+  }
+}
+
+const renderValue = (registry: aether.ComponentRegistry) => {
+  const [workerSide, mainSide] = aether.createMockPair();
+  aether.render({ worker: workerSide, registry });
+  return render(
+    <Aether.Provider worker={mainSide}>
+      <table>
+        <tbody>
+          <tr>
+            <Cell.Value
+              {...table.valueCellConfigZ.parse({ variant: "value" })}
+              cellKey="c1"
+              box={box.construct(0, 0, 100, 20)}
+              selected={false}
+              editable={false}
+              onSelect={vi.fn()}
+              onChange={vi.fn()}
+            />
+          </tr>
+        </tbody>
+      </table>
+    </Aether.Provider>,
+  );
+};
+
+describe("Cells.Value deleted channel", () => {
+  it("should say Deleted channel when its worker reports the channel deleted", async () => {
+    const { findByText } = renderValue({ [DeletedValue.TYPE]: DeletedValue });
+    expect(await findByText("Deleted channel")).toBeTruthy();
+  });
+
+  it("should say nothing while its channel exists", async () => {
+    const { queryByText } = renderValue({ [CapturingValue.TYPE]: CapturingValue });
+    await waitFor(() => expect(CapturingValue.states.length).toBeGreaterThan(0));
+    expect(queryByText("Deleted channel")).toBeNull();
+  });
+});
+
 describe("Cells.Value", () => {
   it("should send its staleness timeout to the worker in nanoseconds", async () => {
     const [workerSide, mainSide] = aether.createMockPair();

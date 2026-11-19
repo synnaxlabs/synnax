@@ -12,6 +12,7 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { box, text, xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
+import { Deleted } from "@/schematic/node/common/deleted";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { LEVEL_SIZES } from "@/schematic/node/common/size";
@@ -48,7 +49,7 @@ export const Symbol = ({
   const valueBoxHeight = Component.HEIGHTS[LEVEL_SIZES[level]];
   const t = BaseValue.stringSource({ channel, rollingAverage, precision, notation });
   const backgroundTelem = BaseValue.backgroundTelem(t, redline, fillColor);
-  const { width: oWidth } = BaseValue.use({
+  const { width: oWidth, deleted } = BaseValue.use({
     aetherKey: nodeKey,
     color: textColor,
     level,
@@ -74,6 +75,7 @@ export const Symbol = ({
   return (
     <Grid.Grid editable={selected} nodeKey={nodeKey} allowRotate={false} {...resize}>
       <Label.Label config={label} onChange={onConfigChange} />
+      {deleted && <Deleted.Item />}
       <Value
         strokeColor={strokeColor}
         orientation={orientation}

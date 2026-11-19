@@ -122,6 +122,31 @@ describe("button symbol", () => {
       expect(onClick).not.toHaveBeenCalled();
     });
 
+    it("should send nothing from a disabled button in any mode", () => {
+      for (const mode of ["fire", "momentary", "pulse"] as const) {
+        const onClick = vi.fn();
+        const onMouseDown = vi.fn();
+        const onMouseUp = vi.fn();
+        const { container, unmount } = render(
+          <Button
+            mode={mode}
+            disabled
+            onClick={onClick}
+            onMouseDown={onMouseDown}
+            onMouseUp={onMouseUp}
+          />,
+        );
+        const btn = getButton(container);
+        fireEvent.mouseDown(btn);
+        fireEvent.mouseUp(btn);
+        fireEvent.click(btn);
+        expect(
+          [onClick, onMouseDown, onMouseUp].map((f) => f.mock.calls.length),
+        ).toEqual([0, 0, 0]);
+        unmount();
+      }
+    });
+
     it("should actuate an undelayed pulse on the raw press edge", () => {
       const onMouseDown = vi.fn();
       const { container } = render(<Button mode="pulse" onMouseDown={onMouseDown} />);

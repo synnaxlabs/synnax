@@ -67,7 +67,9 @@ export const Button = ({
   // the hold is the actuation, so a hold delay has no meaning there.
   const delayed = (delay ?? 0) > 0;
   let handlers: Pick<ButtonProps, "onClick" | "onMouseDown" | "onMouseUp">;
-  if (mode === "momentary")
+  // A disabled Lyra button still passes a press and a release to their handlers.
+  if (disabled) handlers = {};
+  else if (mode === "momentary")
     handlers = {
       onMouseDown: primaryOnly(onMouseDown),
       onMouseUp: primaryOnly(onMouseUp),

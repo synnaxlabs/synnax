@@ -141,13 +141,21 @@ describe("value/aether/Value", () => {
       expect(fillTexts(recorder)).toContain("2");
     });
 
-    it("should draw Deleted channel in a muted gray for a deleted channel", () => {
-      const { component, source, recorder } = setup({ value: "" });
+    it("should draw no value and hold its width for a deleted channel", () => {
+      const { component, source, recorder } = setup({ value: "1" });
+      const width = component.state.width;
       source.status = telem.DELETED_STATUS;
       recorder.clear();
       component.render({});
-      expect(fillTexts(recorder)).toEqual(["Deleted channel"]);
-      expect(fillStyles(recorder)).toContain(color.hex(THEME.colors.gray.l9));
+      expect(fillTexts(recorder).join("")).toEqual("");
+      expect(component.state.deleted).toBe(true);
+      expect(component.state.width).toBe(width);
+    });
+
+    it("should report a channel that exists as not deleted", () => {
+      const { component } = setup({ value: "1" });
+      component.render({});
+      expect(component.state.deleted).toBe(false);
     });
 
     it("should reflect a new value on the next explicit render", () => {

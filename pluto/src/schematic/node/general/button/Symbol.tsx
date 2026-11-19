@@ -45,6 +45,7 @@ export const Symbol = ({
         onChange={onConfigChange}
         deleted={deleted}
       />
+      {deleted && <Deleted.Item />}
       <Button
         label={label}
         mode={mode}

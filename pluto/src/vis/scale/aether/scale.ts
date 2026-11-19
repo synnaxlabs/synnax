@@ -299,7 +299,7 @@ export class Scale
     const draw = new Draw2D(i.render.upper2d.applyScale(viewportScale), i.theme);
 
     const bar = this.barRegion;
-    const value = i.telem.value().data;
+    const { data: value, status } = i.telem.value();
     const { lower, upper } = this.state.bounds;
     const range = upper - lower;
     const ratio =
@@ -322,7 +322,9 @@ export class Scale
         width: 1,
       });
     if (this.state.showScale) this.renderTicks(draw, bar);
-    if (this.state.showCaret) this.renderValue(draw, bar, ratio, this.valueText(value));
+    // A deleted channel has no value to point at.
+    if (this.state.showCaret && status !== telem.DELETED_STATUS)
+      this.renderValue(draw, bar, ratio, this.valueText(value));
   }
 
   private renderFill(draw: Draw2D, bar: box.Box, ratio: number): void {

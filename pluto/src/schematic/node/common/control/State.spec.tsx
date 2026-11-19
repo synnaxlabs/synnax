@@ -120,19 +120,27 @@ describe("Control.State authority", () => {
 });
 
 describe("Control.State deleted", () => {
-  it("should show the deleted badge in place of the chip and the indicator", () => {
-    const { getByText, queryAllByRole, container } = renderState(7, {
+  it("should hide the chip and the indicator", () => {
+    const { queryAllByRole, container } = renderState(7, {
       registry: STUB_REGISTRY,
       deleted: true,
     });
-    expect(getByText("Deleted channel")).toBeTruthy();
     expect(queryAllByRole("button")).toHaveLength(0);
-    expect(container.querySelector(".pluto-indicator")).toBeNull();
+    expect(container.querySelector(".pluto-control-state")).toBeNull();
+  });
+
+  it("should still show its children", () => {
+    const { getByText, queryAllByRole } = renderState(7, {
+      registry: STUB_REGISTRY,
+      deleted: true,
+      children: <span>child</span>,
+    });
+    expect(getByText("child")).toBeTruthy();
+    expect(queryAllByRole("button")).toHaveLength(0);
   });
 
   it("should show the chip and the indicator of a channel that exists", () => {
-    const { queryByText, queryAllByRole } = renderState(7, { registry: STUB_REGISTRY });
-    expect(queryByText("Deleted channel")).toBeNull();
+    const { queryAllByRole } = renderState(7, { registry: STUB_REGISTRY });
     expect(queryAllByRole("button").length).toBeGreaterThan(0);
   });
 });

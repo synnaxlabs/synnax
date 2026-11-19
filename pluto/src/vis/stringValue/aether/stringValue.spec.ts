@@ -78,13 +78,13 @@ describe("stringValue.StringValue", () => {
       expect(fillTexts(recorder)).toEqual(["IDLE"]);
     });
 
-    it("should draw Deleted channel in a muted gray for a deleted channel", () => {
-      const { component, source, recorder } = setup({ value: "" });
+    it("should draw no text for a deleted channel", () => {
+      const { component, source, recorder } = setup({ value: "IDLE" });
       source.status = telem.DELETED_STATUS;
       recorder.clear();
       component.render({});
-      expect(fillTexts(recorder)).toEqual(["Deleted channel"]);
-      expect(lastFillStyle(recorder)).toBe(color.hex(THEME.colors.gray.l9));
+      expect(fillTexts(recorder)).toEqual([]);
+      expect(component.state.deleted).toBe(true);
     });
 
     it("should redraw when the source sends a new value", () => {

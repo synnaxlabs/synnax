@@ -83,6 +83,7 @@ export const createToggle = <C extends ToggleConfig>(
         >
           {!deleted && stale && badged ? <Staleness.Badge /> : null}
         </Control.State>
+        {deleted && <Deleted.Item />}
         <Sym
           enabled={enabled}
           onClick={toggle}

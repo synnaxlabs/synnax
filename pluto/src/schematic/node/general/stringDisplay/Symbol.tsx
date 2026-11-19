@@ -10,6 +10,7 @@
 import { type schematic } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
+import { Deleted } from "@/schematic/node/common/deleted";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { Primitive } from "@/schematic/node/common/primitive";
@@ -36,7 +37,7 @@ export const Symbol = ({
   },
 }: NodeProps<schematic.StringDisplayNodeConfig>): ReactElement => {
   const content = Primitive.useCanvasBox<HTMLDivElement>(position);
-  BaseStringValue.use({
+  const { deleted } = BaseStringValue.use({
     aetherKey: nodeKey,
     box: content.box,
     telem: telem.streamChannelStringValue({ channel }),
@@ -51,6 +52,7 @@ export const Symbol = ({
   return (
     <Grid.Grid editable={selected} nodeKey={nodeKey} allowRotate={false} {...resize}>
       <Label.Label config={label} onChange={onConfigChange} />
+      {deleted && <Deleted.Item />}
       <StringDisplay
         strokeColor={strokeColor}
         level={level}

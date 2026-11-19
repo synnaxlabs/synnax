@@ -88,6 +88,7 @@ export const Symbol = ({
         onChange={onConfigChange}
         deleted={deleted}
       />
+      {deleted && <Deleted.Item />}
       <Label.Label config={label} onChange={onConfigChange} />
       <Input
         onSend={set}
