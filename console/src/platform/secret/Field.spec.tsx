@@ -26,6 +26,7 @@ import { z } from "zod";
 
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
+import { findOption } from "@/platform/picker/testutil";
 import { Secret } from "@/platform/secret";
 import { createSecret } from "@/platform/secret/testutil";
 import { Validity } from "@/platform/secret/validity";
@@ -109,20 +110,6 @@ const open = async (shown: string): Promise<void> => {
   fireEvent.click(await findDialogTriggerByText(shown));
 };
 
-// The list pages, so a search finds a secret however many the Core holds. The create
-// option names the search too, so the match skips it.
-const findOption = async (
-  s: secret.Secret,
-  term: string = s.name,
-): Promise<HTMLElement> => {
-  fireEvent.change(await screen.findByPlaceholderText("Search secrets..."), {
-    target: { value: term },
-  });
-  return await screen.findByRole("option", {
-    name: (shown) => shown.includes(s.name) && !shown.startsWith("Create "),
-  });
-};
-
 const openCreate = async (shown: string): Promise<void> => {
   await open(shown);
   fireEvent.click(await screen.findByText("New secret"));
@@ -133,7 +120,7 @@ describe("Secret.Field", () => {
     const s = await createSecret(client, created);
     await renderField();
     await open("Select a secret");
-    const option = await findOption(s);
+    const option = await findOption("secret", s.name);
     within(option).getByText(Validity.describeSecret(s));
   });
 
@@ -168,7 +155,7 @@ describe("Secret.Field", () => {
     const s = await createSecret(client, created);
     const { onChange } = await renderField();
     await open("Select a secret");
-    fireEvent.click(await findOption(s));
+    fireEvent.click(await findOption("secret", s.name));
     await waitFor(() => expect(onChange).toHaveBeenLastCalledWith(s.key));
     const trigger = await findDialogTriggerByText(s.name);
     within(trigger).getByText(Validity.describeSecret(s));
@@ -205,7 +192,7 @@ describe("Secret.Field", () => {
       target: { value: `${s.name}x` },
     });
     await screen.findByRole("option", { name: `Create secret "${s.name}x"` });
-    await findOption(s, s.name.toUpperCase());
+    await findOption("secret", s.name, s.name.toUpperCase());
     expect(screen.queryByRole("option", { name: /^Create secret/ })).toBeNull();
   });
 
@@ -217,7 +204,7 @@ describe("Secret.Field", () => {
     await awaitGranted(reader, secret.TYPE_RESOURCE_ID, "retrieve");
     await renderField("", reader);
     await open("Select a secret");
-    await findOption(s);
+    await findOption("secret", s.name);
     expect(screen.queryByText("New secret")).toBeNull();
   });
 
