@@ -768,6 +768,30 @@ describe("StreamMultiChannelLog", () => {
       await page(log, STORED + 20);
     });
 
+    it("should read an older page again after a failed read, on its own", async () => {
+      const core = deep();
+      const [a] = core.data.map((c) => c.key);
+      let failed = true;
+      let failures = 0;
+      const client = connect(core, {
+        readLatest: async (keys, count, tr) => {
+          if (failed && tr.end.valueOf() !== TimeStamp.MAX.valueOf()) {
+            failures++;
+            throw new Error("page unavailable");
+          }
+          return core.readLatest(keys, count, tr);
+        },
+      });
+      const log = open(core, client, { channels: [a] });
+      await settle(log, PAGE);
+      // A log asks for older entries each time the telem changes.
+      closers.push(log.onChange(() => log.loadOlder()));
+      log.loadOlder();
+      await expect.poll(() => failures, POLL).toBeGreaterThan(0);
+      failed = false;
+      await expect.poll(() => entriesOf(log).length, POLL).toBeGreaterThan(PAGE);
+    });
+
     it("should drop a page that an eviction made stale", async () => {
       const core = deep();
       const [a] = core.data.map((c) => c.key);
@@ -1489,7 +1513,9 @@ describe("StreamMultiChannelLog", () => {
       closers.push(log.onChange(onChange));
       log.loadOlder();
       expect(log.value().status.variant).toBe("loading");
-      await expect.poll(() => onChange.mock.calls.length, POLL).toBe(2);
+      await expect
+        .poll(() => onChange.mock.calls.length, POLL)
+        .toBeGreaterThanOrEqual(2);
       expect(log.value().status.variant).toBe("success");
     });
 

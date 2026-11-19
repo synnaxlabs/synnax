@@ -78,13 +78,20 @@ export interface AxisRenderProps {
   hold: boolean;
 }
 
+/** @returns the newest sample of the bounds with an edge, or undefined if none. */
+export const newestSample = (b: line.DataBounds[]): number | undefined => {
+  const edges = b
+    .filter((d) => d.edge != null && bounds.isFinite(d.bounds))
+    .map((d) => d.bounds.upper);
+  return edges.length === 0 ? undefined : Math.max(...edges);
+};
+
 // Bounds with an edge end at the newest sample of their line. Each moves to end at the
 // newest of them, so a line whose samples stopped does not stretch the axis.
 const align = (b: line.DataBounds[]): bounds.Bounds[] => {
   const finite = b.filter((d) => bounds.isFinite(d.bounds));
-  const edges = finite.filter((d) => d.edge != null).map((d) => d.bounds.upper);
-  if (edges.length === 0) return finite.map((d) => d.bounds);
-  const newest = Math.max(...edges);
+  const newest = newestSample(finite);
+  if (newest == null) return finite.map((d) => d.bounds);
   return finite.map(({ bounds: { lower, upper }, edge }) => {
     if (edge === "rolling") return { lower: lower + newest - upper, upper: newest };
     if (edge === "growing") return { lower, upper: newest };
