@@ -100,6 +100,9 @@ build:windows --copt=/wd4005  # macro redefinition (SOEM wpcap headers vs Window
 # flags, but only warns about the ones it does not know.
 build:windows --per_file_copt=external/.*,-.*\\.[sS]$,-.*\\.asm$@/WX-,/w
 build:windows --per_file_copt=vendor/.*,-.*\\.[sS]$,-.*\\.asm$@/WX-,/w
+# Workspace code gets a lean windows.h without the min and max macros, and the Windows
+# 10 API that cpp-httplib requires. Each dependency picks its own.
+build:windows --per_file_copt=.*,-external/.*,-vendor/.*@/DWIN32_LEAN_AND_MEAN,/DNOMINMAX,/D_WIN32_WINNT=0x0A00
 # External headers warn at level 0, as -isystem does on the other platforms.
 build:windows --features=external_include_paths
 build:windows --copt=/external:W0

@@ -299,7 +299,7 @@ cc_library(
                 d,
             ) for d in PRIVATE_INCLUDES] +
             select({
-                "@platforms//os:windows": ["/w44996"],
+                "@platforms//os:windows": [],
                 "//conditions:default": [
                     "-fexceptions",
                     "-fno-strict-aliasing",
