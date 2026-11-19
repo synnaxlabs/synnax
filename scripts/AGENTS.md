@@ -118,8 +118,8 @@ the current year. Both scripts source the rule from `common/copyright.sh`.
 
 ## Sanitizers (`sanitizers/`)
 
-`lsan_suppressions.txt` — leak suppressions for the `--config=asan-leak` C++ tests in CI.
-Add an entry here instead of turning LeakSanitizer off.
+`lsan_suppressions.txt` — leak suppressions for the `--config=asan-leak` C++ tests in
+CI. Add an entry here instead of turning LeakSanitizer off.
 
 ## Runner fleet (`runners/`)
 
