@@ -374,7 +374,7 @@ const drawLabel = (
   });
 };
 
-// Returns the time a running range has run as T+h:mm:ss, or an ended range's length.
+// Returns the time a running range has run as T+h:mm:ss, or the length of any other.
 const timeOf = (bar: Bar, now: TimeStamp): string => {
   const { start, span } = bar.range.timeRange;
   if (!bar.running) return span.toString("semantic");

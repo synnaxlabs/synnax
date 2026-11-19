@@ -96,8 +96,7 @@ const covers = (window: TimeRange, viewport: TimeRange): boolean =>
   window.contains(viewport) &&
   window.span.valueOf() <= 2n * WINDOW_SPANS * viewport.span.valueOf();
 
-// A running range draws again each second, so its elapsed time stays current, and at
-// this period while its head shows, so the head pulses.
+// Redraw periods in milliseconds: each second for T+, faster while a head pulses.
 const CLOCK_PERIOD = 1000;
 const HEAD_PERIOD = 33;
 
@@ -197,28 +196,27 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
         drawTooltip(draw, hovered, cursor, region, now);
     }
     const viewportScale = dataToDecimalScale.scale(box.xBounds(viewport));
-    const r = hovered?.range;
-    // A running range zooms to its newest sample, where the axis ends.
-    const zoomEnd =
-      r == null || !hovered?.running
-        ? r?.timeRange.end
-        : TimeStamp.min(r.timeRange.end, timeRange.end);
-    const hoveredState: SelectedState | null =
-      r == null
-        ? null
-        : {
-            key: r.key,
-            parent: r.parent,
-            name: r.name,
-            color: r.color,
-            labels: r.labels,
-            timeRange: r.timeRange,
-            hasChildren: r.hasChildren,
-            viewport: {
-              lower: viewportScale.pos(Number(r.timeRange.start.valueOf())),
-              upper: viewportScale.pos(Number((zoomEnd ?? r.timeRange.end).valueOf())),
-            },
-          };
+    let hoveredState: SelectedState | null = null;
+    if (hovered != null) {
+      const r = hovered.range;
+      // A running range zooms to the axis end, which follows the newest sample.
+      const end = hovered.running
+        ? TimeStamp.min(r.timeRange.end, timeRange.end)
+        : r.timeRange.end;
+      hoveredState = {
+        key: r.key,
+        parent: r.parent,
+        name: r.name,
+        color: r.color,
+        labels: r.labels,
+        timeRange: r.timeRange,
+        hasChildren: r.hasChildren,
+        viewport: {
+          lower: viewportScale.pos(Number(r.timeRange.start.valueOf())),
+          upper: viewportScale.pos(Number(end.valueOf())),
+        },
+      };
+    }
     if (hoveredState != null) this.setState((s) => ({ ...s, hovered: hoveredState }));
     else if (shown != null && !menuOpen)
       this.setState((s) => ({ ...s, hovered: null }));

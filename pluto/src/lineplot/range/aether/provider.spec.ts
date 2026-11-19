@@ -22,16 +22,18 @@ import { canvasTest } from "@/vis/render/testutil";
 const REGION = box.construct({ x: 0, y: 0 }, { width: 1000, height: 500 });
 const PROVIDER_KEY = "annotations";
 
+// The renders the provider requests. The test draws by calling render itself.
+const requested = vi.fn<render.Requestor>();
+
 /** Supplies the render requestor the provider reads, which production gets from the
- * plot's canvas. A requested render has nothing to schedule: the test drives drawing
- * by calling render itself. */
+ * plot's canvas. */
 class Requestor extends aether.Composite<typeof Requestor.stateZ> {
   static readonly TYPE = "range-provider-test-requestor";
   static readonly stateZ = z.object({});
   schema = Requestor.stateZ;
 
   afterUpdate(ctx: aether.Context): void {
-    render.control(ctx, () => {});
+    render.control(ctx, requested);
   }
 }
 
@@ -476,6 +478,8 @@ describe("Provider", () => {
         };
         await expect.poll(texts).toContain(rng.name);
         expect(texts().some((t) => /^T\+0:0[1-9]:\d\d$/.test(t))).toBe(true);
+        // The bar runs past the view, so it has no head.
+        expect(recorder.upper2d.calls.some((c) => c.op === "arcTo")).toBe(false);
         provider.setState((s) => ({ ...s, cursor: { x: 800, y: -14 } }));
         provider.render(props);
         expect(provider.state.hovered?.key).toEqual(rng.key);
@@ -510,10 +514,49 @@ describe("Provider", () => {
         if (bar == null) throw new Error("no bar drawn from 500 px");
         const [x, , width] = bar.args as number[];
         expect(x + width).toBeCloseTo(750);
+        // The head bends around both right corners, 1 px inside the bar's end.
+        const corners = recorder.upper2d.calls.filter((c) => c.op === "arcTo");
+        expect(corners).toHaveLength(2);
+        corners.forEach((c) => expect(c.args[0]).toBeCloseTo(749));
       } finally {
         await createTestClient().ranges.delete(rng.key);
       }
     });
+  });
+
+  it("should redraw while a head pulses, and stop when the strip hides", async () => {
+    const now = TimeStamp.now();
+    const [rng] = await createRanges(now.sub(TimeSpan.seconds(30)), [[0, 3600]]);
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    try {
+      const provider = mount();
+      const props = {
+        ...renderProps(new TimeRange(now.sub(TimeSpan.minutes(1)), now)),
+        newest: now.sub(TimeSpan.seconds(10)),
+      };
+      provider.setState((s) => ({ ...s, visible: false }));
+      await expect
+        .poll(() => {
+          provider.render(props);
+          return provider.state.count;
+        })
+        .toBeGreaterThan(0);
+      const redraws = (): number => {
+        requested.mockClear();
+        vi.advanceTimersByTime(1000);
+        return requested.mock.calls.length;
+      };
+      expect(redraws()).toEqual(0);
+      provider.setState((s) => ({ ...s, visible: true }));
+      provider.render(props);
+      expect(redraws()).toBeGreaterThan(20);
+      provider.setState((s) => ({ ...s, visible: false }));
+      provider.render(props);
+      expect(redraws()).toEqual(0);
+    } finally {
+      vi.useRealTimers();
+      await createTestClient().ranges.delete(rng.key);
+    }
   });
 
   it("should show the length of an ended range at the end of its bar", async () => {
