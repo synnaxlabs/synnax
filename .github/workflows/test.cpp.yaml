@@ -44,11 +44,6 @@ on:
         required: false
         type: boolean
         default: false
-      rust:
-        description: Whether the build needs a Rust toolchain
-        required: false
-        type: boolean
-        default: false
       sanitizers:
         description: Whether to build with the sanitizer configs
         required: false
@@ -140,13 +135,6 @@ jobs:
           sudo apt-get update
           read -ra packages <<< "$PACKAGES"
           sudo apt-get install -y "${packages[@]}"
-
-      - name: Install Rust
-        if: inputs.rust
-        uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30 # v2
-        with:
-          # A cache save deletes rustup from ~/.cargo/bin, which the build bots keep.
-          cache-bin: false
 
       - name: Update submodules
         shell: bash
@@ -297,13 +285,6 @@ jobs:
           sudo apt-get update
           read -ra packages <<< "$PACKAGES"
           sudo apt-get install -y "${packages[@]}"
-
-      - name: Install Rust
-        if: inputs.rust
-        uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30 # v2
-        with:
-          # A cache save deletes rustup from ~/.cargo/bin, which the build bots keep.
-          cache-bin: false
 
       - name: Update submodules
         shell: bash

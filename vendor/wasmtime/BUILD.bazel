@@ -9,354 +9,55 @@
 
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
-genrule(
-    name = "build_wasmtime",
-    srcs = glob(
-        ["wasmtime/**"],
-        allow_empty = True,
-        # The unsandboxed build writes these into the source tree.
-        exclude = [
-            "wasmtime/artifacts/**",
-            "wasmtime/target/**",
-        ],
-    ),
-    outs = [
-        "lib/wasmtime.lib",
-        "lib/libwasmtime.a",
-        "include/doc-wasm.h",
-        "include/wasi.h",
-        "include/wasm.h",
-        "include/wasm.hh",
-        "include/wasmtime.h",
-        "include/wasmtime.hh",
-        "include/wasmtime/_anyref_class.hh",
-        "include/wasmtime/_arrayref_class.hh",
-        "include/wasmtime/_eqref_class.hh",
-        "include/wasmtime/_exnref_class.hh",
-        "include/wasmtime/_externref_class.hh",
-        "include/wasmtime/_func_class.hh",
-        "include/wasmtime/_store_class.hh",
-        "include/wasmtime/_structref_class.hh",
-        "include/wasmtime/_val_class.hh",
-        "include/wasmtime/anyref.h",
-        "include/wasmtime/anyref.hh",
-        "include/wasmtime/arrayref.h",
-        "include/wasmtime/arrayref.hh",
-        "include/wasmtime/async.h",
-        "include/wasmtime/component.h",
-        "include/wasmtime/component.hh",
-        "include/wasmtime/component/component.h",
-        "include/wasmtime/component/component.hh",
-        "include/wasmtime/component/func.h",
-        "include/wasmtime/component/func.hh",
-        "include/wasmtime/component/instance.h",
-        "include/wasmtime/component/instance.hh",
-        "include/wasmtime/component/linker.h",
-        "include/wasmtime/component/linker.hh",
-        "include/wasmtime/component/types.h",
-        "include/wasmtime/component/types.hh",
-        "include/wasmtime/component/types/component.h",
-        "include/wasmtime/component/types/component.hh",
-        "include/wasmtime/component/types/func.h",
-        "include/wasmtime/component/types/func.hh",
-        "include/wasmtime/component/types/instance.h",
-        "include/wasmtime/component/types/instance.hh",
-        "include/wasmtime/component/types/module.h",
-        "include/wasmtime/component/types/module.hh",
-        "include/wasmtime/component/types/resource.h",
-        "include/wasmtime/component/types/val.h",
-        "include/wasmtime/component/types/val.hh",
-        "include/wasmtime/component/val.h",
-        "include/wasmtime/component/val.hh",
-        "include/wasmtime/conf.h",
-        "include/wasmtime/config.h",
-        "include/wasmtime/config.hh",
-        "include/wasmtime/engine.h",
-        "include/wasmtime/engine.hh",
-        "include/wasmtime/eqref.h",
-        "include/wasmtime/eqref.hh",
-        "include/wasmtime/error.h",
-        "include/wasmtime/error.hh",
-        "include/wasmtime/exnref.h",
-        "include/wasmtime/exnref.hh",
-        "include/wasmtime/extern.h",
-        "include/wasmtime/extern.hh",
-        "include/wasmtime/extern_declare.hh",
-        "include/wasmtime/externref.h",
-        "include/wasmtime/externref.hh",
-        "include/wasmtime/func.h",
-        "include/wasmtime/func.hh",
-        "include/wasmtime/global.h",
-        "include/wasmtime/global.hh",
-        "include/wasmtime/helpers.hh",
-        "include/wasmtime/instance.h",
-        "include/wasmtime/instance.hh",
-        "include/wasmtime/linker.h",
-        "include/wasmtime/linker.hh",
-        "include/wasmtime/memory.h",
-        "include/wasmtime/memory.hh",
-        "include/wasmtime/module.h",
-        "include/wasmtime/module.hh",
-        "include/wasmtime/profiling.h",
-        "include/wasmtime/sharedmemory.h",
-        "include/wasmtime/span.hh",
-        "include/wasmtime/store.h",
-        "include/wasmtime/store.hh",
-        "include/wasmtime/structref.h",
-        "include/wasmtime/structref.hh",
-        "include/wasmtime/table.h",
-        "include/wasmtime/table.hh",
-        "include/wasmtime/tag.h",
-        "include/wasmtime/tag.hh",
-        "include/wasmtime/trap.h",
-        "include/wasmtime/trap.hh",
-        "include/wasmtime/types.h",
-        "include/wasmtime/types.hh",
-        "include/wasmtime/types/_structref_class.hh",
-        "include/wasmtime/types/_val_class.hh",
-        "include/wasmtime/types/arrayref.h",
-        "include/wasmtime/types/arrayref.hh",
-        "include/wasmtime/types/exnref.h",
-        "include/wasmtime/types/exnref.hh",
-        "include/wasmtime/types/export.hh",
-        "include/wasmtime/types/extern.hh",
-        "include/wasmtime/types/func.hh",
-        "include/wasmtime/types/global.hh",
-        "include/wasmtime/types/import.hh",
-        "include/wasmtime/types/memory.hh",
-        "include/wasmtime/types/structref.h",
-        "include/wasmtime/types/structref.hh",
-        "include/wasmtime/types/table.hh",
-        "include/wasmtime/types/tag.hh",
-        "include/wasmtime/types/val.h",
-        "include/wasmtime/types/val.hh",
-        "include/wasmtime/val.h",
-        "include/wasmtime/val.hh",
-        "include/wasmtime/wasi.hh",
-        "include/wasmtime/wat.h",
-        "include/wasmtime/wat.hh",
+config_setting(
+    name = "macos_aarch64",
+    constraint_values = [
+        "@platforms//cpu:aarch64",
+        "@platforms//os:macos",
     ],
-    cmd_bash = select({
-        "@platforms//os:windows": """
-            # Use rustup's Rust, not Chocolatey's. Chocolatey installs to
-            # /c/ProgramData/chocolatey/bin while rustup manages toolchains in
-            # ~/.cargo/bin. Resolve the home from USERPROFILE, HOME, then whoami.
-            if [ -n "$${USERPROFILE:-}" ]; then
-                _HOME="$$(cygpath -u "$$USERPROFILE")"
-            elif [ -n "$${HOME:-}" ]; then
-                _HOME="$$HOME"
-            else
-                _HOME="/c/Users/$$(whoami)"
-            fi
-            export PATH="$$_HOME/.cargo/bin:$$PATH"
-            export RUSTUP_HOME="$$_HOME/.rustup"
+)
 
-            # Ensure MSVC target is installed
-            rustup target add x86_64-pc-windows-msvc
+config_setting(
+    name = "linux_x86_64",
+    constraint_values = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:linux",
+    ],
+)
 
-            # Build wasmtime for Windows
-            cd vendor/wasmtime/wasmtime
-
-            # Force CMake to use rustup-managed rust binaries, not Chocolatey's
-            export RUSTC=$$(which rustc)
-            export CARGO=$$(which cargo)
-
-            # Help cargo build scripts find their source files when invoked via CMake
-            export CARGO_BUILD_TARGET_DIR="$$(pwd)/target"
-
-            # Build with cargo rather than CMake, which trips over the build scripts
-            # here. Profiling (ittapi-sys) and cache (zstd-sys) fail on Windows, so both
-            # stay off, and cargo rustc forces the staticlib crate type.
-            cd crates/c-api
-            # gc carries the C API's GC surface and gc-null the implementation. Both are
-            # needed: wasmtime 49 defines StorageType's constructor outside the
-            # WASMTIME_FEATURE_GC guard that declares the class, so the headers do not
-            # compile with GC off.
-            cargo rustc --release --target x86_64-pc-windows-msvc \
-                --no-default-features \
-                --features wat,wasi,async,cranelift,threads,gc,gc-null \
-                --crate-type staticlib 2>&1
-            CARGO_EXIT_CODE=$$?
-            if [ $$CARGO_EXIT_CODE -ne 0 ]; then
-                echo "ERROR: cargo build failed with exit code $$CARGO_EXIT_CODE"
-                exit 1
-            fi
-            cd ../..
-
-            # Verify the library was produced
-            if [ ! -f "target/x86_64-pc-windows-msvc/release/wasmtime_c_api.lib" ]; then
-                echo "ERROR: wasmtime_c_api.lib not produced by cargo build"
-                echo "Contents of release directory:"
-                ls -la target/x86_64-pc-windows-msvc/release/ 2>&1 || echo "Directory does not exist"
-                exit 1
-            fi
-
-            # Purge the staging tree first. It persists across builds on a warm runner,
-            # so headers a previous wasmtime version shipped would otherwise be copied
-            # into the output and collide with it.
-            rm -rf artifacts
-            mkdir -p artifacts/lib artifacts/include artifacts/include/wasmtime
-
-            # Copy the library file (cargo produces wasmtime_c_api.lib for staticlib)
-            cp target/x86_64-pc-windows-msvc/release/wasmtime_c_api.lib artifacts/lib/wasmtime.lib || \
-                cp target/x86_64-pc-windows-msvc/release/*.lib artifacts/lib/wasmtime.lib || \
-                ( ls target/x86_64-pc-windows-msvc/release/ && exit 1 )
-
-            # Headers are in crates/c-api/include (source tree location)
-            cp crates/c-api/include/*.h artifacts/include/
-            cp crates/c-api/include/*.hh artifacts/include/ 2>/dev/null || true
-            cp -r crates/c-api/include/wasmtime artifacts/include/ 2>/dev/null || true
-
-            # Generate conf.h with the features we built (CMake would normally do this)
-            cat > artifacts/include/wasmtime/conf.h << 'EOF'
-#ifndef WASMTIME_CONF_H
-#define WASMTIME_CONF_H
-#define WASMTIME_FEATURE_WAT
-#define WASMTIME_FEATURE_WASI
-#define WASMTIME_FEATURE_ASYNC
-#define WASMTIME_FEATURE_CRANELIFT
-#define WASMTIME_FEATURE_THREADS
-#define WASMTIME_FEATURE_GC
-#define WASMTIME_FEATURE_GC_NULL
-#define WASMTIME_FEATURE_COMPILER
-#endif
-EOF
-
-            # Go back to execroot
-            cd ../../..
-
-            # Create output directories
-            for out in $(OUTS); do
-                mkdir -p "$$(dirname $$out)"
-            done
-
-            # An empty wasmtime.lib means cargo wrote no archive, so fail loudly here
-            # rather than at link time.
-            if [ ! -s vendor/wasmtime/wasmtime/artifacts/lib/wasmtime.lib ]; then
-                echo "ERROR: wasmtime.lib not found or is empty at vendor/wasmtime/wasmtime/artifacts/lib/"
-                echo "Contents of artifacts/lib directory:"
-                ls -la vendor/wasmtime/wasmtime/artifacts/lib/ 2>&1 || echo "Directory does not exist"
-                exit 1
-            fi
-            cp vendor/wasmtime/wasmtime/artifacts/lib/wasmtime.lib "$(execpath lib/wasmtime.lib)"
-
-            # Copy the staged header tree; wasmtime ships 100+ headers.
-            cp -R vendor/wasmtime/wasmtime/artifacts/include/. \
-                "$(RULEDIR)/include/"
-
-            # Create empty Unix library to satisfy Bazel
-            touch "$(execpath lib/libwasmtime.a)"
-        """,
-        "@platforms//os:macos": """
-            # Actions get only /bin, /usr/bin, and /usr/local/bin on PATH. Add rustup's
-            # cargo and rustc, which rustup-init puts in ~/.cargo/bin and Homebrew keeps
-            # in its keg, and Homebrew's cmake.
-            export PATH=/opt/homebrew/opt/rustup/bin:/opt/homebrew/bin:$$PATH
-            export PATH=~/.cargo/bin:$$PATH
-
-            # Build wasmtime
-            cd vendor/wasmtime/wasmtime
-            # Purge both staging trees first. They persist across builds on a warm
-            # runner, and cmake installs whatever sits in its binary include dir, so
-            # headers a previous wasmtime version shipped would reappear and collide
-            # with the read-only outputs of the current one.
-            rm -rf artifacts target/c-api/include
-            cmake -S crates/c-api -B target/c-api --install-prefix="$$(pwd)/artifacts" -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF
-            cmake --build target/c-api
-            cmake --install target/c-api
-
-            # Go back to execroot
-            cd ../../..
-
-            # Create output directories
-            for out in $(OUTS); do
-                mkdir -p "$$(dirname $$out)"
-            done
-
-            # Copy library
-            cp vendor/wasmtime/wasmtime/artifacts/lib/libwasmtime.a "$(execpath lib/libwasmtime.a)"
-
-            # Copy the staged header tree; wasmtime ships 100+ headers.
-            cp -R vendor/wasmtime/wasmtime/artifacts/include/. \
-                "$(RULEDIR)/include/"
-
-            # Create empty Windows library
-            touch "$(execpath lib/wasmtime.lib)"
-        """,
-        "//conditions:default": """
-            # Actions get only /bin, /usr/bin, and /usr/local/bin on PATH. Add the
-            # directory of rustup's cargo.
-            export PATH=~/.cargo/bin:$$PATH
-
-            # Build wasmtime
-            cd vendor/wasmtime/wasmtime
-            # Purge both staging trees first. They persist across builds on a warm
-            # runner, and cmake installs whatever sits in its binary include dir, so
-            # headers a previous wasmtime version shipped would reappear and collide
-            # with the read-only outputs of the current one.
-            rm -rf artifacts target/c-api/include
-            cmake -S crates/c-api -B target/c-api --install-prefix="$$(pwd)/artifacts" -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF
-            cmake --build target/c-api
-            cmake --install target/c-api
-
-            # Go back to execroot
-            cd ../../..
-
-            # Create output directories
-            for out in $(OUTS); do
-                mkdir -p "$$(dirname $$out)"
-            done
-
-            # Copy library
-            cp vendor/wasmtime/wasmtime/artifacts/lib/libwasmtime.a "$(execpath lib/libwasmtime.a)"
-
-            # Copy the staged header tree; wasmtime ships 100+ headers.
-            cp -R vendor/wasmtime/wasmtime/artifacts/include/. \
-                "$(RULEDIR)/include/"
-
-            # Create empty Windows library
-            touch "$(execpath lib/wasmtime.lib)"
-        """,
-    }),
-    # Cargo writes into the source tree. Unlike local, no-sandbox keeps the remote cache.
-    tags = ["no-sandbox"],
-    visibility = ["//visibility:public"],
+config_setting(
+    name = "windows_x86_64",
+    constraint_values = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:windows",
+    ],
 )
 
 cc_library(
     name = "wasmtime",
-    srcs = select({
-        "@platforms//os:windows": ["lib/wasmtime.lib"],
-        "//conditions:default": ["lib/libwasmtime.a"],
-    }),
-    hdrs = [":build_wasmtime"],
-    # On Windows with static linking, disable dllimport declarations
+    # The library is static, so its declarations must not be dllimport.
     defines = select({
         "@platforms//os:windows": [
-            "WASM_API_EXTERN=",
             "WASI_API_EXTERN=",
+            "WASM_API_EXTERN=",
         ],
         "//conditions:default": [],
     }),
-    # Consumers see the headers through -isystem, so warnings in wasmtime's own inline
-    # code never fail a -Werror build.
-    features = ["system_include_paths"],
-    includes = ["include"],
     linkopts = select({
         "@platforms//os:windows": [
-            "ws2_32.lib",
             "advapi32.lib",
-            "userenv.lib",
-            "ntdll.lib",
-            "shell32.lib",
-            "ole32.lib",
             "bcrypt.lib",
+            "ntdll.lib",
+            "ole32.lib",
+            "shell32.lib",
+            "userenv.lib",
+            "ws2_32.lib",
         ],
         "@platforms//os:macos": [
             "-ldl",
             "-lpthread",
             "-framework",
-            "Security",  # Required by Wasmtime on macOS
+            "Security",
         ],
         "//conditions:default": [
             "-ldl",
@@ -365,6 +66,13 @@ cc_library(
             "-lrt",
         ],
     }),
-    strip_include_prefix = "include",
     visibility = ["//visibility:public"],
+    deps = select(
+        {
+            ":linux_x86_64": ["@wasmtime_x86_64_linux//:wasmtime"],
+            ":macos_aarch64": ["@wasmtime_aarch64_macos//:wasmtime"],
+            ":windows_x86_64": ["@wasmtime_x86_64_windows//:wasmtime"],
+        },
+        no_match_error = "wasmtime has no prebuilt C API for this platform",
+    ),
 )
