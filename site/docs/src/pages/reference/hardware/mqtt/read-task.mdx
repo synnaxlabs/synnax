@@ -365,9 +365,10 @@ unread, as they cannot share an index channel. A field keeps the channel that th
 wrote for the same pointer when the channel's data type fits the field, so plots and
 ranges keep their data. Otherwise, the field gets a new channel when you deploy. When
 the message has only one timestamp field, and that field has no default, the topic reads
-its time from that field. If the message that the topic read before has no fields and no
-other topic reads it, the Console deletes it from its ICD. Otherwise, it stays in its
-ICD. **Message format** shows only on a topic that reads one message.
+its time from that field. If the message that the topic read before is a message the
+task made, has no fields, and no other topic reads it, the Console deletes it from its
+ICD. Otherwise, it stays in its ICD. **Message format** shows only on a topic that reads
+one message.
 
 In code, set the `icd` of the topic and the `message` of its `ReadMessage`.
 

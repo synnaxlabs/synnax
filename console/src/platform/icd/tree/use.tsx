@@ -18,6 +18,7 @@ import {
   type Dispatch,
   type FC,
   type ReactElement,
+  type RefObject,
   type SetStateAction,
   useSyncExternalStore,
 } from "react";
@@ -207,6 +208,11 @@ export interface UseArgs<S extends Source> {
   bindDisabled?: boolean;
   /** @returns a name for a new message of a source that no message in held has. */
   messageName: (source: string, held: icd.Message[]) => string;
+  /**
+   * The key of each message that the task made. The hook adds each message it makes.
+   * Keep it outside of each {@link WithFormat}, as a new ICD mounts the hook again.
+   */
+  made: RefObject<Set<string>>;
   /** The key of each selected tree item. */
   selected: string[];
   onSelect: Dispatch<SetStateAction<string[]>>;
@@ -232,7 +238,8 @@ export interface UseReturn {
    * Makes a source that reads one message read a message of any ICD, and each field of
    * it that can share one index. When the message has one timestamp field, and that
    * field has no default, the source takes its time from it. The message that the
-   * source read leaves its ICD when it has no fields and no other source reads it.
+   * source read leaves its ICD when the task made it, it has no fields, and no other
+   * source reads it.
    */
   setMessage: (source: string, icdKey: icd.Key, message: icd.Message) => void;
 }
@@ -250,6 +257,7 @@ export const use = <S extends Source>({
   bindingOf,
   bindDisabled = false,
   messageName,
+  made,
   selected,
   onSelect,
   expanded,
@@ -291,6 +299,7 @@ export const use = <S extends Source>({
       },
     };
     form.insert(PICD.formPath.messages, message, held.at(-1)?.key);
+    made.current.add(message.key);
     ctx.set(path.messages, [
       ...source.messages,
       { message: message.key, bindings: [] },
@@ -327,6 +336,7 @@ export const use = <S extends Source>({
           sourceOf(s)?.messages.some((m) => m.message === prior.message),
       );
     if (
+      made.current.has(prior.message) &&
       held?.payload.format === "json" &&
       held.payload.fields.length === 0 &&
       !readElsewhere

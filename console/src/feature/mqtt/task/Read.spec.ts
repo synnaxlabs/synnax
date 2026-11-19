@@ -903,17 +903,50 @@ describe("MQTT read form", () => {
       return { shared, message };
     };
 
-    /** Picks the message format of the open topic, from the one it reads now. */
-    const pickFormat = async (current: string, next: string) => {
+    /**
+     * Picks the message format of the open topic, from the one it reads now. Pass the
+     * name of the ICD of the next message when another ICD has a message of its name.
+     */
+    const pickFormat = async (current: string, next: string, icdName = "") => {
       fireEvent.click(await findDialogTriggerByText(current));
       const dialogs = await screen.findAllByRole("dialog");
-      fireEvent.click(await within(dialogs[dialogs.length - 1]).findByText(next));
+      const names = await within(dialogs[dialogs.length - 1]).findAllByText(next);
+      const [name] = names.filter((n) =>
+        n.parentElement?.textContent?.includes(icdName),
+      );
+      fireEvent.click(name);
     };
 
-    const openTopic = async () =>
+    const openTopic = async (topic = TOPIC) =>
       fireEvent.click(
-        await screen.findByRole("treeitem", { name: /JSON.*plant\/oven/ }),
+        await screen.findByRole("treeitem", { name: new RegExp(`JSON.*${topic}`) }),
       );
+
+    /** Adds a topic through the Add data dialog. @returns its entry. */
+    const addTopic = async (taskKey: string, topic: string) => {
+      const dialog = await openAddData();
+      fireEvent.click(dialog.getByRole("button", { name: "Add a topic by name" }));
+      // The new topic has no name until the input sets one.
+      const input = await waitFor(() => {
+        const [empty] = screen
+          .getAllByPlaceholderText<HTMLInputElement>("plant/line1/telemetry")
+          .filter(({ value }) => value === "");
+        if (empty == null) throw new Error("no new topic");
+        return empty;
+      });
+      fireEvent.change(input, { target: { value: topic } });
+      fireEvent.blur(input);
+      return await waitFor(async () => {
+        const entry = (await retrieveEntries(taskKey)).find(
+          (e) => e.type === "plain" && e.topic === topic,
+        );
+        return plainOf(entry);
+      });
+    };
+
+    /** @returns the key of each message of the ICD. */
+    const messageKeys = async (key: string) =>
+      (await client.icds.retrieve({ key })).messages.map(({ key }) => key);
 
     it("should read a message of another ICD and the fields that share an index", async () => {
       const entry = await createEntry({
@@ -941,40 +974,74 @@ describe("MQTT read form", () => {
       expect(messages.map(({ key }) => key)).toEqual([entry.messages[0].message]);
     });
 
-    it("should delete an empty message that a topic stops reading from its ICD", async () => {
-      const entry = await createEntry({ fields: [] });
+    it("should delete a message with no fields that the task made when its topic stops reading it", async () => {
       const { message } = await createShared([createField("pressure", "float")]);
-      await renderRead({ entries: [entry] });
+      const { draft } = await renderRead();
+      const entry = await addTopic(draft.key, TOPIC);
+      await pickFormat("Untitled", message.name);
+      await waitFor(async () => expect(await messageKeys(entry.icd)).toEqual([]));
+    });
+
+    it("should keep a message with fields that the task made when its topic stops reading it", async () => {
+      const { shared, message } = await createShared([
+        createField("pressure", "float"),
+      ]);
+      const { draft } = await renderRead();
+      const entry = await addTopic(draft.key, TOPIC);
+      fireEvent.click(await screen.findByRole("button", { name: "Add field" }));
+      await waitFor(async () =>
+        expect(
+          (await client.icds.retrieve({ key: entry.icd })).messages[0].payload,
+        ).toMatchObject({ fields: [{ name: "Field 1" }] }),
+      );
+      await openTopic();
+      await pickFormat("Untitled", message.name);
+      await waitFor(async () =>
+        expect(plainOf((await retrieveEntries(draft.key))[0]).icd).toBe(shared.key),
+      );
+      expect(await messageKeys(entry.icd)).toEqual([entry.messages[0].message]);
+    });
+
+    it("should keep a message that the task made when another topic reads it", async () => {
+      const stove = await createEntry({
+        fields: [createField("temperature", "float")],
+        topic: "plant/stove",
+      });
+      const { name: home } = await client.icds.retrieve({ key: stove.icd });
+      const { shared, message } = await createShared([
+        createField("pressure", "float"),
+      ]);
+      const { draft } = await renderRead({ entries: [stove] });
+      const oven = await addTopic(draft.key, TOPIC);
+      const made = oven.messages[0].message;
+      await openTopic("plant/stove");
+      await pickFormat("plant/stove", "Untitled", home);
+      await waitFor(async () =>
+        expect(plainOf((await retrieveEntries(draft.key))[0]).messages).toMatchObject([
+          { message: made },
+        ]),
+      );
+      await openTopic();
+      await pickFormat("Untitled", message.name);
+      await waitFor(async () =>
+        expect(plainOf((await retrieveEntries(draft.key))[1]).icd).toBe(shared.key),
+      );
+      expect(await messageKeys(stove.icd)).toEqual([stove.messages[0].message, made]);
+    });
+
+    it("should keep a message with no fields that the task did not make", async () => {
+      const entry = await createEntry({ fields: [] });
+      const { shared, message } = await createShared([
+        createField("pressure", "float"),
+      ]);
+      const { draft } = await renderRead({ entries: [entry] });
       await openTopic();
       await pickFormat(TOPIC, message.name);
       await waitFor(async () =>
-        expect((await client.icds.retrieve({ key: entry.icd })).messages).toEqual([]),
+        expect(plainOf((await retrieveEntries(draft.key))[0]).icd).toBe(shared.key),
       );
+      expect(await messageKeys(entry.icd)).toEqual([entry.messages[0].message]);
     });
-
-    it.each([
-      { name: "fields", fields: [createField("temperature", "float")], others: [] },
-      { name: "another topic that reads it", fields: [], others: ["plant/stove"] },
-    ])(
-      "should keep a message with $name in its ICD when a topic stops reading it",
-      async ({ fields, others }) => {
-        const entry = await createEntry({ fields });
-        const readers = others.map((topic) =>
-          mqtt.plainReadEntryZ.parse({ ...entry, key: uuid.create(), topic }),
-        );
-        const { shared, message } = await createShared([
-          createField("pressure", "float"),
-        ]);
-        const { draft } = await renderRead({ entries: [entry, ...readers] });
-        await openTopic();
-        await pickFormat(TOPIC, message.name);
-        await waitFor(async () =>
-          expect(plainOf((await retrieveEntries(draft.key))[0]).icd).toBe(shared.key),
-        );
-        const { messages } = await client.icds.retrieve({ key: entry.icd });
-        expect(messages.map(({ key }) => key)).toEqual([entry.messages[0].message]);
-      },
-    );
 
     it.each([
       { name: "one timestamp field", times: ["time"], indexed: true },

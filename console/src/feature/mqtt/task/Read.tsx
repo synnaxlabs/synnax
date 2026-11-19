@@ -35,7 +35,14 @@ import {
   unique,
   uuid,
 } from "@synnaxlabs/x";
-import { type Dispatch, type FC, type SetStateAction, useRef, useState } from "react";
+import {
+  type Dispatch,
+  type FC,
+  type RefObject,
+  type SetStateAction,
+  useRef,
+  useState,
+} from "react";
 
 import { use } from "@/feature/mqtt/device/queries";
 import { Select as SelectDevice, useNoneSelected } from "@/feature/mqtt/device/Select";
@@ -648,6 +655,8 @@ interface EntriesProps {
   onSelect: Dispatch<SetStateAction<string[]>>;
   expanded: string[];
   onExpand: Dispatch<SetStateAction<string[]>>;
+  /** The key of each message that the task made. */
+  made: RefObject<Set<string>>;
 }
 
 /** The entries of the task as a tree, beside the details of the selected item. */
@@ -657,6 +666,7 @@ const Entries: FC<EntriesProps> = ({
   onSelect,
   expanded,
   onExpand,
+  made,
 }) => {
   const client = PSynnax.use();
   const ctx = PForm.useContext();
@@ -707,6 +717,7 @@ const Entries: FC<EntriesProps> = ({
     },
     messageName: (entry, held) =>
       nextMessageName(ctx.get(plainPath(entry)).value, held),
+    made,
     selected,
     onSelect,
     expanded,
@@ -754,6 +765,8 @@ const Entries: FC<EntriesProps> = ({
               bind,
             });
     push([...added, ...tags]);
+    for (const { messages } of added) made.current.add(messages[0].message);
+    for (const { message } of grown) if (message != null) made.current.add(message);
     grown.forEach(({ key, message, bindings }) => {
       const read = plainPath(key).messages[0];
       // The index and bindings of a deleted message name fields it no longer has.
@@ -890,6 +903,7 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
   const [expanded, setExpanded] = useState<string[]>(() =>
     ICD.Tree.initialExpanded(entries),
   );
+  const made = useRef(new Set<string>());
   const plain = entries.filter(isPlain);
   const resolve = (entry: ReadEntry) => {
     if (entry.type !== "sparkplug") return {};
@@ -904,6 +918,7 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
         onSelect={setSelected}
         expanded={expanded}
         onExpand={setExpanded}
+        made={made}
       />
       {plain.flatMap(({ key, messages }) =>
         messages.map(({ message }, read) => (
