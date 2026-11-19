@@ -147,7 +147,7 @@ jobs:
         shard: [1, 2, 3, 4]
         # An empty node is the one in devEngines. The test tooling (undici 8) needs
         # 22.19.0, so it stands in for the 22.12 floor.
-        node: ${{ fromJSON(inputs.node_lts && '["", "22.19.0", "26"]' || '[""]') }}
+        node: ${{ fromJSON(inputs.node_lts && '["", "22.19.0", "24"]' || '[""]') }}
         exclude:
           - os: ${{ !inputs.macos && 'macos-latest' }}
           - os: ${{ !inputs.ubuntu && 'ubuntu-latest' }}
@@ -155,11 +155,11 @@ jobs:
           - os: macos-latest
             node: "22.19.0"
           - os: macos-latest
-            node: "26"
+            node: "24"
           - os: windows-latest
             node: "22.19.0"
           - os: windows-latest
-            node: "26"
+            node: "24"
           - shard: ${{ inputs.shards < 2 && 2 }}
           - shard: ${{ inputs.shards < 3 && 3 }}
           - shard: ${{ inputs.shards < 4 && 4 }}
