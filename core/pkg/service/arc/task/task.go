@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strconv"
 	stdtime "time"
 
 	"github.com/synnaxlabs/arc/ir"
@@ -450,7 +451,7 @@ func (t *impl) newScheduler(f node.CompoundFactory, drt *dataRuntime) error {
 						zap.Error(err),
 					)
 				}
-				t.setRuntimeError(ctx, nodeKey, text)
+				t.setRuntimeError(ctx, nodeKey, err)
 			},
 		),
 	)
@@ -688,15 +689,38 @@ func (t *impl) setStatus(
 	}
 }
 
-func (t *impl) setRuntimeError(ctx context.Context, nodeKey, text string) {
+func (t *impl) setRuntimeError(ctx context.Context, nodeKey string, err error) {
 	nodeType := nodeKey
 	if n, ok := t.prog.Program.Nodes.Find(nodeKey); ok {
 		nodeType = n.Type
 	}
-	if setErr := t.status.Warn(ctx, driver.Warning{
+	warning := driver.Warning{
 		Message:     "Node failed",
-		Description: fmt.Sprintf("The %s node failed: %s", nodeType, text),
-	}); setErr != nil {
+		Description: fmt.Sprintf("The %s node failed: %s", nodeType, err),
+	}
+	var (
+		read  channels.ReadError
+		value telem.OutOfRangeError
+	)
+	if errors.As(err, &read) && errors.As(err, &value) {
+		channel := read.Name
+		if channel == "" {
+			channel = strconv.FormatUint(uint64(read.Key), 10)
+		}
+		warning = driver.Warning{
+			Message: "Sample out of range",
+			Description: fmt.Sprintf(
+				"The %s node stopped reading channel %s: value %v (%s) does not fit "+
+					"%s. Change the node's output type, or the data of the channel.",
+				nodeType,
+				channel,
+				value.Value,
+				value.From,
+				value.To,
+			),
+		}
+	}
+	if setErr := t.status.Warn(ctx, warning); setErr != nil {
 		t.factoryCfg.L.Error("failed to set error status", zap.Error(setErr))
 	}
 }

@@ -735,7 +735,7 @@ var _ = Describe("Calculator", Ordered, func() {
 		// openDoubled opens a calculation that doubles a float32 virtual input.
 		openDoubled := func(
 			ctx SpecContext,
-		) (*calculator.Calculator, channel.Key, channel.Key) {
+		) (*calculator.Calculator, channel.Channel, channel.Key) {
 			GinkgoHelper()
 			base := []channel.Channel{{
 				Name:     UniqueChannelName(),
@@ -747,7 +747,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				DataType:   telem.Float32T,
 				Expression: "return " + base[0].Name + " * 2",
 			})
-			return c, base[0].Key(), calc.Key()
+			return c, base[0], calc.Key()
 		}
 
 		// at returns s at sample a of the first domain.
@@ -762,14 +762,14 @@ var _ = Describe("Calculator", Ordered, func() {
 			c, in, out := openDoubled(ctx)
 			of, changed := MustSucceed2(c.Next(
 				ctx,
-				frame.NewUnary(in, telem.NewSeriesV[float32](1.5)),
+				frame.NewUnary(in.Key(), telem.NewSeriesV[float32](1.5)),
 				frame.Frame{},
 			))
 			Expect(changed).To(BeTrue())
 			Expect(of.Get(out).Series[0]).To(telem.MatchSeriesDataV[float32](3))
 			of, changed = MustSucceed2(c.Next(
 				ctx,
-				frame.NewUnary(in, at(telem.NewSeriesV[int16](4), 1)),
+				frame.NewUnary(in.Key(), at(telem.NewSeriesV[int16](4), 1)),
 				frame.Frame{},
 			))
 			Expect(changed).To(BeTrue())
@@ -781,15 +781,16 @@ var _ = Describe("Calculator", Ordered, func() {
 				c, in, out := openDoubled(ctx)
 				Expect(c.Next(
 					ctx,
-					frame.NewUnary(in, telem.NewSeriesV("a")),
+					frame.NewUnary(in.Key(), telem.NewSeriesV("a")),
 					frame.Frame{},
 				)).Error().To(MatchError(fmt.Sprintf(
-					"channel %d: cannot convert a string series to float32",
-					in,
+					"channel %s (%d): cannot convert a string series to float32",
+					in.Name,
+					in.Key(),
 				)))
 				of, changed := MustSucceed2(c.Next(
 					ctx,
-					frame.NewUnary(in, at(telem.NewSeriesV[float32](2), 1)),
+					frame.NewUnary(in.Key(), at(telem.NewSeriesV[float32](2), 1)),
 					frame.Frame{},
 				))
 				Expect(changed).To(BeTrue())
