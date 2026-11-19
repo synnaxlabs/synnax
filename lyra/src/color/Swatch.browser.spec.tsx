@@ -47,12 +47,12 @@ describe("Swatch", () => {
     expect(swatch.element().getAttribute("aria-expanded")).toBe("false");
   });
 
-  it("should draw the auto icon so it reads over a transparent fallback", async () => {
+  it("should draw the auto icon so it reads over a translucent fallback", async () => {
     await renderThemed(
       <Triggers.Provider>
         <Color.Swatch
           value={undefined}
-          fallback="#00000000"
+          fallback="#00000033"
           onChange={() => {}}
           aria-label="Fill"
         />
