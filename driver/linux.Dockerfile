@@ -9,7 +9,8 @@
 
 # The Linux and NI Linux Real-Time Drivers build here. Ubuntu 22.04 ships glibc 2.35, the
 # oldest glibc the Driver supports (NI Linux Real-Time 23.8 and later). GCC 13 comes from
-# the toolchain PPA, because the Driver needs C++23.
+# the toolchain PPA, because the Driver needs C++23. Its LTO plugin goes where ar and ld
+# find it, so archives index the LTO objects they hold.
 FROM ubuntu:22.04@sha256:9abcaffc92a5279fff3a6a41635c0800ea33e528425fb389658806476e7defde
 
 ARG BAZELISK_VERSION=1.30.0
@@ -25,6 +26,8 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/* \
     && update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 100 \
         --slave /usr/bin/g++ g++ /usr/bin/g++-13 \
+    && mkdir -p /usr/lib/bfd-plugins \
+    && ln -sf "$(gcc-13 -print-file-name=liblto_plugin.so)" /usr/lib/bfd-plugins/ \
     && curl -fsSL -o /usr/local/bin/bazel \
         "https://github.com/bazelbuild/bazelisk/releases/download/v${BAZELISK_VERSION}/bazelisk-linux-amd64" \
     && echo "${BAZELISK_SHA256}  /usr/local/bin/bazel" | sha256sum -c - \
