@@ -12,11 +12,13 @@
 #include <algorithm>
 #include <atomic>
 #include <condition_variable>
+#include <cstdint>
 #include <deque>
 #include <functional>
 #include <memory>
 #include <mutex>
 #include <shared_mutex>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -92,11 +94,12 @@ public:
         this->on_push = std::move(fn);
     }
 
-    /// @brief filters, applies alignment, and pushes a frame. Returns true if any
-    /// channel matched (frame was delivered).
+    /// @brief filters, applies alignment and clock, and pushes a frame. Returns true if
+    /// any channel matched (frame was delivered).
     bool filter_and_push(
         const x::telem::Frame &frame,
-        const std::vector<x::telem::Alignment> &alignments
+        const std::vector<x::telem::Alignment> &alignments,
+        const std::vector<std::uint32_t> &clocks
     ) {
         bool all_match = true;
         for (const auto &[key, _]: frame) {
@@ -107,8 +110,10 @@ public:
         }
         if (all_match) {
             auto copy = frame.shallow_copy();
-            for (size_t i = 0; i < copy.size(); i++)
+            for (size_t i = 0; i < copy.size(); i++) {
                 copy.series->at(i).alignment = alignments[i];
+                copy.series->at(i).clock = clocks[i];
+            }
             this->push(std::move(copy));
             return true;
         }
@@ -119,6 +124,7 @@ public:
             if (this->key_set.contains(key)) {
                 auto s = frame.series->at(i).shallow_copy();
                 s.alignment = alignments[i];
+                s.clock = clocks[i];
                 filtered.emplace(key, std::move(s));
                 any_match = true;
             }
@@ -153,7 +159,8 @@ public:
 /// route entries — no explicit unsubscribe required.
 ///
 /// The Bus assigns monotonically increasing alignment to each series before delivery,
-/// fulfilling the role that Cesium plays on the server path. Channels must be
+/// fulfilling the role that Cesium plays on the server path, and the clock of each
+/// series' channel, the role of the Core's writer. Channels must be
 /// registered via register_channels before publishing. Registration locks; the publish
 /// hot path uses only atomic fetch_add. When externally-aligned frames (e.g. from
 /// Cesium) are observed, callers must invoke advance_alignments to keep the counters
@@ -165,6 +172,7 @@ class Bus {
     mutable std::shared_mutex alignment_mu;
     std::unordered_map<synnax::channel::Key, std::unique_ptr<std::atomic<uint64_t>>>
         alignment_counters;
+    std::unordered_map<synnax::channel::Key, std::uint32_t> clocks;
 
 public:
     /// @brief registers channels for alignment tracking. Must be called before
@@ -180,11 +188,20 @@ public:
         }
     }
 
+    /// @brief sets the clock that the bus gives each series of each channel: the index
+    /// of the channel, or zero for a channel with no index.
+    void register_clocks(const std::vector<synnax::channel::Channel> &channels) {
+        std::unique_lock lock(this->alignment_mu);
+        for (const auto &ch: channels)
+            this->clocks[ch.key] = ch.is_index ? ch.key : ch.index;
+    }
+
     /// @brief publishes a frame to all subscribers with matching channel keys.
     /// Alignment is computed lazily (only if a subscriber matches) and applied during
     /// the per-subscriber copy that filter_and_push already performs.
     void publish(const x::telem::Frame &frame) {
         thread_local std::vector<x::telem::Alignment> alignments;
+        thread_local std::vector<std::uint32_t> clocks;
         bool aligned = false;
         bool has_expired = false;
         {
@@ -198,8 +215,11 @@ public:
                 if (!aligned) {
                     std::shared_lock alm_lock(this->alignment_mu);
                     alignments.resize(frame.size());
+                    clocks.resize(frame.size());
                     for (size_t i = 0; i < frame.size(); i++) {
                         auto key = frame.channels->at(i);
+                        const auto clock = this->clocks.find(key);
+                        clocks[i] = clock == this->clocks.end() ? 0 : clock->second;
                         auto it = this->alignment_counters.find(key);
                         if (it != this->alignment_counters.end()) {
                             auto &counter = *it->second;
@@ -213,7 +233,7 @@ public:
                     }
                     aligned = true;
                 }
-                if (sub->filter_and_push(frame, alignments)) {
+                if (sub->filter_and_push(frame, alignments, clocks)) {
                     VLOG(1) << "[bus] routing frame with " << frame.size()
                             << " channels to subscription";
                 }
