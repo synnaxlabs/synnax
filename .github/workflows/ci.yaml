@@ -544,7 +544,7 @@ jobs:
         exclude:
           - os: ${{ !inputs.full && 'windows-latest' }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -1456,7 +1456,9 @@ jobs:
     permissions:
       actions: write
       checks: read
-    timeout-minutes: 180
+    # It lasts as long as the run, and a queued group waits up to 240 minutes for its
+    # turn. A GitHub-hosted job runs at most 360.
+    timeout-minutes: 360
     steps:
       # GraphQL filters the jobs by conclusion, and its budget is apart from the REST
       # budget that every job of the repository shares.
