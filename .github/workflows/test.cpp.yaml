@@ -86,7 +86,12 @@ on:
   workflow_dispatch:
     inputs: *inputs
 
+# A fork's run gets no secrets, so its Core would have no license. It skips the Core and
+# the tests that need one, and the merge queue runs them.
 env:
+  FORK:
+    ${{ github.event_name == 'pull_request' &&
+    github.event.pull_request.head.repo.full_name != github.repository }}
   BAZEL_REMOTE_CACHE_FLAGS:
     --remote_cache=${{ vars.BAZEL_REMOTE_CACHE_GRPC_URL }}
     --remote_cache_compression=true
@@ -117,7 +122,7 @@ jobs:
           persist-credentials: false
 
       - name: Start Core
-        if: runner.os == 'Linux' && inputs.core_image != ''
+        if: runner.os == 'Linux' && inputs.core_image != '' && env.FORK != 'true'
         uses: ./.github/actions/start-service
         env:
           SYNNAX_LISTEN: localhost:9090
@@ -186,7 +191,8 @@ jobs:
         shell: bash
         env:
           EXTRA: ${{ inputs.test_tags }}
-          CORE: ${{ runner.os == 'Linux' && inputs.core_image != '' }}
+          CORE:
+            ${{ runner.os == 'Linux' && inputs.core_image != '' && env.FORK != 'true' }}
         run: |
           tags=()
           if [ "$RUNNER_OS" = macOS ]; then tags+=(-no-asan); fi

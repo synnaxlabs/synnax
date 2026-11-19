@@ -83,6 +83,13 @@ on:
     inputs: *inputs
 
 # The test services pull their images from GHCR.
+# A fork's run gets no secrets, so its Core would have no license. It skips the Core and
+# the tests that need one, and the merge queue runs them.
+env:
+  FORK:
+    ${{ github.event_name == 'pull_request' &&
+    github.event.pull_request.head.repo.full_name != github.repository }}
+
 permissions:
   contents: read
   packages: read
@@ -120,7 +127,7 @@ jobs:
           persist-credentials: false
 
       - name: Start Core
-        if: runner.os == 'Linux' && inputs.core_image != ''
+        if: runner.os == 'Linux' && inputs.core_image != '' && env.FORK != 'true'
         uses: ./.github/actions/start-service
         env:
           SYNNAX_VERBOSE: true
@@ -195,9 +202,10 @@ jobs:
           read -ra directories <<< "$TYPE_CHECK_DIR"
           uv run mypy "${directories[@]}"
 
-      # Only the Linux runners start a Core, so the others skip the tests that need one.
+      # Only the Linux runners start a Core, and not for a fork, so the others skip the
+      # tests that need one.
       - name: Skip the tests that need a Core
-        if: runner.os != 'Linux' && inputs.core_image != ''
+        if: inputs.core_image != '' && (runner.os != 'Linux' || env.FORK == 'true')
         shell: bash
         run: echo 'PYTEST_ADDOPTS=-m "not core"' >> "$GITHUB_ENV"
 
