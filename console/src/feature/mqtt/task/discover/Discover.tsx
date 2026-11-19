@@ -13,6 +13,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
+import { math } from "@synnaxlabs/x";
 import pluralize from "pluralize";
 import { useState } from "react";
 
@@ -78,7 +79,7 @@ const Discover = <E extends HeldEntry>({
   const picked = (): E[] =>
     kind.create({ topics: topicPicks, tags: tagPicks }, entries);
 
-  const values = [...topicPicks.values()].reduce((n, p) => n + p.pointers.size, 0);
+  const values = math.sum([...topicPicks.values()].map((p) => p.pointers.size));
   const parts: string[] = [];
   if (values > 0) {
     const topics = pluralize("topic", topicPicks.size, true);

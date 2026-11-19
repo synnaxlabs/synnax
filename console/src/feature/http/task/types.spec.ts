@@ -603,6 +603,22 @@ describe("HTTP Task Types", () => {
       expect(HTTP.Task.WRITE_SCHEMAS.config.validate(config)).toBe(false);
     });
 
+    it("should reject a field pointer nested inside the channel pointer", () => {
+      const config = {
+        device: "dev-001",
+        endpoints: [
+          {
+            key: "ep1",
+            method: "POST",
+            path: "/api",
+            channel: { pointer: "/value", jsonType: "number", channel: 1 },
+            fields: [{ type: "static", pointer: "/value/unit", value: "mm" }],
+          },
+        ],
+      };
+      expect(HTTP.Task.deployWriteConfigZ.validate(config)).toBe(false);
+    });
+
     it("should validate a channel field with enum values", () => {
       const config = {
         device: "dev-001",
@@ -756,6 +772,51 @@ describe("HTTP Task Types", () => {
         ],
       };
       expect(HTTP.Task.deployWriteConfigZ.validate(config)).toBe(false);
+    });
+
+    const nestedConfig = (channel: string, ...fields: string[]) => ({
+      device: "dev-001",
+      endpoints: [
+        {
+          key: "ep1",
+          method: "POST",
+          path: "/api",
+          channel: { pointer: channel, jsonType: "number", channel: 1 },
+          fields: fields.map((pointer, i) => ({
+            key: `sf${i}`,
+            type: "static",
+            pointer,
+            jsonType: "number",
+            value: i,
+          })),
+        },
+      ],
+    });
+
+    it("should reject a field pointer inside the channel pointer", () => {
+      expect(
+        HTTP.Task.deployWriteConfigZ.validate(nestedConfig("/value", "/value/unit")),
+      ).toBe(false);
+    });
+
+    it("should reject a field pointer above the channel pointer", () => {
+      expect(
+        HTTP.Task.deployWriteConfigZ.validate(nestedConfig("/value/unit", "/value")),
+      ).toBe(false);
+    });
+
+    it("should reject nested field pointers", () => {
+      expect(
+        HTTP.Task.deployWriteConfigZ.validate(
+          nestedConfig("/value", "/meta", "/meta/id"),
+        ),
+      ).toBe(false);
+    });
+
+    it("should allow sibling pointers that share a prefix", () => {
+      expect(
+        HTTP.Task.deployWriteConfigZ.validate(nestedConfig("/value", "/value_x")),
+      ).not.toBe(false);
     });
 
     it("should reject duplicate pointers between fields", () => {

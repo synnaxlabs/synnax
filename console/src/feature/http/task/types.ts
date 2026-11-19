@@ -8,14 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { http, type task } from "@synnaxlabs/client";
-import { json, payload, record } from "@synnaxlabs/x";
+import { json, payload, record, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import {
-  checkDuplicateKeys,
-  headersZ,
-  queryParamsZ,
-} from "@/feature/http/device/types";
+import { headersZ, queryParamsZ } from "@/feature/http/device/types";
 import { Task } from "@/platform/task";
 
 export const PREFIX = "http";
@@ -34,7 +30,13 @@ const deployReadFieldZ = http.readFieldZ.extend({
   pointer: json.pointerZ,
   enumValues: payload.enumEntryZ
     .array()
-    .check(checkDuplicateKeys("label", "enum label"))
+    .check(
+      zod.uniqueBy<payload.EnumEntry, "label">(
+        "label",
+        (label) => `Duplicate enum label "${label}"`,
+        ({ label }) => label === "",
+      ),
+    )
     .default(() => []),
 });
 
@@ -106,6 +108,9 @@ const writeConfigZ = http.writeConfigZ.extend({
   endpoints: writeEndpointZ.array().default(() => []),
 });
 
+const overlaps = (a: string, b: string): boolean =>
+  a !== "" && b !== "" && (a === b || a.startsWith(`${b}/`) || b.startsWith(`${a}/`));
+
 const validateWriteEndpoint = (ctx: z.core.ParsePayload<WriteEndpoint>) => {
   const { value } = ctx;
   const { channel, fields } = value;
@@ -119,8 +124,7 @@ const validateWriteEndpoint = (ctx: z.core.ParsePayload<WriteEndpoint>) => {
         "An empty channel pointer sends the raw value as the body, so additional fields are not allowed",
       path: ["channel", "pointer"],
     });
-  const pointers = new Set<string>();
-  pointers.add(channel.pointer);
+  const pointers = [channel.pointer];
   for (const [i, field] of fields.entries()) {
     if (field.pointer === "") {
       ctx.issues.push({
@@ -132,15 +136,15 @@ const validateWriteEndpoint = (ctx: z.core.ParsePayload<WriteEndpoint>) => {
       });
       continue;
     }
-    if (pointers.has(field.pointer))
+    if (pointers.some((p) => overlaps(p, field.pointer)))
       ctx.issues.push({
         continue: true,
         code: "custom",
         input: value,
-        message: `Pointer "${field.pointer}" is already used by another field`,
+        message: `Pointer "${field.pointer}" is already used by or overlaps another field`,
         path: ["fields", i, "pointer"],
       });
-    else pointers.add(field.pointer);
+    else pointers.push(field.pointer);
   }
 };
 

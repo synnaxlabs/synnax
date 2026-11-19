@@ -10,12 +10,13 @@
 import { arc } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Arc } from "@synnaxlabs/pluto";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { type RenderResult, waitFor } from "@testing-library/react";
 import { Suspense } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Path } from "@/feature/arc/editor/Path";
-import { createConsoleWrapper, renderSuspended, uniqueName } from "@/testutil";
+import { createConsoleWrapper, renderSuspended } from "@/testutil";
 
 const client = createTestClient();
 
