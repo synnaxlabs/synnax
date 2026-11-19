@@ -24,7 +24,7 @@ import {
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { series } from "@/color/aether";
+import { color as aetherColor } from "@/color/aether";
 import { telem } from "@/telem/aether";
 import { theming } from "@/theming/aether";
 import { newTickFactory, type Tick, type TickFactory } from "@/vis/axis/ticks";
@@ -164,7 +164,8 @@ export class Scale
     i.requestRender = render.useOptionalRequestor(ctx);
 
     const { axisColor, textColor } = this.state;
-    i.fillColor = this.state.color ?? levelColorFallback(i.theme, series.use(ctx));
+    i.fillColor =
+      this.state.color ?? levelColorFallback(i.theme, aetherColor.series.use(ctx));
     i.axisColor = axisColor ?? axisColorFallback(i.theme);
     i.textColor = textColor ?? textColorFallback(i.theme);
     i.tickLevel = this.state.level;
