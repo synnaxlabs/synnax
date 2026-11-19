@@ -920,10 +920,15 @@ describe("Input.Table", () => {
       expect(marked(cell("Raw", "1"))).toBe(false);
     });
 
-    it("should show no handles and no row numbers in preview", () => {
+    it("should show no gutter in preview", () => {
       renderTable({ value: ROWS, onMove: vi.fn(), preview: true });
       expect(screen.queryByRole("button", { name: "Move row 1" })).toBeNull();
-      expect(screen.queryByRole("rowheader", { name: "1" })).toBeNull();
+      expect(screen.queryAllByRole("rowheader")).toHaveLength(0);
+    });
+
+    it("should name a handle after its row's label", () => {
+      renderTable({ value: ROWS, onMove: vi.fn(), rowLabel: (i) => `c${i}` });
+      expect(screen.getByRole("button", { name: "Move row c0" })).toBeTruthy();
     });
 
     it("should keep focus in the cell being edited after a refused move", () => {
@@ -1068,6 +1073,26 @@ describe("Input.Table", () => {
         ["valve", expected],
         ["vent", true],
       ]);
+    });
+
+    it("should read a single value pasted into a checkbox", () => {
+      const onChange = renderFlags();
+      paste(cell("Enabled", "1"), "0");
+      expect(onChange).toHaveBeenCalledWith([["pump", false]]);
+    });
+
+    it("should mark a checkbox whose single pasted value does not parse", () => {
+      render(
+        <Stateful initial={[["pump", true]]}>
+          {[
+            <Input.TableColumn key="name" name="Name" type="string" />,
+            <Input.TableColumn key="enabled" name="Enabled" type="boolean" />,
+          ]}
+        </Stateful>,
+      );
+      paste(cell("Enabled", "1"), "maybe");
+      expect(cell("Enabled", "1").checked).toBe(true);
+      expect(marked(cell("Enabled", "1"))).toBe(true);
     });
 
     it("should drop a heading row whose boolean cells do not parse", () => {

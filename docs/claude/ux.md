@@ -407,6 +407,8 @@ bound, a log precision, or the line plot X channel.
   disables it. Add to plot does this for a plot that shows the range.
 - In a selection, an option that only some of the items have shows a minus mark. The
   first click adds it to all of them, and the next click removes it from all of them.
+- A picker leaves out a choice that the Core would reject. The Parent picker leaves out
+  the edited ranges and every range nested in them.
 - A single select whose value can be empty has a "No <noun>" option with the none icon
   (`Icon.None`), such as "No parent". It is pinned under the list, below a divider, and
   it shows during a search. A click on the current value to clear it is not sufficient,
@@ -708,8 +710,9 @@ bound, a log precision, or the line plot X channel.
   cell. Esc never commits typed text.
 - A cell with an error has a red frame, and its message shows on hover.
 - Paste keeps the values that parse. A cell whose text does not parse keeps its value
-  and shows the error until an edit. A first row in which no number parses is a heading,
-  and paste drops it.
+  and shows the error until an edit. A first row in which no number or boolean parses is
+  a heading, and paste drops it. A single value pasted into a text cell goes to that
+  cell. Into any other cell, such as a checkbox, it parses like a block.
 
 ### Status and toasts
 
