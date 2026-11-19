@@ -7,16 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Read } from "@/feature/http/task/Read";
 import { READ_TYPE, WRITE_TYPE } from "@/feature/http/task/types";
-import { Write } from "@/feature/http/task/Write";
+import { Panel } from "@/platform/panel";
 import { type Task } from "@/platform/task";
 
 export * from "@/feature/http/task/commands";
+export * from "@/feature/http/task/create";
 export * from "@/feature/http/task/integration";
-export * from "@/feature/http/task/Read";
 export * from "@/feature/http/task/types";
-export * from "@/feature/http/task/Write";
+
+export const Read = Panel.lazyComponent(
+  () => import("@/feature/http/task/Read"),
+  "Read",
+);
+
+export const Write = Panel.lazyComponent(
+  () => import("@/feature/http/task/Write"),
+  "Write",
+);
 
 export const FORMS: Task.Forms = {
   [READ_TYPE]: Read,
