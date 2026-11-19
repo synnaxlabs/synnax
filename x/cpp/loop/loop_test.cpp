@@ -412,7 +412,6 @@ TEST(LoopTest, testSleepSleepsOnTheGivenClock) {
     EXPECT_LT(telem::TimeSpan(hs_clock::now() - host_start), telem::SECOND);
 }
 
-/// @brief it should read the host's wall time by default.
 /// @brief it should start at one sleep step.
 TEST(StepEstimator, testStartsAtOneStep) {
     EXPECT_EQ(StepEstimator().estimate(), RESOLUTION);
@@ -431,6 +430,7 @@ TEST(StepEstimator, testHoldsAStallPastTheInt64Range) {
     );
 }
 
+/// @brief it should read the host's wall time by default.
 TEST(HostClock, testReadsTheHostWallTimeByDefault) {
     const HostClock clock;
     const auto before = telem::TimeStamp::now();
