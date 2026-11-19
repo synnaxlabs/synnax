@@ -317,8 +317,12 @@ JSON::decode(const std::string_view doc) {
     if (this->router.ruled) match = this->values[0];
     auto [message, err] = this->router.find(match);
     if (err || !message.has_value()) return {std::nullopt, err};
-    if (const auto decode_err = this->messages[*message].decode(this->values))
+    auto &m = this->messages[*message];
+    if (auto decode_err = m.decode(this->values)) {
+        if (this->messages.size() > 1)
+            decode_err = wrap(decode_err, "message " + m.name);
         return {std::nullopt, decode_err};
+    }
     return {message, x::errors::NIL};
 }
 
@@ -339,7 +343,7 @@ JSON::Message::decode(const std::vector<std::optional<std::string_view>> &values
                 x::errors::VALIDATION,
                 "no value at " + f.pointer.to_string()
             );
-        if (err) return wrap(err, "message " + this->name + ": field " + f.name);
+        if (err) return wrap(err, "field " + f.name);
     }
     return x::errors::NIL;
 }

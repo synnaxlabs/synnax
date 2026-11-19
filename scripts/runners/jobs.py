@@ -123,6 +123,10 @@ class Jobs:
         self.syncing: Future[tuple[dict[int, Queued], list[dict]]] | None = None
         self.active: dict[str, dict] = {}
         self.queued: dict[int, Queued] = {}
+        # The jobs the last queue read found queued, and when that read started.
+        self.read: set[int] = set()
+        self.read_at = sy.TimeStamp(0)
+        self.reading = sy.TimeStamp(0)
         # Rotates the step poll over the active runs when there are more than a cycle
         # can afford.
         self.cursor = 0
@@ -224,6 +228,16 @@ class Jobs:
                 oldest[pool] = min(oldest.get(pool, job.since), job.since)
         return {p: int(now.span(since).seconds) for p, since in oldest.items()}
 
+    def stuck(self, *, after: sy.TimeSpan) -> list[set[str]]:
+        """The labels of the queued jobs that the last queue read found queued after
+        they had waited at least after. A job that a runner takes without a delivery
+        stays queued until the next read, so it can count until then."""
+        return [
+            job.labels
+            for id, job in self.queued.items()
+            if id in self.read and self.read_at.span(job.since) >= after
+        ]
+
     def resync(self, now: sy.TimeStamp) -> None:
         """Rebuilds the queued jobs from the API and adds the running jobs that no
         delivery reported, at most once per RESYNC_INTERVAL. The API reads run on pool,
@@ -234,7 +248,7 @@ class Jobs:
                 return
             # Stamped before the calls, so a failure waits out the interval instead of
             # retrying every cycle.
-            self.synced = now
+            self.synced = self.reading = now
             self.syncing = self.pool.submit(self.fetch)
         if not self.syncing.done():
             return
@@ -246,6 +260,8 @@ class Jobs:
             self.log.error("queued resync", e)
             return
         self.queued = queued
+        self.read = set(queued)
+        self.read_at = self.reading
         self.ready = True
         for payload in pending:
             self.queue(payload["workflow_job"], action=payload.get("action"))

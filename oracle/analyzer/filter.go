@@ -211,7 +211,7 @@ func importsFilterSchema(ast parser.ISchemaContext) bool {
 // by their operator types, in declared line order.
 func expandFilters(c *analysisCtx) {
 	for i := range c.table.Types {
-		if typ := c.table.Types[i]; typ.Namespace == c.namespace && typ.Filter != nil {
+		if typ := c.table.Types[i]; c.owns(typ) && typ.Filter != nil {
 			c.table.Types[i] = expandFilter(c, typ)
 		}
 	}
@@ -444,7 +444,7 @@ func synthesizeRetrieveTypes(c *analysisCtx) {
 		return
 	}
 	where, ok := lo.Find(
-		c.table.TypesInNamespace(c.namespace),
+		c.ownTypes(),
 		func(t resolution.Type) bool { return t.Filter != nil },
 	)
 	if !ok {

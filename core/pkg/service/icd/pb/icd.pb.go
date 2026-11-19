@@ -80,6 +80,56 @@ func (ByteOrder) EnumDescriptor() ([]byte, []int) {
 	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{0}
 }
 
+// ImportFormat is the file format of an ICD that an import reads.
+type ImportFormat int32
+
+const (
+	ImportFormat_IMPORT_FORMAT_DBC  ImportFormat = 0
+	ImportFormat_IMPORT_FORMAT_CSV  ImportFormat = 1
+	ImportFormat_IMPORT_FORMAT_XLSX ImportFormat = 2
+)
+
+// Enum value maps for ImportFormat.
+var (
+	ImportFormat_name = map[int32]string{
+		0: "IMPORT_FORMAT_DBC",
+		1: "IMPORT_FORMAT_CSV",
+		2: "IMPORT_FORMAT_XLSX",
+	}
+	ImportFormat_value = map[string]int32{
+		"IMPORT_FORMAT_DBC":  0,
+		"IMPORT_FORMAT_CSV":  1,
+		"IMPORT_FORMAT_XLSX": 2,
+	}
+)
+
+func (x ImportFormat) Enum() *ImportFormat {
+	p := new(ImportFormat)
+	*p = x
+	return p
+}
+
+func (x ImportFormat) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ImportFormat) Descriptor() protoreflect.EnumDescriptor {
+	return file_core_pkg_service_icd_pb_icd_proto_enumTypes[1].Descriptor()
+}
+
+func (ImportFormat) Type() protoreflect.EnumType {
+	return &file_core_pkg_service_icd_pb_icd_proto_enumTypes[1]
+}
+
+func (x ImportFormat) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ImportFormat.Descriptor instead.
+func (ImportFormat) EnumDescriptor() ([]byte, []int) {
+	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{1}
+}
+
 // BaseField carries the parts every message field shares.
 type BaseField struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -2717,7 +2767,11 @@ const file_core_pkg_service_icd_pb_icd_proto_rawDesc = "" +
 	"\avariant*D\n" +
 	"\tByteOrder\x12\x1c\n" +
 	"\x18BYTE_ORDER_LITTLE_ENDIAN\x10\x00\x12\x19\n" +
-	"\x15BYTE_ORDER_BIG_ENDIAN\x10\x01B\xa9\x01\n" +
+	"\x15BYTE_ORDER_BIG_ENDIAN\x10\x01*T\n" +
+	"\fImportFormat\x12\x15\n" +
+	"\x11IMPORT_FORMAT_DBC\x10\x00\x12\x15\n" +
+	"\x11IMPORT_FORMAT_CSV\x10\x01\x12\x16\n" +
+	"\x12IMPORT_FORMAT_XLSX\x10\x02B\xa9\x01\n" +
 	"\x12com.service.icd.pbB\bIcdProtoP\x01Z/github.com/synnaxlabs/synnax/pkg/service/icd/pb\xa2\x02\x03SIP\xaa\x02\x0eService.Icd.Pb\xca\x02\x0eService\\Icd\\Pb\xe2\x02\x1aService\\Icd\\Pb\\GPBMetadata\xea\x02\x10Service::Icd::Pbb\x06proto3"
 
 var (
@@ -2732,100 +2786,101 @@ func file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP() []byte {
 	return file_core_pkg_service_icd_pb_icd_proto_rawDescData
 }
 
-var file_core_pkg_service_icd_pb_icd_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_core_pkg_service_icd_pb_icd_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_core_pkg_service_icd_pb_icd_proto_msgTypes = make([]protoimpl.MessageInfo, 36)
 var file_core_pkg_service_icd_pb_icd_proto_goTypes = []any{
 	(ByteOrder)(0),                    // 0: service.icd.pb.ByteOrder
-	(*BaseField)(nil),                 // 1: service.icd.pb.BaseField
-	(*BinaryField)(nil),               // 2: service.icd.pb.BinaryField
-	(*JSONBaseField)(nil),             // 3: service.icd.pb.JSONBaseField
-	(*JSONBaseMatch)(nil),             // 4: service.icd.pb.JSONBaseMatch
-	(*Message)(nil),                   // 5: service.icd.pb.Message
-	(*ICD)(nil),                       // 6: service.icd.pb.ICD
-	(*WhereList)(nil),                 // 7: service.icd.pb.WhereList
-	(*UuidList)(nil),                  // 8: service.icd.pb.UuidList
-	(*UuidSet)(nil),                   // 9: service.icd.pb.UuidSet
-	(*Where)(nil),                     // 10: service.icd.pb.Where
-	(*IdentifierCanPayload)(nil),      // 11: service.icd.pb.IdentifierCanPayload
-	(*IdentifierFieldPayload)(nil),    // 12: service.icd.pb.IdentifierFieldPayload
-	(*TextFieldDelimitedPayload)(nil), // 13: service.icd.pb.TextFieldDelimitedPayload
-	(*TextFieldTaggedPayload)(nil),    // 14: service.icd.pb.TextFieldTaggedPayload
-	(*JSONFieldFloatPayload)(nil),     // 15: service.icd.pb.JSONFieldFloatPayload
-	(*JSONFieldIntegerPayload)(nil),   // 16: service.icd.pb.JSONFieldIntegerPayload
-	(*JSONFieldUnsignedPayload)(nil),  // 17: service.icd.pb.JSONFieldUnsignedPayload
-	(*JSONFieldStringPayload)(nil),    // 18: service.icd.pb.JSONFieldStringPayload
-	(*JSONFieldBooleanPayload)(nil),   // 19: service.icd.pb.JSONFieldBooleanPayload
-	(*JSONFieldTimestampPayload)(nil), // 20: service.icd.pb.JSONFieldTimestampPayload
-	(*JSONFieldJsonPayload)(nil),      // 21: service.icd.pb.JSONFieldJsonPayload
-	(*JSONFieldUuidPayload)(nil),      // 22: service.icd.pb.JSONFieldUuidPayload
-	(*JSONFieldBytesPayload)(nil),     // 23: service.icd.pb.JSONFieldBytesPayload
-	(*JSONMatchFloatPayload)(nil),     // 24: service.icd.pb.JSONMatchFloatPayload
-	(*JSONMatchIntegerPayload)(nil),   // 25: service.icd.pb.JSONMatchIntegerPayload
-	(*JSONMatchUnsignedPayload)(nil),  // 26: service.icd.pb.JSONMatchUnsignedPayload
-	(*JSONMatchStringPayload)(nil),    // 27: service.icd.pb.JSONMatchStringPayload
-	(*JSONMatchBooleanPayload)(nil),   // 28: service.icd.pb.JSONMatchBooleanPayload
-	(*PayloadBinaryPayload)(nil),      // 29: service.icd.pb.PayloadBinaryPayload
-	(*PayloadTextPayload)(nil),        // 30: service.icd.pb.PayloadTextPayload
-	(*PayloadJsonPayload)(nil),        // 31: service.icd.pb.PayloadJsonPayload
-	(*Identifier)(nil),                // 32: service.icd.pb.Identifier
-	(*TextField)(nil),                 // 33: service.icd.pb.TextField
-	(*JSONField)(nil),                 // 34: service.icd.pb.JSONField
-	(*JSONMatch)(nil),                 // 35: service.icd.pb.JSONMatch
-	(*Payload)(nil),                   // 36: service.icd.pb.Payload
-	(pb.Kind)(0),                      // 37: x.payload.pb.Kind
-	(*pb.FloatEntry)(nil),             // 38: x.payload.pb.FloatEntry
-	(*pb.IntegerEntry)(nil),           // 39: x.payload.pb.IntegerEntry
-	(*pb.UnsignedEntry)(nil),          // 40: x.payload.pb.UnsignedEntry
-	(*pb.StringEntry)(nil),            // 41: x.payload.pb.StringEntry
-	(*pb.BooleanEntry)(nil),           // 42: x.payload.pb.BooleanEntry
-	(pb.TimeFormat)(0),                // 43: x.payload.pb.TimeFormat
+	(ImportFormat)(0),                 // 1: service.icd.pb.ImportFormat
+	(*BaseField)(nil),                 // 2: service.icd.pb.BaseField
+	(*BinaryField)(nil),               // 3: service.icd.pb.BinaryField
+	(*JSONBaseField)(nil),             // 4: service.icd.pb.JSONBaseField
+	(*JSONBaseMatch)(nil),             // 5: service.icd.pb.JSONBaseMatch
+	(*Message)(nil),                   // 6: service.icd.pb.Message
+	(*ICD)(nil),                       // 7: service.icd.pb.ICD
+	(*WhereList)(nil),                 // 8: service.icd.pb.WhereList
+	(*UuidList)(nil),                  // 9: service.icd.pb.UuidList
+	(*UuidSet)(nil),                   // 10: service.icd.pb.UuidSet
+	(*Where)(nil),                     // 11: service.icd.pb.Where
+	(*IdentifierCanPayload)(nil),      // 12: service.icd.pb.IdentifierCanPayload
+	(*IdentifierFieldPayload)(nil),    // 13: service.icd.pb.IdentifierFieldPayload
+	(*TextFieldDelimitedPayload)(nil), // 14: service.icd.pb.TextFieldDelimitedPayload
+	(*TextFieldTaggedPayload)(nil),    // 15: service.icd.pb.TextFieldTaggedPayload
+	(*JSONFieldFloatPayload)(nil),     // 16: service.icd.pb.JSONFieldFloatPayload
+	(*JSONFieldIntegerPayload)(nil),   // 17: service.icd.pb.JSONFieldIntegerPayload
+	(*JSONFieldUnsignedPayload)(nil),  // 18: service.icd.pb.JSONFieldUnsignedPayload
+	(*JSONFieldStringPayload)(nil),    // 19: service.icd.pb.JSONFieldStringPayload
+	(*JSONFieldBooleanPayload)(nil),   // 20: service.icd.pb.JSONFieldBooleanPayload
+	(*JSONFieldTimestampPayload)(nil), // 21: service.icd.pb.JSONFieldTimestampPayload
+	(*JSONFieldJsonPayload)(nil),      // 22: service.icd.pb.JSONFieldJsonPayload
+	(*JSONFieldUuidPayload)(nil),      // 23: service.icd.pb.JSONFieldUuidPayload
+	(*JSONFieldBytesPayload)(nil),     // 24: service.icd.pb.JSONFieldBytesPayload
+	(*JSONMatchFloatPayload)(nil),     // 25: service.icd.pb.JSONMatchFloatPayload
+	(*JSONMatchIntegerPayload)(nil),   // 26: service.icd.pb.JSONMatchIntegerPayload
+	(*JSONMatchUnsignedPayload)(nil),  // 27: service.icd.pb.JSONMatchUnsignedPayload
+	(*JSONMatchStringPayload)(nil),    // 28: service.icd.pb.JSONMatchStringPayload
+	(*JSONMatchBooleanPayload)(nil),   // 29: service.icd.pb.JSONMatchBooleanPayload
+	(*PayloadBinaryPayload)(nil),      // 30: service.icd.pb.PayloadBinaryPayload
+	(*PayloadTextPayload)(nil),        // 31: service.icd.pb.PayloadTextPayload
+	(*PayloadJsonPayload)(nil),        // 32: service.icd.pb.PayloadJsonPayload
+	(*Identifier)(nil),                // 33: service.icd.pb.Identifier
+	(*TextField)(nil),                 // 34: service.icd.pb.TextField
+	(*JSONField)(nil),                 // 35: service.icd.pb.JSONField
+	(*JSONMatch)(nil),                 // 36: service.icd.pb.JSONMatch
+	(*Payload)(nil),                   // 37: service.icd.pb.Payload
+	(pb.Kind)(0),                      // 38: x.payload.pb.Kind
+	(*pb.FloatEntry)(nil),             // 39: x.payload.pb.FloatEntry
+	(*pb.IntegerEntry)(nil),           // 40: x.payload.pb.IntegerEntry
+	(*pb.UnsignedEntry)(nil),          // 41: x.payload.pb.UnsignedEntry
+	(*pb.StringEntry)(nil),            // 42: x.payload.pb.StringEntry
+	(*pb.BooleanEntry)(nil),           // 43: x.payload.pb.BooleanEntry
+	(pb.TimeFormat)(0),                // 44: x.payload.pb.TimeFormat
 }
 var file_core_pkg_service_icd_pb_icd_proto_depIdxs = []int32{
 	0,  // 0: service.icd.pb.BinaryField.byte_order:type_name -> service.icd.pb.ByteOrder
-	37, // 1: service.icd.pb.BinaryField.kind:type_name -> x.payload.pb.Kind
-	36, // 2: service.icd.pb.Message.payload:type_name -> service.icd.pb.Payload
-	5,  // 3: service.icd.pb.ICD.messages:type_name -> service.icd.pb.Message
-	10, // 4: service.icd.pb.WhereList.values:type_name -> service.icd.pb.Where
-	8,  // 5: service.icd.pb.UuidSet.in:type_name -> service.icd.pb.UuidList
-	7,  // 6: service.icd.pb.Where.and:type_name -> service.icd.pb.WhereList
-	7,  // 7: service.icd.pb.Where.or:type_name -> service.icd.pb.WhereList
-	10, // 8: service.icd.pb.Where.not:type_name -> service.icd.pb.Where
-	9,  // 9: service.icd.pb.Where.key:type_name -> service.icd.pb.UuidSet
-	38, // 10: service.icd.pb.JSONFieldFloatPayload.enum_values:type_name -> x.payload.pb.FloatEntry
-	39, // 11: service.icd.pb.JSONFieldIntegerPayload.enum_values:type_name -> x.payload.pb.IntegerEntry
-	40, // 12: service.icd.pb.JSONFieldUnsignedPayload.enum_values:type_name -> x.payload.pb.UnsignedEntry
-	41, // 13: service.icd.pb.JSONFieldStringPayload.enum_values:type_name -> x.payload.pb.StringEntry
-	42, // 14: service.icd.pb.JSONFieldBooleanPayload.enum_values:type_name -> x.payload.pb.BooleanEntry
-	43, // 15: service.icd.pb.JSONFieldTimestampPayload.time_format:type_name -> x.payload.pb.TimeFormat
-	32, // 16: service.icd.pb.PayloadBinaryPayload.identifier:type_name -> service.icd.pb.Identifier
-	2,  // 17: service.icd.pb.PayloadBinaryPayload.fields:type_name -> service.icd.pb.BinaryField
-	33, // 18: service.icd.pb.PayloadTextPayload.fields:type_name -> service.icd.pb.TextField
-	35, // 19: service.icd.pb.PayloadJsonPayload.match:type_name -> service.icd.pb.JSONMatch
-	34, // 20: service.icd.pb.PayloadJsonPayload.fields:type_name -> service.icd.pb.JSONField
-	11, // 21: service.icd.pb.Identifier.can:type_name -> service.icd.pb.IdentifierCanPayload
-	12, // 22: service.icd.pb.Identifier.field:type_name -> service.icd.pb.IdentifierFieldPayload
-	1,  // 23: service.icd.pb.TextField.base_field:type_name -> service.icd.pb.BaseField
-	13, // 24: service.icd.pb.TextField.delimited:type_name -> service.icd.pb.TextFieldDelimitedPayload
-	14, // 25: service.icd.pb.TextField.tagged:type_name -> service.icd.pb.TextFieldTaggedPayload
-	3,  // 26: service.icd.pb.JSONField.json_base_field:type_name -> service.icd.pb.JSONBaseField
-	15, // 27: service.icd.pb.JSONField.float:type_name -> service.icd.pb.JSONFieldFloatPayload
-	16, // 28: service.icd.pb.JSONField.integer:type_name -> service.icd.pb.JSONFieldIntegerPayload
-	17, // 29: service.icd.pb.JSONField.unsigned:type_name -> service.icd.pb.JSONFieldUnsignedPayload
-	18, // 30: service.icd.pb.JSONField.string:type_name -> service.icd.pb.JSONFieldStringPayload
-	19, // 31: service.icd.pb.JSONField.boolean:type_name -> service.icd.pb.JSONFieldBooleanPayload
-	20, // 32: service.icd.pb.JSONField.timestamp:type_name -> service.icd.pb.JSONFieldTimestampPayload
-	21, // 33: service.icd.pb.JSONField.json:type_name -> service.icd.pb.JSONFieldJsonPayload
-	22, // 34: service.icd.pb.JSONField.uuid:type_name -> service.icd.pb.JSONFieldUuidPayload
-	23, // 35: service.icd.pb.JSONField.bytes:type_name -> service.icd.pb.JSONFieldBytesPayload
-	4,  // 36: service.icd.pb.JSONMatch.json_base_match:type_name -> service.icd.pb.JSONBaseMatch
-	24, // 37: service.icd.pb.JSONMatch.float:type_name -> service.icd.pb.JSONMatchFloatPayload
-	25, // 38: service.icd.pb.JSONMatch.integer:type_name -> service.icd.pb.JSONMatchIntegerPayload
-	26, // 39: service.icd.pb.JSONMatch.unsigned:type_name -> service.icd.pb.JSONMatchUnsignedPayload
-	27, // 40: service.icd.pb.JSONMatch.string:type_name -> service.icd.pb.JSONMatchStringPayload
-	28, // 41: service.icd.pb.JSONMatch.boolean:type_name -> service.icd.pb.JSONMatchBooleanPayload
-	29, // 42: service.icd.pb.Payload.binary:type_name -> service.icd.pb.PayloadBinaryPayload
-	30, // 43: service.icd.pb.Payload.text:type_name -> service.icd.pb.PayloadTextPayload
-	31, // 44: service.icd.pb.Payload.json:type_name -> service.icd.pb.PayloadJsonPayload
+	38, // 1: service.icd.pb.BinaryField.kind:type_name -> x.payload.pb.Kind
+	37, // 2: service.icd.pb.Message.payload:type_name -> service.icd.pb.Payload
+	6,  // 3: service.icd.pb.ICD.messages:type_name -> service.icd.pb.Message
+	11, // 4: service.icd.pb.WhereList.values:type_name -> service.icd.pb.Where
+	9,  // 5: service.icd.pb.UuidSet.in:type_name -> service.icd.pb.UuidList
+	8,  // 6: service.icd.pb.Where.and:type_name -> service.icd.pb.WhereList
+	8,  // 7: service.icd.pb.Where.or:type_name -> service.icd.pb.WhereList
+	11, // 8: service.icd.pb.Where.not:type_name -> service.icd.pb.Where
+	10, // 9: service.icd.pb.Where.key:type_name -> service.icd.pb.UuidSet
+	39, // 10: service.icd.pb.JSONFieldFloatPayload.enum_values:type_name -> x.payload.pb.FloatEntry
+	40, // 11: service.icd.pb.JSONFieldIntegerPayload.enum_values:type_name -> x.payload.pb.IntegerEntry
+	41, // 12: service.icd.pb.JSONFieldUnsignedPayload.enum_values:type_name -> x.payload.pb.UnsignedEntry
+	42, // 13: service.icd.pb.JSONFieldStringPayload.enum_values:type_name -> x.payload.pb.StringEntry
+	43, // 14: service.icd.pb.JSONFieldBooleanPayload.enum_values:type_name -> x.payload.pb.BooleanEntry
+	44, // 15: service.icd.pb.JSONFieldTimestampPayload.time_format:type_name -> x.payload.pb.TimeFormat
+	33, // 16: service.icd.pb.PayloadBinaryPayload.identifier:type_name -> service.icd.pb.Identifier
+	3,  // 17: service.icd.pb.PayloadBinaryPayload.fields:type_name -> service.icd.pb.BinaryField
+	34, // 18: service.icd.pb.PayloadTextPayload.fields:type_name -> service.icd.pb.TextField
+	36, // 19: service.icd.pb.PayloadJsonPayload.match:type_name -> service.icd.pb.JSONMatch
+	35, // 20: service.icd.pb.PayloadJsonPayload.fields:type_name -> service.icd.pb.JSONField
+	12, // 21: service.icd.pb.Identifier.can:type_name -> service.icd.pb.IdentifierCanPayload
+	13, // 22: service.icd.pb.Identifier.field:type_name -> service.icd.pb.IdentifierFieldPayload
+	2,  // 23: service.icd.pb.TextField.base_field:type_name -> service.icd.pb.BaseField
+	14, // 24: service.icd.pb.TextField.delimited:type_name -> service.icd.pb.TextFieldDelimitedPayload
+	15, // 25: service.icd.pb.TextField.tagged:type_name -> service.icd.pb.TextFieldTaggedPayload
+	4,  // 26: service.icd.pb.JSONField.json_base_field:type_name -> service.icd.pb.JSONBaseField
+	16, // 27: service.icd.pb.JSONField.float:type_name -> service.icd.pb.JSONFieldFloatPayload
+	17, // 28: service.icd.pb.JSONField.integer:type_name -> service.icd.pb.JSONFieldIntegerPayload
+	18, // 29: service.icd.pb.JSONField.unsigned:type_name -> service.icd.pb.JSONFieldUnsignedPayload
+	19, // 30: service.icd.pb.JSONField.string:type_name -> service.icd.pb.JSONFieldStringPayload
+	20, // 31: service.icd.pb.JSONField.boolean:type_name -> service.icd.pb.JSONFieldBooleanPayload
+	21, // 32: service.icd.pb.JSONField.timestamp:type_name -> service.icd.pb.JSONFieldTimestampPayload
+	22, // 33: service.icd.pb.JSONField.json:type_name -> service.icd.pb.JSONFieldJsonPayload
+	23, // 34: service.icd.pb.JSONField.uuid:type_name -> service.icd.pb.JSONFieldUuidPayload
+	24, // 35: service.icd.pb.JSONField.bytes:type_name -> service.icd.pb.JSONFieldBytesPayload
+	5,  // 36: service.icd.pb.JSONMatch.json_base_match:type_name -> service.icd.pb.JSONBaseMatch
+	25, // 37: service.icd.pb.JSONMatch.float:type_name -> service.icd.pb.JSONMatchFloatPayload
+	26, // 38: service.icd.pb.JSONMatch.integer:type_name -> service.icd.pb.JSONMatchIntegerPayload
+	27, // 39: service.icd.pb.JSONMatch.unsigned:type_name -> service.icd.pb.JSONMatchUnsignedPayload
+	28, // 40: service.icd.pb.JSONMatch.string:type_name -> service.icd.pb.JSONMatchStringPayload
+	29, // 41: service.icd.pb.JSONMatch.boolean:type_name -> service.icd.pb.JSONMatchBooleanPayload
+	30, // 42: service.icd.pb.Payload.binary:type_name -> service.icd.pb.PayloadBinaryPayload
+	31, // 43: service.icd.pb.Payload.text:type_name -> service.icd.pb.PayloadTextPayload
+	32, // 44: service.icd.pb.Payload.json:type_name -> service.icd.pb.PayloadJsonPayload
 	45, // [45:45] is the sub-list for method output_type
 	45, // [45:45] is the sub-list for method input_type
 	45, // [45:45] is the sub-list for extension type_name
@@ -2888,7 +2943,7 @@ func file_core_pkg_service_icd_pb_icd_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_service_icd_pb_icd_proto_rawDesc), len(file_core_pkg_service_icd_pb_icd_proto_rawDesc)),
-			NumEnums:      1,
+			NumEnums:      2,
 			NumMessages:   36,
 			NumExtensions: 0,
 			NumServices:   0,

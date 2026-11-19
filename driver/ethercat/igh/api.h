@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include <algorithm>
+#include <array>
 #include <cerrno>
 #include <cstdint>
 #include <span>
@@ -51,13 +53,59 @@ struct SII {
 
 /// @brief reads words of a slave's SII from the copy that IgH read at its scan.
 const auto SII_READ = _IOWR(0xa4, 0x10, SII);
+
+/// @brief the length of each string of the interface.
+constexpr size_t STRING_SIZE = 64;
+
+/// @brief an object of a slave's CoE dictionary, found by its list position.
+struct Object {
+    uint16_t slave_position;
+    uint16_t sdo_position;
+    uint16_t sdo_index;
+    uint8_t max_subindex;
+    std::array<int8_t, STRING_SIZE> name;
+};
+
+/// @brief an entry of a slave's CoE dictionary. A positive sdo_spec is the index of
+/// its object.
+struct Entry {
+    uint16_t slave_position;
+    int sdo_spec;
+    uint8_t sdo_entry_subindex;
+    uint16_t data_type;
+    uint16_t bit_length;
+    std::array<uint8_t, 3> read_access;
+    std::array<uint8_t, 3> write_access;
+    std::array<int8_t, STRING_SIZE> description;
+};
+
+/// @brief reads an object of the CoE dictionary that IgH read from a slave.
+const auto SDO = _IOWR(0xa4, 0x0c, Object);
+/// @brief reads an entry of the CoE dictionary that IgH read from a slave.
+const auto SDO_ENTRY = _IOWR(0xa4, 0x0d, Entry);
 }
+
+/// @brief an object of the CoE dictionary that IgH read from a slave.
+struct ObjectInfo {
+    uint16_t index = 0;
+    uint8_t max_sub_index = 0;
+    /// @brief the name of the object, empty until IgH reads its description.
+    std::string name;
+};
+
+/// @brief an entry of the CoE dictionary that IgH read from a slave.
+struct EntryInfo {
+    std::string name;
+    /// @brief the CoE data type of the entry.
+    uint16_t data_type = 0;
+};
 
 /// @brief API wrapper for IgH EtherCAT master library functions with dynamic loading.
 class API {
     /// @brief function pointers to the IgH EtherCAT library functions.
     struct FunctionPointers {
-        decltype(&ecrt_request_master) request_master;
+        decltype(&ecrt_open_master) open_master;
+        decltype(&ecrt_master_reserve) master_reserve;
         decltype(&ecrt_release_master) release_master;
         decltype(&ecrt_master_activate) master_activate;
         decltype(&ecrt_master_deactivate) master_deactivate;
@@ -121,7 +169,8 @@ public:
             fn = reinterpret_cast<F>(const_cast<void *>(lib->get_func_ptr(name)));
             if (fn == nullptr && missing.empty()) missing = name;
         };
-        resolve(f.request_master, "ecrt_request_master");
+        resolve(f.open_master, "ecrt_open_master");
+        resolve(f.master_reserve, "ecrt_master_reserve");
         resolve(f.release_master, "ecrt_release_master");
         resolve(f.master_activate, "ecrt_master_activate");
         resolve(f.master_deactivate, "ecrt_master_deactivate");
@@ -199,12 +248,21 @@ public:
         );
     }
 
-    /// @brief requests an EtherCAT master for realtime operation.
-    [[nodiscard]] virtual ec_master_t *request_master(unsigned int master_index) const {
-        return this->func_ptrs.request_master(master_index);
+    /// @brief opens an EtherCAT master without reserving it, so IgH keeps scanning the
+    /// bus. Returns nullptr when the master cannot be opened.
+    [[nodiscard]] virtual ec_master_t *open_master(unsigned int master_index) const {
+        return this->func_ptrs.open_master(master_index);
     }
 
-    /// @brief releases a requested EtherCAT master.
+    /// @brief reserves an open master for realtime operation. It waits for a scan that
+    /// IgH runs, and IgH scans the bus again only after activation.
+    /// @returns -EBUSY when another program reserved the master, or -ENODEV when no
+    /// network port is attached to it.
+    [[nodiscard]] virtual int master_reserve(ec_master_t *master) const {
+        return this->func_ptrs.master_reserve(master);
+    }
+
+    /// @brief closes a master and ends its reservation.
     virtual void release_master(ec_master_t *master) const {
         this->func_ptrs.release_master(master);
     }
@@ -496,16 +554,78 @@ public:
         uint16_t offset,
         std::span<uint16_t> words
     ) const {
-        const std::string path = "/dev/EtherCAT" + std::to_string(master_index);
-        const int fd = ::open(path.c_str(), O_RDONLY);
-        if (fd < 0) return -errno;
         ioctl::SII sii{
             .slave_position = position,
             .offset = offset,
             .nwords = static_cast<uint32_t>(words.size()),
             .words = words.data(),
         };
-        const int ret = ::ioctl(fd, ioctl::SII_READ, &sii) < 0 ? -errno : 0;
+        return device_ioctl(master_index, ioctl::SII_READ, &sii);
+    }
+
+    /// @brief reads the object at list_position of the CoE dictionary that IgH read
+    /// from the slave at position, which counts from 0. IgH reads the dictionary in
+    /// the background after its scan, so this makes no bus traffic.
+    /// @returns 0, or a negative error code: -EINVAL when the dictionary holds no
+    /// object at list_position.
+    [[nodiscard]] virtual int object_info(
+        unsigned int master_index,
+        uint16_t position,
+        uint16_t list_position,
+        ObjectInfo &info
+    ) const {
+        ioctl::Object object{.slave_position = position, .sdo_position = list_position};
+        if (const int ret = device_ioctl(master_index, ioctl::SDO, &object); ret != 0)
+            return ret;
+        info = {
+            .index = object.sdo_index,
+            .max_sub_index = object.max_subindex,
+            .name = std::string(object.name.begin(), std::ranges::find(object.name, 0)),
+        };
+        return 0;
+    }
+
+    /// @brief reads the entry at index and sub_index of the CoE dictionary that IgH
+    /// read from the slave at position, which counts from 0. Makes no bus traffic.
+    /// @returns 0, or a negative error code: -EINVAL when the dictionary does not hold
+    /// the entry, which IgH also writes to the kernel log.
+    [[nodiscard]] virtual int entry_info(
+        unsigned int master_index,
+        uint16_t position,
+        uint16_t index,
+        uint8_t sub_index,
+        EntryInfo &info
+    ) const {
+        ioctl::Entry entry{
+            .slave_position = position,
+            .sdo_spec = index,
+            .sdo_entry_subindex = sub_index,
+        };
+        if (const int ret = device_ioctl(master_index, ioctl::SDO_ENTRY, &entry);
+            ret != 0)
+            return ret;
+        info = {
+            .name = std::string(
+                entry.description.begin(),
+                std::ranges::find(entry.description, 0)
+            ),
+            .data_type = entry.data_type,
+        };
+        return 0;
+    }
+
+private:
+    /// @brief sends request with arg to the device of the master at master_index.
+    /// @returns 0, or a negative error code.
+    static int device_ioctl(
+        const unsigned int master_index,
+        const unsigned long request,
+        void *arg
+    ) {
+        const std::string path = "/dev/EtherCAT" + std::to_string(master_index);
+        const int fd = ::open(path.c_str(), O_RDONLY);
+        if (fd < 0) return -errno;
+        const int ret = ::ioctl(fd, request, arg) < 0 ? -errno : 0;
         ::close(fd);
         return ret;
     }

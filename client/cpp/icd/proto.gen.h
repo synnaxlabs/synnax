@@ -53,6 +53,34 @@ byte_order_from_pb(::service::icd::pb::ByteOrder pb) {
     }
 }
 
+inline std::pair<::service::icd::pb::ImportFormat, x::errors::Error>
+import_format_to_pb(const std::string &cpp) {
+    static const std::unordered_map<std::string, ::service::icd::pb::ImportFormat>
+        kMap = {
+            {IMPORT_FORMAT_DBC, ::service::icd::pb::IMPORT_FORMAT_DBC},
+            {IMPORT_FORMAT_CSV, ::service::icd::pb::IMPORT_FORMAT_CSV},
+            {IMPORT_FORMAT_XLSX, ::service::icd::pb::IMPORT_FORMAT_XLSX},
+    };
+    auto it = kMap.find(cpp);
+    if (it == kMap.end())
+        return {{}, x::errors::Error("unrecognized ImportFormat value: " + cpp)};
+    return {it->second, x::errors::NIL};
+}
+
+inline std::pair<std::string, x::errors::Error>
+import_format_from_pb(::service::icd::pb::ImportFormat pb) {
+    switch (pb) {
+        case ::service::icd::pb::IMPORT_FORMAT_DBC:
+            return {IMPORT_FORMAT_DBC, x::errors::NIL};
+        case ::service::icd::pb::IMPORT_FORMAT_CSV:
+            return {IMPORT_FORMAT_CSV, x::errors::NIL};
+        case ::service::icd::pb::IMPORT_FORMAT_XLSX:
+            return {IMPORT_FORMAT_XLSX, x::errors::NIL};
+        default:
+            return {"", x::errors::Error("unrecognized ImportFormat protobuf value")};
+    }
+}
+
 inline std::pair<::service::icd::pb::UuidSet, x::errors::Error>
 uuid_set_to_proto(const ::x::filter::Set<x::uuid::UUID> &self);
 inline std::pair<::x::filter::Set<x::uuid::UUID>, x::errors::Error>

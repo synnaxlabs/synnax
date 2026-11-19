@@ -169,8 +169,9 @@ const applyInsert = (doc: record.Unknown, a: Insert): Action[] => {
   const { node, created } = found;
   if (!narrow.isObject(node)) throw notList(a.path);
   let list = field(node, last);
-  const listCreated = list == null;
-  if (listCreated) {
+  const listCreated: Created | undefined =
+    list == null ? { depth: parentPath.length, wasNull: list === null } : undefined;
+  if (listCreated != null) {
     node[last] = [];
     list = node[last];
   }
@@ -178,7 +179,7 @@ const applyInsert = (doc: record.Unknown, a: Insert): Action[] => {
   if (entryIndex(list, key) >= 0) return [];
   list.splice(position(list, a.after), 0, structuredClone(a.value));
   if (created != null) return [undoCreate(a.path, created, a.guards)];
-  if (listCreated) return [remove(parentPath, last, a.guards)];
+  if (listCreated != null) return [undoCreate(a.path, listCreated, a.guards)];
   return [remove(a.path, key, a.guards)];
 };
 
