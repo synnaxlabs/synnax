@@ -45,6 +45,7 @@ cc_test(
     srcs = ["proto_test.cpp"],
     deps = [
         ":payload",
+        "//x/cpp/errors",
         "//x/cpp/telem",
         "//x/cpp/testutil",
         "@googletest//:gtest_main",
