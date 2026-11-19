@@ -356,9 +356,10 @@ interface Initial {
 interface PendingMove {
   from: number;
   to: number;
-  row: TableCell[] | undefined;
   /** The table's value when the move went out. */
   value: TableCell[][];
+  /** The value that shows the move. */
+  moved: TableCell[][];
   /** Whether the moved row's handle takes focus, as after a keyboard move. */
   focus: boolean;
 }
@@ -417,9 +418,9 @@ export const Table = ({
   // The caller can refuse a move, so the marks move only when the next value shows it.
   let current = rejections;
   if (pendingMove != null && pendingMove.value !== value) {
-    const { from, to, row, focus } = pendingMove;
+    const { from, to, moved, focus } = pendingMove;
     setPendingMove(null);
-    if (deep.equal(value[to], row)) {
+    if (deep.equal(value, moved)) {
       current = rejections.map((mark) => ({
         ...mark,
         at: { x: mark.at.x, y: movedIndex(mark.at.y, from, to) },
@@ -530,7 +531,9 @@ export const Table = ({
   };
 
   const handleMove = (from: number, to: number, focus = false) => {
-    setPendingMove({ from, to, row: value[from], value, focus });
+    const moved = [...value];
+    moved.splice(to, 0, ...moved.splice(from, 1));
+    setPendingMove({ from, to, value, moved, focus });
     onMove?.(from, to);
   };
 
