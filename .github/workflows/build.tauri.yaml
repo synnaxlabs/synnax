@@ -98,6 +98,7 @@ jobs:
       PRODUCT: ${{ inputs.desktop && 'desktop' || 'console' }}
       OS_NAME: ${{ startsWith(matrix.os, 'macos') && 'macos' || 'windows' }}
       EXECUTABLE: ${{ startsWith(matrix.os, 'windows') && '.exe' || '' }}
+      POSTHOG_CLI_VERSION: 0.18.9
       BINARY_DIR: console/src-tauri/target/release
       BUNDLE_DIR: console/src-tauri/target/release/bundle
       # The bundle stage has the compiled app, so it only bundles. tauri bundle takes no
@@ -121,6 +122,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Import Apple Developer Certificate
         if:
@@ -191,6 +194,7 @@ jobs:
         with:
           cache-workspaces: console/src-tauri -> target
           cache-shared-key: ${{ runner.os }}-${{ env.PRODUCT }}
+          rust-src-dir: console/src-tauri
           # A cache save deletes rustup from ~/.cargo/bin, which the build bots keep.
           cache-bin: false
 
@@ -239,9 +243,40 @@ jobs:
         if: inputs.stage != 'bundle'
         run: pnpm exec turbo build --filter "@synnaxlabs/console^..."
 
-      - name: Install PostHog CLI
-        if: inputs.stage != 'bundle' && steps.config.outputs.release == 'true'
-        run: npm install -g @posthog/cli@0.18.9
+      - name: Install PostHog CLI (macOS)
+        if:
+          inputs.stage != 'bundle' && steps.config.outputs.release == 'true' &&
+          startsWith(matrix.os, 'macos')
+        env:
+          ASSET: posthog-cli-aarch64-apple-darwin
+          SHA256: 831d3a8f16f95fc7cdbff7c9e83a32f012e8bd5af983646582f52e3ca4221d01
+        run: |
+          base=https://github.com/PostHog/posthog/releases/download
+          curl -fsSLo "$RUNNER_TEMP/$ASSET.tar.gz" \
+            "$base/posthog-cli/v$POSTHOG_CLI_VERSION/$ASSET.tar.gz"
+          echo "$SHA256  $RUNNER_TEMP/$ASSET.tar.gz" | shasum -a 256 -c -
+          tar -xzf "$RUNNER_TEMP/$ASSET.tar.gz" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/$ASSET" >> "$GITHUB_PATH"
+
+      - name: Install PostHog CLI (Windows)
+        if:
+          inputs.stage != 'bundle' && steps.config.outputs.release == 'true' &&
+          startsWith(matrix.os, 'windows')
+        shell: powershell
+        env:
+          ASSET: posthog-cli-x86_64-pc-windows-msvc
+          SHA256: fec1624f8a8d232ae314a9391e266884e8cacb238719262e652696a1f96708b2
+        run: |
+          $base = "https://github.com/PostHog/posthog/releases/download"
+          $zip = "$env:RUNNER_TEMP\$env:ASSET.zip"
+          $url = "$base/posthog-cli/v$env:POSTHOG_CLI_VERSION/$env:ASSET.zip"
+          Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $zip
+          if ((Get-FileHash -Algorithm SHA256 $zip).Hash -ne $env:SHA256) {
+            throw "$zip does not match its checksum"
+          }
+          $dir = "$env:RUNNER_TEMP\posthog-cli"
+          Expand-Archive -Force $zip $dir
+          Add-Content $env:GITHUB_PATH $dir
 
       - name: Set up trusted-signing-cli
         if:
