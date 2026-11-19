@@ -21,7 +21,8 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-// column finds the samples of one data channel in a frame by alignment.
+// column finds the samples of one data channel in a frame by alignment, among the
+// series on the clock of its flow.
 type column struct {
 	series []telem.Series
 	// cur is the index in series of the series that held the last sample found.
@@ -30,12 +31,25 @@ type column struct {
 	variable [][]byte
 }
 
-func newColumn(series []telem.Series) *column {
-	return &column{series: series, cur: -1}
+func newColumn(series []telem.Series, clock uint32) *column {
+	if !slices.ContainsFunc(
+		series,
+		func(s telem.Series) bool { return s.Clock != clock },
+	) {
+		return &column{series: series, cur: -1}
+	}
+	onClock := make([]telem.Series, 0, len(series))
+	for _, s := range series {
+		if s.Clock == clock {
+			onClock = append(onClock, s)
+		}
+	}
+	return &column{series: onClock, cur: -1}
 }
 
 // encode calls send with one request per timestamp of f in fr at or after from that has
-// a value. It returns the timestamp after the last one it read and the number of values
+// a value. A data sample pairs with a timestamp of the same alignment, on the flow's
+// clock. It returns the timestamp after the last one it read and the number of values
 // it sent. It sets each element of last that has a value to the time after the last
 // value of its channel.
 func encode(
@@ -51,8 +65,9 @@ func encode(
 		samples int64
 		columns = make([]*column, len(f.channels))
 	)
+	clock := uint32(f.index.Key())
 	for i, ch := range f.channels {
-		columns[i] = newColumn(fr.Get(ch.Key()).Series)
+		columns[i] = newColumn(fr.Get(ch.Key()).Series, clock)
 	}
 	for _, idx := range fr.Get(f.index.Key()).Series {
 		for j := range int(idx.Len()) {
