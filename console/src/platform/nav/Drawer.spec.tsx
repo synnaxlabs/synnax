@@ -146,8 +146,7 @@ describe("Nav.Drawer", () => {
 
   it("should not restart content beside the drawer while its content waits for data", async () => {
     const onMount = vi.fn();
-    let resolve: (content: string) => void = () => {};
-    const content = new Promise<string>((r) => (resolve = r));
+    const { promise: content, resolve } = Promise.withResolvers<string>();
     const store = await createTestStore();
     // Stands in for the boundary that wraps the whole workspace.
     await renderWithConsole(

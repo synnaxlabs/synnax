@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { caseconv } from "@synnaxlabs/x";
+import { strings } from "@synnaxlabs/x";
 
 import { MAKE, SLAVE_MODEL } from "@/feature/ethercat/device/types";
 import { Device } from "@/platform/device";
@@ -44,11 +44,11 @@ const nameOf = (d: Holder): string => {
 
 /** @returns why the slave cannot start while the other device has its identifier. */
 export const clashProblem = (slave: Holder, other: Holder): string =>
-  `${caseconv.capitalize(nameOf(other))} has an identifier that gives the same ` +
+  `${strings.capitalize(nameOf(other))} has an identifier that gives the same ` +
   `channel names as ${nameOf(slave)}. In Configure, change the identifier of one of ` +
   "them.";
 
 /** @returns why a slave cannot take an identifier that the other device has. */
 export const clashMessage = (other: Holder): string =>
-  `${caseconv.capitalize(nameOf(other))} has an identifier that gives the same ` +
+  `${strings.capitalize(nameOf(other))} has an identifier that gives the same ` +
   "channel names. Pick another identifier.";

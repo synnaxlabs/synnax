@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { scheduler } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement, type ReactNode } from "react";
 import { afterEach } from "vitest";
 import { userEvent } from "vitest/browser";
@@ -45,7 +46,7 @@ export const setupBrowser = (): void => {
     corner.remove();
     // WebKit can draw no frames for seconds after the first pointer move, and a forced
     // hover does not wait for them. The next spec then waits on a frame that is late.
-    await new Promise((resolve) => requestAnimationFrame(resolve));
+    await scheduler.nextFrame();
   });
 };
 
