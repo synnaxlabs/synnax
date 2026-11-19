@@ -335,13 +335,23 @@ error. The gRPC `buffer` fields carry the layout of §4.2
 
 ### 4.5 Time in reads and streams
 
-A read or a stream brings the time series of every data series it returns. The reader
-sends no second request and names no clock key.
+A read or a stream brings the time series of every data series it returns, unless the
+request marks that channel as needing no time. The reader sends no second request and
+names no clock key.
 
-- **Closed frames**: Every frame the Core sends holds, for each data series, the time
-  series of its clock for the same alignments: one per contiguous run of each clock and
-  multiple per frame, under the clock key, on every transport and encoding, with no
-  option.
+- **Closed frames**: Every frame the Core sends holds, for each data series of a timed
+  key, the time series of its clock for the same alignments: one per contiguous run of
+  each clock and multiple per frame, under the clock key, on every transport and
+  encoding.
+- **Untimed keys**: A streamer or iterator request may list `untimed_keys`, a subset of
+  its keys whose values a reader needs with no time: readouts, gauges, lights, and the
+  other value displays. Staleness uses sample arrival, not stamps
+  (`pluto/src/vis/staleness`), so they need none. The Core sends a clock's time series
+  when at least one requested key on that clock is not untimed. It computes that set of
+  clocks when the key list or a key's clock changes, never per frame. The TypeScript
+  client shares one stream across every display
+  (`client/ts/src/framer/cache/streamer.ts`), so it marks a key untimed only while every
+  display that holds the key marks it.
 - **Sources**: A writer's relay frame holds each clock write whole (§4.8). The storage
   iterator adds, per chunk and clock, the stamps of the alignment runs of its data
   series, within the chunk size. A reduced read reduces them as it does the data.
@@ -364,7 +374,8 @@ sends no second request and names no clock key.
   error that names `frame.time(series)`.
 - **Access**: A time series leaves the Core only beside data that the subject may read.
   No check runs on the clock.
-- **Cost**: A reader that draws no time pays 8 bytes of time per sample.
+- **Cost**: A reader that marks its keys untimed pays nothing for time. A reader that
+  draws a timed key with no time pays 8 bytes of time per sample.
 - **Phases**: Phase 3 lands the codec field. Phase 6 turns the rule on: from that phase
   every clock write holds its time series.
 
@@ -669,8 +680,12 @@ Phase 6. Keys of `core/v0.62.0` keep their numbers.
    list from the clock overrides, with no new byte. Four codecs must then derive one
    list, and a difference is a silent misread under `allChannelsPresent`. The cost here
    is 4 + 4N bytes per change.
-8. **Time always travels with data**: An option would save 8 bytes per sample, for a
-   second path in every filter. An index channel's policy no longer denies times.
+8. **Time travels with data by default; a key can be untimed**: A value display needs no
+   stamps, and a stream of hundreds of readouts would pay 8 bytes per sample for time it
+   never draws. The option is per key, not per stream, because the Console shares one
+   stream across every display. Rejected: time always (it costs every value display),
+   and an option per stream (one plot in the shared stream would turn time on for every
+   readout). An index channel's policy no longer denies times.
 9. **A clock belongs to a producer, not to a session or a record**: A clock per session
    makes one clock per `client.write` call
    (`client/py/synnax/framer/client.py:241-256`): 864,000 per day at 10 Hz. A clock
