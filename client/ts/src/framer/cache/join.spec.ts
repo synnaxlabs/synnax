@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { alamos } from "@synnaxlabs/alamos";
 import { DataType, Series, TimeRange, TimeSpan, type TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
@@ -16,6 +15,7 @@ import { alignmentOf, RAW_LEVEL, rawIndex } from "@/framer/cache/block";
 import { tileRange } from "@/framer/cache/grid";
 import { Joins, type Wait } from "@/framer/cache/join";
 import { Store } from "@/framer/cache/store";
+import { ValidationError } from "@/index";
 
 const INDEX = 1;
 const DATA = 2;
@@ -302,14 +302,41 @@ describe("Joins", () => {
       expect(store.raw(DATA, BLOCK).coveredEnd).toEqual(at(2).add(1));
     });
 
-    it("should pair a data series only with the index of its clock", () => {
+    // D-111, amended: a series on another clock fails, and the error names the
+    // channel and both clock keys.
+    it("should throw on a data series whose clock is not its index", () => {
+      const { joins } = createJoined();
+      const other = new Series({
+        data: new Float32Array([30]),
+        alignment: 2n,
+        clock: INDEX + 10,
+      });
+      expect(() =>
+        joins.write(createFrame([INDEX, createIndex([3], 2n)], [DATA, other])),
+      ).toThrow(
+        expect.objectContaining({
+          message: expect.stringMatching(
+            new RegExp(`(?=.*${DATA})(?=.*${INDEX + 10})(?=.*${INDEX})`),
+          ),
+        }),
+      );
+    });
+
+    it("should give a stray clock to the fail callback and keep its samples out", () => {
       const { store, joins } = createJoined();
       const other = new Series({
         data: new Float32Array([30]),
         alignment: 2n,
         clock: INDEX + 10,
       });
-      joins.write(createFrame([INDEX, createIndex([3], 2n)], [DATA, other]));
+      const fail = vi.fn();
+      joins.write(createFrame([INDEX, createIndex([3], 2n)], [DATA, other]), fail);
+      expect(fail).toHaveBeenCalledWith(
+        DATA,
+        new ValidationError(
+          `channel ${DATA} has samples on clock ${INDEX + 10}, not on clock ${INDEX} of its index`,
+        ),
+      );
       expect(streamed(store, DATA)).toEqual([10, 20]);
     });
 
@@ -476,30 +503,6 @@ describe("Joins", () => {
     it("should keep the clock of the streamed samples", () => {
       const { store } = createJoined();
       expect(leadingOf(store, DATA)?.clock).toBe(INDEX);
-    });
-
-    it("should log and skip a data series on another clock", () => {
-      const instrumentation = new alamos.Instrumentation({
-        key: "test",
-        logger: new alamos.Logger({ filters: [alamos.logThresholdFilter("error")] }),
-      });
-      const error = vi.spyOn(instrumentation.L, "error").mockImplementation(() => {});
-      const store = new Store({ dynamicBufferSize: 100 });
-      const joins = new Joins(store, instrumentation);
-      joins.join(DATA, INDEX);
-      joins.landed(INDEX, waitsOf(joins, INDEX, DATA));
-      joins.write(
-        createFrame(
-          [INDEX, createIndex([1, 2], 0n)],
-          [DATA, new Series({ data: new Float32Array([10, 20]), clock: 9 })],
-        ),
-      );
-      expect(streamed(store, DATA)).toEqual([]);
-      expect(error).toHaveBeenCalledWith("series on another clock than its index", {
-        channel: DATA,
-        clock: 9,
-        index: INDEX,
-      });
     });
 
     it("should send back only a data member whose alignment has no index samples", () => {

@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { alamos } from "@synnaxlabs/alamos";
 import { Series, TimeRange, TimeStamp } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
+import { ValidationError } from "@/errors";
 import {
   alignmentOf,
   domainOf,
@@ -193,10 +193,7 @@ export class Joins {
   private readonly copies = new WeakMap<Series, Series>();
   private readonly pieces = new WeakMap<Series, Series[]>();
 
-  constructor(
-    private readonly store: Store,
-    private readonly instrumentation: alamos.Instrumentation = alamos.NOOP,
-  ) {}
+  constructor(private readonly store: Store) {}
 
   /**
    * Adds the channel and its index to the join of the index. Each new member waits for
@@ -327,15 +324,31 @@ export class Joins {
   /**
    * Writes the series of joined channels in a streamed frame, holding those of members
    * that wait. Other channels' series stay out of the store.
+   * @param fail - Receives a data channel whose series in the frame include one on
+   * another clock than its index, which the join cannot pair. The channel's series in
+   * the frame stay out of the store. By default it throws the error.
+   * @returns the index channels of the joins that wait.
    */
-  write(frame: Map<channel.Key, Series[]>): Set<channel.Key> {
+  write(
+    frame: Map<channel.Key, Series[]>,
+    fail: (ch: channel.Key, err: Error) => void = throwError,
+  ): Set<channel.Key> {
     frame.forEach((series, ch) => {
       const j = this.joins.get(ch);
       if (j != null) this.writeIndex(j, series);
     });
     frame.forEach((series, ch) => {
       const m = this.members.get(ch);
-      if (m != null && !this.joins.has(ch)) this.writeData(m, series);
+      if (m == null || this.joins.has(ch)) return;
+      for (const s of series)
+        if (s.clock !== m.join.index)
+          return fail(
+            ch,
+            new ValidationError(
+              `channel ${ch} has samples on clock ${s.clock}, not on clock ${m.join.index} of its index`,
+            ),
+          );
+      this.writeData(m, series);
     });
     return this.drain();
   }
@@ -523,15 +536,6 @@ export class Joins {
   private writeData(m: Member, series: Series[]): void {
     const j = m.join;
     for (const s of series) {
-      // A series on another clock has no samples of this join's index to pair with.
-      if (s.clock !== j.index) {
-        this.instrumentation.L.error("series on another clock than its index", {
-          channel: m.key,
-          clock: s.clock,
-          index: j.index,
-        });
-        continue;
-      }
       if (!m.joined || !j.indexMember.joined) {
         m.hold(s);
         continue;
@@ -612,6 +616,10 @@ const offsetAt = (block: RawBlock, t: bigint): number => {
         : offset,
     0,
   );
+};
+
+const throwError = (_: channel.Key, err: Error): never => {
+  throw err;
 };
 
 // Returns the samples [from, to) of the series with block alignment and the time range
