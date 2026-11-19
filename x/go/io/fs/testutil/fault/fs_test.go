@@ -11,6 +11,8 @@ package fault_test
 
 import (
 	"os"
+	"strconv"
+	"sync"
 	"syscall"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -82,6 +84,24 @@ var _ = Describe("FS", func() {
 		Expect(MustSucceed(fs.Stat("f.txt")).ModTime()).
 			To(BeTemporally(">", first.ModTime()))
 		Expect(first.Size()).To(Equal(int64(1)))
+	})
+
+	It("Should take calls and crashes from many goroutines at once", func() {
+		var wg sync.WaitGroup
+		for i := range 8 {
+			wg.Go(func() {
+				defer GinkgoRecover()
+				name := strconv.Itoa(i) + ".txt"
+				for range 50 {
+					save(fs, name, "tacocat")
+					Expect(fs.SyncDir("")).To(Succeed())
+					image := MustSucceed(fs.Crash(fault.CrashConfig{}))
+					Expect(read(image, name)).To(Equal("tacocat"))
+				}
+			})
+		}
+		wg.Wait()
+		Expect(MustSucceed(fs.List(""))).To(HaveLen(8))
 	})
 
 	Describe("File", func() {
