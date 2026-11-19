@@ -8,12 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type kafka, status } from "@synnaxlabs/client";
-import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { compare, id, json, search, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { compare, id, json, search, TimeSpan, TimeStamp, unique } from "@synnaxlabs/x";
 import pluralize from "pluralize";
 import { type ReactNode, useEffect, useState } from "react";
 
@@ -68,6 +67,15 @@ const FORMAT_NAMES: Record<kafka.Format, string> = {
 interface Listing extends kafka.BrowseResult {
   /** Names the browse, so each one opens a fresh tree and drops its samples. */
   key: string;
+  /** When the browse answered. */
+  listedAt: TimeStamp;
+}
+
+/** A topic of the list: one that the cluster lists, or one that it does not. */
+interface Entry {
+  name: string;
+  /** What the browse says of the topic. Null for a topic that it did not list. */
+  listed: kafka.Topic | null;
 }
 
 type Sample =
@@ -128,26 +136,33 @@ const show = (value: unknown): string | null => {
   return typeof value === "string" ? value : JSON.stringify(value);
 };
 
-const sampleable = ({ readable, records }: kafka.Topic): boolean =>
-  readable && records > 0;
+/** A partition that the browse could not measure can hide records. */
+const holdsRecords = ({ records, error }: kafka.Topic): boolean =>
+  records > 0 || error !== "";
+
+const sampleable = ({ listed }: Entry): boolean =>
+  listed == null || (listed.readable && holdsRecords(listed));
 
 const formatRate = (rate: number): string =>
   `${rate >= 10 ? Math.round(rate) : rate.toFixed(1)}/s`;
 
-const formatNewest = (newest: TimeStamp): string => {
-  const span = TimeStamp.now().span(newest);
+const formatNewest = (newest: TimeStamp, listedAt: TimeStamp): string => {
+  const span = listedAt.span(newest);
   if (span.lessThan(TimeSpan.SECOND)) return "newest just now";
   return `newest ${span.toString("semantic")} ago`;
 };
 
-/** @returns the partitions, rate, format, and newest record of a topic. */
-const describeTopic = (t: kafka.Topic): string =>
+/**
+ * @returns the partitions, rate, format, and newest record of a topic, as of the time
+ * that the browse answered.
+ */
+const describeTopic = (t: kafka.Topic, listedAt: TimeStamp): string =>
   [
     pluralize("partition", t.partitions, true),
     formatRate(t.rate),
     t.format == null ? null : FORMAT_NAMES[t.format],
     t.compacted ? "compacted" : null,
-    t.newest.equals(TimeStamp.ZERO) ? null : formatNewest(t.newest),
+    t.newest.equals(TimeStamp.ZERO) ? null : formatNewest(t.newest, listedAt),
   ]
     .filter((part) => part != null)
     .join(" · ");
@@ -177,8 +192,28 @@ const withTopic = (
   return next;
 };
 
+/**
+ * @returns picks with the picks of topic moved onto the shapes of a new sample of it. A
+ * pick of a shape that the new sample lacks drops.
+ */
+const rebase = (
+  picks: Map<string, TopicPick>,
+  topic: string,
+  shapes: json.Shape[],
+): Map<string, TopicPick> => {
+  const pick = picks.get(topic);
+  if (pick == null) return picks;
+  const keys = new Set(shapes.map(shapeKey));
+  const kept: Picks = new Map([...pick.picks].filter(([key]) => keys.has(key)));
+  return withTopic(picks, topic, shapes, kept);
+};
+
 interface TopicValuesProps {
-  topic: kafka.Topic;
+  name: string;
+  /** What the browse says of the topic. */
+  note: string;
+  /** Says what the browse or the sample could not read, or null for nothing. */
+  warning: string | null;
   sample: kafka.SampledTopic;
   records: ReadRecord[];
   label: Params["label"];
@@ -188,7 +223,9 @@ interface TopicValuesProps {
 
 /** The fields of each shape of a sample of a topic, to pick. */
 const TopicValues = ({
-  topic,
+  name,
+  note,
+  warning,
   sample,
   records,
   label,
@@ -237,13 +274,22 @@ const TopicValues = ({
   return (
     <>
       <ICD.Picker.PaneHeader
-        title={topic.name}
-        note={describeTopic(topic)}
+        title={name}
+        note={note}
         free={countOf(defaults)}
         picked={picked.length}
         onPickAll={() => onChange(defaults)}
         onClear={() => onChange(new Map())}
       />
+      {warning != null && (
+        <Text.Text
+          level="small"
+          status="warning"
+          className={CSS.BE("kafka-add-data", "warning")}
+        >
+          {warning}
+        </Text.Text>
+      )}
       <ICD.Picker.Values
         noun="Field"
         groups={groups}
@@ -278,15 +324,17 @@ const Content = ({
 }: Modals.ContentProps<Params, Result>) => {
   const [term, setTerm] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
+  const [entered, setEntered] = useState<string[]>([]);
   const [picks, setPicks] = useState<Map<string, TopicPick>>(() => new Map());
-  // handlePick reads the picks made while it waits for a sample.
-  const picksRef = useSyncedRef(picks);
   const [samples, setSamples] = useState<ListingSamples>(() => ({
     listing: null,
     topics: new Map(),
   }));
   const { result, listen, follow } = ICD.Picker.useListen<Listing>(
-    async (client) => ({ key: id.create(), ...(await browseTopics(client, device)) }),
+    async (client) => {
+      const answer = await browseTopics(client, device);
+      return { ...answer, key: id.create(), listedAt: TimeStamp.now() };
+    },
     [device.key],
   );
   const listing = result.data;
@@ -304,6 +352,7 @@ const Content = ({
       const data = await follow((client) => sampleTopic(client, device, topic));
       if (data == null) return null;
       set({ variant: "success", data });
+      setPicks((prev) => rebase(prev, topic, data.shapes));
       return data;
     } catch (e) {
       set({
@@ -317,41 +366,54 @@ const Content = ({
     }
   };
 
-  const topics = listing?.topics ?? NO_TOPICS;
+  const listed = listing?.topics ?? NO_TOPICS;
+  const listedNames = new Set(listed.map(({ name }) => name));
+  const unlisted = unique
+    .unique([...held.map(({ name }) => name), ...entered])
+    .filter((name) => name !== "" && !listedNames.has(name));
+  const entries: Entry[] = [
+    ...listed.map((t): Entry => ({ name: t.name, listed: t })),
+    ...unlisted.map((name): Entry => ({ name, listed: null })),
+  ].sort(compare.by(({ name }) => name));
   const recordsOf = (topic: string): ReadRecord[] =>
     held.find(({ name }) => name === topic)?.records ?? [];
-  const firstActive = topics.some(({ name }) => name === initial)
-    ? initial
-    : ((topics.find(sampleable) ?? topics.at(0))?.name ?? null);
+  // A failed browse shows its error until the user selects a topic.
+  let firstActive: string | null = null;
+  if (listing != null)
+    firstActive = entries.some(({ name }) => name === initial)
+      ? initial
+      : ((entries.find((e) => e.listed != null && sampleable(e)) ?? entries.at(0))
+          ?.name ?? null);
   const active = selected ?? firstActive;
-  const activeTopic = topics.find(({ name }) => name === active) ?? null;
+  const activeEntry = entries.find(({ name }) => name === active) ?? null;
   const activeSample = active == null ? undefined : samples.topics.get(active);
   useEffect(() => {
-    if (activeTopic != null && sampleable(activeTopic) && activeSample == null)
-      void loadSample(activeTopic.name);
-  }, [activeTopic, activeSample, loadSample]);
+    if (activeEntry != null && sampleable(activeEntry) && activeSample == null)
+      void loadSample(activeEntry.name);
+  }, [activeEntry, activeSample, loadSample]);
 
   const trimmed = term.trim();
-  const visible = topics.filter(({ name }) => search.matches(name, trimmed));
-  const items = visible.map((t): ICD.Picker.TreeItem => {
-    const sample = samples.topics.get(t.name);
-    const picked = countOf(picks.get(t.name)?.picks);
+  const visible = entries.filter(({ name }) => search.matches(name, trimmed));
+  const items = visible.map((entry): ICD.Picker.TreeItem => {
+    const { name, listed: t } = entry;
+    const sample = samples.topics.get(name);
+    const picked = countOf(picks.get(name)?.picks);
     const free =
       sample?.variant === "success"
-        ? countOf(defaultsOf(sample.data.shapes, recordsOf(t.name)))
+        ? countOf(defaultsOf(sample.data.shapes, recordsOf(name)))
         : null;
-    let meta = formatRate(t.rate);
+    let meta = t == null ? "Not listed" : formatRate(t.rate);
     if (picked > 0) meta = `${picked} selected`;
-    else if (!t.readable) meta = "No access";
-    else if (t.records === 0) meta = "Empty";
-    else if (held.some(({ name }) => name === t.name)) meta = "In task";
+    else if (t != null && !t.readable) meta = "No access";
+    else if (t != null && !holdsRecords(t)) meta = "Empty";
+    else if (held.some((h) => h.name === name)) meta = "In task";
     const loading = sample?.variant === "loading";
     return {
-      key: t.name,
-      name: t.name,
+      key: name,
+      name,
       meta,
       picked: pickedOf(picked, free),
-      disabled: !sampleable(t) || free === 0 || loading,
+      disabled: !sampleable(entry) || free === 0 || loading,
       loading,
     };
   });
@@ -362,74 +424,92 @@ const Content = ({
     const data = sample?.variant === "success" ? sample.data : await loadSample(topic);
     if (data == null) return;
     const defaults = defaultsOf(data.shapes, recordsOf(topic));
-    const current = picksRef.current;
-    const all =
-      countOf(defaults) > 0 && countOf(current.get(topic)?.picks) >= countOf(defaults);
-    setPicks(withTopic(current, topic, data.shapes, all ? new Map() : defaults));
+    setPicks((prev) => {
+      const picked = countOf(prev.get(topic)?.picks);
+      const all = countOf(defaults) > 0 && picked >= countOf(defaults);
+      return withTopic(prev, topic, data.shapes, all ? new Map() : defaults);
+    });
+  };
+
+  const handleEnter = () => {
+    setEntered((prev) => unique.unique([...prev, trimmed]));
+    setSelected(trimmed);
+    setTerm("");
   };
 
   const browsing = result.variant === "loading";
-  const reading = topics.find(
+  const browseFailed = result.variant === "error";
+  const reading = entries.find(
     ({ name }) => samples.topics.get(name)?.variant === "loading",
   );
-  let statusText = pluralize("topic", topics.length, true);
+  let statusText = pluralize("topic", listed.length, true);
   if (browsing) statusText = "Listing topics";
   else if (reading != null) statusText = `Reading ${reading.name}`;
+  else if (browseFailed) statusText = "Failed to list topics";
   else if (listing?.truncated === true) statusText += ", list is full";
 
+  let emptyMessage = "The cluster has no topics.";
+  if (trimmed !== "") emptyMessage = `No topic matches “${trimmed}”.`;
+  else if (listing == null) emptyMessage = "Search for a topic to read it by name.";
   let tree: ReactNode;
-  if (listing != null)
+  if (listing != null || browseFailed)
     tree = (
       <ICD.Picker.Tree
-        key={listing.key}
+        key={listing?.key ?? "unlisted"}
         nodes={visible.map(({ name }) => ({ key: name }))}
         items={items}
         active={active}
         onActivate={setSelected}
         onPick={(topic) => void handlePick(topic)}
-        emptyContent={
-          <ICD.Picker.Notice
-            message={
-              trimmed === ""
-                ? "The cluster has no topics."
-                : `No topic matches “${trimmed}”.`
-            }
-          />
-        }
+        emptyContent={<ICD.Picker.Notice message={emptyMessage} />}
       />
     );
-  else if (browsing) tree = <ICD.Picker.TreeSkeleton items={SKELETON} />;
-  else tree = <Status.Summary center status={result.status} />;
+  else tree = <ICD.Picker.TreeSkeleton items={SKELETON} />;
 
+  const t = activeEntry?.listed ?? null;
   let pane: ReactNode;
-  if (activeTopic == null)
-    pane =
-      listing == null && browsing ? (
-        <ICD.Picker.PaneSkeleton noun="Field" />
-      ) : (
-        <ICD.Picker.Notice message="Select a topic to see its records." />
-      );
-  else if (!activeTopic.readable)
+  if (activeEntry == null)
+    if (browseFailed) pane = <Status.Summary center status={result.status} />;
+    else if (listing == null) pane = <ICD.Picker.PaneSkeleton noun="Field" />;
+    else pane = <ICD.Picker.Notice message="Select a topic to see its records." />;
+  else if (t != null && !t.readable)
     pane = (
       <ICD.Picker.Notice message="The cluster does not let Synnax read this topic." />
     );
-  else if (activeTopic.records === 0) pane = <ICD.Picker.Notice message={NO_RECORDS} />;
+  else if (t != null && !holdsRecords(t))
+    pane = <ICD.Picker.Notice message={NO_RECORDS} />;
   else if (activeSample == null || activeSample.variant === "loading")
-    pane = <ICD.Picker.PaneSkeleton noun="Field" title={activeTopic.name} />;
+    pane = <ICD.Picker.PaneSkeleton noun="Field" title={activeEntry.name} />;
   else if (activeSample.variant === "error")
     pane = <Status.Summary center status={activeSample.status} />;
   else if (activeSample.data.shapes.length > 0) {
-    const topic = activeTopic.name;
+    const topic = activeEntry.name;
     const { data } = activeSample;
+    const warning = [
+      t == null || t.error === ""
+        ? null
+        : `Could not measure every partition. ${t.error}`,
+      data.error === "" ? null : `Could not read every record. ${data.error}`,
+    ]
+      .filter((w) => w != null)
+      .join(" ");
     pane = (
       <TopicValues
         key={`${samples.listing}/${topic}`}
-        topic={activeTopic}
+        name={topic}
+        note={
+          t == null || listing == null
+            ? "Not listed by the cluster"
+            : describeTopic(t, listing.listedAt)
+        }
+        warning={warning === "" ? null : warning}
         sample={data}
         records={recordsOf(topic)}
         label={label}
         value={picks.get(topic)?.picks ?? new Map()}
-        onChange={(value) => setPicks(withTopic(picks, topic, data.shapes, value))}
+        onChange={(value) =>
+          setPicks((prev) => withTopic(prev, topic, data.shapes, value))
+        }
       />
     );
   } else if (activeSample.data.error !== "")
@@ -444,6 +524,23 @@ const Content = ({
   else pane = <ICD.Picker.Notice message={NO_JSON_RECORDS} />;
 
   const count = [...picks.values()].reduce((n, p) => n + countOf(p.picks), 0);
+  const listedTerm = trimmed === "" || entries.some(({ name }) => name === trimmed);
+
+  let sideAction: ReactNode = null;
+  if (!listedTerm)
+    sideAction = (
+      <ICD.Picker.SideAction onClick={handleEnter}>
+        {`Read “${trimmed}”`}
+      </ICD.Picker.SideAction>
+    );
+  else if (activeEntry != null && t?.readable !== false)
+    sideAction = (
+      <ICD.Picker.SideAction
+        onClick={() => close({ variant: "record", topic: activeEntry.name })}
+      >
+        Add an empty record
+      </ICD.Picker.SideAction>
+    );
 
   return (
     <ICD.Picker.Root value={FRAME} hint={HINT} className={CSS.B("kafka-add-data")}>
@@ -462,13 +559,7 @@ const Content = ({
             placeholder="Search topics"
           />
           <ICD.Picker.SideList>{tree}</ICD.Picker.SideList>
-          {activeTopic?.readable === true && (
-            <ICD.Picker.SideAction
-              onClick={() => close({ variant: "record", topic: activeTopic.name })}
-            >
-              Add an empty record
-            </ICD.Picker.SideAction>
-          )}
+          {sideAction}
         </ICD.Picker.Side>
         <ICD.Picker.Pane>{pane}</ICD.Picker.Pane>
       </ICD.Picker.Frame>
@@ -494,8 +585,8 @@ const Content = ({
 };
 
 /**
- * Opens a dialog that lists the topics of a cluster and reads records of the one
- * selected, so the user can pick the fields of each shape of their values. It resolves
- * with the picks, or null when the user closes it.
+ * Opens a dialog that lists the topics of a cluster and of the task, and reads records
+ * of the one selected, so the user can pick the fields of each shape of their values.
+ * It resolves with the picks, or null when the user closes it.
  */
 export const useAddDataModal = Modals.createPrompt<Result, Params>(Content);

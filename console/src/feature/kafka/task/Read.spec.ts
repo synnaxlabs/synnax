@@ -554,6 +554,110 @@ describe("Kafka read form", () => {
       await dialog.findByRole("checkbox", { name: "Record /temperature" });
     });
 
+    it("should mark the topics that the task holds", async () => {
+      const { dev } = await renderRead();
+      const browse = browseOf(listTopic(TOPIC), listTopic("plant"));
+      const dialog = await openAddData(dev, { data: sampleOf() }, TOPIC, browse);
+      await dialog.findByRole("checkbox", { name: "Pick plant" });
+      dialog.getByText("In task");
+      dialog.getByText("0.0/s");
+    });
+
+    it("should read a topic past the end of a full list by name", async () => {
+      const { dev } = await renderRead({ empty: true });
+      await screen.findByText("No topics");
+      const scan = await createScanTask(dev);
+      const first = await answerCommandsUntil(client, [scan], "sample", {
+        browse: { data: { topics: [listTopic("alarms")], truncated: true } },
+        sample: { data: sampleOfTopic("alarms") },
+      });
+      const dialog = await clickAddData();
+      await first.answered;
+      await dialog.findByText("1 topic, list is full");
+      const second = await answerCommandsUntil(client, [scan], "sample", {
+        sample: { data: sampleOfTopic("plant", OVEN_SHAPE) },
+      });
+      const search = dialog.getByPlaceholderText("Search topics");
+      fireEvent.change(search, { target: { value: "plant" } });
+      fireEvent.click(await dialog.findByRole("button", { name: "Read “plant”" }));
+      expect((await second.answered)[0].args.topics).toEqual(["plant"]);
+      await dialog.findByText("Not listed by the cluster");
+      dialog.getByRole("checkbox", { name: "Record /temperature" });
+    });
+
+    it("should keep the topics of the task when the browse fails", async () => {
+      const { dev } = await renderRead();
+      const scan = await createScanTask(dev);
+      const first = await answerCommandsUntil(client, [scan], "browse", {
+        browse: { variant: "error", message: "Failed to reach the cluster" },
+      });
+      const dialog = await clickAddData();
+      await first.answered;
+      await dialog.findByText(/Failed to reach the cluster/);
+      dialog.getByText("Failed to list topics");
+      const second = await answerCommandsUntil(client, [scan], "sample", {
+        sample: { data: sampleOf(OVEN_SHAPE) },
+      });
+      dialog.getByText("In task");
+      fireEvent.click(dialog.getByText(TOPIC));
+      expect((await second.answered)[0].args.topics).toEqual([TOPIC]);
+      await dialog.findByRole("checkbox", { name: "Record /temperature" });
+    });
+
+    it("should read a topic with partitions the browse did not measure", async () => {
+      const { dev } = await renderRead({ empty: true });
+      await screen.findByText("No topics");
+      const error = "partition 1: NOT_LEADER_FOR_PARTITION";
+      const browse = browseOf(listTopic("plant", { records: 0, error }));
+      const dialog = await openAddData(
+        dev,
+        { data: sampleOfTopic("plant", OVEN_SHAPE) },
+        "plant",
+        browse,
+      );
+      await dialog.findByText(`Could not measure every partition. ${error}`);
+      expect(dialog.queryByText("Empty")).toBeNull();
+      dialog.getByRole("checkbox", { name: "Record /temperature" });
+    });
+
+    it("should move the picks onto a new sample on Listen again", async () => {
+      const { draft, dev } = await renderRead({ empty: true });
+      await screen.findByText("No topics");
+      const browse = browseOf(listTopic("plant"));
+      const dialog = await openAddData(
+        dev,
+        { data: sampleOfTopic("plant", OVEN_SHAPE) },
+        "plant",
+        browse,
+      );
+      fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
+      const scan = await client.tasks.retrieve({
+        type: Kafka.Task.SCAN_TYPE,
+        rack: dev.rack,
+        one: true,
+      });
+      const grown = { ...OVEN_SHAPE, sources: ["oven-1", "oven-2", "oven-3"] };
+      const again = await answerCommandsUntil(client, [scan], "sample", {
+        browse: { data: browse },
+        sample: { data: sampleOfTopic("plant", grown) },
+      });
+      fireEvent.click(dialog.getByRole("button", { name: "Listen again" }));
+      await again.answered;
+      await dialog.findByText("oven-1, oven-2, oven-3 · 2 records");
+      dialog.getByText("2 fields selected");
+      fireEvent.click(dialog.getByRole("button", { name: "Add 2 fields" }));
+      const topics = await waitFor(async () => {
+        const next = await retrieveTopics(draft.key);
+        expect(next).toHaveLength(1);
+        return next;
+      });
+      expect(topics[0].records.map(({ recordKey }) => recordKey)).toEqual([
+        "oven-1",
+        "oven-2",
+        "oven-3",
+      ]);
+    });
+
     it("should list only the topics that match the search", async () => {
       const { dev } = await renderRead();
       const browse = browseOf(listTopic(TOPIC), listTopic("plant"));
