@@ -83,21 +83,19 @@ const usePasswordAccepted = (core?: auth.TokenlessParams): boolean => {
   const host = core?.host;
   const port = core?.port;
   const secure = core?.secure;
-  const tokenless =
-    host == null || port == null
-      ? null
-      : auth.createTokenlessClient({ host, port, secure });
-  const [accepted, setAccepted] = useState(true);
+  const key = host == null || port == null ? null : `${host}:${port}:${secure}`;
+  const [refused, setRefused] = useState<string | null>(null);
   useAsyncEffect(
     async (signal) => {
-      setAccepted(true);
-      if (tokenless == null) return;
+      if (host == null || port == null) return;
+      const tokenless = auth.createTokenlessClient({ host, port, secure });
       const methods = await auth.retrieveMethods(tokenless).catch(() => null);
-      if (methods != null && !signal.aborted) setAccepted(methods.includes("password"));
+      if (signal.aborted) return;
+      setRefused(methods != null && !methods.includes("password") ? key : null);
     },
     [host, port, secure],
   );
-  return accepted;
+  return key == null || refused !== key;
 };
 
 /**
