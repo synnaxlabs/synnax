@@ -34,8 +34,8 @@ uv run --project scripts scripts/compare_benchmarks.py --base main --head HEAD
 - Never run two benchmark processes at once. Never compare numbers from two hosts or
   from two runs.
 - The `BenchmarkFloor*` benchmarks in `cesium` measure what the host can do: sync, copy,
-  checksum, and sequential write and read. A storage target is a ratio to a floor from
-  the same run. A floor that breaks the rule means the host is noisy.
+  checksum, and sequential write. A storage target is a ratio to a floor from the same
+  run. A floor that breaks the rule means the host is noisy.
 
 ## Live-Core tests
 

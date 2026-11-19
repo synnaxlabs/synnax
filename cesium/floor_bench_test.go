@@ -24,7 +24,7 @@ import (
 const (
 	kib = 1 << 10
 	mib = 1 << 20
-	// floorFileSize is the size of the file that the sequential floors write and read.
+	// floorFileSize is the size of the file that BenchmarkFloorWrite writes.
 	floorFileSize = 256 * mib
 )
 
