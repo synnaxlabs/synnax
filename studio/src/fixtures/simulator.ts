@@ -42,10 +42,15 @@ const PROGRAMS = {
     "import asyncio\n" +
     "from examples.opcua.sim import run_server\n" +
     `asyncio.run(run_server(endpoint="opc.tcp://${host}:${port}"))`,
+  // The certificate shows on screen and names the machine, so the server makes a new
+  // one with a fixed host name instead of reusing the one the examples keep.
   "opcua-encrypted": (host: string, port: number) =>
-    "import asyncio\n" +
-    "from examples.opcua.sim import run_server\n" +
-    `asyncio.run(run_server(endpoint="opc.tcp://${host}:${port}", encrypted=True))`,
+    "import asyncio, socket, tempfile\n" +
+    "from pathlib import Path\n" +
+    "from examples.opcua import sim\n" +
+    'socket.gethostname = lambda: "opcua-server"\n' +
+    "sim.CERT_DIR = Path(tempfile.mkdtemp())\n" +
+    `asyncio.run(sim.run_server(endpoint="opc.tcp://${host}:${port}", encrypted=True))`,
   http: (host: string, port: number) =>
     "from examples.http_sim.server import run_server\n" +
     `run_server("${host}", ${port})`,
