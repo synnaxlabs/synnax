@@ -12,6 +12,7 @@ package channel_test
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"os"
 	"slices"
 	"strconv"
@@ -378,15 +379,9 @@ func (e *crashEngine) Close() error {
 	return err
 }
 
-// runOnCore runs the harness on the adapter with one fault profile and one run key.
-func runOnCore(
-	ctx context.Context,
-	profile crash.Profile,
-	runKey uint64,
-	dirsDurable bool,
-) error {
-	_, err := crash.Run(ctx, crash.Config{
-		RunKey: runKey,
+// runOnCore runs the harness under Strict on the adapter, and checks each crash image.
+func runOnCore(ctx context.Context, dirsDurable bool) (crash.Result, error) {
+	return crash.Run(ctx, crash.Config{
 		Open: func(ctx context.Context, fs xfs.FS) (crash.Engine, error) {
 			e, err := openEngine(ctx, fs, dirsDurable)
 			if err != nil {
@@ -394,40 +389,58 @@ func runOnCore(
 			}
 			return e, nil
 		},
-		Commits: 4,
-		Stride:  1,
-		Profile: profile,
+		Commits:    4,
+		Stride:     1,
+		Profile:    crash.Strict,
+		Exhaustive: true,
 	})
-	return err
 }
 
-// Each entry is what the harness finds in the channel services today, and why. A delete
-// removes the Cesium data before the record delete commits, and syncs neither the
-// removal nor the create of a directory. So a crash keeps the Cesium channel of a
-// deleted record (R5), and Partial loses a meta file first (R4). When Cesium makes its
-// directory changes durable, a crash between the create of a channel directory and the
-// create of its meta file still stops the open (R4).
+// orphans returns the violation of each Cesium channel with the local key and no
+// record.
+func orphans(locals ...distchannel.LocalKey) []string {
+	out := make([]string, len(locals))
+	for i, local := range locals {
+		key := distchannel.NewKey(1, local).StorageKey()
+		out[i] = fmt.Sprintf(
+			"R5: the audit failed: cesium channel %d has no record",
+			key,
+		)
+	}
+	return out
+}
+
+// Each entry lists every violation that the harness finds in the channel services
+// today,
+// under Strict, where no draw decides what a crash keeps. A delete removes the Cesium
+// data in the commit hook, before the record delete is durable, and Cesium syncs no
+// directory change, so a crash keeps the Cesium channel of each deleted record. When
+// Cesium makes its directory changes durable, a crash also keeps the Cesium channel of
+// a
+// create before its record, takes the samples of a delete before its record, and stops
+// the open between the create of a channel directory and of its meta file.
 var _ = DescribeTable("Crash harness on the channel services",
-	func(
-		ctx SpecContext,
-		profile crash.Profile,
-		runKey uint64,
-		dirsDurable bool,
-		rule crash.Rule,
-		cause string,
-	) {
-		var v *crash.Violation
-		err := runOnCore(ctx, profile, runKey, dirsDurable)
-		Expect(errors.As(err, &v)).To(BeTrue(), "no violation: %v", err)
-		Expect(v.Rule).To(Equal(rule))
-		Expect(v.Detail).To(ContainSubstring(cause))
+	func(ctx SpecContext, dirsDurable bool, want []string) {
+		result, err := runOnCore(ctx, dirsDurable)
+		var first *crash.Violation
+		Expect(errors.As(err, &first)).To(BeTrue(), "no violation: %v", err)
+		Expect(result.Violations[0]).To(Equal(*first))
+		found := set.Set[string]{}
+		for _, v := range result.Violations {
+			found.Add(string(v.Rule) + ": " + v.Detail)
+		}
+		Expect(found.Slice()).To(ConsistOf(want))
 	},
-	Entry("Strict: R5", crash.Strict, uint64(0), false, crash.R5,
-		"cesium channel 1048579 has no record"),
-	Entry("Partial: R4", crash.Partial, uint64(1), false, crash.R4,
-		"data_type: required"),
-	Entry("Strict, with durable Cesium directories: R4", crash.Strict, uint64(0), true,
-		crash.R4, "data_type: required"),
+	Entry("plain", false, orphans(3, 5, 7, 9)),
+	Entry("with durable Cesium directories", true, append(
+		orphans(1, 2, 3, 4, 5, 6, 7, 8, 9),
+		"R4: the engine did not recover: data_type: required\nname: required\n"+
+			"index: non-indexed channel must have an index",
+		"R5: the audit failed: s1 kept its record and lost its samples",
+		"R5: the audit failed: s2 kept its record and lost its samples",
+		"R5: the audit failed: s3 kept its record and lost its samples",
+		"R5: the audit failed: s4 kept its record and lost its samples",
+	)),
 )
 
 var _ = Describe("Crash adapter on the channel services", func() {
