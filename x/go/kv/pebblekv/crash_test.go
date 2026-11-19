@@ -298,7 +298,7 @@ func run(
 
 // Each entry is what the harness finds in Pebble at FormatNewest, and why, with the
 // count of read faults at the break. The workload of each run flushes 4 times and
-// compacts twice.
+// compacts twice. The options of the Core's openKV give the same causes.
 var _ = DescribeTable("Crash harness",
 	func(
 		ctx SpecContext,
@@ -421,6 +421,33 @@ var _ = Describe("Crash adapter", func() {
 		}
 		Expect(func() { Expect(f()).To(Succeed()) }).To(Panic())
 		Expect(h.cause()).ToNot(HaveOccurred())
+	})
+
+	It("Should fail each write and sync after a stop, and no read or close", func() {
+		h := &halt{done: make(chan struct{})}
+		for _, kind := range []errorfs.OpKind{errorfs.OpFileWrite, errorfs.OpFileSync} {
+			Expect(h.MaybeError(errorfs.Op{Kind: kind})).To(Succeed())
+		}
+		h.stop(errors.New("taco"))
+		for _, kind := range []errorfs.OpKind{
+			errorfs.OpCreate,
+			errorfs.OpFileWrite,
+			errorfs.OpFileSync,
+			errorfs.OpRename,
+		} {
+			Expect(h.MaybeError(errorfs.Op{Kind: kind})).To(MatchError(errHalted))
+		}
+		for _, kind := range []errorfs.OpKind{errorfs.OpFileRead, errorfs.OpFileClose} {
+			Expect(h.MaybeError(errorfs.Op{Kind: kind})).To(Succeed())
+		}
+	})
+
+	It("Should stop on a Fatalf with no error", func() {
+		h := &halt{done: make(chan struct{})}
+		crashLogger{halt: h}.Fatalf("MANIFEST not locked for writing")
+		Expect(
+			h.cause(),
+		).To(MatchError("pebble: stopped: MANIFEST not locked for writing"))
 	})
 
 	It("Should stop on a Fatalf and keep its error as the cause", func() {
