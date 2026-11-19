@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array, Series, TimeRange, TimeStamp } from "@synnaxlabs/x";
+import { array, map, math, Series, TimeRange, TimeStamp } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
@@ -165,11 +165,10 @@ export const split = (timestamps: Series[], series: Series[]): Map<number, Part>
       const index = rawIndex(new TimeStamp(ts.data[lo]));
       const range = tileRange({ level: RAW_LEVEL, index });
       const hi = search(ts, range.end.valueOf(), lo);
-      let part = parts.get(index);
-      if (part == null) {
-        part = { timestamps: [], series: [] };
-        parts.set(index, part);
-      }
+      const part = map.getOrInsert(parts, index, () => ({
+        timestamps: [],
+        series: [],
+      }));
       part.timestamps.push(cut(ts.slice(lo, hi), range));
       const lower = ts.alignment + BigInt(lo);
       edges.push({ part, range, lower, upper: lower + BigInt(hi - lo) });
@@ -190,7 +189,7 @@ export const split = (timestamps: Series[], series: Series[]): Map<number, Part>
 };
 
 const sumBytes = (series: Series[]): number =>
-  series.reduce((sum, s) => sum + s.byteCapacity.valueOf(), 0);
+  math.sum(series.map((s) => s.byteCapacity.valueOf()));
 
 /**
  * One channel's raw samples over one level 16 tile of the grid, in block alignment.

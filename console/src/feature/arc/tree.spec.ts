@@ -9,6 +9,7 @@
 
 import { arc as clientArc, NotFoundError } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -27,7 +28,6 @@ import {
   awaitTextEditingElement,
   commitTextEdit,
   resolveFocusedTab,
-  uniqueName,
   withControlHeld,
 } from "@/testutil";
 

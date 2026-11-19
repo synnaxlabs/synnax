@@ -202,7 +202,7 @@ export class ReferenceText {
     let left: RefElement;
     if (index <= 0) left = this.root;
     else if (index - 1 < vis.length) left = vis[index - 1];
-    else left = vis.length > 0 ? vis[vis.length - 1] : this.root;
+    else left = vis.at(-1) ?? this.root;
     const right = index >= 0 && index < vis.length ? vis[index] : null;
     const ops: Insert[] = [];
     for (const ch of chars) {

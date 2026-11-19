@@ -12,7 +12,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Panel as PPanel, Synnax, View as PView } from "@synnaxlabs/pluto";
-import { caseconv } from "@synnaxlabs/x";
+import { strings } from "@synnaxlabs/x";
 import { plural } from "pluralize";
 import { type ReactElement } from "react";
 
@@ -44,7 +44,7 @@ export const createTab = (explorers: Explorers): Panel.Tab => {
     return (
       <>
         <ExplorerIcon />
-        <Text.Text {...rest}>{`${caseconv.capitalize(plural(type))} ›`}</Text.Text>
+        <Text.Text {...rest}>{`${strings.capitalize(plural(type))} ›`}</Text.Text>
         <Text.MaybeEditable
           id={Panel.tabNameID(tabKey)}
           value={name}

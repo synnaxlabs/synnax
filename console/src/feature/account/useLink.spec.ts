@@ -175,7 +175,7 @@ describe("Account.useLink", () => {
     const getCurrentURLs = vi.fn(async () => [LINK]);
     const next = await setup({ getCurrentURLs }, { ...PENDING, pending: "next" });
     await waitFor(() => expect(getCurrentURLs).toHaveBeenCalled());
-    await act(async () => await scheduler.flushTaskQueue());
+    await act(async () => await scheduler.nextTask());
     expect(failed(next)).toBe(false);
     expect(next.activate).not.toHaveBeenCalled();
   });
@@ -188,7 +188,7 @@ describe("Account.useLink", () => {
       { client: createTestClient() },
     );
     // Async effects start after a task queue flush, so wait one out before asserting.
-    await act(async () => await scheduler.flushTaskQueue());
+    await act(async () => await scheduler.nextTask());
     expect(getCurrentURLs).not.toHaveBeenCalled();
     expect(onOpenURL).not.toHaveBeenCalled();
   });

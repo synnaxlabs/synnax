@@ -95,13 +95,13 @@ export const map = <T extends Record<Key, unknown>, U>(
 
 /**
  * @param obj - The record object to purge
- * @returns A new record with undefined/null values removed
+ * @returns A new record with undefined values removed. Null values stay.
  *
  * @example
  * ```typescript
  * const obj = { a: 1, b: undefined, c: null, d: "hello" };
  * const purged = record.purgeUndefined(obj);
- * // Result: { a: 1, d: "hello" }
+ * // Result: { a: 1, c: null, d: "hello" }
  * ```
  */
 export const purgeUndefined = <T extends Record<Key, unknown>>(obj: T): T =>
