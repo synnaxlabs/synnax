@@ -47,6 +47,7 @@ func streamConfigReferences() []gorp.Reference[uuid.UUID, StreamConfig] {
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Use,
+			Tag:      1, // direction read
 			Targets: func(e *StreamConfig) []channel.Key {
 				var targets []channel.Key
 				for _, k1 := range e.Channels {

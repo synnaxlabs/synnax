@@ -673,6 +673,7 @@ BaseAIChannel struct {
     }
     channel  channel.Key = 0 {
         @doc value     "is the Synnax channel that raw samples are written to."
+        @ref direction write
         @ref kind      use
         @ref on_delete restrict
     }
@@ -1195,6 +1196,7 @@ BaseCIChannel struct {
     }
     channel  channel.Key = 0 {
         @doc value     "is the Synnax channel that raw samples are written to."
+        @ref direction write
         @ref kind      use
         @ref on_delete restrict
     }
@@ -1565,6 +1567,7 @@ DIChannel struct {
     }
     channel  channel.Key = 0 {
         @doc value     "is the Synnax channel that raw samples are written to."
+        @ref direction write
         @ref kind      use
         @ref on_delete restrict
     }
@@ -1590,11 +1593,13 @@ DOChannel struct {
     }
     cmd_channel        channel.Key = 0 {
         @doc value     "is the Synnax channel commands are read from."
+        @ref direction read
         @ref kind      use
         @ref on_delete restrict
     }
     state_channel      channel.Key = 0 {
         @doc value     "is the Synnax channel the output state is written to."
+        @ref direction write
         @ref kind      use
         @ref on_delete restrict
     }
@@ -1869,11 +1874,13 @@ Hardware struct {
 CommandedAOChannel struct {
     cmd_channel        channel.Key = 0 {
         @doc value     "is the Synnax channel commands are read from."
+        @ref direction read
         @ref kind      use
         @ref on_delete restrict
     }
     state_channel      channel.Key = 0 {
         @doc value     "is the Synnax channel the output state is written to."
+        @ref direction write
         @ref kind      use
         @ref on_delete restrict
     }

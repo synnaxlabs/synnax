@@ -99,6 +99,7 @@ ReadField struct {
     }
     channel     channel.Key = 0 {
         @doc value     "is the Synnax channel the extracted value is written to."
+        @ref direction write
         @ref kind      use
         @ref on_delete restrict
     }
@@ -203,6 +204,7 @@ ChannelField struct {
     }
     channel     channel.Key = 0 {
         @doc value     "is the Synnax command channel that triggers the request."
+        @ref direction read
         @ref kind      use
         @ref on_delete restrict
     }

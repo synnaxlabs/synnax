@@ -84,6 +84,7 @@ func newIndexes() indexes {
 			Table:    "channel",
 			OnDelete: gorp.Detach,
 			Kind:     gorp.Use,
+			Tag:      1, // direction read
 			Targets: func(e *Log) []channel.Key {
 				var targets []channel.Key
 				for _, v1 := range e.Channels {

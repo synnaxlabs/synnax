@@ -115,6 +115,7 @@ ReadField struct {
     }
     channel     channel.Key = 0 {
         @doc value     "is the Synnax channel the extracted value is written to."
+        @ref direction write
         @ref kind      use
         @ref on_delete restrict
     }
@@ -184,6 +185,7 @@ WriteChannel struct {
     }
     channel     channel.Key = 0 {
         @doc value     "is the Synnax channel whose samples are produced."
+        @ref direction read
         @ref kind      use
         @ref on_delete restrict
     }

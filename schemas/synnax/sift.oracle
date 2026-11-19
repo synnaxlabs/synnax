@@ -52,6 +52,7 @@ StreamConfig struct extends task.StartConfig {
     }
     channels channel.Key[] {
         @doc value     "are the channels the task sends."
+        @ref direction read
         @ref kind      use
         @ref on_delete restrict
     }

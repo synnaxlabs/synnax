@@ -84,6 +84,7 @@ ReadBinding struct {
     }
     channel   channel.Key = 0 {
         @doc value     "is the channel the value of the field is written to."
+        @ref direction write
         @ref kind      use
         @ref on_delete restrict
     }
@@ -209,6 +210,7 @@ ReadEntry union on type extends BaseReadEntry {
         }
         channel   channel.Key = 0 {
             @doc value     "is the Synnax channel the tag value is written to."
+            @ref direction write
             @ref kind      use
             @ref on_delete restrict
         }
@@ -273,6 +275,7 @@ ChannelField struct {
     }
     channel     channel.Key = 0 {
         @doc value     "is the Synnax command channel that triggers the publish."
+        @ref direction read
         @ref kind      use
         @ref on_delete restrict
     }
@@ -397,6 +400,7 @@ WriteTarget union on type extends BaseWriteTarget {
             @doc value     """
                 is the Synnax command channel whose writes trigger the command.
             """
+            @ref direction read
             @ref kind      use
             @ref on_delete restrict
         }
@@ -456,6 +460,7 @@ EdgeTag struct {
     }
     channel              channel.Key = 0 {
         @doc value     "is the Synnax channel whose value the tag publishes."
+        @ref direction read
         @ref kind      use
         @ref on_delete restrict
     }
@@ -467,6 +472,7 @@ EdgeTag struct {
             is the Synnax channel that takes values written to the tag. Zero when the
             tag rejects writes.
         """
+        @ref direction write
         @ref kind      use
         @ref on_delete restrict
     }
