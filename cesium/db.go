@@ -43,8 +43,6 @@ type Metrics struct {
 }
 
 type DB struct {
-	// removals tracks the background removals of deleted channel data.
-	removals sync.WaitGroup
 	*options
 	// controlUpdates notifies subscribers of every control transfer the DB arbitrates.
 	controlUpdates controlObserver
@@ -206,6 +204,5 @@ func (db *DB) Close() error {
 	for _, u := range db.mu.dbs.unary {
 		err = errors.Join(err, u.Close())
 	}
-	db.removals.Wait()
 	return err
 }

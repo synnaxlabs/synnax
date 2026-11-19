@@ -62,7 +62,8 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 			))
 			continue
 		}
-		if strings.Contains(i.Name(), deletedDirInfix) {
+		// The suffix of a v0.61 removal also carries a random number.
+		if strings.Contains(i.Name(), deletedDirSuffix) {
 			detached = append(detached, i.Name())
 			continue
 		}
@@ -82,7 +83,15 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 		}
 	}
 
-	db.removeDirs(detached...)
+	for _, name := range detached {
+		if err := db.fs.Remove(name); err != nil {
+			db.L.Error(
+				"failed to remove deleted channel data",
+				zap.String("dir", name),
+				zap.Error(err),
+			)
+		}
+	}
 	return db, nil
 }
 

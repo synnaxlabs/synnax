@@ -33,7 +33,9 @@ import (
 type session struct {
 	confluence.UnarySink[Request]
 	confluence.AbstractUnarySource[Response]
-	w       *cesium.Writer
+	w *cesium.Writer
+	// release releases the hold of the session on its channels.
+	release func()
 	stamper *unindexedStamper[cesium.ChannelKey]
 	// autoIndex is nil when the writer does not stamp its indexes.
 	autoIndex *indexStamper
@@ -64,9 +66,11 @@ func (s *Service) newSession(
 	cfg Config,
 	virtual []cesium.ChannelKey,
 	autoIndex *indexStamper,
+	release func(),
 ) *session {
 	return &session{
 		w:               w,
+		release:         release,
 		stamper:         newUnindexedStamper(virtual),
 		autoIndex:       autoIndex,
 		writes:          s.cfg.Writes,
@@ -108,7 +112,9 @@ func (s *session) run(ctx context.Context) error {
 // close releases the Cesium writer. It returns the first error of the session or of
 // the Cesium writer, joined with any error of the release, and otherwise cause.
 func (s *session) close(cause error) error {
-	if err := errors.Combine(s.err, s.w.Close()); err != nil {
+	err := errors.Combine(s.err, s.w.Close())
+	s.release()
+	if err != nil {
 		return err
 	}
 	return cause

@@ -65,7 +65,7 @@ func (db *DB) Delete(
 		return ErrDBClosed
 	}
 	db.resourceCount.Add(1)
-	defer db.resourceCount.Add(-1)
+	defer db.unpin()
 
 	// Ensure that there cannot be deletion operations on the index between index lookup
 	// as that would invalidate the offsets. However, we cannot lock the index as a
@@ -273,7 +273,7 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 		return ErrDBClosed
 	}
 	db.resourceCount.Add(1)
-	defer db.resourceCount.Add(-1)
+	defer db.unpin()
 
 	if err := db.fc.gcWriters(); err != nil {
 		return span.Error(err)

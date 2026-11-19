@@ -46,6 +46,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel: mockNode.Channel,
 		TS:      mockNode.Storage.TS,
+		Framer:  mockNode.Framer,
 		DB:      mockNode.DB,
 		HostKey: mockNode.Identity.HostKey,
 		Status:  statusSvc,

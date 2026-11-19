@@ -943,6 +943,24 @@ func validateNameSyntax(names []string) error {
 }
 
 func (w Writer) delete(ctx context.Context, keys Keys, allowInternal bool) error {
+	stored := lo.Reject(keys, func(key Key, _ int) bool { return key.Free() })
+	release, err := w.svc.cfg.Framer.ClaimDelete(stored)
+	if err != nil {
+		return err
+	}
+	// The storage drops only once the delete of the records is durable, so a crash
+	// never leaves a record whose data is gone.
+	gorp.AfterEnd(w.tx, func(committed bool) {
+		if !committed {
+			release()
+			return
+		}
+		w.svc.mu.Lock()
+		w.svc.mu.externalNonVirtualSet.Remove(keys...)
+		w.svc.mu.Unlock()
+		dropCtx := context.WithoutCancel(ctx)
+		w.svc.cfg.DropExecutor(func() { w.svc.dropStorage(dropCtx, stored, release) })
+	})
 	if err := w.svc.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Channel](keys...)).
 		Guard(func(_ gorp.Context, c Channel) error {
@@ -958,15 +976,6 @@ func (w Writer) delete(ctx context.Context, keys Keys, allowInternal bool) error
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	gorp.BeforeCommit(w.tx, func(ctx context.Context) error {
-		if err := w.svc.deleteStorage(keys); err != nil {
-			return err
-		}
-		w.svc.mu.Lock()
-		w.svc.mu.externalNonVirtualSet.Remove(keys...)
-		w.svc.mu.Unlock()
-		return nil
-	})
 	return nil
 }
 

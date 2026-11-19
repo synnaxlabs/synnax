@@ -1349,11 +1349,12 @@ var _ = Describe("Writer", func() {
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 						return svc.NewWriter(tx).Delete(ctx, ch.Key(), true)
 					})).To(Succeed())
-					Expect(
-						dist.Storage.TS.RetrieveChannels(ctx, uint32(ch.Key())),
-					).
-						Error().
-						To(MatchError(cesium.ErrChannelNotFound))
+					// The drop runs on the service's worker after the commit.
+					Eventually(func(g Gomega) {
+						g.Expect(
+							dist.Storage.TS.RetrieveChannels(ctx, uint32(ch.Key())),
+						).Error().To(MatchError(cesium.ErrChannelNotFound))
+					}).Should(Succeed())
 				},
 			)
 		})
@@ -1394,7 +1395,7 @@ var _ = Describe("Writer", func() {
 						})
 					}()
 					Eventually(removing).Should(BeClosed())
-					// The removal can start before the delete commits.
+					// The worker can start the removal before WithTx returns.
 					Eventually(deleted).Should(Receive(BeNil()))
 					read := make(chan bool, 1)
 					go func() {
@@ -1435,19 +1436,17 @@ var _ = Describe("Writer", func() {
 						10*telem.SecondTS,
 						telem.NewSeriesSecondsTSV(10, 11, 12),
 					)).To(Succeed())
-					w := MustSucceed(
-						dist.Storage.TS.OpenWriter(ctx, cesium.WriterConfig{
-							Start:    20 * telem.SecondTS,
-							Channels: []cesium.ChannelKey{uint32(open)},
-						}),
-					)
+					w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+						Start: 20 * telem.SecondTS,
+						Keys:  channel.Keys{open},
+					}))
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 						return svc.NewWriter(tx).DeleteMany(
 							ctx,
 							channel.Keys{kept, open},
 							true,
 						)
-					})).To(MatchError(ContainSubstring("unclosed writers/iterators")))
+					})).To(MatchError(ContainSubstring("unclosed writers")))
 					Expect(w.Close()).To(Succeed())
 					Expect(svc.NewRetrieve().
 						Where(channel.MatchKeys(kept)).
@@ -2021,7 +2020,7 @@ var _ = Describe("Writer", func() {
 			},
 		)
 		It(
-			"Should not edit the channel limit if a deletion fails in TS",
+			"Should not edit the channel limit if a deletion is refused for an open writer",
 			func(ctx SpecContext) {
 				createdChannels := make([]channel.Channel, limit)
 				for i := range limit {
@@ -2043,7 +2042,7 @@ var _ = Describe("Writer", func() {
 					return limitSvc.NewWriter(tx).
 						Delete(ctx, createdChannels[0].Key(), false)
 				})).
-					To(MatchError(ContainSubstring("1 unclosed writers/iterators")))
+					To(MatchError(ContainSubstring("1 unclosed writers")))
 				newCh := channel.Channel{
 					IsIndex:     true,
 					DataType:    telem.TimestampT,
@@ -2155,7 +2154,11 @@ var _ = Describe("Writer", func() {
 					stored(ctx, ch)
 					return nil
 				})).To(Succeed())
-				expectNotStored(ctx, ch)
+				// The drop runs on the service's worker after the commit.
+				Eventually(func(g Gomega) {
+					g.Expect(dist.Storage.TS.RetrieveChannel(ctx, uint32(ch.Key()))).
+						Error().To(MatchError(cesium.ErrChannelNotFound))
+				}).Should(Succeed())
 			},
 		)
 		It(
@@ -2215,7 +2218,7 @@ var _ = Describe("Writer", func() {
 			},
 		)
 		It(
-			"Should keep the channel when its storage channel cannot be deleted",
+			"Should keep the channel when a writer holds it",
 			func(ctx SpecContext) {
 				ch := create(ctx)
 				MustOpen(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
@@ -2223,7 +2226,7 @@ var _ = Describe("Writer", func() {
 				}))
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return svc.NewWriter(tx).Delete(ctx, ch.Key(), false)
-				})).To(MatchError(ContainSubstring("1 unclosed writers/iterators")))
+				})).To(MatchError(ContainSubstring("1 unclosed writers")))
 				Expect(svc.NewRetrieve().
 					Where(channel.MatchKeys(ch.Key())).
 					Exists(ctx, db)).To(BeTrue())

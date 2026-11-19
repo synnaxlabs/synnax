@@ -269,7 +269,15 @@ type Service struct {
 	// resolver looks up free channel indexes at open time. Set once at startup via
 	// SetFreeIndexResolver; opening a writer on free channels fails until it is set.
 	resolver atomic.Pointer[FreeIndexResolver]
+	claims   *claims
 	cfg      ServiceConfig
+}
+
+// ClaimDelete claims keys for a delete and returns the function that releases the
+// claim. While the claim is held, a writer on one of keys fails to open. ClaimDelete
+// fails with ErrChannelInUse when a writer holds one of keys.
+func (s *Service) ClaimDelete(keys channel.Keys) (release func(), err error) {
+	return s.claims.claim(keys)
 }
 
 // SetFreeIndexResolver injects the resolver used to look up free channel indexes when
@@ -284,7 +292,8 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		cfg: cfg,
+		cfg:    cfg,
+		claims: newClaims(),
 		freeWriteAlignments: &freeWriteAlignments{
 			counters: make(map[channel.Key]*telem.AlignmentCounter),
 		},

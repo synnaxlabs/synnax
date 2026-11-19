@@ -67,6 +67,7 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 	channelSvc, err := channel.OpenService(b.Context(), channel.ServiceConfig{
 		Channel: node.Channel,
 		TS:      node.Storage.TS,
+		Framer:  node.Framer,
 		DB:      node.DB,
 		HostKey: node.Identity.HostKey,
 		Status:  statusSvc,

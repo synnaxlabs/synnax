@@ -379,8 +379,11 @@ var _ = Describe("Service", func() {
 				Expect(channelSvc.NewRetrieve().
 					Where(channel.MatchKeys(ch.Key())).
 					Exists(ctx, db)).To(BeFalse())
-				Expect(dist.Storage.TS.RetrieveChannel(ctx, uint32(ch.Key()))).
-					Error().To(MatchError(cesium.ErrChannelNotFound))
+				// The channel service drops the storage on its worker after the commit.
+				Eventually(func(g Gomega) {
+					g.Expect(dist.Storage.TS.RetrieveChannel(ctx, uint32(ch.Key()))).
+						Error().To(MatchError(cesium.ErrChannelNotFound))
+				}).Should(Succeed())
 			},
 		)
 		Describe("Dispatch", func() {

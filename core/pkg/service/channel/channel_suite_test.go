@@ -57,6 +57,7 @@ func serviceConfig(
 	return channel.ServiceConfig{
 		Channel: node.Channel,
 		TS:      node.Storage.TS,
+		Framer:  node.Framer,
 		DB:      db,
 		HostKey: node.Identity.HostKey,
 		Status:  statusSvc,

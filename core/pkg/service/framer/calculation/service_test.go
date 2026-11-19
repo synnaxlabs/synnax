@@ -134,6 +134,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 			Channel: dist.Channel,
 			TS:      dist.Storage.TS,
+			Framer:  dist.Framer,
 			DB:      dist.DB,
 			HostKey: dist.Identity.HostKey,
 			Status:  statusSvc,

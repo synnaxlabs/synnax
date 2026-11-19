@@ -12,16 +12,8 @@ package channel
 import (
 	"context"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium"
 )
-
-// deleteStorage deletes the storage channels for the provided keys. Free channels have
-// no storage registration and are skipped. It does not touch channel metadata.
-func (s *Service) deleteStorage(keys Keys) error {
-	stored := lo.Reject(keys, func(key Key, _ int) bool { return key.Free() })
-	return s.cfg.TS.DeleteChannels(stored.Uint32())
-}
 
 // renameStorage renames each storage channel keyed in renames to its corresponding new
 // name. Free channels have no storage registration and are skipped.

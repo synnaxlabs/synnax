@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/versions"
@@ -54,6 +55,17 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	TS *cesium.DB
+	// Framer claims the channels of a delete, so that no writer opens on them until the
+	// delete drops their storage.
+	//
+	// [REQUIRED]
+	Framer *framer.Service
+	// DropExecutor runs the storage drop of each committed delete. A commit never waits
+	// on it.
+	//
+	// [OPTIONAL] - Defaults to one goroutine of the service that runs the drops in
+	// order.
+	DropExecutor func(work func())
 	// DB is the metadata database backing the channel table.
 	//
 	// [REQUIRED]
@@ -84,6 +96,7 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("service.channel")
 	v.NotNil("channel", c.Channel)
 	v.NotNil("ts", c.TS)
+	v.NotNil("framer", c.Framer)
 	v.NotNil("db", c.DB)
 	v.NonZero("host_key", c.HostKey)
 	v.NotNil("limit", c.Limit)
@@ -97,6 +110,8 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.TS = override.Nil(c.TS, other.TS)
+	c.Framer = override.Nil(c.Framer, other.Framer)
+	c.DropExecutor = override.Nil(c.DropExecutor, other.DropExecutor)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.HostKey = override.Numeric(c.HostKey, other.HostKey)
 	c.Limit = override.Nil(c.Limit, other.Limit)
@@ -147,6 +162,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
+	if s.cfg.DropExecutor == nil {
+		q := openDropQueue()
+		s.cfg.DropExecutor = q.push
+		ok(nil, q)
+	}
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Channel]{
 		DB:   cfg.DB,
 		Name: tableName,

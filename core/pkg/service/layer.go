@@ -415,6 +415,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Instrumentation: cfg.Child("channel"),
 		Channel:         cfg.Distribution.Channel,
 		TS:              cfg.Storage.TS,
+		Framer:          cfg.Distribution.Framer,
 		DB:              cfg.Distribution.DB,
 		HostKey:         cfg.Distribution.Identity.HostKey,
 		Limit:           l.License.CheckChannelLimit,

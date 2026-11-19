@@ -39,11 +39,16 @@ func (s *Service) newStorage(ctx context.Context, cfg Config) (StreamWriter, err
 		cfg = withIndexes(cfg, indexes)
 		autoIndex = newIndexStamper(cfg.Keys.Uint32(), indexes, cfg.Start)
 	}
-	w, err := s.cfg.TS.OpenWriter(ctx, cfg.toStorage())
+	release, err := s.claims.hold(cfg.Keys)
 	if err != nil {
 		return nil, err
 	}
-	return s.newSession(w, cfg, virtual, autoIndex), nil
+	w, err := s.cfg.TS.OpenWriter(ctx, cfg.toStorage())
+	if err != nil {
+		release()
+		return nil, err
+	}
+	return s.newSession(w, cfg, virtual, autoIndex, release), nil
 }
 
 // unindexedStamper times each sample of a channel with no index 1ns after the one

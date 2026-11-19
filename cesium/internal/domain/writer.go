@@ -199,9 +199,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error)
 		started:          started,
 		lastIndexPersist: db.cfg.Clock.Now(),
 		clock:            db.cfg.Clock,
-		onClose: func() {
-			db.resourceCount.Add(-1)
-		},
+		onClose:          db.unpin,
 	}
 	return w, nil
 }

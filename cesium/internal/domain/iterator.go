@@ -160,7 +160,7 @@ func (i *Iterator) Close() error {
 	}
 	i.closed = true
 	i.valid = false
-	i.db.resourceCount.Add(-1)
+	i.db.unpin()
 	return nil
 }
 

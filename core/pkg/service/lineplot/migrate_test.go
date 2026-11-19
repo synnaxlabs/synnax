@@ -44,6 +44,7 @@ func openChannels(ctx SpecContext, count int) (*gorp.DB, channel.Keys) {
 	channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel: node.Channel,
 		TS:      node.Storage.TS,
+		Framer:  node.Framer,
 		DB:      node.DB,
 		HostKey: node.Identity.HostKey,
 		Status:  statusSvc,

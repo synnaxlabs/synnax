@@ -280,7 +280,7 @@ var _ = Describe("Channel", Ordered, func() {
 							DataType: telem.StringT,
 						},
 					)).To(Succeed())
-					Expect(db.DeleteChannel(data)).To(Succeed())
+					Expect(db.Drop([]cesium.ChannelKey{data})).To(Succeed())
 					Expect(
 						db.RetrieveChannel(ctx, data),
 					).Error().

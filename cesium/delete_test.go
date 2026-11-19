@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"os"
 	"strings"
 	"sync"
 
@@ -21,7 +22,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/channel"
-	"github.com/synnaxlabs/cesium/internal/resource"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/io/fs"
@@ -65,7 +65,7 @@ var _ = Describe("Delete", func() {
 					Specify(
 						"Deleting a nonexistent channel should be idempotent",
 						func() {
-							Expect(db.DeleteChannel(999)).To(Succeed())
+							Expect(db.Drop([]cesium.ChannelKey{999})).To(Succeed())
 						},
 					)
 					Specify(
@@ -109,13 +109,13 @@ var _ = Describe("Delete", func() {
 						Expect(subDB.Close()).To(Succeed())
 
 						Expect(
-							subDB.DeleteChannel(key),
+							subDB.Drop([]cesium.ChannelKey{key}),
 						).To(MatchError(cesium.ErrDBClosed))
 
 						Expect(fs.Remove("closed-fs")).To(Succeed())
 					})
 					Describe(
-						"Deleting a channel that is being written to should error",
+						"Dropping a channel that is being written to",
 						func() {
 							Specify("Virtual Channel", func(ctx SpecContext) {
 								Expect(db.CreateChannel(ctx, vChannel)).To(Succeed())
@@ -129,10 +129,12 @@ var _ = Describe("Delete", func() {
 									),
 								)
 								Expect(
-									db.DeleteChannel(vChannelKey),
-								).To(MatchError(ContainSubstring("1 unclosed writers")))
+									db.Drop([]cesium.ChannelKey{vChannelKey}),
+								).To(Succeed())
+								expectDropped(ctx, db, vChannelKey)
+								// A virtual channel holds no files for its writers.
+								expectRemoved(fs, vChannelKey)
 								Expect(w.Close()).To(Succeed())
-								Expect(db.DeleteChannel(vChannelKey)).To(Succeed())
 							})
 
 							Specify("Unary Channel", func(ctx SpecContext) {
@@ -147,10 +149,14 @@ var _ = Describe("Delete", func() {
 									),
 								)
 								Expect(
-									db.DeleteChannel(uChannelKey),
-								).To(MatchError(ContainSubstring("1 unclosed writers/iterators")))
+									db.Drop([]cesium.ChannelKey{uChannelKey}),
+								).To(Succeed())
+								expectDropped(ctx, db, uChannelKey)
+								Expect(
+									fs.Exists(channelKeyToPath(uChannelKey)),
+								).To(BeTrue())
 								Expect(w.Close()).To(Succeed())
-								Expect(db.DeleteChannel(uChannelKey)).To(Succeed())
+								expectRemoved(fs, uChannelKey)
 							})
 							Specify(
 								"Two writers on a unary channel",
@@ -165,17 +171,21 @@ var _ = Describe("Delete", func() {
 									w1 := MustSucceed(db.OpenWriter(ctx, cfg))
 									w2 := MustSucceed(db.OpenWriter(ctx, cfg))
 									Expect(
-										db.DeleteChannel(uChannelKey),
-									).To(MatchError(ContainSubstring("1 unclosed writers/iterators")))
+										db.Drop([]cesium.ChannelKey{uChannelKey}),
+									).To(Succeed())
+									expectDropped(ctx, db, uChannelKey)
 									Expect(w1.Close()).To(Succeed())
+									Expect(
+										fs.Exists(channelKeyToPath(uChannelKey)),
+									).To(BeTrue())
 									Expect(w2.Close()).To(Succeed())
-									Expect(db.DeleteChannel(uChannelKey)).To(Succeed())
+									expectRemoved(fs, uChannelKey)
 								},
 							)
 						},
 					)
 					Describe(
-						"Deleting a channel that is being read from should error",
+						"Dropping a channel that is being read from",
 						func() {
 							Specify("Unary Channel", func(ctx SpecContext) {
 								Expect(db.CreateChannel(ctx, uChannel)).To(Succeed())
@@ -188,10 +198,14 @@ var _ = Describe("Delete", func() {
 									),
 								)
 								Expect(
-									db.DeleteChannel(uChannelKey),
-								).To(MatchError(ContainSubstring("1 unclosed writers/iterators")))
+									db.Drop([]cesium.ChannelKey{uChannelKey}),
+								).To(Succeed())
+								expectDropped(ctx, db, uChannelKey)
+								Expect(
+									fs.Exists(channelKeyToPath(uChannelKey)),
+								).To(BeTrue())
 								Expect(i.Close()).To(Succeed())
-								Expect(db.DeleteChannel(uChannelKey)).To(Succeed())
+								expectRemoved(fs, uChannelKey)
 							})
 
 							Specify(
@@ -221,17 +235,21 @@ var _ = Describe("Delete", func() {
 										),
 									)
 									Expect(
-										db.DeleteChannel(uChannelKey),
-									).To(MatchError(ContainSubstring("2 unclosed writers/iterators")))
+										db.Drop([]cesium.ChannelKey{uChannelKey}),
+									).To(Succeed())
+									expectDropped(ctx, db, uChannelKey)
 									Expect(i.Close()).To(Succeed())
+									Expect(
+										fs.Exists(channelKeyToPath(uChannelKey)),
+									).To(BeTrue())
 									Expect(i2.Close()).To(Succeed())
-									Expect(db.DeleteChannel(uChannelKey)).To(Succeed())
+									expectRemoved(fs, uChannelKey)
 								},
 							)
 						},
 					)
 					Describe(
-						"Deleting a channel that is being streamed from should error",
+						"Dropping a channel that is being streamed from",
 						func() {
 							Describe("StreamIterator", func() {
 								Specify("Unary", func(ctx SpecContext) {
@@ -250,8 +268,12 @@ var _ = Describe("Delete", func() {
 									)
 
 									Expect(
-										db.DeleteChannel(uChannelKey),
-									).To(MatchError(ContainSubstring("1 unclosed writers/iterators")))
+										db.Drop([]cesium.ChannelKey{uChannelKey}),
+									).To(Succeed())
+									expectDropped(ctx, db, uChannelKey)
+									Expect(
+										fs.Exists(channelKeyToPath(uChannelKey)),
+									).To(BeTrue())
 
 									sCtx, cancel := signal.Isolated()
 									i, _ := confluence.Attach(it, 1)
@@ -261,12 +283,12 @@ var _ = Describe("Delete", func() {
 									Expect(sCtx.Wait()).To(Succeed())
 									cancel()
 
-									Expect(db.DeleteChannel(uChannelKey)).To(Succeed())
+									expectRemoved(fs, uChannelKey)
 								})
 							})
 
 							Specify(
-								"Deleting an index channel that other channels rely on should error",
+								"Dropping an index channel that other channels rely on should keep it",
 								func(ctx SpecContext) {
 									var (
 										dependent = GenerateChannelKey()
@@ -287,17 +309,53 @@ var _ = Describe("Delete", func() {
 											DataType: telem.Int64T,
 										},
 									)).To(Succeed())
-
-									By("Deleting channel")
+									written := telem.MultiFrame(
+										[]cesium.ChannelKey{dependent, dependee},
+										[]telem.Series{
+											telem.NewSeriesSecondsTSV(10, 11, 12),
+											telem.NewSeriesV[int64](1, 2, 3),
+										},
+									)
 									Expect(
-										db.DeleteChannel(dependent),
-									).To(MatchError(ContainSubstring("cannot delete channel [dependent]<%d> because it indexes data in channel [dependee]<%d>", dependent, dependee)))
+										db.Write(ctx, 10*telem.SecondTS, written),
+									).To(Succeed())
 
-									By("Deleting channel that depend on it")
-									Expect(db.DeleteChannel(dependee)).To(Succeed())
+									By("Dropping channel")
+									Expect(
+										db.Drop([]cesium.ChannelKey{dependent}),
+									).To(Succeed())
+									MustSucceed(db.RetrieveChannel(ctx, dependent))
+									fr := MustSucceed(db.Read(
+										ctx,
+										telem.TimeRangeMax,
+										dependent,
+										dependee,
+									))
+									Expect(fr.Get(dependent).Series[0]).To(
+										telem.MatchSeriesData(
+											telem.NewSeriesSecondsTSV(10, 11, 12),
+										),
+									)
+									Expect(
+										fr.Get(dependee).Series[0],
+									).To(telem.MatchSeriesDataV[int64](1, 2, 3))
+									w := MustSucceed(
+										db.OpenWriter(ctx, cesium.WriterConfig{
+											Channels: []cesium.ChannelKey{dependent},
+											Start:    20 * telem.SecondTS,
+										}),
+									)
+									Expect(w.Close()).To(Succeed())
 
-									By("Deleting the index channel again")
-									Expect(db.DeleteChannel(dependent)).To(Succeed())
+									By("Dropping channel that depend on it")
+									Expect(
+										db.Drop([]cesium.ChannelKey{dependee}),
+									).To(Succeed())
+
+									By("Dropping the index channel again")
+									Expect(
+										db.Drop([]cesium.ChannelKey{dependent}),
+									).To(Succeed())
 									Expect(
 										db.RetrieveChannel(ctx, 12),
 									).Error().
@@ -394,7 +452,7 @@ var _ = Describe("Delete", func() {
 							)).To(Succeed())
 
 							By("Deleting the channel")
-							Expect(db.DeleteChannel(key)).To(Succeed())
+							Expect(db.Drop([]cesium.ChannelKey{key})).To(Succeed())
 						},
 					)
 
@@ -420,17 +478,10 @@ var _ = Describe("Delete", func() {
 						Expect(fs.Exists(channelKeyToPath(key))).To(BeTrue())
 
 						By("Deleting the channel")
-						Expect(db.DeleteChannel(key)).To(Succeed())
+						Expect(db.Drop([]cesium.ChannelKey{key})).To(Succeed())
 
-						By("Eventually, the deletion should be completed")
-						Expect(fs.Exists(channelKeyToPath(key))).To(BeFalse())
-
-						By("Eventually, the deletion should be completed")
-						Eventually(
-							fs.Exists,
-						).WithArguments(channelKeyToPath(key)).
-							Should(BeFalse())
-						Eventually(deletedDirs).WithArguments(fs, key).Should(BeEmpty())
+						By("The deletion should be complete when Drop returns")
+						expectRemoved(fs, key)
 						Expect(
 							db.RetrieveChannel(ctx, key),
 						).Error().
@@ -471,13 +522,8 @@ var _ = Describe("Delete", func() {
 							),
 						).To(Succeed())
 						Expect(fs.Exists(channelKeyToPath(key))).To(BeTrue())
-						Expect(db.DeleteChannel(key)).To(Succeed())
-						Expect(fs.Exists(channelKeyToPath(key))).To(BeFalse())
-						Eventually(
-							fs.Exists,
-						).WithArguments(channelKeyToPath(key)).
-							Should(BeFalse())
-						Eventually(deletedDirs).WithArguments(fs, key).Should(BeEmpty())
+						Expect(db.Drop([]cesium.ChannelKey{key})).To(Succeed())
+						expectRemoved(fs, key)
 						Expect(
 							db.RetrieveChannel(ctx, key),
 						).Error().
@@ -511,13 +557,8 @@ var _ = Describe("Delete", func() {
 							),
 						).To(Succeed())
 						Expect(fs.Exists(channelKeyToPath(key))).To(BeTrue())
-						Expect(db.DeleteChannel(key)).To(Succeed())
-						Expect(fs.Exists(channelKeyToPath(key))).To(BeFalse())
-						Eventually(
-							fs.Exists,
-						).WithArguments(channelKeyToPath(key)).
-							Should(BeFalse())
-						Eventually(deletedDirs).WithArguments(fs, key).Should(BeEmpty())
+						Expect(db.Drop([]cesium.ChannelKey{key})).To(Succeed())
+						expectRemoved(fs, key)
 						Expect(
 							db.RetrieveChannel(ctx, key),
 						).Error().
@@ -538,6 +579,115 @@ var _ = Describe("Delete", func() {
 						Expect(ch.Key).To(Equal(key))
 						Expect(fs.Exists(channelKeyToPath(key))).To(BeTrue())
 					})
+					It(
+						"Should remove a dropped channel's files when the last iterator closes",
+						func(ctx SpecContext) {
+							Expect(db.CreateChannel(ctx, cesium.Channel{
+								Key:      key,
+								Name:     "Xenophanes",
+								IsIndex:  true,
+								DataType: telem.TimestampT,
+							})).To(Succeed())
+							i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+								Bounds:   telem.TimeRangeMax,
+								Channels: []cesium.ChannelKey{key},
+							}))
+							Expect(db.Drop([]cesium.ChannelKey{key})).To(Succeed())
+							Expect(fs.Exists(channelKeyToPath(key))).To(BeTrue())
+							Expect(i.Close()).To(Succeed())
+							expectRemoved(fs, key)
+						},
+					)
+					It(
+						"Should keep the index readable for an open iterator on its dropped data channel",
+						func(ctx SpecContext) {
+							data := GenerateChannelKey()
+							Expect(db.CreateChannel(
+								ctx,
+								cesium.Channel{
+									Key:      key,
+									Name:     "Empedocles",
+									IsIndex:  true,
+									DataType: telem.TimestampT,
+								},
+								cesium.Channel{
+									Key:      data,
+									Name:     "Anaxagoras",
+									Index:    key,
+									DataType: telem.Int64T,
+								},
+							)).To(Succeed())
+							Expect(db.Write(ctx, 10*telem.SecondTS, telem.MultiFrame(
+								[]cesium.ChannelKey{key, data},
+								[]telem.Series{
+									telem.NewSeriesSecondsTSV(10, 11, 12),
+									telem.NewSeriesV[int64](1, 2, 3),
+								},
+							))).To(Succeed())
+							i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+								Bounds:   telem.TimeRangeMax,
+								Channels: []cesium.ChannelKey{data},
+							}))
+							Expect(
+								db.Drop([]cesium.ChannelKey{data, key}),
+							).To(Succeed())
+							expectDropped(ctx, db, key)
+							Expect(fs.Exists(channelKeyToPath(key))).To(BeTrue())
+							Expect(i.SeekGE(11 * telem.SecondTS)).To(BeTrue())
+							Expect(i.Next(1 * telem.Second)).To(BeTrue())
+							Expect(
+								i.Value().Get(data).Series[0],
+							).To(telem.MatchSeriesDataV[int64](2))
+							Expect(i.Close()).To(Succeed())
+							expectRemoved(fs, data)
+							expectRemoved(fs, key)
+						},
+					)
+					It(
+						"Should remove a leftover deleted directory before it renames",
+						func(ctx SpecContext) {
+							Expect(db.CreateChannel(ctx, cesium.Channel{
+								Key:      key,
+								Name:     "Pythagoras",
+								IsIndex:  true,
+								DataType: telem.TimestampT,
+							})).To(Succeed())
+							leftover := MustSucceed(
+								fs.Sub(channelKeyToPath(key) + "-DELETE"),
+							)
+							Expect(
+								MustSucceed(
+									leftover.Open("meta.json", os.O_CREATE),
+								).Close(),
+							).To(Succeed())
+							Expect(db.Drop([]cesium.ChannelKey{key})).To(Succeed())
+							expectRemoved(fs, key)
+						},
+					)
+					It(
+						"Should remove a dropped channel's files when its last writer closes",
+						func(ctx SpecContext) {
+							Expect(db.CreateChannel(ctx, cesium.Channel{
+								Key:      key,
+								Name:     "Democritus",
+								IsIndex:  true,
+								DataType: telem.TimestampT,
+							})).To(Succeed())
+							w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+								Channels: []cesium.ChannelKey{key},
+								Start:    10 * telem.SecondTS,
+							}))
+							MustSucceed(w.Write(ctx, telem.UnaryFrame(
+								key,
+								telem.NewSeriesSecondsTSV(10, 11, 12),
+							)))
+							MustSucceed(w.Commit(ctx))
+							Expect(db.Drop([]cesium.ChannelKey{key})).To(Succeed())
+							Expect(fs.Exists(channelKeyToPath(key))).To(BeTrue())
+							Expect(w.Close()).To(Succeed())
+							expectRemoved(fs, key)
+						},
+					)
 				})
 			})
 
@@ -593,7 +743,7 @@ var _ = Describe("Delete", func() {
 				})
 				AfterEach(func() {
 					Expect(
-						db.DeleteChannels(
+						db.Drop(
 							lo.Map(
 								channels,
 								func(c cesium.Channel, _ int) channel.Key { return c.Key },
@@ -601,42 +751,31 @@ var _ = Describe("Delete", func() {
 						),
 					).To(Succeed())
 					for _, c := range channels {
-						Expect(fs.Exists(channelKeyToPath(c.Key))).To(BeFalse())
-						Eventually(
-							deletedDirs,
-						).WithArguments(fs, c.Key).
-							Should(BeEmpty())
+						expectRemoved(fs, c.Key)
 					}
 				})
 				Describe("Happy paths", func() {
 					It("Should be idempotent", func() {
 						Expect(
-							db.DeleteChannels([]cesium.ChannelKey{index1, data1}),
+							db.Drop([]cesium.ChannelKey{index1, data1}),
 						).To(Succeed())
 						Expect(
-							db.DeleteChannels([]cesium.ChannelKey{index1, data1}),
+							db.Drop([]cesium.ChannelKey{index1, data1}),
 						).To(Succeed())
 						Expect(
-							db.DeleteChannels([]cesium.ChannelKey{index1, data1}),
+							db.Drop([]cesium.ChannelKey{index1, data1}),
 						).To(Succeed())
 					})
 					DescribeTable(
 						"Deleting permutations of channels",
 						func(ctx SpecContext, chs ...channel.Key) {
-							Expect(db.DeleteChannels(chs)).To(Succeed())
+							Expect(db.Drop(chs)).To(Succeed())
 							for _, c := range chs {
 								Expect(
 									db.RetrieveChannel(ctx, c),
 								).Error().
 									To(MatchError(cesium.ErrChannelNotFound))
-								Eventually(
-									fs.Exists,
-								).WithArguments(channelKeyToPath(c)).
-									Should(BeFalse())
-								Eventually(
-									deletedDirs,
-								).WithArguments(fs, c).
-									Should(BeEmpty())
+								expectRemoved(fs, c)
 							}
 						},
 						Entry("1 index 1 data", index1, data1),
@@ -677,13 +816,13 @@ var _ = Describe("Delete", func() {
 						Expect(subDB.Close()).To(Succeed())
 
 						Expect(
-							subDB.DeleteChannels([]cesium.ChannelKey{key}),
+							subDB.Drop([]cesium.ChannelKey{key}),
 						).To(MatchError(cesium.ErrDBClosed))
 
 						Expect(fs.Remove("closed-fs")).To(Succeed())
 					})
 				})
-				Describe("Failed deletion", func() {
+				Describe("Channels in use", func() {
 					BeforeEach(func(ctx SpecContext) {
 						Expect(db.Write(ctx, 10*telem.SecondTS, telem.MultiFrame(
 							[]cesium.ChannelKey{index2, data2, data3},
@@ -694,59 +833,65 @@ var _ = Describe("Delete", func() {
 							},
 						))).To(Succeed())
 					})
-					expectKept := func(ctx context.Context, key cesium.ChannelKey) {
-						GinkgoHelper()
-						Expect(fs.Exists(channelKeyToPath(key))).To(BeTrue())
-						Expect(deletedDirs(fs, key)).To(BeEmpty())
-						fr := MustSucceed(db.Read(ctx, telem.TimeRangeMax, key))
-						Expect(
-							fr.Get(key).Series[0],
-						).To(telem.MatchSeriesDataV[int64](1, 2, 3))
-					}
 					It(
-						"Should delete no channel when one has an open writer",
+						"Should drop every channel when one has an open writer",
 						func(ctx SpecContext) {
 							w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 								Start:    20 * telem.SecondTS,
 								Channels: []cesium.ChannelKey{data3},
 							}))
 							Expect(
-								db.DeleteChannels([]cesium.ChannelKey{data2, data3}),
-							).To(MatchError(resource.ErrOpen))
+								db.Drop([]cesium.ChannelKey{data2, data3}),
+							).To(Succeed())
+							expectDropped(ctx, db, data2)
+							expectRemoved(fs, data2)
+							expectDropped(ctx, db, data3)
+							Expect(fs.Exists(channelKeyToPath(data3))).To(BeTrue())
 							Expect(w.Close()).To(Succeed())
-							expectKept(ctx, data2)
-							MustSucceed(db.RetrieveChannel(ctx, data3))
+							expectRemoved(fs, data3)
 						},
 					)
 					It(
-						"Should delete no channel when an index has outside data",
+						"Should keep an index that has outside data",
 						func(ctx SpecContext) {
 							Expect(
-								db.DeleteChannels([]cesium.ChannelKey{data2, index2}),
-							).To(MatchError(fmt.Sprintf(
-								"cannot delete channel [Years]<%d> because it "+
-									"indexes data in channel [329]<%d>",
-								index2,
-								data3,
-							)))
-							expectKept(ctx, data2)
+								db.Drop([]cesium.ChannelKey{data2, index2}),
+							).To(Succeed())
+							expectDropped(ctx, db, data2)
+							expectRemoved(fs, data2)
 							MustSucceed(db.RetrieveChannel(ctx, index2))
+							fr := MustSucceed(
+								db.Read(ctx, telem.TimeRangeMax, index2, data3),
+							)
+							Expect(fr.Get(index2).Series[0]).To(telem.MatchSeriesData(
+								telem.NewSeriesSecondsTSV(10, 11, 12),
+							))
+							Expect(
+								fr.Get(data3).Series[0],
+							).To(telem.MatchSeriesDataV[int64](4, 5, 6))
+							w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+								Start:    20 * telem.SecondTS,
+								Channels: []cesium.ChannelKey{index2},
+							}))
+							Expect(w.Close()).To(Succeed())
 						},
 					)
 					It(
-						"Should delete no channel when a virtual writer is open",
+						"Should drop every channel when a virtual writer is open",
 						func(ctx SpecContext) {
 							w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 								Start:    20 * telem.SecondTS,
 								Channels: []cesium.ChannelKey{virtual1},
 							}))
 							Expect(
-								db.DeleteChannels([]cesium.ChannelKey{data2, virtual1}),
-							).To(MatchError(resource.ErrOpen))
+								db.Drop([]cesium.ChannelKey{data2, virtual1}),
+							).To(Succeed())
+							expectDropped(ctx, db, data2)
+							expectRemoved(fs, data2)
+							expectDropped(ctx, db, virtual1)
+							// A virtual channel holds no files for its writers.
+							expectRemoved(fs, virtual1)
 							Expect(w.Close()).To(Succeed())
-							expectKept(ctx, data2)
-							Expect(fs.Exists(channelKeyToPath(virtual1))).To(BeTrue())
-							MustSucceed(db.RetrieveChannel(ctx, virtual1))
 						},
 					)
 				})
@@ -1542,7 +1687,7 @@ var _ = Describe("Delete", func() {
 	}
 })
 
-var _ = Describe("Background removal", func() {
+var _ = Describe("Removal", func() {
 	var (
 		fsys *FaultyFS
 		db   *cesium.DB
@@ -1572,111 +1717,121 @@ var _ = Describe("Background removal", func() {
 		return removing, release
 	}
 
-	DescribeTable(
-		"Should return while the removal runs and make Close wait for it",
-		func(del func() error) {
-			removing, release := holdRemoval()
-			Expect(del()).To(Succeed())
-			Eventually(removing).Should(BeClosed())
-			Expect(fsys.Exists(channelKeyToPath(key))).To(BeFalse())
-			Expect(deletedDirs(fsys, key)).To(HaveLen(1))
-			closed := make(chan error, 1)
-			go func() { closed <- db.Close() }()
-			Consistently(closed).ShouldNot(Receive())
-			release()
-			Eventually(closed).Should(Receive(BeNil()))
-			Expect(deletedDirs(fsys, key)).To(BeEmpty())
-		},
-		Entry("DeleteChannel", func() error { return db.DeleteChannel(key) }),
-		Entry("DeleteChannels", func() error {
-			return db.DeleteChannels([]cesium.ChannelKey{key})
-		}),
-	)
+	It("Should remove the files before Drop returns", func() {
+		removing, release := holdRemoval()
+		dropped := make(chan error, 1)
+		go func() { dropped <- db.Drop([]cesium.ChannelKey{key}) }()
+		Eventually(removing).Should(BeClosed())
+		Consistently(dropped).ShouldNot(Receive())
+		release()
+		Eventually(dropped).Should(Receive(BeNil()))
+		expectRemoved(fsys, key)
+	})
 
 	It("Should leave the data after a failed removal and remove it on Open", func(
 		ctx SpecContext,
 	) {
-		fsys.SetOptions(WithFailRemove())
-		Expect(db.DeleteChannel(key)).To(Succeed())
+		deleted := channelKeyToPath(key) + "-DELETE"
+		fsys.SetOptions(WithBeforeRemove(func() {
+			if MustSucceed(fsys.Exists(deleted)) {
+				fsys.SetOptions(WithFailRemove())
+			}
+		}))
+		Expect(db.Drop([]cesium.ChannelKey{key})).To(MatchError(ErrFault))
 		Expect(db.Close()).To(Succeed())
 		Expect(deletedDirs(fsys, key)).To(HaveLen(1))
 		fsys.SetOptions()
 		db = mustOpenDBOnFS(ctx, fsys)
-		Eventually(deletedDirs).WithArguments(fsys, key).Should(BeEmpty())
+		Expect(deletedDirs(fsys, key)).To(BeEmpty())
 		Expect(db.RetrieveChannel(ctx, key)).Error().
 			To(MatchError(cesium.ErrChannelNotFound))
 	})
 
-	It("Should leave later channels open after a failed rename", func(
-		ctx SpecContext,
-	) {
-		later := GenerateChannelKey()
-		Expect(db.CreateChannel(ctx, cesium.Channel{
-			Key:      later,
-			Name:     "Thales",
-			IsIndex:  true,
-			DataType: telem.TimestampT,
-		})).To(Succeed())
-		fsys.SetOptions(WithFailRename(channelKeyToPath(key)))
+	It("Should remove a v0.61 deleted directory on Open", func(ctx SpecContext) {
+		name := channelKeyToPath(key) + "-DELETE-123"
+		leftover := MustSucceed(fsys.Sub(name))
 		Expect(
-			db.DeleteChannels([]cesium.ChannelKey{key, later}),
-		).To(MatchError(ErrFault))
-		MustSucceed(db.Read(ctx, telem.TimeRangeMax, later))
-		Expect(deletedDirs(fsys, later)).To(BeEmpty())
+			MustSucceed(leftover.Open("meta.json", os.O_CREATE)).Close(),
+		).To(Succeed())
+		Expect(db.Close()).To(Succeed())
+		db = mustOpenDBOnFS(ctx, fsys)
+		Expect(fsys.Exists(name)).To(BeFalse())
+		MustSucceed(db.RetrieveChannel(ctx, key))
 	})
 
-	It("Should keep the index of a data channel that a failed delete keeps", func(
-		ctx SpecContext,
-	) {
-		data, failing := GenerateChannelKey(), GenerateChannelKey()
-		Expect(db.CreateChannel(
-			ctx,
-			cesium.Channel{
+	It(
+		"Should drop later channels after a failed rename and keep the failed directory",
+		func(ctx SpecContext) {
+			later := GenerateChannelKey()
+			Expect(db.CreateChannel(ctx, cesium.Channel{
+				Key:      later,
+				Name:     "Thales",
+				IsIndex:  true,
+				DataType: telem.TimestampT,
+			})).To(Succeed())
+			fsys.SetOptions(WithFailRename(channelKeyToPath(key)))
+			Expect(
+				db.Drop([]cesium.ChannelKey{key, later}),
+			).To(MatchError(ErrFault))
+			for _, k := range []cesium.ChannelKey{key, later} {
+				Expect(db.RetrieveChannel(ctx, k)).Error().
+					To(MatchError(cesium.ErrChannelNotFound))
+			}
+			Expect(fsys.Exists(channelKeyToPath(later))).To(BeFalse())
+			Expect(fsys.Exists(channelKeyToPath(key))).To(BeTrue())
+			Expect(deletedDirs(fsys, key)).To(BeEmpty())
+		},
+	)
+
+	It(
+		"Should keep the files of an index when the removal of its data channel fails",
+		func(ctx SpecContext) {
+			data := GenerateChannelKey()
+			Expect(db.CreateChannel(ctx, cesium.Channel{
 				Key:      data,
 				Name:     "Thales",
 				Index:    key,
 				DataType: telem.Int64T,
-			},
-			virtualChannel(failing, "Anaximenes"),
-		)).To(Succeed())
-		Expect(db.Write(ctx, 10*telem.SecondTS, telem.MultiFrame(
-			[]cesium.ChannelKey{key, data},
-			[]telem.Series{
-				telem.NewSeriesSecondsTSV(10, 11, 12),
-				telem.NewSeriesV[int64](1, 2, 3),
-			},
-		))).To(Succeed())
-		fsys.SetOptions(WithFailRename(channelKeyToPath(failing)))
-		Expect(
-			db.DeleteChannels([]cesium.ChannelKey{key, failing, data}),
-		).To(MatchError(ErrFault))
-		MustSucceed(db.RetrieveChannel(ctx, key))
-		Expect(deletedDirs(fsys, key)).To(BeEmpty())
-		fr := MustSucceed(db.Read(ctx, telem.TimeRangeMax, data))
-		Expect(fr.Get(data).Series[0]).To(telem.MatchSeriesDataV[int64](1, 2, 3))
-	})
+			})).To(Succeed())
+			Expect(db.Write(ctx, 10*telem.SecondTS, telem.MultiFrame(
+				[]cesium.ChannelKey{key, data},
+				[]telem.Series{
+					telem.NewSeriesSecondsTSV(10, 11, 12),
+					telem.NewSeriesV[int64](1, 2, 3),
+				},
+			))).To(Succeed())
+			fsys.SetOptions(WithFailRename(channelKeyToPath(data)))
+			Expect(
+				db.Drop([]cesium.ChannelKey{key, data}),
+			).To(MatchError(ErrFault))
+			for _, k := range []cesium.ChannelKey{key, data} {
+				Expect(db.RetrieveChannel(ctx, k)).Error().
+					To(MatchError(cesium.ErrChannelNotFound))
+				Expect(fsys.Exists(channelKeyToPath(k))).To(BeTrue())
+				Expect(deletedDirs(fsys, k)).To(BeEmpty())
+			}
+		},
+	)
 
 	It("Should delete a channel whose files fail to close", func(ctx SpecContext) {
 		fsys.SetOptions(WithFailClose("index.domain"))
-		Expect(db.DeleteChannels([]cesium.ChannelKey{key})).To(Succeed())
+		Expect(db.Drop([]cesium.ChannelKey{key})).To(Succeed())
 		fsys.SetOptions()
 		Expect(db.RetrieveChannel(ctx, key)).Error().
 			To(MatchError(cesium.ErrChannelNotFound))
 		Expect(fsys.Exists(channelKeyToPath(key))).To(BeFalse())
-		Expect(db.DeleteChannel(key)).To(Succeed())
+		Expect(db.Drop([]cesium.ChannelKey{key})).To(Succeed())
 	})
 
 	It("Should not delete a channel once the DB is closed", func() {
 		Expect(db.Close()).To(Succeed())
-		Expect(db.DeleteChannel(key)).To(MatchError(cesium.ErrDBClosed))
-		Expect(db.DeleteChannels([]cesium.ChannelKey{key})).
-			To(MatchError(cesium.ErrDBClosed))
+		Expect(db.Drop([]cesium.ChannelKey{key})).To(MatchError(cesium.ErrDBClosed))
 	})
 })
 
-// deletedDirs returns the detached directories of key that still wait for removal.
+// deletedDirs returns the deleted directories of key that still wait for removal.
 func deletedDirs(fsys fs.FS, key cesium.ChannelKey) ([]string, error) {
-	prefix := channelKeyToPath(key) + "-DELETE-"
+	prefix := channelKeyToPath(key) + "-DELETE"
 	entries, err := fsys.List("")
 	if err != nil {
 		return nil, err
@@ -1688,4 +1843,26 @@ func deletedDirs(fsys fs.FS, key cesium.ChannelKey) ([]string, error) {
 		}
 	}
 	return dirs, nil
+}
+
+// expectRemoved asserts that the directory of key and its deleted directories are
+// gone.
+func expectRemoved(fsys fs.FS, key cesium.ChannelKey) {
+	GinkgoHelper()
+	Expect(fsys.Exists(channelKeyToPath(key))).To(BeFalse())
+	Expect(deletedDirs(fsys, key)).To(BeEmpty())
+}
+
+// expectDropped asserts that a new writer or iterator on key fails because the
+// channel is not found.
+func expectDropped(ctx context.Context, db *cesium.DB, key cesium.ChannelKey) {
+	GinkgoHelper()
+	Expect(db.OpenWriter(ctx, cesium.WriterConfig{
+		Channels: []cesium.ChannelKey{key},
+		Start:    telem.SecondTS,
+	})).Error().To(MatchError(cesium.ErrChannelNotFound))
+	Expect(db.OpenIterator(cesium.IteratorConfig{
+		Bounds:   telem.TimeRangeMax,
+		Channels: []cesium.ChannelKey{key},
+	})).Error().To(MatchError(cesium.ErrChannelNotFound))
 }

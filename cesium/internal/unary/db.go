@@ -142,6 +142,14 @@ func (db *DB) UnmarkClosed() {
 	db.closed.Store(false)
 }
 
+// Drop marks the database closed, then frees its files and runs free once no writer,
+// iterator, or delete is open on it: now, or in the call that closes the last one. It
+// returns the error of a free that runs now.
+func (db *DB) Drop(free func() error) error {
+	db.closed.Store(true)
+	return db.wrapError(db.domain.Drop(free))
+}
+
 // Release frees the files of a database that MarkClosed marked closed.
 func (db *DB) Release() error { return db.wrapError(db.domain.Release()) }
 
