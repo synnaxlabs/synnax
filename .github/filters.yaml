@@ -160,6 +160,8 @@ oracle_language:
 x_ts: &x_ts
   - *ts
   - x/ts/**
+  # The data type specs read the widening vectors that x_py shares.
+  - x/testdata/telem/**
 
 alamos_ts: &alamos_ts
   - *ts
@@ -272,6 +274,8 @@ alamos_py: &alamos_py
 x_py: &x_py
   - *py
   - x/py/**
+  # The data type tests read the widening vectors that x_ts shares.
+  - x/testdata/telem/**
 
 freighter_py: &freighter_py
   - *alamos_py

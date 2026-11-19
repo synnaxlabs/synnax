@@ -744,12 +744,43 @@ class TestMultiSeries:
         s = telem.MultiSeries([s1, s2])
         assert len(s) == 6
 
-    def test_construction_mismatched_data_types(self) -> None:
-        """Should throw a ValueError"""
+    def test_construction_mixed_data_types(self) -> None:
+        """Should hold series of different data types, each read in its own type"""
         s1 = telem.Series([1, 2, 3], data_type=telem.DataType.INT8)
-        s2 = telem.Series([4, 5, 6], data_type=telem.DataType.INT16)
-        with pytest.raises(ValueError, match="must have the same data type"):
-            telem.MultiSeries([s1, s2])
+        s2 = telem.Series([4.5], data_type=telem.DataType.FLOAT32)
+        s = telem.MultiSeries([s1, s2])
+        assert [x.data_type for x in s.series] == [
+            telem.DataType.INT8,
+            telem.DataType.FLOAT32,
+        ]
+        assert s.data_type == telem.DataType.FLOAT32
+        arr = s.to_numpy()
+        assert arr.dtype == np.float32
+        assert list(arr) == [1, 2, 3, 4.5]
+
+    def test_widen_int64_against_float64(self) -> None:
+        """Should widen int64 against float64 to float64"""
+        s = telem.MultiSeries(
+            [
+                telem.Series([2**53 + 1], data_type=telem.DataType.INT64),
+                telem.Series([0.5], data_type=telem.DataType.FLOAT64),
+            ]
+        )
+        assert s.to_numpy().dtype == np.float64
+        assert list(s.to_numpy()) == [2.0**53, 0.5]
+
+    def test_text_against_numbers(self) -> None:
+        """Should raise on text against numbers"""
+        s = telem.MultiSeries(
+            [
+                telem.Series(["a"], data_type=telem.DataType.STRING),
+                telem.Series([1], data_type=telem.DataType.FLOAT32),
+            ]
+        )
+        with pytest.raises(
+            TypeError, match=r"^cannot widen string and float32 into one data type$"
+        ):
+            _ = s.data_type
 
     def test_construction_from_none(self) -> None:
         """Should throw a ValueError"""

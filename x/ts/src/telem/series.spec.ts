@@ -3379,22 +3379,48 @@ describe("MultiSeries", () => {
       expect(multiSeries.timeRange.end.valueOf()).toBe(3n);
     });
 
-    it("should throw an error when pushing a series with a different data type", () => {
-      const series1 = new Series({ data: [1, 2, 3], dataType: DataType.FLOAT32 });
-      const series2 = new Series({ data: [4, 5, 6], dataType: DataType.INT64 });
-      const multiSeries = new MultiSeries([series1]);
-      expect(() => multiSeries.push(series2)).toThrow(
-        "cannot push a int64 series to a float32 multi-series",
-      );
+    it("should hold a series of a different data type", () => {
+      const f32 = new Series({ data: [1, 2], dataType: DataType.FLOAT32 });
+      const i64 = new Series({ data: [3n], dataType: DataType.INT64 });
+      const multiSeries = new MultiSeries([f32]);
+      multiSeries.push(new MultiSeries([i64]));
+      expect(multiSeries.series.map((s) => s.dataType)).toEqual([
+        DataType.FLOAT32,
+        DataType.INT64,
+      ]);
+      expect(multiSeries.at(0)).toEqual(1);
+      expect(multiSeries.at(2)).toEqual(3n);
+    });
+  });
+
+  describe("mixed data types", () => {
+    it("should widen the data type of the collection", () => {
+      const multiSeries = new MultiSeries([
+        new Series({ data: [1], dataType: DataType.INT16 }),
+        new Series({ data: [2], dataType: DataType.FLOAT32 }),
+        new Series({ data: [3], dataType: DataType.UINT8 }),
+      ]);
+      expect(multiSeries.dataType).toEqual(DataType.FLOAT32);
+      expect(Array.from(multiSeries.data as Float32Array)).toEqual([1, 2, 3]);
+      expect(multiSeries.data).toBeInstanceOf(Float32Array);
     });
 
-    it("should throw an error when pushing a multi-series with a different data type", () => {
-      const series1 = new Series({ data: [1, 2, 3], dataType: DataType.FLOAT32 });
-      const series2 = new Series({ data: [4, 5, 6], dataType: DataType.INT64 });
-      const multiSeries1 = new MultiSeries([series1]);
-      const multiSeries2 = new MultiSeries([series2]);
-      expect(() => multiSeries1.push(multiSeries2)).toThrow(
-        "cannot push a int64 series to a float32 multi-series",
+    it("should widen int64 against float64 to float64", () => {
+      const multiSeries = new MultiSeries([
+        new Series({ data: [2n ** 53n + 1n], dataType: DataType.INT64 }),
+        new Series({ data: [0.5], dataType: DataType.FLOAT64 }),
+      ]);
+      expect(multiSeries.dataType).toEqual(DataType.FLOAT64);
+      expect(Array.from(multiSeries.data as Float64Array)).toEqual([2 ** 53, 0.5]);
+    });
+
+    it("should throw on text against numbers", () => {
+      const multiSeries = new MultiSeries([
+        new Series({ data: ["a"], dataType: DataType.STRING }),
+        new Series({ data: [1], dataType: DataType.FLOAT32 }),
+      ]);
+      expect(() => multiSeries.dataType).toThrow(
+        "cannot widen string and float32 into one data type",
       );
     });
   });

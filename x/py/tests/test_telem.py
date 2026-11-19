@@ -7,12 +7,15 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import json
 import operator
+import pathlib
 import time
 import uuid
 from collections.abc import Callable, Iterator
 from datetime import UTC, datetime, timedelta
 from fractions import Fraction
+from typing import Any
 
 import dateutil
 import numpy as np
@@ -1401,3 +1404,30 @@ class TestDataTypeCode:
         assert sy.code_of(sy.DataType.UNKNOWN) == sy.DataTypeCode.unknown
         for code in (0, 17, 255):
             assert sy.data_type_of(code) == sy.DataType.UNKNOWN
+
+
+_WIDEN_PATH = pathlib.Path(__file__).parents[2] / "testdata" / "telem" / "widen.json"
+"""The widening vectors that the TypeScript implementation shares."""
+
+_WIDEN_CASES = json.loads(_WIDEN_PATH.read_text())["cases"]
+
+
+class TestDataTypeWiden:
+    def test_every_pair(self) -> None:
+        """Should hold every pair of data types"""
+        assert len(_WIDEN_CASES) == 256
+
+    @pytest.mark.parametrize(
+        "case", _WIDEN_CASES, ids=[f"{c['a']}-{c['b']}" for c in _WIDEN_CASES]
+    )
+    def test_widen(self, case: dict[str, Any]) -> None:
+        """Should widen a pair of data types as the vectors say"""
+        a, b = sy.DataType(case["a"]), sy.DataType(case["b"])
+        if case.get("error"):
+            with pytest.raises(
+                TypeError,
+                match=f"^cannot widen {case['a']} and {case['b']} into one data type$",
+            ):
+                a.widen(b)
+        else:
+            assert a.widen(b) == case["widened"]

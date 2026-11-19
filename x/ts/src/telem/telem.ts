@@ -1726,6 +1726,36 @@ export class DataType
     return DataType.BY_CODE.get(code) ?? DataType.UNKNOWN;
   }
 
+  /**
+   * @returns the one data type that holds samples of both this type and other, by the
+   * NumPy rule for numbers: int64 with float64 gives float64, which loses integers
+   * above 2^53. A boolean widens to any number type, and int64 with timestamp gives
+   * int64.
+   * @throws when no type holds both, such as text against numbers.
+   */
+  widen(other: DataType): DataType {
+    if (this.equals(other)) return this;
+    const pair = [this, other];
+    if (pair.every((dt) => isInt64Like(dt))) return DataType.INT64;
+    const [a, b] = pair.map(numberKind);
+    if (b != null && this.equals(DataType.BOOLEAN)) return other;
+    if (a != null && other.equals(DataType.BOOLEAN)) return this;
+    if (a == null || b == null)
+      throw new Error(
+        `cannot widen ${this.toString()} and ${other.toString()} into one data type`,
+      );
+    if (a.kind === "float" || b.kind === "float") {
+      if (a.kind === b.kind) return a.size >= b.size ? this : other;
+      const [f, i] = a.kind === "float" ? [a, b] : [b, a];
+      return f.size === 8 || i.size > 2 ? DataType.FLOAT64 : DataType.FLOAT32;
+    }
+    if (a.kind === b.kind) return a.size >= b.size ? this : other;
+    const [s, u] = a.kind === "int" ? [a, b] : [b, a];
+    if (u.size < s.size) return s.dataType;
+    if (u.size < 8) return SIGNED_BY_SIZE[u.size * 2];
+    return DataType.FLOAT64;
+  }
+
   /** Represents an Unknown/Invalid DataType. */
   static readonly UNKNOWN = new DataType("unknown");
   /** Represents a 64-bit floating point value. */
@@ -2204,6 +2234,41 @@ export const isTelemValue = (value: unknown): value is TelemValue => {
     value instanceof TimeSpan ||
     value instanceof Date
   );
+};
+
+const isInt64Like = (dt: DataType): boolean =>
+  dt.equals(DataType.INT64) || dt.equals(DataType.TIMESTAMP);
+
+interface NumberKind {
+  kind: "int" | "uint" | "float";
+  size: number;
+  dataType: DataType;
+}
+
+const NUMBER_KINDS: Array<[DataType, NumberKind["kind"]]> = [
+  [DataType.INT8, "int"],
+  [DataType.INT16, "int"],
+  [DataType.INT32, "int"],
+  [DataType.INT64, "int"],
+  [DataType.UINT8, "uint"],
+  [DataType.UINT16, "uint"],
+  [DataType.UINT32, "uint"],
+  [DataType.UINT64, "uint"],
+  [DataType.FLOAT32, "float"],
+  [DataType.FLOAT64, "float"],
+];
+
+const SIGNED_BY_SIZE: Record<number, DataType> = {
+  2: DataType.INT16,
+  4: DataType.INT32,
+  8: DataType.INT64,
+};
+
+// Returns the kind and byte size of a number type, or undefined for any other type.
+const numberKind = (dt: DataType): NumberKind | undefined => {
+  const entry = NUMBER_KINDS.find(([t]) => t.equals(dt));
+  if (entry == null) return undefined;
+  return { kind: entry[1], size: dt.density.valueOf(), dataType: dt };
 };
 
 export const convertDataType = (
