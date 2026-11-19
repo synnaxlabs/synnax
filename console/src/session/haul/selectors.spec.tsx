@@ -29,7 +29,8 @@ const createWrapper = (
   return Wrapper;
 };
 
-const dragging: PHaul.DraggingState = {
+const dragging: PHaul.State = {
+  key: "drag",
   source: { key: "src", type: "channel" },
   items: [{ key: "a", type: "channel" }],
 };

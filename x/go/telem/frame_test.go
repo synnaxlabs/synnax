@@ -4512,6 +4512,25 @@ var _ = Describe("Frame", func() {
 			}))
 		})
 
+		It("Should yield the same indices when the sequence is ranged twice", func() {
+			fr := telem.MultiFrame(
+				[]int32{1, 2, 3},
+				[]telem.Series{
+					telem.NewSeriesV[int32](1),
+					telem.NewSeriesV[int32](2),
+					telem.NewSeriesV[int32](3),
+				},
+			)
+			seq := fr.KeepKeys(set.New[int32](1, 3)).SeriesI()
+			for range 2 {
+				indices := make([]int, 0)
+				for i := range seq {
+					indices = append(indices, i)
+				}
+				Expect(indices).To(Equal([]int{0, 1}))
+			}
+		})
+
 		It("Should handle early exits in SeriesI iteration", func() {
 			fr := telem.MultiFrame(
 				[]int32{1, 2, 3, 4, 5},
