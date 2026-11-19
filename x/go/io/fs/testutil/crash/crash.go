@@ -164,6 +164,8 @@ type Result struct {
 	Losses int
 	// ReadFaults counts the read faults that the disks of the recoveries gave.
 	ReadFaults int
+	// Violations holds each violation of an Exhaustive run, in the order of the events.
+	Violations []Violation
 }
 
 // Config sets one run of the harness.
@@ -186,6 +188,10 @@ type Config struct {
 	// changes in the order they were made, as a metadata journal keeps them. Only
 	// Partial and Mixed lose directory changes, so it changes only those profiles.
 	EntriesOrdered bool
+	// Exhaustive checks each crash image past the first violation, and lists each
+	// violation in Result.Violations. Each image is a snapshot of one workload, so it
+	// gets its own verdict.
+	Exhaustive bool
 }
 
 func (c Config) validate() error {

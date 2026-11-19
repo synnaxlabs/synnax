@@ -96,14 +96,20 @@ func Run(ctx context.Context, cfg Config) (Result, error) {
 	if r.broken == nil {
 		return r.result, nil
 	}
-	return r.result, &Violation{
-		Rule:       r.broken.rule,
-		Detail:     r.broken.detail,
-		RunKey:     cfg.RunKey,
-		Profile:    cfg.Profile,
-		Event:      r.brokenAt,
-		ReadFaults: len(r.brokenFaults),
-		Clustered:  largest(r.brokenFaults),
+	first := r.violation(r.broken, r.brokenAt, r.brokenFaults)
+	return r.result, &first
+}
+
+// violation returns the Violation of b, at the event with the read faults.
+func (r *run) violation(b *broken, event int, faults []fault.Fault) Violation {
+	return Violation{
+		Rule:       b.rule,
+		Detail:     b.detail,
+		RunKey:     r.cfg.RunKey,
+		Profile:    r.cfg.Profile,
+		Event:      event,
+		ReadFaults: len(faults),
+		Clustered:  largest(faults),
 	}
 }
 
@@ -171,7 +177,7 @@ func (r *run) worksf(ok bool, format string, args ...any) {
 func (r *run) stopped() bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	return r.broken != nil || r.err != nil
+	return (r.broken != nil && !r.cfg.Exhaustive) || r.err != nil
 }
 
 func (r *run) fail(b *broken, event int, faults []fault.Fault) {
@@ -179,6 +185,9 @@ func (r *run) fail(b *broken, event int, faults []fault.Fault) {
 	defer r.mu.Unlock()
 	if r.broken == nil {
 		r.broken, r.brokenAt, r.brokenFaults = b, event, faults
+	}
+	if r.cfg.Exhaustive {
+		r.result.Violations = append(r.result.Violations, r.violation(b, event, faults))
 	}
 }
 
