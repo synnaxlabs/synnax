@@ -7,21 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod";
-
-import { caseconv } from "@/caseconv";
 import {
+  type Alignment,
   type AngularDirection,
-  CENTER_LOCATIONS,
-  type CenterLocation,
-  centerLocationZ,
   type CornerLocation,
   cornerLocationZ,
   type Direction,
-  directionZ,
   type Location,
-  LOCATIONS,
-  locationZ,
+  type LocationXY,
+  locationXYZ,
+  type Order,
   OUTER_LOCATIONS,
   type OuterLocation,
   outerLocationZ,
@@ -30,14 +25,12 @@ import {
   xLocationZ,
   Y_LOCATIONS,
   type YLocation,
-  yLocationZ,
 } from "@/spatial/base";
 
 export {
-  CENTER_LOCATIONS,
+  type Alignment,
   type Location,
-  LOCATIONS,
-  locationZ,
+  type Order,
   OUTER_LOCATIONS,
   X_LOCATIONS,
   Y_LOCATIONS,
@@ -45,10 +38,6 @@ export {
 
 /** Zod schema for {@link X}. */
 export const xZ = xLocationZ;
-/** Zod schema for {@link Y}. */
-export const yZ = yLocationZ;
-/** Zod schema for {@link Center}. */
-export const centerZ = centerLocationZ;
 /** Zod schema for {@link Outer}. */
 export const outerZ = outerLocationZ;
 /** Zod schema for {@link Corner}. */
@@ -60,12 +49,8 @@ export type X = XLocation;
 export type Y = YLocation;
 /** Any edge: "top", "right", "bottom", or "left". */
 export type Outer = OuterLocation;
-/** The "center" location. */
-export type Center = CenterLocation;
 /** One corner, as its two edges. */
 export type Corner = CornerLocation;
-/** One corner, as a single camel-case word. */
-export type CornerString = "topLeft" | "topRight" | "bottomLeft" | "bottomRight";
 
 const OUTER_SET = new Set<string>(OUTER_LOCATIONS);
 
@@ -83,13 +68,8 @@ const ROTATIONS: Record<Outer, Record<AngularDirection, Outer>> = {
   bottom: { clockwise: "right", counterclockwise: "left" },
   left: { clockwise: "bottom", counterclockwise: "top" },
 };
-/** Zod schema for {@link Crude}. */
-export const crudeZ = z.union([
-  directionZ,
-  z.enum([...OUTER_LOCATIONS, ...CENTER_LOCATIONS]),
-]);
 /** A location, or a direction standing for its first location. */
-export type Crude = z.infer<typeof crudeZ>;
+export type Crude = Direction | Location;
 
 /** Resolves a {@link Crude} to a location. "x" becomes "left" and "y" becomes "top". */
 export function construct(cl: Direction | Outer): Outer;
@@ -131,12 +111,9 @@ export const direction = (cl: Crude): Direction => {
 };
 
 /** Zod schema for {@link XY}. */
-export const xy = z.object({
-  x: xLocationZ.or(centerLocationZ),
-  y: yLocationZ.or(centerLocationZ),
-});
+export const xy = locationXYZ;
 /** A location on both axes, naming a corner, an edge midpoint, or the center. */
-export type XY = z.infer<typeof xy>;
+export type XY = LocationXY;
 
 /** The nine {@link XY} locations, each frozen. */
 export const TOP_LEFT: Corner = Object.freeze({ x: "left", y: "top" });
@@ -184,49 +161,5 @@ export const xyMatches = (a: XY, l: Partial<XY> | Location): boolean => {
   return a.x === l || a.y === l;
 };
 
-/** @returns the XY location's two axes as a tuple. */
-export const xyCouple = (a: XY): [Location, Location] => [a.x, a.y];
-
 /** @returns whether the value names an edge. */
 export const isOuter = (v: string): v is Outer => OUTER_SET.has(v);
-
-/** @returns whether the location sits on the horizontal axis. */
-export const isX = (a: Crude): a is XLocation | CenterLocation =>
-  direction(construct(a)) === "x";
-
-/** @returns whether the location sits on the vertical axis. */
-export const isY = (a: Crude): a is YLocation => direction(construct(a)) === "y";
-
-/** Renders an XY location as a {@link CornerString}, e.g. "topLeft". */
-export const xyToString = (a: XY): string => `${a.x}${caseconv.capitalize(a.y)}`;
-
-/** Builds an {@link XY} from an XY, two locations, or one location used for both. */
-export const constructXY = (x: Crude | XY, y?: Crude): XY => {
-  let parsedX: Location;
-  let parsedY: Location;
-  if (typeof x === "object" && "x" in x) {
-    parsedX = x.x;
-    parsedY = x.y;
-  } else {
-    parsedX = construct(x);
-    parsedY = construct(y ?? x);
-  }
-  if (
-    direction(parsedX) === direction(parsedY) &&
-    parsedX !== "center" &&
-    parsedY !== "center"
-  )
-    throw new Error(
-      `[XYLocation] - encountered two locations with the same direction: ${parsedX.toString()} - ${parsedY.toString()}`,
-    );
-  const xy = { ...CENTER };
-  if (parsedX !== "center")
-    if (isX(parsedX)) xy.x = parsedX;
-    else xy.y = parsedX;
-
-  if (parsedY !== "center")
-    if (isX(parsedY)) xy.x = parsedY;
-    else xy.y = parsedY;
-
-  return xy;
-};
