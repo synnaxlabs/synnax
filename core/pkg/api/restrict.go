@@ -57,8 +57,7 @@ func describeRestrict(
 	rbacSvc *rbac.Service,
 	err error,
 ) error {
-	var pathErr validate.PathError
-	if errors.As(err, &pathErr) {
+	if pathErr, ok := errors.AsType[validate.PathError](err); ok {
 		described := describeRestrict(ctx, db, res, rbacSvc, pathErr.Err)
 		if described == nil {
 			return nil
@@ -66,8 +65,8 @@ func describeRestrict(
 		pathErr.Err = described
 		return pathErr
 	}
-	var restrict gorp.RestrictError
-	if !errors.As(err, &restrict) {
+	restrict, ok := errors.AsType[gorp.RestrictError](err)
+	if !ok {
 		return nil
 	}
 	target := resource.ID{

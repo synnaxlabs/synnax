@@ -13,6 +13,7 @@ import { capture, fixtures } from "@/index";
 
 const RANGE = "Hotfire 09";
 const CHANNEL = "tank_pressure";
+const PLOT = "Run review";
 
 /**
  * Docs `reference/visualize/line-plots` (Ranges on the plot): the plot shows the ranges
@@ -26,7 +27,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     // The static block ends 5 seconds before now and spans 120 seconds.
     const now = TimeStamp.now();
     const ago = (seconds: number): TimeStamp => now.sub(TimeSpan.seconds(seconds));
-    await client.ranges.create([
+    const [hotfire] = await client.ranges.create([
       { name: RANGE, timeRange: new TimeRange(ago(125), ago(5)) },
       {
         name: "Pressurization",
@@ -41,13 +42,20 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     ]);
     const { page } = session;
     await capture.login(session);
-    // Opening a range from the palette makes it active, and a new plot opens on it.
-    await capture.searchPalette(session, RANGE);
+    const project = (
+      await client.projects.retrieve({ searchTerm: capture.PROJECT })
+    ).find((p) => p.name === capture.PROJECT);
+    if (project == null) throw new Error(`no project named "${capture.PROJECT}"`);
+    const [channel] = await client.channels.retrieve([CHANNEL]);
+    await client.lineplots.create({
+      name: PLOT,
+      project: project.key,
+      channels: { y1: [channel.key] },
+      ranges: [{ variant: "key", key: hotfire.key }],
+    });
     await capture.clearPanel(session);
-    await capture.clickPanelCreate(session);
-    await capture.createComponent(session, "Line plot");
+    await capture.searchPalette(session, PLOT);
     await session.waitFor(page.locator(".pluto-line-plot").first());
-    await capture.addChannels(session, "Y1", [CHANNEL], { search: CHANNEL });
     await capture.hideBottomToolbar(session);
     await session.settleWall(1500);
     await session.settle(800);
