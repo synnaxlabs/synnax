@@ -594,6 +594,35 @@ describe("Picker", () => {
         expect(c.getByText("open from #123456")).toBeTruthy();
       });
 
+      it("should clear the search and focus a hidden swatch that a slot links", () => {
+        const Linker = (): ReactElement => {
+          const { onNamedChange: link } = Color.usePicker();
+          return <button onClick={() => link("moss")}>link Moss</button>;
+        };
+        const c = renderSlots({ named: "ocean", footer: <Linker /> });
+        search(c, "oc");
+        expect(c.queryByLabelText("Moss")).toBeNull();
+        fireEvent.click(c.getByText("link Moss"));
+        expect(
+          (c.getByPlaceholderText("Search colors") as HTMLInputElement).value,
+        ).toBe("");
+        expect(document.activeElement).toBe(c.getByLabelText("Moss"));
+      });
+
+      it("should clear the search from a slot", () => {
+        const Clearer = (): ReactElement => {
+          const { clearSearch } = Color.usePicker();
+          return <button onClick={clearSearch}>clear</button>;
+        };
+        const c = renderSlots({ named: "ocean", footer: <Clearer /> });
+        search(c, "oc");
+        fireEvent.click(c.getByText("clear"));
+        expect(
+          (c.getByPlaceholderText("Search colors") as HTMLInputElement).value,
+        ).toBe("");
+        expect(c.getByLabelText("Moss")).toBeTruthy();
+      });
+
       it("should keep the search under a view", () => {
         const c = renderSlots(
           { named: "ocean", footer: <ViewOpener /> },

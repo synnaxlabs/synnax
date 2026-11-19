@@ -61,9 +61,11 @@ export interface PickerContextValue {
   linked?: Named;
   /**
    * Links the value to the named color with the key, as a click on its swatch does.
-   * The focus moves to its swatch, at once or when the swatch renders.
+   * The search clears, and the focus moves to the swatch, at once or when it renders.
    */
   onNamedChange: (key: string) => void;
+  /** Clears the search, so that every palette and color shows. */
+  clearSearch: () => void;
   /**
    * Shows the view in place of the tabs, under a back button and the title. Back
    * returns to the tabs as they were, with the focus on the element that opened the
@@ -199,11 +201,13 @@ const Tabbed = ({
     value: color.construct(value ?? fallback ?? color.TRANSPARENT),
     linked,
     onNamedChange: (key) => {
+      setSearch("");
       onNamedChange(key);
       const swatch = swatches.current.get(key);
       if (swatch == null) focusing.current = key;
       else swatch.focus();
     },
+    clearSearch: () => setSearch(""),
     openView: (title, content) => {
       opener.current =
         document.activeElement instanceof HTMLElement ? document.activeElement : null;
