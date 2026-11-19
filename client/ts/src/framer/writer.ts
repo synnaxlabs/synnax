@@ -330,14 +330,14 @@ export class Writer {
    * `finally` block. Closing a closed writer raises the same error again, or nothing.
    */
   async close(): Promise<void> {
+    if (WriterClosedError.matches(this.closeErr)) return;
     await this.closeInternal(null);
   }
 
   private async closeInternal(err: Error | null): Promise<null> {
-    if (this.closeErr == null) {
-      this.closeErr = err;
-      this.stream.closeSend();
-    }
+    if (this.closeErr != null) throw this.closeErr;
+    this.closeErr = err;
+    this.stream.closeSend();
     while (true) {
       if (this.closeErr != null) {
         if (WriterClosedError.matches(this.closeErr)) return null;
