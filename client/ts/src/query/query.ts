@@ -429,6 +429,9 @@ export class Space<
           return Promise.resolve(this.composedOf(query, state.keys));
         case "deleted":
           return Promise.reject(new NotFoundError(`${this.config.name} was deleted`));
+        case "error":
+        case "unfetched":
+          break;
       }
     void startStreaming(this.hooks, (exc) => this.report(exc));
     return this.fetch(query, options);

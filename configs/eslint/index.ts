@@ -275,6 +275,15 @@ const config: Linter.Config[] = [
       "@eslint-react/naming-convention-context-name": "off",
       "@eslint-react/naming-convention-id-name": "off",
       "@eslint-react/naming-convention-ref-name": "off",
+      "@typescript-eslint/switch-exhaustiveness-check": [
+        "error",
+        { considerDefaultExhaustiveForUnions: true },
+      ],
+      // The React Compiler cannot compile ??=. An empty string falls back on purpose.
+      "@typescript-eslint/prefer-nullish-coalescing": [
+        "error",
+        { ignoreIfStatements: true, ignorePrimitives: { boolean: true, string: true } },
+      ],
       "@typescript-eslint/no-deprecated": "error",
       "@typescript-eslint/use-unknown-in-catch-callback-variable": "error",
       "@typescript-eslint/only-throw-error": [
@@ -322,12 +331,6 @@ const config: Linter.Config[] = [
           ignoreRestSiblings: true,
         },
       ],
-    },
-    settings: {
-      "import/resolver": {
-        typescript: {}, // this loads <rootdir>/tsconfig.json to eslint
-        node: { extensions: [".js", ".jsx", ".ts", ".tsx"] },
-      },
     },
   },
   {
