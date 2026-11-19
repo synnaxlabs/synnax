@@ -13,9 +13,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
+	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/x/telem"
@@ -192,17 +192,15 @@ func BenchmarkIteratorCalculatedCount(b *testing.B) {
 			indexCh, data := env.createChannels(b, "count", 1)
 			env.writeData(b, indexCh, data, 10)
 			calc := env.createCalculation(b, "count_calc", "return count_sensor_0 * 2")
-			fillers := make([]channel.Channel, count)
+			fillers := make([]calctestutil.Calculation, count)
 			for i := range fillers {
-				fillers[i] = channel.Channel{
+				fillers[i] = calctestutil.Calculation{
 					Name:       fmt.Sprintf("count_filler_%d", i),
 					DataType:   telem.Float32T,
 					Expression: "return count_sensor_0 + 1",
 				}
 			}
-			if err := env.node.DB.WithTx(env.ctx, func(tx gorp.Tx) error {
-				return env.channelSvc.NewWriter(tx).CreateMany(env.ctx, &fillers)
-			}); err != nil {
+			if _, err := env.creator.CreateMany(env.ctx, fillers); err != nil {
 				b.Fatalf("failed to create filler channels: %v", err)
 			}
 			b.Run("calc+index", func(b *testing.B) {

@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	distnode "github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -75,11 +76,13 @@ var _ = Describe("StreamIterator", Ordered, func() {
 		node        testutil.Node
 		iteratorSvc *iterator.Service
 		channelSvc  *channel.Service
+		creator     calctestutil.Creator
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		node = testutil.NewNode(ctx)
 		iteratorSvc, channelSvc = openServices(ctx, node)
+		creator = calctestutil.Creator{DB: node.DB, Channel: channelSvc}
 	})
 	Describe("Basic Iteration", func() {
 		It("Should read written frames correctly", func(ctx SpecContext) {
@@ -181,14 +184,11 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			})
 
 			It("Should correctly calculate output values", func(ctx SpecContext) {
-				calculation := &channel.Channel{
+				calculation := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 					Name:       "output",
 					DataType:   telem.Float32T,
 					Expression: "return sensor_1",
-				}
-				Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-					return channelSvc.NewWriter(tx).Create(ctx, calculation)
-				})).To(Succeed())
+				}))
 				iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 					Keys:   []channel.Key{calculation.Key(), calculation.Index()},
 					Bounds: telem.TimeRangeMax,
@@ -218,14 +218,13 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					name string,
 					reduction telem.Reduction,
 				) {
-					calculation := &channel.Channel{
-						Name:       name,
-						DataType:   telem.Float32T,
-						Expression: "return sensor_1",
-					}
-					Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-						return channelSvc.NewWriter(tx).Create(ctx, calculation)
-					})).To(Succeed())
+					calculation := MustSucceed(
+						creator.Create(ctx, calctestutil.Calculation{
+							Name:       name,
+							DataType:   telem.Float32T,
+							Expression: "return sensor_1",
+						}),
+					)
 					stream := MustSucceed(iteratorSvc.NewStream(ctx, iterator.Config{
 						Keys:      []channel.Key{calculation.Key()},
 						Bounds:    telem.TimeRangeMax,
@@ -253,14 +252,11 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			It("Should carry calculation state across domains", func(
 				ctx SpecContext,
 			) {
-				total := &channel.Channel{
+				total := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 					Name:       "running_total",
 					DataType:   telem.Float32T,
 					Expression: "total f32 $= 0\ntotal = total + sensor_1\nreturn total",
-				}
-				Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-					return channelSvc.NewWriter(tx).Create(ctx, total)
-				})).To(Succeed())
+				}))
 				iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 					Keys:   []channel.Key{total.Key()},
 					Bounds: telem.TimeRangeMax,
@@ -282,25 +278,21 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					func(ctx SpecContext) {
 						// Create B: calculated channel that depends on concrete channel
 						// A (sensor_1)
-						calcB := &channel.Channel{
+						MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 							Name:       "calc_b",
 							DataType:   telem.Float32T,
 							Expression: "return sensor_1 * 2",
-						}
-						Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-							return channelSvc.NewWriter(tx).Create(ctx, calcB)
-						})).To(Succeed())
+						}))
 
 						// Create C: calculated channel that depends on calculated
 						// channel B
-						calcC := &channel.Channel{
-							Name:       "calc_c",
-							DataType:   telem.Float32T,
-							Expression: "return calc_b + 10",
-						}
-						Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-							return channelSvc.NewWriter(tx).Create(ctx, calcC)
-						})).To(Succeed())
+						calcC := MustSucceed(
+							creator.Create(ctx, calctestutil.Calculation{
+								Name:       "calc_c",
+								DataType:   telem.Float32T,
+								Expression: "return calc_b + 10",
+							}),
+						)
 
 						// Open iterator requesting only the top-level calculated
 						// channel C
@@ -357,34 +349,27 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					"Should correctly handle 3-level nesting (D → C → B → A)",
 					func(ctx SpecContext) {
 						// Create B: depends on sensor_1 (concrete)
-						calcB := &channel.Channel{
+						MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 							Name:       "calc_b_3level",
 							DataType:   telem.Float32T,
 							Expression: "return sensor_1 * 2",
-						}
-						Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-							return channelSvc.NewWriter(tx).Create(ctx, calcB)
-						})).To(Succeed())
+						}))
 
 						// Create C: depends on B (calculated)
-						calcC := &channel.Channel{
+						MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 							Name:       "calc_c_3level",
 							DataType:   telem.Float32T,
 							Expression: "return calc_b_3level + 5",
-						}
-						Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-							return channelSvc.NewWriter(tx).Create(ctx, calcC)
-						})).To(Succeed())
+						}))
 
 						// Create D: depends on C (calculated)
-						calcD := &channel.Channel{
-							Name:       "calc_d_3level",
-							DataType:   telem.Float32T,
-							Expression: "return calc_c_3level * 3",
-						}
-						Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-							return channelSvc.NewWriter(tx).Create(ctx, calcD)
-						})).To(Succeed())
+						calcD := MustSucceed(
+							creator.Create(ctx, calctestutil.Calculation{
+								Name:       "calc_d_3level",
+								DataType:   telem.Float32T,
+								Expression: "return calc_c_3level * 3",
+							}),
+						)
 
 						// Open iterator requesting only the top-level calculated
 						// channel D
@@ -446,34 +431,27 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						// Tests that shared dependencies work correctly
 
 						// Create C: depends on sensor_1 (concrete)
-						calcC := &channel.Channel{
+						MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 							Name:       "calc_c_diamond",
 							DataType:   telem.Float32T,
 							Expression: "return sensor_1 + 10",
-						}
-						Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-							return channelSvc.NewWriter(tx).Create(ctx, calcC)
-						})).To(Succeed())
+						}))
 
 						// Create D: also depends on sensor_1 (concrete)
-						calcD := &channel.Channel{
+						MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 							Name:       "calc_d_diamond",
 							DataType:   telem.Float32T,
 							Expression: "return sensor_1 * 5",
-						}
-						Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-							return channelSvc.NewWriter(tx).Create(ctx, calcD)
-						})).To(Succeed())
+						}))
 
 						// Create E: depends on both C and D (calculated)
-						calcE := &channel.Channel{
-							Name:       "calc_e_diamond",
-							DataType:   telem.Float32T,
-							Expression: "return calc_c_diamond + calc_d_diamond",
-						}
-						Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-							return channelSvc.NewWriter(tx).Create(ctx, calcE)
-						})).To(Succeed())
+						calcE := MustSucceed(
+							creator.Create(ctx, calctestutil.Calculation{
+								Name:       "calc_e_diamond",
+								DataType:   telem.Float32T,
+								Expression: "return calc_c_diamond + calc_d_diamond",
+							}),
+						)
 
 						// Open iterator requesting only the top-level calculated
 						// channel E
@@ -534,23 +512,17 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					// topological sort.
 
 					// Create a simple 2-node cycle: A -> B -> A
-					calcA := &channel.Channel{
+					calcA := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 						Name:       "calc_circ_a",
 						DataType:   telem.Float32T,
 						Expression: "return 1",
-					}
-					Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-						return channelSvc.NewWriter(tx).Create(ctx, calcA)
-					})).To(Succeed())
+					}))
 
-					calcB := &channel.Channel{
+					MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 						Name:       "calc_circ_b",
 						DataType:   telem.Float32T,
 						Expression: "return calc_circ_a + 1",
-					}
-					Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-						return channelSvc.NewWriter(tx).Create(ctx, calcB)
-					})).To(Succeed())
+					}))
 
 					calcA.Expression = "return calc_circ_b + 1"
 					Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
@@ -579,24 +551,20 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						// concrete channels in the same iterator works correctly
 
 						// Create a nested calculated channel
-						calcMixed := &channel.Channel{
+						MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 							Name:       "calc_mixed",
 							DataType:   telem.Float32T,
 							Expression: "return sensor_1 + sensor_2",
-						}
-						Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-							return channelSvc.NewWriter(tx).Create(ctx, calcMixed)
-						})).To(Succeed())
+						}))
 
 						// Create another calculated that depends on the first
-						calcMixedNested := &channel.Channel{
-							Name:       "calc_mixed_nested",
-							DataType:   telem.Float32T,
-							Expression: "return calc_mixed * 2",
-						}
-						Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-							return channelSvc.NewWriter(tx).Create(ctx, calcMixedNested)
-						})).To(Succeed())
+						calcMixedNested := MustSucceed(
+							creator.Create(ctx, calctestutil.Calculation{
+								Name:       "calc_mixed_nested",
+								DataType:   telem.Float32T,
+								Expression: "return calc_mixed * 2",
+							}),
+						)
 
 						// Request both concrete channels (sensor_1, sensor_2) and
 						// calculated channels
@@ -742,14 +710,13 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				It(
 					"Should correctly calculate values across three domains with proper alignment",
 					func(ctx SpecContext) {
-						calc := &channel.Channel{
-							Name:       "three_domain_calc",
-							DataType:   telem.Float32T,
-							Expression: "return three_domain_sensor * 2",
-						}
-						Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-							return channelSvc.NewWriter(tx).Create(ctx, calc)
-						})).To(Succeed())
+						calc := MustSucceed(
+							creator.Create(ctx, calctestutil.Calculation{
+								Name:       "three_domain_calc",
+								DataType:   telem.Float32T,
+								Expression: "return three_domain_sensor * 2",
+							}),
+						)
 
 						iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 							Keys:   []channel.Key{calc.Key(), calc.Index()},
@@ -803,24 +770,20 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					"Should correctly handle nested calculations across three domains",
 					func(ctx SpecContext) {
 						// B depends on three_domain_sensor (concrete)
-						calcB := &channel.Channel{
+						MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 							Name:       "three_domain_calc_b",
 							DataType:   telem.Float32T,
 							Expression: "return three_domain_sensor * 2",
-						}
-						Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-							return channelSvc.NewWriter(tx).Create(ctx, calcB)
-						})).To(Succeed())
+						}))
 
 						// C depends on B (calculated)
-						calcC := &channel.Channel{
-							Name:       "three_domain_calc_c",
-							DataType:   telem.Float32T,
-							Expression: "return three_domain_calc_b + 10",
-						}
-						Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-							return channelSvc.NewWriter(tx).Create(ctx, calcC)
-						})).To(Succeed())
+						calcC := MustSucceed(
+							creator.Create(ctx, calctestutil.Calculation{
+								Name:       "three_domain_calc_c",
+								DataType:   telem.Float32T,
+								Expression: "return three_domain_calc_b + 10",
+							}),
+						)
 
 						iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 							Keys:   []channel.Key{calcC.Key(), calcC.Index()},
@@ -874,34 +837,28 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					"Should correctly handle diamond dependency across three domains",
 					func(ctx SpecContext) {
 						// C depends on three_domain_sensor
-						calcC := &channel.Channel{
+						MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 							Name:       "three_domain_diamond_c",
 							DataType:   telem.Float32T,
 							Expression: "return three_domain_sensor + 10",
-						}
-						Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-							return channelSvc.NewWriter(tx).Create(ctx, calcC)
-						})).To(Succeed())
+						}))
 
 						// D also depends on three_domain_sensor
-						calcD := &channel.Channel{
+						MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 							Name:       "three_domain_diamond_d",
 							DataType:   telem.Float32T,
 							Expression: "return three_domain_sensor * 5",
-						}
-						Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-							return channelSvc.NewWriter(tx).Create(ctx, calcD)
-						})).To(Succeed())
+						}))
 
 						// E depends on both C and D
-						calcE := &channel.Channel{
-							Name:       "three_domain_diamond_e",
-							DataType:   telem.Float32T,
-							Expression: "return three_domain_diamond_c + three_domain_diamond_d",
-						}
-						Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-							return channelSvc.NewWriter(tx).Create(ctx, calcE)
-						})).To(Succeed())
+						calcE := MustSucceed(
+							creator.Create(ctx, calctestutil.Calculation{
+								Name:     "three_domain_diamond_e",
+								DataType: telem.Float32T,
+								Expression: "return three_domain_diamond_c + " +
+									"three_domain_diamond_d",
+							}),
+						)
 
 						iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 							Keys:   []channel.Key{calcE.Key(), calcE.Index()},
@@ -939,14 +896,13 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				It(
 					"Should correctly handle mixed calculated and concrete channels across three domains",
 					func(ctx SpecContext) {
-						calcMixed := &channel.Channel{
-							Name:       "three_domain_mixed_calc",
-							DataType:   telem.Float32T,
-							Expression: "return three_domain_sensor * 3",
-						}
-						Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-							return channelSvc.NewWriter(tx).Create(ctx, calcMixed)
-						})).To(Succeed())
+						calcMixed := MustSucceed(
+							creator.Create(ctx, calctestutil.Calculation{
+								Name:       "three_domain_mixed_calc",
+								DataType:   telem.Float32T,
+								Expression: "return three_domain_sensor * 3",
+							}),
+						)
 
 						// Request both concrete and calculated channels
 						iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
@@ -1066,14 +1022,13 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						))).To(BeTrue())
 						Expect(w.Close()).To(Succeed())
 
-						calc := &channel.Channel{
-							Name:       "gap_domain_calc",
-							DataType:   telem.Float32T,
-							Expression: "return gap_domain_sensor + 100",
-						}
-						Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-							return channelSvc.NewWriter(tx).Create(ctx, calc)
-						})).To(Succeed())
+						calc := MustSucceed(
+							creator.Create(ctx, calctestutil.Calculation{
+								Name:       "gap_domain_calc",
+								DataType:   telem.Float32T,
+								Expression: "return gap_domain_sensor + 100",
+							}),
+						)
 
 						iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 							Keys:   []channel.Key{calc.Key(), calc.Index()},
@@ -1110,32 +1065,30 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				It(
 					"Should correctly handle multiple calculations on same source across three domains",
 					func(ctx SpecContext) {
-						calcDouble := &channel.Channel{
-							Name:       "three_domain_double",
-							DataType:   telem.Float32T,
-							Expression: "return three_domain_sensor * 2",
-						}
-						Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-							return channelSvc.NewWriter(tx).Create(ctx, calcDouble)
-						})).To(Succeed())
+						calcDouble := MustSucceed(
+							creator.Create(ctx, calctestutil.Calculation{
+								Name:       "three_domain_double",
+								DataType:   telem.Float32T,
+								Expression: "return three_domain_sensor * 2",
+							}),
+						)
 
-						calcSquare := &channel.Channel{
-							Name:       "three_domain_square",
-							DataType:   telem.Float32T,
-							Expression: "return three_domain_sensor * three_domain_sensor",
-						}
-						Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-							return channelSvc.NewWriter(tx).Create(ctx, calcSquare)
-						})).To(Succeed())
+						calcSquare := MustSucceed(
+							creator.Create(ctx, calctestutil.Calculation{
+								Name:     "three_domain_square",
+								DataType: telem.Float32T,
+								Expression: "return three_domain_sensor * " +
+									"three_domain_sensor",
+							}),
+						)
 
-						calcPlusTen := &channel.Channel{
-							Name:       "three_domain_plus_ten",
-							DataType:   telem.Float32T,
-							Expression: "return three_domain_sensor + 10",
-						}
-						Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-							return channelSvc.NewWriter(tx).Create(ctx, calcPlusTen)
-						})).To(Succeed())
+						calcPlusTen := MustSucceed(
+							creator.Create(ctx, calctestutil.Calculation{
+								Name:       "three_domain_plus_ten",
+								DataType:   telem.Float32T,
+								Expression: "return three_domain_sensor + 10",
+							}),
+						)
 
 						iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 							Keys: []channel.Key{
@@ -1292,14 +1245,11 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					))).To(BeTrue())
 					Expect(wB.Close()).To(Succeed())
 
-					calc := &channel.Channel{
+					calc := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 						Name:       "interleaved_calc",
 						DataType:   telem.Float32T,
 						Expression: "return interleaved_sensor_a + interleaved_sensor_b",
-					}
-					Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-						return channelSvc.NewWriter(tx).Create(ctx, calc)
-					})).To(Succeed())
+					}))
 
 					iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 						Keys:   []channel.Key{calc.Key(), calc.Index()},
@@ -1347,15 +1297,12 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
 						return channelSvc.NewWriter(tx).Create(ctx, b)
 					})).To(Succeed())
-					sum := &channel.Channel{
+					sum := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 						Name:       "uneven_sum_" + suffix,
 						DataType:   telem.Float32T,
 						Expression: "return " + a.Name + " + " + b.Name,
-					}
-					Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-						return channelSvc.NewWriter(tx).Create(ctx, sum)
-					})).To(Succeed())
-					return chain{index: index, a: a, b: b, sum: sum}
+					}))
+					return chain{index: index, a: a, b: b, sum: &sum}
 				}
 				// write commits one frame as its own domain.
 				write := func(
@@ -1613,14 +1560,11 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					ctx SpecContext,
 				) {
 					c := newChain(ctx, "nested_last")
-					nested := &channel.Channel{
+					nested := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 						Name:       "uneven_nested_last",
 						DataType:   telem.Float32T,
 						Expression: "return " + c.sum.Name + " + " + c.a.Name,
-					}
-					Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-						return channelSvc.NewWriter(tx).Create(ctx, nested)
-					})).To(Succeed())
+					}))
 					writeLastAlone(ctx, c)
 					out := read(ctx, iterator.AutoSpan, nested.Key(), nested.Index())
 					Expect(merged(out[nested.Key()])).To(
@@ -1635,14 +1579,11 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					ctx SpecContext,
 				) {
 					c := newChain(ctx, "nested")
-					nested := &channel.Channel{
+					nested := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 						Name:       "uneven_nested",
 						DataType:   telem.Float32T,
 						Expression: "return " + c.sum.Name + " + " + c.a.Name,
-					}
-					Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-						return channelSvc.NewWriter(tx).Create(ctx, nested)
-					})).To(Succeed())
+					}))
 					writeFirstAlone(ctx, c)
 					out := read(ctx, iterator.AutoSpan, nested.Key(), nested.Index())
 					Expect(merged(out[nested.Key()])).To(
@@ -1686,14 +1627,11 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				It("Should calculate when only the index is requested", func(
 					ctx SpecContext,
 				) {
-					calc := &channel.Channel{
+					calc := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 						Name:       "idx_only",
 						DataType:   telem.Float32T,
 						Expression: "return sensor_1",
-					}
-					Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-						return channelSvc.NewWriter(tx).Create(ctx, calc)
-					})).To(Succeed())
+					}))
 					iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 						Keys:   []channel.Key{calc.Index()},
 						Bounds: telem.TimeRangeMax,
@@ -1712,30 +1650,21 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				It("Should carry root stamps through a nested chain", func(
 					ctx SpecContext,
 				) {
-					calcA := &channel.Channel{
+					MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 						Name:       "idx_only_a",
 						DataType:   telem.Float32T,
 						Expression: "return sensor_1 * 2",
-					}
-					Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-						return channelSvc.NewWriter(tx).Create(ctx, calcA)
-					})).To(Succeed())
-					calcB := &channel.Channel{
+					}))
+					MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 						Name:       "idx_only_b",
 						DataType:   telem.Float32T,
 						Expression: "return idx_only_a + 1",
-					}
-					Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-						return channelSvc.NewWriter(tx).Create(ctx, calcB)
-					})).To(Succeed())
-					calcC := &channel.Channel{
+					}))
+					calcC := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 						Name:       "idx_only_c",
 						DataType:   telem.Float32T,
 						Expression: "return idx_only_b + 1",
-					}
-					Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-						return channelSvc.NewWriter(tx).Create(ctx, calcC)
-					})).To(Succeed())
+					}))
 					iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 						Keys:   []channel.Key{calcC.Index()},
 						Bounds: telem.TimeRangeMax,
@@ -1754,14 +1683,11 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				It("Should resolve the index after the owner is renamed", func(
 					ctx SpecContext,
 				) {
-					calc := &channel.Channel{
+					calc := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 						Name:       "idx_only_foo",
 						DataType:   telem.Float32T,
 						Expression: "return sensor_1",
-					}
-					Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-						return channelSvc.NewWriter(tx).Create(ctx, calc)
-					})).To(Succeed())
+					}))
 					Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
 						return channelSvc.NewWriter(tx).Rename(
 							ctx, calc.Key(), "idx_only_bar", false,
@@ -1783,14 +1709,11 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				It("Should keep only requested keys alongside a stored channel", func(
 					ctx SpecContext,
 				) {
-					calc := &channel.Channel{
+					calc := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 						Name:       "idx_only_mixed",
 						DataType:   telem.Float32T,
 						Expression: "return sensor_1",
-					}
-					Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-						return channelSvc.NewWriter(tx).Create(ctx, calc)
-					})).To(Succeed())
+					}))
 					iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 						Keys:   []channel.Key{calc.Index(), dataCh1.Key()},
 						Bounds: telem.TimeRangeMax,
@@ -1810,22 +1733,16 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				It("Should resolve two calculated indexes in one request", func(
 					ctx SpecContext,
 				) {
-					calcA := &channel.Channel{
+					calcA := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 						Name:       "idx_only_pair_a",
 						DataType:   telem.Float32T,
 						Expression: "return sensor_1",
-					}
-					Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-						return channelSvc.NewWriter(tx).Create(ctx, calcA)
-					})).To(Succeed())
-					calcB := &channel.Channel{
+					}))
+					calcB := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 						Name:       "idx_only_pair_b",
 						DataType:   telem.Float32T,
 						Expression: "return sensor_1 * 2",
-					}
-					Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-						return channelSvc.NewWriter(tx).Create(ctx, calcB)
-					})).To(Succeed())
+					}))
 					iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 						Keys:   []channel.Key{calcA.Index(), calcB.Index()},
 						Bounds: telem.TimeRangeMax,
@@ -1883,20 +1800,16 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				It("Should reject a calculation over a virtual channel alone", func(
 					ctx SpecContext,
 				) {
-					calc := &channel.Channel{
+					create(ctx, &channel.Channel{
+						Name:     "virt_only",
+						DataType: telem.Float32T,
+						Virtual:  true,
+					})
+					calc := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 						Name:       "virt_only_calc",
 						DataType:   telem.Float32T,
 						Expression: "return virt_only * 2",
-					}
-					create(
-						ctx,
-						&channel.Channel{
-							Name:     "virt_only",
-							DataType: telem.Float32T,
-							Virtual:  true,
-						},
-						calc,
-					)
+					}))
 					Expect(iteratorSvc.Open(ctx, iterator.Config{
 						Keys:   []channel.Key{calc.Key(), calc.Index()},
 						Bounds: telem.TimeRangeMax,
@@ -1906,20 +1819,16 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				It("Should reject a calculation mixing virtual and stored inputs", func(
 					ctx SpecContext,
 				) {
-					calc := &channel.Channel{
+					create(ctx, &channel.Channel{
+						Name:     "virt_mixed",
+						DataType: telem.Float32T,
+						Virtual:  true,
+					})
+					calc := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 						Name:       "virt_mixed_calc",
 						DataType:   telem.Float32T,
 						Expression: "return sensor_1 + virt_mixed",
-					}
-					create(
-						ctx,
-						&channel.Channel{
-							Name:     "virt_mixed",
-							DataType: telem.Float32T,
-							Virtual:  true,
-						},
-						calc,
-					)
+					}))
 					Expect(iteratorSvc.Open(ctx, iterator.Config{
 						Keys:   []channel.Key{calc.Key(), calc.Index()},
 						Bounds: telem.TimeRangeMax,
@@ -1929,25 +1838,21 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				It("Should reject a nested chain whose leaf is virtual", func(
 					ctx SpecContext,
 				) {
-					outer := &channel.Channel{
+					create(ctx, &channel.Channel{
+						Name:     "virt_nested_leaf",
+						DataType: telem.Float32T,
+						Virtual:  true,
+					})
+					MustSucceed(creator.Create(ctx, calctestutil.Calculation{
+						Name:       "virt_nested_1",
+						DataType:   telem.Float32T,
+						Expression: "return virt_nested_leaf * 2",
+					}))
+					outer := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 						Name:       "virt_nested_2",
 						DataType:   telem.Float32T,
 						Expression: "return virt_nested_1 + sensor_1",
-					}
-					create(
-						ctx,
-						&channel.Channel{
-							Name:     "virt_nested_leaf",
-							DataType: telem.Float32T,
-							Virtual:  true,
-						},
-						&channel.Channel{
-							Name:       "virt_nested_1",
-							DataType:   telem.Float32T,
-							Expression: "return virt_nested_leaf * 2",
-						},
-						outer,
-					)
+					}))
 					Expect(iteratorSvc.Open(ctx, iterator.Config{
 						Keys:   []channel.Key{outer.Key(), outer.Index()},
 						Bounds: telem.TimeRangeMax,
@@ -1957,20 +1862,16 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				It("Should reject an index-only read of a virtual-backed chain", func(
 					ctx SpecContext,
 				) {
-					calc := &channel.Channel{
+					create(ctx, &channel.Channel{
+						Name:     "virt_idx",
+						DataType: telem.Float32T,
+						Virtual:  true,
+					})
+					calc := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 						Name:       "virt_idx_calc",
 						DataType:   telem.Float32T,
 						Expression: "return virt_idx * 2",
-					}
-					create(
-						ctx,
-						&channel.Channel{
-							Name:     "virt_idx",
-							DataType: telem.Float32T,
-							Virtual:  true,
-						},
-						calc,
-					)
+					}))
 					Expect(iteratorSvc.Open(ctx, iterator.Config{
 						Keys:   []channel.Key{calc.Index()},
 						Bounds: telem.TimeRangeMax,
@@ -2073,16 +1974,13 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			))).To(BeTrue())
 			Expect(w.Close()).To(Succeed())
 
-			total := &channel.Channel{
+			total := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 				Name:     "downsample_stateful_total",
 				DataType: telem.Float32T,
 				Expression: "total f32 $= 0\n" +
 					"total = total + downsample_stateful_sensor\n" +
 					"return total",
-			}
-			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-				return channelSvc.NewWriter(tx).Create(ctx, total)
-			})).To(Succeed())
+			}))
 
 			iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 				Keys:   []channel.Key{total.Key()},
@@ -2199,15 +2097,13 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					telem.NewSeriesV[float32](4, 5, 6, 7, 8),
 				)
 				keys := []channel.Key{indexCh.Key(), dataCh.Key()}
-				calc := &channel.Channel{
-					Name:       "late_downsample_calc_" + suffix,
-					DataType:   telem.Float32T,
-					Expression: "return " + dataCh.Name + " * 2",
-				}
+				var calc channel.Channel
 				if calculated {
-					Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-						return channelSvc.NewWriter(tx).Create(ctx, calc)
-					})).To(Succeed())
+					calc = MustSucceed(creator.Create(ctx, calctestutil.Calculation{
+						Name:       "late_downsample_calc_" + suffix,
+						DataType:   telem.Float32T,
+						Expression: "return " + dataCh.Name + " * 2",
+					}))
 					keys = append(keys, calc.Key())
 				}
 				iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
@@ -2319,14 +2215,11 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					return channelSvc.NewWriter(tx).Create(ctx, dataCh2)
 				})).To(Succeed())
 
-				calculation := &channel.Channel{
+				calculation := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 					Name:       "downsample_calc_output",
 					DataType:   telem.Float32T,
 					Expression: "return downsample_calc_sensor1 + downsample_calc_sensor2",
-				}
-				Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-					return channelSvc.NewWriter(tx).Create(ctx, calculation)
-				})).To(Succeed())
+				}))
 
 				keys := []channel.Key{indexCh.Key(), dataCh1.Key(), dataCh2.Key()}
 				w := MustSucceed(node.Framer.OpenWriter(ctx, framer.WriterConfig{
@@ -2619,14 +2512,11 @@ var _ = Describe("StreamIterator", Ordered, func() {
 		It("Should reduce a calculation over the groups of its inputs", func(
 			ctx SpecContext,
 		) {
-			calc := &channel.Channel{
+			calc := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 				Name:       "aggregate_doubled",
 				DataType:   telem.Float32T,
 				Expression: "return aggregate_sensor * 2",
-			}
-			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-				return channelSvc.NewWriter(tx).Create(ctx, calc)
-			})).To(Succeed())
+			}))
 			fr := read(ctx, iteratorSvc, aggregated(calc.Key(), calc.Index()))
 			v := fr.Get(calc.Key())
 			Expect(v.Series).To(HaveLen(1))
@@ -2641,14 +2531,11 @@ var _ = Describe("StreamIterator", Ordered, func() {
 		})
 
 		It("Should reduce a calculated index read alone", func(ctx SpecContext) {
-			calc := &channel.Channel{
+			calc := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 				Name:       "aggregate_index_only",
 				DataType:   telem.Float32T,
 				Expression: "return aggregate_sensor * 3",
-			}
-			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-				return channelSvc.NewWriter(tx).Create(ctx, calc)
-			})).To(Succeed())
+			}))
 			fr := read(ctx, iteratorSvc, aggregated(calc.Index()))
 			Expect(fr.KeysSlice()).To(HaveEach(Equal(calc.Index())))
 			idx := fr.Get(calc.Index())
@@ -2663,14 +2550,11 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			func(
 				ctx SpecContext,
 			) {
-				calc := &channel.Channel{
+				calc := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 					Name:       "aggregate_negated",
 					DataType:   telem.Float32T,
 					Expression: "return -aggregate_sensor",
-				}
-				Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-					return channelSvc.NewWriter(tx).Create(ctx, calc)
-				})).To(Succeed())
+				}))
 				alone := read(
 					ctx,
 					iteratorSvc,
@@ -2727,14 +2611,11 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			v[45], v[55] = 500, -500
 			write(cut.Key(), 0, telem.NewSeries(v[:50]))
 			write(cut.Key(), 50, telem.NewSeries(v[50:]))
-			calc := &channel.Channel{
+			calc := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 				Name:       "aggregate_cut_doubled",
 				DataType:   telem.Float32T,
 				Expression: "return aggregate_cut * 2",
-			}
-			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-				return channelSvc.NewWriter(tx).Create(ctx, calc)
-			})).To(Succeed())
+			}))
 			points := []float32{1, 20, 21, 40, 500, -500, 61, 80, 81, 100}
 			expected := telem.NewSeries(points).Data
 			alone := read(ctx, iteratorSvc, aggregated(cut.Key())).Get(cut.Key())
@@ -2750,16 +2631,13 @@ var _ = Describe("StreamIterator", Ordered, func() {
 		It("Should reduce a stateful calculation after it runs", func(
 			ctx SpecContext,
 		) {
-			calc := &channel.Channel{
+			calc := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 				Name:     "aggregate_total",
 				DataType: telem.Float32T,
 				Expression: "total f32 $= 0\n" +
 					"total = total + aggregate_sensor\n" +
 					"return total",
-			}
-			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-				return channelSvc.NewWriter(tx).Create(ctx, calc)
-			})).To(Succeed())
+			}))
 			totals := make([]float32, 100)
 			var sum float32
 			for i := range totals {
@@ -2805,14 +2683,11 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				telem.NewSeries(make([]float32, 20)),
 			}))).To(BeTrue())
 			Expect(w.Close()).To(Succeed())
-			calc := &channel.Channel{
+			calc := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 				Name:       "aggregate_fast_plus_slow",
 				DataType:   telem.Float32T,
 				Expression: "return aggregate_sensor + aggregate_slow",
-			}
-			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-				return channelSvc.NewWriter(tx).Create(ctx, calc)
-			})).To(Succeed())
+			}))
 			v := read(ctx, iteratorSvc, aggregated(calc.Key())).Get(calc.Key())
 			Expect(v.Series).To(HaveLen(1))
 			Expect(v.Series[0].Unmarshal[float32]()).To(Equal(groupEnds(ramp(1), 20)))
@@ -2826,6 +2701,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				node        testutil.Node
 				iteratorSvc *iterator.Service
 				channelSvc  *channel.Service
+				creator     calctestutil.Creator
 			)
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()
@@ -2843,6 +2719,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				StartRun(store.Run)
 				node = testutil.NewNode(ctx, distribution.LayerConfig{Storage: store})
 				iteratorSvc, channelSvc = openServices(ctx, node)
+				creator = calctestutil.Creator{DB: node.DB, Channel: channelSvc}
 				createSensor(ctx, node, channelSvc)
 			})
 			// values returns the samples of every series in m, in order.
@@ -2857,14 +2734,11 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			It("Should reduce a calculation read in chunks to exact groups", func(
 				ctx SpecContext,
 			) {
-				calc := &channel.Channel{
+				calc := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 					Name:       "aggregate_tripled",
 					DataType:   telem.Float32T,
 					Expression: "return aggregate_sensor * 3",
-				}
-				Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-					return channelSvc.NewWriter(tx).Create(ctx, calc)
-				})).To(Succeed())
+				}))
 				fr := read(ctx, iteratorSvc, aggregated(calc.Key(), calc.Index()))
 				v := fr.Get(calc.Key())
 				Expect(values(v)).To(Equal(groupEnds(ramp(3), 20)))
@@ -2883,14 +2757,11 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			It("Should read a reduced calculation with AutoSpan in one reply", func(
 				ctx SpecContext,
 			) {
-				calc := &channel.Channel{
+				calc := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 					Name:       "aggregate_quadrupled",
 					DataType:   telem.Float32T,
 					Expression: "return aggregate_sensor * 4",
-				}
-				Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-					return channelSvc.NewWriter(tx).Create(ctx, calc)
-				})).To(Succeed())
+				}))
 				cfg := aggregated(calc.Key())
 				cfg.ChunkSize = 7
 				iter := MustSucceed(iteratorSvc.Open(ctx, cfg))
@@ -2905,14 +2776,11 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			It("Should reduce Prev with AutoSpan to the groups of Next", func(
 				ctx SpecContext,
 			) {
-				calc := &channel.Channel{
+				calc := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 					Name:       "aggregate_septupled",
 					DataType:   telem.Float32T,
 					Expression: "return aggregate_sensor * 7",
-				}
-				Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-					return channelSvc.NewWriter(tx).Create(ctx, calc)
-				})).To(Succeed())
+				}))
 				cfg := aggregated(calc.Key())
 				cfg.ChunkSize = 7
 				type group struct {
@@ -2951,14 +2819,11 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			It("Should clip the groups of Prev with a fixed span at its edges", func(
 				ctx SpecContext,
 			) {
-				calc := &channel.Channel{
+				calc := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 					Name:       "aggregate_octupled",
 					DataType:   telem.Float32T,
 					Expression: "return aggregate_sensor * 8",
-				}
-				Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-					return channelSvc.NewWriter(tx).Create(ctx, calc)
-				})).To(Succeed())
+				}))
 				iter := MustSucceed(iteratorSvc.Open(ctx, aggregated(calc.Key())))
 				Expect(iter.SeekLast()).To(BeTrue())
 				Expect(iter.Prev(30 * telem.Second)).To(BeTrue())
@@ -3005,14 +2870,11 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					}))).To(BeTrue())
 					Expect(w.Close()).To(Succeed())
 				}
-				calc := &channel.Channel{
+				calc := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 					Name:       "aggregate_split_doubled",
 					DataType:   telem.Float32T,
 					Expression: "return aggregate_split * 2",
-				}
-				Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-					return channelSvc.NewWriter(tx).Create(ctx, calc)
-				})).To(Succeed())
+				}))
 				v := read(ctx, iteratorSvc, aggregated(calc.Key())).Get(calc.Key())
 				doubled := ramp(2)
 				Expect(values(v)).To(Equal(append(
@@ -3024,14 +2886,11 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			It("Should keep the stride of a calculation read in chunks", func(
 				ctx SpecContext,
 			) {
-				calc := &channel.Channel{
+				calc := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 					Name:       "aggregate_quintupled",
 					DataType:   telem.Float32T,
 					Expression: "return aggregate_sensor * 5",
-				}
-				Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-					return channelSvc.NewWriter(tx).Create(ctx, calc)
-				})).To(Succeed())
+				}))
 				fr := read(ctx, iteratorSvc, iterator.Config{
 					Keys:   []channel.Key{calc.Key()},
 					Bounds: bounds,
@@ -3048,14 +2907,11 @@ var _ = Describe("StreamIterator", Ordered, func() {
 		})
 
 		It("Should resize groups when the bounds change", func(ctx SpecContext) {
-			calc := &channel.Channel{
+			calc := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 				Name:       "aggregate_halved",
 				DataType:   telem.Float32T,
 				Expression: "return aggregate_sensor / 2",
-			}
-			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-				return channelSvc.NewWriter(tx).Create(ctx, calc)
-			})).To(Succeed())
+			}))
 			iter := MustSucceed(iteratorSvc.Open(ctx, aggregated(calc.Key())))
 			Expect(iter.SetBounds(telem.SecondTS.Range(51 * telem.SecondTS))).
 				To(BeTrue())
@@ -3100,6 +2956,7 @@ var _ = Describe("Read failure", func() {
 		faulty      *FaultyFS
 		iteratorSvc *iterator.Service
 		channelSvc  *channel.Service
+		creator     calctestutil.Creator
 		node        testutil.Node
 	)
 	BeforeEach(func(ctx SpecContext) {
@@ -3113,6 +2970,7 @@ var _ = Describe("Read failure", func() {
 		StartRun(store.Run)
 		node = testutil.NewNode(ctx, distribution.LayerConfig{Storage: store})
 		iteratorSvc, channelSvc = openServices(ctx, node)
+		creator = calctestutil.Creator{DB: node.DB, Channel: channelSvc}
 	})
 
 	It("Should return the read error from Close", func(ctx SpecContext) {
@@ -3173,14 +3031,11 @@ var _ = Describe("Read failure", func() {
 			telem.NewSeriesV[float32](1, 2, 3),
 		})))
 		Expect(w.Close()).To(Succeed())
-		calc := &channel.Channel{
+		calc := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 			Name:       "amundsen_doubled",
 			DataType:   telem.Float32T,
 			Expression: "return amundsen_sensor * 2",
-		}
-		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-			return channelSvc.NewWriter(tx).Create(ctx, calc)
-		})).To(Succeed())
+		}))
 
 		faulty.SetOptions(WithFailReadAt())
 		Expect(iteratorSvc.Open(ctx, iterator.Config{

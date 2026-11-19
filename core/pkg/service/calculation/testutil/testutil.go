@@ -75,3 +75,20 @@ func (c Creator) CreateMany(
 	// The writer appends the index channels that it creates after the outputs.
 	return channels[:len(calcs)], nil
 }
+
+// Indexes returns the index channel of each output, in the order of outputs.
+func (c Creator) Indexes(
+	ctx context.Context,
+	outputs []channel.Channel,
+) ([]channel.Channel, error) {
+	indexes := make([]channel.Channel, len(outputs))
+	for i, output := range outputs {
+		if err := c.Channel.NewRetrieve().
+			Where(channel.MatchKeys(output.Index())).
+			Entry(&indexes[i]).
+			Exec(ctx, c.DB); err != nil {
+			return nil, err
+		}
+	}
+	return indexes, nil
+}

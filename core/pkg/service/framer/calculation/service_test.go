@@ -20,20 +20,19 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation/compiler"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/calculation/graph"
+	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/query"
@@ -50,14 +49,20 @@ var _ = Describe("Calculation", Ordered, func() {
 		channelSvc   *channel.Service
 		channelGraph *calcgraph.Graph
 		writerSvc    *writer.Service
+		creator      calctestutil.Creator
 	)
 	open := func(
 		ctx context.Context,
 		indexChannels,
-		baseChannels,
-		calculations *[]channel.Channel,
+		baseChannels *[]channel.Channel,
+		calculations []calctestutil.Calculation,
 		streamKeys func([]channel.Channel) channel.Keys,
-	) (*framer.Writer, confluence.Outlet[streamer.Response], context.CancelFunc) {
+	) (
+		*framer.Writer,
+		confluence.Outlet[streamer.Response],
+		[]channel.Channel,
+		context.CancelFunc,
+	) {
 		GinkgoHelper()
 		if indexChannels != nil {
 			Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
@@ -78,11 +83,9 @@ var _ = Describe("Calculation", Ordered, func() {
 		Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
 			return channelSvc.NewWriter(tx).CreateMany(ctx, baseChannels)
 		})).To(Succeed())
-		Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
-			return channelSvc.NewWriter(tx).CreateMany(ctx, calculations)
-		})).To(Succeed())
+		calcs := MustSucceed(creator.CreateMany(ctx, calculations))
 		rm := c.OpenRequestManager()
-		Expect(rm.Set(ctx, channel.KeysFromChannels(*calculations))).To(Succeed())
+		Expect(rm.Set(ctx, channel.KeysFromChannels(calcs))).To(Succeed())
 		writerKeys := channel.KeysFromChannels(*baseChannels)
 		if indexChannels != nil {
 			writerKeys = append(writerKeys, channel.KeysFromChannels(*indexChannels)...)
@@ -98,16 +101,10 @@ var _ = Describe("Calculation", Ordered, func() {
 				Keys:  writerKeys,
 			},
 		))
-		filtered := lo.Filter(
-			*calculations,
-			func(item channel.Channel, index int) bool {
-				return !item.IsIndex
-			},
-		)
 		streamer := MustSucceed(
 			dist.Framer.NewStreamer(
 				framer.StreamerConfig{
-					Keys:        streamKeys(filtered),
+					Keys:        streamKeys(calcs),
 					SendOpenAck: new(true),
 				},
 			),
@@ -115,7 +112,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		_, sOutlet := confluence.Attach(streamer, 1, 1)
 		streamer.Flow(sCtx)
 		Eventually(sOutlet.Outlet()).Should(Receive())
-		return w, sOutlet, func() {
+		return w, sOutlet, calcs, func() {
 			Expect(rm.Close(ctx)).To(Succeed())
 			Expect(w.Close()).To(Succeed())
 		}
@@ -137,6 +134,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			HostKey: dist.Identity.HostKey,
 			Status:  statusSvc,
 		}))
+		creator = calctestutil.Creator{DB: dist.DB, Channel: channelSvc}
 		writerSvc = MustSucceed(writer.NewService(writer.ServiceConfig{
 			DB:      dist.DB,
 			Framer:  dist.Framer,
@@ -163,18 +161,16 @@ var _ = Describe("Calculation", Ordered, func() {
 				DataType: telem.Int64T,
 				Virtual:  true,
 			}}
-			calcs := []channel.Channel{{
-				Name:        UniqueChannelName(),
-				DataType:    telem.Int64T,
-				Virtual:     true,
-				Leaseholder: node.KeyFree,
-				Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
+			calculations := []calctestutil.Calculation{{
+				Name:       UniqueChannelName(),
+				DataType:   telem.Int64T,
+				Expression: fmt.Sprintf("return %s * 2", bases[0].Name),
 			}}
-			w, sOutlet, cancel := open(
+			w, sOutlet, calcs, cancel := open(
 				ctx,
 				nil,
 				&bases,
-				&calcs,
+				calculations,
 				channel.KeysFromChannels,
 			)
 			defer cancel()
@@ -194,8 +190,8 @@ var _ = Describe("Calculation", Ordered, func() {
 
 		Describe("Two Virtual Channels as Bases", func() {
 			var (
-				bases []channel.Channel
-				calcs []channel.Channel
+				bases        []channel.Channel
+				calculations []calctestutil.Calculation
 			)
 			BeforeEach(func() {
 				bases = []channel.Channel{
@@ -210,12 +206,10 @@ var _ = Describe("Calculation", Ordered, func() {
 						Virtual:  true,
 					},
 				}
-				calcs = []channel.Channel{
+				calculations = []calctestutil.Calculation{
 					{
-						Name:        UniqueChannelName(),
-						DataType:    telem.Int64T,
-						Virtual:     true,
-						Leaseholder: node.KeyFree,
+						Name:     UniqueChannelName(),
+						DataType: telem.Int64T,
 						Expression: fmt.Sprintf(
 							"return %s * %s",
 							bases[0].Name,
@@ -225,11 +219,11 @@ var _ = Describe("Calculation", Ordered, func() {
 				}
 			})
 			Specify("Single Write with Data for Both Channels", func(ctx SpecContext) {
-				w, sOutlet, cancel := open(
+				w, sOutlet, calcs, cancel := open(
 					ctx,
 					nil,
 					&bases,
-					&calcs,
+					calculations,
 					channel.KeysFromChannels,
 				)
 				defer cancel()
@@ -255,11 +249,11 @@ var _ = Describe("Calculation", Ordered, func() {
 			Specify(
 				"Two Writes with Data for Individual Channels",
 				func(ctx SpecContext) {
-					w, sOutlet, cancel := open(
+					w, sOutlet, calcs, cancel := open(
 						ctx,
 						nil,
 						&bases,
-						&calcs,
+						calculations,
 						channel.KeysFromChannels,
 					)
 					defer cancel()
@@ -307,19 +301,17 @@ var _ = Describe("Calculation", Ordered, func() {
 					Name:     UniqueChannelName(),
 					DataType: telem.Int64T,
 				}}
-				calcs = []channel.Channel{{
-					Name:        UniqueChannelName(),
-					DataType:    telem.Int64T,
-					Virtual:     true,
-					Leaseholder: node.KeyFree,
-					Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
+				calculations = []calctestutil.Calculation{{
+					Name:       UniqueChannelName(),
+					DataType:   telem.Int64T,
+					Expression: fmt.Sprintf("return %s * 2", bases[0].Name),
 				}}
 			)
-			w, sOutlet, cancel := open(
+			w, sOutlet, calcs, cancel := open(
 				ctx,
 				&indexes,
 				&bases,
-				&calcs,
+				calculations,
 				channel.KeysFromChannels,
 			)
 			defer cancel()
@@ -360,12 +352,10 @@ var _ = Describe("Calculation", Ordered, func() {
 							DataType: telem.Float32T,
 						},
 					}
-					calcs = []channel.Channel{
+					calculations = []calctestutil.Calculation{
 						{
-							Name:        UniqueChannelName(),
-							DataType:    telem.Float32T,
-							Virtual:     true,
-							Leaseholder: node.KeyFree,
+							Name:     UniqueChannelName(),
+							DataType: telem.Float32T,
 							Expression: fmt.Sprintf(
 								"return %s * %s",
 								bases[0].Name,
@@ -374,11 +364,11 @@ var _ = Describe("Calculation", Ordered, func() {
 						},
 					}
 				)
-				w, sOutlet, cancel := open(
+				w, sOutlet, calcs, cancel := open(
 					ctx,
 					&indexes,
 					&bases,
-					&calcs,
+					calculations,
 					channel.KeysFromChannels,
 				)
 				defer cancel()
@@ -425,12 +415,10 @@ var _ = Describe("Calculation", Ordered, func() {
 							DataType: telem.Float32T,
 						},
 					}
-					calcs = []channel.Channel{
+					calculations = []calctestutil.Calculation{
 						{
-							Name:        UniqueChannelName(),
-							DataType:    telem.Float32T,
-							Virtual:     true,
-							Leaseholder: node.KeyFree,
+							Name:     UniqueChannelName(),
+							DataType: telem.Float32T,
 							Expression: fmt.Sprintf(
 								"return %s * %s",
 								bases[0].Name,
@@ -439,11 +427,11 @@ var _ = Describe("Calculation", Ordered, func() {
 						},
 					}
 				)
-				w, sOutlet, cancel := open(
+				w, sOutlet, calcs, cancel := open(
 					ctx,
 					&indexes,
 					&bases,
-					&calcs,
+					calculations,
 					channel.KeysFromChannels,
 				)
 				defer cancel()
@@ -499,12 +487,10 @@ var _ = Describe("Calculation", Ordered, func() {
 							DataType: telem.Float32T,
 						},
 					}
-					calcs = []channel.Channel{
+					calculations = []calctestutil.Calculation{
 						{
-							Name:        UniqueChannelName(),
-							DataType:    telem.Float32T,
-							Virtual:     true,
-							Leaseholder: node.KeyFree,
+							Name:     UniqueChannelName(),
+							DataType: telem.Float32T,
 							Expression: fmt.Sprintf(
 								"return %s * %s",
 								bases[0].Name,
@@ -513,11 +499,11 @@ var _ = Describe("Calculation", Ordered, func() {
 						},
 					}
 				)
-				w, sOutlet, cancel := open(
+				w, sOutlet, calcs, cancel := open(
 					ctx,
 					&indexes,
 					&bases,
-					&calcs,
+					calculations,
 					channel.KeysFromChannels,
 				)
 				defer cancel()
@@ -552,8 +538,8 @@ var _ = Describe("Calculation", Ordered, func() {
 
 		Describe("Nested Calculations", func() {
 			var (
-				bases []channel.Channel
-				calcs []channel.Channel
+				bases        []channel.Channel
+				calculations []calctestutil.Calculation
 			)
 			BeforeEach(func() {
 				calc1Name := UniqueChannelName()
@@ -562,26 +548,22 @@ var _ = Describe("Calculation", Ordered, func() {
 					DataType: telem.Int64T,
 					Virtual:  true,
 				}}
-				calcs = []channel.Channel{{
-					Name:        calc1Name,
-					DataType:    telem.Int64T,
-					Virtual:     true,
-					Leaseholder: node.KeyFree,
-					Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
+				calculations = []calctestutil.Calculation{{
+					Name:       calc1Name,
+					DataType:   telem.Int64T,
+					Expression: fmt.Sprintf("return %s * 2", bases[0].Name),
 				}, {
-					Name:        UniqueChannelName(),
-					DataType:    telem.Int64T,
-					Virtual:     true,
-					Leaseholder: node.KeyFree,
-					Expression:  fmt.Sprintf("return %s * 2", calc1Name),
+					Name:       UniqueChannelName(),
+					DataType:   telem.Int64T,
+					Expression: fmt.Sprintf("return %s * 2", calc1Name),
 				}}
 			})
 			Specify("Base and Derived Requested", func(ctx SpecContext) {
-				w, sOutlet, cancel := open(
+				w, sOutlet, calcs, cancel := open(
 					ctx,
 					nil,
 					&bases,
-					&calcs,
+					calculations,
 					channel.KeysFromChannels,
 				)
 				defer cancel()
@@ -610,11 +592,11 @@ var _ = Describe("Calculation", Ordered, func() {
 			Specify(
 				"Calculations of Calculations, Base Not Requested",
 				func(ctx SpecContext) {
-					w, sOutlet, cancel := open(
+					w, sOutlet, calcs, cancel := open(
 						ctx,
 						nil,
 						&bases,
-						&calcs,
+						calculations,
 						func(calcs []channel.Channel) channel.Keys {
 							return []channel.Key{calcs[1].Key()}
 						},
@@ -652,12 +634,10 @@ var _ = Describe("Calculation", Ordered, func() {
 				}
 			}
 			sumA, sumB := UniqueChannelName(), UniqueChannelName()
-			calcs := []channel.Channel{
+			calculations := []calctestutil.Calculation{
 				{
-					Name:        sumA,
-					DataType:    telem.Int64T,
-					Virtual:     true,
-					Leaseholder: node.KeyFree,
+					Name:     sumA,
+					DataType: telem.Int64T,
 					Expression: fmt.Sprintf(
 						"return %s + %s",
 						bases[0].Name,
@@ -665,10 +645,8 @@ var _ = Describe("Calculation", Ordered, func() {
 					),
 				},
 				{
-					Name:        sumB,
-					DataType:    telem.Int64T,
-					Virtual:     true,
-					Leaseholder: node.KeyFree,
+					Name:     sumB,
+					DataType: telem.Int64T,
 					Expression: fmt.Sprintf(
 						"return %s + %s + %s",
 						bases[2].Name,
@@ -677,18 +655,16 @@ var _ = Describe("Calculation", Ordered, func() {
 					),
 				},
 				{
-					Name:        UniqueChannelName(),
-					DataType:    telem.Int64T,
-					Virtual:     true,
-					Leaseholder: node.KeyFree,
-					Expression:  fmt.Sprintf("return %s + %s", sumA, sumB),
+					Name:       UniqueChannelName(),
+					DataType:   telem.Int64T,
+					Expression: fmt.Sprintf("return %s + %s", sumA, sumB),
 				},
 			}
-			w, sOutlet, cancel := open(
+			w, sOutlet, calcs, cancel := open(
 				ctx,
 				nil,
 				&bases,
-				&calcs,
+				calculations,
 				func(calcs []channel.Channel) channel.Keys {
 					return []channel.Key{calcs[2].Key()}
 				},
@@ -783,20 +759,15 @@ var _ = Describe("Calculation", Ordered, func() {
 				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
 					return channelSvc.NewWriter(tx).Create(ctx, &sig)
 				})).To(Succeed())
-				calc := channel.Channel{
-					Name:        UniqueChannelName(),
-					DataType:    telem.Int64T,
-					Virtual:     true,
-					Leaseholder: node.KeyFree,
-					Expression:  "return " + base.Name,
+				calc := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
+					Name:       UniqueChannelName(),
+					DataType:   telem.Int64T,
+					Expression: "return " + base.Name,
 					Operations: []channel.Operation{{
 						Type:         channel.OperationTypeMax,
 						ResetChannel: sig.Key(),
 					}},
-				}
-				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
-					return channelSvc.NewWriter(tx).Create(ctx, &calc)
-				})).To(Succeed())
+				}))
 				expectReset(
 					ctx,
 					calc,
@@ -817,30 +788,20 @@ var _ = Describe("Calculation", Ordered, func() {
 				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
 					return channelSvc.NewWriter(tx).Create(ctx, &sig)
 				})).To(Succeed())
-				resetCalc := channel.Channel{
-					Name:        UniqueChannelName(),
-					DataType:    telem.BooleanT,
-					Virtual:     true,
-					Leaseholder: node.KeyFree,
-					Expression:  fmt.Sprintf("return %s != 0", sig.Name),
-				}
-				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
-					return channelSvc.NewWriter(tx).Create(ctx, &resetCalc)
-				})).To(Succeed())
-				calc := channel.Channel{
-					Name:        UniqueChannelName(),
-					DataType:    telem.Int64T,
-					Virtual:     true,
-					Leaseholder: node.KeyFree,
-					Expression:  "return " + base.Name,
+				resetCalc := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
+					Name:       UniqueChannelName(),
+					DataType:   telem.BooleanT,
+					Expression: fmt.Sprintf("return %s != 0", sig.Name),
+				}))
+				calc := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
+					Name:       UniqueChannelName(),
+					DataType:   telem.Int64T,
+					Expression: "return " + base.Name,
 					Operations: []channel.Operation{{
 						Type:         channel.OperationTypeMax,
 						ResetChannel: resetCalc.Key(),
 					}},
-				}
-				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
-					return channelSvc.NewWriter(tx).Create(ctx, &calc)
-				})).To(Succeed())
+				}))
 				expectReset(
 					ctx,
 					calc,
@@ -863,16 +824,11 @@ var _ = Describe("Calculation", Ordered, func() {
 				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
 					return channelSvc.NewWriter(tx).Create(ctx, &base)
 				})).To(Succeed())
-				calc := channel.Channel{
-					Name:        UniqueChannelName(),
-					DataType:    telem.Int64T,
-					Virtual:     true,
-					Leaseholder: node.KeyFree,
-					Expression:  fmt.Sprintf("return %s * 2", base.Name),
-				}
-				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
-					return channelSvc.NewWriter(tx).Create(ctx, &calc)
-				})).To(Succeed())
+				calc := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
+					Name:       UniqueChannelName(),
+					DataType:   telem.Int64T,
+					Expression: fmt.Sprintf("return %s * 2", base.Name),
+				}))
 				w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 					Start: telem.Now(),
 					Keys:  channel.Keys{base.Key()},
@@ -913,16 +869,11 @@ var _ = Describe("Calculation", Ordered, func() {
 				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
 					return channelSvc.NewWriter(tx).Create(ctx, &base)
 				})).To(Succeed())
-				calc := channel.Channel{
-					Name:        UniqueChannelName(),
-					DataType:    telem.Int64T,
-					Virtual:     true,
-					Leaseholder: node.KeyFree,
-					Expression:  fmt.Sprintf("return %s * 2", base.Name),
-				}
-				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
-					return channelSvc.NewWriter(tx).Create(ctx, &calc)
-				})).To(Succeed())
+				calc := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
+					Name:       UniqueChannelName(),
+					DataType:   telem.Int64T,
+					Expression: fmt.Sprintf("return %s * 2", base.Name),
+				}))
 				w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 					Start: telem.Now(),
 					Keys:  channel.Keys{base.Key()},
@@ -995,16 +946,11 @@ var _ = Describe("Calculation", Ordered, func() {
 				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
 					return channelSvc.NewWriter(tx).Create(ctx, &base)
 				})).To(Succeed())
-				calc := channel.Channel{
-					Name:        UniqueChannelName(),
-					DataType:    telem.Int64T,
-					Virtual:     true,
-					Leaseholder: node.KeyFree,
-					Expression:  fmt.Sprintf("return %s * 2", base.Name),
-				}
-				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
-					return channelSvc.NewWriter(tx).Create(ctx, &calc)
-				})).To(Succeed())
+				calc := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
+					Name:       UniqueChannelName(),
+					DataType:   telem.Int64T,
+					Expression: fmt.Sprintf("return %s * 2", base.Name),
+				}))
 				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
 					return channelSvc.NewWriter(tx).Delete(
 						ctx, base.Key(), false,
@@ -1038,16 +984,11 @@ var _ = Describe("Calculation", Ordered, func() {
 				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
 					return channelSvc.NewWriter(tx).Create(ctx, &base)
 				})).To(Succeed())
-				calc := channel.Channel{
-					Name:        UniqueChannelName(),
-					DataType:    telem.Float64T,
-					Virtual:     true,
-					Leaseholder: node.KeyFree,
-					Expression:  fmt.Sprintf("return %s + 1", base.Name),
-				}
-				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
-					return channelSvc.NewWriter(tx).Create(ctx, &calc)
-				})).To(Succeed())
+				calc := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
+					Name:       UniqueChannelName(),
+					DataType:   telem.Float64T,
+					Expression: fmt.Sprintf("return %s + 1", base.Name),
+				}))
 				rm := c.OpenRequestManager()
 				Expect(rm.Set(ctx, channel.Keys{calc.Key()})).To(Succeed())
 				// Delete the dependency, then rename the calc to force a write of its
@@ -1089,16 +1030,11 @@ var _ = Describe("Calculation", Ordered, func() {
 				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
 					return channelSvc.NewWriter(tx).Create(ctx, &base)
 				})).To(Succeed())
-				dep := channel.Channel{
-					Name:        UniqueChannelName(),
-					DataType:    telem.Int64T,
-					Virtual:     true,
-					Leaseholder: node.KeyFree,
-					Expression:  "return 100 / " + base.Name,
-				}
-				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
-					return channelSvc.NewWriter(tx).Create(ctx, &dep)
-				})).To(Succeed())
+				dep := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
+					Name:       UniqueChannelName(),
+					DataType:   telem.Int64T,
+					Expression: "return 100 / " + base.Name,
+				}))
 				stored := func() (calculation.Status, error) {
 					var st calculation.Status
 					err := statusSvc.NewRetrieve[struct{}]().
@@ -1130,16 +1066,11 @@ var _ = Describe("Calculation", Ordered, func() {
 					_, err := stored()
 					return err
 				}).Should(MatchError(query.ErrNotFound))
-				reader := channel.Channel{
-					Name:        UniqueChannelName(),
-					DataType:    telem.Int64T,
-					Virtual:     true,
-					Leaseholder: node.KeyFree,
-					Expression:  fmt.Sprintf("return %s * 2", dep.Name),
-				}
-				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
-					return channelSvc.NewWriter(tx).Create(ctx, &reader)
-				})).To(Succeed())
+				reader := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
+					Name:       UniqueChannelName(),
+					DataType:   telem.Int64T,
+					Expression: fmt.Sprintf("return %s * 2", dep.Name),
+				}))
 				readerRM := c.OpenRequestManager()
 				DeferCleanup(func(ctx SpecContext) {
 					Expect(readerRM.Close(ctx)).To(Succeed())
@@ -1183,19 +1114,20 @@ var _ = Describe("Calculation", Ordered, func() {
 					DataType: telem.Int64T,
 					Virtual:  true,
 				}}
-				calcs := []channel.Channel{{
-					Name:        UniqueChannelName(),
-					DataType:    telem.Int64T,
-					Virtual:     true,
-					Leaseholder: node.KeyFree,
-					Expression:  "return 100 / " + bases[0].Name,
+				calculations := []calctestutil.Calculation{{
+					Name:       UniqueChannelName(),
+					DataType:   telem.Int64T,
+					Expression: "return 100 / " + bases[0].Name,
 				}}
-				var cancel context.CancelFunc
-				w, out, cancel = open(
+				var (
+					calcs  []channel.Channel
+					cancel context.CancelFunc
+				)
+				w, out, calcs, cancel = open(
 					ctx,
 					nil,
 					&bases,
-					&calcs,
+					calculations,
 					channel.KeysFromChannels,
 				)
 				DeferCleanup(cancel)
@@ -1298,16 +1230,11 @@ var _ = Describe("Calculation", Ordered, func() {
 					openCalc(ctx)
 					write(0)
 					Eventually(written).Should(ConsistOf(failure()))
-					sibling := channel.Channel{
-						Name:        UniqueChannelName(),
-						DataType:    telem.Int64T,
-						Virtual:     true,
-						Leaseholder: node.KeyFree,
-						Expression:  fmt.Sprintf("return %s * 2", base.Name),
-					}
-					Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
-						return channelSvc.NewWriter(tx).Create(ctx, &sibling)
-					})).To(Succeed())
+					sibling := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
+						Name:       UniqueChannelName(),
+						DataType:   telem.Int64T,
+						Expression: fmt.Sprintf("return %s * 2", base.Name),
+					}))
 					rm := c.OpenRequestManager()
 					Expect(rm.Set(ctx, channel.Keys{sibling.Key()})).To(Succeed())
 					DeferCleanup(func(ctx SpecContext) {
@@ -1359,16 +1286,11 @@ var _ = Describe("Calculation", Ordered, func() {
 				GinkgoHelper()
 				write(0)
 				writeGood()
-				sibling := channel.Channel{
-					Name:        UniqueChannelName(),
-					DataType:    telem.Int64T,
-					Virtual:     true,
-					Leaseholder: node.KeyFree,
-					Expression:  fmt.Sprintf("return %s * 2", baseName),
-				}
-				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
-					return channelSvc.NewWriter(tx).Create(ctx, &sibling)
-				})).To(Succeed())
+				sibling := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
+					Name:       UniqueChannelName(),
+					DataType:   telem.Int64T,
+					Expression: fmt.Sprintf("return %s * 2", baseName),
+				}))
 				rm := c.OpenRequestManager()
 				Expect(rm.Set(ctx, channel.Keys{sibling.Key()})).To(Succeed())
 				DeferCleanup(func(ctx SpecContext) {
@@ -1384,16 +1306,13 @@ var _ = Describe("Calculation", Ordered, func() {
 				"Should keep a compile failure through runtime failures and rebuilds",
 				func(ctx SpecContext) {
 					openCalc(ctx)
-					dependent := channel.Channel{
-						Name:        UniqueChannelName(),
-						DataType:    telem.Int64T,
-						Virtual:     true,
-						Leaseholder: node.KeyFree,
-						Expression:  fmt.Sprintf("return %s * 2", calc.Name),
-					}
-					Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
-						return channelSvc.NewWriter(tx).Create(ctx, &dependent)
-					})).To(Succeed())
+					dependent := MustSucceed(
+						creator.Create(ctx, calctestutil.Calculation{
+							Name:       UniqueChannelName(),
+							DataType:   telem.Int64T,
+							Expression: fmt.Sprintf("return %s * 2", calc.Name),
+						}),
+					)
 					calc.Expression = fmt.Sprintf(
 						"return %s + 100 / %s", dependent.Name, base.Name,
 					)
@@ -1481,16 +1400,11 @@ var _ = Describe("Calculation", Ordered, func() {
 				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
 					return channelSvc.NewWriter(tx).Create(ctx, &base)
 				})).To(Succeed())
-				calc := channel.Channel{
-					Name:        UniqueChannelName(),
-					DataType:    telem.Int64T,
-					Virtual:     true,
-					Leaseholder: node.KeyFree,
-					Expression:  fmt.Sprintf("return %s * 2", base.Name),
-				}
-				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
-					return channelSvc.NewWriter(tx).Create(ctx, &calc)
-				})).To(Succeed())
+				calc := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
+					Name:       UniqueChannelName(),
+					DataType:   telem.Int64T,
+					Expression: fmt.Sprintf("return %s * 2", base.Name),
+				}))
 				rm := c.OpenRequestManager()
 				Expect(rm.Set(ctx, channel.Keys{calc.Key()})).To(Succeed())
 				Expect(rm.Close(ctx)).To(Succeed())
@@ -1519,16 +1433,11 @@ var _ = Describe("Calculation", Ordered, func() {
 				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
 					return channelSvc.NewWriter(tx).Create(ctx, &base)
 				})).To(Succeed())
-				calc := channel.Channel{
-					Name:        UniqueChannelName(),
-					DataType:    telem.Int64T,
-					Virtual:     true,
-					Leaseholder: node.KeyFree,
-					Expression:  fmt.Sprintf("return %s * 2", base.Name),
-				}
-				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
-					return channelSvc.NewWriter(tx).Create(ctx, &calc)
-				})).To(Succeed())
+				calc := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
+					Name:       UniqueChannelName(),
+					DataType:   telem.Int64T,
+					Expression: fmt.Sprintf("return %s * 2", base.Name),
+				}))
 				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
 					return channelSvc.NewWriter(tx).Delete(ctx, base.Key(), false)
 				})).To(Succeed())
@@ -1599,19 +1508,16 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
 				return channelSvc.NewWriter(tx).CreateMany(ctx, &bases)
 			})).To(Succeed())
-			calcs := make([]channel.Channel, 3)
-			for i := range calcs {
-				calcs[i] = channel.Channel{
-					Name:        UniqueChannelName(),
-					DataType:    telem.Int64T,
-					Virtual:     true,
-					Leaseholder: node.KeyFree,
-					Expression:  fmt.Sprintf("return %s * %d", bases[0].Name, i+2),
+			calculations := make([]calctestutil.Calculation, 3)
+			for i := range calculations {
+				calculations[i] = calctestutil.Calculation{
+					Name:       UniqueChannelName(),
+					DataType:   telem.Int64T,
+					Expression: fmt.Sprintf("return %s * %d", bases[0].Name, i+2),
 				}
 			}
-			Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
-				return channelSvc.NewWriter(tx).CreateMany(ctx, &calcs)
-			})).To(Succeed())
+			calcs := MustSucceed(creator.CreateMany(ctx, calculations))
+			calcs = append(calcs, MustSucceed(creator.Indexes(ctx, calcs))...)
 			keys := channel.KeysFromChannels(calcs)
 			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Start: 1 * telem.SecondTS,
@@ -1685,16 +1591,11 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
 				return channelSvc.NewWriter(tx).CreateMany(ctx, &bases)
 			})).To(Succeed())
-			calc := channel.Channel{
-				Name:        UniqueChannelName(),
-				DataType:    telem.Int64T,
-				Virtual:     true,
-				Leaseholder: node.KeyFree,
-				Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
-			}
-			Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
-				return channelSvc.NewWriter(tx).Create(ctx, &calc)
-			})).To(Succeed())
+			calc := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
+				Name:       UniqueChannelName(),
+				DataType:   telem.Int64T,
+				Expression: fmt.Sprintf("return %s * 2", bases[0].Name),
+			}))
 			target.Store(uint32(calc.Key()))
 			changes.Store(10)
 			rm := changing.OpenRequestManager()
@@ -1726,16 +1627,11 @@ var _ = Describe("Calculation", Ordered, func() {
 				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
 					return channelSvc.NewWriter(tx).CreateMany(ctx, &bases)
 				})).To(Succeed())
-				calc := channel.Channel{
-					Name:        UniqueChannelName(),
-					DataType:    telem.Int64T,
-					Virtual:     true,
-					Leaseholder: node.KeyFree,
-					Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
-				}
-				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
-					return channelSvc.NewWriter(tx).Create(ctx, &calc)
-				})).To(Succeed())
+				calc := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
+					Name:       UniqueChannelName(),
+					DataType:   telem.Int64T,
+					Expression: fmt.Sprintf("return %s * 2", bases[0].Name),
+				}))
 				w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 					Start: 1 * telem.SecondTS,
 					Keys:  channel.KeysFromChannels(bases),
@@ -1798,18 +1694,16 @@ var _ = Describe("Calculation", Ordered, func() {
 				DataType: telem.Int64T,
 				Virtual:  true,
 			}}
-			calcs := []channel.Channel{{
-				Name:        UniqueChannelName(),
-				DataType:    telem.Int64T,
-				Virtual:     true,
-				Leaseholder: node.KeyFree,
-				Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
+			calculations := []calctestutil.Calculation{{
+				Name:       UniqueChannelName(),
+				DataType:   telem.Int64T,
+				Expression: fmt.Sprintf("return %s * 2", bases[0].Name),
 			}}
-			w, sOutlet, cancel := open(
+			w, sOutlet, calcs, cancel := open(
 				ctx,
 				nil,
 				&bases,
-				&calcs,
+				calculations,
 				channel.KeysFromChannels,
 			)
 			defer cancel()
@@ -1867,18 +1761,16 @@ var _ = Describe("Calculation", Ordered, func() {
 				DataType: telem.Int64T,
 				Virtual:  true,
 			}}
-			calcs := []channel.Channel{{
-				Name:        UniqueChannelName(),
-				DataType:    telem.Int64T,
-				Virtual:     true,
-				Leaseholder: node.KeyFree,
-				Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
+			calculations := []calctestutil.Calculation{{
+				Name:       UniqueChannelName(),
+				DataType:   telem.Int64T,
+				Expression: fmt.Sprintf("return %s * 2", bases[0].Name),
 			}}
-			w, sOutlet, cancel := open(
+			w, sOutlet, calcs, cancel := open(
 				ctx,
 				nil,
 				&bases,
-				&calcs,
+				calculations,
 				channel.KeysFromChannels,
 			)
 			defer cancel()
@@ -1940,18 +1832,16 @@ var _ = Describe("Calculation", Ordered, func() {
 				DataType: telem.Int64T,
 				Virtual:  true,
 			}}
-			calcs := []channel.Channel{{
-				Name:        UniqueChannelName(),
-				DataType:    telem.Int64T,
-				Virtual:     true,
-				Leaseholder: node.KeyFree,
-				Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
+			calculations := []calctestutil.Calculation{{
+				Name:       UniqueChannelName(),
+				DataType:   telem.Int64T,
+				Expression: fmt.Sprintf("return %s * 2", bases[0].Name),
 			}}
-			w, sOutlet, cancel := open(
+			w, sOutlet, calcs, cancel := open(
 				ctx,
 				nil,
 				&bases,
-				&calcs,
+				calculations,
 				channel.KeysFromChannels,
 			)
 			defer cancel()

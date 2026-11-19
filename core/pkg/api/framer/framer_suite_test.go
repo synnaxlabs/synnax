@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	svcframer "github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -53,6 +54,7 @@ var (
 	apiSvc     *apiframer.Service
 	framerSvc  *svcframer.Service
 	channelSvc *channel.Service
+	creator    calctestutil.Creator
 	rbacSvc    *rbac.Service
 	userSvc    *user.Service
 	svc        *service.Layer
@@ -89,6 +91,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	framerSvc = svc.Framer
 	channelSvc = svc.Channel
+	creator = calctestutil.Creator{DB: db, Channel: channelSvc}
 	rbacSvc = svc.RBAC
 	userSvc = svc.User
 	apiSvc = MustSucceed(apiframer.NewService(apiframer.ServiceConfig{

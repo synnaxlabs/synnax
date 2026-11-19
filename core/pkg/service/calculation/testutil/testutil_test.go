@@ -115,4 +115,31 @@ var _ = Describe("Creator", Ordered, func() {
 			Expect(creator.CreateMany(ctx, nil)).To(BeEmpty())
 		})
 	})
+
+	Describe("Indexes", func() {
+		It(
+			"Should return the index channel of each output in order",
+			func(ctx SpecContext) {
+				outs := MustSucceed(creator.CreateMany(ctx, []Calculation{
+					{
+						Name:       channeltestutil.UniqueChannelName(),
+						Expression: "return " + input,
+					},
+					{
+						Name:       channeltestutil.UniqueChannelName(),
+						Expression: "return " + input,
+					},
+				}))
+				indexes := MustSucceed(creator.Indexes(ctx, outs))
+				Expect(channel.KeysFromChannels(indexes)).
+					To(Equal(channel.Keys{outs[0].Index(), outs[1].Index()}))
+				Expect(indexes).To(HaveEach(HaveField("IsIndex", BeTrue())))
+				Expect(channel.Names(indexes)).
+					To(Equal([]string{outs[0].Name + "_time", outs[1].Name + "_time"}))
+			},
+		)
+		It("Should return no channels for no outputs", func(ctx SpecContext) {
+			Expect(creator.Indexes(ctx, nil)).To(BeEmpty())
+		})
+	})
 })

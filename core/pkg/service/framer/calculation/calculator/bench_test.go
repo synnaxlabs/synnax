@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation/compiler"
+	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -34,6 +35,7 @@ type benchEnv struct {
 	node       testutil.Node
 	closer     io.MultiCloser
 	channelSvc *channel.Service
+	creator    calctestutil.Creator
 }
 
 func newBenchEnv(b *testing.B) *benchEnv {
@@ -64,6 +66,7 @@ func newBenchEnv(b *testing.B) *benchEnv {
 		ctx:        b.Context(),
 		node:       node,
 		channelSvc: channelSvc,
+		creator:    calctestutil.Creator{DB: node.DB, Channel: channelSvc},
 		closer: io.MultiCloser{
 			node, groupSvc, channelSvc, statusSvc, labelSvc,
 		},
@@ -80,7 +83,7 @@ func (e *benchEnv) close(b *testing.B) {
 func (e *benchEnv) openCalculator(
 	b *testing.B,
 	bases []channel.Channel,
-	calc *channel.Channel,
+	calc calctestutil.Calculation,
 ) *calculator.Calculator {
 	b.Helper()
 	if len(bases) > 0 {
@@ -90,14 +93,13 @@ func (e *benchEnv) openCalculator(
 			b.Fatalf("failed to create base channels: %v", err)
 		}
 	}
-	if err := e.node.DB.WithTx(e.ctx, func(tx gorp.Tx) error {
-		return e.channelSvc.NewWriter(tx).Create(e.ctx, calc)
-	}); err != nil {
+	out, err := e.creator.Create(e.ctx, calc)
+	if err != nil {
 		b.Fatalf("failed to create calc channel: %v", err)
 	}
 	mod, err := compiler.Compile(e.ctx, e.node.DB, compiler.Config{
 		ChannelService: e.channelSvc,
-		Channel:        *calc,
+		Channel:        out,
 	})
 	if err != nil {
 		b.Fatalf("failed to compile calculator: %v", err)
@@ -124,14 +126,13 @@ func BenchmarkCalculator_SingleInput(b *testing.B) {
 	defer env.close(b)
 
 	base := []channel.Channel{{Name: "input", DataType: telem.Int64T, Virtual: true}}
-	calc := channel.Channel{
+	calc := calctestutil.Calculation{
 		Name:       "output",
 		DataType:   telem.Int64T,
-		Virtual:    true,
 		Expression: "return input",
 	}
 
-	c := env.openCalculator(b, base, &calc)
+	c := env.openCalculator(b, base, calc)
 	defer func() {
 		if err := c.Close(); err != nil {
 			b.Errorf("failed to close calculator: %v", err)
@@ -161,14 +162,13 @@ func BenchmarkCalculator_TwoInputs_Add(b *testing.B) {
 		{Name: "a", DataType: telem.Float32T, Virtual: true},
 		{Name: "b", DataType: telem.Float32T, Virtual: true},
 	}
-	calc := channel.Channel{
+	calc := calctestutil.Calculation{
 		Name:       "sum",
 		DataType:   telem.Float32T,
-		Virtual:    true,
 		Expression: "return a + b",
 	}
 
-	c := env.openCalculator(b, bases, &calc)
+	c := env.openCalculator(b, bases, calc)
 	defer func() {
 		if err := c.Close(); err != nil {
 			b.Errorf("failed to close calculator: %v", err)
@@ -206,14 +206,13 @@ func BenchmarkCalculator_MultipleInputs(b *testing.B) {
 		{Name: "y", DataType: telem.Float64T, Virtual: true},
 		{Name: "z", DataType: telem.Float64T, Virtual: true},
 	}
-	calc := channel.Channel{
+	calc := calctestutil.Calculation{
 		Name:       "result",
 		DataType:   telem.Float64T,
-		Virtual:    true,
 		Expression: "return w + x + y + z",
 	}
 
-	c := env.openCalculator(b, bases, &calc)
+	c := env.openCalculator(b, bases, calc)
 	defer func() {
 		if err := c.Close(); err != nil {
 			b.Errorf("failed to close calculator: %v", err)
@@ -248,21 +247,19 @@ func BenchmarkCalculator_NestedTwoLevel(b *testing.B) {
 	defer env.close(b)
 
 	base := []channel.Channel{{Name: "base", DataType: telem.Int64T, Virtual: true}}
-	calc1 := channel.Channel{
+	calc1 := calctestutil.Calculation{
 		Name:       "calc1",
 		DataType:   telem.Int64T,
-		Virtual:    true,
 		Expression: "return base + 1",
 	}
-	c1 := env.openCalculator(b, base, &calc1)
+	c1 := env.openCalculator(b, base, calc1)
 
-	calc2 := channel.Channel{
+	calc2 := calctestutil.Calculation{
 		Name:       "calc2",
 		DataType:   telem.Int64T,
-		Virtual:    true,
 		Expression: "return calc1 * 2",
 	}
-	c2 := env.openCalculator(b, nil, &calc2)
+	c2 := env.openCalculator(b, nil, calc2)
 
 	group := calculator.Group{c1, c2}
 	defer func() {
@@ -293,14 +290,13 @@ func BenchmarkCalculator_SampleCount(b *testing.B) {
 				{Name: "a", DataType: telem.Float64T, Virtual: true},
 				{Name: "b", DataType: telem.Float64T, Virtual: true},
 			}
-			calc := channel.Channel{
+			calc := calctestutil.Calculation{
 				Name:       "result",
 				DataType:   telem.Float64T,
-				Virtual:    true,
 				Expression: "return a * b",
 			}
 
-			c := env.openCalculator(b, bases, &calc)
+			c := env.openCalculator(b, bases, calc)
 			defer func() {
 				if err := c.Close(); err != nil {
 					b.Errorf("failed to close calculator: %v", err)
@@ -342,14 +338,13 @@ func BenchmarkCalculator_ComplexExpression(b *testing.B) {
 		{Name: "a", DataType: telem.Float64T, Virtual: true},
 		{Name: "b", DataType: telem.Float64T, Virtual: true},
 	}
-	calc := channel.Channel{
+	calc := calctestutil.Calculation{
 		Name:       "result",
 		DataType:   telem.Float64T,
-		Virtual:    true,
 		Expression: "if a > b { return a * 2 } else { return b * 3 }",
 	}
 
-	c := env.openCalculator(b, bases, &calc)
+	c := env.openCalculator(b, bases, calc)
 	defer func() {
 		if err := c.Close(); err != nil {
 			b.Errorf("failed to close calculator: %v", err)
@@ -390,17 +385,16 @@ func BenchmarkCalculator_GroupScaling(b *testing.B) {
 			group := make(calculator.Group, 0, size)
 			prevName := "base"
 			for i := range size {
-				calcCh := channel.Channel{
+				calcCh := calctestutil.Calculation{
 					Name:       fmt.Sprintf("calc_%d", i),
 					DataType:   telem.Int64T,
-					Virtual:    true,
 					Expression: fmt.Sprintf("return %s + 1", prevName),
 				}
 				var bases []channel.Channel
 				if i == 0 {
 					bases = base
 				}
-				c := env.openCalculator(b, bases, &calcCh)
+				c := env.openCalculator(b, bases, calcCh)
 				group = append(group, c)
 				prevName = calcCh.Name
 			}
@@ -558,11 +552,10 @@ func (e *benchEnv) openClockCalculator(
 		{Name: "a", DataType: telem.Float32T, LocalIndex: indexes[0].LocalKey},
 		{Name: "b", DataType: telem.Float32T, LocalIndex: indexes[clocks-1].LocalKey},
 	}
-	sum := channel.Channel{
+	sum := calctestutil.Calculation{
 		Name:       "sum",
 		DataType:   telem.Float32T,
-		Virtual:    true,
 		Expression: "return a + b",
 	}
-	return indexes, bases, e.openCalculator(b, bases, &sum)
+	return indexes, bases, e.openCalculator(b, bases, sum)
 }
