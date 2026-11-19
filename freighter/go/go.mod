@@ -106,3 +106,8 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20261019180522-ce908d29299b // indirect
 	google.golang.org/grpc/examples v0.0.0-20250407062114-b368379ef8f6 // indirect
 )
+
+tool (
+	github.com/onsi/ginkgo/v2/ginkgo
+	golang.org/x/tools/cmd/stringer
+)
