@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type certificate, type rack, secret, status } from "@synnaxlabs/client";
+import { type certificate, type rack, type secret, status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
@@ -31,23 +31,25 @@ import { Modals } from "@/platform/modals";
 import { Validity } from "@/platform/secret/validity";
 import { Triggers } from "@/platform/triggers";
 
-const formZ = z
-  .object({
-    name: z.string().trim().min(1, "Name is required"),
-    source: secret.sourceZ,
-    pem: z.string(),
-    privateKeyPem: z.string(),
-    certificatePath: z.string(),
-    privateKeyFile: z.string(),
-  })
-  .check(({ value, issues }) => {
-    const [field, message] =
-      value.source === "stored"
-        ? (["pem", "Certificate is required"] as const)
-        : (["certificatePath", "Certificate file is required"] as const);
-    if (value[field].trim() !== "") return;
-    issues.push({ code: "custom", message, path: [field], input: value[field] });
-  });
+// The form holds the fields of both sources, so a switch keeps what was entered.
+const fieldsZ = z.object({
+  name: z.string().trim().min(1, "Name is required"),
+  pem: z.string(),
+  privateKeyPem: z.string(),
+  certificatePath: z.string(),
+  privateKeyFile: z.string(),
+});
+
+const formZ = z.discriminatedUnion("source", [
+  fieldsZ.extend({
+    source: z.literal("stored"),
+    pem: z.string().trim().min(1, "Certificate is required"),
+  }),
+  fieldsZ.extend({
+    source: z.literal("file"),
+    certificatePath: z.string().trim().min(1, "Certificate file is required"),
+  }),
+]);
 
 type FormValues = z.infer<typeof formZ>;
 
@@ -162,7 +164,7 @@ const FileFields = ({ rack, picked, onPick }: FileFieldsProps): ReactElement => 
             rack={rack}
             value={value}
             onChange={onChange}
-            placeholder="None"
+            allowNone
           />
         )}
       </Form.Field>
