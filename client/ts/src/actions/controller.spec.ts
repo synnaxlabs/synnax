@@ -425,6 +425,14 @@ describe("actions.Controller", () => {
       docs.trim(docs.size);
       expect(docs.trim(0)).toEqual(["other"]);
     });
+
+    it("trims a doc that only remote frames changed", () => {
+      const { docs, controller } = setupStore();
+      prime(docs, "k");
+      controller.applyRemote("k", 1, "remote", [set("a", 1)]);
+      docs.trim(docs.size);
+      expect(docs.trim(0)).toEqual(["k"]);
+    });
   });
 
   describe("prepareUndo", () => {
@@ -618,6 +626,27 @@ describe("actions.Controller", () => {
       expect(send).toHaveBeenCalledTimes(1);
       expect(await done).toBe(true);
       expect(send.mock.calls[0][1]).toEqual([set("a", 1)]);
+    });
+
+    it("sends nothing for no actions", async () => {
+      const { docs, controller, send } = setupStore();
+      prime(docs, "k", { a: 0 });
+      await controller.send("k", []);
+      expect(send).not.toHaveBeenCalled();
+      expect(controller.hasPending("k")).toBe(false);
+    });
+
+    it("holds the actions the Core added once a send resolves", async () => {
+      const { docs, controller, send } = setupStore({
+        send: async () => [set("b", 9)],
+      });
+      prime(docs, "k", { a: 0 });
+      await controller.send("k", [set("a", 1)]);
+      expect(docs.get("k")).toEqual({ values: { a: 1, b: 9 } });
+      const [[, , dispatchKey]] = send.mock.calls;
+      controller.applyRemote("k", 1, dispatchKey, [set("a", 1), set("b", 9)]);
+      expect(controller.hasPending("k")).toBe(false);
+      expect(docs.get("k")).toEqual({ values: { a: 1, b: 9 } });
     });
 
     it("sends dispatches made during an in-flight send as one batch after it settles", async () => {
