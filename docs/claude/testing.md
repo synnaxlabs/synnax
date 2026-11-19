@@ -12,6 +12,31 @@ in `tests/` (Python).
   (no inter-test dependencies).
 - Mock via interfaces / dependency injection, not by patching internals.
 
+## Benchmark gate
+
+A change to a hot path (write, read, stream, codec, calculation) must hold the gate
+benchmarks. `scripts/compare_benchmarks.py` measures two Git refs and gives the verdict:
+
+```bash
+uv run --project scripts scripts/compare_benchmarks.py --base main --head HEAD
+```
+
+- It builds each ref once, then runs each group once per ref in each of 10 rounds, back
+  to back. A benchmark fails on a `sec/op` rise over 5% at p < 0.05, on an `allocs/op`
+  rise of any size at p < 0.05 (Go and C++), or when head does not have it.
+- `GROUPS` in the script lists the gate. A new gate benchmark needs a row there.
+  `--only <regex>` limits a run to the groups a change touches.
+- The `cpu` suite runs on any quiet host. The `io` suite (`--suite io --io-dir <dir>`)
+  measures the disk that holds `<dir>`, so run it only on a host with a local NVMe
+  drive.
+- On a new host, first run with `main` as both refs. A failure there means the host is
+  too noisy for the gate.
+- Never run two benchmark processes at once. Never compare numbers from two hosts or
+  from two runs.
+- The `BenchmarkFloor*` benchmarks in `cesium` measure what the host can do: sync, copy,
+  checksum, and sequential write and read. A storage target is a ratio to a floor from
+  the same run. A floor that breaks the rule means the host is noisy.
+
 ## Live-Core tests
 
 Client (TS/Python/C++) tests, Pluto and Console live-Core specs, and Driver tests
