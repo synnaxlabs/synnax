@@ -414,29 +414,18 @@ type AlignmentBounds = bounds.Bounds[Alignment]
 // zero.
 var AlignmentBoundsZero = AlignmentBounds{}
 
-// MultiSeries is a collection of ordered Series that share the same data type.
+// MultiSeries is a collection of ordered Series, which can hold different data types.
 type MultiSeries struct{ Series []Series }
 
 func sortSeriesByAlignment(s1, s2 Series) int {
 	return int(s1.Alignment - s2.Alignment)
 }
 
-// NewMultiSeries constructs a new MultiSeries from the given set of Series. The series
-// are sorted by their alignment, and the data type of the series must be the same. If
-// the data types are different, a panic will occur.
+// NewMultiSeries constructs a new MultiSeries from the given set of Series, sorted by
+// their alignment.
 func NewMultiSeries(series []Series) MultiSeries {
 	if len(series) == 0 {
 		return MultiSeries{}
-	}
-	dt := series[0].DataType
-	for _, s := range series {
-		if s.DataType != dt {
-			panic(fmt.Sprintf(
-				"cannot create MultiSeries with different data types: %v != %v",
-				dt,
-				s.DataType,
-			))
-		}
 	}
 	slices.SortFunc(series, sortSeriesByAlignment)
 	return MultiSeries{Series: series}
@@ -474,16 +463,8 @@ func (m MultiSeries) TimeRange() TimeRange {
 	return TimeRangeZero
 }
 
-// Append appends a series to the MultiSeries. The series must have the same data type
-// as the MultiSeries. If the data types are different, a panic will occur.
+// Append appends a series of any data type to the MultiSeries.
 func (m MultiSeries) Append(series Series) MultiSeries {
-	if series.DataType != m.DataType() && len(m.Series) > 0 {
-		panic(fmt.Sprintf(
-			"cannot append series with different data types: %v != %v",
-			m.DataType(),
-			series.DataType,
-		))
-	}
 	m.Series = append(m.Series, series)
 	return m
 }
@@ -494,21 +475,28 @@ func (m MultiSeries) Len() int64 {
 }
 
 // DataType returns the data type of the multi series. If the multi series is empty, the
-// data type is UnknownT.
+// data type is UnknownT. It panics when the series hold different data types.
 func (m MultiSeries) DataType() DataType {
-	if len(m.Series) != 0 {
-		return m.Series[0].DataType
+	if len(m.Series) == 0 {
+		return UnknownT
 	}
-	return UnknownT
+	dt := m.Series[0].DataType
+	for _, s := range m.Series[1:] {
+		if s.DataType != dt {
+			panic(fmt.Sprintf("multi series holds both %v and %v", dt, s.DataType))
+		}
+	}
+	return dt
 }
 
 // Data returns a byte slice containing the aggregated data of all series in the
 // MultiSeries. Note that this function allocates an entirely new byte slice, and is
-// computationally expensive.
+// computationally expensive. It panics when the series hold different data types.
 func (m MultiSeries) Data() []byte {
 	if len(m.Series) == 0 {
 		return nil
 	}
+	m.DataType()
 	data := make([]byte, 0, m.Len())
 	for _, s := range m.Series {
 		data = append(data, s.Data...)

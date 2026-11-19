@@ -921,14 +921,24 @@ var _ = Describe("Series", func() {
 				Expect(ms.Series[0].Alignment).To(Equal(s1.Alignment))
 				Expect(ms.Series[1].Alignment).To(Equal(s2.Alignment))
 			})
-			It(
-				"Should panic when trying to construct the series out of different data types",
-				func() {
-					s1 := telem.NewSeriesSecondsTSV(1, 2, 3)
-					s2 := telem.NewSeriesV("a", "b", "c")
-					Expect(func() { telem.NewMultiSeriesV(s1, s2) }).To(Panic())
-				},
-			)
+			It("Should hold series of different data types", func() {
+				s1 := telem.NewSeriesSecondsTSV(1, 2, 3)
+				s2 := telem.NewSeriesV("a", "b", "c")
+				s2.Alignment = telem.NewAlignment(0, 3)
+				ms := telem.NewMultiSeriesV(s2, s1)
+				Expect(ms.Series[0].DataType).To(Equal(telem.TimestampT))
+				Expect(ms.Series[1].DataType).To(Equal(telem.StringT))
+			})
+			It("Should panic on a read of the whole list across data types", func() {
+				ms := telem.NewMultiSeriesV(
+					telem.NewSeriesSecondsTSV(1),
+					telem.NewSeriesV("a"),
+				)
+				Expect(func() { ms.DataType() }).
+					To(PanicWith("multi series holds both timestamp and string"))
+				Expect(func() { ms.Data() }).
+					To(PanicWith("multi series holds both timestamp and string"))
+			})
 		})
 
 		Describe("AlignmentBounds", func() {
@@ -986,13 +996,10 @@ var _ = Describe("Series", func() {
 				Expect(ms.Series[1].Alignment).To(Equal(s2.Alignment))
 			})
 
-			It("Should panic if the series data types do not match", func() {
-				s1 := telem.NewSeriesSecondsTSV(1, 2, 3)
-				s2 := telem.NewSeriesV[int32](1, 2, 3)
-				ms := telem.NewMultiSeriesV(s1)
-				Expect(func() {
-					ms = ms.Append(s2)
-				}).To(Panic())
+			It("Should append a series of another data type", func() {
+				ms := telem.NewMultiSeriesV(telem.NewSeriesSecondsTSV(1, 2, 3))
+				ms = ms.Append(telem.NewSeriesV[int32](1, 2, 3))
+				Expect(ms.Series[1].DataType).To(Equal(telem.Int32T))
 			})
 
 			It("Should not panic when appending to an empty series", func() {
