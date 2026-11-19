@@ -173,6 +173,12 @@ GROUPS: tuple[Group, ...] = (
     ),
     vitest("ts/codec", "src/framer/codec.bench.ts"),
     vitest("ts/cache", "src/framer/cache/"),
+    Group(
+        "py/codec",
+        "cpu",
+        (Step("client/py", ("uv", "sync")),),
+        Step("client/py", ("uv", "run", "python", "benchmarks/frame_codec.py")),
+    ),
     go("floors/cpu", "cpu", "cesium", "^BenchmarkFloor(Copy|CRC32C)$", control=True),
     go("floors", "io", "cesium", "^BenchmarkFloor", control=True),
 )
