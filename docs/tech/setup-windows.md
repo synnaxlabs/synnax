@@ -109,10 +109,11 @@ Open a new shell, then verify the installation by running
 uv --version
 ```
 
-The output should look something like
+The output should look something like the following. The workspace needs uv 0.13 or
+later.
 
 ```text
-uv 0.12.0
+uv 0.13.9
 ```
 
 If you have trouble, see the [uv docs](https://docs.astral.sh/uv/).

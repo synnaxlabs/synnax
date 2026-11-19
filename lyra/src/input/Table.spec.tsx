@@ -10,6 +10,7 @@
 import { type xy } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { type ReactElement, type ReactNode, useState } from "react";
+import { createPortal } from "react-dom";
 import { describe, expect, it, vi } from "vitest";
 
 import { CSS } from "@/css";
@@ -377,12 +378,56 @@ describe("Input.Table", () => {
       expect(document.activeElement).toBe(input);
     });
 
+    it("should keep each cell of a block paste on Esc", () => {
+      render(<Stateful initial={[["a", "b"]]}>{TEXT_COLUMNS}</Stateful>);
+      const input = cell("Name", "1");
+      input.focus();
+      paste(input, "x\ty\nz\tw");
+      fireEvent.keyDown(input, { key: "Escape" });
+      expect(cell("Name", "1").value).toBe("x");
+      expect(cell("Name", "2").value).toBe("z");
+      expect(document.activeElement).not.toBe(input);
+    });
+
+    it("should put back the pasted value of a cell typed into after a block paste", () => {
+      render(<Stateful initial={[["a", "b"]]}>{TEXT_COLUMNS}</Stateful>);
+      const input = cell("Name", "1");
+      input.focus();
+      paste(input, "x\ty\nz\tw");
+      fireEvent.change(input, { target: { value: "typed" } });
+      fireEvent.keyDown(input, { key: "Escape" });
+      expect(input.value).toBe("x");
+      expect(document.activeElement).toBe(input);
+    });
+
     it("should leave an unchanged cell on the first Esc", () => {
       render(<Stateful initial={[["a", "b"]]}>{TEXT_COLUMNS}</Stateful>);
       const input = cell("Name", "1");
       input.focus();
       fireEvent.keyDown(input, { key: "Escape" });
       expect(document.activeElement).not.toBe(input);
+    });
+
+    it("should commit nothing on two Escs in a cell that commits on blur", () => {
+      const onChange = vi.fn();
+      render(
+        <Input.Table value={[["a"]]} onChange={onChange}>
+          {[
+            <Input.TableColumn key="name" name="Name" type="string">
+              {(props) => <Input.Text {...props} onlyChangeOnBlur />}
+            </Input.TableColumn>,
+          ]}
+        </Input.Table>,
+      );
+      const input = cell("Name", "1");
+      act(() => input.focus());
+      fireEvent.change(input, { target: { value: "changed" } });
+      fireEvent.keyDown(input, { key: "Escape" });
+      expect(input.value).toBe("a");
+      expect(document.activeElement).toBe(input);
+      fireEvent.keyDown(input, { key: "Escape" });
+      expect(document.activeElement).not.toBe(input);
+      expect(onChange).not.toHaveBeenCalled();
     });
 
     it("should discard a typed number and keep focus", () => {
@@ -407,6 +452,77 @@ describe("Input.Table", () => {
       fireEvent.change(input, { target: { value: "changed" } });
       fireEvent.keyDown(input, { key: "Escape" });
       expect(onParentKeyDown).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("row key", () => {
+    // Holds a flag that a click sets, as an open dialog does.
+    const Toggle = ({ label }: { label: string }): ReactElement => {
+      const [on, setOn] = useState(false);
+      return (
+        <button aria-label={label} onClick={() => setOn(true)}>
+          {on ? "on" : "off"}
+        </button>
+      );
+    };
+    const TOGGLE_COLUMNS = [
+      <Input.TableColumn key="name" name="Name" type="string">
+        {({ value }) => <Toggle label={value} />}
+      </Input.TableColumn>,
+    ];
+
+    it("should keep the state of a cell with its row when a row above leaves", () => {
+      const { rerender } = render(
+        <Input.Table value={[["a"], ["b"]]} onChange={vi.fn()} rowKey={(i) => "ab"[i]}>
+          {TOGGLE_COLUMNS}
+        </Input.Table>,
+      );
+      fireEvent.click(screen.getByLabelText("b"));
+      rerender(
+        <Input.Table value={[["b"]]} onChange={vi.fn()} rowKey={() => "b"}>
+          {TOGGLE_COLUMNS}
+        </Input.Table>,
+      );
+      expect(screen.getByLabelText("b").textContent).toBe("on");
+    });
+  });
+
+  describe("portal", () => {
+    // A cell that opens a portal, as an options dialog does.
+    const PORTAL_COLUMNS = [
+      <Input.TableColumn key="name" name="Name" type="string">
+        {(props) => (
+          <>
+            <Input.Text {...props} />
+            {createPortal(<input aria-label="Portal" />, document.body)}
+          </>
+        )}
+      </Input.TableColumn>,
+    ];
+
+    it("should ignore a paste into a portal that a cell opens", () => {
+      const onChange = vi.fn();
+      render(
+        <Input.Table value={[["a"]]} onChange={onChange}>
+          {PORTAL_COLUMNS}
+        </Input.Table>,
+      );
+      paste(screen.getByLabelText("Portal"), "x\ny\nz");
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("should let an Esc in a portal that a cell opens reach a parent", () => {
+      const onParentKeyDown = vi.fn();
+      render(
+        <div onKeyDown={onParentKeyDown}>
+          <Stateful initial={[["a"]]}>{PORTAL_COLUMNS}</Stateful>
+        </div>,
+      );
+      const portal = screen.getByLabelText("Portal");
+      fireEvent.focus(portal);
+      fireEvent.change(portal, { target: { value: "typed" } });
+      fireEvent.keyDown(portal, { key: "Escape" });
+      expect(onParentKeyDown).toHaveBeenCalled();
     });
   });
 

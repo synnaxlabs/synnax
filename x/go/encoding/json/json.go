@@ -69,8 +69,8 @@ func (e fieldError) Unwrap() error { return e.err }
 // describe restates a json.SemanticError as the field that failed and the type that
 // the field expects. It returns any other error as is.
 func describe(err error) error {
-	var semErr *json.SemanticError
-	if !errors.As(err, &semErr) {
+	semErr, ok := errors.AsType[*json.SemanticError](err)
+	if !ok {
 		return err
 	}
 	field := strings.Join(slices.Collect(semErr.JSONPointer.Tokens()), ".")
