@@ -50,12 +50,14 @@ export interface MessageFormatFieldProps {
   /** The path of a source that reads one message. */
   path: deep.Path<ReadSource>;
   onChange: (icdKey: icd.Key, message: icd.Message) => void;
+  disabled?: boolean;
 }
 
 /** Picks the message that a source reads from the JSON messages of every ICD. */
 export const MessageFormatField = ({
   path,
   onChange,
+  disabled = false,
 }: MessageFormatFieldProps): ReactElement => {
   const isPreview = Task.useIsPreview();
   const icdKey = Form.useFieldValue(path.icd);
@@ -79,6 +81,7 @@ export const MessageFormatField = ({
         onChange={handleChange}
         allowNone={false}
         preview={isPreview}
+        disabled={disabled}
       >
         {data.map((key) => (
           <Choices key={key} icdKey={key} getItem={getItem} subscribe={subscribe} />

@@ -483,6 +483,7 @@ const MessageSections = ({ device, path, read, format }: MessagePanelProps) => {
 
 interface MessageDetailsProps extends MessagePanelProps {
   onAddField: () => void;
+  bindDisabled: boolean;
 }
 
 const MessageDetails = ({
@@ -491,6 +492,7 @@ const MessageDetails = ({
   read,
   format,
   onAddField,
+  bindDisabled,
 }: MessageDetailsProps) => {
   const props = useMessageProps(device, path, read);
   return (
@@ -499,6 +501,7 @@ const MessageDetails = ({
       format={format}
       matchTitle="Documents"
       onAddField={onAddField}
+      addFieldDisabled={bindDisabled}
     />
   );
 };
@@ -522,6 +525,7 @@ interface TopicDetailsProps {
   onAddMessage: () => void;
   /** Makes a topic that reads one message read a message of any ICD. */
   onFormatChange: (icdKey: icd.Key, message: icd.Message) => void;
+  bindDisabled: boolean;
 }
 
 /**
@@ -535,6 +539,7 @@ const TopicDetails: FC<TopicDetailsProps> = ({
   onAddField,
   onAddMessage,
   onFormatChange,
+  bindDisabled,
 }) => {
   const isPreview = Task.useIsPreview();
   const topic = PForm.useFieldValue(path.topic);
@@ -551,7 +556,9 @@ const TopicDetails: FC<TopicDetailsProps> = ({
           actions={
             !isPreview && (
               <>
-                {encoding === "json" && <ICD.AddField onClick={onAddField} />}
+                {encoding === "json" && (
+                  <ICD.AddField onClick={onAddField} disabled={bindDisabled} />
+                )}
                 <Button.Button variant="text" size="small" onClick={onAddMessage}>
                   <Icon.Add />
                   Add message
@@ -567,7 +574,11 @@ const TopicDetails: FC<TopicDetailsProps> = ({
             inputProps={topic === "" ? EMPTY_TOPIC_INPUT_PROPS : TOPIC_INPUT_PROPS}
           />
           {reads.length === 1 && (
-            <ICD.MessageFormatField path={path} onChange={onFormatChange} />
+            <ICD.MessageFormatField
+              path={path}
+              onChange={onFormatChange}
+              disabled={bindDisabled}
+            />
           )}
           <QoSField path={path.qos} />
           <PForm.CheckboxField
@@ -658,9 +669,12 @@ const Entries: FC<EntriesProps> = ({
   const storedKeys = unique
     .unique(Object.values(stored).flatMap(({ channels }) => Object.values(channels)))
     .filter((key) => key !== 0);
-  const { data: storedChannels } = Channel.useResultMultiple(
+  const { data: storedChannels, variant } = Channel.useResultMultiple(
     storedKeys.length === 0 ? null : query.keysRequest(storedKeys),
   );
+  // Each control that binds waits for the data types of the stored channels, as the
+  // Core refuses a channel that the field's kind does not convert to.
+  const bindDisabled = storedKeys.length > 0 && variant !== "success";
   const dataTypes = new Map(
     storedChannels?.map(({ key, dataType }) => [key, dataType.toString()]),
   );
@@ -681,6 +695,7 @@ const Entries: FC<EntriesProps> = ({
     // Starting reuses the channel that the device stores for the field's pointer,
     // unless another field reads it. A topic that reads one message also reuses the
     // channels of its earlier messages, so a new message format keeps its channels.
+    bindDisabled,
     bindingOf: (key, read, field) => {
       const entry = ctx.get(plainPath(key)).value;
       const channels =
@@ -813,6 +828,7 @@ const Entries: FC<EntriesProps> = ({
         format={entryFormat}
         device={device}
         onAddField={() => addField(entry.key, current.read)}
+        bindDisabled={bindDisabled}
       />
     );
   } else if (entry != null) {
@@ -836,6 +852,7 @@ const Entries: FC<EntriesProps> = ({
           onAddField={() => addField(entry.key, 0)}
           onAddMessage={() => addMessage(entry.key)}
           onFormatChange={(icdKey, message) => setMessage(entry.key, icdKey, message)}
+          bindDisabled={bindDisabled}
         />
       );
   }
@@ -850,6 +867,7 @@ const Entries: FC<EntriesProps> = ({
           emptyMessage="No entries"
           addLabel="Add data"
           onAdd={handleAdd}
+          addDisabled={bindDisabled}
         >
           {renderItem}
         </Task.Views.TreeList>

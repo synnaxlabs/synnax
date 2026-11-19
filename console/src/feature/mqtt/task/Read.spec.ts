@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { icd, mqtt, type rack } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { icd, mqtt, type rack, type Synnax } from "@synnaxlabs/client";
+import { createTestClient, holdRequests } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { DataType, type payload, TimeStamp, uuid } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
@@ -71,6 +71,8 @@ interface RenderParams extends Partial<Omit<EntryParams, "topic">> {
    * ICD edit here would make invalid.
    */
   beforeRender?: () => Promise<unknown>;
+  /** The client that renders the form, when not the one that saves the task. */
+  as?: Synnax;
 }
 
 /** Creates an ICD that holds one message, and an entry that reads it. */
@@ -110,6 +112,7 @@ const renderRead = async ({
   properties,
   entries = [],
   beforeRender,
+  as,
 }: RenderParams = {}) => {
   const dev = await createBroker(client, { properties });
   const first = fields == null ? [] : [await createEntry({ fields, index, bound })];
@@ -125,6 +128,7 @@ const renderRead = async ({
   const statuses: Status.NotificationSpec[] = [];
   const result = await renderTaskFormTab(MQTT.Task.Read, {
     client,
+    as,
     taskKey: draft.key,
     onStatuses: (next) => {
       statuses.length = 0;
@@ -1040,6 +1044,53 @@ describe("MQTT read form", () => {
           { field: next.key, channel: ch.key, dataType: "" },
         ]),
       );
+    });
+
+    it("should wait for the data types of the stored channels before it binds", async () => {
+      const ch = await client.channels.create({
+        name: uniqueName("temperature"),
+        dataType: DataType.FLOAT64,
+        virtual: true,
+      });
+      const temperature = createField("temperature", "float");
+      const entry = await createEntry({
+        fields: [temperature],
+        bound: { [temperature.key]: ch.key },
+      });
+      // A new client has no channels cached, so the form fetches the stored one.
+      const viewer = createTestClient();
+      await viewer.connect();
+      const { release } = holdRequests(viewer, "/channel/retrieve");
+      await renderRead({
+        entries: [entry],
+        properties: {
+          read: {
+            [`${TOPIC}#${entry.messages[0].message}`]: {
+              index: 0,
+              channels: { "/temperature": ch.key },
+            },
+          },
+        },
+        as: viewer,
+      });
+      await openTopic();
+      const add = await screen.findByRole("button", { name: "Add data" });
+      const addField = await screen.findByRole("button", { name: "Add field" });
+      const format = await findDialogTriggerByText(TOPIC);
+      const read = await screen.findByRole<HTMLInputElement>("checkbox", {
+        name: "Read temperature",
+      });
+      expect(add.getAttribute("aria-disabled")).toBe("true");
+      expect(addField.getAttribute("aria-disabled")).toBe("true");
+      expect(format.getAttribute("aria-disabled")).toBe("true");
+      expect(read.disabled).toBe(true);
+      release();
+      await waitFor(() => {
+        expect(add.getAttribute("aria-disabled")).toBeNull();
+        expect(addField.getAttribute("aria-disabled")).toBeNull();
+        expect(format.getAttribute("aria-disabled")).toBeNull();
+        expect(read.disabled).toBe(false);
+      });
     });
 
     it("should give a new channel to a pointer whose new field does not fit its data type", async () => {

@@ -159,12 +159,14 @@ interface FieldItemProps extends Tree.ItemRenderProps<string> {
   path: deep.Path<ReadSource>;
   node: FieldNode;
   onChange: (on: boolean) => void;
+  readDisabled: boolean;
 }
 
 const FieldItem = ({
   path,
   node: { read, field },
   onChange,
+  readDisabled,
   ...props
 }: FieldItemProps) => {
   const bindingsPath = path.messages[read].bindings;
@@ -180,7 +182,12 @@ const FieldItem = ({
       off={i < 0}
       skipped={i < 0 || sourceOff}
     >
-      <ReadCheckbox bindings={bindingsPath} field={field} onChange={onChange} />
+      <ReadCheckbox
+        bindings={bindingsPath}
+        field={field}
+        onChange={onChange}
+        disabled={readDisabled}
+      />
     </Task.Views.TreeFieldItem>
   );
 };
@@ -196,6 +203,8 @@ export interface UseArgs<S extends Source> {
   SourceItem: FC<Tree.ItemRenderProps<string>>;
   /** @returns the binding of a field that the task starts to read. */
   bindingOf: (source: string, r: number, field: TreeField) => icd.ReadBinding;
+  /** Disables each control that binds a field to a channel. */
+  bindDisabled?: boolean;
   /** @returns a name for a new message of a source that no message in held has. */
   messageName: (source: string, held: icd.Message[]) => string;
   /** The key of each selected tree item. */
@@ -239,6 +248,7 @@ export const use = <S extends Source>({
   pathOf,
   SourceItem,
   bindingOf,
+  bindDisabled = false,
   messageName,
   selected,
   onSelect,
@@ -467,7 +477,7 @@ export const use = <S extends Source>({
         onDisable={
           switchable.some(isEnabled) ? () => setEnabled(switchable, false) : undefined
         }
-        onAddField={onAddField}
+        onAddField={bindDisabled ? undefined : onAddField}
         extraMenuItems={
           source != null && (
             <Menu.Item itemKey="addMessage" onClick={() => addMessage(source)}>
@@ -490,6 +500,7 @@ export const use = <S extends Source>({
           path={pathOf(node.source)}
           node={node}
           onChange={(on) => read(node.source, node.read, node.field, on)}
+          readDisabled={bindDisabled}
         />
       );
     if (node?.kind === "message")
