@@ -424,13 +424,14 @@ export class Joins {
   private copy(s: Series): Series {
     let copy = this.copies.get(s);
     if (copy != null) return copy;
-    const { data, dataType, sampleOffset, timeRange } = s;
+    const { data, dataType, sampleOffset, timeRange, clock } = s;
     copy = new Series({
       data,
       dataType,
       sampleOffset,
       timeRange,
       alignment: HELD_ALIGNMENT + s.alignment,
+      clock,
     });
     this.copies.set(s, copy);
     return copy;
@@ -518,6 +519,8 @@ export class Joins {
   private writeData(m: Member, series: Series[]): void {
     const j = m.join;
     for (const s of series) {
+      // A series on another clock has no samples of this join's index to pair with.
+      if (s.clock !== j.index) continue;
       if (!m.joined || !j.indexMember.joined) {
         m.hold(s);
         continue;

@@ -412,6 +412,7 @@ class Pair {
       sampleOffset: source.glOffset,
       alignment: this.start + BigInt(at),
       alignmentMultiple: BigInt(this.step),
+      clock: source.clock,
     };
   }
 

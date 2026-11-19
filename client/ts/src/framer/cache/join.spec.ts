@@ -32,13 +32,16 @@ const createIndex = (seconds: number[], alignment: bigint): Series =>
     dataType: DataType.TIMESTAMP,
     alignment,
     timeRange: spanOf(seconds),
+    clock: INDEX,
   });
 
 const createData = (
   values: number[],
   alignment: bigint,
   timeRange: TimeRange = TimeRange.ZERO,
-): Series => new Series({ data: new Float32Array(values), alignment, timeRange });
+): Series =>
+  // The Core stamps each streamed series with the clock of its channel.
+  new Series({ data: new Float32Array(values), alignment, timeRange, clock: INDEX });
 
 const createFrame = (...entries: Array<[channel.Key, Series]>) =>
   new Map(entries.map(([k, s]) => [k, [s]]));
@@ -298,6 +301,17 @@ describe("Joins", () => {
       expect(store.raw(DATA, BLOCK).coveredEnd).toEqual(at(2).add(1));
     });
 
+    it("should pair a data series only with the index of its clock", () => {
+      const { store, joins } = createJoined();
+      const other = new Series({
+        data: new Float32Array([30]),
+        alignment: 2n,
+        clock: INDEX + 10,
+      });
+      joins.write(createFrame([INDEX, createIndex([3], 2n)], [DATA, other]));
+      expect(streamed(store, DATA)).toEqual([10, 20]);
+    });
+
     it("should place data written in the same frame ahead of its index", () => {
       const { store, joins } = createJoined();
       joins.write(
@@ -472,7 +486,10 @@ describe("Joins", () => {
       const waiting = joins.write(
         createFrame(
           [INDEX, createIndex([3], 2n)],
-          [DATA, new Series({ data: new Float64Array([30]), alignment: 2n })],
+          [
+            DATA,
+            new Series({ data: new Float64Array([30]), alignment: 2n, clock: INDEX }),
+          ],
         ),
       );
       expect(waiting).toEqual(new Set([INDEX]));
@@ -486,7 +503,10 @@ describe("Joins", () => {
       const waiting = joins.write(
         createFrame(
           [INDEX, createIndex([3], 2n)],
-          [DATA, new Series({ data: new Float64Array([30]), alignment: 2n })],
+          [
+            DATA,
+            new Series({ data: new Float64Array([30]), alignment: 2n, clock: INDEX }),
+          ],
         ),
       );
       expect(waiting).toEqual(new Set([INDEX]));
