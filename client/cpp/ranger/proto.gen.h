@@ -136,11 +136,11 @@ Range::to_proto() const {
         if (err) return {{}, err};
         *pb.mutable_color() = v;
     }
-    pb.set_has_children(this->has_children);
     for (const auto &item: this->labels) {
         pb.add_labels(item.to_string());
     }
     if (this->parent.has_value()) pb.set_parent(this->parent->to_string());
+    pb.set_has_children(this->has_children);
     return {pb, x::errors::NIL};
 }
 
@@ -163,7 +163,6 @@ Range::from_proto(const ::service::ranger::pb::Range &pb) {
         if (err) return {{}, err};
         cpp.color = v;
     }
-    cpp.has_children = pb.has_children();
     for (const auto &item: pb.labels()) {
         auto [v, err] = x::uuid::UUID::parse(item);
         if (err) return {{}, err};
@@ -174,6 +173,7 @@ Range::from_proto(const ::service::ranger::pb::Range &pb) {
         if (err) return {{}, err};
         cpp.parent = v;
     }
+    cpp.has_children = pb.has_children();
     return {cpp, x::errors::NIL};
 }
 

@@ -12,12 +12,11 @@
 package v3
 
 import (
-	color "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	label "github.com/synnaxlabs/synnax/pkg/service/label/versions/v0"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v2"
+	color "github.com/synnaxlabs/x/color/versions/v2"
 	filter "github.com/synnaxlabs/x/filter/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // Key is a unique identifier for a range, represented as a UUID.
@@ -34,27 +33,16 @@ type Range struct {
 	// timestamps.
 	TimeRange telem.TimeRange `json:"time_range" msgpack:"time_range"`
 	// Color is an optional display color for visual identification of the range in user
-	// interfaces, a named color or a fixed color.
-	Color *color.Ref `json:"color,omitzero" msgpack:"color,omitempty"`
-	// HasChildren is true when a range is nested in the range, derived on read and not
-	// persisted.
-	HasChildren bool `json:"has_children" msgpack:"has_children"`
+	// interfaces.
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// Labels are the keys of the labels attached to the range.
 	Labels []label.Key `json:"labels" msgpack:"labels"`
 	// Parent is the key of the range this range is nested in. Empty for a top-level
 	// range.
 	Parent *Key `json:"parent,omitzero" msgpack:"parent,omitempty"`
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (r Range) Validate() error {
-	v := validate.New("Range")
-	v.NotEmptyString("name", r.Name)
-	if r.Color != nil {
-		v.Exec(func() error { return validate.PathedError(r.Color.Validate(), "color") })
-	}
-	return v.Error()
+	// HasChildren is true when a range is nested in the range, derived on read and not
+	// persisted.
+	HasChildren bool `json:"has_children" msgpack:"has_children"`
 }
 
 // Stage is where a range stands against the current time.

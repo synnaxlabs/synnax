@@ -287,7 +287,8 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await writer.write({ start_sim_cmd_time: TimeStamp.now(), start_sim_cmd: 1 });
     await writer.close();
     await session.waitFor(() => world.logged.includes("OX MPV open"), 3600);
-    await session.settle(3000);
+    // The stand runs on wall time once the capture falls behind it.
+    await session.settleWall(3000);
 
     // Set again, so the time since each change reads as the alarm history says.
     await client.statuses.set(alarms(await pageNow()));

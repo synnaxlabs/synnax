@@ -70,10 +70,10 @@ export const startColdflow = async (
   await session.settle(500);
   await session.click(capture.control(page, "circle"));
   await session.settle(800);
-  const start = session.now();
+  const start = world.now();
   await session.click(diagram.getByRole("button", { name: "Start Sequence" }).first());
   await session.waitFor(() => world.logged.includes("OX MPV open"), 3600);
-  const flowing = session.now();
+  const flowing = world.now();
   await client.ranges.create([
     {
       name: "Pressurization",

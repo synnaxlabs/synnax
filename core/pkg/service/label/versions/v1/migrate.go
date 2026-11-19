@@ -13,24 +13,13 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp/migrate"
-	color "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/label/versions/v0"
-	xcolor "github.com/synnaxlabs/x/color/versions/v2"
 )
 
-// MigrateLabel lifts a v0 label to v1. Its color becomes a fixed color with a 0-255
-// alpha.
+// MigrateLabel lifts a v0 label to v1, which stores every color alpha as a 0-255
+// byte.
 func MigrateLabel(ctx context.Context, old v0.Label) (Label, error) {
-	l, err := autoMigrateLabel(ctx, old)
-	if err != nil {
-		return Label{}, err
-	}
-	c, err := xcolor.MigrateColor(ctx, old.Color)
-	if err != nil {
-		return Label{}, err
-	}
-	l.Color = color.Ref{Variant: color.FixedRef{Value: c}}
-	return l, nil
+	return autoMigrateLabel(ctx, old)
 }
 
 // Migration lifts stored labels from v0 to v1.
