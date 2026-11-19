@@ -78,6 +78,29 @@ func (t TimeFormat) IsValid() bool {
 	}
 }
 
+// Format is the encoding of a whole payload.
+type Format string
+
+const (
+	// FormatJSON is one JSON value.
+	FormatJSON Format = "json"
+	// FormatText is UTF-8 text.
+	FormatText Format = "text"
+	// FormatBinary is raw bytes.
+	FormatBinary Format = "binary"
+)
+
+// IsValid reports whether f is one of the defined Format
+// values.
+func (f Format) IsValid() bool {
+	switch f {
+	case FormatJSON, FormatText, FormatBinary:
+		return true
+	default:
+		return false
+	}
+}
+
 // Integer is a signed 64-bit integer. It is a JSON string of decimal digits, so it
 // keeps every digit.
 type Integer int64
