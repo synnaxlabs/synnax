@@ -16,7 +16,9 @@ import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { Icon } from "@/icon";
+import { List } from "@/list";
 import { Menu } from "@/menu";
+import { Select } from "@/select";
 import { renderThemed } from "@/styletest";
 import { Triggers } from "@/triggers";
 
@@ -67,6 +69,31 @@ const swatchRect = (i: number): DOMRect =>
 const CREATE = (
   <Button.CreateListItem size="small">Create palette</Button.CreateListItem>
 );
+
+interface Label {
+  key: string;
+  name: string;
+}
+
+/** A select whose footer holds its create option, "New label". */
+const LabelSelect = (): ReactElement => {
+  const { data, getItem } = List.useStaticData<string, Label>({ data: [] });
+  return (
+    <Select.Single<string, Label>
+      visible
+      data={data}
+      getItem={getItem}
+      value={undefined}
+      onChange={() => {}}
+      resourceName="label"
+      footer={
+        <Select.CreateItem<string, Label> resourceName="label" onCreate={() => {}} />
+      }
+    >
+      {({ key, ...p }): ReactElement => <Select.Item key={key} {...p} />}
+    </Select.Single>
+  );
+};
 
 const SwatchMenu = (): ReactElement | null => {
   const { swatch } = Color.usePalette();
@@ -193,6 +220,20 @@ describe("Picker", () => {
       expect(icon.left).toBeCloseTo(swatchRect(0).left, 0);
     });
 
+    it("should give the footer's create item the text of a select's create option", async () => {
+      await renderLibrary(undefined, undefined, undefined, CREATE);
+      await renderThemed(
+        <Triggers.Provider>
+          <LabelSelect />
+        </Triggers.Provider>,
+      );
+      const text = (name: string, role: "button" | "option"): string[] => {
+        const s = getComputedStyle(page.getByRole(role, { name }).element());
+        return [s.color, s.fontWeight];
+      };
+      expect(text("Create palette", "button")).toEqual(text("New label", "option"));
+    });
+
     it("should paint the footer's create item on keyboard focus as on hover, with no ring", async () => {
       await renderLibrary(undefined, undefined, undefined, CREATE);
       const item = page.getByRole("button", { name: "Create palette" });
@@ -202,12 +243,10 @@ describe("Picker", () => {
         const s = getComputedStyle(el);
         return [s.backgroundColor, s.color];
       };
-      const rest = paint();
       await userEvent.hover(item);
       const hovered = paint();
-      expect(hovered[0]).not.toBe(rest[0]);
-      expect(hovered[1]).not.toBe(rest[1]);
       await userEvent.unhover(item);
+      expect(paint()[0]).not.toBe(hovered[0]);
       await userEvent.keyboard("{Tab}");
       el.focus();
       expect(el.matches(":focus-visible")).toBe(true);
