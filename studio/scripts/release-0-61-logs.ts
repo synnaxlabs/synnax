@@ -13,8 +13,8 @@ const SAMPLES = 2880;
 const PERIOD_MS = 60_000;
 
 /**
- * Video for the logs section of the v0.61 release notes: a log of a channel with two days
- * of stored values opens on the newest line and scrolls back in time, past a date
+ * Video for the logs section of the v0.61 release notes: a log of a channel with two
+ * days of stored values opens on the newest line and scrolls back in time, past a date
  * heading. The scrollbar shows the place in time.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {

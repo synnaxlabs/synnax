@@ -14,9 +14,7 @@ on:
     - cron: "0 6 * * *" # 6am UTC
   workflow_dispatch:
 
-permissions:
-  contents: read
-  id-token: write
+permissions: {}
 
 concurrency: sync-runners
 
@@ -24,9 +22,14 @@ jobs:
   sync:
     name: Sync webhook ranges
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6
@@ -35,10 +38,21 @@ jobs:
           aws-region: us-east-1
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: latest-known
 
       - name: Sync
         working-directory: scripts/runners
         run: uv run --locked --no-dev hook_ranges.py
+
+  relay-failure:
+    name: Relay the failure
+    needs: [sync]
+    if:
+      always() && github.event_name == 'schedule' && contains(needs.*.result, 'failure')
+    permissions:
+      actions: write
+    uses: ./.github/workflows/relay.failure.yaml
+    with:
+      report: true

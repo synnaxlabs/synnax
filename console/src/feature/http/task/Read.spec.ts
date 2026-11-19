@@ -33,7 +33,7 @@ import { findIconButton, getLabeledInput } from "@/testutil";
 // The form renders read-only until the update grant lands, and a preview field renders
 // no input, so wait for it to become editable before querying fields.
 const renderRead = async (options: RenderTaskFormTabOptions = {}) => {
-  const rendered = await renderTaskFormTab(HTTP.Task.Read, {
+  const rendered = await renderTaskFormTab(HTTP.Task.FORMS[HTTP.Task.READ_TYPE], {
     task: ZERO_DRAFT,
     ...options,
   });

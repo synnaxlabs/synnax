@@ -907,8 +907,8 @@ var unavailable = []error{
 // isConnectionErr reports whether err is a failure to reach the cluster, which the
 // consumer retries on its own.
 func isConnectionErr(err error) bool {
-	var opErr *net.OpError
-	return errors.As(err, &opErr) ||
+	_, op := errors.AsType[*net.OpError](err)
+	return op ||
 		errors.Is(err, io.EOF) ||
 		kgo.IsRetryableBrokerErr(err) ||
 		slices.ContainsFunc(
