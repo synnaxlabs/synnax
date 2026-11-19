@@ -57,10 +57,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB: db,
 	}))
 	svc = MustOpen(schematic.OpenService(ctx, schematic.ServiceConfig{
-		DB:          db,
-		Group:       groupSvc,
-		ImEx:        imexSvc,
-		Enumeration: enumSvc,
+		DB:    db,
+		Group: groupSvc,
+		ImEx:  imexSvc,
 	}))
 	proj.Name = "test-project"
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
