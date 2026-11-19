@@ -225,16 +225,17 @@ a service, because a service has no standard input.
 <Field.Item name="--disable-integrations" type="list" env="SYNNAX_DISABLE_INTEGRATIONS">
 
 The integrations of the embedded Driver to disable. All integrations are enabled by
-default. The options are `arc`, `ethercat`, `http`, `labjack`, `modbus`, `ni`, and
-`opc`. You cannot use it with `--enable-integrations`.
+default. The options are `arc`, `ethercat`, `file`, `http`, `labjack`, `modbus`, `ni`,
+and `opc`. You cannot use it with `--enable-integrations`.
 
 </Field.Item>
 
 <Field.Item name="--enable-integrations" type="list" env="SYNNAX_ENABLE_INTEGRATIONS">
 
 The only integrations of the embedded Driver to enable, when you want only some of them.
-All integrations are enabled by default. The options are `arc`, `ethercat`, `http`,
-`labjack`, `modbus`, `ni`, and `opc`. You cannot use it with `--disable-integrations`.
+All integrations are enabled by default. The options are `arc`, `ethercat`, `file`,
+`http`, `labjack`, `modbus`, `ni`, and `opc`. You cannot use it with
+`--disable-integrations`.
 
 </Field.Item>
 
