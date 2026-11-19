@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/secret/grant/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -91,6 +92,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	s := &Service{cfg: cfg}
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Grant]{
 		DB:              cfg.DB,
+		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
 	}); err != nil {
 		return nil, err

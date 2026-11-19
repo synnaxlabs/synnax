@@ -12,7 +12,6 @@
 package v0
 
 import (
-	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v3"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
@@ -63,7 +62,6 @@ func (s Secret) EncodeOrc(w *orc.Writer) error {
 			return err
 		}
 		w.String(v.FileName)
-		w.Uint32(uint32(v.Rack))
 	default:
 		return errors.Newf("Secret: nil or unknown variant %T", s.Variant)
 	}
@@ -102,13 +100,6 @@ func (s *Secret) DecodeOrc(r *orc.Reader) error {
 		}
 		if v.FileName, err = r.String(); err != nil {
 			return err
-		}
-		{
-			rawV, err := r.Uint32()
-			if err != nil {
-				return err
-			}
-			v.Rack = rack.Key(rawV)
 		}
 		s.Variant = v
 	default:
