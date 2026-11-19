@@ -385,6 +385,29 @@ export const intersection = (a: Box, b: Box): Box => {
 export const area = (b: Box): number => width(b) * height(b);
 
 /**
+ * @returns the smallest box that contains all the given boxes and points. The box is
+ * rooted in the top left, so its one is the top-left corner and its two is the
+ * bottom-right corner.
+ * @throws {Error} when given no boxes or points.
+ */
+export const bound = (items: ReadonlyArray<Crude | xy.XY>): Box => {
+  if (items.length === 0) throw new Error("cannot bound zero boxes or points");
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const item of items) {
+    const isBox = "one" in item || "left" in item || "getBoundingClientRect" in item;
+    const { one, two } = isBox ? construct(item) : { one: item, two: item };
+    minX = Math.min(minX, one.x, two.x);
+    minY = Math.min(minY, one.y, two.y);
+    maxX = Math.max(maxX, one.x, two.x);
+    maxY = Math.max(maxY, one.y, two.y);
+  }
+  return construct({ x: minX, y: minY }, { x: maxX, y: maxY });
+};
+
+/**
  * Truncates the coordinates of the box to the given precision.
  * @param b - The box to truncate.
  * @param precision - The number of decimal places to truncate to.

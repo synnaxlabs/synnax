@@ -8,11 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, caseconv, filter, id, sync } from "@synnaxlabs/x";
+import { array, caseconv, filter, id } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
-import { isConnectionError, NotFoundError } from "@/errors";
 import { query } from "@/query";
 import { resource } from "@/resource";
 import { createOf, reduceAll } from "@/secret/actions";
@@ -24,7 +23,6 @@ import {
   set,
 } from "@/secret/actions.gen";
 import {
-  type Base,
   fileSecretZ,
   type Key,
   keyZ,
@@ -115,33 +113,6 @@ export type RetrieveSingleParams = {
 };
 export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 
-/** Drops includeUses when unset so equivalent queries hash identically. */
-const normalizeSingle = ({
-  key,
-  includeUses,
-}: RetrieveSingleParams): RetrieveSingleParams =>
-  includeUses === true ? { key, includeUses } : { key };
-
-const singleQueryZ = z
-  .union([
-    z.strictObject({ key: keyZ, includeUses: z.boolean().optional() }),
-    keyZ.transform((key) => ({ key })),
-  ])
-  .transform(normalizeSingle);
-
-/** The resources that use a secret, keyed by the secret. */
-type Uses = Pick<Base, "key" | "uses">;
-
-/** The deletes of secrets that land while fetches of uses run. */
-interface Deletes {
-  inFlight: number;
-  seq: number;
-  at: Map<Key, number>;
-}
-
-const stripUses = ({ uses: _, ...secret }: Secret): Secret => secret;
-const toUses = ({ key, uses }: Secret): Uses => ({ key, uses });
-
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
@@ -162,10 +133,6 @@ export class Client extends query.Retriever<
 > {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Secret>;
-  private readonly usesStore: query.Table<Key, Uses>;
-  private readonly deletes: Deletes;
-  private readonly usesChanges: { count: number };
-  private readonly refetchUses: () => void;
   private readonly dispatcher: actions.Controller<Key, Secret, Action>;
 
   constructor(cfg: ClientConfig) {
@@ -175,67 +142,14 @@ export class Client extends query.Retriever<
       fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
       listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
     });
-    // The secret table never holds uses. A retrieve that asks for them reads this one.
-    const usesStore = cache.createTable<Key, Uses>({
-      name: "secret.uses",
-      fetch: async (keys) =>
-        (
-          await this.retrieveUses({ ...query.keysRequest(keys), includeUses: true })
-        ).map(toUses),
-    });
-    // An answer that holds a secret composes its uses too.
-    usesStore.hold({ held: () => store.held() });
-    const deletes: Deletes = { inFlight: 0, seq: 0, at: new Map() };
-    // A secret created again under a deleted key reads its uses again.
-    store.subscribe((event) => {
-      if (event.variant !== "delete") return;
-      usesStore.evict(event.key);
-      if (deletes.inFlight > 0) deletes.at.set(event.key, ++deletes.seq);
-    });
-    // The Core announces no change to uses. Refetches run outside the change stream and
-    // one at a time, so an older reply cannot overwrite a newer one. A change that
-    // arrives while a refetch waits joins it.
-    const refetchMu = sync.newMutex({ waiting: false });
-    const refetchUses = () => {
-      if (refetchMu.waiting) return;
-      refetchMu.waiting = true;
-      refetchMu
-        .runExclusive(async () => {
-          refetchMu.waiting = false;
-          await usesStore.reconcile();
-        })
-        .catch((exc: unknown) => {
-          // The reconcile after the next reconnect fetches the uses again.
-          if (isConnectionError(exc)) return;
-          cache.onError(new Error("failed to refetch secret uses", { cause: exc }));
-        });
-    };
-    const usesChanges = { count: 0 };
-    cfg.usesChannels.forEach((channel) =>
-      cache.listen({
-        channel,
-        schema: z.unknown(),
-        onChange: () => {
-          usesChanges.count++;
-          refetchUses();
-        },
-      }),
-    );
-    const usesTrigger = query.trigger(
-      usesStore,
-      (event, q: RetrieveRequest | RetrieveSingleParams) =>
-        q.includeUses === true ? [event.key] : null,
-      { contentOnly: true },
-    );
-    const single = cache.queries<RetrieveSingleParams, Secret, Key, Secret>({
+    const uses = new query.Uses<Key, Secret, RetrieveRequest>({
       name: "secret",
+      cache,
       table: store,
-      fetch: async (q) => [await this.fetchSingle(q)],
-      compose: (records, q) => this.compose(records[0], q.includeUses === true),
-      keyOf: (q) => q.key,
-      covers: (_, q) => q.includeUses !== true,
-      triggers: [usesTrigger],
-      single: true,
+      key: keyZ,
+      retrieve: async (req) => await this.execRetrieve(req),
+      request: (key) => ({ where: { key }, includeUses: true }),
+      channels: cfg.usesChannels,
     });
     // Every write to a secret reaches the client as actions.
     const dispatcher = new actions.Controller<Key, Secret, Action>({
@@ -256,25 +170,18 @@ export class Client extends query.Retriever<
       request: {
         list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
-        fetch: async (req) => await this.fetchThrough(req),
+        fetch: async (req) => await uses.fetch(req),
         // A secret whose uses the client does not hold fetches the query again.
         matches: (secret, req) =>
-          req.includeUses === true && usesStore.get(secret.key) == null
-            ? null
-            : matches(LINES, secret, req.where),
+          uses.lacks(secret, req) ? null : matches(LINES, secret, req.where),
         serverComputed: (req) => serverComputed(LINES, req.where),
-        triggers: [usesTrigger],
+        triggers: [uses.trigger],
       },
-      compose: (record, q) =>
-        this.compose(record, (q as { includeUses?: boolean }).includeUses === true),
-      single: { schema: singleQueryZ, space: single },
+      compose: (record, q) => uses.compose(record, q),
+      single: uses.single,
     });
     this.cfg = cfg;
     this.store = store;
-    this.usesStore = usesStore;
-    this.deletes = deletes;
-    this.usesChanges = usesChanges;
-    this.refetchUses = refetchUses;
     this.dispatcher = dispatcher;
   }
 
@@ -360,57 +267,6 @@ export class Client extends query.Retriever<
       grantCreateResZ,
     );
     return res.grant;
-  }
-
-  private compose(secret: Secret, includeUses: boolean): Secret {
-    if (!includeUses) return secret;
-    return { ...secret, uses: this.usesStore.get(secret.key)?.uses };
-  }
-
-  private async fetchThrough(req: RetrieveRequest): Promise<Secret[]> {
-    if (req.includeUses !== true) return await this.execRetrieve(req);
-    const changes = this.usesChanges.count;
-    const secrets = await this.retrieveUses(req);
-    this.usesStore.set(secrets.map(toUses));
-    // A refetch that a change started can miss these keys or land first.
-    if (this.usesChanges.count !== changes) this.refetchUses();
-    return secrets.map(stripUses);
-  }
-
-  // A delete of a secret that a retrieve returns makes its uses stale, so the retrieve
-  // runs again.
-  private async retrieveUses(req: RetrieveRequest): Promise<Secret[]> {
-    const { deletes } = this;
-    const since = deletes.seq;
-    deletes.inFlight++;
-    let secrets: Secret[];
-    try {
-      secrets = await this.execRetrieve(req);
-    } finally {
-      deletes.inFlight--;
-    }
-    const overtaken = secrets.some(({ key }) => (deletes.at.get(key) ?? 0) > since);
-    if (deletes.inFlight === 0) deletes.at.clear();
-    return overtaken ? await this.retrieveUses(req) : secrets;
-  }
-
-  private async fetchSingle({ key, includeUses }: RetrieveSingleParams): Promise<Key> {
-    if (includeUses === true)
-      return await this.store.track(async (since) => {
-        const secrets = await this.fetchThrough({
-          where: { key: { eq: key } },
-          includeUses,
-        });
-        if (secrets.length === 0) {
-          this.store.ingestDeletes([key], since);
-          throw new NotFoundError(`secret with key ${key} not found`);
-        }
-        this.store.ingest(secrets, { since });
-        return key;
-      });
-    if ((await this.store.retrieve([key])).length === 0)
-      throw new NotFoundError(`secret with key ${key} not found`);
-    return key;
   }
 
   private async execRetrieve(req: RetrieveRequest): Promise<Secret[]> {

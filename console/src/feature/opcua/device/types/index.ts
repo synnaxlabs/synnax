@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { type device } from "@synnaxlabs/client";
-import { migrate } from "@synnaxlabs/x";
 import z from "zod";
 
 import { v0, v1, v2 } from "@/feature/opcua/device/types/versions";
@@ -46,21 +45,8 @@ export const ZERO_PROPERTIES = v2.ZERO_PROPERTIES;
 
 export interface Device extends v2.Device {}
 
-const PROPERTIES_MIGRATIONS: migrate.Migrations = {
-  [v0.VERSION]: v1.propertiesMigration,
-  [v1.VERSION]: v2.propertiesMigration,
-};
-export type AnyProperties = v0.Properties | v1.Properties | v2.Properties;
-
 export const SCHEMAS = {
   properties: propertiesZ,
   make: makeZ,
   model: z.string(),
 } as const satisfies device.DeviceSchemas<typeof propertiesZ, typeof makeZ>;
-
-export const migrateProperties = migrate.migrator<AnyProperties, v2.Properties>({
-  name: v1.PROPERTIES_MIGRATION_NAME,
-  migrations: PROPERTIES_MIGRATIONS,
-  defaultVersion: v0.VERSION,
-  def: v2.ZERO_PROPERTIES,
-});

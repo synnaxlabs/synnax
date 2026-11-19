@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { channel, type device } from "@synnaxlabs/client";
-import { migrate } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
@@ -18,7 +17,6 @@ import {
 } from "@/feature/opcua/device/types/v0";
 import {
   type Properties as BaseProperties,
-  PROPERTIES_MIGRATION_NAME,
   propertiesZ as basePropertiesZ,
   readZ as baseReadZ,
   ZERO_PROPERTIES as BASE_ZERO_PROPERTIES,
@@ -103,21 +101,21 @@ export const ZERO_PROPERTIES: Properties = {
   read: { ...BASE_ZERO_PROPERTIES.read, fields: [] },
 };
 
-export const propertiesMigration = migrate.createMigration<BaseProperties, Properties>({
-  name: PROPERTIES_MIGRATION_NAME,
-  migrate: ({ connection: { clientPrivateKey: _, ...connection }, ...p }) => ({
-    ...p,
-    version: VERSION,
-    read: { ...p.read, fields: [] },
-    connection: {
-      ...connection,
-      password: connection.password ?? "",
-      clientCertificate: connection.clientCertificate ?? "",
-      serverCertificate: connection.serverCertificate ?? "",
-      certificateValidationDisabled: false,
-      ...TIMEOUTS,
-    },
-  }),
+export const propertiesMigration = ({
+  connection: { clientPrivateKey: _, ...connection },
+  ...p
+}: BaseProperties): Properties => ({
+  ...p,
+  version: VERSION,
+  read: { ...p.read, fields: [] },
+  connection: {
+    ...connection,
+    password: connection.password ?? "",
+    clientCertificate: connection.clientCertificate ?? "",
+    serverCertificate: connection.serverCertificate ?? "",
+    certificateValidationDisabled: false,
+    ...TIMEOUTS,
+  },
 });
 
 export interface Device extends device.Device<typeof propertiesZ, typeof makeZ> {}

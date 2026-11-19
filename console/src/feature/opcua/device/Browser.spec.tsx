@@ -12,6 +12,7 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Haul } from "@synnaxlabs/lyra/haul";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { scheduler } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -29,7 +30,6 @@ import {
   getIconButton,
   getIconButtons,
   HaulProvider,
-  uniqueName,
   withControlHeld,
 } from "@/testutil";
 
@@ -451,7 +451,7 @@ describe("Browser details", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: /TankPressure/ }));
     expect(screen.queryByText("2.5")).toBeNull();
-    await act(async () => await scheduler.flushTaskQueue());
+    await act(async () => await scheduler.nextTask());
     fireEvent.click(screen.getByText("PumpSpeed"));
     fireEvent.click(screen.getByRole("button", { name: /PumpSpeed/ }));
     expect((await next.answered).args).toMatchObject({ nodeId: PUMP.nodeId });
@@ -481,7 +481,7 @@ describe("Browser details", () => {
       );
       fireEvent.click(screen.getByText("PumpSpeed"));
       // Lets the effect for PumpSpeed start before the next selection aborts it.
-      await act(async () => await scheduler.flushTaskQueue());
+      await act(async () => await scheduler.nextTask());
       fireEvent.click(screen.getByText("TankPressure"));
       await answerCommand(client, scan, open, { data: DETAILS });
       const next = await awaitCommand(

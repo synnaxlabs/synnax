@@ -10,6 +10,7 @@
 import { type rack, task, TimeSpan } from "@synnaxlabs/client";
 import { CERTIFICATE, createTestClient } from "@synnaxlabs/client/testutil";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -37,7 +38,6 @@ import {
   getIconButton,
   getInputItem,
   isPlutoDisabled,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();

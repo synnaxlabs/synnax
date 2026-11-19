@@ -13,6 +13,7 @@
 #include <format>
 #include <iterator>
 #include <numeric>
+#include <ranges>
 #include <set>
 #include <span>
 #include <tuple>
@@ -693,17 +694,15 @@ void Engine::supervise() {
         }
         if (!restarted.empty()) {
             const auto now = this->config.host_clock.now();
+            for (const auto pos: restarted)
+                LOG(INFO) << "[ethercat] slave " << pos << " on " << this->iface
+                          << " restarted";
             std::lock_guard lock(this->restarts_mu);
-            for (const auto &s: this->image.slaves)
-                if (std::ranges::find(restarted, s.properties.position) !=
-                    restarted.end()) {
-                    LOG(INFO) << "[ethercat] slave " << s.properties.position << " on "
-                              << this->iface << " restarted";
-                    this->restarts[restart_key(s.properties)] = {
-                        .at = now,
-                        .position = s.properties.position,
-                    };
-                }
+            // The latest discovery keys each slave, and it can know a serial number
+            // that the image does not.
+            for (auto &restart: this->restarts | std::views::values)
+                if (std::ranges::find(restarted, restart.position) != restarted.end())
+                    restart.at = now;
         }
         std::ranges::sort(next.positions);
         std::ranges::sort(next.silent);
@@ -1439,10 +1438,7 @@ Engine::discover(const Start &start) {
 
 std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
 Engine::discover_locked() {
-    if (this->running()) {
-        this->track_restarts_locked({});
-        return {this->slaves, x::errors::NIL};
-    }
+    if (this->running()) return this->running_slaves_locked();
     auto [slaves, err] = this->scan_locked();
     if (err) return {{}, err};
     const auto [change, change_err] = this->master->changed();
@@ -1459,11 +1455,22 @@ Engine::discover_locked() {
 
 std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Engine::rediscover() {
     std::lock_guard lock(this->mu);
-    if (this->running()) {
-        this->track_restarts_locked({});
-        return {this->slaves, x::errors::NIL};
-    }
+    if (this->running()) return this->running_slaves_locked();
     return this->rediscover_locked();
+}
+
+std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
+Engine::running_slaves_locked() {
+    const auto starting = [](const slave::DiscoveryResult &s) {
+        return s.status.starting;
+    };
+    if (std::ranges::any_of(this->slaves, starting)) {
+        auto [slaves, err] = this->master->scan();
+        if (err) return {{}, err};
+        this->slaves = std::move(slaves);
+    }
+    this->track_restarts_locked({});
+    return {this->slaves, x::errors::NIL};
 }
 
 x::errors::Error

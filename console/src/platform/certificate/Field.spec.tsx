@@ -13,6 +13,7 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { deep, TimeStamp, uuid } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import {
   act,
   cleanup,
@@ -55,7 +56,6 @@ import {
   interceptFilePicker,
   queryIconButton,
   readBlob,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();
