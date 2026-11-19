@@ -101,6 +101,9 @@ class SelectStateIndicatorEnumeration(ConsoleCase):
         names = [e.name for e in client.enumerations.retrieve(key=valve.key).entries]
         assert names == ["Open", "Sealed"], f"Core holds entries {names}"
 
+        offset = indicator.used_by_offset()
+        assert abs(offset) < 1, f"Used by starts {offset} px right of the picker"
+
         self.log("Moving the options of a new State Indicator into an enumeration")
         PUMP_NAME = f"pump_state_{random_name()}"
         pump = StateIndicator(
