@@ -9,7 +9,9 @@
 
 // The CI media check imports this module in Node. Keep it free of dependencies.
 
-export const ROOT = "https://synnax.nyc3.cdn.digitaloceanspaces.com/docs";
+import { CDN } from "@synnaxlabs/site-common/cdn";
+
+export const ROOT = `${CDN}/docs`;
 
 export const url = (id: string, extension: string, theme?: string): string =>
   `${ROOT}/${id}${theme != null ? `-${theme}` : ""}.${extension}`;

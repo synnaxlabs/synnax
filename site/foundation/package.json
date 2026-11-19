@@ -34,7 +34,6 @@
     "@synnaxlabs/eslint-config": "catalog:",
     "@synnaxlabs/stylelint-config": "catalog:",
     "@synnaxlabs/tsconfig": "catalog:",
-    "@synnaxlabs/vite-plugin": "catalog:",
     "@testing-library/react": "catalog:",
     "@types/jsdom": "catalog:",
     "@types/react": "catalog:",

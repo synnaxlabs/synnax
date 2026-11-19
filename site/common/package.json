@@ -5,6 +5,7 @@
   "exports": {
     "./Analytics.astro": "./src/Analytics.astro",
     "./analytics": "./src/analytics.ts",
+    "./cdn": "./src/cdn.ts",
     "./consent": "./src/consent.ts",
     "./Drawer.astro": "./src/Drawer.astro",
     "./Footer.astro": "./src/Footer.astro",
@@ -33,6 +34,7 @@
     "@astrojs/react": "catalog:",
     "@synnaxlabs/arc": "catalog:",
     "@synnaxlabs/lyra": "catalog:",
+    "@synnaxlabs/vite-plugin": "catalog:",
     "astro": "catalog:",
     "astro-seo": "catalog:",
     "shiki": "catalog:"

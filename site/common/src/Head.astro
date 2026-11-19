@@ -10,6 +10,8 @@
 
 import { SEO, type SEOProps } from "astro-seo";
 
+import { CDN } from "./cdn";
+
 type Article = NonNullable<NonNullable<SEOProps["openGraph"]>["article"]>;
 
 interface Props {
@@ -27,8 +29,7 @@ interface Props {
     unindexed?: boolean;
 }
 
-const DEFAULT_IMAGE =
-    "https://synnax.nyc3.cdn.digitaloceanspaces.com/docs/og-default.png";
+const DEFAULT_IMAGE = `${CDN}/docs/og-default.png`;
 
 const {
     title,
