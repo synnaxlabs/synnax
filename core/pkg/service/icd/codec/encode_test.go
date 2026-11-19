@@ -285,6 +285,65 @@ var _ = Describe("JSONEncoder", func() {
 		Expect(second).ToNot(Equal(first))
 	})
 
+	It("Should write the default of a bound field for a nil sample", func() {
+		mode, temp := uuid.New(), uuid.New()
+		enc := MustSucceed(codec.NewJSONEncoder(message(
+			[]icd.JSONField{
+				{Variant: icd.StringJSONField{
+					Key:     mode,
+					Name:    "mode",
+					Scale:   1,
+					Pointer: "/mode",
+					Default: new("auto"),
+				}},
+				floatField("temp", temp, 1, 0),
+			},
+			codec.Binding{Field: mode, DataType: telem.StringT},
+			codec.Binding{Field: temp, DataType: telem.Float64T},
+		)))
+		Expect(enc.HasDefault(0)).To(BeTrue())
+		Expect(enc.HasDefault(1)).To(BeFalse())
+		Expect(enc.Encode(nil, [][]byte{nil, float64Sample(20)})).
+			To(MatchJSON(`{"mode":"auto","temp":20}`))
+		Expect(enc.Encode(nil, [][]byte{[]byte("manual"), float64Sample(20)})).
+			To(MatchJSON(`{"mode":"manual","temp":20}`))
+	})
+
+	It("Should write a new UUID at each encode for a bound field with a nil sample",
+		func() {
+			key := uuid.New()
+			enc := MustSucceed(codec.NewJSONEncoder(message(
+				[]icd.JSONField{{Variant: icd.UuidJSONField{
+					Key:     key,
+					Name:    "v",
+					Scale:   1,
+					Pointer: "/v",
+					Default: &icd.UUIDDefault{Variant: icd.RandomUUIDDefault{}},
+				}}},
+				codec.Binding{Field: key, DataType: telem.UUIDT},
+			)))
+			idOf := func() uuid.UUID {
+				doc := MustSucceed(enc.Encode(nil, [][]byte{nil}))
+				var v struct {
+					V string `json:"v"`
+				}
+				Expect(json.Unmarshal(doc, &v)).To(Succeed())
+				return MustSucceed(uuid.Parse(v.V))
+			}
+			Expect(idOf()).ToNot(Equal(idOf()))
+		},
+	)
+
+	It("Should fail to encode a nil sample whose field has no default", func() {
+		key := uuid.New()
+		enc := MustSucceed(codec.NewJSONEncoder(message(
+			[]icd.JSONField{floatField("temp", key, 1, 0)},
+			codec.Binding{Field: key, DataType: telem.Float64T},
+		)))
+		Expect(enc.Encode(nil, [][]byte{nil})).Error().
+			To(MatchError("message command: field temp: no sample and no default"))
+	})
+
 	It("Should write a float before its scale and offset", func() {
 		key := uuid.New()
 		enc := MustSucceed(codec.NewJSONEncoder(message(
@@ -469,6 +528,19 @@ var _ = Describe("JSONEncoder", func() {
 				Pointer: "/id",
 				Default: &icd.UUIDDefault{},
 			}}}),
+			"message command: field id: default: type is required: validation error",
+		),
+		Entry("a bound field whose default has no type",
+			message(
+				[]icd.JSONField{{Variant: icd.UuidJSONField{
+					Key:     fixedKey,
+					Name:    "id",
+					Scale:   1,
+					Pointer: "/id",
+					Default: &icd.UUIDDefault{},
+				}}},
+				codec.Binding{Field: fixedKey, DataType: telem.UUIDT},
+			),
 			"message command: field id: default: type is required: validation error",
 		),
 		Entry("a binding to a field the message does not have",
