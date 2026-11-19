@@ -99,8 +99,9 @@ type Config struct {
 	Mode Mode
 	// AutoIndex causes the writer to generate timestamps for any index channel in its
 	// Keys whose series is omitted from a Write frame. The first sample in each Write
-	// call is stamped with telem.Now(); remaining samples in the same call are spaced
-	// 1ns apart. A high-water mark guarantees strict monotonicity across Write calls.
+	// call is stamped with telem.Now(), or 1ns after Start or after the last stamp of
+	// the index when either is later; remaining samples in the same call are spaced 1ns
+	// apart.
 	//
 	// When AutoIndex is true and the caller's Keys reference data channels whose index
 	// channels are not also in Keys, those index channels are implicitly added to the

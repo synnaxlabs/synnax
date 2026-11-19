@@ -191,13 +191,18 @@ func (s *session) write(
 	return !refused, s.relay(ctx, written)
 }
 
-// commit commits the Cesium writer, then syncs it when the persist rule asks.
+// commit commits the Cesium writer, then syncs it when the persist rule asks, also
+// after a commit refused for no control.
 func (s *session) commit(ctx context.Context) (telem.TimeStamp, error) {
 	end, err := s.w.Commit(ctx)
-	if err != nil {
+	// A commit refused for no control still applies the indexes the writer controls.
+	if err != nil && !errors.Is(err, control.ErrUnauthorized) {
 		return 0, err
 	}
-	return end, s.maybeSync()
+	if syncErr := s.maybeSync(); syncErr != nil {
+		return 0, syncErr
+	}
+	return end, err
 }
 
 // maybeSync syncs the Cesium writer on every commit when the session does not auto
