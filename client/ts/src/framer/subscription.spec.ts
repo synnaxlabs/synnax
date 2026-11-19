@@ -824,6 +824,63 @@ describe("Feed.subscribe", () => {
       }
     });
 
+    it("should hold no sample past its end until the end's tiles land", async () => {
+      const core = createCore();
+      let held = false;
+      const waiting: Array<() => void> = [];
+      const feed = core.openFeed({
+        ...OPTIONS,
+        readRemote: async (tr, keys, reduction) => {
+          if (held) await new Promise<void>((resolve) => waiting.push(resolve));
+          return core.read(tr, keys, reduction);
+        },
+      });
+      const index = core.index.key;
+      const data = core.data[0].key;
+      const end = core.now().add(TimeSpan.seconds(5));
+      const sub = feed.subscribe({
+        keys: [index, data],
+        window: staticWindow(new TimeRange(core.now().sub(TimeSpan.seconds(10)), end)),
+        limit: { variant: "points", count: EXACT, aggregation: "min_max" },
+      });
+      const last = end.valueOf() - PERIOD;
+      const lastValue = Math.sin(
+        Number((last - START.valueOf()) / PERIOD) / 1000 + data,
+      );
+      const drawnTo = (key: channel.Key): bigint =>
+        sub.value(key).time?.valueOf() ?? 0n;
+      const expectCut = (): void => {
+        expect(timesOf(sub.value(index)).at(-1)).toBe(last);
+        const values = Array.from(sub.value(data).series, Number);
+        expect(values.length).toBe(timesOf(sub.value(index)).length);
+        expect(values.at(-1)).toBeCloseTo(lastValue, 5);
+      };
+      try {
+        await expect.poll(() => sub.value(index).status.variant, POLL).toBe("success");
+        await expect.poll(() => sub.value(data).status.variant, POLL).toBe("success");
+        held = true;
+        // The stream grows the buffer in place from a value that holds no sample past
+        // the end.
+        core.advance(TimeSpan.milliseconds(4900));
+        await expect.poll(() => drawnTo(index), POLL).toBe(newestOf(core) + 1n);
+        await expect.poll(() => drawnTo(data), POLL).toBe(newestOf(core) + 1n);
+        core.advance(TimeSpan.milliseconds(600));
+        await expect.poll(() => drawnTo(index) >= end.valueOf(), POLL).toBe(true);
+        await expect.poll(() => drawnTo(data) >= end.valueOf(), POLL).toBe(true);
+        expectCut();
+        core.advance(TimeSpan.seconds(2));
+        await expect
+          .poll(() => (sub.value(index), sub.value(data), core.streams(index)), POLL)
+          .toBe(false);
+        expectCut();
+      } finally {
+        held = false;
+        waiting.forEach((resolve) => resolve());
+        sub.close();
+        await feed.close();
+      }
+    });
+
     it("should serve the stored samples stamped after now", async () => {
       // The writer's clock runs two minutes ahead of the Core's.
       const core = createCore({ lag: TimeSpan.minutes(-2) });

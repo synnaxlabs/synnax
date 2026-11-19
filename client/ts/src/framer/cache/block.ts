@@ -328,14 +328,39 @@ export class RawBlock implements Block {
   /**
    * @returns the series whose samples overlap tr in time order, the stream's buffer
    * last. The buffer's span ends at its last stamped write, not at its open end.
+   * @param index - The block of the channel's index with the same index. When given,
+   * the series end at the end of tr.
    */
-  seriesIn(tr: TimeRange): Series[] {
-    const out = this._fetched.filter((s) => s.timeRange.overlapsWith(tr));
+  seriesIn(tr: TimeRange, index?: RawBlock): Series[] {
+    const spans = this._fetched.map((s) => ({ s, span: s.timeRange }));
     const live = this.buffer?.leadingBuffer;
     const range = this.buffer?.dataTimeRange;
-    if (live != null && range != null && live.length > 0 && range.overlapsWith(tr))
-      out.push(live);
-    return out;
+    if (live != null && range != null && live.length > 0)
+      spans.push({ s: live, span: range });
+    let end: bigint | null = null;
+    return spans
+      .filter(({ span }) => span.overlapsWith(tr))
+      .flatMap(({ s, span }) => {
+        if (index == null || !span.end.after(tr.end)) return [s];
+        end ??= alignmentOf(this.index, index.offsetAt(tr.end.valueOf()));
+        const count = Math.min(Number(end - s.alignment), s.length);
+        if (count <= 0) return [];
+        const { start } = s.timeRange;
+        return [derive(s.sub(0, count), { timeRange: new TimeRange(start, tr.end) })];
+      });
+  }
+
+  /** @returns the block offset of the first index sample stamped at or after t. */
+  offsetAt(t: bigint): number {
+    const live = this.buffer?.leadingBuffer;
+    const series = live == null ? this._fetched : [...this._fetched, live];
+    return series.reduce(
+      (offset, s) =>
+        s.length > 0 && BigInt(s.data[0]) <= t
+          ? Math.max(offset, offsetOf(s.alignment) + search(s, t))
+          : offset,
+      0,
+    );
   }
 
   /**

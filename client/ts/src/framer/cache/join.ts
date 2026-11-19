@@ -505,9 +505,7 @@ export class Joins {
         block: b,
         // A run the block holds in full can sit before the block's newest samples.
         offset:
-          fresh === hi
-            ? offsetAt(block, BigInt(s.data[lo]))
-            : newest.count - fresh + lo,
+          fresh === hi ? block.offsetAt(BigInt(s.data[lo])) : newest.count - fresh + lo,
         fresh,
       });
       lo = hi;
@@ -585,19 +583,6 @@ const newestOf = (block: RawBlock): { end: bigint; count: number } => {
     end: BigInt(newest.data[newest.length - 1]) + 1n,
     count: offsetOf(newest.alignment) + newest.length,
   };
-};
-
-// Returns the block offset of the index sample stamped t.
-const offsetAt = (block: RawBlock, t: bigint): number => {
-  const live = block.buffer?.leadingBuffer;
-  const series = live == null ? block.fetched : [...block.fetched, live];
-  return series.reduce(
-    (offset, s) =>
-      s.length > 0 && BigInt(s.data[0]) <= t
-        ? Math.max(offset, offsetOf(s.alignment) + search(s, t))
-        : offset,
-    0,
-  );
 };
 
 // Returns the samples [from, to) of the series with block alignment and the time range
