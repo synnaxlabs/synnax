@@ -254,13 +254,6 @@ uint16_t ring_position(const uint16_t position) {
     return position - 1;
 }
 
-/// @brief returns whether a slave in state is below PRE-OP. IgH aborts each SDO
-/// transfer of a slave in INIT.
-bool starting(const slave::State state) {
-    return state == slave::State::INIT || state == slave::State::BOOT ||
-           state == slave::State::UNKNOWN;
-}
-
 /// @brief what the master reads from the SII of a slave.
 struct SII {
     /// @brief the DC modes of the slave.
@@ -449,8 +442,10 @@ Master::~Master() {
 std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Master::scan() {
     if (!this->initialized) {
         if (auto err = this->initialize()) return {{}, err};
-    } else
+    } else {
+        this->read_started();
         this->read_dictionaries();
+    }
     return {this->cached_slaves, x::errors::NIL};
 }
 
@@ -533,7 +528,7 @@ x::errors::Error Master::initialize() {
         result.properties.serial = slave_info.serial_number;
         result.properties.name = slave_info.name;
         result.status.state = slave::from_al_state(slave_info.al_state);
-        result.status.starting = starting(result.status.state);
+        result.status.starting = slave::starting(result.status.state);
         // IgH reads DC receive times only from slaves with a distributed clock, and it
         // makes the first of them the reference clock.
         if (!this->reference_clock && slave_info.ports[0].receive_time != 0)
@@ -673,36 +668,34 @@ void Master::read_coe(const std::vector<slave::DiscoveryResult *> &slaves) {
     }
 }
 
-void Master::read_starting() {
-    std::vector<slave::DiscoveryResult *> pending;
-    for (auto &slave: this->cached_slaves)
-        if (slave.status.starting) pending.push_back(&slave);
-    if (pending.empty()) return;
-    // IgH moves each slave to PRE-OP in the background while the master is open.
-    const auto deadline = this->cfg.clock.steady() + this->cfg.pre_op_timeout.chrono();
+size_t Master::read_started() {
     std::vector<slave::DiscoveryResult *> ready;
-    while (true) {
-        std::vector<slave::DiscoveryResult *> still;
-        for (auto *slave: pending) {
-            ec_slave_info_t info{};
-            const auto pos = ring_position(slave->properties.position);
-            const bool read = this->api
-                                  ->master_get_slave(this->ec_master, pos, &info) == 0;
-            const auto state = slave::from_al_state(info.al_state);
-            if (!read || starting(state)) {
-                still.push_back(slave);
-                continue;
-            }
-            slave->status.state = state;
-            slave->status.starting = false;
-            ready.push_back(slave);
+    size_t still = 0;
+    for (auto &slave: this->cached_slaves) {
+        if (!slave.status.starting) continue;
+        ec_slave_info_t info{};
+        const auto pos = ring_position(slave.properties.position);
+        const bool read = this->api->master_get_slave(this->ec_master, pos, &info) == 0;
+        const auto state = slave::from_al_state(info.al_state);
+        if (!read || slave::starting(state)) {
+            still++;
+            continue;
         }
-        pending = std::move(still);
-        if (pending.empty() || this->cfg.clock.steady() >= deadline) break;
-        this->cfg.clock.sleep(OP_POLL_INTERVAL);
+        slave.status.state = state;
+        slave.status.starting = false;
+        ready.push_back(&slave);
     }
+    if (ready.empty()) return still;
     this->read_coe(ready);
     slave::clear_duplicate_serials(this->cached_slaves);
+    return still;
+}
+
+void Master::read_starting() {
+    // IgH moves each slave to PRE-OP in the background while the master is open.
+    const auto deadline = this->cfg.clock.steady() + this->cfg.pre_op_timeout.chrono();
+    while (this->read_started() > 0 && this->cfg.clock.steady() < deadline)
+        this->cfg.clock.sleep(OP_POLL_INTERVAL);
 }
 
 uint64_t Master::app_time() const {

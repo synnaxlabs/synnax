@@ -20,6 +20,7 @@ import { ICD as PICD } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
+import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
 import { DEFAULT_DATA_TYPES } from "@/platform/icd/dataType";
 import { FieldsStatus, JSONField } from "@/platform/icd/Fields";
@@ -44,7 +45,7 @@ interface OpenInEditorProps {
   icdKey: icd.Key;
 }
 
-const OpenInEditor = ({ icdKey }: OpenInEditorProps): ReactElement => {
+const EditorButton = ({ icdKey }: OpenInEditorProps): ReactElement => {
   const openTab = Panel.useOpenTab();
   return (
     <Button.Button
@@ -58,6 +59,8 @@ const OpenInEditor = ({ icdKey }: OpenInEditorProps): ReactElement => {
     </Button.Button>
   );
 };
+
+const OpenInEditor: FC<OpenInEditorProps> = FLAGS.icds ? EditorButton : () => null;
 
 export interface AddFieldProps {
   onClick: () => void;
@@ -285,7 +288,8 @@ export const MessageSections: FC<MessageSectionsProps> = ({
       {message != null && message.payload.format !== "json" && (
         <PForm.Section title="Message" actions={<OpenInEditor icdKey={icdKey} />}>
           <Text.Text color={9}>
-            The format of this message is not JSON. Open it to change its format.
+            The format of this message is not JSON.
+            {FLAGS.icds && " Open it to change its format."}
           </Text.Text>
         </PForm.Section>
       )}

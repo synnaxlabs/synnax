@@ -9,12 +9,13 @@
 
 import { capture } from "@/index";
 
-import { pickComponent } from "./common/create-component";
+/** Frames the main nav's Arcs button with the Arcs toolbar header and its "+". */
+const TOOLBAR = { x: 400, y: 240 };
 
 /**
- * Docs `control/arc/get-started/create-automation`: from an empty panel, open
- * the component selector with "+", pick Arc automation, name it, and create it;
- * the Arc text editor opens.
+ * Docs `control/arc/get-started/create-automation`: open the Arcs toolbar from the
+ * main nav, click its "+", name the automation, and create it; the Arc text editor
+ * opens.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   const { page } = session;
@@ -25,11 +26,14 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   session.startRecording();
   await session.hold(1800);
 
-  await capture.clickPanelCreate(session);
-  await pickComponent(session, "Arc automation", capture.MODAL);
+  await session.zoom(TOOLBAR, 1.6);
+  await session.hold(800);
+  await capture.openToolbar(session, "arc");
+  await session.hold(1000);
+  await capture.clickToolbarCreate(session);
 
   const modal = page.locator(capture.MODAL).first();
-  const name = modal.getByPlaceholder("Name").first();
+  const name = modal.getByPlaceholder("Arc name").first();
   await session.waitFor(name);
   await session.hold(600);
   await session.zoom(modal, 1.6);
@@ -41,6 +45,9 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await capture.clickButton(session, "Create");
   session.endZoom();
   await session.waitForHidden(modal);
-  await session.waitFor(page.locator(".pluto-editor").first());
+  await session.waitFor(
+    page.locator(".pluto-mosaic__leaf:visible .monaco-editor").first(),
+  );
+  await session.moveTo({ x: 1100, y: 700 });
   await session.hold(3000);
 };

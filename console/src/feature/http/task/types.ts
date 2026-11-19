@@ -108,6 +108,9 @@ const writeConfigZ = http.writeConfigZ.extend({
   endpoints: writeEndpointZ.array().default(() => []),
 });
 
+const overlaps = (a: string, b: string): boolean =>
+  a !== "" && b !== "" && (a === b || a.startsWith(`${b}/`) || b.startsWith(`${a}/`));
+
 const validateWriteEndpoint = (ctx: z.core.ParsePayload<WriteEndpoint>) => {
   const { value } = ctx;
   const { channel, fields } = value;
@@ -121,8 +124,7 @@ const validateWriteEndpoint = (ctx: z.core.ParsePayload<WriteEndpoint>) => {
         "An empty channel pointer sends the raw value as the body, so additional fields are not allowed",
       path: ["channel", "pointer"],
     });
-  const pointers = new Set<string>();
-  pointers.add(channel.pointer);
+  const pointers = [channel.pointer];
   for (const [i, field] of fields.entries()) {
     if (field.pointer === "") {
       ctx.issues.push({
@@ -134,15 +136,15 @@ const validateWriteEndpoint = (ctx: z.core.ParsePayload<WriteEndpoint>) => {
       });
       continue;
     }
-    if (pointers.has(field.pointer))
+    if (pointers.some((p) => overlaps(p, field.pointer)))
       ctx.issues.push({
         continue: true,
         code: "custom",
         input: value,
-        message: `Pointer "${field.pointer}" is already used by another field`,
+        message: `Pointer "${field.pointer}" is already used by or overlaps another field`,
         path: ["fields", i, "pointer"],
       });
-    else pointers.add(field.pointer);
+    else pointers.push(field.pointer);
   }
 };
 

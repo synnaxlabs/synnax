@@ -166,11 +166,8 @@ const MOVES: Partial<Record<string, Move>> = {
   ArrowUp: (dims, from) => grid.move(dims, from, { x: 0, y: -1 }),
 };
 
-/**
- * @returns whether the event comes from the table itself. React also passes up the
- * events of a portal that a cell opens, such as a dialog.
- */
-const isOwn = (e: SyntheticEvent): boolean =>
+// A dialog that a cell opens portals out of the table and keeps its own events.
+const inTable = (e: SyntheticEvent): boolean =>
   e.target instanceof Node && e.currentTarget.contains(e.target);
 
 type ColumnElement = ReactElement<TableColumnProps>;
@@ -293,7 +290,7 @@ export const Table = ({
   };
 
   const handlePaste = (e: ClipboardEvent) => {
-    if (preview || !isOwn(e)) return;
+    if (preview || !inTable(e)) return;
     const block = parseBlock(
       e.clipboardData.getData("text/plain"),
       columns,
@@ -371,7 +368,7 @@ export const Table = ({
   };
 
   const handleCellFocus = (e: FocusEvent<HTMLTableCellElement>, at: xy.XY) => {
-    if (!isOwn(e)) return;
+    if (!inTable(e)) return;
     anchor.current = at;
     if (initial.current != null || !(e.target instanceof HTMLInputElement)) return;
     initial.current = { value: value[at.y]?.[at.x], text: e.target.value };
@@ -379,13 +376,14 @@ export const Table = ({
   };
 
   const handleCellBlur = (e: FocusEvent<HTMLTableCellElement>) => {
-    if (isOwn(e) && !e.currentTarget.contains(e.relatedTarget)) initial.current = null;
+    if (inTable(e) && !e.currentTarget.contains(e.relatedTarget))
+      initial.current = null;
   };
 
   // Runs before the cell, which blurs on an Esc that is not prevented and discards
   // any text it has not committed.
   const handleKeyDownCapture = (e: KeyboardEvent) => {
-    if (e.key !== "Escape" || !isOwn(e)) return;
+    if (e.key !== "Escape" || !inTable(e)) return;
     if (!(e.target instanceof HTMLInputElement) || initial.current == null) return;
     const { value: was, text } = initial.current;
     const at = anchor.current;
@@ -397,8 +395,9 @@ export const Table = ({
   };
 
   const handleKeyDown = (e: KeyboardEvent) => {
+    if (!inTable(e)) return;
     // Enter on the add and remove buttons must reach their native activation.
-    if (!isOwn(e) || !(e.target instanceof HTMLInputElement)) return;
+    if (!(e.target instanceof HTMLInputElement)) return;
     // An Esc that put a cell back stops here, so it does not close a parent dialog.
     if (e.key === "Escape") {
       if (e.defaultPrevented) e.stopPropagation();
@@ -426,7 +425,7 @@ export const Table = ({
         onKeyDownCapture={handleKeyDownCapture}
         // Any edit after a restore lets the next Esc restore again.
         onInput={(e) => {
-          if (isOwn(e)) restored.current = false;
+          if (inTable(e)) restored.current = false;
         }}
         {...rest}
       >

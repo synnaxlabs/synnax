@@ -266,6 +266,10 @@ private:
     /// @brief populates the cached slave list from SOEM's slavelist.
     void populate_slaves();
 
+    /// @brief reads again each slave in the cached slave list that was starting and
+    /// has left INIT since.
+    void read_started();
+
     /// @brief reads the settings that the ESI catalog describes for the slave from it,
     /// or the reason the read failed into its status.
     void read_settings(slave::DiscoveryResult &slave);

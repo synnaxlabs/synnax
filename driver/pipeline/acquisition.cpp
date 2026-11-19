@@ -141,6 +141,7 @@ bool Acquisition::run_once(Run &run) {
             if (auto err = authorities.validate()) {
                 LOG(ERROR) << "[acquisition] invalid authorities: " << err.message();
                 authorities = Authorities{};
+                source_err = err;
                 break;
             }
         }
