@@ -20,14 +20,13 @@ const CONTEXT_KEY = "pluto-vis-staleness";
 /** Nanoseconds without a sample before a source is considered stale. */
 export const DEFAULT_TIMEOUT = TimeSpan.seconds(5).nanoseconds;
 
-/** configZ carries the staleness config that every source-backed component adds. */
-export const configZ = z.object({
+/**
+ * stateZ is the staleness config and reported staleness that every source-backed
+ * component adds to its state. The staleness crosses to the DOM on every transition.
+ */
+export const stateZ = z.object({
   // A non-positive timeout would pin a source stale from its first sample onward.
   stalenessTimeout: z.number().positive().default(DEFAULT_TIMEOUT),
-});
-
-/** stateZ adds the reported staleness, which crosses to the DOM on every transition. */
-export const stateZ = configZ.extend({
   // stale reports that no sample has arrived within stalenessTimeout.
   stale: z.boolean().default(false),
 });

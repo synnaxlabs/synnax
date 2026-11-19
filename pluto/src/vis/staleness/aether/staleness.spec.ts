@@ -591,21 +591,21 @@ describe("staleness", () => {
 
   describe("stalenessTimeout", () => {
     it("should default an absent timeout", () => {
-      expect(staleness.configZ.parse({}).stalenessTimeout).toEqual(
+      expect(staleness.stateZ.parse({}).stalenessTimeout).toEqual(
         staleness.DEFAULT_TIMEOUT,
       );
     });
 
     it("should keep a positive timeout", () => {
       expect(
-        staleness.configZ.parse({ stalenessTimeout: TimeSpan.seconds(30).nanoseconds })
+        staleness.stateZ.parse({ stalenessTimeout: TimeSpan.seconds(30).nanoseconds })
           .stalenessTimeout,
       ).toEqual(TimeSpan.seconds(30).nanoseconds);
     });
 
     // A non-positive timeout would pin a source stale from its first sample onward.
     it.each([0, -1])("should reject a non-positive timeout of %s", (t) => {
-      expect(() => staleness.configZ.parse({ stalenessTimeout: t })).toThrow();
+      expect(() => staleness.stateZ.parse({ stalenessTimeout: t })).toThrow();
     });
   });
 
