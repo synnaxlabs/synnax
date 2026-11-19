@@ -9,7 +9,9 @@
 
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
+import { page, userEvent } from "vitest/browser";
 
+import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { renderThemed } from "@/styletest";
@@ -23,7 +25,30 @@ const WideOpener = (): ReactElement => {
   );
 };
 
+const ClickOpener = (): ReactElement => {
+  const { open } = Dialog.useViews();
+  return (
+    <Button.Button
+      onClick={(e) => open("Edit item", <span>view</span>, e.currentTarget)}
+    >
+      open
+    </Button.Button>
+  );
+};
+
 describe("Views", () => {
+  it("should focus a clicked opener after Back", async () => {
+    await renderThemed(
+      <Dialog.Views>
+        <ClickOpener />
+      </Dialog.Views>,
+    );
+    const opener = page.getByRole("button", { name: "open" });
+    await userEvent.click(opener);
+    await userEvent.click(page.getByRole("button", { name: "Back" }));
+    expect(document.activeElement).toBe(opener.element());
+  });
+
   it("should keep the width of the children under a wider view", async () => {
     const { getByText } = await renderThemed(
       <div style={{ display: "inline-flex" }}>
