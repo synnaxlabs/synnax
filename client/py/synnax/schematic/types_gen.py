@@ -1101,7 +1101,7 @@ class CustomActuatorNodeConfig(ToggleConfig):
 
     variant: Literal["custom_actuator"] = "custom_actuator"
     spec_key: str
-    state_overrides: list[symbol.State] = Field(default_factory=list)
+    state_overrides: list[symbol.StateOverride] = Field(default_factory=list)
 
 
 class CustomStaticNodeConfig(LabeledConfig, ScaledConfig):
@@ -1109,7 +1109,7 @@ class CustomStaticNodeConfig(LabeledConfig, ScaledConfig):
 
     variant: Literal["custom_static"] = "custom_static"
     spec_key: str
-    state_overrides: list[symbol.State] = Field(default_factory=list)
+    state_overrides: list[symbol.StateOverride] = Field(default_factory=list)
 
 
 class GroupBoxNodeConfig(BaseModel):

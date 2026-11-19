@@ -32,32 +32,22 @@ var _ = Describe("Retrieve", func() {
 		sym1 = defaults.Fill(symbol.Symbol{
 			Name: "symbol-1",
 			Data: symbol.Spec{
-				SVG:     "<svg>1</svg>",
+				Drawing: svg("<svg>1</svg>"),
 				Variant: "valve",
-				States:  []symbol.State{{Key: "default", Name: "default"}},
 			},
 		})
 		sym2 = defaults.Fill(symbol.Symbol{
 			Name: "symbol-2",
 			Data: symbol.Spec{
-				SVG:     "<svg>2</svg>",
+				Drawing: svg("<svg>2</svg>"),
 				Variant: "valve",
-				States: []symbol.State{
-					{Key: "default", Name: "default"},
-					{Key: "active", Name: "active"},
-				},
 			},
 		})
 		sym3 = defaults.Fill(symbol.Symbol{
 			Name: "symbol-3",
 			Data: symbol.Spec{
-				SVG:     "<svg>3</svg>",
+				Drawing: svg("<svg>3</svg>"),
 				Variant: "valve",
-				States: []symbol.State{
-					{Key: "default", Name: "default"},
-					{Key: "active", Name: "active"},
-					{Key: "error", Name: "error"},
-				},
 			},
 		})
 		Expect(svc.NewWriter(tx).Create(ctx, &sym1)).To(Succeed())
@@ -75,7 +65,7 @@ var _ = Describe("Retrieve", func() {
 				Exec(ctx, tx)).To(Succeed())
 			Expect(retrieved.Key).To(Equal(sym1.Key))
 			Expect(retrieved.Name).To(Equal(sym1.Name))
-			Expect(retrieved.Data.SVG).To(Equal(sym1.Data.SVG))
+			Expect(retrieved.Data.Drawing).To(Equal(sym1.Data.Drawing))
 		})
 
 		It("Should retrieve multiple symbols by keys", func(ctx SpecContext) {
@@ -113,7 +103,7 @@ var _ = Describe("Retrieve", func() {
 		It("Should execute without transaction", func(ctx SpecContext) {
 			symNoTx := defaults.Fill(symbol.Symbol{
 				Name: "no-tx-symbol",
-				Data: symbol.Spec{SVG: "<svg>no-tx</svg>", Variant: "valve"},
+				Data: symbol.Spec{Drawing: svg("<svg>no-tx</svg>"), Variant: "valve"},
 			})
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).Create(ctx, &symNoTx)
@@ -151,16 +141,14 @@ var _ = Describe("Retrieve", func() {
 
 		It("Should handle large data correctly", func(ctx SpecContext) {
 			largeData := symbol.Spec{
-				SVG:     "<svg>" + string(make([]byte, 10000)) + "</svg>",
+				Drawing: svg("<svg>" + string(make([]byte, 10000)) + "</svg>"),
 				Variant: "valve",
 			}
 			for i := range 100 {
-				largeData.States = append(largeData.States, symbol.State{
-					Key:  "state" + string(rune(i)),
-					Name: "state" + string(rune(i)),
-					Regions: []symbol.Region{
-						{Key: "region" + string(rune(i)), Name: "input"},
-					},
+				largeData.Parts = append(largeData.Parts, symbol.Part{
+					Key:       "part" + string(rune(i)),
+					Name:      "input",
+					Selectors: []string{},
 				})
 			}
 
@@ -177,7 +165,7 @@ var _ = Describe("Retrieve", func() {
 				Where(symbol.MatchKeys(largeSym.Key)).
 				Entry(&retrieved).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(retrieved.Data.SVG).To(Equal(largeData.SVG))
+			Expect(retrieved.Data.Drawing).To(Equal(largeData.Drawing))
 		})
 	})
 })

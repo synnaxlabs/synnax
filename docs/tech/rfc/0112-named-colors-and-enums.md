@@ -216,9 +216,8 @@ The schematic cutover ships in one release:
   values sets the entry colors. Each stroke or fill whose colors equal the entries at
   every value where it is set becomes one `entry` look, with a `when` for those values.
   Every other stroke or fill keeps its `color` looks, so no stored symbol changes its
-  look. Every symbol import, alone or in a group, applies the same rewrite to an old
-  symbol file, and makes and reuses enumerations by the rule and access of the schematic
-  import below.
+  look. A symbol import of an old file, alone or in a group, keeps each region color as
+  a `color` look on its value and makes no enumeration.
 - In a node's `state_overrides`, the override of the stroke or fill that sets the
   symbol's entry colors sets the colors of the node's enumeration. When any stroke or
   fill would then show a color other than its override, such as a second `entry` look

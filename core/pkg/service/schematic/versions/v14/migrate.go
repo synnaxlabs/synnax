@@ -11,8 +11,12 @@ package v14
 
 import (
 	"context"
+	"fmt"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp/migrate"
+	symbolv4 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v4"
+	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v5"
 	v13 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v13"
 )
 
@@ -28,9 +32,39 @@ func MigrateNode(ctx context.Context, old v13.Node) (Node, error) {
 }
 
 // MigrateNodeConfig lifts a v13 node config into v14. A select or a state indicator
-// keeps its options and names no enumeration.
+// keeps its options and names no enumeration. A custom node keeps its state overrides.
 func MigrateNodeConfig(ctx context.Context, old v13.NodeConfig) (NodeConfig, error) {
-	return autoMigrateNodeConfig(ctx, old)
+	cfg, err := autoMigrateNodeConfig(ctx, old)
+	if err != nil {
+		return NodeConfig{}, err
+	}
+	switch o := old.Variant.(type) {
+	case v13.CustomActuatorNodeConfig:
+		n := as[CustomActuatorNodeConfig](cfg.Variant)
+		n.StateOverrides = migrateStateOverrides(o.StateOverrides)
+		cfg.Variant = n
+	case v13.CustomStaticNodeConfig:
+		n := as[CustomStaticNodeConfig](cfg.Variant)
+		n.StateOverrides = migrateStateOverrides(o.StateOverrides)
+		cfg.Variant = n
+	}
+	return cfg, nil
+}
+
+// as returns a migrated variant as a T. It panics when v is not a T, since a generated
+// migration keeps each variant's kind.
+func as[T any](v any) T {
+	t, ok := v.(T)
+	if !ok {
+		panic(fmt.Sprintf("migrated variant is a %T, not a %T", v, t))
+	}
+	return t
+}
+
+func migrateStateOverrides(old []symbolv4.State) []symbol.StateOverride {
+	return lo.Map(old, func(s symbolv4.State, _ int) symbol.StateOverride {
+		return symbol.StateOverride{Key: s.Key, Name: s.Name, Regions: s.Regions}
+	})
 }
 
 // Migration lifts stored schematics from v13 to v14.

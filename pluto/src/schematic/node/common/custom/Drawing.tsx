@@ -11,6 +11,7 @@ import { type schematic } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
+import { type Paint } from "@/schematic/node/common/custom/paint";
 import { useRender } from "@/schematic/node/common/custom/render";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
@@ -24,9 +25,8 @@ export interface DrawingProps extends Primitive.SVGBasedProps {
    * colors of a toggle reach them.
    */
   builtIn?: boolean;
-  /** Paints the active state of the spec in place of its base state. */
-  enabled?: boolean;
-  stateOverrides?: schematic.symbol.State[];
+  /** paints are the paints of the spec's looks, from usePaints. */
+  paints?: Paint[];
 }
 
 /**
@@ -35,21 +35,14 @@ export interface DrawingProps extends Primitive.SVGBasedProps {
  */
 export const Drawing = ({
   spec,
+  paints,
   builtIn = false,
   orientation = "left",
   scale = 1,
   strokeColor,
-  enabled = false,
-  stateOverrides,
 }: DrawingProps): ReactElement | null => {
-  const setDrawing = useRender({
-    activeState: enabled ? "active" : "base",
-    spec,
-    stateOverrides,
-    strokeColor,
-    builtIn,
-  });
-  const dims = Region.measure(spec.svg);
+  const setDrawing = useRender({ spec, paints, strokeColor, builtIn });
+  const dims = Region.measure(spec.drawing.markup);
   if (dims == null) return null;
   // Primitive.SVG shrinks built-in drawings by BASE_SCALE. A spec sets its own scale.
   const svgScale =

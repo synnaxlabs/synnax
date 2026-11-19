@@ -24,7 +24,7 @@ export interface StaticProps {
   orientation?: location.Outer;
   scale?: number;
   className?: string;
-  stateOverrides?: schematic.symbol.State[];
+  stateOverrides?: schematic.symbol.StateOverride[];
 }
 
 export const Static = ({
@@ -36,7 +36,8 @@ export const Static = ({
 }: StaticProps): ReactElement => {
   const { symbol, missing } = Symbol.useResolved(specKey);
   const spec = symbol?.data;
-  const invalid = spec != null && !Custom.isValidSVG(spec.svg);
+  const paints = Custom.usePaints(spec, 0, stateOverrides);
+  const invalid = spec != null && !Custom.isValidSVG(spec.drawing.markup);
   if (missing || invalid)
     return (
       <Note.Note variant="warning" className={className}>
@@ -56,7 +57,7 @@ export const Static = ({
           spec={spec}
           orientation={orientation}
           scale={scale}
-          stateOverrides={stateOverrides}
+          paints={paints}
         />
       )}
     </Primitive.Div>

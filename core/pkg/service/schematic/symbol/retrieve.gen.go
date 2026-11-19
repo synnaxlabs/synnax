@@ -15,6 +15,8 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/color"
+	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/x/compare"
 )
@@ -35,9 +37,12 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
-	name   *gorp.SortedIndex[Key, Symbol, string]
-	group  *gorp.KeyReference[Key, Symbol, group.Key]
-	search *gorp.SearchIndex[Key, Symbol]
+	name                    *gorp.SortedIndex[Key, Symbol, string]
+	group                   *gorp.KeyReference[Key, Symbol, group.Key]
+	dataStatesEnumeration   *gorp.KeyReference[Key, Symbol, enumeration.Key]
+	dataLooksFillValueKey   *gorp.KeyReference[Key, Symbol, color.Key]
+	dataLooksStrokeValueKey *gorp.KeyReference[Key, Symbol, color.Key]
+	search                  *gorp.SearchIndex[Key, Symbol]
 }
 
 // newIndexes constructs a fresh indexes value, allocating one instance of each
@@ -67,6 +72,174 @@ func newIndexes() indexes {
 				}
 			},
 		}),
+		dataStatesEnumeration: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Symbol, enumeration.Key]{
+			Name:     "data.states.enumeration",
+			Table:    "enumeration",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Targets: func(e *Symbol) []enumeration.Key {
+				var targets []enumeration.Key
+				for _, v1 := range e.Data.States {
+					switch v2 := v1.Variant.(type) {
+					case EnumerationState:
+						if v2.Enumeration != nil {
+							targets = append(targets, *v2.Enumeration)
+						}
+					}
+				}
+				return targets
+			},
+			Detach: func(e *Symbol, t enumeration.Key) {
+				for i3 := range e.Data.States {
+					switch v4 := e.Data.States[i3].Variant.(type) {
+					case EnumerationState:
+						if v4.Enumeration != nil && *v4.Enumeration == t {
+							v4.Enumeration = nil
+						}
+						e.Data.States[i3].Variant = v4
+					}
+				}
+			},
+			Retarget: func(e *Symbol, from, to enumeration.Key) {
+				for i5 := range e.Data.States {
+					switch v6 := e.Data.States[i5].Variant.(type) {
+					case EnumerationState:
+						if v6.Enumeration != nil && *v6.Enumeration == from {
+							*v6.Enumeration = to
+						}
+						e.Data.States[i5].Variant = v6
+					}
+				}
+			},
+		}),
+		dataLooksFillValueKey: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Symbol, color.Key]{
+			Name:     "data.looks.fill.value.key",
+			Table:    "color",
+			OnDelete: gorp.Inline,
+			Kind:     gorp.Use,
+			Targets: func(e *Symbol) []color.Key {
+				var targets []color.Key
+				for _, v1 := range e.Data.Looks {
+					if v1.Fill != nil {
+						switch v2 := v1.Fill.Variant.(type) {
+						case ColorPaint:
+							switch v3 := v2.Value.Variant.(type) {
+							case color.NamedRef:
+								targets = append(targets, v3.Key)
+							}
+						}
+					}
+				}
+				return targets
+			},
+			Retarget: func(e *Symbol, from, to color.Key) {
+				for i7 := range e.Data.Looks {
+					if e.Data.Looks[i7].Fill != nil {
+						switch v8 := e.Data.Looks[i7].Fill.Variant.(type) {
+						case ColorPaint:
+							switch v9 := v8.Value.Variant.(type) {
+							case color.NamedRef:
+								if v9.Key == from {
+									v9.Key = to
+								}
+								v8.Value.Variant = v9
+							}
+							e.Data.Looks[i7].Fill.Variant = v8
+						}
+					}
+				}
+			},
+			Inline: func(
+				ctx context.Context,
+				tx gorp.Tx,
+				e *Symbol,
+				t color.Key,
+			) error {
+				var target color.Named
+				if err := gorp.NewRetrieve[color.Key, color.Named]().
+					Where(gorp.MatchKeys[color.Key, color.Named](t)).
+					Entry(&target).
+					Exec(ctx, tx); err != nil {
+					return err
+				}
+				for i4 := range e.Data.Looks {
+					if e.Data.Looks[i4].Fill != nil {
+						switch v5 := e.Data.Looks[i4].Fill.Variant.(type) {
+						case ColorPaint:
+							if v6, ok := v5.Value.Variant.(color.NamedRef); ok && v6.Key == t {
+								v5.Value.Variant = target.Inline()
+							}
+							e.Data.Looks[i4].Fill.Variant = v5
+						}
+					}
+				}
+				return nil
+			},
+		}),
+		dataLooksStrokeValueKey: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Symbol, color.Key]{
+			Name:     "data.looks.stroke.value.key",
+			Table:    "color",
+			OnDelete: gorp.Inline,
+			Kind:     gorp.Use,
+			Targets: func(e *Symbol) []color.Key {
+				var targets []color.Key
+				for _, v1 := range e.Data.Looks {
+					if v1.Stroke != nil {
+						switch v2 := v1.Stroke.Variant.(type) {
+						case ColorPaint:
+							switch v3 := v2.Value.Variant.(type) {
+							case color.NamedRef:
+								targets = append(targets, v3.Key)
+							}
+						}
+					}
+				}
+				return targets
+			},
+			Retarget: func(e *Symbol, from, to color.Key) {
+				for i7 := range e.Data.Looks {
+					if e.Data.Looks[i7].Stroke != nil {
+						switch v8 := e.Data.Looks[i7].Stroke.Variant.(type) {
+						case ColorPaint:
+							switch v9 := v8.Value.Variant.(type) {
+							case color.NamedRef:
+								if v9.Key == from {
+									v9.Key = to
+								}
+								v8.Value.Variant = v9
+							}
+							e.Data.Looks[i7].Stroke.Variant = v8
+						}
+					}
+				}
+			},
+			Inline: func(
+				ctx context.Context,
+				tx gorp.Tx,
+				e *Symbol,
+				t color.Key,
+			) error {
+				var target color.Named
+				if err := gorp.NewRetrieve[color.Key, color.Named]().
+					Where(gorp.MatchKeys[color.Key, color.Named](t)).
+					Entry(&target).
+					Exec(ctx, tx); err != nil {
+					return err
+				}
+				for i4 := range e.Data.Looks {
+					if e.Data.Looks[i4].Stroke != nil {
+						switch v5 := e.Data.Looks[i4].Stroke.Variant.(type) {
+						case ColorPaint:
+							if v6, ok := v5.Value.Variant.(color.NamedRef); ok && v6.Key == t {
+								v5.Value.Variant = target.Inline()
+							}
+							e.Data.Looks[i4].Stroke.Variant = v5
+						}
+					}
+				}
+				return nil
+			},
+		}),
 		search: gorp.NewSearchIndex[Key, Symbol](
 			"search",
 			func(e *Symbol) []string {
@@ -90,6 +263,9 @@ func (i indexes) all() []gorp.Index[Key, Symbol] {
 func (i indexes) references() []gorp.Reference[Key, Symbol] {
 	return []gorp.Reference[Key, Symbol]{
 		i.group,
+		i.dataStatesEnumeration,
+		i.dataLooksFillValueKey,
+		i.dataLooksStrokeValueKey,
 	}
 }
 

@@ -24,14 +24,220 @@ type Key = versions.Key
 // elements for dynamic coloring.
 type Region = versions.Region
 
-// State is a named visual state of a symbol with regional styling configurations.
-type State = versions.State
+// StateOverride is a node's replacement for the region colors of one of its symbol's
+// states.
+type StateOverride = versions.StateOverride
 
 // Handle is a connection point on a symbol for linking to other diagram elements.
 type Handle = versions.Handle
 
-// Spec is the complete symbol definition including geometry, states, handles, and
-// rendering properties.
+// Drawing is the picture of a symbol.
+type Drawing = versions.Drawing
+
+// DrawingVariant is implemented by every Drawing variant.
+type DrawingVariant = versions.DrawingVariant
+
+// DrawingType is the "type" value that selects a variant of Drawing.
+type DrawingType = versions.DrawingType
+
+// SvgDrawingType is a drawing stored as SVG markup.
+const SvgDrawingType DrawingType = versions.SvgDrawingType
+
+// SvgDrawing is a drawing stored as SVG markup.
+type SvgDrawing = versions.SvgDrawing
+
+// Part is a named set of shapes in the drawing that looks can change.
+type Part = versions.Part
+
+// BaseState carries the fields that every state shares.
+type BaseState = versions.BaseState
+
+// State is what a symbol shows.
+type State = versions.State
+
+// StateVariant is implemented by every State variant.
+type StateVariant = versions.StateVariant
+
+// StateType is the "type" value that selects a variant of State.
+type StateType = versions.StateType
+
+const (
+	// EnumerationStateType is a state that shows the entries of an enumeration.
+	EnumerationStateType StateType = versions.EnumerationStateType
+	// NumberStateType is a state that shows a number.
+	NumberStateType StateType = versions.NumberStateType
+)
+
+// EnumerationState is a state that shows the entries of an enumeration.
+type EnumerationState = versions.EnumerationState
+
+// NumberState is a state that shows a number.
+type NumberState = versions.NumberState
+
+// Matcher is how a state reads a value before it finds an entry.
+type Matcher = versions.Matcher
+
+// MatcherVariant is implemented by every Matcher variant.
+type MatcherVariant = versions.MatcherVariant
+
+// MatcherType is the "type" value that selects a variant of Matcher.
+type MatcherType = versions.MatcherType
+
+const (
+	// ExactMatcherType reads each value as it is.
+	ExactMatcherType MatcherType = versions.ExactMatcherType
+	// WithinMatcherType reads a value from lower up to, but not including, upper as 1,
+	// and each other value as 0.
+	WithinMatcherType MatcherType = versions.WithinMatcherType
+)
+
+// ExactMatcher reads each value as it is.
+type ExactMatcher = versions.ExactMatcher
+
+// WithinMatcher reads a value from lower up to, but not including, upper as 1, and each
+// other value as 0.
+type WithinMatcher = versions.WithinMatcher
+
+// Command is a named request that writes one value to one channel.
+type Command = versions.Command
+
+// CommandValue is the value that a command writes.
+type CommandValue = versions.CommandValue
+
+// CommandValueVariant is implemented by every CommandValue variant.
+type CommandValueVariant = versions.CommandValueVariant
+
+// CommandValueType is the "type" value that selects a variant of CommandValue.
+type CommandValueType = versions.CommandValueType
+
+const (
+	// FixedCommandValueType writes one value.
+	FixedCommandValueType CommandValueType = versions.FixedCommandValueType
+	// AskCommandValueType asks the user for the value to write.
+	AskCommandValueType CommandValueType = versions.AskCommandValueType
+)
+
+// FixedCommandValue writes one value.
+type FixedCommandValue = versions.FixedCommandValue
+
+// AskCommandValue asks the user for the value to write.
+type AskCommandValue = versions.AskCommandValue
+
+// Look is paint, visibility, or motion on a part. A later look wins on each field that
+// it sets.
+type Look = versions.Look
+
+// Blink makes a part flash.
+type Blink = versions.Blink
+
+// Condition is when a look applies.
+type Condition = versions.Condition
+
+// ConditionVariant is implemented by every Condition variant.
+type ConditionVariant = versions.ConditionVariant
+
+// ConditionType is the "type" value that selects a variant of Condition.
+type ConditionType = versions.ConditionType
+
+// EqualsConditionType holds while a state has one of the values.
+const EqualsConditionType ConditionType = versions.EqualsConditionType
+
+// EqualsCondition holds while a state has one of the values.
+type EqualsCondition = versions.EqualsCondition
+
+// Paint is the color of a fill or stroke.
+type Paint = versions.Paint
+
+// PaintVariant is implemented by every Paint variant.
+type PaintVariant = versions.PaintVariant
+
+// PaintType is the "type" value that selects a variant of Paint.
+type PaintType = versions.PaintType
+
+const (
+	// EntryPaintType is the color of the current entry of a state.
+	EntryPaintType PaintType = versions.EntryPaintType
+	// NodePaintType is the color that the node sets.
+	NodePaintType PaintType = versions.NodePaintType
+	// ColorPaintType is one color.
+	ColorPaintType PaintType = versions.ColorPaintType
+)
+
+// EntryPaint is the color of the current entry of a state.
+type EntryPaint = versions.EntryPaint
+
+// NodePaint is the color that the node sets.
+type NodePaint = versions.NodePaint
+
+// ColorPaint is one color.
+type ColorPaint = versions.ColorPaint
+
+// Motion is motion on a part.
+type Motion = versions.Motion
+
+// MotionVariant is implemented by every Motion variant.
+type MotionVariant = versions.MotionVariant
+
+// MotionType is the "type" value that selects a variant of Motion.
+type MotionType = versions.MotionType
+
+const (
+	// SpinMotionType turns a part around its pivot.
+	SpinMotionType MotionType = versions.SpinMotionType
+	// FlowMotionType moves the dashes of a stroke along it.
+	FlowMotionType MotionType = versions.FlowMotionType
+	// LevelMotionType fills a part to a level.
+	LevelMotionType MotionType = versions.LevelMotionType
+	// RotateMotionType turns a part to an angle.
+	RotateMotionType MotionType = versions.RotateMotionType
+	// MoveMotionType moves a part between two offsets.
+	MoveMotionType MotionType = versions.MoveMotionType
+)
+
+// SpinMotion turns a part around its pivot.
+type SpinMotion = versions.SpinMotion
+
+// FlowMotion moves the dashes of a stroke along it.
+type FlowMotion = versions.FlowMotion
+
+// LevelMotion fills a part to a level.
+type LevelMotion = versions.LevelMotion
+
+// RotateMotion turns a part to an angle.
+type RotateMotion = versions.RotateMotion
+
+// MoveMotion moves a part between two offsets.
+type MoveMotion = versions.MoveMotion
+
+// BaseInteraction carries the fields that every interaction shares.
+type BaseInteraction = versions.BaseInteraction
+
+// Interaction is what a pointer gesture on a part does.
+type Interaction = versions.Interaction
+
+// InteractionVariant is implemented by every Interaction variant.
+type InteractionVariant = versions.InteractionVariant
+
+// InteractionType is the "type" value that selects a variant of Interaction.
+type InteractionType = versions.InteractionType
+
+const (
+	// FireInteractionType sends one command on a click.
+	FireInteractionType InteractionType = versions.FireInteractionType
+	// NextInteractionType sends the command whose value differs from the state, or
+	// opens a menu of the commands.
+	NextInteractionType InteractionType = versions.NextInteractionType
+)
+
+// FireInteraction sends one command on a click.
+type FireInteraction = versions.FireInteraction
+
+// NextInteraction sends the command whose value differs from the state, or opens a menu
+// of the commands.
+type NextInteraction = versions.NextInteraction
+
+// Spec is the complete symbol definition: its drawing, parts, states, commands, looks,
+// interactions, and handles.
 type Spec = versions.Spec
 
 // Symbol is a persisted schematic symbol defining reusable visual components for

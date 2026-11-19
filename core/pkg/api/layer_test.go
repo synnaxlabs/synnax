@@ -252,9 +252,10 @@ var _ = Describe("Layer", func() {
 			sym = defaults.Fill(symbol.Symbol{
 				Name: "moved",
 				Data: symbol.Spec{
-					SVG:     "<svg></svg>",
+					Drawing: symbol.Drawing{
+						Variant: symbol.SvgDrawing{Markup: "<svg></svg>"},
+					},
 					Variant: "valve",
-					States:  []symbol.State{{Key: "default", Name: "default"}},
 				},
 			})
 			rck = rack.Rack{Name: "moved"}

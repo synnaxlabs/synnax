@@ -10,15 +10,20 @@
 package symbol_test
 
 import (
+	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	namedcolor "github.com/synnaxlabs/synnax/pkg/service/color"
+	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
+	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -34,6 +39,7 @@ var (
 	svc      *symbol.Service
 	imexSvc  *imex.Service
 	groupSvc *group.Service
+	enumSvc  *enumeration.Service
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -47,10 +53,13 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	projectSvc := MustOpen(project.OpenService(ctx, project.ServiceConfig{
 		DB: db,
 	}))
+	enumSvc = MustOpen(enumeration.OpenService(ctx, enumeration.ServiceConfig{DB: db}))
 	svc = MustOpen(symbol.OpenService(ctx, symbol.ServiceConfig{
-		DB:    db,
-		Group: groupSvc,
-		ImEx:  imexSvc,
+		DB:          db,
+		Group:       groupSvc,
+		ImEx:        imexSvc,
+		Enumeration: enumSvc,
+		Actuators:   noActuators,
 	}))
 	proj.Name = "test-project"
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -59,3 +68,21 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 })
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
+
+// svg returns a drawing of markup.
+func svg(markup string) symbol.Drawing {
+	return symbol.Drawing{Variant: symbol.SvgDrawing{Markup: markup}}
+}
+
+// colorPaint returns a paint of the color that hex names.
+func colorPaint(hex string) symbol.Paint {
+	GinkgoHelper()
+	return symbol.Paint{Variant: symbol.ColorPaint{Value: namedcolor.Ref{
+		Variant: namedcolor.FixedRef{Value: MustSucceed(color.Parse(hex))},
+	}}}
+}
+
+// noActuators reports that no custom_actuator node draws a symbol.
+func noActuators(context.Context, gorp.Tx) (set.Set[symbol.Key], error) {
+	return nil, nil
+}

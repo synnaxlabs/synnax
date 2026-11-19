@@ -69,7 +69,7 @@ var _ = Describe("Search", func() {
 		GinkgoHelper()
 		s := defaults.Fill(symbol.Symbol{
 			Name: name,
-			Data: symbol.Spec{SVG: "<svg></svg>", Variant: "valve"},
+			Data: symbol.Spec{Drawing: svg("<svg></svg>"), Variant: "valve"},
 		})
 		Expect(svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
 		return symbol.ResourceID(s.Key)

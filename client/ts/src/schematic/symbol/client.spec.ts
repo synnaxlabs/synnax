@@ -20,8 +20,7 @@ import { createTestClient, expectLive } from "@/testutil";
 const client = createTestClient();
 
 const SYMBOL_DATA: schematic.symbol.New["data"] = {
-  svg: "<svg></svg>",
-  states: [],
+  drawing: { type: "svg", markup: "<svg></svg>" },
   handles: [],
   variant: "sensor",
 };
@@ -46,8 +45,7 @@ describe("Symbol Client", () => {
       const symbol = await client.schematics.symbols.create({
         name: "Test Symbol",
         data: {
-          svg: "<svg></svg>",
-          states: [],
+          drawing: { type: "svg", markup: "<svg></svg>" },
           handles: [],
           variant: "sensor",
         },
@@ -62,12 +60,20 @@ describe("Symbol Client", () => {
         symbols: [
           {
             name: "Symbol 1",
-            data: { svg: "<svg></svg>", states: [], handles: [], variant: "sensor" },
+            data: {
+              drawing: { type: "svg", markup: "<svg></svg>" },
+              handles: [],
+              variant: "sensor",
+            },
             group: symbolGroup.key,
           },
           {
             name: "Symbol 2",
-            data: { svg: "<svg></svg>", states: [], handles: [], variant: "sensor" },
+            data: {
+              drawing: { type: "svg", markup: "<svg></svg>" },
+              handles: [],
+              variant: "sensor",
+            },
             group: symbolGroup.key,
           },
         ],
@@ -82,7 +88,11 @@ describe("Symbol Client", () => {
     it("should retrieve a single symbol by key", async () => {
       const created = await client.schematics.symbols.create({
         name: "Retrieve Test",
-        data: { svg: "<svg></svg>", states: [], handles: [], variant: "sensor" },
+        data: {
+          drawing: { type: "svg", markup: "<svg></svg>" },
+          handles: [],
+          variant: "sensor",
+        },
         group: symbolGroup.key,
       });
 
@@ -96,12 +106,20 @@ describe("Symbol Client", () => {
         symbols: [
           {
             name: "Multi Test 1",
-            data: { svg: "<svg></svg>", states: [], handles: [], variant: "sensor" },
+            data: {
+              drawing: { type: "svg", markup: "<svg></svg>" },
+              handles: [],
+              variant: "sensor",
+            },
             group: symbolGroup.key,
           },
           {
             name: "Multi Test 2",
-            data: { svg: "<svg></svg>", states: [], handles: [], variant: "sensor" },
+            data: {
+              drawing: { type: "svg", markup: "<svg></svg>" },
+              handles: [],
+              variant: "sensor",
+            },
             group: symbolGroup.key,
           },
         ],
@@ -119,7 +137,7 @@ describe("Symbol Client", () => {
       await client.schematics.symbols.create({
         symbols: names.map((name) => ({
           name,
-          data: { svg: "<svg></svg>", states: [], handles: [], variant: "sensor" },
+          data: SYMBOL_DATA,
           group: symbolGroup.key,
         })),
       });
@@ -341,7 +359,11 @@ describe("Symbol Client", () => {
     it("should rename a symbol", async () => {
       const symbol = await client.schematics.symbols.create({
         name: "Original Name",
-        data: { svg: "<svg></svg>", states: [], handles: [], variant: "sensor" },
+        data: {
+          drawing: { type: "svg", markup: "<svg></svg>" },
+          handles: [],
+          variant: "sensor",
+        },
         group: symbolGroup.key,
       });
 
@@ -362,10 +384,10 @@ describe("Symbol Client", () => {
       const svg = "<svg><g></g></svg>";
       await client.schematics.symbols.dispatch(
         symbol.key,
-        schematic.symbol.set({ path: ["data", "svg"], value: svg }),
+        schematic.symbol.set({ path: ["data", "drawing", "markup"], value: svg }),
       );
       const stored = await createTestClient().schematics.symbols.retrieve(symbol.key);
-      expect(stored.data.svg).toBe(svg);
+      expect(stored.data.drawing.markup).toBe(svg);
     });
   });
 
@@ -373,7 +395,11 @@ describe("Symbol Client", () => {
     it("should delete a single symbol", async () => {
       const symbol = await client.schematics.symbols.create({
         name: "Delete Test",
-        data: { svg: "<svg></svg>", states: [], handles: [], variant: "sensor" },
+        data: {
+          drawing: { type: "svg", markup: "<svg></svg>" },
+          handles: [],
+          variant: "sensor",
+        },
         group: symbolGroup.key,
       });
 

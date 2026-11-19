@@ -10,24 +10,23 @@
 import "@/feature/schematic/symbol/edit/Edit.css";
 
 import { Button } from "@synnaxlabs/lyra/button";
-import { Component } from "@synnaxlabs/lyra/component";
-import { Form } from "@synnaxlabs/lyra/form";
 import { type Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
-import { Schematic } from "@synnaxlabs/pluto";
+import { type Schematic } from "@synnaxlabs/pluto";
 
 import { CSS } from "@/platform/css";
 
-const path = Schematic.Symbol.formPath;
+interface StateListProps extends Input.Control<number> {
+  tabs: Schematic.Node.Custom.Value[];
+}
 
-interface StateListProps extends Input.Control<string> {}
+interface StateListItemProps extends List.ItemRenderProps<number> {
+  name: string;
+}
 
-const StateListItem = (props: List.ItemRenderProps<string>) => {
-  const { itemKey } = props;
-  const state = Form.useFieldValue(path.data.states[itemKey]);
+const StateListItem = ({ itemKey, name }: StateListItemProps) => {
   const { selected, onSelect } = Select.useItemState(itemKey);
-  if (state == null) return null;
   return (
     <Button.Button
       variant={selected ? "filled" : "outlined"}
@@ -36,25 +35,30 @@ const StateListItem = (props: List.ItemRenderProps<string>) => {
       className={CSS.B("schematic-state-list-item")}
       grow
     >
-      {state.name}
+      {name}
     </Button.Button>
   );
 };
 
-const stateListItem = Component.renderProp(StateListItem);
-
-export const StateList = ({ value, onChange }: StateListProps) => {
-  const { data } = Form.useFieldList(path.data.states);
-  if (data.length === 1) return null;
+export const StateList = ({ value, onChange, tabs }: StateListProps) => {
+  if (tabs.length === 1) return null;
   return (
     <Select.Frame
       value={value}
       onChange={onChange}
-      data={data}
+      data={tabs.map((t) => t.value)}
       closeDialogOnSelect={false}
     >
       <List.Scroll x gap={1}>
-        <List.Items>{stateListItem}</List.Items>
+        <List.Items<number>>
+          {({ key, ...rest }) => (
+            <StateListItem
+              key={key}
+              {...rest}
+              name={tabs.find((t) => t.value === rest.itemKey)?.name ?? ""}
+            />
+          )}
+        </List.Items>
       </List.Scroll>
     </Select.Frame>
   );
