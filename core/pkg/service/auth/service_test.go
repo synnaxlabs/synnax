@@ -232,6 +232,41 @@ var _ = Describe("Service", func() {
 				To(MatchError(validate.ErrValidation))
 		})
 	})
+	Describe("Accepted", func() {
+		var narrowed *auth.Service
+		BeforeEach(func(ctx SpecContext) {
+			narrowed = MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
+				DB: db,
+				Authenticators: map[auth.Method]auth.Authenticator{
+					auth.MethodPassword: pw,
+					auth.MethodAPIKey:   rejecter{},
+				},
+				Accepted: []auth.Method{auth.MethodPassword},
+			}))
+		})
+		It("Should list only the accepted methods", func() {
+			Expect(narrowed.Methods()).To(Equal([]auth.Method{auth.MethodPassword}))
+		})
+		It("Should refuse a login with a method that is not accepted", func(
+			ctx SpecContext,
+		) {
+			Expect(narrowed.Login(ctx, auth.Proof{Variant: auth.APIKeyProof{
+				APIKeyCredentials: auth.APIKeyCredentials{Key: "syk_key"},
+			}})).Error().To(MatchError(ContainSubstring("not accepted")))
+		})
+		It("Should reject an accepted method with no authenticator", func(
+			ctx SpecContext,
+		) {
+			Expect(auth.OpenService(ctx, auth.ServiceConfig{
+				DB: db,
+				Authenticators: map[auth.Method]auth.Authenticator{
+					auth.MethodPassword: pw,
+				},
+				Accepted: []auth.Method{auth.MethodOIDC},
+			})).Error().
+				To(MatchError(ContainSubstring("method oidc has no authenticator")))
+		})
+	})
 	Describe("Authenticate", func() {
 		It("Should return the session a token belongs to", func(ctx SpecContext) {
 			session, token := login(ctx)
@@ -775,3 +810,18 @@ var _ = Describe("Service", func() {
 		).To(MatchError(query.ErrNotFound))
 	})
 })
+
+// rejecter is an authenticator that rejects every proof.
+type rejecter struct{}
+
+func (rejecter) Authenticate(context.Context, auth.Proof) (auth.Identity, error) {
+	return auth.Identity{}, auth.ErrInvalidCredentials
+}
+
+func (rejecter) Version(
+	context.Context,
+	gorp.Snapshot,
+	uuid.UUID,
+) (telem.TimeStamp, error) {
+	return 0, nil
+}

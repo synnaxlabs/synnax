@@ -42,10 +42,14 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// Authenticators checks proofs, one per accepted method.
+	// Authenticators checks proofs, one per method.
 	//
 	// [REQUIRED]
 	Authenticators map[Method]Authenticator
+	// Accepted are the methods accepted at login. Each needs an authenticator.
+	//
+	// [OPTIONAL] - Defaults to every method in Authenticators.
+	Accepted []Method
 	// IdleTimeout ends a session that no request has used for this long.
 	//
 	// [OPTIONAL] - Defaults to [DefaultIdleTimeout].
@@ -75,6 +79,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Authenticators = override.Nil(c.Authenticators, other.Authenticators)
+	c.Accepted = override.Slice(c.Accepted, other.Accepted)
 	c.IdleTimeout = override.Numeric(c.IdleTimeout, other.IdleTimeout)
 	c.Clock = override.Nil(c.Clock, other.Clock)
 	c.HoldCheckInterval = override.Numeric(c.HoldCheckInterval, other.HoldCheckInterval)
@@ -86,6 +91,10 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("auth")
 	v.NotNil("db", c.DB)
 	v.Ternary("authenticators", len(c.Authenticators) == 0, "must not be empty")
+	for _, m := range c.Accepted {
+		_, ok := c.Authenticators[m]
+		v.Ternaryf("accepted", !ok, "method %s has no authenticator", m)
+	}
 	v.Positive("idle_timeout", c.IdleTimeout)
 	v.NotNil("clock", c.Clock)
 	v.Positive("hold_check_interval", c.HoldCheckInterval)
@@ -95,6 +104,7 @@ func (c ServiceConfig) Validate() error {
 // Service logs subjects in and checks the session tokens their requests carry.
 type Service struct {
 	cfg        ServiceConfig
+	accepted   set.Set[Method]
 	table      *gorp.Table[SessionKey, Session]
 	indexes    indexes
 	shutdown   io.Closer
@@ -129,6 +139,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	s := &Service{cfg: cfg, indexes: newIndexes()}
+	if len(cfg.Accepted) > 0 {
+		s.accepted = set.New(cfg.Accepted...)
+	} else {
+		s.accepted = set.New(slices.Collect(maps.Keys(cfg.Authenticators))...)
+	}
 	s.mu.holds = make(map[SessionKey]*hold)
 	s.mu.seen = make(map[SessionKey]telem.TimeStamp)
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[SessionKey, Session]{
@@ -353,12 +368,12 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 
 // Methods returns the methods the Service accepts, sorted.
 func (s *Service) Methods() []Method {
-	return slices.Sorted(maps.Keys(s.cfg.Authenticators))
+	return slices.Sorted(maps.Keys(s.accepted))
 }
 
 // Accepts returns a validation error when the Service does not accept method.
 func (s *Service) Accepts(method Method) error {
-	if _, ok := s.cfg.Authenticators[method]; !ok {
+	if !s.accepted.Contains(method) {
 		return errors.Wrapf(validate.ErrValidation, "method %s is not accepted", method)
 	}
 	return nil

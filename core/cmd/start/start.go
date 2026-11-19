@@ -32,6 +32,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/server"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
@@ -66,6 +67,7 @@ type CoreConfig struct {
 	listeners            listener.Configs
 	disabledIntegrations []string
 	authMethods          []auth.Method
+	oidcProviders        []oidc.Provider
 	enabledIntegrations  []string
 	certFactoryConfig    cert.FactoryConfig
 	taskShutdownTimeout  time.Duration
@@ -84,7 +86,11 @@ func defaultCoreConfig() CoreConfig {
 		certFactoryConfig: cert.DefaultFactoryConfig(),
 		// a Core installed before the flag existed starts without it
 		sessionIdleTimeout: auth.DefaultIdleTimeout,
-		authMethods:        []auth.Method{auth.MethodPassword, auth.MethodAPIKey},
+		authMethods: []auth.Method{
+			auth.MethodPassword,
+			auth.MethodAPIKey,
+			auth.MethodOIDC,
+		},
 	}
 }
 
@@ -182,6 +188,7 @@ func (c CoreConfig) Override(other CoreConfig) CoreConfig {
 			other.authMethods,
 			other.authMethods != nil,
 		),
+		oidcProviders: override.Slice(c.oidcProviders, other.oidcProviders),
 		taskOpTimeout: override.Numeric(c.taskOpTimeout, other.taskOpTimeout),
 		taskPollInterval: override.Numeric(
 			c.taskPollInterval,
@@ -398,6 +405,7 @@ func BootupCore(
 		FIPS:               cfg.fips,
 		SessionIdleTimeout: cfg.sessionIdleTimeout,
 		AuthMethods:        cfg.authMethods,
+		OIDCProviders:      cfg.oidcProviders,
 		License: license.ServiceConfig{
 			Key:      cfg.licenseKey,
 			Version:  version.Get(),

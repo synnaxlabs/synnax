@@ -46,10 +46,10 @@ func isScreamingCase(s string) bool {
 // identifiers (e.g., "Xy" → "XY", "Id" → "ID").
 var goAcronyms = []string{
 	"Acl", "Api", "Ascii", "Cpu", "Css", "Csv", "Dbc", "Dns", "Eof", "Guid", "Html",
-	"Http", "Https", "Icd", "Id", "Io", "Ip", "Iso", "Json", "Lhs", "Qps", "Ram",
-	"Rhs", "Rpc", "Sla", "Smtp", "Sql", "Ssh", "Svg", "Tcp", "Tls", "Ttl", "Udp",
-	"Ui", "Uid", "Uri", "Url", "Usb", "Utc", "Utf", "Uuid", "Vm", "Xlsx", "Xml",
-	"Xmpp", "Xss", "Xy",
+	"Http", "Https", "Icd", "Id", "Io", "Ip", "Iso", "Json", "Lhs", "Oidc", "Qps",
+	"Ram", "Rhs", "Rpc", "Sla", "Smtp", "Sql", "Ssh", "Svg", "Tcp", "Tls", "Ttl", "Udp",
+	"Ui", "Uid", "Uri", "Url", "Usb", "Utc", "Utf", "Uuid", "Vm", "Xlsx", "Xml", "Xmpp",
+	"Xss", "Xy",
 }
 
 // pascalWord matches one word of a PascalCase identifier.
