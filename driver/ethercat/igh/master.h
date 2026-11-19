@@ -244,12 +244,13 @@ private:
     [[nodiscard]] uint64_t app_time() const;
 
     /// @brief waits until every enabled slave reaches OP, until no slave reaches OP for
-    /// Config::op_timeout, or until cancel stops.
+    /// Config::op_timeout, or until the cancel of plan stops. Reports each slave that
+    /// reaches OP to the progress of plan.
     /// @returns errors::STATE_CHANGE_REFUSED with the refusals when every slave below
     /// OP still has its AL error flag set after a reset, or when one has it at
     /// Config::op_timeout. errors::STATE_CHANGE_ERROR when none has it at the timeout.
-    /// x::errors::CANCELLED once cancel stops.
-    master::Activation wait_for_op(const x::breaker::Breaker *cancel);
+    /// x::errors::CANCELLED once the cancel of plan stops.
+    master::Activation wait_for_op(const master::Plan &plan);
 
     /// @brief waits up to Config::pre_op_timeout for each slave that was starting at
     /// the scan to reach PRE-OP, then reads its CoE objects.
