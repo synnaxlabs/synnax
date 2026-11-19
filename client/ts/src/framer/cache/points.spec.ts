@@ -24,11 +24,11 @@ import { describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
 import { type framer } from "@/framer";
-import { RAW_LEVEL, rawIndex } from "@/framer/cache/block";
+import { RAW_LEVEL, rawTile } from "@/framer/cache/block";
 import {
-  index as tileIndex,
   level as tileLevel,
   pointLimit as tilePointLimit,
+  tileAt,
   tileRange,
   tileSpan,
 } from "@/framer/cache/grid";
@@ -68,7 +68,7 @@ const isTile = (tr: TimeRange): boolean => {
   const level = Math.log2(Number(tr.span.valueOf() / TimeSpan.MILLISECOND.valueOf()));
   return (
     Number.isInteger(level) &&
-    tileRange({ level, index: tileIndex(tr.start, level) }).equals(tr)
+    tileRange({ level, tile: tileAt(tr.start, level) }).equals(tr)
   );
 };
 
@@ -197,7 +197,7 @@ describe("Points", () => {
       const level = tileLevel(new TimeRange(START, START.add(span)));
       const tile = tileRange({
         level,
-        index: tileIndex(START.add(span.mult(2)), level),
+        tile: tileAt(START.add(span.mult(2)), level),
       });
       const limitAt = (end: TimeStamp): framer.PointsLimit => ({
         ...TILED,
@@ -323,9 +323,9 @@ describe("Points", () => {
         await expect.poll(() => joins.joined(key), POLL).toBe(true);
         core.advance(TimeSpan.milliseconds(100));
         await expect.poll(servesBuffer, POLL).toBe(true);
-        const block = rawIndex(core.now());
+        const block = rawTile(core.now());
         core.advance(TimeSpan.seconds(4));
-        await expect.poll(() => store.open(key)?.index, POLL).toBe(block + 1);
+        await expect.poll(() => store.open(key)?.tile, POLL).toBe(block + 1);
         expect(servesBuffer()).toBe(true);
       } finally {
         await close();
@@ -603,7 +603,7 @@ describe("Points", () => {
     // Returns the raw samples the store holds of the channel near the clock.
     const heldSamples = (store: Store, key: channel.Key, now: TimeStamp): number => {
       let sum = 0;
-      for (let i = rawIndex(now) - 2; i <= rawIndex(now); i++)
+      for (let i = rawTile(now) - 2; i <= rawTile(now); i++)
         store
           .findRaw(key, i)
           ?.seriesIn(TimeRange.MAX)
@@ -1013,8 +1013,8 @@ describe("Points", () => {
     const key = core.data[0].key;
     const span = TimeSpan.minutes(4);
     const level = tileLevel(new TimeRange(START, START.add(span)));
-    const index = tileIndex(START, level) + 1;
-    const { start } = tileRange({ level, index });
+    const at = tileAt(START, level) + 1;
+    const { start } = tileRange({ level, tile: at });
     const home = new TimeRange(start, start.add(span));
     const pointLimit = tilePointLimit({
       level,
@@ -1026,7 +1026,7 @@ describe("Points", () => {
     const tile = tileKey({
       key,
       level,
-      index,
+      tile: at,
       pointLimit,
       aggregation: TILED.aggregation,
     });
@@ -1048,7 +1048,7 @@ describe("Points", () => {
     });
     const key = core.index.key;
     const span = TimeSpan.seconds(10);
-    const first = rawIndex(core.now().sub(span));
+    const first = rawTile(core.now().sub(span));
     const points = subscribe(key, dynamicWindow(span), RAW);
     try {
       await expect.poll(() => points.value().status.variant, POLL).toBe("success");
@@ -1069,8 +1069,8 @@ describe("Points", () => {
     const key = core.data[0].key;
     const span = TimeSpan.minutes(4);
     const level = tileLevel(new TimeRange(START, START.add(span)));
-    const index = tileIndex(START, level) + 1;
-    const { start } = tileRange({ level, index });
+    const at = tileAt(START, level) + 1;
+    const { start } = tileRange({ level, tile: at });
     const home = new TimeRange(start, start.add(span));
     const pointLimit = tilePointLimit({
       level,
@@ -1082,7 +1082,7 @@ describe("Points", () => {
     const uncut = tileKey({
       key,
       level,
-      index,
+      tile: at,
       pointLimit,
       aggregation: TILED.aggregation,
     });
