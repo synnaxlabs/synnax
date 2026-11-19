@@ -124,6 +124,13 @@ describe("read", () => {
       expect(owners("console-root")).toEqual(["console"]);
     });
 
+    it("should read class names in a drawing", () => {
+      write({
+        "pluto/src/light/Light.svg": `<svg><g class="pluto-light__lamp"></g></svg>`,
+      });
+      expect(owners("pluto-light__lamp")).toEqual(["pluto"]);
+    });
+
     it("should read a literal that ends in a separator as a family", () => {
       write({
         "lyra/src/theming/Provider.tsx": `const CLASS_PREFIX = "lyra-theme-";`,

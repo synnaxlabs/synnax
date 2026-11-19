@@ -53,7 +53,7 @@ interface Name {
 
 const DYNAMIC = "([\\w-]+)";
 const NUMBER = /^\d+$/;
-const CODE = /\.(tsx?|astro|html|mdx?)$/;
+const CODE = /\.(tsx?|astro|html|mdx?|svg)$/;
 const STYLE = /\.(css|astro)$/;
 const TEST = /\.(spec|test)\.tsx?$/;
 const STYLE_BLOCK = /<style\b[^>]*>[\s\S]*?<\/style>/g;

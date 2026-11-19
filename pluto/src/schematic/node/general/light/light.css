@@ -14,6 +14,10 @@
     stroke: inherit;
 }
 
+.pluto-light--on-colored .pluto-light__lamp {
+    --pluto-symbol-color: var(--pluto-light-on-color);
+}
+
 .pluto-light.pluto--enabled .pluto-light__lamp {
     fill: var(--pluto-symbol-display);
 }

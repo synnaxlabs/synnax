@@ -203,7 +203,7 @@ The schematic cutover ships in one release:
   21 calls it to give each `select` and `state_indicator` that has no `enumeration` an
   `enumeration` key for its `options`. A node that already has one keeps it. Phase 21
   removes `options` from every node, and an empty list gets no enumeration. The RFC 0114
-  phase 2 node migration, which merges after phase 21, calls the function to give a
+  phase 4 node migration, which merges after phase 21, calls the function to give a
   state binding an `enumeration` key when its node had its own non-empty state list, an
   `on_color`, or `state_overrides` that change the entry colors, and removes those
   fields.
@@ -256,11 +256,11 @@ PRs #4260 (color v2), #5621 (configs on nodes, group membership as `Node.parent`
 #5625 (WCAG contrast), #5626 (custom strokes through the band), #5627 (table cells in
 rows), and #5632 (`on_delete inline` in Oracle) are merged.
 
-Phases 9, 16, and 20, and the node picker of RFC 0114 phase 2, ship without a flag.
-Phase 21 and RFC 0114 phase 2 come after phases 16 and 20, so the Console never loses a
+Phases 9, 16, and 20, and the node picker of RFC 0114 phase 4, ship without a flag.
+Phase 21 and RFC 0114 phase 4 come after phases 16 and 20, so the Console never loses a
 way to edit states. Phases 10 and 11 ship in one release, and phase 21 in one release
-with RFC 0114 phase 2. RFC 0114 phase 1 needs phases 13 to 15. Besides phase 20, phase
-21 needs RFC 0114 phase 1, which adds the function that it calls. RFC 0114 phase 2 needs
+with RFC 0114 phase 4. RFC 0114 phase 1 needs phases 13 to 15. Besides phase 20, phase
+21 needs RFC 0114 phase 1, which adds the function that it calls. RFC 0114 phase 4 needs
 phase 22.
 
 | Phase | Scope                                                      | Touches                                                                                                                                | Depends on     |
@@ -296,16 +296,16 @@ phase 22.
 
 Phase 3 ships `@ref on_delete inline` and `Inline()` with the record. Phase 18 mints a
 schematic version (RFC 0053) that drops `staleness_color`. Tables keep their own
-`staleness_color` and its color path in `pluto/src/vis`. Before RFC 0114 phase 2, only a
+`staleness_color` and its color path in `pluto/src/vis`. Before RFC 0114 phase 4, only a
 `select` or `state_indicator` can match no entry. Phase 19 adds the `enumeration` field
 to `select` and `state_indicator`. Phase 21 fills the field, and RFC 0114 phase 1 adds
 it to symbol states. Phase 20 adds the enumeration picker to the Pluto forms of `select`
 and `state_indicator`, and Pluto draws each by the order of §4.2. The channel redesign
 adds the channel `enumeration` and its step in that order. The picker leaves `options`
-as they are, so clearing the picker goes back to them until phase 21. RFC 0114 phase 2
-adds the picker to node state bindings, and RFC 0114 phase 4 to custom symbol states.
+as they are, so clearing the picker goes back to them until phase 21. RFC 0114 phase 4
+adds the picker to node state bindings, and RFC 0114 phase 6 to custom symbol states.
 RFC 0114 phase 1 stores a `color.Ref` in custom symbol looks from the start, and RFC
-0114 phase 2 in the `color` of a `symbol` node, which the schematic multi-edit panel
+0114 phase 4 in the `color` of a `symbol` node, which the schematic multi-edit panel
 edits through phase 22. Phase 23 covers the variants that keep their own colors (RFC
 0114 §4.0). In phase 27, the Driver writes range colors
 (`driver/arc/ranges/ranges.h:46-52`) as `fixed`.
