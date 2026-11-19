@@ -1059,6 +1059,15 @@ describe("fromException", () => {
     );
   });
 
+  it("should end the cause chain at a cause whose status has a description", () => {
+    const cause = new CustomError("boom", { cause: new Error("the raw issues") });
+    const err = new Error("Failed to retrieve task", { cause });
+    const s = status.fromException(err, HEADING);
+    expect(s.description).toBe(
+      "Failed to retrieve task: Failed to parse task config. the formatted breakdown",
+    );
+  });
+
   it("should lead the description with the toStatus() message", () => {
     const s = status.fromException(new CustomError("boom"), HEADING);
     expect(s.message).toBe(HEADING);
