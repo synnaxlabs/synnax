@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // opcMake is the make of an OPC UA device.
@@ -64,9 +65,8 @@ var _ = Describe("Password", func() {
 		}))
 	})
 
-	// create creates a device of make mk with the given connection properties.
-	create := func(ctx SpecContext, mk string, conn map[string]any) device.Device {
-		GinkgoHelper()
+	// write creates a device of make mk with the given connection properties.
+	write := func(ctx SpecContext, mk string, conn map[string]any) (device.Device, error) {
 		dev := device.Device{
 			Key:        uuid.New().String(),
 			Rack:       racks.EmbeddedKey,
@@ -76,10 +76,13 @@ var _ = Describe("Password", func() {
 			Name:       "Pump PLC",
 			Properties: msgpack.EncodedJSON{"connection": conn},
 		}
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return dev, db.WithTx(ctx, func(tx gorp.Tx) error {
 			return devices.NewWriter(tx).Create(ctx, &dev)
-		})).To(Succeed())
-		return dev
+		})
+	}
+	create := func(ctx SpecContext, mk string, conn map[string]any) device.Device {
+		GinkgoHelper()
+		return MustSucceed(write(ctx, mk, conn))
 	}
 	// connection returns the stored connection of the device with key.
 	connection := func(ctx SpecContext, key device.Key) map[string]any {
@@ -185,6 +188,42 @@ var _ = Describe("Password", func() {
 			key := createSecret(ctx)
 			create(ctx, "modbus", map[string]any{"password": key.String()})
 			Expect(secrets.Uses(ctx, db, key)).To(BeEmpty())
+		})
+
+		It("Should keep the password from being deleted while the device exists", func(
+			ctx SpecContext,
+		) {
+			key := createSecret(ctx)
+			dev := create(ctx, opcMake, map[string]any{"password": key.String()})
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return secrets.NewWriter(tx).Delete(ctx, key)
+			})).To(MatchError(ContainSubstring(
+				"because device " + dev.Key + " references it",
+			)))
+		})
+
+		It("Should refuse a file secret of another rack", func(ctx SpecContext) {
+			other := rack.Rack{Name: "Other Driver"}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return racks.NewWriter(tx).Create(ctx, &other)
+			})).To(Succeed())
+			s := secret.Secret{Variant: secret.FileSecret{
+				Base:     secret.Base{Name: "Pump password"},
+				FileName: "pump.txt",
+				Rack:     other.Key,
+			}}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return secrets.NewWriter(tx).Set(ctx, &s, nil)
+			})).To(Succeed())
+			_, err := write(
+				ctx,
+				opcMake,
+				map[string]any{"password": s.Base().Key.String()},
+			)
+			Expect(err).To(MatchError(validate.ErrValidation))
+			Expect(err).To(MatchError(ContainSubstring(
+				`properties.connection.password: secret "Pump password" is a file of`,
+			)))
 		})
 	})
 })
