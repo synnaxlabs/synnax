@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ranger } from "@synnaxlabs/client";
+import { ranger, TimeRange, TimeStamp } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
@@ -15,10 +15,12 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Flux, Ranger } from "@synnaxlabs/pluto";
+import { Access, Flux, Ranger } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
+import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
+import { useCreateModal } from "@/platform/range/useCreateModal";
 
 const NONE = "none";
 const NEWEST: ranger.Order = { field: "time_range_start", descending: true };
@@ -79,31 +81,64 @@ export interface ParentProps {
   ranges: ranger.Range[];
 }
 
-/** Moves the ranges under another range, or to the top level. */
+/**
+ * Moves the ranges under another range, or to the top level. A new range made here
+ * covers the ranges and takes their shared parent, and the ranges move inside it.
+ */
 export const Parent = ({ ranges }: ParentProps): ReactElement => {
+  const openCreate = useCreateModal();
+  const { capture } = Analytics.use();
+  const canCreate = Access.useCreateGranted(ranger.TYPE_RESOURCE_ID);
   const { update } = Ranger.useSetParent();
   const first = ranges[0]?.parent ?? null;
   const shared = ranges.every((r) => (r.parent ?? null) === first);
   const current = shared ? first : null;
-  // The ranges cannot hold themselves, and the current parent leads the list.
-  const hidden = new Set(ranges.map((r) => r.key));
-  if (current != null) hidden.add(current);
+  const keys = ranges.map((r) => r.key);
+  const nested = Ranger.useResultList({ where: { ancestors: keys } });
+  // A range cannot hold itself or a range nested in it, and the current parent leads
+  // the list.
+  const hidden = [...keys, ...(nested.data ?? []).map((r) => r.key)];
+  if (current != null) hidden.push(current);
+  // The Core returns nested ranges in no fixed order, and a new order is a new query.
+  hidden.sort();
   const { data, getItem, subscribe, status, more, search } = Flux.useList(
     (c) => c.ranges,
     {
       name: "ranges",
-      query: { order: NEWEST },
-      filter: (r) => !hidden.has(r.key),
+      // The list waits for the nested ranges, so it never shows one of them.
+      query:
+        nested.data == null
+          ? null
+          : { order: NEWEST, where: { not: { key: { in: hidden } } } },
     },
   );
+  const move = (parent: ranger.Key | null) =>
+    ranges.forEach((r) => update({ key: r.key, parent }));
   const handleChange = (next: ranger.Key | null) =>
-    ranges.forEach((r) =>
-      update({ key: r.key, parent: next == null || next === NONE ? null : next }),
+    move(next == null || next === NONE ? null : next);
+  const { update: create } = Ranger.useCreate({
+    afterSuccess: ({ data }) => {
+      capture("range_created", {});
+      move(data.key);
+    },
+  });
+  const handleCreate = (name: string) => {
+    // A range that has not started has no times to cover.
+    const started = ranges.filter((r) => r.timeRange.start.before(TimeStamp.MAX));
+    const timeRange = TimeRange.merge(
+      ...(started.length > 0 ? started : ranges).map((r) => r.timeRange),
     );
+    if (name !== "") return create({ name, timeRange, parent: current ?? undefined });
+    void openCreate({ timeRange: timeRange.numeric, parent: current ?? "" }).then(
+      (key) => {
+        if (key != null) move(key);
+      },
+    );
+  };
   return (
     <Menu.Sub itemKey="parent" textValue="Parent">
       <Menu.SubTrigger>
-        <Icon.Range />
+        <Ranger.ParentIcon />
         Parent
       </Menu.SubTrigger>
       <Select.Frame<ranger.Key, ranger.Range | undefined>
@@ -123,11 +158,17 @@ export const Parent = ({ ranges }: ParentProps): ReactElement => {
           <Select.Body<ranger.Key>
             resourceName="range"
             onSearch={search}
-            status={status}
+            status={nested.variant === "success" ? status : nested.status}
             fixedItems={current != null && <Current parent={current} />}
             footer={
               <>
                 <Menu.Divider />
+                {canCreate && (
+                  <Select.CreateItem<ranger.Key, ranger.Range>
+                    resourceName="range"
+                    onCreate={handleCreate}
+                  />
+                )}
                 <Select.Item<ranger.Key> itemKey={NONE} textValue="No parent">
                   <Icon.None />
                   No parent

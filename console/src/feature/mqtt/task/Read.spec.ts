@@ -362,6 +362,14 @@ describe("MQTT read form", () => {
     );
   });
 
+  it("should focus the topic of a topic added by name", async () => {
+    await renderRead();
+    const dialog = await openAddData();
+    fireEvent.click(dialog.getByRole("button", { name: "Add a topic by name" }));
+    const topic = await screen.findByPlaceholderText("plant/line1/telemetry");
+    await waitFor(() => expect(document.activeElement).toBe(topic));
+  });
+
   it("should add a topic by name", async () => {
     const { draft } = await renderRead();
     const dialog = await openAddData();
@@ -1292,6 +1300,15 @@ describe("MQTT read form", () => {
       ).toBeTruthy();
     });
 
+    it("should focus the group of a tag added by name", async () => {
+      await renderRead();
+      const dialog = await openAddData();
+      fireEvent.click(dialog.getByRole("button", { name: "Sparkplug B" }));
+      fireEvent.click(await dialog.findByRole("button", { name: "Add a tag by name" }));
+      const group = await screen.findByPlaceholderText("plant");
+      await waitFor(() => expect(document.activeElement).toBe(group));
+    });
+
     it("should add a tag by name and show its fields", async () => {
       const { draft } = await renderRead();
       const dialog = await openAddData();
@@ -1977,6 +1994,46 @@ describe("MQTT read form", () => {
         ),
       );
       expect((await retrieveRead(dev.key))[TOPIC]).toEqual(legacy);
+    });
+
+    it("should give a new entry the stored channel that only a disabled entry binds", async () => {
+      const time = await createTimeChannel();
+      const ch = await client.channels.create({
+        name: uniqueName("temperature"),
+        dataType: DataType.FLOAT64,
+        index: time.key,
+      });
+      const temperature = createField("temperature", "float");
+      const disabled = await createEntry({
+        fields: [temperature],
+        bound: { [temperature.key]: ch.key },
+      });
+      disabled.disabled = true;
+      const entry = {
+        ...disabled,
+        key: uuid.create(),
+        disabled: false,
+        messages: disabled.messages.map((read) => ({
+          ...read,
+          bindings: read.bindings.map((b) => ({ ...b, channel: 0 })),
+        })),
+      };
+      const { message } = entry.messages[0];
+      const { container, draft } = await renderRead({
+        entries: [disabled, entry],
+        properties: {
+          read: {
+            [`${TOPIC}#${message}`]: {
+              index: time.key,
+              channels: { "/temperature": ch.key },
+            },
+          },
+        },
+      });
+      const created = await deploy(container, draft.key);
+      expect(plainOf(created.config.entries[1]).messages[0].bindings[0].channel).toBe(
+        ch.key,
+      );
     });
 
     it("should create an index and a data channel for each tag", async () => {
