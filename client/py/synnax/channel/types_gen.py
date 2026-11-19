@@ -15,7 +15,7 @@ from typing import Any, Literal, TypeAlias, TypedDict, override as _override
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from synnax import group as group_, node, status as status_
+from synnax import group as group_, node, resource, status as status_
 from synnax.resource import ID
 from x import control, filter, telem
 from x.filter import shorthand
@@ -34,6 +34,13 @@ OPERATION_TYPE_DERIVATIVE: Literal["derivative"] = "derivative"
 
 
 OperationType = Literal["min", "max", "avg", "none", "derivative"]
+
+DIRECTION_READ: Literal["read"] = "read"
+
+DIRECTION_WRITE: Literal["write"] = "write"
+
+
+Direction = Literal["read", "write"]
 
 ORDER_FIELD_NAME: Literal["name"] = "name"
 
@@ -63,6 +70,28 @@ class Operation(BaseModel):
     duration: telem.TimeSpan = Field(
         default=telem.TimeSpan(0), ge=-9223372036854775808, le=9223372036854775807
     )
+
+
+class Use(BaseModel):
+    """Is a record that reads or writes a channel.
+
+    Attributes:
+        id: Is the record that uses the channel.
+        direction: Is how the record uses the channel.
+    """
+
+    id: resource.ID
+    direction: Direction
+
+
+class RetrieveBuiltInsResponse(BaseModel):
+    """Holds the keys of the channels that Core services declare for their work.
+
+    Attributes:
+        keys: Are the keys of the built-in channels.
+    """
+
+    keys: list[Key] = Field(default_factory=list)
 
 
 class CountLimitedResponse(BaseModel):
@@ -191,6 +220,9 @@ class Payload(BaseModel):
             virtual channels can have a policy of shared concurrency.
         status: Is the current operational status of the channel.
         group: Is the group the channel sits in, if any.
+        uses: Are the records that read or write the channel and that the caller can
+            retrieve, filled only when a retrieve request asks for them. A task config
+            shows as its task.
     """
 
     key: Key = Field(default=Key(0), ge=0, le=4294967295)
@@ -206,6 +238,7 @@ class Payload(BaseModel):
     concurrency: control.Concurrency = control.Concurrency.exclusive
     status: Status | None = None
     group: group_.Key | None = None
+    uses: list[Use] | None = None
 
     @_override
     def __hash__(self) -> int:
@@ -222,6 +255,7 @@ class RetrieveRequest(BaseModel):
         after: Starts the channels strictly past this position in their order.
         limit: Is the most channels to return.
         include_status: Includes the status of each record.
+        include_uses: Includes the uses of each record.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -232,6 +266,7 @@ class RetrieveRequest(BaseModel):
     after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
     include_status: bool = False
+    include_uses: bool = False
 
 
 class RetrieveResponse(BaseModel):

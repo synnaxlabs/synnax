@@ -158,6 +158,7 @@ inline RetrieveRequest RetrieveRequest::parse(x::json::Parser parser) {
         .after = parser.field<std::optional<Cursor>>("after"),
         .limit = parser.field<std::optional<std::uint32_t>>("limit"),
         .include_status = parser.field<bool>("include_status", false),
+        .include_uses = parser.field<bool>("include_uses", false),
     };
 }
 
@@ -169,6 +170,7 @@ inline x::json::json RetrieveRequest::to_json() const {
     if (this->after.has_value()) j["after"] = this->after->to_json();
     if (this->limit.has_value()) j["limit"] = *this->limit;
     j["include_status"] = this->include_status;
+    j["include_uses"] = this->include_uses;
     return j;
 }
 

@@ -423,6 +423,7 @@ RetrieveRequest::to_proto() const {
     }
     if (this->limit.has_value()) pb.set_limit(*this->limit);
     pb.set_include_status(this->include_status);
+    pb.set_include_uses(this->include_uses);
     return {pb, x::errors::NIL};
 }
 
@@ -447,6 +448,7 @@ RetrieveRequest::from_proto(const ::api::channel::pb::RetrieveRequest &pb) {
     }
     if (pb.has_limit()) cpp.limit = pb.limit();
     cpp.include_status = pb.include_status();
+    cpp.include_uses = pb.include_uses();
     return {cpp, x::errors::NIL};
 }
 

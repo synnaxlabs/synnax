@@ -249,6 +249,7 @@ func RetrieveRequestToPB(r channel.RetrieveRequest) (*RetrieveRequest, error) {
 	pb := &RetrieveRequest{
 		SearchTerm:    r.SearchTerm,
 		IncludeStatus: r.IncludeStatus,
+		IncludeUses:   r.IncludeUses,
 	}
 	if r.Where != nil {
 		var err error
@@ -289,6 +290,7 @@ func RetrieveRequestFromPB(pb *RetrieveRequest) (channel.RetrieveRequest, error)
 	defaults.Prefill(&r)
 	r.SearchTerm = pb.SearchTerm
 	r.IncludeStatus = pb.IncludeStatus
+	r.IncludeUses = pb.IncludeUses
 	if pb.Where != nil {
 		val, err := channelpb.WhereFromPB(pb.Where)
 		if err != nil {

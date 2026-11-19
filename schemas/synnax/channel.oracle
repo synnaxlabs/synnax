@@ -9,6 +9,7 @@
 
 import "schemas/synnax/group"
 import "schemas/synnax/node"
+import "schemas/synnax/resource"
 import "schemas/synnax/status"
 import "schemas/x/control"
 import "schemas/x/filter"
@@ -281,6 +282,16 @@ APIChannel struct {
         @cpp omit
         @doc value "is the group the channel sits in, if any."
     }
+    uses        Use[]?              {
+        @cpp omit
+        @doc value """
+            are the records that read or write the channel and that the caller can
+            retrieve, filled only when a retrieve request asks for them. A task config
+            shows as its task.
+        """
+        @include
+        @pb omit
+    }
 
     @cpp name      "Channel"
     @create
@@ -295,6 +306,47 @@ APIChannel struct {
     @py name       "Payload"
     @resource type "channel"
     @ts name       "Payload"
+}
+
+Direction enum {
+    read  = "read" {
+        @doc value "is a record that reads the channel."
+    }
+    write = "write" {
+        @doc value "is a record that writes the channel."
+    }
+
+    @cpp omit
+    @doc value "is how a record uses a channel."
+    @go output "core/pkg/service/channel"
+    @pb omit
+}
+
+Use struct {
+    id        resource.ID {
+        @doc value "is the record that uses the channel."
+    }
+    direction Direction   {
+        @doc value "is how the record uses the channel."
+    }
+
+    @cpp omit
+    @doc value "is a record that reads or writes a channel."
+    @go output "core/pkg/api/channel"
+    @pb omit
+}
+
+RetrieveBuiltInsResponse struct {
+    keys Key[] {
+        @doc value "are the keys of the built-in channels."
+    }
+
+    @cpp omit
+    @doc value """
+        holds the keys of the channels that Core services declare for their work.
+    """
+    @go output "core/pkg/api/channel"
+    @pb omit
 }
 
 CountLimitedResponse struct {

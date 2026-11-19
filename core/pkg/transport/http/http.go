@@ -141,6 +141,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 			channel.CountLimitedRequest,
 			channel.CountLimitedResponse,
 		](router, "/api/v1/channel/count-limited"),
+		ChannelRetrieveBuiltIns: unary[
+			channel.RetrieveBuiltInsRequest,
+			channel.RetrieveBuiltInsResponse,
+		](router, "/api/v1/channel/retrieve-built-ins"),
 		ChannelDispatch: unary[channel.DispatchRequest, channel.DispatchResponse](
 			router,
 			"/api/v1"+api.PathChannelDispatch,

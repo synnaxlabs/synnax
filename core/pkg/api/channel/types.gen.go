@@ -17,6 +17,7 @@ import (
 	servicechannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
@@ -65,6 +66,10 @@ type Channel struct {
 	Status *Status `json:"status,omitzero" msgpack:"status,omitempty"`
 	// Group is the group the channel sits in, if any.
 	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
+	// Uses are the records that read or write the channel and that the caller can
+	// retrieve, filled only when a retrieve request asks for them. A task config shows
+	// as its task.
+	Uses []Use `json:"uses,omitzero" msgpack:"uses,omitempty"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -75,7 +80,55 @@ func (c Channel) Validate() error {
 	for i := range c.Operations {
 		v.Exec(func() error { return validate.PathedError(c.Operations[i].Validate(), "operations", strconv.Itoa(i)) })
 	}
+	for i := range c.Uses {
+		v.Exec(func() error { return validate.PathedError(c.Uses[i].Validate(), "uses", strconv.Itoa(i)) })
+	}
 	return v.Error()
+}
+
+// Direction is how a record uses a channel.
+type Direction string
+
+const (
+	// DirectionRead is a record that reads the channel.
+	DirectionRead Direction = "read"
+	// DirectionWrite is a record that writes the channel.
+	DirectionWrite Direction = "write"
+)
+
+// IsValid reports whether d is one of the defined Direction
+// values.
+func (d Direction) IsValid() bool {
+	switch d {
+	case DirectionRead, DirectionWrite:
+		return true
+	default:
+		return false
+	}
+}
+
+// Use is a record that reads or writes a channel.
+type Use struct {
+	// ID is the record that uses the channel.
+	ID resource.ID `json:"id" msgpack:"id"`
+	// Direction is how the record uses the channel.
+	Direction servicechannel.Direction `json:"direction" msgpack:"direction"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (u Use) Validate() error {
+	v := validate.New("Use")
+	v.Ternaryf("direction", !u.Direction.IsValid(), "invalid direction: %v", u.Direction)
+	v.Exec(func() error { return validate.PathedError(u.ID.Validate(), "id") })
+	return v.Error()
+}
+
+// RetrieveBuiltInsResponse holds the keys of the channels that Core services declare
+// for their work.
+type RetrieveBuiltInsResponse struct {
+	// Keys are the keys of the built-in channels.
+	Keys []servicechannel.Key `json:"keys" msgpack:"keys"`
 }
 
 // CountLimitedResponse holds the count of the channels that count against the license
@@ -141,6 +194,8 @@ type RetrieveRequest struct {
 	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
 	// IncludeStatus includes the status of each record.
 	IncludeStatus bool `json:"include_status" msgpack:"include_status"`
+	// IncludeUses includes the uses of each record.
+	IncludeUses bool `json:"include_uses" msgpack:"include_uses"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

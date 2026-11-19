@@ -102,6 +102,10 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 		apichannel.CountLimitedRequest,
 		apichannel.CountLimitedResponse,
 	]{}
+	t.ChannelRetrieveBuiltIns = noop.UnaryServer[
+		apichannel.RetrieveBuiltInsRequest,
+		apichannel.RetrieveBuiltInsResponse,
+	]{}
 	t.ChannelDispatch = noop.UnaryServer[
 		apichannel.DispatchRequest,
 		apichannel.DispatchResponse,

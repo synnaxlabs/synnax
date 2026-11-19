@@ -29,6 +29,7 @@ func channelsReference() *gorp.KeyReference[Key, LinePlot, channel.Key] {
 		Table:    channelTable,
 		OnDelete: gorp.Detach,
 		Kind:     gorp.Use,
+		Tag:      channel.ReadTag,
 		Targets: func(p *LinePlot) []channel.Key {
 			c := p.Channels
 			keys := slices.Concat([]channel.Key{c.X1, c.X2}, c.Y1, c.Y2, c.Y3, c.Y4)

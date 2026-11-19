@@ -99,6 +99,11 @@ type Transport struct {
 		channel.CountLimitedRequest,
 		channel.CountLimitedResponse,
 	]
+	// ChannelRetrieveBuiltIns returns the keys of the built-in channels.
+	ChannelRetrieveBuiltIns freighter.UnaryServer[
+		channel.RetrieveBuiltInsRequest,
+		channel.RetrieveBuiltInsResponse,
+	]
 	// ChannelDispatch applies actions to a channel.
 	ChannelDispatch freighter.UnaryServer[channel.DispatchRequest, channel.DispatchResponse]
 	// CONNECTIVITY
@@ -420,6 +425,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.ChannelRetrieve,
 		t.ChannelDelete,
 		t.ChannelCountLimited,
+		t.ChannelRetrieveBuiltIns,
 		t.ChannelDispatch,
 
 		// FRAME
@@ -675,6 +681,9 @@ func (l *Layer) BindTo(t Transport) {
 	t.ConnectivityCheck.BindHandler(l.Connectivity.Check)
 	t.ChannelDelete.BindHandler(bind.Write(l.binder, l.Channel.Delete))
 	t.ChannelCountLimited.BindHandler(bind.Read(l.binder, l.Channel.CountLimited))
+	t.ChannelRetrieveBuiltIns.BindHandler(
+		bind.Read(l.binder, l.Channel.RetrieveBuiltIns),
+	)
 	t.ChannelDispatch.BindHandler(bind.Write(l.binder, l.Channel.Dispatch))
 
 	// FRAME

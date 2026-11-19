@@ -23,6 +23,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
+	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
+	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -32,6 +34,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/table"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -136,6 +139,88 @@ var _ = Describe("References", Ordered, func() {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return layer.Device.NewWriter(tx).Delete(ctx, dev.Key)
 			})).To(Succeed())
+		})
+	})
+
+	Describe("Uses", func() {
+		It("Should list each record that reads or writes a channel", func(
+			ctx SpecContext,
+		) {
+			proj := project.Project{Name: "Uses"}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return layer.Project.NewWriter(tx).Create(ctx, &proj)
+			})).To(Succeed())
+			ch := channel.Channel{
+				Name:     UniqueChannelName(),
+				DataType: telem.Float32T,
+				Virtual:  true,
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return layer.Channel.NewWriter(tx).Create(ctx, &ch)
+			})).To(Succeed())
+			dev := device.Device{
+				Key:      UniqueChannelName(),
+				Rack:     layer.Rack.EmbeddedKey,
+				Name:     "plc",
+				Make:     "modbus",
+				Model:    "modbus",
+				Location: "127.0.0.1:502",
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return layer.Device.NewWriter(tx).Create(ctx, &dev)
+			})).To(Succeed())
+			tsk := createTask(ctx, "modbus_read", msgpack.EncodedJSON{
+				"device": dev.Key,
+				"channels": []any{map[string]any{
+					"type":    "coil",
+					"key":     "coil-1",
+					"channel": ch.Key(),
+				}},
+			})
+			var value schematic.ValueNodeConfig
+			value.SetDefaults()
+			value.Channel = ch.Key()
+			sch := schematic.Schematic{
+				Name:    "pid",
+				Project: &proj.Key,
+				Nodes: []schematic.Node{{
+					Key:    "value",
+					Config: schematic.NodeConfig{Variant: value},
+				}},
+			}
+			plot := defaults.Fill(lineplot.LinePlot{Name: "plot", Project: &proj.Key})
+			plot.Channels.Y1 = []channel.Key{ch.Key()}
+			lg := defaults.Fill(log.Log{Name: "log", Project: &proj.Key})
+			lg.Channels = []log.ChannelEntry{
+				defaults.Fill(log.ChannelEntry{Channel: ch.Key()}),
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				if err := layer.Schematic.NewWriter(tx).Create(ctx, &sch); err != nil {
+					return err
+				}
+				if err := layer.LinePlot.NewWriter(tx).Create(ctx, &plot); err != nil {
+					return err
+				}
+				return layer.Log.NewWriter(tx).Create(ctx, &lg)
+			})).To(Succeed())
+			Expect(layer.Channel.Uses(ctx, db, ch.Key())).To(ConsistOf(
+				channel.Use{
+					Holder:    gorp.NewTarget("modbus_read_config", tsk.Key),
+					Direction: channel.DirectionWrite,
+				},
+				channel.Use{
+					Holder:    gorp.NewTarget("schematic", sch.Key),
+					Direction: channel.DirectionRead,
+				},
+				channel.Use{
+					Holder:    gorp.NewTarget("lineplot", plot.Key),
+					Direction: channel.DirectionRead,
+				},
+				channel.Use{
+					Holder:    gorp.NewTarget("log", lg.Key),
+					Direction: channel.DirectionRead,
+				},
+			))
 		})
 	})
 

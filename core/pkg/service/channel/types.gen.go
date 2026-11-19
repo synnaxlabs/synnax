@@ -60,6 +60,27 @@ type Operation = versions.Operation
 // use APIChannel instead.
 type Channel = versions.Channel
 
+// Direction is how a record uses a channel.
+type Direction string
+
+const (
+	// DirectionRead is a record that reads the channel.
+	DirectionRead Direction = "read"
+	// DirectionWrite is a record that writes the channel.
+	DirectionWrite Direction = "write"
+)
+
+// IsValid reports whether d is one of the defined Direction
+// values.
+func (d Direction) IsValid() bool {
+	switch d {
+	case DirectionRead, DirectionWrite:
+		return true
+	default:
+		return false
+	}
+}
+
 // Where is a filter that selects channels.
 type Where struct {
 	// And matches when every child matches.

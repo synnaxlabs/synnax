@@ -28,6 +28,7 @@ enum OrderField {
 // single source. Channels are the fundamental unit of telemetry storage and streaming
 // in Synnax.
 message Channel {
+  reserved 14;
   // key is the unique identifier for this channel, automatically assigned by Synnax.
   uint32 key = 1;
   // name is the human-readable channel name.
@@ -96,6 +97,8 @@ message RetrieveRequest {
   optional uint32 limit = 5;
   // include_status includes the status of each record.
   bool include_status = 6;
+  // include_uses includes the uses of each record.
+  bool include_uses = 7;
 }
 
 // RetrieveResponse holds the channels a RetrieveRequest selects.

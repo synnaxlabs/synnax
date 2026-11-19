@@ -235,7 +235,33 @@ func (s *Service) Retrieve(
 			res.Channels[i].Status = st
 		}
 	}
+	if req.IncludeUses {
+		if err = s.fillUses(ctx, snap, res.Channels); err != nil {
+			return RetrieveResponse{}, err
+		}
+	}
 	return res, nil
+}
+
+// fillUses sets the uses of each channel, leaving out the records the subject cannot
+// retrieve. A channel with no readable uses gets empty uses, so the response tells it
+// apart from a channel whose uses were not asked for.
+func (s *Service) fillUses(
+	ctx context.Context,
+	snap bind.Snapshot,
+	channels []Channel,
+) error {
+	for i := range channels {
+		uses, err := s.internal.Uses(ctx, snap, channels[i].Key)
+		if err != nil {
+			return err
+		}
+		channels[i].Uses = lo.FilterMap(uses, func(u channel.Use, _ int) (Use, bool) {
+			id, ok := snap.Holder(u.Holder)
+			return Use{ID: id, Direction: u.Direction}, ok
+		})
+	}
+	return nil
 }
 
 func (s *Service) retrieve(
@@ -317,6 +343,20 @@ func translateChannelsBackward(channels []Channel) []channel.Channel {
 		translated[i] = tCh
 	}
 	return translated
+}
+
+// RetrieveBuiltInsRequest is a request for the keys of the built-in channels. It names
+// no record, so any subject may send it.
+type RetrieveBuiltInsRequest struct{}
+
+// RetrieveBuiltIns returns the keys of the channels that Core services declare for
+// their work.
+func (s *Service) RetrieveBuiltIns(
+	context.Context,
+	bind.Snapshot,
+	RetrieveBuiltInsRequest,
+) (RetrieveBuiltInsResponse, error) {
+	return RetrieveBuiltInsResponse{Keys: s.internal.BuiltIns()}, nil
 }
 
 // CountLimitedRequest is a request for the count of the channels that count against the
