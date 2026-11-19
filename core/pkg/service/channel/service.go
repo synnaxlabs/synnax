@@ -150,6 +150,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		),
 		Indexes:         s.indexes.all(),
 		References:      append(s.indexes.references(), s.index),
+		Issued:          cfg.Channel.Issued,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err

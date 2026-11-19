@@ -49,8 +49,7 @@ type TableConfig[K Key, E Entry[K]] struct {
 	// fails the write.
 	OnTargetSet map[string]func(ctx context.Context, tx Tx, e E) error
 	// Issued reports whether the table issued key k: a deleted entry's key counts, and
-	// a
-	// key the table has not issued yet does not. A Weak reference may point at the
+	// a key the table has not issued yet does not. A Weak reference may point at the
 	// table only when Issued is set.
 	Issued func(k K) bool
 	// Instrumentation is used for migration and populate logging.

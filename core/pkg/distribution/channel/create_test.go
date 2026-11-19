@@ -143,6 +143,53 @@ var _ = Describe("Create", Ordered, func() {
 	})
 })
 
+var _ = Describe("Issued", Ordered, func() {
+	var (
+		n      testutil.Node
+		leased channel.Channel
+		free   channel.Channel
+	)
+	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
+		n = testutil.NewNode(ctx)
+		out := MustSucceed(n.Channel.Allocate(ctx, []channel.Channel{
+			{Name: "leased", DataType: telem.TimestampT, IsIndex: true},
+			{
+				Name:        "free",
+				DataType:    telem.Float32T,
+				Leaseholder: node.KeyFree,
+				Virtual:     true,
+			},
+		}))
+		leased, free = out[0], out[1]
+	})
+
+	DescribeTable(
+		"Should report whether a key was issued",
+		func(key func() channel.Key, issued bool) {
+			Expect(n.Channel.Issued(key())).To(Equal(issued))
+		},
+		Entry(
+			"an allocated host key",
+			func() channel.Key { return leased.Key() },
+			true,
+		),
+		Entry("an allocated free key", func() channel.Key { return free.Key() }, true),
+		Entry("a host key above the counter", func() channel.Key {
+			return channel.NewKey(leased.Leaseholder, leased.LocalKey+1)
+		}, false),
+		Entry("a free key above the counter", func() channel.Key {
+			return channel.NewKey(node.KeyFree, free.LocalKey+1)
+		}, false),
+		Entry("a zero local key", func() channel.Key {
+			return channel.NewKey(leased.Leaseholder, 0)
+		}, false),
+		Entry("a key leased to another node", func() channel.Key {
+			return channel.NewKey(node.Key(99), leased.LocalKey)
+		}, false),
+	)
+})
+
 var _ = Describe("Free key counter", func() {
 	It("Should not reuse a free key after the Core reopens", func(ctx SpecContext) {
 		store := DeferClose(storagetestutil.OpenLayer(ctx))

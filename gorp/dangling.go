@@ -20,9 +20,8 @@ import (
 // DropDangling removes from e each target of the table's references that does not exist
 // in snap, through the Detach of the reference that holds it. It skips each Weak
 // reference and each reference with no Detach, whose targets the write check of e
-// verifies. A target whose key is
-// not in the text form of its table's keys does not exist. DropDangling reports whether
-// it removed a target.
+// verifies. A target whose key is not in the text form of its table's keys does not
+// exist. DropDangling reports whether it removed a target.
 func (t *Table[K, E]) DropDangling(
 	ctx context.Context,
 	snap Snapshot,
