@@ -59,7 +59,10 @@ export interface PickerContextValue {
   value: color.Color;
   /** The named color that the value links to. */
   linked?: Named;
-  /** Links the value to the named color with the key, as a click on its swatch does. */
+  /**
+   * Links the value to the named color with the key, as a click on its swatch does.
+   * The focus moves to its swatch, at once or when the swatch renders.
+   */
   onNamedChange: (key: string) => void;
   /**
    * Shows the view in place of the tabs, under a back button and the title. Back
@@ -178,11 +181,29 @@ const Tabbed = ({
     linked != null || value == null ? "library" : "custom",
   );
   const [search, setSearch] = useState("");
+  const swatches = useRef(new Map<string, HTMLElement>());
+  // The key of a linked swatch that takes the focus when it renders.
+  const focusing = useRef<string>(undefined);
+  const registerSwatch = (key: string, swatch: HTMLElement | null): void => {
+    if (swatch == null) {
+      swatches.current.delete(key);
+      return;
+    }
+    swatches.current.set(key, swatch);
+    if (focusing.current !== key) return;
+    focusing.current = undefined;
+    swatch.focus();
+  };
   const autoSelected = value == null && linked == null;
   const ctx: PickerContextValue = {
     value: color.construct(value ?? fallback ?? color.TRANSPARENT),
     linked,
-    onNamedChange,
+    onNamedChange: (key) => {
+      onNamedChange(key);
+      const swatch = swatches.current.get(key);
+      if (swatch == null) focusing.current = key;
+      else swatch.focus();
+    },
     openView: (title, content) => {
       opener.current =
         document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -291,6 +312,7 @@ const Tabbed = ({
               viewing={view != null}
               linked={linked?.key}
               onPick={onNamedChange}
+              registerSwatch={registerSwatch}
               paletteEnd={paletteEnd}
               swatchActions={swatchActions}
               footer={footer}
@@ -376,6 +398,8 @@ interface PaletteSectionProps extends Pick<Library, "paletteEnd" | "swatchAction
   colors: Named[];
   linked?: string;
   onPick: (key: string) => void;
+  /** Records the swatch of a named color when it renders, and null when it goes. */
+  registerSwatch: (key: string, swatch: HTMLElement | null) => void;
   /** If true, a view hides the palette, and the hovered color stays. */
   viewing: boolean;
 }
@@ -390,6 +414,7 @@ const PaletteSection = ({
   colors,
   linked,
   onPick,
+  registerSwatch,
   paletteEnd,
   swatchActions,
   viewing,
@@ -422,6 +447,7 @@ const PaletteSection = ({
             draggable={false}
             className={CSS.cls(CSS.selected(c.key === linked))}
             onClick={() => onPick(c.key)}
+            ref={(el: HTMLElement | null) => registerSwatch(c.key, el)}
             onPointerEnter={() => setHovered(c.key)}
             onFocus={() => setHovered(c.key)}
             aria-label={c.name}
@@ -433,10 +459,10 @@ const PaletteSection = ({
   );
 };
 
-interface PalettesProps extends Pick<
-  Library,
-  "paletteEnd" | "swatchActions" | "footer"
-> {
+interface PalettesProps
+  extends
+    Pick<Library, "paletteEnd" | "swatchActions" | "footer">,
+    Pick<PaletteSectionProps, "registerSwatch"> {
   palettes: Palette[];
   search: string;
   /** The key of the named color that the value follows. */
@@ -451,6 +477,7 @@ const Palettes = ({
   search,
   linked,
   onPick,
+  registerSwatch,
   paletteEnd,
   swatchActions,
   footer,
@@ -487,6 +514,7 @@ const Palettes = ({
           colors={colors}
           linked={linked}
           onPick={onPick}
+          registerSwatch={registerSwatch}
           viewing={viewing}
           paletteEnd={paletteEnd}
           swatchActions={swatchActions}

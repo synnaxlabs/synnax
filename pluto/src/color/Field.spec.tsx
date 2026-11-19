@@ -15,6 +15,7 @@ import {
 } from "@synnaxlabs/client/testutil";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Theming } from "@synnaxlabs/lyra/theming";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { color as xcolor, deep, id } from "@synnaxlabs/x";
 import {
   fireEvent,
@@ -64,9 +65,11 @@ describe("Color.Field", () => {
     const Harness = (): ReactElement => {
       methods = Form.use<typeof schema>({ values: { fill }, schema });
       return (
-        <Form.Form<typeof schema> {...methods}>
-          <Color.Field path={path.fill} label="Fill" fallback="#000000" />
-        </Form.Form>
+        <Triggers.Provider>
+          <Form.Form<typeof schema> {...methods}>
+            <Color.Field path={path.fill} label="Fill" fallback="#000000" />
+          </Form.Form>
+        </Triggers.Provider>
       );
     };
     const result = render(<Harness />, { wrapper: fieldWrapper });
@@ -227,6 +230,73 @@ describe("Color.Field", () => {
       await expect
         .poll(async () => xcolor.hex((await other.colors.retrieve(named.key)).light))
         .toBe("#0000ff");
+    });
+
+    describe("focus", () => {
+      const plusOf = (palette: string): HTMLElement =>
+        screen.getByRole("button", { name: `Create a color in ${palette}` });
+
+      it("should move the focus to the new swatch after a create", async () => {
+        const { palette } = await createInPalette();
+        const { result } = renderField();
+        openPicker(result);
+        await openCreate(palette);
+        const name = `created-${id.create()}`;
+        enterName("Color name", name);
+        const swatch = await screen.findByRole("button", { name });
+        await waitFor(() => expect(document.activeElement).toBe(swatch));
+      });
+
+      it.each([
+        [
+          "Escape",
+          () =>
+            fireEvent.keyDown(screen.getByPlaceholderText("Color name"), {
+              key: "Escape",
+              code: "Escape",
+            }),
+        ],
+        [
+          "Cancel",
+          () => fireEvent.click(screen.getByRole("button", { name: "Cancel" })),
+        ],
+        ["a blank name", () => enterName("Color name", "  ")],
+      ])("should keep the picker open and focus the + after %s", async (_, close) => {
+        const { palette } = await createInPalette();
+        const { result } = renderField();
+        openPicker(result);
+        await openCreate(palette);
+        close();
+        expect(screen.queryByPlaceholderText("Color name")).toBeNull();
+        expect(screen.getByRole("dialog")).toBeTruthy();
+        expect(document.activeElement).toBe(plusOf(palette.name));
+      });
+
+      it("should move the focus to the + of a new palette", async () => {
+        await createInPalette();
+        const { result } = renderField();
+        openPicker(result);
+        fireEvent.click(await screen.findByRole("button", { name: "Create palette" }));
+        const name = `palette-${id.create()}`;
+        enterName("Palette name", name);
+        await waitFor(() => expect(document.activeElement).toBe(plusOf(name)));
+      });
+
+      it("should keep the picker open and focus Create palette on Escape", async () => {
+        await createInPalette();
+        const { result } = renderField();
+        openPicker(result);
+        fireEvent.click(await screen.findByRole("button", { name: "Create palette" }));
+        fireEvent.keyDown(screen.getByPlaceholderText("Palette name"), {
+          key: "Escape",
+          code: "Escape",
+        });
+        expect(screen.queryByPlaceholderText("Palette name")).toBeNull();
+        expect(screen.getByRole("dialog")).toBeTruthy();
+        expect(document.activeElement).toBe(
+          screen.getByRole("button", { name: "Create palette" }),
+        );
+      });
     });
 
     it("should create a palette and show it while it has no colors", async () => {
