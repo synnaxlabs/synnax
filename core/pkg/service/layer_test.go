@@ -913,7 +913,7 @@ var _ = Describe("LayerConfig", func() {
 var _ = Describe("Auth methods", func() {
 	DescribeTable(
 		"Should accept only the listed methods",
-		func(ctx SpecContext, listed []auth.Method, accepted []auth.Method) {
+		func(ctx SpecContext, listed, accepted []auth.Method) {
 			node := testutil.NewNode(ctx)
 			layer := MustOpen(svctestutil.OpenLayer(ctx, node, service.LayerConfig{
 				AuthMethods: listed,
