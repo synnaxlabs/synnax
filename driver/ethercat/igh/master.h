@@ -43,8 +43,9 @@ struct Config {
     /// before activation, enabled or not. The default is the PreopTimeout of the ESI
     /// files.
     x::telem::TimeSpan pre_op_timeout = x::telem::SECOND * 2;
-    /// @brief how long the slaves get to reach OP after activation. Some slaves take up
-    /// to 9 s.
+    /// @brief how long the slaves get, after activation or after the latest slave
+    /// reached OP, for another slave to reach OP. IgH moves the slaves to OP one at a
+    /// time, and some take up to 9 s.
     x::telem::TimeSpan op_timeout = x::telem::SECOND * 10;
     /// @brief the host clock that the master waits on.
     x::loop::HostClock clock;
@@ -242,11 +243,13 @@ private:
     /// @brief returns the application time now.
     [[nodiscard]] uint64_t app_time() const;
 
-    /// @brief waits until every enabled slave reaches OP.
+    /// @brief waits until every enabled slave reaches OP, until no slave reaches OP for
+    /// Config::op_timeout, or until cancel stops.
     /// @returns errors::STATE_CHANGE_REFUSED with the refusals when every slave below
     /// OP still has its AL error flag set after a reset, or when one has it at
     /// Config::op_timeout. errors::STATE_CHANGE_ERROR when none has it at the timeout.
-    master::Activation wait_for_op();
+    /// x::errors::CANCELLED once cancel stops.
+    master::Activation wait_for_op(const x::breaker::Breaker *cancel);
 
     /// @brief waits up to Config::pre_op_timeout for each slave that was starting at
     /// the scan to reach PRE-OP, then reads its CoE objects.

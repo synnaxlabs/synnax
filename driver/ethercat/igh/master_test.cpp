@@ -1044,9 +1044,54 @@ TEST_F(IGHMasterTest, ActivateFailsWhenASlaveStaysBelowOP) {
     ASSERT_OCCURRED_AS(activation.err, errors::STATE_CHANGE_ERROR);
     EXPECT_EQ(
         activation.err.data,
-        "failed to reach OP within 10s: module 1 (TestSlave) is in SAFE-OP"
+        "failed to reach OP (no module reached OP for 10s): module 1 (TestSlave) is in "
+        "SAFE-OP"
     );
     EXPECT_TRUE(activation.refusals.empty());
+}
+
+/// @brief it should keep waiting while the slaves reach OP one at a time, as IgH moves
+/// them, for longer than the OP timeout in all.
+TEST_F(IGHMasterTest, ActivateWaitsWhileTheSlavesReachOPOneAtATime) {
+    for (int i = 1; i <= 3; ++i)
+        this->api->add_slave().reads_to_reach = 700 * i;
+    ASSERT_NIL_P(this->master.scan());
+    const auto started = this->clock.steady();
+    ASSERT_NIL(this->activate().err);
+    EXPECT_GE(this->clock.steady() - started, std::chrono::seconds(21));
+}
+
+/// @brief it should fail once no slave has reached OP for the OP timeout, counted from
+/// the latest slave that reached OP.
+TEST_F(IGHMasterTest, ActivateFailsOnceNoSlaveReachesOPForTheTimeout) {
+    this->api->add_slave().reads_to_reach = 700;
+    this->api->add_slave().reaches = EC_AL_STATE_SAFEOP;
+    ASSERT_NIL_P(this->master.scan());
+    const auto started = this->clock.steady();
+    const auto activation = this->activate();
+    ASSERT_OCCURRED_AS(activation.err, errors::STATE_CHANGE_ERROR);
+    EXPECT_EQ(
+        activation.err.data,
+        "failed to reach OP (no module reached OP for 10s): module 2 (TestSlave) is in "
+        "SAFE-OP"
+    );
+    const auto elapsed = this->clock.steady() - started;
+    EXPECT_GE(elapsed, std::chrono::seconds(17));
+    EXPECT_LT(elapsed, std::chrono::seconds(18));
+}
+
+/// @brief it should stop waiting for OP once the cancel of the plan stops.
+TEST_F(IGHMasterTest, ActivateEndsWhenCanceled) {
+    this->api->add_slave().reaches = EC_AL_STATE_SAFEOP;
+    ASSERT_NIL_P(this->master.scan());
+    x::breaker::Breaker cancel;
+    cancel.start();
+    const auto activation = this->master.activate(
+        {.period = PERIOD, .slaves = this->configs, .cancel = &cancel},
+        [&cancel](const master::Image &) { cancel.stop(); }
+    );
+    ASSERT_OCCURRED_AS(activation.err, x::errors::CANCELLED);
+    EXPECT_EQ(activation.err.data, "the start stopped before the slaves reached OP");
 }
 
 /// @brief it should start when a slave whose configuration state it cannot read is in
@@ -1072,8 +1117,8 @@ TEST_F(IGHMasterTest, ActivateReportsASlaveWhoseStateItCannotRead) {
     ASSERT_OCCURRED_AS(activation.err, errors::STATE_CHANGE_ERROR);
     EXPECT_EQ(
         activation.err.data,
-        "failed to reach OP within 10s: module 1 (TestSlave): failed to read its "
-        "state: Input/output error"
+        "failed to reach OP (no module reached OP for 10s): module 1 (TestSlave): "
+        "failed to read its state: Input/output error"
     );
 }
 
@@ -1115,8 +1160,8 @@ TEST_F(IGHMasterTest, ActivateWaitsForASlaveBelowOPWithNoErrorFlag) {
     ASSERT_OCCURRED_AS(activation.err, errors::STATE_CHANGE_REFUSED);
     EXPECT_EQ(
         activation.err.data,
-        "failed to reach OP within 10s: module 1 (EL4002) is in PRE-OP with an AL "
-        "error; module 2 (EL1008) is in SAFE-OP"
+        "failed to reach OP (no module reached OP for 10s): module 1 (EL4002) is in "
+        "PRE-OP with an AL error; module 2 (EL1008) is in SAFE-OP"
     );
     const std::map<uint16_t, slave::Refusal> refusals{
         {1, {.reason = "refused SAFE-OP"}},
