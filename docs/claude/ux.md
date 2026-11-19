@@ -340,7 +340,8 @@ bound, a log precision, or the line plot X channel.
 - Each type has one editor. The field and Settings open the same editor.
 - The field's picker creates in place, as every select of things users make does. A
   group in the picker, such as a palette, ends with a "+" text button that adds an item
-  to that group.
+  to that group. The Series palette is the one exception: it has no "+", because a user
+  adds a series color in Settings.
 - A right click on an item in a picker opens its menu, with Edit. Shift+F10 and the Menu
   key open it on a focused item. Edit opens the type's editor in place. A picker has no
   hover edit button.
