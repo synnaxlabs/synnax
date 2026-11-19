@@ -35,35 +35,28 @@ build --incompatible_remote_local_fallback_for_remote_cache
 # Use OpenSSl instead of BoringSSL for grpc
 build --@grpc//third_party:grpc_use_openssl=true
 
-# Force static linking so hidden symbol visibility doesn't break shared library linking
+# Static linking keeps hidden symbol visibility from breaking shared library links.
 build --dynamic_mode=off
 
-# ===== Platform-Specific Compiler Settings =====
+# ===== Platform-specific compiler settings =====
+#
+# Symbols are hidden so they do not collide with libraries loaded at runtime. LabJack
+# bundles an old, incompatible gRPC.
 
-# macOS (Apple Silicon)
 build:macos --cxxopt=-std=c++23
 build:macos --host_cxxopt=-std=c++23
 build:macos --copt=-Werror
-# Hide symbols to prevent collisions with libraries loaded dynamically at runtime
-# (LabJack bundles an incompatible legacy gRPC version).
 build:macos --copt=-fvisibility=hidden
 build:macos --cxxopt=-fvisibility-inlines-hidden
-
-# Allow protobuf deprecation warnings without treating them as errors
+# gRPC's public headers call the deprecated pointer form of absl::MutexLock.
 build:macos --copt=-Wno-error=deprecated-declarations
 
-# Linux
 build:linux --cxxopt=-std=c++23
 build:linux --host_cxxopt=-std=c++23
 build:linux --copt=-Werror
-# Hide symbols to prevent collisions with libraries loaded dynamically at runtime
-# (LabJack bundles an incompatible legacy gRPC version).
 build:linux --copt=-fvisibility=hidden
 build:linux --cxxopt=-fvisibility-inlines-hidden
-
-# Allow protobuf deprecation warnings without treating them as errors
 build:linux --copt=-Wno-error=deprecated-declarations
-
 # GoogleTest triggers sign-compare inside gtest.h when a test compares a signed to an
 # unsigned integer. GCC reports it against the header, so it cannot be suppressed at the
 # call site.
@@ -89,8 +82,10 @@ build:windows --conlyopt=/WX
 # Level 4 warnings raised to level 3 so /W3 reports them.
 build:windows --copt=/w34388  # signed/unsigned mismatch in a comparison
 build:windows --copt=/w34389  # signed/unsigned mismatch in == and !=
-build:windows --copt=/wd4267  # 'var' : conversion from 'size_t' to 'type', possible loss of data (protobuf headers)
-build:windows --copt=/wd4244  # conversion from 'type1' to 'type2', possible loss of data (protobuf headers)
+# Generated protobuf code is workspace code, so /external:W0 does not cover it.
+build:windows --copt=/wd4267  # conversion from size_t, possible loss of data
+build:windows --copt=/wd4244  # conversion between types, possible loss of data
+build:windows --copt=/wd4996  # deprecated declaration
 build:windows --copt=/wd4305  # truncation from double to float
 build:windows --copt=/wd4146  # unary minus operator applied to unsigned type (telem templates)
 build:windows --copt=/wd4589  # constructor ignores initializer for virtual base class (NI channel hierarchy)
@@ -113,65 +108,38 @@ build:windows --@openssl//:use-no-asm-fallback=true
 # provider on. Without this, defltprov.c references a store nothing defines.
 build:windows --@openssl//:no-winstore=true
 
-# Allow protobuf deprecation warnings without treating them as errors
-build:windows --copt=/wd4996  # disables warning C4996 (deprecated declarations) for MSVC
-
-# Static CRT linking — eliminates dependency on VC++ Redistributable DLLs (MSVCP140.dll,
-# VCRUNTIME140.dll) which cause 0xc0000005 crashes when outdated
+# The static CRT removes the dependency on the VC++ Redistributable DLLs. An old copy of
+# those crashes the Driver with 0xc0000005.
 build:windows --copt=/MT
 
-# ===== Warning Suppression for External Dependencies =====
-
-# Only show output from workspace targets (filters out external dependency noise)
+# ===== Warnings =====
+#
+# Workspace code builds with all warnings as errors, and dependencies build with none.
+# Bazel prints compiler output only for workspace targets.
 build --output_filter=^//
-
-# Suppress warnings from external dependencies (Bazel modules and vendor/)
+build:macos --copt=-Wall
 build:macos --per_file_copt=external/.*@-w
 build:macos --per_file_copt=vendor/.*@-w
+build:linux --copt=-Wall
 build:linux --per_file_copt=external/.*@-w
 build:linux --per_file_copt=vendor/.*@-w
 
-# Keep strict warnings for workspace code. Windows is deliberately excluded: it uses /W3
-# above, and MASM reads -Wall as /W followed by a non-numeric level (A1013).
-build:macos --copt=-Wall
-build:linux --copt=-Wall
-
-# ===== Optimization Flags (used with --config=opt) =====
+# ===== Optimization =====
 #
-# Use --config=opt for release builds. This enables:
-# - compilation_mode=opt (Bazel's optimization mode)
-# - Symbol stripping
-#
-# For maximum optimization, also add platform-specific config:
-# - macOS/Linux: --config=opt --config=opt-unix
-# - Windows: --config=opt --config=opt-windows
-
-# Base optimization settings (platform-agnostic)
+# Release builds use --config=opt with --config=opt-unix or --config=opt-windows.
 build:opt --compilation_mode=opt
 build:opt --strip=always
 
-# Unix optimization (macOS/Linux with GCC/Clang)
-# -O3: Maximum optimization level
-# -flto: Link-Time Optimization for cross-module inlining
 build:opt-unix --copt=-O3
 build:opt-unix --copt=-flto
 build:opt-unix --linkopt=-flto
 
-# Windows optimization (MSVC)
-# /O2: Maximum speed optimization
-# /GL: Whole Program Optimization (compile-time cross-module optimization)
-# /LTCG: Link-Time Code Generation (link-time optimization)
 build:opt-windows --copt=/O2
 build:opt-windows --copt=/GL
 build:opt-windows --linkopt=/LTCG
 
-# ===== Sanitizers (Memory/Undefined Behavior Detection) =====
+# ===== Sanitizers =====
 
-# AddressSanitizer (ASan) - Detects memory errors
-# - Heap/stack buffer overflows
-# - Use-after-free
-# - Double-free
-# - Memory leaks (via LeakSanitizer on Linux only)
 build:asan --copt=-fsanitize=address
 build:asan --copt=-fno-omit-frame-pointer
 build:asan --copt=-O1
@@ -180,46 +148,21 @@ build:asan --copt=-fno-optimize-sibling-calls
 build:asan --copt=-fdebug-prefix-map=/proc/self/cwd=.
 build:asan --linkopt=-fsanitize=address
 build:asan --test_env=ASAN_OPTIONS=abort_on_error=1:halt_on_error=1:detect_stack_use_after_return=1
-build:asan --test_timeout=120,600,1800,3600  # ASan adds ~2-3x overhead
-
-# macOS-specific: Suppress _FORTIFY_SOURCE redefinition warning (ASan defines it to 0)
+build:asan --test_timeout=120,600,1800,3600
+# ASan defines _FORTIFY_SOURCE to 0, which macOS headers define again.
 build:asan --copt=-Wno-macro-redefined
-
 # ASan gives each temporary in open62541's generated namespace zero its own padded stack
 # slot. One node function then needs more than the 512 KB stack of a macOS thread.
 build:asan --per_file_copt=.*/open62541/namespace0_generated\.c@-fno-sanitize=address
 
-# ASan with LeakSanitizer (Linux only - LSan not supported on macOS/Windows)
+# LeakSanitizer runs only on Linux.
 build:asan-leak --config=asan
 build:asan-leak --copt=-fsanitize=leak
 build:asan-leak --linkopt=-fsanitize=leak
 build:asan-leak --test_env=ASAN_OPTIONS=detect_leaks=1:abort_on_error=1:halt_on_error=1:detect_stack_use_after_return=1
 build:asan-leak --test_env=LSAN_OPTIONS=exitcode=0
 
-# LeakSanitizer (LSan) - Standalone leak detection (Linux only)
-build:lsan --copt=-fsanitize=leak
-build:lsan --copt=-fno-omit-frame-pointer
-build:lsan --copt=-g
-build:lsan --copt=-fdebug-prefix-map=/proc/self/cwd=.
-build:lsan --linkopt=-fsanitize=leak
-build:lsan --test_env=LSAN_OPTIONS=suppressions=scripts/sanitizers/lsan_suppressions.txt
-
-# UndefinedBehaviorSanitizer (UBSan) - Detects undefined behavior
-# - Integer overflow
-# - Null pointer dereference
-# - Misaligned pointer access
-# - Division by zero
-# - Invalid enum values
-build:ubsan --copt=-fsanitize=undefined
-build:ubsan --copt=-fno-sanitize-recover=undefined
-build:ubsan --copt=-fno-omit-frame-pointer
-build:ubsan --copt=-g
-build:ubsan --copt=-fdebug-prefix-map=/proc/self/cwd=.
-build:ubsan --linkopt=-fsanitize=undefined
-build:ubsan --test_env=UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1
-
-# ThreadSanitizer (TSan) - Detects data races and lock-order inversions. Cannot be
-# combined with ASan.
+# ThreadSanitizer cannot be combined with ASan.
 build:tsan --copt=-fsanitize=thread
 build:tsan --copt=-fno-omit-frame-pointer
 build:tsan --copt=-O1
@@ -227,18 +170,9 @@ build:tsan --copt=-g
 build:tsan --copt=-fdebug-prefix-map=/proc/self/cwd=.
 build:tsan --linkopt=-fsanitize=thread
 build:tsan --test_env=TSAN_OPTIONS=halt_on_error=1:second_deadlock_stack=1
-build:tsan --test_timeout=120,600,1800,3600  # TSan adds ~5-15x overhead
+build:tsan --test_timeout=120,600,1800,3600
 test:tsan-no-aslr --config=tsan
 test:tsan-no-aslr --run_under="setarch -R"
-
-# Combined sanitizers (recommended for local development)
-build:sanitize --config=asan
-build:sanitize --config=ubsan
-
-# Sanitizers for CI (optimized settings)
-build:sanitize-ci --config=sanitize
-build:sanitize-ci --test_output=errors
-build:sanitize-ci --test_summary=detailed
 
 # ===== Coverage =====
 #
