@@ -8,14 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Component } from "@synnaxlabs/lyra/component";
 import { Haul } from "@synnaxlabs/lyra/haul";
-import { sleep, TimeSpan } from "@synnaxlabs/x";
+import { TimeSpan } from "@synnaxlabs/x";
 import { act, render, type RenderResult, waitFor } from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
 import { type ReactElement } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -117,15 +116,9 @@ const staleUI = (badged: boolean): ReactElement => (
   </StaleWrapper>
 );
 
-const IdleWrapper = createSynnaxWrapper({
-  client: createTestClient(),
-  additionalRegistry: { ...value.REGISTRY, ...setpoint.REGISTRY },
-  telemFactories: [],
-  renderContext: canvasTest.record(),
-});
-
 describe("Setpoint.Symbol staleness", () => {
   beforeEach(() => staleColorHidden.mockClear());
+  afterEach(() => vi.useRealTimers());
 
   it("should show the stale indicator in place of the stale color", async () => {
     const { findByRole } = render(staleUI(true));
@@ -146,26 +139,29 @@ describe("Setpoint.Symbol staleness", () => {
   // The readback runs with no state channel. Its source never sends, so it never goes
   // stale.
   it("should never show the stale indicator with no state channel", async () => {
+    // Fakes only the sweep's clock, so React and the worker still run on real timers.
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval", "performance"] });
     const { queryByRole } = render(
-      <IdleWrapper>
-        <Staleness.Provider badged sweepInterval={50}>
+      <Wrapper>
+        <Staleness.Provider badged>
           <ReactFlowProvider>
             <Haul.Provider>
               <Setpoint.spec.Node
                 nodeKey={NODE_KEY}
                 selected={false}
                 onConfigChange={vi.fn()}
-                config={schematic.setpointNodeConfigZ.parse({
-                  variant: "setpoint",
-                  stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
-                })}
+                config={schematic.setpointNodeConfigZ.parse({ variant: "setpoint" })}
               />
             </Haul.Provider>
           </ReactFlowProvider>
         </Staleness.Provider>
-      </IdleWrapper>,
+      </Wrapper>,
     );
-    await act(async () => await sleep.sleep(TimeSpan.milliseconds(1500)));
+    // Lets the worker mount the sweep before its clock moves.
+    await act(async () => {});
+    await act(async () => {
+      vi.advanceTimersByTime(TimeSpan.seconds(10).milliseconds);
+    });
     expect(queryByRole("img", { name: "Stale" })).toBeNull();
   });
 });
