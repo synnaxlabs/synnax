@@ -14,6 +14,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path"
 	"slices"
 	"strconv"
 	"strings"
@@ -52,6 +53,7 @@ type crashEngine struct {
 	ts      xfs.FS
 	pebble  *pebble.DB
 	db      *gorp.DB
+	store   kv.DB
 	cesium  *cesium.DB
 	svc     *channel.Service
 	closers []func() error
@@ -60,28 +62,16 @@ type crashEngine struct {
 	broken error
 }
 
-// writeback makes the disk of fs durable: a crash image directly, or the disk of the
-// workload through the harness.
-func writeback(fs xfs.FS) error {
-	if disk, ok := fs.(*fault.FS); ok {
-		disk.Writeback()
-		return nil
-	}
-	return crash.Writeback(fs)
-}
+// durableDirs syncs the directory of each create, remove, and rename of Cesium, as a
+// Cesium that makes its directory changes durable would. It syncs no file.
+type durableDirs struct{ xfs.FS }
 
-// durableDirs writes the disk back after each directory change of Cesium, as a Cesium
-// that makes its directory changes durable would sync them.
-type durableDirs struct {
-	xfs.FS
-	disk xfs.FS
-}
-
-func (d durableDirs) after(err error) error {
-	if err != nil {
-		return err
+// parent returns the directory of name, "" for the root of the FS.
+func parent(name string) string {
+	if dir := path.Dir(name); dir != "." {
+		return dir
 	}
-	return writeback(d.disk)
+	return ""
 }
 
 func (d durableDirs) Open(name string, flag int) (xfs.File, error) {
@@ -89,7 +79,7 @@ func (d durableDirs) Open(name string, flag int) (xfs.File, error) {
 	if err != nil || flag&os.O_CREATE == 0 {
 		return f, err
 	}
-	return f, d.after(nil)
+	return f, d.SyncDir(parent(name))
 }
 
 func (d durableDirs) Sub(name string) (xfs.FS, error) {
@@ -97,13 +87,21 @@ func (d durableDirs) Sub(name string) (xfs.FS, error) {
 	if err != nil {
 		return nil, err
 	}
-	return durableDirs{FS: sub, disk: d.disk}, d.after(nil)
+	return durableDirs{FS: sub}, d.SyncDir(parent(name))
 }
 
-func (d durableDirs) Remove(name string) error { return d.after(d.FS.Remove(name)) }
+func (d durableDirs) Remove(name string) error {
+	if err := d.FS.Remove(name); err != nil {
+		return err
+	}
+	return d.SyncDir(parent(name))
+}
 
 func (d durableDirs) Rename(from, to string) error {
-	return d.after(d.FS.Rename(from, to))
+	if err := d.FS.Rename(from, to); err != nil {
+		return err
+	}
+	return errors.Join(d.SyncDir(parent(from)), d.SyncDir(parent(to)))
 }
 
 func openCrashEngine(ctx context.Context, fs xfs.FS) (_ *crashEngine, err error) {
@@ -131,31 +129,19 @@ func openEngine(
 		return nil, err
 	}
 	if dirsDurable {
-		e.ts = durableDirs{FS: e.ts, disk: fs}
+		if err = fs.SyncDir(""); err != nil {
+			return nil, err
+		}
+		e.ts = durableDirs{FS: e.ts}
 	}
-	logger := pebblekv.NewNoopLogger()
-	opts := &pebble.Options{
-		FS:                 pebblefs.New(kv),
-		FormatMajorVersion: pebble.FormatNewest,
-		Logger:             logger,
-	}
-	// An open that fails leaves the scheduler of Pebble registered, and its granter
-	// running. The workload runs no compaction, so a scheduler with no granter is
-	// enough.
-	scheduler := pebble.NewConcurrencyLimitSchedulerWithNoPeriodicGrantingForTest()
-	opts.Experimental.CompactionScheduler = scheduler
-	if e.pebble, err = pebble.Open("", opts); err != nil {
+	if err = e.openKV(ctx, kv); err != nil {
 		return nil, err
 	}
-	// Closing Gorp closes the store and Pebble under it.
-	store := pebblekv.Wrap(e.pebble, logger)
-	e.db = gorp.Wrap(store)
-	e.closers = append(e.closers, e.db.Close, GoRun(ctx, e.db.Run))
 	if e.cesium, err = cesium.Open(ctx, "", cesium.WithFS(e.ts)); err != nil {
 		return nil, err
 	}
 	e.closers = append(e.closers, e.cesium.Close, GoRun(ctx, e.cesium.Run))
-	if err = e.openServices(ctx, store); err != nil {
+	if err = e.openServices(ctx, e.store); err != nil {
 		return nil, err
 	}
 	e.clock = channel.Channel{Name: "clock", DataType: telem.TimestampT, IsIndex: true}
@@ -167,6 +153,29 @@ func openEngine(
 		err = e.create(ctx, &e.clock)
 	}
 	return e, err
+}
+
+// openKV opens Pebble on fs, and Gorp on it.
+func (e *crashEngine) openKV(ctx context.Context, fs xfs.FS) (err error) {
+	logger := pebblekv.NewNoopLogger()
+	opts := &pebble.Options{
+		FS:                 pebblefs.New(fs),
+		FormatMajorVersion: pebble.FormatNewest,
+		Logger:             logger,
+	}
+	// An open that fails leaves the scheduler of Pebble registered, and its granter
+	// running. The workload runs no compaction, so a scheduler with no granter is
+	// enough.
+	scheduler := pebble.NewConcurrencyLimitSchedulerWithNoPeriodicGrantingForTest()
+	opts.Experimental.CompactionScheduler = scheduler
+	if e.pebble, err = pebble.Open("", opts); err != nil {
+		return err
+	}
+	// Closing Gorp closes the store and Pebble under it.
+	e.store = pebblekv.Wrap(e.pebble, logger)
+	e.db = gorp.Wrap(e.store)
+	e.closers = append(e.closers, e.db.Close, GoRun(ctx, e.db.Run))
+	return nil
 }
 
 // openServices opens the channel services of the Core on store and on the Gorp and
@@ -265,6 +274,10 @@ func (e *crashEngine) Commit(
 	if err := crash.Writeback(e.fs); err != nil {
 		return 0, err
 	}
+	// The samples of the scratch channel are durable from here on.
+	if err := e.store.Set(ctx, written(scratch), nil); err != nil {
+		return 0, err
+	}
 	if err := e.db.WithTx(ctx, func(tx gorp.Tx) error {
 		return e.svc.NewWriter(tx).Delete(ctx, scratch.Key(), false)
 	}); err != nil {
@@ -347,15 +360,8 @@ func (e *crashEngine) Recovered(ctx context.Context) ([]crash.Record, error) {
 			return nil, err
 		}
 		if scratch, ok := byName["s"+name]; ok {
-			kept, err := e.read(ctx, scratch)
-			if err != nil {
+			if err = e.checkScratch(ctx, scratch, data); err != nil {
 				return nil, err
-			}
-			if !bytes.Equal(kept, data) && e.broken == nil {
-				e.broken = errors.Newf(
-					"%s kept its record and lost its samples",
-					scratch.Name,
-				)
 			}
 		}
 		if len(data) > 0 {
@@ -367,6 +373,42 @@ func (e *crashEngine) Recovered(ctx context.Context) ([]crash.Record, error) {
 		func(a, b crash.Record) int { return int(a.ID) - int(b.ID) },
 	)
 	return records, nil
+}
+
+// checkScratch notes, for Audit, a scratch channel that still has its record and lost
+// the samples of its data channel, when they were durable before its delete began.
+func (e *crashEngine) checkScratch(
+	ctx context.Context,
+	scratch channel.Channel,
+	data []byte,
+) error {
+	durable, err := e.durable(scratch)
+	if err != nil || !durable {
+		return err
+	}
+	kept, err := e.read(ctx, scratch)
+	if err != nil {
+		return err
+	}
+	if !bytes.Equal(kept, data) && e.broken == nil {
+		e.broken = errors.Newf("%s kept its record and lost its samples", scratch.Name)
+	}
+	return nil
+}
+
+// written returns the key that marks the samples of ch as durable.
+func written(ch channel.Channel) []byte { return []byte("crash/written/" + ch.Name) }
+
+// durable reports if the samples of ch were durable before its delete began.
+func (e *crashEngine) durable(ch channel.Channel) (bool, error) {
+	_, closer, err := e.store.Get(written(ch))
+	if errors.Is(err, query.ErrNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return true, closer.Close()
 }
 
 func (e *crashEngine) Audit(context.Context) error { return e.broken }
@@ -410,15 +452,28 @@ func orphans(locals ...distchannel.LocalKey) []string {
 	return out
 }
 
+// emptyMeta returns the violation of an open that found the meta file of each channel
+// with the local key empty, after cause.
+func emptyMeta(cause string, locals ...distchannel.LocalKey) []string {
+	out := make([]string, len(locals))
+	for i, local := range locals {
+		out[i] = fmt.Sprintf(
+			"R4: %s: error decoding meta in folder for channel %d: failed to decode "+
+				"channel.Channel: EOF",
+			cause,
+			distchannel.NewKey(1, local).StorageKey(),
+		)
+	}
+	return out
+}
+
 // Each entry lists every violation that the harness finds in the channel services
-// today,
-// under Strict, where no draw decides what a crash keeps. A delete removes the Cesium
-// data in the commit hook, before the record delete is durable, and Cesium syncs no
-// directory change, so a crash keeps the Cesium channel of each deleted record. When
-// Cesium makes its directory changes durable, a crash also keeps the Cesium channel of
-// a
-// create before its record, takes the samples of a delete before its record, and stops
-// the open between the create of a channel directory and of its meta file.
+// today, under Strict, where no draw decides what a crash keeps. A delete removes the
+// Cesium data in the commit hook, before the record delete is durable, and Cesium syncs
+// no directory change, so a crash keeps the Cesium channel of each deleted record. When
+// Cesium makes its directory changes durable and syncs no file, a crash also takes the
+// samples of a delete before its record, and stops the open on a channel directory with
+// no meta file or with an empty one.
 var _ = DescribeTable("Crash harness on the channel services",
 	func(ctx SpecContext, dirsDurable bool, want []string) {
 		result, err := runOnCore(ctx, dirsDurable)
@@ -432,14 +487,17 @@ var _ = DescribeTable("Crash harness on the channel services",
 		Expect(found.Slice()).To(ConsistOf(want))
 	},
 	Entry("plain", false, orphans(3, 5, 7, 9)),
-	Entry("with durable Cesium directories", true, append(
-		orphans(1, 2, 3, 4, 5, 6, 7, 8, 9),
-		"R4: the engine did not recover: data_type: required\nname: required\n"+
-			"index: non-indexed channel must have an index",
-		"R5: the audit failed: s1 kept its record and lost its samples",
-		"R5: the audit failed: s2 kept its record and lost its samples",
-		"R5: the audit failed: s3 kept its record and lost its samples",
-		"R5: the audit failed: s4 kept its record and lost its samples",
+	Entry("with durable Cesium directories", true, slices.Concat(
+		emptyMeta("the engine did not recover", 1, 4, 6, 8),
+		emptyMeta("the engine did not recover after a crash in recovery", 1, 2),
+		[]string{
+			"R4: the engine did not recover: data_type: required\nname: required\n" +
+				"index: non-indexed channel must have an index",
+			"R5: the audit failed: s1 kept its record and lost its samples",
+			"R5: the audit failed: s2 kept its record and lost its samples",
+			"R5: the audit failed: s3 kept its record and lost its samples",
+			"R5: the audit failed: s4 kept its record and lost its samples",
+		},
 	)),
 )
 
@@ -518,6 +576,7 @@ var _ = Describe("Crash adapter on the channel services", func() {
 	It("Should report a deleted channel that kept its record and lost its samples",
 		func(ctx SpecContext) {
 			_, scratch := write(ctx, []byte("taco"))
+			Expect(e.store.Set(ctx, written(scratch), nil)).To(Succeed())
 			Expect(e.cesium.DeleteChannel(scratch.Key().StorageKey())).To(Succeed())
 			Expect(e.removed()).To(Succeed())
 			MustSucceed(e.Recovered(ctx))
