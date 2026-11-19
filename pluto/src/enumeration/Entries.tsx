@@ -329,7 +329,9 @@ export const Table = ({
         onMove={onMove}
         renderHaulPreview={renderHaulPreview}
       >
-        <Input.TableColumn name="Name" type="string" />
+        <Input.TableColumn name="Name" type="string">
+          {(props) => <Input.Text {...props} onlyChangeOnBlur />}
+        </Input.TableColumn>
         <Input.TableColumn name="Value" type="number" width={14} />
         <Input.TableColumn<color.Ref | undefined>
           name="Color"

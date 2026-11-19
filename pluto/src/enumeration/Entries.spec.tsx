@@ -89,6 +89,33 @@ describe("Enumeration.Table", () => {
     fireEvent.paste(el, { clipboardData: { getData: () => text } });
   };
 
+  describe("names", () => {
+    it("should send a typed name once, on Enter", () => {
+      const onSet = vi.fn<OnSet>();
+      renderTable({ initial: [createEntry("Off", 0), createEntry("On", 1)], onSet });
+      const name = input("Name 2");
+      act(() => name.focus());
+      fireEvent.change(name, { target: { value: "Run" } });
+      fireEvent.change(name, { target: { value: "Running" } });
+      expect(onSet).not.toHaveBeenCalled();
+      fireEvent.keyDown(name, { key: "Enter" });
+      expect(sentValues(onSet)).toEqual([[["Running", 1]]]);
+    });
+
+    it("should send nothing for a typed name that Esc discards", () => {
+      const onSet = vi.fn();
+      renderTable({ initial: [createEntry("Off", 0), createEntry("On", 1)], onSet });
+      const name = input("Name 2");
+      act(() => name.focus());
+      fireEvent.change(name, { target: { value: "Running" } });
+      fireEvent.keyDown(name, { key: "Escape" });
+      expect(name.value).toBe("On");
+      fireEvent.keyDown(name, { key: "Escape" });
+      expect(document.activeElement).not.toBe(name);
+      expect(onSet).not.toHaveBeenCalled();
+    });
+  });
+
   describe("values", () => {
     it("should hold a value that another entry has, marked and unsent", () => {
       const onSet = vi.fn();
