@@ -396,6 +396,17 @@ func (e *crashEngine) checkScratch(
 	return nil
 }
 
+// names returns the names of the files in dir.
+func names(fs xfs.FS, dir string) []string {
+	GinkgoHelper()
+	infos := MustSucceed(fs.List(dir))
+	out := make([]string, len(infos))
+	for i, info := range infos {
+		out[i] = info.Name()
+	}
+	return out
+}
+
 // written returns the key that marks the samples of ch as durable.
 func written(ch channel.Channel) []byte { return []byte("crash/written/" + ch.Name) }
 
@@ -557,8 +568,12 @@ var _ = Describe("Crash adapter on the channel services", func() {
 				IsIndex:  true,
 				DataType: telem.TimestampT,
 			})).To(Succeed())
+			Expect(e.cesium.Write(ctx, telem.SecondTS, telem.MultiFrame(
+				[]cesium.ChannelKey{99},
+				[]telem.Series{stamps(1, 1)},
+			))).To(Succeed())
 			image := MustSucceed(disk.Crash(fault.CrashConfig{}))
-			Expect(image.Exists("cesium/99/meta.json")).To(BeTrue())
+			Expect(names(image, "cesium/99")).To(Equal(names(disk, "cesium/99")))
 			Expect(e.cesium.DeleteChannel(99)).To(Succeed())
 			Expect(e.removed()).To(Succeed())
 			image = MustSucceed(disk.Crash(fault.CrashConfig{}))
