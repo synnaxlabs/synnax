@@ -86,9 +86,9 @@ all timing, because the rig chooses it: the poll rate of a queried message, and 
 `period` of a message a bus write task sends on a cycle. The form fills `period` from
 the message's `cycle_time` when a write task first binds it. An MQTT write target has no
 period: it publishes one message for each command on any bound channel, with the last
-value of each other bound channel. A polled serial, TCP, or UDP entry holds its `query`,
-the request the device must receive before it answers, as an HTTP endpoint holds its
-request.
+value of each other bound channel. Commands that arrive in one frame share one message.
+A polled serial, TCP, or UDP entry holds its `query`, the request the device must
+receive before it answers, as an HTTP endpoint holds its request.
 
 A write task binds channels to fields. A field with no channel takes its `default` (a
 constant or a generator). The Core refuses to save a write task that leaves a field with
@@ -250,4 +250,8 @@ on a real adapter (§6.16).
 18. **An MQTT write publishes on command only**: Each command on a bound channel sends
     one message, as a one-channel target does today (2026-11-18). A field with no
     command yet sends its `default`, and with none the target waits for that channel's
-    first command. A timer that publishes every `period` was rejected.
+    first command. Commands on several bound channels in one frame send one message,
+    so an Arc stage that sets two fields in one cycle sends one message, not two. A
+    command that its field cannot hold, such as NaN, is dropped with a warning, and the
+    field keeps its last good command. A timer that publishes every `period` was
+    rejected.
