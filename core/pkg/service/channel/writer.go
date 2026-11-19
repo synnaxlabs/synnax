@@ -964,6 +964,12 @@ func (w Writer) delete(ctx context.Context, keys Keys, allowInternal bool) error
 		release()
 		return err
 	}
+	// The intent is durable before the record delete commits, so storage that a crash
+	// leaves behind a committed delete goes at the next start.
+	if err := w.svc.cfg.TS.Intend(stored.Uint32()); err != nil {
+		release()
+		return err
+	}
 	// The storage drops only once the delete of the records is durable, so a crash
 	// never leaves a record whose data is gone.
 	gorp.AfterEnd(w.tx, func(committed bool) {

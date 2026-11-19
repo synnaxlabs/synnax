@@ -190,6 +190,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	s.mu.externalNonVirtualSet.Insert(KeysFromChannels(externalNonVirtualChannels)...)
+	if err = s.sweep(ctx); !ok(err, nil) {
+		return nil, err
+	}
 	return s, nil
 }
 
