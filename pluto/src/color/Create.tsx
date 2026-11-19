@@ -213,10 +213,12 @@ export interface CreatePaletteProps {
 }
 
 /**
- * Ends the palettes of a color picker. It creates a palette after asking its name. A
- * cancel moves the focus back to the button that opened the entry.
+ * Ends the palettes of a color picker. It creates a palette after asking its name, and
+ * clears the search so that the palette shows. A cancel moves the focus back to the
+ * button that opened the entry.
  */
 export const CreatePalette = ({ onCreate }: CreatePaletteProps): ReactElement => {
+  const { clearSearch } = Color.usePicker();
   const [naming, setNaming] = useState(false);
   const [cancelled, setCancelled] = useState(false);
   const { updateAsync: create } = useCreatePalette();
@@ -243,6 +245,7 @@ export const CreatePalette = ({ onCreate }: CreatePaletteProps): ReactElement =>
     const created = await create({ key, name });
     if (!created) return false;
     setNaming(false);
+    clearSearch();
     onCreate?.(key);
     return true;
   };

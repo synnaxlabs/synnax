@@ -282,6 +282,55 @@ describe("Color.Field", () => {
         await waitFor(() => expect(document.activeElement).toBe(plusOf(name)));
       });
 
+      describe("under a search", () => {
+        const searchFor = (term: string): void => {
+          fireEvent.change(screen.getByPlaceholderText("Search colors"), {
+            target: { value: term },
+          });
+        };
+        const searchValue = (): string =>
+          screen.getByPlaceholderText<HTMLInputElement>("Search colors").value;
+
+        it("should clear the search and focus a color that it hides", async () => {
+          const { palette, named } = await createInPalette();
+          const { result } = renderField();
+          openPicker(result);
+          await screen.findByRole("button", { name: named.name });
+          searchFor(named.name);
+          await openCreate(palette);
+          const name = `created-${id.create()}`;
+          enterName("Color name", name);
+          const swatch = await screen.findByRole("button", { name });
+          await waitFor(() => expect(document.activeElement).toBe(swatch));
+          expect(searchValue()).toBe("");
+        });
+
+        it("should clear the search and focus the + of a hidden palette", async () => {
+          const { named } = await createInPalette();
+          const { result } = renderField();
+          openPicker(result);
+          await screen.findByRole("button", { name: named.name });
+          searchFor(named.name);
+          fireEvent.click(screen.getByRole("button", { name: "Create palette" }));
+          const name = `palette-${id.create()}`;
+          enterName("Palette name", name);
+          await waitFor(() => expect(document.activeElement).toBe(plusOf(name)));
+          expect(searchValue()).toBe("");
+        });
+
+        it("should keep the search after a cancel", async () => {
+          const { palette, named } = await createInPalette();
+          const { result } = renderField();
+          openPicker(result);
+          await screen.findByRole("button", { name: named.name });
+          searchFor(named.name);
+          await openCreate(palette);
+          fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+          expect(searchValue()).toBe(named.name);
+          expect(document.activeElement).toBe(plusOf(palette.name));
+        });
+      });
+
       it("should keep the picker open and focus Create palette on Escape", async () => {
         await createInPalette();
         const { result } = renderField();
