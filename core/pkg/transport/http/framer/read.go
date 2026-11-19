@@ -361,9 +361,10 @@ func (c *column) skip(k int) {
 func (c *column) clockError(index *column) error {
 	if clock := c.pending[0].Clock; clock != uint32(index.key) {
 		return errors.Newf(
-			"[api.Read] channel %s has samples on clock %d, not on the clock of %s",
+			"[api.Read] channel %s has samples on clock %d, not on clock %d of %s",
 			c.name,
 			clock,
+			index.key,
 			index.name,
 		)
 	}

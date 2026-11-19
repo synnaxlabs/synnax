@@ -797,9 +797,10 @@ var _ = Describe("TDMS", func() {
 					svcframer.IteratorConfig{},
 				),
 			)).Error().To(MatchError(fmt.Sprintf(
-				"[api.Read] channel %s has samples on clock %d, not on the clock of %s",
+				"[api.Read] channel %s has samples on clock %d, not on clock %d of %s",
 				misindexed.Name,
 				otherIndex.Key(),
+				index.Key(),
 				index.Name,
 			)))
 		})
