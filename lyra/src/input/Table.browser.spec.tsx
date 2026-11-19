@@ -269,38 +269,54 @@ describe("Input.Table", () => {
     });
   });
 
-  describe("boolean cell frame", () => {
-    /** @returns the checkbox of a boolean cell whose status is the given one. */
-    const renderCheckbox = async (status?: Status.Crude): Promise<HTMLElement> => {
+  describe.each(["checkbox", "switch"] as const)("boolean %s cell frame", (control) => {
+    /** @returns the frame of a boolean cell whose status is the given one. */
+    const renderCell = async (status?: Status.Crude): Promise<HTMLElement> => {
       const { container } = await renderThemed(
         <Input.Table value={[[true]]} onChange={() => {}} cellStatus={() => status}>
-          <Input.TableColumn name="Enabled" type="boolean" width={20} />
+          {control === "checkbox" ? (
+            <Input.TableColumn name="Enabled" type="boolean" width={20} />
+          ) : (
+            <Input.TableColumn name="Enabled" type="boolean" width={20}>
+              {(props) => (
+                <Input.Switch
+                  value={props.value}
+                  onChange={props.onChange}
+                  variant={props.variant}
+                  aria-label={props["aria-label"]}
+                />
+              )}
+            </Input.TableColumn>
+          )}
         </Input.Table>,
       );
-      const box = container.querySelector<HTMLElement>(
-        `.${CSS.BE("input", "checkbox")}`,
-      );
-      if (box == null) throw new Error("The cell has no checkbox");
+      const box = container.querySelector<HTMLElement>(`.${CSS.BE("input", control)}`);
+      if (box == null) throw new Error(`The cell has no ${control}`);
       return box;
     };
 
     const frame = (box: Element): string => computed(box, "outline-color");
 
-    it("should frame a marked checkbox cell in the error color", async () => {
-      const box = await renderCheckbox({ variant: "error", message: "Not valid" });
+    it("should hide the frame at rest", async () => {
+      const box = await renderCell();
+      expect(frame(box)).toBe(resolve("transparent", "outline-color"));
+    });
+
+    it("should frame a marked cell in the error color", async () => {
+      const box = await renderCell({ variant: "error", message: "Not valid" });
       expect(frame(box)).toBe(resolve("var(--pluto-error-z)", "outline-color"));
     });
 
-    it("should frame a hovered checkbox cell", async () => {
-      const box = await renderCheckbox();
+    it("should frame a hovered cell", async () => {
+      const box = await renderCell();
       await userEvent.hover(box);
       await expect
         .poll(() => frame(box))
         .toBe(resolve("var(--pluto-gray-l7)", "outline-color"));
     });
 
-    it("should frame a focused checkbox cell in the primary color", async () => {
-      const box = await renderCheckbox();
+    it("should frame a focused cell in the primary color", async () => {
+      const box = await renderCell();
       box.querySelector("input")?.focus();
       await expect
         .poll(() => frame(box))
