@@ -43,9 +43,10 @@ UNNAMED = (
 REFUSED = "Only someone with write access to the repository can dismiss a finding."
 DONE = "Dismissed. Later reviews of this pull request will not report it."
 NAMED = (
-    "Dismissed **{title}** for {actor}. Later reviews of this pull request will not "
-    "report it."
+    "Dismissed **{title}** for {actor}: {reason} Later reviews of this pull request "
+    "will not report it."
 )
+UNREASONED = "A dismissal needs a reason."
 PASSED = (
     " Every finding of the review of the head is dismissed or withdrawn, so the head "
     "scores 5/5."
@@ -90,10 +91,14 @@ def dismiss_by_title(
 
     :param finding: The title of the finding, with `path:<file>` after it when two
         findings share the title. Case, backticks, and quotes do not count.
+    :param reason: Why the finding does not apply. The comment of the bot shows it.
     :param actor: The login that asked for the dismissal.
-    :raises ValueError: If no one open finding has the title, or if the actor is not a
-        person with write access.
+    :raises ValueError: If the reason is empty, if no one open finding has the title, or
+        if the actor is not a person with write access.
     """
+    reason = reason.strip()
+    if not reason:
+        raise ValueError(UNREASONED)
     found = threads(t, gh)
     can = authority(t, gh)
     kind = "Bot" if actor.endswith("[bot]") else "User"
@@ -105,9 +110,19 @@ def dismiss_by_title(
         raise ValueError(UNNAMED)
     path, title = hit[0]
     record = {"actor": actor, "path": path, "title": title, "reason": reason}
-    _comment(t, gh, answer(record, NAMED.format(title=title, actor=actor)))
+    _comment(
+        t,
+        gh,
+        answer(
+            record, NAMED.format(title=title, actor=actor, reason=_sentence(reason))
+        ),
+    )
     if (th := still.get((path, title))) is not None:
         resolve(gh, th)
+
+
+def _sentence(text: str) -> str:
+    return text if text[-1] in ".!?" else f"{text}."
 
 
 def _sweep_threads(t: Target, gh: GH, found: list[Thread], can: Authority) -> None:

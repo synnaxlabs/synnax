@@ -25,7 +25,7 @@ from review import (
     render,
 )
 from review.__main__ import main
-from review.dismiss import REFUSED, UNNAMED
+from review.dismiss import REFUSED, UNNAMED, UNREASONED
 
 REPO = "synnaxlabs/synnax"
 HEAD = "b" * 40
@@ -495,14 +495,23 @@ class TestDismissByTitle:
         gh.comments = [outside("Old", "Old data")]
         by_title(gh, "Old data")
         assert gh.posted()[0].endswith(
-            "Dismissed **Old data** for someone. Later reviews of this pull request "
-            "will not report it."
+            "Dismissed **Old data** for someone: meant. Later reviews of this pull "
+            "request will not report it."
         )
         gh.comments[0] = outside("Old data", path="c.go")
         assert dismissals(TARGET, gh, [], authority(TARGET, gh)) == [
             Dismissal(path="b.go", title="Old data", reason="meant")
         ]
         assert gh.checks() == []
+
+    @pytest.mark.parametrize("reason", ["", "  "])
+    def test_should_fail_on_a_dismissal_with_no_reason(
+        self, gh: FakeGH, reason: str
+    ) -> None:
+        gh.comments = [outside("Old")]
+        with pytest.raises(ValueError, match=re.escape(UNREASONED)):
+            dismiss_by_title(TARGET, gh, finding="Old", reason=reason, actor="someone")
+        assert gh.posted() == []
 
     def test_should_keep_a_dismissal_whose_finding_left_the_comment(
         self, gh: FakeGH
