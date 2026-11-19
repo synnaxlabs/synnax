@@ -29,6 +29,7 @@ import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 
+import { Access } from "@/access";
 import { Color } from "@/color";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
@@ -61,9 +62,11 @@ describe("Color.Field", () => {
     await waitForStreamLive(client.connection);
   });
 
-  const renderField = (fill?: color.Ref, fieldWrapper = wrapper) => {
+  const renderField = async (fill?: color.Ref, fieldWrapper = wrapper) => {
     let methods!: Form.UseReturn<typeof schema>;
     const Harness = (): ReactElement => {
+      // As in the Console, the field renders once the permissions load.
+      Access.useEnsurePermissions({});
       methods = Form.use<typeof schema>({ values: { fill }, schema });
       return (
         <Triggers.Provider>
@@ -73,13 +76,20 @@ describe("Color.Field", () => {
         </Triggers.Provider>
       );
     };
-    const result = render(<Harness />, { wrapper: fieldWrapper });
+    let result!: RenderResult;
+    // An async act lets a render that suspends on the permissions commit.
+    await act(async () => {
+      result = render(<Harness />, { wrapper: fieldWrapper });
+    });
     return { result, values: () => methods.value() };
   };
 
-  const openPicker = (result: RenderResult): void => {
-    const swatch = result.container.querySelector<HTMLElement>(".lyra-color-swatch");
-    if (swatch == null) throw new Error("no swatch rendered");
+  const openPicker = async (result: RenderResult): Promise<void> => {
+    const swatch = await waitFor(() => {
+      const s = result.container.querySelector<HTMLElement>(".lyra-color-swatch");
+      if (s == null) throw new Error("no swatch rendered");
+      return s;
+    });
     fireEvent.click(swatch);
   };
 
@@ -113,15 +123,15 @@ describe("Color.Field", () => {
 
   it("should store a named reference for a palette pick", async () => {
     const { named } = await createInPalette();
-    const { result, values } = renderField();
-    openPicker(result);
+    const { result, values } = await renderField();
+    await openPicker(result);
     fireEvent.click(await screen.findByRole("button", { name: named.name }));
     expect(values().fill).toEqual({ type: "named", key: named.key });
   });
 
   it("should show the name of a stored named color", async () => {
     const { named } = await createInPalette();
-    renderField({ type: "named", key: named.key });
+    await renderField({ type: "named", key: named.key });
     await waitFor(() =>
       expect(screen.getByRole<HTMLInputElement>("textbox").value).toBe(named.name),
     );
@@ -130,8 +140,8 @@ describe("Color.Field", () => {
   describe("create and edit", () => {
     it("should create a named color from the shown color and link the field", async () => {
       const { palette } = await createInPalette();
-      const { result, values } = renderField();
-      openPicker(result);
+      const { result, values } = await renderField();
+      await openPicker(result);
       fireEvent.click(
         await screen.findByRole("button", {
           name: `Create a color in ${palette.name}`,
@@ -149,8 +159,8 @@ describe("Color.Field", () => {
 
     it("should create one color for a second Enter while the first saves", async () => {
       const { palette } = await createInPalette();
-      const { result, values } = renderField();
-      openPicker(result);
+      const { result, values } = await renderField();
+      await openPicker(result);
       await openCreate(palette);
       const name = `created-${id.create()}`;
       enterName("Color name", name);
@@ -168,8 +178,8 @@ describe("Color.Field", () => {
         dark: "#112233",
         group: palette.key,
       });
-      const { result, values } = renderField({ type: "named", key: linked.key });
-      openPicker(result);
+      const { result, values } = await renderField({ type: "named", key: linked.key });
+      await openPicker(result);
       await openCreate(palette);
       enterName("Color name", `created-${id.create()}`);
       await waitFor(() =>
@@ -192,8 +202,8 @@ describe("Color.Field", () => {
           </Theming.Provider>
         </Outer>
       );
-      const { result, values } = renderField(undefined, dark);
-      openPicker(result);
+      const { result, values } = await renderField(undefined, dark);
+      await openPicker(result);
       await openCreate(palette);
       enterName("Color name", `created-${id.create()}`);
       const created = await createdColor(values);
@@ -205,8 +215,8 @@ describe("Color.Field", () => {
 
     it("should cancel the create on a blank name", async () => {
       const { palette } = await createInPalette();
-      const { result, values } = renderField();
-      openPicker(result);
+      const { result, values } = await renderField();
+      await openPicker(result);
       fireEvent.click(
         await screen.findByRole("button", {
           name: `Create a color in ${palette.name}`,
@@ -219,8 +229,8 @@ describe("Color.Field", () => {
 
     it("should offer no create in the Series palette", async () => {
       const { palette } = await createInPalette();
-      const { result } = renderField();
-      openPicker(result);
+      const { result } = await renderField();
+      await openPicker(result);
       await screen.findByRole("button", { name: `Create a color in ${palette.name}` });
       expect(screen.getByRole("group", { name: "Series" })).toBeTruthy();
       expect(
@@ -230,8 +240,8 @@ describe("Color.Field", () => {
 
     it("should save an edit from the menu of a swatch", async () => {
       const { named } = await createInPalette();
-      const { result } = renderField({ type: "named", key: named.key });
-      openPicker(result);
+      const { result } = await renderField({ type: "named", key: named.key });
+      await openPicker(result);
       await openEdit(named.name);
       fireEvent.click(await screen.findByLabelText("Light theme color"));
       fireEvent.change(screen.getByLabelText("Hex"), { target: { value: "0000ff" } });
@@ -242,8 +252,8 @@ describe("Color.Field", () => {
 
     it("should keep a rename when Back closes the view before a blur", async () => {
       const { named } = await createInPalette();
-      const { result } = renderField({ type: "named", key: named.key });
-      openPicker(result);
+      const { result } = await renderField({ type: "named", key: named.key });
+      await openPicker(result);
       await openEdit(named.name);
       const name = `renamed-${id.create()}`;
       fireEvent.change(await screen.findByRole("textbox", { name: "Name" }), {
@@ -261,8 +271,8 @@ describe("Color.Field", () => {
 
       it("should move the focus to the new swatch after a create", async () => {
         const { palette } = await createInPalette();
-        const { result } = renderField();
-        openPicker(result);
+        const { result } = await renderField();
+        await openPicker(result);
         await openCreate(palette);
         const name = `created-${id.create()}`;
         enterName("Color name", name);
@@ -286,8 +296,8 @@ describe("Color.Field", () => {
         ["a blank name", () => enterName("Color name", "  ")],
       ])("should keep the picker open and focus the + after %s", async (_, close) => {
         const { palette } = await createInPalette();
-        const { result } = renderField();
-        openPicker(result);
+        const { result } = await renderField();
+        await openPicker(result);
         await openCreate(palette);
         close();
         expect(screen.queryByPlaceholderText("Color name")).toBeNull();
@@ -297,8 +307,8 @@ describe("Color.Field", () => {
 
       it("should move the focus to the + of a new palette", async () => {
         await createInPalette();
-        const { result } = renderField();
-        openPicker(result);
+        const { result } = await renderField();
+        await openPicker(result);
         fireEvent.click(await screen.findByRole("button", { name: "Create palette" }));
         const name = `palette-${id.create()}`;
         enterName("Palette name", name);
@@ -314,8 +324,8 @@ describe("Color.Field", () => {
 
       it("should finish a saving color past Escape, Cancel, and +", async () => {
         const { palette } = await createInPalette();
-        const { result } = renderField();
-        openPicker(result);
+        const { result } = await renderField();
+        await openPicker(result);
         await openCreate(palette);
         const name = `created-${id.create()}`;
         enterName("Color name", name);
@@ -329,8 +339,8 @@ describe("Color.Field", () => {
 
       it("should finish a saving palette past Escape and Cancel", async () => {
         await createInPalette();
-        const { result } = renderField();
-        openPicker(result);
+        const { result } = await renderField();
+        await openPicker(result);
         fireEvent.click(await screen.findByRole("button", { name: "Create palette" }));
         const name = `palette-${id.create()}`;
         enterName("Palette name", name);
@@ -351,8 +361,8 @@ describe("Color.Field", () => {
 
         it("should clear the search and focus a color that it hides", async () => {
           const { palette, named } = await createInPalette();
-          const { result } = renderField();
-          openPicker(result);
+          const { result } = await renderField();
+          await openPicker(result);
           await screen.findByRole("button", { name: named.name });
           searchFor(named.name);
           await openCreate(palette);
@@ -365,8 +375,8 @@ describe("Color.Field", () => {
 
         it("should clear the search and focus the + of a hidden palette", async () => {
           const { named } = await createInPalette();
-          const { result } = renderField();
-          openPicker(result);
+          const { result } = await renderField();
+          await openPicker(result);
           await screen.findByRole("button", { name: named.name });
           searchFor(named.name);
           fireEvent.click(screen.getByRole("button", { name: "Create palette" }));
@@ -378,8 +388,8 @@ describe("Color.Field", () => {
 
         it("should keep the search after a cancel", async () => {
           const { palette, named } = await createInPalette();
-          const { result } = renderField();
-          openPicker(result);
+          const { result } = await renderField();
+          await openPicker(result);
           await screen.findByRole("button", { name: named.name });
           searchFor(named.name);
           await openCreate(palette);
@@ -391,8 +401,8 @@ describe("Color.Field", () => {
 
       it("should keep the picker open and focus Create palette on Escape", async () => {
         await createInPalette();
-        const { result } = renderField();
-        openPicker(result);
+        const { result } = await renderField();
+        await openPicker(result);
         fireEvent.click(await screen.findByRole("button", { name: "Create palette" }));
         fireEvent.keyDown(screen.getByPlaceholderText("Palette name"), {
           key: "Escape",
@@ -408,8 +418,8 @@ describe("Color.Field", () => {
 
     it("should create a palette and show it while it has no colors", async () => {
       await createInPalette();
-      const { result } = renderField();
-      openPicker(result);
+      const { result } = await renderField();
+      await openPicker(result);
       fireEvent.click(await screen.findByRole("button", { name: "Create palette" }));
       const name = `palette-${id.create()}`;
       enterName("Palette name", name);
@@ -438,8 +448,8 @@ describe("Color.Field", () => {
     it("should offer no create to a user who cannot create colors", async () => {
       const { palette, named } = await createInPalette();
       const limited = await createLimitedWrapper("update");
-      const { result } = renderField({ type: "named", key: named.key }, limited);
-      openPicker(result);
+      const { result } = await renderField({ type: "named", key: named.key }, limited);
+      await openPicker(result);
       // The edit proves the grants answered, so the missing creates are the gate.
       await openSwatchMenu(named.name);
       expect(await screen.findByRole("menuitem", { name: "Edit" })).toBeTruthy();
@@ -452,8 +462,8 @@ describe("Color.Field", () => {
     it("should open no swatch menu or palette + for a user who cannot update", async () => {
       const { palette, named } = await createInPalette();
       const limited = await createLimitedWrapper("create");
-      const { result } = renderField({ type: "named", key: named.key }, limited);
-      openPicker(result);
+      const { result } = await renderField({ type: "named", key: named.key }, limited);
+      await openPicker(result);
       // Create palette proves the grants answered, so the missing actions are the gate.
       expect(
         await screen.findByRole("button", { name: "Create palette" }),
@@ -495,11 +505,11 @@ describe("Color.Field", () => {
           actions: ["update"],
         },
       ]);
-      const { result } = renderField(
+      const { result } = await renderField(
         { type: "named", key: named.key },
         await createAsyncSynnaxWrapper({ client: limited }),
       );
-      openPicker(result);
+      await openPicker(result);
       await openSwatchMenu(named.name);
       expect(await screen.findByRole("menuitem", { name: "Edit" })).toBeTruthy();
       fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape", code: "Escape" });
@@ -515,8 +525,8 @@ describe("Color.Field", () => {
 
     it("should focus Create palette when a new palette gets no +", async () => {
       const limited = await createLimitedWrapper("create");
-      const { result } = renderField(undefined, limited);
-      openPicker(result);
+      const { result } = await renderField(undefined, limited);
+      await openPicker(result);
       fireEvent.click(await screen.findByRole("button", { name: "Create palette" }));
       const name = `palette-${id.create()}`;
       enterName("Palette name", name);
@@ -534,8 +544,8 @@ describe("Color.Field", () => {
     it("should let a user who cannot update colors create one in no palette", async () => {
       await client.colors.create({ name: `loose-${id.create()}`, light: "#00FF00" });
       const limited = await createLimitedWrapper("create");
-      const { result, values } = renderField(undefined, limited);
-      openPicker(result);
+      const { result, values } = await renderField(undefined, limited);
+      await openPicker(result);
       fireEvent.click(
         await screen.findByRole("button", { name: "Create a color in No palette" }),
       );

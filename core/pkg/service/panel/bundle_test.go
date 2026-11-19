@@ -239,6 +239,18 @@ var _ = Describe("DecodeBundle", func() {
 		}))
 	})
 
+	It("Should migrate a v5 member's color to a fixed color", func(ctx SpecContext) {
+		env := imex.Envelope{Version: 5, Type: "panel", Name: "Controls"}
+		Expect(env.Encode(map[string]any{
+			"root":  map[string]any{"variant": "leaf", "tabs": []any{}},
+			"color": xcolor.Color{R: 220, G: 19, B: 108, A: 128},
+		})).To(Succeed())
+		decoded := MustSucceed(panel.DecodeBundle(ctx, WireRoundTrip(env), nil))
+		Expect(decoded.Color).To(Equal(&color.Ref{
+			Variant: color.FixedRef{Value: xcolor.Color{R: 220, G: 19, B: 108, A: 128}},
+		}))
+	})
+
 	It("Should pass view tabs through unchanged", func(ctx SpecContext) {
 		view := viewTab(uuid.New(), "docs")
 		p := panel.Panel{Name: "Controls", Root: leafNode(view)}

@@ -18,13 +18,12 @@ import (
 	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
-	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
 	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v4"
 	v12 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v12"
 	border "github.com/synnaxlabs/x/border/versions/v0"
-	xcolor "github.com/synnaxlabs/x/color/versions/v2"
+	color "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/errors"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
@@ -91,8 +90,8 @@ type Segment = v12.Segment
 
 // SegmentedEdgeConfig is the configuration shared by every segmented edge variant.
 type SegmentedEdgeConfig struct {
-	// StrokeColor is the stroke color of the edge, a named color or a fixed color.
-	StrokeColor *servicecolor.Ref `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// StrokeColor is the stroke color of the edge.
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// Segments is the ordered list of orthogonal runs that trace the connector path
 	// from the source handle to the target handle.
 	Segments []Segment `json:"segments" msgpack:"segments"`
@@ -109,11 +108,6 @@ func (s *SegmentedEdgeConfig) SetDefaults() {
 // schema constraints.
 func (s SegmentedEdgeConfig) Validate() error {
 	v := validate.New("SegmentedEdgeConfig")
-	v.GreaterThanEq("stroke_width", s.StrokeWidth, 1)
-	v.LessThanEq("stroke_width", s.StrokeWidth, 20)
-	if s.StrokeColor != nil {
-		v.Exec(func() error { return validate.PathedError(s.StrokeColor.Validate(), "stroke_color") })
-	}
 	for i := range s.Segments {
 		v.Exec(func() error { return validate.PathedError(s.Segments[i].Validate(), "segments", strconv.Itoa(i)) })
 	}
@@ -584,7 +578,7 @@ type StalenessConfig struct {
 	// StalenessTimeout is the span after which the value is considered stale.
 	StalenessTimeout telem.TimeSpan `json:"staleness_timeout" msgpack:"staleness_timeout"`
 	// StalenessColor is the color applied when the value is stale.
-	StalenessColor *xcolor.Color `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	StalenessColor *color.Color `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
 }
 
 // SetDefaults sets every field that has a schema default to that default.
@@ -681,7 +675,7 @@ type StaticSymbolConfig struct {
 	LabeledConfig
 	ScaledConfig
 	// StrokeColor is the stroke color of the symbol.
-	StrokeColor *xcolor.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 }
 
 // SetDefaults sets every field that has a schema default to that default.
@@ -704,7 +698,7 @@ type ToggleSymbolConfig struct {
 	ToggleConfig
 	// StrokeColor is the stroke color of the symbol, which also fills it while it is
 	// active.
-	StrokeColor *xcolor.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 }
 
 // SetDefaults sets every field that has a schema default to that default.
@@ -731,7 +725,7 @@ type DummyToggleSymbolConfig struct {
 	Clickable bool `json:"clickable" msgpack:"clickable"`
 	// StrokeColor is the stroke color of the symbol, which also fills it while it is
 	// active.
-	StrokeColor *xcolor.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 }
 
 // SetDefaults sets every field that has a schema default to that default.
@@ -757,12 +751,12 @@ type ScaleIndicatorConfig struct {
 	// Bounds is the numeric range the indicator maps onto its extent.
 	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
 	// LevelColor is the color of the filled portion, the caret, and the value readout
-	// border, a named color or a fixed color.
-	LevelColor *servicecolor.Ref `json:"level_color,omitzero" msgpack:"level_color,omitempty"`
-	// AxisColor is the color of the axis and its ticks, a named color or a fixed color.
-	AxisColor *servicecolor.Ref `json:"axis_color,omitzero" msgpack:"axis_color,omitempty"`
-	// TextColor is the color of the tick labels, a named color or a fixed color.
-	TextColor *servicecolor.Ref `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
+	// border.
+	LevelColor *color.Color `json:"level_color,omitzero" msgpack:"level_color,omitempty"`
+	// AxisColor is the color of the axis and its ticks.
+	AxisColor *color.Color `json:"axis_color,omitzero" msgpack:"axis_color,omitempty"`
+	// TextColor is the color of the tick labels.
+	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
 	// Units is the unit suffix displayed after each tick label.
 	Units string `json:"units" msgpack:"units"`
 	// LevelHidden hides the filled portion.
@@ -798,15 +792,6 @@ func (s ScaleIndicatorConfig) Validate() error {
 	v.Ternaryf("level", !s.Level.IsValid(), "invalid level: %v", s.Level)
 	v.Exec(s.NumericTelemConfig.Validate)
 	v.Exec(s.StalenessConfig.Validate)
-	if s.LevelColor != nil {
-		v.Exec(func() error { return validate.PathedError(s.LevelColor.Validate(), "level_color") })
-	}
-	if s.AxisColor != nil {
-		v.Exec(func() error { return validate.PathedError(s.AxisColor.Validate(), "axis_color") })
-	}
-	if s.TextColor != nil {
-		v.Exec(func() error { return validate.PathedError(s.TextColor.Validate(), "text_color") })
-	}
 	return v.Error()
 }
 
@@ -819,7 +804,7 @@ type StateMapping struct {
 	// Value is the channel value this state corresponds to.
 	Value float64 `json:"value" msgpack:"value"`
 	// Color is the display color associated with this state.
-	Color *xcolor.Color `json:"color,omitzero" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 }
 
 // PageType names the kinds of page an off-page reference can link to.
@@ -1558,10 +1543,10 @@ func (f FlowmeterOrificeNodeConfig) Validate() error {
 // BoxNodeConfig is the configuration for box annotation symbols.
 type BoxNodeConfig struct {
 	LabeledConfig
-	// StrokeColor is the border color of the box, a named color or a fixed color.
-	StrokeColor *servicecolor.Ref `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
-	// FillColor is the fill color of the box, a named color or a fixed color.
-	FillColor *servicecolor.Ref `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	// StrokeColor is the border color of the box.
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// FillColor is the fill color of the box.
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Dimensions is the rendered size of the box in pixels.
 	Dimensions spatial.Dimensions `json:"dimensions" msgpack:"dimensions"`
 	// BorderRadius is the uniform corner radius of the box in pixels. Absent draws 3.
@@ -1587,12 +1572,6 @@ func (b BoxNodeConfig) Validate() error {
 		v.LessThanEq("stroke_width", *b.StrokeWidth, 20)
 	}
 	v.Exec(b.LabeledConfig.Validate)
-	if b.StrokeColor != nil {
-		v.Exec(func() error { return validate.PathedError(b.StrokeColor.Validate(), "stroke_color") })
-	}
-	if b.FillColor != nil {
-		v.Exec(func() error { return validate.PathedError(b.FillColor.Validate(), "fill_color") })
-	}
 	return v.Error()
 }
 
@@ -1608,9 +1587,8 @@ type ButtonNodeConfig struct {
 	CommandChannel channel.Key `json:"command_channel" msgpack:"command_channel"`
 	// Mode is the actuation behavior of the button.
 	Mode ButtonMode `json:"mode" msgpack:"mode"`
-	// FillColor is the fill color of the button, which its border follows, a named
-	// color or a fixed color.
-	FillColor *servicecolor.Ref `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	// FillColor is the fill color of the button, which its border follows.
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Control is the control state display configuration.
 	Control ControlStateConfig `json:"control" msgpack:"control"`
 }
@@ -1634,9 +1612,6 @@ func (b ButtonNodeConfig) Validate() error {
 	v.GreaterThanEq("on_click_delay", b.OnClickDelay, 0)
 	v.LessThanEq("on_click_delay", b.OnClickDelay, 2147483647000000)
 	v.Exec(b.LabeledConfig.Validate)
-	if b.FillColor != nil {
-		v.Exec(func() error { return validate.PathedError(b.FillColor.Validate(), "fill_color") })
-	}
 	v.Exec(func() error { return validate.PathedError(b.Control.Validate(), "control") })
 	return v.Error()
 }
@@ -1646,10 +1621,10 @@ type CircleNodeConfig struct {
 	LabeledConfig
 	// Radius is the radius of the circle in pixels.
 	Radius uint16 `json:"radius" msgpack:"radius"`
-	// StrokeColor is the border color of the circle, a named color or a fixed color.
-	StrokeColor *servicecolor.Ref `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
-	// FillColor is the fill color of the circle, a named color or a fixed color.
-	FillColor *servicecolor.Ref `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	// StrokeColor is the border color of the circle.
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// FillColor is the fill color of the circle.
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// StrokeWidth is the border stroke width in pixels. Absent draws 2.
 	StrokeWidth *uint8 `json:"stroke_width,omitzero" msgpack:"stroke_width,omitempty"`
 }
@@ -1671,12 +1646,6 @@ func (c CircleNodeConfig) Validate() error {
 		v.LessThanEq("stroke_width", *c.StrokeWidth, 20)
 	}
 	v.Exec(c.LabeledConfig.Validate)
-	if c.StrokeColor != nil {
-		v.Exec(func() error { return validate.PathedError(c.StrokeColor.Validate(), "stroke_color") })
-	}
-	if c.FillColor != nil {
-		v.Exec(func() error { return validate.PathedError(c.FillColor.Validate(), "fill_color") })
-	}
 	return v.Error()
 }
 
@@ -1687,8 +1656,8 @@ type GaugeNodeConfig struct {
 	StalenessConfig
 	// Position is the offset of the gauge contents within the symbol.
 	Position spatial.XY `json:"position" msgpack:"position"`
-	// StrokeColor is the color of the gauge arc, a named color or a fixed color.
-	StrokeColor *servicecolor.Ref `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// StrokeColor is the color of the gauge arc.
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// Bounds is the numeric range displayed by the gauge.
 	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
 	// BarWidth is the thickness of the gauge arc in pixels.
@@ -1724,9 +1693,6 @@ func (g GaugeNodeConfig) Validate() error {
 	v.Exec(g.LabeledConfig.Validate)
 	v.Exec(g.NumericTelemConfig.Validate)
 	v.Exec(g.StalenessConfig.Validate)
-	if g.StrokeColor != nil {
-		v.Exec(func() error { return validate.PathedError(g.StrokeColor.Validate(), "stroke_color") })
-	}
 	v.Exec(func() error { return validate.PathedError(g.Location.Validate(), "location") })
 	return v.Error()
 }
@@ -1746,9 +1712,8 @@ type InputNodeConfig struct {
 	// Dimensions is the rendered size of the input in pixels. Zero sizes it to its
 	// content.
 	Dimensions spatial.Dimensions `json:"dimensions" msgpack:"dimensions"`
-	// FillColor is the fill color of the Set button, which the input border follows, a
-	// named color or a fixed color.
-	FillColor *servicecolor.Ref `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	// FillColor is the fill color of the Set button, which the input border follows.
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Disabled indicates whether the input rejects interaction.
 	Disabled bool `json:"disabled" msgpack:"disabled"`
 	// InlineSize is the width of the field in pixels, not counting the Set button.
@@ -1780,9 +1745,6 @@ func (i InputNodeConfig) Validate() error {
 	v.LessThanEq("on_click_delay", i.OnClickDelay, 2147483647000000)
 	v.Exec(i.LabeledConfig.Validate)
 	v.Exec(i.StalenessConfig.Validate)
-	if i.FillColor != nil {
-		v.Exec(func() error { return validate.PathedError(i.FillColor.Validate(), "fill_color") })
-	}
 	v.Exec(func() error { return validate.PathedError(i.Control.Validate(), "control") })
 	return v.Error()
 }
@@ -1798,9 +1760,9 @@ type LightNodeConfig struct {
 	// Threshold is the value range within which the light is considered on.
 	Threshold *spatial.Bounds `json:"threshold,omitzero" msgpack:"threshold,omitempty"`
 	// StrokeColor is the outline color of the light.
-	StrokeColor *xcolor.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// OnColor is the fill color of the light while it is on.
-	OnColor *xcolor.Color `json:"on_color,omitzero" msgpack:"on_color,omitempty"`
+	OnColor *color.Color `json:"on_color,omitzero" msgpack:"on_color,omitempty"`
 }
 
 func (LightNodeConfig) isNodeConfigVariant() {}
@@ -1824,8 +1786,8 @@ func (l LightNodeConfig) Validate() error {
 
 // LineNodeConfig is the configuration for straight line symbols.
 type LineNodeConfig struct {
-	// StrokeColor is the stroke color of the line, a named color or a fixed color.
-	StrokeColor *servicecolor.Ref `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// StrokeColor is the stroke color of the line.
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// Start is the first endpoint, offset from the node position.
 	Start spatial.XY `json:"start" msgpack:"start"`
 	// End is the second endpoint, offset from the node position.
@@ -1848,18 +1810,15 @@ func (l LineNodeConfig) Validate() error {
 	v := validate.New("LineNodeConfig")
 	v.GreaterThanEq("stroke_width", l.StrokeWidth, 1)
 	v.LessThanEq("stroke_width", l.StrokeWidth, 20)
-	if l.StrokeColor != nil {
-		v.Exec(func() error { return validate.PathedError(l.StrokeColor.Validate(), "stroke_color") })
-	}
 	return v.Error()
 }
 
 // OffPageReferenceNodeConfig is the configuration for off-page reference symbols.
 type OffPageReferenceNodeConfig struct {
 	LabeledConfig
-	// FillColor is the fill color of a linked reference, a named color or a fixed
-	// color. An unlinked reference draws its outline in this color.
-	FillColor *servicecolor.Ref `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	// FillColor is the fill color of a linked reference. An unlinked reference draws
+	// its outline in this color.
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Page is the page this reference links to. An empty key links to no page.
 	Page Page `json:"page" msgpack:"page"`
 	// DoubleClickNavigationDisabled stops double-clicking from navigating to the linked
@@ -1882,9 +1841,6 @@ func (o OffPageReferenceNodeConfig) Validate() error {
 	v := validate.New("OffPageReferenceNodeConfig")
 	v.Ternaryf("orientation", !o.Orientation.IsValid(), "invalid orientation: %v", o.Orientation)
 	v.Exec(o.LabeledConfig.Validate)
-	if o.FillColor != nil {
-		v.Exec(func() error { return validate.PathedError(o.FillColor.Validate(), "fill_color") })
-	}
 	v.Exec(func() error { return validate.PathedError(o.Page.Validate(), "page") })
 	return v.Error()
 }
@@ -1900,10 +1856,10 @@ type PolygonNodeConfig struct {
 	Rotation float64 `json:"rotation" msgpack:"rotation"`
 	// BorderRadius is the corner radius of the polygon in pixels.
 	BorderRadius uint16 `json:"border_radius" msgpack:"border_radius"`
-	// StrokeColor is the border color of the polygon, a named color or a fixed color.
-	StrokeColor *servicecolor.Ref `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
-	// FillColor is the fill color of the polygon, a named color or a fixed color.
-	FillColor *servicecolor.Ref `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	// StrokeColor is the border color of the polygon.
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// FillColor is the fill color of the polygon.
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// StrokeWidth is the border stroke width in pixels. Absent draws 2.
 	StrokeWidth *uint8 `json:"stroke_width,omitzero" msgpack:"stroke_width,omitempty"`
 }
@@ -1927,12 +1883,6 @@ func (p PolygonNodeConfig) Validate() error {
 		v.LessThanEq("stroke_width", *p.StrokeWidth, 20)
 	}
 	v.Exec(p.LabeledConfig.Validate)
-	if p.StrokeColor != nil {
-		v.Exec(func() error { return validate.PathedError(p.StrokeColor.Validate(), "stroke_color") })
-	}
-	if p.FillColor != nil {
-		v.Exec(func() error { return validate.PathedError(p.FillColor.Validate(), "fill_color") })
-	}
 	return v.Error()
 }
 
@@ -1948,9 +1898,8 @@ type SelectNodeConfig struct {
 	// StateChannel is the channel that reports the state the device holds, or 0 when
 	// none does.
 	StateChannel channel.Key `json:"state_channel" msgpack:"state_channel"`
-	// FillColor is the fill color of the Set button, which the select border follows, a
-	// named color or a fixed color.
-	FillColor *servicecolor.Ref `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	// FillColor is the fill color of the Set button, which the select border follows.
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// InlineSize is the width of the field in pixels, not counting the Set button.
 	InlineSize uint16 `json:"inline_size" msgpack:"inline_size"`
 	// Options is the set of selectable states.
@@ -1984,9 +1933,6 @@ func (s SelectNodeConfig) Validate() error {
 	v.LessThanEq("on_click_delay", s.OnClickDelay, 2147483647000000)
 	v.Exec(s.LabeledConfig.Validate)
 	v.Exec(s.StalenessConfig.Validate)
-	if s.FillColor != nil {
-		v.Exec(func() error { return validate.PathedError(s.FillColor.Validate(), "fill_color") })
-	}
 	v.Exec(func() error { return validate.PathedError(s.Control.Validate(), "control") })
 	return v.Error()
 }
@@ -2038,9 +1984,8 @@ type SetpointNodeConfig struct {
 	// Dimensions is the rendered size of the setpoint in pixels. Zero sizes it to its
 	// content.
 	Dimensions spatial.Dimensions `json:"dimensions" msgpack:"dimensions"`
-	// FillColor is the fill color of the Set button, which the setpoint border follows,
-	// a named color or a fixed color.
-	FillColor *servicecolor.Ref `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	// FillColor is the fill color of the Set button, which the setpoint border follows.
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Units is the unit suffix displayed after the value.
 	Units string `json:"units" msgpack:"units"`
 	// Disabled indicates whether the setpoint rejects interaction.
@@ -2074,9 +2019,6 @@ func (s SetpointNodeConfig) Validate() error {
 	v.LessThanEq("on_click_delay", s.OnClickDelay, 2147483647000000)
 	v.Exec(s.LabeledConfig.Validate)
 	v.Exec(s.StalenessConfig.Validate)
-	if s.FillColor != nil {
-		v.Exec(func() error { return validate.PathedError(s.FillColor.Validate(), "fill_color") })
-	}
 	v.Exec(func() error { return validate.PathedError(s.Control.Validate(), "control") })
 	return v.Error()
 }
@@ -2088,8 +2030,8 @@ type StateIndicatorNodeConfig struct {
 	// Channel is the channel whose value selects the displayed state, or 0 when none
 	// does.
 	Channel channel.Key `json:"channel" msgpack:"channel"`
-	// StrokeColor is the border color of the indicator, a named color or a fixed color.
-	StrokeColor *servicecolor.Ref `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// StrokeColor is the border color of the indicator.
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// InlineSize is the inline size of the indicator in pixels.
 	InlineSize uint16 `json:"inline_size" msgpack:"inline_size"`
 	// Options is the set of displayable states.
@@ -2116,9 +2058,6 @@ func (s StateIndicatorNodeConfig) Validate() error {
 	v.GreaterThanEq("inline_size", s.InlineSize, 1)
 	v.Exec(s.LabeledConfig.Validate)
 	v.Exec(s.StalenessConfig.Validate)
-	if s.StrokeColor != nil {
-		v.Exec(func() error { return validate.PathedError(s.StrokeColor.Validate(), "stroke_color") })
-	}
 	return v.Error()
 }
 
@@ -2126,10 +2065,10 @@ func (s StateIndicatorNodeConfig) Validate() error {
 type StringDisplayNodeConfig struct {
 	LabeledConfig
 	StalenessConfig
-	// StrokeColor is the border color of the display, a named color or a fixed color.
-	StrokeColor *servicecolor.Ref `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
-	// TextColor is the color of the displayed text, a named color or a fixed color.
-	TextColor *servicecolor.Ref `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
+	// StrokeColor is the border color of the display.
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// TextColor is the color of the displayed text.
+	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
 	// Tooltip is the list of tooltip lines shown on hover.
 	Tooltip []string `json:"tooltip" msgpack:"tooltip"`
 	// InlineSize is the inline size of the display in pixels.
@@ -2159,12 +2098,6 @@ func (s StringDisplayNodeConfig) Validate() error {
 	v.GreaterThanEq("inline_size", s.InlineSize, 1)
 	v.Exec(s.LabeledConfig.Validate)
 	v.Exec(s.StalenessConfig.Validate)
-	if s.StrokeColor != nil {
-		v.Exec(func() error { return validate.PathedError(s.StrokeColor.Validate(), "stroke_color") })
-	}
-	if s.TextColor != nil {
-		v.Exec(func() error { return validate.PathedError(s.TextColor.Validate(), "text_color") })
-	}
 	return v.Error()
 }
 
@@ -2190,8 +2123,8 @@ func (s SwitchNodeConfig) Validate() error {
 // TextBoxNodeConfig is the configuration for text box annotation symbols.
 type TextBoxNodeConfig struct {
 	LabeledConfig
-	// TextColor is the text color, a named color or a fixed color.
-	TextColor *servicecolor.Ref `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
+	// TextColor is the text color.
+	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
 	// InlineSize is the rendered inline size of the text box in pixels.
 	InlineSize uint16 `json:"inline_size" msgpack:"inline_size"`
 	// Align is the alignment of the text within the box.
@@ -2222,9 +2155,6 @@ func (t TextBoxNodeConfig) Validate() error {
 	v.Ternaryf("level", !t.Level.IsValid(), "invalid level: %v", t.Level)
 	v.GreaterThanEq("inline_size", t.InlineSize, 1)
 	v.Exec(t.LabeledConfig.Validate)
-	if t.TextColor != nil {
-		v.Exec(func() error { return validate.PathedError(t.TextColor.Validate(), "text_color") })
-	}
 	return v.Error()
 }
 
@@ -2235,18 +2165,17 @@ type ValueNodeConfig struct {
 	StalenessConfig
 	// Position is the offset of the value contents within the symbol.
 	Position spatial.XY `json:"position" msgpack:"position"`
-	// StrokeColor is the color of the value's border and units divider, a named color
-	// or a fixed color.
-	StrokeColor *servicecolor.Ref `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
-	// TextColor is the color of the displayed value, a named color or a fixed color.
-	TextColor *servicecolor.Ref `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
-	// FillColor is the fill behind the value where no redline band paints, a named
-	// color or a fixed color. When absent the value paints no fill.
-	FillColor *servicecolor.Ref `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	// StrokeColor is the color of the value's border and units divider.
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// TextColor is the color of the displayed value.
+	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
+	// FillColor is the fill behind the value where no redline band paints. When absent
+	// the value paints no fill.
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Tooltip is the list of tooltip lines shown on hover.
 	Tooltip []string `json:"tooltip" msgpack:"tooltip"`
 	// Redline is the threshold band mapping applied to the background.
-	Redline xcolor.Scale `json:"redline" msgpack:"redline"`
+	Redline color.Scale `json:"redline" msgpack:"redline"`
 	// Units is the unit suffix displayed after the value.
 	Units string `json:"units" msgpack:"units"`
 	// InlineSize is the inline size of the value in pixels.
@@ -2279,15 +2208,6 @@ func (va ValueNodeConfig) Validate() error {
 	v.Exec(va.LabeledConfig.Validate)
 	v.Exec(va.NumericTelemConfig.Validate)
 	v.Exec(va.StalenessConfig.Validate)
-	if va.StrokeColor != nil {
-		v.Exec(func() error { return validate.PathedError(va.StrokeColor.Validate(), "stroke_color") })
-	}
-	if va.TextColor != nil {
-		v.Exec(func() error { return validate.PathedError(va.TextColor.Validate(), "text_color") })
-	}
-	if va.FillColor != nil {
-		v.Exec(func() error { return validate.PathedError(va.FillColor.Validate(), "fill_color") })
-	}
 	v.Exec(func() error { return validate.PathedError(va.Location.Validate(), "location") })
 	return v.Error()
 }
@@ -3367,10 +3287,10 @@ type CylinderNodeConfig struct {
 	Dimensions spatial.Dimensions `json:"dimensions" msgpack:"dimensions"`
 	// BorderRadius is the corner radius of the cylinder.
 	BorderRadius *border.Radius `json:"border_radius,omitzero" msgpack:"border_radius,omitempty"`
-	// StrokeColor is the border color of the cylinder, a named color or a fixed color.
-	StrokeColor *servicecolor.Ref `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
-	// FillColor is the fill color of the cylinder, a named color or a fixed color.
-	FillColor *servicecolor.Ref `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	// StrokeColor is the border color of the cylinder.
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// FillColor is the fill color of the cylinder.
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 }
 
 func (CylinderNodeConfig) isNodeConfigVariant() {}
@@ -3389,12 +3309,6 @@ func (c CylinderNodeConfig) Validate() error {
 	v := validate.New("CylinderNodeConfig")
 	v.Exec(c.LabeledConfig.Validate)
 	v.Exec(c.ScaledConfig.Validate)
-	if c.StrokeColor != nil {
-		v.Exec(func() error { return validate.PathedError(c.StrokeColor.Validate(), "stroke_color") })
-	}
-	if c.FillColor != nil {
-		v.Exec(func() error { return validate.PathedError(c.FillColor.Validate(), "fill_color") })
-	}
 	return v.Error()
 }
 
@@ -3413,16 +3327,16 @@ type TankNodeConfig struct {
 	// StalenessTimeout is the span after which the value is considered stale.
 	StalenessTimeout telem.TimeSpan `json:"staleness_timeout" msgpack:"staleness_timeout"`
 	// StalenessColor is the color applied when the value is stale.
-	StalenessColor *xcolor.Color `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	StalenessColor *color.Color `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
 	// Bounds is the numeric range the indicator maps onto its extent.
 	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
 	// LevelColor is the color of the filled portion, the caret, and the value readout
-	// border, a named color or a fixed color.
-	LevelColor *servicecolor.Ref `json:"level_color,omitzero" msgpack:"level_color,omitempty"`
-	// AxisColor is the color of the axis and its ticks, a named color or a fixed color.
-	AxisColor *servicecolor.Ref `json:"axis_color,omitzero" msgpack:"axis_color,omitempty"`
-	// TextColor is the color of the tick labels, a named color or a fixed color.
-	TextColor *servicecolor.Ref `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
+	// border.
+	LevelColor *color.Color `json:"level_color,omitzero" msgpack:"level_color,omitempty"`
+	// AxisColor is the color of the axis and its ticks.
+	AxisColor *color.Color `json:"axis_color,omitzero" msgpack:"axis_color,omitempty"`
+	// TextColor is the color of the tick labels.
+	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
 	// Units is the unit suffix displayed after each tick label.
 	Units string `json:"units" msgpack:"units"`
 	// LevelHidden hides the filled portion.
@@ -3433,10 +3347,10 @@ type TankNodeConfig struct {
 	Level text.Level `json:"level" msgpack:"level"`
 	// Position is the offset of the tank contents within the symbol.
 	Position spatial.XY `json:"position" msgpack:"position"`
-	// StrokeColor is the color of the tank's wall, a named color or a fixed color.
-	StrokeColor *servicecolor.Ref `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
-	// FillColor is the fill color of the tank body, a named color or a fixed color.
-	FillColor *servicecolor.Ref `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	// StrokeColor is the color of the tank's wall.
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// FillColor is the fill color of the tank body.
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Dimensions is the rendered size of the tank in pixels.
 	Dimensions spatial.Dimensions `json:"dimensions" msgpack:"dimensions"`
 	// BorderRadius is the corner radius of the tank. Absent draws 50 by 10 percent.
@@ -3480,21 +3394,6 @@ func (t TankNodeConfig) Validate() error {
 	v.GreaterThanEq("staleness_timeout", t.StalenessTimeout, 1000000000)
 	v.LessThanEq("staleness_timeout", t.StalenessTimeout, 9007199254740991)
 	v.Exec(t.LabeledConfig.Validate)
-	if t.LevelColor != nil {
-		v.Exec(func() error { return validate.PathedError(t.LevelColor.Validate(), "level_color") })
-	}
-	if t.AxisColor != nil {
-		v.Exec(func() error { return validate.PathedError(t.AxisColor.Validate(), "axis_color") })
-	}
-	if t.TextColor != nil {
-		v.Exec(func() error { return validate.PathedError(t.TextColor.Validate(), "text_color") })
-	}
-	if t.StrokeColor != nil {
-		v.Exec(func() error { return validate.PathedError(t.StrokeColor.Validate(), "stroke_color") })
-	}
-	if t.FillColor != nil {
-		v.Exec(func() error { return validate.PathedError(t.FillColor.Validate(), "fill_color") })
-	}
 	return v.Error()
 }
 
@@ -5422,7 +5321,6 @@ type Schematic struct {
 // schema constraints.
 func (s Schematic) Validate() error {
 	v := validate.New("Schematic")
-	v.NotEmptyString("name", s.Name)
 	for i := range s.Nodes {
 		v.Exec(func() error { return validate.PathedError(s.Nodes[i].Validate(), "nodes", strconv.Itoa(i)) })
 	}

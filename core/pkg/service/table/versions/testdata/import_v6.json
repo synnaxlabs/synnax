@@ -1,0 +1,60 @@
+{
+  "version": 6,
+  "name": "Test Table V6",
+  "rows": [
+    {
+      "key": "r0",
+      "size": 32,
+      "cells": [
+        {
+          "key": "text",
+          "config": {
+            "variant": "text",
+            "value": "Pressure",
+            "level": "h5",
+            "weight": 400,
+            "align": "center",
+            "fill_color": "#011d1d"
+          }
+        },
+        {
+          "key": "value",
+          "config": {
+            "variant": "value",
+            "channel": 1,
+            "rolling_average": 1,
+            "notation": "standard",
+            "redline": {
+              "bands": [
+                {
+                  "key": "b",
+                  "threshold": 0,
+                  "color": "#061d1d",
+                  "flashing": false
+                }
+              ],
+              "smooth": false
+            },
+            "fill_color": "#031d1d",
+            "level": "h5",
+            "text_color": "#041d1d",
+            "units": "",
+            "staleness_timeout": 5,
+            "staleness_color": "#051d1d"
+          }
+        }
+      ]
+    }
+  ],
+  "columns": [
+    {
+      "key": "c0",
+      "size": 100
+    },
+    {
+      "key": "c1",
+      "size": 100
+    }
+  ],
+  "type": "table"
+}
