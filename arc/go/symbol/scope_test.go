@@ -663,8 +663,9 @@ var _ = Describe("Scope", func() {
 					symbol.Symbol{Name: "inner", Kind: symbol.KindBlock},
 				))
 				_, err := innerScope.Resolve(bCtx, "missing")
-				var undefinedErr *symbol.UndefinedSymbolError
-				Expect(errors.As(err, &undefinedErr)).To(BeTrue())
+				undefinedErr := MustBeOk(
+					errors.AsType[*symbol.UndefinedSymbolError](err),
+				)
 				Expect(undefinedErr.Name).To(Equal("missing"))
 			},
 		)

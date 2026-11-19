@@ -41,6 +41,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           sparse-checkout: .github/agents
+          persist-credentials: false
 
       - name: Write the prompt
         id: prompt
@@ -104,3 +105,13 @@ jobs:
           text="Console QA: ${issue:-the run filed no issue. <$RUN_URL|Run>}"
           jq -n --arg text "$text" '{text: $text}' | curl --fail --silent \
             --header "Content-Type: application/json" --data @- "$SLACK_WEBHOOK_URL"
+
+  relay-failure:
+    name: Relay the failure
+    needs: [prompt, agent, slack]
+    if: always() && contains(needs.*.result, 'failure')
+    permissions:
+      actions: write
+    uses: ./.github/workflows/relay.failure.yaml
+    with:
+      requeue: true

@@ -28,9 +28,12 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Buf CI
         uses: bufbuild/buf-action@37ac33d8960807670a6e9719080e885197b09cc6 # v1
         with:
+          version: 1.75.0
           breaking: false
           pr_comment: false
