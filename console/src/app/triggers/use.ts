@@ -10,7 +10,8 @@
 import { panel } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { Panel as PPanel, TimeSpan } from "@synnaxlabs/pluto";
+import { Panel as PPanel } from "@synnaxlabs/pluto";
+import { TimeSpan } from "@synnaxlabs/x";
 import { useRef } from "react";
 
 import { Palette } from "@/app/palette";

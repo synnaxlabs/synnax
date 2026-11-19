@@ -23,6 +23,8 @@ import {
 import {
   type ICD,
   icdZ,
+  type ImportFormat,
+  importFormatZ,
   type Key,
   keyZ,
   type New,
@@ -83,11 +85,6 @@ const issueMessage = (issue: z.core.$ZodIssue): string => {
 };
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const emptyResZ = z.object({});
-
-/** The file formats an interface control document is imported from. */
-export const IMPORT_FORMATS = ["dbc", "csv", "xlsx"] as const;
-export const importFormatZ = z.enum(IMPORT_FORMATS);
-export type ImportFormat = z.infer<typeof importFormatZ>;
 
 const importReqZ = z.object({
   key: keyZ,

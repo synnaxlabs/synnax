@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type ReactElement } from "react";
-import { assert, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { Dialog } from "@/dialog";
@@ -217,6 +217,10 @@ describe("Menu.Sub", () => {
   });
 
   describe("light", () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
     it("should keep its item lit while the pointer is in the submenu", async () => {
       await open("Move");
       await userEvent.hover(item("Up"));
@@ -227,6 +231,8 @@ describe("Menu.Sub", () => {
       await open("Labels");
       const labels = item("Labels");
       const stage = item("Stage");
+      // The aim lasts 300 ms, and a slow runner can take longer to move the pointer.
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "performance"] });
       await userEvent.hover(labels, { position: { x: 10, y: 14 } });
       await userEvent.hover(stage, {
         position: { x: stage.getBoundingClientRect().width - 4, y: 4 },

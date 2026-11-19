@@ -43,6 +43,15 @@ var _ = Describe("WASM Writer", func() {
 			encoder = wasm.NewWriter()
 		})
 
+		DescribeTable("WriteTruncSat should encode the 0xfc prefix and the opcode",
+			func(op wasm.TruncSatOpcode, expected []byte) {
+				encoder.WriteTruncSat(op)
+				Expect(encoder.Bytes()).To(Equal(expected))
+			},
+			Entry("i32.trunc_sat_f32_s", wasm.OpI32TruncSatF32S, []byte{0xfc, 0x00}),
+			Entry("i64.trunc_sat_f64_u", wasm.OpI64TruncSatF64U, []byte{0xfc, 0x07}),
+		)
+
 		Context("Constant Instructions", func() {
 			It("Should encode i32.const", func() {
 				encoder.WriteI32Const(42)
