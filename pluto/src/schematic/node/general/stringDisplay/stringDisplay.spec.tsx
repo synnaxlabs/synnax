@@ -10,15 +10,19 @@
 import { schematic } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { fireEvent, render } from "@testing-library/react";
+import { ReactFlowProvider } from "@xyflow/react";
 import { createRef, type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
+import { aether } from "@/aether/aether";
 import { CSS } from "@/css";
 import { Node } from "@/schematic/node";
 import { GROUP } from "@/schematic/node/general/group";
 import { StringDisplayForm } from "@/schematic/node/general/stringDisplay/Form";
 import { StringDisplay as Primitive } from "@/schematic/node/general/stringDisplay/Primitive";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
+import { stringValue } from "@/vis/stringValue/aether";
 
 const SynnaxWrapper = createSynnaxWrapper({ client: null });
 
@@ -98,5 +102,42 @@ describe("StringDisplay", () => {
   // GROUP.symbols is reachable only through search.
   it("should be listed in the general group", () => {
     expect(GROUP.symbols).toContain("string_display");
+  });
+});
+
+const deletedState = z.object({ deleted: z.boolean().default(false) }).loose();
+
+// Stands in for the string value worker component, reporting its channel as deleted.
+class DeletedStringValue extends aether.Leaf<typeof deletedState> {
+  static readonly TYPE = stringValue.StringValue.TYPE;
+  schema = deletedState;
+
+  afterUpdate(): void {
+    if (!this.state.deleted) this.setState((s) => ({ ...s, deleted: true }));
+  }
+}
+
+describe("StringDisplay.Symbol deleted channel", () => {
+  it("should say Deleted channel inside its box, with no badge below", async () => {
+    const Wrapper = createSynnaxWrapper({
+      client: null,
+      additionalRegistry: { [DeletedStringValue.TYPE]: DeletedStringValue },
+    });
+    const Display = Node.resolveSpec("string_display").Node;
+    const { findByText, container } = render(
+      <Wrapper>
+        <ReactFlowProvider>
+          <Display
+            nodeKey="s1"
+            selected={false}
+            onConfigChange={() => {}}
+            config={Node.createConfig({ variant: "string_display", channel: 7 })}
+          />
+        </ReactFlowProvider>
+      </Wrapper>,
+    );
+    const text = await findByText("Deleted channel");
+    expect(text.closest(`.${CSS.BE("string-display", "content")}`)).not.toBeNull();
+    expect(container.querySelector(".lyra-badge")).toBeNull();
   });
 });

@@ -52,14 +52,15 @@ export const Symbol = ({
   return (
     <Grid.Grid editable={selected} nodeKey={nodeKey} allowRotate={false} {...resize}>
       <Label.Label config={label} onChange={onConfigChange} />
-      {deleted && <Deleted.Item />}
       <StringDisplay
         strokeColor={strokeColor}
         level={level}
         inlineSize={inlineSize}
         orientation={orientation}
         contentRef={content.ref}
-      />
+      >
+        {deleted && <Deleted.Text />}
+      </StringDisplay>
     </Grid.Grid>
   );
 };

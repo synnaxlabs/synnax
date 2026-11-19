@@ -75,7 +75,6 @@ export const Symbol = ({
   return (
     <Grid.Grid editable={selected} nodeKey={nodeKey} allowRotate={false} {...resize}>
       <Label.Label config={label} onChange={onConfigChange} />
-      {deleted && <Deleted.Item />}
       <Value
         strokeColor={strokeColor}
         orientation={orientation}
@@ -83,7 +82,9 @@ export const Symbol = ({
         inlineSize={inlineSize}
         units={units}
         unitsLevel={text.downLevel(level)}
-      />
+      >
+        {deleted && <Deleted.Text />}
+      </Value>
     </Grid.Grid>
   );
 };

@@ -9,6 +9,7 @@
 
 import { type channel } from "@synnaxlabs/client";
 import { Badge as Base } from "@synnaxlabs/lyra/badge";
+import { Text as BaseText } from "@synnaxlabs/lyra/text";
 import { primitive } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
@@ -30,6 +31,13 @@ export const use = (keys: channel.Key[]): boolean => {
   );
   return data != null && configured.some((k) => !data.some((ch) => ch.key === k));
 };
+
+/** Says that the Core deleted the channel, inside a readout that shows its value. */
+export const Text = (): ReactElement => (
+  <BaseText.Text level="small" color={9} overflow="fade">
+    {TEXT}
+  </BaseText.Text>
+);
 
 /** Marks a symbol whose channel the Core deleted, below the symbol. */
 export const Item = Grid.createItem((): ReactElement => (
