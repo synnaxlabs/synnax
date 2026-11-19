@@ -200,7 +200,7 @@ def load_env_options(env: Mapping[str, str]) -> PartialOptions:
             )
         opts["secure"] = raw_secure.lower() in _TRUE
     if ca_cert := _env(env, "SYNNAX_CA_CERT"):
-        opts["ca_cert"] = str(Path(ca_cert).expanduser())
+        opts["ca_cert"] = os.path.expanduser(ca_cert)
     return opts
 
 
