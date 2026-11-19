@@ -150,8 +150,10 @@ public:
     /// "Ethernet 2" for a Windows adapter.
     [[nodiscard]] virtual std::string name() const = 0;
 
-    /// @brief opens the master and discovers the slaves on the bus. Returns the slaves
-    /// it found without a new discovery until deactivate().
+    /// @brief opens the master and discovers the slaves on the bus. Until deactivate(),
+    /// a later call finds no new slaves, but reads again each slave that has left INIT
+    /// since a read found it starting. Safe to call from one thread while another runs
+    /// receive() and send().
     [[nodiscard]]
     virtual std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> scan() = 0;
 

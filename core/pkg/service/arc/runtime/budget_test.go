@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/compiler/wasm"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
+	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
@@ -60,6 +61,10 @@ func instantiate(ctx context.Context, source string) (api.Module, func()) {
 	}
 }
 
+// overBudget is the message of the error of a Budget of 1000 that ran out.
+const overBudget = "The program ran more than 1000 loop iterations and function calls " +
+	"in one cycle."
+
 var _ = Describe("Budget", func() {
 	var guest api.Module
 	BeforeEach(func(ctx SpecContext) {
@@ -73,7 +78,9 @@ var _ = Describe("Budget", func() {
 		budget.Reset()
 		Expect(guest.ExportedFunction("spin").Call(ctx)).Error().
 			To(MatchError(ContainSubstring("unreachable")))
-		Expect(budget.Err()).To(MatchError(runtime.ErrLoopBudget))
+		err := budget.Err()
+		Expect(err).To(MatchError(overBudget))
+		Expect(errors.Is(err, runtime.ErrLoopBudget)).To(BeTrue())
 	})
 
 	It("Should trap every later call once the budget is used up", func(
@@ -87,7 +94,7 @@ var _ = Describe("Budget", func() {
 		}
 		Expect(guest.ExportedFunction("count").Call(ctx)).Error().
 			To(MatchError(ContainSubstring("unreachable")))
-		Expect(budget.Err()).To(MatchError(runtime.ErrLoopBudget))
+		Expect(budget.Err()).To(MatchError(overBudget))
 	})
 
 	It("Should trap a recursive function with no loop", func(ctx SpecContext) {
@@ -95,7 +102,7 @@ var _ = Describe("Budget", func() {
 		budget.Reset()
 		Expect(guest.ExportedFunction("recurse").Call(ctx)).Error().
 			To(MatchError(ContainSubstring("unreachable")))
-		Expect(budget.Err()).To(MatchError(runtime.ErrLoopBudget))
+		Expect(budget.Err()).To(MatchError(overBudget))
 	})
 
 	It("Should run a loop that stays under the budget", func(ctx SpecContext) {

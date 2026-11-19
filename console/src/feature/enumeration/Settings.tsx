@@ -46,10 +46,10 @@ import { Modals } from "@/platform/modals";
 import { Settings as PlatformSettings } from "@/platform/settings";
 
 const COLUMNS: List.Column[] = [
-  { name: "Value", width: "1fr" },
-  { name: "Name", width: "2fr" },
-  { name: "Color", width: "1fr" },
-  { name: "Abnormal", width: "1fr" },
+  { name: "Value", width: "minmax(12rem, 1fr)" },
+  { name: "Name", width: "minmax(24rem, 2fr)" },
+  { name: "Color", width: "minmax(12rem, 1fr)" },
+  { name: "Abnormal", width: "minmax(12rem, 1fr)" },
 ];
 
 const HEADING_PREFIX = "enumeration:";

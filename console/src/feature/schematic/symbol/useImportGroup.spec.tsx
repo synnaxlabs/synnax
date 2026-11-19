@@ -10,6 +10,7 @@
 import { type group } from "@synnaxlabs/client";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { Status } from "@synnaxlabs/lyra/status";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import {
   act,
   fireEvent,
@@ -38,12 +39,7 @@ import {
   startFileDrag,
 } from "@/platform/fs/testutil";
 import { Modals } from "@/platform/modals";
-import {
-  createConsoleWrapper,
-  fakePickedFile,
-  interceptFilePicker,
-  uniqueName,
-} from "@/testutil";
+import { createConsoleWrapper, fakePickedFile, interceptFilePicker } from "@/testutil";
 
 afterEach(() => {
   vi.restoreAllMocks();

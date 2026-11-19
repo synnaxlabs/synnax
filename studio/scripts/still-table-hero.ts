@@ -202,6 +202,8 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       await session.settle(300);
     }
 
+    // On the empty part of the main nav, so nothing on screen shows its hover state.
+    await session.moveTo({ x: 26, y: 600 });
     // Starts the Ox Coldflow sequence, as the schematic's Start Sequence button does.
     const writer = await client.openWriter({
       start: TimeStamp.now(),
@@ -211,13 +213,13 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await writer.close();
     await session.waitFor(() => world.logged.includes("OX MPV open"), 3600);
     // Partway through the coldflow, the OX side is chilled and the pressurant draining.
-    await session.settle(3000);
-    // On the empty part of the main nav, so nothing on screen shows its hover state.
-    await session.moveTo({ x: 26, y: 600 });
-    // Live values draw on wall time, which virtual ticks outrun.
-    await session.settleWall(1500);
-    await session.settle(1200);
+    // The stand runs on wall time once the capture falls behind it, and it safes about
+    // 12 seconds after the OX main valve opens. Live values draw on wall time too.
+    await session.settleWall(3000);
+    await session.settle(600);
     await session.still("window");
+    if (world.logged.includes("OX MPV closed"))
+      throw new Error("the coldflow ended before the still");
   } finally {
     await client.close();
     await world.stop();
