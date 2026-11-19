@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { TimeStamp } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -36,5 +37,18 @@ describe("useChannelPlan", () => {
     expect(result.current).toBeUndefined();
     act(() => resolve("plan b"));
     await waitFor(() => expect(result.current).toBe("plan b"));
+  });
+
+  it("should plan again when a timestamp in the inputs changes", async () => {
+    const store = await createTestStore();
+    const { wrapper } = await createConsoleWrapper({ client, store });
+    const { result, rerender } = renderHook(
+      ({ at }: { at: TimeStamp }) =>
+        Task.useChannelPlan({ default: at }, async () => at.toString()),
+      { wrapper, initialProps: { at: TimeStamp.seconds(1) } },
+    );
+    await waitFor(() => expect(result.current).toBe(TimeStamp.seconds(1).toString()));
+    rerender({ at: TimeStamp.seconds(2) });
+    await waitFor(() => expect(result.current).toBe(TimeStamp.seconds(2).toString()));
   });
 });
