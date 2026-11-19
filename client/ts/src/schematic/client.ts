@@ -160,16 +160,10 @@ export class Client extends query.Retriever<
     this.symbols = new symbol.Client(cfg);
     this.store = store;
     this.changes = changes;
-    this.setGroupRequest = project.createGroupMoveRequest(
-      "/schematic/dispatch",
-      store,
-      dispatchResZ,
-      reduceAll,
-    );
-    this.setProjectRequest = project.createMoveRequest(
-      "/schematic/dispatch",
-      (keys, to) => project.moveCached(store, keys, to),
-    );
+    const build: group.EntryBuilder<Key> = (key, acts) =>
+      dispatcher.request("/schematic/dispatch", key, acts, dispatchResZ);
+    this.setGroupRequest = group.createMoveRequest(build);
+    this.setProjectRequest = project.createMoveRequest(build);
     this.dispatcher = dispatcher;
   }
 

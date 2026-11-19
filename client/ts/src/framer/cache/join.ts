@@ -235,14 +235,17 @@ export class Joins {
    * @returns the streamed series that the channel's join holds for it while it waits
    * for a catch-up read, in alignments where x and y pair. Once the index joins, they
    * take the block offsets of their index samples.
+   * @param end - The series hold only the samples whose index samples are stamped
+   * before end.
    */
-  held(ch: channel.Key): Series[] {
+  held(ch: channel.Key, end: TimeStamp = TimeStamp.MAX): Series[] {
     const m = this.members.get(ch);
     if (m == null) return [];
     const j = m.join;
-    if (!j.indexMember.joined) return m.held.map((s) => this.copy(s));
+    const before = (s: Series): Series[] => this.before(j, s, end.valueOf());
+    if (!j.indexMember.joined) return m.held.flatMap(before).map((s) => this.copy(s));
     if (m.joined) return [];
-    return m.held.flatMap((s) => this.cut(j, s));
+    return m.held.flatMap(before).flatMap((s) => this.cut(j, s));
   }
 
   /** @returns true when the channel's join has caught up with its stream. */
@@ -436,6 +439,47 @@ export class Joins {
     return copy;
   }
 
+  // Returns the samples of the held series whose index samples at the same Core
+  // alignment are stamped before end. Samples with no index sample yet stay out.
+  private before(j: Join, s: Series, end: bigint): Series[] {
+    if (end === TimeStamp.MAX.valueOf()) return [s];
+    let count = 0;
+    while (count < s.length) {
+      const at = this.timesAt(j, s.alignment + BigInt(count));
+      if (at == null) break;
+      const left = at.times.length - at.pos;
+      const kept = search(at.times, end, at.pos) - at.pos;
+      count += Math.min(kept, s.length - count);
+      if (kept < left) break;
+    }
+    if (count === s.length) return [s];
+    if (count === 0) return [];
+    const { start } = s.timeRange;
+    const sub = s.sub(0, count);
+    return [
+      new Series({
+        data: sub.data,
+        dataType: sub.dataType,
+        sampleOffset: sub.sampleOffset,
+        timeRange: s.timeRange.isZero ? s.timeRange : new TimeRange(start, end),
+        alignment: s.alignment,
+      }),
+    ];
+  }
+
+  // Returns the streamed index series that holds the Core alignment, and the
+  // alignment's position in it: a held one while the index waits.
+  private timesAt(j: Join, alignment: bigint): { times: Series; pos: number } | null {
+    if (j.indexMember.joined) {
+      const at = j.locate(alignment);
+      return at == null ? null : { times: at.mapped.series, pos: at.pos };
+    }
+    const times = j.indexMember.held.findLast(
+      (t) => t.alignment <= alignment && alignment < t.alignment + BigInt(t.length),
+    );
+    return times == null ? null : { times, pos: Number(alignment - times.alignment) };
+  }
+
   // Cuts a held data series into pieces at the block offsets of the index samples that
   // share their Core alignment, or none before the join takes those samples.
   private cut(j: Join, s: Series): Series[] {
@@ -505,9 +549,7 @@ export class Joins {
         block: b,
         // A run the block holds in full can sit before the block's newest samples.
         offset:
-          fresh === hi
-            ? offsetAt(block, BigInt(s.data[lo]))
-            : newest.count - fresh + lo,
+          fresh === hi ? block.offsetAt(BigInt(s.data[lo])) : newest.count - fresh + lo,
         fresh,
       });
       lo = hi;
@@ -585,19 +627,6 @@ const newestOf = (block: RawBlock): { end: bigint; count: number } => {
     end: BigInt(newest.data[newest.length - 1]) + 1n,
     count: offsetOf(newest.alignment) + newest.length,
   };
-};
-
-// Returns the block offset of the index sample stamped t.
-const offsetAt = (block: RawBlock, t: bigint): number => {
-  const live = block.buffer?.leadingBuffer;
-  const series = live == null ? block.fetched : [...block.fetched, live];
-  return series.reduce(
-    (offset, s) =>
-      s.length > 0 && BigInt(s.data[0]) <= t
-        ? Math.max(offset, offsetOf(s.alignment) + search(s, t))
-        : offset,
-    0,
-  );
 };
 
 // Returns the samples [from, to) of the series with block alignment and the time range
