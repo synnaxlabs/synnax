@@ -46,7 +46,7 @@ const mount = async (
     }),
   );
   await waitFor(() => expect(onOpenURL).toHaveBeenCalled());
-  await act(async () => await scheduler.flushTaskQueue());
+  await act(async () => await scheduler.nextTask());
   return (urls) => openURL(urls);
 };
 
@@ -116,7 +116,7 @@ describe("Link.useReceive", () => {
     renderHook(() =>
       Link.useReceive(handle, { engine: "web", getCurrentURLs, onOpenURL }),
     );
-    await act(async () => await scheduler.flushTaskQueue());
+    await act(async () => await scheduler.nextTask());
     expect(getCurrentURLs).not.toHaveBeenCalled();
     expect(onOpenURL).not.toHaveBeenCalled();
     expect(handle).not.toHaveBeenCalled();
