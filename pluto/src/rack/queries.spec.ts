@@ -338,5 +338,39 @@ describe("queries", () => {
       expect(keys).toHaveLength(1);
       expect(token?.startsWith("syk_")).toBe(true);
     });
+
+    it("should delete the rack when its key cannot be created", async () => {
+      const failing = createTestClient();
+      vi.spyOn(failing.auth, "createKey").mockRejectedValue(new Error("no key"));
+      const name = `rack-${id.create()}`;
+      const { result } = renderHook(() => Rack.useCreate(), {
+        wrapper: await createAsyncSynnaxWrapper({ client: failing }),
+      });
+      await act(async () => {
+        expect(await result.current.updateAsync({ name })).toBe(false);
+      });
+      expect(result.current.status.description).toContain("no key");
+      const left = await client.racks.retrieve({ where: { name: { eq: name } } });
+      expect(left).toHaveLength(0);
+    });
+
+    it("should keep the key error as the cause when the rack cannot be deleted", async () => {
+      const failing = createTestClient();
+      vi.spyOn(failing.auth, "createKey").mockRejectedValue(new Error("no key"));
+      vi.spyOn(failing.racks, "delete").mockRejectedValue(new Error("no delete"));
+      const name = `rack-${id.create()}`;
+      const { result } = renderHook(() => Rack.useCreate(), {
+        wrapper: await createAsyncSynnaxWrapper({ client: failing }),
+      });
+      await act(async () => {
+        expect(await result.current.updateAsync({ name })).toBe(false);
+      });
+      expect(result.current.status.description).toContain("no delete");
+      expect(result.current.status).toMatchObject({
+        details: { error: { cause: { message: "no key" } } },
+      });
+      const created = await client.racks.retrieve({ name });
+      await client.racks.delete(created.key);
+    });
   });
 });

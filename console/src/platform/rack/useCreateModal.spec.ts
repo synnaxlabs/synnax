@@ -59,4 +59,40 @@ describe("useCreateModal", () => {
     fireEvent.click(findDismissButton());
     await waitFor(() => expect(screen.queryByPlaceholderText("Rack name")).toBeNull());
   });
+
+  it("should delete the key when the modal unmounts before showing it", async () => {
+    const client = createTestClient();
+    const create = client.auth.createKey.bind(client.auth);
+    let release = (): void => {};
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const createKey = vi
+      .spyOn(client.auth, "createKey")
+      .mockImplementation(async (params) => {
+        await gate;
+        return await create(params);
+      });
+    const { unmount } = await openModal(Rack.useCreateModal, { client });
+    const name = uniqueName("rack");
+    fireEvent.change(screen.getByPlaceholderText("Rack name"), {
+      target: { value: name },
+    });
+    fireEvent.click(findButton("Create"));
+    await expect.poll(() => createKey.mock.calls.length).toBe(1);
+    unmount();
+    release();
+    await createKey.mock.results[0].value;
+    const created = await client.racks.retrieve({ name });
+    const subject = rack.resourceID(created.key);
+    await expect
+      .poll(async () => await client.auth.retrieveKeys([subject]))
+      .toHaveLength(0);
+  });
+
+  it("should not create a rack with a blank name", async () => {
+    await openModal(Rack.useCreateModal, { client: createTestClient() });
+    fireEvent.change(screen.getByPlaceholderText("Rack name"), {
+      target: { value: "   " },
+    });
+    expect(findButton("Create").getAttribute("aria-disabled")).toBe("true");
+  });
 });
