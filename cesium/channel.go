@@ -116,7 +116,8 @@ func (db *DB) validateNewChannel(ch Channel) error {
 	}
 	_, unaryExists := db.mu.dbs.unary[ch.Key]
 	_, virtualExists := db.mu.dbs.virtual[ch.Key]
-	if unaryExists || virtualExists {
+	_, hiddenExists := db.mu.dbs.hidden[ch.Key]
+	if unaryExists || virtualExists || hiddenExists {
 		return channel.Wrap(ch.Key, errors.Wrap(
 			validate.ErrValidation,
 			"cannot create the channel because it already exists",

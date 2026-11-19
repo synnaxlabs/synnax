@@ -53,6 +53,10 @@ func openIntents(fs xfs.FS) (*intents, error) {
 	if err != nil {
 		return nil, err
 	}
+	// A created file is durable only once its entry in the root is.
+	if err = fs.SyncDir(""); err != nil {
+		return nil, joinClose(err, file)
+	}
 	in := &intents{fs: fs, file: file, keys: set.New[ChannelKey]()}
 	data, err := io.ReadAll(io.NewSectionReader(file, 0, 1<<62))
 	if err != nil {

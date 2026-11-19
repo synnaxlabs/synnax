@@ -10,8 +10,11 @@
 package cesium_test
 
 import (
+	"io"
+	"maps"
 	"os"
 	"strings"
+	"sync"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -124,7 +127,9 @@ var _ = Describe("Delete intents", func() {
 		It(
 			"Should keep a key with samples, no record, and no intent, and refuse it",
 			func(ctx SpecContext) {
+				size := db.Metrics().DiskSize
 				kept := MustSucceed(db.Sweep(ctx, []cesium.ChannelKey{idx}))
+				Expect(db.Metrics().DiskSize).To(Equal(size))
 				Expect(kept).To(HaveLen(1))
 				Expect(kept[0].Key).To(Equal(data))
 				Expect(kept[0].Size).To(BeNumerically(">", 0))
@@ -134,6 +139,9 @@ var _ = Describe("Delete intents", func() {
 				})).Error().To(MatchError(cesium.ErrChannelNotFound))
 				Expect(db.Read(ctx, telem.TimeRangeMax, data)).Error().
 					To(MatchError(cesium.ErrChannelNotFound))
+				Expect(db.CreateChannel(ctx, cesium.Channel{
+					Key: data, Name: "data", Index: idx, DataType: telem.Int64T,
+				})).To(MatchError(ContainSubstring("it already exists")))
 				Expect(mem.Exists(channelKeyToPath(data))).To(BeTrue())
 			},
 		)
@@ -166,7 +174,8 @@ var _ = Describe("Delete intents", func() {
 
 	Describe("Crashes", func() {
 		It(
-			"Should sync the rewritten intents before it renames them over the old file",
+			"Should make a removal durable, then sync the rewritten intents before "+
+				"the rename",
 			func(ctx SpecContext) {
 				var ops []string
 				logged := mustOpenDBOnFS(ctx, opLogFS{FS: xfs.NewMem(), ops: &ops})
@@ -177,12 +186,66 @@ var _ = Describe("Delete intents", func() {
 				ops = nil
 				Expect(logged.Drop([]cesium.ChannelKey{idx})).To(Succeed())
 				Expect(ops).To(HaveExactElements(
+					"syncdir",
 					"sync delete-intents.tmp",
 					"rename delete-intents.tmp delete-intents",
 					"syncdir",
 				))
 			},
 		)
+
+		Describe("Lost unsynced data", func() {
+			var (
+				lossy *lossyFS
+				ldb   *cesium.DB
+				other cesium.ChannelKey
+			)
+			BeforeEach(func(ctx SpecContext) {
+				lossy = newLossyFS(xfs.NewMem())
+				ldb = mustOpenDBOnFS(ctx, lossy)
+				other = GenerateChannelKey()
+				Expect(ldb.CreateChannel(
+					ctx,
+					cesium.Channel{
+						Key:      idx,
+						Name:     "time",
+						IsIndex:  true,
+						DataType: telem.TimestampT,
+					},
+					cesium.Channel{
+						Key:      other,
+						Name:     "other",
+						IsIndex:  true,
+						DataType: telem.TimestampT,
+					},
+				)).To(Succeed())
+				for _, k := range []cesium.ChannelKey{idx, other} {
+					Expect(ldb.WriteSeries(
+						ctx,
+						k,
+						10*telem.SecondTS,
+						telem.NewSeriesSecondsTSV(10, 11),
+					)).To(Succeed())
+				}
+			})
+
+			It("Should keep an appended intent", func(ctx SpecContext) {
+				Expect(ldb.Intend([]cesium.ChannelKey{other})).To(Succeed())
+				fs := lossy.crash()
+				restarted := mustOpenDBOnFS(ctx, fs)
+				Expect(restarted.Sweep(ctx, []cesium.ChannelKey{idx})).To(BeEmpty())
+				expectGone(ctx, restarted, fs, other)
+			})
+
+			It("Should keep the intents that a rewrite keeps", func(ctx SpecContext) {
+				Expect(ldb.Intend([]cesium.ChannelKey{idx, other})).To(Succeed())
+				Expect(ldb.Drop([]cesium.ChannelKey{idx})).To(Succeed())
+				fs := lossy.crash()
+				restarted := mustOpenDBOnFS(ctx, fs)
+				Expect(restarted.Sweep(ctx, nil)).To(BeEmpty())
+				expectGone(ctx, restarted, fs, other)
+			})
+		})
 
 		It("Should ignore a torn intent append", func(ctx SpecContext) {
 			Expect(db.Intend([]cesium.ChannelKey{data})).To(Succeed())
@@ -318,4 +381,123 @@ type opLogFile struct {
 func (f opLogFile) Sync() error {
 	*f.ops = append(*f.ops, "sync "+f.name)
 	return f.File.Sync()
+}
+
+// lossyFS models a crash at the root of a file system for the intents files: an entry
+// survives only once SyncDir syncs the root, and a file keeps only the contents of its
+// last Sync.
+type lossyFS struct {
+	xfs.FS
+	st *lossyState
+}
+
+type lossyState struct {
+	inner   xfs.FS
+	live    map[string]int
+	durable map[string]int
+	synced  map[int][]byte
+	next    int
+	mu      sync.Mutex
+}
+
+func newLossyFS(inner xfs.FS) *lossyFS {
+	return &lossyFS{FS: inner, st: &lossyState{
+		inner:   inner,
+		live:    map[string]int{},
+		durable: map[string]int{},
+		synced:  map[int][]byte{},
+	}}
+}
+
+// crash returns a copy of the files as a restart after a crash now would see them.
+func (f *lossyFS) crash() xfs.FS {
+	GinkgoHelper()
+	f.st.mu.Lock()
+	defer f.st.mu.Unlock()
+	cp := xfs.NewMem()
+	Expect(xfs.CopyDir(f.st.inner, cp, "")).To(Succeed())
+	for _, name := range []string{"delete-intents", "delete-intents.tmp"} {
+		Expect(cp.Remove(name)).To(Succeed())
+	}
+	for name, inode := range f.st.durable {
+		Expect(xfs.WriteFile(cp, name, f.st.synced[inode])).To(Succeed())
+	}
+	return cp
+}
+
+func modeled(name string) bool { return strings.HasPrefix(name, "delete-intents") }
+
+func (f *lossyFS) Sub(name string) (xfs.FS, error) {
+	sub, err := f.FS.Sub(name)
+	if err != nil || name != "" {
+		return sub, err
+	}
+	return &lossyFS{FS: sub, st: f.st}, nil
+}
+
+func (f *lossyFS) Open(name string, flag int) (xfs.File, error) {
+	file, err := f.FS.Open(name, flag)
+	if err != nil || !modeled(name) {
+		return file, err
+	}
+	f.st.mu.Lock()
+	defer f.st.mu.Unlock()
+	inode, ok := f.st.live[name]
+	if !ok {
+		f.st.next++
+		inode = f.st.next
+		f.st.live[name] = inode
+	}
+	return lossyFile{File: file, st: f.st, inode: inode}, nil
+}
+
+func (f *lossyFS) Rename(oldPath, newPath string) error {
+	if err := f.FS.Rename(oldPath, newPath); err != nil || !modeled(oldPath) {
+		return err
+	}
+	f.st.mu.Lock()
+	defer f.st.mu.Unlock()
+	f.st.live[newPath] = f.st.live[oldPath]
+	delete(f.st.live, oldPath)
+	return nil
+}
+
+func (f *lossyFS) Remove(name string) error {
+	if err := f.FS.Remove(name); err != nil || !modeled(name) {
+		return err
+	}
+	f.st.mu.Lock()
+	defer f.st.mu.Unlock()
+	delete(f.st.live, name)
+	return nil
+}
+
+func (f *lossyFS) SyncDir(name string) error {
+	if err := f.FS.SyncDir(name); err != nil || name != "" {
+		return err
+	}
+	f.st.mu.Lock()
+	defer f.st.mu.Unlock()
+	f.st.durable = maps.Clone(f.st.live)
+	return nil
+}
+
+type lossyFile struct {
+	xfs.File
+	st    *lossyState
+	inode int
+}
+
+func (f lossyFile) Sync() error {
+	if err := f.File.Sync(); err != nil {
+		return err
+	}
+	data, err := io.ReadAll(io.NewSectionReader(f.File, 0, 1<<62))
+	if err != nil {
+		return err
+	}
+	f.st.mu.Lock()
+	defer f.st.mu.Unlock()
+	f.st.synced[f.inode] = data
+	return nil
 }

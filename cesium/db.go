@@ -151,6 +151,9 @@ func (db *DB) Metrics() Metrics {
 	for _, u := range db.mu.dbs.unary {
 		size += u.Size()
 	}
+	for _, u := range db.mu.dbs.hidden {
+		size += u.Size()
+	}
 	return Metrics{DiskSize: size}
 }
 

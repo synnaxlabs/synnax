@@ -218,6 +218,11 @@ func (db *DB) removeDir(key ChannelKey) error {
 			return err
 		}
 	}
+	// The removal is durable before the intent clears, so a crash never brings back
+	// files that no intent names.
+	if err = db.fs.SyncDir(""); err != nil {
+		return err
+	}
 	return db.intents.clear(key)
 }
 
