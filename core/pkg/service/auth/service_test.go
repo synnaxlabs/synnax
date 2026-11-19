@@ -247,7 +247,7 @@ var _ = Describe("Service", func() {
 					Set(ctx, alice, username, hash(otherPw, "secret"))
 			})).To(Succeed())
 			on := MustSucceed(auth.OpenService(ctx, auth.ServiceConfig{
-				DB:             other,
+				DB: other,
 				Authenticators: map[auth.Method]auth.Authenticator{
 					auth.MethodPassword: otherPw,
 				},
