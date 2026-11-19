@@ -16,6 +16,7 @@ import {
 } from "@synnaxlabs/client/testutil";
 import { Access } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
+import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import {
   act,
   fireEvent,
@@ -39,12 +40,10 @@ import {
 } from "@/platform/panel/testutil";
 import { Session } from "@/session";
 import {
-  assertDefined,
   awaitGranted,
   createConsoleWrapper,
   createTestClientWithGrants,
   renderHookWithConsole,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();
