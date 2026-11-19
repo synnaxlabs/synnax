@@ -96,7 +96,8 @@ holds the signals that no message sends.
 
 The mask of a J1939 message leaves out the priority and the source address, and for a
 PDU1 group the destination address. When two messages share a parameter group, the mask
-keeps the source address.
+keeps the source address. When two PDU1 messages also share a source address, the mask
+keeps the destination address too.
 
 Synnax skips value tables and value descriptions (`VAL_TABLE_`, `VAL_`).
 
