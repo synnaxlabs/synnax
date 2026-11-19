@@ -616,6 +616,52 @@ describe("Picker", () => {
         expect(c.getByText("menu for Moss in Series")).toBeTruthy();
       });
 
+      const OPENERS: [string, (swatch: HTMLElement) => boolean][] = [
+        ["a right click", (swatch) => fireEvent.contextMenu(swatch)],
+        [
+          "Shift+F10",
+          (swatch) =>
+            fireEvent.keyDown(swatch, { key: "F10", code: "F10", shiftKey: true }),
+        ],
+        [
+          "the Menu key",
+          (swatch) => {
+            const key = { key: "ContextMenu", code: "ContextMenu" };
+            const down = fireEvent.keyDown(swatch, key);
+            return fireEvent.keyUp(swatch, key) && down;
+          },
+        ],
+      ];
+
+      const onlyAlarm = (key: string): boolean => key === "alarm";
+
+      it.each(OPENERS)(
+        "should open swatchMenu on %s where hasSwatchMenu allows",
+        (_, open) => {
+          const c = renderSlots({
+            swatchMenu: <SwatchMenu />,
+            hasSwatchMenu: onlyAlarm,
+          });
+          expect(open(c.getByLabelText("Alarm"))).toBe(false);
+          expect(c.getByText("menu for Alarm in Status")).toBeTruthy();
+        },
+      );
+
+      it.each(OPENERS)(
+        "should leave %s to the platform where hasSwatchMenu refuses",
+        (_, open) => {
+          const c = renderSlots({
+            swatchMenu: <SwatchMenu />,
+            hasSwatchMenu: onlyAlarm,
+          });
+          const moss = c.getByLabelText("Moss");
+          act(() => moss.focus());
+          expect(open(moss)).toBe(true);
+          expect(c.queryByRole("menu")).toBeNull();
+          expect(document.activeElement).toBe(moss);
+        },
+      );
+
       it("should leave a right click to the platform without swatchMenu", () => {
         const c = renderSlots({});
         expect(fireEvent.contextMenu(c.getByLabelText("Alarm"))).toBe(true);
@@ -644,6 +690,16 @@ describe("Picker", () => {
         expect(
           (c.getByPlaceholderText("Search colors") as HTMLInputElement).value,
         ).toBe("");
+        expect(document.activeElement).toBe(c.getByLabelText("Moss"));
+      });
+
+      it("should focus a shown swatch that a slot links", () => {
+        const Linker = (): ReactElement => {
+          const { onNamedChange: link } = Color.usePicker();
+          return <button onClick={() => link("moss")}>link Moss</button>;
+        };
+        const c = renderSlots({ named: "ocean", footer: <Linker /> });
+        fireEvent.click(c.getByText("link Moss"));
         expect(document.activeElement).toBe(c.getByLabelText("Moss"));
       });
 
