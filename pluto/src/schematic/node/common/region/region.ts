@@ -43,7 +43,10 @@ export const measure = (svg: string): dimensions.Dimensions | null => {
   if (root == null) return null;
   const viewBox = root.getAttribute("viewBox");
   if (viewBox) {
-    const [, , width, height] = viewBox.split(" ").map(Number);
+    const [, , width, height] = viewBox
+      .trim()
+      .split(/[\s,]+/)
+      .map(Number);
     return { width, height };
   }
   if (root.viewBox?.baseVal)
