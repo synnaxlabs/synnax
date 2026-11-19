@@ -625,6 +625,38 @@ describe("Enumeration.Entries", () => {
     );
   });
 
+  it("should save a move down with the arrow keys", async () => {
+    const e = await createEnumeration([
+      createEntry("Off", 0),
+      createEntry("On", 1),
+      createEntry("Idle", 2),
+    ]);
+    render(<Enumeration.Entries enumeration={e.key} />, { wrapper });
+    fireEvent.keyDown(await screen.findByRole("button", { name: "Move entry 1" }), {
+      key: "ArrowDown",
+    });
+    await waitFor(async () =>
+      expect((await stored(e.key)).map((en) => en.name)).toEqual(["On", "Off", "Idle"]),
+    );
+  });
+
+  it("should save the rows of a paste below the last entry in order", async () => {
+    const e = await createEnumeration([createEntry("Off", 0)]);
+    render(<Enumeration.Entries enumeration={e.key} />, { wrapper });
+    const name = await screen.findByLabelText<HTMLInputElement>("Name 1");
+    fireEvent.focus(name);
+    fireEvent.paste(name, {
+      clipboardData: { getData: () => "Off\t0\nIdle\t1\nFault\t2" },
+    });
+    await waitFor(async () =>
+      expect((await stored(e.key)).map((en) => [en.name, en.value])).toEqual([
+        ["Off", 0],
+        ["Idle", 1],
+        ["Fault", 2],
+      ]),
+    );
+  });
+
   it("should save a swap of two values", async () => {
     const e = await createEnumeration([createEntry("Off", 0), createEntry("On", 1)]);
     render(<Enumeration.Entries enumeration={e.key} />, { wrapper });
