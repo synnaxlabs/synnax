@@ -88,8 +88,8 @@ export interface MessagePlan {
  * @param namer - Names the new channels of every source that the task plans.
  * @param prefix - The prefix of the names of the channels it creates.
  * @param props - What the device stores for the message.
- * @param written - The channels that other bindings write, which no field takes from
- * props. When another message writes one, every channel on its index is replaced.
+ * @param written - The channels that bindings write, which no field takes from props.
+ * When another message writes one, its index and every channel on it are replaced.
  */
 export const planMessage = async (
   client: Synnax,
@@ -109,12 +109,12 @@ export const planMessage = async (
       dataType: "",
     };
   // The Core refuses a channel that two bindings write, and an index that two messages
-  // write. A channel that another message writes takes its index along.
+  // write.
   const skipped = fields
     .filter((f) => bindingOf(f).channel === 0 && written.has(held[f.pointer]))
     .map(({ pointer }) => pointer);
   const own = new Set(read.bindings.map(({ channel }) => channel));
-  const elsewhere = skipped.map((p) => held[p]).filter((key) => !own.has(key));
+  const elsewhere = [...written].filter((key) => !own.has(key));
   const taken = new Set(
     (elsewhere.length === 0 ? [] : await client.channels.retrieve(elsewhere))
       .map((ch) => (ch.isIndex ? ch.key : ch.index))
