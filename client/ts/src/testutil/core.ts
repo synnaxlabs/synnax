@@ -111,8 +111,6 @@ export class SyntheticCore {
   readonly historyChange: channel.Channel;
   /** The number of reads the Core has served, reduced or not. */
   reads = 0;
-  /** The node the feeds of the Core connect to, or undefined before it is known. */
-  node: number | undefined = NODE;
   readonly channels = {
     retrieve: async (key: channel.Key | channel.Name): Promise<channel.Channel> => {
       const ch = this.all().find((c) => c.key === key || c.name === key);
@@ -290,7 +288,6 @@ export class SyntheticCore {
       openStreamer: async (config) => this.openStreamer(config),
       readLatest: async (keys, count, tr) => this.readLatest(keys, count, tr),
       readFirst: async (keys) => this.readFirst(keys),
-      node: () => this.node,
       ...props,
     });
   }

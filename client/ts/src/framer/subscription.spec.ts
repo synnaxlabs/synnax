@@ -883,7 +883,7 @@ describe("Feed.subscribe", () => {
   });
 
   describe("data type change", () => {
-    it("should restart a channel whose data type changes, never mixing types", async () => {
+    it("should keep a channel's history across a data type change", async () => {
       const core = createCore();
       const feed = core.openFeed(OPTIONS);
       const key = core.data[0].key;
@@ -892,17 +892,16 @@ describe("Feed.subscribe", () => {
       try {
         await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
         core.retype(key, DataType.FLOAT64);
-        let mixed = false;
         await expect
-          .poll(() => {
-            const types = new Set(
-              sub.value(key).series.series.map((s) => s.dataType.toString()),
-            );
-            mixed ||= types.size > 1;
-            return [...types];
-          }, POLL)
-          .toEqual([DataType.FLOAT64.toString()]);
-        expect(mixed).toBe(false);
+          .poll(
+            () => [
+              ...new Set(
+                sub.value(key).series.series.map((s) => s.dataType.toString()),
+              ),
+            ],
+            POLL,
+          )
+          .toEqual([DataType.FLOAT32.toString(), DataType.FLOAT64.toString()]);
       } finally {
         stop();
         sub.close();
@@ -2003,41 +2002,6 @@ describe("Feed.subscribe", () => {
         expect(after[0]).toBe(before[0]);
       } finally {
         sub.close();
-        await feed.close();
-      }
-    });
-
-    it.each([
-      ["an unknown node", undefined],
-      ["another node", 2],
-    ])("should expire the blocks of a channel on %s", async (_, node) => {
-      const core = createCore();
-      core.node = node;
-      const feed = core.openFeed(OPTIONS);
-      const key = core.data[0].key;
-      const window = staticWindow(tiles);
-      const load = async (): Promise<number> => {
-        const reads = core.reads;
-        const sub = feed.subscribe({
-          keys: [key],
-          window,
-          limit: { variant: "points", count: EXACT, aggregation: "min_max" },
-        });
-        try {
-          await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
-        } finally {
-          sub.close();
-        }
-        return core.reads - reads;
-      };
-      try {
-        await listen(core, feed);
-        const reads = await load();
-        expect(reads).toBeGreaterThan(0);
-        expect(await load()).toBe(0);
-        core.advance(TimeSpan.minutes(20));
-        expect(await load()).toBe(reads);
-      } finally {
         await feed.close();
       }
     });

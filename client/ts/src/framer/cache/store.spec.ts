@@ -182,24 +182,37 @@ describe("Store", () => {
       expect(store.expired(block)).toBe(false);
     });
 
-    it("should keep only a sealed block valid while history signals stream", () => {
+    const createSignaled = (virtual = false) => {
       const clock = new ManualClock();
-      const store = new Store({ now: clock.now, node: () => 1 });
+      const store = new Store({ now: clock.now });
       store.setChannel(
         new channel.Channel({
           key: 1,
           name: "data",
           dataType: "float32",
-          leaseholder: 1,
+          leaseholder: 2,
+          virtual,
         }).payload,
       );
       store.setSignalKey(99);
       store.setAcked(new Set([99]));
+      return { clock, store };
+    };
+
+    it("should keep only a sealed block valid while history signals stream", () => {
+      const { clock, store } = createSignaled();
       const sealed = createBlock({ fetchedAt: clock.now(), sealed: true });
       const unsealed = createBlock({ fetchedAt: clock.now() });
       clock.advance(TimeSpan.hours(1));
       expect(store.expired(sealed)).toBe(false);
       expect(store.expired(unsealed)).toBe(true);
+    });
+
+    it("should expire a sealed block of a virtual channel", () => {
+      const { clock, store } = createSignaled(true);
+      const sealed = createBlock({ fetchedAt: clock.now(), sealed: true });
+      clock.advance(TimeSpan.hours(1));
+      expect(store.expired(sealed)).toBe(true);
     });
 
     it("should default the stale threshold to ten minutes", () => {
