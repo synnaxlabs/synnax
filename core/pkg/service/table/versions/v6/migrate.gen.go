@@ -25,16 +25,58 @@ func autoMigrateCellConfig(ctx context.Context, old v5.CellConfig) (CellConfig, 
 	case nil:
 		return CellConfig{}, nil
 	case v5.TextCellConfig:
+		var fillColor *color.Color
+		if variant.FillColor != nil {
+			v, err := color.MigrateColor(ctx, *variant.FillColor)
+			if err != nil {
+				return CellConfig{}, err
+			}
+			fillColor = &v
+		}
+		var textColor *color.Color
+		if variant.TextColor != nil {
+			v, err := color.MigrateColor(ctx, *variant.TextColor)
+			if err != nil {
+				return CellConfig{}, err
+			}
+			textColor = &v
+		}
 		return CellConfig{Variant: TextCellConfig{
-			Value:  variant.Value,
-			Level:  variant.Level,
-			Weight: variant.Weight,
-			Align:  variant.Align,
+			Value:     variant.Value,
+			Level:     variant.Level,
+			Weight:    variant.Weight,
+			Align:     variant.Align,
+			FillColor: fillColor,
+			TextColor: textColor,
 		}}, nil
 	case v5.ValueCellConfig:
 		redline, err := color.MigrateScale(ctx, variant.Redline)
 		if err != nil {
 			return CellConfig{}, err
+		}
+		var fillColor *color.Color
+		if variant.FillColor != nil {
+			v, err := color.MigrateColor(ctx, *variant.FillColor)
+			if err != nil {
+				return CellConfig{}, err
+			}
+			fillColor = &v
+		}
+		var textColor *color.Color
+		if variant.TextColor != nil {
+			v, err := color.MigrateColor(ctx, *variant.TextColor)
+			if err != nil {
+				return CellConfig{}, err
+			}
+			textColor = &v
+		}
+		var stalenessColor *color.Color
+		if variant.StalenessColor != nil {
+			v, err := color.MigrateColor(ctx, *variant.StalenessColor)
+			if err != nil {
+				return CellConfig{}, err
+			}
+			stalenessColor = &v
 		}
 		return CellConfig{Variant: ValueCellConfig{
 			Channel:          variant.Channel,
@@ -42,9 +84,12 @@ func autoMigrateCellConfig(ctx context.Context, old v5.CellConfig) (CellConfig, 
 			Precision:        variant.Precision,
 			Notation:         variant.Notation,
 			Redline:          redline,
+			FillColor:        fillColor,
 			Level:            variant.Level,
+			TextColor:        textColor,
 			Units:            variant.Units,
 			StalenessTimeout: variant.StalenessTimeout,
+			StalenessColor:   stalenessColor,
 		}}, nil
 	default:
 		return CellConfig{}, errors.Newf("unknown CellConfig variant %T", variant)

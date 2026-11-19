@@ -13,14 +13,12 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp/migrate"
-	color "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v4"
 	colorv0 "github.com/synnaxlabs/x/color/versions/v0"
-	xcolor "github.com/synnaxlabs/x/color/versions/v2"
+	color "github.com/synnaxlabs/x/color/versions/v2"
 )
 
-// MigrateLog lifts a v4 log to v5, which stores each channel color as a fixed color
-// with a 0-255 alpha byte.
+// MigrateLog lifts a v4 log to v5, which stores every color alpha as a 0-255 byte.
 func MigrateLog(ctx context.Context, old v4.Log) (Log, error) {
 	return autoMigrateLog(ctx, old)
 }
@@ -29,7 +27,7 @@ func MigrateLog(ctx context.Context, old v4.Log) (Log, error) {
 var Migration = migrate.NewEntry("v62_color_alpha_byte", MigrateLog)
 
 // MigrateChannelEntry lifts a v4 channel entry to v5. A zero color becomes absent, as
-// v4 stored the zero color to mean no color. Any other color becomes a fixed color.
+// v4 stored the zero color to mean no color.
 func MigrateChannelEntry(
 	ctx context.Context,
 	old v4.ChannelEntry,
@@ -41,11 +39,11 @@ func MigrateChannelEntry(
 	if old.Color == (colorv0.Color{}) {
 		return entry, nil
 	}
-	c, err := xcolor.MigrateColor(ctx, old.Color)
+	c, err := color.MigrateColor(ctx, old.Color)
 	if err != nil {
 		return ChannelEntry{}, err
 	}
-	entry.Color = &color.Ref{Variant: color.FixedRef{Value: c}}
+	entry.Color = &c
 	return entry, nil
 }
 

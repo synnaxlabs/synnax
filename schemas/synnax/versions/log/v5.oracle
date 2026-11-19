@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/versions/channel/v0"
-import "schemas/synnax/versions/color/v0"
 import "schemas/synnax/versions/group/v1"
 import "schemas/synnax/versions/project/v3"
 import "schemas/synnax/versions/ranger/v1"
@@ -21,10 +20,9 @@ Key = v0.Key
 TimestampConfig = v3.TimestampConfig
 
 ChannelEntry struct extends v3.ChannelEntry {
-    color color.Ref? {
+    color color.Color? {
         @doc value """
-            is the display color for the channel, a named color or a fixed color. Absent
-            uses the text color of the log.
+            is the display color for the channel. Absent uses the text color of the log.
         """
     }
 }

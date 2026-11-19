@@ -13,24 +13,12 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp/migrate"
-	color "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v4"
-	xcolor "github.com/synnaxlabs/x/color/versions/v2"
 )
 
-// MigratePanel lifts a v4 panel to v5, which stores the icon color as a fixed color
-// with a 0-255 alpha byte.
+// MigratePanel lifts a v4 panel to v5, which stores every color alpha as a 0-255 byte.
 func MigratePanel(ctx context.Context, old v4.Panel) (Panel, error) {
-	p, err := autoMigratePanel(ctx, old)
-	if err != nil || old.Color == nil {
-		return p, err
-	}
-	c, err := xcolor.MigrateColor(ctx, *old.Color)
-	if err != nil {
-		return Panel{}, err
-	}
-	p.Color = &color.Ref{Variant: color.FixedRef{Value: c}}
-	return p, nil
+	return autoMigratePanel(ctx, old)
 }
 
 // Migration lifts stored panels from v4 to v5.
