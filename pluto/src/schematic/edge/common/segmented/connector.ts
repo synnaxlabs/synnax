@@ -625,8 +625,7 @@ export const updateSegmentsForPositionChanges = ({
   const deltas = new Map<string, xy.XY>();
   for (const change of changes) {
     const node = nodes.find((n) => n.key === change.key);
-    if (node != null)
-      deltas.set(change.key, xy.translation(node.position, change.newPos));
+    if (node != null) deltas.set(change.key, xy.sub(change.newPos, node.position));
   }
   const updates: EdgeSegmentUpdate[] = [];
   for (const edge of edges) {

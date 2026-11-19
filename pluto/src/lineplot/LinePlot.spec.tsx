@@ -9,7 +9,18 @@
 
 import { lineplot as lineplotClient } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { box, color, location, uuid, xy } from "@synnaxlabs/x";
+import {
+  box,
+  color,
+  location,
+  staticWindow,
+  TimeRange,
+  TimeSpan,
+  TimeStamp,
+  uuid,
+  type Window,
+  xy,
+} from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement, useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -140,6 +151,35 @@ describe("LinePlot", () => {
       act(() => result.current.toggleZoom("range", { lower: 0.2, upper: 0.6 }));
       expect(onViewport.mock.calls.at(-1)?.[0].box).toEqual(zoomed);
       expect(resets(onViewportChange)).toEqual(0);
+    });
+  });
+
+  describe("loading message", () => {
+    const renderMessage = async (windows: Window[]): Promise<string | undefined> => {
+      const key = await createPlot();
+      const Wrapper = wrapper;
+      const plotted = ({ children }: PropsWithChildren): ReactElement => (
+        <Wrapper>
+          <LinePlot.Scope.Provider value={key}>
+            <LinePlot.LinePlot windows={windows}>{children}</LinePlot.LinePlot>
+          </LinePlot.Scope.Provider>
+        </Wrapper>
+      );
+      const { result } = renderHook(() => LinePlot.useFetchContext("test"), {
+        wrapper: plotted,
+      });
+      return result.current.loadingMessage;
+    };
+
+    it("should count the time a running range has run", async () => {
+      const start = TimeStamp.now().sub(TimeSpan.hours(2));
+      const window = staticWindow(new TimeRange(start, TimeStamp.MAX));
+      expect(await renderMessage([window])).toEqual("Fetching 2h of data");
+    });
+
+    it("should have no message for a range that has not started", async () => {
+      const window = staticWindow(new TimeRange(TimeStamp.MAX, TimeStamp.MAX));
+      expect(await renderMessage([window])).toBeUndefined();
     });
   });
 
