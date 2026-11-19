@@ -53,7 +53,7 @@ export interface ProviderOptions {
   /** Theming provider. Defaults on with `theme.SYNNAX_LIGHT`. */
   theming?: false | z.input<typeof theming.Provider.z>;
   /** Series color provider. Defaults on with no series colors. */
-  series?: false | z.input<typeof color.series.Provider.z>;
+  series?: false | z.input<typeof color.SeriesProvider.z>;
   /** Telemetry provider. Defaults on with `TestFactory` + `NoopFactory`. */
   telem?: false | { factories?: telem.Factory[] };
   /** Staleness provider. Defaults on with a 250ms sweep. */
@@ -75,7 +75,7 @@ export interface MountedProviders {
   status: status.Aggregator | null;
   synnax: synnax.Provider | null;
   theming: theming.Provider | null;
-  series: color.series.Provider | null;
+  series: color.SeriesProvider | null;
   telem: aether.Composite<typeof telem.providerStateZ> | null;
   staleness: staleness.Provider | null;
   render: canvasTest.RenderProvider | null;
@@ -137,7 +137,7 @@ export const buildStack = (options: ProviderOptions = {}): BuiltStack => {
     ...status.REGISTRY,
     ...synnax.REGISTRY,
     ...theming.REGISTRY,
-    ...color.series.REGISTRY,
+    ...color.REGISTRY,
     [telem.PROVIDER_TYPE]: buildTelemProvider(telemFactories),
     ...staleness.REGISTRY,
     [canvasTest.RenderProvider.TYPE]: canvasTest.RenderProvider,
@@ -202,10 +202,10 @@ export const buildStack = (options: ProviderOptions = {}): BuiltStack => {
     path.push(SERIES_KEY);
     driver.update(
       path,
-      color.series.Provider.TYPE,
-      color.series.Provider.z.parse(stateOf(options.series, { colors: [] })),
+      color.SeriesProvider.TYPE,
+      color.SeriesProvider.z.parse(stateOf(options.series, { colors: [] })),
     );
-    providers.series = driver.find<color.series.Provider>([...path]);
+    providers.series = driver.find<color.SeriesProvider>([...path]);
   }
   if (isOn(options.telem)) {
     path.push(TELEM_KEY);
