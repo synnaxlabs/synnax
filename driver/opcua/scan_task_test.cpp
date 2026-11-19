@@ -8,9 +8,11 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <tuple>
 #include <unordered_map>
 #include <vector>
 
@@ -107,13 +109,15 @@ protected:
     void start_secured_server(
         const certificate::Identity &id,
         std::vector<x::x509::Certificate> trusted_clients = {},
-        std::vector<std::pair<std::string, std::string>> users = {}
+        std::vector<std::pair<std::string, std::string>> users = {},
+        const std::uint32_t generated_variables = 0
     ) {
         auto cfg = testutil::ServerConfig::create_default();
         cfg.port = 4871;
         cfg.identity = id;
         cfg.trusted_clients = std::move(trusted_clients);
         cfg.users = std::move(users);
+        cfg.generated_variables = generated_variables;
         secured_server = std::make_unique<testutil::Server>(cfg);
         secured_server->start();
         ASSERT_TRUE(secured_server->wait_until_ready());
@@ -819,20 +823,66 @@ TEST_F(TestScanTask, testHealthCheckMissingCertificate) {
     EXPECT_FALSE(status.details.connected);
 }
 
-/// @brief it should browse a saved device's server with the password in its secret.
-TEST_F(TestScanTask, testBrowseDeviceReadsPassword) {
-    start_secured_server(server_id, {}, {{"user", x::x509::testutil::KEY}});
+/// @brief it should browse, find variables on, and read a node of a saved device's
+/// server with the password in its secret.
+TEST_F(TestScanTask, testDeviceCommandsReadPassword) {
+    start_secured_server(server_id, {}, {{"user", x::x509::testutil::KEY}}, 1);
     Scanner scanner(ctx, task, conn_pool, store, reader);
     const auto dev = create_password_device();
+    const std::vector<std::tuple<std::string, std::string, std::string>> cases{
+        {BROWSE_CMD_TYPE, "i=85", "Browsed nodes"},
+        {BROWSE_VARIABLES_CMD_TYPE, "NS=1;S=Generated", "Found variables"},
+        {READ_NODE_CMD_TYPE, "NS=1;S=TestDouble", "Read node"},
+    };
+    for (const auto &[type, node_id, message]: cases) {
+        ctx->statuses.clear();
+        synnax::task::Command cmd{
+            .type = type,
+            .key = type + "_cmd",
+            .args = {{"device", dev.key}, {"node_id", node_id}},
+        };
+        ASSERT_TRUE(scanner.exec(cmd, task, ctx));
+        ASSERT_EQ(ctx->statuses.size(), 1);
+        const auto &state = ctx->statuses[0];
+        EXPECT_EQ(state.variant, synnax::status::VARIANT_SUCCESS)
+            << type << ": " << state.description;
+        EXPECT_EQ(state.message, message);
+    }
+}
+
+/// @brief it should log in with the password of the grant that a test command spends.
+TEST_F(TestScanTask, testTestConnectionSpendsGrant) {
+    start_secured_server(server_id, {}, {{"user", x::x509::testutil::KEY}});
+    ASSERT_NIL(rack.tasks.create(task));
+    Scanner scanner(ctx, task, conn_pool, store, reader);
+    const auto key = secret::testutil::create_secret(*client);
+    auto cfg = password_config(key);
+    cfg.server_certificate_item = secret::testutil::create_certificate(
+        *this->client,
+        server_id.certificate.pem()
+    );
+    const auto grant = secret::testutil::create_grant(
+        rack.key,
+        synnax::task::Command{
+            .task = task.key,
+            .type = TEST_CONNECTION_CMD_TYPE,
+            .key = "granted",
+            .args = {{"connection", testutil::connection_json(cfg)}},
+        },
+        {key}
+    );
     synnax::task::Command cmd{
-        .type = BROWSE_CMD_TYPE,
-        .key = "browse_cmd",
-        .args = {{"device", dev.key}, {"node_id", "i=85"}},
+        .task = task.key,
+        .type = TEST_CONNECTION_CMD_TYPE,
+        .key = "carrier",
+        .args = {{"grant", grant.to_string()}},
     };
     ASSERT_TRUE(scanner.exec(cmd, task, ctx));
     ASSERT_EQ(ctx->statuses.size(), 1);
     const auto &state = ctx->statuses[0];
     EXPECT_EQ(state.variant, synnax::status::VARIANT_SUCCESS) << state.description;
+    EXPECT_EQ(state.message, "Connected to server");
+    EXPECT_EQ(state.details.cmd, "carrier");
 }
 
 /// @brief it should refuse a command that sends a connection with a password and no
