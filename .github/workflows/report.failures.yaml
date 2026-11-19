@@ -21,6 +21,10 @@ on:
         description: "Run to report"
         type: string
         required: true
+      attempt:
+        description: "Attempt of the run to report"
+        type: string
+        required: true
 
 permissions:
   actions: read
@@ -33,12 +37,14 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       RUN: ${{ inputs.run }}
+      ATTEMPT: ${{ inputs.attempt }}
     steps:
-      - name: Wait for the run to complete
+      - name: Wait for the attempt to complete
         id: run
         run: |
           for _ in $(seq 120); do
-            gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN" > "$RUNNER_TEMP/run"
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN/attempts/$ATTEMPT" \
+              > "$RUNNER_TEMP/run"
             if [ "$(jq -r .status "$RUNNER_TEMP/run")" = completed ]; then
               jq -r '"event=\(.event)", "conclusion=\(.conclusion)", "name=\(.name)",
                 "workflow=\(.workflow_id)", "created=\(.created_at)",
@@ -47,7 +53,7 @@ jobs:
             fi
             sleep 15
           done
-          echo "::error::Run $RUN did not complete in 30 minutes."
+          echo "::error::Attempt $ATTEMPT of run $RUN did not complete in 30 minutes."
           exit 1
 
       - name: Post the failure to Slack
@@ -66,7 +72,7 @@ jobs:
           runs="repos/$GITHUB_REPOSITORY/actions/workflows/$WORKFLOW_ID/runs"
           posted=$(gh api "$runs" -X GET -f event=schedule -f created="<$CREATED" -F per_page=100 |
             jq --arg day "${CREATED:0:10}" '
-              def failed: .conclusion | IN("failure", "timed_out", "startup_failure");
+              def failed: .conclusion | IN("failure", "timed_out");
               .workflow_runs as $runs
               | ($runs[0] // {} | failed)
                 and any($runs[]; failed and .created_at[:10] == $day)')

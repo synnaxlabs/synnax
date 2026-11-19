@@ -38,12 +38,16 @@ jobs:
       GH_REPO: ${{ github.repository }}
       REQUEUE: ${{ inputs.requeue }}
       REPORT: ${{ inputs.report && github.event_name == 'schedule' }}
+    # No retry: a dispatch that fails with a 5xx can still start a run.
     steps:
-      - name: Start the workflows
+      - name: Start Agent - Requeue
+        if: env.REQUEUE == 'true'
+        run: gh workflow run agent.requeue.yaml --ref main -f run="$GITHUB_RUN_ID"
+
+      # Report - Failures reads this attempt, so a rerun that Agent - Requeue starts
+      # does not hide the failure.
+      - name: Start Report - Failures
+        if: ${{ !cancelled() && env.REPORT == 'true' }}
         run: |
-          if [ "$REQUEUE" = true ]; then
-            gh workflow run agent.requeue.yaml --ref main -f run="$GITHUB_RUN_ID"
-          fi
-          if [ "$REPORT" = true ]; then
-            gh workflow run report.failures.yaml --ref main -f run="$GITHUB_RUN_ID"
-          fi
+          gh workflow run report.failures.yaml --ref main -f run="$GITHUB_RUN_ID" \
+            -f attempt="$GITHUB_RUN_ATTEMPT"
