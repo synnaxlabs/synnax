@@ -42,8 +42,10 @@ channel, and the Core makes missing channels at task save.
 - **Declared type**: The `data_type` on the channel record: the type of new writes.
 - **Agreed type**, **agreed clock**: The defaults that both sides of one codec state
   hold for a key. A **steady-state** frame holds only series that match both, and the
-  time series of each clock that its data names (§4.5). A frame that leaves out a key of
-  the state, requested or declared, takes the keyed form, as today.
+  time series of each clock that a timed key of its data names (§4.5). A frame that
+  leaves out a key of the state, requested or declared, takes the keyed form, as today.
+  `untimed_keys` belong to the request, so a change to them starts a new state with an
+  empty declared list.
 
 ## 3 Principles
 
