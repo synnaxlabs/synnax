@@ -878,7 +878,8 @@ x::errors::Error Engine::start_locked(
                 this->stop_locked();
             else
                 this->master->deactivate();
-            if (!start.cancel.running())
+            // A stop during a try that fails for its own reason keeps that error.
+            if (err.matches(x::errors::CANCELLED))
                 return start_canceled_error(this->network_name);
             if (!refused.empty() && io_left) {
                 for (const auto &[pos, refusal]: leaving)

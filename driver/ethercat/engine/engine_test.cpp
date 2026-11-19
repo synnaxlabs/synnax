@@ -2947,6 +2947,32 @@ TEST_F(EngineTest, StartEndsWhenCanceledWhileTheSlavesReachOP) {
     EXPECT_EQ(steps[0].message, "Starting eth0");
 }
 
+/// @brief it should keep the error of a try that fails for its own reason when its
+/// cancel stops during the try.
+TEST_F(EngineTest, StartKeepsTheErrorOfATryThatFailsWhileCanceled) {
+    this->master->inject_activate_error(
+        x::errors::Error(
+            errors::STARTUP_PARAMETER_REJECTED,
+            "module 1 rejected 0x5FFE:00"
+        )
+    );
+    x::breaker::Breaker cancel;
+    cancel.start();
+    StepLog log;
+    log.on_step = [&cancel](const Engine::Step &step) {
+        if (step.description.starts_with("Bringing")) cancel.stop();
+    };
+    const auto res = this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(cancel, log.report())
+    );
+    ASSERT_OCCURRED_AS(res.second, errors::STARTUP_PARAMETER_REJECTED);
+    EXPECT_EQ(res.second.data, "Module 1 rejected 0x5FFE:00.");
+    EXPECT_EQ(this->master->call_count("activate"), 1);
+}
+
 /// @brief it should keep an open that reads the slave settings while another open does
 /// waiting past the start timeout while that other open brings the slaves to OP.
 TEST_F(EngineTest, OpenAfterItsSettingsReadWaitsWhileTheSlavesReachOP) {
