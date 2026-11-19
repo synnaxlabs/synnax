@@ -75,8 +75,11 @@ export const Dialog = ({
   const setViewing = useViewingContext();
   const options = <Input.ItemBoundary>{children}</Input.ItemBoundary>;
   if (nested && filtered) return <InlineContext value>{options}</InlineContext>;
+  // Packed as the dialog is, so the options join as they would in the dialog itself.
   const content = (
-    <BaseDialog.Views onViewingChange={setViewing}>{options}</BaseDialog.Views>
+    <BaseDialog.Views pack onViewingChange={setViewing}>
+      {options}
+    </BaseDialog.Views>
   );
   if (!visible || nested) return hydrated && <Closed>{content}</Closed>;
   if (surface === "menu")

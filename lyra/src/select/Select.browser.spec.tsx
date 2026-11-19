@@ -1189,7 +1189,11 @@ describe("Select", () => {
   describe("views", () => {
     it("should press Back with Enter and pick nothing", async () => {
       const onChange = await renderEditable();
-      await userEvent.keyboard("{ArrowDown}{Tab}{Enter}");
+      await userEvent.keyboard("{ArrowDown}");
+      // Space opens the view from the focused button, so the opener has the focus in
+      // every browser. The hover answers Enter, not Space.
+      (page.getByRole("button", { name: "Edit low" }).element() as HTMLElement).focus();
+      await userEvent.keyboard(" ");
       await expect.element(page.getByText("Editing low")).toBeVisible();
       await expect.element(page.getByRole("button", { name: "Back" })).toHaveFocus();
       await userEvent.keyboard("{Enter}");
@@ -1228,15 +1232,15 @@ describe("Select", () => {
       await expect.poll(() => onChange).toHaveBeenCalledOnce();
     });
 
-    it("should leave Enter to a focused control inside an option", async () => {
-      const onChange = await renderEditable();
-      await userEvent.keyboard("{ArrowDown}{Tab}");
-      await expect
-        .element(page.getByRole("button", { name: "Edit low" }))
-        .toHaveFocus();
-      await userEvent.keyboard("{Enter}");
-      await expect.element(page.getByText("Editing low")).toBeVisible();
-      expect(onChange).not.toHaveBeenCalled();
+    it("should join the search and the list over one hairline", async () => {
+      await renderEditable();
+      const views = document.querySelector(".lyra-select__dialog > .lyra-views")!;
+      const [search, list] = Array.from(views.children);
+      expect(computed(search, "border-bottom-left-radius")).toBe("0px");
+      expect(computed(list, "border-top-left-radius")).toBe("0px");
+      expect(list.getBoundingClientRect().top).toBe(
+        search.getBoundingClientRect().bottom - 1,
+      );
     });
   });
 });

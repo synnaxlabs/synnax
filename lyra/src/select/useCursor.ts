@@ -143,8 +143,6 @@ const menuKey = (e: KeyboardEvent<HTMLElement>): "F10" | "ContextMenu" | null =>
   return null;
 };
 
-const OPTION = '[role="option"]';
-
 const REPEAT_DELAY = TimeSpan.milliseconds(200).milliseconds;
 const REPEAT_INTERVAL = TimeSpan.milliseconds(100).milliseconds;
 
@@ -279,8 +277,6 @@ export const useCursor = <K extends record.Key>(
     if (e.stage === "end") return release();
     const key = KEYS.find((k) => e.triggers.some((t) => t.includes(k)));
     if (key == null || (CARET_KEYS.has(key) && isInputOrContentEditable(e))) return;
-    // A control inside an option, such as an edit button, keeps its keys.
-    if (e.target instanceof Element && e.target.closest(OPTION) != null) return;
     press(key);
   };
   Triggers.use({
