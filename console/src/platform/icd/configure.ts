@@ -137,17 +137,15 @@ export const planMessage = async (
     (!converts(f.type, ch.dataType.toString()) ||
       ch.isIndex !== (f.key === index) ||
       (indexed && ch.virtual));
-  // A deleted channel needs a new channel too.
-  const gone = (key: channel.Key): boolean => key !== 0 && !live.has(key);
   const planned = fields.map((f, i): MessageField => {
     const binding = bindingOf(f);
     const isIndex = f.key === index;
     const suited = binding.dataType !== "" && converts(f.type, binding.dataType);
     const dataType = suited ? binding.dataType : "";
     const ch = live.get(reused[i]);
-    const replaced = stale(f, ch) || gone(reused[i]);
-    if (stale(f, live.get(storedKeys[i])) || gone(storedKeys[i]))
-      delete held[f.pointer];
+    // A deleted channel needs a new channel too.
+    const replaced = stale(f, ch) || (reused[i] !== 0 && ch == null);
+    if (stale(f, live.get(storedKeys[i]))) delete held[f.pointer];
     return {
       key: f.key,
       pointer: f.pointer,
