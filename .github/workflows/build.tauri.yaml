@@ -194,6 +194,7 @@ jobs:
         with:
           cache-workspaces: console/src-tauri -> target
           cache-shared-key: ${{ runner.os }}-${{ env.PRODUCT }}
+          rust-src-dir: console/src-tauri
           # A cache save deletes rustup from ~/.cargo/bin, which the build bots keep.
           cache-bin: false
 
