@@ -201,17 +201,22 @@ const storedOf = (
 };
 
 /**
- * @returns the channel that the device stores for each pointer under any message of the
- * topic. The channels of the message itself come first.
+ * @returns the channel that the device stores for each pointer of the topic, for a
+ * message that Add data binds as the first read of entry. The channels of the message
+ * itself come first. The channels of a later read of entry stay with that read.
  */
 const topicChannels = (
   stored: Stored,
-  topic: string,
+  entry: Pick<PlainReadEntry, "topic" | "messages">,
   message: icd.MessageKey,
 ): Record<string, channel.Key> => {
+  const { topic, messages } = entry;
+  const claimed = new Set(
+    messages.slice(1).map((_, i) => storedOf(stored, entry, i + 1)),
+  );
   const channels: Record<string, channel.Key> = {};
   for (const [key, props] of Object.entries(stored))
-    if (key === topic || key.startsWith(`${topic}#`))
+    if ((key === topic || key.startsWith(`${topic}#`)) && !claimed.has(props))
       Object.assign(channels, props.channels);
   return { ...channels, ...stored[storedKey(topic, message)]?.channels };
 };
@@ -728,8 +733,10 @@ const Entries: FC<EntriesProps> = ({
     const drafts = additions.filter(isDraft);
     const tags = additions.filter((a): a is SparkplugReadEntry => !isDraft(a));
     const written = writtenChannels(entries);
-    const bind: Bind = ({ topic }, fields, message) =>
-      bindingsOf(topicChannels(stored, topic, message), fields, written);
+    const bind: Bind = ({ topic }, fields, message) => {
+      const entry = plain.find((e) => e.topic === topic) ?? { topic, messages: [] };
+      return bindingsOf(topicChannels(stored, entry, message), fields, written);
+    };
     const { added, held: grown } =
       drafts.length === 0
         ? { added: [], held: [] }
