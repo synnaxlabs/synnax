@@ -52,7 +52,7 @@ STARTS = {
     "ubuntu-build-new": ("ubuntu-build-bot", "self-hosted,linux,x64,ubuntu-build-bot"),
     "ubuntu": (
         "ubuntu-tester",
-        "self-hosted,linux,x64,ubuntu-latest,ubuntu,ubuntu-test-bot",
+        "self-hosted,linux,x64,ubuntu-test-bot",
     ),
     "windows-build-new": (
         "windows-build-bot",
