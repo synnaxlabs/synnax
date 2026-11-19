@@ -123,15 +123,10 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ta
     });
     this.cfg = cfg;
     this.store = store;
-    this.setGroupRequest = project.createGroupMoveRequest(
-      "/table/dispatch",
-      store,
-      dispatchResZ,
-      reduceAll,
-    );
-    this.setProjectRequest = project.createMoveRequest("/table/dispatch", (keys, to) =>
-      project.moveCached(store, keys, to),
-    );
+    const build: project.EntryBuilder<Key> = (key, acts) =>
+      dispatcher.request("/table/dispatch", key, acts, dispatchResZ);
+    this.setGroupRequest = project.createGroupMoveRequest(build);
+    this.setProjectRequest = project.createMoveRequest(build);
     this.dispatcher = dispatcher;
   }
 
