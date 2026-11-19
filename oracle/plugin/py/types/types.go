@@ -930,8 +930,7 @@ func buildExtendsExpr(
 	// An alias re-exports its target class under its own name and type parameters.
 	params := resolution.TypeParams(parent.Form)
 
-	// Find which parent type params don't have defaults (those are the ones in
-	// Generic[])
+	// Find the parent type params that have no default.
 	var activeParamIndices []int
 	for i, tp := range params {
 		if !tp.HasDefault() {
@@ -2080,9 +2079,8 @@ func (m *importManager) addNamespace(alias, path string) {
 // pydantic, uuid, enum, the resource ID and x.codec. A module import never binds one of
 // them, because the generator may add that import later in the same file.
 var generatedImportNames = set.New(
-	"Annotated", "Any", "BaseModel", "Bytes", "ConfigDict", "Field", "Generic",
-	"ID", "IntEnum", "JsonValue", "Literal", "Tuple", "TypeAlias", "TypeVar",
-	"UUID", "uuid4",
+	"Annotated", "Any", "BaseModel", "Bytes", "ConfigDict", "Field", "ID",
+	"IntEnum", "JsonValue", "Literal", "Tuple", "TypeAlias", "TypeVar", "UUID", "uuid4",
 )
 
 // bound reports whether name is reserved or already imported in the file.
