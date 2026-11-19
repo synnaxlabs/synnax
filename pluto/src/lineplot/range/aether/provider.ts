@@ -174,12 +174,15 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
     const count = packed.length;
     const height = stripHeight(lanes);
     const { cursor, visible, menuOpen, hovered: shown } = this.state;
-    const drawn = visible ? bars : [];
-    const running = drawn.filter((b) => b.running);
-    // A range in view that has not started becomes a running bar at its start.
-    const delays = drawn
-      .filter((b) => now.before(b.range.timeRange.start))
-      .map((b) => new TimeRange(now, b.range.timeRange.start).span.milliseconds);
+    // A bar changes when its range starts. A running bar enters a view ahead of now
+    // when now reaches the start of the view.
+    const changes = visible
+      ? packed.map((b) => (b.running ? timeRange.start : b.range.timeRange.start))
+      : [];
+    const delays = changes
+      .filter((t) => now.before(t))
+      .map((t) => new TimeRange(now, t).span.milliseconds);
+    const running = visible ? bars.filter((b) => b.running) : [];
     if (running.some((b) => b.end <= box.right(region))) delays.push(HEAD_PERIOD);
     else if (running.length > 0) delays.push(CLOCK_PERIOD);
     this.redrawIn(delays.length === 0 ? undefined : Math.min(...delays));

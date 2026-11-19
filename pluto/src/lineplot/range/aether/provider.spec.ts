@@ -461,6 +461,8 @@ describe("Provider", () => {
       });
     const lastMinute = (now: TimeStamp): TimeRange =>
       new TimeRange(now.sub(TimeSpan.seconds(120)), now.sub(TimeSpan.seconds(60)));
+    const ahead = (now: TimeStamp): TimeRange =>
+      new TimeRange(now.add(TimeSpan.minutes(1)), now.add(TimeSpan.minutes(20)));
 
     it("should show the time since its start at the end of its bar", async () => {
       const now = TimeStamp.now();
@@ -571,35 +573,58 @@ describe("Provider", () => {
       }
     });
 
-    it("should redraw when a range in view starts", async () => {
-      const now = TimeStamp.now();
-      const rng = await createTestClient().ranges.create({
-        name: `planned-${id.create()}`,
-        timeRange: new TimeRange(
-          now.add(TimeSpan.seconds(5)),
-          now.add(TimeSpan.minutes(10)),
-        ),
-        color: "#7C3AED",
-      });
+    // Expects one redraw of the strip at the given time, and none before it.
+    const expectRedrawAt = async (
+      props: range.ProviderProps,
+      at: TimeStamp,
+    ): Promise<void> => {
+      const provider = mount();
+      await expect
+        .poll(() => {
+          provider.render(props);
+          return provider.state.count;
+        })
+        .toBeGreaterThan(0);
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
       try {
-        const provider = mount();
-        const props = renderProps(new TimeRange(now, now.add(TimeSpan.minutes(20))));
-        await expect
-          .poll(() => {
-            provider.render(props);
-            return provider.state.count;
-          })
-          .toBeGreaterThan(0);
-        vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
         provider.render(props);
-        const wait = new TimeRange(TimeStamp.now(), rng.timeRange.start).span;
+        const wait = new TimeRange(TimeStamp.now(), at).span.milliseconds;
         requested.mockClear();
-        vi.advanceTimersByTime(wait.milliseconds - 100);
+        vi.advanceTimersByTime(wait - 100);
         expect(requested).not.toHaveBeenCalled();
         vi.advanceTimersByTime(200);
         expect(requested).toHaveBeenCalledTimes(1);
       } finally {
         vi.useRealTimers();
+      }
+    };
+
+    it("should redraw when a range in view starts", async () => {
+      const now = TimeStamp.now();
+      // The range starts before the view, so a running range of another spec cannot
+      // wake the strip first at the start of the view.
+      const rng = await createTestClient().ranges.create({
+        name: `planned-${id.create()}`,
+        timeRange: new TimeRange(
+          now.add(TimeSpan.seconds(30)),
+          now.add(TimeSpan.minutes(10)),
+        ),
+        color: "#7C3AED",
+      });
+      try {
+        await expectRedrawAt(renderProps(ahead(now)), rng.timeRange.start);
+      } finally {
+        await createTestClient().ranges.delete(rng.key);
+      }
+    });
+
+    it("should redraw when now reaches a view ahead of a running range", async () => {
+      const now = TimeStamp.now();
+      const rng = await createRunning(now);
+      try {
+        const view = ahead(now);
+        await expectRedrawAt(renderProps(view), view.start);
+      } finally {
         await createTestClient().ranges.delete(rng.key);
       }
     });
