@@ -15,6 +15,7 @@ import (
 	"uuid"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/errors"
@@ -622,6 +623,136 @@ func WheresFromPB(pbs []*Where) ([]icd.Where, error) {
 	for i, pb := range pbs {
 		var err error
 		result[i], err = WhereFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ReadBindingToPB converts ReadBinding to ReadBinding.
+func ReadBindingToPB(r icd.ReadBinding) (*ReadBinding, error) {
+	pb := &ReadBinding{
+		Channel:  uint32(r.Channel),
+		DataType: string(r.DataType),
+		Field:    r.Field.String(),
+	}
+	return pb, nil
+}
+
+// ReadBindingFromPB converts ReadBinding to ReadBinding.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
+func ReadBindingFromPB(pb *ReadBinding) (icd.ReadBinding, error) {
+	var r icd.ReadBinding
+	if pb == nil {
+		return r, nil
+	}
+	defaults.Prefill(&r)
+	var err error
+	r.Field, err = uuid.Parse(pb.Field)
+	if err != nil {
+		return icd.ReadBinding{}, err
+	}
+	r.Channel = channel.Key(pb.Channel)
+	r.DataType = telem.DataType(pb.DataType)
+	defaults.FillGroups(&r)
+	return r, nil
+}
+
+// ReadBindingsToPB converts a slice of ReadBinding to ReadBinding.
+func ReadBindingsToPB(rs []icd.ReadBinding) ([]*ReadBinding, error) {
+	result := make([]*ReadBinding, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = ReadBindingToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ReadBindingsFromPB converts a slice of ReadBinding to ReadBinding.
+func ReadBindingsFromPB(pbs []*ReadBinding) ([]icd.ReadBinding, error) {
+	result := make([]icd.ReadBinding, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = ReadBindingFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ReadMessageToPB converts ReadMessage to ReadMessage.
+func ReadMessageToPB(r icd.ReadMessage) (*ReadMessage, error) {
+	bindingsVal, err := ReadBindingsToPB(r.Bindings)
+	if err != nil {
+		return nil, err
+	}
+	pb := &ReadMessage{
+		Message:  r.Message.String(),
+		Bindings: bindingsVal,
+	}
+	if r.Index != nil {
+		v := r.Index.String()
+		pb.Index = &v
+	}
+	return pb, nil
+}
+
+// ReadMessageFromPB converts ReadMessage to ReadMessage.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
+func ReadMessageFromPB(pb *ReadMessage) (icd.ReadMessage, error) {
+	var r icd.ReadMessage
+	if pb == nil {
+		return r, nil
+	}
+	defaults.Prefill(&r)
+	var err error
+	r.Message, err = uuid.Parse(pb.Message)
+	if err != nil {
+		return icd.ReadMessage{}, err
+	}
+	r.Bindings, err = ReadBindingsFromPB(pb.Bindings)
+	if err != nil {
+		return icd.ReadMessage{}, err
+	}
+	if pb.Index != nil {
+		v, err := uuid.Parse(*pb.Index)
+		if err != nil {
+			return icd.ReadMessage{}, err
+		}
+		r.Index = &v
+	}
+	defaults.FillGroups(&r)
+	return r, nil
+}
+
+// ReadMessagesToPB converts a slice of ReadMessage to ReadMessage.
+func ReadMessagesToPB(rs []icd.ReadMessage) ([]*ReadMessage, error) {
+	result := make([]*ReadMessage, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = ReadMessageToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ReadMessagesFromPB converts a slice of ReadMessage to ReadMessage.
+func ReadMessagesFromPB(pbs []*ReadMessage) ([]icd.ReadMessage, error) {
+	result := make([]icd.ReadMessage, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = ReadMessageFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
