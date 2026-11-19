@@ -18,12 +18,13 @@ import {
   createTestClient,
   RoleClients,
 } from "@synnaxlabs/client/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Group } from "@/platform/group";
 import { createResource, createState } from "@/platform/tree/testutil";
-import { createConsoleWrapper, renderSuspended, uniqueName } from "@/testutil";
+import { createConsoleWrapper, renderSuspended } from "@/testutil";
 
 const client = createTestClient();
 const roles = new RoleClients(client);

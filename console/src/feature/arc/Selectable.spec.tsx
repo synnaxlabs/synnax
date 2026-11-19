@@ -9,6 +9,7 @@
 
 import { arc } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
+import { assertDefined } from "@synnaxlabs/x/testutil";
 import { screen, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
 import { describe, expect, it } from "vitest";
@@ -16,7 +17,7 @@ import { describe, expect, it } from "vitest";
 import { Arc } from "@/feature/arc";
 import { Modals } from "@/platform/modals";
 import { renderVisible, select } from "@/platform/selector/testutil";
-import { assertDefined, createConsoleWrapper } from "@/testutil";
+import { createConsoleWrapper } from "@/testutil";
 
 const client = createTestClient();
 const roles = new RoleClients(client);

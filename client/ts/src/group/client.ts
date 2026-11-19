@@ -179,12 +179,10 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Gr
    * @throws {Error} if a resource is of a type that cannot sit in a group.
    */
   moveRequests(ids: resource.ID[], parent?: resource.ID): batch.Request[] {
-    const byType = new Map<resource.Type, string[]>();
-    ids.forEach(({ type, key }) =>
-      byType.set(type, [...(byType.get(type) ?? []), key]),
-    );
+    const byType = Map.groupBy(ids, ({ type }) => type);
     const to = parent?.type === "group" ? parent.key : undefined;
-    return [...byType].flatMap(([type, keys]) => {
+    return [...byType].flatMap(([type, members]) => {
+      const keys = members.map(({ key }) => key);
       if (type === "group") return this.setParentRequest(keys, parent);
       if (!isMember(type)) throw new Error(`a ${type} cannot sit in a group`);
       return this.cfg.setGroup[type](keys, to);

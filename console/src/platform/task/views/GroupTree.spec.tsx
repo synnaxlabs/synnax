@@ -13,6 +13,7 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Form } from "@synnaxlabs/lyra/form";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { deep, id } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { Profiler } from "react";
 import { describe, expect, it } from "vitest";
@@ -23,7 +24,7 @@ import {
   renderInTaskForm,
   renderInTaskFormWithClient,
 } from "@/platform/task/testutil";
-import { CaptureStatuses, getIconButtons, uniqueName } from "@/testutil";
+import { CaptureStatuses, getIconButtons } from "@/testutil";
 
 type Field = Task.Views.GroupField;
 

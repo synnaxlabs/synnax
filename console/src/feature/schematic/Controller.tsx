@@ -10,6 +10,7 @@
 import { Control, Schematic, User } from "@synnaxlabs/pluto";
 import { memo, type PropsWithChildren, type ReactElement } from "react";
 
+import { Framer } from "@/platform/framer";
 import { Session } from "@/session";
 
 export interface ControllerProps extends PropsWithChildren {}
@@ -18,6 +19,7 @@ export const Controller = memo(({ children }: ControllerProps): ReactElement => 
   const key = Schematic.useKey();
   const authority = Session.Schematic.useSelectAuthority();
   const { isCurrentlyEditable } = Session.Schematic.useSelectEditable();
+  const canCommand = Framer.useCanCommand();
   const name = Schematic.useName();
   const dispatch = Session.useDispatch();
   const { data: userName } = User.useResultName({});
@@ -29,7 +31,7 @@ export const Controller = memo(({ children }: ControllerProps): ReactElement => 
       onStatusChange={handleStatusChange}
       name={controlName}
       authority={authority}
-      disabled={isCurrentlyEditable}
+      disabled={isCurrentlyEditable || !canCommand}
     >
       {children}
     </Control.Controller>

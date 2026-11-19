@@ -21,21 +21,17 @@ describe("Codec", () => {
     value: z.unknown(),
   });
 
-  binary.ENCODERS.forEach((e) => {
-    describe(`encoder ${e.contentType}`, () => {
-      it("should correctly encode and decode items", () => {
-        const sample = {
-          channelKey: "test",
-          timeStamp: 123,
-          value: [1, 2, 3],
-        };
-        const encoded = e.encode(sample);
-        expect(e.decode(encoded, sampleSchema)).toEqual(sample);
-      });
-    });
-  });
-
   describe("JSON", () => {
+    it("should correctly encode and decode items", () => {
+      const sample = {
+        channelKey: "test",
+        timeStamp: 123,
+        value: [1, 2, 3],
+      };
+      const encoded = binary.JSON_CODEC.encode(sample);
+      expect(binary.JSON_CODEC.decode(encoded, sampleSchema)).toEqual(sample);
+    });
+
     it("should decode a wire color to a tuple", () => {
       const schema = z.object({ fillColor: color.colorZ });
       const decoded = new binary.JSONCodec().decodeString(
@@ -151,18 +147,65 @@ describe("Codec", () => {
       });
     });
 
-    it("should handle CSV with missing values", () => {
+    it("should decode an empty cell to null in its row", () => {
       const sample = `
       channelKey,timeStamp,value
       test,123,
-      test2,124,6
+      test2,,6
       `;
       const decoded = binary.CSV_CODEC.decodeString(sample);
       expect(decoded).toEqual({
         channelKey: ["test", "test2"],
-        timeStamp: [123, 124],
-        value: [6],
+        timeStamp: [123, null],
+        value: [null, 6],
       });
+    });
+
+    it("should decode a missing cell at the end of a short row to null", () => {
+      const sample = "a,b,c\n1,2\n4,5,6";
+      expect(binary.CSV_CODEC.decodeString(sample)).toEqual({
+        a: [1, 4],
+        b: [2, 5],
+        c: [null, 6],
+      });
+    });
+
+    it("should keep a delimiter inside a quoted field", () => {
+      const sample = 'name,city\n"Doe, John","Paris, France"';
+      expect(binary.CSV_CODEC.decodeString(sample)).toEqual({
+        name: ["Doe, John"],
+        city: ["Paris, France"],
+      });
+    });
+
+    it("should decode a quoted number to a number", () => {
+      const sample = 'raw,scaled\n"1.5","10"\n2,"20"';
+      expect(binary.CSV_CODEC.decodeString(sample)).toEqual({
+        raw: [1.5, 2],
+        scaled: [10, 20],
+      });
+    });
+
+    it("should split on commas when a field holds a tab", () => {
+      expect(binary.CSV_CODEC.decodeString("raw,scaled\n1,\t10")).toEqual({
+        raw: [1],
+        scaled: [10],
+      });
+    });
+
+    it("should keep a quoted field of spaces as a string", () => {
+      expect(binary.CSV_CODEC.decodeString('a,b\n" ",1')).toEqual({
+        a: [" "],
+        b: [1],
+      });
+    });
+
+    it("should parse the decoded columns with the schema", () => {
+      const schema = z.object({ a: z.array(z.number()) });
+      expect(binary.CSV_CODEC.decodeString("a\n1\n2", schema)).toEqual({ a: [1, 2] });
+      expect(() => binary.CSV_CODEC.decodeString("a\nx", schema)).toThrow(
+        zod.ParseError,
+      );
     });
 
     it("should handle CSV with extra values", () => {
@@ -234,16 +277,17 @@ describe("Codec", () => {
       });
     });
 
+    const encodeToString = (payload: unknown): string =>
+      new TextDecoder().decode(binary.CSV_CODEC.encode(payload));
+
     it("should correctly encode array of objects to CSV", () => {
       const sampleData = [
         { name: "John", age: 30, city: "New York" },
         { name: "Alice", age: 25, city: "Boston" },
         { name: "Bob", age: 40, city: "Chicago" },
       ];
-
-      const encoded = binary.CSV_CODEC.encodeString(sampleData);
-      expect(encoded).toBe(
-        'name,age,city\n"John",30,"New York"\n"Alice",25,"Boston"\n"Bob",40,"Chicago"',
+      expect(encodeToString(sampleData)).toBe(
+        "name,age,city\nJohn,30,New York\nAlice,25,Boston\nBob,40,Chicago",
       );
     });
 
@@ -253,10 +297,8 @@ describe("Codec", () => {
         { name: "Alice", age: 25 },
         { name: "Bob", city: "Chicago" },
       ];
-
-      const encoded = binary.CSV_CODEC.encodeString(sampleData);
-      expect(encoded).toBe(
-        'name,age,city\n"John",30,"New York"\n"Alice",25,""\n"Bob","","Chicago"',
+      expect(encodeToString(sampleData)).toBe(
+        "name,age,city\nJohn,30,New York\nAlice,25,\nBob,,Chicago",
       );
     });
 
@@ -265,9 +307,7 @@ describe("Codec", () => {
         { name: "John", age: null, city: undefined },
         { name: "Alice", age: 25, city: null },
       ];
-
-      const encoded = binary.CSV_CODEC.encodeString(sampleData);
-      expect(encoded).toBe('name,age,city\n"John","",""\n"Alice",25,""');
+      expect(encodeToString(sampleData)).toBe("name,age,city\nJohn,,\nAlice,25,");
     });
 
     it("should handle different data types in objects", () => {
@@ -275,38 +315,39 @@ describe("Codec", () => {
         { name: "John", active: true, score: 98.5 },
         { name: "Alice", active: false, score: 92.3 },
       ];
+      expect(encodeToString(sampleData)).toBe(
+        "name,active,score\nJohn,1,98.5\nAlice,0,92.3",
+      );
+    });
 
-      const encoded = binary.CSV_CODEC.encodeString(sampleData);
-      expect(encoded).toBe('name,active,score\n"John",true,98.5\n"Alice",false,92.3');
+    it("should quote fields by CSV rules", () => {
+      const sampleData = [{ "a,b": 'say "hi"', c: "x,y" }];
+      expect(encodeToString(sampleData)).toBe('"a,b",c\n"say ""hi""","x,y"');
     });
 
     it("should throw error when encoding empty array", () => {
-      const sampleData: unknown[] = [];
-
-      expect(() => {
-        binary.CSV_CODEC.encodeString(sampleData);
-      }).toThrow("Payload must be an array of objects");
+      expect(() => binary.CSV_CODEC.encode([])).toThrow(
+        "Payload must be an array of objects",
+      );
     });
 
     it("should throw error when encoding non-array data", () => {
-      const sampleData = { name: "John", age: 30 };
-
-      expect(() => {
-        binary.CSV_CODEC.encodeString(sampleData);
-      }).toThrow("Payload must be an array of objects");
+      expect(() => binary.CSV_CODEC.encode({ name: "John", age: 30 })).toThrow(
+        "Payload must be an array of objects",
+      );
     });
 
     it("should round-trip encode and decode CSV data", () => {
       const sampleData = [
-        { name: "John", age: 30, city: "New York" },
-        { name: "Alice", age: 25, city: "Boston" },
+        { name: "Doe, John", age: 30, city: "New York" },
+        { name: 'Alice "Al"', age: 25, city: "Boston" },
       ];
 
       const encoded = binary.CSV_CODEC.encode(sampleData);
       const decoded = binary.CSV_CODEC.decode(encoded);
 
       expect(decoded).toEqual({
-        name: ["John", "Alice"],
+        name: ["Doe, John", 'Alice "Al"'],
         age: [30, 25],
         city: ["New York", "Boston"],
       });

@@ -11,6 +11,7 @@ import { type rack, secret, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Form } from "@synnaxlabs/lyra/form";
 import { deep, uuid } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import {
   act,
   cleanup,
@@ -40,7 +41,6 @@ import {
   createConsoleWrapper,
   createTestClientWithGrants,
   findDialogTriggerByText,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();
