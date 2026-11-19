@@ -17,7 +17,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
-	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	v5 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v5"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	color "github.com/synnaxlabs/x/color/versions/v2"
@@ -140,15 +139,6 @@ var _ = Describe("Log", func() {
 			Expect(l.Validate()).To(MatchError(ContainSubstring("channels.0.alias")))
 		})
 
-		It("Should reject an empty name and an invalid timestamp precision", func() {
-			l := v5.Log{TimestampPrecision: 4}
-			l = defaults.Fill(l)
-			Expect(l.Validate()).To(SatisfyAll(
-				MatchError(ContainSubstring("name")),
-				MatchError(ContainSubstring("timestamp_precision")),
-			))
-		})
-
 		It("Should path an invalid notation to its channel", func() {
 			l := v5.Log{
 				Name:     "valid",
@@ -167,12 +157,8 @@ var _ = Describe("Log", func() {
 				Key:  uuid.New(),
 				Name: "log",
 				Channels: []v5.ChannelEntry{{
-					Channel: channel.Key(1),
-					Color: &servicecolor.Ref{
-						Variant: servicecolor.FixedRef{
-							Value: color.Color{R: 1, A: 255},
-						},
-					},
+					Channel:         channel.Key(1),
+					Color:           &color.Color{R: 1, A: 255},
 					Notation:        "standard",
 					Precision:       new(uint8(3)),
 					Alias:           "alias",
@@ -183,8 +169,8 @@ var _ = Describe("Log", func() {
 			return w.Bytes()
 		}
 
-		It("Should encode the truncation fixture in 92 bytes", func() {
-			Expect(encode()).To(HaveLen(92))
+		It("Should encode the truncation fixture in 83 bytes", func() {
+			Expect(encode()).To(HaveLen(83))
 		})
 
 		DescribeTable("Should reject a log truncated inside a field",
@@ -203,19 +189,18 @@ var _ = Describe("Log", func() {
 			Entry("channel count", 24),
 			Entry("channel key", 28),
 			Entry("channel color presence", 32),
-			Entry("channel color variant", 33),
-			Entry("channel color", 42),
-			Entry("channel notation", 46),
-			Entry("channel precision presence", 58),
-			Entry("channel precision", 59),
-			Entry("channel alias", 60),
-			Entry("channel timestamp", 69),
-			Entry("timestamp precision", 83),
-			Entry("channel names hidden", 84),
-			Entry("timestamps hidden", 85),
-			Entry("time zone", 88),
-			Entry("group presence", 90),
-			Entry("project presence", 91),
+			Entry("channel color", 33),
+			Entry("channel notation", 37),
+			Entry("channel precision presence", 49),
+			Entry("channel precision", 50),
+			Entry("channel alias", 51),
+			Entry("channel timestamp", 60),
+			Entry("timestamp precision", 74),
+			Entry("channel names hidden", 75),
+			Entry("timestamps hidden", 76),
+			Entry("time zone", 79),
+			Entry("group presence", 81),
+			Entry("project presence", 82),
 		)
 	})
 })
