@@ -35,6 +35,24 @@ describe("isKeyed", () => {
   });
 });
 
+describe("remove", () => {
+  it("should remove only the entries strictly equal to a single value", () => {
+    expect(array.remove([0, "", "0", null, undefined, 1], 0)).toEqual([
+      "",
+      "0",
+      null,
+      undefined,
+      1,
+    ]);
+    expect(array.remove([null, undefined, 1], null)).toEqual([undefined, 1]);
+  });
+
+  it("should match the list form for a single value", () => {
+    const prev = [1, "1", 2];
+    expect(array.remove(prev, 1)).toEqual(array.remove(prev, [1]));
+  });
+});
+
 describe("deleteKeyed", () => {
   it("should delete a single keyed item", () => {
     const arr: record.KeyedNamed[] = [
