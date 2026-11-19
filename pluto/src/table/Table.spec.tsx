@@ -41,7 +41,7 @@ const expectedOffset = (contentWidth: number, contentHeight: number) => ({
 
 const RECT = mockBoundingClientRect(0, 0, SURFACE_WIDTH, SURFACE_HEIGHT)();
 
-// A browser may omit a zero y from `translate()`, so specs compare offsets, not strings.
+// A browser can omit a zero y from `translate()`, so specs compare offsets.
 const TRANSLATE = /translate\((-?[\d.]+)px(?:, (-?[\d.]+)px)?\)/;
 
 const offsetOf = (transform: string | undefined): xy.XY => {
