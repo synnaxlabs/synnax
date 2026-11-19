@@ -74,8 +74,6 @@ export interface SparkplugReadEntry extends mqtt.SparkplugReadEntry {}
 
 export type ReadEntry = PlainReadEntry | SparkplugReadEntry;
 
-export interface ReadBinding extends mqtt.ReadBinding {}
-
 const DEPLOY_SPARKPLUG_TAG_SHAPE = {
   group: sparkplugIDZ("Group").min(1, "Group is required"),
   edgeNode: sparkplugIDZ("Edge node").min(1, "Edge node is required"),
