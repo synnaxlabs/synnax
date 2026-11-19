@@ -149,11 +149,11 @@ describe("middleware", () => {
     });
   });
   describe("configureMiddleware", () => {
-    const blockedRuntime = (release: Promise<void>) => {
+    const blockedRuntime = (blockedType: string, release: Promise<void>) => {
       const runtime = new MockRuntime<StoreState>(false);
       const emit = runtime.emit.bind(runtime);
       runtime.emit = async (event) => {
-        await release;
+        if (event.action?.type === blockedType) await release;
         await emit(event);
       };
       return runtime;
@@ -161,10 +161,12 @@ describe("middleware", () => {
     it("should emit actions from one store in dispatch order", async () => {
       const store = { getState: () => state, dispatch: vi.fn() };
       let release = () => {};
-      const runtime = blockedRuntime(new Promise((r) => (release = r)));
+      const runtime = blockedRuntime("first", new Promise((r) => (release = r)));
       const mw = driftMiddleware(runtime)(store)((action) => action);
       mw({ type: "first" });
       mw({ type: "second" });
+      await new Promise((r) => setTimeout(r, 20));
+      expect(runtime.emissions).toEqual([]);
       release();
       await expect
         .poll(() => runtime.emissions.map((e) => e.action?.type))
@@ -172,7 +174,7 @@ describe("middleware", () => {
     });
     it("should not hold one store's emissions behind another store's", async () => {
       const blockedStore = { getState: () => state, dispatch: vi.fn() };
-      const blocked = blockedRuntime(new Promise(() => {}));
+      const blocked = blockedRuntime("stuck", new Promise(() => {}));
       driftMiddleware(blocked)(blockedStore)((action) => action)({ type: "stuck" });
       const store = { getState: () => state, dispatch: vi.fn() };
       const runtime = new MockRuntime<StoreState>(false);
