@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { TimeStamp } from "@synnaxlabs/x";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { Context, MemoizedSource } from "@/telem/aether/context";
 import { createFactory } from "@/telem/aether/factory";
@@ -54,6 +54,52 @@ describe("MemoizedSource", () => {
       const wrapped: Source<number> = { value: () => result, onChange: () => () => {} };
       const source = new MemoizedSource(wrapped, provider(), fixedNumber(1));
       expect(source.value()).toBe(result);
+    });
+  });
+
+  describe("updateInPlace", () => {
+    const createWrapped = (update?: Source<number>["update"]): Source<number> => ({
+      value: () => success(1),
+      onChange: () => () => {},
+      update,
+    });
+
+    it("should keep a source that takes the new props in place", () => {
+      const update = vi.fn(() => true);
+      const prov = provider();
+      const source = new MemoizedSource(createWrapped(update), prov, fixedNumber(1));
+      const next = fixedNumber(2);
+      expect(source.updateInPlace(prov, next)).toBe(true);
+      expect(update).toHaveBeenCalledWith(next.props);
+      expect(source.shouldUpdate(prov, next)).toBe(false);
+    });
+
+    it("should not keep a source that refuses the new props", () => {
+      const prov = provider();
+      const source = new MemoizedSource(
+        createWrapped(() => false),
+        prov,
+        fixedNumber(1),
+      );
+      expect(source.updateInPlace(prov, fixedNumber(2))).toBe(false);
+      expect(source.shouldUpdate(prov, fixedNumber(2))).toBe(true);
+    });
+
+    it("should not keep a source with no update", () => {
+      const prov = provider();
+      const source = new MemoizedSource(createWrapped(), prov, fixedNumber(1));
+      expect(source.updateInPlace(prov, fixedNumber(2))).toBe(false);
+    });
+
+    it("should not give the props of another provider or type", () => {
+      const update = vi.fn(() => true);
+      const prov = provider();
+      const source = new MemoizedSource(createWrapped(update), prov, fixedNumber(1));
+      expect(source.updateInPlace(provider(), fixedNumber(2))).toBe(false);
+      expect(source.updateInPlace(prov, { ...fixedNumber(2), type: "other" })).toBe(
+        false,
+      );
+      expect(update).not.toHaveBeenCalled();
     });
   });
 });
