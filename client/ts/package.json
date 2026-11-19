@@ -62,6 +62,7 @@
     "eslint": "catalog:",
     "playwright": "catalog:",
     "typescript": "catalog:",
+    "undici": "catalog:node22",
     "vite": "catalog:",
     "vitest": "catalog:",
     "ws": "catalog:"
