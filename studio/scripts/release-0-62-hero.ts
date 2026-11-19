@@ -15,10 +15,10 @@ import {
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/client";
-import { type Page } from "playwright";
 
 import { capture, fixtures } from "@/index";
 
+import { dropTemporal, pinClock } from "./common/clock";
 import { fitOperator, openOperator, operationsLayout } from "./common/coldflow";
 
 export const viewport = { width: 1280, height: 800 };
@@ -91,28 +91,6 @@ const closeTab = async (
     !(await client.panels.dispatch(operations.key, panel.removeTab({ key: tab.key })))
   )
     throw new Error("the Operations panel is not cached");
-};
-
-/**
- * pinClock holds the page's clock on the virtual one. The rig's page clock also runs on
- * wall time, so the ranges toolbar would count ahead of the plot.
- */
-const pinClock = async (session: capture.CaptureSession): Promise<void> => {
-  const { clock } = session.page;
-  await clock.pauseAt((await session.page.evaluate(() => Date.now())) + 1000);
-  await clock.setSystemTime(session.now().date());
-};
-
-/**
- * dropTemporal makes the page and its workers read time from `Date`, which the rig
- * steps, instead of `Temporal`, which it does not.
- */
-const dropTemporal = async (page: Page): Promise<void> => {
-  const drop = (): void => {
-    Reflect.deleteProperty(globalThis, "Temporal");
-  };
-  await page.evaluate(drop);
-  for (const worker of page.workers()) await worker.evaluate(drop);
 };
 
 /**

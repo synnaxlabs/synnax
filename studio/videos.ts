@@ -226,6 +226,7 @@ export default manifest.define([
     script: "scripts/kafka-write-task.ts",
     serial: true,
   },
+  { id: "releases/0-62-0/ranges", script: "scripts/release-0-62-ranges.ts" },
   { id: "releases/0-61-0/mqtt", script: "scripts/mqtt-read-task.ts", serial: true },
   {
     id: "console/tables/redline",
