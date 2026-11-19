@@ -10,7 +10,7 @@
 import { type Synnax } from "@synnaxlabs/client";
 import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
 import { Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { errors } from "@synnaxlabs/x";
+import { binary, errors } from "@synnaxlabs/x";
 import { useState } from "react";
 
 /**
@@ -26,7 +26,7 @@ export const useChannelPlan = <P>(
   plan: (client: Synnax) => Promise<P>,
 ): P | undefined => {
   const client = PSynnax.use();
-  const key = JSON.stringify(inputs);
+  const key = binary.JSON_CODEC.encodeString(inputs);
   const [result, setResult] = useState<{ key: string; plan: P }>();
   useAsyncEffect(
     async (signal) => {
