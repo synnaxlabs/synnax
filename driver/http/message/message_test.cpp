@@ -147,7 +147,7 @@ TEST(Reader, AddsNothingWhenValueDoesNotConvert) {
     x::telem::Frame fr(2);
     const auto err = r.read(R"({"v": "x"})", RECEIVED, fr);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    ASSERT_EQ(err.data, R"(message reading: field v: unknown enum label "x")");
+    ASSERT_EQ(err.data, R"(field v: unknown enum label "x")");
     ASSERT_TRUE(fr.empty());
 }
 
