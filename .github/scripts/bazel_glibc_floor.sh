@@ -24,15 +24,17 @@ if ! docker image inspect "$image" > /dev/null 2>&1; then
 fi
 root="$HOME/.cache/bazel-glibc-floor/${RUNNER_NAME:-local}"
 mkdir -p "$root"
-# A cancelled job signals this script, not the container.
-name="bazel-glibc-floor-$$"
-trap 'docker kill "$name" > /dev/null 2>&1 || true' EXIT
 command=$1
 shift
+# A cancelled job signals this script, not the container, so the build runs in the
+# background where a trap can stop the container at once.
+name="bazel-glibc-floor-$$"
+trap 'docker kill "$name" > /dev/null 2>&1 || true' INT TERM EXIT
 # The image joins every action key, so the remote cache never serves a tool that a host
 # build linked against a newer glibc.
 docker run --rm --init --name "$name" --user "$(id -u):$(id -g)" \
     --env HOME="$root" --env USER=runner \
     --volume "$PWD:$PWD" --volume "$root:$root" --workdir "$PWD" "$image" \
-    bazel --output_user_root="$root/bazel" "$command" --action_env=BUILD_IMAGE="$image" \
-    --host_action_env=BUILD_IMAGE="$image" "$@"
+    bazel --output_user_root="$root/bazel" "$command" \
+    --action_env=BUILD_IMAGE="$image" --host_action_env=BUILD_IMAGE="$image" "$@" &
+wait $!
