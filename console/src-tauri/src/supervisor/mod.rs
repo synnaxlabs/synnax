@@ -1142,10 +1142,16 @@ while true; do sleep 1; done
         assert_eq!(first.starts, 0);
         assert_eq!(first.failures, 1);
         assert_eq!(first.last_exit.unwrap().reason, Reason::FailedToStart);
+        // Starting can pass before a status read, so wait on the count instead.
+        let mut history = sup.history.clone();
         sup.restart().await;
-        wait_for(&sup, |s| matches!(s, Status::Starting)).await;
-        wait_for(&sup, |s| matches!(s, Status::Failed { .. })).await;
-        assert_eq!(sup.history().failures, 2);
+        tokio::time::timeout(
+            Duration::from_secs(10),
+            history.wait_for(|h| h.failures == 2),
+        )
+        .await
+        .expect("timed out waiting for the second failure")
+        .unwrap();
     }
 
     #[tokio::test]
