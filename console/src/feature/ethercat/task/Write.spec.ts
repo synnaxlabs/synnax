@@ -68,14 +68,17 @@ const createDraft = async (
 const renderWrite = async (config: z.infer<EtherCAT.Task.WriteSchemas["config"]>) => {
   const draft = await createDraft(client, config);
   const statuses: Status.NotificationSpec[] = [];
-  const rendered = await renderTaskFormTab(EtherCAT.Task.Write, {
-    client,
-    taskKey: draft.key,
-    onStatuses: (next) => {
-      statuses.length = 0;
-      statuses.push(...next);
+  const rendered = await renderTaskFormTab(
+    EtherCAT.Task.FORMS[EtherCAT.Task.WRITE_TYPE],
+    {
+      client,
+      taskKey: draft.key,
+      onStatuses: (next) => {
+        statuses.length = 0;
+        statuses.push(...next);
+      },
     },
-  });
+  );
   await awaitEditableForm();
   return { ...rendered, draft, statuses };
 };

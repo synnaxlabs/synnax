@@ -331,7 +331,7 @@ describe("lineplot/toolbar/Data", () => {
     describe("label", () => {
       // The day names depend on today, so the clock is fixed.
       beforeEach(() => {
-        vi.useFakeTimers({ toFake: ["Date"] });
+        vi.useFakeTimers({ toFake: ["Date", "Temporal"] });
         vi.setSystemTime(new Date(2026, 10, 3, 15, 0));
       });
       afterEach(() => vi.useRealTimers());
