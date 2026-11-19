@@ -15,7 +15,6 @@ import {
   type CrudeTimeStamp,
   DataType,
   deep,
-  type destructor,
   filter,
   type MultiSeries,
   type TypedArray,
@@ -393,12 +392,9 @@ export class Client extends query.Retriever<
     this.writer = writer;
     this.store = store;
     this.dispatcher = dispatcher;
-    this.setGroupRequest = (keys, to) =>
-      array.toArray(keys).map((key) => ({
-        endpoint: "/channel/dispatch",
-        payload: { key, actions: group.moveActions(to) },
-        apply: () => this.moveThrough(key, to ?? undefined),
-      }));
+    this.setGroupRequest = group.createMoveRequest((key, acts) =>
+      dispatcher.request("/channel/dispatch", key, acts, dispatchResZ),
+    );
     this.byName = byName;
   }
 
@@ -620,20 +616,6 @@ export class Client extends query.Retriever<
    */
   async dispatch(key: Key, actions: Action | Action[]): Promise<void> {
     await this.dispatcher.send(key, array.toArray(actions));
-  }
-
-  /**
-   * Sets the group of the cached channel, skipping when absent. Returns a rollback that
-   * restores only the group.
-   */
-  private moveThrough(key: Key, to?: group.Key): destructor.Destructor {
-    const prev = this.store.get(key)?.group;
-    const set = (g?: group.Key) =>
-      this.store.set(key, (p) =>
-        p == null ? undefined : this.sugar({ ...p.payload, group: g }),
-      );
-    set(to);
-    return () => set(prev);
   }
 
   sugar(payload: Payload): Channel;

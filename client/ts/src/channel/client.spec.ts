@@ -16,6 +16,7 @@ import { batch } from "@/batch";
 import { channel } from "@/channel";
 import { ValidationError } from "@/errors";
 import { framer } from "@/framer";
+import { group } from "@/group";
 import { query } from "@/query";
 import { status } from "@/status";
 import { PushStreamer, TEST_CORE_ADDRESS } from "@/testutil";
@@ -36,6 +37,8 @@ const RENAMED: channel.Payload = {
 const OTHER: channel.Payload = { ...RENAMED, key: 2, name: "other" };
 const SENTINEL: channel.Payload = { ...RENAMED, key: 3, name: "sentinel" };
 
+const G1 = "5c2b3a4e-0f7d-4f5e-9a51-1d2a3b4c5d6e";
+const G2 = "7e1f2a3b-4c5d-4e6f-8a9b-0c1d2e3f4a5b";
 const CREATED_KEY = channel.keyZ.parse((3 << 20) | 7);
 const CREATED: channel.Stored = {
   name: "created",
@@ -105,6 +108,7 @@ const createStreamedClient = async ({
     },
   };
   const stream = new PushStreamer();
+  const batches = new batch.Client(unary);
   const cache = new query.Cache({
     openStreamer: async () => stream,
     breaker: { baseInterval: TimeSpan.milliseconds(1) },
@@ -124,7 +128,7 @@ const createStreamedClient = async ({
     writer: new channel.Writer(unary),
     statuses: new status.Client({ unary, cache }),
     cache,
-    batch: new batch.Client(unary),
+    batch: batches,
   });
   await cache.ensureStreaming();
   // Frames apply in order, so the delete applies after the late echo.
@@ -146,7 +150,7 @@ const createStreamedClient = async ({
     await expect.poll(() => channels.store.has(SENTINEL.key)).toBe(false);
   };
   await channels.retrieve([RENAMED.key, OTHER.key, SENTINEL.key]);
-  return { stream, channels, dispatchKeys, pushLateEcho };
+  return { stream, channels, batches, dispatchKeys, pushLateEcho };
 };
 
 describe("channel.Client", () => {
@@ -168,6 +172,17 @@ describe("channel.Client", () => {
       await channels.rename(keys, ["second", "second other"]);
       await pushLateEcho(RENAMED.key, [channel.rename({ name: "first" })]);
       expect(channels.store.get(RENAMED.key)?.name).toEqual("second");
+    });
+  });
+
+  describe("two batch moves of several channels", () => {
+    it("should keep the second group when the echo of the first arrives late", async () => {
+      const { channels, batches, pushLateEcho } = await createStreamedClient();
+      const keys = [RENAMED.key, OTHER.key];
+      await batches.send(channels.setGroupRequest(keys, G1));
+      await batches.send(channels.setGroupRequest(keys, G2));
+      await pushLateEcho(RENAMED.key, group.moveActions(G1));
+      expect(channels.store.get(RENAMED.key)?.group).toEqual(G2);
     });
   });
 
