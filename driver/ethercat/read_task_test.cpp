@@ -339,6 +339,19 @@ TEST_F(EtherCATReadTest, ParseConfigRejectsTwoChannelsOnOneEntry) {
     );
 }
 
+/// @brief it should reject two entries that feed one Synnax channel.
+TEST_F(EtherCATReadTest, ParseConfigRejectsTwoEntriesOnOneChannel) {
+    const auto data_ch = create_data_channel("shared", x::telem::INT32_T);
+
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(create_input_channel_config(data_ch, 0x6000, 1, "int16"));
+    cfg["channels"].push_back(create_input_channel_config(data_ch, 0x6000, 2, "int32"));
+
+    auto parser = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(client, parser);
+    ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
+}
+
 /// @brief it should allow a disabled read channel on an entry another channel uses.
 TEST_F(EtherCATReadTest, ParseConfigAllowsADisabledChannelOnAUsedEntry) {
     const auto ch1 = create_data_channel("ch1", x::telem::INT16_T);

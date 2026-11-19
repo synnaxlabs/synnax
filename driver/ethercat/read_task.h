@@ -80,6 +80,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         }
 
         channel::Claims claims;
+        std::set<synnax::channel::Key> read_keys;
         cfg.iter("channels", [&](x::json::Parser &ch) {
             // The channels share one error list, so an earlier channel's error shows
             // in ch.error().
@@ -88,6 +89,10 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             if (ch.errors->size() != errors_before) return;
             const auto &base = ::synnax::ethercat::base(parsed);
             if (base.disabled) return;
+            if (!read_keys.insert(base.channel).second) {
+                ch.field_err("channel", "another channel in the task reads into it");
+                return;
+            }
             const auto *slave = this->slaves.resolve(*client, base.device, ch);
             if (slave == nullptr) return;
             auto input = channel::make_input(parsed, *slave, ch);
