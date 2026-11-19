@@ -15,6 +15,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/x/compare"
@@ -36,10 +37,11 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
-	name    *gorp.SortedIndex[Key, Table, string]
-	group   *gorp.KeyReference[Key, Table, group.Key]
-	project *gorp.KeyReference[Key, Table, project.Key]
-	search  *gorp.SearchIndex[Key, Table]
+	name                   *gorp.SortedIndex[Key, Table, string]
+	group                  *gorp.KeyReference[Key, Table, group.Key]
+	project                *gorp.KeyReference[Key, Table, project.Key]
+	rowsCellsConfigChannel *gorp.KeyReference[Key, Table, channel.Key]
+	search                 *gorp.SearchIndex[Key, Table]
 }
 
 // newIndexes constructs a fresh indexes value, allocating one instance of each
@@ -76,6 +78,40 @@ func newIndexes() indexes {
 				return []project.Key{*e.Project}
 			},
 		}),
+		rowsCellsConfigChannel: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Table, channel.Key]{
+			Name:     "rows.cells.config.channel",
+			Table:    "channel",
+			OnDelete: gorp.Weak,
+			Kind:     gorp.Use,
+			Tag:      1, // direction read
+			Targets: func(e *Table) []channel.Key {
+				var targets []channel.Key
+				for _, v1 := range e.Rows {
+					for _, v2 := range v1.Cells {
+						switch v3 := v2.Config.Variant.(type) {
+						case ValueCellConfig:
+							if v3.Channel != 0 {
+								targets = append(targets, v3.Channel)
+							}
+						}
+					}
+				}
+				return targets
+			},
+			Detach: func(e *Table, t channel.Key) {
+				for i4 := range e.Rows {
+					for i5 := range e.Rows[i4].Cells {
+						switch v6 := e.Rows[i4].Cells[i5].Config.Variant.(type) {
+						case ValueCellConfig:
+							if v6.Channel == t {
+								v6.Channel = 0
+							}
+							e.Rows[i4].Cells[i5].Config.Variant = v6
+						}
+					}
+				}
+			},
+		}),
 		search: gorp.NewSearchIndex[Key, Table](
 			"search",
 			func(e *Table) []string {
@@ -100,6 +136,7 @@ func (i indexes) references() []gorp.Reference[Key, Table] {
 	return []gorp.Reference[Key, Table]{
 		i.group,
 		i.project,
+		i.rowsCellsConfigChannel,
 	}
 }
 

@@ -206,6 +206,15 @@ var _ = Describe("Weak reference", func() {
 			Expect(symbols.DropDangling(ctx, db, &s)).To(BeFalse())
 			Expect(s.Channels).To(Equal([]uint32{1}))
 		})
+
+		It("Should drop a key that was never issued", func(ctx SpecContext) {
+			createChannel(ctx, 1)
+			deleteChannel(ctx, 1)
+			never := counter.Load() + 1
+			s := weakSymbol{Key: "a", Channels: []uint32{1, never}}
+			Expect(symbols.DropDangling(ctx, db, &s)).To(BeTrue())
+			Expect(s.Channels).To(Equal([]uint32{1}))
+		})
 	})
 
 	Describe("Registration", func() {

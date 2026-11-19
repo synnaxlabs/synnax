@@ -73,7 +73,10 @@ CellConfig union on variant {
     }
     value {
         channel           channel.Key = 0 {
-            @doc value "is the channel whose value the cell displays."
+            @doc value     "is the channel whose value the cell displays."
+            @ref direction read
+            @ref kind      use
+            @ref on_delete weak
         }
         rolling_average   int32 = 1 {
             @doc value    "is the sample window for rolling-average smoothing."

@@ -1387,7 +1387,7 @@ var _ = Describe("@ref", func() {
 
 		Describe("weak and direction", func() {
 			It(
-				"Should keep the holder of a weak reference and never detach it",
+				"Should reset a weak key that holds none at zero in its Detach",
 				func() {
 					generate(`
 				Chan struct {
@@ -1400,10 +1400,29 @@ var _ = Describe("@ref", func() {
 							`Name:     "channels.channel",`,
 							"OnDelete: gorp.Weak,",
 							"if v1.Channel != 0 {",
+							"Detach: func(e *ReadConfig, t channel.Key) {",
+							"if e.Channels[i2].Channel == t {",
+							"e.Channels[i2].Channel = 0",
 						).
-						ToNotContain("Detach:", `"slices"`, "Tag:")
+						ToNotContain(`"slices"`, "Tag:")
 				},
 			)
+
+			It("Should drop the element of a required weak key in its Detach", func() {
+				generate(`
+				Binding struct {
+					name    string
+					channel channel.Key @ref on_delete weak @ref kind use
+				}
+			`, `
+				bindings Binding[]
+			`).
+					ToContain(
+						"OnDelete: gorp.Weak,",
+						"e.Bindings = slices.DeleteFunc(e.Bindings, func(v2 Binding) bool {",
+						"if v2.Channel == t {",
+					)
+			})
 
 			It("Should write the direction of a nested reference into its tag", func() {
 				generate(`
@@ -1548,6 +1567,18 @@ var _ = Describe("@ref", func() {
 					"return []rack.Key{e.Spare}",
 				).
 				ToNotContain("Detach:", "Tag:")
+		})
+
+		It("Should clear a weak reference that can hold none in its Detach", func() {
+			resp := MustGenerate(device(`
+			spare rack.Key? @ref on_delete weak @ref kind use
+		`), "device", loader, p)
+			ExpectContent(resp, "retrieve.gen.go").
+				ToContain(
+					"OnDelete: gorp.Weak,",
+					"Detach: func(e *Device, _ rack.Key) { e.Spare = nil },",
+				).
+				ToBeValidGoSource()
 		})
 
 		It("Should write the direction of a reference into its tag", func() {

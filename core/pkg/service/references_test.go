@@ -10,16 +10,26 @@
 package service_test
 
 import (
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic"
+	schematicversions "github.com/synnaxlabs/synnax/pkg/service/schematic/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/table"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -126,6 +136,152 @@ var _ = Describe("References", Ordered, func() {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return layer.Device.NewWriter(tx).Delete(ctx, dev.Key)
 			})).To(Succeed())
+		})
+	})
+
+	Describe("Schematic and table channels", func() {
+		var (
+			ch   channel.Channel
+			proj project.Project
+		)
+		BeforeEach(func(ctx SpecContext) {
+			proj = project.Project{Name: "Visuals"}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return layer.Project.NewWriter(tx).Create(ctx, &proj)
+			})).To(Succeed())
+			ch = channel.Channel{
+				Name:     UniqueChannelName(),
+				DataType: telem.Float32T,
+				Virtual:  true,
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return layer.Channel.NewWriter(tx).Create(ctx, &ch)
+			})).To(Succeed())
+		})
+
+		deleteChannel := func(ctx SpecContext) {
+			GinkgoHelper()
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return layer.Channel.NewWriter(tx).Delete(ctx, ch.Key(), false)
+			})).To(Succeed())
+		}
+
+		valueSchematic := func(key channel.Key) schematic.Schematic {
+			var value schematic.ValueNodeConfig
+			value.SetDefaults()
+			value.Channel = key
+			return schematic.Schematic{
+				Name:    "pid",
+				Project: &proj.Key,
+				Nodes: []schematic.Node{{
+					Key:    "value",
+					Config: schematic.NodeConfig{Variant: value},
+				}},
+			}
+		}
+
+		It("Should keep a schematic and its key when its channel is deleted", func(
+			ctx SpecContext,
+		) {
+			s := valueSchematic(ch.Key())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return layer.Schematic.NewWriter(tx).Create(ctx, &s)
+			})).To(Succeed())
+			deleteChannel(ctx)
+			var res schematic.Schematic
+			Expect(layer.Schematic.NewRetrieve().
+				Where(schematic.MatchKeys(s.Key)).
+				Entry(&res).
+				Exec(ctx, db)).To(Succeed())
+			value, ok := res.Nodes[0].Config.Variant.(schematic.ValueNodeConfig)
+			Expect(ok).To(BeTrue())
+			Expect(value.Channel).To(Equal(ch.Key()))
+		})
+
+		It("Should refuse a schematic that names a channel key never issued", func(
+			ctx SpecContext,
+		) {
+			key := distchannel.NewKey(ch.Leaseholder, ch.LocalKey+1000)
+			s := valueSchematic(key)
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return layer.Schematic.NewWriter(tx).Create(ctx, &s)
+			})).To(MatchError(ContainSubstring(
+				"channel " + key.String() + " was never issued",
+			)))
+		})
+
+		It("Should clear a never-issued key on import and keep a deleted one", func(
+			ctx SpecContext,
+		) {
+			dead := valueSchematic(ch.Key())
+			deleteChannel(ctx)
+			never := valueSchematic(
+				distchannel.NewKey(ch.Leaseholder, ch.LocalKey+1000),
+			)
+			dead.Nodes = append(dead.Nodes, never.Nodes[0])
+			dead.Nodes[1].Key = "never"
+			env := imex.Envelope{
+				Version: schematicversions.Latest,
+				Type:    string(resource.TypeSchematic),
+				Name:    dead.Name,
+			}
+			Expect(env.Encode(dead)).To(Succeed())
+			var id resource.ID
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+				id, err = layer.ImEx.Import(
+					ctx,
+					tx,
+					WireRoundTrip(env),
+					imex.ImportOptions{Parent: proj.ResourceID()},
+				)
+				return err
+			})).To(Succeed())
+			var res schematic.Schematic
+			Expect(layer.Schematic.NewRetrieve().
+				Where(schematic.MatchKeys(MustSucceed(uuid.Parse(id.Key)))).
+				Entry(&res).
+				Exec(ctx, db)).To(Succeed())
+			channelOf := func(n schematic.Node) channel.Key {
+				GinkgoHelper()
+				value, ok := n.Config.Variant.(schematic.ValueNodeConfig)
+				Expect(ok).To(BeTrue())
+				return value.Channel
+			}
+			Expect(channelOf(res.Nodes[0])).To(Equal(ch.Key()))
+			Expect(channelOf(res.Nodes[1])).To(BeZero())
+		})
+
+		It("Should keep a table cell and its key when its channel is deleted", func(
+			ctx SpecContext,
+		) {
+			var cell table.ValueCellConfig
+			cell.SetDefaults()
+			cell.Channel = ch.Key()
+			t := table.Table{
+				Name:    "readings",
+				Project: &proj.Key,
+				Columns: []table.Column{{Key: "column", Size: 72}},
+				Rows: []table.Row{{
+					Key:  "row",
+					Size: 36,
+					Cells: []table.Cell{{
+						Key:    "cell",
+						Config: table.CellConfig{Variant: cell},
+					}},
+				}},
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return layer.Table.NewWriter(tx).Create(ctx, &t)
+			})).To(Succeed())
+			deleteChannel(ctx)
+			var res table.Table
+			Expect(layer.Table.NewRetrieve().
+				Where(table.MatchKeys(t.Key)).
+				Entry(&res).
+				Exec(ctx, db)).To(Succeed())
+			stored, ok := res.Rows[0].Cells[0].Config.Variant.(table.ValueCellConfig)
+			Expect(ok).To(BeTrue())
+			Expect(stored.Channel).To(Equal(ch.Key()))
 		})
 	})
 

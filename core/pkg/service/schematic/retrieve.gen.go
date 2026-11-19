@@ -15,6 +15,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/x/compare"
@@ -36,10 +37,13 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
-	name    *gorp.SortedIndex[Key, Schematic, string]
-	group   *gorp.KeyReference[Key, Schematic, group.Key]
-	project *gorp.KeyReference[Key, Schematic, project.Key]
-	search  *gorp.SearchIndex[Key, Schematic]
+	name                      *gorp.SortedIndex[Key, Schematic, string]
+	group                     *gorp.KeyReference[Key, Schematic, group.Key]
+	project                   *gorp.KeyReference[Key, Schematic, project.Key]
+	nodesConfigStateChannel   *gorp.KeyReference[Key, Schematic, channel.Key]
+	nodesConfigCommandChannel *gorp.KeyReference[Key, Schematic, channel.Key]
+	nodesConfigChannel        *gorp.KeyReference[Key, Schematic, channel.Key]
+	search                    *gorp.SearchIndex[Key, Schematic]
 }
 
 // newIndexes constructs a fresh indexes value, allocating one instance of each
@@ -76,6 +80,789 @@ func newIndexes() indexes {
 				return []project.Key{*e.Project}
 			},
 		}),
+		nodesConfigStateChannel: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Schematic, channel.Key]{
+			Name:     "nodes.config.state_channel",
+			Table:    "channel",
+			OnDelete: gorp.Weak,
+			Kind:     gorp.Use,
+			Tag:      1, // direction read
+			Targets: func(e *Schematic) []channel.Key {
+				var targets []channel.Key
+				for _, v1 := range e.Nodes {
+					switch v2 := v1.Config.Variant.(type) {
+					case ThrusterNodeConfig:
+						if v2.StateChannel != 0 {
+							targets = append(targets, v2.StateChannel)
+						}
+					case InputNodeConfig:
+						if v2.StateChannel != 0 {
+							targets = append(targets, v2.StateChannel)
+						}
+					case SelectNodeConfig:
+						if v2.StateChannel != 0 {
+							targets = append(targets, v2.StateChannel)
+						}
+					case SetpointNodeConfig:
+						if v2.StateChannel != 0 {
+							targets = append(targets, v2.StateChannel)
+						}
+					case SwitchNodeConfig:
+						if v2.StateChannel != 0 {
+							targets = append(targets, v2.StateChannel)
+						}
+					case AgitatorNodeConfig:
+						if v2.StateChannel != 0 {
+							targets = append(targets, v2.StateChannel)
+						}
+					case CrossBeamAgitatorNodeConfig:
+						if v2.StateChannel != 0 {
+							targets = append(targets, v2.StateChannel)
+						}
+					case FlatBladeAgitatorNodeConfig:
+						if v2.StateChannel != 0 {
+							targets = append(targets, v2.StateChannel)
+						}
+					case HelicalAgitatorNodeConfig:
+						if v2.StateChannel != 0 {
+							targets = append(targets, v2.StateChannel)
+						}
+					case PaddleAgitatorNodeConfig:
+						if v2.StateChannel != 0 {
+							targets = append(targets, v2.StateChannel)
+						}
+					case PropellerAgitatorNodeConfig:
+						if v2.StateChannel != 0 {
+							targets = append(targets, v2.StateChannel)
+						}
+					case RotaryMixerNodeConfig:
+						if v2.StateChannel != 0 {
+							targets = append(targets, v2.StateChannel)
+						}
+					case CavityPumpNodeConfig:
+						if v2.StateChannel != 0 {
+							targets = append(targets, v2.StateChannel)
+						}
+					case CentrifugalCompressorNodeConfig:
+						if v2.StateChannel != 0 {
+							targets = append(targets, v2.StateChannel)
+						}
+					case CompressorNodeConfig:
+						if v2.StateChannel != 0 {
+							targets = append(targets, v2.StateChannel)
+						}
+					case DiaphragmPumpNodeConfig:
+						if v2.StateChannel != 0 {
+							targets = append(targets, v2.StateChannel)
+						}
+					case EjectionPumpNodeConfig:
+						if v2.StateChannel != 0 {
+							targets = append(targets, v2.StateChannel)
+						}
+					case EjectorCompressorNodeConfig:
+						if v2.StateChannel != 0 {
+							targets = append(targets, v2.StateChannel)
+						}
+					case LiquidRingCompressorNodeConfig:
+						if v2.StateChannel != 0 {
+							targets = append(targets, v2.StateChannel)
+						}
+					case PistonPumpNodeConfig:
+						if v2.StateChannel != 0 {
+							targets = append(targets, v2.StateChannel)
+						}
+					case PumpNodeConfig:
+						if v2.StateChannel != 0 {
+							targets = append(targets, v2.StateChannel)
+						}
+					case RollerVaneCompressorNodeConfig:
+						if v2.StateChannel != 0 {
+							targets = append(targets, v2.StateChannel)
+						}
+					case ScrewPumpNodeConfig:
+						if v2.StateChannel != 0 {
+							targets = append(targets, v2.StateChannel)
+						}
+					case TurboCompressorNodeConfig:
+						if v2.StateChannel != 0 {
+							targets = append(targets, v2.StateChannel)
+						}
+					case VacuumPumpNodeConfig:
+						if v2.StateChannel != 0 {
+							targets = append(targets, v2.StateChannel)
+						}
+					case AngledValveNodeConfig:
+						if v2.StateChannel != 0 {
+							targets = append(targets, v2.StateChannel)
+						}
+					case BallValveNodeConfig:
+						if v2.StateChannel != 0 {
+							targets = append(targets, v2.StateChannel)
+						}
+					case ButterflyValveOneNodeConfig:
+						if v2.StateChannel != 0 {
+							targets = append(targets, v2.StateChannel)
+						}
+					case ButterflyValveTwoNodeConfig:
+						if v2.StateChannel != 0 {
+							targets = append(targets, v2.StateChannel)
+						}
+					case FourWayValveNodeConfig:
+						if v2.StateChannel != 0 {
+							targets = append(targets, v2.StateChannel)
+						}
+					case GateValveNodeConfig:
+						if v2.StateChannel != 0 {
+							targets = append(targets, v2.StateChannel)
+						}
+					case SolenoidValveNodeConfig:
+						if v2.StateChannel != 0 {
+							targets = append(targets, v2.StateChannel)
+						}
+					case ThreeWayValveNodeConfig:
+						if v2.StateChannel != 0 {
+							targets = append(targets, v2.StateChannel)
+						}
+					case ThreeWayBallValveNodeConfig:
+						if v2.StateChannel != 0 {
+							targets = append(targets, v2.StateChannel)
+						}
+					case ValveNodeConfig:
+						if v2.StateChannel != 0 {
+							targets = append(targets, v2.StateChannel)
+						}
+					case CustomActuatorNodeConfig:
+						if v2.StateChannel != 0 {
+							targets = append(targets, v2.StateChannel)
+						}
+					}
+				}
+				return targets
+			},
+			Detach: func(e *Schematic, t channel.Key) {
+				for i3 := range e.Nodes {
+					switch v4 := e.Nodes[i3].Config.Variant.(type) {
+					case ThrusterNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case InputNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case SelectNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case SetpointNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case SwitchNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case AgitatorNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case CrossBeamAgitatorNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case FlatBladeAgitatorNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case HelicalAgitatorNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case PaddleAgitatorNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case PropellerAgitatorNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case RotaryMixerNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case CavityPumpNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case CentrifugalCompressorNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case CompressorNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case DiaphragmPumpNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case EjectionPumpNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case EjectorCompressorNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case LiquidRingCompressorNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case PistonPumpNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case PumpNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case RollerVaneCompressorNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case ScrewPumpNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case TurboCompressorNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case VacuumPumpNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case AngledValveNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case BallValveNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case ButterflyValveOneNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case ButterflyValveTwoNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case FourWayValveNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case GateValveNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case SolenoidValveNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case ThreeWayValveNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case ThreeWayBallValveNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case ValveNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case CustomActuatorNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					}
+				}
+			},
+		}),
+		nodesConfigCommandChannel: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Schematic, channel.Key]{
+			Name:     "nodes.config.command_channel",
+			Table:    "channel",
+			OnDelete: gorp.Weak,
+			Kind:     gorp.Use,
+			Tag:      2, // direction write
+			Targets: func(e *Schematic) []channel.Key {
+				var targets []channel.Key
+				for _, v1 := range e.Nodes {
+					switch v2 := v1.Config.Variant.(type) {
+					case ThrusterNodeConfig:
+						if v2.CommandChannel != 0 {
+							targets = append(targets, v2.CommandChannel)
+						}
+					case ButtonNodeConfig:
+						if v2.CommandChannel != 0 {
+							targets = append(targets, v2.CommandChannel)
+						}
+					case InputNodeConfig:
+						if v2.CommandChannel != 0 {
+							targets = append(targets, v2.CommandChannel)
+						}
+					case SelectNodeConfig:
+						if v2.CommandChannel != 0 {
+							targets = append(targets, v2.CommandChannel)
+						}
+					case SetpointNodeConfig:
+						if v2.CommandChannel != 0 {
+							targets = append(targets, v2.CommandChannel)
+						}
+					case SwitchNodeConfig:
+						if v2.CommandChannel != 0 {
+							targets = append(targets, v2.CommandChannel)
+						}
+					case AgitatorNodeConfig:
+						if v2.CommandChannel != 0 {
+							targets = append(targets, v2.CommandChannel)
+						}
+					case CrossBeamAgitatorNodeConfig:
+						if v2.CommandChannel != 0 {
+							targets = append(targets, v2.CommandChannel)
+						}
+					case FlatBladeAgitatorNodeConfig:
+						if v2.CommandChannel != 0 {
+							targets = append(targets, v2.CommandChannel)
+						}
+					case HelicalAgitatorNodeConfig:
+						if v2.CommandChannel != 0 {
+							targets = append(targets, v2.CommandChannel)
+						}
+					case PaddleAgitatorNodeConfig:
+						if v2.CommandChannel != 0 {
+							targets = append(targets, v2.CommandChannel)
+						}
+					case PropellerAgitatorNodeConfig:
+						if v2.CommandChannel != 0 {
+							targets = append(targets, v2.CommandChannel)
+						}
+					case RotaryMixerNodeConfig:
+						if v2.CommandChannel != 0 {
+							targets = append(targets, v2.CommandChannel)
+						}
+					case CavityPumpNodeConfig:
+						if v2.CommandChannel != 0 {
+							targets = append(targets, v2.CommandChannel)
+						}
+					case CentrifugalCompressorNodeConfig:
+						if v2.CommandChannel != 0 {
+							targets = append(targets, v2.CommandChannel)
+						}
+					case CompressorNodeConfig:
+						if v2.CommandChannel != 0 {
+							targets = append(targets, v2.CommandChannel)
+						}
+					case DiaphragmPumpNodeConfig:
+						if v2.CommandChannel != 0 {
+							targets = append(targets, v2.CommandChannel)
+						}
+					case EjectionPumpNodeConfig:
+						if v2.CommandChannel != 0 {
+							targets = append(targets, v2.CommandChannel)
+						}
+					case EjectorCompressorNodeConfig:
+						if v2.CommandChannel != 0 {
+							targets = append(targets, v2.CommandChannel)
+						}
+					case LiquidRingCompressorNodeConfig:
+						if v2.CommandChannel != 0 {
+							targets = append(targets, v2.CommandChannel)
+						}
+					case PistonPumpNodeConfig:
+						if v2.CommandChannel != 0 {
+							targets = append(targets, v2.CommandChannel)
+						}
+					case PumpNodeConfig:
+						if v2.CommandChannel != 0 {
+							targets = append(targets, v2.CommandChannel)
+						}
+					case RollerVaneCompressorNodeConfig:
+						if v2.CommandChannel != 0 {
+							targets = append(targets, v2.CommandChannel)
+						}
+					case ScrewPumpNodeConfig:
+						if v2.CommandChannel != 0 {
+							targets = append(targets, v2.CommandChannel)
+						}
+					case TurboCompressorNodeConfig:
+						if v2.CommandChannel != 0 {
+							targets = append(targets, v2.CommandChannel)
+						}
+					case VacuumPumpNodeConfig:
+						if v2.CommandChannel != 0 {
+							targets = append(targets, v2.CommandChannel)
+						}
+					case AngledValveNodeConfig:
+						if v2.CommandChannel != 0 {
+							targets = append(targets, v2.CommandChannel)
+						}
+					case BallValveNodeConfig:
+						if v2.CommandChannel != 0 {
+							targets = append(targets, v2.CommandChannel)
+						}
+					case ButterflyValveOneNodeConfig:
+						if v2.CommandChannel != 0 {
+							targets = append(targets, v2.CommandChannel)
+						}
+					case ButterflyValveTwoNodeConfig:
+						if v2.CommandChannel != 0 {
+							targets = append(targets, v2.CommandChannel)
+						}
+					case FourWayValveNodeConfig:
+						if v2.CommandChannel != 0 {
+							targets = append(targets, v2.CommandChannel)
+						}
+					case GateValveNodeConfig:
+						if v2.CommandChannel != 0 {
+							targets = append(targets, v2.CommandChannel)
+						}
+					case SolenoidValveNodeConfig:
+						if v2.CommandChannel != 0 {
+							targets = append(targets, v2.CommandChannel)
+						}
+					case ThreeWayValveNodeConfig:
+						if v2.CommandChannel != 0 {
+							targets = append(targets, v2.CommandChannel)
+						}
+					case ThreeWayBallValveNodeConfig:
+						if v2.CommandChannel != 0 {
+							targets = append(targets, v2.CommandChannel)
+						}
+					case ValveNodeConfig:
+						if v2.CommandChannel != 0 {
+							targets = append(targets, v2.CommandChannel)
+						}
+					case CustomActuatorNodeConfig:
+						if v2.CommandChannel != 0 {
+							targets = append(targets, v2.CommandChannel)
+						}
+					}
+				}
+				return targets
+			},
+			Detach: func(e *Schematic, t channel.Key) {
+				for i3 := range e.Nodes {
+					switch v4 := e.Nodes[i3].Config.Variant.(type) {
+					case ThrusterNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case ButtonNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case InputNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case SelectNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case SetpointNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case SwitchNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case AgitatorNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case CrossBeamAgitatorNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case FlatBladeAgitatorNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case HelicalAgitatorNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case PaddleAgitatorNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case PropellerAgitatorNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case RotaryMixerNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case CavityPumpNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case CentrifugalCompressorNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case CompressorNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case DiaphragmPumpNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case EjectionPumpNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case EjectorCompressorNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case LiquidRingCompressorNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case PistonPumpNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case PumpNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case RollerVaneCompressorNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case ScrewPumpNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case TurboCompressorNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case VacuumPumpNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case AngledValveNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case BallValveNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case ButterflyValveOneNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case ButterflyValveTwoNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case FourWayValveNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case GateValveNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case SolenoidValveNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case ThreeWayValveNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case ThreeWayBallValveNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case ValveNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case CustomActuatorNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					}
+				}
+			},
+		}),
+		nodesConfigChannel: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Schematic, channel.Key]{
+			Name:     "nodes.config.channel",
+			Table:    "channel",
+			OnDelete: gorp.Weak,
+			Kind:     gorp.Use,
+			Tag:      1, // direction read
+			Targets: func(e *Schematic) []channel.Key {
+				var targets []channel.Key
+				for _, v1 := range e.Nodes {
+					switch v2 := v1.Config.Variant.(type) {
+					case GaugeNodeConfig:
+						if v2.Channel != 0 {
+							targets = append(targets, v2.Channel)
+						}
+					case LightNodeConfig:
+						if v2.Channel != 0 {
+							targets = append(targets, v2.Channel)
+						}
+					case ScaleNodeConfig:
+						if v2.Channel != 0 {
+							targets = append(targets, v2.Channel)
+						}
+					case StateIndicatorNodeConfig:
+						if v2.Channel != 0 {
+							targets = append(targets, v2.Channel)
+						}
+					case StringDisplayNodeConfig:
+						if v2.Channel != 0 {
+							targets = append(targets, v2.Channel)
+						}
+					case ValueNodeConfig:
+						if v2.Channel != 0 {
+							targets = append(targets, v2.Channel)
+						}
+					case TankNodeConfig:
+						if v2.Channel != 0 {
+							targets = append(targets, v2.Channel)
+						}
+					}
+				}
+				return targets
+			},
+			Detach: func(e *Schematic, t channel.Key) {
+				for i3 := range e.Nodes {
+					switch v4 := e.Nodes[i3].Config.Variant.(type) {
+					case GaugeNodeConfig:
+						if v4.Channel == t {
+							v4.Channel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case LightNodeConfig:
+						if v4.Channel == t {
+							v4.Channel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case ScaleNodeConfig:
+						if v4.Channel == t {
+							v4.Channel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case StateIndicatorNodeConfig:
+						if v4.Channel == t {
+							v4.Channel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case StringDisplayNodeConfig:
+						if v4.Channel == t {
+							v4.Channel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case ValueNodeConfig:
+						if v4.Channel == t {
+							v4.Channel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case TankNodeConfig:
+						if v4.Channel == t {
+							v4.Channel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					}
+				}
+			},
+		}),
 		search: gorp.NewSearchIndex[Key, Schematic](
 			"search",
 			func(e *Schematic) []string {
@@ -100,6 +887,9 @@ func (i indexes) references() []gorp.Reference[Key, Schematic] {
 	return []gorp.Reference[Key, Schematic]{
 		i.group,
 		i.project,
+		i.nodesConfigStateChannel,
+		i.nodesConfigCommandChannel,
+		i.nodesConfigChannel,
 	}
 }
 

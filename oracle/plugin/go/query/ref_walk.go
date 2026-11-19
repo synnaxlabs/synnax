@@ -883,7 +883,6 @@ func renderNestedRefs(
 			if err == nil {
 				nr.DetachBody, err = rd.inlineDetachBody(ref)
 			}
-		case "Weak":
 		default:
 			nr.DetachBody, err = rd.detachBody(ref)
 		}

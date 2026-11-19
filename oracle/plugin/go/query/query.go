@@ -310,7 +310,7 @@ func (r retrieveInfo) needsSlices() bool {
 	return lo.SomeBy(r.Filters, func(f filterInfo) bool {
 		return f.Ref == nil && f.IsSlice
 	}) || lo.SomeBy(r.Refs, func(ref refInfo) bool {
-		return ref.IsSlice && ref.OnDelete == "Detach"
+		return ref.IsSlice && ref.Detaches()
 	}) || lo.SomeBy(r.NestedRefs, func(ref nestedRef) bool { return ref.usesSlices })
 }
 
@@ -1072,7 +1072,7 @@ func newIndexes() indexes {
 				return []{{$ref.TargetType}}{ {{- $ref.TargetOf (printf "e.%s" $ref.GoName) -}} }
 {{- end}}
 			},
-{{- if eq $ref.OnDelete "Detach"}}
+{{- if $ref.Detaches}}
 {{- if $ref.IsSlice}}
 			Detach: func(e *{{$ret.GoName}}, t {{$ref.TargetType}}) {
 				e.{{$ref.GoName}} = slices.DeleteFunc(e.{{$ref.GoName}}, func(v {{$ref.ElemGoType}}) bool {

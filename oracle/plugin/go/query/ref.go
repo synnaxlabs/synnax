@@ -72,6 +72,12 @@ type refInfo struct {
 // HoldsNone reports whether an entry can hold no target through the field.
 func (r refInfo) HoldsNone() bool { return r.IsOptional || r.IsSlice || r.Zero != "" }
 
+// Detaches reports whether the reference gets a Detach: a Detach reference, or a Weak
+// one that can hold no target, whose Detach clears a key that was never issued.
+func (r refInfo) Detaches() bool {
+	return r.OnDelete == "Detach" || (r.OnDelete == "Weak" && r.HoldsNone())
+}
+
 // ZeroOperand returns Zero in a form that can follow == in Go.
 func (r refInfo) ZeroOperand() string {
 	if strings.HasSuffix(r.Zero, "{}") {
