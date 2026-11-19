@@ -17,12 +17,10 @@ import (
 	"reflect"
 	"strconv"
 
-	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	icd "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v0"
 	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v1"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v4"
-	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
@@ -56,29 +54,6 @@ type ScanConfig = v0.ScanConfig
 // ReadField is a single value extracted from a record's JSON value.
 type ReadField = v0.ReadField
 
-// ReadBinding writes the value of one message field to a channel.
-type ReadBinding struct {
-	// Field is the key of the message field to read.
-	Field icd.FieldKey `json:"field" msgpack:"field"`
-	// Channel is the channel the value of the field is written to.
-	Channel channel.Key `json:"channel" msgpack:"channel"`
-	// DataType is the data type of the channel that a client creates for the field.
-	// Empty takes the default of the field's kind. The Core ignores it once the channel
-	// exists.
-	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
-}
-
-// ReadMessage reads the record values of one ICD message.
-type ReadMessage struct {
-	// Message is the key of the ICD message to read.
-	Message icd.MessageKey `json:"message" msgpack:"message"`
-	// Index is the key of the field whose channel indexes the others. Absent when the
-	// task stamps samples with the Kafka timestamp of the record.
-	Index *icd.FieldKey `json:"index,omitzero" msgpack:"index,omitempty"`
-	// Bindings are the fields the task reads. A field with no binding is not read.
-	Bindings []ReadBinding `json:"bindings" msgpack:"bindings"`
-}
-
 // ReadTopic reads the records of one topic.
 type ReadTopic struct {
 	// Key uniquely identifies the topic within the task.
@@ -102,7 +77,7 @@ type ReadRecord struct {
 	ICD icd.Key `json:"icd" msgpack:"icd"`
 	// Messages are the messages the records carry. Each record value is read as the
 	// message whose match rule it meets.
-	Messages []ReadMessage `json:"messages" msgpack:"messages"`
+	Messages []icd.ReadMessage `json:"messages" msgpack:"messages"`
 }
 
 // InlineRecord is a record from before ICDs, which held its fields inline.

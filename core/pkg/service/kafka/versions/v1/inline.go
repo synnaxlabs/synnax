@@ -92,7 +92,7 @@ func ResolveReadConfig(
 			Disabled:  len(read.Bindings) == 0,
 			RecordKey: r.RecordKey,
 			ICD:       ic.Key,
-			Messages:  []ReadMessage{read},
+			Messages:  []icd.ReadMessage{read},
 		})
 	}
 	cfg.Inline = nil
@@ -106,10 +106,10 @@ func liftRecord(
 	found map[channel.Key]Channel,
 	path string,
 	note func(path, change string),
-) (icd.Message, ReadMessage) {
+) (icd.Message, icd.ReadMessage) {
 	var (
 		fields = make([]icd.JSONField, len(r.Fields))
-		read   = ReadMessage{Message: uuid.New(), Bindings: []ReadBinding{}}
+		read   = icd.ReadMessage{Message: uuid.New(), Bindings: []icd.ReadBinding{}}
 		names  = make(set.Set[string])
 	)
 	for i, old := range r.Fields {
@@ -135,7 +135,7 @@ func liftRecord(
 		if old.Disabled {
 			continue
 		}
-		b := ReadBinding{Field: key}
+		b := icd.ReadBinding{Field: key}
 		if ch != nil {
 			b.Channel = old.Channel
 		} else if dataType != "" {

@@ -1503,7 +1503,7 @@ type ReadMessage struct {
 	// Message is the key of the ICD message to read.
 	Message MessageKey `json:"message" msgpack:"message"`
 	// Index is the key of the field whose channel indexes the others. Absent when the
-	// task stamps samples on arrival.
+	// task stamps samples on arrival, or with the timestamp of the Kafka record.
 	Index *FieldKey `json:"index,omitzero" msgpack:"index,omitempty"`
 	// Bindings are the fields the task reads. A field with no binding is not read.
 	Bindings []ReadBinding `json:"bindings" msgpack:"bindings"`

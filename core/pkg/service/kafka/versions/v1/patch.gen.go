@@ -66,13 +66,6 @@ func (ir *InlineRecord) HashContent(h *content.Hash) {
 	}
 }
 
-// HashContent writes the content of the value to h, without its keys.
-func (rb *ReadBinding) HashContent(h *content.Hash) {
-	h.Bytes(rb.Field[:])
-	h.Uint(uint64(rb.Channel))
-	h.String(string(rb.DataType))
-}
-
 // Patch applies the path action at c, which is not done, to the value.
 func (rc *ReadConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
@@ -123,21 +116,6 @@ func (rc *ReadConfig) HashContent(h *content.Hash) {
 	} else {
 		h.Bool(true)
 		rc.Inline.HashContent(h)
-	}
-}
-
-// HashContent writes the content of the value to h, without its keys.
-func (rm *ReadMessage) HashContent(h *content.Hash) {
-	h.Bytes(rm.Message[:])
-	if rm.Index == nil {
-		h.Bool(false)
-	} else {
-		h.Bool(true)
-		h.Bytes((*rm.Index)[:])
-	}
-	h.Len(len(rm.Bindings))
-	for i0 := range rm.Bindings {
-		rm.Bindings[i0].HashContent(h)
 	}
 }
 

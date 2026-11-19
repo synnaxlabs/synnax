@@ -253,7 +253,7 @@ func (c readChecker) checkRecord(rec ReadRecord, path []string) error {
 
 // checkMessage checks rm, at path, against its message in ic and the channels of its
 // bindings, and claims each channel of a binding.
-func (c readChecker) checkMessage(rm ReadMessage, ic icd.ICD, path []string) error {
+func (c readChecker) checkMessage(rm icd.ReadMessage, ic icd.ICD, path []string) error {
 	at := func(err error, segment string) error {
 		return validate.PathedError(err, slices.Concat(path, []string{segment})...)
 	}
@@ -303,7 +303,7 @@ func (c readChecker) checkMessage(rm ReadMessage, ic icd.ICD, path []string) err
 // checkIndex checks the index field of rm, which has one, against fields, the fields of
 // the message named message.
 func checkIndex(
-	rm ReadMessage,
+	rm icd.ReadMessage,
 	fields map[icd.FieldKey]icd.JSONField,
 	message string,
 ) error {
@@ -322,7 +322,7 @@ func checkIndex(
 		return validate.Errorf(
 			"the index field %s cannot take a default", f.Base().Name,
 		)
-	case !slices.ContainsFunc(rm.Bindings, func(b ReadBinding) bool {
+	case !slices.ContainsFunc(rm.Bindings, func(b icd.ReadBinding) bool {
 		return b.Field == *rm.Index
 	}):
 		return validate.Errorf("the index field %s has no binding", f.Base().Name)
@@ -333,7 +333,7 @@ func checkIndex(
 // checkBinding checks b, at path, against f, the field it binds, and its channel, and
 // claims the channel. isIndex is true when f is the index field of its message.
 func (c readChecker) checkBinding(
-	b ReadBinding,
+	b icd.ReadBinding,
 	f icd.JSONField,
 	isIndex bool,
 	path []string,

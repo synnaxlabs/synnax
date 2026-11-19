@@ -302,7 +302,7 @@ export const readMessageZ = z.object({
   message: messageKeyZ,
   /**
    * index is the key of the field whose channel indexes the others. Absent when the
-   * task stamps samples on arrival.
+   * task stamps samples on arrival, or with the timestamp of the Kafka record.
    */
   index: fieldKeyZ.optional(),
   /** bindings are the fields the task reads. A field with no binding is not read. */
