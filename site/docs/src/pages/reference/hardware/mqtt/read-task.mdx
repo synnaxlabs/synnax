@@ -367,8 +367,10 @@ ranges keep their data. Otherwise, the field gets a new channel when you deploy.
 the message has only one timestamp field, and that field has no default, the topic reads
 its time from that field. If the message that the topic read before is a message the
 task made, has no fields, and no other topic reads it, the Console deletes it from its
-ICD. Otherwise, it stays in its ICD. **Message format** shows only on a topic that reads
-one message.
+ICD. Otherwise, it stays in its ICD. The Console knows which messages the task made only
+while the task is open. After you reload the Console or open the task again, an empty
+message stays, like one that you made in the ICD editor. **Message format** shows only
+on a topic that reads one message.
 
 In code, set the `icd` of the topic and the `message` of its `ReadMessage`.
 

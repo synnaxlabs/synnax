@@ -239,7 +239,8 @@ export interface UseReturn {
    * it that can share one index. When the message has one timestamp field, and that
    * field has no default, the source takes its time from it. The message that the
    * source read leaves its ICD when the task made it, it has no fields, and no other
-   * source reads it.
+   * source reads it. `made` holds only the messages made while the form is open, so
+   * after a reload or a reopened tab, an empty message stays.
    */
   setMessage: (source: string, icdKey: icd.Key, message: icd.Message) => void;
 }
