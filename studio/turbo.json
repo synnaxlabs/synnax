@@ -3,7 +3,13 @@
   "extends": ["//"],
   "tasks": {
     "lint": {
-      "inputs": ["$TURBO_EXTENDS$", "scripts/**", "films/**", "videos.ts"]
+      "inputs": [
+        "$TURBO_EXTENDS$",
+        "scripts/**",
+        "films/**",
+        "videos.ts",
+        "vite.config.ts"
+      ]
     }
   }
 }
