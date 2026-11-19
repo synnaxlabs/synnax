@@ -84,7 +84,7 @@ const MultiConfig = ({ nodes }: MultiElementPropertiesProps): ReactElement => {
           const handles = Array.from(handleEls).map((el) => {
             const pos = box.center(box.construct(el));
             const dist = xy.scale(
-              xy.translation(box.topLeft(nodeElBox), pos),
+              xy.sub(pos, box.topLeft(nodeElBox)),
               1 / viewport.zoom,
             );
             const orientation = el.className.match(/react-flow__handle-(\w+)/)?.[1];

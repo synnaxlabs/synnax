@@ -750,6 +750,15 @@ describe("Series", () => {
       expect(b.data).toEqual(new BigInt64Array([1n, 2n, 3n]));
     });
 
+    test("from float64 to int64 rounds non-integer values and offsets", () => {
+      const a = new Series({
+        data: new Float64Array([1.5, -2.4]),
+        dataType: DataType.FLOAT64,
+      });
+      expect(a.convert(DataType.INT64).data).toEqual(new BigInt64Array([2n, -2n]));
+      expect(a.convert(DataType.INT64, 0.4).data).toEqual(new BigInt64Array([2n, -2n]));
+    });
+
     test("from uint8 to boolean normalizes nonzero to 1", () => {
       const a = new Series({
         data: new Uint8Array([0, 1, 42, 0, 255]),
