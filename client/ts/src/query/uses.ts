@@ -13,7 +13,7 @@ import { z } from "zod";
 import { isConnectionError, NotFoundError } from "@/errors";
 import { type Cache } from "@/query/cache";
 import { type Retrieves, type Trigger, trigger } from "@/query/query";
-import { type Keyed, type Table } from "@/query/table";
+import { fetchSurvivors, type Keyed, type Table } from "@/query/table";
 import { type Params } from "@/query/types";
 
 /** A retrieve that can ask for the uses of the records it selects. */
@@ -84,13 +84,9 @@ export class Uses<K extends record.Key, R extends Used<K>, Q extends Params & Re
   constructor(cfg: UsesConfig<K, R, Q>) {
     const { name, cache, table, key } = cfg;
     this.cfg = cfg;
+    // No table fetch, so the reconcile after a reconnect cannot write uses.
     const store = cache.createTable<K, Pick<R, "key" | "uses">>({
       name: `${name}.uses`,
-      fetch: async (keys) =>
-        (await this.retrieve(cfg.request({ in: keys }))).map(({ key, uses }) => ({
-          key,
-          uses,
-        })),
     });
     store.hold({ held: () => this.watched() });
     // A record created again under a deleted key reads its uses again.
@@ -109,10 +105,9 @@ export class Uses<K extends record.Key, R extends Used<K>, Q extends Params & Re
       mu.waiting = true;
       mu.runExclusive(async () => {
         mu.waiting = false;
-        this.evictUnwatched();
-        await store.reconcile();
+        await this.refetchWatched();
       }).catch((exc: unknown) => {
-        // The reconcile after the next reconnect fetches the uses again.
+        // The refetch after the next reconnect fetches the uses again.
         if (isConnectionError(exc)) return;
         cache.onError(new Error(`failed to refetch ${name} uses`, { cause: exc }));
       });
@@ -208,10 +203,25 @@ export class Uses<K extends record.Key, R extends Used<K>, Q extends Params & Re
     return watched;
   }
 
-  private evictUnwatched(): void {
+  // Only the refetch mutex runs this, so no reply can put back the uses it drops.
+  private async refetchWatched(): Promise<void> {
+    const { store, cfg } = this;
     const watched = this.watched();
-    const unwatched = this.store.keys().filter((key) => !watched.has(key));
-    if (unwatched.length > 0) this.store.evict(unwatched);
+    const unwatched = store.keys().filter((key) => !watched.has(key));
+    if (unwatched.length > 0) store.evict(unwatched);
+    const keys = store.keys();
+    if (keys.length === 0) return;
+    await store.track(async (since) => {
+      const records = await fetchSurvivors(
+        async (keys: K[]) =>
+          (await this.retrieve(cfg.request({ in: keys }))).map(({ key, uses }) => ({
+            key,
+            uses,
+          })),
+        keys,
+      );
+      store.ingest(records, { mode: "set", since });
+    });
   }
 
   // A delete of a record that a retrieve returns makes its uses stale, so the retrieve

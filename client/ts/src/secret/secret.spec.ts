@@ -971,5 +971,35 @@ describe("Secret", () => {
       const uses = cached == null ? undefined : expectLive(cached).uses;
       expect(uses ?? movedUsesOf(q.key)).toEqual(movedUsesOf(q.key));
     });
+
+    it("should not retrieve uses on a reconnect with no query that watches them", async () => {
+      useFakeTimers();
+      const { secrets, usesRequests, reconnect } = await createFakeSecrets();
+      const q = { key: uuid.create(), includeUses: true };
+      const off = secrets.watch(q).onChange(() => {});
+      await secrets.retrieve(q);
+      off();
+      await vi.advanceTimersByTimeAsync(PAST_GRACE);
+      await reconnect();
+      await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE);
+      expect(usesRequests).toEqual([[q.key]]);
+    });
+
+    it("should not put back uses that a reply read before a refetch dropped them", async () => {
+      useFakeTimers();
+      const { secrets, core, reconnect } = await createFakeSecrets();
+      const q = { key: uuid.create(), includeUses: true };
+      const off = secrets.watch(q).onChange(() => {});
+      await secrets.retrieve(q);
+      off();
+      await vi.advanceTimersByTimeAsync(PAST_GRACE);
+      core.holding = true;
+      await reconnect();
+      await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE);
+      core.holding = false;
+      core.held.splice(0).forEach((release) => release());
+      await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE);
+      expect(secrets.watch(q).getCached()).toBeUndefined();
+    });
   });
 });
