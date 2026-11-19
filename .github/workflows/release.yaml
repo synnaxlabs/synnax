@@ -974,7 +974,7 @@ jobs:
       - name: Rename binary for installer
         shell: powershell
         run:
-          Move-Item -Force .github/scripts/synnax-v${{ env.VERSION }}.exe
+          Move-Item -Force ".github/scripts/synnax-v$env:VERSION.exe"
           .github/scripts/synnax-server.exe
 
       - name: Set up trusted-signing-cli
@@ -987,7 +987,7 @@ jobs:
           $nsisDir = "${env:ProgramFiles(x86)}\NSIS"
           $env:Path = "$nsisDir;$env:Path"
           Copy-Item -Force .\.github\scripts\EnVar.dll "$nsisDir\Plugins\x86-unicode\EnVar.dll"
-          makensis /DVERSION=${{ env.VERSION }} .\.github\scripts\windows_installer.nsi
+          makensis "/DVERSION=$env:VERSION" .\.github\scripts\windows_installer.nsi
 
       - name: Sign Windows installer
         env:
@@ -997,7 +997,7 @@ jobs:
         run:
           trusted-signing-cli -e https://wcus.codesigning.azure.net -a
           CodeSigningAccountName -c CodeSigningCertificateProfile -d "Synnax Core
-          Installer" .\.github\scripts\synnax-setup-v${{ env.VERSION }}.exe
+          Installer" ".\.github\scripts\synnax-setup-v$env:VERSION.exe"
 
       - name: Upload Windows installer
         run: |
