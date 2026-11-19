@@ -303,10 +303,11 @@ change. The WebSocket server reports a closed stream in place of the decode erro
 
 These forms hold no state, so each series describes itself. `data_type` is already a
 string per series (`x/go/telem/pb/frame.proto:22-28`). `Series` gains
-`uint32 clock = 6`. JSON carries `clock` and leaves it out when 0. msgpack always
-carries it, 0 included, since the msgpack library boxes a value to test it for zero,
-which costs an allocation per series. An old reader of these forms drops `clock` with no
-error. The gRPC `buffer` fields carry the layout of §4.2
+`uint32 clock = 6`. JSON carries `clock` and leaves it out when 0. The Go msgpack form
+always carries it, 0 included, since the Go msgpack library boxes a value to test it for
+zero, an allocation per series. Other writers may leave a zero clock out of either form,
+and every reader accepts both. An old reader of these forms drops `clock` with no error.
+The gRPC `buffer` fields carry the layout of §4.2
 (`core/pkg/transport/grpc/framer/framer.proto:50`, `:69`, `:93`).
 
 ### 4.4 Readers
