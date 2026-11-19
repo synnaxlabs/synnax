@@ -694,10 +694,10 @@ var _ = Describe("Control", func() {
 									},
 								),
 							}
-							w1In.Inlet() <- cesium.WriterRequest{
-								Command: cesium.WriterCommandCommit,
-							}
-							Eventually(w1Out.Outlet()).Should(Receive())
+							var r cesium.WriterResponse
+							Eventually(w1Out.Outlet()).Should(Receive(&r))
+							Expect(r.Command).To(Equal(cesium.WriterCommandWrite))
+							Expect(r.Err).ToNot(HaveOccurred())
 
 							var d cesium.ControlUpdate
 							Eventually(updates).Should(Receive(&d))
@@ -732,13 +732,16 @@ var _ = Describe("Control", func() {
 									},
 								),
 							}
+							Eventually(w2Out.Outlet()).Should(Receive(&r))
+							Expect(r.Command).To(Equal(cesium.WriterCommandWrite))
 
 							By("Committing the second writer")
 							w2In.Inlet() <- cesium.WriterRequest{
 								Command: cesium.WriterCommandCommit,
 							}
-							var r cesium.WriterResponse
 							Eventually(w2Out.Outlet()).Should(Receive(&r))
+							Expect(r.Command).To(Equal(cesium.WriterCommandCommit))
+							Expect(r.End).To(Equal(15*telem.SecondTS + 1))
 
 							By("Shutting down the second writer")
 							w2In.Close()
