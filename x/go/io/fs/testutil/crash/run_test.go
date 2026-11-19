@@ -87,6 +87,9 @@ var _ = Describe("Run", func() {
 					GinkgoWriter.Printf("%s: %+v\n", name, total)
 					full := total.Recoveries - total.Refusals - total.Losses
 					Expect(full).To(BeNumerically(">", 0))
+					faulty := profile == crash.OneTimeReadFaults ||
+						profile == crash.RepeatedReadFaults || profile == crash.Mixed
+					Expect(total.ReadFaults > 0).To(Equal(faulty))
 				},
 			)
 		}

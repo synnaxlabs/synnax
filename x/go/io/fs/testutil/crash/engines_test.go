@@ -43,6 +43,8 @@ type plainOpts struct {
 	halted bool
 	// wiped cuts the whole log at a record that is bad on two reads.
 	wiped bool
+	// once reads each record one time.
+	once bool
 	// bulk reads the whole log in one call, two times at most, and keeps the read with
 	// the longer good prefix. It checks the checksum of each record that starts before
 	// bulk.
@@ -142,7 +144,11 @@ func (l *plainLog) scan() error {
 			n  int64
 			ok bool
 		)
-		for try := 0; try < 2 && !ok; try++ {
+		tries := 2
+		if l.o.once {
+			tries = 1
+		}
+		for try := 0; try < tries && !ok; try++ {
 			if r, n, ok, err = l.readOnce(l.off, size); err != nil {
 				return err
 			}
@@ -428,6 +434,23 @@ var _ = Describe("Engines", func() {
 			crash.R0,
 		),
 	)
+
+	It("Should hold every rule after one read fault", func(ctx SpecContext) {
+		var found []string
+		for runKey := range uint64(32) {
+			err := violation(ctx, crash.Config{
+				RunKey:  runKey,
+				Open:    openPlainLog(plainOpts{once: true}),
+				Commits: 20,
+				Stride:  1,
+				Profile: crash.RepeatedReadFaults,
+			})
+			if err != nil {
+				found = append(found, err.Error())
+			}
+		}
+		Expect(found).To(ContainElement(MatchRegexp(`R1 broken .*with 1 read faults`)))
+	})
 
 	It(
 		"Should catch a log that cuts more than read faults free",

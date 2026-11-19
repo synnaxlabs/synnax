@@ -132,24 +132,10 @@ func checkRecovered(attempts []attempt, records []Record, r rules) (*broken, boo
 }
 
 // checkKept applies R1 to a second recovery, after a crash in the first: it holds each
-// commit that the first held, and reads each one that the first read. Read faults can
-// free the commits after the last Durable ack before the event bound, and the reads. It
-// reports if the engine lost a commit that they free.
-func checkKept(
-	attempts []attempt,
-	first, second []Record,
-	bound int,
-	unreadableAllowed bool,
-) (*broken, bool) {
-	kept := uint64(math.MaxUint64)
-	if bound != math.MaxInt {
-		kept = 0
-		for _, a := range attempts {
-			if a.ack == Durable && a.ackedAt < bound {
-				kept = a.record.ID
-			}
-		}
-	}
+// commit that the first held, and reads each one that the first read. Read faults free
+// both, and then R1 and R3 bound what the engine can lose. It reports if the engine
+// lost a commit that the faults free.
+func checkKept(first, second []Record, faulted bool) (*broken, bool) {
 	again := make(map[uint64]Record, len(second))
 	for _, rec := range second {
 		again[rec.ID] = rec
@@ -158,14 +144,14 @@ func checkKept(
 	for _, rec := range first {
 		got, ok := again[rec.ID]
 		switch {
-		case !ok && rec.ID > kept:
+		case !ok && faulted:
 			lost = true
 		case !ok:
 			return &broken{R1, fmt.Sprintf(
 				"commit %d of the first recovery is missing after a crash in recovery",
 				rec.ID,
 			)}, false
-		case got.Unreadable && !rec.Unreadable && !unreadableAllowed:
+		case got.Unreadable && !rec.Unreadable && !faulted:
 			return &broken{R1, fmt.Sprintf(
 				"commit %d of the first recovery is unreadable after a crash in "+
 					"recovery",

@@ -195,6 +195,8 @@ type spy struct {
 
 // spied is the state that the engines of one run share.
 type spied struct {
+	// refused counts the opens that refused.
+	refused int
 	// refusal is the error of an engine that refuses a changed image. Nil is the
 	// corruption error.
 	refusal error
@@ -251,6 +253,7 @@ func (s *spied) open(_ context.Context, root xfs.FS) (crash.Engine, error) {
 		s.lasting = append(s.lasting, changed)
 	}
 	if changed && !s.tolerant {
+		s.refused++
 		refusal := s.refusal
 		if refusal == nil {
 			refusal = errCorrupt
@@ -395,6 +398,20 @@ var _ = Describe("Lasting corruption", func() {
 		Entry("under OldCorruption", crash.OldCorruption),
 		Entry("under NewCorruption", crash.NewCorruption),
 	)
+
+	It("Should count each refusal that the rules allow", func(ctx SpecContext) {
+		s := &spied{}
+		result, err := crash.Run(ctx, crash.Config{
+			Open:    s.open,
+			Corrupt: func(err error) bool { return errors.Is(err, errCorrupt) },
+			Commits: 12,
+			Stride:  1,
+			Profile: crash.NewCorruption,
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(s.refused).To(BeNumerically(">", 0))
+		Expect(result.Refusals).To(Equal(s.refused))
+	})
 
 	It("Should break R4 when an engine refuses a changed image with another error",
 		func(ctx SpecContext) {

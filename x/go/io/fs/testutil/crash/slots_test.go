@@ -18,6 +18,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/io/fs/testutil/crash"
@@ -291,12 +292,32 @@ var _ = Describe("A recovery that harms the disk", func() {
 		return out
 	}
 
-	It(
-		"Should pass a log that returns a bad slot as unreadable",
-		func(ctx SpecContext) {
-			Expect(violations(ctx, slotOpts{tolerant: true}, crash.OldCorruption)).
-				To(BeEmpty())
+	DescribeTable("Should pass a log that returns a bad slot as unreadable",
+		func(ctx SpecContext, profile crash.Profile) {
+			Expect(violations(ctx, slotOpts{tolerant: true}, profile)).To(BeEmpty())
 		},
+		Entry("under OldCorruption", crash.OldCorruption),
+		Entry("under RepeatedReadFaults", crash.RepeatedReadFaults),
+	)
+
+	DescribeTable("Should count the commits that the rules let a recovery lose",
+		func(ctx SpecContext, profile crash.Profile, losses types.GomegaMatcher) {
+			total := 0
+			for runKey := range uint64(8) {
+				result, err := crash.Run(ctx, crash.Config{
+					RunKey:  runKey,
+					Open:    openSlotLog(slotOpts{lenient: true}),
+					Commits: 12,
+					Stride:  1,
+					Profile: profile,
+				})
+				Expect(err).ToNot(HaveOccurred())
+				total += result.Losses
+			}
+			Expect(total).To(losses)
+		},
+		Entry("under NewCorruption", crash.NewCorruption, BeNumerically(">", 0)),
+		Entry("under Strict", crash.Strict, BeZero()),
 	)
 
 	It("Should catch a recovery that renames a copy with no Sync over the log",

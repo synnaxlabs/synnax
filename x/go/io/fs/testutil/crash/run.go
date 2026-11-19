@@ -12,7 +12,6 @@ package crash
 import (
 	"context"
 	"fmt"
-	"math"
 	"math/rand/v2"
 	"sync"
 
@@ -252,7 +251,7 @@ func (r *run) check(s *snapshot, attempts []attempt) {
 	// A loss that the faults of the first recovery freed stays after the crash.
 	second, faults, err := r.recover(again)
 	rules.refusalAllowed = false
-	rules, bound := r.underFaults(rules, faults)
+	rules, faulted := r.underFaults(rules, faults)
 	if err != nil {
 		r.refused(
 			err,
@@ -267,31 +266,29 @@ func (r *run) check(s *snapshot, attempts []attempt) {
 	b, lost := checkRecovered(attempts, second, rules)
 	if b == nil {
 		var dropped bool
-		b, dropped = checkKept(attempts, first, second, bound, bound != math.MaxInt)
+		b, dropped = checkKept(first, second, faulted)
 		lost = lost || dropped
 	}
 	r.held(b, lost, s.event, faults)
 }
 
-// underFaults returns base for a recovery on a disk that gave the read faults, and the
-// event from which they free commits. Under RepeatedReadFaults, two or more faults let
-// the engine refuse, return unreadable records, and lose the commits from the first
-// Sync that changed the earliest block that a fault hit.
-func (r *run) underFaults(base rules, faults []fault.Fault) (rules, int) {
-	bound := math.MaxInt
+// underFaults returns base for a recovery on a disk that gave the read faults, and if
+// they relaxed it. Under RepeatedReadFaults, two or more faults let the engine refuse,
+// return unreadable records, and lose the commits from the first Sync that changed the
+// earliest block that a fault hit.
+func (r *run) underFaults(base rules, faults []fault.Fault) (rules, bool) {
 	if r.cfg.Profile != RepeatedReadFaults || len(faults) < 2 {
-		return base, bound
+		return base, false
 	}
 	for _, f := range faults {
 		if file, ok := r.counter.files[f.File]; ok {
 			if event, ok := file.first[f.Block]; ok {
-				bound = min(bound, event)
+				base.exemptFrom = min(base.exemptFrom, event)
 			}
 		}
 	}
 	base.refusalAllowed, base.unreadableAllowed = true, true
-	base.exemptFrom = min(base.exemptFrom, bound)
-	return base, bound
+	return base, true
 }
 
 // refused counts the refusal err of a recovery that the rules allow, or breaks R4.
