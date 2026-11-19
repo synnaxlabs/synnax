@@ -9,8 +9,9 @@
 
 //! Draws frames in a worker and hands them to the page as bitmaps, as Pluto does, in a
 //! webview with the Console's WebKitGTK plugin. With a GPU render node, fails if the
-//! web process crashes or the page stops drawing. Without one, fails unless the worker
-//! gets no WebGL.
+//! web process crashes or the page stops drawing, or if Pluto's line shaders compute
+//! wrong positions for nanosecond timestamps. Without one, fails unless the workers get
+//! no WebGL.
 
 #[cfg(not(target_os = "linux"))]
 fn main() {}
@@ -39,6 +40,24 @@ fn main() {
         .register_uri_scheme_protocol("canvas", |_, request| {
             let (body, kind) = match request.uri().path() {
                 "/worker.js" => (include_str!("webkit/worker.js"), "text/javascript"),
+                "/precision.html" => {
+                    (include_str!("webkit/precision.html"), "text/html")
+                }
+                "/precision.js" => {
+                    (include_str!("webkit/precision.js"), "text/javascript")
+                }
+                "/vert_f32.glsl" => (
+                    include_str!("../../../pluto/src/vis/line/aether/vert_f32.glsl"),
+                    "text/plain",
+                ),
+                "/vert_hybrid.glsl" => (
+                    include_str!("../../../pluto/src/vis/line/aether/vert_hybrid.glsl"),
+                    "text/plain",
+                ),
+                "/frag.glsl" => (
+                    include_str!("../../../pluto/src/vis/line/aether/frag.glsl"),
+                    "text/plain",
+                ),
                 _ => (include_str!("webkit/canvas.html"), "text/html"),
             };
             Response::builder()
@@ -64,24 +83,37 @@ fn main() {
                 });
         })
         .unwrap();
+    let url = WebviewUrl::CustomProtocol(
+        "canvas://localhost/precision.html".parse().unwrap(),
+    );
+    let precision = WebviewWindowBuilder::new(&app, "precision", url)
+        .build()
+        .expect("failed to open the precision window");
     let handle = app.handle().clone();
     std::thread::spawn(move || {
         std::thread::sleep(Duration::from_secs(SECONDS));
-        window
-            .with_webview(move |webview| {
-                let title = webview.inner().title().unwrap_or_default();
-                eprintln!("render node: {render_node}, {title} in {SECONDS} s");
-                let passed = if render_node {
-                    title
-                        .strip_prefix("frames ")
-                        .and_then(|n| n.parse::<u64>().ok())
-                        .is_some_and(|frames| frames >= MIN_FRAMES)
-                } else {
-                    title == "no webgl"
-                };
-                handle.exit(if passed { 0 } else { 1 });
-            })
-            .unwrap();
+        let title = |window: &tauri::WebviewWindow| {
+            let (tx, rx) = std::sync::mpsc::channel();
+            window
+                .with_webview(move |webview| {
+                    let title = webview.inner().title().unwrap_or_default();
+                    tx.send(title.to_string()).unwrap();
+                })
+                .unwrap();
+            rx.recv().unwrap()
+        };
+        let (frames, precision) = (title(&window), title(&precision));
+        eprintln!("render node: {render_node}, {frames} in {SECONDS} s, {precision}");
+        let passed = if render_node {
+            let drew = frames
+                .strip_prefix("frames ")
+                .and_then(|n| n.parse::<u64>().ok())
+                .is_some_and(|frames| frames >= MIN_FRAMES);
+            drew && precision == "precision ok"
+        } else {
+            frames == "no webgl" && precision == "no webgl"
+        };
+        handle.exit(if passed { 0 } else { 1 });
     });
     std::process::exit(app.run_return(|_, _| {}));
 }
