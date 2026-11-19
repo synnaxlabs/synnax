@@ -54,15 +54,11 @@ const toOption = (
 
 interface OwnOptionsProps {
   path: deep.Path<schematic.StateMapping[]>;
-  colorDisabled: boolean;
+  colorHidden: boolean;
   preview: boolean;
 }
 
-const OwnOptions = ({
-  path,
-  colorDisabled,
-  preview,
-}: OwnOptionsProps): ReactElement => {
+const OwnOptions = ({ path, colorHidden, preview }: OwnOptionsProps): ReactElement => {
   const { set, get } = Form.useContext();
   const options = Form.useFieldValue<schematic.StateMapping[]>(path);
   const resolve = Color.useResolve();
@@ -80,8 +76,8 @@ const OwnOptions = ({
     <Enumeration.Table
       value={options.map(toEntry)}
       preview={preview}
-      abnormalDisabled
-      colorDisabled={colorDisabled}
+      abnormalHidden
+      colorHidden={colorHidden}
       onSet={(changed) =>
         write((current) =>
           current.map((e) => changed.find((c) => c.key === e.key) ?? e),
@@ -217,8 +213,8 @@ export interface StatesProps {
   label: deep.Path<string>;
   /** Names an enumeration that the node creates when it has no search text or label. */
   symbolName: string;
-  /** Shows the Color cell of each option empty, for a node that draws no color. */
-  colorDisabled?: boolean;
+  /** Leaves out the Color column of the options, for a node that draws no color. */
+  colorHidden?: boolean;
 }
 
 /**
@@ -232,7 +228,7 @@ export const States = ({
   options,
   label,
   symbolName,
-  colorDisabled = false,
+  colorHidden = false,
 }: StatesProps): ReactElement => {
   const { set, remove, get } = Form.useContext();
   const key = Form.useFieldValue(enumerationPath, { optional: true }) ?? undefined;
@@ -299,7 +295,7 @@ export const States = ({
             // starts, so they lock until it ends.
             <OwnOptions
               path={options}
-              colorDisabled={colorDisabled}
+              colorHidden={colorHidden}
               preview={variant === "loading"}
             />
           ) : (

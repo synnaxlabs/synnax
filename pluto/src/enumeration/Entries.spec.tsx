@@ -55,8 +55,8 @@ describe("Enumeration.Table", () => {
     initial: enumeration.Entry[];
     onSet?: (entries: enumeration.Entry[]) => void;
     onAdd?: (entries: enumeration.Entry[]) => void;
-    abnormalDisabled?: boolean;
-    colorDisabled?: boolean;
+    abnormalHidden?: boolean;
+    colorHidden?: boolean;
     preview?: boolean;
   }
 
@@ -417,16 +417,30 @@ describe("Enumeration.Table", () => {
       const fixed = { type: "fixed" as const, value: ALARM };
       renderTable({
         initial: [createEntry("Locked out", 0, { color: fixed })],
-        abnormalDisabled: true,
+        abnormalHidden: true,
       });
       expect(screen.queryByLabelText(/alarm color/)).toBeNull();
     });
 
-    it("should show empty color cells and no warnings when color is disabled", () => {
-      renderTable({ initial: [createEntry("", 0)], colorDisabled: true });
-      expect(input("Color 1").disabled).toBe(true);
-      expect(input("Color 1").value).toBe("");
-      expect(screen.queryByLabelText(/It has no name/)).toBeNull();
+    it("should leave out the Color column when color is hidden", () => {
+      renderTable({ initial: [createEntry("", 0)], colorHidden: true });
+      expect(screen.queryByLabelText("Color 1")).toBeNull();
+      expect(screen.queryByText("Color")).toBeNull();
+      expect(input("Abnormal 1").classList).toContain("lyra-input__switch-input");
+    });
+
+    it("should keep the color of an entry when color is hidden", () => {
+      const onSet = vi.fn();
+      const fixed = { type: "fixed" as const, value: color.construct("#2e7d32") };
+      renderTable({
+        initial: [createEntry("Off", 0, { color: fixed })],
+        colorHidden: true,
+        onSet,
+      });
+      commit(input("Name 1"), "Closed");
+      expect(onSet).toHaveBeenCalledWith([
+        expect.objectContaining({ name: "Closed", color: fixed }),
+      ]);
     });
   });
 
@@ -440,10 +454,24 @@ describe("Enumeration.Table", () => {
       expect(onSet).toHaveBeenCalledWith([expect.objectContaining({ abnormal: true })]);
     });
 
-    it("should show empty abnormal cells when no entry can be abnormal", () => {
-      renderTable({ initial: [createEntry("Open", 0)], abnormalDisabled: true });
-      expect(input("Abnormal 1").disabled).toBe(true);
-      expect(input("Abnormal 1").value).toBe("");
+    it("should leave out the Abnormal column when abnormal is hidden", () => {
+      renderTable({ initial: [createEntry("Open", 0)], abnormalHidden: true });
+      expect(screen.queryByLabelText("Abnormal 1")).toBeNull();
+      expect(screen.queryByText("Abnormal")).toBeNull();
+    });
+
+    it("should paste only the shown columns when both are hidden", () => {
+      const onAdd = vi.fn();
+      renderTable({
+        initial: [createEntry("Off", 0)],
+        colorHidden: true,
+        abnormalHidden: true,
+        onAdd,
+      });
+      paste(input("Name 1"), "Off\t0\nOn\t1");
+      expect(onAdd).toHaveBeenCalledWith([
+        expect.objectContaining({ name: "On", value: 1, abnormal: false }),
+      ]);
     });
 
     it("should show a read-only switch in preview", () => {
