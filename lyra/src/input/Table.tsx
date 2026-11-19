@@ -17,6 +17,7 @@ import {
   type KeyboardEvent,
   type ReactElement,
   type ReactNode,
+  type SyntheticEvent,
   useEffect,
   useRef,
   useState,
@@ -238,6 +239,10 @@ const MOVES: Partial<Record<string, Move>> = {
   ArrowUp: (dims, from) => grid.move(dims, from, { x: 0, y: -1 }),
 };
 
+// A dialog that a cell opens portals out of the table and keeps its own events.
+const inTable = (e: SyntheticEvent): boolean =>
+  e.target instanceof Node && e.currentTarget.contains(e.target);
+
 type ColumnElement = ReactElement<TableColumnProps>;
 
 export interface TableProps
@@ -350,7 +355,7 @@ export const Table = ({
   };
 
   const handlePaste = (e: ClipboardEvent) => {
-    if (preview) return;
+    if (preview || !inTable(e)) return;
     const block = parseBlock(
       e.clipboardData.getData("text/plain"),
       columns,
@@ -423,6 +428,7 @@ export const Table = ({
   };
 
   const handleCellFocus = (e: FocusEvent<HTMLTableCellElement>, at: xy.XY) => {
+    if (!inTable(e)) return;
     anchor.current = at;
     if (initial.current != null || !(e.target instanceof HTMLInputElement)) return;
     initial.current = { value: value[at.y]?.[at.x], text: e.target.value };
@@ -448,6 +454,7 @@ export const Table = ({
   };
 
   const handleKeyDown = (e: KeyboardEvent) => {
+    if (!inTable(e)) return;
     // Enter on the add and remove buttons must reach their native activation.
     if (!(e.target instanceof HTMLInputElement)) return;
     // An Esc that put a cell back stops here, so it does not close a parent dialog.
