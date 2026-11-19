@@ -10,9 +10,60 @@
 import { z } from "zod";
 
 import { math } from "@/math";
-import { primitive } from "@/primitive";
+import { type numeric } from "@/numeric";
+import { type primitive } from "@/primitive";
 import { type bounds } from "@/spatial";
 import { type TimestampFormat, type TimeZone } from "@/telem/types.gen";
+
+export type CrudeValueExtension<V extends NonNullable<primitive.Value>> = {
+  value: V;
+};
+
+interface ValueTypes {
+  bigint: bigint;
+  number: number;
+  string: string;
+}
+
+/** @returns true if value is an object whose `value` property is of the given type. */
+export const isCrudeValueExtension = <T extends keyof ValueTypes>(
+  value: unknown,
+  type: T,
+): value is CrudeValueExtension<ValueTypes[T]> =>
+  value != null &&
+  typeof value === "object" &&
+  "value" in value &&
+  // eslint-disable-next-line valid-typeof -- T limits type to typeof results.
+  typeof value.value === type;
+
+/**
+ * ValueExtension is a utility class that can be extended in order to implement objects
+ * that pseudo-extend a primitive value with additional functionality.
+ */
+export class ValueExtension<V extends NonNullable<primitive.Value>> {
+  /** The underlying primitive value */
+  protected readonly value: V;
+
+  constructor(value: V) {
+    this.value = value;
+  }
+
+  /** Overrides the JS default valueOf() function to return the primitive value. */
+  valueOf(): V {
+    return this.value;
+  }
+
+  /** toJSON ensures that only the primitive value gets encoded during JSON
+   * stringification. */
+  toJSON(): V {
+    return this.value;
+  }
+
+  /** @returns a string representation of the item. */
+  toString(): string {
+    return this.value.toString();
+  }
+}
 
 const SIMPLE_DAYS_IN_YEAR = 365;
 const SIMPLE_DAYS_IN_MONTH = 30;
@@ -22,7 +73,7 @@ export type TimeSpanStringFormat = "full" | "semantic";
 
 const DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const TIME_OF_DAY_RE = /^(\d{1,2}):(\d{2})(?::(\d{2})(?:\.(\d{1,9}))?)?\s*(am|pm)?$/i;
-const ISO_ZONE_RE = /^\d{4}-\d{2}-\d{2}T.*(Z|[+-]\d{2}:?\d{2})$/;
+const ISO_ZONE_RE = /^\d{4}-\d{2}-\d{2}[T ].*(Z|[+-]\d{2}:?\d{2})$/;
 // toPreciseString separates the fraction's digit groups with spaces.
 const FRACTION_GROUP_GAP_RE = /(?<=\.\d{3}(?: \d{3})?) (?=\d{3})/g;
 const LONG_FRACTION_RE = /\.(\d{4,9})/;
@@ -67,16 +118,18 @@ const remainder = <T extends TimeStamp | TimeSpan>(
  *
  * @param value - nanoseconds since the Unix epoch, a Date, a `[year, month, day]`
  * {@link DateComponents} triple (midnight UTC, whatever the timeZone; add a TimeSpan
- * for finer resolution), or an ISO date or date-time string (time zone ignored).
- * @param timeZone - "UTC" or "local". Ignored for a Date and for DateComponents.
+ * for finer resolution), or a string that {@link TimeStamp.parse} reads.
+ * @param timeZone - "UTC" or "local", the zone of a string that names none. Ignored for
+ * every other value.
+ * @throws {Error} if the value is a string that {@link TimeStamp.parse} cannot read.
  *
- * @example ts = new TimeStamp(1 * TimeSpan.HOUR) // 1 hour after the Unix epoch
+ * @example ts = new TimeStamp(TimeSpan.HOUR) // 1 hour after the Unix epoch
  * @example ts = new TimeStamp([2021, 1, 1]) // 1/1/2021 midnight UTC
- * @example ts = new TimeStamp([2021, 1, 1]).add(1 * TimeSpan.HOUR) // 1/1/2021 1am UTC
+ * @example ts = new TimeStamp([2021, 1, 1]).add(TimeSpan.HOUR) // 1/1/2021 1am UTC
  * @example ts = new TimeStamp("2021-01-01T12:30:00Z") // 1/1/2021 12:30pm UTC
  */
 export class TimeStamp
-  extends primitive.ValueExtension<bigint>
+  extends ValueExtension<bigint>
   implements primitive.Stringer, primitive.Hashable
 {
   /** @returns the bigint nanosecond value as a string for stable hashing. */
@@ -84,37 +137,37 @@ export class TimeStamp
     return this.value.toString();
   }
 
-  constructor(value?: CrudeTimeStamp, timeZone: TimeZone = "UTC") {
-    if (value == null) super(TimeStamp.now().valueOf());
+  constructor(value: CrudeTimeStamp, timeZone: TimeZone = "UTC") {
     // Hot paths pass a bigint or a TimeStamp, so they skip the parsing checks.
-    else if (typeof value === "bigint" && timeZone === "UTC") super(value);
-    else if (value instanceof TimeStamp && timeZone === "UTC") super(value.valueOf());
-    else if (value instanceof Date)
-      super(BigInt(value.getTime()) * TimeStamp.MILLISECOND.valueOf());
-    else if (typeof value === "string")
-      super(TimeStamp.parseDateTimeString(value, timeZone).valueOf());
+    if (typeof value === "bigint") super(value);
+    else if (value instanceof TimeStamp) super(value.valueOf());
+    else if (typeof value === "string") {
+      const parsed = TimeStamp.parse(value, timeZone);
+      if (parsed == null) throw new Error(`unable to parse "${value}" as a timestamp`);
+      super(parsed.valueOf());
+    } else if (value instanceof Date)
+      super(BigInt(value.getTime()) * TimeSpan.MILLISECOND.valueOf());
     else if (Array.isArray(value)) super(TimeStamp.parseDate(value));
     else {
-      let offset = 0n;
       if (value instanceof Number) value = value.valueOf();
-      if (timeZone === "local") offset = TimeStamp.utcOffset.valueOf();
       if (typeof value === "number")
         if (isFinite(value))
-          if (value === math.MAX_INT64_NUMBER) value = math.MAX_INT64;
+          // 2 ** 63 is TimeStamp.MAX read as a number, which rounds up past int64.
+          if (value === 2 ** 63) value = math.MAX_INT64;
           else value = Math.trunc(value);
         else {
           if (isNaN(value)) value = 0;
           if (value === Infinity) value = TimeStamp.MAX;
           else value = TimeStamp.MIN;
         }
-      if (primitive.isCrudeValueExtension<bigint>(value)) value = value.value;
-      super(BigInt(value.valueOf()) + offset);
+      if (isCrudeValueExtension(value, "bigint")) value = value.value;
+      super(BigInt(value.valueOf()));
     }
   }
 
   private static parseDate([year = 1970, month = 1, day = 1]: DateComponents): bigint {
     const ms = Date.UTC(year, month - 1, day);
-    return BigInt(ms) * TimeStamp.MILLISECOND.valueOf();
+    return BigInt(ms) * TimeSpan.MILLISECOND.valueOf();
   }
 
   /** @returns the timestamp as nanoseconds since the Unix epoch. */
@@ -122,64 +175,10 @@ export class TimeStamp
     return this.value;
   }
 
-  private static parseTimeString(time: string, timeZone: TimeZone = "UTC"): bigint {
-    const [hours, minutes, mbeSeconds] = time.split(":");
-    let seconds = "00";
-    let milliseconds: string | undefined = "00";
-    if (mbeSeconds != null) [seconds, milliseconds] = mbeSeconds.split(".");
-    let base = TimeStamp.hours(parseInt(hours ?? "00", 10))
-      .add(TimeStamp.minutes(parseInt(minutes ?? "00", 10)))
-      .add(TimeStamp.seconds(parseInt(seconds ?? "00", 10)))
-      .add(TimeStamp.milliseconds(parseInt(milliseconds ?? "00", 10)));
-    if (timeZone === "local") base = base.add(TimeStamp.utcOffset);
-    return base.valueOf();
-  }
-
-  private static parseDateTimeString(str: string, timeZone: TimeZone = "UTC"): bigint {
-    if (!str.includes("/") && !str.includes("-"))
-      return TimeStamp.parseTimeString(str, timeZone);
-
-    const isDateTimeLocal =
-      str.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?$/) != null;
-
-    if (isDateTimeLocal) {
-      let datePart = str;
-      let ms = 0;
-
-      if (str.includes(".")) {
-        const parts = str.split(".");
-        datePart = parts[0];
-        const msPart = parts[1] || "0";
-        ms = parseInt(msPart.padEnd(3, "0").slice(0, 3), 10);
-      }
-
-      const d =
-        timeZone === "local"
-          ? new Date(datePart.replace("T", " "))
-          : new Date(`${datePart}Z`);
-
-      const baseBigInt = BigInt(d.getTime()) * TimeStamp.MILLISECOND.valueOf();
-      const msBigInt = BigInt(ms) * TimeStamp.MILLISECOND.valueOf();
-
-      return baseBigInt + msBigInt;
-    }
-
-    const d = new Date(str);
-    // Essential to note that this makes the date midnight in UTC! Not local! As a
-    // result, we need to add the timeZone offset back in.
-    if (!str.includes(":")) d.setUTCHours(0, 0, 0, 0);
-    return new TimeStamp(
-      BigInt(d.getTime()) * TimeStamp.MILLISECOND.valueOf(),
-      timeZone,
-    ).valueOf();
-  }
-
   private toISOString(timeZone: TimeZone = "UTC"): string {
     if (timeZone === "UTC") return this.date().toISOString();
     const d = this.date();
-    const offset = new TimeSpan(
-      BigInt(d.getTimezoneOffset()) * TimeStamp.MINUTE.valueOf(),
-    );
+    const offset = TimeSpan.minutes(d.getTimezoneOffset());
     return this.sub(offset).date().toISOString();
   }
 
@@ -191,25 +190,24 @@ export class TimeStamp
     return milliseconds ? iso.slice(11, 23) : iso.slice(11, 19);
   }
 
-  private dateString(): string {
+  private dateString(timeZone: TimeZone): string {
     const date = this.date();
-    const month = date.toLocaleString("default", { month: "short" });
-    const day = date.toLocaleString("default", { day: "numeric" });
+    const zone = timeZone === "UTC" ? "UTC" : undefined;
+    const month = date.toLocaleString("default", { month: "short", timeZone: zone });
+    const day = date.toLocaleString("default", { day: "numeric", timeZone: zone });
     return `${month} ${day}`;
   }
 
   /** @returns The UTC offset for the time zone of the machine. */
   static get utcOffset(): TimeSpan {
-    return new TimeSpan(
-      BigInt(new Date().getTimezoneOffset()) * TimeStamp.MINUTE.valueOf(),
-    );
+    return TimeSpan.minutes(new Date().getTimezoneOffset());
   }
 
   /**
    * @returns a TimeSpan representing the amount time elapsed since the other timestamp.
    */
   static since(other: CrudeTimeStamp): TimeSpan {
-    return new TimeStamp().span(other);
+    return TimeStamp.now().span(other);
   }
 
   /** @returns A JavaScript Date object representing the TimeStamp. */
@@ -294,12 +292,12 @@ export class TimeStamp
 
   /** @returns the floating point number of milliseconds since the unix epoch. */
   get milliseconds(): number {
-    return Number(this.valueOf()) / Number(TimeStamp.MILLISECOND.valueOf());
+    return Number(this.valueOf()) / Number(TimeSpan.MILLISECOND.valueOf());
   }
 
   /** @returns the floating point number of microseconds since the unix epoch. */
   get microseconds(): number {
-    return Number(this.valueOf()) / Number(TimeStamp.MICROSECOND.valueOf());
+    return Number(this.valueOf()) / Number(TimeSpan.MICROSECOND.valueOf());
   }
 
   /**
@@ -494,11 +492,11 @@ export class TimeStamp
       case "preciseTime":
         return this.timeString(true, timeZone);
       case "date":
-        return this.dateString();
+        return this.dateString(timeZone);
       case "preciseDate":
-        return `${this.dateString()} ${this.timeString(true, timeZone)}`;
+        return `${this.dateString(timeZone)} ${this.timeString(true, timeZone)}`;
       case "dateTime":
-        return `${this.dateString()} ${this.timeString(false, timeZone)}`;
+        return `${this.dateString(timeZone)} ${this.timeString(false, timeZone)}`;
       default:
         return this.toISOString(timeZone);
     }
@@ -508,7 +506,7 @@ export class TimeStamp
    * @returns the part of the timestamp below divisor, which must be an even unit (a
    * day, hour, minute, second, millisecond, or microsecond).
    *
-   * @example TimeStamp.now().remainder(TimeStamp.DAY) // => today's time of day
+   * @example TimeStamp.now().remainder(TimeSpan.DAY) // => today's time of day
    */
   remainder(divisor: TimeSpan | TimeStamp): TimeStamp {
     return remainder(this, divisor);
@@ -528,7 +526,7 @@ export class TimeStamp
    * layout is fixed, and {@link TimeStamp.parse} reads it back without loss.
    */
   toPreciseString(timeZone: TimeZone = "UTC"): string {
-    const second = TimeStamp.SECOND.valueOf();
+    const second = TimeSpan.SECOND.valueOf();
     const fraction = ((this.valueOf() % second) + second) % second;
     const whole = new TimeStamp(this.valueOf() - fraction);
     const base = whole.toISOString(timeZone).slice(0, 19).replace("T", " ");
@@ -542,7 +540,7 @@ export class TimeStamp
   /** @returns a timestamp at date that keeps this one's digits below a millisecond. */
   private withSubMillisecond(date: Date): TimeStamp {
     return new TimeStamp(date).add(
-      new TimeSpan(this.valueOf() % TimeStamp.MILLISECOND.valueOf()),
+      new TimeSpan(this.valueOf() % TimeSpan.MILLISECOND.valueOf()),
     );
   }
 
@@ -565,21 +563,23 @@ export class TimeStamp
   /**
    * Parses a date (`2026-08-23`), a date-time with a `T` or a space, a 24-hour or
    * `am`/`pm` time, and a fraction of up to nine digits (`2026-08-23 14:05:00.250
-   * 137`), or an ISO string with a zone. Reads every {@link toPreciseString} back.
-   * @param timeZone - the zone of a string that names none. Ignored for an ISO string
-   * with a zone.
+   * 137`), or a date-time with a zone (`Z`, `+02:00`). Reads every
+   * {@link toPreciseString} back.
+   * @param timeZone - the zone of a string that names none. Ignored for a string with a
+   * zone.
    * @returns the timestamp, or null when the text is not an instant that exists.
    */
   static parse(text: string, timeZone: TimeZone = "UTC"): TimeStamp | null {
     const trimmed = text.trim().replace(FRACTION_GROUP_GAP_RE, "");
     if (ISO_ZONE_RE.test(trimmed)) {
-      // Date reads a fraction to the millisecond only.
+      // Date reads a fraction to the millisecond only, and only a T before the time.
       const fraction = LONG_FRACTION_RE.exec(trimmed)?.[1];
+      const iso = `${trimmed.slice(0, 10)}T${trimmed.slice(11)}`;
       const ms = Date.parse(
-        trimmed.replace(LONG_FRACTION_RE, (_, f: string) => `.${f.slice(0, 3)}`),
+        iso.replace(LONG_FRACTION_RE, (_, f: string) => `.${f.slice(0, 3)}`),
       );
       if (Number.isNaN(ms)) return null;
-      const sub = fractionToNanoseconds(fraction) % TimeStamp.MILLISECOND.valueOf();
+      const sub = fractionToNanoseconds(fraction) % TimeSpan.MILLISECOND.valueOf();
       return new TimeStamp(new Date(ms)).add(new TimeSpan(sub));
     }
     const [datePart, ...timeParts] = trimmed.split(/[T ]/);
@@ -648,60 +648,39 @@ export class TimeStamp
   }
 
   /** @returns A TimeStamp representing the given number of nanoseconds. */
-  static nanoseconds(value: number, timeZone: TimeZone = "UTC"): TimeStamp {
-    return new TimeStamp(value, timeZone);
+  static nanoseconds(value: number): TimeStamp {
+    return new TimeStamp(value);
   }
-
-  /** One nanosecond after the unix epoch */
-  static readonly NANOSECOND = TimeStamp.nanoseconds(1);
 
   /** @returns a new TimeStamp n microseconds after the unix epoch */
-  static microseconds(value: number, timeZone: TimeZone = "UTC"): TimeStamp {
-    return TimeStamp.nanoseconds(value * 1000, timeZone);
+  static microseconds(value: number): TimeStamp {
+    return TimeStamp.nanoseconds(value * 1000);
   }
-
-  /** One microsecond after the unix epoch */
-  static readonly MICROSECOND = TimeStamp.microseconds(1);
 
   /** @returns a new TimeStamp n milliseconds after the unix epoch */
-  static milliseconds(value: number, timeZone: TimeZone = "UTC"): TimeStamp {
-    return TimeStamp.microseconds(value * 1000, timeZone);
+  static milliseconds(value: number): TimeStamp {
+    return TimeStamp.microseconds(value * 1000);
   }
-
-  /** One millisecond after the unix epoch */
-  static readonly MILLISECOND = TimeStamp.milliseconds(1);
 
   /** @returns a new TimeStamp n seconds after the unix epoch */
-  static seconds(value: number, timeZone: TimeZone = "UTC"): TimeStamp {
-    return TimeStamp.milliseconds(value * 1000, timeZone);
+  static seconds(value: number): TimeStamp {
+    return TimeStamp.milliseconds(value * 1000);
   }
-
-  /** One second after the unix epoch */
-  static readonly SECOND = TimeStamp.seconds(1);
 
   /** @returns a new TimeStamp n minutes after the unix epoch */
-  static minutes(value: number, timeZone: TimeZone = "UTC"): TimeStamp {
-    return TimeStamp.seconds(value * 60, timeZone);
+  static minutes(value: number): TimeStamp {
+    return TimeStamp.seconds(value * 60);
   }
-
-  /** One minute after the unix epoch */
-  static readonly MINUTE = TimeStamp.minutes(1);
 
   /** @returns a new TimeStamp n hours after the unix epoch */
-  static hours(value: number, timeZone: TimeZone = "UTC"): TimeStamp {
-    return TimeStamp.minutes(value * 60, timeZone);
+  static hours(value: number): TimeStamp {
+    return TimeStamp.minutes(value * 60);
   }
-
-  /** One hour after the unix epoch */
-  static readonly HOUR = TimeStamp.hours(1);
 
   /** @returns a new TimeStamp n days after the unix epoch */
-  static days(value: number, timeZone: TimeZone = "UTC"): TimeStamp {
-    return TimeStamp.hours(value * 24, timeZone);
+  static days(value: number): TimeStamp {
+    return TimeStamp.hours(value * 24);
   }
-
-  /** One day after the unix epoch */
-  static readonly DAY = TimeStamp.days(1);
 
   /** The maximum possible value for a timestamp */
   static readonly MAX = new TimeStamp(math.MAX_INT64);
@@ -734,13 +713,13 @@ export class TimeStamp
 
 /** TimeSpan represents a nanosecond precision duration. */
 export class TimeSpan
-  extends primitive.ValueExtension<bigint>
+  extends ValueExtension<bigint>
   implements primitive.Stringer, primitive.Hashable
 {
   constructor(value: CrudeTimeSpan) {
     if (typeof value === "number") value = Math.trunc(value.valueOf());
     else if (typeof value === "object" && value instanceof Rate) value = value.period;
-    if (primitive.isCrudeValueExtension<bigint>(value)) value = value.value;
+    if (isCrudeValueExtension(value, "bigint")) value = value.value;
     super(BigInt(value.valueOf()));
   }
 
@@ -775,22 +754,12 @@ export class TimeSpan
     return total;
   }
 
-  /** @returns A TimeSpan representing the given number of seconds. */
-  static fromSeconds(span: CrudeTimeSpan): TimeSpan {
-    if (span instanceof TimeSpan) return span;
-    if (span instanceof Rate) return span.period;
-    if (span instanceof TimeStamp) return new TimeSpan(span);
-    if (primitive.isCrudeValueExtension<bigint>(span)) span = span.value;
-    if (["number", "bigint"].includes(typeof span)) return TimeSpan.seconds(span);
-    return new TimeSpan(span);
-  }
-
   /** @returns A TimeSpan representing the given number of milliseconds. */
   static fromMilliseconds(span: CrudeTimeSpan): TimeSpan {
     if (span instanceof TimeSpan) return span;
     if (span instanceof Rate) return span.period;
     if (span instanceof TimeStamp) return new TimeSpan(span);
-    if (primitive.isCrudeValueExtension<bigint>(span)) span = span.value;
+    if (isCrudeValueExtension(span, "bigint")) span = span.value;
     if (["number", "bigint"].includes(typeof span)) return TimeSpan.milliseconds(span);
     return new TimeSpan(span);
   }
@@ -987,7 +956,7 @@ export class TimeSpan
   }
 
   /** @returns A TimeSpan representing the given number of nanoseconds. */
-  static nanoseconds(value: math.Numeric = 1): TimeSpan {
+  static nanoseconds(value: numeric.Value = 1): TimeSpan {
     return new TimeSpan(value);
   }
 
@@ -995,7 +964,7 @@ export class TimeSpan
   static readonly NANOSECOND = TimeSpan.nanoseconds(1);
 
   /** @returns A TimeSpan representing the given number of microseconds. */
-  static microseconds(value: math.Numeric = 1): TimeSpan {
+  static microseconds(value: numeric.Value = 1): TimeSpan {
     return TimeSpan.nanoseconds(math.mult(value, 1000));
   }
 
@@ -1003,7 +972,7 @@ export class TimeSpan
   static readonly MICROSECOND = TimeSpan.microseconds(1);
 
   /** @returns A TimeSpan representing the given number of milliseconds. */
-  static milliseconds(value: math.Numeric = 1): TimeSpan {
+  static milliseconds(value: numeric.Value = 1): TimeSpan {
     return TimeSpan.microseconds(math.mult(value, 1000));
   }
 
@@ -1011,14 +980,14 @@ export class TimeSpan
   static readonly MILLISECOND = TimeSpan.milliseconds(1);
 
   /** @returns A TimeSpan representing the given number of seconds. */
-  static seconds(value: math.Numeric = 1): TimeSpan {
+  static seconds(value: numeric.Value = 1): TimeSpan {
     return TimeSpan.milliseconds(math.mult(value, 1000));
   }
 
   static readonly SECOND = TimeSpan.seconds(1);
 
   /** @returns A TimeSpan representing the given number of minutes. */
-  static minutes(value: math.Numeric = 1): TimeSpan {
+  static minutes(value: numeric.Value = 1): TimeSpan {
     return TimeSpan.seconds(math.mult(value, 60));
   }
 
@@ -1026,7 +995,7 @@ export class TimeSpan
   static readonly MINUTE = TimeSpan.minutes(1);
 
   /** @returns A TimeSpan representing the given number of hours. */
-  static hours(value: math.Numeric): TimeSpan {
+  static hours(value: numeric.Value): TimeSpan {
     return TimeSpan.minutes(math.mult(value, 60));
   }
 
@@ -1034,7 +1003,7 @@ export class TimeSpan
   static readonly HOUR = TimeSpan.hours(1);
 
   /** @returns A TimeSpan representing the given number of days. */
-  static days(value: math.Numeric): TimeSpan {
+  static days(value: numeric.Value): TimeSpan {
     return TimeSpan.hours(math.mult(value, 24));
   }
 
@@ -1043,9 +1012,6 @@ export class TimeSpan
 
   /** The maximum possible value for a TimeSpan. */
   static readonly MAX = new TimeSpan(math.MAX_INT64);
-
-  /** The minimum possible value for a TimeSpan. */
-  static readonly MIN = new TimeSpan(0);
 
   static readonly ZERO = new TimeSpan(0);
 
@@ -1118,11 +1084,11 @@ const UNIT_RUN_RE = new RegExp(
 
 /** Rate represents a data rate in Hz. */
 export class Rate
-  extends primitive.ValueExtension<number>
+  extends ValueExtension<number>
   implements primitive.Stringer, primitive.Hashable
 {
   constructor(value: CrudeRate) {
-    if (primitive.isCrudeValueExtension<number>(value)) value = value.value;
+    if (isCrudeValueExtension(value, "number")) value = value.value;
     super(value.valueOf());
   }
 
@@ -1151,68 +1117,14 @@ export class Rate
     return new TimeSpan(duration).seconds * this.valueOf();
   }
 
-  /** @returns the byte count the span holds at this rate and density. */
-  byteCount(span: CrudeTimeSpan, density: CrudeDensity): number {
-    return this.sampleCount(span) * new Density(density).valueOf();
-  }
-
   /** @returns the span that holds sampleCount samples at this rate. */
   span(sampleCount: number): TimeSpan {
     return TimeSpan.seconds(sampleCount / this.valueOf());
   }
 
-  /**
-   * Calculates a TimeSpan given the number of bytes at this rate.
-   * @param size - The number of bytes in the span.
-   * @param density - The density of the data in bytes per sample.
-   * @returns A TimeSpan that corresponds to the given number of bytes.
-   */
-  byteSpan(size: Size, density: CrudeDensity): TimeSpan {
-    return this.span(size.valueOf() / new Density(density).valueOf());
-  }
-
-  /**
-   * Adds another Rate to this Rate.
-   * @returns A new Rate representing the sum of the two rates.
-   */
-  add(other: CrudeRate): Rate {
-    return new Rate(math.add(this.valueOf(), new Rate(other).valueOf()));
-  }
-
-  /**
-   * Subtracts another Rate from this Rate.
-   * @param other - The Rate to subtract.
-   * @returns A new Rate representing the difference of the two rates.
-   */
-  sub(other: CrudeRate): Rate {
-    return new Rate(math.sub(this.valueOf(), new Rate(other).valueOf()));
-  }
-
-  /**
-   * Multiplies this Rate by a scalar value.
-   * @param value - The scalar value to multiply by.
-   * @returns A new Rate representing this Rate multiplied by the value.
-   */
-  mult(value: number): Rate {
-    return new Rate(math.mult(this.valueOf(), value));
-  }
-
-  /**
-   * @param value - The scalar value to divide by.
-   * @returns A new Rate representing this Rate divided by the value.
-   */
-  div(value: number): Rate {
-    return new Rate(math.div(this.valueOf(), value));
-  }
-
   /** @returns A Rate representing the given number of Hz. */
   static hz(value: number): Rate {
     return new Rate(value);
-  }
-
-  /** @returns A Rate representing the given number of kHz. */
-  static khz(value: number): Rate {
-    return Rate.hz(value * 1000);
   }
 
   /** A zod schema for validating and transforming rates */
@@ -1223,17 +1135,14 @@ export class Rate
 }
 
 /** Density represents the number of bytes in a value. */
-export class Density
-  extends primitive.ValueExtension<number>
-  implements primitive.Stringer
-{
+export class Density extends ValueExtension<number> implements primitive.Stringer {
   /**
    * @class
    * @param value - The number of bytes per value.
    * @returns A Density representing the given number of bytes per value.
    */
   constructor(value: CrudeDensity) {
-    if (primitive.isCrudeValueExtension<number>(value)) value = value.value;
+    if (isCrudeValueExtension(value, "number")) value = value.value;
     super(value.valueOf());
   }
 
@@ -1248,40 +1157,6 @@ export class Density
   /** @returns A Size representing the given number of values. */
   size(sampleCount: number): Size {
     return new Size(sampleCount * this.valueOf());
-  }
-
-  /**
-   * Adds another Density to this Density.
-   * @returns A new Density representing the sum of the two densities.
-   */
-  add(other: CrudeDensity): Density {
-    return new Density(math.add(this.valueOf(), new Density(other).valueOf()));
-  }
-
-  /**
-   * Subtracts another Density from this Density.
-   * @param other - The Density to subtract.
-   * @returns A new Density representing the difference of the two densities.
-   */
-  sub(other: CrudeDensity): Density {
-    return new Density(math.sub(this.valueOf(), new Density(other).valueOf()));
-  }
-
-  /**
-   * Multiplies this Density by a scalar value.
-   * @param value - The scalar value to multiply by.
-   * @returns A new Density representing this Density multiplied by the value.
-   */
-  mult(value: number): Density {
-    return new Density(math.mult(this.valueOf(), value));
-  }
-
-  /**
-   * @param value - The scalar value to divide by.
-   * @returns A new Density representing this Density divided by the value.
-   */
-  div(value: number): Density {
-    return new Density(math.div(this.valueOf(), value));
   }
 
   /** Unknown/Invalid Density. */
@@ -1345,7 +1220,8 @@ export class TimeRange implements primitive.Stringer, primitive.Hashable {
       this.end = new TimeStamp(start.end);
     } else {
       this.start = new TimeStamp(start);
-      this.end = new TimeStamp(end);
+      // The overloads require end when start is a timestamp.
+      this.end = new TimeStamp(end as CrudeTimeStamp);
     }
   }
 
@@ -1444,11 +1320,15 @@ export class TimeRange implements primitive.Stringer, primitive.Hashable {
   /**
    * @param other - The TimeRange or TimeStamp to check if it is contained in the
    * TimeRange.
-   * @returns True if the TimeRange contains the given TimeRange or TimeStamp.
+   * @returns True if the TimeRange contains the given TimeRange or TimeStamp. A range
+   * that ends at this range's end is inside it, and a timestamp at the end is not.
    */
   contains(other: TimeRange | CrudeTimeStamp): boolean {
     if (other instanceof TimeRange)
-      return this.contains(other.start) && this.contains(other.end);
+      return (
+        other.start.valueOf() >= this.start.valueOf() &&
+        other.end.valueOf() <= this.end.valueOf()
+      );
     const ts =
       other instanceof TimeStamp ? other.valueOf() : new TimeStamp(other).valueOf();
     return this.start.valueOf() <= ts && ts < this.end.valueOf();
@@ -1471,13 +1351,6 @@ export class TimeRange implements primitive.Stringer, primitive.Hashable {
     if (other.end.before(this.end)) next.end = other.end;
     if (other.end.before(this.start)) next.start = other.end;
     return next;
-  }
-
-  static max(...others: TimeRange[]): TimeRange {
-    return new TimeRange(
-      TimeStamp.min(...others.map((o) => o.start)),
-      TimeStamp.max(...others.map((o) => o.end)),
-    );
   }
 
   /** The maximum possible time range. */
@@ -1534,13 +1407,17 @@ export class TimeRange implements primitive.Stringer, primitive.Hashable {
    * is the minimum of the start times and the end is the maximum of the end times.
    */
   static merge(...ranges: CrudeTimeRange[]): TimeRange {
-    return TimeRange.max(...ranges.map((r) => new TimeRange(r).makeValid()));
+    const valid = ranges.map((r) => new TimeRange(r).makeValid());
+    return new TimeRange(
+      TimeStamp.min(...valid.map((r) => r.start)),
+      TimeStamp.max(...valid.map((r) => r.end)),
+    );
   }
 }
 
 /** DataType is a string that represents a data type. */
 export class DataType
-  extends primitive.ValueExtension<string>
+  extends ValueExtension<string>
   implements primitive.Stringer, primitive.Hashable
 {
   /** @returns the data type identifier as a string for stable hashing. */
@@ -1549,7 +1426,7 @@ export class DataType
   }
 
   constructor(value: CrudeDataType) {
-    if (primitive.isCrudeValueExtension<string>(value)) value = value.value;
+    if (isCrudeValueExtension(value, "string")) value = value.value;
     if (
       value instanceof DataType ||
       typeof value === "string" ||
@@ -1574,7 +1451,9 @@ export class DataType
 
   /** @returns true if the DataType is equal to the given DataType. */
   equals(other: CrudeDataType): boolean {
-    return this.valueOf() === other.valueOf();
+    if (other instanceof DataType || typeof other === "string")
+      return this.valueOf() === other.valueOf();
+    return this.valueOf() === new DataType(other).valueOf();
   }
 
   /** @returns true if the DataType is equal to any of the given DataTypes. */
@@ -1667,48 +1546,6 @@ export class DataType
       this.equals(DataType.INT32) ||
       this.equals(DataType.INT64)
     );
-  }
-
-  /**
-   * @returns true if the data type can be cast to the other data type without loss of
-   * precision.
-   */
-  canSafelyCastTo(other: DataType): boolean {
-    if (this.equals(other)) return true;
-    if (!this.isNumeric || !other.isNumeric) return false;
-    if (this.isVariable || other.isVariable) return false;
-    if (this.equals(DataType.BOOLEAN)) return true;
-    if (other.equals(DataType.BOOLEAN)) return false;
-    if (this.isUnsignedInteger && other.isSignedInteger) return false;
-
-    if (this.isFloat)
-      return other.isFloat && this.density.valueOf() <= other.density.valueOf();
-    if (this.equals(DataType.INT32) && other.equals(DataType.FLOAT64)) return true;
-    if (this.equals(DataType.INT8) && other.equals(DataType.FLOAT32)) return true;
-    if (this.isInteger && other.isInteger)
-      return (
-        this.density.valueOf() <= other.density.valueOf() &&
-        this.isUnsignedInteger === other.isUnsignedInteger
-      );
-
-    return false;
-  }
-
-  /**
-   * @returns true if the data type can be cast to the other data type, even if there is
-   * a loss of precision.
-   */
-  canCastTo(other: DataType): boolean {
-    if (this.isNumeric && other.isNumeric) return true;
-    return this.equals(other);
-  }
-
-  /**
-   * @param array - The TypedArray to check.
-   * @returns True if the TypedArray is of the same type as the DataType.
-   */
-  checkArray(array: TypedArray): boolean {
-    return array.constructor === this.Array;
   }
 
   /** @returns true if the data type uses bigints to store values. */
@@ -1861,36 +1698,21 @@ export class DataType
 }
 
 /** The Size of an element in bytes. */
-export class Size
-  extends primitive.ValueExtension<number>
-  implements primitive.Stringer
-{
+export class Size extends ValueExtension<number> implements primitive.Stringer {
   constructor(value: CrudeSize) {
-    if (primitive.isCrudeValueExtension<number>(value)) value = value.value;
+    if (isCrudeValueExtension(value, "number")) value = value.value;
     super(value.valueOf());
-  }
-
-  /** @returns true if the Size is larger than the other size. */
-  largerThan(other: CrudeSize): boolean {
-    if (primitive.isCrudeValueExtension<number>(other)) other = other.value;
-    return this.valueOf() > other.valueOf();
-  }
-
-  /** @returns true if the Size is smaller than the other size. */
-  smallerThan(other: CrudeSize): boolean {
-    if (primitive.isCrudeValueExtension<number>(other)) other = other.value;
-    return this.valueOf() < other.valueOf();
   }
 
   /** @returns a new Size representing the sum of the two Sizes. */
   add(other: CrudeSize): Size {
-    if (primitive.isCrudeValueExtension<number>(other)) other = other.value;
+    if (isCrudeValueExtension(other, "number")) other = other.value;
     return new Size(math.add(this.valueOf(), other.valueOf()));
   }
 
   /** @returns a new Size representing the difference of the two Sizes. */
   sub(other: CrudeSize): Size {
-    if (primitive.isCrudeValueExtension<number>(other)) other = other.value;
+    if (isCrudeValueExtension(other, "number")) other = other.value;
     return new Size(math.sub(this.valueOf(), other.valueOf()));
   }
 
@@ -2039,20 +1861,14 @@ export type CrudeTimeStamp =
   | Date
   | string
   | DateComponents
-  | primitive.CrudeValueExtension<bigint>;
-export type TimeStampT = number;
+  | CrudeValueExtension<bigint>;
 export type CrudeTimeSpan =
-  bigint | TimeSpan | TimeStamp | number | Rate | primitive.CrudeValueExtension<bigint>;
-export type TimeSpanT = number;
-export type CrudeRate = Rate | number | primitive.CrudeValueExtension<number>;
-export type RateT = number;
-export type CrudeDensity = Density | number | primitive.CrudeValueExtension<number>;
-export type DensityT = number;
+  bigint | TimeSpan | TimeStamp | number | Rate | CrudeValueExtension<bigint>;
+export type CrudeRate = Rate | number | CrudeValueExtension<number>;
+export type CrudeDensity = Density | number | CrudeValueExtension<number>;
 export type CrudeDataType =
-  DataType | string | TypedArray | primitive.CrudeValueExtension<string>;
-export type DataTypeT = string;
-export type CrudeSize = Size | number | primitive.CrudeValueExtension<number>;
-export type SizeT = number;
+  DataType | string | TypedArray | CrudeValueExtension<string>;
+export type CrudeSize = Size | number | CrudeValueExtension<number>;
 export interface CrudeTimeRange {
   start: CrudeTimeStamp;
   end: CrudeTimeStamp;
@@ -2159,33 +1975,6 @@ type TypedArrayConstructor =
   | BigInt64ArrayConstructor;
 export type TelemValue =
   number | bigint | string | boolean | Date | TimeStamp | TimeSpan;
-
-export const isTelemValue = (value: unknown): value is TelemValue => {
-  const ot = typeof value;
-  return (
-    ot === "string" ||
-    ot === "number" ||
-    ot === "boolean" ||
-    ot === "bigint" ||
-    value instanceof TimeStamp ||
-    value instanceof TimeSpan ||
-    value instanceof Date
-  );
-};
-
-export const convertDataType = (
-  source: DataType,
-  target: DataType,
-  value: math.Numeric,
-  offset: math.Numeric = 0,
-): math.Numeric => {
-  if (target.equals(DataType.BOOLEAN)) return primitive.isZero(value) ? 0 : 1;
-  if (source.usesBigInt && !target.usesBigInt)
-    return Number(BigInt(value.valueOf()) - BigInt(offset.valueOf()));
-  if (!source.usesBigInt && target.usesBigInt)
-    return BigInt(value.valueOf()) - BigInt(offset.valueOf());
-  return math.sub(value, offset);
-};
 
 export const timeRangeZ = TimeRange.z;
 export const timeStampZ = TimeStamp.z;
