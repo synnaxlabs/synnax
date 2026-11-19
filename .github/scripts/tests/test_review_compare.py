@@ -18,6 +18,7 @@ from typing import Any
 import pytest
 
 from review import compare, render
+from review.__main__ import main
 
 REPO = "o/r"
 HEAD = "a" * 40
@@ -808,3 +809,26 @@ class TestRetrying:
             compare.retrying(gh, sleep=waits.append)("api", "graphql")
         assert len(calls) == 3
         assert waits == [2, 4]
+
+    def test_should_give_the_retrying_reads_to_the_report(
+        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        def read(*args: str, **kwargs: Any) -> str:
+            return ""
+
+        given: list[object] = []
+
+        def pairs(gh: object, *args: object) -> list[compare.Pair]:
+            given.append(gh)
+            return []
+
+        def limits(gh: object, *args: object) -> None:
+            given.append(gh)
+
+        monkeypatch.setenv("GITHUB_REPOSITORY", "o/r")
+        monkeypatch.setattr(compare, "retrying", lambda gh: read)
+        monkeypatch.setattr(compare, "pairs", pairs)
+        monkeypatch.setattr(compare, "limits", limits)
+        main(["compare", "1"])
+        assert given == [read, read]
+        assert capsys.readouterr().out
