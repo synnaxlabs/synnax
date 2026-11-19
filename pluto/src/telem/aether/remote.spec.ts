@@ -698,6 +698,75 @@ describe("remote", () => {
       expect(x.value().data[0]).toEqual(HOME.numericBounds);
     });
 
+    describe("update", () => {
+      const SHORT = new TimeRange(START, START.add(TimeSpan.minutes(5)));
+
+      it("should keep its samples while those of a new window load", async () => {
+        const core = createCore();
+        const props = { channel: core.data[0].key, useIndexOfChannel: true };
+        const x = create(connect(core), props);
+        await settle(x);
+        expect(x.update({ ...props, window: staticWindow(SHORT) })).toBe(true);
+        const { data } = x.value();
+        expect(data[0]).toEqual(SHORT.numericBounds);
+        expect(data[1].length).toBeGreaterThan(0);
+      });
+
+      it("should draw the samples of its new window", async () => {
+        const core = createCore();
+        const props = { channel: core.data[0].key, useIndexOfChannel: true };
+        const x = create(connect(core), props);
+        await settle(x);
+        x.update({ ...props, window: staticWindow(SHORT) });
+        await expect
+          .poll(() => x.value({ points: 100 }).data[1].bounds.upper, POLL)
+          .toBeLessThanOrEqual(ns(SHORT.end));
+      });
+
+      it("should keep its samples when a live window stops", async () => {
+        const core = createCore();
+        const props = { channel: core.data[0].key, useIndexOfChannel: true };
+        const x = create(connect(core), {
+          ...props,
+          window: dynamicWindow(TimeSpan.minutes(1)),
+        });
+        await settle(x);
+        expect(x.value().rolling).toBe(true);
+        const stopped = new TimeRange(core.now().sub(TimeSpan.minutes(1)), core.now());
+        expect(x.update({ ...props, window: staticWindow(stopped) })).toBe(true);
+        const { data, rolling } = x.value();
+        expect(rolling).toBe(false);
+        expect(data[0]).toEqual(stopped.numericBounds);
+        expect(data[1].length).toBeGreaterThan(0);
+      });
+
+      it("should keep its samples while those of a new aggregation load", async () => {
+        const core = createCore();
+        const props = {
+          channel: core.data[0].key,
+          window: staticWindow(HOME),
+          aggregation: "average" as const,
+        };
+        const y = create(connect(core), props);
+        await settle(y);
+        // The Core's min_max groups span each value plus and minus one.
+        expect(y.value().data[0].upper).toBeCloseTo(1, 1);
+        expect(y.update({ ...props, aggregation: "min_max" })).toBe(true);
+        const { data, aggregation } = y.value();
+        expect(aggregation).toBe("min_max");
+        expect(data[1].length).toBeGreaterThan(0);
+        await expect.poll(() => y.value().data[0].upper, POLL).toBeGreaterThan(1.5);
+      });
+
+      it("should not take props that draw another channel", () => {
+        const core = createCore();
+        const x = create(connect(core), { channel: core.data[0].key });
+        expect(x.update({ channel: core.index.key, window: staticWindow(HOME) })).toBe(
+          false,
+        );
+      });
+    });
+
     it("should bound a live index by the span before its newest sample", async () => {
       const core = createCore();
       const { key } = core.data[0];
