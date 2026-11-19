@@ -68,6 +68,9 @@ contrast check, so lines past the eighth can look alike to a color-blind user.
 A palette lists its colors in the order that a user sets by drag, as Figma lists styles.
 A new line takes the first series color in that order that no other line uses.
 
+A user adds a series color in Settings, where they set its value. The Series palette in
+a color picker has no "+".
+
 ### Shape and size
 
 - Lyra's rem is 6 px. Write sizes in rem with the existing tokens. Round a fractional
@@ -335,11 +338,14 @@ bound, a log precision, or the line plot X channel.
   still a full editor for every type: create, edit, find, and delete, and, where the
   type supports them, see what uses an item and Replace with.
 - Each type has one editor. The field and Settings open the same editor.
-- A field that takes a shared item can create one, and edit the one it holds, without
-  leaving the field.
-- The picker's footer holds "Create <type>", as the label field does
-  (`Button.CreateListItem` in `console/src/platform/label/Select.tsx`).
-- Hovering an item shows an edit action. It opens the type's editor in place.
+- The field's picker creates in place, as every select of things users make does. A
+  group in the picker, such as a palette, ends with a "+" text button that adds an item
+  to that group.
+- A right click on an item in a picker opens its menu, with Edit. Shift+F10 and the Menu
+  key open it on a focused item. Edit opens the type's editor in place. A picker has no
+  hover edit button.
+- A user without create access sees no create item and no "+". A user without update
+  access gets no menu.
 - An edit reaches every user of the item. When other places use the item and the Core
   can list them, the editor shows "Used by N".
 
@@ -372,23 +378,6 @@ bound, a log precision, or the line plot X channel.
   under it. Each palette sits under its title, which ends with the name of the hovered
   color, else the linked one. Swatches have no tooltips.
 - A swatch shows the color's value for the current theme only.
-- A "+" swatch ends each palette except Series. Series is the pool of automatic colors,
-  so a user adds to it in Settings, where they set the new value. The "+" creates a
-  named color from the field's current color and links the field to it. On Auto, it
-  starts from the color that Auto shows. It asks for the name in a line under the
-  swatches, next to a swatch of the color it saves. Enter creates, and Escape or a blank
-  name cancels.
-- The color that a palette title names, hovered or linked, has an edit action after its
-  name. The hover stays until the pointer or the focus leaves the palette, so the
-  pointer can move from a swatch up to its action. The tooltip sits to the right,
-  outside the palette, so it never covers a swatch. The action opens the named color
-  editor of Settings (name, light, dark) inside the picker, under a back arrow and the
-  l9 note "Changes every use of this color." Each edit saves at once. Back returns to
-  Library with the same search, scroll, and focus.
-- "Create palette" ends the Library list, in the look of a create item, and asks for the
-  name in the same line as the "+".
-- A user without create access sees no "+" swatch and no "Create palette". A user
-  without update access sees no edit action.
 - An edit in Custom stores a fixed color and unlinks the value. There is no unlink
   button.
 - An optional color puts a square Auto button at the right of the tab bar, on both tabs.
@@ -631,6 +620,13 @@ bound, a log precision, or the line plot X channel.
   field when the field has less than 30rem.
 - The Profile name field is at most 50rem wide. The license stats stack below 96rem.
 
+### Carets
+
+- A caret at the start of an item opens the item's own content in place, such as a
+  range's children or an enumeration's entries.
+- A caret at the end of a bar opens or closes a group of items, such as a palette
+  (`Header.Group`).
+
 ### Group headings
 
 - A list that groups its items, such as the palettes on the Colors page or the groups of
@@ -764,6 +760,11 @@ bound, a log precision, or the line plot X channel.
 
 ### Table input
 
+- A table input holds plain values that belong to one record or field: an open list in a
+  few short columns, such as headers, enumeration entries, or scale points.
+- A record, with its own name, menu, or uses, goes in a record table. A fixed set of
+  values is a set of fields on one line, such as host and port. A value with more fields
+  than fit in a cell goes in a list with a details pane, as in MQTT read.
 - A ruled grid: the cells join into one box with shared lines, and headings sit in the
   box. Row labels and remove buttons sit outside it. A cell draws its border on the grid
   line, so focus and hover frame the whole cell.
