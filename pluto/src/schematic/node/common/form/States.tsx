@@ -10,19 +10,14 @@
 import "@/schematic/node/common/form/States.css";
 
 import { type color as colorRef, enumeration, schematic } from "@synnaxlabs/client";
-import { Button } from "@synnaxlabs/lyra/button";
-import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Menu } from "@synnaxlabs/lyra/menu";
-import { Modal } from "@synnaxlabs/lyra/modal";
-import { Nav } from "@synnaxlabs/lyra/nav";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { color, type deep, uuid } from "@synnaxlabs/x";
-import { type KeyboardEvent, type ReactElement, useState } from "react";
+import { type ReactElement, useState } from "react";
 
 import { Access } from "@/access";
 import { Color } from "@/color";
@@ -61,7 +56,6 @@ const OwnOptions = ({ path, colorHidden, preview }: OwnOptionsProps): ReactEleme
   const { set, get } = Form.useContext();
   const options = Form.useFieldValue<schematic.StateMapping[]>(path);
   const resolve = Color.useResolve();
-  // One table change can call several handlers, so each changes the last write.
   const write = (
     change: (current: enumeration.Entry[]) => enumeration.Entry[],
   ): void => {
@@ -77,13 +71,14 @@ const OwnOptions = ({ path, colorHidden, preview }: OwnOptionsProps): ReactEleme
       preview={preview}
       abnormalHidden
       colorHidden={colorHidden}
-      onSet={(changed) =>
-        write((current) =>
-          current.map((e) => changed.find((c) => c.key === e.key) ?? e),
-        )
+      onChange={({ changed, added, removed }) =>
+        write((current) => [
+          ...current
+            .filter((e) => !removed.includes(e.key))
+            .map((e) => changed.find((c) => c.key === e.key) ?? e),
+          ...added,
+        ])
       }
-      onAdd={(added) => write((current) => [...current, ...added])}
-      onRemove={(i) => write((current) => current.filter((_, j) => j !== i))}
       onMove={(from, to) =>
         write((current) => {
           const next = [...current];
@@ -117,93 +112,7 @@ const UsedBy = ({ enumeration: key }: UsedByProps): ReactElement | null => {
   );
 };
 
-const CREATE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
-
-interface CreateModalProps {
-  initialName: string;
-  onCreate: (name: string) => void;
-  onClose: () => void;
-  loading: boolean;
-}
-
-/** Asks for the name of a new enumeration. */
-const CreateModal = ({
-  initialName,
-  onCreate,
-  onClose,
-  loading,
-}: CreateModalProps): ReactElement => {
-  const [name, setName] = useState(initialName);
-  const [error, setError] = useState<string>();
-  const handleChange = (next: string): void => {
-    setName(next);
-    setError(undefined);
-  };
-  const handleCreate = (): void => {
-    const trimmed = name.trim();
-    if (trimmed === "") return setError("Name is required");
-    if (!loading) onCreate(trimmed);
-  };
-  // Escape goes on to the modal, which closes, instead of only leaving the field.
-  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>): void => {
-    if (e.key === "Escape") e.preventDefault();
-  };
-  return (
-    <Dialog.Frame
-      variant="modal"
-      visible
-      onVisibleChange={(visible) => !visible && onClose()}
-      background={0}
-    >
-      <Modal.Frame>
-        <Modal.Header icon={<Icon.Enumeration />}>Enumeration.Create</Modal.Header>
-        <Modal.Body>
-          <Input.Item
-            showLabel={false}
-            helpText={error}
-            status={error == null ? undefined : "error"}
-            padHelpText
-          >
-            <Input.Text
-              value={name}
-              onChange={handleChange}
-              onKeyDown={handleKeyDown}
-              placeholder="Enumeration name"
-              aria-label="Enumeration name"
-              variant="text"
-              autoFocus
-              selectOnFocus
-              level="h3"
-              full="x"
-            />
-          </Input.Item>
-        </Modal.Body>
-        <Modal.Footer>
-          <Nav.Bar.End x align="center">
-            <Button.Button
-              variant="outlined"
-              triggerIndicator={Triggers.ESCAPE}
-              onClick={onClose}
-            >
-              Cancel
-            </Button.Button>
-            <Button.Button
-              variant="filled"
-              status={loading ? "loading" : undefined}
-              trigger={CREATE_TRIGGER}
-              triggerIndicator
-              onClick={handleCreate}
-            >
-              Create
-            </Button.Button>
-          </Nav.Bar.End>
-        </Modal.Footer>
-      </Modal.Frame>
-    </Dialog.Frame>
-  );
-};
-
-export interface StatesProps {
+export interface StatesProps extends Pick<Enumeration.TableProps, "colorHidden"> {
   /** Path to the enumeration that the node names. */
   enumeration: deep.Path<enumeration.Key | undefined>;
   /** Path to the options that the node draws when it names no enumeration. */
@@ -212,8 +121,6 @@ export interface StatesProps {
   label: deep.Path<string>;
   /** Names an enumeration that the node creates when it has no search text or label. */
   symbolName: string;
-  /** Leaves out the Color column of the options, for a node that draws no color. */
-  colorHidden?: boolean;
 }
 
 /**
@@ -233,28 +140,33 @@ export const States = ({
   const key = Form.useFieldValue(enumerationPath, { optional: true }) ?? undefined;
   const canCreate = Access.useCreateGranted(enumeration.TYPE_RESOURCE_ID);
   const { updateAsync, variant } = Enumeration.useCreate();
+  const prompt = Enumeration.useCreatePrompt();
   // The enumeration just created for a node that named one, whose entries take focus.
   const [focused, setFocused] = useState<enumeration.Key>();
-  const [naming, setNaming] = useState(false);
   const handleChange = (next: enumeration.Key | undefined): void => {
+    setFocused(undefined);
     if (next == null || next === NONE) remove(enumerationPath);
     else set(enumerationPath, next);
   };
-  const create = (name: string): void => {
-    const created = uuid.create();
+  const link = (created: enumeration.Key): void => {
+    set(enumerationPath, created);
+    if (key != null) setFocused(created);
+  };
+  const handleCreate = (term: string): void => {
     // A node that names an enumeration hides its own options, so none move.
     const entries =
       key == null ? get<schematic.StateMapping[]>(options).value.map(toEntry) : [];
     void (async () => {
-      if ((await updateAsync({ key: created, name, entries })) === false) return;
-      set(enumerationPath, created);
-      setNaming(false);
-      if (key != null) setFocused(created);
+      if (term === "") {
+        const name = key == null ? get<string>(label).value.trim() || symbolName : "";
+        const created = await prompt({ name, entries });
+        if (created != null) link(created);
+        return;
+      }
+      const created = uuid.create();
+      if ((await updateAsync({ key: created, name: term, entries })) !== false)
+        link(created);
     })();
-  };
-  const handleCreate = (term: string): void => {
-    if (term === "") setNaming(true);
-    else create(term);
   };
   const footer = (
     <>
@@ -305,14 +217,6 @@ export const States = ({
           )}
         </Input.Item>
       </Form.Section>
-      {naming && (
-        <CreateModal
-          initialName={key == null ? get(label).value.trim() || symbolName : ""}
-          onCreate={create}
-          onClose={() => setNaming(false)}
-          loading={variant === "loading"}
-        />
-      )}
     </Form.Sections>
   );
 };

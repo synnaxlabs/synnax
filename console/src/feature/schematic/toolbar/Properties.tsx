@@ -38,6 +38,7 @@ import {
 import { type FC, memo, type ReactElement, type ReactNode } from "react";
 import { z } from "zod";
 
+import { Enumeration } from "@/feature/enumeration";
 import { Symbol } from "@/feature/schematic/symbol";
 import { CSS } from "@/platform/css";
 import { MultiEdit } from "@/platform/multiedit";
@@ -107,16 +108,18 @@ const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement => {
   return (
     <Flex.Box className={CSS.BE("schematic", "properties")} y>
       <Form.Form<typeof Schematic.elementConfigZ> {...form}>
-        {isCustom ? (
-          <CustomVariantForm
-            specKey={specKey}
-            elKey={elKey}
-            formProps={formProps}
-            VariantForm={C.Form}
-          />
-        ) : (
-          <C.Form key={elKey} {...formProps} />
-        )}
+        <Enumeration.CreatePromptProvider>
+          {isCustom ? (
+            <CustomVariantForm
+              specKey={specKey}
+              elKey={elKey}
+              formProps={formProps}
+              VariantForm={C.Form}
+            />
+          ) : (
+            <C.Form key={elKey} {...formProps} />
+          )}
+        </Enumeration.CreatePromptProvider>
       </Form.Form>
     </Flex.Box>
   );
