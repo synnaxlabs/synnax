@@ -150,6 +150,21 @@ func (r racingFS) Rename(oldPath, newPath string) error {
 	return fstestutil.ErrFault
 }
 
+var _ = Describe("AllIntegrations", func() {
+	It("Should hold every integration that a Driver build can run", func() {
+		Expect(driver.AllIntegrations).To(ConsistOf(
+			"arc",
+			"ethercat",
+			"file",
+			"http",
+			"labjack",
+			"modbus",
+			"ni",
+			"opc",
+		))
+	})
+})
+
 var _ = Describe("Open", func() {
 	Describe("contract", func() {
 		It("Should return a non-nil driver on success", func(ctx SpecContext) {
