@@ -112,6 +112,21 @@ class EnumerationClient(ResourceClient):
         self.layout.delete_with_confirmation(self.heading(name))
         self._wait_gone(name)
 
+    def replace(self, name: str, *, with_name: str) -> None:
+        """Delete an enumeration with "Replace with" in its delete dialog, which moves
+        each user to the enumeration named with_name."""
+        self.ctx_menu.action(self.heading(name), "Delete")
+        modal = self.page.locator(self.layout.MODAL_SELECTOR)
+        modal.wait_for(state="visible", timeout=5000)
+        modal.get_by_role("button", name="Replace with", exact=True).click()
+        self.page.get_by_placeholder("Search enumerations...", exact=True).fill(
+            with_name
+        )
+        self.page.get_by_role("option", name=with_name, exact=True).click()
+        modal.get_by_role("button", name="Replace", exact=True).click()
+        modal.wait_for(state="hidden", timeout=5000)
+        self._wait_gone(name)
+
     def menu_options(self, name: str, options: list[str]) -> list[str]:
         """Open the menu of a heading and return which of the options it shows."""
         self.ctx_menu.open_on(self.heading(name))

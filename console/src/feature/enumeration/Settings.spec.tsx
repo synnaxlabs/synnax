@@ -471,6 +471,8 @@ describe("Enumeration.Settings", () => {
     expect(
       await within(await dialog.findByLabelText("Users")).findByText(user.name),
     ).toBeTruthy();
+    const replace = dialog.getByRole("button", { name: "Replace" });
+    expect(replace.getAttribute("aria-disabled")).toBe("true");
     await pickReplacement(dialog, to.name);
     await clickWhenEnabled(dialog, "Replace");
     await waitForDialogToClose();
