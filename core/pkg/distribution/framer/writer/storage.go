@@ -43,7 +43,7 @@ func (s *Service) newStorage(ctx context.Context, cfg Config) (StreamWriter, err
 	if err != nil {
 		return nil, err
 	}
-	return newSession(w, virtual, autoIndex, *cfg.Sync), nil
+	return s.newSession(w, cfg, virtual, autoIndex), nil
 }
 
 // unindexedStamper times each sample of a channel with no index 1ns after the one

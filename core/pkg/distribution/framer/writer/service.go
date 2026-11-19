@@ -208,11 +208,10 @@ func (c Config) Override(other Config) Config {
 
 // ServiceConfig is the configuration for opening a Writer Service.
 type ServiceConfig struct {
-	// FreeWrites is the write pipeline where samples from free channels should be
-	// written.
+	// Writes is where writers send every frame they write, for the relay to stream.
 	//
 	// [REQUIRED]
-	FreeWrites confluence.Inlet[relay.Response]
+	Writes confluence.Inlet[relay.Response]
 	// TS is the local time series store to write to.
 	//
 	// [REQUIRED]
@@ -228,14 +227,14 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 // Validate implements config.Config.
 func (cfg ServiceConfig) Validate() error {
 	v := validate.New("distribution.framer.writer")
-	v.NotNil("free_writes", cfg.FreeWrites)
+	v.NotNil("writes", cfg.Writes)
 	v.NotNil("ts", cfg.TS)
 	return v.Error()
 }
 
 // Override implements config.Config.
 func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
-	cfg.FreeWrites = override.Nil(cfg.FreeWrites, other.FreeWrites)
+	cfg.Writes = override.Nil(cfg.Writes, other.Writes)
 	cfg.TS = override.Nil(cfg.TS, other.TS)
 	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
 	return cfg

@@ -13,6 +13,8 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
@@ -33,6 +35,10 @@ type session struct {
 	stamper *unindexedStamper[cesium.ChannelKey]
 	// autoIndex is nil when the writer does not stamp its indexes.
 	autoIndex *indexStamper
+	// writes is where the session sends each written frame when mode streams.
+	writes confluence.Inlet[relay.Response]
+	mode   Mode
+	group  uint32
 	// err is the first error that the session raised itself. The Cesium writer keeps
 	// its own first error and returns it from every later call.
 	err     error
@@ -43,17 +49,20 @@ type session struct {
 	sync         bool
 }
 
-func newSession(
+func (s *Service) newSession(
 	w *cesium.Writer,
+	cfg Config,
 	virtual []cesium.ChannelKey,
 	autoIndex *indexStamper,
-	sync bool,
 ) *session {
 	return &session{
 		w:         w,
 		stamper:   newUnindexedStamper(virtual),
 		autoIndex: autoIndex,
-		sync:      sync,
+		writes:    s.cfg.Writes,
+		mode:      cfg.Mode,
+		group:     cfg.ControlSubject.Group,
+		sync:      *cfg.Sync,
 	}
 }
 
@@ -105,8 +114,14 @@ func (s *session) exec(
 		if s.autoIndex != nil {
 			fr = s.autoIndex.stamp(fr)
 		}
-		if _, err = s.w.Write(ctx, fr); errors.Is(err, control.ErrUnauthorized) {
-			s.writeRefused = true
+		var written cesium.Frame
+		written, err = s.w.Write(ctx, fr)
+		refused := errors.Is(err, control.ErrUnauthorized)
+		s.writeRefused = s.writeRefused || refused
+		if err == nil || refused {
+			if sendErr := s.relay(ctx, written); sendErr != nil {
+				return 0, false, sendErr
+			}
 		}
 	case CommandCommit:
 		end, err = s.w.Commit(ctx)
@@ -133,6 +148,17 @@ func (s *session) exec(
 		return 0, false, nil
 	}
 	return 0, err == nil, err
+}
+
+// relay sends fr to the relay when the writer streams.
+func (s *session) relay(ctx context.Context, fr cesium.Frame) error {
+	if !s.mode.Stream() {
+		return nil
+	}
+	return signal.SendUnderContext(ctx, s.writes.Inlet(), relay.Response{
+		Frame: frame.NewFromStorage(fr),
+		Group: s.group,
+	})
 }
 
 // respond sends the response to req. A write gets a response only when the writer is

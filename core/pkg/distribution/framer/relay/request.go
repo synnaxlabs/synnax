@@ -10,7 +10,6 @@
 package relay
 
 import (
-	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 )
@@ -39,12 +38,4 @@ type Response struct {
 	// Ack marks the empty response that answers a Request with AckRequested set. Acks
 	// arrive in the order of their requests.
 	Ack bool `json:"ack" msgpack:"ack"`
-}
-
-func reqToStorage(req Request) cesium.StreamerRequest {
-	return cesium.StreamerRequest{Channels: req.Keys.Uint32()}
-}
-
-func resFromStorage(res cesium.StreamerResponse) Response {
-	return Response{Frame: frame.NewFromStorage(res.Frame), Group: res.Group}
 }

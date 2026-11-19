@@ -24,7 +24,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
-	storagetestutil "github.com/synnaxlabs/synnax/pkg/storage/testutil"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/set"
@@ -306,13 +305,10 @@ var _ = Describe("Relay", func() {
 			"Should warn once per drop episode, ending it when the buffer empties",
 			func(ctx SpecContext) {
 				ins, logs := alamostestutil.ObservedInstrumentation(zapcore.WarnLevel)
-				store := storagetestutil.OpenLayer(ctx)
-				DeferCleanup(store.Close)
-				freeWrites := confluence.NewStream[relay.Response](10)
+				writes := confluence.NewStream[relay.Response](10)
 				r := MustSucceed(relay.Open(relay.Config{
 					Instrumentation:    ins,
-					TS:                 store.TS,
-					FreeWrites:         freeWrites,
+					Writes:             writes,
 					StreamerBufferSize: 4,
 				}))
 				DeferCleanup(r.Close)
@@ -341,7 +337,7 @@ var _ = Describe("Relay", func() {
 				send := func(n int) {
 					GinkgoHelper()
 					for v := range int64(n) {
-						freeWrites.Inlet() <- relay.Response{
+						writes.Inlet() <- relay.Response{
 							Frame: frame.NewUnary(key, telem.NewSeriesV(v)),
 						}
 						Eventually(live.Outlet()).Should(Receive())

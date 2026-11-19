@@ -73,7 +73,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	return c
 }
 
-const freeWritePipelineBuffer = 4000
+const writePipelineBuffer = 4000
 
 // OpenService opens a new service using the provided configuration(s). Fields defined
 // in each subsequent configuration override those in previous configurations. See the
@@ -97,18 +97,17 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}); !ok(err, nil) {
 		return nil, err
 	}
-	freeWrites := confluence.NewStream[relay.Response](freeWritePipelineBuffer)
+	writes := confluence.NewStream[relay.Response](writePipelineBuffer)
 	if s.relay, err = relay.Open(relay.Config{
 		Instrumentation: cfg.Child("relay"),
-		TS:              cfg.TS,
-		FreeWrites:      freeWrites,
+		Writes:          writes,
 	}); !ok(err, s.relay) {
 		return nil, err
 	}
 	if s.writer, err = writer.NewService(writer.ServiceConfig{
 		Instrumentation: cfg.Child("writer"),
 		TS:              cfg.TS,
-		FreeWrites:      freeWrites,
+		Writes:          writes,
 	}); !ok(err, nil) {
 		return nil, err
 	}
