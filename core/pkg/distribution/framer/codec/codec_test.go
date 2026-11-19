@@ -14,7 +14,6 @@ import (
 	"context"
 	"encoding/json/v2"
 	"fmt"
-	"io"
 	"math"
 	"math/rand/v2"
 	"runtime"
@@ -513,7 +512,8 @@ var _ = Describe("Codec", func() {
 				telem.ByteOrder.PutUint32(encoded[5:9], math.MaxUint32)
 				var before, after runtime.MemStats
 				runtime.ReadMemStats(&before)
-				Expect(c.Decode(encoded)).Error().To(MatchError(io.ErrUnexpectedEOF))
+				Expect(c.Decode(encoded)).Error().
+					To(invalid("remote sent a frame that ends early"))
 				runtime.ReadMemStats(&after)
 				Expect(after.TotalAlloc - before.TotalAlloc).
 					To(BeNumerically("<", 8<<20))

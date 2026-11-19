@@ -795,6 +795,9 @@ func (c *Codec) DecodeStream(reader io.Reader) (framer.Frame, error) {
 		if h.state != nil {
 			h.state.dec.dropped = true
 		}
+		if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+			err = invalidf("remote sent a frame that ends early")
+		}
 		return framer.Frame{}, err
 	}
 	return fr, nil
