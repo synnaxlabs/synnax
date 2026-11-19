@@ -108,17 +108,23 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer { return Writer{svc: s, tx: tx} }
 
 // Redeem returns the grant with the given key and deletes it, so no later call can use
 // it. Redeem runs in a transaction of its own, so two calls cannot both use one grant,
-// and the caller must not hold a transaction or snapshot of the DB. It returns an error
+// and the caller must not hold a transaction or snapshot of the DB. It returns a
+// validation error, and keeps the grant, when taskKey is nil. It returns an error
 // wrapping access.ErrDenied when no grant has the key, the grant has expired, the grant
-// is for a subject other than subject, or its command is for a task other than
-// taskKey. A grant for another subject stays in place. An expired grant and a grant for
-// another task are deleted.
+// is for a subject other than subject, or its command is for a task other than taskKey.
+// A grant for another subject stays in place. An expired grant and a grant for another
+// task are deleted.
 func (s *Service) Redeem(
 	ctx context.Context,
 	key Key,
 	subject resource.ID,
 	taskKey task.Key,
 ) (Grant, error) {
+	v := validate.New("redeem")
+	v.NonZero("task", taskKey)
+	if err := v.Error(); err != nil {
+		return Grant{}, err
+	}
 	var (
 		g       Grant
 		expired bool
