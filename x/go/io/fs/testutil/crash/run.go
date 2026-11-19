@@ -66,7 +66,7 @@ func Run(ctx context.Context, cfg Config) error {
 	}
 	r.disk = disk
 	r.counter = &counter{
-		grown:  map[string]growth{},
+		grown:  map[fault.ID]growth{},
 		before: r.beforeEvent,
 		after:  r.afterEvent,
 	}
@@ -251,11 +251,7 @@ func (r *run) recover(image *fault.FS) (records []Record, err error) {
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		if err = errors.Combine(err, engine.Close()); err != nil {
-			records = nil
-		}
-	}()
+	defer func() { err = errors.Combine(err, engine.Close()) }()
 	return engine.Recovered(r.ctx)
 }
 

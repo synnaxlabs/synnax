@@ -11,13 +11,12 @@ package crash
 
 import (
 	"os"
-	"path"
-	"strings"
 	"sync"
 	"syscall"
 
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/io/fs/testutil/fault"
 )
 
 // counter counts the calls that change a disk. It lets one such call run at a time, so
@@ -27,13 +26,11 @@ type counter struct {
 	// behind each call that did. Both run with mu held.
 	before func()
 	after  func(event int)
-	// grown says, for each file by path, how its durable length reached its newest
-	// block.
-	grown map[string]growth
-	// last is the path of the file that the newest Sync made longer. A Sync that makes
-	// no new byte durable gives the engine nothing new to confirm, so it does not
-	// count.
-	last string
+	// grown says, for each file, how its durable length reached its newest block.
+	grown map[fault.ID]growth
+	// last is the file that the newest Sync made longer. A Sync that makes no new byte
+	// durable gives the engine nothing new to confirm, so it does not count.
+	last fault.ID
 	// events is the count of calls that changed the disk.
 	events int
 	// faults is the count of calls that the disk failed with a sync error or with no
@@ -55,6 +52,9 @@ type growth struct {
 	before int64
 	// event is the number of that Sync among the events.
 	event int
+	// cut says that a Sync made the file shorter. The blocks of such a file have no
+	// known first Sync, so the file is no target of lasting corruption.
+	cut bool
 }
 
 // begin starts a call that can change the disk.
@@ -76,34 +76,34 @@ func (c *counter) end(err error, changed bool) {
 	c.mu.Unlock()
 }
 
-// forget drops what the counter knows of the path p and of each path under it.
-func (c *counter) forget(p string) {
-	for name := range c.grown {
-		if name == p || strings.HasPrefix(name, p+"/") {
-			delete(c.grown, name)
-		}
-	}
-}
-
-// synced notes that a Sync made the first size bytes of the file at the path p durable.
-func (c *counter) synced(p string, size int64) {
-	g, ok := c.grown[p]
+// synced notes that a Sync made the first size bytes of file durable.
+func (c *counter) synced(file fault.ID, size int64) {
+	g, ok := c.grown[file]
 	if block := max(size-1, 0) / blockSize; !ok || block != g.block {
 		g.block, g.before, g.event = block, g.size, c.events+1
 	}
 	if size > g.size {
-		c.last = p
+		c.last = file
 	}
+	g.cut = g.cut || size < g.size
 	g.size = size
-	c.grown[p] = g
+	c.grown[file] = g
 }
 
-// countedFS passes each call to inner and counts the calls that change the disk.
+// fileID returns the ID that a fault disk gave to the file of info.
+func fileID(info xfs.FileInfo) (fault.ID, error) {
+	id, ok := info.Sys().(fault.ID)
+	if !ok {
+		return 0, errors.Newf("crash: %s is not a file of a fault disk", info.Name())
+	}
+	return id, nil
+}
+
+// countedFS passes each call to inner, an FS of a fault disk, and counts the calls that
+// change the disk.
 type countedFS struct {
 	inner xfs.FS
 	c     *counter
-	// dir is the path of inner under the root of the disk.
-	dir string
 }
 
 var _ xfs.FS = (*countedFS)(nil)
@@ -120,7 +120,7 @@ func (f *countedFS) Open(name string, flag int) (file xfs.File, err error) {
 		return nil, err
 	}
 	changed = !existed || flag&os.O_TRUNC != 0
-	return &countedFile{File: file, c: f.c, path: path.Join(f.dir, name)}, nil
+	return &countedFile{File: file, c: f.c}, nil
 }
 
 func (f *countedFS) Sub(name string) (sub xfs.FS, err error) {
@@ -135,7 +135,7 @@ func (f *countedFS) Sub(name string) (sub xfs.FS, err error) {
 		return nil, err
 	}
 	changed = !existed
-	return &countedFS{inner: sub, c: f.c, dir: path.Join(f.dir, name)}, nil
+	return &countedFS{inner: sub, c: f.c}, nil
 }
 
 func (f *countedFS) List(name string) ([]xfs.FileInfo, error) {
@@ -151,15 +151,12 @@ func (f *countedFS) Stat(name string) (xfs.FileInfo, error) {
 func (f *countedFS) Remove(name string) (err error) {
 	f.c.begin()
 	defer func() { f.c.end(err, true) }()
-	f.c.forget(path.Join(f.dir, name))
 	return f.inner.Remove(name)
 }
 
 func (f *countedFS) Rename(oldPath, newPath string) (err error) {
 	f.c.begin()
 	defer func() { f.c.end(err, true) }()
-	f.c.forget(path.Join(f.dir, oldPath))
-	f.c.forget(path.Join(f.dir, newPath))
 	return f.inner.Rename(oldPath, newPath)
 }
 
@@ -172,8 +169,7 @@ func (f *countedFS) SyncDir(name string) (err error) {
 // countedFile passes each call to File and counts the calls that change the disk.
 type countedFile struct {
 	xfs.File
-	c    *counter
-	path string
+	c *counter
 }
 
 func (f *countedFile) Write(p []byte) (n int, err error) {
@@ -204,6 +200,10 @@ func (f *countedFile) Sync() (err error) {
 	if err != nil {
 		return err
 	}
-	f.c.synced(f.path, info.Size())
+	id, err := fileID(info)
+	if err != nil {
+		return err
+	}
+	f.c.synced(id, info.Size())
 	return nil
 }

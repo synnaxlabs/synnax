@@ -14,6 +14,7 @@ import (
 	"math"
 	"math/rand/v2"
 	"os"
+	"path"
 	"slices"
 
 	"github.com/synnaxlabs/x/errors"
@@ -67,15 +68,26 @@ func (p plan) crash(event int) fault.CrashConfig {
 }
 
 // spoil corrupts the files of image for good, as the profile asks, and returns the
-// rules for the engine that recovers from it. The newest block of a file is the last 4
-// KiB block that holds durable bytes of the file that the newest Sync made longer. No
-// later block of that file can confirm it. An image that spoil did not change gets the
-// strict rules.
+// rules for the engine that recovers from it. The newest block is the last 4 KiB block
+// that holds durable bytes of the file that the newest Sync made longer. No later block
+// of that file can confirm it. An image that spoil did not change gets the strict
+// rules. So does an image that does not hold that file: there the engine cannot see
+// what the newest Sync made durable.
 func (p plan) spoil(image *fault.FS, c *counter, event int) (rules, error) {
+	newest := c.grown[c.last]
+	if p.profile != OldCorruption && p.profile != NewCorruption || newest.cut {
+		return strictRules, nil
+	}
+	paths := map[fault.ID]string{}
+	if err := files(image, "", paths); err != nil {
+		return rules{}, err
+	}
+	last, ok := paths[c.last]
+	if !ok {
+		return strictRules, nil
+	}
 	var (
-		rng    = rand.New(rand.NewPCG(p.runKey, uint64(event)))
-		newest = c.grown[c.last]
-		r      = rules{
+		r = rules{
 			exemptFrom:        math.MaxInt,
 			refusalAllowed:    true,
 			unreadableAllowed: true,
@@ -83,21 +95,22 @@ func (p plan) spoil(image *fault.FS, c *counter, event int) (rules, error) {
 		changed bool
 		err     error
 	)
-	if p.profile == OldCorruption {
-		spans := make([]span, 0, len(c.grown))
-		for _, name := range slices.Sorted(maps.Keys(c.grown)) {
-			s := span{path: name, to: c.grown[name].size}
-			if name == c.last {
+	if p.profile == NewCorruption {
+		r.exemptFrom = newest.event
+		stale := span{path: last, from: newest.block * blockSize, to: newest.size}
+		// A block that the disk never wrote holds zeros.
+		changed, err = true, change(image, stale, func(b []byte) { clear(b) })
+	} else {
+		var spans []span
+		for _, file := range slices.Sorted(maps.Keys(paths)) {
+			s := span{path: paths[file], to: c.grown[file].size}
+			if file == c.last {
 				s.to = newest.before
 			}
 			spans = append(spans, s)
 		}
+		rng := rand.New(rand.NewPCG(p.runKey, uint64(event)))
 		changed, err = flip(image, rng, spans)
-	}
-	if p.profile == NewCorruption {
-		r.exemptFrom = newest.event
-		stale := span{path: c.last, from: newest.block * blockSize, to: newest.size}
-		changed, err = zero(image, stale)
 	}
 	if !changed {
 		r = strictRules
@@ -105,28 +118,34 @@ func (p plan) spoil(image *fault.FS, c *counter, event int) (rules, error) {
 	return r, err
 }
 
+// files puts the path of each file under dir in image into paths, by the ID of the
+// file.
+func files(image *fault.FS, dir string, paths map[fault.ID]string) error {
+	infos, err := image.List(dir)
+	if err != nil {
+		return err
+	}
+	for _, info := range infos {
+		p := path.Join(dir, info.Name())
+		if info.IsDir() {
+			if err = files(image, p, paths); err != nil {
+				return err
+			}
+			continue
+		}
+		id, err := fileID(info)
+		if err != nil {
+			return err
+		}
+		paths[id] = p
+	}
+	return nil
+}
+
 // span is a range of bytes in the file at a path.
 type span struct {
 	path     string
 	from, to int64
-}
-
-// clip cuts each span to the bytes that its file holds in image, and returns the count
-// of bytes that are left.
-func clip(image *fault.FS, spans []span) (total int64, err error) {
-	for i := range spans {
-		info, err := image.Stat(spans[i].path)
-		if errors.Is(err, os.ErrNotExist) {
-			spans[i].to = spans[i].from
-			continue
-		}
-		if err != nil {
-			return 0, err
-		}
-		spans[i].to = max(min(spans[i].to, info.Size()), spans[i].from)
-		total += spans[i].to - spans[i].from
-	}
-	return total, nil
 }
 
 // change opens the file of s in image and lets edit change the bytes of s.
@@ -145,11 +164,14 @@ func change(image *fault.FS, s span, edit func(b []byte)) (err error) {
 	return err
 }
 
-// flip flips one bit in a byte of spans, and reports if image holds such a byte.
+// flip flips one bit in a byte of spans, and reports if spans hold a byte.
 func flip(image *fault.FS, rng *rand.Rand, spans []span) (bool, error) {
-	total, err := clip(image, spans)
-	if err != nil || total == 0 {
-		return false, err
+	var total int64
+	for _, s := range spans {
+		total += s.to - s.from
+	}
+	if total == 0 {
+		return false, nil
 	}
 	at := rng.Int64N(total)
 	for _, s := range spans {
@@ -161,15 +183,4 @@ func flip(image *fault.FS, rng *rand.Rand, spans []span) (bool, error) {
 		return true, change(image, s, func(b []byte) { b[0] ^= 1 << rng.IntN(8) })
 	}
 	return false, nil
-}
-
-// zero makes the bytes of s zeros, as a block that the disk never wrote is, and reports
-// if image holds such a byte.
-func zero(image *fault.FS, s span) (bool, error) {
-	spans := []span{s}
-	total, err := clip(image, spans)
-	if err != nil || total == 0 {
-		return false, err
-	}
-	return true, change(image, spans[0], func(b []byte) { clear(b) })
 }
