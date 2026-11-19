@@ -146,6 +146,8 @@ core: &core
   - *gorp
   - *x_go
   - core/**
+  # The codec specs read the golden frames that all four codecs share.
+  - x/testdata/framecodec/**
 
 arc_ts: &arc_ts
   - *ts
