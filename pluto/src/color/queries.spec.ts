@@ -173,7 +173,7 @@ describe("queries", () => {
       const { result } = renderHook(
         () =>
           Flux.useList((c) => c.colors, {
-            name: "named colors",
+            name: "colors",
             query: { where: { key: { in: [named.key] } } },
           }),
         { wrapper },

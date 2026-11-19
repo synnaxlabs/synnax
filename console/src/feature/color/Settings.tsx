@@ -480,14 +480,10 @@ interface NewPaletteProps {
 
 const NewPalette = ({ onCreated }: NewPaletteProps): ReactElement => {
   const { close } = PlatformSettings.useCreate();
-  const { updateAsync } = Group.useCreate();
+  const { updateAsync } = PColor.useCreatePalette();
   const handleSave = async (name: string): Promise<boolean> => {
     const key = uuid.create();
-    const created = await updateAsync({
-      key,
-      name,
-      scope: color.TYPE_RESOURCE_ID.type,
-    });
+    const created = await updateAsync({ key, name });
     if (created) onCreated(key);
     return created;
   };
