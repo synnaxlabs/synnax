@@ -25,14 +25,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	storagetestutil "github.com/synnaxlabs/synnax/pkg/storage/testutil"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	xfstestutil "github.com/synnaxlabs/x/io/fs/testutil"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/types"
@@ -114,63 +112,6 @@ var _ = Describe("Writer", func() {
 					return limitSvc.NewWriter(tx).Create(ctx, &third)
 				})).
 					Error().To(MatchError(ContainSubstring("channel limit exceeded")))
-			},
-		)
-		It(
-			"Should remove overwritten channels from the external channel set",
-			func(ctx SpecContext) {
-				cleanup := testutil.NewNode(ctx)
-				cleanupSvc := openService(
-					ctx,
-					cleanup,
-					channel.ServiceConfig{
-						Limit: fixedLimit(3),
-					},
-				)
-				idx := channel.Channel{
-					Name:        UniqueChannelName(),
-					DataType:    telem.TimestampT,
-					IsIndex:     true,
-					Leaseholder: 1,
-				}
-				Expect(cleanup.DB.WithTx(ctx, func(tx gorp.Tx) error {
-					return cleanupSvc.NewWriter(tx).Create(ctx, &idx)
-				})).To(Succeed())
-				name := UniqueChannelName()
-				data := channel.Channel{
-					Name:        name,
-					DataType:    telem.Float64T,
-					LocalIndex:  idx.LocalKey,
-					Leaseholder: 1,
-				}
-				Expect(cleanup.DB.WithTx(ctx, func(tx gorp.Tx) error {
-					return cleanupSvc.NewWriter(tx).Create(ctx, &data)
-				})).To(Succeed())
-
-				overwrite := channel.Channel{
-					Name:        name,
-					DataType:    telem.Float32T,
-					LocalIndex:  idx.LocalKey,
-					Leaseholder: 1,
-				}
-				Expect(cleanup.DB.WithTx(ctx, func(tx gorp.Tx) error {
-					return cleanupSvc.NewWriter(tx).Create(ctx, &overwrite,
-						channel.OverwriteIfNameExistsAndDifferentProperties(),
-					)
-				})).To(Succeed())
-
-				// The set now holds {idx, overwrite}. If the overwritten channel's key
-				// had been left behind, creating another external channel would push
-				// the count to 4 and trip the limit of 3.
-				another := channel.Channel{
-					Name:        UniqueChannelName(),
-					DataType:    telem.Float64T,
-					LocalIndex:  idx.LocalKey,
-					Leaseholder: 1,
-				}
-				Expect(cleanup.DB.WithTx(ctx, func(tx gorp.Tx) error {
-					return cleanupSvc.NewWriter(tx).Create(ctx, &another)
-				})).To(Succeed())
 			},
 		)
 		Describe("Rolled back transaction", func() {
@@ -423,137 +364,6 @@ var _ = Describe("Writer", func() {
 					Expect(ch.Key().Lease()).To(Equal(node.Key(1)))
 				},
 			)
-			Describe("OverwriteIfNameExists", func() {
-				It(
-					"Should overwrite the channel if it already exists by name and the new channel has different properties than the old one",
-					func(ctx SpecContext) {
-						name := UniqueChannelName()
-						ch := channel.Channel{
-							Virtual:     true,
-							Name:        name,
-							DataType:    telem.Float64T,
-							Leaseholder: 1,
-						}
-						Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-							return svc.NewWriter(tx).Create(ctx, &ch)
-						})).To(Succeed())
-						originalKey := ch.Key()
-
-						// Try to create a new channel with the same name but different
-						// properties
-						newCh := channel.Channel{
-							Virtual:     true,
-							Name:        name,
-							DataType:    telem.Float32T,
-							Leaseholder: 1,
-						}
-
-						Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-							return svc.NewWriter(tx).Create(
-								ctx,
-								&newCh,
-								channel.OverwriteIfNameExistsAndDifferentProperties(),
-							)
-						})).To(Succeed())
-
-						var resChannels []channel.Channel
-						Expect(svc.NewRetrieve().Where(channel.MatchKeys(newCh.Key())).
-							Entries(&resChannels).Exec(ctx, db)).To(Succeed())
-						Expect(resChannels).To(HaveLen(1))
-
-						Expect(resChannels[0].Virtual).To(BeTrue())
-						Expect(resChannels[0].DataType).To(Equal(telem.Float32T))
-
-						Expect(
-							svc.NewRetrieve().
-								Where(channel.MatchKeys(originalKey)).
-								Entries(&resChannels).
-								Exec(ctx, db),
-						).To(MatchError(query.ErrNotFound))
-					},
-				)
-				It(
-					"Should not overwrite the channel if it already exists by name and the new channel has the same properties as the old one",
-					func(ctx SpecContext) {
-						ch := channel.Channel{
-							IsIndex:     true,
-							Name:        "SG0001",
-							DataType:    telem.TimestampT,
-							Leaseholder: 1,
-						}
-						Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-							return svc.NewWriter(tx).Create(ctx, &ch)
-						})).To(Succeed())
-						originalKey := ch.Key()
-
-						newCh := channel.Channel{
-							IsIndex:     true,
-							Name:        "SG0001",         // Same name
-							DataType:    telem.TimestampT, // Same data type
-							Leaseholder: 1,
-						}
-
-						Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-							return svc.NewWriter(tx).Create(
-								ctx,
-								&newCh,
-								channel.OverwriteIfNameExistsAndDifferentProperties(),
-							)
-						})).To(Succeed())
-						Expect(newCh.Key()).To(Equal(originalKey))
-
-						var resChannels []channel.Channel
-						Expect(
-							svc.NewRetrieve().
-								Where(channel.MatchKeys(originalKey)).
-								Entries(&resChannels).
-								Exec(ctx, db),
-						).To(Succeed())
-						Expect(resChannels).To(HaveLen(1))
-						Expect(resChannels[0].IsIndex).To(BeTrue())
-						Expect(resChannels[0].DataType).To(Equal(telem.TimestampT))
-					},
-				)
-				It(
-					"Should leave the overwritten channel out of its resources",
-					func(ctx SpecContext) {
-						name := UniqueChannelName()
-						ch := channel.Channel{
-							Virtual:     true,
-							Name:        name,
-							DataType:    telem.Float64T,
-							Leaseholder: 1,
-						}
-						Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-							return svc.NewWriter(tx).Create(ctx, &ch)
-						})).To(Succeed())
-						originalKey := ch.Key()
-
-						newCh := channel.Channel{
-							Virtual:     true,
-							Name:        name,
-							DataType:    telem.Float32T,
-							Leaseholder: 1,
-						}
-						Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-							return svc.NewWriter(tx).Create(
-								ctx,
-								&newCh,
-								channel.OverwriteIfNameExistsAndDifferentProperties(),
-							)
-						})).To(Succeed())
-						Expect(newCh.Key()).ToNot(Equal(originalKey))
-
-						Expect(svc.Resources().Retrieve(ctx, dist.DB, []resource.ID{
-							channel.ResourceID(originalKey),
-							channel.ResourceID(newCh.Key()),
-						})).To(ConsistOf(resource.Resource{
-							ID:   channel.ResourceID(newCh.Key()),
-							Name: name,
-						}))
-					},
-				)
-			})
 			It(
 				"Should not create a free channel if it already exists by name",
 				func(ctx SpecContext) {
@@ -918,44 +728,6 @@ var _ = Describe("Writer", func() {
 					})).To(Succeed())
 					Expect(chs[0].LocalIndex).To(Equal(chs[1].LocalKey))
 					Expect(chs[0].Index()).To(Equal(chs[1].Key()))
-				},
-			)
-
-			It(
-				"Should reuse the existing index when overwriting a calculated channel",
-				func(ctx SpecContext) {
-					name := UniqueChannelName()
-					calcCh := channel.Channel{
-						Name:       name,
-						DataType:   telem.Float64T,
-						Expression: "return 1 + 1",
-					}
-					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).Create(ctx, &calcCh)
-					})).To(Succeed())
-					originalIndex := calcCh.LocalIndex
-
-					replacement := channel.Channel{
-						Name:       name,
-						DataType:   telem.Float64T,
-						Expression: "return 2 + 2",
-					}
-					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).Create(
-							ctx,
-							&replacement,
-							channel.OverwriteIfNameExistsAndDifferentProperties(),
-						)
-					})).To(Succeed())
-
-					var indexChannels []channel.Channel
-					Expect(svc.NewRetrieve().
-						Where(channel.MatchNames(name+"_time")).
-						Entries(&indexChannels).
-						Exec(ctx, db)).To(Succeed())
-					Expect(indexChannels).To(HaveLen(1))
-					Expect(indexChannels[0].LocalKey).To(Equal(originalIndex))
-					Expect(replacement.LocalIndex).To(Equal(originalIndex))
 				},
 			)
 

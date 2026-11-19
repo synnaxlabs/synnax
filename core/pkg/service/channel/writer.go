@@ -53,8 +53,7 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 }
 
 type createOptions struct {
-	retrieveIfNameExists                        bool
-	overwriteIfNameExistsAndDifferentProperties bool
+	retrieveIfNameExists bool
 }
 
 // CreateOption configures the behavior of a Create or CreateMany call.
@@ -65,15 +64,6 @@ type CreateOption func(*createOptions)
 // instead of returning an error.
 func RetrieveIfNameExists() CreateOption {
 	return func(o *createOptions) { o.retrieveIfNameExists = true }
-}
-
-// OverwriteIfNameExistsAndDifferentProperties returns a CreateOption that overwrites an
-// existing channel of the same name when its properties differ from the channel being
-// created.
-func OverwriteIfNameExistsAndDifferentProperties() CreateOption {
-	return func(o *createOptions) {
-		o.overwriteIfNameExistsAndDifferentProperties = true
-	}
 }
 
 // SetGroup applies a set of the group to each channel with keys, moving it into g, or
@@ -392,9 +382,7 @@ func (w Writer) create(
 		}
 	}
 	// Auto-create index channels for calculated channels that do not yet have one (both
-	// brand-new calculated channels and existing ones missing an index). Synthesis
-	// runs before the overwrite step so the auto-created index names flow through the
-	// same name-collision machinery as caller-provided channels.
+	// brand-new calculated channels and existing ones missing an index).
 	indexChannels, calcNeedingIndex, err := synthesizeIndexes(channels)
 	if err != nil {
 		return err
@@ -404,11 +392,6 @@ func (w Writer) create(
 		return err
 	}
 	channels = append(channels, indexChannels...)
-	if opts.overwriteIfNameExistsAndDifferentProperties {
-		if err = w.overwriteDiffering(ctx, channels); err != nil {
-			return err
-		}
-	}
 	written, err := w.allocateNew(ctx, channels)
 	if err != nil {
 		return err
@@ -450,13 +433,11 @@ func (w Writer) validateCreate(
 	if !*w.svc.cfg.ValidateNames {
 		return nil
 	}
-	skipExisting := opts.retrieveIfNameExists ||
-		opts.overwriteIfNameExistsAndDifferentProperties
 	return w.validateChannelNames(
 		ctx,
 		KeysFromChannels(channels),
 		Names(channels),
-		skipExisting,
+		opts.retrieveIfNameExists,
 	)
 }
 
@@ -592,9 +573,8 @@ func isFreeIndex(ch Channel) bool {
 // adoptIndexes resolves the names of indexChannels against existing channels. A
 // compatible index, such as one left behind by a deleted calculated channel, replaces
 // its entry in indexChannels instead of a duplicate name. An incompatible channel is a
-// validation error, unless the create overwrites it. adoptIndexes returns the position
-// in indexChannels of each adopted index to move to the group of its new calculated
-// channel.
+// validation error. adoptIndexes returns the position in indexChannels of each adopted
+// index to move to the group of its new calculated channel.
 func (w Writer) adoptIndexes(
 	ctx context.Context,
 	indexChannels []Channel,
@@ -622,9 +602,6 @@ func (w Writer) adoptIndexes(
 			indexChannels[idx] = ex
 			continue
 		}
-		if opts.overwriteIfNameExistsAndDifferentProperties {
-			continue
-		}
 		return nil, errors.Wrapf(
 			validate.ErrValidation,
 			"channel %q already exists and cannot serve as the index for a calculated channel",
@@ -647,42 +624,6 @@ func (w Writer) adoptIndexes(
 		indexChannels[idx].Group = g
 	}
 	return regroup, nil
-}
-
-// overwriteDiffering deletes existing channels of the same name whose properties
-// differ from the ones being created, so the create can replace them. Channels that
-// match an existing record (ignoring allocated keys) are reset to that record instead.
-func (w Writer) overwriteDiffering(ctx context.Context, channels []Channel) error {
-	names := Names(channels)
-	if len(names) == 0 {
-		return nil
-	}
-	var existing []Channel
-	if err := w.svc.newRetrieve().
-		Where(MatchNames(names...)).
-		Entries(&existing).
-		Exec(ctx, w.tx); err != nil {
-		return errors.Skip(err, query.ErrNotFound)
-	}
-	keysToDelete := make(Keys, 0, len(existing))
-	namePositions := positions(names)
-	for _, ex := range existing {
-		i, found := lo.Find(namePositions[ex.Name], func(i int) bool {
-			return channels[i].Key() != ex.Key()
-		})
-		if !found {
-			continue
-		}
-		if channels[i].Equals(ex, "LocalKey", "LocalIndex", "Leaseholder") {
-			channels[i] = ex
-			continue
-		}
-		keysToDelete = append(keysToDelete, ex.Key())
-	}
-	if len(keysToDelete) == 0 {
-		return nil
-	}
-	return w.delete(ctx, keysToDelete, true)
 }
 
 // allocateNew allocates local keys for the channels without one through the
