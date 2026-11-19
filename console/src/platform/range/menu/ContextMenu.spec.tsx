@@ -86,7 +86,7 @@ const createSiblings = async (): Promise<{
 };
 
 const spanOf = (ranges: ranger.Range[]): TimeRange =>
-  TimeRange.max(...ranges.map((r) => r.timeRange));
+  TimeRange.merge(...ranges.map((r) => r.timeRange));
 
 /** Waits for the Core to hold a range with the name, and returns it. */
 const findCreated = async (name: string): Promise<ranger.Range> =>

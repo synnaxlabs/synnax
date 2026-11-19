@@ -29,7 +29,6 @@ on:
       - Nightly
       - Relay - Sweep
       - Report - Agents
-      - Report - Sedosaur
       - Security
       - Sync - Runner webhook ranges
       - Test - HITL

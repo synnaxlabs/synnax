@@ -13,7 +13,9 @@ on:
   workflow_call:
   workflow_dispatch:
 concurrency:
-  group: protobuf-${{ github.workflow }}-${{ github.ref }}
+  group:
+    protobuf-${{ github.workflow }}-${{ github.event.merge_group.head_sha || github.ref
+    }}
   cancel-in-progress: true
 
 permissions:
