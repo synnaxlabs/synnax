@@ -58,7 +58,6 @@ import {
   type PlainReadEntry,
   READ_SCHEMAS,
   READ_TYPE,
-  type ReadBinding,
   type ReadEntry,
   type ReadSchemas,
   type SparkplugReadEntry,
@@ -240,12 +239,12 @@ const bindingsOf = (
   stored: Record<string, channel.Key>,
   fields: icd.JSONField[],
   written: Set<channel.Key>,
-): ReadBinding[] =>
+): icd.ReadBinding[] =>
   fields.map(({ key: field, pointer }) => {
     const ch = stored[pointer] ?? 0;
-    if (written.has(ch)) return mqtt.readBindingZ.parse({ field });
+    if (written.has(ch)) return icd.readBindingZ.parse({ field });
     if (ch !== 0) written.add(ch);
-    return mqtt.readBindingZ.parse({ field, channel: ch });
+    return icd.readBindingZ.parse({ field, channel: ch });
   });
 
 /** Inserts entries into the lists of one ICD. */
@@ -295,7 +294,7 @@ const createMessage = (
 const entryOf = (
   icdKey: icd.Key,
   topic: string,
-  read: Pick<mqtt.ReadMessage, "message" | "bindings">,
+  read: Pick<icd.ReadMessage, "message" | "bindings">,
 ): PlainReadEntry =>
   mqtt.plainReadEntryZ.parse({ type: "plain", icd: icdKey, topic, messages: [read] });
 
@@ -306,7 +305,7 @@ interface AddTopicsResult {
    * The bindings that each held entry gains, by entry key. An entry whose message is
    * gone reads the new one.
    */
-  held: { key: string; message?: icd.MessageKey; bindings: ReadBinding[] }[];
+  held: { key: string; message?: icd.MessageKey; bindings: icd.ReadBinding[] }[];
 }
 
 /** @returns the bindings of the fields of a draft that the message reads. */
@@ -314,7 +313,7 @@ type Bind = (
   draft: Draft,
   fields: icd.JSONField[],
   message: icd.MessageKey,
-) => ReadBinding[];
+) => icd.ReadBinding[];
 
 /** @returns the name of the ICD of a task named name. */
 const icdName = (name: string): string => (name.trim() === "" ? DEFAULT_NAME : name);
@@ -726,8 +725,7 @@ const Entries: FC<EntriesProps> = ({
     grown.forEach(({ key, message, bindings }) => {
       const read = plainPath(key).messages[0];
       // The index and bindings of a deleted message name fields it no longer has.
-      if (message != null)
-        ctx.set(read, mqtt.readMessageZ.parse({ message, bindings }));
+      if (message != null) ctx.set(read, icd.readMessageZ.parse({ message, bindings }));
       else ctx.set(read.bindings, [...ctx.get(read.bindings).value, ...bindings]);
     });
     const firstAddition = additions[0];

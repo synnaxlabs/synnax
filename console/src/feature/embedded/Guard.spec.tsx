@@ -245,7 +245,7 @@ describe("Embedded.Guard API key for scripts", () => {
     deleteKeys.mockRestore();
     // The forget would run right after the revoke settles, so wait for both to settle.
     await expect(revoke).rejects.toThrow("Core restarted");
-    await scheduler.flushTaskQueue();
+    await scheduler.nextTask();
     expect(commands).not.toHaveBeenCalledWith("supervisor_forget_legacy_api_key");
     expect(commands).not.toHaveBeenCalledWith("supervisor_save_api_key");
     expect(file.legacy).toBe(token);
