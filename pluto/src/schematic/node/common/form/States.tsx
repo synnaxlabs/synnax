@@ -9,11 +9,7 @@
 
 import "@/schematic/node/common/form/States.css";
 
-import {
-  type color as colorRef,
-  enumeration,
-  type schematic,
-} from "@synnaxlabs/client";
+import { type color as colorRef, enumeration, schematic } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Form } from "@synnaxlabs/lyra/form";
@@ -120,16 +116,18 @@ interface UsedByProps {
   enumeration: enumeration.Key;
 }
 
-/** Names how many schematics use the enumeration, when another one does. */
+/** Names how many schematics use the enumeration, this one included. */
 const UsedBy = ({ enumeration: key }: UsedByProps): ReactElement | null => {
   const res = Enumeration.useResultDependents({ key });
-  const n = res.data?.length ?? 0;
-  if (n < 2) return null;
+  const n = (res.data ?? []).filter(
+    ({ type }) => type === schematic.TYPE_RESOURCE_ID.type,
+  ).length;
+  if (n === 0) return null;
   return (
     <Input.Item label="Used by" padHelpText={false}>
       <Text.Text level="p">
         <Icon.Schematic />
-        {n} schematics
+        {n} {n === 1 ? "schematic" : "schematics"}
       </Text.Text>
     </Input.Item>
   );

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type FileTransport, type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor, filter, zod } from "@synnaxlabs/x";
+import { array, type destructor, filter, observe, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
@@ -91,6 +91,7 @@ export class Client extends query.Retriever<
   readonly symbols: symbol.Client;
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Schematic>;
+  private readonly changes: observe.Observer<Key>;
   /**
    * Builds requests that move schematics between groups. A move into a group of another
    * project also moves the schematic into that project.
@@ -128,7 +129,22 @@ export class Client extends query.Retriever<
       kindOf,
       createOf,
     });
-    cache.listen(dispatcher.listener(SET_CHANNEL_NAME, scopedActionZ));
+    // The store drops the actions of a schematic it does not hold, so the observer
+    // reads the channels itself.
+    const changes = new observe.Observer<Key>();
+    const sets = dispatcher.listener(SET_CHANNEL_NAME, scopedActionZ);
+    cache.listen({
+      ...sets,
+      onChange: (frames) => {
+        sets.onChange(frames);
+        frames.forEach(({ key }) => changes.notify(key));
+      },
+    });
+    cache.listen({
+      channel: DELETE_CHANNEL_NAME,
+      schema: keyZ,
+      onChange: (keys) => keys.forEach((key) => changes.notify(key)),
+    });
     super(cache, {
       name: "schematic",
       table: store,
@@ -143,6 +159,7 @@ export class Client extends query.Retriever<
     this.cfg = cfg;
     this.symbols = new symbol.Client(cfg);
     this.store = store;
+    this.changes = changes;
     this.setGroupRequest = project.createGroupMoveRequest(
       "/schematic/dispatch",
       store,
@@ -277,6 +294,14 @@ export class Client extends query.Retriever<
         ),
     });
     drop();
+  }
+
+  /**
+   * Subscribes to the key of each schematic that the Core changes or deletes, whether
+   * or not this client holds it.
+   */
+  onChange(handler: (key: Key) => void): destructor.Destructor {
+    return this.changes.onChange(handler);
   }
 
   /** Subscribes to every schematic delete delivered to the cache. */

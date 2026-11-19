@@ -201,6 +201,32 @@ describe("Form.States", () => {
   });
 
   describe("enumeration", () => {
+    /** Creates a schematic whose one select draws the enumeration. */
+    const createUser = async (e: enumeration.Key): Promise<schematic.Schematic> => {
+      const project = await client.projects.create({ name: id.create() });
+      return await client.schematics.create({
+        project: project.key,
+        name: id.create(),
+        nodes: [
+          {
+            key: "select",
+            position: { x: 0, y: 0 },
+            zIndex: 0,
+            config: schematic.nodeConfigZ.parse({ variant: "select", enumeration: e }),
+          },
+        ],
+      });
+    };
+
+    it("should count a schematic that links the enumeration while it shows", async () => {
+      const e = await client.enumerations.create({ name: id.create(), entries: [] });
+      await createUser(e.key);
+      const c = renderStates({ enumeration: e.key });
+      expect(await c.findByText("1 schematic")).toBeTruthy();
+      await createUser(e.key);
+      expect(await c.findByText("2 schematics")).toBeTruthy();
+    });
+
     it("should edit the entries of the enumeration that the node names", async () => {
       const e = await client.enumerations.create({
         name: id.create(),
