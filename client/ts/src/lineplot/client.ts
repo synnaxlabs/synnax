@@ -126,9 +126,9 @@ export class Client extends query.Retriever<
     });
     this.cfg = cfg;
     this.store = store;
-    const build: project.EntryBuilder<Key> = (key, acts) =>
+    const build: group.EntryBuilder<Key> = (key, acts) =>
       dispatcher.request("/lineplot/dispatch", key, acts, dispatchResZ);
-    this.setGroupRequest = project.createGroupMoveRequest(build);
+    this.setGroupRequest = group.createMoveRequest(build);
     this.setProjectRequest = project.createMoveRequest(build);
     this.dispatcher = dispatcher;
   }

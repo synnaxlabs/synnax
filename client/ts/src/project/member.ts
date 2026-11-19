@@ -11,7 +11,7 @@ import { array, type patch, type record } from "@synnaxlabs/x";
 
 import { type actions } from "@/actions";
 import { type batch } from "@/batch";
-import { group } from "@/group";
+import { type group } from "@/group";
 import { type Key } from "@/project/types.gen";
 
 /** A visualization, which belongs to a project. */
@@ -36,23 +36,15 @@ export interface MovePayload<K extends record.Key> extends actions.DispatchPaylo
 
 /**
  * Builds one batch entry per visualization that moves it out of its group and into the
- * project. The cache write of each entry moves its cached visualization.
+ * project.
  */
 export interface MoveRequest<K extends record.Key> {
   (keys: K | K[], to: Key): batch.Request<MovePayload<K>>[];
 }
 
-/**
- * Builds the batch entry that sends actions to one visualization, such as
- * `actions.Controller.request` bound to the dispatch endpoint of its type.
- */
-export interface EntryBuilder<K extends record.Key> {
-  (key: K, actions: patch.Action[]): batch.Request<MovePayload<K>>;
-}
-
 /** Returns a builder of move entries that builds each entry with build. */
 export const createMoveRequest =
-  <K extends record.Key>(build: EntryBuilder<K>): MoveRequest<K> =>
+  <K extends record.Key>(build: group.EntryBuilder<K>): MoveRequest<K> =>
   (keys, to) =>
     array.toArray(keys).map((key) =>
       build(key, [
@@ -65,12 +57,3 @@ export const createMoveRequest =
 export interface Movable extends Member {
   group?: string;
 }
-
-/**
- * Returns a builder of group move entries that builds each entry with build. A move
- * into a group of another project also moves the visualization into that project.
- */
-export const createGroupMoveRequest =
-  <K extends record.Key>(build: EntryBuilder<K>): group.MoveRequest<K> =>
-  (keys, to) =>
-    array.toArray(keys).map((key) => build(key, group.moveActions(to)));
