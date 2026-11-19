@@ -31,8 +31,9 @@ APPROVERS=$(awk '{ last[$1] = $2 } END { for (l in last) if (last[l] == "APPROVE
     print l }' <<< "$VERDICTS")
 
 for login in $APPROVERS; do
-    case $("$GH_API" "repos/${REPO}/collaborators/${login}/permission" \
-        --jq .permission) in
+    PERMISSION=$("$GH_API" "repos/${REPO}/collaborators/${login}/permission" \
+        --jq .permission)
+    case $PERMISSION in
         admin | write)
             echo true
             exit 0

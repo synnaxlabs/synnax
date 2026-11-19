@@ -288,6 +288,16 @@ class TestFork:
         assert result.returncode != 0
         assert result.stdout == ""
 
+    def test_fails_loud_when_a_permission_cannot_be_read(
+        self, harness: Harness
+    ) -> None:
+        harness.gh.fail("api */collaborators/maintainer/permission", "HTTP 403")
+        result = subprocess.run(
+            [str(SCRIPT), "42"], env=harness.env, capture_output=True, text=True
+        )
+        assert result.returncode != 0
+        assert result.stdout == ""
+
     def test_waits_for_the_sedosaur_review(self, harness: Harness) -> None:
         harness.reviews("head")
         assert harness.run() == (
