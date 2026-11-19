@@ -20,6 +20,7 @@ import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { color, type deep, uuid } from "@synnaxlabs/x";
 import { type KeyboardEvent, type ReactElement, useState } from "react";
 
@@ -114,7 +115,10 @@ const UsedBy = ({ enumeration: key }: UsedByProps): ReactElement | null => {
   );
 };
 
+const CREATE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
+
 interface CreateModalProps {
+  initialName: string;
   onCreate: (name: string) => void;
   onClose: () => void;
   loading: boolean;
@@ -122,17 +126,25 @@ interface CreateModalProps {
 
 /** Asks for the name of a new enumeration. */
 const CreateModal = ({
+  initialName,
   onCreate,
   onClose,
   loading,
 }: CreateModalProps): ReactElement => {
-  const [name, setName] = useState("");
-  const trimmed = name.trim();
-  const handleCreate = (): void => {
-    if (trimmed !== "" && !loading) onCreate(trimmed);
+  const [name, setName] = useState(initialName);
+  const [error, setError] = useState<string>();
+  const handleChange = (next: string): void => {
+    setName(next);
+    setError(undefined);
   };
+  const handleCreate = (): void => {
+    const trimmed = name.trim();
+    if (trimmed === "") return setError("Name is required");
+    if (!loading) onCreate(trimmed);
+  };
+  // Escape goes on to the modal, which closes, instead of only leaving the field.
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>): void => {
-    if (e.key === "Enter") handleCreate();
+    if (e.key === "Escape") e.preventDefault();
   };
   return (
     <Dialog.Frame
@@ -144,24 +156,40 @@ const CreateModal = ({
       <Modal.Frame>
         <Modal.Header icon={<Icon.Enumeration />}>Enumeration.Create</Modal.Header>
         <Modal.Body>
-          <Input.Text
-            value={name}
-            onChange={setName}
-            onKeyDown={handleKeyDown}
-            placeholder="Enumeration name"
-            aria-label="Enumeration name"
-            variant="text"
-            autoFocus
-            level="h3"
-            full="x"
-          />
+          <Input.Item
+            showLabel={false}
+            helpText={error}
+            status={error == null ? undefined : "error"}
+            padHelpText
+          >
+            <Input.Text
+              value={name}
+              onChange={handleChange}
+              onKeyDown={handleKeyDown}
+              placeholder="Enumeration name"
+              aria-label="Enumeration name"
+              variant="text"
+              autoFocus
+              selectOnFocus
+              level="h3"
+              full="x"
+            />
+          </Input.Item>
         </Modal.Body>
         <Modal.Footer>
-          <Nav.Bar.End>
+          <Nav.Bar.End x align="center">
+            <Button.Button
+              variant="outlined"
+              triggerIndicator={Triggers.ESCAPE}
+              onClick={onClose}
+            >
+              Cancel
+            </Button.Button>
             <Button.Button
               variant="filled"
               status={loading ? "loading" : undefined}
-              disabled={trimmed === ""}
+              trigger={CREATE_TRIGGER}
+              triggerIndicator
               onClick={handleCreate}
             >
               Create
@@ -188,9 +216,9 @@ export interface StatesProps {
 
 /**
  * Picks the enumeration that a node draws and edits its entries, or edits the node's
- * own options when it names none. Creating an enumeration moves the options into it. A
- * node that names one gets a new empty enumeration, with focus in its entries, and asks
- * for its name when the search is empty.
+ * own options when it names none. Creating an enumeration with no search text asks for
+ * its name, which starts as the node's label when the options move into it. A node that
+ * names an enumeration gets a new empty one, with focus in its entries.
  */
 export const States = ({
   enumeration: enumerationPath,
@@ -223,10 +251,8 @@ export const States = ({
     })();
   };
   const handleCreate = (term: string): void => {
-    if (term === "" && key != null) return setNaming(true);
-    create(
-      [term, get(label).value].map((n) => n.trim()).find((n) => n !== "") ?? symbolName,
-    );
+    if (term === "") setNaming(true);
+    else create(term);
   };
   const footer = (
     <>
@@ -279,6 +305,7 @@ export const States = ({
       </Form.Section>
       {naming && (
         <CreateModal
+          initialName={key == null ? get(label).value.trim() || symbolName : ""}
           onCreate={create}
           onClose={() => setNaming(false)}
           loading={variant === "loading"}
