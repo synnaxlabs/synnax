@@ -10,8 +10,6 @@
 package types_test
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/plugin/go/types"
@@ -23,10 +21,10 @@ import (
 var _ = Describe("CanEmbed", func() {
 	// childForm resolves source and returns the form of its Child struct.
 	childForm := func(
-		ctx context.Context, source string,
+		source string,
 	) (resolution.StructForm, *resolution.Table) {
 		GinkgoHelper()
-		table := MustGenerateRequest(ctx, source, "test", NewMockFileLoader()).
+		table := MustGenerateRequest(source, "test", NewMockFileLoader()).
 			Resolutions
 		form, ok := MustBeOk(table.Get("test.Child")).Form.(resolution.StructForm)
 		Expect(ok).To(BeTrue(), "Child is not a struct")
@@ -34,8 +32,8 @@ var _ = Describe("CanEmbed", func() {
 	}
 
 	DescribeTable("Should report whether the parents can be embedded",
-		func(ctx SpecContext, source string, expected bool) {
-			form, table := childForm(ctx, source)
+		func(source string, expected bool) {
+			form, table := childForm(source)
 			Expect(types.CanEmbed(form, table)).To(Equal(expected))
 		},
 		Entry("no parents", `

@@ -14,9 +14,13 @@ import { failOnConsoleOutput } from "@synnaxlabs/x/testutil";
 import { configure } from "@testing-library/react";
 import { afterAll, beforeAll, vi } from "vitest";
 
+import { installDragEvent } from "@/testutil/drag";
+
 configure({ asyncUtilTimeout: 5000 });
 
 failOnConsoleOutput();
+
+installDragEvent();
 
 class MockIntersectionObserver {
   observe = vi.fn();

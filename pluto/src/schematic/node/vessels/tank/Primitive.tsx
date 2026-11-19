@@ -36,7 +36,7 @@ export const Tank = ({
   boxBorderRadius,
   strokeColor,
   fillColor,
-  strokeWidth = 2,
+  strokeWidth = Border.DEFAULT_STROKE_WIDTH,
 }: RenderProps): ReactElement => {
   const detailedRadius = border.constructRadius(borderRadius);
   const hasCornerBoundaries = boxBorderRadius == null;

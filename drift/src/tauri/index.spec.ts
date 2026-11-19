@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { scheduler } from "@synnaxlabs/x";
 import { emit, TauriEvent } from "@tauri-apps/api/event";
 import { clearMocks, mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import { LogicalPosition } from "@tauri-apps/api/window";
@@ -32,10 +33,12 @@ describe("TauriRuntime", () => {
   let created: Record<string, unknown> | undefined;
   let commands: string[];
   let createError: string | undefined;
+  let responses: Record<string, unknown>;
   beforeEach(() => {
     created = undefined;
     commands = [];
     createError = undefined;
+    responses = { ...WINDOW_PROPS };
     mockWindows("main");
     mockIPC(
       (cmd, args) => {
@@ -44,7 +47,7 @@ describe("TauriRuntime", () => {
           throw new Error(createError);
         if (cmd === "plugin:webview|create_webview_window")
           created = (args as { options: Record<string, unknown> }).options;
-        return WINDOW_PROPS[cmd] ?? null;
+        return responses[cmd] ?? null;
       },
       { shouldMockEvents: true },
     );
@@ -74,6 +77,17 @@ describe("TauriRuntime", () => {
       const runtime = new TauriRuntime();
       await expect(runtime.create("child", {})).rejects.toThrow();
     });
+
+    it("should move a window off a HiDPI monitor back to the origin", async () => {
+      const area = { position: { x: 0, y: 0 }, size: { width: 2000, height: 1000 } };
+      // 2000 physical pixels at a scale of 2 span 1000 logical pixels.
+      responses["plugin:window|available_monitors"] = [
+        { name: "hidpi", scaleFactor: 2, ...area, workArea: area },
+      ];
+      const runtime = new TauriRuntime();
+      await runtime.create("child", { position: { x: 1500, y: 100 } });
+      expect(created).toMatchObject({ x: 0, y: 0 });
+    });
   });
 
   describe("close", () => {
@@ -82,7 +96,7 @@ describe("TauriRuntime", () => {
         beforeClose: async (label) => {
           // A timer fires after every pending microtask, so a close that does not
           // wait for the hook destroys the window first.
-          await new Promise((resolve) => setTimeout(resolve, 0));
+          await scheduler.flushTaskQueue();
           commands.push(`before close ${label}`);
         },
       });
@@ -105,6 +119,19 @@ describe("TauriRuntime", () => {
       const { action } = listener.mock.calls[0][0];
       expect(runtimeSetWindowProps.match(action)).toBe(true);
       expect(action?.payload).toMatchObject({ label: "main", fullscreen: true });
+    });
+
+    it("should report resizes again after the window becomes resizable", async () => {
+      // The Tauri event mock keeps a handler after unlisten and warns when it fires.
+      vi.spyOn(console, "warn").mockImplementation(() => {});
+      const runtime = new TauriRuntime();
+      const listener = vi.fn<(event: Event<StoreState>) => void>();
+      await runtime.subscribe(listener);
+      await runtime.setResizable(false);
+      await runtime.setResizable(true);
+      await emit(TauriEvent.WINDOW_RESIZED);
+      await vi.waitFor(() => expect(listener).toHaveBeenCalled());
+      runtime.release();
     });
   });
 });

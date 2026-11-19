@@ -14,6 +14,7 @@ package testutil
 
 import (
 	"context"
+	"slices"
 	"strings"
 
 	"github.com/onsi/gomega"
@@ -84,20 +85,19 @@ func FirstChildOfKind(s *symbol.Symbol, kind symbol.Kind) (*symbol.Symbol, error
 // must not be imported from production packages.
 type StaticResolver []symbol.Symbol
 
-// Add appends s to the resolver. Uses a pointer receiver so the mutation
-// is visible to callers that later read the resolver via a captured
-// variable (e.g., LSP tests that simulate external changes).
-func (r *StaticResolver) Add(s symbol.Symbol) { *r = append(*r, s) }
+// With returns a copy of the resolver with s appended. It does not change r.
+func (r StaticResolver) With(s symbol.Symbol) StaticResolver {
+	return append(slices.Clip(r), s)
+}
 
-// Remove deletes the first entry whose Name matches name. No-op when no
-// entry matches.
-func (r *StaticResolver) Remove(name string) {
-	for i := range *r {
-		if (*r)[i].Name == name {
-			*r = append((*r)[:i], (*r)[i+1:]...)
-			return
-		}
+// Without returns a copy of the resolver without the first entry whose Name matches
+// name. It returns r when no entry matches, and it does not change r.
+func (r StaticResolver) Without(name string) StaticResolver {
+	i := slices.IndexFunc(r, func(s symbol.Symbol) bool { return s.Name == name })
+	if i < 0 {
+		return r
 	}
+	return slices.Concat(r[:i], r[i+1:])
 }
 
 // Resolve looks up name by scanning the slice. Returns query.ErrNotFound

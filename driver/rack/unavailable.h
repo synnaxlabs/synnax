@@ -71,11 +71,15 @@ public:
         if (task.type != this->integration &&
             !task.type.starts_with(this->integration + "_"))
             return {nullptr, false};
-        // handle_config_err writes a boot error status only when auto_start is set.
+        if (cmd_key == task::NO_COMMAND && !this->reported_at_boot) {
+            LOG(WARNING) << "[" << this->integration << "] failed to configure task "
+                         << task.name << ": " << this->reason;
+            return {nullptr, true};
+        }
         return common::handle_config_err(
             ctx,
             task,
-            {common::ConfigureResult{.auto_start = this->reported_at_boot},
+            {common::ConfigureResult{},
              x::errors::Error(errors::CONFIGURATION_ERROR, this->reason)},
             cmd_key,
             cancel

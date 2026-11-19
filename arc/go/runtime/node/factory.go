@@ -35,7 +35,7 @@ type Config struct {
 type Factory interface {
 	// Create constructs a node from the given configuration. Returns query.ErrNotFound
 	// if this factory cannot handle cfg.Node.Type.
-	Create(Config) (Node, error)
+	Create(cfg Config) (Node, error)
 }
 
 // moduleNamer is an optional interface that factories can implement to declare which

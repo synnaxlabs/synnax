@@ -167,7 +167,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.click(name);
   await type(session, "First run");
   await session.hold(400);
-  await capture.clickButton(session, "Save to Core");
+  await capture.clickButton(session, "Create");
   session.endZoom();
   await session.waitForHidden(name);
   await session.moveTo(capture.PARK);

@@ -34,6 +34,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	apiLayer = MustSucceed(api.NewLayer(api.LayerConfig{
 		Service:      svc,
 		Distribution: node.Layer,
+		Errors:       api.NewErrorCodec(),
 	}))
 })
 

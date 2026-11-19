@@ -12,7 +12,7 @@ import sys
 import threading
 from collections.abc import Callable, Iterator
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import pytest
 from pydantic import BaseModel
@@ -69,9 +69,12 @@ class Hold(TestCase):
             "start": start,
             "end": time.monotonic(),
         }
-        with open(self.params["record"], "a") as f:
+        with open(self.params["record"], "a+") as f:
             f.write(json.dumps(span) + "\\n")
-        self._status = STATUS.PASSED
+            f.seek(0)
+            attempts = sum(json.loads(line)["name"] == self.name for line in f)
+        failed = attempts == 1 and self.name == self.params["fails_once"]
+        self._status = STATUS.FAILED if failed else STATUS.PASSED
 """
 
 CASES = {
@@ -113,17 +116,25 @@ def sequence(
     hold: float = 0.3,
     order: str = "sequential",
     isolated: bool = False,
+    independent: bool = False,
     timeout: float | None = None,
+    fails_once: str = "",
 ) -> dict[str, object]:
+    """:param fails_once: Name of the test that fails the first time it runs."""
     return {
         "sequence_name": name,
         "sequence_order": order,
         "isolated": isolated,
+        "independent": independent,
         "tests": [
             {
                 "case": f"lanes_spec/{case}",
                 "name": f"{name}_{i}",
-                "parameters": {"hold": hold, "record": "record.jsonl"},
+                "parameters": {
+                    "hold": hold,
+                    "record": "record.jsonl",
+                    "fails_once": fails_once,
+                },
                 **({} if timeout is None else {"timeout": timeout}),
             }
             for i, case in enumerate(cases)
@@ -139,6 +150,8 @@ def client(
     active: list[tuple[Any, ...]] | None = None,
     on_test_ran: Callable[[], None] = lambda: None,
     timeout_grace: float = 60.0,
+    log: Callable[[str], None] = lambda message: None,
+    conductor_range: sy.Range | None = None,
 ) -> tuple[ExecutionClient, list[Sequence], list[models.Test]]:
     """Returns a client for the sequences, with the sequences to run and the list it
     records results in."""
@@ -158,14 +171,13 @@ def client(
         resources=Resources({resources.BROWSER: browsers}),
         options=DEFAULT_OPTIONS,
         run_dir=cases_dir.parent / "run",
-        # Only a conductor range needs the client, and these runs have none.
-        client=cast(sy.Synnax, None),
-        conductor_range=None,
+        client=None,
+        conductor_range=conductor_range,
         tests=results,
         tests_lock=threading.Lock(),
         active_tests=active if active is not None else [],
         active_tests_lock=threading.Lock(),
-        log=lambda message, /, *, use_name=True: None,
+        log=lambda message, /, *, use_name=True: log(message),
         on_status_change=lambda _: None,
         on_test_ran=on_test_ran,
         timeout_grace=timeout_grace,
@@ -173,10 +185,18 @@ def client(
     return execution, loaded, results
 
 
-def spans(cases_dir: Path) -> dict[str, Span]:
+def attempts(cases_dir: Path) -> dict[str, list[Span]]:
+    """Returns the spans of each test by name, one for each time the test ran."""
     record = cases_dir.parent / "record.jsonl"
     lines = record.read_text().splitlines() if record.exists() else []
-    return {s.name: s for s in map(Span.model_validate_json, lines)}
+    by_name: dict[str, list[Span]] = {}
+    for span in map(Span.model_validate_json, lines):
+        by_name.setdefault(span.name, []).append(span)
+    return by_name
+
+
+def spans(cases_dir: Path) -> dict[str, Span]:
+    return {name: ran[-1] for name, ran in attempts(cases_dir).items()}
 
 
 def run(
@@ -239,6 +259,15 @@ class TestExecutionClient:
         spans = run(cases_dir, sequence("a", "plain", "plain", hold=0.1))
         assert spans["a_0"].end <= spans["a_1"].start
         assert spans["a_0"].port == spans["a_1"].port
+
+    def test_conductor_range_without_client(self, cases_dir: Path) -> None:
+        """Should reject a conductor range that comes without a client."""
+        conductor_range = sy.Range(
+            name="conductor",
+            time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
+        )
+        with pytest.raises(ValueError, match="needs a client"):
+            client(cases_dir, sequence("a", "plain"), conductor_range=conductor_range)
 
     def test_one_core(self, cases_dir: Path) -> None:
         """Should run sequences in order with one Core."""
@@ -336,3 +365,149 @@ class TestExecutionClient:
         )
         with pytest.raises(RuntimeError, match=r"^telemetry is down$"):
             execution.run(loaded)
+
+    def test_bundle_dirs(self, cases_dir: Path) -> None:
+        """Should give each test its own bundle when two cases share a file name or
+        a name matches a deeper case path."""
+        (cases_dir / "lanes_spec" / "sub").mkdir()
+        source = HOLD_CASE.replace("{HELD}", "set()")
+        (cases_dir / "lanes_spec" / "sub" / "plain.py").write_text(source)
+        (cases_dir / "lanes_spec" / "plain").mkdir()
+        (cases_dir / "lanes_spec" / "plain" / "sub.py").write_text(source)
+        parameters = {"hold": 0.0, "record": "record.jsonl", "fails_once": ""}
+        execution, loaded, results = client(
+            cases_dir,
+            {
+                "sequence_name": "a",
+                "tests": [
+                    {"case": "lanes_spec/plain", "parameters": parameters},
+                    {"case": "lanes_spec/sub/plain", "parameters": parameters},
+                    {
+                        "case": "lanes_spec/plain",
+                        "name": "sub",
+                        "parameters": parameters,
+                    },
+                    {"case": "lanes_spec/plain/sub", "parameters": parameters},
+                ],
+            },
+        )
+        execution.run(loaded)
+        tests = cases_dir.parent / "run" / "tests"
+        bundles = set()
+        for t in results:
+            assert t.bundle_dir is not None
+            bundles.add(Path(t.bundle_dir).relative_to(tests).as_posix())
+        assert bundles == {
+            "lanes_spec/plain",
+            "lanes_spec/sub/plain",
+            "lanes_spec/plain (sub)",
+            "lanes_spec/plain/sub",
+        }
+        assert all(t.status == STATUS.PASSED for t in results)
+
+    def test_retry_with_peers(self, cases_dir: Path) -> None:
+        """Should run the whole asynchronous sequence again for a failed test, and
+        keep one result for each test."""
+        ran_count = 0
+
+        def on_test_ran() -> None:
+            nonlocal ran_count
+            ran_count += 1
+
+        execution, loaded, results = client(
+            cases_dir,
+            sequence("a", "plain", "plain", order="asynchronous", fails_once="a_1"),
+            on_test_ran=on_test_ran,
+        )
+        execution.run(loaded)
+        assert ran_count == 4
+        ran = attempts(cases_dir)
+        assert [len(ran[name]) for name in ("a_0", "a_1")] == [2, 2]
+        assert ran["a_0"][1].overlaps(ran["a_1"][1])
+        assert sorted((t.name, t.status) for t in results) == [
+            ("a_0", STATUS.PASSED),
+            ("a_1", STATUS.FLAKY),
+        ]
+
+    def test_retry_stopped_before_peers(self, cases_dir: Path) -> None:
+        """Should keep the first result of a peer that a stopped retry does not run
+        again."""
+
+        def log(message: str) -> None:
+            if "RETRYING" in message:
+                execution.stop()
+
+        execution, loaded, results = client(
+            cases_dir,
+            sequence("a", "plain", "plain", order="asynchronous", fails_once="a_1"),
+            log=log,
+        )
+        execution.run(loaded)
+        assert len(attempts(cases_dir)["a_0"]) == 1
+        assert [(t.name, t.status) for t in results] == [("a_0", STATUS.PASSED)]
+
+    # A stop ends the running test's thread with SystemExit.
+    @pytest.mark.filterwarnings("ignore::pytest.PytestUnhandledThreadExceptionWarning")
+    def test_retry_stopped_during_peers(self, cases_dir: Path) -> None:
+        """Should keep one result for each test when the run stops during a retry, and
+        the first result of a peer whose second run did not start."""
+        retrying = threading.Event()
+
+        def log(message: str) -> None:
+            if "RETRYING" in message:
+                retrying.set()
+
+        active: list[tuple[Any, ...]] = []
+        execution, loaded, results = client(
+            cases_dir,
+            sequence(
+                "a", "sim", "sim", hold=0.3, order="asynchronous", fails_once="a_1"
+            ),
+            active=active,
+            log=log,
+        )
+        runner = threading.Thread(target=execution.run, args=(loaded,))
+        runner.start()
+        timer = sy.Timer()
+        while not (retrying.is_set() and active):
+            assert timer.elapsed() < 10 * sy.TimeSpan.SECOND
+            sy.sleep(0.01)
+        execution.stop()
+        runner.join(timeout=10)
+        assert not runner.is_alive()
+        by_name = {t.name: (t.status, t.error_message or "") for t in results}
+        assert len(results) == 2
+        assert set(by_name) == {"a_0", "a_1"}
+        killed = (STATUS.KILLED, "Test was manually killed")
+        waiting = (STATUS.KILLED, "The run stopped before the test started")
+        assert (by_name["a_0"], by_name["a_1"]) in [
+            (killed, waiting),
+            ((STATUS.PASSED, ""), killed),
+        ]
+
+    @pytest.mark.parametrize(
+        ("order", "independent"), [("asynchronous", True), ("sequential", False)]
+    )
+    def test_retry_without_peers(
+        self, cases_dir: Path, order: str, independent: bool
+    ) -> None:
+        """Should run only the failed test again in an independent sequence and in a
+        sequential one."""
+        execution, loaded, results = client(
+            cases_dir,
+            sequence(
+                "a",
+                "plain",
+                "plain",
+                order=order,
+                independent=independent,
+                fails_once="a_1",
+            ),
+        )
+        execution.run(loaded)
+        ran = attempts(cases_dir)
+        assert [len(ran[name]) for name in ("a_0", "a_1")] == [1, 2]
+        assert sorted((t.name, t.status) for t in results) == [
+            ("a_0", STATUS.PASSED),
+            ("a_1", STATUS.FLAKY),
+        ]

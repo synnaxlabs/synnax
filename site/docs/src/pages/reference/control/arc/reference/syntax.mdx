@@ -62,14 +62,14 @@ Arc has no `while` keyword. Loops use `for`. See
 
 ## Literals
 
-| Literal         | Form                       | Default type                                          |
-| --------------- | -------------------------- | ----------------------------------------------------- |
-| Integer         | `42`, `-7`                 | `i64`                                                 |
-| Float           | `3.14`, `5.`, `.25`        | `f64`                                                 |
-| Number and unit | `50ms`, `10min`, `14.7psi` | The value in the base unit: `50ms` is `50000000` (ns) |
-| Boolean         | `true`, `false`            | `bool`                                                |
-| String          | `"text"`, `` `text` ``     | `str`                                                 |
-| Series          | `[1.0, 2.0, 3.0]`          | `series f64`                                          |
+| Literal         | Form                       | Default type                                   |
+| --------------- | -------------------------- | ---------------------------------------------- |
+| Integer         | `42`, `-7`                 | `i64`                                          |
+| Float           | `3.14`, `5.`, `.25`        | `f64`                                          |
+| Number and unit | `50ms`, `10min`, `14.7psi` | The value in that unit: `50ms` is `50` in `ms` |
+| Boolean         | `true`, `false`            | `bool`                                         |
+| String          | `"text"`, `` `text` ``     | `str`                                          |
+| Series          | `[1.0, 2.0, 3.0]`          | `series f64`                                   |
 
 Numbers are decimal only. Hex (`0xFF`), scientific (`1e3`), and `_` separators (`1_000`)
 are not numbers: Arc reads the part after the digits as a unit and fails with
@@ -79,7 +79,7 @@ are not numbers: Arc reads the part after the digits as a unit and fails with
 ### Units
 
 A unit name directly after a number, with no space, gives the number a unit: `50ms`,
-`10min`. Arc stores the value in the base unit, so `14.7psi` is `101352.97` (Pa). See
+`10min`. The value is the number in that unit, so `14.7psi` is `14.7`. See
 [units](/reference/control/arc/reference/types#units).
 
 ### Strings
@@ -113,8 +113,8 @@ A prefix before the quote changes the string:
 In an `f` string, `{expr}` inserts the value of `expr`. `{expr:spec}` formats the value
 with a spec. A placeholder can hold a number, a `str`, or a `bool`. With no spec, a
 number prints in its shortest form: `{p}` with `3.0` gives `3`. A `bool` takes no spec:
-`{b:s}` fails with `cannot format type bool`. Write `{{` for a literal `{` and `}}` for
-a literal `}`.
+`{b:s}` fails with `invalid string literal: cannot format type bool`. Write `{{` for a
+literal `{` and `}}` for a literal `}`.
 
 ```arc channels="tank_pt, tank_msg" bodies="describe"
 func describe() {p f64} str {
@@ -178,13 +178,13 @@ tank_pt -> math.avg(duration=1s) -> tank_pt_avg
 t.interval(period=1min) -> vent_vlv_cmd
 ```
 
-| Rule                                   | Error                                                                   |
-| -------------------------------------- | ----------------------------------------------------------------------- |
-| Imports come before all other code.    | `import statements must appear before any other top-level declarations` |
-| Each module must exist.                | `unknown module "foo"`                                                  |
-| Each import must be used.              | `imported module "time" is unused` (code `ARC5001`)                     |
-| Each import needs its own name.        | `duplicate import: "tank" is already imported`. Add `as` to one.        |
-| A member of a module needs the import. | `undefined symbol: time`, with a note to add `import time`              |
+| Rule                                   | Error                                                                                            |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Imports come before all other code.    | `import after other code: import statements must appear before any other top-level declarations` |
+| Each module must exist.                | `import failed: unknown module "foo"`                                                            |
+| Each import should be used.            | `unused import: "time"` (warning `W4000`)                                                        |
+| Each import needs its own name.        | `duplicate import: "tank" is already imported`. Add `as` to one.                                 |
+| A member of a module needs the import. | `undefined symbol: time`, with a note to add `import time`                                       |
 
 <Divider.Divider x />
 
@@ -201,7 +201,7 @@ that it writes. Values are integers from 0 to 255.
 
 Authority declarations come after the imports and before all other code. You can write
 more than one. A second default fails with `multiple default authority values`, and a
-repeated channel fails with `duplicate authority for 'vent_vlv_cmd'`.
+repeated channel fails with `duplicate authority: 'vent_vlv_cmd'`.
 
 With no declaration, the automation writes at 255. Always give a default. A per-channel
 form without a default leaves the other channels, and their index channels, at 255. See

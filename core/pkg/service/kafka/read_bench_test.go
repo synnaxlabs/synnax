@@ -119,8 +119,9 @@ type benchResult struct {
 // compare it to its base with pprof -base, or the setup shows up in it. Exact counts
 // slow the task, so the timings of a profiled run are not comparable.
 type benchProfile struct {
-	dir, name string
-	cpu       *os.File
+	root *os.Root
+	name string
+	cpu  *os.File
 }
 
 func startBenchProfile(name string) *benchProfile {
@@ -129,12 +130,14 @@ func startBenchProfile(name string) *benchProfile {
 	if dir == "" {
 		return &benchProfile{}
 	}
-	p := &benchProfile{dir: dir, name: name}
+	root := MustSucceed(os.OpenRoot(dir))
+	DeferCleanup(root.Close)
+	p := &benchProfile{root: root, name: name}
 	rate := runtime.MemProfileRate
 	DeferCleanup(func() { runtime.MemProfileRate = rate })
 	runtime.MemProfileRate = 1
 	p.writeAllocs("allocs.base")
-	p.cpu = MustSucceed(os.Create(filepath.Join(dir, name+".cpu.pprof")))
+	p.cpu = MustSucceed(root.Create(name + ".cpu.pprof"))
 	Expect(pprof.StartCPUProfile(p.cpu)).To(Succeed())
 	DeferCleanup(p.stop)
 	return p
@@ -158,7 +161,7 @@ func (p *benchProfile) writeAllocs(suffix string) {
 	// An allocation reaches the profile only after the sweep that follows it.
 	runtime.GC()
 	runtime.GC()
-	f := MustSucceed(os.Create(filepath.Join(p.dir, p.name+"."+suffix+".pprof")))
+	f := MustSucceed(p.root.Create(p.name + "." + suffix + ".pprof"))
 	Expect(pprof.Lookup("allocs").WriteTo(f, 0)).To(Succeed())
 	Expect(f.Close()).To(Succeed())
 }
@@ -198,7 +201,11 @@ var _ = Describe("Read task benchmark", Serial, func() {
 			GinkgoWriter.Printf("BENCH %s\n", b)
 			if out := os.Getenv("KAFKA_BENCH_OUT"); out != "" {
 				f := MustSucceed(
-					os.OpenFile(out, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644),
+					os.OpenFile(
+						filepath.Clean(out),
+						os.O_APPEND|os.O_CREATE|os.O_WRONLY,
+						0o644,
+					),
 				)
 				MustSucceed(f.Write(append(b, '\n')))
 				Expect(f.Close()).To(Succeed())
@@ -403,7 +410,7 @@ func runBench(ctx SpecContext, sc benchScenario) benchResult {
 		startTask()
 	}
 
-	var streamKeys channel.Keys
+	streamKeys := make(channel.Keys, 0, len(groups))
 	isIndex := make(set.Set[channel.Key])
 	for _, g := range groups {
 		streamKeys = append(streamKeys, g.index.Key())

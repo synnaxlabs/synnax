@@ -20,21 +20,38 @@ import ipaddress
 import json
 import urllib.request
 from collections.abc import Callable, Iterable
-from typing import TYPE_CHECKING
+from typing import Protocol, TypedDict
 
 import boto3
+from mypy_boto3_ec2.type_defs import (
+    IpPermissionTypeDef,
+    IpRangeTypeDef,
+    Ipv6RangeTypeDef,
+    SecurityGroupTypeDef,
+)
 
 from aws import TIMEOUTS
 from controller import WEBHOOK_PORT
 from github import SSL_CONTEXT
 
-if TYPE_CHECKING:
-    from mypy_boto3_ec2.client import EC2Client
-    from mypy_boto3_ec2.type_defs import (
-        IpPermissionTypeDef,
-        IpRangeTypeDef,
-        Ipv6RangeTypeDef,
-    )
+
+class Groups(TypedDict):
+    SecurityGroups: list[SecurityGroupTypeDef]
+
+
+class Ingress(Protocol):
+    """The EC2 security group calls run() makes."""
+
+    def describe_security_groups(self, *, GroupIds: list[str]) -> Groups: ...
+
+    def authorize_security_group_ingress(
+        self, *, GroupId: str, IpPermissions: list[IpPermissionTypeDef]
+    ) -> object: ...
+
+    def revoke_security_group_ingress(
+        self, *, GroupId: str, IpPermissions: list[IpPermissionTypeDef]
+    ) -> object: ...
+
 
 GROUP = "sg-008a955560d77bac9"
 REGION = "us-east-1"
@@ -58,7 +75,7 @@ def _normal(cidr: str) -> str:
     return str(ipaddress.ip_network(cidr))
 
 
-def _permission(cidrs: Iterable[str], *, described: bool) -> "IpPermissionTypeDef":
+def _permission(cidrs: Iterable[str], *, described: bool) -> IpPermissionTypeDef:
     v4: list[IpRangeTypeDef] = []
     v6: list[Ipv6RangeTypeDef] = []
     for c in sorted(cidrs):
@@ -78,7 +95,7 @@ def _permission(cidrs: Iterable[str], *, described: bool) -> "IpPermissionTypeDe
     }
 
 
-def run(*, ec2: "EC2Client", fetch: Callable[[], list[str]]) -> list[str]:
+def run(*, ec2: Ingress, fetch: Callable[[], list[str]]) -> list[str]:
     """Syncs the group's webhook port rules with fetch(); returns one line per change.
     Raises when fetch() returns no ranges, so an empty answer never closes the port."""
     wanted = {_normal(c) for c in fetch()}

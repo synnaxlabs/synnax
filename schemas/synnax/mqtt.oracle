@@ -9,6 +9,7 @@
 
 import "schemas/synnax/channel"
 import "schemas/synnax/device"
+import "schemas/synnax/icd"
 import "schemas/synnax/task"
 import "schemas/x/payload"
 import "schemas/x/telem"
@@ -77,43 +78,43 @@ SparkplugDataType enum {
     @doc value "is the Sparkplug B data type of a tag."
 }
 
-ReadField struct {
-    key         string = create {
-        @doc value "uniquely identifies the field within the entry."
-        @key
+ReadBinding struct {
+    field     icd.FieldKey   {
+        @doc value "is the key of the message field to read."
     }
-    name        string = "" {
-        @doc value "is the human-readable field name."
-    }
-    disabled    bool = false {
-        @doc value "is true when the field is excluded from the task."
-    }
-    channel     channel.Key = 0 {
-        @doc value     "is the Synnax channel the extracted value is written to."
+    channel   channel.Key = 0 {
+        @doc value     "is the channel the value of the field is written to."
         @ref kind      use
         @ref on_delete restrict
     }
-    pointer     string = "" {
+    data_type telem.DataType = "" {
         @doc value """
-            is the JSON Pointer to the value within the payload. An empty pointer takes
-            the whole payload.
+            is the data type of the channel that a client creates for the field. Empty
+            takes the default of the field's kind. The Core ignores it once the channel
+            exists.
         """
-    }
-    data_type   telem.DataType = "float64" {
-        @doc value "is the data type of the extracted value."
         @ts type   "string"
     }
-    time_format payload.TimeFormat? {
+
+    @doc value  "writes the value of one message field to a channel."
+    @go marshal
+}
+
+ReadMessage struct {
+    message  icd.MessageKey {
+        @doc value "is the key of the ICD message to read."
+    }
+    index    icd.FieldKey?  {
         @doc value """
-            is the encoding of the JSON value when the target channel holds timestamps.
-            Required for timestamp channels.
+            is the key of the field whose channel indexes the others. Absent when the
+            task stamps samples on arrival.
         """
     }
-    enum_values payload.EnumEntry[] {
-        @doc value "maps string labels in the payload to numeric channel values."
+    bindings ReadBinding[] = [] {
+        @doc value "are the fields the task reads. A field with no binding is not read."
     }
 
-    @doc value  "is a single value extracted from the JSON payload of a topic."
+    @doc value  "reads the documents of one ICD message."
     @go marshal
 }
 
@@ -130,6 +131,41 @@ BaseReadEntry struct {
     @go marshal
 }
 
+InlineEntry struct extends BaseReadEntry {
+    at               uint32 = 0 {
+        @doc value "is the index of the entry in the entries of its config."
+    }
+    topic            string = "" {
+        @doc value "is the topic to subscribe to."
+    }
+    qos              QoS = at_most_once {
+        @doc value "is the quality of service of the subscription."
+    }
+    retained_ignored bool = false {
+        @doc value "is true when the task drops the retained message on subscribe."
+    }
+    fields           ReadField[] = [] {
+        @doc value "are the fields of the entry."
+    }
+    index            string = "" {
+        @doc value "is the key of the index field. Empty for arrival timing."
+    }
+
+    @doc value "is a plain entry from before ICDs, which held its fields inline."
+    @py omit
+    @ts omit
+}
+
+InlineRead struct {
+    entries InlineEntry[] = [] {
+        @doc value "are the plain entries that hold their fields inline."
+    }
+
+    @doc value "holds the plain entries of a read config from before ICDs."
+    @py omit
+    @ts omit
+}
+
 ReadEntry union on type extends BaseReadEntry {
     plain {
         topic            string = "" {
@@ -144,17 +180,19 @@ ReadEntry union on type extends BaseReadEntry {
                 on subscribe.
             """
         }
-        fields           ReadField[] {
-            @doc value "contains the values to extract from each payload."
+        icd              icd.Key       {
+            @doc value     "is the key of the ICD that holds the messages of the topic."
+            @ref kind      use
+            @ref on_delete restrict
         }
-        index            string = "" {
+        messages         ReadMessage[] = [] {
             @doc value """
-                is the key of the field whose channel indexes the others. Empty when the
-                task stamps samples on arrival.
+                are the messages the topic carries. Each payload is read as the message
+                whose match rule it meets.
             """
         }
 
-        @doc value "reads JSON payloads from one topic."
+        @doc value "reads the JSON payloads of one topic as the messages of an ICD."
     }
     sparkplug {
         group     string = "" {
@@ -200,6 +238,15 @@ ReadConfig struct extends task.PersistConfig {
     }
     entries ReadEntry[] {
         @doc value "contains the topics and tags to read."
+    }
+    inline  InlineRead? {
+        @doc value  """
+            holds the plain entries of a config from before ICDs. A write moves their
+            fields into a new ICD, adds the entries, and clears it.
+        """
+        @go marshal omit
+        @py omit
+        @ts omit
     }
 
     @doc value           """
@@ -465,4 +512,43 @@ EdgeConfig struct extends task.StartConfig {
     @go migrate
     @patch
     @retrieve references
+}
+
+ReadField struct {
+    key         string = create {
+        @doc value "uniquely identifies the field within the entry."
+        @key
+    }
+    name        string = "" {
+        @doc value "is the human-readable field name."
+    }
+    disabled    bool = false {
+        @doc value "is true when the field is excluded from the task."
+    }
+    channel     channel.Key = 0 {
+        @doc value "is the Synnax channel the extracted value is written to."
+    }
+    pointer     string = "" {
+        @doc value """
+            is the JSON Pointer to the value within the payload. An empty pointer takes
+            the whole payload.
+        """
+    }
+    data_type   telem.DataType = "float64" {
+        @doc value "is the data type of the extracted value."
+    }
+    time_format payload.TimeFormat? {
+        @doc value """
+            is the encoding of the JSON value when the target channel holds timestamps.
+            Required for timestamp channels.
+        """
+    }
+    enum_values payload.EnumEntry[] {
+        @doc value "maps string labels in the payload to numeric channel values."
+    }
+
+    @doc value  "is a single value extracted from the JSON payload of a topic."
+    @go marshal
+    @py omit
+    @ts omit
 }

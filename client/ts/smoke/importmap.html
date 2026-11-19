@@ -1,0 +1,30 @@
+<!--
+  Copyright 2026 Synnax Labs, Inc.
+
+  Use of this software is governed by the Business Source License included in the file
+  licenses/BSL.txt.
+
+  As of the Change Date specified in that file, in accordance with the Business Source
+  License, use of this software will be governed by the Apache License, Version 2.0,
+  included in the file licenses/APL.txt.
+  -->
+
+<!doctype html>
+<script type="importmap">
+    {
+        "imports": {
+            "@synnaxlabs/client": "./node_modules/@synnaxlabs/client/dist/client.js",
+            "@synnaxlabs/x": "./node_modules/@synnaxlabs/x/dist/index.js",
+            "@synnaxlabs/freighter": "./node_modules/@synnaxlabs/freighter/dist/freighter.js",
+            "@synnaxlabs/alamos": "./node_modules/@synnaxlabs/alamos/dist/alamos.js",
+            "@opentelemetry/api": "./node_modules/@opentelemetry/api/dist/index.mjs",
+            "async-mutex": "./node_modules/async-mutex/index.mjs",
+            "fflate": "./node_modules/fflate/esm/browser.js",
+            "nanoid/non-secure": "./node_modules/nanoid/non-secure/index.js",
+            "uuid": "./node_modules/uuid/dist/index.js",
+            "zod": "./node_modules/zod/index.js",
+            "zod/v4/core": "./node_modules/zod/v4/core/index.js"
+        }
+    }
+</script>
+<script type="module" src="./smoke.mjs"></script>

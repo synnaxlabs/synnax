@@ -325,19 +325,23 @@ const createEndpoints = async (): Promise<ReadEndpoint[]> => [
 
 const createField = (): Omit<ReadField, "key"> => http.readFieldZ.parse({});
 
-const endpointLabel = Component.renderProp(
-  ({ path }: Task.Views.GroupProps<ReadEndpoint>) => <EndpointLabel path={path} />,
+const GroupLabel = ({ path }: Task.Views.GroupProps<ReadEndpoint>) => (
+  <EndpointLabel path={path} />
 );
 
-const endpointDetails = Component.renderProp(
-  ({ path }: Task.Views.GroupProps<ReadEndpoint>) => <EndpointDetails path={path} />,
+const endpointLabel = Component.renderProp(GroupLabel);
+
+const GroupDetails = ({ path }: Task.Views.GroupProps<ReadEndpoint>) => (
+  <EndpointDetails path={path} />
 );
 
-const fieldDetails = Component.renderProp(
-  ({ groupKey, path }: Task.Views.FieldProps<ReadField>) => (
-    <FieldPane endpoint={root.config.endpoints[groupKey]} path={path} />
-  ),
+const endpointDetails = Component.renderProp(GroupDetails);
+
+const FieldDetails = ({ groupKey, path }: Task.Views.FieldProps<ReadField>) => (
+  <FieldPane endpoint={root.config.endpoints[groupKey]} path={path} />
 );
+
+const fieldDetails = Component.renderProp(FieldDetails);
 
 const Form: FC = () => {
   const endpoints = PForm.useFieldValue(root.config.endpoints);
@@ -355,6 +359,7 @@ const Form: FC = () => {
         groupLabel={endpointLabel}
         groupDetails={endpointDetails}
         fieldDetails={fieldDetails}
+        tareable
       />
       {endpoints.map(({ key }) => (
         <Task.BindReadChannels
@@ -388,8 +393,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
     for (const ep of config.endpoints)
       await Task.configureReadChannels({
         client,
-        read: dev.properties.read,
-        propertiesKey: ep.path,
+        stored: { read: dev.properties.read, key: ep.path },
         fields: ep.fields,
         namePrefix: `${safeDevName}${channel.escapeInvalidName(ep.path)}`,
         indexKey: ep.index,

@@ -355,8 +355,9 @@ var _ = Describe("Index", func() {
 		})
 
 		Describe("Range", func() {
-			bound := func(v int, exclusive bool) *index.Bound[int] {
-				return &index.Bound[int]{Value: v, Exclusive: exclusive}
+			inclusive := func(v int) *index.Bound[int] { return &index.Bound[int]{Value: v} }
+			exclusive := func(v int) *index.Bound[int] {
+				return &index.Bound[int]{Value: v, Exclusive: true}
 			}
 
 			DescribeTable(
@@ -367,12 +368,12 @@ var _ = Describe("Index", func() {
 					Expect(s.Keep(nil, []int{6, 5, 4, 3, 2, 1}, lower, upper)).
 						To(ConsistOf(expected))
 				},
-				Entry("an inclusive range", bound(20, false), bound(40, false),
+				Entry("an inclusive range", inclusive(20), inclusive(40),
 					[]int{2, 3, 4}),
-				Entry("an exclusive range", bound(20, true), bound(40, true), []int{3}),
-				Entry("an open lower end", nil, bound(20, false), []int{1, 2}),
-				Entry("an open upper end", bound(40, true), nil, []int{5}),
-				Entry("an empty range", bound(40, false), bound(20, false), []int{}),
+				Entry("an exclusive range", exclusive(20), exclusive(40), []int{3}),
+				Entry("an open lower end", nil, inclusive(20), []int{1, 2}),
+				Entry("an open upper end", exclusive(40), nil, []int{5}),
+				Entry("an empty range", inclusive(40), inclusive(20), []int{}),
 			)
 
 			DescribeTable(
@@ -380,13 +381,13 @@ var _ = Describe("Index", func() {
 				func(value int, lower, upper *index.Bound[int], expected bool) {
 					Expect(index.InRange(value, lower, upper)).To(Equal(expected))
 				},
-				Entry("an inclusive lower end", 20, bound(20, false), nil, true),
-				Entry("an exclusive lower end", 20, bound(20, true), nil, false),
-				Entry("an inclusive upper end", 40, nil, bound(40, false), true),
-				Entry("an exclusive upper end", 40, nil, bound(40, true), false),
-				Entry("a value below the range", 10, bound(20, false), bound(40, false),
+				Entry("an inclusive lower end", 20, inclusive(20), nil, true),
+				Entry("an exclusive lower end", 20, exclusive(20), nil, false),
+				Entry("an inclusive upper end", 40, nil, inclusive(40), true),
+				Entry("an exclusive upper end", 40, nil, exclusive(40), false),
+				Entry("a value below the range", 10, inclusive(20), inclusive(40),
 					false),
-				Entry("a value above the range", 50, bound(20, false), bound(40, false),
+				Entry("a value above the range", 50, inclusive(20), inclusive(40),
 					false),
 				Entry("no bounds", 7, nil, nil, true),
 			)
@@ -396,9 +397,9 @@ var _ = Describe("Index", func() {
 				s.Stage(txn, 1, 35)
 				s.Stage(txn, 6, 60)
 				s.StageDelete(txn, 3)
-				Expect(s.Range(txn, bound(20, false), nil)).To(ConsistOf(1, 2, 4, 5, 6))
-				Expect(s.Range(nil, bound(20, false), nil)).To(ConsistOf(2, 3, 4, 5))
-				Expect(s.Keep(txn, []int{1, 2, 3, 6, 7}, bound(20, false), nil)).
+				Expect(s.Range(txn, inclusive(20), nil)).To(ConsistOf(1, 2, 4, 5, 6))
+				Expect(s.Range(nil, inclusive(20), nil)).To(ConsistOf(2, 3, 4, 5))
+				Expect(s.Keep(txn, []int{1, 2, 3, 6, 7}, inclusive(20), nil)).
 					To(ConsistOf(1, 2, 6))
 			})
 
@@ -406,12 +407,12 @@ var _ = Describe("Index", func() {
 				txn := &scope{}
 				s.Stage(txn, 1, 35)
 				s.Stage(txn, 6, 60)
-				Expect(s.CommittingRange(bound(30, false), bound(40, false))).
+				Expect(s.CommittingRange(inclusive(30), inclusive(40))).
 					To(BeEmpty())
 				txn.committing = true
-				Expect(s.CommittingRange(bound(30, false), bound(40, false))).
+				Expect(s.CommittingRange(inclusive(30), inclusive(40))).
 					To(ConsistOf(1))
-				Expect(s.Keep(nil, []int{1, 2, 3}, bound(30, false), bound(40, false))).
+				Expect(s.Keep(nil, []int{1, 2, 3}, inclusive(30), inclusive(40))).
 					To(ConsistOf(1, 3))
 			})
 

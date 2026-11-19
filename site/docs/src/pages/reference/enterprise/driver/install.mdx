@@ -189,24 +189,16 @@ Console:
 
 ### Log in to a Core that uses TLS
 
-Answer `Y` to `Secure` when the Core uses TLS, and give the host name of the
-certificate, not an IP address. A certificate from a public authority, such as Let's
-Encrypt, needs no more setup.
+Give the host name of the certificate, not an IP address. For a certificate from a
+public authority, such as Let's Encrypt, answer `Y` to `Secure`.
 
-For a certificate from your own authority, or from a Core that runs with `--auto-cert`:
-
-- **Linux, NI Linux Real-Time, and Windows** -> add the CA certificate to the trust
-  store of the operating system. See
-  [Install certificates](/reference/enterprise/certificates).
-- **macOS** -> the Driver does not read the macOS keychain. See the macOS tab of
-  [Install the certificate](/reference/enterprise/certificates?platform=macOS#install-the-certificate).
-  Set `GRPC_DEFAULT_SSL_ROOTS_FILE_PATH` in `/etc/synnax/driver.env`, before you run
-  `login`.
-
-On Linux and NI Linux Real-Time, you can instead set the same variable in
-`/etc/synnax/driver.env`, before you run `login`. See
-[Environment file](/reference/enterprise/driver/configuration#environment-file). The
-Driver then trusts only the certificates in that file.
+For a certificate from your own authority, or from a Core that runs with `--auto-cert`,
+run `sudo synnax-driver login --ca-cert /path/to/ca.crt`. The Driver then uses TLS,
+trusts only the certificates in that file, and `login` does not ask for `Secure`. On
+Linux, NI Linux Real-Time, and Windows, you can instead add the CA certificate to the
+trust store of the operating system, then answer `Y` to `Secure`. See
+[Install certificates](/reference/enterprise/certificates). The Driver does not read the
+macOS keychain.
 
 <Divider.Divider x />
 

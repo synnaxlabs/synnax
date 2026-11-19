@@ -569,10 +569,28 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							w := openBounded(ctx, 1*telem.SecondTS)
 							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(1)))
 							Expect(
-								w.CommitWithEnd(ctx, 10*telem.SecondTS),
+								w.CommitWithEnd(ctx, 10*telem.SecondTS, nil),
 							).To(Succeed())
 							MustSucceed(w.Close())
 							MustSucceed(live.Close())
+						},
+					)
+					It(
+						"Should hide a commit in a group until the group publishes",
+						func(ctx SpecContext) {
+							var g domain.Group
+							w := openBounded(ctx, 1*telem.SecondTS)
+							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(1)))
+							Expect(
+								w.CommitWithEnd(ctx, 2*telem.SecondTS, &g),
+							).To(Succeed())
+							it := DeferClose(MustSucceed(db.OpenIterator(
+								unary.IterRange(telem.TimeRangeMax),
+							)))
+							Expect(it.SeekFirst(ctx)).To(BeFalse())
+							g.Publish()
+							Expect(it.SeekFirst(ctx)).To(BeTrue())
+							MustSucceed(w.Close())
 						},
 					)
 					It(

@@ -106,6 +106,7 @@ const renderMenu = (wrapper: FC<PropsWithChildren>, keys: string[]) =>
         visible
         position={{ x: 0, y: 0 }}
         cursor={{ x: 0, y: 0 }}
+        target={null}
       />
     </Menu.Menu>,
     { wrapper },
@@ -150,6 +151,7 @@ describe("Panel.TabMenuItems", () => {
               visible
               position={{ x: 0, y: 0 }}
               cursor={{ x: 0, y: 0 }}
+              target={null}
             />
           </Menu.Menu>
         </>,
@@ -348,6 +350,7 @@ describe("Panel.TabMenuItems", () => {
                 visible
                 position={{ x: 0, y: 0 }}
                 cursor={{ x: 0, y: 0 }}
+                target={null}
               />
             </Menu.Menu>
             <Modals.Stack />

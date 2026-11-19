@@ -94,7 +94,7 @@ func (s *Service) Create(
 	if err := s.internal.NewWriter(tx).CreateMany(ctx, &req.Projects); err != nil {
 		return CreateResponse{}, err
 	}
-	return CreateResponse(req), nil
+	return req, nil
 }
 
 // DispatchRequest carries an action sequence to apply to a single project. DispatchKey

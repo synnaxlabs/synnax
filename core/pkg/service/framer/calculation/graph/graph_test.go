@@ -155,7 +155,7 @@ var _ = Describe("Graph", func() {
 			setExpression(ctx, &calc1, "return circ2")
 			Expect(
 				g.Add(ctx, calc1),
-			).To(MatchError(ContainSubstring("circular dependency")))
+			).To(MatchError(graph.ErrCycle))
 		})
 
 		It("Should not re-add existing channel", func(ctx SpecContext) {
@@ -447,7 +447,7 @@ var _ = Describe("Graph", func() {
 			Expect(flat[2].Channel.Name).To(Equal("flat3"))
 		})
 
-		It("Should return empty list when no channels", func(ctx SpecContext) {
+		It("Should return empty list when no channels", func() {
 			flat := g.CalculateFlat()
 			Expect(flat).To(BeEmpty())
 		})
@@ -510,7 +510,7 @@ var _ = Describe("Graph", func() {
 			Expect(grouped).To(BeEmpty())
 		})
 
-		It("Should return false for non-existent channel", func(ctx SpecContext) {
+		It("Should return false for non-existent channel", func() {
 			Expect(MustSucceed(g.Remove(channel.Key(99999)))).To(BeFalse())
 		})
 	})
@@ -688,7 +688,7 @@ var _ = Describe("Graph", func() {
 			Expect(keys.Contains(bases[0].Key())).To(BeFalse())
 		})
 
-		It("Should return empty set when no channels", func(ctx SpecContext) {
+		It("Should return empty set when no channels", func() {
 			keys := g.CalculatedKeys()
 			Expect(keys).To(BeEmpty())
 		})
@@ -947,7 +947,7 @@ var _ = Describe("Graph", func() {
 			Expect(baseKeys.Contains(calcs[1].Key())).To(BeFalse())
 		})
 
-		It("Should return empty set when no channels", func(ctx SpecContext) {
+		It("Should return empty set when no channels", func() {
 			baseKeys := g.ConcreteBaseKeys()
 			Expect(baseKeys).To(BeEmpty())
 		})

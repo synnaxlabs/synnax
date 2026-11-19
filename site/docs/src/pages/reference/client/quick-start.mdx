@@ -23,7 +23,7 @@ You need:
 - [Synnax Desktop](/reference/get-started/install-desktop) open on your computer. You
   can also use a Core in [Synnax Enterprise](/reference/enterprise) that your computer
   can reach, with a username and password for it.
-- Python 3.12 or later, or Node.js 22 or later.
+- Python 3.13 or later, or Node.js 22.12 or later.
 
 <Divider.Divider x />
 
@@ -54,8 +54,31 @@ npm install @synnaxlabs/client tsx
 </Client.Tabs>
 
 Install the client version that matches the major and minor version of your Core, such
-as client 0.61 for Core 0.61. The client prints a warning when the versions differ. The
-**Connect from code** dialog of Synnax Desktop gives the install command that matches.
+as client 0.61 for Core 0.61. The client prints a warning when the versions differ, and
+the TypeScript client can stop with an error. The **Connect from code** dialog of Synnax
+Desktop gives the install command that matches. To open it, click the code button in the
+top bar of Synnax Desktop.
+
+### Install without internet access
+
+If the computer for your script has no internet access, download the Python client and
+its dependencies on a computer that does. Use a computer with the same operating system,
+CPU architecture, and Python version. Replace `0.61` with the major and minor version of
+your Core:
+
+```bash
+pip download "synnax==0.61.*" -d synnax-wheels
+```
+
+Copy the `synnax-wheels` folder to the computer with no internet access, then install
+from it:
+
+```bash
+pip install --no-index --find-links synnax-wheels synnax
+```
+
+Do not download with `--platform` for a different operating system. pip then skips the
+dependencies that only that operating system needs, and the install fails.
 
 <Divider.Divider x />
 
@@ -88,28 +111,31 @@ client = sy.Synnax(
 
   <Fragment slot="typescript">
 
-For Synnax Desktop, copy the `host`, `port`, and `apiKey` from the **Connect from code**
-dialog:
+With Synnax Desktop open, the TypeScript client finds its Core by itself:
 
 ```typescript
 import { DataType, Synnax, TimeSpan, TimeStamp } from "@synnaxlabs/client";
 
-const client = new Synnax({
-  host: "localhost",
-  port: 9090,
-  apiKey: "syk_...",
-});
+const client = new Synnax();
 ```
 
-For a Core in Synnax Enterprise, give its address and your credentials in place of
-`apiKey`: `username: "operator"` and `password: "secret"`.
+For a Core in Synnax Enterprise, give its address and your credentials:
+
+```typescript
+const client = new Synnax({
+  host: "core.example.com",
+  port: 9090,
+  username: "operator",
+  password: "secret",
+});
+```
 
   </Fragment>
 
 </Client.Tabs>
 
-To open the dialog, click the code button in the top bar of Synnax Desktop. For TLS, API
-keys, and other options, see [Connect to a Core](/reference/client/connect).
+For TLS, API keys, and other options, see
+[Connect to a Core](/reference/client/connect).
 
 <Divider.Divider x />
 
@@ -255,6 +281,9 @@ The script prints the five samples that it wrote:
 ```bash
 npx tsx quick_start.ts
 ```
+
+With Bun, run `bun quick_start.ts`. With Deno, run
+`deno run --allow-net quick_start.ts`.
 
 The script prints the five samples that it wrote:
 

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type license as client } from "@synnaxlabs/client";
+import { uuid } from "@synnaxlabs/x";
 
 import { type Activation, type License } from "@/server/db/schema";
 
@@ -36,7 +37,7 @@ export const activationOf = (
   fingerprint: string[],
   overrides: Partial<Activation> = {},
 ): Activation => ({
-  key: crypto.randomUUID(),
+  key: uuid.create(),
   license: LICENSE.key,
   fingerprint,
   name: null,

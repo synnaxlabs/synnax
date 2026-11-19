@@ -24,7 +24,7 @@
               "offset": 0,
               "units": "",
               "pointer": "/v",
-              "type": "number"
+              "type": "float"
             },
             {
               "key": "00000000-0000-4000-8000-00000000000b",

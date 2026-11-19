@@ -29,6 +29,12 @@ const x::errors::Error NO_SLAVES_FOUND = MASTER_INIT_ERROR.sub("no_slaves_found"
 /// @brief error returned when no slave answers because a filter on the adapter blocks
 /// the replies. The user can remove the filter.
 const x::errors::Error REPLIES_BLOCKED = NO_SLAVES_FOUND.sub("replies_blocked");
+/// @brief error returned when no slave answers because the network port of the master
+/// has no link.
+const x::errors::Error NO_LINK = NO_SLAVES_FOUND.sub("no_link");
+/// @brief error returned when the Driver cannot turn off the DewesoftX filter on an
+/// adapter.
+const x::errors::Error FILTER_ERROR = BASE_ERROR.sub("filter");
 /// @brief error returned when the network interface cannot be opened.
 const x::errors::Error INTERFACE_ERROR = BASE_ERROR.sub("interface");
 /// @brief error returned when the Driver lacks permission to open the network
@@ -57,6 +63,9 @@ const x::errors::Error SETTING_CONFLICT = BASE_ERROR.sub("setting_conflict");
 const x::errors::Error CYCLIC_ERROR = BASE_ERROR.sub("cyclic");
 /// @brief error returned when the working counter does not match expected value.
 const x::errors::Error WORKING_COUNTER_ERROR = BASE_ERROR.sub("working_counter");
+/// @brief error returned when the oldest frame in flight has not come back, and the
+/// master keeps it in flight for a later receive.
+const x::errors::Error FRAME_IN_FLIGHT = BASE_ERROR.sub("frame_in_flight");
 /// @brief error returned when the cycle time cannot be maintained.
 const x::errors::Error CYCLE_OVERRUN = BASE_ERROR.sub("cycle_overrun");
 /// @brief error returned when a state machine transition fails.

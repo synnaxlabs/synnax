@@ -7,11 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-# /// script
-# requires-python = ">=3.12,<4"
-# dependencies = ["boto3", "psutil", "synnax>=0.61,<0.62"]
-# ///
-
 """Writes this machine's CPU, memory, and disk usage to Synnax every 5 seconds.
 
 Runs on each runner instance, started by agent_boot.py. Four float32 channels on one
@@ -56,7 +51,7 @@ import psutil
 import synnax as sy
 
 from agent_log import RUNNER_DIRS, Log
-from gh_runner import Runner
+from gh_runner import Core, Runner, Sink, close_quietly
 
 INTERVAL = 5 * sy.TimeSpan.SECOND
 # The runner starts anyway if Synnax stays unreachable this long after boot.
@@ -93,17 +88,19 @@ def warn(what: str, e: Exception) -> None:
     print(f"{what} failed: {type(e).__name__}: {e}", flush=True)
 
 
-class Closeable(Protocol):
-    def close(self) -> object: ...
+class Control(Protocol):
+    """Starts and stops the GitHub runner on this machine, as gh_runner.Runner does."""
 
+    state: bool | None
+    sink: Sink | None
 
-def close_quietly(resource: Closeable | None) -> None:
-    if resource is None:
-        return
-    try:
-        resource.close()
-    except Exception:
-        pass
+    def apply(self, enabled: bool, why: str) -> None: ...
+
+    def listen(self, client: Core, name: str, state: str, sink: Sink) -> None: ...
+
+    def tick(self) -> None: ...
+
+    def stop_listening(self) -> None: ...
 
 
 class ParameterStore(Protocol):
@@ -169,7 +166,7 @@ def deprioritize() -> None:
 def connect(
     args: argparse.Namespace,
     names: dict[str, str],
-    control: Runner | None,
+    control: Control | None,
     store: ParameterStore,
 ) -> sy.Synnax:
     """Connects and resolves the channels, retrying forever; a booting machine must not
@@ -210,7 +207,7 @@ def run(
     args: argparse.Namespace,
     names: dict[str, str],
     runner: str,
-    control: Runner | None,
+    control: Control | None,
     store: ParameterStore,
 ) -> None:
     """One connected session, sampling until something breaks. Returning hands control
@@ -253,7 +250,7 @@ def run(
                     last = max(last, start)
                 last = max(sy.TimeStamp.now(), last + sy.TimeSpan(1))
                 frame = {names["index"]: last, **values}
-                writer.write(frame)  # pyright: ignore[reportArgumentType]
+                writer.write(frame)
                 failures = 0
             except Exception as e:
                 warn("write", e)

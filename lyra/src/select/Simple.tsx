@@ -69,7 +69,10 @@ export interface SingleSimpleProps<K extends record.Key>
 export interface MultipleSimpleProps<K extends record.Key>
   extends
     BaseSimpleProps,
-    Omit<MultipleFrameProps<K, undefined>, FrameOmitted | "replaceOnSingle"> {
+    Omit<
+      MultipleFrameProps<K, undefined>,
+      FrameOmitted | "replaceOnSingle" | "selectedFirst"
+    > {
   multiple: true;
   triggerProps?: MultipleTriggerProps<K, undefined>;
 }

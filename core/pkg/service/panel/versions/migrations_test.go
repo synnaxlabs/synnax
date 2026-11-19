@@ -45,6 +45,7 @@ var _ = Describe("Migrations", func() {
 	BeforeEach(func(sCtx SpecContext) {
 		ctx = sCtx
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 	})
 	// recordComposition marks the given migrations as run by the composition pass.
 	recordComposition := func(migrations ...gorp.Migration) {
@@ -193,9 +194,12 @@ var _ = Describe("Migrations", func() {
 			own(old.Key)
 			recordComposition(v0.ResourceTabTypesMigration)
 			openTable()
-			tabs := retrieve(old.Key).Root.Variant.(versions.LeafNode).Tabs
-			Expect(tabs).To(HaveLen(1))
-			Expect(tabs[0].Variant.(versions.ViewTab).Key).To(Equal(docs))
+			lf, ok := retrieve(old.Key).Root.Variant.(versions.LeafNode)
+			Expect(ok).To(BeTrue())
+			Expect(lf.Tabs).To(HaveLen(1))
+			view, ok := lf.Tabs[0].Variant.(versions.ViewTab)
+			Expect(ok).To(BeTrue())
+			Expect(view.Key).To(Equal(docs))
 		})
 
 		It("Should remove the Arc explorer tabs of a v0.60 Core", func() {
@@ -231,10 +235,14 @@ var _ = Describe("Migrations", func() {
 				To(Succeed())
 			own(stored.Key)
 			openTable()
-			root := retrieve(stored.Key).Root.Variant.(versions.SplitNode)
-			Expect(root.First.Variant.(versions.LeafNode).Tabs).To(BeEmpty())
-			Expect(root.Last.Variant.(versions.LeafNode).Tabs).
-				To(Equal([]versions.Tab{docs}))
+			root, ok := retrieve(stored.Key).Root.Variant.(versions.SplitNode)
+			Expect(ok).To(BeTrue())
+			first, ok := root.First.Variant.(versions.LeafNode)
+			Expect(ok).To(BeTrue())
+			Expect(first.Tabs).To(BeEmpty())
+			last, ok := root.Last.Variant.(versions.LeafNode)
+			Expect(ok).To(BeTrue())
+			Expect(last.Tabs).To(Equal([]versions.Tab{docs}))
 		})
 	})
 
@@ -265,9 +273,12 @@ var _ = Describe("Migrations", func() {
 			var panels []versions.Panel
 			Expect(table.NewRetrieve().Entries(&panels).Exec(ctx, db)).To(Succeed())
 			Expect(panels).To(HaveLen(1))
-			lf := panels[0].Root.Variant.(versions.LeafNode)
+			lf, ok := panels[0].Root.Variant.(versions.LeafNode)
+			Expect(ok).To(BeTrue())
 			Expect(lf.Tabs).To(HaveLen(1))
-			Expect(lf.Tabs[0].Variant.(versions.ResourceTab).Resource).To(Equal(lpID))
+			tab, ok := lf.Tabs[0].Variant.(versions.ResourceTab)
+			Expect(ok).To(BeTrue())
+			Expect(tab.Resource).To(Equal(lpID))
 			Expect(panels[0].Project).To(Equal(&projectKey))
 		})
 	})
@@ -291,6 +302,7 @@ var _ = Describe("Migrations", func() {
 			"v62_panel_delete_range_owned",
 			"v62_panel_drop_range",
 			"v62_color_alpha_byte",
+			"v62_require_name",
 		}))
 	})
 })

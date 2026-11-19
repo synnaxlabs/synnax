@@ -81,7 +81,7 @@ var _ = Describe("Edge task", func() {
 		rackKey = createRack(ctx)
 		dev = createBrokerDevice(ctx, rackKey, broker.port, nil)
 		factory = newFactory(64)
-		host = startHost(broker, "plant", "line1")
+		host = startHost(broker)
 	})
 
 	// start configures and starts an edge task, and waits for its birth.
@@ -347,9 +347,10 @@ var _ = Describe("Edge task", func() {
 					&pb.Payload_Metric_DoubleValue{DoubleValue: 21.5},
 				))
 				// The value keeps the timestamp of its index.
-				var published []uint64
-				for _, m := range host.data() {
-					published = append(published, m.payload.Metrics[0].GetTimestamp())
+				messages := host.data()
+				published := make([]uint64, len(messages))
+				for i, m := range messages {
+					published[i] = m.payload.Metrics[0].GetTimestamp()
 				}
 				Expect(temp.GetTimestamp()).To(BeElementOf(published))
 				Expect(birth.metric("count").GetIsNull()).To(BeTrue())
@@ -535,9 +536,9 @@ var _ = Describe("Edge task", func() {
 	})
 
 	Describe("Commands", func() {
-		// commandTag returns the config of a tag that takes commands on cmd.
-		commandTag := func(name string, ch, cmd channel.Channel) map[string]any {
-			tag := edgeTag(name, ch, "double")
+		// commandTag returns the config of a setpoint tag that takes commands on cmd.
+		commandTag := func(ch, cmd channel.Channel) map[string]any {
+			tag := edgeTag("setpoint", ch, "double")
 			tag["command_channel"] = cmd.Key()
 			return tag
 		}
@@ -546,7 +547,7 @@ var _ = Describe("Edge task", func() {
 			func(ctx SpecContext) {
 				cmdIdx, cmdData := createIndexed(ctx, telem.Float64T)
 				start(ctx, edgeConfig(dev, commandTag(
-					"setpoint", createVirtual(ctx, telem.Float64T), cmdData[0],
+					createVirtual(ctx, telem.Float64T), cmdData[0],
 				)))
 				before := telem.Now()
 				host.sendCommand(commandMetric("setpoint", 0, 2.5))
@@ -570,11 +571,12 @@ var _ = Describe("Edge task", func() {
 					Framer:  framerSvc,
 					DB:      db,
 					Status:  statusSvc,
+					ICD:     icdSvc,
 					Now:     func() telem.TimeStamp { return stamp },
 				}))
 				_, cmdData := createIndexed(ctx, telem.Float64T)
 				start(ctx, edgeConfig(dev, commandTag(
-					"setpoint", createVirtual(ctx, telem.Float64T), cmdData[0],
+					createVirtual(ctx, telem.Float64T), cmdData[0],
 				)))
 				host.sendCommand(commandMetric("setpoint", 0, 1.0))
 				host.sendCommand(commandMetric("setpoint", 0, 2.0))
@@ -587,7 +589,7 @@ var _ = Describe("Edge task", func() {
 			func(ctx SpecContext) {
 				_, cmdData := createIndexed(ctx, telem.Float64T)
 				start(ctx, edgeConfig(dev, commandTag(
-					"setpoint", createVirtual(ctx, telem.Float64T), cmdData[0],
+					createVirtual(ctx, telem.Float64T), cmdData[0],
 				)))
 				values := make([]float64, 16)
 				for i := range values {
@@ -663,7 +665,6 @@ var _ = Describe("Edge task", func() {
 					dev,
 					edgeTag("temp", createVirtual(ctx, telem.Float64T), "double"),
 					commandTag(
-						"setpoint",
 						createVirtual(ctx, telem.Float64T),
 						cmdData[0],
 					),
@@ -683,7 +684,6 @@ var _ = Describe("Edge task", func() {
 					dev,
 					edgeTag("temp", createVirtual(ctx, telem.Float64T), "double"),
 					commandTag(
-						"setpoint",
 						createVirtual(ctx, telem.Float64T),
 						cmdData[0],
 					),
@@ -711,7 +711,7 @@ var _ = Describe("Edge task", func() {
 			) {
 				_, cmdData := createIndexed(ctx, dt)
 				start(ctx, edgeConfig(dev, commandTag(
-					"setpoint", createVirtual(ctx, telem.Float64T), cmdData[0],
+					createVirtual(ctx, telem.Float64T), cmdData[0],
 				)))
 				host.sendCommand(commandMetric("setpoint", 0, value))
 				Eventually(func() int64 { return stored(ctx, cmdData[0]).Len() }).
@@ -742,7 +742,7 @@ var _ = Describe("Edge task", func() {
 			func(ctx SpecContext) {
 				_, cmdData := createIndexed(ctx, telem.Float64T)
 				start(ctx, edgeConfig(dev, commandTag(
-					"setpoint", createVirtual(ctx, telem.Float64T), cmdData[0],
+					createVirtual(ctx, telem.Float64T), cmdData[0],
 				)))
 				host.sendCommand(commandMetric("setpoint", 0, "2.5"))
 				host.sendCommand(commandMetric("setpoint", 0, 4.0))
@@ -757,7 +757,7 @@ var _ = Describe("Edge task", func() {
 			cmdIdx, cmdData := createIndexed(ctx, telem.Float64T)
 			keys := channel.Keys{cmdData[0].Key(), cmdIdx.Key()}
 			_, t := start(ctx, edgeConfig(dev, commandTag(
-				"setpoint", createVirtual(ctx, telem.Float64T), cmdData[0],
+				createVirtual(ctx, telem.Float64T), cmdData[0],
 			)))
 			lower := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
 				Keys:        keys,
@@ -785,7 +785,7 @@ var _ = Describe("Edge task", func() {
 			func(ctx SpecContext) {
 				cmdIdx, cmdData := createIndexed(ctx, telem.Float64T)
 				_, t := start(ctx, edgeConfig(dev, commandTag(
-					"setpoint", createVirtual(ctx, telem.Float64T), cmdData[0],
+					createVirtual(ctx, telem.Float64T), cmdData[0],
 				)))
 				holder := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
 					Keys:        channel.Keys{cmdData[0].Key(), cmdIdx.Key()},
@@ -875,7 +875,7 @@ var _ = Describe("Edge task", func() {
 					To(Succeed())
 				Expect(taskStatus(ctx, t).Details.Running).To(BeTrue())
 				broker = startBroker(port)
-				host = startHost(broker, "plant", "line1")
+				host = startHost(broker)
 				Eventually(host.births, 10*time.Second).Should(HaveLen(1))
 				Expect(host.births()[0].bdSeq()).To(Equal(uint64(0)))
 				expectStatus(ctx, t, status.VariantSuccess, "")
@@ -894,7 +894,7 @@ var _ = Describe("Edge task", func() {
 				To(Succeed())
 			expectStatus(ctx, t, status.VariantWarning, "broker is not connected")
 			broker = startBroker(port)
-			host = startHost(broker, "plant", "line1")
+			host = startHost(broker)
 			Eventually(host.births, 10*time.Second).Should(HaveLen(1))
 			expectStatus(ctx, t, status.VariantSuccess, "")
 		})
@@ -904,7 +904,7 @@ var _ = Describe("Edge task", func() {
 				ch := createVirtual(ctx, telem.Float64T)
 				start(ctx, edgeConfig(dev, edgeTag("temp", ch, "double")))
 				moved := startBroker(0)
-				movedHost := startHost(moved, "plant", "line1")
+				movedHost := startHost(moved)
 				editDevice(ctx, dev, msgpack.EncodedJSON{"port": moved.port})
 				Eventually(host.deaths).Should(HaveLen(1))
 				Expect(host.deaths()[0].bdSeq()).To(Equal(uint64(0)))
@@ -917,7 +917,7 @@ var _ = Describe("Edge task", func() {
 		It("Should start with the properties of an edit after its configure",
 			func(ctx SpecContext) {
 				moved := startBroker(0)
-				movedHost := startHost(moved, "plant", "line1")
+				movedHost := startHost(moved)
 				t := newTask(ctx, rackKey, mqtt.EdgeTaskType, edgeConfig(
 					dev, edgeTag("temp", createVirtual(ctx, telem.Float64T), "double"),
 				))

@@ -29,7 +29,7 @@ interface RenderProps extends Omit<
 export const TextBox = ({
   className,
   orientation = "left",
-  width,
+  inlineSize,
   textColor,
   level,
   autoFitDisabled,
@@ -38,7 +38,7 @@ export const TextBox = ({
   onChange,
 }: RenderProps): ReactElement => {
   const isVertical = direction.construct(orientation) === "y";
-  const size = autoFitDisabled ? width : "fit-content";
+  const size = autoFitDisabled ? inlineSize : "fit-content";
   const style: CSSProperties = {
     textAlign: align as CSSProperties["textAlign"],
     [Primitive.SYMBOL_COLOR]: color.rgbaString(textColor),

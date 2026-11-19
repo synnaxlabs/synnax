@@ -7,10 +7,9 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# One EC2 instance per agent CLI login (a seat), each with several GitHub Actions
-# runners that share the login. The fleet controller starts a stopped seat for a queued
-# job, and a review job also starts a stopped review seat through GitHub OIDC. An idle
-# instance stops itself, so its disk keeps the build caches warm.
+# One EC2 instance per seat, each with several GitHub Actions runners. The fleet
+# controller starts a stopped seat for a queued job, on a shared Claude login that it
+# picks. An idle instance stops itself, so its disk keeps the build caches warm.
 
 terraform {
   required_version = ">= 1.10"
@@ -36,10 +35,11 @@ provider "aws" {
       owner   = "runners"
     }
   }
-  # A seat writes limited-until at a usage limit, Check - Runners writes the sign-in
-  # state, and the fleet controller writes the login, so an apply must keep these tags.
+  # A seat writes limited-until at a usage limit and login-broken at a rejected token,
+  # Check - Runners writes the sign-in state, and the fleet controller writes the login,
+  # so an apply must keep these tags.
   ignore_tags {
-    keys = ["limited-until", "auth", "auth-checked", "login"]
+    keys = ["limited-until", "login-broken", "auth", "auth-checked", "login"]
   }
 }
 
@@ -134,8 +134,10 @@ resource "aws_iam_role_policy" "deny_runner_secrets" {
   })
 }
 
-# Lets a seat record when the usage limit of its login resets. The fleet controller
-# moves the time to the login, which no seat then starts on until then.
+# Lets a seat record when the usage limit of its login resets, and when Claude rejected
+# its token. The fleet controller moves each to the login, which no seat then starts on.
+# A seat can tag only its own instance: the user ID of an instance role session must end
+# with the ID of the tagged instance.
 resource "aws_iam_role_policy" "limited_until" {
   name = "TagLimitedUntil"
   role = aws_iam_role.runner.id
@@ -148,9 +150,14 @@ resource "aws_iam_role_policy" "limited_until" {
       Condition = {
         StringEquals = {
           "aws:ResourceTag/project" = "synnax-agents"
-          "aws:ResourceTag/pool"    = "agent"
+          "aws:ResourceTag/pool"    = ["agent", "review"]
+          "aws:userid" = join(":", [
+            aws_iam_role.runner.unique_id, "$${ec2:InstanceID}",
+          ])
         }
-        "ForAllValues:StringEquals" = { "aws:TagKeys" = ["limited-until"] }
+        "ForAllValues:StringEquals" = {
+          "aws:TagKeys" = ["limited-until", "login-broken"]
+        }
       }
     }]
   })
@@ -224,7 +231,7 @@ data "aws_iam_openid_connect_provider" "github" {
   url = "https://token.actions.githubusercontent.com"
 }
 
-# Lets workflows in the repository start a stopped runner, and nothing else.
+# Lets workflows in the repository see the runners, and nothing else.
 resource "aws_iam_role" "start" {
   name = "synnax-agent-runner-start"
   assume_role_policy = jsonencode({
@@ -255,17 +262,6 @@ resource "aws_iam_role_policy" "start" {
         Effect   = "Allow"
         Action   = "ec2:DescribeInstances"
         Resource = "*"
-      },
-      {
-        Effect   = "Allow"
-        Action   = "ec2:StartInstances"
-        Resource = "arn:aws:ec2:${var.region}:*:instance/*"
-        Condition = {
-          StringEquals = {
-            "aws:ResourceTag/project" = "synnax-agents"
-            "aws:ResourceTag/pool"    = keys(var.pools)
-          }
-        }
       },
     ]
   })

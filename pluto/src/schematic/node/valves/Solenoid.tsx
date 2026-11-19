@@ -12,14 +12,26 @@ import "@/schematic/node/valves/Solenoid.css";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { Handle } from "@/schematic/node/common/handle";
-import { Primitive } from "@/schematic/node/common/primitive";
+import { Custom } from "@/schematic/node/common/custom";
+import { type Primitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
+import svg from "@/schematic/node/valves/Solenoid.svg?raw";
+
 export interface Props extends Toggle.ButtonProps, Primitive.SVGBasedProps {
   normallyOpen?: boolean;
 }
 
-const DIMENSIONS = { width: 87, height: 69 };
+const SPEC = Custom.createBuiltIn({
+  variant: "actuator",
+  svg,
+  handles: [
+    { key: "1", position: { x: 0.022989, y: 0.695652 }, orientation: "left" },
+    { key: "2", position: { x: 0.977011, y: 0.695652 }, orientation: "right" },
+    { key: "3", position: { x: 0.333333, y: 0.177778 }, orientation: "left" },
+    { key: "4", position: { x: 0.5, y: 0.028986 }, orientation: "top" },
+    { key: "5", position: { x: 0.666667, y: 0.177778 }, orientation: "right" },
+  ],
+});
 
 export const Solenoid = ({
   className,
@@ -38,55 +50,12 @@ export const Solenoid = ({
     orientation={orientation}
     {...rest}
   >
-    <Handle.Boundary orientation={orientation}>
-      <Handle.Handle
-        location="left"
-        orientation={orientation}
-        left={2.2989}
-        top={69.5652}
-        id="1"
-      />
-      <Handle.Handle
-        location="right"
-        orientation={orientation}
-        left={97.7011}
-        top={69.5652}
-        id="2"
-      />
-      <Handle.Handle
-        location="left"
-        orientation={orientation}
-        left={33.3333}
-        top={17.7778}
-        id="3"
-      />
-      <Handle.Handle
-        location="top"
-        orientation={orientation}
-        left={50}
-        top={2.8986}
-        id="4"
-      />
-      <Handle.Handle
-        location="right"
-        orientation={orientation}
-        left={66.6667}
-        top={17.7778}
-        id="5"
-      />
-    </Handle.Boundary>
-    <Primitive.SVG
-      dimensions={DIMENSIONS}
+    <Custom.Drawing
+      spec={SPEC}
+      builtIn
       strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
-    >
-      <Primitive.Path
-        className={CSS.B("body")}
-        d="M43.5 48L6.35453 29.2035C4.35901 28.1937 2 29.6438 2 31.8803V64.1197C2 66.3562 4.35901 67.8063 6.35453 66.7965L43.5 48ZM43.5 48L80.6455 29.2035C82.641 28.1937 85 29.6438 85 31.8803V64.1197C85 66.3562 82.641 67.8063 80.6455 66.7965L43.5 48Z"
-      />
-      <Primitive.Line x1={43.5} x2={43.5} y1={24.5333} y2={48} />
-      <Primitive.Rect x="29" y="2" width="29" height="22.5333" rx="1" />
-    </Primitive.SVG>
+    />
   </Toggle.Button>
 );

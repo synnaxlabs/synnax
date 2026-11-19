@@ -11,10 +11,9 @@ package check
 
 import (
 	"context"
-	"os"
-	"path/filepath"
 
 	"github.com/synnaxlabs/oracle/format"
+	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/pipeline"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -59,8 +58,7 @@ func (g cacheGate) Run(_ context.Context, res *pipeline.Result, env Env) GateRep
 			if entry.Raw != format.Hash(f.Content) {
 				continue
 			}
-			abs := filepath.Join(env.RepoRoot, f.Path)
-			existing, err := os.ReadFile(abs)
+			existing, err := paths.ReadFile(f.Path, env.RepoRoot)
 			if err != nil {
 				r.Findings = append(r.Findings, Finding{
 					Path:     f.Path,

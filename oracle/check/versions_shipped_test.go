@@ -23,6 +23,13 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+func write(dir, rel, content string) {
+	GinkgoHelper()
+	full := filepath.Join(dir, rel)
+	Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
+	Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
+}
+
 var _ = Describe("VersionsGate shipped versions", func() {
 	const (
 		v0Path    = "schemas/synnax/versions/channel/v0.oracle"
@@ -44,13 +51,6 @@ Channel struct {
 `
 	)
 	var root, releaseRoot string
-
-	write := func(dir, rel, content string) {
-		GinkgoHelper()
-		full := filepath.Join(dir, rel)
-		Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
-		Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
-	}
 
 	messages := func() []string {
 		GinkgoHelper()

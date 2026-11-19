@@ -18,6 +18,7 @@ import { findButton, renderModalOpener } from "@/platform/modals/testutil";
 import {
   captureBrowserDownloads,
   type CapturedDownloads,
+  readBlob,
   removeSaveFilePicker,
 } from "@/testutil";
 
@@ -27,15 +28,6 @@ const openDownloadModal = async (
   params: Framer.DownloadCSVModalParams,
   options: Parameters<typeof renderModalOpener>[2] = {},
 ) => await renderModalOpener(() => Framer.useDownloadCSVModal(), [params], options);
-
-// jsdom's Blob has no text(); FileReader is the portable way to read it back.
-const readBlob = (blob: Blob): Promise<string> =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(reader.error ?? new Error("failed to read blob"));
-    reader.readAsText(blob);
-  });
 
 describe("useDownloadCSVModal", () => {
   describe("form step (no client)", () => {

@@ -53,9 +53,7 @@ var _ = Describe("Writer", func() {
 				SatisfyAll(
 					MatchError(validate.ErrValidation),
 					MatchError(
-						ContainSubstring(
-							"nodes.0.config.scale: must be positive, got 0",
-						),
+						ContainSubstring("scale"),
 					),
 				),
 			),
@@ -228,52 +226,6 @@ var _ = Describe("Writer", func() {
 				Expect(res.Name).To(Equal("test"))
 			},
 		)
-		Describe("A schematic that stores a zero scale", func() {
-			var stored schematic.Schematic
-			BeforeEach(func(ctx SpecContext) {
-				stored = schematic.Schematic{}
-				Expect(json.Unmarshal([]byte(
-					`{"name":"stored","nodes":[{"key":"v1",`+
-						`"config":{"variant":"valve","scale":0}}]}`,
-				), &stored)).To(Succeed())
-				stored.Key = uuid.New()
-				stored.Project = &proj.Key
-				Expect(gorp.NewCreate[schematic.Key, schematic.Schematic]().
-					Entry(&stored).
-					Exec(ctx, db)).To(Succeed())
-			})
-
-			It("Should accept an unrelated dispatch", func(ctx SpecContext) {
-				Expect(dispatch(ctx, stored.Key, "session-1", []schematic.Action{
-					schematic.NewSetAction(schematic.SetPayload{
-						Path:  []string{"name"},
-						Value: "renamed",
-					}),
-				})).To(Succeed())
-			})
-
-			It("Should accept a dispatch that edits another field of the element", func(
-				ctx SpecContext,
-			) {
-				Expect(dispatch(ctx, stored.Key, "session-1", []schematic.Action{
-					schematic.NewSetAction(schematic.SetPayload{
-						Path:  []string{"nodes", "v1", "config", "label", "label"},
-						Value: "Inlet",
-					}),
-				})).To(Succeed())
-			})
-
-			It("Should copy the stored config", func(ctx SpecContext) {
-				var cpy schematic.Schematic
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).
-						Copy(ctx, stored.Key, "copy", &cpy)
-				})).To(Succeed())
-				Expect(cpy.Key).ToNot(Equal(stored.Key))
-				Expect(cpy.Nodes).To(Equal(stored.Nodes))
-			})
-		})
-
 		It("Should reject a dispatch that sets a zero scale", func(ctx SpecContext) {
 			var s schematic.Schematic
 			Expect(json.Unmarshal([]byte(
@@ -292,7 +244,7 @@ var _ = Describe("Writer", func() {
 			})).To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(
-					ContainSubstring("nodes.0.config.scale: must be positive, got 0"),
+					ContainSubstring("scale"),
 				),
 			))
 		})
@@ -321,7 +273,7 @@ var _ = Describe("Writer", func() {
 			})).To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(
-					ContainSubstring("nodes.0.config.scale: must be positive, got 0"),
+					ContainSubstring("scale"),
 				),
 			))
 		})

@@ -51,7 +51,7 @@ func newTimedFactory(rebirthInterval, birthGrace time.Duration) driver.Factory {
 		Device:  deviceSvc,
 		Channel: channelSvc,
 		Framer:  framerSvc,
-		DB:      db, Status: statusSvc,
+		DB:      db, Status: statusSvc, ICD: icdSvc,
 		RebirthInterval: rebirthInterval,
 		BirthGrace:      birthGrace,
 	}))
@@ -101,7 +101,7 @@ var _ = Describe("Sparkplug B host session", func() {
 				_, data := createIndexed(ctx, telem.Float64T)
 				before := int64(telem.Now() / telem.MillisecondTS)
 				configured, _ := run(ctx, readConfig(
-					dev, plainEntry("plant/state", field("v", data[0], "")),
+					ctx, dev, plainEntry("plant/state", field("v", data[0], "")),
 				))
 				Eventually(func(g Gomega) {
 					g.Expect(broker.retained(stateTopic)).To(HaveLen(1))
@@ -126,7 +126,7 @@ var _ = Describe("Sparkplug B host session", func() {
 			dev := createBrokerDevice(ctx, rackKey, broker.port, nil)
 			_, data := createIndexed(ctx, telem.Float64T)
 			configured, _ := run(ctx, readConfig(
-				dev, plainEntry("plant/state", field("v", data[0], "")),
+				ctx, dev, plainEntry("plant/state", field("v", data[0], "")),
 			))
 			Eventually(broker.subscriptions).Should(Equal(1))
 			Expect(broker.retained("spBv1.0/STATE/+")).To(BeEmpty())
@@ -143,7 +143,7 @@ var _ = Describe("Sparkplug B host session", func() {
 				)
 				_, data := createIndexed(ctx, telem.Float64T)
 				t := newTask(ctx, rackKey, mqtt.ReadTaskType, readConfig(
-					dev, plainEntry("plant/state", field("v", data[0], "")),
+					ctx, dev, plainEntry("plant/state", field("v", data[0], "")),
 				))
 				message := "invalid broker properties: sparkplug.host_id: syn/nax " +
 					"must not hold /, +, or #"
@@ -163,9 +163,10 @@ var _ = Describe("Sparkplug B host session", func() {
 				broker.collect(stateTopic)
 				states := func() []hostState {
 					GinkgoHelper()
-					var out []hostState
-					for _, m := range broker.collected() {
-						out = append(out, parseHostState(m.payload))
+					collected := broker.collected()
+					out := make([]hostState, len(collected))
+					for i, m := range collected {
+						out[i] = parseHostState(m.payload)
 					}
 					return out
 				}
@@ -174,7 +175,7 @@ var _ = Describe("Sparkplug B host session", func() {
 				)
 				_, data := createIndexed(ctx, telem.Float64T)
 				_, t := run(ctx, readConfig(
-					dev, plainEntry("plant/state", field("v", data[0], "")),
+					ctx, dev, plainEntry("plant/state", field("v", data[0], "")),
 				))
 				Eventually(states).Should(HaveLen(1))
 				broker.dropClients()
@@ -226,13 +227,13 @@ var _ = Describe("Sparkplug B host session", func() {
 					},
 				)
 				_, first := run(ctx, readConfig(
-					dev, tagEntry("plant", "line1", "", "temperature", a[0]),
+					ctx, dev, tagEntry("plant", "line1", "", "temperature", a[0]),
 				))
 				Eventually(func() int64 { return stored(ctx, a[0]).Len() }).
 					Should(BeEquivalentTo(1))
 				Expect(node.births()).To(Equal(1))
 				_, second := run(ctx, readConfig(
-					dev, tagEntry("plant", "line1", "", "pressure", b[0]),
+					ctx, dev, tagEntry("plant", "line1", "", "pressure", b[0]),
 				))
 				Eventually(node.births).Should(Equal(2))
 				Expect(broker.clientCount()).To(Equal(1))
@@ -265,11 +266,11 @@ var _ = Describe("Sparkplug B host session", func() {
 				})
 				first := configure(ctx, factory, newTask(
 					ctx, rackKey, mqtt.ReadTaskType, readConfig(
-						dev, tagEntry("plant", "line1", "", "temperature", a[0]),
+						ctx, dev, tagEntry("plant", "line1", "", "temperature", a[0]),
 					),
 				))
 				secondTask := newTask(ctx, rackKey, mqtt.ReadTaskType, readConfig(
-					dev, tagEntry("plant", "line1", "", "temperature", b[0]),
+					ctx, dev, tagEntry("plant", "line1", "", "temperature", b[0]),
 				))
 				second := configure(ctx, factory, secondTask)
 				Expect(first.Exec(ctx, task.Command{Type: "start", Key: "start"})).
@@ -306,7 +307,9 @@ var _ = Describe("Sparkplug B host session", func() {
 					name: "uptime", alias: 1, value: 1.0, timestamp: 1700000000000,
 				})
 				run(ctx, readConfig(
-					dev, tagEntry("plant", "line1", "boiler", "temperature", data[0]),
+					ctx,
+					dev,
+					tagEntry("plant", "line1", "boiler", "temperature", data[0]),
 				))
 				Eventually(node.births).Should(Equal(1))
 				// The device comes online without a DBIRTH that the host saw.
@@ -331,7 +334,7 @@ var _ = Describe("Sparkplug B host session", func() {
 					name: "temperature", alias: 1, value: 1.0, timestamp: 1700000000000,
 				})
 				_, t := run(ctx, readConfig(
-					dev, tagEntry("plant", "line1", "", "temperature", data[0]),
+					ctx, dev, tagEntry("plant", "line1", "", "temperature", data[0]),
 				))
 				Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
 					Should(BeEquivalentTo(1))
@@ -367,7 +370,7 @@ var _ = Describe("Sparkplug B host session", func() {
 					name: "temperature", alias: 1, value: 1.0, timestamp: 1700000000000,
 				})
 				_, t := run(ctx, readConfig(
-					dev, tagEntry("plant", "line1", "", "temperature", data[0]),
+					ctx, dev, tagEntry("plant", "line1", "", "temperature", data[0]),
 				))
 				Eventually(node.births).Should(Equal(1))
 				broker.dropClients()
@@ -387,13 +390,13 @@ var _ = Describe("Sparkplug B host session", func() {
 				// A plain task keeps the connection open while no task follows the edge
 				// node.
 				run(ctx, readConfig(
-					dev, plainEntry("plant/keeper", field("v", plain[0], "")),
+					ctx, dev, plainEntry("plant/keeper", field("v", plain[0], "")),
 				))
 				node.setTags("", tagValue{
 					name: "temperature", alias: 1, value: 1.0, timestamp: 1700000000000,
 				})
 				first, _ := run(ctx, readConfig(
-					dev, tagEntry("plant", "line1", "", "temperature", a[0]),
+					ctx, dev, tagEntry("plant", "line1", "", "temperature", a[0]),
 				))
 				Eventually(func() int64 { return stored(ctx, a[0]).Len() }).
 					Should(BeEquivalentTo(1))
@@ -403,7 +406,7 @@ var _ = Describe("Sparkplug B host session", func() {
 					name: "temperature", alias: 1, value: 2.0, timestamp: 1700000001000,
 				})
 				_, second := run(ctx, readConfig(
-					dev, tagEntry("plant", "line1", "", "temperature", b[0]),
+					ctx, dev, tagEntry("plant", "line1", "", "temperature", b[0]),
 				))
 				Eventually(node.births).Should(Equal(2))
 				Eventually(func() int64 { return stored(ctx, b[0]).Len() }).
@@ -434,7 +437,7 @@ var _ = Describe("Sparkplug B host session", func() {
 					timestamp: 1700000000000,
 				})
 				_, t := run(ctx, readConfig(
-					dev,
+					ctx, dev,
 					plainEntry("plant/mixed", field("v", plain[0], "")),
 					tagEntry("plant", "line1", "", "temperature", tag[0]),
 				))
@@ -460,7 +463,7 @@ var _ = Describe("Sparkplug B host session", func() {
 					Device:  deviceSvc,
 					Channel: channelSvc,
 					Framer:  framerSvc,
-					DB:      db, Status: statusSvc,
+					DB:      db, Status: statusSvc, ICD: icdSvc,
 					RebirthInterval: rebirthInterval,
 					BirthGrace:      birthGrace,
 				})).Error().To(MatchError(ContainSubstring(message)))

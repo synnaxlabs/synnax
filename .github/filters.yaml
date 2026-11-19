@@ -21,7 +21,7 @@ actionlint:
 
 bazel: &bazel
   - .bazelignore
-  - .bazeliskrc
+  - .bazelversion
   - .bazelrc
   - .gitmodules
   - MODULE.bazel
@@ -297,8 +297,10 @@ exports_py:
 
 py_packages:
   - *client_py
+  - .github/scripts/build_py.sh
   - .github/scripts/pin_internal_deps.sh
   - .github/workflows/test.py.packages.yaml
+  - scripts/check_wheels_py.sh
 
 lint_integration:
   - *client_py
@@ -409,12 +411,16 @@ ci_scripts:
   - .github/scripts/**
   - .github/workflows/**
   - deploy/preview/**
+  - scripts/agent/**
   - scripts/common/**
 
 scripts:
   - *py
   - client/py/**
   - scripts/**
+
+suppressions_py:
+  - "**/*.py"
 
 runners:
   - *py

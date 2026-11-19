@@ -25,6 +25,7 @@ import psutil
 from examples.modbus import ModbusSim
 
 import synnax as sy
+from framework.utils import hold
 from synnax import modbus
 from tests.driver.modbus_read import ModbusReadInputRegister
 from tests.driver.opcua_task import OPCUAReadTaskCase
@@ -126,7 +127,7 @@ class OPCUADriverResponsiveness(OPCUAReadTaskCase):
         for task in all_tasks:
             task._internal.execute_command("start")
 
-        sy.sleep(DEADLOCK_DURATION)  # noqa: TID251 keeps the simulator frozen
+        hold(DEADLOCK_DURATION, reason="keeps the simulator frozen")
 
         # Step 5: Health probe — can the driver still run a Modbus task?
         self._check_driver_responsive()

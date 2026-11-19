@@ -18,6 +18,7 @@ from common import (
     COMMAND_AUTHORITY,
     RECOMMAND_DELAY,
     RELEASED_AUTHORITY,
+    Writes,
     channel_name,
     command_channels,
 )
@@ -37,7 +38,7 @@ class Commander:
     def __init__(
         self,
         *,
-        client: sy.Synnax,
+        client: Writes,
         command: str,
         name: str,
         log: Log,

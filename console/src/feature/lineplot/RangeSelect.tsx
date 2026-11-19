@@ -11,8 +11,10 @@ import "@/feature/lineplot/RangeSelect.css";
 
 import { lineplot, NotFoundError, type ranger } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
+import { CSS as PCSS } from "@synnaxlabs/lyra/css";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Haul } from "@synnaxlabs/lyra/haul";
 import { useNow } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
@@ -33,10 +35,9 @@ import {
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
-import { type ReactElement, useState } from "react";
+import { type ReactElement, type ReactNode, useState } from "react";
 
 import { CSS } from "@/platform/css";
-import { Range } from "@/platform/range";
 import { Session } from "@/session";
 
 const ROLLING_PRESETS = Session.Range.BUILT_IN.map(({ span }) => span);
@@ -67,10 +68,10 @@ const windowKey = ({ window }: ranger.WindowRef): string =>
     ? `rolling/${window.timeSpan}`
     : `static/${window.timeRange.start}/${window.timeRange.end}`;
 
-const FavoriteItem = (props: List.ItemProps<string>): ReactElement | null => {
-  const range = Range.useResolve(props.itemKey);
+const RangeItem = (props: List.ItemProps<ranger.Key>): ReactElement | null => {
+  const range = List.useItem<ranger.Key, ranger.Range>(props.itemKey);
   const { data: parent } = Ranger.useResultParent({ key: props.itemKey });
-  if (range == null || range.variant === "dynamic") return null;
+  if (range == null) return null;
   return (
     <Select.Item {...props} justify="between">
       <Ranger.Breadcrumb
@@ -83,7 +84,9 @@ const FavoriteItem = (props: List.ItemProps<string>): ReactElement | null => {
   );
 };
 
-const favoriteItem = Component.renderProp(FavoriteItem);
+const rangeItem = Component.renderProp(RangeItem);
+
+const NEWEST: ranger.Order = { field: "time_range_start", descending: true };
 
 interface RollingTagProps {
   itemKey: string;
@@ -166,22 +169,20 @@ const formatExact = ({ start, end }: TimeRange): string =>
 interface StaticTagProps {
   itemKey: string;
   window: StaticWindow;
-  name?: string;
 }
 
-const StaticTag = ({ itemKey, window, name }: StaticTagProps): ReactElement => {
+const StaticTag = ({ itemKey, window }: StaticTagProps): ReactElement => {
   const { onSelect } = Select.useItemState(itemKey);
   const timeRange = resolveWindow(window, TimeStamp.now());
   // The day prefix changes at midnight.
   const now = useNow((now) => Telem.Text.nextMidnight(now));
-  const exact = formatExact(timeRange);
   return (
     <Tag.Tag
       icon={<Ranger.StageIcon timeRange={timeRange} />}
       onClose={onSelect}
       level="small"
       size="small"
-      tooltip={name == null ? exact : `${name}: ${exact}`}
+      tooltip={formatExact(timeRange)}
     >
       {formatWindow(timeRange, now)}
     </Tag.Tag>
@@ -251,14 +252,14 @@ const DurationSearch = ({
       pack
       onKeyDown={(e) => {
         if (e.key !== "Enter" || typed == null) return;
-        // Keeps the list's window-level Enter trigger from clicking a favorite.
+        // Keeps the list's window-level Enter trigger from clicking a range.
         e.stopPropagation();
         onDuration(typed);
         close();
       }}
     >
       <Select.Search
-        placeholder="Search favorites or type a duration"
+        placeholder="Search ranges or type a duration"
         onSearch={onSearch}
       />
     </Flex.Box>
@@ -270,9 +271,9 @@ const ABOVE: position.LocationPreference = {
   dialogCorner: "bottom",
 };
 
-const emptyContent = (
+const NO_RANGES = (
   <Status.Summary center variant="disabled">
-    No favorite ranges found
+    No ranges found
   </Status.Summary>
 );
 
@@ -287,16 +288,18 @@ export interface RangeSelectProps extends Omit<
 > {}
 
 /**
- * Selects what the plot shows: at most one rolling window, favorite ranges, and static
+ * Selects what the plot shows: at most one rolling window, Core ranges, and static
  * windows. A duration typed into the search lists a live option, and Enter sets it. A
- * static window's tag edits the window in place.
+ * static window's tag edits the window in place. A range dropped on it joins the plot.
  */
 export const RangeSelect = (props: RangeSelectProps): ReactElement => {
   const refs = LinePlot.useRanges();
   const states = Session.Range.useSelectMultiple();
   const dispatch = LinePlot.useSingleDispatch();
-  const favorites = Range.useResolveMultiple().filter((r) => r.variant !== "dynamic");
-  const { data, search } = List.useStaticData<string>({ data: favorites });
+  const { data, getItem, subscribe, status, more, search } = Flux.useList(
+    (c) => c.ranges,
+    { name: "ranges", query: { order: NEWEST } },
+  );
   const [term, setTerm] = useState("");
   const entryOf = (ref: ranger.Ref): Entry => ({
     ref,
@@ -315,6 +318,19 @@ export const RangeSelect = (props: RangeSelectProps): ReactElement => {
   const span = rolling == null ? undefined : new TimeSpan(rolling.window.timeSpan);
   const setRanges = (ranges: ranger.Ref[]) =>
     dispatch(lineplot.setRanges({ ranges: dedupe(ranges) }));
+  const dragging = Haul.useDraggingState();
+  const dropProps = Haul.useDrop({
+    type: "line_plot_range_select",
+    canDrop: Ranger.canDropHaulItem,
+    onDrop: ({ items }) => {
+      const dropped = Ranger.filterHaulItems(items);
+      setRanges([
+        ...refs,
+        ...dropped.map(({ key }): ranger.Ref => ({ variant: "key", key })),
+      ]);
+      return dropped;
+    },
+  });
   const setRolling = (next?: TimeSpan) => {
     if (next == null) return setRanges(refs.filter((r) => !isRolling(r)));
     if (rolling == null) return setRanges([...refs, rollingRef(next)]);
@@ -342,6 +358,16 @@ export const RangeSelect = (props: RangeSelectProps): ReactElement => {
       }),
     );
   };
+  let empty: ReactNode = NO_RANGES;
+  if (typed != null) empty = null;
+  else if (status.variant === "loading")
+    empty = term === "" ? <Status.Loading /> : null;
+  else if (status.variant === "error")
+    empty = (
+      <Status.Summary center variant="error" description={status.description}>
+        {status.message}
+      </Status.Summary>
+    );
   const renderTag = ({ itemKey }: Select.MultipleTagProps<string>) => {
     const entry = entries.find(({ key }) => key === itemKey);
     if (entry == null) return null;
@@ -349,31 +375,28 @@ export const RangeSelect = (props: RangeSelectProps): ReactElement => {
     if (ref.variant === "key") return <KeyTag key={itemKey} range={ref} />;
     if (ref.window.variant === "dynamic")
       return <RollingTag key={itemKey} itemKey={itemKey} window={ref.window} />;
-    const state = states.find((s) => s.key === itemKey);
-    return (
-      <StaticTag
-        key={itemKey}
-        itemKey={itemKey}
-        window={ref.window}
-        name={state?.variant === "static" ? state.name : undefined}
-      />
-    );
+    return <StaticTag key={itemKey} itemKey={itemKey} window={ref.window} />;
   };
   return (
-    <Input.Item x label="Ranges" {...props}>
+    <Input.Item x label="Ranges" {...props} {...dropProps}>
       <Dialog.Frame variant="floating" location={ABOVE}>
-        <Select.Frame<string>
+        <Select.Frame<string, ranger.Range | undefined>
           multiple
           value={entries.map(({ key }) => key)}
           onChange={handleChange}
           data={data}
+          getItem={getItem}
+          subscribe={subscribe}
+          onFetchMore={more}
           initialHover={0}
           virtual
+          selectedFirst
         >
           <Select.MultipleTrigger<string>
             icon={<Icon.Range />}
             placeholder="Select ranges"
             aria-label="Ranges"
+            className={PCSS.cls(PCSS.dropRegion(Ranger.canDropHaulItem(dragging)))}
           >
             {renderTag}
           </Select.MultipleTrigger>
@@ -400,9 +423,7 @@ export const RangeSelect = (props: RangeSelectProps): ReactElement => {
                   </Text.Text>
                 </Select.Item>
               )}
-              <Select.Items<string> emptyContent={typed == null ? emptyContent : null}>
-                {favoriteItem}
-              </Select.Items>
+              <Select.Items<string> emptyContent={empty}>{rangeItem}</Select.Items>
             </Select.List>
           </Select.Dialog>
         </Select.Frame>

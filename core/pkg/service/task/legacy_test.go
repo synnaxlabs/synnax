@@ -14,6 +14,7 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"fmt"
+	"io/fs"
 	"maps"
 	"os"
 	"path/filepath"
@@ -399,10 +400,10 @@ func createFixtureTargets(
 					}
 				case string:
 					if k == "device" && key != "" {
-						devices.Add(device.Key(key))
+						devices.Add(key)
 					}
 					if k == "status" && key != "" {
-						statuses.Add(status.Key(key))
+						statuses.Add(key)
 					}
 				}
 				walk(f)
@@ -413,17 +414,19 @@ func createFixtureTargets(
 			}
 		}
 	}
-	var paths []string
-	for _, pattern := range []string{
-		filepath.Join("testdata", "legacy", "*.json"),
-		filepath.Join("testdata", "legacy", "expected", "*.json"),
-		filepath.Join("testdata", "released", "*", "*.json"),
-	} {
-		paths = append(paths, MustSucceed(filepath.Glob(pattern))...)
+	testdata := os.DirFS("testdata")
+	glob := func(pattern string) []string {
+		return MustSucceed(fs.Glob(testdata, pattern))
 	}
+	paths := slices.Concat(
+		glob("legacy/*.json"),
+		glob("legacy/expected/*.json"),
+		glob("released/*/*.json"),
+	)
 	for _, path := range paths {
 		var stored any
-		Expect(json.Unmarshal(MustSucceed(os.ReadFile(path)), &stored)).To(Succeed())
+		Expect(json.Unmarshal(MustSucceed(fs.ReadFile(testdata, path)), &stored)).
+			To(Succeed())
 		walk(stored)
 	}
 	fixtureKeys := slices.Sorted(maps.Keys(fixtureChannels))
@@ -517,49 +520,30 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 		for fixture, created := range toCreated {
 			toFixture[created] = fixture
 		}
-		var stores []config.Store
-		stores = append(
-			stores,
-			MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{
-				DB: db,
-			})).Stores()...,
-		)
-		stores = append(
-			stores,
+		stores := slices.Concat(
+			MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db})).Stores(),
 			MustOpen(ethercat.OpenService(ctx, ethercat.ServiceConfig{
 				DB:     db,
 				Device: deviceSvc,
-			})).Stores()...,
-		)
-		stores = append(stores, MustOpen(http.OpenService(ctx, http.ServiceConfig{
-			DB:      db,
-			Channel: channelSvc,
-		})).Stores()...)
-		stores = append(stores, MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{
-			DB: db,
-		})).Stores()...)
-		stores = append(stores, MustOpen(modbus.OpenService(ctx, modbus.ServiceConfig{
-			DB: db,
-		})).Stores()...)
-		stores = append(stores, MustOpen(ni.OpenService(ctx, ni.ServiceConfig{
-			DB:     db,
-			Status: statusSvc,
-		})).Stores()...)
-		stores = append(stores, MustOpen(opcua.OpenService(ctx, opcua.ServiceConfig{
-			DB: db,
-		})).Stores()...)
-		stores = append(
-			stores,
+			})).Stores(),
+			MustOpen(http.OpenService(ctx, http.ServiceConfig{
+				DB:      db,
+				Channel: channelSvc,
+			})).Stores(),
+			MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{DB: db})).Stores(),
+			MustOpen(modbus.OpenService(ctx, modbus.ServiceConfig{DB: db})).Stores(),
+			MustOpen(ni.OpenService(ctx, ni.ServiceConfig{
+				DB:     db,
+				Status: statusSvc,
+			})).Stores(),
+			MustOpen(opcua.OpenService(ctx, opcua.ServiceConfig{DB: db})).Stores(),
 			MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
 				DB:     db,
 				Secret: secretSvc,
-			})).Stores()...,
-		)
-		stores = append(
-			stores,
+			})).Stores(),
 			MustOpen(racktask.OpenService(ctx, racktask.ServiceConfig{
 				DB: db,
-			})).Stores()...,
+			})).Stores(),
 		)
 		configs = MustSucceed(config.NewRegistry(stores...))
 		imexSvc = imex.NewService()
@@ -594,14 +578,14 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			if neverExported(t) {
 				continue
 			}
-			Expect(fixtures.Contains(string(t))).To(
+			Expect(fixtures.Contains(t)).To(
 				BeTrue(), "registered config type %q has no legacy fixture", t,
 			)
 		}
 		for f := range fixtures {
 			owned := false
 			for _, t := range configs.Types() {
-				if strings.HasPrefix(f, string(t)) {
+				if strings.HasPrefix(f, t) {
 					owned = true
 					break
 				}
@@ -653,8 +637,9 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 		if !ok {
 			return config
 		}
-		Expect(config[fields.key]).To(BeAssignableToTypeOf(""))
-		key := uuid.MustParse(config[fields.key].(string))
+		rawKey, ok := config[fields.key].(string)
+		Expect(ok).To(BeTrue())
+		key := uuid.MustParse(rawKey)
 		values := MustSucceed(secretSvc.Reveal(ctx, db, key))
 		delete(config, fields.key)
 		config[fields.plain] = string(values[key])
@@ -663,8 +648,8 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 
 	DescribeTable("preserves every field of a released Console export",
 		func(ctx SpecContext, fixture string) {
-			raw := rekeyed(MustSucceed(os.ReadFile(
-				filepath.Join("testdata", "legacy", fixture+".json"),
+			raw := rekeyed(MustSucceed(fs.ReadFile(
+				os.DirFS("testdata"), "legacy/"+fixture+".json",
 			)), toCreated)
 			env, imported := importFile(ctx, raw, fixture)
 			Expect(strings.HasPrefix(fixture, env.Type)).To(
@@ -720,12 +705,7 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 				}
 			}
 			rekey(canonical, toFixture)
-			goldenPath := filepath.Join(
-				"testdata",
-				"legacy",
-				"expected",
-				fixture+".json",
-			)
+			golden := "legacy/expected/" + fixture + ".json"
 			// The trailing newline keeps regenerated goldens Prettier-clean.
 			goldenBytes := append(
 				MustSucceed(
@@ -738,10 +718,13 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 				'\n',
 			)
 			if os.Getenv("UPDATE_LEGACY_GOLDENS") != "" {
-				Expect(os.WriteFile(goldenPath, goldenBytes, 0o644)).To(Succeed())
+				Expect(
+					os.WriteFile(filepath.Join("testdata", golden), goldenBytes, 0o644),
+				).
+					To(Succeed())
 			} else {
-				golden := MustSucceed(os.ReadFile(goldenPath))
-				Expect(string(goldenBytes)).To(MatchJSON(golden))
+				want := MustSucceed(fs.ReadFile(os.DirFS("testdata"), golden))
+				Expect(string(goldenBytes)).To(MatchJSON(want))
 			}
 		},
 		Entry(nil, "arc"),
@@ -778,15 +761,16 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 	// record as importing the fixture, which the fixture's golden freezes.
 	DescribeTable("stores a released Core export as its Console fixture",
 		func(ctx SpecContext, release, fixture string) {
-			raw := rekeyed(MustSucceed(os.ReadFile(
-				filepath.Join("testdata", "released", release, fixture+".json"),
+			testdata := os.DirFS("testdata")
+			raw := rekeyed(MustSucceed(fs.ReadFile(
+				testdata, "released/"+release+"/"+fixture+".json",
 			)), toCreated)
 			_, imported := importFile(ctx, raw, fixture)
 			config := reveal(ctx, imported)
 			delete(config, "key")
 			rekey(config, toFixture)
-			golden := MustSucceed(os.ReadFile(
-				filepath.Join("testdata", "legacy", "expected", fixture+".json"),
+			golden := MustSucceed(fs.ReadFile(
+				testdata, "legacy/expected/"+fixture+".json",
 			))
 			Expect(MustSucceed(json.Marshal(config))).To(MatchJSON(golden))
 		},

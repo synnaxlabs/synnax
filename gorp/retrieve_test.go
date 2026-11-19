@@ -50,6 +50,16 @@ func (i closeFailingIterator) Close() error {
 	return i.err
 }
 
+// reshapedEntry is stored under the table of entry in a shape entry cannot decode.
+type reshapedEntry struct {
+	ID   int32
+	Data []float64
+}
+
+func (e reshapedEntry) GorpKey() int32 { return e.ID }
+
+func (reshapedEntry) CustomTypeName() string { return "entry" }
+
 var _ = Describe("Retrieve", func() {
 	var (
 		entries []entry
@@ -228,6 +238,24 @@ var _ = Describe("Retrieve", func() {
 						Expect(gorp.NewRetrieve[int32, entry]().
 							Where(gorp.MatchKeys[int32, entry](entries[0].GorpKey(), 444444)).
 							Exists(ctx, tx)).To(BeFalse())
+					},
+				)
+				It(
+					"Should find an entry stored in a shape that does not decode",
+					func(ctx SpecContext) {
+						reshaped := reshapedEntry{ID: 555555, Data: []float64{1}}
+						Expect(gorp.NewCreate[int32, reshapedEntry]().
+							Entry(&reshaped).
+							Exec(ctx, tx)).To(Succeed())
+						var res entry
+						Expect(gorp.NewRetrieve[int32, entry]().
+							Where(gorp.MatchKeys[int32, entry](reshaped.ID)).
+							Entry(&res).
+							Exec(ctx, tx),
+						).To(MatchError(ContainSubstring("failed to decode")))
+						Expect(gorp.NewRetrieve[int32, entry]().
+							Where(gorp.MatchKeys[int32, entry](reshaped.ID)).
+							Exists(ctx, tx)).To(BeTrue())
 					},
 				)
 			})
@@ -857,6 +885,19 @@ var _ = Describe("Retrieve", func() {
 				Exec(ctx, tx),
 			).To(Succeed())
 			Expect(res).To(HaveLen(10))
+		})
+
+		It("Should filter a query bounded by keys", func(ctx SpecContext) {
+			var res []entry
+			Expect(gorp.NewRetrieve[int32, entry]().
+				Entries(&res).
+				Where(gorp.MatchKeys[int32, entry](1, 2, 3)).
+				WhereRaw(func(key, _ []byte) (bool, error) {
+					return bytes.HasSuffix(key, []byte{0, 0, 0, 2}), nil
+				}).
+				Exec(ctx, tx),
+			).To(Succeed())
+			Expect(res).To(Equal([]entry{entries[2]}))
 		})
 	})
 

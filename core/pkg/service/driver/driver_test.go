@@ -48,6 +48,10 @@ const (
 	routingKey2 = "6c1f4f6e-2b0a-4b8e-9d55-0e3c5f1a7b02"
 )
 
+// watchedType is a task type whose config hash covers the message of the status that
+// its device field names.
+const watchedType = "watched"
+
 var _ = Describe("Driver", func() {
 	embeddedRackKey := func(ctx context.Context) rack.Key {
 		GinkgoHelper()
@@ -405,7 +409,7 @@ var _ = Describe("Driver", func() {
 	Describe("Task Management", func() {
 		It("should configure on start command, not on create", func(ctx SpecContext) {
 			var (
-				configuredTask atomic.Value
+				configuredTask atomic.Pointer[mockTask]
 				taskKey        atomic.Value
 			)
 			factory := &mockFactory{
@@ -436,7 +440,7 @@ var _ = Describe("Driver", func() {
 			Eventually(
 				func() bool { return configuredTask.Load() != nil },
 			).Should(BeTrue())
-			Expect(configuredTask.Load().(*mockTask).key).To(Equal(t.Key))
+			Expect(configuredTask.Load().key).To(Equal(t.Key))
 		})
 
 		It(
@@ -611,6 +615,60 @@ var _ = Describe("Driver", func() {
 					"alerts",
 					HaveExactElements(HaveKeyWithValue("status", "")),
 				))
+			},
+		)
+
+		It(
+			"should rebuild the task when a record its config uses changes the hash",
+			func(ctx SpecContext) {
+				var (
+					configCount atomic.Int32
+					taskKey     atomic.Value
+				)
+				openDriver(ctx, &mockFactory{
+					name: "test",
+					configureFunc: func(
+						_ context.Context,
+						t task.Task,
+					) (driver.Task, error) {
+						if t.Key == taskKey.Load() {
+							configCount.Add(1)
+						}
+						return &mockTask{key: t.Key}, nil
+					},
+				})
+				setWatched := func(message string) {
+					GinkgoHelper()
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return statusSvc.NewWriter(tx).Set(ctx, &status.Status[any]{
+							Key:     "st-watch",
+							Name:    "st-watch",
+							Message: message,
+							Variant: status.VariantInfo,
+							Time:    telem.Now(),
+						})
+					})).To(Succeed())
+				}
+				setWatched("a")
+				t := newTask(embeddedRackKey(ctx))
+				t.Type = watchedType
+				t.Config = map[string]any{"device": "st-watch"}
+				taskKey.Store(t.Key)
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &t)
+				})).To(Succeed())
+				writeCommand(
+					ctx,
+					task.Command{Task: t.Key, Type: "start", Key: "cmd-1"},
+				)
+				Eventually(configCount.Load).Should(Equal(int32(1)))
+
+				setWatched("b")
+				writeCommand(
+					ctx,
+					task.Command{Task: t.Key, Type: "start", Key: "cmd-2"},
+				)
+				Eventually(configCount.Load).Should(Equal(int32(2)))
 			},
 		)
 
@@ -957,6 +1015,54 @@ var _ = Describe("Driver", func() {
 			})).To(Succeed())
 			Eventually(func() bool { return stopped.Load() }).Should(BeTrue())
 		})
+
+		It(
+			"should stop a task that a commit deletes while it deploys",
+			func(ctx SpecContext) {
+				var (
+					stopped     atomic.Bool
+					taskKey     atomic.Value
+					configuring = make(chan struct{})
+					released    = make(chan struct{})
+				)
+				factory := &mockFactory{
+					name: "test",
+					configureFunc: func(
+						_ context.Context,
+						t task.Task,
+					) (driver.Task, error) {
+						if t.Key == taskKey.Load() {
+							close(configuring)
+							<-released
+						}
+						return &mockTask{
+							key: t.Key,
+							stopFunc: func(bool) error {
+								if t.Key == taskKey.Load() {
+									stopped.Store(true)
+								}
+								return nil
+							},
+						}, nil
+					},
+				}
+				openDriver(ctx, factory)
+				t := newTask(embeddedRackKey(ctx))
+				taskKey.Store(t.Key)
+				Expect(gorp.NewCreate[task.Key, task.Task]().Entry(&t).Exec(ctx, db)).
+					To(Succeed())
+				writeCommand(
+					ctx,
+					task.Command{Task: t.Key, Type: "start", Key: "cmd-1"},
+				)
+				Eventually(configuring).Should(BeClosed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Delete(ctx, t.Key, false)
+				})).To(Succeed())
+				close(released)
+				Eventually(stopped.Load).Should(BeTrue())
+			},
+		)
 
 		It(
 			"should stop each task that a commit deletes while a stop blocks",
@@ -2284,11 +2390,72 @@ var _ = Describe("Driver", func() {
 		)
 
 		It(
+			"should decode each command of a frame on its own",
+			func(ctx SpecContext) {
+				var taskKey atomic.Value
+				received := make(chan task.Command, 10)
+				factory := &mockFactory{
+					name: "test",
+					configureFunc: func(
+						_ context.Context,
+						t task.Task,
+					) (driver.Task, error) {
+						return &mockTask{
+							key: t.Key,
+							execFunc: func(_ context.Context, cmd task.Command) error {
+								if t.Key == taskKey.Load() && cmd.Type == "tare" {
+									received <- cmd
+								}
+								return nil
+							},
+						}, nil
+					},
+				}
+				openDriver(ctx, factory)
+				t := newTask(embeddedRackKey(ctx))
+				taskKey.Store(t.Key)
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &t)
+				})).To(Succeed())
+				writeCommand(
+					ctx,
+					task.Command{Task: t.Key, Type: "start", Key: "cmd-1"},
+				)
+
+				w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+					Keys:  channel.Keys{taskService.CommandChannelKey()},
+					Start: telem.Now(),
+				}))
+				Expect(w.Write(frame.NewUnary(
+					taskService.CommandChannelKey(),
+					MustSucceed(telem.NewJSONSeriesV(
+						map[string]any{
+							"task": t.Key,
+							"type": "tare",
+							"key":  "cmd-2",
+							"args": map[string]any{"channels": []int{1}},
+						},
+						map[string]any{"task": t.Key, "type": "tare", "key": "cmd-3"},
+					)),
+				))).To(BeTrue())
+				Expect(w.Close()).To(Succeed())
+
+				var first, second task.Command
+				Eventually(received).Should(Receive(&first))
+				Eventually(received).Should(Receive(&second))
+				Expect(first.Key).To(Equal("cmd-2"))
+				Expect(first.Args).To(HaveKey("channels"))
+				Expect(second.Key).To(Equal("cmd-3"))
+				Expect(second.Args).To(BeEmpty())
+			},
+		)
+
+		It(
 			"should execute the start command on the freshly deployed task",
 			func(ctx SpecContext) {
 				var (
 					execCalled  atomic.Bool
-					receivedCmd atomic.Value
+					receivedCmd atomic.Pointer[task.Command]
 					taskKey     atomic.Value
 				)
 				factory := &mockFactory{
@@ -2301,7 +2468,7 @@ var _ = Describe("Driver", func() {
 							key: t.Key,
 							execFunc: func(_ context.Context, cmd task.Command) error {
 								if t.Key == taskKey.Load() {
-									receivedCmd.Store(cmd)
+									receivedCmd.Store(&cmd)
 									execCalled.Store(true)
 								}
 								return nil
@@ -2330,7 +2497,7 @@ var _ = Describe("Driver", func() {
 					func() bool { return execCalled.Load() },
 					time.Second*2,
 				).Should(BeTrue())
-				stored := receivedCmd.Load().(task.Command)
+				stored := receivedCmd.Load()
 				Expect(stored.Type).To(Equal("start"))
 				Expect(stored.Key).To(Equal("cmd-1"))
 			},
@@ -2340,7 +2507,7 @@ var _ = Describe("Driver", func() {
 			"should route non-start commands to the live instance",
 			func(ctx SpecContext) {
 				var (
-					receivedCmd atomic.Value
+					receivedCmd atomic.Pointer[task.Command]
 					taskKey     atomic.Value
 				)
 				factory := &mockFactory{
@@ -2353,7 +2520,7 @@ var _ = Describe("Driver", func() {
 							key: t.Key,
 							execFunc: func(_ context.Context, cmd task.Command) error {
 								if t.Key == taskKey.Load() && cmd.Type == "stop" {
-									receivedCmd.Store(cmd)
+									receivedCmd.Store(&cmd)
 								}
 								return nil
 							},
@@ -2377,7 +2544,7 @@ var _ = Describe("Driver", func() {
 					func() bool { return receivedCmd.Load() != nil },
 					time.Second*2,
 				).Should(BeTrue())
-				Expect(receivedCmd.Load().(task.Command).Key).To(Equal("cmd-2"))
+				Expect(receivedCmd.Load().Key).To(Equal("cmd-2"))
 			},
 		)
 

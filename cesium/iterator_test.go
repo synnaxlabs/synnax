@@ -466,7 +466,7 @@ var _ = Describe("Iterator Behavior", func() {
 
 				DescribeTable(
 					"should align an auto-span read with the samples it returns",
-					func(ctx SpecContext, start telem.TimeStamp, expected []int64, alignment uint32) {
+					func(start telem.TimeStamp, expected []int64, alignment uint32) {
 						i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
 							Bounds:        start.Range(telem.TimeStampMax),
 							Channels:      []cesium.ChannelKey{dataKey},
@@ -507,7 +507,6 @@ var _ = Describe("Iterator Behavior", func() {
 				DescribeTable(
 					"should return every sample once across auto-span chunks",
 					func(
-						ctx SpecContext,
 						bounds telem.TimeRange,
 						chunk int64,
 						expected []int64,
@@ -561,7 +560,6 @@ var _ = Describe("Iterator Behavior", func() {
 				DescribeTable(
 					"should align a backward auto-span read with the samples it returns",
 					func(
-						ctx SpecContext,
 						bounds telem.TimeRange,
 						chunk int64,
 						expected []int64,
@@ -622,7 +620,7 @@ var _ = Describe("Iterator Behavior", func() {
 				// chunks then tile the data without a gap or an overlap.
 				DescribeTable(
 					"should close every chunk on a sample",
-					func(ctx SpecContext, fwd bool, expected []telem.TimeRange) {
+					func(fwd bool, expected []telem.TimeRange) {
 						i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
 							Bounds:        telem.SecondTS.Range(telem.TimeStampMax),
 							Channels:      []cesium.ChannelKey{dataKey},
@@ -718,7 +716,6 @@ var _ = Describe("Iterator Behavior", func() {
 				DescribeTable(
 					"should read every sample after the gap",
 					func(
-						ctx SpecContext,
 						start telem.TimeStamp,
 						chunk int64,
 						expected []int64,
@@ -757,7 +754,6 @@ var _ = Describe("Iterator Behavior", func() {
 				DescribeTable(
 					"should read every sample before the gap",
 					func(
-						ctx SpecContext,
 						start telem.TimeStamp,
 						chunk int64,
 						expected []int64,
@@ -772,8 +768,9 @@ var _ = Describe("Iterator Behavior", func() {
 						// Chunks arrive newest first, so each one goes in front of the
 						// ones already read.
 						for i.Prev(cesium.AutoSpan) {
-							var batch []int64
-							for _, s := range i.Value().RawSeries() {
+							frame := i.Value()
+							batch := make([]int64, 0, frame.Len())
+							for _, s := range frame.RawSeries() {
 								batch = append(
 									batch,
 									s.Unmarshal[int64]()...,
@@ -855,7 +852,7 @@ var _ = Describe("Iterator Behavior", func() {
 
 				DescribeTable(
 					"should return every sample once across two domains",
-					func(ctx SpecContext, chunk int64) {
+					func(chunk int64) {
 						i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
 							Bounds: (4*telem.SecondTS + 1).
 								Range(200 * telem.SecondTS),
@@ -1290,6 +1287,206 @@ var _ = Describe("Iterator Behavior", func() {
 					),
 				)
 
+				It("Should read every sample at a repeated timestamp", func(
+					ctx SpecContext,
+				) {
+					pdb := open(ctx)
+					idx, data := GenerateChannelKey(), GenerateChannelKey()
+					Expect(pdb.CreateChannel(
+						ctx,
+						cesium.Channel{
+							Key:      idx,
+							Name:     "Amundsen",
+							IsIndex:  true,
+							DataType: telem.TimestampT,
+						},
+						cesium.Channel{
+							Key:      data,
+							Name:     "Scott",
+							Index:    idx,
+							DataType: telem.Int64T,
+						},
+					)).To(Succeed())
+					Expect(pdb.Write(ctx, telem.SecondTS, telem.MultiFrame(
+						[]cesium.ChannelKey{idx, data},
+						[]telem.Series{
+							telem.NewSeriesSecondsTSV(1, 2, 2, 2, 3),
+							telem.NewSeriesV[int64](10, 20, 30, 40, 50),
+						},
+					))).To(Succeed())
+					f := MustSucceed(pdb.Read(
+						ctx,
+						(2 * telem.SecondTS).Range(3*telem.SecondTS),
+						data,
+					))
+					Expect(f.SeriesAt(0)).To(telem.MatchSeriesData(
+						telem.NewSeriesV[int64](20, 30, 40),
+					))
+				})
+
+				It("Should end a read before a repeated timestamp", func(
+					ctx SpecContext,
+				) {
+					pdb := open(ctx)
+					idx, data := GenerateChannelKey(), GenerateChannelKey()
+					Expect(pdb.CreateChannel(
+						ctx,
+						cesium.Channel{
+							Key:      idx,
+							Name:     "Nansen",
+							IsIndex:  true,
+							DataType: telem.TimestampT,
+						},
+						cesium.Channel{
+							Key:      data,
+							Name:     "Mawson",
+							Index:    idx,
+							DataType: telem.Int64T,
+						},
+					)).To(Succeed())
+					Expect(pdb.Write(ctx, telem.SecondTS, telem.MultiFrame(
+						[]cesium.ChannelKey{idx, data},
+						[]telem.Series{
+							telem.NewSeriesSecondsTSV(1, 2, 2, 2, 3),
+							telem.NewSeriesV[int64](10, 20, 30, 40, 50),
+						},
+					))).To(Succeed())
+					f := MustSucceed(pdb.Read(
+						ctx,
+						(1 * telem.SecondTS).Range(2*telem.SecondTS),
+						data,
+					))
+					Expect(f.SeriesAt(0)).To(telem.MatchSeriesData(
+						telem.NewSeriesV[int64](10),
+					))
+				})
+
+				DescribeTable(
+					"Should read a repeated timestamp once across auto-span chunks",
+					func(ctx SpecContext, chunk int64, backward bool) {
+						pdb := open(ctx)
+						idx, data := GenerateChannelKey(), GenerateChannelKey()
+						Expect(pdb.CreateChannel(
+							ctx,
+							cesium.Channel{
+								Key:      idx,
+								Name:     "Peary",
+								IsIndex:  true,
+								DataType: telem.TimestampT,
+							},
+							cesium.Channel{
+								Key:      data,
+								Name:     "Henson",
+								Index:    idx,
+								DataType: telem.Int64T,
+							},
+						)).To(Succeed())
+						Expect(pdb.Write(ctx, telem.SecondTS, telem.MultiFrame(
+							[]cesium.ChannelKey{idx, data},
+							[]telem.Series{
+								telem.NewSeriesSecondsTSV(1, 2, 2, 2, 3),
+								telem.NewSeriesV[int64](10, 20, 30, 40, 50),
+							},
+						))).To(Succeed())
+						i := MustSucceed(pdb.OpenIterator(cesium.IteratorConfig{
+							Bounds:        telem.TimeRangeMax,
+							Channels:      []cesium.ChannelKey{data},
+							AutoChunkSize: chunk,
+						}))
+						var got []int64
+						if backward {
+							Expect(i.SeekLast()).To(BeTrue())
+							for i.Prev(cesium.AutoSpan) {
+								batch := make([]int64, 0, i.Value().Len())
+								for _, s := range i.Value().RawSeries() {
+									batch = append(batch, s.Unmarshal[int64]()...)
+								}
+								got = append(batch, got...)
+								Expect(len(got)).To(BeNumerically("<=", 5))
+							}
+						} else {
+							Expect(i.SeekFirst()).To(BeTrue())
+							for i.Next(cesium.AutoSpan) {
+								for _, s := range i.Value().RawSeries() {
+									got = append(got, s.Unmarshal[int64]()...)
+								}
+								Expect(len(got)).To(BeNumerically("<=", 5))
+							}
+						}
+						Expect(i.Close()).To(Succeed())
+						Expect(got).To(Equal([]int64{10, 20, 30, 40, 50}))
+					},
+					Entry("Next, one sample per chunk", int64(1), false),
+					Entry("Next, two samples per chunk", int64(2), false),
+					Entry("Next, three samples per chunk", int64(3), false),
+					Entry("Prev, one sample per chunk", int64(1), true),
+					Entry("Prev, two samples per chunk", int64(2), true),
+					Entry("Prev, three samples per chunk", int64(3), true),
+				)
+
+				DescribeTable(
+					"Should keep a reduced group whole when a run crosses its edge",
+					func(ctx SpecContext, backward bool) {
+						pdb := open(ctx)
+						idx, data := GenerateChannelKey(), GenerateChannelKey()
+						Expect(pdb.CreateChannel(
+							ctx,
+							cesium.Channel{
+								Key:      idx,
+								Name:     "Shackleton",
+								IsIndex:  true,
+								DataType: telem.TimestampT,
+							},
+							cesium.Channel{
+								Key:      data,
+								Name:     "Wild",
+								Index:    idx,
+								DataType: telem.Float64T,
+							},
+						)).To(Succeed())
+						Expect(pdb.Write(ctx, telem.SecondTS, telem.MultiFrame(
+							[]cesium.ChannelKey{idx, data},
+							[]telem.Series{
+								telem.NewSeriesSecondsTSV(1, 2, 3, 4, 4, 5, 6, 7),
+								telem.NewSeriesV[float64](0, 1, 2, 3, 4, 5, 6, 7),
+							},
+						))).To(Succeed())
+						i := MustSucceed(pdb.OpenIterator(cesium.IteratorConfig{
+							Bounds:        telem.TimeRangeMax,
+							Channels:      []cesium.ChannelKey{data},
+							AutoChunkSize: 1,
+							Reduction: telem.Reduction{Variant: telem.LimitReduction{
+								Aggregation: telem.AggregationAverage,
+								PointLimit:  4,
+							}},
+						}))
+						var got []float64
+						if backward {
+							Expect(i.SeekLast()).To(BeTrue())
+							for i.Prev(cesium.AutoSpan) {
+								batch := make([]float64, 0, i.Value().Len())
+								for _, s := range i.Value().RawSeries() {
+									batch = append(batch, s.Unmarshal[float64]()...)
+								}
+								got = append(batch, got...)
+								Expect(len(got)).To(BeNumerically("<=", 4))
+							}
+						} else {
+							Expect(i.SeekFirst()).To(BeTrue())
+							for i.Next(cesium.AutoSpan) {
+								for _, s := range i.Value().RawSeries() {
+									got = append(got, s.Unmarshal[float64]()...)
+								}
+								Expect(len(got)).To(BeNumerically("<=", 4))
+							}
+						}
+						Expect(i.Close()).To(Succeed())
+						Expect(got).To(Equal([]float64{0.5, 2.5, 4.5, 6.5}))
+					},
+					Entry("Next", false),
+					Entry("Prev", true),
+				)
+
 				It("Should continue from a chunked Prev across domains", func(
 					ctx SpecContext,
 				) {
@@ -1331,8 +1528,9 @@ var _ = Describe("Iterator Behavior", func() {
 					}))
 					values := func() []int64 {
 						GinkgoHelper()
-						var out []int64
-						for _, s := range i.Value().Get(data).Series {
+						series := i.Value().Get(data)
+						out := make([]int64, 0, series.Len())
+						for _, s := range series.Series {
 							out = append(out, s.Unmarshal[int64]()...)
 						}
 						return out
@@ -1622,7 +1820,7 @@ var _ = Describe("Iterator Behavior", func() {
 				It(
 					"Should release its channels when it flows in a canceled context",
 					func(ctx SpecContext) {
-						subDB := mustOpenDBOnFS(ctx, openFS())
+						subDB := openDBOnFS(ctx, openFS())
 						key := GenerateChannelKey()
 						Expect(subDB.CreateChannel(ctx, cesium.Channel{
 							Key:      key,
@@ -1649,7 +1847,7 @@ var _ = Describe("Iterator Behavior", func() {
 				It(
 					"Should exit on cancel when nothing reads its responses",
 					func(ctx SpecContext) {
-						subDB := mustOpenDBOnFS(ctx, openFS())
+						subDB := openDBOnFS(ctx, openFS())
 						key := GenerateChannelKey()
 						Expect(subDB.CreateChannel(ctx, cesium.Channel{
 							Key:      key,
@@ -1688,7 +1886,7 @@ var _ = Describe("Iterator Behavior", func() {
 				DescribeTable(
 					"Should not acknowledge a read whose data it failed to send",
 					func(ctx SpecContext, span telem.TimeSpan) {
-						subDB := mustOpenDBOnFS(ctx, openFS())
+						subDB := openDBOnFS(ctx, openFS())
 						key := GenerateChannelKey()
 						Expect(subDB.CreateChannel(ctx, cesium.Channel{
 							Key:      key,
@@ -1945,8 +2143,8 @@ var _ = Describe("Iterator index lookups", func() {
 		for i := range stamps {
 			stamps[i] = telem.TimeStamp(i) * telem.SecondTS
 		}
-		keys := []cesium.ChannelKey{idxKey}
-		series := []telem.Series{telem.NewSeries(stamps)}
+		keys := append(make([]cesium.ChannelKey, 0, 5), idxKey)
+		series := append(make([]telem.Series, 0, 5), telem.NewSeries(stamps))
 		for i := range 4 {
 			key := GenerateChannelKey()
 			Expect(db.CreateChannel(ctx, cesium.Channel{

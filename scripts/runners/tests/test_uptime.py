@@ -10,7 +10,7 @@
 import synnax as sy
 
 from common import IDLE, Channels, channel_name
-from conftest import Client, core
+from conftest import Client
 from uptime import Uptime
 
 OLD = "ubuntu-build-bot-i-0aaa"
@@ -23,9 +23,7 @@ class TestUptime:
     def test_should_cover_a_runner_added_before_its_first_update(
         self, client: Client
     ) -> None:
-        u = Uptime(
-            client=core(client), channels=Channels(client=core(client), enabled=False)
-        )
+        u = Uptime(client=client, channels=Channels(client=client, enabled=False))
         now = sy.TimeStamp.now()
         u.update({OLD: IDLE}, found={}, now=now - sy.TimeSpan.SECOND * 30)
         u.retarget({OLD, NEW})

@@ -17,6 +17,7 @@
 #include <deque>
 #include <functional>
 #include <map>
+#include <mutex>
 #include <optional>
 #include <set>
 #include <span>
@@ -69,6 +70,9 @@ struct MockSlaveInfo {
     /// @brief CoE objects keyed by index and sub-index. SDOread returns them, and a
     /// successful SDOwrite replaces them.
     std::map<std::pair<uint16_t, uint8_t>, uint32_t> sdo_objects;
+    /// @brief 8-byte CoE objects keyed by index and sub-index. As in SOEM, SDOread
+    /// fails a read that allows fewer bytes with packet error 3.
+    std::map<std::pair<uint16_t, uint8_t>, uint64_t> sdo_objects_64;
     /// @brief abort codes for objects that reject SDO reads, keyed by index and
     /// sub-index. A code of 0 makes the read get no reply.
     std::map<std::pair<uint16_t, uint8_t>, uint32_t> sdo_read_aborts;
@@ -156,6 +160,18 @@ public:
     std::atomic<uint16_t> read_state{EC_STATE_INIT};
     /// @brief read_state at each send_processdata call.
     std::vector<uint16_t> send_states;
+    /// @brief the slaves whose AL status reads get no answer.
+    std::set<uint16_t> silent_slaves;
+    /// @brief what al_status returns for each slave.
+    std::map<uint16_t, uint16_t> al_statuses;
+    /// @brief the process data sends in flight, oldest first, with the DC time that
+    /// each carries when host_dc_offset is set.
+    std::vector<std::optional<int64_t>> processdata_in_flight;
+    /// @brief the number of drop_processdata calls.
+    int drop_count = 0;
+    /// @brief guards the slave states that readstate writes and that a cycle thread
+    /// reads in receive_processdata.
+    std::mutex state_mu;
     int sync_dc_count = 0;
     /// @brief the working counter sync_dc returns.
     int sync_dc_return = 1;
@@ -225,8 +241,8 @@ public:
     /// @brief the host clock that the reference clock of host_dc_offset and
     /// latch_receive_times run on.
     x::loop::HostClock clock;
-    /// @brief when set, each send_processdata sets the DC time to the clock time plus
-    /// this, in nanoseconds, like a reference clock that runs on.
+    /// @brief when set, each frame carries the clock time of its send plus this, in
+    /// nanoseconds, like a reference clock that runs on. Its receive sets the DC time.
     std::optional<int64_t> host_dc_offset;
     /// @brief the number of latch_receive_times calls.
     int latch_count = 0;
@@ -348,17 +364,49 @@ public:
     }
 
     int send_processdata(uint8_t group) override {
-        if (this->host_dc_offset) this->context.DCtime = now() + *this->host_dc_offset;
         this->send_count++;
         this->send_states.push_back(this->read_state.load());
         this->processdata_groups.push_back(group);
+        if (this->send_return > 0)
+            this->processdata_in_flight.push_back(
+                this->host_dc_offset ? std::optional(now() + *this->host_dc_offset)
+                                     : std::nullopt
+            );
         return this->send_return;
     }
 
+    /// @brief like the patched SOEM receive, reads the state each slave is in on the
+    /// bus, or 0 for a slave in silent_slaves or when the frame does not come back.
     int receive_processdata(uint8_t group, int) override {
         this->receive_count++;
         this->processdata_groups.push_back(group);
+        std::lock_guard lock(this->state_mu);
+        // Keeps the entries, so a cycle allocates nothing.
+        for (auto &[_, status]: this->al_statuses)
+            status = 0;
+        if (this->processdata_in_flight.empty()) return EC_NOFRAME;
+        if (this->receive_return < 0) return this->receive_return;
+        if (const auto dc = this->processdata_in_flight.front())
+            this->context.DCtime = *dc;
+        this->processdata_in_flight.erase(this->processdata_in_flight.begin());
+        for (size_t i = 0; i < this->slave_infos.size(); ++i) {
+            const auto pos = static_cast<uint16_t>(i + 1);
+            this->al_statuses[pos] = this->silent_slaves.contains(pos)
+                                       ? 0
+                                       : this->bus_state_of(pos);
+        }
         return this->receive_return;
+    }
+
+    void drop_processdata() override {
+        this->drop_count++;
+        if (!this->processdata_in_flight.empty())
+            this->processdata_in_flight.erase(this->processdata_in_flight.begin());
+    }
+
+    [[nodiscard]] uint16_t al_status(const uint16_t slave) const override {
+        const auto it = this->al_statuses.find(slave);
+        return it == this->al_statuses.end() ? 0 : it->second;
     }
 
     /// @brief like ecx_writestate, requests the state in the slave table entry of the
@@ -374,6 +422,7 @@ public:
     }
 
     int readstate() override {
+        std::lock_guard lock(this->state_mu);
         this->readstate_count++;
         if (this->dropped_state_reads > 0) {
             this->dropped_state_reads--;
@@ -581,12 +630,23 @@ public:
             this->push_packet_error(slave, index, sub_index, packet->second);
             return 0;
         }
+        if (const auto wide = info.sdo_objects_64.find({index, sub_index});
+            wide != info.sdo_objects_64.end()) {
+            if (std::cmp_less(*psize, sizeof(wide->second))) {
+                this->push_packet_error(slave, index, sub_index, 3);
+                return 0;
+            }
+            *psize = sizeof(wide->second);
+            std::memcpy(p, &wide->second, *psize);
+            return 1;
+        }
         const auto &objects = info.sdo_objects;
         const auto it = objects.find({index, sub_index});
         if (it == objects.end()) {
             this->push_sdo_abort(slave, index, sub_index, 0x06020000);
             return 0;
         }
+        *psize = std::min(*psize, static_cast<int>(sizeof(it->second)));
         std::memcpy(p, &it->second, *psize);
         return 1;
     }

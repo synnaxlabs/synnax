@@ -1,0 +1,114 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { InlineCode } from "@/components/text/InlineCode";
+
+interface Props {
+    /** The anchor that each title links to. */
+    id: string;
+    titles: string[];
+    /** Whether each title is the exact text of a message. */
+    exact?: boolean;
+    code?: string;
+    severity?: "error" | "warning";
+}
+
+const { id, titles, exact = false, code, severity } = Astro.props;
+const SEVERITIES = { error: "Error", warning: "Warning" };
+---
+
+<div class="problem__head">
+    {severity != null && (
+        <span
+            class={`problem__severity problem__severity--${severity}`}
+            role="img"
+            aria-label={SEVERITIES[severity]}
+        />
+    )}
+    {(code != null || severity != null) && (
+        <span class="problem__label">
+            {code ?? SEVERITIES[severity as keyof typeof SEVERITIES]}
+        </span>
+    )}
+    <div class="problem__titles">
+        {titles.map((title) => (
+            <a
+                class:list={["problem__title", { "problem__title--message": exact }]}
+                href={`#${id}`}
+            >
+                {exact ? title : <InlineCode text={title} />}
+            </a>
+        ))}
+    </div>
+</div>
+
+<style>
+    .problem__head {
+        display: flex;
+        align-items: baseline;
+        gap: 1.5rem;
+    }
+
+    .problem__titles {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .problem__label {
+        font-size: var(--pluto-small-size);
+        font-weight: 500;
+        color: var(--pluto-gray-l8);
+    }
+
+    /* The dot is in the middle of the first line of the title. */
+    .problem__severity {
+        display: flex;
+        flex: none;
+        align-items: center;
+        align-self: flex-start;
+        height: var(--pluto-p-line-height);
+
+        &::before {
+            content: "";
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+        }
+    }
+
+    .problem__severity--error::before {
+        background: var(--pluto-error-z);
+    }
+
+    .problem__severity--warning::before {
+        background: var(--pluto-warning-z);
+    }
+
+    .problem__title {
+        display: block;
+        font-size: var(--pluto-p-size);
+        font-weight: 550;
+        line-height: var(--pluto-p-line-height);
+        color: var(--pluto-gray-l11);
+        text-decoration: none;
+        overflow-wrap: anywhere;
+
+        &:hover {
+            text-decoration: underline;
+            text-decoration-color: var(--pluto-gray-l6);
+        }
+    }
+
+    .problem__title--message {
+        font-family: "Geist Mono", monospace;
+        font-size: var(--pluto-small-size);
+        font-weight: 500;
+    }
+</style>

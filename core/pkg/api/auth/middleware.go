@@ -11,6 +11,7 @@ package auth
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"uuid"
 
@@ -125,7 +126,11 @@ func GetSubject(ctx context.Context) resource.ID {
 		zap.S().DPanic("[api] - no subject found in context")
 		return user.ResourceID(uuid.Nil())
 	}
-	return s.(resource.ID)
+	id, ok := s.(resource.ID)
+	if !ok {
+		panic(fmt.Sprintf("subject in context is a %T", s))
+	}
+	return id
 }
 
 func getSession(ctx context.Context) auth.Session {
@@ -134,5 +139,9 @@ func getSession(ctx context.Context) auth.Session {
 		zap.S().DPanic("[api] - no session found in context")
 		return auth.Session{}
 	}
-	return s.(auth.Session)
+	session, ok := s.(auth.Session)
+	if !ok {
+		panic(fmt.Sprintf("session in context is a %T", s))
+	}
+	return session
 }

@@ -151,20 +151,7 @@ func extractTelemArgs(cfg map[string]any) {
 	variant, _ := cfg["variant"].(string)
 	switch variant {
 	case "value", "gauge":
-		if ch, ok := segProp(cfg["telem"], "valueStream", "channel"); ok {
-			cfg["channel"] = ch
-		}
-		if w, ok := segProp(cfg["telem"], "rollingAverage", "windowSize"); ok {
-			cfg["rolling_average"] = floorWindow(w)
-		}
-		if p, ok := segProp(cfg["telem"], "stringifier", "precision"); ok {
-			cfg["precision"] = p
-		}
-		if n, ok := segProp(cfg["telem"], "stringifier", "notation"); ok {
-			cfg["notation"] = n
-		}
-		delete(cfg, "telem")
-		delete(cfg, "background_telem")
+		extractValueArgs(cfg)
 	case "string_display":
 		if ch, ok := segProp(cfg["telem"], "valueStream", "channel"); ok {
 			cfg["channel"] = ch
@@ -190,46 +177,91 @@ func extractTelemArgs(cfg map[string]any) {
 		delete(cfg, "source")
 		delete(cfg, "sink")
 	case "scale", "tank":
-		indicator, _ := cfg[legacyIndicators[variant]].(map[string]any)
-		if ch, ok := segProp(indicator["telem"], "valueStream", "channel"); ok {
-			cfg["channel"] = ch
-		}
-		if w, ok := segProp(indicator["telem"], "rollingAverage", "windowSize"); ok {
-			cfg["rolling_average"] = floorWindow(w)
-		}
-		delete(indicator, "telem")
+		extractIndicatorArgs(cfg, variant)
 	case "button", "select", "input":
 		if ch, ok := segProp(cfg["sink"], "setter", "channel"); ok {
 			cfg["command_channel"] = ch
 		}
 		delete(cfg, "sink")
 	default:
-		if _, ok := cfg["source"]; ok {
-			if ch, k := segProp(cfg["source"], "valueStream", "channel"); k {
-				cfg["state_channel"] = ch
-			}
-			delete(cfg, "source")
-		}
-		if _, ok := cfg["sink"]; ok {
-			if ch, k := segProp(cfg["sink"], "setter", "channel"); k {
-				cfg["command_channel"] = ch
-			}
-			delete(cfg, "sink")
-		}
+		extractSourceSinkArgs(cfg)
 	}
-	if ctl, ok := cfg["control"].(map[string]any); ok {
-		if chip, ok := ctl["chip"].(map[string]any); ok {
-			if sink, ok := chip["sink"].(map[string]any); ok {
-				if props, ok := sink["props"].(map[string]any); ok {
-					if a, ok := props["authority"]; ok {
-						ctl["authority"] = a
-					}
-				}
-			}
-		}
-		delete(ctl, "chip")
-		delete(ctl, "indicator")
+	extractControlAuthority(cfg)
+}
+
+func extractValueArgs(cfg map[string]any) {
+	if ch, ok := segProp(cfg["telem"], "valueStream", "channel"); ok {
+		cfg["channel"] = ch
 	}
+	if w, ok := segProp(cfg["telem"], "rollingAverage", "windowSize"); ok {
+		cfg["rolling_average"] = floorWindow(w)
+	}
+	if p, ok := segProp(cfg["telem"], "stringifier", "precision"); ok {
+		cfg["precision"] = p
+	}
+	if n, ok := segProp(cfg["telem"], "stringifier", "notation"); ok {
+		cfg["notation"] = n
+	}
+	delete(cfg, "telem")
+	delete(cfg, "background_telem")
+}
+
+// extractIndicatorArgs reads the telem spec nested in the legacy indicator of a scale
+// or tank.
+func extractIndicatorArgs(cfg map[string]any, variant string) {
+	indicator, _ := cfg[legacyIndicators[variant]].(map[string]any)
+	if ch, ok := segProp(indicator["telem"], "valueStream", "channel"); ok {
+		cfg["channel"] = ch
+	}
+	if w, ok := segProp(indicator["telem"], "rollingAverage", "windowSize"); ok {
+		cfg["rolling_average"] = floorWindow(w)
+	}
+	delete(indicator, "telem")
+}
+
+// extractSourceSinkArgs maps a generic symbol's source and sink specs to its state and
+// command channels.
+func extractSourceSinkArgs(cfg map[string]any) {
+	if _, ok := cfg["source"]; ok {
+		if ch, k := segProp(cfg["source"], "valueStream", "channel"); k {
+			cfg["state_channel"] = ch
+		}
+		delete(cfg, "source")
+	}
+	if _, ok := cfg["sink"]; ok {
+		if ch, k := segProp(cfg["sink"], "setter", "channel"); k {
+			cfg["command_channel"] = ch
+		}
+		delete(cfg, "sink")
+	}
+}
+
+// extractControlAuthority lifts the authority from a control chip's sink spec onto the
+// control config, then drops the chip and indicator specs.
+func extractControlAuthority(cfg map[string]any) {
+	ctl, ok := cfg["control"].(map[string]any)
+	if !ok {
+		return
+	}
+	if a, ok := lookupPath(ctl, "chip", "sink", "props", "authority"); ok {
+		ctl["authority"] = a
+	}
+	delete(ctl, "chip")
+	delete(ctl, "indicator")
+}
+
+// lookupPath reads the value at path through nested maps, reporting false when any
+// layer is missing.
+func lookupPath(m map[string]any, path ...string) (any, bool) {
+	for _, key := range path[:len(path)-1] {
+		next, ok := m[key].(map[string]any)
+		if !ok {
+			return nil, false
+		}
+		m = next
+	}
+	v, ok := m[path[len(path)-1]]
+	return v, ok
 }
 
 // floorWindow rounds a stored averaging window down to a whole sample count. The

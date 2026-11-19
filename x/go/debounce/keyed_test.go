@@ -43,7 +43,7 @@ var _ = Describe("Keyed", func() {
 
 	Describe("NewKeyed", func() {
 		It("Should return a validation error for an invalid config", func() {
-			Expect(debounce.NewKeyed[string]()).Error().
+			Expect(debounce.NewKeyed[string](GinkgoT().Context())).Error().
 				To(MatchError(ContainSubstring("delay")))
 		})
 	})
@@ -63,7 +63,7 @@ var _ = Describe("Keyed", func() {
 			GinkgoHelper()
 			cfg.Clock = clk
 			cfg.Callback = func(_ context.Context, key string) { fired <- key }
-			return DeferClose(MustSucceed(debounce.NewKeyed(cfg)))
+			return DeferClose(MustSucceed(debounce.NewKeyed(GinkgoT().Context(), cfg)))
 		}
 
 		It("Should fire the callback with the key after the delay", func() {
@@ -124,6 +124,29 @@ var _ = Describe("Keyed", func() {
 			clk.Advance(20 * time.Millisecond)
 			Consistently(fired, 50*time.Millisecond, 10*time.Millisecond).
 				ShouldNot(Receive())
+		})
+
+		It("Should cancel an in-flight callback when ctx ends", func(ctx SpecContext) {
+			var (
+				started   = make(chan struct{})
+				cancelled = make(chan struct{})
+				cfg       = debounce.KeyedConfig[string]{
+					Delay: 10 * time.Millisecond,
+					Clock: clk,
+					Callback: func(ctx context.Context, _ string) {
+						close(started)
+						<-ctx.Done()
+						close(cancelled)
+					},
+				}
+			)
+			parent, cancel := context.WithCancel(ctx)
+			k := DeferClose(MustSucceed(debounce.NewKeyed(parent, cfg)))
+			k.Trigger("a")
+			clk.Advance(10 * time.Millisecond)
+			Eventually(started).Should(BeClosed())
+			cancel()
+			Eventually(cancelled).Should(BeClosed())
 		})
 	})
 })
