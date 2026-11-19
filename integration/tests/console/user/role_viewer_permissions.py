@@ -168,3 +168,6 @@ class RoleViewerPermissions(RoleCase):
         )
         valve.press()
         self.wait_for_eq(VALVE_CHANNEL, 0, timeout=0)
+        assert not self.console.layout.check_for_errors("Failed to acquire control"), (
+            "a Viewer's press opened a writer that the Core denied"
+        )

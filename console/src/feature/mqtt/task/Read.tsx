@@ -29,6 +29,7 @@ import {
   DataType,
   deep,
   errors,
+  map,
   type payload,
   primitive,
   unique,
@@ -55,7 +56,6 @@ import {
   type PlainReadEntry,
   READ_SCHEMAS,
   READ_TYPE,
-  type ReadBinding,
   type ReadEntry,
   type ReadSchemas,
   type SparkplugReadEntry,
@@ -240,14 +240,14 @@ const bindingsOf = (
   fields: Pick<icd.JSONField, "key" | "pointer" | "type">[],
   written: Set<channel.Key>,
   dataTypes: ReadonlyMap<channel.Key, string>,
-): ReadBinding[] =>
+): icd.ReadBinding[] =>
   fields.map(({ key: field, pointer, type }) => {
     const ch = stored[pointer] ?? 0;
     const dataType = dataTypes.get(ch);
     if (written.has(ch) || dataType == null || !ICD.converts(type, dataType))
-      return mqtt.readBindingZ.parse({ field });
+      return icd.readBindingZ.parse({ field });
     written.add(ch);
-    return mqtt.readBindingZ.parse({ field, channel: ch });
+    return icd.readBindingZ.parse({ field, channel: ch });
   });
 
 /** Inserts entries into the lists of one ICD. */
@@ -297,7 +297,7 @@ const createMessage = (
 const entryOf = (
   icdKey: icd.Key,
   topic: string,
-  read: Pick<mqtt.ReadMessage, "message" | "bindings">,
+  read: Pick<icd.ReadMessage, "message" | "bindings">,
 ): PlainReadEntry =>
   mqtt.plainReadEntryZ.parse({ type: "plain", icd: icdKey, topic, messages: [read] });
 
@@ -308,7 +308,7 @@ interface AddTopicsResult {
    * The bindings that each held entry gains, by entry key. An entry whose message is
    * gone reads the new one.
    */
-  held: { key: string; message?: icd.MessageKey; bindings: ReadBinding[] }[];
+  held: { key: string; message?: icd.MessageKey; bindings: icd.ReadBinding[] }[];
 }
 
 /** @returns the bindings of the fields of a draft that the message reads. */
@@ -316,7 +316,7 @@ type Bind = (
   draft: Draft,
   fields: icd.JSONField[],
   message: icd.MessageKey,
-) => ReadBinding[];
+) => icd.ReadBinding[];
 
 /** @returns the name of the ICD of a task named name. */
 const icdName = (name: string): string => (name.trim() === "" ? DEFAULT_NAME : name);
@@ -367,8 +367,7 @@ const addTopics = async ({
   const actions = new Map<icd.Key, icd.Action[]>();
   const inserterOf = (key: icd.Key): Inserter => {
     if (key === format.key) return format.form;
-    const pending = actions.get(key) ?? [];
-    actions.set(key, pending);
+    const pending = map.getOrInsert(actions, key, () => []);
     return {
       insert: (path, value, after) =>
         pending.push(icd.insert({ path: String(path).split("."), value, after })),
@@ -743,8 +742,7 @@ const Entries: FC<EntriesProps> = ({
     grown.forEach(({ key, message, bindings }) => {
       const read = plainPath(key).messages[0];
       // The index and bindings of a deleted message name fields it no longer has.
-      if (message != null)
-        ctx.set(read, mqtt.readMessageZ.parse({ message, bindings }));
+      if (message != null) ctx.set(read, icd.readMessageZ.parse({ message, bindings }));
       else ctx.set(read.bindings, [...ctx.get(read.bindings).value, ...bindings]);
     });
     const firstAddition = additions[0];

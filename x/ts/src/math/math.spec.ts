@@ -169,4 +169,27 @@ describe("math", () => {
       expect(math.div(8n, 0.5)).toBe(16n);
     });
   });
+  describe("sum", () => {
+    it("should add the values", () => {
+      expect(math.sum([1, 2, 3.5])).toBe(6.5);
+    });
+    it("should return 0 for no values", () => {
+      expect(math.sum([])).toBe(0);
+    });
+    it("should accept any iterable", () => {
+      expect(math.sum(new Set([1, 2, 3]))).toBe(6);
+      expect(math.sum(new Map([["a", 4]]).values())).toBe(4);
+    });
+  });
+  describe("mean", () => {
+    it("should average the values", () => {
+      expect(math.mean([1, 2, 3, 6])).toBe(3);
+    });
+    it("should return the only value of a single value list", () => {
+      expect(math.mean([5])).toBe(5);
+    });
+    it("should throw for no values", () => {
+      expect(() => math.mean([])).toThrow("cannot take the mean of zero values");
+    });
+  });
 });

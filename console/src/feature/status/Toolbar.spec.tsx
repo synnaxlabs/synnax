@@ -12,6 +12,7 @@ import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
 import { Text } from "@synnaxlabs/lyra/text";
 import { uuid } from "@synnaxlabs/x";
+import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeAll, describe, expect, it } from "vitest";
 
@@ -19,7 +20,6 @@ import { Status } from "@/feature/status";
 import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
 import {
-  assertDefined,
   awaitTextEditingElement,
   commitTextEdit,
   createConsoleWrapper,
@@ -29,7 +29,6 @@ import {
   renderHookWithConsole,
   resolveFocusedTab,
   type TestStore,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();
