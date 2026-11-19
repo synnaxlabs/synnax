@@ -17,6 +17,7 @@ import {
   type Reducer,
   type SendDispatch,
 } from "@/actions/controller";
+import { batch } from "@/batch";
 import { AccessDeniedError } from "@/errors";
 import { Table } from "@/query/table";
 
@@ -1810,6 +1811,82 @@ describe("actions.Controller", () => {
       expect(await controller.create(["missing"], create)).toBe("created");
       expect(create).toHaveBeenCalledTimes(1);
       expect(controller.hasPending("missing")).toBe(false);
+    });
+  });
+
+  describe("request", () => {
+    const resZ = z.object({ actions: z.custom<Action>().array() });
+    /** A batch client whose Core answers each send with the given added actions. */
+    const createBatch = (...added: Action[][]) => {
+      const send = vi.fn();
+      added.forEach((a) => send.mockResolvedValueOnce({ responses: [{ actions: a }] }));
+      send.mockRejectedValue(new Error("boom"));
+      return new batch.Client({ send, use: vi.fn() });
+    };
+
+    it("does not revert a later batch when the echo of an earlier one arrives", async () => {
+      const { docs, controller } = setupStore();
+      prime(docs, "k", { a: 0 });
+      const client = createBatch([], []);
+      const first = controller.request("/e", "k", [set("a", 1)], resZ);
+      await client.send([first]);
+      await client.send([controller.request("/e", "k", [set("a", 2)], resZ)]);
+      controller.applyRemote("k", 1, first.payload.dispatchKey, [set("a", 1)]);
+      expect(docs.get("k")).toEqual({ values: { a: 2 } });
+    });
+
+    it("holds the actions that the Core added once the batch commits", async () => {
+      const { docs, controller } = setupStore();
+      prime(docs, "k", { a: 0 });
+      const req = controller.request("/e", "k", [set("a", 1)], resZ);
+      await createBatch([set("h", 9)]).send([req]);
+      expect(docs.get("k")).toEqual({ values: { a: 1, h: 9 } });
+      controller.applyRemote("k", 1, req.payload.dispatchKey, [
+        set("a", 1),
+        set("h", 9),
+      ]);
+      expect(controller.hasPending("k")).toBe(false);
+      expect(docs.get("k")).toEqual({ values: { a: 1, h: 9 } });
+    });
+
+    it("settles when the echo arrives before the batch commits", async () => {
+      const { docs, controller } = setupStore();
+      prime(docs, "k", { a: 0 });
+      const req = controller.request("/e", "k", [set("a", 1)], resZ);
+      req.apply?.();
+      controller.applyRemote("k", 1, req.payload.dispatchKey, [set("a", 1)]);
+      req.apply?.();
+      req.applyResponse?.({ actions: [] });
+      expect(controller.hasPending("k")).toBe(false);
+      expect(docs.get("k")).toEqual({ values: { a: 1 } });
+    });
+
+    it("removes the pending actions when the batch fails", async () => {
+      const { docs, controller } = setupStore();
+      prime(docs, "k", { a: 0 });
+      const req = controller.request("/e", "k", [set("a", 1)], resZ);
+      await expect(createBatch().send([req])).rejects.toThrow("boom");
+      expect(controller.hasPending("k")).toBe(false);
+      expect(docs.get("k")).toEqual({ values: { a: 0 } });
+    });
+
+    it("sends for a doc that is not cached", async () => {
+      const { docs, controller } = setupStore();
+      const req = controller.request("/e", "k", [set("a", 1)], resZ);
+      await createBatch([]).send([req]);
+      expect(controller.hasPending("k")).toBe(false);
+      expect(docs.get("k")).toBeUndefined();
+    });
+
+    it("does not hold a doc that was cached after the batch first applied", () => {
+      const { docs, controller } = setupStore();
+      const req = controller.request("/e", "k", [set("a", 1)], resZ);
+      req.apply?.();
+      prime(docs, "k", { a: 1 });
+      req.apply?.();
+      req.applyResponse?.({ actions: [] });
+      expect(controller.hasPending("k")).toBe(false);
+      expect(docs.get("k")).toEqual({ values: { a: 1 } });
     });
   });
 

@@ -362,10 +362,12 @@ export class Client extends query.Retriever<
     this.cfg = cfg;
     this.writer = writer;
     this.store = store;
-    this.setGroupRequest = group.createMoveRequest("/channel/dispatch", (keys, to) => {
-      const rollbacks = keys.map((key) => this.moveThrough(key, to));
-      return () => rollbacks.forEach((rollback) => rollback());
-    });
+    this.setGroupRequest = (keys, to) =>
+      array.toArray(keys).map((key) => ({
+        endpoint: "/channel/dispatch",
+        payload: { key, actions: group.moveActions(to) },
+        apply: () => this.moveThrough(key, to ?? undefined),
+      }));
     this.byName = byName;
   }
 

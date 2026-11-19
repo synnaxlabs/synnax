@@ -487,7 +487,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       x: Number(x.at(xOffset + i, true)),
       y: Number(y.at(yOffset + i, true)),
     };
-    result.bounds = bounds.max(
+    result.bounds = bounds.union(
       drawn.map((op) => op.y.boundsFor(op.yOffset, op.yOffset + op.count)),
     );
     result.position = props.dataToDecimalScale.pos(result.value);

@@ -245,9 +245,12 @@ export class Points {
       return this.rebuild(now);
     const status = this.status();
     if (!this.grown && status === memo.snapshot.status) return memo.snapshot;
+    const time = this.time();
+    // The rebuild cuts the stream's buffer at a static window's end.
+    if (!this.dynamic && time?.after(this.home().end)) return this.rebuild(now);
     this.grown = false;
     const { series, streaming } = memo.snapshot;
-    memo.snapshot = { series, status, time: this.time(), streaming };
+    memo.snapshot = { series, status, time, streaming };
     return memo.snapshot;
   }
 
@@ -271,7 +274,7 @@ export class Points {
     this.cutoff(home);
     const view = this.view(home);
     // advance finds where tiles end from the raw samples, so they update first.
-    const fillingBlocks = this.refreshRaw(home);
+    const fillingBlocks = this.refreshRaw(home, this.index);
     const next = this.advance(view, home);
     const extremesKept = this.limit.extremesKept === true;
     const targets = this.targets(view, home, extremesKept);
@@ -733,7 +736,7 @@ export class Points {
   // for their samples. While the window streams, the join fills the blocks from the
   // commit point on, and reads fill the rest. A block being filled shows the samples it
   // showed before, and so does a span the store dropped until its tiles land.
-  private refreshRaw(home: TimeRange): Set<number> {
+  private refreshRaw(home: TimeRange, index: channel.Key): Set<number> {
     if (this.parked != null) return new Set();
     const tr = this.rawRange(home);
     if (!tr.start.before(tr.end)) {
@@ -767,7 +770,7 @@ export class Points {
       this.readRaw(new TimeRange(unread[0].range.start, unread.at(-1)!.range.end));
     const fresh = blocks
       .filter((b) => !filling.has(b.index))
-      .flatMap((b) => b.seriesIn(stored));
+      .flatMap((b) => b.seriesIn(stored, store.findRaw(index, b.index)));
     const standIns = this.raw.filter(
       (s) =>
         (filling.has(rawIndex(s.timeRange.start)) || s.timeRange.start.before(kept)) &&
@@ -799,7 +802,7 @@ export class Points {
       this.live == null
         ? []
         : this.props.joins
-            .held(this.key)
+            .held(this.key, tr.end)
             .filter((s) => s.timeRange.isZero || s.timeRange.overlapsWith(tr))
             // A writer can fill an earlier span after later samples streamed.
             .sort((a, b) => TimeRange.sort(a.timeRange, b.timeRange));
@@ -853,10 +856,13 @@ export class Points {
     const raw = this.rawRange(home);
     if (raw.start.before(raw.end)) {
       const { store } = this.props;
-      for (let i = rawIndex(raw.start), last = this.lastBlock(raw); i <= last; i++) {
-        const b = store.findRaw(this.key, i);
-        if (b != null) next.add(b);
-      }
+      // The index's blocks find where the window's end cuts the channel's samples.
+      const keys = unique.unique([this.key, this.index ?? this.key]);
+      for (let i = rawIndex(raw.start), last = this.lastBlock(raw); i <= last; i++)
+        keys.forEach((k) => {
+          const b = store.findRaw(k, i);
+          if (b != null) next.add(b);
+        });
     }
     this.props.store.repin(this.pins, next);
     this.pins = next;

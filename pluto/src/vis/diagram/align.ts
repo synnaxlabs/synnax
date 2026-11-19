@@ -63,7 +63,7 @@ export const alignNodesAlongDirection = (
     if (prevHandlesInDir.length === 0 || currentHandlesInDir.length === 0) {
       const prevCenter = box.center(prev.box);
       const currentCenter = box.center(layout.box);
-      const dist = xy.set(xy.translation(currentCenter, prevCenter), dir, 0);
+      const dist = xy.set(xy.sub(prevCenter, currentCenter), dir, 0);
       const newPos = xy.translate(box.topLeft(layout.box), dist);
       layout.box = box.construct(newPos, box.dims(layout.box));
       return;
@@ -76,7 +76,7 @@ export const alignNodesAlongDirection = (
       currentHandlesInDir.find((h) => h.orientation === loc) ?? currentHandlesInDir[0];
 
     const dist = xy.set(
-      xy.translation(currentHandle.absolutePosition, prevHandle.absolutePosition),
+      xy.sub(prevHandle.absolutePosition, currentHandle.absolutePosition),
       dir,
       0,
     );
