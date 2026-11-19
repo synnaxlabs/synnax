@@ -16,6 +16,7 @@
 #include <variant>
 #include <vector>
 
+#include "client/cpp/channel/json.gen.h"
 #include "client/cpp/icd/types.gen.h"
 #include "x/cpp/filter/json.gen.h"
 #include "x/cpp/json/json.h"
@@ -152,6 +153,47 @@ inline x::json::json Where::to_json() const {
     if (this->or_.has_value()) j["or"] = x::json::to_array(*this->or_);
     if (this->not_.has_value()) j["not"] = this->not_->to_json();
     if (this->key.has_value()) j["key"] = this->key->to_json();
+    return j;
+}
+
+inline ReadBinding ReadBinding::parse(x::json::Parser parser) {
+    return ReadBinding{
+        .field = parser.field<FieldKey>("field"),
+        .channel = parser.field<::synnax::channel::Key>(
+            "channel",
+            ::synnax::channel::Key(0)
+        ),
+        .data_type = parser.field<::x::telem::DataType>(
+            "data_type",
+            ::x::telem::DataType("")
+        ),
+    };
+}
+
+inline x::json::json ReadBinding::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["field"] = this->field.to_json();
+    j["channel"] = this->channel;
+    j["data_type"] = this->data_type;
+    return j;
+}
+
+inline ReadMessage ReadMessage::parse(x::json::Parser parser) {
+    return ReadMessage{
+        .message = parser.field<MessageKey>("message"),
+        .index = parser.field<std::optional<FieldKey>>("index"),
+        .bindings = parser.field<std::vector<ReadBinding>>(
+            "bindings",
+            std::vector<ReadBinding>{}
+        ),
+    };
+}
+
+inline x::json::json ReadMessage::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["message"] = this->message.to_json();
+    if (this->index.has_value()) j["index"] = this->index->to_json();
+    j["bindings"] = x::json::to_array(this->bindings);
     return j;
 }
 

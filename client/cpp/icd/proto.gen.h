@@ -372,6 +372,59 @@ Where::from_proto(const ::service::icd::pb::Where &pb) {
     return {cpp, x::errors::NIL};
 }
 
+inline std::pair<::service::icd::pb::ReadBinding, x::errors::Error>
+ReadBinding::to_proto() const {
+    ::service::icd::pb::ReadBinding pb;
+    pb.set_field(this->field.to_string());
+    pb.set_channel(this->channel);
+    pb.set_data_type(this->data_type.to_proto());
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<ReadBinding, x::errors::Error>
+ReadBinding::from_proto(const ::service::icd::pb::ReadBinding &pb) {
+    ReadBinding cpp;
+    {
+        auto [v, err] = x::uuid::UUID::parse(pb.field());
+        if (err) return {{}, err};
+        cpp.field = v;
+    }
+    cpp.channel = pb.channel();
+    cpp.data_type = ::x::telem::DataType::from_proto(pb.data_type());
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::service::icd::pb::ReadMessage, x::errors::Error>
+ReadMessage::to_proto() const {
+    ::service::icd::pb::ReadMessage pb;
+    pb.set_message(this->message.to_string());
+    if (this->index.has_value()) pb.set_index(this->index->to_string());
+    for (const auto &item: this->bindings) {
+        auto [v, err] = item.to_proto();
+        if (err) return {{}, err};
+        *pb.add_bindings() = v;
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<ReadMessage, x::errors::Error>
+ReadMessage::from_proto(const ::service::icd::pb::ReadMessage &pb) {
+    ReadMessage cpp;
+    {
+        auto [v, err] = x::uuid::UUID::parse(pb.message());
+        if (err) return {{}, err};
+        cpp.message = v;
+    }
+    if (pb.has_index()) {
+        auto [v, err] = x::uuid::UUID::parse(pb.index());
+        if (err) return {{}, err};
+        cpp.index = v;
+    }
+    if (auto err = x::pb::from_proto_repeated<ReadBinding>(cpp.bindings, pb.bindings()))
+        return {{}, err};
+    return {cpp, x::errors::NIL};
+}
+
 inline std::pair<::api::icd::pb::Cursor, x::errors::Error> Cursor::to_proto() const {
     ::api::icd::pb::Cursor pb;
     pb.set_key(this->key.to_string());

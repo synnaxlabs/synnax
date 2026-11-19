@@ -14,6 +14,12 @@ import { location } from "@/spatial/location";
 import { type xy } from "@/spatial/xy";
 
 describe("Box", () => {
+  describe("constants", () => {
+    it("should freeze ZERO and DECIMAL", () => {
+      expect(Object.isFrozen(box.ZERO)).toBe(true);
+      expect(Object.isFrozen(box.DECIMAL)).toBe(true);
+    });
+  });
   describe("construction", () => {
     test("from dom rect", () => {
       const b = box.construct({ left: 0, top: 0, right: 10, bottom: 10 });
@@ -121,8 +127,7 @@ describe("Box", () => {
         { x: 60, y: 30 },
       ];
       v.forEach((v, i) => {
-        test(`xyLoc-${location.xyToString(v)}`, () =>
-          expect(box.xyLoc(b, v)).toEqual(expected[i]));
+        test(`xyLoc-${v.x}-${v.y}`, () => expect(box.xyLoc(b, v)).toEqual(expected[i]));
       });
     });
   });
@@ -299,15 +304,6 @@ describe("Box", () => {
       expect(box.areaIsZero(b)).toBe(false);
     });
   });
-  describe("isBox", () => {
-    it("should return true if the value is a box", () => {
-      const b = box.construct(0, 0, 10, 10);
-      expect(box.isBox(b)).toBe(true);
-    });
-    it("should return false if the value is not a box", () => {
-      expect(box.isBox({})).toBe(false);
-    });
-  });
   describe("yBounds", () => {
     it("should return the y bounds of the box", () => {
       const b = box.construct(0, 0, 10, 10);
@@ -457,6 +453,39 @@ describe("Box", () => {
       test(`edgePoints-${loc}`, () => {
         expect(box.edgePoints(b, loc)).toEqual(expected);
       });
+    });
+  });
+  describe("bound", () => {
+    it("should return the smallest box around the given boxes", () => {
+      const b = box.bound([
+        box.construct({ x: 10, y: 20 }, { width: 5, height: 5 }),
+        box.construct({ x: 0, y: 30 }, { width: 2, height: 10 }),
+      ]);
+      expect(b).toEqual(box.construct({ x: 0, y: 20 }, { x: 15, y: 40 }));
+    });
+    it("should bound DOM rects", () => {
+      const b = box.bound([
+        { left: 1, top: 2, right: 3, bottom: 4 },
+        { left: -1, top: 3, right: 2, bottom: 9 },
+      ]);
+      expect(b).toEqual(box.construct({ x: -1, y: 2 }, { x: 3, y: 9 }));
+    });
+    it("should bound points", () => {
+      const b = box.bound([
+        { x: 3, y: -2 },
+        { x: -4, y: 7 },
+        { x: 1, y: 1 },
+      ]);
+      expect(b.one).toEqual({ x: -4, y: -2 });
+      expect(b.two).toEqual({ x: 3, y: 7 });
+      expect(b.root).toEqual(location.TOP_LEFT);
+    });
+    it("should bound a mix of boxes and points", () => {
+      const b = box.bound([box.construct(0, 0, 2, 2), { x: 5, y: -1 }]);
+      expect(b).toEqual(box.construct({ x: 0, y: -1 }, { x: 5, y: 2 }));
+    });
+    it("should throw when given nothing to bound", () => {
+      expect(() => box.bound([])).toThrow("cannot bound zero boxes or points");
     });
   });
 });

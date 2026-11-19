@@ -18,6 +18,7 @@
 #include <variant>
 #include <vector>
 
+#include "client/cpp/channel/types.gen.h"
 #include "client/cpp/resource/id.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/filter/field.h"
@@ -38,9 +39,11 @@ struct JSONBaseMatch;
 struct Where;
 struct Cursor;
 struct BaseField;
+struct ReadBinding;
 struct RetrieveRequest;
 struct BinaryField;
 struct JSONBaseField;
+struct ReadMessage;
 struct Message;
 struct ICD;
 struct RetrieveResponse;
@@ -161,6 +164,27 @@ struct BaseField {
     to_proto() const;
     static std::pair<BaseField, x::errors::Error>
     from_proto(const ::service::icd::pb::BaseField &pb);
+};
+
+/// @brief ReadBinding writes the value of one message field to a channel.
+struct ReadBinding {
+    /// @brief field is the key of the message field to read.
+    FieldKey field;
+    /// @brief channel is the channel the value of the field is written to.
+    ::synnax::channel::Key channel = ::synnax::channel::Key(0);
+    /// @brief data_type is the data type of the channel that a client creates for the
+    /// field. Empty takes the default of the field's kind. The Core ignores it once the
+    /// channel exists.
+    ::x::telem::DataType data_type = ::x::telem::DataType("");
+
+    static ReadBinding parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::icd::pb::ReadBinding;
+    [[nodiscard]] std::pair<::service::icd::pb::ReadBinding, x::errors::Error>
+    to_proto() const;
+    static std::pair<ReadBinding, x::errors::Error>
+    from_proto(const ::service::icd::pb::ReadBinding &pb);
 };
 
 /// @brief CanIdentifier matches a CAN frame by arbitration identifier.
@@ -457,6 +481,27 @@ text_field_from_proto(const ::service::icd::pb::TextField &pb);
 [[nodiscard]] inline const BaseField &base(const TextField &value) {
     return std::visit([](const auto &v) -> const BaseField & { return v; }, value);
 }
+
+/// @brief ReadMessage reads the documents of one ICD message.
+struct ReadMessage {
+    /// @brief message is the key of the ICD message to read.
+    MessageKey message;
+    /// @brief index is the key of the field whose channel indexes the others. Absent
+    /// when the task stamps samples on arrival.
+    std::optional<FieldKey> index;
+    /// @brief bindings are the fields the task reads. A field with no binding is not
+    /// read.
+    std::vector<ReadBinding> bindings = {};
+
+    static ReadMessage parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::icd::pb::ReadMessage;
+    [[nodiscard]] std::pair<::service::icd::pb::ReadMessage, x::errors::Error>
+    to_proto() const;
+    static std::pair<ReadMessage, x::errors::Error>
+    from_proto(const ::service::icd::pb::ReadMessage &pb);
+};
 
 /// @brief FloatJSONField is a JSON number read as a float.
 struct FloatJSONField : public JSONBaseField {
