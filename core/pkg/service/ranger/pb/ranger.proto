@@ -39,14 +39,14 @@ message Range {
   // color is an optional display color for visual identification of the range in user
   // interfaces, a named color or a fixed color.
   optional .service.color.pb.Ref color = 4;
-  // has_children is true when a range is nested in the range, derived on read and not
-  // persisted.
-  bool has_children = 5;
   // labels are the keys of the labels attached to the range.
-  repeated string labels = 6;
+  repeated string labels = 5;
   // parent is the key of the range this range is nested in. Empty for a top-level
   // range.
-  optional string parent = 7;
+  optional string parent = 6;
+  // has_children is true when a range is nested in the range, derived on read and not
+  // persisted.
+  bool has_children = 7;
 }
 message WhereList {
   repeated Where values = 1;

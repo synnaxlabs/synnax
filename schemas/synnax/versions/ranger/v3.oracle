@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "schemas/synnax/versions/color/v0"
 import "schemas/synnax/versions/label/v0"
 import "schemas/x/versions/color/v2"
 import "schemas/x/versions/filter/v0"
@@ -16,12 +15,6 @@ import "schemas/x/versions/telem/v0"
 Key = v0.Key
 
 Range struct extends v2.Range {
-    color        color.Ref? {
-        @doc value """
-            is an optional display color for visual identification of the range in user
-            interfaces, a named color or a fixed color.
-        """
-    }
     has_children bool = false {
         @doc value  """
             is true when a range is nested in the range, derived on read and not
