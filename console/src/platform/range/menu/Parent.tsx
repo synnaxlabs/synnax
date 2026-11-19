@@ -125,7 +125,7 @@ export const Parent = ({ ranges }: ParentProps): ReactElement => {
   const handleCreate = (name: string) => {
     // A range that has not started has no times to cover.
     const started = ranges.filter((r) => r.timeRange.start.before(TimeStamp.MAX));
-    const timeRange = TimeRange.max(
+    const timeRange = TimeRange.merge(
       ...(started.length > 0 ? started : ranges).map((r) => r.timeRange),
     );
     if (name !== "") return create({ name, timeRange, parent: current ?? undefined });

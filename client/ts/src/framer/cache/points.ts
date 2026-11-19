@@ -540,11 +540,13 @@ export class Points {
       )
       .filter((p) => start == null || tileRange(p).end.after(start))
       .map((p) => {
-        const spec: TileSpec = {
-          ...p,
+        const tile =
+          start != null && tileRange(p).start.before(start) ? { ...p, start } : p;
+        return {
+          ...tile,
           key: this.key,
           pointLimit: tilePointLimit({
-            level: p.level,
+            tile,
             view,
             points: this.limit.count,
             drawn: this.limit.aggregation,
@@ -552,8 +554,6 @@ export class Points {
           }),
           aggregation,
         };
-        if (start != null && tileRange(p).start.before(start)) spec.start = start;
-        return spec;
       });
   }
 
