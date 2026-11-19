@@ -159,6 +159,8 @@ describe("range/Toolbar", () => {
       expect(line.textContent).toMatch(/1m \d\ds/);
     });
 
+    // Two pages of lines render and rerender on each read, which takes 7 to 16 s on a
+    // CI runner with coverage.
     it("should show a running range behind a page of newer ones after Show more, and keep the pages as others start", async () => {
       const oldest = await createRunning(uniqueRangeName("oldest"), {
         since: TimeSpan.minutes(5),
@@ -197,7 +199,7 @@ describe("range/Toolbar", () => {
       // the pages stayed.
       const count = within(groupOf("Running")).getByText(/^\d+\+?$/).textContent ?? "";
       expect(parseInt(count, 10)).toBeGreaterThan(100);
-    });
+    }, 30_000);
 
     it("should move ranges from Running to Recent as they end, newest end first", async () => {
       const first = await createRunning(uniqueRangeName("first"));
