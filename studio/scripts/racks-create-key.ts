@@ -36,5 +36,6 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   const modal = await openCredentials(session, rack);
   await createKey(session, modal, "Test stand Driver");
   session.endZoom();
-  await session.hold(2000);
+  await session.moveTo({ x: 1000, y: 720 });
+  await session.hold(2500);
 };

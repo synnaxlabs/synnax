@@ -16,6 +16,7 @@ import (
 	v3 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v3"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v4"
 	v5 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v5"
+	v6 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v6"
 )
 
 // Migrations is the ordered migration chain for stored logs.
@@ -30,4 +31,5 @@ var Migrations = []gorp.Migration{
 	v4.Migration,
 	v5.Migration,
 	v5.NameMigration,
+	v6.Migration,
 }

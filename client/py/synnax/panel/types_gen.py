@@ -221,9 +221,9 @@ class Panel(BaseModel):
             Console draws its default panel icon.
         color: Is the color of the panel's icon, a named color or a fixed color. When
             null, the theme picks it.
-        owner: Is the user whose draft the panel is. Nil for a shared panel.
         group: Is the group the panel sits in, if any.
         project: Is the project that holds the panel.
+        owner: Is the user whose draft the panel is. Nil for a shared panel.
     """
 
     key: Key = Field(default_factory=uuid4)
@@ -231,9 +231,9 @@ class Panel(BaseModel):
     root: Node = Field(default_factory=lambda: LeafNode(variant="leaf", tabs=[]))
     icon: str | None = None
     color: color_.Ref | None = None
-    owner: user.Key | None = None
     group: group_.Key | None = None
     project: project_.Key | None = None
+    owner: user.Key | None = None
 
     @_override
     def __hash__(self) -> int:
