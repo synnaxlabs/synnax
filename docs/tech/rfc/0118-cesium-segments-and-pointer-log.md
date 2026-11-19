@@ -88,9 +88,12 @@ rename (`core/pkg/distribution/channel/create.go:66`, `rename.go:27`).
    is released when the transaction ends without a commit. The claim fails while a
    writer holds one of the keys, and it blocks writer opens on them while it is held.
    Today Cesium checks, with no hold (`cesium/delete.go:133-153`).
-2. The service calls `DB.Intend` with the keys (NEW). It returns once a delete intent
-   for each key is durable.
-3. The service deletes the records and commits the Gorp transaction.
+2. In the Gorp transaction, the service deletes the records. Only once that delete
+   succeeds does it call `DB.Intend` with the keys (NEW), which returns once a delete
+   intent for each key is durable, and register the drop hook of step 4. A refused
+   delete logs no intent and drops nothing, even when the transaction commits other
+   writes.
+3. The service commits the Gorp transaction.
 4. After the commit, a worker of the channel service calls `DB.Drop` with the keys, then
    releases the claim. A public hook, `gorp.AfterEnd` (NEW), queues the keys. It runs
    once, after the store commit returns, so the record delete is durable before `Drop`
