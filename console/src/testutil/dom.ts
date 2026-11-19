@@ -42,6 +42,16 @@ export const openContextMenu = async (
 };
 
 /**
+ * Clicks the menu item that opens the named submenu.
+ *
+ * @returns the content of the submenu.
+ */
+export const openSubmenu = async (name: string): Promise<HTMLElement> => {
+  fireEvent.click(await screen.findByRole("menuitem", { name }));
+  return await screen.findByRole("dialog", { name });
+};
+
+/**
  * Clicks the element with the given text inside an awaited act. Content that suspends
  * inside a synchronous act scope is discarded, so a click that mounts a suspending
  * subtree (a modal, a tab) needs this instead of a bare fireEvent.
@@ -233,4 +243,13 @@ export const withControlHeld = (run: () => void): void => {
   } finally {
     fireEvent.keyUp(window, { key: "Control", code: "ControlLeft" });
   }
+};
+
+/** Drags one element onto another, with one DataTransfer carried through the drag. */
+export const dragOnto = (from: HTMLElement, to: HTMLElement): void => {
+  const dataTransfer = new DataTransfer();
+  fireEvent.dragStart(from, { dataTransfer });
+  fireEvent.dragOver(to, { dataTransfer });
+  fireEvent.drop(to, { dataTransfer });
+  fireEvent.dragEnd(from, { dataTransfer });
 };

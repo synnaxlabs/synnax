@@ -39,3 +39,16 @@
 .lyra-select__body > :not(.lyra-list__scroll) {
     flex-shrink: 0;
 }
+
+/* On a menu surface, the list and its footer sit in the panel's padding with no box of
+   their own, and an empty list takes the height of one item. */
+.lyra-dialog__dialog.lyra-menu-dialog {
+    & .lyra-select__body {
+        border: none;
+        border-radius: 0;
+    }
+
+    &.lyra--visible .lyra-list__scroll--empty {
+        min-height: var(--pluto-height-medium);
+    }
+}

@@ -180,7 +180,8 @@ def splice(body: str, block: str) -> str:
 
 def check(review: Review) -> dict[str, str]:
     """Renders the output of the review's check run. Its text carries RULES and lists
-    the findings, so a dismissal can tell when none is left."""
+    the findings so a dismissal can tell when none is left.
+    """
     counts = Counter(f.severity for f in review.findings)
     found = [f"{counts[s]} {s}" for s in SEVERITIES if counts[s]]
     return {
