@@ -558,9 +558,9 @@ TEST_F(EtherCATReadTest, SourceWritesTheSampleTimesToTheIndexChannel) {
     ASSERT_NIL(source.stop());
 }
 
-/// @brief it should fail a start that discovers the slaves while another task starts
-/// the bus, once the start timeout passes.
-TEST_F(EtherCATReadTest, SourceStartBehindAnotherStartFailsAtTheStartTimeout) {
+/// @brief it should start a task past the start timeout while another task brings the
+/// slaves to OP.
+TEST_F(EtherCATReadTest, SourceStartBehindAnotherStartWaitsWhileTheSlavesReachOP) {
     const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
     auto cfg = this->create_base_config();
     cfg["channels"].push_back(
@@ -584,11 +584,15 @@ TEST_F(EtherCATReadTest, SourceStartBehindAnotherStartFailsAtTheStartTimeout) {
     this->mock_master->hold_activate();
     std::thread starter([&] { ASSERT_NIL(first->start("first", this->cancel)); });
     this->mock_master->wait_until_activating();
+    std::thread releaser([this] {
+        std::this_thread::sleep_for(std::chrono::milliseconds(300));
+        this->mock_master->release_activate();
+    });
     const auto err = second->start("second", this->cancel);
-    this->mock_master->release_activate();
+    releaser.join();
     starter.join();
-    ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
-    EXPECT_EQ(err.data, "Another task is still using eth0.");
+    ASSERT_NIL(err);
+    ASSERT_NIL(second->stop());
     ASSERT_NIL(first->stop());
 }
 

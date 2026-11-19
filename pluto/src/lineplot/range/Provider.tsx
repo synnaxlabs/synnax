@@ -78,7 +78,7 @@ export const Provider = ({
   const handleMouseMove: React.MouseEventHandler<HTMLDivElement> = (e) => {
     const canvas = document.querySelector(".pluto-canvas-container");
     if (canvas == null) return;
-    const cursor = xy.translation(box.topLeft(canvas), xy.construct(e));
+    const cursor = xy.sub(xy.construct(e), box.topLeft(canvas));
     setState((state) => ({ ...state, cursor }));
   };
 
