@@ -14,7 +14,6 @@ import { bindingDataType, converts, DEFAULT_DATA_TYPES } from "@/platform/icd/da
 import {
   isIndexable,
   type Messages,
-  type ReadBinding,
   readFields,
   type ReadSource,
 } from "@/platform/icd/read";
@@ -69,7 +68,7 @@ export const boundMessage = <S extends ReadSource>(
 
 /** A field that a message reads, with the binding that deploying writes for it. */
 export interface MessageField extends Task.ReadChannelField {
-  binding: ReadBinding;
+  binding: icd.ReadBinding;
 }
 
 /** The channels that deploying gives the fields that a message reads. */
@@ -103,7 +102,7 @@ export const planMessage = async (
   const read = source.messages[r];
   const index = fields.find(({ key }) => key === read.index)?.key;
   const held = { ...props?.channels };
-  const bindingOf = (f: icd.JSONField): ReadBinding =>
+  const bindingOf = (f: icd.JSONField): icd.ReadBinding =>
     read.bindings.find(({ field }) => field === f.key) ?? {
       field: f.key,
       channel: 0,

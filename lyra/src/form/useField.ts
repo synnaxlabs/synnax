@@ -204,7 +204,7 @@ export const fieldListUtils = <E extends record.Keyed<string>>(
       const kept = new Set(array.toArray(key));
       return removeWhere((k) => !kept.has(k));
     },
-    set: (values) => ctx.set(path, state.executeSetter(values, value())),
+    set: (values) => ctx.set(path, state.resolve(values, value())),
     sort: (compareFn) => ctx.batch(() => reorder(value().toSorted(compareFn))),
   };
 };
