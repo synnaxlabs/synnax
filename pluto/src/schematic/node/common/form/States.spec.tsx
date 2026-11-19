@@ -9,6 +9,7 @@
 
 import { type enumeration, schematic } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { color, deep, id } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
@@ -33,7 +34,12 @@ const OPTIONS: schematic.StateMapping[] = [
 describe("Form.States", () => {
   let wrapper: FC<PropsWithChildren>;
   beforeAll(async () => {
-    wrapper = await createAsyncSynnaxWrapper({ client });
+    const Base = await createAsyncSynnaxWrapper({ client });
+    wrapper = ({ children }) => (
+      <Base>
+        <Triggers.Provider>{children}</Triggers.Provider>
+      </Base>
+    );
   });
 
   const renderStates = (
@@ -156,9 +162,15 @@ describe("Form.States", () => {
       fireEvent.click(await c.findByRole("option", { name: createName(term) }));
     };
 
+    /** Presses Create in the modal that asks for the name. */
+    const confirmCreate = async (): Promise<void> => {
+      fireEvent.click(await screen.findByRole("button", { name: /^Create/ }));
+    };
+
     it("should lock the options while it creates an enumeration", async () => {
       const c = renderStates();
       await openCreate(c);
+      await confirmCreate();
       expect(c.queryByRole("button", { name: "Add entry" })).toBeNull();
       await created(c.value);
     });
@@ -189,6 +201,7 @@ describe("Form.States", () => {
     it("should move the node's options into a new enumeration", async () => {
       const c = renderStates();
       await openCreate(c);
+      await confirmCreate();
       const e = await created(c.value);
       expect(
         e.entries.map(({ name, value, color: ref }) => ({ name, value, ref })),
@@ -198,17 +211,46 @@ describe("Form.States", () => {
       ]);
     });
 
-    it("should name a new enumeration after the node's label", async () => {
+    it("should ask for the name of an unlinked node's new enumeration", async () => {
       const label = `Pump ${id.create()}`;
       const c = renderStates({ label: { label } });
       await openCreate(c);
+      expect((await findInput("Enumeration name")).value).toBe(label);
+      await confirmCreate();
       expect((await created(c.value)).name).toBe(label);
     });
 
-    it("should name a new enumeration after the symbol with no label", async () => {
+    it("should start the name with the symbol for a node with no label", async () => {
       const c = renderStates();
       await openCreate(c);
+      expect((await findInput("Enumeration name")).value).toBe("State indicator");
+      await confirmCreate();
       expect((await created(c.value)).name).toBe("State indicator");
+    });
+
+    it("should show an error at the name field on a Create with no name", async () => {
+      const c = renderStates();
+      await openCreate(c);
+      const field = await findInput("Enumeration name");
+      fireEvent.change(field, { target: { value: " " } });
+      await confirmCreate();
+      expect(await screen.findByText("Name is required")).toBeTruthy();
+      fireEvent.change(field, { target: { value: "Pump" } });
+      expect(screen.queryByText("Name is required")).toBeNull();
+      await act(async () => {});
+      expect(c.value(path.enumeration)).toBeUndefined();
+    });
+
+    it("should close the modal with one Escape from the name field", async () => {
+      const c = renderStates();
+      await openCreate(c);
+      const field = await findInput("Enumeration name");
+      fireEvent.keyDown(field, { key: "Escape", code: "Escape" });
+      fireEvent.keyUp(field, { key: "Escape", code: "Escape" });
+      await waitFor(() =>
+        expect(screen.queryByLabelText("Enumeration name")).toBeNull(),
+      );
+      expect(c.value(path.enumeration)).toBeUndefined();
     });
 
     it("should list Create enumeration above No enumeration", async () => {
@@ -263,11 +305,12 @@ describe("Form.States", () => {
       });
       const c = renderStates({ enumeration: linked.key, label: { label: "Pump" } });
       await openCreate(c);
-      const field = await screen.findByLabelText("Enumeration name");
+      const field = await findInput("Enumeration name");
+      expect(field.value).toBe("");
       expect(c.value(path.enumeration)).toBe(linked.key);
       const name = `Pump ${id.create()}`;
       fireEvent.change(field, { target: { value: name } });
-      fireEvent.click(screen.getByRole("button", { name: "Create" }));
+      await confirmCreate();
       const e = await created(c.value, linked.key);
       expect(e.name).toBe(name);
       expect(e.entries).toEqual([]);
