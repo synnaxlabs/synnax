@@ -19,12 +19,18 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-const identUnit = `(?:[\w\-]|[^\x00-\x7F]|\\[0-9a-fA-F]{1,6} ?|\\[^0-9a-fA-F\r\n\f])`
+const (
+	escapeUnit = `\\[0-9a-fA-F]{1,6} ?|\\[^0-9a-fA-F\r\n\f]`
+	identStart = `(?:[A-Za-z_]|[^\x00-\x7F]|` + escapeUnit + `)`
+	identUnit  = `(?:[\w\-]|[^\x00-\x7F]|` + escapeUnit + `)`
+	// ident never starts with a digit, or with a hyphen and a digit.
+	ident = `(?:--|-?` + identStart + `)` + identUnit + `*`
+)
 
 // nameSelector matches the selectors that name shapes: #id, .class.class, and
 // [data-region-id="..."].
 var nameSelector = regexp.MustCompile(
-	`^(?:#` + identUnit + `+|(?:\.` + identUnit + `+)+|` +
+	`^(?:#` + ident + `|(?:\.` + ident + `)+|` +
 		`\[data-region-id="(?:[^"\\]|\\.)*"\])$`,
 )
 
