@@ -255,7 +255,7 @@ export const findLastButton = (text: string): HTMLButtonElement => {
     .getAllByText(text)
     .map((el) => el.closest<HTMLButtonElement>("button"))
     .filter((b) => b != null);
-  const btn = buttons[buttons.length - 1];
+  const btn = buttons.at(-1);
   if (btn == null) throw new Error(`button with text ${text} not found`);
   return btn;
 };

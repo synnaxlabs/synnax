@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { assert } from "vitest";
+
+import { id } from "@/id";
 import { sleep } from "@/sleep";
 import { type CrudeTimeSpan, TimeSpan } from "@/telem";
 
@@ -32,3 +35,22 @@ export const expectAlways = async (
     await sleep.sleep(interval);
   }
 };
+
+/**
+ * Throws when value is null or undefined, narrowing it for subsequent use.
+ * Excludes void as well as null and undefined: NonNullable leaves `void & {}`
+ * behind, which drops every property off a `T | void` return.
+ */
+export function assertDefined<T>(
+  value: T,
+  message = "expected value to be defined",
+): asserts value is Exclude<T, null | undefined | void> {
+  assert(value != null, message);
+}
+
+/**
+ * Generates a unique, Core-safe resource name: letters, digits, and underscores only,
+ * prefixed so failures are traceable back to tests.
+ */
+export const uniqueName = (prefix: string = "test"): string =>
+  `${prefix}_${id.create()}`;
