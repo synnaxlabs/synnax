@@ -610,6 +610,18 @@ Cesium does not panic.
 | 7 Sync error                                                                                  | The bytes after the last durable length of that file are unknown                                 | Segment: the clock write fails (§5.4), and the file is never synced or written again. Log or directory: no ack, and the fatal path above. Head or part: the attempt is removed |
 | 8 Full disk                                                                                   | A write fails with no space                                                                      | The writer gets `ErrDiskFull`, and its length and CRC go back to the last commit. Reads go on. The log is already written, and its last 1 MiB takes deletes                    |
 
+**The metadata store**: Gorp runs on Pebble, the only channel registry, and its bounds
+are Pebble's (v2.1.7, measured on the crash harness). Lasting corruption of the last 32
+KiB block of a WAL loses the commits in that block with no error, as fault 5d does here;
+in an earlier block, Pebble refuses to open. A WAL written before the store's format
+reaches `FormatWALSyncChunks` has no synced offsets, so corruption anywhere in it cuts
+the log with no error, and a new store's first WAL is one (SY-6432): the Core rotates
+the WAL of a new store once before it serves (Phase 6). On a file system that does not
+keep directory operations in order, a crash while Pebble moves its manifest marker can
+leave a store that does not open; ext4, XFS, APFS, and NTFS keep that order. Pebble
+reads MANIFEST and OPTIONS once, so a one-time read fault there fails one start, and the
+next start opens.
+
 ## 7 Determinism
 
 - **Injected inputs**: The file system (`WithFS`, `cesium/options.go:92`) and the clock
@@ -765,7 +777,7 @@ old code, except the v0.61 reader of the conversion. Phase 5 comes after RFC 011
 | 3     | Add a crash harness with a durable-ack oracle              | `cesium`, `x/go/io/fs/testutil/fault`                                                                                                       | 2          |
 | 4     | Add Pebble crash tests, decoder fuzzing, and invariants    | `cesium`, `x/go/kv/pebblekv`, `x/go/io/fs/testutil/fault`                                                                                   | 3          |
 | 5     | Move Cesium sessions to the framer and fix channel deletes | `cesium`, `x/go/control`, `x/go/telem`, `core/pkg/distribution/framer`, `core/pkg/distribution/control`, `core/pkg/service/channel`, `gorp` | -          |
-| 6     | Commit Cesium writes through one pointer log               | `cesium/internal`, `cesium`, `core/pkg/distribution/framer`                                                                                 | 3, 4, 5    |
+| 6     | Commit Cesium writes through one pointer log               | `cesium/internal`, `cesium`, `core/pkg/distribution/framer`, `core/pkg/storage`                                                             | 3, 4, 5    |
 | 7     | Convert Cesium to its new segment format                   | `cesium/internal`, `cesium`, `core/pkg/service/channel`, `core/pkg/storage`                                                                 | 6          |
 
 ## 13 Resolved decisions
