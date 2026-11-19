@@ -76,10 +76,11 @@ bounds come from the home view (§3.0).
 Each resolved range becomes a line's home view, and the plot's home view is the union of
 its lines' home views. The x-axis bounds are the home view, never the loaded data. A
 live home view ends at the newest sample across the axis's lines (RFC 0083 §5, decision
-13). The y-axis bounds come from the tiles that cover the home view at the home level.
-Min/max tiles hold the true extremes, and the source holds them, so the `Feed` never
-evicts them. Pan is unclamped, so the user can move past the home view, and the line
-fetches tiles there like anywhere else.
+13). A static home view that still streams, such as a running range, ends there too and
+keeps its start. The y-axis bounds come from the tiles that cover the home view at the
+home level. Min/max tiles hold the true extremes, and the source holds them, so the
+`Feed` never evicts them. Pan is unclamped, so the user can move past the home view, and
+the line fetches tiles there like anywhere else.
 
 ### 3.1 Tiles
 
@@ -108,7 +109,8 @@ A line's `detail` sets groups per pixel column:
 
 The point limit of a tile is its share of the line's pixel width, times groups per
 column, times points per group (2 for `min_max`, 1 otherwise), rounded up to a power of
-two. A resize of a few pixels then keeps the limit, and the cache still hits.
+two. A resize of a few pixels then keeps the limit, and the cache still hits. A cut tile
+gets the part of that limit that it covers, so it reduces with the same group size.
 
 ### 3.3 Aggregation
 

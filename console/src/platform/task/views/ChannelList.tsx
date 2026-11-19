@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Button } from "@synnaxlabs/lyra/button";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Header as PHeader } from "@synnaxlabs/lyra/header";
 import { type deep } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode } from "react";
 
-import { Button } from "@/platform/button";
 import { Empty } from "@/platform/empty";
 import { Section } from "@/platform/section";
 import { type BindChannelsProps } from "@/platform/task/BindChannels";

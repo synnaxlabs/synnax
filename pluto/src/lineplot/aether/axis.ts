@@ -78,16 +78,18 @@ export interface AxisRenderProps {
   hold: boolean;
 }
 
-// Rolling bounds end at the newest sample of their line. Each moves to end at the
+// Bounds with an edge end at the newest sample of their line. Each moves to end at the
 // newest of them, so a line whose samples stopped does not stretch the axis.
 const align = (b: line.DataBounds[]): bounds.Bounds[] => {
   const finite = b.filter((d) => bounds.isFinite(d.bounds));
-  const edges = finite.filter((d) => d.rolling === true).map((d) => d.bounds.upper);
+  const edges = finite.filter((d) => d.edge != null).map((d) => d.bounds.upper);
   if (edges.length === 0) return finite.map((d) => d.bounds);
-  const edge = Math.max(...edges);
-  return finite.map(({ bounds: { lower, upper }, rolling }) =>
-    rolling === true ? { lower: lower + edge - upper, upper: edge } : { lower, upper },
-  );
+  const newest = Math.max(...edges);
+  return finite.map(({ bounds: { lower, upper }, edge }) => {
+    if (edge === "rolling") return { lower: lower + newest - upper, upper: newest };
+    if (edge === "growing") return { lower, upper: newest };
+    return { lower, upper };
+  });
 };
 
 const autoBounds = (
@@ -95,7 +97,7 @@ const autoBounds = (
   padding: number = 0.1,
   type: TickType,
 ): bounds.Bounds => {
-  const m = bounds.max(align(b));
+  const m = bounds.union(align(b));
   if (!bounds.isFinite(m)) return emptyBounds(type);
   const { lower, upper } = m;
   if (upper === lower) return { lower: lower - 1, upper: upper + 1 };
