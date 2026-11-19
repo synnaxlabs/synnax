@@ -229,7 +229,7 @@ private:
 
     /// @brief waits until every enabled slave reaches OP, until no slave reaches OP for
     /// Config::op_timeout, or until the cancel of plan stops. Reports each slave that
-    /// reaches OP before the last to the progress of plan.
+    /// reaches OP to the progress of plan.
     /// @returns errors::STATE_CHANGE_REFUSED with the refusals when every slave below
     /// OP still has its AL error flag set after a reset, or when one has it at
     /// Config::op_timeout. errors::STATE_CHANGE_ERROR when none has it at the timeout.

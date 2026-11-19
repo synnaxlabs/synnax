@@ -929,7 +929,7 @@ TEST_F(IGHMasterTest, ActivateWaitsWhileTheSlavesReachOPOneAtATime) {
     EXPECT_GE(this->clock.steady() - started, std::chrono::seconds(21));
 }
 
-/// @brief it should report each slave that reaches OP before the last.
+/// @brief it should report each slave that reaches OP.
 TEST_F(IGHMasterTest, ActivateReportsEachSlaveThatReachesOP) {
     for (int i = 1; i <= 3; ++i)
         this->api->add_slave().reads_to_reach = 700 * i;
