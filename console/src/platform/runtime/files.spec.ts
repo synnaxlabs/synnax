@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { assertDefined } from "@synnaxlabs/x/testutil";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({
@@ -31,7 +32,6 @@ import { readDir, readFile } from "@tauri-apps/plugin-fs";
 
 import { Runtime } from "@/platform/runtime";
 import {
-  assertDefined,
   fakePickedFile,
   type FilePickerInterceptor,
   interceptFilePicker,

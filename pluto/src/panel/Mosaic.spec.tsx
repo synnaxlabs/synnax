@@ -18,7 +18,7 @@ import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { mockBoundingClientRect } from "@synnaxlabs/lyra/testutil";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { TimeSpan, uuid } from "@synnaxlabs/x";
+import { map, TimeSpan, uuid } from "@synnaxlabs/x";
 import {
   act,
   fireEvent,
@@ -482,7 +482,7 @@ describe("Panel.Mosaic", () => {
     const tabRenders = new Map<string, number>();
     const TabNameCounter = (): ReactElement => {
       const tabKey = Panel.TabScope.use();
-      tabRenders.set(tabKey, (tabRenders.get(tabKey) ?? 0) + 1);
+      map.increment(tabRenders, tabKey);
       return <span>{`name:${tabKey}`}</span>;
     };
     const countingTabName: Panel.MosaicProps["tabName"] = () => <TabNameCounter />;
