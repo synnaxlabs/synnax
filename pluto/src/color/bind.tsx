@@ -10,10 +10,9 @@
 import { color, group } from "@synnaxlabs/client";
 import { type Color } from "@synnaxlabs/lyra/color";
 import { type color as xcolor } from "@synnaxlabs/x";
-import { useState } from "react";
 
 import { Access } from "@/access";
-import { CreatePalette, CreateSwatch, SaveColor } from "@/color/Create";
+import { CreatePalette, CreateSwatch, SaveToLibrary } from "@/color/Create";
 import { SwatchMenu } from "@/color/Edit";
 import { usePalettes, useResolve } from "@/color/library";
 import { Synnax } from "@/synnax";
@@ -41,8 +40,6 @@ export const useBinding = (
   const client = Synnax.use();
   const canCreate = Access.useCreateGranted(color.TYPE_RESOURCE_ID);
   const canCreatePalette = Access.useCreateGranted(group.TYPE_RESOURCE_ID);
-  // A palette that the picker just created. Its "+" takes the focus once it renders.
-  const [created, setCreated] = useState<group.Key>();
   return {
     value: resolve(value),
     onChange: (c) => onChange(c == null ? undefined : { type: "fixed", value: c }),
@@ -53,20 +50,12 @@ export const useBinding = (
             palettes,
             named: value?.type === "named" ? value.key : undefined,
             onNamedChange: (key) => onChange({ type: "named", key }),
-            paletteEnd: canCreate ? (
-              <CreateSwatch
-                focusedPalette={created}
-                onFocus={() => setCreated(undefined)}
-              />
-            ) : undefined,
+            paletteEnd: canCreate ? <CreateSwatch /> : undefined,
             swatchMenu: <SwatchMenu />,
             hasSwatchMenu: (key) =>
               Access.updateGranted({ client, id: color.resourceID(key) }),
-            footer:
-              canCreate && canCreatePalette ? (
-                <CreatePalette onCreate={setCreated} />
-              ) : undefined,
-            customFooter: canCreate ? <SaveColor /> : undefined,
+            footer: canCreate && canCreatePalette ? <CreatePalette /> : undefined,
+            customFooter: canCreate ? <SaveToLibrary /> : undefined,
           },
   };
 };

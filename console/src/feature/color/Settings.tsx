@@ -285,7 +285,7 @@ const ItemContent = (props: List.ItemProps<color.Key>): ReactElement | null => {
   const named = List.useItem<color.Key, color.Named>(itemKey);
   const { shipped, move } = use(Context);
   const name = Form.useField<string>(path.name);
-  const light = Form.useFieldValue<xcolor.Crude>(path.light);
+  const { get } = Form.useContext();
   const canUpdate = Access.useUpdateGranted(color.resourceID(itemKey));
   const itemClass = PlatformSettings.useItemClass(itemKey);
   const [over, setOver] = useState(false);
@@ -310,7 +310,7 @@ const ItemContent = (props: List.ItemProps<color.Key>): ReactElement | null => {
       items: [{ type: HAUL_TYPE, key: itemKey }],
       preview: (
         <Haul.Preview
-          swatch={xcolor.cssString(light)}
+          swatch={xcolor.cssString(get(path.light).value)}
           name={name.value}
           facts={FACTS}
         />

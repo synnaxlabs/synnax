@@ -34,7 +34,7 @@ import { useDebouncedCallback } from "@/hooks";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { Menu } from "@/menu";
-import { keyboardMenuKey, openContextMenu } from "@/menu/keyboard";
+import { menuKeyDown, menuKeyUp, openContextMenu } from "@/menu/keyboard";
 import { Select } from "@/select";
 import { Status } from "@/status";
 import { Text } from "@/text";
@@ -63,13 +63,18 @@ export interface PickerContextValue {
   /** The named color that the value links to. */
   linked?: Named;
   /**
-   * Links the value to the named color with the key, as a click on its swatch does.
-   * The Library tab shows with no search, and the focus moves to the swatch, at once or
+   * Links the value to the named color with the key, as a click on its swatch does. The
+   * Library tab shows with no search, and the focus moves to the swatch, at once or
    * when it renders.
    */
-  onNamedChange: (key: string) => void;
+  link: (key: string) => void;
   /** Clears the search, so that every palette and color shows. */
   clearSearch: () => void;
+  /**
+   * Moves the focus into the `paletteEnd` slot of the palette with the key, once that
+   * palette renders. The slot reads `focused` from `usePalette` and takes the focus.
+   */
+  focusPalette: (key: string) => void;
 }
 
 const [PickerContext, usePickerContext] = context.create<PickerContextValue>({
@@ -88,6 +93,11 @@ export interface PaletteContextValue {
   palette: Palette;
   /** In `swatchMenu`, the color of the swatch that the menu opened on. */
   swatch?: Named;
+  /**
+   * In `paletteEnd`, true if the slot takes the focus. It stays true until the focus
+   * enters the palette.
+   */
+  focused: boolean;
 }
 
 const [PaletteContext, usePaletteContext] = context.create<PaletteContextValue>({
@@ -160,16 +170,7 @@ const Tabbed = ({
   value,
   onChange,
   fallback,
-  library: {
-    palettes,
-    named,
-    onNamedChange,
-    paletteEnd,
-    swatchMenu,
-    hasSwatchMenu,
-    footer,
-    customFooter,
-  },
+  library: { palettes, named, onNamedChange, footer, customFooter, ...slots },
   className,
   ...rest
 }: TabbedProps): ReactElement => {
@@ -183,6 +184,7 @@ const Tabbed = ({
   const swatches = useRef(new Map<string, HTMLElement>());
   // The key of a linked swatch that takes the focus when it renders.
   const focusing = useRef<string>(undefined);
+  const [focusedPalette, setFocusedPalette] = useState<string>();
   const registerSwatch = (key: string, swatch: HTMLElement | null): void => {
     if (swatch == null) {
       swatches.current.delete(key);
@@ -194,10 +196,11 @@ const Tabbed = ({
     swatch.focus();
   };
   const autoSelected = value == null && linked == null;
+  const tabFooter = tab === "library" ? footer : customFooter;
   const ctx: PickerContextValue = {
     value: color.construct(value ?? fallback ?? color.TRANSPARENT),
     linked,
-    onNamedChange: (key) => {
+    link: (key) => {
       setTab("library");
       setSearch("");
       onNamedChange(key);
@@ -206,6 +209,7 @@ const Tabbed = ({
       else swatch.focus();
     },
     clearSearch: () => setSearch(""),
+    focusPalette: setFocusedPalette,
   };
   return (
     <PickerContext value={ctx}>
@@ -272,49 +276,42 @@ const Tabbed = ({
               linked={linked?.key}
               onPick={onNamedChange}
               registerSwatch={registerSwatch}
-              paletteEnd={paletteEnd}
-              swatchMenu={swatchMenu}
-              hasSwatchMenu={hasSwatchMenu}
+              focusedPalette={focusedPalette}
+              onPaletteFocus={() => setFocusedPalette(undefined)}
+              {...slots}
             />
-            {footer != null && (
-              <Flex.Box y empty className={CSS.BE("color-picker", "footer")}>
-                {footer}
-              </Flex.Box>
-            )}
           </>
         ) : (
-          <>
-            <Flex.Box y gap="medium" className={CSS.BE("color-picker", "custom")}>
-              <Editor
-                value={value ?? fallback ?? color.TRANSPARENT}
-                onChange={handleChange}
-              />
-              {frequent.length > 0 && (
-                <Section title="Recent">
-                  {frequent.map((c) => (
-                    <BaseSwatch
-                      key={color.hex(c)}
-                      value={c}
-                      size="tiny"
-                      draggable={false}
-                      className={CSS.cls(
-                        CSS.selected(
-                          linked == null && value != null && color.equals(value, c),
-                        ),
-                      )}
-                      onClick={() => handleChange(color.construct(c))}
-                      aria-label={color.hex(c)}
-                    />
-                  ))}
-                </Section>
-              )}
-            </Flex.Box>
-            {customFooter != null && (
-              <Flex.Box y empty className={CSS.BE("color-picker", "footer")}>
-                {customFooter}
-              </Flex.Box>
+          <Flex.Box y gap="medium" className={CSS.BE("color-picker", "custom")}>
+            <Editor
+              value={value ?? fallback ?? color.TRANSPARENT}
+              onChange={handleChange}
+            />
+            {frequent.length > 0 && (
+              <Section title="Recent">
+                {frequent.map((c) => (
+                  <BaseSwatch
+                    key={color.hex(c)}
+                    value={c}
+                    size="tiny"
+                    draggable={false}
+                    className={CSS.cls(
+                      CSS.selected(
+                        linked == null && value != null && color.equals(value, c),
+                      ),
+                    )}
+                    onClick={() => handleChange(color.construct(c))}
+                    aria-label={color.hex(c)}
+                  />
+                ))}
+              </Section>
             )}
-          </>
+          </Flex.Box>
+        )}
+        {tabFooter != null && (
+          <Flex.Box y empty className={CSS.BE("color-picker", "footer")}>
+            {tabFooter}
+          </Flex.Box>
         )}
       </Dialog.Views>
     </PickerContext>
@@ -352,6 +349,10 @@ interface PaletteSectionProps extends Pick<
   onPick: (key: string) => void;
   /** Records the swatch of a named color when it renders, and null when it goes. */
   registerSwatch: (key: string, swatch: HTMLElement | null) => void;
+  /** If true, the `paletteEnd` slot takes the focus. */
+  focused: boolean;
+  /** Called when the focus enters the palette while it is focused. */
+  onFocus: () => void;
 }
 
 /**
@@ -365,6 +366,8 @@ const PaletteSection = ({
   linked,
   onPick,
   registerSwatch,
+  focused,
+  onFocus,
   paletteEnd,
   swatchMenu,
   hasSwatchMenu,
@@ -386,25 +389,24 @@ const PaletteSection = ({
         if (opens()) menu.open(e);
       },
       onKeyDown: (e: KeyboardEvent<HTMLElement>) => {
-        const menuKey = keyboardMenuKey(e);
-        if (menuKey == null || !opens()) return;
-        e.preventDefault();
-        if (menuKey === "F10" && !e.repeat) openContextMenu(e.currentTarget);
+        if (opens()) menuKeyDown(e, () => openContextMenu(e.currentTarget));
       },
       onKeyUp: (e: KeyboardEvent<HTMLElement>) => {
-        if (keyboardMenuKey(e) !== "ContextMenu" || !opens()) return;
-        e.preventDefault();
-        openContextMenu(e.currentTarget);
+        if (opens()) menuKeyUp(e, () => openContextMenu(e.currentTarget));
       },
     };
   };
   return (
-    <PaletteContext value={{ palette }}>
+    <PaletteContext value={{ palette, focused }}>
       <Menu.ContextMenu
         {...menu}
         menu={({ keys }) => (
           <PaletteContext
-            value={{ palette, swatch: palette.colors.find((c) => c.key === keys[0]) }}
+            value={{
+              palette,
+              swatch: palette.colors.find((c) => c.key === keys[0]),
+              focused: false,
+            }}
           >
             {swatchMenu}
           </PaletteContext>
@@ -416,6 +418,9 @@ const PaletteSection = ({
           role="group"
           aria-label={palette.name}
           onPointerLeave={leave}
+          onFocus={() => {
+            if (focused) onFocus();
+          }}
           onBlur={(e) => {
             if (!e.currentTarget.contains(e.relatedTarget)) leave();
           }}
@@ -455,6 +460,10 @@ interface PalettesProps
   /** The key of the named color that the value follows. */
   linked?: string;
   onPick: (key: string) => void;
+  /** The key of the palette whose `paletteEnd` slot takes the focus. */
+  focusedPalette?: string;
+  /** Called when the focus enters the focused palette. */
+  onPaletteFocus: () => void;
 }
 
 /** The palettes, filtered by color name, palette name, or the hex a swatch shows. */
@@ -464,6 +473,8 @@ const Palettes = ({
   linked,
   onPick,
   registerSwatch,
+  focusedPalette,
+  onPaletteFocus,
   paletteEnd,
   swatchMenu,
   hasSwatchMenu,
@@ -500,6 +511,8 @@ const Palettes = ({
           linked={linked}
           onPick={onPick}
           registerSwatch={registerSwatch}
+          focused={palette.key === focusedPalette}
+          onFocus={onPaletteFocus}
           paletteEnd={paletteEnd}
           swatchMenu={swatchMenu}
           hasSwatchMenu={hasSwatchMenu}

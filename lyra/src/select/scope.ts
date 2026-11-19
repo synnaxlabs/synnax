@@ -41,8 +41,8 @@ export const [ShownContext, useShownContext] = context.create<Dispatch<
  * hover answers no keys while a view shows.
  */
 export const [ViewingContext, useViewingContext] = context.create<
-  ((viewing: boolean) => void) | undefined
->({ defaultValue: undefined, displayName: "Select.ViewingContext" });
+  (viewing: boolean) => void
+>({ displayName: "Select.ViewingContext", providerName: "Select.Frame" });
 
 /** True inside a `Select.List`. A fixed item outside one is pinned. */
 export const [ListContext, useInList] = context.create<boolean>({

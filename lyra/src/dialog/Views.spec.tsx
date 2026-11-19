@@ -35,19 +35,15 @@ interface OpenerProps {
 }
 
 const Opener = ({ content = <span>view body</span> }: OpenerProps): ReactElement => {
-  const { open, viewing } = Dialog.useViews();
-  return (
-    <button onClick={() => open("Edit item", content)}>
-      {viewing ? "open, viewing" : "open"}
-    </button>
-  );
+  const { open } = Dialog.useViews();
+  return <button onClick={() => open("Edit item", content)}>open</button>;
 };
 
 const renderViews = (children: ReactNode): RenderResult =>
   render(<Dialog.Views>{children}</Dialog.Views>, { wrapper: Wrapper });
 
 const boxOf = (c: RenderResult): Element | null =>
-  c.getByText(/^open/).closest(`.${CSS.B("views")}`);
+  c.getByText("open").closest(`.${CSS.B("dialog-views")}`);
 
 describe("Views", () => {
   it("should show a view in place of the children until Back", () => {
@@ -57,12 +53,11 @@ describe("Views", () => {
         <input aria-label="Name" defaultValue="" />
       </>,
     );
-    const viewing = CSS.BM("views", "viewing");
+    const viewing = CSS.BM("dialog-views", "viewing");
     fireEvent.change(c.getByLabelText("Name"), { target: { value: "pump" } });
     fireEvent.click(c.getByText("open"));
     expect(c.getByText("Edit item")).toBeTruthy();
     expect(c.getByRole("group", { name: "Edit item" }).textContent).toBe("view body");
-    expect(c.getByText("open, viewing")).toBeTruthy();
     expect(boxOf(c)?.classList.contains(viewing)).toBe(true);
     fireEvent.click(c.getByLabelText("Back"));
     expect(c.queryByText("view body")).toBeNull();

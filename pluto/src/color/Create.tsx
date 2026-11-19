@@ -29,15 +29,14 @@ import {
 } from "react";
 
 import { Access } from "@/access";
-import { usePalettes } from "@/color/library";
-import { createFormSchema, useAppend, useCreatePalette } from "@/color/queries";
+import { NO_PALETTE, usePalettes } from "@/color/library";
+import { createFormSchema, useCreate, useCreatePalette } from "@/color/queries";
 import { Fields } from "@/color/View";
-import { Synnax } from "@/synnax";
 
 interface NameEntryProps {
   placeholder: string;
-  /** Called with the trimmed name. Resolves to whether the create succeeded. */
-  onSave: (name: string) => Promise<boolean>;
+  /** Called with the trimmed name. */
+  onSave: (name: string) => Promise<void>;
   onCancel: () => void;
   /** If true, the create is saving, and nothing cancels it. */
   saving: boolean;
@@ -51,16 +50,11 @@ const NameEntry = ({
   saving,
 }: NameEntryProps): ReactElement => {
   const [name, setName] = useState("");
-  // A ref, so that two key presses in one render cannot both save.
-  const savingRef = useRef(false);
   const save = (): void => {
-    if (savingRef.current) return;
+    if (saving) return;
     const trimmed = name.trim();
     if (trimmed === "") return onCancel();
-    savingRef.current = true;
-    void onSave(trimmed).then((ok) => {
-      if (!ok) savingRef.current = false;
-    });
+    void onSave(trimmed);
   };
   const handleKeyDown = (e: KeyboardEvent): void => {
     if (e.key === "Enter") {
@@ -110,7 +104,7 @@ const NameEntry = ({
   );
 };
 
-interface NewColorProps {
+interface CreateViewProps {
   /**
    * The palette that the new color starts in. Defaults to the first palette that the
    * user can add to.
@@ -123,18 +117,17 @@ interface NewColorProps {
  * with the color that the picker shows. In the light theme, Dark starts on Auto, so an
  * edit of Light carries to it.
  */
-const NewColor = ({ palette: initialPalette }: NewColorProps): ReactElement => {
-  const { value, linked, onNamedChange } = Color.usePicker();
+const CreateView = ({ palette: initialPalette }: CreateViewProps): ReactElement => {
+  const { value, linked, link } = Color.usePicker();
   const { back } = Dialog.useViews();
   const { dark } = Theming.use();
-  const client = Synnax.use();
-  const palettes = usePalettes().filter(
-    ({ key }) =>
-      key !== color.SERIES_PALETTE &&
-      key !== "" &&
-      Access.updateGranted({ client, id: group.resourceID(key) }),
+  const all = usePalettes().filter(
+    ({ key }) => key !== color.SERIES_PALETTE && key !== NO_PALETTE,
   );
-  const [palette, setPalette] = useState(initialPalette ?? palettes[0]?.key ?? "");
+  const updatable = Access.useUpdatable(all.map(({ key }) => group.resourceID(key)));
+  const palettes = all.filter(({ key }) => updatable.some((id) => id.key === key));
+  const [picked, setPicked] = useState(initialPalette);
+  const palette = picked ?? palettes[0]?.key ?? NO_PALETTE;
   const methods = Form.use<typeof createFormSchema>({
     schema: createFormSchema,
     values: {
@@ -149,39 +142,36 @@ const NewColor = ({ palette: initialPalette }: NewColorProps): ReactElement => {
             : xcolor.construct(linked.dark),
     },
   });
-  const { updateAsync: append, variant } = useAppend();
-  // A ref, so that two key presses in one render cannot both create.
-  const creating = useRef(false);
-  const create = (): void => {
-    if (creating.current || !methods.validate()) return;
-    creating.current = true;
+  const { updateAsync: create, variant } = useCreate();
+  const creating = variant === "loading";
+  const handleCreate = (): void => {
+    if (creating || !methods.validate()) return;
     const { name, light, dark: darkValue } = methods.value();
     const key = uuid.create();
-    void append({
+    void create({
       key,
       name: name.trim(),
-      light: xcolor.construct(light),
-      dark: darkValue == null ? undefined : xcolor.construct(darkValue),
-      ...(palette === "" ? {} : { group: palette }),
+      light,
+      dark: darkValue,
+      ...(palette === NO_PALETTE ? {} : { group: palette }),
     }).then((created) => {
-      if (created) back(() => onNamedChange(key));
-      else creating.current = false;
+      if (created) back(() => link(key));
     });
   };
   return (
     <Form.Form<typeof createFormSchema> {...methods}>
       <Fields
-        onEnter={create}
+        onEnter={handleCreate}
         palette={
           <Select.Simple<group.Key>
             resourceName="palette"
             searchHidden
             value={palette}
-            onChange={(key: group.Key | undefined) => key != null && setPalette(key)}
+            onChange={setPicked}
             triggerProps={{ size: "small" }}
             grow
             footer={
-              <Select.Item<group.Key> itemKey="" textValue="No palette">
+              <Select.Item<group.Key> itemKey={NO_PALETTE} textValue="No palette">
                 <Icon.None />
                 No palette
               </Select.Item>
@@ -198,8 +188,8 @@ const NewColor = ({ palette: initialPalette }: NewColorProps): ReactElement => {
           <Button.Button
             variant="filled"
             size="small"
-            status={variant === "loading" ? "loading" : undefined}
-            onClick={create}
+            status={creating ? "loading" : undefined}
+            onClick={handleCreate}
           >
             Create
           </Button.Button>
@@ -209,16 +199,9 @@ const NewColor = ({ palette: initialPalette }: NewColorProps): ReactElement => {
   );
 };
 
-interface AddProps {
-  /** If true, the "+" takes the focus. */
-  focused?: boolean;
-  /** Called when the "+" takes the focus. */
-  onFocus?: () => void;
-}
-
 /** The "+" that ends a palette. It opens a view that creates a color in the palette. */
-const Add = ({ focused = false, onFocus }: AddProps): ReactElement => {
-  const { palette } = Color.usePalette();
+const Add = (): ReactElement => {
+  const { palette, focused } = Color.usePalette();
   const { open } = Dialog.useViews();
   const plus = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -227,14 +210,13 @@ const Add = ({ focused = false, onFocus }: AddProps): ReactElement => {
   return (
     <Button.Button
       ref={plus}
-      onFocus={onFocus}
       variant="text"
       square
       textColor={9}
       tooltip="Create color"
       aria-label={`Create a color in ${palette.name}`}
       onClick={(e) =>
-        open("New color", <NewColor palette={palette.key} />, e.currentTarget)
+        open("New color", <CreateView palette={palette.key} />, e.currentTarget)
       }
     >
       <Icon.Add />
@@ -242,58 +224,38 @@ const Add = ({ focused = false, onFocus }: AddProps): ReactElement => {
   );
 };
 
-interface PaletteAddProps extends AddProps {
+interface PaletteAddProps {
   palette: group.Key;
 }
 
-const PaletteAdd = ({ palette, ...rest }: PaletteAddProps): ReactElement | null =>
-  Access.useUpdateGranted(group.resourceID(palette)) ? <Add {...rest} /> : null;
-
-export interface CreateSwatchProps extends Pick<AddProps, "onFocus"> {
-  /** The palette whose "+" takes the focus, such as a new palette. */
-  focusedPalette?: group.Key;
-}
+const PaletteAdd = ({ palette }: PaletteAddProps): ReactElement | null =>
+  Access.useUpdateGranted(group.resourceID(palette)) ? <Add /> : null;
 
 /**
- * Ends a palette of a color picker with a "+" that opens a view to create a named color
- * after the last positioned color of the palette. The Series palette gets none, because
- * its colors are the series of a chart. A palette that the user cannot update gets
- * none, because a new color updates it.
+ * Ends a palette with a "+" that opens a view to create a named color at its end. The
+ * Series palette and palettes that the user cannot update get none.
  */
-export const CreateSwatch = ({
-  focusedPalette,
-  onFocus,
-}: CreateSwatchProps): ReactElement | null => {
+export const CreateSwatch = (): ReactElement | null => {
   const { palette } = Color.usePalette();
   if (palette.key === color.SERIES_PALETTE) return null;
-  const focused = palette.key === focusedPalette;
-  return palette.key === "" ? (
-    <Add focused={focused} onFocus={onFocus} />
-  ) : (
-    <PaletteAdd palette={palette.key} focused={focused} onFocus={onFocus} />
-  );
+  return palette.key === NO_PALETTE ? <Add /> : <PaletteAdd palette={palette.key} />;
 };
 
 /**
  * Ends the Custom tab of a color picker. It opens a view that creates a named color
  * from the custom color.
  */
-export const SaveColor = (): ReactElement => {
+export const SaveToLibrary = (): ReactElement => {
   const { open } = Dialog.useViews();
   return (
     <Button.CreateListItem
       size="small"
-      onClick={(e) => open("New color", <NewColor />, e.currentTarget)}
+      onClick={(e) => open("New color", <CreateView />, e.currentTarget)}
     >
       Save to library
     </Button.CreateListItem>
   );
 };
-
-export interface CreatePaletteProps {
-  /** Called with the key of a created palette that ends with a "+", for its focus. */
-  onCreate?: (key: group.Key) => void;
-}
 
 /**
  * Ends the palettes of a color picker. It creates a palette after asking its name, and
@@ -301,23 +263,22 @@ export interface CreatePaletteProps {
  * the new palette. A cancel, or a create for a user who cannot add to the palette,
  * moves it back to the button that opened the entry.
  */
-export const CreatePalette = ({ onCreate }: CreatePaletteProps): ReactElement => {
-  const { clearSearch } = Color.usePicker();
+export const CreatePalette = (): ReactElement => {
+  const { clearSearch, focusPalette } = Color.usePicker();
   // No policy can name the key of a new palette, so only a grant on every palette gives
   // it a "+".
   const extendable = Access.useUpdateGranted(group.TYPE_RESOURCE_ID);
   const [naming, setNaming] = useState(false);
   const [focused, setFocused] = useState(false);
   const { updateAsync: create, variant } = useCreatePalette();
-  const handleSave = async (name: string): Promise<boolean> => {
+  const handleSave = async (name: string): Promise<void> => {
     const key = uuid.create();
     const created = await create({ key, name });
-    if (!created) return false;
+    if (!created) return;
     setNaming(false);
     clearSearch();
-    if (extendable) onCreate?.(key);
+    if (extendable) focusPalette(key);
     else setFocused(true);
-    return true;
   };
   return naming ? (
     <NameEntry

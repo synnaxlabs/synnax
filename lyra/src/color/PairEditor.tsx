@@ -50,7 +50,7 @@ export const PairEditor = ({
 }: PairEditorProps): ReactElement => {
   const [mode, setMode] = useState<Mode>(Theming.use().dark ? "dark" : "light");
   const auto = value.dark == null;
-  const dark = value.dark ?? theme.legible(value.light, DARK);
+  const dark = theme.resolve(value, DARK);
   const shown = mode === "light" ? value.light : dark;
   const handleChange = (c: color.Color): void =>
     onChange(mode === "light" ? { ...value, light: c } : { ...value, dark: c });

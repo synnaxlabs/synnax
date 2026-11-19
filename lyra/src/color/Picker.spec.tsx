@@ -15,7 +15,13 @@ import {
   type RenderResult,
   within,
 } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement, useState } from "react";
+import {
+  type PropsWithChildren,
+  type ReactElement,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Color } from "@/color";
@@ -677,7 +683,7 @@ describe("Picker", () => {
 
       it("should end the custom editor with customFooter, and show Library on a link", () => {
         const Linker = (): ReactElement => {
-          const { onNamedChange: link } = Color.usePicker();
+          const { link } = Color.usePicker();
           return <button onClick={() => link("moss")}>link Moss</button>;
         };
         const c = renderSlots(
@@ -698,7 +704,7 @@ describe("Picker", () => {
 
       it("should clear the search and focus a hidden swatch that a slot links", () => {
         const Linker = (): ReactElement => {
-          const { onNamedChange: link } = Color.usePicker();
+          const { link } = Color.usePicker();
           return <button onClick={() => link("moss")}>link Moss</button>;
         };
         const c = renderSlots({ named: "ocean", footer: <Linker /> });
@@ -713,12 +719,35 @@ describe("Picker", () => {
 
       it("should focus a shown swatch that a slot links", () => {
         const Linker = (): ReactElement => {
-          const { onNamedChange: link } = Color.usePicker();
+          const { link } = Color.usePicker();
           return <button onClick={() => link("moss")}>link Moss</button>;
         };
         const c = renderSlots({ named: "ocean", footer: <Linker /> });
         fireEvent.click(c.getByText("link Moss"));
         expect(document.activeElement).toBe(c.getByLabelText("Moss"));
+      });
+
+      it("should move the focus into the end of a palette that a slot names", () => {
+        const End = (): ReactElement => {
+          const { palette, focused } = Color.usePalette();
+          const ref = useRef<HTMLButtonElement>(null);
+          useEffect(() => {
+            if (focused) ref.current?.focus();
+          }, [focused]);
+          return (
+            <button ref={ref}>
+              {focused ? `${palette.name} end, focused` : `${palette.name} end`}
+            </button>
+          );
+        };
+        const Focuser = (): ReactElement => {
+          const { focusPalette } = Color.usePicker();
+          return <button onClick={() => focusPalette("status")}>focus Status</button>;
+        };
+        const c = renderSlots({ paletteEnd: <End />, footer: <Focuser /> });
+        fireEvent.click(c.getByText("focus Status"));
+        // The focus entered the palette, so the flag is clear again.
+        expect(document.activeElement).toBe(c.getByText("Status end"));
       });
 
       it("should clear the search from a slot", () => {
@@ -751,7 +780,7 @@ describe("Picker", () => {
       it("should give a slot the linked color and link the value through the library", () => {
         const onNamedChange = vi.fn();
         const Linker = (): ReactElement => {
-          const { linked, onNamedChange: link } = Color.usePicker();
+          const { linked, link } = Color.usePicker();
           return (
             <button onClick={() => link("moss")}>{`linked ${linked?.name}`}</button>
           );

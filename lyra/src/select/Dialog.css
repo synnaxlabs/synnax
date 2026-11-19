@@ -36,7 +36,7 @@
 }
 
 /* The box that shows views passes the dialog's height cap on to the list. */
-.lyra-select__dialog > .lyra-views {
+.lyra-select__dialog > .lyra-dialog-views {
     min-height: 0;
 }
 

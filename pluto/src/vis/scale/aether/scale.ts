@@ -165,7 +165,7 @@ export class Scale
 
     const { axisColor, textColor } = this.state;
     i.fillColor =
-      this.state.color ?? levelColorFallback(i.theme, aetherColor.series.use(ctx));
+      this.state.color ?? levelColorFallback(i.theme, aetherColor.useSeries(ctx));
     i.axisColor = axisColor ?? axisColorFallback(i.theme);
     i.textColor = textColor ?? textColorFallback(i.theme);
     i.tickLevel = this.state.level;

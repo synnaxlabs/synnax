@@ -816,7 +816,7 @@ var _ = Describe("Import", func() {
 			}
 			named := &color.Ref{Variant: color.NamedRef{Key: c.Key}}
 			member := MustSucceed(json.Marshal(map[string]any{
-				"version": 5,
+				"version": 6,
 				"type":    "panel",
 				"name":    "Controls",
 				"root":    map[string]any{"variant": "leaf", "tabs": []any{}},
