@@ -102,7 +102,8 @@ Status struct {
 
 _(Amended by RFC 0116 §4.3: `on_delete` gains `weak`, which keeps the dependent
 unchanged when its target is deleted. A channel reference may also declare
-`direction read | write`, which Oracle reads and Gorp does not.)_
+`direction read | write`. Oracle writes it into an opaque tag on the reference, which
+Gorp stores and returns with each dependent and never reads.)_
 
 A nil value, an empty array, and a zero scalar with a zero default (`= 0`, `= ""`) hold
 no target. A new reference uses `X?`. The zero rule exists for the stored task configs
