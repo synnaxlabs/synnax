@@ -85,8 +85,11 @@ and the bar for a finding stays the same.
   traced in the one finding, so that the fix does not start the next finding.
 - On a later review, do each step for the changes since your last review and for the
   code that they affect. Earlier reviews did each step for the rest of the diff. There,
-  report again each earlier finding still open that still applies, with its title, and
   report only a P0 or a P1 that an earlier review missed.
+- Give a verdict on each earlier finding still open. When it still applies, report it
+  again with its title. When the code fixed it, put its `path` and `title` in `fixed`,
+  and in `reason` name the code that fixed it, in one sentence. The fix can be in a file
+  other than the finding's file. Do not use `@` mentions in `reason`.
 
 ## Severity
 

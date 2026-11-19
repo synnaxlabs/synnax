@@ -110,7 +110,7 @@ const middleware =
     // and then propagate actions to other windows.
     void mu.runExclusive(async (): Promise<void> => {
       try {
-        if (shouldSync) await sync(prevS, nextS, runtime, debug);
+        if (shouldSync) await sync(prevS, nextS, store.dispatch, runtime, debug);
         if (shouldEmit_) await runtime.emit({ action });
       } catch (err) {
         const e = errors.fromUnknown(err);

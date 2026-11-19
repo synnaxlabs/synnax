@@ -775,3 +775,36 @@ class TestReport:
         assert compare.report([], None, since=SINCE).endswith(
             "No commit has a review from both yet."
         )
+
+
+class TestRetrying:
+    """Tests running a failed read again."""
+
+    def test_should_return_the_answer_of_a_later_try(self) -> None:
+        answers: list[str | Exception] = [
+            subprocess.CalledProcessError(1, "gh"),
+            "ok",
+        ]
+        waits: list[float] = []
+
+        def gh(*args: str, **kwargs: Any) -> str:
+            answer = answers.pop(0)
+            if isinstance(answer, Exception):
+                raise answer
+            return answer
+
+        assert compare.retrying(gh, sleep=waits.append)("api", "graphql") == "ok"
+        assert waits == [2]
+
+    def test_should_raise_when_every_try_fails(self) -> None:
+        calls: list[tuple[str, ...]] = []
+        waits: list[float] = []
+
+        def gh(*args: str, **kwargs: Any) -> str:
+            calls.append(args)
+            raise subprocess.CalledProcessError(1, "gh")
+
+        with pytest.raises(subprocess.CalledProcessError):
+            compare.retrying(gh, sleep=waits.append)("api", "graphql")
+        assert len(calls) == 3
+        assert waits == [2, 4]
