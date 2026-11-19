@@ -38,11 +38,16 @@ const toPlainText = async (content: string): Promise<string> => {
   return String(result).replace(/\s+/g, " ").trim();
 };
 
-const read = (dir: string, filename: string, href: string) => ({
-  filename,
-  href,
-  ...matter(fs.readFileSync(path.join(dir, filename))),
-});
+const read = (dir: string, filename: string, href: string, title?: string) => {
+  const { data, content } = matter(fs.readFileSync(path.join(dir, filename)));
+  return {
+    filename,
+    href,
+    title: title ?? data.heading ?? data.title,
+    description: data.description,
+    content,
+  };
+};
 
 const PAGES_DIR = "./src/pages";
 const pages = [
@@ -53,16 +58,21 @@ const pages = [
       read(PAGES_DIR, f, `/${f.replace(".mdx", "").replace(/(^|\/)index$/, "$1")}`),
     ),
   // Each version's notes render only inside /releases, under the version's anchor.
-  ...listReleaseNotes().map(({ name, anchor }) =>
-    read(RELEASE_NOTES_DIR, `${name}.mdx`, `/releases/#${anchor}`),
+  ...listReleaseNotes().map(({ name, version, anchor }) =>
+    read(
+      RELEASE_NOTES_DIR,
+      `${name}.mdx`,
+      `/releases/#${anchor}`,
+      `Version ${version.split(".").slice(0, 2).join(".")} release notes`,
+    ),
   ),
 ];
 const data = await Promise.all(
-  pages.map(async ({ filename, href, data: frontmatter, content }) => ({
+  pages.map(async ({ filename, href, title, description, content }) => ({
     objectID: filename,
     href,
-    title: frontmatter.heading ?? frontmatter.title,
-    description: frontmatter.description,
+    title,
+    description,
     content: await toPlainText(purgeImports(content)),
   })),
 );
