@@ -22,6 +22,7 @@ export const components = mdxOverrides;
   layout="bleed"
   tone="deep"
   palette="blue-pink"
+  alt="The ranges toolbar with running ranges, a line plot, and a schematic"
 />
 
 Synnax v0.62 builds ranges around the way you run a test. Start a run from the ranges
@@ -39,7 +40,7 @@ Some client calls, Arc unit rules, and Console features changed. Read the
 
 ### Ranges built around your test
 
-<Video id="releases/0-62-0/ranges" />
+<Video id="releases/0-62-0/ranges" label="Start a range and step through its phases" />
 
 Every test now has a home in the ranges toolbar. Click **Start range**, type
 `Coldflow 12`, and press Enter: the range starts at the click, and it grows on each plot
@@ -69,7 +70,7 @@ See [Find ranges](/reference/ranges/find).
 
 ### Send data to Sift
 
-<Video id="releases/0-62-0/sift" />
+<Video id="releases/0-62-0/sift" label="Upload a range to Sift" />
 
 Synnax now sends your data to [Sift](https://www.siftstack.com). Right-click a range,
 select **Upload to Sift**, and pick the asset and the channels. The Core sends the data
@@ -115,7 +116,13 @@ See [EtherCAT](/reference/hardware/ethercat/configure-device).
 
 ### Settings in one place
 
-<Hero.Hero inset still="releases/0-62-0/secrets" layout="framed" palette="teal-blue" />
+<Hero.Hero
+  inset
+  still="releases/0-62-0/secrets"
+  layout="framed"
+  palette="teal-blue"
+  alt="The secrets page of Settings"
+/>
 
 Click the gear in the top bar to open one Settings tab for your account, your Console,
 and your Core. Manage users, labels, colors, secrets, certificates, and the license from
@@ -133,7 +140,13 @@ users who can use it.
 
 ### Named colors
 
-<Hero.Hero inset still="releases/0-62-0/colors" layout="framed" palette="violet-pink" />
+<Hero.Hero
+  inset
+  still="releases/0-62-0/colors"
+  layout="framed"
+  palette="violet-pink"
+  alt="A line plot with the named color picker open"
+/>
 
 Line plots now draw with named colors. Each color has a light value and a dark value,
 and lives in a palette. Change a color in **Settings** > **Colors**, and each plot that
@@ -149,7 +162,13 @@ kind of color blindness. In a line's color picker, **Library** links a named col
 
 ### Loop budgets, improved units, and error codes in Arc
 
-<Hero.Hero inset still="releases/0-62-0/arc" layout="framed" palette="red-orange" />
+<Hero.Hero
+  inset
+  still="releases/0-62-0/arc"
+  layout="framed"
+  palette="red-orange"
+  alt="An Arc automation stopped with the error Program ran too long"
+/>
 
 Each Arc automation now runs with a loop budget of 100,000,000 loop iterations and
 function calls per cycle. A cycle that uses the whole budget stops the program with
@@ -282,8 +301,8 @@ Type in any context menu to filter its items, also inside submenus: "copy link" 
 - When the embedded Driver cannot start, the Core names its error, such as a missing
   GLIBC version.
 - An update from a data folder of Core 0.47 to 0.60 shows every device and document.
-- The PyPI packages publish with provenance that ties each file to the workflow that
-  built it.
+- The npm and PyPI packages publish with provenance that ties each file to the workflow
+  that built it.
 
 <Divider.Divider x />
 

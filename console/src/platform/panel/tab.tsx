@@ -78,10 +78,10 @@ export interface Tabs extends Record<string, Tab> {}
  * keeping that module out of the startup bundle. Tabs render it inside a Suspense
  * boundary.
  */
-export const lazyComponent = <K extends string, C extends FC<record.Empty>>(
-  load: () => Promise<Record<K, C>>,
+export const lazyComponent = <K extends string, P extends object = record.Empty>(
+  load: () => Promise<Record<K, FC<P>>>,
   name: K,
-): LazyExoticComponent<C> => lazy(async () => ({ default: (await load())[name] }));
+): LazyExoticComponent<FC<P>> => lazy(async () => ({ default: (await load())[name] }));
 
 const [RendererContext, useRendererContext] = context.create<Tabs>({
   defaultValue: {},

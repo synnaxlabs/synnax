@@ -367,8 +367,9 @@ whose values collide, on the stored value or after narrowing. Each drop is logge
   arguments, the order, and a `cluster.Identity` input to the task service. Phases 28 to
   31 apply the rule. Phase 27 adds the rename rule as a shared helper in
   `console/src/platform/task`, which Phases 28 to 31 use. Phase 29 changes the shared
-  `configureReadChannels`, Phase 30 changes `configureCommandChannel`, and each keeps
-  the HTTP callers working until Phase 31, which uses both.
+  `planReadChannels` and `applyReadChannels`, and Phase 30 changes
+  `configureCommandChannel`. Each keeps the HTTP callers working until Phase 31, which
+  uses all three.
 
 OPC UA v1 `array_mode: true` lifts to `array`. A Modbus `string` data type lifts to the
 string variant. Each field in §6 clamps and logs, and an identifier also disables its

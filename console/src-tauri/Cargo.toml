@@ -85,3 +85,6 @@ default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
 # Synnax Desktop: the app bundles a Core and supervises it.
 desktop = ["dep:getrandom", "dep:tokio", "dep:zip"]
+
+[lints.cargo]
+unused_dependencies = "deny"
