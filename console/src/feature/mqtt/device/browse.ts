@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Synnax } from "@synnaxlabs/client";
-import { TimeSpan } from "@synnaxlabs/pluto";
+import { TimeSpan } from "@synnaxlabs/x";
 
 import { retrieveScanTask } from "@/feature/mqtt/device/retrieveScanTask";
 import { type Device } from "@/feature/mqtt/device/types";
