@@ -353,9 +353,8 @@ var _ = DescribeTable("Crash harness, holding",
 )
 
 // flipped commits n durable records, with no flush, crashes, and flips one bit at the
-// offset at of the
-// newest WAL in the crash image, which it returns. A reopened store opens once before
-// the commits, so its WAL has synced offsets.
+// offset at of the newest WAL in the crash image, which it returns. A reopened store
+// opens once before the commits, so its WAL has synced offsets.
 func flipped(ctx context.Context, reopened bool, n uint64, at int64) *fault.FS {
 	GinkgoHelper()
 	disk := MustSucceed(fault.New(fault.Config{}))
