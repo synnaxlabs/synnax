@@ -121,7 +121,7 @@ def subject(message: str) -> str:
 
 def reviews(body: str) -> int:
     """Returns how many reviews the summary in a pull request body counts."""
-    m = re.search(rf"{re.escape(SUMMARY_START)}.*?Reviews \((\d+)\)", body, re.S)
+    m = re.search(rf"{re.escape(SUMMARY_START)}.*?Reviews \((\d+)\)", body, re.DOTALL)
     return int(m[1]) if m else 0
 
 

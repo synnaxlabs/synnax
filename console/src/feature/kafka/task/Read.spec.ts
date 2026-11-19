@@ -141,7 +141,7 @@ const renderRead = async ({
   );
   await beforeRender?.(dev);
   const statuses: Status.NotificationSpec[] = [];
-  const result = await renderTaskFormTab(Kafka.Task.Read, {
+  const result = await renderTaskFormTab(Kafka.Task.FORMS[Kafka.Task.READ_TYPE], {
     client,
     as,
     taskKey: draft.key,

@@ -402,10 +402,15 @@ export abstract class Retriever<
                 ? undefined
                 : (query) => serverComputed(query as z.output<Z>),
             cursor: list.cursor,
-            triggers: triggers?.map(({ attach, version, contentOnly }) => ({
-              attach: (query, onEvent) => attach(query as z.output<Z>, onEvent),
+            triggers: triggers?.map(({ attach, version, contentOnly, covers }) => ({
+              attach: (query, onEvent, members) =>
+                attach(query as z.output<Z>, onEvent, members),
               version,
               contentOnly,
+              covers:
+                covers == null
+                  ? undefined
+                  : (query, members) => covers(query as z.output<Z>, members),
             })),
             compare: list.compare,
           });

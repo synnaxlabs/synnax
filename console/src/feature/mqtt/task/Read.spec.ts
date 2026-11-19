@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { type device, icd, mqtt, type rack } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createTestClient, rejectRequests } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { DataType, type payload, TimeStamp, uuid } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { MQTT } from "@/feature/mqtt";
 import { createBroker, openAddData, openScanner } from "@/feature/mqtt/testutil";
@@ -22,6 +22,7 @@ import {
   clickFailedDeploy,
   deployAndAwaitTask,
   renderTaskFormTab,
+  START_FAILURE,
 } from "@/platform/task/testutil";
 import { findDialogTriggerByText } from "@/testutil";
 
@@ -123,7 +124,7 @@ const renderRead = async ({
   );
   await beforeRender?.(dev);
   const statuses: Status.NotificationSpec[] = [];
-  const result = await renderTaskFormTab(MQTT.Task.Read, {
+  const result = await renderTaskFormTab(MQTT.Task.FORMS[MQTT.Task.READ_TYPE], {
     client,
     taskKey: draft.key,
     onStatuses: (next) => {
@@ -2096,6 +2097,36 @@ describe("MQTT read form", () => {
       });
     });
 
+    it("should create no channel when a later message fails to plan", async () => {
+      const entry = await createEntry({
+        fields: [createField("temperature", "float")],
+      });
+      await addMessage(entry, "later", [createField("rejected", "float")], {
+        ...KIND_MATCH,
+        value: "later",
+      });
+      const error = vi.spyOn(console, "error").mockImplementation(() => {});
+      onTestFinished(() => error.mockRestore());
+      const { container, dev, statuses } = await renderRead({ entries: [entry] });
+      // Only the plan of the later message names a channel after its field.
+      const reject = rejectRequests(
+        client,
+        (target, req) =>
+          target === "/channel/retrieve" && JSON.stringify(req).includes("rejected"),
+        new Error("plan failed"),
+      );
+      try {
+        await clickFailedDeploy(container);
+      } finally {
+        reject.mockRestore();
+      }
+      expect(statuses).toContainEqual(START_FAILURE);
+      const made = await client.channels.retrieve({ searchTerm: dev.name });
+      expect(
+        made.map(({ name }) => name).filter((n) => n.startsWith(dev.name)),
+      ).toEqual([]);
+    });
+
     it("should keep the channels stored under a topic when an earlier message fails", async () => {
       const time = await createTimeChannel();
       const createFloat = async (name: string) =>
@@ -2242,7 +2273,7 @@ describe("MQTT read form", () => {
         { name: "MQTT read task", type: MQTT.Task.READ_TYPE, config },
         MQTT.Task.READ_SCHEMAS,
       );
-      const rendered = await renderTaskFormTab(MQTT.Task.Read, {
+      const rendered = await renderTaskFormTab(MQTT.Task.FORMS[MQTT.Task.READ_TYPE], {
         client,
         taskKey: second.key,
       });
