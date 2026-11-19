@@ -134,3 +134,10 @@ const columns = [
         }
     }
 </style>
+
+<script>
+    import { z } from "zod";
+
+    // Zod otherwise probes for eval, which the policy refuses.
+    z.config({ jitless: true });
+</script>
