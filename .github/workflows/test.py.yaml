@@ -82,7 +82,6 @@ on:
   workflow_dispatch:
     inputs: *inputs
 
-# The test services pull their images from GHCR.
 # A fork's run gets no secrets, so its Core would have no license. It skips the Core and
 # the tests that need one, and the merge queue runs them.
 env:
@@ -90,6 +89,7 @@ env:
     ${{ github.event_name == 'pull_request' &&
     github.event.pull_request.head.repo.full_name != github.repository }}
 
+# The test services pull their images from GHCR.
 permissions:
   contents: read
   packages: read
