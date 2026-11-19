@@ -65,10 +65,17 @@ interface RenderOptions {
   onMove?: (from: number, to: number) => void;
 }
 
-const renderTable = ({ value = [[1, 10]], ...rest }: RenderOptions = {}) => {
+/** @returns a row key that reads the row's first cell. */
+const keyByFirstCell =
+  (value: Input.TableCell[][]) =>
+  (index: number): string =>
+    String(value[index][0]);
+
+const renderTable = ({ value = [[1, 10]], onMove, ...rest }: RenderOptions = {}) => {
   const onChange = vi.fn();
+  const moves = onMove == null ? {} : { onMove, rowKey: keyByFirstCell(value) };
   render(
-    <Input.Table value={value} onChange={onChange} {...rest}>
+    <Input.Table value={value} onChange={onChange} {...rest} {...moves}>
       {COLUMNS}
     </Input.Table>,
   );
@@ -1020,16 +1027,29 @@ describe("Input.Table", () => {
       renderHaulPreview?: (index: number) => ReactNode;
     }
 
-    // Holds the value and applies each edit and move, as a form would.
+    interface KeyedRow {
+      key: string;
+      cells: Input.TableCell[];
+    }
+
+    // Holds keyed rows and applies each edit, removal, and move, as a form would.
     const Movable = ({
       initial,
       refused = false,
       ...rest
     }: MovableProps): ReactElement => {
-      const [value, setValue] = useState(initial);
+      const [rows, setRows] = useState<KeyedRow[]>(() =>
+        initial.map((cells, i) => ({ key: `row-${i}`, cells })),
+      );
+      const handleChange = (next: Input.TableCell[][]) =>
+        setRows((prev) =>
+          next.map((cells, i) => ({ key: prev[i]?.key ?? `new-${i}`, cells })),
+        );
+      const handleRemove = (index: number) =>
+        setRows((prev) => prev.filter((_, i) => i !== index));
       const handleMove = (from: number, to: number) => {
         if (refused) return;
-        setValue((prev) => {
+        setRows((prev) => {
           const next = [...prev];
           const [row] = next.splice(from, 1);
           next.splice(to, 0, row);
@@ -1038,7 +1058,14 @@ describe("Input.Table", () => {
       };
       return (
         <Haul.Provider>
-          <Input.Table value={value} onChange={setValue} onMove={handleMove} {...rest}>
+          <Input.Table
+            value={rows.map(({ cells }) => cells)}
+            onChange={handleChange}
+            onRemove={handleRemove}
+            onMove={handleMove}
+            rowKey={(i) => rows[i].key}
+            {...rest}
+          >
             {COLUMNS}
           </Input.Table>
         </Haul.Provider>
@@ -1048,7 +1075,12 @@ describe("Input.Table", () => {
     const renderDraggable = (onMove: (from: number, to: number) => void) =>
       render(
         <Haul.Provider>
-          <Input.Table value={ROWS} onChange={vi.fn()} onMove={onMove}>
+          <Input.Table
+            value={ROWS}
+            onChange={vi.fn()}
+            onMove={onMove}
+            rowKey={keyByFirstCell(ROWS)}
+          >
             {COLUMNS}
           </Input.Table>
         </Haul.Provider>,
@@ -1101,10 +1133,20 @@ describe("Input.Table", () => {
       const onMove = vi.fn();
       render(
         <Haul.Provider>
-          <Input.Table value={ROWS} onChange={vi.fn()} onMove={vi.fn()}>
+          <Input.Table
+            value={ROWS}
+            onChange={vi.fn()}
+            onMove={vi.fn()}
+            rowKey={keyByFirstCell(ROWS)}
+          >
             {COLUMNS}
           </Input.Table>
-          <Input.Table value={ROWS} onChange={vi.fn()} onMove={onMove}>
+          <Input.Table
+            value={ROWS}
+            onChange={vi.fn()}
+            onMove={onMove}
+            rowKey={keyByFirstCell(ROWS)}
+          >
             {COLUMNS}
           </Input.Table>
         </Haul.Provider>,
@@ -1170,6 +1212,40 @@ describe("Input.Table", () => {
       expect(marked(cell("Raw", "1"))).toBe(false);
     });
 
+    const renderKeyed = (
+      rows: Input.TableCell[][],
+      keys: string[],
+      onMove = vi.fn(),
+    ) => (
+      <Haul.Provider>
+        <Input.Table
+          value={rows}
+          onChange={vi.fn()}
+          onMove={onMove}
+          rowKey={(i) => keys[i]}
+        >
+          {COLUMNS}
+        </Input.Table>
+      </Haul.Provider>
+    );
+
+    it("should keep a mark on its row when the caller reorders the rows", () => {
+      const { rerender } = render(renderKeyed(ROWS, ["a", "b", "c"]));
+      paste(cell("Raw", "2"), "x\t21");
+      rerender(renderKeyed([ROWS[1], ROWS[0], ROWS[2]], ["b", "a", "c"]));
+      expect(marked(cell("Raw", "1"))).toBe(true);
+      expect(marked(cell("Raw", "2"))).toBe(false);
+    });
+
+    it("should drop the dragged row by its key after the rows above it change", () => {
+      const onMove = vi.fn();
+      const { rerender } = render(renderKeyed(ROWS, ["a", "b", "c"], onMove));
+      fireEvent.dragStart(handle("1"));
+      rerender(renderKeyed([[0, 0], ...ROWS], ["z", "a", "b", "c"], onMove));
+      fireEvent.drop(rowOf("4"));
+      expect(onMove).toHaveBeenCalledWith(1, 3);
+    });
+
     it("should draw the drop line on the side the row lands on", () => {
       renderDraggable(vi.fn());
       fireEvent.dragStart(handle("1"));
@@ -1207,7 +1283,12 @@ describe("Input.Table", () => {
       const onMove = vi.fn();
       const { rerender } = render(
         <Haul.Provider>
-          <Input.Table value={ROWS} onChange={vi.fn()} onMove={onMove}>
+          <Input.Table
+            value={ROWS}
+            onChange={vi.fn()}
+            onMove={onMove}
+            rowKey={keyByFirstCell(ROWS)}
+          >
             {COLUMNS}
           </Input.Table>
         </Haul.Provider>,
@@ -1216,7 +1297,13 @@ describe("Input.Table", () => {
       const target = rowOf("3");
       rerender(
         <Haul.Provider>
-          <Input.Table value={ROWS} onChange={vi.fn()} onMove={onMove} preview>
+          <Input.Table
+            value={ROWS}
+            onChange={vi.fn()}
+            onMove={onMove}
+            rowKey={keyByFirstCell(ROWS)}
+            preview
+          >
             {COLUMNS}
           </Input.Table>
         </Haul.Provider>,
