@@ -77,7 +77,7 @@ const renderEdge = async (
   const dev = await createBroker(client);
   const draft = await createDraft(client, createEdgeConfig(dev.key, tags));
   const statuses: Status.NotificationSpec[] = [];
-  const result = await renderTaskFormTab(MQTT.Task.Edge, {
+  const result = await renderTaskFormTab(MQTT.Task.FORMS[MQTT.Task.EDGE_TYPE], {
     client,
     taskKey: draft.key,
     onStatuses: (next) => {
@@ -101,7 +101,7 @@ const addCommandChannel = async (): Promise<void> => {
 describe("MQTT Edge form", () => {
   it("should ask for a broker before it shows the form body", async () => {
     await createBroker(client);
-    await renderTaskFormTab(MQTT.Task.Edge, { task: ZERO_DRAFT });
+    await renderTaskFormTab(MQTT.Task.FORMS[MQTT.Task.EDGE_TYPE], { task: ZERO_DRAFT });
     await screen.findByText("No device selected");
     expect(screen.queryByText("Tags")).toBeNull();
   });
@@ -293,10 +293,13 @@ describe("MQTT Edge form", () => {
       const dev = await createBroker(client);
       const config = { ...createEdgeConfig(dev.key, [createTag("t1")]), group: "a/b" };
       const draft = await createDraft(client, config);
-      const { container } = await renderTaskFormTab(MQTT.Task.Edge, {
-        client,
-        taskKey: draft.key,
-      });
+      const { container } = await renderTaskFormTab(
+        MQTT.Task.FORMS[MQTT.Task.EDGE_TYPE],
+        {
+          client,
+          taskKey: draft.key,
+        },
+      );
       await screen.findByPlaceholderText("oven/temperature");
       await clickDeploy(container);
       await screen.findByText("Group must not hold /, +, or #");
@@ -390,10 +393,13 @@ describe("MQTT Edge form", () => {
           createTag("t3", { name: "c", channel: ch.key }),
         ]),
       );
-      const { container } = await renderTaskFormTab(MQTT.Task.Edge, {
-        client,
-        taskKey: draft.key,
-      });
+      const { container } = await renderTaskFormTab(
+        MQTT.Task.FORMS[MQTT.Task.EDGE_TYPE],
+        {
+          client,
+          taskKey: draft.key,
+        },
+      );
       const created = await deployAndAwaitTask(
         client,
         container,
@@ -464,10 +470,13 @@ describe("MQTT Edge form", () => {
           task.set({ path: ["config"], value: config }),
         ),
       ).toBe(true);
-      const { container } = await renderTaskFormTab(MQTT.Task.Edge, {
-        client,
-        taskKey: first.draft.key,
-      });
+      const { container } = await renderTaskFormTab(
+        MQTT.Task.FORMS[MQTT.Task.EDGE_TYPE],
+        {
+          client,
+          taskKey: first.draft.key,
+        },
+      );
       const created = await deployAndAwaitTask(
         client,
         container,
