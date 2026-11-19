@@ -44,7 +44,7 @@ const dialog = (): HTMLDialogElement => find(".docs-lightbox");
 const control = (name: string): HTMLElement => find(`.docs-lightbox__${name}`);
 
 const openVideo = (): HTMLVideoElement => {
-  show(renderToString(<Media.Video id={ID} />));
+  show(renderToString(<Media.Video id={ID} label="A video" />));
   const video = find<HTMLVideoElement>("video");
   video.click();
   return video;
