@@ -48,12 +48,15 @@ build:macos --host_cxxopt=-std=c++23
 build:macos --copt=-Werror
 build:macos --copt=-fvisibility=hidden
 build:macos --cxxopt=-fvisibility-inlines-hidden
+# gRPC's public headers call the deprecated pointer form of absl::MutexLock.
+build:macos --copt=-Wno-error=deprecated-declarations
 
 build:linux --cxxopt=-std=c++23
 build:linux --host_cxxopt=-std=c++23
 build:linux --copt=-Werror
 build:linux --copt=-fvisibility=hidden
 build:linux --cxxopt=-fvisibility-inlines-hidden
+build:linux --copt=-Wno-error=deprecated-declarations
 # GoogleTest triggers sign-compare inside gtest.h when a test compares a signed to an
 # unsigned integer. GCC reports it against the header, so it cannot be suppressed at the
 # call site.
@@ -79,6 +82,10 @@ build:windows --conlyopt=/WX
 # Level 4 warnings raised to level 3 so /W3 reports them.
 build:windows --copt=/w34388  # signed/unsigned mismatch in a comparison
 build:windows --copt=/w34389  # signed/unsigned mismatch in == and !=
+# Generated protobuf code is workspace code, so /external:W0 does not cover it.
+build:windows --copt=/wd4267  # conversion from size_t, possible loss of data
+build:windows --copt=/wd4244  # conversion between types, possible loss of data
+build:windows --copt=/wd4996  # deprecated declaration
 build:windows --copt=/wd4305  # truncation from double to float
 build:windows --copt=/wd4146  # unary minus operator applied to unsigned type (telem templates)
 build:windows --copt=/wd4589  # constructor ignores initializer for virtual base class (NI channel hierarchy)
