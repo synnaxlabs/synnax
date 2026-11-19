@@ -258,6 +258,7 @@ var _ = Describe("Run", func() {
 				})
 				var v *crash.Violation
 				Expect(errors.As(err, &v)).To(BeTrue(), "no violation: %v", err)
+				Expect(result.Recoveries).To(BeNumerically(">", 1))
 				Expect(result.Violations).To(HaveLen(result.Recoveries))
 				Expect(result.Violations[0]).To(Equal(*v))
 				for i, got := range result.Violations {
