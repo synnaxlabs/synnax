@@ -1252,6 +1252,30 @@ describe("Input.Table", () => {
       paste(cell("Name", "1"), "a\t2;3");
       expect(onChange).toHaveBeenCalledWith([["a", { x: 2, y: 3 }]]);
     });
+
+    it("should write an undefined value that a custom column's parse reads", () => {
+      const onChange = vi.fn();
+      render(
+        <Input.Table value={[["origin", "red"]]} onChange={onChange}>
+          <Input.TableColumn name="Name" type="string" />
+          <Input.TableColumn<string | undefined>
+            name="Tint"
+            type="custom"
+            empty={undefined}
+            parse={(text) => (text === "" ? undefined : text)}
+          >
+            {({ value, "aria-label": label }) => (
+              <button aria-label={label}>{value ?? "None"}</button>
+            )}
+          </Input.TableColumn>
+        </Input.Table>,
+      );
+      paste(cell("Name", "1"), "origin\t\nnext\tblue");
+      expect(onChange).toHaveBeenCalledWith([
+        ["origin", undefined],
+        ["next", "blue"],
+      ]);
+    });
   });
 
   describe("select cells", () => {

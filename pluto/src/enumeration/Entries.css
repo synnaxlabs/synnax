@@ -9,9 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-/* An input's slots take no pointer, but the swatch opens the picker and the warning
-   shows its tooltip. */
-.pluto-entries__swatch,
+/* An input's slots take no pointer, but the warning shows its tooltip. */
 .pluto-entries__warning {
     pointer-events: auto;
 }

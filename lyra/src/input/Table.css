@@ -107,7 +107,7 @@
         width: var(--pluto-input-table-gutter-width);
         padding-right: 1rem;
 
-        & > .lyra-text {
+        & > .lyra-text:not(.lyra-input__table-handle) {
             justify-content: flex-end;
             margin-left: auto;
             text-align: right;

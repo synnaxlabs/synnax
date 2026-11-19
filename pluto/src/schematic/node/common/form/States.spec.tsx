@@ -58,13 +58,15 @@ describe("Form.States", () => {
       as,
     );
 
+  /** Waits for the node to name an enumeration other than the one it named before. */
   const created = async (
     value: ReturnType<typeof renderStates>["value"],
+    before?: enumeration.Key,
   ): Promise<enumeration.Enumeration> => {
     let key: enumeration.Key | undefined;
     await waitFor(() => {
       key = value(path.enumeration) as enumeration.Key | undefined;
-      expect(key).toBeDefined();
+      if (key == null || key === before) throw new Error("expected a new enumeration");
     });
     return await client.enumerations.retrieve(key as enumeration.Key);
   };
@@ -132,16 +134,26 @@ describe("Form.States", () => {
   });
 
   describe("create", () => {
-    const openCreate = async (
+    const openPicker = async (
       c: ReturnType<typeof renderStates>,
       term = "",
     ): Promise<void> => {
-      fireEvent.click(c.getByRole("button", { name: "Enumeration" }));
+      fireEvent.click(await c.findByRole("button", { name: /^Enumeration/ }));
       if (term !== "")
         fireEvent.change(await c.findByPlaceholderText("Search enumerations..."), {
           target: { value: term },
         });
-      fireEvent.click(await c.findByRole("button", { name: "Create enumeration" }));
+    };
+
+    const createName = (term: string): string =>
+      term === "" ? "New enumeration" : `Create enumeration "${term}"`;
+
+    const openCreate = async (
+      c: ReturnType<typeof renderStates>,
+      term = "",
+    ): Promise<void> => {
+      await openPicker(c, term);
+      fireEvent.click(await c.findByRole("option", { name: createName(term) }));
     };
 
     it("should lock the options while it creates an enumeration", async () => {
@@ -163,7 +175,7 @@ describe("Form.States", () => {
       fireEvent.click(c.getByRole("button", { name: "Enumeration" }));
       expect(await c.findByText("No enumeration")).toBeTruthy();
       await act(async () => {});
-      expect(c.queryByRole("button", { name: "Create enumeration" })).toBeNull();
+      expect(c.queryByRole("option", { name: createName("") })).toBeNull();
     });
 
     it("should name a new enumeration after the search text", async () => {
@@ -197,6 +209,62 @@ describe("Form.States", () => {
       const c = renderStates();
       await openCreate(c);
       expect((await created(c.value)).name).toBe("State indicator");
+    });
+
+    it("should list Create enumeration above No enumeration", async () => {
+      const c = renderStates();
+      await openPicker(c);
+      const create = await c.findByRole("option", { name: createName("") });
+      const none = c.getByRole("option", { name: /No enumeration/ });
+      expect(
+        create.compareDocumentPosition(none) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    });
+
+    it("should not offer to create a name an enumeration has in any case", async () => {
+      const e = await client.enumerations.create({
+        name: `Valve ${id.create()}`,
+        entries: [],
+      });
+      const c = renderStates();
+      const draft = `${e.name} draft`;
+      await openPicker(c, draft);
+      expect(await c.findByRole("option", { name: createName(draft) })).toBeTruthy();
+      fireEvent.change(c.getByPlaceholderText("Search enumerations..."), {
+        target: { value: e.name.toUpperCase() },
+      });
+      await waitFor(() =>
+        expect(c.queryByRole("option", { name: /^Create enumeration/ })).toBeNull(),
+      );
+    });
+
+    it("should create an empty enumeration for a node that names one", async () => {
+      const linked = await client.enumerations.create({
+        name: id.create(),
+        entries: [{ key: id.create(), name: "Primed", value: 0, abnormal: false }],
+      });
+      const term = `Pump ${id.create()}`;
+      const c = renderStates({ enumeration: linked.key });
+      await openCreate(c, term);
+      const e = await created(c.value, linked.key);
+      expect(e.name).toBe(term);
+      expect(e.entries).toEqual([]);
+      await waitFor(() =>
+        expect(document.activeElement).toBe(
+          c.getByRole("button", { name: "Add entry" }),
+        ),
+      );
+    });
+
+    it("should name a linked node's new enumeration after its label", async () => {
+      const linked = await client.enumerations.create({
+        name: id.create(),
+        entries: [],
+      });
+      const label = `Pump ${id.create()}`;
+      const c = renderStates({ enumeration: linked.key, label: { label } });
+      await openCreate(c);
+      expect((await created(c.value, linked.key)).name).toBe(label);
     });
   });
 

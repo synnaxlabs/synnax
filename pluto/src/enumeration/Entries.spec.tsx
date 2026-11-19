@@ -49,13 +49,14 @@ describe("Enumeration.Table", () => {
   interface HarnessProps {
     initial: enumeration.Entry[];
     onSet?: (entry: enumeration.Entry) => void;
+    onAdd?: (entries: enumeration.Entry[]) => void;
     abnormalDisabled?: boolean;
     colorDisabled?: boolean;
     preview?: boolean;
   }
 
   // Holds the entries and applies each set, as a form would.
-  const Harness = ({ initial, onSet, ...rest }: HarnessProps): ReactElement => {
+  const Harness = ({ initial, onSet, onAdd, ...rest }: HarnessProps): ReactElement => {
     const [value, setValue] = useState(initial);
     return (
       <Enumeration.Table
@@ -64,7 +65,10 @@ describe("Enumeration.Table", () => {
           onSet?.(entry);
           setValue((prev) => prev.map((e) => (e.key === entry.key ? entry : e)));
         }}
-        onAdd={(added) => setValue((prev) => [...prev, ...added])}
+        onAdd={(added) => {
+          onAdd?.(added);
+          setValue((prev) => [...prev, ...added]);
+        }}
         onRemove={(i) => setValue((prev) => prev.filter((_, j) => j !== i))}
         onMove={vi.fn()}
         {...rest}
@@ -152,6 +156,76 @@ describe("Enumeration.Table", () => {
       expect(onSet).toHaveBeenCalledWith(
         expect.objectContaining({ name: "Idle", value: 0 }),
       );
+    });
+
+    it("should hold a value that a held entry still stores", () => {
+      const onSet = vi.fn();
+      renderTable({
+        initial: [createEntry("Off", 0), createEntry("On", 1), createEntry("Idle", 2)],
+        onSet,
+      });
+      commit(input("Value 3"), "0");
+      commit(input("Value 2"), "2");
+      expect(onSet).not.toHaveBeenCalled();
+      expect(input("Value 2").value).toBe("2");
+      expect(marked(input("Value 2"))).toBe(true);
+    });
+
+    it("should save a swap of two values", () => {
+      const onSet = vi.fn();
+      renderTable({ initial: [createEntry("Off", 0), createEntry("On", 1)], onSet });
+      commit(input("Value 2"), "0");
+      commit(input("Value 1"), "1");
+      expect(onSet.mock.calls.map(([e]) => [e.name, e.value])).toEqual([
+        ["Off", 1],
+        ["On", 0],
+      ]);
+      expect(marked(input("Value 2"))).toBe(false);
+    });
+
+    it("should save a pasted entry with a free value that a held entry stores", () => {
+      const onAdd = vi.fn();
+      renderTable({ initial: [createEntry("Off", 0), createEntry("On", 1)], onAdd });
+      commit(input("Value 2"), "0");
+      paste(input("Name 2"), "On\t0\nIdle\t1");
+      expect(onAdd).toHaveBeenCalledWith([
+        expect.objectContaining({ name: "Idle", value: 2 }),
+      ]);
+      expect(input("Value 3").value).toBe("1");
+      expect(marked(input("Value 3"))).toBe(true);
+    });
+
+    it("should keep a hold on a remove while a held entry stores its value", () => {
+      const onSet = vi.fn();
+      renderTable({
+        initial: [
+          createEntry("Off", 0),
+          createEntry("On", 1),
+          createEntry("Idle", 2),
+          createEntry("Fault", 3),
+        ],
+        onSet,
+      });
+      commit(input("Value 3"), "0");
+      commit(input("Value 2"), "2");
+      fireEvent.click(screen.getByRole("button", { name: "Remove entry 4" }));
+      expect(onSet).not.toHaveBeenCalled();
+      expect(marked(input("Value 2"))).toBe(true);
+    });
+
+    it("should release each hold that a remove frees", () => {
+      const onSet = vi.fn();
+      renderTable({
+        initial: [createEntry("Off", 0), createEntry("On", 1), createEntry("Idle", 2)],
+        onSet,
+      });
+      commit(input("Value 3"), "0");
+      commit(input("Value 2"), "2");
+      fireEvent.click(screen.getByRole("button", { name: "Remove entry 1" }));
+      expect(onSet.mock.calls.map(([e]) => [e.name, e.value])).toEqual([
+        ["On", 2],
+        ["Idle", 0],
+      ]);
     });
 
     it("should mark both entries that store the same value", () => {
@@ -247,6 +321,36 @@ describe("Enumeration.Table", () => {
       expect(onSet).toHaveBeenCalledWith(expect.not.objectContaining({ color: fixed }));
     });
 
+    it("should set a fixed color from a pasted hex code", () => {
+      const onSet = vi.fn();
+      renderTable({ initial: [createEntry("Off", 0)], onSet });
+      paste(input("Name 1"), "Open\t0\t#2E7D32\tfalse");
+      expect(onSet).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: "Open",
+          color: { type: "fixed", value: color.construct("#2e7d32") },
+        }),
+      );
+      expect(marked(input("Color 1"))).toBe(false);
+    });
+
+    it("should clear a color to Auto from a pasted empty cell", () => {
+      const onSet = vi.fn();
+      const fixed = { type: "fixed" as const, value: color.construct("#2e7d32") };
+      renderTable({ initial: [createEntry("Off", 0, { color: fixed })], onSet });
+      paste(input("Name 1"), "Open\t0\t\tfalse");
+      expect(onSet).toHaveBeenCalledOnce();
+      const [sent] = onSet.mock.calls[0];
+      expect(sent.name).toBe("Open");
+      expect(sent).not.toHaveProperty("color");
+    });
+
+    it("should mark a pasted color that is not a hex code", () => {
+      renderTable({ initial: [createEntry("Off", 0)] });
+      paste(input("Name 1"), "Open\t0\tgreen\tfalse");
+      expect(marked(input("Color 1"))).toBe(true);
+    });
+
     it("should show an entry's warnings on its color cell, not as a mark", () => {
       renderTable({ initial: [createEntry("", 0)] });
       expect(screen.getByLabelText(/It has no name/)).toBeTruthy();
@@ -262,6 +366,43 @@ describe("Enumeration.Table", () => {
       const fixed = { type: "fixed" as const, value: color.construct("#ffffff") };
       renderTable({ initial: [createEntry("Off", 0, { color: fixed })] });
       expect(screen.getByLabelText(/hard to see in the light theme/)).toBeTruthy();
+    });
+
+    it("should warn about a named color hard to see in the dark theme", async () => {
+      const palette = await client.groups.create({
+        scope: "color",
+        name: `palette-${id.create()}`,
+      });
+      const named = await client.colors.create({
+        name: `color-${id.create()}`,
+        light: "#2e7d32",
+        dark: "#101010",
+        group: palette.key,
+      });
+      renderTable({
+        initial: [createEntry("Off", 0, { color: { type: "named", key: named.key } })],
+      });
+      expect(
+        await screen.findByLabelText(/hard to see in the dark theme/),
+      ).toBeTruthy();
+      expect(screen.queryByLabelText(/hard to see in the light theme/)).toBeNull();
+    });
+
+    it("should name the entry whose color looks the same with color blindness", () => {
+      const fixed = (hex: string) => ({
+        type: "fixed" as const,
+        value: color.construct(hex),
+      });
+      renderTable({
+        initial: [
+          createEntry("Open", 0, { color: fixed("#388e3c") }),
+          createEntry("Running", 1, { color: fixed("#00838f") }),
+        ],
+      });
+      expect(
+        screen.getByLabelText(/With color blindness, its color looks like Running/),
+      ).toBeTruthy();
+      expect(screen.queryByLabelText(/almost the color of/)).toBeNull();
     });
 
     it("should name the entry whose color is almost the same", () => {

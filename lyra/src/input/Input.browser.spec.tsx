@@ -130,6 +130,41 @@ describe("Input", () => {
     });
   });
 
+  describe("slot button", () => {
+    const renderSlotButton = async () => {
+      let pressed = 0;
+      const { getByRole } = await renderThemed(
+        <Input.Text
+          value=""
+          onChange={() => {}}
+          placeholder="Name"
+          startContent={
+            <Button.Button aria-label="Pick color" onClick={() => pressed++}>
+              <Icon.Add />
+            </Button.Button>
+          }
+        />,
+      );
+      return {
+        button: getByRole("button", { name: "Pick color" }),
+        input: getByRole("textbox").element(),
+        pressed: () => pressed,
+      };
+    };
+
+    it("should take a click on a button in the start content", async () => {
+      const { button, pressed } = await renderSlotButton();
+      await userEvent.click(button);
+      expect(pressed()).toBe(1);
+    });
+
+    it("should not focus the input on a press of a slot button", async () => {
+      const { button, input } = await renderSlotButton();
+      await userEvent.click(button);
+      expect(document.activeElement).not.toBe(input);
+    });
+  });
+
   it("should stack above the packed button beside it", async () => {
     const { getByRole } = await renderThemed(
       <Input.Text value="" onChange={() => {}} placeholder="Name">

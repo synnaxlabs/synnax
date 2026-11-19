@@ -151,10 +151,13 @@ export const Text = ({
 
   // Start and end content ignore the pointer, and a textarea leaves slack around
   // itself, so a press on the frame focuses the input. Preventing the default keeps
-  // the press from first moving focus to the body.
+  // the press from first moving focus to the body. A button in a slot, or in a dialog
+  // that it opens, keeps its own press.
   const handleFrameMouseDown = (e: React.MouseEvent<HTMLDivElement>): void => {
     if (disabled || internalRef.current == null || e.target === internalRef.current)
       return;
+    if (!(e.target instanceof Element)) return;
+    if (e.target.closest(`.${CSS.B("btn")}`) !== e.currentTarget) return;
     e.preventDefault();
     internalRef.current?.focus();
   };
