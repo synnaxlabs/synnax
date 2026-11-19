@@ -148,7 +148,7 @@ func analyzeNode(
 		AnalyzeSingleExpression(ctx.Child(expr))
 		return
 	}
-	// NEXT and inline stage/sequence declarations are resolved during sequence
+	// NEXT and anonymous stage/sequence declarations are resolved during sequence
 	// analysis, not here. The grammar guarantees flowNode is one of: identifier |
 	// function | expression | stageDeclaration | sequenceDeclaration | NEXT.
 }
@@ -811,7 +811,7 @@ func analyzeOutputRoutingEntry(
 	// A routing key only gates its entry, so a bare target would never
 	// receive a value. The entry must define its own source.
 	if len(flowNodes) == 1 && targetParamName == "" &&
-		!isInlineBody(flowNodes[0]) {
+		!isAnonymousBody(flowNodes[0]) {
 		ctx.Diagnostics.Add(
 			codes.RoutingTable.Atf(
 				entry,
@@ -904,9 +904,9 @@ func analyzeRoutingEntryChain(
 	}
 }
 
-// isInlineBody reports whether the flow node is an inline stage or sequence
+// isAnonymousBody reports whether the flow node is an anonymous stage or sequence
 // declaration, which is a self-contained routing target.
-func isInlineBody(node parser.IFlowNodeContext) bool {
+func isAnonymousBody(node parser.IFlowNodeContext) bool {
 	return node.StageDeclaration() != nil || node.SequenceDeclaration() != nil
 }
 

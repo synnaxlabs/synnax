@@ -14,7 +14,7 @@ see `docs/claude/testing.md`.
 ## Structure conventions
 
 Model new Arc tests on the existing ones — they are the source of truth for API and
-style: `inline_bodies.py` (inline `stage {}`/`sequence {}` bodies, nesting),
+style: `anonymous_bodies.py` (anonymous `stage {}`/`sequence {}` bodies, nesting),
 `stl_string.py` / `stl_math.py` (shared-trigger pattern, `@dataclass` case lists),
 `stage_routing.py` / `thermal_monitor.py` (sequence/stage transitions).
 

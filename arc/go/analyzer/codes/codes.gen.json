@@ -260,7 +260,7 @@
   "E5005": {
     "severity": "error",
     "message": "invalid transition target",
-    "problem": "A transition has a target that the code cannot reach from there, such as `next` outside a sequence or in the last stage.",
+    "problem": "A transition has a target that the code cannot reach from there, such as `next` outside a stage or sequence.",
     "example": "sensor > 10 => next"
   },
   "E5006": {
@@ -277,8 +277,8 @@
   },
   "E5008": {
     "severity": "error",
-    "message": "an inline stage or sequence cannot have a name",
-    "problem": "An inline stage or sequence has a name.",
+    "message": "a stage or sequence in a flow cannot have a name",
+    "problem": "A stage or sequence in a flow has a name.",
     "example": "sequence main {\n    stage a {\n        sensor -> select() -> {\n            true: stage my_stage { 1 -> valve_cmd }\n        }\n    }\n    stage b {\n        1 -> valve_cmd\n    }\n}\n\nsensor > 1 => main"
   },
   "E5009": {

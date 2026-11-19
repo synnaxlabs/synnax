@@ -283,7 +283,7 @@ var completions = []completionInfo{
 		Insert:       "stage ${1:name} {\n\t$0\n}",
 		Kind:         protocol.CompletionItemKindKeyword,
 		InsertFormat: protocol.InsertTextFormatSnippet,
-		Category:     categorySequenceKeyword | categoryTopLevelKeyword,
+		Category:     categoryTopLevelKeyword | categorySequenceKeyword | categoryStageKeyword,
 	},
 	{
 		Label:        parser.LiteralNEXT,

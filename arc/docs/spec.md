@@ -565,14 +565,14 @@ RoutingKey ::= Identifier | 'true' | 'false'
 FlowNode ::= Identifier           // channel, variable, stage, or sequence name
            | FunctionInvocation   // func(...), sequence(...), or stage(...)
            | Expression           // inline computation
-           | StageDeclaration     // inline stage body
-           | SequenceDeclaration  // inline sequence body
+           | StageDeclaration     // anonymous stage body
+           | SequenceDeclaration  // anonymous sequence body
            | 'next'               // ends its stage
 ```
 
 An output routing entry's case body must be a full flow statement (at least two nodes)
-or an inline stage/sequence body. The routed output only decides that the entry runs; it
-feeds no value into it.
+or an anonymous stage/sequence body. The routed output only decides that the entry runs;
+it feeds no value into it.
 
 ### Simple pipelines
 

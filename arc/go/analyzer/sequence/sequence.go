@@ -145,12 +145,12 @@ func CollectDeclarations(ctx context.Context[parser.IProgramContext]) {
 			collectTopLevelStage(ctx.Child(stageDecl), ctx.Scope)
 		}
 	}
-	desugarInlineDecls(ctx)
+	desugarAnonymousDecls(ctx)
 }
 
-// desugarInlineDecls registers a synth scope under the lexically enclosing
-// scope for each anonymous inline stage/sequence body used as a flow target.
-func desugarInlineDecls(ctx context.Context[parser.IProgramContext]) {
+// desugarAnonymousDecls registers a synth scope under the lexically enclosing
+// scope for each anonymous stage/sequence body used as a flow target.
+func desugarAnonymousDecls(ctx context.Context[parser.IProgramContext]) {
 	counter := 0
 	var walk func(enclosing *symbol.Symbol, node antlr.Tree)
 	walk = func(enclosing *symbol.Symbol, node antlr.Tree) {
@@ -162,7 +162,7 @@ func desugarInlineDecls(ctx context.Context[parser.IProgramContext]) {
 				decl = s
 			}
 			if decl != nil {
-				if synth := registerInlineBody(
+				if synth := registerAnonymousBody(
 					ctx,
 					enclosing,
 					decl,
@@ -193,9 +193,9 @@ func desugarInlineDecls(ctx context.Context[parser.IProgramContext]) {
 	walk(ctx.Scope, ctx.AST)
 }
 
-// registerInlineBody registers a synth scope under parentScope for an inline
+// registerAnonymousBody registers a synth scope under parentScope for an anonymous
 // routing case body; named bodies emit a diagnostic and return nil.
-func registerInlineBody(
+func registerAnonymousBody(
 	ctx context.Context[parser.IProgramContext],
 	parentScope *symbol.Symbol,
 	decl declaration,
@@ -203,11 +203,11 @@ func registerInlineBody(
 ) *symbol.Symbol {
 	collectParameters(ctx, decl, "", "", false)
 	if decl.IDENTIFIER() != nil {
-		ctx.Diagnostics.Add(codes.NamedInlineBody.At(decl))
+		ctx.Diagnostics.Add(codes.NamedFlowBody.At(decl))
 		return nil
 	}
 	synth, err := parentScope.Add(ctx, symbol.Symbol{
-		Name: ir.InlinePrefix + strconv.Itoa(*counter),
+		Name: ir.AnonymousPrefix + strconv.Itoa(*counter),
 		Kind: symbol.KindSequence,
 		Type: types.Sequence(),
 		AST:  decl,
@@ -237,13 +237,13 @@ func collectBodies[T antlr.ParserRuleContext](
 	}
 }
 
-// AnalyzeSynthInlines analyzes every synth inline scope in the tree; must run
+// AnalyzeAnonymousBodies analyzes every synth anonymous scope in the tree; must run
 // after the top-level analyze loop so bodies can resolve forward references.
-func AnalyzeSynthInlines(ctx context.Context[parser.IProgramContext]) {
+func AnalyzeAnonymousBodies(ctx context.Context[parser.IProgramContext]) {
 	var walk func(parent *symbol.Symbol)
 	walk = func(parent *symbol.Symbol) {
 		for _, child := range parent.Children() {
-			if strings.HasPrefix(child.Name, ir.InlinePrefix) {
+			if strings.HasPrefix(child.Name, ir.AnonymousPrefix) {
 				switch decl := child.AST.(type) {
 				case parser.IStageDeclarationContext:
 					AnalyzeTopLevelStage(ctx.Child(decl).WithScope(parent))
@@ -339,7 +339,7 @@ func collectParameters[T antlr.ParserRuleContext](
 }
 
 // collectSequenceDecl recursively registers a sequence and its children.
-// Anonymous inline sequences (no IDENTIFIER) get a synthetic name from
+// Anonymous sequences (no IDENTIFIER) get a synthetic name from
 // AutoName so the scope is still addressable via GetChildByParserRule.
 func collectSequenceDecl(
 	ctx context.Context[parser.ISequenceDeclarationContext],

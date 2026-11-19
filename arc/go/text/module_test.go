@@ -717,7 +717,7 @@ trig > 0 => main
 			findMember(*findMember(main, "b").Scope, "$m.s_0")
 		})
 
-		It("Should keep an importer's inline activation beside a module's", func(
+		It("Should keep an importer's anonymous activation beside a module's", func(
 			ctx SpecContext,
 		) {
 			sources["m"] = `
@@ -730,7 +730,7 @@ trig -> sequence { stage c { trig -> out8 } }
 trig > 0 => m.s
 `)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
-			var inline []ir.Scope
+			var anonymous []ir.Scope
 			var walk func(s ir.Scope)
 			walk = func(s ir.Scope) {
 				for _, stratum := range s.Strata {
@@ -745,17 +745,17 @@ trig > 0 => m.s
 						walk(*m.Scope)
 					}
 				}
-				if strings.Contains(s.Key, ir.InlinePrefix) {
-					inline = append(inline, s)
+				if strings.Contains(s.Key, ir.AnonymousPrefix) {
+					anonymous = append(anonymous, s)
 				}
 			}
 			walk(i.Root)
-			Expect(inline).To(HaveLen(2))
-			for _, s := range inline {
+			Expect(anonymous).To(HaveLen(2))
+			for _, s := range anonymous {
 				Expect(s.Activations).To(HaveLen(1), s.Key)
 			}
-			Expect(inline[0].Activations[0].On).ToNot(
-				Equal(inline[1].Activations[0].On),
+			Expect(anonymous[0].Activations[0].On).ToNot(
+				Equal(anonymous[1].Activations[0].On),
 			)
 		})
 

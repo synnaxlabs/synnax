@@ -1984,7 +1984,7 @@ TEST(
     EXPECT_EQ(last<std::uint8_t>(out, h.key("out")), 60);
 }
 
-TEST(VariableReassignmentTest, RePointsAChannelReadVariableFromAnInlineSequence) {
+TEST(VariableReassignmentTest, RePointsAChannelReadVariableFromAnAnonymousSequence) {
     Sequence h(
         R"(
     stage {
@@ -5201,8 +5201,8 @@ TEST(ParametersTest, WaitsForAParameterInSecondsInAStage) {
     %start_a% == 1 => hold(2s, %valve_a%))");
 }
 
-/// @brief it should keep an inline body in its own instance.
-TEST(ParametersTest, KeepsAnInlineBodyInItsOwnInstance) {
+/// @brief it should keep an anonymous body in its own instance.
+TEST(ParametersTest, KeepsAnAnonymousBodyInItsOwnInstance) {
     using namespace parameters;
     auto h = new_h(R"(
     sequence watch(limit f32, valve chan u8) {

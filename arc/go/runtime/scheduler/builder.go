@@ -284,7 +284,7 @@ func (b *builder) buildScopeState(sc *ir.Scope) *scope {
 	for i, m := range state.members {
 		state.memberByKey[m.key] = i
 	}
-	// Register each activation of a gated scope (an entry point or an inline
+	// Register each activation of a gated scope (an entry point or an anonymous
 	// body's trigger) on the source node's per-output table, so markChanged
 	// needs zero scheduler-wide lookups.
 	if sc.Liveness == ir.LivenessGated {

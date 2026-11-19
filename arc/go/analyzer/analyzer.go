@@ -527,7 +527,7 @@ func analyzeDeclarations(ctx acontext.Context[parser.IProgramContext]) {
 			analyzeTopLevelAssignment(ctx.Child(assign))
 		}
 	}
-	sequence.AnalyzeSynthInlines(ctx)
+	sequence.AnalyzeAnonymousBodies(ctx)
 }
 
 func AnalyzeBlock(ctx acontext.Context[parser.IBlockContext]) {

@@ -436,9 +436,9 @@ var _ = Describe("Stratify", func() {
 		)
 	})
 
-	Describe("Inline routing synth activation", func() {
+	Describe("Anonymous routing synth activation", func() {
 		It(
-			"Should bump an inline synth past its non-inline activator",
+			"Should bump an anonymous synth past its outer activator",
 			func() {
 				outerHandle := ir.Handle{Node: "outer_select", Param: "true"}
 				synth := ir.Scope{
@@ -448,7 +448,7 @@ var _ = Describe("Stratify", func() {
 					Activations: []ir.Activation{
 						{On: outerHandle, Kind: ir.EdgeKindConditional},
 					},
-					Strata: []ir.Members{{ir.Member{NodeKey: new("inline_body")}}},
+					Strata: []ir.Members{{ir.Member{NodeKey: new("anonymous_body")}}},
 				}
 				main := ir.Scope{
 					Key:      "main",
@@ -466,9 +466,9 @@ var _ = Describe("Stratify", func() {
 		)
 
 		It(
-			"Should bump a nested inline synth past its outer-inline activator",
+			"Should bump a nested anonymous synth past its outer-anonymous activator",
 			func() {
-				// When one inline synth activates another, the inner synth must
+				// When one anonymous synth activates another, the inner synth must
 				// land one stratum past the outer so it runs after the outer
 				// fires the activation handle in the same cycle.
 				innerHandle := ir.Handle{Node: "inner_select", Param: "true"}
@@ -497,9 +497,9 @@ var _ = Describe("Stratify", func() {
 		)
 
 		It(
-			"Should chain N-level inline synths across consecutive strata",
+			"Should chain N-level anonymous synths across consecutive strata",
 			func() {
-				// A chain of inline synths each activated by the previous level
+				// A chain of anonymous synths each activated by the previous level
 				// must land one stratum apart so each inner body runs in the
 				// cycle immediately after its outer activates.
 				h1 := ir.Handle{Node: "select_0", Param: "true"}

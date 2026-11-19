@@ -185,8 +185,8 @@ flowNode
     : {!p.CalleeTouchesParen()}? identifier // Channel, stage, or sequence name
     | function
     | expression
-    | stageDeclaration      // Inline anonymous stage body as a routing target
-    | sequenceDeclaration   // Inline anonymous sequence body as a routing target
+    | stageDeclaration      // Anonymous stage body as a routing target
+    | sequenceDeclaration   // Anonymous sequence body as a routing target
     | NEXT              // Continue to next stage
     ;
 

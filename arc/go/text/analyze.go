@@ -105,8 +105,8 @@ func (f *seqFrame) nextMember() string {
 type shellBuilder struct {
 	stack       []*seqFrame
 	activations map[string][]ir.Activation
-	// inlineNodes accumulates the flat IR of every lowered inline body and instance.
-	inlineNodes []ir.Node
+	// bodyNodes accumulates the flat IR of every lowered anonymous body and instance.
+	bodyNodes []ir.Node
 	// instanceKey is the scope key of the instance being lowered, empty outside one.
 	instanceKey string
 	// args holds the constant or the channel of each parameter of the instance.
@@ -114,7 +114,7 @@ type shellBuilder struct {
 	// exits holds the transitions of the stage being lowered when it is not a step,
 	// so `next` ends that stage. Nil in a step, where `next` completes the step.
 	exits *[]ir.Transition
-	// synthByAST maps each inline-body declaration to its synth scope, keyed by
+	// synthByAST maps each anonymous-body declaration to its synth scope, keyed by
 	// the declaration's parser node.
 	synthByAST map[antlr.ParserRuleContext]*symbol.Symbol
 	// varNodes maps a variable's symbol to its runtime nodes.
@@ -203,7 +203,7 @@ func (s *shellBuilder) enter(key string, args map[*symbol.Symbol]argument) func(
 	return func() { s.instanceKey, s.args, s.varNodes = outerKey, outerArgs, outerVars }
 }
 
-// scopeKey returns the key of the inline body synth, unique for each instance.
+// scopeKey returns the key of the anonymous body synth, unique for each instance.
 func (s *shellBuilder) scopeKey(synth *symbol.Symbol) string {
 	if s.instanceKey == "" {
 		return synth.QualifiedName()
@@ -393,9 +393,9 @@ type transitionIntent struct {
 type flowNodeResult struct {
 	node       nodeResult
 	transition *transitionIntent
-	// inlineScope is the stage or sequence that the flow starts, to be placed as a
+	// bodyScope is the stage or sequence that the flow starts, to be placed as a
 	// member of the scope enclosing this flow.
-	inlineScope *ir.Scope
+	bodyScope *ir.Scope
 }
 
 func firstOutputParam(outputs types.Params) string {
@@ -406,7 +406,7 @@ func firstOutputParam(outputs types.Params) string {
 }
 
 // identifierAST is the common shape of sequence and stage declarations: both
-// carry an optional IDENTIFIER token that is absent for anonymous inline
+// carry an optional IDENTIFIER token that is absent for anonymous
 // blocks.
 type identifierAST interface {
 	antlr.ParserRuleContext
@@ -470,7 +470,7 @@ func analyzeFlowNode(
 		synth := shell.synthByAST[decl]
 		if synth == nil {
 			ctx.Diagnostics.Add(diagnostics.Errorf(decl,
-				"internal: synth scope not registered for inline body"))
+				"internal: synth scope not registered for anonymous body"))
 			return flowNodeResult{}, false
 		}
 		return startBody(ctx.Child(decl), synth, kg, shell)
@@ -507,8 +507,8 @@ func startBody[T antlr.ParserRuleContext](
 	}
 	scope.Liveness = ir.LivenessGated
 	return flowNodeResult{
-		transition:  &transitionIntent{activateKey: scope.Key},
-		inlineScope: &scope,
+		transition: &transitionIntent{activateKey: scope.Key},
+		bodyScope:  &scope,
 	}, true
 }
 
@@ -523,7 +523,7 @@ func lowerUse[T antlr.ParserRuleContext](
 	if !body.IsTemplate() {
 		scope, nodes, edges, ok := lowerBody(ctx, body, kg, shell)
 		scope.Key = shell.scopeKey(body)
-		shell.inlineNodes = append(shell.inlineNodes, nodes...)
+		shell.bodyNodes = append(shell.bodyNodes, nodes...)
 		shell.edges = append(shell.edges, edges...)
 		return scope, ok
 	}
@@ -742,7 +742,7 @@ func instantiate[T antlr.ParserRuleContext](
 	}
 	scope.Key = key
 	finishDispatchers(ctx.WithScope(body), bodyDispatchers(body, shell), kg, shell)
-	shell.inlineNodes = append(shell.inlineNodes, nodes...)
+	shell.bodyNodes = append(shell.bodyNodes, nodes...)
 	shell.edges = append(shell.edges, edges...)
 	return scope, true
 }
@@ -1927,9 +1927,9 @@ func analyzeUnit(
 		return unit{ir: i}, aCtx.Diagnostics
 	}
 
-	// Inline bodies live as members of their enclosing scope; their flat IR
+	// Anonymous bodies live as members of their enclosing scope; their flat IR
 	// still registers in the program's global node and edge lists.
-	i.Nodes = append(i.Nodes, shell.inlineNodes...)
+	i.Nodes = append(i.Nodes, shell.bodyNodes...)
 	appendDispatcherFunctions(aCtx, root, kg, shell)
 	rootMembers = appendRootNodes(&i, rootMembers, shell.rootNodes)
 	i.Edges = append(i.Edges, shell.edges...)
@@ -2056,15 +2056,15 @@ func lowerTopLevelItem(
 		return members, []ir.Node{*e.init}, nil, true
 	}
 	if flow := item.FlowStatement(); flow != nil {
-		nodes, edges, inlineMembers, _, ok := analyzeFlow(aCtx.Child(flow), kg, shell)
+		nodes, edges, bodyMembers, _, ok := analyzeFlow(aCtx.Child(flow), kg, shell)
 		if !ok {
 			return nil, nil, nil, false
 		}
-		members := make(ir.Members, 0, len(nodes)+len(inlineMembers))
+		members := make(ir.Members, 0, len(nodes)+len(bodyMembers))
 		for _, n := range nodes {
 			members = append(members, ir.Member{NodeKey: new(n.Key)})
 		}
-		return append(members, inlineMembers...), nodes, edges, true
+		return append(members, bodyMembers...), nodes, edges, true
 	}
 	decl := declarationOf(item)
 	if decl == nil {
@@ -2183,9 +2183,9 @@ type flowChainProcessor struct {
 	// target (e.g. `=> main`, `=> next`). Used to distinguish valid chains
 	// that emit zero edges (source -> scope activation) from orphan chains.
 	transitionEmitted bool
-	// inlineMembers collects lowered inline-body scopes for placement as members
+	// bodyMembers collects lowered anonymous-body scopes for placement as members
 	// of the scope enclosing this flow.
-	inlineMembers []ir.Member
+	bodyMembers []ir.Member
 }
 
 func newFlowChainProcessor(
@@ -2347,8 +2347,8 @@ func (p *flowChainProcessor) processFlowNode(flowNode parser.IFlowNodeContext) b
 		return false
 	}
 
-	if result.inlineScope != nil {
-		p.inlineMembers = append(p.inlineMembers, ir.Member{Scope: result.inlineScope})
+	if result.bodyScope != nil {
+		p.bodyMembers = append(p.bodyMembers, ir.Member{Scope: result.bodyScope})
 	}
 
 	if result.transition != nil {
@@ -2488,7 +2488,7 @@ func (p *flowChainProcessor) processRoutingTable(rt parser.IRoutingTableContext)
 		))
 		return false
 	}
-	newNodes, newEdges, inlineMembers, ok := analyzeOutputRoutingTable(
+	newNodes, newEdges, bodyMembers, ok := analyzeOutputRoutingTable(
 		p.ctx.Child(rt),
 		*p.prevNode,
 		p.kg,
@@ -2499,7 +2499,7 @@ func (p *flowChainProcessor) processRoutingTable(rt parser.IRoutingTableContext)
 	}
 	p.nodes = append(p.nodes, newNodes...)
 	p.edges = append(p.edges, newEdges...)
-	p.inlineMembers = append(p.inlineMembers, inlineMembers...)
+	p.bodyMembers = append(p.bodyMembers, bodyMembers...)
 	p.prevNode = nil
 	// Routing entries dispatch via their own transitions/activations; suppress
 	// the enclosing sequence's auto-advance so it does not double-fire.
@@ -2518,7 +2518,7 @@ func analyzeFlow(
 	ctx acontext.Context[parser.IFlowStatementContext],
 	kg *keyGenerator,
 	shell *shellBuilder,
-) (nodes []ir.Node, edges []ir.Edge, inlineMembers []ir.Member, transitionEmitted, ok bool) {
+) (nodes []ir.Node, edges []ir.Edge, bodyMembers []ir.Member, transitionEmitted, ok bool) {
 	p := newFlowChainProcessor(ctx, kg, shell)
 	for i, child := range ctx.AST.GetChildren() {
 		switch c := child.(type) {
@@ -2541,7 +2541,7 @@ func analyzeFlow(
 		))
 		return nil, nil, nil, false, false
 	}
-	return p.nodes, p.edges, p.inlineMembers, p.transitionEmitted, true
+	return p.nodes, p.edges, p.bodyMembers, p.transitionEmitted, true
 }
 
 func extractInputValues(
@@ -2830,14 +2830,14 @@ func (p *inputParser) bindAliasRegister(
 	}
 }
 
-// collectSynthByAST returns a map from each inline-body declaration in the tree
+// collectSynthByAST returns a map from each anonymous-body declaration in the tree
 // rooted at root to its synth scope, keyed by the declaration's parser node.
 func collectSynthByAST(root *symbol.Symbol) map[antlr.ParserRuleContext]*symbol.Symbol {
 	m := map[antlr.ParserRuleContext]*symbol.Symbol{}
 	var walk func(s *symbol.Symbol)
 	walk = func(s *symbol.Symbol) {
 		for _, child := range s.Children() {
-			if child.AST != nil && strings.HasPrefix(child.Name, ir.InlinePrefix) {
+			if child.AST != nil && strings.HasPrefix(child.Name, ir.AnonymousPrefix) {
 				m[child.AST] = child
 			}
 			walk(child)
@@ -2874,9 +2874,9 @@ func analyzeOutputRoutingTable(
 	shell *shellBuilder,
 ) ([]ir.Node, []ir.Edge, []ir.Member, bool) {
 	var (
-		nodes         []ir.Node
-		edges         []ir.Edge
-		inlineMembers []ir.Member
+		nodes       []ir.Node
+		edges       []ir.Edge
+		bodyMembers []ir.Member
 	)
 
 	for _, entry := range ctx.AST.AllRoutingEntry() {
@@ -2915,10 +2915,10 @@ func analyzeOutputRoutingTable(
 				return nil, nil, nil, false
 			}
 
-			if result.inlineScope != nil {
-				inlineMembers = append(
-					inlineMembers,
-					ir.Member{Scope: result.inlineScope},
+			if result.bodyScope != nil {
+				bodyMembers = append(
+					bodyMembers,
+					ir.Member{Scope: result.bodyScope},
 				)
 			}
 
@@ -2966,7 +2966,7 @@ func analyzeOutputRoutingTable(
 		}
 	}
 
-	return nodes, edges, inlineMembers, true
+	return nodes, edges, bodyMembers, true
 }
 
 // stepInfo collects metadata about a step for computing member keys.
@@ -3013,9 +3013,9 @@ func flowScope(key string, nodes []ir.Node) ir.Scope {
 	return scope
 }
 
-// addInlineMembers appends inline-body scope members to scope's stratum 0,
+// addBodyMembers appends anonymous-body scope members to scope's stratum 0,
 // creating the stratum when the scope has none yet.
-func addInlineMembers(scope *ir.Scope, members []ir.Member) {
+func addBodyMembers(scope *ir.Scope, members []ir.Member) {
 	if len(members) == 0 {
 		return
 	}
@@ -3181,7 +3181,7 @@ func lowerLeafStep(
 	shell *shellBuilder,
 ) (ir.Members, []ir.Node, []ir.Edge, bool) {
 	if flowStmt := si.item.FlowStatement(); flowStmt != nil {
-		nodes, edges, inlineMembers, transitionEmitted, ok := analyzeFlow(
+		nodes, edges, bodyMembers, transitionEmitted, ok := analyzeFlow(
 			ctx.Child(flowStmt),
 			kg,
 			shell,
@@ -3190,7 +3190,7 @@ func lowerLeafStep(
 			return nil, nil, nil, false
 		}
 		child := flowScope(si.key, nodes)
-		addInlineMembers(&child, inlineMembers)
+		addBodyMembers(&child, bodyMembers)
 		// Only auto-wire the step-advance transition when the flow did
 		// not already terminate in an explicit `=> X`. The explicit
 		// transition may target an outer frame; emitting the auto-wire
@@ -3296,7 +3296,7 @@ func lowerStageItem(
 		return nil, []ir.Node{*e.init}, nil, true
 	}
 	if flowStmt := item.FlowStatement(); flowStmt != nil {
-		nodes, edges, inlineMembers, _, ok := analyzeFlow(
+		nodes, edges, bodyMembers, _, ok := analyzeFlow(
 			ctx.Child(flowStmt),
 			kg,
 			shell,
@@ -3307,7 +3307,7 @@ func lowerStageItem(
 		for _, n := range nodes {
 			members = append(members, ir.Member{NodeKey: new(n.Key)})
 		}
-		return append(members, inlineMembers...), nodes, edges, true
+		return append(members, bodyMembers...), nodes, edges, true
 	}
 	if assign := item.Assignment(); assign != nil {
 		aNodes, aEdges, ok := lowerAssignment(ctx.Child(assign), kg, shell)

@@ -6583,7 +6583,7 @@ time.wait(duration=500ms) -> output`
 			)
 
 			It(
-				"Should emit an inline stage case body as a gated synth nested in its enclosing scope with Activation bound",
+				"Should emit an anonymous stage case body as a gated synth nested in its enclosing scope with Activation bound",
 				func(ctx SpecContext) {
 					resolver := []symbol.Symbol{
 						{
@@ -6645,7 +6645,7 @@ time.wait(duration=500ms) -> output`
 			)
 
 			It(
-				"Should emit an inline sequence case body as a sequential synth nested in its enclosing scope",
+				"Should emit an anonymous sequence case body as a sequential synth nested in its enclosing scope",
 				func(ctx SpecContext) {
 					resolver := []symbol.Symbol{
 						{
@@ -6706,7 +6706,7 @@ time.wait(duration=500ms) -> output`
 			)
 
 			It(
-				"Should emit two distinct synths for two inline case bodies in the same table",
+				"Should emit two distinct synths for two anonymous case bodies in the same table",
 				func(ctx SpecContext) {
 					resolver := []symbol.Symbol{
 						{
@@ -6769,7 +6769,7 @@ time.wait(duration=500ms) -> output`
 			)
 
 			It(
-				"Should emit only one synth when one entry is inline and another is a chain",
+				"Should emit only one synth when one entry is anonymous and another is a chain",
 				func(ctx SpecContext) {
 					resolver := []symbol.Symbol{
 						{
@@ -6797,7 +6797,7 @@ time.wait(duration=500ms) -> output`
 				sequence main {
 				    stage hold {
 				        trigger -> gate() -> {
-				            yes: stage { "yes_inline" -> log },
+				            yes: stage { "yes_anonymous" -> log },
 				            no: "no_chain" -> log
 				        }
 				    }
@@ -6817,21 +6817,21 @@ time.wait(duration=500ms) -> output`
 					hold := findMember(main, "hold").Scope
 					synth := findMember(*hold, "$main_0.__inline_0").Scope
 					Expect(synth.Activations[0].On.Param).To(Equal("yes"))
-					inlineCount := 0
+					anonymousCount := 0
 					for _, stratum := range hold.Strata {
 						for _, m := range stratum {
 							if m.Scope != nil &&
-								strings.Contains(m.Scope.Key, ir.InlinePrefix) {
-								inlineCount++
+								strings.Contains(m.Scope.Key, ir.AnonymousPrefix) {
+								anonymousCount++
 							}
 						}
 					}
-					Expect(inlineCount).To(Equal(1))
+					Expect(anonymousCount).To(Equal(1))
 				},
 			)
 
 			It(
-				"Should not wrap a top-level stage with inline routing in a synthetic Sequential scope",
+				"Should not wrap a top-level stage with anonymous routing in a synthetic Sequential scope",
 				func(ctx SpecContext) {
 					resolver := []symbol.Symbol{
 						{
@@ -6878,7 +6878,7 @@ time.wait(duration=500ms) -> output`
 			)
 
 			It(
-				"Should not emit a duplicate transition when inline routing sits directly in a sequence body",
+				"Should not emit a duplicate transition when anonymous routing sits directly in a sequence body",
 				func(ctx SpecContext) {
 					resolver := []symbol.Symbol{
 						{
@@ -6932,7 +6932,7 @@ time.wait(duration=500ms) -> output`
 			)
 
 			It(
-				"Should not auto-advance the enclosing sequence when inline routing fires",
+				"Should not auto-advance the enclosing sequence when anonymous routing fires",
 				func(ctx SpecContext) {
 					resolver := []symbol.Symbol{
 						{
@@ -6942,7 +6942,7 @@ time.wait(duration=500ms) -> output`
 							ID:   30071,
 						},
 						{
-							Name: "inline_out",
+							Name: "anonymous_out",
 							Kind: symbol.KindChannel,
 							Type: types.Chan(types.U8()),
 							ID:   30072,
@@ -6958,7 +6958,7 @@ time.wait(duration=500ms) -> output`
 				sequence main {
 				    stage first {
 				        flag -> select() -> {
-				            true: stage { 1 -> inline_out }
+				            true: stage { 1 -> anonymous_out }
 				        }
 				    }
 				    stage second {
@@ -6980,7 +6980,7 @@ time.wait(duration=500ms) -> output`
 					for _, t := range main.Transitions {
 						if strings.HasPrefix(t.On.Node, "select") {
 							Fail(
-								"inline routing must not register a transition on main; " +
+								"anonymous routing must not register a transition on main; " +
 									"completion of select must not auto-advance to 'second'",
 							)
 						}
@@ -6989,7 +6989,7 @@ time.wait(duration=500ms) -> output`
 			)
 
 			It(
-				"Should preserve activation on a named top-level stage with an inline case body",
+				"Should preserve activation on a named top-level stage with an anonymous case body",
 				func(ctx SpecContext) {
 					resolver := []symbol.Symbol{
 						{
@@ -7036,7 +7036,7 @@ time.wait(duration=500ms) -> output`
 			)
 
 			It(
-				"Should emit an inline stage flow target as a gated synth root sibling with Activation bound",
+				"Should emit an anonymous stage flow target as a gated synth root sibling with Activation bound",
 				func(ctx SpecContext) {
 					resolver := []symbol.Symbol{
 						{
@@ -7081,18 +7081,18 @@ time.wait(duration=500ms) -> output`
 						}
 					}
 					Expect(synth).ToNot(BeNil(),
-						"inline flow target must surface as a root-level synth sibling")
+						"anonymous flow target must surface as a root-level synth sibling")
 					Expect(synth.Liveness).To(Equal(ir.LivenessGated),
-						"synth inline must be gated by its activation handle")
+						"synth anonymous must be gated by its activation handle")
 					Expect(synth.Activations).To(HaveLen(1),
-						"synth inline must have an Activation handle bound")
+						"synth anonymous must have an Activation handle bound")
 					Expect(synth.Activations[0].On.Node).ToNot(BeEmpty(),
 						"activation must fire on the upstream source's output node")
 				},
 			)
 
 			It(
-				"Should emit an inline sequence flow target as a sequential synth sibling",
+				"Should emit an anonymous sequence flow target as a sequential synth sibling",
 				func(ctx SpecContext) {
 					resolver := []symbol.Symbol{
 						{
@@ -7139,12 +7139,12 @@ time.wait(duration=500ms) -> output`
 					Expect(synth).ToNot(BeNil())
 					Expect(synth.Mode).To(Equal(ir.ScopeModeSequential))
 					Expect(synth.Steps).To(HaveLen(2),
-						"inline sequence with 2 flow statements must expose 2 sequential steps")
+						"anonymous sequence with 2 flow statements must expose 2 sequential steps")
 				},
 			)
 
 			It(
-				"Should emit two distinct synth siblings for two inline flow targets in the same scope",
+				"Should emit two distinct synth siblings for two anonymous flow targets in the same scope",
 				func(ctx SpecContext) {
 					resolver := []symbol.Symbol{
 						{
@@ -7193,7 +7193,7 @@ time.wait(duration=500ms) -> output`
 						}
 					}
 					Expect(synths).To(HaveLen(2),
-						"each inline flow target must produce a distinct synth sibling")
+						"each anonymous flow target must produce a distinct synth sibling")
 					Expect(synths[0].Key).ToNot(Equal(synths[1].Key))
 					Expect(synths[0].Activations).To(HaveLen(1))
 					Expect(synths[1].Activations).To(HaveLen(1))
@@ -7205,7 +7205,7 @@ time.wait(duration=500ms) -> output`
 			)
 
 			It(
-				"Should emit only one synth sibling when one flow statement is inline and another is a plain chain",
+				"Should emit only one synth sibling when one flow statement is anonymous and another is a plain chain",
 				func(ctx SpecContext) {
 					resolver := []symbol.Symbol{
 						{
@@ -7228,7 +7228,7 @@ time.wait(duration=500ms) -> output`
 						},
 					}
 					source := `
-				trigger -> stage { "yes_inline" -> log }
+				trigger -> stage { "yes_anonymous" -> log }
 				trigger -> sink`
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 					inter, diagnostics := text.Analyze(
@@ -7248,13 +7248,13 @@ time.wait(duration=500ms) -> output`
 						}
 					}
 					Expect(synths).To(HaveLen(1),
-						"only the inline flow target must produce a synth sibling")
+						"only the anonymous flow target must produce a synth sibling")
 					Expect(synths[0].Activations).To(HaveLen(1))
 				},
 			)
 
 			It(
-				"Should not wrap a top-level stage with inline flow targets in a synthetic Sequential scope",
+				"Should not wrap a top-level stage with anonymous flow targets in a synthetic Sequential scope",
 				func(ctx SpecContext) {
 					resolver := []symbol.Symbol{
 						{
@@ -7305,7 +7305,7 @@ time.wait(duration=500ms) -> output`
 			)
 
 			It(
-				"Should not emit a duplicate transition when an inline flow target sits directly in a sequence body",
+				"Should not emit a duplicate transition when an anonymous flow target sits directly in a sequence body",
 				func(ctx SpecContext) {
 					resolver := []symbol.Symbol{
 						{
@@ -7349,7 +7349,7 @@ time.wait(duration=500ms) -> output`
 			)
 
 			It(
-				"Should not auto-advance the enclosing sequence when an inline flow target fires",
+				"Should not auto-advance the enclosing sequence when an anonymous flow target fires",
 				func(ctx SpecContext) {
 					resolver := []symbol.Symbol{
 						{
@@ -7359,7 +7359,7 @@ time.wait(duration=500ms) -> output`
 							ID:   31061,
 						},
 						{
-							Name: "inline_out",
+							Name: "anonymous_out",
 							Kind: symbol.KindChannel,
 							Type: types.Chan(types.U8()),
 							ID:   31062,
@@ -7374,7 +7374,7 @@ time.wait(duration=500ms) -> output`
 					source := `
 				sequence main {
 				    stage first {
-				        flag -> stage { 1 -> inline_out }
+				        flag -> stage { 1 -> anonymous_out }
 				    }
 				    stage second {
 				        1 -> second_out
@@ -7393,13 +7393,13 @@ time.wait(duration=500ms) -> output`
 
 					main := findTopLevelScope(inter, "main")
 					Expect(main.Transitions).To(BeEmpty(),
-						"inline flow target completion must not register a transition on main; "+
+						"anonymous flow target completion must not register a transition on main; "+
 							"'second' must not auto-advance")
 				},
 			)
 
 			It(
-				"Should preserve activation on a named top-level stage with an inline flow target",
+				"Should preserve activation on a named top-level stage with an anonymous flow target",
 				func(ctx SpecContext) {
 					resolver := []symbol.Symbol{
 						{
@@ -7443,7 +7443,7 @@ time.wait(duration=500ms) -> output`
 			)
 
 			It(
-				"Should emit a distinct gated synth for each body when inline flow targets are nested",
+				"Should emit a distinct gated synth for each body when anonymous flow targets are nested",
 				func(ctx SpecContext) {
 					resolver := []symbol.Symbol{
 						{
@@ -11592,7 +11592,7 @@ var _ = Describe("Sequences and stages with parameters", func() {
 		places(),
 	)
 
-	It("Should key an inline body by its instance", func(ctx SpecContext) {
+	It("Should key an anonymous body by its instance", func(ctx SpecContext) {
 		inter := analyze(ctx, `
 			sequence watch(limit f64, out chan f64) {
 				stage armed {
@@ -11604,7 +11604,7 @@ var _ = Describe("Sequences and stages with parameters", func() {
 			start => watch(50.0, valve)
 			start => watch(80.0, valve_b)
 		`)
-		inline := func(key string) ir.Scope {
+		anonymous := func(key string) ir.Scope {
 			armed := findMember(findTopLevelScope(inter, key), "armed").Scope
 			for _, stratum := range armed.Strata {
 				for _, m := range stratum {
@@ -11615,9 +11615,13 @@ var _ = Describe("Sequences and stages with parameters", func() {
 			}
 			return ir.Scope{}
 		}
-		Expect(inline("$watch_0").Key).To(HavePrefix("$watch_0." + ir.InlinePrefix))
-		Expect(inline("$watch_1").Key).To(HavePrefix("$watch_1." + ir.InlinePrefix))
-		Expect(inline("$watch_0").Activations).To(HaveLen(1))
-		Expect(inline("$watch_1").Activations).To(HaveLen(1))
+		Expect(
+			anonymous("$watch_0").Key,
+		).To(HavePrefix("$watch_0." + ir.AnonymousPrefix))
+		Expect(
+			anonymous("$watch_1").Key,
+		).To(HavePrefix("$watch_1." + ir.AnonymousPrefix))
+		Expect(anonymous("$watch_0").Activations).To(HaveLen(1))
+		Expect(anonymous("$watch_1").Activations).To(HaveLen(1))
 	})
 })

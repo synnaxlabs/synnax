@@ -65,15 +65,15 @@ automation starts, or each time its stage starts. See
 The last node of a flow is its sink. A function instance can also be in the middle of a
 flow.
 
-| Sink                     | Example               | Effect                                                                |
-| ------------------------ | --------------------- | --------------------------------------------------------------------- |
-| Channel                  | `-> press_vlv_cmd`    | Writes the value to the channel.                                      |
-| Variable                 | `-> peak`             | Sets a variable of the enclosing sequence or stage.                   |
-| Function instance        | `-> scale(k=6.895)`   | Passes the value to the first trigger of the function.                |
-| Stage or sequence        | `=> vent`             | Starts the stage or the sequence.                                     |
-| `next`                   | `=> next`             | Ends the stage, and its sequence moves to the next step.              |
-| Routing table            | `-> { ... }`          | Runs an entry for each output. See [routing tables](#routing-tables). |
-| Inline stage or sequence | `=> sequence { ... }` | Starts an anonymous stage or sequence.                                |
+| Sink                        | Example               | Effect                                                                |
+| --------------------------- | --------------------- | --------------------------------------------------------------------- |
+| Channel                     | `-> press_vlv_cmd`    | Writes the value to the channel.                                      |
+| Variable                    | `-> peak`             | Sets a variable of the enclosing sequence or stage.                   |
+| Function instance           | `-> scale(k=6.895)`   | Passes the value to the first trigger of the function.                |
+| Stage or sequence           | `=> vent`             | Starts the stage or the sequence.                                     |
+| `next`                      | `=> next`             | Ends the stage, and its sequence moves to the next step.              |
+| Routing table               | `-> { ... }`          | Runs an entry for each output. See [routing tables](#routing-tables). |
+| Anonymous stage or sequence | `=> sequence { ... }` | Starts an anonymous stage or sequence.                                |
 
 - A top-level variable is not a sink:
   `invalid assignment: cannot reassign top-level variable 'peak'`.
@@ -180,12 +180,12 @@ tank_pt > 500.0 -> select() -> {
 
 ### Case bodies
 
-Each entry is a full flow, such as `true: 1 -> vent_vlv_cmd`, or an inline stage or
+Each entry is a full flow, such as `true: 1 -> vent_vlv_cmd`, or an anonymous stage or
 sequence. The output starts the entry, but its value does not pass into the entry. An
 entry with only a target fails with
 `invalid routing table: routing entry must be a full statement, e.g. 'true: true => next' to transition or 'true: false -> some_chan' to send false`.
 
-An inline stage or sequence has no name.
+An anonymous stage or sequence has no name.
 
 ```arc channels="tank_pt, vent_vlv_cmd"
 import time

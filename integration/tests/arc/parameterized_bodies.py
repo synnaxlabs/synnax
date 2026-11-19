@@ -262,7 +262,7 @@ sequence safe {
 pb_start => arm(pb_pulse_a, pb_arm_ready_a)
 pb_start => arm(pb_pulse_b, pb_arm_ready_b)
 
-// ──── inline body ────
+// ──── anonymous body ────
 sequence watch(level chan f32, out chan bool, ready chan bool) {
     stage armed {
         true -> ready
@@ -574,7 +574,7 @@ class ParameterizedBodies(ArcCase):
     6. The body passes a value parameter to a function input.
     7. An instance calls a second sequence with its own parameters. That instance
        starts a sequence with no parameters by its name.
-    8. An inline body in the sequence belongs to one instance.
+    8. An anonymous body in the sequence belongs to one instance.
     9. The automation calls a sequence and a stage that a module exports, two times
        each. The sequence calls one that the module does not export.
     10. Two calls of a stage and two calls of a sequence set their own authority on
@@ -637,7 +637,7 @@ class ParameterizedBodies(ArcCase):
         self._verify_variables_and_expressions()
         self._verify_function_input()
         self._verify_call_from_an_instance()
-        self._verify_inline_body()
+        self._verify_anonymous_body()
         self._verify_variable_arguments()
         self._verify_reassigned_variable()
         self._verify_parameter_unit()
@@ -714,14 +714,18 @@ class ParameterizedBodies(ArcCase):
         self.writer.write("pb_stop", 1)
         self.wait_for_eq("pb_safe", 1)
 
-    def _verify_inline_body(self) -> None:
+    def _verify_anonymous_body(self) -> None:
         self._wait_for_ready("pb_watch_ready_a", "pb_watch_ready_b")
-        self.log("Driving watch level A above 5 to run the inline body of instance A")
+        self.log(
+            "Driving watch level A above 5 to run the anonymous body of instance A"
+        )
         self.writer.write("pb_watch_level_a", 10.0)
         self.wait_for_eq("pb_watch_a", 1)
         if self.read_tlm("pb_watch_b") is not None:
-            self.fail("Instance B ran its inline body on the level of instance A")
-        self.log("Driving watch level B above 5 to run the inline body of instance B")
+            self.fail("Instance B ran its anonymous body on the level of instance A")
+        self.log(
+            "Driving watch level B above 5 to run the anonymous body of instance B"
+        )
         self.writer.write("pb_watch_level_b", 10.0)
         self.wait_for_eq("pb_watch_b", 1)
 

@@ -369,7 +369,7 @@ var _ = Describe("Sequence", func() {
 		)
 
 		It(
-			"Advances past a completed inline sequence flow target",
+			"Advances past a completed anonymous sequence flow target",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(
 					map[string]channelDef{"log": {types.String(), 101}},
@@ -397,7 +397,7 @@ var _ = Describe("Sequence", func() {
 		)
 
 		It(
-			"Preserves stage transitions around nested and inline stages",
+			"Preserves stage transitions around nested and anonymous stages",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"trigger": {types.U8(), 100},
@@ -414,7 +414,7 @@ var _ = Describe("Sequence", func() {
 				        time.wait(100ms) -> 50 > 40 => next
 				    }
 				    stage {
-				        "inline" -> log
+				        "anonymous" -> log
 				        time.wait(100ms) => pressurize
 				    }
 				}
@@ -432,7 +432,7 @@ var _ = Describe("Sequence", func() {
 				advance(h, ctx, 330*telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(drainStrings(out, 101)).To(
-					Equal([]string{"pressurize", "hold", "inline", "pressurize"}),
+					Equal([]string{"pressurize", "hold", "anonymous", "pressurize"}),
 				)
 			},
 		)
@@ -519,7 +519,7 @@ var _ = Describe("Sequence", func() {
 		)
 
 		It(
-			"Keeps an inline sequence target inside a stage from exiting the stage",
+			"Keeps an anonymous sequence target inside a stage from exiting the stage",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"trigger": {types.U8(), 100},
@@ -544,7 +544,7 @@ var _ = Describe("Sequence", func() {
 				settle(h, ctx)
 				out, _ := h.Flush()
 				Expect(drainStrings(out, 101)).To(Equal([]string{"body"}),
-					"inline body completion must freeze, not exit the stage")
+					"anonymous body completion must freeze, not exit the stage")
 
 				h.Ingest(100, telem.NewSeriesV[uint8](1))
 				advance(h, ctx, 10*telem.Millisecond)
@@ -1686,7 +1686,7 @@ var _ = Describe("Sequence", func() {
 			    "main" -> log
 			}
 			cmd == 1 ARROW main`
-			inline = `
+			anonymous = `
 			cmd == 1 ARROW stage {
 			    "body" -> log
 			}`
@@ -1750,10 +1750,10 @@ var _ = Describe("Sequence", func() {
 			Entry("root, =>, true", root, "=>", uint8(1), []string{"main"}),
 			Entry("root, ->, false", root, "->", uint8(0), []string{"main", "main"}),
 			Entry("root, ->, true", root, "->", uint8(1), []string{"main", "main"}),
-			Entry("inline, =>, false", inline, "=>", uint8(0), []string(nil)),
-			Entry("inline, =>, true", inline, "=>", uint8(1), []string{"body"}),
-			Entry("inline, ->, false", inline, "->", uint8(0), []string{"body"}),
-			Entry("inline, ->, true", inline, "->", uint8(1), []string{"body"}),
+			Entry("anonymous, =>, false", anonymous, "=>", uint8(0), []string(nil)),
+			Entry("anonymous, =>, true", anonymous, "=>", uint8(1), []string{"body"}),
+			Entry("anonymous, ->, false", anonymous, "->", uint8(0), []string{"body"}),
+			Entry("anonymous, ->, true", anonymous, "->", uint8(1), []string{"body"}),
 		)
 	})
 
@@ -2031,7 +2031,7 @@ var _ = Describe("Sequence", func() {
 	})
 
 	Describe("Composition", func() {
-		It("Inline stage in sequence resumes after => next", func(ctx SpecContext) {
+		It("Anonymous stage in sequence resumes after => next", func(ctx SpecContext) {
 			resolver := channelSymbols(map[string]channelDef{
 				"start_cmd": {types.U8(), 100},
 				"ox_cmd":    {types.U8(), 101},
@@ -2068,7 +2068,7 @@ var _ = Describe("Sequence", func() {
 		})
 
 		It(
-			"Inline sequence in stage runs alongside reactive flows",
+			"Anonymous sequence in stage runs alongside reactive flows",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd": {types.U8(), 100},
@@ -2101,7 +2101,7 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 101)).To(Equal(uint8(1)),
-					"inline sub-sequence's first write should fire on stage entry")
+					"anonymous sub-sequence's first write should fire on stage entry")
 				h.channelState.ClearReads()
 
 				h.Ingest(103, telem.NewSeriesV[float32](10))
@@ -2510,7 +2510,7 @@ var _ = Describe("Sequence", func() {
 		)
 	})
 
-	Describe("Inline routing case body lifetime", func() {
+	Describe("Anonymous routing case body lifetime", func() {
 		// mk builds `trigger -> select() -> { true: <body> }` inside a stage,
 		// so <body> is entered once when trigger fires select's true output.
 		mk := func(ctx SpecContext, body string) *runtimeHarness {
@@ -2565,7 +2565,7 @@ var _ = Describe("Sequence", func() {
 		}
 
 		It(
-			"Re-triggering an active inline stage does not stack instances",
+			"Re-triggering an active anonymous stage does not stack instances",
 			func(ctx SpecContext) {
 				h := mk(ctx, "stage { cpu > 0 => out }")
 				defer h.Close(ctx)
@@ -2594,12 +2594,12 @@ var _ = Describe("Sequence", func() {
 			},
 			Entry("bare inline flow fires once and done", "cpu > 0 => out", 1),
 			Entry(
-				"inline sequence fires once and done",
+				"anonymous sequence fires once and done",
 				"sequence { cpu > 0 => out }",
 				1,
 			),
 			Entry(
-				"inline stage fires on every cpu update",
+				"anonymous stage fires on every cpu update",
 				"stage { cpu > 0 => out }",
 				4,
 			),
@@ -2713,9 +2713,9 @@ var _ = Describe("Sequence", func() {
 		)
 	})
 
-	Describe("Inline routing case bodies", func() {
+	Describe("Anonymous routing case bodies", func() {
 		It(
-			"Anonymous top-level stage dispatches into the inline branch matching the routed output",
+			"Anonymous top-level stage dispatches into the anonymous branch matching the routed output",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"flag":      {types.Bool(), 100},
@@ -2739,14 +2739,14 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 101)).To(Equal(uint8(1)),
-					"true branch inline must fire when flag is truthy")
+					"true branch anonymous must fire when flag is truthy")
 				Expect(out.Get(102).Series).To(BeEmpty(),
-					"false branch inline must not fire when flag is truthy")
+					"false branch anonymous must not fire when flag is truthy")
 			},
 		)
 
 		It(
-			"Named gated top-level stage dispatches inline branch only after activation",
+			"Named gated top-level stage dispatches anonymous branch only after activation",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd": {types.U8(), 100},
@@ -2771,7 +2771,7 @@ var _ = Describe("Sequence", func() {
 				advance(h, ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(out.Get(102).Series).To(BeEmpty(),
-					"inline must not fire before main is activated")
+					"anonymous must not fire before main is activated")
 
 				h.Ingest(100, telem.NewSeriesV[uint8](1))
 				h.Tick(ctx, telem.Millisecond)
@@ -2779,12 +2779,12 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ = h.Flush()
 				Expect(lastU8(out, 102)).To(Equal(uint8(1)),
-					"inline must fire once main is activated and flag is truthy")
+					"anonymous must fire once main is activated and flag is truthy")
 			},
 		)
 
 		It(
-			"Inline sequence body in a top-level stage runs its sequential steps in order",
+			"Anonymous sequence body in a top-level stage runs its sequential steps in order",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"flag":  {types.Bool(), 100},
@@ -2810,14 +2810,14 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 101)).To(Equal(uint8(1)),
-					"first sequential step of inline sequence must fire")
+					"first sequential step of anonymous sequence must fire")
 				Expect(lastU8(out, 102)).To(Equal(uint8(2)),
-					"second sequential step of inline sequence must fire")
+					"second sequential step of anonymous sequence must fire")
 			},
 		)
 
 		It(
-			"Inline routing directly in a sequence body dispatches without duplicate transitions",
+			"Anonymous routing directly in a sequence body dispatches without duplicate transitions",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd": {types.U8(), 100},
@@ -2844,12 +2844,12 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 102)).To(Equal(uint8(1)),
-					"inline must fire once when routed directly from a sequence body")
+					"anonymous must fire once when routed directly from a sequence body")
 			},
 		)
 
 		It(
-			"Inline body transition to a sibling stage advances the enclosing sequence",
+			"Anonymous body transition to a sibling stage advances the enclosing sequence",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd":  {types.U8(), 100},
@@ -2887,14 +2887,14 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 102)).To(Equal(uint8(1)),
-					"inline first_out write must fire")
+					"anonymous first_out write must fire")
 				Expect(lastU8(out, 103)).To(Equal(uint8(1)),
-					"transition from inline body to sibling stage must advance main")
+					"transition from anonymous body to sibling stage must advance main")
 			},
 		)
 
 		It(
-			"Inline body navigates to a named sibling stage as its sole write",
+			"Anonymous body navigates to a named sibling stage as its sole write",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd":   {types.U8(), 100},
@@ -2927,18 +2927,18 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 102)).To(Equal(uint8(1)),
-					"following_stage must activate after inline body fires its cross-stage write")
+					"following_stage must activate after anonymous body fires its cross-stage write")
 			},
 		)
 
 		It(
-			"Completion of inline routing does not auto-advance the enclosing sequence",
+			"Completion of anonymous routing does not auto-advance the enclosing sequence",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
-					"start_cmd":  {types.U8(), 100},
-					"flag":       {types.Bool(), 101},
-					"inline_out": {types.U8(), 102},
-					"second_out": {types.U8(), 103},
+					"start_cmd":     {types.U8(), 100},
+					"flag":          {types.Bool(), 101},
+					"anonymous_out": {types.U8(), 102},
+					"second_out":    {types.U8(), 103},
 				})
 				h := newRuntimeHarness(ctx, `
 				start_cmd => main
@@ -2946,7 +2946,7 @@ var _ = Describe("Sequence", func() {
 				sequence main {
 				    stage first {
 				        flag -> select() -> {
-				            true: stage { 1 -> inline_out }
+				            true: stage { 1 -> anonymous_out }
 				        }
 				    }
 				    stage second {
@@ -2967,15 +2967,15 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 102)).To(Equal(uint8(1)),
-					"inline body must fire its write")
+					"anonymous body must fire its write")
 				Expect(out.Get(103).Series).To(BeEmpty(),
-					"main must remain on 'first' after inline routing completes; "+
+					"main must remain on 'first' after anonymous routing completes; "+
 						"'second' must not auto-advance")
 			},
 		)
 
 		It(
-			"Doubly-nested inline activation fires the inner body in the same cycle",
+			"Doubly-nested anonymous activation fires the inner body in the same cycle",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd": {types.U8(), 100},
@@ -3004,12 +3004,12 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 103)).To(Equal(uint8(1)),
-					"doubly-nested inline body must activate when outer body fires its inner select")
+					"doubly-nested anonymous body must activate when outer body fires its inner select")
 			},
 		)
 
 		It(
-			"Triply-nested inline activation fires the innermost body in the same cycle",
+			"Triply-nested anonymous activation fires the innermost body in the same cycle",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd":     {types.U8(), 100},
@@ -3042,12 +3042,12 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 103)).To(Equal(uint8(1)),
-					"triply-nested inline body must activate via the chain of inline selects")
+					"triply-nested anonymous body must activate via the chain of anonymous selects")
 			},
 		)
 
 		It(
-			"Quadruply-nested inline activation fires the innermost body in the same cycle",
+			"Quadruply-nested anonymous activation fires the innermost body in the same cycle",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd":     {types.U8(), 100},
@@ -3084,14 +3084,14 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 103)).To(Equal(uint8(1)),
-					"quadruply-nested inline body must activate via the chain of inline selects")
+					"quadruply-nested anonymous body must activate via the chain of anonymous selects")
 			},
 		)
 	})
 
-	Describe("Inline flow target bodies", func() {
+	Describe("Anonymous flow target bodies", func() {
 		It(
-			"Anonymous top-level stage fires its inline flow body when the source fires",
+			"Anonymous top-level stage fires its anonymous flow body when the source fires",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"flag":     {types.U8(), 100},
@@ -3110,12 +3110,12 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 101)).To(Equal(uint8(1)),
-					"inline flow body must fire when its source channel fires")
+					"anonymous flow body must fire when its source channel fires")
 			},
 		)
 
 		It(
-			"Named gated top-level stage fires its inline flow body only after activation",
+			"Named gated top-level stage fires its anonymous flow body only after activation",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd": {types.U8(), 100},
@@ -3138,7 +3138,7 @@ var _ = Describe("Sequence", func() {
 				advance(h, ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(out.Get(102).Series).To(BeEmpty(),
-					"inline must not fire before main is activated")
+					"anonymous must not fire before main is activated")
 
 				h.Ingest(100, telem.NewSeriesV[uint8](1))
 				h.Tick(ctx, telem.Millisecond)
@@ -3146,12 +3146,12 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ = h.Flush()
 				Expect(lastU8(out, 102)).To(Equal(uint8(1)),
-					"inline must fire once main is activated and flag is truthy")
+					"anonymous must fire once main is activated and flag is truthy")
 			},
 		)
 
 		It(
-			"Inline sequence flow body runs its sequential steps in order",
+			"Anonymous sequence flow body runs its sequential steps in order",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"flag":  {types.U8(), 100},
@@ -3175,14 +3175,14 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 101)).To(Equal(uint8(1)),
-					"first sequential step of inline sequence must fire")
+					"first sequential step of anonymous sequence must fire")
 				Expect(lastU8(out, 102)).To(Equal(uint8(2)),
-					"second sequential step of inline sequence must fire")
+					"second sequential step of anonymous sequence must fire")
 			},
 		)
 
 		It(
-			"Inline flow body directly in a sequence body dispatches without duplicate transitions",
+			"Anonymous flow body directly in a sequence body dispatches without duplicate transitions",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd": {types.U8(), 100},
@@ -3207,12 +3207,12 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 102)).To(Equal(uint8(1)),
-					"inline must fire once when routed directly from a sequence body")
+					"anonymous must fire once when routed directly from a sequence body")
 			},
 		)
 
 		It(
-			"Inline flow body transition to a sibling stage advances the enclosing sequence",
+			"Anonymous flow body transition to a sibling stage advances the enclosing sequence",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd":  {types.U8(), 100},
@@ -3248,14 +3248,14 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 102)).To(Equal(uint8(1)),
-					"inline first_out write must fire")
+					"anonymous first_out write must fire")
 				Expect(lastU8(out, 103)).To(Equal(uint8(1)),
-					"transition from inline body to sibling stage must advance main")
+					"transition from anonymous body to sibling stage must advance main")
 			},
 		)
 
 		It(
-			"Inline flow body navigates to a named sibling stage as its sole write",
+			"Anonymous flow body navigates to a named sibling stage as its sole write",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd":   {types.U8(), 100},
@@ -3286,25 +3286,25 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 102)).To(Equal(uint8(1)),
-					"following_stage must activate after inline body fires its cross-stage write")
+					"following_stage must activate after anonymous body fires its cross-stage write")
 			},
 		)
 
 		It(
-			"Completion of an inline flow body does not auto-advance the enclosing sequence",
+			"Completion of an anonymous flow body does not auto-advance the enclosing sequence",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
-					"start_cmd":  {types.U8(), 100},
-					"flag":       {types.U8(), 101},
-					"inline_out": {types.U8(), 102},
-					"second_out": {types.U8(), 103},
+					"start_cmd":     {types.U8(), 100},
+					"flag":          {types.U8(), 101},
+					"anonymous_out": {types.U8(), 102},
+					"second_out":    {types.U8(), 103},
 				})
 				h := newRuntimeHarness(ctx, `
 				start_cmd => main
 
 				sequence main {
 				    stage first {
-				        flag -> stage { 1 -> inline_out }
+				        flag -> stage { 1 -> anonymous_out }
 				    }
 				    stage second {
 				        1 -> second_out
@@ -3324,15 +3324,15 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 102)).To(Equal(uint8(1)),
-					"inline body must fire its write")
+					"anonymous body must fire its write")
 				Expect(out.Get(103).Series).To(BeEmpty(),
-					"main must remain on 'first' after the inline body completes; "+
+					"main must remain on 'first' after the anonymous body completes; "+
 						"'second' must not auto-advance")
 			},
 		)
 
 		It(
-			"Doubly-nested inline flow body fires the inner body in the same cycle",
+			"Doubly-nested anonymous flow body fires the inner body in the same cycle",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd": {types.U8(), 100},
@@ -3357,12 +3357,12 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 103)).To(Equal(uint8(1)),
-					"doubly-nested inline flow body must activate when the outer body fires")
+					"doubly-nested anonymous flow body must activate when the outer body fires")
 			},
 		)
 
 		It(
-			"Triply-nested inline flow body fires the innermost body in the same cycle",
+			"Triply-nested anonymous flow body fires the innermost body in the same cycle",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd":     {types.U8(), 100},
@@ -3389,12 +3389,12 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 103)).To(Equal(uint8(1)),
-					"triply-nested inline flow body must activate via the chain of inline bodies")
+					"triply-nested anonymous flow body must activate via the chain of anonymous bodies")
 			},
 		)
 
 		It(
-			"Quadruply-nested inline flow body fires the innermost body in the same cycle",
+			"Quadruply-nested anonymous flow body fires the innermost body in the same cycle",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd":     {types.U8(), 100},
@@ -3423,14 +3423,14 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 103)).To(Equal(uint8(1)),
-					"quadruply-nested inline flow body must activate via the chain of inline bodies")
+					"quadruply-nested anonymous flow body must activate via the chain of anonymous bodies")
 			},
 		)
 	})
 
-	Describe("Mixed inline dispatch nesting", func() {
+	Describe("Mixed anonymous dispatch nesting", func() {
 		It(
-			"Flow body wrapping an inline routing body fires the inner body in the same cycle",
+			"Flow body wrapping an anonymous routing body fires the inner body in the same cycle",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd": {types.U8(), 100},
@@ -3457,12 +3457,12 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 103)).To(Equal(uint8(1)),
-					"inline routing body nested in a flow body must fire in the same cycle")
+					"anonymous routing body nested in a flow body must fire in the same cycle")
 			},
 		)
 
 		It(
-			"Routing body wrapping an inline flow body fires the inner body in the same cycle",
+			"Routing body wrapping an anonymous flow body fires the inner body in the same cycle",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd": {types.U8(), 100},
@@ -3489,7 +3489,7 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 103)).To(Equal(uint8(1)),
-					"inline flow body nested in a routing body must fire in the same cycle")
+					"anonymous flow body nested in a routing body must fire in the same cycle")
 			},
 		)
 
@@ -3528,9 +3528,9 @@ var _ = Describe("Sequence", func() {
 		)
 	})
 
-	Describe("Top-level inline flow bodies", func() {
+	Describe("Top-level anonymous flow bodies", func() {
 		It(
-			"Module-scope inline stage flow body fires when its source fires",
+			"Module-scope anonymous stage flow body fires when its source fires",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"trigger": {types.U8(), 100},
@@ -3547,12 +3547,12 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 101)).To(Equal(uint8(1)),
-					"module-scope inline flow body must fire when its source channel fires")
+					"module-scope anonymous flow body must fire when its source channel fires")
 			},
 		)
 
 		It(
-			"Module-scope inline stage flow body fires on a single trigger edge",
+			"Module-scope anonymous stage flow body fires on a single trigger edge",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"trigger":    {types.U8(), 100},
@@ -3575,13 +3575,13 @@ var _ = Describe("Sequence", func() {
 				Expect(lastU8(out, 101)).To(Equal(uint8(1)),
 					"plain flow must fire on the triggering edge")
 				Expect(lastU8(out, 102)).To(Equal(uint8(1)),
-					"inline stage flow body must fire on the same cycle as the "+
+					"anonymous stage flow body must fire on the same cycle as the "+
 						"triggering edge, not one cycle later")
 			},
 		)
 
 		It(
-			"Module-scope inline stage flow body fires every parallel write",
+			"Module-scope anonymous stage flow body fires every parallel write",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"trigger": {types.U8(), 100},
@@ -3606,16 +3606,16 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 101)).To(Equal(uint8(1)),
-					"first parallel write of module-scope inline stage must fire")
+					"first parallel write of module-scope anonymous stage must fire")
 				Expect(lastU8(out, 102)).To(Equal(uint8(2)),
-					"second parallel write of module-scope inline stage must fire")
+					"second parallel write of module-scope anonymous stage must fire")
 				Expect(lastU8(out, 103)).To(Equal(uint8(3)),
-					"third parallel write of module-scope inline stage must fire")
+					"third parallel write of module-scope anonymous stage must fire")
 			},
 		)
 
 		It(
-			"Module-scope inline sequence flow body runs three steps in order",
+			"Module-scope anonymous sequence flow body runs three steps in order",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"trigger": {types.U8(), 100},
@@ -3640,16 +3640,16 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 101)).To(Equal(uint8(1)),
-					"first step of module-scope inline sequence must fire")
+					"first step of module-scope anonymous sequence must fire")
 				Expect(lastU8(out, 102)).To(Equal(uint8(2)),
-					"second step of module-scope inline sequence must fire")
+					"second step of module-scope anonymous sequence must fire")
 				Expect(lastU8(out, 103)).To(Equal(uint8(3)),
-					"third step of module-scope inline sequence must fire")
+					"third step of module-scope anonymous sequence must fire")
 			},
 		)
 
 		It(
-			"Module-scope nested inline flow bodies fire the inner body in the same cycle",
+			"Module-scope nested anonymous flow bodies fire the inner body in the same cycle",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"trigger":   {types.U8(), 100},
@@ -3668,14 +3668,14 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 101)).To(Equal(uint8(1)),
-					"nested module-scope inline flow body must activate in the same cycle")
+					"nested module-scope anonymous flow body must activate in the same cycle")
 			},
 		)
 	})
 
-	Describe("Sequence-scope inline flow bodies", func() {
+	Describe("Sequence-scope anonymous flow bodies", func() {
 		It(
-			"Fires constant-gated inline bodies on stage entry and cascades",
+			"Fires constant-gated anonymous bodies on stage entry and cascades",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd": {types.U8(), 100},
@@ -3712,16 +3712,16 @@ var _ = Describe("Sequence", func() {
 				trigger(h, ctx, 100)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 101)).To(Equal(uint8(1)),
-					"first stage's constant-gated inline stage body must fire on entry")
+					"first stage's constant-gated anonymous stage body must fire on entry")
 				Expect(lastU8(out, 102)).To(Equal(uint8(1)),
-					"second stage's constant-gated inline sequence body must fire on entry")
+					"second stage's constant-gated anonymous sequence body must fire on entry")
 				Expect(lastU8(out, 103)).To(Equal(uint8(1)),
-					"third stage must fire after the inline-body transitions cascade")
+					"third stage must fire after the anonymous-body transitions cascade")
 			},
 		)
 
 		It(
-			"Cascades when the first stage's inline body is gated by an external edge",
+			"Cascades when the first stage's anonymous body is gated by an external edge",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd": {types.U8(), 100},
@@ -3761,9 +3761,9 @@ var _ = Describe("Sequence", func() {
 				trigger(h, ctx, 104)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 101)).To(Equal(uint8(1)),
-					"externally-gated inline stage body must fire on its edge")
+					"externally-gated anonymous stage body must fire on its edge")
 				Expect(lastU8(out, 102)).To(Equal(uint8(1)),
-					"second stage's constant-gated inline body must fire on entry, "+
+					"second stage's constant-gated anonymous body must fire on entry, "+
 						"not wait for another external edge")
 				Expect(lastU8(out, 103)).To(Equal(uint8(1)),
 					"third stage must fire after the cascade completes")
@@ -3771,7 +3771,7 @@ var _ = Describe("Sequence", func() {
 		)
 
 		It(
-			"Cascades constant-gated inline bodies within a single tick",
+			"Cascades constant-gated anonymous bodies within a single tick",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd": {types.U8(), 100},
@@ -3809,9 +3809,9 @@ var _ = Describe("Sequence", func() {
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 101)).To(Equal(uint8(1)),
-					"first inline body must fire in the triggering tick")
+					"first anonymous body must fire in the triggering tick")
 				Expect(lastU8(out, 102)).To(Equal(uint8(1)),
-					"second stage's inline body must fire in the same tick, not the next")
+					"second stage's anonymous body must fire in the same tick, not the next")
 				Expect(lastU8(out, 103)).To(Equal(uint8(1)),
 					"third stage must fire in the same tick")
 			},
@@ -8349,7 +8349,7 @@ var _ = Describe("Sequence", func() {
 		)
 
 		It(
-			"Re-points a channel-read variable from an inline sequence",
+			"Re-points a channel-read variable from an anonymous sequence",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"cpu": {types.U8(), 201},
@@ -10695,7 +10695,7 @@ var _ = Describe("Sequence", func() {
 			start_a == 1 => hold(2s, valve_a)`),
 		)
 
-		It("Should keep an inline body in its own instance", func(ctx SpecContext) {
+		It("Should keep an anonymous body in its own instance", func(ctx SpecContext) {
 			h := open(ctx, `
 			sequence watch(limit f32, valve chan u8) {
 			    stage armed {

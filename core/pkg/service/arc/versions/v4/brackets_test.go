@@ -141,7 +141,7 @@ start => main`,
     }
 }
 start => main`),
-		Entry("routing table and inline stage keep their braces",
+		Entry("routing table and anonymous stage keep their braces",
 			`sequence s {
     stage a {
         flag -> select{} -> {

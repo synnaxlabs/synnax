@@ -1899,7 +1899,7 @@ sequence main {
 		)
 
 		It(
-			"Should accept inline stage with multiple parallel flow statements per case body",
+			"Should accept anonymous stage with multiple parallel flow statements per case body",
 			func(bCtx SpecContext) {
 				customResolver := []symbol.Symbol{
 					{
@@ -1950,7 +1950,7 @@ sequence main {
 		)
 
 		It(
-			"Should accept inline sequence with multiple sequential steps per case body",
+			"Should accept anonymous sequence with multiple sequential steps per case body",
 			func(bCtx SpecContext) {
 				customResolver := []symbol.Symbol{
 					{
@@ -2001,7 +2001,7 @@ sequence main {
 		)
 
 		It(
-			"Should register inline stage case bodies under the lexically enclosing scope",
+			"Should register anonymous stage case bodies under the lexically enclosing scope",
 			func(bCtx SpecContext) {
 				customResolver := []symbol.Symbol{
 					{
@@ -2036,19 +2036,19 @@ sequence main {
 
 				mainScope := ctx.Scope.FindChild("main")
 				Expect(mainScope).ToNot(BeNil())
-				var inlines []*symbol.Symbol
+				var anonymous []*symbol.Symbol
 				for _, child := range mainScope.Children() {
-					if strings.HasPrefix(child.Name, ir.InlinePrefix) {
-						inlines = append(inlines, child)
+					if strings.HasPrefix(child.Name, ir.AnonymousPrefix) {
+						anonymous = append(anonymous, child)
 					}
 				}
-				Expect(inlines).To(HaveLen(2),
-					"both inline stages must be registered under main with the synth prefix")
+				Expect(anonymous).To(HaveLen(2),
+					"both anonymous stages must be registered under main with the synth prefix")
 			},
 		)
 
 		It(
-			"Should register inline sequence case bodies under the lexically enclosing scope",
+			"Should register anonymous sequence case bodies under the lexically enclosing scope",
 			func(bCtx SpecContext) {
 				customResolver := []symbol.Symbol{
 					{
@@ -2089,18 +2089,18 @@ sequence main {
 
 				mainScope := ctx.Scope.FindChild("main")
 				Expect(mainScope).ToNot(BeNil())
-				var inlines []*symbol.Symbol
+				var anonymous []*symbol.Symbol
 				for _, child := range mainScope.Children() {
-					if strings.HasPrefix(child.Name, ir.InlinePrefix) {
-						inlines = append(inlines, child)
+					if strings.HasPrefix(child.Name, ir.AnonymousPrefix) {
+						anonymous = append(anonymous, child)
 					}
 				}
-				Expect(inlines).To(HaveLen(2),
-					"both inline sequences must be registered under main with the synth prefix")
+				Expect(anonymous).To(HaveLen(2),
+					"both anonymous sequences must be registered under main with the synth prefix")
 			},
 		)
 
-		It("Should reject a named inline stage case body", func(bCtx SpecContext) {
+		It("Should reject a named anonymous stage case body", func(bCtx SpecContext) {
 			customResolver := []symbol.Symbol{
 				{Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.U8())},
 				{
@@ -2134,20 +2134,26 @@ sequence main {
 				msgs = append(msgs, d.Message)
 			}
 			Expect(msgs).To(ContainElement(
-				"an inline stage or sequence cannot have a name",
+				"a stage or sequence in a flow cannot have a name",
 			), "diagnostics: %v", msgs)
 		})
 
-		It("Should reject a named inline sequence case body", func(bCtx SpecContext) {
-			customResolver := []symbol.Symbol{
-				{Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.U8())},
-				{
-					Name: "log_str",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.String()),
-				},
-			}
-			ast := MustSucceed(parser.Parse(`
+		It(
+			"Should reject a named anonymous sequence case body",
+			func(bCtx SpecContext) {
+				customResolver := []symbol.Symbol{
+					{
+						Name: "flag",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.U8()),
+					},
+					{
+						Name: "log_str",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.String()),
+					},
+				}
+				ast := MustSucceed(parser.Parse(`
 			func gate() {value u8} (yes u8, no u8) {
 			    if (value > 0) {
 			        yes = 1
@@ -2164,20 +2170,21 @@ sequence main {
 			        }
 			    }
 			}`))
-			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, customResolver...))
-			analyzer.AnalyzeProgram(ctx)
-			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			msgs := make([]string, 0, len(*ctx.Diagnostics))
-			for _, d := range *ctx.Diagnostics {
-				msgs = append(msgs, d.Message)
-			}
-			Expect(msgs).To(ContainElement(
-				"an inline stage or sequence cannot have a name",
-			), "diagnostics: %v", msgs)
-		})
+				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, customResolver...))
+				analyzer.AnalyzeProgram(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+				msgs := make([]string, 0, len(*ctx.Diagnostics))
+				for _, d := range *ctx.Diagnostics {
+					msgs = append(msgs, d.Message)
+				}
+				Expect(msgs).To(ContainElement(
+					"a stage or sequence in a flow cannot have a name",
+				), "diagnostics: %v", msgs)
+			},
+		)
 
 		It(
-			"Should reject `=> name` from a peer stage targeting a named inline",
+			"Should reject `=> name` from a peer stage targeting a named anonymous",
 			func(bCtx SpecContext) {
 				customResolver := []symbol.Symbol{
 					{
@@ -2219,13 +2226,13 @@ sequence main {
 				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, customResolver...))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse(),
-					"expected peer to be unable to reference inline by name; got: %s",
+					"expected peer to be unable to reference anonymous by name; got: %s",
 					ctx.Diagnostics.String())
 			},
 		)
 
 		It(
-			"Should accept a routing table mixing one inline case body and one chain case body",
+			"Should accept a routing table mixing one anonymous case body and one chain case body",
 			func(bCtx SpecContext) {
 				customResolver := []symbol.Symbol{
 					{
@@ -2257,7 +2264,7 @@ sequence main {
 			    stage hold {
 			        flag -> gate() -> {
 			            yes: stage {
-			                "yes_inline" -> log_str
+			                "yes_anonymous" -> log_str
 			                1 -> log_num
 			            },
 			            no: "no_chain" -> log_str
@@ -2271,7 +2278,7 @@ sequence main {
 		)
 
 		It(
-			"Should reject a type mismatch inside an inline stage case body",
+			"Should reject a type mismatch inside an anonymous stage case body",
 			func(bCtx SpecContext) {
 				customResolver := []symbol.Symbol{
 					{
@@ -2313,7 +2320,7 @@ sequence main {
 		)
 
 		It(
-			"Should reject a type mismatch inside an inline sequence case body",
+			"Should reject a type mismatch inside an anonymous sequence case body",
 			func(bCtx SpecContext) {
 				customResolver := []symbol.Symbol{
 					{
@@ -2355,7 +2362,7 @@ sequence main {
 		)
 
 		It(
-			"Should report an undefined symbol referenced inside an inline stage case body",
+			"Should report an undefined symbol referenced inside an anonymous stage case body",
 			func(bCtx SpecContext) {
 				customResolver := []symbol.Symbol{
 					{
@@ -2397,7 +2404,7 @@ sequence main {
 		)
 
 		It(
-			"Should accept an inline case body routed off a custom multi-output func",
+			"Should accept an anonymous case body routed off a custom multi-output func",
 			func(bCtx SpecContext) {
 				customResolver := []symbol.Symbol{
 					{
@@ -2451,7 +2458,7 @@ sequence main {
 		)
 
 		It(
-			"Should accept nested routing tables inside an inline stage case body",
+			"Should accept nested routing tables inside an anonymous stage case body",
 			func(bCtx SpecContext) {
 				customResolver := []symbol.Symbol{
 					{
@@ -2498,7 +2505,7 @@ sequence main {
 		)
 
 		It(
-			"Should accept a top-level inline stage with multiple parallel flow statements",
+			"Should accept a top-level anonymous stage with multiple parallel flow statements",
 			func(bCtx SpecContext) {
 				customResolver := []symbol.Symbol{
 					{
@@ -2530,7 +2537,7 @@ sequence main {
 		)
 
 		It(
-			"Should accept a top-level inline sequence with multiple sequential steps",
+			"Should accept a top-level anonymous sequence with multiple sequential steps",
 			func(bCtx SpecContext) {
 				customResolver := []symbol.Symbol{
 					{
@@ -2562,7 +2569,7 @@ sequence main {
 		)
 
 		It(
-			"Should register top-level inline stage flow targets under the root scope",
+			"Should register top-level anonymous stage flow targets under the root scope",
 			func(bCtx SpecContext) {
 				customResolver := []symbol.Symbol{
 					{
@@ -2588,19 +2595,19 @@ sequence main {
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 
-				var inlines []*symbol.Symbol
+				var anonymous []*symbol.Symbol
 				for _, child := range ctx.Scope.Children() {
-					if strings.HasPrefix(child.Name, ir.InlinePrefix) {
-						inlines = append(inlines, child)
+					if strings.HasPrefix(child.Name, ir.AnonymousPrefix) {
+						anonymous = append(anonymous, child)
 					}
 				}
-				Expect(inlines).To(HaveLen(2),
-					"both top-level inline stage flow targets must be registered under the root scope")
+				Expect(anonymous).To(HaveLen(2),
+					"both top-level anonymous stage flow targets must be registered under the root scope")
 			},
 		)
 
 		It(
-			"Should register top-level inline sequence flow targets under the root scope",
+			"Should register top-level anonymous sequence flow targets under the root scope",
 			func(bCtx SpecContext) {
 				customResolver := []symbol.Symbol{
 					{
@@ -2632,19 +2639,19 @@ sequence main {
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 
-				var inlines []*symbol.Symbol
+				var anonymous []*symbol.Symbol
 				for _, child := range ctx.Scope.Children() {
-					if strings.HasPrefix(child.Name, ir.InlinePrefix) {
-						inlines = append(inlines, child)
+					if strings.HasPrefix(child.Name, ir.AnonymousPrefix) {
+						anonymous = append(anonymous, child)
 					}
 				}
-				Expect(inlines).To(HaveLen(2),
-					"both top-level inline sequence flow targets must be registered under the root scope")
+				Expect(anonymous).To(HaveLen(2),
+					"both top-level anonymous sequence flow targets must be registered under the root scope")
 			},
 		)
 
 		It(
-			"Should reject a named top-level inline stage flow target",
+			"Should reject a named top-level anonymous stage flow target",
 			func(bCtx SpecContext) {
 				customResolver := []symbol.Symbol{
 					{
@@ -2668,13 +2675,13 @@ sequence main {
 					msgs = append(msgs, d.Message)
 				}
 				Expect(msgs).To(ContainElement(
-					"an inline stage or sequence cannot have a name",
+					"a stage or sequence in a flow cannot have a name",
 				), "diagnostics: %v", msgs)
 			},
 		)
 
 		It(
-			"Should reject a named top-level inline sequence flow target",
+			"Should reject a named top-level anonymous sequence flow target",
 			func(bCtx SpecContext) {
 				customResolver := []symbol.Symbol{
 					{
@@ -2698,13 +2705,13 @@ sequence main {
 					msgs = append(msgs, d.Message)
 				}
 				Expect(msgs).To(ContainElement(
-					"an inline stage or sequence cannot have a name",
+					"a stage or sequence in a flow cannot have a name",
 				), "diagnostics: %v", msgs)
 			},
 		)
 
 		It(
-			"Should reject `=> name` from a peer stage targeting a named inline flow target",
+			"Should reject `=> name` from a peer stage targeting a named anonymous flow target",
 			func(bCtx SpecContext) {
 				customResolver := []symbol.Symbol{
 					{
@@ -2735,13 +2742,13 @@ sequence main {
 				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, customResolver...))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse(),
-					"expected peer to be unable to reference inline by name; got: %s",
+					"expected peer to be unable to reference anonymous by name; got: %s",
 					ctx.Diagnostics.String())
 			},
 		)
 
 		It(
-			"Should accept a top-level scope mixing one inline flow target and one plain flow chain",
+			"Should accept a top-level scope mixing one anonymous flow target and one plain flow chain",
 			func(bCtx SpecContext) {
 				customResolver := []symbol.Symbol{
 					{
@@ -2762,7 +2769,7 @@ sequence main {
 				}
 				ast := MustSucceed(parser.Parse(`
 			flag -> stage {
-			    "inline_branch" -> log_str
+			    "anonymous_branch" -> log_str
 			    1 -> log_num
 			}
 			flag -> log_num`))
@@ -2773,7 +2780,7 @@ sequence main {
 		)
 
 		It(
-			"Should reject a type mismatch inside a top-level inline stage flow target",
+			"Should reject a type mismatch inside a top-level anonymous stage flow target",
 			func(bCtx SpecContext) {
 				customResolver := []symbol.Symbol{
 					{
@@ -2801,7 +2808,7 @@ sequence main {
 		)
 
 		It(
-			"Should reject a type mismatch inside a top-level inline sequence flow target",
+			"Should reject a type mismatch inside a top-level anonymous sequence flow target",
 			func(bCtx SpecContext) {
 				customResolver := []symbol.Symbol{
 					{
@@ -2829,7 +2836,7 @@ sequence main {
 		)
 
 		It(
-			"Should report an undefined symbol referenced inside a top-level inline stage flow target",
+			"Should report an undefined symbol referenced inside a top-level anonymous stage flow target",
 			func(bCtx SpecContext) {
 				customResolver := []symbol.Symbol{
 					{
@@ -2857,7 +2864,7 @@ sequence main {
 		)
 
 		It(
-			"Should accept nested top-level inline flow targets",
+			"Should accept nested top-level anonymous flow targets",
 			func(bCtx SpecContext) {
 				customResolver := []symbol.Symbol{
 					{
@@ -2887,7 +2894,7 @@ sequence main {
 		)
 
 		It(
-			"Should accept a top-level inline flow body containing a routing table with its own inline body",
+			"Should accept a top-level anonymous flow body containing a routing table with its own anonymous body",
 			func(bCtx SpecContext) {
 				customResolver := []symbol.Symbol{
 					{
@@ -2919,7 +2926,7 @@ sequence main {
 		)
 
 		It(
-			"Should accept a top-level routing case inline body containing an inline flow body",
+			"Should accept a top-level routing case anonymous body containing an anonymous flow body",
 			func(bCtx SpecContext) {
 				customResolver := []symbol.Symbol{
 					{
@@ -3786,7 +3793,7 @@ var _ = Describe("Routing entry strictness", func() {
 			    high: true -> vlv_cmd,
 			    low: false -> vlv_cmd
 			}`),
-		Entry("inside an inline stage in a routing entry", `
+		Entry("inside an anonymous stage in a routing entry", `
 			flag -> select() -> {
 			    true: stage {
 			        flag -> select() => {
@@ -3830,7 +3837,7 @@ var _ = Describe("Routing entry strictness", func() {
 			flag -> select() -> {
 			    true: flag => select()
 			}`),
-		Entry("inside an inline stage in a routing entry", `
+		Entry("inside an anonymous stage in a routing entry", `
 			flag -> select() -> {
 			    true: stage {
 			        flag => select() -> {
@@ -3855,24 +3862,24 @@ var _ = Describe("Routing entry strictness", func() {
 		}
 	})
 
-	// Inline bodies are the exception to the full-statement rule. They are
+	// Anonymous bodies are the exception to the full-statement rule. They are
 	// self-contained, so they run without the entry providing an upstream flow.
-	DescribeTable("Should accept an inline body without an upstream flow",
+	DescribeTable("Should accept an anonymous body without an upstream flow",
 		func(bCtx SpecContext, source string) {
 			ast := MustSucceed(parser.Parse(source))
 			ctx := context.NewRoot(bCtx, ast, NewRoot(routingResolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		},
-		Entry("inline stage body", `
+		Entry("anonymous stage body", `
 			flag -> select() -> {
 			    true: stage { true -> vlv_cmd }
 			}`),
-		Entry("inline sequence body", `
+		Entry("anonymous sequence body", `
 			flag -> select() -> {
 			    true: sequence { true -> vlv_cmd }
 			}`),
-		Entry("inline bodies on both branches", `
+		Entry("anonymous bodies on both branches", `
 			flag -> select() -> {
 			    true: stage { true -> vlv_cmd },
 			    false: sequence { false -> vlv_cmd }

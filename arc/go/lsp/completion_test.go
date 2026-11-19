@@ -489,7 +489,9 @@ var _ = Describe("Completion", func() {
 			},
 		)
 
-		It("should show next keyword inside a stage body", func(ctx SpecContext) {
+		It("should show next and stage keywords inside a stage body", func(
+			ctx SpecContext,
+		) {
 			content := "sequence main {\n    stage first {\n        \n    }\n}"
 			OpenArcDocument(server, ctx, docURI, content)
 
@@ -501,7 +503,7 @@ var _ = Describe("Completion", func() {
 			).To(BeTrue(), "Should show 'next' keyword inside stage body")
 			Expect(
 				HasCompletion(completions.Items, "stage"),
-			).To(BeFalse(), "Should not show 'stage' inside stage body")
+			).To(BeTrue(), "Should show 'stage' inside stage body")
 			Expect(
 				HasCompletion(completions.Items, "if"),
 			).To(BeFalse(), "Should not show 'if' inside stage body")
@@ -513,7 +515,7 @@ var _ = Describe("Completion", func() {
 			).To(BeFalse(), "Should not show 'func' inside stage body")
 			Expect(
 				HasCompletion(completions.Items, "sequence"),
-			).To(BeTrue(), "Should show 'sequence' inside stage body (inline sequences)")
+			).To(BeTrue(), "Should show 'sequence' inside stage body (anonymous sequences)")
 		})
 
 		It("should not show types at statement start", func(ctx SpecContext) {
