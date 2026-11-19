@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <functional>
 #include <optional>
+#include <set>
 #include <span>
 #include <string>
 #include <utility>
@@ -80,6 +81,8 @@ class Master final : public master::Master {
     std::vector<uint8_t> outputs;
     /// @brief cached slave information populated during initialization.
     std::vector<slave::DiscoveryResult> cached_slaves;
+    /// @brief the positions of the slaves whose CoE dictionary IgH reads.
+    std::set<uint16_t> dictionaries;
     /// @brief the configuration of each enabled slave, in position order.
     std::vector<std::pair<uint16_t, ec_slave_config_t *>> slave_configs;
     /// @brief whether the master has been initialized.
@@ -236,8 +239,14 @@ private:
     /// the scan to reach PRE-OP, then reads its CoE objects.
     void read_starting();
 
-    /// @brief reads the CoE serial number and the settings of slave.
-    void read_coe(slave::DiscoveryResult &slave);
+    /// @brief waits until IgH has read the CoE dictionary of each of slaves, as IgH
+    /// lets an SDO transfer use the mailbox of a slave while it reads the dictionary.
+    /// Stops waiting once IgH reads no more of the dictionaries for 5 s.
+    void await_dictionaries(const std::vector<slave::DiscoveryResult *> &slaves);
+
+    /// @brief reads the CoE serial number and the settings of each of slaves once IgH
+    /// has read their dictionaries.
+    void read_coe(const std::vector<slave::DiscoveryResult *> &slaves);
 
     /// @brief returns true when every slave at positions has its AL error flag set.
     [[nodiscard]] bool refusing(const std::vector<uint16_t> &positions) const;
