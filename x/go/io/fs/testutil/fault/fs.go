@@ -259,7 +259,7 @@ func (f *FS) Writeback() {
 	for _, c := range d.pending {
 		c.makeDurable()
 	}
-	d.pending, d.syncedThrough = nil, d.changes
+	d.pending = nil
 	d.writeback(d.root)
 }
 
