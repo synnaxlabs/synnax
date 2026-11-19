@@ -42,5 +42,6 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.waitFor(
     page.locator(".console-nav__drawer").getByText("ox_tank_pressure", { exact: true }),
   );
+  await session.moveTo({ x: 1180, y: 680 });
   await session.hold(2800);
 };
