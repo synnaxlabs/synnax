@@ -451,7 +451,7 @@ describe("Color.Field", () => {
       expect(screen.queryByRole("button", { name: "Create palette" })).toBeNull();
     });
 
-    it("should offer no edit or palette create to a user who cannot update", async () => {
+    it("should open no swatch menu or palette + for a user who cannot update", async () => {
       const { palette, named } = await createInPalette();
       const limited = await createLimitedWrapper("create");
       const { result } = renderField({ type: "named", key: named.key }, limited);
@@ -460,9 +460,13 @@ describe("Color.Field", () => {
       expect(
         await screen.findByRole("button", { name: "Create palette" }),
       ).toBeTruthy();
-      await openSwatchMenu(named.name);
+      const swatch = screen.getByRole("button", { name: named.name });
+      act(() => swatch.focus());
+      expect(fireEvent.contextMenu(swatch)).toBe(true);
+      fireEvent.keyDown(swatch, { key: "F10", code: "F10", shiftKey: true });
       await act(async () => {});
       expect(screen.queryByRole("menuitem", { name: "Edit" })).toBeNull();
+      expect(document.activeElement).toBe(swatch);
       expect(
         screen.queryByRole("button", { name: `Create a color in ${palette.name}` }),
       ).toBeNull();

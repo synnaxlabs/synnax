@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/client";
+import { type color } from "@synnaxlabs/client";
 import { Color } from "@synnaxlabs/lyra/color";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
@@ -17,7 +17,6 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
-import { Access } from "@/access";
 import { DarkInput, Editor, LightInput } from "@/color/Editor";
 import { formPath } from "@/color/queries";
 
@@ -45,33 +44,24 @@ const EditView = ({ itemKey }: EditViewProps): ReactElement => (
   </Editor>
 );
 
-interface EditMenuProps {
-  named: Color.Named;
-}
-
-const EditMenu = ({ named }: EditMenuProps): ReactElement | null => {
+/**
+ * The context menu of a swatch in a color picker, for a user who can update colors. Its
+ * Edit item opens the named color editor inside the picker.
+ */
+export const SwatchMenu = (): ReactElement | null => {
+  const { swatch } = Color.usePalette();
   const { openView } = Color.usePicker();
-  const canUpdate = Access.useUpdateGranted(color.resourceID(named.key));
-  if (!canUpdate) return null;
+  if (swatch == null) return null;
   return (
     <Menu.Menu gap="small">
       <Menu.Item
         size="small"
         itemKey="edit"
-        onClick={() => openView("Edit color", <EditView itemKey={named.key} />)}
+        onClick={() => openView("Edit color", <EditView itemKey={swatch.key} />)}
       >
         <Icon.Edit />
         Edit
       </Menu.Item>
     </Menu.Menu>
   );
-};
-
-/**
- * The context menu of a swatch in a color picker. Its Edit item opens the named color
- * editor inside the picker, for a user who can update the color.
- */
-export const SwatchMenu = (): ReactElement | null => {
-  const { swatch } = Color.usePalette();
-  return swatch == null ? null : <EditMenu named={swatch} />;
 };
