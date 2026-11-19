@@ -13,7 +13,7 @@ import { theme } from "@synnaxlabs/lyra/theme";
 import { color, DataType, id, TimeStamp } from "@synnaxlabs/x";
 import { afterEach, assert, describe, expect, it, vi } from "vitest";
 
-import { series } from "@/color/aether";
+import { color as aetherColor } from "@/color/aether";
 import { Colors } from "@/telem/control/aether/colors";
 import { renderAether } from "@/testutil/renderAether";
 
@@ -99,7 +99,7 @@ const setup = async (
   const setSeries = (colors: color.Color[]): void =>
     seriesProvider._updateState({
       path: [seriesProvider.key],
-      type: series.Provider.TYPE,
+      type: aetherColor.series.Provider.TYPE,
       state: { colors },
       create: () => {
         throw new Error("should not create");

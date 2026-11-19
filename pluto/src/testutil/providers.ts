@@ -15,7 +15,7 @@ import { type z } from "zod";
 import { type aether } from "@/aether/aether";
 import { aetherTest } from "@/aether/testutil";
 import { alamos } from "@/alamos/aether";
-import { series } from "@/color/aether";
+import { color } from "@/color/aether";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
 import { telem } from "@/telem/aether";
@@ -53,7 +53,7 @@ export interface ProviderOptions {
   /** Theming provider. Defaults on with `theme.SYNNAX_LIGHT`. */
   theming?: false | z.input<typeof theming.Provider.z>;
   /** Series color provider. Defaults on with no series colors. */
-  series?: false | z.input<typeof series.Provider.z>;
+  series?: false | z.input<typeof color.series.Provider.z>;
   /** Telemetry provider. Defaults on with `TestFactory` + `NoopFactory`. */
   telem?: false | { factories?: telem.Factory[] };
   /** Staleness provider. Defaults on with a 250ms sweep. */
@@ -75,7 +75,7 @@ export interface MountedProviders {
   status: status.Aggregator | null;
   synnax: synnax.Provider | null;
   theming: theming.Provider | null;
-  series: series.Provider | null;
+  series: color.series.Provider | null;
   telem: aether.Composite<typeof telem.providerStateZ> | null;
   staleness: staleness.Provider | null;
   render: canvasTest.RenderProvider | null;
@@ -137,7 +137,7 @@ export const buildStack = (options: ProviderOptions = {}): BuiltStack => {
     ...status.REGISTRY,
     ...synnax.REGISTRY,
     ...theming.REGISTRY,
-    ...series.REGISTRY,
+    ...color.series.REGISTRY,
     [telem.PROVIDER_TYPE]: buildTelemProvider(telemFactories),
     ...staleness.REGISTRY,
     [canvasTest.RenderProvider.TYPE]: canvasTest.RenderProvider,
@@ -202,10 +202,10 @@ export const buildStack = (options: ProviderOptions = {}): BuiltStack => {
     path.push(SERIES_KEY);
     driver.update(
       path,
-      series.Provider.TYPE,
-      series.Provider.z.parse(stateOf(options.series, { colors: [] })),
+      color.series.Provider.TYPE,
+      color.series.Provider.z.parse(stateOf(options.series, { colors: [] })),
     );
-    providers.series = driver.find<series.Provider>([...path]);
+    providers.series = driver.find<color.series.Provider>([...path]);
   }
   if (isOn(options.telem)) {
     path.push(TELEM_KEY);
