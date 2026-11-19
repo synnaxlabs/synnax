@@ -230,11 +230,13 @@ export const Table = ({
   };
 
   const cellStatus = ({ x, y }: xy.XY): Status.Crude | undefined => {
-    const entry = value[y];
-    const v = entry == null ? undefined : holds.get(entry.key);
-    if (x !== VALUE || v == null) return undefined;
+    const entry = shown[y];
+    if (x !== VALUE || entry == null) return undefined;
+    const v = entry.value;
+    // Node options from before enumerations can store a value twice.
+    const repeated = holds.has(entry.key) || holderIn(value, entry.key, v) != null;
     const other = holderIn(shown, entry.key, v);
-    if (other == null) return undefined;
+    if (!repeated || other == null) return undefined;
     const name = other.name.trim() === "" ? "Another entry" : other.name;
     return {
       variant: "error",

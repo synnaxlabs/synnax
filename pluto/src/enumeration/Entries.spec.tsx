@@ -152,6 +152,18 @@ describe("Enumeration.Table", () => {
       );
     });
 
+    it("should mark both entries that store the same value", () => {
+      renderTable({ initial: [createEntry("Off", 0), createEntry("On", 0)] });
+      expect(marked(input("Value 1"))).toBe(true);
+      expect(marked(input("Value 2"))).toBe(true);
+    });
+
+    it("should not mark the entry whose value another entry holds", () => {
+      renderTable({ initial: [createEntry("Off", 0), createEntry("On", 1)] });
+      commit(input("Value 2"), "0");
+      expect(marked(input("Value 1"))).toBe(false);
+    });
+
     it("should add an entry with the next whole value", () => {
       renderTable({ initial: [createEntry("Off", 0), createEntry("On", 2.5)] });
       fireEvent.click(screen.getByRole("button", { name: "Add entry" }));
