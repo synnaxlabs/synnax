@@ -4590,6 +4590,25 @@ TEST_F(EngineTest, RunningBusCountsASlaveBackInInitOrBootAsRestarted) {
     EXPECT_GT(slaves[1].restarted_at.value(), first);
 }
 
+/// @brief it should read a slave that was starting when the bus started again once it
+/// leaves INIT, and read no slave again while none is starting.
+TEST_F(EngineTest, RunningBusReadsAStartingSlaveAgain) {
+    this->master->add_slave(io_slave(1));
+    this->master->set_slave_starting(1, true);
+    const auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    EXPECT_TRUE(ASSERT_NIL_P(this->engine->discover())[1].status.starting);
+    this->master->set_slave_starting(1, false);
+    EXPECT_FALSE(ASSERT_NIL_P(this->engine->rediscover())[1].status.starting);
+    const auto scans = this->master->call_count("scan");
+    EXPECT_FALSE(ASSERT_NIL_P(this->engine->discover())[1].status.starting);
+    EXPECT_EQ(this->master->call_count("scan"), scans);
+}
+
 /// @brief it should count a left-out slave that restarts while the bus runs as
 /// restarted once the bus stops.
 TEST_F(EngineTest, StopCountsALeftOutSlaveThatRestartedAsRestarted) {

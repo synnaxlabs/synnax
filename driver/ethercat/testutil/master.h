@@ -484,6 +484,13 @@ public:
         this->slave(position).status.state = state;
     }
 
+    /// @brief sets whether the slave at position is below PRE-OP for the next read of
+    /// it.
+    void set_slave_starting(const uint16_t position, const bool starting) {
+        std::lock_guard lock(this->mu);
+        this->slave(position).status.starting = starting;
+    }
+
     /// @brief moves a slave to the state with the AL status error flag set and the
     /// given AL status text, as a slave does when its watchdog trips.
     void fault_slave(
@@ -570,7 +577,19 @@ public:
                     slave.properties.serial = 0;
                 }
             this->next_serial_errors.clear();
-        }
+        } else
+            for (auto &slave: this->scanned) {
+                if (!slave.status.starting) continue;
+                const auto live = std::ranges::find(
+                    this->slave_list,
+                    slave.properties.position,
+                    [](const slave::DiscoveryResult &s) {
+                        return s.properties.position;
+                    }
+                );
+                if (live != this->slave_list.end() && !live->status.starting)
+                    slave = *live;
+            }
         this->initialized = true;
         return {this->scanned, x::errors::NIL};
     }

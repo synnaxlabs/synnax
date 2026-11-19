@@ -1439,10 +1439,7 @@ Engine::discover(const Start &start) {
 
 std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
 Engine::discover_locked() {
-    if (this->running()) {
-        this->track_restarts_locked({});
-        return {this->slaves, x::errors::NIL};
-    }
+    if (this->running()) return this->running_slaves_locked();
     auto [slaves, err] = this->scan_locked();
     if (err) return {{}, err};
     const auto [change, change_err] = this->master->changed();
@@ -1459,11 +1456,22 @@ Engine::discover_locked() {
 
 std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Engine::rediscover() {
     std::lock_guard lock(this->mu);
-    if (this->running()) {
-        this->track_restarts_locked({});
-        return {this->slaves, x::errors::NIL};
-    }
+    if (this->running()) return this->running_slaves_locked();
     return this->rediscover_locked();
+}
+
+std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
+Engine::running_slaves_locked() {
+    const auto starting = [](const slave::DiscoveryResult &s) {
+        return s.status.starting;
+    };
+    if (std::ranges::any_of(this->slaves, starting)) {
+        auto [slaves, err] = this->master->scan();
+        if (err) return {{}, err};
+        this->slaves = std::move(slaves);
+    }
+    this->track_restarts_locked({});
+    return {this->slaves, x::errors::NIL};
 }
 
 x::errors::Error

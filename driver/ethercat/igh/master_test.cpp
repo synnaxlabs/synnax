@@ -714,6 +714,24 @@ TEST_F(IGHMasterTest, ScanReadsOnlyTheSIIOfAStartingSlave) {
     EXPECT_TRUE(slaves[1].properties.settings.has_value());
 }
 
+/// @brief it should read a slave that was starting at the scan again at a later scan,
+/// once the slave has left INIT.
+TEST_F(IGHMasterTest, ScanReadsAStartingSlaveAgainOnceItLeavesInit) {
+    auto &slave = this->api
+                      ->add_slave("6xSTG", testutil::DEWESOFT, testutil::IOLITE_6XSTG);
+    slave.info.al_state = EC_AL_STATE_INIT;
+    slave.objects = testutil::stg_objects(0);
+    slave.wide_objects[{0x1018, 4}] = 9;
+    ASSERT_TRUE(ASSERT_NIL_P(this->master.scan())[0].status.starting);
+    ASSERT_TRUE(ASSERT_NIL_P(this->master.scan())[0].status.starting);
+    slave.info.al_state = EC_AL_STATE_PREOP;
+    const auto slaves = ASSERT_NIL_P(this->master.scan());
+    EXPECT_EQ(slaves[0].status.state, slave::State::PRE_OP);
+    EXPECT_FALSE(slaves[0].status.starting);
+    EXPECT_EQ(slaves[0].properties.serial, 9);
+    EXPECT_TRUE(slaves[0].properties.settings.has_value());
+}
+
 /// @brief it should read the CoE objects of each slave that was starting at the scan
 /// once it reaches PRE-OP, disabled ones included, and start without one that stays in
 /// INIT.
