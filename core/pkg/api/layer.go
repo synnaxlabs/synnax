@@ -157,6 +157,11 @@ type Transport struct {
 	SchematicSymbolExportGroup freighter.UnaryServer[symbol.ExportGroupRequest, symbol.ExportGroupResponse]
 	SchematicSymbolImportGroup freighter.UnaryServer[symbol.ImportGroupRequest, symbol.ImportGroupResponse]
 	SchematicSymbolDeleteGroup freighter.UnaryServer[symbol.DeleteGroupRequest, struct{}]
+	// SchematicSymbolRetrieveBuiltins returns the symbols that the Core ships.
+	SchematicSymbolRetrieveBuiltins freighter.UnaryServer[
+		struct{},
+		symbol.RetrieveBuiltinsResponse,
+	]
 	// LOG
 	LogCreate   freighter.UnaryServer[log.CreateRequest, log.CreateResponse]
 	LogRetrieve freighter.UnaryServer[log.RetrieveRequest, log.RetrieveResponse]
@@ -480,6 +485,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.SchematicSymbolExportGroup,
 		t.SchematicSymbolImportGroup,
 		t.SchematicSymbolDeleteGroup,
+		t.SchematicSymbolRetrieveBuiltins,
 
 		// LINE PLOT
 		t.LinePlotCreate,
@@ -748,6 +754,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.SchematicSymbolDeleteGroup.BindHandler(
 		bind.Write(l.binder, l.Symbol.DeleteGroup),
 	)
+	t.SchematicSymbolRetrieveBuiltins.BindHandler(l.Symbol.RetrieveBuiltins)
 
 	// LINE PLOT
 	t.LinePlotCreate.BindHandler(bind.Write(l.binder, l.LinePlot.Create))

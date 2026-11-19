@@ -453,6 +453,20 @@ class RetrieveRequest(BaseModel):
     limit: int | None = Field(default=None, ge=0, le=4294967295)
 
 
+class Builtin(BaseModel):
+    """Is a symbol that the Core ships. Pluto holds its drawing.
+
+    Attributes:
+        name: Is the shipped name of the built-in, which never changes.
+        states: Are what the built-in shows.
+        commands: Are the requests that the built-in sends.
+    """
+
+    name: str
+    states: list[State] = Field(default_factory=list)
+    commands: list[Command] = Field(default_factory=list)
+
+
 class Spec(BaseModel):
     """Is the complete symbol definition: its drawing, parts, states, commands, looks,
     interactions, and handles.

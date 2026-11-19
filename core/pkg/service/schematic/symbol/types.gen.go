@@ -15,6 +15,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions"
 	"github.com/synnaxlabs/x/filter"
+	"github.com/synnaxlabs/x/validate"
+	"strconv"
 )
 
 // Key is a unique identifier for a schematic symbol.
@@ -243,6 +245,29 @@ type Spec = versions.Spec
 // Symbol is a persisted schematic symbol defining reusable visual components for
 // diagrams.
 type Symbol = versions.Symbol
+
+// Builtin is a symbol that the Core ships. Pluto holds its drawing.
+type Builtin struct {
+	// Name is the shipped name of the built-in, which never changes.
+	Name string `json:"name" msgpack:"name"`
+	// States are what the built-in shows.
+	States []State `json:"states" msgpack:"states"`
+	// Commands are the requests that the built-in sends.
+	Commands []Command `json:"commands" msgpack:"commands"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (b Builtin) Validate() error {
+	v := validate.New("Builtin")
+	for i := range b.States {
+		v.Exec(func() error { return validate.PathedError(b.States[i].Validate(), "states", strconv.Itoa(i)) })
+	}
+	for i := range b.Commands {
+		v.Exec(func() error { return validate.PathedError(b.Commands[i].Validate(), "commands", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}
 
 // Where is a filter that selects schematic symbols.
 type Where struct {

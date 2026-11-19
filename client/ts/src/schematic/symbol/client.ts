@@ -27,6 +27,7 @@ import {
   scopedActionZ,
   set,
 } from "@/schematic/symbol/actions.gen";
+import { builtin } from "@/schematic/symbol/builtin";
 import {
   type Key,
   keyZ,
@@ -90,6 +91,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
   private readonly dispatcher: actions.Controller<Key, Symbol, Action>;
   /** Builds requests that move symbols between groups. */
   readonly setGroupRequest: group.MoveRequest<Key>;
+  readonly builtins: builtin.Client;
 
   constructor(cfg: ClientConfig) {
     const { cache } = cfg;
@@ -133,6 +135,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
       "/schematic/symbol/dispatch",
       (keys, to) => group.moveCached(store, keys, to),
     );
+    this.builtins = new builtin.Client(cfg.unary);
   }
 
   async create(options: CreateParams): Promise<Symbol>;

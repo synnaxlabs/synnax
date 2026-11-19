@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/schematic/symbol/actions.gen";
+export * from "@/schematic/symbol/builtin";
 export * from "@/schematic/symbol/client";
 export * from "@/schematic/symbol/types.gen";
 export { type WhereInput } from "@/schematic/symbol/where.gen";
