@@ -10,10 +10,12 @@
 import { color, type group } from "@synnaxlabs/client";
 import type { Color } from "@synnaxlabs/lyra/color";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { type color as xcolor, compare } from "@synnaxlabs/x";
+import { array, type color as xcolor, compare, unique } from "@synnaxlabs/x";
 
 import { color as aetherColor } from "@/color/aether";
 import { useResultList } from "@/color/queries";
+import { Flux } from "@/flux";
+import { flux } from "@/flux/aether";
 import { Group } from "@/group";
 
 /** The key of the palette that holds the named colors in no palette. */
@@ -71,4 +73,37 @@ export const useResolve = (): ((ref?: color.Ref) => xcolor.Color | undefined) =>
   const t = Theming.use();
   const named = new Map(useAll().map((c) => [c.key, c]));
   return (ref) => (ref == null ? undefined : aetherColor.resolve(ref, named, t));
+};
+
+const ALL: aetherColor.ListQuery = {};
+
+type KeysQuery = { keys: color.Key[] };
+
+// Every reader shares the one list of all named colors and selects its own keys.
+const { createResultSelector } = Flux.createRetrieve<KeysQuery, color.Named[]>({
+  name: "colors",
+  ...flux.listReads(({ client }) => client.colors.watch(ALL)),
+});
+
+const useResultAmong = createResultSelector((all, { keys }: KeysQuery) => {
+  const wanted = new Set(keys);
+  return all.filter((c) => wanted.has(c.key));
+}, array.equal);
+
+/**
+ * Returns the value of each color reference for the theme, in order: undefined for an
+ * absent reference or a named color that is not loaded. The caller re-renders only when
+ * one of the named colors among the references changes.
+ */
+export const useValues = (
+  refs: (color.Ref | undefined)[],
+): (xcolor.Color | undefined)[] => {
+  const t = Theming.use();
+  const keys = unique
+    .unique(refs.flatMap((ref) => (ref?.type === "named" ? [ref.key] : [])))
+    .sort();
+  const named = new Map((useResultAmong({ keys }).data ?? []).map((c) => [c.key, c]));
+  return refs.map((ref) =>
+    ref == null ? undefined : aetherColor.resolve(ref, named, t),
+  );
 };
