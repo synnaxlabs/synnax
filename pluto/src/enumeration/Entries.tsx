@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/enumeration/Entries.css";
+
 import { color, enumeration } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
@@ -69,7 +71,11 @@ const Warnings = ({ warnings }: WarningsProps): ReactElement => (
         </Text.Text>
       ))}
     </Flex.Box>
-    <span role="img" aria-label={warnings.join(" ")}>
+    <span
+      role="img"
+      aria-label={warnings.join(" ")}
+      className={CSS.BE("entries", "warning")}
+    >
       <Status.Indicator variant="warning">
         <Icon.Warning />
       </Status.Indicator>
@@ -106,6 +112,7 @@ const ColorCell = ({
         fallback={xcolor.TRANSPARENT}
         disabled={preview}
         size="small"
+        className={CSS.BE("entries", "swatch")}
         aria-label={`Pick ${label.toLowerCase()}`}
       />
     }
