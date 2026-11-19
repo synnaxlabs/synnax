@@ -282,7 +282,7 @@ const MessageDetails = ({
 };
 
 interface FieldDetailsProps extends MessagePanelProps {
-  field: icd.JSONField;
+  field: ICD.TreeField;
 }
 
 const FieldDetails = ({ device, ...rest }: FieldDetailsProps) => {
