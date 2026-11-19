@@ -567,8 +567,8 @@ var _ = Describe("FS", func() {
 					Expect(fs.Sub("a")).ToNot(BeNil())
 					Expect(fs.Rename("a", "a/b")).To(MatchError(
 						func(err error) bool {
-							var linkErr *os.LinkError
-							return errors.As(err, &linkErr)
+							_, ok := errors.AsType[*os.LinkError](err)
+							return ok
 						},
 						"be an *os.LinkError",
 					))

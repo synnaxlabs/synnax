@@ -240,8 +240,7 @@ func (y *MemFS) List(dirname string) ([]os.FileInfo, error) {
 func (y *MemFS) Stat(name string) (stats os.FileInfo, err error) {
 	f, err := y.Open(name, 0)
 	if err != nil {
-		var pe *os.PathError
-		if errors.As(err, &pe) {
+		if pe, ok := errors.AsType[*os.PathError](err); ok {
 			pe.Op = "stat"
 		}
 		return nil, err
