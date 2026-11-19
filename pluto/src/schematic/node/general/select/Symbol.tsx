@@ -7,10 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, type schematic } from "@synnaxlabs/client";
-import { type Component } from "@synnaxlabs/lyra/component";
+import { type schematic } from "@synnaxlabs/client";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { type color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Control } from "@/schematic/node/common/control";
@@ -23,41 +21,6 @@ import { type NodeProps } from "@/schematic/node/spec";
 import { Setpoint as BaseSetpoint } from "@/vis/setpoint";
 import { Staleness } from "@/vis/staleness";
 import { StateIndicator } from "@/vis/stateIndicator";
-
-interface ReadbackProps {
-  nodeKey: string;
-  channel: channel.Key;
-  size: Component.Size;
-  options: schematic.SelectNodeConfig["options"];
-  stalenessColor?: color.Color;
-  stalenessTimeout?: number;
-}
-
-const Readback = ({
-  nodeKey,
-  channel,
-  size,
-  options,
-  stalenessColor,
-  stalenessTimeout,
-}: ReadbackProps): ReactElement => {
-  const theme = Theming.use();
-  const source = Telem.numberSource(channel);
-  const { key, stale } = StateIndicator.use({
-    aetherKey: `${nodeKey}-readback`,
-    source,
-    options,
-    stalenessTimeout,
-  });
-  const matched = options.find((o) => o.key === key);
-  return (
-    <Primitive.Readout
-      size={size}
-      value={matched == null ? "-" : optionName(matched)}
-      color={stale ? Staleness.resolveColor(stalenessColor, theme) : undefined}
-    />
-  );
-};
 
 export const Symbol = ({
   nodeKey,
@@ -79,9 +42,18 @@ export const Symbol = ({
     onClickDelay,
   },
 }: NodeProps<schematic.SelectNodeConfig>): ReactElement => {
+  const theme = Theming.use();
+  const badged = Staleness.useBadged();
   const sink = Telem.numberSink(commandChannel);
   const source = Telem.numberSource(commandChannel);
   const { set, value } = BaseSetpoint.use({ aetherKey: nodeKey, sink, source });
+  const { key: readbackKey, stale } = StateIndicator.use({
+    aetherKey: `${nodeKey}-readback`,
+    source: Telem.numberSource(stateChannel),
+    options,
+    stalenessTimeout,
+  });
+  const readback = options.find((o) => o.key === readbackKey);
   const resize = Grid.useInlineResize(inlineSize, (inlineSize) =>
     onConfigChange({ inlineSize }),
   );
@@ -92,7 +64,9 @@ export const Symbol = ({
         config={control}
         channel={commandChannel}
         onChange={onConfigChange}
-      />
+      >
+        {stale && badged ? <Staleness.Badge /> : null}
+      </Control.State>
       <Label.Label config={label} onChange={onConfigChange} />
       <Select
         value={target}
@@ -106,13 +80,14 @@ export const Symbol = ({
         onClickDelay={onClickDelay}
         readback={
           stateChannel !== 0 && (
-            <Readback
-              nodeKey={nodeKey}
-              channel={stateChannel}
+            <Primitive.Readout
               size={size}
-              options={options}
-              stalenessColor={stalenessColor}
-              stalenessTimeout={stalenessTimeout}
+              value={readback == null ? "-" : optionName(readback)}
+              color={
+                stale && !badged
+                  ? Staleness.resolveColor(stalenessColor, theme)
+                  : undefined
+              }
             />
           )
         }

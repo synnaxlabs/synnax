@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, Series, TimeRange, TimeStamp } from "@synnaxlabs/x";
+import { array, Series, TimeRange, TimeStamp } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
 import { type Dynamic } from "@/framer/cache/dynamic";
 import { index as tileIndex, tileRange } from "@/framer/cache/grid";
+import { buildInsertionPlan } from "@/framer/cache/insertion";
 
 /** The grid level of raw blocks: 2^16 milliseconds, about 65.5 seconds. */
 export const RAW_LEVEL = 16;
@@ -123,15 +124,8 @@ export const align = (
  * @returns the position of the first sample of the timestamp series at or after t,
  * searching from lo.
  */
-export const search = (s: Series, t: bigint, lo = 0): number => {
-  let hi = s.length;
-  while (lo < hi) {
-    const mid = (lo + hi) >>> 1;
-    if (BigInt(s.data[mid]) < t) lo = mid + 1;
-    else hi = mid;
-  }
-  return lo;
-};
+export const search = (s: Series, t: bigint, lo = 0): number =>
+  lo + array.partitionPoint(s.length - lo, (i) => BigInt(s.data[lo + i]) >= t);
 
 /** @returns the number of samples of the timestamp series stamped before ts. */
 export const countBefore = (timestamps: Series[], ts: TimeStamp): number =>
@@ -361,7 +355,7 @@ export class RawBlock implements Block {
   }
 
   private insert(series: Series): void {
-    const plan = bounds.buildInsertionPlan(
+    const plan = buildInsertionPlan(
       this._fetched.map((s) => s.alignmentBounds),
       series.alignmentBounds,
     );
