@@ -70,12 +70,18 @@ class Master final : public master::Master {
     struct Domain {
         uint16_t position = 0;
         ec_domain_t *handle = nullptr;
+        ec_slave_config_t *config = nullptr;
         /// @brief the domain memory, valid only after activation.
         uint8_t *data = nullptr;
         /// @brief where the domain starts in the inputs and outputs.
         size_t offset = 0;
         size_t size = 0;
         master::WorkingCounterShare share;
+        /// @brief whether the latest receive() found the full working counter.
+        bool complete = false;
+        /// @brief whether the latest send() left the domain out, since IgH reported
+        /// the slave below SAFE-OP.
+        bool skipped = false;
 
         /// @brief returns where the domain ends in the inputs and outputs.
         [[nodiscard]] size_t end() const { return this->offset + this->size; }
@@ -84,7 +90,7 @@ class Master final : public master::Master {
     std::vector<Domain> domains;
     /// @brief a copy of every domain after each receive(), as the image inputs.
     std::vector<uint8_t> inputs;
-    /// @brief the image outputs, which send() copies to every domain.
+    /// @brief the image outputs, which send() copies to each domain that it queues.
     std::vector<uint8_t> outputs;
     /// @brief cached slave information populated during initialization.
     std::vector<slave::DiscoveryResult> cached_slaves;
