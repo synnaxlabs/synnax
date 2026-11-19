@@ -672,6 +672,18 @@ describe("Select.Single", () => {
       expect(c.getByText("menu for pinned")).toBeTruthy();
     });
 
+    it("should leave a pinned option to the platform", () => {
+      const { c } = openDialog({
+        menu,
+        initialHover: 3,
+        footer: <Select.Item<string> itemKey="pinned">Pinned</Select.Item>,
+      });
+      const pinned = c.getByRole("option", { name: "Pinned" });
+      expect(fireEvent.contextMenu(pinned)).toBe(true);
+      expect(fireEvent.keyDown(c.getByRole("textbox"), SHIFT_F10)).toBe(true);
+      expect(c.queryByRole("menu")).toBeNull();
+    });
+
     it("should leave an option that hasMenu refuses to the platform", () => {
       const { c } = openDialog({
         menu,

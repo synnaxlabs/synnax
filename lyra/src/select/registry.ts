@@ -60,6 +60,8 @@ export interface Registry {
   getOrder: (data: record.Key[]) => record.Key[];
   getElement: (key: record.Key) => HTMLElement | null;
   hasItem: (key: record.Key) => boolean;
+  /** @returns whether the element is a pinned fixed item. */
+  isPinned: (element: Element) => boolean;
   /** @returns the plain text a fixed item registered, if any. */
   getText: (key: record.Key) => string | undefined;
   /** @returns whether the search term hides the fixed item with the given key. */
@@ -133,6 +135,10 @@ const useRegistry = (): Registry => {
     },
     getElement: (key) => itemsRef.current.get(key)?.element ?? null,
     hasItem: (key) => itemsRef.current.has(key),
+    isPinned: (element) =>
+      Array.from(itemsRef.current.values()).some(
+        (item) => item.pinned && item.element === element,
+      ),
     getText: (key) => itemsRef.current.get(key)?.text,
     isHidden: (key) => itemsRef.current.get(key)?.hidden ?? false,
     getTerm: () => termRef.current,
