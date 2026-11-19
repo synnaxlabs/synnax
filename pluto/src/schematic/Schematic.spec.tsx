@@ -25,6 +25,7 @@ import { diagram } from "@/vis/diagram/aether";
 import { latestSample } from "@/vis/latestSample/aether";
 import { canvasTest } from "@/vis/render/testutil";
 import { Staleness } from "@/vis/staleness";
+import { stalenessTest } from "@/vis/staleness/aether/testutil";
 import { toggle } from "@/vis/toggle/aether";
 
 const client = createTestClient();
@@ -104,17 +105,7 @@ const renderSchematic = async (
   return { key, utils };
 };
 
-// Stand in for the worker components of a toggle and its tooltip. The toggle reports
-// its source as stale.
-class StaleToggle extends aether.Leaf<typeof toggle.toggleStateZ> {
-  static readonly TYPE = toggle.Toggle.TYPE;
-  schema = toggle.toggleStateZ;
-
-  afterUpdate(): void {
-    if (!this.state.stale) this.setState((s) => ({ ...s, stale: true }));
-  }
-}
-
+// Stand in for the worker components of a toggle tooltip.
 const looseZ = z.object({}).loose();
 
 class StubChip extends aether.Leaf<typeof looseZ> {
@@ -133,7 +124,7 @@ class StubLatestSample extends aether.Leaf<typeof looseZ> {
 }
 
 const STALE_REGISTRY: aether.ComponentRegistry = {
-  [StaleToggle.TYPE]: StaleToggle,
+  ...stalenessTest.createRegistry(toggle.Toggle.TYPE, toggle.toggleStateZ),
   [StubChip.TYPE]: StubChip,
   [StubIndicator.TYPE]: StubIndicator,
   [StubLatestSample.TYPE]: StubLatestSample,

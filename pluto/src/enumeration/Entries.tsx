@@ -10,6 +10,7 @@
 import "@/enumeration/Entries.css";
 
 import { color, enumeration } from "@synnaxlabs/client";
+import { Color as BaseColor } from "@synnaxlabs/lyra/color";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Haul } from "@synnaxlabs/lyra/haul";
@@ -131,7 +132,7 @@ const Warnings = ({ warnings }: WarningsProps): ReactElement => (
 );
 
 interface ColorCellProps extends Input.TableCellProps<color.Ref | undefined> {
-  /** The name of a named color, or the hex code of a fixed one. */
+  /** The name of a named color, or the hex digits of a fixed one. */
   text: string;
   warnings: string[];
 }
@@ -145,28 +146,31 @@ const ColorCell = ({
   text,
   warnings,
 }: ColorCellProps): ReactElement => (
-  <Input.Text
-    value={text}
+  <BaseColor.HexText
+    text={text}
+    named={value?.type === "named"}
+    alpha={value?.type === "fixed" ? xcolor.opacity(value.value) : 1}
     placeholder="Auto"
     variant={variant}
     aria-label={label}
     preview={preview}
     onlyChangeOnBlur
     startContent={
-      <Color.Swatch
-        value={value}
-        onChange={onChange}
-        fallback={xcolor.TRANSPARENT}
-        disabled={preview}
-        size="small"
-        aria-label={`Pick ${label.toLowerCase()}`}
-      />
+      <>
+        <Color.Swatch
+          value={value}
+          onChange={onChange}
+          fallback={xcolor.TRANSPARENT}
+          disabled={preview}
+          size="small"
+          aria-label={`Pick ${label.toLowerCase()}`}
+        />
+        {value?.type === "fixed" && "#"}
+      </>
     }
     endContent={warnings.length > 0 ? <Warnings warnings={warnings} /> : undefined}
-    onChange={(next) => {
-      const ref = parseColor(next);
-      if (ref !== null) onChange(ref);
-    }}
+    onChange={(next) => onChange({ type: "fixed", value: next })}
+    onClear={() => onChange(undefined)}
   />
 );
 
@@ -223,7 +227,7 @@ export const Table = ({
   const colorText = (ref: color.Ref | undefined): string => {
     if (ref == null) return "";
     if (ref.type === "named") return named.get(ref.key)?.name ?? "";
-    return xcolor.hex(ref.value).slice(1).toUpperCase();
+    return xcolor.hex(ref.value).slice(1);
   };
   const withHeld = (holds: ReadonlyMap<string, number>): enumeration.Entry[] =>
     value.map((e) => {
@@ -392,7 +396,9 @@ export const Table = ({
         renderHaulPreview={renderHaulPreview}
       >
         {[
-          <Input.TableColumn key="name" name="Name" type="string" />,
+          <Input.TableColumn key="name" name="Name" type="string">
+            {(props) => <Input.Text {...props} onlyChangeOnBlur />}
+          </Input.TableColumn>,
           <Input.TableColumn key="value" name="Value" type="number" width={14} />,
           ...(colorHidden ? [] : [colorColumn]),
           ...(abnormalHidden ? [] : [abnormalColumn]),

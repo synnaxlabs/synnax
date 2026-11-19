@@ -227,6 +227,9 @@ A new line takes the first series color in that order that no other line uses.
 - Two text fields on one line, such as a username and a password, are equally wide. The
   second sits in the control of the first, not in the later field columns. An empty
   field shows what empty means: "Anonymous" for the username, "None" for the password.
+- Two number fields on one line, such as Scale and Offset, sit together at the start of
+  the control of the first, each 144 px wide, with the form's gap between them. They
+  never spread to the ends of the line.
 - A dialog shows its settings in sections, not tabs, while they fit with no scroll. The
   Modbus connect dialog has no tabs.
 - A section holds a whole topic, so a short topic joins its neighbor: the OPC UA login
@@ -294,6 +297,9 @@ bound, a log precision, or the line plot X channel.
   channel table, and a fields table in the topic details, which showed each field twice.
 - A topic that reads several messages holds a node for each, with its fields beneath. A
   message's details hold its name and match, from the ICD, then its timestamp.
+- A field's format stays short, so its channel shows with no scroll: Scale and Offset
+  share a line, Units shows only for a number type, and Enum mapping is one line until
+  it holds a mapping.
 - A task form is at most 1000 px wide. A task whose channel table needs more room sets
   `--console-task-form-max-width`. Modbus uses 1200 px.
 - Port banks sit side by side in columns eight ports wide, each under its title. They
@@ -844,6 +850,8 @@ says why in a sentence, then gives the raw error.
   keeps its space, so the layout does not move.
 - Focus never gets lost. After an add, focus goes to the new item. When a dialog closes,
   focus goes back to where it was.
+- In a field that commits on blur, Enter or a blur commits the typed text. Esc discards
+  it and puts back the stored value.
 - Dialogs, drawers, and dropdown lists set `overscroll-behavior: contain`.
 - An empty state has one primary action, named as a verb and a noun ("Create channel").
 
