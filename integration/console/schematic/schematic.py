@@ -444,9 +444,7 @@ class Schematic(ConsolePage):
 
     def fit_view(self) -> None:
         """Fit the schematic view to its contents."""
-        fit = self.page.get_by_role("button", name="Fit view to contents", exact=True)
-        if fit.count() > 0:
-            fit.click()
+        self.page.get_by_role("button", name="Fit view to contents", exact=True).click()
 
     def get_edit_status(self) -> bool:
         """Get whether edit is currently enabled for this schematic."""
