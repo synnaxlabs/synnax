@@ -28,7 +28,7 @@ on:
         type: string
     outputs:
       image:
-        description: The image, pinned by digest
+        description: The image, pinned by digest, or by tag when a fork built it
         value: ${{ jobs.build.outputs.image }}
   workflow_dispatch:
     inputs: *inputs
@@ -143,7 +143,7 @@ jobs:
         with:
           name: ${{ steps.artifact.outputs.name }}
           path: ${{ runner.temp }}/image.tar
-          retention-days: 1
+          retention-days: 30
 
       # A fork's image has no digest, since it never reached a registry.
       - name: Resolve the digest

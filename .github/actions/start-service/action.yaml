@@ -8,11 +8,12 @@
 # included in the file licenses/APL.txt.
 
 # Starts a container by digest, publishes its port, and waits for its health check, if
-# it has one. An image with no digest is one that a fork's run built, and the action
-# loads it from the artifact that Build - Docker uploaded. A workflow calls this instead
-# of using `services`, because a service image cannot be both pinned and optional. Pass
-# the container's variables in the env of the calling step and name them in
-# `variables`. The caller removes the container: build bots outlive the job.
+# it has one. An image tagged `src-<hash>` with no digest is one that a fork's run
+# built, and the action loads it from the artifact that Build - Docker uploaded. A
+# workflow calls this instead of using `services`, because a service image cannot be
+# both pinned and optional. Pass the container's variables in the env of the calling
+# step and name them in `variables`. The caller removes the container: build bots
+# outlive the job.
 
 name: Start service
 description: Start a container from a pinned image
@@ -44,7 +45,7 @@ runs:
       env:
         IMAGE: ${{ inputs.image }}
       run: |
-        if [[ $IMAGE != *@* ]]; then
+        if [[ $IMAGE != *@* && ${IMAGE##*:} == src-* ]]; then
           echo "name=image-${IMAGE##*:}" >> "$GITHUB_OUTPUT"
         fi
 
