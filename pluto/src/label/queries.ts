@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { label, type resource, type Synnax as Client } from "@synnaxlabs/client";
+import { theme } from "@synnaxlabs/lyra/theme";
 import { color, deep, verbs } from "@synnaxlabs/x";
 import type z from "zod";
 
@@ -59,10 +60,14 @@ export const createFormSchema = label.labelZ.partial({ key: true });
 
 export const createFormPath = deep.path<z.infer<typeof createFormSchema>>();
 
-/** The values a label create form starts with. */
+/** The values a label create form starts with. The color is a gray that reads on both
+ * themes. */
 export const ZERO_CREATE_FORM_VALUES: z.infer<typeof createFormSchema> = {
   name: "",
-  color: { type: "fixed", value: color.construct("#000000") },
+  color: {
+    type: "fixed",
+    value: color.construct(theme.SYNNAX_LIGHT.colors.gray.l9),
+  },
 };
 
 /** A form that creates a label when the caller saves it. */
