@@ -231,6 +231,31 @@ var _ = Describe("Crash adapter", func() {
 			true, uint64(100), int64(40000), 73),
 	)
 
+	It("Should return each payload whole when the values come from sstables",
+		func(ctx SpecContext) {
+			disk := MustSucceed(fault.New(fault.Config{}))
+			e := MustSucceed(openCrashEngine(ctx, disk))
+			payload := func(id uint64) []byte {
+				p := make([]byte, 300)
+				for i := range p {
+					p[i] = byte(id + uint64(i))
+				}
+				return p
+			}
+			for id := uint64(1); id <= 200; id++ {
+				record := crash.Record{ID: id, Payload: payload(id)}
+				Expect(e.Commit(ctx, record, crash.Durable)).To(Equal(crash.Durable))
+			}
+			Expect(e.(*crashEngine).pebble.Flush()).To(Succeed())
+			records := MustSucceed(e.Recovered(ctx))
+			Expect(e.Close()).To(Succeed())
+			Expect(records).To(HaveLen(200))
+			for _, r := range records {
+				Expect(r.Payload).To(Equal(payload(r.ID)), "record %d", r.ID)
+			}
+		},
+	)
+
 	It(
 		"Should fail the open on a flipped bit in an earlier block of a WAL with synced "+
 			"offsets",
