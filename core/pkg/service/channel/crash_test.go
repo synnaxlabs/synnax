@@ -88,7 +88,7 @@ func (d durableDirs) Open(name string, flag int) (xfs.File, error) {
 	if err != nil || flag&os.O_CREATE == 0 {
 		return f, err
 	}
-	return f, errors.Combine(d.after(nil), nil)
+	return f, d.after(nil)
 }
 
 func (d durableDirs) Sub(name string) (xfs.FS, error) {
@@ -404,24 +404,30 @@ func runOnCore(
 // Each entry is what the harness finds in the channel services today, and why. A delete
 // removes the Cesium data before the record delete commits, and syncs neither the
 // removal nor the create of a directory. So a crash keeps the Cesium channel of a
-// deleted record (R5), and Partial loses a meta file first (R4).
+// deleted record (R5), and Partial loses a meta file first (R4). When Cesium makes its
+// directory changes durable, a crash between the create of a channel directory and the
+// create of its meta file still stops the open (R4).
 var _ = DescribeTable("Crash harness on the channel services",
 	func(
 		ctx SpecContext,
 		profile crash.Profile,
 		runKey uint64,
+		dirsDurable bool,
 		rule crash.Rule,
 		cause string,
 	) {
 		var v *crash.Violation
-		err := runOnCore(ctx, profile, runKey, false)
+		err := runOnCore(ctx, profile, runKey, dirsDurable)
 		Expect(errors.As(err, &v)).To(BeTrue(), "no violation: %v", err)
 		Expect(v.Rule).To(Equal(rule))
 		Expect(v.Detail).To(ContainSubstring(cause))
 	},
-	Entry("Strict: R5", crash.Strict, uint64(0), crash.R5,
+	Entry("Strict: R5", crash.Strict, uint64(0), false, crash.R5,
 		"cesium channel 1048579 has no record"),
-	Entry("Partial: R4", crash.Partial, uint64(1), crash.R4, "data_type: required"),
+	Entry("Partial: R4", crash.Partial, uint64(1), false, crash.R4,
+		"data_type: required"),
+	Entry("Strict, with durable Cesium directories: R4", crash.Strict, uint64(0), true,
+		crash.R4, "data_type: required"),
 )
 
 var _ = Describe("Crash adapter on the channel services", func() {
@@ -470,6 +476,21 @@ var _ = Describe("Crash adapter on the channel services", func() {
 		},
 	)
 
+	It("Should make each Cesium directory change durable at once, in that mode",
+		func(ctx SpecContext) {
+			Expect(e.Close()).To(Succeed())
+			e = MustSucceed(openEngine(ctx, disk, true))
+			Expect(e.cesium.CreateChannel(ctx, cesium.Channel{
+				Key:      99,
+				Name:     "stray",
+				IsIndex:  true,
+				DataType: telem.TimestampT,
+			})).To(Succeed())
+			image := MustSucceed(disk.Crash(fault.CrashConfig{}))
+			Expect(image.Exists("cesium/99/meta.json")).To(BeTrue())
+		},
+	)
+
 	It("Should report a Cesium channel with no record", func(ctx SpecContext) {
 		Expect(e.cesium.CreateChannel(ctx, cesium.Channel{
 			Key:      99,
@@ -492,20 +513,4 @@ var _ = Describe("Crash adapter on the channel services", func() {
 			).To(MatchError("s1 kept its record and lost its samples"))
 		},
 	)
-})
-
-var _ = Describe("ProbeDurable", func() {
-	It("runs", func(ctx SpecContext) {
-		Expect(ctx).ToNot(BeNil())
-		for _, p := range []crash.Profile{crash.Strict, crash.Partial} {
-			for k := uint64(0); k < 4; k++ {
-				GinkgoWriter.Printf(
-					"PROBE p=%d k=%d %v\n",
-					p,
-					k,
-					runOnCore(ctx, p, k, true),
-				)
-			}
-		}
-	})
 })
