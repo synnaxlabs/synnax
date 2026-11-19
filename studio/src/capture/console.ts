@@ -307,13 +307,6 @@ export const openPalette = async (session: CaptureSession): Promise<Locator> => 
 };
 
 /**
- * field returns the input associated with a form label, for filling or
- * clicking. Matches the Console's label-above-input form layout.
- */
-export const field = (page: Page, label: string): Locator =>
-  page.getByText(label, { exact: true }).locator("..").locator("input").first();
-
-/**
  * pickChannel fills the search of the open channel dropdown with `channel` and clicks
  * the match. It fills instead of typing, so it suits setup, not a recorded beat.
  */
