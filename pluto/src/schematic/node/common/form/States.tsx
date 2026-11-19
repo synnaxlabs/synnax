@@ -17,8 +17,8 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Enumeration } from "@/enumeration";
-import { Options } from "@/schematic/node/common/options";
 import { StateMappingForm } from "@/schematic/node/common/form/StateMapping";
+import { Options } from "@/schematic/node/common/options";
 
 export interface StatesProps {
   /** Path to the enumeration that the node names. */
