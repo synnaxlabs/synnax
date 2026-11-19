@@ -248,7 +248,7 @@ describe("Color.Field", () => {
       openPicker(result);
       await openEdit(named.name);
       const name = `renamed-${id.create()}`;
-      fireEvent.change(await screen.findByDisplayValue(named.name), {
+      fireEvent.change(await screen.findByRole("textbox", { name: "Name" }), {
         target: { value: name },
       });
       fireEvent.click(screen.getByLabelText("Back"));
