@@ -9,3 +9,4 @@
 
 export * from "@/platform/vis/Canvas";
 export * from "@/platform/vis/Controls";
+export * from "@/platform/vis/GPUBoundary";
