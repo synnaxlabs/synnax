@@ -219,7 +219,10 @@ Binding struct {
   channel to act on it (writer, streamer, delete, rename) fails and lists every path.
 - **Client shorthand**: A number is a key. A string with a `.` is a path, and a string
   with none is a name; the `paths` parameter names a root channel exactly. No string
-  falls back to a key: a channel named `2024` would change what a call returns.
+  falls back to a key: a channel named `2024` would change what a call returns. The rule
+  covers lookups only. A stored value that the schema types as a channel key still
+  parses from text: a JSON object key, and the TypeScript key schema that accepts a
+  numeric string (`client/ts/src/channel/types.gen.ts:20-25`).
 - **Arc**: From Phase 6, a bare name is a channel at the root, and a channel in a folder
   needs its path: a new channel in another folder must never change what a working
   program means. Files, export, and import use exact paths only.
@@ -424,12 +427,13 @@ The table lives in `core/pkg/service/channel/resolver` (NEW), for both services:
 Oracle generates, for each exported type, a remap over its channel links from the walk
 that builds the reference targets (NEW). The Arc service remaps the channel inputs of
 graph nodes itself. Export writes each channel link as its exact path, a JSON string,
-and a dead link as no channel. Import reads a link by its JSON type, as the clients do
-(§4.2): a number is a raw key, which every file of `core/v0.62.0` and older holds, and a
-string is a path. A file's shape does not change, so no exported type mints a version
-for the switch (`core/pkg/service/imex/imex.go:39-42`). Import resolves each path once
-and fails, with every path that matches nothing, unless the file makes that channel. Arc
-and calculation text binds on the new Core.
+and a dead link as no channel. Import reads a link value by its JSON type, as the
+clients do (§4.2): a number is a raw key, which every file of `core/v0.62.0` and older
+holds, and a string is a path. A JSON object key that the schema types as a channel key
+is a key. A file's shape does not change, so no exported type mints a version for the
+switch (`core/pkg/service/imex/imex.go:39-42`). Import resolves each path once and
+fails, with every path that matches nothing, unless the file makes that channel. Arc and
+calculation text binds on the new Core.
 
 ### 4.7 Package boundaries
 
@@ -529,7 +533,9 @@ this program. Phases 6 and 8 are small switches.
 
 - **Phase 2: Quoted names.** Arc gets the quoted token here, with the path filter. Phase
   5 adds bare paths, the two lists, `Rebind`, the bind pass, the rewrite, the key
-  lookup, and files by path.
+  lookup, and files by path. Phase 2's specs pin both halves of the number rule: a
+  stored config that holds a key as a numeric string parses to the key, and a lookup by
+  a digit-only string resolves as a name or a path.
 - **Phase 4: A view version.** The `channel` view type mints view v4 from v3, which
   `core/v0.62.0` shipped.
 - **Outside names**: An output that sends a channel's name, such as the Kafka key mode
