@@ -9,6 +9,11 @@
 
 
 import json as json_lib
+import pathlib
+import re
+import struct
+from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 import pytest
@@ -437,22 +442,14 @@ class TestCodec:
         assert not (encoded[0] >> _MULTIPLES_PRESENT_FLAG_POS) & 1
         assert codec.decode(encoded).series[0].alignment_multiple == 1
 
-    def test_rejects_extended_flags(self) -> None:
-        """Should reject a frame whose flags byte sets the extended bit."""
+    def test_first_frame_sets_extended_flag(self) -> None:
+        """Should set the extended bit, which shipped decoders reject, in the first
+        frame of a state."""
         codec = Codec(keys=[1], data_types=[sy.DataType.INT64])
         frame = sy.Frame(
             channels=[1], series=[sy.Series(data=np.array([1, 2], dtype=np.int64))]
         )
-        encoded = bytearray(codec.encode(frame))
-        encoded[0] |= 1 << _EXTENDED_FLAG_POS
-        with pytest.raises(
-            sy.ValidationError,
-            match=(
-                r"^remote sent an extended flags byte, "
-                r"which this codec does not support$"
-            ),
-        ):
-            codec.decode(bytes(encoded))
+        assert (codec.encode(frame)[0] >> _EXTENDED_FLAG_POS) & 1
 
     def test_rejects_frame_older_than_last_decoded(self) -> None:
         """Should reject a frame encoded with keys older than the last frame decoded."""
@@ -632,3 +629,232 @@ class TestCodec:
         encoded[0] = 0xFF
         with pytest.raises(ValueError, match="writer response stream"):
             codec.decode(bytes(encoded), Message[WriterResponse])
+
+
+_VECTORS_PATH = (
+    pathlib.Path(__file__).parents[3] / "x" / "testdata" / "framecodec" / "vectors.json"
+)
+"""The golden frames that the Go, TypeScript, and C++ codecs share."""
+
+_VECTOR_CASES = json_lib.loads(_VECTORS_PATH.read_text())["cases"]
+
+
+def _hex(h: str) -> bytes:
+    return bytes.fromhex(h.replace(" ", ""))
+
+
+class TestGoldenFrames:
+    @pytest.mark.parametrize(
+        "case", _VECTOR_CASES, ids=[c["name"] for c in _VECTOR_CASES]
+    )
+    def test_byte_for_byte(self, case: dict[str, Any]) -> None:
+        """Should encode and decode each golden frame byte for byte."""
+        data_types = [sy.DataType(dt) for dt in case["data_types"]]
+        enc = Codec(keys=case["keys"], data_types=data_types)
+        dec = Codec(keys=case["keys"], data_types=data_types)
+        for f in case["frames"]:
+            pld = FramePayload(
+                keys=[s["key"] for s in f["series"]],
+                series=[
+                    sy.Series(
+                        data=bytes.fromhex(s["data"]),
+                        data_type=s["data_type"],
+                        clock=s.get("clock", 0),
+                    )
+                    for s in f["series"]
+                ],
+            )
+            assert enc.encode(pld).hex() == f["encoded"], f["name"]
+            decoded = dec.decode(bytes.fromhex(f["encoded"]))
+            assert decoded.keys == [s["key"] for s in f["series"]], f["name"]
+            for got, want in zip(decoded.series, f["series"], strict=True):
+                assert got.data_type == want["data_type"], f["name"]
+                assert got.clock == want.get("clock", 0), f["name"]
+                assert got.data.hex() == want["data"], f["name"]
+
+
+# The first frame of a float32 key 1 whose one sample, 1.0, has clock 5. Byte 5 is the
+# extension flags, byte 6 the type code, byte 15 the override kinds, and bytes 20 to 23
+# the next override ordinal.
+_CLOCK_FRAME = "BF 01000000 03 09 01000000 00000000 02 05000000 FFFFFFFF 0000803F"
+
+_WORKED_EXAMPLE = (
+    "BF 01000000 0B 0901 01000000 05000000 02000000 01000000"
+    " E803000000000000 D007000000000000"
+    " 03 0A 05000000 FFFFFFFF 000000000000F03F 0000000000000040 0100"
+)
+
+
+def _float32_codec() -> Codec:
+    return Codec(keys=[1], data_types=[sy.DataType.FLOAT32])
+
+
+def _set(i: int, v: int) -> Callable[[bytearray], bytearray]:
+    def corrupt(b: bytearray) -> bytearray:
+        b[i] = v
+        return b
+
+    return corrupt
+
+
+def _or(i: int, v: int) -> Callable[[bytearray], bytearray]:
+    def corrupt(b: bytearray) -> bytearray:
+        b[i] |= v
+        return b
+
+    return corrupt
+
+
+def _u32(i: int, v: int) -> Callable[[bytearray], bytearray]:
+    def corrupt(b: bytearray) -> bytearray:
+        struct.pack_into("<I", b, i, v)
+        return b
+
+    return corrupt
+
+
+class TestAgreement:
+    def test_int64_on_timestamp_key(self) -> None:
+        """Should send an int64 series on a timestamp key with no override, and label
+        it with the agreed type."""
+        enc = Codec(keys=[1], data_types=[sy.DataType.TIMESTAMP])
+        pld = FramePayload(keys=[1], series=[sy.Series(np.array([7], dtype=np.int64))])
+        encoded = enc.encode(pld)
+        assert encoded == _hex("BF 01000000 01 0B 01000000 0700000000000000")
+        dec = Codec(keys=[1], data_types=[sy.DataType.TIMESTAMP])
+        assert dec.decode(encoded).series[0].data_type == sy.DataType.TIMESTAMP
+
+    def test_type_override(self) -> None:
+        """Should carry a type override for its own series only."""
+        enc, dec = _float32_codec(), _float32_codec()
+        for arr in (np.array([1], np.float64), np.array([2], np.float32)):
+            pld = FramePayload(keys=[1], series=[sy.Series(arr)])
+            got = dec.decode(enc.encode(pld)).series[0]
+            assert got.data_type == sy.DataType(arr.dtype)
+
+    def test_commits_nothing_on_error(self) -> None:
+        """Should commit nothing when a frame fails to encode."""
+        c = _float32_codec()
+        bad = sy.Series(data=b"\x00" * 4, data_type=sy.DataType.FLOAT32, clock=5)
+        bad.data_type = sy.DataType.UNKNOWN
+        with pytest.raises(
+            sy.ValidationError, match=r'^data type "" of channel 1 has no type code$'
+        ):
+            c.encode(FramePayload(keys=[1], series=[bad]))
+        good = sy.Series(np.array([1], np.float32), clock=5)
+        assert c.encode(FramePayload(keys=[1], series=[good])) == _hex(_CLOCK_FRAME)
+
+    @pytest.mark.parametrize(
+        ("corrupt", "msg"),
+        [
+            (
+                _or(5, 0b100),
+                "remote sent extension flags 00000111, which hold a reserved bit",
+            ),
+            (
+                _or(5, 0b1000_0000),
+                "remote sent extension flags 10000011, which hold a reserved bit",
+            ),
+            (_set(5, 0), "remote sent extension flags of 0"),
+            (
+                _set(6, 0),
+                "remote sent data type code 0, which this codec does not know",
+            ),
+            (
+                _set(6, 17),
+                "remote sent data type code 17, which this codec does not know",
+            ),
+            (
+                _set(6, 13),
+                "remote sent variable data type string under a shared length",
+            ),
+            (_set(15, 0), "remote sent override kinds of 0 for series 0"),
+            (
+                _or(15, 0b100),
+                "remote sent override kinds 00000110 for series 0, which hold a "
+                "reserved bit",
+            ),
+            (_u32(20, 0), "remote sent next override 0, which is not after series 0"),
+            (
+                _u32(20, 1),
+                "remote ended the frame with the override for series 1 pending",
+            ),
+            (lambda b: b + b"\x00", "remote sent bytes after the last series"),
+        ],
+    )
+    def test_rejects(self, corrupt: Callable[[bytearray], bytearray], msg: str) -> None:
+        """Should reject a malformed frame and drop its state."""
+        dec = _float32_codec()
+        with pytest.raises(sy.ValidationError, match=f"^{re.escape(msg)}$"):
+            dec.decode(bytes(corrupt(bytearray(_hex(_CLOCK_FRAME)))))
+        with pytest.raises(
+            sy.ValidationError,
+            match=(
+                r"^remote sent a frame for state 1 after a frame of it failed to "
+                r"decode$"
+            ),
+        ):
+            dec.decode(_hex(_CLOCK_FRAME))
+
+    def test_rejects_second_declaration(self) -> None:
+        """Should reject a second type declaration for a state."""
+        dec = _float32_codec()
+        dec.decode(_hex(_CLOCK_FRAME))
+        with pytest.raises(
+            sy.ValidationError, match=r"^remote declared the types of state 1 twice$"
+        ):
+            dec.decode(_hex(_CLOCK_FRAME))
+
+    def test_names_older_codec(self) -> None:
+        """Should name the older codec of a remote that declares no types."""
+        with pytest.raises(
+            sy.ValidationError,
+            match=(
+                r"^remote sent no type declaration for state 1, so it runs an older "
+                r"codec, which this codec does not support$"
+            ),
+        ):
+            _float32_codec().decode(_hex("3F 01000000 01000000 0000803F"))
+
+    @pytest.mark.parametrize(
+        ("corrupt", "msg"),
+        [
+            (_u32(12, 6), "remote declared clock 6, which the request names"),
+            (
+                lambda b: _u32(20, 0)(b)[:24] + bytearray([0b10]) + b[24:],
+                "remote sent an override for declared clock 5",
+            ),
+            (_u32(8, 0xFFFFFFFF), "remote sent a frame that ends early"),
+        ],
+    )
+    def test_rejects_declared_clocks(
+        self, corrupt: Callable[[bytearray], bytearray], msg: str
+    ) -> None:
+        """Should reject a malformed list of declared clocks."""
+        dec = Codec(keys=[6, 8], data_types=[sy.DataType.FLOAT32, sy.DataType.UINT8])
+        with pytest.raises(sy.ValidationError, match=f"^{re.escape(msg)}$"):
+            dec.decode(bytes(corrupt(bytearray(_hex(_WORKED_EXAMPLE)))))
+
+    def test_rejects_unordered_list(self) -> None:
+        """Should reject a list of declared clocks that is not ascending."""
+        c = Codec(keys=[6], data_types=[sy.DataType.FLOAT32])
+        ts = sy.DataType.TIMESTAMP
+        pld = FramePayload(
+            keys=[5, 6, 7],
+            series=[
+                sy.Series(np.array([1], np.int64), data_type=ts, clock=5),
+                sy.Series(np.array([1], np.float32)),
+                sy.Series(np.array([1], np.int64), data_type=ts, clock=7),
+            ],
+        )
+        encoded = bytearray(c.encode(pld))
+        assert struct.unpack_from("<I", encoded, 7)[0] == 2
+        struct.pack_into("<II", encoded, 11, 7, 5)
+        with pytest.raises(
+            sy.ValidationError,
+            match=(
+                r"^remote declared clock 5 after clock 7, so the list is not "
+                r"ascending$"
+            ),
+        ):
+            c.decode(bytes(encoded))
