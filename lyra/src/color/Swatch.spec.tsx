@@ -16,6 +16,7 @@ import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { mockBoundingClientRect } from "@/testutil";
+import { theme } from "@/theme";
 import { Theming } from "@/theming";
 import { Tooltip } from "@/tooltip";
 import { Triggers } from "@/triggers";
@@ -25,6 +26,7 @@ const GREEN = "00ff00";
 const BLUE = "0000ff";
 
 const SWATCH_VAR = CSS.variable("swatch", "color");
+const TEXT_VAR = CSS.variable("swatch", "text");
 
 const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
   <Triggers.Provider>
@@ -81,6 +83,26 @@ describe("Swatch", () => {
       });
       expect(swatchOf(c).querySelector(`.${CSS.B("icon")}`)).not.toBeNull();
     });
+
+    it.each([theme.SYNNAX_LIGHT, theme.SYNNAX_DARK])(
+      "should draw the auto icon of a clear swatch in the icon gray of $key",
+      (spec) => {
+        const { key, colors } = theme.themeZ.parse(spec);
+        const c = render(
+          <Color.Swatch fallback={color.TRANSPARENT} onChange={vi.fn()} />,
+          {
+            wrapper: ({ children }) => (
+              <Triggers.Provider>
+                <Theming.Provider theme={{ key }}>{children}</Theming.Provider>
+              </Triggers.Provider>
+            ),
+          },
+        );
+        expect(swatchOf(c).style.getPropertyValue(TEXT_VAR)).toEqual(
+          color.cssString(colors.gray.l9),
+        );
+      },
+    );
 
     it("should hide the auto icon on a tiny swatch", () => {
       const c = render(<Color.Swatch fallback={RED} onChange={vi.fn()} size="tiny" />, {
