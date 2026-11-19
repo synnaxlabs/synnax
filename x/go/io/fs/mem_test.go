@@ -38,6 +38,13 @@ var _ = Describe("Mem", func() {
 	})
 
 	Describe("Current directory elements", func() {
+		It("Should refuse a rename onto the root, named by a lone .", func() {
+			mem := fs.NewMem()
+			MustSucceed(mem.Sub("x"))
+			Expect(mem.Rename("x", ".")).
+				To(MatchError(ContainSubstring("empty file name")))
+			Expect(mem.Exists("x")).To(BeTrue())
+		})
 		// Each backend is a root FS with no subFS, so no path.Join cleans a name. The
 		// string is the prefix that puts a relative name under the root.
 		backends := map[string]func() (fs.FS, string){
@@ -64,6 +71,14 @@ var _ = Describe("Mem", func() {
 						Expect(info.IsDir()).To(BeTrue())
 						Expect(fsys.Exists(root + "a/.")).To(BeTrue())
 					},
+				)
+				DescribeTable("Should fail to open a directory for a write",
+					func(flag int) {
+						Expect(fsys.Open(root+"a", flag)).Error().
+							To(MatchError(syscall.EISDIR))
+					},
+					Entry("write only", os.O_WRONLY),
+					Entry("read and write", os.O_RDWR),
 				)
 				It("Should not create a file named . in a directory", func() {
 					Expect(fsys.Open(root+"a/.", os.O_CREATE|os.O_WRONLY)).Error().
