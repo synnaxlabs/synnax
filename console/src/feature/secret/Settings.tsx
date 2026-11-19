@@ -27,8 +27,8 @@ import { Secret as PlatformSecret } from "@/platform/secret";
 import { Settings as PlatformSettings } from "@/platform/settings";
 
 const SECRET_COLUMNS: List.Column[] = [
-  { name: "Name", width: "1fr" },
-  { name: "Value", width: "1.5fr" },
+  { name: "Name", width: "minmax(24rem, 1fr)" },
+  { name: "Value", width: "minmax(24rem, 1.5fr)" },
   { name: "Used by", width: "14rem" },
 ];
 
@@ -153,7 +153,7 @@ export const Secrets = ({ onSelectCertificate }: SecretsProps): ReactElement => 
 };
 
 const CERTIFICATE_COLUMNS: List.Column[] = [
-  { name: "Name", width: "1fr" },
+  { name: "Name", width: "minmax(24rem, 1fr)" },
   { name: "Validity", width: "34rem" },
 ];
 

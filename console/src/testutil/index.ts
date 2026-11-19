@@ -19,3 +19,4 @@ export * from "@/testutil/location";
 export * from "@/testutil/store";
 export * from "@/testutil/Synnax";
 export * from "@/testutil/testutil";
+export * from "@/testutil/width";
