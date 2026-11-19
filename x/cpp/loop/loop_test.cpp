@@ -413,6 +413,24 @@ TEST(LoopTest, testSleepSleepsOnTheGivenClock) {
 }
 
 /// @brief it should read the host's wall time by default.
+/// @brief it should start at one sleep step.
+TEST(StepEstimator, testStartsAtOneStep) {
+    EXPECT_EQ(StepEstimator().estimate(), RESOLUTION);
+}
+
+/// @brief it should estimate the mean plus one deviation when a step's squared
+/// deviation is past the range of an int64 of nanoseconds.
+TEST(StepEstimator, testHoldsAStallPastTheInt64Range) {
+    StepEstimator estimator;
+    estimator.add(RESOLUTION);
+    estimator.add(telem::SECOND * 10);
+    EXPECT_NEAR(
+        estimator.estimate().nanoseconds(),
+        (telem::SECOND * 10).nanoseconds(),
+        static_cast<double>(RESOLUTION.nanoseconds())
+    );
+}
+
 TEST(HostClock, testReadsTheHostWallTimeByDefault) {
     const HostClock clock;
     const auto before = telem::TimeStamp::now();
