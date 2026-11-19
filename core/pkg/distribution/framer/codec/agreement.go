@@ -24,6 +24,7 @@ import (
 const (
 	typesDeclaredFlagPos    bit.FlagPos = 0
 	overridesPresentFlagPos bit.FlagPos = 1
+	clocksDeclaredFlagPos   bit.FlagPos = 3
 	// reservedExtensionFlags are the extension bits that no codec sets yet.
 	reservedExtensionFlags byte        = 0b1111_0100
 	typeKindPos            bit.FlagPos = 0
@@ -56,6 +57,11 @@ type agreement struct {
 	// clocks holds the agreed clock of each requested key, in key order. Zero is no
 	// clock.
 	clocks []uint32
+	// declared holds the declared clock keys, ascending. Each is a timestamp key that
+	// is its own clock.
+	declared channel.Keys
+	// all is the ascending union of the requested and the declared keys.
+	all channel.Keys
 }
 
 // newState returns the state of the given keys and their data types, in any order. The
@@ -75,6 +81,7 @@ func newState(keys channel.Keys, dataTypes []telem.DataType) *state {
 		},
 	}
 	slices.Sort(s.keys)
+	s.enc.all, s.dec.all = s.keys, s.keys
 	for i, key := range s.keys {
 		s.index[key] = i
 	}
@@ -86,6 +93,28 @@ func newState(keys channel.Keys, dataTypes []telem.DataType) *state {
 
 func isInt64Like(dt telem.DataType) bool {
 	return dt == telem.Int64T || dt == telem.TimestampT
+}
+
+// isOwnClock returns true when s is a time series under its own key, which a frame
+// carries as a declared clock when the request does not name the key.
+func isOwnClock(key channel.Key, s telem.Series) bool {
+	return s.Clock == uint32(key) && isInt64Like(s.DataType)
+}
+
+// union returns the ascending union of a and b, which are ascending and disjoint.
+func union(a, b channel.Keys) channel.Keys {
+	if len(b) == 0 {
+		return a
+	}
+	out := make(channel.Keys, 0, len(a)+len(b))
+	for len(a) > 0 && len(b) > 0 {
+		if a[0] < b[0] {
+			out, a = append(out, a[0]), a[1:]
+		} else {
+			out, b = append(out, b[0]), b[1:]
+		}
+	}
+	return append(append(out, a...), b...)
 }
 
 // needsTypeOverride returns true when a series of type dt on a key of agreed type
@@ -137,20 +166,51 @@ func (c *Codec) plan(
 		clockDiff   uint32
 		typesDiffer bool
 	)
+	declaredInFrame := false
 	for _, msi := range merged {
+		if msi.index < 0 {
+			declaredInFrame = true
+			continue
+		}
 		clockDiff |= msi.series.Clock ^ ag.clocks[msi.index]
 		typesDiffer = typesDiffer ||
 			needsTypeOverride(ag.dataTypes[msi.index], msi.series.DataType)
 	}
 	c.kinds = c.kinds[:0]
-	if clockDiff == 0 && !typesDiffer {
-		return ext, nil
+	clocks := ag.clocks
+	if clockDiff != 0 || typesDiffer {
+		var err error
+		if ext, err = c.planOverrides(ctx, merged, ag, ext); err != nil {
+			return 0, err
+		}
+		clocks = c.clocks
 	}
+	if declaredInFrame || len(ag.declared) > 0 {
+		c.planDeclared(merged, clocks, ag)
+		if !slices.Equal(c.declared, ag.declared) {
+			ext = clocksDeclaredFlagPos.Set(ext, true)
+		}
+	}
+	return ext, nil
+}
+
+// planOverrides sets the override kinds of each series in c.kinds and the agreed
+// clocks that the frame leaves in c.clocks.
+func (c *Codec) planOverrides(
+	ctx context.Context,
+	merged []mergedSeriesInfo,
+	ag *agreement,
+	ext byte,
+) (byte, error) {
 	ext = overridesPresentFlagPos.Set(ext, true)
 	c.clocks = append(c.clocks[:0], ag.clocks...)
 	for _, msi := range merged {
 		var kinds byte
 		s := msi.series
+		if msi.index < 0 {
+			c.kinds = append(c.kinds, kinds)
+			continue
+		}
 		if needsTypeOverride(ag.dataTypes[msi.index], s.DataType) {
 			if _, err := c.codeOf(ctx, msi.key, s.DataType); err != nil {
 				return 0, err
@@ -166,6 +226,37 @@ func (c *Codec) plan(
 	return ext, nil
 }
 
+// planDeclared fills c.declared with the declared clocks of the frame: the key of each
+// declared series in it, and each key of ag.declared that clocks still names.
+func (c *Codec) planDeclared(
+	merged []mergedSeriesInfo,
+	clocks []uint32,
+	ag *agreement,
+) {
+	c.declared = c.declared[:0]
+	kept := 0
+	for _, msi := range merged {
+		if msi.index >= 0 ||
+			(len(c.declared) > 0 && c.declared[len(c.declared)-1] == msi.key) {
+			continue
+		}
+		for ; kept < len(ag.declared) && ag.declared[kept] < msi.key; kept++ {
+			if slices.Contains(clocks, uint32(ag.declared[kept])) {
+				c.declared = append(c.declared, ag.declared[kept])
+			}
+		}
+		if kept < len(ag.declared) && ag.declared[kept] == msi.key {
+			kept++
+		}
+		c.declared = append(c.declared, msi.key)
+	}
+	for ; kept < len(ag.declared); kept++ {
+		if slices.Contains(clocks, uint32(ag.declared[kept])) {
+			c.declared = append(c.declared, ag.declared[kept])
+		}
+	}
+}
+
 // planSize returns the bytes that the extension flags, the type codes, and the
 // overrides of the planned frame take.
 func (c *Codec) planSize(ext byte) int {
@@ -173,6 +264,9 @@ func (c *Codec) planSize(ext byte) int {
 		return 0
 	}
 	size := 1 + len(c.codes)
+	if clocksDeclaredFlagPos.Get(ext) {
+		size += 4 + 4*len(c.declared)
+	}
 	if overridesPresentFlagPos.Get(ext) {
 		size += 4
 	}
@@ -225,6 +319,20 @@ func (c *Codec) commit(ext byte, ag *agreement) {
 	if overridesPresentFlagPos.Get(ext) {
 		copy(ag.clocks, c.clocks)
 	}
+	if clocksDeclaredFlagPos.Get(ext) {
+		ag.declared = slices.Clone(c.declared)
+		ag.all = c.all
+	}
+}
+
+// frameKeys returns the key list of the planned frame of ag. It allocates only when the
+// frame changes the declared clocks.
+func (c *Codec) frameKeys(ext byte, keys channel.Keys, ag *agreement) channel.Keys {
+	if clocksDeclaredFlagPos.Get(ext) {
+		c.all = union(keys, c.declared)
+		return c.all
+	}
+	return ag.all
 }
 
 func invalidf(format string, args ...any) error {
@@ -247,9 +355,9 @@ func (c *Codec) readDataType() (telem.DataType, error) {
 	return dt, nil
 }
 
-// readExtension reads the extension flags and the type declaration of the frame into h.
+// readExtension reads the extension flags, the type declaration, and the declared
+// clocks of the frame.
 func (c *Codec) readExtension(h *decodeHeader) error {
-	ag := &h.state.dec
 	if h.fgs.extended {
 		var err error
 		if h.ext, err = c.reader.Uint8(); err != nil {
@@ -265,6 +373,18 @@ func (c *Codec) readExtension(h *decodeHeader) error {
 			)
 		}
 	}
+	if err := c.readTypes(h); err != nil {
+		return err
+	}
+	if clocksDeclaredFlagPos.Get(h.ext) {
+		return c.readDeclared(h)
+	}
+	return nil
+}
+
+// readTypes reads the type declaration of the frame, if it has one.
+func (c *Codec) readTypes(h *decodeHeader) error {
+	ag := &h.state.dec
 	if !typesDeclaredFlagPos.Get(h.ext) {
 		if !ag.typesDeclared {
 			return invalidf(
@@ -289,24 +409,110 @@ func (c *Codec) readExtension(h *decodeHeader) error {
 	return nil
 }
 
+// readDeclared reads the declared clocks of the frame, which become the list of the
+// state. It counts SeriesOverhead for each against the decode limit before it
+// allocates, and it grows its buffer only as bytes arrive.
+func (c *Codec) readDeclared(h *decodeHeader) error {
+	n, err := c.reader.Uint32()
+	if err != nil {
+		return err
+	}
+	h.decoded += int64(n) * SeriesOverhead
+	if err = c.checkDecodeLimit(h); err != nil {
+		return err
+	}
+	b, err := c.readBytes(4 * int64(n))
+	if err != nil {
+		return err
+	}
+	declared := make(channel.Keys, n)
+	for i := range declared {
+		key := channel.Key(byteOrder.Uint32(b[4*i:]))
+		if _, requested := h.state.index[key]; requested {
+			return invalidf("remote declared clock %d, which the request names", key)
+		}
+		if i > 0 && key <= declared[i-1] {
+			return invalidf(
+				"remote declared clock %d after clock %d, so the list is not ascending",
+				key,
+				declared[i-1],
+			)
+		}
+		declared[i] = key
+	}
+	ag := &h.state.dec
+	ag.declared = declared
+	ag.all = union(h.state.keys, declared)
+	return nil
+}
+
+// checkDecodeLimit fails when the frame decodes to more than the decode limit.
+func (c *Codec) checkDecodeLimit(h *decodeHeader) error {
+	if c.decodeLimit > 0 && h.decoded > c.decodeLimit {
+		return invalidf(
+			"frame decodes to more than the limit of %d bytes",
+			c.decodeLimit,
+		)
+	}
+	return nil
+}
+
+// readSeriesAgreement returns the data type and the clock of the series of key at
+// h.ordinal, and reads its override when it has one.
+func (c *Codec) readSeriesAgreement(
+	h *decodeHeader,
+	key channel.Key,
+) (telem.DataType, uint32, error) {
+	ag := &h.state.dec
+	if i, ok := h.state.index[key]; ok {
+		dt := ag.dataTypes[i]
+		if h.ordinal == h.next {
+			var err error
+			if dt, err = c.readOverride(h, i); err != nil {
+				return "", 0, err
+			}
+		}
+		return dt, ag.clocks[i], nil
+	}
+	if _, ok := slices.BinarySearch(ag.declared, key); !ok {
+		return "", 0, errors.Newf("unknown channel key: %v", key)
+	}
+	if h.ordinal == h.next {
+		if _, err := c.readKinds(h); err != nil {
+			return "", 0, err
+		}
+		return "", 0, invalidf("remote sent an override for declared clock %d", key)
+	}
+	return telem.TimestampT, uint32(key), nil
+}
+
+// readKinds reads the override kinds of the series at h.ordinal.
+func (c *Codec) readKinds(h *decodeHeader) (byte, error) {
+	kinds, err := c.reader.Uint8()
+	if err != nil {
+		return 0, err
+	}
+	if kinds == 0 {
+		return 0, invalidf("remote sent override kinds of 0 for series %d", h.ordinal)
+	}
+	if kinds&reservedKinds != 0 {
+		return 0, invalidf(
+			"remote sent override kinds %08b for series %d, which hold a reserved bit",
+			kinds,
+			h.ordinal,
+		)
+	}
+	return kinds, nil
+}
+
 // readOverride reads the override of the series at h.ordinal, of the requested key at
 // index i, and returns the series' data type.
 func (c *Codec) readOverride(h *decodeHeader, i int) (telem.DataType, error) {
 	ag := &h.state.dec
 	dt := ag.dataTypes[i]
-	kinds, err := c.reader.Uint8()
+	kinds, err := c.readKinds(h)
 	if err != nil {
 		return "", err
-	}
-	if kinds == 0 {
-		return "", invalidf("remote sent override kinds of 0 for series %d", h.ordinal)
-	}
-	if kinds&reservedKinds != 0 {
-		return "", invalidf(
-			"remote sent override kinds %08b for series %d, which hold a reserved bit",
-			kinds,
-			h.ordinal,
-		)
 	}
 	if typeKindPos.Get(kinds) {
 		if dt, err = c.readDataType(); err != nil {

@@ -80,7 +80,8 @@ func writeTimeRange(w *binary.Writer, tr telem.TimeRange) {
 type sorter struct {
 	rawIndices []int
 	keys       []channel.Key
-	// positions holds the position of each key in the requested keys of the state.
+	// positions holds the position of each key in the requested keys of the state, or
+	// -1 for a declared clock.
 	positions []int
 	offset    int
 }
@@ -174,6 +175,10 @@ type Codec struct {
 	codes  []byte
 	kinds  []byte
 	clocks []uint32
+	// declared and all hold the declared clocks and the key list of the frame being
+	// encoded.
+	declared channel.Keys
+	all      channel.Keys
 }
 
 // Option configures a Codec.
@@ -409,7 +414,8 @@ func mergeable(s1, s2 telem.Series) bool {
 type mergedSeriesInfo struct {
 	series telem.Series
 	key    channel.Key
-	// index is the position of key in the requested keys of the state.
+	// index is the position of key in the requested keys of the state, or -1 for a
+	// declared clock.
 	index int
 }
 
@@ -568,7 +574,10 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 	if err != nil {
 		return err
 	}
-	h := newEncodeHeader(mergedSeries, currState)
+	h := newEncodeHeader(
+		mergedSeries,
+		c.frameKeys(ext, currState.keys, &currState.enc),
+	)
 	h.fgs.extended = ext != 0
 	c.buf.Resize(h.byteArraySize + c.planSize(ext))
 	c.buf.Reset()
@@ -577,6 +586,12 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 	if h.fgs.extended {
 		c.buf.Uint8(ext)
 		c.buf.Write(c.codes)
+	}
+	if clocksDeclaredFlagPos.Get(ext) {
+		c.buf.Uint32(uint32(len(c.declared)))
+		for _, key := range c.declared {
+			c.buf.Uint32(uint32(key))
+		}
 	}
 	if h.fgs.equalLens {
 		c.buf.Uint32(uint32(h.dataSize))
@@ -597,16 +612,19 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 	return nil
 }
 
-// sortSeries sorts the series in src that currState requests by key and raw index into
-// c.encodeSorter. It drops the series of other keys.
+// sortSeries sorts the series in src that currState requests, and the time series
+// under their own clocks, by key and raw index into c.encodeSorter. It drops the series
+// of other keys.
 func (c *Codec) sortSeries(src framer.Frame, currState *state) {
-	for rawI := range src.RawSeries() {
+	for rawI, s := range src.RawSeries() {
 		if src.ShouldExcludeRaw(rawI) {
 			continue
 		}
 		key := src.RawKeyAt(rawI)
 		if position, ok := currState.index[key]; ok {
 			c.encodeSorter.insert(key, rawI, position)
+		} else if isOwnClock(key, s) {
+			c.encodeSorter.insert(key, rawI, -1)
 		}
 	}
 	c.encodeSorter.sort()
@@ -622,7 +640,7 @@ type encodeHeader struct {
 	byteArraySize int
 }
 
-func newEncodeHeader(mergedSeries []mergedSeriesInfo, currState *state) encodeHeader {
+func newEncodeHeader(mergedSeries []mergedSeriesInfo, keys channel.Keys) encodeHeader {
 	h := encodeHeader{
 		dataSize:      -1,
 		tr:            telem.TimeRangeZero,
@@ -630,14 +648,14 @@ func newEncodeHeader(mergedSeries []mergedSeriesInfo, currState *state) encodeHe
 		fgs:           newFlags(),
 	}
 	// allChannelsPresent is true only when the merged series form a 1-to-1
-	// correspondence with currState.keys (each state key has exactly one series in the
-	// same order). Multi-domain frames that produce multiple series for the same key
+	// correspondence with keys (each key has exactly one series in the same order).
+	// Multi-domain frames that produce multiple series for the same key
 	// would otherwise be silently miscounted into a flag that tells the decoder to skip
 	// per-series keys on the wire.
-	h.fgs.allChannelsPresent = len(mergedSeries) == len(currState.keys)
+	h.fgs.allChannelsPresent = len(mergedSeries) == len(keys)
 	if h.fgs.allChannelsPresent {
 		for i, msi := range mergedSeries {
-			if msi.key != currState.keys[i] {
+			if msi.key != keys[i] {
 				h.fgs.allChannelsPresent = false
 				break
 			}
@@ -805,8 +823,9 @@ func (c *Codec) decode(h *decodeHeader) (framer.Frame, error) {
 
 // decodeAllSeries decodes one series for each key of the state, in key order.
 func (c *Codec) decodeAllSeries(h *decodeHeader) (framer.Frame, error) {
-	fr := frame.Alloc(len(h.state.keys))
-	for _, k := range h.state.keys {
+	keys := h.state.dec.all
+	fr := frame.Alloc(len(keys))
+	for _, k := range keys {
 		s, err := c.decodeSeries(h, k)
 		if err != nil {
 			return framer.Frame{}, err
@@ -895,16 +914,9 @@ func (c *Codec) readHeader(h *decodeHeader) error {
 
 // decodeSeries reads the series for key and adds its size to h.decoded.
 func (c *Codec) decodeSeries(h *decodeHeader, key channel.Key) (telem.Series, error) {
-	i, exists := h.state.index[key]
-	if !exists {
-		return telem.Series{}, errors.Newf("unknown channel key: %v", key)
-	}
-	dataType := h.state.dec.dataTypes[i]
-	if h.ordinal == h.next {
-		var err error
-		if dataType, err = c.readOverride(h, i); err != nil {
-			return telem.Series{}, err
-		}
+	dataType, clock, err := c.readSeriesAgreement(h, key)
+	if err != nil {
+		return telem.Series{}, err
 	}
 	h.ordinal++
 	if h.fgs.equalLens && dataType.IsVariable() {
@@ -917,10 +929,9 @@ func (c *Codec) decodeSeries(h *decodeHeader, key channel.Key) (telem.Series, er
 		TimeRange: h.tr,
 		Alignment: h.alignment,
 		DataType:  dataType,
-		Clock:     h.state.dec.clocks[i],
+		Clock:     clock,
 	}
 	dataLenOrSize := h.dataLen
-	var err error
 	if !h.fgs.equalLens {
 		if dataLenOrSize, err = c.reader.Uint32(); err != nil {
 			return telem.Series{}, err
@@ -931,12 +942,8 @@ func (c *Codec) decodeSeries(h *decodeHeader, key channel.Key) (telem.Series, er
 		size = int64(dataType.Density().Size(size))
 	}
 	h.decoded += size + SeriesOverhead
-	if c.decodeLimit > 0 && h.decoded > c.decodeLimit {
-		return telem.Series{}, errors.Wrapf(
-			validate.ErrValidation,
-			"frame decodes to more than the limit of %d bytes",
-			c.decodeLimit,
-		)
+	if err = c.checkDecodeLimit(h); err != nil {
+		return telem.Series{}, err
 	}
 	if dataType == telem.BooleanT {
 		packed, err := c.readBytes(bitPackedByteCount(int64(dataLenOrSize)))
