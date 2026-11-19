@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, type runtime } from "@synnaxlabs/x";
+import { box, type runtime, xy } from "@synnaxlabs/x";
 import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { aetherTest } from "@/aether/testutil";
 import { buildStack } from "@/testutil/providers";
 import { canvas } from "@/vis/canvas/aether";
+import { type render } from "@/vis/render";
 import { canvasTest } from "@/vis/render/testutil";
 
 const { GL_ENUMS } = canvasTest;
@@ -46,12 +47,12 @@ class FakeCanvas extends EventTarget {
 
 const teardowns: (() => void)[] = [];
 
-const mount = (os: runtime.OS = "macOS") => {
-  const returns: Record<string, () => unknown> = {};
-  const { gl, calls } = canvasTest.createGL(returns);
+const bootstrap = (gl: unknown, os: runtime.OS = "macOS") => {
   const glCanvas = new FakeCanvas(gl);
   const recorder = canvasTest.record();
-  const stack = buildStack({ registry: canvas.REGISTRY });
+  const stack = buildStack({
+    registry: { ...canvas.REGISTRY, [aetherTest.Leaf.TYPE]: aetherTest.Leaf },
+  });
   teardowns.push(() => stack.driver.delete([aetherTest.ROOT_KEY]));
   const path = [...stack.basePath, "canvas"];
   stack.driver.update(path, canvas.Canvas.TYPE, {
@@ -63,9 +64,16 @@ const mount = (os: runtime.OS = "macOS") => {
     dpr: 1,
     os,
   });
+  const statuses = () => stack.providers.status?.state.statuses ?? [];
+  return { glCanvas, recorder, stack, path, statuses };
+};
+
+const mount = (os: runtime.OS = "macOS") => {
+  const returns: Record<string, () => unknown> = {};
+  const { gl, calls } = canvasTest.createGL(returns);
+  const { glCanvas, recorder, stack, path, statuses } = bootstrap(gl, os);
   const { renderCtx } = stack.driver.find<canvas.Canvas>(path);
   assert(renderCtx != null);
-  const statuses = () => stack.providers.status?.state.statuses ?? [];
   const count = (op: string) => calls.filter((c) => c.op === op).length;
   const lose = (): Event => {
     const event = new Event("webglcontextlost", { cancelable: true });
@@ -75,6 +83,46 @@ const mount = (os: runtime.OS = "macOS") => {
   const restore = () => glCanvas.dispatchEvent(new Event("webglcontextrestored"));
   return { renderCtx, recorder, calls, returns, statuses, count, lose, restore };
 };
+
+const mountBitmap = () => {
+  const { gl, calls } = canvasTest.createGL();
+  const recorder = canvasTest.record();
+  const ports = canvasTest.stubHandoff([gl, recorder.lower2d, recorder.upper2d]);
+  const { port1, port2 } = new MessageChannel();
+  const frames: render.Frame[] = [];
+  let acking = true;
+  const ack = () => port1.postMessage(null);
+  port1.onmessage = ({ data }: MessageEvent<render.Frame>) => {
+    frames.push(data);
+    if (acking) ack();
+  };
+  const stall = () => {
+    acking = false;
+  };
+  const stack = buildStack({ registry: canvas.REGISTRY });
+  teardowns.push(() => stack.driver.delete([aetherTest.ROOT_KEY]));
+  const path = [...stack.basePath, "canvas"];
+  stack.driver.update(path, canvas.Canvas.TYPE, {
+    bootstrap: true,
+    framePort: port2,
+    region: box.construct(0, 0, 100, 100),
+    dpr: 1,
+    os: "macOS",
+  });
+  const { renderCtx } = stack.driver.find<canvas.Canvas>(path);
+  assert(renderCtx != null);
+  const posted = () => {
+    vi.advanceTimersToNextFrame();
+    return frames.map((f) => Object.keys(f).sort());
+  };
+  const glCanvas = renderCtx.glCanvas;
+  const lose = () => glCanvas.dispatchEvent(new Event("webglcontextlost"));
+  const restore = () => glCanvas.dispatchEvent(new Event("webglcontextrestored"));
+  const remove = () => stack.driver.delete(path);
+  return { renderCtx, calls, ports, posted, lose, restore, stall, ack, remove, frames };
+};
+
+const ALL = ["gl", "lower2d", "upper2d"];
 
 const glRequest = () => ({
   key: "plot",
@@ -93,6 +141,119 @@ describe("render.Context", () => {
     teardowns.length = 0;
     vi.useRealTimers();
     vi.unstubAllGlobals();
+  });
+
+  describe("when the canvas gives no WebGL context", () => {
+    it("should bootstrap the canvas without a render context", () => {
+      const { stack, path } = bootstrap(null);
+      const c = stack.driver.find<canvas.Canvas>(path);
+      expect(c.state).toMatchObject({ bootstrapped: true, gpuMissing: true });
+      expect(c.renderCtx).toBeNull();
+    });
+
+    it("should still update its children", () => {
+      const { stack, path } = bootstrap(null);
+      const child = [...path, "child"];
+      stack.driver.update(child, aetherTest.Leaf.TYPE, { value: 1 });
+      expect(stack.driver.find<aetherTest.Leaf>(child).state).toEqual({ value: 1 });
+    });
+  });
+
+  describe("when it hands frames off as bitmaps", () => {
+    it("should post a bitmap of every canvas on the first frame", () => {
+      const { frames, posted } = mountBitmap();
+      expect(posted()).toEqual([ALL]);
+      expect(frames[0].gl).toEqual({ width: 100, height: 100 });
+    });
+
+    it("should post nothing when nothing changed", () => {
+      const { posted } = mountBitmap();
+      posted();
+      expect(posted()).toHaveLength(1);
+    });
+
+    it("should post only the canvases that a render drew on", () => {
+      const { renderCtx, posted } = mountBitmap();
+      posted();
+      renderCtx.loop.set({ ...glRequest(), canvases: ["upper2d"] });
+      expect(posted().at(-1)).toEqual(["upper2d"]);
+    });
+
+    it("should post no frame until the page acknowledges the last one", () => {
+      const { renderCtx, posted, stall } = mountBitmap();
+      stall();
+      posted();
+      renderCtx.loop.set({ ...glRequest(), canvases: ["upper2d"] });
+      expect(posted()).toHaveLength(1);
+    });
+
+    it("should post the canvases that changed while waiting after the ack", () => {
+      const { renderCtx, posted, stall, ack } = mountBitmap();
+      stall();
+      posted();
+      renderCtx.loop.set({ ...glRequest(), canvases: ["upper2d"] });
+      posted();
+      ack();
+      expect(posted()).toEqual([ALL, ["upper2d"]]);
+    });
+
+    it("should post one frame for every change made during a stall", () => {
+      const { renderCtx, posted, stall, ack } = mountBitmap();
+      stall();
+      posted();
+      renderCtx.loop.set({ ...glRequest(), canvases: ["upper2d"] });
+      posted();
+      renderCtx.erase(box.construct(0, 0, 10, 10), xy.ZERO, "lower2d");
+      posted();
+      ack();
+      posted();
+      expect(posted()).toEqual([ALL, ["lower2d", "upper2d"]]);
+    });
+
+    it("should close the frame port when the canvas is deleted", () => {
+      const { ports, posted, remove } = mountBitmap();
+      posted();
+      remove();
+      expect(ports.map((p) => p.closed)).toEqual([true]);
+    });
+
+    it("should post the canvases that an erase cleared", () => {
+      const { renderCtx, posted } = mountBitmap();
+      posted();
+      renderCtx.erase(box.construct(0, 0, 10, 10), xy.ZERO, "lower2d");
+      expect(posted().at(-1)).toEqual(["lower2d"]);
+    });
+
+    it("should post every canvas at the new size after a resize", () => {
+      const { renderCtx, frames, posted } = mountBitmap();
+      posted();
+      renderCtx.resize(box.construct(0, 0, 200, 100), 1);
+      expect(posted().at(-1)).toEqual(ALL);
+      expect(frames.at(-1)?.lower2d).toEqual({ width: 200, height: 100 });
+    });
+
+    it("should resolve the back buffer into the GL canvas before posting it", () => {
+      const { calls, posted } = mountBitmap();
+      posted();
+      expect(calls.map((c) => c.op)).toContain("blitFramebuffer");
+    });
+
+    it("should hold back the GL canvas while the context is lost", () => {
+      const { renderCtx, posted, lose } = mountBitmap();
+      posted();
+      lose();
+      renderCtx.resize(box.construct(0, 0, 200, 100), 1);
+      expect(posted().at(-1)).toEqual(["lower2d", "upper2d"]);
+    });
+
+    it("should post every canvas from a new back buffer after a restore", () => {
+      const { calls, posted, lose, restore } = mountBitmap();
+      posted();
+      lose();
+      restore();
+      expect(posted().at(-1)).toEqual(ALL);
+      expect(calls.filter((c) => c.op === "createFramebuffer")).toHaveLength(2);
+    });
   });
 
   describe("resize", () => {

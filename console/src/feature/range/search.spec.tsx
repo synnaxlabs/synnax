@@ -12,7 +12,7 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
-import { uuid } from "@synnaxlabs/x";
+import { TimeRange, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
@@ -28,6 +28,14 @@ import {
 } from "@/testutil";
 
 const client = createTestClient();
+
+/** Creates a range that starts now, so its start formats as "Today ...". */
+const createTodayRange = async (): Promise<ranger.Range> => {
+  const start = TimeStamp.now();
+  return await createTestRange(client, {
+    timeRange: new TimeRange(start, start.add(TimeSpan.HOUR)),
+  });
+};
 
 const createHarness = (
   item: resource.Resource,
@@ -56,18 +64,17 @@ const createHarness = (
 describe("range/search", () => {
   describe("SearchListItem", () => {
     it("renders the resource name and time range", async () => {
-      const rng = await createTestRange(client);
+      const rng = await createTodayRange();
       const item = createResource(ranger.resourceID(rng.key), rng.name);
       const Harness = createHarness(item);
       const { wrapper } = await createConsoleWrapper({ client });
       const { container } = render(<Harness />, { wrapper });
       expect(await screen.findByText(rng.name)).toBeTruthy();
-      // createTestRange builds a range starting now, which formats as "Today ...".
       await waitFor(() => expect(container.textContent).toContain("Today"));
     });
 
     it("opens the range without adding it to the favorites", async () => {
-      const rng = await createTestRange(client);
+      const rng = await createTodayRange();
       const item = createResource(ranger.resourceID(rng.key), rng.name);
       const Harness = createHarness(item);
       const { wrapper, store } = await createConsoleWrapper({ client });
