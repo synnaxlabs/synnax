@@ -184,3 +184,9 @@ type Message = v0.Message
 // ICD is an interface control document: the messages a system sends and receives, and
 // how to parse each one.
 type ICD = v0.ICD
+
+// ReadBinding writes the value of one message field to a channel.
+type ReadBinding = v0.ReadBinding
+
+// ReadMessage reads the documents of one ICD message.
+type ReadMessage = v0.ReadMessage

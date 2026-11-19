@@ -12,6 +12,7 @@
 import { filter, payload, telem, uuid, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { channel } from "@/channel";
 import { resource } from "@/resource";
 
 export const BYTE_ORDERS = ["little_endian", "big_endian"] as const;
@@ -182,6 +183,20 @@ export const baseFieldZ = z.object({
 });
 export interface BaseField extends z.infer<typeof baseFieldZ> {}
 
+/** ReadBinding writes the value of one message field to a channel. */
+export const readBindingZ = z.object({
+  /** field is the key of the message field to read. */
+  field: fieldKeyZ,
+  /** channel is the channel the value of the field is written to. */
+  channel: channel.keyZ.default(0),
+  /**
+   * dataType is the data type of the channel that a client creates for the field. Empty
+   * takes the default of the field's kind. The Core ignores it once the channel exists.
+   */
+  dataType: z.string().default(""),
+});
+export interface ReadBinding extends z.infer<typeof readBindingZ> {}
+
 /** CanIdentifier matches a CAN frame by arbitration identifier. */
 export const canIdentifierZ = z.object({
   type: z.literal("can"),
@@ -293,6 +308,20 @@ export const TEXT_FIELD_SCHEMAS: {
   delimited: delimitedTextFieldZ,
   tagged: taggedTextFieldZ,
 };
+
+/** ReadMessage reads the documents of one ICD message. */
+export const readMessageZ = z.object({
+  /** message is the key of the ICD message to read. */
+  message: messageKeyZ,
+  /**
+   * index is the key of the field whose channel indexes the others. Absent when the
+   * task stamps samples on arrival.
+   */
+  index: fieldKeyZ.optional(),
+  /** bindings are the fields the task reads. A field with no binding is not read. */
+  bindings: readBindingZ.array().default(() => []),
+});
+export interface ReadMessage extends z.infer<typeof readMessageZ> {}
 
 /** FloatJSONField is a JSON number read as a float. */
 export const floatJSONFieldZ = jsonBaseFieldZ.extend({
