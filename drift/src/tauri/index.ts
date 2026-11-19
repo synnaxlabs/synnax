@@ -228,31 +228,27 @@ export class TauriRuntime<
         position.y = 0;
       }
     }
-    try {
-      const w = new WebviewWindow(label, {
-        x: position?.x,
-        y: position?.y,
-        width: size?.width,
-        height: size?.height,
-        minWidth: minSize?.width,
-        minHeight: minSize?.height,
-        maxWidth: maxSize?.width,
-        maxHeight: maxSize?.height,
-        titleBarStyle: "overlay",
-        hiddenTitle: true,
-        trafficLightPosition: this.trafficLightPosition,
-        dragDropEnabled: false,
-        ...rest,
-      });
-      return await new Promise<void>((resolve, reject) => {
-        w.once(tauriError, (e) => reject(new Error(JSON.stringify(e.payload)))).catch(
-          reject,
-        );
-        w.once(tauriCreated, () => resolve()).catch(reject);
-      });
-    } catch (e) {
-      console.error(e);
-    }
+    const w = new WebviewWindow(label, {
+      x: position?.x,
+      y: position?.y,
+      width: size?.width,
+      height: size?.height,
+      minWidth: minSize?.width,
+      minHeight: minSize?.height,
+      maxWidth: maxSize?.width,
+      maxHeight: maxSize?.height,
+      titleBarStyle: "overlay",
+      hiddenTitle: true,
+      trafficLightPosition: this.trafficLightPosition,
+      dragDropEnabled: false,
+      ...rest,
+    });
+    return await new Promise<void>((resolve, reject) => {
+      w.once(tauriError, (e) => reject(new Error(JSON.stringify(e.payload)))).catch(
+        reject,
+      );
+      w.once(tauriCreated, () => resolve()).catch(reject);
+    });
   }
 
   async close(label: string): Promise<void> {
