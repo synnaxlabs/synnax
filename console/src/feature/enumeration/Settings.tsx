@@ -59,6 +59,7 @@ interface ItemProps extends List.ItemProps<enumeration.Key> {
   onOpenChange: (open: boolean) => void;
   /** Focuses the entries when they first show. */
   autoFocus: boolean;
+  onEntriesFocus: () => void;
 }
 
 /** An enumeration in the table, with its entries under it while it is open. */
@@ -67,6 +68,7 @@ const Item = ({
   open,
   onOpenChange,
   autoFocus,
+  onEntriesFocus,
   ...props
 }: ItemProps): ReactElement => {
   const builtin = use(ShippedContext).get(e.key);
@@ -128,6 +130,7 @@ const Item = ({
           role="region"
           aria-label={`${e.name} entries`}
           className={CSS.BE("enumeration-settings", "entries")}
+          onFocus={onEntriesFocus}
         >
           <Enumeration.Entries enumeration={e.key} autoFocus={autoFocus} />
         </div>
@@ -240,6 +243,7 @@ export const Settings = (): ReactElement => {
   const canCreate = Access.useCreateGranted(enumeration.TYPE_RESOURCE_ID);
   const [opened, setOpened] = useState<ReadonlySet<enumeration.Key>>(() => new Set());
   // The enumeration just created here, whose entries take focus when they first show.
+  // Focus in any entries clears it, so a later mount takes no focus.
   const [created, setCreated] = useState<enumeration.Key>();
   const byKey = new Map(
     (records.variant === "success" ? records.data : []).map((e) => [e.key, e]),
@@ -287,6 +291,7 @@ export const Settings = (): ReactElement => {
               open={opened.has(p.itemKey)}
               onOpenChange={(open) => setOpen(p.itemKey, open)}
               autoFocus={created === p.itemKey}
+              onEntriesFocus={() => setCreated(undefined)}
             />
           );
         }}

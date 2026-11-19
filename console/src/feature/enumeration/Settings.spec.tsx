@@ -186,6 +186,34 @@ describe("Enumeration.Settings", () => {
     );
   });
 
+  it("should keep focus in the search when a new enumeration shows again", async () => {
+    await renderEnumerations();
+    const name = uniqueName("enumeration");
+    const entries = await createThroughForm(name);
+    const add = within(entries).getByRole("button", { name: "Add entry" });
+    await waitFor(() => expect(document.activeElement).toBe(add));
+    const search = screen.getByPlaceholderText("Search enumerations");
+    act(() => search.focus());
+    fireEvent.change(search, { target: { value: uniqueName("zzz") } });
+    await waitFor(() =>
+      expect(screen.queryByRole("region", { name: `${name} entries` })).toBeNull(),
+    );
+    fireEvent.change(search, { target: { value: name } });
+    await screen.findByRole("region", { name: `${name} entries` });
+    await act(async () => {});
+    expect(document.activeElement).toBe(search);
+  });
+
+  it("should focus the entries of each new enumeration", async () => {
+    await renderEnumerations();
+    const first = await createThroughForm(uniqueName("enumeration"));
+    const firstAdd = within(first).getByRole("button", { name: "Add entry" });
+    await waitFor(() => expect(document.activeElement).toBe(firstAdd));
+    const second = await createThroughForm(uniqueName("enumeration"));
+    const add = within(second).getByRole("button", { name: "Add entry" });
+    await waitFor(() => expect(document.activeElement).toBe(add));
+  });
+
   it("should count the schematics that use an enumeration as they change", async () => {
     const e = await createEnumeration();
     const user = await createSelectUser(e.key);
