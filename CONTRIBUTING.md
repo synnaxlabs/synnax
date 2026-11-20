@@ -35,6 +35,14 @@ dispatches every release ([RFC 0058](docs/tech/rfc/0058-release-workflow.md)).
 - A PR never bumps a version. Every manifest carries `0.0.0`, and Release resolves each
   version from Git tags.
 
+### Contributor license agreement
+
+Every contributor signs the
+[contributor license agreement](https://github.com/synnaxlabs/synnax/blob/main/CLA.md)
+one time. On your first pull request, [CLA Assistant](https://cla-assistant.io) comments
+with a link to sign with your GitHub account, and its `license/cla` check passes once
+you sign.
+
 ### Pull requests from forks
 
 Workflows that hold write access start only from a branch of this repository, so a
@@ -43,10 +51,14 @@ classifier, the gate, and auto-merge and adds path labels for a fork or Dependab
 request that changed in the last hour, and for a fork without `review/human` that
 changed in the last day. The classifier always raises a fork to `review/human`. To
 refresh the gate on an idle pull request, run
-`gh workflow run check.review.yaml -f pr=<number>`. Sedosaur does not review a fork, so
-the gate fails it. To merge one, a maintainer first reads its diff, since CI runs the
-copy with repository secrets. The maintainer then pushes its head to a branch of this
-repository and opens a `review/human` pull request from that branch.
+`gh workflow run check.review.yaml -f pr=<number>`.
+
+A maintainer, a person with write access, reads the diff of each new head before any
+code runs. Then they approve the pull request, approve its CI runs, and run
+`gh workflow run review.sedosaur.yaml -f pr=<number>`. A push to a fork starts no
+review, and Sedosaur reviews only a head that a maintainer approved, so each push needs
+a new approval and a new dispatch. The gate passes a fork once the author signs the CLA,
+a maintainer approves the head, and Sedosaur scores the head 5/5.
 
 ## Review tiers
 
@@ -87,21 +99,21 @@ Sedosaur checks the reply against the head, then withdraws the finding and resol
 thread, or replies why it holds. Later reviews leave a withdrawn finding out until its
 file changes. Sedosaur answers any other reply of a writer or an agent, such as "Fixed
 in <commit>", with how to dismiss. The gate does not wait for a human approval on either
-tier. A pull request Dependabot opened and wrote every commit of passes the gate without
-a review. `OK` is the CI workflow's last job: it fails when any check the PR's paths
-select failed. A merge into `main` goes through a merge queue, which reruns CI with the
-integration suite added before the branch moves. A queue entry's CI builds `main` with
-the entries ahead of it and the entry itself, and selects checks from every change since
-`main`. An entry skips the integration suite only when it and the entries ahead of it
-change only unit tests. The queue merges a group when its last entry passes, even when
-an entry ahead of it failed. GitHub refuses a queue on a wildcard branch pattern, so a
-`release/**` merge goes in directly, and CI runs again on the pushed commit. The queue
-also runs the gate again, on every pull request in the group. A release runs the
-integration suite itself. Nobody bypasses the rules on `main`: when Sedosaur is down,
-pull requests wait for it. The gate script is `.github/scripts/check_review.sh`, the
-rulesets `.github/rulesets/main.json` and `.github/rulesets/release.json`. An admin
-applies a changed ruleset file by hand; the `Check - Rulesets` workflow fails each day
-until GitHub matches the files.
+tier, except on a fork. A pull request Dependabot opened and wrote every commit of
+passes the gate without a review. `OK` is the CI workflow's last job: it fails when any
+check the PR's paths select failed. A merge into `main` goes through a merge queue,
+which reruns CI with the integration suite added before the branch moves. A queue
+entry's CI builds `main` with the entries ahead of it and the entry itself, and selects
+checks from every change since `main`. An entry skips the integration suite only when it
+and the entries ahead of it change only unit tests. The queue merges a group when its
+last entry passes, even when an entry ahead of it failed. GitHub refuses a queue on a
+wildcard branch pattern, so a `release/**` merge goes in directly, and CI runs again on
+the pushed commit. The queue also runs the gate again, on every pull request in the
+group. A release runs the integration suite itself. Nobody bypasses the rules on `main`:
+when Sedosaur is down, pull requests wait for it. The gate script is
+`.github/scripts/check_review.sh`, the rulesets `.github/rulesets/main.json` and
+`.github/rulesets/release.json`. An admin applies a changed ruleset file by hand; the
+`Check - Rulesets` workflow fails each day until GitHub matches the files.
 
 A pull request into `main` also cannot merge while CodeQL finds a new alert in its
 changes with a security severity of medium or higher, or a severity of error. Alerts
