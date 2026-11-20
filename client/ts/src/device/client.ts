@@ -248,7 +248,7 @@ export class Client extends query.Retriever<
     );
   }
 
-  async retrieve<
+  override async retrieve<
     Properties extends z.ZodType<record.Unknown>,
     Make extends z.ZodType<string>,
     Model extends z.ZodType<string>,
@@ -257,9 +257,11 @@ export class Client extends query.Retriever<
       RetrieveSchemas<Properties, Make, Model>,
   ): Promise<Device<Properties, Make, Model>>;
 
-  async retrieve(params: Key | RetrieveSingleParams | OneParams): Promise<Device>;
+  override async retrieve(
+    params: Key | RetrieveSingleParams | OneParams,
+  ): Promise<Device>;
 
-  async retrieve<
+  override async retrieve<
     Properties extends z.ZodType<record.Unknown>,
     Make extends z.ZodType<string>,
     Model extends z.ZodType<string>,
@@ -268,11 +270,11 @@ export class Client extends query.Retriever<
       RetrieveSchemas<Properties, Make, Model>,
   ): Promise<Array<Device<Properties, Make, Model>>>;
 
-  async retrieve(
+  override async retrieve(
     params: Key[] | query.RequestInput<typeof retrieveMultiParamsZ>,
   ): Promise<Array<Device>>;
 
-  async retrieve(
+  override async retrieve(
     rawParams:
       | Key
       | Key[]

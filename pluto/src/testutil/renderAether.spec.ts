@@ -122,7 +122,7 @@ describe("renderAether", () => {
   describe("registry composition", () => {
     it("accepts additional types via the registry option", () => {
       class CustomLeaf extends Leaf {
-        static readonly TYPE = "Custom";
+        static override readonly TYPE = "Custom";
       }
       const h = renderAether(Composite, {
         state: {},

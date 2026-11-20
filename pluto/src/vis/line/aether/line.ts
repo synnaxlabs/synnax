@@ -336,9 +336,9 @@ interface InternalState {
 
 export class Line extends aether.Leaf<typeof stateZ, InternalState> {
   static readonly TYPE = "line";
-  schema: typeof stateZ = stateZ;
+  override schema: typeof stateZ = stateZ;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     const createOptions: telem.CreateOptions = {
       onStatusChange: status.useAdder(ctx),
@@ -368,7 +368,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     i.requestRender("layout");
   }
 
-  afterDelete(): void {
+  override afterDelete(): void {
     const { internal: i } = this;
     clearTimeout(i.settleTimer);
     i.xTelem.cleanup?.();

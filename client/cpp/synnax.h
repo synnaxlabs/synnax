@@ -22,6 +22,7 @@
 #include "client/cpp/control/control.h"
 #include "client/cpp/device/device.h"
 #include "client/cpp/framer/framer.h"
+#include "client/cpp/icd/icd.h"
 #include "client/cpp/rack/rack.h"
 #include "client/cpp/ranger/ranger.h"
 #include "client/cpp/status/status.h"
@@ -213,6 +214,8 @@ public:
     arc::Client arcs;
     /// @brief Client for reading the control state of channels.
     control::Client control;
+    /// @brief Client for creating and retrieving ICDs.
+    icd::Client icds;
 
     /// @brief constructs the Synnax client from the provided configuration. When cfg
     /// sets neither secure nor ca_cert, the client reads the CA certificate from
@@ -287,7 +290,8 @@ public:
             this->t.status_set_by_key_or_name
         ),
         arcs(this->t.arc_retrieve, this->t.arc_create, this->t.arc_delete),
-        control(this->t.control_retrieve) {
+        control(this->t.control_retrieve),
+        icds(this->t.icd_create, this->t.icd_retrieve) {
         details::check_little_endian();
     }
 
