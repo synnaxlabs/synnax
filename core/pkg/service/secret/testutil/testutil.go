@@ -15,20 +15,30 @@ import (
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/secret/grant"
 	"github.com/synnaxlabs/x/testutil"
 )
 
+// CoreRack is the Core's rack of a service that OpenService opens, unless its configs
+// set another.
+const CoreRack rack.Key = 1
+
 // OpenService opens a secret service on db with a new encryption key, along with the
-// grant service it needs. The services close when the spec or container that opens
-// them ends.
-func OpenService(ctx context.Context, db *gorp.DB) *secret.Service {
+// grant service it needs. cfgs override the defaults, such as the Core's rack and the
+// secrets folder. The services close when the spec or container that opens them ends.
+func OpenService(
+	ctx context.Context,
+	db *gorp.DB,
+	cfgs ...secret.ServiceConfig,
+) *secret.Service {
 	ginkgo.GinkgoHelper()
 	grants := testutil.MustOpen(grant.OpenService(ctx, grant.ServiceConfig{DB: db}))
-	return testutil.MustOpen(secret.OpenService(ctx, secret.ServiceConfig{
+	return testutil.MustOpen(secret.OpenService(ctx, append([]secret.ServiceConfig{{
 		DB:            db,
 		Grant:         grants,
 		EncryptionKey: secret.NewEncryptionKey(),
-	}))
+		Rack:          CoreRack,
+	}}, cfgs...)...))
 }
