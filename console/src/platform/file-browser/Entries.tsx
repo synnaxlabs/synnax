@@ -295,6 +295,11 @@ export interface EntriesProps extends Pick<
   onScrollX: (left: number) => void;
 }
 
+/** @returns whether Ctrl, Cmd, or Alt makes the key a shortcut, not a character. */
+export const isShortcut = (e: KeyboardEvent<HTMLElement>): boolean =>
+  // AltGr reports Ctrl and Alt on Windows, and still types a character.
+  (e.ctrlKey || e.metaKey || e.altKey) && !e.getModifierState("AltGraph");
+
 // A pause this long starts a new name for the keys typed to jump to an entry.
 const TYPE_AHEAD_RESET = TimeSpan.milliseconds(900);
 
@@ -347,9 +352,7 @@ export const Entries = ({
     scrollToIndex(i);
   };
   const handleKeyDown = (e: KeyboardEvent<HTMLElement>): void => {
-    // AltGr reports Ctrl and Alt on Windows, and still types a character.
-    if ((e.ctrlKey || e.metaKey || e.altKey) && !e.getModifierState("AltGraph"))
-      keyboard.onKeyDown(e);
+    if (isShortcut(e)) keyboard.onKeyDown(e);
     else if (e.key === "Backspace") {
       e.preventDefault();
       onUp();
