@@ -9,7 +9,7 @@
 
 import synnax as sy
 from console.case import ConsoleCase
-from console.schematic import Light, Schematic, Select, StateIndicator, Symbol
+from console.schematic import Light, Schematic, Select, StateIndicator, Symbol, Value
 from x import random_name
 
 # The default stale timeout is 5 s, and the sweep reports a transition up to 1 s late.
@@ -17,10 +17,10 @@ STALE_WAIT = 15 * sy.TimeSpan.SECOND
 
 
 class StaleIndicator(ConsoleCase):
-    """Show the stale indicator on a light, a state indicator, and a select.
+    """Show the stale indicator on a light, a state indicator, a select, and a value.
 
-    Writes one sample to each state channel, waits past the stale timeout, and checks
-    that each symbol shows the stale indicator. A new sample clears it.
+    Writes one sample to each channel, waits past the stale timeout, and checks that
+    each symbol shows the stale indicator. A new sample clears it.
     """
 
     def run(self) -> None:
@@ -34,6 +34,11 @@ class StaleIndicator(ConsoleCase):
         )
         state_ch = client.channels.create(
             name=f"stale_state_{suffix}",
+            data_type=sy.DataType.FLOAT64,
+            index=index.key,
+        )
+        value_ch = client.channels.create(
+            name=f"stale_value_{suffix}",
             data_type=sy.DataType.FLOAT64,
             index=index.key,
         )
@@ -65,24 +70,27 @@ class StaleIndicator(ConsoleCase):
             )
         )
         select.move(delta_x=250, delta_y=0)
-        symbols: list[Symbol] = [light, indicator, select]
+        value = schematic.create_symbol(
+            Value(label="Stale Value", channel_name=value_ch.name)
+        )
+        value.move(delta_x=0, delta_y=200)
+        symbols: list[Symbol] = [light, indicator, select, value]
 
-        self.log("Writing one sample to each state channel")
-        self._write(index.key, light_ch.key, state_ch.key)
+        channels = [light_ch.key, state_ch.key, value_ch.key]
+        self.log("Writing one sample to each channel")
+        self._write(index.key, channels)
         self.log("Waiting for each symbol to show the stale indicator")
         for symbol in symbols:
             self._assert_stale(symbol, True)
 
         self.log("Writing a new sample to clear the stale indicators")
-        self._write(index.key, light_ch.key, state_ch.key)
+        self._write(index.key, channels)
         for symbol in symbols:
             self._assert_stale(symbol, False)
 
-    def _write(self, index: int, light: int, state: int) -> None:
-        with self.client.open_writer(
-            sy.TimeStamp.now(), [index, light, state]
-        ) as writer:
-            writer.write({index: sy.TimeStamp.now(), light: 1, state: 1})
+    def _write(self, index: int, channels: list[int]) -> None:
+        with self.client.open_writer(sy.TimeStamp.now(), [index, *channels]) as writer:
+            writer.write({index: sy.TimeStamp.now(), **dict.fromkeys(channels, 1)})
 
     def _assert_stale(self, symbol: Symbol, stale: bool) -> None:
         indicator = symbol.stale_indicator
