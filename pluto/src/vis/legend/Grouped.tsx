@@ -21,7 +21,12 @@ import { Fragment, type ReactElement, type ReactNode, useState } from "react";
 
 import { CSS } from "@/css";
 import { Container, type ContainerProps } from "@/vis/legend/Container";
-import { Entries, type EntriesProps, VisibleButton } from "@/vis/legend/Entries";
+import {
+  Entries,
+  type EntriesProps,
+  useHover,
+  VisibleButton,
+} from "@/vis/legend/Entries";
 
 /** A short note shown next to the name of a group, with a tooltip that explains it. */
 export interface GroupBadge {
@@ -169,6 +174,7 @@ const GroupName = ({
   onHoverChange,
   onColorPickerVisibleChange,
 }: GroupNameProps): ReactElement => {
+  const hover = useHover(key, onHoverChange);
   if (color == null && visible == null)
     return (
       <Text.Text level="small" color={9} weight={500} className={CSS.B("legend-name")}>
@@ -182,8 +188,7 @@ const GroupName = ({
       gap="small"
       className={CSS.cls(CSS.B("legend-name"), Menu.CONTEXT_TARGET)}
       data-menu-key={key}
-      onPointerEnter={onHoverChange == null ? undefined : () => onHoverChange(key)}
-      onPointerLeave={onHoverChange == null ? undefined : () => onHoverChange(null)}
+      {...hover}
     >
       <Flex.Box x align="center" gap="small">
         {color != null && (
