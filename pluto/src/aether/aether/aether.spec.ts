@@ -436,7 +436,7 @@ describe("Aether Worker", () => {
     it("should not re-run a child whose first update failed", () => {
       const v = createContextSetter("test");
       update(v, ["test"], 2);
-      let reader: FailingReader | null = null;
+      let reader = null as FailingReader | null;
       expect(() =>
         update(
           v,
