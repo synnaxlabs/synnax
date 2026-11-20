@@ -24,7 +24,7 @@ dependencies = [
     "mypy-boto3-ssm>=1.44,<2",
     "psutil>=7.2,<8",
     "pyjwt[crypto]>=2.15,<3",
-    "synnax>=0.61,<0.62",
+    "synnax>=0.62,<0.63",
 ]
 
 [dependency-groups]

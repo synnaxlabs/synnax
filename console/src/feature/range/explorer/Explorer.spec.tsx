@@ -27,7 +27,7 @@ import { describe, expect, it, onTestFinished } from "vitest";
 import { Explorer } from "@/feature/range/explorer/Explorer";
 import { TAB_TYPE } from "@/feature/range/explorer/external";
 import { createSiftDevice } from "@/feature/sift/testutil";
-import { searchAndClickLabelOption } from "@/platform/label/testutil";
+import { createTestLabel, searchAndClickLabelOption } from "@/platform/label/testutil";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
 import { createPlannedTestRange, createTestRange } from "@/platform/range/testutil";
@@ -101,7 +101,7 @@ const createLabeled = async (
   labeled: ranger.Range;
   other: ranger.Range;
 }> => {
-  const label = await client.labels.create({
+  const label = await createTestLabel(client, {
     name: uniqueName("label"),
     color: "#000000",
   });
@@ -700,7 +700,7 @@ describe("range/explorer/Explorer", () => {
     });
 
     it("should add a label that the menu search finds", async () => {
-      const lbl = await client.labels.create({
+      const lbl = await createTestLabel(client, {
         name: uniqueName("found"),
         color: "#000000",
       });
@@ -818,7 +818,7 @@ describe("range/explorer/Explorer", () => {
   describe("labels", () => {
     it("should add and remove a label from the picker of an item", async () => {
       const token = uniqueToken();
-      const label = await client.labels.create({
+      const label = await createTestLabel(client, {
         name: uniqueName("label"),
         color: "#000000",
       });

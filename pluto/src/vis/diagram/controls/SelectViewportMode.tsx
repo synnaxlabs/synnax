@@ -9,18 +9,14 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
-import type { Triggers } from "@synnaxlabs/lyra/triggers";
 import { location } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 
 import { Viewport as BaseViewport } from "@/viewport";
 import { useContext } from "@/vis/diagram/Context";
 
-const PAN_TRIGGER: Triggers.Trigger[] = [["MouseMiddle"]];
-const SELECT_TRIGGER: Triggers.Trigger[] = [["MouseLeft"]];
-
 export const SelectViewportMode = (): ReactElement => {
-  const { viewportMode, onViewportModeChange } = useContext();
+  const { viewportMode, onViewportModeChange, triggers } = useContext();
   return (
     <Select.Buttons
       variant="outlined"
@@ -30,7 +26,7 @@ export const SelectViewportMode = (): ReactElement => {
       <Select.Item
         itemKey="pan"
         size="small"
-        tooltip={<BaseViewport.TooltipText mode="pan" triggers={PAN_TRIGGER} />}
+        tooltip={<BaseViewport.TooltipText mode="pan" triggers={triggers.modes.pan} />}
         tooltipLocation={location.BOTTOM_LEFT}
       >
         <Icon.Pan />
@@ -38,7 +34,9 @@ export const SelectViewportMode = (): ReactElement => {
       <Select.Item
         itemKey="select"
         size="small"
-        tooltip={<BaseViewport.TooltipText mode="select" triggers={SELECT_TRIGGER} />}
+        tooltip={
+          <BaseViewport.TooltipText mode="select" triggers={triggers.modes.select} />
+        }
         tooltipLocation={location.BOTTOM_LEFT}
       >
         <Icon.Selection />
