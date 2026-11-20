@@ -435,8 +435,8 @@ describe("XAxis", () => {
   const mount = (
     yAxes: Record<string, Array<{ x: bounds.Bounds; edge?: telem.Edge }>>,
     xState: Record<string, unknown> = {},
+    recorder: canvasTest.Recorder = canvasTest.record(),
   ): XAxis => {
-    const recorder = canvasTest.record();
     (recorder as { gl: unknown }).gl = GL;
     const stack = buildStack({
       registry: {
@@ -618,9 +618,8 @@ describe("XAxis", () => {
     });
 
     it("should draw a band over each seam in view", () => {
-      const x = mount(WINDOWS, { type: "time" });
-      const recorder = (x as unknown as { internal: { render: canvasTest.Recorder } })
-        .internal.render;
+      const recorder = canvasTest.record();
+      const x = mount(WINDOWS, { type: "time" }, recorder);
       const plot = box.construct(0, 0, 800, 600);
       x.render(
         {

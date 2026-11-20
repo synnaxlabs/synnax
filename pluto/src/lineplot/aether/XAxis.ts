@@ -21,7 +21,6 @@ import { join, Layout, spans, type Trace } from "@/lineplot/aether/layout";
 import { YAxis, type YAxisProps } from "@/lineplot/aether/YAxis";
 import { range } from "@/lineplot/range/aether";
 import { axis } from "@/vis/axis";
-import { Draw2D } from "@/vis/draw2d";
 import type { line } from "@/vis/line/aether";
 
 export const xAxisStateZ = baseAxisStateZ;
@@ -121,17 +120,6 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
     const p = this.yAxisProps(props);
     const value = p.layout.reverse(target);
     return this.yAxes.map((el) => el.findDrawnByXValue(p, value)).flat();
-  }
-
-  /**
-   * @returns the values that a span of decimal positions across the home view holds.
-   */
-  values(props: LayoutProps, positions: bounds.Bounds): bounds.Bounds {
-    const layout = this.layout(props);
-    return {
-      lower: layout.reverseHome(positions.lower),
-      upper: layout.reverseHome(positions.upper),
-    };
   }
 
   /**
@@ -243,8 +231,8 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
   // strip, so a line stops short of the seam on each side.
   private renderBreaks({ plot, canvases }: AxisRenderProps, layout: Layout): void {
     if (!canvases.includes("upper2d") || layout.segments.length < 2) return;
-    const { render, theme } = this.internal;
-    const draw = new Draw2D(render.upper2d, theme);
+    const { draw } = this.internal;
+    const { theme } = draw;
     const strip = Math.max(
       0,
       ...this.ranges.filter((r) => r.state.visible).map((r) => r.state.height),

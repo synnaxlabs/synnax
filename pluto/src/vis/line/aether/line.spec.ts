@@ -152,7 +152,7 @@ describe("line", () => {
       const props: LineProps = { ...PROPS, dataToDecimalScale: new scale.XY(x) };
       m.line.render(props);
       m.line.findByXValue(props, 1);
-      const read = { bounds: { lower: 100, upper: 300 } };
+      const read = { bounds: { lower: 100, upper: 300 }, span: bounds.INFINITE };
       values.forEach((value) => expect(value.mock.calls).toEqual([[read], [read]]));
     });
 
@@ -165,12 +165,12 @@ describe("line", () => {
         span,
       });
 
-      it("should pass its span to its sources as their bound", () => {
+      it("should pass its span to its sources", () => {
         const m = mount([X1], [Y1]);
         const value = vi.spyOn(m.xSource, "value");
         const span = { lower: -Infinity, upper: 1 };
         m.line.render(spanned(span));
-        expect(value.mock.calls[0][0]?.bound).toEqual(span);
+        expect(value.mock.calls[0][0]?.span).toEqual(span);
       });
 
       it("should clip its draw to its span", () => {

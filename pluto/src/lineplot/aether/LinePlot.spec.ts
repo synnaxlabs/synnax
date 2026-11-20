@@ -278,6 +278,53 @@ describe("LinePlot with a tooltip", () => {
   });
 });
 
+describe("LinePlot getXBounds", () => {
+  const teardowns: (() => void)[] = [];
+  afterEach(() => {
+    for (const teardown of teardowns) teardown();
+    teardowns.length = 0;
+  });
+
+  it("should give the values that positions across the home view hold", () => {
+    const recorder = new canvasTest.Recorder();
+    (recorder as { gl: unknown }).gl = canvasTest.createGL().gl;
+    const stack = buildStack({
+      registry: {
+        [lineTest.Host.TYPE]: lineTest.Host,
+        [LinePlot.TYPE]: LinePlot,
+        [XAxis.TYPE]: XAxis,
+        [YAxis.TYPE]: YAxis,
+        [line.Line.TYPE]: line.Line,
+      },
+      render: recorder,
+    });
+    teardowns.push(() => stack.driver.delete([aetherTest.ROOT_KEY]));
+    const gl = [...stack.basePath, "gl"];
+    stack.driver.update(gl, lineTest.Host.TYPE, {});
+    const base = [...gl, "plot"];
+    stack.driver.update(base, LinePlot.TYPE, {
+      container: box.construct(0, 0, 1000, 500),
+      viewport: box.construct(0.5, 0, 0.5, 1),
+      grid: {},
+    });
+    stack.driver.update([...base, "x1"], XAxis.TYPE, {
+      location: "bottom",
+      autoBoundPadding: 0,
+    });
+    stack.driver.update([...base, "x1", "y1"], YAxis.TYPE, { location: "left" });
+    stack.driver.update([...base, "x1", "y1", "l1"], line.Line.TYPE, {
+      x: seriesSpec([0, 1000]),
+      y: seriesSpec([0, 1]),
+      color: "#ff0000",
+    });
+    renderPlot(recorder);
+    const plot = stack.driver.find<LinePlot>(base);
+    expect(plot.getXBounds({ lower: 0.25, upper: 0.5 })).toEqual({
+      x1: { lower: 250, upper: 500 },
+    });
+  });
+});
+
 describe("LinePlot against a Core", () => {
   const synnax = createTestClient();
   const teardowns: (() => void)[] = [];
