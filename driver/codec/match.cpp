@@ -38,13 +38,6 @@ std::optional<std::size_t> claim(Map &m, const Key &key, const std::size_t messa
     if (inserted) return std::nullopt;
     return it->second;
 }
-
-const std::string &pointer_of(const icd::JSONMatch &match) {
-    return std::visit(
-        [](const auto &v) -> const std::string & { return v.pointer; },
-        match
-    );
-}
 }
 
 double JSON::Integer::to_float64() const {
@@ -80,7 +73,7 @@ JSON::Router::create(const std::vector<JSONMessage> &messages) {
             continue;
         }
         const auto &match = *m.payload.match;
-        auto [pointer, err] = x::json::Pointer::parse(pointer_of(match));
+        auto [pointer, err] = x::json::Pointer::parse(icd::base(match).pointer);
         if (err)
             return {
                 Router{},
@@ -91,7 +84,7 @@ JSON::Router::create(const std::vector<JSONMessage> &messages) {
             };
         if (!first.has_value()) {
             first = i;
-            first_pointer = pointer_of(match);
+            first_pointer = icd::base(match).pointer;
             r.pointer = std::move(pointer);
         } else if (pointer != r.pointer)
             return {
@@ -101,10 +94,10 @@ JSON::Router::create(const std::vector<JSONMessage> &messages) {
                     "messages " + messages[*first].name + " and " + m.name +
                         " match at different pointers " +
                         x::json::quote(first_pointer) + " and " +
-                        x::json::quote(pointer_of(match))
+                        x::json::quote(icd::base(match).pointer)
                 ),
             };
-        const auto [taken, value] = r.claim(match, i, rounded);
+        const auto [taken, value] = r.claim_match(match, i, rounded);
         if (taken.has_value())
             return {
                 Router{},
@@ -119,7 +112,7 @@ JSON::Router::create(const std::vector<JSONMessage> &messages) {
     return {std::move(r), x::errors::NIL};
 }
 
-std::pair<std::optional<std::size_t>, std::string> JSON::Router::claim(
+std::pair<std::optional<std::size_t>, std::string> JSON::Router::claim_match(
     const icd::JSONMatch &match,
     const std::size_t message,
     std::unordered_map<double, Integer> &rounded
@@ -129,7 +122,7 @@ std::pair<std::optional<std::size_t>, std::string> JSON::Router::claim(
             -> std::pair<std::optional<std::size_t>, std::string> {
             if constexpr (std::is_same_v<M, icd::StringJSONMatch>)
                 return {
-                    codec::claim(this->strings, v.value, message),
+                    claim(this->strings, v.value, message),
                     x::json::quote(v.value),
                 };
             else if constexpr (std::is_same_v<M, icd::BooleanJSONMatch>) {
@@ -149,7 +142,7 @@ std::pair<std::optional<std::size_t>, std::string> JSON::Router::claim(
             } else {
                 static_assert(std::is_same_v<M, icd::FloatJSONMatch>);
                 const double f = v.value.value;
-                const auto taken = codec::claim(this->floats, f, message);
+                const auto taken = claim(this->floats, f, message);
                 if (const auto k = rounded.find(f); k != rounded.end() && !taken)
                     return {this->integers.at(k->second), k->second.to_string()};
                 return {taken, x::json::Number(f).to_string()};
@@ -164,7 +157,7 @@ std::optional<std::size_t> JSON::Router::claim_integer(
     const std::size_t message,
     std::unordered_map<double, Integer> &rounded
 ) {
-    auto taken = codec::claim(this->integers, k, message);
+    auto taken = claim(this->integers, k, message);
     if (const auto f = this->floats.find(k.to_float64());
         f != this->floats.end() && !taken)
         taken = f->second;

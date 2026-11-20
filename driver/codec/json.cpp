@@ -164,10 +164,6 @@ read_variant(const icd::JSONField &jf, const x::telem::DataType &dt) {
     );
 }
 
-const icd::JSONBaseField &base_of(const icd::JSONField &f) {
-    return std::visit([](const auto &v) -> const icd::JSONBaseField & { return v; }, f);
-}
-
 /// @brief returns a series of dt that has room for one sample.
 x::telem::Series one_sample(const x::telem::DataType &dt) {
     return {dt, dt.is_variable() ? std::size_t{0} : std::size_t{1}};
@@ -186,7 +182,7 @@ bool absent(const std::string_view raw, const x::telem::DataType &dt) {
 
 std::pair<JSON::Field, x::errors::Error>
 JSON::Field::create(const icd::JSONField &f, const x::telem::DataType &dt) {
-    const auto &b = base_of(f);
+    const auto &b = icd::base(f);
     auto [pointer, ptr_err] = x::json::Pointer::parse(b.pointer);
     if (ptr_err) return {Field{}, ptr_err};
     Field field;
@@ -278,7 +274,7 @@ JSON::create(const std::vector<JSONMessage> &messages) {
         Message msg{.name = m.name, .first_value = pointers.size()};
         std::map<icd::FieldKey, const icd::JSONField *> by_key;
         for (const auto &f: m.payload.fields)
-            by_key[base_of(f).key] = &f;
+            by_key[icd::base(f).key] = &f;
         for (const auto &b: m.bindings) {
             const auto found = by_key.find(b.field);
             if (found == by_key.end())
@@ -296,7 +292,8 @@ JSON::create(const std::vector<JSONMessage> &messages) {
                     JSON{},
                     as_config(
                         err,
-                        "message " + m.name + ": field " + base_of(*found->second).name
+                        "message " + m.name + ": field " +
+                            icd::base(*found->second).name
                     ),
                 };
             pointers.push_back(field.pointer);

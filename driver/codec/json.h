@@ -82,7 +82,7 @@ class JSON {
         /// @brief maps the value of match to message. It returns the message that
         /// already matches that value, and the value as text. rounded holds an integer
         /// rule for each float that one rounds to.
-        std::pair<std::optional<std::size_t>, std::string> claim(
+        std::pair<std::optional<std::size_t>, std::string> claim_match(
             const synnax::icd::JSONMatch &match,
             std::size_t message,
             std::unordered_map<double, Integer> &rounded

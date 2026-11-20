@@ -43,6 +43,7 @@ cc_test(
         ":codec",
         "//client/cpp/icd",
         "//x/cpp/base64",
+        "//x/cpp/bench:alloc",
         "//x/cpp/errors",
         "//x/cpp/json",
         "//x/cpp/json:read",
