@@ -650,6 +650,20 @@ describe("AnalogRead ports", () => {
     expect(fieldInvalid("Maximum value")).toBe(false);
   });
 
+  it("should give a channel switched to thermocouple a range of 0 to 100", async () => {
+    const dev = await createNIDevice(client, {
+      properties: { hardware: createHardware() },
+    });
+    await renderWith([
+      createChannel("ai_voltage", 0, { device: dev.key, name: "chan_ranged" }),
+    ]);
+    fireEvent.click(await findChannelListItem("chan_ranged"));
+    await selectFromDropdown("Voltage", "Thermocouple");
+    const max = await screen.findByLabelText<HTMLInputElement>("Maximum value");
+    await waitFor(() => expect(max.value).toBe("100"));
+    expect(screen.getByLabelText<HTMLInputElement>("Minimum value").value).toBe("0");
+  });
+
   it("should keep the range of a scaled channel switched to current", async () => {
     const dev = await createCurrentDevice();
     await renderWith([
