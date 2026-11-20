@@ -83,13 +83,15 @@ long as that producer names it.
   client object makes at construction, and the framer picks the clock.
 - **The framer's entries**: The framer writer service keeps one entry per subject,
   client ID, and channel set, so a subject that sends another's client ID gets a clock
-  of its own. A session that opens after the entry's last session closed reuses its
-  clock, so `client.write` in a loop writes one clock. A session that opens while one is
-  open, or whose claim conflicts, takes a new clock, and the entry keeps its first. A
-  sweep on the injected time source removes an entry one hour after its last session
-  closes (a `Config` field), and a Core restart drops them all. The open response
-  carries the session's clock key, which the client library sets on the wire for that
-  session only. No client library keeps a clock between sessions or shows one to a user.
+  of its own. A session reuses the entry's clock, so `client.write` in a loop writes one
+  clock, and parallel sessions on time ranges that do not overlap share it (RFC 0118
+  §5.8). A session whose claim overlaps an open session's claim on that clock, or whose
+  kind differs from the entry's last session, takes a new clock; the entry keeps its
+  first. A sweep on the injected time source removes an entry one hour after its last
+  session closes (a `Config` field), and a Core restart drops them all. The open
+  response carries the session's clock key, which the client library sets on the wire
+  for that session only. No client library keeps a clock between sessions or shows one
+  to a user.
 - **Who may name a clock**: A subject that may update a producer may name a clock that
   the producer's config holds. The API checks it through an injected owner lookup over
   the unique space of clock keys. Until Phase 9 the framer gives a writer of a channel
@@ -315,11 +317,12 @@ change. The WebSocket server reports a closed stream in place of the decode erro
 
 These forms hold no state, so each series describes itself. `data_type` is already a
 string per series (`x/go/telem/pb/frame.proto:22-28`). `Series` gains
-`uint32 clock = 6`. JSON and msgpack carry `clock` and leave it out when 0. The Go
-`Series` writes its own msgpack form, because the library's zero test boxes the value,
-an allocation per series. An old reader of these forms drops `clock` with no error. The
-gRPC `buffer` fields carry the layout of §4.2
-(`core/pkg/transport/grpc/framer/framer.proto:50`, `:69`, `:93`).
+`uint32 clock = 6`. JSON and msgpack carry `clock` and leave it out when 0 (in Go,
+`omitzero`, since `encoding/json/v2` keeps a 0 under `omitempty`). The Go
+`Frame.EncodeMsgpack` writes each series by hand, because the library's zero test boxes
+the value, an allocation per series; a bare `Series` uses the library. An old reader of
+these forms drops `clock` with no error. The gRPC `buffer` fields carry the layout of
+§4.2 (`core/pkg/transport/grpc/framer/framer.proto:50`, `:69`, `:93`).
 
 ### 4.4 Readers
 
@@ -368,8 +371,11 @@ names no clock key.
   fails. The API `ReadRequest` (`core/pkg/api/framer/framer.go:181-199`) takes the same
   field. The TypeScript client shares one stream across every display
   (`client/ts/src/framer/cache/streamer.ts`), so it marks a key untimed only while every
-  display that holds the key marks it. A demand that needs time waits until the stream
-  acks the key as timed. Phase 6 lands the field.
+  display that holds the key marks it. A change of `untimed_keys` takes effect at one
+  point: the relay applies the new set and the codec takes its new state when the relay
+  applies the request, not when the transport decodes it. The response to the request is
+  the ack. A demand that needs time waits for that ack, and until then a display ignores
+  a series of the key that comes with no time. Phase 6 lands the field.
 - **Sources**: A writer's relay frame holds each clock write whole (§4.8). The storage
   iterator adds, per chunk and clock, the stamps of the alignment ranges of its data
   series, within the chunk size. A reduced read reduces them as it does the data.
@@ -381,10 +387,12 @@ names no clock key.
   in the input's frame. A subscriber of both gets those stamps twice: 8 bytes per output
   sample.
 - **Filters**: A filter keeps a series whose key was asked for, and a time series that
-  the clock of a kept timed key names, at one compare per series. The same compare finds
-  a clock move and updates the set in the frame that moves. The relay
-  (`core/pkg/distribution/framer/relay/streamer.go:220`), the calculation transform, and
-  the iterator's calculation step take the rule.
+  the clock of a kept timed key names, at one compare per series. A time series whose
+  clock is not yet in the set is kept when a kept timed series of the same frame names
+  it, which the filter checks after the frame's data series, so the first stamps of a
+  new clock are never dropped. That check also finds a clock move and updates the set.
+  The relay (`core/pkg/distribution/framer/relay/streamer.go:220`), the calculation
+  transform, and the iterator's calculation step take the rule.
 - **Requests**: A request names channel keys only. `TimestampsIncluded` and
   `ReadResponse.Indexes` go (`core/pkg/api/framer/framer.go:188-190`, `:207-210`), and
   clients stop adding index keys (`client/ts/src/framer/cache/reader.ts:275-299`,
@@ -455,8 +463,8 @@ writer.write({"time": sy.TimeStamp.now(), "temperature": 20.0})
 - **Kinds**: A clock has one of three kinds in a session. Supplied: the writer sends its
   time series. Arrival: the framer stamps. Stored: the data takes stamps that the clock
   already holds, from a start. An open that names a clock states its kind; the Driver
-  and Arc task writers state supplied. For a new clock the first write fixes supplied or
-  arrival, and a write of the other kind then fails.
+  and Arc task writers state supplied. In a client session the first write fixes
+  supplied or arrival, and a write of the other kind then fails.
 - **Index channels** (Phases 6 to 8): While a channel has an index channel, the clock of
   a writer that is not a control writer is that index key, and `"time"` carries its
   stamps. A write to such a channel with no index series is the stored kind, as today.
