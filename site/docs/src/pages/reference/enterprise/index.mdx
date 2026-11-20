@@ -42,9 +42,10 @@ Select your operating system.
 <Fragment slot="Docker">
 
 <Note.Note variant="warning">
-  A Core in a Docker container cannot access devices that connect to the host computer.
-  To acquire data from devices with the Driver, install the Core directly on the host
-  operating system.
+  A Core in a Docker container cannot access devices that connect to the host computer,
+  such as USB, PCIe, and EtherCAT devices. It can acquire data from devices on the
+  network, such as OPC UA, Modbus TCP, and HTTP servers. For devices that connect to the
+  host, install the Core directly on the host operating system.
 </Note.Note>
 
 Pull the latest image from Docker Hub. The image runs on `linux/amd64`.

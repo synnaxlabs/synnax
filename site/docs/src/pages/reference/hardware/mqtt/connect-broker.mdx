@@ -10,6 +10,7 @@ import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
+import Platforms from "@/components/hardware/Platforms.astro";
 import { Video } from "@/components/media/Media";
 import { Note } from "@/components/note";
 import { Problem } from "@/components/problem";
@@ -28,6 +29,8 @@ and it runs MQTT tasks wherever the Core runs, Docker included.
 <Divider.Divider x />
 
 ## Prerequisites
+
+<Platforms integration="mqtt" />
 
 - An MQTT broker that accepts MQTT 3.1.1 connections.
 - A Core that can reach the broker on the network. Synnax Desktop runs one for you.

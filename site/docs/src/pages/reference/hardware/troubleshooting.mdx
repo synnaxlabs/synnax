@@ -254,8 +254,10 @@ for example "LabJack LJM shared library is not installed".
 
 1. Install the library from the link in the description. Restart the computer if the
    installer asks.
-2. Start the task again. The Driver tries to load the library each time it needs it, so
-   you do not need to restart the Driver.
+2. For Npcap (EtherCAT), [restart the Driver](#restart-the-driver). The Driver looks for
+   Npcap only when it starts. The Driver loads NI-DAQmx, NI System Configuration, and
+   LJM each time it needs them, so these libraries need no restart.
+3. Start the task again.
 
 </Problem.Fix>
 </Problem.Body>
