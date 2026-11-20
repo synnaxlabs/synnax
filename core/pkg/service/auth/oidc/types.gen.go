@@ -17,5 +17,5 @@ import "github.com/synnaxlabs/synnax/pkg/service/auth/oidc/versions"
 type LinkKey = versions.LinkKey
 
 // Link links an OpenID Connect provider account to a user. A user holds one link per
-// provider.
+// issuer.
 type Link = versions.Link

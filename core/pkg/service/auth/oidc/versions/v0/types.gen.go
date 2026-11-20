@@ -22,15 +22,14 @@ import (
 type LinkKey = uuid.UUID
 
 // Link links an OpenID Connect provider account to a user. A user holds one link per
-// provider.
+// issuer.
 type Link struct {
 	// Key is the unique identifier for this link.
 	Key LinkKey `json:"key" msgpack:"key"`
-	// Subject is the user the provider account logs in as.
-	Subject user.Key `json:"subject" msgpack:"subject"`
-	// Provider is the name of the provider in the Core's settings.
-	Provider string `json:"provider" msgpack:"provider"`
-	// Issuer is the issuer URL of the provider that proved the account.
+	// User is the user the provider account logs in as.
+	User user.Key `json:"user" msgpack:"user"`
+	// Issuer is the issuer URL of the provider that proved the account, its `iss`
+	// claim. With account, it identifies the provider account.
 	Issuer string `json:"issuer" msgpack:"issuer"`
 	// Account is the provider's permanent ID for the account, its `sub` claim.
 	Account string `json:"account" msgpack:"account"`
@@ -40,7 +39,6 @@ type Link struct {
 // schema constraints.
 func (l Link) Validate() error {
 	v := validate.New("Link")
-	v.NotEmptyString("provider", l.Provider)
 	v.NotEmptyString("issuer", l.Issuer)
 	v.NotEmptyString("account", l.Account)
 	return v.Error()

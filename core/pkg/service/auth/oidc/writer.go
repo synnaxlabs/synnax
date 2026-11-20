@@ -25,26 +25,25 @@ type writer struct {
 	tx  gorp.Tx
 }
 
-// create links acc to subject and returns the link. It returns a validation error when
-// the account is already linked or subject already has a link for the provider.
+// create links acc to u and returns the link. It returns a validation error when the
+// account is already linked or u already has a link for the account's issuer.
 func (w writer) create(
 	ctx context.Context,
-	subject user.Key,
+	u user.Key,
 	acc account,
 ) (Link, error) {
 	l := Link{
-		Key:      uuid.New(),
-		Subject:  subject,
-		Provider: acc.Provider,
-		Issuer:   acc.Issuer,
-		Account:  acc.ID,
+		Key:     uuid.New(),
+		User:    u,
+		Issuer:  acc.Issuer,
+		Account: acc.ID,
 	}
 	if err := l.Validate(); err != nil {
 		return Link{}, err
 	}
 	linked, err := w.svc.newRetrieve().
-		Where(MatchProviders(acc.Provider)).
-		Where(Or(MatchAccounts(acc.ID), MatchSubjects(subject))).
+		Where(MatchIssuers(acc.Issuer)).
+		Where(Or(MatchAccounts(acc.ID), MatchUsers(u))).
 		Exists(ctx, w.tx)
 	if err != nil {
 		return Link{}, err
@@ -52,8 +51,8 @@ func (w writer) create(
 	if linked {
 		return Link{}, errors.Wrapf(
 			validate.ErrValidation,
-			"a %q account is already linked to this user, or this account to another",
-			acc.Provider,
+			"an account of %s is already linked to this user, or this account to another",
+			acc.Issuer,
 		)
 	}
 	if err = w.svc.table.NewCreate().Entry(&l).Exec(ctx, w.tx); err != nil {

@@ -16,26 +16,25 @@ LinkKey = uuid {
 }
 
 Link struct {
-    key      LinkKey = create {
+    key     LinkKey = create {
         @doc value "is the unique identifier for this link."
         @key
     }
-    subject  user.Key {
+    user    user.Key {
         @doc value     "is the user the provider account logs in as."
         @ref kind      place
         @ref on_delete cascade
     }
-    provider string   {
-        @doc value         "is the name of the provider in the Core's settings."
+    issuer  string   {
+        @doc value         """
+            is the issuer URL of the provider that proved the account, its `iss` claim.
+            With account, it identifies the provider account.
+        """
         @filter
         @index lookup
         @validate required
     }
-    issuer   string   {
-        @doc value         "is the issuer URL of the provider that proved the account."
-        @validate required
-    }
-    account  string   {
+    account string   {
         @doc value         """
             is the provider's permanent ID for the account, its `sub` claim.
         """
@@ -46,7 +45,7 @@ Link struct {
 
     @doc value  """
         links an OpenID Connect provider account to a user. A user holds one link per
-        provider.
+        issuer.
     """
     @go marshal
     @go migrate

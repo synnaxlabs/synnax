@@ -203,11 +203,41 @@ var _ = Describe("Service", func() {
 				Exec(ctx, db)).To(Succeed())
 			Expect(u.Name).To(Equal("Unnamed user"))
 		})
-		It("Should not log in an account of another issuer", func(ctx SpecContext) {
+		It(
+			"Should treat the same account ID at another issuer as another account",
+			func(
+				ctx SpecContext,
+			) {
+				other := DeferClose(gorp.Wrap(memkv.New()))
+				otherUsers, otherViewer := openUsers(ctx, other)
+				moved := newFakeProvider()
+				DeferCleanup(moved.server.Close)
+				cfg := oidc.ServiceConfig{
+					DB:          other,
+					User:        otherUsers,
+					NewUserRole: otherViewer,
+					Providers: []oidc.Provider{
+						{Name: "idp", Issuer: provider.issuer(), ClientID: clientID},
+					},
+				}
+				before := MustSucceed(oidc.OpenService(ctx, cfg))
+				sub := uuid.New().String()
+				identity := MustSucceed(login(before, ctx, "idp", sub))
+				Expect(before.Close()).To(Succeed())
+				cfg.Providers[0].Issuer = moved.issuer()
+				after := MustOpen(oidc.OpenService(ctx, cfg))
+				moved.grant("moved", grant{sub: sub, verifier: "v", redirect: redirect})
+				Expect(
+					after.Authenticate(ctx, proof(credentials("idp", "moved", "v"))),
+				).
+					ToNot(HaveField("Subject", identity.Subject))
+				Expect(after.Version(ctx, other, identity.Credential)).Error().
+					To(MatchError(query.ErrNotFound))
+			},
+		)
+		It("Should keep the links of a renamed provider", func(ctx SpecContext) {
 			other := DeferClose(gorp.Wrap(memkv.New()))
 			otherUsers, otherViewer := openUsers(ctx, other)
-			moved := newFakeProvider()
-			DeferCleanup(moved.server.Close)
 			cfg := oidc.ServiceConfig{
 				DB:          other,
 				User:        otherUsers,
@@ -220,13 +250,11 @@ var _ = Describe("Service", func() {
 			sub := uuid.New().String()
 			identity := MustSucceed(login(before, ctx, "idp", sub))
 			Expect(before.Close()).To(Succeed())
-			cfg.Providers[0].Issuer = moved.issuer()
+			cfg.Providers[0].Name = "renamed"
 			after := MustOpen(oidc.OpenService(ctx, cfg))
-			moved.grant("moved", grant{sub: sub, verifier: "v", redirect: redirect})
-			Expect(after.Authenticate(ctx, proof(credentials("idp", "moved", "v")))).
-				Error().To(MatchError(auth.ErrInvalidCredentials))
 			Expect(after.Version(ctx, other, identity.Credential)).Error().
-				To(MatchError(query.ErrNotFound))
+				ToNot(HaveOccurred())
+			Expect(login(after, ctx, "renamed", sub)).To(Equal(identity))
 		})
 		It("Should log a linked account in as its user", func(ctx SpecContext) {
 			sub := uuid.New().String()

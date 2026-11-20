@@ -35,18 +35,16 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v0.Link{
-				Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-				Subject:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"),
-				Provider: "test_3",
-				Issuer:   "test_4",
-				Account:  "test_5",
+				Key:     uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				User:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"),
+				Issuer:  "test_3",
+				Account: "test_4",
 			}),
 			Entry("zero values", v0.Link{
-				Key:      uuid.Nil(),
-				Subject:  uuid.Nil(),
-				Provider: "",
-				Issuer:   "",
-				Account:  "",
+				Key:     uuid.Nil(),
+				User:    uuid.Nil(),
+				Issuer:  "",
+				Account: "",
 			}),
 		)
 	})
@@ -54,11 +52,10 @@ var _ = Describe("Codec", func() {
 
 func BenchmarkEncodeDecodeLink(b *testing.B) {
 	seed := v0.Link{
-		Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-		Subject:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"),
-		Provider: "test_3",
-		Issuer:   "test_4",
-		Account:  "test_5",
+		Key:     uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		User:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"),
+		Issuer:  "test_3",
+		Account: "test_4",
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -78,11 +75,10 @@ func BenchmarkEncodeDecodeLink(b *testing.B) {
 func FuzzDecodeLink(f *testing.F) {
 	{
 		seed := v0.Link{
-			Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-			Subject:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"),
-			Provider: "test_3",
-			Issuer:   "test_4",
-			Account:  "test_5",
+			Key:     uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			User:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"),
+			Issuer:  "test_3",
+			Account: "test_4",
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -92,11 +88,10 @@ func FuzzDecodeLink(f *testing.F) {
 	}
 	{
 		seed := v0.Link{
-			Key:      uuid.Nil(),
-			Subject:  uuid.Nil(),
-			Provider: "",
-			Issuer:   "",
-			Account:  "",
+			Key:     uuid.Nil(),
+			User:    uuid.Nil(),
+			Issuer:  "",
+			Account: "",
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

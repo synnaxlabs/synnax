@@ -30,9 +30,9 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
-	provider *gorp.LookupIndex[LinkKey, Link, string]
-	account  *gorp.LookupIndex[LinkKey, Link, string]
-	subject  *gorp.KeyReference[LinkKey, Link, user.Key]
+	issuer  *gorp.LookupIndex[LinkKey, Link, string]
+	account *gorp.LookupIndex[LinkKey, Link, string]
+	user    *gorp.KeyReference[LinkKey, Link, user.Key]
 }
 
 // newIndexes constructs a fresh indexes value, allocating one instance of each
@@ -40,21 +40,21 @@ type indexes struct {
 // Service struct.
 func newIndexes() indexes {
 	return indexes{
-		provider: gorp.NewLookupIndex[LinkKey, Link, string](
-			"provider",
-			func(e *Link) string { return e.Provider },
+		issuer: gorp.NewLookupIndex[LinkKey, Link, string](
+			"issuer",
+			func(e *Link) string { return e.Issuer },
 		),
 		account: gorp.NewLookupIndex[LinkKey, Link, string](
 			"account",
 			func(e *Link) string { return e.Account },
 		),
-		subject: gorp.NewKeyReference(gorp.KeyReferenceConfig[LinkKey, Link, user.Key]{
-			Name:     "subject",
+		user: gorp.NewKeyReference(gorp.KeyReferenceConfig[LinkKey, Link, user.Key]{
+			Name:     "user",
 			Table:    "user",
 			OnDelete: gorp.Cascade,
 			Kind:     gorp.Place,
 			Targets: func(e *Link) []user.Key {
-				return []user.Key{e.Subject}
+				return []user.Key{e.User}
 			},
 		}),
 	}
@@ -64,7 +64,7 @@ func newIndexes() indexes {
 // via gorp.TableConfig.Indexes when opening the underlying table.
 func (i indexes) all() []gorp.Index[LinkKey, Link] {
 	return []gorp.Index[LinkKey, Link]{
-		i.provider,
+		i.issuer,
 		i.account,
 	}
 }
@@ -73,7 +73,7 @@ func (i indexes) all() []gorp.Index[LinkKey, Link] {
 // gorp.TableConfig.References when opening the underlying table.
 func (i indexes) references() []gorp.Reference[LinkKey, Link] {
 	return []gorp.Reference[LinkKey, Link]{
-		i.subject,
+		i.user,
 	}
 }
 
@@ -120,21 +120,21 @@ func MatchKeys(keys ...LinkKey) Filter {
 	}
 }
 
-// MatchSubjects returns a filter for links
-// whose Subject matches any of the provided
+// MatchUsers returns a filter for links
+// whose User matches any of the provided
 // values.
-func MatchSubjects(vals ...user.Key) Filter {
+func MatchUsers(vals ...user.Key) Filter {
 	return func(r Retrieve) gorp.Filter[LinkKey, Link] {
-		return r.indexes.subject.Filter(vals...)
+		return r.indexes.user.Filter(vals...)
 	}
 }
 
-// MatchProviders returns a filter for
-// links whose Provider matches any of the
+// MatchIssuers returns a filter for
+// links whose Issuer matches any of the
 // provided values.
-func MatchProviders(vals ...string) Filter {
+func MatchIssuers(vals ...string) Filter {
 	return func(r Retrieve) gorp.Filter[LinkKey, Link] {
-		return r.indexes.provider.Filter(vals...)
+		return r.indexes.issuer.Filter(vals...)
 	}
 }
 

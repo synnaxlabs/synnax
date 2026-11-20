@@ -16,8 +16,7 @@ import "github.com/synnaxlabs/x/encoding/orc"
 // EncodeOrc writes the value to w in the Orc binary format.
 func (lv Link) EncodeOrc(w *orc.Writer) error {
 	w.Write(lv.Key[:])
-	w.Write(lv.Subject[:])
-	w.String(lv.Provider)
+	w.Write(lv.User[:])
 	w.String(lv.Issuer)
 	w.String(lv.Account)
 	return nil
@@ -29,10 +28,7 @@ func (lv *Link) DecodeOrc(r *orc.Reader) error {
 	if _, err := r.Read(lv.Key[:]); err != nil {
 		return err
 	}
-	if _, err := r.Read(lv.Subject[:]); err != nil {
-		return err
-	}
-	if lv.Provider, err = r.String(); err != nil {
+	if _, err := r.Read(lv.User[:]); err != nil {
 		return err
 	}
 	if lv.Issuer, err = r.String(); err != nil {

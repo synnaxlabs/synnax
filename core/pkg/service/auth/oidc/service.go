@@ -113,6 +113,7 @@ type Service struct {
 	table     *gorp.Table[LinkKey, Link]
 	indexes   indexes
 	providers map[string]*provider
+	issuers   set.Set[string]
 }
 
 var _ auth.Authenticator = (*Service)(nil)
@@ -180,9 +181,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		cfg:       cfg,
 		indexes:   newIndexes(),
 		providers: make(map[string]*provider, len(cfg.Providers)),
+		issuers:   make(set.Set[string], len(cfg.Providers)),
 	}
 	for _, p := range cfg.Providers {
 		s.providers[p.Name] = &provider{Provider: p}
+		s.issuers.Add(p.Issuer)
 	}
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[LinkKey, Link]{
 		DB:              cfg.DB,
@@ -298,8 +301,8 @@ func exchange(
 // Authenticate implements [auth.Authenticator]. The first login of an unlinked account
 // creates a user with the new user role and links the account to it, unless the
 // provider disables user creation, in which case it returns
-// [auth.ErrInvalidCredentials]. An account whose link holds another issuer than the
-// provider's also returns [auth.ErrInvalidCredentials].
+// [auth.ErrInvalidCredentials]. A link is found by the issuer and the account, so
+// renaming a provider in the config keeps its links.
 func (s *Service) Authenticate(
 	ctx context.Context,
 	proof auth.Proof,
@@ -319,13 +322,10 @@ func (s *Service) Authenticate(
 	var link Link
 	err = s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		err := s.newRetrieve().
-			Where(MatchProviders(acc.Provider)).
+			Where(MatchIssuers(acc.Issuer)).
 			Where(MatchAccounts(acc.ID)).
 			Entry(&link).
 			Exec(ctx, tx)
-		if err == nil && link.Issuer != acc.Issuer {
-			return auth.ErrInvalidCredentials
-		}
 		if !errors.Is(err, query.ErrNotFound) {
 			return err
 		}
@@ -339,13 +339,13 @@ func (s *Service) Authenticate(
 		return auth.Identity{}, err
 	}
 	return auth.Identity{
-		Subject:    user.ResourceID(link.Subject),
+		Subject:    user.ResourceID(link.User),
 		Credential: link.Key,
 	}, nil
 }
 
 // Version implements [auth.Authenticator]. A link keeps one version for life. A link
-// whose provider or issuer is not in the config is not found, so its sessions end.
+// whose issuer no provider in the config has is not found, so its sessions end.
 func (s *Service) Version(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -358,11 +358,10 @@ func (s *Service) Version(
 		Exec(ctx, snap); err != nil {
 		return 0, err
 	}
-	if p, ok := s.providers[link.Provider]; !ok || p.Issuer != link.Issuer {
+	if !s.issuers.Contains(link.Issuer) {
 		return 0, errors.Wrapf(
 			query.ErrNotFound,
-			"provider %q with issuer %q is not in the config",
-			link.Provider,
+			"no provider with issuer %q is in the config",
 			link.Issuer,
 		)
 	}
