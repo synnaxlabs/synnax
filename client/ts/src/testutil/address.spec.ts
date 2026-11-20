@@ -9,7 +9,7 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { testCoreAddress } from "@/testutil/address";
+import { testCoreAddress } from "@/testutil";
 
 describe("testCoreAddress", () => {
   afterEach(() => {
