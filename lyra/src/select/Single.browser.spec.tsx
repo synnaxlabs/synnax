@@ -759,7 +759,10 @@ describe("Select.Single", () => {
       fireEvent.click(c.getByText("Edit"));
       const view = c.getByText("editing 2");
       expect(fireEvent.keyDown(view, SHIFT_F10)).toBe(true);
-      const second = c.getByRole("option", { name: "Second Item Option" });
+      const second = c.getByRole("option", {
+        name: "Second Item Option",
+        hidden: true,
+      });
       expect(fireEvent.contextMenu(second)).toBe(true);
       expect(c.queryByRole("menu")).toBeNull();
     });
