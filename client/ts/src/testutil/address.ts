@@ -12,10 +12,10 @@ const env: Partial<Record<string, string>> =
   typeof process === "undefined" ? {} : process.env;
 
 /**
- * The Core that specs connect to: `SYNNAX_TEST_HOST` and `SYNNAX_TEST_PORT` when set,
- * else localhost:9090.
+ * @returns the Core that specs connect to: `SYNNAX_TEST_HOST` and `SYNNAX_TEST_PORT`
+ * when set, else localhost:9090.
  */
-export const TEST_CORE_ADDRESS = {
+export const testCoreAddress = (): { host: string; port: number } => ({
   host: env.SYNNAX_TEST_HOST ?? "localhost",
   port: Number(env.SYNNAX_TEST_PORT ?? 9090),
-};
+});

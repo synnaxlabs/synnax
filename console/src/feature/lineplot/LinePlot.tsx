@@ -30,6 +30,7 @@ import {
   type DownloadLine,
   useDownloadAsCSV,
 } from "@/feature/lineplot/useDownloadAsCSV";
+import { useResetZoomOnRangeChange } from "@/feature/lineplot/useResetZoomOnRangeChange";
 import { useTriggerHold } from "@/feature/lineplot/useTriggerHold";
 import { Sift } from "@/feature/sift";
 import { ContextMenu } from "@/platform/context-menu";
@@ -203,6 +204,7 @@ const Internal = (): ReactElement => {
   );
 
   useTriggerHold({ key, enabled: hasUpdatePermission });
+  useResetZoomOnRangeChange({ key });
 
   const handleViewportChange: Viewport.UseHandler = useDebouncedCallback(
     ({ box: b, stage, mode }) => {
