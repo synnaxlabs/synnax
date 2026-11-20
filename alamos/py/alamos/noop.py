@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from collections.abc import Callable
-from typing import Concatenate, ParamSpec, Protocol, TypeVar
+from typing import Concatenate, Protocol
 
 
 class Noop(Protocol):
@@ -17,11 +17,7 @@ class Noop(Protocol):
     noop: bool
 
 
-P = ParamSpec("P")
-T = TypeVar("T", bound=Noop)
-
-
-def noop(
+def noop[T: Noop, **P](
     f: Callable[Concatenate[T, P], None],
 ) -> Callable[Concatenate[T, P], None]:
     """

@@ -7,20 +7,30 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type secret } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uniqueName } from "@synnaxlabs/x/testutil";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { Sift } from "@/feature/sift";
 import { createAPIKey, createSiftDevice } from "@/feature/sift/testutil";
 import { createTestSink } from "@/platform/analytics/testutil";
 import { createRunningRack } from "@/platform/device/testutil";
 import { pressSaveTrigger, renderModalOpener } from "@/platform/modals/testutil";
+import { findOption } from "@/platform/picker/testutil";
+import { createFileSecret } from "@/platform/secret/testutil";
 import { answerNextCommand } from "@/platform/task/testutil";
 import { findDialogTriggerByText } from "@/testutil";
 
 const client = createTestClient();
+
+const secrets: secret.Key[] = [];
+
+afterEach(async () => {
+  cleanup();
+  for (const key of secrets.splice(0)) await client.secrets.delete(key);
+});
 
 const createScanTask = async () => {
   const rack = await createRunningRack(client, "sift");
@@ -103,13 +113,7 @@ describe("Sift.Device.useConnectModal", () => {
       target: { value: "localhost:50051" },
     });
     fireEvent.click(await findDialogTriggerByText("Select a secret"));
-    // The list pages, so a search finds the key however many secrets the Core holds.
-    fireEvent.change(await screen.findByPlaceholderText("Search secrets..."), {
-      target: { value: apiKey.name },
-    });
-    fireEvent.click(
-      await screen.findByRole("option", { name: new RegExp(apiKey.name) }),
-    );
+    fireEvent.click(await findOption("secret", apiKey.name));
     const { answered } = await answerNextCommand(client, scan);
     pressSaveTrigger();
     await answered;
@@ -139,6 +143,27 @@ describe("Sift.Device.useConnectModal", () => {
         "Sift rejected the API key: Check the API key and try again.",
       ),
     ).toBeTruthy();
+  });
+
+  it("should list only the file secrets of the rack it connects from", async () => {
+    const [own, other] = await Promise.all([
+      client.racks.create({ name: uniqueName("rack") }),
+      client.racks.create({ name: uniqueName("rack") }),
+    ]);
+    const prefix = uniqueName("api key");
+    const onRack = await createFileSecret(client, secrets, own.key, `${prefix} own`);
+    const offRack = await createFileSecret(
+      client,
+      secrets,
+      other.key,
+      `${prefix} other`,
+    );
+    await renderModalOpener(Sift.Device.useConnectModal, [{ rack: own.key }], {
+      client,
+    });
+    fireEvent.click(await findDialogTriggerByText("Select a secret"));
+    await findOption("secret", onRack.name, prefix);
+    expect(screen.queryByRole("option", { name: new RegExp(offRack.name) })).toBeNull();
   });
 
   it("should name a new API key after the device", async () => {

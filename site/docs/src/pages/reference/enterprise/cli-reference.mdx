@@ -191,7 +191,7 @@ in the data directory.
 
 <Field.Item name="--secrets-dir" type="path" env="SYNNAX_SECRETS_DIR">
 
-The folder that holds the file secrets of the Core's rack.
+The folder that holds the file secrets of the Core and its embedded Driver.
 
 </Field.Item>
 
@@ -199,6 +199,16 @@ The folder that holds the file secrets of the Core's rack.
 
 Serves a metrics page and profiling routes to every network with no login, and turns on
 development logging. Do not use it in production. For debug logs, use `--verbose`.
+
+</Field.Item>
+
+<Field.Item name="--auth-methods" type="list" default='["password", "api_key"]' env="SYNNAX_AUTH_METHODS">
+
+The login methods the Core accepts. The options are `password` and `api_key`. The Core
+refuses a method that is off at login and when a credential is created or changed, and
+keeps its stored credentials. The Core does not start with `api_key` off while the
+embedded Driver is on. In the environment variable, separate the methods with spaces:
+`SYNNAX_AUTH_METHODS="password api_key"`.
 
 </Field.Item>
 
@@ -244,16 +254,17 @@ a service, because a service has no standard input.
 <Field.Item name="--disable-integrations" type="list" env="SYNNAX_DISABLE_INTEGRATIONS">
 
 The integrations of the embedded Driver to disable. All integrations are enabled by
-default. The options are `arc`, `ethercat`, `http`, `labjack`, `modbus`, `ni`, and
-`opc`. You cannot use it with `--enable-integrations`.
+default. The options are `arc`, `ethercat`, `file`, `http`, `labjack`, `modbus`, `ni`,
+and `opc`. You cannot use it with `--enable-integrations`.
 
 </Field.Item>
 
 <Field.Item name="--enable-integrations" type="list" env="SYNNAX_ENABLE_INTEGRATIONS">
 
 The only integrations of the embedded Driver to enable, when you want only some of them.
-All integrations are enabled by default. The options are `arc`, `ethercat`, `http`,
-`labjack`, `modbus`, `ni`, and `opc`. You cannot use it with `--disable-integrations`.
+All integrations are enabled by default. The options are `arc`, `ethercat`, `file`,
+`http`, `labjack`, `modbus`, `ni`, and `opc`. You cannot use it with
+`--disable-integrations`.
 
 </Field.Item>
 

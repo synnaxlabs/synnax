@@ -34,9 +34,9 @@ from tests.driver.ni_read import NIDigitalRead, NIReadCurrentVoltage
 from tests.driver.ni_task import retrieve_present_device
 from tests.driver.ni_write import NIDigitalWrite
 from tests.driver.task import (
+    ReadTask,
     ReadTaskCase,
-    ReadTaskT,
-    TaskT,
+    Task,
     WriteTaskCase,
     send_and_verify_commands,
 )
@@ -224,7 +224,7 @@ def _delete_replaced_device(client: sy.Synnax, location: str, key: str) -> None:
         client.devices.delete([key])
 
 
-class _NIReadDisconnectMixin(ReadTaskCase[ReadTaskT]):
+class _NIReadDisconnectMixin[ReadTaskT: ReadTask](ReadTaskCase[ReadTaskT]):
     """Reset + remove/re-add disconnect test logic for read tasks.
 
     Subclasses set ``disconnect_device`` to the NI MAX alias of the device
@@ -328,7 +328,7 @@ class NIDigitalReadDisconnect(
     disconnect_device = "E102Mod3"
 
 
-class _NIWriteDisconnectMixin(WriteTaskCase[TaskT]):
+class _NIWriteDisconnectMixin[TaskT: Task](WriteTaskCase[TaskT]):
     """Reset + remove/re-add disconnect test logic for write tasks.
 
     Subclasses set ``disconnect_device`` to the NI MAX alias of the device
