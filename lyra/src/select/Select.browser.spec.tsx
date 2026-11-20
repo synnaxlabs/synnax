@@ -1171,6 +1171,16 @@ describe("Select", () => {
         .toHaveBeenCalledWith("key-51", expect.anything());
     });
 
+    it("should move to the first match of a search, not on from the choice", async () => {
+      const trigger = await renderChoice(listSelect(false, MANY_KEYS, () => {}));
+      const dialog = await openDialog(trigger);
+      (dialog.querySelector("input") as HTMLInputElement).focus();
+      await userEvent.keyboard("key{ArrowDown}");
+      await expect
+        .poll(() => dialog.querySelector(`.${CSS.M("hovered")}`)?.textContent)
+        .toBe("key-0");
+    });
+
     it("should move on from the choice after a hover in an earlier open", async () => {
       const onChange = vi.fn();
       const trigger = await renderChoice(
