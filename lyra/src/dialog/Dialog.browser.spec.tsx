@@ -319,6 +319,11 @@ describe("Dialog", () => {
       expect(onTop(dialog)).toBe(true);
     });
 
+    it("should show in the top layer", async () => {
+      const { dialog } = await openDialog("floating");
+      expect(dialog.matches(":popover-open")).toBe(true);
+    });
+
     it("should open beside its trigger without covering it", async () => {
       const { trigger, dialog } = await openDialog("floating");
       const t = trigger.getBoundingClientRect();

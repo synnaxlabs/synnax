@@ -62,7 +62,6 @@ export interface FrameProps extends Omit<
   alignOffset?: (dialog: HTMLElement) => xy.Crude;
   variant?: Variant;
   maxHeight?: Component.Size | number;
-  zIndex?: number;
   modalPosition?: ModalPosition;
   /**
    * Places the dialog against this element instead of the frame's own box, for a dialog
@@ -242,7 +241,6 @@ export const Frame = ({
   className,
   variant = "floating",
   maxHeight,
-  zIndex,
   initialVisible = false,
   visible: propsVisible,
   onVisibleChange: propsOnVisibleChange,
@@ -394,7 +392,6 @@ export const Frame = ({
     if (variant === "connected") style.width = box.width(roundedDialog);
     if (typeof maxHeight === "number")
       style[CSS.variable("dialog-max-height")] = `${maxHeight}px`;
-    if (visible) style.zIndex = zIndex;
     setState((prev) => ({ ...prev, targetCorner, dialogCorner, style }));
   };
 

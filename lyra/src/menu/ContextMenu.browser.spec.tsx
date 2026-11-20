@@ -11,6 +11,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
+import { Dialog } from "@/dialog";
 import { List } from "@/list";
 import { Menu } from "@/menu";
 import { Portal } from "@/portal";
@@ -244,6 +245,31 @@ describe("ContextMenu", () => {
     fireEvent.contextMenu(screen.getByText("Right click me"));
     expect(screen.getByText("Action 1")).toBeTruthy();
     expect(screen.getByText("Action 2")).toBeTruthy();
+  });
+
+  it("should show the menu in the top layer", () => {
+    render(<TestMenu />);
+    fireEvent.contextMenu(screen.getByText("Right click me"));
+    expect(screen.getByRole("menu").matches(":popover-open")).toBe(true);
+  });
+
+  it("should show the menu over the modal it opens in", () => {
+    render(
+      <Triggers.Provider>
+        <Dialog.Frame variant="modal" visible>
+          <Dialog.Dialog>
+            <TestMenu />
+          </Dialog.Dialog>
+        </Dialog.Frame>
+      </Triggers.Provider>,
+    );
+    fireEvent.contextMenu(screen.getByText("Right click me"));
+    const item = screen.getByText("Action 1").getBoundingClientRect();
+    const hit = document.elementFromPoint(
+      item.left + item.width / 2,
+      item.top + item.height / 2,
+    );
+    expect(screen.getByRole("menu").contains(hit)).toBe(true);
   });
 
   it("should portal the menu into the document body by default", () => {
