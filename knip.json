@@ -78,6 +78,7 @@
         "src/**/*.astro!",
         "src/**/*.tsx!",
         "src/**/*.ts!",
+        "src/docs/**/*.mdx!",
         "src/releases/*.mdx!"
       ],
       "project": ["src/**/*.{ts,tsx,astro,mdx}!"]
