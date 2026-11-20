@@ -9,13 +9,12 @@
 
 // @vitest-environment node
 
-import reactRenderer from "@astrojs/react/server.js";
-import { experimental_AstroContainer as AstroContainer } from "astro/container";
 import type { Element, Root } from "hast";
 import { fromHtml } from "hast-util-from-html";
 import { describe, expect, it } from "vitest";
 
 import { Releases as Components } from "@/components/releases";
+import { createContainer } from "@/testutil/container";
 
 interface Entry {
   slug: string;
@@ -24,8 +23,7 @@ interface Entry {
 }
 
 const render = async (releases: Entry[]): Promise<string> => {
-  const container = await AstroContainer.create();
-  container.addServerRenderer({ name: "@astrojs/react", renderer: reactRenderer });
+  const container = await createContainer();
   return await container.renderToString(Components.List, { props: { releases } });
 };
 
@@ -45,9 +43,12 @@ const text = (node: Element): string =>
     .join("")
     .trim();
 
+const groups = (html: string): Element[] =>
+  named(fromHtml(html, { fragment: true }), "details");
+
 // Each year with the releases under it, and an asterisk on the open year.
 const years = (html: string): string[] =>
-  named(fromHtml(html, { fragment: true }), "details").map((group) => {
+  groups(html).map((group) => {
     const year = text(named(group, "summary")[0]);
     const releases = named(group, "a").map(text);
     return `${year}${group.properties.open === true ? "*" : ""}: ${releases.join(" ")}`;
@@ -61,6 +62,16 @@ describe("List", () => {
       { slug: "049", text: "0.49", date: "Dec 9, 2025" },
     ]);
     expect(years(html)).toEqual(["2026*: 0.62 0.50", "2025: 0.49"]);
+  });
+
+  it("should let one year be open at a time", async () => {
+    const html = await render([
+      { slug: "062", text: "0.62", date: "Nov 19, 2026" },
+      { slug: "049", text: "0.49", date: "Dec 9, 2025" },
+      { slug: "037", text: "0.37", date: "Dec 31, 2024" },
+    ]);
+    const names = groups(html).map(({ properties }) => properties.name);
+    expect(names).toEqual(["release-years", "release-years", "release-years"]);
   });
 
   it("should list a release that has not shipped as unreleased", async () => {
