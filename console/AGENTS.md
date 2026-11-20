@@ -98,7 +98,7 @@ Main window only, 250ms debounce. Every slice is declared in exactly one scope i
 | Scope       | Slices                                            |
 | ----------- | ------------------------------------------------- |
 | `global`    | account, core, color, theme                       |
-| `core`      | project, range, status                            |
+| `core`      | fileBrowser, project, range, status               |
 | `project`   | drift                                             |
 | `window`    | arc, lineplot, log, nav, panels, schematic, table |
 | `transient` | analytics, haul, link, persist — never written    |

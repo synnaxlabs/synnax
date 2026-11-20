@@ -81,6 +81,17 @@ const SECRETS = createListing({
 
 const LISTINGS = [TOP, ROOT, ETC];
 
+const HIDDEN_ETC = createListing({
+  ...ETC,
+  entries: [...ETC.entries, { name: ".ssh", path: "/etc/.ssh", kind: "directory" }],
+});
+
+const SSH = createListing({
+  path: "/etc/.ssh",
+  parent: "/etc",
+  entries: [{ name: "key.pem", path: "/etc/.ssh/key.pem", kind: "file" }],
+});
+
 const openBrowser = async (
   listings: ReturnType<typeof createListing>[],
   path?: string,
@@ -125,6 +136,12 @@ const pressSave = (): void => {
 
 const entryNames = (): string[] =>
   screen.getAllByRole("option").map((o) => o.textContent);
+
+const findFilter = (): HTMLElement => screen.getByRole("textbox", { name: "Filter" });
+
+const typeFilter = (text: string): void => {
+  fireEvent.change(findFilter(), { target: { value: text } });
+};
 
 describe("FileBrowser.useModal", () => {
   describe("session", () => {
@@ -191,6 +208,23 @@ describe("FileBrowser.useModal", () => {
   });
 
   describe("start folder", () => {
+    it("should open the folder of the last picked file and list it as recent", async () => {
+      const { result, reopen } = await openBrowser(LISTINGS);
+      await openEtc();
+      fireEvent.doubleClick(await findEntry("client.crt"));
+      await expect(result()).resolves.toEqual(
+        expect.objectContaining({ path: "/etc/client.crt" }),
+      );
+      reopen();
+      expect(await findEntry("hosts")).toBeDefined();
+      const places = screen.getByRole("navigation", { name: "Places" });
+      within(places).getByText("Recent");
+      fireEvent.click(within(places).getByText("File system"));
+      await findEntry("etc");
+      fireEvent.click(within(places).getByRole("button", { name: "etc" }));
+      expect(await findEntry("hosts")).toBeDefined();
+    });
+
     it("should open the home folder first", async () => {
       const home = createListing({
         path: "/home/op",
@@ -478,6 +512,104 @@ describe("FileBrowser.useModal", () => {
       fireEvent.click(findButton("Cancel"));
       await expect(result()).resolves.toBeNull();
       await waitFor(() => expect(screen.queryByText("secrets")).toBeNull());
+    });
+  });
+
+  describe("filter", () => {
+    it("should list only the entries whose names hold the text", async () => {
+      await openBrowser(LISTINGS);
+      await openEtc();
+      typeFilter("CRT");
+      await waitFor(() =>
+        expect(entryNames()).toEqual([expect.stringMatching(/^client\.crt/)]),
+      );
+      expect(screen.getByText("1 of 3 items")).toBeDefined();
+    });
+
+    it("should say that no file matches and clear the filter", async () => {
+      await openBrowser(LISTINGS);
+      await openEtc();
+      typeFilter("zzz");
+      await screen.findByText('No files match "zzz"');
+      fireEvent.click(screen.getByRole("button", { name: "Clear filter" }));
+      expect(await findEntry("hosts")).toBeDefined();
+      expect(findFilter()).toHaveProperty("value", "");
+    });
+
+    it("should clear on Escape and keep the dialog open", async () => {
+      await openBrowser(LISTINGS);
+      await openEtc();
+      typeFilter("host");
+      fireEvent.keyDown(findFilter(), { key: "Escape", code: "Escape" });
+      expect(findFilter()).toHaveProperty("value", "");
+      expect(await findEntry("client.crt")).toBeDefined();
+    });
+
+    it("should take the focus on Ctrl+F", async () => {
+      await openBrowser(LISTINGS);
+      await openEtc();
+      fireEvent.keyDown(findFiles(), { key: "f", code: "KeyF", ctrlKey: true });
+      expect(document.activeElement).toBe(findFilter());
+    });
+
+    it("should show the next folder unfiltered", async () => {
+      await openBrowser(LISTINGS);
+      await openEtc();
+      typeFilter("host");
+      fireEvent.click(screen.getByRole("button", { name: "Up" }));
+      expect(await findEntry("etc", true)).toBeDefined();
+      expect(findFilter()).toHaveProperty("value", "");
+    });
+
+    it("should say that it searched only the first items of a cut folder", async () => {
+      await openBrowser([TOP, ROOT, { ...ETC, truncated: true }]);
+      await openEtc();
+      typeFilter("host");
+      expect(
+        await screen.findByText("1 match. The filter searched only the first 3 items."),
+      ).toBeDefined();
+    });
+  });
+
+  describe("hidden files", () => {
+    it("should hide hidden entries until the user shows them", async () => {
+      await openBrowser([TOP, ROOT, HIDDEN_ETC]);
+      await openEtc();
+      expect(screen.queryByRole("option", { name: /^\.ssh/ })).toBeNull();
+      expect(screen.getByText("3 items")).toBeDefined();
+      fireEvent.click(screen.getByRole("button", { name: "Hidden files" }));
+      expect(await findEntry(".ssh")).toBeDefined();
+      expect(screen.getByText("4 items")).toBeDefined();
+      fireEvent.keyDown(findFiles(), {
+        key: ">",
+        code: "Period",
+        ctrlKey: true,
+        shiftKey: true,
+      });
+      await waitFor(() =>
+        expect(screen.queryByRole("option", { name: /^\.ssh/ })).toBeNull(),
+      );
+    });
+
+    it("should show hidden entries to select the hidden folder left by Up", async () => {
+      await openBrowser([TOP, ROOT, HIDDEN_ETC, SSH], "/etc/.ssh/key.pem");
+      await findEntry("key.pem", true);
+      fireEvent.click(screen.getByRole("button", { name: "Up" }));
+      expect(await findEntry(".ssh", true)).toBeDefined();
+    });
+
+    it("should say when a folder holds only hidden entries", async () => {
+      const ssl = createListing({
+        path: "/etc/ssl",
+        parent: "/etc",
+        entries: [{ name: ".key", path: "/etc/ssl/.key", kind: "file" }],
+      });
+      await openBrowser([...LISTINGS, ssl]);
+      await openEtc();
+      await openFolder("ssl");
+      await screen.findByText("This folder has only hidden files");
+      fireEvent.click(screen.getByRole("button", { name: "Show hidden files" }));
+      expect(await findEntry(".key")).toBeDefined();
     });
   });
 

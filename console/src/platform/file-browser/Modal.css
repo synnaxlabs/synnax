@@ -104,6 +104,10 @@
     min-width: 0;
 }
 
+.console-file-browser__filter {
+    flex: 0 0 24rem;
+}
+
 /* The surface, shadow, and fills of a Lyra dropdown. */
 .console-file-browser__suggestions {
     --pluto-fill-rest: var(--pluto-gray-l3);
