@@ -12,6 +12,7 @@ import { bounds, box, color, location, notation, scale, text, xy } from "@synnax
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
+import { color as aetherColor } from "@/color/aether";
 import { telem } from "@/telem/aether";
 import { theming } from "@/theming/aether";
 import type { Element } from "@/vis/diagram/aether/Diagram";
@@ -35,9 +36,14 @@ const gaugeState = staleness.drawnStateZ.extend({
   barWidth: z.number().default(12), // Width of the gauge bar in pixels
 });
 
-/** @returns the stroke color a gauge paints while its color is absent. */
-export const colorFallback = (theme: theme.Theme): color.Color =>
-  theme.colors.visualization.palettes.default[0];
+/**
+ * @returns the stroke color a gauge paints while its color is absent: the first series
+ * color, or transparent while the series colors load.
+ */
+export const colorFallback = (
+  _theme: theme.Theme,
+  colors: color.Color[],
+): color.Color => colors.at(0) ?? color.TRANSPARENT;
 
 const CANVAS_VARIANTS: render.Canvas2DVariant[] = ["upper2d", "lower2d"];
 
@@ -91,7 +97,8 @@ export class Gauge
     });
     i.requestRender = render.useOptionalRequestor(ctx);
 
-    i.strokeColor = this.state.color ?? colorFallback(i.theme);
+    i.strokeColor =
+      this.state.color ?? colorFallback(i.theme, aetherColor.useSeries(ctx));
 
     const b = this.state.box;
     const baseRadius = box.width(b) / 2;

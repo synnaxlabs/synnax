@@ -11,14 +11,13 @@ import type { schematic } from "@synnaxlabs/client";
 
 import type { Spec } from "@/schematic/node/spec";
 import { CylinderForm } from "@/schematic/node/vessels/cylinder/Form";
-import { Cylinder } from "@/schematic/node/vessels/cylinder/Primitive";
-import { Symbol } from "@/schematic/node/vessels/cylinder/Symbol";
+import { Preview, Symbol } from "@/schematic/node/vessels/cylinder/Symbol";
 
 export const spec: Spec<"cylinder", schematic.CylinderNodeConfig> = {
   key: "cylinder",
   name: "Cylinder",
   Form: CylinderForm,
   Node: Symbol,
-  Preview: Cylinder,
+  Preview,
   zIndex: 2,
 };

@@ -18,8 +18,10 @@ import { Primitive } from "@/schematic/node/common/primitive";
 
 interface RenderProps extends Omit<
   schematic.PolygonNodeConfig,
-  "variant" | "label" | "scale"
+  "variant" | "label" | "scale" | "strokeColor" | "fillColor"
 > {
+  strokeColor?: color.Crude;
+  fillColor?: color.Crude;
   className?: string;
 }
 

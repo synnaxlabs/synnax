@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
+	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/panel/versions"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v0"
@@ -26,6 +27,7 @@ import (
 	v3 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v3"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v4"
 	v5 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v5"
+	v6 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v6"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v1"
 	projectv3 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -130,9 +132,10 @@ var _ = Describe("Migrations", func() {
 			p3 := MustSucceed(
 				v3.MigratePanel(ctx, MustSucceed(v2.MigratePanel(ctx, p1))),
 			)
-			want := MustSucceed(
+			p5 := MustSucceed(
 				v5.MigratePanel(ctx, MustSucceed(v4.MigratePanel(ctx, p3))),
 			)
+			want := MustSucceed(v6.MigratePanel(ctx, p5))
 			want.Project = &owner
 			Expect(retrieve(old.Key)).To(Equal(want))
 		})
@@ -164,16 +167,19 @@ var _ = Describe("Migrations", func() {
 				To(Succeed())
 			owner := own(stored.Key)
 			openTable()
-			want := MustSucceed(v5.MigratePanel(
+			p5 := MustSucceed(v5.MigratePanel(
 				ctx,
 				MustSucceed(
 					v4.MigratePanel(ctx, MustSucceed(v3.MigratePanel(ctx, stored))),
 				),
 			))
+			want := MustSucceed(v6.MigratePanel(ctx, p5))
 			want.Project = &owner
 			got := retrieve(stored.Key)
 			Expect(got).To(Equal(want))
-			Expect(got.Color).To(HaveValue(Equal(colorv2.Color{R: 1, A: 128})))
+			Expect(got.Color).To(Equal(&servicecolor.Ref{
+				Variant: servicecolor.FixedRef{Value: colorv2.Color{R: 1, A: 128}},
+			}))
 		})
 
 		It("Should remove the Arc explorer tabs of a v0.58 Core", func() {
@@ -303,6 +309,7 @@ var _ = Describe("Migrations", func() {
 			"v62_panel_drop_range",
 			"v62_color_alpha_byte",
 			"v62_require_name",
+			"v63_color_ref",
 		}))
 	})
 })
