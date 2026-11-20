@@ -10,80 +10,75 @@
 package state_test
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/log"
 	"github.com/synnaxlabs/cesium/internal/state"
-	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("State owner check", func() {
-	cfg := state.Config{
-		Versions: set.New[uint16](1),
-		Version:  1,
-		Append:   func(*log.Entry) {},
-		Executor: func(f func()) { go f() },
-	}
 	keys := []state.WriterKey{{Key: 5, DataType: 4}}
 	create := func(id uint64) *log.Create {
 		return &log.Create{Segment: id, Key: 5, Clock: 9, Version: 1, DataType: 4}
 	}
-	run := func(s *state.State) {
-		ctx, cancel := context.WithCancel(context.Background())
-		DeferCleanup(cancel)
-		go func() { _ = s.Run(ctx) }()
-	}
-	open := func() *state.State {
+	// start opens and runs a state on h whose Reserves become durable as it appends
+	// them.
+	start := func(h *state.Snapshot) (*state.State, *appended) {
 		GinkgoHelper()
-		s := MustSucceed(state.Open(cfg, &state.Snapshot{
-			Limits: state.Limits{Segments: 1, Alignments: 1},
-		}))
+		a := &appended{}
+		s := MustSucceed(state.Open(config(a), h))
+		a.s, a.seq = s, h.Sequence
 		run(s)
-		return s
+		return s, a
+	}
+	// switchTo switches s to generation and returns the Seals that it appended.
+	switchTo := func(s *state.State, a *appended, generation uint64) []log.Seal {
+		GinkgoHelper()
+		heads := len(a.switched())
+		Expect(s.Switch(generation)).To(Succeed())
+		Eventually(a.switched).Should(HaveLen(heads + 1))
+		return a.seals()
 	}
 
 	It("Should not seal at a switch a segment that no durable Create made", func() {
-		s := open()
-		w := MustSucceed(s.OpenWriter(state.WriterConfig{
-			Keys: []state.WriterKey{{Key: 5, DataType: 4}}, Clock: 5, Start: 10,
-		}))
-		MustSucceed(w.NewSegment(5))
-		Expect(s.Durable(1, []log.Record{
-			&log.Reserve{Segments: 17, Alignments: 1},
-		})).To(Succeed())
+		s, a := start(head(1, 1))
+		w := MustSucceed(
+			s.OpenWriter(state.WriterConfig{Keys: keys, Clock: 5, Start: 10}),
+		)
+		id := MustSucceed(w.NewSegment(5))
 		Expect(w.Close()).To(Succeed())
-		seals := MustSucceed(s.SealUnheld())
+		seals := switchTo(s, a, 2)
 		records := make([]log.Record, len(seals))
 		for i := range seals {
+			Expect(seals[i].Segment).ToNot(Equal(id))
 			records[i] = &seals[i]
 		}
-		Expect(s.Durable(2, records)).To(Succeed())
+		if len(records) > 0 {
+			Expect(a.durable(records)).To(Succeed())
+		}
 		MustSucceed(s.Snapshot())
 		Expect(s.Err()).ToNot(HaveOccurred())
+		Expect(MustSucceed(s.TakeDead())).To(ContainElement(id))
 	})
 
 	It("Should seal every open segment of a key after a takeover and a close", func() {
-		s := open()
-		a := MustSucceed(s.OpenWriter(state.WriterConfig{
+		s, a := start(head(1, 1))
+		first := MustSucceed(s.OpenWriter(state.WriterConfig{
 			Keys: keys, Clock: 9, Start: 100,
 		}))
-		b := MustSucceed(s.OpenWriter(state.WriterConfig{
+		second := MustSucceed(s.OpenWriter(state.WriterConfig{
 			Keys: keys, Clock: 9, Start: 10, Bounded: true,
 		}))
-		ia, ib := MustSucceed(a.NewSegment(5)), MustSucceed(b.NewSegment(5))
-		Expect(s.Durable(1, []log.Record{
-			&log.Reserve{Segments: 17, Alignments: 1}, create(ia), create(ib),
-		})).To(Succeed())
-		Expect(a.Close()).To(Succeed())
-		Expect(b.Close()).To(Succeed())
-		c := MustSucceed(s.OpenWriter(state.WriterConfig{
+		ia, ib := MustSucceed(first.NewSegment(5)), MustSucceed(second.NewSegment(5))
+		Expect(a.durable([]log.Record{create(ia), create(ib)})).To(Succeed())
+		Expect(first.Close()).To(Succeed())
+		Expect(second.Close()).To(Succeed())
+		later := MustSucceed(s.OpenWriter(state.WriterConfig{
 			Keys: keys, Clock: 9, Start: 200,
 		}))
-		Expect(c.Close()).To(Succeed())
-		seals := MustSucceed(s.SealUnheld())
+		Expect(later.Close()).To(Succeed())
+		seals := switchTo(s, a, 2)
 		ids := make([]uint64, len(seals))
 		for i, seal := range seals {
 			ids[i] = seal.Segment
@@ -92,15 +87,17 @@ var _ = Describe("State owner check", func() {
 	})
 
 	It("Should never give out segment 0", func() {
-		s, err := state.Open(cfg, &state.Snapshot{})
+		a := &appended{}
+		s, err := state.Open(config(a), &state.Snapshot{})
 		if err != nil {
 			Expect(err).To(MatchError(state.ErrRefused))
 			return
 		}
+		a.s = s
 		run(s)
-		w := MustSucceed(s.OpenWriter(state.WriterConfig{
-			Keys: keys, Clock: 5, Start: 10,
-		}))
+		w := MustSucceed(
+			s.OpenWriter(state.WriterConfig{Keys: keys, Clock: 5, Start: 10}),
+		)
 		Expect(MustSucceed(w.NewSegment(5))).ToNot(BeZero())
 	})
 })
