@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/log"
 	"github.com/synnaxlabs/cesium/internal/place"
 	"github.com/synnaxlabs/x/errors"
+	xfs "github.com/synnaxlabs/x/io/fs"
 	fstestutil "github.com/synnaxlabs/x/io/fs/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -127,7 +128,7 @@ var _ = Describe("Files", func() {
 					"Should refuse a range that fails on both reads",
 					func(off int64, msg string) {
 						fs.Flip(off, -1)
-						Expect(readErr(fs)).To(And(
+						Expect(readErr(fs, generation)).To(And(
 							MatchError(place.ErrCorrupt),
 							MatchError(ContainSubstring(msg)),
 						))
@@ -144,7 +145,9 @@ var _ = Describe("Files", func() {
 						Expect(f.WriteAt(make([]byte, 512), 0)).To(Equal(512))
 						Expect(f.Close()).To(Succeed())
 						fs.Flip(3, 0)
-						Expect(readErr(fs)).To(MatchError(checkpoint.ErrIncomplete))
+						Expect(
+							readErr(fs, generation),
+						).To(MatchError(checkpoint.ErrIncomplete))
 						Expect(fs.Reads(3)).To(Equal(2))
 					},
 				)
@@ -239,8 +242,8 @@ var _ = Describe("Files", func() {
 	}
 })
 
-func readErr(fs *opFS) error {
-	_, _, err := checkpoint.Read(fs, generation)
+func readErr(fs xfs.FS, gen uint64) error {
+	_, _, err := checkpoint.Read(fs, gen)
 	return err
 }
 
