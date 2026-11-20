@@ -304,6 +304,27 @@ describe("ICD editor", () => {
     );
   });
 
+  it("should check the ICD with the Core after a cycle time is cleared", async () => {
+    const ic = await createICD([
+      {
+        ...createMessage([createBinaryField("Rpm", 0), createBinaryField("Temp", 8)]),
+        cycleTime: TimeSpan.milliseconds(250),
+      },
+    ]);
+    await renderEditor(ic);
+    const input = await screen.findByLabelText("Cycle time");
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: "" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    await waitFor(async () =>
+      expect((await retrieveMessage(ic.key)).cycleTime).toBeUndefined(),
+    );
+    await commit("Scale", 2, "0");
+    expect(
+      await screen.findByText(/^Field 2: scale must be finite and non-zero/),
+    ).toBeTruthy();
+  });
+
   it("should refuse a cycle time of zero", async () => {
     const ic = await createICD([
       { ...createMessage([]), cycleTime: TimeSpan.milliseconds(250) },

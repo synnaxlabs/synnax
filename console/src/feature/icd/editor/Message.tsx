@@ -44,7 +44,7 @@ interface CycleTimeProps {
 
 /** Edits the cycle time of a message. A number typed alone is in milliseconds. */
 const CycleTime = ({ path }: CycleTimeProps): ReactElement => {
-  const { set, mode } = Form.useContext();
+  const { set, remove, mode } = Form.useContext();
   const state = Form.useFieldState(path, { optional: true });
   // The form store clones its values, which strips the TimeSpan class.
   const value = state?.value == null ? undefined : new TimeSpan(state.value);
@@ -61,7 +61,7 @@ const CycleTime = ({ path }: CycleTimeProps): ReactElement => {
         precision={TimeSpan.NANOSECOND}
         value={value == null ? undefined : Number(value.valueOf())}
         onChange={(ns) => set(path, new TimeSpan(ns))}
-        onClear={() => set(path, undefined)}
+        onClear={() => remove(path)}
         check={checkCycleTime}
         placeholder="None"
         aria-label="Cycle time"
