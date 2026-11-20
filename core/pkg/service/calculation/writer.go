@@ -91,3 +91,36 @@ func outputError(format string, ch channel.Channel) error {
 		"output",
 	)
 }
+
+// Apply applies the actions to the calculation with the given key, and the commit
+// broadcasts them. It returns an error wrapping validate.ErrValidation when an action
+// is a create or the result is not valid, and an error wrapping query.ErrNotFound when
+// no calculation has the key.
+func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
+	if err := w.table.
+		NewUpdate().
+		Where(gorp.MatchKeys[Key, Calculation](key)).
+		ChangeErr(func(_ gorp.Context, c Calculation) (Calculation, error) {
+			next, err := Reduce(c, acts...)
+			if err != nil {
+				return Calculation{}, err
+			}
+			if err = next.Validate(); err != nil {
+				return Calculation{}, err
+			}
+			return next, nil
+		}).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.dispatcher.Attach(w.tx, key, acts...)
+	return nil
+}
+
+// Delete deletes the calculations with the given keys. A key with no calculation is not
+// an error. The output of each one stays as a channel with no producer.
+func (w Writer) Delete(ctx context.Context, keys ...Key) error {
+	return w.table.NewDelete().
+		Where(gorp.MatchKeys[Key, Calculation](keys...)).
+		Exec(ctx, w.tx)
+}

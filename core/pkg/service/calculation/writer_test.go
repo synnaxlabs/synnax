@@ -137,4 +137,62 @@ var _ = Describe("Writer", func() {
 			Expect(retrieve(ctx, out.Key())).To(BeEmpty())
 		})
 	})
+
+	Describe("Apply", func() {
+		It("Should set the expression of a calculation", func(ctx SpecContext) {
+			out := createVirtual(ctx, "doubled")
+			c := calculation.Calculation{Output: out.Key(), Expression: "return 2"}
+			Expect(create(ctx, &c)).To(Succeed())
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Apply(ctx, c.Key, calculation.NewSetAction(
+					calculation.SetPayload{
+						Path:  []string{"expression"},
+						Value: "return 4",
+					},
+				))
+			})).To(Succeed())
+			Expect(retrieve(ctx, out.Key())[0].Expression).To(Equal("return 4"))
+		})
+
+		It("Should keep a calculation whose new expression is empty", func(
+			ctx SpecContext,
+		) {
+			out := createVirtual(ctx, "doubled")
+			c := calculation.Calculation{Output: out.Key(), Expression: "return 2"}
+			Expect(create(ctx, &c)).To(Succeed())
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Apply(ctx, c.Key, calculation.NewSetAction(
+					calculation.SetPayload{Path: []string{"expression"}, Value: ""},
+				))
+			})).To(MatchError(validate.ErrValidation))
+			Expect(retrieve(ctx, out.Key())).To(ConsistOf(c))
+		})
+	})
+
+	Describe("Delete", func() {
+		It("Should keep the output of a deleted calculation", func(ctx SpecContext) {
+			out := createVirtual(ctx, "doubled")
+			c := calculation.Calculation{Output: out.Key(), Expression: "return 2"}
+			Expect(create(ctx, &c)).To(Succeed())
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Delete(ctx, c.Key)
+			})).To(Succeed())
+			Expect(retrieve(ctx, out.Key())).To(BeEmpty())
+			Expect(channels.NewRetrieve().
+				Where(channel.MatchKeys(out.Key())).
+				Exists(ctx, node.DB)).To(BeTrue())
+		})
+
+		It("Should delete the calculation of a deleted output", func(ctx SpecContext) {
+			out := createVirtual(ctx, "doubled")
+			c := calculation.Calculation{Output: out.Key(), Expression: "return 2"}
+			Expect(create(ctx, &c)).To(Succeed())
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return channels.NewWriter(tx).Delete(ctx, out.Key(), false)
+			})).To(Succeed())
+			Expect(svc.NewRetrieve().
+				Where(calculation.MatchKeys(c.Key)).
+				Exists(ctx, node.DB)).To(BeFalse())
+		})
+	})
 })
