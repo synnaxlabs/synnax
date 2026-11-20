@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { renderThemed } from "@synnaxlabs/lyra/styletest";
-import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { scheduler, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 import { type Locator, page, userEvent } from "vitest/browser";
 
@@ -63,6 +63,8 @@ describe("Ranger.TimelineEffect", () => {
       );
       await openCell(container, 0);
       await userEvent.hover(action("Now"));
+      // React commits a hover in a later task, and the footer reads null before it.
+      await scheduler.nextFrame();
       expect(effectText()).toBeNull();
     });
 
