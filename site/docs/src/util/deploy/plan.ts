@@ -16,12 +16,9 @@ export const LATEST = "latest";
 /** Requests the train before the newest one. */
 export const PREVIOUS = "previous";
 
-// These trains shipped while `main` held their docs, so their docs build from a branch
-// of `main`.
-const DOCS_BRANCHES = new Map([
-  ["0.60", "release/docs-0.60"],
-  ["0.61", "release/docs-0.61"],
-]);
+// These trains get no more patches, so their sites keep their last deploy. They shipped
+// while `main` held their docs, so no ref of theirs builds them.
+const FROZEN = new Set(["0.60", "0.61"]);
 
 /** A deployment of one docs version. */
 export interface Deployment {
@@ -52,12 +49,13 @@ export interface Lookups {
 /**
  * Plans the deployments of docs versions. `next` builds from `main`. A train builds
  * from its newest stable Core tag, or from its release branch if the branch holds that
- * tag. A patch released from `main` leaves the branch behind its newest tag. 0.60 and
- * 0.61 build from their `release/docs-X.Y` branches.
- * @param requested - Trains such as `0.61`, `next`, `latest`, or `previous`. `previous`
+ * tag. A patch released from `main` leaves the branch behind its newest tag. A frozen
+ * train builds only from a given ref, and `latest`, `previous`, and a release skip it.
+ * @param requested - Trains such as `0.62`, `next`, `latest`, or `previous`. `previous`
  * adds nothing while only one train exists.
  * @throws {Error} if no train has a site, if a version is neither `next` nor a train
- * with a site, or if `ref` comes with more than one version.
+ * with a site, if a frozen train comes without `ref`, or if `ref` comes with more than
+ * one version.
  */
 export const plan = async (
   requested: string[],
@@ -67,19 +65,24 @@ export const plan = async (
   const trains = await listTrains();
   if (trains.length === 0) throw new Error("No train has a docs site");
   const expand = (name: string): string[] => {
-    if (name === LATEST) return trains.slice(0, 1);
-    if (name === PREVIOUS) return trains.slice(1, 2);
+    if (name === LATEST) return trains.slice(0, 1).filter((t) => !FROZEN.has(t));
+    if (name === PREVIOUS) return trains.slice(1, 2).filter((t) => !FROZEN.has(t));
+    if (FROZEN.has(name) && ref == null)
+      throw new Error(`Train ${name} is frozen, so it builds only from a given ref`);
     return [name];
   };
   const names = unique.unique(requested.flatMap(expand));
-  if (released != null && trains.includes(released) && !names.includes(released))
+  if (
+    released != null &&
+    trains.includes(released) &&
+    !FROZEN.has(released) &&
+    !names.includes(released)
+  )
     names.push(released);
   if (ref != null && names.length !== 1)
     throw new Error(`A ref builds exactly one version, not ${names.length}`);
   const refOf = async (name: string): Promise<string> => {
     if (name === NEXT) return "main";
-    const docs = DOCS_BRANCHES.get(name);
-    if (docs != null) return docs;
     const tag = `core/v${await newest(name)}`;
     const branch = `release/${name}`;
     return (await holds(branch, tag)) ? branch : tag;

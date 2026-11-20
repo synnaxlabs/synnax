@@ -886,6 +886,19 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Secret) {
 		return nil, err
 	}
+	if l.Certificate, err = certificate.OpenService(ctx, certificate.ServiceConfig{
+		Instrumentation: cfg.Child("certificate"),
+		DB:              cfg.Distribution.DB,
+		Secret:          l.Secret,
+		Status:          l.Status,
+		Signals:         l.Signals,
+		Rack:            coreRack.Key,
+		HostKey:         cfg.Distribution.Identity.HostKey,
+		CA:              cfg.CA,
+		Listeners:       cfg.Listeners,
+	}); !ok(err, l.Certificate) {
+		return nil, err
+	}
 	if l.Device, err = device.OpenService(ctx, device.ServiceConfig{
 		Instrumentation: cfg.Child("device"),
 		DB:              cfg.Distribution.DB,
@@ -894,6 +907,8 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Rack:            l.Rack,
 		References: []gorp.Reference[device.Key, device.Device]{
 			sift.APIKeyReference(l.Secret),
+			opcua.PasswordReference(l.Secret),
+			opcua.CertificateReference(l.Certificate),
 		},
 	}); !ok(err, l.Device) {
 		return nil, err
@@ -1056,19 +1071,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	); !ok(err, l.View) {
 		return nil, err
 	}
-	if l.Certificate, err = certificate.OpenService(ctx, certificate.ServiceConfig{
-		Instrumentation: cfg.Child("certificate"),
-		DB:              cfg.Distribution.DB,
-		Secret:          l.Secret,
-		Status:          l.Status,
-		Signals:         l.Signals,
-		Rack:            coreRack.Key,
-		HostKey:         cfg.Distribution.Identity.HostKey,
-		CA:              cfg.CA,
-		Listeners:       cfg.Listeners,
-	}); !ok(err, l.Certificate) {
-		return nil, err
-	}
 	if l.Resource, err = resource.NewService(resource.ServiceConfig{
 		Providers: map[resource.Type]resource.Provider{
 			resource.TypeArc:             l.Arc.Resources(),
@@ -1143,6 +1145,8 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			l.Group.BuiltinDeleteMigration(),
 			rangeAliasDropMigration,
 			l.PagerDuty.SecretMigration(taskNames(l.Task)),
+			opcua.PasswordMigration(l.Secret),
+			opcua.CertificateMigration(l.Certificate, l.Status),
 		),
 	}); !ok(err, nil) {
 		return nil, err

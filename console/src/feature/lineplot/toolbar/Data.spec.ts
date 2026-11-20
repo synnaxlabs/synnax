@@ -18,15 +18,7 @@ import {
 } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  onTestFinished,
-  vi,
-} from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { client, renderLinePlot } from "@/feature/lineplot/testutil";
 import { Toolbar } from "@/feature/lineplot/toolbar";
@@ -86,11 +78,9 @@ const clickPreset = (span: TimeSpan): void => {
 // too, so it is deleted once the test finishes.
 const createLeadingRange = async (hours: number): Promise<ranger.Range> => {
   const start = TimeStamp.MAX.sub(TimeSpan.hours(hours));
-  const rng = await createTestRange(client, {
+  return await createTestRange(client, {
     timeRange: start.spanRange(TimeSpan.hours(1)),
   });
-  onTestFinished(async () => await client.ranges.delete(rng.key));
-  return rng;
 };
 
 // Reads the option texts once they show every given range. The ranges of other specs
@@ -202,7 +192,7 @@ describe("lineplot/toolbar/Data", () => {
     });
 
     it("keeps Enter on a typed duration from selecting a range", async () => {
-      const range = await client.ranges.create({
+      const range = await createTestRange(client, {
         name: uniqueName("45m burn"),
         timeRange: new TimeRange(1_000_000_000, 3_000_000_000),
       });
@@ -316,23 +306,28 @@ describe("lineplot/toolbar/Data", () => {
     });
 
     it("lists the ranges newest first", async () => {
-      // Later than the far-future ranges of other specs, so only planned ranges sort
-      // above these two.
-      const start = TimeStamp.now().add(TimeSpan.days(365 * 200));
-      const create = async (offset: TimeSpan): Promise<ranger.Range> =>
-        await client.ranges.create({
-          name: uniqueName("range"),
-          timeRange: start.add(offset).spanRange(TimeSpan.hours(1)),
-        });
-      const older = await create(TimeSpan.ZERO);
-      const newer = await create(TimeSpan.hours(1));
+      // The picker lists the ranges of other specs too, so the spec checks its rows
+      // against the Core's own newest-first answer. Its own two ranges make sure there
+      // are at least two rows.
+      await createTestRange(client);
+      await createTestRange(client);
       await renderData([]);
       openSearch();
-      await screen.findByText(older.name);
-      await screen.findByText(newer.name);
-      const names = screen.getAllByRole("option").map((o) => o.textContent ?? "");
-      const at = (name: string) => names.findIndex((n) => n.includes(name));
-      expect(at(newer.name)).toBeLessThan(at(older.name));
+      await waitFor(async () => {
+        const keys = screen.getAllByRole("option").map((o) => o.id);
+        expect(keys.length).toBeGreaterThanOrEqual(2);
+        const listed = await reader.ranges.retrieve({ where: { key: { in: keys } } });
+        const newest = await reader.ranges.retrieve({
+          order: { field: "time_range_start", descending: true },
+          limit: keys.length,
+        });
+        // Ranges with one start can come in any order, so the spec compares starts.
+        const startOf = (key: string) =>
+          listed.find((r) => r.key === key)?.timeRange.start.valueOf();
+        expect(keys.map(startOf)).toEqual(
+          newest.map((r) => r.timeRange.start.valueOf()),
+        );
+      });
     });
 
     it("lists the plotted ranges first", async () => {
@@ -350,7 +345,7 @@ describe("lineplot/toolbar/Data", () => {
     it("marks each key reference's tag with the stage of its range", async () => {
       const now = TimeStamp.now();
       const create = async (start: TimeSpan, end: TimeSpan): Promise<ranger.Ref> => {
-        const { key } = await client.ranges.create({
+        const { key } = await createTestRange(client, {
           name: uniqueName("range"),
           timeRange: new TimeRange(now.add(start), now.add(end)),
         });
@@ -434,7 +429,7 @@ describe("lineplot/toolbar/Data", () => {
     });
 
     it("adds the hovered range on Enter instead of the fixed window", async () => {
-      const range = await client.ranges.create({
+      const range = await createTestRange(client, {
         name: uniqueName(YESTERDAY_ONE_TO_TWO),
         timeRange: new TimeRange(1_000_000_000, 3_000_000_000),
       });
