@@ -10,6 +10,7 @@
 import "@/log/Log.css";
 
 import { clipboard } from "@synnaxlabs/lyra/clipboard";
+import { context } from "@synnaxlabs/lyra/context";
 import { type Flex } from "@synnaxlabs/lyra/flex";
 import { useCombinedRefs } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -39,6 +40,13 @@ const TRIGGER_CONFIG: Triggers.ModeConfig<Mode> = {
 };
 
 const FLATTENED_TRIGGERS = Triggers.flattenConfig(TRIGGER_CONFIG);
+
+// Holds the count of lines that streamed in since the enclosing log paused.
+const [NewLinesContext, useNewLines] = context.create({
+  defaultValue: 0,
+  displayName: "Log.NewLines",
+});
+export { useNewLines };
 
 const toText = (lines: log.Line[]): string => lines.map((l) => l.text).join("\n");
 
@@ -124,6 +132,7 @@ export const Base = ({
     visibleStart,
     computedLineHeight,
     rowEntries,
+    newLines,
   } = state;
 
   const setHold = (hold: boolean) => {
@@ -281,7 +290,9 @@ export const Base = ({
         {loading && !blank && (
           <Icon.Loading aria-label="Loading" className={CSS.BE("log", "loading")} />
         )}
-        {empty ? emptyContent : children}
+        <NewLinesContext value={newLines}>
+          {empty ? emptyContent : children}
+        </NewLinesContext>
       </div>
     </Menu.ContextMenu>
   );

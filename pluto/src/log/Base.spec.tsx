@@ -16,7 +16,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Base } from "@/log/Base";
+import { Base, useNewLines } from "@/log/Base";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
 
 // Partial Aether mock: only intercepts type "log" for controlling worker-computed
@@ -68,6 +68,7 @@ const DEFAULT_STATE = {
   visibleStart: 0,
   computedLineHeight: 16,
   rowEntries: [],
+  newLines: 0,
 };
 
 const LINES = [
@@ -147,6 +148,13 @@ describe("log/Base", () => {
       setupAether({ empty: false });
       renderLog({ children: <div data-testid="overlay" /> });
       expect(screen.getByTestId("overlay")).toBeDefined();
+    });
+
+    it("should give children the count of new lines", () => {
+      setupAether({ empty: false, newLines: 4 });
+      const Count = (): ReactElement => <span>{useNewLines()} new</span>;
+      renderLog({ children: <Count /> });
+      expect(screen.getByText("4 new")).toBeDefined();
     });
 
     it("should not render children when empty", () => {

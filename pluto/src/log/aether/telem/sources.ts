@@ -65,6 +65,8 @@ interface Sample {
   value: string;
   text: boolean;
   receivedAt: TimeStamp;
+  // Whether the sample streamed in after the first read of its channel.
+  streamed: boolean;
 }
 
 // The oldest sample the entries hold of a channel. A null alignment means the entries
@@ -76,7 +78,7 @@ interface Oldest {
 
 // A page of a channel: its timed samples, oldest first.
 interface Page {
-  samples: Array<Omit<Sample, "receivedAt"> & { time: TimeStamp }>;
+  samples: Array<Omit<Sample, "receivedAt" | "streamed"> & { time: TimeStamp }>;
   // full is true when the read reached its count, so more samples can exist.
   full: boolean;
   // missed is true when the index read left out samples of the page.
@@ -107,6 +109,8 @@ interface Meta {
   // The snapshot and the count of appended samples that entries were last read up to.
   snapshot?: framer.Snapshot;
   appended: number;
+  // The appended count that streamedLines already holds the samples before.
+  counted: number;
   // Whether the channel stores samples, so that older pages can read them.
   stored: boolean;
   // Samples that wait for their times, oldest first.
@@ -175,6 +179,7 @@ export class StreamMultiChannelLog
   private readonly startBreaker: breaker.Breaker;
   private pageFailure?: cstatus.Status;
   private _channels: channel.Key[] = [];
+  private _streamedLines = 0;
 
   constructor(
     client: telem.Client | null,
@@ -250,6 +255,11 @@ export class StreamMultiChannelLog
     );
   }
 
+  /** The count of lines streamed in after the first read of their channel. */
+  get streamedLines(): number {
+    return this._streamedLines;
+  }
+
   /** Whether the entries end at the newest samples, so that new samples join them. */
   get live(): boolean {
     return this.unread.length === 0;
@@ -268,6 +278,7 @@ export class StreamMultiChannelLog
       Object.assign(meta, {
         snapshot: undefined,
         appended: 0,
+        counted: 0,
         pending: [],
         oldest: undefined,
         exhausted: !meta.stored,
@@ -455,6 +466,7 @@ export class StreamMultiChannelLog
     counts.forEach((count, key) => {
       const meta = this.metas.get(key);
       if (meta == null) return;
+      meta.counted = meta.appended - meta.pending.length;
       meta.appended -= count + meta.pending.length;
       meta.pending = [];
     });
@@ -737,14 +749,17 @@ export class StreamMultiChannelLog
       series.length < PAGE_SIZE
     )
       meta.exhausted = true;
+    const streamed = meta.snapshot != null;
     let skip = Math.max(0, series.length - appended + meta.appended);
+    let position = appended - series.length + skip;
     for (const s of series.series) {
-      for (let i = skip; i < s.length; i++)
+      for (let i = skip; i < s.length; i++, position++)
         meta.pending.push({
           alignment: alignmentOf(s, i),
           value: s.asString(i, true),
           text: s.dataType.equals(DataType.STRING),
           receivedAt,
+          streamed: streamed && position >= meta.counted,
         });
       skip = Math.max(0, skip - s.length);
     }
@@ -765,7 +780,9 @@ export class StreamMultiChannelLog
     meta.pending = meta.pending.filter((sample) => {
       const time = subscription.timeAt(key, sample.alignment);
       if (time != null) {
-        groups.push(toEntries(key, sample, time));
+        const group = toEntries(key, sample, time);
+        if (sample.streamed) this._streamedLines += group.length;
+        groups.push(group);
         if (meta.stored) meta.oldest = older(meta.oldest, sample, time);
         return false;
       }
@@ -916,6 +933,7 @@ const toMeta = (ch: channel.Channel): Meta => {
     name: ch.name,
     stored,
     appended: 0,
+    counted: 0,
     pending: [],
     dropWarned: false,
     exhausted: !stored,
@@ -1019,7 +1037,7 @@ const readPage = async (
   };
   const data = await settled(subscription, key, signal);
   if (data == null) return aborted();
-  const read: Array<Omit<Sample, "receivedAt">> = [];
+  const read: Array<Omit<Sample, "receivedAt" | "streamed">> = [];
   for (const s of data.series.series)
     for (let i = 0; i < s.length; i++)
       read.push({
