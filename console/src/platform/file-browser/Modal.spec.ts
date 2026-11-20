@@ -371,6 +371,34 @@ describe("FileBrowser.useModal", () => {
       expect(up.getAttribute("aria-disabled")).toBe("true");
     });
 
+    it("should treat a network share as the root of a UNC path", async () => {
+      const share = "\\\\srv\\share";
+      await openBrowser(
+        [
+          createListing({ path: share, entries: [dir(`${share}\\certs`, "certs")] }),
+          createListing({
+            path: `${share}\\certs`,
+            entries: [dir(`${share}\\certs\\sub`, "sub")],
+          }),
+          createListing({
+            path: `${share}\\certs\\sub`,
+            entries: [
+              { name: "a.crt", path: `${share}\\certs\\sub\\a.crt`, kind: "file" },
+            ],
+          }),
+        ],
+        `${share}\\certs\\sub\\a.crt`,
+      );
+      await findEntry("a.crt", true);
+      const path = screen.getByLabelText("Path");
+      fireEvent.click(within(path).getByRole("button", { name: "certs" }));
+      await findEntry("sub");
+      const up = screen.getByRole("button", { name: "Up" });
+      fireEvent.click(up);
+      await findEntry("certs", true);
+      expect(up.getAttribute("aria-disabled")).toBe("true");
+    });
+
     it("should go back and forward", async () => {
       await openBrowser(LISTINGS);
       await openEtc();

@@ -12,32 +12,54 @@ export const separatorOf = (path: string): string =>
   path.includes("\\") && !path.includes("/") ? "\\" : "/";
 
 /**
+ * @returns the root of an absolute path, such as `/`, `C:\`, or `\\server\share`, and
+ * the rest of the path. Returns null for a path that is not absolute.
+ */
+const splitRoot = (path: string): [root: string, rest: string] | null => {
+  const unc = /^\\\\([^\\/]+)[\\/]+([^\\/]+)/.exec(path);
+  if (unc != null) return [`\\\\${unc[1]}\\${unc[2]}`, path.slice(unc[0].length)];
+  if (/^[A-Za-z]:[\\/]/.test(path)) return [`${path.slice(0, 2)}\\`, path.slice(3)];
+  if (path.startsWith("/")) return ["/", path.slice(1)];
+  return null;
+};
+
+const partsOf = (root: string, rest: string): string[] =>
+  rest.split(root === "/" ? "/" : /[\\/]/).filter((part) => part !== "");
+
+const join = (root: string, parts: string[]): string => {
+  if (parts.length === 0) return root;
+  const sep = root === "/" ? "/" : "\\";
+  return `${root}${root.endsWith(sep) ? "" : sep}${parts.join(sep)}`;
+};
+
+/**
  * @returns the absolute path in the form that the Driver lists it: a Windows path with
  * backslashes, and no `.`, `..`, or repeated separators. Returns an empty string for a
  * path that is not absolute.
  */
 export const normalize = (path: string): string => {
-  let root: string;
-  if (/^[A-Za-z]:[\\/]/.test(path)) root = `${path.slice(0, 2)}\\`;
-  else if (path.startsWith("\\\\")) root = "\\\\";
-  else if (path.startsWith("/")) root = "/";
-  else return "";
-  const sep = root === "/" ? "/" : "\\";
+  const split = splitRoot(path);
+  if (split == null) return "";
+  const [root, rest] = split;
   const parts: string[] = [];
-  for (const part of path.slice(root.length).split(sep === "/" ? "/" : /[\\/]/))
+  for (const part of partsOf(root, rest))
     if (part === "..") parts.pop();
-    else if (part !== "" && part !== ".") parts.push(part);
-  return `${root}${parts.join(sep)}`;
+    else if (part !== ".") parts.push(part);
+  return join(root, parts);
 };
 
-/** @returns the folder that holds the path, or an empty string for a relative name. */
+/**
+ * @returns the folder that holds the path, the root itself for a root, or an empty
+ * string for a relative name.
+ */
 export const dirnameOf = (path: string): string => {
-  const sep = separatorOf(path);
-  const i = path.lastIndexOf(sep);
-  if (i < 0) return "";
-  if (i === 0) return sep;
-  const dir = path.slice(0, i);
-  return /^[A-Za-z]:$/.test(dir) ? `${dir}${sep}` : dir;
+  const split = splitRoot(path);
+  if (split == null) {
+    const i = path.lastIndexOf(separatorOf(path));
+    return i < 0 ? "" : path.slice(0, i);
+  }
+  const [root, rest] = split;
+  return join(root, partsOf(root, rest).slice(0, -1));
 };
 
 /** @returns the path with one separator at its end, as a folder is typed. */
@@ -65,21 +87,12 @@ export interface Segment {
 
 /** @returns the folders on the way to the path, from its root. */
 export const segmentsOf = (path: string): Segment[] => {
-  if (path === "") return [];
-  const sep = separatorOf(path);
-  const segments: Segment[] = [];
-  let acc = "";
-  if (path.startsWith(sep)) {
-    acc = sep;
-    segments.push({ label: sep, path: sep });
-  }
-  path
-    .split(sep)
-    .filter((part) => part !== "")
-    .forEach((part, i) => {
-      if (i === 0 && sep === "\\") acc = `${part}${sep}`;
-      else acc = acc.endsWith(sep) ? `${acc}${part}` : `${acc}${sep}${part}`;
-      segments.push({ label: part, path: acc });
-    });
-  return segments;
+  const split = splitRoot(path);
+  if (split == null) return [];
+  const [root, rest] = split;
+  const parts = partsOf(root, rest);
+  return [
+    { label: root === "/" ? root : root.replace(/\\$/, ""), path: root },
+    ...parts.map((label, i) => ({ label, path: join(root, parts.slice(0, i + 1)) })),
+  ];
 };
