@@ -28,9 +28,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
 	svcframer "github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/log"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic"
+	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	xcolor "github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/telem"
@@ -343,6 +347,63 @@ var _ = Describe("Change channels", func() {
 			},
 		),
 	)
+
+	It("Should send a reference change only through a holder a subject can read", func(
+		ctx SpecContext,
+	) {
+		virtual := func(name string) channel.Channel {
+			return channel.Channel{Name: name, DataType: telem.Float32T, Virtual: true}
+		}
+		hidden, shown := virtual("reference_hidden"), virtual("reference_shown")
+		proj := project.Project{Name: "reference-change"}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			if err := svc.Project.NewWriter(tx).Create(ctx, &proj); err != nil {
+				return err
+			}
+			if err := svc.Channel.NewWriter(tx).Create(ctx, &hidden); err != nil {
+				return err
+			}
+			return svc.Channel.NewWriter(tx).Create(ctx, &shown)
+		})).To(Succeed())
+		stream(
+			ctx,
+			signals.ReferenceChangeName,
+			resource.ID{Type: resource.TypeChannel},
+			resource.ID{Type: resource.TypeSchematic},
+		)
+		// The subject cannot retrieve logs.
+		var entry log.ChannelEntry
+		entry.SetDefaults()
+		entry.Channel = hidden.Key()
+		var lg log.Log
+		lg.SetDefaults()
+		lg.Name, lg.Project = "hidden", &proj.Key
+		lg.Channels = []log.ChannelEntry{entry}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Log.NewWriter(tx).Create(ctx, &lg)
+		})).To(Succeed())
+		var value schematic.ValueNodeConfig
+		value.SetDefaults()
+		value.Channel = shown.Key()
+		sch := schematic.Schematic{
+			Name:    "shown",
+			Project: &proj.Key,
+			Nodes: []schematic.Node{
+				{Key: "value", Config: schematic.NodeConfig{Variant: value}},
+			},
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Schematic.NewWriter(tx).Create(ctx, &sch)
+		})).To(Succeed())
+		res := MustSucceed(client.Receive())
+		var sent []string
+		for _, series := range res.Frame.Get(ch.Key()).Series {
+			for sample := range series.Samples() {
+				sent = append(sent, string(sample))
+			}
+		}
+		Expect(sent).To(Equal([]string{shown.ResourceID().String()}))
+	})
 
 	It("Should send a subject the changes to the policies of its role", func(
 		ctx SpecContext,

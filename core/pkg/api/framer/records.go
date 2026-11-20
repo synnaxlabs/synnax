@@ -11,6 +11,7 @@ package framer
 
 import (
 	"context"
+	"slices"
 
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
@@ -79,7 +80,7 @@ func (s *recordSender) Send(res StreamerResponse) error {
 			if record.Deleted {
 				keep = deleted
 			}
-			if sr, err = keepAllowed(sr, record.Of, keep); err != nil {
+			if sr, err = keepAllowed(sr, record, keep); err != nil {
 				return err
 			}
 			if sr.Size() == 0 {
@@ -121,10 +122,12 @@ func (s *recordSender) carriesRecords(fr Frame) bool {
 }
 
 // keepAllowed returns a copy of the series with only the samples whose record allowed
-// accepts. Streams share the series they receive, so it never changes them.
+// accepts, and for a record with Changed, one of the records that changed it. Such a
+// sample is sent as Changed returns it. Streams share the series they receive, so it
+// never changes them.
 func keepAllowed(
 	series telem.Series,
-	recordOf signals.RecordOf,
+	record signals.Record,
 	allowed func(resource.ID) bool,
 ) (telem.Series, error) {
 	kept := telem.Series{
@@ -135,12 +138,22 @@ func keepAllowed(
 	}
 	variable := series.DataType.IsVariable()
 	for sample := range series.Samples() {
-		record, err := recordOf(sample)
+		of, err := record.Of(sample)
 		if err != nil {
 			return telem.Series{}, err
 		}
-		if !allowed(record) {
+		if !allowed(of) {
 			continue
+		}
+		if record.Changed != nil {
+			by, sent, err := record.Changed(sample)
+			if err != nil {
+				return telem.Series{}, err
+			}
+			if !slices.ContainsFunc(by, allowed) {
+				continue
+			}
+			sample = sent
 		}
 		if variable {
 			sample = telem.MarshalVariableSample(sample)

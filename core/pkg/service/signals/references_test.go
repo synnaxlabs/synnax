@@ -116,6 +116,20 @@ func refHolderReferences() []gorp.Reference[string, refHolder] {
 	}
 }
 
+// refSample is one reference change: a target and the holders that changed it.
+type refSample struct {
+	target  string
+	holders []string
+}
+
+// holderOf stands each test holder for a schematic, so that its table names a type.
+func holderOf(holder gorp.Target) resource.ID {
+	if holder.Table == "signals_test_holder" {
+		return resource.ID{Type: resource.TypeSchematic, Key: holder.Key}
+	}
+	return resource.ID{Type: resource.Type(holder.Table), Key: holder.Key}
+}
+
 var _ = Describe("PublishReferenceChanges", Ordered, func() {
 	var holders *gorp.Table[string, refHolder]
 	BeforeAll(func(ctx SpecContext) {
@@ -130,6 +144,7 @@ var _ = Describe("PublishReferenceChanges", Ordered, func() {
 
 	var (
 		sigs    *signals.Provider
+		receive func() []refSample
 		changes func() []string
 	)
 	BeforeEach(func(ctx SpecContext) {
@@ -138,19 +153,34 @@ var _ = Describe("PublishReferenceChanges", Ordered, func() {
 			Channel: channelSvc,
 			Framer:  nodeFramer,
 		}))
-		Expect(sigs.PublishReferenceChanges(ctx)).To(Succeed())
+		Expect(sigs.PublishReferenceChanges(ctx, holderOf)).To(Succeed())
 		MustOpen(sigs.Start(ctx))
 		ch := retrieveChannel(ctx, signals.ReferenceChangeName)
 		Expect(ch.DataType).To(Equal(telem.StringT))
+		record := sigs.Records()[ch.Key()]
 		responses := openStreamer(ctx, ch.Key())
+		receive = func() []refSample {
+			GinkgoHelper()
+			raw := receiveSamples(responses)
+			samples := make([]refSample, len(raw))
+			for i, r := range raw {
+				samples[i].target = MustSucceed(record.Of(r)).String()
+				holders, sent := MustSucceed2(record.Changed(r))
+				Expect(string(sent)).To(Equal(samples[i].target))
+				for _, h := range holders {
+					samples[i].holders = append(samples[i].holders, h.String())
+				}
+			}
+			return samples
+		}
 		changes = func() []string {
 			GinkgoHelper()
-			samples := receiveSamples(responses)
-			ids := make([]string, len(samples))
+			samples := receive()
+			targets := make([]string, len(samples))
 			for i, s := range samples {
-				ids[i] = string(s)
+				targets[i] = s.target
 			}
-			return ids
+			return targets
 		}
 	})
 
@@ -241,12 +271,20 @@ var _ = Describe("PublishReferenceChanges", Ordered, func() {
 		ctx SpecContext,
 	) {
 		a := createChannel(ctx)
+		first, second := nextName(), nextName()
 		set(
 			ctx,
-			refHolder{Key: nextName(), Channels: []channel.Key{a}},
-			refHolder{Key: nextName(), Channels: []channel.Key{a}},
+			refHolder{Key: first, Channels: []channel.Key{a}},
+			refHolder{Key: second, Channels: []channel.Key{a}},
 		)
-		Expect(changes()).To(Equal([]string{channelID(a)}))
+		holderID := func(key string) string {
+			holder := gorp.Target{Table: "signals_test_holder", Key: key}
+			return holderOf(holder).String()
+		}
+		Expect(receive()).To(Equal([]refSample{{
+			target:  channelID(a),
+			holders: []string{holderID(first), holderID(second)},
+		}}))
 	})
 
 	It("Should write the old and the new target of a move", func(ctx SpecContext) {
@@ -265,12 +303,19 @@ var _ = Describe("PublishReferenceChanges", Ordered, func() {
 		Expect(changes()).To(ConsistOf(channelID(out)))
 	})
 
-	It("Should read the resource of a sample as its target", func(ctx SpecContext) {
+	It("Should read the target and the changed holders of a sample", func(
+		ctx SpecContext,
+	) {
 		ch := retrieveChannel(ctx, signals.ReferenceChangeName)
 		record := sigs.Records()[ch.Key()]
 		Expect(record.Deleted).To(BeFalse())
-		Expect(record.Of([]byte("channel:42"))).
+		sample := []byte("10:channel:4211:schematic:s")
+		Expect(record.Of(sample)).
 			To(Equal(resource.ID{Type: resource.TypeChannel, Key: "42"}))
+		holders, sent := MustSucceed2(record.Changed(sample))
+		Expect(holders).
+			To(Equal([]resource.ID{{Type: resource.TypeSchematic, Key: "s"}}))
+		Expect(string(sent)).To(Equal("channel:42"))
 	})
 })
 
@@ -304,7 +349,7 @@ var _ = Describe("PublishReferenceChanges with an unknown target table", func() 
 			Channel: channelSvc,
 			Framer:  nodeFramer,
 		}))
-		Expect(sigs.PublishReferenceChanges(ctx)).To(MatchError(
+		Expect(sigs.PublishReferenceChanges(ctx, holderOf)).To(MatchError(
 			`[signals] - referenced table "signals_test_target" names no resource type`,
 		))
 	})
