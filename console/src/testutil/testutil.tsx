@@ -40,6 +40,7 @@ import { type FC, type PropsWithChildren, type ReactElement, useEffect } from "r
 import { Provider } from "react-redux";
 import { assert } from "vitest";
 
+import { FileBrowser } from "@/platform/file-browser";
 import { Session } from "@/session";
 import {
   createAsyncSynnaxWrapper,
@@ -215,11 +216,13 @@ const composeConsole = (
 ): FC<PropsWithChildren> => {
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <SynnaxWrapper>
-      <Triggers.Provider>
-        <Provider store={store}>
-          <Session.Modals.Context>{children}</Session.Modals.Context>
-        </Provider>
-      </Triggers.Provider>
+      <FileBrowser.Provider>
+        <Triggers.Provider>
+          <Provider store={store}>
+            <Session.Modals.Context>{children}</Session.Modals.Context>
+          </Provider>
+        </Triggers.Provider>
+      </FileBrowser.Provider>
     </SynnaxWrapper>
   );
   return Wrapper;

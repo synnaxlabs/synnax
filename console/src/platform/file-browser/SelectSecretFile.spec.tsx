@@ -104,6 +104,30 @@ describe("FileBrowser.SelectSecretFile", () => {
     await findDialogTriggerByText("No file");
   });
 
+  it("should share each listing between two selects of one rack", async () => {
+    const files = await createFileRack(client);
+    const served = await serveListings(client, files, [
+      createListing({ secretsDir: SECRETS_DIR }),
+      createListing({
+        path: SECRETS_DIR,
+        secret: true,
+        entries: [{ name: "token", path: `${SECRETS_DIR}/token`, kind: "file" }],
+      }),
+    ]);
+    const { wrapper } = await createConsoleWrapper({ client });
+    render(
+      <>
+        <Fixture rack={files.rack.key} onChange={vi.fn()} allowNone={false} />
+        <Fixture rack={files.rack.key} onChange={vi.fn()} allowNone={false} />
+      </>,
+      { wrapper },
+    );
+    const [first] = await screen.findAllByText("Select a file");
+    fireEvent.click(first);
+    await screen.findByRole("option", { name: "token" });
+    expect(served.paths).toEqual(["", SECRETS_DIR]);
+  });
+
   it("should say when the Driver has no secrets folder", async () => {
     await renderSelect([createListing()], true);
     const trigger = await findDialogTriggerByText("The Driver has no secrets folder");

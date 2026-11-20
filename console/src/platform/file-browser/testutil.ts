@@ -47,22 +47,32 @@ export const createListing = (overrides: Partial<Listing> = {}): Listing => ({
   ...overrides,
 });
 
+/** The list commands that {@link serveListings} answers. */
+export interface Served {
+  /** The path of each list command answered so far, in order. */
+  paths: string[];
+  /** Stops answering, as a Driver that went down. */
+  stop: () => void;
+}
+
 /**
  * Answers each list command to the browser as a Driver does, with the listing of its
  * path. A path with no listing gets the error of a missing folder. Answers until the
- * test ends.
+ * test ends or it stops.
  */
 export const serveListings = async (
   client: Synnax,
   { browser }: FileRack,
   listings: Listing[],
-): Promise<void> => {
+): Promise<Served> => {
   const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+  const paths: string[] = [];
   let finished = false;
-  onTestFinished(() => {
+  const stop = (): void => {
     finished = true;
     streamer.close();
-  });
+  };
+  onTestFinished(stop);
   const respond = async (): Promise<void> => {
     for (;;) {
       const frame = await streamer.read();
@@ -70,6 +80,7 @@ export const serveListings = async (
         const cmd = task.commandZ.parse(sample);
         if (cmd.task !== browser.key || cmd.type !== "list") continue;
         const { path } = listArgsZ.parse(cmd.args);
+        paths.push(path);
         const listing = listings.find((l) => l.path === path);
         await answerCommand(
           client,
@@ -90,4 +101,5 @@ export const serveListings = async (
   respond().catch((e: unknown) => {
     if (!finished) throw errors.fromUnknown(e);
   });
+  return { paths, stop };
 };
