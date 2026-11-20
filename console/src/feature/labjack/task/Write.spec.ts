@@ -45,10 +45,13 @@ const chooseType = async (index: number, type: "Analog" | "Digital") => {
 // The form renders read-only until the update grant lands, and a preview field renders
 // no input, so wait for it to become editable before querying fields.
 const renderWrite = async (options: RenderTaskFormTabOptions = {}) => {
-  const rendered = await renderTaskFormTab(LabJack.Task.Write, {
-    task: ZERO_DRAFT,
-    ...options,
-  });
+  const rendered = await renderTaskFormTab(
+    LabJack.Task.FORMS[LabJack.Task.WRITE_TYPE],
+    {
+      task: ZERO_DRAFT,
+      ...options,
+    },
+  );
   await awaitEditableForm();
   return rendered;
 };
