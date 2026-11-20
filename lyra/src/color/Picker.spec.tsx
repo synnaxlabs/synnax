@@ -236,6 +236,22 @@ describe("Picker", () => {
       expect(c.getByLabelText("#123456")).toBeTruthy();
       vi.useRealTimers();
     });
+
+    it("should show a picked preset once", () => {
+      vi.useFakeTimers();
+      const c = render(
+        <Color.Provider presets={["#20A4F3"]}>
+          <Controlled initial="#ff0000" onChange={vi.fn()} />
+        </Color.Provider>,
+        { wrapper: Wrapper },
+      );
+      fireEvent.click(c.getByLabelText("#20a4f3"));
+      act(() => {
+        vi.advanceTimersByTime(1500);
+      });
+      expect(c.getAllByLabelText("#20a4f3")).toHaveLength(1);
+      vi.useRealTimers();
+    });
   });
 
   describe("eyedropper", () => {
