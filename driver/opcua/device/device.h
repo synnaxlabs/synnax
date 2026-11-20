@@ -21,6 +21,7 @@
 
 #include "driver/opcua/connection/connection.h"
 #include "driver/opcua/types/types.h"
+#include "driver/secret/secret.h"
 
 namespace driver::opcua::device {
 struct Properties {
@@ -52,11 +53,27 @@ retrieve_connection(synnax::Synnax &client, const std::string &key) {
     return {std::move(cfg), x::errors::NIL};
 }
 
+/// @brief retrieves the device, parses its connection configuration, and reads its
+/// password and certificates. The rack reads them because the device uses them.
+/// @returns the retrieve error, a validation error for invalid properties, or the error
+/// of a read.
+inline std::pair<connection::Config, x::errors::Error> read_connection(
+    synnax::Synnax &client,
+    const secret::Reader &reader,
+    const std::string &key
+) {
+    auto [cfg, err] = retrieve_connection(client, key);
+    if (!err) err = connection::read_password(cfg, reader);
+    if (!err) err = connection::read_certificates(cfg, reader);
+    return {std::move(cfg), err};
+}
+
 /// @brief connects a task to its device with the device's current settings, so a
 /// corrected endpoint or login takes effect without a restart.
 class Connector {
     std::shared_ptr<synnax::Synnax> client;
     std::shared_ptr<connection::Pool> pool;
+    std::shared_ptr<secret::Reader> reader;
     /// @brief the key of the device.
     std::string key;
     std::string log_prefix;
@@ -67,29 +84,31 @@ public:
     Connector(
         std::shared_ptr<synnax::Synnax> client,
         std::shared_ptr<connection::Pool> pool,
+        std::shared_ptr<secret::Reader> reader,
         std::string key,
         std::string log_prefix
     ):
         client(std::move(client)),
         pool(std::move(pool)),
+        reader(std::move(reader)),
         key(std::move(key)),
         log_prefix(std::move(log_prefix)) {}
 
-    /// @brief retrieves the device, so a changed trusted server certificate takes
-    /// effect when the task starts, then connects.
-    /// @returns the error of the retrieve or of the connection.
+    /// @brief retrieves the device and reads its password, so a changed trusted server
+    /// certificate or password takes effect when the task starts, then connects.
+    /// @returns the error of the retrieve, the read, or the connection.
     std::pair<connection::Pool::Connection, x::errors::Error> start() {
-        auto [cfg, err] = retrieve_connection(*this->client, this->key);
+        auto [cfg, err] = read_connection(*this->client, *this->reader, this->key);
         if (err) return {connection::Pool::Connection(nullptr, nullptr, ""), err};
         this->cfg = std::move(cfg);
         return this->pool->acquire(this->cfg, this->log_prefix);
     }
 
-    /// @brief retrieves the device, then connects. Keeps the last settings while the
-    /// Core is unavailable.
-    /// @returns the error of the retrieve or of the connection.
+    /// @brief retrieves the device and reads its password, then connects. Keeps the
+    /// last settings while the Core is unavailable.
+    /// @returns the error of the retrieve, the read, or the connection.
     std::pair<connection::Pool::Connection, x::errors::Error> connect() {
-        auto [cfg, err] = retrieve_connection(*this->client, this->key);
+        auto [cfg, err] = read_connection(*this->client, *this->reader, this->key);
         if (!err)
             this->cfg = std::move(cfg);
         else if (!synnax::errors::is_temporarily_unavailable(err))

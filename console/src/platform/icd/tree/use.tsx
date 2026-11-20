@@ -18,6 +18,7 @@ import {
   type Dispatch,
   type FC,
   type ReactElement,
+  type RefObject,
   type SetStateAction,
   useSyncExternalStore,
 } from "react";
@@ -29,7 +30,9 @@ import { createMatch } from "@/platform/icd/Match";
 import { usePlan } from "@/platform/icd/Plans";
 import {
   fieldsPath,
+  isIndexable,
   isReadable,
+  jsonFields,
   type ReadSource,
   reindex,
   type TreeField,
@@ -157,12 +160,14 @@ interface FieldItemProps extends Tree.ItemRenderProps<string> {
   path: deep.Path<ReadSource>;
   node: FieldNode;
   onChange: (on: boolean) => void;
+  readDisabled: boolean;
 }
 
 const FieldItem = ({
   path,
   node: { read, field },
   onChange,
+  readDisabled,
   ...props
 }: FieldItemProps) => {
   const bindingsPath = path.messages[read].bindings;
@@ -185,7 +190,12 @@ const FieldItem = ({
       off={i < 0}
       skipped={i < 0 || sourceOff}
     >
-      <ReadCheckbox bindings={bindingsPath} field={field} onChange={onChange} />
+      <ReadCheckbox
+        bindings={bindingsPath}
+        field={field}
+        onChange={onChange}
+        disabled={readDisabled}
+      />
     </Task.Views.TreeFieldItem>
   );
 };
@@ -201,8 +211,15 @@ export interface UseArgs<S extends Source> {
   SourceItem: FC<Tree.ItemRenderProps<string>>;
   /** @returns the binding of a field that the task starts to read. */
   bindingOf: (source: string, r: number, field: TreeField) => icd.ReadBinding;
+  /** Disables each control that binds a field to a channel. */
+  bindDisabled?: boolean;
   /** @returns a name for a new message of a source that no message in held has. */
   messageName: (source: string, held: icd.Message[]) => string;
+  /**
+   * The key of each message that the task made. The hook adds each message it makes.
+   * Keep it outside of each {@link WithFormat}, as a new ICD mounts the hook again.
+   */
+  made: RefObject<Set<string>>;
   /** The key of each selected tree item. */
   selected: string[];
   onSelect: Dispatch<SetStateAction<string[]>>;
@@ -224,6 +241,15 @@ export interface UseReturn {
    * pointer of the source's other matches, so the messages tell payloads apart.
    */
   addMessage: (source: string) => void;
+  /**
+   * Makes a source that reads one message read a message of any ICD, and each field of
+   * it that can share one index. When the message has one timestamp field, and that
+   * field has no default, the source takes its time from it. The message that the
+   * source read leaves its ICD when the task made it, it has no fields, and no other
+   * source reads it. `made` holds only the messages made while the form is open, so
+   * after a reload or a reopened tab, an empty message stays.
+   */
+  setMessage: (source: string, icdKey: icd.Key, message: icd.Message) => void;
 }
 
 /**
@@ -237,7 +263,9 @@ export const use = <S extends Source>({
   pathOf,
   SourceItem,
   bindingOf,
+  bindDisabled = false,
   messageName,
+  made,
   selected,
   onSelect,
   expanded,
@@ -279,6 +307,7 @@ export const use = <S extends Source>({
       },
     };
     form.insert(PICD.formPath.messages, message, held.at(-1)?.key);
+    made.current.add(message.key);
     ctx.set(path.messages, [
       ...source.messages,
       { message: message.key, bindings: [] },
@@ -292,6 +321,44 @@ export const use = <S extends Source>({
       ]),
     );
     onSelect([messageKey(sourceKey, message.key)]);
+  };
+
+  const setMessage = (sourceKey: string, icdKey: icd.Key, message: icd.Message) => {
+    const path = pathOf(sourceKey);
+    const source = ctx.get(path).value;
+    const [prior] = source.messages;
+    if (source.icd === icdKey && prior.message === message.key) return;
+    const fields = jsonFields(message);
+    const readable = fields.filter(isReadable);
+    const timestamps = fields.filter(({ type }) => type === "timestamp");
+    const index =
+      timestamps.length === 1 && isIndexable(timestamps[0]) ? timestamps[0] : undefined;
+    const priorFormat = formatOf(formats, source.icd);
+    const held = priorFormat.value().messages.find(({ key }) => key === prior.message);
+    const readElsewhere = ctx
+      .get(sources)
+      .value.some(
+        (s) =>
+          s.key !== sourceKey &&
+          sourceOf(s)?.messages.some((m) => m.message === prior.message),
+      );
+    if (
+      made.current.has(prior.message) &&
+      held?.payload.format === "json" &&
+      held.payload.fields.length === 0 &&
+      !readElsewhere
+    )
+      priorFormat.remove(PICD.formPath.messages[prior.message]);
+    ctx.batch(() => {
+      ctx.set(path.icd, icdKey);
+      ctx.set(path.messages, [{ message: message.key, bindings: [] }]);
+      for (const field of readable) read(sourceKey, 0, treeFieldOf(field), true);
+      if (index != null)
+        ctx.set(
+          path.messages[0],
+          reindex(ctx.get(path.messages[0]).value, index.key, 0),
+        );
+    });
   };
 
   /** Whether the ICD holds the message of a read of a source, as JSON. */
@@ -406,6 +473,7 @@ export const use = <S extends Source>({
     const switchable = chosen.filter(
       (n): n is SourceNode | FieldNode => n.kind !== "message",
     );
+    const off = switchable.filter((n) => !isEnabled(n));
     const [only] = chosen;
     const source =
       chosen.length === 1 && only.kind === "source" && readsMessages(only.source)
@@ -434,14 +502,14 @@ export const use = <S extends Source>({
         keys={keys}
         onRemove={onRemove}
         onEnable={
-          switchable.some((n) => !isEnabled(n))
+          off.length > 0 && !(bindDisabled && off.some(({ kind }) => kind === "field"))
             ? () => setEnabled(switchable, true)
             : undefined
         }
         onDisable={
           switchable.some(isEnabled) ? () => setEnabled(switchable, false) : undefined
         }
-        onAddField={onAddField}
+        onAddField={bindDisabled ? undefined : onAddField}
         extraMenuItems={
           source != null && (
             <Menu.Item itemKey="addMessage" onClick={() => addMessage(source)}>
@@ -464,6 +532,7 @@ export const use = <S extends Source>({
           path={pathOf(node.source)}
           node={node}
           onChange={(on) => read(node.source, node.read, node.field, on)}
+          readDisabled={bindDisabled}
         />
       );
     if (node?.kind === "message")
@@ -482,5 +551,6 @@ export const use = <S extends Source>({
     current,
     addField,
     addMessage,
+    setMessage,
   };
 };

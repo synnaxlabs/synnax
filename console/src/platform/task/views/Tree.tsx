@@ -161,6 +161,7 @@ export interface TreeListProps extends Tree.UseReturn<string> {
   /** Labels the add button under the tree: "Add endpoint". */
   addLabel: string;
   onAdd: () => void;
+  addDisabled?: boolean;
   children: Component.RenderProp<Tree.ItemRenderProps<string>>;
 }
 
@@ -175,6 +176,7 @@ export const TreeList = ({
   emptyMessage,
   addLabel,
   onAdd,
+  addDisabled = false,
   children,
   ...props
 }: TreeListProps): ReactElement => {
@@ -199,6 +201,7 @@ export const TreeList = ({
         <Button.CreateListItem
           size="small"
           onClick={onAdd}
+          disabled={addDisabled}
           className={CSS.BE("panes", "create")}
         >
           {addLabel}
