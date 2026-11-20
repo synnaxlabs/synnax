@@ -322,8 +322,9 @@ jobs:
         run:
           pnpm turbo examples --filter "$PACKAGE" --log-order=stream --log-prefix=none
 
+      # One shard runs the whole WebKit pass. Vitest rejects more shards than files.
       - name: Test in WebKit
-        if: inputs.test && inputs.browsers
+        if: inputs.test && inputs.browsers && matrix.shard == 1
         shell: bash
         timeout-minutes: 10
         env:
