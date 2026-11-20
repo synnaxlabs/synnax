@@ -647,8 +647,8 @@ describe("Store", () => {
       expect(block.covers(BLOCK)).toBe(false);
     });
 
-    // backfill appends a run of count index samples at the next alignment after the
-    // stream, stamped from the start of the block, earlier than the floor.
+    // backfill appends count index samples at the next alignment after the stream,
+    // stamped from the start of the block, earlier than the floor.
     const backfill = (store: Store, count: number): void => {
       const start = BLOCK.start.add(TimeSpan.milliseconds(1));
       const piece = new Series({
@@ -659,7 +659,7 @@ describe("Store", () => {
       store.append(store.raw(index.key, 100), piece, true);
     };
 
-    it("should not move the floor back in time for a backfilled run", () => {
+    it("should not move the floor back in time for backfilled samples", () => {
       const store = createStore(BLOCK.end);
       stream(store, 10_000);
       const floor = store.floor(index.key);

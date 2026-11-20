@@ -453,7 +453,7 @@ describe("Reducer", () => {
     );
 
     it.each<Aggregation>(["min_max", "average", "decimate"])(
-      "should reduce %s ops of two y data types as two runs",
+      "should reduce %s ops of two y data types apart",
       (aggregation) => {
         const [a, b] = cut([10]);
         const u8 = op(

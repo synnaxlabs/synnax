@@ -423,14 +423,14 @@ class Pair {
   }
 }
 
-// Returns true when b continues the run of a: the two touch in time and hold one y
-// data type. A run stops at a type change, so each run reduces in its own type.
+// Returns true when b continues a: the two touch in time and hold one y data type, so
+// the ops of each type reduce in that type.
 const continues = (a: DrawOperation, b: DrawOperation): boolean =>
   touching(a, b) && a.y.dataType.equals(b.y.dataType);
 
 // Returns the op, then the ops that continue it, until they hold groupSize samples past
-// its end. The chain stops where the ops stop continuing a run, since block alignment
-// goes on across a restart and a type change.
+// its end. The chain stops at the first op that does not continue the one before it,
+// since block alignment goes on across a restart and a type change.
 const chainOf = (
   op: DrawOperation,
   after: Map<bigint, DrawOperation>,
@@ -458,9 +458,9 @@ const chainOf = (
  * only partly inside the ops reduces the samples it holds.
  *
  * Ops that continue one another in alignment, touch in time, and hold one y data type
- * reduce as one run of samples. The op a group starts in draws it, and the first op of
- * a run also draws the group it starts inside. An op that draws no group gives its span
- * to the op before it, so the two ops around it still touch.
+ * reduce as one contiguous range of alignments. The op a group starts in draws it, and
+ * the first op of such a range also draws the group it starts inside. An op that draws
+ * no group gives its span to the op before it, so the two ops around it still touch.
  *
  * A reduced pair starts at the alignment of its first group and steps groupSize / 2 per
  * point for min_max, or groupSize otherwise. It holds the GL data type, and keeps the
