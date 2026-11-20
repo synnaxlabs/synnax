@@ -122,8 +122,12 @@ export const createMember = (
 
 /** Drags the browser node with the name onto the element that shows the target. */
 export const dragNode = async (name: string, target: string): Promise<void> => {
-  fireEvent.dragStart(await screen.findByText(name));
-  fireEvent.drop(await screen.findByText(new RegExp(target)));
+  fireEvent.dragStart(await screen.findByText(name), {
+    dataTransfer: new DataTransfer(),
+  });
+  fireEvent.drop(await screen.findByText(new RegExp(target)), {
+    dataTransfer: new DataTransfer(),
+  });
 };
 
 /** Loads the modules of the lazy task forms before the specs of a file run. */
