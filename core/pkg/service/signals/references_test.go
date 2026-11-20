@@ -10,10 +10,12 @@
 package signals_test
 
 import (
+	"context"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -157,22 +159,37 @@ var _ = Describe("PublishReferenceChanges", Ordered, func() {
 		MustOpen(sigs.Start(ctx))
 		ch := retrieveChannel(ctx, "sy_reference_change")
 		Expect(ch.DataType).To(Equal(telem.StringT))
-		record := sigs.Records()[ch.Key()]
+		hook := make(chan []signals.ReferenceChange, 16)
+		DeferCleanup(sigs.ReferenceChanges().OnChange(
+			func(_ context.Context, changes []signals.ReferenceChange) {
+				select {
+				case hook <- changes:
+				default:
+				}
+			},
+		))
+		// The streamer reads the channel as a task does.
 		responses := openStreamer(ctx, ch.Key())
 		receive = func() []refSample {
 			GinkgoHelper()
 			raw := receiveSamples(responses)
-			samples := make([]refSample, len(raw))
+			targets := make([]string, len(raw))
 			for i, r := range raw {
-				samples[i].target = MustSucceed(record.Of(r)).String()
-				of, holders, sent, err := record.Changed(r)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(of.String()).To(Equal(samples[i].target))
-				Expect(string(sent)).To(Equal(samples[i].target))
-				for _, h := range holders {
+				targets[i] = string(r)
+			}
+			var changes []signals.ReferenceChange
+			Eventually(hook).Should(Receive(&changes))
+			samples := make([]refSample, len(changes))
+			for i, c := range changes {
+				samples[i].target = c.Target.String()
+				for _, h := range c.Holders {
 					samples[i].holders = append(samples[i].holders, h.String())
 				}
 			}
+			// The channel holds each target bare, in the order of the hook.
+			Expect(targets).To(Equal(lo.Map(samples, func(s refSample, _ int) string {
+				return s.target
+			})))
 			return samples
 		}
 		changes = func() []string {
@@ -305,21 +322,18 @@ var _ = Describe("PublishReferenceChanges", Ordered, func() {
 		Expect(changes()).To(ConsistOf(channelID(out)))
 	})
 
-	It("Should read the target and the changed holders of a sample", func(
+	It("Should write only the bare target of a change to the channel", func(
 		ctx SpecContext,
 	) {
+		a := createChannel(ctx)
+		set(ctx, refHolder{Key: nextName(), Channels: []channel.Key{a}})
+		samples := receive()
+		Expect(samples).To(HaveLen(1))
+		Expect(samples[0].target).To(Equal(channelID(a)))
+		Expect(samples[0].holders).To(HaveLen(1))
 		ch := retrieveChannel(ctx, "sy_reference_change")
-		record := sigs.Records()[ch.Key()]
-		Expect(record.Deleted).To(BeFalse())
-		sample := []byte("10:channel:4211:schematic:s")
-		Expect(record.Of(sample)).
-			To(Equal(resource.ID{Type: resource.TypeChannel, Key: "42"}))
-		of, holders, sent, err := record.Changed(sample)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(of).To(Equal(resource.ID{Type: resource.TypeChannel, Key: "42"}))
-		Expect(holders).
-			To(Equal([]resource.ID{{Type: resource.TypeSchematic, Key: "s"}}))
-		Expect(string(sent)).To(Equal("channel:42"))
+		Expect(sigs.ReferenceChanges().Key).To(Equal(ch.Key()))
+		Expect(sigs.Records()).ToNot(HaveKey(ch.Key()))
 	})
 })
 

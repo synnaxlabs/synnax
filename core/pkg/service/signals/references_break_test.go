@@ -10,6 +10,7 @@
 package signals_test
 
 import (
+	"context"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -113,14 +114,13 @@ var _ = Describe("PublishReferenceChanges and use directions", Ordered, func() {
 		Expect(sigs.PublishReferenceChanges(ctx, holderOf)).To(Succeed())
 		MustOpen(sigs.Start(ctx))
 		ch := retrieveChannel(ctx, "sy_reference_change")
-		record := sigs.Records()[ch.Key()]
 		responses := openStreamer(ctx, ch.Key())
 		changes := func() []string {
 			GinkgoHelper()
 			samples := receiveSamples(responses)
 			targets := make([]string, len(samples))
 			for i, s := range samples {
-				targets[i] = MustSucceed(record.Of(s)).String()
+				targets[i] = string(s)
 			}
 			return targets
 		}
@@ -189,7 +189,15 @@ var _ = Describe("PublishReferenceChanges and use directions", Ordered, func() {
 		Expect(sigs.PublishReferenceChanges(ctx, holderOf)).To(Succeed())
 		MustOpen(sigs.Start(ctx))
 		ch := retrieveChannel(ctx, "sy_reference_change")
-		record := sigs.Records()[ch.Key()]
+		hook := make(chan []signals.ReferenceChange, 4)
+		DeferCleanup(sigs.ReferenceChanges().OnChange(
+			func(_ context.Context, changes []signals.ReferenceChange) {
+				select {
+				case hook <- changes:
+				default:
+				}
+			},
+		))
 		responses := openStreamer(ctx, ch.Key())
 		c := channel.Channel{Name: nextName(), DataType: telem.Float32T, Virtual: true}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -205,21 +213,13 @@ var _ = Describe("PublishReferenceChanges and use directions", Ordered, func() {
 			want[i] = resource.ID{Type: resource.TypeSchematic, Key: k}
 		}
 		Expect(holders.NewCreate().Entries(&hs).Exec(ctx, db)).To(Succeed())
-		samples := receiveSamples(responses)
-		Expect(samples).To(HaveLen(1))
-		Expect(record.Of(samples[0])).To(Equal(c.ResourceID()))
-		of, by, sent, err := record.Changed(samples[0])
-		Expect(err).ToNot(HaveOccurred())
-		Expect(of).To(Equal(c.ResourceID()))
-		Expect(by).To(ConsistOf(want))
-		Expect(string(sent)).To(Equal(c.ResourceID().String()))
-		malformed := "[signals] - malformed reference change sample"
-		Expect(record.Changed([]byte("10:channel:428:nocolon"))).Error().
-			To(MatchError(malformed))
-		Expect(
-			record.Of([]byte("3:abc")),
-		).Error().
-			To(MatchError(ContainSubstring("abc")))
-		Expect(record.Of([]byte("99:channel:1"))).Error().To(MatchError(malformed))
+		// The channel holds the bare target, and only the hook names the holders.
+		Expect(receiveSamples(responses)).
+			To(Equal([][]byte{[]byte(c.ResourceID().String())}))
+		var changes []signals.ReferenceChange
+		Eventually(hook).Should(Receive(&changes))
+		Expect(changes).To(HaveLen(1))
+		Expect(changes[0].Target).To(Equal(c.ResourceID()))
+		Expect(changes[0].Holders).To(ConsistOf(want))
 	})
 })

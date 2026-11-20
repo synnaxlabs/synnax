@@ -29,6 +29,7 @@ var _ = Describe("ServiceConfig", func() {
 			Framer:          &framer.Service{},
 			Channel:         &channel.Service{},
 			RBAC:            &rbac.Service{},
+			ReferenceQueue:  1,
 			Errors:          errors.NewCodec(),
 		}
 	}
@@ -69,6 +70,11 @@ var _ = Describe("ServiceConfig", func() {
 				"errors",
 				func(c *apiframer.ServiceConfig) { c.Errors = nil },
 				"errors: must be non-nil",
+			),
+			Entry(
+				"a reference queue",
+				func(c *apiframer.ServiceConfig) { c.ReferenceQueue = 0 },
+				"reference_queue: must be positive",
 			),
 		)
 	})

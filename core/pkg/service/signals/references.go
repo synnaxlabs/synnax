@@ -10,17 +10,16 @@
 package signals
 
 import (
-	"bytes"
 	"cmp"
 	"context"
 	"slices"
-	"strconv"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -29,14 +28,33 @@ import (
 // holders changed.
 const referenceChangeName = "sy_reference_change"
 
+// ReferenceChange is a target whose holders changed in one commit, with the holders
+// whose links to it changed.
+type ReferenceChange struct {
+	Target  resource.ID
+	Holders []resource.ID
+}
+
+// ReferenceChanges is the reference change channel and the changes behind its samples.
+type ReferenceChanges struct {
+	// Key is the key of the channel. It is zero before PublishReferenceChanges runs.
+	Key channel.Key
+	// Observable delivers the changes of each commit that adds or removes a link, once
+	// the commit is visible. A handler runs on the committing goroutine, so it must not
+	// block.
+	observe.Observable[[]ReferenceChange]
+}
+
+// ReferenceChanges returns the reference change channel and its changes.
+func (p *Provider) ReferenceChanges() ReferenceChanges { return p.references }
+
 // PublishReferenceChanges declares the channel sy_reference_change. For each commit
 // that adds or removes a link, Start writes to it the resource ID of each target of
-// those links, once. A streamer sends a subject a target's sample only when the subject
-// can retrieve the target and at least one holder whose link to it changed: holderOf
-// returns the resource of a holder. A holder that names no resource type, such as a
-// session, is one that no subject can retrieve. Call it once every table with
-// references is open: it fails when a table that a reference points at names no
-// resource type.
+// those links, once, and ReferenceChanges delivers each target with the holders whose
+// links to it changed: holderOf returns the resource of a holder. The holders never
+// reach the channel, so no reader of it learns a holder that its subject cannot
+// retrieve. Call it once every table with references is open: it fails when a table
+// that a reference points at names no resource type.
 func (p *Provider) PublishReferenceChanges(
 	ctx context.Context,
 	holderOf func(gorp.Target) resource.ID,
@@ -52,19 +70,23 @@ func (p *Provider) PublishReferenceChanges(
 	f := &referenceFeed{
 		ch:       channel.Channel{Name: referenceChangeName, DataType: telem.StringT},
 		holderOf: holderOf,
+		changes:  observe.New[[]ReferenceChange](),
 		index:    make(map[gorp.Target]int),
 		seen:     make(set.Set[targetHolder]),
 	}
-	return p.add(ctx, f, &f.ch)
+	if err := p.add(ctx, f, &f.ch); err != nil {
+		return err
+	}
+	p.references = ReferenceChanges{Key: f.ch.Key(), Observable: f.changes}
+	return nil
 }
 
-// referenceFeed writes the targets of the links that each commit adds or removes. Each
-// sample holds the target's resource ID and then the ID of each holder whose link to it
-// changed, each as its length in decimal, a colon, and its text, so that the sample
-// stays valid UTF-8. The API streamer checks the holders and sends the target alone.
+// referenceFeed writes the target of each link that a commit adds or removes, and
+// delivers each target with the holders whose links to it changed.
 type referenceFeed struct {
 	ch       channel.Channel
 	holderOf func(gorp.Target) resource.ID
+	changes  observe.Observer[[]ReferenceChange]
 	// targets, index, links, and seen hold the work of one commit. Commits append one
 	// at a time, so the feed reuses them.
 	targets []gorp.Target
@@ -100,16 +122,18 @@ func (f *referenceFeed) append(c gorp.Commit, fr framer.Frame) framer.Frame {
 	slices.SortStableFunc(f.links, func(a, b targetHolder) int {
 		return cmp.Compare(a.target, b.target)
 	})
+	changes := make([]ReferenceChange, len(f.targets))
 	var data []byte
 	for i, j := 0, 0; i < len(f.targets); i++ {
-		start := len(data)
-		data = append(data, 0, 0, 0, 0)
-		data = appendID(data, resourceOf(f.targets[i]))
+		target := resourceOf(f.targets[i])
+		changes[i].Target = target
 		for ; j < len(f.links) && f.links[j].target == i; j++ {
-			data = appendID(data, f.links[j].holder)
+			changes[i].Holders = append(changes[i].Holders, f.links[j].holder)
 		}
-		telem.ByteOrder.PutUint32(data[start:], uint32(len(data)-start-4))
+		data = appendSample(data, target)
 	}
+	// The DB delivers a commit to its readers once the commit is visible.
+	f.changes.Notify(context.Background(), changes)
 	return fr.Append(f.ch.Key(), telem.Series{DataType: telem.StringT, Data: data})
 }
 
@@ -127,11 +151,8 @@ func (f *referenceFeed) add(target gorp.Target, holder resource.ID) {
 	}
 }
 
-func (f *referenceFeed) records() map[channel.Key]Record {
-	return map[channel.Key]Record{
-		f.ch.Key(): {Of: targetOfSample, Changed: holdersOfSample},
-	}
-}
+// records returns no Record: the API streams the channel from ReferenceChanges.
+func (f *referenceFeed) records() map[channel.Key]Record { return nil }
 
 // resourceOf returns the resource of target. The name of a referenced table is its
 // resource type, which PublishReferenceChanges checks.
@@ -139,57 +160,11 @@ func resourceOf(target gorp.Target) resource.ID {
 	return resource.ID{Type: resource.Type(target.Table), Key: target.Key}
 }
 
-func appendID(sample []byte, id resource.ID) []byte {
-	sample = strconv.AppendInt(sample, int64(len(id.Type)+1+len(id.Key)), 10)
-	sample = append(sample, ':')
-	sample = append(sample, id.Type...)
-	sample = append(sample, ':')
-	return append(sample, id.Key...)
-}
-
-var errMalformedSample = errors.New("[signals] - malformed reference change sample")
-
-// nextID returns the text of the first ID in sample and the rest of sample.
-func nextID(sample []byte) (id, rest []byte, err error) {
-	colon := bytes.IndexByte(sample, ':')
-	if colon <= 0 {
-		return nil, nil, errMalformedSample
-	}
-	n, err := strconv.Atoi(string(sample[:colon]))
-	if err != nil || n < 0 || n > len(sample)-colon-1 {
-		return nil, nil, errMalformedSample
-	}
-	return sample[colon+1 : colon+1+n], sample[colon+1+n:], nil
-}
-
-func targetOfSample(sample []byte) (resource.ID, error) {
-	target, _, err := nextID(sample)
-	if err != nil {
-		return resource.ID{}, err
-	}
-	return resource.ParseID(string(target))
-}
-
-func holdersOfSample(sample []byte) (resource.ID, []resource.ID, []byte, error) {
-	text, rest, err := nextID(sample)
-	if err != nil {
-		return resource.ID{}, nil, nil, err
-	}
-	target, err := resource.ParseID(string(text))
-	if err != nil {
-		return resource.ID{}, nil, nil, err
-	}
-	var holders []resource.ID
-	for len(rest) > 0 {
-		var id []byte
-		if id, rest, err = nextID(rest); err != nil {
-			return resource.ID{}, nil, nil, err
-		}
-		holder, err := resource.ParseID(string(id))
-		if err != nil {
-			return resource.ID{}, nil, nil, err
-		}
-		holders = append(holders, holder)
-	}
-	return target, holders, text, nil
+// appendSample appends the text of id to data as one variable-length sample.
+func appendSample(data []byte, id resource.ID) []byte {
+	n := len(id.Type) + 1 + len(id.Key)
+	data = telem.ByteOrder.AppendUint32(data, uint32(n))
+	data = append(data, id.Type...)
+	data = append(data, ':')
+	return append(data, id.Key...)
 }

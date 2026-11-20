@@ -92,12 +92,13 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	rbacSvc = svc.RBAC
 	userSvc = svc.User
 	apiSvc = MustSucceed(apiframer.NewService(apiframer.ServiceConfig{
-		DB:      db,
-		Framer:  svc.Framer,
-		Channel: svc.Channel,
-		RBAC:    svc.RBAC,
-		Records: svc.Signals.Records(),
-		Errors:  errors.NewCodec(),
+		DB:         db,
+		Framer:     svc.Framer,
+		Channel:    svc.Channel,
+		RBAC:       svc.RBAC,
+		Records:    svc.Signals.Records(),
+		References: svc.Signals.ReferenceChanges(),
+		Errors:     errors.NewCodec(),
 	}))
 	Expect(svc.User.NewRetrieve().
 		Where(user.MatchRootUser(true)).

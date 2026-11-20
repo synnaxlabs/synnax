@@ -34,6 +34,9 @@ type Provider struct {
 	feeds   []feed
 	keys    channel.Keys
 	records map[channel.Key]Record
+	// references is the reference change channel and its changes, zero until
+	// PublishReferenceChanges runs.
+	references ReferenceChanges
 	// started is true once Start runs.
 	started bool
 }

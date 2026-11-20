@@ -10,6 +10,8 @@
 package framer_test
 
 import (
+	"fmt"
+	"strconv"
 	"time"
 	"uuid"
 
@@ -36,6 +38,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	xcolor "github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -402,6 +405,152 @@ var _ = Describe("Change channels", func() {
 			}
 		}
 		Expect(sent).To(Equal([]string{shown.ResourceID().String()}))
+		// The frame comes once the commit is visible, so a read right after it sees the
+		// schematic.
+		var uses [][]channel.Use
+		Expect(db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+			uses, err = svc.Channel.Uses(ctx, snap, channel.Keys{shown.Key()})
+			return err
+		})).To(Succeed())
+		Expect(uses).To(HaveLen(1))
+		Expect(uses[0]).To(ContainElement(HaveField("Holder", Equal(gorp.Target{
+			Table: string(resource.TypeSchematic),
+			Key:   sch.Key.String(),
+		}))))
+	})
+
+	Describe("reference changes on a stream", func() {
+		valueSchematic := func(
+			name string,
+			proj project.Project,
+			ch channel.Key,
+		) schematic.Schematic {
+			var value schematic.ValueNodeConfig
+			value.SetDefaults()
+			value.Channel = ch
+			return schematic.Schematic{
+				Name:    name,
+				Project: &proj.Key,
+				Nodes: []schematic.Node{
+					{Key: "value", Config: schematic.NodeConfig{Variant: value}},
+				},
+			}
+		}
+		setup := func(ctx SpecContext) (channel.Channel, project.Project) {
+			GinkgoHelper()
+			shown := channel.Channel{
+				Name:     "reference_" + uuid.New().String()[:8],
+				DataType: telem.Float32T,
+				Virtual:  true,
+			}
+			proj := project.Project{Name: "reference-stream"}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				if err := svc.Project.NewWriter(tx).Create(ctx, &proj); err != nil {
+					return err
+				}
+				return svc.Channel.NewWriter(tx).Create(ctx, &shown)
+			})).To(Succeed())
+			return shown, proj
+		}
+		createSchematic := func(ctx SpecContext, sch schematic.Schematic) {
+			GinkgoHelper()
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Schematic.NewWriter(tx).Create(ctx, &sch)
+			})).To(Succeed())
+		}
+		grants := []resource.ID{
+			{Type: resource.TypeChannel},
+			{Type: resource.TypeSchematic},
+		}
+
+		It("Should follow a keys update that removes and adds the channel", func(
+			ctx SpecContext,
+		) {
+			shown, proj := setup(ctx)
+			stream(ctx, "sy_reference_change", grants...)
+			received := make(chan apiframer.StreamerResponse, 8)
+			go func() {
+				defer GinkgoRecover()
+				for {
+					res, err := client.Receive()
+					if err != nil {
+						return
+					}
+					received <- res
+				}
+			}()
+			// A keys update applies in the background, so each phase writes until a
+			// commit shows the update.
+			n := 0
+			sendsAfterWrite := func() bool {
+				n++
+				createSchematic(ctx, valueSchematic(strconv.Itoa(n), proj, shown.Key()))
+				select {
+				case <-received:
+					return true
+				case <-time.After(300 * time.Millisecond):
+					return false
+				}
+			}
+			Expect(client.Send(apiframer.StreamerRequest{Keys: channel.Keys{}})).
+				To(Succeed())
+			Eventually(sendsAfterWrite, 10*time.Second).Should(BeFalse())
+			keys := channel.Keys{ch.Key()}
+			Expect(client.Send(apiframer.StreamerRequest{Keys: keys})).To(Succeed())
+			Eventually(sendsAfterWrite, 10*time.Second).Should(BeTrue())
+		})
+
+		It("Should fail a stream that falls behind the reference changes", func(
+			ctx SpecContext,
+		) {
+			shown, proj := setup(ctx)
+			slow := MustSucceed(apiframer.NewService(apiframer.ServiceConfig{
+				DB:             db,
+				Framer:         svc.Framer,
+				Channel:        svc.Channel,
+				RBAC:           svc.RBAC,
+				Records:        svc.Signals.Records(),
+				References:     svc.Signals.ReferenceChanges(),
+				ReferenceQueue: 1,
+				Errors:         errors.NewCodec(),
+			}))
+			find(ctx, "sy_reference_change")
+			u := newUser(ctx, grants...)
+			slowClient, server := freightertestutil.NewStreams[
+				apiframer.StreamerRequest,
+				apiframer.StreamerResponse,
+			](ctx, 1, 1)
+			var streamErr error
+			finished := make(chan struct{})
+			go func() {
+				defer close(finished)
+				streamErr = slow.Stream(subjectCtx(ctx, u.ResourceID()), server)
+			}()
+			DeferCleanup(func() {
+				Expect(slowClient.CloseSend()).To(Succeed())
+				Eventually(finished).WithTimeout(5 * time.Second).Should(BeClosed())
+			})
+			keys := channel.Keys{ch.Key()}
+			Expect(slowClient.Send(apiframer.StreamerRequest{Keys: keys})).To(Succeed())
+			Expect(MustSucceed(slowClient.Receive()).Frame.Empty()).To(BeTrue())
+			// The client reads nothing, so the second frame blocks the stream and the
+			// queue of one fills.
+			for i := range 4 {
+				name := fmt.Sprintf("slow-%d", i)
+				createSchematic(ctx, valueSchematic(name, proj, shown.Key()))
+			}
+			go func() {
+				for {
+					if _, err := slowClient.Receive(); err != nil {
+						return
+					}
+				}
+			}()
+			Eventually(finished).WithTimeout(5 * time.Second).Should(BeClosed())
+			Expect(streamErr).To(MatchError(
+				"[framer] - the stream fell behind the reference changes",
+			))
+		})
 	})
 
 	It("Should not send a reference change for a target the subject cannot read", func(
