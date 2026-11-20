@@ -780,6 +780,12 @@ var _ = Describe("Literal Parser", func() {
 				int64(-9223372036854775808),
 			),
 			Entry(
+				"i64 type minimum as a float",
+				"-9223372036854775808.0",
+				types.I64(),
+				int64(-9223372036854775808),
+			),
+			Entry(
 				"u64 type maximum",
 				"18446744073709551615",
 				types.U64(),
@@ -1011,6 +1017,8 @@ var _ = Describe("Diagnostic codes of literal errors", func() {
 		Entry("u8", "300.0", types.U8()),
 		Entry("u16", "70000.0", types.U16()),
 		Entry("u32", "5000000000.0", types.U32()),
+		Entry("i64 at 2^63", "9223372036854775808.0", types.I64()),
+		Entry("u64 at 2^64", "18446744073709551616.0", types.U64()),
 		Entry("f32", "1"+strings.Repeat("0", 40)+".0", types.F32()),
 	)
 
@@ -1060,6 +1068,8 @@ var _ = Describe("Diagnostic codes of literal errors", func() {
 		Entry("unit literal in u16", "-1s", types.U16()),
 		Entry("unit literal in u32", "-1s", types.U32()),
 		Entry("unit literal in u64", "-1s", types.U64()),
+		Entry("float in i64", "-10000000000000000000.0", types.I64()),
+		Entry("unit literal in i64", "-10000000000.0s", types.TimeSpan()),
 	)
 
 	It("Should report a missing expression as not a constant", func() {
