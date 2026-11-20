@@ -461,16 +461,15 @@ bound, a log precision, or the line plot X channel.
   calls a duplicate "Copy".
 - An open select marks the current value and opens scrolled to it. The first arrow key
   moves on from the current value, as in a native dropdown.
-- `Select.Single`, `Select.Multiple`, the line plot's Ranges select, and the range
-  Labels menu list their current values first, with no divider: the joined tint of
-  several values marks where they end. The order is set when the select opens and holds
-  while it stays open, so an item never moves under the pointer. A current value that
-  loads after the select opens joins the values listed first, until the user scrolls,
-  moves the cursor, or searches. A search lists its matches in their own order. GitHub
-  and GitLab do the same.
-- The range Parent menu pins the current parent above the other ranges.
-- Every other select keeps its order, such as `Select.Simple`. A filter menu keeps its
-  own order.
+- An open select lists its current values first when it sets `selectedFirst`, as
+  `Select.Single` does, or when it pins them with `fixedItems`.
+- A `selectedFirst` select shows no divider: the joined tint of several values marks
+  where they end. Its order is set when it opens and holds while it stays open, so an
+  item never moves under the pointer. A current value that loads after it opens joins
+  the values listed first, until the user scrolls, moves the cursor, or searches. A
+  search lists its matches in their own order. GitHub and GitLab do the same.
+- Any other select keeps its order, as `Select.Simple` does. A filter menu keeps its own
+  order.
 - The placeholder of an empty `shadow` or `text` multiple select is a text button. A
   click on it opens the select beside it, as a click on a tag does. The placeholder and
   the add button take the select's size, medium by default, so they stand a step above
