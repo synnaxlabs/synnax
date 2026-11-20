@@ -19,11 +19,13 @@ import { Notifications } from "@/app/notifications";
 import { EtherCAT } from "@/feature/ethercat";
 import { Sift } from "@/feature/sift";
 import { createTestDevice } from "@/platform/device/testutil";
+import { createFileRack } from "@/platform/file-browser/testutil";
 import {
   settleWrites,
   UncappedFeed,
   writeStatus,
 } from "@/platform/notifications/testutil";
+import { createTaskStatus } from "@/platform/task/testutil";
 import { createConsoleWrapper } from "@/testutil";
 
 const client = createTestClient();
@@ -68,6 +70,30 @@ describe("Notifications.useForward", () => {
     const usedMessage = await writeStatus(client, task.resourceID(used.key), "error");
     await screen.findByText(usedMessage);
     expect(screen.queryByText(unusedMessage)).toBeNull();
+  });
+
+  it("should not notify a reply of the file browser", async () => {
+    const { rack, browser } = await createFileRack(client);
+    const other = await rack.createTask({
+      name: uniqueName("task"),
+      type: EtherCAT.Task.SCAN_TYPE,
+      config: {},
+    });
+    await renderForward();
+    const reply = async (tsk: task.Task): Promise<string> => {
+      const { message } = await client.statuses.set(
+        createTaskStatus({
+          variant: "error",
+          message: uniqueName("reply"),
+          owner: task.resourceID(tsk.key),
+          details: { cmd: uniqueName("cmd"), rack: tsk.rack },
+        }),
+      );
+      return message;
+    };
+    const browserMessage = await reply(browser);
+    await screen.findByText(await reply(other));
+    expect(screen.queryByText(browserMessage)).toBeNull();
   });
 
   it("should notify a device warning only after 5 s", async () => {

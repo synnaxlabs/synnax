@@ -19,7 +19,7 @@ import { useEffect } from "react";
  */
 export type Kind = "reply" | "alarm" | "state";
 
-/** Parameters for {@link Rule.inUse}. */
+/** Parameters for {@link Rule.inUse} and {@link Rule.repliesInPlace}. */
 export interface InUseParams {
   client: Client;
   /** The key of the thing that owns the status, or of the status if nothing does. */
@@ -35,6 +35,12 @@ export interface Rule {
    * problem starts on its status. Leave it out when the thing is always in use.
    */
   inUse?: (params: InUseParams) => Promise<boolean>;
+  /**
+   * @returns whether the place that sent a command to the thing shows its reply, so the
+   * reply never notifies. Runs only for a reply that would notify. Leave it out when
+   * every reply of the thing notifies.
+   */
+  repliesInPlace?: (params: InUseParams) => Promise<boolean>;
   /** Whether a warning notifies only if its problem is still open after 5 s. */
   warningsDelayed?: boolean;
 }
@@ -154,6 +160,23 @@ const createForwarder = ({
     );
   };
 
+  const notifyReply = (stat: status.Status, { rule, key }: Owner): void => {
+    if (rule.repliesInPlace == null) {
+      add(stat);
+      return;
+    }
+    void rule.repliesInPlace({ client, key }).then(
+      (inPlace) => {
+        if (!inPlace) add(stat);
+      },
+      // The check only filters noise, so a reply whose check fails still shows.
+      (exc: unknown) => {
+        console.error(`failed to check where the reply ${stat.key} shows`, exc);
+        add(stat);
+      },
+    );
+  };
+
   const write = (stat: status.Status): void => {
     const owner = getOwner(rules, keyRules, stat);
     const kind = owner?.rule.kind(stat) ?? "alarm";
@@ -165,7 +188,7 @@ const createForwarder = ({
     const bad = PROBLEM_VARIANTS.includes(stat.variant);
     if (!bad) close(stat.key);
     if (kind === "reply") {
-      if (!ROUTINE_VARIANTS.includes(stat.variant)) add(stat);
+      if (!ROUTINE_VARIANTS.includes(stat.variant)) notifyReply(stat, owner);
       return;
     }
     if (!bad) return;
@@ -187,11 +210,11 @@ const createForwarder = ({
 };
 
 /**
- * Notifies the status writes that the Core streams, by kind. A reply notifies at once
- * unless it is a success, loading, or disabled status. An alarm notifies at once. A
- * state notifies only when it is a warning or an error and its thing is in use. A
- * delayed warning notifies only if its status is still bad 5 s after the problem
- * starts. Mount it once, in the main window.
+ * Notifies the status writes that the Core streams, by kind. A reply notifies unless it
+ * is a success, loading, or disabled status, or the place that sent its command shows
+ * it. An alarm notifies at once. A state notifies only when it is a warning or an error
+ * and its thing is in use. A delayed warning notifies only if its status is still bad
+ * 5 s after the problem starts. Mount it once, in the main window.
  * @param rules - The rules of the features whose things own statuses.
  * @param keyRules - The rules of the features whose statuses no thing owns.
  */
