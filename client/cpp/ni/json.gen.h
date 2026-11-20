@@ -2136,7 +2136,7 @@ inline AOFuncGenChannel AOFuncGenChannel::parse(x::json::Parser parser) {
     AOFuncGenChannel result;
     static_cast<BaseAOChannel &>(result) = BaseAOChannel::parse(parser);
     result.wave_type = parser.field<std::string>("wave_type", "Sine");
-    result.frequency = parser.field<double>("frequency", 0);
+    result.frequency = parser.field<double>("frequency");
     result.amplitude = parser.field<double>("amplitude", 0);
     result.offset = parser.field<double>("offset", 0);
     result.type = parser.field<std::string>("type");

@@ -1527,8 +1527,9 @@ AOChannel union on type extends BaseAOChannel {
         wave_type WaveType = sine {
             @doc value "selects the waveform to generate."
         }
-        frequency float64 = 0 {
-            @doc value "is the waveform frequency, in Hertz."
+        frequency float64  {
+            @doc value   "is the waveform frequency, in Hertz."
+            @validate gt 0
         }
         amplitude float64 = 0 {
             @doc value "is the waveform amplitude."
