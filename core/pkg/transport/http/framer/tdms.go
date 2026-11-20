@@ -117,11 +117,16 @@ type tdmsFile struct {
 	objects uint32
 	meta    []byte
 	raw     [][]byte
+	// taken maps each name of the file to the channel that holds it. The first column
+	// of a type other than its channel's declared type builds it.
+	taken map[string]channel.Key
 }
 
 // tdmsGroup holds an index channel and the channels it timestamps.
 type tdmsGroup struct {
 	index column
+	// name is the name the index takes in the file.
+	name string
 	// path is the object path of the group the index heads.
 	path      string
 	indexPath string
@@ -142,15 +147,15 @@ type tdmsChannel struct {
 	declared  telem.DataType
 	// tdmsType is the TDMS type of the declared type.
 	tdmsType tdmsDataType
-	// shared is true when a column of the declared type shares the timestamps of the
-	// index.
-	shared bool
+	// nan is the sample the column of the declared type holds where the channel has
+	// none, when that column shares the timestamps of the index. It is nil otherwise.
+	nan []byte
 	// outputs holds a column for each data type, in the order of their first sample.
-	// Only the first can share the timestamps of the index.
+	// Only the first can share the timestamps of the index. It starts in first, so the
+	// channel must not move once start runs.
 	outputs []tdmsOutput
-	// taken maps each name of the file to the channel that holds it. The file's
-	// channels share it.
-	taken map[string]channel.Key
+	first   [1]tdmsOutput
+	file    *tdmsFile
 }
 
 // tdmsOutput is the column of the file that holds the samples of one data type of a
@@ -184,7 +189,7 @@ func newTDMSFile(res ReadResponse) (*tdmsFile, error) {
 	if err != nil {
 		return nil, err
 	}
-	names, taken, err := tdmsNames(indexGroups)
+	names, err := tdmsNames(indexGroups)
 	if err != nil {
 		return nil, err
 	}
@@ -192,7 +197,7 @@ func newTDMSFile(res ReadResponse) (*tdmsFile, error) {
 	for i, channels := range indexGroups {
 		indexName := names[channels[0].Key()]
 		g := &f.groups[i]
-		g.index, g.path = newColumn(channels[0]), tdmsPath(indexName)
+		g.index, g.name, g.path = newColumn(channels[0]), indexName, tdmsPath(indexName)
 		g.indexPath = tdmsPath(indexName, indexName)
 		var own []tdmsChannel
 		for _, ch := range channels[1:] {
@@ -206,10 +211,10 @@ func newTDMSFile(res ReadResponse) (*tdmsFile, error) {
 				indexName: indexName,
 				declared:  ch.DataType,
 				tdmsType:  t,
-				shared:    tdmsNaN(t) != nil,
-				taken:     taken,
+				nan:       tdmsNaN(t),
+				file:      f,
 			}
-			if c.shared {
+			if c.nan != nil {
 				g.channels = append(g.channels, c)
 			} else {
 				own = append(own, c)
@@ -229,12 +234,12 @@ func (c *tdmsChannel) start() {
 		return
 	}
 	o := tdmsOutput{dataType: c.declared, tdmsType: c.tdmsType, groupDeclared: true}
-	if c.shared {
-		o.path, o.nan = tdmsPath(c.indexName, c.fileName), tdmsNaN(c.tdmsType)
+	if c.nan != nil {
+		o.path, o.nan = tdmsPath(c.indexName, c.fileName), c.nan
 	} else {
 		o.own(c.fileName, c.indexName)
 	}
-	c.outputs = append(c.outputs, o)
+	c.outputs = append(c.first[:0], o)
 }
 
 // output returns the column for the samples the channel points at, adding one in a
@@ -254,10 +259,9 @@ func (c *tdmsChannel) output() (*tdmsOutput, error) {
 	name := c.fileName
 	if c.dataType != c.declared {
 		name = typedName(name, c.dataType)
-		if other, ok := c.taken[name]; ok {
-			return nil, nameClashError(other, c.key, name)
+		if err = c.file.take(name, c.key); err != nil {
+			return nil, err
 		}
-		c.taken[name] = c.key
 	}
 	o := tdmsOutput{dataType: c.dataType, tdmsType: t}
 	o.own(name, c.indexName)
@@ -272,12 +276,29 @@ func (o *tdmsOutput) own(name, indexName string) {
 	o.timePath = tdmsPath(name, indexName)
 }
 
-// tdmsNames returns the name each channel of groups takes in the file, its own name or
-// its name and key when another channel shares the name, and the channel that holds
-// each name. It returns a validation error when two channels still take the same name.
-func tdmsNames(
-	groups [][]channel.Channel,
-) (map[channel.Key]string, map[string]channel.Key, error) {
+// take records that the channel with key holds name in the file. It returns a
+// validation error when another channel holds name.
+func (f *tdmsFile) take(name string, key channel.Key) error {
+	if f.taken == nil {
+		f.taken = make(map[string]channel.Key)
+		for _, g := range f.groups {
+			f.taken[g.name] = g.index.key
+			for _, c := range g.channels {
+				f.taken[c.fileName] = c.key
+			}
+		}
+	}
+	if other, ok := f.taken[name]; ok {
+		return nameClashError(other, key, name)
+	}
+	f.taken[name] = key
+	return nil
+}
+
+// tdmsNames returns the name each channel of groups takes in the file: its own name, or
+// its name and key when another channel shares the name. It returns a validation error
+// when two channels still take the same name.
+func tdmsNames(groups [][]channel.Channel) (map[channel.Key]string, error) {
 	counts := make(map[string]int)
 	for _, group := range groups {
 		for _, ch := range group {
@@ -295,12 +316,12 @@ func tdmsNames(
 				name = fmt.Sprintf("%s (%s)", name, ch.Key())
 			}
 			if other, ok := taken[name]; ok {
-				return nil, nil, nameClashError(other, ch.Key(), name)
+				return nil, nameClashError(other, ch.Key(), name)
 			}
 			names[ch.Key()], taken[name] = name, ch.Key()
 		}
 	}
-	return names, taken, nil
+	return names, nil
 }
 
 func nameClashError(a, b channel.Key, name string) error {
