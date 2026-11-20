@@ -144,7 +144,8 @@ it.
 ## 3 Implementation phases
 
 Each Console phase ships behind a `compare` flag in `console/src/flags.ts` and adds its
-rules to `docs/claude/ux.md`. The last phase removes the flag.
+rules to `docs/claude/ux.md`. The last phase turns the flag on in Synnax Desktop. A
+later PR removes the flag after a stable Desktop release.
 
 | Phase | Scope                                              | Touches                                                                                     | Depends on |
 | ----- | -------------------------------------------------- | ------------------------------------------------------------------------------------------- | ---------- |
@@ -152,7 +153,7 @@ rules to `docs/claude/ux.md`. The last phase removes the flag.
 | 2     | Draw and name ranges on a relative line plot axis  | `pluto/src/vis/line`, `pluto/src/vis/axis`, `pluto/src/vis/legend`, `pluto/src/lineplot`    | 1          |
 | 3     | Add a relative time mode to the Console line plot  | `console/src/feature/lineplot`, `console/src/session/lineplot`, `console/src/session/range` | 2          |
 | 4     | Compare a selection of ranges from the range menu  | `console/src/platform/range`                                                                | 3          |
-| 5     | Document range compare and remove its flag         | `site/docs/src/docs/reference/visualize`, `console/src/flags.ts`                            | 4          |
+| 5     | Document range compare and ship it in Desktop      | `site/docs/src/docs/reference/visualize`, `console/src/flags.ts`                            | 4          |
 
 ## 4 Resolved decisions
 

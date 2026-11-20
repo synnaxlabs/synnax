@@ -13,6 +13,7 @@ import type { ReactElement } from "react";
 import { RangeSelect } from "@/feature/lineplot/RangeSelect";
 import { XAxisChannelSelect, YAxisChannelSelect } from "@/feature/lineplot/SelectAxis";
 import { TimeModeSelect } from "@/feature/lineplot/TimeModeSelect";
+import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
 
 const ROW = CSS.BE("line-plot", "toolbar", "data-row");
@@ -31,7 +32,7 @@ export const Data = (): ReactElement => (
         axisKey="x1"
         className={CSS.BE("line-plot", "toolbar", "data-x-channel")}
       />
-      <TimeModeSelect />
+      {FLAGS.compare && <TimeModeSelect />}
     </Flex.Box>
     <YAxisChannelSelect axisKey="y1" className={FULL_ROW} />
     <YAxisChannelSelect axisKey="y2" className={FULL_ROW} />

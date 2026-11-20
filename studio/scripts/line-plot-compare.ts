@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/client";
+import { type ranger, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/client";
 
 import { capture, fixtures } from "@/index";
 
@@ -54,24 +54,23 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       index: time.key,
     });
     const now = TimeStamp.now();
-    const ranges = await client.ranges.create(
-      await Promise.all(
-        TESTS.map(async ({ name, daysAgo, peak, delay }) => {
-          const start = now.sub(TimeSpan.days(daysAgo));
-          const times = new BigInt64Array(SAMPLES);
-          const values = new Float32Array(SAMPLES);
-          for (let i = 0; i < SAMPLES; i++) {
-            times[i] = BigInt(start.add(PERIOD.mult(i)).valueOf());
-            values[i] = pressure(i * PERIOD.seconds, peak, delay);
-          }
-          await client.write(start, { [time.key]: times, [data.key]: values });
-          return {
-            name,
-            timeRange: new TimeRange(start, start.add(PERIOD.mult(SAMPLES))),
-          };
-        }),
-      ),
-    );
+    // One write at a time: concurrent writers to the same channels conflict.
+    const created: ranger.New[] = [];
+    for (const { name, daysAgo, peak, delay } of TESTS) {
+      const start = now.sub(TimeSpan.days(daysAgo));
+      const times = new BigInt64Array(SAMPLES);
+      const values = new Float32Array(SAMPLES);
+      for (let i = 0; i < SAMPLES; i++) {
+        times[i] = BigInt(start.add(PERIOD.mult(i)).valueOf());
+        values[i] = pressure(i * PERIOD.seconds, peak, delay);
+      }
+      await client.write(start, { [time.key]: times, [data.key]: values });
+      created.push({
+        name,
+        timeRange: new TimeRange(start, start.add(PERIOD.mult(SAMPLES))),
+      });
+    }
+    const ranges = await client.ranges.create(created);
     const { page } = session;
     await capture.login(session);
     const project = (
