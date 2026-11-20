@@ -398,6 +398,9 @@ func (s *Service) updateGroup(
 			zap.Int("group_id", key),
 			zap.String("reason", "group composition changed"),
 		)
+		// A failed reopen must leave no closed group behind, so that the next rebuild
+		// opens the group again.
+		delete(s.mu.groups, key)
 		if err := g.Close(); err != nil {
 			return err
 		}
