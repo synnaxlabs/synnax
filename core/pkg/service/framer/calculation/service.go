@@ -409,7 +409,7 @@ func (s *Service) updateGroup(
 	for i, m := range mods {
 		calc, err := s.openCalculator(ctx, m)
 		if err != nil {
-			return err
+			return errors.Join(err, calculator.Group(calculators[:i]).Close())
 		}
 		calculators[i] = calc
 	}
