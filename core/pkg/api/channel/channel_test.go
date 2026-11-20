@@ -31,6 +31,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -199,6 +200,17 @@ var _ = Describe("Service", func() {
 					To(Equal(fmt.Sprintf("return %s * 2", public.Name)))
 			},
 		)
+		It("Should keep the concurrency of a created channel", func(ctx SpecContext) {
+			res := MustSucceed(create(ctx, apichannel.Channel{
+				Name:        UniqueChannelName(),
+				DataType:    telem.Float32T,
+				Virtual:     true,
+				Concurrency: control.ConcurrencyShared,
+			}))
+			Expect(res.Channels[0].Concurrency).To(Equal(control.ConcurrencyShared))
+			Expect(retrieveChannel(ctx, res.Channels[0].Key).Concurrency).
+				To(Equal(control.ConcurrencyShared))
+		})
 	})
 
 	Describe("Group", func() {
