@@ -35,14 +35,11 @@ func lessThanChecks(
 	var checks []lessThanCheck
 	seen := carried.Copy()
 	for _, f := range fields {
-		if seen.Contains(f.Name) {
+		lt := validation.Parse(f.Domains["validate"]).LessThan
+		if lt == nil || seen.Contains(f.Name) {
 			continue
 		}
 		seen.Add(f.Name)
-		lt := validation.Parse(f.Domains["validate"]).LessThan
-		if lt == nil {
-			continue
-		}
 		message := lt.Message
 		if message == "" {
 			message = "must be less than " + lt.Field
