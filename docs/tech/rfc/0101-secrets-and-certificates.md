@@ -157,16 +157,20 @@ A user who saves a device or task that names a secret must be able to retrieve t
 secret, or the save fails. Otherwise a user could make a rack or a Core integration use
 a secret the user cannot see. A secret reference is a use link, so the write binder
 makes this check on every save (`core/pkg/api/bind/write.go:51`). Phase 15 adds the
-first rule, with the Driver's reader.
+first rule, with the Driver's reader. A rack's own write also cannot give a record a use
+of a secret, or of a certificate with a private key, or move such a record onto a rack
+(`checkVouched`, `core/pkg/api/bind/write.go`). A certificate saved without a key or a
+key file never gets one (`core/pkg/service/certificate/writer.go`).
 
 A grant covers commands that run before a device is saved: a connect dialog's test and
 browse. A test reads secrets only with a grant, even for a saved device. The Console
-calls `secret/grant/create` with a subject, a task, the secrets, and the command to run,
-and the Core checks that the caller can create devices and retrieve each secret. Only a
-rack can be a subject for now, and the task must be on that rack. For a certificate, the
-Console sends the secret in its `private_key`. The Core stores the grant with an expiry
-one minute away and returns its key. The Console then sends that task a command that
-carries only the key.
+calls `secret/grant/create` with a subject, the secrets, the file certificates, and the
+command to run. The Core checks that the caller can create devices and retrieve each
+secret and certificate. Only a rack can be a subject for now, the task of the command
+must be on that rack, and each certificate must be a file of that rack. For a stored
+certificate, the Console sends the secret in its `private_key`. The Core stores the
+grant with an expiry one minute away and returns its key. The Console then sends that
+task a command that carries only the key.
 
 The Driver resolves the key with the task of the command, and a Core integration does
 the same in process (`Service.Resolve`, `core/pkg/service/secret/grant.go`). The Core
@@ -196,8 +200,9 @@ names a missing item, and keeps a reverse index. A delete of an item in use fail
 `gorp.RestrictError`, which `core/pkg/api/restrict.go` rewrites to name the task or
 device. A task config lives in its own table, so the API maps it to its task with
 `config.TaskOf` (`core/pkg/service/task/config/config.go`). The Console's "Used by" list
-and the rack rule (§3.3) read the index through `resource.Dependents`. A certificate is
-a union on its source, and Oracle reads `@ref` inside a union variant (#4920).
+and the rack rule (§3.3) read the index through `resource.Uses`, which lists only use
+links, so the status that a certificate owns is not a use. A certificate is a union on
+its source, and Oracle reads `@ref` inside a union variant (#4920).
 
 ### 3.5 File items and the file integration
 
@@ -282,8 +287,9 @@ Phase 9 adds the certificate field without the file browser, and phase 10 adds t
 browser to both fields. From phase 10, both fields list only the file items of the
 device's rack. Until then, the secret field lists every secret. A new item is named
 after its device and field, such as "Plant OPC UA password". The dialog saves it before
-its first test, and Cancel deletes the items it made that nothing uses. OPC UA's Trust
-button saves the offered certificate as an item.
+its first test. OPC UA's Trust button replaces the device's stored server certificate in
+place when it has no private key and only the device uses it. Otherwise Trust saves the
+offered certificate as a new item.
 
 ### 3.8 Expiry
 
@@ -387,10 +393,11 @@ start at any time.
    rack would protect nothing more. The default needs no setup, as in n8n and Grafana.
    The trade is real: a copy of the data folder with its key reads every secret.
 7. **A rack reads what its devices and tasks use**: A rack needs no grant for its own
-   saved work. The trade is real: the Driver role can save any device and retrieve any
-   secret (`core/pkg/service/access/rbac/builtin/builtin.go:136-155`), so a stolen rack
-   key can name any secret in a device on its rack and then read it. SY-5597 limits each
-   rack to its own devices and tasks.
+   saved work. A rack's write cannot add a use of a secret or of a certificate with a
+   key, or move a record that uses one onto a rack, and a certificate saved without a
+   key or a key file never gets one. So a stolen rack key cannot name a secret in a
+   device on its rack and then read it. SY-5597 limits each rack to its own devices and
+   tasks.
 8. **One-time grants, not save then test**: Grafana saves before it tests. Synnax keeps
    the test before save (RFC 0079 §4.2). A grant works once, as an AWS KMS grant retires
    when its work is done, and holds its command, so a copied key can only rerun the
