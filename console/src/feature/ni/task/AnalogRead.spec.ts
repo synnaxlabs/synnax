@@ -560,6 +560,40 @@ describe("AnalogRead ports", () => {
       "ai_current",
       "Maximum value",
     ],
+    [
+      "the maximum of a linear scale above every range",
+      {
+        minVal: 0,
+        maxVal: 100,
+        customScale: {
+          type: "linear",
+          slope: 2,
+          yIntercept: 0,
+          preScaledUnits: "Volts",
+          scaledUnits: "psi",
+        },
+      },
+      "ai_voltage",
+      "Maximum value",
+    ],
+    [
+      "the minimum of a map scale below every range",
+      {
+        minVal: -200,
+        maxVal: 10,
+        customScale: {
+          type: "map",
+          preScaledMin: 0,
+          preScaledMax: 1,
+          scaledMin: 0,
+          scaledMax: 10,
+          preScaledUnits: "Volts",
+          scaledUnits: "psi",
+        },
+      },
+      "ai_voltage",
+      "Minimum value",
+    ],
   ])("should mark %s", async (_, values, type, label) => {
     const dev = await createDevice();
     await renderWith([
@@ -592,6 +626,34 @@ describe("AnalogRead ports", () => {
     ).toBeTruthy();
   });
 
+  it("should name the pre-scaled values of a scaled channel that fit in no range", async () => {
+    const dev = await createDevice();
+    await renderWith([
+      createChannel("ai_voltage", 0, {
+        device: dev.key,
+        name: "chan_ranged",
+        minVal: 0,
+        maxVal: 100,
+        customScale: {
+          type: "linear",
+          slope: 5,
+          yIntercept: 0,
+          preScaledUnits: "Volts",
+          scaledUnits: "psi",
+        },
+      }),
+    ]);
+    fireEvent.click(await findChannelListItem("chan_ranged"));
+    await waitFor(() => expect(fieldInvalid("Maximum value")).toBe(true));
+
+    fireEvent.pointerEnter(screen.getByLabelText("Maximum value"));
+    expect(
+      await screen.findByText(
+        "The device has no range from 0 to 20 V, which the scale gives for 0 to 100 psi",
+      ),
+    ).toBeTruthy();
+  });
+
   it.each<[string, () => ni.Hardware, Partial<NI.Task.AIChannel>]>([
     ["inside a wider range", createHardware, { minVal: -5, maxVal: 5 }],
     [
@@ -609,6 +671,21 @@ describe("AnalogRead ports", () => {
           type: "linear",
           slope: 10,
           yIntercept: 0,
+          preScaledUnits: "Volts",
+          scaledUnits: "Volts",
+        },
+      },
+    ],
+    [
+      "with a table scale",
+      createHardware,
+      {
+        minVal: 0,
+        maxVal: 1000,
+        customScale: {
+          type: "table",
+          preScaledVals: [0, 1],
+          scaledVals: [0, 1],
           preScaledUnits: "Volts",
           scaledUnits: "Volts",
         },

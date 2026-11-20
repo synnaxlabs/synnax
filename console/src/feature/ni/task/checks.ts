@@ -113,31 +113,76 @@ const checkAnalogRate = (
 interface RangedChannel {
   minVal: number;
   maxVal: number;
-  customScale: { type: string };
+  customScale: ni.Scale;
 }
+
+interface Measure {
+  /** The units the device ranges are in. */
+  units: ni.Units;
+  symbol: string;
+}
+
+const VOLTS: Measure = { units: "Volts", symbol: "V" };
+const AMPS: Measure = { units: "Amps", symbol: "A" };
+
+const evaluate = (coeffs: number[], x: number): number =>
+  coeffs.reduceRight((sum, c) => sum * x + c, 0);
+
+/**
+ * Maps a scaled value back to the pre-scaled value that DAQmx checks against the
+ * device ranges. Undefined when the scale gives no single pre-scaled value.
+ */
+const preScaled = (scale: ni.Scale, value: number): number | undefined => {
+  switch (scale.type) {
+    case "none":
+      return value;
+    case "linear":
+      if (scale.slope === 0) return undefined;
+      return (value - scale.yIntercept) / scale.slope;
+    case "map": {
+      const { preScaledMin, preScaledMax, scaledMin, scaledMax } = scale;
+      if (scaledMin === scaledMax) return undefined;
+      const fraction = (value - scaledMin) / (scaledMax - scaledMin);
+      return preScaledMin + fraction * (preScaledMax - preScaledMin);
+    }
+    case "polynomial":
+      if (scale.reverseCoeffs.length === 0) return undefined;
+      return evaluate(scale.reverseCoeffs, value);
+    case "table":
+      return undefined;
+  }
+};
+
+const format = (value: number): number => Number(value.toPrecision(6));
 
 /**
  * Reports a channel whose expected values fit in no range of the device. An empty list
- * means DAQmx did not report the ranges. A custom scale puts the values in scaled
- * units, which the ranges do not describe.
+ * means DAQmx did not report the ranges. With a custom scale, the values are in scaled
+ * units, so the check maps them back to pre-scaled units first.
  */
 const checkRange = (
-  channel: RangedChannel,
+  { minVal, maxVal, customScale }: RangedChannel,
   ranges: bounds.Bounds[],
-  unit: string,
+  { units, symbol }: Measure,
   path: (string | number)[],
   report: Task.ReportIssue,
 ): void => {
-  const { minVal, maxVal, customScale } = channel;
-  if (ranges.length === 0 || customScale.type !== "none") return;
-  const lo = Math.min(minVal, maxVal);
-  const hi = Math.max(minVal, maxVal);
+  if (ranges.length === 0) return;
+  if (customScale.type !== "none" && customScale.preScaledUnits !== units) return;
+  const min = preScaled(customScale, minVal);
+  const max = preScaled(customScale, maxVal);
+  if (min == null || max == null) return;
+  const lo = Math.min(min, max);
+  const hi = Math.max(min, max);
   if (ranges.some(({ lower, upper }) => lower <= lo && hi <= upper)) return;
-  const maxFits = ranges.some(({ lower, upper }) => lower <= maxVal && maxVal <= upper);
-  report(
-    [...path, maxFits ? "minVal" : "maxVal"],
-    `The device has no range from ${minVal} to ${maxVal} ${unit}`,
-  );
+  const maxFits = ranges.some(({ lower, upper }) => lower <= max && max <= upper);
+  const range = `${format(min)} to ${format(max)} ${symbol}`;
+  let message = `The device has no range from ${range}`;
+  if (customScale.type !== "none") {
+    const given = `${minVal} to ${maxVal} ${customScale.scaledUnits}`;
+    message += `, which the scale gives for ${given}`;
+  }
+  report([...path, maxFits ? "minVal" : "maxVal"], message);
 };
 
 /**
@@ -171,9 +216,9 @@ export const analogReadHardwareZ = (devices: Device[]): z.ZodType =>
           `${name} does not take ${lower(TERMINAL_CONFIG_NAMES[c.terminalConfig])}`,
         );
       if (c.type === "ai_voltage")
-        checkRange(c, hardware.aiVoltageRanges, "V", ["channels", i], report);
+        checkRange(c, hardware.aiVoltageRanges, VOLTS, ["channels", i], report);
       if (c.type === "ai_current" && c.shuntResistorLoc !== "External")
-        checkRange(c, hardware.aiCurrentRanges, "A", ["channels", i], report);
+        checkRange(c, hardware.aiCurrentRanges, AMPS, ["channels", i], report);
     });
     checkAnalogRate(config, devices, report);
   });
@@ -200,9 +245,9 @@ export const analogWriteHardwareZ = (device: Device | undefined): z.ZodType =>
           `${name} does not take ${lower(AO_CHANNEL_TYPE_NAMES[c.type])} channels`,
         );
       if (c.type === "ao_voltage")
-        checkRange(c, hardware.aoVoltageRanges, "V", ["channels", i], report);
+        checkRange(c, hardware.aoVoltageRanges, VOLTS, ["channels", i], report);
       if (c.type === "ao_current")
-        checkRange(c, hardware.aoCurrentRanges, "A", ["channels", i], report);
+        checkRange(c, hardware.aoCurrentRanges, AMPS, ["channels", i], report);
     });
   });
 
