@@ -12,6 +12,7 @@ package channel
 import (
 	"context"
 	"fmt"
+	"maps"
 	"slices"
 
 	"github.com/synnaxlabs/gorp"
@@ -22,18 +23,12 @@ import (
 
 // IsBuiltIn reports whether a Core service declared the channel with key k for its own
 // work through Writer.Declare.
-func (s *Service) IsBuiltIn(k Key) bool {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.mu.builtIns.Contains(k)
-}
+func (s *Service) IsBuiltIn(k Key) bool { return s.builtIns.Load().Contains(k) }
 
 // BuiltIns returns the keys of the channels that Core services declared, in ascending
 // order.
 func (s *Service) BuiltIns() Keys {
-	s.mu.RLock()
-	keys := Keys(s.mu.builtIns.Slice())
-	s.mu.RUnlock()
+	keys := Keys(s.builtIns.Load().Slice())
 	slices.Sort(keys)
 	return keys
 }
@@ -74,7 +69,9 @@ func (w Writer) Declare(ctx context.Context, ch *Channel) error {
 	gorp.BeforeCommit(w.tx, func(context.Context) error {
 		w.svc.mu.Lock()
 		defer w.svc.mu.Unlock()
-		w.svc.mu.builtIns.Add(key)
+		next := maps.Clone(*w.svc.builtIns.Load())
+		next.Add(key)
+		w.svc.builtIns.Store(&next)
 		w.svc.mu.externalNonVirtualSet.Remove(key)
 		return nil
 	})

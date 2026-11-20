@@ -13,6 +13,7 @@ import (
 	"context"
 	"slices"
 	"sync"
+	"sync/atomic"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc"
@@ -116,13 +117,14 @@ type Service struct {
 	renames *gorp.Attachment[rename]
 	// isBuiltIn is IsBuiltIn, bound once so that a retrieve allocates no method value.
 	isBuiltIn func(Key) bool
-	mu        struct {
+	// builtIns holds the keys that Writer.Declare declared. A commit replaces the set
+	// under mu, so a read takes no lock.
+	builtIns atomic.Pointer[set.Set[Key]]
+	mu       struct {
 		sync.RWMutex
 		// externalNonVirtualSet holds the keys of the non-virtual channels that are not
 		// built-in, which count toward the channel limit.
 		externalNonVirtualSet set.Integer[Key]
-		// builtIns holds the keys that Writer.Declare declared.
-		builtIns set.Set[Key]
 	}
 }
 
@@ -143,7 +145,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		state:   actions.NewState[Key, Action](cfg.DB),
 		renames: gorp.NewAttachment[rename](),
 	}
-	s.mu.builtIns = set.New[Key]()
+	s.builtIns.Store(new(set.New[Key]()))
 	s.isBuiltIn = s.IsBuiltIn
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
