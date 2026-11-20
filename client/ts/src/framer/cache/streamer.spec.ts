@@ -8,7 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { alamos } from "@synnaxlabs/alamos";
-import { DataType, Series, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import {
+  DataType,
+  disposable,
+  Series,
+  sleep,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { type channel } from "@/channel";
@@ -35,6 +42,12 @@ const createErrorSpy = () => {
 };
 
 class MockStreamer implements framer.Streamer {
+  declare [Symbol.dispose]: () => void;
+  declare [Symbol.asyncDispose]: () => Promise<void>;
+  static {
+    disposable.implement(this);
+  }
+
   private keysI: channel.Params[];
   readonly updateVi = vi.fn();
   readonly closeVi = vi.fn();

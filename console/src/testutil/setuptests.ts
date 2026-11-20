@@ -10,15 +10,15 @@
 import "zod/compile";
 import "fake-indexeddb/auto";
 
+import { shortenKeepAlive } from "@synnaxlabs/client/testutil";
 import { installDragEvent, preloadTimeLanguage } from "@synnaxlabs/lyra/testutil";
 import { failOnConsoleOutput } from "@synnaxlabs/x/testutil";
-import { shortenKeepAlive } from "@synnaxlabs/x/testutil/keepAlive";
 import { configure } from "@testing-library/react";
 import { afterAll, beforeAll, vi } from "vitest";
 
 import { installTestWebSocket } from "@/testutil/websocket";
 
-shortenKeepAlive();
+await shortenKeepAlive();
 
 // Live-core round-trips share the single test Core with the rest of the suite, so allow
 // more than the 1s waitFor default.

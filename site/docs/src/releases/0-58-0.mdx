@@ -1,21 +1,16 @@
 ---
-title: "Version 0.58 release notes"
+title: "Schematic grouping and Console improvements"
+version: "0.58.0"
+date: "Sep 5, 2026"
 ---
 
 import { Hero } from "@/components/hero";
-import Release from "@/components/releases/Release.astro";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { mdxOverrides } from "@/components/mdxOverrides";
-import { Image } from "@/components/media/Media";
+import Image from "@/components/media/Image.astro";
 import { Keys } from "@/components/keys/Keys";
 
 export const components = mdxOverrides;
-
-<Release
-    version="0.58.0"
-    date="Sep 5, 2026"
-    title="Schematic grouping and Console improvements"
->
 
 <Hero.Hero
   image="releases/0-58-0/schematic-features"
@@ -94,5 +89,3 @@ ranges.
 
 - Value units no longer sit in a filled block.
 - Fit view accounts for symbol labels.
-
-</Release>

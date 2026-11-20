@@ -52,10 +52,11 @@ refresh the gate on an idle pull request, run
 `gh workflow run check.review.yaml -f pr=<number>`.
 
 A maintainer, a person with write access, reads the diff of each new head before any
-code runs. Then they approve the pull request, approve its CI runs, and comment
-`@sedosaur review`. Sedosaur reviews only a head that a maintainer approved, so a push
-needs a new approval. The gate passes a fork once the author signs the CLA, a maintainer
-approves the head, and Sedosaur scores the head 5/5.
+code runs. Then they approve the pull request, approve its CI runs, and run
+`gh workflow run review.sedosaur.yaml -f pr=<number>`. A push to a fork starts no
+review, and Sedosaur reviews only a head that a maintainer approved, so each push needs
+a new approval and a new dispatch. The gate passes a fork once the author signs the CLA,
+a maintainer approves the head, and Sedosaur scores the head 5/5.
 
 ## Review tiers
 
@@ -78,28 +79,29 @@ titles, so the change also goes in the breaking changes of its minor's page in
 
 Two statuses gate a merge into `main` or a `release/**` branch. `Review gate` stays
 pending until the PR has one tier label and a finished Sedosaur review of the head. A
-Sedosaur confidence score below 5/5 fails it: push a fix, then comment
-`@sedosaur review`. Every finding lowers the score by its severity. A review starts when
-a PR opens or leaves draft, and when a member or an agent mentions `@sedosaur` in a
-comment. A push, a new base, or a reply alone starts none. Sedosaur reacts with a rocket
-when it takes the request. A head gets no second review on one base once one succeeds,
-and a request after a push that leaves the diff the same, as a merge of the base does,
-gets the last review at once. To review that head again, comment
-`@sedosaur review repeat=true`. Sedosaur replies when it skips a person's comment that
-starts a line with `@sedosaur review`. To make Sedosaur stop reporting a finding,
-someone with write access replies `@sedosaur dismiss` and a reason on its thread. A
-finding outside the diff has no thread: they comment `@sedosaur dismiss`, its title, and
-a reason on the PR, with `path:<file>` when two findings share the title. Sedosaur
-resolves the thread, later reviews of the PR leave the finding out, and the head scores
-5/5 once every finding is dismissed. To show that a finding is wrong, a writer or an
-agent replies on its thread with evidence: the code, the type, or the test that settles
-it. Sedosaur checks the reply against the head, then withdraws the finding and resolves
-the thread, or replies why it holds. Later reviews leave a withdrawn finding out until
-its file changes. Sedosaur answers any other reply of a writer or an agent, such as
-"Fixed in <commit>", with how to dismiss. The gate does not wait for a human approval on
-either tier, except on a fork. A pull request Dependabot opened and wrote every commit
-of passes the gate without a review. `OK` is the CI workflow's last job: it fails when
-any check the PR's paths select failed. A merge into `main` goes through a merge queue,
+Sedosaur confidence score below 5/5 fails it: push a fix. Every finding lowers the score
+by its severity. A review starts two minutes after a PR opens, reopens, leaves draft,
+gets a push, or gets a new base, and a newer push in that time replaces the request. A
+head gets no second review on one base once one succeeds, and a push that leaves the
+diff the same, as a merge of the base does, gets the last review at once. To review that
+head again, run `gh workflow run review.sedosaur.yaml -f pr=<number> -f repeat=true`. A
+release branch cut from 0.62.0 or older still runs the old relay, so a push to a PR into
+it starts no review: run `gh workflow run review.sedosaur.yaml -f pr=<number>` after
+each push. To make Sedosaur stop reporting a finding, someone with write access replies
+`@sedosaur dismiss` and a reason on its thread. A finding outside the diff has no
+thread: they run
+`gh workflow run dismiss.sedosaur.yaml -f pr=<number> -f finding='<title>' -f reason='<why>'`,
+with `path:<file>` after the title when two findings share it. Sedosaur resolves the
+thread, later reviews of the PR leave the finding out, and the head scores 5/5 once
+every finding is dismissed. To show that a finding is wrong, a writer or an agent
+replies on its thread with evidence: the code, the type, or the test that settles it.
+Sedosaur checks the reply against the head, then withdraws the finding and resolves the
+thread, or replies why it holds. Later reviews leave a withdrawn finding out until its
+file changes. Sedosaur answers any other reply of a writer or an agent, such as "Fixed
+in <commit>", with how to dismiss. The gate does not wait for a human approval on either
+tier, except on a fork. A pull request Dependabot opened and wrote every commit of
+passes the gate without a review. `OK` is the CI workflow's last job: it fails when any
+check the PR's paths select failed. A merge into `main` goes through a merge queue,
 which reruns CI with the integration suite added before the branch moves. A queue
 entry's CI builds `main` with the entries ahead of it and the entry itself, and selects
 checks from every change since `main`. An entry skips the integration suite only when it
@@ -116,9 +118,8 @@ when Sedosaur is down, pull requests wait for it. The gate script is
 A pull request into `main` also cannot merge while CodeQL finds a new alert in its
 changes with a security severity of medium or higher, or a severity of error. Alerts
 already on `main` do not block. The rule waits for a CodeQL analysis of each language. A
-pull request scans every language, except that it uploads an empty analysis for C++ or
-Rust when it changes no input of that language. GitHub does not apply the rule to a
-merge queue group.
+pull request scans each language whose inputs it changes and uploads an empty analysis
+for the others. GitHub does not apply the rule to a merge queue group.
 
 ## Size
 

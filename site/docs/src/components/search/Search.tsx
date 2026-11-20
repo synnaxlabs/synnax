@@ -17,21 +17,13 @@ import { Results } from "@/components/search/Results";
 
 const TRIGGER: Triggers.Trigger = ["Control", "K"];
 
-export interface SearchProps {
-  initialVisible?: boolean;
-}
-
 /**
  * Renders the search button and dialog. The page renders it closed, which also puts
- * the results' styles in the page, and the search island mounts it open.
+ * the results' styles in the page, and the island hydrates on its first click.
  */
-export const Search = ({ initialVisible }: SearchProps): ReactElement => (
+export const Search = (): ReactElement => (
   <Triggers.Provider>
-    <Dialog.Frame
-      variant="modal"
-      className="search-box"
-      initialVisible={initialVisible}
-    >
+    <Dialog.Frame variant="modal" className="search-box">
       <Dialog.Trigger
         variant="outlined"
         justify="center"

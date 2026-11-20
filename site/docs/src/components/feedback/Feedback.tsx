@@ -13,20 +13,12 @@ import { type ReactElement } from "react";
 
 import { Form } from "@/components/feedback/Form";
 
-export interface ButtonProps {
-  initialVisible?: boolean;
-}
-
 /**
  * Renders the feedback button and dialog. The page renders it closed, which also puts
- * the form's styles in the page, and the feedback island mounts it open.
+ * the form's styles in the page, and the island hydrates on its first click.
  */
-export const Button = ({ initialVisible }: ButtonProps): ReactElement => (
-  <Dialog.Frame
-    className="feedback-modal"
-    variant="modal"
-    initialVisible={initialVisible}
-  >
+export const Button = (): ReactElement => (
+  <Dialog.Frame className="feedback-modal" variant="modal">
     <Dialog.Trigger
       className="feedback-button"
       size="medium"
